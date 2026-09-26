@@ -36,8 +36,12 @@ describe("Transition Material publication", () => {
       publicationState: "published" as const,
       publishedAt: "2026-09-01T09:00:00.000Z",
     };
-    const loadMaterial = vi.fn().mockResolvedValue({ ok: true, value: current });
-    const saveMaterial = vi.fn().mockResolvedValue({ ok: true, value: receipt });
+    const loadMaterial = vi
+      .fn()
+      .mockResolvedValue({ ok: true, value: current });
+    const saveMaterial = vi
+      .fn()
+      .mockResolvedValue({ ok: true, value: receipt });
     const transition = assembleTransitionMaterialPublication({
       loadMaterial,
       saveMaterial,

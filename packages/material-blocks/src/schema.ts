@@ -50,7 +50,9 @@ function materialBlockNode(
   return Node.create({
     ...(description.atom === true ? { atom: true } : {}),
     ...(description.code === true ? { code: true } : {}),
-    ...(description.content === undefined ? {} : { content: description.content }),
+    ...(description.content === undefined
+      ? {}
+      : { content: description.content }),
     ...(description.defining === true ? { defining: true } : {}),
     ...(description.draggable === true ? { draggable: true } : {}),
     ...(description.marks === undefined ? {} : { marks: description.marks }),
@@ -68,8 +70,9 @@ function materialBlockNode(
               default: value,
               // The package compiles without the DOM library, so the element is read through
               // the one method this rule needs.
-              parseHTML: (element: { getAttribute: (name: string) => string | null }) =>
-                decodeAttribute(element.getAttribute(domAttribute)),
+              parseHTML: (element: {
+                getAttribute: (name: string) => string | null;
+              }) => decodeAttribute(element.getAttribute(domAttribute)),
               renderHTML: (attributes: Record<string, unknown>) => {
                 const field = attributes[attribute];
                 return field === null || field === undefined
@@ -133,8 +136,9 @@ export function materialDocumentExtensions(
               options.nodeViews?.[definition.type],
               "block",
             ),
-            ...Object.entries(declaration.childNodes ?? {}).map(([name, child]) =>
-              materialBlockNode(name, child, options.nodeViews?.[name]),
+            ...Object.entries(declaration.childNodes ?? {}).map(
+              ([name, child]) =>
+                materialBlockNode(name, child, options.nodeViews?.[name]),
             ),
           ];
     }),

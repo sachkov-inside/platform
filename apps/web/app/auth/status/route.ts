@@ -23,7 +23,11 @@ export async function GET(): Promise<Response> {
       resolveAccount(accessToken),
       requestMaterialAuthoringReferences(accessToken).catch(() => undefined),
     ]);
-    return statusResponse("authenticated", authoringAccess?.ok === true, account.accountId);
+    return statusResponse(
+      "authenticated",
+      authoringAccess?.ok === true,
+      account.accountId,
+    );
   } catch (error) {
     if (error instanceof LogtoSessionUnavailableError) {
       return statusResponse("guest");

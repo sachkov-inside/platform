@@ -77,7 +77,10 @@ export function assembleCreateDraft(
       body: body.value,
     });
     let materializedMetadata: MaterialMetadata | undefined;
-    const result = await executeAuthoringTransaction<CreateDraftEffect, CreateDraftError>(
+    const result = await executeAuthoringTransaction<
+      CreateDraftEffect,
+      CreateDraftError
+    >(
       dependencies.prisma,
       (transaction, rollback) =>
         executeIdempotentMaterialMutation<CreateDraftEffect>(
@@ -92,10 +95,20 @@ export function assembleCreateDraft(
           rollback,
           async () => {
             const newMaterialId = materialId(randomUUID());
-            if (!await canChangeGuideMemberships(transaction, newMaterialId, selection.value.toValues().seriesIds, source?.id ?? null)) {
+            if (
+              !(await canChangeGuideMemberships(
+                transaction,
+                newMaterialId,
+                selection.value.toValues().seriesIds,
+                source?.id ?? null,
+              ))
+            ) {
               return rollback({ code: "forbidden" });
             }
-            const sourceSlug = source === undefined ? null : await allocateMaterialSlug(transaction, source.id);
+            const sourceSlug =
+              source === undefined
+                ? null
+                : await allocateMaterialSlug(transaction, source.id);
             materializedMetadata = await materializeMetadataSelection(
               transaction,
               newMaterialId,

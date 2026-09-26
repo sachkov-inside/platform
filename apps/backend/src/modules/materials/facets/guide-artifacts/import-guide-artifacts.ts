@@ -1,6 +1,9 @@
 import { randomUUID } from "node:crypto";
 
-import { dependencyFailure, reportDependencyFailure } from "../../../../infrastructure/observability/index.js";
+import {
+  dependencyFailure,
+  reportDependencyFailure,
+} from "../../../../infrastructure/observability/index.js";
 import {
   IMPORT_ARTIFACT_LIMIT,
   importSchema,
@@ -52,7 +55,12 @@ export async function applyAuthoringImport(
   if (!known.ok) return known;
   const outcomes: AuthoringImportOutcome[] = [];
   for (const source of command.artifacts) {
-    const outcome = await importSource(context, command, source, known.value.candidates);
+    const outcome = await importSource(
+      context,
+      command,
+      source,
+      known.value.candidates,
+    );
     if (!outcome.ok) return outcome;
     outcomes.push(outcome.value);
   }
@@ -68,7 +76,12 @@ async function loadImportCandidates(
   context: GuideArtifactContext,
   command: AuthoringImportCommand,
   sourceIds: readonly string[],
-): Promise<GuideArtifactResult<{ readonly authored: readonly ArtifactRow[]; readonly candidates: readonly ArtifactRow[] }>> {
+): Promise<
+  GuideArtifactResult<{
+    readonly authored: readonly ArtifactRow[];
+    readonly candidates: readonly ArtifactRow[];
+  }>
+> {
   const { prisma } = context;
   let placed: readonly ArtifactRow[];
   let namedBySource: readonly ArtifactRow[];
@@ -78,7 +91,10 @@ async function loadImportCandidates(
       where: { id: command.guideId },
     });
     if (guide === null) return failure({ code: "guide_not_found" });
-    if (command.guideSourceId !== undefined && guide.sourceId !== command.guideSourceId) {
+    if (
+      command.guideSourceId !== undefined &&
+      guide.sourceId !== command.guideSourceId
+    ) {
       return failure({ code: "forbidden" });
     }
     placed = await loadPlacedArtifacts(prisma, command.guideId, {
@@ -91,16 +107,18 @@ async function loadImportCandidates(
         ? []
         : await loadArtifactsBySource(prisma, sourceIds);
   } catch (error) {
-    return dependencyFailure({ module: "materials", operation: "applyAuthoringImport" }, error, dependencyUnavailable());
+    return dependencyFailure(
+      { module: "materials", operation: "applyAuthoringImport" },
+      error,
+      dependencyUnavailable(),
+    );
   }
   // Records authored on Platform stay outside every import decision: an
   // import never matches, changes or archives them.
   const authored = placed.filter(({ origin }) => origin === "authoring");
   const candidates = [
     ...authored,
-    ...namedBySource.filter(
-      (row) => !authored.some(({ id }) => id === row.id),
-    ),
+    ...namedBySource.filter((row) => !authored.some(({ id }) => id === row.id)),
   ];
   return { ok: true, value: { authored, candidates } };
 }
@@ -112,8 +130,7 @@ async function importSource(
   candidates: readonly ArtifactRow[],
 ): Promise<GuideArtifactResult<AuthoringImportOutcome>> {
   const existing =
-    candidates.find(({ sourceId }) => sourceId === source.sourceId) ??
-    null;
+    candidates.find(({ sourceId }) => sourceId === source.sourceId) ?? null;
   if (existing === null) {
     return createFromSource(context, command, source);
   }
@@ -204,7 +221,10 @@ async function createFromSource(
       });
     });
   } catch (error) {
-    reportDependencyFailure({ module: "materials", operation: "createFromSource" }, error);
+    reportDependencyFailure(
+      { module: "materials", operation: "createFromSource" },
+      error,
+    );
     await context.files.discard(stored);
     return dependencyUnavailable();
   }
@@ -295,7 +315,11 @@ async function updateFromSource(
         },
       };
     }
-    return dependencyFailure({ module: "materials", operation: "updateFromSource" }, error, dependencyUnavailable());
+    return dependencyFailure(
+      { module: "materials", operation: "updateFromSource" },
+      error,
+      dependencyUnavailable(),
+    );
   }
   await context.files.forgetQuarantine(stored);
   return {

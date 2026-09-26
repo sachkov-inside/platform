@@ -25,13 +25,21 @@ export async function MaterialCurrentPreviewPage({
     accessToken = await getPlatformAccessTokenRsc(readLogtoBffConfig());
   } catch (error) {
     if (error instanceof LogtoSessionUnavailableError) {
-      return <MaterialAuthoringPreviewUnauthorizedState returnHref={returnHref} />;
+      return (
+        <MaterialAuthoringPreviewUnauthorizedState returnHref={returnHref} />
+      );
     }
     return (
       <MaterialAuthoringUnexpectedPreviewState
-        editorHref={withAuthoringReturnHref(`/authoring/materials/${materialId}`, returnHref)}
+        editorHref={withAuthoringReturnHref(
+          `/authoring/materials/${materialId}`,
+          returnHref,
+        )}
         reference="identity-session"
-        retryHref={withAuthoringReturnHref(`/authoring/materials/${materialId}/preview`, returnHref)}
+        retryHref={withAuthoringReturnHref(
+          `/authoring/materials/${materialId}/preview`,
+          returnHref,
+        )}
         returnHref={returnHref}
       />
     );
@@ -39,12 +47,17 @@ export async function MaterialCurrentPreviewPage({
 
   const state = await getCurrentMaterialPreview(materialId, accessToken);
   if (state.kind === "unauthorized") {
-    return <MaterialAuthoringPreviewUnauthorizedState returnHref={returnHref} />;
+    return (
+      <MaterialAuthoringPreviewUnauthorizedState returnHref={returnHref} />
+    );
   }
   if (state.kind === "not_found") {
     return (
       <MaterialAuthoringPreviewNotFoundState
-        editorHref={withAuthoringReturnHref(`/authoring/materials/${materialId}`, returnHref)}
+        editorHref={withAuthoringReturnHref(
+          `/authoring/materials/${materialId}`,
+          returnHref,
+        )}
         returnHref={returnHref}
       />
     );
@@ -52,16 +65,25 @@ export async function MaterialCurrentPreviewPage({
   if (state.kind === "unexpected_error") {
     return (
       <MaterialAuthoringUnexpectedPreviewState
-        editorHref={withAuthoringReturnHref(`/authoring/materials/${materialId}`, returnHref)}
+        editorHref={withAuthoringReturnHref(
+          `/authoring/materials/${materialId}`,
+          returnHref,
+        )}
         reference={state.reference}
-        retryHref={withAuthoringReturnHref(`/authoring/materials/${materialId}/preview`, returnHref)}
+        retryHref={withAuthoringReturnHref(
+          `/authoring/materials/${materialId}/preview`,
+          returnHref,
+        )}
         returnHref={returnHref}
       />
     );
   }
   return (
     <MaterialCurrentPreview
-      editorHref={withAuthoringReturnHref(`/authoring/materials/${materialId}`, returnHref)}
+      editorHref={withAuthoringReturnHref(
+        `/authoring/materials/${materialId}`,
+        returnHref,
+      )}
       materialsHref={returnHref}
       preview={state.preview}
     />

@@ -34,17 +34,18 @@ export async function handleAccountProfileRequest(): Promise<Response> {
       status: 503,
     });
   }
-  return Response.json(
-    { state: result.state },
-    { headers: privateHeaders() },
-  );
+  return Response.json({ state: result.state }, { headers: privateHeaders() });
 }
 
-export function handleCreateMemberProfileRequest(request: Request): Promise<Response> {
+export function handleCreateMemberProfileRequest(
+  request: Request,
+): Promise<Response> {
   return handleAuthenticatedMutation(request, executeCreateMemberProfile);
 }
 
-export function handleUpdateMemberProfileRequest(request: Request): Promise<Response> {
+export function handleUpdateMemberProfileRequest(
+  request: Request,
+): Promise<Response> {
   return handleAuthenticatedMutation(request, executeUpdateMemberProfile);
 }
 

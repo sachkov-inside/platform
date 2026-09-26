@@ -18,7 +18,8 @@ const profile = {
   version: 3,
 } as const satisfies PrivateMemberProfile;
 
-const pendingMutation = (progress: number): ProfileAvatarMutation =>
+const pendingMutation =
+  (progress: number): ProfileAvatarMutation =>
   (_input, onProgress) => {
     onProgress(progress);
     return new Promise(() => undefined);
@@ -58,7 +59,9 @@ export const CropMobile: Story = {
   globals: { viewport: { isRotated: false, value: "mobile390" } },
   play: async (context) => {
     await openCrop(context);
-    await expect(context.canvasElement.ownerDocument.documentElement.scrollWidth).toBeLessThanOrEqual(
+    await expect(
+      context.canvasElement.ownerDocument.documentElement.scrollWidth,
+    ).toBeLessThanOrEqual(
       context.canvasElement.ownerDocument.documentElement.clientWidth,
     );
   },
@@ -67,9 +70,14 @@ export const CropMobile: Story = {
 export const Uploading: Story = {
   play: async (context) => {
     const dialog = await chooseImage(context.canvasElement);
-    await userEvent.click(dialog.getByRole("button", { name: "Сохранить аватар" }));
+    await userEvent.click(
+      dialog.getByRole("button", { name: "Сохранить аватар" }),
+    );
     await expect(dialog.getByText("Загружаем… 42%")).toBeInTheDocument();
-    await expect(dialog.getByRole("progressbar")).toHaveAttribute("value", "0.42");
+    await expect(dialog.getByRole("progressbar")).toHaveAttribute(
+      "value",
+      "0.42",
+    );
     await expect(
       within(context.canvasElement).getByLabelText(
         "Выбрать изображение для аватара",
@@ -82,7 +90,9 @@ export const Processing: Story = {
   args: { mutation: pendingMutation(1) },
   play: async (context) => {
     const dialog = await chooseImage(context.canvasElement);
-    await userEvent.click(dialog.getByRole("button", { name: "Сохранить аватар" }));
+    await userEvent.click(
+      dialog.getByRole("button", { name: "Сохранить аватар" }),
+    );
     await expect(
       dialog.getByText("Файл загружен. Сервер создаёт безопасные размеры…"),
     ).toBeInTheDocument();
@@ -91,15 +101,18 @@ export const Processing: Story = {
 
 export const Saved: Story = {
   args: {
-    mutation: () => Promise.resolve({
-      ...profile,
-      avatar: { avatarId: "d3acb421-85e2-4c79-9dfa-4b2c925e56e8" },
-      version: 4,
-    }),
+    mutation: () =>
+      Promise.resolve({
+        ...profile,
+        avatar: { avatarId: "d3acb421-85e2-4c79-9dfa-4b2c925e56e8" },
+        version: 4,
+      }),
   },
   play: async ({ canvasElement }) => {
     const dialog = await chooseImage(canvasElement);
-    await userEvent.click(dialog.getByRole("button", { name: "Сохранить аватар" }));
+    await userEvent.click(
+      dialog.getByRole("button", { name: "Сохранить аватар" }),
+    );
     await expect(
       await within(canvasElement).findByRole("status"),
     ).toHaveTextContent("Аватар сохранён.");
@@ -112,41 +125,59 @@ export const RecoverableError: Story = {
   },
   play: async (context) => {
     const dialog = await chooseImage(context.canvasElement);
-    await userEvent.click(dialog.getByRole("button", { name: "Сохранить аватар" }));
+    await userEvent.click(
+      dialog.getByRole("button", { name: "Сохранить аватар" }),
+    );
+    await expect(dialog.getByRole("alert", { name: "" })).toHaveTextContent(
+      "Не удалось изменить аватар",
+    );
     await expect(
-      dialog.getByRole("alert", { name: "" }),
-    ).toHaveTextContent("Не удалось изменить аватар");
-    await expect(dialog.getByRole("button", { name: "Сохранить аватар" })).toBeEnabled();
+      dialog.getByRole("button", { name: "Сохранить аватар" }),
+    ).toBeEnabled();
   },
 };
 
 export const Removing: Story = {
   args: {
-    profile: { ...profile, avatar: { avatarId: "d3acb421-85e2-4c79-9dfa-4b2c925e56e8" } },
+    profile: {
+      ...profile,
+      avatar: { avatarId: "d3acb421-85e2-4c79-9dfa-4b2c925e56e8" },
+    },
   },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
     await userEvent.click(canvas.getByRole("button", { name: "Удалить" }));
-    await expect(canvas.getByRole("status")).toHaveTextContent("Удаляем аватар…");
-    await expect(canvas.getByRole("button", { name: "Удаляем…" })).toBeDisabled();
+    await expect(canvas.getByRole("status")).toHaveTextContent(
+      "Удаляем аватар…",
+    );
+    await expect(
+      canvas.getByRole("button", { name: "Удаляем…" }),
+    ).toBeDisabled();
   },
 };
 
 export const Removed: Story = {
   args: {
     mutation: () => Promise.resolve({ ...profile, avatar: null, version: 4 }),
-    profile: { ...profile, avatar: { avatarId: "d3acb421-85e2-4c79-9dfa-4b2c925e56e8" } },
+    profile: {
+      ...profile,
+      avatar: { avatarId: "d3acb421-85e2-4c79-9dfa-4b2c925e56e8" },
+    },
   },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
     await userEvent.click(canvas.getByRole("button", { name: "Удалить" }));
-    await expect(await canvas.findByRole("status")).toHaveTextContent("Аватар удалён.");
+    await expect(await canvas.findByRole("status")).toHaveTextContent(
+      "Аватар удалён.",
+    );
   },
 };
 
 async function openCrop(context: { readonly canvasElement: HTMLElement }) {
   const dialog = await chooseImage(context.canvasElement);
-  await expect(dialog.getByRole("heading", { name: "Кадрировать аватар" })).toBeInTheDocument();
+  await expect(
+    dialog.getByRole("heading", { name: "Кадрировать аватар" }),
+  ).toBeInTheDocument();
   const horizontal = dialog.getByLabelText("По горизонтали");
   horizontal.focus();
   await userEvent.keyboard("{ArrowRight}");

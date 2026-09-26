@@ -5,7 +5,10 @@ import {
   type Page,
 } from "@playwright/test";
 import { z } from "zod";
-import { evidencePath, prepareEvidenceDirectory } from "../../../../scripts/evidence-path.mjs";
+import {
+  evidencePath,
+  prepareEvidenceDirectory,
+} from "../../../../scripts/evidence-path.mjs";
 
 if (!process.env.WEB_BASE_URL || !process.env.LOGTO_ENDPOINT)
   throw new Error(
@@ -210,7 +213,9 @@ async function acceptTermsIfAsked(page: Page) {
   try {
     await probe.goto("/welcome?returnTo=%2F");
     // The dialog is interactive only once it is modal; the server-rendered copy is not yet hydrated.
-    const accept = probe.locator("dialog:modal").getByRole("button", { name: "Принять условия и продолжить" });
+    const accept = probe
+      .locator("dialog:modal")
+      .getByRole("button", { name: "Принять условия и продолжить" });
     // An account that already accepted is redirected away; one still here must be able to accept.
     if (new URL(probe.url()).pathname === "/welcome") {
       await accept.click({ timeout: 15_000 });

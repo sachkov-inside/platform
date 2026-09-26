@@ -89,32 +89,43 @@ export async function revealWorkshopSolution(
   } catch (error) {
     // Гонка с тем же ключом или той же подсказкой отвечает сохранённым раскрытием.
     try {
-      const byKey = await dependencies.prisma.workshopSolutionReveal.findUnique({
-        where: {
-          accountId_idempotencyKey: {
-            accountId: parsed.data.accountId,
-            idempotencyKey: parsed.data.idempotencyKey,
+      const byKey = await dependencies.prisma.workshopSolutionReveal.findUnique(
+        {
+          where: {
+            accountId_idempotencyKey: {
+              accountId: parsed.data.accountId,
+              idempotencyKey: parsed.data.idempotencyKey,
+            },
           },
         },
-      });
+      );
       if (byKey !== null) {
         return byKey.requestFingerprint === fingerprint
           ? success(byKey)
           : failure("idempotency_key_reused");
       }
-      const existing = await dependencies.prisma.workshopSolutionReveal.findUnique({
-        where: {
-          accountId_caseVersionId: {
-            accountId: parsed.data.accountId,
-            caseVersionId: parsed.data.caseVersionId,
+      const existing =
+        await dependencies.prisma.workshopSolutionReveal.findUnique({
+          where: {
+            accountId_caseVersionId: {
+              accountId: parsed.data.accountId,
+              caseVersionId: parsed.data.caseVersionId,
+            },
           },
-        },
-      });
+        });
       return existing === null
-        ? dependencyFailure({ module: "workshop", operation: "revealWorkshopSolution" }, error, failure("dependency_unavailable"))
+        ? dependencyFailure(
+            { module: "workshop", operation: "revealWorkshopSolution" },
+            error,
+            failure("dependency_unavailable"),
+          )
         : success(existing);
     } catch (replayError) {
-      return dependencyFailure({ module: "workshop", operation: "revealWorkshopSolution" }, replayError, failure("dependency_unavailable"));
+      return dependencyFailure(
+        { module: "workshop", operation: "revealWorkshopSolution" },
+        replayError,
+        failure("dependency_unavailable"),
+      );
     }
   }
 }

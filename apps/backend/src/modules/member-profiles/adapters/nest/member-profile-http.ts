@@ -11,9 +11,14 @@ export function parseProfileBody<Schema extends z.ZodType>(
 ): z.infer<Schema> {
   const result = schema.safeParse(input);
   if (!result.success) {
-    throw problemException(HttpStatus.UNPROCESSABLE_ENTITY, "invalid_input", "Profile input is invalid", {
-      detail: "Profile request body does not match the accepted contract.",
-    });
+    throw problemException(
+      HttpStatus.UNPROCESSABLE_ENTITY,
+      "invalid_input",
+      "Profile input is invalid",
+      {
+        detail: "Profile request body does not match the accepted contract.",
+      },
+    );
   }
   return result.data;
 }

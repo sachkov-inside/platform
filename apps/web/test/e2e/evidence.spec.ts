@@ -6,17 +6,23 @@ const outputByProject: Readonly<Record<string, string>> = {
   "mobile-chromium": "mobile.png",
 };
 
-test("capture the issue 49 real authenticated-shell evidence", async ({ page }, testInfo) => {
+test("capture the issue 49 real authenticated-shell evidence", async ({
+  page,
+}, testInfo) => {
   const outputName = outputByProject[testInfo.project.name];
 
   if (outputName === undefined) {
-    throw new Error(`No evidence output configured for ${testInfo.project.name}`);
+    throw new Error(
+      `No evidence output configured for ${testInfo.project.name}`,
+    );
   }
 
   const response = await page.goto("/");
 
   expect(response?.status()).toBe(200);
-  await expect(page.getByRole("button", { name: "Аккаунт", exact: true })).toBeEnabled();
+  await expect(
+    page.getByRole("button", { name: "Аккаунт", exact: true }),
+  ).toBeEnabled();
   await page.screenshot({
     animations: "disabled",
     fullPage: true,

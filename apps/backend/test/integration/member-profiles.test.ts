@@ -1,7 +1,14 @@
 import { createHash } from "node:crypto";
 
 import sharp from "sharp";
-import { afterAll, beforeAll, beforeEach, describe, expect, test } from "vitest";
+import {
+  afterAll,
+  beforeAll,
+  beforeEach,
+  describe,
+  expect,
+  test,
+} from "vitest";
 
 import { accountId, type AccountId } from "../../src/modules/accounts/index.js";
 import type { ObjectStorage } from "../../src/infrastructure/object-storage/index.js";
@@ -152,27 +159,22 @@ describe("MemberProfiles", () => {
   test("supports manual disable/restore of the owner's Profile", async () => {
     await createOwnerProfile(profiles);
     // The internal Profile identifier stays for owner moderation; the API no longer returns it.
-    const { publicProfileId } = await database.prisma.memberProfile.findUniqueOrThrow({
-      where: { accountId: ownerAccountId },
-    });
+    const { publicProfileId } =
+      await database.prisma.memberProfile.findUniqueOrThrow({
+        where: { accountId: ownerAccountId },
+      });
 
     await expect(
-      moderateMemberProfile(
-        database.prisma,
-        publicProfileId,
-        "disable",
-      ),
+      moderateMemberProfile(database.prisma, publicProfileId, "disable"),
     ).resolves.toMatchObject({ ok: true, changed: true, status: "disabled" });
-    await expect(profiles.readPrivateProfile(ownerAccountId)).resolves.toMatchObject({
+    await expect(
+      profiles.readPrivateProfile(ownerAccountId),
+    ).resolves.toMatchObject({
       ok: true,
       value: { kind: "profile", profile: { status: "disabled", version: 2 } },
     });
     await expect(
-      moderateMemberProfile(
-        database.prisma,
-        publicProfileId,
-        "restore",
-      ),
+      moderateMemberProfile(database.prisma, publicProfileId, "restore"),
     ).resolves.toMatchObject({ ok: true, changed: true, status: "active" });
   });
 
@@ -192,7 +194,9 @@ describe("MemberProfiles", () => {
     const firstAvatarId = uploaded.profile.avatar.avatarId;
     expect([...storedObjects.keys()]).toHaveLength(3);
     for (const body of storedObjects.values()) {
-      await expect(sharp(body).metadata()).resolves.toMatchObject({ format: "webp" });
+      await expect(sharp(body).metadata()).resolves.toMatchObject({
+        format: "webp",
+      });
     }
 
     // Профиль виден только владельцу: подписанный адрес аватара выдаётся только ему.
@@ -209,7 +213,11 @@ describe("MemberProfiles", () => {
     expect(signedGetRequests.at(-1)?.ttlSeconds).toBe(60);
     for (const stranger of [secondAccountId, viewerAccountId])
       await expect(
-        profiles.deliverAvatar({ accountId: stranger, avatarId: firstAvatarId, size: 320 }),
+        profiles.deliverAvatar({
+          accountId: stranger,
+          avatarId: firstAvatarId,
+          size: 320,
+        }),
       ).resolves.toEqual({ error: { code: "not_found" }, ok: false });
 
     const secondProfile = await profiles.createProfile({
@@ -237,7 +245,11 @@ describe("MemberProfiles", () => {
     expect(replaced.profile.version).toBe(3);
     expect(replaced.profile.avatar.avatarId).not.toBe(firstAvatarId);
     await expect(
-      profiles.deliverAvatar({ accountId: ownerAccountId, avatarId: firstAvatarId, size: 320 }),
+      profiles.deliverAvatar({
+        accountId: ownerAccountId,
+        avatarId: firstAvatarId,
+        size: 320,
+      }),
     ).resolves.toEqual({ error: { code: "not_found" }, ok: false });
     await expect(
       profiles.deliverAvatar({
@@ -261,7 +273,11 @@ describe("MemberProfiles", () => {
     expect(cleanup).toEqual({ cleaned: 1, retained: 1 });
     expect(deletedObjectKeys).toHaveLength(3);
     expect([...storedObjects.keys()]).toHaveLength(3);
-    expect([...storedObjects.keys()].every((key) => key.includes(replaced.profile.avatar?.avatarId ?? ""))).toBe(true);
+    expect(
+      [...storedObjects.keys()].every((key) =>
+        key.includes(replaced.profile.avatar?.avatarId ?? ""),
+      ),
+    ).toBe(true);
 
     await database.prisma.memberProfile.update({
       data: { status: "disabled" },
@@ -300,7 +316,6 @@ describe("MemberProfiles", () => {
       profile: { avatar: null, version: 4 },
     });
   });
-
 });
 
 async function insertAccount(
@@ -331,7 +346,9 @@ async function createOwnerProfile(profiles: MemberProfiles) {
 async function avatarBody(background: string) {
   const body = await sharp({
     create: { background, channels: 3, height: 320, width: 480 },
-  }).png().toBuffer();
+  })
+    .png()
+    .toBuffer();
   return {
     body,
     crop: { centerX: 0.5, centerY: 0.5, zoom: 1 },

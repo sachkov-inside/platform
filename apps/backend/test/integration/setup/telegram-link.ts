@@ -30,7 +30,9 @@ export async function linkTelegramAccount(
       providerTransactionRef: randomUUID(),
       returnCorrelation: randomUUID(),
       status: "linked",
-      tokenDigest: createHash("sha256").update(principalRef).digest("base64url"),
+      tokenDigest: createHash("sha256")
+        .update(principalRef)
+        .digest("base64url"),
       updatedAt: input.now,
     },
   });

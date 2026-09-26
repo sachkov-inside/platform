@@ -40,6 +40,10 @@ export async function setReaderGuideMode(
     });
     return { ok: true, value: { guideMode: parsed.data.guideMode } };
   } catch (error) {
-    return dependencyFailure({ module: "reading-activity", operation: "setReaderGuideMode" }, error, { ok: false, error: { code: "dependency_unavailable" } });
+    return dependencyFailure(
+      { module: "reading-activity", operation: "setReaderGuideMode" },
+      error,
+      { ok: false, error: { code: "dependency_unavailable" } },
+    );
   }
 }

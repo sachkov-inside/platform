@@ -9,7 +9,11 @@ export {
   isGuideCapability,
   type AccessCapability,
 } from "@inside/access-capabilities";
-import { accessCapabilitySchema, guideCapability, isGuideCapability } from "@inside/access-capabilities";
+import {
+  accessCapabilitySchema,
+  guideCapability,
+  isGuideCapability,
+} from "@inside/access-capabilities";
 
 /**
  * Форма провода billing, которую читает браузер. Генерируемые типы остаются подсказкой
@@ -72,9 +76,20 @@ export const verifiedContactSchema = z.object({
   verifiedAt: z.iso.datetime(),
 });
 
-export const attemptKindSchema = z.enum(["initial", "one_time", "renewal", "upgrade"]);
+export const attemptKindSchema = z.enum([
+  "initial",
+  "one_time",
+  "renewal",
+  "upgrade",
+]);
 export const attemptStateSchema = z.enum([
-  "prepared", "sent", "unknown", "pending", "authorized", "confirmed", "failed",
+  "prepared",
+  "sent",
+  "unknown",
+  "pending",
+  "authorized",
+  "confirmed",
+  "failed",
 ]);
 export const subscriptionStateSchema = z.enum(["active", "canceled", "ended"]);
 export const subscriptionSnapshotSchema = z.object({
@@ -93,7 +108,9 @@ export const subscriptionViewSchema = z.object({
   paidUntil: z.iso.datetime(),
   periodAmountKopecks: z.number().int().positive(),
   periodIndex: z.number().int().positive(),
-  paymentMethod: z.object({ methodRef: z.uuid(), revoked: z.boolean() }).nullable(),
+  paymentMethod: z
+    .object({ methodRef: z.uuid(), revoked: z.boolean() })
+    .nullable(),
   pendingChange: z
     .object({
       snapshot: priceSnapshotSchema,
@@ -113,8 +130,12 @@ export const subscriptionViewSchema = z.object({
     .nullable(),
 });
 export const noticeKindSchema = z.enum([
-  "renewal_reminder", "payment_succeeded", "payment_failed",
-  "renewal_cancelled", "access_expired", "refund_resolved",
+  "renewal_reminder",
+  "payment_succeeded",
+  "payment_failed",
+  "renewal_cancelled",
+  "access_expired",
+  "refund_resolved",
 ]);
 export const noticeViewSchema = z.object({
   noticeRef: z.uuid(),
@@ -204,14 +225,31 @@ export const changeResultSchema = z.object({
  * `unauthorized` и `unavailable` добавляет граница BFF, у которой своего кода нет.
  */
 export const billingFailureCodeSchema = z.enum([
-  "invalid_request", "forbidden", "not_found", "operation_conflict", "revision_conflict",
-  "payment_in_progress", "refund_in_progress", "state_conflict", "reservation_conflict",
-  "preview_expired", "identity_changed", "contact_required", "consent_required",
+  "invalid_request",
+  "forbidden",
+  "not_found",
+  "operation_conflict",
+  "revision_conflict",
+  "payment_in_progress",
+  "refund_in_progress",
+  "state_conflict",
+  "reservation_conflict",
+  "preview_expired",
+  "identity_changed",
+  "contact_required",
+  "consent_required",
   // Согласие дано на редакцию, которая уже не действует: его нужно принять заново.
   "document_changed",
-  "existing_access", "legacy_review_required", "quote_expired", "quote_changed",
-  "unsupported_amount", "method_unavailable", "provider_unavailable", "dependency_unavailable",
-  "unauthorized", "unavailable",
+  "existing_access",
+  "legacy_review_required",
+  "quote_expired",
+  "quote_changed",
+  "unsupported_amount",
+  "method_unavailable",
+  "provider_unavailable",
+  "dependency_unavailable",
+  "unauthorized",
+  "unavailable",
 ]);
 export const billingFailureSchema = z.object({
   ok: z.literal(false),

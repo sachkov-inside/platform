@@ -40,10 +40,20 @@ export const longLessonBlocks: readonly MaterialPreviewBlock[] = [
     text: `${longFixtureText}\n${longFixtureText}`,
     title: longFixtureText,
   },
-  { content: [paragraph(longFixtureText)], kind: "takeaways", title: longFixtureText },
+  {
+    content: [paragraph(longFixtureText)],
+    kind: "takeaways",
+    title: longFixtureText,
+  },
   {
     kind: "labeled_list",
-    rows: [{ description: longFixtureText, label: "Длинная метка", name: longFixtureText }],
+    rows: [
+      {
+        description: longFixtureText,
+        label: "Длинная метка",
+        name: longFixtureText,
+      },
+    ],
   },
 ];
 
@@ -67,18 +77,33 @@ export const materialAuthoringPresentation = {
     { label: "Заметка", value: "note" },
   ],
   availableSeries: [
-    { label: "Создание Platform Inside", value: "94000000-0000-4000-8000-000000000041" },
+    {
+      label: "Создание Platform Inside",
+      value: "94000000-0000-4000-8000-000000000041",
+    },
   ],
   availableTags: [
     { label: "delivery", value: "94000000-0000-4000-8000-000000000021" },
     { label: "agents", value: "94000000-0000-4000-8000-000000000022" },
-    { label: "developer pipeline", value: "94000000-0000-4000-8000-000000000023" },
+    {
+      label: "developer pipeline",
+      value: "94000000-0000-4000-8000-000000000023",
+    },
   ],
   availableTopics: [
-    { label: "AI для разработчиков", value: "94000000-0000-4000-8000-000000000031" },
-    { label: "Инженерный менеджмент", value: "94000000-0000-4000-8000-000000000032" },
+    {
+      label: "AI для разработчиков",
+      value: "94000000-0000-4000-8000-000000000031",
+    },
+    {
+      label: "Инженерный менеджмент",
+      value: "94000000-0000-4000-8000-000000000032",
+    },
     { label: "Архитектура", value: "94000000-0000-4000-8000-000000000033" },
-    { label: "Developer experience", value: "94000000-0000-4000-8000-000000000034" },
+    {
+      label: "Developer experience",
+      value: "94000000-0000-4000-8000-000000000034",
+    },
   ],
   authorization: { kind: "allowed" },
   blocking: { kind: "none" },
@@ -128,11 +153,23 @@ export const materialAuthoringPresentation = {
           content: [
             {
               type: "listItem",
-              content: [{ type: "paragraph", content: [{ type: "text", text: "Issue хранит intent" }] }],
+              content: [
+                {
+                  type: "paragraph",
+                  content: [{ type: "text", text: "Issue хранит intent" }],
+                },
+              ],
             },
             {
               type: "listItem",
-              content: [{ type: "paragraph", content: [{ type: "text", text: "PR хранит implementation evidence" }] }],
+              content: [
+                {
+                  type: "paragraph",
+                  content: [
+                    { type: "text", text: "PR хранит implementation evidence" },
+                  ],
+                },
+              ],
             },
           ],
         },
@@ -144,7 +181,8 @@ export const materialAuthoringPresentation = {
     readOnly: false,
     seriesIds: ["94000000-0000-4000-8000-000000000041"],
     status: "draft",
-    summary: "Практический разбор delivery-потока: от готовой задачи до owner-controlled merge.",
+    summary:
+      "Практический разбор delivery-потока: от готовой задачи до owner-controlled merge.",
     tagIds: [
       "94000000-0000-4000-8000-000000000021",
       "94000000-0000-4000-8000-000000000022",
@@ -193,16 +231,25 @@ export const materialAuthoringPresentation = {
         title: "Правило одного источника",
         tone: "definition",
       },
-      { content: [text("Issue хранит intent, PR хранит evidence.")], kind: "key_point" },
+      {
+        content: [text("Issue хранит intent, PR хранит evidence.")],
+        kind: "key_point",
+      },
       {
         kind: "variant",
         options: [
           {
-            content: [paragraph("Учебный проект: пройдите шаг на подготовленном репозитории.")],
+            content: [
+              paragraph(
+                "Учебный проект: пройдите шаг на подготовленном репозитории.",
+              ),
+            ],
             mode: "example",
           },
           {
-            content: [paragraph("Свой проект: примените шаг к своему репозиторию.")],
+            content: [
+              paragraph("Свой проект: примените шаг к своему репозиторию."),
+            ],
             mode: "own",
           },
         ],
@@ -215,7 +262,11 @@ export const materialAuthoringPresentation = {
       {
         kind: "labeled_list",
         rows: [
-          { description: "Фиксирует необратимый выбор", label: "ADR", name: "Решение" },
+          {
+            description: "Фиксирует необратимый выбор",
+            label: "ADR",
+            name: "Решение",
+          },
           { label: "Gate", name: "Проверка" },
         ],
       },
@@ -270,7 +321,8 @@ export const materialAuthoringPresentation = {
       },
     ],
     format: "Гайд",
-    summary: "Практический разбор delivery-потока: от готовой задачи до owner-controlled merge.",
+    summary:
+      "Практический разбор delivery-потока: от готовой задачи до owner-controlled merge.",
     tags: ["developer pipeline", "agents", "delivery"],
     title: "Developer Pipeline без магии",
     topic: "AI для разработчиков",
@@ -295,7 +347,10 @@ export const variantStepAuthoringPresentation = {
         {
           type: "paragraph",
           content: [
-            { type: "text", text: "Шаг написан для обоих способов пройти продукт." },
+            {
+              type: "text",
+              text: "Шаг написан для обоих способов пройти продукт.",
+            },
           ],
         },
         {
@@ -308,7 +363,10 @@ export const variantStepAuthoringPresentation = {
                 {
                   type: "paragraph",
                   content: [
-                    { type: "text", text: "Учебный проект: пройдите шаг на подготовленном репозитории." },
+                    {
+                      type: "text",
+                      text: "Учебный проект: пройдите шаг на подготовленном репозитории.",
+                    },
                   ],
                 },
               ],
@@ -320,7 +378,10 @@ export const variantStepAuthoringPresentation = {
                 {
                   type: "paragraph",
                   content: [
-                    { type: "text", text: "Свой проект: примените шаг к своему репозиторию." },
+                    {
+                      type: "text",
+                      text: "Свой проект: примените шаг к своему репозиторию.",
+                    },
                   ],
                 },
               ],

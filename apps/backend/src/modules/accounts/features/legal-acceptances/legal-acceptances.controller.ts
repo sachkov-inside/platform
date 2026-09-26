@@ -92,7 +92,8 @@ export class LegalAcceptancesController {
   @HttpCode(200)
   @ApiOperation({
     operationId: "acceptTerms",
-    summary: "Accept the exact terms of use edition in force by the pressed button",
+    summary:
+      "Accept the exact terms of use edition in force by the pressed button",
   })
   @ApiBody({ schema: toOpenApiSchema(acceptTermsSchema) })
   @ApiResponse({

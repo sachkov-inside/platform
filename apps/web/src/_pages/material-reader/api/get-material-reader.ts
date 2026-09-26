@@ -47,23 +47,34 @@ const publishedMaterialSchema = z.discriminatedUnion("kind", [
     cacheScope: z.enum(["public", "private-no-store"]),
     projection: projectionSchema,
     body: renderedMaterialBodySchema,
-    videoChapters: z.array(z.object({ start: z.number().int().nonnegative(), title: z.string() }).strict()).optional(),
-    primaryVideo: z.object({
-      durationSeconds: z.number().int().positive().optional(),
-      failureCode: z.string().optional(),
-      state: z.enum(["uploading", "processing", "ready", "failed"]),
-      title: z.string(),
-      videoId: z.uuid(),
-    }).strict().nullable(),
+    videoChapters: z
+      .array(
+        z
+          .object({ start: z.number().int().nonnegative(), title: z.string() })
+          .strict(),
+      )
+      .optional(),
+    primaryVideo: z
+      .object({
+        durationSeconds: z.number().int().positive().optional(),
+        failureCode: z.string().optional(),
+        state: z.enum(["uploading", "processing", "ready", "failed"]),
+        title: z.string(),
+        videoId: z.uuid(),
+      })
+      .strict()
+      .nullable(),
   }),
   z.object({
     kind: z.literal("teaser"),
     cacheScope: z.enum(["public", "private-no-store"]),
     projection: projectionSchema,
-    access: z.object({
-      availability: z.literal("locked"),
-      subscriptionOffered: z.boolean(),
-    }).strict(),
+    access: z
+      .object({
+        availability: z.literal("locked"),
+        subscriptionOffered: z.boolean(),
+      })
+      .strict(),
   }),
 ]);
 
@@ -92,9 +103,12 @@ export async function getMaterialReader(
  * backend сам пометил `cacheScope: "public"`; предложение о покупке сюда не попадает: оно
  * принадлежит личной части.
  */
-export async function getGuestMaterial(slug: string): Promise<PublicMaterialResult> {
+export async function getGuestMaterial(
+  slug: string,
+): Promise<PublicMaterialResult> {
   const { publicScope, result } = await readPublishedMaterial(slug);
-  if (result.kind === "access") return { kind: "teaser", material: result.material };
+  if (result.kind === "access")
+    return { kind: "teaser", material: result.material };
   // Гость не должен получать закрытое тело; если контракт это нарушил, в кеш оно всё равно не идёт.
   if (result.kind === "available" && !publicScope) {
     return { kind: "teaser", material: result.material };
@@ -105,14 +119,20 @@ export async function getGuestMaterial(slug: string): Promise<PublicMaterialResu
 async function readPublishedMaterial(
   slug: string,
   accessToken?: string,
-): Promise<{ readonly publicScope: boolean; readonly result: MaterialReaderResult }> {
+): Promise<{
+  readonly publicScope: boolean;
+  readonly result: MaterialReaderResult;
+}> {
   let result: Awaited<ReturnType<typeof requestPublishedMaterial>>;
   try {
     result = await requestPublishedMaterial(slug, {
       ...(accessToken === undefined ? {} : { accessToken }),
     });
   } catch (error) {
-    if (error instanceof BackendConnectionError && error.code === "unavailable") {
+    if (
+      error instanceof BackendConnectionError &&
+      error.code === "unavailable"
+    ) {
       return { publicScope: false, result: { kind: "unavailable" } };
     }
     throw error;
@@ -120,7 +140,9 @@ async function readPublishedMaterial(
 
   if (!result.ok && result.response.status === 404) {
     if (!notFoundSchema.safeParse(result.problem).success) {
-      throw invalidContract("Published Material 404 response does not match the contract");
+      throw invalidContract(
+        "Published Material 404 response does not match the contract",
+      );
     }
     return { publicScope: false, result: { kind: "not-found" } };
   }
@@ -141,19 +163,36 @@ async function readPublishedMaterial(
 
   const parsed = publishedMaterialSchema.safeParse(result.body);
   if (!parsed.success) {
-    throw invalidContract("Published Material response does not match the contract", parsed.error);
+    throw invalidContract(
+      "Published Material response does not match the contract",
+      parsed.error,
+    );
   }
 
   const material = toMaterialMetadata(parsed.data.projection);
   return {
     publicScope: parsed.data.cacheScope === "public",
-    result: parsed.data.kind === "available"
-      ? { kind: "available", material, body: parsed.data.body.blocks, primaryVideo: parsed.data.primaryVideo === null ? null : { ...parsed.data.primaryVideo, ...(parsed.data.videoChapters === undefined ? {} : { chapters: parsed.data.videoChapters }) } }
-      : {
-          kind: "access",
-          material,
-          subscriptionOffered: parsed.data.access.subscriptionOffered,
-        },
+    result:
+      parsed.data.kind === "available"
+        ? {
+            kind: "available",
+            material,
+            body: parsed.data.body.blocks,
+            primaryVideo:
+              parsed.data.primaryVideo === null
+                ? null
+                : {
+                    ...parsed.data.primaryVideo,
+                    ...(parsed.data.videoChapters === undefined
+                      ? {}
+                      : { chapters: parsed.data.videoChapters }),
+                  },
+          }
+        : {
+            kind: "access",
+            material,
+            subscriptionOffered: parsed.data.access.subscriptionOffered,
+          },
   };
 }
 
@@ -174,13 +213,18 @@ function toMaterialMetadata(
     topic: { name: projection.topic.name, slug: projection.topic.slug },
     format: { name: projection.format.name, slug: projection.format.slug },
     tags: projection.tags.map(({ name }) => ({ name })),
-    seriesMemberships: projection.seriesMemberships.map(({ ordinal, series }) => ({
-      ordinal,
-      series: { name: series.name, slug: series.slug },
-    })),
+    seriesMemberships: projection.seriesMemberships.map(
+      ({ ordinal, series }) => ({
+        ordinal,
+        series: { name: series.name, slug: series.slug },
+      }),
+    ),
   };
 }
 
-function invalidContract(message: string, cause?: unknown): BackendConnectionError {
+function invalidContract(
+  message: string,
+  cause?: unknown,
+): BackendConnectionError {
   return new BackendConnectionError("invalid-response", message, { cause });
 }

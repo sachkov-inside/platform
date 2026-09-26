@@ -1,130 +1,311 @@
-import { Body, Controller, Get, HttpCode, type HttpException, Inject, Param, Post, Put, UseFilters, UseGuards } from "@nestjs/common";
-import { ApiBearerAuth, ApiBody, ApiOkResponse, ApiOperation, ApiParam, ApiResponse, ApiTags } from "@nestjs/swagger";
+import {
+  Body,
+  Controller,
+  Get,
+  HttpCode,
+  type HttpException,
+  Inject,
+  Param,
+  Post,
+  Put,
+  UseFilters,
+  UseGuards,
+} from "@nestjs/common";
+import {
+  ApiBearerAuth,
+  ApiBody,
+  ApiOkResponse,
+  ApiOperation,
+  ApiParam,
+  ApiResponse,
+  ApiTags,
+} from "@nestjs/swagger";
 import { z } from "zod";
 import { problemException } from "../../../../infrastructure/http/problem-details.js";
 import { PrivateNoStore } from "../../../../infrastructure/http/http-cache-policy.js";
-import { problemDetailsContent, problemDetailsOneOfContent, problemDetailsSchema, toOpenApiSchema } from "../../../../infrastructure/http/zod-openapi.js";
-import { AccountGuard, AccountProblemDetailsFilter, CurrentAccount, accountProblemSchema, type AuthenticatedAccount } from "../../../accounts/index.js";
-import { readingStateSchema, readingOutcomeSchema } from "../../domain/reading-state.js";
+import {
+  problemDetailsContent,
+  problemDetailsOneOfContent,
+  problemDetailsSchema,
+  toOpenApiSchema,
+} from "../../../../infrastructure/http/zod-openapi.js";
+import {
+  AccountGuard,
+  AccountProblemDetailsFilter,
+  CurrentAccount,
+  accountProblemSchema,
+  type AuthenticatedAccount,
+} from "../../../accounts/index.js";
+import {
+  readingStateSchema,
+  readingOutcomeSchema,
+} from "../../domain/reading-state.js";
 import { ReadingActivity } from "../../facets/reading-activity/reading-activity.js";
-import { readerGuideModeSchema, type GetReaderGuideModeResult } from "../../features/get-reader-guide-mode/get-reader-guide-mode.js";
-import { getReadingStatesSchema, type GetReadingStatesResult } from "../../features/get-reading-states/get-reading-states.js";
-import { setReaderGuideModeSchema, type SetReaderGuideModeResult } from "../../features/set-reader-guide-mode/set-reader-guide-mode.js";
-import { seriesProgressSchema, type GetSeriesProgressResult } from "../../features/get-series-progress/get-series-progress.js";
-import { setReadingStateSchema, type SetReadingStateError } from "../../features/set-reading-state/set-reading-state.contract.js";
+import {
+  readerGuideModeSchema,
+  type GetReaderGuideModeResult,
+} from "../../features/get-reader-guide-mode/get-reader-guide-mode.js";
+import {
+  getReadingStatesSchema,
+  type GetReadingStatesResult,
+} from "../../features/get-reading-states/get-reading-states.js";
+import {
+  setReaderGuideModeSchema,
+  type SetReaderGuideModeResult,
+} from "../../features/set-reader-guide-mode/set-reader-guide-mode.js";
+import {
+  seriesProgressSchema,
+  type GetSeriesProgressResult,
+} from "../../features/get-series-progress/get-series-progress.js";
+import {
+  setReadingStateSchema,
+  type SetReadingStateError,
+} from "../../features/set-reading-state/set-reading-state.contract.js";
 
 @ApiTags("Reading activity")
 @ApiBearerAuth("logto")
 @PrivateNoStore()
 @UseGuards(AccountGuard)
 @UseFilters(AccountProblemDetailsFilter)
-@ApiResponse({ status: 400, content: problemDetailsOneOfContent(problemDetailsSchema(400, ["invalid_request"]), accountProblemSchema) })
-@ApiResponse({ status: 401, content: problemDetailsContent(accountProblemSchema) })
-@ApiResponse({ status: 500, content: problemDetailsContent(accountProblemSchema) })
-@ApiResponse({ status: 503, content: problemDetailsOneOfContent(problemDetailsSchema(503, ["dependency_unavailable"]), accountProblemSchema) })
+@ApiResponse({
+  status: 400,
+  content: problemDetailsOneOfContent(
+    problemDetailsSchema(400, ["invalid_request"]),
+    accountProblemSchema,
+  ),
+})
+@ApiResponse({
+  status: 401,
+  content: problemDetailsContent(accountProblemSchema),
+})
+@ApiResponse({
+  status: 500,
+  content: problemDetailsContent(accountProblemSchema),
+})
+@ApiResponse({
+  status: 503,
+  content: problemDetailsOneOfContent(
+    problemDetailsSchema(503, ["dependency_unavailable"]),
+    accountProblemSchema,
+  ),
+})
 @Controller("reading-activity")
 export class ReadingActivityController {
-  constructor(@Inject(ReadingActivity) private readonly reading: ReadingActivity) {}
+  constructor(
+    @Inject(ReadingActivity) private readonly reading: ReadingActivity,
+  ) {}
 
   @Put("materials/:materialId")
   @HttpCode(200)
-  @ApiOperation({ operationId: "setMaterialReadingState", summary: "Set the current Account's manual Material mark" })
+  @ApiOperation({
+    operationId: "setMaterialReadingState",
+    summary: "Set the current Account's manual Material mark",
+  })
   @ApiParam({ name: "materialId", schema: toOpenApiSchema(z.uuid()) })
   @ApiBody({ schema: toOpenApiSchema(setReadingStateSchema) })
-  @ApiOkResponse({ schema: toOpenApiSchema(readingOutcomeSchema.extend({ replayed: z.boolean() })) })
-  @ApiResponse({ status: 403, content: problemDetailsContent(problemDetailsSchema(403, ["access_denied"])) })
-  @ApiResponse({ status: 409, content: problemDetailsOneOfContent(
-    problemDetailsSchema(409, ["command_conflict", "access_changed"]),
-    problemDetailsSchema(409, ["stale_version"]).extend({ current: readingStateSchema }), accountProblemSchema,
-  ) })
-  async set(@CurrentAccount() current: AuthenticatedAccount, @Param("materialId") materialId: string, @Body() input: unknown) {
+  @ApiOkResponse({
+    schema: toOpenApiSchema(
+      readingOutcomeSchema.extend({ replayed: z.boolean() }),
+    ),
+  })
+  @ApiResponse({
+    status: 403,
+    content: problemDetailsContent(
+      problemDetailsSchema(403, ["access_denied"]),
+    ),
+  })
+  @ApiResponse({
+    status: 409,
+    content: problemDetailsOneOfContent(
+      problemDetailsSchema(409, ["command_conflict", "access_changed"]),
+      problemDetailsSchema(409, ["stale_version"]).extend({
+        current: readingStateSchema,
+      }),
+      accountProblemSchema,
+    ),
+  })
+  async set(
+    @CurrentAccount() current: AuthenticatedAccount,
+    @Param("materialId") materialId: string,
+    @Body() input: unknown,
+  ) {
     const parsed = setReadingStateSchema.safeParse(input);
-    if (!parsed.success) throw readingException(400, { code: "invalid_request" });
-    const result = await this.reading.setReadingState({ ...parsed.data, materialId, accountId: current.accountId });
+    if (!parsed.success)
+      throw readingException(400, { code: "invalid_request" });
+    const result = await this.reading.setReadingState({
+      ...parsed.data,
+      materialId,
+      accountId: current.accountId,
+    });
     if (!result.ok) throwReadingError(result.error);
     return result.value;
   }
 
   @Post("materials/query")
   @HttpCode(200)
-  @ApiOperation({ operationId: "getMaterialReadingStates", summary: "Read personal states for at most 100 Material IDs" })
+  @ApiOperation({
+    operationId: "getMaterialReadingStates",
+    summary: "Read personal states for at most 100 Material IDs",
+  })
   @ApiBody({ schema: toOpenApiSchema(getReadingStatesSchema) })
   @ApiOkResponse({ schema: toOpenApiSchema(z.array(readingStateSchema)) })
-  @ApiResponse({ status: 409, content: problemDetailsContent(accountProblemSchema) })
-  async states(@CurrentAccount() current: AuthenticatedAccount, @Body() input: unknown) {
+  @ApiResponse({
+    status: 409,
+    content: problemDetailsContent(accountProblemSchema),
+  })
+  async states(
+    @CurrentAccount() current: AuthenticatedAccount,
+    @Body() input: unknown,
+  ) {
     const parsed = getReadingStatesSchema.safeParse(input);
-    if (!parsed.success) throw readingException(400, { code: "invalid_request" });
-    const result = await this.reading.getReadingStates({ ...parsed.data, accountId: current.accountId });
+    if (!parsed.success)
+      throw readingException(400, { code: "invalid_request" });
+    const result = await this.reading.getReadingStates({
+      ...parsed.data,
+      accountId: current.accountId,
+    });
     if (!result.ok) throwReadingError(result.error);
     return result.value;
   }
 
   @Get("guides/:guideId")
-  @ApiOperation({ operationId: "getGuideReadingProgress", summary: "Read progress over the current published Guide composition" })
+  @ApiOperation({
+    operationId: "getGuideReadingProgress",
+    summary: "Read progress over the current published Guide composition",
+  })
   @ApiParam({ name: "guideId", schema: toOpenApiSchema(z.uuid()) })
   @ApiOkResponse({ schema: toOpenApiSchema(seriesProgressSchema) })
-  @ApiResponse({ status: 404, content: problemDetailsContent(problemDetailsSchema(404, ["series_not_found"])) })
-  @ApiResponse({ status: 409, content: problemDetailsContent(accountProblemSchema) })
-  @ApiResponse({ status: 422, content: problemDetailsContent(problemDetailsSchema(422, ["series_too_large"])) })
-  async guide(@CurrentAccount() current: AuthenticatedAccount, @Param("guideId") seriesId: string) {
-    const result = await this.reading.getSeriesProgress({ seriesId, accountId: current.accountId });
+  @ApiResponse({
+    status: 404,
+    content: problemDetailsContent(
+      problemDetailsSchema(404, ["series_not_found"]),
+    ),
+  })
+  @ApiResponse({
+    status: 409,
+    content: problemDetailsContent(accountProblemSchema),
+  })
+  @ApiResponse({
+    status: 422,
+    content: problemDetailsContent(
+      problemDetailsSchema(422, ["series_too_large"]),
+    ),
+  })
+  async guide(
+    @CurrentAccount() current: AuthenticatedAccount,
+    @Param("guideId") seriesId: string,
+  ) {
+    const result = await this.reading.getSeriesProgress({
+      seriesId,
+      accountId: current.accountId,
+    });
     if (!result.ok) throwReadingError(result.error);
     return result.value;
   }
 
   @Get("guide-mode")
-  @ApiOperation({ operationId: "getReaderGuideMode", summary: "Read the mode the current Account goes through guides in" })
+  @ApiOperation({
+    operationId: "getReaderGuideMode",
+    summary: "Read the mode the current Account goes through guides in",
+  })
   @ApiOkResponse({ schema: toOpenApiSchema(readerGuideModeSchema) })
   async guideMode(@CurrentAccount() current: AuthenticatedAccount) {
-    const result = await this.reading.getReaderGuideMode({ accountId: current.accountId });
+    const result = await this.reading.getReaderGuideMode({
+      accountId: current.accountId,
+    });
     if (!result.ok) throwReadingError(result.error);
     return result.value;
   }
 
   @Put("guide-mode")
   @HttpCode(200)
-  @ApiOperation({ operationId: "setReaderGuideMode", summary: "Set the mode the current Account goes through guides in" })
+  @ApiOperation({
+    operationId: "setReaderGuideMode",
+    summary: "Set the mode the current Account goes through guides in",
+  })
   @ApiBody({ schema: toOpenApiSchema(setReaderGuideModeSchema) })
   @ApiOkResponse({ schema: toOpenApiSchema(readerGuideModeSchema) })
-  async setGuideMode(@CurrentAccount() current: AuthenticatedAccount, @Body() input: unknown) {
+  async setGuideMode(
+    @CurrentAccount() current: AuthenticatedAccount,
+    @Body() input: unknown,
+  ) {
     const parsed = setReaderGuideModeSchema.safeParse(input);
-    if (!parsed.success) throw readingException(400, { code: "invalid_request" });
-    const result = await this.reading.setReaderGuideMode({ ...parsed.data, accountId: current.accountId });
+    if (!parsed.success)
+      throw readingException(400, { code: "invalid_request" });
+    const result = await this.reading.setReaderGuideMode({
+      ...parsed.data,
+      accountId: current.accountId,
+    });
     if (!result.ok) throwReadingError(result.error);
     return result.value;
   }
 
   @Get("series/:seriesId")
-  @ApiOperation({ operationId: "getSeriesReadingProgress", deprecated: true, summary: "Read progress over the current published Series composition" })
+  @ApiOperation({
+    operationId: "getSeriesReadingProgress",
+    deprecated: true,
+    summary: "Read progress over the current published Series composition",
+  })
   @ApiParam({ name: "seriesId", schema: toOpenApiSchema(z.uuid()) })
   @ApiOkResponse({ schema: toOpenApiSchema(seriesProgressSchema) })
-  @ApiResponse({ status: 404, content: problemDetailsContent(problemDetailsSchema(404, ["series_not_found"])) })
-  @ApiResponse({ status: 409, content: problemDetailsContent(accountProblemSchema) })
-  @ApiResponse({ status: 422, content: problemDetailsContent(problemDetailsSchema(422, ["series_too_large"])) })
-  async series(@CurrentAccount() current: AuthenticatedAccount, @Param("seriesId") seriesId: string) {
-    const result = await this.reading.getSeriesProgress({ seriesId, accountId: current.accountId });
+  @ApiResponse({
+    status: 404,
+    content: problemDetailsContent(
+      problemDetailsSchema(404, ["series_not_found"]),
+    ),
+  })
+  @ApiResponse({
+    status: 409,
+    content: problemDetailsContent(accountProblemSchema),
+  })
+  @ApiResponse({
+    status: 422,
+    content: problemDetailsContent(
+      problemDetailsSchema(422, ["series_too_large"]),
+    ),
+  })
+  async series(
+    @CurrentAccount() current: AuthenticatedAccount,
+    @Param("seriesId") seriesId: string,
+  ) {
+    const result = await this.reading.getSeriesProgress({
+      seriesId,
+      accountId: current.accountId,
+    });
     if (!result.ok) throwReadingError(result.error);
     return result.value;
   }
 }
 
-type ReadingError = SetReadingStateError |
-  Extract<
-    GetReadingStatesResult | GetSeriesProgressResult | GetReaderGuideModeResult | SetReaderGuideModeResult,
-    { readonly ok: false }
-  >["error"];
+type ReadingError =
+  | SetReadingStateError
+  | Extract<
+      | GetReadingStatesResult
+      | GetSeriesProgressResult
+      | GetReaderGuideModeResult
+      | SetReaderGuideModeResult,
+      { readonly ok: false }
+    >["error"];
 
 function throwReadingError(error: ReadingError): never {
   switch (error.code) {
-    case "invalid_request": throw readingException(400, error);
-    case "access_denied": throw readingException(403, error);
-    case "series_not_found": throw readingException(404, error);
-    case "stale_version": throw readingException(409, error, { current: error.current });
+    case "invalid_request":
+      throw readingException(400, error);
+    case "access_denied":
+      throw readingException(403, error);
+    case "series_not_found":
+      throw readingException(404, error);
+    case "stale_version":
+      throw readingException(409, error, { current: error.current });
     case "command_conflict":
-    case "access_changed": throw readingException(409, error);
-    case "series_too_large": throw readingException(422, error);
-    case "dependency_unavailable": throw readingException(503, error);
-    default: return assertNever(error);
+    case "access_changed":
+      throw readingException(409, error);
+    case "series_too_large":
+      throw readingException(422, error);
+    case "dependency_unavailable":
+      throw readingException(503, error);
+    default:
+      return assertNever(error);
   }
 }
 
@@ -133,6 +314,13 @@ function readingException(
   error: ReadingError,
   details: Readonly<{ current: unknown }> | Readonly<Record<never, never>> = {},
 ): HttpException {
-  return problemException(status, error.code, "Reading activity request failed", details);
+  return problemException(
+    status,
+    error.code,
+    "Reading activity request failed",
+    details,
+  );
 }
-function assertNever(value: never): never { throw new Error(`Unexpected ReadingActivity error: ${JSON.stringify(value)}`); }
+function assertNever(value: never): never {
+  throw new Error(`Unexpected ReadingActivity error: ${JSON.stringify(value)}`);
+}

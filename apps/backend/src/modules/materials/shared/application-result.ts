@@ -46,12 +46,17 @@ export async function executeAuthoringTransaction<
     );
     return { ok: true, value };
   } catch (error) {
-    if (error instanceof TransactionRollback) return failure(error.applicationError);
+    if (error instanceof TransactionRollback)
+      return failure(error.applicationError);
     const mapped = mapUnexpected(error);
     // Конфликт и неверная ссылка — ответ автору; сбоем зависимости остаются только системные коды.
     return failure(
       isSystemErrorCode(mapped.code)
-        ? dependencyFailure({ module: "materials", operation: operationName }, error, mapped)
+        ? dependencyFailure(
+            { module: "materials", operation: operationName },
+            error,
+            mapped,
+          )
         : mapped,
     );
   }

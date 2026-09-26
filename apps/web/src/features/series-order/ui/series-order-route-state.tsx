@@ -24,9 +24,14 @@ export function SeriesOrderRouteState({
         id="authoring-content"
       >
         <div className="max-w-md">
-          <CloudOff aria-hidden="true" className="mx-auto size-8 text-destructive" />
+          <CloudOff
+            aria-hidden="true"
+            className="mx-auto size-8 text-destructive"
+          />
           <h1 className="mt-5 text-2xl font-semibold">{content.title}</h1>
-          <p className="mt-2 text-sm leading-6 text-muted-foreground">{content.text}</p>
+          <p className="mt-2 text-sm leading-6 text-muted-foreground">
+            {content.text}
+          </p>
           {state.kind === "error" ? (
             <p className="mt-2 font-mono text-xs text-muted-foreground">
               Код обращения: {state.reference}
@@ -36,14 +41,16 @@ export function SeriesOrderRouteState({
             {state.kind === "empty" ? null : (
               <Button asChild>
                 <Link href={{ pathname: retryHref }}>
-                  {state.kind === "not_found" ? "Выбрать другой продукт" : "Повторить"}
+                  {state.kind === "not_found"
+                    ? "Выбрать другой продукт"
+                    : "Повторить"}
                 </Link>
               </Button>
             )}
             <Button asChild variant="outline">
               <Link href={authoringMaterialsRootHref}>
-                <ArrowLeft aria-hidden="true" data-icon="inline-start" />
-                К материалам
+                <ArrowLeft aria-hidden="true" data-icon="inline-start" />К
+                материалам
               </Link>
             </Button>
           </div>
@@ -53,7 +60,10 @@ export function SeriesOrderRouteState({
   );
 }
 
-function routeStateContent(state: RouteState): { readonly text: string; readonly title: string } {
+function routeStateContent(state: RouteState): {
+  readonly text: string;
+  readonly title: string;
+} {
   if (state.kind === "empty") {
     return {
       text: "Добавьте продукт в справочные данные, чтобы управлять порядком материалов.",

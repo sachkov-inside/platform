@@ -23,7 +23,9 @@ export function privateProfileProjection(
   const publicProfileId = parsePublicProfileId(profile.publicProfileId);
   const avatarId =
     profile.avatarId === null ? null : parseProfileAvatarId(profile.avatarId);
-  return status === null || publicProfileId === undefined || avatarId === undefined
+  return status === null ||
+    publicProfileId === undefined ||
+    avatarId === undefined
     ? null
     : {
         avatar: avatarId === null ? null : { avatarId },
@@ -35,7 +37,6 @@ export function privateProfileProjection(
         updatedAt: profile.updatedAt.toISOString(),
       };
 }
-
 
 function profileStatus(value: string): MemberProfileStatus | null {
   return value === "active" || value === "disabled" ? value : null;

@@ -133,9 +133,7 @@ describe("Profile Avatar HTTP controllers", () => {
       503,
       "dependency_unavailable",
     );
-    await expect(
-      controller.read(account, avatarId, "320"),
-    ).resolves.toEqual({
+    await expect(controller.read(account, avatarId, "320")).resolves.toEqual({
       cacheScope: "private-no-store",
       kind: "redirect",
       location: "https://storage.example.test/protected-avatar",
@@ -161,11 +159,14 @@ function memberProfiles(overrides: Partial<MemberProfiles>): MemberProfiles {
 }
 
 function missingFileRequest(): FastifyRequest {
+  const request = { file: vi.fn().mockResolvedValue(undefined) };
   // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- The controller reads only request.file from this transport fixture.
-  return { file: vi.fn().mockResolvedValue(undefined) } as unknown as FastifyRequest;
+  return request as unknown as FastifyRequest;
 }
 
-function multipartRequest(options: { readonly truncated?: boolean } = {}): FastifyRequest {
+function multipartRequest(
+  options: { readonly truncated?: boolean } = {},
+): FastifyRequest {
   const partFixture = {
     fields: {
       checksumSha256: { type: "field", value: "a".repeat(64) },

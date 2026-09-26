@@ -14,7 +14,8 @@ import type {
   VerifiedContact,
 } from "@/entities/subscription";
 
-const uuid = (value: string) => `00000000-0000-4000-8000-${value.padStart(12, "0")}`;
+const uuid = (value: string) =>
+  `00000000-0000-4000-8000-${value.padStart(12, "0")}`;
 
 export const materialsOffer: PriceSnapshot = {
   offer: {
@@ -74,7 +75,9 @@ export const guideOnlyOffer: PriceSnapshot = {
     revision: 1,
     name: "Руководство «Создание Platform Inside»",
     benefits: [guideCapability(uuid("f01"))],
-    benefitPeriods: [{ capability: guideCapability(uuid("f01")), months: null }],
+    benefitPeriods: [
+      { capability: guideCapability(uuid("f01")), months: null },
+    ],
     archived: false,
     published: false,
   },
@@ -336,10 +339,15 @@ export const ownPayments: readonly OwnPayment[] = [
 ];
 
 /** Разовая покупка, по которой банк подтвердил полный возврат: доступ снят, в истории видна сумма. */
-export const refundedOwnPayments: readonly OwnPayment[] = ownPayments.map((payment) =>
-  payment.kind === "one_time"
-    ? { ...payment, refundedKopecks: payment.amountKopecks, refundedAt: "2026-08-25T10:00:00.000Z" }
-    : payment,
+export const refundedOwnPayments: readonly OwnPayment[] = ownPayments.map(
+  (payment) =>
+    payment.kind === "one_time"
+      ? {
+          ...payment,
+          refundedKopecks: payment.amountKopecks,
+          refundedAt: "2026-08-25T10:00:00.000Z",
+        }
+      : payment,
 );
 
 export const refundNotices: readonly NoticeView[] = [

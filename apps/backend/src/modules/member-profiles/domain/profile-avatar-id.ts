@@ -13,7 +13,9 @@ export function newProfileAvatarId(): ProfileAvatarId {
   return randomUUID() as ProfileAvatarId;
 }
 
-export function parseProfileAvatarId(value: unknown): ProfileAvatarId | undefined {
+export function parseProfileAvatarId(
+  value: unknown,
+): ProfileAvatarId | undefined {
   const result = z.uuid().safeParse(value);
   // oxlint-disable-next-line typescript/no-unsafe-type-assertion
   return result.success ? (result.data as ProfileAvatarId) : undefined;

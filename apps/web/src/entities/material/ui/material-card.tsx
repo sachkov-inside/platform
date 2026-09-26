@@ -16,7 +16,10 @@ import { ContentCoverImage } from "./content-cover-image.client";
 import { feedLink } from "../model/feed-link";
 
 import { SavedMaterialReadingStatus } from "./saved-material-reading-status.client";
-import { SeriesContinuationSlot, SeriesRowArticle } from "./series-continuation.client";
+import {
+  SeriesContinuationSlot,
+  SeriesRowArticle,
+} from "./series-continuation.client";
 
 export interface MaterialCardProps {
   /** Match the heading level to the surrounding page outline. */
@@ -45,7 +48,12 @@ export function MaterialCard({
   returnHref,
   rowAnnotation,
   seriesOrdinal,
-  readingStatus = material.materialId === undefined ? undefined : <SavedMaterialReadingStatus materialId={material.materialId} format={material.format} />,
+  readingStatus = material.materialId === undefined ? undefined : (
+    <SavedMaterialReadingStatus
+      materialId={material.materialId}
+      format={material.format}
+    />
+  ),
   resumeLabel,
   showAccessDetails = false,
   accessPending = false,
@@ -55,7 +63,16 @@ export function MaterialCard({
   const readerHref = materialReaderHref(material.slug, returnHref);
 
   if (variant === "series") {
-    return <SeriesMaterialRow accessPending={accessPending} headingLevel={headingLevel} material={material} readerHref={readerHref} ordinal={seriesOrdinal} readingStatus={readingStatus} />;
+    return (
+      <SeriesMaterialRow
+        accessPending={accessPending}
+        headingLevel={headingLevel}
+        material={material}
+        readerHref={readerHref}
+        ordinal={seriesOrdinal}
+        readingStatus={readingStatus}
+      />
+    );
   }
 
   if (variant === "row") {
@@ -74,31 +91,136 @@ export function MaterialCard({
   }
 
   if (variant === "feed") {
-    const excerpt = material.access === "free" && material.availability === "available" && material.formatSlug === "note" ? material.noteExcerpt : undefined;
+    const excerpt =
+      material.access === "free" &&
+      material.availability === "available" &&
+      material.formatSlug === "note"
+        ? material.noteExcerpt
+        : undefined;
     const video = materialPreviewHasVideo(material);
     const duration = materialDuration(material);
-    const link = video ? undefined : feedLink(excerpt?.text ?? material.summary, excerpt?.linkUrl);
-    const cover = <AccessCover material={material}><ContentCoverImage alt="" className="aspect-video min-h-0 w-full rounded-xl" cover={material.cover ?? null} fallbackKind={video ? "video" : material.formatSlug === "note" ? "note" : "material"} fallbackSeed={material.slug} sizes="(min-width: 768px) 28rem, 100vw" /></AccessCover>;
-    return <article className="home-feed-post min-w-0" data-material-id={material.slug} data-material-slug={material.slug} data-material-variant="feed">
-      <div className="flex items-center gap-3">
-        <span aria-hidden="true" className="grid size-10 shrink-0 place-items-center rounded-full bg-primary text-xs font-bold text-primary-foreground">S</span>
-        <div className="min-w-0 text-sm"><strong>Sachkov Inside</strong><p className="text-xs text-muted-foreground">{material.format}{material.publishedAt === undefined ? null : <> · <time dateTime={material.publishedAt}>{new Intl.DateTimeFormat("ru-RU", { day: "numeric", month: "short", year: "numeric", timeZone: "Europe/Moscow" }).format(new Date(material.publishedAt))}</time></>}</p></div>
-      </div>
-      <Heading className="mt-4 text-lg font-semibold leading-snug tracking-[-0.025em]"><IntentPrefetchLink className="no-underline hover:text-action" href={readerHref}>{material.title}</IntentPrefetchLink></Heading>
-      <p className="home-feed-post-copy mt-3 text-base text-body-muted">{excerpt?.text ?? material.summary}</p>
-      {link === undefined ? <IntentPrefetchLink className="home-feed-artwork" href={readerHref} aria-label={video ? `Смотреть: ${material.title}` : `Открыть: ${material.title}`}>
-        {cover}
-        {video && material.availability === "available" ? <span className="absolute inset-0 grid place-items-center"><span className="grid size-11 place-items-center rounded-full bg-primary text-primary-foreground"><Play aria-hidden="true" className="size-5 fill-current" /></span></span> : null}
-        {duration === undefined ? null : <span className="absolute bottom-3 right-3 rounded-md bg-primary px-2 py-1 text-xs tabular-nums text-primary-foreground">{duration}</span>}
-      </IntentPrefetchLink> : <a className="home-feed-artwork home-feed-link-preview" href={link.href} target="_blank" rel="noopener noreferrer" aria-label={`Открыть ${link.label} в новой вкладке`}>
-        {cover}
-        <span className="home-feed-link-domain"><Link2 aria-hidden="true" className="size-4 shrink-0" />{link.label}</span>
-      </a>}
-      <div className="mt-4 flex min-h-11 flex-wrap items-center justify-between gap-3">
-        <IntentPrefetchLink className="inline-flex min-h-11 items-center gap-1 text-sm font-semibold no-underline" href={readerHref}>{video ? "Смотреть видео" : excerpt === undefined || excerpt.truncated ? "Читать дальше" : "Открыть заметку"}<ChevronRight aria-hidden="true" className="size-4" /></IntentPrefetchLink>
-        {readingStatus}
-      </div>
-    </article>;
+    const link = video
+      ? undefined
+      : feedLink(excerpt?.text ?? material.summary, excerpt?.linkUrl);
+    const cover = (
+      <AccessCover material={material}>
+        <ContentCoverImage
+          alt=""
+          className="aspect-video min-h-0 w-full rounded-xl"
+          cover={material.cover ?? null}
+          fallbackKind={
+            video
+              ? "video"
+              : material.formatSlug === "note"
+                ? "note"
+                : "material"
+          }
+          fallbackSeed={material.slug}
+          sizes="(min-width: 768px) 28rem, 100vw"
+        />
+      </AccessCover>
+    );
+    return (
+      <article
+        className="home-feed-post min-w-0"
+        data-material-id={material.slug}
+        data-material-slug={material.slug}
+        data-material-variant="feed"
+      >
+        <div className="flex items-center gap-3">
+          <span
+            aria-hidden="true"
+            className="grid size-10 shrink-0 place-items-center rounded-full bg-primary text-xs font-bold text-primary-foreground"
+          >
+            S
+          </span>
+          <div className="min-w-0 text-sm">
+            <strong>Sachkov Inside</strong>
+            <p className="text-xs text-muted-foreground">
+              {material.format}
+              {material.publishedAt === undefined ? null : (
+                <>
+                  {" "}
+                  ·{" "}
+                  <time dateTime={material.publishedAt}>
+                    {new Intl.DateTimeFormat("ru-RU", {
+                      day: "numeric",
+                      month: "short",
+                      year: "numeric",
+                      timeZone: "Europe/Moscow",
+                    }).format(new Date(material.publishedAt))}
+                  </time>
+                </>
+              )}
+            </p>
+          </div>
+        </div>
+        <Heading className="mt-4 text-lg font-semibold leading-snug tracking-[-0.025em]">
+          <IntentPrefetchLink
+            className="no-underline hover:text-action"
+            href={readerHref}
+          >
+            {material.title}
+          </IntentPrefetchLink>
+        </Heading>
+        <p className="home-feed-post-copy mt-3 text-base text-body-muted">
+          {excerpt?.text ?? material.summary}
+        </p>
+        {link === undefined ? (
+          <IntentPrefetchLink
+            className="home-feed-artwork"
+            href={readerHref}
+            aria-label={
+              video
+                ? `Смотреть: ${material.title}`
+                : `Открыть: ${material.title}`
+            }
+          >
+            {cover}
+            {video && material.availability === "available" ? (
+              <span className="absolute inset-0 grid place-items-center">
+                <span className="grid size-11 place-items-center rounded-full bg-primary text-primary-foreground">
+                  <Play aria-hidden="true" className="size-5 fill-current" />
+                </span>
+              </span>
+            ) : null}
+            {duration === undefined ? null : (
+              <span className="absolute bottom-3 right-3 rounded-md bg-primary px-2 py-1 text-xs tabular-nums text-primary-foreground">
+                {duration}
+              </span>
+            )}
+          </IntentPrefetchLink>
+        ) : (
+          <a
+            className="home-feed-artwork home-feed-link-preview"
+            href={link.href}
+            target="_blank"
+            rel="noopener noreferrer"
+            aria-label={`Открыть ${link.label} в новой вкладке`}
+          >
+            {cover}
+            <span className="home-feed-link-domain">
+              <Link2 aria-hidden="true" className="size-4 shrink-0" />
+              {link.label}
+            </span>
+          </a>
+        )}
+        <div className="mt-4 flex min-h-11 flex-wrap items-center justify-between gap-3">
+          <IntentPrefetchLink
+            className="inline-flex min-h-11 items-center gap-1 text-sm font-semibold no-underline"
+            href={readerHref}
+          >
+            {video
+              ? "Смотреть видео"
+              : excerpt === undefined || excerpt.truncated
+                ? "Читать дальше"
+                : "Открыть заметку"}
+            <ChevronRight aria-hidden="true" className="size-4" />
+          </IntentPrefetchLink>
+          {readingStatus}
+        </div>
+      </article>
+    );
   }
 
   const isCompact = variant === "compact";
@@ -151,16 +273,27 @@ export function MaterialCard({
         )}
       >
         <IntentPrefetchLink
-          aria-label={isCompact && resumeLabel !== undefined ? `${material.title}. ${resumeLabel}` : undefined}
+          aria-label={
+            isCompact && resumeLabel !== undefined
+              ? `${material.title}. ${resumeLabel}`
+              : undefined
+          }
           className="no-underline after:absolute after:inset-0 after:rounded-[1.5rem] focus-visible:outline-none focus-visible:after:outline-2 focus-visible:after:outline-ring"
           href={readerHref}
         >
           {material.title}
         </IntentPrefetchLink>
       </Heading>
-      {readingStatus ? <span className="mt-2 block">{readingStatus}</span> : null}
+      {readingStatus ? (
+        <span className="mt-2 block">{readingStatus}</span>
+      ) : null}
       {isCompact ? (
-        <span className={cn("mt-1 block text-xs font-medium md:text-sm", resumeLabel === undefined ? "text-muted-foreground" : "text-action")}>
+        <span
+          className={cn(
+            "mt-1 block text-xs font-medium md:text-sm",
+            resumeLabel === undefined ? "text-muted-foreground" : "text-action",
+          )}
+        >
           {resumeLabel ?? material.topic}
         </span>
       ) : duration === undefined ? null : (
@@ -196,30 +329,52 @@ function MaterialRow({
   const isVideo = materialPreviewHasVideo(material);
   return (
     <article
-      className={cn("group/row relative grid min-w-0 grid-cols-[3.5rem_minmax(0,1fr)_auto] items-center gap-2 sm:grid-cols-[5.5rem_minmax(0,1fr)_auto] sm:gap-3 rounded-2xl border border-black/8 bg-muted/55 p-3 shadow-card transition-[box-shadow,transform,background-color] duration-200 hover:-translate-y-0.5 hover:bg-white hover:shadow-card-hover motion-reduce:transform-none motion-reduce:transition-none", resumeLabel !== undefined && "ring-2 ring-accent/70", showAccessDetails && "@max-[13rem]/series-entry:grid-cols-1")}
+      className={cn(
+        "group/row relative grid min-w-0 grid-cols-[3.5rem_minmax(0,1fr)_auto] items-center gap-2 sm:grid-cols-[5.5rem_minmax(0,1fr)_auto] sm:gap-3 rounded-2xl border border-black/8 bg-muted/55 p-3 shadow-card transition-[box-shadow,transform,background-color] duration-200 hover:-translate-y-0.5 hover:bg-white hover:shadow-card-hover motion-reduce:transform-none motion-reduce:transition-none",
+        resumeLabel !== undefined && "ring-2 ring-accent/70",
+        showAccessDetails && "@max-[13rem]/series-entry:grid-cols-1",
+      )}
       data-material-id={material.slug}
       data-material-slug={material.slug}
       data-material-variant="row"
     >
-      <span className={showAccessDetails ? "@max-[13rem]/series-entry:hidden" : undefined}>
-      <AccessCover compact material={material}>
-        <ContentCoverImage
-          alt=""
-          className="aspect-square min-h-0 rounded-xl"
-          cover={material.cover ?? null}
-          fallbackKind={isVideo ? "video" : "material"}
-          fallbackSeed={material.slug}
-          sizes="(min-width: 640px) 5.5rem, 3.5rem"
-        />
-      </AccessCover>
+      <span
+        className={
+          showAccessDetails ? "@max-[13rem]/series-entry:hidden" : undefined
+        }
+      >
+        <AccessCover compact material={material}>
+          <ContentCoverImage
+            alt=""
+            className="aspect-square min-h-0 rounded-xl"
+            cover={material.cover ?? null}
+            fallbackKind={isVideo ? "video" : "material"}
+            fallbackSeed={material.slug}
+            sizes="(min-width: 640px) 5.5rem, 3.5rem"
+          />
+        </AccessCover>
       </span>
-      <span className={cn("min-w-0", showAccessDetails && "[overflow-wrap:anywhere]")}>
-        <span className={cn("flex min-w-0 items-center gap-1 text-xs font-semibold text-muted-foreground", showAccessDetails && "flex-wrap")}>
+      <span
+        className={cn(
+          "min-w-0",
+          showAccessDetails && "[overflow-wrap:anywhere]",
+        )}
+      >
+        <span
+          className={cn(
+            "flex min-w-0 items-center gap-1 text-xs font-semibold text-muted-foreground",
+            showAccessDetails && "flex-wrap",
+          )}
+        >
           <span>{materialTaxonomyLabel(material.format)}</span>
           <span aria-hidden="true">·</span>
           <IntentPrefetchLink
             className="relative z-10 truncate no-underline hover:text-foreground"
-            href={collectionDiscoveryHref("topic", material.topicSlug, returnHref)}
+            href={collectionDiscoveryHref(
+              "topic",
+              material.topicSlug,
+              returnHref,
+            )}
           >
             {material.topic}
           </IntentPrefetchLink>
@@ -237,16 +392,53 @@ function MaterialRow({
             {material.summary}
           </span>
         ) : null}
-        {readingStatus || resumeLabel !== undefined ? <span className="mt-2 flex min-h-6 items-center">
-          {resumeLabel === undefined ? readingStatus : <span className="inline-flex items-center gap-1.5 text-sm font-semibold text-action"><Play aria-hidden="true" className="size-3.5 shrink-0 fill-current" />{resumeLabel}</span>}
-        </span> : null}
-        {showAccessDetails ? <span className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs leading-5 text-muted-foreground" data-series-access>
-          {material.availability === "locked" ? <span className="inline-flex items-center gap-1.5 font-medium"><LockKeyhole aria-hidden="true" className="size-3.5" />По подписке</span> : material.availability === "unavailable" ? <span>Не удалось проверить доступ</span> : material.access === "free" ? <span>Бесплатно</span> : null}
-          {materialDuration(material) === undefined ? null : <span className="inline-flex items-center gap-1.5 tabular-nums"><Clock3 aria-hidden="true" className="size-3.5" />{materialDuration(material)}</span>}
-        </span> : null}
+        {readingStatus || resumeLabel !== undefined ? (
+          <span className="mt-2 flex min-h-6 items-center">
+            {resumeLabel === undefined ? (
+              readingStatus
+            ) : (
+              <span className="inline-flex items-center gap-1.5 text-sm font-semibold text-action">
+                <Play
+                  aria-hidden="true"
+                  className="size-3.5 shrink-0 fill-current"
+                />
+                {resumeLabel}
+              </span>
+            )}
+          </span>
+        ) : null}
+        {showAccessDetails ? (
+          <span
+            className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs leading-5 text-muted-foreground"
+            data-series-access
+          >
+            {material.availability === "locked" ? (
+              <span className="inline-flex items-center gap-1.5 font-medium">
+                <LockKeyhole aria-hidden="true" className="size-3.5" />
+                По подписке
+              </span>
+            ) : material.availability === "unavailable" ? (
+              <span>Не удалось проверить доступ</span>
+            ) : material.access === "free" ? (
+              <span>Бесплатно</span>
+            ) : null}
+            {materialDuration(material) === undefined ? null : (
+              <span className="inline-flex items-center gap-1.5 tabular-nums">
+                <Clock3 aria-hidden="true" className="size-3.5" />
+                {materialDuration(material)}
+              </span>
+            )}
+          </span>
+        ) : null}
         {rowAnnotation}
       </span>
-      <ChevronRight aria-hidden="true" className={cn("size-4 text-muted-foreground", showAccessDetails && "@max-[13rem]/series-entry:hidden")} />
+      <ChevronRight
+        aria-hidden="true"
+        className={cn(
+          "size-4 text-muted-foreground",
+          showAccessDetails && "@max-[13rem]/series-entry:hidden",
+        )}
+      />
     </article>
   );
 }
@@ -256,7 +448,14 @@ function MaterialRow({
  * on the server; which lesson continues the reader's path arrives in the browser through
  * `SeriesContinuationProvider`.
  */
-function SeriesMaterialRow({ accessPending, headingLevel: Heading, material, readerHref, ordinal, readingStatus }: {
+function SeriesMaterialRow({
+  accessPending,
+  headingLevel: Heading,
+  material,
+  readerHref,
+  ordinal,
+  readingStatus,
+}: {
   readonly accessPending: boolean;
   readonly headingLevel: "h2" | "h3" | "h4";
   readonly material: MaterialPreview;
@@ -269,27 +468,84 @@ function SeriesMaterialRow({ accessPending, headingLevel: Heading, material, rea
   const pending = accessPending && material.access !== "free";
   const locked = !pending && material.availability === "locked";
   const unavailable = !pending && material.availability === "unavailable";
-  return <SeriesRowArticle
-    availability={pending ? "pending" : material.availability}
-    className="group/row relative flex min-h-24 min-w-0 items-center rounded-xl bg-muted/65 px-3 py-3 transition-colors hover:bg-muted focus-within:bg-muted sm:px-4"
-    slug={material.slug}
-  >
-    <div className="grid w-full min-w-0 grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-x-3 gap-y-2 @max-[16rem]/series-entry:grid-cols-[minmax(0,1fr)_auto]">
-      <span className="flex items-baseline gap-1.5 whitespace-nowrap text-xs text-muted-foreground @max-[16rem]/series-entry:col-span-2"><strong className="text-base font-medium tabular-nums text-foreground">{ordinal}</strong><span className="sr-only @min-[30rem]/series-entry:not-sr-only">урок</span></span>
-      <div className="flex min-w-0 items-center gap-3">
-        <span data-series-preview className="w-16 shrink-0 overflow-hidden rounded-lg @max-[22rem]/series-entry:hidden"><ContentCoverImage alt="" className={cn("aspect-square min-h-0 w-full rounded-lg", locked && "scale-110 blur-[3px]")} cover={material.cover ?? null} fallbackKind={materialPreviewHasVideo(material) ? "video" : "material"} fallbackSeed={material.slug} sizes="4rem" /></span>
-        <div className="min-w-0"><Heading className="min-w-0 text-sm font-medium leading-6 [overflow-wrap:anywhere] sm:text-base">
-          <IntentPrefetchLink className="no-underline after:absolute after:inset-0 after:rounded-xl focus-visible:outline-none focus-visible:after:outline-2 focus-visible:after:outline-ring" href={readerHref}>{material.title}</IntentPrefetchLink>
-        </Heading>
-        {material.access === "free" && material.availability === "available" ? <span className="mt-1 inline-block rounded-md bg-background px-1.5 py-0.5 text-[0.625rem] font-semibold leading-4 text-action">Бесплатно</span> : null}</div>
+  return (
+    <SeriesRowArticle
+      availability={pending ? "pending" : material.availability}
+      className="group/row relative flex min-h-24 min-w-0 items-center rounded-xl bg-muted/65 px-3 py-3 transition-colors hover:bg-muted focus-within:bg-muted sm:px-4"
+      slug={material.slug}
+    >
+      <div className="grid w-full min-w-0 grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-x-3 gap-y-2 @max-[16rem]/series-entry:grid-cols-[minmax(0,1fr)_auto]">
+        <span className="flex items-baseline gap-1.5 whitespace-nowrap text-xs text-muted-foreground @max-[16rem]/series-entry:col-span-2">
+          <strong className="text-base font-medium tabular-nums text-foreground">
+            {ordinal}
+          </strong>
+          <span className="sr-only @min-[30rem]/series-entry:not-sr-only">
+            урок
+          </span>
+        </span>
+        <div className="flex min-w-0 items-center gap-3">
+          <span
+            data-series-preview
+            className="w-16 shrink-0 overflow-hidden rounded-lg @max-[22rem]/series-entry:hidden"
+          >
+            <ContentCoverImage
+              alt=""
+              className={cn(
+                "aspect-square min-h-0 w-full rounded-lg",
+                locked && "scale-110 blur-[3px]",
+              )}
+              cover={material.cover ?? null}
+              fallbackKind={
+                materialPreviewHasVideo(material) ? "video" : "material"
+              }
+              fallbackSeed={material.slug}
+              sizes="4rem"
+            />
+          </span>
+          <div className="min-w-0">
+            <Heading className="min-w-0 text-sm font-medium leading-6 [overflow-wrap:anywhere] sm:text-base">
+              <IntentPrefetchLink
+                className="no-underline after:absolute after:inset-0 after:rounded-xl focus-visible:outline-none focus-visible:after:outline-2 focus-visible:after:outline-ring"
+                href={readerHref}
+              >
+                {material.title}
+              </IntentPrefetchLink>
+            </Heading>
+            {material.access === "free" &&
+            material.availability === "available" ? (
+              <span className="mt-1 inline-block rounded-md bg-background px-1.5 py-0.5 text-[0.625rem] font-semibold leading-4 text-action">
+                Бесплатно
+              </span>
+            ) : null}
+          </div>
+        </div>
+        <span className="flex min-w-5 flex-col items-end justify-center @min-[30rem]/series-entry:min-w-20 gap-1 text-xs text-muted-foreground">
+          {duration === undefined ? null : (
+            <span className="tabular-nums" data-series-duration>
+              {duration}
+            </span>
+          )}
+          {pending ? (
+            <span
+              aria-hidden="true"
+              className="size-4 animate-pulse rounded-full bg-placeholder/40 motion-reduce:animate-none"
+              data-series-access-pending
+            />
+          ) : locked ? (
+            <>
+              <LockKeyhole aria-hidden="true" className="size-4" />
+              <span className="sr-only">Нужен доступ</span>
+            </>
+          ) : unavailable ? (
+            <span className="sr-only">Доступ временно не определён</span>
+          ) : (
+            readingStatus
+          )}
+          <SeriesContinuationSlot slug={material.slug} />
+        </span>
       </div>
-      <span className="flex min-w-5 flex-col items-end justify-center @min-[30rem]/series-entry:min-w-20 gap-1 text-xs text-muted-foreground">
-        {duration === undefined ? null : <span className="tabular-nums" data-series-duration>{duration}</span>}
-        {pending ? <span aria-hidden="true" className="size-4 animate-pulse rounded-full bg-placeholder/40 motion-reduce:animate-none" data-series-access-pending /> : locked ? <><LockKeyhole aria-hidden="true" className="size-4" /><span className="sr-only">Нужен доступ</span></> : unavailable ? <span className="sr-only">Доступ временно не определён</span> : readingStatus}
-        <SeriesContinuationSlot slug={material.slug} />
-      </span>
-    </div>
-  </SeriesRowArticle>;
+    </SeriesRowArticle>
+  );
 }
 
 function AccessCover({

@@ -136,5 +136,7 @@ export interface MaterialAssets {
       },
     ) => Promise<boolean>;
     readonly now?: Date;
-  }): Promise<MaterialAssetQueryResult<Readonly<{ cleaned: number; retained: number }>>>;
+  }): Promise<
+    MaterialAssetQueryResult<Readonly<{ cleaned: number; retained: number }>>
+  >;
 }

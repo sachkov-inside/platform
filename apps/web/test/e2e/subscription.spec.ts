@@ -28,14 +28,18 @@ async function stubBilling(page: Page, billing: unknown, status = 200) {
   );
 }
 
-test("витрина отвечает и объясняет недоступность каталога", async ({ page }) => {
+test("витрина отвечает и объясняет недоступность каталога", async ({
+  page,
+}) => {
   const response = await page.goto("/subscription");
 
   expect(response?.status()).toBe(200);
   await expect(page.getByRole("heading", { level: 1 })).toHaveText(
     "Подписка Sachkov Inside",
   );
-  await expect(page.getByRole("status")).toContainText("Тарифы сейчас недоступны");
+  await expect(page.getByRole("status")).toContainText(
+    "Тарифы сейчас недоступны",
+  );
 });
 
 test("витрина сохраняет исходную страницу продукта", async ({ page }) => {
@@ -78,7 +82,9 @@ test("возврат из банка не выдаётся за подтверж
   ).toBeVisible();
 });
 
-test("раздел подписки просит войти без действующей сессии", async ({ page }) => {
+test("раздел подписки просит войти без действующей сессии", async ({
+  page,
+}) => {
   await stubBilling(page, { ok: false, code: "unauthorized" }, 401);
   const response = await page.goto("/account/subscription");
 

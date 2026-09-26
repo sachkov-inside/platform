@@ -62,7 +62,9 @@ export async function loadGuideOffers(
   | { readonly kind: "ready"; readonly offers: readonly PriceSnapshot[] }
   | { readonly kind: "unavailable" }
 > {
-  const result = await loadBillingOffers({ capability: guideCapability(guideId) });
+  const result = await loadBillingOffers({
+    capability: guideCapability(guideId),
+  });
   return result.kind === "unavailable"
     ? result
     : { kind: "ready", offers: guidePurchaseOffers(result.offers, guideId) };

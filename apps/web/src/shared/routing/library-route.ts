@@ -27,9 +27,7 @@ export function parseLibraryRouteSearch(
   };
 }
 
-export function serializeLibraryRouteSearch(
-  state: LibraryRouteState,
-): string {
+export function serializeLibraryRouteSearch(state: LibraryRouteState): string {
   const search = new URLSearchParams();
   if (state.q.length > 0) search.set("q", state.q);
   const topicSlug = normalizeLibraryTopic(state.topicSlug ?? undefined);

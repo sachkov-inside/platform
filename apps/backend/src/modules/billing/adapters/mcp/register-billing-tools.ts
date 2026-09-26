@@ -1,6 +1,9 @@
 import type { CallToolResult, McpServer } from "@modelcontextprotocol/server";
 import { z } from "zod";
-import { isOwnerReadOperation, ownerOperationSchema } from "../../domain/owner-operations.js";
+import {
+  isOwnerReadOperation,
+  ownerOperationSchema,
+} from "../../domain/owner-operations.js";
 import type { BillingOperations } from "../../facets/billing-operations/billing-operations.js";
 
 export type BillingOwnerTools = Pick<BillingOperations, "execute">;
@@ -11,27 +14,51 @@ const nonDestructiveWrites = ["grants.previewBatch"];
  * Владельческие billing-инструменты MCP. Каждый инструмент — та же операция, что и в admin
  * endpoint, с теми же полномочиями, идемпотентностью и проверкой revision.
  */
-export function registerBillingTools(server: McpServer, dependencies: {
-  readonly accountId: string;
-  readonly billing: BillingOwnerTools;
-}): void {
+export function registerBillingTools(
+  server: McpServer,
+  dependencies: {
+    readonly accountId: string;
+    readonly billing: BillingOwnerTools;
+  },
+): void {
   for (const option of ownerOperationSchema.options) {
     const operation = option.shape.operation.value;
     // Инструмент называет операцию собой: сам дискриминатор не входит в аргументы модели.
     const inputSchema = withoutOperation(option.shape);
-    server.registerTool(`billing_${operation.replaceAll(".", "_")}`, {
-      title: operation,
-      description: description(operation),
-      inputSchema,
-      annotations: { readOnlyHint: isOwnerReadOperation(operation),
-        destructiveHint: !isOwnerReadOperation(operation) && !nonDestructiveWrites.includes(operation),
-        idempotentHint: true, openWorldHint: operation.startsWith("refunds.") || operation === "payments.reconcile" },
-    }, async input => toolResult(dependencies.billing.execute(dependencies.accountId, { ...input, operation })));
+    server.registerTool(
+      `billing_${operation.replaceAll(".", "_")}`,
+      {
+        title: operation,
+        description: description(operation),
+        inputSchema,
+        annotations: {
+          readOnlyHint: isOwnerReadOperation(operation),
+          destructiveHint:
+            !isOwnerReadOperation(operation) &&
+            !nonDestructiveWrites.includes(operation),
+          idempotentHint: true,
+          openWorldHint:
+            operation.startsWith("refunds.") ||
+            operation === "payments.reconcile",
+        },
+      },
+      async (input) =>
+        toolResult(
+          dependencies.billing.execute(dependencies.accountId, {
+            ...input,
+            operation,
+          }),
+        ),
+    );
   }
 }
 
 function withoutOperation(shape: z.ZodRawShape): z.ZodObject<z.ZodRawShape> {
-  return z.strictObject(Object.fromEntries(Object.entries(shape).filter(([key]) => key !== "operation")));
+  return z.strictObject(
+    Object.fromEntries(
+      Object.entries(shape).filter(([key]) => key !== "operation"),
+    ),
+  );
 }
 
 function description(operation: string): string {
@@ -44,7 +71,8 @@ function description(operation: string): string {
       return "Read refund decisions, their bank attempts and the remaining refundable amount for one payment. Sends nothing.";
     case "payments.reconcile":
       return "Re-read one payment from the bank and apply its verified result. Never starts a new payment or charge.";
-    case "payments.list": case "payments.read":
+    case "payments.list":
+    case "payments.read":
       return "Read stored payments, their bank state, paid conditions, access readiness and owner audit. Sends nothing; card bindings and receipt contacts are not exposed.";
     case "subscriptions.cancel":
       return "Stop future charges for one Account's subscription with expectedRevision. The paid term is preserved and an already sent charge is reconciled separately.";
@@ -67,7 +95,13 @@ function description(operation: string): string {
   }
 }
 
-async function toolResult(pending: Promise<{ readonly ok: boolean }>): Promise<CallToolResult> {
+async function toolResult(
+  pending: Promise<{ readonly ok: boolean }>,
+): Promise<CallToolResult> {
   const result = await pending;
-  return { content: [{ type: "text", text: JSON.stringify(result) }], structuredContent: result, ...(!result.ok ? { isError: true } : {}) };
+  return {
+    content: [{ type: "text", text: JSON.stringify(result) }],
+    structuredContent: result,
+    ...(!result.ok ? { isError: true } : {}),
+  };
 }

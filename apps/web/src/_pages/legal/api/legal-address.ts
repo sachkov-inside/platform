@@ -19,7 +19,9 @@ export function legalEditionParams(): {
 /** Документ и каждая его редакция: адреса, которые раздел собирает и на которые отвечает. */
 const legalPagePaths: ReadonlySet<string> = new Set([
   ...legalDocumentKeys.map((key) => legalDocumentPath(key)),
-  ...legalEditions.map((edition) => legalEditionPath(edition.key, edition.version)),
+  ...legalEditions.map((edition) =>
+    legalEditionPath(edition.key, edition.version),
+  ),
 ]);
 
 /** Опубликован ли адрес страницы раздела; `proxy` спрашивает это до начала ответа (ADR 0027). */

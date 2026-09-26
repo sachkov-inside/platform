@@ -50,7 +50,8 @@ export function isRetryablePostgresError(error: unknown): boolean {
     signals.codes.some(
       (candidate) =>
         retryableConnectionCodes.has(candidate) || candidate.startsWith("08"),
-    ) || signals.messages.some((message) => retryableClientMessages.has(message))
+    ) ||
+    signals.messages.some((message) => retryableClientMessages.has(message))
   );
 }
 

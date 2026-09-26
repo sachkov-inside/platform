@@ -54,9 +54,9 @@ describe("состав доступа", () => {
       "Все опубликованные материалы и продукты",
     );
     expect(capabilityLabel("support")).toBe("Вопросы автору и эфиры");
-    expect(
-      capabilityLabel("guide:00000000-0000-4000-8000-000000000f01"),
-    ).toBe("Отдельный продукт");
+    expect(capabilityLabel("guide:00000000-0000-4000-8000-000000000f01")).toBe(
+      "Отдельный продукт",
+    );
   });
 
   it("наследует период подписки, а явный null не называет срок", () => {
@@ -79,7 +79,10 @@ describe("состав доступа", () => {
 
   it("называет общий чат, который открывает сам купленный продукт", () => {
     expect(
-      benefitLines(guideWithSupportOffer).map((line) => [line.label, line.term]),
+      benefitLines(guideWithSupportOffer).map((line) => [
+        line.label,
+        line.term,
+      ]),
     ).toEqual([
       ["Отдельный продукт", null],
       ["Вопросы автору и эфиры", "3 месяца"],
@@ -107,7 +110,10 @@ describe("состав доступа", () => {
         { capability: "community" as const, months: 3 },
       ],
     };
-    expect(accessComposition(offer.benefits)).toEqual([guideBenefit, "community"]);
+    expect(accessComposition(offer.benefits)).toEqual([
+      guideBenefit,
+      "community",
+    ]);
     // Сервер объединяет основания в пользу самого долгого срока; состав называет тот же срок.
     expect(
       benefitLines({
@@ -176,7 +182,10 @@ describe("что можно продать публично", () => {
   it("не выводит снятые с продажи позиции", () => {
     expect(
       publicSubscriptionOffers([
-        { ...materialsOffer, offer: { ...materialsOffer.offer, archived: true } },
+        {
+          ...materialsOffer,
+          offer: { ...materialsOffer.offer, archived: true },
+        },
         {
           ...supportOffer,
           paymentOption: { ...supportOffer.paymentOption, archived: true },

@@ -1,4 +1,8 @@
-import { defaultGuideMode, guideModeSchema, isGuideMode } from "@inside/material-blocks";
+import {
+  defaultGuideMode,
+  guideModeSchema,
+  isGuideMode,
+} from "@inside/material-blocks";
 import type { GuideMode } from "@inside/material-blocks";
 import { z } from "zod";
 
@@ -28,7 +32,8 @@ export async function getReaderGuideMode(
   query: { readonly accountId: string },
 ): Promise<GetReaderGuideModeResult> {
   const accountId = z.uuid().safeParse(query.accountId);
-  if (!accountId.success) return { ok: false, error: { code: "invalid_request" } };
+  if (!accountId.success)
+    return { ok: false, error: { code: "invalid_request" } };
   try {
     const row = await prisma.readerPreferences.findUnique({
       where: { accountId: accountId.data.toLowerCase() },
@@ -39,6 +44,10 @@ export async function getReaderGuideMode(
       value: { guideMode: isGuideMode(stored) ? stored : defaultGuideMode },
     };
   } catch (error) {
-    return dependencyFailure({ module: "reading-activity", operation: "getReaderGuideMode" }, error, { ok: false, error: { code: "dependency_unavailable" } });
+    return dependencyFailure(
+      { module: "reading-activity", operation: "getReaderGuideMode" },
+      error,
+      { ok: false, error: { code: "dependency_unavailable" } },
+    );
   }
 }

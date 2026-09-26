@@ -31,7 +31,11 @@ export async function proxyMaterialAssetUpload(
     accessToken = await getPlatformAccessToken(logtoConfig);
   } catch (error) {
     return error instanceof LogtoSessionUnavailableError
-      ? backendProxyProblem(401, "authentication_required", "Authentication required")
+      ? backendProxyProblem(
+          401,
+          "authentication_required",
+          "Authentication required",
+        )
       : backendProxyProblem(
           503,
           "identity_unavailable",
@@ -40,11 +44,22 @@ export async function proxyMaterialAssetUpload(
   }
   const idempotencyKey = request.headers.get("idempotency-key");
   if (idempotencyKey === null) {
-    return backendProxyProblem(400, "invalid_upload", "Idempotency key is required");
+    return backendProxyProblem(
+      400,
+      "invalid_upload",
+      "Idempotency key is required",
+    );
   }
   const contentType = request.headers.get("content-type");
-  if (request.body === null || contentType?.toLowerCase().startsWith("multipart/form-data;") !== true) {
-    return backendProxyProblem(400, "invalid_upload", "Upload form is malformed");
+  if (
+    request.body === null ||
+    contentType?.toLowerCase().startsWith("multipart/form-data;") !== true
+  ) {
+    return backendProxyProblem(
+      400,
+      "invalid_upload",
+      "Upload form is malformed",
+    );
   }
   try {
     const response = await requestMaterialAssetUpload({
@@ -92,7 +107,9 @@ export async function proxyMaterialAssetDelivery(
       materialId: input.materialId,
       preview: preview === "true",
       signal: request.signal,
-      ...(input.variantWidth === undefined ? {} : { variantWidth: input.variantWidth }),
+      ...(input.variantWidth === undefined
+        ? {}
+        : { variantWidth: input.variantWidth }),
     });
     return copyBackendResponse(response);
   } catch {

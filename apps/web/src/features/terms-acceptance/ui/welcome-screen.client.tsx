@@ -19,11 +19,14 @@ export interface WelcomeScreenProps {
   readonly onAccepted?: (returnTo: string) => void;
 }
 
-const messages: Readonly<Record<Exclude<AcceptTermsResult["kind"], "accepted">, string>> = {
+const messages: Readonly<
+  Record<Exclude<AcceptTermsResult["kind"], "accepted">, string>
+> = {
   document_changed:
     "Условия только что обновились. Прочитайте действующую редакцию и нажмите кнопку снова.",
   unauthorized: "Сессия завершилась. Войдите снова.",
-  unavailable: "Не получилось принять условия. Повторите — повторное нажатие безопасно.",
+  unavailable:
+    "Не получилось принять условия. Повторите — повторное нажатие безопасно.",
 };
 
 export function WelcomeScreen({
@@ -57,9 +60,17 @@ export function WelcomeScreen({
   const outcome = mutation.data;
   return (
     <WelcomeView
-      error={outcome === undefined || outcome.kind === "accepted" ? undefined : messages[outcome.kind]}
+      error={
+        outcome === undefined || outcome.kind === "accepted"
+          ? undefined
+          : messages[outcome.kind]
+      }
       onAccept={() => {
-        mutation.mutate({ operationId, version: document.version, digest: document.digest });
+        mutation.mutate({
+          operationId,
+          version: document.version,
+          digest: document.digest,
+        });
       }}
       pending={mutation.isPending || outcome?.kind === "accepted"}
       privacyHref={privacyHref}

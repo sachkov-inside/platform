@@ -2,17 +2,33 @@ import { assembleLegacyCohortFixture } from "./setup/legacy-cohort.js";
 import { randomUUID } from "node:crypto";
 import { Pool } from "pg";
 import { afterAll, beforeAll, describe, expect, test, vi } from "vitest";
-import { createPrismaClient, lockReadingPair, type PlatformPrisma } from "../../src/infrastructure/prisma/index.js";
+import {
+  createPrismaClient,
+  lockReadingPair,
+  type PlatformPrisma,
+} from "../../src/infrastructure/prisma/index.js";
 import { accountId as checkedAccountId } from "../../src/modules/accounts/index.js";
-import { assembleMaterials, assembleMaterialResourceFacts, materialId, PublishedMaterialSelection, PublishedSeriesComposition } from "../../src/modules/materials/index.js";
+import {
+  assembleMaterials,
+  assembleMaterialResourceFacts,
+  materialId,
+  PublishedMaterialSelection,
+  PublishedSeriesComposition,
+} from "../../src/modules/materials/index.js";
 import { assembleMembershipEntitlements } from "../../src/modules/membership-entitlements/index.js";
 import { assembleContentAccess } from "../../src/modules/content-access/index.js";
 
 import { assembleWorkshopEntitlements } from "../../src/modules/workshop/index.js";
-import { PersonalHome, ReadingActivity } from "../../src/modules/reading-activity/index.js";
+import {
+  PersonalHome,
+  ReadingActivity,
+} from "../../src/modules/reading-activity/index.js";
 import { representativeDocument } from "../fixtures/material-body/representative.js";
 import { withExhaustedPool } from "./setup/exhausted-pool.js";
-import { createMigratedTestDatabase, type TestDatabase } from "./setup/test-database.js";
+import {
+  createMigratedTestDatabase,
+  type TestDatabase,
+} from "./setup/test-database.js";
 
 const actor = randomUUID();
 const accountId = randomUUID();
@@ -31,48 +47,85 @@ describe("ReadingActivity on PostgreSQL", () => {
   beforeAll(async () => {
     database = await createMigratedTestDatabase();
     second = createPrismaClient(database.url);
-    await database.prisma.topic.create({ data: { id: topicId, name: "Reading", slug: "reading" } });
+    await database.prisma.topic.create({
+      data: { id: topicId, name: "Reading", slug: "reading" },
+    });
 
-    materials = assembleMaterials({ prisma: database.prisma, authorPolicy: { canManage: (id) => id === actor } });
+    materials = assembleMaterials({
+      prisma: database.prisma,
+      authorPolicy: { canManage: (id) => id === actor },
+    });
     membership = assembleLegacyCohortFixture({
       prisma: database.prisma,
       clock: () => membershipNow ?? new Date(),
-      workshopEntitlements: assembleWorkshopEntitlements({ prisma: database.prisma }),
+      workshopEntitlements: assembleWorkshopEntitlements({
+        prisma: database.prisma,
+      }),
     });
     composition = new PublishedSeriesComposition(database.prisma);
     reading = assembleReading(database.prisma);
   });
-  afterAll(async () => { await second.$disconnect(); await database.dispose(); });
+  afterAll(async () => {
+    await second.$disconnect();
+    await database.dispose();
+  });
 
   function assembleReading(prisma: PlatformPrisma) {
     return new ReadingActivity({
       prisma,
       materialContent: materials.materialContent,
       contentAccess: assembleContentAccess({
-        materialResourceFacts: assembleMaterialResourceFacts(materials.materialContent),
-        accountPermissions: { hasMaterialsManage: () => Promise.resolve(false) },
+        materialResourceFacts: assembleMaterialResourceFacts(
+          materials.materialContent,
+        ),
+        accountPermissions: {
+          hasMaterialsManage: () => Promise.resolve(false),
+        },
         membershipEntitlements: membership,
         clock: () => membershipNow ?? new Date(),
       }),
       composition,
     });
   }
-  async function material(seriesIds: string[] = [], access: "free" | "membership" = "free") {
+  async function material(
+    seriesIds: string[] = [],
+    access: "free" | "membership" = "free",
+  ) {
     const created = await materials.authoring.createDraft({
-      actor, idempotencyKey: randomUUID(),
-      metadata: { title: `Material ${randomUUID()}`, summary: "Reading test", topicId, formatId, access, tagIds: [], difficulty: null, outcomes: [], seriesIds },
+      actor,
+      idempotencyKey: randomUUID(),
+      metadata: {
+        title: `Material ${randomUUID()}`,
+        summary: "Reading test",
+        topicId,
+        formatId,
+        access,
+        tagIds: [],
+        difficulty: null,
+        outcomes: [],
+        seriesIds,
+      },
       body: representativeDocument("Read me."),
     });
     if (!created.ok) throw new Error(created.error.code);
     const published = await materials.authoring.transitionPublication({
-      actor, idempotencyKey: randomUUID(), materialId: created.value.materialId,
-      expectedContentVersion: created.value.contentVersion, publicationState: "published",
+      actor,
+      idempotencyKey: randomUUID(),
+      materialId: created.value.materialId,
+      expectedContentVersion: created.value.contentVersion,
+      publicationState: "published",
     });
     if (!published.ok) throw new Error(published.error.code);
     return published.value.materialId;
   }
   function command(materialId: string, isRead = true, expectedVersion = 0) {
-    return { accountId, materialId, isRead, expectedVersion, commandId: randomUUID() };
+    return {
+      accountId,
+      materialId,
+      isRead,
+      expectedVersion,
+      commandId: randomUUID(),
+    };
   }
   async function counts(materialId: string) {
     return Promise.all([
@@ -80,17 +133,29 @@ describe("ReadingActivity on PostgreSQL", () => {
       database.prisma.readingEvent.count({ where: { materialId } }),
     ]);
   }
-  async function transition(materialId: string, publicationState: "published" | "unpublished") {
-    const loaded = await materials.authoring.loadMaterial({ actor, materialId });
+  async function transition(
+    materialId: string,
+    publicationState: "published" | "unpublished",
+  ) {
+    const loaded = await materials.authoring.loadMaterial({
+      actor,
+      materialId,
+    });
     if (!loaded.ok) throw new Error(loaded.error.code);
     const changed = await materials.authoring.transitionPublication({
-      actor, materialId, publicationState, expectedContentVersion: loaded.value.contentVersion, idempotencyKey: randomUUID(),
+      actor,
+      materialId,
+      publicationState,
+      expectedContentVersion: loaded.value.contentVersion,
+      idempotencyKey: randomUUID(),
     });
     if (!changed.ok) throw new Error(changed.error.code);
   }
   async function series() {
     const id = randomUUID();
-    await database.prisma.guide.create({ data: { id, slug: `series-${id}`, name: "Reading series" } });
+    await database.prisma.guide.create({
+      data: { id, slug: `series-${id}`, name: "Reading series" },
+    });
     return id;
   }
 
@@ -98,45 +163,87 @@ describe("ReadingActivity on PostgreSQL", () => {
     const id = await material();
     const mark = command(id);
     const first = await reading.setReadingState(mark);
-    expect(first).toMatchObject({ ok: true, value: { changed: true, replayed: false, state: { isRead: true, version: 1 } } });
+    expect(first).toMatchObject({
+      ok: true,
+      value: {
+        changed: true,
+        replayed: false,
+        state: { isRead: true, version: 1 },
+      },
+    });
     const noOp = await reading.setReadingState(command(id, true, 1));
     if (!first.ok || !noOp.ok) throw new Error("Expected success");
     expect(noOp.value.state).toEqual(first.value.state);
     expect(noOp.value.changed).toBe(false);
-    expect(await reading.setReadingState(command(id))).toMatchObject({ ok: false, error: { code: "stale_version", current: { version: 1 } } });
+    expect(await reading.setReadingState(command(id))).toMatchObject({
+      ok: false,
+      error: { code: "stale_version", current: { version: 1 } },
+    });
     expect(await counts(id)).toEqual([1, 1]);
-    expect(await reading.setReadingState(command(id, false, 1))).toMatchObject({ ok: true, value: { state: { isRead: false, readAt: null, version: 2 } } });
-    expect(await reading.setReadingState(mark)).toEqual({ ok: true, value: { ...first.value, replayed: true } });
-    expect(await reading.getReadingStates({ accountId, materialIds: [id] })).toMatchObject({ ok: true, value: [{ isRead: false, version: 2 }] });
-    expect(await reading.setReadingState({ ...mark, isRead: false })).toEqual({ ok: false, error: { code: "command_conflict" } });
+    expect(await reading.setReadingState(command(id, false, 1))).toMatchObject({
+      ok: true,
+      value: { state: { isRead: false, readAt: null, version: 2 } },
+    });
+    expect(await reading.setReadingState(mark)).toEqual({
+      ok: true,
+      value: { ...first.value, replayed: true },
+    });
+    expect(
+      await reading.getReadingStates({ accountId, materialIds: [id] }),
+    ).toMatchObject({ ok: true, value: [{ isRead: false, version: 2 }] });
+    expect(await reading.setReadingState({ ...mark, isRead: false })).toEqual({
+      ok: false,
+      error: { code: "command_conflict" },
+    });
     expect(await counts(id)).toEqual([1, 2]);
   });
 
   test("absent false state stays sparse, including durable no-op replay", async () => {
     const id = randomUUID();
     const noOp = command(id, false);
-    expect(await reading.setReadingState(noOp)).toMatchObject({ ok: true, value: { changed: false, state: { version: 0, updatedAt: null } } });
-    expect(await reading.setReadingState(noOp)).toMatchObject({ ok: true, value: { replayed: true } });
+    expect(await reading.setReadingState(noOp)).toMatchObject({
+      ok: true,
+      value: { changed: false, state: { version: 0, updatedAt: null } },
+    });
+    expect(await reading.setReadingState(noOp)).toMatchObject({
+      ok: true,
+      value: { replayed: true },
+    });
     expect(await counts(id)).toEqual([0, 0]);
   });
 
   test("two clients serialize first writes, identical commands and reused command IDs across materials", async () => {
     const other = assembleReading(second);
     const id = await material();
-    const results = await Promise.all([reading.setReadingState(command(id)), other.setReadingState(command(id))]);
+    const results = await Promise.all([
+      reading.setReadingState(command(id)),
+      other.setReadingState(command(id)),
+    ]);
     expect(results.filter((result) => result.ok)).toHaveLength(1);
-    expect(results.find((result) => !result.ok)).toMatchObject({ ok: false, error: { code: "stale_version" } });
+    expect(results.find((result) => !result.ok)).toMatchObject({
+      ok: false,
+      error: { code: "stale_version" },
+    });
     expect(await counts(id)).toEqual([1, 1]);
     const shared = command(await material());
-    const retries = await Promise.all([reading.setReadingState(shared), other.setReadingState(shared)]);
-    expect(retries.map((result) => result.ok && result.value.replayed).sort()).toEqual([false, true]);
+    const retries = await Promise.all([
+      reading.setReadingState(shared),
+      other.setReadingState(shared),
+    ]);
+    expect(
+      retries.map((result) => result.ok && result.value.replayed).sort(),
+    ).toEqual([false, true]);
     expect(await counts(shared.materialId)).toEqual([1, 1]);
     const reused = command(await material());
     const mismatches = await Promise.all([
-      reading.setReadingState(reused), other.setReadingState({ ...reused, materialId: await material() }),
+      reading.setReadingState(reused),
+      other.setReadingState({ ...reused, materialId: await material() }),
     ]);
     expect(mismatches.filter((result) => result.ok)).toHaveLength(1);
-    expect(mismatches).toContainEqual({ ok: false, error: { code: "command_conflict" } });
+    expect(mismatches).toContainEqual({
+      ok: false,
+      error: { code: "command_conflict" },
+    });
   });
 
   test("an event failure and a receipt failure roll back state, history and command together", async () => {
@@ -145,16 +252,34 @@ describe("ReadingActivity on PostgreSQL", () => {
       for (const table of ["events", "commands"] as const) {
         const id = await material();
         const request = command(id);
-        await admin.query(`CREATE FUNCTION reading_activity.reject_write() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN RAISE EXCEPTION 'injected write failure'; END $$`);
-        await admin.query(`CREATE TRIGGER reject_write BEFORE INSERT ON reading_activity.${table} FOR EACH ROW EXECUTE FUNCTION reading_activity.reject_write()`);
-        expect(await reading.setReadingState(request)).toEqual({ ok: false, error: { code: "dependency_unavailable" } });
+        await admin.query(
+          `CREATE FUNCTION reading_activity.reject_write() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN RAISE EXCEPTION 'injected write failure'; END $$`,
+        );
+        await admin.query(
+          `CREATE TRIGGER reject_write BEFORE INSERT ON reading_activity.${table} FOR EACH ROW EXECUTE FUNCTION reading_activity.reject_write()`,
+        );
+        expect(await reading.setReadingState(request)).toEqual({
+          ok: false,
+          error: { code: "dependency_unavailable" },
+        });
         expect(await counts(id)).toEqual([0, 0]);
-        expect(await database.prisma.readingCommand.count({ where: { commandId: request.commandId } })).toBe(0);
-        await admin.query(`DROP TRIGGER reject_write ON reading_activity.${table}`);
+        expect(
+          await database.prisma.readingCommand.count({
+            where: { commandId: request.commandId },
+          }),
+        ).toBe(0);
+        await admin.query(
+          `DROP TRIGGER reject_write ON reading_activity.${table}`,
+        );
         await admin.query("DROP FUNCTION reading_activity.reject_write()");
-        expect(await reading.setReadingState(request)).toMatchObject({ ok: true, value: { state: { version: 1 } } });
+        expect(await reading.setReadingState(request)).toMatchObject({
+          ok: true,
+          value: { state: { version: 1 } },
+        });
       }
-    } finally { await admin.end(); }
+    } finally {
+      await admin.end();
+    }
   });
 
   test("free non-member and revoked member retain private marks; protected marks still require current access", async () => {
@@ -162,24 +287,70 @@ describe("ReadingActivity on PostgreSQL", () => {
     // Закрытый материал публикуется только внутри продукта; доступ здесь даёт явный состав моста.
     const protectedId = await material([await series()], "membership");
     const memberId = checkedAccountId(randomUUID());
-    expect(await reading.setReadingState(command(free))).toMatchObject({ ok: true });
-    expect(await reading.setReadingState(command(protectedId))).toEqual({ ok: false, error: { code: "access_denied" } });
-    for (const [version, decision] of [[1, "member"], [2, "not_member"]] as const) {
-      const accepted = await membership.acceptEvidence({ accountId: memberId, deliveryId: randomUUID(), source: version === 1 ? "link_time" : "member_status_event", evidence: {
-        contractVersion: "inside.membership-evidence.v1", principalRef: `principal-${memberId}`, decision,
-        reasonCode: decision === "member" ? "chat_member" : "chat_not_member", checkedAt: new Date().toISOString(),
-        validUntil: new Date(Date.now() + 240_000).toISOString(), telegramIdentityRef: `telegram-${memberId}`,
-        evidenceRef: randomUUID(), evidenceVersion: version,
-      } });
+    expect(await reading.setReadingState(command(free))).toMatchObject({
+      ok: true,
+    });
+    expect(await reading.setReadingState(command(protectedId))).toEqual({
+      ok: false,
+      error: { code: "access_denied" },
+    });
+    for (const [version, decision] of [
+      [1, "member"],
+      [2, "not_member"],
+    ] as const) {
+      const accepted = await membership.acceptEvidence({
+        accountId: memberId,
+        deliveryId: randomUUID(),
+        source: version === 1 ? "link_time" : "member_status_event",
+        evidence: {
+          contractVersion: "inside.membership-evidence.v1",
+          principalRef: `principal-${memberId}`,
+          decision,
+          reasonCode: decision === "member" ? "chat_member" : "chat_not_member",
+          checkedAt: new Date().toISOString(),
+          validUntil: new Date(Date.now() + 240_000).toISOString(),
+          telegramIdentityRef: `telegram-${memberId}`,
+          evidenceRef: randomUUID(),
+          evidenceVersion: version,
+        },
+      });
       expect(accepted).toMatchObject({ ok: true });
-      await database.prisma.legacyClassification.update({ where: { accountId: memberId }, data: { bridgeContentScope: { guideIds: [], materialIds: [protectedId] } } });
-      if (version === 1) expect(await reading.setReadingState({ ...command(protectedId), accountId: memberId })).toMatchObject({ ok: true });
+      await database.prisma.legacyClassification.update({
+        where: { accountId: memberId },
+        data: {
+          bridgeContentScope: { guideIds: [], materialIds: [protectedId] },
+        },
+      });
+      if (version === 1)
+        expect(
+          await reading.setReadingState({
+            ...command(protectedId),
+            accountId: memberId,
+          }),
+        ).toMatchObject({ ok: true });
     }
-    expect(await reading.getReadingStates({ accountId: memberId, materialIds: [protectedId] })).toMatchObject({ ok: true, value: [{ isRead: true }] });
-    expect(await reading.setReadingState({ ...command(protectedId, true, 1), accountId: memberId })).toMatchObject({ ok: false, error: { code: "access_denied" } });
+    expect(
+      await reading.getReadingStates({
+        accountId: memberId,
+        materialIds: [protectedId],
+      }),
+    ).toMatchObject({ ok: true, value: [{ isRead: true }] });
+    expect(
+      await reading.setReadingState({
+        ...command(protectedId, true, 1),
+        accountId: memberId,
+      }),
+    ).toMatchObject({ ok: false, error: { code: "access_denied" } });
     await transition(protectedId, "unpublished");
-    expect(await reading.setReadingState({ ...command(protectedId, false, 1), accountId: memberId })).toMatchObject({ ok: true, value: { state: { isRead: false } } });
-    expect(await reading.getReadingStates({ accountId, materialIds: [protectedId] })).toMatchObject({ ok: true, value: [{ version: 0 }] });
+    expect(
+      await reading.setReadingState({
+        ...command(protectedId, false, 1),
+        accountId: memberId,
+      }),
+    ).toMatchObject({ ok: true, value: { state: { isRead: false } } });
+    expect(
+      await reading.getReadingStates({ accountId, materialIds: [protectedId] }),
+    ).toMatchObject({ ok: true, value: [{ version: 0 }] });
   });
 
   test("positive Membership evidence expires by time without deleting previous marks", async () => {
@@ -187,19 +358,56 @@ describe("ReadingActivity on PostgreSQL", () => {
     const id = await material([await series()], "membership");
     const checkedAt = new Date();
     const validUntil = new Date(checkedAt.getTime() + 240_000);
-    const accepted = await membership.acceptEvidence({ accountId: memberId, deliveryId: randomUUID(), source: "link_time", evidence: {
-      contractVersion: "inside.membership-evidence.v1", principalRef: `principal-${memberId}`, decision: "member", reasonCode: "chat_member",
-      checkedAt: checkedAt.toISOString(), validUntil: validUntil.toISOString(), telegramIdentityRef: `telegram-${memberId}`, evidenceRef: randomUUID(), evidenceVersion: 1,
-    } });
+    const accepted = await membership.acceptEvidence({
+      accountId: memberId,
+      deliveryId: randomUUID(),
+      source: "link_time",
+      evidence: {
+        contractVersion: "inside.membership-evidence.v1",
+        principalRef: `principal-${memberId}`,
+        decision: "member",
+        reasonCode: "chat_member",
+        checkedAt: checkedAt.toISOString(),
+        validUntil: validUntil.toISOString(),
+        telegramIdentityRef: `telegram-${memberId}`,
+        evidenceRef: randomUUID(),
+        evidenceVersion: 1,
+      },
+    });
     expect(accepted).toMatchObject({ ok: true });
-    await database.prisma.legacyClassification.update({ where: { accountId: memberId }, data: { bridgeContentScope: { guideIds: [], materialIds: [id] } } });
-    expect(await reading.setReadingState({ ...command(id), accountId: memberId })).toMatchObject({ ok: true });
+    await database.prisma.legacyClassification.update({
+      where: { accountId: memberId },
+      data: { bridgeContentScope: { guideIds: [], materialIds: [id] } },
+    });
+    expect(
+      await reading.setReadingState({ ...command(id), accountId: memberId }),
+    ).toMatchObject({ ok: true });
     try {
       membershipNow = new Date(validUntil.getTime() + 1);
-      expect(await reading.setReadingState({ ...command(id, true, 1), accountId: memberId })).toEqual({ ok: false, error: { code: "access_denied" } });
-      expect(await reading.getReadingStates({ accountId: memberId, materialIds: [id] })).toMatchObject({ ok: true, value: [{ isRead: true, version: 1 }] });
-      expect(await reading.setReadingState({ ...command(id, false, 1), accountId: memberId })).toMatchObject({ ok: true, value: { state: { isRead: false, version: 2 } } });
-    } finally { membershipNow = undefined; }
+      expect(
+        await reading.setReadingState({
+          ...command(id, true, 1),
+          accountId: memberId,
+        }),
+      ).toEqual({ ok: false, error: { code: "access_denied" } });
+      expect(
+        await reading.getReadingStates({
+          accountId: memberId,
+          materialIds: [id],
+        }),
+      ).toMatchObject({ ok: true, value: [{ isRead: true, version: 1 }] });
+      expect(
+        await reading.setReadingState({
+          ...command(id, false, 1),
+          accountId: memberId,
+        }),
+      ).toMatchObject({
+        ok: true,
+        value: { state: { isRead: false, version: 2 } },
+      });
+    } finally {
+      membershipNow = undefined;
+    }
   });
 
   test("Material facts are rechecked after pair serialization and reject changed content or expired decisions without writes", async () => {
@@ -207,20 +415,41 @@ describe("ReadingActivity on PostgreSQL", () => {
     const admin = new Pool({ connectionString: database.url });
     const session = await admin.connect();
     await session.query("BEGIN");
-    await lockReadingPair({
-      async $executeRaw(query) { await session.query(query.text, query.values); return 0; },
-    }, accountId, id);
+    await lockReadingPair(
+      {
+        async $executeRaw(query) {
+          await session.query(query.text, query.values);
+          return 0;
+        },
+      },
+      accountId,
+      id,
+    );
     const access = assembleContentAccess({
-      materialResourceFacts: assembleMaterialResourceFacts(materials.materialContent),
-      accountPermissions: { hasMaterialsManage: () => Promise.resolve(false) }, membershipEntitlements: membership,
+      materialResourceFacts: assembleMaterialResourceFacts(
+        materials.materialContent,
+      ),
+      accountPermissions: { hasMaterialsManage: () => Promise.resolve(false) },
+      membershipEntitlements: membership,
     });
-    const authorize = vi.fn((input: Parameters<typeof access.authorize>[0]) => access.authorize(input));
-    const lockedReading = new ReadingActivity({ prisma: database.prisma, materialContent: materials.materialContent, contentAccess: { authorize }, composition });
+    const authorize = vi.fn((input: Parameters<typeof access.authorize>[0]) =>
+      access.authorize(input),
+    );
+    const lockedReading = new ReadingActivity({
+      prisma: database.prisma,
+      materialContent: materials.materialContent,
+      contentAccess: { authorize },
+      composition,
+    });
     const pending = lockedReading.setReadingState(command(id));
-    await expect.poll(async () => {
-      const result = await admin.query<{ waiting: boolean }>("select exists(select 1 from pg_locks where locktype = 'advisory' and not granted and database = (select oid from pg_database where datname = current_database())) as waiting");
-      return result.rows[0]?.waiting;
-    }).toBe(true);
+    await expect
+      .poll(async () => {
+        const result = await admin.query<{ waiting: boolean }>(
+          "select exists(select 1 from pg_locks where locktype = 'advisory' and not granted and database = (select oid from pg_database where datname = current_database())) as waiting",
+        );
+        return result.rows[0]?.waiting;
+      })
+      .toBe(true);
     // Access is decided before the transaction; the unpublication during the wait reaches the
     // command through the Material facts it rereads under the pair lock.
     expect(authorize).toHaveBeenCalledOnce();
@@ -228,18 +457,35 @@ describe("ReadingActivity on PostgreSQL", () => {
     await session.query("COMMIT");
     session.release();
     await admin.end();
-    expect(await pending).toEqual({ ok: false, error: { code: "access_changed" } });
+    expect(await pending).toEqual({
+      ok: false,
+      error: { code: "access_changed" },
+    });
     await transition(id, "published");
     for (const mode of ["version", "expiry"] as const) {
       const raced = new ReadingActivity({
-        prisma: database.prisma, composition, materialContent: materials.materialContent,
-        contentAccess: { authorize: () => Promise.resolve({
-          effect: "allow", reason: "active_membership", policyVersion: "content-access-v1", decisionId: randomUUID(),
-          decidedAt: new Date().toISOString(), checkedContentVersion: mode === "version" ? 1 : 4,
-          validUntil: new Date(Date.now() + (mode === "expiry" ? -1_000 : 240_000)).toISOString(),
-        }) },
+        prisma: database.prisma,
+        composition,
+        materialContent: materials.materialContent,
+        contentAccess: {
+          authorize: () =>
+            Promise.resolve({
+              effect: "allow",
+              reason: "active_membership",
+              policyVersion: "content-access-v1",
+              decisionId: randomUUID(),
+              decidedAt: new Date().toISOString(),
+              checkedContentVersion: mode === "version" ? 1 : 4,
+              validUntil: new Date(
+                Date.now() + (mode === "expiry" ? -1_000 : 240_000),
+              ).toISOString(),
+            }),
+        },
       });
-      expect(await raced.setReadingState(command(id))).toEqual({ ok: false, error: { code: "access_changed" } });
+      expect(await raced.setReadingState(command(id))).toEqual({
+        ok: false,
+        error: { code: "access_changed" },
+      });
     }
     expect(await counts(id)).toEqual([0, 0]);
   });
@@ -248,116 +494,260 @@ describe("ReadingActivity on PostgreSQL", () => {
     const seriesId = await series();
     const lesson = await material([seriesId]);
     // Imported Guides accept only imported lessons, so the source is attached after composition.
-    await database.prisma.guide.update({ where: { id: seriesId }, data: { sourceId: "inside-content:progress-guide" } });
-    const reserved = await materials.authoring.reserveSourceGuide({ actor, sourceId: "inside-content:progress-guide", name: "Progress", slug: "progress-guide", summary: "" });
+    await database.prisma.guide.update({
+      where: { id: seriesId },
+      data: { sourceId: "inside-content:progress-guide" },
+    });
+    const reserved = await materials.authoring.reserveSourceGuide({
+      actor,
+      sourceId: "inside-content:progress-guide",
+      name: "Progress",
+      slug: "progress-guide",
+      summary: "",
+    });
     if (!reserved.ok) throw new Error(reserved.error.code);
-    expect(await reading.setReadingState(command(lesson))).toMatchObject({ ok: true });
-    const moved = await materials.authoring.updateSourceGuide({ actor, sourceId: "inside-content:progress-guide", collectionId: seriesId, expectedVersion: reserved.value.version, name: reserved.value.name, summary: "", source: { slug: "progress-guide-moved", presentation: "default", page: null } });
-    expect(moved).toMatchObject({ ok: true, value: { slug: "progress-guide-moved" } });
-    expect(await reading.getSeriesProgress({ accountId, seriesId })).toMatchObject({ ok: true, value: { read: 1, total: 1, allRead: true } });
+    expect(await reading.setReadingState(command(lesson))).toMatchObject({
+      ok: true,
+    });
+    const moved = await materials.authoring.updateSourceGuide({
+      actor,
+      sourceId: "inside-content:progress-guide",
+      collectionId: seriesId,
+      expectedVersion: reserved.value.version,
+      name: reserved.value.name,
+      summary: "",
+      source: {
+        slug: "progress-guide-moved",
+        presentation: "default",
+        page: null,
+      },
+    });
+    expect(moved).toMatchObject({
+      ok: true,
+      value: { slug: "progress-guide-moved" },
+    });
+    expect(
+      await reading.getSeriesProgress({ accountId, seriesId }),
+    ).toMatchObject({ ok: true, value: { read: 1, total: 1, allRead: true } });
   });
 
   test("shared material, composition changes, publication and archive use the current Series set", async () => {
-    const a = await series(); const b = await series();
-    expect(await reading.getSeriesProgress({ accountId, seriesId: a })).toMatchObject({ ok: true, value: { read: 0, total: 0, allRead: false } });
+    const a = await series();
+    const b = await series();
+    expect(
+      await reading.getSeriesProgress({ accountId, seriesId: a }),
+    ).toMatchObject({ ok: true, value: { read: 0, total: 0, allRead: false } });
     const shared = await material([a, b]);
-    expect(await reading.setReadingState(command(shared))).toMatchObject({ ok: true });
-    for (const seriesId of [a, b]) expect(await reading.getSeriesProgress({ accountId, seriesId })).toMatchObject({ ok: true, value: { read: 1, total: 1, allRead: true } });
+    expect(await reading.setReadingState(command(shared))).toMatchObject({
+      ok: true,
+    });
+    for (const seriesId of [a, b])
+      expect(
+        await reading.getSeriesProgress({ accountId, seriesId }),
+      ).toMatchObject({
+        ok: true,
+        value: { read: 1, total: 1, allRead: true },
+      });
     const extra = await material([a], "membership");
-    expect(await reading.getSeriesProgress({ accountId, seriesId: a })).toMatchObject({ ok: true, value: { read: 1, total: 2, allRead: false } });
-    const order = await materials.authoring.loadSeriesOrder({ actor, seriesId: a });
+    expect(
+      await reading.getSeriesProgress({ accountId, seriesId: a }),
+    ).toMatchObject({ ok: true, value: { read: 1, total: 2, allRead: false } });
+    const order = await materials.authoring.loadSeriesOrder({
+      actor,
+      seriesId: a,
+    });
     if (!order.ok) throw new Error(order.error.code);
-    const reordered = await materials.authoring.reorderSeries({ actor, seriesId: a, expectedOrderVersion: order.value.orderVersion, orderedMaterialIds: [extra, shared] });
+    const reordered = await materials.authoring.reorderSeries({
+      actor,
+      seriesId: a,
+      expectedOrderVersion: order.value.orderVersion,
+      orderedMaterialIds: [extra, shared],
+    });
     expect(reordered).toMatchObject({ ok: true });
-    expect(await reading.getSeriesProgress({ accountId, seriesId: a })).toMatchObject({ ok: true, value: { read: 1, total: 2 } });
+    expect(
+      await reading.getSeriesProgress({ accountId, seriesId: a }),
+    ).toMatchObject({ ok: true, value: { read: 1, total: 2 } });
     await transition(shared, "unpublished");
-    expect(await reading.getSeriesProgress({ accountId, seriesId: b })).toMatchObject({ ok: true, value: { total: 0, allRead: false } });
+    expect(
+      await reading.getSeriesProgress({ accountId, seriesId: b }),
+    ).toMatchObject({ ok: true, value: { total: 0, allRead: false } });
     await transition(shared, "published");
-    expect(await reading.getSeriesProgress({ accountId, seriesId: b })).toMatchObject({ ok: true, value: { read: 1, total: 1 } });
-    const loaded = await materials.authoring.loadMaterial({ actor, materialId: shared });
+    expect(
+      await reading.getSeriesProgress({ accountId, seriesId: b }),
+    ).toMatchObject({ ok: true, value: { read: 1, total: 1 } });
+    const loaded = await materials.authoring.loadMaterial({
+      actor,
+      materialId: shared,
+    });
     if (!loaded.ok) throw new Error(loaded.error.code);
     const saved = await materials.authoring.saveMaterial({
-      actor, materialId: shared, idempotencyKey: randomUUID(), expectedContentVersion: loaded.value.contentVersion,
-      publicationState: "published", body: representativeDocument("Edited text does not reset marks."),
-      metadata: { title: "Edited title", summary: "Changed", access: "free", topicId, formatId, tagIds: [], difficulty: null, outcomes: [], seriesIds: [b] },
+      actor,
+      materialId: shared,
+      idempotencyKey: randomUUID(),
+      expectedContentVersion: loaded.value.contentVersion,
+      publicationState: "published",
+      body: representativeDocument("Edited text does not reset marks."),
+      metadata: {
+        title: "Edited title",
+        summary: "Changed",
+        access: "free",
+        topicId,
+        formatId,
+        tagIds: [],
+        difficulty: null,
+        outcomes: [],
+        seriesIds: [b],
+      },
     });
     expect(saved).toMatchObject({ ok: true });
-    expect(await reading.getSeriesProgress({ accountId, seriesId: a })).toMatchObject({ ok: true, value: { read: 0, total: 1 } });
-    expect(await reading.getSeriesProgress({ accountId, seriesId: b })).toMatchObject({ ok: true, value: { read: 1, total: 1 } });
-    await database.prisma.guide.update({ where: { id: b }, data: { archivedAt: new Date() } });
-    expect(await reading.getSeriesProgress({ accountId, seriesId: b })).toEqual({ ok: false, error: { code: "series_not_found" } });
-    expect(await reading.getReadingStates({ accountId, materialIds: [shared] })).toMatchObject({ ok: true, value: [{ isRead: true, version: 1 }] });
+    expect(
+      await reading.getSeriesProgress({ accountId, seriesId: a }),
+    ).toMatchObject({ ok: true, value: { read: 0, total: 1 } });
+    expect(
+      await reading.getSeriesProgress({ accountId, seriesId: b }),
+    ).toMatchObject({ ok: true, value: { read: 1, total: 1 } });
+    await database.prisma.guide.update({
+      where: { id: b },
+      data: { archivedAt: new Date() },
+    });
+    expect(await reading.getSeriesProgress({ accountId, seriesId: b })).toEqual(
+      { ok: false, error: { code: "series_not_found" } },
+    );
+    expect(
+      await reading.getReadingStates({ accountId, materialIds: [shared] }),
+    ).toMatchObject({ ok: true, value: [{ isRead: true, version: 1 }] });
   });
 
   test("Series progress includes more than one catalog page and never exposes another Account's numerator", async () => {
     const seriesId = await series();
     let last = "";
-    for (let index = 0; index < 101; index += 1) last = await material([seriesId]);
+    for (let index = 0; index < 101; index += 1)
+      last = await material([seriesId]);
     await reading.setReadingState(command(last));
-    expect(await reading.getSeriesProgress({ accountId, seriesId })).toMatchObject({ ok: true, value: { total: 101, read: 1 } });
-    expect(await reading.getSeriesProgress({ accountId: randomUUID(), seriesId })).toMatchObject({ ok: true, value: { total: 101, read: 0 } });
+    expect(
+      await reading.getSeriesProgress({ accountId, seriesId }),
+    ).toMatchObject({ ok: true, value: { total: 101, read: 1 } });
+    expect(
+      await reading.getSeriesProgress({ accountId: randomUUID(), seriesId }),
+    ).toMatchObject({ ok: true, value: { total: 101, read: 0 } });
   }, 20_000);
 
   test("database constraints reject invalid state and duplicate event versions", async () => {
     const id = await material();
     await reading.setReadingState(command(id));
-    await expect(database.prisma.readingMaterialState.update({ where: { accountId_materialId: { accountId, materialId: id } }, data: { readAt: null } })).rejects.toThrow();
-    await expect(database.prisma.readingMaterialState.update({ where: { accountId_materialId: { accountId, materialId: id } }, data: { version: 0 } })).rejects.toThrow();
-    const event = await database.prisma.readingEvent.findFirstOrThrow({ where: { materialId: id } });
-    await expect(database.prisma.readingEvent.create({ data: { ...event, eventId: randomUUID() } })).rejects.toThrow();
+    await expect(
+      database.prisma.readingMaterialState.update({
+        where: { accountId_materialId: { accountId, materialId: id } },
+        data: { readAt: null },
+      }),
+    ).rejects.toThrow();
+    await expect(
+      database.prisma.readingMaterialState.update({
+        where: { accountId_materialId: { accountId, materialId: id } },
+        data: { version: 0 },
+      }),
+    ).rejects.toThrow();
+    const event = await database.prisma.readingEvent.findFirstOrThrow({
+      where: { materialId: id },
+    });
+    await expect(
+      database.prisma.readingEvent.create({
+        data: { ...event, eventId: randomUUID() },
+      }),
+    ).rejects.toThrow();
     expect(await counts(id)).toEqual([1, 1]);
   });
 
   test("batch reads are bounded, deduplicated, sparse and isolated by Account", async () => {
     const id = await material();
     await reading.setReadingState(command(id));
-    expect(await reading.getReadingStates({ accountId, materialIds: [id, id.toUpperCase()] })).toMatchObject({ ok: true, value: [{ isRead: true }] });
-    expect(await reading.getReadingStates({ accountId: randomUUID(), materialIds: [id] })).toMatchObject({ ok: true, value: [{ isRead: false, version: 0 }] });
-    expect(await reading.getReadingStates({ accountId, materialIds: Array.from({ length: 101 }, () => id) })).toEqual({ ok: false, error: { code: "invalid_request" } });
-    expect(await reading.getReadingStates({ accountId, materialIds: [] })).toEqual({ ok: false, error: { code: "invalid_request" } });
+    expect(
+      await reading.getReadingStates({
+        accountId,
+        materialIds: [id, id.toUpperCase()],
+      }),
+    ).toMatchObject({ ok: true, value: [{ isRead: true }] });
+    expect(
+      await reading.getReadingStates({
+        accountId: randomUUID(),
+        materialIds: [id],
+      }),
+    ).toMatchObject({ ok: true, value: [{ isRead: false, version: 0 }] });
+    expect(
+      await reading.getReadingStates({
+        accountId,
+        materialIds: Array.from({ length: 101 }, () => id),
+      }),
+    ).toEqual({ ok: false, error: { code: "invalid_request" } });
+    expect(
+      await reading.getReadingStates({ accountId, materialIds: [] }),
+    ).toEqual({ ok: false, error: { code: "invalid_request" } });
   });
 
   test("records an open and a read mark while its transaction holds the whole pool", async () => {
     const id = await material();
-    const facts = await materials.materialContent.findAccessFacts(materialId(id));
-    if (!facts.ok || facts.value === null) throw new Error("Expected published Material facts");
+    const facts = await materials.materialContent.findAccessFacts(
+      materialId(id),
+    );
+    if (!facts.ok || facts.value === null)
+      throw new Error("Expected published Material facts");
     const contentVersion = facts.value.contentVersion;
 
-    const [opened, marked] = await withExhaustedPool(database, async (prisma) => {
-      const pooled = assembleMaterials({ prisma, authorPolicy: { canManage: () => false } });
-      const contentAccess = assembleContentAccess({
-        materialResourceFacts: assembleMaterialResourceFacts(pooled.materialContent),
-        accountPermissions: { hasMaterialsManage: () => Promise.resolve(false) },
-        membershipEntitlements: assembleMembershipEntitlements({
+    const [opened, marked] = await withExhaustedPool(
+      database,
+      async (prisma) => {
+        const pooled = assembleMaterials({
           prisma,
-          workshopEntitlements: assembleWorkshopEntitlements({ prisma }),
-        }),
-      });
-      const home = new PersonalHome({
-        prisma,
-        contentAccess,
-        materialContent: pooled.materialContent,
-        composition: new PublishedSeriesComposition(prisma),
-        reader: pooled.publishedMaterialReader,
-        selection: new PublishedMaterialSelection(prisma),
-        videos: {
-          loadProgressMany: () => Promise.reject(new Error("not used by this scenario")),
-          loadReadyDurations: () => Promise.reject(new Error("not used by this scenario")),
-        },
-      });
-      const reading = new ReadingActivity({
-        prisma,
-        contentAccess,
-        materialContent: pooled.materialContent,
-        composition: new PublishedSeriesComposition(prisma),
-      });
-      return [
-        await home.recordOpen({ accountId, materialId: id, contentVersion, commandId: randomUUID() }),
-        await reading.setReadingState(command(id)),
-      ] as const;
-    });
+          authorPolicy: { canManage: () => false },
+        });
+        const contentAccess = assembleContentAccess({
+          materialResourceFacts: assembleMaterialResourceFacts(
+            pooled.materialContent,
+          ),
+          accountPermissions: {
+            hasMaterialsManage: () => Promise.resolve(false),
+          },
+          membershipEntitlements: assembleMembershipEntitlements({
+            prisma,
+            workshopEntitlements: assembleWorkshopEntitlements({ prisma }),
+          }),
+        });
+        const home = new PersonalHome({
+          prisma,
+          contentAccess,
+          materialContent: pooled.materialContent,
+          composition: new PublishedSeriesComposition(prisma),
+          reader: pooled.publishedMaterialReader,
+          selection: new PublishedMaterialSelection(prisma),
+          videos: {
+            loadProgressMany: () =>
+              Promise.reject(new Error("not used by this scenario")),
+            loadReadyDurations: () =>
+              Promise.reject(new Error("not used by this scenario")),
+          },
+        });
+        const reading = new ReadingActivity({
+          prisma,
+          contentAccess,
+          materialContent: pooled.materialContent,
+          composition: new PublishedSeriesComposition(prisma),
+        });
+        return [
+          await home.recordOpen({
+            accountId,
+            materialId: id,
+            contentVersion,
+            commandId: randomUUID(),
+          }),
+          await reading.setReadingState(command(id)),
+        ] as const;
+      },
+    );
 
     expect(opened).toMatchObject({ ok: true, value: { replayed: false } });
-    expect(marked).toMatchObject({ ok: true, value: { changed: true, state: { isRead: true } } });
+    expect(marked).toMatchObject({
+      ok: true,
+      value: { changed: true, state: { isRead: true } },
+    });
   });
 });

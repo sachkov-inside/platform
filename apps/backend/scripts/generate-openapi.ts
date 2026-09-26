@@ -11,10 +11,13 @@ import {
 const outputPath = path.resolve("openapi/platform-api.json");
 const checkOnly = process.argv.includes("--check");
 
-const app = await createApiApplication(parsePlatformConfig({ NODE_ENV: "test" }), {
-  abortOnError: false,
-  logger: false,
-});
+const app = await createApiApplication(
+  parsePlatformConfig({ NODE_ENV: "test" }),
+  {
+    abortOnError: false,
+    logger: false,
+  },
+);
 
 try {
   const generated = `${JSON.stringify(

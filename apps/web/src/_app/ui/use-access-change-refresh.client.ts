@@ -11,15 +11,27 @@ import { subscribeToCurrentBillingChanges } from "@/features/billing-subscriptio
  * остальное: аккаунт сменился в другой вкладке или состояние покупателя объявлено изменённым —
  * `router.refresh()` забывает сохранённые страницы и перечитывает текущую.
  */
-export function useAccessChangeRefresh(accountId: string | null, authResolved: boolean): void {
+export function useAccessChangeRefresh(
+  accountId: string | null,
+  authResolved: boolean,
+): void {
   const router = useRouter();
   const previousAccount = useRef<string | null | undefined>(undefined);
 
-  useEffect(() => subscribeToCurrentBillingChanges(() => { router.refresh(); }), [router]);
+  useEffect(
+    () =>
+      subscribeToCurrentBillingChanges(() => {
+        router.refresh();
+      }),
+    [router],
+  );
 
   useEffect(() => {
     if (!authResolved) return;
-    if (previousAccount.current !== undefined && previousAccount.current !== accountId) {
+    if (
+      previousAccount.current !== undefined &&
+      previousAccount.current !== accountId
+    ) {
       router.refresh();
     }
     previousAccount.current = accountId;

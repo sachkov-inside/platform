@@ -10,9 +10,7 @@ test("витрина продукта отвечает и объясняет н�
   const response = await page.goto(purchase);
 
   expect(response?.status()).toBe(200);
-  await expect(page.getByRole("heading", { level: 1 })).toHaveText(
-    "Продукт",
-  );
+  await expect(page.getByRole("heading", { level: 1 })).toHaveText("Продукт");
   // Возврат из банка не единственный честный предел: цена тоже приходит с сервера.
   await expect(page.getByRole("status")).toContainText(
     "Цена сейчас недоступна",
@@ -28,15 +26,11 @@ test("страница оплаты возвращает в программу",
   );
 });
 
-test("оба адреса продукта ведут на одну витрину покупки", async ({
-  page,
-}) => {
+test("оба адреса продукта ведут на одну витрину покупки", async ({ page }) => {
   const response = await page.goto("/series/platform-inside/buy");
 
   expect(response?.status()).toBe(200);
-  await expect(page.getByRole("heading", { level: 1 })).toHaveText(
-    "Продукт",
-  );
+  await expect(page.getByRole("heading", { level: 1 })).toHaveText("Продукт");
 });
 
 test("витрина продукта не имеет серьёзных нарушений доступности", async ({

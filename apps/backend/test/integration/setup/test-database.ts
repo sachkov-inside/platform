@@ -23,7 +23,9 @@ async function createDatabase(template?: string): Promise<TestDatabase> {
   const databaseName = `inside_test_${randomUUID().replaceAll("-", "")}`;
   const adminPool = new Pool({ connectionString: adminUrl, max: 1 });
   try {
-    await adminPool.query(`CREATE DATABASE ${databaseName}${template === undefined ? "" : ` TEMPLATE ${template}`}`);
+    await adminPool.query(
+      `CREATE DATABASE ${databaseName}${template === undefined ? "" : ` TEMPLATE ${template}`}`,
+    );
   } finally {
     await adminPool.end();
   }

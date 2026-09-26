@@ -36,7 +36,9 @@ const fixtures = [
   },
   {
     root: "test/guardrails/fixtures/architecture/server-action",
-    diagnostics: ["Server Actions are not part of the client-owned mutation path"],
+    diagnostics: [
+      "Server Actions are not part of the client-owned mutation path",
+    ],
   },
   {
     root: "test/guardrails/fixtures/architecture/dynamic-mutation",

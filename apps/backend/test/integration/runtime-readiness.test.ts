@@ -24,20 +24,19 @@ describe("production runtime readiness", () => {
 
   afterEach(async () => {
     vi.restoreAllMocks();
-    await Promise.all(databases.splice(0).map((database) => database.dispose()));
+    await Promise.all(
+      databases.splice(0).map((database) => database.dispose()),
+    );
   });
 
   test("binds readiness to the exact release and complete schema", async () => {
     const database = await createTestDatabase();
     databases.push(database);
     await migrateRuntimeDatabase(database.url);
-    const readiness = new OperationalReadiness(
-      database.prisma,
-      {
-        release: "v7",
-        sourceSha: "7".repeat(40),
-      },
-    );
+    const readiness = new OperationalReadiness(database.prisma, {
+      release: "v7",
+      sourceSha: "7".repeat(40),
+    });
 
     await expect(readiness.check("api")).resolves.toMatchObject({
       database: "reachable",
@@ -82,12 +81,16 @@ describe("production runtime readiness", () => {
       await connection.$executeRaw(
         Prisma.sql`update pgboss.version set version = ${expectedPgBossSchemaVersion - 1}`,
       );
-      const readiness = new OperationalReadiness(
-        connection,
-        { release: "v7", sourceSha: "7".repeat(40) },
+      const readiness = new OperationalReadiness(connection, {
+        release: "v7",
+        sourceSha: "7".repeat(40),
+      });
+      await expect(readiness.check("api")).rejects.toThrow(
+        "Expected PgBoss schema",
       );
-      await expect(readiness.check("api")).rejects.toThrow("Expected PgBoss schema");
-      await expect(readiness.check("mcp")).rejects.toThrow("Expected PgBoss schema");
+      await expect(readiness.check("mcp")).rejects.toThrow(
+        "Expected PgBoss schema",
+      );
     });
   });
 
@@ -154,7 +157,9 @@ describe("production runtime readiness", () => {
     `);
     await expect(
       verifyRuntimeDatabaseSchema(database.url, expectedIdentity),
-    ).rejects.toThrow(`Migration checksum mismatch: ${platformMigrations[0]?.name}`);
+    ).rejects.toThrow(
+      `Migration checksum mismatch: ${platformMigrations[0]?.name}`,
+    );
   });
 
   test("rejects a non-empty database without a migration ledger", async () => {
@@ -198,7 +203,9 @@ describe("production runtime readiness", () => {
     const database = await createTestDatabase();
     databases.push(database);
     await migrateRuntimeDatabase(database.url);
-    const failure = Promise.reject(new Error("notification_broker_disconnected"));
+    const failure = Promise.reject(
+      new Error("notification_broker_disconnected"),
+    );
     // Воркер держит обработчик своего отказа сразу, как `assembleNotificationWorker`.
     void failure.catch(() => undefined);
     let drained = false;
@@ -232,16 +239,30 @@ describe("production runtime readiness", () => {
     const database = await createTestDatabase();
     databases.push(database);
     await migrateRuntimeDatabase(database.url);
-    const failure = Promise.reject(new Error("notification_broker_disconnected"));
+    const failure = Promise.reject(
+      new Error("notification_broker_disconnected"),
+    );
     void failure.catch(() => undefined);
-    const logged = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    const logged = vi
+      .spyOn(console, "error")
+      .mockImplementation(() => undefined);
 
     await expect(
       runWorker({
-        application: { close: () => Promise.reject(new Error("close failed for postgresql://inside:db-secret@db:5432/inside")) },
+        application: {
+          close: () =>
+            Promise.reject(
+              new Error(
+                "close failed for postgresql://inside:db-secret@db:5432/inside",
+              ),
+            ),
+        },
         databaseUrl: database.url,
         failed: failure,
-        jobs: { start: () => Promise.resolve(), stop: () => Promise.reject(new Error("drain")) },
+        jobs: {
+          start: () => Promise.resolve(),
+          stop: () => Promise.reject(new Error("drain")),
+        },
         process: "notifications-worker",
         readiness: new OperationalReadiness(database.prisma, {
           release: "development",
@@ -252,7 +273,9 @@ describe("production runtime readiness", () => {
     ).rejects.toThrow("notification_broker_disconnected");
     // Оба сбоя названы кодом и причиной; учётные данные адреса в журнал не попадают, а lease
     // освобождён несмотря на сбой закрытия.
-    const records = logged.mock.calls.map(([line]) => JSON.parse(String(line)) as unknown);
+    const records = logged.mock.calls.map(
+      ([line]) => JSON.parse(String(line)) as unknown,
+    );
     expect(records).toHaveLength(2);
     expect(records[0]).toMatchObject({
       event: "worker_stop_failed",
@@ -266,10 +289,15 @@ describe("production runtime readiness", () => {
       process: "notifications-worker",
       reason: "worker_close_failed",
       status: "operator_attention",
-      error: { message: "close failed for postgresql://[redacted]@db:5432/inside" },
+      error: {
+        message: "close failed for postgresql://[redacted]@db:5432/inside",
+      },
     });
     expect(JSON.stringify(logged.mock.calls)).not.toContain("db-secret");
-    const nextGeneration = await acquireWorkerGenerationLease(database.url, "notifications-worker");
+    const nextGeneration = await acquireWorkerGenerationLease(
+      database.url,
+      "notifications-worker",
+    );
     await nextGeneration.release();
   });
 });

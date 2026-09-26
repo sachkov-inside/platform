@@ -285,7 +285,9 @@ function GrantRow({ grant }: { readonly grant: AccessGrantView }) {
 }
 
 /** Исход строки набора: выданное основание или новое состояние покупателя. */
-function batchRowOutcome(result: GrantBatchOutcome["result"]["rows"][number]["result"]): string {
+function batchRowOutcome(
+  result: GrantBatchOutcome["result"]["rows"][number]["result"],
+): string {
   if (!result.ok) return "конфликт операции";
   return "classification" in result
     ? `определён, r${String(result.revision)}`
@@ -315,7 +317,9 @@ export function parseBatchRows(value: string): {
       invalid.push(rowKey);
       continue;
     }
-    const classification = accountClassificationSchema.safeParse(cells[2] ?? "");
+    const classification = accountClassificationSchema.safeParse(
+      cells[2] ?? "",
+    );
     if (classification.success) {
       // Пустая ячейка редакции — не ноль: иначе набор молча ушёл бы на конфликт при применении.
       const cell = cells[4] ?? "";
@@ -337,7 +341,10 @@ export function parseBatchRows(value: string): {
       continue;
     }
     const capabilities = parseCapabilities(cells[4] ?? "");
-    if (capabilities.invalid.length > 0 || capabilities.capabilities.length === 0) {
+    if (
+      capabilities.invalid.length > 0 ||
+      capabilities.capabilities.length === 0
+    ) {
       invalid.push(rowKey);
       continue;
     }

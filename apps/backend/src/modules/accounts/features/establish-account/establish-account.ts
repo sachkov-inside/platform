@@ -1,12 +1,21 @@
 import { dependencyFailure } from "../../../../infrastructure/observability/index.js";
-import { lockAccountRecords, type AccountsPrismaClient } from "../../../../infrastructure/prisma/index.js";
-import { newAccountId, parseAccountId } from "../../domain/account-identifiers.js";
+import {
+  lockAccountRecords,
+  type AccountsPrismaClient,
+} from "../../../../infrastructure/prisma/index.js";
+import {
+  newAccountId,
+  parseAccountId,
+} from "../../domain/account-identifiers.js";
 import type {
   EstablishAccountResult,
   VerifiedAccountSignIn,
 } from "../../facets/accounts/accounts.interface.js";
 import { appendAccountAuditEvent } from "../../infrastructure/postgres/account-audit.js";
-import { fingerprintEmail, validLogtoIdentity } from "../../shared/account-input.js";
+import {
+  fingerprintEmail,
+  validLogtoIdentity,
+} from "../../shared/account-input.js";
 import { establishTelegramAccount } from "../establish-telegram-account/establish-telegram-account.js";
 import { internalFailure } from "../../shared/internal-failure.js";
 
@@ -100,6 +109,10 @@ export async function establishAccount(
       return { ok: true, account: { accountId } };
     });
   } catch (error) {
-    return dependencyFailure({ module: "accounts", operation: "establishAccount" }, error, internalFailure());
+    return dependencyFailure(
+      { module: "accounts", operation: "establishAccount" },
+      error,
+      internalFailure(),
+    );
   }
 }

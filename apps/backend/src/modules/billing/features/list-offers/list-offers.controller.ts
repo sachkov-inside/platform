@@ -1,7 +1,17 @@
 import { Controller, Get, Inject, Query } from "@nestjs/common";
-import { ApiOkResponse, ApiOperation, ApiQuery, ApiResponse, ApiTags } from "@nestjs/swagger";
+import {
+  ApiOkResponse,
+  ApiOperation,
+  ApiQuery,
+  ApiResponse,
+  ApiTags,
+} from "@nestjs/swagger";
 import { PrivateNoStore } from "../../../../infrastructure/http/http-cache-policy.js";
-import { problemDetailsContent, problemDetailsSchema, toOpenApiSchema } from "../../../../infrastructure/http/zod-openapi.js";
+import {
+  problemDetailsContent,
+  problemDetailsSchema,
+  toOpenApiSchema,
+} from "../../../../infrastructure/http/zod-openapi.js";
 import { BillingPricing } from "../../facets/billing-pricing/billing-pricing.js";
 import { throwPricingError } from "../../shared/pricing-http.filter.js";
 import { listOffersSchema, offersPageSchema } from "./list-offers.js";
@@ -10,16 +20,48 @@ import { listOffersSchema, offersPageSchema } from "./list-offers.js";
 @PrivateNoStore()
 @Controller("billing/offers")
 export class ListOffersController {
-  constructor(@Inject(BillingPricing) private readonly pricing: BillingPricing) {}
+  constructor(
+    @Inject(BillingPricing) private readonly pricing: BillingPricing,
+  ) {}
   @Get()
-  @ApiOperation({ operationId: "billingOffers", summary: "Read active options and public first-payment prices, filtered by sale mode and access capability" })
-  @ApiQuery({ name: "cursor", required: false, schema: toOpenApiSchema(listOffersSchema.shape.cursor) })
-  @ApiQuery({ name: "limit", required: false, schema: toOpenApiSchema(listOffersSchema.shape.limit) })
-  @ApiQuery({ name: "mode", required: false, schema: toOpenApiSchema(listOffersSchema.shape.mode) })
-  @ApiQuery({ name: "capability", required: false, schema: toOpenApiSchema(listOffersSchema.shape.capability) })
+  @ApiOperation({
+    operationId: "billingOffers",
+    summary:
+      "Read active options and public first-payment prices, filtered by sale mode and access capability",
+  })
+  @ApiQuery({
+    name: "cursor",
+    required: false,
+    schema: toOpenApiSchema(listOffersSchema.shape.cursor),
+  })
+  @ApiQuery({
+    name: "limit",
+    required: false,
+    schema: toOpenApiSchema(listOffersSchema.shape.limit),
+  })
+  @ApiQuery({
+    name: "mode",
+    required: false,
+    schema: toOpenApiSchema(listOffersSchema.shape.mode),
+  })
+  @ApiQuery({
+    name: "capability",
+    required: false,
+    schema: toOpenApiSchema(listOffersSchema.shape.capability),
+  })
   @ApiOkResponse({ schema: toOpenApiSchema(offersPageSchema) })
-  @ApiResponse({ status: 400, content: problemDetailsContent(problemDetailsSchema(400, ["invalid_request"])) })
-  @ApiResponse({ status: 503, content: problemDetailsContent(problemDetailsSchema(503, ["dependency_unavailable"])) })
+  @ApiResponse({
+    status: 400,
+    content: problemDetailsContent(
+      problemDetailsSchema(400, ["invalid_request"]),
+    ),
+  })
+  @ApiResponse({
+    status: 503,
+    content: problemDetailsContent(
+      problemDetailsSchema(503, ["dependency_unavailable"]),
+    ),
+  })
   async execute(@Query() input: unknown) {
     const result = await this.pricing.offers(input);
     if (!result.ok) throwPricingError(result.error);

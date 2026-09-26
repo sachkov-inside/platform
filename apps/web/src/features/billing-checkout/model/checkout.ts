@@ -15,7 +15,10 @@ export function acceptedPurchaseDocuments(
 ): AcceptedDocument[] {
   // Режим приходит из расчёта, а не из снимка витрины: по расчёту решают и панель, и приложение,
   // поэтому передать сюда устаревший снимок больше нечем.
-  const { required, applicable } = purchaseConsentPolicy(documents, paymentMode(quote.snapshot));
+  const { required, applicable } = purchaseConsentPolicy(
+    documents,
+    paymentMode(quote.snapshot),
+  );
   return applicable
     .filter((document) => required.includes(document.kind))
     .map((document) => ({

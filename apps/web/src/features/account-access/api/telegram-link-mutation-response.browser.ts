@@ -8,7 +8,9 @@ import {
 } from "../model/account-telegram-membership";
 
 const resultSchema = z.discriminatedUnion("kind", [
-  z.object({ kind: z.literal("received"), state: telegramLinkStateSchema }).strict(),
+  z
+    .object({ kind: z.literal("received"), state: telegramLinkStateSchema })
+    .strict(),
   z.object({ kind: z.literal("unauthorized") }).strict(),
   z.object({ kind: z.literal("unavailable"), reference: z.string() }).strict(),
 ]);

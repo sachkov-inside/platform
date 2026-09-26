@@ -14,11 +14,7 @@ import { cn } from "@/shared/lib/utils";
 import { contentCoverUrl, type ContentCover } from "../model/content-cover";
 
 type ContentCoverFallbackKind =
-  | "material"
-  | "note"
-  | "playlist"
-  | "topic"
-  | "video";
+  "material" | "note" | "playlist" | "topic" | "video";
 
 export function ContentCoverImage({
   alt,
@@ -107,7 +103,9 @@ export function ContentCoverImage({
   );
 }
 
-const fallbackIconByKind: Readonly<Record<ContentCoverFallbackKind, LucideIcon>> = {
+const fallbackIconByKind: Readonly<
+  Record<ContentCoverFallbackKind, LucideIcon>
+> = {
   material: Boxes,
   note: FileText,
   playlist: ListVideo,

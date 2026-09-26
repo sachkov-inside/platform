@@ -40,6 +40,8 @@ describe("optional Platform access token", () => {
     const providerFailure = new Error("Logto dependency unavailable");
     fakes.getAccessTokenRSC.mockRejectedValue(providerFailure);
 
-    await expect(getOptionalPlatformAccessToken()).rejects.toBe(providerFailure);
+    await expect(getOptionalPlatformAccessToken()).rejects.toBe(
+      providerFailure,
+    );
   });
 });

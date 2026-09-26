@@ -5,7 +5,9 @@ import { test } from "node:test";
 import { fileURLToPath } from "node:url";
 
 const workflow = readFileSync(
-  fileURLToPath(new URL("../.github/workflows/workshop-evaluator.yml", import.meta.url)),
+  fileURLToPath(
+    new URL("../.github/workflows/workshop-evaluator.yml", import.meta.url),
+  ),
   "utf8",
 );
 const repositoryRoot = fileURLToPath(new URL("..", import.meta.url));
@@ -27,7 +29,10 @@ test("Workshop evaluator CI executes every native beta target", () => {
     "runner: ubuntu-24.04\n            goos: linux\n            goarch: amd64",
     "runner: windows-2025\n            goos: windows\n            goarch: amd64",
   ]) {
-    assert.ok(workflow.includes(expected), `missing native matrix entry:\n${expected}`);
+    assert.ok(
+      workflow.includes(expected),
+      `missing native matrix entry:\n${expected}`,
+    );
   }
   assert.match(workflow, /actual_target=.*go env GOOS.*go env GOARCH/su);
   assert.match(workflow, /go test -race \.\/\.\.\./u);
@@ -57,8 +62,14 @@ test("Workshop evaluator artifacts are pinned and checksum-addressed", () => {
   assert.match(workflow, /dist\/run-workshop-evaluator\.ps1/u);
   assert.match(workflow, /workshop-evaluator-checksum --file .* --verify/u);
   assert.match(workflow, /package-native-artifact\.sh/u);
-  assert.match(workflow, /workshop-evaluator-\$\{\{ matrix\.target \}\}\.tar\.gz/u);
-  assert.match(workflow, /actions\/upload-artifact@[0-9a-f]{40} # v\d+\.\d+\.\d+$/mu);
+  assert.match(
+    workflow,
+    /workshop-evaluator-\$\{\{ matrix\.target \}\}\.tar\.gz/u,
+  );
+  assert.match(
+    workflow,
+    /actions\/upload-artifact@[0-9a-f]{40} # v\d+\.\d+\.\d+$/mu,
+  );
   assert.doesNotMatch(workflow, /@[vV](?:latest|\d+)\s*$/mu);
   assert.doesNotMatch(workflow, /auto.?update/iu);
 });

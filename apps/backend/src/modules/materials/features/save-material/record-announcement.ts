@@ -35,7 +35,8 @@ export async function recordMaterialAnnouncement(
   // Просроченный анонс не обновляется: команду с таким сроком потребитель уже не примет.
   if (
     existing !== null &&
-    (existing.notAfter <= now || sameAnnouncementConditions(existing, occurrence))
+    (existing.notAfter <= now ||
+      sameAnnouncementConditions(existing, occurrence))
   ) {
     return;
   }

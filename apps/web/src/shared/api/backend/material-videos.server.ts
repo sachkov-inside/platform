@@ -1,7 +1,13 @@
 import "server-only";
 
-import { MaterialVideoAuthoringService, VideoPlaybackService } from "./generated/platform-api";
-import { executeGeneratedRequest, type BackendTransportResult } from "./transport-core.server";
+import {
+  MaterialVideoAuthoringService,
+  VideoPlaybackService,
+} from "./generated/platform-api";
+import {
+  executeGeneratedRequest,
+  type BackendTransportResult,
+} from "./transport-core.server";
 
 export function requestVideoPlayback(
   materialId: string,
@@ -9,7 +15,11 @@ export function requestVideoPlayback(
   accessToken?: string,
 ): Promise<BackendTransportResult> {
   return executeGeneratedRequest(
-    (request) => new VideoPlaybackService(request).createVideoPlaybackSession({ materialId, videoId }),
+    (request) =>
+      new VideoPlaybackService(request).createVideoPlaybackSession({
+        materialId,
+        videoId,
+      }),
     200,
     { ...(accessToken === undefined ? {} : { accessToken }) },
   );
@@ -25,14 +35,15 @@ export function requestVideoProgress(
   accessToken: string,
 ): Promise<BackendTransportResult> {
   return executeGeneratedRequest(
-    (request) => new VideoPlaybackService(request).saveVideoPlaybackProgress({
-      materialId: input.materialId,
-      videoId: input.videoId,
-      requestBody: {
-        durationSeconds: input.durationSeconds,
-        positionSeconds: input.positionSeconds,
-      },
-    }),
+    (request) =>
+      new VideoPlaybackService(request).saveVideoPlaybackProgress({
+        materialId: input.materialId,
+        videoId: input.videoId,
+        requestBody: {
+          durationSeconds: input.durationSeconds,
+          positionSeconds: input.positionSeconds,
+        },
+      }),
     204,
     { accessToken },
   );
@@ -50,16 +61,17 @@ export function requestVideoUploadInit(
   accessToken: string,
 ): Promise<BackendTransportResult> {
   return executeGeneratedRequest(
-    (request) => new MaterialVideoAuthoringService(request).initMaterialVideoUpload({
-      idempotencyKey: input.idempotencyKey,
-      materialId: input.materialId,
-      requestBody: {
-        access: input.access,
-        byteSize: input.byteSize,
-        filename: input.filename,
-        title: input.title,
-      },
-    }),
+    (request) =>
+      new MaterialVideoAuthoringService(request).initMaterialVideoUpload({
+        idempotencyKey: input.idempotencyKey,
+        materialId: input.materialId,
+        requestBody: {
+          access: input.access,
+          byteSize: input.byteSize,
+          filename: input.filename,
+          title: input.title,
+        },
+      }),
     201,
     { accessToken },
   );
@@ -74,10 +86,14 @@ export function requestVideoAttach(
   accessToken: string,
 ): Promise<BackendTransportResult> {
   return executeGeneratedRequest(
-    (request) => new MaterialVideoAuthoringService(request).attachMaterialVideo({
-      materialId: input.materialId,
-      requestBody: { access: input.access, providerVideoId: input.providerVideoId },
-    }),
+    (request) =>
+      new MaterialVideoAuthoringService(request).attachMaterialVideo({
+        materialId: input.materialId,
+        requestBody: {
+          access: input.access,
+          providerVideoId: input.providerVideoId,
+        },
+      }),
     201,
     { accessToken },
   );
@@ -88,7 +104,10 @@ export function requestVideoReconcile(
   accessToken: string,
 ): Promise<BackendTransportResult> {
   return executeGeneratedRequest(
-    (request) => new MaterialVideoAuthoringService(request).reconcileMaterialVideo({ videoId }),
+    (request) =>
+      new MaterialVideoAuthoringService(request).reconcileMaterialVideo({
+        videoId,
+      }),
     200,
     { accessToken },
   );
@@ -99,7 +118,10 @@ export function requestVideoDeletionRetry(
   accessToken: string,
 ): Promise<BackendTransportResult> {
   return executeGeneratedRequest(
-    (request) => new MaterialVideoAuthoringService(request).retryMaterialVideoDeletion({ videoId }),
+    (request) =>
+      new MaterialVideoAuthoringService(request).retryMaterialVideoDeletion({
+        videoId,
+      }),
     200,
     { accessToken },
   );

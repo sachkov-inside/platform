@@ -12,7 +12,8 @@ export function objectStorageConformance(
       const key = `assets/${crypto.randomUUID()}/file.pdf`;
       const first = await storage.putImmutable({
         body: new Uint8Array([0x25, 0x50, 0x44, 0x46]),
-        checksumSha256: "9670f34a736a67bdc89b33fe0d13b5b100c4e4f65c1c7032b8387412fe6e55fc",
+        checksumSha256:
+          "9670f34a736a67bdc89b33fe0d13b5b100c4e4f65c1c7032b8387412fe6e55fc",
         contentType: "application/pdf",
         key,
         namespace: "quarantine",
@@ -21,15 +22,20 @@ export function objectStorageConformance(
       await expect(
         storage.putImmutable({
           body: new Uint8Array([0]),
-          checksumSha256: "6e340b9cffb37a989ca544e6bb780a2c78901d3fb33738768511a30617afa01d",
+          checksumSha256:
+            "6e340b9cffb37a989ca544e6bb780a2c78901d3fb33738768511a30617afa01d",
           contentType: "application/octet-stream",
           key,
           namespace: "quarantine",
         }),
-      ).resolves.toEqual({ error: { code: "object_already_exists" }, ok: false });
+      ).resolves.toEqual({
+        error: { code: "object_already_exists" },
+        ok: false,
+      });
       await expect(storage.read("quarantine", key)).resolves.toEqual({
         body: new Uint8Array([0x25, 0x50, 0x44, 0x46]),
-        checksumSha256: "9670f34a736a67bdc89b33fe0d13b5b100c4e4f65c1c7032b8387412fe6e55fc",
+        checksumSha256:
+          "9670f34a736a67bdc89b33fe0d13b5b100c4e4f65c1c7032b8387412fe6e55fc",
         contentLength: 4,
         contentType: "application/pdf",
       });

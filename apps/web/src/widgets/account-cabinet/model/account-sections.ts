@@ -1,11 +1,7 @@
 import type { Route } from "next";
 
 export type AccountSectionId =
-  | "profile"
-  | "access"
-  | "purchases"
-  | "subscription"
-  | "notifications";
+  "profile" | "access" | "purchases" | "subscription" | "notifications";
 
 export interface AccountSection {
   readonly id: AccountSectionId;
@@ -67,7 +63,6 @@ export function visibleAccountSections({
   readonly subscriptionOwned: boolean;
 }): readonly AccountSection[] {
   return accountSections.filter(
-    (section) =>
-      section.id !== "subscription" || subscriptionOwned,
+    (section) => section.id !== "subscription" || subscriptionOwned,
   );
 }

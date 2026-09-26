@@ -53,7 +53,11 @@ export class HttpTelegramSignInProvider implements TelegramSignInProvider {
           : "unavailable",
       } as const;
     } catch (error) {
-      return dependencyFailure({ module: "telegram-membership", operation: "bindAccount" }, error, { status: "unavailable" } as const);
+      return dependencyFailure(
+        { module: "telegram-membership", operation: "bindAccount" },
+        error,
+        { status: "unavailable" } as const,
+      );
     }
   }
 }

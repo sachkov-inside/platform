@@ -1,4 +1,10 @@
-import { createCipheriv, createDecipheriv, createHash, randomBytes, timingSafeEqual } from "node:crypto";
+import {
+  createCipheriv,
+  createDecipheriv,
+  createHash,
+  randomBytes,
+  timingSafeEqual,
+} from "node:crypto";
 import { z } from "zod";
 import type { TbankConfig } from "../../../../config/tbank-config.js";
 
@@ -6,24 +12,67 @@ export const bankTimeoutMs = 10_000;
 const reference = z.union([z.string().min(1).max(64), z.int().nonnegative()]);
 const success = z.union([z.boolean(), z.enum(["true", "false"])]);
 const bankPaymentInputSchema = z.object({
-  TerminalKey: z.string().min(1).max(64), OrderId: z.string().min(1).max(50),
-  PaymentId: reference, Amount: z.int().nonnegative(),
-  Status: z.enum(["RECEIPT", "NEW", "FORM_SHOWED", "DEADLINE_EXPIRED", "CANCELED", "PREAUTHORIZING", "AUTHORIZING", "AUTHORIZED", "AUTH_FAIL", "REJECTED", "CONFIRMING", "CONFIRMED", "REVERSING", "REVERSED", "REFUNDING", "PARTIAL_REFUNDED", "REFUNDED"]),
-  Success: success, ErrorCode: z.string(),
+  TerminalKey: z.string().min(1).max(64),
+  OrderId: z.string().min(1).max(50),
+  PaymentId: reference,
+  Amount: z.int().nonnegative(),
+  Status: z.enum([
+    "RECEIPT",
+    "NEW",
+    "FORM_SHOWED",
+    "DEADLINE_EXPIRED",
+    "CANCELED",
+    "PREAUTHORIZING",
+    "AUTHORIZING",
+    "AUTHORIZED",
+    "AUTH_FAIL",
+    "REJECTED",
+    "CONFIRMING",
+    "CONFIRMED",
+    "REVERSING",
+    "REVERSED",
+    "REFUNDING",
+    "PARTIAL_REFUNDED",
+    "REFUNDED",
+  ]),
+  Success: success,
+  ErrorCode: z.string(),
   RebillId: reference.optional(),
 });
-export const bankNotificationSchema = bankPaymentInputSchema.extend({ Token: z.string().regex(/^[a-f0-9]{64}$/u) }).loose();
-export const bankPaymentSchema = bankPaymentInputSchema.transform(({ PaymentId, Success, RebillId, ...value }) => ({ ...value,
-  PaymentId: String(PaymentId), Success: Success === true || Success === "true",
-  ...(RebillId === undefined ? {} : { RebillId: String(RebillId) }),
-}));
+export const bankNotificationSchema = bankPaymentInputSchema
+  .extend({ Token: z.string().regex(/^[a-f0-9]{64}$/u) })
+  .loose();
+export const bankPaymentSchema = bankPaymentInputSchema.transform(
+  ({ PaymentId, Success, RebillId, ...value }) => ({
+    ...value,
+    PaymentId: String(PaymentId),
+    Success: Success === true || Success === "true",
+    ...(RebillId === undefined ? {} : { RebillId: String(RebillId) }),
+  }),
+);
 export type BankPayment = z.infer<typeof bankPaymentSchema>;
-export const refundTerminalStatuses = ["REFUNDED", "PARTIAL_REFUNDED", "REVERSED", "PARTIAL_REVERSED"] as const;
-const bankRefundSchema = z.object({
-  TerminalKey: z.string().min(1).max(64), OrderId: z.string().min(1).max(50), PaymentId: reference,
-  Status: z.string().min(1).max(64), Success: success, ErrorCode: z.string(),
-  OriginalAmount: z.int().nonnegative().optional(), NewAmount: z.int().nonnegative().optional(),
-}).transform(({ PaymentId, Success, ...value }) => ({ ...value, PaymentId: String(PaymentId), Success: Success === true || Success === "true" }));
+export const refundTerminalStatuses = [
+  "REFUNDED",
+  "PARTIAL_REFUNDED",
+  "REVERSED",
+  "PARTIAL_REVERSED",
+] as const;
+const bankRefundSchema = z
+  .object({
+    TerminalKey: z.string().min(1).max(64),
+    OrderId: z.string().min(1).max(50),
+    PaymentId: reference,
+    Status: z.string().min(1).max(64),
+    Success: success,
+    ErrorCode: z.string(),
+    OriginalAmount: z.int().nonnegative().optional(),
+    NewAmount: z.int().nonnegative().optional(),
+  })
+  .transform(({ PaymentId, Success, ...value }) => ({
+    ...value,
+    PaymentId: String(PaymentId),
+    Success: Success === true || Success === "true",
+  }));
 export type BankRefund = z.infer<typeof bankRefundSchema>;
 /**
  * `OperationInitiatorType` банка: `0` — разовая оплата покупателем без сохранения карты,
@@ -33,14 +82,32 @@ export type BankRefund = z.infer<typeof bankRefundSchema>;
 export type PaymentInitiator = "0" | "1" | "2" | "R";
 const notificationSchema = z.record(z.string(), z.unknown());
 
-export function tbankToken(payload: Readonly<Record<string, unknown>>, password: string): string {
+export function tbankToken(
+  payload: Readonly<Record<string, unknown>>,
+  password: string,
+): string {
   const values: Record<string, unknown> = { ...payload, Password: password };
-  return createHash("sha256").update(Object.keys(values).filter(key => key !== "Token" &&
-    (typeof values[key] === "string" || typeof values[key] === "number" || typeof values[key] === "boolean"))
-    .sort().map(key => String(values[key])).join("")).digest("hex");
+  return createHash("sha256")
+    .update(
+      Object.keys(values)
+        .filter(
+          (key) =>
+            key !== "Token" &&
+            (typeof values[key] === "string" ||
+              typeof values[key] === "number" ||
+              typeof values[key] === "boolean"),
+        )
+        .sort()
+        .map((key) => String(values[key]))
+        .join(""),
+    )
+    .digest("hex");
 }
 /** Форма оплаты открывается в браузере, поэтому её origin сверяется с контуром терминала. */
-export function validatedPaymentUrl(value: unknown, origins: readonly string[]): string {
+export function validatedPaymentUrl(
+  value: unknown,
+  origins: readonly string[],
+): string {
   const url = new URL(z.url().parse(value));
   if (!origins.includes(url.origin) || url.username || url.password || url.hash)
     throw new Error("Invalid bank payment URL");
@@ -52,112 +119,302 @@ export function validatedPaymentUrl(value: unknown, origins: readonly string[]):
  * подходит и встроенный `fetch`, и клиент с собственным корневым сертификатом.
  */
 export type BankResponse = { readonly ok: boolean; json(): Promise<unknown> };
-export type BankRequest = (url: string, init: {
-  method: string; headers: Record<string, string>; body: string;
-  signal: AbortSignal; redirect: "error";
-}) => Promise<BankResponse>;
+export type BankRequest = (
+  url: string,
+  init: {
+    method: string;
+    headers: Record<string, string>;
+    body: string;
+    signal: AbortSignal;
+    redirect: "error";
+  },
+) => Promise<BankResponse>;
 
 // Concrete T-Bank adapter. No automatic retries, caller persists sent/unknown before I/O.
 export class Tbank {
-  constructor(readonly config: TbankConfig, private readonly request: BankRequest = fetch) {}
-  async init(input: { orderId: string; accountId: string; amount: number; name: string; email: string; initiator?: PaymentInitiator }): Promise<BankPayment & { PaymentURL: string }> {
+  constructor(
+    readonly config: TbankConfig,
+    private readonly request: BankRequest = fetch,
+  ) {}
+  async init(input: {
+    orderId: string;
+    accountId: string;
+    amount: number;
+    name: string;
+    email: string;
+    initiator?: PaymentInitiator;
+  }): Promise<BankPayment & { PaymentURL: string }> {
     const initiator = input.initiator ?? "1";
     const result = await this.call("Init", {
-      Amount: input.amount, OrderId: input.orderId, Description: input.name.slice(0, 140),
-      CustomerKey: input.accountId, PayType: "O",
+      Amount: input.amount,
+      OrderId: input.orderId,
+      Description: input.name.slice(0, 140),
+      CustomerKey: input.accountId,
+      PayType: "O",
       // Only the parent card-on-file purchase asks the bank to save a binding.
       ...(initiator === "1" ? { Recurrent: "Y" } : {}),
       DATA: { OperationInitiatorType: initiator },
-      SuccessURL: this.config.returnUrl, FailURL: this.config.returnUrl,
+      SuccessURL: this.config.returnUrl,
+      FailURL: this.config.returnUrl,
       NotificationURL: this.config.notificationUrl,
-      Receipt: { Email: input.email, Taxation: this.config.receipt.taxation,
-        Items: [{ Name: input.name.slice(0, 128), Price: input.amount, Quantity: 1, Amount: input.amount,
-          PaymentMethod: "full_payment", PaymentObject: "service", Tax: this.config.receipt.tax }] },
+      Receipt: {
+        Email: input.email,
+        Taxation: this.config.receipt.taxation,
+        Items: [
+          {
+            Name: input.name.slice(0, 128),
+            Price: input.amount,
+            Quantity: 1,
+            Amount: input.amount,
+            PaymentMethod: "full_payment",
+            PaymentObject: "service",
+            Tax: this.config.receipt.tax,
+          },
+        ],
+      },
     });
     const payment = bankPaymentSchema.parse(result);
-    return { ...payment, PaymentURL: validatedPaymentUrl(notificationSchema.parse(result).PaymentURL, this.config.endpoints.formOrigins) };
+    return {
+      ...payment,
+      PaymentURL: validatedPaymentUrl(
+        notificationSchema.parse(result).PaymentURL,
+        this.config.endpoints.formOrigins,
+      ),
+    };
   }
   /** Списание по сохранённой привязке. RebillId нельзя заменить CustomerKey или CardId. */
-  async charge(input: { paymentId: string; rebillId: string }): Promise<BankPayment> {
-    return bankPaymentSchema.parse(await this.call("Charge", { PaymentId: input.paymentId, RebillId: input.rebillId }));
+  async charge(input: {
+    paymentId: string;
+    rebillId: string;
+  }): Promise<BankPayment> {
+    return bankPaymentSchema.parse(
+      await this.call("Charge", {
+        PaymentId: input.paymentId,
+        RebillId: input.rebillId,
+      }),
+    );
   }
   /** Банковская форма привязки. Начальный ответ не является завершённой привязкой. */
-  async addCard(accountId: string): Promise<{ requestKey: string; formUrl: string }> {
+  async addCard(
+    accountId: string,
+  ): Promise<{ requestKey: string; formUrl: string }> {
     const binding = this.config.cardBinding;
-    if (!binding) throw new Error("Card binding is not a confirmed terminal capability");
-    const result = z.object({ Success: success.transform(value => value === true || value === "true").pipe(z.literal(true)),
-      ErrorCode: z.union([z.literal("0"), z.literal(0)]), TerminalKey: z.string(), RequestKey: z.string().min(1).max(64),
-      PaymentURL: z.unknown(),
-    }).parse(await this.call("AddCard", { CustomerKey: accountId, CheckType: binding.checkType }));
-    if (result.TerminalKey !== this.config.terminalKey) throw new Error("Bank binding terminal mismatch");
-    return { requestKey: result.RequestKey, formUrl: validatedPaymentUrl(result.PaymentURL, this.config.endpoints.formOrigins) };
+    if (!binding)
+      throw new Error("Card binding is not a confirmed terminal capability");
+    const result = z
+      .object({
+        Success: success
+          .transform((value) => value === true || value === "true")
+          .pipe(z.literal(true)),
+        ErrorCode: z.union([z.literal("0"), z.literal(0)]),
+        TerminalKey: z.string(),
+        RequestKey: z.string().min(1).max(64),
+        PaymentURL: z.unknown(),
+      })
+      .parse(
+        await this.call("AddCard", {
+          CustomerKey: accountId,
+          CheckType: binding.checkType,
+        }),
+      );
+    if (result.TerminalKey !== this.config.terminalKey)
+      throw new Error("Bank binding terminal mismatch");
+    return {
+      requestKey: result.RequestKey,
+      formUrl: validatedPaymentUrl(
+        result.PaymentURL,
+        this.config.endpoints.formOrigins,
+      ),
+    };
   }
   /** Серверная сверка сессии привязки; token признаётся только вместе с успешным результатом. */
-  async addCardState(requestKey: string): Promise<{ status: string; success: boolean; errorCode: string; rebillId?: string }> {
-    const result = z.object({ TerminalKey: z.string(), RequestKey: z.string().min(1).max(64), Status: z.string().min(1).max(64),
-      Success: success, ErrorCode: z.string(), RebillId: reference.optional(),
-    }).parse(await this.call("GetAddCardState", { RequestKey: requestKey }));
-    if (result.TerminalKey !== this.config.terminalKey || result.RequestKey !== requestKey) throw new Error("Bank binding session mismatch");
-    return { status: result.Status, success: result.Success === true || result.Success === "true", errorCode: result.ErrorCode,
-      ...(result.RebillId === undefined ? {} : { rebillId: String(result.RebillId) }) };
+  async addCardState(requestKey: string): Promise<{
+    status: string;
+    success: boolean;
+    errorCode: string;
+    rebillId?: string;
+  }> {
+    const result = z
+      .object({
+        TerminalKey: z.string(),
+        RequestKey: z.string().min(1).max(64),
+        Status: z.string().min(1).max(64),
+        Success: success,
+        ErrorCode: z.string(),
+        RebillId: reference.optional(),
+      })
+      .parse(await this.call("GetAddCardState", { RequestKey: requestKey }));
+    if (
+      result.TerminalKey !== this.config.terminalKey ||
+      result.RequestKey !== requestKey
+    )
+      throw new Error("Bank binding session mismatch");
+    return {
+      status: result.Status,
+      success: result.Success === true || result.Success === "true",
+      errorCode: result.ErrorCode,
+      ...(result.RebillId === undefined
+        ? {}
+        : { rebillId: String(result.RebillId) }),
+    };
   }
   /**
    * Возврат по подтверждённому платежу. ExternalRequestId закрепляет одну попытку за одной
    * refund записью; повтор с тем же идентификатором банк считает тем же запросом. Позиции чека
    * повторяют исходную покупку на сумму возврата.
    */
-  async cancel(input: { paymentId: string; amount: number; externalRequestId: string; name: string; email: string }): Promise<BankRefund> {
-    const result = bankRefundSchema.parse(await this.call("Cancel", {
-      PaymentId: input.paymentId, Amount: input.amount, ExternalRequestId: input.externalRequestId,
-      Receipt: { Email: input.email, Taxation: this.config.receipt.taxation,
-        Items: [{ Name: input.name.slice(0, 128), Price: input.amount, Quantity: 1, Amount: input.amount,
-          PaymentMethod: "full_payment", PaymentObject: "service", Tax: this.config.receipt.tax }] },
-    }));
-    if (result.TerminalKey !== this.config.terminalKey || result.PaymentId !== input.paymentId) throw new Error("Bank refund payment mismatch");
+  async cancel(input: {
+    paymentId: string;
+    amount: number;
+    externalRequestId: string;
+    name: string;
+    email: string;
+  }): Promise<BankRefund> {
+    const result = bankRefundSchema.parse(
+      await this.call("Cancel", {
+        PaymentId: input.paymentId,
+        Amount: input.amount,
+        ExternalRequestId: input.externalRequestId,
+        Receipt: {
+          Email: input.email,
+          Taxation: this.config.receipt.taxation,
+          Items: [
+            {
+              Name: input.name.slice(0, 128),
+              Price: input.amount,
+              Quantity: 1,
+              Amount: input.amount,
+              PaymentMethod: "full_payment",
+              PaymentObject: "service",
+              Tax: this.config.receipt.tax,
+            },
+          ],
+        },
+      }),
+    );
+    if (
+      result.TerminalKey !== this.config.terminalKey ||
+      result.PaymentId !== input.paymentId
+    )
+      throw new Error("Bank refund payment mismatch");
     return result;
   }
   async state(paymentId: string): Promise<BankPayment> {
-    return bankPaymentSchema.parse(await this.call("GetState", { PaymentId: paymentId }));
+    return bankPaymentSchema.parse(
+      await this.call("GetState", { PaymentId: paymentId }),
+    );
   }
   async order(orderId: string): Promise<readonly string[]> {
     // CheckOrder locates an attempt; its optional amount/error fields are not payment proof.
-    const result = z.object({ TerminalKey: z.string(), OrderId: z.string(),
-      Success: success.transform(value => value === true || value === "true").pipe(z.literal(true)),
-      ErrorCode: z.union([z.literal("0"), z.literal(0)]),
-      Payments: z.array(z.object({ PaymentId: reference, Status: z.string(), Success: success })).max(100),
-    }).parse(await this.call("CheckOrder", { OrderId: orderId }));
-    if (result.TerminalKey !== this.config.terminalKey || result.OrderId !== orderId) throw new Error("Bank order mismatch");
-    return result.Payments.map(payment => String(payment.PaymentId));
+    const result = z
+      .object({
+        TerminalKey: z.string(),
+        OrderId: z.string(),
+        Success: success
+          .transform((value) => value === true || value === "true")
+          .pipe(z.literal(true)),
+        ErrorCode: z.union([z.literal("0"), z.literal(0)]),
+        Payments: z
+          .array(
+            z.object({
+              PaymentId: reference,
+              Status: z.string(),
+              Success: success,
+            }),
+          )
+          .max(100),
+      })
+      .parse(await this.call("CheckOrder", { OrderId: orderId }));
+    if (
+      result.TerminalKey !== this.config.terminalKey ||
+      result.OrderId !== orderId
+    )
+      throw new Error("Bank order mismatch");
+    return result.Payments.map((payment) => String(payment.PaymentId));
   }
   notification(input: unknown): BankPayment | undefined {
     const parsed = notificationSchema.safeParse(input);
-    if (!parsed.success || typeof parsed.data.Token !== "string" || !/^[a-f0-9]{64}$/u.test(parsed.data.Token)) return undefined;
+    if (
+      !parsed.success ||
+      typeof parsed.data.Token !== "string" ||
+      !/^[a-f0-9]{64}$/u.test(parsed.data.Token)
+    )
+      return undefined;
     const expected = tbankToken(parsed.data, this.config.password);
-    if (!timingSafeEqual(Buffer.from(parsed.data.Token, "hex"), Buffer.from(expected, "hex"))) return undefined;
+    if (
+      !timingSafeEqual(
+        Buffer.from(parsed.data.Token, "hex"),
+        Buffer.from(expected, "hex"),
+      )
+    )
+      return undefined;
     const payment = bankPaymentSchema.safeParse(parsed.data);
-    return payment.success && payment.data.TerminalKey === this.config.terminalKey ? payment.data : undefined;
+    return payment.success &&
+      payment.data.TerminalKey === this.config.terminalKey
+      ? payment.data
+      : undefined;
   }
   sealBinding(orderId: string, rebillId: string): string {
     const nonce = randomBytes(12);
-    const cipher = createCipheriv("aes-256-gcm", Buffer.from(this.config.bindingEncryptionKey, "base64"), nonce);
-    cipher.setAAD(Buffer.from(`${this.config.environment}:${this.config.terminalKey}:${orderId}`));
-    const data = Buffer.concat([cipher.update(rebillId, "utf8"), cipher.final()]);
+    const cipher = createCipheriv(
+      "aes-256-gcm",
+      Buffer.from(this.config.bindingEncryptionKey, "base64"),
+      nonce,
+    );
+    cipher.setAAD(
+      Buffer.from(
+        `${this.config.environment}:${this.config.terminalKey}:${orderId}`,
+      ),
+    );
+    const data = Buffer.concat([
+      cipher.update(rebillId, "utf8"),
+      cipher.final(),
+    ]);
     return Buffer.concat([nonce, cipher.getAuthTag(), data]).toString("base64");
   }
   openBinding(orderId: string, ciphertext: string): string {
     const data = Buffer.from(ciphertext, "base64");
-    const decipher = createDecipheriv("aes-256-gcm", Buffer.from(this.config.bindingEncryptionKey, "base64"), data.subarray(0, 12));
-    decipher.setAAD(Buffer.from(`${this.config.environment}:${this.config.terminalKey}:${orderId}`));
+    const decipher = createDecipheriv(
+      "aes-256-gcm",
+      Buffer.from(this.config.bindingEncryptionKey, "base64"),
+      data.subarray(0, 12),
+    );
+    decipher.setAAD(
+      Buffer.from(
+        `${this.config.environment}:${this.config.terminalKey}:${orderId}`,
+      ),
+    );
     decipher.setAuthTag(data.subarray(12, 28));
-    return Buffer.concat([decipher.update(data.subarray(28)), decipher.final()]).toString("utf8");
+    return Buffer.concat([
+      decipher.update(data.subarray(28)),
+      decipher.final(),
+    ]).toString("utf8");
   }
-  private async call(method: "Init" | "GetState" | "CheckOrder" | "Charge" | "Cancel" | "AddCard" | "GetAddCardState", values: Readonly<Record<string, unknown>>): Promise<unknown> {
+  private async call(
+    method:
+      | "Init"
+      | "GetState"
+      | "CheckOrder"
+      | "Charge"
+      | "Cancel"
+      | "AddCard"
+      | "GetAddCardState",
+    values: Readonly<Record<string, unknown>>,
+  ): Promise<unknown> {
     const body = { ...values, TerminalKey: this.config.terminalKey };
-    const response = await this.request(`${this.config.endpoints.apiBaseUrl}/${method}`, {
-      method: "POST", headers: { "content-type": "application/json" },
-      body: JSON.stringify({ ...body, Token: tbankToken(body, this.config.password) }),
-      signal: AbortSignal.timeout(bankTimeoutMs), redirect: "error",
-    });
+    const response = await this.request(
+      `${this.config.endpoints.apiBaseUrl}/${method}`,
+      {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          ...body,
+          Token: tbankToken(body, this.config.password),
+        }),
+        signal: AbortSignal.timeout(bankTimeoutMs),
+        redirect: "error",
+      },
+    );
     if (!response.ok) throw new Error("Bank response unavailable");
     return response.json();
   }

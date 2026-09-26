@@ -136,7 +136,7 @@ describe("Library discovery server adapter", () => {
             format: "Гайд",
             formatSlug: "guide",
             publishedAt: "2026-08-25T05:00:00.000Z",
-          materialId: "72000000-0000-4000-8000-000000000020",
+            materialId: "72000000-0000-4000-8000-000000000020",
             seriesMemberships: [
               {
                 name: "Создание Platform Inside",
@@ -321,19 +321,31 @@ describe("Library discovery server adapter", () => {
   });
 
   it("carries the product page and drops a description this site cannot draw", async () => {
-    const page = { card: null, blocks: [{ id: "hero", kind: "hero", lead: "Лид.", highlights: [] }] };
+    const page = {
+      card: null,
+      blocks: [{ id: "hero", kind: "hero", lead: "Лид.", highlights: [] }],
+    };
     const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
     const reply = (productPage: unknown) =>
       vi.stubGlobal(
         "fetch",
         vi.fn().mockResolvedValue(
           Response.json({
-            chapters: [], hasNext: false, items: [publishedProjection], kind: "series",
+            chapters: [],
+            hasNext: false,
+            items: [publishedProjection],
+            kind: "series",
             reference: {
-              cover: null, id: "72000000-0000-4000-8000-000000000002", introduction: null,
-              name: "Platform", slug: "platform", summary: "Материалы о Platform.", productPage,
+              cover: null,
+              id: "72000000-0000-4000-8000-000000000002",
+              introduction: null,
+              name: "Platform",
+              slug: "platform",
+              summary: "Материалы о Platform.",
+              productPage,
             },
-            relatedSeries: [], topics: [],
+            relatedSeries: [],
+            topics: [],
           }),
         ),
       );
@@ -344,7 +356,10 @@ describe("Library discovery server adapter", () => {
     });
     expect(warn).not.toHaveBeenCalled();
 
-    reply({ presentation: "neon-hero", page: { card: null, blocks: [{ id: "hero", kind: "poster" }] } });
+    reply({
+      presentation: "neon-hero",
+      page: { card: null, blocks: [{ id: "hero", kind: "poster" }] },
+    });
     await expect(getPublishedSeries("platform")).resolves.toMatchObject({
       reference: { productPage: { presentation: "default", page: null } },
     });

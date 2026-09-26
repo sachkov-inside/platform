@@ -32,12 +32,7 @@ export function parseMcpConfig(
   }
 
   const serverUrl = parseServerUrl(
-    runtimeValue(
-      environment,
-      "MCP_SERVER_URL",
-      mode,
-      DEFAULT_MCP_SERVER_URL,
-    ),
+    runtimeValue(environment, "MCP_SERVER_URL", mode, DEFAULT_MCP_SERVER_URL),
     mode,
   );
 

@@ -15,10 +15,10 @@ export type {
   VideoPresentation,
   Videos,
 } from "./facets/videos/videos.interface.js";
-export type {
-  ProviderVideo,
-  VideoProvider,
-} from "./ports/video-provider.js";
+export type { ProviderVideo, VideoProvider } from "./ports/video-provider.js";
 export { createConfiguredVideoProvider } from "./shared/configured-video-provider.js";
 
-export { registerVideoTools, type VideoAuthoringTools } from "./adapters/mcp/register-video-tools.js";
+export {
+  registerVideoTools,
+  type VideoAuthoringTools,
+} from "./adapters/mcp/register-video-tools.js";

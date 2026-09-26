@@ -61,8 +61,7 @@ describe("ContentAccess current Platform facts", () => {
         findOne: () => Promise.resolve(material),
       },
       accountPermissions: assembleCurrentAccountPermissions(accounts),
-      membershipEntitlements:
-        assembleDeterministicMembershipEntitlements(),
+      membershipEntitlements: assembleDeterministicMembershipEntitlements(),
     });
     const request = {
       subject: { kind: "account" as const, accountId },
@@ -157,7 +156,15 @@ describe("ContentAccess current Platform facts", () => {
         evidence: observedEvidence("member", 1),
       }),
     ).resolves.toMatchObject({ ok: true, outcome: "applied" });
-    await testDatabase.prisma.legacyClassification.update({ where: { accountId }, data: { bridgeContentScope: { guideIds: [], materialIds: [material.materialId] } } });
+    await testDatabase.prisma.legacyClassification.update({
+      where: { accountId },
+      data: {
+        bridgeContentScope: {
+          guideIds: [],
+          materialIds: [material.materialId],
+        },
+      },
+    });
     await expect(contentAccess.authorize(request)).resolves.toEqual({
       decisionId: "membership-decision-id",
       policyVersion: "content-access-v1",

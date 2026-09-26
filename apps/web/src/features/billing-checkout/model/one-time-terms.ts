@@ -37,7 +37,10 @@ export const oneTimeTermLabels = {
  * `{support_term}`, а подписи даёт действующая оферта, поэтому страница не заводит своих чисел.
  */
 export function fillOneTimeTerms(text: string): string {
-  return fillOfferTerms(text, { access: oneTimeTermLabels.materialsAndChat, support: oneTimeTermLabels.support });
+  return fillOfferTerms(text, {
+    access: oneTimeTermLabels.materialsAndChat,
+    support: oneTimeTermLabels.support,
+  });
 }
 
 /**
@@ -78,6 +81,10 @@ export function oneTimePurchaseInclusions(
       title: `${oneTimeTermLabels.materialsAndChat} гарантированно`,
       detail: "дальше без гарантии срока",
     },
-    { kind: "support", caption: "Сопровождение автора", title: oneTimeTermLabels.support },
+    {
+      kind: "support",
+      caption: "Сопровождение автора",
+      title: oneTimeTermLabels.support,
+    },
   ];
 }

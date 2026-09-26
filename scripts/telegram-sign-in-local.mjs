@@ -10,40 +10,99 @@ const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 ensureSharedIdentityDirectory(root);
 const web = new URL(process.env.WEB_BASE_URL);
 const api = new URL(process.env.BACKEND_BASE_URL);
-if (web.hostname !== "127.0.0.1" || api.hostname !== "127.0.0.1" || process.env.NODE_ENV !== "development") {
-  throw new Error("This launcher requires explicit loopback URLs and NODE_ENV=development");
+if (
+  web.hostname !== "127.0.0.1" ||
+  api.hostname !== "127.0.0.1" ||
+  process.env.NODE_ENV !== "development"
+) {
+  throw new Error(
+    "This launcher requires explicit loopback URLs and NODE_ENV=development",
+  );
 }
 for (const port of [Number(web.port), Number(api.port), 3602]) {
-  if (!Number.isInteger(port) || port < 1) throw new Error("Explicit local ports are required");
+  if (!Number.isInteger(port) || port < 1)
+    throw new Error("Explicit local ports are required");
   await new Promise((accept, reject) => {
     const server = createServer();
-    server.once("error", () => reject(new Error(`Port ${String(port)} is already owned by another process`)));
+    server.once("error", () =>
+      reject(
+        new Error(`Port ${String(port)} is already owned by another process`),
+      ),
+    );
     server.listen(port, "127.0.0.1", () => server.close(accept));
   });
 }
-const databaseUrl = process.env.DATABASE_URL ?? (ensureCheckDatabase({ cwd: root }), checkDatabaseUrl(process.env.POSTGRES_HOST_PORT ?? 5432));
-if (new URL(databaseUrl).pathname === "/inside") throw new Error("The Telegram sign-in launcher must not migrate or seed the stand database");
+const databaseUrl =
+  process.env.DATABASE_URL ??
+  (ensureCheckDatabase({ cwd: root }),
+  checkDatabaseUrl(process.env.POSTGRES_HOST_PORT ?? 5432));
+if (new URL(databaseUrl).pathname === "/inside")
+  throw new Error(
+    "The Telegram sign-in launcher must not migrate or seed the stand database",
+  );
 const environment = {
-  ...process.env, DATABASE_URL: databaseUrl, LOCAL_SEED_DEMO: "published", API_HOST: "127.0.0.1", API_PORT: api.port,
-  MCP_HOST: "127.0.0.1", MCP_PORT: "3602", MCP_SERVER_URL: "http://127.0.0.1:3602/mcp",
+  ...process.env,
+  DATABASE_URL: databaseUrl,
+  LOCAL_SEED_DEMO: "published",
+  API_HOST: "127.0.0.1",
+  API_PORT: api.port,
+  MCP_HOST: "127.0.0.1",
+  MCP_PORT: "3602",
+  MCP_SERVER_URL: "http://127.0.0.1:3602/mcp",
   NODE_EXTRA_CA_CERTS: resolve(root, ".identity-proof/tls/certificate.pem"),
 };
 for (const command of ["db:migrate", "db:seed"]) {
-  const result = spawnSync("pnpm", ["--filter", "@inside/backend", command], { cwd: root, env: environment, stdio: "inherit" });
+  const result = spawnSync("pnpm", ["--filter", "@inside/backend", command], {
+    cwd: root,
+    env: environment,
+    stdio: "inherit",
+  });
   if (result.status !== 0) process.exit(1);
 }
 const commands = [
-  ["--filter", "@inside/web", "dev", "--hostname", "127.0.0.1", "--port", web.port],
-  ...["dev:api", "dev:mcp", "dev:material-assets-worker", "dev:profile-avatars-worker", "dev:video-deletions-worker"].map(command => ["--filter", "@inside/backend", command]),
+  [
+    "--filter",
+    "@inside/web",
+    "dev",
+    "--hostname",
+    "127.0.0.1",
+    "--port",
+    web.port,
+  ],
+  ...[
+    "dev:api",
+    "dev:mcp",
+    "dev:material-assets-worker",
+    "dev:profile-avatars-worker",
+    "dev:video-deletions-worker",
+  ].map((command) => ["--filter", "@inside/backend", command]),
 ];
-const children = commands.map(args => spawn("pnpm", args, { cwd: root, env: environment, stdio: "inherit", detached: true }));
+const children = commands.map((args) =>
+  spawn("pnpm", args, {
+    cwd: root,
+    env: environment,
+    stdio: "inherit",
+    detached: true,
+  }),
+);
 let stopping = false;
 function stop() {
   if (stopping) return;
   stopping = true;
-  for (const child of children) if (child.pid && child.exitCode === null) {
-    try { process.kill(-child.pid, "SIGTERM"); } catch { /* Child already exited. */ }
-  }
+  for (const child of children)
+    if (child.pid && child.exitCode === null) {
+      try {
+        process.kill(-child.pid, "SIGTERM");
+      } catch {
+        /* Child already exited. */
+      }
+    }
 }
 for (const signal of ["SIGTERM", "SIGINT"]) process.once(signal, stop);
-for (const child of children) child.once("exit", code => { if (!stopping) { process.exitCode = code || 1; stop(); } });
+for (const child of children)
+  child.once("exit", (code) => {
+    if (!stopping) {
+      process.exitCode = code || 1;
+      stop();
+    }
+  });

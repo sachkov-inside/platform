@@ -20,16 +20,24 @@ export function logRequestError(
   },
 ): void {
   const digest =
-    typeof error === "object" && error !== null && "digest" in error && typeof error.digest === "string"
+    typeof error === "object" &&
+    error !== null &&
+    "digest" in error &&
+    typeof error.digest === "string"
       ? error.digest
       : undefined;
   writeStructuredLog("error", "request-error", {
     ...(digest === undefined ? {} : { digest }),
-    message: (error instanceof Error ? error.message : String(error)).slice(0, LOGGED_MESSAGE_LENGTH),
+    message: (error instanceof Error ? error.message : String(error)).slice(
+      0,
+      LOGGED_MESSAGE_LENGTH,
+    ),
     method: request.method,
     name: error instanceof Error ? error.name : typeof error,
     path: request.path.split(/[?#]/u, 1)[0] ?? "/",
-    ...(context.renderSource === undefined ? {} : { renderSource: context.renderSource }),
+    ...(context.renderSource === undefined
+      ? {}
+      : { renderSource: context.renderSource }),
     routePath: context.routePath,
     routeType: context.routeType,
   });

@@ -19,7 +19,11 @@ export function SeriesContinuationProvider({
   readonly children: ReactNode;
   readonly materialSlug: string | null;
 }) {
-  return <SeriesContinuationContext value={materialSlug}>{children}</SeriesContinuationContext>;
+  return (
+    <SeriesContinuationContext value={materialSlug}>
+      {children}
+    </SeriesContinuationContext>
+  );
 }
 
 /** Строка программы: у урока продолжения другой фон. */
@@ -53,11 +57,19 @@ export function SeriesRowArticle({
 export function SeriesContinuationSlot({ slug }: { readonly slug: string }) {
   const current = use(SeriesContinuationContext) === slug;
   return (
-    <span className="flex h-5 items-center text-xs font-semibold text-action" data-series-continuation-slot>
+    <span
+      className="flex h-5 items-center text-xs font-semibold text-action"
+      data-series-continuation-slot
+    >
       {current ? (
         <>
-          <Play aria-hidden="true" className="size-3.5 fill-current @min-[30rem]/series-entry:hidden" />
-          <span className="sr-only @min-[30rem]/series-entry:not-sr-only">Продолжить</span>
+          <Play
+            aria-hidden="true"
+            className="size-3.5 fill-current @min-[30rem]/series-entry:hidden"
+          />
+          <span className="sr-only @min-[30rem]/series-entry:not-sr-only">
+            Продолжить
+          </span>
         </>
       ) : null}
     </span>

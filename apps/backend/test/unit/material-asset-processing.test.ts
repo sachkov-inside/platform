@@ -43,8 +43,14 @@ describe("MaterialAsset byte processing", () => {
       kind: "image",
       width: 1800,
     });
-    expect(result.value.variants.map(({ width }) => width)).toEqual([480, 960, 1600]);
-    expect(result.value.variants.every(({ contentType }) => contentType === "image/webp")).toBe(true);
+    expect(result.value.variants.map(({ width }) => width)).toEqual([
+      480, 960, 1600,
+    ]);
+    expect(
+      result.value.variants.every(
+        ({ contentType }) => contentType === "image/webp",
+      ),
+    ).toBe(true);
     const originalMetadata = await sharp(result.value.original.body).metadata();
     expect(originalMetadata.format).toBe("webp");
     expect(originalMetadata.exif).toBeUndefined();
@@ -90,7 +96,9 @@ describe("MaterialAsset byte processing", () => {
       value: { contentType: "application/octet-stream", kind: "file" },
     });
 
-    const script = new TextEncoder().encode("#!/usr/bin/env node\nconsole.log('unsafe')");
+    const script = new TextEncoder().encode(
+      "#!/usr/bin/env node\nconsole.log('unsafe')",
+    );
     await expect(
       processMaterialAssetBytes({
         body: script,
@@ -117,12 +125,8 @@ describe("MaterialAsset byte processing", () => {
 
   test("rejects video bytes disguised as a downloadable file", async () => {
     const video = Uint8Array.from([
-      0x00, 0x00, 0x00, 0x18,
-      0x66, 0x74, 0x79, 0x70,
-      0x69, 0x73, 0x6f, 0x6d,
-      0x00, 0x00, 0x00, 0x00,
-      0x69, 0x73, 0x6f, 0x6d,
-      0x6d, 0x70, 0x34, 0x32,
+      0x00, 0x00, 0x00, 0x18, 0x66, 0x74, 0x79, 0x70, 0x69, 0x73, 0x6f, 0x6d,
+      0x00, 0x00, 0x00, 0x00, 0x69, 0x73, 0x6f, 0x6d, 0x6d, 0x70, 0x34, 0x32,
     ]);
 
     await expect(

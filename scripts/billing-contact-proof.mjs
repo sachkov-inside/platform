@@ -228,7 +228,10 @@ try {
     const contactHeadingId = await contactSection
       .first()
       .getAttribute("aria-labelledby");
-    assert(contactHeadingId, "Contact section must label itself by its heading");
+    assert(
+      contactHeadingId,
+      "Contact section must label itself by its heading",
+    );
     const a11y = await new AxeBuilder({ page })
       .include(`section[aria-labelledby='${contactHeadingId}']`)
       .withTags(["wcag2a", "wcag2aa", "wcag21aa"])
@@ -252,9 +255,9 @@ try {
     await page.reload();
     await page.getByText(`${name}@example.test`, { exact: true }).waitFor();
     assert.equal(
-      (await page.request.get(`${webBaseUrl}/api/account/billing/contact`)).headers()[
-        "cache-control"
-      ],
+      (
+        await page.request.get(`${webBaseUrl}/api/account/billing/contact`)
+      ).headers()["cache-control"],
       "private, no-store",
     );
     await context.close();

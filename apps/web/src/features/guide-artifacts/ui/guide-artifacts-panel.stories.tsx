@@ -68,11 +68,18 @@ function Fixture({
     });
     queryClient.setQueryData(
       ["guide-artifacts", guideId],
-      failing ? { kind: "error", reference: "guide-artifacts-response" } : { artifacts, kind: "ready" },
+      failing
+        ? { kind: "error", reference: "guide-artifacts-response" }
+        : { artifacts, kind: "ready" },
     );
     queryClient.setQueryData(["guide-artifacts", "reusable"], {
       artifacts: [
-        { ...linkArtifact, artifactId: "97000000-0000-4000-8000-000000000104", guideIds: [otherGuideId], title: "Схема окружения" },
+        {
+          ...linkArtifact,
+          artifactId: "97000000-0000-4000-8000-000000000104",
+          guideIds: [otherGuideId],
+          title: "Схема окружения",
+        },
       ],
       kind: "ready",
     });
@@ -147,9 +154,9 @@ export const LoadError: Story = {
     ),
   ],
   play: async ({ canvasElement }) => {
-    await expect(
-      within(canvasElement).getByRole("alert"),
-    ).toHaveTextContent("Не удалось загрузить артефакты.");
+    await expect(within(canvasElement).getByRole("alert")).toHaveTextContent(
+      "Не удалось загрузить артефакты.",
+    );
   },
 };
 
@@ -157,7 +164,10 @@ export const StillReferenced: Story = {
   decorators: [
     withMutationFetch(() =>
       Promise.resolve(
-        Response.json({ guideIds: [guideId, otherGuideId], kind: "referenced" }),
+        Response.json({
+          guideIds: [guideId, otherGuideId],
+          kind: "referenced",
+        }),
       ),
     ),
   ],
@@ -175,10 +185,14 @@ export const StillReferenced: Story = {
 export const AddLinkForm: Story = {
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
-    await userEvent.click(canvas.getByRole("button", { name: "Добавить ссылку" }));
+    await userEvent.click(
+      canvas.getByRole("button", { name: "Добавить ссылку" }),
+    );
     await expect(
       canvas.getByRole("form", { name: "Новый артефакт по ссылке" }),
     ).toBeVisible();
-    await expect(canvas.getByRole("textbox", { name: "Название" })).toBeVisible();
+    await expect(
+      canvas.getByRole("textbox", { name: "Название" }),
+    ).toBeVisible();
   },
 };

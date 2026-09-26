@@ -131,25 +131,25 @@ describe("material authoring integrity contract", () => {
     ).toEqual({ ok: false, error: { code: "duplicate_tag", tagId } });
 
     const second = await authoring.createDraft({
-        actor,
-        idempotencyKey: "a0000000-0000-4000-8000-000000000023",
-        metadata: {
-          ...metadata,
-          title: "Second playlist item",
-          tagIds: [],
-        },
-        body: representativeDocument(),
-      });
+      actor,
+      idempotencyKey: "a0000000-0000-4000-8000-000000000023",
+      metadata: {
+        ...metadata,
+        title: "Second playlist item",
+        tagIds: [],
+      },
+      body: representativeDocument(),
+    });
     const third = await authoring.createDraft({
-        actor,
-        idempotencyKey: "a0000000-0000-4000-8000-000000000024",
-        metadata: {
-          ...metadata,
-          title: "Third playlist item",
-          tagIds: [],
-        },
-        body: representativeDocument(),
-      });
+      actor,
+      idempotencyKey: "a0000000-0000-4000-8000-000000000024",
+      metadata: {
+        ...metadata,
+        title: "Third playlist item",
+        tagIds: [],
+      },
+      body: representativeDocument(),
+    });
     if (!first.ok || !second.ok || !third.ok) {
       throw new Error("Selected Series append failed");
     }

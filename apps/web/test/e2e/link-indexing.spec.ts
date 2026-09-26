@@ -33,7 +33,12 @@ test("карта сайта остаётся рабочей, когда ката
 });
 
 test.describe("Закрытые от индексации разделы", () => {
-  for (const path of ["/account", "/account/purchases", "/authoring/materials", "/bookmarks"]) {
+  for (const path of [
+    "/account",
+    "/account/purchases",
+    "/authoring/materials",
+    "/bookmarks",
+  ]) {
     test(`${path} не индексируется`, async ({ page }) => {
       await page.goto(path);
 

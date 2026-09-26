@@ -6,7 +6,10 @@ import type {
   ObjectStorage,
   ObjectStorageNamespace,
 } from "../../src/infrastructure/object-storage/index.js";
-import { accountId, assembleAccounts } from "../../src/modules/accounts/index.js";
+import {
+  accountId,
+  assembleAccounts,
+} from "../../src/modules/accounts/index.js";
 import {
   assembleContentAccess,
   type ContentAccess,
@@ -26,7 +29,10 @@ import {
   type GuideArtifactDelivery,
   type GuideArtifacts,
 } from "../../src/modules/materials/index.js";
-import { createMigratedTestDatabase, type TestDatabase } from "./setup/test-database.js";
+import {
+  createMigratedTestDatabase,
+  type TestDatabase,
+} from "./setup/test-database.js";
 
 const owner = randomUUID();
 const member = randomUUID();
@@ -95,7 +101,11 @@ describe("Guide Artifacts", () => {
       data: { accountId: owner, permission: "platform:admin" },
     });
     await db.prisma.topic.create({
-      data: { id: topicId, name: "Synthetic artifacts", slug: "artifact-topic" },
+      data: {
+        id: topicId,
+        name: "Synthetic artifacts",
+        slug: "artifact-topic",
+      },
     });
     for (const id of [guideA, guideB]) {
       await db.prisma.guide.create({
@@ -175,9 +185,7 @@ describe("Guide Artifacts", () => {
       .filter(({ key }) => key.includes(artifactId))
       .map(({ namespace }) => namespace);
     expect(namespaces).toEqual(["quarantine", "protected", "public"]);
-    expect(
-      deletes.filter(({ key }) => key.includes(artifactId)),
-    ).toEqual([
+    expect(deletes.filter(({ key }) => key.includes(artifactId))).toEqual([
       expect.objectContaining({ namespace: "quarantine" }),
     ]);
 
@@ -218,7 +226,11 @@ describe("Guide Artifacts", () => {
     const before = await db.prisma.guideArtifact.count();
     const rejected = await artifacts.create({
       actor: owner,
-      file: fileUpload("setup.sh", "#!/bin/sh\necho install\n", "text/x-shellscript"),
+      file: fileUpload(
+        "setup.sh",
+        "#!/bin/sh\necho install\n",
+        "text/x-shellscript",
+      ),
       guideId: guideA,
       kind: "file",
       metadata: { access: "free", purpose: "", title: "Установщик" },
@@ -232,7 +244,11 @@ describe("Guide Artifacts", () => {
 
   test("delivers a free artifact to a visitor and a membership artifact only to a granted account", async () => {
     const free = await createArtifact("free", "Публичный шаблон", guideA);
-    const paid = await createArtifact("membership", "Закрытая конфигурация", guideA);
+    const paid = await createArtifact(
+      "membership",
+      "Закрытая конфигурация",
+      guideA,
+    );
 
     const visitorRead = await delivery.read({
       guideId: guideA,
@@ -335,9 +351,7 @@ describe("Guide Artifacts", () => {
       title: "Закрытая конфигурация",
     });
     expect(
-      (
-        await delivery.read({ guideId: guideA, subject: memberSubject })
-      ).ok,
+      (await delivery.read({ guideId: guideA, subject: memberSubject })).ok,
     ).toBe(true);
     const memberRead = await delivery.read({
       guideId: guideA,
@@ -445,7 +459,8 @@ describe("Guide Artifacts", () => {
       guideId: guideB,
     });
     expect(
-      authorList.ok && authorList.value.some((item) => item.artifactId === artifactId),
+      authorList.ok &&
+        authorList.value.some((item) => item.artifactId === artifactId),
     ).toBe(true);
 
     await artifacts.setGuides({ actor: owner, artifactId, guideIds: [] });
@@ -650,7 +665,11 @@ describe("Guide Artifacts", () => {
       ok: true,
       value: { outcomes: [{ artifactId, outcome: "unchanged" }] },
     });
-    expect(await db.prisma.guideArtifact.count({ where: { sourceId: source.sourceId } })).toBe(1);
+    expect(
+      await db.prisma.guideArtifact.count({
+        where: { sourceId: source.sourceId },
+      }),
+    ).toBe(1);
     const placements = await db.prisma.guideArtifactPlacement.findMany({
       where: { artifactId: artifactId ?? "" },
     });
@@ -716,14 +735,28 @@ describe("Guide Artifacts", () => {
   test("offers every active artifact for reuse only to a manager and reads its facts by id", async () => {
     const guideId = randomUUID();
     await db.prisma.guide.create({
-      data: { id: guideId, name: `Synthetic reuse guide ${guideId}`, slug: guideId },
+      data: {
+        id: guideId,
+        name: `Synthetic reuse guide ${guideId}`,
+        slug: guideId,
+      },
     });
-    const active = await createArtifact("membership", "Шаблон для повтора", guideId);
+    const active = await createArtifact(
+      "membership",
+      "Шаблон для повтора",
+      guideId,
+    );
     const archived = await createArtifact("free", "Снятый шаблон", guideId);
-    await artifacts.setArchived({ actor: owner, archived: true, artifactId: archived });
+    await artifacts.setArchived({
+      actor: owner,
+      archived: true,
+      artifactId: archived,
+    });
 
     const reusable = await artifacts.listReusable({ actor: owner });
-    const offered = reusable.ok ? reusable.value.map(({ artifactId }) => artifactId) : [];
+    const offered = reusable.ok
+      ? reusable.value.map(({ artifactId }) => artifactId)
+      : [];
     expect(offered).toContain(active);
     expect(offered).not.toContain(archived);
     expect(await artifacts.listReusable({ actor: member })).toEqual({
@@ -732,14 +765,24 @@ describe("Guide Artifacts", () => {
     });
 
     expect(await artifacts.loadAccessFacts([active, "not-a-uuid"])).toEqual([
-      { access: "membership", archived: false, artifactId: active, guideIds: [guideId], version: 1 },
+      {
+        access: "membership",
+        archived: false,
+        artifactId: active,
+        guideIds: [guideId],
+        version: 1,
+      },
     ]);
-    expect(await artifacts.loadFileDelivery({ artifactId: active, guideId })).toMatchObject({
+    expect(
+      await artifacts.loadFileDelivery({ artifactId: active, guideId }),
+    ).toMatchObject({
       ok: true,
       value: { artifactId: active, filename: "Шаблон для повтора.md" },
     });
     // A Guide that does not place the artifact never serves its file.
-    expect(await artifacts.loadFileDelivery({ artifactId: active, guideId: guideA })).toEqual({
+    expect(
+      await artifacts.loadFileDelivery({ artifactId: active, guideId: guideA }),
+    ).toEqual({
       ok: true,
       value: null,
     });

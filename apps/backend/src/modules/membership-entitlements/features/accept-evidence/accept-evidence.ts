@@ -4,7 +4,10 @@ import { createHash, randomUUID } from "node:crypto";
 
 import { z } from "zod";
 
-import { replayFingerprint, type ReplayFingerprint } from "../../../../infrastructure/contracts/canonical-digest.js";
+import {
+  replayFingerprint,
+  type ReplayFingerprint,
+} from "../../../../infrastructure/contracts/canonical-digest.js";
 import {
   lockAccountEntitlementChanges,
   lockTelegramAccountBinding,
@@ -37,11 +40,7 @@ const commandMetadataSchema = z
       .min(1)
       .max(256)
       .brand<"MembershipEvidenceDeliveryId">(),
-    source: z.enum([
-      "link_time",
-      "member_status_event",
-      "reconciliation",
-    ]),
+    source: z.enum(["link_time", "member_status_event", "reconciliation"]),
   })
   .strict();
 
@@ -142,8 +141,15 @@ export async function acceptMembershipEvidence(
 
   return prisma.$transaction(async (transaction) => {
     await lockTelegramAccountBinding(transaction, command.accountId);
-    const tributeCandidates = await transaction.sourceEntitlement.findMany({ where: { origin: "tribute", accountId: command.accountId }, orderBy: { sourceRef: "asc" } });
-    for (const source of tributeCandidates) await lockAccountAccess(transaction, `enrollment:tribute:${source.sourceRef}`);
+    const tributeCandidates = await transaction.sourceEntitlement.findMany({
+      where: { origin: "tribute", accountId: command.accountId },
+      orderBy: { sourceRef: "asc" },
+    });
+    for (const source of tributeCandidates)
+      await lockAccountAccess(
+        transaction,
+        `enrollment:tribute:${source.sourceRef}`,
+      );
     await lockAccountEntitlementChanges(transaction, command.accountId);
     const inserted = await transaction.$executeRaw(Prisma.sql`
       insert into membership_entitlements.evidence_receipts (
@@ -210,10 +216,7 @@ export async function acceptMembershipEvidence(
         "principal_mismatch",
       );
     }
-    if (
-      bindingState === "missing" &&
-      checkedCommand.source !== "link_time"
-    ) {
+    if (bindingState === "missing" && checkedCommand.source !== "link_time") {
       return awaitAccountBinding(transaction, checkedCommand.deliveryId);
     }
 
@@ -248,11 +251,25 @@ export async function acceptMembershipEvidence(
         applied.error.code,
       );
     }
-    if (applied.outcome === "applied" && tributeCandidates.length > 0 && links !== undefined) {
+    if (
+      applied.outcome === "applied" &&
+      tributeCandidates.length > 0 &&
+      links !== undefined
+    ) {
       const current = await links.readBinding({ accountId: command.accountId });
-      if (current.ok && current.binding?.accountRef === validation.value.principalRef
-        && current.binding.telegramIdentityRef === validation.value.telegramIdentityRef) {
-        await observeTemporaryTribute(transaction, tributeCandidates.map(source => source.id), command.accountId, validation.value, now);
+      if (
+        current.ok &&
+        current.binding?.accountRef === validation.value.principalRef &&
+        current.binding.telegramIdentityRef ===
+          validation.value.telegramIdentityRef
+      ) {
+        await observeTemporaryTribute(
+          transaction,
+          tributeCandidates.map((source) => source.id),
+          command.accountId,
+          validation.value,
+          now,
+        );
       }
     }
     await transaction.membershipEvidenceReceipt.update({
@@ -269,7 +286,10 @@ async function checkAccountBinding(
   evidence: MembershipEvidence,
   now: Date,
 ): Promise<AccountBindingState> {
-  if (command.source === "link_time" && isObservedMembershipEvidence(evidence)) {
+  if (
+    command.source === "link_time" &&
+    isObservedMembershipEvidence(evidence)
+  ) {
     await transaction.$executeRaw(Prisma.sql`
       insert into membership_entitlements.account_bindings (
         account_id,
@@ -292,11 +312,9 @@ async function checkAccountBinding(
   if (bindings.length === 0) {
     return "missing";
   }
-  return (
-    bindings.length === 1 &&
+  return bindings.length === 1 &&
     bindings[0]?.account_id === command.accountId &&
     bindings[0].principal_ref === evidence.principalRef
-  )
     ? "matches"
     : "mismatch";
 }
@@ -346,8 +364,20 @@ async function applyObservedEvidence(
       evidenceFingerprint.digest,
       now,
     );
-    const cohort = await transaction.legacyClassification.findUnique({ where: { accountId: command.accountId }, select: { bridgeEnabled: true } });
-    if (cohort?.bridgeEnabled === true) await transaction.accessChange.create({ data: { accountId: command.accountId, operationId: randomUUID(), kind: "legacy_evidence", reason: evidence.decision, recordedAt: now } });
+    const cohort = await transaction.legacyClassification.findUnique({
+      where: { accountId: command.accountId },
+      select: { bridgeEnabled: true },
+    });
+    if (cohort?.bridgeEnabled === true)
+      await transaction.accessChange.create({
+        data: {
+          accountId: command.accountId,
+          operationId: randomUUID(),
+          kind: "legacy_evidence",
+          reason: evidence.decision,
+          recordedAt: now,
+        },
+      });
     return appliedResult(evidence);
   }
 
@@ -367,8 +397,20 @@ async function applyObservedEvidence(
       evidenceFingerprint.digest,
       now,
     );
-    const cohort = await transaction.legacyClassification.findUnique({ where: { accountId: command.accountId }, select: { bridgeEnabled: true } });
-    if (cohort?.bridgeEnabled === true) await transaction.accessChange.create({ data: { accountId: command.accountId, operationId: randomUUID(), kind: "legacy_evidence", reason: evidence.decision, recordedAt: now } });
+    const cohort = await transaction.legacyClassification.findUnique({
+      where: { accountId: command.accountId },
+      select: { bridgeEnabled: true },
+    });
+    if (cohort?.bridgeEnabled === true)
+      await transaction.accessChange.create({
+        data: {
+          accountId: command.accountId,
+          operationId: randomUUID(),
+          kind: "legacy_evidence",
+          reason: evidence.decision,
+          recordedAt: now,
+        },
+      });
     return appliedResult(evidence);
   }
 
@@ -458,9 +500,7 @@ function evidenceReceiptMetadata(evidence: MembershipEvidence) {
   };
 }
 
-function appliedResult(
-  evidence: ObservedMembershipEvidence,
-): AppliedEvidence {
+function appliedResult(evidence: ObservedMembershipEvidence): AppliedEvidence {
   return {
     ok: true,
     outcome: "applied",
@@ -558,7 +598,10 @@ function failure<
 // Version 1 hashed the value in key order; receipts and projections stored with it still match.
 function fingerprint(value: unknown): ReplayFingerprint {
   try {
-    return replayFingerprint({ version: 2, value }, sha256(JSON.stringify(value) ?? "undefined"));
+    return replayFingerprint(
+      { version: 2, value },
+      sha256(JSON.stringify(value) ?? "undefined"),
+    );
   } catch {
     // Not a dependency failure: a value JSON cannot serialize is fingerprinted by its type.
     const digest = sha256(Object.prototype.toString.call(value));

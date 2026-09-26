@@ -4,7 +4,10 @@ import type { Route } from "next";
 import Link from "next/link";
 import { useState, type ComponentProps } from "react";
 
-type IntentPrefetchLinkProps = Omit<ComponentProps<typeof Link>, "href" | "prefetch"> & {
+type IntentPrefetchLinkProps = Omit<
+  ComponentProps<typeof Link>,
+  "href" | "prefetch"
+> & {
   readonly href: Route;
 };
 

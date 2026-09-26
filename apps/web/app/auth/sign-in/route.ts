@@ -33,9 +33,14 @@ export async function POST(request: Request): Promise<Response> {
   }
 }
 
-async function readReturnTo(request: Request): Promise<FormDataEntryValue | undefined> {
+async function readReturnTo(
+  request: Request,
+): Promise<FormDataEntryValue | undefined> {
   const contentType = request.headers.get("content-type") ?? "";
-  if (!contentType.includes("application/x-www-form-urlencoded") && !contentType.includes("multipart/form-data")) {
+  if (
+    !contentType.includes("application/x-www-form-urlencoded") &&
+    !contentType.includes("multipart/form-data")
+  ) {
     return undefined;
   }
   return (await request.formData()).get("returnTo") ?? undefined;

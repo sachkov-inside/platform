@@ -66,9 +66,17 @@ export type VideosPrismaClient = VideosPrisma & TransactionClient<VideosPrisma>;
 
 export type AccountsPrisma = Pick<
   PlatformPrisma,
-  "$executeRaw" | "account" | "accountAuditEvent" | "accountPermission" | "billingContact" | "billingContactChallenge" | "billingContactCommand" | "legalAcceptance"
+  | "$executeRaw"
+  | "account"
+  | "accountAuditEvent"
+  | "accountPermission"
+  | "billingContact"
+  | "billingContactChallenge"
+  | "billingContactCommand"
+  | "legalAcceptance"
 >;
-export type AccountsPrismaClient = AccountsPrisma & TransactionClient<AccountsPrisma>;
+export type AccountsPrismaClient = AccountsPrisma &
+  TransactionClient<AccountsPrisma>;
 
 export type MemberProfilesPrisma = Pick<
   PlatformPrisma,
@@ -102,30 +110,79 @@ export interface TransactionClient<Transaction> {
   ): Promise<Result>;
 }
 
-export type CommunicationsPrisma = Pick<PlatformPrisma, "communicationTrackingHit">;
-
-export type ReadingActivityPrisma = Pick<PlatformPrisma,
-  "$executeRaw" | "$queryRaw" | "readingMaterialState" | "readingEvent" | "readingCommand" | "readingMaterialVisit" | "readerPreferences"
-  // Materials delegates: a reading command rereads Material facts in its own transaction.
-  | "material" | "publishedMaterialGuideMembership"
+export type CommunicationsPrisma = Pick<
+  PlatformPrisma,
+  "communicationTrackingHit"
 >;
-export type ReadingActivityPrismaClient = ReadingActivityPrisma & TransactionClient<ReadingActivityPrisma>;
 
-export type BookmarksPrisma = Pick<PlatformPrisma,
+export type ReadingActivityPrisma = Pick<
+  PlatformPrisma,
+  | "$executeRaw"
+  | "$queryRaw"
+  | "readingMaterialState"
+  | "readingEvent"
+  | "readingCommand"
+  | "readingMaterialVisit"
+  | "readerPreferences"
+  // Materials delegates: a reading command rereads Material facts in its own transaction.
+  | "material"
+  | "publishedMaterialGuideMembership"
+>;
+export type ReadingActivityPrismaClient = ReadingActivityPrisma &
+  TransactionClient<ReadingActivityPrisma>;
+
+export type BookmarksPrisma = Pick<
+  PlatformPrisma,
   "$executeRaw" | "$queryRaw" | "bookmarkedMaterial"
 >;
-export type BookmarksPrismaClient = BookmarksPrisma & TransactionClient<BookmarksPrisma>;
+export type BookmarksPrismaClient = BookmarksPrisma &
+  TransactionClient<BookmarksPrisma>;
 
-export type BillingPrisma = Pick<PlatformPrisma,
-  "$executeRaw" | "billingNotificationOutbox" | "billingOffer" | "billingPaymentOption" | "billingPromotion" |
-  "billingPricingCommand" | "billingPriceQuote" | "billingPromoReservation" | "billingPurchase" | "billingPurchaseCommand" | "billingPaymentEvent" | "billingFulfillment" |
-  "billingSubscription" | "billingSubscriptionEvent" | "billingSubscriptionCommand" | "billingChangeQuote" | "billingPaymentMethodFlow" |
-  "billingOwnerCommand" | "billingRefundDecision" | "billingRefund" |
-  "billingNotice" | "billingNoticeRevision"
+export type BillingPrisma = Pick<
+  PlatformPrisma,
+  | "$executeRaw"
+  | "billingNotificationOutbox"
+  | "billingOffer"
+  | "billingPaymentOption"
+  | "billingPromotion"
+  | "billingPricingCommand"
+  | "billingPriceQuote"
+  | "billingPromoReservation"
+  | "billingPurchase"
+  | "billingPurchaseCommand"
+  | "billingPaymentEvent"
+  | "billingFulfillment"
+  | "billingSubscription"
+  | "billingSubscriptionEvent"
+  | "billingSubscriptionCommand"
+  | "billingChangeQuote"
+  | "billingPaymentMethodFlow"
+  | "billingOwnerCommand"
+  | "billingRefundDecision"
+  | "billingRefund"
+  | "billingNotice"
+  | "billingNoticeRevision"
 >;
-export type BillingPrismaClient = BillingPrisma & TransactionClient<BillingPrisma>;
+export type BillingPrismaClient = BillingPrisma &
+  TransactionClient<BillingPrisma>;
 
-export type NotificationsPrisma = Pick<PlatformPrisma,
-  "$executeRaw" | "notificationPreference" | "notificationPreferenceRevision" | "notification" | "notificationDelivery" | "notificationCommand" | "notificationAuthorization" | "notificationResult" | "notificationEmailInbox" | "notificationEmailEffect" | "notificationEmailAttempt" | "notificationRecoveryAudit" | "notificationOutbox" | "notificationInbox" | "notificationQuarantine"
+export type NotificationsPrisma = Pick<
+  PlatformPrisma,
+  | "$executeRaw"
+  | "notificationPreference"
+  | "notificationPreferenceRevision"
+  | "notification"
+  | "notificationDelivery"
+  | "notificationCommand"
+  | "notificationAuthorization"
+  | "notificationResult"
+  | "notificationEmailInbox"
+  | "notificationEmailEffect"
+  | "notificationEmailAttempt"
+  | "notificationRecoveryAudit"
+  | "notificationOutbox"
+  | "notificationInbox"
+  | "notificationQuarantine"
 >;
-export type NotificationsPrismaClient = NotificationsPrisma & TransactionClient<NotificationsPrisma>;
+export type NotificationsPrismaClient = NotificationsPrisma &
+  TransactionClient<NotificationsPrisma>;

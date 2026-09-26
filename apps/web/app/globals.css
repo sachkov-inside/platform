@@ -86,7 +86,8 @@
   --motion-duration-fast: 160ms;
   --motion-duration-shell: 240ms;
   --motion-ease-out: cubic-bezier(0.22, 1, 0.36, 1);
-  --font-body: "Manrope Variable", "Manrope Fallback", ui-sans-serif, sans-serif;
+  --font-body:
+    "Manrope Variable", "Manrope Fallback", ui-sans-serif, sans-serif;
   --font-utility: "JetBrains Mono Variable", ui-monospace, monospace;
   color-scheme: light;
 }
@@ -289,15 +290,20 @@ body:has([data-public-shell]) {
 }
 
 .mobile-navigation-items {
-  transition: grid-template-columns var(--motion-duration-shell) var(--motion-ease-out);
+  transition: grid-template-columns var(--motion-duration-shell)
+    var(--motion-ease-out);
 }
 
 .mobile-navigation-indicator {
-  transition: transform var(--motion-duration-shell) var(--motion-ease-out), opacity var(--motion-duration-fast);
+  transition:
+    transform var(--motion-duration-shell) var(--motion-ease-out),
+    opacity var(--motion-duration-fast);
 }
 
 .mobile-navigation-link {
-  transition: color var(--motion-duration-fast), transform var(--motion-duration-fast) var(--motion-ease-out);
+  transition:
+    color var(--motion-duration-fast),
+    transform var(--motion-duration-fast) var(--motion-ease-out);
   -webkit-tap-highlight-color: transparent;
 }
 
@@ -310,7 +316,9 @@ body:has([data-public-shell]) {
     animation: none !important;
     transition: none !important;
   }
-  .mobile-navigation-link:active { transform: none; }
+  .mobile-navigation-link:active {
+    transform: none;
+  }
 }
 
 @media (width < 48rem) {
@@ -409,13 +417,27 @@ body:has([data-public-shell]) {
   background: color-mix(in oklab, var(--callout-ink) 10%, var(--card));
 }
 
-[data-callout="tip"] { --callout-ink: var(--callout-tip); }
-[data-callout="warning"] { --callout-ink: var(--callout-warning); }
-[data-callout="example"] { --callout-ink: var(--callout-example); }
-[data-callout="good"] { --callout-ink: var(--callout-good); }
-[data-callout="bad"] { --callout-ink: var(--callout-bad); }
-[data-callout="definition"] { --callout-ink: var(--callout-definition); }
-[data-callout="task"] { --callout-ink: var(--callout-task); }
+[data-callout="tip"] {
+  --callout-ink: var(--callout-tip);
+}
+[data-callout="warning"] {
+  --callout-ink: var(--callout-warning);
+}
+[data-callout="example"] {
+  --callout-ink: var(--callout-example);
+}
+[data-callout="good"] {
+  --callout-ink: var(--callout-good);
+}
+[data-callout="bad"] {
+  --callout-ink: var(--callout-bad);
+}
+[data-callout="definition"] {
+  --callout-ink: var(--callout-definition);
+}
+[data-callout="task"] {
+  --callout-ink: var(--callout-task);
+}
 
 ::selection {
   color: var(--accent-foreground);
@@ -453,12 +475,24 @@ body:has([data-public-shell]) {
 }
 
 /* Shared public frame: inner content stops at 76rem with standard desktop gutters. */
-.public-page-container { max-width: 80rem; padding-inline: clamp(1rem,3vw,2rem); }
-@media (min-width: 1024px) { .public-header { overflow-y: hidden; scrollbar-gutter: stable both-edges; } }
+.public-page-container {
+  max-width: 80rem;
+  padding-inline: clamp(1rem, 3vw, 2rem);
+}
+@media (min-width: 1024px) {
+  .public-header {
+    overflow-y: hidden;
+    scrollbar-gutter: stable both-edges;
+  }
+}
 
 /* Public pages scroll in the document until the desktop shell owns scrolling. */
 @media (48rem <= width < 64rem) {
-  html:has([data-public-shell]), body:has([data-public-shell]) { block-size: auto; overflow: visible; }
+  html:has([data-public-shell]),
+  body:has([data-public-shell]) {
+    block-size: auto;
+    overflow: visible;
+  }
 }
 
 /* Accepted Home typography roles; keep the shared foundation authoritative. */
@@ -469,18 +503,18 @@ body:has([data-public-shell]) {
   --type-card: 1rem;
   --type-series: 1.125rem;
   --type-body: 1rem;
-  --type-ui: .875rem;
-  --type-meta: .75rem;
-  --type-summary: .875rem;
+  --type-ui: 0.875rem;
+  --type-meta: 0.75rem;
+  --type-summary: 0.875rem;
 }
 @media (min-width: 701px) {
   .home-page {
     --type-page: 1.75rem;
     --type-section: 1.5rem;
-    --type-hero: clamp(1.75rem,1.1rem + 1.4vw,2rem);
+    --type-hero: clamp(1.75rem, 1.1rem + 1.4vw, 2rem);
     --type-card: 1.125rem;
     --type-series: 1.375rem;
-    --type-meta: .875rem;
+    --type-meta: 0.875rem;
     --type-summary: 1rem;
   }
 }

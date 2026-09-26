@@ -7,7 +7,12 @@ import {
   PLATFORM_CONFIG,
   type PlatformConfig,
 } from "../config/platform-config.js";
-import { StructuredNestLogger, observeJob, reportProcessFailure, reportQueueFailure } from "../infrastructure/observability/index.js";
+import {
+  StructuredNestLogger,
+  observeJob,
+  reportProcessFailure,
+  reportQueueFailure,
+} from "../infrastructure/observability/index.js";
 import { OperationalReadiness } from "../infrastructure/operational-readiness.js";
 import { runWorker } from "../infrastructure/worker-runtime.js";
 import {
@@ -29,11 +34,14 @@ const VIDEO_DELETION_RETRY_LIMIT = 5;
 const VIDEO_DELETION_SCHEDULE = "* * * * *";
 const VIDEO_DELETION_SINGLETON_SECONDS = 60;
 
-void bootstrap().catch((error: unknown) => reportProcessFailure("video-deletions-worker", error));
+void bootstrap().catch((error: unknown) =>
+  reportProcessFailure("video-deletions-worker", error),
+);
 
 async function bootstrap(): Promise<void> {
   const application = await NestFactory.createApplicationContext(
-    VideoDeletionsWorkerModule.forRoot(), { logger: new StructuredNestLogger() },
+    VideoDeletionsWorkerModule.forRoot(),
+    { logger: new StructuredNestLogger() },
   );
   const config = application.get<PlatformConfig>(PLATFORM_CONFIG);
   const maintenance = application.get<VideoDeletionMaintenance>(
@@ -47,7 +55,9 @@ async function bootstrap(): Promise<void> {
     migrate: false,
     schema: "pgboss",
   });
-  jobs.on("error", (error: unknown) => reportQueueFailure("video-deletions-worker", error));
+  jobs.on("error", (error: unknown) =>
+    reportQueueFailure("video-deletions-worker", error),
+  );
   await runWorker({
     application,
     databaseUrl: config.database.url,
@@ -64,20 +74,30 @@ async function bootstrap(): Promise<void> {
         retryLimit: VIDEO_DELETION_RETRY_LIMIT,
       });
       await jobs.schedule(DELETION_QUEUE, VIDEO_DELETION_SCHEDULE, {});
-      await jobs.send(DELETION_QUEUE, {}, {
-        singletonSeconds: VIDEO_DELETION_SINGLETON_SECONDS,
-      });
-      await jobs.work(DELETION_QUEUE, observeJob("video-deletions-worker", DELETION_QUEUE, async () => {
-        const result = await maintenance.process({
-          async isReferenced(transaction, input) {
-            const reference = await materials.containsVideoReference(transaction, input);
-            if (!reference.ok) throw new Error(reference.error.code);
-            return reference.value;
-          },
-        });
-        if (!result.ok) throw new Error(result.error.code);
-        return result;
-      }));
+      await jobs.send(
+        DELETION_QUEUE,
+        {},
+        {
+          singletonSeconds: VIDEO_DELETION_SINGLETON_SECONDS,
+        },
+      );
+      await jobs.work(
+        DELETION_QUEUE,
+        observeJob("video-deletions-worker", DELETION_QUEUE, async () => {
+          const result = await maintenance.process({
+            async isReferenced(transaction, input) {
+              const reference = await materials.containsVideoReference(
+                transaction,
+                input,
+              );
+              if (!reference.ok) throw new Error(reference.error.code);
+              return reference.value;
+            },
+          });
+          if (!result.ok) throw new Error(result.error.code);
+          return result;
+        }),
+      );
     },
   });
 }

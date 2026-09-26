@@ -28,7 +28,10 @@ import {
   problemDetailsContent,
   toOpenApiSchema,
 } from "../../../../infrastructure/http/zod-openapi.js";
-import { CurrentAccount, type AuthenticatedAccount } from "../../../accounts/index.js";
+import {
+  CurrentAccount,
+  type AuthenticatedAccount,
+} from "../../../accounts/index.js";
 import { MATERIAL_ASSET_LIMITS } from "../../../assets/index.js";
 import {
   ApiMaterialAuthoringErrors,
@@ -43,14 +46,14 @@ import {
   type ChangeContentCoverResult,
   type ContentCovers,
 } from "./content-covers.js";
-import { problemException, problemType } from "../../../../infrastructure/http/problem-details.js";
+import {
+  problemException,
+  problemType,
+} from "../../../../infrastructure/http/problem-details.js";
 
 const uuidSchema = z.uuid();
 const checksumSchema = z.hash("sha256");
-const multipartExpectedCoverIdSchema = z.union([
-  z.uuid(),
-  z.literal("null"),
-]);
+const multipartExpectedCoverIdSchema = z.union([z.uuid(), z.literal("null")]);
 // declaredSize, checksumSha256 and expectedCoverId; the import route adds sourceId.
 const uploadFieldLimit = 3;
 const changeResponseSchema = z
@@ -63,14 +66,13 @@ const removeBodySchema = z
 @MaterialAuthoringEndpoint()
 @Controller("authoring/content-covers")
 export class AuthoringContentCoverController {
-  constructor(
-    @Inject(CONTENT_COVERS) private readonly covers: ContentCovers,
-  ) {}
+  constructor(@Inject(CONTENT_COVERS) private readonly covers: ContentCovers) {}
 
   @Put(":ownerKind/:ownerId")
   @ApiOperation({
     operationId: "uploadContentCover",
-    summary: "Upload or replace one author-owned Material, Topic, or Series cover",
+    summary:
+      "Upload or replace one author-owned Material, Topic, or Series cover",
   })
   @ApiParam({
     name: "ownerKind",
@@ -96,21 +98,74 @@ export class AuthoringContentCoverController {
   })
   @ApiOkResponse({ schema: toOpenApiSchema(changeResponseSchema) })
   @ApiMaterialAuthoringErrors(401, 500)
-  @ApiResponse({ status: 400, content: problemDetailsContent(coverProblemSchema(400, "invalid_cover", ["Cover owner is malformed"])) })
-  @ApiResponse({ status: 403, content: problemDetailsContent(coverProblemSchema(403, "forbidden", ["Content cover change is forbidden"])) })
-  @ApiResponse({ status: 404, content: problemDetailsContent(coverProblemSchema(404, "owner_not_found", ["Content cover owner was not found"])) })
-  @ApiResponse({ status: 409, content: problemDetailsContent(coverConflictProblemSchema()) })
-  @ApiResponse({ status: 413, content: problemDetailsContent(coverProblemSchema(413, "invalid_cover", ["Cover exceeds the size limit"])) })
-  @ApiResponse({ status: 422, content: problemDetailsContent(coverProblemSchema(422, "invalid_cover", ["Cover form is malformed", "Cover metadata is malformed", "Cover image is not accepted"])) })
-  @ApiResponse({ status: 503, content: problemDetailsContent(coverProblemSchema(503, "dependency_unavailable", ["Content cover dependency is unavailable"])) })
+  @ApiResponse({
+    status: 400,
+    content: problemDetailsContent(
+      coverProblemSchema(400, "invalid_cover", ["Cover owner is malformed"]),
+    ),
+  })
+  @ApiResponse({
+    status: 403,
+    content: problemDetailsContent(
+      coverProblemSchema(403, "forbidden", [
+        "Content cover change is forbidden",
+      ]),
+    ),
+  })
+  @ApiResponse({
+    status: 404,
+    content: problemDetailsContent(
+      coverProblemSchema(404, "owner_not_found", [
+        "Content cover owner was not found",
+      ]),
+    ),
+  })
+  @ApiResponse({
+    status: 409,
+    content: problemDetailsContent(coverConflictProblemSchema()),
+  })
+  @ApiResponse({
+    status: 413,
+    content: problemDetailsContent(
+      coverProblemSchema(413, "invalid_cover", [
+        "Cover exceeds the size limit",
+      ]),
+    ),
+  })
+  @ApiResponse({
+    status: 422,
+    content: problemDetailsContent(
+      coverProblemSchema(422, "invalid_cover", [
+        "Cover form is malformed",
+        "Cover metadata is malformed",
+        "Cover image is not accepted",
+      ]),
+    ),
+  })
+  @ApiResponse({
+    status: 503,
+    content: problemDetailsContent(
+      coverProblemSchema(503, "dependency_unavailable", [
+        "Content cover dependency is unavailable",
+      ]),
+    ),
+  })
   async upload(
     @CurrentAccount() account: AuthenticatedAccount,
     @Param("ownerKind") rawOwnerKind: string,
     @Param("ownerId") ownerId: string,
     @Req() request: FastifyRequest,
   ) {
-    const upload = await readCoverUpload(request, rawOwnerKind, ownerId, uploadFieldLimit);
-    const result = await this.covers.change({ actor: account.accountId, ...upload.command });
+    const upload = await readCoverUpload(
+      request,
+      rawOwnerKind,
+      ownerId,
+      uploadFieldLimit,
+    );
+    const result = await this.covers.change({
+      actor: account.accountId,
+      ...upload.command,
+    });
     if (!result.ok) throwContentCoverError(result.error);
     return result.value;
   }
@@ -128,11 +183,40 @@ export class AuthoringContentCoverController {
   @ApiBody({ schema: toOpenApiSchema(removeBodySchema) })
   @ApiOkResponse({ schema: toOpenApiSchema(changeResponseSchema) })
   @ApiMaterialAuthoringErrors(401, 500)
-  @ApiResponse({ status: 400, content: problemDetailsContent(coverProblemSchema(400, "invalid_cover", ["Cover removal is malformed"])) })
-  @ApiResponse({ status: 403, content: problemDetailsContent(coverProblemSchema(403, "forbidden", ["Content cover change is forbidden"])) })
-  @ApiResponse({ status: 404, content: problemDetailsContent(coverProblemSchema(404, "owner_not_found", ["Content cover owner was not found"])) })
-  @ApiResponse({ status: 409, content: problemDetailsContent(coverConflictProblemSchema()) })
-  @ApiResponse({ status: 503, content: problemDetailsContent(coverProblemSchema(503, "dependency_unavailable", ["Content cover dependency is unavailable"])) })
+  @ApiResponse({
+    status: 400,
+    content: problemDetailsContent(
+      coverProblemSchema(400, "invalid_cover", ["Cover removal is malformed"]),
+    ),
+  })
+  @ApiResponse({
+    status: 403,
+    content: problemDetailsContent(
+      coverProblemSchema(403, "forbidden", [
+        "Content cover change is forbidden",
+      ]),
+    ),
+  })
+  @ApiResponse({
+    status: 404,
+    content: problemDetailsContent(
+      coverProblemSchema(404, "owner_not_found", [
+        "Content cover owner was not found",
+      ]),
+    ),
+  })
+  @ApiResponse({
+    status: 409,
+    content: problemDetailsContent(coverConflictProblemSchema()),
+  })
+  @ApiResponse({
+    status: 503,
+    content: problemDetailsContent(
+      coverProblemSchema(503, "dependency_unavailable", [
+        "Content cover dependency is unavailable",
+      ]),
+    ),
+  })
   async remove(
     @CurrentAccount() account: AuthenticatedAccount,
     @Param("ownerKind") rawOwnerKind: string,
@@ -146,7 +230,11 @@ export class AuthoringContentCoverController {
       !uuidSchema.safeParse(ownerId).success ||
       !body.success
     ) {
-      throw problemException(400, "invalid_cover", "Cover removal is malformed");
+      throw problemException(
+        400,
+        "invalid_cover",
+        "Cover removal is malformed",
+      );
     }
     const result = await this.covers.change({
       actor: account.accountId,
@@ -164,7 +252,13 @@ async function readCoverUpload(
   rawOwnerKind: string,
   ownerId: string,
   fieldLimit: number,
-): Promise<{ readonly command: Omit<Extract<ChangeContentCoverCommand, { kind: "upload" }>, "actor">; readonly part: MultipartFile }> {
+): Promise<{
+  readonly command: Omit<
+    Extract<ChangeContentCoverCommand, { kind: "upload" }>,
+    "actor"
+  >;
+  readonly part: MultipartFile;
+}> {
   const ownerKind = contentCoverOwnerKindSchema.safeParse(rawOwnerKind);
   if (!ownerKind.success || !uuidSchema.safeParse(ownerId).success) {
     throw problemException(400, "invalid_cover", "Cover owner is malformed");
@@ -189,10 +283,18 @@ async function readCoverUpload(
     body = await file.toBuffer();
   } catch {
     // Not a dependency failure: the upload exceeds its size limit.
-    throw problemException(413, "invalid_cover", "Cover exceeds the size limit");
+    throw problemException(
+      413,
+      "invalid_cover",
+      "Cover exceeds the size limit",
+    );
   }
   if (file.file.truncated) {
-    throw problemException(413, "invalid_cover", "Cover exceeds the size limit");
+    throw problemException(
+      413,
+      "invalid_cover",
+      "Cover exceeds the size limit",
+    );
   }
   const declaredSize = Number(field(file, "declaredSize"));
   const checksum = checksumSchema.safeParse(field(file, "checksumSha256"));
@@ -224,21 +326,26 @@ async function readCoverUpload(
 @MaterialAuthoringEndpoint()
 @Controller("authoring/import/content-covers")
 export class ImportContentCoverController {
-  constructor(
-    @Inject(CONTENT_COVERS) private readonly covers: ContentCovers,
-  ) {}
+  constructor(@Inject(CONTENT_COVERS) private readonly covers: ContentCovers) {}
 
   @Put("material/:ownerId")
   @ApiOperation({
     operationId: "uploadImportedMaterialCover",
-    summary: "Upload or replace the cover of one Material owned by an authoring source",
+    summary:
+      "Upload or replace the cover of one Material owned by an authoring source",
   })
   @ApiParam({ name: "ownerId", schema: { format: "uuid", type: "string" } })
   @ApiConsumes("multipart/form-data")
   @ApiBody({
     schema: {
       type: "object",
-      required: ["sourceId", "declaredSize", "checksumSha256", "expectedCoverId", "file"],
+      required: [
+        "sourceId",
+        "declaredSize",
+        "checksumSha256",
+        "expectedCoverId",
+        "file",
+      ],
       properties: {
         sourceId: { type: "string", minLength: 1, maxLength: 200 },
         declaredSize: {
@@ -254,22 +361,82 @@ export class ImportContentCoverController {
   })
   @ApiOkResponse({ schema: toOpenApiSchema(changeResponseSchema) })
   @ApiMaterialAuthoringErrors(401, 500)
-  @ApiResponse({ status: 400, content: problemDetailsContent(coverProblemSchema(400, "invalid_cover", ["Cover owner is malformed"])) })
-  @ApiResponse({ status: 403, content: problemDetailsContent(coverProblemSchema(403, "forbidden", ["Content cover change is forbidden"])) })
-  @ApiResponse({ status: 404, content: problemDetailsContent(coverProblemSchema(404, "owner_not_found", ["Content cover owner was not found"])) })
-  @ApiResponse({ status: 409, content: problemDetailsContent(coverConflictProblemSchema()) })
-  @ApiResponse({ status: 413, content: problemDetailsContent(coverProblemSchema(413, "invalid_cover", ["Cover exceeds the size limit"])) })
-  @ApiResponse({ status: 422, content: problemDetailsContent(coverProblemSchema(422, "invalid_cover", ["Cover form is malformed", "Cover metadata is malformed", "Cover image is not accepted"])) })
-  @ApiResponse({ status: 503, content: problemDetailsContent(coverProblemSchema(503, "dependency_unavailable", ["Content cover dependency is unavailable"])) })
+  @ApiResponse({
+    status: 400,
+    content: problemDetailsContent(
+      coverProblemSchema(400, "invalid_cover", ["Cover owner is malformed"]),
+    ),
+  })
+  @ApiResponse({
+    status: 403,
+    content: problemDetailsContent(
+      coverProblemSchema(403, "forbidden", [
+        "Content cover change is forbidden",
+      ]),
+    ),
+  })
+  @ApiResponse({
+    status: 404,
+    content: problemDetailsContent(
+      coverProblemSchema(404, "owner_not_found", [
+        "Content cover owner was not found",
+      ]),
+    ),
+  })
+  @ApiResponse({
+    status: 409,
+    content: problemDetailsContent(coverConflictProblemSchema()),
+  })
+  @ApiResponse({
+    status: 413,
+    content: problemDetailsContent(
+      coverProblemSchema(413, "invalid_cover", [
+        "Cover exceeds the size limit",
+      ]),
+    ),
+  })
+  @ApiResponse({
+    status: 422,
+    content: problemDetailsContent(
+      coverProblemSchema(422, "invalid_cover", [
+        "Cover form is malformed",
+        "Cover metadata is malformed",
+        "Cover image is not accepted",
+      ]),
+    ),
+  })
+  @ApiResponse({
+    status: 503,
+    content: problemDetailsContent(
+      coverProblemSchema(503, "dependency_unavailable", [
+        "Content cover dependency is unavailable",
+      ]),
+    ),
+  })
   async upload(
     @CurrentAccount() account: AuthenticatedAccount,
     @Param("ownerId") ownerId: string,
     @Req() request: FastifyRequest,
   ) {
-    const upload = await readCoverUpload(request, "material", ownerId, uploadFieldLimit + 1);
-    const sourceId = authoringSourceIdSchema.safeParse(field(upload.part, "sourceId"));
-    if (!sourceId.success) throw problemException(422, "invalid_cover", "Cover metadata is malformed");
-    const result = await this.covers.changeImported({ actor: account.accountId, ...upload.command }, sourceId.data);
+    const upload = await readCoverUpload(
+      request,
+      "material",
+      ownerId,
+      uploadFieldLimit + 1,
+    );
+    const sourceId = authoringSourceIdSchema.safeParse(
+      field(upload.part, "sourceId"),
+    );
+    if (!sourceId.success)
+      throw problemException(
+        422,
+        "invalid_cover",
+        "Cover metadata is malformed",
+      );
+    const result = await this.covers.changeImported(
+      { actor: account.accountId, ...upload.command },
+      sourceId.data,
+    );
     if (!result.ok) throwContentCoverError(result.error);
     return result.value;
   }
@@ -278,9 +445,7 @@ export class ImportContentCoverController {
 @ApiTags("Content covers")
 @Controller("content-covers")
 export class ContentCoverDeliveryController {
-  constructor(
-    @Inject(CONTENT_COVERS) private readonly covers: ContentCovers,
-  ) {}
+  constructor(@Inject(CONTENT_COVERS) private readonly covers: ContentCovers) {}
 
   @Get(":coverId/:width")
   @AssetDeliveryCache()
@@ -296,8 +461,20 @@ export class ContentCoverDeliveryController {
     description: "Public immutable cover bytes",
     schema: { format: "binary", type: "string" },
   })
-  @ApiResponse({ status: 404, content: problemDetailsContent(coverProblemSchema(404, "cover_not_found", ["Content cover not found"])) })
-  @ApiResponse({ status: 503, content: problemDetailsContent(coverProblemSchema(503, "dependency_unavailable", ["Content cover dependency unavailable"])) })
+  @ApiResponse({
+    status: 404,
+    content: problemDetailsContent(
+      coverProblemSchema(404, "cover_not_found", ["Content cover not found"]),
+    ),
+  })
+  @ApiResponse({
+    status: 503,
+    content: problemDetailsContent(
+      coverProblemSchema(503, "dependency_unavailable", [
+        "Content cover dependency unavailable",
+      ]),
+    ),
+  })
   async read(
     @Param("coverId") coverId: string,
     @Param("width") rawWidth: string,
@@ -308,7 +485,11 @@ export class ContentCoverDeliveryController {
     });
     if (!result.ok) {
       if (result.error.code === "dependency_unavailable") {
-        throw problemException(503, result.error.code, "Content cover dependency unavailable");
+        throw problemException(
+          503,
+          result.error.code,
+          "Content cover dependency unavailable",
+        );
       }
       throw problemException(404, "cover_not_found", "Content cover not found");
     }
@@ -327,7 +508,9 @@ function field(file: MultipartFile, name: string): string | undefined {
     : String(value.value);
 }
 
-function parseExpectedCoverId(value: string | undefined): string | null | undefined {
+function parseExpectedCoverId(
+  value: string | undefined,
+): string | null | undefined {
   if (value === "null") return null;
   const parsed = uuidSchema.safeParse(value);
   return parsed.success ? parsed.data : undefined;
@@ -338,17 +521,34 @@ function throwContentCoverError(
 ): never {
   switch (error.code) {
     case "forbidden":
-      throw problemException(403, error.code, "Content cover change is forbidden");
+      throw problemException(
+        403,
+        error.code,
+        "Content cover change is forbidden",
+      );
     case "owner_not_found":
-      throw problemException(404, error.code, "Content cover owner was not found");
+      throw problemException(
+        404,
+        error.code,
+        "Content cover owner was not found",
+      );
     case "conflict":
-      throw problemException(409, error.code, "Content cover changed concurrently", {
-        currentCoverId: error.currentCoverId,
-      });
+      throw problemException(
+        409,
+        error.code,
+        "Content cover changed concurrently",
+        {
+          currentCoverId: error.currentCoverId,
+        },
+      );
     case "invalid_cover":
       throw problemException(422, error.code, "Cover image is not accepted");
     case "dependency_unavailable":
-      throw problemException(503, error.code, "Content cover dependency is unavailable");
+      throw problemException(
+        503,
+        error.code,
+        "Content cover dependency is unavailable",
+      );
   }
 }
 
@@ -364,11 +564,10 @@ function coverConflictProblemSchema() {
     .strict();
 }
 
-function coverProblemSchema<const Status extends number, const Code extends string>(
-  status: Status,
-  code: Code,
-  titles: readonly [string, ...string[]],
-) {
+function coverProblemSchema<
+  const Status extends number,
+  const Code extends string,
+>(status: Status, code: Code, titles: readonly [string, ...string[]]) {
   return z
     .object({
       code: z.literal(code),

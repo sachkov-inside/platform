@@ -2,7 +2,11 @@ import { z } from "zod";
 
 export const COMMUNITY_CONTRACT_VERSION = "inside.community-entitlement.v1";
 export const COMMUNITY_V2_CONTRACT_VERSION = "inside.community-entitlement.v2";
-export const admissionRestrictionSchema = z.enum(["none", "moderation", "external_unknown"]);
+export const admissionRestrictionSchema = z.enum([
+  "none",
+  "moderation",
+  "external_unknown",
+]);
 export const DISPATCH_CONTRACT_VERSION = "inside.billing-dispatch.v1";
 /** A dispatch permit is a freshness check, never a reservation of the external effect. */
 export const PERMIT_LIFETIME_MS = 5_000;
@@ -39,7 +43,10 @@ export const communityBindingSchema = z.strictObject({
 export type CommunityBinding = z.infer<typeof communityBindingSchema>;
 
 export const communitySetSchema = z.strictObject({
-  contractVersion: z.enum([COMMUNITY_CONTRACT_VERSION, COMMUNITY_V2_CONTRACT_VERSION]),
+  contractVersion: z.enum([
+    COMMUNITY_CONTRACT_VERSION,
+    COMMUNITY_V2_CONTRACT_VERSION,
+  ]),
   operation: z.literal("entitlement.set"),
   operationId: id,
   binding: communityBindingSchema,
@@ -51,7 +58,10 @@ export const communitySetSchema = z.strictObject({
 export type CommunitySetCommand = z.infer<typeof communitySetSchema>;
 
 export const communityStatusQuerySchema = z.strictObject({
-  contractVersion: z.enum([COMMUNITY_CONTRACT_VERSION, COMMUNITY_V2_CONTRACT_VERSION]),
+  contractVersion: z.enum([
+    COMMUNITY_CONTRACT_VERSION,
+    COMMUNITY_V2_CONTRACT_VERSION,
+  ]),
   operation: z.literal("entitlement.status"),
   operationId: id,
 });
@@ -76,7 +86,10 @@ export type ObservedMembership = z.infer<typeof observedMembershipSchema>;
 
 export const communityResultSchema = z
   .strictObject({
-    contractVersion: z.enum([COMMUNITY_CONTRACT_VERSION, COMMUNITY_V2_CONTRACT_VERSION]),
+    contractVersion: z.enum([
+      COMMUNITY_CONTRACT_VERSION,
+      COMMUNITY_V2_CONTRACT_VERSION,
+    ]),
     operation: z.literal("entitlement.result"),
     operationId: id,
     binding: communityBindingSchema,
@@ -87,8 +100,11 @@ export const communityResultSchema = z
     admissionRestriction: admissionRestrictionSchema.optional(),
     updatedAt: instant,
   })
-  .refine(value => value.contractVersion === COMMUNITY_V2_CONTRACT_VERSION
-    ? value.admissionRestriction !== undefined : value.admissionRestriction === undefined)
+  .refine((value) =>
+    value.contractVersion === COMMUNITY_V2_CONTRACT_VERSION
+      ? value.admissionRestriction !== undefined
+      : value.admissionRestriction === undefined,
+  )
   // `applied` claims an observation; `expired` only fits a finite right.
   .refine((value) =>
     value.status === "applied"
@@ -115,7 +131,10 @@ export const communityErrorCodeSchema = z.enum([
 export type CommunityErrorCode = z.infer<typeof communityErrorCodeSchema>;
 
 export const communityErrorSchema = z.strictObject({
-  contractVersion: z.enum([COMMUNITY_CONTRACT_VERSION, COMMUNITY_V2_CONTRACT_VERSION]),
+  contractVersion: z.enum([
+    COMMUNITY_CONTRACT_VERSION,
+    COMMUNITY_V2_CONTRACT_VERSION,
+  ]),
   operation: z.literal("entitlement.error"),
   operationId: id,
   error: communityErrorCodeSchema,
@@ -225,6 +244,11 @@ export function communityAccessFor(
 }
 
 /** New writes have one negotiated target; historical readers retain v1. */
-export const communityV2SetSchema = communitySetSchema.extend({ contractVersion: z.literal(COMMUNITY_V2_CONTRACT_VERSION) });
+export const communityV2SetSchema = communitySetSchema.extend({
+  contractVersion: z.literal(COMMUNITY_V2_CONTRACT_VERSION),
+});
 
-export const ownAdmissionSchema = z.strictObject({ admissionRestriction: admissionRestrictionSchema.nullable(), state: z.enum(["checking", "no_access", "moderation_blocked", "ready"]) });
+export const ownAdmissionSchema = z.strictObject({
+  admissionRestriction: admissionRestrictionSchema.nullable(),
+  state: z.enum(["checking", "no_access", "moderation_blocked", "ready"]),
+});

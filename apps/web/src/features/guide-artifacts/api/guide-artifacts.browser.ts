@@ -205,7 +205,10 @@ export function interpret(
     : { kind: "error", reference: "guide-artifacts-bff-contract" };
 }
 
-function appendMetadata(body: FormData, metadata: GuideArtifactMetadataDraft): void {
+function appendMetadata(
+  body: FormData,
+  metadata: GuideArtifactMetadataDraft,
+): void {
   body.set("access", metadata.access);
   body.set("purpose", metadata.purpose);
   body.set("title", metadata.title);
@@ -218,7 +221,10 @@ async function appendFile(body: FormData, file: File): Promise<void> {
 }
 
 async function sha256(file: File): Promise<string> {
-  const digest = await crypto.subtle.digest("SHA-256", await file.arrayBuffer());
+  const digest = await crypto.subtle.digest(
+    "SHA-256",
+    await file.arrayBuffer(),
+  );
   return [...new Uint8Array(digest)]
     .map((value) => value.toString(16).padStart(2, "0"))
     .join("");

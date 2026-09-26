@@ -29,29 +29,29 @@ export function AccountPageQuery() {
   if (query.data.kind === "unauthorized") return <AccountSignInRequired />;
   return (
     <>
-    <LearningContinuation />
-    <AccountPageClient
-      initialProfile={
-        query.data.presentation.profile.kind === "profile"
-          ? query.data.presentation.profile.profile
-          : null
-      }
-      onProfileChange={(profile) => {
-        queryClient.setQueryData<AccountPresentationResult>(
-          accountPresentationQueryKey(),
-          (current) =>
-            current?.kind === "ready"
-              ? {
-                  kind: "ready",
-                  presentation: {
-                    ...current.presentation,
-                    profile: { kind: "profile", profile },
-                  },
-                }
-              : current,
-        );
-      }}
-    />
+      <LearningContinuation />
+      <AccountPageClient
+        initialProfile={
+          query.data.presentation.profile.kind === "profile"
+            ? query.data.presentation.profile.profile
+            : null
+        }
+        onProfileChange={(profile) => {
+          queryClient.setQueryData<AccountPresentationResult>(
+            accountPresentationQueryKey(),
+            (current) =>
+              current?.kind === "ready"
+                ? {
+                    kind: "ready",
+                    presentation: {
+                      ...current.presentation,
+                      profile: { kind: "profile", profile },
+                    },
+                  }
+                : current,
+          );
+        }}
+      />
     </>
   );
 }

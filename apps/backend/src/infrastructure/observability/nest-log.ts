@@ -24,13 +24,25 @@ export class StructuredNestLogger implements LoggerService {
   }
 }
 
-function write(level: LogLevel, message: unknown, parameters: readonly unknown[]): void {
+function write(
+  level: LogLevel,
+  message: unknown,
+  parameters: readonly unknown[],
+): void {
   // Последний параметр Nest — имя источника; стек, пришедший строкой, им не считается.
   const context = parameters.at(-1);
   writeLog(level, "nest", {
-    ...(typeof context === "string" && !context.includes("\n") ? { context } : {}),
+    ...(typeof context === "string" && !context.includes("\n")
+      ? { context }
+      : {}),
     ...(message instanceof Error
       ? { error: describeError(message) }
-      : { message: redactText(typeof message === "string" ? message : JSON.stringify(message) ?? "") }),
+      : {
+          message: redactText(
+            typeof message === "string"
+              ? message
+              : (JSON.stringify(message) ?? ""),
+          ),
+        }),
   });
 }

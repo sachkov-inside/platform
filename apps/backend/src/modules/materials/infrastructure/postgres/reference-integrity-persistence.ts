@@ -65,9 +65,7 @@ export async function findReferenceIssues(
   });
   const foundSeries = new Set(series.map(({ id }) => id));
   const archivedSeries = new Set(
-    series.flatMap(({ archivedAt, id }) =>
-      archivedAt === null ? [] : [id],
-    ),
+    series.flatMap(({ archivedAt, id }) => (archivedAt === null ? [] : [id])),
   );
   metadata.seriesMemberships.forEach(({ seriesId }, index) => {
     if (!foundSeries.has(seriesId)) {
@@ -92,7 +90,9 @@ export async function findSeriesOrdinalConflict(
   transaction: MaterialsPrismaTransaction,
   materialId: MaterialId,
   metadata: MaterialMetadata,
-): Promise<{ readonly seriesId: string; readonly ordinal: number } | undefined> {
+): Promise<
+  { readonly seriesId: string; readonly ordinal: number } | undefined
+> {
   if (metadata.seriesMemberships.length === 0) {
     return undefined;
   }

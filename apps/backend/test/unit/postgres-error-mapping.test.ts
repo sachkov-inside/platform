@@ -31,7 +31,9 @@ describe("MaterialAuthoring PostgreSQL error mapping", () => {
       code: "dependency_unavailable",
       retryable: true,
     });
-    expect(mapPostgresError(new Error("Connection terminated unexpectedly"))).toEqual({
+    expect(
+      mapPostgresError(new Error("Connection terminated unexpectedly")),
+    ).toEqual({
       code: "dependency_unavailable",
       retryable: true,
     });
@@ -49,20 +51,18 @@ describe("MaterialAuthoring PostgreSQL error mapping", () => {
 
   test("keeps a system-owned slug constraint failure internal", () => {
     expect(
-      mapPostgresError(
-        {
-          code: "P2002",
-          meta: {
-            driverAdapterError: {
-              cause: {
-                kind: "UniqueConstraintViolation",
-                originalCode: "23505",
-                constraint: { fields: ["slug"] },
-              },
+      mapPostgresError({
+        code: "P2002",
+        meta: {
+          driverAdapterError: {
+            cause: {
+              kind: "UniqueConstraintViolation",
+              originalCode: "23505",
+              constraint: { fields: ["slug"] },
             },
           },
         },
-      ),
+      }),
     ).toMatchObject({ code: "internal_error" });
   });
 });

@@ -7,6 +7,8 @@ const labels: Readonly<Record<MaterialDifficulty, string>> = {
   intermediate: "Средний",
 };
 
-export function materialDifficultyLabel(difficulty: MaterialDifficulty): string {
+export function materialDifficultyLabel(
+  difficulty: MaterialDifficulty,
+): string {
   return labels[difficulty];
 }

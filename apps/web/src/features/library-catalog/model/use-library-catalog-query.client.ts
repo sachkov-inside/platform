@@ -1,11 +1,7 @@
 "use client";
 
 import { keepPreviousData, useInfiniteQuery } from "@tanstack/react-query";
-import {
-  useCallback,
-  useMemo,
-  useState,
-} from "react";
+import { useCallback, useMemo, useState } from "react";
 
 import { useLiveSearchValue } from "@/shared/lib/use-live-search-value.client";
 
@@ -31,16 +27,19 @@ export function useLibraryCatalogQuery({
     withoutLibraryCursor(initialQuery),
   );
   const incomingHref = libraryHref(withoutLibraryCursor(initialQuery));
-  const [previousIncomingHref, setPreviousIncomingHref] = useState(incomingHref);
+  const [previousIncomingHref, setPreviousIncomingHref] =
+    useState(incomingHref);
   if (previousIncomingHref !== incomingHref) {
     setPreviousIncomingHref(incomingHref);
-    const currentCanonical = parseLibrarySearchParams(new URL(libraryHref(searchQuery), "http://localhost").searchParams).query;
-    if (libraryHref(currentCanonical) !== incomingHref) setSearchQuery(withoutLibraryCursor(initialQuery));
+    const currentCanonical = parseLibrarySearchParams(
+      new URL(libraryHref(searchQuery), "http://localhost").searchParams,
+    ).query;
+    if (libraryHref(currentCanonical) !== incomingHref)
+      setSearchQuery(withoutLibraryCursor(initialQuery));
   }
   const debouncedSearch = useLiveSearchValue(searchQuery.q);
   const requestQuery = useMemo(
-    () =>
-      withoutLibraryCursor({ ...searchQuery, q: debouncedSearch }),
+    () => withoutLibraryCursor({ ...searchQuery, q: debouncedSearch }),
     [debouncedSearch, searchQuery],
   );
   const query = useInfiniteQuery({

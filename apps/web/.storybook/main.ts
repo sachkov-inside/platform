@@ -10,7 +10,10 @@ const config: StorybookConfig = {
       from: "./fixtures/reader-images",
       to: "/api/materials/02000000-0000-4000-8000-000000000010/assets/image-agent-path/images",
     },
-    { from: "../../../docs/evidence/issue-271/covers", to: "/api/content-covers" },
+    {
+      from: "../../../docs/evidence/issue-271/covers",
+      to: "/api/content-covers",
+    },
   ],
   stories: [
     "../src/**/*.mdx",
@@ -25,7 +28,11 @@ const config: StorybookConfig = {
   viteFinal: (viteConfig) =>
     mergeConfig(viteConfig, {
       optimizeDeps: {
-        include: ["@tiptap/core", "@tiptap/react", "@inside/material-blocks/schema"],
+        include: [
+          "@tiptap/core",
+          "@tiptap/react",
+          "@inside/material-blocks/schema",
+        ],
       },
       resolve: {
         alias: {

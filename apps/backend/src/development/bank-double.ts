@@ -9,7 +9,9 @@ async function main(): Promise<void> {
   // Режим проверяется до остальной конфигурации: отказ двойника не должен зависеть от того,
   // какие боевые значения оказались рядом.
   if (parsePlatformMode(process.env.NODE_ENV) !== "development") {
-    throw new Error("The local bank double runs only with NODE_ENV=development");
+    throw new Error(
+      "The local bank double runs only with NODE_ENV=development",
+    );
   }
   const config = loadPlatformConfig();
   if (config.tbank?.environment !== "local") {
@@ -20,11 +22,17 @@ async function main(): Promise<void> {
     config: config.tbank,
     host: process.env.BANK_DOUBLE_HOST?.trim() || DEFAULT_BANK_DOUBLE_HOST,
     port: Number(endpoint.port || "80"),
-    ledgerPath: process.env.BANK_DOUBLE_LEDGER?.trim() || DEFAULT_BANK_DOUBLE_LEDGER,
+    ledgerPath:
+      process.env.BANK_DOUBLE_LEDGER?.trim() || DEFAULT_BANK_DOUBLE_LEDGER,
   });
-  process.stdout.write(`${JSON.stringify({ process: "bank-double", status: "ready", port: running.port })}\n`);
+  process.stdout.write(
+    `${JSON.stringify({ process: "bank-double", status: "ready", port: running.port })}\n`,
+  );
   for (const signal of ["SIGINT", "SIGTERM"] as const)
-    process.once(signal, () => void running.close().then(() => process.exit(0)));
+    process.once(
+      signal,
+      () => void running.close().then(() => process.exit(0)),
+    );
 }
 
 void main().catch((error: unknown) => {

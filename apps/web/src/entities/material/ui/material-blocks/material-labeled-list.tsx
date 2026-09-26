@@ -22,7 +22,9 @@ export function MaterialLabeledList({
             </span>
           </dt>
           <dd className="m-0 min-w-0">
-            <span className="break-words font-semibold text-foreground">{row.name}</span>
+            <span className="break-words font-semibold text-foreground">
+              {row.name}
+            </span>
             {row.description === undefined ? null : (
               <span className="mt-1 block text-[0.9375rem] leading-7 text-body-muted">
                 {row.description}

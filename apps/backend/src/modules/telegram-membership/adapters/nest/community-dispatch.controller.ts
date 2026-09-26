@@ -94,7 +94,10 @@ export class CommunityDispatchController {
       correlated.data.contractVersion !== DISPATCH_CONTRACT_VERSION
     ) {
       throw new HttpException(
-        communityDispatchError(correlated.data.operationId, "unsupported_contract"),
+        communityDispatchError(
+          correlated.data.operationId,
+          "unsupported_contract",
+        ),
         422,
       );
     }

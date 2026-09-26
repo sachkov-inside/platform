@@ -6,8 +6,14 @@ import { notificationBrokerDefinitions } from "../infrastructure/notification-tr
  * Telegram-principal. Файл определений содержит только хэши и остаётся server-owned.
  */
 try {
-  process.stdout.write(`${JSON.stringify(notificationBrokerDefinitions(process.env), null, 2)}\n`);
+  process.stdout.write(
+    `${JSON.stringify(notificationBrokerDefinitions(process.env), null, 2)}\n`,
+  );
 } catch (error) {
-  console.error(error instanceof Error ? error.message : "Notification broker definitions failed");
+  console.error(
+    error instanceof Error
+      ? error.message
+      : "Notification broker definitions failed",
+  );
   process.exitCode = 1;
 }

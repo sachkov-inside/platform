@@ -42,7 +42,10 @@ export function MaterialReaderLoading() {
         <div className="h-11 w-44 max-w-full rounded-full bg-muted" />
       </div>
       <div className="mx-auto min-w-0 max-w-[43rem]">
-        <div className="animate-pulse motion-reduce:animate-none" data-reader-header>
+        <div
+          className="animate-pulse motion-reduce:animate-none"
+          data-reader-header
+        >
           <div className="h-5 w-64 max-w-full rounded-md bg-muted" />
           <div className="mt-4 h-[1.75rem] w-4/5 rounded-lg bg-muted md:h-[2.125rem]" />
           <div className="mt-4 h-7 w-full rounded-md bg-muted/80" />
@@ -77,7 +80,11 @@ export function MaterialReaderPending({
       <ReaderReturnNavigation repeatAtBottom={false} target={returnTarget}>
         <div className="mx-auto min-w-0 max-w-[43rem]">
           <MaterialReaderHeader material={material} />
-          <div aria-busy="true" aria-label="Текст материала загружается" data-route-skeleton="material-reader">
+          <div
+            aria-busy="true"
+            aria-label="Текст материала загружается"
+            data-route-skeleton="material-reader"
+          >
             <ReaderBodySkeleton />
           </div>
           <MaterialReaderFooter seriesContext={seriesContext} />
@@ -90,12 +97,29 @@ export function MaterialReaderPending({
 /** Строки на месте текста: интервал и отступ сверху повторяют `article` ридера. */
 function ReaderBodySkeleton() {
   return (
-    <div className="mt-10 grid animate-pulse gap-3 motion-reduce:animate-none" data-reader-body-skeleton>
-      {["w-full", "w-11/12", "w-full", "w-4/5", "w-full", "w-10/12", "w-full", "w-3/5", "w-full", "w-11/12", "w-full", "w-2/3"].map(
-        (width, index) => (
-          <div className={`h-[1.125rem] rounded-md bg-muted/80 md:h-5 ${width}`} key={index} />
-        ),
-      )}
+    <div
+      className="mt-10 grid animate-pulse gap-3 motion-reduce:animate-none"
+      data-reader-body-skeleton
+    >
+      {[
+        "w-full",
+        "w-11/12",
+        "w-full",
+        "w-4/5",
+        "w-full",
+        "w-10/12",
+        "w-full",
+        "w-3/5",
+        "w-full",
+        "w-11/12",
+        "w-full",
+        "w-2/3",
+      ].map((width, index) => (
+        <div
+          className={`h-[1.125rem] rounded-md bg-muted/80 md:h-5 ${width}`}
+          key={index}
+        />
+      ))}
     </div>
   );
 }
@@ -168,7 +192,10 @@ export function MaterialReaderAccess({
   const copy = accessCopy[invitation?.kind ?? "none"];
   return (
     <div data-material-reader-state="access-required">
-      <ReaderReturnNavigation repeatAtBottom={seriesContext === null} target={returnTarget}>
+      <ReaderReturnNavigation
+        repeatAtBottom={seriesContext === null}
+        target={returnTarget}
+      >
         <div className="mx-auto max-w-[43rem]">
           <MaterialReaderHeader material={material} />
           <section

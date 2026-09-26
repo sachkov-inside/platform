@@ -22,7 +22,8 @@ export async function startResumableVideoUpload(input: {
       uploadUrl: input.uploadUrl,
     });
     const previous = await transfer.findPreviousUploads();
-    if (previous[0] !== undefined) transfer.resumeFromPreviousUpload(previous[0]);
+    if (previous[0] !== undefined)
+      transfer.resumeFromPreviousUpload(previous[0]);
     transfer.start();
     return { abort: (shouldTerminate) => transfer.abort(shouldTerminate) };
   } catch {

@@ -14,10 +14,11 @@ import type {
   PublishedSeriesResult,
   PublishedTopicResult,
 } from "@/features/library-discovery";
+import { ContentCoverImage } from "@/entities/material";
 import {
-  ContentCoverImage,
-} from "@/entities/material";
-import { PlaylistCard, formatMaterialCount } from "@/features/library-discovery";
+  PlaylistCard,
+  formatMaterialCount,
+} from "@/features/library-discovery";
 import { cn } from "@/shared/lib/utils";
 import { Button } from "@/shared/ui/button";
 import { IntentPrefetchLink } from "@/shared/ui/intent-prefetch-link.client";
@@ -128,7 +129,11 @@ function DiscoveryFrame({
 }
 
 /** Заголовок темы: руководство сюда не попадает — у него своя страница продукта. */
-function DiscoveryHero({ result }: { readonly result: PublishedTopicResultResolved }) {
+function DiscoveryHero({
+  result,
+}: {
+  readonly result: PublishedTopicResultResolved;
+}) {
   return (
     <header
       className={cn(
@@ -139,7 +144,9 @@ function DiscoveryHero({ result }: { readonly result: PublishedTopicResultResolv
     >
       <div className="flex flex-col justify-between gap-6 md:flex-row md:items-center">
         <div className="min-w-0">
-          <p className="text-xs font-bold uppercase tracking-[0.14em] text-body-muted">Тема</p>
+          <p className="text-xs font-bold uppercase tracking-[0.14em] text-body-muted">
+            Тема
+          </p>
           <h1 className="mt-3 max-w-3xl break-words text-[1.75rem] font-semibold leading-[1.15] tracking-[-0.035em] md:text-4xl">
             {result.reference.name}
           </h1>
@@ -149,7 +156,8 @@ function DiscoveryHero({ result }: { readonly result: PublishedTopicResultResolv
             </p>
           ) : null}
         </div>
-        {result.reference.cover !== null && result.reference.cover !== undefined ? (
+        {result.reference.cover !== null &&
+        result.reference.cover !== undefined ? (
           <ContentCoverImage
             alt=""
             className="size-24 shrink-0 rotate-[-5deg] rounded-[1.6rem] shadow-xl md:size-32"
@@ -161,7 +169,11 @@ function DiscoveryHero({ result }: { readonly result: PublishedTopicResultResolv
           />
         ) : (
           <span className="grid size-24 shrink-0 rotate-[-5deg] place-items-center rounded-[1.6rem] border border-white/45 bg-white/75 text-foreground shadow-xl backdrop-blur-sm md:size-32">
-            <Tags aria-hidden="true" className="size-12 md:size-16" strokeWidth={1.6} />
+            <Tags
+              aria-hidden="true"
+              className="size-12 md:size-16"
+              strokeWidth={1.6}
+            />
           </span>
         )}
       </div>
@@ -220,7 +232,9 @@ function DiscoveryEmpty({ kind }: { readonly kind: LibraryDiscoveryKind }) {
     <section className="mt-8 max-w-[48rem] rounded-2xl bg-muted px-6 py-7 sm:mt-10 sm:px-8">
       <LibraryBig aria-hidden="true" className="size-6 text-accent" />
       <h2 className="mt-4 text-2xl font-semibold tracking-[-0.03em]">
-        {kind === "series" ? "В продукте пока нет материалов" : "В теме пока нет материалов"}
+        {kind === "series"
+          ? "В продукте пока нет материалов"
+          : "В теме пока нет материалов"}
       </h2>
       <Button asChild className="mt-6" size="lg" variant="outline">
         <Link href="/">Открыть материалы</Link>
@@ -237,7 +251,10 @@ const heroTopMargin = "mt-5";
 /** Место хлебных крошек, пока данных нет: тот же ряд, только без ссылки. */
 function DiscoveryBreadcrumbPlaceholder() {
   return (
-    <div aria-hidden="true" className={`${breadcrumbRow} ${breadcrumbRowHeight}`}>
+    <div
+      aria-hidden="true"
+      className={`${breadcrumbRow} ${breadcrumbRowHeight}`}
+    >
       <div className="h-10 w-64 animate-pulse rounded-lg bg-muted motion-reduce:animate-none" />
     </div>
   );
@@ -254,7 +271,9 @@ function DiscoveryBreadcrumb({
 }) {
   return (
     <nav aria-label="Хлебные крошки" className={breadcrumbRow}>
-      <ol className={`flex ${breadcrumbRowHeight} flex-wrap items-center gap-2 text-sm text-muted-foreground`}>
+      <ol
+        className={`flex ${breadcrumbRowHeight} flex-wrap items-center gap-2 text-sm text-muted-foreground`}
+      >
         <li>
           <IntentPrefetchLink
             className="inline-flex min-h-10 items-center gap-2 rounded-full bg-muted px-4 font-semibold no-underline hover:text-foreground focus-visible:outline-ring"
@@ -265,7 +284,9 @@ function DiscoveryBreadcrumb({
           </IntentPrefetchLink>
         </li>
         <li className="sr-only">{kind === "series" ? "Продукт" : "Тема"}</li>
-        <li aria-current="page" className="sr-only">{name}</li>
+        <li aria-current="page" className="sr-only">
+          {name}
+        </li>
       </ol>
     </nav>
   );
@@ -283,7 +304,9 @@ function DiscoverySectionHeading({
   return (
     <PublicSectionHeading
       aside={
-        <span className="text-sm font-semibold text-muted-foreground">{count}</span>
+        <span className="text-sm font-semibold text-muted-foreground">
+          {count}
+        </span>
       }
       className="mt-11"
       id={id}
@@ -315,7 +338,9 @@ export function LibraryDiscoveryLoading() {
   return (
     <DiscoveryFrame busy label="Подборка загружается" state="loading">
       <DiscoveryBreadcrumbPlaceholder />
-      <div className={`${heroTopMargin} animate-pulse rounded-2xl bg-secondary px-6 py-8 motion-reduce:animate-none sm:px-8`}>
+      <div
+        className={`${heroTopMargin} animate-pulse rounded-2xl bg-secondary px-6 py-8 motion-reduce:animate-none sm:px-8`}
+      >
         <div className="size-11 rounded-xl bg-muted" />
         <div className="mt-6 h-10 w-3/4 rounded-xl bg-muted" />
         <div className="mt-4 h-5 w-full max-w-xl rounded-lg bg-muted/80" />
@@ -405,7 +430,6 @@ function DiscoveryStatus({
     />
   );
 }
-
 
 /**
  * Бесплатный вход из обложки ведёт в программу: там читатель сразу видит открытые уроки и то,

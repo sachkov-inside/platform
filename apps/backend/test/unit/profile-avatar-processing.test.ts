@@ -25,7 +25,9 @@ describe("Profile avatar processing", () => {
     const result = await processProfileAvatar(upload(body));
     expect(result.ok).toBe(true);
     if (!result.ok) return;
-    expect(result.renditions.map(({ contentType, size }) => ({ contentType, size }))).toEqual([
+    expect(
+      result.renditions.map(({ contentType, size }) => ({ contentType, size })),
+    ).toEqual([
       { contentType: "image/webp", size: 160 },
       { contentType: "image/webp", size: 320 },
       { contentType: "image/webp", size: 640 },
@@ -36,9 +38,9 @@ describe("Profile avatar processing", () => {
         height: rendition.size,
         width: rendition.size,
       });
-      await expect(sharp(rendition.body).metadata()).resolves.not.toHaveProperty(
-        "orientation",
-      );
+      await expect(
+        sharp(rendition.body).metadata(),
+      ).resolves.not.toHaveProperty("orientation");
     }
   });
 
@@ -50,8 +52,13 @@ describe("Profile avatar processing", () => {
         height: 24,
         width: 24,
       },
-    }).png().toBuffer();
-    const body = Buffer.concat([valid, Buffer.from("<script>alert(1)</script>")]);
+    })
+      .png()
+      .toBuffer();
+    const body = Buffer.concat([
+      valid,
+      Buffer.from("<script>alert(1)</script>"),
+    ]);
 
     await expect(processProfileAvatar(upload(body))).resolves.toEqual({
       error: { reason: "polyglot_image" },
@@ -67,12 +74,20 @@ describe("Profile avatar processing", () => {
         height: 24,
         width: 24,
       },
-    }).png().toBuffer();
+    })
+      .png()
+      .toBuffer();
     await expect(
-      processProfileAvatar({ ...upload(valid), declaredSize: valid.byteLength + 1 }),
+      processProfileAvatar({
+        ...upload(valid),
+        declaredSize: valid.byteLength + 1,
+      }),
     ).resolves.toEqual({ error: { reason: "size_mismatch" }, ok: false });
     await expect(
-      processProfileAvatar({ ...upload(valid), expectedChecksumSha256: "0".repeat(64) }),
+      processProfileAvatar({
+        ...upload(valid),
+        expectedChecksumSha256: "0".repeat(64),
+      }),
     ).resolves.toEqual({ error: { reason: "checksum_mismatch" }, ok: false });
     await expect(
       processProfileAvatar({

@@ -1,6 +1,9 @@
 import "server-only";
 
-export function isSameOriginMutation(request: Request, baseUrl: string): boolean {
+export function isSameOriginMutation(
+  request: Request,
+  baseUrl: string,
+): boolean {
   const origin = request.headers.get("origin");
   if (origin === null) {
     return false;

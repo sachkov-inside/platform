@@ -1,4 +1,7 @@
-import { capabilitiesOpening, type ContentScope } from "@inside/access-capabilities";
+import {
+  capabilitiesOpening,
+  type ContentScope,
+} from "@inside/access-capabilities";
 import { accessComposition, isGuideCapability } from "./billing-contract";
 import type {
   AccessCapability,
@@ -116,7 +119,9 @@ function longestTerm(terms: readonly (number | null)[]): number | null {
 /**
  * Как назвать состав тарифа одной строкой: все продукты платформы или число выбранных продуктов.
  */
-export function contentScopeSummary(scope: Pick<ContentScope, "guideIds" | "allGuides">): string {
+export function contentScopeSummary(
+  scope: Pick<ContentScope, "guideIds" | "allGuides">,
+): string {
   return scope.allGuides === true
     ? "Все продукты платформы, включая новые"
     : `Продукты: ${String(scope.guideIds.length)}`;
@@ -147,10 +152,14 @@ export function benefitLines(conditions: {
   };
   // Чат держится всем, что его открывает. Какие именно права это делают, отвечает владелец
   // правила: иначе второй способ открыть чат пришлось бы дописывать и здесь.
-  const communityTerms = capabilitiesOpening("community", offer.benefits).map(months);
+  const communityTerms = capabilitiesOpening("community", offer.benefits).map(
+    months,
+  );
   return accessComposition(offer.benefits).map((capability) => {
     const term =
-      capability === "community" ? longestTerm(communityTerms) : months(capability);
+      capability === "community"
+        ? longestTerm(communityTerms)
+        : months(capability);
     return {
       capability,
       label: capabilityLabel(capability),

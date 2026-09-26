@@ -110,8 +110,7 @@ export interface MaterialAuthoringPresentation {
   readonly availableTags: readonly MaterialSelectOption[];
   readonly availableTopics: readonly MaterialSelectOption[];
   readonly authorization:
-    | { readonly kind: "allowed" }
-    | { readonly kind: "unauthorized" };
+    { readonly kind: "allowed" } | { readonly kind: "unauthorized" };
   readonly blocking: MaterialWorkspaceBlockingState;
   readonly deletion: {
     readonly pending: boolean;
@@ -132,12 +131,7 @@ export interface MaterialAuthoringPresentation {
 }
 
 export type MaterialDraftField =
-  | "access"
-  | "difficulty"
-  | "formatId"
-  | "summary"
-  | "title"
-  | "topicId";
+  "access" | "difficulty" | "formatId" | "summary" | "title" | "topicId";
 
 export interface MaterialAuthoringActions {
   readonly onBack: () => void;

@@ -49,9 +49,7 @@ test("root remains the canonical Home route", async ({ page }) => {
   await page.goto("/");
 
   await expect(page).toHaveURL(/\/$/u);
-  await expect(page.getByRole("heading", { level: 1 })).toHaveText(
-    "Главная",
-  );
+  await expect(page.getByRole("heading", { level: 1 })).toHaveText("Главная");
 });
 
 test("неизвестный адрес отвечает 404 по-русски внутри оболочки", async ({
@@ -60,7 +58,9 @@ test("неизвестный адрес отвечает 404 по-русски �
   const response = await page.goto("/does-not-exist");
 
   expect(response?.status()).toBe(404);
-  await expect(page.getByRole("heading", { level: 1 })).toHaveText("Страница не найдена");
+  await expect(page.getByRole("heading", { level: 1 })).toHaveText(
+    "Страница не найдена",
+  );
   await expect(page).toHaveTitle("Страница не найдена · Sachkov Inside");
   await expect(page.getByText("This page could not be found")).toHaveCount(0);
   await expect(
@@ -78,7 +78,8 @@ test("неизвестный адрес отвечает 404 по-русски �
     .analyze();
   expect(
     results.violations.filter(
-      (violation) => violation.impact === "serious" || violation.impact === "critical",
+      (violation) =>
+        violation.impact === "serious" || violation.impact === "critical",
     ),
   ).toEqual([]);
 });
@@ -90,7 +91,8 @@ test("страница отправляет площадке свои Core Web V
   await expect(page.getByRole("heading", { level: 1 })).toHaveText("Главная");
   // Первые метрики загрузки приходят сами; отчёт уходит, когда вкладка перестаёт быть видна.
   await page.waitForFunction(
-    () => performance.getEntriesByName("inside:web-vital:TTFB", "mark").length > 0,
+    () =>
+      performance.getEntriesByName("inside:web-vital:TTFB", "mark").length > 0,
   );
 
   // Тело beacon видно только в перехвате; сам запрос идёт дальше, к настоящему обработчику.
@@ -103,7 +105,10 @@ test("страница отправляет площадке свои Core Web V
     (response) => new URL(response.url()).pathname === "/api/web-vitals",
   );
   await page.evaluate(() => {
-    Object.defineProperty(document, "visibilityState", { configurable: true, value: "hidden" });
+    Object.defineProperty(document, "visibilityState", {
+      configurable: true,
+      value: "hidden",
+    });
     document.dispatchEvent(new Event("visibilitychange"));
   });
 
@@ -111,7 +116,10 @@ test("страница отправляет площадке свои Core Web V
   const response = await answered;
   expect(response.status()).toBe(204);
   const body = JSON.parse(sentReport) as {
-    readonly metrics: readonly { readonly name: string; readonly value: number }[];
+    readonly metrics: readonly {
+      readonly name: string;
+      readonly value: number;
+    }[];
     readonly route: string;
   };
   expect(body.route).toBe("/");
@@ -127,10 +135,13 @@ test("Manrope объявлен заранее: латиница и кирилл�
 
   const fonts = await page.evaluate(() => ({
     bodyFamily: getComputedStyle(document.body).fontFamily,
-    manropeReady: document.fonts.check("16px 'Manrope Variable'", "Главная Home"),
-    preloaded: [...document.querySelectorAll("link[rel='preload'][as='font']")].map(
-      (link) => link.getAttribute("href") ?? "",
+    manropeReady: document.fonts.check(
+      "16px 'Manrope Variable'",
+      "Главная Home",
     ),
+    preloaded: [
+      ...document.querySelectorAll("link[rel='preload'][as='font']"),
+    ].map((link) => link.getAttribute("href") ?? ""),
   }));
   expect(fonts.bodyFamily).toMatch(/^"Manrope Variable", "Manrope Fallback"/u);
   expect(fonts.manropeReady).toBe(true);
@@ -440,8 +451,9 @@ test("manager shell preserves desktop editor access and the four-item mobile doc
   );
   await page.goto("/");
 
-  const editorLink = (
-    getPrimaryNavigation(page, testInfo.project.name)
+  const editorLink = getPrimaryNavigation(
+    page,
+    testInfo.project.name,
   ).getByRole("link", { name: "Редактор", exact: true });
   if (navigationMode(testInfo.project.name) === "desktop") {
     await expect(editorLink).toHaveAttribute("href", "/authoring/materials");
@@ -520,13 +532,15 @@ test("failed authentication returns a visible recoverable state", async ({
 }, testInfo) => {
   await page.goto("/?authentication=failed");
 
-  const feedback = page.getByRole("status").filter({ hasText: "Вход не завершён" });
+  const feedback = page
+    .getByRole("status")
+    .filter({ hasText: "Вход не завершён" });
   await expect(feedback).toContainText("Вход не завершён. Повторите попытку");
 
   if (navigationMode(testInfo.project.name) === "mobile") {
     const [feedbackBox, navigationBox] = await Promise.all([
       feedback.boundingBox(),
-      (getPrimaryNavigation(page, testInfo.project.name)).boundingBox(),
+      getPrimaryNavigation(page, testInfo.project.name).boundingBox(),
     ]);
     expect(
       (feedbackBox?.y ?? 0) + (feedbackBox?.height ?? 0),
@@ -545,7 +559,9 @@ test("incomplete global logout is reported without claiming success", async ({
 }) => {
   await page.goto("/?authentication=logout-incomplete");
 
-  await expect(page.getByRole("status").filter({ hasText: "Локальная сессия завершена" })).toContainText(
+  await expect(
+    page.getByRole("status").filter({ hasText: "Локальная сессия завершена" }),
+  ).toContainText(
     "Локальная сессия завершена, но глобальный выход не подтверждён",
   );
 });
@@ -553,8 +569,9 @@ test("incomplete global logout is reported without claiming success", async ({
 test("navigation works with pointer input", async ({ page }, testInfo) => {
   await page.goto("/map");
 
-  const libraryLink = (
-    getPrimaryNavigation(page, testInfo.project.name)
+  const libraryLink = getPrimaryNavigation(
+    page,
+    testInfo.project.name,
   ).getByRole("link", {
     name: "Главная",
     exact: true,
@@ -562,9 +579,7 @@ test("navigation works with pointer input", async ({ page }, testInfo) => {
   await libraryLink.click();
 
   await expect(page).toHaveURL(/\/$/u);
-  await expect(page.getByRole("heading", { level: 1 })).toHaveText(
-    "Главная",
-  );
+  await expect(page.getByRole("heading", { level: 1 })).toHaveText("Главная");
 });
 
 test("header stays fixed while desktop content scrolls", async ({
@@ -643,9 +658,7 @@ test("shell exposes essential landmarks to assistive technology", async ({
     await expect(page.locator("[data-public-header]")).toBeHidden();
   }
   expect(accessibilityTree).toContain("- main:");
-  expect(accessibilityTree).toContain(
-    '- heading "Главная" [level=1]',
-  );
+  expect(accessibilityTree).toContain('- heading "Главная" [level=1]');
   const navigation = getPrimaryNavigation(page, testInfo.project.name);
   await expect(
     navigation.getByRole("link", { name: "Главная", exact: true }),
@@ -676,9 +689,7 @@ test("content reflows without horizontal page overflow at 200% text size", async
   }));
 
   expect(overflow.scrollWidth).toBeLessThanOrEqual(overflow.clientWidth);
-  await expect(
-    getPrimaryNavigation(page, testInfo.project.name),
-  ).toBeVisible();
+  await expect(getPrimaryNavigation(page, testInfo.project.name)).toBeVisible();
 });
 
 test("reduced motion removes navigation transitions", async ({
@@ -687,8 +698,9 @@ test("reduced motion removes navigation transitions", async ({
   await page.emulateMedia({ reducedMotion: "reduce" });
   await page.goto("/");
 
-  const transitionProperty = await (
-    getPrimaryNavigation(page, testInfo.project.name)
+  const transitionProperty = await getPrimaryNavigation(
+    page,
+    testInfo.project.name,
   )
     .getByRole("link", { name: "Главная", exact: true })
     .evaluate((element) => getComputedStyle(element).transitionProperty);

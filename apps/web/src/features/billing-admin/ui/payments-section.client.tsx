@@ -33,12 +33,20 @@ import {
 /** Основание возврата словами владельца и его последствие: одна карта для выбора и для истории решений. */
 const refundBases = {
   withdrawal: { label: "отказ от договора", consequence: "права прекращаются" },
-  compensation: { label: "компенсация без отказа", consequence: "доступ сохраняется" },
+  compensation: {
+    label: "компенсация без отказа",
+    consequence: "доступ сохраняется",
+  },
 } as const;
-const refundBasisOptions = (["withdrawal", "compensation"] as const).map((value) => {
-  const { label, consequence } = refundBases[value];
-  return { value, label: `${label.charAt(0).toUpperCase()}${label.slice(1)} — ${consequence}` };
-});
+const refundBasisOptions = (["withdrawal", "compensation"] as const).map(
+  (value) => {
+    const { label, consequence } = refundBases[value];
+    return {
+      value,
+      label: `${label.charAt(0).toUpperCase()}${label.slice(1)} — ${consequence}`,
+    };
+  },
+);
 export interface PaymentsSectionProps {
   readonly payments: readonly PaymentView[];
   readonly paymentsCursor: string | null;
@@ -285,10 +293,10 @@ export function PaymentsSection({
             onDecideRefund({
               purchaseRef: formText(form.get("refundPurchase")),
               amountKopecks: Number(formText(form.get("refundAmount"))),
-              basis: formText(form.get("refundBasis")) as "withdrawal" | "compensation",
+              basis: formText(form.get("refundBasis")) as
+                "withdrawal" | "compensation",
               recurring: formText(form.get("refundRecurring")) as
-                | "keep"
-                | "cancel",
+                "keep" | "cancel",
               reason: formText(form.get("refundReason")),
             });
           })}
@@ -379,8 +387,7 @@ export function PaymentsSection({
                     {decision.basis === null
                       ? "не указано"
                       : refundBases[decision.basis].label}{" "}
-                    · доступ{" "}
-                    {decision.access} · продление {decision.recurring}
+                    · доступ {decision.access} · продление {decision.recurring}
                   </span>
                   {decision.attempt === null ? null : (
                     <span className="text-xs text-muted-foreground">

@@ -38,40 +38,52 @@ export function assembleWorkshopMaterialAccess(dependencies: {
             return { availability: "available", validUntil: access.validUntil };
           }
           if (link.releasePolicy === "hint_reveal" && link.hintKey !== null) {
-            const reveal = await dependencies.prisma.workshopHintReveal.findUnique({
-              where: {
-                accountId_caseVersionId_hintKey: {
-                  accountId,
-                  caseVersionId: link.caseVersionId,
-                  hintKey: link.hintKey,
+            const reveal =
+              await dependencies.prisma.workshopHintReveal.findUnique({
+                where: {
+                  accountId_caseVersionId_hintKey: {
+                    accountId,
+                    caseVersionId: link.caseVersionId,
+                    hintKey: link.hintKey,
+                  },
                 },
-              },
-              select: { id: true },
-            });
+                select: { id: true },
+              });
             if (reveal !== null) {
-              return { availability: "available", validUntil: access.validUntil };
+              return {
+                availability: "available",
+                validUntil: access.validUntil,
+              };
             }
             locked = true;
           }
           if (link.releasePolicy === "solution_reveal") {
-            const reveal = await dependencies.prisma.workshopSolutionReveal.findUnique({
-              where: {
-                accountId_caseVersionId: {
-                  accountId,
-                  caseVersionId: link.caseVersionId,
+            const reveal =
+              await dependencies.prisma.workshopSolutionReveal.findUnique({
+                where: {
+                  accountId_caseVersionId: {
+                    accountId,
+                    caseVersionId: link.caseVersionId,
+                  },
                 },
-              },
-              select: { id: true },
-            });
+                select: { id: true },
+              });
             if (reveal !== null) {
-              return { availability: "available", validUntil: access.validUntil };
+              return {
+                availability: "available",
+                validUntil: access.validUntil,
+              };
             }
             locked = true;
           }
         }
         return { availability: locked ? "locked" : "unavailable" };
       } catch (error) {
-        return dependencyFailure({ module: "workshop", operation: "resolveMaterialAccess" }, error, { availability: "unavailable" });
+        return dependencyFailure(
+          { module: "workshop", operation: "resolveMaterialAccess" },
+          error,
+          { availability: "unavailable" },
+        );
       }
     },
   };

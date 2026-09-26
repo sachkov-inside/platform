@@ -18,9 +18,9 @@ const fakes = vi.hoisted(() => ({
     Promise.resolve("complete"),
   ),
   getAccessToken: vi.fn(() => Promise.resolve("platform-access-token")),
-  handleSignIn: vi.fn<(options: Parameters<LogtoClient["signIn"]>[0]) => Promise<{ url: string }>>(() =>
-    Promise.resolve({ url: "https://identity.example.test/oidc/auth" }),
-  ),
+  handleSignIn: vi.fn<
+    (options: Parameters<LogtoClient["signIn"]>[0]) => Promise<{ url: string }>
+  >(() => Promise.resolve({ url: "https://identity.example.test/oidc/auth" })),
   handleSignInCallback: vi.fn<() => Promise<string | undefined>>(() =>
     Promise.resolve(undefined),
   ),
@@ -76,7 +76,9 @@ vi.mock("@/shared/auth/index.server", () => ({
     }
     try {
       const base = new URL(baseUrl);
-      const target = value.startsWith("/") ? new URL(value, base) : new URL(value);
+      const target = value.startsWith("/")
+        ? new URL(value, base)
+        : new URL(value);
       return target.origin === base.origin ? target.toString() : undefined;
     } catch {
       return undefined;
@@ -124,29 +126,46 @@ describe("Logto BFF route orchestration", () => {
     const storage = new Map<string, string>();
     let authorizationUrl = "";
     const client = new LogtoClient(fakes.config, {
-      navigate: (url) => { authorizationUrl = url; },
+      navigate: (url) => {
+        authorizationUrl = url;
+      },
       storage: {
         getItem: (key) => Promise.resolve(storage.get(key) ?? null),
-        setItem: (key, value) => { storage.set(key, value); return Promise.resolve(); },
-        removeItem: (key) => { storage.delete(key); return Promise.resolve(); },
+        setItem: (key, value) => {
+          storage.set(key, value);
+          return Promise.resolve();
+        },
+        removeItem: (key) => {
+          storage.delete(key);
+          return Promise.resolve();
+        },
       },
     });
-    vi.spyOn(globalThis, "fetch").mockResolvedValue(new Response(JSON.stringify({
-      authorization_endpoint: "https://identity.example.test/oidc/auth",
-    }), { headers: { "content-type": "application/json" } }));
+    vi.spyOn(globalThis, "fetch").mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          authorization_endpoint: "https://identity.example.test/oidc/auth",
+        }),
+        { headers: { "content-type": "application/json" } },
+      ),
+    );
     fakes.handleSignIn.mockImplementationOnce(async (options) => {
       await client.signIn(options);
       return { url: authorizationUrl };
     });
 
-    const response = await signIn(new Request("https://inside.example.test/auth/sign-in", {
-      method: "POST",
-      headers: { origin: "https://inside.example.test" },
-    }));
+    const response = await signIn(
+      new Request("https://inside.example.test/auth/sign-in", {
+        method: "POST",
+        headers: { origin: "https://inside.example.test" },
+      }),
+    );
 
     expect(response.status).toBe(200);
     const parameters = new URL(authorizationUrl).searchParams;
-    expect(new Set(parameters.get("prompt")?.split(" "))).toEqual(new Set(["login", "consent"]));
+    expect(new Set(parameters.get("prompt")?.split(" "))).toEqual(
+      new Set(["login", "consent"]),
+    );
     expect(parameters.get("scope")?.split(" ")).toContain("offline_access");
     expect(parameters.get("resource")).toBe(fakes.config.audience);
     expect(parameters.get("code_challenge_method")).toBe("S256");
@@ -161,7 +180,9 @@ describe("Logto BFF route orchestration", () => {
           origin: "https://inside.example.test",
           "content-type": "application/x-www-form-urlencoded",
         },
-        body: new URLSearchParams({ returnTo: "/authoring/playlists/playlist-id" }),
+        body: new URLSearchParams({
+          returnTo: "/authoring/playlists/playlist-id",
+        }),
       }),
     );
 
@@ -169,7 +190,8 @@ describe("Logto BFF route orchestration", () => {
     expect(fakes.handleSignIn).toHaveBeenCalledWith({
       redirectUri: "https://inside.example.test/callback",
       prompt: ["login", "consent"],
-      postRedirectUri: "https://inside.example.test/authoring/playlists/playlist-id",
+      postRedirectUri:
+        "https://inside.example.test/authoring/playlists/playlist-id",
     });
 
     fakes.handleSignInCallback.mockResolvedValueOnce(
@@ -187,7 +209,9 @@ describe("Logto BFF route orchestration", () => {
     const response = await callback(
       new Request("http://localhost:3000/callback?code=opaque&state=opaque"),
     );
-    expect(response.headers.get("location")).toBe("https://inside.example.test/");
+    expect(response.headers.get("location")).toBe(
+      "https://inside.example.test/",
+    );
     expect(fakes.handleSignInCallback).toHaveBeenCalledWith(
       "https://inside.example.test/callback?code=opaque&state=opaque",
     );
@@ -278,10 +302,11 @@ describe("Logto BFF route orchestration", () => {
   });
 
   it("reports a missing Logto session as a guest", async () => {
-    const { LogtoSessionUnavailableError } = await import(
-      "@/shared/auth/platform-access-token.server"
+    const { LogtoSessionUnavailableError } =
+      await import("@/shared/auth/platform-access-token.server");
+    fakes.getAccessToken.mockRejectedValueOnce(
+      new LogtoSessionUnavailableError(),
     );
-    fakes.getAccessToken.mockRejectedValueOnce(new LogtoSessionUnavailableError());
 
     const response = await authStatus();
 
@@ -307,7 +332,9 @@ describe("Logto BFF route orchestration", () => {
   });
 
   it("clears the local Logto cookie and reports incomplete provider logout", async () => {
-    fakes.handleSignOut.mockRejectedValueOnce(new Error("provider unavailable"));
+    fakes.handleSignOut.mockRejectedValueOnce(
+      new Error("provider unavailable"),
+    );
 
     const response = await signOut(
       new Request("https://inside.example.test/auth/sign-out", {

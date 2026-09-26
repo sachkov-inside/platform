@@ -1,6 +1,9 @@
 import type { PublishedMaterialProjectionDto } from "../../facets/published-material-reader/published-material.contract.js";
 import type { ContentCoverProjection } from "../../facets/content-covers/content-covers.js";
-import type { GuideIntroductionDto, GuideProductPageDto } from "../../facets/material-authoring/content-collection.contract.js";
+import type {
+  GuideIntroductionDto,
+  GuideProductPageDto,
+} from "../../facets/material-authoring/content-collection.contract.js";
 import type { Result } from "../../result.js";
 
 export type PublishedMaterialDiscoveryKind = "related" | "series" | "topic";

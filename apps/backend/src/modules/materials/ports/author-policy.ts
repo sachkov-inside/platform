@@ -21,9 +21,13 @@ export async function authorizeManager(
       ? { ok: true }
       : { ok: false, error: { code: "forbidden" } };
   } catch (error) {
-    return dependencyFailure({ module: "materials", operation: "authorizeManager" }, error, {
-      ok: false,
-      error: { code: "dependency_unavailable", retryable: true },
-    });
+    return dependencyFailure(
+      { module: "materials", operation: "authorizeManager" },
+      error,
+      {
+        ok: false,
+        error: { code: "dependency_unavailable", retryable: true },
+      },
+    );
   }
 }

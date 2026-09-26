@@ -17,7 +17,11 @@ export class ProblemDetailsFilter implements ExceptionFilter {
     // The type always names the code, whatever the thrower wrote, so every response keeps one form.
     const problem = isProblemDetails(fields, status)
       ? { ...fields, type: problemType(fields.code) }
-      : problemDetails(status, typeof fields.code === "string" ? fields.code : "http_error", titleFor(status));
+      : problemDetails(
+          status,
+          typeof fields.code === "string" ? fields.code : "http_error",
+          titleFor(status),
+        );
 
     host
       .switchToHttp()

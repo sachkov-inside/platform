@@ -5,7 +5,10 @@ import {
   ObjectStorageModule,
   type ObjectStorage,
 } from "../../infrastructure/object-storage/index.js";
-import { PrismaClientProvider, PrismaModule } from "../../infrastructure/prisma/index.js";
+import {
+  PrismaClientProvider,
+  PrismaModule,
+} from "../../infrastructure/prisma/index.js";
 import { assembleMaterialAssets } from "./facets/material-assets/assemble-material-assets.js";
 import type { MaterialAssets } from "./facets/material-assets/material-assets.js";
 

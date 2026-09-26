@@ -60,10 +60,7 @@ export function shouldUseAvatarImage(
 }
 
 export function profileInitials(displayName: string): string {
-  const words = displayName
-    .trim()
-    .split(/\s+/u)
-    .filter(Boolean);
+  const words = displayName.trim().split(/\s+/u).filter(Boolean);
   if (words.length === 0) return "SI";
   const selected = words.length === 1 ? words : [words[0], words.at(-1)];
   return selected

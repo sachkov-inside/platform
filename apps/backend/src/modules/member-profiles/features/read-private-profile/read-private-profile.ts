@@ -27,6 +27,10 @@ export async function readPrivateProfile(
       ? profileFailure(internalProfileError())
       : { ok: true, value: { kind: "profile", profile } };
   } catch (error) {
-    return dependencyFailure({ module: "member-profiles", operation: "readPrivateProfile" }, error, profileFailure(internalProfileError()));
+    return dependencyFailure(
+      { module: "member-profiles", operation: "readPrivateProfile" },
+      error,
+      profileFailure(internalProfileError()),
+    );
   }
 }

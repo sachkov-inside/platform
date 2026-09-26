@@ -13,9 +13,7 @@ async function main(): Promise<void> {
   try {
     const action = process.env.PROFILE_MODERATION_ACTION;
     if (action !== "disable" && action !== "restore") {
-      throw new Error(
-        "PROFILE_MODERATION_ACTION must be disable or restore",
-      );
+      throw new Error("PROFILE_MODERATION_ACTION must be disable or restore");
     }
     const publicProfileId = requiredValue("PROFILE_PUBLIC_ID");
     const result = await moderateMemberProfile(

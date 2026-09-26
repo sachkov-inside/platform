@@ -2,18 +2,18 @@ import { describe, expect, it } from "vitest";
 
 import { guideChapterRuns } from "@/shared/lib/guide-chapter-runs";
 
-const chapters = [
-  { id: "alpha" },
-  { id: "beta" },
-  { id: "gamma" },
-] as const;
+const chapters = [{ id: "alpha" }, { id: "beta" }, { id: "gamma" }] as const;
 
-function shape(items: readonly { readonly id: string; readonly chapter: string | null }[]) {
-  return guideChapterRuns(items, chapters, (item) => item.chapter).map((run) => ({
-    chapter: run.chapter?.id ?? null,
-    items: run.items.map(({ id }) => id),
-    offset: run.offset,
-  }));
+function shape(
+  items: readonly { readonly id: string; readonly chapter: string | null }[],
+) {
+  return guideChapterRuns(items, chapters, (item) => item.chapter).map(
+    (run) => ({
+      chapter: run.chapter?.id ?? null,
+      items: run.items.map(({ id }) => id),
+      offset: run.offset,
+    }),
+  );
 }
 
 describe("Guide chapter runs", () => {
@@ -55,11 +55,9 @@ describe("Guide chapter runs", () => {
 
   it("returns one ungrouped run for a Guide without chapters", () => {
     expect(
-      guideChapterRuns(
-        [{ id: "one" }, { id: "two" }],
-        [],
-        () => null,
-      ),
-    ).toEqual([{ chapter: null, items: [{ id: "one" }, { id: "two" }], offset: 0 }]);
+      guideChapterRuns([{ id: "one" }, { id: "two" }], [], () => null),
+    ).toEqual([
+      { chapter: null, items: [{ id: "one" }, { id: "two" }], offset: 0 },
+    ]);
   });
 });

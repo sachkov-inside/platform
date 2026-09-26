@@ -31,7 +31,9 @@ export function isolateIdentityProofEnvironment(environment, envSources) {
   const isolated = { ...environment };
   for (const source of envSources) {
     for (const line of source.split(/\r?\n/u)) {
-      const name = /^(?:export\s+)?([A-Za-z_][A-Za-z0-9_]*)\s*=/u.exec(line)?.[1];
+      const name = /^(?:export\s+)?([A-Za-z_][A-Za-z0-9_]*)\s*=/u.exec(
+        line,
+      )?.[1];
       if (
         name !== undefined &&
         !name.startsWith("IDENTITY_PROOF_") &&

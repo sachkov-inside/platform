@@ -13,12 +13,20 @@ export const generateRequestId = (): string => randomUUID();
  * Даёт каждому запросу контекст журнала и пишет строку о его завершении. Адрес записывается
  * шаблоном маршрута: в самом адресе и его параметрах бывают токены и персональные данные.
  */
-export function observeHttpRequests(fastify: FastifyInstance, process: BackendProcess): void {
+export function observeHttpRequests(
+  fastify: FastifyInstance,
+  process: BackendProcess,
+): void {
   const scopes = new WeakMap<FastifyRequest, AsyncResource>();
   fastify.addHook("onRequest", (request, _reply, done) => {
     const route = request.routeOptions.url;
     runWithLogContext(
-      { process, requestId: request.id, method: request.method, ...(route === undefined ? {} : { route }) },
+      {
+        process,
+        requestId: request.id,
+        method: request.method,
+        ...(route === undefined ? {} : { route }),
+      },
       () => {
         const scope = new AsyncResource("inside-http-request");
         scopes.set(request, scope);
@@ -35,7 +43,11 @@ export function observeHttpRequests(fastify: FastifyInstance, process: BackendPr
   fastify.addHook("onResponse", (request, reply, done) => {
     const route = request.routeOptions.url;
     // Проверки здоровья опрашивает оркестратор; в журнал попадает только их отказ.
-    if (reply.statusCode >= 500 || route === undefined || !route.startsWith("/health")) {
+    if (
+      reply.statusCode >= 500 ||
+      route === undefined ||
+      !route.startsWith("/health")
+    ) {
       writeLog("info", "request_completed", {
         process,
         requestId: request.id,

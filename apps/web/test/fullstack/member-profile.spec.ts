@@ -5,8 +5,15 @@ import { deflateSync } from "node:zlib";
 import AxeBuilder from "@axe-core/playwright";
 import { expect, test } from "@playwright/test";
 
-import { fullStackBrowserRequest, fullStackPageRequest, signInFullStack } from "../support/full-stack-session";
-import { evidenceDirectory, prepareEvidenceDirectory } from "../../../../scripts/evidence-path.mjs";
+import {
+  fullStackBrowserRequest,
+  fullStackPageRequest,
+  signInFullStack,
+} from "../support/full-stack-session";
+import {
+  evidenceDirectory,
+  prepareEvidenceDirectory,
+} from "../../../../scripts/evidence-path.mjs";
 
 test("shows private Account Telegram and Membership presentation without disclosure", async ({
   context,
@@ -16,7 +23,10 @@ test("shows private Account Telegram and Membership presentation without disclos
 
   // The renewed session cookie is Secure: on 127.0.0.1 only the browser itself sends it.
   await page.goto("/");
-  const accountStateResponse = await fullStackBrowserRequest(page, "/api/account");
+  const accountStateResponse = await fullStackBrowserRequest(
+    page,
+    "/api/account",
+  );
   expect(accountStateResponse.status()).toBe(200);
   const accountState = (await accountStateResponse.json()) as {
     readonly telegramMembership?: unknown;
@@ -38,7 +48,9 @@ test("shows private Account Telegram and Membership presentation without disclos
   await expect(
     onboardingPanel.getByRole("button", { name: "Подключить Telegram" }),
   ).toBeVisible();
-  await expect(onboardingPanel).not.toContainText(/Доступ|Membership|Получить доступ/u);
+  await expect(onboardingPanel).not.toContainText(
+    /Доступ|Membership|Получить доступ/u,
+  );
   await expect(onboardingPanel).not.toContainText(
     /accountId|checkedAt|evidence|issuer|subject|telegramIdentity|username|validUntil/u,
   );
@@ -50,12 +62,16 @@ test("shows private Account Telegram and Membership presentation without disclos
   const reviewDirectory = resolve(process.cwd(), "../../.impeccable/review");
   await prepareEvidenceDirectory("issue-189");
   await mkdir(reviewDirectory, { recursive: true });
-  const viewportName = testInfo.project.name === "mobile-chromium" ? "mobile" : "desktop";
+  const viewportName =
+    testInfo.project.name === "mobile-chromium" ? "mobile" : "desktop";
   await page.screenshot({
     path: resolve(snapshots, `onboarding-unlinked-${viewportName}.png`),
   });
   await page.screenshot({
-    path: resolve(reviewDirectory, `issue-122-onboarding-unlinked-${viewportName}.png`),
+    path: resolve(
+      reviewDirectory,
+      `issue-122-onboarding-unlinked-${viewportName}.png`,
+    ),
   });
 
   const onboardingAccessibility = await new AxeBuilder({ page })
@@ -85,13 +101,19 @@ test("shows private Account Telegram and Membership presentation without disclos
   await expect(
     page.getByRole("heading", { exact: true, level: 1, name: "Аккаунт" }),
   ).toBeVisible();
-  const accessPanel = page.getByRole("region", { exact: true, name: "Telegram" });
+  const accessPanel = page.getByRole("region", {
+    exact: true,
+    name: "Telegram",
+  });
   await expect(accessPanel).toBeVisible();
   await accessPanel.screenshot({
     path: resolve(snapshots, `account-unlinked-${viewportName}.png`),
   });
   await accessPanel.screenshot({
-    path: resolve(reviewDirectory, `issue-122-account-unlinked-${viewportName}.png`),
+    path: resolve(
+      reviewDirectory,
+      `issue-122-account-unlinked-${viewportName}.png`,
+    ),
   });
 
   // Раздел «Аккаунт» решает две задачи — связь с Telegram и выход, — и обе входят в проверку.
@@ -120,9 +142,14 @@ test("creates or edits the Account Profile that only its owner sees", async ({
 
   const home = await page.goto("/");
   expect(home?.status()).toBe(200);
-  await expect(page.getByRole("complementary", { name: "Подписка Inside" })).toHaveCount(0);
+  await expect(
+    page.getByRole("complementary", { name: "Подписка Inside" }),
+  ).toHaveCount(0);
 
-  const profileStateResponse = await fullStackBrowserRequest(page, "/api/account/profile");
+  const profileStateResponse = await fullStackBrowserRequest(
+    page,
+    "/api/account/profile",
+  );
   expect(profileStateResponse.status()).toBe(200);
   const profileState = (await profileStateResponse.json()) as {
     readonly state?: { readonly kind?: string };
@@ -144,7 +171,9 @@ test("creates or edits the Account Profile that only its owner sees", async ({
   } else {
     expect(profileKind).toBe("profile");
   }
-  await expect(page.getByRole("heading", { name: "Профиль", exact: true })).toBeVisible();
+  await expect(
+    page.getByRole("heading", { name: "Профиль", exact: true }),
+  ).toBeVisible();
   const displayName = await nameInput.inputValue();
 
   await page.getByLabel("Выбрать изображение для аватара").setInputFiles({
@@ -164,7 +193,8 @@ test("creates or edits the Account Profile that only its owner sees", async ({
   const reviewDirectory = resolve(process.cwd(), "../../.impeccable/review");
   await prepareEvidenceDirectory("issue-153");
   await mkdir(reviewDirectory, { recursive: true });
-  const viewportName = testInfo.project.name === "mobile-chromium" ? "mobile" : "desktop";
+  const viewportName =
+    testInfo.project.name === "mobile-chromium" ? "mobile" : "desktop";
   await cropDialog.screenshot({
     path: resolve(reviewDirectory, `issue-153-crop-${viewportName}.png`),
   });
@@ -175,11 +205,13 @@ test("creates or edits the Account Profile that only its owner sees", async ({
   await expect(cropDialog).toBeHidden();
   const renderedAvatar = page.getByAltText(`Аватар: ${displayName}`).first();
   await expect(renderedAvatar).toBeVisible();
-  await expect.poll(() =>
-    renderedAvatar.evaluate((element) =>
-      element instanceof HTMLImageElement ? element.naturalWidth : 0,
-    ),
-  ).toBeGreaterThan(0);
+  await expect
+    .poll(() =>
+      renderedAvatar.evaluate((element) =>
+        element instanceof HTMLImageElement ? element.naturalWidth : 0,
+      ),
+    )
+    .toBeGreaterThan(0);
   await page.screenshot({
     path: resolve(reviewDirectory, `issue-153-account-${viewportName}.png`),
   });
@@ -193,18 +225,35 @@ test("creates or edits the Account Profile that only its owner sees", async ({
       ? "Развиваю инженерные команды и проверяю agent-first delivery на практике."
       : "Развиваю инженерные команды и изучаю agent-first delivery.";
   const alternateBio = `${preferredBio} Проверка повторного запуска.`;
-  const bio = (await bioInput.inputValue()) === preferredBio ? alternateBio : preferredBio;
+  const bio =
+    (await bioInput.inputValue()) === preferredBio
+      ? alternateBio
+      : preferredBio;
   await bioInput.fill(bio);
   await page.getByRole("button", { name: /Создать|Сохранить/u }).click();
   await expect(page.getByText("Профиль сохранён.")).toBeVisible();
-  await expect(page.getByRole("button", { name: /Удалить профиль/u })).toHaveCount(0);
-  await expect(page.getByRole("link", { name: /Скачать JSON/u })).toHaveCount(0);
+  await expect(
+    page.getByRole("button", { name: /Удалить профиль/u }),
+  ).toHaveCount(0);
+  await expect(page.getByRole("link", { name: /Скачать JSON/u })).toHaveCount(
+    0,
+  );
   await expect(page.getByText("Граница", { exact: true })).toHaveCount(0);
 
   // Профиль виден только владельцу: ссылки для участников и страницы участника нет.
-  await expect(page.getByText("Профиль заполняется по желанию и виден только вам", { exact: false })).toBeVisible();
-  await expect(page.locator("code").filter({ hasText: "/members/" })).toHaveCount(0);
-  expect((await page.goto("/members/5d34da22-548e-4b02-b6e8-9c918ad536ef"))?.status()).toBe(404);
+  await expect(
+    page.getByText("Профиль заполняется по желанию и виден только вам", {
+      exact: false,
+    }),
+  ).toBeVisible();
+  await expect(
+    page.locator("code").filter({ hasText: "/members/" }),
+  ).toHaveCount(0);
+  expect(
+    (
+      await page.goto("/members/5d34da22-548e-4b02-b6e8-9c918ad536ef")
+    )?.status(),
+  ).toBe(404);
   await page.goto("/account");
 
   const accessibility = await new AxeBuilder({ page })
@@ -234,16 +283,19 @@ test("creates or edits the Account Profile that only its owner sees", async ({
     });
   }
 
-
   await page.getByRole("button", { name: "Удалить" }).click();
-  await expect(page.getByRole("status").filter({ hasText: "Аватар удалён." })).toBeVisible();
+  await expect(
+    page.getByRole("status").filter({ hasText: "Аватар удалён." }),
+  ).toBeVisible();
   await expect(page.getByAltText(`Аватар: ${displayName}`)).toHaveCount(0);
-  await expect(page.getByRole("img", { name: `Аватар: ${displayName}` }).first()).toBeVisible();
+  await expect(
+    page.getByRole("img", { name: `Аватар: ${displayName}` }).first(),
+  ).toBeVisible();
 
-  const removedExportRoute = await (await fullStackPageRequest(page)).get("/account/export-profile");
+  const removedExportRoute = await (
+    await fullStackPageRequest(page)
+  ).get("/account/export-profile");
   expect(removedExportRoute.status()).toBe(404);
-
-
 });
 
 function profileAvatarPng(): Buffer {
@@ -256,8 +308,8 @@ function profileAvatarPng(): Buffer {
     for (let x = 0; x < width; x += 1) {
       const offset = row + 1 + x * 3;
       scanlines[offset] = 216;
-      scanlines[offset + 1] = Math.round(80 + 70 * x / width);
-      scanlines[offset + 2] = Math.round(48 + 80 * y / height);
+      scanlines[offset + 1] = Math.round(80 + (70 * x) / width);
+      scanlines[offset + 2] = Math.round(48 + (80 * y) / height);
     }
   }
   const header = Buffer.alloc(13);
@@ -278,7 +330,10 @@ function pngChunk(type: string, data: Buffer): Buffer {
   result.writeUInt32BE(data.length, 0);
   typeBytes.copy(result, 4);
   data.copy(result, 8);
-  result.writeUInt32BE(crc32(Buffer.concat([typeBytes, data])), 8 + data.length);
+  result.writeUInt32BE(
+    crc32(Buffer.concat([typeBytes, data])),
+    8 + data.length,
+  );
   return result;
 }
 

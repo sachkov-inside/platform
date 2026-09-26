@@ -8,8 +8,7 @@ export const tributeV1: LegalEdition = {
   title: "Покупка Inside через Tribute и отмена продления",
   summary:
     "Условия покупок, оплаченных через Tribute, и порядок отмены их продления.",
-  digest:
-    "24cd305772b751bcf611a9c6b66958d401d955e413415e3764d4c47131489bb2",
+  digest: "24cd305772b751bcf611a9c6b66958d401d955e413415e3764d4c47131489bb2",
   text: `# Покупка Inside через Tribute и отмена продления
 
 Версия 1. Действует с 12 сентября 2026 года.

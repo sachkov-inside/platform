@@ -4,7 +4,10 @@ import { createHash } from "node:crypto";
 import { afterEach, beforeEach, describe, expect, test } from "vitest";
 import { z } from "zod";
 
-import { lockTelegramAccountBinding, Prisma } from "../../src/infrastructure/prisma/index.js";
+import {
+  lockTelegramAccountBinding,
+  Prisma,
+} from "../../src/infrastructure/prisma/index.js";
 import { accountId } from "../../src/modules/accounts/index.js";
 
 import type { MembershipEntitlements } from "../../src/modules/membership-entitlements/index.js";
@@ -113,7 +116,9 @@ describe("TelegramMembership", () => {
     });
     expect(registration?.accountRef).not.toBe(firstAccountId);
     expect(registration?.tokenDigest).toBe(
-      createHash("sha256").update(rawToken ?? "").digest("base64url"),
+      createHash("sha256")
+        .update(rawToken ?? "")
+        .digest("base64url"),
     );
 
     const persisted = persistedLinkRowsSchema.parse(
@@ -153,7 +158,9 @@ describe("TelegramMembership", () => {
       state: { linkRef: begun.state.linkRef, status: "linked" },
     });
     expect(provider.confirmRequests).toHaveLength(1);
-    await expect(entitlements.resolveForAccess(firstAccountId)).resolves.toEqual({
+    await expect(
+      entitlements.resolveForAccess(firstAccountId),
+    ).resolves.toEqual({
       kind: "unavailable",
     });
     await expect(
@@ -222,7 +229,9 @@ describe("TelegramMembership", () => {
       outcome: "applied",
       state: "active",
     });
-    await expect(entitlements.resolveForAccess(firstAccountId)).resolves.toEqual({
+    await expect(
+      entitlements.resolveForAccess(firstAccountId),
+    ).resolves.toEqual({
       kind: "active",
       validUntil: "2030-01-01T00:05:00.000Z",
     });
@@ -248,7 +257,9 @@ describe("TelegramMembership", () => {
       outcome: "applied",
       state: "non_member",
     });
-    await expect(entitlements.resolveForAccess(firstAccountId)).resolves.toEqual({
+    await expect(
+      entitlements.resolveForAccess(firstAccountId),
+    ).resolves.toEqual({
       kind: "expired",
     });
 
@@ -268,14 +279,18 @@ describe("TelegramMembership", () => {
       source: "reconciliation",
       evidence: evidence(principalRef, "member", 3, clock.now()),
     });
-    await expect(entitlements.resolveForAccess(firstAccountId)).resolves.toEqual({
+    await expect(
+      entitlements.resolveForAccess(firstAccountId),
+    ).resolves.toEqual({
       kind: "active",
       validUntil: "2030-01-01T00:07:00.000Z",
     });
 
     provider.confirmation = { kind: "unavailable" };
     clock.set(new Date("2030-01-01T00:07:00.001Z"));
-    await expect(entitlements.resolveForAccess(firstAccountId)).resolves.toEqual({
+    await expect(
+      entitlements.resolveForAccess(firstAccountId),
+    ).resolves.toEqual({
       kind: "stale",
     });
     expect(provider.confirmRequests).toHaveLength(1);
@@ -313,7 +328,9 @@ describe("TelegramMembership", () => {
     expect(provider.registerRequests).toHaveLength(1);
 
     provider.registration = { kind: "unavailable" };
-    const unavailable = await membership.beginLink({ accountId: otherAccountId });
+    const unavailable = await membership.beginLink({
+      accountId: otherAccountId,
+    });
     expect(unavailable).toMatchObject({
       ok: true,
       state: { status: "unavailable" },
@@ -418,7 +435,9 @@ describe("TelegramMembership", () => {
       }),
     ).resolves.toMatchObject({ ok: true, state: { status: "linked" } });
     expect(provider.confirmRequests).toHaveLength(2);
-    await expect(entitlements.resolveForAccess(firstAccountId)).resolves.toEqual({
+    await expect(
+      entitlements.resolveForAccess(firstAccountId),
+    ).resolves.toEqual({
       kind: "unavailable",
     });
   });
@@ -432,7 +451,8 @@ describe("TelegramMembership", () => {
     const linkRefs = attempts.map((attempt) => {
       if (
         !attempt.ok ||
-        (attempt.state.status !== "pending" && attempt.state.status !== "unavailable")
+        (attempt.state.status !== "pending" &&
+          attempt.state.status !== "unavailable")
       ) {
         throw new Error("Expected resumable concurrent Telegram links");
       }
@@ -447,7 +467,9 @@ describe("TelegramMembership", () => {
       confirmation.ok ? confirmation.state.status : confirmation.error.code,
     );
     expect(statuses).toContain("linked");
-    expect(statuses.filter(status => status !== "linked" && status !== "conflict")).toEqual([]);
+    expect(
+      statuses.filter((status) => status !== "linked" && status !== "conflict"),
+    ).toEqual([]);
     await expect(
       database.prisma.membershipBinding.count({
         where: { accountId: firstAccountId },
@@ -469,15 +491,19 @@ describe("TelegramMembership", () => {
     ({ membership } = fixture(database));
     const locked = deferred<number>();
     const release = deferred<undefined>();
-    const binding = database.prisma.$transaction(async (transaction) => {
-      await lockTelegramAccountBinding(transaction, firstAccountId);
-      const [backend] = z.array(z.object({ pid: z.int().positive() })).parse(
-        await transaction.$queryRaw`select pg_backend_pid() as pid`,
-      );
-      if (backend === undefined) throw new Error("Missing binding transaction pid");
-      locked.resolve(backend.pid);
-      await release.promise;
-    }, { timeout: 15_000 });
+    const binding = database.prisma.$transaction(
+      async (transaction) => {
+        await lockTelegramAccountBinding(transaction, firstAccountId);
+        const [backend] = z
+          .array(z.object({ pid: z.int().positive() }))
+          .parse(await transaction.$queryRaw`select pg_backend_pid() as pid`);
+        if (backend === undefined)
+          throw new Error("Missing binding transaction pid");
+        locked.resolve(backend.pid);
+        await release.promise;
+      },
+      { timeout: 15_000 },
+    );
     const bindingPid = await locked.promise;
     const begun = membership.beginLink({ accountId: firstAccountId });
     try {
@@ -498,7 +524,10 @@ describe("TelegramMembership", () => {
       release.resolve(undefined);
     }
     await binding;
-    await expect(begun).resolves.toMatchObject({ ok: true, state: { status: "pending" } });
+    await expect(begun).resolves.toMatchObject({
+      ok: true,
+      state: { status: "pending" },
+    });
   }, 20_000);
 });
 
@@ -599,8 +628,7 @@ function evidence(
     contractVersion: "inside.membership-evidence.v1",
     principalRef,
     decision,
-    reasonCode:
-      decision === "member" ? "chat_member" : "chat_not_member",
+    reasonCode: decision === "member" ? "chat_member" : "chat_not_member",
     checkedAt: checkedAt.toISOString(),
     validUntil: new Date(checkedAt.getTime() + 5 * 60_000).toISOString(),
     telegramIdentityRef: "telegram-identity-ref-a",
@@ -609,7 +637,10 @@ function evidence(
   };
 }
 
-function deferred<T>(): { readonly promise: Promise<T>; readonly resolve: (value: T) => void } {
+function deferred<T>(): {
+  readonly promise: Promise<T>;
+  readonly resolve: (value: T) => void;
+} {
   let resolve!: (value: T) => void;
   const promise = new Promise<T>((settle) => {
     resolve = settle;

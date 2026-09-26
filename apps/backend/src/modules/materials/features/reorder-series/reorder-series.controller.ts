@@ -1,9 +1,20 @@
 import { Body, Controller, Inject, Param, Put } from "@nestjs/common";
-import { ApiBody, ApiOkResponse, ApiOperation, ApiParam } from "@nestjs/swagger";
+import {
+  ApiBody,
+  ApiOkResponse,
+  ApiOperation,
+  ApiParam,
+} from "@nestjs/swagger";
 
 import { toOpenApiSchema } from "../../../../infrastructure/http/zod-openapi.js";
-import { CurrentAccount, type AuthenticatedAccount } from "../../../accounts/index.js";
-import { ApiMaterialAuthoringErrors, MaterialAuthoringEndpoint } from "../../adapters/nest/material-authoring-endpoint.js";
+import {
+  CurrentAccount,
+  type AuthenticatedAccount,
+} from "../../../accounts/index.js";
+import {
+  ApiMaterialAuthoringErrors,
+  MaterialAuthoringEndpoint,
+} from "../../adapters/nest/material-authoring-endpoint.js";
 import {
   parseMaterialAuthoringBody,
   reorderSeriesBodySchema,
@@ -16,7 +27,9 @@ import type { MaterialAuthoring } from "../../facets/material-authoring/material
 @MaterialAuthoringEndpoint()
 @Controller("authoring")
 export class ReorderSeriesController {
-  constructor(@Inject(MATERIAL_AUTHORING) private readonly authoring: MaterialAuthoring) {}
+  constructor(
+    @Inject(MATERIAL_AUTHORING) private readonly authoring: MaterialAuthoring,
+  ) {}
 
   @Put("guides/:guideId/order")
   @ApiOperation({

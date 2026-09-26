@@ -1,5 +1,8 @@
 "use client";
-import { billingActionClass, type SubscriptionView } from "@/entities/subscription";
+import {
+  billingActionClass,
+  type SubscriptionView,
+} from "@/entities/subscription";
 import { Button } from "@/shared/ui/button";
 
 export interface PaymentMethodCardProps {

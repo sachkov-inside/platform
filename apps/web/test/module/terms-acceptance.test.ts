@@ -20,19 +20,34 @@ function form(input: unknown): FormData {
 }
 
 function token(claims: Record<string, unknown>): string {
-  const part = (value: unknown) => Buffer.from(JSON.stringify(value)).toString("base64url");
+  const part = (value: unknown) =>
+    Buffer.from(JSON.stringify(value)).toString("base64url");
   return `${part({ alg: "ES384" })}.${part({ sub: "member", ...claims })}.signature`;
 }
 
 const accepted = () =>
-  Promise.resolve({ ok: true as const, body: { ok: true, acceptanceRef: operationId }, response: Response.json({}) });
+  Promise.resolve({
+    ok: true as const,
+    body: { ok: true, acceptanceRef: operationId },
+    response: Response.json({}),
+  });
 
 describe("first sign-in screen", () => {
   it("returns only to an address of this site", () => {
-    expect(safeReturnPath("/guides/platform-inside/buy")).toBe("/guides/platform-inside/buy");
-    for (const value of ["https://evil.example", "//evil.example", "/\\evil.example", "account", undefined])
+    expect(safeReturnPath("/guides/platform-inside/buy")).toBe(
+      "/guides/platform-inside/buy",
+    );
+    for (const value of [
+      "https://evil.example",
+      "//evil.example",
+      "/\\evil.example",
+      "account",
+      undefined,
+    ])
       expect(safeReturnPath(value)).toBe("/");
-    expect(welcomePath("/account?tab=1")).toBe("/welcome?returnTo=%2Faccount%3Ftab%3D1");
+    expect(welcomePath("/account?tab=1")).toBe(
+      "/welcome?returnTo=%2Faccount%3Ftab%3D1",
+    );
   });
 
   it("records the button label chosen by the server, not by the browser", async () => {
@@ -40,7 +55,12 @@ describe("first sign-in screen", () => {
     const completeTelegramSignIn = vi.fn();
     await expect(
       executeAcceptTerms(
-        form({ operationId, version, digest, buttonLabel: "Подменённая подпись" }),
+        form({
+          operationId,
+          version,
+          digest,
+          buttonLabel: "Подменённая подпись",
+        }),
         token({}),
         { accept, completeTelegramSignIn },
       ),
@@ -52,7 +72,12 @@ describe("first sign-in screen", () => {
       }),
     ).resolves.toEqual({ kind: "accepted" });
     expect(accept).toHaveBeenCalledWith(
-      { operationId, version, digest, buttonLabel: "Принять условия и продолжить" },
+      {
+        operationId,
+        version,
+        digest,
+        buttonLabel: "Принять условия и продолжить",
+      },
       expect.any(String),
     );
     // A sign-in by email has no pending bot link.
@@ -60,27 +85,42 @@ describe("first sign-in screen", () => {
   });
 
   it("finishes a Telegram bot link only after the terms are accepted", async () => {
-    const telegramToken = token({ inside_telegram_sign_in: { subjectRef: operationId, requestRef: operationId } });
-    const completeTelegramSignIn = vi.fn().mockRejectedValue(new Error("expired"));
+    const telegramToken = token({
+      inside_telegram_sign_in: {
+        subjectRef: operationId,
+        requestRef: operationId,
+      },
+    });
+    const completeTelegramSignIn = vi
+      .fn()
+      .mockRejectedValue(new Error("expired"));
     await expect(
-      executeAcceptTerms(form({ operationId, version, digest }), telegramToken, {
-        accept: vi.fn(accepted),
-        completeTelegramSignIn,
-      }),
+      executeAcceptTerms(
+        form({ operationId, version, digest }),
+        telegramToken,
+        {
+          accept: vi.fn(accepted),
+          completeTelegramSignIn,
+        },
+      ),
     ).resolves.toEqual({ kind: "accepted" });
     expect(completeTelegramSignIn).toHaveBeenCalledWith(telegramToken);
 
     const refused = vi.fn();
     await expect(
-      executeAcceptTerms(form({ operationId, version, digest }), telegramToken, {
-        accept: () =>
-          Promise.resolve({
-            ok: false as const,
-            problem: { code: "document_changed" },
-            response: Response.json({}, { status: 409 }),
-          }),
-        completeTelegramSignIn: refused,
-      }),
+      executeAcceptTerms(
+        form({ operationId, version, digest }),
+        telegramToken,
+        {
+          accept: () =>
+            Promise.resolve({
+              ok: false as const,
+              problem: { code: "document_changed" },
+              response: Response.json({}, { status: 409 }),
+            }),
+          completeTelegramSignIn: refused,
+        },
+      ),
     ).resolves.toEqual({ kind: "document_changed" });
     expect(refused).not.toHaveBeenCalled();
   });

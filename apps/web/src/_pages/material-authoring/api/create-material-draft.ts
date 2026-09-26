@@ -148,7 +148,8 @@ function parseForm(formData: FormData):
     ok: true,
     value: {
       access: parsed.data.access,
-      difficulty: parsed.data.difficulty === "unassigned" ? null : parsed.data.difficulty,
+      difficulty:
+        parsed.data.difficulty === "unassigned" ? null : parsed.data.difficulty,
       outcomes: parsed.data.outcomes.filter(Boolean),
       document: documentFields.document,
       formatId:

@@ -21,9 +21,7 @@ import { communityErrorStatus } from "./community-protocol-status.js";
  * An uncorrelated, contradictory or malformed answer is an unknown outcome, never a fact
  * about the Account and never a reason to repeat the external effect.
  */
-export class HttpCommunityEntitlementProvider
-  implements CommunityEntitlementProvider
-{
+export class HttpCommunityEntitlementProvider implements CommunityEntitlementProvider {
   constructor(
     private readonly endpoint: string,
     private readonly secret: string,
@@ -31,7 +29,8 @@ export class HttpCommunityEntitlementProvider
   ) {}
 
   set(command: CommunitySetCommand): Promise<CommunityDeliveryOutcome> {
-    if (command.contractVersion !== COMMUNITY_V2_CONTRACT_VERSION) return Promise.resolve({ kind: "error", error: "unsupported_contract" });
+    if (command.contractVersion !== COMMUNITY_V2_CONTRACT_VERSION)
+      return Promise.resolve({ kind: "error", error: "unsupported_contract" });
     return this.exchange(command, command);
   }
 
@@ -67,13 +66,21 @@ export class HttpCommunityEntitlementProvider
         signal: AbortSignal.timeout(COMMUNITY_REQUEST_TIMEOUT_MS),
       });
     } catch (error) {
-      return dependencyFailure({ module: "telegram-membership", operation: "exchange" }, error, { kind: "unavailable" });
+      return dependencyFailure(
+        { module: "telegram-membership", operation: "exchange" },
+        error,
+        { kind: "unavailable" },
+      );
     }
     let payload: unknown;
     try {
       payload = await response.json();
     } catch (error) {
-      return dependencyFailure({ module: "telegram-membership", operation: "exchange" }, error, { kind: "unavailable" });
+      return dependencyFailure(
+        { module: "telegram-membership", operation: "exchange" },
+        error,
+        { kind: "unavailable" },
+      );
     }
     if (response.status === 200) {
       const result = communityResultSchema.safeParse(payload);

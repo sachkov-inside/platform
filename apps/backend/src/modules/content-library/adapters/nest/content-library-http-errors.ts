@@ -11,8 +11,12 @@ export function throwContentLibraryError(
     case "discovery_not_found":
       throw problemException(404, error.code, "Discovery not found");
     case "dependency_unavailable":
-      throw problemException(503, error.code, "Dependency unavailable", { retryable: error.retryable });
+      throw problemException(503, error.code, "Dependency unavailable", {
+        retryable: error.retryable,
+      });
     case "internal_error":
-      throw problemException(500, error.code, "Internal error", { correlationId: error.correlationId });
+      throw problemException(500, error.code, "Internal error", {
+        correlationId: error.correlationId,
+      });
   }
 }

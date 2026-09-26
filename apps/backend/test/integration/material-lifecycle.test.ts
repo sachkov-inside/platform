@@ -43,7 +43,6 @@ describe("Material lifecycle", () => {
     await testDatabase.prisma.topic.create({
       data: { id: topicId, slug: "engineering", name: "Engineering" },
     });
-
   });
 
   afterAll(async () => {
@@ -110,9 +109,7 @@ describe("Material lifecycle", () => {
       },
     });
 
-    expect(
-      await materialContent.findAccessFacts(currentMaterialId),
-    ).toEqual({
+    expect(await materialContent.findAccessFacts(currentMaterialId)).toEqual({
       ok: true,
       value: {
         materialId: created.value.materialId,
@@ -421,8 +418,9 @@ describe("Material lifecycle", () => {
 
     let raced = false;
     const racingContentAccess = {
-      checkAvailabilityMany:
-        base.contentAccess.checkAvailabilityMany.bind(base.contentAccess),
+      checkAvailabilityMany: base.contentAccess.checkAvailabilityMany.bind(
+        base.contentAccess,
+      ),
       authorize: async (
         input: Parameters<typeof base.contentAccess.authorize>[0],
       ) => {
@@ -572,7 +570,10 @@ describe("Material lifecycle", () => {
     });
     if (!renamed.ok) throw new Error(renamed.error.code);
     expect(
-      await authoring.loadMaterial({ actor: ownerId, materialId: created.value.materialId }),
+      await authoring.loadMaterial({
+        actor: ownerId,
+        materialId: created.value.materialId,
+      }),
     ).toMatchObject({ ok: true, value: { metadata: { slug: "winner" } } });
   });
 
@@ -660,7 +661,10 @@ describe("Material lifecycle", () => {
 
     const loaded = await Promise.all(
       materialIds.map((currentMaterialId) =>
-        authoring.loadMaterial({ actor: ownerId, materialId: currentMaterialId }),
+        authoring.loadMaterial({
+          actor: ownerId,
+          materialId: currentMaterialId,
+        }),
       ),
     );
     expect(
@@ -708,8 +712,12 @@ describe("Material lifecycle", () => {
       return loaded.value.metadata.slug;
     };
 
-    await expect(publishAndLoadSlug("🧭", "fallback-1")).resolves.toBe("material");
-    await expect(publishAndLoadSlug("東京", "fallback-2")).resolves.toBe("material-2");
+    await expect(publishAndLoadSlug("🧭", "fallback-1")).resolves.toBe(
+      "material",
+    );
+    await expect(publishAndLoadSlug("東京", "fallback-2")).resolves.toBe(
+      "material-2",
+    );
 
     const longTitle = "a".repeat(160);
     const longSlugs = await Promise.all(

@@ -34,12 +34,16 @@ describe("Account backend interface", () => {
       method: "POST",
       url: "https://platform-api.example.test/accounts",
     });
-    expect(establishRequest?.headers.get("authorization")).toBe(`Bearer ${token}`);
+    expect(establishRequest?.headers.get("authorization")).toBe(
+      `Bearer ${token}`,
+    );
     expect(resolveRequest).toMatchObject({
       method: "GET",
       url: "https://platform-api.example.test/accounts/current",
     });
-    expect(resolveRequest?.headers.get("authorization")).toBe(`Bearer ${token}`);
+    expect(resolveRequest?.headers.get("authorization")).toBe(
+      `Bearer ${token}`,
+    );
   });
 
   it("fails closed on unexpected success and error responses", async () => {
@@ -90,7 +94,9 @@ describe("Account backend interface", () => {
         ),
     );
 
-    await expect(resolveAccount(token)).rejects.toMatchObject({ code: "rejected" });
+    await expect(resolveAccount(token)).rejects.toMatchObject({
+      code: "rejected",
+    });
     await expect(establishAccount(token)).rejects.toMatchObject({
       code: "unavailable",
     });

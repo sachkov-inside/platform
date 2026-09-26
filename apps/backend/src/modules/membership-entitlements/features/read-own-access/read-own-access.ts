@@ -1,7 +1,11 @@
 import { isWithheldCapability } from "@inside/access-capabilities";
 import { z } from "zod";
 import type { MembershipEntitlementsPrismaClient } from "../../infrastructure/prisma.js";
-import { accessCapabilitySchema, accessFailure, type AccessFailure } from "../../domain/access-grant.js";
+import {
+  accessCapabilitySchema,
+  accessFailure,
+  type AccessFailure,
+} from "../../domain/access-grant.js";
 
 /**
  * Собственное основание доступа глазами покупателя: состав, срок и то, чем оно выдано.
@@ -32,7 +36,8 @@ export async function readOwnAccess(
   accountId: string,
   now: Date,
 ): Promise<ReadOwnAccessResult> {
-  if (!z.uuid().safeParse(accountId).success) return accessFailure("invalid_input");
+  if (!z.uuid().safeParse(accountId).success)
+    return accessFailure("invalid_input");
   const grants = await prisma.accessGrant.findMany({
     where: {
       accountId,
@@ -48,14 +53,20 @@ export async function readOwnAccess(
     value: ownAccessSchema.parse({
       // Право, которое не выдаёт ни одно основание, кабинет не показывает и в прежних записях.
       grounds: grants.flatMap((grant) => {
-        const capabilities = grant.capabilities.filter((capability) => !isWithheldCapability(capability));
-        return capabilities.length === 0 ? [] : [{
-          source: grant.source,
-          capabilities,
-          startsAt: grant.startsAt.toISOString(),
-          validUntil: grant.validUntil?.toISOString() ?? null,
-          active: grant.startsAt <= now,
-        }];
+        const capabilities = grant.capabilities.filter(
+          (capability) => !isWithheldCapability(capability),
+        );
+        return capabilities.length === 0
+          ? []
+          : [
+              {
+                source: grant.source,
+                capabilities,
+                startsAt: grant.startsAt.toISOString(),
+                validUntil: grant.validUntil?.toISOString() ?? null,
+                active: grant.startsAt <= now,
+              },
+            ];
       }),
     }),
   };

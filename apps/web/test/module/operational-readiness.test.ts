@@ -1,6 +1,9 @@
 import { describe, expect, it, vi } from "vitest";
 
-import { webLiveness, webReadiness } from "@/shared/config/operational-readiness.server";
+import {
+  webLiveness,
+  webReadiness,
+} from "@/shared/config/operational-readiness.server";
 import type { WebRuntimeConfig } from "@/shared/config/runtime-config.server";
 
 const config: WebRuntimeConfig = {

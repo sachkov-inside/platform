@@ -37,10 +37,11 @@ export async function deliverProfileAvatar(
     ) {
       return notFound();
     }
-    const rendition = await dependencies.prisma.profileAvatarRendition.findUnique({
-      where: { avatarId_size: { avatarId, size: input.size } },
-      include: { avatar: { select: { accountId: true, state: true } } },
-    });
+    const rendition =
+      await dependencies.prisma.profileAvatarRendition.findUnique({
+        where: { avatarId_size: { avatarId, size: input.size } },
+        include: { avatar: { select: { accountId: true, state: true } } },
+      });
     if (
       rendition === null ||
       rendition.avatar.accountId !== input.accountId ||
@@ -56,7 +57,11 @@ export async function deliverProfileAvatar(
     });
     return { location, ok: true };
   } catch (error) {
-    return dependencyFailure({ module: "member-profiles", operation: "deliverProfileAvatar" }, error, { error: { code: "dependency_unavailable" }, ok: false });
+    return dependencyFailure(
+      { module: "member-profiles", operation: "deliverProfileAvatar" },
+      error,
+      { error: { code: "dependency_unavailable" }, ok: false },
+    );
   }
 }
 

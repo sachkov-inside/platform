@@ -23,7 +23,9 @@ const appliedMigrationSchema = z.strictObject({
   position: z.number().int().positive(),
 });
 const relationRowSchema = z.strictObject({ relation: z.string().nullable() });
-const relationPresenceRowSchema = z.strictObject({ has_relations: z.boolean() });
+const relationPresenceRowSchema = z.strictObject({
+  has_relations: z.boolean(),
+});
 const ledgerColumnRowsSchema = z.array(
   z.strictObject({ name: z.string().min(1) }),
 );
@@ -89,11 +91,7 @@ export async function runMigrationsToLatest(
       );
       assertAppliedMigrations(applied, migrations);
       const appliedMigrations: string[] = [];
-      for (
-        let index = applied.length;
-        index < migrations.length;
-        index += 1
-      ) {
+      for (let index = applied.length; index < migrations.length; index += 1) {
         const migration = migrations[index];
         if (migration === undefined) {
           throw new TypeError("Migration registry changed during execution");
@@ -141,7 +139,9 @@ export async function verifyMigrationState(
       `);
       const tablesRow = relationPresenceRowSchema.parse(tablesResult.rows[0]);
       if (tablesRow.has_relations) {
-        throw new Error("Migration ledger is missing from a non-empty database");
+        throw new Error(
+          "Migration ledger is missing from a non-empty database",
+        );
       }
       return { appliedMigrations: [], jobSchemaVersion: null };
     }

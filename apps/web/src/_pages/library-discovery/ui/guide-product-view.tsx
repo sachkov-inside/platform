@@ -1,8 +1,19 @@
-import { ArrowLeft, ArrowRight, Check, FileDown, Play, ShieldCheck } from "lucide-react";
+import {
+  ArrowLeft,
+  ArrowRight,
+  Check,
+  FileDown,
+  Play,
+  ShieldCheck,
+} from "lucide-react";
 import type { Route } from "next";
 import type { ReactNode } from "react";
 
-import type { GuidePage, GuidePageBlock, GuidePresentation } from "@/entities/guide-page";
+import type {
+  GuidePage,
+  GuidePageBlock,
+  GuidePresentation,
+} from "@/entities/guide-page";
 import { ContentCoverImage } from "@/entities/material";
 import { fillOneTimeTerms as fillTerms } from "@/features/billing-checkout.terms";
 import type { ReaderGuideArtifactsResult } from "@/features/guide-artifacts.reader";
@@ -19,7 +30,10 @@ import { IntentPrefetchLink } from "@/shared/ui/intent-prefetch-link.client";
 import { AiFirstGuideView } from "./ai-first-guide-view";
 import { formatArtifactCount, formatChapterCount } from "./guide-counts";
 
-type ResolvedSeriesResult = Extract<PublishedSeriesResult, { kind: "ready" | "empty" }>;
+type ResolvedSeriesResult = Extract<
+  PublishedSeriesResult,
+  { kind: "ready" | "empty" }
+>;
 
 interface ProductViewProps {
   readonly artifacts: ReaderGuideArtifactsResult;
@@ -33,13 +47,24 @@ interface ProductViewProps {
  * Реестр оформлений (ADR 0026): значение поля продукта выбирает, чем рисовать страницу. Особому
  * оформлению без описания нечего показать, поэтому оно уступает общему шаблону.
  */
-const productViews: Record<GuidePresentation, (props: ProductViewProps) => ReactNode> = {
+const productViews: Record<
+  GuidePresentation,
+  (props: ProductViewProps) => ReactNode
+> = {
   default: DefaultGuideProductView,
   "ai-first-process": ({ page, freeEntryHref, ...props }) =>
     page === null ? (
-      <DefaultGuideProductView {...props} freeEntryHref={freeEntryHref} page={null} />
+      <DefaultGuideProductView
+        {...props}
+        freeEntryHref={freeEntryHref}
+        page={null}
+      />
     ) : (
-      <AiFirstGuideView page={page} result={props.result} returnTarget={props.returnTarget} />
+      <AiFirstGuideView
+        page={page}
+        result={props.result}
+        returnTarget={props.returnTarget}
+      />
     ),
 };
 
@@ -84,9 +109,11 @@ function DefaultGuideProductView({
   page,
 }: ProductViewProps) {
   const { reference } = result;
-  const introduction = page === null ? reference.introduction ?? null : null;
+  const introduction = page === null ? (reference.introduction ?? null) : null;
   const items = result.kind === "ready" ? result.items : [];
-  const freeCount = items.filter((item) => item.access === "free" && item.availability === "available").length;
+  const freeCount = items.filter(
+    (item) => item.access === "free" && item.availability === "available",
+  ).length;
   // Бесплатный вход обещает открытые уроки, поэтому он показывается там же, где они есть.
   const freeEntry = freeCount === 0 ? undefined : freeEntryHref;
   const chapters = result.chapters;
@@ -94,13 +121,19 @@ function DefaultGuideProductView({
   const meta = [
     formatMaterialCount(items.length),
     chapters.length === 0 ? undefined : formatChapterCount(chapters.length),
-    guideArtifacts.length === 0 ? undefined : formatArtifactCount(guideArtifacts.length),
+    guideArtifacts.length === 0
+      ? undefined
+      : formatArtifactCount(guideArtifacts.length),
   ].filter((value): value is string => value !== undefined);
 
   return (
     <div className="min-w-0" data-guide-product={reference.slug}>
       <div className="mx-auto w-full min-w-0 max-w-[46rem]">
-        <nav aria-label="Хлебные крошки" className="pt-4" data-product-part="back">
+        <nav
+          aria-label="Хлебные крошки"
+          className="pt-4"
+          data-product-part="back"
+        >
           <ol className="flex min-h-10 flex-wrap items-center gap-2 text-sm text-muted-foreground">
             <li>
               <IntentPrefetchLink
@@ -118,7 +151,10 @@ function DefaultGuideProductView({
           </ol>
         </nav>
 
-        <header className="mt-3 overflow-hidden rounded-[1.75rem] bg-primary p-4 text-white" data-product-part="hero">
+        <header
+          className="mt-3 overflow-hidden rounded-[1.75rem] bg-primary p-4 text-white"
+          data-product-part="hero"
+        >
           <p className="text-xs font-bold uppercase tracking-[0.14em] text-white/60">
             Продукт
           </p>
@@ -160,7 +196,9 @@ function DefaultGuideProductView({
           </p>
         )}
         {meta.length === 0 ? null : (
-          <p className="mt-3 text-sm text-muted-foreground">{meta.join(" · ")}</p>
+          <p className="mt-3 text-sm text-muted-foreground">
+            {meta.join(" · ")}
+          </p>
         )}
 
         {page?.blocks.map((block) => (
@@ -197,7 +235,10 @@ function DefaultGuideProductView({
             </p>
             <ol className="mt-5 grid gap-5">
               {chapters.map((chapter, index) => (
-                <li className="grid grid-cols-[2rem_minmax(0,1fr)] gap-3" key={chapter.id}>
+                <li
+                  className="grid grid-cols-[2rem_minmax(0,1fr)] gap-3"
+                  key={chapter.id}
+                >
                   <span
                     aria-hidden="true"
                     className={cn(
@@ -208,7 +249,9 @@ function DefaultGuideProductView({
                     {index + 1}
                   </span>
                   <div className="min-w-0">
-                    <p className="break-words font-semibold leading-6">{chapter.name}</p>
+                    <p className="break-words font-semibold leading-6">
+                      {chapter.name}
+                    </p>
                     {chapter.summary === "" ? null : (
                       <p className="mt-1 whitespace-pre-line break-words text-sm leading-6 text-muted-foreground">
                         {chapter.summary}
@@ -224,7 +267,10 @@ function DefaultGuideProductView({
         {introduction === null || introduction.prerequisites === "" ? null : (
           <Section title="Что понадобится">
             <div className="grid grid-cols-[1.25rem_minmax(0,1fr)] gap-3 rounded-2xl bg-muted p-5">
-              <Check aria-hidden="true" className="mt-0.5 size-5 shrink-0 text-accent" />
+              <Check
+                aria-hidden="true"
+                className="mt-0.5 size-5 shrink-0 text-accent"
+              />
               <Prose value={introduction.prerequisites} />
             </div>
           </Section>
@@ -238,9 +284,14 @@ function DefaultGuideProductView({
                   className="grid grid-cols-[1.5rem_minmax(0,1fr)] gap-3 rounded-2xl border border-border p-4"
                   key={artifact.artifactId}
                 >
-                  <FileDown aria-hidden="true" className="mt-0.5 size-5 text-muted-foreground" />
+                  <FileDown
+                    aria-hidden="true"
+                    className="mt-0.5 size-5 text-muted-foreground"
+                  />
                   <div className="min-w-0">
-                    <p className="break-words font-semibold leading-6">{artifact.title}</p>
+                    <p className="break-words font-semibold leading-6">
+                      {artifact.title}
+                    </p>
                     {artifact.purpose === "" ? null : (
                       <p className="mt-1 break-words text-sm leading-6 text-muted-foreground">
                         {artifact.purpose}
@@ -256,7 +307,10 @@ function DefaultGuideProductView({
         {introduction === null || introduction.scope === "" ? null : (
           <Section title="Что остаётся за границами">
             <div className="grid grid-cols-[1.25rem_minmax(0,1fr)] gap-3 rounded-2xl border border-border p-5">
-              <ShieldCheck aria-hidden="true" className="mt-0.5 size-5 text-muted-foreground" />
+              <ShieldCheck
+                aria-hidden="true"
+                className="mt-0.5 size-5 text-muted-foreground"
+              />
               <Prose value={introduction.scope} />
             </div>
           </Section>
@@ -267,7 +321,11 @@ function DefaultGuideProductView({
           останавливается над плавающим меню оболочки, а не уходит под него. */}
       <div className="sticky bottom-[calc(5rem+env(safe-area-inset-bottom))] z-10 mt-10 lg:bottom-4">
         <div className="mx-auto w-full max-w-[46rem] rounded-2xl border border-border bg-background/95 p-2.5 shadow-card backdrop-blur">
-          <Button asChild className="h-auto min-h-11 w-full whitespace-normal" size="lg">
+          <Button
+            asChild
+            className="h-auto min-h-11 w-full whitespace-normal"
+            size="lg"
+          >
             <IntentPrefetchLink href={guideProgrammeHref(reference.slug)}>
               Открыть программу
               <ArrowRight aria-hidden="true" className="size-4 shrink-0" />
@@ -297,7 +355,10 @@ function DefaultBlock({
           {block.highlights.length === 0 ? null : (
             <ul className="mt-3 flex flex-wrap gap-2 text-sm">
               {block.highlights.map((highlight, index) => (
-                <li className="rounded-full bg-secondary px-3 py-1" key={`${String(index)}-${highlight}`}>
+                <li
+                  className="rounded-full bg-secondary px-3 py-1"
+                  key={`${String(index)}-${highlight}`}
+                >
                   {fillTerms(highlight)}
                 </li>
               ))}
@@ -309,20 +370,29 @@ function DefaultBlock({
       return (
         <Section
           title={fillTerms(block.title)}
-          {...(block.eyebrow === "" ? {} : { eyebrow: fillTerms(block.eyebrow) })}
+          {...(block.eyebrow === ""
+            ? {}
+            : { eyebrow: fillTerms(block.eyebrow) })}
         >
           {block.lead === "" ? null : <Prose value={fillTerms(block.lead)} />}
           <ul className="mt-4 grid gap-3">
             {block.items.map((item, index) => (
-              <li className="rounded-2xl border border-border p-4" key={`${String(index)}-${item.title}`}>
-                <p className="break-words font-semibold leading-6">{fillTerms(item.title)}</p>
+              <li
+                className="rounded-2xl border border-border p-4"
+                key={`${String(index)}-${item.title}`}
+              >
+                <p className="break-words font-semibold leading-6">
+                  {fillTerms(item.title)}
+                </p>
                 <p className="mt-1 whitespace-pre-line break-words text-sm leading-6 text-muted-foreground">
                   {fillTerms(item.text)}
                 </p>
                 {item.detail === "" ? null : (
                   <p className="mt-2 text-sm">
                     {item.detailLabel === "" ? null : (
-                      <span className="text-muted-foreground">{fillTerms(item.detailLabel)}: </span>
+                      <span className="text-muted-foreground">
+                        {fillTerms(item.detailLabel)}:{" "}
+                      </span>
                     )}
                     {fillTerms(item.detail)}
                   </p>
@@ -331,7 +401,9 @@ function DefaultBlock({
             ))}
           </ul>
           {block.note === "" ? null : (
-            <p className="mt-3 text-sm leading-6 text-muted-foreground">{fillTerms(block.note)}</p>
+            <p className="mt-3 text-sm leading-6 text-muted-foreground">
+              {fillTerms(block.note)}
+            </p>
           )}
         </Section>
       );
@@ -340,7 +412,10 @@ function DefaultBlock({
         <Section title={fillTerms(block.title)}>
           <div className="grid gap-3">
             {block.paragraphs.map((paragraph, index) => (
-              <Prose key={`${String(index)}-${paragraph}`} value={fillTerms(paragraph)} />
+              <Prose
+                key={`${String(index)}-${paragraph}`}
+                value={fillTerms(paragraph)}
+              />
             ))}
           </div>
         </Section>
@@ -351,7 +426,10 @@ function DefaultBlock({
           {block.lead === "" ? null : <Prose value={fillTerms(block.lead)} />}
           <ol className="mt-4 grid gap-4">
             {block.items.map((step, index) => (
-              <li className="grid grid-cols-[2rem_minmax(0,1fr)] gap-3" key={`${String(index)}-${step.title}`}>
+              <li
+                className="grid grid-cols-[2rem_minmax(0,1fr)] gap-3"
+                key={`${String(index)}-${step.title}`}
+              >
                 <span
                   aria-hidden="true"
                   className={cn(
@@ -362,7 +440,9 @@ function DefaultBlock({
                   {index + 1}
                 </span>
                 <div className="min-w-0">
-                  <p className="break-words font-semibold leading-6">{fillTerms(step.title)}</p>
+                  <p className="break-words font-semibold leading-6">
+                    {fillTerms(step.title)}
+                  </p>
                   <p className="mt-1 whitespace-pre-line break-words text-sm leading-6 text-muted-foreground">
                     {fillTerms(step.text)}
                   </p>
@@ -370,7 +450,9 @@ function DefaultBlock({
               </li>
             ))}
           </ol>
-          {block.link === "" ? null : <TextLink href={programme} label={fillTerms(block.link)} />}
+          {block.link === "" ? null : (
+            <TextLink href={programme} label={fillTerms(block.link)} />
+          )}
         </Section>
       );
     case "list":
@@ -379,7 +461,10 @@ function DefaultBlock({
           {block.text === "" ? null : <Prose value={fillTerms(block.text)} />}
           <ul className="mt-3 flex flex-wrap gap-2 text-sm">
             {block.items.map((item, index) => (
-              <li className="rounded-full bg-secondary px-3 py-1" key={`${String(index)}-${item}`}>
+              <li
+                className="rounded-full bg-secondary px-3 py-1"
+                key={`${String(index)}-${item}`}
+              >
                 {fillTerms(item)}
               </li>
             ))}
@@ -390,13 +475,21 @@ function DefaultBlock({
       return freeCount === 0 ? null : (
         <Section title={fillTerms(block.title)}>
           <Prose value={fillTerms(block.text)} />
-          {block.link === "" ? null : <TextLink href={programme} label={fillTerms(block.link)} />}
+          {block.link === "" ? null : (
+            <TextLink href={programme} label={fillTerms(block.link)} />
+          )}
         </Section>
       );
   }
 }
 
-function TextLink({ href, label }: { readonly href: Route; readonly label: string }) {
+function TextLink({
+  href,
+  label,
+}: {
+  readonly href: Route;
+  readonly label: string;
+}) {
   return (
     <IntentPrefetchLink
       className="mt-4 inline-flex min-h-10 items-center gap-2 font-semibold text-accent-foreground underline-offset-4 hover:underline focus-visible:outline-ring"
@@ -453,4 +546,3 @@ const chapterTones = [
 function chapterTone(index: number): string {
   return `${chapterTones[index % chapterTones.length] ?? "bg-secondary"} text-foreground`;
 }
-

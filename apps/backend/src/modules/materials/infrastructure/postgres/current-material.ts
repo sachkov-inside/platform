@@ -1,4 +1,7 @@
-import { authoringSourceSchema, type AuthoringSource } from "../../domain/authoring-source.js";
+import {
+  authoringSourceSchema,
+  type AuthoringSource,
+} from "../../domain/authoring-source.js";
 import { z } from "zod";
 
 import type {
@@ -17,9 +20,7 @@ import type {
   MaterialDto,
 } from "../../facets/material-authoring/material-authoring.contract.js";
 import type { VideoAuthoringPresentation } from "../../../videos/index.js";
-import {
-  type ContentCoverProjection,
-} from "../../facets/content-covers/content-covers.js";
+import { type ContentCoverProjection } from "../../facets/content-covers/content-covers.js";
 import { loadContentCoverProjections } from "./content-cover-projections.js";
 
 const publicationStateSchema = z.enum(["draft", "published", "unpublished"]);
@@ -59,7 +60,10 @@ export async function loadCurrentMaterial(
       select: { seriesId: true, ordinal: true },
       orderBy: { seriesId: "asc" },
     }),
-    loadContentCoverProjections(prisma, row.coverId === null ? [] : [row.coverId]),
+    loadContentCoverProjections(
+      prisma,
+      row.coverId === null ? [] : [row.coverId],
+    ),
   ]);
   const metadata = MaterialMetadata.create({
     title: row.title,
@@ -92,7 +96,15 @@ export async function loadCurrentMaterial(
   return {
     ok: true,
     value: {
-      source: row.sourceId === null ? null : authoringSourceSchema.parse({ id: row.sourceId, path: row.sourcePath, revision: row.sourceRevision, showInFeed: row.showInFeed }),
+      source:
+        row.sourceId === null
+          ? null
+          : authoringSourceSchema.parse({
+              id: row.sourceId,
+              path: row.sourcePath,
+              revision: row.sourceRevision,
+              showInFeed: row.showInFeed,
+            }),
       lifecycle: Material.restore({
         id: materialId,
         slug: row.slug,
@@ -104,7 +116,7 @@ export async function loadCurrentMaterial(
       metadata: metadata.value,
       body: body.value,
       primaryVideoId: row.primaryVideoId,
-      cover: row.coverId === null ? null : covers.get(row.coverId) ?? null,
+      cover: row.coverId === null ? null : (covers.get(row.coverId) ?? null),
     },
   };
 }
@@ -142,7 +154,16 @@ export function toMaterialDto(
   },
 ): MaterialDto {
   return {
-    ...(material.source === null ? {} : { source: { id: material.source.id, path: material.source.path, revision: material.source.revision, showInFeed: material.source.showInFeed } }),
+    ...(material.source === null
+      ? {}
+      : {
+          source: {
+            id: material.source.id,
+            path: material.source.path,
+            revision: material.source.revision,
+            showInFeed: material.source.showInFeed,
+          },
+        }),
     materialId: material.lifecycle.id,
     contentVersion: material.lifecycle.contentVersion,
     publicationState: material.lifecycle.publicationState,

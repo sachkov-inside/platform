@@ -25,7 +25,9 @@ describe("MCP delegated Account token verifier", () => {
       },
     });
 
-    await expect(verifier.verifyAccessToken("delegated-token")).resolves.toEqual({
+    await expect(
+      verifier.verifyAccessToken("delegated-token"),
+    ).resolves.toEqual({
       token: "delegated-token",
       clientId: "inside-platform-user-delegation",
       scopes: [],
@@ -42,7 +44,10 @@ describe("MCP delegated Account token verifier", () => {
     ],
     [
       "identity dependency",
-      { ok: false as const, error: { code: "dependency_unavailable" as const } },
+      {
+        ok: false as const,
+        error: { code: "dependency_unavailable" as const },
+      },
       OAuthErrorCode.ServerError,
     ],
   ])("maps %s without exposing proof details", async (_name, proof, code) => {
@@ -57,7 +62,9 @@ describe("MCP delegated Account token verifier", () => {
       },
     });
 
-    await expect(verifier.verifyAccessToken("rejected-token")).rejects.toMatchObject({
+    await expect(
+      verifier.verifyAccessToken("rejected-token"),
+    ).rejects.toMatchObject({
       code,
     });
   });
@@ -77,7 +84,9 @@ describe("MCP delegated Account token verifier", () => {
       },
     });
 
-    await expect(verifier.verifyAccessToken("unknown-account")).rejects.toMatchObject({
+    await expect(
+      verifier.verifyAccessToken("unknown-account"),
+    ).rejects.toMatchObject({
       code: OAuthErrorCode.InvalidToken,
     });
   });

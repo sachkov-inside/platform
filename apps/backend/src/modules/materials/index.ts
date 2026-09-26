@@ -1,9 +1,6 @@
 export { materialFormatSchema } from "./domain/material-format.js";
 export type { MaterialAuthoring } from "./facets/material-authoring/material-authoring.js";
-export {
-  materialId,
-  type MaterialId,
-} from "./domain/material-identifiers.js";
+export { materialId, type MaterialId } from "./domain/material-identifiers.js";
 export type { MaterialContent } from "./facets/material-content/material-content.js";
 export { MATERIAL_CONTENT } from "./facets/material-content/material-content.js";
 export { MaterialContentModule } from "./material-content.module.js";
@@ -17,7 +14,11 @@ export type {
   GuideIntroductionDto,
   GuideProductPageDto,
 } from "./facets/material-authoring/content-collection.contract.js";
-export { guidePageCardSchema, guidePageSchema, type GuidePageCard } from "./domain/guide-page.js";
+export {
+  guidePageCardSchema,
+  guidePageSchema,
+  type GuidePageCard,
+} from "./domain/guide-page.js";
 export type { CreateDraftError } from "./features/create-draft/create-draft.contract.js";
 export {
   PUBLISHED_MATERIAL_READER,
@@ -58,9 +59,11 @@ export {
 
 export { PublicContentTargets } from "./facets/public-content-targets/public-content-targets.js";
 
-export { PublishedSeriesComposition, type PublishedSeriesCompositionResult } from "./features/read-published-series-composition/read-published-series-composition.js";
+export {
+  PublishedSeriesComposition,
+  type PublishedSeriesCompositionResult,
+} from "./features/read-published-series-composition/read-published-series-composition.js";
 
 export { PublishedMaterialSelection } from "./features/select-published-materials/select-published-materials.js";
 export { assembleMaterialsNotificationOutbox } from "./facets/notification-outbox/notification-outbox.js";
 export { MaterialAnnouncements } from "./facets/material-announcements/material-announcements.js";
-

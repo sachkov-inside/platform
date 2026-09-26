@@ -98,5 +98,4 @@ export type ListAcceptedDocumentsResult = z.infer<
 
 /** Whether the edition in force is accepted; the gate of the cabinet, purchases and the bot link. */
 export type TermsAcceptanceCheck =
-  | { readonly ok: true; readonly accepted: boolean }
-  | LegalAcceptanceError;
+  { readonly ok: true; readonly accepted: boolean } | LegalAcceptanceError;

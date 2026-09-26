@@ -89,7 +89,9 @@ describe("Telegram Membership API", () => {
     );
 
     await enrollLegacyCohortFixture(database.prisma, ownerAccountId);
-    const unauthenticatedPresentation = await declaredServer(app.getHttpAdapter().getInstance()).inject({
+    const unauthenticatedPresentation = await declaredServer(
+      app.getHttpAdapter().getInstance(),
+    ).inject({
       method: "GET",
       url: "/accounts/current/telegram-membership",
     });
@@ -110,7 +112,9 @@ describe("Telegram Membership API", () => {
       membership: { kind: "notOffered" },
     });
 
-    const unauthenticated = await declaredServer(app.getHttpAdapter().getInstance()).inject({
+    const unauthenticated = await declaredServer(
+      app.getHttpAdapter().getInstance(),
+    ).inject({
       method: "POST",
       url: "/accounts/current/telegram-link",
     });
@@ -193,7 +197,8 @@ describe("Telegram Membership API", () => {
     }
     const checkedAt = new Date();
     const memberEvidence = evidence(principalRef, checkedAt);
-    const receiptsBefore = await database.prisma.membershipEvidenceReceipt.count();
+    const receiptsBefore =
+      await database.prisma.membershipEvidenceReceipt.count();
 
     const unauthenticated = await deliver(memberEvidence, {
       authorization: "Bearer wrong-secret",
@@ -269,11 +274,7 @@ describe("Telegram Membership API", () => {
     expect(serializedReceipts).not.toContain("telegramUserId");
   });
 
-  function authenticated(
-    method: "GET" | "POST",
-    url: string,
-    token: string,
-  ) {
+  function authenticated(method: "GET" | "POST", url: string, token: string) {
     return declaredServer(app.getHttpAdapter().getInstance()).inject({
       method,
       url,
@@ -284,9 +285,12 @@ describe("Telegram Membership API", () => {
   /** Establishes the Account and passes the first sign-in screen: the bot link opens only after it. */
   async function establish(token: string) {
     const established = await authenticated("POST", "/accounts", token);
-    await acceptCurrentTerms(declaredServer(app.getHttpAdapter().getInstance()), {
-      authorization: `Bearer ${token}`,
-    });
+    await acceptCurrentTerms(
+      declaredServer(app.getHttpAdapter().getInstance()),
+      {
+        authorization: `Bearer ${token}`,
+      },
+    );
     return established;
   }
 

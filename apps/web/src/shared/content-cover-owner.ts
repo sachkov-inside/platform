@@ -6,6 +6,4 @@ export const contentCoverOwnerKindSchema = z.enum([
   "topic",
 ]);
 
-export type ContentCoverOwnerKind = z.infer<
-  typeof contentCoverOwnerKindSchema
->;
+export type ContentCoverOwnerKind = z.infer<typeof contentCoverOwnerKindSchema>;

@@ -1,5 +1,7 @@
 export interface WorkshopMaterialCatalog {
-  findMany(materialIds: readonly string[]): Promise<readonly WorkshopMaterialFacts[]>;
+  findMany(
+    materialIds: readonly string[],
+  ): Promise<readonly WorkshopMaterialFacts[]>;
 }
 
 export interface WorkshopMaterialFacts {

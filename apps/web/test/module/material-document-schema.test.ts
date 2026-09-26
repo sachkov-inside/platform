@@ -99,7 +99,9 @@ describe("Material document DOM contract", () => {
       // Правило разбора читает только `getAttribute`, поэтому элемент здесь — этот один метод.
       const element = {
         getAttribute: (attribute: string) =>
-          typeof attributes[attribute] === "string" ? attributes[attribute] : null,
+          typeof attributes[attribute] === "string"
+            ? attributes[attribute]
+            : null,
       } as unknown as HTMLElement;
       const parsed = type.spec.parseDOM?.[0]?.getAttrs?.(element);
 

@@ -1,7 +1,13 @@
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
-import { chmodSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import {
+  chmodSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -40,20 +46,36 @@ describe("production deployment workflow", () => {
         },
         publication: { workflowRunId: 91 },
       };
-      writeFileSync(resolve(directory, "release-manifest.json"), JSON.stringify(manifest));
+      writeFileSync(
+        resolve(directory, "release-manifest.json"),
+        JSON.stringify(manifest),
+      );
       writeFileSync(resolve(directory, "production-runtime.tar.gz"), bundle);
-      writeFileSync(resolve(directory, "release.json"), JSON.stringify({
-        assets: [{ name: "release-manifest.json" }, { name: "production-runtime.tar.gz" }],
-        isImmutable: true,
-        tagName: "v1",
-        targetCommitish: sourceSha,
-      }));
-      writeFileSync(resolve(directory, "run.json"), JSON.stringify({
-        conclusion: "success", event: "workflow_dispatch", head_sha: sourceSha,
-        path: ".github/workflows/release.yml",
-      }));
+      writeFileSync(
+        resolve(directory, "release.json"),
+        JSON.stringify({
+          assets: [
+            { name: "release-manifest.json" },
+            { name: "production-runtime.tar.gz" },
+          ],
+          isImmutable: true,
+          tagName: "v1",
+          targetCommitish: sourceSha,
+        }),
+      );
+      writeFileSync(
+        resolve(directory, "run.json"),
+        JSON.stringify({
+          conclusion: "success",
+          event: "workflow_dispatch",
+          head_sha: sourceSha,
+          path: ".github/workflows/release.yml",
+        }),
+      );
       const gh = resolve(directory, "gh");
-      writeFileSync(gh, `#!/usr/bin/env bash
+      writeFileSync(
+        gh,
+        `#!/usr/bin/env bash
 set -euo pipefail
 if [[ "$1" == release ]]; then
   [[ " $* " == *" --repo sachkov-inside/platform "* ]] || {
@@ -70,13 +92,16 @@ case "$1 $2" in
   'api repos/sachkov-inside/platform/actions/runs/91') cat "$FIXTURE_DIR/run.json" ;;
   *) exit 1 ;;
 esac
-`);
+`,
+      );
       chmodSync(gh, 0o755);
       for (const name of [
         "Verify and download the selected release",
         "Recheck the selected release after waiting in the queue",
       ]) {
-        const step = workflow.split("      - name: ").find((part) => part.startsWith(`${name}\n`));
+        const step = workflow
+          .split("      - name: ")
+          .find((part) => part.startsWith(`${name}\n`));
         assert.ok(step, `missing workflow step: ${name}`);
         const run = step.split("        run: |\n")[1];
         assert.ok(run, `missing shell body: ${name}`);
@@ -99,7 +124,10 @@ esac
         assert.equal(result.status, 0, `${name}: ${result.stderr}`);
       }
       assert.equal(
-        readFileSync(resolve(directory, "production-release/release-manifest.json"), "utf8"),
+        readFileSync(
+          resolve(directory, "production-release/release-manifest.json"),
+          "utf8",
+        ),
         JSON.stringify(manifest),
       );
     } finally {
@@ -119,7 +147,10 @@ esac
     assert.match(workflow, /^ {4}environment: Production$/mu);
     assert.match(workflow, /^ {6}actions: read$/mu);
     assert.match(workflow, /^ {6}contents: read$/mu);
-    assert.doesNotMatch(workflow, /actions\/checkout|docker build|pnpm|npm |yarn /u);
+    assert.doesNotMatch(
+      workflow,
+      /actions\/checkout|docker build|pnpm|npm |yarn /u,
+    );
   });
 
   it("rechecks the immutable release before using the restricted SSH command", () => {
@@ -138,7 +169,10 @@ esac
       /inside-deploy@\$\{\{ secrets\.PRODUCTION_SSH_HOST \}\}/u,
     );
     assert.match(workflow, /"\$OPERATION \$VERSION \$GITHUB_RUN_ID"/u);
-    assert.doesNotMatch(workflow, /ssh root@|StrictHostKeyChecking=accept-new/u);
+    assert.doesNotMatch(
+      workflow,
+      /ssh root@|StrictHostKeyChecking=accept-new/u,
+    );
   });
 
   it("keeps the deployment execution boundary closed", () => {
@@ -156,8 +190,14 @@ function assertDeploymentSafety(candidate) {
   assert.match(candidate, /^permissions: \{\}$/mu);
   assert.match(candidate, /^ {6}actions: read$/mu);
   assert.match(candidate, /^ {6}contents: read$/mu);
-  assert.doesNotMatch(candidate, /^ {6}(?:actions|contents|packages): write$/mu);
-  assert.doesNotMatch(candidate, /actions\/checkout|docker build|pnpm|npm |yarn /u);
+  assert.doesNotMatch(
+    candidate,
+    /^ {6}(?:actions|contents|packages): write$/mu,
+  );
+  assert.doesNotMatch(
+    candidate,
+    /actions\/checkout|docker build|pnpm|npm |yarn /u,
+  );
   assert.match(candidate, /StrictHostKeyChecking=yes/u);
   assert.match(candidate, /BatchMode=yes/u);
   assert.match(

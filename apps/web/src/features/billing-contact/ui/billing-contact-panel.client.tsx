@@ -133,7 +133,10 @@ export function BillingContactPanel({
         setError(undefined);
         const expectedRevision = state.contact?.revision ?? 0;
         start.mutate({
-          operationId: operationId("contact-start", { email, expectedRevision }),
+          operationId: operationId("contact-start", {
+            email,
+            expectedRevision,
+          }),
           email,
           expectedRevision,
         });

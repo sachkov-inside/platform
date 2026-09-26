@@ -13,13 +13,24 @@ export async function reorderSeries(
   formData.set("expectedOrderVersion", input.expectedOrderVersion);
   formData.set("orderedMaterialIds", JSON.stringify(input.orderedMaterialIds));
   formData.set("seriesId", input.seriesId);
-  if (input.stepGroups !== undefined) formData.set("stepGroups", JSON.stringify(input.stepGroups));
-  if (input.chapters !== undefined) formData.set("chapters", JSON.stringify(input.chapters));
+  if (input.stepGroups !== undefined)
+    formData.set("stepGroups", JSON.stringify(input.stepGroups));
+  if (input.chapters !== undefined)
+    formData.set("chapters", JSON.stringify(input.chapters));
   if (input.chapterAssignments !== undefined) {
-    formData.set("chapterAssignments", JSON.stringify(input.chapterAssignments));
+    formData.set(
+      "chapterAssignments",
+      JSON.stringify(input.chapterAssignments),
+    );
   }
-  if (input.confirmedGuideRemovals !== undefined && input.confirmedGuideRemovals.length > 0) {
-    formData.set("confirmedGuideRemovals", JSON.stringify(input.confirmedGuideRemovals));
+  if (
+    input.confirmedGuideRemovals !== undefined &&
+    input.confirmedGuideRemovals.length > 0
+  ) {
+    formData.set(
+      "confirmedGuideRemovals",
+      JSON.stringify(input.confirmedGuideRemovals),
+    );
   }
   const result = await requestSameOriginMutation(
     "/api/authoring/guides/order",
@@ -29,7 +40,10 @@ export async function reorderSeries(
   if (!result.ok) {
     return result.status === 401 || result.status === 403
       ? { kind: "unauthorized" }
-      : { kind: "error", reference: `series-order-bff-${String(result.status)}` };
+      : {
+          kind: "error",
+          reference: `series-order-bff-${String(result.status)}`,
+        };
   }
   const parsed = reorderSeriesResultSchema.safeParse(result.body);
   return parsed.success

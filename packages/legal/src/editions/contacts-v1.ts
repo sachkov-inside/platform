@@ -8,8 +8,7 @@ export const contactsV1: LegalEdition = {
   title: "Реквизиты и обращения",
   summary:
     "Кто продаёт доступ, по какому адресу принимаются письменные обращения и куда писать.",
-  digest:
-    "1e9da641cfba1fb0acc9425de660f447fb6441ddf0fcbf517f4fcf421c92b7c6",
+  digest: "1e9da641cfba1fb0acc9425de660f447fb6441ddf0fcbf517f4fcf421c92b7c6",
   text: `# Реквизиты и обращения
 
 Версия 1. Действует с 12 сентября 2026 года.

@@ -7,9 +7,7 @@ export const uuidSchema = z.uuid();
 const titleSchema = z.string().trim().min(1).max(200);
 const purposeSchema = z.string().trim().max(1000);
 const sourceIdSchema = z.string().trim().min(1).max(200);
-const externalUrlSchema = z
-  .url({ protocol: /^https?$/u })
-  .max(2048);
+const externalUrlSchema = z.url({ protocol: /^https?$/u }).max(2048);
 // The controller reads the same name, purpose and access rule, so both trim alike.
 export const metadataSchema = z
   .object({
@@ -125,7 +123,9 @@ export const importSchema = z
 
 export const reusableListSchema = z.object({ actor: uuidSchema }).strict();
 
-export type ImportedArtifactSource = z.infer<typeof importSchema>["artifacts"][number];
+export type ImportedArtifactSource = z.infer<
+  typeof importSchema
+>["artifacts"][number];
 export type AuthoringImportCommand = z.infer<typeof importSchema>;
 
 export const AUTHORING_ARTIFACT_LIMIT = 200;

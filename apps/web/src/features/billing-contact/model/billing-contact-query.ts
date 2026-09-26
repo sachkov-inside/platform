@@ -12,7 +12,9 @@ import type { ReadContactResult } from "./billing-contact";
 export const billingContactQueryKey = ["account", "billing-contact"] as const;
 
 /** Подтверждение адреса объявляется всем открытым поверхностям одного браузера. */
-export const billingContactVerified = factAnnouncement("inside.billing-contact.verified");
+export const billingContactVerified = factAnnouncement(
+  "inside.billing-contact.verified",
+);
 
 /**
  * Один владелец чтения контакта в браузере: разделы кабинета, витрина и форма читают тот же
@@ -28,7 +30,9 @@ export function billingContactQueryOptions() {
     }: {
       readonly state: { readonly data: ReadContactResult | undefined };
     }) =>
-      state.data !== undefined && !state.data.ok && state.data.code !== "unauthorized"
+      state.data !== undefined &&
+      !state.data.ok &&
+      state.data.code !== "unauthorized"
         ? unavailableRetryIntervalMs
         : (false as const),
   };

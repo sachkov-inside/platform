@@ -44,7 +44,10 @@ export function assembleValidateMaterial(
     if (!authorization.ok) {
       return failure(authorization.error);
     }
-    return executeAuthoringTransaction<ValidatedMaterialDto, ValidateMaterialError>(
+    return executeAuthoringTransaction<
+      ValidatedMaterialDto,
+      ValidateMaterialError
+    >(
       dependencies.prisma,
       async (transaction, rollback) => {
         const current = await loadCurrentMaterial(
@@ -67,7 +70,8 @@ export function assembleValidateMaterial(
             currentContentVersion: current.value.lifecycle.contentVersion,
           });
         }
-        const completeness = current.value.metadata.validateAuthoringCompleteness();
+        const completeness =
+          current.value.metadata.validateAuthoringCompleteness();
         if (!completeness.ok) {
           return rollback(completeness.error);
         }
@@ -84,19 +88,23 @@ export function assembleValidateMaterial(
           return rollback(extraction.error);
         }
         if (dependencies.materialAssets !== undefined) {
-          const assetIssues = await dependencies.materialAssets.inspectReferences(
-            transaction,
-            parsed.value.materialId,
-            extraction.value.resources.map((resource) => ({
-              assetId: resource.assetId,
-              kind: resource.kind,
-            })),
-          );
+          const assetIssues =
+            await dependencies.materialAssets.inspectReferences(
+              transaction,
+              parsed.value.materialId,
+              extraction.value.resources.map((resource) => ({
+                assetId: resource.assetId,
+                kind: resource.kind,
+              })),
+            );
           if (!assetIssues.ok) return rollback(assetIssues.error);
           if (assetIssues.value.length > 0) {
             return rollback({
               code: "invalid_reference",
-              issues: assetIssues.value.map((issue) => ({ code: issue.code, path: "/body" })),
+              issues: assetIssues.value.map((issue) => ({
+                code: issue.code,
+                path: "/body",
+              })),
             });
           }
         }

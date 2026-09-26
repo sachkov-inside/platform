@@ -1,6 +1,9 @@
 import { dependencyFailure } from "../../../../infrastructure/observability/index.js";
 import type { MaterialsPrismaClient } from "../../../../infrastructure/prisma/index.js";
-import { announcementEventSchema, type AnnouncementEvent } from "../../domain/announcement.js";
+import {
+  announcementEventSchema,
+  type AnnouncementEvent,
+} from "../../domain/announcement.js";
 
 /**
  * The answer Notifications reads from a notification source, described by Materials itself so that
@@ -11,7 +14,10 @@ export type MaterialAnnouncementSource =
   | {
       readonly status: "current";
       readonly event: AnnouncementEvent;
-      readonly content: { readonly category: "material"; readonly kind: "material_published" };
+      readonly content: {
+        readonly category: "material";
+        readonly kind: "material_published";
+      };
       readonly accountId: null;
       readonly title: string;
       readonly readerPath: string;
@@ -30,7 +36,9 @@ interface Dependencies {
 export class MaterialAnnouncements {
   constructor(private readonly dependencies: Dependencies) {}
 
-  async resolveAnnouncement(input: unknown): Promise<MaterialAnnouncementSource> {
+  async resolveAnnouncement(
+    input: unknown,
+  ): Promise<MaterialAnnouncementSource> {
     const parsed = announcementEventSchema.safeParse(input);
     if (!parsed.success) return { status: "superseded" };
     const event = parsed.data;
@@ -40,7 +48,10 @@ export class MaterialAnnouncements {
         where: { id: event.occurrenceRef },
       });
       // Событие принадлежит анонсу целиком: чужой анонс и чужой материал не сверяются.
-      if (announcement === null || announcement.materialId !== event.sourceRef) {
+      if (
+        announcement === null ||
+        announcement.materialId !== event.sourceRef
+      ) {
         return { status: "superseded" };
       }
       const current = await prisma.materialAnnouncementRevision.findUnique({
@@ -74,7 +85,11 @@ export class MaterialAnnouncements {
         readerPath: announcement.readerPath,
       };
     } catch (error) {
-      return dependencyFailure({ module: "materials", operation: "resolveAnnouncement" }, error, { status: "unavailable" });
+      return dependencyFailure(
+        { module: "materials", operation: "resolveAnnouncement" },
+        error,
+        { status: "unavailable" },
+      );
     }
   }
 }

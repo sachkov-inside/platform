@@ -1,21 +1,35 @@
 import { randomUUID } from "node:crypto";
 import { z } from "zod";
 import { dependencyFailure } from "../../../../infrastructure/observability/index.js";
-import { lockReadingCommand, lockReadingPair, type ReadingActivityPrismaClient } from "../../../../infrastructure/prisma/index.js";
+import {
+  lockReadingCommand,
+  lockReadingPair,
+  type ReadingActivityPrismaClient,
+} from "../../../../infrastructure/prisma/index.js";
 import { accountId } from "../../../accounts/index.js";
 import type { ContentAccess } from "../../../content-access/index.js";
 import { materialId, type MaterialContent } from "../../../materials/index.js";
 import { readingOutcomeSchema } from "../../domain/reading-state.js";
 import { toReadingState } from "../../shared/reading-state-mapping.js";
-import { setReadingStateSchema, type SetReadingStateCommand, type SetReadingStateResult } from "./set-reading-state.contract.js";
+import {
+  setReadingStateSchema,
+  type SetReadingStateCommand,
+  type SetReadingStateResult,
+} from "./set-reading-state.contract.js";
 
-const commandSchema = setReadingStateSchema.extend({ accountId: z.uuid(), materialId: z.uuid() });
+const commandSchema = setReadingStateSchema.extend({
+  accountId: z.uuid(),
+  materialId: z.uuid(),
+});
 
-export async function setReadingState(dependencies: {
-  readonly prisma: ReadingActivityPrismaClient;
-  readonly contentAccess: Pick<ContentAccess, "authorize">;
-  readonly materialContent: Pick<MaterialContent, "findAccessFacts">;
-}, input: SetReadingStateCommand): Promise<SetReadingStateResult> {
+export async function setReadingState(
+  dependencies: {
+    readonly prisma: ReadingActivityPrismaClient;
+    readonly contentAccess: Pick<ContentAccess, "authorize">;
+    readonly materialContent: Pick<MaterialContent, "findAccessFacts">;
+  },
+  input: SetReadingStateCommand,
+): Promise<SetReadingStateResult> {
   const parsed = commandSchema.safeParse(input);
   if (!parsed.success) return { ok: false, error: { code: "invalid_request" } };
   const command = {
@@ -24,70 +38,145 @@ export async function setReadingState(dependencies: {
     materialId: parsed.data.materialId.toLowerCase(),
     commandId: parsed.data.commandId.toLowerCase(),
   };
-  const fingerprint = JSON.stringify(["setReadingState", command.materialId, command.isRead, command.expectedVersion]);
+  const fingerprint = JSON.stringify([
+    "setReadingState",
+    command.materialId,
+    command.isRead,
+    command.expectedVersion,
+  ]);
   try {
     // Access is decided by other Modules on their own connections, so it is read before the
     // transaction; the Material facts are reread under the pair lock, in the transaction.
     const decision = command.isRead
       ? await dependencies.contentAccess.authorize({
-        subject: { kind: "account", accountId: accountId(command.accountId) },
-        action: "read",
-        resource: { kind: "material", materialId: materialId(command.materialId) },
-        enforcementPoint: "reading_state_change",
-        correlationId: command.commandId,
-      })
+          subject: { kind: "account", accountId: accountId(command.accountId) },
+          action: "read",
+          resource: {
+            kind: "material",
+            materialId: materialId(command.materialId),
+          },
+          enforcementPoint: "reading_state_change",
+          correlationId: command.commandId,
+        })
       : undefined;
-    return await dependencies.prisma.$transaction(async (transaction): Promise<SetReadingStateResult> => {
-      // Serialize the receipt first: one command ID can target different pairs.
-      await lockReadingCommand(transaction, command.accountId, command.commandId);
-      const receipt = await transaction.readingCommand.findUnique({
-        where: { accountId_commandId: { accountId: command.accountId, commandId: command.commandId } },
-      });
-      if (receipt !== null) {
-        if (receipt.fingerprint !== fingerprint) return { ok: false, error: { code: "command_conflict" } };
-        return { ok: true, value: { ...readingOutcomeSchema.parse(receipt.outcome), replayed: true } };
-      }
-      // This also covers the first write, when no state row exists to lock.
-      await lockReadingPair(transaction, command.accountId, command.materialId);
-      const key = { accountId: command.accountId, materialId: command.materialId };
-      const row = await transaction.readingMaterialState.findUnique({ where: { accountId_materialId: key } });
-      const current = toReadingState(command.materialId, row);
-      if (current.version !== command.expectedVersion) return { ok: false, error: { code: "stale_version", current } };
-      if (decision !== undefined) {
-        if (decision.effect === "deny") return {
-          ok: false,
-          error: { code: decision.reason === "dependency_unavailable" ? "dependency_unavailable" : "access_denied" },
-        };
-        const facts = await dependencies.materialContent.findAccessFacts(materialId(command.materialId), transaction);
-        if (!facts.ok) return { ok: false, error: { code: "dependency_unavailable" } };
-        if (facts.value === null || facts.value.publicationState !== "published" ||
-          facts.value.contentVersion !== decision.checkedContentVersion ||
-          ("validUntil" in decision && decision.validUntil !== null && Date.parse(decision.validUntil) <= Date.now())) {
-          return { ok: false, error: { code: "access_changed" } };
-        }
-      }
-      const changed = current.isRead !== command.isRead;
-      let state = current;
-      if (changed) {
-        const now = new Date();
-        const values = { isRead: command.isRead, readAt: command.isRead ? now : null, version: current.version + 1, updatedAt: now };
-        const saved = await transaction.readingMaterialState.upsert({
-          where: { accountId_materialId: key }, create: { ...key, ...values }, update: values,
+    return await dependencies.prisma.$transaction(
+      async (transaction): Promise<SetReadingStateResult> => {
+        // Serialize the receipt first: one command ID can target different pairs.
+        await lockReadingCommand(
+          transaction,
+          command.accountId,
+          command.commandId,
+        );
+        const receipt = await transaction.readingCommand.findUnique({
+          where: {
+            accountId_commandId: {
+              accountId: command.accountId,
+              commandId: command.commandId,
+            },
+          },
         });
-        state = toReadingState(command.materialId, saved);
-        await transaction.readingEvent.create({ data: {
-          ...key, eventId: randomUUID(),
-          eventType: command.isRead ? "material_marked_read" : "material_marked_unread",
-          stateVersion: state.version, occurredAt: now, commandId: command.commandId, schemaVersion: 1,
-        } });
-      }
-      const outcome = { state, changed };
-      await transaction.readingCommand.create({ data: {
-        accountId: command.accountId, commandId: command.commandId, fingerprint, outcome,
-      } });
-      return { ok: true, value: { ...outcome, replayed: false } };
-    });
+        if (receipt !== null) {
+          if (receipt.fingerprint !== fingerprint)
+            return { ok: false, error: { code: "command_conflict" } };
+          return {
+            ok: true,
+            value: {
+              ...readingOutcomeSchema.parse(receipt.outcome),
+              replayed: true,
+            },
+          };
+        }
+        // This also covers the first write, when no state row exists to lock.
+        await lockReadingPair(
+          transaction,
+          command.accountId,
+          command.materialId,
+        );
+        const key = {
+          accountId: command.accountId,
+          materialId: command.materialId,
+        };
+        const row = await transaction.readingMaterialState.findUnique({
+          where: { accountId_materialId: key },
+        });
+        const current = toReadingState(command.materialId, row);
+        if (current.version !== command.expectedVersion)
+          return { ok: false, error: { code: "stale_version", current } };
+        if (decision !== undefined) {
+          if (decision.effect === "deny")
+            return {
+              ok: false,
+              error: {
+                code:
+                  decision.reason === "dependency_unavailable"
+                    ? "dependency_unavailable"
+                    : "access_denied",
+              },
+            };
+          const facts = await dependencies.materialContent.findAccessFacts(
+            materialId(command.materialId),
+            transaction,
+          );
+          if (!facts.ok)
+            return { ok: false, error: { code: "dependency_unavailable" } };
+          if (
+            facts.value === null ||
+            facts.value.publicationState !== "published" ||
+            facts.value.contentVersion !== decision.checkedContentVersion ||
+            ("validUntil" in decision &&
+              decision.validUntil !== null &&
+              Date.parse(decision.validUntil) <= Date.now())
+          ) {
+            return { ok: false, error: { code: "access_changed" } };
+          }
+        }
+        const changed = current.isRead !== command.isRead;
+        let state = current;
+        if (changed) {
+          const now = new Date();
+          const values = {
+            isRead: command.isRead,
+            readAt: command.isRead ? now : null,
+            version: current.version + 1,
+            updatedAt: now,
+          };
+          const saved = await transaction.readingMaterialState.upsert({
+            where: { accountId_materialId: key },
+            create: { ...key, ...values },
+            update: values,
+          });
+          state = toReadingState(command.materialId, saved);
+          await transaction.readingEvent.create({
+            data: {
+              ...key,
+              eventId: randomUUID(),
+              eventType: command.isRead
+                ? "material_marked_read"
+                : "material_marked_unread",
+              stateVersion: state.version,
+              occurredAt: now,
+              commandId: command.commandId,
+              schemaVersion: 1,
+            },
+          });
+        }
+        const outcome = { state, changed };
+        await transaction.readingCommand.create({
+          data: {
+            accountId: command.accountId,
+            commandId: command.commandId,
+            fingerprint,
+            outcome,
+          },
+        });
+        return { ok: true, value: { ...outcome, replayed: false } };
+      },
+    );
   } catch (error) {
-    return dependencyFailure({ module: "reading-activity", operation: "setReadingState" }, error, { ok: false, error: { code: "dependency_unavailable" } });
+    return dependencyFailure(
+      { module: "reading-activity", operation: "setReadingState" },
+      error,
+      { ok: false, error: { code: "dependency_unavailable" } },
+    );
   }
 }

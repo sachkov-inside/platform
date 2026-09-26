@@ -38,9 +38,10 @@ try {
   ]);
   await runIdentityProofSession({
     environment,
-    readGeneratedEnvironment: async () => parseEnv(
-      await readFile(resolve(root, ".identity-proof/platform.env"), "utf8"),
-    ),
+    readGeneratedEnvironment: async () =>
+      parseEnv(
+        await readFile(resolve(root, ".identity-proof/platform.env"), "utf8"),
+      ),
     runCompose,
     runPnpm: (arguments_, runtimeEnvironment) =>
       runPnpm(arguments_, false, runtimeEnvironment),
@@ -98,7 +99,9 @@ async function runPnpm(arguments_, capture = false, environment = process.env) {
   });
   activeProcesses.delete(child);
   if (exitCode !== 0) {
-    throw new Error(`pnpm ${arguments_.join(" ")} failed${capture ? `:\n${output}` : ""}`);
+    throw new Error(
+      `pnpm ${arguments_.join(" ")} failed${capture ? `:\n${output}` : ""}`,
+    );
   }
   return { output };
 }
@@ -113,7 +116,11 @@ async function acquireOwnershipLock() {
       update: 10_000,
     });
   } catch (error) {
-    if (error instanceof Error && Reflect.has(error, "code") && error.code === "ELOCKED") {
+    if (
+      error instanceof Error &&
+      Reflect.has(error, "code") &&
+      error.code === "ELOCKED"
+    ) {
       throw new Error(
         "Another local session owns the machine-wide Platform setup lock. Wait for its handoff before starting the identity proof.",
         { cause: error },

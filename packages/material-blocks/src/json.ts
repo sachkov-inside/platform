@@ -1,16 +1,18 @@
 export type JsonPrimitive = boolean | null | number | string;
 
 export type JsonValue =
-  | JsonPrimitive
-  | readonly JsonValue[]
-  | { readonly [key: string]: JsonValue };
+  JsonPrimitive | readonly JsonValue[] | { readonly [key: string]: JsonValue };
 
 export interface JsonObject {
   readonly [key: string]: JsonValue;
 }
 
 export function isJsonValue(value: unknown): value is JsonValue {
-  if (value === null || typeof value === "boolean" || typeof value === "string") {
+  if (
+    value === null ||
+    typeof value === "boolean" ||
+    typeof value === "string"
+  ) {
     return true;
   }
   if (typeof value === "number") {
@@ -34,12 +36,17 @@ export function isUnknownArray(value: unknown): value is unknown[] {
   return Array.isArray(value);
 }
 
-export function isUnknownRecord(value: unknown): value is Record<string, unknown> {
+export function isUnknownRecord(
+  value: unknown,
+): value is Record<string, unknown> {
   return value !== null && !Array.isArray(value) && typeof value === "object";
 }
 
 /** Reads a string attribute of a document node without asserting the whole node shape. */
-export function stringAttribute(node: JsonObject, name: string): string | undefined {
+export function stringAttribute(
+  node: JsonObject,
+  name: string,
+): string | undefined {
   const attributes = node.attrs;
   if (!isJsonObject(attributes)) {
     return undefined;

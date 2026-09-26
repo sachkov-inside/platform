@@ -9,7 +9,9 @@ import { ProblemDetailsFilter } from "../../src/infrastructure/http/problem-deta
 // code unchanged, as the web BFF answers too (owner decision on platform#732).
 describe("Problem details", () => {
   test("an application error publishes its code as the problem type", () => {
-    expect(problemException(404, "asset_not_found", "Asset not found").getResponse()).toEqual({
+    expect(
+      problemException(404, "asset_not_found", "Asset not found").getResponse(),
+    ).toEqual({
       code: "asset_not_found",
       status: 404,
       title: "Asset not found",

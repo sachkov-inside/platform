@@ -40,7 +40,10 @@ export function AccountTelegramPanel({
   const linked = link.kind === "linked";
 
   return (
-    <section aria-labelledby="telegram-connection-heading" className="grid gap-4">
+    <section
+      aria-labelledby="telegram-connection-heading"
+      className="grid gap-4"
+    >
       <h2 className="sr-only" id="telegram-connection-heading">
         Telegram
       </h2>

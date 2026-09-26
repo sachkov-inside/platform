@@ -1,10 +1,4 @@
-import {
-  Controller,
-  HttpCode,
-  Inject,
-  Param,
-  Post,
-} from "@nestjs/common";
+import { Controller, HttpCode, Inject, Param, Post } from "@nestjs/common";
 import {
   ApiBearerAuth,
   ApiOkResponse,

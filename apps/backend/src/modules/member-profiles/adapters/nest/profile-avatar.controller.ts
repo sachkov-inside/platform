@@ -25,7 +25,10 @@ import { z } from "zod";
 
 import { AssetDeliveryCache } from "../../../../infrastructure/http/http-cache-policy.js";
 import { problemException } from "../../../../infrastructure/http/problem-details.js";
-import { problemDetailsContent, toOpenApiSchema } from "../../../../infrastructure/http/zod-openapi.js";
+import {
+  problemDetailsContent,
+  toOpenApiSchema,
+} from "../../../../infrastructure/http/zod-openapi.js";
 import {
   AcceptedTermsEndpoint,
   CurrentAccount,
@@ -52,28 +55,52 @@ const cropSchema = z
     zoom: z.number().min(1).max(4),
   })
   .strict();
-const removeSchema = z.object({ expectedVersion: z.number().int().positive() }).strict();
+const removeSchema = z
+  .object({ expectedVersion: z.number().int().positive() })
+  .strict();
 const uuidSchema = z.uuid();
-const avatarSizeSchema = z.union([z.literal(160), z.literal(320), z.literal(640)]);
+const avatarSizeSchema = z.union([
+  z.literal(160),
+  z.literal(320),
+  z.literal(640),
+]);
 
 @MemberProfileEndpoint()
 @ApiBearerAuth("logto")
 @AcceptedTermsEndpoint()
 @Controller("account/profile/avatar")
 export class PrivateProfileAvatarController {
-  constructor(@Inject(MEMBER_PROFILES) private readonly profiles: MemberProfiles) {}
+  constructor(
+    @Inject(MEMBER_PROFILES) private readonly profiles: MemberProfiles,
+  ) {}
 
   @Put()
-  @ApiOperation({ operationId: "uploadProfileAvatar", summary: "Crop and replace the current Account owner Profile avatar" })
+  @ApiOperation({
+    operationId: "uploadProfileAvatar",
+    summary: "Crop and replace the current Account owner Profile avatar",
+  })
   @ApiConsumes("multipart/form-data")
   @ApiBody({
     schema: {
       type: "object",
-      required: ["expectedVersion", "crop", "declaredSize", "checksumSha256", "file"],
+      required: [
+        "expectedVersion",
+        "crop",
+        "declaredSize",
+        "checksumSha256",
+        "file",
+      ],
       properties: {
         expectedVersion: { type: "integer", minimum: 1 },
-        crop: { type: "string", description: "JSON normalized crop with centerX, centerY, and zoom" },
-        declaredSize: { type: "integer", minimum: 1, maximum: PROFILE_AVATAR_LIMITS.bytes },
+        crop: {
+          type: "string",
+          description: "JSON normalized crop with centerX, centerY, and zoom",
+        },
+        declaredSize: {
+          type: "integer",
+          minimum: 1,
+          maximum: PROFILE_AVATAR_LIMITS.bytes,
+        },
         checksumSha256: toOpenApiSchema(checksumSchema),
         file: { type: "string", format: "binary" },
       },
@@ -81,11 +108,26 @@ export class PrivateProfileAvatarController {
   })
   @ApiOkResponse({ schema: toOpenApiSchema(memberProfileResponseSchema) })
   @ApiMemberProfileErrors(401, 500)
-  @ApiResponse({ status: 404, content: problemDetailsContent(avatarProblemSchema(404)) })
-  @ApiResponse({ status: 409, content: problemDetailsContent(avatarProblemSchema(409)) })
-  @ApiResponse({ status: 413, content: problemDetailsContent(avatarProblemSchema(413)) })
-  @ApiResponse({ status: 422, content: problemDetailsContent(avatarProblemSchema(422)) })
-  @ApiResponse({ status: 503, content: problemDetailsContent(avatarProblemSchema(503)) })
+  @ApiResponse({
+    status: 404,
+    content: problemDetailsContent(avatarProblemSchema(404)),
+  })
+  @ApiResponse({
+    status: 409,
+    content: problemDetailsContent(avatarProblemSchema(409)),
+  })
+  @ApiResponse({
+    status: 413,
+    content: problemDetailsContent(avatarProblemSchema(413)),
+  })
+  @ApiResponse({
+    status: 422,
+    content: problemDetailsContent(avatarProblemSchema(422)),
+  })
+  @ApiResponse({
+    status: 503,
+    content: problemDetailsContent(avatarProblemSchema(503)),
+  })
   async upload(
     @CurrentAccount() account: AuthenticatedAccount,
     @Req() request: FastifyRequest,
@@ -106,10 +148,18 @@ export class PrivateProfileAvatarController {
       body = await file.toBuffer();
     } catch {
       // Not a dependency failure: the upload exceeds its size limit.
-      throw problemException(413, "image_too_large", "Avatar exceeds the size limit");
+      throw problemException(
+        413,
+        "image_too_large",
+        "Avatar exceeds the size limit",
+      );
     }
     if (file.file.truncated) {
-      throw problemException(413, "image_too_large", "Avatar exceeds the size limit");
+      throw problemException(
+        413,
+        "image_too_large",
+        "Avatar exceeds the size limit",
+      );
     }
     const expectedVersion = Number(field(file, "expectedVersion"));
     const declaredSize = Number(field(file, "declaredSize"));
@@ -123,7 +173,11 @@ export class PrivateProfileAvatarController {
       !checksum.success ||
       crop === null
     ) {
-      throw problemException(422, "invalid_avatar", "Avatar metadata is malformed");
+      throw problemException(
+        422,
+        "invalid_avatar",
+        "Avatar metadata is malformed",
+      );
     }
     const result = await this.profiles.changeAvatar({
       accountId: accountId(account.accountId),
@@ -140,21 +194,40 @@ export class PrivateProfileAvatarController {
   }
 
   @Delete()
-  @ApiOperation({ operationId: "removeProfileAvatar", summary: "Remove the current Account owner Profile avatar" })
+  @ApiOperation({
+    operationId: "removeProfileAvatar",
+    summary: "Remove the current Account owner Profile avatar",
+  })
   @ApiBody({ schema: toOpenApiSchema(removeSchema) })
   @ApiOkResponse({ schema: toOpenApiSchema(memberProfileResponseSchema) })
   @ApiMemberProfileErrors(401, 500)
-  @ApiResponse({ status: 404, content: problemDetailsContent(avatarProblemSchema(404)) })
-  @ApiResponse({ status: 409, content: problemDetailsContent(avatarProblemSchema(409)) })
-  @ApiResponse({ status: 422, content: problemDetailsContent(avatarProblemSchema(422)) })
-  @ApiResponse({ status: 503, content: problemDetailsContent(avatarProblemSchema(503)) })
+  @ApiResponse({
+    status: 404,
+    content: problemDetailsContent(avatarProblemSchema(404)),
+  })
+  @ApiResponse({
+    status: 409,
+    content: problemDetailsContent(avatarProblemSchema(409)),
+  })
+  @ApiResponse({
+    status: 422,
+    content: problemDetailsContent(avatarProblemSchema(422)),
+  })
+  @ApiResponse({
+    status: 503,
+    content: problemDetailsContent(avatarProblemSchema(503)),
+  })
   async remove(
     @CurrentAccount() account: AuthenticatedAccount,
     @Body() input: unknown,
   ) {
     const body = removeSchema.safeParse(input);
     if (!body.success) {
-      throw problemException(422, "invalid_avatar", "Avatar removal metadata is malformed");
+      throw problemException(
+        422,
+        "invalid_avatar",
+        "Avatar removal metadata is malformed",
+      );
     }
     const result = await this.profiles.changeAvatar({
       accountId: accountId(account.accountId),
@@ -172,16 +245,29 @@ export class PrivateProfileAvatarController {
   @Get(":avatarId/:size")
   @Header("X-Robots-Tag", "noindex, nofollow")
   @AssetDeliveryCache()
-  @ApiOperation({ operationId: "readOwnProfileAvatar", summary: "Read a current avatar rendition of the current Account owner Profile" })
+  @ApiOperation({
+    operationId: "readOwnProfileAvatar",
+    summary:
+      "Read a current avatar rendition of the current Account owner Profile",
+  })
   @ApiParam({ name: "avatarId", schema: { type: "string", format: "uuid" } })
-  @ApiParam({ name: "size", schema: { type: "integer", enum: [160, 320, 640] } })
+  @ApiParam({
+    name: "size",
+    schema: { type: "integer", enum: [160, 320, 640] },
+  })
   @ApiFoundResponse({
     description: "Short-lived protected avatar redirect",
     headers: { Location: { schema: { type: "string", format: "uri" } } },
   })
   @ApiMemberProfileErrors(401, 500)
-  @ApiResponse({ status: 404, content: problemDetailsContent(avatarProblemSchema(404)) })
-  @ApiResponse({ status: 503, content: problemDetailsContent(avatarProblemSchema(503)) })
+  @ApiResponse({
+    status: 404,
+    content: problemDetailsContent(avatarProblemSchema(404)),
+  })
+  @ApiResponse({
+    status: 503,
+    content: problemDetailsContent(avatarProblemSchema(503)),
+  })
   async read(
     @CurrentAccount() account: AuthenticatedAccount,
     @Param("avatarId") avatarId: string,
@@ -189,7 +275,11 @@ export class PrivateProfileAvatarController {
   ) {
     const size = avatarSizeSchema.safeParse(Number(rawSize));
     if (!uuidSchema.safeParse(avatarId).success || !size.success) {
-      throw problemException(404, "profile_not_found", "Profile avatar is not available");
+      throw problemException(
+        404,
+        "profile_not_found",
+        "Profile avatar is not available",
+      );
     }
     const result = await this.profiles.deliverAvatar({
       accountId: accountId(account.accountId),
@@ -198,9 +288,17 @@ export class PrivateProfileAvatarController {
     });
     if (!result.ok) {
       if (result.error.code === "dependency_unavailable") {
-        throw problemException(503, result.error.code, "Profile avatar dependency is unavailable");
+        throw problemException(
+          503,
+          result.error.code,
+          "Profile avatar dependency is unavailable",
+        );
       }
-      throw problemException(404, "profile_not_found", "Profile avatar is not available");
+      throw problemException(
+        404,
+        "profile_not_found",
+        "Profile avatar is not available",
+      );
     }
     return {
       cacheScope: "private-no-store" as const,
@@ -217,7 +315,9 @@ function field(file: MultipartFile, name: string): string | undefined {
     : String(value.value);
 }
 
-function parseCrop(value: string | undefined): z.infer<typeof cropSchema> | null {
+function parseCrop(
+  value: string | undefined,
+): z.infer<typeof cropSchema> | null {
   if (value === undefined) return null;
   try {
     const result = cropSchema.safeParse(JSON.parse(value));
@@ -239,12 +339,24 @@ function throwAvatarError(
     case "profile_not_found":
       throw problemException(404, error.code, "Profile was not found");
     case "dependency_unavailable":
-      throw problemException(503, error.code, "Profile avatar dependency is unavailable");
+      throw problemException(
+        503,
+        error.code,
+        "Profile avatar dependency is unavailable",
+      );
     case "invalid_avatar": {
-      const status = error.reason === "image_too_large" || error.reason === "size_mismatch" ? 413 : 422;
-      throw problemException(status, error.code, "Avatar image is not accepted", {
-        reason: error.reason,
-      });
+      const status =
+        error.reason === "image_too_large" || error.reason === "size_mismatch"
+          ? 413
+          : 422;
+      throw problemException(
+        status,
+        error.code,
+        "Avatar image is not accepted",
+        {
+          reason: error.reason,
+        },
+      );
     }
   }
 }

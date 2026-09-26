@@ -4,7 +4,10 @@ import { usePathname, useSearchParams } from "next/navigation";
 import { useReportWebVitals } from "next/web-vitals";
 import { useEffect } from "react";
 
-import { queueWebVital, type ReportedWebVital } from "@/features/client-telemetry";
+import {
+  queueWebVital,
+  type ReportedWebVital,
+} from "@/features/client-telemetry";
 
 /**
  * Ссылка на колбэк обязана быть стабильной: хук подписывается заново на каждую новую функцию.
@@ -35,7 +38,9 @@ export function NavigationTiming() {
 
   useEffect(() => {
     try {
-      const start = performance.getEntriesByName("inside:navigation-start", "mark").at(-1);
+      const start = performance
+        .getEntriesByName("inside:navigation-start", "mark")
+        .at(-1);
       if (start === undefined) return;
       performance.measure("inside:navigation", {
         detail: { url: `${pathname}${search.length > 0 ? `?${search}` : ""}` },

@@ -32,7 +32,10 @@ export interface MaterialReaderMetadata {
 }
 
 export interface PrimaryVideoPresentation {
-  readonly chapters?: readonly { readonly start: number; readonly title: string }[];
+  readonly chapters?: readonly {
+    readonly start: number;
+    readonly title: string;
+  }[];
   readonly durationSeconds?: number | undefined;
   readonly failureCode?: string | undefined;
   readonly state: "uploading" | "processing" | "ready" | "failed";
@@ -61,5 +64,8 @@ export type MaterialReaderResult =
 
 /** Общая часть урока: бесплатный урок целиком, у закрытого — только метаданные (ADR 0027). */
 export type PublicMaterialResult =
-  | Extract<MaterialReaderResult, { readonly kind: "available" | "not-found" | "unavailable" }>
+  | Extract<
+      MaterialReaderResult,
+      { readonly kind: "available" | "not-found" | "unavailable" }
+    >
   | { readonly kind: "teaser"; readonly material: MaterialReaderMetadata };

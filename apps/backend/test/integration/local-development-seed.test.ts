@@ -67,123 +67,154 @@ describe("local development seed", () => {
     await testDatabase.dispose();
   });
 
-  test("publishes a stable multi-page free and closed catalog when repeated", async () => {
-    const first = await seedLocalDevelopment(testDatabase.prisma);
-    const second = await seedLocalDevelopment(testDatabase.prisma);
+  test(
+    "publishes a stable multi-page free and closed catalog when repeated",
+    async () => {
+      const first = await seedLocalDevelopment(testDatabase.prisma);
+      const second = await seedLocalDevelopment(testDatabase.prisma);
 
-    expect(second).toEqual(first);
+      expect(second).toEqual(first);
 
-    const { contentAccess, publishedMaterialReader } = materials;
-    const catalog = await listPublishedMaterials(
-      publishedMaterialReader,
-      contentAccess,
-      emptyCatalogVideos,
-      { subject: anonymousSubject, first: 12 },
-    );
-    expect(catalog.ok).toBe(true);
-    if (!catalog.ok) {
-      throw new Error("Expected the local catalog seed to be readable");
-    }
-    expect(catalog.value.items).toHaveLength(12);
-    expect(catalog.value.items.slice(0, 2)).toMatchObject([
-      { slug: "developer-pipeline-bez-poteri-konteksta", access: "membership" },
-      { slug: "kak-ustroen-inside-platform", access: "free" },
-    ]);
-    expect(typeof catalog.value.nextCursor).toBe("string");
-    expect(await testDatabase.prisma.publishedMaterial.count()).toBe(31);
-    await expect(
-      testDatabase.prisma.video.findMany({
-        orderBy: { providerVideoId: "asc" },
-        select: { durationSeconds: true, providerVideoId: true, state: true },
-      }),
-    ).resolves.toEqual([
-      { durationSeconds: 481, providerVideoId: "local-home-deep-modules", state: "ready" },
-      { durationSeconds: 628, providerVideoId: "local-home-developer-pipeline", state: "ready" },
-      { durationSeconds: 754, providerVideoId: "local-home-product-context", state: "ready" },
-      { durationSeconds: 810, providerVideoId: "local-series-release-docker", state: "ready" },
-      { durationSeconds: 630, providerVideoId: "local-series-release-overview", state: "ready" },
-      { durationSeconds: 542, providerVideoId: "local-series-review-video", state: "ready" },
-    ]);
-
-    await expect(
-      publishedMaterialReader.read({
-        subject: anonymousSubject,
-        slug: first.slug,
-      }),
-    ).resolves.toMatchObject({
-      ok: true,
-      value: {
-        kind: "available",
-        projection: {
-          materialId: first.materialId,
-          contentVersion: first.contentVersion,
-          title: "Как устроен Inside Platform",
-        },
-      },
-    });
-
-    const [harness, review, standalone] = await Promise.all([
-      discoverPublishedMaterials(
+      const { contentAccess, publishedMaterialReader } = materials;
+      const catalog = await listPublishedMaterials(
         publishedMaterialReader,
         contentAccess,
         emptyCatalogVideos,
+        { subject: anonymousSubject, first: 12 },
+      );
+      expect(catalog.ok).toBe(true);
+      if (!catalog.ok) {
+        throw new Error("Expected the local catalog seed to be readable");
+      }
+      expect(catalog.value.items).toHaveLength(12);
+      expect(catalog.value.items.slice(0, 2)).toMatchObject([
         {
-          first: null,
-          kind: "series",
-          slug: "demo-series-harness",
-          subject: anonymousSubject,
+          slug: "developer-pipeline-bez-poteri-konteksta",
+          access: "membership",
         },
-      ),
-      discoverPublishedMaterials(
-        publishedMaterialReader,
-        contentAccess,
-        emptyCatalogVideos,
+        { slug: "kak-ustroen-inside-platform", access: "free" },
+      ]);
+      expect(typeof catalog.value.nextCursor).toBe("string");
+      expect(await testDatabase.prisma.publishedMaterial.count()).toBe(31);
+      await expect(
+        testDatabase.prisma.video.findMany({
+          orderBy: { providerVideoId: "asc" },
+          select: { durationSeconds: true, providerVideoId: true, state: true },
+        }),
+      ).resolves.toEqual([
         {
-          first: null,
-          kind: "series",
-          slug: "demo-series-review",
-          subject: anonymousSubject,
+          durationSeconds: 481,
+          providerVideoId: "local-home-deep-modules",
+          state: "ready",
         },
-      ),
-      listPublishedMaterials(
-        publishedMaterialReader,
-        contentAccess,
-        emptyCatalogVideos,
         {
-          first: 10,
-          q: "standalone #295",
-          subject: anonymousSubject,
+          durationSeconds: 628,
+          providerVideoId: "local-home-developer-pipeline",
+          state: "ready",
         },
-      ),
-    ]);
+        {
+          durationSeconds: 754,
+          providerVideoId: "local-home-product-context",
+          state: "ready",
+        },
+        {
+          durationSeconds: 810,
+          providerVideoId: "local-series-release-docker",
+          state: "ready",
+        },
+        {
+          durationSeconds: 630,
+          providerVideoId: "local-series-release-overview",
+          state: "ready",
+        },
+        {
+          durationSeconds: 542,
+          providerVideoId: "local-series-review-video",
+          state: "ready",
+        },
+      ]);
 
-    expect(harness).toMatchObject({
-      ok: true,
-      value: {
-        items: [
-          { slug: "demo-295-obshchiy-gayd" },
-          { slug: "demo-295-finalnyy-gayd" },
-        ],
-      },
-    });
-    expect(review).toMatchObject({
-      ok: true,
-      value: {
-        items: [
-          { slug: "demo-295-obshchiy-gayd" },
-          { slug: "demo-295-video-razbor" },
-          { slug: "demo-295-itogovaya-zametka" },
-        ],
-      },
-    });
-    if (!standalone.ok) throw new Error(standalone.error.code);
-    expect(standalone.value.items).toContainEqual(
-      expect.objectContaining({
-        seriesMemberships: [],
-        slug: "demo-295-samostoyatelnaya-zametka",
-      }),
-    );
-  }, seedRunBudgetMs * 2);
+      await expect(
+        publishedMaterialReader.read({
+          subject: anonymousSubject,
+          slug: first.slug,
+        }),
+      ).resolves.toMatchObject({
+        ok: true,
+        value: {
+          kind: "available",
+          projection: {
+            materialId: first.materialId,
+            contentVersion: first.contentVersion,
+            title: "Как устроен Inside Platform",
+          },
+        },
+      });
+
+      const [harness, review, standalone] = await Promise.all([
+        discoverPublishedMaterials(
+          publishedMaterialReader,
+          contentAccess,
+          emptyCatalogVideos,
+          {
+            first: null,
+            kind: "series",
+            slug: "demo-series-harness",
+            subject: anonymousSubject,
+          },
+        ),
+        discoverPublishedMaterials(
+          publishedMaterialReader,
+          contentAccess,
+          emptyCatalogVideos,
+          {
+            first: null,
+            kind: "series",
+            slug: "demo-series-review",
+            subject: anonymousSubject,
+          },
+        ),
+        listPublishedMaterials(
+          publishedMaterialReader,
+          contentAccess,
+          emptyCatalogVideos,
+          {
+            first: 10,
+            q: "standalone #295",
+            subject: anonymousSubject,
+          },
+        ),
+      ]);
+
+      expect(harness).toMatchObject({
+        ok: true,
+        value: {
+          items: [
+            { slug: "demo-295-obshchiy-gayd" },
+            { slug: "demo-295-finalnyy-gayd" },
+          ],
+        },
+      });
+      expect(review).toMatchObject({
+        ok: true,
+        value: {
+          items: [
+            { slug: "demo-295-obshchiy-gayd" },
+            { slug: "demo-295-video-razbor" },
+            { slug: "demo-295-itogovaya-zametka" },
+          ],
+        },
+      });
+      if (!standalone.ok) throw new Error(standalone.error.code);
+      expect(standalone.value.items).toContainEqual(
+        expect.objectContaining({
+          seriesMemberships: [],
+          slug: "demo-295-samostoyatelnaya-zametka",
+        }),
+      );
+    },
+    seedRunBudgetMs * 2,
+  );
 });
 
 /**
@@ -234,108 +265,131 @@ describe("local development offer catalog", () => {
 
   async function seededOffer() {
     const [first] = await forSale();
-    if (first === undefined) throw new Error("Expected a seeded offer for sale");
+    if (first === undefined)
+      throw new Error("Expected a seeded offer for sale");
     return first;
   }
 
-  test("keeps subscriptions hidden and one guide purchase on sale without a second set", async () => {
-    await seedLocalDevelopment(testDatabase.prisma);
-
-    expect(
-      (await forSale()).map((snapshot) => ({
-        benefits: snapshot.offer.benefits,
-        firstPriceKopecks: snapshot.firstPriceKopecks,
-        mode: snapshot.paymentOption.mode,
-        name: snapshot.offer.name,
-        published: snapshot.offer.published,
-      })),
-    ).toEqual([
-      {
-        benefits: [`guide:${guideId}`, "support"],
-        firstPriceKopecks: 3_000,
-        mode: "one_time",
-        name: "Руководство «Создание Platform Inside»",
-        published: true,
-      },
-    ]);
-    // Повторный seed сходится к тому же описанию, поэтому второго набора не появляется.
-    await expect(testDatabase.prisma.billingOffer.count()).resolves.toBe(4);
-    await expect(testDatabase.prisma.billingPaymentOption.count()).resolves.toBe(3);
-  }, seedRunBudgetMs);
-
-  test("leaves an offer the owner took off sale off the storefront", async () => {
-    const seeded = await seededOffer();
-    const unpublished = await owner.manage(ownerActor, {
-      expectedRevision: seeded.offer.revision,
-      id: seeded.offer.id,
-      operation: "offers.unpublish",
-      operationId: randomUUID(),
-    });
-    if (!unpublished.ok) throw new Error(unpublished.error.code);
-    try {
+  test(
+    "keeps subscriptions hidden and one guide purchase on sale without a second set",
+    async () => {
       await seedLocalDevelopment(testDatabase.prisma);
 
-      expect((await forSale()).map((snapshot) => snapshot.offer.id)).not.toContain(
-        seeded.offer.id,
-      );
-    } finally {
-      await owner.manage(ownerActor, {
-        expectedRevision: unpublished.value.revision,
+      expect(
+        (await forSale()).map((snapshot) => ({
+          benefits: snapshot.offer.benefits,
+          firstPriceKopecks: snapshot.firstPriceKopecks,
+          mode: snapshot.paymentOption.mode,
+          name: snapshot.offer.name,
+          published: snapshot.offer.published,
+        })),
+      ).toEqual([
+        {
+          benefits: [`guide:${guideId}`, "support"],
+          firstPriceKopecks: 3_000,
+          mode: "one_time",
+          name: "Руководство «Создание Platform Inside»",
+          published: true,
+        },
+      ]);
+      // Повторный seed сходится к тому же описанию, поэтому второго набора не появляется.
+      await expect(testDatabase.prisma.billingOffer.count()).resolves.toBe(4);
+      await expect(
+        testDatabase.prisma.billingPaymentOption.count(),
+      ).resolves.toBe(3);
+    },
+    seedRunBudgetMs,
+  );
+
+  test(
+    "leaves an offer the owner took off sale off the storefront",
+    async () => {
+      const seeded = await seededOffer();
+      const unpublished = await owner.manage(ownerActor, {
+        expectedRevision: seeded.offer.revision,
         id: seeded.offer.id,
-        operation: "offers.publish",
+        operation: "offers.unpublish",
         operationId: randomUUID(),
       });
-    }
-  }, seedRunBudgetMs);
+      if (!unpublished.ok) throw new Error(unpublished.error.code);
+      try {
+        await seedLocalDevelopment(testDatabase.prisma);
 
-  test("restores a seeded offer left without a payment option", async () => {
-    const seeded = await seededOffer();
-    // Прошлый запуск мог оборваться между созданием предложения и его варианта оплаты. Продавать
-    // в таком каталоге нечего, и сам по себе он не выправится: предложение уже есть, поэтому
-    // следующий запуск не может завести его заново.
-    await testDatabase.prisma.billingPaymentOption.delete({
-      where: { id: seeded.paymentOption.id },
-    });
-    expect((await forSale()).map((snapshot) => snapshot.offer.id)).not.toContain(
-      seeded.offer.id,
-    );
+        expect(
+          (await forSale()).map((snapshot) => snapshot.offer.id),
+        ).not.toContain(seeded.offer.id);
+      } finally {
+        await owner.manage(ownerActor, {
+          expectedRevision: unpublished.value.revision,
+          id: seeded.offer.id,
+          operation: "offers.publish",
+          operationId: randomUUID(),
+        });
+      }
+    },
+    seedRunBudgetMs,
+  );
 
-    await seedLocalDevelopment(testDatabase.prisma);
+  test(
+    "restores a seeded offer left without a payment option",
+    async () => {
+      const seeded = await seededOffer();
+      // Прошлый запуск мог оборваться между созданием предложения и его варианта оплаты. Продавать
+      // в таком каталоге нечего, и сам по себе он не выправится: предложение уже есть, поэтому
+      // следующий запуск не может завести его заново.
+      await testDatabase.prisma.billingPaymentOption.delete({
+        where: { id: seeded.paymentOption.id },
+      });
+      expect(
+        (await forSale()).map((snapshot) => snapshot.offer.id),
+      ).not.toContain(seeded.offer.id);
 
-    const restored = (await forSale()).find(
-      (snapshot) => snapshot.offer.id === seeded.offer.id,
-    );
-    expect(restored?.paymentOption.id).toBe(seeded.paymentOption.id);
-    expect(restored?.firstPriceKopecks).toBe(seeded.firstPriceKopecks);
-    await expect(testDatabase.prisma.billingPaymentOption.count()).resolves.toBe(3);
-  }, seedRunBudgetMs);
+      await seedLocalDevelopment(testDatabase.prisma);
 
-  test("brings a changed price back to the seeded catalog on the next run", async () => {
-    const seeded = await seededOffer();
-    const repriced = await owner.manage(ownerActor, {
-      expectedRevision: seeded.paymentOption.revision,
-      operation: "paymentOptions.save",
-      operationId: randomUUID(),
-      value: {
-        id: seeded.paymentOption.id,
-        mode: seeded.paymentOption.mode,
-        months: seeded.paymentOption.months,
-        offerId: seeded.offer.id,
-        priceKopecks: 777_000,
-      },
-    });
-    expect(repriced.ok).toBe(true);
+      const restored = (await forSale()).find(
+        (snapshot) => snapshot.offer.id === seeded.offer.id,
+      );
+      expect(restored?.paymentOption.id).toBe(seeded.paymentOption.id);
+      expect(restored?.firstPriceKopecks).toBe(seeded.firstPriceKopecks);
+      await expect(
+        testDatabase.prisma.billingPaymentOption.count(),
+      ).resolves.toBe(3);
+    },
+    seedRunBudgetMs,
+  );
 
-    // Описание стенда — источник его цен, поэтому следующий запуск возвращает свою цену вместо
-    // того, чтобы упасть на изменившемся снимке команды и не дать локальному стеку подняться.
-    await seedLocalDevelopment(testDatabase.prisma);
+  test(
+    "brings a changed price back to the seeded catalog on the next run",
+    async () => {
+      const seeded = await seededOffer();
+      const repriced = await owner.manage(ownerActor, {
+        expectedRevision: seeded.paymentOption.revision,
+        operation: "paymentOptions.save",
+        operationId: randomUUID(),
+        value: {
+          id: seeded.paymentOption.id,
+          mode: seeded.paymentOption.mode,
+          months: seeded.paymentOption.months,
+          offerId: seeded.offer.id,
+          priceKopecks: 777_000,
+        },
+      });
+      expect(repriced.ok).toBe(true);
 
-    const restored = (await forSale()).find(
-      (snapshot) => snapshot.paymentOption.id === seeded.paymentOption.id,
-    );
-    expect(restored?.firstPriceKopecks).toBe(seeded.firstPriceKopecks);
-    await expect(testDatabase.prisma.billingPaymentOption.count()).resolves.toBe(3);
-  }, seedRunBudgetMs);
+      // Описание стенда — источник его цен, поэтому следующий запуск возвращает свою цену вместо
+      // того, чтобы упасть на изменившемся снимке команды и не дать локальному стеку подняться.
+      await seedLocalDevelopment(testDatabase.prisma);
+
+      const restored = (await forSale()).find(
+        (snapshot) => snapshot.paymentOption.id === seeded.paymentOption.id,
+      );
+      expect(restored?.firstPriceKopecks).toBe(seeded.firstPriceKopecks);
+      await expect(
+        testDatabase.prisma.billingPaymentOption.count(),
+      ).resolves.toBe(3);
+    },
+    seedRunBudgetMs,
+  );
 });
 
 /**
@@ -416,7 +470,12 @@ describe("local development seed after a demo content change", () => {
     return {
       guideMemberships: await testDatabase.prisma.guideMembership.findMany({
         orderBy: [{ seriesId: "asc" }, { materialId: "asc" }],
-        select: { materialId: true, ordinal: true, seriesId: true, stepGroup: true },
+        select: {
+          materialId: true,
+          ordinal: true,
+          seriesId: true,
+          stepGroup: true,
+        },
       }),
       materials: await testDatabase.prisma.material.findMany({
         orderBy: { id: "asc" },
@@ -429,179 +488,201 @@ describe("local development seed after a demo content change", () => {
     };
   }
 
-  test("brings a step seeded before the change to the current definition", async () => {
-    const seeded = await demoStep();
-    const { authoring } = assembleMaterials({
-      prisma: testDatabase.prisma,
-      authorPolicy: { canManage: (accountId) => accountId === seedActor },
-    });
-    const loaded = await authoring.loadMaterial({
-      actor: seedActor,
-      materialId: seeded.id,
-    });
-    if (!loaded.ok) throw new Error(loaded.error.code);
-    // Тот же шаг в том виде, в каком его оставило прежнее определение: без вариантного блока,
-    // без сложности и без «Чему научишься».
-    const earlier = await authoring.saveMaterial({
-      actor: seedActor,
-      body: {
-        schemaVersion: 1,
-        doc: {
-          ...loaded.value.body.doc,
-          content: blocks(loaded.value.body.doc).filter(
-            ({ type }) => type !== "variant",
-          ),
-        },
-      },
-      expectedContentVersion: loaded.value.contentVersion,
-      idempotencyKey: `earlier-demo-definition-${randomUUID()}`,
-      materialId: seeded.id,
-      metadata: { ...definitionOf(loaded.value.metadata), difficulty: null, outcomes: [] },
-      publicationState: "published",
-    });
-    if (!earlier.ok) throw new Error(earlier.error.code);
-    // Прежнее определение оставило свой отпечаток на постоянных ключах создания. Именно на нём
-    // повторный засев падал с idempotency_key_reused и не давал подняться api и web. Отпечаток
-    // портится у всех ключей создания, а не только у демо-серии: безусловное создание в любом
-    // месте засева должно ронять эту проверку. Совпавших записей должно быть сколько-то —
-    // иначе проверка прошла бы вхолостую, не проверив ничего.
-    const armed = await testDatabase.prisma.authoringIdempotency.updateMany({
-      data: { requestFingerprint: "0".repeat(64) },
-      where: { operation: "create_draft" },
-    });
-    expect(armed.count).toBeGreaterThan(0);
-    // Проверка опирается на чужое поведение: ключ создания с другим отпечатком отвергается, а не
-    // воспроизводится. Оно проверяется здесь же, иначе эта проверка однажды пройдёт вхолостую,
-    // ничего не доказав про засев.
-    const poisoned = await testDatabase.prisma.authoringIdempotency.findFirstOrThrow({
-      orderBy: { idempotencyKey: "asc" },
-      select: { idempotencyKey: true },
-      where: { operation: "create_draft" },
-    });
-    await expect(
-      authoring.createDraft({
+  test(
+    "brings a step seeded before the change to the current definition",
+    async () => {
+      const seeded = await demoStep();
+      const { authoring } = assembleMaterials({
+        prisma: testDatabase.prisma,
+        authorPolicy: { canManage: (accountId) => accountId === seedActor },
+      });
+      const loaded = await authoring.loadMaterial({
+        actor: seedActor,
+        materialId: seeded.id,
+      });
+      if (!loaded.ok) throw new Error(loaded.error.code);
+      // Тот же шаг в том виде, в каком его оставило прежнее определение: без вариантного блока,
+      // без сложности и без «Чему научишься».
+      const earlier = await authoring.saveMaterial({
         actor: seedActor,
         body: {
           schemaVersion: 1,
           doc: {
-            content: [
-              {
-                attrs: { nodeId: "70000000-0000-4000-8000-000000000002" },
-                content: [{ type: "text", text: "Проверка занятого ключа." }],
-                type: "paragraph",
-              },
-            ],
-            type: "doc",
+            ...loaded.value.body.doc,
+            content: blocks(loaded.value.body.doc).filter(
+              ({ type }) => type !== "variant",
+            ),
           },
         },
-        idempotencyKey: poisoned.idempotencyKey,
-        metadata: definitionOf(loaded.value.metadata),
-      }),
-    ).resolves.toMatchObject({ ok: false, error: { code: "idempotency_key_reused" } });
+        expectedContentVersion: loaded.value.contentVersion,
+        idempotencyKey: `earlier-demo-definition-${randomUUID()}`,
+        materialId: seeded.id,
+        metadata: {
+          ...definitionOf(loaded.value.metadata),
+          difficulty: null,
+          outcomes: [],
+        },
+        publicationState: "published",
+      });
+      if (!earlier.ok) throw new Error(earlier.error.code);
+      // Прежнее определение оставило свой отпечаток на постоянных ключах создания. Именно на нём
+      // повторный засев падал с idempotency_key_reused и не давал подняться api и web. Отпечаток
+      // портится у всех ключей создания, а не только у демо-серии: безусловное создание в любом
+      // месте засева должно ронять эту проверку. Совпавших записей должно быть сколько-то —
+      // иначе проверка прошла бы вхолостую, не проверив ничего.
+      const armed = await testDatabase.prisma.authoringIdempotency.updateMany({
+        data: { requestFingerprint: "0".repeat(64) },
+        where: { operation: "create_draft" },
+      });
+      expect(armed.count).toBeGreaterThan(0);
+      // Проверка опирается на чужое поведение: ключ создания с другим отпечатком отвергается, а не
+      // воспроизводится. Оно проверяется здесь же, иначе эта проверка однажды пройдёт вхолостую,
+      // ничего не доказав про засев.
+      const poisoned =
+        await testDatabase.prisma.authoringIdempotency.findFirstOrThrow({
+          orderBy: { idempotencyKey: "asc" },
+          select: { idempotencyKey: true },
+          where: { operation: "create_draft" },
+        });
+      await expect(
+        authoring.createDraft({
+          actor: seedActor,
+          body: {
+            schemaVersion: 1,
+            doc: {
+              content: [
+                {
+                  attrs: { nodeId: "70000000-0000-4000-8000-000000000002" },
+                  content: [{ type: "text", text: "Проверка занятого ключа." }],
+                  type: "paragraph",
+                },
+              ],
+              type: "doc",
+            },
+          },
+          idempotencyKey: poisoned.idempotencyKey,
+          metadata: definitionOf(loaded.value.metadata),
+        }),
+      ).resolves.toMatchObject({
+        ok: false,
+        error: { code: "idempotency_key_reused" },
+      });
 
-    await seedLocalDevelopment(testDatabase.prisma);
+      await seedLocalDevelopment(testDatabase.prisma);
 
-    const current = await demoStep();
-    expect(blocks(current.body).map(({ type }) => type)).toContain("variant");
-    expect(current.difficulty).toBe("basic");
-    expect(current.outcomes).toEqual([
-      "Собрать приложение под релиз",
-      "Проверить сборку до публикации",
-    ]);
-    // Второго демо-материала не появилось: обновляется тот же шаг, а не его копия.
-    await expect(
-      testDatabase.prisma.material.count({ where: { title: stepTitle } }),
-    ).resolves.toBe(1);
-  }, seedRunBudgetMs);
+      const current = await demoStep();
+      expect(blocks(current.body).map(({ type }) => type)).toContain("variant");
+      expect(current.difficulty).toBe("basic");
+      expect(current.outcomes).toEqual([
+        "Собрать приложение под релиз",
+        "Проверить сборку до публикации",
+      ]);
+      // Второго демо-материала не появилось: обновляется тот же шаг, а не его копия.
+      await expect(
+        testDatabase.prisma.material.count({ where: { title: stepTitle } }),
+      ).resolves.toBe(1);
+    },
+    seedRunBudgetMs,
+  );
 
   /**
    * Один отрицательный набор на все места засева. Он краснеет, как только любое из них перестаёт
    * сравнивать тело перед Save: изменённое определение тихо не доедет до уже засеянной базы, и
    * стенд покажет прежний контент, выглядя исправным.
    */
-  test("returns every seeded Material to its body after the stored body is changed", async () => {
-    const titles = [
-      "Архитектурная заметка 01",
-      "Границы хорошего модуля",
-      "Как устроен Inside Platform",
-      "Demo · Подготовка приложения к релизу",
-      "Developer Pipeline без потери контекста",
-    ];
-    const { authoring } = assembleMaterials({
-      prisma: testDatabase.prisma,
-      authorPolicy: { canManage: (accountId) => accountId === seedActor },
-    });
-    const seededBodies = new Map<string, unknown>();
-    for (const title of titles) {
-      const material = await testDatabase.prisma.material.findFirstOrThrow({
-        orderBy: [{ createdAt: "asc" }, { id: "asc" }],
-        select: { body: true, id: true },
-        where: { title },
+  test(
+    "returns every seeded Material to its body after the stored body is changed",
+    async () => {
+      const titles = [
+        "Архитектурная заметка 01",
+        "Границы хорошего модуля",
+        "Как устроен Inside Platform",
+        "Demo · Подготовка приложения к релизу",
+        "Developer Pipeline без потери контекста",
+      ];
+      const { authoring } = assembleMaterials({
+        prisma: testDatabase.prisma,
+        authorPolicy: { canManage: (accountId) => accountId === seedActor },
       });
-      seededBodies.set(title, material.body);
-      const loaded = await authoring.loadMaterial({
-        actor: seedActor,
-        materialId: material.id,
-      });
-      if (!loaded.ok) throw new Error(`${title}: ${loaded.error.code}`);
-      const changed = await authoring.saveMaterial({
-        actor: seedActor,
-        body: {
-          schemaVersion: 1,
-          doc: {
-            content: [
-              {
-                attrs: { nodeId: "70000000-0000-4000-8000-000000000001" },
-                content: [{ type: "text", text: "Тело изменено мимо засева." }],
-                type: "paragraph",
-              },
-            ],
-            type: "doc",
+      const seededBodies = new Map<string, unknown>();
+      for (const title of titles) {
+        const material = await testDatabase.prisma.material.findFirstOrThrow({
+          orderBy: [{ createdAt: "asc" }, { id: "asc" }],
+          select: { body: true, id: true },
+          where: { title },
+        });
+        seededBodies.set(title, material.body);
+        const loaded = await authoring.loadMaterial({
+          actor: seedActor,
+          materialId: material.id,
+        });
+        if (!loaded.ok) throw new Error(`${title}: ${loaded.error.code}`);
+        const changed = await authoring.saveMaterial({
+          actor: seedActor,
+          body: {
+            schemaVersion: 1,
+            doc: {
+              content: [
+                {
+                  attrs: { nodeId: "70000000-0000-4000-8000-000000000001" },
+                  content: [
+                    { type: "text", text: "Тело изменено мимо засева." },
+                  ],
+                  type: "paragraph",
+                },
+              ],
+              type: "doc",
+            },
           },
-        },
-        expectedContentVersion: loaded.value.contentVersion,
-        idempotencyKey: `changed-body-${randomUUID()}`,
-        materialId: material.id,
-        metadata: definitionOf(loaded.value.metadata),
-        primaryVideoId: loaded.value.primaryVideoId,
-        publicationState: "published",
-      });
-      if (!changed.ok) throw new Error(`${title}: ${changed.error.code}`);
-    }
+          expectedContentVersion: loaded.value.contentVersion,
+          idempotencyKey: `changed-body-${randomUUID()}`,
+          materialId: material.id,
+          metadata: definitionOf(loaded.value.metadata),
+          primaryVideoId: loaded.value.primaryVideoId,
+          publicationState: "published",
+        });
+        if (!changed.ok) throw new Error(`${title}: ${changed.error.code}`);
+      }
 
-    await seedLocalDevelopment(testDatabase.prisma);
+      await seedLocalDevelopment(testDatabase.prisma);
 
-    // Сравниваются все места сразу, чтобы падение называло каждое отставшее, а не только первое.
-    const restored = [];
-    for (const title of titles) {
-      const material = await testDatabase.prisma.material.findFirstOrThrow({
-        orderBy: [{ createdAt: "asc" }, { id: "asc" }],
-        select: { body: true },
-        where: { title },
-      });
-      restored.push({ body: material.body, title });
-    }
-    expect(restored).toEqual(
-      titles.map((title) => ({ body: seededBodies.get(title), title })),
-    );
-  }, seedRunBudgetMs);
+      // Сравниваются все места сразу, чтобы падение называло каждое отставшее, а не только первое.
+      const restored = [];
+      for (const title of titles) {
+        const material = await testDatabase.prisma.material.findFirstOrThrow({
+          orderBy: [{ createdAt: "asc" }, { id: "asc" }],
+          select: { body: true },
+          where: { title },
+        });
+        restored.push({ body: material.body, title });
+      }
+      expect(restored).toEqual(
+        titles.map((title) => ({ body: seededBodies.get(title), title })),
+      );
+    },
+    seedRunBudgetMs,
+  );
 
-  test("sends no change command when the definition already matches", async () => {
-    await seedLocalDevelopment(testDatabase.prisma);
-    const written = await writtenState();
-    const receipts = await testDatabase.prisma.authoringIdempotency.count();
+  test(
+    "sends no change command when the definition already matches",
+    async () => {
+      await seedLocalDevelopment(testDatabase.prisma);
+      const written = await writtenState();
+      const receipts = await testDatabase.prisma.authoringIdempotency.count();
 
-    // Каждая команда авторского слоя — создание, Save, переупорядочивание — открывает свою
-    // транзакцию, в том числе та, что потом коротко замыкается и ничего не пишет. Поэтому
-    // прогон, не открывший ни одной, не отправил ни одной команды: это проверяет обещание
-    // runbook целиком, а не только отсутствие записи.
-    const counted = countingTransactions(testDatabase.prisma);
-    await seedLocalDevelopment(counted.prisma);
+      // Каждая команда авторского слоя — создание, Save, переупорядочивание — открывает свою
+      // транзакцию, в том числе та, что потом коротко замыкается и ничего не пишет. Поэтому
+      // прогон, не открывший ни одной, не отправил ни одной команды: это проверяет обещание
+      // runbook целиком, а не только отсутствие записи.
+      const counted = countingTransactions(testDatabase.prisma);
+      await seedLocalDevelopment(counted.prisma);
 
-    expect(counted.opened()).toBe(0);
-    await expect(writtenState()).resolves.toEqual(written);
-    await expect(
-      testDatabase.prisma.authoringIdempotency.count(),
-    ).resolves.toBe(receipts);
-  }, seedRunBudgetMs * 2);
+      expect(counted.opened()).toBe(0);
+      await expect(writtenState()).resolves.toEqual(written);
+      await expect(
+        testDatabase.prisma.authoringIdempotency.count(),
+      ).resolves.toBe(receipts);
+    },
+    seedRunBudgetMs * 2,
+  );
 });

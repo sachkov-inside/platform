@@ -8,7 +8,9 @@ export function onRouterTransitionStart(
   navigationType: "push" | "replace" | "traverse",
 ): void {
   try {
-    performance.mark("inside:navigation-start", { detail: { navigationType, url } });
+    performance.mark("inside:navigation-start", {
+      detail: { navigationType, url },
+    });
   } catch {
     // Измерение не должно мешать переходу.
   }

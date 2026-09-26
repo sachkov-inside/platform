@@ -115,10 +115,18 @@ export async function revealWorkshopHint(
         },
       });
       return existing === null
-        ? dependencyFailure({ module: "workshop", operation: "revealWorkshopHint" }, error, failure("dependency_unavailable"))
+        ? dependencyFailure(
+            { module: "workshop", operation: "revealWorkshopHint" },
+            error,
+            failure("dependency_unavailable"),
+          )
         : success(existing);
     } catch (replayError) {
-      return dependencyFailure({ module: "workshop", operation: "revealWorkshopHint" }, replayError, failure("dependency_unavailable"));
+      return dependencyFailure(
+        { module: "workshop", operation: "revealWorkshopHint" },
+        replayError,
+        failure("dependency_unavailable"),
+      );
     }
   }
 }

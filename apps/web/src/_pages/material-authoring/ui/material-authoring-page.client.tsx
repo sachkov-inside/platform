@@ -242,7 +242,9 @@ export function MaterialAuthoringPageClient({
               : { kind: "none" },
     deletion: { pending: deletionPending, result: deletionResult },
     removalConfirmation:
-      removalConfirmation === null ? null : { guides: removalConfirmation, pending },
+      removalConfirmation === null
+        ? null
+        : { guides: removalConfirmation, pending },
     draft: effectiveDraft,
     mode: "editor",
     noticeRevision,
@@ -384,7 +386,9 @@ export function MaterialAuthoringPageClient({
     },
     onCancelGuideRemoval: () => {
       // Материал остаётся в продуктах: возвращаем руководства и отменяем снятие с публикации.
-      const guideIds = (removalConfirmation ?? []).map(({ guideId }) => guideId);
+      const guideIds = (removalConfirmation ?? []).map(
+        ({ guideId }) => guideId,
+      );
       setRemovalConfirmation(null);
       setPublicationTarget(null);
       markDirty({
@@ -393,7 +397,9 @@ export function MaterialAuthoringPageClient({
       });
     },
     onConfirmGuideRemoval: () => {
-      confirmedRemovals.current = (removalConfirmation ?? []).map(({ guideId }) => guideId);
+      confirmedRemovals.current = (removalConfirmation ?? []).map(
+        ({ guideId }) => guideId,
+      );
       setRemovalConfirmation(null);
       void autosave.retry();
     },

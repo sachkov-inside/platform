@@ -90,7 +90,10 @@ export function CheckoutFlow({
       readonly acknowledgeExistingAccess: boolean;
     }) => {
       // Нажатие кнопки оплаты принимает документы этой покупки; журнал запишет подпись кнопки.
-      const acceptedDocuments = acceptedPurchaseDocuments(documents, input.quote);
+      const acceptedDocuments = acceptedPurchaseDocuments(
+        documents,
+        input.quote,
+      );
       const recurring = paymentMode(input.quote.snapshot) === "subscription";
       // Редакции входят в нагрузку: согласие на новую редакцию — новая операция, а не повтор
       // прежней, которую сервер иначе отверг бы как ту же операцию с другими данными.
@@ -102,7 +105,9 @@ export function CheckoutFlow({
         contextRef: input.quote.quoteRef,
         screen: "checkout",
         buttonLabel: checkoutButtonLabel(input.quote.snapshot),
-        ...(recurring ? { shownTerms: renewalTermsAtCheckout(input.quote) } : {}),
+        ...(recurring
+          ? { shownTerms: renewalTermsAtCheckout(input.quote) }
+          : {}),
         documents: acceptedDocuments,
       });
       if (!consents.ok) return consents;
@@ -127,7 +132,10 @@ export function CheckoutFlow({
           setQuote(null);
         // Отказ по согласию значит, что принятая нажатием редакция больше не действует:
         // документы перечитываются, и следующее нажатие примет действующую.
-        if (result.code === "document_changed" || result.code === "consent_required") {
+        if (
+          result.code === "document_changed" ||
+          result.code === "consent_required"
+        ) {
           onDocumentsChanged?.();
         }
         setError(billingErrorMessage(result.code));
@@ -204,14 +212,20 @@ export function CheckoutFlow({
       setAcknowledge((value) => !value);
     },
     pending:
-      quoteMutation.isPending || payMutation.isPending || statusMutation.isPending,
+      quoteMutation.isPending ||
+      payMutation.isPending ||
+      statusMutation.isPending,
     purchase,
     quote,
     snapshot,
   } as const;
 
   return oneTime ? (
-    <OneTimeCheckoutPanel {...shared} inclusions={inclusions} onRetryQuote={requestQuote} />
+    <OneTimeCheckoutPanel
+      {...shared}
+      inclusions={inclusions}
+      onRetryQuote={requestQuote}
+    />
   ) : (
     <CheckoutPanel {...shared} onQuote={requestQuote} />
   );

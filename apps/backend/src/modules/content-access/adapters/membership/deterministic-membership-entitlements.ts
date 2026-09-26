@@ -9,8 +9,9 @@ export function assembleDeterministicMembershipEntitlements(
 ): MembershipEntitlements {
   return Object.freeze({
     resolveForAccess(accountId: AccountId) {
-      const state: MembershipAccessState =
-        states.get(accountId) ?? { kind: "required" };
+      const state: MembershipAccessState = states.get(accountId) ?? {
+        kind: "required",
+      };
       return Promise.resolve(state);
     },
   });

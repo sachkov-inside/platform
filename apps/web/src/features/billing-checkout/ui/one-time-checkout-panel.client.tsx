@@ -4,7 +4,10 @@ import type { Route } from "next";
 import Link from "next/link";
 import { useId } from "react";
 
-import { LegalDocumentLinks, legalNavigationEntry } from "@/entities/legal-document";
+import {
+  LegalDocumentLinks,
+  legalNavigationEntry,
+} from "@/entities/legal-document";
 import {
   AcceptanceNote,
   billingActionClass,
@@ -62,7 +65,9 @@ export interface OneTimeCheckoutPanelProps {
  */
 function documentLabel(document: LegalDocument): string {
   const entry = legalNavigationEntry(document.documentId);
-  return entry?.consentLabel ?? entry?.navLabel ?? legalDocumentLabel(document.kind);
+  return (
+    entry?.consentLabel ?? entry?.navLabel ?? legalDocumentLabel(document.kind)
+  );
 }
 
 const inclusionIcons = {
@@ -183,9 +188,15 @@ export function OneTimeCheckoutPanel({
       ) : null}
 
       {contact === null ? (
-        <p className="mt-5 rounded-xl border border-border bg-muted/50 p-4 text-sm leading-6" role="status">
+        <p
+          className="mt-5 rounded-xl border border-border bg-muted/50 p-4 text-sm leading-6"
+          role="status"
+        >
           Чек выписывается на подтверждённый адрес, а он пока не подтверждён.{" "}
-          <Link className="font-semibold text-action underline underline-offset-4" href={contactHref}>
+          <Link
+            className="font-semibold text-action underline underline-offset-4"
+            href={contactHref}
+          >
             Подтвердить его в кабинете
           </Link>
           .

@@ -37,9 +37,8 @@ vi.mock("@/shared/auth/same-origin-mutation.server", () => ({
 }));
 
 vi.mock("@/shared/auth/index.server", async () => {
-  const handler = await import(
-    "@/shared/auth/authenticated-mutation-handler.server"
-  );
+  const handler =
+    await import("@/shared/auth/authenticated-mutation-handler.server");
   return { handleAuthenticatedMutation: handler.handleAuthenticatedMutation };
 });
 
@@ -70,7 +69,9 @@ describe("Content covers BFF", () => {
     );
 
     const response = await proxyContentCoverDelivery(
-      new Request(`https://inside.example.test/api/content-covers/${coverId}/960`),
+      new Request(
+        `https://inside.example.test/api/content-covers/${coverId}/960`,
+      ),
       coverId,
       "960",
     );
@@ -83,14 +84,18 @@ describe("Content covers BFF", () => {
     );
 
     const malformed = await proxyContentCoverDelivery(
-      new Request("https://inside.example.test/api/content-covers/not-a-cover/1"),
+      new Request(
+        "https://inside.example.test/api/content-covers/not-a-cover/1",
+      ),
       "not-a-cover",
       "1",
     );
     expect(malformed.status).toBe(404);
 
     const malformedWidth = await proxyContentCoverDelivery(
-      new Request(`https://inside.example.test/api/content-covers/${coverId}/wide`),
+      new Request(
+        `https://inside.example.test/api/content-covers/${coverId}/wide`,
+      ),
       coverId,
       "wide",
     );

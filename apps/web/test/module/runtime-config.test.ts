@@ -46,23 +46,29 @@ describe("Web runtime configuration", () => {
   });
 
   it("fails production closed and names the missing value", () => {
-    expect(() =>
-      parseWebRuntimeConfig({ NODE_ENV: "production" }),
-    ).toThrow("BACKEND_BASE_URL is required in production mode");
+    expect(() => parseWebRuntimeConfig({ NODE_ENV: "production" })).toThrow(
+      "BACKEND_BASE_URL is required in production mode",
+    );
   });
 
   it("rejects malformed and insecure production values", () => {
     expect(() =>
-      parseWebRuntimeConfig({
-        ...productionEnvironment(),
-        BACKEND_BASE_URL: "file:///tmp/platform-api",
-      }, { release: "v7", sourceSha: "7".repeat(40) }),
+      parseWebRuntimeConfig(
+        {
+          ...productionEnvironment(),
+          BACKEND_BASE_URL: "file:///tmp/platform-api",
+        },
+        { release: "v7", sourceSha: "7".repeat(40) },
+      ),
     ).toThrow("BACKEND_BASE_URL must use HTTP or HTTPS");
     expect(() =>
-      parseWebRuntimeConfig({
-        ...productionEnvironment(),
-        WEB_BASE_URL: "http://inside.example.test",
-      }, { release: "v7", sourceSha: "7".repeat(40) }),
+      parseWebRuntimeConfig(
+        {
+          ...productionEnvironment(),
+          WEB_BASE_URL: "http://inside.example.test",
+        },
+        { release: "v7", sourceSha: "7".repeat(40) },
+      ),
     ).toThrow("WEB_BASE_URL must use HTTPS");
   });
 

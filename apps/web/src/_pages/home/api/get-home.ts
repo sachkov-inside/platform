@@ -12,7 +12,10 @@ import {
   requestHomeContent,
 } from "@/shared/api/backend/index.server";
 import { dependencyUnavailableProblemSchema } from "@/shared/api/problem-details";
-import { readGuidePageCard, resolveGuidePresentation } from "@/entities/guide-page";
+import {
+  readGuidePageCard,
+  resolveGuidePresentation,
+} from "@/entities/guide-page";
 import type { HomeResult } from "../model/home-view";
 
 const homeCollectionSchema = z
@@ -48,16 +51,17 @@ const homeSchema = z
   })
   .strict();
 
-export async function getHome(
-  accessToken?: string,
-): Promise<HomeResult> {
+export async function getHome(accessToken?: string): Promise<HomeResult> {
   let result: Awaited<ReturnType<typeof requestHomeContent>>;
   try {
     result = await requestHomeContent(
       accessToken === undefined ? {} : { accessToken },
     );
   } catch (error) {
-    if (error instanceof BackendConnectionError && error.code === "unavailable") {
+    if (
+      error instanceof BackendConnectionError &&
+      error.code === "unavailable"
+    ) {
       return { kind: "unavailable" };
     }
     throw error;

@@ -65,7 +65,10 @@ export type WorkshopMaterialAccessState =
 
 /** The Workshop decision Content Access needs. Workshop implements this port. */
 export interface WorkshopMaterialAccess {
-  resolve(accountId: AccountId, materialId: MaterialId): Promise<WorkshopMaterialAccessState>;
+  resolve(
+    accountId: AccountId,
+    materialId: MaterialId,
+  ): Promise<WorkshopMaterialAccessState>;
 }
 
 /** A Membership decision for one resource; Membership Entitlements answers it. */
@@ -77,9 +80,16 @@ export type MembershipAccessState =
 export interface MembershipEntitlements {
   resolveManyForAccess?(
     accountId: AccountId,
-    resources: readonly { guideIds: readonly string[]; materialId?: string | undefined }[],
+    resources: readonly {
+      guideIds: readonly string[];
+      materialId?: string | undefined;
+    }[],
   ): Promise<readonly MembershipAccessState[]>;
-  resolveForAccess(accountId: AccountId, guideIds?: readonly string[], materialId?: string): Promise<MembershipAccessState>;
+  resolveForAccess(
+    accountId: AccountId,
+    guideIds?: readonly string[],
+    materialId?: string,
+  ): Promise<MembershipAccessState>;
 }
 
 export interface ContentAccessDependencies {

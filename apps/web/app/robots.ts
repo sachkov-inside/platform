@@ -1,7 +1,10 @@
 import type { MetadataRoute } from "next";
 
 import { CLOSED_SECTIONS, OPEN_SECTIONS } from "@/shared/link-preview";
-import { publicPageUrl, readPublicSiteOrigin } from "@/shared/link-preview/index.server";
+import {
+  publicPageUrl,
+  readPublicSiteOrigin,
+} from "@/shared/link-preview/index.server";
 
 export default async function robots(): Promise<MetadataRoute.Robots> {
   const origin = await readPublicSiteOrigin();

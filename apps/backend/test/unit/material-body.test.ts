@@ -63,9 +63,20 @@ describe("MaterialBodyOperations", () => {
   test("persists image display width separately from pixel dimensions and rejects invalid sizes", () => {
     const image = (displayWidthPercent: unknown) => ({
       schemaVersion: 1,
-      doc: { type: "doc", content: [{ type: "assetImage", attrs: {
-        nodeId: testNodeId(1), assetId: testNodeId(2), alt: "", displayWidthPercent,
-      } }] },
+      doc: {
+        type: "doc",
+        content: [
+          {
+            type: "assetImage",
+            attrs: {
+              nodeId: testNodeId(1),
+              assetId: testNodeId(2),
+              alt: "",
+              displayWidthPercent,
+            },
+          },
+        ],
+      },
     });
     for (const width of [25, 50, 100]) {
       const accepted = materialBodyOperations.accept(image(width));
@@ -74,9 +85,13 @@ describe("MaterialBodyOperations", () => {
       const rendered = materialBodyOperations.render(accepted.value);
       expect(rendered.ok).toBe(true);
       if (!rendered.ok) throw new Error("Image render rejected");
-      expect(rendered.value.blocks[0]).toMatchObject({ kind: "image", displayWidthPercent: width });
+      expect(rendered.value.blocks[0]).toMatchObject({
+        kind: "image",
+        displayWidthPercent: width,
+      });
     }
-    for (const width of [0, 24, 101, 50.5, "50", { width: 50 }]) expect(materialBodyOperations.accept(image(width)).ok).toBe(false);
+    for (const width of [0, 24, 101, 50.5, "50", { width: 50 }])
+      expect(materialBodyOperations.accept(image(width)).ok).toBe(false);
   });
 
   test("accepts a representative v1 document without semantic drift", () => {
@@ -210,17 +225,26 @@ describe("MaterialBodyOperations", () => {
     const text = (value: string) => materialDocumentSchemaV1.text(value);
     const paragraph = (index: number, value: string) =>
       documentNode("paragraph", { nodeId: testNodeId(index) }, [text(value)]);
-    const cell = (name: "tableCell" | "tableHeader", index: number, value: string) =>
-      documentNode(name, null, [paragraph(index, value)]);
+    const cell = (
+      name: "tableCell" | "tableHeader",
+      index: number,
+      value: string,
+    ) => documentNode(name, null, [paragraph(index, value)]);
 
     const document = documentNode("doc", null, [
-      documentNode("heading", { level: 2, nodeId: testNodeId(1) }, [text("Заголовок")]),
+      documentNode("heading", { level: 2, nodeId: testNodeId(1) }, [
+        text("Заголовок"),
+      ]),
       paragraph(2, "Обычный абзац."),
       documentNode("bulletList", { nodeId: testNodeId(3) }, [
         documentNode("listItem", null, [paragraph(4, "Пункт")]),
       ]),
-      documentNode("blockquote", { nodeId: testNodeId(5) }, [paragraph(6, "Цитата")]),
-      documentNode("codeBlock", { nodeId: testNodeId(7) }, [text("const a = 1;")]),
+      documentNode("blockquote", { nodeId: testNodeId(5) }, [
+        paragraph(6, "Цитата"),
+      ]),
+      documentNode("codeBlock", { nodeId: testNodeId(7) }, [
+        text("const a = 1;"),
+      ]),
       documentNode("horizontalRule", { nodeId: testNodeId(8) }),
       documentNode("table", { nodeId: testNodeId(9) }, [
         documentNode("tableRow", null, [
@@ -228,8 +252,12 @@ describe("MaterialBodyOperations", () => {
           cell("tableCell", 11, "Значение"),
         ]),
       ]),
-      documentNode("callout", { kind: "tip", nodeId: testNodeId(12) }, [paragraph(13, "Совет")]),
-      documentNode("callout", { kind: "task", nodeId: testNodeId(18) }, [paragraph(19, "Задание")]),
+      documentNode("callout", { kind: "tip", nodeId: testNodeId(12) }, [
+        paragraph(13, "Совет"),
+      ]),
+      documentNode("callout", { kind: "task", nodeId: testNodeId(18) }, [
+        paragraph(19, "Задание"),
+      ]),
       documentNode("assetImage", {
         alt: "Схема",
         assetId: testNodeId(14),
@@ -243,7 +271,10 @@ describe("MaterialBodyOperations", () => {
     ]);
 
     const serialized: unknown = document.toJSON();
-    const accepted = materialBodyOperations.accept({ schemaVersion: 1, doc: serialized });
+    const accepted = materialBodyOperations.accept({
+      schemaVersion: 1,
+      doc: serialized,
+    });
 
     // A rejected document reports why; `document_would_be_normalized` is the drift this guards.
     expect(accepted.ok ? [] : accepted.error.issues).toEqual([]);
@@ -262,10 +293,10 @@ describe("MaterialBodyOperations", () => {
       // A key point holds inline text only, so a nested block never reaches a field rule.
       ["invalid-key-point-content", "invalid_prosemirror_document"],
     ] as const) {
-      expect([fixture, materialBodyOperations.accept(invalidFixture(fixture))]).toMatchObject([
+      expect([
         fixture,
-        { ok: false, error: { issues: [{ code }] } },
-      ]);
+        materialBodyOperations.accept(invalidFixture(fixture)),
+      ]).toMatchObject([fixture, { ok: false, error: { issues: [{ code }] } }]);
     }
 
     // A callout stored before the lesson kinds existed carries no name and no new kind.
@@ -297,7 +328,10 @@ describe("MaterialBodyOperations", () => {
     expect(rendered.value.blocks).toEqual([
       {
         content: [
-          { content: [{ kind: "text", marks: [], text: "Старая врезка" }], kind: "paragraph" },
+          {
+            content: [{ kind: "text", marks: [], text: "Старая врезка" }],
+            kind: "paragraph",
+          },
         ],
         kind: "callout",
         tone: "note",

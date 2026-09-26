@@ -17,7 +17,9 @@ const platformCompose = resolve(root, "compose.yaml");
 const composeEnvironment = resolve(root, "infra/identity/logto/compose.env");
 const pnpmPath = process.env.npm_execpath;
 if (pnpmPath === undefined) {
-  throw new Error("Run the identity hardening proof through the pinned pnpm CLI");
+  throw new Error(
+    "Run the identity hardening proof through the pinned pnpm CLI",
+  );
 }
 
 const identityEnvironment = {
@@ -50,7 +52,11 @@ try {
   await runPnpm(["identity:proof:certs"], identityEnvironment);
   await runPnpm(["identity:proof:build"], identityEnvironment);
   ownsIdentity = true;
-  await runCompose(identityCompose, ["up", "-d", "--wait"], identityEnvironment);
+  await runCompose(
+    identityCompose,
+    ["up", "-d", "--wait"],
+    identityEnvironment,
+  );
   await runPnpm(["identity:proof:bootstrap"], identityEnvironment);
 
   ownsPlatform = true;
@@ -69,8 +75,13 @@ try {
     API_PORT: identityEnvironment.IDENTITY_PROOF_API_PORT,
     NODE_EXTRA_CA_CERTS: resolve(root, ".identity-proof/tls/certificate.pem"),
   };
-  ensureCheckDatabase({ composeProject: platformEnvironment.COMPOSE_PROJECT_NAME });
-  await runPnpm(["--filter", "@inside/backend", "db:migrate"], runtimeEnvironment);
+  ensureCheckDatabase({
+    composeProject: platformEnvironment.COMPOSE_PROJECT_NAME,
+  });
+  await runPnpm(
+    ["--filter", "@inside/backend", "db:migrate"],
+    runtimeEnvironment,
+  );
   spawnApplication(
     ["--filter", "@inside/backend", "dev:api"],
     runtimeEnvironment,
@@ -88,9 +99,14 @@ try {
     runtimeEnvironment,
   );
   await waitForRuntime(runtimeEnvironment);
-  await runPnpm(["--filter", "@inside/web", "test:identity"], runtimeEnvironment);
+  await runPnpm(
+    ["--filter", "@inside/web", "test:identity"],
+    runtimeEnvironment,
+  );
   if (sensitiveOutputObserved) {
-    throw new Error("Application runtime output contained a sensitive proof canary");
+    throw new Error(
+      "Application runtime output contained a sensitive proof canary",
+    );
   }
   await assertDatabaseInvariants(runtimeEnvironment);
   process.stdout.write(
@@ -120,7 +136,9 @@ async function assertNoRunningProof() {
       true,
     );
     if (output.trim().length > 0) {
-      throw new Error("The isolated issue 116 proof is already owned by another session");
+      throw new Error(
+        "The isolated issue 116 proof is already owned by another session",
+      );
     }
   }
 }
@@ -145,7 +163,9 @@ async function waitForRuntime(environment) {
     }
     const responses = await Promise.all([
       globalThis.fetch(environment.WEB_BASE_URL).catch(() => undefined),
-      globalThis.fetch(`${environment.BACKEND_BASE_URL}/health`).catch(() => undefined),
+      globalThis
+        .fetch(`${environment.BACKEND_BASE_URL}/health`)
+        .catch(() => undefined),
     ]);
     if (responses.every((response) => response?.ok)) return;
     await delay(1_000);
@@ -172,10 +192,15 @@ async function assertDatabaseInvariants(environment) {
     true,
   );
   if (platformEffects.trim() !== "1|absent") {
-    throw new Error(`Expected one Account and no Platform session table, observed ${platformEffects.trim()}`);
+    throw new Error(
+      `Expected one Account and no Platform session table, observed ${platformEffects.trim()}`,
+    );
   }
 
-  const secretCanaries = [environment.LOGTO_APP_SECRET, environment.LOGTO_COOKIE_SECRET]
+  const secretCanaries = [
+    environment.LOGTO_APP_SECRET,
+    environment.LOGTO_COOKIE_SECRET,
+  ]
     .filter((value) => typeof value === "string" && value.length > 0)
     .map((value) => `payload::text like ${sqlLiteral(`%${value}%`)}`);
   const auditPredicate = [
@@ -242,7 +267,12 @@ async function stopApplications() {
   const processes = [...applicationProcesses];
   for (const child of processes) child.kill("SIGTERM");
   await Promise.race([
-    Promise.all(processes.map((child) => new Promise((resolveExit) => child.once("exit", resolveExit)))),
+    Promise.all(
+      processes.map(
+        (child) =>
+          new Promise((resolveExit) => child.once("exit", resolveExit)),
+      ),
+    ),
     delay(5_000),
   ]);
   for (const child of processes) {
@@ -255,7 +285,11 @@ async function cleanup() {
   if (ownsPlatform) {
     ownsPlatform = false;
     try {
-      await runCompose(platformCompose, ["down", "--volumes", "--remove-orphans"], platformEnvironment);
+      await runCompose(
+        platformCompose,
+        ["down", "--volumes", "--remove-orphans"],
+        platformEnvironment,
+      );
     } catch (error) {
       failures.push(error);
     }
@@ -263,7 +297,11 @@ async function cleanup() {
   if (ownsIdentity) {
     ownsIdentity = false;
     try {
-      await runCompose(identityCompose, ["down", "--volumes", "--remove-orphans"], identityEnvironment);
+      await runCompose(
+        identityCompose,
+        ["down", "--volumes", "--remove-orphans"],
+        identityEnvironment,
+      );
     } catch (error) {
       failures.push(error);
     }
@@ -273,16 +311,26 @@ async function cleanup() {
     [identityCompose, identityEnvironment],
   ]) {
     try {
-      const remaining = await runCompose(compose, ["ps", "--services", "--status", "running"], environment, true);
+      const remaining = await runCompose(
+        compose,
+        ["ps", "--services", "--status", "running"],
+        environment,
+        true,
+      );
       if (remaining.trim().length > 0) {
-        failures.push(new Error(`Proof cleanup left running services: ${remaining.trim()}`));
+        failures.push(
+          new Error(`Proof cleanup left running services: ${remaining.trim()}`),
+        );
       }
     } catch (error) {
       failures.push(error);
     }
   }
   if (failures.length > 0) {
-    throw new AggregateError(failures, "Issue 116 proof cleanup did not complete");
+    throw new AggregateError(
+      failures,
+      "Issue 116 proof cleanup did not complete",
+    );
   }
 }
 
@@ -307,11 +355,18 @@ async function run(command, arguments_, environment, capture) {
   });
   let output = "";
   if (capture) {
-    child.stdout?.on("data", (chunk) => { output += chunk.toString(); });
-    child.stderr?.on("data", (chunk) => { output += chunk.toString(); });
+    child.stdout?.on("data", (chunk) => {
+      output += chunk.toString();
+    });
+    child.stderr?.on("data", (chunk) => {
+      output += chunk.toString();
+    });
   }
-  const exitCode = await new Promise((resolveExit) => child.once("exit", resolveExit));
-  if (exitCode !== 0) throw new Error(`${command} ${arguments_.join(" ")} failed`);
+  const exitCode = await new Promise((resolveExit) =>
+    child.once("exit", resolveExit),
+  );
+  if (exitCode !== 0)
+    throw new Error(`${command} ${arguments_.join(" ")} failed`);
   return output;
 }
 
@@ -329,8 +384,15 @@ async function acquireOwnershipLock() {
       update: 10_000,
     });
   } catch (error) {
-    if (error instanceof Error && Reflect.has(error, "code") && error.code === "ELOCKED") {
-      throw new Error("Another local session owns the machine-wide Platform setup lock", { cause: error });
+    if (
+      error instanceof Error &&
+      Reflect.has(error, "code") &&
+      error.code === "ELOCKED"
+    ) {
+      throw new Error(
+        "Another local session owns the machine-wide Platform setup lock",
+        { cause: error },
+      );
     }
     throw error;
   }

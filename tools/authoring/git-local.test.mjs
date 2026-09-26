@@ -11,7 +11,8 @@ const execute = promisify(execFile);
 async function repository(t) {
   const root = await mkdtemp(join(tmpdir(), "git-content-test-"));
   t.after(() => rm(root, { recursive: true, force: true }));
-  const git = async (...args) => (await execute("git", ["-C", root, ...args])).stdout.trim();
+  const git = async (...args) =>
+    (await execute("git", ["-C", root, ...args])).stdout.trim();
   await git("init");
   await git("config", "user.email", "test@example.invalid");
   await git("config", "user.name", "Fixture");
@@ -36,24 +37,37 @@ test("snapshot contains exactly the chosen commit and leaves all working changes
   await withGitSnapshot(root, initial, async ({ snapshot, commit }) => {
     temporary = snapshot;
     assert.equal(commit, initial);
-    assert.equal(await readFile(join(snapshot, "lesson.md"), "utf8"), "Committed lesson");
+    assert.equal(
+      await readFile(join(snapshot, "lesson.md"), "utf8"),
+      "Committed lesson",
+    );
     await assert.rejects(access(join(snapshot, "private.md")));
   });
   await assert.rejects(access(temporary));
   assert.equal(await git("status", "--porcelain"), status);
-  assert.equal(await readFile(join(root, "lesson.md"), "utf8"), "Unstaged draft");
+  assert.equal(
+    await readFile(join(root, "lesson.md"), "utf8"),
+    "Unstaged draft",
+  );
   assert.equal(await git("show", ":lesson.md"), "Staged draft");
 });
 
 test("invalid refs never run the exporter; failed export cleans up the snapshot", async (t) => {
   const { root } = await repository(t);
   let called = false;
-  await assert.rejects(withGitSnapshot(root, "missing-ref", () => { called = true; }));
+  await assert.rejects(
+    withGitSnapshot(root, "missing-ref", () => {
+      called = true;
+    }),
+  );
   assert.equal(called, false);
   let temporary;
-  await assert.rejects(withGitSnapshot(root, "HEAD", ({ snapshot }) => {
-    temporary = snapshot;
-    throw new Error("Rejected content");
-  }), /Rejected content/);
+  await assert.rejects(
+    withGitSnapshot(root, "HEAD", ({ snapshot }) => {
+      temporary = snapshot;
+      throw new Error("Rejected content");
+    }),
+    /Rejected content/,
+  );
   await assert.rejects(access(temporary));
 });

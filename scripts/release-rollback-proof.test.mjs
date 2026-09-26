@@ -63,25 +63,29 @@ describe("release rollback proof", () => {
 
 function createFixture() {
   const directory = mkdtempSync(resolve(tmpdir(), "inside-rollback-proof-"));
-  const previousManifest = `${JSON.stringify({
-    schemaVersion: "inside.platform.release-manifest.v2",
-    version: "v1",
-    source: {
-      repository: "sachkov-inside/platform",
-      sha: "1".repeat(40),
+  const previousManifest = `${JSON.stringify(
+    {
+      schemaVersion: "inside.platform.release-manifest.v2",
+      version: "v1",
+      source: {
+        repository: "sachkov-inside/platform",
+        sha: "1".repeat(40),
+      },
+      images: {
+        backend: `ghcr.io/sachkov-inside/platform-backend@sha256:${"a".repeat(64)}`,
+        web: `ghcr.io/sachkov-inside/platform-web@sha256:${"b".repeat(64)}`,
+      },
+      schema: { identity: `sha256:${"c".repeat(64)}` },
+      runtimeBundle: {
+        asset: "production-runtime.tar.gz",
+        sha256: `sha256:${"d".repeat(64)}`,
+      },
+      publication: { workflowRunId: 101 },
+      rollback: { previous: null },
     },
-    images: {
-      backend: `ghcr.io/sachkov-inside/platform-backend@sha256:${"a".repeat(64)}`,
-      web: `ghcr.io/sachkov-inside/platform-web@sha256:${"b".repeat(64)}`,
-    },
-    schema: { identity: `sha256:${"c".repeat(64)}` },
-    runtimeBundle: {
-      asset: "production-runtime.tar.gz",
-      sha256: `sha256:${"d".repeat(64)}`,
-    },
-    publication: { workflowRunId: 101 },
-    rollback: { previous: null },
-  }, null, 2)}\n`;
+    null,
+    2,
+  )}\n`;
   const previousPath = resolve(directory, "previous.json");
   const backendPath = resolve(directory, "backend.json");
   const webPath = resolve(directory, "web.json");

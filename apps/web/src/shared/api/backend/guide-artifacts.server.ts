@@ -19,10 +19,14 @@ export interface GuideArtifactMetadataInput {
 /** The reader section of one Guide, already narrowed by the viewer's access. */
 export function requestReaderGuideArtifacts(
   guideId: string,
-  options: { readonly accessToken?: string; readonly signal?: AbortSignal } = {},
+  options: {
+    readonly accessToken?: string;
+    readonly signal?: AbortSignal;
+  } = {},
 ): Promise<BackendTransportResult> {
   return executeGeneratedRequest(
-    (request) => new GuideArtifactsService(request).readGuideArtifacts({ guideId }),
+    (request) =>
+      new GuideArtifactsService(request).readGuideArtifacts({ guideId }),
     200,
     options,
   );
@@ -71,7 +75,8 @@ export function requestReusableGuideArtifacts(
   accessToken: string,
 ): Promise<BackendTransportResult> {
   return executeGeneratedRequest(
-    (request) => new MaterialAuthoringService(request).listReusableGuideArtifacts(),
+    (request) =>
+      new MaterialAuthoringService(request).listReusableGuideArtifacts(),
     200,
     { accessToken },
   );

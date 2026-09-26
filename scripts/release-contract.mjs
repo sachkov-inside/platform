@@ -32,7 +32,8 @@ try {
   }
 
   if (command === "image-reference") {
-    const [inputFlag, inputPath, kindFlag, kind, sourceFlag, sourceSha] = arguments_;
+    const [inputFlag, inputPath, kindFlag, kind, sourceFlag, sourceSha] =
+      arguments_;
     if (
       inputFlag !== "--input" ||
       !inputPath ||
@@ -47,10 +48,13 @@ try {
       );
     }
     const input = parseJson(
-      inputPath === "-" ? await readStandardInput() : await readFile(inputPath, "utf8"),
+      inputPath === "-"
+        ? await readStandardInput()
+        : await readFile(inputPath, "utf8"),
       `${kind} image result`,
     );
-    const expectedImageName = kind === "backend" ? backendImageName : webImageName;
+    const expectedImageName =
+      kind === "backend" ? backendImageName : webImageName;
     const image = bindImageResult(
       input,
       expectedImageName,
@@ -66,7 +70,9 @@ try {
   }
 
   const input = JSON.parse(
-    inputPath === "-" ? await readStandardInput() : await readFile(inputPath, "utf8"),
+    inputPath === "-"
+      ? await readStandardInput()
+      : await readFile(inputPath, "utf8"),
   );
 
   if (command === "plan") {
@@ -77,7 +83,8 @@ try {
     throw new Error(`unknown release contract command: ${command ?? ""}`);
   }
 } catch (error) {
-  const message = error instanceof Error ? error.message : "release contract failed";
+  const message =
+    error instanceof Error ? error.message : "release contract failed";
   process.stderr.write(`release contract: ${message}\n`);
   process.exitCode = 1;
 }
@@ -98,14 +105,16 @@ async function readStandardInput() {
 function planRelease(input) {
   input = parseSchema(releasePlanInputSchema, input, "release plan");
   const ordinal = parseOrdinalVersion(input.requestedVersion);
-  const ordinalReleases = input.existingReleases.filter(({ version }) =>
-    ordinalVersionSchema.safeParse(version).success,
+  const ordinalReleases = input.existingReleases.filter(
+    ({ version }) => ordinalVersionSchema.safeParse(version).success,
   );
   const existingVersions = ordinalReleases.map(({ version }) => version);
 
   for (const release of ordinalReleases) {
     if (!release.immutable) {
-      throw new Error(`${release.version} is not an immutable published release`);
+      throw new Error(
+        `${release.version} is not an immutable published release`,
+      );
     }
     const missingAssets = releaseAssetNames.filter(
       (asset) => !release.assets.includes(asset),
@@ -119,8 +128,8 @@ function planRelease(input) {
 
   const uniqueTags = [
     ...new Set(
-      input.existingTags.filter((tag) =>
-        ordinalVersionSchema.safeParse(tag).success,
+      input.existingTags.filter(
+        (tag) => ordinalVersionSchema.safeParse(tag).success,
       ),
     ),
   ].sort();
@@ -137,7 +146,9 @@ function planRelease(input) {
   const nextOrdinal = Math.max(0, ...existingOrdinals) + 1;
   for (let expected = 1; expected < nextOrdinal; expected += 1) {
     if (!existingOrdinals.includes(expected)) {
-      throw new Error(`ordinal history is not contiguous: missing v${expected}`);
+      throw new Error(
+        `ordinal history is not contiguous: missing v${expected}`,
+      );
     }
   }
 
@@ -161,7 +172,11 @@ function planRelease(input) {
 }
 
 async function createManifest(input) {
-  input = parseSchema(releaseManifestInputSchema, input, "release manifest input");
+  input = parseSchema(
+    releaseManifestInputSchema,
+    input,
+    "release manifest input",
+  );
   const backend = await readImageResult(
     input.images.backend,
     backendImageName,
@@ -191,7 +206,10 @@ async function createManifest(input) {
       },
       runtimeBundle: {
         asset: productionRuntimeBundleAssetName,
-        sha256: await sha256File(input.runtimeBundle, "production runtime bundle"),
+        sha256: await sha256File(
+          input.runtimeBundle,
+          "production runtime bundle",
+        ),
       },
       publication: {
         workflowRunId: input.publicationWorkflowRunId,
@@ -229,7 +247,9 @@ async function createPreviousProof(input) {
     );
   }
   if (input.rollback.previous.schemaIdentity !== previous.schema.identity) {
-    throw new Error("previous backend image does not match its manifest schema identity");
+    throw new Error(
+      "previous backend image does not match its manifest schema identity",
+    );
   }
   return {
     version: previous.version,
@@ -264,7 +284,9 @@ function bindImageResult(input, imageName, sourceSha) {
     `${imageName} result`,
   );
   if (image.image.name !== imageName || image.sourceSha !== sourceSha) {
-    throw new Error(`${imageName} result does not bind the expected image and release source`);
+    throw new Error(
+      `${imageName} result does not bind the expected image and release source`,
+    );
   }
   return image;
 }

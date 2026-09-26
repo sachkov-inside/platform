@@ -22,49 +22,49 @@ export function MaterialCurrentPreview({
 }: MaterialCurrentPreviewProps) {
   const editorLink = linkTarget(editorHref);
   return (
-      <main
-        aria-labelledby="exact-preview-heading"
-        className="h-full min-h-svh overflow-y-auto bg-background text-foreground md:min-h-0"
-        data-exact-preview
-        id="authoring-content"
-        tabIndex={-1}
-      >
-        <header className="sticky top-0 z-30 border-b border-border bg-card px-4 py-3 sm:px-6">
-          <div className="mx-auto flex w-full max-w-[80rem] flex-wrap items-center justify-between gap-3">
-            <div className="flex min-w-0 items-center gap-3">
-              <Button asChild className="size-11" size="icon-lg" variant="ghost">
-                <Link href={editorLink}>
-                  <ArrowLeft aria-hidden="true" />
-                  <span className="sr-only">Вернуться в редактор</span>
-                </Link>
-              </Button>
-              <div className="min-w-0">
-                <h1 className="text-sm font-semibold" id="exact-preview-heading">
-                  Предпросмотр материала
-                </h1>
-                <p className="truncate text-xs text-muted-foreground">
-                  {publicationStateLabel(preview.publicationState)}
-                </p>
-              </div>
-            </div>
-            <div className="flex flex-wrap gap-2">
-              <Button asChild variant="outline">
-                <Link href={materialsHref}>К материалам</Link>
-              </Button>
-              <Button asChild>
-                <Link href={editorLink}>Вернуться в редактор</Link>
-              </Button>
+    <main
+      aria-labelledby="exact-preview-heading"
+      className="h-full min-h-svh overflow-y-auto bg-background text-foreground md:min-h-0"
+      data-exact-preview
+      id="authoring-content"
+      tabIndex={-1}
+    >
+      <header className="sticky top-0 z-30 border-b border-border bg-card px-4 py-3 sm:px-6">
+        <div className="mx-auto flex w-full max-w-[80rem] flex-wrap items-center justify-between gap-3">
+          <div className="flex min-w-0 items-center gap-3">
+            <Button asChild className="size-11" size="icon-lg" variant="ghost">
+              <Link href={editorLink}>
+                <ArrowLeft aria-hidden="true" />
+                <span className="sr-only">Вернуться в редактор</span>
+              </Link>
+            </Button>
+            <div className="min-w-0">
+              <h1 className="text-sm font-semibold" id="exact-preview-heading">
+                Предпросмотр материала
+              </h1>
+              <p className="truncate text-xs text-muted-foreground">
+                {publicationStateLabel(preview.publicationState)}
+              </p>
             </div>
           </div>
-        </header>
-        <div
-          className="border-b border-border bg-card px-4 py-2.5 text-center text-xs text-muted-foreground"
-          data-preview-status-banner
-        >
-          {previewBanner(preview)}
+          <div className="flex flex-wrap gap-2">
+            <Button asChild variant="outline">
+              <Link href={materialsHref}>К материалам</Link>
+            </Button>
+            <Button asChild>
+              <Link href={editorLink}>Вернуться в редактор</Link>
+            </Button>
+          </div>
         </div>
-        <MaterialPreview preview={preview} />
-      </main>
+      </header>
+      <div
+        className="border-b border-border bg-card px-4 py-2.5 text-center text-xs text-muted-foreground"
+        data-preview-status-banner
+      >
+        {previewBanner(preview)}
+      </div>
+      <MaterialPreview preview={preview} />
+    </main>
   );
 }
 

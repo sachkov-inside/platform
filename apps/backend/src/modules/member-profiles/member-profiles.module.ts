@@ -5,7 +5,10 @@ import {
   PrismaModule,
 } from "../../infrastructure/prisma/index.js";
 import { AccountsModule } from "../accounts/index.js";
-import { PLATFORM_CONFIG, type PlatformConfig } from "../../config/platform-config.js";
+import {
+  PLATFORM_CONFIG,
+  type PlatformConfig,
+} from "../../config/platform-config.js";
 import {
   OBJECT_STORAGE,
   ObjectStorageModule,
@@ -19,7 +22,10 @@ import { MEMBER_PROFILES } from "./member-profiles.token.js";
 
 @Module({
   imports: [PrismaModule, AccountsModule, ObjectStorageModule],
-  controllers: [PrivateAccountProfileController, PrivateProfileAvatarController],
+  controllers: [
+    PrivateAccountProfileController,
+    PrivateProfileAvatarController,
+  ],
   providers: [
     {
       provide: MEMBER_PROFILES,

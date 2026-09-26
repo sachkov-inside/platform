@@ -20,9 +20,14 @@ describe("backend server interface", () => {
   });
 
   it("normalizes an explicit HTTP backend URL", () => {
-    vi.stubEnv("BACKEND_BASE_URL", "https://platform-api.example.test/internal/");
+    vi.stubEnv(
+      "BACKEND_BASE_URL",
+      "https://platform-api.example.test/internal/",
+    );
 
-    expect(readBackendBaseUrl()).toBe("https://platform-api.example.test/internal");
+    expect(readBackendBaseUrl()).toBe(
+      "https://platform-api.example.test/internal",
+    );
   });
 
   it("requires an explicit backend URL in production", () => {
@@ -77,9 +82,11 @@ describe("backend server interface", () => {
     };
     vi.stubGlobal(
       "fetch",
-      vi.fn().mockResolvedValue(
-        new Response(JSON.stringify(health), { status: 200 }),
-      ),
+      vi
+        .fn()
+        .mockResolvedValue(
+          new Response(JSON.stringify(health), { status: 200 }),
+        ),
     );
 
     await expect(getBackendHealth()).resolves.toEqual(health);
@@ -135,10 +142,13 @@ describe("backend server interface", () => {
           }),
         )
         .mockResolvedValueOnce(
-          Response.json({ ...unavailableProblem, status: 500 }, {
-            status: 503,
-            headers: { "Content-Type": "application/problem+json" },
-          }),
+          Response.json(
+            { ...unavailableProblem, status: 500 },
+            {
+              status: 503,
+              headers: { "Content-Type": "application/problem+json" },
+            },
+          ),
         ),
     );
 

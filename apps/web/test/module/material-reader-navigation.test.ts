@@ -13,9 +13,21 @@ describe("Material Reader navigation", () => {
   it("preserves Guide and legacy contexts, page and selected Material", () => {
     for (const prefix of ["guides", "series"]) {
       const href = `/${prefix}/platform-inside?from=%2F&page=2&at=second`;
-      expect(parseMaterialReaderReturnTarget(href)).toEqual({ href, kind: "series", seriesSlug: "platform-inside", label: "Назад к продукту" });
-      expect(parseMaterialReaderReturnTarget(`/${prefix}/platform-inside?page=0`).kind).toBe("home");
-      expect(parseMaterialReaderReturnTarget(`/${prefix}/platform-inside?from=https%3A%2F%2Fevil.test`).kind).toBe("home");
+      expect(parseMaterialReaderReturnTarget(href)).toEqual({
+        href,
+        kind: "series",
+        seriesSlug: "platform-inside",
+        label: "Назад к продукту",
+      });
+      expect(
+        parseMaterialReaderReturnTarget(`/${prefix}/platform-inside?page=0`)
+          .kind,
+      ).toBe("home");
+      expect(
+        parseMaterialReaderReturnTarget(
+          `/${prefix}/platform-inside?from=https%3A%2F%2Fevil.test`,
+        ).kind,
+      ).toBe("home");
     }
     expect(parseMaterialReaderReturnTarget(undefined).kind).toBe("home");
   });
@@ -100,12 +112,32 @@ describe("Material Reader navigation", () => {
 
 describe("Series return context", () => {
   it("retains page, material and navigation origin through a Reader link", () => {
-    const href = seriesReaderReturnHref(internalRoute("/series/platform?from=%2F"), 2, "ci");
-    expect(parseMaterialReaderReturnTarget(href)).toMatchObject({ kind: "series", seriesSlug: "platform", href });
+    const href = seriesReaderReturnHref(
+      internalRoute("/series/platform?from=%2F"),
+      2,
+      "ci",
+    );
+    expect(parseMaterialReaderReturnTarget(href)).toMatchObject({
+      kind: "series",
+      seriesSlug: "platform",
+      href,
+    });
     expect(materialReaderHref("ci", href)).toContain("page%3D2%26at%3Dci");
-    expect(seriesReaderReturnHref(href, 1)).toBe("/series/platform?from=%2F&page=1");
+    expect(seriesReaderReturnHref(href, 1)).toBe(
+      "/series/platform?from=%2F&page=1",
+    );
   });
-  it.each(["page=0", "page=-1", "page=2&page=3", "page=1e2", "at=bad%22slug", "from=https://evil.example", "other=2"])("rejects invalid Series return context: %s", (query) => {
-    expect(parseMaterialReaderReturnTarget(`/series/platform?${query}`).kind).toBe("home");
+  it.each([
+    "page=0",
+    "page=-1",
+    "page=2&page=3",
+    "page=1e2",
+    "at=bad%22slug",
+    "from=https://evil.example",
+    "other=2",
+  ])("rejects invalid Series return context: %s", (query) => {
+    expect(
+      parseMaterialReaderReturnTarget(`/series/platform?${query}`).kind,
+    ).toBe("home");
   });
 });

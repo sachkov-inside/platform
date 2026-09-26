@@ -1,8 +1,14 @@
 import { createHash, randomInt, randomUUID } from "node:crypto";
 import { paymentModes } from "@inside/legal";
 import { z } from "zod";
-import { dependencyFailure, reportDependencyFailure } from "../../../../infrastructure/observability/index.js";
-import { lockAccountRecords, type AccountsPrismaClient } from "../../../../infrastructure/prisma/index.js";
+import {
+  dependencyFailure,
+  reportDependencyFailure,
+} from "../../../../infrastructure/observability/index.js";
+import {
+  lockAccountRecords,
+  type AccountsPrismaClient,
+} from "../../../../infrastructure/prisma/index.js";
 import type { billingContactProtection } from "../../infrastructure/billing-contact-protection.js";
 import { shownRenewalTermsSchema } from "../legal-acceptances/legal-acceptances.contract.js";
 import {
@@ -88,7 +94,11 @@ export class BillingContact {
         documents: [...this.documents],
       };
     } catch (error) {
-      return dependencyFailure({ module: "accounts", operation: "read" }, error, contactFailure("internal_error"));
+      return dependencyFailure(
+        { module: "accounts", operation: "read" },
+        error,
+        contactFailure("internal_error"),
+      );
     }
   }
 
@@ -101,11 +111,10 @@ export class BillingContact {
     if (!z.uuid().safeParse(evidenceRef).success)
       return contactFailure("not_found");
     try {
-      const row =
-        await this.dependencies.prisma.legalAcceptance.findFirst({
-          // First sign-in acceptances have no payment context and never stand in for a payment consent.
-          where: { id: evidenceRef, accountId, contextRef: { not: null } },
-        });
+      const row = await this.dependencies.prisma.legalAcceptance.findFirst({
+        // First sign-in acceptances have no payment context and never stand in for a payment consent.
+        where: { id: evidenceRef, accountId, contextRef: { not: null } },
+      });
       if (!row?.contextRef) return contactFailure("not_found");
       return {
         ok: true,
@@ -126,7 +135,11 @@ export class BillingContact {
         },
       };
     } catch (error) {
-      return dependencyFailure({ module: "accounts", operation: "readConsent" }, error, contactFailure("internal_error"));
+      return dependencyFailure(
+        { module: "accounts", operation: "readConsent" },
+        error,
+        contactFailure("internal_error"),
+      );
     }
   }
 
@@ -257,7 +270,10 @@ export class BillingContact {
           });
           delivery = "sent";
         } catch (error) {
-          reportDependencyFailure({ module: "accounts", operation: "start" }, error);
+          reportDependencyFailure(
+            { module: "accounts", operation: "start" },
+            error,
+          );
           delivery = "unknown";
         }
       }
@@ -268,7 +284,11 @@ export class BillingContact {
         delivery,
       };
     } catch (error) {
-      return dependencyFailure({ module: "accounts", operation: "start" }, error, contactFailure("internal_error"));
+      return dependencyFailure(
+        { module: "accounts", operation: "start" },
+        error,
+        contactFailure("internal_error"),
+      );
     }
   }
 
@@ -286,9 +306,7 @@ export class BillingContact {
     const fingerprint = protection.digest(`confirm:${JSON.stringify(command)}`);
     try {
       return await prisma.$transaction(async (transaction) => {
-        await lockAccountRecords(transaction, [
-          `billing-account:${accountId}`,
-        ]);
+        await lockAccountRecords(transaction, [`billing-account:${accountId}`]);
         if (
           !(await transaction.account.findUnique({ where: { id: accountId } }))
         )
@@ -373,7 +391,11 @@ export class BillingContact {
         return result;
       });
     } catch (error) {
-      return dependencyFailure({ module: "accounts", operation: "confirm" }, error, contactFailure("internal_error"));
+      return dependencyFailure(
+        { module: "accounts", operation: "confirm" },
+        error,
+        contactFailure("internal_error"),
+      );
     }
   }
 
@@ -387,7 +409,9 @@ export class BillingContact {
       new Set(parsed.data.documents.map((document) => document.kind)).size !==
         parsed.data.documents.length ||
       // Renewal terms are shown exactly where recurring payments are accepted, and only there.
-      parsed.data.documents.some((document) => document.kind === "recurring") !==
+      parsed.data.documents.some(
+        (document) => document.kind === "recurring",
+      ) !==
         (parsed.data.shownTerms !== undefined)
     )
       return contactFailure("invalid_input");
@@ -401,9 +425,7 @@ export class BillingContact {
     );
     try {
       return await prisma.$transaction(async (transaction) => {
-        await lockAccountRecords(transaction, [
-          `billing-account:${accountId}`,
-        ]);
+        await lockAccountRecords(transaction, [`billing-account:${accountId}`]);
         if (
           !(await transaction.account.findUnique({ where: { id: accountId } }))
         )
@@ -485,7 +507,11 @@ export class BillingContact {
         return result;
       });
     } catch (error) {
-      return dependencyFailure({ module: "accounts", operation: "acceptConsents" }, error, contactFailure("internal_error"));
+      return dependencyFailure(
+        { module: "accounts", operation: "acceptConsents" },
+        error,
+        contactFailure("internal_error"),
+      );
     }
   }
 }

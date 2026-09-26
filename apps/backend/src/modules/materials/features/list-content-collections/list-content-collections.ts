@@ -34,7 +34,13 @@ export function assembleListContentCollections(
         ).list(),
       };
     } catch (error) {
-      return failure(dependencyFailure({ module: "materials", operation: "listContentCollections" }, error, mapPostgresReadError(error)));
+      return failure(
+        dependencyFailure(
+          { module: "materials", operation: "listContentCollections" },
+          error,
+          mapPostgresReadError(error),
+        ),
+      );
     }
   };
 }

@@ -43,13 +43,18 @@ describe("Published catalog item projection", () => {
       projection(index + 1),
     );
     const checkAvailabilityMany = vi.fn(
-      ({ operations }: { readonly operations: readonly { readonly itemId: string }[] }) => Promise.resolve({
-        ok: true as const,
-        items: operations.map(({ itemId }) => ({
-          availability: "available" as const,
-          itemId,
-        })),
-      }),
+      ({
+        operations,
+      }: {
+        readonly operations: readonly { readonly itemId: string }[];
+      }) =>
+        Promise.resolve({
+          ok: true as const,
+          items: operations.map(({ itemId }) => ({
+            availability: "available" as const,
+            itemId,
+          })),
+        }),
     );
 
     const result = await projectPublishedCatalogItems(
@@ -62,10 +67,11 @@ describe("Published catalog item projection", () => {
     expect(result).toMatchObject({ ok: true });
     if (!result.ok) throw new Error(result.error.code);
     expect(checkAvailabilityMany).toHaveBeenCalledTimes(2);
-    expect(checkAvailabilityMany.mock.calls.map(([input]) => input.operations.length)).toEqual([
-      100,
-      1,
-    ]);
+    expect(
+      checkAvailabilityMany.mock.calls.map(
+        ([input]) => input.operations.length,
+      ),
+    ).toEqual([100, 1]);
     expect(result.items.map(({ materialId }) => materialId)).toEqual(
       projections.map(({ materialId }) => materialId),
     );

@@ -30,7 +30,10 @@ export interface ProfileValidationIssue {
 }
 
 export type MemberProfileError =
-  | Readonly<{ code: "invalid_input"; issues: readonly ProfileValidationIssue[] }>
+  | Readonly<{
+      code: "invalid_input";
+      issues: readonly ProfileValidationIssue[];
+    }>
   | Readonly<{ code: "profile_exists" }>
   | Readonly<{ code: "profile_not_found" }>
   | Readonly<{ code: "conflict"; currentVersion?: number }>
@@ -48,15 +51,11 @@ export type UpdateMemberProfileError = Extract<
   MemberProfileError,
   {
     readonly code:
-      | "invalid_input"
-      | "profile_not_found"
-      | "conflict"
-      | "internal_error";
+      "invalid_input" | "profile_not_found" | "conflict" | "internal_error";
   }
 >;
 export type MemberProfileResult<Value, Error extends MemberProfileError> =
-  | Readonly<{ ok: true; value: Value }>
-  | Readonly<{ ok: false; error: Error }>;
+  Readonly<{ ok: true; value: Value }> | Readonly<{ ok: false; error: Error }>;
 
 export interface CreateMemberProfileCommand extends MemberProfileFields {
   readonly accountId: AccountId;
@@ -107,7 +106,10 @@ export type ChangeProfileAvatarResult =
       error:
         | Readonly<{ code: "profile_not_found" }>
         | Readonly<{ code: "conflict"; currentVersion?: number }>
-        | Readonly<{ code: "invalid_avatar"; reason: ProfileAvatarInvalidReason }>
+        | Readonly<{
+            code: "invalid_avatar";
+            reason: ProfileAvatarInvalidReason;
+          }>
         | Readonly<{ code: "dependency_unavailable" }>;
     }>;
 
@@ -124,11 +126,17 @@ export interface MemberProfiles {
   ): Promise<MemberProfileResult<PrivateProfileState, ReadPrivateProfileError>>;
   createProfile(
     command: CreateMemberProfileCommand,
-  ): Promise<MemberProfileResult<PrivateMemberProfile, CreateMemberProfileError>>;
+  ): Promise<
+    MemberProfileResult<PrivateMemberProfile, CreateMemberProfileError>
+  >;
   updateProfile(
     command: UpdateMemberProfileCommand,
-  ): Promise<MemberProfileResult<PrivateMemberProfile, UpdateMemberProfileError>>;
-  changeAvatar(command: ChangeProfileAvatarCommand): Promise<ChangeProfileAvatarResult>;
+  ): Promise<
+    MemberProfileResult<PrivateMemberProfile, UpdateMemberProfileError>
+  >;
+  changeAvatar(
+    command: ChangeProfileAvatarCommand,
+  ): Promise<ChangeProfileAvatarResult>;
   /** The owner's current avatar rendition; another Account's avatar is never delivered. */
   deliverAvatar(input: {
     readonly accountId: AccountId;

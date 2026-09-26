@@ -31,7 +31,10 @@ export function MaterialResourcePlaceholder(
             role="img"
           >
             <span>
-              <ImageIcon aria-hidden="true" className="mx-auto mb-3 size-6 text-sidebar-primary" />
+              <ImageIcon
+                aria-hidden="true"
+                className="mx-auto mb-3 size-6 text-sidebar-primary"
+              />
               <span className="block text-sm">{props.alt}</span>
               <span className="mt-2 block font-mono text-[0.6875rem] text-sidebar-foreground/65">
                 Изображение пока недоступно для просмотра
@@ -54,7 +57,10 @@ export function MaterialResourcePlaceholder(
           )}
           id={props.id}
         >
-          <FileText aria-hidden="true" className="size-5 shrink-0 text-accent" />
+          <FileText
+            aria-hidden="true"
+            className="size-5 shrink-0 text-accent"
+          />
           <span>
             <span className="block text-sm font-semibold">{props.label}</span>
             <span className="mt-1 block font-mono text-[0.6875rem] text-muted-foreground">

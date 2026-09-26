@@ -36,7 +36,10 @@ export function SubscriptionGrounds({
         Что вам доступно
       </h2>
       {loading && grounds.length === 0 ? (
-        <p className="mt-3 text-sm leading-6 text-muted-foreground" role="status">
+        <p
+          className="mt-3 text-sm leading-6 text-muted-foreground"
+          role="status"
+        >
           Загружаем основания доступа…
         </p>
       ) : grounds.length === 0 ? (

@@ -47,15 +47,17 @@ export function createS3ObjectStorage(
     forcePathStyle: config.forcePathStyle,
     region: config.region,
   });
-  const signingClient = config.signedGetEndpoint === undefined
-    ? client
-    : new S3Client({
-        credentials: config.credentials,
-        endpoint: config.signedGetEndpoint,
-        forcePathStyle: config.forcePathStyle,
-        region: config.region,
-      });
-  const send: SendObjectCommand = overrides.send ?? ((command) => client.send(command));
+  const signingClient =
+    config.signedGetEndpoint === undefined
+      ? client
+      : new S3Client({
+          credentials: config.credentials,
+          endpoint: config.signedGetEndpoint,
+          forcePathStyle: config.forcePathStyle,
+          region: config.region,
+        });
+  const send: SendObjectCommand =
+    overrides.send ?? ((command) => client.send(command));
   const sign = overrides.sign ?? getSignedUrl;
 
   const storage: ObjectStorage = {
@@ -110,7 +112,10 @@ export function createS3ObjectStorage(
     async delete(namespace, key) {
       assertObjectKey(key);
       await send(
-        new DeleteObjectCommand({ Bucket: config.buckets[namespace], Key: key }),
+        new DeleteObjectCommand({
+          Bucket: config.buckets[namespace],
+          Key: key,
+        }),
       );
     },
 
@@ -118,7 +123,9 @@ export function createS3ObjectStorage(
       assertPresignedGetTtl(input.ttlSeconds);
       assertObjectKey(input.key);
       if (input.namespace !== "protected") {
-        throw new TypeError("Only protected objects use signed GET credentials");
+        throw new TypeError(
+          "Only protected objects use signed GET credentials",
+        );
       }
       return sign(
         signingClient,
@@ -139,7 +146,9 @@ export function createS3ObjectStorage(
   return Object.freeze(storage);
 }
 
-export async function ensureS3Buckets(config: S3ObjectStorageConfig): Promise<void> {
+export async function ensureS3Buckets(
+  config: S3ObjectStorageConfig,
+): Promise<void> {
   const client = new S3Client({
     credentials: config.credentials,
     endpoint: config.endpoint,
@@ -156,7 +165,8 @@ export async function ensureS3Buckets(config: S3ObjectStorageConfig): Promise<vo
           (error.name !== "BucketAlreadyOwnedByYou" &&
             error.name !== "BucketAlreadyExists" &&
             error.$metadata?.httpStatusCode !== 409)
-        ) throw error;
+        )
+          throw error;
       }
     }
   } finally {
@@ -195,9 +205,10 @@ function isMissingObject(error: unknown): boolean {
   );
 }
 
-function isAwsError(
-  error: unknown,
-): error is { readonly $metadata?: { readonly httpStatusCode?: number }; readonly name?: string } {
+function isAwsError(error: unknown): error is {
+  readonly $metadata?: { readonly httpStatusCode?: number };
+  readonly name?: string;
+} {
   return error !== null && typeof error === "object";
 }
 
@@ -205,17 +216,25 @@ function isStoredObjectResponse(value: unknown): value is {
   readonly Body: { transformToByteArray(): Promise<Uint8Array> };
   readonly ContentLength: number;
   readonly ContentType: string;
-  readonly Metadata: Readonly<Record<string, string>> & { readonly sha256: string };
+  readonly Metadata: Readonly<Record<string, string>> & {
+    readonly sha256: string;
+  };
 } {
   if (value === null || typeof value !== "object") return false;
   const body = "Body" in value ? value.Body : undefined;
   const metadata = "Metadata" in value ? value.Metadata : undefined;
   return (
-    body !== null && typeof body === "object" &&
-    "transformToByteArray" in body && typeof body.transformToByteArray === "function" &&
-    "ContentLength" in value && typeof value.ContentLength === "number" &&
-    "ContentType" in value && typeof value.ContentType === "string" &&
-    metadata !== null && typeof metadata === "object" &&
-    "sha256" in metadata && typeof metadata.sha256 === "string"
+    body !== null &&
+    typeof body === "object" &&
+    "transformToByteArray" in body &&
+    typeof body.transformToByteArray === "function" &&
+    "ContentLength" in value &&
+    typeof value.ContentLength === "number" &&
+    "ContentType" in value &&
+    typeof value.ContentType === "string" &&
+    metadata !== null &&
+    typeof metadata === "object" &&
+    "sha256" in metadata &&
+    typeof metadata.sha256 === "string"
   );
 }

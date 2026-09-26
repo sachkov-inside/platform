@@ -8,17 +8,32 @@ import type { LoadHomePinOperation } from "./load-home-pin.contract.js";
 
 const querySchema = z.object({ actor: accountId }).strict();
 
-export function assembleLoadHomePin(dependencies: MaterialAuthoringDependencies): LoadHomePinOperation {
+export function assembleLoadHomePin(
+  dependencies: MaterialAuthoringDependencies,
+): LoadHomePinOperation {
   return async (input) => {
     const parsed = parseCommand(querySchema, input);
     if (!parsed.ok) return { ok: false, error: { code: "forbidden" } };
-    const authorization = await authorizeManager(dependencies.authorPolicy, parsed.value.actor);
+    const authorization = await authorizeManager(
+      dependencies.authorPolicy,
+      parsed.value.actor,
+    );
     if (!authorization.ok) return authorization;
     try {
-      const pin = await dependencies.prisma.homeSeriesPin.findUniqueOrThrow({ where: { id: 1 }, select: { seriesId: true, version: true } });
+      const pin = await dependencies.prisma.homeSeriesPin.findUniqueOrThrow({
+        where: { id: 1 },
+        select: { seriesId: true, version: true },
+      });
       return { ok: true, value: pin };
     } catch (error) {
-      return { ok: false, error: dependencyFailure({ module: "materials", operation: "loadHomePin" }, error, mapPostgresReadError(error)) };
+      return {
+        ok: false,
+        error: dependencyFailure(
+          { module: "materials", operation: "loadHomePin" },
+          error,
+          mapPostgresReadError(error),
+        ),
+      };
     }
   };
 }

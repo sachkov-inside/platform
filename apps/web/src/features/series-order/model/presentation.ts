@@ -33,7 +33,11 @@ export interface SeriesOrderPresentation {
   readonly chapters: readonly GuideChapterPresentation[];
   readonly items: readonly SeriesOrderItemPresentation[];
   readonly name: string;
-  readonly options: readonly { readonly archived?: boolean; readonly label: string; readonly value: string }[];
+  readonly options: readonly {
+    readonly archived?: boolean;
+    readonly label: string;
+    readonly value: string;
+  }[];
   readonly orderVersion: string;
   readonly seriesId: string;
 }

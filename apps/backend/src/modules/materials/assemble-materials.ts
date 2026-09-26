@@ -66,7 +66,9 @@ export function assembleMaterials(dependencies: {
     ...(dependencies.materialAssets === undefined
       ? {}
       : { materialAssets: dependencies.materialAssets }),
-    ...(dependencies.videos === undefined ? {} : { videos: dependencies.videos }),
+    ...(dependencies.videos === undefined
+      ? {}
+      : { videos: dependencies.videos }),
     ...(dependencies.guideAccessHolders === undefined
       ? {}
       : { guideAccessHolders: dependencies.guideAccessHolders }),
@@ -80,7 +82,9 @@ export function assembleMaterials(dependencies: {
       contentAccess,
       materialContent,
       materialBodyOperations,
-      ...(dependencies.videos === undefined ? {} : { videos: dependencies.videos }),
+      ...(dependencies.videos === undefined
+        ? {}
+        : { videos: dependencies.videos }),
     }),
   });
 }

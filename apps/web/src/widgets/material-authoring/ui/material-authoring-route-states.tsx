@@ -6,7 +6,6 @@ import type { ReactNode } from "react";
 import { Button } from "@/shared/ui/button";
 import { authoringMaterialsRootHref } from "@/shared/routing/authoring";
 
-
 export function MaterialAuthoringUnauthorizedState({
   action,
   context,
@@ -23,8 +22,15 @@ export function MaterialAuthoringUnauthorizedState({
           ? "Текущая сессия не подтверждает право просматривать черновик. Войдите под доверенным автором или вернитесь к материалам."
           : "Текущая сессия не подтверждает право изменять материалы. Войдите под доверенным автором или вернитесь к материалам."
       }
-      heading={preview ? "Нет доступа к предпросмотру" : "Нет доступа к редактору"}
-      icon={<ShieldAlert aria-hidden="true" className="mx-auto size-8 text-destructive" />}
+      heading={
+        preview ? "Нет доступа к предпросмотру" : "Нет доступа к редактору"
+      }
+      icon={
+        <ShieldAlert
+          aria-hidden="true"
+          className="mx-auto size-8 text-destructive"
+        />
+      }
     />
   );
 }
@@ -104,7 +110,12 @@ export function MaterialAuthoringUnexpectedPreviewState({
       description="Черновик не изменён. Повторите чтение сохранённого материала."
       detail={`Код обращения: ${reference}`}
       heading="Не удалось открыть предпросмотр"
-      icon={<CloudOff aria-hidden="true" className="mx-auto size-8 text-destructive" />}
+      icon={
+        <CloudOff
+          aria-hidden="true"
+          className="mx-auto size-8 text-destructive"
+        />
+      }
     />
   );
 }
@@ -133,7 +144,12 @@ export function MaterialAuthoringUnexpectedEditorState({
       description="Не удалось подтвердить сессию автора. Черновик ещё не создан, данные не изменены."
       detail={`Код обращения: ${reference}`}
       heading="Не удалось открыть редактор"
-      icon={<CloudOff aria-hidden="true" className="mx-auto size-8 text-destructive" />}
+      icon={
+        <CloudOff
+          aria-hidden="true"
+          className="mx-auto size-8 text-destructive"
+        />
+      }
     />
   );
 }
@@ -152,7 +168,12 @@ export function MaterialAuthoringNotFoundState({
       }
       description="Материал с таким идентификатором не найден. Локальные изменения не отправлялись."
       heading="Материал не найден"
-      icon={<CloudOff aria-hidden="true" className="mx-auto size-8 text-destructive" />}
+      icon={
+        <CloudOff
+          aria-hidden="true"
+          className="mx-auto size-8 text-destructive"
+        />
+      }
     />
   );
 }
@@ -178,7 +199,12 @@ export function MaterialAuthoringPreviewNotFoundState({
       }
       description="Сохранённый черновик с таким идентификатором не найден. Повтор чтения не изменит результат."
       heading="Предпросмотр не найден"
-      icon={<CloudOff aria-hidden="true" className="mx-auto size-8 text-destructive" />}
+      icon={
+        <CloudOff
+          aria-hidden="true"
+          className="mx-auto size-8 text-destructive"
+        />
+      }
     />
   );
 }
@@ -198,16 +224,25 @@ export function MaterialAuthoringRouteError({
     <MaterialAuthoringStateScreen
       action={
         <div className="flex flex-wrap justify-center gap-2">
-          <Button onClick={onRetry} type="button">Повторить</Button>
+          <Button onClick={onRetry} type="button">
+            Повторить
+          </Button>
           <Button asChild variant="outline">
-            <Link href={authoringMaterialsRootHref}>Вернуться к материалам</Link>
+            <Link href={authoringMaterialsRootHref}>
+              Вернуться к материалам
+            </Link>
           </Button>
         </div>
       }
       description="Произошла непредвиденная ошибка. Повторите действие или вернитесь к материалам."
       detail={`Код обращения: ${digest ?? "authoring-boundary"}`}
       heading="Редактор остановлен"
-      icon={<CloudOff aria-hidden="true" className="mx-auto size-8 text-destructive" />}
+      icon={
+        <CloudOff
+          aria-hidden="true"
+          className="mx-auto size-8 text-destructive"
+        />
+      }
     />
   );
 }
@@ -226,31 +261,33 @@ function MaterialAuthoringStateScreen({
   readonly icon: ReactNode;
 }) {
   return (
-      <main
-        className="grid h-full min-h-svh place-items-center bg-background px-5 py-12 text-foreground md:min-h-0"
-        id="authoring-content"
-        tabIndex={-1}
+    <main
+      className="grid h-full min-h-svh place-items-center bg-background px-5 py-12 text-foreground md:min-h-0"
+      id="authoring-content"
+      tabIndex={-1}
+    >
+      <section
+        aria-labelledby="material-authoring-state-heading"
+        className="w-full max-w-xl border-y border-border py-10 text-center"
+        role="alert"
       >
-        <section
-          aria-labelledby="material-authoring-state-heading"
-          className="w-full max-w-xl border-y border-border py-10 text-center"
-          role="alert"
+        {icon}
+        <h1
+          className="mt-5 text-2xl font-semibold tracking-[-0.025em]"
+          id="material-authoring-state-heading"
         >
-          {icon}
-          <h1
-            className="mt-5 text-2xl font-semibold tracking-[-0.025em]"
-            id="material-authoring-state-heading"
-          >
-            {heading}
-          </h1>
-          <p className="mx-auto mt-3 max-w-[52ch] text-sm leading-6 text-muted-foreground">
-            {description}
+          {heading}
+        </h1>
+        <p className="mx-auto mt-3 max-w-[52ch] text-sm leading-6 text-muted-foreground">
+          {description}
+        </p>
+        {detail === undefined ? null : (
+          <p className="mt-3 font-mono text-[0.6875rem] text-muted-foreground">
+            {detail}
           </p>
-          {detail === undefined ? null : (
-            <p className="mt-3 font-mono text-[0.6875rem] text-muted-foreground">{detail}</p>
-          )}
-          <div className="mt-6">{action}</div>
-        </section>
-      </main>
+        )}
+        <div className="mt-6">{action}</div>
+      </section>
+    </main>
   );
 }

@@ -15,16 +15,26 @@ import addFormats from "ajv-formats";
  * сверяется целиком, вместе с запретом необъявленных полей.
  */
 
-const documentPath = new URL("../../openapi/platform-api.json", import.meta.url);
+const documentPath = new URL(
+  "../../openapi/platform-api.json",
+  import.meta.url,
+);
 const schemaRootId = "inside://platform-api";
 
 const mediaTypeSchema = z.object({ schema: z.unknown() }).loose();
-const responseSchema = z.object({ content: z.record(z.string(), mediaTypeSchema).optional() }).loose();
-const operationSchema = z.object({ responses: z.record(z.string(), responseSchema).optional() }).loose();
+const responseSchema = z
+  .object({ content: z.record(z.string(), mediaTypeSchema).optional() })
+  .loose();
+const operationSchema = z
+  .object({ responses: z.record(z.string(), responseSchema).optional() })
+  .loose();
 const documentSchema = z
   .object({
     paths: z.record(z.string(), z.record(z.string(), operationSchema)),
-    components: z.object({ schemas: z.record(z.string(), z.unknown()).optional() }).loose().optional(),
+    components: z
+      .object({ schemas: z.record(z.string(), z.unknown()).optional() })
+      .loose()
+      .optional(),
   })
   .loose();
 
@@ -38,7 +48,10 @@ addFormats.default(ajv);
 for (const format of declaredFormats(document)) {
   if (ajv.formats[format] === undefined) ajv.addFormat(format, true);
 }
-ajv.addSchema({ $id: schemaRootId, definitions: translatedSchema(document.components?.schemas ?? {}) });
+ajv.addSchema({
+  $id: schemaRootId,
+  definitions: translatedSchema(document.components?.schemas ?? {}),
+});
 
 const validators = new Map<string, ValidateFunction>();
 
@@ -49,13 +62,17 @@ export interface DeclaredResponseParts {
 }
 
 /** Ровно то, что нужно сверке: сервер, которому можно отправить запрос. */
-export interface InjectableServer<Response extends DeclaredResponseParts = LightMyRequestResponse> {
+export interface InjectableServer<
+  Response extends DeclaredResponseParts = LightMyRequestResponse,
+> {
   inject(options: InjectOptions): Promise<Response>;
   ready(): PromiseLike<unknown>;
 }
 
 /** Сервер под контрактом: тот же `inject`, только ответ читается его собственным описанием. */
-export interface DeclaredServer<Response extends DeclaredResponseParts = LightMyRequestResponse> {
+export interface DeclaredServer<
+  Response extends DeclaredResponseParts = LightMyRequestResponse,
+> {
   ready(): PromiseLike<unknown>;
   inject(options: InjectOptions): Promise<Response>;
 }
@@ -69,7 +86,12 @@ export function declaredServer<Response extends DeclaredResponseParts>(
     inject: async (options: InjectOptions): Promise<Response> => {
       const response = await server.inject(options);
       const { method, url } = requestAddress(options);
-      assertDeclaredResponse({ method, url, status: response.statusCode, body: () => response.json() });
+      assertDeclaredResponse({
+        method,
+        url,
+        status: response.statusCode,
+        body: () => response.json(),
+      });
       return response;
     },
   };
@@ -110,23 +132,33 @@ export function assertDeclaredResponse(response: {
   const validate = compiledValidator(schema);
   if (validate(response.body())) return;
   throw new Error(
-    `${address(response)} answered ${String(response.status)} with a body its own description rejects:\n${
-      (validate.errors ?? [])
-        .map((error) => `  ${error.instancePath === "" ? "/" : error.instancePath} ${error.message ?? ""} ${JSON.stringify(error.params)}`)
-        .join("\n")
-    }`,
+    `${address(response)} answered ${String(response.status)} with a body its own description rejects:\n${(
+      validate.errors ?? []
+    )
+      .map(
+        (error) =>
+          `  ${error.instancePath === "" ? "/" : error.instancePath} ${error.message ?? ""} ${JSON.stringify(error.params)}`,
+      )
+      .join("\n")}`,
   );
 }
 
 function readApiDocument(): z.infer<typeof documentSchema> {
-  const parsed = documentSchema.safeParse(JSON.parse(readFileSync(documentPath, "utf8")));
+  const parsed = documentSchema.safeParse(
+    JSON.parse(readFileSync(documentPath, "utf8")),
+  );
   if (!parsed.success) {
-    throw new Error(`${documentPath.pathname} is not an OpenAPI document. Run \`pnpm api:generate\`.`);
+    throw new Error(
+      `${documentPath.pathname} is not an OpenAPI document. Run \`pnpm api:generate\`.`,
+    );
   }
   return parsed.data;
 }
 
-function address(response: { readonly method: string; readonly url: string }): string {
+function address(response: {
+  readonly method: string;
+  readonly url: string;
+}): string {
   return `${response.method} ${response.url}`;
 }
 
@@ -140,27 +172,41 @@ function compiledValidator(schema: object): ValidateFunction {
   return validate;
 }
 
-function requestAddress(options: InjectOptions): { method: string; url: string } {
+function requestAddress(options: InjectOptions): {
+  method: string;
+  url: string;
+} {
   const target = options.url ?? options.path;
-  const url = typeof target === "string" ? target : target?.pathname ?? "";
+  const url = typeof target === "string" ? target : (target?.pathname ?? "");
   return { method: (options.method ?? "GET").toUpperCase(), url };
 }
 
 /** Адрес приводится к объявленному шаблону: точное совпадение важнее параметризованного. */
-function declaredOperation(method: string, url: string): OperationResponses | undefined {
+function declaredOperation(
+  method: string,
+  url: string,
+): OperationResponses | undefined {
   const path = url.split("?")[0] ?? url;
   const exact = document.paths[path]?.[method.toLowerCase()];
   if (exact !== undefined) return exact.responses ?? {};
   const matches = Object.entries(document.paths)
-    .filter(([declaredPath, item]) =>
-      item[method.toLowerCase()] !== undefined && pathTemplate(declaredPath).test(path))
+    .filter(
+      ([declaredPath, item]) =>
+        item[method.toLowerCase()] !== undefined &&
+        pathTemplate(declaredPath).test(path),
+    )
     .sort(([left], [right]) => parameterCount(left) - parameterCount(right));
   const [best, next] = matches;
   if (best === undefined) return undefined;
   // Порядок ключей документа не должен решать, какую схему читают: одинаково подробная пара
   // шаблонов — это неоднозначность, а не выбор по умолчанию.
-  if (next !== undefined && parameterCount(next[0]) === parameterCount(best[0])) {
-    throw new Error(`${method} ${path} matches both ${best[0]} and ${next[0]}; the document is ambiguous here.`);
+  if (
+    next !== undefined &&
+    parameterCount(next[0]) === parameterCount(best[0])
+  ) {
+    throw new Error(
+      `${method} ${path} matches both ${best[0]} and ${next[0]}; the document is ambiguous here.`,
+    );
   }
   return best[1][method.toLowerCase()]?.responses ?? {};
 }
@@ -174,12 +220,17 @@ function parameterCount(declaredPath: string): number {
  * документа с телом, и пропустить их значило бы не встретиться с большей частью проверяемого.
  * Часть таких схем документ объявляет открытыми, часть закрытыми — решает документ, не сверка.
  */
-function declaredJsonSchema(declared: z.infer<typeof responseSchema>): object | undefined {
+function declaredJsonSchema(
+  declared: z.infer<typeof responseSchema>,
+): object | undefined {
   const content = declared.content ?? {};
   const mediaType = Object.keys(content).includes("application/json")
     ? "application/json"
-    : Object.keys(content).filter((name) => name.endsWith("+json")).sort()[0];
-  const schema = mediaType === undefined ? undefined : content[mediaType]?.schema;
+    : Object.keys(content)
+        .filter((name) => name.endsWith("+json"))
+        .sort()[0];
+  const schema =
+    mediaType === undefined ? undefined : content[mediaType]?.schema;
   return schema === null || typeof schema !== "object" ? undefined : schema;
 }
 
@@ -191,7 +242,11 @@ function pathTemplate(declaredPath: string): RegExp {
   const pattern = new RegExp(
     `^${declaredPath
       .split(/(\{[^}]+\})/u)
-      .map((part) => (/^\{[^}]+\}$/u.test(part) ? "[^/]+" : part.replace(/[.*+?^${}()|[\]\\]/gu, "\\$&")))
+      .map((part) =>
+        /^\{[^}]+\}$/u.test(part)
+          ? "[^/]+"
+          : part.replace(/[.*+?^${}()|[\]\\]/gu, "\\$&"),
+      )
       .join("")}$`,
     "u",
   );
@@ -224,7 +279,9 @@ function translatedSchema(value: object): Record<string, unknown> {
         .filter(([key]) => !dropped.has(key))
         .map(([key, entry]) => [
           key,
-          key === "$ref" && typeof entry === "string" && entry.startsWith("#/components/schemas/")
+          key === "$ref" &&
+          typeof entry === "string" &&
+          entry.startsWith("#/components/schemas/")
             ? `${schemaRootId}#/definitions/${entry.slice("#/components/schemas/".length)}`
             : translated(entry),
         ]),
@@ -235,13 +292,24 @@ function translatedSchema(value: object): Record<string, unknown> {
   // `oneOf` здесь — перечень вариантов ответа, а не исключающий выбор: его строит
   // `problemDetailsOneOfContent` из перечисленных схем, и открытый вариант заведомо пересекается с
   // закрытым. Требование «ровно один» отвергло бы честное тело отказа, которое подходит обоим.
-  const alternated = alternatives === undefined
-    ? schema
-    : { ...Object.fromEntries(Object.entries(schema).filter(([key]) => key !== "oneOf")), anyOf: alternatives };
-  return source.nullable === true ? { anyOf: [alternated, { type: "null" }] } : alternated;
+  const alternated =
+    alternatives === undefined
+      ? schema
+      : {
+          ...Object.fromEntries(
+            Object.entries(schema).filter(([key]) => key !== "oneOf"),
+          ),
+          anyOf: alternatives,
+        };
+  return source.nullable === true
+    ? { anyOf: [alternated, { type: "null" }] }
+    : alternated;
 }
 
-function declaredFormats(value: unknown, found = new Set<string>()): Set<string> {
+function declaredFormats(
+  value: unknown,
+  found = new Set<string>(),
+): Set<string> {
   if (Array.isArray(value)) {
     for (const entry of value) declaredFormats(entry, found);
     return found;
