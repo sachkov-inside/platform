@@ -28,3 +28,7 @@ docs/evidence/
 
 # Logto fork and connector sources follow the upstream Logto code they replace at a pinned revision.
 infra/identity/logto/
+
+# Check fixtures: guardrails assert diagnostics at exact lines of these sources.
+**/guardrails/fixtures/
+scripts/fixtures/
