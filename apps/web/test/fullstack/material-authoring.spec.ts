@@ -142,10 +142,11 @@ for (const access of ["public", "membership"] as const) {
     // Ответ Platform сам ставит nosniff: публичный файл отдаётся им, закрытый — редиректом на
     // подписанный адрес хранилища, чьи заголовки, кроме запрошенного в подписи attachment,
     // Platform не задаёт.
-    const platformFile = await (await fullStackPageRequest(page)).get(href, { maxRedirects: 0 });
+    const memberRequest = await fullStackPageRequest(page);
+    const platformFile = await memberRequest.get(href, { maxRedirects: 0 });
     expect(platformFile.status()).toBe(access === "membership" ? 302 : 200);
     expect(platformFile.headers()["x-content-type-options"]).toBe("nosniff");
-    const memberFile = await (await fullStackPageRequest(page)).get(href);
+    const memberFile = await memberRequest.get(href);
     expect(memberFile.status()).toBe(200);
     expect(await memberFile.text()).toBe("Media convergence attachment\n");
     expect(memberFile.headers()["content-disposition"]).toContain("attachment");

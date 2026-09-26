@@ -204,6 +204,11 @@ these are the rules a change follows.
   the assertion holding a detached node that can never equal what the document reports now.
 - Treat `clock.runFor` as a trigger: it returns once the page's virtual timers ran, before the
   request they started has been answered. Wait for the response or the applied render.
+- Simulate a return to the tab with `visibilitychange` and `focus` together, as a browser sends
+  them. TanStack Query re-reads stale queries on `visibilitychange` only, and the shell re-checks
+  sign-in on `focus`. A bare `focus` only re-checks sign-in and re-reads no query. Worked examples:
+  `returnToStaleTab` in `test/fullstack/personal-home.spec.ts` for a return to the tab and
+  `signInAndRecheckOnFocus` in `test/fullstack/reading-progress.spec.ts` for a sign-in re-check.
 - Build site animation as a CSS component next to its page, with a `prefers-reduced-motion` guard
   and platform tokens. The static cover is the same component with its loop stopped. Do not use
   Remotion, framer-motion or an embedded video as a site asset (owner decision of 2026-09-11).
