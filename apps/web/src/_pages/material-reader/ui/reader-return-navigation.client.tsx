@@ -8,7 +8,11 @@ import type { MaterialReaderReturnTarget } from "@/shared/routing/material-reade
 import { Button } from "@/shared/ui/button";
 
 /** Repeat the return action after scrolling past its ordinary, non-sticky top position. */
-export function ReaderReturnNavigation({ children, repeatAtBottom, target }: {
+export function ReaderReturnNavigation({
+  children,
+  repeatAtBottom,
+  target,
+}: {
   readonly children: ReactNode;
   readonly repeatAtBottom: boolean;
   readonly target: MaterialReaderReturnTarget;
@@ -23,21 +27,38 @@ export function ReaderReturnNavigation({ children, repeatAtBottom, target }: {
       if (entry !== undefined) setTopOutsideViewport(!entry.isIntersecting);
     });
     observer.observe(top);
-    return () => { observer.disconnect(); };
+    return () => {
+      observer.disconnect();
+    };
   }, [repeatAtBottom]);
 
   const action = (
-    <Button asChild className="h-auto min-h-11 max-w-full whitespace-normal rounded-full border-0 bg-black/5 px-4 text-xs font-semibold shadow-none" variant="outline">
-      <IntentPrefetchLink href={target.href}><ArrowLeft aria-hidden="true" />{target.label}</IntentPrefetchLink>
+    <Button
+      asChild
+      className="h-auto min-h-11 max-w-full whitespace-normal rounded-full border-0 bg-black/5 px-4 text-xs font-semibold shadow-none"
+      variant="outline"
+    >
+      <IntentPrefetchLink href={target.href}>
+        <ArrowLeft aria-hidden="true" />
+        {target.label}
+      </IntentPrefetchLink>
     </Button>
   );
 
   return (
     <>
-      <div className="mx-auto mb-6 max-w-[43rem]" data-reader-return="top" ref={topRef}>{action}</div>
+      <div
+        className="mx-auto mb-6 max-w-[43rem]"
+        data-reader-return="top"
+        ref={topRef}
+      >
+        {action}
+      </div>
       {children}
       {repeatAtBottom && topOutsideViewport ? (
-        <div className="mx-auto mt-8 max-w-[43rem]" data-reader-return="bottom">{action}</div>
+        <div className="mx-auto mt-8 max-w-[43rem]" data-reader-return="bottom">
+          {action}
+        </div>
       ) : null}
     </>
   );

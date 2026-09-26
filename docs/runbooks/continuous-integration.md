@@ -30,7 +30,7 @@ names its seam and the stages run in parallel:
 
 | Job | Repository command or proof |
 |---|---|
-| `static` | `inside-harness health` at the installed harness version, then `pnpm check:static`: documentation contract, workspace packages and Prisma client, OpenAPI drift, lint, typecheck, guardrails |
+| `static` | `inside-harness health` at the installed harness version, then `pnpm check:static`: documentation contract, Prettier formatting, workspace packages and Prisma client, OpenAPI drift, lint, typecheck, guardrails |
 | `unit` | `pnpm check:unit`: tooling and authoring `node --test`, Workshop contracts and `go test -race`, backend and package Vitest, web module tests |
 | `ui` | `pnpm check:ui`: browser-engine checks (Chromium and WebKit), Storybook tests and the Storybook build |
 | `web-e2e` | `pnpm check:web-e2e`: one production build, prerendered and standalone checks, then Playwright e2e and page transitions on `next start` of that build |

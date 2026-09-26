@@ -21,9 +21,9 @@ interface WorkerGenerationLease {
   release(): Promise<void>;
 }
 
-const leaseResultSchema = z.array(
-  z.object({ acquired: z.boolean() }).strict(),
-).length(1);
+const leaseResultSchema = z
+  .array(z.object({ acquired: z.boolean() }).strict())
+  .length(1);
 
 export async function acquireWorkerGenerationLease(
   databaseUrl: string,
@@ -75,9 +75,7 @@ export async function acquireWorkerGenerationLease(
   };
 }
 
-async function markWorkerReady(
-  report: ReadinessReport,
-): Promise<void> {
+async function markWorkerReady(report: ReadinessReport): Promise<void> {
   await writeFile(WORKER_READINESS_PATH, `${JSON.stringify(report)}\n`, {
     encoding: "utf8",
     mode: 0o600,
@@ -117,7 +115,14 @@ async function removeWorkerReadiness(): Promise<void> {
 export async function runWorker(input: {
   readonly application: { close(): Promise<void> };
   readonly databaseUrl: string;
-  readonly jobs: { start(): Promise<unknown>; stop(options: { close: boolean; graceful: boolean; timeout: number }): Promise<unknown> };
+  readonly jobs: {
+    start(): Promise<unknown>;
+    stop(options: {
+      close: boolean;
+      graceful: boolean;
+      timeout: number;
+    }): Promise<unknown>;
+  };
   readonly failed?: Promise<void>;
   readonly process: WorkerProcess;
   readonly readiness: Pick<OperationalReadiness, "check">;
@@ -129,20 +134,27 @@ export async function runWorker(input: {
   let readinessReport: ReadinessReport | undefined;
   let stopReason: { readonly error: unknown } | undefined;
   try {
-    lease = await acquireWorkerGenerationLease(input.databaseUrl, input.process);
+    lease = await acquireWorkerGenerationLease(
+      input.databaseUrl,
+      input.process,
+    );
     await input.jobs.start();
     jobsStarted = true;
     await input.registerJobs();
     readinessReport = await input.readiness.check(input.process);
     await markWorkerReady(readinessReport);
-    await Promise.race([shutdown.received, ...(input.failed ? [input.failed] : [])]);
+    await Promise.race([
+      shutdown.received,
+      ...(input.failed ? [input.failed] : []),
+    ]);
   } catch (error) {
     stopReason = { error };
   }
   shutdown.dispose();
   // Остановка после отказа — его следствие: её собственные сбои называются отдельно и не
   // подменяют причину, из-за которой воркер остановился.
-  const stopFailures: { readonly reason: string; readonly error: unknown }[] = [];
+  const stopFailures: { readonly reason: string; readonly error: unknown }[] =
+    [];
   // Каждый шаг уборки идёт, даже если предыдущий упал: иначе сбой закрытия держал бы lease.
   const attempt = async (reason: string, step: () => Promise<void>) => {
     try {
@@ -152,7 +164,8 @@ export async function runWorker(input: {
     }
   };
   try {
-    if (readinessReport) await markWorkerDraining(input.process, readinessReport);
+    if (readinessReport)
+      await markWorkerDraining(input.process, readinessReport);
     else await removeWorkerReadiness();
     if (jobsStarted) {
       await input.jobs.stop({
@@ -165,8 +178,12 @@ export async function runWorker(input: {
     stopFailures.push({ reason: "worker_drain_failed", error });
   }
   await attempt("worker_close_failed", () => input.application.close());
-  await attempt("worker_lease_release_failed", async () => { await lease?.release(); });
-  await attempt("worker_stop_mark_failed", () => markWorkerStopped(input.process, readinessReport));
+  await attempt("worker_lease_release_failed", async () => {
+    await lease?.release();
+  });
+  await attempt("worker_stop_mark_failed", () =>
+    markWorkerStopped(input.process, readinessReport),
+  );
   // Наружу уходит одна ошибка: причина остановки, а без неё — первый сбой. Остальные сбои
   // называются здесь; текст ошибки проходит describeError, который убирает учётные данные адреса.
   const thrown = stopReason ?? stopFailures[0];

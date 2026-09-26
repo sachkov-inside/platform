@@ -356,17 +356,22 @@ describe("Workshop foundation", () => {
     const now = new Date("2030-01-04T00:00:00.000Z");
     const caseSpec = {
       caseId: "partner-webhooks",
-      learningOutcome: "Deliver partner webhooks without losing accepted events",
+      learningOutcome:
+        "Deliver partner webhooks without losing accepted events",
       version: "fixture-v1",
     };
     const contentDigest = sha256(JSON.stringify(caseSpec));
     let archiveFailure = false;
-    let materialCatalogMode: "different" | "duplicate" | "requested" = "requested";
+    let materialCatalogMode: "different" | "duplicate" | "requested" =
+      "requested";
     let ownerAllowed = true;
     let nextId = 100;
     const workshop = assembleWorkshop({
       prisma: database.prisma,
-      membershipAccess: { resolveForAccessUnderEntitlementLock: () => Promise.resolve({ kind: "required" }) },
+      membershipAccess: {
+        resolveForAccessUnderEntitlementLock: () =>
+          Promise.resolve({ kind: "required" }),
+      },
       ownerPolicy: { canManageWorkshop: () => Promise.resolve(ownerAllowed) },
       materialCatalog: {
         findMany: (materialIds) =>
@@ -404,8 +409,7 @@ describe("Workshop foundation", () => {
         },
       },
       clock: () => now,
-      id: () =>
-        `86000000-0000-4000-8000-${String(nextId++).padStart(12, "0")}`,
+      id: () => `86000000-0000-4000-8000-${String(nextId++).padStart(12, "0")}`,
     });
     const firstCommand = {
       actorAccountId: ownerAccountId,
@@ -578,8 +582,7 @@ describe("Workshop foundation", () => {
         store: () => Promise.reject(new Error("not used by this slice")),
       },
       clock: () => now,
-      id: () =>
-        `86000000-0000-4000-8000-${String(nextId++).padStart(12, "0")}`,
+      id: () => `86000000-0000-4000-8000-${String(nextId++).padStart(12, "0")}`,
     });
     const currentCase = await workshop.loadCurrentCase("partner-webhooks");
     if (!currentCase.ok) throw new Error("Synthetic Case fixture is missing");
@@ -607,9 +610,7 @@ describe("Workshop foundation", () => {
     const immediateMaterialId = materialId(
       "86000000-0000-4000-8000-000000000201",
     );
-    const hintMaterialId = materialId(
-      "86000000-0000-4000-8000-000000000202",
-    );
+    const hintMaterialId = materialId("86000000-0000-4000-8000-000000000202");
     const solutionMaterialId = materialId(
       "86000000-0000-4000-8000-000000000203",
     );
@@ -643,7 +644,11 @@ describe("Workshop foundation", () => {
             { assetId, kind: "file", materialId: hintMaterialId },
           ]),
         findOne: () =>
-          Promise.resolve({ assetId, kind: "file", materialId: hintMaterialId }),
+          Promise.resolve({
+            assetId,
+            kind: "file",
+            materialId: hintMaterialId,
+          }),
       },
       videoResourceFacts: {
         findMany: () =>
@@ -692,7 +697,8 @@ describe("Workshop foundation", () => {
       },
     ];
     const materialRequest = directRequests[0];
-    if (materialRequest === undefined) throw new Error("Material access fixture is missing");
+    if (materialRequest === undefined)
+      throw new Error("Material access fixture is missing");
     for (const request of directRequests) {
       await expect(
         contentAccess.authorize({
@@ -824,9 +830,9 @@ describe("Workshop foundation", () => {
       where: { id: currentCase.value.caseVersionId },
       data: { withdrawnAt: now },
     });
-    await expect(
-      workshop.loadCurrentCase("partner-webhooks"),
-    ).resolves.toEqual({ ok: false, error: { code: "case_not_found" } });
+    await expect(workshop.loadCurrentCase("partner-webhooks")).resolves.toEqual(
+      { ok: false, error: { code: "case_not_found" } },
+    );
   });
 });
 
@@ -849,7 +855,9 @@ function membershipEvidence(
   };
 }
 
-async function waitForBlockedAdvisoryLock(database: TestDatabase): Promise<void> {
+async function waitForBlockedAdvisoryLock(
+  database: TestDatabase,
+): Promise<void> {
   for (let attempt = 0; attempt < 100; attempt += 1) {
     const rows = await database.prisma.$queryRaw<readonly { count: bigint }[]>(
       Prisma.sql`

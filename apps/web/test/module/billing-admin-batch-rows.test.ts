@@ -38,7 +38,8 @@ it("разбирает выдачу и классификацию одного �
     },
   ]);
   // Обе строки принимает та же схема, что уходит владельческой командой.
-  for (const row of parsed.rows) expect(batchRowSchema.safeParse(row).success).toBe(true);
+  for (const row of parsed.rows)
+    expect(batchRowSchema.safeParse(row).success).toBe(true);
 });
 
 it("отмечает переход старой группы только отмеченным признаком", () => {

@@ -34,7 +34,10 @@ function providerCanonicalJson(value: unknown): string {
   if (value && typeof value === "object") {
     return `{${Object.entries(value)
       .sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0))
-      .map(([key, entry]) => `${JSON.stringify(key)}:${providerCanonicalJson(entry)}`)
+      .map(
+        ([key, entry]) =>
+          `${JSON.stringify(key)}:${providerCanonicalJson(entry)}`,
+      )
       .join(",")}}`;
   }
   return JSON.stringify(value);
@@ -53,7 +56,9 @@ describe("community entitlement wire agreement", () => {
   });
 
   test("object key order is irrelevant and array order is preserved", () => {
-    expect(canonicalJson({ b: 1, a: [2, 3] })).toBe(canonicalJson({ a: [2, 3], b: 1 }));
+    expect(canonicalJson({ b: 1, a: [2, 3] })).toBe(
+      canonicalJson({ a: [2, 3], b: 1 }),
+    );
     expect(contractDigest([1, 2])).not.toBe(contractDigest([2, 1]));
     expect(contractDigest({ a: "Ä" })).toBe(contractDigest({ a: "Ä" }));
   });
@@ -62,11 +67,18 @@ describe("community entitlement wire agreement", () => {
     for (const fixture of fixtures) {
       const codec =
         fixture.definition === "communityRequest"
-          ? communitySetSchema.extend({ contractVersion: z.literal("inside.community-entitlement.v1") })
+          ? communitySetSchema.extend({
+              contractVersion: z.literal("inside.community-entitlement.v1"),
+            })
           : fixture.definition === "communityResponse"
             ? communityResultSchema
             : fixture.definition === "authorizationRequest"
-              ? dispatchAuthorizeSchema.extend({ dispatchContractVersion: z.enum(["inside.community-entitlement.v1", "inside.billing-notification.v1"]) })
+              ? dispatchAuthorizeSchema.extend({
+                  dispatchContractVersion: z.enum([
+                    "inside.community-entitlement.v1",
+                    "inside.billing-notification.v1",
+                  ]),
+                })
               : undefined;
       if (codec === undefined) continue;
       const parsed = codec.safeParse(fixture.value);

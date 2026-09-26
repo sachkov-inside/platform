@@ -45,7 +45,9 @@ export const Unlinked: Story = {
     await expect(
       canvas.getByRole("button", { name: "Подключить Telegram" }),
     ).toBeInTheDocument();
-    await expect(canvas.queryByText(/Доступ|Membership|Получить доступ/u)).not.toBeInTheDocument();
+    await expect(
+      canvas.queryByText(/Доступ|Membership|Получить доступ/u),
+    ).not.toBeInTheDocument();
   },
 };
 
@@ -84,7 +86,9 @@ export const Conflict: Story = {
   },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
-    await expect(canvas.getByText("Не получилось подключить")).toBeInTheDocument();
+    await expect(
+      canvas.getByText("Не получилось подключить"),
+    ).toBeInTheDocument();
     await expect(
       canvas.getByRole("link", { name: "Написать в поддержку" }),
     ).toHaveAttribute("href", "https://t.me/inside_support");
@@ -95,7 +99,9 @@ export const ExpiredAttempt: Story = {
   args: { link: { kind: "retryable", reason: "expired" } },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
-    await expect(canvas.getByText("Подключите Telegram заново")).toBeInTheDocument();
+    await expect(
+      canvas.getByText("Подключите Telegram заново"),
+    ).toBeInTheDocument();
     await expect(
       canvas.getByRole("button", { name: "Попробовать снова" }),
     ).toBeInTheDocument();
@@ -136,7 +142,9 @@ export const RecoveryRequired: Story = {
   },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
-    await expect(canvas.getByText("Нужна помощь с подключением")).toBeInTheDocument();
+    await expect(
+      canvas.getByText("Нужна помощь с подключением"),
+    ).toBeInTheDocument();
     await expect(
       canvas.getByRole("link", { name: "Написать в поддержку" }),
     ).toHaveAttribute("href", "https://t.me/inside_support");

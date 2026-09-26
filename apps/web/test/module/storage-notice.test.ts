@@ -1,6 +1,9 @@
 import { expect, it } from "vitest";
 
-import { storageNoticeKey, storageNoticeVisible } from "@/features/storage-notice";
+import {
+  storageNoticeKey,
+  storageNoticeVisible,
+} from "@/features/storage-notice";
 
 it("shows the storage notice on the first visit and again for a new cookies edition", () => {
   expect(storageNoticeKey).toBe("inside.storage-notice.v1");

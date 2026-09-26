@@ -1,4 +1,11 @@
-import { Body, Controller, Headers, Inject, Param, Patch } from "@nestjs/common";
+import {
+  Body,
+  Controller,
+  Headers,
+  Inject,
+  Param,
+  Patch,
+} from "@nestjs/common";
 import {
   ApiBody,
   ApiHeader,
@@ -38,7 +45,8 @@ export class TransitionMaterialPublicationController {
   @Patch(":materialId/publication")
   @ApiOperation({
     operationId: "transitionMaterialPublication",
-    summary: "Publish or unpublish the current Material without resending its content",
+    summary:
+      "Publish or unpublish the current Material without resending its content",
   })
   @ApiParam({ name: "materialId", schema: toOpenApiSchema(materialIdSchema) })
   @ApiHeader({

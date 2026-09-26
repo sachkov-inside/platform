@@ -48,7 +48,8 @@ export function SubscriptionStorefront({
   const billing = useCurrentBilling();
   const selected =
     offers.find((offer) => offer.paymentOption.id === selectedId) ?? null;
-  const signedOut = billing.data?.ok === false && billing.data.code === "unauthorized";
+  const signedOut =
+    billing.data?.ok === false && billing.data.code === "unauthorized";
   const subscription =
     billing.data?.ok === true ? billing.data.value.subscription : null;
   const currentOptionId = subscription?.snapshot.paymentOption.id ?? null;
@@ -62,7 +63,9 @@ export function SubscriptionStorefront({
     <div className="mx-auto grid max-w-5xl gap-8">
       <header className="grid gap-3">
         <h1 className="text-balance text-4xl font-bold tracking-[-0.04em] sm:text-5xl">
-          {notOffered ? "Подписка сейчас не продаётся" : "Подписка Sachkov Inside"}
+          {notOffered
+            ? "Подписка сейчас не продаётся"
+            : "Подписка Sachkov Inside"}
         </h1>
         <p className="max-w-2xl text-base leading-7 text-muted-foreground">
           {notOffered

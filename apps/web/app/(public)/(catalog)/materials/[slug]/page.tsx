@@ -1,7 +1,10 @@
 import type { Metadata } from "next";
 
 import { materialLinkPreview } from "@/_pages/material-reader";
-import { loadMaterialPreview, MaterialReaderPage } from "@/_pages/material-reader.server";
+import {
+  loadMaterialPreview,
+  MaterialReaderPage,
+} from "@/_pages/material-reader.server";
 import {
   hiddenPageMetadata,
   publicPageMetadata,
@@ -43,6 +46,9 @@ export async function generateMetadata({
 }
 
 /** Скелет маршрута даёт `loading.tsx`; страница читает адрес уже под ним (ADR 0027). */
-export default function MaterialRoute({ params, searchParams }: MaterialPageProps) {
+export default function MaterialRoute({
+  params,
+  searchParams,
+}: MaterialPageProps) {
   return <MaterialReaderPage params={params} searchParams={searchParams} />;
 }

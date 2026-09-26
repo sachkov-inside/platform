@@ -3,7 +3,14 @@
 import { Buffer } from "node:buffer";
 import { execFileSync } from "node:child_process";
 import { randomBytes } from "node:crypto";
-import { chmod, mkdir, readFile, rename, rm, writeFile } from "node:fs/promises";
+import {
+  chmod,
+  mkdir,
+  readFile,
+  rename,
+  rm,
+  writeFile,
+} from "node:fs/promises";
 import { dirname, resolve } from "node:path";
 import process from "node:process";
 import { setTimeout as delay } from "node:timers/promises";
@@ -38,7 +45,11 @@ const applicationName = "Inside Web";
 export const authoringStandApplicationName = "Inside Authoring Stand";
 const smtpConnectorId = "simple-mail-transfer-protocol";
 const platformAccessTokenTtlSeconds = readAccessTokenTtl();
-const mailpitPort = readIdentityProofPort(process.env, "IDENTITY_PROOF_MAILPIT_PORT", 8026);
+const mailpitPort = readIdentityProofPort(
+  process.env,
+  "IDENTITY_PROOF_MAILPIT_PORT",
+  8026,
+);
 const platformPostgresPort = readIdentityProofPort(
   process.env,
   "IDENTITY_PROOF_POSTGRES_PORT",
@@ -88,7 +99,9 @@ const smtpConfig = Object.freeze({
 
 async function main() {
   const bootstrapSecret = await retry(readSeededManagementSecret);
-  const accessToken = await retry(() => fetchManagementAccessToken(bootstrapSecret));
+  const accessToken = await retry(() =>
+    fetchManagementAccessToken(bootstrapSecret),
+  );
   const api = createManagementApi(accessToken);
 
   await ensureResource(api);
@@ -102,7 +115,10 @@ async function main() {
   await writeRuntimeEnvironment(application.id, applicationSecret);
   if (onStand) {
     const authoring = await ensureAuthoringStandApplication(api);
-    await writeAuthoringStandEnvironment(authoring.id, await readApplicationSecret(api, authoring.id));
+    await writeAuthoringStandEnvironment(
+      authoring.id,
+      await readApplicationSecret(api, authoring.id),
+    );
   }
   if (process.argv.includes("--email-smoke")) {
     await testEmailConnector(api);
@@ -141,7 +157,9 @@ export function readSeededManagementSecret() {
     { cwd: root, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] },
   ).trim();
   if (secret.length < 20) {
-    throw new Error("Pinned Logto seed did not create the Management API bootstrap app");
+    throw new Error(
+      "Pinned Logto seed did not create the Management API bootstrap app",
+    );
   }
   return secret;
 }
@@ -188,7 +206,10 @@ export async function ensureResource(api) {
     await api("/resources"),
     "Logto resources response",
   );
-  const resource = findSingle(resources, ({ indicator }) => indicator === platformResource);
+  const resource = findSingle(
+    resources,
+    ({ indicator }) => indicator === platformResource,
+  );
   const body = {
     name: "Inside Platform API",
     indicator: platformResource,
@@ -210,7 +231,10 @@ export async function ensureApplication(api) {
     await api("/applications"),
     "Logto applications response",
   );
-  const current = findSingle(applications, ({ name }) => name === applicationName);
+  const current = findSingle(
+    applications,
+    ({ name }) => name === applicationName,
+  );
   const oidcClientMetadata = {
     redirectUris: [`${webBaseUrl}/callback`],
     postLogoutRedirectUris: [`${webBaseUrl}/`],
@@ -220,7 +244,11 @@ export async function ensureApplication(api) {
       applicationSchema,
       await api("/applications", {
         method: "POST",
-        body: { name: applicationName, type: "Traditional", oidcClientMetadata },
+        body: {
+          name: applicationName,
+          type: "Traditional",
+          oidcClientMetadata,
+        },
       }),
       "Logto application creation response",
     );
@@ -241,30 +269,45 @@ export async function ensureAuthoringStandApplication(api) {
     await api("/applications"),
     "Logto applications response",
   );
-  const current = findSingle(applications, ({ name }) => name === authoringStandApplicationName);
+  const current = findSingle(
+    applications,
+    ({ name }) => name === authoringStandApplicationName,
+  );
   // Token exchange turns the owner's stand personal access token into a short API token.
   const body = {
     name: authoringStandApplicationName,
-    oidcClientMetadata: { redirectUris: [`${webBaseUrl}/authoring-stand/callback`], postLogoutRedirectUris: [] },
+    oidcClientMetadata: {
+      redirectUris: [`${webBaseUrl}/authoring-stand/callback`],
+      postLogoutRedirectUris: [],
+    },
     customClientMetadata: { allowTokenExchange: true },
   };
   return parseManagementPayload(
     applicationSchema,
     current === undefined
-      ? await api("/applications", { method: "POST", body: { ...body, type: "Traditional" } })
+      ? await api("/applications", {
+          method: "POST",
+          body: { ...body, type: "Traditional" },
+        })
       : await api(`/applications/${current.id}`, { method: "PATCH", body }),
     "Logto authoring stand application response",
   );
 }
 
-async function writeAuthoringStandEnvironment(applicationId, applicationSecret) {
-  await writeEnvFile(resolve(root, ".identity-proof/authoring-stand.env"), mergeEnv("", {
-    LOGTO_ENDPOINT: endpoint,
-    LOGTO_ADMIN_ENDPOINT: adminEndpoint,
-    LOGTO_AUDIENCE: platformResource,
-    AUTHORING_STAND_APP_ID: applicationId,
-    AUTHORING_STAND_APP_SECRET: applicationSecret,
-  }));
+async function writeAuthoringStandEnvironment(
+  applicationId,
+  applicationSecret,
+) {
+  await writeEnvFile(
+    resolve(root, ".identity-proof/authoring-stand.env"),
+    mergeEnv("", {
+      LOGTO_ENDPOINT: endpoint,
+      LOGTO_ADMIN_ENDPOINT: adminEndpoint,
+      LOGTO_AUDIENCE: platformResource,
+      AUTHORING_STAND_APP_ID: applicationId,
+      AUTHORING_STAND_APP_SECRET: applicationSecret,
+    }),
+  );
 }
 
 export async function ensureEmailConnector(api) {
@@ -320,7 +363,10 @@ export async function ensureSignInExperience(api) {
       privacyPolicyUrl: `${webBaseUrl}/legal/privacy`,
       agreeToTermsPolicy: "Automatic",
       socialSignIn: { skipRequiredIdentifiers: true },
-      socialSignInConnectorTargets: process.env.TELEGRAM_SIGN_IN_ENABLED === "true" ? ["inside-telegram"] : [],
+      socialSignInConnectorTargets:
+        process.env.TELEGRAM_SIGN_IN_ENABLED === "true"
+          ? ["inside-telegram"]
+          : [],
     },
   });
 }
@@ -335,7 +381,10 @@ export const signInAgreementPhrases = {
 };
 
 export async function ensureSignInPhrases(api) {
-  await api("/custom-phrases/ru", { method: "PUT", body: signInAgreementPhrases });
+  await api("/custom-phrases/ru", {
+    method: "PUT",
+    body: signInAgreementPhrases,
+  });
 }
 
 async function ensureJwtCustomizer(api, telegramConnectorId) {
@@ -345,21 +394,60 @@ async function ensureJwtCustomizer(api, telegramConnectorId) {
   );
   await api("/configs/jwt-customizer/access-token", {
     method: "PUT",
-    body: { script: script.replace("__INSIDE_TELEGRAM_CONNECTOR_ID__", telegramConnectorId ?? "disabled"), blockIssuanceOnError: true },
+    body: {
+      script: script.replace(
+        "__INSIDE_TELEGRAM_CONNECTOR_ID__",
+        telegramConnectorId ?? "disabled",
+      ),
+      blockIssuanceOnError: true,
+    },
   });
 }
 
 export async function ensureTelegramConnector(api) {
-  const connectors = z.array(connectorSchema.extend({ config: z.record(z.string(), z.unknown()).optional() })).parse(await api("/connectors"));
-  const existing = connectors.find((connector) => connector.connectorId === "inside-telegram");
+  const connectors = z
+    .array(
+      connectorSchema.extend({
+        config: z.record(z.string(), z.unknown()).optional(),
+      }),
+    )
+    .parse(await api("/connectors"));
+  const existing = connectors.find(
+    (connector) => connector.connectorId === "inside-telegram",
+  );
   if (process.env.TELEGRAM_SIGN_IN_ENABLED !== "true") {
-    if (existing) await api(`/connectors/${existing.id}`, { method: "PATCH", body: { config: { ...existing.config, enabled: false } } });
+    if (existing)
+      await api(`/connectors/${existing.id}`, {
+        method: "PATCH",
+        body: { config: { ...existing.config, enabled: false } },
+      });
     return existing?.id;
   }
   // This is the disposable Logto owner's migration, never a Platform runtime DB access.
-  execFileSync("docker", ["compose", ...logtoComposeArguments, "exec", "-T", "logto-postgres", "psql", "-U", "logto", "-d", "logto", "-v", "ON_ERROR_STOP=1"], {
-    cwd: root, input: await readFile(resolve(root, "infra/identity/logto/telegram-identity.sql")), stdio: ["pipe", "pipe", "pipe"],
-  });
+  execFileSync(
+    "docker",
+    [
+      "compose",
+      ...logtoComposeArguments,
+      "exec",
+      "-T",
+      "logto-postgres",
+      "psql",
+      "-U",
+      "logto",
+      "-d",
+      "logto",
+      "-v",
+      "ON_ERROR_STOP=1",
+    ],
+    {
+      cwd: root,
+      input: await readFile(
+        resolve(root, "infra/identity/logto/telegram-identity.sql"),
+      ),
+      stdio: ["pipe", "pipe", "pipe"],
+    },
+  );
   const config = {
     enabled: true,
     issuer: `${endpoint}/oidc`,
@@ -368,8 +456,19 @@ export async function ensureTelegramConnector(api) {
     integrationSecret: process.env.TELEGRAM_SIGN_IN_INTEGRATION_SECRET,
     botUsername: process.env.TELEGRAM_SIGN_IN_BOT_USERNAME,
   };
-  if (existing) { await api(`/connectors/${existing.id}`, { method: "PATCH", body: { config } }); return existing.id; }
-  const created = connectorSchema.parse(await api("/connectors", { method: "POST", body: { connectorId: "inside-telegram", config } }));
+  if (existing) {
+    await api(`/connectors/${existing.id}`, {
+      method: "PATCH",
+      body: { config },
+    });
+    return existing.id;
+  }
+  const created = connectorSchema.parse(
+    await api("/connectors", {
+      method: "POST",
+      body: { connectorId: "inside-telegram", config },
+    }),
+  );
   return created.id;
 }
 
@@ -389,7 +488,11 @@ async function readApplicationSecret(api, applicationId) {
 async function testEmailConnector(api) {
   await api(`/connectors/${smtpConnectorId}/test`, {
     method: "POST",
-    body: { email: "identity-proof@example.test", locale: "en", config: smtpConfig },
+    body: {
+      email: "identity-proof@example.test",
+      locale: "en",
+      config: smtpConfig,
+    },
   });
 }
 
@@ -423,11 +526,16 @@ async function writeRuntimeEnvironment(applicationId, applicationSecret) {
   // Пишется он целиком, а не поверх прежнего: остаток от предыдущего арендатора здесь и был бы
   // той самой ловушкой.
   const standPath = resolve(root, ".identity-proof/stand.env");
-  await writeEnvFile(standPath, mergeEnv("", {
-    ...Object.fromEntries(standEnvironmentKeys.map((key) => [key, updates[key]])),
-    // Корень стенда подписывает сертификат Logto; доверие ограничено этим файлом.
-    NODE_EXTRA_CA_CERTS: "/identity-tls/certificate.pem",
-  }));
+  await writeEnvFile(
+    standPath,
+    mergeEnv("", {
+      ...Object.fromEntries(
+        standEnvironmentKeys.map((key) => [key, updates[key]]),
+      ),
+      // Корень стенда подписывает сертификат Logto; доверие ограничено этим файлом.
+      NODE_EXTRA_CA_CERTS: "/identity-tls/certificate.pem",
+    }),
+  );
 }
 
 /** Значения входа, которые контейнеры стенда берут у bootstrap. Адреса базы и бэкенда — их свои. */
@@ -458,7 +566,8 @@ async function writeEnvFile(envPath, contents) {
 
 export function mergeEnv(source, updates) {
   const pending = new Map(Object.entries(updates));
-  const lines = source.length === 0 ? [] : source.replace(/\n$/u, "").split(/\r?\n/u);
+  const lines =
+    source.length === 0 ? [] : source.replace(/\n$/u, "").split(/\r?\n/u);
   const merged = lines.map((line) => {
     const match = /^([A-Z][A-Z0-9_]*)=/u.exec(line);
     const key = match?.[1];
@@ -504,7 +613,9 @@ function parseManagementPayload(schema, payload, operation) {
 async function readResponse(response, operation) {
   const text = await response.text();
   if (!response.ok) {
-    throw new Error(`${operation} failed with HTTP ${response.status}: ${text}`);
+    throw new Error(
+      `${operation} failed with HTTP ${response.status}: ${text}`,
+    );
   }
   return text.length === 0 ? undefined : JSON.parse(text);
 }
@@ -532,7 +643,9 @@ export async function retry(operation) {
       await delay(bootstrapRetryDelayMilliseconds);
     }
   }
-  throw new Error("Logto did not become ready for bootstrap", { cause: lastError });
+  throw new Error("Logto did not become ready for bootstrap", {
+    cause: lastError,
+  });
 }
 
 function minutesInSeconds(minutes) {
@@ -543,8 +656,14 @@ function readAccessTokenTtl() {
   const value = process.env.IDENTITY_PROOF_ACCESS_TOKEN_TTL_SECONDS;
   if (value === undefined) return minutesInSeconds(5);
   const seconds = Number(value);
-  if (!Number.isInteger(seconds) || seconds < 60 || seconds > minutesInSeconds(5)) {
-    throw new Error("IDENTITY_PROOF_ACCESS_TOKEN_TTL_SECONDS must be between 60 and 300");
+  if (
+    !Number.isInteger(seconds) ||
+    seconds < 60 ||
+    seconds > minutesInSeconds(5)
+  ) {
+    throw new Error(
+      "IDENTITY_PROOF_ACCESS_TOKEN_TTL_SECONDS must be between 60 and 300",
+    );
   }
   return seconds;
 }

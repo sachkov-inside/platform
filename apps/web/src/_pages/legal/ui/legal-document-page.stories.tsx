@@ -10,7 +10,11 @@ const environment = publicPageEnvironment("/legal/terms");
 const terms = currentLegalEdition("terms");
 const blocks = parseLegalText(terms.text);
 /** Прежней редакции в комплекте пока нет; story показывает её состояние на прошлой версии. */
-const earlier = { ...terms, version: terms.version - 1, effectiveFrom: "2026-09-01" };
+const earlier = {
+  ...terms,
+  version: terms.version - 1,
+  effectiveFrom: "2026-09-01",
+};
 
 const meta = {
   ...environment,
@@ -53,7 +57,10 @@ export const PurchaseOffer: Story = {
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
     await expect(
-      canvas.getByRole("heading", { level: 3, name: "Что входит в сопровождение" }),
+      canvas.getByRole("heading", {
+        level: 3,
+        name: "Что входит в сопровождение",
+      }),
     ).toBeVisible();
     await expect(canvas.getAllByRole("list").length).toBeGreaterThan(0);
     // Маркер пункта рисует список, поэтому в тексте его нет.

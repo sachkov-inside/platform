@@ -1,8 +1,16 @@
 import { Body, Controller, Inject, Param, Put } from "@nestjs/common";
-import { ApiBody, ApiOkResponse, ApiOperation, ApiParam } from "@nestjs/swagger";
+import {
+  ApiBody,
+  ApiOkResponse,
+  ApiOperation,
+  ApiParam,
+} from "@nestjs/swagger";
 
 import { toOpenApiSchema } from "../../../../infrastructure/http/zod-openapi.js";
-import { CurrentAccount, type AuthenticatedAccount } from "../../../accounts/index.js";
+import {
+  CurrentAccount,
+  type AuthenticatedAccount,
+} from "../../../accounts/index.js";
 import {
   ApiMaterialAuthoringErrors,
   MaterialAuthoringEndpoint,
@@ -29,7 +37,10 @@ export class SetContentCollectionArchiveController {
     operationId: "setAuthoringContentCollectionArchive",
     summary: "Archive or restore a Topic or Guide",
   })
-  @ApiParam({ name: "collectionId", schema: { format: "uuid", type: "string" } })
+  @ApiParam({
+    name: "collectionId",
+    schema: { format: "uuid", type: "string" },
+  })
   @ApiBody({ schema: toOpenApiSchema(setContentCollectionArchiveBodySchema) })
   @ApiOkResponse({ schema: toOpenApiSchema(contentCollectionSchema) })
   @ApiMaterialAuthoringErrors(400, 401, 403, 404, 409, 500, 503)

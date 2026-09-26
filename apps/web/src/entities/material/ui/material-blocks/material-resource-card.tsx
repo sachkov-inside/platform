@@ -29,9 +29,13 @@ export function MaterialResourceCard({
       data-material-block="resourceCard"
     >
       <p className="font-mono text-[0.6875rem] text-muted-foreground">Ресурс</p>
-      <p className="mt-2 break-words text-base font-semibold text-foreground">{title}</p>
+      <p className="mt-2 break-words text-base font-semibold text-foreground">
+        {title}
+      </p>
       {description === undefined ? null : (
-        <p className="mt-2 text-[0.9375rem] leading-7 text-body-muted">{description}</p>
+        <p className="mt-2 text-[0.9375rem] leading-7 text-body-muted">
+          {description}
+        </p>
       )}
       {host === undefined ? null : (
         <div className="mt-4 flex flex-wrap items-center gap-x-3 gap-y-2">

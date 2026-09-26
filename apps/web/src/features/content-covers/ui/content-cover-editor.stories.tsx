@@ -25,7 +25,9 @@ export const MissingCover: Story = {
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
     await expect(canvas.getByText("Загрузить")).toBeVisible();
-    await expect(canvas.queryByRole("button", { name: "Удалить" })).not.toBeInTheDocument();
+    await expect(
+      canvas.queryByRole("button", { name: "Удалить" }),
+    ).not.toBeInTheDocument();
   },
 };
 
@@ -36,16 +38,17 @@ export const Processing: Story = {
     await waitFor(() =>
       expect(within(canvasElement).getByText("Обрабатываем…")).toBeVisible(),
     );
-    await expect(within(canvasElement).getByRole("region", { name: "Обложка: Platform" })).toHaveAttribute(
-      "aria-busy",
-      "true",
-    );
+    await expect(
+      within(canvasElement).getByRole("region", { name: "Обложка: Platform" }),
+    ).toHaveAttribute("aria-busy", "true");
   },
 };
 
 export const ServiceError: Story = {
   decorators: [
-    withMutationFetch(() => Promise.resolve(new Response(null, { status: 503 }))),
+    withMutationFetch(() =>
+      Promise.resolve(new Response(null, { status: 503 })),
+    ),
   ],
   play: async ({ canvasElement }) => {
     await uploadFixture(canvasElement);
@@ -57,7 +60,9 @@ export const ServiceError: Story = {
 
 export const ConcurrentChange: Story = {
   decorators: [
-    withMutationFetch(() => Promise.resolve(new Response(null, { status: 409 }))),
+    withMutationFetch(() =>
+      Promise.resolve(new Response(null, { status: 409 })),
+    ),
   ],
   play: async ({ canvasElement }) => {
     await uploadFixture(canvasElement);
@@ -68,7 +73,8 @@ export const ConcurrentChange: Story = {
 };
 
 async function uploadFixture(canvasElement: HTMLElement): Promise<void> {
-  const input = canvasElement.querySelector<HTMLInputElement>('input[type="file"]');
+  const input =
+    canvasElement.querySelector<HTMLInputElement>('input[type="file"]');
   if (input === null) throw new Error("Content Cover file input is missing");
   await userEvent.upload(
     input,
@@ -76,32 +82,55 @@ async function uploadFixture(canvasElement: HTMLElement): Promise<void> {
   );
 }
 
-
-const landscapeCover = { coverId: "27100000-0000-4000-8000-000000000005", renditions: [{ width: 960, height: 540 }] };
+const landscapeCover = {
+  coverId: "27100000-0000-4000-8000-000000000005",
+  renditions: [{ width: 960, height: 540 }],
+};
 
 export const MaterialPreview: Story = {
-  args: { initialCover: landscapeCover, ownerKind: "material", ownerLabel: "Обложка материала" },
+  args: {
+    initialCover: landscapeCover,
+    ownerKind: "material",
+    ownerLabel: "Обложка материала",
+  },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
     for (const name of ["Превью 16:9", "Квадратное превью"]) {
       const image = canvas.getByRole<HTMLImageElement>("img", { name });
-      await waitFor(() => expect(image.complete && image.naturalWidth > 0).toBe(true));
-      await expect(image.naturalWidth / image.naturalHeight).toBeCloseTo(16 / 9, 1);
+      await waitFor(() =>
+        expect(image.complete && image.naturalWidth > 0).toBe(true),
+      );
+      await expect(image.naturalWidth / image.naturalHeight).toBeCloseTo(
+        16 / 9,
+        1,
+      );
       await expect(getComputedStyle(image).objectFit).toBe("cover");
       await expect(getComputedStyle(image).objectPosition).toBe("50% 50%");
       const box = image.getBoundingClientRect();
-      await expect(box.width / box.height).toBeCloseTo(name === "Превью 16:9" ? 16 / 9 : 1, 1);
+      await expect(box.width / box.height).toBeCloseTo(
+        name === "Превью 16:9" ? 16 / 9 : 1,
+        1,
+      );
     }
     await expect(canvas.getByText("Заменить")).toBeVisible();
   },
 };
-export const MaterialPreviewMobile: Story = { ...MaterialPreview, globals: { viewport: { value: "mobile320", isRotated: false } } };
+export const MaterialPreviewMobile: Story = {
+  ...MaterialPreview,
+  globals: { viewport: { value: "mobile320", isRotated: false } },
+};
 export const UploadMaterialCover: Story = {
   args: { ownerKind: "material" },
-  decorators: [withMutationFetch(() => Promise.resolve(Response.json({ cover: landscapeCover })))],
+  decorators: [
+    withMutationFetch(() =>
+      Promise.resolve(Response.json({ cover: landscapeCover })),
+    ),
+  ],
   play: async (context) => {
     await uploadFixture(context.canvasElement);
-    await expect(within(context.canvasElement).findByRole("status")).resolves.toHaveTextContent("Обложка обновлена.");
+    await expect(
+      within(context.canvasElement).findByRole("status"),
+    ).resolves.toHaveTextContent("Обложка обновлена.");
     await MaterialPreview.play?.(context);
   },
 };

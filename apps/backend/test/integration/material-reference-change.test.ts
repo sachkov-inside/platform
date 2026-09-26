@@ -42,16 +42,29 @@ const metadata = {
 };
 
 const unusedVideoProvider: VideoProvider = {
-  delete: () => Promise.reject(new Error("the video provider is not part of this scenario")),
-  find: () => Promise.reject(new Error("the video provider is not part of this scenario")),
-  initUpload: () => Promise.reject(new Error("the video provider is not part of this scenario")),
+  delete: () =>
+    Promise.reject(
+      new Error("the video provider is not part of this scenario"),
+    ),
+  find: () =>
+    Promise.reject(
+      new Error("the video provider is not part of this scenario"),
+    ),
+  initUpload: () =>
+    Promise.reject(
+      new Error("the video provider is not part of this scenario"),
+    ),
 };
 
 const unusedObjectStorage: ObjectStorage = {
-  putImmutable: () => Promise.reject(new Error("object storage is not part of this scenario")),
-  read: () => Promise.reject(new Error("object storage is not part of this scenario")),
-  delete: () => Promise.reject(new Error("object storage is not part of this scenario")),
-  signGet: () => Promise.reject(new Error("object storage is not part of this scenario")),
+  putImmutable: () =>
+    Promise.reject(new Error("object storage is not part of this scenario")),
+  read: () =>
+    Promise.reject(new Error("object storage is not part of this scenario")),
+  delete: () =>
+    Promise.reject(new Error("object storage is not part of this scenario")),
+  signGet: () =>
+    Promise.reject(new Error("object storage is not part of this scenario")),
 };
 
 describe("Material reference change", () => {
@@ -112,13 +125,19 @@ describe("Material reference change", () => {
     });
     await expect(readAsset(assetId)).resolves.toEqual(assetBefore);
     await expect(readVideo(videoId)).resolves.toEqual(videoBefore);
-    await expect(database.prisma.videoDeletionOperation.count({
-      where: { videoId },
-    })).resolves.toBe(0);
-    await expect(database.prisma.material.findUniqueOrThrow({
-      select: { contentVersion: true },
-      where: { id: materialId },
-    })).resolves.toEqual({ contentVersion: BigInt(referenced.value.contentVersion) });
+    await expect(
+      database.prisma.videoDeletionOperation.count({
+        where: { videoId },
+      }),
+    ).resolves.toBe(0);
+    await expect(
+      database.prisma.material.findUniqueOrThrow({
+        select: { contentVersion: true },
+        where: { id: materialId },
+      }),
+    ).resolves.toEqual({
+      contentVersion: BigInt(referenced.value.contentVersion),
+    });
   });
 });
 
@@ -145,7 +164,10 @@ describe("Reference reads on an exhausted pool", () => {
     const saved = await withExhaustedPool(database, (prisma) =>
       assembleMaterials({
         authorPolicy: { canManage: (accountId) => accountId === actor },
-        materialAssets: assembleMaterialAssets({ objectStorage: unusedObjectStorage, prisma }),
+        materialAssets: assembleMaterialAssets({
+          objectStorage: unusedObjectStorage,
+          prisma,
+        }),
         prisma,
         videos: assembleVideos({
           canManage: () => Promise.resolve(true),
@@ -167,17 +189,30 @@ describe("Reference reads on an exhausted pool", () => {
     );
 
     expect(saved).toMatchObject({ ok: true });
-    await expect(readAsset(assetId)).resolves.toMatchObject({ currentlyReferenced: true });
+    await expect(readAsset(assetId)).resolves.toMatchObject({
+      currentlyReferenced: true,
+    });
   });
 
   test("validation reads Assets in its own transaction", async () => {
     const actor = randomUUID();
     const topicId = randomUUID();
-    await database.prisma.topic.create({ data: { id: topicId, name: "Validation", slug: `validation-${topicId}` } });
-    const complete = { ...metadata, formatId: "note", summary: "Complete", title: "Complete", topicId };
+    await database.prisma.topic.create({
+      data: { id: topicId, name: "Validation", slug: `validation-${topicId}` },
+    });
+    const complete = {
+      ...metadata,
+      formatId: "note",
+      summary: "Complete",
+      title: "Complete",
+      topicId,
+    };
     const authoring = assembleMaterials({
       authorPolicy: { canManage: (accountId) => accountId === actor },
-      materialAssets: assembleMaterialAssets({ objectStorage: unusedObjectStorage, prisma: database.prisma }),
+      materialAssets: assembleMaterialAssets({
+        objectStorage: unusedObjectStorage,
+        prisma: database.prisma,
+      }),
       prisma: database.prisma,
     }).authoring;
     const created = await authoring.createDraft({
@@ -203,7 +238,10 @@ describe("Reference reads on an exhausted pool", () => {
     const validated = await withExhaustedPool(database, (prisma) =>
       assembleMaterials({
         authorPolicy: { canManage: (accountId) => accountId === actor },
-        materialAssets: assembleMaterialAssets({ objectStorage: unusedObjectStorage, prisma }),
+        materialAssets: assembleMaterialAssets({
+          objectStorage: unusedObjectStorage,
+          prisma,
+        }),
         prisma,
       }).authoring.validateMaterial({
         actor,
@@ -231,8 +269,13 @@ describe("Reference reads on an exhausted pool", () => {
 
     const cleanup = await withExhaustedPool(database, (prisma) =>
       assembleMaterialAssetMaintenance({
-        assets: assembleMaterialAssets({ objectStorage: unusedObjectStorage, prisma }),
-        config: { objectStorage: { orphanGraceMs: orphanGraceBeyondStaleMark } },
+        assets: assembleMaterialAssets({
+          objectStorage: unusedObjectStorage,
+          prisma,
+        }),
+        config: {
+          objectStorage: { orphanGraceMs: orphanGraceBeyondStaleMark },
+        },
         covers: { cleanup: () => Promise.resolve({ cleaned: 0, retained: 0 }) },
         materials: assembleMaterials({
           authorPolicy: { canManage: () => false },
@@ -242,28 +285,45 @@ describe("Reference reads on an exhausted pool", () => {
     );
 
     expect(cleanup).toEqual({ cleaned: 0, ok: true, retained: 1 });
-    await expect(readAsset(assetId)).resolves.toMatchObject({ currentlyReferenced: true });
+    await expect(readAsset(assetId)).resolves.toMatchObject({
+      currentlyReferenced: true,
+    });
   });
 
   test("Video deletion asks Materials in its own transaction", async () => {
     const actor = randomUUID();
-    const materialId = await createDraft(actor, "exhausted-pool-video-deletion");
+    const materialId = await createDraft(
+      actor,
+      "exhausted-pool-video-deletion",
+    );
     const videoId = await insertReadyVideo(materialId, actor);
     await database.prisma.material.update({
       data: { primaryVideoId: videoId },
       where: { id: materialId },
     });
-    await expect(requestVideoDeletion(
-      database.prisma,
-      { actor, materialId, videoId },
-      new Date(),
-    )).resolves.toMatchObject({ ok: true });
+    await expect(
+      requestVideoDeletion(
+        database.prisma,
+        { actor, materialId, videoId },
+        new Date(),
+      ),
+    ).resolves.toMatchObject({ ok: true });
 
     const processed = await withExhaustedPool(database, (prisma) => {
-      const materials = assembleMaterials({ authorPolicy: { canManage: () => false }, prisma });
-      return assembleVideoDeletionMaintenance({ prisma, provider: unusedVideoProvider }).process({
+      const materials = assembleMaterials({
+        authorPolicy: { canManage: () => false },
+        prisma,
+      });
+      return assembleVideoDeletionMaintenance({
+        prisma,
+        provider: unusedVideoProvider,
+      }).process({
         async isReferenced(transaction, input) {
-          const reference = await materials.materialContent.containsVideoReference(transaction, input);
+          const reference =
+            await materials.materialContent.containsVideoReference(
+              transaction,
+              input,
+            );
           if (!reference.ok) throw new Error(reference.error.code);
           return reference.value;
         },
@@ -281,7 +341,10 @@ describe("Reference reads on an exhausted pool", () => {
 const staleOrphanMark = new Date("2020-01-01T00:00:00.000Z");
 const orphanGraceBeyondStaleMark = 365 * 24 * 60 * 60 * 1_000;
 
-async function createDraft(actor: string, idempotencyKey: string): Promise<string> {
+async function createDraft(
+  actor: string,
+  idempotencyKey: string,
+): Promise<string> {
   const created = await assembleMaterials({
     authorPolicy: { canManage: (accountId) => accountId === actor },
     prisma: database.prisma,
@@ -295,7 +358,10 @@ async function createDraft(actor: string, idempotencyKey: string): Promise<strin
   return created.value.materialId;
 }
 
-async function insertReadyImage(materialId: string, uploadedBy: string): Promise<string> {
+async function insertReadyImage(
+  materialId: string,
+  uploadedBy: string,
+): Promise<string> {
   const id = randomUUID();
   const now = new Date();
   await database.prisma.materialAsset.create({
@@ -328,7 +394,10 @@ async function insertReadyImage(materialId: string, uploadedBy: string): Promise
   return id;
 }
 
-async function insertReadyVideo(materialId: string, createdBy: string): Promise<string> {
+async function insertReadyVideo(
+  materialId: string,
+  createdBy: string,
+): Promise<string> {
   const id = randomUUID();
   const providerVideoId = `reference-change-${id}`;
   const now = new Date();
@@ -374,11 +443,13 @@ function paragraphBody(text: string) {
     schemaVersion: 1,
     doc: {
       type: "doc",
-      content: [{
-        type: "paragraph",
-        attrs: { nodeId: randomUUID() },
-        content: [{ type: "text", text }],
-      }],
+      content: [
+        {
+          type: "paragraph",
+          attrs: { nodeId: randomUUID() },
+          content: [{ type: "text", text }],
+        },
+      ],
     },
   };
 }
@@ -388,10 +459,17 @@ function imageBody(assetId: string) {
     schemaVersion: 1,
     doc: {
       type: "doc",
-      content: [{
-        type: "assetImage",
-        attrs: { alt: "Diagram", assetId, caption: null, nodeId: randomUUID() },
-      }],
+      content: [
+        {
+          type: "assetImage",
+          attrs: {
+            alt: "Diagram",
+            assetId,
+            caption: null,
+            nodeId: randomUUID(),
+          },
+        },
+      ],
     },
   };
 }

@@ -78,15 +78,18 @@ export async function applyAcceptedMembershipEvidence(
   `);
   if (changed === 1) return;
 
-  const rows = z.array(currentProjectionSchema).length(1).parse(
-    await transaction.$queryRaw(Prisma.sql`
+  const rows = z
+    .array(currentProjectionSchema)
+    .length(1)
+    .parse(
+      await transaction.$queryRaw(Prisma.sql`
       select
         evidence_version as "evidenceVersion",
         evidence_fingerprint as "evidenceFingerprint"
       from workshop.membership_entitlement_projections
       where account_id = ${checked.accountId}::uuid
     `),
-  );
+    );
   const current = rows[0];
   if (
     current !== undefined &&
@@ -95,5 +98,7 @@ export async function applyAcceptedMembershipEvidence(
   ) {
     return;
   }
-  throw new Error("Workshop entitlement projection diverged from Membership evidence");
+  throw new Error(
+    "Workshop entitlement projection diverged from Membership evidence",
+  );
 }

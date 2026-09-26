@@ -1,11 +1,4 @@
-import {
-  Body,
-  Controller,
-  Get,
-  Inject,
-  Post,
-  Put,
-} from "@nestjs/common";
+import { Body, Controller, Get, Inject, Post, Put } from "@nestjs/common";
 import {
   ApiBearerAuth,
   ApiBody,
@@ -55,7 +48,9 @@ export class PrivateAccountProfileController {
   @ApiOkResponse({ schema: toOpenApiSchema(privateProfileStateSchema) })
   @ApiMemberProfileErrors(401, 500, 503)
   async read(@CurrentAccount() account: AuthenticatedAccount) {
-    const result = await this.profiles.readPrivateProfile(accountId(account.accountId));
+    const result = await this.profiles.readPrivateProfile(
+      accountId(account.accountId),
+    );
     if (!result.ok) throwProfileHttpError(result.error);
     return result.value;
   }
@@ -104,5 +99,4 @@ export class PrivateAccountProfileController {
     if (!result.ok) throwProfileHttpError(result.error);
     return { profile: result.value };
   }
-
 }

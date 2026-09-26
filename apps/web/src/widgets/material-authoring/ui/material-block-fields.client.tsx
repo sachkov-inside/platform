@@ -7,7 +7,11 @@ import {
   calloutTonePresentation,
   type CalloutTone,
 } from "@/entities/material";
-import { guideModeLabels, guideModes, type GuideMode } from "@/shared/guide-mode";
+import {
+  guideModeLabels,
+  guideModes,
+  type GuideMode,
+} from "@/shared/guide-mode";
 
 import { variantUnderCursor } from "../model/variant-branch";
 import { Button } from "@/shared/ui/button";
@@ -17,7 +21,11 @@ const titleFieldClass =
 
 /** Всё, что показывает панель текущего блока. Панель пересобирается, когда меняется это, а не на каждой транзакции. */
 type BlockFieldsState =
-  | { readonly kind: "callout"; readonly title: string; readonly tone: CalloutTone }
+  | {
+      readonly kind: "callout";
+      readonly title: string;
+      readonly tone: CalloutTone;
+    }
   | { readonly kind: "takeaways"; readonly title: string }
   | {
       readonly branchMode: GuideMode;
@@ -259,7 +267,11 @@ export function MaterialBlockFields({
 
   if (fields.kind === "takeaways") {
     return (
-      <div aria-label="Итоги" className="mr-auto flex min-w-0 items-center" role="toolbar">
+      <div
+        aria-label="Итоги"
+        className="mr-auto flex min-w-0 items-center"
+        role="toolbar"
+      >
         <BlockTitleField
           disabled={disabled}
           editor={editor}
@@ -286,7 +298,11 @@ export function MaterialBlockFields({
 
   if (fields.kind === "agentPrompt") {
     return (
-      <div aria-label="Промпт" className="mr-auto flex min-w-0 items-center" role="toolbar">
+      <div
+        aria-label="Промпт"
+        className="mr-auto flex min-w-0 items-center"
+        role="toolbar"
+      >
         <BlockTitleField
           disabled={disabled}
           editor={editor}

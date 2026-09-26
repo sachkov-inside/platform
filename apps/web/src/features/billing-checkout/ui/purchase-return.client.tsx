@@ -21,7 +21,10 @@ import { readBillingPurchaseStatus } from "../api/billing-checkout.browser";
 import { recallPurchase } from "../model/checkout";
 
 /** Банк ответил окончательно: дальше состояние меняет только сверка, а не опрос страницы. */
-const settledStates: ReadonlySet<AttemptState> = new Set(["confirmed", "failed"]);
+const settledStates: ReadonlySet<AttemptState> = new Set([
+  "confirmed",
+  "failed",
+]);
 /** Пока банк не ответил окончательно, страница переспрашивает сервер раз в три секунды. */
 const purchaseStatusPollMs = 3_000;
 
@@ -58,10 +61,12 @@ export function PurchaseReturnView({
 
       {unknownReference ? (
         <div className="rounded-2xl border border-border bg-card p-6 text-sm leading-6 shadow-card">
-          <p className="font-semibold">Не нашли начатую оплату в этом браузере.</p>
+          <p className="font-semibold">
+            Не нашли начатую оплату в этом браузере.
+          </p>
           <p className="mt-1 text-muted-foreground">
-            Откройте платёжный кабинет: там видны ваши покупки, действующие права
-            доступа и их сроки.
+            Откройте платёжный кабинет: там видны ваши покупки, действующие
+            права доступа и их сроки.
           </p>
           <Link
             className={`mt-3 inline-flex items-center font-semibold text-action underline underline-offset-4 ${billingActionClass}`}
@@ -143,7 +148,10 @@ export function PurchaseReturnView({
       )}
 
       {error === undefined ? null : (
-        <p className="rounded-xl border border-destructive/30 bg-destructive/6 p-4 text-sm" role="alert">
+        <p
+          className="rounded-xl border border-destructive/30 bg-destructive/6 p-4 text-sm"
+          role="alert"
+        >
           {error}
         </p>
       )}

@@ -13,9 +13,12 @@ import type {
 const MAX_SOURCE_ARCHIVE_BYTES = 50 * 1024 * 1024;
 const inputSchema = z
   .object({
-    body: z.instanceof(Uint8Array).refine(
-      (body) => body.byteLength > 0 && body.byteLength <= MAX_SOURCE_ARCHIVE_BYTES,
-    ),
+    body: z
+      .instanceof(Uint8Array)
+      .refine(
+        (body) =>
+          body.byteLength > 0 && body.byteLength <= MAX_SOURCE_ARCHIVE_BYTES,
+      ),
     contentType: z.string().trim().min(1).max(255),
     retentionTime: z.iso.datetime({ offset: true }),
   })
@@ -29,7 +32,9 @@ export function assembleSourceArchives(
       const parsed = inputSchema.safeParse(input);
       if (!parsed.success) return failure("invalid_archive");
 
-      const digest = createHash("sha256").update(parsed.data.body).digest("hex");
+      const digest = createHash("sha256")
+        .update(parsed.data.body)
+        .digest("hex");
       const archive: StoredSourceArchive = {
         key: `workshop/source-archives/${digest}`,
         digest,
@@ -57,7 +62,11 @@ export function assembleSourceArchives(
         }
         return { ok: true, value: archive };
       } catch (error) {
-        return dependencyFailure({ module: "workshop", operation: "store" }, error, failure("dependency_unavailable"));
+        return dependencyFailure(
+          { module: "workshop", operation: "store" },
+          error,
+          failure("dependency_unavailable"),
+        );
       }
     },
   };
@@ -65,7 +74,10 @@ export function assembleSourceArchives(
 }
 
 function failure(
-  code: Extract<StoreSourceArchiveResult, { readonly ok: false }>["error"]["code"],
+  code: Extract<
+    StoreSourceArchiveResult,
+    { readonly ok: false }
+  >["error"]["code"],
 ): Extract<StoreSourceArchiveResult, { readonly ok: false }> {
   return { ok: false, error: { code } };
 }

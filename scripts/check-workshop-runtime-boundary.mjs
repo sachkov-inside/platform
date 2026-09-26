@@ -5,7 +5,9 @@ import process from "node:process";
 const repositoryRoot = path.resolve(process.argv[2] ?? ".");
 
 if (!statSync(repositoryRoot).isDirectory()) {
-  throw new TypeError(`Workshop boundary root is not a directory: ${repositoryRoot}`);
+  throw new TypeError(
+    `Workshop boundary root is not a directory: ${repositoryRoot}`,
+  );
 }
 
 const findings = [];
@@ -18,7 +20,9 @@ if (existsDirectory(backendSource)) {
         source,
       );
     const namesWorkshopRuntime =
-      /(?:workshop-evaluator|\.inside\/assignment\.json|docker\s+compose)/iu.test(source);
+      /(?:workshop-evaluator|\.inside\/assignment\.json|docker\s+compose)/iu.test(
+        source,
+      );
     if (
       namesWorkshopRuntime &&
       (controlsProcesses || /(?:spawn|exec)(?:File|Sync)?\s*\(/u.test(source))
@@ -61,7 +65,9 @@ function sourceFiles(directory) {
   return readdirSync(directory, { withFileTypes: true }).flatMap((entry) => {
     const filename = path.join(directory, entry.name);
     if (entry.isDirectory()) return sourceFiles(filename);
-    return /\.(?:cts|mts|ts)(?:\.fixture)?$/u.test(entry.name) ? [filename] : [];
+    return /\.(?:cts|mts|ts)(?:\.fixture)?$/u.test(entry.name)
+      ? [filename]
+      : [];
   });
 }
 

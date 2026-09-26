@@ -1,0 +1,35 @@
+# Prettier also reads .gitignore; this file adds sources whose bytes are owned elsewhere.
+pnpm-lock.yaml
+
+# Markdown keeps its hand-wrapped prose and tables, as in inside-telegram.
+*.md
+
+# Managed by the Inside product harness package; formatting here would drift from its snapshot.
+.inside-harness/
+.agents/
+.claude/
+.github/workflows/add-to-inside-project.yml
+.github/workflows/inside-agent-sessions.yml
+.github/workflows/inside-harness-health.yml
+
+# Generated and checked byte for byte by api:check, guardrails and contract checks.
+apps/backend/openapi/
+apps/backend/mcp/tool-surface.json
+apps/backend/src/**/*.generated.ts
+apps/web/src/shared/api/backend/generated/
+infra/notifications/local-definitions.json
+
+# Pinned protocol corpora: manifests and consumers compare them as published.
+contracts/
+docs/contracts/
+apps/backend/src/modules/*/contracts/
+
+# Captured evidence stays byte-for-byte as recorded.
+docs/evidence/
+
+# Logto fork and connector sources follow the upstream Logto code they replace at a pinned revision.
+infra/identity/logto/
+
+# Check fixtures: guardrails assert diagnostics at exact lines of these sources.
+**/guardrails/fixtures/
+scripts/fixtures/

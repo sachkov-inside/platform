@@ -33,7 +33,8 @@ function failure(result: Extract<BackendTransportResult, { ok: false }>): {
   readonly ok: false;
   readonly code: z.infer<typeof notificationFailureCodeSchema>;
 } {
-  if (result.response.status === 401) return { ok: false, code: "unauthorized" };
+  if (result.response.status === 401)
+    return { ok: false, code: "unauthorized" };
   const problem = z
     .object({ code: notificationFailureCodeSchema })
     .safeParse(result.problem);
@@ -73,7 +74,8 @@ export function handleChangeNotificationPreferences(
   return handleAuthenticatedMutation(request, async (form, token) => {
     const parsed = changeNotificationPreferencesInputSchema.safeParse({
       operationId: form.get("operationId"),
-      expectedRevision: revisionField.safeParse(form.get("expectedRevision")).data,
+      expectedRevision: revisionField.safeParse(form.get("expectedRevision"))
+        .data,
       email: booleanField.safeParse(form.get("email")).data,
       telegram: booleanField.safeParse(form.get("telegram")).data,
     });
@@ -85,7 +87,10 @@ export function handleChangeNotificationPreferences(
       );
       if (!result.ok) return failure(result);
       const preferences = z
-        .object({ ok: z.literal(true), preferences: notificationPreferencesSchema })
+        .object({
+          ok: z.literal(true),
+          preferences: notificationPreferencesSchema,
+        })
         .safeParse(result.body);
       return preferences.success
         ? preferences.data

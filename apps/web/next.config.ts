@@ -14,7 +14,9 @@ const scriptSources = isDevelopment
   ? "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://player.kinescope.io"
   : "script-src 'self' 'unsafe-inline' https://player.kinescope.io";
 /** Хранилище стенда отдаёт превью по HTTP с локального адреса; production берёт картинки по HTTPS. */
-const localImageSources = isDevelopment ? " http://127.0.0.1:* http://localhost:9000" : "";
+const localImageSources = isDevelopment
+  ? " http://127.0.0.1:* http://localhost:9000"
+  : "";
 const contentSecurityPolicy = [
   "default-src 'self'",
   "base-uri 'self'",
@@ -91,19 +93,25 @@ const nextConfig: NextConfig = {
    * Прежний адрес формы контакта. Перенаправление живёт здесь, а не в маршруте: раздел
    * «Покупки» стримится, и редирект из страницы успел бы отдать каркас с кодом 200.
    */
-  redirects: () => Promise.resolve([{
-    source: "/account/email",
-    destination: "/account/purchases",
-    permanent: true,
-  }]),
-  headers: () => Promise.resolve([{
-    headers: [
-      { key: "Content-Security-Policy", value: contentSecurityPolicy },
-      { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
-      { key: "X-Content-Type-Options", value: "nosniff" },
-    ],
-    source: "/:path*",
-  }]),
+  redirects: () =>
+    Promise.resolve([
+      {
+        source: "/account/email",
+        destination: "/account/purchases",
+        permanent: true,
+      },
+    ]),
+  headers: () =>
+    Promise.resolve([
+      {
+        headers: [
+          { key: "Content-Security-Policy", value: contentSecurityPolicy },
+          { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
+          { key: "X-Content-Type-Options", value: "nosniff" },
+        ],
+        source: "/:path*",
+      },
+    ]),
   typedRoutes: true,
   typescript: {
     tsconfigPath: "tsconfig.next.json",

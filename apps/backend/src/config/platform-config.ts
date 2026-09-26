@@ -1,9 +1,11 @@
 import { tbankRuntimeSchema, parseBankContour } from "./tbank-config.js";
-import { notificationsConfigSchema, parseNotificationsConfig } from './notifications-config.js';
+import {
+  notificationsConfigSchema,
+  parseNotificationsConfig,
+} from "./notifications-config.js";
 import { z } from "zod";
 
-const DEFAULT_DATABASE_URL =
-  "postgresql://inside:inside@127.0.0.1:5432/inside";
+const DEFAULT_DATABASE_URL = "postgresql://inside:inside@127.0.0.1:5432/inside";
 const DEFAULT_API_HOST = "127.0.0.1";
 const DEFAULT_API_PORT = "3001";
 const DEFAULT_LOGTO_ISSUER = "https://identity.inside.localhost:3301/oidc";
@@ -34,12 +36,14 @@ const DEFAULT_KINESCOPE_API_BASE_URL = "https://api.kinescope.io";
 const DEFAULT_KINESCOPE_UPLOADER_BASE_URL = "https://uploader.kinescope.io";
 const DEFAULT_KINESCOPE_API_TOKEN = "inside-local-kinescope-api-token";
 const DEFAULT_KINESCOPE_PUBLIC_PROJECT_ID = "inside-local-public-project";
-const DEFAULT_KINESCOPE_MEMBERSHIP_PROJECT_ID = "inside-local-membership-project";
+const DEFAULT_KINESCOPE_MEMBERSHIP_PROJECT_ID =
+  "inside-local-membership-project";
 const DEFAULT_KINESCOPE_CALLBACK_USERNAME = "inside-local-callback";
 const DEFAULT_KINESCOPE_CALLBACK_PASSWORD = "inside-local-callback-password";
 const DEFAULT_KINESCOPE_WEBHOOK_USERNAME = "inside-local-webhook";
 const DEFAULT_KINESCOPE_WEBHOOK_PASSWORD = "inside-local-webhook-password";
-const DEFAULT_KINESCOPE_PLAYBACK_JWT_SECRET = "inside-local-kinescope-playback-secret";
+const DEFAULT_KINESCOPE_PLAYBACK_JWT_SECRET =
+  "inside-local-kinescope-playback-secret";
 const DEFAULT_KINESCOPE_PLAYBACK_JWT_TTL_SECONDS = "60";
 
 export const PLATFORM_CONFIG = Symbol("PLATFORM_CONFIG");
@@ -60,7 +64,9 @@ const apiPortSchema = integerStringSchema(
 const identitySchema = z
   .object({
     telegramSignInEnabled: z.boolean().default(false),
-    telegramSignInProviderUrl: httpUrlSchema("TELEGRAM_SIGN_IN_PROVIDER_URL").default("http://127.0.0.1:3606"),
+    telegramSignInProviderUrl: httpUrlSchema(
+      "TELEGRAM_SIGN_IN_PROVIDER_URL",
+    ).default("http://127.0.0.1:3606"),
     telegramSignInIntegrationSecret: z.string().min(32).optional(),
     issuer: httpUrlSchema("LOGTO_ISSUER").refine(
       (value) => new URL(value).protocol === "https:",
@@ -85,9 +91,7 @@ const objectStorageSchema = z
     }),
     buckets: z
       .object({
-        protected: objectStorageBucketSchema(
-          "OBJECT_STORAGE_PROTECTED_BUCKET",
-        ),
+        protected: objectStorageBucketSchema("OBJECT_STORAGE_PROTECTED_BUCKET"),
         public: objectStorageBucketSchema("OBJECT_STORAGE_PUBLIC_BUCKET"),
         quarantine: objectStorageBucketSchema(
           "OBJECT_STORAGE_QUARANTINE_BUCKET",
@@ -96,7 +100,9 @@ const objectStorageSchema = z
       .readonly(),
     endpoint: httpUrlSchema("OBJECT_STORAGE_ENDPOINT"),
     // Browser-facing origin for signed GET links when the service reaches storage by another host.
-    signedGetEndpoint: httpUrlSchema("OBJECT_STORAGE_SIGNED_GET_ENDPOINT").optional(),
+    signedGetEndpoint: httpUrlSchema(
+      "OBJECT_STORAGE_SIGNED_GET_ENDPOINT",
+    ).optional(),
     forcePathStyle: z
       .string()
       .regex(/^(?:true|false)$/u, {
@@ -127,21 +133,37 @@ const objectStorageSchema = z
   })
   .readonly();
 const telegramIntegrationEndpointSchema = (name: string, path: string) =>
-  httpUrlSchema(name).refine(value => {
-    const url = new URL(value);
-    return (url.protocol === "https:" || ["127.0.0.1", "localhost", "[::1]"].includes(url.hostname)) &&
-      !url.username && !url.password && !url.search && !url.hash && url.pathname === path;
-  }, { message: `${name} is invalid` });
+  httpUrlSchema(name).refine(
+    (value) => {
+      const url = new URL(value);
+      return (
+        (url.protocol === "https:" ||
+          ["127.0.0.1", "localhost", "[::1]"].includes(url.hostname)) &&
+        !url.username &&
+        !url.password &&
+        !url.search &&
+        !url.hash &&
+        url.pathname === path
+      );
+    },
+    { message: `${name} is invalid` },
+  );
 const telegramSecretSchema = (name: string) =>
   z.string().regex(/^[A-Za-z0-9_-]{16,256}$/u, {
     message: `${name} must be a base64url credential of at least 16 characters`,
   });
 const kinescopeUrlSchema = (name: string) =>
-  httpUrlSchema(name).refine((value) => {
-    const url = new URL(value);
-    return url.protocol === "https:" &&
-      (url.hostname === "kinescope.io" || url.hostname.endsWith(".kinescope.io"));
-  }, { message: `${name} must use HTTPS on a Kinescope host` });
+  httpUrlSchema(name).refine(
+    (value) => {
+      const url = new URL(value);
+      return (
+        url.protocol === "https:" &&
+        (url.hostname === "kinescope.io" ||
+          url.hostname.endsWith(".kinescope.io"))
+      );
+    },
+    { message: `${name} must use HTTPS on a Kinescope host` },
+  );
 const telegramMembershipSchema = z
   .object({
     botStartUrl: httpUrlSchema("TELEGRAM_BOT_START_URL").refine(
@@ -156,11 +178,12 @@ const telegramMembershipSchema = z
         );
       },
       {
-        message:
-          "TELEGRAM_BOT_START_URL must be a t.me bot deep-link base URL",
+        message: "TELEGRAM_BOT_START_URL must be a t.me bot deep-link base URL",
       },
     ),
-    activationIngressSecret: telegramSecretSchema("TELEGRAM_ACTIVATION_INGRESS_SECRET").optional(),
+    activationIngressSecret: telegramSecretSchema(
+      "TELEGRAM_ACTIVATION_INGRESS_SECRET",
+    ).optional(),
     evidenceIngressSecret: telegramSecretSchema(
       "TELEGRAM_EVIDENCE_INGRESS_SECRET",
     ),
@@ -174,33 +197,37 @@ const telegramMembershipSchema = z
     supportUrl: httpUrlSchema("MEMBERSHIP_SUPPORT_URL").optional(),
   })
   .readonly();
-const kinescopeSchema = z.object({
-  apiBaseUrl: kinescopeUrlSchema("KINESCOPE_API_BASE_URL"),
-  apiToken: z.string().min(16),
-  callbackPassword: z.string().min(16),
-  callbackUsername: z.string().min(1),
-  membershipProjectId: z.string().min(1).max(128),
-  playbackJwtSecret: z.string().min(32),
-  playbackJwtTtlSeconds: integerStringSchema(
-    "KINESCOPE_PLAYBACK_JWT_TTL_SECONDS must be an integer between 30 and 300",
-    30,
-    300,
-  ),
-  providerMode: z.enum(["real", "test"]),
-  publicProjectId: z.string().min(1).max(128),
-  uploaderBaseUrl: kinescopeUrlSchema("KINESCOPE_UPLOADER_BASE_URL"),
-  webhookPassword: z.string().min(16),
-  webhookUsername: z.string().min(1),
-}).readonly();
+const kinescopeSchema = z
+  .object({
+    apiBaseUrl: kinescopeUrlSchema("KINESCOPE_API_BASE_URL"),
+    apiToken: z.string().min(16),
+    callbackPassword: z.string().min(16),
+    callbackUsername: z.string().min(1),
+    membershipProjectId: z.string().min(1).max(128),
+    playbackJwtSecret: z.string().min(32),
+    playbackJwtTtlSeconds: integerStringSchema(
+      "KINESCOPE_PLAYBACK_JWT_TTL_SECONDS must be an integer between 30 and 300",
+      30,
+      300,
+    ),
+    providerMode: z.enum(["real", "test"]),
+    publicProjectId: z.string().min(1).max(128),
+    uploaderBaseUrl: kinescopeUrlSchema("KINESCOPE_UPLOADER_BASE_URL"),
+    webhookPassword: z.string().min(16),
+    webhookUsername: z.string().min(1),
+  })
+  .readonly();
 const platformConfigSchema = z
   .object({
     notifications: notificationsConfigSchema.optional(),
-    notificationDelivery: z.object({
-      // Адрес читателя разбирается как голый origin, а HTTPS требует отдельная проверка ниже:
-      // стенд живёт на петле без сертификата, а письмо наружу обязано вести только под TLS.
-      origin: publicOriginSchema("NOTIFICATIONS_PLATFORM_ORIGIN"),
-      telegramSecret: z.string().min(32),
-    }).optional(),
+    notificationDelivery: z
+      .object({
+        // Адрес читателя разбирается как голый origin, а HTTPS требует отдельная проверка ниже:
+        // стенд живёт на петле без сертификата, а письмо наружу обязано вести только под TLS.
+        origin: publicOriginSchema("NOTIFICATIONS_PLATFORM_ORIGIN"),
+        telegramSecret: z.string().min(32),
+      })
+      .optional(),
     mode: platformModeSchema,
     database: z.object({ url: databaseUrlSchema }).readonly(),
     api: z
@@ -212,16 +239,33 @@ const platformConfigSchema = z
       })
       .readonly(),
     tbank: tbankRuntimeSchema.optional(),
-    tribute: z.strictObject({ apiKey: z.string().min(16).max(1024), signatureEncoding: z.enum(["hex", "base64"]) }).readonly().optional(),
-    billingContact: z.object({
-      encryptionKey: z.string().refine(value => Buffer.from(value, "base64").length === 32, "BILLING_CONTACT_ENCRYPTION_KEY must be 32 base64-encoded bytes"),
-      smtpHost: z.string().min(1),
-      smtpPort: z.coerce.number().int().min(1).max(65535),
-      smtpUser: z.string().optional(),
-      smtpPassword: z.string().optional(),
-      from: z.email(),
-      localInsecure: z.boolean(),
-    }).refine(value => Boolean(value.smtpUser) === Boolean(value.smtpPassword), "SMTP user and password must be configured together").optional(),
+    tribute: z
+      .strictObject({
+        apiKey: z.string().min(16).max(1024),
+        signatureEncoding: z.enum(["hex", "base64"]),
+      })
+      .readonly()
+      .optional(),
+    billingContact: z
+      .object({
+        encryptionKey: z
+          .string()
+          .refine(
+            (value) => Buffer.from(value, "base64").length === 32,
+            "BILLING_CONTACT_ENCRYPTION_KEY must be 32 base64-encoded bytes",
+          ),
+        smtpHost: z.string().min(1),
+        smtpPort: z.coerce.number().int().min(1).max(65535),
+        smtpUser: z.string().optional(),
+        smtpPassword: z.string().optional(),
+        from: z.email(),
+        localInsecure: z.boolean(),
+      })
+      .refine(
+        (value) => Boolean(value.smtpUser) === Boolean(value.smtpPassword),
+        "SMTP user and password must be configured together",
+      )
+      .optional(),
     identity: identitySchema,
     /** Where the published legal editions are readable; their addresses are stored with a consent. */
     publicSite: z
@@ -230,25 +274,55 @@ const platformConfigSchema = z
     objectStorage: objectStorageSchema,
     kinescope: kinescopeSchema,
     telegramMembership: telegramMembershipSchema,
-    communicationsTrackingOrigin: z.url().refine(value => {
-      const url = new URL(value);
-      return url.protocol === "https:" && url.pathname === "/" && !url.search && !url.hash && !url.username && !url.password;
-    }).optional(),
-    communityEntitlements: z.object({
-      contractVersion: z.literal("inside.community-entitlement.v2").optional(),
-      endpoint: telegramIntegrationEndpointSchema("TELEGRAM_COMMUNITY_ENTITLEMENT_ENDPOINT",
-        "/integrations/platform/v1/community-entitlements"),
-      providerSecret: telegramSecretSchema("TELEGRAM_COMMUNITY_ENTITLEMENT_SECRET"),
-      dispatchSecret: telegramSecretSchema("TELEGRAM_COMMUNITY_DISPATCH_SECRET"),
-    }).readonly().optional(),
-    communications: z.object({
-      endpoint: telegramIntegrationEndpointSchema("TELEGRAM_COMMUNICATIONS_ENDPOINT",
-        "/integrations/platform/v1/communications"),
-      secret: telegramSecretSchema("TELEGRAM_COMMUNICATIONS_SECRET"),
-      publicOrigin: httpUrlSchema("TELEGRAM_COMMUNICATIONS_PUBLIC_ORIGIN").optional(),
-      authorizationSecret: telegramSecretSchema("TELEGRAM_AUTHOR_AUTHORIZATION_SECRET"),
-      botIdentity: z.string().min(1).max(128),
-    }).readonly().optional(),
+    communicationsTrackingOrigin: z
+      .url()
+      .refine((value) => {
+        const url = new URL(value);
+        return (
+          url.protocol === "https:" &&
+          url.pathname === "/" &&
+          !url.search &&
+          !url.hash &&
+          !url.username &&
+          !url.password
+        );
+      })
+      .optional(),
+    communityEntitlements: z
+      .object({
+        contractVersion: z
+          .literal("inside.community-entitlement.v2")
+          .optional(),
+        endpoint: telegramIntegrationEndpointSchema(
+          "TELEGRAM_COMMUNITY_ENTITLEMENT_ENDPOINT",
+          "/integrations/platform/v1/community-entitlements",
+        ),
+        providerSecret: telegramSecretSchema(
+          "TELEGRAM_COMMUNITY_ENTITLEMENT_SECRET",
+        ),
+        dispatchSecret: telegramSecretSchema(
+          "TELEGRAM_COMMUNITY_DISPATCH_SECRET",
+        ),
+      })
+      .readonly()
+      .optional(),
+    communications: z
+      .object({
+        endpoint: telegramIntegrationEndpointSchema(
+          "TELEGRAM_COMMUNICATIONS_ENDPOINT",
+          "/integrations/platform/v1/communications",
+        ),
+        secret: telegramSecretSchema("TELEGRAM_COMMUNICATIONS_SECRET"),
+        publicOrigin: httpUrlSchema(
+          "TELEGRAM_COMMUNICATIONS_PUBLIC_ORIGIN",
+        ).optional(),
+        authorizationSecret: telegramSecretSchema(
+          "TELEGRAM_AUTHOR_AUTHORIZATION_SECRET",
+        ),
+        botIdentity: z.string().min(1).max(128),
+      })
+      .readonly()
+      .optional(),
   })
   .readonly();
 const platformDatabaseConfigSchema = z
@@ -286,7 +360,8 @@ const unusedProductionGroups = {
     KINESCOPE_CALLBACK_PASSWORD: "unused-callback-password",
     KINESCOPE_CALLBACK_USERNAME: "unused-callback-user",
     KINESCOPE_MEMBERSHIP_PROJECT_ID: "unused-membership-project",
-    KINESCOPE_PLAYBACK_JWT_SECRET: "unused-playback-secret-at-least-32-characters",
+    KINESCOPE_PLAYBACK_JWT_SECRET:
+      "unused-playback-secret-at-least-32-characters",
     KINESCOPE_PLAYBACK_JWT_TTL_SECONDS: "60",
     KINESCOPE_PROVIDER_MODE: "real",
     KINESCOPE_PUBLIC_PROJECT_ID: "unused-public-project",
@@ -353,67 +428,101 @@ export function parsePlatformConfig(
 ): PlatformConfig {
   const mode = parsePlatformMode(environment.NODE_ENV);
   // Перехватчик писем существует только на стенде: production не принимает его даже объявленным.
-  if (mode === "production" && environment.BILLING_CONTACT_SMTP_LOCAL_CAPTURE?.trim() === "true") {
-    throw new Error("BILLING_CONTACT_SMTP_LOCAL_CAPTURE is not a production mail transport");
+  if (
+    mode === "production" &&
+    environment.BILLING_CONTACT_SMTP_LOCAL_CAPTURE?.trim() === "true"
+  ) {
+    throw new Error(
+      "BILLING_CONTACT_SMTP_LOCAL_CAPTURE is not a production mail transport",
+    );
   }
   const config = platformConfigSchema.safeParse({
     notifications: parseNotificationsConfig(environment),
-    notificationDelivery: environment.NOTIFICATIONS_PLATFORM_ORIGIN || environment.NOTIFICATIONS_TELEGRAM_SECRET
-      ? { origin: environment.NOTIFICATIONS_PLATFORM_ORIGIN, telegramSecret: environment.NOTIFICATIONS_TELEGRAM_SECRET } : undefined,
+    notificationDelivery:
+      environment.NOTIFICATIONS_PLATFORM_ORIGIN ||
+      environment.NOTIFICATIONS_TELEGRAM_SECRET
+        ? {
+            origin: environment.NOTIFICATIONS_PLATFORM_ORIGIN,
+            telegramSecret: environment.NOTIFICATIONS_TELEGRAM_SECRET,
+          }
+        : undefined,
     mode,
     tbank: parseBankContour(environment),
-    tribute: environment.TRIBUTE_API_KEY === undefined && environment.TRIBUTE_SIGNATURE_ENCODING === undefined ? undefined
-      : { apiKey: environment.TRIBUTE_API_KEY, signatureEncoding: environment.TRIBUTE_SIGNATURE_ENCODING },
-    billingContact: [environment.BILLING_CONTACT_ENCRYPTION_KEY, environment.BILLING_CONTACT_SMTP_HOST,
-      environment.BILLING_CONTACT_SMTP_PORT, environment.BILLING_CONTACT_SMTP_USER, environment.BILLING_CONTACT_SMTP_PASSWORD,
-      environment.BILLING_CONTACT_FROM].every(value => value === undefined) ? undefined : {
-      encryptionKey: environment.BILLING_CONTACT_ENCRYPTION_KEY,
-      smtpHost: environment.BILLING_CONTACT_SMTP_HOST,
-      smtpPort: environment.BILLING_CONTACT_SMTP_PORT ?? "587",
-      smtpUser: environment.BILLING_CONTACT_SMTP_USER,
-      smtpPassword: environment.BILLING_CONTACT_SMTP_PASSWORD,
-      from: environment.BILLING_CONTACT_FROM,
-      // Открытый SMTP вне production: петля или объявленный перехватчик писем на стенде, у которого
-      // нет ни домена, ни сертификата. Production всегда требует проверенный TLS.
-      localInsecure: mode !== "production" && (["127.0.0.1", "localhost", "::1"].includes(environment.BILLING_CONTACT_SMTP_HOST ?? "")
-        || environment.BILLING_CONTACT_SMTP_LOCAL_CAPTURE?.trim() === "true"),
-    },
-    communityEntitlements: [environment.TELEGRAM_COMMUNITY_ENTITLEMENT_ENDPOINT, environment.TELEGRAM_COMMUNITY_ENTITLEMENT_SECRET,
-      environment.TELEGRAM_COMMUNITY_DISPATCH_SECRET].every(value => value === undefined) ? undefined : {
-      contractVersion: environment.TELEGRAM_COMMUNITY_CONTRACT_VERSION,
-      endpoint: environment.TELEGRAM_COMMUNITY_ENTITLEMENT_ENDPOINT,
-      providerSecret: environment.TELEGRAM_COMMUNITY_ENTITLEMENT_SECRET,
-      dispatchSecret: environment.TELEGRAM_COMMUNITY_DISPATCH_SECRET,
-    },
+    tribute:
+      environment.TRIBUTE_API_KEY === undefined &&
+      environment.TRIBUTE_SIGNATURE_ENCODING === undefined
+        ? undefined
+        : {
+            apiKey: environment.TRIBUTE_API_KEY,
+            signatureEncoding: environment.TRIBUTE_SIGNATURE_ENCODING,
+          },
+    billingContact: [
+      environment.BILLING_CONTACT_ENCRYPTION_KEY,
+      environment.BILLING_CONTACT_SMTP_HOST,
+      environment.BILLING_CONTACT_SMTP_PORT,
+      environment.BILLING_CONTACT_SMTP_USER,
+      environment.BILLING_CONTACT_SMTP_PASSWORD,
+      environment.BILLING_CONTACT_FROM,
+    ].every((value) => value === undefined)
+      ? undefined
+      : {
+          encryptionKey: environment.BILLING_CONTACT_ENCRYPTION_KEY,
+          smtpHost: environment.BILLING_CONTACT_SMTP_HOST,
+          smtpPort: environment.BILLING_CONTACT_SMTP_PORT ?? "587",
+          smtpUser: environment.BILLING_CONTACT_SMTP_USER,
+          smtpPassword: environment.BILLING_CONTACT_SMTP_PASSWORD,
+          from: environment.BILLING_CONTACT_FROM,
+          // Открытый SMTP вне production: петля или объявленный перехватчик писем на стенде, у которого
+          // нет ни домена, ни сертификата. Production всегда требует проверенный TLS.
+          localInsecure:
+            mode !== "production" &&
+            (["127.0.0.1", "localhost", "::1"].includes(
+              environment.BILLING_CONTACT_SMTP_HOST ?? "",
+            ) ||
+              environment.BILLING_CONTACT_SMTP_LOCAL_CAPTURE?.trim() ===
+                "true"),
+        },
+    communityEntitlements: [
+      environment.TELEGRAM_COMMUNITY_ENTITLEMENT_ENDPOINT,
+      environment.TELEGRAM_COMMUNITY_ENTITLEMENT_SECRET,
+      environment.TELEGRAM_COMMUNITY_DISPATCH_SECRET,
+    ].every((value) => value === undefined)
+      ? undefined
+      : {
+          contractVersion: environment.TELEGRAM_COMMUNITY_CONTRACT_VERSION,
+          endpoint: environment.TELEGRAM_COMMUNITY_ENTITLEMENT_ENDPOINT,
+          providerSecret: environment.TELEGRAM_COMMUNITY_ENTITLEMENT_SECRET,
+          dispatchSecret: environment.TELEGRAM_COMMUNITY_DISPATCH_SECRET,
+        },
     communicationsTrackingOrigin: environment.TELEGRAM_TRACKING_ORIGIN,
-    communications: [environment.TELEGRAM_COMMUNICATIONS_ENDPOINT, environment.TELEGRAM_COMMUNICATIONS_SECRET,
-      environment.TELEGRAM_AUTHOR_AUTHORIZATION_SECRET, environment.TELEGRAM_COMMUNICATIONS_BOT_IDENTITY].every(value => value === undefined)
-      ? undefined : {
-        endpoint: environment.TELEGRAM_COMMUNICATIONS_ENDPOINT,
-        secret: environment.TELEGRAM_COMMUNICATIONS_SECRET,
-        publicOrigin: environment.TELEGRAM_COMMUNICATIONS_PUBLIC_ORIGIN,
-        authorizationSecret: environment.TELEGRAM_AUTHOR_AUTHORIZATION_SECRET,
-        botIdentity: environment.TELEGRAM_COMMUNICATIONS_BOT_IDENTITY,
-      },
+    communications: [
+      environment.TELEGRAM_COMMUNICATIONS_ENDPOINT,
+      environment.TELEGRAM_COMMUNICATIONS_SECRET,
+      environment.TELEGRAM_AUTHOR_AUTHORIZATION_SECRET,
+      environment.TELEGRAM_COMMUNICATIONS_BOT_IDENTITY,
+    ].every((value) => value === undefined)
+      ? undefined
+      : {
+          endpoint: environment.TELEGRAM_COMMUNICATIONS_ENDPOINT,
+          secret: environment.TELEGRAM_COMMUNICATIONS_SECRET,
+          publicOrigin: environment.TELEGRAM_COMMUNICATIONS_PUBLIC_ORIGIN,
+          authorizationSecret: environment.TELEGRAM_AUTHOR_AUTHORIZATION_SECRET,
+          botIdentity: environment.TELEGRAM_COMMUNICATIONS_BOT_IDENTITY,
+        },
     database: parsePlatformDatabaseConfig(environment, mode),
     api: {
-      host: readRuntimeValue(
-        environment,
-        "API_HOST",
-        mode,
-        DEFAULT_API_HOST,
-      ),
-      port: readRuntimeValue(
-        environment,
-        "API_PORT",
-        mode,
-        DEFAULT_API_PORT,
-      ),
+      host: readRuntimeValue(environment, "API_HOST", mode, DEFAULT_API_HOST),
+      port: readRuntimeValue(environment, "API_PORT", mode, DEFAULT_API_PORT),
     },
     identity: {
       telegramSignInProviderUrl: environment.TELEGRAM_SIGN_IN_PROVIDER_URL,
-      telegramSignInIntegrationSecret: environment.TELEGRAM_SIGN_IN_INTEGRATION_SECRET,
-      telegramSignInEnabled: z.enum(["true", "false"]).default("false").parse(environment.TELEGRAM_SIGN_IN_ENABLED) === "true",
+      telegramSignInIntegrationSecret:
+        environment.TELEGRAM_SIGN_IN_INTEGRATION_SECRET,
+      telegramSignInEnabled:
+        z
+          .enum(["true", "false"])
+          .default("false")
+          .parse(environment.TELEGRAM_SIGN_IN_ENABLED) === "true",
       issuer: readRuntimeValue(
         environment,
         "LOGTO_ISSUER",
@@ -473,7 +582,10 @@ export function parsePlatformConfig(
         DEFAULT_OBJECT_STORAGE_ENDPOINT,
       ),
       ...(environment.OBJECT_STORAGE_SIGNED_GET_ENDPOINT?.trim()
-        ? { signedGetEndpoint: environment.OBJECT_STORAGE_SIGNED_GET_ENDPOINT.trim() }
+        ? {
+            signedGetEndpoint:
+              environment.OBJECT_STORAGE_SIGNED_GET_ENDPOINT.trim(),
+          }
         : {}),
       forcePathStyle:
         environment.OBJECT_STORAGE_FORCE_PATH_STYLE?.trim() ||
@@ -510,18 +622,75 @@ export function parsePlatformConfig(
       ),
     },
     kinescope: {
-      apiBaseUrl: readRuntimeValue(environment, "KINESCOPE_API_BASE_URL", mode, DEFAULT_KINESCOPE_API_BASE_URL),
-      apiToken: readRuntimeValue(environment, "KINESCOPE_API_TOKEN", mode, DEFAULT_KINESCOPE_API_TOKEN),
-      callbackPassword: readRuntimeValue(environment, "KINESCOPE_CALLBACK_PASSWORD", mode, DEFAULT_KINESCOPE_CALLBACK_PASSWORD),
-      callbackUsername: readRuntimeValue(environment, "KINESCOPE_CALLBACK_USERNAME", mode, DEFAULT_KINESCOPE_CALLBACK_USERNAME),
-      membershipProjectId: readRuntimeValue(environment, "KINESCOPE_MEMBERSHIP_PROJECT_ID", mode, DEFAULT_KINESCOPE_MEMBERSHIP_PROJECT_ID),
-      playbackJwtSecret: readRuntimeValue(environment, "KINESCOPE_PLAYBACK_JWT_SECRET", mode, DEFAULT_KINESCOPE_PLAYBACK_JWT_SECRET),
-      playbackJwtTtlSeconds: readRuntimeValue(environment, "KINESCOPE_PLAYBACK_JWT_TTL_SECONDS", mode, DEFAULT_KINESCOPE_PLAYBACK_JWT_TTL_SECONDS),
-      providerMode: environment.KINESCOPE_PROVIDER_MODE?.trim() || (mode === "production" ? "real" : DEFAULT_KINESCOPE_PROVIDER_MODE),
-      publicProjectId: readRuntimeValue(environment, "KINESCOPE_PUBLIC_PROJECT_ID", mode, DEFAULT_KINESCOPE_PUBLIC_PROJECT_ID),
-      uploaderBaseUrl: readRuntimeValue(environment, "KINESCOPE_UPLOADER_BASE_URL", mode, DEFAULT_KINESCOPE_UPLOADER_BASE_URL),
-      webhookPassword: readRuntimeValue(environment, "KINESCOPE_WEBHOOK_PASSWORD", mode, DEFAULT_KINESCOPE_WEBHOOK_PASSWORD),
-      webhookUsername: readRuntimeValue(environment, "KINESCOPE_WEBHOOK_USERNAME", mode, DEFAULT_KINESCOPE_WEBHOOK_USERNAME),
+      apiBaseUrl: readRuntimeValue(
+        environment,
+        "KINESCOPE_API_BASE_URL",
+        mode,
+        DEFAULT_KINESCOPE_API_BASE_URL,
+      ),
+      apiToken: readRuntimeValue(
+        environment,
+        "KINESCOPE_API_TOKEN",
+        mode,
+        DEFAULT_KINESCOPE_API_TOKEN,
+      ),
+      callbackPassword: readRuntimeValue(
+        environment,
+        "KINESCOPE_CALLBACK_PASSWORD",
+        mode,
+        DEFAULT_KINESCOPE_CALLBACK_PASSWORD,
+      ),
+      callbackUsername: readRuntimeValue(
+        environment,
+        "KINESCOPE_CALLBACK_USERNAME",
+        mode,
+        DEFAULT_KINESCOPE_CALLBACK_USERNAME,
+      ),
+      membershipProjectId: readRuntimeValue(
+        environment,
+        "KINESCOPE_MEMBERSHIP_PROJECT_ID",
+        mode,
+        DEFAULT_KINESCOPE_MEMBERSHIP_PROJECT_ID,
+      ),
+      playbackJwtSecret: readRuntimeValue(
+        environment,
+        "KINESCOPE_PLAYBACK_JWT_SECRET",
+        mode,
+        DEFAULT_KINESCOPE_PLAYBACK_JWT_SECRET,
+      ),
+      playbackJwtTtlSeconds: readRuntimeValue(
+        environment,
+        "KINESCOPE_PLAYBACK_JWT_TTL_SECONDS",
+        mode,
+        DEFAULT_KINESCOPE_PLAYBACK_JWT_TTL_SECONDS,
+      ),
+      providerMode:
+        environment.KINESCOPE_PROVIDER_MODE?.trim() ||
+        (mode === "production" ? "real" : DEFAULT_KINESCOPE_PROVIDER_MODE),
+      publicProjectId: readRuntimeValue(
+        environment,
+        "KINESCOPE_PUBLIC_PROJECT_ID",
+        mode,
+        DEFAULT_KINESCOPE_PUBLIC_PROJECT_ID,
+      ),
+      uploaderBaseUrl: readRuntimeValue(
+        environment,
+        "KINESCOPE_UPLOADER_BASE_URL",
+        mode,
+        DEFAULT_KINESCOPE_UPLOADER_BASE_URL,
+      ),
+      webhookPassword: readRuntimeValue(
+        environment,
+        "KINESCOPE_WEBHOOK_PASSWORD",
+        mode,
+        DEFAULT_KINESCOPE_WEBHOOK_PASSWORD,
+      ),
+      webhookUsername: readRuntimeValue(
+        environment,
+        "KINESCOPE_WEBHOOK_USERNAME",
+        mode,
+        DEFAULT_KINESCOPE_WEBHOOK_USERNAME,
+      ),
     },
     telegramMembership: {
       activationIngressSecret: environment.TELEGRAM_ACTIVATION_INGRESS_SECRET,
@@ -585,7 +754,9 @@ export function parsePlatformConfig(
     mode === "production" &&
     new URL(config.data.objectStorage.endpoint).protocol !== "https:"
   ) {
-    throw new Error("OBJECT_STORAGE_ENDPOINT must use HTTPS in production mode");
+    throw new Error(
+      "OBJECT_STORAGE_ENDPOINT must use HTTPS in production mode",
+    );
   }
 
   if (new Set(Object.values(config.data.objectStorage.buckets)).size !== 3) {
@@ -610,22 +781,23 @@ export function parsePlatformConfig(
       "NOTIFICATIONS_PLATFORM_ORIGIN must use HTTPS in production mode",
     );
   }
-  if (config.data.kinescope.publicProjectId === config.data.kinescope.membershipProjectId) {
-    throw new Error("Public and membership Kinescope projects must be distinct");
+  if (
+    config.data.kinescope.publicProjectId ===
+    config.data.kinescope.membershipProjectId
+  ) {
+    throw new Error(
+      "Public and membership Kinescope projects must be distinct",
+    );
   }
 
-  const linkingUrl = new URL(
-    config.data.telegramMembership.linkingEndpoint,
-  );
+  const linkingUrl = new URL(config.data.telegramMembership.linkingEndpoint);
   if (
     (mode === "production" && linkingUrl.protocol !== "https:") ||
     linkingUrl.username.length > 0 ||
     linkingUrl.password.length > 0 ||
     linkingUrl.search.length > 0 ||
     linkingUrl.hash.length > 0 ||
-    !linkingUrl.pathname.endsWith(
-      "/integrations/platform/v1/identity-links",
-    )
+    !linkingUrl.pathname.endsWith("/integrations/platform/v1/identity-links")
   ) {
     throw new Error("TELEGRAM_LINKING_ENDPOINT is invalid");
   }
@@ -633,15 +805,27 @@ export function parsePlatformConfig(
   // Community authenticates on its own credentials; reusing another direction's secret
   // would let that caller inherit community authority. Only the two settings added here
   // are gated, so an existing deployment keeps starting with whatever it already has.
-  const activationSecret = config.data.telegramMembership.activationIngressSecret;
-  if (activationSecret !== undefined && [config.data.telegramMembership.linkingSecret,
-    config.data.telegramMembership.evidenceIngressSecret, config.data.identity.telegramSignInIntegrationSecret,
-    config.data.communityEntitlements?.dispatchSecret, config.data.communityEntitlements?.providerSecret,
-    config.data.communications?.secret, config.data.communications?.authorizationSecret].includes(activationSecret)) {
-    throw new Error("Activation authority requires a separate integration secret");
+  const activationSecret =
+    config.data.telegramMembership.activationIngressSecret;
+  if (
+    activationSecret !== undefined &&
+    [
+      config.data.telegramMembership.linkingSecret,
+      config.data.telegramMembership.evidenceIngressSecret,
+      config.data.identity.telegramSignInIntegrationSecret,
+      config.data.communityEntitlements?.dispatchSecret,
+      config.data.communityEntitlements?.providerSecret,
+      config.data.communications?.secret,
+      config.data.communications?.authorizationSecret,
+    ].includes(activationSecret)
+  ) {
+    throw new Error(
+      "Activation authority requires a separate integration secret",
+    );
   }
   if (config.data.communityEntitlements) {
-    const { dispatchSecret, providerSecret } = config.data.communityEntitlements;
+    const { dispatchSecret, providerSecret } =
+      config.data.communityEntitlements;
     const otherSecrets = [
       config.data.telegramMembership.linkingSecret,
       config.data.telegramMembership.evidenceIngressSecret,
@@ -654,27 +838,51 @@ export function parsePlatformConfig(
       otherSecrets.includes(dispatchSecret) ||
       otherSecrets.includes(providerSecret)
     ) {
-      throw new Error("Community integration secrets must differ from every other Telegram secret");
+      throw new Error(
+        "Community integration secrets must differ from every other Telegram secret",
+      );
     }
   }
 
   // Разрешение отправки уведомления публикуется на edge и защищено только этим credential, поэтому он
   // не совпадает ни с одним другим направлением Telegram.
-  const notificationDispatchSecret = config.data.notificationDelivery?.telegramSecret;
-  if (notificationDispatchSecret !== undefined && [config.data.telegramMembership.linkingSecret,
-    config.data.telegramMembership.evidenceIngressSecret, config.data.telegramMembership.activationIngressSecret,
-    config.data.identity.telegramSignInIntegrationSecret, config.data.communityEntitlements?.dispatchSecret,
-    config.data.communityEntitlements?.providerSecret, config.data.communications?.secret,
-    config.data.communications?.authorizationSecret].includes(notificationDispatchSecret)) {
-    throw new Error("Notification dispatch requires a separate Telegram secret");
+  const notificationDispatchSecret =
+    config.data.notificationDelivery?.telegramSecret;
+  if (
+    notificationDispatchSecret !== undefined &&
+    [
+      config.data.telegramMembership.linkingSecret,
+      config.data.telegramMembership.evidenceIngressSecret,
+      config.data.telegramMembership.activationIngressSecret,
+      config.data.identity.telegramSignInIntegrationSecret,
+      config.data.communityEntitlements?.dispatchSecret,
+      config.data.communityEntitlements?.providerSecret,
+      config.data.communications?.secret,
+      config.data.communications?.authorizationSecret,
+    ].includes(notificationDispatchSecret)
+  ) {
+    throw new Error(
+      "Notification dispatch requires a separate Telegram secret",
+    );
   }
 
   if (config.data.identity.telegramSignInEnabled) {
-    if (!config.data.identity.telegramSignInIntegrationSecret || !environment.TELEGRAM_SIGN_IN_PROVIDER_URL) {
-      throw new Error("Telegram sign-in requires TELEGRAM_SIGN_IN_PROVIDER_URL and TELEGRAM_SIGN_IN_INTEGRATION_SECRET");
+    if (
+      !config.data.identity.telegramSignInIntegrationSecret ||
+      !environment.TELEGRAM_SIGN_IN_PROVIDER_URL
+    ) {
+      throw new Error(
+        "Telegram sign-in requires TELEGRAM_SIGN_IN_PROVIDER_URL and TELEGRAM_SIGN_IN_INTEGRATION_SECRET",
+      );
     }
     const providerUrl = new URL(config.data.identity.telegramSignInProviderUrl);
-    if ((mode === "production" && providerUrl.protocol !== "https:") || providerUrl.username || providerUrl.password || providerUrl.search || providerUrl.hash) {
+    if (
+      (mode === "production" && providerUrl.protocol !== "https:") ||
+      providerUrl.username ||
+      providerUrl.password ||
+      providerUrl.search ||
+      providerUrl.hash
+    ) {
       throw new Error("TELEGRAM_SIGN_IN_PROVIDER_URL is invalid");
     }
   }
@@ -801,7 +1009,11 @@ function publicOriginSchema(name: string) {
     .transform((value) => new URL(value).origin);
 }
 
-function integerStringSchema(message: string, minimum: number, maximum: number) {
+function integerStringSchema(
+  message: string,
+  minimum: number,
+  maximum: number,
+) {
   return z
     .string()
     .refine(

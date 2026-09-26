@@ -84,21 +84,30 @@ export const mutateProfileAvatar: ProfileAvatarMutation = async (
         }
         resolve(parsePrivateProfile(request.response));
       } catch (error) {
-        reject(error instanceof Error ? error : new Error("Avatar response is invalid"));
+        reject(
+          error instanceof Error
+            ? error
+            : new Error("Avatar response is invalid"),
+        );
       }
     });
     request.send(form);
   });
 };
 
-async function readMutationResponse(response: Response): Promise<PrivateMemberProfile> {
+async function readMutationResponse(
+  response: Response,
+): Promise<PrivateMemberProfile> {
   const body: unknown = await response.json().catch(() => null);
   if (!response.ok) throw new AvatarMutationError(body);
   return parsePrivateProfile(body);
 }
 
 async function sha256(file: File): Promise<string> {
-  const digest = await crypto.subtle.digest("SHA-256", await file.arrayBuffer());
+  const digest = await crypto.subtle.digest(
+    "SHA-256",
+    await file.arrayBuffer(),
+  );
   return [...new Uint8Array(digest)]
     .map((byte) => byte.toString(16).padStart(2, "0"))
     .join("");

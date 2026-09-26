@@ -27,21 +27,20 @@ describe("Material asset HTTP controllers", () => {
     });
     const controller = new UploadMaterialAssetController({ upload });
 
-    await expect(controller.upload(
-      account,
-      materialId,
-      "request-1",
-      multipartRequest(),
-    )).resolves.toMatchObject({ assetId, state: "ready" });
-    expect(upload).toHaveBeenCalledWith(expect.objectContaining({
-      actor: account.accountId,
-      body: Buffer.from("pdf"),
-      declaredContentType: "application/pdf",
-      declaredSize: 3,
-      idempotencyKey: "request-1",
-      kind: "file",
-      materialId,
-    }));
+    await expect(
+      controller.upload(account, materialId, "request-1", multipartRequest()),
+    ).resolves.toMatchObject({ assetId, state: "ready" });
+    expect(upload).toHaveBeenCalledWith(
+      expect.objectContaining({
+        actor: account.accountId,
+        body: Buffer.from("pdf"),
+        declaredContentType: "application/pdf",
+        declaredSize: 3,
+        idempotencyKey: "request-1",
+        kind: "file",
+        materialId,
+      }),
+    );
   });
 
   test("maps invalid upload input and application dependency failures to exact problems", async () => {
@@ -52,7 +51,12 @@ describe("Material asset HTTP controllers", () => {
     const controller = new UploadMaterialAssetController({ upload });
 
     await expectHttpProblem(
-      controller.upload(account, materialId, "x".repeat(129), multipartRequest()),
+      controller.upload(
+        account,
+        materialId,
+        "x".repeat(129),
+        multipartRequest(),
+      ),
       400,
       "invalid_upload",
     );
@@ -69,32 +73,42 @@ describe("Material asset HTTP controllers", () => {
       }),
     });
     await expectHttpProblem(
-      unsupportedFileController.upload(account, materialId, "request-3", multipartRequest()),
+      unsupportedFileController.upload(
+        account,
+        materialId,
+        "request-3",
+        multipartRequest(),
+      ),
       422,
       "unsupported_file_type",
     );
   });
 
   test("requires an exact current content version and preview boolean before delivery", async () => {
-    const deliver = vi.fn<MaterialAssetDelivery["deliver"]>().mockResolvedValue({
-      ok: true,
-      value: {
-        cacheScope: "private-no-store",
-        kind: "redirect",
-        location: "https://storage.example.test/signed",
-      },
-    });
+    const deliver = vi
+      .fn<MaterialAssetDelivery["deliver"]>()
+      .mockResolvedValue({
+        ok: true,
+        value: {
+          cacheScope: "private-no-store",
+          kind: "redirect",
+          location: "https://storage.example.test/signed",
+        },
+      });
     const controller = new DeliverMaterialAssetController({ deliver });
 
-    await expect(controller.download(undefined, materialId, assetId, "7", "true"))
-      .resolves.toMatchObject({ kind: "redirect" });
-    expect(deliver).toHaveBeenCalledWith(expect.objectContaining({
-      assetId,
-      contentVersion: 7,
-      materialId,
-      preview: true,
-      subject: { kind: "anonymous" },
-    }));
+    await expect(
+      controller.download(undefined, materialId, assetId, "7", "true"),
+    ).resolves.toMatchObject({ kind: "redirect" });
+    expect(deliver).toHaveBeenCalledWith(
+      expect.objectContaining({
+        assetId,
+        contentVersion: 7,
+        materialId,
+        preview: true,
+        subject: { kind: "anonymous" },
+      }),
+    );
     await expectHttpProblem(
       controller.download(undefined, materialId, assetId, "7", "yes"),
       404,

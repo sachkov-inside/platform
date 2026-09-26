@@ -14,7 +14,9 @@ const webRoot = fileURLToPath(new URL("../apps/web", import.meta.url));
  * ловит ровно это, не запуская ни стенда, ни браузера.
  */
 const configurations = readdirSync(webRoot)
-  .filter((entry) => entry.startsWith("playwright") && entry.endsWith(".config.ts"))
+  .filter(
+    (entry) => entry.startsWith("playwright") && entry.endsWith(".config.ts"),
+  )
   .sort();
 
 test("every Playwright configuration names at least one spec it can load", () => {
@@ -22,16 +24,34 @@ test("every Playwright configuration names at least one spec it can load", () =>
   for (const configuration of configurations) {
     const result = spawnSync(
       "pnpm",
-      ["exec", "playwright", "test", "--config", path.join(webRoot, configuration), "--list"],
+      [
+        "exec",
+        "playwright",
+        "test",
+        "--config",
+        path.join(webRoot, configuration),
+        "--list",
+      ],
       { cwd: webRoot, encoding: "utf8" },
     );
     const output = `${result.stdout ?? ""}${result.stderr ?? ""}`;
     // Набор, который сам объявил недостающее окружение, загрузился: он разобран, импортирован и
     // отказался осознанно. Это его собственный контракт, а не поломка загрузки, которую мы ловим.
     if (/Error: [A-Z_]+ is required/u.test(output)) continue;
-    assert.equal(result.status, 0, `${configuration} could not list its tests:\n${output}`);
+    assert.equal(
+      result.status,
+      0,
+      `${configuration} could not list its tests:\n${output}`,
+    );
     const total = /Total: (\d+) tests? in (\d+) files?/u.exec(output);
-    assert.ok(total !== null, `${configuration} printed no test total:\n${output}`);
-    assert.notEqual(total[1], "0", `${configuration} loaded no tests:\n${output}`);
+    assert.ok(
+      total !== null,
+      `${configuration} printed no test total:\n${output}`,
+    );
+    assert.notEqual(
+      total[1],
+      "0",
+      `${configuration} loaded no tests:\n${output}`,
+    );
   }
 });

@@ -6,10 +6,12 @@ import {
   videoMaterialIdSchema,
 } from "../../domain/video-identifiers.js";
 
-const detachmentInput = z.object({
-  materialId: videoMaterialIdSchema,
-  videoIds: z.array(videoIdSchema),
-}).strict();
+const detachmentInput = z
+  .object({
+    materialId: videoMaterialIdSchema,
+    videoIds: z.array(videoIdSchema),
+  })
+  .strict();
 
 type VideoDetachmentPrisma = Pick<VideosPrisma, "video">;
 

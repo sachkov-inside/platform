@@ -2,19 +2,26 @@
 import type { ReactNode } from "react";
 import type { PriceSnapshot } from "@/entities/subscription";
 
-import { CatalogSection, type CatalogSectionProps } from "./catalog-section.client";
+import {
+  CatalogSection,
+  type CatalogSectionProps,
+} from "./catalog-section.client";
 import {
   ClassificationSection,
   type ClassificationSectionProps,
 } from "./classification-section.client";
-import { GrantsSection, type GrantsSectionProps } from "./grants-section.client";
+import {
+  GrantsSection,
+  type GrantsSectionProps,
+} from "./grants-section.client";
 import {
   PaymentsSection,
   type PaymentsSectionProps,
 } from "./payments-section.client";
 
 export interface BillingAdminViewProps
-  extends Omit<CatalogSectionProps, "offers" | "pending">,
+  extends
+    Omit<CatalogSectionProps, "offers" | "pending">,
     Omit<PaymentsSectionProps, "pending">,
     Omit<GrantsSectionProps, "pending">,
     Omit<ClassificationSectionProps, "pending"> {
@@ -30,7 +37,11 @@ export interface BillingAdminViewProps
  * Каждый раздел отвечает за свою группу операций, а страница — за общий исход команды.
  */
 export function BillingAdminView({
-  content, tiers, catalogLoading, catalogError, enrollmentControls,
+  content,
+  tiers,
+  catalogLoading,
+  catalogError,
+  enrollmentControls,
   offers,
   payments,
   paymentsCursor,
@@ -96,7 +107,11 @@ export function BillingAdminView({
       )}
 
       {enrollmentControls}
-      <CatalogSection content={content} tiers={tiers} catalogLoading={catalogLoading} catalogError={catalogError}
+      <CatalogSection
+        content={content}
+        tiers={tiers}
+        catalogLoading={catalogLoading}
+        catalogError={catalogError}
         offers={offers}
         onArchiveOffer={onArchiveOffer}
         onPublishOffer={onPublishOffer}

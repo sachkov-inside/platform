@@ -19,11 +19,15 @@ export function parseToolSurface(content: string, source: string): string[] {
   try {
     value = JSON.parse(content);
   } catch {
-    throw new Error(`MCP tool surface at ${source} is not valid JSON. Run \`pnpm mcp:generate\`.`);
+    throw new Error(
+      `MCP tool surface at ${source} is not valid JSON. Run \`pnpm mcp:generate\`.`,
+    );
   }
   const parsed = toolSurfaceSchema.safeParse(value);
   if (!parsed.success) {
-    throw new Error(`MCP tool surface at ${source} is not a list of tool names.`);
+    throw new Error(
+      `MCP tool surface at ${source} is not a list of tool names.`,
+    );
   }
   return parsed.data;
 }

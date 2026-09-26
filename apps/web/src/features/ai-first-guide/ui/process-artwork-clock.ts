@@ -12,16 +12,27 @@ export interface ProcessArtworkOptions {
 }
 
 /** Owns only the presentation subtree, never React state or application data. */
-export function mountProcessArtwork(host: HTMLElement, { mode, scene = 5, loop = true }: ProcessArtworkOptions) {
+export function mountProcessArtwork(
+  host: HTMLElement,
+  { mode, scene = 5, loop = true }: ProcessArtworkOptions,
+) {
   const stage = host.querySelector<HTMLElement>(".stage");
   if (!stage) throw new Error("Process artwork stage is missing");
   const scenes = [...stage.querySelectorAll<HTMLElement>(".scene")];
   const register = (el: HTMLElement) => {
     const text = el.textContent;
     const next = el.nextElementSibling;
-    return { el, text, start: Number(el.dataset.t ?? 0), speed: Number(el.dataset.speed ?? 42), caret: next?.classList.contains("caret") ? next : null };
+    return {
+      el,
+      text,
+      start: Number(el.dataset.t ?? 0),
+      speed: Number(el.dataset.speed ?? 42),
+      caret: next?.classList.contains("caret") ? next : null,
+    };
   };
-  const typers = scenes.map(item => [...item.querySelectorAll<HTMLElement>(".type")].map(register));
+  const typers = scenes.map((item) =>
+    [...item.querySelectorAll<HTMLElement>(".type")].map(register),
+  );
   const allTypers = typers.flat();
   const reduced = window.matchMedia("(prefers-reduced-motion: reduce)");
   let current = -1;
@@ -45,16 +56,33 @@ export function mountProcessArtwork(host: HTMLElement, { mode, scene = 5, loop =
     current = index;
     const active = scenes[index];
     active?.classList.remove("is-active", "is-leaving");
-    if (active) { void active.offsetWidth; active.classList.add("is-active"); }
-    for (const typer of typers[index] ?? []) { typer.el.textContent = ""; typer.caret?.classList.remove("is-on"); }
+    if (active) {
+      void active.offsetWidth;
+      active.classList.add("is-active");
+    }
+    for (const typer of typers[index] ?? []) {
+      typer.el.textContent = "";
+      typer.caret?.classList.remove("is-on");
+    }
     if (stage) stage.dataset.scene = String(index + 1);
   }
 
   function renderTyping(sceneTime: number) {
     for (const typer of typers[current] ?? []) {
-      const length = Math.max(0, Math.min(typer.text.length, Math.floor((sceneTime - typer.start) / typer.speed)));
-      if (typer.el.textContent.length !== length) typer.el.textContent = typer.text.slice(0, length);
-      typer.caret?.classList.toggle("is-on", sceneTime >= typer.start && sceneTime <= typer.start + typer.text.length * typer.speed + 800);
+      const length = Math.max(
+        0,
+        Math.min(
+          typer.text.length,
+          Math.floor((sceneTime - typer.start) / typer.speed),
+        ),
+      );
+      if (typer.el.textContent.length !== length)
+        typer.el.textContent = typer.text.slice(0, length);
+      typer.caret?.classList.toggle(
+        "is-on",
+        sceneTime >= typer.start &&
+          sceneTime <= typer.start + typer.text.length * typer.speed + 800,
+      );
     }
   }
 
@@ -62,7 +90,9 @@ export function mountProcessArtwork(host: HTMLElement, { mode, scene = 5, loop =
     running = false;
     cancelAnimationFrame(raf);
     // Includes the glow transition; both CSS and scene clocks resume from the same point.
-    pausedAnimations = host.getAnimations({ subtree: true }).filter(animation => animation.playState === "running");
+    pausedAnimations = host
+      .getAnimations({ subtree: true })
+      .filter((animation) => animation.playState === "running");
     for (const animation of pausedAnimations) animation.pause();
     stage?.classList.add("is-paused");
   }
@@ -71,10 +101,18 @@ export function mountProcessArtwork(host: HTMLElement, { mode, scene = 5, loop =
     if (!running) return;
     elapsed += (now - lastNow) / PROCESS_ARTWORK_TIME_SCALE;
     lastNow = now;
-    if (leaving && elapsed >= leavingUntil) { leaving.classList.remove("is-active", "is-leaving"); leaving = undefined; }
+    if (leaving && elapsed >= leavingUntil) {
+      leaving.classList.remove("is-active", "is-leaving");
+      leaving = undefined;
+    }
     if (elapsed >= end) {
-      if (loop) { elapsed = 0; activate(0); }
-      else { pause(); return; }
+      if (loop) {
+        elapsed = 0;
+        activate(0);
+      } else {
+        pause();
+        return;
+      }
     }
     let index = 0;
     while (index < 4 && elapsed >= (starts[index + 1] ?? end)) index += 1;
@@ -84,11 +122,13 @@ export function mountProcessArtwork(host: HTMLElement, { mode, scene = 5, loop =
   }
 
   function syncVisibility() {
-    const shouldRun = !staticMode && inView && !document.hidden && (loop || elapsed < end);
+    const shouldRun =
+      !staticMode && inView && !document.hidden && (loop || elapsed < end);
     if (shouldRun && !running) {
       if (current < 0) activate(0);
       stage?.classList.remove("is-paused");
-      for (const animation of pausedAnimations) if (animation.playState === "paused") animation.play();
+      for (const animation of pausedAnimations)
+        if (animation.playState === "paused") animation.play();
       pausedAnimations = [];
       running = true;
       lastNow = performance.now();
@@ -106,16 +146,24 @@ export function mountProcessArtwork(host: HTMLElement, { mode, scene = 5, loop =
     leaving = undefined;
     staticMode = mode === "static" || reduced.matches;
     stage?.classList.remove("is-paused", "is-static");
-    scenes.forEach(item => { item.classList.remove("is-active", "is-leaving"); });
+    scenes.forEach((item) => {
+      item.classList.remove("is-active", "is-leaving");
+    });
     if (staticMode) {
       stage?.classList.add("is-static");
       const index = mode === "static" ? scene - 1 : 4;
       activate(index);
-      for (const typer of allTypers) { typer.el.textContent = typer.text; typer.caret?.classList.remove("is-on"); }
+      for (const typer of allTypers) {
+        typer.el.textContent = typer.text;
+        typer.caret?.classList.remove("is-on");
+      }
     } else syncVisibility();
   }
 
-  const observer = new IntersectionObserver(([entry]) => { inView = entry?.isIntersecting ?? false; syncVisibility(); });
+  const observer = new IntersectionObserver(([entry]) => {
+    inView = entry?.isIntersecting ?? false;
+    syncVisibility();
+  });
   observer.observe(host);
   document.addEventListener("visibilitychange", syncVisibility);
   reduced.addEventListener("change", resetMode);
@@ -128,7 +176,12 @@ export function mountProcessArtwork(host: HTMLElement, { mode, scene = 5, loop =
     for (const animation of pausedAnimations) animation.cancel();
     stage.classList.remove("is-static", "is-paused");
     delete stage.dataset.scene;
-    scenes.forEach(item => { item.classList.remove("is-active", "is-leaving"); });
-    for (const typer of allTypers) { typer.el.textContent = typer.text; typer.caret?.classList.remove("is-on"); }
+    scenes.forEach((item) => {
+      item.classList.remove("is-active", "is-leaving");
+    });
+    for (const typer of allTypers) {
+      typer.el.textContent = typer.text;
+      typer.caret?.classList.remove("is-on");
+    }
   };
 }

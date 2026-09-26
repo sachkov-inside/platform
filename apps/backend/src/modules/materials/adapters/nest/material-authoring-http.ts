@@ -1,7 +1,10 @@
 import { authoringSourceSchema } from "../../domain/authoring-source.js";
 import type { SetHomePinError } from "../../features/set-home-pin/set-home-pin.contract.js";
 import type { MaterialBodyResourceSummary } from "@inside/material-blocks";
-import { headingLevelSchema, renderedMaterialBodySchema } from "@inside/material-blocks";
+import {
+  headingLevelSchema,
+  renderedMaterialBodySchema,
+} from "@inside/material-blocks";
 import { z } from "zod";
 
 import { problemException } from "../../../../infrastructure/http/problem-details.js";
@@ -47,7 +50,8 @@ export const idempotencyKeySchema = idempotencyKeyWireSchema;
 export const contentVersionSchema = contentVersionWireSchema;
 export const seriesMembershipSchema = seriesMembershipWireSchema;
 export const materialMetadataSchema = materialMetadataWireSchema;
-export const materialMetadataSelectionSchema = materialMetadataSelectionWireSchema;
+export const materialMetadataSelectionSchema =
+  materialMetadataSelectionWireSchema;
 export const materialBodySnapshotSchema = materialBodySnapshotWireSchema;
 
 export const materialMutationReceiptSchema = z
@@ -78,7 +82,10 @@ export const materialSchema = z
   .strict();
 
 export const createDraftBodySchema = z
-  .object({ metadata: materialMetadataSelectionSchema, body: materialBodySnapshotSchema })
+  .object({
+    metadata: materialMetadataSelectionSchema,
+    body: materialBodySnapshotSchema,
+  })
   .strict();
 
 export const saveMaterialBodySchema = z
@@ -87,7 +94,10 @@ export const saveMaterialBodySchema = z
     publicationState: publicationStateWireSchema,
     primaryVideoId: z.uuid().nullable().default(null),
     deleteVideoId: z.uuid().nullable().default(null),
-    detachVideoIds: z.array(z.uuid()).max(MATERIAL_DETACHED_VIDEOS_MAX).default([]),
+    detachVideoIds: z
+      .array(z.uuid())
+      .max(MATERIAL_DETACHED_VIDEOS_MAX)
+      .default([]),
     metadata: materialMetadataSelectionSchema,
     body: materialBodySnapshotSchema,
     /** Руководства с держателями права, снятие из которых автор подтвердил. */
@@ -224,9 +234,8 @@ export const validationIssueSchema = z
  * drifted before. A resource kind added to the domain type does not fail here, because the
  * annotation is covariant in its output; the block registry has no such gap.
  */
-const extractedResourceSchema: z.ZodType<MaterialBodyResourceSummary> = z.discriminatedUnion(
-  "kind",
-  [
+const extractedResourceSchema: z.ZodType<MaterialBodyResourceSummary> =
+  z.discriminatedUnion("kind", [
     z.object({
       kind: z.literal("image"),
       assetId: z.uuid(),
@@ -234,8 +243,7 @@ const extractedResourceSchema: z.ZodType<MaterialBodyResourceSummary> = z.discri
       caption: z.string().optional(),
     }),
     z.object({ assetId: z.uuid(), kind: z.literal("file"), label: z.string() }),
-  ],
-);
+  ]);
 
 export const validatedMaterialSchema = z
   .object({
@@ -247,7 +255,9 @@ export const validatedMaterialSchema = z
         /** Есть ли в теле шаг, написанный для обоих способов пройти руководство. */
         hasModeVariants: z.boolean(),
         plainText: z.string(),
-        headings: z.array(z.object({ level: headingLevelSchema, text: z.string() })),
+        headings: z.array(
+          z.object({ level: headingLevelSchema, text: z.string() }),
+        ),
         resources: z.array(extractedResourceSchema),
       })
       .strict(),
@@ -279,7 +289,13 @@ export const materialAuthoringProblemSchema = z.looseObject({
   currentState: publicationStateWireSchema.optional(),
   targetState: publicationStateWireSchema.optional(),
   guides: z
-    .array(z.strictObject({ guideId: z.uuid(), name: z.string(), holders: z.number().int().positive() }))
+    .array(
+      z.strictObject({
+        guideId: z.uuid(),
+        name: z.string(),
+        holders: z.number().int().positive(),
+      }),
+    )
     .optional(),
 });
 
@@ -291,12 +307,17 @@ export function parseMaterialAuthoringBody<Schema extends z.ZodType>(
   if (parsed.success) {
     return parsed.data;
   }
-  throw problemException(400, "invalid_request_shape", "Material authoring request is malformed", {
-    issues: parsed.error.issues.map((issue) => ({
-      code: issue.code,
-      path: `/${issue.path.map(String).join("/")}`,
-    })),
-  });
+  throw problemException(
+    400,
+    "invalid_request_shape",
+    "Material authoring request is malformed",
+    {
+      issues: parsed.error.issues.map((issue) => ({
+        code: issue.code,
+        path: `/${issue.path.map(String).join("/")}`,
+      })),
+    },
+  );
 }
 
 type MaterialAuthoringTransportError =
@@ -353,7 +374,12 @@ export function throwMaterialAuthoringError(
 ): never {
   const status = statusForMaterialAuthoringError(error);
   const { code, ...fields } = error;
-  throw problemException(status, code, titleForMaterialAuthoringError(status), fields);
+  throw problemException(
+    status,
+    code,
+    titleForMaterialAuthoringError(status),
+    fields,
+  );
 }
 
 function titleForMaterialAuthoringError(status: number): string {

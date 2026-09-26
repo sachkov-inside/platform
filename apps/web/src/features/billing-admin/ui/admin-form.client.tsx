@@ -126,7 +126,10 @@ export function AdminSelect({
 }: {
   readonly label: string;
   readonly name: string;
-  readonly options: readonly { readonly value: string; readonly label: string }[];
+  readonly options: readonly {
+    readonly value: string;
+    readonly label: string;
+  }[];
   readonly defaultValue?: string;
   /** Пустой выбор, который нельзя отправить: решение не принимается незаметно по первому варианту. */
   readonly placeholder?: string;
@@ -141,7 +144,9 @@ export function AdminSelect({
         className="min-h-11 w-full rounded-xl border border-input bg-background px-3 text-sm focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
         id={id}
         name={name}
-        defaultValue={defaultValue ?? (placeholder === undefined ? undefined : "")}
+        defaultValue={
+          defaultValue ?? (placeholder === undefined ? undefined : "")
+        }
         required={placeholder !== undefined}
       >
         {placeholder === undefined ? null : (

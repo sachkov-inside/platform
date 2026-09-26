@@ -40,8 +40,7 @@ export function NotificationChannelsPanel() {
   const email = draft?.email ?? stored?.email ?? false;
   const telegram = draft?.telegram ?? stored?.telegram ?? false;
   const dirty =
-    stored !== null &&
-    (email !== stored.email || telegram !== stored.telegram);
+    stored !== null && (email !== stored.email || telegram !== stored.telegram);
 
   const save = useMutation({
     mutationFn: changeNotificationPreferences,

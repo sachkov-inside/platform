@@ -24,9 +24,7 @@ const querySchema = z
   .object({
     subject: z.discriminatedUnion("kind", [
       z.object({ kind: z.literal("anonymous") }).strict(),
-      z
-        .object({ kind: z.literal("account"), accountId: z.uuid() })
-        .strict(),
+      z.object({ kind: z.literal("account"), accountId: z.uuid() }).strict(),
     ]),
     after: z.string().min(1).max(512).optional(),
     canonicalTopicSlug: facetSlugSchema.optional(),
@@ -211,7 +209,9 @@ export async function listPublishedMaterials(
 function uniqueProjections(
   projections: readonly PublishedMaterialProjectionDto[],
 ) {
-  return [...new Map(projections.map((item) => [item.materialId, item])).values()];
+  return [
+    ...new Map(projections.map((item) => [item.materialId, item])).values(),
+  ];
 }
 
 interface NormalizedCatalogQuery {
@@ -289,9 +289,7 @@ function encodeCursor(
   ).toString("base64url");
 }
 function queryFingerprint(query: NormalizedCatalogQuery): string {
-  return createHash("sha256")
-    .update(JSON.stringify(query))
-    .digest("base64url");
+  return createHash("sha256").update(JSON.stringify(query)).digest("base64url");
 }
 
 function isDefaultQuery(query: NormalizedCatalogQuery): boolean {

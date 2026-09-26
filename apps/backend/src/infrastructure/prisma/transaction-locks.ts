@@ -9,7 +9,10 @@ interface AdvisoryLockTransaction {
  * they call the same function here; `scripts/check-backend-architecture.mjs` rejects a lock written
  * anywhere else, so a key cannot drift between the Modules that share it.
  */
-async function lockTransactionKey(transaction: AdvisoryLockTransaction, key: string): Promise<void> {
+async function lockTransactionKey(
+  transaction: AdvisoryLockTransaction,
+  key: string,
+): Promise<void> {
   await transaction.$executeRaw(Prisma.sql`
     select pg_advisory_xact_lock(hashtextextended(${key}, 0::bigint))
   `);
@@ -46,12 +49,17 @@ export async function lockContentCoverOwner(
 }
 
 /** Serializes slug allocation, so two first publications cannot take the same slug. */
-export async function lockMaterialSlugAllocation(transaction: AdvisoryLockTransaction): Promise<void> {
+export async function lockMaterialSlugAllocation(
+  transaction: AdvisoryLockTransaction,
+): Promise<void> {
   await lockTransactionKey(transaction, "materials:slug-allocation");
 }
 
 /** Same key as the durable Telegram binding trigger; holds a verified binding through commit. */
-export async function lockTelegramAccountBinding(transaction: AdvisoryLockTransaction, accountId: string): Promise<void> {
+export async function lockTelegramAccountBinding(
+  transaction: AdvisoryLockTransaction,
+  accountId: string,
+): Promise<void> {
   await lockTransactionKey(transaction, `telegram-link-state:${accountId}`);
 }
 
@@ -60,11 +68,17 @@ export async function lockTelegramMembershipLink(
   transaction: AdvisoryLockTransaction,
   accountId: string,
 ): Promise<void> {
-  await lockTransactionKey(transaction, `telegram-membership-link:${accountId}`);
+  await lockTransactionKey(
+    transaction,
+    `telegram-membership-link:${accountId}`,
+  );
 }
 
 /** Serializes Telegram community work under one key: desired state, delivery or authorization. */
-export async function lockTelegramCommunityWork(transaction: AdvisoryLockTransaction, key: string): Promise<void> {
+export async function lockTelegramCommunityWork(
+  transaction: AdvisoryLockTransaction,
+  key: string,
+): Promise<void> {
   await lockTransactionKey(transaction, `telegram-community:${key}`);
 }
 
@@ -90,12 +104,17 @@ export async function lockAccountRecords(
 }
 
 /** Serializes one access decision scope: an enrollment source, a batch, a rule or an operation. */
-export async function lockAccountAccess(transaction: AdvisoryLockTransaction, key: string): Promise<void> {
+export async function lockAccountAccess(
+  transaction: AdvisoryLockTransaction,
+  key: string,
+): Promise<void> {
   await lockTransactionKey(transaction, `account-access:${key}`);
 }
 
 /** Catalog edits and first-payment reservations share one short lock; no provider I/O under it. */
-export async function lockBillingPricing(transaction: AdvisoryLockTransaction): Promise<void> {
+export async function lockBillingPricing(
+  transaction: AdvisoryLockTransaction,
+): Promise<void> {
   await lockTransactionKey(transaction, "billing:pricing");
 }
 
@@ -104,21 +123,33 @@ export async function lockBillingSubscription(
   transaction: AdvisoryLockTransaction,
   subscriptionRef: string,
 ): Promise<void> {
-  await lockTransactionKey(transaction, `billing:subscription:${subscriptionRef}`);
+  await lockTransactionKey(
+    transaction,
+    `billing:subscription:${subscriptionRef}`,
+  );
 }
 
 /** Refund decisions and their execution serialize on one confirmed payment; no provider I/O under it. */
-export async function lockBillingPurchase(transaction: AdvisoryLockTransaction, purchaseRef: string): Promise<void> {
+export async function lockBillingPurchase(
+  transaction: AdvisoryLockTransaction,
+  purchaseRef: string,
+): Promise<void> {
   await lockTransactionKey(transaction, `billing:purchase:${purchaseRef}`);
 }
 
 /** Serializes a Profile avatar change of one Account with the orphan cleanup that trusts it. */
-export async function lockProfileAvatarOwner(transaction: AdvisoryLockTransaction, accountId: string): Promise<void> {
+export async function lockProfileAvatarOwner(
+  transaction: AdvisoryLockTransaction,
+  accountId: string,
+): Promise<void> {
   await lockTransactionKey(transaction, `profile-avatar:${accountId}`);
 }
 
 /** Serializes one notification scope: a delivery, an audience, preferences or the quarantine. */
-export async function lockNotification(transaction: AdvisoryLockTransaction, key: string): Promise<void> {
+export async function lockNotification(
+  transaction: AdvisoryLockTransaction,
+  key: string,
+): Promise<void> {
   await lockTransactionKey(transaction, `notifications:${key}`);
 }
 
@@ -128,7 +159,10 @@ export async function lockReadingCommand(
   accountId: string,
   commandId: string,
 ): Promise<void> {
-  await lockTransactionKey(transaction, `reading-command:${accountId}:${commandId}`);
+  await lockTransactionKey(
+    transaction,
+    `reading-command:${accountId}:${commandId}`,
+  );
 }
 
 /** Serializes reading state changes of one Account and Material. */
@@ -137,5 +171,8 @@ export async function lockReadingPair(
   accountId: string,
   materialId: string,
 ): Promise<void> {
-  await lockTransactionKey(transaction, `reading-pair:${accountId}:${materialId}`);
+  await lockTransactionKey(
+    transaction,
+    `reading-pair:${accountId}:${materialId}`,
+  );
 }

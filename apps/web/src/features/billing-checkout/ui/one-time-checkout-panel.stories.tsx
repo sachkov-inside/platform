@@ -55,7 +55,9 @@ export const Ready: Story = {
     const canvas = within(canvasElement);
     await expect(canvas.getByText("Без подписки и доплат")).toBeInTheDocument();
     // Оферта не обещает «всё» и «навсегда»: сроки названы по составляющим.
-    await expect(canvas.queryByText(/Всё включено|Навсегда/u)).not.toBeInTheDocument();
+    await expect(
+      canvas.queryByText(/Всё включено|Навсегда/u),
+    ).not.toBeInTheDocument();
     await expect(canvas.getByText("2 года гарантированно")).toBeInTheDocument();
     await expect(canvas.getByText("6 месяцев")).toBeInTheDocument();
     // Купленное руководство само по себе открывает общий чат, и состав называет его.
@@ -63,21 +65,31 @@ export const Ready: Story = {
       canvas.getByText("Продукт с сопровождением и общим чатом"),
     ).toBeInTheDocument();
     // Распределение цены и сводка условий видны до оплаты.
-    await expect(canvas.getByText(/^Из них поровну: материалы и чат — /u)).toBeInTheDocument();
+    await expect(
+      canvas.getByText(/^Из них поровну: материалы и чат — /u),
+    ).toBeInTheDocument();
     const terms = canvas.getByRole("region", { name: "Условия покупки" });
     await expect(
-      within(terms).getByText("После отказа доступ по этой покупке закрывается."),
+      within(terms).getByText(
+        "После отказа доступ по этой покупке закрывается.",
+      ),
     ).toBeInTheDocument();
     // Оферта принимается нажатием кнопки: отметки нет, строка под кнопкой называет документ.
     await expect(canvas.queryByRole("checkbox")).not.toBeInTheDocument();
     await expect(
-      canvas.getByText("Нажимая «Оплатить», вы принимаете оферту разовой покупки."),
+      canvas.getByText(
+        "Нажимая «Оплатить», вы принимаете оферту разовой покупки.",
+      ),
     ).toBeInTheDocument();
     await expect(
-      canvas.getByText("До 18 лет покупку оформляйте с согласия законного представителя."),
+      canvas.getByText(
+        "До 18 лет покупку оформляйте с согласия законного представителя.",
+      ),
     ).toBeInTheDocument();
     // Футер оболочки ведёт к тем же документам, поэтому ссылки ищутся в самой оплате.
-    const payment = within(canvas.getByRole("region", { name: "Оплата продукта" }));
+    const payment = within(
+      canvas.getByRole("region", { name: "Оплата продукта" }),
+    );
     for (const name of [
       "Оферта разовой покупки",
       "Условия использования",
@@ -85,7 +97,9 @@ export const Ready: Story = {
       "Политика данных",
     ])
       await expect(payment.getByRole("link", { name })).toBeInTheDocument();
-    await expect(canvas.getByRole("button", { name: /^Оплатить /u })).toBeEnabled();
+    await expect(
+      canvas.getByRole("button", { name: /^Оплатить /u }),
+    ).toBeEnabled();
     // Согласие на регулярные списания разовой покупке не показывается.
     await expect(
       canvas.queryByText("Согласие на регулярные списания"),
@@ -105,7 +119,9 @@ export const ContactRequired: Story = {
       canvas.getByRole("link", { name: "Подтвердить его в кабинете" }),
     ).toBeInTheDocument();
     await expect(canvas.queryByLabelText("Email")).not.toBeInTheDocument();
-    await expect(canvas.getByRole("button", { name: /^Оплатить /u })).toBeDisabled();
+    await expect(
+      canvas.getByRole("button", { name: /^Оплатить /u }),
+    ).toBeDisabled();
   },
 };
 
@@ -129,7 +145,9 @@ export const ExistingAccess: Story = {
     await expect(
       canvas.getByText("Этот продукт у вас уже открыт."),
     ).toBeInTheDocument();
-    await expect(canvas.getByRole("button", { name: /^Оплатить /u })).toBeDisabled();
+    await expect(
+      canvas.getByRole("button", { name: /^Оплатить /u }),
+    ).toBeDisabled();
   },
 };
 

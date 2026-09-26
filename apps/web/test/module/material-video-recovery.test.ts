@@ -51,7 +51,10 @@ describe("Interrupted upload recovery", () => {
 
   it("opens an empty editor when nothing is pending", () => {
     expect(
-      resolveInitialVideoAuthoring({ primaryVideo: null, unselectedUpload: null }),
+      resolveInitialVideoAuthoring({
+        primaryVideo: null,
+        unselectedUpload: null,
+      }),
     ).toEqual({ phase: "idle", recoveredVideoId: null, video: null });
   });
 
@@ -130,7 +133,11 @@ describe("Interrupted upload recovery", () => {
     const replaced = uploadedVideo("processing");
     // A replacement that never started leaves the upload recoverable.
     expect(
-      replacedUploadToDetach({ replaced, primaryVideoId: null, startedVideoId: null }),
+      replacedUploadToDetach({
+        replaced,
+        primaryVideoId: null,
+        startedVideoId: null,
+      }),
     ).toBeNull();
     // Choosing the same file again resumes that upload instead of replacing it.
     expect(
@@ -149,7 +156,11 @@ describe("Interrupted upload recovery", () => {
       }),
     ).toBeNull();
     expect(
-      replacedUploadToDetach({ replaced: null, primaryVideoId: null, startedVideoId: otherVideo.videoId }),
+      replacedUploadToDetach({
+        replaced: null,
+        primaryVideoId: null,
+        startedVideoId: otherVideo.videoId,
+      }),
     ).toBeNull();
     expect(
       replacedUploadToDetach({
@@ -192,6 +203,8 @@ describe("Interrupted upload recovery", () => {
   });
 
   it("keeps the ordinary failure state for a Video of this session", () => {
-    expect(phaseForReconciledVideo(uploadedVideo("failed"), null)).toBe("error");
+    expect(phaseForReconciledVideo(uploadedVideo("failed"), null)).toBe(
+      "error",
+    );
   });
 });

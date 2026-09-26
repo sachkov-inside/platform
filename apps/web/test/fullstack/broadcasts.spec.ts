@@ -4,5 +4,7 @@ test("Telegram management remains outside the Platform editor: /authoring/commun
   page,
 }) => {
   await page.goto("/authoring/communications/broadcasts");
-  await expect(page.getByRole("heading", { level: 1, name: "Страница не найдена" })).toBeVisible();
+  await expect(
+    page.getByRole("heading", { level: 1, name: "Страница не найдена" }),
+  ).toBeVisible();
 });

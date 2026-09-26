@@ -1,7 +1,10 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { expect, userEvent, within } from "storybook/test";
 
-import { accountSections, visibleAccountSections } from "../model/account-sections";
+import {
+  accountSections,
+  visibleAccountSections,
+} from "../model/account-sections";
 import { AccountSectionNav } from "./account-section-nav.client";
 import { publicPageEnvironment } from "@/workshop/story-environment";
 

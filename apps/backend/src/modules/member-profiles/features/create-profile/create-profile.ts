@@ -18,7 +18,9 @@ import {
 export async function createProfile(
   prisma: MemberProfilePersistenceClient,
   command: CreateMemberProfileCommand,
-): Promise<MemberProfileResult<PrivateMemberProfile, CreateMemberProfileError>> {
+): Promise<
+  MemberProfileResult<PrivateMemberProfile, CreateMemberProfileError>
+> {
   const accepted = acceptMemberProfileFields(command);
   if (!accepted.ok) {
     return profileFailure({ code: "invalid_input", issues: accepted.issues });
@@ -61,10 +63,18 @@ export async function createProfile(
         select: { accountId: true },
       });
       return existing === null
-        ? dependencyFailure({ module: "member-profiles", operation: "createProfile" }, error, profileFailure(internalProfileError()))
+        ? dependencyFailure(
+            { module: "member-profiles", operation: "createProfile" },
+            error,
+            profileFailure(internalProfileError()),
+          )
         : profileFailure({ code: "profile_exists" });
     } catch (lookupError) {
-      return dependencyFailure({ module: "member-profiles", operation: "createProfile" }, lookupError, profileFailure(internalProfileError()));
+      return dependencyFailure(
+        { module: "member-profiles", operation: "createProfile" },
+        lookupError,
+        profileFailure(internalProfileError()),
+      );
     }
   }
 }

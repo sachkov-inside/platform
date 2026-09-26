@@ -27,7 +27,8 @@ const acceptedDocuments: AcceptedDocumentsPanelProps = {
         buttonLabel: "Оформить подписку и оплатить 990 ₽",
         edition: "редакция 1",
         href: legalEditionPath("subscription", 1),
-        shownTerms: "следующее списание 990 ₽ — 1 ноября 2026 г., затем раз в 1 месяц",
+        shownTerms:
+          "следующее списание 990 ₽ — 1 ноября 2026 г., затем раз в 1 месяц",
       },
       {
         key: "purchase",
@@ -77,18 +78,25 @@ type Story = StoryObj<typeof meta>;
 export const Linked: Story = {
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
-    await expect(canvas.getByRole("heading", { name: "Аккаунт" })).toBeInTheDocument();
+    await expect(
+      canvas.getByRole("heading", { name: "Аккаунт" }),
+    ).toBeInTheDocument();
     await expect(canvas.getByText("Telegram подключён")).toBeInTheDocument();
-    const accepted = within(canvas.getByRole("region", { name: "Принятые документы" }));
-    await expect(accepted.getByText("Условия использования")).toBeInTheDocument();
+    const accepted = within(
+      canvas.getByRole("region", { name: "Принятые документы" }),
+    );
+    await expect(
+      accepted.getByText("Условия использования"),
+    ).toBeInTheDocument();
     await expect(
       accepted.getByText(/кнопка «Принять условия и продолжить»/u),
     ).toBeInTheDocument();
-    await expect(accepted.getByRole("link", { name: "редакция 4" })).toHaveAttribute(
-      "href",
-      "/legal/purchase/v4",
-    );
-    await expect(accepted.getByRole("link", { name: "cookies, редакция 2" })).toBeInTheDocument();
+    await expect(
+      accepted.getByRole("link", { name: "редакция 4" }),
+    ).toHaveAttribute("href", "/legal/purchase/v4");
+    await expect(
+      accepted.getByRole("link", { name: "cookies, редакция 2" }),
+    ).toBeInTheDocument();
     await expect(
       canvas.getByRole("button", { name: "Выйти из аккаунта" }),
     ).toBeEnabled();
@@ -96,7 +104,8 @@ export const Linked: Story = {
     // документы честно называют показанные у кнопки условия продления.
     await expect(
       canvas.queryByText(/чек|списани/iu, {
-        ignore: "script, style, [data-account-section-nav] *, [aria-labelledby='accepted-documents'] *",
+        ignore:
+          "script, style, [data-account-section-nav] *, [aria-labelledby='accepted-documents'] *",
       }),
     ).not.toBeInTheDocument();
   },

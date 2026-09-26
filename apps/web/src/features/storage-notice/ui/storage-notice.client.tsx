@@ -6,7 +6,10 @@ import { useEffect, useRef, useSyncExternalStore } from "react";
 
 import { Button } from "@/shared/ui/button";
 
-import { storageNoticeKey, storageNoticeVisible } from "../model/storage-notice";
+import {
+  storageNoticeKey,
+  storageNoticeVisible,
+} from "../model/storage-notice";
 
 const listeners = new Set<() => void>();
 
@@ -57,9 +60,12 @@ export function StorageNotice({
   readonly edition: number;
   readonly policyHref: Route;
 }) {
-  const stored = useSyncExternalStore(subscribe, readStored, () => String(edition));
+  const stored = useSyncExternalStore(subscribe, readStored, () =>
+    String(edition),
+  );
   const visible =
-    storageNoticeVisible(stored, edition) && !(hiddenWithoutStorage && stored === null);
+    storageNoticeVisible(stored, edition) &&
+    !(hiddenWithoutStorage && stored === null);
   const notice = useRef<HTMLElement>(null);
   useEffect(() => {
     const element = notice.current;
@@ -82,9 +88,12 @@ export function StorageNotice({
       className="fixed inset-x-4 bottom-[calc(5.5rem+env(safe-area-inset-bottom,0px))] z-40 mx-auto max-w-xl rounded-2xl border border-border bg-card p-5 text-foreground shadow-2xl lg:bottom-[calc(1.5rem+env(safe-area-inset-bottom,0px))]"
     >
       <p className="text-sm leading-6">
-        Inside хранит в браузере только то, без чего не работают вход и сохранение прогресса.
-        Рекламы и сторонней аналитики нет.{" "}
-        <Link className="text-action underline underline-offset-4" href={policyHref}>
+        Inside хранит в браузере только то, без чего не работают вход и
+        сохранение прогресса. Рекламы и сторонней аналитики нет.{" "}
+        <Link
+          className="text-action underline underline-offset-4"
+          href={policyHref}
+        >
           Подробнее
         </Link>
       </p>

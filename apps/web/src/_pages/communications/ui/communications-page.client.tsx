@@ -130,8 +130,7 @@ export function CommunicationsPage() {
               });
             }}
           >
-            <RefreshCw aria-hidden="true" className="size-4" /> Обновить
-            данные
+            <RefreshCw aria-hidden="true" className="size-4" /> Обновить данные
           </Button>
         </div>
       </header>
@@ -213,8 +212,7 @@ export function CommunicationsPage() {
                 expectedRevision: post.revision,
                 payload: { templateId: post.templateId },
               });
-              if (result.kind === "ready")
-                operation.confirm();
+              if (result.kind === "ready") operation.confirm();
               return result.kind === "ready";
             },
           }}

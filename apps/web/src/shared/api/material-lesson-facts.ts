@@ -6,7 +6,11 @@ import { z } from "zod";
  * трёх местах. Паритет с контрактом проверяет `material-lesson-facts.test.ts`.
  */
 
-export const materialDifficulties = ["basic", "intermediate", "advanced"] as const;
+export const materialDifficulties = [
+  "basic",
+  "intermediate",
+  "advanced",
+] as const;
 export const materialDifficultySchema = z.enum(materialDifficulties);
 export type MaterialDifficulty = z.infer<typeof materialDifficultySchema>;
 

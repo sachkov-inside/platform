@@ -1,6 +1,9 @@
 "use client";
 import type { z } from "zod";
-import type { contentCatalogOutcomeSchema, tiersOutcomeSchema } from "../model/enrollment-operations";
+import type {
+  contentCatalogOutcomeSchema,
+  tiersOutcomeSchema,
+} from "../model/enrollment-operations";
 import { useState } from "react";
 
 import {
@@ -35,8 +38,10 @@ import type { AdminCommand } from "./admin-command";
 
 export interface CatalogSectionProps {
   readonly offers: readonly PriceSnapshot[];
-  readonly content?: z.infer<typeof contentCatalogOutcomeSchema>["result"]["items"] | undefined;
-  readonly tiers?: z.infer<typeof tiersOutcomeSchema>["result"]["items"] | undefined;
+  readonly content?:
+    z.infer<typeof contentCatalogOutcomeSchema>["result"]["items"] | undefined;
+  readonly tiers?:
+    z.infer<typeof tiersOutcomeSchema>["result"]["items"] | undefined;
   readonly catalogLoading?: boolean | undefined;
   readonly catalogError?: string | undefined;
   readonly pending: boolean;
@@ -53,7 +58,10 @@ export interface CatalogSectionProps {
 }
 
 export function CatalogSection({
-  content = [], tiers = [], catalogLoading = false, catalogError,
+  content = [],
+  tiers = [],
+  catalogLoading = false,
+  catalogError,
   offers,
   pending,
   onSaveOffer,
@@ -66,7 +74,7 @@ export function CatalogSection({
   onArchivePromotion,
 }: CatalogSectionProps) {
   const [editingId, setEditingId] = useState("");
-  const editing = tiers.find(item => item.tier.id === editingId);
+  const editing = tiers.find((item) => item.tier.id === editingId);
 
   const [benefitError, setBenefitError] = useState<string>();
   return (
@@ -113,8 +121,13 @@ export function CatalogSection({
                   </span>
                   <form
                     onSubmit={onAdminSubmit(() => {
-                      const toggle = published ? onUnpublishOffer : onPublishOffer;
-                      toggle({ id: offer.id, expectedRevision: offer.revision });
+                      const toggle = published
+                        ? onUnpublishOffer
+                        : onPublishOffer;
+                      toggle({
+                        id: offer.id,
+                        expectedRevision: offer.revision,
+                      });
                     })}
                   >
                     <p>
@@ -139,13 +152,45 @@ export function CatalogSection({
         description="Состав предложения — независимые права. Строка `capability=12` задаёт срок в месяцах, `capability=null` — бессрочное право."
         title="Предложение"
       >
-        <div className="grid gap-2"><Button variant="outline" onClick={() => { setEditingId(crypto.randomUUID()); }}>Новый тариф</Button>
-          {tiers.map(item => <div key={item.tier.id} className="flex flex-wrap items-center justify-between gap-2 text-sm"><span>{item.tier.name} · {item.availableForAssignment ? "назначается" : "назначение выключено"}{item.archived ? " · архив" : ""}</span><Button variant="outline" onClick={() => { setEditingId(item.tier.id); }}>Редактировать состав</Button></div>)}
+        <div className="grid gap-2">
+          <Button
+            variant="outline"
+            onClick={() => {
+              setEditingId(crypto.randomUUID());
+            }}
+          >
+            Новый тариф
+          </Button>
+          {tiers.map((item) => (
+            <div
+              key={item.tier.id}
+              className="flex flex-wrap items-center justify-between gap-2 text-sm"
+            >
+              <span>
+                {item.tier.name} ·{" "}
+                {item.availableForAssignment
+                  ? "назначается"
+                  : "назначение выключено"}
+                {item.archived ? " · архив" : ""}
+              </span>
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setEditingId(item.tier.id);
+                }}
+              >
+                Редактировать состав
+              </Button>
+            </div>
+          ))}
         </div>
-        <form key={`${editingId}:${String(editing?.tier.revision ?? 0)}`}
+        <form
+          key={`${editingId}:${String(editing?.tier.revision ?? 0)}`}
           className="grid gap-4"
           onSubmit={onAdminSubmit((form) => {
-            const parsed = parseCapabilities(formText(form.get("offerBenefits")));
+            const parsed = parseCapabilities(
+              formText(form.get("offerBenefits")),
+            );
             if (parsed.invalid.length > 0) {
               setBenefitError(
                 `Неизвестные права: ${parsed.invalid.join(", ")}. ${capabilityHint}`,
@@ -161,7 +206,13 @@ export function CatalogSection({
                 name: formText(form.get("offerName")),
                 benefits: [...parsed.capabilities],
                 availableForAssignment: form.get("offerAssignable") === "on",
-                contentScope: form.get("offerAllGuides") === "on" ? { guideIds: [], materialIds: [], allGuides: true } : { guideIds: form.getAll("offerGuides").map(formText), materialIds: [] },
+                contentScope:
+                  form.get("offerAllGuides") === "on"
+                    ? { guideIds: [], materialIds: [], allGuides: true }
+                    : {
+                        guideIds: form.getAll("offerGuides").map(formText),
+                        materialIds: [],
+                      },
                 ...(parsed.periods.length === 0
                   ? {}
                   : { benefitPeriods: [...parsed.periods] }),
@@ -187,20 +238,80 @@ export function CatalogSection({
             hint={`По одному праву в строке. ${capabilityHint}`}
             label="Состав"
             name="offerBenefits"
-            defaultValue={editing?.tier.benefits.map(capability => {
-              const period = editing.benefitPeriods?.find(item => item.capability === capability);
-              return period === undefined ? capability : `${capability}=${String(period.months)}`;
-            }).join("\n")}
+            defaultValue={editing?.tier.benefits
+              .map((capability) => {
+                const period = editing.benefitPeriods?.find(
+                  (item) => item.capability === capability,
+                );
+                return period === undefined
+                  ? capability
+                  : `${capability}=${String(period.months)}`;
+              })
+              .join("\n")}
             required
           />
-          <label className="flex items-center gap-2 text-sm"><input type="checkbox" name="offerAssignable" defaultChecked={editing?.availableForAssignment} /> Доступен для назначения</label>
-          {catalogError !== undefined ? <p role="alert">{catalogError}</p> : null}
-          <fieldset className="grid max-h-80 gap-2 overflow-y-auto rounded-xl border border-border p-4"><legend className="px-2 text-sm">Продукты тарифа</legend>
-            <label className="flex items-start gap-2 text-sm font-semibold"><input type="checkbox" name="offerAllGuides" defaultChecked={editing?.tier.contentScope.allGuides === true} /><span>Все продукты платформы, включая новые</span></label>
-            {catalogLoading ? <p role="status">Загружаем каталог…</p> : content.filter(item => item.kind === "guide").map(item => <label className="flex items-start gap-2 text-sm" key={item.id}><input type="checkbox" name="offerGuides" value={item.id} defaultChecked={editing?.tier.contentScope.guideIds.includes(item.id) ?? false} /><span>Продукт: {item.title}{item.available ? "" : " · не опубликован"}</span></label>)}
+          <label className="flex items-center gap-2 text-sm">
+            <input
+              type="checkbox"
+              name="offerAssignable"
+              defaultChecked={editing?.availableForAssignment}
+            />{" "}
+            Доступен для назначения
+          </label>
+          {catalogError !== undefined ? (
+            <p role="alert">{catalogError}</p>
+          ) : null}
+          <fieldset className="grid max-h-80 gap-2 overflow-y-auto rounded-xl border border-border p-4">
+            <legend className="px-2 text-sm">Продукты тарифа</legend>
+            <label className="flex items-start gap-2 text-sm font-semibold">
+              <input
+                type="checkbox"
+                name="offerAllGuides"
+                defaultChecked={editing?.tier.contentScope.allGuides === true}
+              />
+              <span>Все продукты платформы, включая новые</span>
+            </label>
+            {catalogLoading ? (
+              <p role="status">Загружаем каталог…</p>
+            ) : (
+              content
+                .filter((item) => item.kind === "guide")
+                .map((item) => (
+                  <label
+                    className="flex items-start gap-2 text-sm"
+                    key={item.id}
+                  >
+                    <input
+                      type="checkbox"
+                      name="offerGuides"
+                      value={item.id}
+                      defaultChecked={
+                        editing?.tier.contentScope.guideIds.includes(item.id) ??
+                        false
+                      }
+                    />
+                    <span>
+                      Продукт: {item.title}
+                      {item.available ? "" : " · не опубликован"}
+                    </span>
+                  </label>
+                ))
+            )}
           </fieldset>
-          {editing !== undefined && editing.tier.contentScope.materialIds.length > 0 ? <p className="text-sm text-destructive" role="note">В составе этой редакции есть отдельные материалы: {editing.tier.contentScope.materialIds.length}. Отдельный материал в тариф не входит, и новая редакция их не сохранит. Действующие назначения сохраняют свой снимок.</p> : null}
-          <p className="text-sm text-muted-foreground">Новые материалы выбранного продукта входят в состав сами. Новый продукт входит сам только в состав «Все продукты платформы», иначе его добавляют явно. Отдельный материал в тариф не входит.</p>
+          {editing !== undefined &&
+          editing.tier.contentScope.materialIds.length > 0 ? (
+            <p className="text-sm text-destructive" role="note">
+              В составе этой редакции есть отдельные материалы:{" "}
+              {editing.tier.contentScope.materialIds.length}. Отдельный материал
+              в тариф не входит, и новая редакция их не сохранит. Действующие
+              назначения сохраняют свой снимок.
+            </p>
+          ) : null}
+          <p className="text-sm text-muted-foreground">
+            Новые материалы выбранного продукта входят в состав сами. Новый
+            продукт входит сам только в состав «Все продукты платформы», иначе
+            его добавляют явно. Отдельный материал в тариф не входит.
+          </p>
           <AdminField
             hint="Пусто — создание нового предложения."
             inputMode="numeric"
@@ -263,7 +374,10 @@ export function CatalogSection({
             label="Способ продажи"
             name="optionMode"
             options={[
-              { value: "subscription", label: "Подписка: списания по расписанию" },
+              {
+                value: "subscription",
+                label: "Подписка: списания по расписанию",
+              },
               { value: "one_time", label: "Разовая покупка: без списаний" },
             ]}
           />
@@ -332,7 +446,11 @@ export function CatalogSection({
             });
           })}
         >
-          <AdminField label="Идентификатор скидки" name="promotionId" required />
+          <AdminField
+            label="Идентификатор скидки"
+            name="promotionId"
+            required
+          />
           <AdminField
             label="Название"
             maxLength={200}
@@ -456,9 +574,7 @@ export function splitIds(value: string): string[] {
 }
 
 /** Тумблер продажи относится к предложению, а не к отдельному сроку: группируем его варианты. */
-function catalogOffers(
-  offers: readonly PriceSnapshot[],
-): readonly {
+function catalogOffers(offers: readonly PriceSnapshot[]): readonly {
   readonly offer: PriceSnapshot["offer"];
   readonly options: readonly PriceSnapshot[];
 }[] {

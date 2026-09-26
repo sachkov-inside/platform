@@ -59,7 +59,9 @@ export async function setContentCollectionArchive(
     toFormData(input),
   );
   if (!response.ok) return mapFailedResult(response);
-  const parsed = setContentCollectionArchiveResultSchema.safeParse(response.body);
+  const parsed = setContentCollectionArchiveResultSchema.safeParse(
+    response.body,
+  );
   return parsed.success
     ? parsed.data
     : { kind: "error", reference: "collections-bff-contract" };
@@ -75,7 +77,10 @@ function mapFailedResult(
   | { readonly kind: "error"; readonly reference: string } {
   return response.status === 401 || response.status === 403
     ? { kind: "unauthorized" }
-    : { kind: "error", reference: `collections-bff-${String(response.status)}` };
+    : {
+        kind: "error",
+        reference: `collections-bff-${String(response.status)}`,
+      };
 }
 
 function toFormData(input: object): FormData {

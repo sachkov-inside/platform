@@ -12,8 +12,7 @@ import type {
 import type { Rollback } from "./application-result.js";
 
 type ReferenceIntegrityError =
-  | InvalidReferenceError
-  | SeriesOrdinalConflictError;
+  InvalidReferenceError | SeriesOrdinalConflictError;
 
 export async function requireReferenceIntegrity(
   transaction: MaterialsPrismaTransaction,
@@ -25,7 +24,11 @@ export async function requireReferenceIntegrity(
   if (issues.length > 0) {
     rollback({ code: "invalid_reference", issues });
   }
-  const conflict = await findSeriesOrdinalConflict(transaction, materialId, metadata);
+  const conflict = await findSeriesOrdinalConflict(
+    transaction,
+    materialId,
+    metadata,
+  );
   if (conflict !== undefined) {
     rollback({ code: "series_ordinal_conflict", ...conflict });
   }

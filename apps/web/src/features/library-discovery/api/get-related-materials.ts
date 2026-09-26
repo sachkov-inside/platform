@@ -18,7 +18,10 @@ export async function getRelatedMaterials(
     });
     return mapLibraryDiscoveryResult(result, "related");
   } catch (error) {
-    if (error instanceof BackendConnectionError && error.code === "unavailable") {
+    if (
+      error instanceof BackendConnectionError &&
+      error.code === "unavailable"
+    ) {
       return { kind: "unavailable" };
     }
     throw error;

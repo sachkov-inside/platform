@@ -8,7 +8,10 @@ import {
 
 const addressableBlockTypeSet = new Set<string>(addressableMaterialBlockTypes);
 
-export function assignMissingNodeIds(value: unknown, stableRootNodeId?: string): void {
+export function assignMissingNodeIds(
+  value: unknown,
+  stableRootNodeId?: string,
+): void {
   function visit(candidate: unknown, root: boolean): void {
     if (isUnknownArray(candidate)) {
       candidate.forEach((child) => visit(child, false));
@@ -18,16 +21,22 @@ export function assignMissingNodeIds(value: unknown, stableRootNodeId?: string):
       return;
     }
     const node = candidate;
-    if (typeof node.type === "string" && addressableBlockTypeSet.has(node.type)) {
+    if (
+      typeof node.type === "string" &&
+      addressableBlockTypeSet.has(node.type)
+    ) {
       if (node.attrs === undefined) {
-        node.attrs = { nodeId: root ? stableRootNodeId ?? randomUUID() : randomUUID() };
-      } else if (
-        isUnknownRecord(node.attrs)
-      ) {
+        node.attrs = {
+          nodeId: root ? (stableRootNodeId ?? randomUUID()) : randomUUID(),
+        };
+      } else if (isUnknownRecord(node.attrs)) {
         const attributes = node.attrs;
         if (root && stableRootNodeId !== undefined) {
           attributes.nodeId = stableRootNodeId;
-        } else if (attributes.nodeId === undefined || attributes.nodeId === null) {
+        } else if (
+          attributes.nodeId === undefined ||
+          attributes.nodeId === null
+        ) {
           attributes.nodeId = randomUUID();
         }
       }

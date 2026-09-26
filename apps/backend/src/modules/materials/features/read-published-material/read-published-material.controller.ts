@@ -1,9 +1,4 @@
-import {
-  Controller,
-  Get,
-  Inject,
-  Param,
-} from "@nestjs/common";
+import { Controller, Get, Inject, Param } from "@nestjs/common";
 import {
   ApiBadRequestResponse,
   ApiInternalServerErrorResponse,
@@ -52,13 +47,42 @@ export class ReadPublishedMaterialController {
   ) {}
 
   @Get(":slug")
-  @ApiOperation({ operationId: "readPublishedMaterial", summary: "Read the current published Material" })
-  @ApiParam({ name: "slug", schema: toOpenApiSchema(z.string().min(1).max(120)) })
-  @ApiOkResponse({ description: "Published Material body or an access-safe teaser", schema: toOpenApiSchema(publishedMaterialReadHttpSchema) })
-  @ApiBadRequestResponse({ description: "Published Material request is malformed", content: problemDetailsContent(publishedMaterialProblemHttpSchema) })
-  @ApiNotFoundResponse({ description: "Published Material does not exist", content: problemDetailsContent(publishedMaterialProblemHttpSchema) })
-  @ApiServiceUnavailableResponse({ description: "Published Material or Account proof dependency is unavailable", content: problemDetailsOneOfContent(publishedMaterialProblemHttpSchema, accountProblemSchema) })
-  @ApiInternalServerErrorResponse({ description: "Published Material read or Account resolution failed unexpectedly", content: problemDetailsOneOfContent(publishedMaterialProblemHttpSchema, accountProblemSchema) })
+  @ApiOperation({
+    operationId: "readPublishedMaterial",
+    summary: "Read the current published Material",
+  })
+  @ApiParam({
+    name: "slug",
+    schema: toOpenApiSchema(z.string().min(1).max(120)),
+  })
+  @ApiOkResponse({
+    description: "Published Material body or an access-safe teaser",
+    schema: toOpenApiSchema(publishedMaterialReadHttpSchema),
+  })
+  @ApiBadRequestResponse({
+    description: "Published Material request is malformed",
+    content: problemDetailsContent(publishedMaterialProblemHttpSchema),
+  })
+  @ApiNotFoundResponse({
+    description: "Published Material does not exist",
+    content: problemDetailsContent(publishedMaterialProblemHttpSchema),
+  })
+  @ApiServiceUnavailableResponse({
+    description:
+      "Published Material or Account proof dependency is unavailable",
+    content: problemDetailsOneOfContent(
+      publishedMaterialProblemHttpSchema,
+      accountProblemSchema,
+    ),
+  })
+  @ApiInternalServerErrorResponse({
+    description:
+      "Published Material read or Account resolution failed unexpectedly",
+    content: problemDetailsOneOfContent(
+      publishedMaterialProblemHttpSchema,
+      accountProblemSchema,
+    ),
+  })
   async read(
     @OptionalCurrentAccount() account: AuthenticatedAccount | undefined,
     @Param("slug") slug: string,
@@ -89,8 +113,12 @@ export function throwReadPublishedMaterialError(
     case "material_not_found":
       throw problemException(404, error.code, "Material not found");
     case "dependency_unavailable":
-      throw problemException(503, error.code, "Dependency unavailable", { retryable: error.retryable });
+      throw problemException(503, error.code, "Dependency unavailable", {
+        retryable: error.retryable,
+      });
     case "internal_error":
-      throw problemException(500, error.code, "Internal error", { correlationId: error.correlationId });
+      throw problemException(500, error.code, "Internal error", {
+        correlationId: error.correlationId,
+      });
   }
 }

@@ -90,17 +90,26 @@ export function assembleListMaterials(
 
         return {
           items: rows.map((row): AuthoringMaterialListItemDto => {
-            const format = row.formatId === null ? null : materialFormatPresentation(row.formatId);
+            const format =
+              row.formatId === null
+                ? null
+                : materialFormatPresentation(row.formatId);
             return {
               canDelete:
                 row.publicationState === "draft" &&
                 row.firstPublishedAt === null,
               contentVersion: Number(row.contentVersion),
-              format: format === null ? null : { id: format.id, name: format.name },
+              format:
+                format === null ? null : { id: format.id, name: format.name },
               materialId: row.id,
-              publicationState: publicationStateSchema.parse(row.publicationState),
+              publicationState: publicationStateSchema.parse(
+                row.publicationState,
+              ),
               title: row.title,
-              topic: row.topicId === null ? null : (topicById.get(row.topicId) ?? null),
+              topic:
+                row.topicId === null
+                  ? null
+                  : (topicById.get(row.topicId) ?? null),
               updatedAt: row.updatedAt.toISOString(),
             };
           }),
@@ -112,7 +121,13 @@ export function assembleListMaterials(
       });
       return { ok: true, value };
     } catch (error) {
-      return failure(dependencyFailure({ module: "materials", operation: "listMaterials" }, error, mapPostgresReadError(error)));
+      return failure(
+        dependencyFailure(
+          { module: "materials", operation: "listMaterials" },
+          error,
+          mapPostgresReadError(error),
+        ),
+      );
     }
   };
 }

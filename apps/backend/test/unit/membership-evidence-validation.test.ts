@@ -20,7 +20,10 @@ describe("MembershipEvidence validation", () => {
   test("separates unsupported, malformed, invalid-time and expired evidence", () => {
     expect(
       validateMembershipEvidence(
-        { ...observedEvidence(), contractVersion: "inside.membership-evidence.v2" },
+        {
+          ...observedEvidence(),
+          contractVersion: "inside.membership-evidence.v2",
+        },
         clock,
       ),
     ).toEqual({ ok: false, error: { code: "unsupported_contract" } });
@@ -75,9 +78,7 @@ describe("MembershipEvidence validation", () => {
   });
 });
 
-function observedEvidence(
-  overrides: Readonly<Record<string, unknown>> = {},
-) {
+function observedEvidence(overrides: Readonly<Record<string, unknown>> = {}) {
   return {
     contractVersion: "inside.membership-evidence.v1",
     principalRef: "principal-ref-a",

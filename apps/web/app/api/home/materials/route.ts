@@ -5,5 +5,8 @@ import { getOptionalPlatformAccessToken } from "@/shared/auth/optional-platform-
 
 export async function GET(request: Request): Promise<Response> {
   await connection();
-  return handleHomeFeedRequest(request, await getOptionalPlatformAccessToken(request));
+  return handleHomeFeedRequest(
+    request,
+    await getOptionalPlatformAccessToken(request),
+  );
 }

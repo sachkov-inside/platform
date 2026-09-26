@@ -15,7 +15,10 @@ import type { PublishedMaterialCatalogItemDto } from "../features/list-published
 const CONTENT_ACCESS_BATCH_SIZE = 100;
 
 export type PublishedCatalogItemsResult =
-  | { readonly ok: true; readonly items: readonly PublishedMaterialCatalogItemDto[] }
+  | {
+      readonly ok: true;
+      readonly items: readonly PublishedMaterialCatalogItemDto[];
+    }
   | {
       readonly ok: false;
       readonly error:
@@ -52,7 +55,11 @@ export async function projectPublishedCatalogItems(
     ]),
   );
   const availabilityItems: AccessAvailability[] = [];
-  for (let start = 0; start < projections.length; start += CONTENT_ACCESS_BATCH_SIZE) {
+  for (
+    let start = 0;
+    start < projections.length;
+    start += CONTENT_ACCESS_BATCH_SIZE
+  ) {
     const batch = projections.slice(start, start + CONTENT_ACCESS_BATCH_SIZE);
     const availability = await contentAccess.checkAvailabilityMany({
       subject,
@@ -108,7 +115,9 @@ function toCatalogItem(
     slug: projection.slug,
     title: projection.title,
     summary: projection.summary,
-    ...(projection.noteExcerpt === undefined ? {} : { noteExcerpt: projection.noteExcerpt }),
+    ...(projection.noteExcerpt === undefined
+      ? {}
+      : { noteExcerpt: projection.noteExcerpt }),
     difficulty: projection.difficulty,
     outcomes: projection.outcomes,
     access: projection.access,
@@ -123,12 +132,19 @@ function toCatalogItem(
     format: { ...projection.format },
     tags: projection.tags.map((tag) => ({ ...tag })),
     seriesMemberships: projection.seriesMemberships.map(
-      ({ ordinal, series, stepGroup }) => ({ ordinal, series: { ...series }, ...(stepGroup === undefined ? {} : { stepGroup }) }),
+      ({ ordinal, series, stepGroup }) => ({
+        ordinal,
+        series: { ...series },
+        ...(stepGroup === undefined ? {} : { stepGroup }),
+      }),
     ),
   };
 }
 
-function internalError(): Extract<PublishedCatalogItemsResult, { readonly ok: false }> {
+function internalError(): Extract<
+  PublishedCatalogItemsResult,
+  { readonly ok: false }
+> {
   return {
     ok: false,
     error: { code: "internal_error", correlationId: randomUUID() },

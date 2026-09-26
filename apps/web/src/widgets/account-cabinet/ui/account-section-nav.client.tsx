@@ -46,7 +46,9 @@ export function AccountSectionNav({
             <span className="block text-xs font-medium text-muted-foreground">
               Личный кабинет
             </span>
-            <span className="block truncate">{current?.label ?? "Разделы"}</span>
+            <span className="block truncate">
+              {current?.label ?? "Разделы"}
+            </span>
           </span>
           <ChevronDown
             aria-hidden="true"
@@ -56,10 +58,7 @@ export function AccountSectionNav({
             )}
           />
         </button>
-        <ul
-          className={cn("mt-2 grid gap-1", !open && "hidden")}
-          id={listId}
-        >
+        <ul className={cn("mt-2 grid gap-1", !open && "hidden")} id={listId}>
           {sections.map((section) => (
             <li key={section.id}>
               <SectionLink

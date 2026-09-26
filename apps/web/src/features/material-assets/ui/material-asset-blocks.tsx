@@ -23,8 +23,7 @@ export function MaterialAssetImage({
   readonly materialId: string;
   readonly preview?: boolean;
   readonly variants?:
-    | readonly { readonly height: number; readonly width: number }[]
-    | undefined;
+    readonly { readonly height: number; readonly width: number }[] | undefined;
   readonly width?: number | undefined;
 }) {
   const responsiveVariants = variants ?? [];
@@ -41,7 +40,10 @@ export function MaterialAssetImage({
   const url = (variantWidth: number) =>
     `/api/materials/${encodeURIComponent(materialId)}/assets/${encodeURIComponent(assetId)}/images/${String(variantWidth)}?${query.toString()}`;
   return (
-    <figure style={{ width: `${String(displayWidthPercent)}%` }} className="mx-auto overflow-hidden rounded-xl bg-card">
+    <figure
+      style={{ width: `${String(displayWidthPercent)}%` }}
+      className="mx-auto overflow-hidden rounded-xl bg-card"
+    >
       <MaterialImageDelivery
         key={url(available.width)}
         alt={alt}

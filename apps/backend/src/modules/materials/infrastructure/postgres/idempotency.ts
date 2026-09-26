@@ -4,9 +4,7 @@ import type { MaterialsPrismaTransaction } from "../../../../infrastructure/pris
 import type { MaterialMutationReceiptDto } from "../../facets/material-authoring/material-authoring.contract.js";
 
 export type AuthoringOperation =
-  | "create_draft"
-  | "save_material"
-  | "delete_draft";
+  "create_draft" | "save_material" | "delete_draft";
 
 export type IdempotencyEffect =
   | { readonly kind: "material"; readonly receipt: MaterialMutationReceiptDto }
@@ -72,10 +70,7 @@ export async function claimIdempotency(
       effect: { kind: "deleted", materialId: existing.materialId },
     };
   }
-  if (
-    existing.contentVersion === null ||
-    existing.publicationState === null
-  ) {
+  if (existing.contentVersion === null || existing.publicationState === null) {
     return { kind: "incomplete" };
   }
   const publicationState = publicationStateSchema.safeParse(

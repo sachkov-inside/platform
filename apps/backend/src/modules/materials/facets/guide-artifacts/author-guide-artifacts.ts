@@ -1,6 +1,9 @@
 import { randomUUID } from "node:crypto";
 
-import { dependencyFailure, reportDependencyFailure } from "../../../../infrastructure/observability/index.js";
+import {
+  dependencyFailure,
+  reportDependencyFailure,
+} from "../../../../infrastructure/observability/index.js";
 import {
   archiveSchema,
   createSchema,
@@ -51,7 +54,11 @@ export async function createGuideArtifact(
     });
     if (guide === null) return failure({ code: "guide_not_found" });
   } catch (error) {
-    return dependencyFailure({ module: "materials", operation: "create" }, error, dependencyUnavailable());
+    return dependencyFailure(
+      { module: "materials", operation: "create" },
+      error,
+      dependencyUnavailable(),
+    );
   }
 
   const artifactId = randomUUID();
@@ -91,7 +98,10 @@ export async function createGuideArtifact(
       });
     });
   } catch (error) {
-    reportDependencyFailure({ module: "materials", operation: "create" }, error);
+    reportDependencyFailure(
+      { module: "materials", operation: "create" },
+      error,
+    );
     await context.files.discard(stored);
     return dependencyUnavailable();
   }
@@ -136,7 +146,11 @@ export async function updateGuideArtifact(
       });
     });
   } catch (error) {
-    return dependencyFailure({ module: "materials", operation: "update" }, error, dependencyUnavailable());
+    return dependencyFailure(
+      { module: "materials", operation: "update" },
+      error,
+      dependencyUnavailable(),
+    );
   }
   return projectOrFail(prisma, parsed.data.artifactId);
 }
@@ -159,12 +173,19 @@ export async function replaceGuideArtifactContent(
     if (current === null) return failure({ code: "artifact_not_found" });
     currentVersion = current.currentVersion;
   } catch (error) {
-    return dependencyFailure({ module: "materials", operation: "replaceContent" }, error, dependencyUnavailable());
+    return dependencyFailure(
+      { module: "materials", operation: "replaceContent" },
+      error,
+      dependencyUnavailable(),
+    );
   }
 
   let stored: StoredArtifactFile | null = null;
   if (parsed.data.kind === "file") {
-    const file = await context.files.store(parsed.data.artifactId, parsed.data.file);
+    const file = await context.files.store(
+      parsed.data.artifactId,
+      parsed.data.file,
+    );
     if (!file.ok) return file;
     stored = file.value;
   }
@@ -197,7 +218,10 @@ export async function replaceGuideArtifactContent(
       });
     });
   } catch (error) {
-    reportDependencyFailure({ module: "materials", operation: "replaceContent" }, error);
+    reportDependencyFailure(
+      { module: "materials", operation: "replaceContent" },
+      error,
+    );
     await context.files.discard(stored);
     return dependencyUnavailable();
   }
@@ -226,7 +250,11 @@ export async function setGuideArtifactArchived(
     });
     if (changed.count === 0) return failure({ code: "artifact_not_found" });
   } catch (error) {
-    return dependencyFailure({ module: "materials", operation: "setArchived" }, error, dependencyUnavailable());
+    return dependencyFailure(
+      { module: "materials", operation: "setArchived" },
+      error,
+      dependencyUnavailable(),
+    );
   }
   return projectOrFail(prisma, parsed.data.artifactId);
 }
@@ -277,7 +305,11 @@ export async function setGuideArtifactGuides(
       });
     });
   } catch (error) {
-    return dependencyFailure({ module: "materials", operation: "setGuides" }, error, dependencyUnavailable());
+    return dependencyFailure(
+      { module: "materials", operation: "setGuides" },
+      error,
+      dependencyUnavailable(),
+    );
   }
   return projectOrFail(prisma, parsed.data.artifactId);
 }
@@ -328,7 +360,11 @@ export async function setGuideArtifactMaterials(
       });
     });
   } catch (error) {
-    return dependencyFailure({ module: "materials", operation: "setMaterials" }, error, dependencyUnavailable());
+    return dependencyFailure(
+      { module: "materials", operation: "setMaterials" },
+      error,
+      dependencyUnavailable(),
+    );
   }
   return projectOrFail(prisma, parsed.data.artifactId);
 }
@@ -348,10 +384,7 @@ export async function removeGuideArtifact(
       where: { id: parsed.data.artifactId },
     });
     if (artifact === null) return failure({ code: "artifact_not_found" });
-    if (
-      artifact.placements.length > 0 ||
-      artifact.materialLinks.length > 0
-    ) {
+    if (artifact.placements.length > 0 || artifact.materialLinks.length > 0) {
       return failure({
         code: "artifact_referenced",
         guideIds: artifact.placements.map(({ guideId }) => guideId),
@@ -361,7 +394,11 @@ export async function removeGuideArtifact(
       where: { id: parsed.data.artifactId },
     });
   } catch (error) {
-    return dependencyFailure({ module: "materials", operation: "remove" }, error, dependencyUnavailable());
+    return dependencyFailure(
+      { module: "materials", operation: "remove" },
+      error,
+      dependencyUnavailable(),
+    );
   }
   return { ok: true, value: { artifactId: parsed.data.artifactId } };
 }

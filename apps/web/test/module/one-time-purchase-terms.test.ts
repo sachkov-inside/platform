@@ -6,7 +6,10 @@ import {
   oneTimePurchaseInclusions,
   oneTimeTermsSummary,
 } from "@/features/billing-checkout";
-import { guideOnlyOffer, guideWithSupportOffer } from "@/workshop/billing.fixtures";
+import {
+  guideOnlyOffer,
+  guideWithSupportOffer,
+} from "@/workshop/billing.fixtures";
 
 /** Intl ставит неразрывные пробелы: сравниваем с текстом таблицы обычными. */
 function plain(text: string): string {

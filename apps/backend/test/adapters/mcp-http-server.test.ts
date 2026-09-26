@@ -5,7 +5,10 @@ import {
 } from "@modelcontextprotocol/client";
 import { afterAll, beforeAll, describe, expect, test } from "vitest";
 
-import { createMcpHttpServer, type McpHttpServer } from "../../src/entrypoints/mcp/mcp-http-server.js";
+import {
+  createMcpHttpServer,
+  type McpHttpServer,
+} from "../../src/entrypoints/mcp/mcp-http-server.js";
 import type { OperationalReadiness } from "../../src/infrastructure/operational-readiness.js";
 import type { Accounts } from "../../src/modules/accounts/index.js";
 import { createLogtoAccessTokenVerifier } from "../../src/modules/accounts/infrastructure/idp/logto/logto-access-token-verifier.js";
@@ -61,15 +64,37 @@ describe("MCP Streamable HTTP adapter", () => {
       await client.connect(transport);
       const { tools } = await client.listTools();
       // Состав набора живёт в сгенерированном слепке; здесь доказывается, что вход отдаёт ровно его.
-      expect(tools.map(({ name }) => name).sort()).toEqual(readCommittedToolSurface());
+      expect(tools.map(({ name }) => name).sort()).toEqual(
+        readCommittedToolSurface(),
+      );
       // Владельческие billing-операции доступны тем же делегированным Account, без своей власти.
-      const refund = tools.find(tool => tool.name === "billing_refunds_execute");
-      expect(refund?.annotations).toMatchObject({ readOnlyHint: false, destructiveHint: true, openWorldHint: true });
-      expect(tools.find(tool => tool.name === "billing_offers_publish")?.annotations).toMatchObject({ readOnlyHint: false, destructiveHint: true });
-      expect(tools.find(tool => tool.name === "billing_offers_list")?.annotations).toMatchObject({ readOnlyHint: true });
-      expect(tools.find(tool => tool.name === "billing_payments_read")?.annotations).toMatchObject({ readOnlyHint: true });
-      expect(tools.find(tool => tool.name === "billing_grants_readClassification")?.annotations).toMatchObject({ readOnlyHint: true });
-      expect(tools.find(tool => tool.name === "billing_grants_classify")?.annotations).toMatchObject({ readOnlyHint: false, destructiveHint: true });
+      const refund = tools.find(
+        (tool) => tool.name === "billing_refunds_execute",
+      );
+      expect(refund?.annotations).toMatchObject({
+        readOnlyHint: false,
+        destructiveHint: true,
+        openWorldHint: true,
+      });
+      expect(
+        tools.find((tool) => tool.name === "billing_offers_publish")
+          ?.annotations,
+      ).toMatchObject({ readOnlyHint: false, destructiveHint: true });
+      expect(
+        tools.find((tool) => tool.name === "billing_offers_list")?.annotations,
+      ).toMatchObject({ readOnlyHint: true });
+      expect(
+        tools.find((tool) => tool.name === "billing_payments_read")
+          ?.annotations,
+      ).toMatchObject({ readOnlyHint: true });
+      expect(
+        tools.find((tool) => tool.name === "billing_grants_readClassification")
+          ?.annotations,
+      ).toMatchObject({ readOnlyHint: true });
+      expect(
+        tools.find((tool) => tool.name === "billing_grants_classify")
+          ?.annotations,
+      ).toMatchObject({ readOnlyHint: false, destructiveHint: true });
     } finally {
       await client.close();
     }
@@ -103,7 +128,10 @@ describe("MCP Streamable HTTP adapter", () => {
   });
 
   test("publishes Logto-compatible protected resource metadata", async () => {
-    const metadataUrl = new URL("/.well-known/oauth-protected-resource/mcp", endpoint);
+    const metadataUrl = new URL(
+      "/.well-known/oauth-protected-resource/mcp",
+      endpoint,
+    );
     const response = await fetch(metadataUrl);
 
     expect(response.status).toBe(200);
@@ -173,13 +201,14 @@ function fakeAccounts(): Accounts {
 
 function fakeReadiness(): Pick<OperationalReadiness, "check" | "live"> {
   return {
-    check: () => Promise.resolve({
-      database: "reachable" as const,
-      process: "mcp" as const,
-      release: { release: "test", sourceSha: "0".repeat(40) },
-      schema: { identity: `sha256:${"0".repeat(64)}`, migrationCount: 20 },
-      status: "ready" as const,
-    }),
+    check: () =>
+      Promise.resolve({
+        database: "reachable" as const,
+        process: "mcp" as const,
+        release: { release: "test", sourceSha: "0".repeat(40) },
+        schema: { identity: `sha256:${"0".repeat(64)}`, migrationCount: 20 },
+        status: "ready" as const,
+      }),
     live: () => ({
       process: "mcp" as const,
       release: { release: "test", sourceSha: "0".repeat(40) },

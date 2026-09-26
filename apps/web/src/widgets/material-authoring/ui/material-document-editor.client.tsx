@@ -93,7 +93,11 @@ function sameEditorProps(
   previous: MaterialDocumentEditorProps,
   next: MaterialDocumentEditorProps,
 ): boolean {
-  const { document: _previousDocument, saveState: previousSave, ...previousRest } = previous;
+  const {
+    document: _previousDocument,
+    saveState: previousSave,
+    ...previousRest
+  } = previous;
   const { document: _nextDocument, saveState: nextSave, ...nextRest } = next;
   if (saveLabel(previousSave) !== saveLabel(nextSave)) return false;
   const nextValues = new Map<string, unknown>(Object.entries(nextRest));
@@ -101,12 +105,15 @@ function sameEditorProps(
   return (
     previousValues.length === nextValues.size &&
     previousValues.every(
-      ([key, value]) => nextValues.has(key) && Object.is(value, nextValues.get(key)),
+      ([key, value]) =>
+        nextValues.has(key) && Object.is(value, nextValues.get(key)),
     )
   );
 }
 
-function saveLabel(state: MaterialDocumentEditorProps["saveState"]): string | undefined {
+function saveLabel(
+  state: MaterialDocumentEditorProps["saveState"],
+): string | undefined {
   return state === undefined ? undefined : materialSaveStateLabel(state);
 }
 
@@ -345,7 +352,8 @@ function MaterialDocumentEditorView({
     {
       name: "Ключевая мысль",
       icon: Sparkles,
-      run: () => editor.chain().focus().insertContent({ type: "keyPoint" }).run(),
+      run: () =>
+        editor.chain().focus().insertContent({ type: "keyPoint" }).run(),
     },
     {
       name: "Итоги",
@@ -381,12 +389,14 @@ function MaterialDocumentEditorView({
     {
       name: "Промпт",
       icon: Terminal,
-      run: () => editor.chain().focus().insertContent({ type: "agentPrompt" }).run(),
+      run: () =>
+        editor.chain().focus().insertContent({ type: "agentPrompt" }).run(),
     },
     {
       name: "Ресурс",
       icon: ExternalLink,
-      run: () => editor.chain().focus().insertContent({ type: "resourceCard" }).run(),
+      run: () =>
+        editor.chain().focus().insertContent({ type: "resourceCard" }).run(),
     },
     {
       name: "Термины",
@@ -469,11 +479,7 @@ function MaterialDocumentEditorView({
       <div className="sticky top-0 z-30 flex min-h-12 flex-wrap items-center justify-end gap-1 rounded-t-2xl bg-card/95 px-3 py-1">
         <div className="mr-auto flex min-w-0 flex-wrap items-center gap-1">
           {toolbarState?.table ? (
-            <div
-              className="flex gap-1"
-              role="toolbar"
-              aria-label="Таблица"
-            >
+            <div className="flex gap-1" role="toolbar" aria-label="Таблица">
               <Button
                 aria-label="Добавить строку"
                 title="Добавить строку"

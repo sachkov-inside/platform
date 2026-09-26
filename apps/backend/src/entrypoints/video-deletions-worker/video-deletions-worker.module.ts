@@ -31,24 +31,28 @@ export class VideoDeletionsWorkerModule {
         PrismaModule,
         MaterialContentModule,
       ],
-      providers: [OperationalReadiness, {
-        provide: VIDEO_DELETION_MAINTENANCE,
-        inject: [PrismaClientProvider, PLATFORM_CONFIG],
-        useFactory: (
-          prisma: PrismaClientProvider,
-          platformConfig: PlatformConfig,
-        ): VideoDeletionMaintenance => assembleVideoDeletionMaintenance({
-          prisma,
-          provider: createConfiguredVideoProvider(platformConfig),
-          reportFailure(event) {
-            writeLog("error", "video_deletion_failed", {
-              process: "video-deletions-worker",
-              status: "operator_attention",
-              ...event,
-            });
-          },
-        }),
-      }],
+      providers: [
+        OperationalReadiness,
+        {
+          provide: VIDEO_DELETION_MAINTENANCE,
+          inject: [PrismaClientProvider, PLATFORM_CONFIG],
+          useFactory: (
+            prisma: PrismaClientProvider,
+            platformConfig: PlatformConfig,
+          ): VideoDeletionMaintenance =>
+            assembleVideoDeletionMaintenance({
+              prisma,
+              provider: createConfiguredVideoProvider(platformConfig),
+              reportFailure(event) {
+                writeLog("error", "video_deletion_failed", {
+                  process: "video-deletions-worker",
+                  status: "operator_attention",
+                  ...event,
+                });
+              },
+            }),
+        },
+      ],
       exports: [VIDEO_DELETION_MAINTENANCE],
     };
   }

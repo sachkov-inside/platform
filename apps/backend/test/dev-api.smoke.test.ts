@@ -42,8 +42,12 @@ describe("API development process", () => {
       },
       stdio: ["ignore", "pipe", "pipe"],
     });
-    process.stdout?.on("data", (chunk: Buffer) => output.push(chunk.toString()));
-    process.stderr?.on("data", (chunk: Buffer) => output.push(chunk.toString()));
+    process.stdout?.on("data", (chunk: Buffer) =>
+      output.push(chunk.toString()),
+    );
+    process.stderr?.on("data", (chunk: Buffer) =>
+      output.push(chunk.toString()),
+    );
 
     const response = await waitForResponse(
       `http://127.0.0.1:${port}/health`,

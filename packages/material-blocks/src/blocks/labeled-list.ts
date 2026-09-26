@@ -1,6 +1,9 @@
 import { z } from "zod";
 
-import { defineMaterialBlock, type MaterialBlockDefinition } from "../block-definition.js";
+import {
+  defineMaterialBlock,
+  type MaterialBlockDefinition,
+} from "../block-definition.js";
 import { nodeAttributes, optionalText } from "../document-node.js";
 import { isJsonObject, isUnknownArray, isUnknownRecord } from "../json.js";
 import { attributeText } from "./block-fields.js";
@@ -43,59 +46,65 @@ function renderedRows(value: unknown): readonly unknown[] {
 }
 
 /** Terms of a lesson: a short label, the term it marks and an optional explanation. */
-export const labeledListBlock: MaterialBlockDefinition = defineMaterialBlock<"labeled_list">({
-  issues: (node, report) => {
-    const rows = isJsonObject(node.attrs) ? node.attrs.rows : undefined;
-    if (!storedRowsSchema.safeParse(rows).success) {
-      report("invalid_labeled_rows", "rows");
-    }
-  },
-  kind: "labeled_list",
-  node: {
-    atom: true,
-    attributes: { rows: [] },
-    // Rows are not a string, so they travel as JSON in their own attribute and survive a paste.
-    domAttributes: { rows: "data-rows" },
-    draggable: true,
-    group: "block",
-    parseHTML: ['[data-material-block="labeledList"]'],
-    renderHTML: (attributes) => [
-      "dl",
-      { ...attributes, "data-material-block": "labeledList" },
-      ...renderedRows(attributes["data-rows"]).flatMap((row) => {
-        const parsed = isUnknownRecord(row) ? row : {};
-        return [
-          [
-            "dt",
-            {},
-            `${attributeText(parsed.label)} ${attributeText(parsed.name)}`.trim(),
-          ],
-          ["dd", {}, attributeText(parsed.description)],
-        ];
-      }),
-    ],
-  },
-  // The document already passed the field rule above, so a mismatch here is a defect and the
-  // schema throws rather than repairing the row.
-  render: (node) => ({
+export const labeledListBlock: MaterialBlockDefinition =
+  defineMaterialBlock<"labeled_list">({
+    issues: (node, report) => {
+      const rows = isJsonObject(node.attrs) ? node.attrs.rows : undefined;
+      if (!storedRowsSchema.safeParse(rows).success) {
+        report("invalid_labeled_rows", "rows");
+      }
+    },
     kind: "labeled_list",
-    rows: storedRowsSchema.parse(nodeAttributes(node).rows).map((row) => {
-      const description = optionalText(row.description ?? undefined);
-      return {
-        ...(description === undefined ? {} : { description }),
-        label: row.label,
-        name: row.name,
-      };
+    node: {
+      atom: true,
+      attributes: { rows: [] },
+      // Rows are not a string, so they travel as JSON in their own attribute and survive a paste.
+      domAttributes: { rows: "data-rows" },
+      draggable: true,
+      group: "block",
+      parseHTML: ['[data-material-block="labeledList"]'],
+      renderHTML: (attributes) => [
+        "dl",
+        { ...attributes, "data-material-block": "labeledList" },
+        ...renderedRows(attributes["data-rows"]).flatMap((row) => {
+          const parsed = isUnknownRecord(row) ? row : {};
+          return [
+            [
+              "dt",
+              {},
+              `${attributeText(parsed.label)} ${attributeText(parsed.name)}`.trim(),
+            ],
+            ["dd", {}, attributeText(parsed.description)],
+          ];
+        }),
+      ],
+    },
+    // The document already passed the field rule above, so a mismatch here is a defect and the
+    // schema throws rather than repairing the row.
+    render: (node) => ({
+      kind: "labeled_list",
+      rows: storedRowsSchema.parse(nodeAttributes(node).rows).map((row) => {
+        const description = optionalText(row.description ?? undefined);
+        return {
+          ...(description === undefined ? {} : { description }),
+          label: row.label,
+          name: row.name,
+        };
+      }),
     }),
-  }),
-  renderedSchema: () =>
-    z
-      .object({ kind: z.literal("labeled_list"), rows: z.array(renderedRowSchema) })
-      .strict(),
-  text: (block) =>
-    block.rows
-      .map((row) => [row.label, row.name, row.description].filter(Boolean).join(" — "))
-      .filter(Boolean)
-      .join("\n"),
-  type: "labeledList",
-});
+    renderedSchema: () =>
+      z
+        .object({
+          kind: z.literal("labeled_list"),
+          rows: z.array(renderedRowSchema),
+        })
+        .strict(),
+    text: (block) =>
+      block.rows
+        .map((row) =>
+          [row.label, row.name, row.description].filter(Boolean).join(" — "),
+        )
+        .filter(Boolean)
+        .join("\n"),
+    type: "labeledList",
+  });

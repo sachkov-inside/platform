@@ -7,9 +7,7 @@ import { variantUnderCursor } from "@/widgets/material-authoring";
 function branch(mode: string, text: string) {
   return {
     attrs: { mode },
-    content: [
-      { content: [{ text, type: "text" }], type: "paragraph" },
-    ],
+    content: [{ content: [{ text, type: "text" }], type: "paragraph" }],
     type: "variantOption",
   };
 }
@@ -26,7 +24,10 @@ const document = materialDocumentSchemaV1.nodeFromJSON({
 });
 
 function stateAt(select: (state: EditorState) => EditorState["selection"]) {
-  const initial = EditorState.create({ doc: document, schema: materialDocumentSchemaV1 });
+  const initial = EditorState.create({
+    doc: document,
+    schema: materialDocumentSchemaV1,
+  });
   return initial.apply(initial.tr.setSelection(select(initial)));
 }
 
@@ -69,10 +70,18 @@ describe("Ветка вариантного шага под курсором", (
 
   it("молчит вне вариантного шага", () => {
     const plain = materialDocumentSchemaV1.nodeFromJSON({
-      content: [{ content: [{ text: "Обычный абзац", type: "text" }], type: "paragraph" }],
+      content: [
+        {
+          content: [{ text: "Обычный абзац", type: "text" }],
+          type: "paragraph",
+        },
+      ],
       type: "doc",
     });
-    const state = EditorState.create({ doc: plain, schema: materialDocumentSchemaV1 });
+    const state = EditorState.create({
+      doc: plain,
+      schema: materialDocumentSchemaV1,
+    });
     expect(variantUnderCursor(state)).toBeUndefined();
   });
 });

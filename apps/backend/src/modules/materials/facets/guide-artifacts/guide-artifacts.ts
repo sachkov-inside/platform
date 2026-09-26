@@ -161,7 +161,8 @@ export interface ApplyAuthoringImportCommand {
  */
 export interface AuthoringImportOutcome {
   readonly artifactId: string;
-  readonly outcome: "created" | "diverged" | "missing" | "unchanged" | "updated";
+  readonly outcome:
+    "created" | "diverged" | "missing" | "unchanged" | "updated";
   readonly sourceId: string | null;
   readonly title: string;
 }

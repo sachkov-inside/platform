@@ -36,9 +36,7 @@ import {
   authoringMaterialsHref,
   authoringMaterialsRootHref,
 } from "../model/authoring-materials-query";
-import {
-  AuthoringMaterialActions,
-} from "./authoring-material-actions.client";
+import { AuthoringMaterialActions } from "./authoring-material-actions.client";
 
 export function AuthoringMaterialsView({
   isRefreshing = false,
@@ -64,7 +62,10 @@ export function AuthoringMaterialsView({
     );
   }
   return (
-    <AuthoringMaterialsFrame busy={isRefreshing} labelledBy="authoring-materials-heading">
+    <AuthoringMaterialsFrame
+      busy={isRefreshing}
+      labelledBy="authoring-materials-heading"
+    >
       <header className="flex flex-col gap-5 border-b border-border pb-7 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <h1
@@ -75,7 +76,12 @@ export function AuthoringMaterialsView({
           </h1>
         </div>
         <Button asChild className="min-h-11 shrink-0 sm:self-center">
-          <Link href={authoringDestinationHref("/authoring/materials/new", returnHref)}>
+          <Link
+            href={authoringDestinationHref(
+              "/authoring/materials/new",
+              returnHref,
+            )}
+          >
             <FilePlus2 aria-hidden="true" data-icon="inline-start" />
             Новый материал
           </Link>
@@ -143,20 +149,32 @@ function AuthoringMaterialsFilters({
   readonly query: AuthoringMaterialsQuery;
   readonly totalItems: number;
 }) {
-  const hasFilters = query.search !== undefined || query.publicationState !== undefined;
+  const hasFilters =
+    query.search !== undefined || query.publicationState !== undefined;
   return (
-    <section aria-labelledby="authoring-materials-filter-heading" className="py-6">
+    <section
+      aria-labelledby="authoring-materials-filter-heading"
+      className="py-6"
+    >
       <div className="flex items-center justify-between gap-4">
-        <h2 className="text-sm font-semibold" id="authoring-materials-filter-heading">
+        <h2
+          className="text-sm font-semibold"
+          id="authoring-materials-filter-heading"
+        >
           Найти материал
         </h2>
-        <p aria-live="polite" className="font-mono text-xs text-muted-foreground">
+        <p
+          aria-live="polite"
+          className="font-mono text-xs text-muted-foreground"
+        >
           {formatMaterialCount(totalItems)}
         </p>
       </div>
       <div className="mt-3 grid gap-3 sm:grid-cols-[minmax(16rem,1fr)_13rem_auto]">
         <label className="relative block">
-          <span className="sr-only">Поиск по названию, описанию или адресу</span>
+          <span className="sr-only">
+            Поиск по названию, описанию или адресу
+          </span>
           <Search
             aria-hidden="true"
             className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-muted-foreground"
@@ -165,7 +183,9 @@ function AuthoringMaterialsFilters({
             autoComplete="off"
             className="min-h-11 w-full rounded-xl border border-input bg-card py-2 pl-10 pr-3 text-base outline-none placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/30 sm:text-sm"
             onChange={(event) => {
-              onQueryChange?.(withMaterialSearch(query, event.currentTarget.value));
+              onQueryChange?.(
+                withMaterialSearch(query, event.currentTarget.value),
+              );
             }}
             maxLength={160}
             name="search"
@@ -178,12 +198,19 @@ function AuthoringMaterialsFilters({
           onValueChange={(value) => {
             // Radix echoes its hidden native select when the list returns from being hidden by
             // navigation (ADR 0027): an empty or repeated value is not the author's choice.
-            if (!publicationStateOptions.has(value) || value === (query.publicationState ?? "all")) return;
+            if (
+              !publicationStateOptions.has(value) ||
+              value === (query.publicationState ?? "all")
+            )
+              return;
             onQueryChange?.(withPublicationState(query, value));
           }}
           value={query.publicationState ?? "all"}
         >
-          <SelectTrigger aria-label="Состояние публикации" className="bg-card text-base sm:text-sm">
+          <SelectTrigger
+            aria-label="Состояние публикации"
+            className="bg-card text-base sm:text-sm"
+          >
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
@@ -196,7 +223,10 @@ function AuthoringMaterialsFilters({
         {hasFilters ? (
           onQueryChange === undefined ? (
             <Button asChild className="size-11" size="icon-lg" variant="ghost">
-              <Link aria-label="Сбросить поиск и фильтр" href={authoringMaterialsRootHref}>
+              <Link
+                aria-label="Сбросить поиск и фильтр"
+                href={authoringMaterialsRootHref}
+              >
                 <FilterX aria-hidden="true" />
               </Link>
             </Button>
@@ -232,11 +262,15 @@ function AuthoringMaterialsResults({
   readonly state: Extract<AuthoringMaterialsState, { readonly kind: "ready" }>;
 }) {
   if (state.items.length === 0) {
-    const hasFilters = query.search !== undefined || query.publicationState !== undefined;
+    const hasFilters =
+      query.search !== undefined || query.publicationState !== undefined;
     const missingPage = state.totalItems > 0;
     return (
       <section className="border-y border-border py-12 text-center">
-        <LibraryBig aria-hidden="true" className="mx-auto size-8 text-muted-foreground" />
+        <LibraryBig
+          aria-hidden="true"
+          className="mx-auto size-8 text-muted-foreground"
+        />
         <h2 className="mt-4 text-xl font-semibold tracking-[-0.02em]">
           {missingPage
             ? "На этой странице больше нет материалов"
@@ -258,7 +292,12 @@ function AuthoringMaterialsResults({
             </Button>
           ) : (
             <Button asChild>
-              <Link href={authoringDestinationHref("/authoring/materials/new", returnHref)}>
+              <Link
+                href={authoringDestinationHref(
+                  "/authoring/materials/new",
+                  returnHref,
+                )}
+              >
                 Создать материал
               </Link>
             </Button>
@@ -320,8 +359,14 @@ function AuthoringMaterialRow({
           </p>
         ) : null}
         <dl className="mt-3 flex flex-wrap gap-x-5 gap-y-2 text-sm text-muted-foreground">
-          <MaterialFact label="Тема" value={localizedTaxonomyValue(material.topic)} />
-          <MaterialFact label="Формат" value={localizedTaxonomyValue(material.format)} />
+          <MaterialFact
+            label="Тема"
+            value={localizedTaxonomyValue(material.topic)}
+          />
+          <MaterialFact
+            label="Формат"
+            value={localizedTaxonomyValue(material.format)}
+          />
           <div>
             <dt className="sr-only">Последнее изменение</dt>
             <dd>
@@ -340,7 +385,9 @@ function AuthoringMaterialRow({
           </Link>
         </Button>
         <Button asChild className="min-h-11" variant="ghost">
-          <Link href={authoringDestinationHref(`${editorPath}/preview`, returnHref)}>
+          <Link
+            href={authoringDestinationHref(`${editorPath}/preview`, returnHref)}
+          >
             <Eye aria-hidden="true" data-icon="inline-start" />
             Предпросмотр
           </Link>
@@ -354,7 +401,13 @@ function AuthoringMaterialRow({
   );
 }
 
-function MaterialFact({ label, value }: { readonly label: string; readonly value: string }) {
+function MaterialFact({
+  label,
+  value,
+}: {
+  readonly label: string;
+  readonly value: string;
+}) {
   return (
     <div className="inline-flex min-h-7 items-center gap-1.5 rounded-md bg-muted px-2.5 py-1">
       <dt className="text-xs text-muted-foreground">{label}</dt>
@@ -521,39 +574,71 @@ function AuthoringMaterialsStateView({
   );
 }
 
-function stateView(state: Exclude<AuthoringMaterialsState, { readonly kind: "ready" }>) {
+function stateView(
+  state: Exclude<AuthoringMaterialsState, { readonly kind: "ready" }>,
+) {
   switch (state.kind) {
     case "signed_out":
       return {
-        description: "Войдите под доверенным автором, чтобы увидеть все черновики и опубликованные материалы.",
+        description:
+          "Войдите под доверенным автором, чтобы увидеть все черновики и опубликованные материалы.",
         heading: "Нужен вход автора",
-        icon: <LockKeyhole aria-hidden="true" className="mx-auto size-8 text-muted-foreground" />,
+        icon: (
+          <LockKeyhole
+            aria-hidden="true"
+            className="mx-auto size-8 text-muted-foreground"
+          />
+        ),
       };
     case "forbidden":
       return {
-        description: "Текущая учётная запись не имеет права управлять материалами. Войдите под доверенным автором.",
+        description:
+          "Текущая учётная запись не имеет права управлять материалами. Войдите под доверенным автором.",
         heading: "Нет доступа к материалам",
-        icon: <ShieldAlert aria-hidden="true" className="mx-auto size-8 text-destructive" />,
+        icon: (
+          <ShieldAlert
+            aria-hidden="true"
+            className="mx-auto size-8 text-destructive"
+          />
+        ),
       };
     case "unavailable":
       return {
-        description: "Хранилище материалов временно недоступно. Список не изменён — повторите чтение.",
+        description:
+          "Хранилище материалов временно недоступно. Список не изменён — повторите чтение.",
         heading: "Список временно недоступен",
-        icon: <CloudOff aria-hidden="true" className="mx-auto size-8 text-destructive" />,
+        icon: (
+          <CloudOff
+            aria-hidden="true"
+            className="mx-auto size-8 text-destructive"
+          />
+        ),
         reference: state.reference,
       };
     case "malformed_response":
       return {
-        description: "Сервер вернул неполный ответ. Данные не показаны, чтобы не скрыть реальное состояние материалов.",
+        description:
+          "Сервер вернул неполный ответ. Данные не показаны, чтобы не скрыть реальное состояние материалов.",
         heading: "Не удалось проверить список",
-        icon: <ShieldAlert aria-hidden="true" className="mx-auto size-8 text-destructive" />,
+        icon: (
+          <ShieldAlert
+            aria-hidden="true"
+            className="mx-auto size-8 text-destructive"
+          />
+        ),
         reference: "malformed-response",
       };
     case "unexpected_error":
       return {
-        description: "Произошла непредвиденная ошибка чтения. Повторите запрос; материалы не изменялись.",
+        description:
+          "Произошла непредвиденная ошибка чтения. Повторите запрос; материалы не изменялись.",
         heading: "Не удалось открыть материалы",
-        icon: <CloudOff aria-hidden="true" className="mx-auto size-8 text-destructive" />,
+        icon: (
+          <CloudOff
+            aria-hidden="true"
+            className="mx-auto size-8 text-destructive"
+          />
+        ),
         reference: state.reference,
       };
   }
@@ -597,7 +682,12 @@ function withMaterialSearch(
   };
 }
 
-const publicationStateOptions = new Set(["all", "draft", "published", "unpublished"]);
+const publicationStateOptions = new Set([
+  "all",
+  "draft",
+  "published",
+  "unpublished",
+]);
 
 function withPublicationState(
   query: AuthoringMaterialsQuery,

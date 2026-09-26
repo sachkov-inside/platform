@@ -11,15 +11,22 @@ function flat(text: string): string {
 describe("one-time purchase terms shown before payment", () => {
   it("belong to the one-time offer edition in force", () => {
     // Новая редакция оферты не пройдёт, пока сроки и доли на оплате не сверены с её текстом.
-    expect(oneTimePurchaseTerms.edition).toBe(currentLegalEdition("purchase").version);
+    expect(oneTimePurchaseTerms.edition).toBe(
+      currentLegalEdition("purchase").version,
+    );
   });
 
   it("repeat the terms and the equal price split of the offer text", () => {
     const text = flat(currentLegalEdition("purchase").text);
 
-    expect(oneTimePurchaseTerms).toMatchObject({ materialsAndChatYears: 2, supportMonths: 6 });
+    expect(oneTimePurchaseTerms).toMatchObject({
+      materialsAndChatYears: 2,
+      supportMonths: 6,
+    });
     expect(text).toContain("на гарантированный срок 2 года");
-    expect(text).toContain("**Сопровождение автора** действует 6 календарных месяцев");
+    expect(text).toContain(
+      "**Сопровождение автора** действует 6 календарных месяцев",
+    );
     expect(text).toContain(
       "половина — часть «материалы и общий чат», половина — часть «сопровождение автора»",
     );

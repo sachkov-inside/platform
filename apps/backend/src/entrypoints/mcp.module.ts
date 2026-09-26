@@ -8,7 +8,10 @@ import { OperationalReadiness } from "../infrastructure/operational-readiness.js
 import { RuntimeIdentityModule } from "../infrastructure/runtime-identity.js";
 import { PrismaModule } from "../infrastructure/prisma/index.js";
 import { AccountsModule } from "../modules/accounts/index.js";
-import { ContentScopeCatalogModule, MaterialsModule } from "../modules/materials/index.js";
+import {
+  ContentScopeCatalogModule,
+  MaterialsModule,
+} from "../modules/materials/index.js";
 import { RecipientLinksModule } from "../modules/telegram-membership/index.js";
 
 @Module({ providers: [OperationalReadiness] })

@@ -5,9 +5,7 @@ import type { MaterialId } from "../../../../infrastructure/contracts/material-i
 import type { WorkshopPrisma } from "../../infrastructure/prisma.js";
 
 export type WorkshopMaterialProtectionState =
-  | "protected"
-  | "unprotected"
-  | "unavailable";
+  "protected" | "unprotected" | "unavailable";
 
 /**
  * Whether a Workshop Case still uses the Material. It reads in the caller's transaction under the
@@ -26,6 +24,10 @@ export async function resolveWorkshopMaterialProtection(
     });
     return link === null ? "unprotected" : "protected";
   } catch (error) {
-    return dependencyFailure({ module: "workshop", operation: "resolveWorkshopMaterialProtection" }, error, "unavailable");
+    return dependencyFailure(
+      { module: "workshop", operation: "resolveWorkshopMaterialProtection" },
+      error,
+      "unavailable",
+    );
   }
 }

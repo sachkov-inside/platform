@@ -2,7 +2,10 @@
 import type { Route } from "next";
 
 import { BillingContactPanel } from "@/features/billing-contact";
-import { PurchasesPanel, useBillingSessionExpired } from "@/features/billing-subscription";
+import {
+  PurchasesPanel,
+  useBillingSessionExpired,
+} from "@/features/billing-subscription";
 import {
   AccountSectionHeader,
   useSubscriptionOffered,

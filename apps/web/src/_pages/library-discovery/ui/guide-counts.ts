@@ -5,7 +5,14 @@
 function plural(count: number, one: string, few: string, many: string): string {
   const tail = count % 100;
   const last = count % 10;
-  const noun = tail > 10 && tail < 20 ? many : last === 1 ? one : last > 1 && last < 5 ? few : many;
+  const noun =
+    tail > 10 && tail < 20
+      ? many
+      : last === 1
+        ? one
+        : last > 1 && last < 5
+          ? few
+          : many;
   return `${String(count)} ${noun}`;
 }
 

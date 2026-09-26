@@ -28,7 +28,10 @@ describe("Material asset delivery", () => {
         contentType: "image/webp",
         filename: "source.png",
         kind: "image",
-        object: { protectedKey: "protected/image.webp", publicKey: "public/image.webp" },
+        object: {
+          protectedKey: "protected/image.webp",
+          publicKey: "public/image.webp",
+        },
         size: 3,
       }),
       contentAccess: accessDecision({
@@ -44,25 +47,33 @@ describe("Material asset delivery", () => {
       signedGetTtlSeconds: 60,
     });
 
-    await expect(delivery.deliver({
-      assetId,
-      contentVersion,
-      materialId,
-      preview: false,
-      subject: { kind: "anonymous" },
-      variantWidth: 960,
-    })).resolves.toMatchObject({
+    await expect(
+      delivery.deliver({
+        assetId,
+        contentVersion,
+        materialId,
+        preview: false,
+        subject: { kind: "anonymous" },
+        variantWidth: 960,
+      }),
+    ).resolves.toMatchObject({
       ok: true,
-      value: { cacheScope: "public-immutable", contentType: "image/webp", kind: "bytes" },
+      value: {
+        cacheScope: "public-immutable",
+        contentType: "image/webp",
+        kind: "bytes",
+      },
     });
     expect(read).toHaveBeenCalledWith("public", "public/image.webp");
     expect(signGet).not.toHaveBeenCalled();
   });
 
   test("returns a bounded protected attachment redirect and masks a denied asset", async () => {
-    const signGet = vi.fn<ObjectStorage["signGet"]>().mockResolvedValue(
-      "https://storage.yandexcloud.net/private/file?X-Amz-Expires=60",
-    );
+    const signGet = vi
+      .fn<ObjectStorage["signGet"]>()
+      .mockResolvedValue(
+        "https://storage.yandexcloud.net/private/file?X-Amz-Expires=60",
+      );
     const authorize = vi
       .fn<ContentAccess["authorize"]>()
       .mockResolvedValueOnce({
@@ -95,26 +106,36 @@ describe("Material asset delivery", () => {
       signedGetTtlSeconds: 60,
     });
 
-    await expect(delivery.deliver({
-      assetId,
-      contentVersion,
-      materialId,
-      preview: false,
-      subject: { kind: "account", accountId: checkedAccountId("30000000-0000-4000-8000-000000000001") },
-    })).resolves.toMatchObject({
+    await expect(
+      delivery.deliver({
+        assetId,
+        contentVersion,
+        materialId,
+        preview: false,
+        subject: {
+          kind: "account",
+          accountId: checkedAccountId("30000000-0000-4000-8000-000000000001"),
+        },
+      }),
+    ).resolves.toMatchObject({
       ok: true,
       value: { cacheScope: "private-no-store", kind: "redirect" },
     });
     const signedInput = signGet.mock.calls[0]?.[0];
     expect(signedInput?.contentDisposition).toContain("filename*=UTF-8''");
-    expect(signedInput).toMatchObject({ namespace: "protected", ttlSeconds: 60 });
-    await expect(delivery.deliver({
-      assetId,
-      contentVersion,
-      materialId,
-      preview: false,
-      subject: { kind: "anonymous" },
-    })).resolves.toEqual({ error: { code: "asset_not_found" }, ok: false });
+    expect(signedInput).toMatchObject({
+      namespace: "protected",
+      ttlSeconds: 60,
+    });
+    await expect(
+      delivery.deliver({
+        assetId,
+        contentVersion,
+        materialId,
+        preview: false,
+        subject: { kind: "anonymous" },
+      }),
+    ).resolves.toEqual({ error: { code: "asset_not_found" }, ok: false });
     expect(signGet).toHaveBeenCalledTimes(1);
   });
 
@@ -193,8 +214,26 @@ describe("Material asset delivery", () => {
           }),
         ).resolves.toEqual({ error: { code: "asset_not_found" }, ok: false });
         expect(signGet).toHaveBeenCalledTimes(1);
-        await expect(assembleMaterialAssetDelivery({ ...dependencies, contentAccess: protectedDecision(null) }).deliver({ assetId, contentVersion, materialId, preview: false, subject: { kind: "account", accountId: checkedAccountId("30000000-0000-4000-8000-000000000001") } })).resolves.toMatchObject({ ok: true, value: { kind: "redirect" } });
-        expect(signGet).toHaveBeenLastCalledWith(expect.objectContaining({ ttlSeconds: 60 }));
+        await expect(
+          assembleMaterialAssetDelivery({
+            ...dependencies,
+            contentAccess: protectedDecision(null),
+          }).deliver({
+            assetId,
+            contentVersion,
+            materialId,
+            preview: false,
+            subject: {
+              kind: "account",
+              accountId: checkedAccountId(
+                "30000000-0000-4000-8000-000000000001",
+              ),
+            },
+          }),
+        ).resolves.toMatchObject({ ok: true, value: { kind: "redirect" } });
+        expect(signGet).toHaveBeenLastCalledWith(
+          expect.objectContaining({ ttlSeconds: 60 }),
+        );
       } finally {
         vi.useRealTimers();
       }
@@ -209,14 +248,15 @@ describe("Material asset delivery", () => {
       object: { protectedKey: "protected/file", publicKey: "public/file" },
       size: 3,
     };
-    const allow = (reason: "materials_manager" | "public_resource") => accessDecision({
-      checkedContentVersion: 2,
-      decidedAt: new Date().toISOString(),
-      decisionId: reason,
-      effect: "allow",
-      policyVersion: "content-access-v1",
-      reason,
-    });
+    const allow = (reason: "materials_manager" | "public_resource") =>
+      accessDecision({
+        checkedContentVersion: 2,
+        decidedAt: new Date().toISOString(),
+        decisionId: reason,
+        effect: "allow",
+        policyVersion: "content-access-v1",
+        reason,
+      });
     const input = {
       assetId,
       contentVersion,
@@ -225,20 +265,34 @@ describe("Material asset delivery", () => {
       subject: { kind: "anonymous" } as const,
     };
 
-    await expect(assembleMaterialAssetDelivery({
-      assets: assetsFor(values),
-      contentAccess: allow("public_resource"),
-      materialContent: currentReference(),
-      objectStorage: storage({ read: vi.fn().mockRejectedValue(new Error("S3 unavailable")) }),
-      signedGetTtlSeconds: 60,
-    }).deliver(input)).resolves.toEqual({ error: { code: "dependency_unavailable" }, ok: false });
-    await expect(assembleMaterialAssetDelivery({
-      assets: assetsFor(values),
-      contentAccess: allow("materials_manager"),
-      materialContent: currentReference(),
-      objectStorage: storage({ signGet: vi.fn().mockRejectedValue(new Error("S3 unavailable")) }),
-      signedGetTtlSeconds: 60,
-    }).deliver(input)).resolves.toEqual({ error: { code: "dependency_unavailable" }, ok: false });
+    await expect(
+      assembleMaterialAssetDelivery({
+        assets: assetsFor(values),
+        contentAccess: allow("public_resource"),
+        materialContent: currentReference(),
+        objectStorage: storage({
+          read: vi.fn().mockRejectedValue(new Error("S3 unavailable")),
+        }),
+        signedGetTtlSeconds: 60,
+      }).deliver(input),
+    ).resolves.toEqual({
+      error: { code: "dependency_unavailable" },
+      ok: false,
+    });
+    await expect(
+      assembleMaterialAssetDelivery({
+        assets: assetsFor(values),
+        contentAccess: allow("materials_manager"),
+        materialContent: currentReference(),
+        objectStorage: storage({
+          signGet: vi.fn().mockRejectedValue(new Error("S3 unavailable")),
+        }),
+        signedGetTtlSeconds: 60,
+      }).deliver(input),
+    ).resolves.toEqual({
+      error: { code: "dependency_unavailable" },
+      ok: false,
+    });
   });
 
   test("rejects a stale content version and an Asset absent from the current body before loading its locator", async () => {
@@ -264,17 +318,21 @@ describe("Material asset delivery", () => {
       subject: { kind: "anonymous" } as const,
     };
 
-    await expect(assembleMaterialAssetDelivery({
-      ...values,
-      materialContent: currentReference(),
-    }).deliver({ ...input, contentVersion: contentVersion - 1 })).resolves.toEqual({
+    await expect(
+      assembleMaterialAssetDelivery({
+        ...values,
+        materialContent: currentReference(),
+      }).deliver({ ...input, contentVersion: contentVersion - 1 }),
+    ).resolves.toEqual({
       error: { code: "asset_not_found" },
       ok: false,
     });
-    await expect(assembleMaterialAssetDelivery({
-      ...values,
-      materialContent: currentReference(false),
-    }).deliver(input)).resolves.toEqual({
+    await expect(
+      assembleMaterialAssetDelivery({
+        ...values,
+        materialContent: currentReference(false),
+      }).deliver(input),
+    ).resolves.toEqual({
       error: { code: "asset_not_found" },
       ok: false,
     });
@@ -286,10 +344,11 @@ function assetsFor(
   values: Omit<StoredMaterialAssetDelivery, "assetId" | "materialId">,
 ): Pick<MaterialAssets, "loadDelivery"> {
   return {
-    loadDelivery: () => Promise.resolve({
-      ok: true,
-      value: { assetId, materialId, ...values },
-    }),
+    loadDelivery: () =>
+      Promise.resolve({
+        ok: true,
+        value: { assetId, materialId, ...values },
+      }),
   };
 }
 

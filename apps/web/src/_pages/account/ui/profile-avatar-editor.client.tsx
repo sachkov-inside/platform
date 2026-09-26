@@ -82,7 +82,11 @@ export function ProfileAvatarEditor({
   const fileInputRef = useRef<HTMLInputElement>(null);
   const pointerRef = useRef<{ x: number; y: number } | null>(null);
   const [image, setImage] = useState<SelectedImage | null>(null);
-  const [crop, setCrop] = useState<Crop>({ centerX: 0.5, centerY: 0.5, zoom: 1 });
+  const [crop, setCrop] = useState<Crop>({
+    centerX: 0.5,
+    centerY: 0.5,
+    zoom: 1,
+  });
   const [uploadStatus, setUploadStatus] = useState<UploadStatus>({
     kind: "hashing",
   });
@@ -206,7 +210,8 @@ export function ProfileAvatarEditor({
         if (!busy) setDragging(true);
       }}
       onDragLeave={(event) => {
-        if (!event.currentTarget.contains(event.relatedTarget as Node | null)) setDragging(false);
+        if (!event.currentTarget.contains(event.relatedTarget as Node | null))
+          setDragging(false);
       }}
       onDragOver={(event) => {
         event.preventDefault();
@@ -219,7 +224,9 @@ export function ProfileAvatarEditor({
       onPaste={(event: ClipboardEvent<HTMLElement>) => {
         chooseFile(
           [...event.clipboardData.items]
-            .find((item) => item.kind === "file" && item.type.startsWith("image/"))
+            .find(
+              (item) => item.kind === "file" && item.type.startsWith("image/"),
+            )
             ?.getAsFile() ?? undefined,
         );
       }}
@@ -235,7 +242,8 @@ export function ProfileAvatarEditor({
             Аватар
           </h3>
           <p className="mt-1 text-xs leading-5 text-muted-foreground">
-            JPEG, PNG или WebP до 10 МБ. Можно перетащить или вставить из буфера.
+            JPEG, PNG или WebP до 10 МБ. Можно перетащить или вставить из
+            буфера.
           </p>
         </div>
       </div>
@@ -261,7 +269,10 @@ export function ProfileAvatarEditor({
             variant="ghost"
           >
             {status.kind === "removing" ? (
-              <LoaderCircle aria-hidden="true" className="animate-spin motion-reduce:animate-none" />
+              <LoaderCircle
+                aria-hidden="true"
+                className="animate-spin motion-reduce:animate-none"
+              />
             ) : (
               <Trash2 aria-hidden="true" />
             )}
@@ -295,11 +306,18 @@ export function ProfileAvatarEditor({
         <div className="p-5 sm:p-7">
           <div className="flex items-start justify-between gap-4">
             <div>
-              <h2 className="text-2xl font-bold tracking-[-0.035em]" id={titleId}>
+              <h2
+                className="text-2xl font-bold tracking-[-0.035em]"
+                id={titleId}
+              >
                 Кадрировать аватар
               </h2>
-              <p className="mt-2 max-w-[58ch] text-sm leading-6 text-muted-foreground" id={descriptionId}>
-                Перетащите фото или настройте положение и масштаб стрелками клавиатуры.
+              <p
+                className="mt-2 max-w-[58ch] text-sm leading-6 text-muted-foreground"
+                id={descriptionId}
+              >
+                Перетащите фото или настройте положение и масштаб стрелками
+                клавиатуры.
               </p>
             </div>
             <Button
@@ -334,12 +352,24 @@ export function ProfileAvatarEditor({
                     if (previous === null || bounds === null) return;
                     const rect = event.currentTarget.getBoundingClientRect();
                     const minSide = Math.min(image.width, image.height);
-                    const renderedWidth = rect.width * crop.zoom * image.width / minSide;
-                    const renderedHeight = rect.height * crop.zoom * image.height / minSide;
+                    const renderedWidth =
+                      (rect.width * crop.zoom * image.width) / minSide;
+                    const renderedHeight =
+                      (rect.height * crop.zoom * image.height) / minSide;
                     setCrop((current) => ({
                       ...current,
-                      centerX: clamp(current.centerX - (event.clientX - previous.x) / renderedWidth, bounds.minX, bounds.maxX),
-                      centerY: clamp(current.centerY - (event.clientY - previous.y) / renderedHeight, bounds.minY, bounds.maxY),
+                      centerX: clamp(
+                        current.centerX -
+                          (event.clientX - previous.x) / renderedWidth,
+                        bounds.minX,
+                        bounds.maxX,
+                      ),
+                      centerY: clamp(
+                        current.centerY -
+                          (event.clientY - previous.y) / renderedHeight,
+                        bounds.minY,
+                        bounds.maxY,
+                      ),
                     }));
                     pointerRef.current = { x: event.clientX, y: event.clientY };
                   }}
@@ -387,8 +417,16 @@ export function ProfileAvatarEditor({
                   onChange={(zoom) => {
                     const nextBounds = cropCenterBounds(image, zoom);
                     setCrop((current) => ({
-                      centerX: clamp(current.centerX, nextBounds.minX, nextBounds.maxX),
-                      centerY: clamp(current.centerY, nextBounds.minY, nextBounds.maxY),
+                      centerX: clamp(
+                        current.centerX,
+                        nextBounds.minX,
+                        nextBounds.maxX,
+                      ),
+                      centerY: clamp(
+                        current.centerY,
+                        nextBounds.minY,
+                        nextBounds.maxY,
+                      ),
                       zoom,
                     }));
                   }}
@@ -417,11 +455,16 @@ export function ProfileAvatarEditor({
               type="button"
             >
               {busy ? (
-                <LoaderCircle aria-hidden="true" className="animate-spin motion-reduce:animate-none" />
+                <LoaderCircle
+                  aria-hidden="true"
+                  className="animate-spin motion-reduce:animate-none"
+                />
               ) : (
                 <Upload aria-hidden="true" />
               )}
-              {status.kind === "processing" ? "Обрабатываем…" : "Сохранить аватар"}
+              {status.kind === "processing"
+                ? "Обрабатываем…"
+                : "Сохранить аватар"}
             </Button>
           </div>
         </div>
@@ -479,7 +522,10 @@ function AvatarStatusNotice({ status }: { readonly status: AvatarStatus }) {
   }
   if (status.kind === "error") {
     return (
-      <p className="mt-4 rounded-xl bg-destructive/8 p-3 text-sm font-medium text-destructive" role="alert">
+      <p
+        className="mt-4 rounded-xl bg-destructive/8 p-3 text-sm font-medium text-destructive"
+        role="alert"
+      >
         {status.message}
       </p>
     );
@@ -516,8 +562,8 @@ function cropCenterBounds(image: SelectedImage, zoom: number) {
 
 function cropImageStyle(image: SelectedImage, crop: Crop): CSSProperties {
   const minSide = Math.min(image.width, image.height);
-  const width = crop.zoom * image.width / minSide * 100;
-  const height = crop.zoom * image.height / minSide * 100;
+  const width = ((crop.zoom * image.width) / minSide) * 100;
+  const height = ((crop.zoom * image.height) / minSide) * 100;
   return {
     height: `${String(height)}%`,
     left: `${String(50 - crop.centerX * width)}%`,
@@ -528,10 +574,14 @@ function cropImageStyle(image: SelectedImage, crop: Crop): CSSProperties {
 
 function avatarErrorMessage(error: unknown): string {
   if (error instanceof AvatarMutationError) {
-    if (error.code === "conflict") return "Профиль изменился в другой вкладке. Обновите страницу и повторите.";
-    if (error.reason === "crop_out_of_bounds") return "Кадр вышел за границы изображения. Поправьте положение и повторите.";
-    if (error.reason === "image_too_large") return "Изображение слишком большое. Выберите файл до 10 МБ.";
-    if (error.code === "invalid_avatar") return "Сервер не принял изображение. Выберите другой JPEG, PNG или WebP.";
+    if (error.code === "conflict")
+      return "Профиль изменился в другой вкладке. Обновите страницу и повторите.";
+    if (error.reason === "crop_out_of_bounds")
+      return "Кадр вышел за границы изображения. Поправьте положение и повторите.";
+    if (error.reason === "image_too_large")
+      return "Изображение слишком большое. Выберите файл до 10 МБ.";
+    if (error.code === "invalid_avatar")
+      return "Сервер не принял изображение. Выберите другой JPEG, PNG или WebP.";
   }
   return "Не удалось изменить аватар. Проверьте соединение и повторите.";
 }

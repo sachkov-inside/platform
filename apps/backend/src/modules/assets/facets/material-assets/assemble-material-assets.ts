@@ -2,9 +2,15 @@ import { createHash, randomUUID } from "node:crypto";
 import { basename } from "node:path";
 import { z } from "zod";
 
-import { lockMaterialReferenceChanges, type AssetsPrismaClient } from "../../../../infrastructure/prisma/index.js";
+import {
+  lockMaterialReferenceChanges,
+  type AssetsPrismaClient,
+} from "../../../../infrastructure/prisma/index.js";
 import type { ObjectStorage } from "../../../../infrastructure/object-storage/index.js";
-import { dependencyFailure, reportDependencyFailure } from "../../../../infrastructure/observability/index.js";
+import {
+  dependencyFailure,
+  reportDependencyFailure,
+} from "../../../../infrastructure/observability/index.js";
 import { processMaterialAssetBytes } from "./process-material-asset-bytes.js";
 import type {
   MaterialAssetDelivery,
@@ -97,7 +103,10 @@ export function assembleMaterialAssets(dependencies: {
                   });
                 });
               } catch (error) {
-                reportDependencyFailure({ module: "assets", operation: "upload" }, error);
+                reportDependencyFailure(
+                  { module: "assets", operation: "upload" },
+                  error,
+                );
                 await prisma.materialAsset.updateMany({
                   data: {
                     failureCode: "storage_failure",
@@ -197,7 +206,11 @@ export function assembleMaterialAssets(dependencies: {
             const protectedObjectKey = `${prefix}/file`;
             const publicObjectKey = `${prefix}/public-file`;
             await prisma.materialAsset.update({
-              data: { protectedObjectKey, publicObjectKey, updatedAt: new Date() },
+              data: {
+                protectedObjectKey,
+                publicObjectKey,
+                updatedAt: new Date(),
+              },
               where: { id: assetId },
             });
             const object = {
@@ -231,7 +244,10 @@ export function assembleMaterialAssets(dependencies: {
               where: { id: assetId },
               include: { materialAssetVariants: true },
             });
-            await deleteQuarantineBestEffort(objectStorage, quarantineObjectKey);
+            await deleteQuarantineBestEffort(
+              objectStorage,
+              quarantineObjectKey,
+            );
             return { ok: true, value: toDto(ready) };
           }
 
@@ -309,15 +325,26 @@ export function assembleMaterialAssets(dependencies: {
         } catch (error) {
           try {
             await prisma.materialAsset.updateMany({
-              data: { failureCode: "storage_failure", state: "failed", updatedAt: new Date() },
+              data: {
+                failureCode: "storage_failure",
+                state: "failed",
+                updatedAt: new Date(),
+              },
               where: { id: assetId, state: "processing" },
             });
           } catch (markError) {
             // The transport-neutral failure below remains authoritative even if
             // the best-effort lifecycle marker cannot be persisted.
-            reportDependencyFailure({ module: "assets", operation: "upload" }, markError);
+            reportDependencyFailure(
+              { module: "assets", operation: "upload" },
+              markError,
+            );
           }
-          return dependencyFailure({ module: "assets", operation: "upload" }, error, { error: { code: "dependency_unavailable" }, ok: false });
+          return dependencyFailure(
+            { module: "assets", operation: "upload" },
+            error,
+            { error: { code: "dependency_unavailable" }, ok: false },
+          );
         }
       });
     },
@@ -330,14 +357,24 @@ export function assembleMaterialAssets(dependencies: {
           where: { id: { in: unique.map((reference) => reference.assetId) } },
         });
         const byId = new Map(assets.map((asset) => [asset.id, asset]));
-        return unique.flatMap((reference): readonly MaterialAssetReferenceIssue[] => {
-          const asset = byId.get(reference.assetId);
-          if (asset === undefined) return [{ assetId: reference.assetId, code: "asset_not_found" }];
-          if (asset.materialId !== materialId) return [{ assetId: reference.assetId, code: "asset_wrong_material" }];
-          if (asset.kind !== reference.kind) return [{ assetId: reference.assetId, code: "asset_kind_mismatch" }];
-          if (asset.state !== "ready") return [{ assetId: reference.assetId, code: "asset_not_ready" }];
-          return [];
-        });
+        return unique.flatMap(
+          (reference): readonly MaterialAssetReferenceIssue[] => {
+            const asset = byId.get(reference.assetId);
+            if (asset === undefined)
+              return [{ assetId: reference.assetId, code: "asset_not_found" }];
+            if (asset.materialId !== materialId)
+              return [
+                { assetId: reference.assetId, code: "asset_wrong_material" },
+              ];
+            if (asset.kind !== reference.kind)
+              return [
+                { assetId: reference.assetId, code: "asset_kind_mismatch" },
+              ];
+            if (asset.state !== "ready")
+              return [{ assetId: reference.assetId, code: "asset_not_ready" }];
+            return [];
+          },
+        );
       });
     },
 
@@ -350,7 +387,13 @@ export function assembleMaterialAssets(dependencies: {
         });
         return rows.flatMap((asset) =>
           asset.kind === "file" || asset.kind === "image"
-            ? [{ assetId: asset.id, kind: asset.kind, materialId: asset.materialId }]
+            ? [
+                {
+                  assetId: asset.id,
+                  kind: asset.kind,
+                  materialId: asset.materialId,
+                },
+              ]
             : [],
         );
       });
@@ -373,28 +416,32 @@ export function assembleMaterialAssets(dependencies: {
             asset.width !== null &&
             asset.height !== null
           ) {
-            return [{
-              assetId: asset.id,
-              height: asset.height,
-              kind: "image",
-              variants: asset.materialAssetVariants
-                .map(({ height, width }) => ({ height, width }))
-                .toSorted((left, right) => left.width - right.width),
-              width: asset.width,
-            }];
+            return [
+              {
+                assetId: asset.id,
+                height: asset.height,
+                kind: "image",
+                variants: asset.materialAssetVariants
+                  .map(({ height, width }) => ({ height, width }))
+                  .toSorted((left, right) => left.width - right.width),
+                width: asset.width,
+              },
+            ];
           }
           if (
             asset.kind === "file" &&
             asset.actualContentType !== null &&
             asset.actualSize !== null
           ) {
-            return [{
-              assetId: asset.id,
-              contentType: asset.actualContentType,
-              filename: asset.originalFilename,
-              kind: "file",
-              size: asset.actualSize,
-            }];
+            return [
+              {
+                assetId: asset.id,
+                contentType: asset.actualContentType,
+                filename: asset.originalFilename,
+                kind: "file",
+                size: asset.actualSize,
+              },
+            ];
           }
           return [];
         });
@@ -402,54 +449,63 @@ export function assembleMaterialAssets(dependencies: {
     },
 
     async loadDelivery(input) {
-      return materialAssetQuery("loadDelivery", async (): Promise<MaterialAssetDelivery | null> => {
-        const asset = await prisma.materialAsset.findFirst({
-          where: { id: input.assetId, materialId: input.materialId, state: "ready" },
-        });
-        if (
-          asset === null ||
-          asset.protectedObjectKey === null ||
-          asset.actualContentType === null ||
-          asset.actualSize === null
-        ) {
-          return null;
-        }
-        if (input.variantWidth !== undefined) {
-          if (asset.kind !== "image") return null;
-          const variant = await prisma.materialAssetVariant.findUnique({
-            where: { assetId_width: { assetId: asset.id, width: input.variantWidth } },
+      return materialAssetQuery(
+        "loadDelivery",
+        async (): Promise<MaterialAssetDelivery | null> => {
+          const asset = await prisma.materialAsset.findFirst({
+            where: {
+              id: input.assetId,
+              materialId: input.materialId,
+              state: "ready",
+            },
           });
-          if (variant === null) return null;
+          if (
+            asset === null ||
+            asset.protectedObjectKey === null ||
+            asset.actualContentType === null ||
+            asset.actualSize === null
+          ) {
+            return null;
+          }
+          if (input.variantWidth !== undefined) {
+            if (asset.kind !== "image") return null;
+            const variant = await prisma.materialAssetVariant.findUnique({
+              where: {
+                assetId_width: { assetId: asset.id, width: input.variantWidth },
+              },
+            });
+            if (variant === null) return null;
+            return {
+              assetId: asset.id,
+              contentType: variant.contentType,
+              filename: asset.originalFilename,
+              kind: "image",
+              materialId: asset.materialId,
+              object: {
+                protectedKey: variant.protectedObjectKey,
+                publicKey: variant.publicObjectKey,
+              },
+              size: variant.byteSize,
+            };
+          }
+          // Images are delivered only through a verified responsive variant. The
+          // normalized protected original deliberately has no public locator and
+          // its bytes differ from the uploaded source metadata retained here.
+          if (asset.kind !== "file") return null;
           return {
             assetId: asset.id,
-            contentType: variant.contentType,
+            contentType: asset.actualContentType,
             filename: asset.originalFilename,
-            kind: "image",
+            kind: "file",
             materialId: asset.materialId,
             object: {
-              protectedKey: variant.protectedObjectKey,
-              publicKey: variant.publicObjectKey,
+              protectedKey: asset.protectedObjectKey,
+              publicKey: asset.publicObjectKey,
             },
-            size: variant.byteSize,
+            size: asset.actualSize,
           };
-        }
-        // Images are delivered only through a verified responsive variant. The
-        // normalized protected original deliberately has no public locator and
-        // its bytes differ from the uploaded source metadata retained here.
-        if (asset.kind !== "file") return null;
-        return {
-          assetId: asset.id,
-          contentType: asset.actualContentType,
-          filename: asset.originalFilename,
-          kind: "file",
-          materialId: asset.materialId,
-          object: {
-            protectedKey: asset.protectedObjectKey,
-            publicKey: asset.publicObjectKey,
-          },
-          size: asset.actualSize,
-        };
-      });
+        },
+      );
     },
 
     async cleanupOrphans(input) {
@@ -477,14 +533,15 @@ export function assembleMaterialAssets(dependencies: {
               asset === null ||
               asset.orphanedAt > cutoff ||
               asset.updatedAt > cutoff
-            ) return null;
+            )
+              return null;
             await lockMaterialReferenceChanges(transaction, [asset.materialId]);
             if (
               asset.state === "ready" &&
-              await input.isReferenced(transaction, {
+              (await input.isReferenced(transaction, {
                 assetId: asset.id,
                 materialId: asset.materialId,
-              })
+              }))
             ) {
               await transaction.materialAsset.update({
                 data: {
@@ -530,10 +587,15 @@ export function assembleMaterialAssets(dependencies: {
             for (const object of objects) {
               await objectStorage.delete(object.namespace, object.key);
             }
-            await prisma.materialAsset.delete({ where: { id: claimed.asset.id } });
+            await prisma.materialAsset.delete({
+              where: { id: claimed.asset.id },
+            });
             cleaned += 1;
           } catch (error) {
-            reportDependencyFailure({ module: "assets", operation: "cleanupOrphans" }, error);
+            reportDependencyFailure(
+              { module: "assets", operation: "cleanupOrphans" },
+              error,
+            );
             retained += 1;
           }
         }
@@ -547,14 +609,24 @@ export function assembleMaterialAssets(dependencies: {
 function validateUpload(input: Parameters<MaterialAssets["upload"]>[0]) {
   const filename = sanitizeFilename(input.filename);
   if (
-    !uuidSchema.safeParse(input.actor).success || !uuidSchema.safeParse(input.materialId).success ||
-    !sha256Schema.safeParse(input.expectedChecksumSha256.toLowerCase()).success ||
-    input.idempotencyKey.length < 1 || input.idempotencyKey.length > 128 ||
-    input.declaredContentType.length < 1 || input.declaredContentType.length > 255 ||
-    !Number.isInteger(input.declaredSize) || input.declaredSize < 1 ||
+    !uuidSchema.safeParse(input.actor).success ||
+    !uuidSchema.safeParse(input.materialId).success ||
+    !sha256Schema.safeParse(input.expectedChecksumSha256.toLowerCase())
+      .success ||
+    input.idempotencyKey.length < 1 ||
+    input.idempotencyKey.length > 128 ||
+    input.declaredContentType.length < 1 ||
+    input.declaredContentType.length > 255 ||
+    !Number.isInteger(input.declaredSize) ||
+    input.declaredSize < 1 ||
     filename === null
-  ) return null;
-  return { ...input, expectedChecksumSha256: input.expectedChecksumSha256.toLowerCase(), filename };
+  )
+    return null;
+  return {
+    ...input,
+    expectedChecksumSha256: input.expectedChecksumSha256.toLowerCase(),
+    filename,
+  };
 }
 
 async function materialAssetQuery<Value>(
@@ -564,10 +636,14 @@ async function materialAssetQuery<Value>(
   try {
     return { ok: true, value: await operation() };
   } catch (error) {
-    return dependencyFailure({ module: "assets", operation: operationName }, error, {
-      error: { code: "dependency_unavailable", retryable: true },
-      ok: false,
-    });
+    return dependencyFailure(
+      { module: "assets", operation: operationName },
+      error,
+      {
+        error: { code: "dependency_unavailable", retryable: true },
+        ok: false,
+      },
+    );
   }
 }
 
@@ -578,7 +654,11 @@ async function materialAssetUpload(
   try {
     return await operation();
   } catch (error) {
-    return dependencyFailure({ module: "assets", operation: operationName }, error, { error: { code: "dependency_unavailable" }, ok: false });
+    return dependencyFailure(
+      { module: "assets", operation: operationName },
+      error,
+      { error: { code: "dependency_unavailable" }, ok: false },
+    );
   }
 }
 
@@ -594,26 +674,37 @@ function sanitizeFilename(value: string): string | null {
   return [...safe].slice(0, 255).join("");
 }
 
-function fingerprintUpload(input: NonNullable<ReturnType<typeof validateUpload>>) {
-  return sha256(new TextEncoder().encode(JSON.stringify({
-    checksum: input.expectedChecksumSha256,
-    contentType: input.declaredContentType,
-    filename: input.filename,
-    kind: input.kind,
-    size: input.declaredSize,
-  })));
+function fingerprintUpload(
+  input: NonNullable<ReturnType<typeof validateUpload>>,
+) {
+  return sha256(
+    new TextEncoder().encode(
+      JSON.stringify({
+        checksum: input.expectedChecksumSha256,
+        contentType: input.declaredContentType,
+        filename: input.filename,
+        kind: input.kind,
+        size: input.declaredSize,
+      }),
+    ),
+  );
 }
 
 function sha256(body: Uint8Array): string {
   return createHash("sha256").update(body).digest("hex");
 }
 
-async function putOrThrow(storage: ObjectStorage, input: Parameters<ObjectStorage["putImmutable"]>[0]): Promise<void> {
+async function putOrThrow(
+  storage: ObjectStorage,
+  input: Parameters<ObjectStorage["putImmutable"]>[0],
+): Promise<void> {
   const result = await storage.putImmutable(input);
   if (!result.ok) throw new Error("Immutable object key collision");
 }
 
-async function settleAllOrThrow(operations: readonly Promise<unknown>[]): Promise<void> {
+async function settleAllOrThrow(
+  operations: readonly Promise<unknown>[],
+): Promise<void> {
   const outcomes = await Promise.allSettled(operations);
   if (outcomes.some((outcome) => outcome.status === "rejected")) {
     throw new Error("MaterialAsset storage operation failed");
@@ -633,19 +724,23 @@ async function deleteUploadAttempt(
   }>,
 ): Promise<void> {
   await settleAllOrThrow(
-    trackedObjects(asset).map((object) => storage.delete(object.namespace, object.key)),
+    trackedObjects(asset).map((object) =>
+      storage.delete(object.namespace, object.key),
+    ),
   );
 }
 
-function trackedObjects(asset: Readonly<{
-  materialAssetVariants: readonly Readonly<{
-    protectedObjectKey: string;
-    publicObjectKey: string;
-  }>[];
-  protectedObjectKey: string | null;
-  publicObjectKey: string | null;
-  quarantineObjectKey: string;
-}>) {
+function trackedObjects(
+  asset: Readonly<{
+    materialAssetVariants: readonly Readonly<{
+      protectedObjectKey: string;
+      publicObjectKey: string;
+    }>[];
+    protectedObjectKey: string | null;
+    publicObjectKey: string | null;
+    quarantineObjectKey: string;
+  }>,
+) {
   return [
     { key: asset.quarantineObjectKey, namespace: "quarantine" as const },
     ...(asset.protectedObjectKey === null
@@ -661,16 +756,24 @@ function trackedObjects(asset: Readonly<{
   ];
 }
 
-async function deleteQuarantineBestEffort(storage: ObjectStorage, key: string): Promise<void> {
+async function deleteQuarantineBestEffort(
+  storage: ObjectStorage,
+  key: string,
+): Promise<void> {
   try {
     await storage.delete("quarantine", key);
   } catch (error) {
     // Cleanup retries a stale quarantine object later.
-    reportDependencyFailure({ module: "assets", operation: "deleteQuarantine" }, error);
+    reportDependencyFailure(
+      { module: "assets", operation: "deleteQuarantine" },
+      error,
+    );
   }
 }
 
-function uniqueReferences(references: readonly MaterialAssetReference[]): readonly MaterialAssetReference[] {
+function uniqueReferences(
+  references: readonly MaterialAssetReference[],
+): readonly MaterialAssetReference[] {
   const seen = new Set<string>();
   return references.filter((reference) => {
     const key = `${reference.kind}:${reference.assetId}`;
@@ -680,7 +783,9 @@ function uniqueReferences(references: readonly MaterialAssetReference[]): readon
   });
 }
 
-function processingFailureCode(code: string): Extract<UploadMaterialAssetResult, { ok: false }>["error"]["code"] {
+function processingFailureCode(
+  code: string,
+): Extract<UploadMaterialAssetResult, { ok: false }>["error"]["code"] {
   switch (code) {
     case "checksum_mismatch":
     case "executable_content":
@@ -689,9 +794,12 @@ function processingFailureCode(code: string): Extract<UploadMaterialAssetResult,
     case "mime_mismatch":
     case "size_mismatch":
     case "unsupported_file_type":
-    case "unsupported_image_type": return code;
-    case "storage_failure": return "dependency_unavailable";
-    default: return "invalid_upload";
+    case "unsupported_image_type":
+      return code;
+    case "storage_failure":
+      return "dependency_unavailable";
+    default:
+      return "invalid_upload";
   }
 }
 
@@ -702,10 +810,17 @@ function toDto(asset: {
   readonly id: string;
   readonly kind: string;
   readonly originalFilename: string;
-  readonly materialAssetVariants: readonly { readonly height: number; readonly width: number }[];
+  readonly materialAssetVariants: readonly {
+    readonly height: number;
+    readonly width: number;
+  }[];
   readonly width: number | null;
 }): MaterialAssetDto {
-  if (asset.actualContentType === null || asset.actualSize === null || (asset.kind !== "file" && asset.kind !== "image")) {
+  if (
+    asset.actualContentType === null ||
+    asset.actualSize === null ||
+    (asset.kind !== "file" && asset.kind !== "image")
+  ) {
     throw new TypeError("Ready MaterialAsset persistence is incomplete");
   }
   return {
@@ -716,7 +831,13 @@ function toDto(asset: {
     kind: asset.kind,
     size: asset.actualSize,
     state: "ready",
-    ...(asset.kind === "image" ? { variants: asset.materialAssetVariants.map(({ height, width }) => ({ height, width })).toSorted((a, b) => a.width - b.width) } : {}),
+    ...(asset.kind === "image"
+      ? {
+          variants: asset.materialAssetVariants
+            .map(({ height, width }) => ({ height, width }))
+            .toSorted((a, b) => a.width - b.width),
+        }
+      : {}),
     ...(asset.width === null ? {} : { width: asset.width }),
   };
 }

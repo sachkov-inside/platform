@@ -15,7 +15,9 @@ import {
   profileIssueMessage,
 } from "@/entities/member-profile";
 
-const textField = z.string().refine((value) => !hasRejectedControlCharacters(value));
+const textField = z
+  .string()
+  .refine((value) => !hasRejectedControlCharacters(value));
 const formSchema = z
   .object({
     bio: textField.refine((value) => codePointLength(value) <= 500),
@@ -85,7 +87,8 @@ function mapCreateProfileProblem(
   }
   return {
     kind: "unavailable",
-    reference: problem?.correlationId ?? problem?.code ?? "create-profile-response",
+    reference:
+      problem?.correlationId ?? problem?.code ?? "create-profile-response",
   };
 }
 
@@ -108,7 +111,9 @@ function unavailable(error: unknown): CreateMemberProfileResult {
   return {
     kind: "unavailable",
     reference:
-      error instanceof BackendConnectionError ? error.code : "create-profile-contract",
+      error instanceof BackendConnectionError
+        ? error.code
+        : "create-profile-contract",
   };
 }
 

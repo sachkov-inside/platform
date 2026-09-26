@@ -13,7 +13,10 @@ import {
 } from "../model/content-collections";
 
 export type ContentCollectionsState =
-  | { readonly kind: "ready"; readonly collections: readonly ContentCollection[] }
+  | {
+      readonly kind: "ready";
+      readonly collections: readonly ContentCollection[];
+    }
   | { readonly kind: "unauthorized" }
   | { readonly kind: "error"; readonly reference: string };
 
@@ -29,7 +32,9 @@ export async function getContentCollections(
     return {
       kind: "error",
       reference:
-        error instanceof BackendConnectionError ? error.code : "collections-request",
+        error instanceof BackendConnectionError
+          ? error.code
+          : "collections-request",
     };
   }
   if (!result.ok) {

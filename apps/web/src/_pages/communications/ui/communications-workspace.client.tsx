@@ -942,7 +942,8 @@ export function CommunicationsWorkspace({
                       0 ? (
                         <div role="alert">
                           <p>
-                            Публикация недоступна: проверьте материалы и продукты.
+                            Публикация недоступна: проверьте материалы и
+                            продукты.
                           </p>
                           <ul>
                             {preview.targetErrors.map((error) => (

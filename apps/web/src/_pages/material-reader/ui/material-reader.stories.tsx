@@ -71,7 +71,9 @@ const body = [
   {
     kind: "heading",
     level: 2,
-    content: [{ kind: "text", text: "Сначала найдите устойчивый seam", marks: [] }],
+    content: [
+      { kind: "text", text: "Сначала найдите устойчивый seam", marks: [] },
+    ],
   },
   {
     kind: "paragraph",
@@ -129,7 +131,13 @@ const body = [
   {
     kind: "heading",
     level: 3,
-    content: [{ kind: "text", text: "Проверьте instruction на двух задачах", marks: [] }],
+    content: [
+      {
+        kind: "text",
+        text: "Проверьте instruction на двух задачах",
+        marks: [],
+      },
+    ],
   },
   {
     kind: "table",
@@ -172,7 +180,9 @@ const body = [
             content: [
               {
                 kind: "paragraph",
-                content: [{ kind: "text", text: "Две реальные задачи", marks: [] }],
+                content: [
+                  { kind: "text", text: "Две реальные задачи", marks: [] },
+                ],
               },
             ],
           },
@@ -204,7 +214,11 @@ const lessonBody = [
   {
     kind: "key_point",
     content: [
-      { kind: "text", text: "Issue хранит intent, pull request хранит evidence.", marks: [] },
+      {
+        kind: "text",
+        text: "Issue хранит intent, pull request хранит evidence.",
+        marks: [],
+      },
     ],
   },
   ...calloutTones.map((tone) => ({
@@ -214,7 +228,11 @@ const lessonBody = [
       {
         kind: "paragraph" as const,
         content: [
-          { kind: "text" as const, text: `Врезка вида ${tone} в обычном состоянии.`, marks: [] },
+          {
+            kind: "text" as const,
+            text: `Врезка вида ${tone} в обычном состоянии.`,
+            marks: [],
+          },
         ],
       },
     ],
@@ -226,7 +244,9 @@ const lessonBody = [
     content: [
       {
         kind: "paragraph",
-        content: [{ kind: "text", text: "Один authority на каждый факт.", marks: [] }],
+        content: [
+          { kind: "text", text: "Один authority на каждый факт.", marks: [] },
+        ],
       },
     ],
   },
@@ -258,7 +278,11 @@ const lessonBody = [
   {
     kind: "labeled_list",
     rows: [
-      { label: "ADR", name: "Решение", description: "Фиксирует необратимый выбор" },
+      {
+        label: "ADR",
+        name: "Решение",
+        description: "Фиксирует необратимый выбор",
+      },
       { label: "Gate", name: "Проверка" },
     ],
   },
@@ -280,7 +304,10 @@ const longLessonBody = [
     tone: "warning",
     title: longText,
     content: [
-      { kind: "paragraph", content: [{ kind: "text", text: longText, marks: [] }] },
+      {
+        kind: "paragraph",
+        content: [{ kind: "text", text: longText, marks: [] }],
+      },
     ],
   },
   {
@@ -298,7 +325,10 @@ const longLessonBody = [
     kind: "takeaways",
     title: longText,
     content: [
-      { kind: "paragraph", content: [{ kind: "text", text: longText, marks: [] }] },
+      {
+        kind: "paragraph",
+        content: [{ kind: "text", text: longText, marks: [] }],
+      },
     ],
   },
   {
@@ -322,7 +352,11 @@ const guideModeBody = [
   {
     kind: "paragraph",
     content: [
-      { kind: "text", marks: [], text: "Подготовьте репозиторий к первому прогону." },
+      {
+        kind: "text",
+        marks: [],
+        text: "Подготовьте репозиторий к первому прогону.",
+      },
     ],
   },
   {
@@ -393,7 +427,11 @@ const guideModeBody = [
   {
     kind: "paragraph",
     content: [
-      { kind: "text", marks: [], text: "Дальше шаги одинаковы для обоих способов." },
+      {
+        kind: "text",
+        marks: [],
+        text: "Дальше шаги одинаковы для обоих способов.",
+      },
     ],
   },
 ] as const satisfies readonly ReaderBlock[];
@@ -474,24 +512,42 @@ function MaterialReaderState({ mode }: { readonly mode: ReaderStoryMode }) {
   switch (mode) {
     case "short":
       // Короткая заметка ничего не обещает и не объявляет сложность: это не урок руководства.
-      return <MaterialReaderView body={[]} material={{ ...material, title: "Короткая заметка", summary: "Одна небольшая мысль.", difficulty: null, outcomes: [], tags: [], seriesMemberships: [] }} primaryVideo={null} />;
+      return (
+        <MaterialReaderView
+          body={[]}
+          material={{
+            ...material,
+            title: "Короткая заметка",
+            summary: "Одна небольшая мысль.",
+            difficulty: null,
+            outcomes: [],
+            tags: [],
+            seriesMemberships: [],
+          }}
+          primaryVideo={null}
+        />
+      );
     case "mobile":
-      return <MaterialReaderView
-        body={body}
-        material={material}
-        primaryVideo={null}
-      />;
+      return (
+        <MaterialReaderView
+          body={body}
+          material={material}
+          primaryVideo={null}
+        />
+      );
     case "desktop":
-      return <MaterialReaderView
-        body={body}
-        material={material}
-        primaryVideo={{
-          durationSeconds: 754,
-          state: "ready",
-          title: "Разбор проверки skill contract",
-          videoId: "03000000-0000-4000-8000-000000000001",
-        }}
-      />;
+      return (
+        <MaterialReaderView
+          body={body}
+          material={material}
+          primaryVideo={{
+            durationSeconds: 754,
+            state: "ready",
+            title: "Разбор проверки skill contract",
+            videoId: "03000000-0000-4000-8000-000000000001",
+          }}
+        />
+      );
     case "playlist-return": {
       const returnTarget = parseMaterialReaderReturnTarget(
         "/series/platform-inside",
@@ -549,26 +605,30 @@ function MaterialReaderState({ mode }: { readonly mode: ReaderStoryMode }) {
     case "loading":
       return <MaterialReaderLoading />;
     case "video-processing":
-      return <MaterialReaderView
-        body={body}
-        material={material}
-        primaryVideo={{
-          state: "processing",
-          title: "Разбор проверки skill contract",
-          videoId: "03000000-0000-4000-8000-000000000001",
-        }}
-      />;
+      return (
+        <MaterialReaderView
+          body={body}
+          material={material}
+          primaryVideo={{
+            state: "processing",
+            title: "Разбор проверки skill contract",
+            videoId: "03000000-0000-4000-8000-000000000001",
+          }}
+        />
+      );
     case "video-failed":
-      return <MaterialReaderView
-        body={body}
-        material={material}
-        primaryVideo={{
-          failureCode: "provider_error",
-          state: "failed",
-          title: "Разбор проверки skill contract",
-          videoId: "03000000-0000-4000-8000-000000000001",
-        }}
-      />;
+      return (
+        <MaterialReaderView
+          body={body}
+          material={material}
+          primaryVideo={{
+            failureCode: "provider_error",
+            state: "failed",
+            title: "Разбор проверки skill contract",
+            videoId: "03000000-0000-4000-8000-000000000001",
+          }}
+        />
+      );
     case "guide-modes":
       return <GuideModeReader initialMode="example" />;
     case "guide-modes-own":
@@ -638,58 +698,97 @@ export const Mobile: Story = {
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
     await expect(
-      canvas.getByRole("heading", { name: "Публичные skills для agent-first setup", level: 1 }),
+      canvas.getByRole("heading", {
+        name: "Публичные skills для agent-first setup",
+        level: 1,
+      }),
     ).toBeInTheDocument();
-    await expect(canvas.getByRole("navigation", { name: "Мобильная навигация" })).toBeVisible();
+    await expect(
+      canvas.getByRole("navigation", { name: "Мобильная навигация" }),
+    ).toBeVisible();
     await expect(canvas.getByLabelText("Содержание: 2")).toBeInTheDocument();
     await expect(
       canvasElement.querySelector(
         '[data-content-cover-id="02000000-0000-4000-8000-000000000011"]',
       ),
     ).not.toBeInTheDocument();
-    await expect(canvas.getByRole("img", { name: "Маршрут от project rules через skill к evidence" })).toBeInTheDocument();
-    const heading = canvas.getByRole("heading", { name: "Публичные skills для agent-first setup", level: 1 });
-    const readerBody = canvasElement.querySelector<HTMLElement>("[data-reader-body]");
+    await expect(
+      canvas.getByRole("img", {
+        name: "Маршрут от project rules через skill к evidence",
+      }),
+    ).toBeInTheDocument();
+    const heading = canvas.getByRole("heading", {
+      name: "Публичные skills для agent-first setup",
+      level: 1,
+    });
+    const readerBody =
+      canvasElement.querySelector<HTMLElement>("[data-reader-body]");
     if (readerBody === null) throw new Error("Reader structure is missing");
     await expect(getComputedStyle(heading).fontSize).toBe("24px");
     await expect(getComputedStyle(heading).overflowWrap).toBe("break-word");
-    await expect(getComputedStyle(readerBody).color).toBe(getComputedStyle(heading).color);
+    await expect(getComputedStyle(readerBody).color).toBe(
+      getComputedStyle(heading).color,
+    );
     await expect(
       getComputedStyle(
-        canvas.getByRole("heading", { name: "Сначала найдите устойчивый seam", level: 2 }),
+        canvas.getByRole("heading", {
+          name: "Сначала найдите устойчивый seam",
+          level: 2,
+        }),
       ).fontSize,
     ).toBe("20px");
-    await expect(canvas.queryByRole("list", { name: "Теги материала" })).not.toBeInTheDocument();
-    await expect(canvas.queryByRole("list", { name: "Продукты материала" })).not.toBeInTheDocument();
-    await expect(canvas.getByRole("link", { name: /Чек-лист проверки repository-owned skill/u })).toBeInTheDocument();
+    await expect(
+      canvas.queryByRole("list", { name: "Теги материала" }),
+    ).not.toBeInTheDocument();
+    await expect(
+      canvas.queryByRole("list", { name: "Продукты материала" }),
+    ).not.toBeInTheDocument();
+    await expect(
+      canvas.getByRole("link", {
+        name: /Чек-лист проверки repository-owned skill/u,
+      }),
+    ).toBeInTheDocument();
     await expect(canvas.getAllByRole("article")).toHaveLength(1);
     const document = canvasElement.ownerDocument;
     const scrollRoot = document.scrollingElement;
-    if (scrollRoot === null) throw new Error("Mobile document scroll is missing");
-    await expect(canvasElement.querySelector("[data-public-header]")).not.toBeVisible();
+    if (scrollRoot === null)
+      throw new Error("Mobile document scroll is missing");
+    await expect(
+      canvasElement.querySelector("[data-public-header]"),
+    ).not.toBeVisible();
     const back = canvas.getByRole("link", { name: "Назад на Главную" });
-    await expect(canvasElement.querySelector('[data-reader-return="top"]')?.contains(back)).toBe(true);
+    await expect(
+      canvasElement.querySelector('[data-reader-return="top"]')?.contains(back),
+    ).toBe(true);
     const originalFontSize = document.documentElement.style.fontSize;
     try {
       for (const fontSize of ["100%", "200%"]) {
         document.documentElement.style.fontSize = fontSize;
-        await expect(document.documentElement.scrollWidth).toBeLessThanOrEqual(document.documentElement.clientWidth);
+        await expect(document.documentElement.scrollWidth).toBeLessThanOrEqual(
+          document.documentElement.clientWidth,
+        );
       }
     } finally {
       document.documentElement.style.fontSize = originalFontSize;
       scrollRoot.scrollTop = 0;
     }
-    await expect(canvasElement.querySelector('[data-reader-return="bottom"]')).toBeNull();
+    await expect(
+      canvasElement.querySelector('[data-reader-return="bottom"]'),
+    ).toBeNull();
     await new Promise((resolve) => requestAnimationFrame(resolve));
     await new Promise((resolve) => requestAnimationFrame(resolve));
     scrollRoot.scrollTop = scrollRoot.scrollHeight;
     await waitFor(async () => {
-      await expect(canvasElement.querySelector('[data-reader-return="bottom"]')).not.toBeNull();
+      await expect(
+        canvasElement.querySelector('[data-reader-return="bottom"]'),
+      ).not.toBeNull();
     });
     await expect(back.getBoundingClientRect().bottom).toBeLessThan(0);
     scrollRoot.scrollTop = 0;
     await waitFor(async () => {
-      await expect(canvasElement.querySelector('[data-reader-return="bottom"]')).toBeNull();
+      await expect(
+        canvasElement.querySelector('[data-reader-return="bottom"]'),
+      ).toBeNull();
     });
   },
 };
@@ -699,10 +798,18 @@ export const Desktop: Story = {
   globals: { viewport: { isRotated: false, value: "desktop1440" } },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
-    await expect(canvas.getByRole("navigation", { name: "В этом материале" })).toBeInTheDocument();
-    await expect(canvas.getAllByRole("link", { name: "Назад на Главную" })).toHaveLength(1);
-    await expect(canvas.getByRole("region", { name: "Таблица в материале" })).toBeInTheDocument();
-    const image = canvas.getByRole("img", { name: "Маршрут от project rules через skill к evidence" }) as HTMLImageElement;
+    await expect(
+      canvas.getByRole("navigation", { name: "В этом материале" }),
+    ).toBeInTheDocument();
+    await expect(
+      canvas.getAllByRole("link", { name: "Назад на Главную" }),
+    ).toHaveLength(1);
+    await expect(
+      canvas.getByRole("region", { name: "Таблица в материале" }),
+    ).toBeInTheDocument();
+    const image = canvas.getByRole("img", {
+      name: "Маршрут от project rules через skill к evidence",
+    }) as HTMLImageElement;
     image.scrollIntoView({ behavior: "instant" });
     await image.decode();
     await expect(image.naturalWidth).toBeGreaterThan(0);
@@ -713,24 +820,43 @@ export const Desktop: Story = {
         `[data-reader-block="${kind}"]`,
       );
       if (block === null) throw new Error(`Reader ${kind} block is missing`);
-      await expect(Number.parseFloat(getComputedStyle(block).marginTop)).toBeGreaterThanOrEqual(32);
+      await expect(
+        Number.parseFloat(getComputedStyle(block).marginTop),
+      ).toBeGreaterThanOrEqual(32);
     }
-    await expect(canvas.queryByRole("button", { name: "Загрузить видео" })).not.toBeInTheDocument();
-    await expect(canvas.getByRole("button", { name: "Просмотрено" })).toBeEnabled();
+    await expect(
+      canvas.queryByRole("button", { name: "Загрузить видео" }),
+    ).not.toBeInTheDocument();
+    await expect(
+      canvas.getByRole("button", { name: "Просмотрено" }),
+    ).toBeEnabled();
     await expect(canvasElement.querySelector("iframe")).toBeNull();
-    const title = canvas.getByRole("heading", { name: "Публичные skills для agent-first setup", level: 1 });
+    const title = canvas.getByRole("heading", {
+      name: "Публичные skills для agent-first setup",
+      level: 1,
+    });
     const video = canvasElement.querySelector<HTMLElement>("[data-video-id]");
-    const h2 = canvas.getByRole("heading", { name: "Сначала найдите устойчивый seam", level: 2 });
-    const h3 = canvas.getByRole("heading", { name: "Проверьте instruction на двух задачах", level: 3 });
+    const h2 = canvas.getByRole("heading", {
+      name: "Сначала найдите устойчивый seam",
+      level: 2,
+    });
+    const h3 = canvas.getByRole("heading", {
+      name: "Проверьте instruction на двух задачах",
+      level: 3,
+    });
     if (video === null) throw new Error("Primary video is missing");
     await expect(getComputedStyle(title).fontSize).toBe("28px");
     await expect(
-      Boolean(title.compareDocumentPosition(video) & Node.DOCUMENT_POSITION_FOLLOWING),
+      Boolean(
+        title.compareDocumentPosition(video) & Node.DOCUMENT_POSITION_FOLLOWING,
+      ),
     ).toBe(true);
-    await expect(Number.parseFloat(getComputedStyle(h2).fontSize)).toBeGreaterThan(
-      Number.parseFloat(getComputedStyle(h3).fontSize),
-    );
-    await expect(Number.parseFloat(getComputedStyle(h2).scrollMarginTop)).toBeGreaterThanOrEqual(96);
+    await expect(
+      Number.parseFloat(getComputedStyle(h2).fontSize),
+    ).toBeGreaterThan(Number.parseFloat(getComputedStyle(h3).fontSize));
+    await expect(
+      Number.parseFloat(getComputedStyle(h2).scrollMarginTop),
+    ).toBeGreaterThanOrEqual(96);
   },
 };
 
@@ -738,8 +864,12 @@ export const VideoProcessing: Story = {
   args: { mode: "video-processing" },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
-    await expect(canvas.getByRole("heading", { name: "Видео обрабатывается" })).toBeVisible();
-    await expect(canvas.getByText("Можно продолжить чтение и вернуться к видео позже.")).toBeVisible();
+    await expect(
+      canvas.getByRole("heading", { name: "Видео обрабатывается" }),
+    ).toBeVisible();
+    await expect(
+      canvas.getByText("Можно продолжить чтение и вернуться к видео позже."),
+    ).toBeVisible();
   },
 };
 
@@ -747,18 +877,21 @@ export const VideoFailed: Story = {
   args: { mode: "video-failed" },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
-    await expect(canvas.getByRole("heading", { name: "Видео временно недоступно" })).toBeVisible();
-    await expect(canvas.getByText("Хороший skill начинается", { exact: false })).toBeVisible();
+    await expect(
+      canvas.getByRole("heading", { name: "Видео временно недоступно" }),
+    ).toBeVisible();
+    await expect(
+      canvas.getByText("Хороший skill начинается", { exact: false }),
+    ).toBeVisible();
   },
 };
 
 export const Loading: Story = {
   args: { mode: "loading" },
   play: async ({ canvasElement }) => {
-    await expect(within(canvasElement).getByLabelText("Материал загружается")).toHaveAttribute(
-      "aria-busy",
-      "true",
-    );
+    await expect(
+      within(canvasElement).getByLabelText("Материал загружается"),
+    ).toHaveAttribute("aria-busy", "true");
   },
 };
 
@@ -773,15 +906,26 @@ export const PlaylistReturn: Story = {
     const seriesNavigation = within(canvasElement).getByRole("navigation", {
       name: "Навигация по продукту «Создание Platform Inside»",
     });
-    const readerBody = canvasElement.querySelector<HTMLElement>("[data-reader-body]");
-    const readerFooter = canvasElement.querySelector<HTMLElement>("[data-reader-footer]");
-    if (readerBody === null || readerFooter === null) throw new Error("Reader sequence is missing");
+    const readerBody =
+      canvasElement.querySelector<HTMLElement>("[data-reader-body]");
+    const readerFooter = canvasElement.querySelector<HTMLElement>(
+      "[data-reader-footer]",
+    );
+    if (readerBody === null || readerFooter === null)
+      throw new Error("Reader sequence is missing");
     await expect(
-      Boolean(readerBody.compareDocumentPosition(seriesNavigation) & Node.DOCUMENT_POSITION_FOLLOWING),
+      Boolean(
+        readerBody.compareDocumentPosition(seriesNavigation) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
+      ),
     ).toBe(true);
     await expect(readerFooter.contains(seriesNavigation)).toBe(true);
-    await expect(within(canvasElement).getByRole("link", { name: "Назад к продукту" })).toHaveAttribute("href", "/series/platform-inside");
-    await expect(within(canvasElement).queryByText(/· №/u)).not.toBeInTheDocument();
+    await expect(
+      within(canvasElement).getByRole("link", { name: "Назад к продукту" }),
+    ).toHaveAttribute("href", "/series/platform-inside");
+    await expect(
+      within(canvasElement).queryByText(/· №/u),
+    ).not.toBeInTheDocument();
     await expect(
       within(seriesNavigation).getByRole("link", {
         name: "Дальше",
@@ -797,8 +941,12 @@ export const NotFound: Story = {
   args: { mode: "not-found" },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
-    await expect(canvas.getByRole("heading", { name: "Материал не найден" })).toBeInTheDocument();
-    await expect(canvas.getByRole("link", { name: "Назад на Главную" })).toBeInTheDocument();
+    await expect(
+      canvas.getByRole("heading", { name: "Материал не найден" }),
+    ).toBeInTheDocument();
+    await expect(
+      canvas.getByRole("link", { name: "Назад на Главную" }),
+    ).toBeInTheDocument();
   },
 };
 
@@ -809,21 +957,29 @@ export const AccessRequired: Story = {
     await expect(
       canvas.getByRole("heading", { name: "Продолжение для участников" }),
     ).toBeInTheDocument();
-    const membershipLink = canvas.getByRole("link", { name: "Получить доступ" });
+    const membershipLink = canvas.getByRole("link", {
+      name: "Получить доступ",
+    });
     // Покупка начинается внутри платформы: внешнего адреса и новой вкладки здесь больше нет.
     await expect(membershipLink).toHaveAttribute(
       "href",
       "/subscription?from=%2Fmaterials%2Fagent-first-skills",
     );
     await expect(membershipLink).not.toHaveAttribute("target");
-    await expect(canvas.queryByRole("list", { name: "Теги материала" })).not.toBeInTheDocument();
-    await expect(canvas.queryByRole("list", { name: "Продукты материала" })).not.toBeInTheDocument();
+    await expect(
+      canvas.queryByRole("list", { name: "Теги материала" }),
+    ).not.toBeInTheDocument();
+    await expect(
+      canvas.queryByRole("list", { name: "Продукты материала" }),
+    ).not.toBeInTheDocument();
     await expect(
       canvasElement.querySelector(
         '[data-content-cover-id="02000000-0000-4000-8000-000000000011"]',
       ),
     ).not.toBeInTheDocument();
-    await expect(canvas.queryByText("Хороший skill начинается")).not.toBeInTheDocument();
+    await expect(
+      canvas.queryByText("Хороший skill начинается"),
+    ).not.toBeInTheDocument();
   },
 };
 
@@ -841,10 +997,9 @@ export const AccessGuidePurchase: Story = {
     await expect(
       canvas.getByRole("heading", { name: "Продолжение входит в продукт" }),
     ).toBeInTheDocument();
-    await expect(canvas.getByRole("link", { name: "Купить продукт" })).toHaveAttribute(
-      "href",
-      "/guides/platform-inside/buy",
-    );
+    await expect(
+      canvas.getByRole("link", { name: "Купить продукт" }),
+    ).toHaveAttribute("href", "/guides/platform-inside/buy");
   },
 };
 
@@ -855,10 +1010,16 @@ export const AccessNotOffered: Story = {
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
     await expect(
-      canvas.getByText("Купить доступ сейчас нельзя, но материал останется здесь."),
+      canvas.getByText(
+        "Купить доступ сейчас нельзя, но материал останется здесь.",
+      ),
     ).toBeVisible();
-    await expect(canvas.queryByRole("link", { name: "Получить доступ" })).not.toBeInTheDocument();
-    await expect(canvas.queryByRole("link", { name: "Купить продукт" })).not.toBeInTheDocument();
+    await expect(
+      canvas.queryByRole("link", { name: "Получить доступ" }),
+    ).not.toBeInTheDocument();
+    await expect(
+      canvas.queryByRole("link", { name: "Купить продукт" }),
+    ).not.toBeInTheDocument();
   },
 };
 
@@ -870,7 +1031,9 @@ export const AccessUnavailable: Story = {
       canvas.getByRole("heading", { name: "Материал временно недоступен" }),
     ).toBeInTheDocument();
     // Повтор — кнопка, а не ссылка на тот же адрес: ссылку браузер обслужил бы из кеша маршрутов.
-    await expect(canvas.getByRole("button", { name: "Повторить" })).toBeInTheDocument();
+    await expect(
+      canvas.getByRole("button", { name: "Повторить" }),
+    ).toBeInTheDocument();
   },
 };
 
@@ -882,7 +1045,9 @@ export const Unavailable: Story = {
       canvas.getByRole("heading", { name: "Материал временно недоступен" }),
     ).toBeInTheDocument();
     // Повтор — кнопка, а не ссылка на тот же адрес: ссылку браузер обслужил бы из кеша маршрутов.
-    await expect(canvas.getByRole("button", { name: "Повторить" })).toBeInTheDocument();
+    await expect(
+      canvas.getByRole("button", { name: "Повторить" }),
+    ).toBeInTheDocument();
   },
 };
 
@@ -893,7 +1058,9 @@ export const UnexpectedError: Story = {
     await expect(
       canvas.getByRole("heading", { name: "Материал сейчас недоступен" }),
     ).toBeInTheDocument();
-    await expect(canvas.getByRole("button", { name: "Повторить" })).toBeInTheDocument();
+    await expect(
+      canvas.getByRole("button", { name: "Повторить" }),
+    ).toBeInTheDocument();
   },
 };
 
@@ -902,8 +1069,12 @@ export const ShortMaterial: Story = {
   globals: { viewport: { isRotated: false, value: "mobile320" } },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
-    await expect(canvas.getByRole("link", { name: "Назад на Главную" })).toBeVisible();
-    await expect(canvasElement.querySelector('[data-reader-return="bottom"]')).toBeNull();
+    await expect(
+      canvas.getByRole("link", { name: "Назад на Главную" }),
+    ).toBeVisible();
+    await expect(
+      canvasElement.querySelector('[data-reader-return="bottom"]'),
+    ).toBeNull();
     // Короткий материал умещается на экране целиком: ниже него идёт только общий футер сайта.
     const body = canvasElement.querySelector("[data-reader-body]");
     await expect(
@@ -927,16 +1098,24 @@ export const LessonBlocks: Story = {
       "Определение",
       "Задание",
     ]) {
-      await expect(canvas.getAllByLabelText(new RegExp(`^${label}`, "u")).length).toBeGreaterThan(0);
+      await expect(
+        canvas.getAllByLabelText(new RegExp(`^${label}`, "u")).length,
+      ).toBeGreaterThan(0);
     }
     await expect(
       canvas.getByLabelText("Определение: Правило одного источника"),
     ).toBeInTheDocument();
     const resource = canvas.getByRole("link", { name: /Открыть/u });
     await expect(resource).toHaveAttribute("href", "https://example.com/spec");
-    await expect(canvas.getByRole("button", { name: /Копировать/u })).toBeInTheDocument();
-    await expect(canvas.getByRole("region", { name: "Итоги урока" })).toBeInTheDocument();
-    await expect(canvas.getByText("Фиксирует необратимый выбор")).toBeInTheDocument();
+    await expect(
+      canvas.getByRole("button", { name: /Копировать/u }),
+    ).toBeInTheDocument();
+    await expect(
+      canvas.getByRole("region", { name: "Итоги урока" }),
+    ).toBeInTheDocument();
+    await expect(
+      canvas.getByText("Фиксирует необратимый выбор"),
+    ).toBeInTheDocument();
     await expect(
       canvas.getByText("Issue хранит intent, pull request хранит evidence."),
     ).toBeInTheDocument();
@@ -948,7 +1127,9 @@ export const LessonBlocksMobile: Story = {
   globals: { viewport: { isRotated: false, value: "mobile390" } },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
-    await expect(canvas.getByRole("region", { name: "Итоги урока" })).toBeInTheDocument();
+    await expect(
+      canvas.getByRole("region", { name: "Итоги урока" }),
+    ).toBeInTheDocument();
     const page = canvasElement.ownerDocument.documentElement;
     await expect(page.scrollWidth).toBeLessThanOrEqual(page.clientWidth);
   },
@@ -959,7 +1140,9 @@ export const LessonBlocksLong: Story = {
   globals: { viewport: { isRotated: false, value: "mobile320" } },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
-    await expect(canvas.getByRole("button", { name: /Копировать/u })).toBeInTheDocument();
+    await expect(
+      canvas.getByRole("button", { name: /Копировать/u }),
+    ).toBeInTheDocument();
     const page = canvasElement.ownerDocument.documentElement;
     await expect(page.scrollWidth).toBeLessThanOrEqual(page.clientWidth);
   },
@@ -971,9 +1154,13 @@ export const LessonBlocksEmpty: Story = {
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
     // Пустая карточка ресурса не предлагает открыть адрес, которого нет.
-    await expect(canvas.queryByRole("link", { name: /Открыть/u })).not.toBeInTheDocument();
+    await expect(
+      canvas.queryByRole("link", { name: /Открыть/u }),
+    ).not.toBeInTheDocument();
     await expect(canvas.getByLabelText("Примечание")).toBeInTheDocument();
-    await expect(canvas.getByRole("region", { name: "Итоги" })).toBeInTheDocument();
+    await expect(
+      canvas.getByRole("region", { name: "Итоги" }),
+    ).toBeInTheDocument();
   },
 };
 
@@ -998,7 +1185,9 @@ export const GuideModes: Story = {
       canvas.queryByText(/Согласуйте проверку/u),
     ).not.toBeInTheDocument();
     // Подсказка о двух режимах показывается один раз и стоит у первого вариантного шага.
-    await expect(canvas.getByText(/Переключить способ можно в шапке урока/u)).toBeVisible();
+    await expect(
+      canvas.getByText(/Переключить способ можно в шапке урока/u),
+    ).toBeVisible();
     // Сложность и обещание урока видны до основного текста.
     await expect(canvas.getByText("Сложность: Средний")).toBeVisible();
     await expect(
@@ -1030,7 +1219,9 @@ export const GuideModesSwitched: Story = {
     const canvas = within(canvasElement);
     await userEvent.click(canvas.getByRole("button", { name: "Свой проект" }));
     await waitFor(async () => {
-      await expect(canvas.getByText(/Возьмите свой репозиторий/u)).toBeVisible();
+      await expect(
+        canvas.getByText(/Возьмите свой репозиторий/u),
+      ).toBeVisible();
     });
     // Односторонний шаг появляется ровно в своём режиме.
     await expect(canvas.getByText(/Согласуйте проверку/u)).toBeVisible();
@@ -1046,16 +1237,20 @@ export const GuideModesOtherBranch: Story = {
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
     await userEvent.click(
-      canvas.getByRole("button", { name: 'Показать вариант «Свой проект»' }),
+      canvas.getByRole("button", { name: "Показать вариант «Свой проект»" }),
     );
     await waitFor(async () => {
-      await expect(canvas.getByText(/Возьмите свой репозиторий/u)).toBeVisible();
+      await expect(
+        canvas.getByText(/Возьмите свой репозиторий/u),
+      ).toBeVisible();
     });
     // Раскрытие второго варианта не меняет выбранный режим.
     await expect(
       canvas.getByRole("button", { name: "Учебный проект" }),
     ).toHaveAttribute("aria-pressed", "true");
-    await expect(canvas.getByText(/Склонируйте учебный репозиторий/u)).toBeVisible();
+    await expect(
+      canvas.getByText(/Склонируйте учебный репозиторий/u),
+    ).toBeVisible();
   },
 };
 
@@ -1080,6 +1275,8 @@ export const GuideWithoutModes: Story = {
     await expect(
       canvas.queryByRole("group", { name: "Способ прохождения" }),
     ).not.toBeInTheDocument();
-    await expect(canvas.getByText(/Склонируйте учебный репозиторий/u)).toBeVisible();
+    await expect(
+      canvas.getByText(/Склонируйте учебный репозиторий/u),
+    ).toBeVisible();
   },
 };

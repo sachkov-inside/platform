@@ -18,7 +18,10 @@ class MemoryObjectStorage implements ObjectStorage {
   }) {
     const locator = `${input.namespace}/${input.key}`;
     if (this.#objects.has(locator)) {
-      return Promise.resolve({ ok: false as const, error: { code: "object_already_exists" as const } });
+      return Promise.resolve({
+        ok: false as const,
+        error: { code: "object_already_exists" as const },
+      });
     }
     this.#objects.set(locator, {
       body: input.body,
@@ -52,4 +55,7 @@ class MemoryObjectStorage implements ObjectStorage {
   }
 }
 
-objectStorageConformance("MemoryObjectStorage", () => new MemoryObjectStorage());
+objectStorageConformance(
+  "MemoryObjectStorage",
+  () => new MemoryObjectStorage(),
+);

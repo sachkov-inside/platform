@@ -19,11 +19,7 @@ export async function runIdentityProofSession({
     OBJECT_STORAGE_CONSOLE_HOST_PORT: "9001",
     OBJECT_STORAGE_HOST_PORT: "9000",
     POSTGRES_HOST_PORT: String(
-      readIdentityProofPort(
-        environment,
-        "IDENTITY_PROOF_POSTGRES_PORT",
-        5432,
-      ),
+      readIdentityProofPort(environment, "IDENTITY_PROOF_POSTGRES_PORT", 5432),
     ),
   };
 
@@ -52,7 +48,7 @@ export async function runIdentityProofSession({
 
     const runtimeEnvironment = {
       ...environment,
-      ...await readGeneratedEnvironment(),
+      ...(await readGeneratedEnvironment()),
     };
     assertNotStopped(shouldStop);
     ownsPlatform = true;
@@ -62,7 +58,9 @@ export async function runIdentityProofSession({
       platformEnvironment,
     );
     assertNotStopped(shouldStop);
-    ensureDatabase({ composeProject: platformEnvironment.COMPOSE_PROJECT_NAME });
+    ensureDatabase({
+      composeProject: platformEnvironment.COMPOSE_PROJECT_NAME,
+    });
     await runPnpm(
       ["--filter", "@inside/backend", "db:migrate"],
       runtimeEnvironment,

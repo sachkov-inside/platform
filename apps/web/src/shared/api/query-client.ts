@@ -1,7 +1,4 @@
-import {
-  environmentManager,
-  QueryClient,
-} from "@tanstack/react-query";
+import { environmentManager, QueryClient } from "@tanstack/react-query";
 
 /**
  * Общее окно свежести чтений (ADR 0027). Гидрированные и только что прочитанные данные не

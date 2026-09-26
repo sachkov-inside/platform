@@ -1,6 +1,12 @@
 "use client";
 
-import { createContext, useContext, useMemo, useState, type ReactNode } from "react";
+import {
+  createContext,
+  useContext,
+  useMemo,
+  useState,
+  type ReactNode,
+} from "react";
 
 import { defaultGuideMode, type GuideMode } from "./guide-mode";
 
@@ -32,8 +38,15 @@ export function GuideModeProvider({
     setServedMode(initialMode);
     setMode(initialMode);
   }
-  const value = useMemo<GuideModeState>(() => ({ mode, select: setMode }), [mode]);
-  return <GuideModeContext.Provider value={value}>{children}</GuideModeContext.Provider>;
+  const value = useMemo<GuideModeState>(
+    () => ({ mode, select: setMode }),
+    [mode],
+  );
+  return (
+    <GuideModeContext.Provider value={value}>
+      {children}
+    </GuideModeContext.Provider>
+  );
 }
 
 /**

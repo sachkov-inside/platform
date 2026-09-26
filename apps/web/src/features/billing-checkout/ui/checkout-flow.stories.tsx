@@ -26,7 +26,9 @@ const editionReplaced = fetchBeforeRender((input) => {
   if (path === "/api/account/billing/quote")
     return Promise.resolve(Response.json({ ok: true, value: guideQuote }));
   if (path === "/api/account/billing/consents")
-    return Promise.resolve(Response.json({ ok: false, code: "document_changed" }));
+    return Promise.resolve(
+      Response.json({ ok: false, code: "document_changed" }),
+    );
   return Promise.resolve(Response.json({ ok: false, code: "unavailable" }));
 });
 
@@ -69,9 +71,15 @@ export const EditionChangedBeforePayment: Story = {
     );
     await expect(args.onDocumentsChanged).toHaveBeenCalledTimes(1);
     // Отказ по согласию наступает до оплаты: команда покупки не отправлялась.
-    await expect(requestPath).toHaveBeenCalledWith("/api/account/billing/consents");
-    await expect(requestPath).not.toHaveBeenCalledWith("/api/account/billing/purchase");
+    await expect(requestPath).toHaveBeenCalledWith(
+      "/api/account/billing/consents",
+    );
+    await expect(requestPath).not.toHaveBeenCalledWith(
+      "/api/account/billing/purchase",
+    );
     // Следующее нажатие примет перечитанную действующую редакцию.
-    await expect(canvas.getByRole("button", { name: /^Оплатить /u })).toBeEnabled();
+    await expect(
+      canvas.getByRole("button", { name: /^Оплатить /u }),
+    ).toBeEnabled();
   },
 };

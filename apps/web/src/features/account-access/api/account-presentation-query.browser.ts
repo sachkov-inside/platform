@@ -2,7 +2,7 @@ import { createAccountPresentationQueryOptions } from "../model/account-presenta
 import { requestAccountPresentation } from "./request-account-presentation";
 
 export function accountPresentationBrowserQueryOptions() {
-  return createAccountPresentationQueryOptions(
-    ({ signal }) => requestAccountPresentation(signal),
+  return createAccountPresentationQueryOptions(({ signal }) =>
+    requestAccountPresentation(signal),
   );
 }

@@ -4,10 +4,16 @@ import type {
   ObjectStorage,
   ObjectStorageNamespace,
 } from "../../../../infrastructure/object-storage/index.js";
-import { dependencyFailure, reportDependencyFailure } from "../../../../infrastructure/observability/index.js";
+import {
+  dependencyFailure,
+  reportDependencyFailure,
+} from "../../../../infrastructure/observability/index.js";
 import { processMaterialAssetBytes } from "../../../assets/index.js";
 import { dependencyUnavailable } from "./guide-artifact-records.js";
-import type { GuideArtifactResult, UploadedArtifactFile } from "./guide-artifacts.js";
+import type {
+  GuideArtifactResult,
+  UploadedArtifactFile,
+} from "./guide-artifacts.js";
 
 export interface StoredArtifactFile {
   readonly checksumSha256: string;
@@ -25,14 +31,19 @@ export interface StoredArtifactFile {
  * immutably to the protected and public namespaces before any database row names it.
  */
 export interface GuideArtifactFiles {
-  store(artifactId: string, file: UploadedArtifactFile): Promise<GuideArtifactResult<StoredArtifactFile>>;
+  store(
+    artifactId: string,
+    file: UploadedArtifactFile,
+  ): Promise<GuideArtifactResult<StoredArtifactFile>>;
   /** The version row is committed: the quarantine copy has no further use. */
   forgetQuarantine(stored: StoredArtifactFile | null): Promise<void>;
   /** No row names the stored objects: forget all of them. */
   discard(stored: StoredArtifactFile | null): Promise<void>;
 }
 
-export function assembleGuideArtifactFiles(objectStorage: ObjectStorage): GuideArtifactFiles {
+export function assembleGuideArtifactFiles(
+  objectStorage: ObjectStorage,
+): GuideArtifactFiles {
   async function putObject(input: {
     readonly body: Uint8Array;
     readonly checksumSha256: string;
@@ -44,7 +55,11 @@ export function assembleGuideArtifactFiles(objectStorage: ObjectStorage): GuideA
       const result = await objectStorage.putImmutable(input);
       return result.ok ? { ok: true, value: null } : dependencyUnavailable();
     } catch (error) {
-      return dependencyFailure({ module: "materials", operation: "putObject" }, error, dependencyUnavailable());
+      return dependencyFailure(
+        { module: "materials", operation: "putObject" },
+        error,
+        dependencyUnavailable(),
+      );
     }
   }
 
@@ -57,7 +72,10 @@ export function assembleGuideArtifactFiles(objectStorage: ObjectStorage): GuideA
     } catch (error) {
       // Quarantine and abandoned objects are immutable and unreferenced; a
       // failed cleanup never blocks the author-visible outcome.
-      reportDependencyFailure({ module: "materials", operation: "forgetObject" }, error);
+      reportDependencyFailure(
+        { module: "materials", operation: "forgetObject" },
+        error,
+      );
     }
   }
 
@@ -88,7 +106,9 @@ export function assembleGuideArtifactFiles(objectStorage: ObjectStorage): GuideA
         return {
           error: {
             code: "invalid_content",
-            reason: processed.ok ? "unsupported_file_type" : processed.error.code,
+            reason: processed.ok
+              ? "unsupported_file_type"
+              : processed.error.code,
           },
           ok: false,
         };
@@ -102,7 +122,11 @@ export function assembleGuideArtifactFiles(objectStorage: ObjectStorage): GuideA
         contentType: processed.value.contentType,
       };
       const written = await Promise.all([
-        putObject({ ...object, key: protectedObjectKey, namespace: "protected" }),
+        putObject({
+          ...object,
+          key: protectedObjectKey,
+          namespace: "protected",
+        }),
         putObject({ ...object, key: publicObjectKey, namespace: "public" }),
       ]);
       const failed = written.find((result) => !result.ok);
@@ -126,7 +150,8 @@ export function assembleGuideArtifactFiles(objectStorage: ObjectStorage): GuideA
     },
 
     async forgetQuarantine(stored) {
-      if (stored !== null) await forgetObject("quarantine", stored.quarantineObjectKey);
+      if (stored !== null)
+        await forgetObject("quarantine", stored.quarantineObjectKey);
     },
 
     async discard(stored) {

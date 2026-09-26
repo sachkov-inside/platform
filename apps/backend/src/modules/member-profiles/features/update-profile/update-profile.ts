@@ -18,12 +18,17 @@ import {
 export async function updateProfile(
   prisma: MemberProfilePersistenceClient,
   command: UpdateMemberProfileCommand,
-): Promise<MemberProfileResult<PrivateMemberProfile, UpdateMemberProfileError>> {
+): Promise<
+  MemberProfileResult<PrivateMemberProfile, UpdateMemberProfileError>
+> {
   const accepted = acceptMemberProfileFields(command);
   if (!accepted.ok) {
     return profileFailure({ code: "invalid_input", issues: accepted.issues });
   }
-  if (!Number.isSafeInteger(command.expectedVersion) || command.expectedVersion < 1) {
+  if (
+    !Number.isSafeInteger(command.expectedVersion) ||
+    command.expectedVersion < 1
+  ) {
     return profileFailure({
       code: "invalid_input",
       issues: [{ field: "displayName", code: "invalid_characters" }],
@@ -51,7 +56,10 @@ export async function updateProfile(
         });
         return current === null
           ? profileFailure({ code: "profile_not_found" })
-          : profileFailure({ code: "conflict", currentVersion: current.version });
+          : profileFailure({
+              code: "conflict",
+              currentVersion: current.version,
+            });
       }
 
       const stored = await transaction.memberProfile.findUniqueOrThrow({
@@ -73,6 +81,10 @@ export async function updateProfile(
         : { ok: true, value: profile };
     });
   } catch (error) {
-    return dependencyFailure({ module: "member-profiles", operation: "updateProfile" }, error, profileFailure(internalProfileError()));
+    return dependencyFailure(
+      { module: "member-profiles", operation: "updateProfile" },
+      error,
+      profileFailure(internalProfileError()),
+    );
   }
 }

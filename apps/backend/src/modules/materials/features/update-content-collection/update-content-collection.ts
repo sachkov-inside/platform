@@ -19,7 +19,11 @@ import {
   mapPostgresReadError,
 } from "../../shared/postgres-error-mapping.js";
 import { contentCollectionPersistence } from "../../infrastructure/postgres/content-collection-persistence.js";
-import { guidePageSchema, guidePresentationSchema, type GuideSourceFields } from "../../domain/guide-page.js";
+import {
+  guidePageSchema,
+  guidePresentationSchema,
+  type GuideSourceFields,
+} from "../../domain/guide-page.js";
 import { fingerprintCommand } from "../../shared/canonical-command-fingerprint.js";
 import type { MaterialsPrismaTransaction } from "../../../../infrastructure/prisma/index.js";
 import {
@@ -88,10 +92,15 @@ export function assembleUpdateContentCollection(
       async (transaction, rollback) => {
         if (command.kind !== "topic") {
           await lockSeries(transaction, [command.collectionId]);
-          const currentSource = await transaction.guide.findUnique({ where: { id: command.collectionId }, select: { sourceId: true } });
-          if (currentSource !== null && currentSource.sourceId !== sourceId) return rollback({ code: "forbidden" });
+          const currentSource = await transaction.guide.findUnique({
+            where: { id: command.collectionId },
+            select: { sourceId: true },
+          });
+          if (currentSource !== null && currentSource.sourceId !== sourceId)
+            return rollback({ code: "forbidden" });
         }
-        if (command.source !== undefined && sourceId === null) return rollback({ code: "forbidden" });
+        if (command.source !== undefined && sourceId === null)
+          return rollback({ code: "forbidden" });
         const persistence = contentCollectionPersistence(
           transaction,
           command.kind,
@@ -115,7 +124,11 @@ export function assembleUpdateContentCollection(
             (introduction === null ||
               introductionMatches(current.introduction, introduction)) &&
             (command.source === undefined ||
-              (await sourceMatches(transaction, command.collectionId, command.source)))
+              (await sourceMatches(
+                transaction,
+                command.collectionId,
+                command.source,
+              )))
           )
             return current;
           return current === undefined
@@ -137,7 +150,8 @@ export function assembleUpdateContentCollection(
       (error): UpdateContentCollectionError =>
         isPostgresUniqueViolation(
           error,
-          contentCollectionPersistence(dependencies.prisma, command.kind).slugConstraint,
+          contentCollectionPersistence(dependencies.prisma, command.kind)
+            .slugConstraint,
         )
           ? { code: "content_collection_slug_conflict" }
           : mapPostgresReadError(error),

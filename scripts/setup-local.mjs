@@ -10,7 +10,10 @@ const repositoryRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 // The smoke needs published demonstration content, so this verified stack is a disposable project
 // beside the shared stand, which keeps the owner's product data.
 const smokeProject = "inside-platform-smoke";
-Object.assign(process.env, { COMPOSE_PROJECT_NAME: smokeProject, LOCAL_SEED_VIEW: "checks" });
+Object.assign(process.env, {
+  COMPOSE_PROJECT_NAME: smokeProject,
+  LOCAL_SEED_VIEW: "checks",
+});
 const pnpmPath = process.env.npm_execpath;
 
 if (pnpmPath === undefined) {
@@ -63,7 +66,17 @@ if (interruptedSignal !== undefined) {
 async function isComposeRunning() {
   for (const project of ["inside-platform", smokeProject]) {
     const result = await runPnpm(
-      ["exec", "docker", "compose", "--project-name", project, "ps", "--services", "--status", "running"],
+      [
+        "exec",
+        "docker",
+        "compose",
+        "--project-name",
+        project,
+        "ps",
+        "--services",
+        "--status",
+        "running",
+      ],
       true,
     );
     if (result.output.trim().length > 0) return true;
@@ -92,7 +105,9 @@ async function runPnpm(arguments_, capture = false) {
   });
   activeProcesses.delete(child);
   if (exitCode !== 0) {
-    throw new Error(`pnpm ${arguments_.join(" ")} failed${capture ? `:\n${output}` : ""}`);
+    throw new Error(
+      `pnpm ${arguments_.join(" ")} failed${capture ? `:\n${output}` : ""}`,
+    );
   }
   return { output };
 }
@@ -126,7 +141,13 @@ function shutdown() {
     await Promise.all([...activeProcesses].map((child) => stopProcess(child)));
     if (shouldCleanupCompose) {
       shouldCleanupCompose = false;
-      await runCleanupPnpm(["exec", "docker", "compose", "down", "--volumes"]).catch(() => undefined);
+      await runCleanupPnpm([
+        "exec",
+        "docker",
+        "compose",
+        "down",
+        "--volumes",
+      ]).catch(() => undefined);
     }
   })();
   return shutdownPromise;

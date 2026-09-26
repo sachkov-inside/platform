@@ -40,7 +40,8 @@ export class AccountTelegramMembershipController {
   @Get()
   @ApiOperation({
     operationId: "readCurrentAccountTelegramMembership",
-    summary: "Read Telegram linking and Membership states for the current Account",
+    summary:
+      "Read Telegram linking and Membership states for the current Account",
   })
   @ApiOkResponse({
     schema: toOpenApiSchema(accountTelegramMembershipPresentationSchema),

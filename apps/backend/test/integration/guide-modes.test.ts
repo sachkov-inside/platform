@@ -13,11 +13,16 @@ import {
   fullRepresentativeDocument,
   representativeDocument,
 } from "../fixtures/material-body/representative.js";
-import { createMigratedTestDatabase, type TestDatabase } from "./setup/test-database.js";
+import {
+  createMigratedTestDatabase,
+  type TestDatabase,
+} from "./setup/test-database.js";
 
 /** Тело урока читается как есть: проверка смотрит на сам вариантный шаг, а не на его пересказ. */
 const readerBodySchema = z
-  .object({ body: z.object({ blocks: z.array(z.looseObject({ kind: z.string() })) }) })
+  .object({
+    body: z.object({ blocks: z.array(z.looseObject({ kind: z.string() })) }),
+  })
   .loose();
 
 const issuer = "https://identity.example.test/oidc";
@@ -43,7 +48,9 @@ describe("Guide modes and lesson facts", () => {
       response.setHeader("content-type", "application/json");
       response.end(JSON.stringify({ keys: [publicJwk] }));
     });
-    await new Promise<void>((resolve) => jwksServer.listen(0, "127.0.0.1", resolve));
+    await new Promise<void>((resolve) =>
+      jwksServer.listen(0, "127.0.0.1", resolve),
+    );
     const address = jwksServer.address();
     if (address === null || typeof address === "string") {
       throw new Error("missing JWKS port");
@@ -57,7 +64,8 @@ describe("Guide modes and lesson facts", () => {
         LOGTO_ISSUER: issuer,
         LOGTO_AUDIENCE: audience,
         LOGTO_JWKS_URL: `http://127.0.0.1:${String(address.port)}/jwks`,
-        IDENTITY_EMAIL_FINGERPRINT_KEY: "guide-modes-test-email-fingerprint-key",
+        IDENTITY_EMAIL_FINGERPRINT_KEY:
+          "guide-modes-test-email-fingerprint-key",
       }),
       { logger: false },
     );
@@ -69,14 +77,19 @@ describe("Guide modes and lesson facts", () => {
     await app.close();
     await database.dispose();
     await new Promise<void>((resolve, reject) =>
-      jwksServer.close((error) => (error === undefined ? resolve() : reject(error))),
+      jwksServer.close((error) =>
+        error === undefined ? resolve() : reject(error),
+      ),
     );
   });
 
   test("the reader owns one stored mode, and another Account never sees it", async () => {
     const server = app.getHttpAdapter().getInstance();
     const reader = await signToken();
-    const other = await signToken({ subject: "other", email: "other@example.test" });
+    const other = await signToken({
+      subject: "other",
+      email: "other@example.test",
+    });
     for (const bearer of [reader, other]) {
       expect(
         (
@@ -91,8 +104,12 @@ describe("Guide modes and lesson facts", () => {
     const headers = { authorization: `Bearer ${reader}` };
 
     expect(
-      (await server.inject({ method: "GET", url: "/reading-activity/guide-mode" }))
-        .statusCode,
+      (
+        await server.inject({
+          method: "GET",
+          url: "/reading-activity/guide-mode",
+        })
+      ).statusCode,
     ).toBe(401);
     expect(
       (
@@ -186,7 +203,11 @@ describe("Guide modes and lesson facts", () => {
       data: { id: withVariants, name: "С вариантами", slug: "with-variants" },
     });
     await database.prisma.guide.create({
-      data: { id: withoutVariants, name: "Без вариантов", slug: "without-variants" },
+      data: {
+        id: withoutVariants,
+        name: "Без вариантов",
+        slug: "without-variants",
+      },
     });
 
     const lesson = await publish({
@@ -232,7 +253,9 @@ describe("Guide modes and lesson facts", () => {
       url: "/library/guides/without-variants",
     });
     expect(plain.statusCode).toBe(200);
-    expect(plain.json()).toMatchObject({ reference: { hasModeVariants: false } });
+    expect(plain.json()).toMatchObject({
+      reference: { hasModeVariants: false },
+    });
     expect(plain.json()).toMatchObject({
       items: [{ difficulty: null, outcomes: [] }],
     });
@@ -251,7 +274,9 @@ describe("Guide modes and lesson facts", () => {
     });
     // Вариантный шаг переживает сохранение и публикацию обеими ветками и не становится врезкой.
     const body = readerBodySchema.parse(reader.json());
-    expect(body.body.blocks.filter((block) => block.kind === "variant")).toEqual([
+    expect(
+      body.body.blocks.filter((block) => block.kind === "variant"),
+    ).toEqual([
       {
         kind: "variant",
         options: [
@@ -259,7 +284,11 @@ describe("Guide modes and lesson facts", () => {
             content: [
               {
                 content: [
-                  { kind: "text", marks: [], text: "Учебный проект: повторите шаг на образце." },
+                  {
+                    kind: "text",
+                    marks: [],
+                    text: "Учебный проект: повторите шаг на образце.",
+                  },
                 ],
                 kind: "paragraph",
               },
@@ -324,9 +353,14 @@ describe("Guide modes and lesson facts", () => {
       metadata,
       publicationState: "published",
     });
-    expect(published).toMatchObject({ ok: false, error: { code: "invalid_content" } });
+    expect(published).toMatchObject({
+      ok: false,
+      error: { code: "invalid_content" },
+    });
     const issues =
-      published.ok || !("issues" in published.error) ? [] : published.error.issues;
+      published.ok || !("issues" in published.error)
+        ? []
+        : published.error.issues;
     expect(issues).toContainEqual({
       code: "outcomes_too_few",
       path: "/metadata/outcomes",

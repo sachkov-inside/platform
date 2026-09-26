@@ -16,10 +16,12 @@ function start(args, env) {
     stdio: ["ignore", "pipe", "pipe"],
   });
   child.stdout.on("data", (data) => {
-    output.push(data.toString()); process.stdout.write(data);
+    output.push(data.toString());
+    process.stdout.write(data);
   });
   child.stderr.on("data", (data) => {
-    output.push(data.toString()); process.stdout.write(data);
+    output.push(data.toString());
+    process.stdout.write(data);
   });
   children.push(child);
   return child;

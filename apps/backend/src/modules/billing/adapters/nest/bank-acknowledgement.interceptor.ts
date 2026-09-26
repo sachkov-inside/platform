@@ -1,4 +1,9 @@
-import { Injectable, type CallHandler, type ExecutionContext, type NestInterceptor } from "@nestjs/common";
+import {
+  Injectable,
+  type CallHandler,
+  type ExecutionContext,
+  type NestInterceptor,
+} from "@nestjs/common";
 import type { FastifyReply } from "fastify";
 import { tap, type Observable } from "rxjs";
 
@@ -6,8 +11,13 @@ import { tap, type Observable } from "rxjs";
 @Injectable()
 export class BankAcknowledgementInterceptor implements NestInterceptor {
   intercept(context: ExecutionContext, next: CallHandler): Observable<unknown> {
-    return next.handle().pipe(tap(() => {
-      context.switchToHttp().getResponse<FastifyReply>().header("content-type", "text/plain; charset=utf-8");
-    }));
+    return next.handle().pipe(
+      tap(() => {
+        context
+          .switchToHttp()
+          .getResponse<FastifyReply>()
+          .header("content-type", "text/plain; charset=utf-8");
+      }),
+    );
   }
 }

@@ -35,9 +35,8 @@ vi.mock("@/shared/auth/same-origin-mutation.server", () => ({
 }));
 
 vi.mock("@/shared/auth/index.server", async () => {
-  const handler = await import(
-    "@/shared/auth/authenticated-mutation-handler.server"
-  );
+  const handler =
+    await import("@/shared/auth/authenticated-mutation-handler.server");
   return { handleAuthenticatedMutation: handler.handleAuthenticatedMutation };
 });
 
@@ -71,18 +70,17 @@ describe("Profile Avatar browser mutation", () => {
   it("maps Problem Details from the capability route", async () => {
     vi.stubGlobal(
       "fetch",
-      vi.fn().mockResolvedValue(
-        Response.json(
-          { code: "conflict", currentVersion: 4, status: 409 },
-          { status: 409 },
+      vi
+        .fn()
+        .mockResolvedValue(
+          Response.json(
+            { code: "conflict", currentVersion: 4, status: 409 },
+            { status: 409 },
+          ),
         ),
-      ),
     );
 
-    const promise = mutateProfileAvatar(
-      { kind: "remove", profile },
-      vi.fn(),
-    );
+    const promise = mutateProfileAvatar({ kind: "remove", profile }, vi.fn());
     await expect(promise).rejects.toBeInstanceOf(AvatarMutationError);
     await expect(promise).rejects.toMatchObject({ code: "conflict" });
   });
@@ -185,7 +183,9 @@ describe("Profile Avatar capability route", () => {
       code: "authentication_required",
     });
 
-    fakes.getAccessToken.mockRejectedValueOnce(new Error("identity unavailable"));
+    fakes.getAccessToken.mockRejectedValueOnce(
+      new Error("identity unavailable"),
+    );
     const unavailable = await proxyProfileAvatarMutation(removeRequest());
     expect(unavailable.status).toBe(503);
     await expect(unavailable.json()).resolves.toMatchObject({
@@ -245,7 +245,9 @@ describe("Profile Avatar capability route", () => {
       code: "invalid_avatar",
     });
 
-    fakes.requestMutation.mockRejectedValueOnce(new Error("backend unavailable"));
+    fakes.requestMutation.mockRejectedValueOnce(
+      new Error("backend unavailable"),
+    );
     const unavailable = await proxyProfileAvatarMutation(removeRequest());
     expect(unavailable.status).toBe(503);
     expect(unavailable.headers.get("vary")).toBe("cookie");

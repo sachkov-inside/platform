@@ -91,7 +91,10 @@ export function BillingContactForm({
       </p>
 
       {sessionExpired ? (
-        <div className="mt-5 rounded-xl border border-destructive/30 bg-destructive/6 p-4 text-sm" role="alert">
+        <div
+          className="mt-5 rounded-xl border border-destructive/30 bg-destructive/6 p-4 text-sm"
+          role="alert"
+        >
           <p className="font-semibold">Сессия завершилась.</p>
           <form action="/auth/sign-in" className="mt-3" method="post">
             <input name="returnTo" type="hidden" value={returnTo} />
@@ -107,7 +110,8 @@ export function BillingContactForm({
       ) : unavailable === true ? (
         <div className="mt-5 text-sm leading-6" role="alert">
           <p>
-            {error ?? "Данные контакта сейчас недоступны."} Мы перечитаем их сами.
+            {error ?? "Данные контакта сейчас недоступны."} Мы перечитаем их
+            сами.
           </p>
         </div>
       ) : (
@@ -166,7 +170,11 @@ export function BillingContactForm({
                 value={email}
               />
               <div className="mt-4 flex flex-wrap gap-2">
-                <Button className={billingActionClass} disabled={pending} type="submit">
+                <Button
+                  className={billingActionClass}
+                  disabled={pending}
+                  type="submit"
+                >
                   {pending === true
                     ? "Подождите…"
                     : challenge === null
@@ -202,7 +210,10 @@ export function BillingContactForm({
                   : "Отправка пока не подтверждена. Если письмо пришло, введите код для"}{" "}
                 <strong className="font-semibold">{challenge.email}</strong>.
               </p>
-              <label className="mt-4 block text-sm font-semibold" htmlFor={codeId}>
+              <label
+                className="mt-4 block text-sm font-semibold"
+                htmlFor={codeId}
+              >
                 Код из письма
               </label>
               <input
@@ -226,7 +237,11 @@ export function BillingContactForm({
                 Шесть цифр из последнего письма. Код действует 10 минут, новый
                 можно запросить через минуту.
               </p>
-              <Button className={`mt-4 ${billingActionClass}`} disabled={pending} type="submit">
+              <Button
+                className={`mt-4 ${billingActionClass}`}
+                disabled={pending}
+                type="submit"
+              >
                 Подтвердить email
               </Button>
             </form>
@@ -239,7 +254,10 @@ export function BillingContactForm({
           ) : null}
 
           {error !== undefined ? (
-            <p className="mt-5 rounded-xl border border-destructive/30 bg-destructive/6 p-4 text-sm leading-6" role="alert">
+            <p
+              className="mt-5 rounded-xl border border-destructive/30 bg-destructive/6 p-4 text-sm leading-6"
+              role="alert"
+            >
               {error}
             </p>
           ) : null}
@@ -247,10 +265,15 @@ export function BillingContactForm({
       )}
 
       <div className="mt-6 border-t border-border pt-5">
-        <p className="text-sm text-muted-foreground">Документы к этим данным:</p>
+        <p className="text-sm text-muted-foreground">
+          Документы к этим данным:
+        </p>
         <ul className="mt-2 flex flex-wrap gap-x-5 gap-y-2 text-sm">
           <li>
-            <Link className="text-action underline underline-offset-4" href={privacyHref}>
+            <Link
+              className="text-action underline underline-offset-4"
+              href={privacyHref}
+            >
               Политика данных
             </Link>
           </li>

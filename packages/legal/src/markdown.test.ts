@@ -84,12 +84,16 @@ describe("published editions", () => {
     expect(currentLegalEdition("purchase").title).toBe(
       "Оферта разовой покупки продукта Inside",
     );
-    expect(supersededLegalEditions("purchase").map((edition) => edition.version)).toEqual([3, 1]);
+    expect(
+      supersededLegalEditions("purchase").map((edition) => edition.version),
+    ).toEqual([3, 1]);
     expect(currentLegalEdition("contacts").version).toBe(2);
     expect(currentLegalEdition("contacts").text).toContain(
       "Межрайонная инспекция Федеральной налоговой службы № 46 по г. Москве",
     );
-    expect(supersededLegalEditions("contacts").map((edition) => edition.version)).toEqual([1]);
+    expect(
+      supersededLegalEditions("contacts").map((edition) => edition.version),
+    ).toEqual([1]);
   });
 
   it("puts privacy v3 and cookies v2 in force together with the accepted consent path", () => {
@@ -97,12 +101,16 @@ describe("published editions", () => {
     expect(currentLegalEdition("privacy").text).toContain(
       "профиль виден только ему самому",
     );
-    expect(supersededLegalEditions("privacy").map((edition) => edition.version)).toEqual([2]);
+    expect(
+      supersededLegalEditions("privacy").map((edition) => edition.version),
+    ).toEqual([2]);
     expect(currentLegalEdition("cookies").version).toBe(2);
     expect(currentLegalEdition("cookies").text).toContain(
       "localStorage `inside.storage-notice.v1`",
     );
-    expect(supersededLegalEditions("cookies").map((edition) => edition.version)).toEqual([1]);
+    expect(
+      supersededLegalEditions("cookies").map((edition) => edition.version),
+    ).toEqual([1]);
   });
 
   it.each(legalEditions.map((edition) => [edition.key, edition] as const))(
@@ -133,7 +141,9 @@ describe("terms of use acceptance", () => {
       url: `${origin}/legal/terms/v${String(edition.version)}`,
       text: edition.text,
     });
-    expect(() => termsOfUseDocument(`${origin}/`)).toThrow("bare public origin");
+    expect(() => termsOfUseDocument(`${origin}/`)).toThrow(
+      "bare public origin",
+    );
   });
 });
 
@@ -153,7 +163,9 @@ describe("consent catalogue", () => {
     const subscription = documents.filter((document) =>
       document.appliesTo.includes("subscription"),
     );
-    expect(oneTime.map((document) => document.documentId)).toEqual(["purchase"]);
+    expect(oneTime.map((document) => document.documentId)).toEqual([
+      "purchase",
+    ]);
     expect(subscription.map((document) => document.documentId)).toEqual([
       "subscription",
       "recurring-consent",
@@ -188,12 +200,20 @@ describe("strict text parsing", () => {
         "# Заголовок\n\nПервая строка\nвторая строка.\n\n## Раздел\n\n| Что | Зачем |\n| --- | --- |\n| Строка | Значение |\n",
       ),
     ).toEqual([
-      { kind: "heading", level: 1, content: [{ kind: "text", text: "Заголовок" }] },
+      {
+        kind: "heading",
+        level: 1,
+        content: [{ kind: "text", text: "Заголовок" }],
+      },
       {
         kind: "paragraph",
         content: [{ kind: "text", text: "Первая строка вторая строка." }],
       },
-      { kind: "heading", level: 2, content: [{ kind: "text", text: "Раздел" }] },
+      {
+        kind: "heading",
+        level: 2,
+        content: [{ kind: "text", text: "Раздел" }],
+      },
       {
         kind: "table",
         header: [
@@ -212,7 +232,9 @@ describe("strict text parsing", () => {
 
   it("reads links, bold and code inside a line", () => {
     expect(
-      parseLegalText("Смотри [реквизиты](/legal/contacts), **важно**: `code`.\n"),
+      parseLegalText(
+        "Смотри [реквизиты](/legal/contacts), **важно**: `code`.\n",
+      ),
     ).toEqual([
       {
         kind: "paragraph",
@@ -246,7 +268,11 @@ describe("strict text parsing", () => {
 
   it("reads a third-level heading for a subsection", () => {
     expect(parseLegalText("### Что входит\n")).toEqual([
-      { kind: "heading", level: 3, content: [{ kind: "text", text: "Что входит" }] },
+      {
+        kind: "heading",
+        level: 3,
+        content: [{ kind: "text", text: "Что входит" }],
+      },
     ]);
   });
 
@@ -256,7 +282,10 @@ describe("strict text parsing", () => {
         "Покупка включает:\n\n1. **Материалы** — тексты\n   и видео.\n2. Общий [чат](/legal/terms).\n",
       ),
     ).toEqual([
-      { kind: "paragraph", content: [{ kind: "text", text: "Покупка включает:" }] },
+      {
+        kind: "paragraph",
+        content: [{ kind: "text", text: "Покупка включает:" }],
+      },
       {
         kind: "list",
         ordered: true,
@@ -276,7 +305,9 @@ describe("strict text parsing", () => {
   });
 
   it("reads a bulleted list", () => {
-    expect(parseLegalText("- Первый пункт;\n- второй пункт\n  с продолжением.\n")).toEqual([
+    expect(
+      parseLegalText("- Первый пункт;\n- второй пункт\n  с продолжением.\n"),
+    ).toEqual([
       {
         kind: "list",
         ordered: false,

@@ -170,7 +170,9 @@ export async function processMaterialAssetBytes(input: {
       ? MATERIAL_ASSET_LIMITS.imageBytes
       : MATERIAL_ASSET_LIMITS.fileBytes;
   if (input.body.byteLength === 0 || input.body.byteLength > byteLimit) {
-    return failure(input.kind === "image" ? "image_too_large" : "size_mismatch");
+    return failure(
+      input.kind === "image" ? "image_too_large" : "size_mismatch",
+    );
   }
   const checksumSha256 = createHash("sha256").update(input.body).digest("hex");
   if (checksumSha256 !== input.expectedChecksumSha256.toLowerCase()) {
@@ -192,10 +194,8 @@ export async function processMaterialAssetBytes(input: {
     return processImage(input.body, checksumSha256, detected.mime);
   }
 
-  const actualContentType = detected?.mime ?? inferTextContentType(
-    declaredContentType,
-    input.body,
-  );
+  const actualContentType =
+    detected?.mime ?? inferTextContentType(declaredContentType, input.body);
   if (
     declaredContentType !== "application/octet-stream" &&
     declaredContentType !== actualContentType
@@ -208,9 +208,7 @@ export async function processMaterialAssetBytes(input: {
   ) {
     return failure("unsupported_file_type");
   }
-  if (
-    isExecutableContent(input.filename, actualContentType, input.body)
-  ) {
+  if (isExecutableContent(input.filename, actualContentType, input.body)) {
     return failure("executable_content");
   }
   return {
@@ -280,12 +278,18 @@ async function processImage(
     const width = normalized.info.width;
     const height = normalized.info.height;
     const variantWidths = [
-      ...new Set(RESPONSIVE_WIDTHS.map((candidate) => Math.min(candidate, width))),
+      ...new Set(
+        RESPONSIVE_WIDTHS.map((candidate) => Math.min(candidate, width)),
+      ),
     ].toSorted((left, right) => left - right);
     const variants = await Promise.all(
       variantWidths.map(async (variantWidth) => {
         const variant = await sharp(normalized.data)
-          .resize({ fit: "inside", width: variantWidth, withoutEnlargement: true })
+          .resize({
+            fit: "inside",
+            width: variantWidth,
+            withoutEnlargement: true,
+          })
           .webp({ quality: 82 })
           .toBuffer({ resolveWithObject: true });
         return {

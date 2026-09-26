@@ -366,10 +366,9 @@ describe("Billing contact and consent evidence (real PostgreSQL, synthetic email
         operationId: randomUUID(),
       }),
     ).toMatchObject({ error: { code: "document_changed" } });
-    const evidence =
-      await database.prisma.legalAcceptance.findFirstOrThrow({
-        where: { accountId: owner },
-      });
+    const evidence = await database.prisma.legalAcceptance.findFirstOrThrow({
+      where: { accountId: owner },
+    });
     expect(evidence.documentText).toBe(terms.text);
     const { appliesTo: _catalogueOnly, ...acceptedTerms } = terms;
     expect(await next.readConsent(owner, evidence.id)).toMatchObject({
@@ -434,7 +433,10 @@ describe("Billing contact and consent evidence (real PostgreSQL, synthetic email
       }),
     ).toEqual({ ok: false, error: { code: "invalid_input" } });
     expect(
-      await billing.acceptConsents(owner, { ...subscription, buttonLabel: " " }),
+      await billing.acceptConsents(owner, {
+        ...subscription,
+        buttonLabel: " ",
+      }),
     ).toEqual({ ok: false, error: { code: "invalid_input" } });
 
     const result = await billing.acceptConsents(owner, {
@@ -482,9 +484,11 @@ describe("Billing contact and consent evidence (real PostgreSQL, synthetic email
       buttonLabel: "Принять условия и продолжить",
     });
     if (!firstSignIn.ok) throw new Error(firstSignIn.error.code);
-    expect(await billing.readConsent(owner, firstSignIn.acceptanceRef)).toEqual({
-      ok: false,
-      error: { code: "not_found" },
-    });
+    expect(await billing.readConsent(owner, firstSignIn.acceptanceRef)).toEqual(
+      {
+        ok: false,
+        error: { code: "not_found" },
+      },
+    );
   });
 });

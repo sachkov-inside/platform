@@ -1,13 +1,31 @@
 import { z } from "zod";
 
-export const homePinSchema = z.object({ seriesId: z.uuid().nullable(), version: z.number().int().positive() }).strict();
+export const homePinSchema = z
+  .object({
+    seriesId: z.uuid().nullable(),
+    version: z.number().int().positive(),
+  })
+  .strict();
 export const homePinResultSchema = z.discriminatedUnion("kind", [
   z.object({ kind: z.literal("ready"), pin: homePinSchema }).strict(),
-  z.object({ kind: z.enum(["unauthorized", "forbidden", "conflict", "invalid_input", "unavailable"]) }).strict(),
+  z
+    .object({
+      kind: z.enum([
+        "unauthorized",
+        "forbidden",
+        "conflict",
+        "invalid_input",
+        "unavailable",
+      ]),
+    })
+    .strict(),
 ]);
 export type HomePinResult = z.infer<typeof homePinResultSchema>;
 export type HomePin = z.infer<typeof homePinSchema>;
-export interface SetHomePinInput { readonly seriesId: string | null; readonly expectedVersion: number }
+export interface SetHomePinInput {
+  readonly seriesId: string | null;
+  readonly expectedVersion: number;
+}
 
 export interface HomePinControls {
   readonly pin: HomePin | null;

@@ -9,7 +9,9 @@ export function safePostSignInReturnUri(
   }
   try {
     const base = new URL(baseUrl);
-    const target = value.startsWith("/") ? new URL(value, base) : new URL(value);
+    const target = value.startsWith("/")
+      ? new URL(value, base)
+      : new URL(value);
     return target.origin === base.origin ? target.toString() : undefined;
   } catch {
     return undefined;

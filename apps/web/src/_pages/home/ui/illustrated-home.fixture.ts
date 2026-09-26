@@ -30,10 +30,13 @@ function material(
     cover: cover(artwork, duration !== undefined),
     format: duration === undefined ? "Гайд" : "Видео",
     formatSlug: duration === undefined ? "guide" : "video",
-    ...(duration === undefined ? {} : { primaryVideoDurationSeconds: duration }),
+    ...(duration === undefined
+      ? {}
+      : { primaryVideoDurationSeconds: duration }),
     seriesMemberships: [],
     slug,
-    summary: "Практический разбор: от понятных границ к работающему приложению.",
+    summary:
+      "Практический разбор: от понятных границ к работающему приложению.",
     tags: [],
     title,
     topic: topic.name,
@@ -42,19 +45,71 @@ function material(
 }
 
 const videos = [
-  material("produkt-i-inzhenernyy-kontekst", "Продукт и инженерный контекст", 0, 5, 754),
-  material("glubokie-moduli-na-praktike", "Глубокие модули на практике", 1, 6, 481),
-  material("video-pro-developer-pipeline", "От задачи до релиза: Developer Pipeline", 3, 7, 628),
+  material(
+    "produkt-i-inzhenernyy-kontekst",
+    "Продукт и инженерный контекст",
+    0,
+    5,
+    754,
+  ),
+  material(
+    "glubokie-moduli-na-praktike",
+    "Глубокие модули на практике",
+    1,
+    6,
+    481,
+  ),
+  material(
+    "video-pro-developer-pipeline",
+    "От задачи до релиза: Developer Pipeline",
+    3,
+    7,
+    628,
+  ),
 ] as const satisfies readonly MaterialPreview[];
 const guides = [
-  { ...material("developer-pipeline-bez-poteri-konteksta", "Developer Pipeline без потери контекста", 3, 11), access: "membership", availability: "locked" },
+  {
+    ...material(
+      "developer-pipeline-bez-poteri-konteksta",
+      "Developer Pipeline без потери контекста",
+      3,
+      11,
+    ),
+    access: "membership",
+    availability: "locked",
+  },
   material("kak-ustroen-inside-platform", "Как устроен Inside Platform", 0, 1),
-  material("arkhitekturnaya-zametka-11", "Границы модулей: где провести линию", 0, 8),
-  material("arkhitekturnaya-zametka-10", "API, которым удобно пользоваться", 1, 9),
-  material("arkhitekturnaya-zametka-09", "Состояние интерфейса без хаоса", 2, 10),
-  material("arkhitekturnaya-zametka-08", "Первый релиз без ручной магии", 3, 11),
+  material(
+    "arkhitekturnaya-zametka-11",
+    "Границы модулей: где провести линию",
+    0,
+    8,
+  ),
+  material(
+    "arkhitekturnaya-zametka-10",
+    "API, которым удобно пользоваться",
+    1,
+    9,
+  ),
+  material(
+    "arkhitekturnaya-zametka-09",
+    "Состояние интерфейса без хаоса",
+    2,
+    10,
+  ),
+  material(
+    "arkhitekturnaya-zametka-08",
+    "Первый релиз без ручной магии",
+    3,
+    11,
+  ),
   material("arkhitekturnaya-zametka-07", "Контракты между сервисами", 1, 9),
-  material("arkhitekturnaya-zametka-06", "Компоненты с понятными границами", 2, 10),
+  material(
+    "arkhitekturnaya-zametka-06",
+    "Компоненты с понятными границами",
+    2,
+    10,
+  ),
 ] as const satisfies readonly MaterialPreview[];
 
 export const illustratedHome: HomeView = {
@@ -93,18 +148,30 @@ export const illustratedHome: HomeView = {
   ],
   notes: [
     {
-      ...material("proveryaemaya-postavka", "Маленький релиз проще проверить", 3, 11),
+      ...material(
+        "proveryaemaya-postavka",
+        "Маленький релиз проще проверить",
+        3,
+        11,
+      ),
       cover: null,
       format: "Заметка",
       formatSlug: "note",
-      summary: "Как сделать изменения небольшими, проверки понятными, а выпуск — предсказуемым.",
+      summary:
+        "Как сделать изменения небольшими, проверки понятными, а выпуск — предсказуемым.",
     },
     {
-      ...material("granitsy-khoroshego-modulya", "Хороший модуль скрывает сложность", 0, 8),
+      ...material(
+        "granitsy-khoroshego-modulya",
+        "Хороший модуль скрывает сложность",
+        0,
+        8,
+      ),
       cover: null,
       format: "Заметка",
       formatSlug: "note",
-      summary: "Как разделить ответственность и сохранить простоту системы по мере её роста.",
+      summary:
+        "Как разделить ответственность и сохранить простоту системы по мере её роста.",
     },
   ],
 };

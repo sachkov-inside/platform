@@ -1,6 +1,12 @@
 import { coverLinkPreviewImage } from "@/entities/material.model";
-import type { PublicPagePreview, SocialCardContent } from "@/shared/link-preview";
-import { materialPath, socialCardPath } from "@/shared/routing/public-page-path";
+import type {
+  PublicPagePreview,
+  SocialCardContent,
+} from "@/shared/link-preview";
+import {
+  materialPath,
+  socialCardPath,
+} from "@/shared/routing/public-page-path";
 
 import type { MaterialReaderMetadata } from "./material-reader-view";
 

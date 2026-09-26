@@ -26,7 +26,8 @@ export function AuthoringShell({ children }: { readonly children: ReactNode }) {
     ? "billing"
     : pathname.startsWith("/authoring/topics")
       ? "topics"
-      : (pathname.startsWith("/authoring/guides") || pathname.startsWith("/authoring/playlists"))
+      : pathname.startsWith("/authoring/guides") ||
+          pathname.startsWith("/authoring/playlists")
         ? "playlists"
         : pathname.endsWith("/preview")
           ? "preview"

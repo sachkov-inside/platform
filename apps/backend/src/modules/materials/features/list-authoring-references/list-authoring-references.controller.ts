@@ -45,7 +45,9 @@ export class ListAuthoringReferencesController {
   @ApiOkResponse({ schema: toOpenApiSchema(responseSchema) })
   @ApiMaterialAuthoringErrors(401, 403, 500, 503)
   async list(@CurrentAccount() account: AuthenticatedAccount) {
-    const result = await this.authoring.listReferences({ actor: account.accountId });
+    const result = await this.authoring.listReferences({
+      actor: account.accountId,
+    });
     if (!result.ok) {
       throwMaterialAuthoringError(result.error);
     }

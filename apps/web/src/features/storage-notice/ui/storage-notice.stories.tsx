@@ -34,15 +34,22 @@ type Story = StoryObj<typeof meta>;
 export const FirstVisit: Story = {
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
-    const notice = await canvas.findByRole("region", { name: "Хранение в браузере" });
-    await expect(within(notice).getByRole("link", { name: "Подробнее" })).toHaveAttribute(
-      "href",
-      "/legal/cookies",
+    const notice = await canvas.findByRole("region", {
+      name: "Хранение в браузере",
+    });
+    await expect(
+      within(notice).getByRole("link", { name: "Подробнее" }),
+    ).toHaveAttribute("href", "/legal/cookies");
+    await expect(
+      within(notice).queryByRole("checkbox"),
+    ).not.toBeInTheDocument();
+    await userEvent.click(
+      within(notice).getByRole("button", { name: "Понятно" }),
     );
-    await expect(within(notice).queryByRole("checkbox")).not.toBeInTheDocument();
-    await userEvent.click(within(notice).getByRole("button", { name: "Понятно" }));
     await waitFor(() =>
-      expect(canvas.queryByRole("region", { name: "Хранение в браузере" })).not.toBeInTheDocument(),
+      expect(
+        canvas.queryByRole("region", { name: "Хранение в браузере" }),
+      ).not.toBeInTheDocument(),
     );
     await expect(window.localStorage.getItem(storageNoticeKey)).toBe("2");
   },

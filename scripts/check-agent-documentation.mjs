@@ -16,7 +16,9 @@ const ignoredDirectories = new Set([
 
 export function extractLocalMarkdownTargets(markdown) {
   const targets = [];
-  const links = markdown.matchAll(/\[[^\]]*\]\((<[^>]+>|[^)\s]+)(?:\s+[^)]*)?\)/gu);
+  const links = markdown.matchAll(
+    /\[[^\]]*\]\((<[^>]+>|[^)\s]+)(?:\s+[^)]*)?\)/gu,
+  );
 
   for (const [, rawTarget] of links) {
     const target = rawTarget.replace(/^<|>$/gu, "");
@@ -36,7 +38,10 @@ export function extractLocalMarkdownTargets(markdown) {
 
 function collectAgentDocumentation(repositoryRoot) {
   const files = new Set(["AGENTS.md", "CLAUDE.md", "CODING_STANDARDS.md"]);
-  const roots = [resolve(repositoryRoot, "apps"), resolve(repositoryRoot, "docs/agents")];
+  const roots = [
+    resolve(repositoryRoot, "apps"),
+    resolve(repositoryRoot, "docs/agents"),
+  ];
 
   for (const root of roots) {
     walk(root, (path, name) => {
@@ -44,7 +49,8 @@ function collectAgentDocumentation(repositoryRoot) {
         name === "AGENTS.md" ||
         name === "CLAUDE.md" ||
         name === "CODING_STANDARDS.md" ||
-        (path.startsWith(resolve(repositoryRoot, "docs/agents")) && name.endsWith(".md"))
+        (path.startsWith(resolve(repositoryRoot, "docs/agents")) &&
+          name.endsWith(".md"))
       ) {
         files.add(relative(repositoryRoot, path));
       }
@@ -95,7 +101,9 @@ export function checkDocumentation(repositoryRoot = defaultRepositoryRoot) {
       continue;
     }
 
-    for (const target of extractLocalMarkdownTargets(readFileSync(absolutePath, "utf8"))) {
+    for (const target of extractLocalMarkdownTargets(
+      readFileSync(absolutePath, "utf8"),
+    )) {
       const resolvedTarget = resolve(dirname(absolutePath), target);
       if (!existsSync(resolvedTarget)) {
         failures.push(`${path}: local pointer does not resolve: ${target}`);
@@ -106,15 +114,30 @@ export function checkDocumentation(repositoryRoot = defaultRepositoryRoot) {
   const rootAgents = read(repositoryRoot, "AGENTS.md");
   const backendAgents = read(repositoryRoot, "apps/backend/AGENTS.md");
   const context = read(repositoryRoot, "CONTEXT.md");
-  const materialsAdr = read(repositoryRoot, "docs/adr/0002-deep-materials-module.md");
+  const materialsAdr = read(
+    repositoryRoot,
+    "docs/adr/0002-deep-materials-module.md",
+  );
   const generatedTransportAdr = read(
     repositoryRoot,
     "docs/adr/0007-generated-openapi-web-transport.md",
   );
-  const mutableMaterialsAdr = read(repositoryRoot, "docs/adr/0009-one-mutable-material.md");
-  const clientLibraryAdr = read(repositoryRoot, "docs/adr/0011-client-owned-library-catalog.md");
-  const platformSpecification = read(repositoryRoot, "docs/specifications/platform-v1.md");
-  const backendAudit = read(repositoryRoot, "docs/research/backend-architecture-audit.md");
+  const mutableMaterialsAdr = read(
+    repositoryRoot,
+    "docs/adr/0009-one-mutable-material.md",
+  );
+  const clientLibraryAdr = read(
+    repositoryRoot,
+    "docs/adr/0011-client-owned-library-catalog.md",
+  );
+  const platformSpecification = read(
+    repositoryRoot,
+    "docs/specifications/platform-v1.md",
+  );
+  const backendAudit = read(
+    repositoryRoot,
+    "docs/research/backend-architecture-audit.md",
+  );
   const engineeringResearch = read(
     repositoryRoot,
     "docs/research/platform-v1-engineering-contract.md",
@@ -218,8 +241,13 @@ export function checkDocumentation(repositoryRoot = defaultRepositoryRoot) {
     );
   }
 
-  if (rootPackage.scripts["docs:check"] !== "node scripts/check-agent-documentation.mjs") {
-    failures.push("package.json: docs:check must run the agent documentation contract");
+  if (
+    rootPackage.scripts["docs:check"] !==
+    "node scripts/check-agent-documentation.mjs"
+  ) {
+    failures.push(
+      "package.json: docs:check must run the agent documentation contract",
+    );
   }
   if (
     !rootPackage.scripts.check.startsWith("pnpm check:static &&") ||

@@ -23,9 +23,19 @@ export const confirmContactInputSchema = z.strictObject({
   code: z.string().regex(/^[0-9]{6}$/u),
 });
 export const contactFailureCodeSchema = z.enum([
-  "invalid_input", "forbidden", "revision_conflict", "operation_conflict", "rate_limited",
-  "challenge_invalid", "contact_required", "document_changed", "not_found", "provider_unavailable",
-  "internal_error", "unauthorized", "unavailable",
+  "invalid_input",
+  "forbidden",
+  "revision_conflict",
+  "operation_conflict",
+  "rate_limited",
+  "challenge_invalid",
+  "contact_required",
+  "document_changed",
+  "not_found",
+  "provider_unavailable",
+  "internal_error",
+  "unauthorized",
+  "unavailable",
 ]);
 export const contactFailureSchema = z.object({
   ok: z.literal(false),

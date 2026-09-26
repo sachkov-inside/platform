@@ -45,7 +45,12 @@ export async function loadSeriesOrderSnapshot(
     prisma.guideMembership.findMany({
       where: { seriesId },
       orderBy: [{ ordinal: "asc" }, { materialId: "asc" }],
-      select: { chapterId: true, materialId: true, ordinal: true, stepGroup: true },
+      select: {
+        chapterId: true,
+        materialId: true,
+        ordinal: true,
+        stepGroup: true,
+      },
     }),
     prisma.guideChapter.findMany({
       where: { guideId: seriesId },
@@ -60,10 +65,14 @@ export async function loadSeriesOrderSnapshot(
     memberships.length === 0
       ? []
       : await prisma.material.findMany({
-          where: { id: { in: memberships.map(({ materialId }) => materialId) } },
+          where: {
+            id: { in: memberships.map(({ materialId }) => materialId) },
+          },
           select: { id: true, publicationState: true, title: true },
         });
-  const materialById = new Map(materials.map((material) => [material.id, material]));
+  const materialById = new Map(
+    materials.map((material) => [material.id, material]),
+  );
   return {
     archived: series.archivedAt !== null,
     chapters,
@@ -77,7 +86,9 @@ export async function loadSeriesOrderSnapshot(
         materialId,
         ordinal,
         stepGroup,
-        publicationState: publicationStateSchema.parse(material.publicationState),
+        publicationState: publicationStateSchema.parse(
+          material.publicationState,
+        ),
         title: material.title,
       };
     }),
@@ -95,10 +106,12 @@ export async function appendSelectedSeriesMemberships(
     where: { materialId },
     select: { seriesId: true },
   });
-  await lockSeries(
-    transaction,
-    [...new Set([...selectedSeriesIds, ...membershipSeriesIds.map(({ seriesId }) => seriesId)])],
-  );
+  await lockSeries(transaction, [
+    ...new Set([
+      ...selectedSeriesIds,
+      ...membershipSeriesIds.map(({ seriesId }) => seriesId),
+    ]),
+  ]);
 
   const currentMemberships = await transaction.guideMembership.findMany({
     where: { materialId },
@@ -160,15 +173,12 @@ export async function lockMaterialSeries(
     where: { materialId },
     select: { seriesId: true },
   });
-  await lockSeries(
-    transaction,
-    [
-      ...new Set([
-        ...selectedSeriesIds,
-        ...memberships.map(({ seriesId }) => seriesId),
-      ]),
-    ],
-  );
+  await lockSeries(transaction, [
+    ...new Set([
+      ...selectedSeriesIds,
+      ...memberships.map(({ seriesId }) => seriesId),
+    ]),
+  ]);
 }
 
 export async function replaceGuideComposition(
@@ -191,7 +201,9 @@ export async function replaceGuideComposition(
     where: { seriesId: guideId },
     select: { materialId: true },
   });
-  await transaction.guideMembership.deleteMany({ where: { seriesId: guideId } });
+  await transaction.guideMembership.deleteMany({
+    where: { seriesId: guideId },
+  });
   await replaceGuideChapters(transaction, guideId, chapters);
   if (orderedMaterialIds.length > 0) {
     await transaction.guideMembership.createMany({
@@ -219,10 +231,11 @@ export async function replaceGuideComposition(
           select: { id: true },
         });
   const publishedIds = new Set(published.map(({ id }) => id));
-  const publishedMemberships = orderedMaterialIds.flatMap((materialId, index) =>
-    publishedIds.has(materialId)
-      ? [{ materialId, ordinal: index + 1, seriesId: guideId }]
-      : [],
+  const publishedMemberships = orderedMaterialIds.flatMap(
+    (materialId, index) =>
+      publishedIds.has(materialId)
+        ? [{ materialId, ordinal: index + 1, seriesId: guideId }]
+        : [],
   );
   if (publishedMemberships.length > 0) {
     await transaction.publishedMaterialGuideMembership.createMany({
@@ -258,7 +271,9 @@ async function replaceGuideChapters(
   const kept = new Set(chapters.map(({ id }) => id));
   const removed = existing.flatMap(({ id }) => (kept.has(id) ? [] : [id]));
   if (removed.length > 0) {
-    await transaction.guideChapter.deleteMany({ where: { guideId, id: { in: removed } } });
+    await transaction.guideChapter.deleteMany({
+      where: { guideId, id: { in: removed } },
+    });
   }
   const known = new Set(existing.map(({ id }) => id));
   const updatedAt = new Date();

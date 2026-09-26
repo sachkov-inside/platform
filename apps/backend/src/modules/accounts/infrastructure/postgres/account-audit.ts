@@ -18,6 +18,11 @@ export async function appendAccountAuditEvent(
   permission?: PlatformPermission,
 ): Promise<void> {
   await prisma.accountAuditEvent.create({
-    data: { id: randomUUID(), event, accountId: accountId ?? null, permission: permission ?? null },
+    data: {
+      id: randomUUID(),
+      event,
+      accountId: accountId ?? null,
+      permission: permission ?? null,
+    },
   });
 }

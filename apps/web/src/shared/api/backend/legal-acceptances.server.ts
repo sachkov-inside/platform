@@ -3,7 +3,9 @@ import "server-only";
 import { AccountsService } from "./generated/platform-api";
 import { executeGeneratedRequest } from "./transport-core.server";
 
-export type AcceptTermsRequest = Parameters<AccountsService["acceptTerms"]>[0]["requestBody"];
+export type AcceptTermsRequest = Parameters<
+  AccountsService["acceptTerms"]
+>[0]["requestBody"];
 
 /** Whether the terms of use in force are accepted, with the edition the first sign-in accepts. */
 export function requestTermsAcceptance(accessToken: string) {
@@ -14,7 +16,10 @@ export function requestTermsAcceptance(accessToken: string) {
   );
 }
 
-export function requestAcceptTerms(requestBody: AcceptTermsRequest, accessToken: string) {
+export function requestAcceptTerms(
+  requestBody: AcceptTermsRequest,
+  accessToken: string,
+) {
   return executeGeneratedRequest(
     (request) => new AccountsService(request).acceptTerms({ requestBody }),
     200,

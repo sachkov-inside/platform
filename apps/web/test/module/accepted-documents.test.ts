@@ -12,7 +12,11 @@ it("names each accepted document with its date, button and permanent edition add
       acceptedAt: "2026-10-01T09:04:00.000Z",
       screen: "checkout",
       buttonLabel: "Оформить подписку и оплатить 990 ₽",
-      shownTerms: { amountKopecks: 99_000, nextChargeOn: "2026-11-01", periodMonths: 1 },
+      shownTerms: {
+        amountKopecks: 99_000,
+        nextChargeOn: "2026-11-01",
+        periodMonths: 1,
+      },
     },
     {
       acceptanceRef: "4a1d9b4f-2d8c-4d2f-8b66-1b5f2f3c8d22",
@@ -32,6 +36,12 @@ it("names each accepted document with its date, button and permanent edition add
     href: "/legal/recurring-consent/v1",
   });
   expect(items[0]?.acceptedAt).toMatch(/1 октября 2026/u);
-  expect(items[0]?.shownTerms).toMatch(/^следующее списание 990\s₽ — 1 ноября 2026 г\./u);
-  expect(items[1]).toMatchObject({ title: "Условия использования", buttonLabel: null, shownTerms: null });
+  expect(items[0]?.shownTerms).toMatch(
+    /^следующее списание 990\s₽ — 1 ноября 2026 г\./u,
+  );
+  expect(items[1]).toMatchObject({
+    title: "Условия использования",
+    buttonLabel: null,
+    shownTerms: null,
+  });
 });

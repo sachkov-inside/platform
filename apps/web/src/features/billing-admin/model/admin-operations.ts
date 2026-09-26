@@ -378,19 +378,25 @@ export const grantOutcomeSchema = envelope(
 );
 
 export type SaveOfferInput = z.infer<typeof saveOfferInputSchema>;
-export type SavePaymentOptionInput = z.infer<typeof savePaymentOptionInputSchema>;
+export type SavePaymentOptionInput = z.infer<
+  typeof savePaymentOptionInputSchema
+>;
 export type SavePromotionInput = z.infer<typeof savePromotionInputSchema>;
 export type ArchiveInput = z.infer<typeof archiveInputSchema>;
 export type ListPaymentsInput = z.infer<typeof listPaymentsInputSchema>;
 export type PurchaseCommandInput = z.infer<typeof purchaseInputSchema>;
-export type CancelSubscriptionInput = z.infer<typeof cancelSubscriptionInputSchema>;
+export type CancelSubscriptionInput = z.infer<
+  typeof cancelSubscriptionInputSchema
+>;
 export type DecideRefundInput = z.infer<typeof decideRefundInputSchema>;
 export type ExecuteRefundInput = z.infer<typeof executeRefundInputSchema>;
 export type ReadGrantsInput = z.infer<typeof readGrantsInputSchema>;
 export type GrantRow = z.infer<typeof grantRowSchema>;
 export type ClassificationRow = z.infer<typeof classificationRowSchema>;
 export type BatchRow = z.infer<typeof batchRowSchema>;
-export type ReadClassificationInput = z.infer<typeof readClassificationInputSchema>;
+export type ReadClassificationInput = z.infer<
+  typeof readClassificationInputSchema
+>;
 export type ClassifyAccountInput = z.infer<typeof classifyAccountInputSchema>;
 export type ClassificationOutcome = z.infer<typeof classificationOutcomeSchema>;
 export type AccountClassification = z.infer<typeof accountClassificationSchema>;

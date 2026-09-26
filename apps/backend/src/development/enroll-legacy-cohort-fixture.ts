@@ -20,6 +20,8 @@ export async function enrollLegacyCohortFixture(
     },
     skipDuplicates: true,
   });
-  await prisma.legacyClassification.updateMany({ where: { accountId, sourceRef: "full-stack-synthetic-cohort" },
-    data: { bridgeContentScope } });
+  await prisma.legacyClassification.updateMany({
+    where: { accountId, sourceRef: "full-stack-synthetic-cohort" },
+    data: { bridgeContentScope },
+  });
 }

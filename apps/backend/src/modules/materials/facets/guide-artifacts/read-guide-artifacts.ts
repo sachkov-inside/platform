@@ -52,7 +52,11 @@ export async function listGuideArtifacts(
       }),
     };
   } catch (error) {
-    return dependencyFailure({ module: "materials", operation: "listForGuide" }, error, dependencyUnavailable());
+    return dependencyFailure(
+      { module: "materials", operation: "listForGuide" },
+      error,
+      dependencyUnavailable(),
+    );
   }
 }
 
@@ -84,7 +88,11 @@ export async function listReusableGuideArtifacts(
       }),
     };
   } catch (error) {
-    return dependencyFailure({ module: "materials", operation: "listReusable" }, error, dependencyUnavailable());
+    return dependencyFailure(
+      { module: "materials", operation: "listReusable" },
+      error,
+      dependencyUnavailable(),
+    );
   }
 }
 
@@ -124,7 +132,11 @@ export async function loadReaderGuideArtifacts(
       }),
     };
   } catch (error) {
-    return dependencyFailure({ module: "materials", operation: "loadForReader" }, error, dependencyUnavailable());
+    return dependencyFailure(
+      { module: "materials", operation: "loadForReader" },
+      error,
+      dependencyUnavailable(),
+    );
   }
 }
 
@@ -174,7 +186,11 @@ export async function loadGuideArtifactFileDelivery(
       },
     };
   } catch (error) {
-    return dependencyFailure({ module: "materials", operation: "loadFileDelivery" }, error, dependencyUnavailable());
+    return dependencyFailure(
+      { module: "materials", operation: "loadFileDelivery" },
+      error,
+      dependencyUnavailable(),
+    );
   }
 }
 
@@ -183,19 +199,19 @@ export async function loadGuideArtifactAccessFacts(
   artifactIds: readonly string[],
 ): Promise<readonly GuideArtifactAccessFacts[]> {
   const { prisma } = context;
-  const ids = artifactIds.filter((value) => uuidSchema.safeParse(value).success);
+  const ids = artifactIds.filter(
+    (value) => uuidSchema.safeParse(value).success,
+  );
   if (ids.length === 0) return [];
   const rows = await prisma.guideArtifact.findMany({
     include: { placements: { select: { guideId: true } } },
     where: { id: { in: ids } },
   });
-  return rows.map(
-    (row): GuideArtifactAccessFacts => ({
-      access: readAccess(row.access),
-      archived: row.state === "archived",
-      artifactId: row.id,
-      guideIds: row.placements.map(({ guideId }) => guideId),
-      version: row.currentVersion,
-    }),
-  );
+  return rows.map((row): GuideArtifactAccessFacts => ({
+    access: readAccess(row.access),
+    archived: row.state === "archived",
+    artifactId: row.id,
+    guideIds: row.placements.map(({ guideId }) => guideId),
+    version: row.currentVersion,
+  }));
 }

@@ -1,34 +1,61 @@
 import { expect, it } from "vitest";
 
 import { acceptedPurchaseDocuments } from "@/features/billing-checkout/model/checkout";
-import type { BillingQuote, LegalDocument, PaymentMode } from "@/entities/subscription";
+import type {
+  BillingQuote,
+  LegalDocument,
+  PaymentMode,
+} from "@/entities/subscription";
 
 /** Каталог, в котором две оферты одного вида: именно он ломал покупку до этой правки. */
 const documents: readonly LegalDocument[] = [
   {
-    kind: "terms", appliesTo: ["one_time"], documentId: "purchase", version: "1",
-    digest: "a".repeat(64), url: "https://inside.example.test/legal/purchase", text: "",
+    kind: "terms",
+    appliesTo: ["one_time"],
+    documentId: "purchase",
+    version: "1",
+    digest: "a".repeat(64),
+    url: "https://inside.example.test/legal/purchase",
+    text: "",
   },
   {
-    kind: "terms", appliesTo: ["subscription"], documentId: "subscription", version: "1",
-    digest: "b".repeat(64), url: "https://inside.example.test/legal/subscription", text: "",
+    kind: "terms",
+    appliesTo: ["subscription"],
+    documentId: "subscription",
+    version: "1",
+    digest: "b".repeat(64),
+    url: "https://inside.example.test/legal/subscription",
+    text: "",
   },
   {
-    kind: "recurring", appliesTo: ["subscription"], documentId: "recurring-consent", version: "1",
-    digest: "c".repeat(64), url: "https://inside.example.test/legal/recurring-consent", text: "",
+    kind: "recurring",
+    appliesTo: ["subscription"],
+    documentId: "recurring-consent",
+    version: "1",
+    digest: "c".repeat(64),
+    url: "https://inside.example.test/legal/recurring-consent",
+    text: "",
   },
 ];
 
 /** Расчёт несёт режим покупки: правило берёт его оттуда же, откуда берут панель и приложение. */
 const quoteFor = (mode: PaymentMode): BillingQuote =>
-  ({ snapshot: { paymentOption: { mode } } } as unknown as BillingQuote);
+  ({ snapshot: { paymentOption: { mode } } }) as unknown as BillingQuote;
 
 it("кнопка принимает только обязательные документы своей покупки", () => {
   const optional: LegalDocument = {
-    kind: "personal_data", appliesTo: ["one_time", "subscription"], documentId: "personal-data", version: "1",
-    digest: "d".repeat(64), url: "https://inside.example.test/legal/personal-data", text: "",
+    kind: "personal_data",
+    appliesTo: ["one_time", "subscription"],
+    documentId: "personal-data",
+    version: "1",
+    digest: "d".repeat(64),
+    url: "https://inside.example.test/legal/personal-data",
+    text: "",
   };
-  const accepted = acceptedPurchaseDocuments([...documents, optional], quoteFor("one_time"));
+  const accepted = acceptedPurchaseDocuments(
+    [...documents, optional],
+    quoteFor("one_time"),
+  );
 
   expect(accepted.map((document) => document.documentId)).toEqual(["purchase"]);
 });
@@ -42,15 +69,19 @@ it("разовая покупка принимает свою оферту, а �
 it("в команду не уходит два документа одного вида ни при каком режиме", () => {
   // Приложение отвергает повторяющиеся виды целиком, поэтому покупатель увидел бы отказ вместо
   // оплаты. Эта проверка падает раньше него.
-  const subscription = acceptedPurchaseDocuments(documents, quoteFor("subscription"));
+  const subscription = acceptedPurchaseDocuments(
+    documents,
+    quoteFor("subscription"),
+  );
   expect(subscription.map((document) => document.documentId)).toEqual([
     "subscription",
     "recurring-consent",
   ]);
 
   for (const mode of ["one_time", "subscription"] as const) {
-    const kinds = acceptedPurchaseDocuments(documents, quoteFor(mode))
-      .map((document) => document.kind);
+    const kinds = acceptedPurchaseDocuments(documents, quoteFor(mode)).map(
+      (document) => document.kind,
+    );
 
     expect(new Set(kinds).size).toBe(kinds.length);
   }

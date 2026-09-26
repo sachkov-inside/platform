@@ -2,7 +2,10 @@ import { randomUUID } from "node:crypto";
 
 import { Module } from "@nestjs/common";
 import { NestFactory, Reflector } from "@nestjs/core";
-import { FastifyAdapter, type NestFastifyApplication } from "@nestjs/platform-fastify";
+import {
+  FastifyAdapter,
+  type NestFastifyApplication,
+} from "@nestjs/platform-fastify";
 import { Ajv } from "ajv";
 import addFormats from "ajv-formats";
 import { afterAll, beforeAll, describe, expect, test } from "vitest";
@@ -35,7 +38,10 @@ import type {
   CommunityDeliveryOutcome,
   CommunityEntitlementProvider,
 } from "../../src/modules/telegram-membership/ports/community-entitlement-provider.js";
-import { parsePlatformConfig, PLATFORM_CONFIG } from "../../src/config/platform-config.js";
+import {
+  parsePlatformConfig,
+  PLATFORM_CONFIG,
+} from "../../src/config/platform-config.js";
 import { Prisma } from "../../src/infrastructure/prisma/index.js";
 import { HttpCachePolicyInterceptor } from "../../src/infrastructure/http/http-cache-policy.js";
 import { CommunityDispatchController } from "../../src/modules/telegram-membership/adapters/nest/community-dispatch.controller.js";
@@ -77,7 +83,9 @@ class ProviderDouble implements CommunityEntitlementProvider {
   }
 
   set(command: CommunitySetCommand): Promise<CommunityDeliveryOutcome> {
-    expect(validateWire(command), JSON.stringify(validateWire.errors)).toBe(true);
+    expect(validateWire(command), JSON.stringify(validateWire.errors)).toBe(
+      true,
+    );
     this.sent.push(command);
     if (this.answer === "unavailable") {
       return Promise.resolve({ kind: "unavailable" });
@@ -117,7 +125,9 @@ class ProviderDouble implements CommunityEntitlementProvider {
       status: observation.status,
       updatedAt: command.issuedAt,
     };
-    expect(validateWire(result), JSON.stringify(validateWire.errors)).toBe(true);
+    expect(validateWire(result), JSON.stringify(validateWire.errors)).toBe(
+      true,
+    );
     return { kind: "result", result };
   }
 }
@@ -178,7 +188,11 @@ describe("community entitlement delivery (real PostgreSQL and real facets; synth
 
   /** Records a confirmed link exactly as the linking protocol does: one linked row. */
   function link(accountId: string, identityRef: string): Promise<string> {
-    return linkTelegramAccount(database.prisma, { accountId, identityRef, now });
+    return linkTelegramAccount(database.prisma, {
+      accountId,
+      identityRef,
+      now,
+    });
   }
 
   async function unlink(accountId: string): Promise<void> {
@@ -585,7 +599,11 @@ describe("community entitlement delivery (real PostgreSQL and real facets; synth
     });
     expect(
       await app.authorizeDispatch(
-        authorization(randomUUID(), live?.payloadDigest ?? "", "community.approve_join"),
+        authorization(
+          randomUUID(),
+          live?.payloadDigest ?? "",
+          "community.approve_join",
+        ),
       ),
     ).toMatchObject({
       ok: true,
@@ -617,7 +635,10 @@ describe("community entitlement delivery (real PostgreSQL and real facets; synth
     // No explicit projection call: the audit cursor alone must find this Account.
     await app.sweep();
     const [queued] = await operations(account);
-    expect(queued).toMatchObject({ delivery: "accepted", resultStatus: "accepted" });
+    expect(queued).toMatchObject({
+      delivery: "accepted",
+      resultStatus: "accepted",
+    });
 
     provider.observe(queued?.operationId ?? "", "applied", "member");
     now = new Date(new Date(start).getTime() + 61_000);
@@ -639,7 +660,11 @@ describe("community entitlement delivery (real PostgreSQL and real facets; synth
     });
 
     // A member who left is noticed by the same reconciliation, without a new revision.
-    provider.observe(queued?.operationId ?? "", "waiting_for_join", "not_member");
+    provider.observe(
+      queued?.operationId ?? "",
+      "waiting_for_join",
+      "not_member",
+    );
     now = new Date(new Date(start).getTime() + 122_000);
     await app.sweep();
     const after = await app.readDelivery(owner, account);
@@ -648,7 +673,10 @@ describe("community entitlement delivery (real PostgreSQL and real facets; synth
       value: {
         desired: { entitlementRevision: 1 },
         operations: [
-          { appliedState: "waiting_for_join", observedMembership: "not_member" },
+          {
+            appliedState: "waiting_for_join",
+            observedMembership: "not_member",
+          },
         ],
       },
     });
@@ -664,7 +692,8 @@ describe("community entitlement delivery (real PostgreSQL and real facets; synth
     const stays = await member();
     const left = await member();
     const entitled = await member();
-    for (const account of [stays, left, entitled]) await link(account, `identity-${account}`);
+    for (const account of [stays, left, entitled])
+      await link(account, `identity-${account}`);
     await grantCommunity(stays, finish);
     await grantCommunity(left, finish);
     await grantCommunity(entitled, null);
@@ -678,7 +707,10 @@ describe("community entitlement delivery (real PostgreSQL and real facets; synth
     now = new Date(new Date(start).getTime() + 61_000);
     await app.sweep();
     // Everyone in the chat still holds a right: the list has nobody to remove.
-    expect(await app.listMembersWithoutRight(owner)).toMatchObject({ ok: true, value: { items: [], truncated: false } });
+    expect(await app.listMembersWithoutRight(owner)).toMatchObject({
+      ok: true,
+      value: { items: [], truncated: false },
+    });
 
     // Two finite rights end. Removals stay disabled, so Telegram keeps reporting one of them in the chat.
     now = new Date(finish);
@@ -694,9 +726,15 @@ describe("community entitlement delivery (real PostgreSQL and real facets; synth
     const listed = await app.listMembersWithoutRight(owner);
     expect(listed).toMatchObject({
       ok: true,
-      value: { items: [{ accountId: stays, telegramIdentityRef: `identity-${stays}` }], truncated: false },
+      value: {
+        items: [{ accountId: stays, telegramIdentityRef: `identity-${stays}` }],
+        truncated: false,
+      },
     });
-    expect(await app.listMembersWithoutRight(stays)).toEqual({ ok: false, error: { code: "forbidden" } });
+    expect(await app.listMembersWithoutRight(stays)).toEqual({
+      ok: false,
+      error: { code: "forbidden" },
+    });
   });
 
   test("a rejoin under the same right is approved without a new entitlement revision", async () => {
@@ -713,7 +751,11 @@ describe("community entitlement delivery (real PostgreSQL and real facets; synth
     await app.sweep();
 
     // The member leaves the chat; the right itself did not change.
-    provider.observe(granted?.operationId ?? "", "waiting_for_join", "not_member");
+    provider.observe(
+      granted?.operationId ?? "",
+      "waiting_for_join",
+      "not_member",
+    );
     now = new Date(new Date(start).getTime() + 122_000);
     await app.sweep();
     expect(await operations(account)).toHaveLength(1);
@@ -756,7 +798,10 @@ describe("community entitlement delivery (real PostgreSQL and real facets; synth
     expect(provider.sent[0]).toEqual(provider.sent[1]);
     const rows = await operations(account);
     expect(rows).toHaveLength(1);
-    expect(rows[0]).toMatchObject({ delivery: "accepted", entitlementRevision: 1 });
+    expect(rows[0]).toMatchObject({
+      delivery: "accepted",
+      entitlementRevision: 1,
+    });
   });
 
   test("an unavailable check is never remembered as the permit answer", async () => {
@@ -780,7 +825,10 @@ describe("community entitlement delivery (real PostgreSQL and real facets; synth
       grants: {
         readChangedAccounts: (query) => grants.readChangedAccounts(query),
         resolveCapabilities: () =>
-          Promise.resolve({ ok: false as const, error: { code: "unavailable" as const } }),
+          Promise.resolve({
+            ok: false as const,
+            error: { code: "unavailable" as const },
+          }),
       },
       links,
       prisma: database.prisma,
@@ -847,7 +895,8 @@ describe("community entitlement delivery (real PostgreSQL and real facets; synth
 
     const rows = await operations(account);
     const closing = rows.find(
-      (row) => row.accountRef === first?.accountRef && row.purpose === "cleanup",
+      (row) =>
+        row.accountRef === first?.accountRef && row.purpose === "cleanup",
     );
     // The recipient that was told to admit is told to stop, even though the
     // Telegram identity behind it never changed.
@@ -870,7 +919,8 @@ describe("community entitlement delivery (real PostgreSQL and real facets; synth
       TELEGRAM_COMMUNITY_DISPATCH_SECRET: dispatchSecret,
       TELEGRAM_COMMUNITY_ENTITLEMENT_ENDPOINT:
         "https://telegram.example.test/integrations/platform/v1/community-entitlements",
-      TELEGRAM_COMMUNITY_ENTITLEMENT_SECRET: "community-provider-http-test-secret",
+      TELEGRAM_COMMUNITY_ENTITLEMENT_SECRET:
+        "community-provider-http-test-secret",
     });
     @Module({
       controllers: [CommunityDispatchController],
@@ -940,12 +990,18 @@ describe("community entitlement delivery (real PostgreSQL and real facets; synth
       });
 
       // Without a parseable operationId there is no correlation to invent.
-      const malformed = await send({ contractVersion: "inside.billing-dispatch.v1" });
+      const malformed = await send({
+        contractVersion: "inside.billing-dispatch.v1",
+      });
       expect(malformed.statusCode).toBe(400);
       expect(malformed.json()).toEqual({ code: "malformed" });
 
       const denied = await send(
-        authorization(randomUUID(), live?.payloadDigest ?? "", "community.approve_join"),
+        authorization(
+          randomUUID(),
+          live?.payloadDigest ?? "",
+          "community.approve_join",
+        ),
       );
       expect(denied.statusCode).toBe(200);
       expect(denied.json()).toMatchObject({

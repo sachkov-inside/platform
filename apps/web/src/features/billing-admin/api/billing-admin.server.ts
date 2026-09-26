@@ -76,8 +76,12 @@ export function handleSaveOffer(request: Request): Promise<Response> {
         id: input.value.id,
         name: input.value.name,
         benefits: [...input.value.benefits],
-        ...(input.value.availableForAssignment === undefined ? {} : { availableForAssignment: input.value.availableForAssignment }),
-        ...(input.value.contentScope === undefined ? {} : { contentScope: input.value.contentScope }),
+        ...(input.value.availableForAssignment === undefined
+          ? {}
+          : { availableForAssignment: input.value.availableForAssignment }),
+        ...(input.value.contentScope === undefined
+          ? {}
+          : { contentScope: input.value.contentScope }),
         ...(input.value.benefitPeriods === undefined
           ? {}
           : { benefitPeriods: [...input.value.benefitPeriods] }),
@@ -135,7 +139,9 @@ export function handleSavePaymentOption(request: Request): Promise<Response> {
   );
 }
 
-export function handleArchivePaymentOption(request: Request): Promise<Response> {
+export function handleArchivePaymentOption(
+  request: Request,
+): Promise<Response> {
   return ownerCommand(
     request,
     archiveInputSchema,
@@ -338,7 +344,9 @@ export function handleRevokeGrant(request: Request): Promise<Response> {
  * Владельческий каталог для серверного рендера `/authoring/billing`: он видит и выключенные
  * из продажи предложения, поэтому не может опираться на публичную витрину.
  */
-export async function loadBillingOffersForOwner(): Promise<readonly PriceSnapshot[]> {
+export async function loadBillingOffersForOwner(): Promise<
+  readonly PriceSnapshot[]
+> {
   try {
     const accessToken = await getPlatformAccessToken(readLogtoBffConfig());
     const result = await requestManageBilling(
@@ -347,7 +355,8 @@ export async function loadBillingOffersForOwner(): Promise<readonly PriceSnapsho
     );
     if (!result.ok) return [];
     const parsed = catalogOffersOutcomeSchema.safeParse(result.body);
-    if (!parsed.success || parsed.data.result.outcome !== "catalogOffers") return [];
+    if (!parsed.success || parsed.data.result.outcome !== "catalogOffers")
+      return [];
     return parsed.data.result.items;
   } catch {
     return [];

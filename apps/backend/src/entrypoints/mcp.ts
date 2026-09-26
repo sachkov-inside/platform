@@ -38,7 +38,7 @@ async function bootstrap(): Promise<void> {
   const server = createMcpHttpServer({
     accounts: application.get<Accounts>(ACCOUNTS),
     authoring: application.get<MaterialAuthoring>(MATERIAL_AUTHORING),
-      videos: application.get<Videos>(VIDEOS),
+    videos: application.get<Videos>(VIDEOS),
     communications: application.get(Communications),
     billing: application.get(BillingOperations),
     config: mcpConfig,
@@ -47,13 +47,19 @@ async function bootstrap(): Promise<void> {
     tokenVerifier: application.get<LogtoAccessTokenVerifier>(
       LOGTO_ACCESS_TOKEN_VERIFIER,
     ),
-    onError: (error) => writeLog("error", "request_failed", { error: describeError(error) }),
+    onError: (error) =>
+      writeLog("error", "request_failed", { error: describeError(error) }),
   });
 
   try {
-    writeLog("info", "process_ready", { ...(await application.get(OperationalReadiness).check("mcp")) });
+    writeLog("info", "process_ready", {
+      ...(await application.get(OperationalReadiness).check("mcp")),
+    });
     const endpoint = await server.listen();
-    writeLog("info", "mcp_listening", { process: "mcp", endpoint: endpoint.href });
+    writeLog("info", "mcp_listening", {
+      process: "mcp",
+      endpoint: endpoint.href,
+    });
     await shutdown.received;
   } finally {
     shutdown.dispose();

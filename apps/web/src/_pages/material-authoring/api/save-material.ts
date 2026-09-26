@@ -7,7 +7,6 @@ import {
 import { materialFormatSchema } from "@/shared/api/material-format";
 import { guideRemovalsFromProblem } from "@/shared/lib/guide-removal";
 
-
 import { randomUUID } from "node:crypto";
 
 import { z } from "zod";
@@ -85,7 +84,10 @@ export async function executeSaveMaterial(
   try {
     saved = await dependencies.save(parsed.value, accessToken);
   } catch (error) {
-    if (error instanceof BackendConnectionError && error.code === "unavailable") {
+    if (
+      error instanceof BackendConnectionError &&
+      error.code === "unavailable"
+    ) {
       return { kind: "infrastructure_error", reference: error.code };
     }
     throw error;
@@ -106,14 +108,15 @@ export async function executeSaveMaterial(
   };
 }
 
-function parseForm(
-  formData: FormData,
-):
+function parseForm(formData: FormData):
   | {
       readonly ok: true;
       readonly value: Parameters<typeof requestMaterialSave>[0];
     }
-  | { readonly issues: readonly MaterialValidationIssue[]; readonly ok: false } {
+  | {
+      readonly issues: readonly MaterialValidationIssue[];
+      readonly ok: false;
+    } {
   const parsed = formSchema.safeParse({
     access: formData.get("access"),
     confirmedGuideRemovals: formData.getAll("confirmedGuideRemovals"),
@@ -154,22 +157,29 @@ function parseForm(
       ...(parsed.data.confirmedGuideRemovals.length === 0
         ? {}
         : { confirmedGuideRemovals: parsed.data.confirmedGuideRemovals }),
-      deleteVideoId: parsed.data.deleteVideoId === "none" ? null : parsed.data.deleteVideoId,
+      deleteVideoId:
+        parsed.data.deleteVideoId === "none" ? null : parsed.data.deleteVideoId,
       detachVideoIds: parsed.data.detachVideoIds,
-      difficulty: parsed.data.difficulty === "unassigned" ? null : parsed.data.difficulty,
+      difficulty:
+        parsed.data.difficulty === "unassigned" ? null : parsed.data.difficulty,
       outcomes: parsed.data.outcomes.filter(Boolean),
       document: documentFields.document,
       expectedContentVersion: parsed.data.expectedContentVersion,
-      formatId: parsed.data.formatId === "unassigned" ? null : parsed.data.formatId,
+      formatId:
+        parsed.data.formatId === "unassigned" ? null : parsed.data.formatId,
       idempotencyKey: `web-save-${parsed.data.submissionId}`,
       materialId: parsed.data.materialId,
       publicationState: parsed.data.publicationState,
-      primaryVideoId: parsed.data.primaryVideoId === "none" ? null : parsed.data.primaryVideoId,
+      primaryVideoId:
+        parsed.data.primaryVideoId === "none"
+          ? null
+          : parsed.data.primaryVideoId,
       seriesIds: documentFields.seriesIds,
       summary: emptyToNull(parsed.data.summary),
       tagIds: parsed.data.tagIds,
       title: emptyToNull(parsed.data.title),
-      topicId: parsed.data.topicId === "unassigned" ? null : parsed.data.topicId,
+      topicId:
+        parsed.data.topicId === "unassigned" ? null : parsed.data.topicId,
     },
   };
 }
@@ -184,10 +194,16 @@ function mapSaveProblem(
   if (!problem.success) {
     throw new TypeError("Malformed Material Save problem response");
   }
-  if (result.response.status === 404 && problem.data.code === "material_not_found") {
+  if (
+    result.response.status === 404 &&
+    problem.data.code === "material_not_found"
+  ) {
     return { kind: "not_found" };
   }
-  const removals = result.response.status === 409 ? guideRemovalsFromProblem(result.problem) : null;
+  const removals =
+    result.response.status === 409
+      ? guideRemovalsFromProblem(result.problem)
+      : null;
   if (removals !== null) {
     return { guides: removals, kind: "removal_confirmation_required" };
   }
@@ -218,7 +234,10 @@ function mapSaveProblem(
       kind: "invalid_input",
     };
   }
-  if (result.response.status === 503 && problem.data.code === "dependency_unavailable") {
+  if (
+    result.response.status === 503 &&
+    problem.data.code === "dependency_unavailable"
+  ) {
     return {
       kind: "infrastructure_error",
       reference: problem.data.correlationId ?? problem.data.code,
@@ -227,7 +246,10 @@ function mapSaveProblem(
   throw new TypeError(`Unexpected Material Save problem: ${problem.data.code}`);
 }
 
-function mapBackendIssue(issue: { readonly code: string; readonly path: string }) {
+function mapBackendIssue(issue: {
+  readonly code: string;
+  readonly path: string;
+}) {
   if (issue.code === "outcomes_too_few") {
     return {
       message: `Оставьте «Чему научишься» пустым или напишите ${String(MATERIAL_OUTCOMES.minPublishedCount)}–${String(MATERIAL_OUTCOMES.maxCount)} пункта.`,
@@ -236,20 +258,20 @@ function mapBackendIssue(issue: { readonly code: string; readonly path: string }
   }
   if (issue.code === "membership_outside_product") {
     return {
-      message: "Закрытый материал публикуется только внутри продукта: добавьте его в руководство или откройте всем.",
+      message:
+        "Закрытый материал публикуется только внутри продукта: добавьте его в руководство или откройте всем.",
       path: issue.path,
     };
   }
-  const message =
-    issue.path.endsWith("/title")
-      ? "Укажите название перед публикацией."
-      : issue.path.endsWith("/summary")
-        ? "Укажите краткое описание перед публикацией."
-        : issue.path.endsWith("/topicId")
-          ? "Назначьте тему перед публикацией."
-          : issue.path.endsWith("/formatId")
-            ? "Назначьте формат перед публикацией."
-            : `Проверьте поле ${issue.path}.`;
+  const message = issue.path.endsWith("/title")
+    ? "Укажите название перед публикацией."
+    : issue.path.endsWith("/summary")
+      ? "Укажите краткое описание перед публикацией."
+      : issue.path.endsWith("/topicId")
+        ? "Назначьте тему перед публикацией."
+        : issue.path.endsWith("/formatId")
+          ? "Назначьте формат перед публикацией."
+          : `Проверьте поле ${issue.path}.`;
   return { message, path: issue.path };
 }
 

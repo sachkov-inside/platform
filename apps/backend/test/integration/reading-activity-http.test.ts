@@ -37,9 +37,12 @@ describe("ReadingActivity HTTP", () => {
       response.setHeader("content-type", "application/json");
       response.end(JSON.stringify({ keys: [publicJwk] }));
     });
-    await new Promise<void>((resolve) => jwksServer.listen(0, "127.0.0.1", resolve));
+    await new Promise<void>((resolve) =>
+      jwksServer.listen(0, "127.0.0.1", resolve),
+    );
     const address = jwksServer.address();
-    if (address === null || typeof address === "string") throw new Error("missing JWKS port");
+    if (address === null || typeof address === "string")
+      throw new Error("missing JWKS port");
 
     database = await createMigratedTestDatabase();
     app = await createApiApplication(
@@ -49,7 +52,8 @@ describe("ReadingActivity HTTP", () => {
         LOGTO_ISSUER: issuer,
         LOGTO_AUDIENCE: audience,
         LOGTO_JWKS_URL: `http://127.0.0.1:${String(address.port)}/jwks`,
-        IDENTITY_EMAIL_FINGERPRINT_KEY: "accounts-api-test-email-fingerprint-key",
+        IDENTITY_EMAIL_FINGERPRINT_KEY:
+          "accounts-api-test-email-fingerprint-key",
       }),
       { logger: false },
     );
@@ -61,106 +65,338 @@ describe("ReadingActivity HTTP", () => {
     await app.close();
     await database.dispose();
     await new Promise<void>((resolve, reject) =>
-      jwksServer.close((error) => (error === undefined ? resolve() : reject(error))),
+      jwksServer.close((error) =>
+        error === undefined ? resolve() : reject(error),
+      ),
     );
   });
 
   test("trusted identity, personal no-store responses, conflict state, replay and bounded input", async () => {
     const token = await signToken();
-    const token2 = await signToken({ subject: "another", email: "another@example.test" });
+    const token2 = await signToken({
+      subject: "another",
+      email: "another@example.test",
+    });
     const server = declaredServer(app.getHttpAdapter().getInstance());
     for (const bearer of [token, token2]) {
-      expect((await server.inject({ method: "POST", url: "/accounts", headers: { authorization: `Bearer ${bearer}` } })).statusCode).toBe(201);
+      expect(
+        (
+          await server.inject({
+            method: "POST",
+            url: "/accounts",
+            headers: { authorization: `Bearer ${bearer}` },
+          })
+        ).statusCode,
+      ).toBe(201);
     }
-    const topicId = randomUUID(); const formatId = "note"; const actor = randomUUID(); const seriesId = randomUUID();
-    await database.prisma.topic.create({ data: { id: topicId, name: "Reading", slug: "reading" } });
+    const topicId = randomUUID();
+    const formatId = "note";
+    const actor = randomUUID();
+    const seriesId = randomUUID();
+    await database.prisma.topic.create({
+      data: { id: topicId, name: "Reading", slug: "reading" },
+    });
 
-    await database.prisma.guide.create({ data: { id: seriesId, name: "Series", slug: "series" } });
-    const materials = assembleMaterials({ prisma: database.prisma, authorPolicy: { canManage: () => true } });
-    const created = await materials.authoring.createDraft({ actor, idempotencyKey: randomUUID(),
-      metadata: { title: "Personal progress", summary: "HTTP test", access: "free", topicId, formatId, tagIds: [], difficulty: null, outcomes: [], seriesIds: [seriesId] },
+    await database.prisma.guide.create({
+      data: { id: seriesId, name: "Series", slug: "series" },
+    });
+    const materials = assembleMaterials({
+      prisma: database.prisma,
+      authorPolicy: { canManage: () => true },
+    });
+    const created = await materials.authoring.createDraft({
+      actor,
+      idempotencyKey: randomUUID(),
+      metadata: {
+        title: "Personal progress",
+        summary: "HTTP test",
+        access: "free",
+        topicId,
+        formatId,
+        tagIds: [],
+        difficulty: null,
+        outcomes: [],
+        seriesIds: [seriesId],
+      },
       body: representativeDocument("Public content stays public."),
     });
     if (!created.ok) throw new Error(created.error.code);
-    const published = await materials.authoring.transitionPublication({ actor, materialId: created.value.materialId, expectedContentVersion: 1, publicationState: "published", idempotencyKey: randomUUID() });
+    const published = await materials.authoring.transitionPublication({
+      actor,
+      materialId: created.value.materialId,
+      expectedContentVersion: 1,
+      publicationState: "published",
+      idempotencyKey: randomUUID(),
+    });
     if (!published.ok) throw new Error(published.error.code);
     const materialId = published.value.materialId;
     const url = `/reading-activity/materials/${materialId}`;
-    const payload = { commandId: randomUUID(), expectedVersion: 0, isRead: true };
+    const payload = {
+      commandId: randomUUID(),
+      expectedVersion: 0,
+      isRead: true,
+    };
     const headers = { authorization: `Bearer ${token}` };
-    expect((await server.inject({ method: "PUT", url, payload })).statusCode).toBe(401);
-    expect((await server.inject({ method: "PUT", url, headers, payload: { ...payload, accountId: randomUUID() } })).statusCode).toBe(400);
+    expect(
+      (await server.inject({ method: "PUT", url, payload })).statusCode,
+    ).toBe(401);
+    expect(
+      (
+        await server.inject({
+          method: "PUT",
+          url,
+          headers,
+          payload: { ...payload, accountId: randomUUID() },
+        })
+      ).statusCode,
+    ).toBe(400);
     const saved = await server.inject({ method: "PUT", url, headers, payload });
     expect(saved.statusCode).toBe(200);
     expect(saved.headers["cache-control"]).toBe("private, no-store");
-    expect(saved.json()).toMatchObject({ changed: true, state: { materialId, isRead: true, version: 1 } });
-    const stale = await server.inject({ method: "PUT", url, headers, payload: { ...payload, commandId: randomUUID() } });
+    expect(saved.json()).toMatchObject({
+      changed: true,
+      state: { materialId, isRead: true, version: 1 },
+    });
+    const stale = await server.inject({
+      method: "PUT",
+      url,
+      headers,
+      payload: { ...payload, commandId: randomUUID() },
+    });
     expect(stale.statusCode).toBe(409);
     expect(stale.headers["content-type"]).toContain("application/problem+json");
-    expect(stale.json()).toMatchObject({ code: "stale_version", current: { materialId, isRead: true, version: 1 } });
-    const unmarked = await server.inject({ method: "PUT", url, headers, payload: { isRead: false, expectedVersion: 1, commandId: randomUUID() } });
+    expect(stale.json()).toMatchObject({
+      code: "stale_version",
+      current: { materialId, isRead: true, version: 1 },
+    });
+    const unmarked = await server.inject({
+      method: "PUT",
+      url,
+      headers,
+      payload: { isRead: false, expectedVersion: 1, commandId: randomUUID() },
+    });
     expect(unmarked.statusCode).toBe(200);
-    const replay = await server.inject({ method: "PUT", url, headers, payload });
-    expect(replay.json()).toMatchObject({ replayed: true, state: { isRead: true, version: 1 } });
-    for (const [bearer, version] of [[token, 2], [token2, 0]] as const) {
-      const states = await server.inject({ method: "POST", url: "/reading-activity/materials/query", headers: { authorization: `Bearer ${bearer}` }, payload: { materialIds: [materialId] } });
+    const replay = await server.inject({
+      method: "PUT",
+      url,
+      headers,
+      payload,
+    });
+    expect(replay.json()).toMatchObject({
+      replayed: true,
+      state: { isRead: true, version: 1 },
+    });
+    for (const [bearer, version] of [
+      [token, 2],
+      [token2, 0],
+    ] as const) {
+      const states = await server.inject({
+        method: "POST",
+        url: "/reading-activity/materials/query",
+        headers: { authorization: `Bearer ${bearer}` },
+        payload: { materialIds: [materialId] },
+      });
       expect(states.statusCode).toBe(200);
       expect(states.headers["cache-control"]).toBe("private, no-store");
-      expect(states.json()).toMatchObject([{ materialId, isRead: false, version }]);
+      expect(states.json()).toMatchObject([
+        { materialId, isRead: false, version },
+      ]);
     }
-    expect((await server.inject({ method: "POST", url: "/reading-activity/materials/query", headers, payload: { materialIds: Array.from({ length: 101 }, () => materialId) } })).statusCode).toBe(400);
-    const progress = await server.inject({ method: "GET", url: `/reading-activity/series/${seriesId}`, headers });
+    expect(
+      (
+        await server.inject({
+          method: "POST",
+          url: "/reading-activity/materials/query",
+          headers,
+          payload: {
+            materialIds: Array.from({ length: 101 }, () => materialId),
+          },
+        })
+      ).statusCode,
+    ).toBe(400);
+    const progress = await server.inject({
+      method: "GET",
+      url: `/reading-activity/series/${seriesId}`,
+      headers,
+    });
     expect(progress.statusCode).toBe(200);
     expect(progress.headers["cache-control"]).toBe("private, no-store");
-    expect(progress.json()).toEqual({ seriesId, read: 0, total: 1, allRead: false });
-    const guideProgress = await server.inject({ method: "GET", url: `/reading-activity/guides/${seriesId}`, headers });
+    expect(progress.json()).toEqual({
+      seriesId,
+      read: 0,
+      total: 1,
+      allRead: false,
+    });
+    const guideProgress = await server.inject({
+      method: "GET",
+      url: `/reading-activity/guides/${seriesId}`,
+      headers,
+    });
     expect(guideProgress.statusCode).toBe(200);
     expect(guideProgress.json()).toEqual(progress.json());
     expect(guideProgress.headers["cache-control"]).toBe("private, no-store");
-    expect((await server.inject({ method: "GET", url: `/reading-activity/guides/${seriesId}` })).statusCode).toBe(401);
-    const legacyPage = await server.inject({ method: "GET", url: "/library/series/series" });
-    const guidePage = await server.inject({ method: "GET", url: "/library/guides/series" });
+    expect(
+      (
+        await server.inject({
+          method: "GET",
+          url: `/reading-activity/guides/${seriesId}`,
+        })
+      ).statusCode,
+    ).toBe(401);
+    const legacyPage = await server.inject({
+      method: "GET",
+      url: "/library/series/series",
+    });
+    const guidePage = await server.inject({
+      method: "GET",
+      url: "/library/guides/series",
+    });
     expect(legacyPage.statusCode).toBe(200);
     expect(guidePage.statusCode).toBe(200);
     expect(guidePage.json()).toEqual(legacyPage.json());
-    const openPayload = { materialId, contentVersion: published.value.contentVersion, commandId: randomUUID() };
-    expect((await server.inject({ method: "GET", url: "/reading-activity/continue" })).statusCode).toBe(401);
-    expect((await server.inject({ method: "POST", url: "/reading-activity/opens", payload: openPayload })).statusCode).toBe(401);
-    expect((await server.inject({ method: "POST", url: "/reading-activity/opens", headers, payload: { ...openPayload, accountId: randomUUID() } })).statusCode).toBe(400);
-    expect((await server.inject({ method: "GET", url: "/reading-activity/continue", headers })).json()).toEqual([]);
-    const opened = await server.inject({ method: "POST", url: "/reading-activity/opens", headers, payload: openPayload });
+    const openPayload = {
+      materialId,
+      contentVersion: published.value.contentVersion,
+      commandId: randomUUID(),
+    };
+    expect(
+      (
+        await server.inject({
+          method: "GET",
+          url: "/reading-activity/continue",
+        })
+      ).statusCode,
+    ).toBe(401);
+    expect(
+      (
+        await server.inject({
+          method: "POST",
+          url: "/reading-activity/opens",
+          payload: openPayload,
+        })
+      ).statusCode,
+    ).toBe(401);
+    expect(
+      (
+        await server.inject({
+          method: "POST",
+          url: "/reading-activity/opens",
+          headers,
+          payload: { ...openPayload, accountId: randomUUID() },
+        })
+      ).statusCode,
+    ).toBe(400);
+    expect(
+      (
+        await server.inject({
+          method: "GET",
+          url: "/reading-activity/continue",
+          headers,
+        })
+      ).json(),
+    ).toEqual([]);
+    const opened = await server.inject({
+      method: "POST",
+      url: "/reading-activity/opens",
+      headers,
+      payload: openPayload,
+    });
     expect(opened.statusCode).toBe(200);
     expect(opened.headers["cache-control"]).toBe("private, no-store");
-    const continued = await server.inject({ method: "GET", url: "/reading-activity/continue", headers });
+    const continued = await server.inject({
+      method: "GET",
+      url: "/reading-activity/continue",
+      headers,
+    });
     expect(continued.statusCode).toBe(200);
     expect(continued.headers["cache-control"]).toBe("private, no-store");
-    expect(continued.json()).toMatchObject([{ material: { materialId }, resume: { kind: "start" } }]);
-    expect((await server.inject({ method: "GET", url: "/reading-activity/continue", headers: { authorization: `Bearer ${token2}` } })).json()).toEqual([]);
-    expect((await server.inject({ method: "POST", url: "/reading-activity/opens", headers, payload: openPayload })).json()).toMatchObject({ replayed: true });
-    const loaded = await materials.authoring.loadMaterial({ actor, materialId });
+    expect(continued.json()).toMatchObject([
+      { material: { materialId }, resume: { kind: "start" } },
+    ]);
+    expect(
+      (
+        await server.inject({
+          method: "GET",
+          url: "/reading-activity/continue",
+          headers: { authorization: `Bearer ${token2}` },
+        })
+      ).json(),
+    ).toEqual([]);
+    expect(
+      (
+        await server.inject({
+          method: "POST",
+          url: "/reading-activity/opens",
+          headers,
+          payload: openPayload,
+        })
+      ).json(),
+    ).toMatchObject({ replayed: true });
+    const loaded = await materials.authoring.loadMaterial({
+      actor,
+      materialId,
+    });
     if (!loaded.ok) throw new Error(loaded.error.code);
     // `toMatchObject` accepts a key the response was never meant to publish, so `declaredServer`
     // also reads every body with the description the API generates for that address. A projection
     // that ships an undeclared key still answers 200, while every strict reader of this API drops
     // the whole body and shows an account its progress as if there were none.
-    const started = { read: 0, total: 1, continuation: { materialSlug: loaded.value.metadata.slug } };
+    const started = {
+      read: 0,
+      total: 1,
+      continuation: { materialSlug: loaded.value.metadata.slug },
+    };
     const unstarted = { read: 0, total: 1, continuation: null };
     for (const endpoint of [
-      { url: "/reading-activity/learning-home", own: { video: null, series: started }, other: { video: null, series: null } },
-      { url: "/reading-activity/series-continuation/series", own: started, other: unstarted },
-      { url: "/reading-activity/guide-continuation/series", own: started, other: unstarted },
+      {
+        url: "/reading-activity/learning-home",
+        own: { video: null, series: started },
+        other: { video: null, series: null },
+      },
+      {
+        url: "/reading-activity/series-continuation/series",
+        own: started,
+        other: unstarted,
+      },
+      {
+        url: "/reading-activity/guide-continuation/series",
+        own: started,
+        other: unstarted,
+      },
     ]) {
-      expect((await server.inject({ method: "GET", url: endpoint.url })).statusCode).toBe(401);
-      const own = await server.inject({ method: "GET", url: endpoint.url, headers });
-      expect(own.statusCode).toBe(200); expect(own.headers["cache-control"]).toBe("private, no-store");
-      const other = await server.inject({ method: "GET", url: endpoint.url, headers: { authorization: `Bearer ${token2}` } });
+      expect(
+        (await server.inject({ method: "GET", url: endpoint.url })).statusCode,
+      ).toBe(401);
+      const own = await server.inject({
+        method: "GET",
+        url: endpoint.url,
+        headers,
+      });
+      expect(own.statusCode).toBe(200);
+      expect(own.headers["cache-control"]).toBe("private, no-store");
+      const other = await server.inject({
+        method: "GET",
+        url: endpoint.url,
+        headers: { authorization: `Bearer ${token2}` },
+      });
       const bodies: readonly unknown[] = [own.json(), other.json()];
       expect(bodies[0]).toMatchObject(endpoint.own);
       expect(bodies[1]).toMatchObject(endpoint.other);
     }
-    expect((await server.inject({ method: "GET", url: "/reading-activity/series-continuation/missing", headers })).statusCode).toBe(404);
+    expect(
+      (
+        await server.inject({
+          method: "GET",
+          url: "/reading-activity/series-continuation/missing",
+          headers,
+        })
+      ).statusCode,
+    ).toBe(404);
 
-    const publicRead = await server.inject({ method: "GET", url: `/materials/${loaded.value.metadata.slug}` });
+    const publicRead = await server.inject({
+      method: "GET",
+      url: `/materials/${loaded.value.metadata.slug}`,
+    });
     expect(publicRead.statusCode).toBe(200);
     expect(publicRead.body).not.toContain('"isRead"');
     expect(publicRead.body).not.toContain('"readAt"');
@@ -176,7 +412,9 @@ describe("ReadingActivity HTTP", () => {
     const now = Math.floor(Date.now() / 1_000);
     return new SignJWT({
       inside_verified_email: overrides.email ?? "member@example.test",
-      ...(overrides.clientId === undefined ? {} : { client_id: overrides.clientId }),
+      ...(overrides.clientId === undefined
+        ? {}
+        : { client_id: overrides.clientId }),
     })
       .setProtectedHeader({ alg: "ES384", kid: "api-key-1" })
       .setIssuer(issuer)

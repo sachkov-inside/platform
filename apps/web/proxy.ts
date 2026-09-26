@@ -1,7 +1,10 @@
 import { NextResponse, type NextRequest } from "next/server";
 
 import { isLegalPagePath } from "./src/_pages/legal.address";
-import { createEntryRateLimiter, limitEntryRequest } from "./src/_app/entry-rate-limit";
+import {
+  createEntryRateLimiter,
+  limitEntryRequest,
+} from "./src/_app/entry-rate-limit";
 import { readWebRuntimeMode } from "./src/shared/config/index.server";
 
 /** Один счётчик на процесс web: production запускает ровно один экземпляр (ADR 0028). */
@@ -20,7 +23,10 @@ export function proxy(request: NextRequest): Response {
   if (pathname.startsWith("/legal/") && !isLegalPagePath(pathname)) {
     return NextResponse.rewrite(new URL(UNROUTED_PATH, request.url));
   }
-  return limitEntryRequest(entryRateLimiter, request, readWebRuntimeMode()) ?? NextResponse.next();
+  return (
+    limitEntryRequest(entryRateLimiter, request, readWebRuntimeMode()) ??
+    NextResponse.next()
+  );
 }
 
 /**

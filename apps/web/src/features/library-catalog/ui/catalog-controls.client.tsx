@@ -82,7 +82,9 @@ export function LibrarySearchControl({
         <label className="sr-only" htmlFor="library-search">
           Поиск по материалам
         </label>
-        <div className={`relative flex ${searchFieldHeight} items-center gap-3 rounded-2xl bg-muted px-4`}>
+        <div
+          className={`relative flex ${searchFieldHeight} items-center gap-3 rounded-2xl bg-muted px-4`}
+        >
           <Search
             aria-hidden="true"
             className="size-5 shrink-0 text-muted-foreground"
@@ -93,9 +95,10 @@ export function LibrarySearchControl({
             maxLength={120}
             name="q"
             onChange={(event) => {
-              onQueryChange(
-                { ...changeLibraryQuery(query, { q: event.currentTarget.value }), q: event.currentTarget.value },
-              );
+              onQueryChange({
+                ...changeLibraryQuery(query, { q: event.currentTarget.value }),
+                q: event.currentTarget.value,
+              });
             }}
             placeholder="Найти материал"
             type="search"
@@ -180,7 +183,9 @@ export function MaterialCatalogControls({
             name="sort"
             onValueChange={(value) => {
               onQueryChange(
-                changeLibraryQuery(query, { sort: value as LibraryCatalogSort }),
+                changeLibraryQuery(query, {
+                  sort: value as LibraryCatalogSort,
+                }),
               );
             }}
             value={query.sort}
@@ -329,9 +334,11 @@ function CatalogFormatFieldset({
               name="format"
               onChange={(event) => {
                 if (!event.currentTarget.checked) return;
-                onQueryChange(changeLibraryQuery(query, {
-                  formatSlugs: option.slug === null ? [] : [option.slug],
-                }));
+                onQueryChange(
+                  changeLibraryQuery(query, {
+                    formatSlugs: option.slug === null ? [] : [option.slug],
+                  }),
+                );
               }}
               type="radio"
               value={option.slug ?? ""}
@@ -339,9 +346,7 @@ function CatalogFormatFieldset({
             <span className="inline-flex min-h-10 shrink-0 items-center gap-2 whitespace-nowrap rounded-full bg-muted px-4 text-sm font-semibold text-muted-foreground transition-colors hover:text-foreground peer-checked:bg-primary peer-checked:text-white peer-focus-visible:outline-3 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-ring">
               {option.label}
               {option.slug !== null && counts.has(option.slug) ? (
-                <span className="text-xs">
-                  {counts.get(option.slug)}
-                </span>
+                <span className="text-xs">{counts.get(option.slug)}</span>
               ) : null}
             </span>
           </label>

@@ -2,7 +2,6 @@ import { createHash } from "node:crypto";
 
 import type { PaymentMode } from "@inside/legal";
 
-
 import type { LegalDocument } from "../../../src/modules/accounts/facets/billing-contact/billing-contact.contract.js";
 
 /** Recurring payments exist only in a subscription; other kinds apply to both sales. */
@@ -70,7 +69,9 @@ export function pressedPaymentButton<
     (document) => document.kind === "recurring",
   );
   if (recurring && renewal === undefined)
-    throw new Error("A recurring consent shows renewal terms next to its button");
+    throw new Error(
+      "A recurring consent shows renewal terms next to its button",
+    );
   return {
     ...command,
     screen,
@@ -81,7 +82,9 @@ export function pressedPaymentButton<
           shownTerms: {
             amountKopecks: renewal.snapshot.renewalPriceKopecks,
             periodMonths: renewal.snapshot.paymentOption.months,
-            nextChargeOn: (renewal.nextChargeAt ?? new Date("2030-01-01T00:00:00Z"))
+            nextChargeOn: (
+              renewal.nextChargeAt ?? new Date("2030-01-01T00:00:00Z")
+            )
               .toISOString()
               .slice(0, 10),
           },

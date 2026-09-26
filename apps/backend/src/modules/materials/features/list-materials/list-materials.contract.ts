@@ -1,5 +1,8 @@
 import type { PublicationState } from "../../domain/material.js";
-import type { ForbiddenError, SystemError } from "../../facets/material-authoring/material-authoring.contract.js";
+import type {
+  ForbiddenError,
+  SystemError,
+} from "../../facets/material-authoring/material-authoring.contract.js";
 import type { Result } from "../../result.js";
 
 export interface AuthoringMaterialReferenceDto {
@@ -35,7 +38,10 @@ export interface ListMaterialsQuery {
 }
 
 export type ListMaterialsError = ForbiddenError | SystemError;
-export type ListMaterialsResult = Result<AuthoringMaterialPageDto, ListMaterialsError>;
+export type ListMaterialsResult = Result<
+  AuthoringMaterialPageDto,
+  ListMaterialsError
+>;
 export type ListMaterialsOperation = (
   query: ListMaterialsQuery,
 ) => Promise<ListMaterialsResult>;

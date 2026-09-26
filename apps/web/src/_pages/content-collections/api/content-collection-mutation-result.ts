@@ -33,7 +33,10 @@ function mapContentCollectionMutationResult<
   result: BackendTransportResult,
   conflictKind: ConflictKind,
 ):
-  | Exclude<ContentCollectionMutationResult, { readonly kind: "conflict" | "slug_conflict" }>
+  | Exclude<
+      ContentCollectionMutationResult,
+      { readonly kind: "conflict" | "slug_conflict" }
+    >
   | { readonly kind: ConflictKind } {
   if (!result.ok) {
     if (result.response.status === 401 || result.response.status === 403) {

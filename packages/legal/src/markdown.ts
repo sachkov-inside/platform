@@ -77,7 +77,9 @@ function parseList(
     if (item?.groups !== undefined) {
       const numbered = item.groups.number !== undefined;
       if (ordered !== undefined && ordered !== numbered)
-        throw new LegalTextError(`list mixes numbered and bulleted items: ${line}`);
+        throw new LegalTextError(
+          `list mixes numbered and bulleted items: ${line}`,
+        );
       ordered = numbered;
       if (numbered && Number(item.groups.number) !== items.length + 1)
         throw new LegalTextError(
@@ -89,7 +91,9 @@ function parseList(
         throw new LegalTextError(`nested lists are not supported: ${line}`);
       items[items.length - 1]?.push(line.trim());
     } else {
-      throw new LegalTextError(`list item continuation must be indented: ${line}`);
+      throw new LegalTextError(
+        `list item continuation must be indented: ${line}`,
+      );
     }
     index += 1;
   }
@@ -114,7 +118,9 @@ function assertPlain(fragment: string, line: string): void {
 
 function assertHref(href: string, line: string): void {
   if (pathPattern.test(href) || absolutePattern.test(href)) return;
-  throw new LegalTextError(`unsupported link target "${href}" in line: ${line}`);
+  throw new LegalTextError(
+    `unsupported link target "${href}" in line: ${line}`,
+  );
 }
 
 /** Parses one line of running text; the same rules apply inside a table cell. */

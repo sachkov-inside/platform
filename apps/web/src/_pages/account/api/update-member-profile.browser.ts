@@ -13,13 +13,19 @@ const resultSchema = z.discriminatedUnion("kind", [
   z
     .object({
       fieldErrors: z
-        .object({ bio: z.string().optional(), displayName: z.string().optional() })
+        .object({
+          bio: z.string().optional(),
+          displayName: z.string().optional(),
+        })
         .strict(),
       kind: z.literal("invalid_input"),
     })
     .strict(),
   z
-    .object({ currentVersion: z.number().int().positive().optional(), kind: z.literal("conflict") })
+    .object({
+      currentVersion: z.number().int().positive().optional(),
+      kind: z.literal("conflict"),
+    })
     .strict(),
   z.object({ kind: z.literal("unauthorized") }).strict(),
   z.object({ kind: z.literal("unavailable"), reference: z.string() }).strict(),
@@ -48,13 +54,22 @@ export async function updateMemberProfile(
 
   const parsed = resultSchema.safeParse(response.body);
   if (!parsed.success) {
-    return { kind: "unavailable", reference: "update-member-profile-bff-contract" };
+    return {
+      kind: "unavailable",
+      reference: "update-member-profile-bff-contract",
+    };
   }
   if (parsed.data.kind === "saved") {
     try {
-      return { kind: "saved", profile: parsePrivateProfile({ profile: parsed.data.profile }) };
+      return {
+        kind: "saved",
+        profile: parsePrivateProfile({ profile: parsed.data.profile }),
+      };
     } catch {
-      return { kind: "unavailable", reference: "update-member-profile-bff-contract" };
+      return {
+        kind: "unavailable",
+        reference: "update-member-profile-bff-contract",
+      };
     }
   }
   if (parsed.data.kind === "invalid_input") {

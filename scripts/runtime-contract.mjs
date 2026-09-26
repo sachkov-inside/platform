@@ -20,24 +20,31 @@ try {
   );
   const backendImage = splitDigestReference(manifest.images.backend);
   const webImage = splitDigestReference(manifest.images.web);
-  process.stdout.write(`${JSON.stringify({
-    schemaVersion: "inside.platform.runtime-plan.v1",
-    release: {
-      version: manifest.version,
-      sourceSha: manifest.source.sha,
-    },
-    images: manifest.images,
-    composeEnvironment: {
-      PLATFORM_BACKEND_IMAGE_DIGEST: backendImage.digest,
-      PLATFORM_BACKEND_IMAGE_REPOSITORY: backendImage.repository,
-      PLATFORM_RELEASE_VERSION: manifest.version,
-      PLATFORM_SOURCE_SHA: manifest.source.sha,
-      PLATFORM_WEB_IMAGE_DIGEST: webImage.digest,
-      PLATFORM_WEB_IMAGE_REPOSITORY: webImage.repository,
-    },
-  }, null, 2)}\n`);
+  process.stdout.write(
+    `${JSON.stringify(
+      {
+        schemaVersion: "inside.platform.runtime-plan.v1",
+        release: {
+          version: manifest.version,
+          sourceSha: manifest.source.sha,
+        },
+        images: manifest.images,
+        composeEnvironment: {
+          PLATFORM_BACKEND_IMAGE_DIGEST: backendImage.digest,
+          PLATFORM_BACKEND_IMAGE_REPOSITORY: backendImage.repository,
+          PLATFORM_RELEASE_VERSION: manifest.version,
+          PLATFORM_SOURCE_SHA: manifest.source.sha,
+          PLATFORM_WEB_IMAGE_DIGEST: webImage.digest,
+          PLATFORM_WEB_IMAGE_REPOSITORY: webImage.repository,
+        },
+      },
+      null,
+      2,
+    )}\n`,
+  );
 } catch (error) {
-  const message = error instanceof Error ? error.message : "runtime contract failed";
+  const message =
+    error instanceof Error ? error.message : "runtime contract failed";
   process.stderr.write(`runtime contract: ${message}\n`);
   process.exitCode = 1;
 }

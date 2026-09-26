@@ -9,5 +9,7 @@ export async function saveReaderGuideMode(guideMode: GuideMode) {
     "PUT",
     form,
   );
-  return result.ok ? ({ kind: "saved" } as const) : ({ kind: "unavailable" } as const);
+  return result.ok
+    ? ({ kind: "saved" } as const)
+    : ({ kind: "unavailable" } as const);
 }

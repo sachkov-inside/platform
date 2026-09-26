@@ -1,6 +1,8 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-async function contentSecurityPolicy(environment: "development" | "production"): Promise<string> {
+async function contentSecurityPolicy(
+  environment: "development" | "production",
+): Promise<string> {
   vi.stubEnv("NODE_ENV", environment);
   vi.resetModules();
   const { default: nextConfig } = await import("../../next.config");
@@ -8,12 +10,15 @@ async function contentSecurityPolicy(environment: "development" | "production"):
   const policy = rules
     .flatMap((rule) => rule.headers)
     .find((header) => header.key === "Content-Security-Policy")?.value;
-  if (policy === undefined) throw new Error("Content-Security-Policy is not configured");
+  if (policy === undefined)
+    throw new Error("Content-Security-Policy is not configured");
   return policy;
 }
 
 function directive(policy: string, name: string): string {
-  const value = policy.split("; ").find((entry) => entry.startsWith(`${name} `));
+  const value = policy
+    .split("; ")
+    .find((entry) => entry.startsWith(`${name} `));
   if (value === undefined) throw new Error(`${name} is missing`);
   return value;
 }
@@ -28,8 +33,15 @@ describe("Web security headers", () => {
 
     expect(policy).not.toMatch(/127\.0\.0\.1|localhost|http:\/\//u);
     expect(directive(policy, "script-src")).not.toContain("'unsafe-eval'");
-    expect(directive(policy, "img-src")).toContain("https://storage.yandexcloud.net");
-    for (const fixed of ["frame-ancestors 'none'", "object-src 'none'", "base-uri 'self'", "form-action 'self'"]) {
+    expect(directive(policy, "img-src")).toContain(
+      "https://storage.yandexcloud.net",
+    );
+    for (const fixed of [
+      "frame-ancestors 'none'",
+      "object-src 'none'",
+      "base-uri 'self'",
+      "form-action 'self'",
+    ]) {
       expect(policy.split("; ")).toContain(fixed);
     }
   });

@@ -43,7 +43,9 @@ export function useAuthStatus(): AuthStatusSnapshot {
       void loadAuthStatus().then((authoritativeStatus) => {
         if (!active || generation !== current) return;
         setStatus((previous) =>
-          sameAuthStatus(previous, authoritativeStatus) ? previous : authoritativeStatus,
+          sameAuthStatus(previous, authoritativeStatus)
+            ? previous
+            : authoritativeStatus,
         );
       });
     };
@@ -61,8 +63,13 @@ export function useAuthStatus(): AuthStatusSnapshot {
 }
 
 /** Снимки равны, когда совпадает каждое их поле: новое поле снимка сравнивается само. */
-function sameAuthStatus(left: AuthStatusSnapshot, right: AuthStatusSnapshot): boolean {
-  return (Object.keys(left) as (keyof AuthStatusSnapshot)[]).every((key) => left[key] === right[key]);
+function sameAuthStatus(
+  left: AuthStatusSnapshot,
+  right: AuthStatusSnapshot,
+): boolean {
+  return (Object.keys(left) as (keyof AuthStatusSnapshot)[]).every(
+    (key) => left[key] === right[key],
+  );
 }
 
 function loadAuthStatus(): Promise<AuthStatusSnapshot> {
@@ -96,9 +103,12 @@ function parseAuthStatus(value: unknown): AuthStatusSnapshot {
   ) {
     return unavailableStatus;
   }
-  const accountId = z.uuid().safeParse((value as Record<string, unknown>).accountId);
+  const accountId = z
+    .uuid()
+    .safeParse((value as Record<string, unknown>).accountId);
   return {
-    accountId: state === "authenticated" && accountId.success ? accountId.data : null,
+    accountId:
+      state === "authenticated" && accountId.success ? accountId.data : null,
     canManageMaterials:
       state === "authenticated" &&
       (value as Record<string, unknown>).canManageMaterials === true,

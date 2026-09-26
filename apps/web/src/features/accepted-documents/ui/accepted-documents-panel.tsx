@@ -6,7 +6,10 @@ import type { AcceptedDocumentsState } from "../model/accepted-documents";
 export interface AcceptedDocumentsPanelProps {
   readonly state: AcceptedDocumentsState;
   /** Действующие редакции документов о данных: их не принимают, а читают. */
-  readonly policies: readonly { readonly label: string; readonly href: Route }[];
+  readonly policies: readonly {
+    readonly label: string;
+    readonly href: Route;
+  }[];
 }
 
 /**
@@ -14,7 +17,10 @@ export interface AcceptedDocumentsPanelProps {
  * редакцией и подписью нажатой кнопки. Отзывать здесь нечего: автопродление отключается
  * в разделе «Подписка», сообщения бота — командой /stop.
  */
-export function AcceptedDocumentsPanel({ state, policies }: AcceptedDocumentsPanelProps) {
+export function AcceptedDocumentsPanel({
+  state,
+  policies,
+}: AcceptedDocumentsPanelProps) {
   return (
     <section
       aria-labelledby="accepted-documents"
@@ -42,12 +48,17 @@ export function AcceptedDocumentsPanel({ state, policies }: AcceptedDocumentsPan
               <p className="font-semibold">{item.title}</p>
               <p className="mt-1 text-sm leading-6 text-muted-foreground [overflow-wrap:anywhere]">
                 {item.acceptedAt}
-                {item.buttonLabel === null ? null : ` · кнопка «${item.buttonLabel}»`}
+                {item.buttonLabel === null
+                  ? null
+                  : ` · кнопка «${item.buttonLabel}»`}
                 {" · "}
                 {item.href === null ? (
                   item.edition
                 ) : (
-                  <Link className="text-action underline underline-offset-4" href={item.href}>
+                  <Link
+                    className="text-action underline underline-offset-4"
+                    href={item.href}
+                  >
                     {item.edition}
                   </Link>
                 )}
@@ -67,7 +78,10 @@ export function AcceptedDocumentsPanel({ state, policies }: AcceptedDocumentsPan
           {policies.map((policy, index) => (
             <span key={policy.href}>
               {index === 0 ? null : " · "}
-              <Link className="text-action underline underline-offset-4" href={policy.href}>
+              <Link
+                className="text-action underline underline-offset-4"
+                href={policy.href}
+              >
                 {policy.label}
               </Link>
             </span>

@@ -3,7 +3,10 @@ import { z } from "zod";
 import type { VideosPrisma } from "../../../../infrastructure/prisma/index.js";
 
 export const videoAccessSchema = z.enum(["free", "membership", "workshop"]);
-export const videoOriginSchema = z.enum(["external_attachment", "platform_upload"]);
+export const videoOriginSchema = z.enum([
+  "external_attachment",
+  "platform_upload",
+]);
 export const videoStateSchema = z.enum([
   "uploading",
   "processing",
@@ -14,33 +17,43 @@ export const videoStateSchema = z.enum([
   "deleted",
   "delete_failed",
 ]);
-export const videoPresentationSchema = z.object({
-  durationSeconds: z.number().int().positive().optional(),
-  failureCode: z.string().optional(),
-  state: videoStateSchema,
-  title: z.string(),
-  videoId: z.uuid(),
-}).strict();
-export const videoAuthoringPresentationSchema = videoPresentationSchema.extend({
-  origin: videoOriginSchema,
-}).strict();
-export const videoDtoSchema = videoAuthoringPresentationSchema.extend({
-  access: videoAccessSchema,
-  materialId: z.uuid(),
-}).strict();
+export const videoPresentationSchema = z
+  .object({
+    durationSeconds: z.number().int().positive().optional(),
+    failureCode: z.string().optional(),
+    state: videoStateSchema,
+    title: z.string(),
+    videoId: z.uuid(),
+  })
+  .strict();
+export const videoAuthoringPresentationSchema = videoPresentationSchema
+  .extend({
+    origin: videoOriginSchema,
+  })
+  .strict();
+export const videoDtoSchema = videoAuthoringPresentationSchema
+  .extend({
+    access: videoAccessSchema,
+    materialId: z.uuid(),
+  })
+  .strict();
 
 export type VideoAccess = z.infer<typeof videoAccessSchema>;
 export type VideoOrigin = z.infer<typeof videoOriginSchema>;
 export type VideoState = z.infer<typeof videoStateSchema>;
 export type VideoDto = z.infer<typeof videoDtoSchema>;
 export type VideoPresentation = z.infer<typeof videoPresentationSchema>;
-export type VideoAuthoringPresentation = z.infer<typeof videoAuthoringPresentationSchema>;
+export type VideoAuthoringPresentation = z.infer<
+  typeof videoAuthoringPresentationSchema
+>;
 
 export function isVideoDeletionState(value: string): boolean {
-  return value === "deletion_requested" ||
+  return (
+    value === "deletion_requested" ||
     value === "deleting" ||
     value === "deleted" ||
-    value === "delete_failed";
+    value === "delete_failed"
+  );
 }
 
 export interface VideoAccessFacts {
@@ -75,8 +88,7 @@ export type VideoError =
   | { readonly code: "video_not_ready" };
 
 export type VideoResult<Value, Error extends VideoError = VideoError> =
-  | Readonly<{ ok: true; value: Value }>
-  | Readonly<{ ok: false; error: Error }>;
+  Readonly<{ ok: true; value: Value }> | Readonly<{ ok: false; error: Error }>;
 
 type VideoOperationError<Code extends VideoError["code"]> = Extract<
   VideoError,
@@ -89,7 +101,11 @@ type OperationResult<Value, Code extends VideoError["code"]> = VideoResult<
 >;
 
 export type InitVideoUploadResult = OperationResult<
-  { readonly providerVideoId: string; readonly uploadEndpoint: string; readonly video: VideoDto },
+  {
+    readonly providerVideoId: string;
+    readonly uploadEndpoint: string;
+    readonly video: VideoDto;
+  },
   | "dependency_unavailable"
   | "forbidden"
   | "idempotency_key_reused"
@@ -100,12 +116,19 @@ export type InitVideoUploadResult = OperationResult<
 
 export type AttachVideoResult = OperationResult<
   VideoDto,
-  "dependency_unavailable" | "forbidden" | "invalid_request" | "provider_mismatch"
+  | "dependency_unavailable"
+  | "forbidden"
+  | "invalid_request"
+  | "provider_mismatch"
 >;
 
 export type ReconcileVideoResult = OperationResult<
   VideoDto,
-  "dependency_unavailable" | "forbidden" | "invalid_request" | "provider_mismatch" | "video_not_found"
+  | "dependency_unavailable"
+  | "forbidden"
+  | "invalid_request"
+  | "provider_mismatch"
+  | "video_not_found"
 >;
 
 export type RetryVideoDeletionResult = OperationResult<
@@ -119,7 +142,10 @@ export type RetryVideoDeletionResult = OperationResult<
 
 export type AcceptVideoWebhookResult = OperationResult<
   void,
-  "dependency_unavailable" | "invalid_request" | "provider_mismatch" | "video_not_found"
+  | "dependency_unavailable"
+  | "invalid_request"
+  | "provider_mismatch"
+  | "video_not_found"
 >;
 
 export interface Videos {
@@ -152,59 +178,117 @@ export interface Videos {
     readonly providerVideoId: string;
   }): Promise<AcceptVideoWebhookResult>;
   /** Reads in the caller's transaction, under the Material reference lock it holds. */
-  inspectPrimaryReference(transaction: Pick<VideosPrisma, "video">, input: {
-    readonly access: VideoAccess;
-    readonly materialId: string;
-    readonly videoId: string;
-  }): Promise<OperationResult<
-    void,
-    "dependency_unavailable" | "invalid_request" | "provider_mismatch" | "video_not_found" | "video_not_ready"
-  >>;
+  inspectPrimaryReference(
+    transaction: Pick<VideosPrisma, "video">,
+    input: {
+      readonly access: VideoAccess;
+      readonly materialId: string;
+      readonly videoId: string;
+    },
+  ): Promise<
+    OperationResult<
+      void,
+      | "dependency_unavailable"
+      | "invalid_request"
+      | "provider_mismatch"
+      | "video_not_found"
+      | "video_not_ready"
+    >
+  >;
   loadPresentation(input: {
     readonly materialId: string;
     readonly videoId: string;
-  }): Promise<OperationResult<VideoPresentation | null, "dependency_unavailable" | "invalid_request">>;
+  }): Promise<
+    OperationResult<
+      VideoPresentation | null,
+      "dependency_unavailable" | "invalid_request"
+    >
+  >;
   /** Reads in the caller's transaction when it holds one. */
-  loadAuthoringPresentation(input: {
-    readonly materialId: string;
-    readonly videoId: string;
-  }, transaction?: Pick<VideosPrisma, "video">): Promise<OperationResult<VideoAuthoringPresentation | null, "dependency_unavailable" | "invalid_request">>;
-  loadReadyDurations(videoIds: readonly string[]): Promise<
+  loadAuthoringPresentation(
+    input: {
+      readonly materialId: string;
+      readonly videoId: string;
+    },
+    transaction?: Pick<VideosPrisma, "video">,
+  ): Promise<
+    OperationResult<
+      VideoAuthoringPresentation | null,
+      "dependency_unavailable" | "invalid_request"
+    >
+  >;
+  loadReadyDurations(
+    videoIds: readonly string[],
+  ): Promise<
     OperationResult<
       readonly ReadyVideoDuration[],
       "dependency_unavailable" | "invalid_request"
     >
   >;
-  loadLatestDeletion(materialId: string): Promise<
-    OperationResult<VideoAuthoringPresentation | null, "dependency_unavailable" | "invalid_request">
+  loadLatestDeletion(
+    materialId: string,
+  ): Promise<
+    OperationResult<
+      VideoAuthoringPresentation | null,
+      "dependency_unavailable" | "invalid_request"
+    >
   >;
   loadUnselectedUpload(input: {
     readonly materialId: string;
     readonly selectedVideoId: string | null;
   }): Promise<
-    OperationResult<VideoAuthoringPresentation | null, "dependency_unavailable" | "invalid_request">
+    OperationResult<
+      VideoAuthoringPresentation | null,
+      "dependency_unavailable" | "invalid_request"
+    >
   >;
-  loadAccessFacts(videoIds: readonly string[]): Promise<
-    OperationResult<readonly VideoAccessFacts[], "dependency_unavailable" | "invalid_request">
+  loadAccessFacts(
+    videoIds: readonly string[],
+  ): Promise<
+    OperationResult<
+      readonly VideoAccessFacts[],
+      "dependency_unavailable" | "invalid_request"
+    >
   >;
-  loadPlayback(videoId: string): Promise<
-    OperationResult<VideoPlayback | null, "dependency_unavailable" | "invalid_request" | "video_not_ready">
+  loadPlayback(
+    videoId: string,
+  ): Promise<
+    OperationResult<
+      VideoPlayback | null,
+      "dependency_unavailable" | "invalid_request" | "video_not_ready"
+    >
   >;
-  loadProgressMany(input: { readonly accountId: string; readonly videoIds: readonly string[] }): Promise<OperationResult<readonly { readonly videoId: string; readonly positionSeconds: number; readonly durationSeconds: number }[], "dependency_unavailable" | "invalid_request">>;
+  loadProgressMany(input: {
+    readonly accountId: string;
+    readonly videoIds: readonly string[];
+  }): Promise<
+    OperationResult<
+      readonly {
+        readonly videoId: string;
+        readonly positionSeconds: number;
+        readonly durationSeconds: number;
+      }[],
+      "dependency_unavailable" | "invalid_request"
+    >
+  >;
   loadProgress(input: {
     readonly accountId: string;
     readonly videoId: string;
-  }): Promise<OperationResult<
-    { readonly positionSeconds: number } | null,
-    "dependency_unavailable" | "invalid_request"
-  >>;
+  }): Promise<
+    OperationResult<
+      { readonly positionSeconds: number } | null,
+      "dependency_unavailable" | "invalid_request"
+    >
+  >;
   saveProgress(input: {
     readonly accountId: string;
     readonly durationSeconds: number;
     readonly positionSeconds: number;
     readonly videoId: string;
-  }): Promise<OperationResult<
-    void,
-    "dependency_unavailable" | "invalid_request" | "video_not_ready"
-  >>;
+  }): Promise<
+    OperationResult<
+      void,
+      "dependency_unavailable" | "invalid_request" | "video_not_ready"
+    >
+  >;
 }

@@ -1,9 +1,6 @@
 import { z } from "zod";
 
-import {
-  contentCoverSchema,
-  materialPreviewSchema,
-} from "@/entities/material";
+import { contentCoverSchema, materialPreviewSchema } from "@/entities/material";
 import { createLibraryCatalogQueryOptions } from "../model/library-catalog-query";
 import type { LibraryCatalogPage } from "../model/library-view";
 import {
@@ -142,8 +139,20 @@ async function parseCatalogResponse(
 }
 
 export function homeFeedQueryOptions(query: LibrarySearchQuery) {
-  return createLibraryCatalogQueryOptions(({ after, signal }) => {
-    const search = serializeLibrarySearchQuery({ ...query, after: after ?? null }, { includeCursor: true });
-    return requestCatalogPage(search.length === 0 ? "/api/home/materials" : `/api/home/materials?${search}`, signal);
-  }, query, "feed");
+  return createLibraryCatalogQueryOptions(
+    ({ after, signal }) => {
+      const search = serializeLibrarySearchQuery(
+        { ...query, after: after ?? null },
+        { includeCursor: true },
+      );
+      return requestCatalogPage(
+        search.length === 0
+          ? "/api/home/materials"
+          : `/api/home/materials?${search}`,
+        signal,
+      );
+    },
+    query,
+    "feed",
+  );
 }

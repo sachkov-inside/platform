@@ -12,7 +12,9 @@ export function handleSetReaderGuideMode(request: Request) {
     try {
       const result = await requestSetReaderGuideMode(parsed.data, token);
       if (!result.ok) {
-        return { kind: result.response.status === 401 ? "unauthorized" : "unavailable" };
+        return {
+          kind: result.response.status === 401 ? "unauthorized" : "unavailable",
+        };
       }
       return { kind: "saved" };
     } catch {

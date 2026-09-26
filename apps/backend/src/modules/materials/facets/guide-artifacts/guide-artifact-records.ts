@@ -3,7 +3,10 @@ import type {
   MaterialsPrismaTransaction,
 } from "../../../../infrastructure/prisma/index.js";
 import { dependencyFailure } from "../../../../infrastructure/observability/index.js";
-import type { GuideArtifactFiles, StoredArtifactFile } from "./guide-artifact-files.js";
+import type {
+  GuideArtifactFiles,
+  StoredArtifactFile,
+} from "./guide-artifact-files.js";
 import type {
   GuideArtifactAccess,
   GuideArtifactContent,
@@ -20,7 +23,9 @@ export interface GuideArtifactContext {
   readonly prisma: MaterialsPrismaClient;
 }
 
-export type ArtifactRow = NonNullable<Awaited<ReturnType<typeof loadArtifactRow>>>;
+export type ArtifactRow = NonNullable<
+  Awaited<ReturnType<typeof loadArtifactRow>>
+>;
 
 export async function loadArtifactRow(
   prisma: MaterialsPrismaClient,
@@ -90,7 +95,9 @@ export function projectRow(row: ArtifactRow): GuideArtifactDto | null {
 }
 
 /** The stored content the reader may currently receive. */
-export function readyVersion(row: ArtifactRow): ArtifactRow["versions"][number] | null {
+export function readyVersion(
+  row: ArtifactRow,
+): ArtifactRow["versions"][number] | null {
   return (
     row.versions.find((version) => version.version === row.currentVersion) ??
     null
@@ -135,7 +142,11 @@ export async function projectOrFail(
       ? failure({ code: "artifact_not_found" })
       : { ok: true, value: projected };
   } catch (error) {
-    return dependencyFailure({ module: "materials", operation: "projectOrFail" }, error, dependencyUnavailable());
+    return dependencyFailure(
+      { module: "materials", operation: "projectOrFail" },
+      error,
+      dependencyUnavailable(),
+    );
   }
 }
 
@@ -235,10 +246,15 @@ export function readAccess(value: string): GuideArtifactAccess {
   return value === "free" ? "free" : "membership";
 }
 
-export function failure<Value>(error: GuideArtifactError): GuideArtifactResult<Value> {
+export function failure<Value>(
+  error: GuideArtifactError,
+): GuideArtifactResult<Value> {
   return { error, ok: false };
 }
 
 export function dependencyUnavailable<Value>(): GuideArtifactResult<Value> {
-  return { error: { code: "dependency_unavailable", retryable: true }, ok: false };
+  return {
+    error: { code: "dependency_unavailable", retryable: true },
+    ok: false,
+  };
 }

@@ -1,8 +1,20 @@
 "use client";
 
-import { CheckCircle2, Circle, LoaderCircle, RotateCcw, VideoOff } from "lucide-react";
+import {
+  CheckCircle2,
+  Circle,
+  LoaderCircle,
+  RotateCcw,
+  VideoOff,
+} from "lucide-react";
 import { useMutation } from "@tanstack/react-query";
-import { type Ref, useEffect, useRef, useState, useSyncExternalStore } from "react";
+import {
+  type Ref,
+  useEffect,
+  useRef,
+  useState,
+  useSyncExternalStore,
+} from "react";
 import { z } from "zod";
 
 import { Button } from "@/shared/ui/button";
@@ -24,7 +36,10 @@ interface MaterialPrimaryVideoProps {
   readonly className?: string;
   readonly materialId: string;
   readonly video: {
-    readonly chapters?: readonly { readonly start: number; readonly title: string }[];
+    readonly chapters?: readonly {
+      readonly start: number;
+      readonly title: string;
+    }[];
     readonly durationSeconds?: number | undefined;
     readonly failureCode?: string | undefined;
     readonly state: "uploading" | "processing" | "ready" | "failed";
@@ -35,7 +50,12 @@ interface MaterialPrimaryVideoProps {
 
 export type PlayerPhase = "loading" | "playing" | "error";
 
-export function MaterialPrimaryVideo({ className, materialId, video, showWatchedAction = true }: MaterialPrimaryVideoProps) {
+export function MaterialPrimaryVideo({
+  className,
+  materialId,
+  video,
+  showWatchedAction = true,
+}: MaterialPrimaryVideoProps) {
   const sectionRef = useRef<HTMLElement>(null);
   const progressInteractionRef = useRef(false);
   const progressContextRef = useRef<{
@@ -46,17 +66,28 @@ export function MaterialPrimaryVideo({ className, materialId, video, showWatched
   const [phase, setPhase] = useState<PlayerPhase>("loading");
   const [retryAttempt, setRetryAttempt] = useState(0);
   const [measuredDuration, setMeasuredDuration] = useState<number | null>(null);
-  const anonymousWatched = useSyncExternalStore(subscribeAnonymousProgress, () => {
-    const positionSeconds = readAnonymousProgress(video.videoId);
-    return video.durationSeconds !== undefined &&
-      positionSeconds !== null &&
-      isVideoWatchedPosition(positionSeconds, video.durationSeconds);
-  }, () => false);
+  const anonymousWatched = useSyncExternalStore(
+    subscribeAnonymousProgress,
+    () => {
+      const positionSeconds = readAnonymousProgress(video.videoId);
+      return (
+        video.durationSeconds !== undefined &&
+        positionSeconds !== null &&
+        isVideoWatchedPosition(positionSeconds, video.durationSeconds)
+      );
+    },
+    () => false,
+  );
   const [watchedOverride, setWatchedOverride] = useState<boolean | null>(null);
   const watched = watchedOverride ?? anonymousWatched;
   const [watchedPending, setWatchedPending] = useState(false);
-  const { mutateAsync: createPlaybackSession } = useMutation({ mutationFn: createMaterialVideoPlaybackSession });
-  const { mutate: persistAccountProgress, mutateAsync: persistAccountProgressAsync } = useMutation({ mutationFn: saveMaterialVideoProgress });
+  const { mutateAsync: createPlaybackSession } = useMutation({
+    mutationFn: createMaterialVideoPlaybackSession,
+  });
+  const {
+    mutate: persistAccountProgress,
+    mutateAsync: persistAccountProgressAsync,
+  } = useMutation({ mutationFn: saveMaterialVideoProgress });
 
   useEffect(() => {
     if (video.state !== "ready") return;
@@ -65,29 +96,41 @@ export function MaterialPrimaryVideo({ className, materialId, video, showWatched
     let removeTimeListener: (() => void) | undefined;
     const loadPlayer = async () => {
       try {
-        const session = await createPlaybackSession({ materialId, videoId: video.videoId });
+        const session = await createPlaybackSession({
+          materialId,
+          videoId: video.videoId,
+        });
         if (!active) return;
         if (session === null || session.videoId !== video.videoId) {
           throw new Error("Playback session is unavailable");
         }
-        const mount = sectionRef.current?.querySelector<HTMLElement>("[data-video-player-mount]") ?? null;
+        const mount =
+          sectionRef.current?.querySelector<HTMLElement>(
+            "[data-video-player-mount]",
+          ) ?? null;
         if (mount === null) throw new Error("Player mount is unavailable");
         const source = new URL(session.embedLocator);
         source.searchParams.set("dnt", "1");
         if (session.drmAuthToken !== null) {
           source.searchParams.set("drmauthtoken", session.drmAuthToken);
         }
-        const savedPositionSeconds = session.progressScope === "anonymous"
-          ? readAnonymousProgress(video.videoId) ?? session.resumeSeconds
-          : session.resumeSeconds;
+        const savedPositionSeconds =
+          session.progressScope === "anonymous"
+            ? (readAnonymousProgress(video.videoId) ?? session.resumeSeconds)
+            : session.resumeSeconds;
         if (video.durationSeconds !== undefined) {
           progressContextRef.current = {
             durationSeconds: video.durationSeconds,
             scope: session.progressScope,
           };
           if (!progressInteractionRef.current) {
-            setWatchedOverride(savedPositionSeconds !== null &&
-              isVideoWatchedPosition(savedPositionSeconds, video.durationSeconds));
+            setWatchedOverride(
+              savedPositionSeconds !== null &&
+                isVideoWatchedPosition(
+                  savedPositionSeconds,
+                  video.durationSeconds,
+                ),
+            );
           }
         }
         const iframeApi = await import("@kinescope/player-iframe-api-loader");
@@ -112,15 +155,30 @@ export function MaterialPrimaryVideo({ className, materialId, video, showWatched
         }
         mountedPlayer = player;
         const iframe = mount.querySelector("iframe");
-        iframe?.setAttribute("allow", "autoplay; fullscreen; picture-in-picture; encrypted-media");
+        iframe?.setAttribute(
+          "allow",
+          "autoplay; fullscreen; picture-in-picture; encrypted-media",
+        );
         iframe?.setAttribute("allowfullscreen", "true");
         iframe?.setAttribute("title", video.title);
         const duration = Math.max(1, Math.round(await player.getDuration()));
         if (!active) return;
-        const playbackProgress = resolveVideoPlaybackProgress(savedPositionSeconds, duration);
-        const resumeSeconds = resolveVideoStartPosition(savedPositionSeconds, duration, window.location.hash);
+        const playbackProgress = resolveVideoPlaybackProgress(
+          savedPositionSeconds,
+          duration,
+        );
+        const resumeSeconds = resolveVideoStartPosition(
+          savedPositionSeconds,
+          duration,
+          window.location.hash,
+        );
         let currentTime = resumeSeconds ?? 0;
-        const updateChapter = (seconds: number) => { setActiveChapter(video.chapters?.findLast((chapter) => chapter.start <= seconds)?.start ?? null); };
+        const updateChapter = (seconds: number) => {
+          setActiveChapter(
+            video.chapters?.findLast((chapter) => chapter.start <= seconds)
+              ?.start ?? null,
+          );
+        };
         updateChapter(currentTime);
         let pendingSeek: number | null = null;
         let seeking = false;
@@ -133,7 +191,10 @@ export function MaterialPrimaryVideo({ className, materialId, video, showWatched
               const target = pendingSeek;
               pendingSeek = null;
               await player.seekTo(target);
-              if (active) { currentTime = target; updateChapter(target); }
+              if (active) {
+                currentTime = target;
+                updateChapter(target);
+              }
             }
           } finally {
             seeking = false;
@@ -142,10 +203,14 @@ export function MaterialPrimaryVideo({ className, materialId, video, showWatched
         const seekToFragment = () => {
           const seconds = readVideoTimeFragment(window.location.hash, duration);
           if (!active || seconds === null) return;
-          void seekToMoment(seconds).catch(() => { if (active) setPhase("error"); });
+          void seekToMoment(seconds).catch(() => {
+            if (active) setPhase("error");
+          });
         };
         window.addEventListener("hashchange", seekToFragment);
-        removeTimeListener = () => { window.removeEventListener("hashchange", seekToFragment); };
+        removeTimeListener = () => {
+          window.removeEventListener("hashchange", seekToFragment);
+        };
         if (resumeSeconds !== null) {
           await seekToMoment(resumeSeconds);
         }
@@ -155,7 +220,8 @@ export function MaterialPrimaryVideo({ className, materialId, video, showWatched
           durationSeconds: duration,
           scope: session.progressScope,
         };
-        if (!progressInteractionRef.current) setWatchedOverride(playbackProgress.watched);
+        if (!progressInteractionRef.current)
+          setWatchedOverride(playbackProgress.watched);
         let lastPersisted = currentTime;
         const persist = (position: number) => {
           if (!active) return;
@@ -172,12 +238,18 @@ export function MaterialPrimaryVideo({ className, materialId, video, showWatched
             videoId: video.videoId,
           });
         };
-        player.on(player.Events.TimeUpdate, ({ data: { currentTime: nextTime } }) => {
-          currentTime = nextTime;
-          updateChapter(nextTime);
-          if (Math.abs(currentTime - lastPersisted) >= 15) persist(currentTime);
+        player.on(
+          player.Events.TimeUpdate,
+          ({ data: { currentTime: nextTime } }) => {
+            currentTime = nextTime;
+            updateChapter(nextTime);
+            if (Math.abs(currentTime - lastPersisted) >= 15)
+              persist(currentTime);
+          },
+        );
+        player.on(player.Events.Pause, () => {
+          persist(currentTime);
         });
-        player.on(player.Events.Pause, () => { persist(currentTime); });
         player.on(player.Events.Ended, () => {
           if (!active) return;
           persist(duration);
@@ -199,7 +271,17 @@ export function MaterialPrimaryVideo({ className, materialId, video, showWatched
       removeTimeListener?.();
       void mountedPlayer?.destroy();
     };
-  }, [createPlaybackSession, materialId, persistAccountProgress, retryAttempt, video.chapters, video.durationSeconds, video.state, video.title, video.videoId]);
+  }, [
+    createPlaybackSession,
+    materialId,
+    persistAccountProgress,
+    retryAttempt,
+    video.chapters,
+    video.durationSeconds,
+    video.state,
+    video.title,
+    video.videoId,
+  ]);
 
   if (video.state !== "ready") {
     return (
@@ -217,8 +299,15 @@ export function MaterialPrimaryVideo({ className, materialId, video, showWatched
     try {
       let context = progressContextRef.current;
       if (context === null) {
-        const session = await createPlaybackSession({ materialId, videoId: video.videoId });
-        if (session === null || session.videoId !== video.videoId || video.durationSeconds === undefined) {
+        const session = await createPlaybackSession({
+          materialId,
+          videoId: video.videoId,
+        });
+        if (
+          session === null ||
+          session.videoId !== video.videoId ||
+          video.durationSeconds === undefined
+        ) {
           return;
         }
         context = {
@@ -229,7 +318,11 @@ export function MaterialPrimaryVideo({ className, materialId, video, showWatched
       }
       const positionSeconds = watched ? 0 : context.durationSeconds;
       if (context.scope === "anonymous") {
-        writeAnonymousProgress(video.videoId, positionSeconds, context.durationSeconds);
+        writeAnonymousProgress(
+          video.videoId,
+          positionSeconds,
+          context.durationSeconds,
+        );
         setWatchedOverride(!watched);
         return;
       }
@@ -245,27 +338,37 @@ export function MaterialPrimaryVideo({ className, materialId, video, showWatched
     }
   };
 
-  return <MaterialVideoPlayerView
-    chapters={video.chapters ?? []}
-    activeChapter={activeChapter}
-    onLoad={() => { setPhase("loading"); setRetryAttempt((attempt) => attempt + 1); }}
-    onToggleWatched={() => { void toggleWatched(); }}
-    {...(className === undefined ? {} : { className })}
-    phase={phase}
-    showWatchedAction={showWatchedAction}
-    sectionRef={sectionRef}
-    title={video.title}
-    videoId={video.videoId}
-    watched={watched}
-    watchedDisabled={
-      watchedPending ||
-      (video.durationSeconds === undefined && measuredDuration === null)
-    }
-  />;
+  return (
+    <MaterialVideoPlayerView
+      chapters={video.chapters ?? []}
+      activeChapter={activeChapter}
+      onLoad={() => {
+        setPhase("loading");
+        setRetryAttempt((attempt) => attempt + 1);
+      }}
+      onToggleWatched={() => {
+        void toggleWatched();
+      }}
+      {...(className === undefined ? {} : { className })}
+      phase={phase}
+      showWatchedAction={showWatchedAction}
+      sectionRef={sectionRef}
+      title={video.title}
+      videoId={video.videoId}
+      watched={watched}
+      watchedDisabled={
+        watchedPending ||
+        (video.durationSeconds === undefined && measuredDuration === null)
+      }
+    />
+  );
 }
 
 export interface MaterialVideoPlayerViewProps {
-  readonly chapters?: readonly { readonly start: number; readonly title: string }[];
+  readonly chapters?: readonly {
+    readonly start: number;
+    readonly title: string;
+  }[];
   readonly activeChapter?: number | null;
   readonly showWatchedAction?: boolean;
   readonly className?: string;
@@ -295,18 +398,33 @@ export function MaterialVideoPlayerView({
   showWatchedAction = true,
 }: MaterialVideoPlayerViewProps) {
   return (
-    <section aria-labelledby="primary-video-heading" className={cn("mt-8 max-w-[56rem] sm:mt-10", className)} data-video-id={videoId} ref={sectionRef}>
-      <h2 className="sr-only" id="primary-video-heading">Видео: {title}</h2>
+    <section
+      aria-labelledby="primary-video-heading"
+      className={cn("mt-8 max-w-[56rem] sm:mt-10", className)}
+      data-video-id={videoId}
+      ref={sectionRef}
+    >
+      <h2 className="sr-only" id="primary-video-heading">
+        Видео: {title}
+      </h2>
       <div className="relative aspect-video overflow-hidden rounded-2xl bg-sidebar text-sidebar-foreground shadow-card ring-1 ring-sidebar-border">
         <div className="absolute inset-0" data-video-player-mount />
         {phase === "playing" ? null : (
           <div className="absolute inset-0 grid place-items-center bg-[radial-gradient(circle_at_70%_20%,color-mix(in_oklch,var(--accent)_18%,transparent),transparent_42%),linear-gradient(145deg,var(--sidebar),color-mix(in_oklch,var(--sidebar)_84%,black))] p-3 text-center sm:p-6">
             <div className="max-w-md">
               {phase === "loading" ? (
-                <LoaderCircle aria-hidden="true" className="mx-auto size-7 animate-spin motion-reduce:animate-none" />
+                <LoaderCircle
+                  aria-hidden="true"
+                  className="mx-auto size-7 animate-spin motion-reduce:animate-none"
+                />
               ) : null}
-              <p aria-live="polite" className="mt-3 text-sm leading-6 text-sidebar-foreground/80">
-                {phase === "loading" ? "Загружаем видео…" : "Не удалось загрузить видео"}
+              <p
+                aria-live="polite"
+                className="mt-3 text-sm leading-6 text-sidebar-foreground/80"
+              >
+                {phase === "loading"
+                  ? "Загружаем видео…"
+                  : "Не удалось загрузить видео"}
               </p>
               {phase === "error" ? (
                 <Button className="mt-3" onClick={onLoad} type="button">
@@ -317,73 +435,140 @@ export function MaterialVideoPlayerView({
           </div>
         )}
       </div>
-      {chapters.length === 0 ? null : <nav className="mt-4" aria-label="Главы видео">
-        <ol className="space-y-1">
-          {chapters.map((chapter) => <li key={chapter.start}><a className="flex min-h-11 items-start gap-3 rounded-lg px-3 py-2 text-sm hover:bg-muted focus-visible:outline-2 focus-visible:outline-ring aria-[current=true]:bg-muted aria-[current=true]:font-semibold" href={`#t=${String(chapter.start)}`} aria-current={activeChapter === chapter.start ? "true" : undefined} onClick={() => { if (window.location.hash === `#t=${String(chapter.start)}`) window.dispatchEvent(new HashChangeEvent("hashchange")); }}><span className="shrink-0 tabular-nums text-muted-foreground">{formatChapterTime(chapter.start)}</span><span>{chapter.title}</span></a></li>)}
-        </ol>
-      </nav>}
-      {showWatchedAction ? <div className="mt-3 flex justify-end">
-        <Button
-          aria-pressed={watched}
-          className="h-auto min-h-10 w-40 max-w-full shrink-0 justify-center whitespace-normal rounded-full py-2"
-          disabled={watchedDisabled || onToggleWatched === undefined}
-          onClick={onToggleWatched}
-          type="button"
-          variant={watched ? "default" : "outline"}
-        >
-          {watched ? <CheckCircle2 aria-hidden="true" /> : <Circle aria-hidden="true" />}
-          Просмотрено
-        </Button>
-      </div> : null}
+      {chapters.length === 0 ? null : (
+        <nav className="mt-4" aria-label="Главы видео">
+          <ol className="space-y-1">
+            {chapters.map((chapter) => (
+              <li key={chapter.start}>
+                <a
+                  className="flex min-h-11 items-start gap-3 rounded-lg px-3 py-2 text-sm hover:bg-muted focus-visible:outline-2 focus-visible:outline-ring aria-[current=true]:bg-muted aria-[current=true]:font-semibold"
+                  href={`#t=${String(chapter.start)}`}
+                  aria-current={
+                    activeChapter === chapter.start ? "true" : undefined
+                  }
+                  onClick={() => {
+                    if (window.location.hash === `#t=${String(chapter.start)}`)
+                      window.dispatchEvent(new HashChangeEvent("hashchange"));
+                  }}
+                >
+                  <span className="shrink-0 tabular-nums text-muted-foreground">
+                    {formatChapterTime(chapter.start)}
+                  </span>
+                  <span>{chapter.title}</span>
+                </a>
+              </li>
+            ))}
+          </ol>
+        </nav>
+      )}
+      {showWatchedAction ? (
+        <div className="mt-3 flex justify-end">
+          <Button
+            aria-pressed={watched}
+            className="h-auto min-h-10 w-40 max-w-full shrink-0 justify-center whitespace-normal rounded-full py-2"
+            disabled={watchedDisabled || onToggleWatched === undefined}
+            onClick={onToggleWatched}
+            type="button"
+            variant={watched ? "default" : "outline"}
+          >
+            {watched ? (
+              <CheckCircle2 aria-hidden="true" />
+            ) : (
+              <Circle aria-hidden="true" />
+            )}
+            Просмотрено
+          </Button>
+        </div>
+      ) : null}
     </section>
   );
 }
 
-function UnavailableVideoState({ className, video }: { readonly className?: string; readonly video: MaterialPrimaryVideoProps["video"] }) {
-  const processing = video.state === "uploading" || video.state === "processing";
+function UnavailableVideoState({
+  className,
+  video,
+}: {
+  readonly className?: string;
+  readonly video: MaterialPrimaryVideoProps["video"];
+}) {
+  const processing =
+    video.state === "uploading" || video.state === "processing";
   return (
-    <section aria-labelledby="primary-video-heading" className={cn("mt-8 max-w-[56rem] rounded-2xl bg-secondary px-5 py-6 sm:mt-10 sm:px-7", className)} data-video-id={video.videoId}>
+    <section
+      aria-labelledby="primary-video-heading"
+      className={cn(
+        "mt-8 max-w-[56rem] rounded-2xl bg-secondary px-5 py-6 sm:mt-10 sm:px-7",
+        className,
+      )}
+      data-video-id={video.videoId}
+    >
       <span className="grid size-11 place-items-center rounded-xl bg-background text-accent">
-        {processing ? <LoaderCircle aria-hidden="true" className="size-5 animate-spin motion-reduce:animate-none" /> : <VideoOff aria-hidden="true" className="size-5" />}
+        {processing ? (
+          <LoaderCircle
+            aria-hidden="true"
+            className="size-5 animate-spin motion-reduce:animate-none"
+          />
+        ) : (
+          <VideoOff aria-hidden="true" className="size-5" />
+        )}
       </span>
       <h2 className="mt-4 text-lg font-semibold" id="primary-video-heading">
         {processing ? "Видео обрабатывается" : "Видео временно недоступно"}
       </h2>
       <p className="mt-2 text-sm leading-6 text-muted-foreground">
-        {processing ? "Можно продолжить чтение и вернуться к видео позже." : "Текст материала остаётся доступен. Попробуйте открыть видео позже."}
+        {processing
+          ? "Можно продолжить чтение и вернуться к видео позже."
+          : "Текст материала остаётся доступен. Попробуйте открыть видео позже."}
       </p>
     </section>
   );
 }
 
-const anonymousProgressKey = (videoId: string) => `inside.video-progress.v1:${videoId}`;
+const anonymousProgressKey = (videoId: string) =>
+  `inside.video-progress.v1:${videoId}`;
 
 function subscribeAnonymousProgress(onStoreChange: () => void): () => void {
   window.addEventListener("storage", onStoreChange);
-  return () => { window.removeEventListener("storage", onStoreChange); };
+  return () => {
+    window.removeEventListener("storage", onStoreChange);
+  };
 }
 
 function readAnonymousProgress(videoId: string): number | null {
   try {
-    const parsed = z.object({
-      positionSeconds: z.number().int().nonnegative(),
-      version: z.literal(1),
-      videoId: z.literal(videoId),
-    }).loose().safeParse(JSON.parse(localStorage.getItem(anonymousProgressKey(videoId)) ?? "null"));
+    const parsed = z
+      .object({
+        positionSeconds: z.number().int().nonnegative(),
+        version: z.literal(1),
+        videoId: z.literal(videoId),
+      })
+      .loose()
+      .safeParse(
+        JSON.parse(
+          localStorage.getItem(anonymousProgressKey(videoId)) ?? "null",
+        ),
+      );
     return parsed.success ? parsed.data.positionSeconds : null;
   } catch {
     return null;
   }
 }
 
-function writeAnonymousProgress(videoId: string, positionSeconds: number, durationSeconds: number): void {
+function writeAnonymousProgress(
+  videoId: string,
+  positionSeconds: number,
+  durationSeconds: number,
+): void {
   try {
-    localStorage.setItem(anonymousProgressKey(videoId), JSON.stringify({
-      durationSeconds,
-      positionSeconds,
-      version: 1,
-      videoId,
-    }));
+    localStorage.setItem(
+      anonymousProgressKey(videoId),
+      JSON.stringify({
+        durationSeconds,
+        positionSeconds,
+        version: 1,
+        videoId,
+      }),
+    );
   } catch {
     // Resume is best-effort when storage is unavailable.
   }

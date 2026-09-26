@@ -30,7 +30,11 @@ import { TelegramAccountLinksModule } from "./telegram-account-links.module.js";
     MembershipEntitlementsModule,
     TelegramAccountLinksModule,
   ],
-  controllers: [OwnCommunityAdmissionController, CommunityDispatchController, CommunityDeliveryController],
+  controllers: [
+    OwnCommunityAdmissionController,
+    CommunityDispatchController,
+    CommunityDeliveryController,
+  ],
   providers: [
     {
       provide: CommunityEntitlements,
@@ -53,12 +57,14 @@ import { TelegramAccountLinksModule } from "./telegram-account-links.module.js";
           grants,
           links,
           prisma,
-          provider: config.communityEntitlements?.contractVersion === "inside.community-entitlement.v2"
-            ? new HttpCommunityEntitlementProvider(
-                config.communityEntitlements.endpoint,
-                config.communityEntitlements.providerSecret,
-              )
-            : disabledCommunityEntitlementProvider,
+          provider:
+            config.communityEntitlements?.contractVersion ===
+            "inside.community-entitlement.v2"
+              ? new HttpCommunityEntitlementProvider(
+                  config.communityEntitlements.endpoint,
+                  config.communityEntitlements.providerSecret,
+                )
+              : disabledCommunityEntitlementProvider,
         }),
     },
   ],

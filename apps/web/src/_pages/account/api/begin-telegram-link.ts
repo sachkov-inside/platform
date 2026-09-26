@@ -14,8 +14,7 @@ import {
 export async function executeBeginTelegramLink(
   _formData: FormData,
   accessToken: string,
-  request: typeof requestTelegramMembershipLinkBegin =
-    requestTelegramMembershipLinkBegin,
+  request: typeof requestTelegramMembershipLinkBegin = requestTelegramMembershipLinkBegin,
 ): Promise<TelegramLinkMutationResult> {
   let result: BackendTransportResult;
   try {

@@ -2,7 +2,10 @@ import type { MetadataRoute } from "next";
 
 import { LEGAL_NAVIGATION } from "@/entities/legal-document";
 import { getPublicSiteIndex } from "@/features/public-site-index.server";
-import { publicPageUrl, readPublicSiteOrigin } from "@/shared/link-preview/index.server";
+import {
+  publicPageUrl,
+  readPublicSiteOrigin,
+} from "@/shared/link-preview/index.server";
 import {
   guidePath,
   HOME_PATH,
@@ -21,7 +24,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const origin = await readPublicSiteOrigin();
   const alwaysPublic = [
     HOME_PATH,
-      MAP_PATH,
+    MAP_PATH,
     LEGAL_PATH,
     ...LEGAL_NAVIGATION.map((entry) => legalDocumentPath(entry.key)),
   ].map((path) => ({
@@ -33,8 +36,12 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   }
   return [
     ...alwaysPublic,
-    ...index.guideSlugs.map((slug) => ({ url: publicPageUrl(origin, guidePath(slug)) })),
-    ...index.topicSlugs.map((slug) => ({ url: publicPageUrl(origin, topicPath(slug)) })),
+    ...index.guideSlugs.map((slug) => ({
+      url: publicPageUrl(origin, guidePath(slug)),
+    })),
+    ...index.topicSlugs.map((slug) => ({
+      url: publicPageUrl(origin, topicPath(slug)),
+    })),
     ...index.materials.map(({ publishedAt, slug }) => ({
       lastModified: publishedAt,
       url: publicPageUrl(origin, materialPath(slug)),

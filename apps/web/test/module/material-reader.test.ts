@@ -81,7 +81,9 @@ describe("Material Reader server adapter", () => {
       ),
     );
 
-    await expect(getMaterialReader("inside-platform-overview")).resolves.toEqual({
+    await expect(
+      getMaterialReader("inside-platform-overview"),
+    ).resolves.toEqual({
       kind: "available",
       material: {
         materialId: "72000000-0000-4000-8000-000000000020",
@@ -90,7 +92,10 @@ describe("Material Reader server adapter", () => {
         title: "Как устроен Inside Platform",
         summary: "Один реальный published Material.",
         difficulty: "basic",
-        outcomes: ["Назвать части платформы", "Найти нужный документ за минуту"],
+        outcomes: [
+          "Назвать части платформы",
+          "Найти нужный документ за минуту",
+        ],
         access: "free",
         cover: {
           coverId: "72000000-0000-4000-8000-000000000022",
@@ -103,7 +108,10 @@ describe("Material Reader server adapter", () => {
         seriesMemberships: [
           {
             ordinal: 3,
-            series: { name: "Создание Platform Inside", slug: "platform-inside" },
+            series: {
+              name: "Создание Platform Inside",
+              slug: "platform-inside",
+            },
           },
         ],
       },
@@ -115,7 +123,9 @@ describe("Material Reader server adapter", () => {
         },
         {
           kind: "paragraph",
-          content: [{ kind: "text", text: "Содержимое из PostgreSQL.", marks: [] }],
+          content: [
+            { kind: "text", text: "Содержимое из PostgreSQL.", marks: [] },
+          ],
         },
       ],
       primaryVideo: {
@@ -154,7 +164,10 @@ describe("Material Reader server adapter", () => {
         title: "Как устроен Inside Platform",
         summary: "Один реальный published Material.",
         difficulty: "basic",
-        outcomes: ["Назвать части платформы", "Найти нужный документ за минуту"],
+        outcomes: [
+          "Назвать части платформы",
+          "Найти нужный документ за минуту",
+        ],
         access: "membership",
         cover: {
           coverId: "72000000-0000-4000-8000-000000000022",
@@ -167,7 +180,10 @@ describe("Material Reader server adapter", () => {
         seriesMemberships: [
           {
             ordinal: 3,
-            series: { name: "Создание Platform Inside", slug: "platform-inside" },
+            series: {
+              name: "Создание Platform Inside",
+              slug: "platform-inside",
+            },
           },
         ],
       },
@@ -210,7 +226,9 @@ describe("Material Reader server adapter", () => {
       ),
     );
 
-    await expect(getMaterialReader("missing")).resolves.toEqual({ kind: "not-found" });
+    await expect(getMaterialReader("missing")).resolves.toEqual({
+      kind: "not-found",
+    });
   });
 
   it("rejects a successful response outside the runtime contract", async () => {
@@ -228,7 +246,9 @@ describe("Material Reader server adapter", () => {
       ),
     );
 
-    await expect(getMaterialReader("inside-platform-overview")).rejects.toMatchObject({
+    await expect(
+      getMaterialReader("inside-platform-overview"),
+    ).rejects.toMatchObject({
       code: "invalid-response",
     });
   });
@@ -254,16 +274,23 @@ describe("Material Reader server adapter", () => {
       ),
     );
 
-    await expect(getMaterialReader("inside-platform-overview")).resolves.toEqual({
+    await expect(
+      getMaterialReader("inside-platform-overview"),
+    ).resolves.toEqual({
       kind: "unavailable",
     });
   });
 
   it("maps a failed backend request to the unavailable state", async () => {
     vi.stubEnv("BACKEND_BASE_URL", "https://platform-api.example.test");
-    vi.stubGlobal("fetch", vi.fn().mockRejectedValue(new TypeError("connection refused")));
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockRejectedValue(new TypeError("connection refused")),
+    );
 
-    await expect(getMaterialReader("inside-platform-overview")).resolves.toEqual({
+    await expect(
+      getMaterialReader("inside-platform-overview"),
+    ).resolves.toEqual({
       kind: "unavailable",
     });
   });
@@ -286,7 +313,9 @@ describe("Material Reader server adapter", () => {
       ),
     );
 
-    await expect(getMaterialReader("inside-platform-overview")).rejects.toMatchObject({
+    await expect(
+      getMaterialReader("inside-platform-overview"),
+    ).rejects.toMatchObject({
       code: "backend-error",
     });
   });

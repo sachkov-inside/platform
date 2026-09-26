@@ -23,7 +23,8 @@ export function socialCardTitle(title: string): string {
   }
   const clipped = normalized.slice(0, MAX_TITLE_LENGTH);
   const lastSpace = clipped.lastIndexOf(" ");
-  const kept = lastSpace > MAX_TITLE_LENGTH / 2 ? clipped.slice(0, lastSpace) : clipped;
+  const kept =
+    lastSpace > MAX_TITLE_LENGTH / 2 ? clipped.slice(0, lastSpace) : clipped;
   return `${kept.trimEnd()}…`;
 }
 

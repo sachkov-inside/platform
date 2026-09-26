@@ -25,7 +25,8 @@ export async function GET(request: Request): Promise<Response> {
     // the exchange is audience-bound. Read that exact fresh token before later resource refreshes.
     const accessToken = await getAccessToken(config);
     const outcome = await completePlatformSignIn(accessToken);
-    if (outcome === "retryable") return localRedirect(config.baseUrl, "retryable");
+    if (outcome === "retryable")
+      return localRedirect(config.baseUrl, "retryable");
     const returnUri = safePostSignInReturnUri(postRedirectUri, config.baseUrl);
     // Until the terms of use in force are accepted, every sign-in lands on the first sign-in screen.
     const gate = await readTermsGate(accessToken);
@@ -34,7 +35,11 @@ export async function GET(request: Request): Promise<Response> {
       return localRedirect(
         config.baseUrl,
         undefined,
-        welcomePath(typeof target === "string" ? target : `${target.pathname}${target.search}`),
+        welcomePath(
+          typeof target === "string"
+            ? target
+            : `${target.pathname}${target.search}`,
+        ),
       );
     }
     return localRedirect(config.baseUrl, undefined, returnUri);

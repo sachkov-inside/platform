@@ -44,7 +44,9 @@ describe("Series Reader context", () => {
       totalMaterials: 3,
     });
 
-    const otherSeries = parseMaterialReaderReturnTarget("/series/review-series");
+    const otherSeries = parseMaterialReaderReturnTarget(
+      "/series/review-series",
+    );
     expect(
       resolveSeriesReaderContext({
         currentMaterialSlug: "shared-material",

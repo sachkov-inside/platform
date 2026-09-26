@@ -9,7 +9,8 @@ const CATALOG_CACHE_TAG = "catalog";
  * Исход гостевого чтения каталога, как его называют адаптеры страниц. Перечень закрытый: исход под
  * новым именем не должен молча получить срок жизни найденного.
  */
-type CatalogReadKind = "available" | "empty" | "not-found" | "ready" | "teaser" | "unavailable";
+type CatalogReadKind =
+  "available" | "empty" | "not-found" | "ready" | "teaser" | "unavailable";
 
 /**
  * Вызывается внутри функции с `"use cache"` после того, как исход чтения известен: срок жизни записи

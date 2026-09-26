@@ -37,9 +37,7 @@ import {
   type MembershipEntitlements,
 } from "../../../membership-entitlements/index.js";
 import { throwContentLibraryError } from "../../adapters/nest/content-library-http-errors.js";
-import {
-  guidePageCardSchema,
-} from "../../../materials/index.js";
+import { guidePageCardSchema } from "../../../materials/index.js";
 import {
   publishedCatalogFacetHttpSchema,
   publishedCatalogItemHttpSchema,
@@ -80,7 +78,10 @@ export class ReadHomeContentController {
       "listProjections" | "readHomePinnedSeries"
     >,
     @Inject(CONTENT_ACCESS)
-    private readonly contentAccess: Pick<ContentAccess, "checkAvailabilityMany">,
+    private readonly contentAccess: Pick<
+      ContentAccess,
+      "checkAvailabilityMany"
+    >,
     @Inject(VIDEOS)
     private readonly videos: Pick<Videos, "loadReadyDurations">,
     @Inject(MEMBERSHIP_ENTITLEMENTS)

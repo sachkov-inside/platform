@@ -71,9 +71,7 @@
       "scenario": "Bot permission loss/429/timeout",
       "expected": "unavailable, без ложного not_member и без новых прав",
       "status": "local_pass",
-      "evidence": [
-        "../evidence/tribute-access-convergence/source-faults.json"
-      ],
+      "evidence": ["../evidence/tribute-access-convergence/source-faults.json"],
       "proofBoundary": "Actual accepted consumer AppModule and Platform HTTP/PG; external Telegram adapter controlled locally. No credentialed provider proof."
     },
     {
@@ -152,45 +150,35 @@
       "scenario": "Tribute expiry + Guide",
       "expected": "Полный тариф истёк, Guide/чат остались",
       "status": "local_pass",
-      "evidence": [
-        "../evidence/tribute-access-convergence/mixed-guides.json"
-      ]
+      "evidence": ["../evidence/tribute-access-convergence/mixed-guides.json"]
     },
     {
       "id": 16,
       "scenario": "Выход и rejoin по Guide прежнего Tribute",
       "expected": "Старое полное право не восстановилось",
       "status": "local_pass",
-      "evidence": [
-        "../evidence/tribute-access-convergence/mixed-guides.json"
-      ]
+      "evidence": ["../evidence/tribute-access-convergence/mixed-guides.json"]
     },
     {
       "id": 17,
       "scenario": "Курс + Tribute expiry/refund другой покупки",
       "expected": "Независимое назначение курса сохранилось",
       "status": "local_pass",
-      "evidence": [
-        "../evidence/tribute-access-convergence/mixed-course.json"
-      ]
+      "evidence": ["../evidence/tribute-access-convergence/mixed-course.json"]
     },
     {
       "id": 18,
       "scenario": "Guide one-time + join",
       "expected": "Guide/чат бессрочны; другой Guide закрыт",
       "status": "local_pass",
-      "evidence": [
-        "../evidence/tribute-access-convergence/mixed-guides.json"
-      ]
+      "evidence": ["../evidence/tribute-access-convergence/mixed-guides.json"]
     },
     {
       "id": 19,
       "scenario": "Два Guide, отзыв одного основания",
       "expected": "Второй Guide и чат сохранены",
       "status": "local_pass",
-      "evidence": [
-        "../evidence/tribute-access-convergence/mixed-guides.json"
-      ]
+      "evidence": ["../evidence/tribute-access-convergence/mixed-guides.json"]
     },
     {
       "id": 20,
@@ -252,9 +240,7 @@
       "scenario": "Два пересекающихся тарифа, один истёк",
       "expected": "Объединение независимо; граница срока точная",
       "status": "local_pass",
-      "evidence": [
-        "../evidence/tribute-access-convergence/overlap.json"
-      ]
+      "evidence": ["../evidence/tribute-access-convergence/overlap.json"]
     },
     {
       "id": 26,
@@ -317,9 +303,7 @@
       "scenario": "Backup/restore, restart, rollback flags",
       "expected": "Права и receipts сохранены, recurring не включён",
       "status": "local_pass",
-      "evidence": [
-        "../evidence/tribute-access-convergence/restored-pair.json"
-      ]
+      "evidence": ["../evidence/tribute-access-convergence/restored-pair.json"]
     },
     {
       "id": 32,
@@ -340,9 +324,7 @@
       "scenario": "Нет активных прав",
       "expected": "Аккаунт/история доступны, закрытые материалы недоступны",
       "status": "local_pass",
-      "evidence": [
-        "../evidence/tribute-access-convergence/no-active.json"
-      ]
+      "evidence": ["../evidence/tribute-access-convergence/no-active.json"]
     },
     {
       "id": 34,

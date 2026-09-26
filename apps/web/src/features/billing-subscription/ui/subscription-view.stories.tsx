@@ -63,10 +63,14 @@ export const Canceled: Story = {
   args: { subscription: canceledSubscription },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
-    await expect(canvas.getByText("Списаний больше не будет")).toBeInTheDocument();
+    await expect(
+      canvas.getByText("Списаний больше не будет"),
+    ).toBeInTheDocument();
     await expect(canvas.queryByRole("checkbox")).not.toBeInTheDocument();
     await expect(
-      canvas.getByText(/следующее списание .+, затем раз в .+\. Отключить продление можно здесь же\./u),
+      canvas.getByText(
+        /следующее списание .+, затем раз в .+\. Отключить продление можно здесь же\./u,
+      ),
     ).toBeInTheDocument();
     await expect(
       canvas.getByRole("button", { name: "Возобновить автопродление" }),

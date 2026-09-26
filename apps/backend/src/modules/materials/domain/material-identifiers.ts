@@ -1,4 +1,7 @@
-export { materialId, type MaterialId } from "../../../infrastructure/contracts/material-id.js";
+export {
+  materialId,
+  type MaterialId,
+} from "../../../infrastructure/contracts/material-id.js";
 
 declare const idempotencyKeyBrand: unique symbol;
 

@@ -1,9 +1,15 @@
-import { legalDocumentKeys, type LegalDocumentKey } from "@inside/legal/document";
+import {
+  legalDocumentKeys,
+  type LegalDocumentKey,
+} from "@inside/legal/document";
 import type { Route } from "next";
 import { z } from "zod";
 
 import { legalNavigationEntry } from "@/entities/legal-document";
-import { renewalTermsLine, shownRenewalTermsSchema } from "@/entities/subscription";
+import {
+  renewalTermsLine,
+  shownRenewalTermsSchema,
+} from "@/entities/subscription";
 import { legalEditionPath } from "@/shared/routing/public-page-path";
 
 export const acceptedDocumentSchema = z.object({
@@ -12,7 +18,9 @@ export const acceptedDocumentSchema = z.object({
   version: z.string(),
   url: z.url({ protocol: /^https?$/u }),
   acceptedAt: z.iso.datetime(),
-  screen: z.enum(["first-sign-in", "checkout", "subscription-resume"]).nullable(),
+  screen: z
+    .enum(["first-sign-in", "checkout", "subscription-resume"])
+    .nullable(),
   buttonLabel: z.string().nullable(),
   shownTerms: shownRenewalTermsSchema.nullable(),
 });
@@ -56,16 +64,25 @@ export function acceptedDocumentItems(
 ): readonly AcceptedDocumentItem[] {
   return documents.map((document) => {
     const version = Number(document.version);
-    const known = isLegalDocumentKey(document.documentId) && Number.isInteger(version) && version > 0;
+    const known =
+      isLegalDocumentKey(document.documentId) &&
+      Number.isInteger(version) &&
+      version > 0;
     return {
       key: document.acceptanceRef,
-      title: legalNavigationEntry(document.documentId)?.navLabel ?? document.documentId,
+      title:
+        legalNavigationEntry(document.documentId)?.navLabel ??
+        document.documentId,
       acceptedAt: acceptedAtFormat.format(new Date(document.acceptedAt)),
       buttonLabel: document.buttonLabel,
       edition: `редакция ${document.version}`,
-      href: known ? legalEditionPath(document.documentId as LegalDocumentKey, version) : null,
+      href: known
+        ? legalEditionPath(document.documentId as LegalDocumentKey, version)
+        : null,
       shownTerms:
-        document.shownTerms === null ? null : renewalTermsLine(document.shownTerms),
+        document.shownTerms === null
+          ? null
+          : renewalTermsLine(document.shownTerms),
     };
   });
 }

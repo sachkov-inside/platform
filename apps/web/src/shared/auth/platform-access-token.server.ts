@@ -2,10 +2,7 @@ import "server-only";
 
 import { createHash } from "node:crypto";
 
-import {
-  getAccessToken,
-  getAccessTokenRSC,
-} from "@logto/next/server-actions";
+import { getAccessToken, getAccessTokenRSC } from "@logto/next/server-actions";
 import { cookies } from "next/headers";
 import { connection } from "next/server";
 
@@ -43,7 +40,9 @@ async function getPlatformAccessTokenWith(
   mode: "mutable" | "rsc",
   readAccessToken: typeof getAccessToken,
 ): Promise<string> {
-  const session = (await cookies()).get(logtoSessionCookieName(config.appId))?.value;
+  const session = (await cookies()).get(
+    logtoSessionCookieName(config.appId),
+  )?.value;
   if (session === undefined) {
     throw new LogtoSessionUnavailableError();
   }

@@ -16,12 +16,21 @@ export function GuideProductSkeleton() {
         <div className="pt-4" data-product-part="back">
           <div className={`h-10 w-44 rounded-full bg-secondary ${pulse}`} />
         </div>
-        <div className="mt-3 rounded-[1.75rem] bg-muted p-4" data-product-part="hero">
+        <div
+          className="mt-3 rounded-[1.75rem] bg-muted p-4"
+          data-product-part="hero"
+        >
           <div className={`h-4 w-20 rounded bg-placeholder/30 ${pulse}`} />
-          <div className={`mt-3 aspect-[16/9] w-full rounded-2xl bg-placeholder/20 ${pulse}`} />
-          <div className={`mt-4 h-11 w-32 rounded-md bg-placeholder/20 ${pulse}`} />
+          <div
+            className={`mt-3 aspect-[16/9] w-full rounded-2xl bg-placeholder/20 ${pulse}`}
+          />
+          <div
+            className={`mt-4 h-11 w-32 rounded-md bg-placeholder/20 ${pulse}`}
+          />
         </div>
-        <div className={`mt-7 h-8 w-4/5 rounded-lg bg-muted md:h-10 ${pulse}`} />
+        <div
+          className={`mt-7 h-8 w-4/5 rounded-lg bg-muted md:h-10 ${pulse}`}
+        />
         <div className={`mt-3 h-7 w-full rounded-md bg-muted/80 ${pulse}`} />
         <div className={`mt-3 h-5 w-1/3 rounded-md bg-muted/80 ${pulse}`} />
         <SectionSkeleton />

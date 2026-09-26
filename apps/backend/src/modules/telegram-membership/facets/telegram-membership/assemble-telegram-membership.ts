@@ -2,7 +2,10 @@ import { createHash, randomBytes, randomUUID } from "node:crypto";
 
 import { z } from "zod";
 
-import { dependencyFailure, reportDependencyFailure } from "../../../../infrastructure/observability/index.js";
+import {
+  dependencyFailure,
+  reportDependencyFailure,
+} from "../../../../infrastructure/observability/index.js";
 import {
   lockTelegramMembershipLink,
   type TelegramMembershipPrisma,
@@ -58,14 +61,25 @@ export function assembleTelegramMembership(
           clock(),
         );
       } catch (error) {
-        return dependencyFailure({ module: "telegram-membership", operation: "readAccountPresentation" }, error, { ok: false, error: { code: "unavailable" } });
+        return dependencyFailure(
+          {
+            module: "telegram-membership",
+            operation: "readAccountPresentation",
+          },
+          error,
+          { ok: false, error: { code: "unavailable" } },
+        );
       }
     },
     async beginLink(command) {
       try {
         return await beginLink(dependencies, command.accountId, clock());
       } catch (error) {
-        return dependencyFailure({ module: "telegram-membership", operation: "beginLink" }, error, failure("unavailable"));
+        return dependencyFailure(
+          { module: "telegram-membership", operation: "beginLink" },
+          error,
+          failure("unavailable"),
+        );
       }
     },
     async confirmLink(command) {
@@ -77,14 +91,22 @@ export function assembleTelegramMembership(
           clock(),
         );
       } catch (error) {
-        return dependencyFailure({ module: "telegram-membership", operation: "confirmLink" }, error, failure("unavailable"));
+        return dependencyFailure(
+          { module: "telegram-membership", operation: "confirmLink" },
+          error,
+          failure("unavailable"),
+        );
       }
     },
     async acceptEvidence(command) {
       try {
         return await acceptEvidence(dependencies, command);
       } catch (error) {
-        return dependencyFailure({ module: "telegram-membership", operation: "acceptEvidence" }, error, { ok: false, error: { code: "unavailable" } });
+        return dependencyFailure(
+          { module: "telegram-membership", operation: "acceptEvidence" },
+          error,
+          { ok: false, error: { code: "unavailable" } },
+        );
       }
     },
   };
@@ -154,7 +176,10 @@ async function beginLink(
       tokenDigest,
     });
   } catch (error) {
-    reportDependencyFailure({ module: "telegram-membership", operation: "beginLink" }, error);
+    reportDependencyFailure(
+      { module: "telegram-membership", operation: "beginLink" },
+      error,
+    );
     registration = { kind: "unavailable" };
   }
 
@@ -214,10 +239,7 @@ async function readAccountPresentation(
         now,
         dependencies.membershipSupportUrl,
       ),
-      membership: accountMembershipState(
-        access,
-        subscriptionForSale,
-      ),
+      membership: accountMembershipState(access, subscriptionForSale),
     },
   };
 }
@@ -320,11 +342,12 @@ async function currentLinkForBegin(
     orderBy: [{ updatedAt: "desc" }, { linkRef: "desc" }],
   });
   if (latest === null) return undefined;
-  if (
-    latest.status === "conflict" ||
-    latest.status === "recovery_required"
-  ) {
-    return linkState(latest.linkRef, latest.expiresAt, publicStatus(latest.status));
+  if (latest.status === "conflict" || latest.status === "recovery_required") {
+    return linkState(
+      latest.linkRef,
+      latest.expiresAt,
+      publicStatus(latest.status),
+    );
   }
   if (latest.expiresAt <= now) return undefined;
   if (latest.status === "pending") {
@@ -348,9 +371,10 @@ async function confirmLink(
   if (!linkRefSchema.safeParse(linkRef).success) {
     return failure("invalid_input");
   }
-  const transaction = await dependencies.prisma.telegramLinkTransaction.findFirst(
-    { where: { accountId: account, linkRef } },
-  );
+  const transaction =
+    await dependencies.prisma.telegramLinkTransaction.findFirst({
+      where: { accountId: account, linkRef },
+    });
   if (transaction === null) {
     return failure("link_not_found");
   }
@@ -371,7 +395,11 @@ async function confirmLink(
     )
   ) {
     return success(
-      linkState(linkRef, transaction.expiresAt, publicStatus(transaction.status)),
+      linkState(
+        linkRef,
+        transaction.expiresAt,
+        publicStatus(transaction.status),
+      ),
     );
   }
   if (transaction.providerTransactionRef === null) {
@@ -389,7 +417,10 @@ async function confirmLink(
       returnCorrelation: transaction.returnCorrelation,
     });
   } catch (error) {
-    reportDependencyFailure({ module: "telegram-membership", operation: "confirmLink" }, error);
+    reportDependencyFailure(
+      { module: "telegram-membership", operation: "confirmLink" },
+      error,
+    );
     confirmation = { kind: "unavailable" };
   }
   if (
@@ -422,7 +453,10 @@ async function confirmLink(
       });
       return success(linkState(linkRef, transaction.expiresAt, "linked"));
     } catch (error) {
-      reportDependencyFailure({ module: "telegram-membership", operation: "confirmLink" }, error);
+      reportDependencyFailure(
+        { module: "telegram-membership", operation: "confirmLink" },
+        error,
+      );
       await updateLinkState(dependencies, linkRef, "conflict", now);
       return success(linkState(linkRef, transaction.expiresAt, "conflict"));
     }
@@ -430,7 +464,9 @@ async function confirmLink(
 
   const state = confirmationState(confirmation.kind);
   await updateLinkState(dependencies, linkRef, state, now);
-  return success(linkState(linkRef, transaction.expiresAt, publicStatus(state)));
+  return success(
+    linkState(linkRef, transaction.expiresAt, publicStatus(state)),
+  );
 }
 
 async function acceptEvidence(
@@ -555,7 +591,8 @@ function assertDependencies(
     !Number.isInteger(dependencies.linkLifetimeMs) ||
     dependencies.linkLifetimeMs < 60_000 ||
     dependencies.linkLifetimeMs > 10 * 60_000 ||
-    (supportUrl !== undefined && !["http:", "https:"].includes(supportUrl.protocol))
+    (supportUrl !== undefined &&
+      !["http:", "https:"].includes(supportUrl.protocol))
   ) {
     throw new TypeError("Telegram Membership dependencies are invalid");
   }

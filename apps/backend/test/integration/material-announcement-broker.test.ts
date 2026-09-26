@@ -53,7 +53,10 @@ test("первая публикация доходит до обоих кана�
   const broker = await new GenericContainer(NOTIFICATION_BROKER_IMAGE)
     .withExposedPorts(5672)
     .withCopyContentToContainer([
-      { content: JSON.stringify(topology), target: "/etc/rabbitmq/definitions.json" },
+      {
+        content: JSON.stringify(topology),
+        target: "/etc/rabbitmq/definitions.json",
+      },
       {
         content:
           "definitions.import_backend = local_filesystem\ndefinitions.local.path = /etc/rabbitmq/definitions.json\n",
@@ -77,12 +80,18 @@ test("первая публикация доходит до обоих кана�
     email: url("email"),
   };
 
-  const protection = billingContactProtection(Buffer.alloc(32, 64).toString("base64"));
+  const protection = billingContactProtection(
+    Buffer.alloc(32, 64).toString("base64"),
+  );
   const reader = randomUUID();
   const quiet = randomUUID();
   for (const id of [ownerId, reader, quiet]) {
     await database.prisma.account.create({
-      data: { id, logtoIssuer: "https://identity.example.test", logtoSubject: id },
+      data: {
+        id,
+        logtoIssuer: "https://identity.example.test",
+        logtoSubject: id,
+      },
     });
   }
   await database.prisma.billingContact.create({
@@ -128,8 +137,14 @@ test("первая публикация доходит до обоих кана�
           resolve: (event) => announcements.resolveAnnouncement(event),
           canRead: async (account, sourceRef) => {
             const decision = await contentAccess.authorize({
-              subject: { kind: "account", accountId: checkedAccountId(account) },
-              resource: { kind: "material", materialId: checkedMaterialId(sourceRef) },
+              subject: {
+                kind: "account",
+                accountId: checkedAccountId(account),
+              },
+              resource: {
+                kind: "material",
+                materialId: checkedMaterialId(sourceRef),
+              },
               action: "read",
               enforcementPoint: "published_material_read",
               correlationId: "notifications",
@@ -242,7 +257,9 @@ test("первая публикация доходит до обоих кана�
         }),
       ).toEqual([]);
       expect(
-        await database.prisma.notificationEmailEffect.count({ where: { state: "sent" } }),
+        await database.prisma.notificationEmailEffect.count({
+          where: { state: "sent" },
+        }),
       ).toBe(1);
     }, barrierBudgetMs);
     expect(sent).toHaveLength(1);
@@ -263,7 +280,9 @@ test("первая публикация доходит до обоих кана�
           where: { publishedAt: null },
         }),
       ).toBe(0);
-      expect(await queueDepth(admin, "inside-test", lanes.telegramMaterial.queue)).toBe(1);
+      expect(
+        await queueDepth(admin, "inside-test", lanes.telegramMaterial.queue),
+      ).toBe(1);
       expect(
         await database.prisma.notificationDelivery.count({
           where: { channel: "email", state: "sent" },
@@ -273,7 +292,9 @@ test("первая публикация доходит до обоих кана�
 
     // Уведомление получил только тот, кто сам включил каналы: подписка на новые материалы opt-in.
     expect(
-      await database.prisma.notification.findMany({ select: { accountId: true, kind: true } }),
+      await database.prisma.notification.findMany({
+        select: { accountId: true, kind: true },
+      }),
     ).toEqual([{ accountId: reader, kind: "material.published" }]);
   } finally {
     await worker.stop();

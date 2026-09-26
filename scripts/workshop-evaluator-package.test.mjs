@@ -19,12 +19,17 @@ const repositoryRoot = fileURLToPath(new URL("../", import.meta.url));
 const evaluatorRoot = path.join(repositoryRoot, "tools/workshop-evaluator");
 
 test("native Unix package preserves modes and rejects a changed binary", () => {
-  const temporaryRoot = mkdtempSync(path.join(tmpdir(), "inside-workshop-package-test-"));
+  const temporaryRoot = mkdtempSync(
+    path.join(tmpdir(), "inside-workshop-package-test-"),
+  );
   const dist = path.join(temporaryRoot, "dist");
   mkdirSync(dist);
 
   const binary = path.join(dist, "workshop-evaluator");
-  writeFileSync(binary, "#!/usr/bin/env bash\nprintf '%s\\n' 'fixture-version'\n");
+  writeFileSync(
+    binary,
+    "#!/usr/bin/env bash\nprintf '%s\\n' 'fixture-version'\n",
+  );
   chmodSync(binary, 0o755);
   const wrapper = path.join(dist, "run-workshop-evaluator.sh");
   copyFileSync(
@@ -32,8 +37,13 @@ test("native Unix package preserves modes and rejects a changed binary", () => {
     wrapper,
   );
   chmodSync(wrapper, 0o755);
-  const digest = createHash("sha256").update(readFileSync(binary)).digest("hex");
-  writeFileSync(path.join(dist, "workshop-evaluator.sha256"), `${digest}  workshop-evaluator\n`);
+  const digest = createHash("sha256")
+    .update(readFileSync(binary))
+    .digest("hex");
+  writeFileSync(
+    path.join(dist, "workshop-evaluator.sha256"),
+    `${digest}  workshop-evaluator\n`,
+  );
 
   const packaged = spawnSync(
     path.join(evaluatorRoot, "package-native-artifact.sh"),
@@ -50,9 +60,13 @@ test("native Unix package preserves modes and rejects a changed binary", () => {
   });
   assert.equal(extraction.status, 0, extraction.stderr);
 
-  const executed = spawnSync(path.join(extracted, "run-workshop-evaluator.sh"), ["--version"], {
-    encoding: "utf8",
-  });
+  const executed = spawnSync(
+    path.join(extracted, "run-workshop-evaluator.sh"),
+    ["--version"],
+    {
+      encoding: "utf8",
+    },
+  );
   assert.equal(executed.status, 0, executed.stderr);
   assert.match(executed.stdout, /fixture-version/u);
 

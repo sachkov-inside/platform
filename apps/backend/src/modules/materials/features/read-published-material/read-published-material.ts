@@ -119,28 +119,48 @@ export async function readPublishedMaterial(
         continue;
       }
       // Chapters belong to the same checked version as the body; a newer Save restarts the read.
-      const currentVideo = await dependencies.prisma.material.findUnique({ where: { id: resourceId }, select: { contentVersion: true, publicationState: true, videoChapters: true } });
-      if (currentVideo === null || currentVideo.publicationState !== "published" || currentVideo.contentVersion !== BigInt(access.checkedContentVersion)) continue;
-      const videoChapters = videoChaptersSchema.parse(currentVideo.videoChapters);
+      const currentVideo = await dependencies.prisma.material.findUnique({
+        where: { id: resourceId },
+        select: {
+          contentVersion: true,
+          publicationState: true,
+          videoChapters: true,
+        },
+      });
+      if (
+        currentVideo === null ||
+        currentVideo.publicationState !== "published" ||
+        currentVideo.contentVersion !== BigInt(access.checkedContentVersion)
+      )
+        continue;
+      const videoChapters = videoChaptersSchema.parse(
+        currentVideo.videoChapters,
+      );
       const rendered = dependencies.materialBodyOperations.render(body.value);
       if (!rendered.ok) {
         return internalError();
       }
-      const extraction = dependencies.materialBodyOperations.extract(body.value);
+      const extraction = dependencies.materialBodyOperations.extract(
+        body.value,
+      );
       if (!extraction.ok) return internalError();
-      const loadedPresentations = dependencies.materialAssets === undefined
-        ? { ok: true as const, value: [] }
-        : await dependencies.materialAssets.loadPresentations(
-            projection.materialId,
-            extraction.value.resources.map((resource) => resource.assetId),
-          );
+      const loadedPresentations =
+        dependencies.materialAssets === undefined
+          ? { ok: true as const, value: [] }
+          : await dependencies.materialAssets.loadPresentations(
+              projection.materialId,
+              extraction.value.resources.map((resource) => resource.assetId),
+            );
       if (!loadedPresentations.ok) return loadedPresentations;
       let loadedVideo;
       if (projection.primaryVideoId === null) {
         loadedVideo = { ok: true as const, value: null };
       } else {
         if (dependencies.videos === undefined) {
-          return { ok: false, error: { code: "dependency_unavailable", retryable: true } };
+          return {
+            ok: false,
+            error: { code: "dependency_unavailable", retryable: true },
+          };
         }
         loadedVideo = await dependencies.videos.loadPresentation({
           materialId: projection.materialId,
@@ -159,7 +179,10 @@ export async function readPublishedMaterial(
           cacheScope:
             access.reason === "public_resource" ? "public" : "private-no-store",
           projection,
-          body: hydrateMaterialAssets(rendered.value, loadedPresentations.value),
+          body: hydrateMaterialAssets(
+            rendered.value,
+            loadedPresentations.value,
+          ),
           primaryVideo: loadedVideo.value,
           ...(videoChapters.length === 0 ? {} : { videoChapters }),
         },
@@ -167,7 +190,14 @@ export async function readPublishedMaterial(
     }
     return internalError();
   } catch (error) {
-    return { ok: false, error: dependencyFailure({ module: "materials", operation: "readPublishedMaterial" }, error, mapPostgresReadError(error)) };
+    return {
+      ok: false,
+      error: dependencyFailure(
+        { module: "materials", operation: "readPublishedMaterial" },
+        error,
+        mapPostgresReadError(error),
+      ),
+    };
   }
 }
 

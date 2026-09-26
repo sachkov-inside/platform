@@ -31,7 +31,10 @@ export async function handleAcceptedDocumentsRequest(): Promise<Response> {
       });
     const parsed = acceptedDocumentsSchema.safeParse(result.body);
     return parsed.success
-      ? Response.json({ documents: parsed.data.documents }, { headers: privateHeaders })
+      ? Response.json(
+          { documents: parsed.data.documents },
+          { headers: privateHeaders },
+        )
       : new Response(null, { headers: privateHeaders, status: 502 });
   } catch {
     return new Response(null, { headers: privateHeaders, status: 503 });

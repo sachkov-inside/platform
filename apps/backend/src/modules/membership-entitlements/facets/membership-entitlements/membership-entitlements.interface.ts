@@ -8,9 +8,7 @@ export type MembershipAccessState =
     }>;
 
 export type MembershipEvidenceSource =
-  | "link_time"
-  | "member_status_event"
-  | "reconciliation";
+  "link_time" | "member_status_event" | "reconciliation";
 
 export interface AcceptMembershipEvidenceCommand {
   /** Trusted human Account selected before the provider adapter crosses this seam. */
@@ -39,10 +37,7 @@ export type MembershipEvidenceAcceptance =
   | Readonly<{
       ok: true;
       outcome: "accepted_without_entitlement";
-      decision:
-        | "identity_not_linked"
-        | "identity_conflict"
-        | "unavailable";
+      decision: "identity_not_linked" | "identity_conflict" | "unavailable";
     }>
   | Readonly<{
       ok: true;
@@ -62,15 +57,28 @@ export type MembershipPrincipalBinding =
     }>;
 
 export interface MembershipEntitlements {
-  resolveManyForAccess?(accountId: AccountId, resources: readonly { guideIds: readonly string[]; materialId?: string | undefined }[]): Promise<readonly MembershipAccessState[]>;
-  resolveForAccess(accountId: AccountId, guideIds?: readonly string[], materialId?: string): Promise<MembershipAccessState>;
+  resolveManyForAccess?(
+    accountId: AccountId,
+    resources: readonly {
+      guideIds: readonly string[];
+      materialId?: string | undefined;
+    }[],
+  ): Promise<readonly MembershipAccessState[]>;
+  resolveForAccess(
+    accountId: AccountId,
+    guideIds?: readonly string[],
+    materialId?: string,
+  ): Promise<MembershipAccessState>;
   /**
    * Membership of the whole Account in the caller's transaction, which already holds
    * `lockAccountEntitlementChanges` for it, so the facts that open access cannot change under the
    * reads. The caller's transaction type lists `MembershipAccessPrisma` to hand itself over, and no
    * second pooled connection is taken.
    */
-  resolveForAccessUnderEntitlementLock(transaction: MembershipAccessPrisma, accountId: AccountId): Promise<MembershipAccessState>;
+  resolveForAccessUnderEntitlementLock(
+    transaction: MembershipAccessPrisma,
+    accountId: AccountId,
+  ): Promise<MembershipAccessState>;
   bindPrincipal(command: {
     readonly accountId: AccountId;
     readonly principalRef: string;

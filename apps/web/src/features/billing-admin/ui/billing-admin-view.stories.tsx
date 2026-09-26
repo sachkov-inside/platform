@@ -1,7 +1,11 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { expect, fn, within } from "storybook/test";
 
-import { billingOffers, materialsOffer, supportOffer } from "@/workshop/billing.fixtures";
+import {
+  billingOffers,
+  materialsOffer,
+  supportOffer,
+} from "@/workshop/billing.fixtures";
 
 import { BillingAdminView } from "./billing-admin-view.client";
 import { authoringPageEnvironment } from "@/workshop/story-environment";
@@ -231,12 +235,40 @@ export const Desktop: Story = {
 
 export const AssignmentOnlyTier: Story = {
   args: {
-    content: [{ kind: "guide", id: "62000000-0000-4000-8000-000000000004", title: "Инженерная практика", slug: "engineering-practice", available: true }],
-    tiers: [{ tier: { id: "62000000-0000-4000-8000-000000000003", revision: 2, name: "Подписка Inside", benefits: ["materials", "community"], contentScope: { guideIds: ["62000000-0000-4000-8000-000000000004"], materialIds: [] } }, availableForAssignment: true, published: false, archived: false }],
+    content: [
+      {
+        kind: "guide",
+        id: "62000000-0000-4000-8000-000000000004",
+        title: "Инженерная практика",
+        slug: "engineering-practice",
+        available: true,
+      },
+    ],
+    tiers: [
+      {
+        tier: {
+          id: "62000000-0000-4000-8000-000000000003",
+          revision: 2,
+          name: "Подписка Inside",
+          benefits: ["materials", "community"],
+          contentScope: {
+            guideIds: ["62000000-0000-4000-8000-000000000004"],
+            materialIds: [],
+          },
+        },
+        availableForAssignment: true,
+        published: false,
+        archived: false,
+      },
+    ],
   },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
-    await expect(canvas.getByText("Подписка Inside · назначается")).toBeInTheDocument();
-    await expect(canvas.getByRole("checkbox", { name: "Продукт: Инженерная практика" })).toBeInTheDocument();
+    await expect(
+      canvas.getByText("Подписка Inside · назначается"),
+    ).toBeInTheDocument();
+    await expect(
+      canvas.getByRole("checkbox", { name: "Продукт: Инженерная практика" }),
+    ).toBeInTheDocument();
   },
 };

@@ -18,8 +18,7 @@ const formSchema = z.object({ linkRef: z.uuid() }).strict();
 export async function executeConfirmTelegramLink(
   formData: FormData,
   accessToken: string,
-  request: typeof requestTelegramMembershipLinkConfirmation =
-    requestTelegramMembershipLinkConfirmation,
+  request: typeof requestTelegramMembershipLinkConfirmation = requestTelegramMembershipLinkConfirmation,
 ): Promise<TelegramLinkMutationResult> {
   const parsed = formSchema.safeParse({ linkRef: formData.get("linkRef") });
   if (!parsed.success) {

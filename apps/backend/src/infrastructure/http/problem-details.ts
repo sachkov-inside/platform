@@ -5,7 +5,9 @@ import { HttpException } from "@nestjs/common";
  * Every backend problem response and the web BFF name their code this way, so a client reads one
  * stable form.
  */
-export function problemType<const Code extends string>(code: Code): `urn:inside:problem:${Code}` {
+export function problemType<const Code extends string>(
+  code: Code,
+): `urn:inside:problem:${Code}` {
   return `urn:inside:problem:${code}`;
 }
 
@@ -16,7 +18,12 @@ type ProblemFields = Readonly<Record<string, unknown>> & {
   readonly type?: never;
 };
 
-type ProblemBody<Status extends number, Code extends string, Title extends string, Details> = Details & {
+type ProblemBody<
+  Status extends number,
+  Code extends string,
+  Title extends string,
+  Details,
+> = Details & {
   readonly code: Code;
   readonly status: Status;
   readonly title: Title;
@@ -38,10 +45,11 @@ export function problemDetails<
   title: Title,
   details?: Details,
 ): ProblemBody<Status, Code, Title, Details> {
-  // The spread keeps every detail and the four fields below override nothing: `ProblemFields`
+  // The spread keeps every detail and the four fields after it override nothing: `ProblemFields`
   // forbids them in `details`, which TypeScript cannot see through the generic spread.
+  const body = { ...details, code, status, title, type: problemType(code) };
   // oxlint-disable-next-line typescript/no-unsafe-type-assertion
-  return { ...details, code, status, title, type: problemType(code) } as ProblemBody<Status, Code, Title, Details>;
+  return body as ProblemBody<Status, Code, Title, Details>;
 }
 
 /** The same body as an exception; `ProblemDetailsFilter` sends it as is. */
@@ -51,5 +59,8 @@ export function problemException(
   title: string,
   details: ProblemFields = {},
 ): HttpException {
-  return new HttpException(problemDetails(status, code, title, details), status);
+  return new HttpException(
+    problemDetails(status, code, title, details),
+    status,
+  );
 }

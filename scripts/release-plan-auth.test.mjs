@@ -10,7 +10,12 @@ describe("release settings authentication", () => {
     const result = runPlan();
     assert.equal(result.status, 0, result.stderr);
     assert.equal(JSON.parse(result.stdout).version, "v1");
-    assert.deepEqual(result.calls, ["settings", "standard", "standard", "standard"]);
+    assert.deepEqual(result.calls, [
+      "settings",
+      "standard",
+      "standard",
+      "standard",
+    ]);
   });
 
   it("requires settings credentials before calling GitHub", () => {
@@ -39,7 +44,9 @@ function runPlan(overrides = {}) {
   const directory = mkdtempSync(resolve(tmpdir(), "inside-release-auth-"));
   const calls = resolve(directory, "calls");
   writeFileSync(calls, "");
-  writeFileSync(resolve(directory, "gh"), `#!/usr/bin/env node
+  writeFileSync(
+    resolve(directory, "gh"),
+    `#!/usr/bin/env node
 import { appendFileSync } from "node:fs";
 const endpoint = process.argv.find(value => value.startsWith("repos/"));
 const settings = endpoint?.endsWith("/immutable-releases");
@@ -57,7 +64,9 @@ if (settings) {
   if (credential !== "standard") process.exit(2);
   console.log(endpoint?.endsWith("/git/ref/heads/main") ? process.env.SOURCE_SHA : "[[]]");
 }
-`, { mode: 0o755 });
+`,
+    { mode: 0o755 },
+  );
   try {
     const result = spawnSync("bash", ["scripts/plan-release.sh"], {
       encoding: "utf8",
@@ -74,7 +83,10 @@ if (settings) {
         ...overrides,
       },
     });
-    return { ...result, calls: readFileSync(calls, "utf8").split("\n").filter(Boolean) };
+    return {
+      ...result,
+      calls: readFileSync(calls, "utf8").split("\n").filter(Boolean),
+    };
   } finally {
     rmSync(directory, { recursive: true, force: true });
   }

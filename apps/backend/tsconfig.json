@@ -9,8 +9,5 @@
     "prisma.config.ts",
     "vitest*.config.mts"
   ],
-  "exclude": [
-    "dist",
-    "node_modules"
-  ]
+  "exclude": ["dist", "node_modules"]
 }

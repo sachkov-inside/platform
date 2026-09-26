@@ -8,7 +8,10 @@ import {
   type PriceSnapshot,
 } from "@/entities/subscription";
 
-import { guideProgrammeHref, guidePurchaseHref } from "@/shared/routing/subscription-route";
+import {
+  guideProgrammeHref,
+  guidePurchaseHref,
+} from "@/shared/routing/subscription-route";
 import { Button } from "@/shared/ui/button";
 
 /** Кто смотрит страницу оплаты: это решает, показывать оформление или приглашение войти. */
@@ -44,7 +47,11 @@ export function GuidePurchaseView({
 
   return (
     <div className="mx-auto w-full min-w-0 max-w-[38rem]">
-      <nav aria-label="Путь навигации" className="pt-4" data-purchase-part="back">
+      <nav
+        aria-label="Путь навигации"
+        className="pt-4"
+        data-purchase-part="back"
+      >
         <Link
           className="inline-flex min-h-11 items-center gap-2 rounded-full bg-secondary px-4 text-sm font-semibold"
           href={programmeHref}
@@ -72,8 +79,8 @@ export function GuidePurchaseView({
             className="rounded-2xl border border-border bg-card p-6 text-sm leading-6 shadow-card"
             role="status"
           >
-            Цена сейчас недоступна. Обновите страницу позже — цены и состав приходят
-            с сервера.
+            Цена сейчас недоступна. Обновите страницу позже — цены и состав
+            приходят с сервера.
           </p>
         ) : offer === null ? (
           <p

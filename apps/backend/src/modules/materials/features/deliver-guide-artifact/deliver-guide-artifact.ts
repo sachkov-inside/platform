@@ -76,7 +76,10 @@ export interface GuideArtifactDelivery {
 }
 
 export function assembleGuideArtifactDelivery(dependencies: {
-  readonly artifacts: Pick<GuideArtifacts, "loadFileDelivery" | "loadForReader">;
+  readonly artifacts: Pick<
+    GuideArtifacts,
+    "loadFileDelivery" | "loadForReader"
+  >;
   readonly contentAccess: ContentAccess;
   readonly objectStorage: ObjectStorage;
   readonly signedGetTtlSeconds: number;
@@ -96,21 +99,27 @@ export function assembleGuideArtifactDelivery(dependencies: {
       for (const batch of inBatches(loaded.value, AVAILABILITY_BATCH_SIZE)) {
         let availability;
         try {
-          availability = await dependencies.contentAccess.checkAvailabilityMany({
-            correlationId: randomUUID(),
-            enforcementPoint: "guide_artifact_read",
-            operations: batch.map((artifact) => ({
-              action: "download" as const,
-              itemId: artifact.artifactId,
-              resource: {
-                artifactId: artifact.artifactId,
-                kind: "guideArtifact" as const,
-              },
-            })),
-            subject: query.subject,
-          });
+          availability = await dependencies.contentAccess.checkAvailabilityMany(
+            {
+              correlationId: randomUUID(),
+              enforcementPoint: "guide_artifact_read",
+              operations: batch.map((artifact) => ({
+                action: "download" as const,
+                itemId: artifact.artifactId,
+                resource: {
+                  artifactId: artifact.artifactId,
+                  kind: "guideArtifact" as const,
+                },
+              })),
+              subject: query.subject,
+            },
+          );
         } catch (error) {
-          return dependencyFailure({ module: "materials", operation: "read" }, error, dependencyUnavailable());
+          return dependencyFailure(
+            { module: "materials", operation: "read" },
+            error,
+            dependencyUnavailable(),
+          );
         }
         if (!availability.ok) return dependencyUnavailable();
         for (const item of availability.items) {
@@ -139,7 +148,11 @@ export function assembleGuideArtifactDelivery(dependencies: {
           subject: query.subject,
         });
       } catch (error) {
-        return dependencyFailure({ module: "materials", operation: "deliver" }, error, dependencyUnavailable());
+        return dependencyFailure(
+          { module: "materials", operation: "deliver" },
+          error,
+          dependencyUnavailable(),
+        );
       }
       if (decision.effect === "deny") {
         return decision.reason === "dependency_unavailable"
@@ -200,7 +213,11 @@ export function assembleGuideArtifactDelivery(dependencies: {
           },
         };
       } catch (error) {
-        return dependencyFailure({ module: "materials", operation: "deliver" }, error, dependencyUnavailable());
+        return dependencyFailure(
+          { module: "materials", operation: "deliver" },
+          error,
+          dependencyUnavailable(),
+        );
       }
     },
   };

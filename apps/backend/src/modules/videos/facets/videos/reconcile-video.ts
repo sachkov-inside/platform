@@ -62,11 +62,18 @@ export async function acceptVideoWebhook(
       where: { providerVideoId: parsed.data.providerVideoId },
     });
     if (local === null) return { ok: true, value: undefined };
-    const reconciled = await reconcileVideoById(context, videoIdSchema.parse(local.id));
+    const reconciled = await reconcileVideoById(
+      context,
+      videoIdSchema.parse(local.id),
+    );
     if (!reconciled.ok) return reconciled;
     return { ok: true, value: undefined };
   } catch (error) {
-    return dependencyFailure({ module: "videos", operation: "acceptWebhook" }, error, dependencyUnavailable());
+    return dependencyFailure(
+      { module: "videos", operation: "acceptWebhook" },
+      error,
+      dependencyUnavailable(),
+    );
   }
 }
 
@@ -79,14 +86,22 @@ export async function reconcilePendingWebhooks(
   const cutoff = context.now();
   try {
     const pending = await context.prisma.videoWebhookInbox.findFirst({
-      where: { providerVideoId, reconciledAt: null, receivedAt: { lte: cutoff } },
+      where: {
+        providerVideoId,
+        reconciledAt: null,
+        receivedAt: { lte: cutoff },
+      },
     });
     if (pending === null) return true;
     const reconciled = await reconcileVideoById(context, videoId);
     return reconciled.ok;
   } catch (error) {
     // The durable inbox stays pending for the next browser poll or provider retry.
-    return dependencyFailure({ module: "videos", operation: "reconcilePendingWebhooks" }, error, false);
+    return dependencyFailure(
+      { module: "videos", operation: "reconcilePendingWebhooks" },
+      error,
+      false,
+    );
   }
 }
 
@@ -102,14 +117,29 @@ export async function markPendingWebhooksReconciled(
   });
 }
 
-async function reconcileVideoById(context: VideoContext, videoId: VideoId): Promise<VideoResult<
-  VideoDto,
-  Extract<VideoError, { readonly code: "dependency_unavailable" | "provider_mismatch" | "video_not_found" }>
->> {
+async function reconcileVideoById(
+  context: VideoContext,
+  videoId: VideoId,
+): Promise<
+  VideoResult<
+    VideoDto,
+    Extract<
+      VideoError,
+      {
+        readonly code:
+          "dependency_unavailable" | "provider_mismatch" | "video_not_found";
+      }
+    >
+  >
+> {
   try {
-    const local = await context.prisma.video.findUnique({ where: { id: videoId } });
+    const local = await context.prisma.video.findUnique({
+      where: { id: videoId },
+    });
     if (local === null) return videoNotFound();
-    const localProviderVideoId = providerVideoIdSchema.parse(local.providerVideoId);
+    const localProviderVideoId = providerVideoIdSchema.parse(
+      local.providerVideoId,
+    );
     const reconciliationCutoff = context.now();
     if (local.state === "deleted") {
       await markPendingWebhooksReconciled(
@@ -120,12 +150,16 @@ async function reconcileVideoById(context: VideoContext, videoId: VideoId): Prom
       );
       return { ok: true, value: toDto(local) };
     }
-    const remote = await context.provider.find({ id: localProviderVideoId, projectId: local.projectId });
+    const remote = await context.provider.find({
+      id: localProviderVideoId,
+      projectId: local.projectId,
+    });
     if (
       remote === null ||
       remote.id !== local.providerVideoId ||
       remote.projectId !== local.projectId
-    ) return providerMismatch();
+    )
+      return providerMismatch();
     const lifecycle = providerLifecycle(remote);
     const deleting = isVideoDeletionState(local.state);
     const syncedAt = context.now();
@@ -142,7 +176,9 @@ async function reconcileVideoById(context: VideoContext, videoId: VideoId): Prom
           providerVisibleAt: syncedAt,
           readyAt: deleting
             ? local.readyAt
-            : lifecycle.state === "ready" ? local.readyAt ?? syncedAt : null,
+            : lifecycle.state === "ready"
+              ? (local.readyAt ?? syncedAt)
+              : null,
           state: deleting ? local.state : lifecycle.state,
           title: remote.title,
           updatedAt: syncedAt,
@@ -158,6 +194,10 @@ async function reconcileVideoById(context: VideoContext, videoId: VideoId): Prom
     });
     return { ok: true, value: toDto(updated) };
   } catch (error) {
-    return dependencyFailure({ module: "videos", operation: "reconcileById" }, error, dependencyUnavailable());
+    return dependencyFailure(
+      { module: "videos", operation: "reconcileById" },
+      error,
+      dependencyUnavailable(),
+    );
   }
 }

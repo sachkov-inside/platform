@@ -1,7 +1,4 @@
-import {
-  createParamDecorator,
-  type ExecutionContext,
-} from "@nestjs/common";
+import { createParamDecorator, type ExecutionContext } from "@nestjs/common";
 import type { FastifyRequest } from "fastify";
 
 import { problemException } from "../../../../infrastructure/http/problem-details.js";
@@ -18,7 +15,11 @@ export const CurrentAccount = createParamDecorator(
     const request = context.switchToHttp().getRequest<AuthenticatedRequest>();
     const account = request[currentAccountRequestProperty];
     if (account === undefined) {
-      throw problemException(500, "missing_authenticated_account", "Authenticated Account is missing");
+      throw problemException(
+        500,
+        "missing_authenticated_account",
+        "Authenticated Account is missing",
+      );
     }
     return account;
   },

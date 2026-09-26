@@ -45,7 +45,9 @@ export type ChangeNotificationPreferencesInput = z.infer<
 >;
 
 /** Ожидаемые исходы объясняются словами владельца аккаунта: повтор здесь безопасен. */
-export function notificationErrorMessage(code: NotificationFailureCode): string {
+export function notificationErrorMessage(
+  code: NotificationFailureCode,
+): string {
   switch (code) {
     case "revision_conflict":
       return "Данные изменились. Повторите действие.";

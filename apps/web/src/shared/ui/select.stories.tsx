@@ -25,7 +25,10 @@ const meta = {
   },
   render: (args) => (
     <div className="w-64">
-      <label className="mb-2 block text-sm font-semibold" htmlFor="storybook-sort">
+      <label
+        className="mb-2 block text-sm font-semibold"
+        htmlFor="storybook-sort"
+      >
         Сортировка
       </label>
       <Select {...args}>
@@ -50,7 +53,12 @@ type Story = StoryObj<typeof meta>;
 export const DefaultSelection: Story = {
   name: "Default selection",
   parameters: {
-    docs: { description: { story: "A preselected sort order that can be changed without submitting a form." } },
+    docs: {
+      description: {
+        story:
+          "A preselected sort order that can be changed without submitting a form.",
+      },
+    },
   },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
@@ -70,7 +78,12 @@ export const Disabled: Story = {
     disabled: true,
   },
   parameters: {
-    docs: { description: { story: "Preserves the current value when the surrounding task forbids changes." } },
+    docs: {
+      description: {
+        story:
+          "Preserves the current value when the surrounding task forbids changes.",
+      },
+    },
   },
   play: async ({ canvasElement }) => {
     await expect(

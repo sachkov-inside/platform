@@ -3,8 +3,16 @@ import { z } from "zod";
 import { requestSameOriginMutation } from "@/shared/api/same-origin-mutation";
 import { videoSchema, type MaterialVideo } from "../model/video";
 
-const readyEnvelopeSchema = z.object({ kind: z.literal("ready"), value: z.unknown() }).strict();
-const uploadResponseSchema = z.object({ providerVideoId: z.string().min(1), uploadEndpoint: z.url(), video: videoSchema }).strict();
+const readyEnvelopeSchema = z
+  .object({ kind: z.literal("ready"), value: z.unknown() })
+  .strict();
+const uploadResponseSchema = z
+  .object({
+    providerVideoId: z.string().min(1),
+    uploadEndpoint: z.url(),
+    video: videoSchema,
+  })
+  .strict();
 
 export type VideoMutationResult<Value> =
   | { readonly kind: "ready"; readonly value: Value }
@@ -29,9 +37,18 @@ export async function initMaterialVideoUpload(input: {
   formData.set("materialId", input.materialId);
   formData.set("submissionId", input.submissionId);
   formData.set("title", input.title);
-  const response = await requestSameOriginMutation("/api/authoring/material-video-uploads", "POST", formData);
+  const response = await requestSameOriginMutation(
+    "/api/authoring/material-video-uploads",
+    "POST",
+    formData,
+  );
   if (response.ok) {
-    const failure = z.object({ kind: z.enum(["upload_not_authorized", "upload_outcome_unknown"]) }).strict().safeParse(response.body);
+    const failure = z
+      .object({
+        kind: z.enum(["upload_not_authorized", "upload_outcome_unknown"]),
+      })
+      .strict()
+      .safeParse(response.body);
     if (failure.success) return failure.data;
   }
   return parseMutation(response, uploadResponseSchema);
@@ -47,7 +64,11 @@ export async function attachMaterialVideo(input: {
   formData.set("materialId", input.materialId);
   formData.set("providerVideoId", input.providerVideoId);
   return parseMutation(
-    await requestSameOriginMutation("/api/authoring/material-video-attachments", "POST", formData),
+    await requestSameOriginMutation(
+      "/api/authoring/material-video-attachments",
+      "POST",
+      formData,
+    ),
     videoSchema,
   );
 }
@@ -58,7 +79,11 @@ export async function reconcileMaterialVideo(input: {
   const formData = new FormData();
   formData.set("videoId", input.videoId);
   return parseMutation(
-    await requestSameOriginMutation("/api/authoring/material-video-reconciliations", "POST", formData),
+    await requestSameOriginMutation(
+      "/api/authoring/material-video-reconciliations",
+      "POST",
+      formData,
+    ),
     videoSchema,
   );
 }
@@ -69,7 +94,11 @@ export async function retryMaterialVideoDeletion(input: {
   const formData = new FormData();
   formData.set("videoId", input.videoId);
   return parseMutation(
-    await requestSameOriginMutation("/api/authoring/material-video-deletion-retries", "POST", formData),
+    await requestSameOriginMutation(
+      "/api/authoring/material-video-deletion-retries",
+      "POST",
+      formData,
+    ),
     videoSchema,
   );
 }

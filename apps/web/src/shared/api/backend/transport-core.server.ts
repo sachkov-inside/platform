@@ -45,19 +45,27 @@ export class BackendConnectionError extends Error {
 
 export type BackendTransportResult =
   | { readonly body: unknown; readonly ok: true; readonly response: Response }
-  | { readonly ok: false; readonly problem: unknown; readonly response: Response };
+  | {
+      readonly ok: false;
+      readonly problem: unknown;
+      readonly response: Response;
+    };
 
 const authenticatedAccountSchema = z.object({ accountId: z.uuid() }).strict();
-const accountResponseSchema = z.object({ account: authenticatedAccountSchema }).strict();
+const accountResponseSchema = z
+  .object({ account: authenticatedAccountSchema })
+  .strict();
 const backendHealthSchema = z
   .object({
     database: z.literal("reachable"),
     process: z.literal("api"),
     release: runtimeIdentitySchema,
-    schema: z.object({
-      identity: sha256IdentitySchema,
-      migrationCount: z.number().int().nonnegative(),
-    }).strict(),
+    schema: z
+      .object({
+        identity: sha256IdentitySchema,
+        migrationCount: z.number().int().nonnegative(),
+      })
+      .strict(),
     status: z.literal("ready"),
   })
   .strict();
@@ -75,11 +83,17 @@ const accountProblemDetailsSchema = z.discriminatedUnion("code", [
   accountProblemSchema("account_not_found", 401, "Account verification failed"),
   accountProblemSchema("identity_conflict", 409, "Account identity conflict"),
   accountProblemSchema("internal_error", 500, "Account service error"),
-  accountProblemSchema("dependency_unavailable", 503, "Identity provider unavailable"),
+  accountProblemSchema(
+    "dependency_unavailable",
+    503,
+    "Identity provider unavailable",
+  ),
 ]);
 
 export type BackendHealth = Readonly<z.infer<typeof backendHealthSchema>>;
-export type AuthenticatedAccount = Readonly<z.infer<typeof authenticatedAccountSchema>>;
+export type AuthenticatedAccount = Readonly<
+  z.infer<typeof authenticatedAccountSchema>
+>;
 
 export function readBackendBaseUrl(): string {
   try {
@@ -164,9 +178,7 @@ function requestCurrentAccount(
   );
 }
 
-function createBackendConfig(
-  accessToken: string | undefined,
-): OpenAPIConfig {
+function createBackendConfig(accessToken: string | undefined): OpenAPIConfig {
   return {
     BASE: readBackendBaseUrl(),
     CREDENTIALS: "omit",
@@ -180,7 +192,11 @@ class BackendHttpRequest extends BaseHttpRequest {
   response: Response | undefined;
   readonly #externalSignal: AbortSignal | undefined;
 
-  constructor(config: OpenAPIConfig, externalSignal: AbortSignal | undefined, private readonly timeoutMs = BACKEND_REQUEST_TIMEOUT_MS) {
+  constructor(
+    config: OpenAPIConfig,
+    externalSignal: AbortSignal | undefined,
+    private readonly timeoutMs = BACKEND_REQUEST_TIMEOUT_MS,
+  ) {
     super(config);
     this.#externalSignal = externalSignal;
   }
@@ -254,7 +270,9 @@ function buildBackendHeaders(
   options: ApiRequestOptions,
 ): Headers {
   const headers = new Headers({ Accept: "application/json" });
-  const optionHeaders = (options.headers ?? {}) as Readonly<Record<string, unknown>>;
+  const optionHeaders = (options.headers ?? {}) as Readonly<
+    Record<string, unknown>
+  >;
   for (const [key, value] of Object.entries(optionHeaders)) {
     if (value !== undefined && value !== null) {
       headers.set(key, transportString(value));
@@ -324,7 +342,9 @@ export async function getBackendReadiness(): Promise<BackendHealth> {
 
 function parseBackendReadiness(result: BackendTransportResult): BackendHealth {
   if (!result.ok) {
-    const parsed = backendHealthUnavailableProblemSchema.safeParse(result.problem);
+    const parsed = backendHealthUnavailableProblemSchema.safeParse(
+      result.problem,
+    );
     throw new BackendConnectionError(
       parsed.success && parsed.data.status === result.response.status
         ? "unavailable"
@@ -350,11 +370,17 @@ export async function establishAccount(
   return parseAccountResponse(await requestAccountEstablishment(accessToken));
 }
 
-export async function completeTelegramAccountSignIn(accessToken: string): Promise<AuthenticatedAccount> {
-  return parseAccountResponse(await executeGeneratedRequest(
-    (request) => new TelegramSignInService(request).completeTelegramAccountSignIn(),
-    200, { accessToken },
-  ));
+export async function completeTelegramAccountSignIn(
+  accessToken: string,
+): Promise<AuthenticatedAccount> {
+  return parseAccountResponse(
+    await executeGeneratedRequest(
+      (request) =>
+        new TelegramSignInService(request).completeTelegramAccountSignIn(),
+      200,
+      { accessToken },
+    ),
+  );
 }
 
 export async function resolveAccount(
@@ -363,7 +389,9 @@ export async function resolveAccount(
   return parseAccountResponse(await requestCurrentAccount(accessToken));
 }
 
-function parseAccountResponse(result: BackendTransportResult): AuthenticatedAccount {
+function parseAccountResponse(
+  result: BackendTransportResult,
+): AuthenticatedAccount {
   if (!result.ok) {
     const parsed = accountProblemDetailsSchema.safeParse(result.problem);
     if (!parsed.success || parsed.data.status !== result.response.status) {

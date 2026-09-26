@@ -44,11 +44,20 @@ import {
   type Videos,
 } from "../../facets/videos/videos.interface.js";
 
-import { videoUploadBodySchema as initBodySchema, videoAttachmentBodySchema as attachmentBodySchema } from "../video-authoring-wire.js";
+import {
+  videoUploadBodySchema as initBodySchema,
+  videoAttachmentBodySchema as attachmentBodySchema,
+} from "../video-authoring-wire.js";
 
 const videoSchema = videoDtoSchema;
 // The provider record id lets an author reference the same upload from the original.
-const initResponseSchema = z.object({ providerVideoId: z.string().min(1), uploadEndpoint: z.url(), video: videoSchema }).strict();
+const initResponseSchema = z
+  .object({
+    providerVideoId: z.string().min(1),
+    uploadEndpoint: z.url(),
+    video: videoSchema,
+  })
+  .strict();
 
 @ApiTags("Material video authoring")
 @ApiBearerAuth("logto")
@@ -60,7 +69,10 @@ export class VideoAuthoringController {
   constructor(@Inject(VIDEOS) private readonly videos: Videos) {}
 
   @Post("materials/:materialId/videos/uploads")
-  @ApiOperation({ operationId: "initMaterialVideoUpload", summary: "Initialize a resumable primary Video upload" })
+  @ApiOperation({
+    operationId: "initMaterialVideoUpload",
+    summary: "Initialize a resumable primary Video upload",
+  })
   @ApiHeader({
     name: "idempotency-key",
     required: true,
@@ -93,7 +105,10 @@ export class VideoAuthoringController {
   }
 
   @Post("materials/:materialId/videos/attach")
-  @ApiOperation({ operationId: "attachMaterialVideo", summary: "Attach an existing Video from the configured project" })
+  @ApiOperation({
+    operationId: "attachMaterialVideo",
+    summary: "Attach an existing Video from the configured project",
+  })
   @ApiBody({ schema: toOpenApiSchema(attachmentBodySchema) })
   @ApiParam({ name: "materialId", schema: toOpenApiSchema(z.uuid()) })
   @ApiCreatedResponse({ schema: toOpenApiSchema(videoSchema) })
@@ -109,14 +124,21 @@ export class VideoAuthoringController {
     @Body() input: unknown,
   ) {
     const body = parse(attachmentBodySchema, input);
-    const result = await this.videos.attachExisting({ ...body, actor: current.accountId, materialId });
+    const result = await this.videos.attachExisting({
+      ...body,
+      actor: current.accountId,
+      materialId,
+    });
     if (!result.ok) throwVideoError(result.error);
     return result.value;
   }
 
   @Post("videos/:videoId/reconcile")
   @HttpCode(200)
-  @ApiOperation({ operationId: "reconcileMaterialVideo", summary: "Reconcile Video lifecycle from Kinescope" })
+  @ApiOperation({
+    operationId: "reconcileMaterialVideo",
+    summary: "Reconcile Video lifecycle from Kinescope",
+  })
   @ApiParam({ name: "videoId", schema: toOpenApiSchema(z.uuid()) })
   @ApiOkResponse({ schema: toOpenApiSchema(videoSchema) })
   @VideoErrorResponses({
@@ -130,7 +152,10 @@ export class VideoAuthoringController {
     @CurrentAccount() current: AuthenticatedAccount,
     @Param("videoId") videoId: string,
   ) {
-    const result = await this.videos.reconcile({ actor: current.accountId, videoId });
+    const result = await this.videos.reconcile({
+      actor: current.accountId,
+      videoId,
+    });
     if (!result.ok) throwVideoError(result.error);
     return result.value;
   }
@@ -163,49 +188,82 @@ export class VideoAuthoringController {
   }
 }
 
-type VideoProblemCodes = Partial<Record<400 | 403 | 404 | 409 | 503, readonly [VideoError["code"], ...VideoError["code"][]]>>;
+type VideoProblemCodes = Partial<
+  Record<
+    400 | 403 | 404 | 409 | 503,
+    readonly [VideoError["code"], ...VideoError["code"][]]
+  >
+>;
 
 function VideoErrorResponses(codes: VideoProblemCodes): MethodDecorator {
   return (target, propertyKey, descriptor) => {
     for (const status of [400, 401, 403, 404, 409, 500, 503] as const) {
-      const videoCodes = status === 401 || status === 500 ? undefined : codes[status];
-      const accountFailure = status === 400 || status === 401 || status === 409 || status === 500 || status === 503;
+      const videoCodes =
+        status === 401 || status === 500 ? undefined : codes[status];
+      const accountFailure =
+        status === 400 ||
+        status === 401 ||
+        status === 409 ||
+        status === 500 ||
+        status === 503;
       if (videoCodes === undefined && !accountFailure) continue;
-      const videoSchema = videoCodes === undefined ? undefined : problemDetailsSchema(status, videoCodes);
-      const content = videoSchema === undefined
-        ? problemDetailsContent(accountProblemSchema)
-        : accountFailure
-          ? problemDetailsOneOfContent(videoSchema, accountProblemSchema)
-          : problemDetailsContent(videoSchema);
+      const videoSchema =
+        videoCodes === undefined
+          ? undefined
+          : problemDetailsSchema(status, videoCodes);
+      const content =
+        videoSchema === undefined
+          ? problemDetailsContent(accountProblemSchema)
+          : accountFailure
+            ? problemDetailsOneOfContent(videoSchema, accountProblemSchema)
+            : problemDetailsContent(videoSchema);
       ApiResponse({ status, content })(target, propertyKey, descriptor);
     }
   };
 }
 
-function parse<Schema extends z.ZodType>(schema: Schema, input: unknown): z.output<Schema> {
+function parse<Schema extends z.ZodType>(
+  schema: Schema,
+  input: unknown,
+): z.output<Schema> {
   const parsed = schema.safeParse(input);
-  if (!parsed.success) throw new HttpException({ code: "invalid_request", status: 400 }, 400);
+  if (!parsed.success)
+    throw new HttpException({ code: "invalid_request", status: 400 }, 400);
   return parsed.data;
 }
 
 function throwVideoError(error: VideoError): never {
   switch (error.code) {
-    case "invalid_request": throw videoException(400, error.code);
-    case "forbidden": throw videoException(403, error.code);
-    case "video_not_found": throw videoException(404, error.code);
+    case "invalid_request":
+      throw videoException(400, error.code);
+    case "forbidden":
+      throw videoException(403, error.code);
+    case "video_not_found":
+      throw videoException(404, error.code);
     case "idempotency_key_reused":
     case "provider_mismatch":
     case "upload_outcome_unknown":
     case "video_deletion_not_retryable":
-    case "video_not_ready": throw videoException(409, error.code);
-    case "upload_not_authorized": throw videoException(503, error.code);
-    case "dependency_unavailable": throw videoException(503, error.code, true);
-    default: return assertNever(error);
+    case "video_not_ready":
+      throw videoException(409, error.code);
+    case "upload_not_authorized":
+      throw videoException(503, error.code);
+    case "dependency_unavailable":
+      throw videoException(503, error.code, true);
+    default:
+      return assertNever(error);
   }
 }
 
-function videoException(status: number, code: VideoError["code"], retryable = false): HttpException {
-  return new HttpException({ code, status, ...(retryable ? { retryable: true } : {}) }, status);
+function videoException(
+  status: number,
+  code: VideoError["code"],
+  retryable = false,
+): HttpException {
+  return new HttpException(
+    { code, status, ...(retryable ? { retryable: true } : {}) },
+    status,
+  );
 }
 
 function assertNever(value: never): never {

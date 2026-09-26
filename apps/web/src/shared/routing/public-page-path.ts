@@ -25,7 +25,10 @@ export function legalDocumentPath(key: LegalDocumentKey): Route {
 }
 
 /** Адрес конкретной редакции: принятый когда-то текст остаётся доступен по своему адресу. */
-export function legalEditionPath(key: LegalDocumentKey, version: number): Route {
+export function legalEditionPath(
+  key: LegalDocumentKey,
+  version: number,
+): Route {
   return internalRoute(legalEditionHref(key, version));
 }
 

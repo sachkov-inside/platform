@@ -31,19 +31,54 @@ describe("Series order", () => {
   });
 
   test("Guide and legacy Series share identity, mutable version and archive state", async () => {
-    const { authoring } = assembleMaterials({ prisma: testDatabase.prisma, authorPolicy: { canManage: () => true } });
-    const created = await authoring.createContentCollection({ actor, kind: "guide", name: "Reusable Guide", slug: "reusable-guide", summary: "One product" });
+    const { authoring } = assembleMaterials({
+      prisma: testDatabase.prisma,
+      authorPolicy: { canManage: () => true },
+    });
+    const created = await authoring.createContentCollection({
+      actor,
+      kind: "guide",
+      name: "Reusable Guide",
+      slug: "reusable-guide",
+      summary: "One product",
+    });
     if (!created.ok) throw new Error(created.error.code);
     expect(created.value.kind).toBe("guide");
-    const legacy = await authoring.listContentCollections({ actor, kind: "series" });
+    const legacy = await authoring.listContentCollections({
+      actor,
+      kind: "series",
+    });
     if (!legacy.ok) throw new Error(legacy.error.code);
-    expect(legacy.value.find(({ id }) => id === created.value.id)).toEqual({ ...created.value, kind: "series" });
-    const archived = await authoring.setContentCollectionArchive({ actor, kind: "series", collectionId: created.value.id, expectedVersion: created.value.version, archived: true });
+    expect(legacy.value.find(({ id }) => id === created.value.id)).toEqual({
+      ...created.value,
+      kind: "series",
+    });
+    const archived = await authoring.setContentCollectionArchive({
+      actor,
+      kind: "series",
+      collectionId: created.value.id,
+      expectedVersion: created.value.version,
+      archived: true,
+    });
     if (!archived.ok) throw new Error(archived.error.code);
-    const guides = await authoring.listContentCollections({ actor, kind: "guide" });
+    const guides = await authoring.listContentCollections({
+      actor,
+      kind: "guide",
+    });
     if (!guides.ok) throw new Error(guides.error.code);
-    expect(guides.value.find(({ id }) => id === created.value.id)).toMatchObject({ kind: "guide", archived: true, slug: "reusable-guide", version: created.value.version + 1 });
-    expect(await testDatabase.prisma.guide.count({ where: { id: created.value.id } })).toBe(1);
+    expect(
+      guides.value.find(({ id }) => id === created.value.id),
+    ).toMatchObject({
+      kind: "guide",
+      archived: true,
+      slug: "reusable-guide",
+      version: created.value.version + 1,
+    });
+    expect(
+      await testDatabase.prisma.guide.count({
+        where: { id: created.value.id },
+      }),
+    ).toBe(1);
   });
 
   test("loads and reorders a playlist without changing Material versions", async () => {
@@ -75,7 +110,10 @@ describe("Series order", () => {
       throw new Error("Expected three created Materials");
     }
 
-    for (const [index, materialId] of [firstMaterialId, thirdMaterialId].entries()) {
+    for (const [index, materialId] of [
+      firstMaterialId,
+      thirdMaterialId,
+    ].entries()) {
       const published = await authoring.saveMaterial({
         actor,
         idempotencyKey: `series-order-publish-${index}`,
@@ -146,10 +184,12 @@ describe("Series order", () => {
       { materialId: firstMaterialId, ordinal: 3 },
     ]);
     const versions = await testDatabase.prisma.material.findMany({
-        where: { id: { in: materialIds } },
-        select: { contentVersion: true, id: true },
-      });
-    expect(new Map(versions.map(({ contentVersion, id }) => [id, contentVersion]))).toEqual(
+      where: { id: { in: materialIds } },
+      select: { contentVersion: true, id: true },
+    });
+    expect(
+      new Map(versions.map(({ contentVersion, id }) => [id, contentVersion])),
+    ).toEqual(
       new Map([
         [firstMaterialId, 2n],
         [secondMaterialId, 1n],
@@ -215,21 +255,21 @@ describe("Series order", () => {
     if (!appended.ok) throw new Error(appended.error.code);
     const afterAppend = await authoring.loadSeriesOrder({ actor, seriesId });
     if (!afterAppend.ok) throw new Error(afterAppend.error.code);
-    expect(afterAppend.value.items.map(({ materialId }) => materialId)).toContain(
-      appended.value.materialId,
-    );
+    expect(
+      afterAppend.value.items.map(({ materialId }) => materialId),
+    ).toContain(appended.value.materialId);
     const changed = await authoring.reorderSeries({
-        actor,
-        seriesId,
-        expectedOrderVersion: afterAppend.value.orderVersion,
-        orderedMaterialIds: moved,
-      });
+      actor,
+      seriesId,
+      expectedOrderVersion: afterAppend.value.orderVersion,
+      orderedMaterialIds: moved,
+    });
     expect(changed).toMatchObject({ ok: true, value: { seriesId } });
     const afterRemoval = await authoring.loadSeriesOrder({ actor, seriesId });
     if (!afterRemoval.ok) throw new Error(afterRemoval.error.code);
-    expect(afterRemoval.value.items.map(({ materialId }) => materialId)).toEqual(
-      moved,
-    );
+    expect(
+      afterRemoval.value.items.map(({ materialId }) => materialId),
+    ).toEqual(moved);
   });
 
   test("keeps one Material in a second Series when the author removes it from the first", async () => {
@@ -280,11 +320,13 @@ describe("Series order", () => {
     });
     if (!removed.ok) throw new Error(removed.error.code);
 
-    const [firstAfterRemoval, secondAfterRemoval, material] = await Promise.all([
-      authoring.loadSeriesOrder({ actor, seriesId: firstSeries.value.id }),
-      authoring.loadSeriesOrder({ actor, seriesId: secondSeries.value.id }),
-      authoring.loadMaterial({ actor, materialId: shared.value.materialId }),
-    ]);
+    const [firstAfterRemoval, secondAfterRemoval, material] = await Promise.all(
+      [
+        authoring.loadSeriesOrder({ actor, seriesId: firstSeries.value.id }),
+        authoring.loadSeriesOrder({ actor, seriesId: secondSeries.value.id }),
+        authoring.loadMaterial({ actor, materialId: shared.value.materialId }),
+      ],
+    );
     if (!firstAfterRemoval.ok || !secondAfterRemoval.ok || !material.ok) {
       throw new Error("Expected preserved Material and Series");
     }
@@ -305,7 +347,8 @@ describe("Series order", () => {
     const initial = await authoring.loadSeriesOrder({ actor, seriesId });
     if (!initial.ok) throw new Error(initial.error.code);
     const currentIds = initial.value.items.map(({ materialId }) => materialId);
-    if (currentIds.length < 3) throw new Error("Expected at least three Materials");
+    if (currentIds.length < 3)
+      throw new Error("Expected at least three Materials");
     const firstOrder = rotateLeft(currentIds);
     const secondOrder = rotateLeft(firstOrder);
 
@@ -405,7 +448,9 @@ describe("Series order", () => {
     if (!savedDraft.ok) throw new Error(savedDraft.error.code);
     const beforeSave = await authoring.loadSeriesOrder({ actor, seriesId });
     if (!beforeSave.ok) throw new Error(beforeSave.error.code);
-    const beforeSaveIds = beforeSave.value.items.map(({ materialId }) => materialId);
+    const beforeSaveIds = beforeSave.value.items.map(
+      ({ materialId }) => materialId,
+    );
     const saveOrder = rotateLeft(beforeSaveIds);
     const [saved, reorderedWithSave] = await Promise.all([
       authoring.saveMaterial({
@@ -436,7 +481,9 @@ describe("Series order", () => {
     if (!deletedDraft.ok) throw new Error(deletedDraft.error.code);
     const beforeDelete = await authoring.loadSeriesOrder({ actor, seriesId });
     if (!beforeDelete.ok) throw new Error(beforeDelete.error.code);
-    const beforeDeleteIds = beforeDelete.value.items.map(({ materialId }) => materialId);
+    const beforeDeleteIds = beforeDelete.value.items.map(
+      ({ materialId }) => materialId,
+    );
     const deleteOrder = rotateLeft(beforeDeleteIds);
     const [deleted, reorderedWithDelete] = await Promise.all([
       authoring.deleteDraft({
@@ -459,57 +506,188 @@ describe("Series order", () => {
   });
 
   test("round-trips Series-scoped step labels, preserves legacy writes and excludes drafts", async () => {
-    const { authoring, publishedMaterialReader } = assembleMaterials({ prisma: testDatabase.prisma, authorPolicy: { canManage: () => true } });
-    const collection = await authoring.createContentCollection({ actor, kind: "series", slug: "step-labels", name: "Step labels", summary: "Mixed composition" });
+    const { authoring, publishedMaterialReader } = assembleMaterials({
+      prisma: testDatabase.prisma,
+      authorPolicy: { canManage: () => true },
+    });
+    const collection = await authoring.createContentCollection({
+      actor,
+      kind: "series",
+      slug: "step-labels",
+      name: "Step labels",
+      summary: "Mixed composition",
+    });
     if (!collection.ok) throw new Error(collection.error.code);
     const selectedSeriesId = collection.value.id;
     const ids: string[] = [];
-    for (const [index, title] of ["Prepare", "Video", "Hidden step", "Deploy"].entries()) {
-      const created = await authoring.createDraft({ actor, idempotencyKey: `step-label-${index}`, metadata: { ...metadata(title), seriesIds: [selectedSeriesId, seriesId] }, body: representativeDocument(title) });
+    for (const [index, title] of [
+      "Prepare",
+      "Video",
+      "Hidden step",
+      "Deploy",
+    ].entries()) {
+      const created = await authoring.createDraft({
+        actor,
+        idempotencyKey: `step-label-${index}`,
+        metadata: {
+          ...metadata(title),
+          seriesIds: [selectedSeriesId, seriesId],
+        },
+        body: representativeDocument(title),
+      });
       if (!created.ok) throw new Error(created.error.code);
       ids.push(created.value.materialId);
       if (index !== 2) {
-        const published = await authoring.saveMaterial({ actor, idempotencyKey: `step-publish-${index}`, materialId: created.value.materialId, expectedContentVersion: 1, publicationState: "published", metadata: { ...metadata(title), seriesIds: [selectedSeriesId, seriesId] }, body: representativeDocument(title) });
+        const published = await authoring.saveMaterial({
+          actor,
+          idempotencyKey: `step-publish-${index}`,
+          materialId: created.value.materialId,
+          expectedContentVersion: 1,
+          publicationState: "published",
+          metadata: {
+            ...metadata(title),
+            seriesIds: [selectedSeriesId, seriesId],
+          },
+          body: representativeDocument(title),
+        });
         if (!published.ok) throw new Error(published.error.code);
       }
     }
     const first = ids[0];
     const hidden = ids[2];
     const last = ids[3];
-    if (first === undefined || hidden === undefined || last === undefined) throw new Error("Expected four Materials");
-    const initial = await authoring.loadSeriesOrder({ actor, seriesId: selectedSeriesId });
+    if (first === undefined || hidden === undefined || last === undefined)
+      throw new Error("Expected four Materials");
+    const initial = await authoring.loadSeriesOrder({
+      actor,
+      seriesId: selectedSeriesId,
+    });
     if (!initial.ok) throw new Error(initial.error.code);
-    const grouped = await authoring.reorderSeries({ actor, seriesId: selectedSeriesId, expectedOrderVersion: initial.value.orderVersion, orderedMaterialIds: ids, stepGroups: { [first]: "  Release  ", [hidden]: "Hidden-only label", [last]: "Release" } });
+    const grouped = await authoring.reorderSeries({
+      actor,
+      seriesId: selectedSeriesId,
+      expectedOrderVersion: initial.value.orderVersion,
+      orderedMaterialIds: ids,
+      stepGroups: {
+        [first]: "  Release  ",
+        [hidden]: "Hidden-only label",
+        [last]: "Release",
+      },
+    });
     if (!grouped.ok) throw new Error(grouped.error.code);
     expect(grouped.value.orderVersion).not.toBe(initial.value.orderVersion);
-    const loaded = await authoring.loadSeriesOrder({ actor, seriesId: selectedSeriesId });
+    const loaded = await authoring.loadSeriesOrder({
+      actor,
+      seriesId: selectedSeriesId,
+    });
     if (!loaded.ok) throw new Error(loaded.error.code);
-    expect(loaded.value.items.map(({ stepGroup }) => stepGroup)).toEqual(["Release", null, "Hidden-only label", "Release"]);
-    const publicSeries = await publishedMaterialReader.discoverProjections({ kind: "series", slug: "step-labels", first: null });
+    expect(loaded.value.items.map(({ stepGroup }) => stepGroup)).toEqual([
+      "Release",
+      null,
+      "Hidden-only label",
+      "Release",
+    ]);
+    const publicSeries = await publishedMaterialReader.discoverProjections({
+      kind: "series",
+      slug: "step-labels",
+      first: null,
+    });
     if (!publicSeries.ok) throw new Error(publicSeries.error.code);
-    expect(publicSeries.value.items.map(({ materialId }) => materialId)).toEqual([first, ids[1], last]);
-    expect(JSON.stringify(publicSeries.value)).not.toContain("Hidden-only label");
-    expect(publicSeries.value.items[0]?.seriesMemberships.find(({ series }) => series.id === seriesId)?.stepGroup).toBeNull();
-    expect(publicSeries.value.items[0]?.seriesMemberships.find(({ series }) => series.id === selectedSeriesId)?.stepGroup).toBe("Release");
-    const stale = await authoring.reorderSeries({ actor, seriesId: selectedSeriesId, expectedOrderVersion: initial.value.orderVersion, orderedMaterialIds: ids, stepGroups: {} });
-    expect(stale).toMatchObject({ ok: false, error: { code: "stale_series_order" } });
+    expect(
+      publicSeries.value.items.map(({ materialId }) => materialId),
+    ).toEqual([first, ids[1], last]);
+    expect(JSON.stringify(publicSeries.value)).not.toContain(
+      "Hidden-only label",
+    );
+    expect(
+      publicSeries.value.items[0]?.seriesMemberships.find(
+        ({ series }) => series.id === seriesId,
+      )?.stepGroup,
+    ).toBeNull();
+    expect(
+      publicSeries.value.items[0]?.seriesMemberships.find(
+        ({ series }) => series.id === selectedSeriesId,
+      )?.stepGroup,
+    ).toBe("Release");
+    const stale = await authoring.reorderSeries({
+      actor,
+      seriesId: selectedSeriesId,
+      expectedOrderVersion: initial.value.orderVersion,
+      orderedMaterialIds: ids,
+      stepGroups: {},
+    });
+    expect(stale).toMatchObject({
+      ok: false,
+      error: { code: "stale_series_order" },
+    });
     const saved = await authoring.loadMaterial({ actor, materialId: first });
     if (!saved.ok) throw new Error(saved.error.code);
-    const resaved = await authoring.saveMaterial({ actor, idempotencyKey: "step-resave", materialId: first, expectedContentVersion: saved.value.contentVersion, publicationState: "published", metadata: { ...metadata("Prepare"), seriesIds: [selectedSeriesId, seriesId] }, body: representativeDocument("Edited body") });
+    const resaved = await authoring.saveMaterial({
+      actor,
+      idempotencyKey: "step-resave",
+      materialId: first,
+      expectedContentVersion: saved.value.contentVersion,
+      publicationState: "published",
+      metadata: {
+        ...metadata("Prepare"),
+        seriesIds: [selectedSeriesId, seriesId],
+      },
+      body: representativeDocument("Edited body"),
+    });
     if (!resaved.ok) throw new Error(resaved.error.code);
-    const legacy = await authoring.reorderSeries({ actor, seriesId: selectedSeriesId, expectedOrderVersion: grouped.value.orderVersion, orderedMaterialIds: [last, first] });
+    const legacy = await authoring.reorderSeries({
+      actor,
+      seriesId: selectedSeriesId,
+      expectedOrderVersion: grouped.value.orderVersion,
+      orderedMaterialIds: [last, first],
+    });
     if (!legacy.ok) throw new Error(legacy.error.code);
-    const afterLegacy = await authoring.loadSeriesOrder({ actor, seriesId: selectedSeriesId });
+    const afterLegacy = await authoring.loadSeriesOrder({
+      actor,
+      seriesId: selectedSeriesId,
+    });
     if (!afterLegacy.ok) throw new Error(afterLegacy.error.code);
-    expect(afterLegacy.value.items.map(({ materialId, stepGroup }) => [materialId, stepGroup])).toEqual([[last, "Release"], [first, "Release"]]);
-    for (const stepGroups of [{ [hidden]: "Gone" }, { [first]: " " }, { [first]: "x".repeat(121) }]) {
-      expect(await authoring.reorderSeries({ actor, seriesId: selectedSeriesId, expectedOrderVersion: legacy.value.orderVersion, orderedMaterialIds: [last, first], stepGroups })).toMatchObject({ ok: false, error: { code: "invalid_content" } });
+    expect(
+      afterLegacy.value.items.map(({ materialId, stepGroup }) => [
+        materialId,
+        stepGroup,
+      ]),
+    ).toEqual([
+      [last, "Release"],
+      [first, "Release"],
+    ]);
+    for (const stepGroups of [
+      { [hidden]: "Gone" },
+      { [first]: " " },
+      { [first]: "x".repeat(121) },
+    ]) {
+      expect(
+        await authoring.reorderSeries({
+          actor,
+          seriesId: selectedSeriesId,
+          expectedOrderVersion: legacy.value.orderVersion,
+          orderedMaterialIds: [last, first],
+          stepGroups,
+        }),
+      ).toMatchObject({ ok: false, error: { code: "invalid_content" } });
     }
-    const cleared = await authoring.reorderSeries({ actor, seriesId: selectedSeriesId, expectedOrderVersion: legacy.value.orderVersion, orderedMaterialIds: [last, first], stepGroups: {} });
+    const cleared = await authoring.reorderSeries({
+      actor,
+      seriesId: selectedSeriesId,
+      expectedOrderVersion: legacy.value.orderVersion,
+      orderedMaterialIds: [last, first],
+      stepGroups: {},
+    });
     expect(cleared.ok).toBe(true);
-    const afterClear = await authoring.loadSeriesOrder({ actor, seriesId: selectedSeriesId });
+    const afterClear = await authoring.loadSeriesOrder({
+      actor,
+      seriesId: selectedSeriesId,
+    });
     if (!afterClear.ok) throw new Error(afterClear.error.code);
-    expect(afterClear.value.items.map(({ stepGroup }) => stepGroup)).toEqual([null, null]);
+    expect(afterClear.value.items.map(({ stepGroup }) => stepGroup)).toEqual([
+      null,
+      null,
+    ]);
   });
 
   test("protects playlist management and reports a missing playlist", async () => {

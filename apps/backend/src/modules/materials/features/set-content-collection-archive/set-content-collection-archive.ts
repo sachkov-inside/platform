@@ -3,8 +3,15 @@ import { z } from "zod";
 
 import type { MaterialAuthoringDependencies } from "../../facets/material-authoring/material-authoring.dependencies.js";
 import { authorizeManager } from "../../ports/author-policy.js";
-import { executeAuthoringTransaction, failure } from "../../shared/application-result.js";
-import { accountId, entityId, parseCommand } from "../../shared/command-validation.js";
+import {
+  executeAuthoringTransaction,
+  failure,
+} from "../../shared/application-result.js";
+import {
+  accountId,
+  entityId,
+  parseCommand,
+} from "../../shared/command-validation.js";
 import { mapPostgresReadError } from "../../shared/postgres-error-mapping.js";
 import { contentCollectionPersistence } from "../../infrastructure/postgres/content-collection-persistence.js";
 import type {
@@ -40,10 +47,16 @@ export function assembleSetContentCollectionArchive(
       async (transaction, rollback) => {
         if (command.kind !== "topic") {
           await lockSeries(transaction, [command.collectionId]);
-          const source = await transaction.guide.findUnique({ where: { id: command.collectionId }, select: { sourceId: true } });
+          const source = await transaction.guide.findUnique({
+            where: { id: command.collectionId },
+            select: { sourceId: true },
+          });
           if (source?.sourceId) return rollback({ code: "forbidden" });
         }
-        const persistence = contentCollectionPersistence(transaction, command.kind);
+        const persistence = contentCollectionPersistence(
+          transaction,
+          command.kind,
+        );
         const updated = await persistence.setArchive({
           archived: command.archived,
           expectedVersion: command.expectedVersion,

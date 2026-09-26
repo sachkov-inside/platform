@@ -70,7 +70,9 @@ export function purchaseConsentPolicy(
   documents: readonly LegalDocument[],
   mode: PaymentMode,
 ): ConsentPolicy {
-  const applicable = documents.filter((document) => document.appliesTo.includes(mode));
+  const applicable = documents.filter((document) =>
+    document.appliesTo.includes(mode),
+  );
   return mode === "one_time"
     ? { required: ["terms"], applicable }
     : { required: ["terms", "recurring"], applicable };

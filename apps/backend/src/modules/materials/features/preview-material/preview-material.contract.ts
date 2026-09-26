@@ -24,10 +24,7 @@ export interface PreviewMaterialDto {
 }
 
 export type PreviewMaterialError =
-  | InvalidContentError
-  | ForbiddenError
-  | MaterialNotFoundError
-  | SystemError;
+  InvalidContentError | ForbiddenError | MaterialNotFoundError | SystemError;
 export type PreviewMaterialResult = Result<
   PreviewMaterialDto,
   PreviewMaterialError

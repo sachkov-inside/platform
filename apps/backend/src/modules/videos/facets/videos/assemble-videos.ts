@@ -16,7 +16,11 @@ import {
 import { acceptVideoWebhook, reconcileVideo } from "./reconcile-video.js";
 import { retryVideoDeletion } from "./retry-video-deletion.js";
 import { initVideoUpload } from "./upload-video.js";
-import { loadVideoProgress, loadVideoProgressMany, saveVideoProgress } from "./video-progress.js";
+import {
+  loadVideoProgress,
+  loadVideoProgressMany,
+  saveVideoProgress,
+} from "./video-progress.js";
 import type { VideoContext } from "./video-records.js";
 import type { Videos } from "./videos.interface.js";
 
@@ -32,7 +36,11 @@ export function assembleVideos(dependencies: {
       try {
         return await dependencies.canManage(actor);
       } catch (error) {
-        return dependencyFailure({ module: "videos", operation: "managerAllowed" }, error, false);
+        return dependencyFailure(
+          { module: "videos", operation: "managerAllowed" },
+          error,
+          false,
+        );
       }
     },
     now: dependencies.clock ?? (() => new Date()),
@@ -44,15 +52,19 @@ export function assembleVideos(dependencies: {
     acceptWebhook: (input) => acceptVideoWebhook(context, input),
     attachExisting: (input) => attachExistingVideo(context, input),
     initUpload: (input) => initVideoUpload(context, input),
-    inspectPrimaryReference: (transaction, input) => inspectPrimaryVideoReference(context, transaction, input),
+    inspectPrimaryReference: (transaction, input) =>
+      inspectPrimaryVideoReference(context, transaction, input),
     loadAccessFacts: (videoIds) => loadVideoAccessFacts(context, videoIds),
-    loadAuthoringPresentation: (input, transaction) => loadVideoAuthoringPresentation(context, input, transaction),
-    loadLatestDeletion: (materialId) => loadLatestVideoDeletion(context, materialId),
+    loadAuthoringPresentation: (input, transaction) =>
+      loadVideoAuthoringPresentation(context, input, transaction),
+    loadLatestDeletion: (materialId) =>
+      loadLatestVideoDeletion(context, materialId),
     loadPlayback: (videoId) => loadVideoPlayback(context, videoId),
     loadPresentation: (input) => loadVideoPresentation(context, input),
     loadProgress: (input) => loadVideoProgress(context, input),
     loadProgressMany: (input) => loadVideoProgressMany(context, input),
-    loadReadyDurations: (videoIds) => loadReadyVideoDurations(context, videoIds),
+    loadReadyDurations: (videoIds) =>
+      loadReadyVideoDurations(context, videoIds),
     loadUnselectedUpload: (input) => loadUnselectedVideoUpload(context, input),
     reconcile: (input) => reconcileVideo(context, input),
     retryDeletion: (input) => retryVideoDeletion(context, input),

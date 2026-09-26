@@ -38,6 +38,5 @@ export type MembershipAccessPrisma = Pick<
 export type MembershipEntitlementsPrismaTransaction =
   MembershipEntitlementsPrisma;
 
-export type MembershipEntitlementsPrismaClient =
-  MembershipEntitlementsPrisma &
-    TransactionClient<MembershipEntitlementsPrismaTransaction>;
+export type MembershipEntitlementsPrismaClient = MembershipEntitlementsPrisma &
+  TransactionClient<MembershipEntitlementsPrismaTransaction>;

@@ -27,7 +27,9 @@ const setupAction = readFileSync(
  */
 const commitPinnedAction = /^[^@\s]+@[0-9a-f]{40} # v\d+\.\d+\.\d+$/u;
 const actionReferenceLines = (source) =>
-  [...source.matchAll(/^\s+-?\s*uses:\s*(.+)$/gmu)].map((match) => match[1].trim());
+  [...source.matchAll(/^\s+-?\s*uses:\s*(.+)$/gmu)].map((match) =>
+    match[1].trim(),
+  );
 const rootScripts = JSON.parse(
   readFileSync(resolve(repositoryRoot, "package.json"), "utf8"),
 ).scripts;
@@ -72,7 +74,9 @@ describe("application CI workflow contract", () => {
   });
 
   it("pins every action to a release commit", () => {
-    const actionReferences = [workflow, setupAction].flatMap(actionReferenceLines);
+    const actionReferences = [workflow, setupAction].flatMap(
+      actionReferenceLines,
+    );
     const remoteReferences = actionReferences.filter(
       (reference) => !reference.startsWith("./"),
     );
@@ -81,7 +85,9 @@ describe("application CI workflow contract", () => {
     for (const reference of remoteReferences) {
       assert.match(reference, commitPinnedAction);
     }
-    for (const reference of actionReferences.filter((value) => value.startsWith("./"))) {
+    for (const reference of actionReferences.filter((value) =>
+      value.startsWith("./"),
+    )) {
       assert.equal(reference, "./.github/actions/setup-platform");
     }
     for (const action of [
@@ -91,7 +97,9 @@ describe("application CI workflow contract", () => {
       "actions/upload-artifact",
     ]) {
       assert.ok(
-        actionReferences.some((reference) => reference.startsWith(`${action}@`)),
+        actionReferences.some((reference) =>
+          reference.startsWith(`${action}@`),
+        ),
         `${action} must be used by the workflow`,
       );
     }
@@ -103,8 +111,14 @@ describe("application CI workflow contract", () => {
       checkStages.map(([, script]) => `pnpm ${script}`).join(" && "),
     );
     for (const [job, script] of checkStages) {
-      assert.match(jobBlock(job), new RegExp(`run: pnpm ${escapeRegExp(script)}$`, "mu"));
-      assert.match(jobBlock(job), /uses: \.\/\.github\/actions\/setup-platform$/mu);
+      assert.match(
+        jobBlock(job),
+        new RegExp(`run: pnpm ${escapeRegExp(script)}$`, "mu"),
+      );
+      assert.match(
+        jobBlock(job),
+        /uses: \.\/\.github\/actions\/setup-platform$/mu,
+      );
     }
     assert.doesNotMatch(workflow, /run: pnpm check$/mu);
     assert.match(jobBlock("ui"), /browsers: chromium webkit$/mu);
@@ -118,7 +132,10 @@ describe("application CI workflow contract", () => {
     assert.match(setupAction, /run: pnpm install --frozen-lockfile$/mu);
     assert.match(setupAction, /uses: actions\/cache@/u);
     assert.match(setupAction, /path: ~\/\.cache\/ms-playwright$/mu);
-    assert.match(setupAction, /key: playwright-.*steps\.playwright\.outputs\.version/u);
+    assert.match(
+      setupAction,
+      /key: playwright-.*steps\.playwright\.outputs\.version/u,
+    );
     assert.match(setupAction, /playwright install --with-deps \$BROWSERS$/mu);
     assert.doesNotMatch(workflow, /pnpm install/u);
   });
@@ -130,9 +147,15 @@ describe("application CI workflow contract", () => {
       assert.match(body, /^ {4}timeout-minutes: \d+$/mu);
     }
 
-    assert.match(jobBlock("integration"), /run: pnpm test:integration:parallel$/mu);
+    assert.match(
+      jobBlock("integration"),
+      /run: pnpm test:integration:parallel$/mu,
+    );
     assert.match(jobBlock("integration"), /run: pnpm smoke:enrollments$/mu);
-    assert.match(jobBlock("integration-serial"), /run: pnpm test:integration:serial$/mu);
+    assert.match(
+      jobBlock("integration-serial"),
+      /run: pnpm test:integration:serial$/mu,
+    );
     for (const job of ["integration", "integration-serial"]) {
       assert.doesNotMatch(jobBlock(job), /services:/u);
     }
@@ -151,8 +174,9 @@ describe("application CI workflow contract", () => {
       /docker compose --profile storybook build/u,
     );
     assert.equal(
-      jobBlock("compose-development").match(/bash scripts\/compose-stack-smoke\.sh/gu)
-        ?.length,
+      jobBlock("compose-development").match(
+        /bash scripts\/compose-stack-smoke\.sh/gu,
+      )?.length,
       2,
     );
     const developmentCompose = jobBlock("compose-development");
@@ -170,7 +194,9 @@ describe("application CI workflow contract", () => {
       "s3 http://127.0.0.1:9000/inside-ci/persistence-probe.txt",
     );
     assert.ok(writePostgresProbe > -1 && writePostgresProbe < restart);
-    assert.ok(writeObjectStorageProbe > -1 && writeObjectStorageProbe < restart);
+    assert.ok(
+      writeObjectStorageProbe > -1 && writeObjectStorageProbe < restart,
+    );
     assert.ok(readPostgresProbe > restart);
     assert.ok(readObjectStorageProbe > restart);
     assert.match(
@@ -193,9 +219,15 @@ describe("application CI workflow contract", () => {
   });
 
   it("uploads only bounded failure diagnostics for seven days", () => {
-    assert.equal(workflow.match(/uses: actions\/upload-artifact@/gu)?.length, 3);
+    assert.equal(
+      workflow.match(/uses: actions\/upload-artifact@/gu)?.length,
+      3,
+    );
     assert.equal(workflow.match(/^\s+retention-days: 7$/gmu)?.length, 3);
-    assert.equal(workflow.match(/^\s+if: \$\{\{ failure\(\) \}\}$/gmu)?.length, 4);
+    assert.equal(
+      workflow.match(/^\s+if: \$\{\{ failure\(\) \}\}$/gmu)?.length,
+      4,
+    );
     assert.match(workflow, /docker compose logs --no-color --tail 500/u);
     assert.doesNotMatch(workflow, /\.ci-artifacts/u);
     assert.match(
@@ -249,7 +281,10 @@ describe("nightly full-stack workflow contract", () => {
   });
 
   it("stays read-only, secret-free and pinned", () => {
-    assert.equal(topLevelBlock("permissions", nightlyWorkflow).trim(), "contents: read");
+    assert.equal(
+      topLevelBlock("permissions", nightlyWorkflow).trim(),
+      "contents: read",
+    );
     assert.doesNotMatch(nightlyWorkflow, /^ {2,}permissions:/mu);
     assert.doesNotMatch(nightlyWorkflow, /secrets\./u);
     const actionReferences = actionReferenceLines(nightlyWorkflow);
@@ -275,10 +310,16 @@ describe("nightly full-stack workflow contract", () => {
       assert.notEqual(index, -1, `nightly job must run ${command}`);
       return index;
     });
-    assert.deepEqual(steps, [...steps].sort((left, right) => left - right));
+    assert.deepEqual(
+      steps,
+      [...steps].sort((left, right) => left - right),
+    );
     // The smoke owns its check database; an exported URL would point it elsewhere.
     assert.doesNotMatch(job, /DATABASE_URL/u);
-    assert.match(job, /if: \$\{\{ always\(\) \}\}\n {8}run: docker compose down --volumes --remove-orphans/u);
+    assert.match(
+      job,
+      /if: \$\{\{ always\(\) \}\}\n {8}run: docker compose down --volumes --remove-orphans/u,
+    );
   });
 
   it("uploads Playwright diagnostics only after a failure", () => {
@@ -327,7 +368,10 @@ describe("repository-owned workflow supply chain", () => {
   // Управляемые файлы harness закрепляются в пакете Workspace (workspace#211) и приходят раскаткой.
   const managedFiles = new Set(
     JSON.parse(
-      readFileSync(resolve(repositoryRoot, ".inside-harness/product-harness.json"), "utf8"),
+      readFileSync(
+        resolve(repositoryRoot, ".inside-harness/product-harness.json"),
+        "utf8",
+      ),
     ).managedFiles,
   );
   const ownedSources = [
@@ -353,6 +397,9 @@ describe("repository-owned workflow supply chain", () => {
 
   it("rejects a tag-only reference", () => {
     assert.doesNotMatch("actions/checkout@v7.0.1", commitPinnedAction);
-    assert.doesNotMatch(`actions/checkout@${"a".repeat(40)}`, commitPinnedAction);
+    assert.doesNotMatch(
+      `actions/checkout@${"a".repeat(40)}`,
+      commitPinnedAction,
+    );
   });
 });

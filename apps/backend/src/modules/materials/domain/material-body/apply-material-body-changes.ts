@@ -21,7 +21,11 @@ interface TextNode extends JsonObject {
 }
 
 function isTextNode(value: JsonValue): value is TextNode {
-  return isJsonObject(value) && value.type === "text" && typeof value.text === "string";
+  return (
+    isJsonObject(value) &&
+    value.type === "text" &&
+    typeof value.text === "string"
+  );
 }
 
 function fail(index: number, code: string): MaterialBodyResult<never> {
@@ -38,7 +42,9 @@ function nodeId(block: unknown): string | undefined {
   if (!isJsonObject(block) || !isJsonObject(block.attrs)) {
     return undefined;
   }
-  return typeof block.attrs.nodeId === "string" ? block.attrs.nodeId : undefined;
+  return typeof block.attrs.nodeId === "string"
+    ? block.attrs.nodeId
+    : undefined;
 }
 
 function withNodeId(
@@ -60,7 +66,9 @@ function withNodeId(
   }
   if (
     candidate.attrs !== undefined &&
-    (candidate.attrs === null || Array.isArray(candidate.attrs) || typeof candidate.attrs !== "object")
+    (candidate.attrs === null ||
+      Array.isArray(candidate.attrs) ||
+      typeof candidate.attrs !== "object")
   ) {
     return undefined;
   }
@@ -81,7 +89,10 @@ function mutableContent(node: unknown): unknown[] | undefined {
   return isUnknownArray(node.content) ? node.content : undefined;
 }
 
-function findNode(root: unknown, targetNodeId: string): LocatedNode | undefined {
+function findNode(
+  root: unknown,
+  targetNodeId: string,
+): LocatedNode | undefined {
   const content = mutableContent(root);
   if (content === undefined) {
     return undefined;
@@ -106,10 +117,7 @@ function replaceText(
     return undefined;
   }
   const textNodes = block.content === undefined ? [] : block.content;
-  if (
-    !isJsonArray(textNodes) ||
-    !textNodes.every(isTextNode)
-  ) {
+  if (!isJsonArray(textNodes) || !textNodes.every(isTextNode)) {
     return undefined;
   }
   const lengths = textNodes.map((node) => Array.from(node.text).length);
@@ -151,11 +159,17 @@ function replaceText(
     const textNode = value;
     const text = Array.from(textNode.text);
     const end = offset + text.length;
-    if (change.from < end || (change.from === totalLength && index === textNodes.length - 1)) {
+    if (
+      change.from < end ||
+      (change.from === totalLength && index === textNodes.length - 1)
+    ) {
       insertionTemplate ??= textNode;
     }
     if (offset < change.from) {
-      append(textNode, text.slice(0, Math.min(text.length, change.from - offset)).join(""));
+      append(
+        textNode,
+        text.slice(0, Math.min(text.length, change.from - offset)).join(""),
+      );
     }
     offset = end;
   }
@@ -205,7 +219,9 @@ export function applyMaterialBodyChanges(
 
   for (const [index, change] of changes.entries()) {
     if (change.kind === "replace_document") {
-      const replacement = acceptMaterialBody(change.document, { assignMissingNodeIds: true });
+      const replacement = acceptMaterialBody(change.document, {
+        assignMissingNodeIds: true,
+      });
       if (!replacement.ok) {
         return replacement;
       }
@@ -217,7 +233,9 @@ export function applyMaterialBodyChanges(
 
     if (change.kind === "insert_blocks") {
       const location =
-        change.afterNodeId === null ? undefined : findNode(document, change.afterNodeId);
+        change.afterNodeId === null
+          ? undefined
+          : findNode(document, change.afterNodeId);
       if (change.afterNodeId !== null && location === undefined) {
         return fail(index, "node_not_found");
       }

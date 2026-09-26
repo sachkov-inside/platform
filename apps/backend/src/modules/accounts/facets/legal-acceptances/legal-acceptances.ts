@@ -3,7 +3,10 @@ import { createHash, randomUUID } from "node:crypto";
 import { z } from "zod";
 
 import { dependencyFailure } from "../../../../infrastructure/observability/index.js";
-import { lockAccountRecords, type AccountsPrismaClient } from "../../../../infrastructure/prisma/index.js";
+import {
+  lockAccountRecords,
+  type AccountsPrismaClient,
+} from "../../../../infrastructure/prisma/index.js";
 import {
   acceptTermsSchema,
   acceptanceScreenSchema,
@@ -53,13 +56,19 @@ export class LegalAcceptances {
     if (!z.uuid().safeParse(accountId).success)
       return legalAcceptanceFailure("forbidden");
     try {
-      const accepted = await this.dependencies.prisma.legalAcceptance.findFirst({
-        where: this.currentTermsFilter(accountId),
-        select: { id: true },
-      });
+      const accepted = await this.dependencies.prisma.legalAcceptance.findFirst(
+        {
+          where: this.currentTermsFilter(accountId),
+          select: { id: true },
+        },
+      );
       return { ok: true, accepted: accepted !== null };
     } catch (error) {
-      return dependencyFailure({ module: "accounts", operation: "checkTerms" }, error, legalAcceptanceFailure("internal_error"));
+      return dependencyFailure(
+        { module: "accounts", operation: "checkTerms" },
+        error,
+        legalAcceptanceFailure("internal_error"),
+      );
     }
   }
 
@@ -68,7 +77,11 @@ export class LegalAcceptances {
       return legalAcceptanceFailure("forbidden");
     try {
       const rows = await this.dependencies.prisma.legalAcceptance.findMany({
-        where: { accountId, kind: termsKind, documentId: this.terms.documentId },
+        where: {
+          accountId,
+          kind: termsKind,
+          documentId: this.terms.documentId,
+        },
         select: { documentVersion: true, documentDigest: true },
       });
       const accepted = rows.some((row) => this.isCurrentTerms(row));
@@ -79,7 +92,11 @@ export class LegalAcceptances {
         document: this.termsDocument(),
       };
     } catch (error) {
-      return dependencyFailure({ module: "accounts", operation: "readTermsStatus" }, error, legalAcceptanceFailure("internal_error"));
+      return dependencyFailure(
+        { module: "accounts", operation: "readTermsStatus" },
+        error,
+        legalAcceptanceFailure("internal_error"),
+      );
     }
   }
 
@@ -95,8 +112,12 @@ export class LegalAcceptances {
     const { prisma, now } = this.dependencies;
     try {
       return await prisma.$transaction(async (transaction) => {
-        await lockAccountRecords(transaction, [`legal-acceptance:${accountId}`]);
-        if (!(await transaction.account.findUnique({ where: { id: accountId } })))
+        await lockAccountRecords(transaction, [
+          `legal-acceptance:${accountId}`,
+        ]);
+        if (
+          !(await transaction.account.findUnique({ where: { id: accountId } }))
+        )
           return legalAcceptanceFailure("forbidden");
         const repeated = await transaction.legalAcceptance.findUnique({
           where: {
@@ -145,7 +166,11 @@ export class LegalAcceptances {
         return { ok: true as const, acceptanceRef: id };
       });
     } catch (error) {
-      return dependencyFailure({ module: "accounts", operation: "acceptTerms" }, error, legalAcceptanceFailure("internal_error"));
+      return dependencyFailure(
+        { module: "accounts", operation: "acceptTerms" },
+        error,
+        legalAcceptanceFailure("internal_error"),
+      );
     }
   }
 
@@ -159,24 +184,29 @@ export class LegalAcceptances {
       });
       return {
         ok: true,
-        documents: rows.map(
-          (row): AcceptedDocument => ({
-            acceptanceRef: row.id,
-            documentId: row.documentId,
-            version: row.documentVersion,
-            url: row.documentUrl,
-            acceptedAt: row.acceptedAt.toISOString(),
-            screen: acceptanceScreenSchema.nullable().catch(null).parse(row.screen),
-            buttonLabel: row.buttonLabel,
-            shownTerms: shownRenewalTermsSchema
-              .nullable()
-              .catch(null)
-              .parse(row.shownTerms),
-          }),
-        ),
+        documents: rows.map((row): AcceptedDocument => ({
+          acceptanceRef: row.id,
+          documentId: row.documentId,
+          version: row.documentVersion,
+          url: row.documentUrl,
+          acceptedAt: row.acceptedAt.toISOString(),
+          screen: acceptanceScreenSchema
+            .nullable()
+            .catch(null)
+            .parse(row.screen),
+          buttonLabel: row.buttonLabel,
+          shownTerms: shownRenewalTermsSchema
+            .nullable()
+            .catch(null)
+            .parse(row.shownTerms),
+        })),
       };
     } catch (error) {
-      return dependencyFailure({ module: "accounts", operation: "listAccepted" }, error, legalAcceptanceFailure("internal_error"));
+      return dependencyFailure(
+        { module: "accounts", operation: "listAccepted" },
+        error,
+        legalAcceptanceFailure("internal_error"),
+      );
     }
   }
 

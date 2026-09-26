@@ -54,7 +54,9 @@ export const OwnGroundsAndPayments: Story = {
     await expect(canvas.getByText(/Оплата не прошла/u)).toBeInTheDocument();
     // Разовая покупка названа покупкой: срока варианта оплаты у неё нет.
     await expect(
-      canvas.getByText(/Руководство «Создание Platform Inside» · разовая покупка/u),
+      canvas.getByText(
+        /Руководство «Создание Platform Inside» · разовая покупка/u,
+      ),
     ).toBeInTheDocument();
   },
 };
@@ -75,7 +77,9 @@ export const NoSubscription: Story = {
     const canvas = within(canvasElement);
     // Купленное руководство и ручная выдача действуют без даты окончания и без подписки —
     // сводка оснований такой срок не называет.
-    await expect(canvas.queryByText("без даты окончания")).not.toBeInTheDocument();
+    await expect(
+      canvas.queryByText("без даты окончания"),
+    ).not.toBeInTheDocument();
     await expect(canvas.getAllByText("Оплаченный доступ").length).toBe(2);
     await expect(
       canvas.getByText("Карта сохраняется при оформлении подписки."),
@@ -146,7 +150,13 @@ export const RevokedMethod: Story = {
 
 export const SessionExpired: Story = { args: { sessionExpired: true } };
 export const Loading: Story = {
-  args: { grounds: [], loading: true, notices: [], payments: [], subscription: null },
+  args: {
+    grounds: [],
+    loading: true,
+    notices: [],
+    payments: [],
+    subscription: null,
+  },
 };
 export const Unavailable: Story = {
   args: { error: "Данные оплаты сейчас недоступны. Повторите позже." },

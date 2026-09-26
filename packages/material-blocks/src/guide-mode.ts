@@ -10,7 +10,9 @@ import { z } from "zod";
  */
 export const guideModes = ["example", "own"] as const;
 
-export const guideModeSchema: z.ZodEnum<z.core.util.ToEnum<(typeof guideModes)[number]>> = z.enum(guideModes);
+export const guideModeSchema: z.ZodEnum<
+  z.core.util.ToEnum<(typeof guideModes)[number]>
+> = z.enum(guideModes);
 
 export type GuideMode = z.infer<typeof guideModeSchema>;
 

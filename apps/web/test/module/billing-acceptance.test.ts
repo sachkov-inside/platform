@@ -22,7 +22,9 @@ describe("acceptance by the payment button", () => {
     expect(checkoutButtonLabel(savedQuote.snapshot)).toMatch(
       /^Оформить подписку и оплатить \d/u,
     );
-    expect(checkoutActionName(savedQuote.snapshot)).toBe("Оформить подписку и оплатить");
+    expect(checkoutActionName(savedQuote.snapshot)).toBe(
+      "Оформить подписку и оплатить",
+    );
     expect(resumeRenewalButtonLabel).toBe("Возобновить автопродление");
   });
 
@@ -35,7 +37,9 @@ describe("acceptance by the payment button", () => {
     const terms = renewalTermsAtCheckout(savedQuote);
     expect(terms.amountKopecks).toBe(savedQuote.snapshot.renewalPriceKopecks);
     expect(terms.periodMonths).toBe(savedQuote.snapshot.paymentOption.months);
-    expect(terms.nextChargeOn > moscowDay(new Date(savedQuote.createdAt))).toBe(true);
+    expect(terms.nextChargeOn > moscowDay(new Date(savedQuote.createdAt))).toBe(
+      true,
+    );
   });
 
   it("continues a resumed subscription on the last day of its paid period", () => {
@@ -48,7 +52,13 @@ describe("acceptance by the payment button", () => {
 
   it("writes the terms as one line next to the button", () => {
     expect(
-      renewalTermsLine({ amountKopecks: 99_000, nextChargeOn: "2026-10-15", periodMonths: 1 }),
-    ).toMatch(/^следующее списание 990\s₽ — 15 октября 2026 г\., затем раз в /u);
+      renewalTermsLine({
+        amountKopecks: 99_000,
+        nextChargeOn: "2026-10-15",
+        periodMonths: 1,
+      }),
+    ).toMatch(
+      /^следующее списание 990\s₽ — 15 октября 2026 г\., затем раз в /u,
+    );
   });
 });

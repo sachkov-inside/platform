@@ -13,9 +13,10 @@ export interface TransitionMaterialPublicationCommand {
 }
 
 export type TransitionMaterialPublicationError =
-  | LoadMaterialError
-  | SaveMaterialError;
+  LoadMaterialError | SaveMaterialError;
 
 export type TransitionMaterialPublicationOperation = (
   command: TransitionMaterialPublicationCommand,
-) => Promise<Result<MaterialMutationReceiptDto, TransitionMaterialPublicationError>>;
+) => Promise<
+  Result<MaterialMutationReceiptDto, TransitionMaterialPublicationError>
+>;

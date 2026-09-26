@@ -3,9 +3,7 @@
   "compilerOptions": {
     "incremental": true,
     "paths": {
-      "@/*": [
-        "./src/*"
-      ]
+      "@/*": ["./src/*"]
     }
   },
   "include": [
@@ -17,9 +15,5 @@
     "**/*.tsx",
     "**/*.mts"
   ],
-  "exclude": [
-    "node_modules",
-    ".next/dev",
-    "test/guardrails/fixtures"
-  ]
+  "exclude": ["node_modules", ".next/dev", "test/guardrails/fixtures"]
 }

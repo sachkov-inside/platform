@@ -45,12 +45,18 @@ export function GuideRemovalConfirmationDialog({
       ref={dialog}
     >
       <div className="p-6 sm:p-8">
-        <h2 className="text-balance text-2xl font-semibold tracking-[-0.03em]" id={headingId}>
+        <h2
+          className="text-balance text-2xl font-semibold tracking-[-0.03em]"
+          id={headingId}
+        >
           Снять материал из купленного продукта?
         </h2>
-        <p className="mt-3 text-sm leading-6 text-muted-foreground" id={descriptionId}>
-          У этих продуктов есть люди с действующим доступом. После снятия материал исчезнет из их
-          программы. Снятие запишется в журнал.
+        <p
+          className="mt-3 text-sm leading-6 text-muted-foreground"
+          id={descriptionId}
+        >
+          У этих продуктов есть люди с действующим доступом. После снятия
+          материал исчезнет из их программы. Снятие запишется в журнал.
         </p>
         <ul className="mt-5 grid gap-2">
           {guides.map((guide) => (
@@ -58,16 +64,34 @@ export function GuideRemovalConfirmationDialog({
               className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 rounded-xl border border-border p-3 text-sm"
               key={guide.guideId}
             >
-              <span className="font-medium">{guide.name.length > 0 ? `«${guide.name}»` : "Продукт без названия"}</span>
-              <span className="text-muted-foreground">{holdersLabel(guide.holders)}</span>
+              <span className="font-medium">
+                {guide.name.length > 0
+                  ? `«${guide.name}»`
+                  : "Продукт без названия"}
+              </span>
+              <span className="text-muted-foreground">
+                {holdersLabel(guide.holders)}
+              </span>
             </li>
           ))}
         </ul>
         <div className="mt-7 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
-          <Button className="min-h-11" disabled={pending} onClick={onCancel} type="button" variant="outline">
+          <Button
+            className="min-h-11"
+            disabled={pending}
+            onClick={onCancel}
+            type="button"
+            variant="outline"
+          >
             Оставить в продукте
           </Button>
-          <Button className="min-h-11" disabled={pending} onClick={onConfirm} type="button" variant="destructive">
+          <Button
+            className="min-h-11"
+            disabled={pending}
+            onClick={onConfirm}
+            type="button"
+            variant="destructive"
+          >
             Снять из продукта
           </Button>
         </div>
@@ -79,6 +103,9 @@ export function GuideRemovalConfirmationDialog({
 function holdersLabel(holders: number): string {
   const lastTwo = holders % 100;
   const last = holders % 10;
-  const noun = last >= 2 && last <= 4 && (lastTwo < 12 || lastTwo > 14) ? "человека" : "человек";
+  const noun =
+    last >= 2 && last <= 4 && (lastTwo < 12 || lastTwo > 14)
+      ? "человека"
+      : "человек";
   return `доступ у ${String(holders)} ${noun}`;
 }

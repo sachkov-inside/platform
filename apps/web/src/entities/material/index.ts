@@ -40,6 +40,13 @@ export {
 export { ContentCoverImage } from "./ui/content-cover-image.client";
 export { SeriesContinuationProvider } from "./ui/series-continuation.client";
 
-export { MaterialReadingStatus, materialReadingLabels } from "./ui/material-reading-status";
+export {
+  MaterialReadingStatus,
+  materialReadingLabels,
+} from "./ui/material-reading-status";
 
-export { MaterialReadingContext, useMaterialReading, type MaterialReadingSnapshot } from "./model/reading-context.client";
+export {
+  MaterialReadingContext,
+  useMaterialReading,
+  type MaterialReadingSnapshot,
+} from "./model/reading-context.client";

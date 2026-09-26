@@ -5,14 +5,22 @@ import type { BookmarksPrismaClient } from "../../../../infrastructure/prisma/in
 import { accountId } from "../../../accounts/index.js";
 import type { ContentAccess } from "../../../content-access/index.js";
 import { materialId } from "../../../materials/index.js";
-import type { AddBookmarkCommand, AddBookmarkResult } from "./add-bookmark.contract.js";
+import type {
+  AddBookmarkCommand,
+  AddBookmarkResult,
+} from "./add-bookmark.contract.js";
 
-const commandSchema = z.object({ accountId: z.uuid(), materialId: z.uuid() }).strict();
+const commandSchema = z
+  .object({ accountId: z.uuid(), materialId: z.uuid() })
+  .strict();
 
-export async function addBookmark(dependencies: {
-  readonly prisma: BookmarksPrismaClient;
-  readonly contentAccess: Pick<ContentAccess, "authorize">;
-}, input: AddBookmarkCommand): Promise<AddBookmarkResult> {
+export async function addBookmark(
+  dependencies: {
+    readonly prisma: BookmarksPrismaClient;
+    readonly contentAccess: Pick<ContentAccess, "authorize">;
+  },
+  input: AddBookmarkCommand,
+): Promise<AddBookmarkResult> {
   const parsed = commandSchema.safeParse(input);
   if (!parsed.success) return { ok: false, error: { code: "invalid_request" } };
   const account = parsed.data.accountId.toLowerCase();
@@ -24,10 +32,16 @@ export async function addBookmark(dependencies: {
     enforcementPoint: "bookmark_change",
     correlationId: randomUUID(),
   });
-  if (decision.effect === "deny") return {
-    ok: false,
-    error: { code: decision.reason === "dependency_unavailable" ? "dependency_unavailable" : "access_denied" },
-  };
+  if (decision.effect === "deny")
+    return {
+      ok: false,
+      error: {
+        code:
+          decision.reason === "dependency_unavailable"
+            ? "dependency_unavailable"
+            : "access_denied",
+      },
+    };
   try {
     const bookmarkedAt = new Date();
     await dependencies.prisma.bookmarkedMaterial.createMany({
@@ -35,13 +49,23 @@ export async function addBookmark(dependencies: {
       skipDuplicates: true,
     });
     const row = await dependencies.prisma.bookmarkedMaterial.findUnique({
-      where: { accountId_materialId: { accountId: account, materialId: material } },
+      where: {
+        accountId_materialId: { accountId: account, materialId: material },
+      },
     });
     return {
       ok: true,
-      value: { materialId: material, bookmarked: true, bookmarkedAt: (row?.bookmarkedAt ?? bookmarkedAt).toISOString() },
+      value: {
+        materialId: material,
+        bookmarked: true,
+        bookmarkedAt: (row?.bookmarkedAt ?? bookmarkedAt).toISOString(),
+      },
     };
   } catch (error) {
-    return dependencyFailure({ module: "bookmarks", operation: "addBookmark" }, error, { ok: false, error: { code: "dependency_unavailable" } });
+    return dependencyFailure(
+      { module: "bookmarks", operation: "addBookmark" },
+      error,
+      { ok: false, error: { code: "dependency_unavailable" } },
+    );
   }
 }
