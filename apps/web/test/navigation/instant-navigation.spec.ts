@@ -592,7 +592,9 @@ test("смена режима прохождения сбрасывает стр
 test("обложка первого экрана продукта грузится сразу и даёт LCP в пределах «хорошо»", async ({ page }) => {
   await page.goto("/guides/navigation-cover");
 
-  const cover = page.locator("[data-product-part='hero'] img");
+  // Если ответ `/auth/status` меняет context над ещё не показанной частью, React рисует её на клиенте,
+  // а копия с сервера до показа лежит в скрытом контейнере вне `#content` (#740, #747).
+  const cover = page.locator("#content [data-product-part='hero'] img");
   await expect(cover).toHaveAttribute("fetchpriority", "high");
   await expect(cover).toHaveAttribute("loading", "eager");
   // Факт, которого ждёт проверка, — картинка обложки действительно отрисована.
