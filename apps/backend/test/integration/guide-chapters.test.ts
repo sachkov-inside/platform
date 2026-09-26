@@ -127,10 +127,17 @@ describe("Guide chapters", () => {
 
     const grouped = await load(guideId);
     expect(grouped.chapters).toEqual([
-      { id: projectChapter, name: "Проект и CI", ordinal: 1, summary: chapterSummary },
+      {
+        id: projectChapter,
+        name: "Проект и CI",
+        ordinal: 1,
+        summary: chapterSummary,
+      },
       { id: releaseChapter, name: "Релизы", ordinal: 2, summary: "" },
     ]);
-    expect(grouped.items.map(({ chapterId, materialId }) => [materialId, chapterId])).toEqual([
+    expect(
+      grouped.items.map(({ chapterId, materialId }) => [materialId, chapterId]),
+    ).toEqual([
       [first, projectChapter],
       [second, releaseChapter],
       [third, releaseChapter],
@@ -142,7 +149,11 @@ describe("Guide chapters", () => {
       expectedOrderVersion: grouped.orderVersion,
       orderedMaterialIds: [first, second, third],
       chapters: [
-        { id: projectChapter, name: "Проект, CI и проверки", summary: chapterSummary },
+        {
+          id: projectChapter,
+          name: "Проект, CI и проверки",
+          summary: chapterSummary,
+        },
         { id: releaseChapter, name: "Релизы", summary: "" },
       ],
       chapterAssignments: {
@@ -212,10 +223,15 @@ describe("Guide chapters", () => {
     });
     if (!moved.ok) throw new Error(moved.error.code);
     const afterMove = await load(guideId);
-    expect(afterMove.items.map(({ chapterId }) => chapterId)).toEqual([feature, feature]);
+    expect(afterMove.items.map(({ chapterId }) => chapterId)).toEqual([
+      feature,
+      feature,
+    ]);
     expect(afterMove.chapters.map(({ id }) => id)).toEqual([feature, basics]);
     expect(
-      await testDatabase.prisma.material.count({ where: { id: { in: [first, second] } } }),
+      await testDatabase.prisma.material.count({
+        where: { id: { in: [first, second] } },
+      }),
     ).toBe(2);
   });
 
@@ -237,21 +253,30 @@ describe("Guide chapters", () => {
     });
     if (!saved.ok) throw new Error(saved.error.code);
     const withEmpty = await load(guideId);
-    expect(withEmpty.chapters.map(({ name }) => name)).toEqual(["Цель поиска", "Переговоры"]);
+    expect(withEmpty.chapters.map(({ name }) => name)).toEqual([
+      "Цель поиска",
+      "Переговоры",
+    ]);
 
     const removed = await materials.authoring.reorderSeries({
       actor,
       seriesId: guideId,
       expectedOrderVersion: withEmpty.orderVersion,
       orderedMaterialIds: [only],
-      chapters: [{ id: planned, name: "Переговоры", summary: "Материалы готовятся." }],
+      chapters: [
+        { id: planned, name: "Переговоры", summary: "Материалы готовятся." },
+      ],
       chapterAssignments: {},
     });
     if (!removed.ok) throw new Error(removed.error.code);
     const afterRemoval = await load(guideId);
     expect(afterRemoval.chapters.map(({ id }) => id)).toEqual([planned]);
-    expect(afterRemoval.items).toMatchObject([{ chapterId: null, materialId: only }]);
-    expect(await testDatabase.prisma.material.count({ where: { id: only } })).toBe(1);
+    expect(afterRemoval.items).toMatchObject([
+      { chapterId: null, materialId: only },
+    ]);
+    expect(
+      await testDatabase.prisma.material.count({ where: { id: only } }),
+    ).toBe(1);
   });
 
   test("keeps chapter placement when the author saves the Material itself", async () => {
@@ -270,7 +295,10 @@ describe("Guide chapters", () => {
     });
     if (!saved.ok) throw new Error(saved.error.code);
 
-    const loaded = await materials.authoring.loadMaterial({ actor, materialId: first });
+    const loaded = await materials.authoring.loadMaterial({
+      actor,
+      materialId: first,
+    });
     if (!loaded.ok) throw new Error(loaded.error.code);
     const resaved = await materials.authoring.saveMaterial({
       actor,
@@ -294,7 +322,10 @@ describe("Guide chapters", () => {
     if (!resaved.ok) throw new Error(resaved.error.code);
 
     const afterSave = await load(guideId);
-    expect(afterSave.items.map(({ chapterId: id }) => id)).toEqual([chapterId, chapterId]);
+    expect(afterSave.items.map(({ chapterId: id }) => id)).toEqual([
+      chapterId,
+      chapterId,
+    ]);
     expect(afterSave.orderVersion).toBe(saved.value.orderVersion);
   });
 
@@ -317,7 +348,12 @@ describe("Guide chapters", () => {
     // Save may only keep an existing placement or append a new membership; it cannot reposition.
     const appended = await material("Добавлен через Save", [guideId]);
     const afterAppend = await load(guideId);
-    expect(afterAppend.items.map(({ chapterId: id, materialId }) => [materialId, id])).toEqual([
+    expect(
+      afterAppend.items.map(({ chapterId: id, materialId }) => [
+        materialId,
+        id,
+      ]),
+    ).toEqual([
       [first, chapterId],
       [second, chapterId],
       [appended, null],
@@ -326,7 +362,9 @@ describe("Guide chapters", () => {
       guideChapterPlacementIssues(
         afterAppend.items.map(({ materialId }) => materialId),
         Object.fromEntries(
-          afterAppend.items.flatMap(({ chapterId: id, materialId }) => (id === null ? [] : [[materialId, id]])),
+          afterAppend.items.flatMap(({ chapterId: id, materialId }) =>
+            id === null ? [] : [[materialId, id]],
+          ),
         ),
         afterAppend.chapters.map(({ id }) => id),
       ),
@@ -407,7 +445,12 @@ describe("Guide chapters", () => {
       ok: false,
       error: {
         code: "invalid_reference",
-        issues: [{ code: "guide_chapter_not_continuous", path: "/orderedMaterialIds/2" }],
+        issues: [
+          {
+            code: "guide_chapter_not_continuous",
+            path: "/orderedMaterialIds/2",
+          },
+        ],
       },
     });
 
@@ -442,7 +485,12 @@ describe("Guide chapters", () => {
       ok: false,
       error: {
         code: "invalid_reference",
-        issues: [{ code: "guide_chapter_not_found", path: `/chapterAssignments/${first}` }],
+        issues: [
+          {
+            code: "guide_chapter_not_found",
+            path: `/chapterAssignments/${first}`,
+          },
+        ],
       },
     });
 
@@ -473,7 +521,12 @@ describe("Guide chapters", () => {
     });
     if (!reordered.ok) throw new Error(reordered.error.code);
     const afterReorder = await load(guideId);
-    expect(afterReorder.items.map(({ chapterId: id, materialId }) => [materialId, id])).toEqual([
+    expect(
+      afterReorder.items.map(({ chapterId: id, materialId }) => [
+        materialId,
+        id,
+      ]),
+    ).toEqual([
       [second, chapterId],
       [first, chapterId],
     ]);
@@ -484,7 +537,13 @@ describe("Guide chapters", () => {
         seriesId: guideId,
         expectedOrderVersion: saved.value.orderVersion,
         orderedMaterialIds: [second, first],
-        chapters: [{ id: chapterId, name: "Переименована в другой вкладке", summary: "" }],
+        chapters: [
+          {
+            id: chapterId,
+            name: "Переименована в другой вкладке",
+            summary: "",
+          },
+        ],
         chapterAssignments: { [second]: chapterId, [first]: chapterId },
       }),
     ).resolves.toEqual({
@@ -537,7 +596,9 @@ describe("Guide chapters", () => {
         seriesId: guideId,
         expectedOrderVersion: renamed.value.orderVersion,
         orderedMaterialIds: [inside, outside],
-        chapters: [{ id: chapterId, name: "После архива", summary: "Описание." }],
+        chapters: [
+          { id: chapterId, name: "После архива", summary: "Описание." },
+        ],
         chapterAssignments: { [inside]: chapterId, [outside]: chapterId },
       }),
     ).resolves.toEqual({
@@ -568,19 +629,27 @@ describe("Guide chapters", () => {
     });
     if (!saved.ok) throw new Error(saved.error.code);
 
-    const programme = await materials.publishedMaterialReader.discoverProjections({
-      kind: "series",
-      slug: "published-programme",
-      first: null,
-    });
+    const programme =
+      await materials.publishedMaterialReader.discoverProjections({
+        kind: "series",
+        slug: "published-programme",
+        first: null,
+      });
     if (!programme.ok) throw new Error(programme.error.code);
     // Описание главы объясняет читателю программу на странице продукта, поэтому каталог его несёт.
     // Черновик при этом остаётся невидимым: состав главы содержит только опубликованное.
     expect(programme.value.chapters).toEqual([
-      { id: visible, materialIds: [published], name: "Готовая глава", summary: chapterSummary },
+      {
+        id: visible,
+        materialIds: [published],
+        name: "Готовая глава",
+        summary: chapterSummary,
+      },
       { id: empty, materialIds: [], name: "Пустая глава", summary: "" },
     ]);
-    expect(programme.value.items.map(({ materialId }) => materialId)).toEqual([published]);
+    expect(programme.value.items.map(({ materialId }) => materialId)).toEqual([
+      published,
+    ]);
   });
 
   test("leaves a flat Guide and every other discovery kind without chapters", async () => {
@@ -630,8 +699,14 @@ describe("Guide chapters", () => {
       // The author's real chapters are two or three paragraphs of about a thousand characters.
       summary: [
         `${title}. ${"Разберём, что происходит на этом шаге и почему он нужен именно здесь. ".repeat(4)}`,
-        "Ты выполнишь практику на своём проекте и получишь проверяемый результат. ".repeat(4),
-        index % 2 === 0 ? "Отдельно посмотрим на альтернативные маршруты и их стоимость. ".repeat(4) : "",
+        "Ты выполнишь практику на своём проекте и получишь проверяемый результат. ".repeat(
+          4,
+        ),
+        index % 2 === 0
+          ? "Отдельно посмотрим на альтернативные маршруты и их стоимость. ".repeat(
+              4,
+            )
+          : "",
       ]
         .filter((paragraph) => paragraph.length > 0)
         .map((paragraph) => paragraph.trim())
@@ -641,7 +716,10 @@ describe("Guide chapters", () => {
     const assignments: Record<string, string> = {};
     for (const [index, chapter] of authored.entries()) {
       for (let position = 0; position < (index === 6 ? 5 : 3); position += 1) {
-        const materialId = await material(`${chapter.name} · ${String(position + 1)}`, [guideId]);
+        const materialId = await material(
+          `${chapter.name} · ${String(position + 1)}`,
+          [guideId],
+        );
         composition.push(materialId);
         assignments[materialId] = chapter.id;
       }
@@ -662,18 +740,25 @@ describe("Guide chapters", () => {
     expect(loaded.chapters.map(({ name, ordinal }) => [ordinal, name])).toEqual(
       titles.map((title, index) => [index + 1, title]),
     );
-    expect(loaded.chapters.every(({ summary }) => summary.split("\n\n").length >= 2)).toBe(true);
+    expect(
+      loaded.chapters.every(({ summary }) => summary.split("\n\n").length >= 2),
+    ).toBe(true);
     expect(loaded.items).toHaveLength(23);
-    expect(loaded.items.map(({ materialId }) => materialId)).toEqual(composition);
+    expect(loaded.items.map(({ materialId }) => materialId)).toEqual(
+      composition,
+    );
 
-    const programme = await materials.publishedMaterialReader.discoverProjections({
-      kind: "series",
-      slug: "seven-chapters",
-      first: null,
-    });
+    const programme =
+      await materials.publishedMaterialReader.discoverProjections({
+        kind: "series",
+        slug: "seven-chapters",
+        first: null,
+      });
     if (!programme.ok) throw new Error(programme.error.code);
     expect(programme.value.chapters.map(({ name }) => name)).toEqual(titles);
-    expect(programme.value.chapters.flatMap(({ materialIds }) => materialIds)).toEqual(composition);
+    expect(
+      programme.value.chapters.flatMap(({ materialIds }) => materialIds),
+    ).toEqual(composition);
     expect(programme.value.chapters.at(-1)?.materialIds).toHaveLength(5);
   });
 
@@ -683,9 +768,7 @@ describe("Guide chapters", () => {
     for (const chapters of [
       [{ id: randomUUID(), name: " ", summary: "" }],
       [{ id: randomUUID(), name: "Глава", summary: "x".repeat(4001) }],
-      [
-        { id: "not-a-uuid", name: "Глава", summary: "" },
-      ],
+      [{ id: "not-a-uuid", name: "Глава", summary: "" }],
     ]) {
       await expect(
         materials.authoring.reorderSeries({
@@ -695,7 +778,10 @@ describe("Guide chapters", () => {
           orderedMaterialIds: [],
           chapters,
         }),
-      ).resolves.toMatchObject({ ok: false, error: { code: "invalid_content" } });
+      ).resolves.toMatchObject({
+        ok: false,
+        error: { code: "invalid_content" },
+      });
     }
   });
 });

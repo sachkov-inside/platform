@@ -1,8 +1,17 @@
 export type ReadingActionView =
   | { readonly kind: "anonymous"; readonly loginHref: string }
   | { readonly kind: "loading" }
-  | { readonly kind: "ready" | "conflict"; readonly isRead: boolean; readonly canMark: boolean }
-  | { readonly kind: "pending" | "error"; readonly isRead: boolean; readonly canMark: boolean; readonly desiredIsRead: boolean };
+  | {
+      readonly kind: "ready" | "conflict";
+      readonly isRead: boolean;
+      readonly canMark: boolean;
+    }
+  | {
+      readonly kind: "pending" | "error";
+      readonly isRead: boolean;
+      readonly canMark: boolean;
+      readonly desiredIsRead: boolean;
+    };
 
 export interface ReadingActionProps {
   readonly format: string;

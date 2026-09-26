@@ -7,5 +7,8 @@ import { executeTransitionMaterialPublication } from "./transition-material-publ
 export function handleTransitionMaterialPublicationRequest(
   request: Request,
 ): Promise<Response> {
-  return handleAuthenticatedMutation(request, executeTransitionMaterialPublication);
+  return handleAuthenticatedMutation(
+    request,
+    executeTransitionMaterialPublication,
+  );
 }

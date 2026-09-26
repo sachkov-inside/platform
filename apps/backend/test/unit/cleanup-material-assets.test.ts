@@ -6,15 +6,28 @@ import { assembleMaterialAssetMaintenance } from "../../src/modules/materials/fe
 describe("Material Asset maintenance", () => {
   test("runs cleanup with the configured grace and current Material references", async () => {
     // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- Maintenance only passes the cleanup transaction on to Materials.
-    const cleanupTransaction = {} as Parameters<Parameters<MaterialAssets["cleanupOrphans"]>[0]["isReferenced"]>[0];
-    const cleanupOrphans = vi.fn<MaterialAssets["cleanupOrphans"]>().mockImplementation(async ({ isReferenced }) => {
-      await expect(isReferenced(cleanupTransaction, { assetId: "asset", materialId: "material" })).resolves.toBe(true);
-      return { ok: true, value: { cleaned: 2, retained: 1 } };
-    });
-    const containsAssetReference = vi.fn().mockResolvedValue({ ok: true, value: true });
+    const cleanupTransaction = {} as Parameters<
+      Parameters<MaterialAssets["cleanupOrphans"]>[0]["isReferenced"]
+    >[0];
+    const cleanupOrphans = vi
+      .fn<MaterialAssets["cleanupOrphans"]>()
+      .mockImplementation(async ({ isReferenced }) => {
+        await expect(
+          isReferenced(cleanupTransaction, {
+            assetId: "asset",
+            materialId: "material",
+          }),
+        ).resolves.toBe(true);
+        return { ok: true, value: { cleaned: 2, retained: 1 } };
+      });
+    const containsAssetReference = vi
+      .fn()
+      .mockResolvedValue({ ok: true, value: true });
     const maintenance = assembleMaterialAssetMaintenance({
       assets: { cleanupOrphans },
-      covers: { cleanup: vi.fn().mockResolvedValue({ cleaned: 3, retained: 4 }) },
+      covers: {
+        cleanup: vi.fn().mockResolvedValue({ cleaned: 3, retained: 4 }),
+      },
       config: { objectStorage: { orphanGraceMs: 86_400_000 } },
       materials: { containsAssetReference },
     });
@@ -24,7 +37,9 @@ describe("Material Asset maintenance", () => {
       ok: true,
       retained: 5,
     });
-    expect(cleanupOrphans).toHaveBeenCalledWith(expect.objectContaining({ graceMs: 86_400_000 }));
+    expect(cleanupOrphans).toHaveBeenCalledWith(
+      expect.objectContaining({ graceMs: 86_400_000 }),
+    );
     expect(containsAssetReference).toHaveBeenCalledWith(
       { assetId: "asset", materialId: "material" },
       cleanupTransaction,
@@ -33,7 +48,11 @@ describe("Material Asset maintenance", () => {
 
   test("returns a retryable failure for a durable worker retry", async () => {
     const maintenance = assembleMaterialAssetMaintenance({
-      assets: { cleanupOrphans: vi.fn().mockRejectedValue(new Error("database unavailable")) },
+      assets: {
+        cleanupOrphans: vi
+          .fn()
+          .mockRejectedValue(new Error("database unavailable")),
+      },
       covers: { cleanup: vi.fn() },
       config: { objectStorage: { orphanGraceMs: 86_400_000 } },
       materials: { containsAssetReference: vi.fn() },
@@ -47,13 +66,22 @@ describe("Material Asset maintenance", () => {
 
   test("retries a cover storage failure through the existing worker result", async () => {
     const maintenance = assembleMaterialAssetMaintenance({
-      assets: { cleanupOrphans: vi.fn().mockResolvedValue({ ok: true, value: { cleaned: 0, retained: 0 } }) },
-      covers: { cleanup: vi.fn().mockRejectedValue(new Error("cover storage unavailable")) },
+      assets: {
+        cleanupOrphans: vi
+          .fn()
+          .mockResolvedValue({ ok: true, value: { cleaned: 0, retained: 0 } }),
+      },
+      covers: {
+        cleanup: vi
+          .fn()
+          .mockRejectedValue(new Error("cover storage unavailable")),
+      },
       config: { objectStorage: { orphanGraceMs: 86_400_000 } },
       materials: { containsAssetReference: vi.fn() },
     });
     await expect(maintenance.cleanup()).resolves.toMatchObject({
-      ok: false, error: { code: "dependency_unavailable", retryable: true },
+      ok: false,
+      error: { code: "dependency_unavailable", retryable: true },
     });
   });
 });

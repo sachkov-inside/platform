@@ -16,7 +16,9 @@ export type CleanupProfileAvatarsResult = Readonly<{
 }>;
 
 export interface ProfileAvatarMaintenance {
-  cleanup(input: CleanupProfileAvatarOrphansInput): Promise<CleanupProfileAvatarsResult>;
+  cleanup(
+    input: CleanupProfileAvatarOrphansInput,
+  ): Promise<CleanupProfileAvatarsResult>;
 }
 
 export function assembleProfileAvatarMaintenance(dependencies: {
@@ -47,38 +49,48 @@ export async function cleanupProfileAvatarOrphans(
   let cleaned = 0;
   let retained = 0;
   for (const candidate of candidates) {
-    const claimed = await dependencies.prisma.$transaction(async (transaction) => {
-      const avatar = await transaction.profileAvatar.findUnique({
-        include: { renditions: true },
-        where: { id: candidate.id },
-      });
-      if (avatar === null || avatar.orphanedAt > cutoff || avatar.updatedAt > cutoff) {
-        return null;
-      }
-      await lockProfileAvatarOwner(transaction, avatar.accountId);
-      const current = await transaction.memberProfile.findUnique({
-        select: { avatarId: true },
-        where: { accountId: avatar.accountId },
-      });
-      if (current?.avatarId === avatar.id) {
-        await transaction.profileAvatar.update({
-          data: { currentlyReferenced: true, orphanedAt: now, updatedAt: now },
-          where: { id: avatar.id },
+    const claimed = await dependencies.prisma.$transaction(
+      async (transaction) => {
+        const avatar = await transaction.profileAvatar.findUnique({
+          include: { renditions: true },
+          where: { id: candidate.id },
         });
-        return { kind: "retained" as const };
-      }
-      const claim = await transaction.profileAvatar.updateMany({
-        data: {
-          cleanupClaimedAt: now,
-          currentlyReferenced: false,
-          failureCode: "cleanup_claimed",
-          state: "failed",
-          updatedAt: now,
-        },
-        where: { id: avatar.id, updatedAt: { lte: cutoff } },
-      });
-      return claim.count === 1 ? { avatar, kind: "claimed" as const } : null;
-    });
+        if (
+          avatar === null ||
+          avatar.orphanedAt > cutoff ||
+          avatar.updatedAt > cutoff
+        ) {
+          return null;
+        }
+        await lockProfileAvatarOwner(transaction, avatar.accountId);
+        const current = await transaction.memberProfile.findUnique({
+          select: { avatarId: true },
+          where: { accountId: avatar.accountId },
+        });
+        if (current?.avatarId === avatar.id) {
+          await transaction.profileAvatar.update({
+            data: {
+              currentlyReferenced: true,
+              orphanedAt: now,
+              updatedAt: now,
+            },
+            where: { id: avatar.id },
+          });
+          return { kind: "retained" as const };
+        }
+        const claim = await transaction.profileAvatar.updateMany({
+          data: {
+            cleanupClaimedAt: now,
+            currentlyReferenced: false,
+            failureCode: "cleanup_claimed",
+            state: "failed",
+            updatedAt: now,
+          },
+          where: { id: avatar.id, updatedAt: { lte: cutoff } },
+        });
+        return claim.count === 1 ? { avatar, kind: "claimed" as const } : null;
+      },
+    );
     if (claimed?.kind === "retained") {
       retained += 1;
       continue;
@@ -96,7 +108,10 @@ export async function cleanupProfileAvatarOrphans(
       });
       cleaned += 1;
     } catch (error) {
-      reportDependencyFailure({ module: "member-profiles", operation: "cleanupProfileAvatarOrphans" }, error);
+      reportDependencyFailure(
+        { module: "member-profiles", operation: "cleanupProfileAvatarOrphans" },
+        error,
+      );
       retained += 1;
     }
   }

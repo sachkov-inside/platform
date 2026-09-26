@@ -6,7 +6,9 @@ import type {
   ProfileField,
 } from "./member-profile";
 
-const fieldsSchema = z.object({ bio: z.string().nullable(), displayName: z.string() }).strict();
+const fieldsSchema = z
+  .object({ bio: z.string().nullable(), displayName: z.string() })
+  .strict();
 const avatarSchema = z.object({ avatarId: z.uuid() }).strict();
 
 const privateProfileSchema = fieldsSchema
@@ -21,14 +23,18 @@ const privateProfileSchema = fieldsSchema
 
 const privateStateSchema = z.discriminatedUnion("kind", [
   z.object({ kind: z.literal("missing") }).strict(),
-  z.object({ kind: z.literal("profile"), profile: privateProfileSchema }).strict(),
+  z
+    .object({ kind: z.literal("profile"), profile: privateProfileSchema })
+    .strict(),
 ]);
 
 const privateProfileResponseSchema = z
   .object({ profile: privateProfileSchema })
   .strict();
 
-export function parsePrivateProfileState(value: unknown): PrivateMemberProfileState {
+export function parsePrivateProfileState(
+  value: unknown,
+): PrivateMemberProfileState {
   return parse(privateStateSchema, value, "Private Profile state");
 }
 
@@ -43,7 +49,8 @@ export function profileIssueMessage(field: ProfileField, code: string): string {
     if (code === "too_long") return "Имя должно быть не длиннее 80 символов.";
     return "Имя содержит недопустимые управляющие символы.";
   }
-  if (code === "too_long") return "Описание должно быть не длиннее 500 символов.";
+  if (code === "too_long")
+    return "Описание должно быть не длиннее 500 символов.";
   return "Описание содержит недопустимые управляющие символы.";
 }
 

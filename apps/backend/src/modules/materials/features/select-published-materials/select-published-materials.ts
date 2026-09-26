@@ -6,12 +6,34 @@ import type { PublishedMaterialProjectionDto } from "../../facets/published-mate
 export class PublishedMaterialSelection {
   constructor(private readonly prisma: MaterialsPrismaClient) {}
   async read(materialIds: readonly string[]): Promise<
-    | { readonly ok: true; readonly value: readonly PublishedMaterialProjectionDto[] }
-    | { readonly ok: false; readonly error: { readonly code: "invalid_request" | "dependency_unavailable" } }
+    | {
+        readonly ok: true;
+        readonly value: readonly PublishedMaterialProjectionDto[];
+      }
+    | {
+        readonly ok: false;
+        readonly error: {
+          readonly code: "invalid_request" | "dependency_unavailable";
+        };
+      }
   > {
     const parsed = z.array(z.uuid()).max(100).safeParse(materialIds);
-    if (!parsed.success) return { ok: false, error: { code: "invalid_request" } };
-    try { return { ok: true, value: await selectPublishedMaterialProjectionsByIds(this.prisma, parsed.data) }; }
-    catch (error) { return dependencyFailure({ module: "materials", operation: "read" }, error, { ok: false, error: { code: "dependency_unavailable" } }); }
+    if (!parsed.success)
+      return { ok: false, error: { code: "invalid_request" } };
+    try {
+      return {
+        ok: true,
+        value: await selectPublishedMaterialProjectionsByIds(
+          this.prisma,
+          parsed.data,
+        ),
+      };
+    } catch (error) {
+      return dependencyFailure(
+        { module: "materials", operation: "read" },
+        error,
+        { ok: false, error: { code: "dependency_unavailable" } },
+      );
+    }
   }
 }

@@ -4,7 +4,10 @@ import {
   videoMaterialIdSchema,
   type VideoAccountId,
 } from "../../domain/video-identifiers.js";
-import type { ProviderVideo, VideoProvider } from "../../ports/video-provider.js";
+import type {
+  ProviderVideo,
+  VideoProvider,
+} from "../../ports/video-provider.js";
 import {
   videoAccessSchema,
   videoAuthoringPresentationSchema,
@@ -40,8 +43,16 @@ export function providerLifecycle(remote: ProviderVideo): {
 } {
   if (remote.status === "done") {
     return remote.embedLocator === null
-      ? { embedLocator: null, failureCode: "missing_embed_locator", state: "failed" }
-      : { embedLocator: remote.embedLocator, failureCode: null, state: "ready" };
+      ? {
+          embedLocator: null,
+          failureCode: "missing_embed_locator",
+          state: "failed",
+        }
+      : {
+          embedLocator: remote.embedLocator,
+          failureCode: null,
+          state: "ready",
+        };
   }
   if (remote.status === "pending" || remote.status === "uploading") {
     return { embedLocator: null, failureCode: null, state: "uploading" };
@@ -50,12 +61,29 @@ export function providerLifecycle(remote: ProviderVideo): {
     return { embedLocator: null, failureCode: null, state: "processing" };
   }
   if (["aborted", "error"].includes(remote.status)) {
-    return { embedLocator: null, failureCode: `provider_${remote.status}`, state: "failed" };
+    return {
+      embedLocator: null,
+      failureCode: `provider_${remote.status}`,
+      state: "failed",
+    };
   }
-  return { embedLocator: null, failureCode: "unknown_provider_status", state: "failed" };
+  return {
+    embedLocator: null,
+    failureCode: "unknown_provider_status",
+    state: "failed",
+  };
 }
 
-export function toDto(video: { id: string; access: string; materialId: string; origin: string; state: string; title: string; failureCode: string | null; durationSeconds: number | null }): VideoDto {
+export function toDto(video: {
+  id: string;
+  access: string;
+  materialId: string;
+  origin: string;
+  state: string;
+  title: string;
+  failureCode: string | null;
+  durationSeconds: number | null;
+}): VideoDto {
   return videoDtoSchema.parse({
     access: videoAccessSchema.parse(video.access),
     materialId: videoMaterialIdSchema.parse(video.materialId),
@@ -63,7 +91,9 @@ export function toDto(video: { id: string; access: string; materialId: string; o
     state: parseVideoState(video.state),
     title: video.title,
     videoId: videoIdSchema.parse(video.id),
-    ...(video.durationSeconds === null ? {} : { durationSeconds: video.durationSeconds }),
+    ...(video.durationSeconds === null
+      ? {}
+      : { durationSeconds: video.durationSeconds }),
     ...(video.failureCode === null ? {} : { failureCode: video.failureCode }),
   });
 }
@@ -81,7 +111,9 @@ export function toAuthoringPresentation(video: {
     state: parseVideoState(video.state),
     title: video.title,
     videoId: videoIdSchema.parse(video.id),
-    ...(video.durationSeconds === null ? {} : { durationSeconds: video.durationSeconds }),
+    ...(video.durationSeconds === null
+      ? {}
+      : { durationSeconds: video.durationSeconds }),
     ...(video.failureCode === null ? {} : { failureCode: video.failureCode }),
   });
 }
@@ -95,12 +127,43 @@ type VideoFailure<Code extends VideoError["code"]> = Readonly<{
   error: Extract<VideoError, { readonly code: Code }>;
 }>;
 
-export const invalidRequest = (): VideoFailure<"invalid_request"> => ({ ok: false, error: { code: "invalid_request" } });
-export const forbidden = (): VideoFailure<"forbidden"> => ({ ok: false, error: { code: "forbidden" } });
-export const dependencyUnavailable = (): VideoFailure<"dependency_unavailable"> => ({ ok: false, error: { code: "dependency_unavailable", retryable: true } });
-export const providerMismatch = (): VideoFailure<"provider_mismatch"> => ({ ok: false, error: { code: "provider_mismatch" } });
-export const uploadOutcomeUnknown = (): VideoFailure<"upload_outcome_unknown"> => ({ ok: false, error: { code: "upload_outcome_unknown" } });
-export const videoDeletionNotRetryable = (): VideoFailure<"video_deletion_not_retryable"> => ({ ok: false, error: { code: "video_deletion_not_retryable" } });
-export const videoNotFound = (): VideoFailure<"video_not_found"> => ({ ok: false, error: { code: "video_not_found" } });
-export const videoNotReady = (): VideoFailure<"video_not_ready"> => ({ ok: false, error: { code: "video_not_ready" } });
-export const uploadNotAuthorized = (): VideoFailure<"upload_not_authorized"> => ({ ok: false, error: { code: "upload_not_authorized" } });
+export const invalidRequest = (): VideoFailure<"invalid_request"> => ({
+  ok: false,
+  error: { code: "invalid_request" },
+});
+export const forbidden = (): VideoFailure<"forbidden"> => ({
+  ok: false,
+  error: { code: "forbidden" },
+});
+export const dependencyUnavailable =
+  (): VideoFailure<"dependency_unavailable"> => ({
+    ok: false,
+    error: { code: "dependency_unavailable", retryable: true },
+  });
+export const providerMismatch = (): VideoFailure<"provider_mismatch"> => ({
+  ok: false,
+  error: { code: "provider_mismatch" },
+});
+export const uploadOutcomeUnknown =
+  (): VideoFailure<"upload_outcome_unknown"> => ({
+    ok: false,
+    error: { code: "upload_outcome_unknown" },
+  });
+export const videoDeletionNotRetryable =
+  (): VideoFailure<"video_deletion_not_retryable"> => ({
+    ok: false,
+    error: { code: "video_deletion_not_retryable" },
+  });
+export const videoNotFound = (): VideoFailure<"video_not_found"> => ({
+  ok: false,
+  error: { code: "video_not_found" },
+});
+export const videoNotReady = (): VideoFailure<"video_not_ready"> => ({
+  ok: false,
+  error: { code: "video_not_ready" },
+});
+export const uploadNotAuthorized =
+  (): VideoFailure<"upload_not_authorized"> => ({
+    ok: false,
+    error: { code: "upload_not_authorized" },
+  });

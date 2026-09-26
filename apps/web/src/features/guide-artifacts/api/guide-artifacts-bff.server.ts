@@ -52,14 +52,18 @@ const privateHeaders = { "cache-control": "private, no-store" } as const;
 export async function handleReadGuideArtifactsRequest(
   guideId: string,
 ): Promise<Response> {
-  return readArtifactList((token) => requestGuideArtifactsForGuide(guideId, token));
+  return readArtifactList((token) =>
+    requestGuideArtifactsForGuide(guideId, token),
+  );
 }
 
 export async function handleReadReusableGuideArtifactsRequest(): Promise<Response> {
   return readArtifactList((token) => requestReusableGuideArtifacts(token));
 }
 
-export function handleCreateGuideArtifactFile(request: Request): Promise<Response> {
+export function handleCreateGuideArtifactFile(
+  request: Request,
+): Promise<Response> {
   return streamArtifactUpload(request, (body, contentType, accessToken) =>
     requestCreateGuideArtifactFile({
       accessToken,
@@ -70,7 +74,9 @@ export function handleCreateGuideArtifactFile(request: Request): Promise<Respons
   );
 }
 
-export function handleReplaceGuideArtifactFile(request: Request): Promise<Response> {
+export function handleReplaceGuideArtifactFile(
+  request: Request,
+): Promise<Response> {
   return streamArtifactUpload(request, (body, contentType, accessToken) =>
     requestReplaceGuideArtifactFile({
       accessToken,
@@ -81,17 +87,25 @@ export function handleReplaceGuideArtifactFile(request: Request): Promise<Respon
   );
 }
 
-export function handleCreateGuideArtifactLink(request: Request): Promise<Response> {
+export function handleCreateGuideArtifactLink(
+  request: Request,
+): Promise<Response> {
   return handleAuthenticatedMutation(request, async (formData, accessToken) => {
     const metadata = metadataFieldsSchema.safeParse(readMetadata(formData));
-    const externalUrl = externalUrlSchema.safeParse(formData.get("externalUrl"));
+    const externalUrl = externalUrlSchema.safeParse(
+      formData.get("externalUrl"),
+    );
     const guideId = uuidSchema.safeParse(formData.get("guideId"));
     if (!metadata.success || !externalUrl.success || !guideId.success) {
       return rejected("Проверьте название и адрес артефакта.");
     }
     return mutationResult(() =>
       requestCreateGuideArtifactFromLink(
-        { ...metadata.data, externalUrl: externalUrl.data, guideId: guideId.data },
+        {
+          ...metadata.data,
+          externalUrl: externalUrl.data,
+          guideId: guideId.data,
+        },
         accessToken,
       ),
     );
@@ -114,10 +128,14 @@ export function handleUpdateGuideArtifact(request: Request): Promise<Response> {
   });
 }
 
-export function handleReplaceGuideArtifactLink(request: Request): Promise<Response> {
+export function handleReplaceGuideArtifactLink(
+  request: Request,
+): Promise<Response> {
   return handleAuthenticatedMutation(request, async (formData, accessToken) => {
     const artifactId = uuidSchema.safeParse(formData.get("artifactId"));
-    const externalUrl = externalUrlSchema.safeParse(formData.get("externalUrl"));
+    const externalUrl = externalUrlSchema.safeParse(
+      formData.get("externalUrl"),
+    );
     if (!artifactId.success || !externalUrl.success) {
       return rejected("Укажите адрес, начинающийся с http или https.");
     }
@@ -130,7 +148,9 @@ export function handleReplaceGuideArtifactLink(request: Request): Promise<Respon
   });
 }
 
-export function handleSetGuideArtifactArchived(request: Request): Promise<Response> {
+export function handleSetGuideArtifactArchived(
+  request: Request,
+): Promise<Response> {
   return handleAuthenticatedMutation(request, async (formData, accessToken) => {
     const artifactId = uuidSchema.safeParse(formData.get("artifactId"));
     const archived = formData.get("archived");
@@ -146,7 +166,9 @@ export function handleSetGuideArtifactArchived(request: Request): Promise<Respon
   });
 }
 
-export function handleSetGuideArtifactGuides(request: Request): Promise<Response> {
+export function handleSetGuideArtifactGuides(
+  request: Request,
+): Promise<Response> {
   return handleAuthenticatedMutation(request, async (formData, accessToken) => {
     const artifactId = uuidSchema.safeParse(formData.get("artifactId"));
     const guideIds = parseGuideIds(formData.get("guideIds"));
@@ -186,7 +208,10 @@ async function readArtifactList(
   try {
     token = await getOptionalPlatformAccessToken();
   } catch {
-    return listResponse({ kind: "error", reference: "guide-artifacts-session" });
+    return listResponse({
+      kind: "error",
+      reference: "guide-artifacts-session",
+    });
   }
   if (token === undefined) return listResponse({ kind: "unauthorized" });
   let result: BackendTransportResult;
@@ -203,9 +228,13 @@ async function readArtifactList(
   }
   if (!result.ok) {
     const status = result.response.status;
-    if (status === 401 || status === 403) return listResponse({ kind: "unauthorized" });
+    if (status === 401 || status === 403)
+      return listResponse({ kind: "unauthorized" });
     if (status === 404) return listResponse({ kind: "not_found" });
-    return listResponse({ kind: "error", reference: "guide-artifacts-response" });
+    return listResponse({
+      kind: "error",
+      reference: "guide-artifacts-response",
+    });
   }
   const parsed = guideArtifactListSchema.safeParse(result.body);
   return listResponse(
@@ -243,7 +272,9 @@ function streamArtifactUpload(
       }
       // The browser owns one artifact mutation contract, so a streamed upload
       // returns the same typed result as every buffered mutation.
-      return normalizedUploadResponse(await send(body, contentType, accessToken));
+      return normalizedUploadResponse(
+        await send(body, contentType, accessToken),
+      );
     },
     {
       failureResponse: uploadFailure,
@@ -259,7 +290,10 @@ async function normalizedUploadResponse(backend: Response): Promise<Response> {
     body = await backend.json();
   } catch {
     return Response.json(
-      { kind: "error", reference: "guide-artifacts-shape" } satisfies GuideArtifactMutationResult,
+      {
+        kind: "error",
+        reference: "guide-artifacts-shape",
+      } satisfies GuideArtifactMutationResult,
       { headers: privateHeaders },
     );
   }
@@ -267,8 +301,14 @@ async function normalizedUploadResponse(backend: Response): Promise<Response> {
     const parsed = guideArtifactSchema.safeParse(body);
     return Response.json(
       parsed.success
-        ? ({ artifact: parsed.data, kind: "saved" } satisfies GuideArtifactMutationResult)
-        : ({ kind: "error", reference: "guide-artifacts-shape" } satisfies GuideArtifactMutationResult),
+        ? ({
+            artifact: parsed.data,
+            kind: "saved",
+          } satisfies GuideArtifactMutationResult)
+        : ({
+            kind: "error",
+            reference: "guide-artifacts-shape",
+          } satisfies GuideArtifactMutationResult),
       { headers: privateHeaders },
     );
   }
@@ -301,7 +341,11 @@ function uploadFailure(failure: AuthenticatedMutationFailure): Response {
         "Guide Artifact mutation is unavailable",
       );
     case "identity_unavailable":
-      return backendProxyProblem(503, failure, "Identity session is unavailable");
+      return backendProxyProblem(
+        503,
+        failure,
+        "Identity session is unavailable",
+      );
   }
 }
 

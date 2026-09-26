@@ -30,4 +30,3 @@ export function calloutTonePresentation(tone: CalloutTone): {
 } {
   return { icon: icons[tone], label: calloutToneLabels[tone] };
 }
-

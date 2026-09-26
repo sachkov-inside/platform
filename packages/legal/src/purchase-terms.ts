@@ -36,5 +36,8 @@ export function oneTimePriceShares(totalKopecks: number): OneTimePriceShares {
       `Price must be a whole non-negative number of kopecks, received: ${String(totalKopecks)}`,
     );
   const supportKopecks = Math.floor(totalKopecks / 2);
-  return { materialsAndChatKopecks: totalKopecks - supportKopecks, supportKopecks };
+  return {
+    materialsAndChatKopecks: totalKopecks - supportKopecks,
+    supportKopecks,
+  };
 }

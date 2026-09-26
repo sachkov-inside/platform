@@ -15,10 +15,17 @@ export const metadata: Metadata = {
 export default async function WelcomeRoute({
   searchParams,
 }: {
-  readonly searchParams: Promise<{ readonly returnTo?: string | readonly string[] }>;
+  readonly searchParams: Promise<{
+    readonly returnTo?: string | readonly string[];
+  }>;
 }) {
   const { returnTo } = await searchParams;
-  return <WelcomePage backdrop={<WelcomeBackdrop />} returnTo={typeof returnTo === "string" ? returnTo : "/"} />;
+  return (
+    <WelcomePage
+      backdrop={<WelcomeBackdrop />}
+      returnTo={typeof returnTo === "string" ? returnTo : "/"}
+    />
+  );
 }
 
 /**
@@ -26,7 +33,9 @@ export default async function WelcomeRoute({
  * Это декорация: её сбой не должен мешать принять условия.
  */
 async function WelcomeBackdrop() {
-  const home = await getHome(await getOptionalPlatformAccessToken()).catch(() => undefined);
+  const home = await getHome(await getOptionalPlatformAccessToken()).catch(
+    () => undefined,
+  );
   if (home === undefined) return null;
   return <HomePage feed={<div className="min-h-[60vh]" />} result={home} />;
 }

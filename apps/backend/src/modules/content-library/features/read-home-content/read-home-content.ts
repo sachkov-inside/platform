@@ -1,5 +1,8 @@
 import type { ContentAccess, Subject } from "../../../content-access/index.js";
-import type { GuidePageCard, PublishedMaterialReader } from "../../../materials/index.js";
+import type {
+  GuidePageCard,
+  PublishedMaterialReader,
+} from "../../../materials/index.js";
 import type { Videos } from "../../../videos/index.js";
 import type { MembershipEntitlements } from "../../../membership-entitlements/index.js";
 import type {
@@ -36,7 +39,10 @@ export type HomeContentResult =
 const HOME_MATERIAL_LIMIT = 8;
 
 export async function readHomeContent(
-  publishedMaterialReader: Pick<PublishedMaterialReader, "listProjections" | "readHomePinnedSeries">,
+  publishedMaterialReader: Pick<
+    PublishedMaterialReader,
+    "listProjections" | "readHomePinnedSeries"
+  >,
   contentAccess: Pick<ContentAccess, "checkAvailabilityMany">,
   videoCatalog: Pick<Videos, "loadReadyDurations">,
   membershipEntitlements: Pick<MembershipEntitlements, "resolveForAccess">,
@@ -44,35 +50,51 @@ export async function readHomeContent(
   subject: Subject,
 ): Promise<HomeContentResult> {
   const [catalog, videos, guides, notes, pin, membership] = await Promise.all([
-    listPublishedMaterials(publishedMaterialReader, contentAccess, videoCatalog, {
-      first: 1,
-      subject,
-      sort: "newest",
-    }),
-    listPublishedMaterials(publishedMaterialReader, contentAccess, videoCatalog, {
-      first: HOME_MATERIAL_LIMIT,
-      formatSlugs: ["video"],
-      subject,
-      sort: "newest",
-    }),
-    listPublishedMaterials(publishedMaterialReader, contentAccess, videoCatalog, {
-      first: HOME_MATERIAL_LIMIT,
-      formatSlugs: ["guide"],
-      subject,
-      sort: "newest",
-    }),
-    listPublishedMaterials(publishedMaterialReader, contentAccess, videoCatalog, {
-      first: HOME_MATERIAL_LIMIT,
-      formatSlugs: ["note"],
-      subject,
-      sort: "newest",
-    }),
-    publishedMaterialReader.readHomePinnedSeries(),
-    resolveHomeMembership(
-      membershipEntitlements,
-      subscriptionForSale,
-      subject,
+    listPublishedMaterials(
+      publishedMaterialReader,
+      contentAccess,
+      videoCatalog,
+      {
+        first: 1,
+        subject,
+        sort: "newest",
+      },
     ),
+    listPublishedMaterials(
+      publishedMaterialReader,
+      contentAccess,
+      videoCatalog,
+      {
+        first: HOME_MATERIAL_LIMIT,
+        formatSlugs: ["video"],
+        subject,
+        sort: "newest",
+      },
+    ),
+    listPublishedMaterials(
+      publishedMaterialReader,
+      contentAccess,
+      videoCatalog,
+      {
+        first: HOME_MATERIAL_LIMIT,
+        formatSlugs: ["guide"],
+        subject,
+        sort: "newest",
+      },
+    ),
+    listPublishedMaterials(
+      publishedMaterialReader,
+      contentAccess,
+      videoCatalog,
+      {
+        first: HOME_MATERIAL_LIMIT,
+        formatSlugs: ["note"],
+        subject,
+        sort: "newest",
+      },
+    ),
+    publishedMaterialReader.readHomePinnedSeries(),
+    resolveHomeMembership(membershipEntitlements, subscriptionForSale, subject),
   ]);
   for (const result of [catalog, videos, guides, notes]) {
     if (!result.ok) return result;
@@ -81,21 +103,29 @@ export async function readHomeContent(
     throw new TypeError("Home content result narrowing failed");
   }
   if (!pin.ok) return pin;
-  const pinnedFacet = pin.value === null ? undefined : catalog.value.facets.series.find((series) => series.id === pin.value?.id && series.count > 0);
+  const pinnedFacet =
+    pin.value === null
+      ? undefined
+      : catalog.value.facets.series.find(
+          (series) => series.id === pin.value?.id && series.count > 0,
+        );
   return {
     ok: true,
     value: {
-      pinnedSeries: pin.value === null || pinnedFacet === undefined ? null : {
-        id: pinnedFacet.id,
-        slug: pinnedFacet.slug,
-        name: pinnedFacet.name,
-        summary: pinnedFacet.summary,
-        count: pinnedFacet.count,
-        cover: pinnedFacet.cover,
-        previewItems: pinnedFacet.previewItems,
-        presentation: pin.value.presentation,
-        card: pin.value.card,
-      },
+      pinnedSeries:
+        pin.value === null || pinnedFacet === undefined
+          ? null
+          : {
+              id: pinnedFacet.id,
+              slug: pinnedFacet.slug,
+              name: pinnedFacet.name,
+              summary: pinnedFacet.summary,
+              count: pinnedFacet.count,
+              cover: pinnedFacet.cover,
+              previewItems: pinnedFacet.previewItems,
+              presentation: pin.value.presentation,
+              card: pin.value.card,
+            },
       topics: catalog.value.facets.topics.slice(0, 8),
       playlists: catalog.value.facets.series.slice(0, 4),
       videos: videos.value.items,
@@ -114,7 +144,9 @@ async function resolveHomeMembership(
   if (subject.kind === "anonymous") {
     return subscriptionForSale ? { kind: "inactive" } : { kind: "notOffered" };
   }
-  const state = await membershipEntitlements.resolveForAccess(subject.accountId);
+  const state = await membershipEntitlements.resolveForAccess(
+    subject.accountId,
+  );
   if (state.kind === "active") return { kind: "active" };
   return state.kind === "required" || state.kind === "expired"
     ? subscriptionForSale

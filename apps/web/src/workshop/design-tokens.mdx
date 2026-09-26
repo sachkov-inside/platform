@@ -19,7 +19,10 @@ through Tailwind theme aliases.
     ["Accent", "--accent", "bg-accent text-accent-foreground"],
     ["Destructive", "--destructive", "bg-destructive text-white"],
   ].map(([label, token, classes]) => (
-    <div className={`rounded-xl border border-border p-4 ${classes}`} key={token}>
+    <div
+      className={`rounded-xl border border-border p-4 ${classes}`}
+      key={token}
+    >
       <div className="font-semibold">{label}</div>
       <code className="mt-2 block font-mono text-xs opacity-75">{token}</code>
     </div>
@@ -33,8 +36,12 @@ default decoration. Foreground/background pairs must remain readable in both the
 
 <div className="not-prose space-y-5 rounded-xl border border-border bg-card p-6 text-card-foreground">
   <div>
-    <div className="text-3xl font-semibold tracking-[-0.035em]">Manrope Variable</div>
-    <p className="mt-2 text-muted-foreground">Product copy, headings, labels, and long-form reading.</p>
+    <div className="text-3xl font-semibold tracking-[-0.035em]">
+      Manrope Variable
+    </div>
+    <p className="mt-2 text-muted-foreground">
+      Product copy, headings, labels, and long-form reading.
+    </p>
   </div>
   <div className="border-t border-border pt-5 font-mono text-sm">
     JetBrains Mono Variable · metadata · duration · technical notation
@@ -46,4 +53,3 @@ default decoration. Foreground/background pairs must remain readable in both the
 Controls use the shared radius scale; cards use restrained elevation only where the surface is
 interactive. Focus is always communicated by the semantic `ring` token and remains visible in
 forced-colors mode. Motion is brief, purposeful, and disabled under `prefers-reduced-motion`.
-

@@ -31,7 +31,8 @@ export class PlatformConfigModule {
         providers: [
           {
             provide: PLATFORM_CONFIG,
-            useFactory: () => parsePlatformProcessConfig(globalThis.process.env, process),
+            useFactory: () =>
+              parsePlatformProcessConfig(globalThis.process.env, process),
           },
         ],
         exports: [PLATFORM_CONFIG],

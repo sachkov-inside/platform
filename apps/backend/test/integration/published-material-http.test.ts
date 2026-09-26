@@ -14,7 +14,10 @@ import {
   createMigratedTestDatabase,
   type TestDatabase,
 } from "./setup/test-database.js";
-import { declaredServer, type DeclaredServer } from "../support/declared-api.js";
+import {
+  declaredServer,
+  type DeclaredServer,
+} from "../support/declared-api.js";
 
 describe("published Material HTTP contract", () => {
   let app: NestFastifyApplication;
@@ -88,7 +91,9 @@ describe("published Material HTTP contract", () => {
       {
         kind: "heading",
         level: 2,
-        content: [{ kind: "text", text: "Первый вертикальный срез", marks: [] }],
+        content: [
+          { kind: "text", text: "Первый вертикальный срез", marks: [] },
+        ],
       },
       {
         kind: "paragraph",
@@ -103,7 +108,9 @@ describe("published Material HTTP contract", () => {
     ]);
 
     expect(response.statusCode).toBe(200);
-    expect(response.headers["cache-control"]).toBe("public, max-age=0, must-revalidate");
+    expect(response.headers["cache-control"]).toBe(
+      "public, max-age=0, must-revalidate",
+    );
     expect(response.json()).toMatchObject({
       kind: "available",
       cacheScope: "public",
@@ -122,7 +129,10 @@ describe("published Material HTTP contract", () => {
         seriesMemberships: [
           {
             ordinal: 1,
-            series: { name: "Создание Platform Inside", slug: "platform-inside" },
+            series: {
+              name: "Создание Platform Inside",
+              slug: "platform-inside",
+            },
           },
         ],
       },
@@ -205,7 +215,9 @@ describe("published Material HTTP contract", () => {
     // ответ несёт только состояние, без адреса покупки.
     expect(home.membership).toStrictEqual({ kind: "notOffered" });
     expect(home.playlists).toHaveLength(4);
-    expect(home.playlists.map(({ slug }) => slug)).toContain("demo-progress-series");
+    expect(home.playlists.map(({ slug }) => slug)).toContain(
+      "demo-progress-series",
+    );
     expect(home.playlists[0]?.previewItems).toBeInstanceOf(Array);
     expect(home.videos.map(({ slug }) => slug)).toContain(
       "video-pro-developer-pipeline",
@@ -345,7 +357,9 @@ describe("published Material HTTP contract", () => {
     });
 
     expect(response.statusCode).toBe(404);
-    expect(response.headers["content-type"]).toContain("application/problem+json");
+    expect(response.headers["content-type"]).toContain(
+      "application/problem+json",
+    );
     expect(response.json()).toEqual({
       type: "urn:inside:problem:material_not_found",
       title: "Material not found",
@@ -361,7 +375,9 @@ describe("published Material HTTP contract", () => {
     });
 
     expect(response.statusCode).toBe(400);
-    expect(response.headers["content-type"]).toContain("application/problem+json");
+    expect(response.headers["content-type"]).toContain(
+      "application/problem+json",
+    );
     expect(response.json()).toEqual({
       type: "urn:inside:problem:invalid_request_shape",
       title: "Invalid request shape",
@@ -377,7 +393,9 @@ describe("published Material HTTP contract", () => {
     });
 
     expect(response.statusCode).toBe(400);
-    expect(response.headers["content-type"]).toContain("application/problem+json");
+    expect(response.headers["content-type"]).toContain(
+      "application/problem+json",
+    );
     expect(response.json()).toEqual({
       type: "urn:inside:problem:invalid_request_shape",
       title: "Invalid request shape",
@@ -416,7 +434,9 @@ describe("published Material HTTP contract", () => {
     });
 
     expect(response.statusCode).toBe(400);
-    expect(response.headers["content-type"]).toContain("application/problem+json");
+    expect(response.headers["content-type"]).toContain(
+      "application/problem+json",
+    );
     expect(response.json()).toEqual({
       type: "urn:inside:problem:invalid_request_shape",
       title: "Invalid request shape",
@@ -444,13 +464,17 @@ describe("published Material HTTP contract", () => {
         "/library/materials/kak-ustroen-inside-platform/related",
         "/materials/kak-ustroen-inside-platform",
       ]) {
-        const response = await declaredServer(unavailableApp.getHttpAdapter().getInstance()).inject({
+        const response = await declaredServer(
+          unavailableApp.getHttpAdapter().getInstance(),
+        ).inject({
           method: "GET",
           url,
         });
 
         expect(response.statusCode).toBe(503);
-        expect(response.headers["content-type"]).toContain("application/problem+json");
+        expect(response.headers["content-type"]).toContain(
+          "application/problem+json",
+        );
         expect(response.json()).toEqual({
           type: "urn:inside:problem:dependency_unavailable",
           title: "Dependency unavailable",
@@ -467,36 +491,72 @@ describe("published Material HTTP contract", () => {
   test("reports the subscription as not offered without a variant on sale and as offered with one", async () => {
     // Витрина следует каталогу, поэтому проверка начинается со снятого с продажи каталога seed.
     // Сценарий возвращает продажу в конце: состояние каталога принадлежит ему, а не порядку тестов.
-    const seeded = await testDatabase.prisma.billingOffer.findMany({ select: { id: true }, where: { published: true } });
+    const seeded = await testDatabase.prisma.billingOffer.findMany({
+      select: { id: true },
+      where: { published: true },
+    });
     const onSale = { id: { in: seeded.map(({ id }) => id) } };
-    await testDatabase.prisma.billingOffer.updateMany({ data: { published: false }, where: onSale });
+    await testDatabase.prisma.billingOffer.updateMany({
+      data: { published: false },
+      where: onSale,
+    });
     try {
-      const withoutSale = (await server.inject({ method: "GET", url: "/library/home" })).json<{ membership: unknown }>();
+      const withoutSale = (
+        await server.inject({ method: "GET", url: "/library/home" })
+      ).json<{ membership: unknown }>();
       expect(withoutSale.membership).toEqual({ kind: "notOffered" });
-      const lockedWithoutSale = (await server.inject({
-        method: "GET",
-        url: "/materials/developer-pipeline-bez-poteri-konteksta",
-      })).json<{ access: unknown }>();
-      expect(lockedWithoutSale.access).toEqual({ availability: "locked", subscriptionOffered: false });
+      const lockedWithoutSale = (
+        await server.inject({
+          method: "GET",
+          url: "/materials/developer-pipeline-bez-poteri-konteksta",
+        })
+      ).json<{ access: unknown }>();
+      expect(lockedWithoutSale.access).toEqual({
+        availability: "locked",
+        subscriptionOffered: false,
+      });
     } finally {
-      await testDatabase.prisma.billingOffer.updateMany({ data: { published: true }, where: onSale });
+      await testDatabase.prisma.billingOffer.updateMany({
+        data: { published: true },
+        where: onSale,
+      });
     }
 
     const offerId = randomUUID();
     const optionId = randomUUID();
     await testDatabase.prisma.billingOffer.create({
-      data: { id: offerId, revision: 1, name: "Материалы", benefits: ["materials"], contentScope: { guideIds: [randomUUID()], materialIds: [] }, published: true },
+      data: {
+        id: offerId,
+        revision: 1,
+        name: "Материалы",
+        benefits: ["materials"],
+        contentScope: { guideIds: [randomUUID()], materialIds: [] },
+        published: true,
+      },
     });
     await testDatabase.prisma.billingPaymentOption.create({
-      data: { id: optionId, revision: 1, offerId, months: 1, priceKopecks: 100_000 },
+      data: {
+        id: optionId,
+        revision: 1,
+        offerId,
+        months: 1,
+        priceKopecks: 100_000,
+      },
     });
 
-    const home = (await server.inject({ method: "GET", url: "/library/home" })).json<{ membership: unknown }>();
+    const home = (
+      await server.inject({ method: "GET", url: "/library/home" })
+    ).json<{ membership: unknown }>();
     expect(home.membership).toEqual({ kind: "inactive" });
-    const teaser = (await server.inject({
-      method: "GET",
-      url: "/materials/developer-pipeline-bez-poteri-konteksta",
-    })).json<{ access: unknown }>();
-    expect(teaser.access).toEqual({ availability: "locked", subscriptionOffered: true });
+    const teaser = (
+      await server.inject({
+        method: "GET",
+        url: "/materials/developer-pipeline-bez-poteri-konteksta",
+      })
+    ).json<{ access: unknown }>();
+    expect(teaser.access).toEqual({
+      availability: "locked",
+      subscriptionOffered: true,
+    });
   });
 });

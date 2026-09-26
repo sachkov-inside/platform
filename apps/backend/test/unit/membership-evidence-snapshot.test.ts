@@ -34,7 +34,9 @@ const snapshotRoot = new URL(
 describe("vendored MembershipEvidence snapshot", () => {
   test("pins provenance and exact artifact digests without a Workspace dependency", async () => {
     const snapshot = snapshotSchema.parse(
-      JSON.parse(await readFile(new URL("snapshot.json", snapshotRoot), "utf8")),
+      JSON.parse(
+        await readFile(new URL("snapshot.json", snapshotRoot), "utf8"),
+      ),
     );
 
     for (const [file, metadata] of Object.entries(snapshot.artifacts)) {

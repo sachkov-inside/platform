@@ -6,7 +6,8 @@ export function MapPage() {
           Карта Inside
         </h1>
         <p className="mt-4 max-w-[66ch] text-pretty text-base leading-7 text-muted-foreground sm:text-lg">
-          Редакционная карта свяжет направления, темы, продукты и отдельные материалы.
+          Редакционная карта свяжет направления, темы, продукты и отдельные
+          материалы.
         </p>
       </header>
       <section
@@ -20,11 +21,14 @@ export function MapPage() {
           Связи появятся постепенно
         </h2>
         <p className="mt-3 max-w-[65ch] text-pretty text-sm leading-6 text-muted-foreground sm:text-base sm:leading-7">
-          Карта будет объяснять направления Inside и вести к опубликованным материалам, не
-          подменяя Базу знаний второй копией каталога.
+          Карта будет объяснять направления Inside и вести к опубликованным
+          материалам, не подменяя Базу знаний второй копией каталога.
         </p>
         <p className="mt-6 flex items-center gap-3 border-t border-border pt-4 font-mono text-xs text-muted-foreground">
-          <span aria-hidden="true" className="size-2 shrink-0 rounded-full bg-accent" />
+          <span
+            aria-hidden="true"
+            className="size-2 shrink-0 rounded-full bg-accent"
+          />
           Статус раздела: ожидает редакционные связи
         </p>
       </section>

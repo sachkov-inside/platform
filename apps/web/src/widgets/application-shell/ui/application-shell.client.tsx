@@ -18,7 +18,8 @@ import { cn } from "@/shared/lib/utils";
 import { InsideBrand } from "./inside-brand";
 import { PublicFooter } from "./public-footer";
 
-type ApplicationNavigationIcon = "bookmark" | "home" | "library" | "map" | "pen" | "profile";
+type ApplicationNavigationIcon =
+  "bookmark" | "home" | "library" | "map" | "pen" | "profile";
 
 export interface ApplicationNavigationItem {
   readonly href: Route;
@@ -159,7 +160,9 @@ function MobileBottomNavigation({
   readonly items: readonly ApplicationNavigationItem[];
   readonly onNavigate?: ((href: Route) => void) | undefined;
 }) {
-  const activeIndex = items.findIndex((item) => isCurrentPath(currentPath, item.href));
+  const activeIndex = items.findIndex((item) =>
+    isCurrentPath(currentPath, item.href),
+  );
   const totalParts = items.length;
   return (
     <nav
@@ -169,13 +172,15 @@ function MobileBottomNavigation({
     >
       <div
         className="mobile-navigation-items relative grid"
-        style={{ gridTemplateColumns: `repeat(${String(totalParts)}, minmax(0, 1fr))` }}
+        style={{
+          gridTemplateColumns: `repeat(${String(totalParts)}, minmax(0, 1fr))`,
+        }}
       >
         <span
           aria-hidden="true"
           className="mobile-navigation-indicator pointer-events-none absolute inset-y-0 left-0 rounded-[1.15rem] bg-primary"
           style={{
-            width: `${String(1 / totalParts * 100)}%`,
+            width: `${String((1 / totalParts) * 100)}%`,
             transform: `translateX(${String(Math.max(0, activeIndex) * 100)}%)`,
             opacity: activeIndex < 0 ? 0 : 1,
           }}
@@ -204,7 +209,10 @@ function MobileBottomNavigation({
             >
               <Icon
                 aria-hidden="true"
-                className={cn("size-6 shrink-0", current && "text-accent-bright")}
+                className={cn(
+                  "size-6 shrink-0",
+                  current && "text-accent-bright",
+                )}
               />
               {item.badge === true && !current ? (
                 <span

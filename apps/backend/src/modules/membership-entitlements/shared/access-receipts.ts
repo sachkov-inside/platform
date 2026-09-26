@@ -1,5 +1,8 @@
 import { createHash } from "node:crypto";
-import { replayFingerprint, type ReplayFingerprint } from "../../../infrastructure/contracts/canonical-digest.js";
+import {
+  replayFingerprint,
+  type ReplayFingerprint,
+} from "../../../infrastructure/contracts/canonical-digest.js";
 import { lockAccountAccess } from "../../../infrastructure/prisma/index.js";
 import type { MembershipEntitlementsPrisma } from "../infrastructure/prisma.js";
 

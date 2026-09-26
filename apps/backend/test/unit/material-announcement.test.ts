@@ -25,7 +25,9 @@ describe("анонс первой публикации", () => {
   test("живёт ровно сутки от самой публикации, а не от момента, когда его заметили", () => {
     expect(announcementWindow(firstPublishedAt)).toEqual({
       occurredAt: firstPublishedAt,
-      notAfter: new Date(firstPublishedAt.getTime() + MATERIAL_EVENT_LIFETIME_MS),
+      notAfter: new Date(
+        firstPublishedAt.getTime() + MATERIAL_EVENT_LIFETIME_MS,
+      ),
     });
   });
 
@@ -81,9 +83,14 @@ describe("анонс первой публикации", () => {
   });
 
   test("сравнивает ровно то, что обещано читателю", () => {
-    expect(sameAnnouncementConditions(occurrence, { ...occurrence })).toBe(true);
+    expect(sameAnnouncementConditions(occurrence, { ...occurrence })).toBe(
+      true,
+    );
     expect(
-      sameAnnouncementConditions(occurrence, { ...occurrence, title: "Другой" }),
+      sameAnnouncementConditions(occurrence, {
+        ...occurrence,
+        title: "Другой",
+      }),
     ).toBe(false);
     expect(
       sameAnnouncementConditions(occurrence, {

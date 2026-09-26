@@ -3,12 +3,28 @@ import { Suspense, use } from "react";
 import { expect, within } from "storybook/test";
 
 import { guideOnlyOffer } from "@/workshop/billing.fixtures";
-import { boxOf, desktop, mobile, originOf, settleStoryFrame, stagedLoaders, stagedLoadingOf, type StagedLoading, type StoryViewport } from "@/workshop/loads-in-place";
+import {
+  boxOf,
+  desktop,
+  mobile,
+  originOf,
+  settleStoryFrame,
+  stagedLoaders,
+  stagedLoadingOf,
+  type StagedLoading,
+  type StoryViewport,
+} from "@/workshop/loads-in-place";
 
 import { GuidePurchaseLoading } from "./guide-purchase-loading";
-import { GuidePurchaseView, type GuidePurchaseViewProps } from "./guide-purchase-view";
+import {
+  GuidePurchaseView,
+  type GuidePurchaseViewProps,
+} from "./guide-purchase-view";
 
-import { publicPageEnvironment, routeContent } from "@/workshop/story-environment";
+import {
+  publicPageEnvironment,
+  routeContent,
+} from "@/workshop/story-environment";
 
 const guide = {
   name: "Создание Platform Inside",
@@ -92,9 +108,12 @@ export const SignedOut: Story = {
     await expect(canvas.getByRole("button", { name: "Войти" })).toBeEnabled();
     // Цена в приглашении войти приходит из снимка сервера, а не из разметки.
     await expect(
-      canvas.getByText((_, node) => node?.textContent?.includes("2\u00a0500") === true, {
-        selector: "p",
-      }),
+      canvas.getByText(
+        (_, node) => node?.textContent?.includes("2\u00a0500") === true,
+        {
+          selector: "p",
+        },
+      ),
     ).toBeInTheDocument();
   },
 };
@@ -113,11 +132,21 @@ export const Desktop: Story = {
   globals: { viewport: { isRotated: false, value: "desktop1440" } },
 };
 
-function StagedPurchase({ sequence, ...props }: GuidePurchaseViewProps & { readonly sequence: StagedLoading }) {
-  return <Suspense fallback={<GuidePurchaseLoading />}><ArrivedPurchase sequence={sequence} {...props} /></Suspense>;
+function StagedPurchase({
+  sequence,
+  ...props
+}: GuidePurchaseViewProps & { readonly sequence: StagedLoading }) {
+  return (
+    <Suspense fallback={<GuidePurchaseLoading />}>
+      <ArrivedPurchase sequence={sequence} {...props} />
+    </Suspense>
+  );
 }
 
-function ArrivedPurchase({ sequence, ...props }: GuidePurchaseViewProps & { readonly sequence: StagedLoading }) {
+function ArrivedPurchase({
+  sequence,
+  ...props
+}: GuidePurchaseViewProps & { readonly sequence: StagedLoading }) {
   use(sequence.sharedPart);
   return <GuidePurchaseView {...props} />;
 }
@@ -131,15 +160,22 @@ const purchaseFrameOf = (canvasElement: HTMLElement) => ({
  * Страница оплаты лежит под адресом продукта и без своего скелета показывала бы его скелет (#670).
  * Ряд возврата и заголовок стоят на месте с первого кадра: страница встаёт на место скелета.
  */
-function loadsInPlace({ globals, width }: StoryViewport): Pick<Story, "globals" | "loaders" | "render" | "play"> {
+function loadsInPlace({
+  globals,
+  width,
+}: StoryViewport): Pick<Story, "globals" | "loaders" | "render" | "play"> {
   return {
     globals,
     loaders: stagedLoaders,
-    render: (args, { loaded }) => <StagedPurchase {...args} sequence={stagedLoadingOf(loaded)} />,
+    render: (args, { loaded }) => (
+      <StagedPurchase {...args} sequence={stagedLoadingOf(loaded)} />
+    ),
     play: async ({ canvasElement, loaded }) => {
       await settleStoryFrame(width);
       const canvas = within(canvasElement);
-      await expect(await canvas.findByLabelText("Оплата загружается")).toHaveAttribute("aria-busy", "true");
+      await expect(
+        await canvas.findByLabelText("Оплата загружается"),
+      ).toHaveAttribute("aria-busy", "true");
       const skeleton = purchaseFrameOf(canvasElement);
 
       stagedLoadingOf(loaded).deliverSharedPart();

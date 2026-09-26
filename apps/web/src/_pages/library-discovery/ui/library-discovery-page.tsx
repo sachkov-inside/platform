@@ -3,7 +3,10 @@ import { connection } from "next/server";
 import { Suspense } from "react";
 
 import { loadBillingOffers } from "@/entities/subscription.server";
-import { guidePurchaseOffers, publicSubscriptionOffers } from "@/entities/subscription";
+import {
+  guidePurchaseOffers,
+  publicSubscriptionOffers,
+} from "@/entities/subscription";
 import type { ReaderGuideArtifactsResult } from "@/features/guide-artifacts.reader";
 import {
   readPublicGuideArtifacts,
@@ -27,18 +30,29 @@ import { PendingSeries } from "./guide-programme-view";
 
 interface DiscoveryRouteProps {
   readonly params: Promise<{ readonly slug: string }>;
-  readonly searchParams: Promise<{ readonly from?: string | readonly string[] | undefined }>;
+  readonly searchParams: Promise<{
+    readonly from?: string | readonly string[] | undefined;
+  }>;
 }
 
-type ResolvedSeries = Extract<PublishedSeriesResult, { readonly kind: "ready" | "empty" }>;
+type ResolvedSeries = Extract<
+  PublishedSeriesResult,
+  { readonly kind: "ready" | "empty" }
+>;
 
-const noArtifacts: ReaderGuideArtifactsResult = { artifacts: [], kind: "ready" };
+const noArtifacts: ReaderGuideArtifactsResult = {
+  artifacts: [],
+  kind: "ready",
+};
 
 /**
  * Тема целиком общая: справка и связанные продукты одинаковы для всех, а материалы темы читает
  * браузер. Страница рисуется из гостевого кеша и личной части не имеет (ADR 0027).
  */
-export async function PublishedTopicPage({ params, searchParams }: DiscoveryRouteProps) {
+export async function PublishedTopicPage({
+  params,
+  searchParams,
+}: DiscoveryRouteProps) {
   const [{ slug }, query] = await Promise.all([params, searchParams]);
   const result = await readPublicTopic(slug);
   if (result.kind === "not-found") {
@@ -59,7 +73,10 @@ export async function PublishedTopicPage({ params, searchParams }: DiscoveryRout
  * Страница продукта рассказывает о нём и ничего не знает о читателе: состав, главы и артефакты
  * как обещание результата приходят из гостевого кеша. Доступ и оплата живут в программе.
  */
-export async function PublishedSeriesPage({ params, searchParams }: DiscoveryRouteProps) {
+export async function PublishedSeriesPage({
+  params,
+  searchParams,
+}: DiscoveryRouteProps) {
   const [{ slug }, query] = await Promise.all([params, searchParams]);
   const result = await readPublicSeries(slug);
   if (result.kind === "not-found") {
@@ -100,7 +117,11 @@ export async function GuideProgrammePage({
     <Suspense
       fallback={<PendingSeries artifacts={artifacts} result={result} />}
     >
-      <PersonalProgramme sharedArtifacts={artifacts} sharedResult={result} slug={slug} />
+      <PersonalProgramme
+        sharedArtifacts={artifacts}
+        sharedResult={result}
+        slug={slug}
+      />
     </Suspense>
   );
 }
@@ -125,7 +146,9 @@ async function PersonalProgramme({
   // два вопроса программы: продаётся ли это руководство и есть ли вообще что предложить на витрине
   // подписки. На второй отвечает её собственный отбор: звать туда, где пусто, нельзя.
   const [result, artifacts, catalog] = await Promise.all([
-    accessToken === undefined ? sharedResult : loadPublishedSeries(slug, accessToken),
+    accessToken === undefined
+      ? sharedResult
+      : loadPublishedSeries(slug, accessToken),
     accessToken === undefined || guideId === undefined
       ? sharedArtifacts
       : readReaderGuideArtifacts(guideId, accessToken),
@@ -141,7 +164,9 @@ async function PersonalProgramme({
   // Программе хватает самого дешёвого варианта: он решает, приглашать ли к оплате.
   // Выбор между вариантами живёт на странице оплаты, где их видно составом и ценой.
   const programmeOffer =
-    guideId === undefined ? null : guidePurchaseOffers(forSale, guideId)[0] ?? null;
+    guideId === undefined
+      ? null
+      : (guidePurchaseOffers(forSale, guideId)[0] ?? null);
   return (
     <PersonalSeries
       artifacts={artifacts}
@@ -154,7 +179,11 @@ async function PersonalProgramme({
 }
 
 /** Раздел артефактов адресуется по id руководства, который несёт только разрешённый результат. */
-function publicArtifactsOf(result: ResolvedSeries): Promise<ReaderGuideArtifactsResult> {
+function publicArtifactsOf(
+  result: ResolvedSeries,
+): Promise<ReaderGuideArtifactsResult> {
   const guideId = result.reference.id;
-  return guideId === undefined ? Promise.resolve(noArtifacts) : readPublicGuideArtifacts(guideId);
+  return guideId === undefined
+    ? Promise.resolve(noArtifacts)
+    : readPublicGuideArtifacts(guideId);
 }

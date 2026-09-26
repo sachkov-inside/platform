@@ -27,7 +27,12 @@ export * from "./telegram-membership.server";
 export * from "./communications.server";
 
 export * from "./reading-activity.server";
-export { requestContinueMaterials, requestRecordMaterialOpen, requestLearningHome, requestSeriesContinuation } from "./personal-home.server";
+export {
+  requestContinueMaterials,
+  requestRecordMaterialOpen,
+  requestLearningHome,
+  requestSeriesContinuation,
+} from "./personal-home.server";
 
 export * from "./billing-contact.server";
 export * from "./legal-acceptances.server";

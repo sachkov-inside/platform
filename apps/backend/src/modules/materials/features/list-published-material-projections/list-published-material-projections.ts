@@ -115,13 +115,18 @@ export async function listPublishedMaterialProjections(
       ...(parsed.data.q === undefined || parsed.data.q.length === 0
         ? {}
         : { q: parsed.data.q }),
-      ...(parsed.data.after === undefined
-        ? {}
-        : { after: parsed.data.after }),
+      ...(parsed.data.after === undefined ? {} : { after: parsed.data.after }),
     });
     return { ok: true, value: page };
   } catch (error) {
-    return { ok: false, error: dependencyFailure({ module: "materials", operation: "listPublishedMaterialProjections" }, error, mapPostgresReadError(error)) };
+    return {
+      ok: false,
+      error: dependencyFailure(
+        { module: "materials", operation: "listPublishedMaterialProjections" },
+        error,
+        mapPostgresReadError(error),
+      ),
+    };
   }
 }
 

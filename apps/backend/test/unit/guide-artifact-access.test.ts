@@ -34,9 +34,7 @@ const membershipArtifact: GuideArtifactResourceFacts = {
 describe("ContentAccess for Guide Artifacts", () => {
   test("hands a visitor a free artifact and reports the version it decided on", async () => {
     const access = contentAccess(freeArtifact);
-    await expect(
-      access.authorize(download(anonymous)),
-    ).resolves.toMatchObject({
+    await expect(access.authorize(download(anonymous))).resolves.toMatchObject({
       checkedContentVersion: 3,
       effect: "allow",
       reason: "public_resource",
@@ -139,7 +137,9 @@ function contentAccess(
       findMany: () => Promise.resolve([]),
       findOne: () => Promise.resolve(null),
     },
-    membershipEntitlements: { resolveForAccess: () => Promise.resolve(membership) },
+    membershipEntitlements: {
+      resolveForAccess: () => Promise.resolve(membership),
+    },
   });
 }
 

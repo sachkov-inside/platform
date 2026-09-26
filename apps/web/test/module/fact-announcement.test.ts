@@ -1,6 +1,9 @@
 import { expect, it } from "vitest";
 
-import { factAnnouncement, type FactAnnouncement } from "@/shared/api/fact-announcement";
+import {
+  factAnnouncement,
+  type FactAnnouncement,
+} from "@/shared/api/fact-announcement";
 
 /**
  * Поверхность, слушающая объявления. Её первое получение — тот факт, на котором заканчивается

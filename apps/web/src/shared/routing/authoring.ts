@@ -27,7 +27,10 @@ export function parseAuthoringReturnHref(value: unknown): Route {
   return internalRoute(`${url.pathname}${url.search}`);
 }
 
-export function withAuthoringReturnHref(pathname: string, returnHref: Route): Route {
+export function withAuthoringReturnHref(
+  pathname: string,
+  returnHref: Route,
+): Route {
   return internalRoute(
     `${pathname}?${new URLSearchParams({ from: returnHref }).toString()}`,
   );

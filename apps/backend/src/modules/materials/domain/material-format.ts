@@ -9,9 +9,11 @@ const names: Readonly<Record<MaterialFormat, string>> = {
   note: "Заметка",
 };
 
-export const materialFormats = Object.freeze(materialFormatSchema.options.map((id) =>
-  Object.freeze({ id, slug: id, name: names[id] }),
-));
+export const materialFormats = Object.freeze(
+  materialFormatSchema.options.map((id) =>
+    Object.freeze({ id, slug: id, name: names[id] }),
+  ),
+);
 
 export function materialFormatPresentation(value: unknown) {
   const id = materialFormatSchema.parse(value);

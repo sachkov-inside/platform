@@ -55,7 +55,10 @@ export async function executeDeleteMaterialDraft(
   try {
     result = await request(
       {
-        deleteVideoId: parsed.data.deleteVideoId === "none" ? null : parsed.data.deleteVideoId,
+        deleteVideoId:
+          parsed.data.deleteVideoId === "none"
+            ? null
+            : parsed.data.deleteVideoId,
         expectedContentVersion: parsed.data.expectedContentVersion,
         idempotencyKey: `web-delete-material-draft-${parsed.data.submissionId}`,
         materialId: parsed.data.materialId,

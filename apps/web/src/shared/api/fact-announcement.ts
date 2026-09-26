@@ -26,7 +26,9 @@ export interface FactAnnouncement {
 export function factAnnouncement(channelName: string): FactAnnouncement {
   /** Канал этого документа или ничего там, где браузер его не даёт. */
   const open = (): BroadcastChannel | null =>
-    typeof BroadcastChannel === "undefined" ? null : new BroadcastChannel(channelName);
+    typeof BroadcastChannel === "undefined"
+      ? null
+      : new BroadcastChannel(channelName);
 
   return {
     announce: () => {

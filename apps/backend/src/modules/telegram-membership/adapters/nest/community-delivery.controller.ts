@@ -59,8 +59,13 @@ export class CommunityDeliveryController {
     summary:
       "List Accounts that Telegram still observes in the community chat without a current right",
   })
-  @ApiOkResponse({ schema: toOpenApiSchema(communityMembersWithoutRightSchema) })
-  @ApiResponse({ status: 401, content: problemDetailsContent(accountProblemSchema) })
+  @ApiOkResponse({
+    schema: toOpenApiSchema(communityMembersWithoutRightSchema),
+  })
+  @ApiResponse({
+    status: 401,
+    content: problemDetailsContent(accountProblemSchema),
+  })
   @ApiResponse({
     status: 403,
     content: problemDetailsContent(problemDetailsSchema(403, ["forbidden"])),
@@ -69,8 +74,12 @@ export class CommunityDeliveryController {
     status: 503,
     content: problemDetailsContent(problemDetailsSchema(503, ["unavailable"])),
   })
-  async listMembersWithoutRight(@CurrentAccount() current: AuthenticatedAccount) {
-    const result = await this.community.listMembersWithoutRight(current.accountId);
+  async listMembersWithoutRight(
+    @CurrentAccount() current: AuthenticatedAccount,
+  ) {
+    const result = await this.community.listMembersWithoutRight(
+      current.accountId,
+    );
     if (result.ok) return result.value;
     throw deliveryProblem(result.error.code);
   }
@@ -89,7 +98,10 @@ export class CommunityDeliveryController {
       accountProblemSchema,
     ),
   })
-  @ApiResponse({ status: 401, content: problemDetailsContent(accountProblemSchema) })
+  @ApiResponse({
+    status: 401,
+    content: problemDetailsContent(accountProblemSchema),
+  })
   @ApiResponse({
     status: 403,
     content: problemDetailsContent(problemDetailsSchema(403, ["forbidden"])),
@@ -111,7 +123,13 @@ export class CommunityDeliveryController {
   }
 }
 
-function deliveryProblem(code: keyof typeof deliveryFailureStatus): HttpException {
+function deliveryProblem(
+  code: keyof typeof deliveryFailureStatus,
+): HttpException {
   const status = deliveryFailureStatus[code];
-  return problemException(status, code, "Community entitlement delivery is unavailable");
+  return problemException(
+    status,
+    code,
+    "Community entitlement delivery is unavailable",
+  );
 }

@@ -8,8 +8,7 @@ export const cookiesV1: LegalEdition = {
   title: "Cookies и локальное хранение в Inside",
   summary:
     "Что Inside сохраняет в браузере для входа и продолжения просмотра и как это удалить.",
-  digest:
-    "6287911fd00f144b62efd8902ee03c6f141e14a7ba20688e92d6cdc75de9e6fb",
+  digest: "6287911fd00f144b62efd8902ee03c6f141e14a7ba20688e92d6cdc75de9e6fb",
   text: `# Cookies и локальное хранение в Inside
 
 Версия 1. Действует с 12 сентября 2026 года.

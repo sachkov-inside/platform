@@ -1,5 +1,9 @@
 import { dependencyFailure } from "../../../../infrastructure/observability/index.js";
-import { providerVideoIdSchema, videoIdSchema, videoMaterialIdSchema } from "../../domain/video-identifiers.js";
+import {
+  providerVideoIdSchema,
+  videoIdSchema,
+  videoMaterialIdSchema,
+} from "../../domain/video-identifiers.js";
 import {
   accessFactsInput,
   presentationInput,
@@ -30,14 +34,27 @@ export async function inspectPrimaryVideoReference(
   const parsed = primaryReferenceInput.safeParse(input);
   if (!parsed.success) return invalidRequest();
   try {
-    const video = await transaction.video.findUnique({ where: { id: parsed.data.videoId } });
+    const video = await transaction.video.findUnique({
+      where: { id: parsed.data.videoId },
+    });
     if (video === null) return videoNotFound();
-    if (videoMaterialIdSchema.parse(video.materialId) !== parsed.data.materialId || video.access !== parsed.data.access || video.projectId !== projectForAccess(context.projects, parsed.data.access)) {
+    if (
+      videoMaterialIdSchema.parse(video.materialId) !==
+        parsed.data.materialId ||
+      video.access !== parsed.data.access ||
+      video.projectId !== projectForAccess(context.projects, parsed.data.access)
+    ) {
       return providerMismatch();
     }
-    return video.state === "ready" ? { ok: true, value: undefined } : videoNotReady();
+    return video.state === "ready"
+      ? { ok: true, value: undefined }
+      : videoNotReady();
   } catch (error) {
-    return dependencyFailure({ module: "videos", operation: "inspectPrimaryReference" }, error, dependencyUnavailable());
+    return dependencyFailure(
+      { module: "videos", operation: "inspectPrimaryReference" },
+      error,
+      dependencyUnavailable(),
+    );
   }
 }
 
@@ -53,27 +70,36 @@ export async function loadVideoPresentation(
     });
     return {
       ok: true,
-      value: video === null
-        ? null
-        : {
-            videoId: videoIdSchema.parse(video.id),
-            title: video.title,
-            state: parseVideoState(video.state),
-            ...(video.durationSeconds === null
-              ? {}
-              : { durationSeconds: video.durationSeconds }),
-            ...(video.failureCode === null ? {} : { failureCode: video.failureCode }),
-          },
+      value:
+        video === null
+          ? null
+          : {
+              videoId: videoIdSchema.parse(video.id),
+              title: video.title,
+              state: parseVideoState(video.state),
+              ...(video.durationSeconds === null
+                ? {}
+                : { durationSeconds: video.durationSeconds }),
+              ...(video.failureCode === null
+                ? {}
+                : { failureCode: video.failureCode }),
+            },
     };
   } catch (error) {
-    return dependencyFailure({ module: "videos", operation: "loadPresentation" }, error, dependencyUnavailable());
+    return dependencyFailure(
+      { module: "videos", operation: "loadPresentation" },
+      error,
+      dependencyUnavailable(),
+    );
   }
 }
 
 export async function loadVideoAuthoringPresentation(
   context: VideoContext,
   input: Parameters<Videos["loadAuthoringPresentation"]>[0],
-  transaction: Parameters<Videos["loadAuthoringPresentation"]>[1] = context.prisma,
+  transaction: Parameters<
+    Videos["loadAuthoringPresentation"]
+  >[1] = context.prisma,
 ): ReturnType<Videos["loadAuthoringPresentation"]> {
   const parsed = presentationInput.safeParse(input);
   if (!parsed.success) return invalidRequest();
@@ -86,7 +112,11 @@ export async function loadVideoAuthoringPresentation(
       value: video === null ? null : toAuthoringPresentation(video),
     };
   } catch (error) {
-    return dependencyFailure({ module: "videos", operation: "loadAuthoringPresentation" }, error, dependencyUnavailable());
+    return dependencyFailure(
+      { module: "videos", operation: "loadAuthoringPresentation" },
+      error,
+      dependencyUnavailable(),
+    );
   }
 }
 
@@ -115,7 +145,11 @@ export async function loadReadyVideoDurations(
       ),
     };
   } catch (error) {
-    return dependencyFailure({ module: "videos", operation: "loadReadyDurations" }, error, dependencyUnavailable());
+    return dependencyFailure(
+      { module: "videos", operation: "loadReadyDurations" },
+      error,
+      dependencyUnavailable(),
+    );
   }
 }
 
@@ -140,7 +174,11 @@ export async function loadLatestVideoDeletion(
       value: video === null ? null : toAuthoringPresentation(video),
     };
   } catch (error) {
-    return dependencyFailure({ module: "videos", operation: "loadLatestDeletion" }, error, dependencyUnavailable());
+    return dependencyFailure(
+      { module: "videos", operation: "loadLatestDeletion" },
+      error,
+      dependencyUnavailable(),
+    );
   }
 }
 
@@ -172,7 +210,11 @@ export async function loadUnselectedVideoUpload(
       value: video === null ? null : toAuthoringPresentation(video),
     };
   } catch (error) {
-    return dependencyFailure({ module: "videos", operation: "loadUnselectedUpload" }, error, dependencyUnavailable());
+    return dependencyFailure(
+      { module: "videos", operation: "loadUnselectedUpload" },
+      error,
+      dependencyUnavailable(),
+    );
   }
 }
 
@@ -183,14 +225,23 @@ export async function loadVideoAccessFacts(
   const parsed = accessFactsInput.safeParse(videoIds);
   if (!parsed.success) return invalidRequest();
   try {
-    const videos = await context.prisma.video.findMany({ where: { id: { in: parsed.data } } });
-    return { ok: true, value: videos.map((video) => ({
-      access: videoAccessSchema.parse(video.access),
-      materialId: videoMaterialIdSchema.parse(video.materialId),
-      videoId: videoIdSchema.parse(video.id),
-    })) };
+    const videos = await context.prisma.video.findMany({
+      where: { id: { in: parsed.data } },
+    });
+    return {
+      ok: true,
+      value: videos.map((video) => ({
+        access: videoAccessSchema.parse(video.access),
+        materialId: videoMaterialIdSchema.parse(video.materialId),
+        videoId: videoIdSchema.parse(video.id),
+      })),
+    };
   } catch (error) {
-    return dependencyFailure({ module: "videos", operation: "loadAccessFacts" }, error, dependencyUnavailable());
+    return dependencyFailure(
+      { module: "videos", operation: "loadAccessFacts" },
+      error,
+      dependencyUnavailable(),
+    );
   }
 }
 
@@ -201,17 +252,27 @@ export async function loadVideoPlayback(
   const parsed = videoIdSchema.safeParse(videoId);
   if (!parsed.success) return invalidRequest();
   try {
-    const video = await context.prisma.video.findUnique({ where: { id: parsed.data } });
+    const video = await context.prisma.video.findUnique({
+      where: { id: parsed.data },
+    });
     if (video === null) return { ok: true, value: null };
-    if (video.state !== "ready" || video.providerEmbedLocator === null) return videoNotReady();
-    return { ok: true, value: {
-      access: videoAccessSchema.parse(video.access),
-      embedLocator: video.providerEmbedLocator,
-      materialId: videoMaterialIdSchema.parse(video.materialId),
-      providerVideoId: providerVideoIdSchema.parse(video.providerVideoId),
-      videoId: videoIdSchema.parse(video.id),
-    } };
+    if (video.state !== "ready" || video.providerEmbedLocator === null)
+      return videoNotReady();
+    return {
+      ok: true,
+      value: {
+        access: videoAccessSchema.parse(video.access),
+        embedLocator: video.providerEmbedLocator,
+        materialId: videoMaterialIdSchema.parse(video.materialId),
+        providerVideoId: providerVideoIdSchema.parse(video.providerVideoId),
+        videoId: videoIdSchema.parse(video.id),
+      },
+    };
   } catch (error) {
-    return dependencyFailure({ module: "videos", operation: "loadPlayback" }, error, dependencyUnavailable());
+    return dependencyFailure(
+      { module: "videos", operation: "loadPlayback" },
+      error,
+      dependencyUnavailable(),
+    );
   }
 }

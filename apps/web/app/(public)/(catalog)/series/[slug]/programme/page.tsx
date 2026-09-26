@@ -33,6 +33,8 @@ export async function generateMetadata({
 }
 
 /** Скелет маршрута даёт `loading.tsx`; страница читает адрес уже под ним (ADR 0027). */
-export default function GuideProgrammeRoute({ params }: GuideProgrammeRouteProps) {
+export default function GuideProgrammeRoute({
+  params,
+}: GuideProgrammeRouteProps) {
   return <GuideProgrammePage params={params} />;
 }

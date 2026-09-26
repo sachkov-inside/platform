@@ -14,12 +14,7 @@ export function PublicSectionHeading({
   readonly title: string;
 }) {
   return (
-    <div
-      className={cn(
-        "flex items-end justify-between gap-4",
-        className,
-      )}
-    >
+    <div className={cn("flex items-end justify-between gap-4", className)}>
       <h2
         className="text-2xl font-semibold tracking-[-0.04em] md:text-3xl"
         id={id}

@@ -1,6 +1,9 @@
 import { randomUUID } from "node:crypto";
 
-import type { ProviderVideo, VideoProvider } from "../../ports/video-provider.js";
+import type {
+  ProviderVideo,
+  VideoProvider,
+} from "../../ports/video-provider.js";
 
 // Long enough for chapters of real authored recordings imported into a local runtime.
 export const TEST_VIDEO_DURATION_SECONDS = 4 * 60 * 60;
@@ -42,7 +45,8 @@ export function createTestVideoProvider(): VideoProvider {
         if (known.status === "processing") {
           videos.set(input.id, {
             ...known,
-            durationSeconds: known.durationSeconds ?? TEST_VIDEO_DURATION_SECONDS,
+            durationSeconds:
+              known.durationSeconds ?? TEST_VIDEO_DURATION_SECONDS,
             embedLocator: `https://kinescope.io/embed/${input.id}`,
             status: "done",
           });

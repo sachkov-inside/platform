@@ -121,20 +121,38 @@ export async function startFullStackIdentity({ apiBaseUrl, webBaseUrl }) {
   async function issueRenewedToken(request, response) {
     const parameters = new URLSearchParams(await readBody(request));
     if (parameters.get("grant_type") !== "refresh_token") {
-      sendJson(response, 400, grantFailure("unsupported_grant_type", "Only the refresh_token grant is served here"));
+      sendJson(
+        response,
+        400,
+        grantFailure(
+          "unsupported_grant_type",
+          "Only the refresh_token grant is served here",
+        ),
+      );
       return;
     }
     const presented = parameters.get("refresh_token") ?? "";
     const tokenSubject = refreshTokens.get(presented);
     if (tokenSubject === undefined) {
-      sendJson(response, 400, grantFailure("invalid_grant", "Unknown refresh token"));
+      sendJson(
+        response,
+        400,
+        grantFailure("invalid_grant", "Unknown refresh token"),
+      );
       return;
     }
     // Токен выпускается ровно на свою аудиторию. Без этой проверки чужой resource молча получил
     // бы рабочий токен, и ошибка в настройке аудитории проходила бы в наборе, но не в продакшене.
     const resource = parameters.get("resource");
     if (resource !== null && resource !== audience) {
-      sendJson(response, 400, grantFailure("invalid_target", "Requested resource is not this audience"));
+      sendJson(
+        response,
+        400,
+        grantFailure(
+          "invalid_target",
+          "Requested resource is not this audience",
+        ),
+      );
       return;
     }
     const renewed = await createAccessToken(tokenSubject);

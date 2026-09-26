@@ -40,7 +40,9 @@ export const WithSupportAndPromotion: Story = {
     const canvas = within(canvasElement);
     await expect(canvas.getByText("Старт · −20%")).toBeInTheDocument();
     // Право без даты окончания не называет срок: кабинет и сводки прав такой срок не показывают.
-    await expect(canvas.queryByText("без даты окончания")).not.toBeInTheDocument();
+    await expect(
+      canvas.queryByText("без даты окончания"),
+    ).not.toBeInTheDocument();
   },
 };
 export const GuideOnly: Story = {
@@ -51,7 +53,9 @@ export const GuideOnly: Story = {
     // Купленное руководство само открывает общий чат, и у обоих прав нет даты окончания —
     // сводка прав её не называет.
     await expect(canvas.getByText("Общий чат")).toBeInTheDocument();
-    await expect(canvas.queryByText("без даты окончания")).not.toBeInTheDocument();
+    await expect(
+      canvas.queryByText("без даты окончания"),
+    ).not.toBeInTheDocument();
     // Разовая покупка не обещает ни периода, ни следующей цены.
     await expect(canvas.getByText("разовая покупка")).toBeInTheDocument();
     await expect(canvas.queryByText(/Дальше —/u)).not.toBeInTheDocument();

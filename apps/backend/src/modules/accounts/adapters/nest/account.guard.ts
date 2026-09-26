@@ -6,13 +6,20 @@ import {
 } from "@nestjs/common";
 import type { FastifyRequest } from "fastify";
 
-import { ACCOUNTS, LOGTO_ACCESS_TOKEN_VERIFIER } from "../../accounts.tokens.js";
+import {
+  ACCOUNTS,
+  LOGTO_ACCESS_TOKEN_VERIFIER,
+} from "../../accounts.tokens.js";
 import type {
   Accounts,
   AuthenticatedAccount,
 } from "../../facets/accounts/accounts.interface.js";
 import type { LogtoAccessTokenVerifier } from "../../infrastructure/idp/logto/logto-access-token-verifier.js";
-import { bearerToken, throwAccountError, throwProofError } from "./account-http.js";
+import {
+  bearerToken,
+  throwAccountError,
+  throwProofError,
+} from "./account-http.js";
 import { currentAccountRequestProperty } from "./current-account.js";
 
 export type AuthenticatedRequest = FastifyRequest & {
@@ -69,6 +76,8 @@ export async function authenticateRequest(
   return result.account;
 }
 
-function headerValue(value: string | readonly string[] | undefined): string | undefined {
+function headerValue(
+  value: string | readonly string[] | undefined,
+): string | undefined {
   return typeof value === "string" ? value : undefined;
 }

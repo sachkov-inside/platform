@@ -16,10 +16,20 @@ import {
   PrismaClientProvider,
   PrismaModule,
 } from "../../infrastructure/prisma/index.js";
-import { AccountsModule, ACCOUNTS, LegalAcceptances, type Accounts } from "../accounts/index.js";
-import { BillingModule, BillingPricing, SubscriptionActivation } from "../billing/index.js";
 import {
-  ACCESS_GRANTS, type AccessGrants,
+  AccountsModule,
+  ACCOUNTS,
+  LegalAcceptances,
+  type Accounts,
+} from "../accounts/index.js";
+import {
+  BillingModule,
+  BillingPricing,
+  SubscriptionActivation,
+} from "../billing/index.js";
+import {
+  ACCESS_GRANTS,
+  type AccessGrants,
   MEMBERSHIP_ENTITLEMENTS,
   MembershipEntitlementsModule,
   type MembershipEntitlements,
@@ -37,23 +47,69 @@ import {
 } from "./telegram-membership.tokens.js";
 
 @Module({
-  imports: [AccountsModule, MembershipEntitlementsModule, PrismaModule, BillingModule, TelegramAccountLinksModule, CommunityEntitlementsModule],
-  controllers: [SubscriptionActivationController,
+  imports: [
+    AccountsModule,
+    MembershipEntitlementsModule,
+    PrismaModule,
+    BillingModule,
+    TelegramAccountLinksModule,
+    CommunityEntitlementsModule,
+  ],
+  controllers: [
+    SubscriptionActivationController,
     TelegramAccountSignInController,
     AccountTelegramMembershipController,
     TelegramLinkController,
     TelegramEvidenceController,
   ],
   providers: [
-    { provide: SubscriptionActivation, inject: [PrismaClientProvider, ACCESS_GRANTS, TelegramAccountLinks, CommunityEntitlements],
-      useFactory: (prisma: PrismaClientProvider, grants: AccessGrants, bindings: TelegramAccountLinks, community: CommunityEntitlements) => new SubscriptionActivation({ prisma, grants, bindings, readAdmission: accountId => community.readOwnAdmission(accountId) }) },
+    {
+      provide: SubscriptionActivation,
+      inject: [
+        PrismaClientProvider,
+        ACCESS_GRANTS,
+        TelegramAccountLinks,
+        CommunityEntitlements,
+      ],
+      useFactory: (
+        prisma: PrismaClientProvider,
+        grants: AccessGrants,
+        bindings: TelegramAccountLinks,
+        community: CommunityEntitlements,
+      ) =>
+        new SubscriptionActivation({
+          prisma,
+          grants,
+          bindings,
+          readAdmission: (accountId) => community.readOwnAdmission(accountId),
+        }),
+    },
     {
       provide: TelegramAccountSignIn,
-      inject: [ACCOUNTS, PrismaClientProvider, MEMBERSHIP_ENTITLEMENTS, PLATFORM_CONFIG, LegalAcceptances],
-      useFactory: (accounts: Accounts, prisma: PrismaClientProvider, membershipEntitlements: MembershipEntitlements, config: PlatformConfig, terms: LegalAcceptances) => new TelegramAccountSignIn({
-        accounts, prisma, membershipEntitlements, terms,
-        provider: new HttpTelegramSignInProvider(config.identity.telegramSignInProviderUrl, config.identity.telegramSignInIntegrationSecret),
-      }),
+      inject: [
+        ACCOUNTS,
+        PrismaClientProvider,
+        MEMBERSHIP_ENTITLEMENTS,
+        PLATFORM_CONFIG,
+        LegalAcceptances,
+      ],
+      useFactory: (
+        accounts: Accounts,
+        prisma: PrismaClientProvider,
+        membershipEntitlements: MembershipEntitlements,
+        config: PlatformConfig,
+        terms: LegalAcceptances,
+      ) =>
+        new TelegramAccountSignIn({
+          accounts,
+          prisma,
+          membershipEntitlements,
+          terms,
+          provider: new HttpTelegramSignInProvider(
+            config.identity.telegramSignInProviderUrl,
+            config.identity.telegramSignInIntegrationSecret,
+          ),
+        }),
     },
     {
       provide: TELEGRAM_LINK_PROVIDER,

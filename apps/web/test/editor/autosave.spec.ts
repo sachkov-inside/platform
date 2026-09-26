@@ -155,7 +155,9 @@ test("series picker shows materials before typing and saves composition on the s
     .fill(`series-${String(Date.now())}`);
   await page.getByRole("button", { name: "Создать", exact: true }).click();
   await expect(page).toHaveURL(/\/authoring\/guides\/[^/]+$/u);
-  await page.getByRole("button", { name: "Добавить материал", exact: true }).click();
+  await page
+    .getByRole("button", { name: "Добавить материал", exact: true })
+    .click();
   const picker = page.getByRole("dialog", {
     name: "Добавить материал",
     exact: true,
@@ -224,7 +226,8 @@ test("cover drop and paste persist immediately; article paste inserts an image",
   /** Отсутствие адреса — это непоказанное превью, а не обложка с пустым адресом. */
   async function currentCover(): Promise<string> {
     const source = await wide.getAttribute("src");
-    if (source === null) throw new Error("Превью обложки не показывает изображение");
+    if (source === null)
+      throw new Error("Превью обложки не показывает изображение");
     return source;
   }
 

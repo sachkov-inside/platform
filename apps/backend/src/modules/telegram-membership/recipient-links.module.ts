@@ -1,6 +1,9 @@
 import { Global, Module } from "@nestjs/common";
 
-import { RECIPIENT_LINKS, type RecipientLinks } from "../membership-entitlements/index.js";
+import {
+  RECIPIENT_LINKS,
+  type RecipientLinks,
+} from "../membership-entitlements/index.js";
 import { TelegramAccountLinks } from "./facets/telegram-account-links/telegram-account-links.js";
 import { TelegramAccountLinksModule } from "./telegram-account-links.module.js";
 
@@ -12,11 +15,13 @@ import { TelegramAccountLinksModule } from "./telegram-account-links.module.js";
 @Global()
 @Module({
   imports: [TelegramAccountLinksModule],
-  providers: [{
-    provide: RECIPIENT_LINKS,
-    inject: [TelegramAccountLinks],
-    useFactory: (links: TelegramAccountLinks): RecipientLinks => links,
-  }],
+  providers: [
+    {
+      provide: RECIPIENT_LINKS,
+      inject: [TelegramAccountLinks],
+      useFactory: (links: TelegramAccountLinks): RecipientLinks => links,
+    },
+  ],
   exports: [RECIPIENT_LINKS],
 })
 export class RecipientLinksModule {}

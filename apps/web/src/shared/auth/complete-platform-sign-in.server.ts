@@ -13,14 +13,21 @@ export async function completePlatformSignIn(
   accessToken: string,
 ): Promise<"complete" | "retryable"> {
   if (isTelegramSignInToken(accessToken)) {
-    try { await completeTelegramAccountSignIn(accessToken); return "complete"; }
-    catch (error) { return handleCompletionError(error); }
+    try {
+      await completeTelegramAccountSignIn(accessToken);
+      return "complete";
+    } catch (error) {
+      return handleCompletionError(error);
+    }
   }
   try {
     await resolveAccount(accessToken);
     return "complete";
   } catch (error) {
-    if (!(error instanceof BackendConnectionError) || error.code !== "rejected") {
+    if (
+      !(error instanceof BackendConnectionError) ||
+      error.code !== "rejected"
+    ) {
       return handleCompletionError(error);
     }
   }

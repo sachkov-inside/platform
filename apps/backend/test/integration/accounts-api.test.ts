@@ -12,7 +12,10 @@ import {
   createMigratedTestDatabase,
   type TestDatabase,
 } from "./setup/test-database.js";
-import { declaredServer, type DeclaredServer } from "../support/declared-api.js";
+import {
+  declaredServer,
+  type DeclaredServer,
+} from "../support/declared-api.js";
 import { acceptCurrentTerms } from "../support/accept-terms.js";
 
 const issuer = "https://identity.example.test/oidc";
@@ -38,9 +41,12 @@ describe("Accounts API", () => {
       response.setHeader("content-type", "application/json");
       response.end(JSON.stringify({ keys: [publicJwk] }));
     });
-    await new Promise<void>((resolve) => jwksServer.listen(0, "127.0.0.1", resolve));
+    await new Promise<void>((resolve) =>
+      jwksServer.listen(0, "127.0.0.1", resolve),
+    );
     const address = jwksServer.address();
-    if (address === null || typeof address === "string") throw new Error("missing JWKS port");
+    if (address === null || typeof address === "string")
+      throw new Error("missing JWKS port");
 
     database = await createMigratedTestDatabase();
     app = await createApiApplication(
@@ -50,7 +56,8 @@ describe("Accounts API", () => {
         LOGTO_ISSUER: issuer,
         LOGTO_AUDIENCE: audience,
         LOGTO_JWKS_URL: `http://127.0.0.1:${String(address.port)}/jwks`,
-        IDENTITY_EMAIL_FINGERPRINT_KEY: "accounts-api-test-email-fingerprint-key",
+        IDENTITY_EMAIL_FINGERPRINT_KEY:
+          "accounts-api-test-email-fingerprint-key",
       }),
       { logger: false },
     );
@@ -63,34 +70,70 @@ describe("Accounts API", () => {
     await app.close();
     await database.dispose();
     await new Promise<void>((resolve, reject) =>
-      jwksServer.close((error) => (error === undefined ? resolve() : reject(error))),
+      jwksServer.close((error) =>
+        error === undefined ? resolve() : reject(error),
+      ),
     );
   });
 
   test("billing contact endpoints require the current Account and reject injected owners", async () => {
     const url = "/accounts/current/billing/contact/start";
-    expect((await server.inject({ method: "POST", url, payload: {} })).statusCode).toBe(401);
-    const token = await signToken({ subject: "billing-api-account", email: "billing-api@example.test" });
+    expect(
+      (await server.inject({ method: "POST", url, payload: {} })).statusCode,
+    ).toBe(401);
+    const token = await signToken({
+      subject: "billing-api-account",
+      email: "billing-api@example.test",
+    });
     await inject("POST", "/accounts", token);
     const headers = { authorization: `Bearer ${token}` };
     await acceptCurrentTerms(server, headers);
-    const injected = await server.inject({ method: "POST", url, headers, payload: { operationId: randomUUID(), expectedRevision: 0, email: "synthetic@example.test", accountId: randomUUID() } });
+    const injected = await server.inject({
+      method: "POST",
+      url,
+      headers,
+      payload: {
+        operationId: randomUUID(),
+        expectedRevision: 0,
+        email: "synthetic@example.test",
+        accountId: randomUUID(),
+      },
+    });
     expect(injected.statusCode).toBe(400);
     expect(injected.json()).toMatchObject({ code: "invalid_input" });
-    const read = await server.inject({ method: "GET", url: "/accounts/current/billing/contact", headers });
+    const read = await server.inject({
+      method: "GET",
+      url: "/accounts/current/billing/contact",
+      headers,
+    });
     expect(read.statusCode).toBe(200);
     expect(read.headers["cache-control"]).toBe("private, no-store");
     // Каталог редакций подключён в модуле: покупателю показывают действующие оферты и согласие.
     expect(read.json()).toMatchObject({ ok: true, contact: null });
-    expect(read.json<{ documents: { documentId: string }[] }>().documents.map((document) => document.documentId))
-      .toEqual(["purchase", "subscription", "recurring-consent"]);
-    const disabled = await server.inject({ method: "POST", url, headers, payload: { operationId: randomUUID(), expectedRevision: 0, email: "synthetic@example.test" } });
+    expect(
+      read
+        .json<{ documents: { documentId: string }[] }>()
+        .documents.map((document) => document.documentId),
+    ).toEqual(["purchase", "subscription", "recurring-consent"]);
+    const disabled = await server.inject({
+      method: "POST",
+      url,
+      headers,
+      payload: {
+        operationId: randomUUID(),
+        expectedRevision: 0,
+        email: "synthetic@example.test",
+      },
+    });
     expect(disabled.statusCode).toBe(503);
     expect(disabled.json()).toMatchObject({ code: "provider_unavailable" });
   });
 
   test("closes the cabinet, purchases and the bot link until the terms of use in force are accepted", async () => {
-    const token = await signToken({ subject: "terms-gate-account", email: "terms-gate@example.test" });
+    const token = await signToken({
+      subject: "terms-gate-account",
+      email: "terms-gate@example.test",
+    });
     expect((await inject("POST", "/accounts", token)).statusCode).toBe(201);
     const headers = { authorization: `Bearer ${token}` };
     const gated = [
@@ -104,15 +147,29 @@ describe("Accounts API", () => {
     for (const route of gated) {
       const refused = await server.inject({ ...route, headers });
       expect(refused.statusCode, route.url).toBe(403);
-      expect(refused.json()).toMatchObject({ code: "terms_acceptance_required" });
+      expect(refused.json()).toMatchObject({
+        code: "terms_acceptance_required",
+      });
     }
 
-    const status = await inject("GET", "/accounts/current/legal-acceptances/terms", token);
+    const status = await inject(
+      "GET",
+      "/accounts/current/legal-acceptances/terms",
+      token,
+    );
     expect(status.statusCode).toBe(200);
     const terms = status.json<{
-      readonly document: { readonly version: string; readonly digest: string; readonly url: string };
+      readonly document: {
+        readonly version: string;
+        readonly digest: string;
+        readonly url: string;
+      };
     }>();
-    expect(status.json()).toMatchObject({ ok: true, accepted: false, previouslyAccepted: false });
+    expect(status.json()).toMatchObject({
+      ok: true,
+      accepted: false,
+      previouslyAccepted: false,
+    });
     expect(terms.document.url).toMatch(/\/legal\/terms\/v[0-9]+$/u);
     const accepted = await server.inject({
       method: "POST",
@@ -126,13 +183,22 @@ describe("Accounts API", () => {
       },
     });
     expect(accepted.statusCode).toBe(200);
-    expect((await inject("GET", "/account/profile", token)).statusCode).toBe(200);
+    expect((await inject("GET", "/account/profile", token)).statusCode).toBe(
+      200,
+    );
     expect(
-      (await inject("GET", "/accounts/current/legal-acceptances", token)).json(),
+      (
+        await inject("GET", "/accounts/current/legal-acceptances", token)
+      ).json(),
     ).toMatchObject({
       ok: true,
       documents: [
-        { documentId: "terms", screen: "first-sign-in", buttonLabel: "Принять условия и продолжить", shownTerms: null },
+        {
+          documentId: "terms",
+          screen: "first-sign-in",
+          buttonLabel: "Принять условия и продолжить",
+          shownTerms: null,
+        },
       ],
     });
   });
@@ -143,7 +209,9 @@ describe("Accounts API", () => {
     expect(established.statusCode).toBe(201);
     const establishedBody = established.json<unknown>();
     expect(readAccountId(establishedBody)).toMatch(/^[0-9a-f-]{36}$/u);
-    expect(JSON.stringify(establishedBody)).not.toContain("member@example.test");
+    expect(JSON.stringify(establishedBody)).not.toContain(
+      "member@example.test",
+    );
 
     const resolved = await inject("GET", "/accounts/current", token);
     expect(resolved.statusCode).toBe(200);
@@ -167,12 +235,11 @@ describe("Accounts API", () => {
     expect(machine.statusCode).toBe(401);
     expect(machine.json()).toMatchObject({ code: "invalid_proof" });
 
-    const malformedOptionalProof =
-      await server.inject({
-        method: "GET",
-        url: "/materials/missing-material",
-        headers: { authorization: "Bearer not-a-jwt" },
-      });
+    const malformedOptionalProof = await server.inject({
+      method: "GET",
+      url: "/materials/missing-material",
+      headers: { authorization: "Bearer not-a-jwt" },
+    });
     expect(malformedOptionalProof.statusCode).toBe(401);
     expect(malformedOptionalProof.json()).toMatchObject({
       code: "invalid_proof",
@@ -196,10 +263,7 @@ describe("Accounts API", () => {
         ...authorization,
         "idempotency-key": "authoring-forbidden-001",
       },
-      payload: materialDraftPayload(
-        "Forbidden draft",
-        "Forbidden.",
-      ),
+      payload: materialDraftPayload("Forbidden draft", "Forbidden."),
     });
     expect(forbidden.statusCode).toBe(403);
     expect(forbidden.headers["content-type"]).toContain(
@@ -241,10 +305,7 @@ describe("Accounts API", () => {
         ...authorization,
         "idempotency-key": "authoring-create-companion-001",
       },
-      payload: materialDraftPayload(
-        "Playlist companion",
-        "Companion.",
-      ),
+      payload: materialDraftPayload("Playlist companion", "Companion."),
     });
     expect(companion.statusCode).toBe(201);
     const companionReceipt = readMaterialReceipt(companion.json<unknown>());
@@ -255,10 +316,21 @@ describe("Accounts API", () => {
       headers: authorization,
     });
     expect(initialOrder.statusCode).toBe(200);
-    const canonicalOrder = await server.inject({ method: "GET", url: `/authoring/guides/${seriesId}/order`, headers: authorization });
+    const canonicalOrder = await server.inject({
+      method: "GET",
+      url: `/authoring/guides/${seriesId}/order`,
+      headers: authorization,
+    });
     expect(canonicalOrder.statusCode).toBe(200);
     expect(canonicalOrder.json()).toEqual(initialOrder.json());
-    expect((await server.inject({ method: "GET", url: `/authoring/guides/${seriesId}/order` })).statusCode).toBe(401);
+    expect(
+      (
+        await server.inject({
+          method: "GET",
+          url: `/authoring/guides/${seriesId}/order`,
+        })
+      ).statusCode,
+    ).toBe(401);
     const initialOrderBody = initialOrder.json<{
       readonly items: readonly { readonly materialId: string }[];
       readonly orderVersion: string;
@@ -400,19 +472,13 @@ describe("Accounts API", () => {
       token,
     );
     expect(authorizedReader.statusCode).toBe(200);
-    expect(authorizedReader.headers["cache-control"]).toBe(
-      "private, no-store",
-    );
+    expect(authorizedReader.headers["cache-control"]).toBe("private, no-store");
     expect(authorizedReader.json()).toMatchObject({
       kind: "available",
       projection: { access: "membership" },
     });
 
-    const authorizedCatalog = await inject(
-      "GET",
-      "/library/materials",
-      token,
-    );
+    const authorizedCatalog = await inject("GET", "/library/materials", token);
     expect(authorizedCatalog.statusCode).toBe(200);
     expect(authorizedCatalog.headers["cache-control"]).toBe(
       "private, no-store",
@@ -552,16 +618,27 @@ describe("Accounts API", () => {
       `/member-profiles/${stored.publicProfileId}/avatar/${randomUUID()}/320`,
       `/member-profiles/${stored.publicProfileId}/reports`,
     ]) {
-      for (const token of [undefined, nonMemberToken, viewerToken, ownerToken]) {
+      for (const token of [
+        undefined,
+        nonMemberToken,
+        viewerToken,
+        ownerToken,
+      ]) {
         const response = await server.inject({
           method: "GET",
           url,
-          ...(token === undefined ? {} : { headers: { authorization: `Bearer ${token}` } }),
+          ...(token === undefined
+            ? {}
+            : { headers: { authorization: `Bearer ${token}` } }),
         });
         expect(response.statusCode, url).toBe(404);
       }
     }
-    const ownAvatar = await inject("GET", `/account/profile/avatar/${randomUUID()}/320`, ownerToken);
+    const ownAvatar = await inject(
+      "GET",
+      `/account/profile/avatar/${randomUUID()}/320`,
+      ownerToken,
+    );
     expect(ownAvatar.statusCode).toBe(404);
     expect(ownAvatar.json()).toMatchObject({ code: "profile_not_found" });
 
@@ -642,7 +719,9 @@ describe("Accounts API", () => {
     const now = Math.floor(Date.now() / 1_000);
     return new SignJWT({
       inside_verified_email: overrides.email ?? "member@example.test",
-      ...(overrides.clientId === undefined ? {} : { client_id: overrides.clientId }),
+      ...(overrides.clientId === undefined
+        ? {}
+        : { client_id: overrides.clientId }),
     })
       .setProtectedHeader({ alg: "ES384", kid: "api-key-1" })
       .setIssuer(issuer)

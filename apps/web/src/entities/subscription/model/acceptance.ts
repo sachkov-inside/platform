@@ -1,4 +1,8 @@
-import type { BillingQuote, PriceSnapshot, SubscriptionView } from "./billing-contract";
+import type {
+  BillingQuote,
+  PriceSnapshot,
+  SubscriptionView,
+} from "./billing-contract";
 import { paymentMode } from "./billing-contract";
 import type { ShownRenewalTerms } from "./legal-documents";
 import { formatBillingDate, formatKopecks, formatMonths } from "./presentation";
@@ -55,7 +59,9 @@ export function renewalTermsAtCheckout(quote: BillingQuote): ShownRenewalTerms {
 }
 
 /** Возобновлённая подписка продолжает оплаченный срок: следующее списание — в его последний день. */
-export function renewalTermsOnResume(subscription: SubscriptionView): ShownRenewalTerms {
+export function renewalTermsOnResume(
+  subscription: SubscriptionView,
+): ShownRenewalTerms {
   return {
     amountKopecks: subscription.snapshot.renewalPriceKopecks,
     nextChargeOn: moscowDay(new Date(subscription.paidUntil)),

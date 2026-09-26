@@ -38,7 +38,9 @@ export async function generateMetadata({
 }
 
 /** Названная редакция документа: текст, который читали и принимали в своё время. */
-export default async function LegalEditionRoute({ params }: LegalEditionRouteProps) {
+export default async function LegalEditionRoute({
+  params,
+}: LegalEditionRouteProps) {
   const { slug, version } = await params;
   const view = legalDocumentView(slug, version);
   if (view === null) notFound();

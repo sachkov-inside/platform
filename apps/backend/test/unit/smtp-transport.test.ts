@@ -26,7 +26,8 @@ function smtpResponder(): { server: Server; messages: string[] } {
           } else {
             data += `${line}\n`;
           }
-        } else if (/^(?:EHLO|HELO)/u.test(line)) socket.write("250 localhost\r\n");
+        } else if (/^(?:EHLO|HELO)/u.test(line))
+          socket.write("250 localhost\r\n");
         else if (line === "DATA") {
           data = "";
           socket.write("354 go ahead\r\n");
@@ -50,7 +51,8 @@ describe("SMTP transport", () => {
     server.listen(0, "127.0.0.1");
     await once(server, "listening");
     const address = server.address();
-    if (address === null || typeof address === "string") throw new Error("SMTP responder has no port");
+    if (address === null || typeof address === "string")
+      throw new Error("SMTP responder has no port");
     const send = assembleSmtpTransport({
       from: "noreply@inside.example",
       localInsecure: true,
@@ -58,7 +60,12 @@ describe("SMTP transport", () => {
       smtpPort: address.port,
     });
 
-    await send({ messageRef: "operation-1", subject: "Subject", text: "Body", to: "member@example.com" });
+    await send({
+      messageRef: "operation-1",
+      subject: "Subject",
+      text: "Body",
+      to: "member@example.com",
+    });
 
     expect(responder.messages).toHaveLength(1);
     const message = responder.messages[0] ?? "";

@@ -3,7 +3,15 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 
 import type { INestApplicationContext } from "@nestjs/common";
-import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from "vitest";
+import {
+  afterAll,
+  afterEach,
+  beforeAll,
+  describe,
+  expect,
+  it,
+  vi,
+} from "vitest";
 
 import { createApiApplication } from "../src/entrypoints/api/create-api-application.js";
 import type * as EnvironmentSource from "../src/config/load-repository-environment.js";
@@ -17,10 +25,13 @@ import {
 // держат правило: в тестовом режиме файла нет, и модуль не знает другого пути, кроме отвеченного.
 // Порознь любое из них можно потерять молча — и обряд «убери свой `.env` перед проверкой» вернётся.
 const source = vi.hoisted(() => ({ path: undefined as string | undefined }));
-vi.mock("../src/config/load-repository-environment.js", async (importOriginal) => ({
-  ...(await importOriginal<typeof EnvironmentSource>()),
-  composedEnvFilePath: () => source.path,
-}));
+vi.mock(
+  "../src/config/load-repository-environment.js",
+  async (importOriginal) => ({
+    ...(await importOriginal<typeof EnvironmentSource>()),
+    composedEnvFilePath: () => source.path,
+  }),
+);
 
 describe("process env file source", () => {
   let directory: string;

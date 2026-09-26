@@ -11,7 +11,13 @@ import { GuideProgrammeView, programmePurchase } from "./guide-programme-view";
 import { SeriesLearningSource } from "./series-learning.client";
 
 /** Личная часть программы: состав глазами читателя рисует сервер, прогресс продолжает браузер. */
-export async function PersonalSeries({ artifacts, result, accessToken, guideOffer = null, subscriptionOffered = false }: {
+export async function PersonalSeries({
+  artifacts,
+  result,
+  accessToken,
+  guideOffer = null,
+  subscriptionOffered = false,
+}: {
   readonly artifacts: ReaderGuideArtifactsResult;
   readonly result: Extract<PublishedSeriesResult, { kind: "ready" | "empty" }>;
   readonly accessToken?: string;
@@ -23,16 +29,32 @@ export async function PersonalSeries({ artifacts, result, accessToken, guideOffe
   if (accessToken !== undefined) {
     try {
       accountId = (await resolveAccount(accessToken)).accountId;
-      await client.query({ queryKey: seriesContinuationQueryKey(accountId, result.reference.slug), queryFn: () => getSeriesContinuation(result.reference.slug, accessToken) });
-    } catch { accountId = null; }
+      await client.query({
+        queryKey: seriesContinuationQueryKey(accountId, result.reference.slug),
+        queryFn: () =>
+          getSeriesContinuation(result.reference.slug, accessToken),
+      });
+    } catch {
+      accountId = null;
+    }
   }
-  return <HydrationBoundary state={dehydrate(client)}>
-    <SeriesLearningSource
-      initialAccountId={accountId}
-      purchaseRowShown={programmePurchase({ guideOffer, result, subscriptionOffered }) !== null}
-      slug={result.reference.slug}
-    >
-      <GuideProgrammeView artifacts={artifacts} guideOffer={guideOffer} result={result} subscriptionOffered={subscriptionOffered} />
-    </SeriesLearningSource>
-  </HydrationBoundary>;
+  return (
+    <HydrationBoundary state={dehydrate(client)}>
+      <SeriesLearningSource
+        initialAccountId={accountId}
+        purchaseRowShown={
+          programmePurchase({ guideOffer, result, subscriptionOffered }) !==
+          null
+        }
+        slug={result.reference.slug}
+      >
+        <GuideProgrammeView
+          artifacts={artifacts}
+          guideOffer={guideOffer}
+          result={result}
+          subscriptionOffered={subscriptionOffered}
+        />
+      </SeriesLearningSource>
+    </HydrationBoundary>
+  );
 }

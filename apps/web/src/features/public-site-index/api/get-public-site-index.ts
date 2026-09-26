@@ -92,7 +92,10 @@ async function readCatalogPage(
       ...(after === undefined ? {} : { after }),
     });
   } catch (error) {
-    if (error instanceof BackendConnectionError && error.code === "unavailable") {
+    if (
+      error instanceof BackendConnectionError &&
+      error.code === "unavailable"
+    ) {
       return undefined;
     }
     throw error;

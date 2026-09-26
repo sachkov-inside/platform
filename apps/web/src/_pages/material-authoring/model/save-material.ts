@@ -3,7 +3,9 @@ import { z } from "zod";
 
 import { guideRemovalSchema } from "@/shared/lib/guide-removal";
 
-const issueSchema = z.object({ message: z.string(), path: z.string() }).strict();
+const issueSchema = z
+  .object({ message: z.string(), path: z.string() })
+  .strict();
 
 export const saveMaterialResultSchema = z.discriminatedUnion("kind", [
   z

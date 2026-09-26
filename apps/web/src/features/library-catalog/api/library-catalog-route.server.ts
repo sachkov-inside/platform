@@ -69,7 +69,11 @@ async function handleCatalogRequest(
     throw error;
   }
   if (page.kind === "unavailable") {
-    return backendProxyProblem(503, "library_unavailable", "Library unavailable");
+    return backendProxyProblem(
+      503,
+      "library_unavailable",
+      "Library unavailable",
+    );
   }
 
   return Response.json(page, {
@@ -81,9 +85,16 @@ async function handleCatalogRequest(
 }
 
 function invalidLibraryQueryResponse(): Response {
-  return backendProxyProblem(400, "invalid_library_query", "Invalid Library query");
+  return backendProxyProblem(
+    400,
+    "invalid_library_query",
+    "Invalid Library query",
+  );
 }
 
-export async function handleHomeFeedRequest(request: Request, accessToken?: string): Promise<Response> {
+export async function handleHomeFeedRequest(
+  request: Request,
+  accessToken?: string,
+): Promise<Response> {
   return handleCatalogRequest(request, accessToken, undefined, true);
 }

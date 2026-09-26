@@ -27,7 +27,8 @@ function publicOrigin(value: string | undefined): Route | undefined {
   if (value === undefined || !isInternalRoute(value)) return undefined;
   if (value === "/") return internalRoute(value);
   return publicOriginSections.some(
-    (section) => value === section.replace(/\/$/u, "") || value.startsWith(section),
+    (section) =>
+      value === section.replace(/\/$/u, "") || value.startsWith(section),
   )
     ? internalRoute(value)
     : undefined;
@@ -91,7 +92,8 @@ export function purchaseInvitation({
   from,
 }: {
   /** Руководство, которое человек сейчас смотрит, и продаётся ли оно отдельно. */
-  readonly guide?: { readonly slug: string; readonly sold: boolean } | undefined;
+  readonly guide?:
+    { readonly slug: string; readonly sold: boolean } | undefined;
   /** Продаётся ли сейчас хоть один тариф подписки. */
   readonly subscriptionOffered: boolean;
   /** Откуда человек пришёл: витрина вернёт его сюда после входа. */
@@ -103,6 +105,9 @@ export function purchaseInvitation({
   if (!subscriptionOffered) return null;
   return {
     kind: "subscription",
-    href: from === undefined ? internalRoute("/subscription") : subscriptionHrefFrom(from),
+    href:
+      from === undefined
+        ? internalRoute("/subscription")
+        : subscriptionHrefFrom(from),
   };
 }

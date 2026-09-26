@@ -7,7 +7,12 @@ import {
   PLATFORM_CONFIG,
   type PlatformConfig,
 } from "../config/platform-config.js";
-import { StructuredNestLogger, observeJob, reportProcessFailure, reportQueueFailure } from "../infrastructure/observability/index.js";
+import {
+  StructuredNestLogger,
+  observeJob,
+  reportProcessFailure,
+  reportQueueFailure,
+} from "../infrastructure/observability/index.js";
 import { OperationalReadiness } from "../infrastructure/operational-readiness.js";
 import { runWorker } from "../infrastructure/worker-runtime.js";
 import {
@@ -24,11 +29,14 @@ const CLEANUP_RETRY_MAX_DELAY_SECONDS = 300;
 const CLEANUP_RETRY_LIMIT = 5;
 const CLEANUP_SINGLETON_SECONDS = 3_600;
 
-void bootstrap().catch((error: unknown) => reportProcessFailure("profile-avatars-worker", error));
+void bootstrap().catch((error: unknown) =>
+  reportProcessFailure("profile-avatars-worker", error),
+);
 
 async function bootstrap(): Promise<void> {
   const application = await NestFactory.createApplicationContext(
-    ProfileAvatarsWorkerModule.forRoot(), { logger: new StructuredNestLogger() },
+    ProfileAvatarsWorkerModule.forRoot(),
+    { logger: new StructuredNestLogger() },
   );
   const config = application.get<PlatformConfig>(PLATFORM_CONFIG);
   const maintenance = application.get<ProfileAvatarMaintenance>(
@@ -41,7 +49,9 @@ async function bootstrap(): Promise<void> {
     migrate: false,
     schema: "pgboss",
   });
-  jobs.on("error", (error: unknown) => reportQueueFailure("profile-avatars-worker", error));
+  jobs.on("error", (error: unknown) =>
+    reportQueueFailure("profile-avatars-worker", error),
+  );
   await runWorker({
     application,
     databaseUrl: config.database.url,
@@ -58,13 +68,20 @@ async function bootstrap(): Promise<void> {
         retryLimit: CLEANUP_RETRY_LIMIT,
       });
       await jobs.schedule(CLEANUP_QUEUE, "23 * * * *", {});
-      await jobs.send(CLEANUP_QUEUE, {}, {
-        singletonSeconds: CLEANUP_SINGLETON_SECONDS,
-      });
-      await jobs.work(CLEANUP_QUEUE, observeJob("profile-avatars-worker", CLEANUP_QUEUE, async () =>
-        maintenance.cleanup({
-          graceMs: config.objectStorage.profileAvatarOrphanGraceMs,
-        })),
+      await jobs.send(
+        CLEANUP_QUEUE,
+        {},
+        {
+          singletonSeconds: CLEANUP_SINGLETON_SECONDS,
+        },
+      );
+      await jobs.work(
+        CLEANUP_QUEUE,
+        observeJob("profile-avatars-worker", CLEANUP_QUEUE, async () =>
+          maintenance.cleanup({
+            graceMs: config.objectStorage.profileAvatarOrphanGraceMs,
+          }),
+        ),
       );
     },
   });

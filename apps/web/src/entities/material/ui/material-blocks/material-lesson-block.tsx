@@ -70,14 +70,20 @@ export function MaterialLessonBlock({
     case "takeaways":
       return (
         <MaterialTakeaways
-          items={block.content.map((item, index) => rendering.renderBlock(item, index))}
+          items={block.content.map((item, index) =>
+            rendering.renderBlock(item, index),
+          )}
           title={block.title}
         />
       );
     case "labeled_list":
       return <MaterialLabeledList rows={block.rows} />;
     case "key_point":
-      return <MaterialKeyPoint>{rendering.renderInline(block.content)}</MaterialKeyPoint>;
+      return (
+        <MaterialKeyPoint>
+          {rendering.renderInline(block.content)}
+        </MaterialKeyPoint>
+      );
     case "variant":
       // Обе ветки рисует вызывающая поверхность и передаёт готовыми: у режима нет доступа к её
       // обходу документа, а сама ветка должна приехать в разметку, чтобы переключение было мгновенным.

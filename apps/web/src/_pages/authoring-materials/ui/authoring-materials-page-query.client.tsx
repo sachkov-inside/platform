@@ -2,10 +2,7 @@
 
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { useSearchParams } from "next/navigation";
-import {
-  useCallback,
-  useMemo,
-} from "react";
+import { useCallback, useMemo } from "react";
 
 import { useLiveSearchValue } from "@/shared/lib/use-live-search-value.client";
 
@@ -24,7 +21,9 @@ import {
 
 export function AuthoringMaterialsPageQuery() {
   const searchParams = useSearchParams();
-  return <AuthoringMaterialsQueryView locationSearch={searchParams.toString()} />;
+  return (
+    <AuthoringMaterialsQueryView locationSearch={searchParams.toString()} />
+  );
 }
 
 function AuthoringMaterialsQueryView({
@@ -44,9 +43,7 @@ function AuthoringMaterialsQueryView({
         ...(query.publicationState === undefined
           ? {}
           : { state: query.publicationState }),
-        ...(debouncedSearch === undefined
-          ? {}
-          : { search: debouncedSearch }),
+        ...(debouncedSearch === undefined ? {} : { search: debouncedSearch }),
       }),
     [debouncedSearch, query.page, query.publicationState],
   );

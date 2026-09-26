@@ -1,38 +1,143 @@
-import { name as refundBasisName, statement as refundBasisStatement } from "../modules/billing/infrastructure/postgres/migrations/0066-refund-basis.js";
-import { name as starterTierAccessName, statement as starterTierAccessStatement } from "../modules/membership-entitlements/infrastructure/postgres/migrations/0068-starter-tier-access.js";
-import { name as guideMaterialRemovalsName, statement as guideMaterialRemovalsStatement } from "../modules/materials/infrastructure/postgres/migrations/0069-guide-material-removals.js";
-import { name as videoDetachmentName, statement as videoDetachmentStatement } from "../modules/videos/infrastructure/postgres/migrations/0065-video-detachment.js";
-import { name as legalAcceptancesName, statement as legalAcceptancesStatement } from "../modules/accounts/infrastructure/postgres/migrations/0067-legal-acceptances.js";
-import { name as authoringSourceName, statement as authoringSourceStatement } from "../modules/materials/infrastructure/postgres/migrations/0065-authoring-source.js";
-import { name as guidePageName, statement as guidePageStatement } from "../modules/materials/infrastructure/postgres/migrations/0070-guide-page.js";
-import { name as tributeName, statement as tributeStatement } from "../modules/membership-entitlements/infrastructure/postgres/migrations/0064-tribute-sources.js";
-import { name as enrollmentName, statement as enrollmentStatement } from "../modules/membership-entitlements/infrastructure/postgres/migrations/0063-subscription-enrollments.js";
-import { name as readerGuideModeName, statement as readerGuideModeStatement } from "../modules/reading-activity/infrastructure/postgres/migrations/0062-reader-guide-mode.js";
-import { name as lessonDifficultyAndOutcomesName, statement as lessonDifficultyAndOutcomesStatement } from "../modules/materials/infrastructure/postgres/migrations/0061-lesson-difficulty-and-outcomes.js";
-import { name as materialAnnouncementsName, statement as materialAnnouncementsStatement } from "../modules/materials/infrastructure/postgres/migrations/0060-material-announcements.js";
-import { name as oneTimePurchaseName, statement as oneTimePurchaseStatement } from "../modules/billing/infrastructure/postgres/migrations/0059-one-time-purchase.js";
-import { name as guideIntroductionName, statement as guideIntroductionStatement } from "../modules/materials/infrastructure/postgres/migrations/0057-guide-introduction.js";
-import { name as offerForSaleName, statement as offerForSaleStatement } from "../modules/billing/infrastructure/postgres/migrations/0058-offer-for-sale.js";
-import { name as billingNoticesName, statement as billingNoticesStatement } from "../modules/billing/infrastructure/postgres/migrations/0056-billing-notices.js";
-import { name as communityEntitlementsName, statement as communityEntitlementsStatement } from "../modules/telegram-membership/infrastructure/postgres/migrations/0053-community-entitlements.js";
-import { name as bookmarksName, statement as bookmarksStatement } from "../modules/bookmarks/infrastructure/postgres/migrations/0052-bookmarks.js";
-import { name as guideChaptersName, statement as guideChaptersStatement } from "../modules/materials/infrastructure/postgres/migrations/0051-guide-chapters.js";
-import { name as guideArtifactsName, statement as guideArtifactsStatement } from "../modules/materials/infrastructure/postgres/migrations/0050-guide-artifacts.js";
-import { name as scopedAccessName, statement as scopedAccessStatement } from "../modules/membership-entitlements/infrastructure/postgres/migrations/0046-scoped-access.js";
-import { name as subscriptionPaymentsName, statement as subscriptionPaymentsStatement } from "../modules/billing/infrastructure/postgres/migrations/0047-subscription-payments.js";
-import { name as subscriptionLifecycleName, statement as subscriptionLifecycleStatement } from "../modules/billing/infrastructure/postgres/migrations/0048-subscription-lifecycle.js";
-import { name as billingManagePermissionName, statement as billingManagePermissionStatement } from "../modules/accounts/infrastructure/postgres/migrations/0054-billing-manage-permission.js";
-import { name as billingOperationsName, statement as billingOperationsStatement } from "../modules/billing/infrastructure/postgres/migrations/0055-billing-operations.js";
-import { name as notificationsName, statement as notificationsStatement } from "../modules/notifications/infrastructure/postgres/migrations/0045-notifications.js";
-import { name as notificationsTransportName, statement as notificationsTransportStatement } from "../modules/notifications/infrastructure/postgres/migrations/0044-notification-transport.js";
-import { name as materialsTransportName, statement as materialsTransportStatement } from "../modules/materials/infrastructure/postgres/migrations/0043-notification-transport.js";
-import { name as billingTransportName, statement as billingTransportStatement } from "../modules/billing/infrastructure/postgres/migrations/0042-notification-transport.js";
-import { name as billingPricingName, statement as billingPricingStatement } from "../modules/billing/infrastructure/postgres/migrations/0040-billing-pricing.js";
-import { name as telegramLinkRevisionsName, statement as telegramLinkRevisionsStatement } from "../modules/telegram-membership/infrastructure/postgres/migrations/0039-telegram-link-revisions.js";
-import { name as accountAccessName, statement as accountAccessStatement } from "../modules/membership-entitlements/infrastructure/postgres/migrations/0038-account-access.js";
-import { name as billingContactName, statement as billingContactStatement } from "../modules/accounts/infrastructure/postgres/migrations/0041-billing-contact.js";
-import { name as homeSeriesPinName, statement as homeSeriesPinStatement } from "../modules/materials/infrastructure/postgres/migrations/0039-home-series-pin.js";
-import { name as homeMaterialPinName, statement as homeMaterialPinStatement } from "../modules/materials/infrastructure/postgres/migrations/0038-home-material-pin.js";
+import {
+  name as refundBasisName,
+  statement as refundBasisStatement,
+} from "../modules/billing/infrastructure/postgres/migrations/0066-refund-basis.js";
+import {
+  name as starterTierAccessName,
+  statement as starterTierAccessStatement,
+} from "../modules/membership-entitlements/infrastructure/postgres/migrations/0068-starter-tier-access.js";
+import {
+  name as guideMaterialRemovalsName,
+  statement as guideMaterialRemovalsStatement,
+} from "../modules/materials/infrastructure/postgres/migrations/0069-guide-material-removals.js";
+import {
+  name as videoDetachmentName,
+  statement as videoDetachmentStatement,
+} from "../modules/videos/infrastructure/postgres/migrations/0065-video-detachment.js";
+import {
+  name as legalAcceptancesName,
+  statement as legalAcceptancesStatement,
+} from "../modules/accounts/infrastructure/postgres/migrations/0067-legal-acceptances.js";
+import {
+  name as authoringSourceName,
+  statement as authoringSourceStatement,
+} from "../modules/materials/infrastructure/postgres/migrations/0065-authoring-source.js";
+import {
+  name as guidePageName,
+  statement as guidePageStatement,
+} from "../modules/materials/infrastructure/postgres/migrations/0070-guide-page.js";
+import {
+  name as tributeName,
+  statement as tributeStatement,
+} from "../modules/membership-entitlements/infrastructure/postgres/migrations/0064-tribute-sources.js";
+import {
+  name as enrollmentName,
+  statement as enrollmentStatement,
+} from "../modules/membership-entitlements/infrastructure/postgres/migrations/0063-subscription-enrollments.js";
+import {
+  name as readerGuideModeName,
+  statement as readerGuideModeStatement,
+} from "../modules/reading-activity/infrastructure/postgres/migrations/0062-reader-guide-mode.js";
+import {
+  name as lessonDifficultyAndOutcomesName,
+  statement as lessonDifficultyAndOutcomesStatement,
+} from "../modules/materials/infrastructure/postgres/migrations/0061-lesson-difficulty-and-outcomes.js";
+import {
+  name as materialAnnouncementsName,
+  statement as materialAnnouncementsStatement,
+} from "../modules/materials/infrastructure/postgres/migrations/0060-material-announcements.js";
+import {
+  name as oneTimePurchaseName,
+  statement as oneTimePurchaseStatement,
+} from "../modules/billing/infrastructure/postgres/migrations/0059-one-time-purchase.js";
+import {
+  name as guideIntroductionName,
+  statement as guideIntroductionStatement,
+} from "../modules/materials/infrastructure/postgres/migrations/0057-guide-introduction.js";
+import {
+  name as offerForSaleName,
+  statement as offerForSaleStatement,
+} from "../modules/billing/infrastructure/postgres/migrations/0058-offer-for-sale.js";
+import {
+  name as billingNoticesName,
+  statement as billingNoticesStatement,
+} from "../modules/billing/infrastructure/postgres/migrations/0056-billing-notices.js";
+import {
+  name as communityEntitlementsName,
+  statement as communityEntitlementsStatement,
+} from "../modules/telegram-membership/infrastructure/postgres/migrations/0053-community-entitlements.js";
+import {
+  name as bookmarksName,
+  statement as bookmarksStatement,
+} from "../modules/bookmarks/infrastructure/postgres/migrations/0052-bookmarks.js";
+import {
+  name as guideChaptersName,
+  statement as guideChaptersStatement,
+} from "../modules/materials/infrastructure/postgres/migrations/0051-guide-chapters.js";
+import {
+  name as guideArtifactsName,
+  statement as guideArtifactsStatement,
+} from "../modules/materials/infrastructure/postgres/migrations/0050-guide-artifacts.js";
+import {
+  name as scopedAccessName,
+  statement as scopedAccessStatement,
+} from "../modules/membership-entitlements/infrastructure/postgres/migrations/0046-scoped-access.js";
+import {
+  name as subscriptionPaymentsName,
+  statement as subscriptionPaymentsStatement,
+} from "../modules/billing/infrastructure/postgres/migrations/0047-subscription-payments.js";
+import {
+  name as subscriptionLifecycleName,
+  statement as subscriptionLifecycleStatement,
+} from "../modules/billing/infrastructure/postgres/migrations/0048-subscription-lifecycle.js";
+import {
+  name as billingManagePermissionName,
+  statement as billingManagePermissionStatement,
+} from "../modules/accounts/infrastructure/postgres/migrations/0054-billing-manage-permission.js";
+import {
+  name as billingOperationsName,
+  statement as billingOperationsStatement,
+} from "../modules/billing/infrastructure/postgres/migrations/0055-billing-operations.js";
+import {
+  name as notificationsName,
+  statement as notificationsStatement,
+} from "../modules/notifications/infrastructure/postgres/migrations/0045-notifications.js";
+import {
+  name as notificationsTransportName,
+  statement as notificationsTransportStatement,
+} from "../modules/notifications/infrastructure/postgres/migrations/0044-notification-transport.js";
+import {
+  name as materialsTransportName,
+  statement as materialsTransportStatement,
+} from "../modules/materials/infrastructure/postgres/migrations/0043-notification-transport.js";
+import {
+  name as billingTransportName,
+  statement as billingTransportStatement,
+} from "../modules/billing/infrastructure/postgres/migrations/0042-notification-transport.js";
+import {
+  name as billingPricingName,
+  statement as billingPricingStatement,
+} from "../modules/billing/infrastructure/postgres/migrations/0040-billing-pricing.js";
+import {
+  name as telegramLinkRevisionsName,
+  statement as telegramLinkRevisionsStatement,
+} from "../modules/telegram-membership/infrastructure/postgres/migrations/0039-telegram-link-revisions.js";
+import {
+  name as accountAccessName,
+  statement as accountAccessStatement,
+} from "../modules/membership-entitlements/infrastructure/postgres/migrations/0038-account-access.js";
+import {
+  name as billingContactName,
+  statement as billingContactStatement,
+} from "../modules/accounts/infrastructure/postgres/migrations/0041-billing-contact.js";
+import {
+  name as homeSeriesPinName,
+  statement as homeSeriesPinStatement,
+} from "../modules/materials/infrastructure/postgres/migrations/0039-home-series-pin.js";
+import {
+  name as homeMaterialPinName,
+  statement as homeMaterialPinStatement,
+} from "../modules/materials/infrastructure/postgres/migrations/0038-home-material-pin.js";
 import {
   name as platformAdminName,
   statement as platformAdminStatement,
@@ -319,29 +424,47 @@ export const platformMigrations = [
   },
   { name: platformAdminName, statement: platformAdminStatement },
   { name: accountAccessName, statement: accountAccessStatement },
-  { name: telegramLinkRevisionsName, statement: telegramLinkRevisionsStatement },
+  {
+    name: telegramLinkRevisionsName,
+    statement: telegramLinkRevisionsStatement,
+  },
   { name: billingPricingName, statement: billingPricingStatement },
   { name: billingContactName, statement: billingContactStatement },
   { name: billingTransportName, statement: billingTransportStatement },
   { name: materialsTransportName, statement: materialsTransportStatement },
-  { name: notificationsTransportName, statement: notificationsTransportStatement },
+  {
+    name: notificationsTransportName,
+    statement: notificationsTransportStatement,
+  },
   { name: notificationsName, statement: notificationsStatement },
   { name: homeMaterialPinName, statement: homeMaterialPinStatement },
   { name: homeSeriesPinName, statement: homeSeriesPinStatement },
   { name: scopedAccessName, statement: scopedAccessStatement },
   { name: subscriptionPaymentsName, statement: subscriptionPaymentsStatement },
-  { name: subscriptionLifecycleName, statement: subscriptionLifecycleStatement },
+  {
+    name: subscriptionLifecycleName,
+    statement: subscriptionLifecycleStatement,
+  },
   { name: guideArtifactsName, statement: guideArtifactsStatement },
   { name: guideChaptersName, statement: guideChaptersStatement },
   { name: bookmarksName, statement: bookmarksStatement },
-  { name: communityEntitlementsName, statement: communityEntitlementsStatement },
-  { name: billingManagePermissionName, statement: billingManagePermissionStatement },
+  {
+    name: communityEntitlementsName,
+    statement: communityEntitlementsStatement,
+  },
+  {
+    name: billingManagePermissionName,
+    statement: billingManagePermissionStatement,
+  },
   { name: billingOperationsName, statement: billingOperationsStatement },
   { name: billingNoticesName, statement: billingNoticesStatement },
   { name: guideIntroductionName, statement: guideIntroductionStatement },
   { name: offerForSaleName, statement: offerForSaleStatement },
   { name: oneTimePurchaseName, statement: oneTimePurchaseStatement },
-  { name: materialAnnouncementsName, statement: materialAnnouncementsStatement },
+  {
+    name: materialAnnouncementsName,
+    statement: materialAnnouncementsStatement,
+  },
   {
     name: lessonDifficultyAndOutcomesName,
     statement: lessonDifficultyAndOutcomesStatement,
@@ -351,7 +474,10 @@ export const platformMigrations = [
   { name: tributeName, statement: tributeStatement },
   { name: legalAcceptancesName, statement: legalAcceptancesStatement },
   { name: videoDetachmentName, statement: videoDetachmentStatement },
-  { name: guideMaterialRemovalsName, statement: guideMaterialRemovalsStatement },
+  {
+    name: guideMaterialRemovalsName,
+    statement: guideMaterialRemovalsStatement,
+  },
   { name: refundBasisName, statement: refundBasisStatement },
   { name: starterTierAccessName, statement: starterTierAccessStatement },
   { name: authoringSourceName, statement: authoringSourceStatement },

@@ -12,13 +12,20 @@ import {
 import { getMaterialAuthoringReferences } from "@/features/material-authoring-references.server";
 import { MaterialAuthoringPageClient } from "./material-authoring-page.client";
 
-export async function MaterialAuthoringPage({ returnHref }: { readonly returnHref: Route }) {
+export async function MaterialAuthoringPage({
+  returnHref,
+}: {
+  readonly returnHref: Route;
+}) {
   const session = await resolvePlatformSession();
   if (session.kind === "unexpected_error") {
     return (
       <MaterialAuthoringUnexpectedEditorState
         reference="identity-session"
-        retryHref={withAuthoringReturnHref("/authoring/materials/new", returnHref)}
+        retryHref={withAuthoringReturnHref(
+          "/authoring/materials/new",
+          returnHref,
+        )}
         returnHref={returnHref}
       />
     );
@@ -31,16 +38,23 @@ export async function MaterialAuthoringPage({ returnHref }: { readonly returnHre
     return (
       <MaterialAuthoringUnexpectedEditorState
         reference={references.reference}
-        retryHref={withAuthoringReturnHref("/authoring/materials/new", returnHref)}
+        retryHref={withAuthoringReturnHref(
+          "/authoring/materials/new",
+          returnHref,
+        )}
         returnHref={returnHref}
       />
     );
   }
   const initialPresentation: MaterialAuthoringPresentation = {
-    availableFormats: references?.kind === "ready" ? references.references.formats : [],
-    availableSeries: references?.kind === "ready" ? references.references.series : [],
-    availableTags: references?.kind === "ready" ? references.references.tags : [],
-    availableTopics: references?.kind === "ready" ? references.references.topics : [],
+    availableFormats:
+      references?.kind === "ready" ? references.references.formats : [],
+    availableSeries:
+      references?.kind === "ready" ? references.references.series : [],
+    availableTags:
+      references?.kind === "ready" ? references.references.tags : [],
+    availableTopics:
+      references?.kind === "ready" ? references.references.topics : [],
     authorization: {
       kind:
         session.kind === "allowed" && references?.kind === "ready"

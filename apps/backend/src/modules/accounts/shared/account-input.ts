@@ -21,7 +21,10 @@ export function validLogtoIdentity(value: {
   return URL.parse(value.issuer)?.protocol === "https:";
 }
 
-export function fingerprintEmail(email: string, key: string): string | undefined {
+export function fingerprintEmail(
+  email: string,
+  key: string,
+): string | undefined {
   const normalized = normalizeEmail(email);
   if (normalized === undefined) {
     return undefined;

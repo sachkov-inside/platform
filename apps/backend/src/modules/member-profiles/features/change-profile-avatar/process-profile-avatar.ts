@@ -45,7 +45,8 @@ export async function processProfileAvatar(input: {
   readonly declaredSize: number;
   readonly expectedChecksumSha256: string;
 }): Promise<ProcessProfileAvatarResult> {
-  if (input.body.byteLength !== input.declaredSize) return failure("size_mismatch");
+  if (input.body.byteLength !== input.declaredSize)
+    return failure("size_mismatch");
   if (
     input.body.byteLength === 0 ||
     input.body.byteLength > PROFILE_AVATAR_LIMITS.bytes
@@ -203,6 +204,8 @@ function readBigEndianUint32(body: Uint8Array, offset: number): number {
   );
 }
 
-function failure(reason: ProfileAvatarInvalidReason): ProcessProfileAvatarResult {
+function failure(
+  reason: ProfileAvatarInvalidReason,
+): ProcessProfileAvatarResult {
   return { error: { reason }, ok: false };
 }

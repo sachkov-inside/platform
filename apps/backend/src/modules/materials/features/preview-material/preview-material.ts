@@ -4,9 +4,7 @@ import { z } from "zod";
 
 import { dependencyFailure } from "../../../../infrastructure/observability/index.js";
 import { accountId as checkedAccountId } from "../../../accounts/index.js";
-import type {
-  PreviewMaterialOperation,
-} from "./preview-material.contract.js";
+import type { PreviewMaterialOperation } from "./preview-material.contract.js";
 import type { MaterialAuthoringDependencies } from "../../facets/material-authoring/material-authoring.dependencies.js";
 import { loadCurrentMaterial } from "../../infrastructure/postgres/current-material.js";
 import { failure } from "../../shared/application-result.js";
@@ -79,14 +77,17 @@ export function assemblePreviewMaterial(
       if (!rendered.ok) {
         return rendered;
       }
-      const resources = dependencies.materialBodyOperations.extract(current.value.body);
+      const resources = dependencies.materialBodyOperations.extract(
+        current.value.body,
+      );
       if (!resources.ok) return resources;
-      const loadedPresentations = dependencies.materialAssets === undefined
-        ? { ok: true as const, value: [] }
-        : await dependencies.materialAssets.loadPresentations(
-            parsed.value.materialId,
-            resources.value.resources.map((resource) => resource.assetId),
-          );
+      const loadedPresentations =
+        dependencies.materialAssets === undefined
+          ? { ok: true as const, value: [] }
+          : await dependencies.materialAssets.loadPresentations(
+              parsed.value.materialId,
+              resources.value.resources.map((resource) => resource.assetId),
+            );
       if (!loadedPresentations.ok) return loadedPresentations;
       return {
         ok: true,
@@ -96,11 +97,21 @@ export function assemblePreviewMaterial(
           publicationState: current.value.lifecycle.publicationState,
           metadata: current.value.metadata.toValues(),
           cacheScope: "private-no-store",
-          body: hydrateMaterialAssets(rendered.value, loadedPresentations.value),
+          body: hydrateMaterialAssets(
+            rendered.value,
+            loadedPresentations.value,
+          ),
         },
       };
     } catch (error) {
-      return { ok: false, error: dependencyFailure({ module: "materials", operation: "previewMaterial" }, error, mapPostgresReadError(error)) };
+      return {
+        ok: false,
+        error: dependencyFailure(
+          { module: "materials", operation: "previewMaterial" },
+          error,
+          mapPostgresReadError(error),
+        ),
+      };
     }
   };
 }

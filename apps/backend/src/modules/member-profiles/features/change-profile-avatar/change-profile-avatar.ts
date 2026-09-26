@@ -2,7 +2,10 @@ import { randomUUID } from "node:crypto";
 
 import { lockProfileAvatarOwner } from "../../../../infrastructure/prisma/index.js";
 import type { ObjectStorage } from "../../../../infrastructure/object-storage/index.js";
-import { dependencyFailure, reportDependencyFailure } from "../../../../infrastructure/observability/index.js";
+import {
+  dependencyFailure,
+  reportDependencyFailure,
+} from "../../../../infrastructure/observability/index.js";
 import type { AccountId } from "../../../accounts/index.js";
 import type {
   ChangeProfileAvatarCommand,
@@ -29,12 +32,17 @@ export async function changeProfileAvatar(
     const profile = await dependencies.prisma.memberProfile.findUnique({
       where: { accountId: command.accountId },
     });
-    if (profile === null) return { error: { code: "profile_not_found" }, ok: false };
+    if (profile === null)
+      return { error: { code: "profile_not_found" }, ok: false };
     if (profile.version !== command.expectedVersion) {
       return conflict(profile.version);
     }
     if (command.kind === "remove") {
-      return await removeAvatar(dependencies, command.accountId, command.expectedVersion);
+      return await removeAvatar(
+        dependencies,
+        command.accountId,
+        command.expectedVersion,
+      );
     }
 
     const processed = await processProfileAvatar(command);
@@ -51,7 +59,11 @@ export async function changeProfileAvatar(
       processed.renditions,
     );
   } catch (error) {
-    return dependencyFailure({ module: "member-profiles", operation: "changeProfileAvatar" }, error, { error: { code: "dependency_unavailable" }, ok: false });
+    return dependencyFailure(
+      { module: "member-profiles", operation: "changeProfileAvatar" },
+      error,
+      { error: { code: "dependency_unavailable" }, ok: false },
+    );
   }
 }
 
@@ -100,9 +112,16 @@ async function uploadAvatar(
       throw new Error("Profile avatar storage failed");
     }
   } catch (error) {
-    reportDependencyFailure({ module: "member-profiles", operation: "uploadAvatar" }, error);
+    reportDependencyFailure(
+      { module: "member-profiles", operation: "uploadAvatar" },
+      error,
+    );
     await prisma.profileAvatar.updateMany({
-      data: { failureCode: "storage_failure", state: "failed", updatedAt: new Date() },
+      data: {
+        failureCode: "storage_failure",
+        state: "failed",
+        updatedAt: new Date(),
+      },
       where: { id: avatarId, state: "processing" },
     });
     return { error: { code: "dependency_unavailable" }, ok: false };
@@ -115,7 +134,11 @@ async function uploadAvatar(
     });
     if (current === null) {
       await transaction.profileAvatar.update({
-        data: { failureCode: "profile_not_found", state: "failed", updatedAt: new Date() },
+        data: {
+          failureCode: "profile_not_found",
+          state: "failed",
+          updatedAt: new Date(),
+        },
         where: { id: avatarId },
       });
       return { error: { code: "profile_not_found" }, ok: false };
@@ -126,7 +149,11 @@ async function uploadAvatar(
     });
     if (changed.count !== 1) {
       await transaction.profileAvatar.update({
-        data: { failureCode: "version_conflict", state: "failed", updatedAt: new Date() },
+        data: {
+          failureCode: "version_conflict",
+          state: "failed",
+          updatedAt: new Date(),
+        },
         where: { id: avatarId },
       });
       return conflict(current.version);
@@ -154,13 +181,17 @@ async function uploadAvatar(
     await transaction.memberProfileAuditEvent.create({
       data: {
         accountId,
-        event: current.avatarId === null ? "avatar_uploaded" : "avatar_replaced",
+        event:
+          current.avatarId === null ? "avatar_uploaded" : "avatar_replaced",
         id: randomUUID(),
         publicProfileId: current.publicProfileId,
       },
     });
-    const updated = await transaction.memberProfile.findUnique({ where: { accountId } });
-    const projection = updated === null ? null : privateProfileProjection(updated);
+    const updated = await transaction.memberProfile.findUnique({
+      where: { accountId },
+    });
+    const projection =
+      updated === null ? null : privateProfileProjection(updated);
     if (projection === null) throw new TypeError("Invalid Profile persistence");
     return { ok: true, profile: projection };
   });
@@ -173,10 +204,17 @@ async function removeAvatar(
 ): Promise<ChangeProfileAvatarResult> {
   return prisma.$transaction(async (transaction) => {
     await lockProfileAvatarOwner(transaction, accountId);
-    const current = await transaction.memberProfile.findUnique({ where: { accountId } });
-    if (current === null) return { error: { code: "profile_not_found" }, ok: false };
+    const current = await transaction.memberProfile.findUnique({
+      where: { accountId },
+    });
+    if (current === null)
+      return { error: { code: "profile_not_found" }, ok: false };
     const changed = await transaction.memberProfile.updateMany({
-      data: { avatarId: null, updatedAt: new Date(), version: { increment: 1 } },
+      data: {
+        avatarId: null,
+        updatedAt: new Date(),
+        version: { increment: 1 },
+      },
       where: { accountId, version: expectedVersion },
     });
     if (changed.count !== 1) return conflict(current.version);
@@ -198,8 +236,11 @@ async function removeAvatar(
         },
       });
     }
-    const updated = await transaction.memberProfile.findUnique({ where: { accountId } });
-    const projection = updated === null ? null : privateProfileProjection(updated);
+    const updated = await transaction.memberProfile.findUnique({
+      where: { accountId },
+    });
+    const projection =
+      updated === null ? null : privateProfileProjection(updated);
     if (projection === null) throw new TypeError("Invalid Profile persistence");
     return { ok: true, profile: projection };
   });

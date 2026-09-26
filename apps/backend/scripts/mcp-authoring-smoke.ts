@@ -66,7 +66,9 @@ try {
   // Видимость инструмента и разрешение `materials:manage` не дают автору полномочий коммуникаций.
   // Ожидаемый код отказа приходит из контракта модуля, поэтому смена контракта меняет и сервер,
   // и эту проверку.
-  await materialsOnlyClient.connect(delegatedTransport(materialsOnlyAccessToken));
+  await materialsOnlyClient.connect(
+    delegatedTransport(materialsOnlyAccessToken),
+  );
   const denied = await callTool(
     "communications_templates_list",
     {
@@ -79,7 +81,9 @@ try {
   assertField(denied, "isError", true, "communications permission denial");
   const denial = z.strictObject({
     ok: z.literal(false),
-    error: z.strictObject({ code: z.literal(COMMUNICATIONS_PERMISSION_DENIED) }),
+    error: z.strictObject({
+      code: z.literal(COMMUNICATIONS_PERMISSION_DENIED),
+    }),
   });
   denial.parse(denied.structuredContent);
 

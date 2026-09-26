@@ -17,7 +17,10 @@ export default defineConfig({
   projects: [
     {
       name: "pinned-logto-chromium",
-      use: { browserName: "chromium", viewport: { width: 1_440, height: 1_024 } },
+      use: {
+        browserName: "chromium",
+        viewport: { width: 1_440, height: 1_024 },
+      },
     },
   ],
 });

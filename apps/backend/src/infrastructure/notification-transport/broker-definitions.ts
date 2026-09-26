@@ -1,18 +1,34 @@
-import { createHash, randomBytes } from 'node:crypto';
-import { brokerUrlSchema, oneBrokerEnvironment, parseNotificationsConfig } from '../../config/notifications-config.js';
-import { NOTIFICATION_QUEUE_CAPACITY, notificationTopology } from './topology.js';
+import { createHash, randomBytes } from "node:crypto";
+import {
+  brokerUrlSchema,
+  oneBrokerEnvironment,
+  parseNotificationsConfig,
+} from "../../config/notifications-config.js";
+import {
+  NOTIFICATION_QUEUE_CAPACITY,
+  notificationTopology,
+} from "./topology.js";
 
-const refusal = () => new Error('Invalid notification broker credentials for deployment definitions');
+const refusal = () =>
+  new Error(
+    "Invalid notification broker credentials for deployment definitions",
+  );
 
 /** RabbitMQ `rabbit_password_hashing_sha256`: base64 от 4 байт случайной соли и SHA-256(соль + пароль). */
 function rabbitPasswordHash(password: string): string {
   const salt = randomBytes(4);
-  return Buffer.concat([salt, createHash('sha256').update(salt).update(password).digest()]).toString('base64');
+  return Buffer.concat([
+    salt,
+    createHash("sha256").update(salt).update(password).digest(),
+  ]).toString("base64");
 }
 
 function principal(value: string) {
   const url = new URL(value);
-  return { username: decodeURIComponent(url.username), passwordHash: rabbitPasswordHash(decodeURIComponent(url.password)) };
+  return {
+    username: decodeURIComponent(url.username),
+    passwordHash: rabbitPasswordHash(decodeURIComponent(url.password)),
+  };
 }
 
 /**
@@ -23,14 +39,35 @@ function principal(value: string) {
  */
 export function notificationBrokerDefinitions(environment: NodeJS.ProcessEnv) {
   let platform: ReturnType<typeof parseNotificationsConfig>;
-  try { platform = parseNotificationsConfig(environment); } catch { throw refusal(); }
-  const telegram = brokerUrlSchema.safeParse(environment.NOTIFICATIONS_TELEGRAM_BROKER_URL);
+  try {
+    platform = parseNotificationsConfig(environment);
+  } catch {
+    throw refusal();
+  }
+  const telegram = brokerUrlSchema.safeParse(
+    environment.NOTIFICATIONS_TELEGRAM_BROKER_URL,
+  );
   if (platform === undefined || !telegram.success) throw refusal();
   const { billing, materials, notifications, email } = platform.urls;
-  if (!oneBrokerEnvironment([billing, materials, notifications, email, telegram.data])) throw refusal();
+  if (
+    !oneBrokerEnvironment([
+      billing,
+      materials,
+      notifications,
+      email,
+      telegram.data,
+    ])
+  )
+    throw refusal();
   return notificationTopology({
-    vhost: decodeURIComponent(new URL(billing).pathname.slice(1)), queueCapacity: NOTIFICATION_QUEUE_CAPACITY,
-    principals: { billing: principal(billing), materials: principal(materials), notifications: principal(notifications),
-      email: principal(email), telegram: principal(telegram.data) },
+    vhost: decodeURIComponent(new URL(billing).pathname.slice(1)),
+    queueCapacity: NOTIFICATION_QUEUE_CAPACITY,
+    principals: {
+      billing: principal(billing),
+      materials: principal(materials),
+      notifications: principal(notifications),
+      email: principal(email),
+      telegram: principal(telegram.data),
+    },
   });
 }

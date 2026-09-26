@@ -53,26 +53,47 @@ describe("Library TanStack Query interface", () => {
   });
 
   it("keeps home feed pages out of the full catalog cache", async () => {
-    const fetchMock = vi.fn<typeof fetch>().mockResolvedValue(Response.json(readyCatalog));
+    const fetchMock = vi
+      .fn<typeof fetch>()
+      .mockResolvedValue(Response.json(readyCatalog));
     vi.stubGlobal("fetch", fetchMock);
     const client = new QueryClient();
     const feed = homeFeedQueryOptions(defaultQuery);
     expect(feed.queryKey).not.toEqual(libraryCatalogQueryKey(defaultQuery));
     await client.infiniteQuery(feed);
     expect(fetchMock.mock.calls[0]?.[0]).toBe("/api/home/materials");
-    expect(client.getQueryData(libraryCatalogQueryKey(defaultQuery))).toBeUndefined();
+    expect(
+      client.getQueryData(libraryCatalogQueryKey(defaultQuery)),
+    ).toBeUndefined();
   });
 
   it("binds the home BFF to feed scope and rejects a client override", async () => {
     vi.stubEnv("BACKEND_BASE_URL", "https://platform-api.example.test");
-    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(Response.json({ facets: { formats: [], series: [], topics: [] }, items: [], nextCursor: null, totalCount: 0 })));
-    const refused = await GET_HOME_MATERIALS(new Request("https://platform-web.example.test/api/home/materials?feedOnly=false"));
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(
+        Response.json({
+          facets: { formats: [], series: [], topics: [] },
+          items: [],
+          nextCursor: null,
+          totalCount: 0,
+        }),
+      ),
+    );
+    const refused = await GET_HOME_MATERIALS(
+      new Request(
+        "https://platform-web.example.test/api/home/materials?feedOnly=false",
+      ),
+    );
     expect(refused.status).toBe(400);
     expect(fetch).not.toHaveBeenCalled();
-    const response = await GET_HOME_MATERIALS(new Request("https://platform-web.example.test/api/home/materials"));
+    const response = await GET_HOME_MATERIALS(
+      new Request("https://platform-web.example.test/api/home/materials"),
+    );
     expect(response.status).toBe(200);
     const request = vi.mocked(fetch).mock.calls[0]?.[0];
-    if (!(request instanceof Request)) throw new Error("Missing backend request");
+    if (!(request instanceof Request))
+      throw new Error("Missing backend request");
     expect(new URL(request.url).searchParams.get("feedOnly")).toBe("true");
   });
 
@@ -112,9 +133,7 @@ describe("Library TanStack Query interface", () => {
       q: "platform",
       topicSlug: "product-engineering",
     });
-    expect(
-      changeLibraryQuery(initial, { topicSlug: "career" }),
-    ).toMatchObject({
+    expect(changeLibraryQuery(initial, { topicSlug: "career" })).toMatchObject({
       after: null,
       q: "platform",
       topicSlug: "career",
@@ -152,9 +171,7 @@ describe("Library TanStack Query interface", () => {
     ]);
     expect(
       libraryCatalogQueryKey({ ...defaultQuery, after: "next_cursor" }),
-    ).toEqual(
-      libraryCatalogQueryKey(defaultQuery),
-    );
+    ).toEqual(libraryCatalogQueryKey(defaultQuery));
   });
 
   it("stores cursor continuations as pages of one infinite query", async () => {
@@ -275,9 +292,11 @@ describe("Library TanStack Query interface", () => {
   it("rejects a browser response outside the presentation contract", async () => {
     vi.stubGlobal(
       "fetch",
-      vi.fn().mockResolvedValue(
-        Response.json({ ...readyCatalog, items: [{ title: "Incomplete" }] }),
-      ),
+      vi
+        .fn()
+        .mockResolvedValue(
+          Response.json({ ...readyCatalog, items: [{ title: "Incomplete" }] }),
+        ),
     );
 
     await expect(
@@ -288,7 +307,8 @@ describe("Library TanStack Query interface", () => {
       ),
     ).rejects.toMatchObject({
       name: "LibraryCatalogQueryError",
-      message: "Library query response does not match the presentation contract",
+      message:
+        "Library query response does not match the presentation contract",
     });
   });
 

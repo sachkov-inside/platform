@@ -18,7 +18,11 @@ export async function proxyOwnProfileAvatarDelivery(
   try {
     const accessToken = await getOptionalPlatformAccessToken(request);
     if (accessToken === undefined)
-      return backendProxyProblem(401, "unauthorized", "Sign in to see your avatar");
+      return backendProxyProblem(
+        401,
+        "unauthorized",
+        "Sign in to see your avatar",
+      );
     const response = await requestOwnProfileAvatarDelivery({
       accessToken,
       ...input,

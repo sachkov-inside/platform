@@ -6,7 +6,10 @@ import { accountId } from "../../../accounts/index.js";
 import { dependencyFailure } from "../../../../infrastructure/observability/index.js";
 import { lockMaterialReferenceChanges } from "../../../../infrastructure/prisma/index.js";
 import type { WorkshopPrismaClient } from "../../infrastructure/prisma.js";
-import type { SourceArchives, StoredSourceArchive } from "../../ports/source-archives.js";
+import type {
+  SourceArchives,
+  StoredSourceArchive,
+} from "../../ports/source-archives.js";
 import type { WorkshopMaterialCatalog } from "../../ports/workshop-material-catalog.js";
 import type { WorkshopOwnerPolicy } from "../../ports/workshop-owner-policy.js";
 import {
@@ -54,7 +57,12 @@ const materialSchema = z
         role === "walkthrough" ||
         role === "alternatives") &&
         releasePolicy.kind === "solution_reveal");
-    if (!matches) context.addIssue({ code: "custom", path: ["releasePolicy"], message: "Release policy does not match Material role" });
+    if (!matches)
+      context.addIssue({
+        code: "custom",
+        path: ["releasePolicy"],
+        message: "Release policy does not match Material role",
+      });
   });
 const commandSchema = z
   .object({
@@ -63,7 +71,10 @@ const commandSchema = z
     workshopScope: workshopScopeSchema,
     caseVersion: z.string().trim().min(1).max(128),
     schemaVersion: z.string().trim().min(1).max(128),
-    sourceRepository: z.string().regex(/^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/u).max(256),
+    sourceRepository: z
+      .string()
+      .regex(/^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/u)
+      .max(256),
     sourceCommit: z.hash("sha1"),
     caseSpec: z.record(z.string(), z.json()),
     contentDigest: z.hash("sha256"),
@@ -71,7 +82,10 @@ const commandSchema = z
       .array(
         z
           .object({
-            name: z.string().regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/u).max(128),
+            name: z
+              .string()
+              .regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/u)
+              .max(128),
             body: z.instanceof(Uint8Array),
             contentType: z.string().trim().min(1).max(255),
             retentionTime: z.iso.datetime({ offset: true }),
@@ -131,7 +145,11 @@ export async function publishWorkshopCase(
       digest: sha256(artifact.body),
     }));
     const fingerprint = publicationFingerprint(parsed.data, artifactInputs);
-    const replay = await findPublicationReplay(dependencies.prisma, parsed.data, fingerprint);
+    const replay = await findPublicationReplay(
+      dependencies.prisma,
+      parsed.data,
+      fingerprint,
+    );
     if (replay !== undefined) return replay;
 
     const requestedMaterialIds = parsed.data.materials.map(
@@ -239,10 +257,21 @@ export async function publishWorkshopCase(
         parsed.data,
         fingerprint,
       );
-      return replay ?? dependencyFailure({ module: "workshop", operation: "publishWorkshopCase" }, error, failure("dependency_unavailable"));
+      return (
+        replay ??
+        dependencyFailure(
+          { module: "workshop", operation: "publishWorkshopCase" },
+          error,
+          failure("dependency_unavailable"),
+        )
+      );
     }
   } catch (error) {
-    return dependencyFailure({ module: "workshop", operation: "publishWorkshopCase" }, error, failure("dependency_unavailable"));
+    return dependencyFailure(
+      { module: "workshop", operation: "publishWorkshopCase" },
+      error,
+      failure("dependency_unavailable"),
+    );
   }
 }
 
@@ -255,14 +284,16 @@ async function workshopMaterialsAreValid(
   const materialFactIds = new Set(
     materialFacts.map(({ materialId }) => materialId),
   );
-  return materialFacts.length === materialIds.length &&
+  return (
+    materialFacts.length === materialIds.length &&
     materialFactIds.size === requestedMaterialIds.size &&
     materialFacts.every(
       ({ access, materialId, publicationState }) =>
         requestedMaterialIds.has(materialId) &&
         access === "workshop" &&
         publicationState === "published",
-    );
+    )
+  );
 }
 
 async function findPublicationReplay(
@@ -361,7 +392,10 @@ function success(
 }
 
 function failure(
-  code: Extract<PublishWorkshopCaseResult, { readonly ok: false }>["error"]["code"],
+  code: Extract<
+    PublishWorkshopCaseResult,
+    { readonly ok: false }
+  >["error"]["code"],
 ): Extract<PublishWorkshopCaseResult, { readonly ok: false }> {
   return { ok: false, error: { code } };
 }

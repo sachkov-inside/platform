@@ -56,7 +56,10 @@ export class TrackingHitPump
         .deliverPending()
         // The persisted backlog is retained and delivered on the next tick.
         .catch((error: unknown) => {
-          reportDependencyFailure({ module: "communications", operation: "deliverPending" }, error);
+          reportDependencyFailure(
+            { module: "communications", operation: "deliverPending" },
+            error,
+          );
         })
         .finally(() => {
           if (!this.stopped) this.schedule();

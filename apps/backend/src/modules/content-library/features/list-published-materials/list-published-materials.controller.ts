@@ -1,9 +1,4 @@
-import {
-  Controller,
-  Get,
-  Inject,
-  Query,
-} from "@nestjs/common";
+import { Controller, Get, Inject, Query } from "@nestjs/common";
 import {
   ApiBadRequestResponse,
   ApiInternalServerErrorResponse,
@@ -84,7 +79,11 @@ export class ListPublishedMaterialsController {
   ) {}
 
   @Get("materials")
-  @ApiQuery({ name: "feedOnly", required: false, schema: toOpenApiSchema(z.boolean()) })
+  @ApiQuery({
+    name: "feedOnly",
+    required: false,
+    schema: toOpenApiSchema(z.boolean()),
+  })
   @ApiOperation({
     operationId: "listPublishedMaterials",
     summary: "List safe published Material projections",
@@ -192,9 +191,7 @@ export class ListPublishedMaterialsController {
           ? {}
           : { canonicalTopicSlug: canonicalTopic }),
         ...(q === undefined ? {} : { q }),
-        ...(parsedSort === undefined
-          ? {}
-          : { sort: parsedSort.data }),
+        ...(parsedSort === undefined ? {} : { sort: parsedSort.data }),
         formatSlugs: queryValues(parsed.data.format),
         seriesSlugs: queryValues(parsed.data.series),
         topicSlugs: queryValues(parsed.data.topic),

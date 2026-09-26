@@ -40,17 +40,20 @@ vi.mock("next/headers", () => ({
 
 describe("Logto BFF configuration", () => {
   it("pins one issuer, callback, audience and secure cookie boundary", () => {
-    const config = parseLogtoBffConfig({
-      ...productionRuntimeIdentity,
-      NODE_ENV: "production",
-      BACKEND_BASE_URL: "https://api-internal.example.test",
-      LOGTO_ENDPOINT: "https://identity.example.test",
-      LOGTO_AUDIENCE: "https://api.example.test",
-      LOGTO_APP_ID: "inside-web",
-      LOGTO_APP_SECRET: "inside-web-confidential-secret",
-      LOGTO_COOKIE_SECRET: secret,
-      WEB_BASE_URL: "https://inside.example.test",
-    }, embeddedRuntimeIdentity);
+    const config = parseLogtoBffConfig(
+      {
+        ...productionRuntimeIdentity,
+        NODE_ENV: "production",
+        BACKEND_BASE_URL: "https://api-internal.example.test",
+        LOGTO_ENDPOINT: "https://identity.example.test",
+        LOGTO_AUDIENCE: "https://api.example.test",
+        LOGTO_APP_ID: "inside-web",
+        LOGTO_APP_SECRET: "inside-web-confidential-secret",
+        LOGTO_COOKIE_SECRET: secret,
+        WEB_BASE_URL: "https://inside.example.test",
+      },
+      embeddedRuntimeIdentity,
+    );
 
     expect(config).toEqual({
       endpoint: "https://identity.example.test",
@@ -87,16 +90,22 @@ describe("Logto BFF configuration", () => {
       LOGTO_COOKIE_SECRET: secret,
     };
     expect(
-      parseLogtoBffConfig({
-        ...production,
-        WEB_BASE_URL: "http://127.0.0.1:3000",
-      }, embeddedRuntimeIdentity).baseUrl,
+      parseLogtoBffConfig(
+        {
+          ...production,
+          WEB_BASE_URL: "http://127.0.0.1:3000",
+        },
+        embeddedRuntimeIdentity,
+      ).baseUrl,
     ).toBe("http://127.0.0.1:3000");
     expect(() =>
-      parseLogtoBffConfig({
-        ...production,
-        WEB_BASE_URL: "http://inside.example.test",
-      }, embeddedRuntimeIdentity),
+      parseLogtoBffConfig(
+        {
+          ...production,
+          WEB_BASE_URL: "http://inside.example.test",
+        },
+        embeddedRuntimeIdentity,
+      ),
     ).toThrow("WEB_BASE_URL must use HTTPS");
   });
 
@@ -129,9 +138,9 @@ describe("Logto BFF configuration", () => {
       },
       "https://api.example.test",
     );
-    expect(new URLSearchParams(searchParams?.body as string).get("resource")).toBe(
-      "https://api.example.test",
-    );
+    expect(
+      new URLSearchParams(searchParams?.body as string).get("resource"),
+    ).toBe("https://api.example.test");
   });
 
   it("wires the audience binding into the pinned SDK requester", async () => {
@@ -141,24 +150,30 @@ describe("Logto BFF configuration", () => {
       return Promise.resolve(new Response(null, { status: 200 }));
     });
     sdkFake.nodeClient = { adapter: { requester } };
-    const config = parseLogtoBffConfig({
-      ...productionRuntimeIdentity,
-      NODE_ENV: "production",
-      BACKEND_BASE_URL: "https://api-internal.example.test",
-      LOGTO_ENDPOINT: "https://identity.example.test",
-      LOGTO_AUDIENCE: "https://api.example.test",
-      LOGTO_APP_ID: "inside-web",
-      LOGTO_APP_SECRET: "inside-web-confidential-secret",
-      LOGTO_COOKIE_SECRET: secret,
-      WEB_BASE_URL: "https://inside.example.test",
-    }, embeddedRuntimeIdentity);
+    const config = parseLogtoBffConfig(
+      {
+        ...productionRuntimeIdentity,
+        NODE_ENV: "production",
+        BACKEND_BASE_URL: "https://api-internal.example.test",
+        LOGTO_ENDPOINT: "https://identity.example.test",
+        LOGTO_AUDIENCE: "https://api.example.test",
+        LOGTO_APP_ID: "inside-web",
+        LOGTO_APP_SECRET: "inside-web-confidential-secret",
+        LOGTO_COOKIE_SECRET: secret,
+        WEB_BASE_URL: "https://inside.example.test",
+      },
+      embeddedRuntimeIdentity,
+    );
     const client = new AudienceBoundLogtoClient(config);
     const created = await client.createNodeClient();
 
-    await created.adapter.requester("https://identity.example.test/oidc/token", {
-      method: "POST",
-      body: "grant_type=authorization_code&code=opaque",
-    });
+    await created.adapter.requester(
+      "https://identity.example.test/oidc/token",
+      {
+        method: "POST",
+        body: "grant_type=authorization_code&code=opaque",
+      },
+    );
 
     expect(requester).toHaveBeenCalledOnce();
     const init = requester.mock.calls[0]?.[1];
@@ -170,9 +185,15 @@ describe("Logto BFF configuration", () => {
 
   it("derives the SDK cookie key and accepts only same-origin mutations", () => {
     expect(logtoSessionCookieName("inside-web")).toBe("logto_inside-web");
-    expect(hasLogtoSessionCookie(["theme", "logto_inside-web"], "inside-web")).toBe(true);
-    expect(hasLogtoSessionCookie(["theme", "logto_previous-app"], "inside-web")).toBe(false);
-    expect(hasLogtoSessionCookie(["theme", "logto_"], "inside-web")).toBe(false);
+    expect(
+      hasLogtoSessionCookie(["theme", "logto_inside-web"], "inside-web"),
+    ).toBe(true);
+    expect(
+      hasLogtoSessionCookie(["theme", "logto_previous-app"], "inside-web"),
+    ).toBe(false);
+    expect(hasLogtoSessionCookie(["theme", "logto_"], "inside-web")).toBe(
+      false,
+    );
     expect(
       isSameOriginMutation(
         new Request("https://inside.example.test/auth/sign-in", {
@@ -193,7 +214,9 @@ describe("Logto BFF configuration", () => {
     ).toBe(false);
     expect(
       isSameOriginMutation(
-        new Request("https://inside.example.test/auth/sign-in", { method: "POST" }),
+        new Request("https://inside.example.test/auth/sign-in", {
+          method: "POST",
+        }),
         "https://inside.example.test",
       ),
     ).toBe(false);

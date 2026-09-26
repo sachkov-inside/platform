@@ -208,11 +208,7 @@ describe("Member Profile web workflow", () => {
     const confirmation = new FormData();
     confirmation.set("linkRef", "62000000-0000-4000-8000-000000000001");
     await expect(
-      executeConfirmTelegramLink(
-        confirmation,
-        "access-token",
-        confirmRequest,
-      ),
+      executeConfirmTelegramLink(confirmation, "access-token", confirmRequest),
     ).resolves.toMatchObject({
       kind: "received",
       state: { status: "linked" },

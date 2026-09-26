@@ -7,7 +7,11 @@ export const instant = false;
 
 export const metadata: Metadata = { title: "Редактирование продукта" };
 
-export default async function Page({ params }: { readonly params: Promise<{ readonly seriesId: string }> }) {
+export default async function Page({
+  params,
+}: {
+  readonly params: Promise<{ readonly seriesId: string }>;
+}) {
   const { seriesId } = await params;
   return <SeriesEditorPage seriesId={seriesId} />;
 }

@@ -2,13 +2,15 @@ import { z } from "zod";
 
 import { requestSameOriginMutation } from "@/shared/api/same-origin-mutation";
 
-const sessionSchema = z.object({
-  drmAuthToken: z.string().nullable(),
-  embedLocator: z.url(),
-  progressScope: z.enum(["account", "anonymous"]),
-  resumeSeconds: z.number().int().nonnegative().nullable(),
-  videoId: z.uuid(),
-}).strict();
+const sessionSchema = z
+  .object({
+    drmAuthToken: z.string().nullable(),
+    embedLocator: z.url(),
+    progressScope: z.enum(["account", "anonymous"]),
+    resumeSeconds: z.number().int().nonnegative().nullable(),
+    videoId: z.uuid(),
+  })
+  .strict();
 
 export type MaterialVideoPlaybackSession = z.infer<typeof sessionSchema>;
 

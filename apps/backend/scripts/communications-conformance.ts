@@ -84,11 +84,13 @@ const app = await createApiApplication(
     LOGTO_AUDIENCE: audience,
     LOGTO_JWKS_URL: `${jwksUrl}/jwks`,
     TELEGRAM_COMMUNICATIONS_ENDPOINT: `${provider}/integrations/platform/v1/communications`,
-    TELEGRAM_COMMUNICATIONS_SECRET: "synthetic_communications_secret_conformance",
+    TELEGRAM_COMMUNICATIONS_SECRET:
+      "synthetic_communications_secret_conformance",
     TELEGRAM_COMMUNICATIONS_BOT_IDENTITY: "synthetic-bot",
     TELEGRAM_COMMUNICATIONS_PUBLIC_ORIGIN: origin,
     TELEGRAM_TRACKING_ORIGIN: origin,
-    TELEGRAM_AUTHOR_AUTHORIZATION_SECRET: "synthetic_authorization_secret_conformance",
+    TELEGRAM_AUTHOR_AUTHORIZATION_SECRET:
+      "synthetic_authorization_secret_conformance",
   }),
   { logger: false },
 );
@@ -122,9 +124,9 @@ await app.listen(44111, "127.0.0.1");
 const mcp = createMcpHttpServer({
   accounts: app.get<Accounts>(ACCOUNTS),
   authoring: app.get<MaterialAuthoring>(MATERIAL_AUTHORING),
-      videos: app.get<Videos>(VIDEOS),
+  videos: app.get<Videos>(VIDEOS),
   communications: app.get(Communications),
-      billing: app.get(BillingOperations),
+  billing: app.get(BillingOperations),
   tokenVerifier: app.get<LogtoAccessTokenVerifier>(LOGTO_ACCESS_TOKEN_VERIFIER),
   identityIssuer: issuer,
   config: { host: "127.0.0.1", port: 0, serverUrl: "http://127.0.0.1:0/mcp" },

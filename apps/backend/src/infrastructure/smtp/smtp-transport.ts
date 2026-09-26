@@ -7,7 +7,12 @@ const smtpTimeoutMs = 10_000;
 /** The SMTP fields of the platform configuration; Billing Contact owns them today. */
 export type SmtpConfig = Pick<
   NonNullable<PlatformConfig["billingContact"]>,
-  "from" | "localInsecure" | "smtpHost" | "smtpPassword" | "smtpPort" | "smtpUser"
+  | "from"
+  | "localInsecure"
+  | "smtpHost"
+  | "smtpPassword"
+  | "smtpPort"
+  | "smtpUser"
 >;
 
 export interface SmtpMessage {
@@ -43,5 +48,11 @@ export function assembleSmtpTransport(
   });
   const domain = config.from.split("@")[1];
   return ({ messageRef, subject, text, to }) =>
-    transport.sendMail({ from: config.from, to, subject, text, messageId: `<${messageRef}@${domain}>` });
+    transport.sendMail({
+      from: config.from,
+      to,
+      subject,
+      text,
+      messageId: `<${messageRef}@${domain}>`,
+    });
 }

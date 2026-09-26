@@ -1,4 +1,7 @@
-import { dependencyFailure, reportDependencyFailure } from "../../../../infrastructure/observability/index.js";
+import {
+  dependencyFailure,
+  reportDependencyFailure,
+} from "../../../../infrastructure/observability/index.js";
 import {
   lockMaterialReferenceChanges,
   type VideosPrisma,
@@ -41,7 +44,10 @@ export interface VideoDeletionMaintenance {
     | Readonly<{ ok: true; value: DeletionSummary }>
     | Readonly<{
         ok: false;
-        error: { readonly code: "dependency_unavailable"; readonly retryable: true };
+        error: {
+          readonly code: "dependency_unavailable";
+          readonly retryable: true;
+        };
       }>
   >;
 }
@@ -67,19 +73,17 @@ export function assembleVideoDeletionMaintenance(dependencies: {
         const claimCutoff = new Date(
           now().getTime() - VIDEO_DELETION_CLAIM_TIMEOUT_MILLISECONDS,
         );
-        const candidates = await dependencies.prisma.videoDeletionOperation.findMany({
-          orderBy: [
-            { nextAttemptAt: "asc" },
-            { requestedAt: "asc" },
-          ],
-          take: VIDEO_DELETION_BATCH_SIZE,
-          where: {
-            OR: [
-              { state: "deletion_requested", nextAttemptAt: { lte: now() } },
-              { state: "deleting", claimedAt: { lte: claimCutoff } },
-            ],
-          },
-        });
+        const candidates =
+          await dependencies.prisma.videoDeletionOperation.findMany({
+            orderBy: [{ nextAttemptAt: "asc" }, { requestedAt: "asc" }],
+            take: VIDEO_DELETION_BATCH_SIZE,
+            where: {
+              OR: [
+                { state: "deletion_requested", nextAttemptAt: { lte: now() } },
+                { state: "deleting", claimedAt: { lte: claimCutoff } },
+              ],
+            },
+          });
         for (const candidate of candidates) {
           const claim = await claimDeletion(candidate.id, input.isReferenced);
           if (claim === null) continue;
@@ -96,7 +100,9 @@ export function assembleVideoDeletionMaintenance(dependencies: {
             });
             continue;
           }
-          const outcome = await dependencies.provider.delete({ id: claim.providerVideoId });
+          const outcome = await dependencies.provider.delete({
+            id: claim.providerVideoId,
+          });
           if (
             outcome.kind === "deleted" ||
             (outcome.kind === "not_found" &&
@@ -112,16 +118,23 @@ export function assembleVideoDeletionMaintenance(dependencies: {
             outcome.kind === "retryable_failure" &&
             claim.cycleAttempts < VIDEO_DELETION_RETRY_ATTEMPT_LIMIT
           ) {
-            if (await scheduleRetry(claim, outcome.category, outcome.providerRequestId)) {
+            if (
+              await scheduleRetry(
+                claim,
+                outcome.category,
+                outcome.providerRequestId,
+              )
+            ) {
               summary.retried += 1;
             }
             continue;
           }
-          const category = outcome.kind === "not_found"
-            ? "provider_not_found_unverified"
-            : outcome.kind === "retryable_failure"
-              ? "retry_exhausted"
-              : outcome.category;
+          const category =
+            outcome.kind === "not_found"
+              ? "provider_not_found_unverified"
+              : outcome.kind === "retryable_failure"
+                ? "retry_exhausted"
+                : outcome.category;
           if (await failDeletion(claim, category, outcome.providerRequestId)) {
             dependencies.reportFailure?.({
               category,
@@ -135,10 +148,14 @@ export function assembleVideoDeletionMaintenance(dependencies: {
         }
         return { ok: true, value: summary };
       } catch (error) {
-        return dependencyFailure({ module: "videos", operation: "process" }, error, {
-          error: { code: "dependency_unavailable", retryable: true },
-          ok: false,
-        });
+        return dependencyFailure(
+          { module: "videos", operation: "process" },
+          error,
+          {
+            error: { code: "dependency_unavailable", retryable: true },
+            ok: false,
+          },
+        );
       }
     },
   };
@@ -146,7 +163,9 @@ export function assembleVideoDeletionMaintenance(dependencies: {
 
   async function claimDeletion(
     operationId: string,
-    isReferenced: Parameters<VideoDeletionMaintenance["process"]>[0]["isReferenced"],
+    isReferenced: Parameters<
+      VideoDeletionMaintenance["process"]
+    >[0]["isReferenced"],
   ): Promise<
     | DeletionClaim
     | DeferredDeletion
@@ -169,17 +188,27 @@ export function assembleVideoDeletionMaintenance(dependencies: {
       if (
         operation === null ||
         !(
-          (operation.state === "deletion_requested" && operation.nextAttemptAt <= now()) ||
+          (operation.state === "deletion_requested" &&
+            operation.nextAttemptAt <= now()) ||
           (operation.state === "deleting" &&
             operation.claimedAt !== null &&
             operation.claimedAt <= claimCutoff)
         )
-      ) return null;
-      if (await isReferenced(transaction, {
-        materialId: operation.materialId,
-        videoId: operation.videoId,
-      })) {
-        await failWithoutClaim(transaction, operation.id, operation.videoId, "referenced", now());
+      )
+        return null;
+      if (
+        await isReferenced(transaction, {
+          materialId: operation.materialId,
+          videoId: operation.videoId,
+        })
+      ) {
+        await failWithoutClaim(
+          transaction,
+          operation.id,
+          operation.videoId,
+          "referenced",
+          now(),
+        );
         return {
           category: "referenced",
           kind: "failed",
@@ -226,12 +255,15 @@ export function assembleVideoDeletionMaintenance(dependencies: {
     });
   }
 
-  async function reconcileActiveProviderState(input: DeferredDeletion): Promise<void> {
+  async function reconcileActiveProviderState(
+    input: DeferredDeletion,
+  ): Promise<void> {
     const deferredAt = now();
     await dependencies.prisma.videoDeletionOperation.updateMany({
       data: {
         nextAttemptAt: new Date(
-          deferredAt.getTime() + VIDEO_DELETION_ACTIVE_RECHECK_DELAY_MILLISECONDS,
+          deferredAt.getTime() +
+            VIDEO_DELETION_ACTIVE_RECHECK_DELAY_MILLISECONDS,
         ),
         updatedAt: deferredAt,
       },
@@ -244,14 +276,18 @@ export function assembleVideoDeletionMaintenance(dependencies: {
         projectId: input.projectId,
       });
     } catch (error) {
-      reportDependencyFailure({ module: "videos", operation: "reconcileActiveProviderState" }, error);
+      reportDependencyFailure(
+        { module: "videos", operation: "reconcileActiveProviderState" },
+        error,
+      );
       return;
     }
     if (
       remote === null ||
       remote.id !== input.providerVideoId ||
       remote.projectId !== input.projectId
-    ) return;
+    )
+      return;
     const observedAt = now();
     await dependencies.prisma.$transaction(async (transaction) => {
       await transaction.video.updateMany({
@@ -314,7 +350,8 @@ export function assembleVideoDeletionMaintenance(dependencies: {
   ): Promise<boolean> {
     const retryAt = now();
     const baseDelayMs = Math.min(
-      VIDEO_DELETION_RETRY_INITIAL_DELAY_MILLISECONDS * 2 ** (claim.cycleAttempts - 1),
+      VIDEO_DELETION_RETRY_INITIAL_DELAY_MILLISECONDS *
+        2 ** (claim.cycleAttempts - 1),
       VIDEO_DELETION_RETRY_MAX_DELAY_MILLISECONDS,
     );
     const jitterMs = Math.floor(

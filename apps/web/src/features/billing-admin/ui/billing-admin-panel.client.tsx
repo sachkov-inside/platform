@@ -1,7 +1,10 @@
 "use client";
 import { TributeOperationsPanel } from "./tribute-operations-panel.client";
 import { SubscriptionSourcePanel } from "./subscription-source-panel.client";
-import { listSubscriptionTiers, readContentCatalog } from "../api/enrollments.browser";
+import {
+  listSubscriptionTiers,
+  readContentCatalog,
+} from "../api/enrollments.browser";
 import { ActivationRulesPanel } from "./activation-rules-panel.client";
 import { EnrollmentAdminPanel } from "./enrollment-admin-panel.client";
 import { useState } from "react";
@@ -69,19 +72,36 @@ export interface BillingAdminPanelProps {
  */
 export function BillingAdminPanel({ offers }: BillingAdminPanelProps) {
   const queryClient = useQueryClient();
-  const content = useQuery({ queryKey: ["owner-content-scope"], queryFn: async () => { const result = await readContentCatalog(); if (!result.ok) throw new Error(billingErrorMessage(result.code)); return result.value.result.items; } });
-  const tiers = useQuery({ queryKey: ["owner-subscription-tiers"], queryFn: async () => { const result = await listSubscriptionTiers({ operationId: crypto.randomUUID(), limit: 100 }); if (!result.ok) throw new Error(billingErrorMessage(result.code)); return result.value.result.items; } });
+  const content = useQuery({
+    queryKey: ["owner-content-scope"],
+    queryFn: async () => {
+      const result = await readContentCatalog();
+      if (!result.ok) throw new Error(billingErrorMessage(result.code));
+      return result.value.result.items;
+    },
+  });
+  const tiers = useQuery({
+    queryKey: ["owner-subscription-tiers"],
+    queryFn: async () => {
+      const result = await listSubscriptionTiers({
+        operationId: crypto.randomUUID(),
+        limit: 100,
+      });
+      if (!result.ok) throw new Error(billingErrorMessage(result.code));
+      return result.value.result.items;
+    },
+  });
   const [catalog, setCatalog] = useState<readonly PriceSnapshot[]>(offers);
   const [payments, setPayments] = useState<readonly PaymentView[]>([]);
   const [paymentsCursor, setPaymentsCursor] = useState<string | null>(null);
   const [payment, setPayment] = useState<PaymentOutcome["result"] | null>(null);
   const [refunds, setRefunds] = useState<RefundsOutcome["result"] | null>(null);
-  const [grants, setGrants] = useState<
-    GrantsOutcome["result"]["value"] | null
-  >(null);
-  const [preview, setPreview] = useState<
-    GrantPreviewOutcome["result"] | null
-  >(null);
+  const [grants, setGrants] = useState<GrantsOutcome["result"]["value"] | null>(
+    null,
+  );
+  const [preview, setPreview] = useState<GrantPreviewOutcome["result"] | null>(
+    null,
+  );
   const [batch, setBatch] = useState<GrantBatchOutcome["result"] | null>(null);
   const [classification, setClassification] = useState<
     ClassificationOutcome["result"]["value"] | null
@@ -102,7 +122,9 @@ export function BillingAdminPanel({ offers }: BillingAdminPanelProps) {
       setError(undefined);
       setNotice(task.notice);
       result.apply();
-      void queryClient.invalidateQueries({ queryKey: ["owner-subscription-tiers"] });
+      void queryClient.invalidateQueries({
+        queryKey: ["owner-subscription-tiers"],
+      });
     },
   });
 
@@ -137,7 +159,11 @@ export function BillingAdminPanel({ offers }: BillingAdminPanelProps) {
    * Тумблер продажи обратим и не переписывает каталог: локально обновляем только редакцию и
    * признак, чтобы следующая команда отправляла актуальную revision без перезагрузки.
    */
-  function applyOfferSale(offerId: string, revision: number, published: boolean): void {
+  function applyOfferSale(
+    offerId: string,
+    revision: number,
+    published: boolean,
+  ): void {
     setCatalog((current) =>
       current.map((snapshot) =>
         snapshot.offer.id === offerId
@@ -149,8 +175,18 @@ export function BillingAdminPanel({ offers }: BillingAdminPanelProps) {
 
   return (
     <BillingAdminView
-      content={content.data ?? []} tiers={tiers.data ?? []} catalogLoading={content.isPending || tiers.isPending} catalogError={content.error?.message ?? tiers.error?.message}
-      enrollmentControls={<><EnrollmentAdminPanel /><ActivationRulesPanel /><SubscriptionSourcePanel /><TributeOperationsPanel /></>}
+      content={content.data ?? []}
+      tiers={tiers.data ?? []}
+      catalogLoading={content.isPending || tiers.isPending}
+      catalogError={content.error?.message ?? tiers.error?.message}
+      enrollmentControls={
+        <>
+          <EnrollmentAdminPanel />
+          <ActivationRulesPanel />
+          <SubscriptionSourcePanel />
+          <TributeOperationsPanel />
+        </>
+      }
       batch={batch}
       classification={classification}
       error={error}
@@ -179,7 +215,11 @@ export function BillingAdminPanel({ offers }: BillingAdminPanelProps) {
               operationId: operationId("offers.publish", input),
             }),
           (value) => {
-            applyOfferSale(value.result.value.id, value.result.value.revision, true);
+            applyOfferSale(
+              value.result.value.id,
+              value.result.value.revision,
+              true,
+            );
           },
           "Предложение включено в продажу.",
         );
@@ -192,7 +232,11 @@ export function BillingAdminPanel({ offers }: BillingAdminPanelProps) {
               operationId: operationId("offers.unpublish", input),
             }),
           (value) => {
-            applyOfferSale(value.result.value.id, value.result.value.revision, false);
+            applyOfferSale(
+              value.result.value.id,
+              value.result.value.revision,
+              false,
+            );
           },
           "Предложение снято с продажи.",
         );

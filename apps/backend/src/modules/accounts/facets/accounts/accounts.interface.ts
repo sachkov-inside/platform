@@ -17,21 +17,16 @@ export type InternalAccountError = {
 };
 
 export type EstablishAccountError =
-  | ErrorCode<"identity_conflict" | "invalid_input">
-  | InternalAccountError;
+  ErrorCode<"identity_conflict" | "invalid_input"> | InternalAccountError;
 
 export type ResolveAccountError =
-  | ErrorCode<"account_not_found" | "invalid_input">
-  | InternalAccountError;
+  ErrorCode<"account_not_found" | "invalid_input"> | InternalAccountError;
 
 export type PermissionError =
-  | ErrorCode<"account_not_found" | "invalid_input">
-  | InternalAccountError;
+  ErrorCode<"account_not_found" | "invalid_input"> | InternalAccountError;
 
 export type AccountError =
-  | EstablishAccountError
-  | ResolveAccountError
-  | PermissionError;
+  EstablishAccountError | ResolveAccountError | PermissionError;
 
 export type EstablishAccountResult =
   | { readonly ok: true; readonly account: AuthenticatedAccount }

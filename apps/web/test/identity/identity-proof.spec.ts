@@ -4,7 +4,13 @@ import { readFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import { promisify } from "node:util";
 
-import { expect, test, type Browser, type BrowserContext, type Page } from "@playwright/test";
+import {
+  expect,
+  test,
+  type Browser,
+  type BrowserContext,
+  type Page,
+} from "@playwright/test";
 import { z } from "zod";
 
 const webBaseUrl = requiredEnvironment("WEB_BASE_URL");
@@ -13,7 +19,8 @@ const logtoEndpoint = requiredEnvironment("LOGTO_ENDPOINT");
 const mailpitEndpoint = `http://127.0.0.1:${requiredEnvironment("IDENTITY_PROOF_MAILPIT_PORT")}`;
 const composeFile = resolve("../../infra/identity/logto/compose.yaml");
 const execFileAsync = promisify(execFile);
-const rateLimitMessage = "Слишком много писем. Пожалуйста, повторите попытку позже.";
+const rateLimitMessage =
+  "Слишком много писем. Пожалуйста, повторите попытку позже.";
 const messagesSchema = z.object({
   messages: z.array(
     z.object({
@@ -28,7 +35,9 @@ test.describe.serial("issue 116 pinned Logto proof", () => {
   test("prints immutable runtime lineage without credentials", async () => {
     const [versionsSource, patch] = await Promise.all([
       readFile("../../infra/identity/logto/versions.json", "utf8"),
-      readFile("../../infra/identity/logto/patches/issue-116-logto-proof.patch"),
+      readFile(
+        "../../infra/identity/logto/patches/issue-116-logto-proof.patch",
+      ),
     ]);
     const versions = JSON.parse(versionsSource) as unknown;
     process.stdout.write(
@@ -56,16 +65,23 @@ test.describe.serial("issue 116 pinned Logto proof", () => {
     for (const attempt of limited) assertGenericRateLimit(attempt);
 
     const firstDelivered = delivered[0];
-    if (firstDelivered === undefined) throw new Error("Expected one delivered flow");
+    if (firstDelivered === undefined)
+      throw new Error("Expected one delivered flow");
     await firstDelivered.page.reload();
     await expectDeliveryCount(recipient, 10);
     await firstDelivered.page.goBack();
-    const backAttempt = await submitEmailFromCurrentPage(firstDelivered.page, recipient);
+    const backAttempt = await submitEmailFromCurrentPage(
+      firstDelivered.page,
+      recipient,
+    );
     expect(backAttempt.status()).toBe(429);
     expect(await backAttempt.text()).toContain(rateLimitMessage);
     await expectDeliveryCount(recipient, 10);
 
-    const caseVariant = await sendFromFreshFlow(browser, "  Parallel-116@Example.Test ");
+    const caseVariant = await sendFromFreshFlow(
+      browser,
+      "  Parallel-116@Example.Test ",
+    );
     expect(caseVariant.outcome).toBe("limited");
     expect(caseVariant.responseText).toContain(rateLimitMessage);
 
@@ -99,12 +115,19 @@ test.describe.serial("issue 116 pinned Logto proof", () => {
     const conservativeRecipient = "ambiguous-provider-116@example.test";
     await stopService("mailpit");
     const exhausted = await Promise.all(
-      Array.from({ length: 10 }, () => sendFromFreshFlow(browser, conservativeRecipient)),
+      Array.from({ length: 10 }, () =>
+        sendFromFreshFlow(browser, conservativeRecipient),
+      ),
     );
-    expect(exhausted.every(({ outcome }) => outcome === "provider-failed")).toBe(true);
+    expect(
+      exhausted.every(({ outcome }) => outcome === "provider-failed"),
+    ).toBe(true);
     await startService("mailpit");
     await waitForEndpoint(`${mailpitEndpoint}/api/v1/messages`);
-    const blockedAfterRecovery = await sendFromFreshFlow(browser, conservativeRecipient);
+    const blockedAfterRecovery = await sendFromFreshFlow(
+      browser,
+      conservativeRecipient,
+    );
     assertGenericRateLimit(blockedAfterRecovery);
     await expectDeliveryCount(conservativeRecipient, 0);
     await closeAttempts([...exhausted, blockedAfterRecovery]);
@@ -118,7 +141,9 @@ test.describe.serial("issue 116 pinned Logto proof", () => {
       "/callback?error=access_denied&error_description=provider-payload-canary-116&state=proof-state-canary-116",
     );
     await expect(page).toHaveURL(/authentication=failed/u);
-    await page.goto("/callback?code=proof-code-canary-116&state=proof-state-canary-116");
+    await page.goto(
+      "/callback?code=proof-code-canary-116&state=proof-state-canary-116",
+    );
     await expect(page).toHaveURL(/authentication=failed/u);
     const invalidJwt = await page.request.post(`${backendBaseUrl}/accounts`, {
       headers: { authorization: "Bearer proof-jwt-canary-116" },
@@ -135,7 +160,8 @@ test.describe.serial("issue 116 pinned Logto proof", () => {
     let callbackUrl = "";
     page.on("request", (request) => {
       const url = new URL(request.url());
-      if (url.origin === webBaseUrl && url.pathname === "/callback") callbackUrl = url.href;
+      if (url.origin === webBaseUrl && url.pathname === "/callback")
+        callbackUrl = url.href;
     });
     await beginSignIn(page, recipient);
     const code = await waitForCode(recipient);
@@ -147,7 +173,9 @@ test.describe.serial("issue 116 pinned Logto proof", () => {
     // Первый вход открывает экран условий и возвращает туда, куда человек шёл.
     await expect(page).toHaveURL(`${webBaseUrl}/welcome?returnTo=%2Flibrary`);
     await expect(page.getByRole("checkbox")).toHaveCount(0);
-    await page.getByRole("button", { name: "Принять условия и продолжить" }).click();
+    await page
+      .getByRole("button", { name: "Принять условия и продолжить" })
+      .click();
     await expect(page).toHaveURL(`${webBaseUrl}/library`);
     await expect(
       page.getByRole("button", { exact: true, name: "Выйти" }),
@@ -155,10 +183,14 @@ test.describe.serial("issue 116 pinned Logto proof", () => {
     expect(callbackUrl).toContain("/callback?");
 
     const cookies = await page.context().cookies();
-    expect(cookies.filter(({ name }) => name.startsWith("logto_"))).toHaveLength(1);
-    expect(cookies.some(({ name }) => name === "inside_session" || name === "inside_signin")).toBe(
-      false,
-    );
+    expect(
+      cookies.filter(({ name }) => name.startsWith("logto_")),
+    ).toHaveLength(1);
+    expect(
+      cookies.some(
+        ({ name }) => name === "inside_session" || name === "inside_signin",
+      ),
+    ).toBe(false);
 
     await page.goto(callbackUrl);
     await expect(page).toHaveURL(/authentication=failed/u);
@@ -181,24 +213,31 @@ test.describe.serial("issue 116 pinned Logto proof", () => {
       state: "unavailable",
     });
     await startService("logto");
-    await waitForEndpoint(`${logtoEndpoint}/oidc/.well-known/openid-configuration`);
+    await waitForEndpoint(
+      `${logtoEndpoint}/oidc/.well-known/openid-configuration`,
+    );
     const refreshed = await recovery.request.get("/auth/status");
-    await expect(refreshed.json()).resolves.toMatchObject({ state: "authenticated" });
+    await expect(refreshed.json()).resolves.toMatchObject({
+      state: "authenticated",
+    });
 
     const appSession = (await recovery.context().cookies()).find(
       ({ domain, name }) =>
         domain === new URL(webBaseUrl).hostname && name.startsWith("logto_"),
     );
-    if (appSession === undefined) throw new Error("Expected the Logto BFF session cookie");
+    if (appSession === undefined)
+      throw new Error("Expected the Logto BFF session cookie");
     await recovery.context().clearCookies({
       domain: appSession.domain,
       name: appSession.name,
       path: appSession.path,
     });
     await recovery.goto(webBaseUrl);
-    await recovery.locator('button:visible', { hasText: "Войти" }).click();
+    await recovery.locator("button:visible", { hasText: "Войти" }).click();
     await recovery.waitForURL((url) => url.origin === webBaseUrl);
-    expect(new URL(recovery.url()).searchParams.get("authentication")).not.toBe("failed");
+    expect(new URL(recovery.url()).searchParams.get("authentication")).not.toBe(
+      "failed",
+    );
     await expect(
       recovery.getByRole("button", { exact: true, name: "Выйти" }),
     ).toBeVisible();
@@ -206,13 +245,16 @@ test.describe.serial("issue 116 pinned Logto proof", () => {
     const existingAccountAttempts = await Promise.all(
       Array.from({ length: 9 }, () => sendFromFreshFlow(browser, recipient)),
     );
-    expect(existingAccountAttempts.filter(({ outcome }) => outcome === "delivered")).toHaveLength(8);
+    expect(
+      existingAccountAttempts.filter(({ outcome }) => outcome === "delivered"),
+    ).toHaveLength(8);
     const existingAccountLimited = existingAccountAttempts.filter(
       ({ outcome }) => outcome === "limited",
     );
     expect(existingAccountLimited).toHaveLength(1);
     const existingLimited = existingAccountLimited[0];
-    if (existingLimited === undefined) throw new Error("Expected an existing-Account rate limit");
+    if (existingLimited === undefined)
+      throw new Error("Expected an existing-Account rate limit");
     assertGenericRateLimit(existingLimited);
     await expectDeliveryCount(recipient, 10);
     await closeAttempts(existingAccountAttempts);
@@ -230,21 +272,32 @@ interface SendAttempt {
   visibleText: string;
 }
 
-async function sendFromFreshFlow(browser: Browser, email: string): Promise<SendAttempt> {
+async function sendFromFreshFlow(
+  browser: Browser,
+  email: string,
+): Promise<SendAttempt> {
   const context = await browser.newContext({ ignoreHTTPSErrors: true });
   const page = await context.newPage();
   const response = await beginSignIn(page, email);
-  const outcome: SendOutcome = response.status() === 429
-    ? "limited"
-    : response.ok()
-      ? "delivered"
-      : "provider-failed";
+  const outcome: SendOutcome =
+    response.status() === 429
+      ? "limited"
+      : response.ok()
+        ? "delivered"
+        : "provider-failed";
   const responseText = await response.text();
   if (outcome === "limited") {
     await expect(page.getByText(rateLimitMessage)).toBeVisible();
   }
   const visibleText = await page.locator("body").innerText();
-  return { context, page, outcome, status: response.status(), responseText, visibleText };
+  return {
+    context,
+    page,
+    outcome,
+    status: response.status(),
+    responseText,
+    visibleText,
+  };
 }
 
 function assertGenericRateLimit(attempt: SendAttempt): void {
@@ -262,7 +315,7 @@ async function beginSignIn(page: Page, email: string) {
 
 async function submitEmailFromCurrentPage(page: Page, email: string) {
   if (new URL(page.url()).origin === webBaseUrl) {
-    await page.locator('button:visible', { hasText: "Войти" }).click();
+    await page.locator("button:visible", { hasText: "Войти" }).click();
   }
   await expect.poll(() => new URL(page.url()).origin).toBe(logtoEndpoint);
   const emailInput = page.locator('input[type="email"]');
@@ -278,7 +331,9 @@ async function submitEmailFromCurrentPage(page: Page, email: string) {
 }
 
 async function enterCode(page: Page, code: string): Promise<void> {
-  const inputs = page.locator('input[inputmode="numeric"], input[autocomplete="one-time-code"]');
+  const inputs = page.locator(
+    'input[inputmode="numeric"], input[autocomplete="one-time-code"]',
+  );
   await expect(inputs.first()).toBeVisible();
   const count = await inputs.count();
   if (count === 1) {
@@ -300,38 +355,79 @@ async function messages() {
 }
 
 async function clearMailpit(): Promise<void> {
-  const response = await fetch(`${mailpitEndpoint}/api/v1/messages`, { method: "DELETE" });
+  const response = await fetch(`${mailpitEndpoint}/api/v1/messages`, {
+    method: "DELETE",
+  });
   expect(response.ok).toBe(true);
 }
 
-async function expectDeliveryCount(email: string, count: number): Promise<void> {
-  await expect.poll(async () => (await messages()).filter((message) =>
-    message.To.some(({ Address }) => Address.toLowerCase() === email.trim().toLowerCase()),
-  ).length).toBe(count);
+async function expectDeliveryCount(
+  email: string,
+  count: number,
+): Promise<void> {
+  await expect
+    .poll(
+      async () =>
+        (await messages()).filter((message) =>
+          message.To.some(
+            ({ Address }) =>
+              Address.toLowerCase() === email.trim().toLowerCase(),
+          ),
+        ).length,
+    )
+    .toBe(count);
 }
 
-async function waitForCode(email: string, expectedDeliveryCount = 1): Promise<string> {
+async function waitForCode(
+  email: string,
+  expectedDeliveryCount = 1,
+): Promise<string> {
   await expectDeliveryCount(email, expectedDeliveryCount);
   const message = (await messages()).find((candidate) =>
-    candidate.To.some(({ Address }) => Address.toLowerCase() === email.toLowerCase()),
+    candidate.To.some(
+      ({ Address }) => Address.toLowerCase() === email.toLowerCase(),
+    ),
   );
   const code = /\b(\d{6})\b/u.exec(message?.Snippet ?? "")?.[1];
-  if (code === undefined) throw new Error("Mailpit did not expose a six-digit proof code");
+  if (code === undefined)
+    throw new Error("Mailpit did not expose a six-digit proof code");
   return code;
 }
 
 async function stopService(service: "logto" | "mailpit"): Promise<void> {
-  await execFileAsync("docker", ["compose", "-f", composeFile, "stop", "--timeout", "1", service]);
+  await execFileAsync("docker", [
+    "compose",
+    "-f",
+    composeFile,
+    "stop",
+    "--timeout",
+    "1",
+    service,
+  ]);
 }
 
 async function startService(service: "logto" | "mailpit"): Promise<void> {
-  await execFileAsync("docker", ["compose", "-f", composeFile, "start", service]);
+  await execFileAsync("docker", [
+    "compose",
+    "-f",
+    composeFile,
+    "start",
+    service,
+  ]);
 }
 
 async function waitForEndpoint(endpoint: string): Promise<void> {
-  await expect.poll(() => fetch(endpoint).then((response) => response.ok).catch(() => false), {
-    timeout: 30_000,
-  }).toBe(true);
+  await expect
+    .poll(
+      () =>
+        fetch(endpoint)
+          .then((response) => response.ok)
+          .catch(() => false),
+      {
+        timeout: 30_000,
+      },
+    )
+    .toBe(true);
 }
 
 async function closeAttempts(attempts: SendAttempt[]): Promise<void> {
@@ -340,6 +436,7 @@ async function closeAttempts(attempts: SendAttempt[]): Promise<void> {
 
 function requiredEnvironment(name: string): string {
   const value = process.env[name];
-  if (value === undefined || value.length === 0) throw new Error(`${name} is required`);
+  if (value === undefined || value.length === 0)
+    throw new Error(`${name} is required`);
   return value;
 }

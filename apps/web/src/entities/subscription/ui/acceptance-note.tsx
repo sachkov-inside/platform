@@ -20,7 +20,9 @@ export function AcceptanceNote({
     <div className={className}>
       <p className="text-sm leading-6 text-muted-foreground">{children}</p>
       {underage ? (
-        <p className="mt-2 text-sm leading-6 text-muted-foreground">{underageNotice}</p>
+        <p className="mt-2 text-sm leading-6 text-muted-foreground">
+          {underageNotice}
+        </p>
       ) : null}
     </div>
   );

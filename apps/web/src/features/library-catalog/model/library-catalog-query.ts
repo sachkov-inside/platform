@@ -10,11 +10,14 @@ export function libraryCatalogQueryRootKey() {
   return ["library", "catalog"] as const;
 }
 
-export function libraryCatalogQueryKey(query: LibrarySearchQuery, scope: "catalog" | "feed" = "catalog") {
+export function libraryCatalogQueryKey(
+  query: LibrarySearchQuery,
+  scope: "catalog" | "feed" = "catalog",
+) {
   return [
     ...libraryCatalogQueryRootKey(),
     librarySearchQueryIdentity({ ...query, after: null }),
-    ...(scope === "feed" ? ["feed"] as const : []),
+    ...(scope === "feed" ? (["feed"] as const) : []),
   ] as const;
 }
 
@@ -46,6 +49,8 @@ export function createLibraryCatalogQueryOptions(
     queryFn: ({ pageParam, signal }) => loadPage({ after: pageParam, signal }),
     initialPageParam: undefined as LibraryCatalogPageParam,
     getNextPageParam: (lastPage) =>
-      lastPage.kind === "ready" ? lastPage.nextCursor ?? undefined : undefined,
+      lastPage.kind === "ready"
+        ? (lastPage.nextCursor ?? undefined)
+        : undefined,
   });
 }

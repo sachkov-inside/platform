@@ -18,9 +18,24 @@ import { materialBodyOperations } from "./infrastructure/tiptap/index.js";
 @Module({
   imports: [PrismaModule],
   providers: [
-    { provide: ContentScopeCatalog, inject: [PrismaClientProvider], useFactory: (prisma: PrismaClientProvider) => new ContentScopeCatalog(prisma) },
-    { provide: PublishedMaterialSelection, inject: [PrismaClientProvider], useFactory: (prisma: PrismaClientProvider) => new PublishedMaterialSelection(prisma) },
-    { provide: PublishedSeriesComposition, inject: [PrismaClientProvider], useFactory: (prisma: PrismaClientProvider) => new PublishedSeriesComposition(prisma) },
+    {
+      provide: ContentScopeCatalog,
+      inject: [PrismaClientProvider],
+      useFactory: (prisma: PrismaClientProvider) =>
+        new ContentScopeCatalog(prisma),
+    },
+    {
+      provide: PublishedMaterialSelection,
+      inject: [PrismaClientProvider],
+      useFactory: (prisma: PrismaClientProvider) =>
+        new PublishedMaterialSelection(prisma),
+    },
+    {
+      provide: PublishedSeriesComposition,
+      inject: [PrismaClientProvider],
+      useFactory: (prisma: PrismaClientProvider) =>
+        new PublishedSeriesComposition(prisma),
+    },
     {
       provide: PublicContentTargets,
       inject: [PrismaClientProvider],
@@ -34,6 +49,12 @@ import { materialBodyOperations } from "./infrastructure/tiptap/index.js";
         assembleMaterialContent({ prisma, materialBodyOperations }),
     },
   ],
-  exports: [ContentScopeCatalog, MATERIAL_CONTENT, PublicContentTargets, PublishedSeriesComposition, PublishedMaterialSelection],
+  exports: [
+    ContentScopeCatalog,
+    MATERIAL_CONTENT,
+    PublicContentTargets,
+    PublishedSeriesComposition,
+    PublishedMaterialSelection,
+  ],
 })
 export class MaterialContentModule {}

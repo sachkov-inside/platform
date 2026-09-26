@@ -1,12 +1,21 @@
 "use client";
 
 import type { MaterialLabeledRow } from "@/entities/material";
-import { NodeViewContent, NodeViewWrapper, type NodeViewProps } from "@tiptap/react";
+import {
+  NodeViewContent,
+  NodeViewWrapper,
+  type NodeViewProps,
+} from "@tiptap/react";
 import { GripVertical, Plus, X } from "lucide-react";
 import type { ReactNode } from "react";
 
 import { Button } from "@/shared/ui/button";
-import { guideModeLabels, isGuideMode, isUnknownArray, isUnknownRecord } from "@inside/material-blocks";
+import {
+  guideModeLabels,
+  isGuideMode,
+  isUnknownArray,
+  isUnknownRecord,
+} from "@inside/material-blocks";
 
 /**
  * Поля стоят там же, где у читателя стоит текст, и набраны тем же размером: автор видит блок,
@@ -36,7 +45,11 @@ function BlockForm({
       data-material-block-form={kind}
     >
       <div className="absolute right-2 top-2 z-10 flex gap-1 rounded-lg bg-card/95 p-1 focus-within:opacity-100 group-hover:opacity-100 sm:opacity-0">
-        <span aria-label="Перетащить блок" className="cursor-grab p-1" data-drag-handle>
+        <span
+          aria-label="Перетащить блок"
+          className="cursor-grab p-1"
+          data-drag-handle
+        >
           <GripVertical className="size-4" />
         </span>
         <button
@@ -49,7 +62,9 @@ function BlockForm({
           <X className="size-4" />
         </button>
       </div>
-      <p className="font-mono text-[0.6875rem] text-muted-foreground">{label}</p>
+      <p className="font-mono text-[0.6875rem] text-muted-foreground">
+        {label}
+      </p>
       <div className="mt-2 grid gap-1">{children}</div>
     </NodeViewWrapper>
   );
@@ -69,7 +84,12 @@ export function MaterialResourceCardNodeView({
   const editable = editor.isEditable;
 
   return (
-    <BlockForm deleteNode={deleteNode} editable={editable} kind="resourceCard" label="Ресурс">
+    <BlockForm
+      deleteNode={deleteNode}
+      editable={editable}
+      kind="resourceCard"
+      label="Ресурс"
+    >
       <input
         aria-label="Название ресурса"
         className={`${fieldClass} text-base font-semibold`}
@@ -132,7 +152,12 @@ export function MaterialLabeledListNodeView({
   };
 
   return (
-    <BlockForm deleteNode={deleteNode} editable={editable} kind="labeledList" label="Термины">
+    <BlockForm
+      deleteNode={deleteNode}
+      editable={editable}
+      kind="labeledList"
+      label="Термины"
+    >
       {rows.map((row, index) => (
         <div
           className="grid items-start gap-x-4 gap-y-1 border-t border-border py-3 first:border-t-0 sm:grid-cols-[minmax(6rem,10rem)_1fr_auto]"
@@ -181,7 +206,9 @@ export function MaterialLabeledListNodeView({
                   rows.map((current, position) => {
                     if (position !== index) return current;
                     const row = { label: current.label, name: current.name };
-                    return description.length === 0 ? row : { ...row, description };
+                    return description.length === 0
+                      ? row
+                      : { ...row, description };
                   }),
                 );
               }}

@@ -43,7 +43,11 @@ type Story = StoryObj<typeof meta>;
 export const ExplanatoryHint: Story = {
   name: "Explanatory hint",
   parameters: {
-    docs: { description: { story: "Adds optional context to an already accessible icon action." } },
+    docs: {
+      description: {
+        story: "Adds optional context to an already accessible icon action.",
+      },
+    },
   },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);

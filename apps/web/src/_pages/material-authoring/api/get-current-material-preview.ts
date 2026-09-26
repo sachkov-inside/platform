@@ -55,7 +55,9 @@ export async function getCurrentMaterialPreview(
     return {
       kind: "unexpected_error",
       reference:
-        error instanceof BackendConnectionError ? error.code : "unexpected-preview-error",
+        error instanceof BackendConnectionError
+          ? error.code
+          : "unexpected-preview-error",
     };
   }
   if (!result.ok) {
@@ -86,7 +88,10 @@ export async function getCurrentMaterialPreview(
 
   const mapped = mapCurrentMaterialPreview(result.body, references.references);
   if (!mapped.ok || mapped.data.materialId !== parsedMaterialId.data) {
-    return { kind: "unexpected_error", reference: "unexpected-preview-response" };
+    return {
+      kind: "unexpected_error",
+      reference: "unexpected-preview-response",
+    };
   }
   return { kind: "ready", preview: mapped.data.preview };
 }

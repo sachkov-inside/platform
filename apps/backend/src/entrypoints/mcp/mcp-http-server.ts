@@ -18,7 +18,11 @@ import {
 
 import type { McpConfig } from "../../config/mcp-config.js";
 import { PRIVATE_NO_STORE_HEADERS } from "../../infrastructure/http/http-cache-policy.js";
-import { generateRequestId, reportDependencyFailure, runWithLogContext } from "../../infrastructure/observability/index.js";
+import {
+  generateRequestId,
+  reportDependencyFailure,
+  runWithLogContext,
+} from "../../infrastructure/observability/index.js";
 import type { OperationalReadiness } from "../../infrastructure/operational-readiness.js";
 import {
   assembleDelegatedAccountTokenVerifier,
@@ -96,9 +100,7 @@ export function createMcpHttpServer(dependencies: {
   };
   const nodeHandler = toNodeHandler(
     fetchHandler,
-    dependencies.onError === undefined
-      ? {}
-      : { onerror: dependencies.onError },
+    dependencies.onError === undefined ? {} : { onerror: dependencies.onError },
   );
   const allowedHostnames = [
     configuredUrl.hostname,
@@ -120,7 +122,11 @@ export function createMcpHttpServer(dependencies: {
       url: request.url ?? "/",
     });
     runWithLogContext(
-      { process: "mcp", requestId: generateRequestId(), method: completeRequest.method },
+      {
+        process: "mcp",
+        requestId: generateRequestId(),
+        method: completeRequest.method,
+      },
       () => void nodeHandler(completeRequest, response),
     );
   });
@@ -149,7 +155,10 @@ async function healthResponse(
       headers: PRIVATE_NO_STORE_HEADERS,
     });
   } catch (error) {
-    reportDependencyFailure({ module: "runtime", operation: "readiness" }, error);
+    reportDependencyFailure(
+      { module: "runtime", operation: "readiness" },
+      error,
+    );
     return Response.json(
       { code: "dependency_unavailable", status: 503 },
       {
@@ -160,7 +169,9 @@ async function healthResponse(
   }
 }
 
-function authenticatedAccountId(extra: Record<string, unknown> | undefined): string {
+function authenticatedAccountId(
+  extra: Record<string, unknown> | undefined,
+): string {
   const accountId = extra?.accountId;
   if (typeof accountId !== "string") {
     throw new Error("Authenticated MCP request has no resolved Account");

@@ -10,16 +10,25 @@ import {
 import { ApiResponse } from "@nestjs/swagger";
 import { z } from "zod";
 
-import { problemDetails, problemType } from "../../../../infrastructure/http/problem-details.js";
+import {
+  problemDetails,
+  problemType,
+} from "../../../../infrastructure/http/problem-details.js";
 import {
   problemDetailsContent,
   problemDetailsOneOfContent,
 } from "../../../../infrastructure/http/zod-openapi.js";
-import { ACCOUNTS, LOGTO_ACCESS_TOKEN_VERIFIER } from "../../accounts.tokens.js";
+import {
+  ACCOUNTS,
+  LOGTO_ACCESS_TOKEN_VERIFIER,
+} from "../../accounts.tokens.js";
 import type { Accounts } from "../../facets/accounts/accounts.interface.js";
 import { LegalAcceptances } from "../../facets/legal-acceptances/legal-acceptances.js";
 import type { LogtoAccessTokenVerifier } from "../../infrastructure/idp/logto/logto-access-token-verifier.js";
-import { authenticateRequest, type AuthenticatedRequest } from "./account.guard.js";
+import {
+  authenticateRequest,
+  type AuthenticatedRequest,
+} from "./account.guard.js";
 
 const termsAcceptanceProblemSchema = z.object({
   type: z.literal(problemType("terms_acceptance_required")),
@@ -37,13 +46,24 @@ const termsAcceptanceUnavailableSchema = z.object({
   code: z.literal("internal_error"),
 });
 
-const termsAcceptanceUnavailable = problemDetails(500, "internal_error", "Terms acceptance could not be checked", {
-  detail: "Terms acceptance could not be checked.",
-}) satisfies z.infer<typeof termsAcceptanceUnavailableSchema>;
+const termsAcceptanceUnavailable = problemDetails(
+  500,
+  "internal_error",
+  "Terms acceptance could not be checked",
+  {
+    detail: "Terms acceptance could not be checked.",
+  },
+) satisfies z.infer<typeof termsAcceptanceUnavailableSchema>;
 
-const termsAcceptanceRequired = problemDetails(403, "terms_acceptance_required", "Terms of use are not accepted", {
-  detail: "Accept the terms of use in force on the first sign-in screen first.",
-}) satisfies z.infer<typeof termsAcceptanceProblemSchema>;
+const termsAcceptanceRequired = problemDetails(
+  403,
+  "terms_acceptance_required",
+  "Terms of use are not accepted",
+  {
+    detail:
+      "Accept the terms of use in force on the first sign-in screen first.",
+  },
+) satisfies z.infer<typeof termsAcceptanceProblemSchema>;
 
 /**
  * Authenticates the Account and lets it through only once the terms of use in force are accepted.
@@ -87,7 +107,10 @@ export function AcceptedTermsEndpoint(...otherForbidden: readonly z.ZodType[]) {
       content:
         otherForbidden.length === 0
           ? problemDetailsContent(termsAcceptanceProblemSchema)
-          : problemDetailsOneOfContent(termsAcceptanceProblemSchema, ...otherForbidden),
+          : problemDetailsOneOfContent(
+              termsAcceptanceProblemSchema,
+              ...otherForbidden,
+            ),
     }),
     ApiResponse({
       status: 500,

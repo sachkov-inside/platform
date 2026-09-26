@@ -1,4 +1,8 @@
-import { inlineText, type LegalBlock, type LegalInline } from "@inside/legal/markdown";
+import {
+  inlineText,
+  type LegalBlock,
+  type LegalInline,
+} from "@inside/legal/markdown";
 import Link from "next/link";
 import type { ReactNode } from "react";
 
@@ -17,7 +21,11 @@ export function LegalDocumentView({
   return (
     <div className="flex flex-col gap-5 text-[0.975rem] leading-7 text-foreground">
       {blocks.map((block, index) => (
-        <LegalBlockView block={block} index={index} key={`${block.kind}-${String(index)}`} />
+        <LegalBlockView
+          block={block}
+          index={index}
+          key={`${block.kind}-${String(index)}`}
+        />
       ))}
     </div>
   );
@@ -88,7 +96,8 @@ function LegalTableView({
 }) {
   // Узкий экран прокручивает таблицу вбок, поэтому область получает фокус и имя: иначе до неё
   // не добраться с клавиатуры.
-  const label = header[0] === undefined ? "Таблица" : `Таблица: ${inlineText(header[0])}`;
+  const label =
+    header[0] === undefined ? "Таблица" : `Таблица: ${inlineText(header[0])}`;
   return (
     <div
       aria-label={label}
@@ -112,7 +121,10 @@ function LegalTableView({
         </thead>
         <tbody>
           {rows.map((row, rowIndex) => (
-            <tr className="border-b border-border/60" key={`row-${String(rowIndex)}`}>
+            <tr
+              className="border-b border-border/60"
+              key={`row-${String(rowIndex)}`}
+            >
               {row.map((cell, cellIndex) => (
                 <td
                   className="py-2 pr-4 align-top text-muted-foreground last:pr-0"
@@ -149,7 +161,11 @@ function LegalInlineView({
     }
     if (part.kind === "link") {
       return isInternalRoute(part.href) ? (
-        <Link className="underline underline-offset-2" href={part.href} key={key}>
+        <Link
+          className="underline underline-offset-2"
+          href={part.href}
+          key={key}
+        >
           {part.text}
         </Link>
       ) : (

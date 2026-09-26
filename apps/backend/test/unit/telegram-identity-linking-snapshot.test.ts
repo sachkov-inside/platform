@@ -45,7 +45,9 @@ const contractRoot = new URL(
 describe("vendored Telegram identity-linking contract", () => {
   test("pins the provider-owned v1 artifacts and required Platform messages", async () => {
     const snapshot = snapshotSchema.parse(
-      JSON.parse(await readFile(new URL("snapshot.json", contractRoot), "utf8")),
+      JSON.parse(
+        await readFile(new URL("snapshot.json", contractRoot), "utf8"),
+      ),
     );
     for (const [file, metadata] of Object.entries(snapshot.artifacts)) {
       const contents = await readFile(new URL(file, contractRoot));
@@ -54,7 +56,9 @@ describe("vendored Telegram identity-linking contract", () => {
       );
     }
     const fixtures = fixturesSchema.parse(
-      JSON.parse(await readFile(new URL("fixtures.json", contractRoot), "utf8")),
+      JSON.parse(
+        await readFile(new URL("fixtures.json", contractRoot), "utf8"),
+      ),
     );
     expect(fixtures.messages.map(({ name }) => name)).toEqual(
       expect.arrayContaining([

@@ -15,7 +15,10 @@ import { z } from "zod";
 
 import { parsePlatformConfig } from "../../src/config/platform-config.js";
 import { createMcpApplication } from "../../src/entrypoints/create-mcp-application.js";
-import { createMcpHttpServer, type McpHttpServer } from "../../src/entrypoints/mcp/mcp-http-server.js";
+import {
+  createMcpHttpServer,
+  type McpHttpServer,
+} from "../../src/entrypoints/mcp/mcp-http-server.js";
 import { OperationalReadiness } from "../../src/infrastructure/operational-readiness.js";
 import {
   ACCOUNTS,
@@ -86,9 +89,12 @@ describe("delegated Material authoring over MCP", () => {
         data: { id: topicId, name: "Platform", slug: "platform" },
       }),
       database.prisma.guide.create({
-        data: { id: closedGuideId, name: "MCP closed guide", slug: "mcp-closed-guide" },
+        data: {
+          id: closedGuideId,
+          name: "MCP closed guide",
+          slug: "mcp-closed-guide",
+        },
       }),
-
     ]);
 
     const config = parsePlatformConfig({
@@ -271,11 +277,27 @@ describe("delegated Material authoring over MCP", () => {
       structuredContent: { ok: false, error: { code: "forbidden" } },
     });
     for (const [name, args] of [
-      ["video_attach_existing", { materialId, access: "membership", providerVideoId: "not-allowed" }],
-      ["video_init_upload", { materialId, access: "membership", filename: "recording.mp4", title: "Recording", byteSize: 1024, idempotencyKey: "denied-upload" }],
+      [
+        "video_attach_existing",
+        { materialId, access: "membership", providerVideoId: "not-allowed" },
+      ],
+      [
+        "video_init_upload",
+        {
+          materialId,
+          access: "membership",
+          filename: "recording.mp4",
+          title: "Recording",
+          byteSize: 1024,
+          idempotencyKey: "denied-upload",
+        },
+      ],
       ["video_reconcile", { videoId: "cccccccc-cccc-4ccc-8ccc-cccccccccccc" }],
     ] as const) {
-      expect(await callTool(name, args)).toMatchObject({ isError: true, structuredContent: { error: { code: "forbidden" } } });
+      expect(await callTool(name, args)).toMatchObject({
+        isError: true,
+        structuredContent: { error: { code: "forbidden" } },
+      });
     }
     await database.prisma.accountPermission.create({
       data: { accountId: ownerAccountId, permission: "materials:manage" },
@@ -354,7 +376,9 @@ describe("delegated Material authoring over MCP", () => {
     ).toMatchObject({
       structuredContent: {
         ok: true,
-        value: { items: [{ materialId, ordinal: 1, stepGroup: "MCP instruction" }] },
+        value: {
+          items: [{ materialId, ordinal: 1, stepGroup: "MCP instruction" }],
+        },
       },
     });
 
@@ -362,7 +386,8 @@ describe("delegated Material authoring over MCP", () => {
       audience: "Инженеры, которые ведут свою продуктовую поверхность целиком.",
       outcome: "Собрать срез платформы в осознанном порядке.",
       prerequisites: "Уверенный Git и запущенный локальный стек.",
-      scope: "Одна продуктовая поверхность; эксплуатация остаётся за границами.",
+      scope:
+        "Одна продуктовая поверхность; эксплуатация остаётся за границами.",
     };
     const updated = await callTool("content_collection_update", {
       collectionId: playlist.id,
@@ -424,13 +449,21 @@ describe("delegated Material authoring over MCP", () => {
         value: { archived: true, version: 4 },
       },
     });
-    const listed = await callTool("content_collection_list", { kind: "series" });
+    const listed = await callTool("content_collection_list", {
+      kind: "series",
+    });
     expect(listed).toMatchObject({ structuredContent: { ok: true } });
     // Закрытое руководство фикстуры лежит в том же каталоге коллекций: ищем плейлист по id.
     const collections = z
-      .object({ value: z.array(z.looseObject({ archived: z.boolean(), id: z.string() })) })
+      .object({
+        value: z.array(
+          z.looseObject({ archived: z.boolean(), id: z.string() }),
+        ),
+      })
       .parse(listed.structuredContent).value;
-    expect(collections.find(({ id }) => id === playlist.id)).toMatchObject({ archived: true });
+    expect(collections.find(({ id }) => id === playlist.id)).toMatchObject({
+      archived: true,
+    });
   });
 
   test("keeps validation and idempotency failures structured and effect-free", async () => {
@@ -467,41 +500,142 @@ describe("delegated Material authoring over MCP", () => {
   test("attaches an existing Video, retries without duplication, preserves it on Save, and detaches without deleting the source", async () => {
     const meta = metadata("MCP existing video", "membership");
     const body = representativeDocument("Existing video through MCP.");
-    const created = await callTool("material_create_draft", { idempotencyKey: "video-create", metadata: meta, body });
+    const created = await callTool("material_create_draft", {
+      idempotencyKey: "video-create",
+      metadata: meta,
+      body,
+    });
     const materialId = successfulMaterialId(created);
-    const attachment = { materialId, access: "membership", providerVideoId: "test-mcp-existing-444" };
+    const attachment = {
+      materialId,
+      access: "membership",
+      providerVideoId: "test-mcp-existing-444",
+    };
     const first = await callTool("video_attach_existing", attachment);
     const videoId = z.uuid().parse(successfulValue(first).videoId);
-    expect(successfulValue(await callTool("video_attach_existing", attachment)).videoId).toBe(videoId);
-    expect(successfulValue(await callTool("video_reconcile", { videoId })).state).toBe("ready");
-    await expect(database.prisma.video.count({ where: { materialId } })).resolves.toBe(1);
-    const save = { materialId, metadata: meta, body, publicationState: "draft", primaryVideoId: videoId };
-    expect(successfulValue(await callTool("material_save", { ...save, expectedContentVersion: 1, idempotencyKey: "video-select" })).contentVersion).toBe(2);
-    expect(successfulValue(await callTool("material_load", { materialId })).primaryVideoId).toBe(videoId);
-    expect(successfulValue(await callTool("material_save", { ...save, expectedContentVersion: 2, idempotencyKey: "video-keep" })).contentVersion).toBe(3);
-    expect(successfulValue(await callTool("material_load", { materialId })).primaryVideoId).toBe(videoId);
-    const stale = await callTool("material_save", { ...save, primaryVideoId: null, expectedContentVersion: 2, idempotencyKey: "video-stale" });
-    expect(stale).toMatchObject({ isError: true, structuredContent: { error: { code: "stale_content_version" } } });
-    expect(successfulValue(await callTool("material_load", { materialId })).primaryVideoId).toBe(videoId);
-    expect(successfulValue(await callTool("material_save", { ...save, primaryVideoId: null, expectedContentVersion: 3, idempotencyKey: "video-detach" })).contentVersion).toBe(4);
-    const retained = await database.prisma.video.findUniqueOrThrow({ where: { id: videoId } });
+    expect(
+      successfulValue(await callTool("video_attach_existing", attachment))
+        .videoId,
+    ).toBe(videoId);
+    expect(
+      successfulValue(await callTool("video_reconcile", { videoId })).state,
+    ).toBe("ready");
+    await expect(
+      database.prisma.video.count({ where: { materialId } }),
+    ).resolves.toBe(1);
+    const save = {
+      materialId,
+      metadata: meta,
+      body,
+      publicationState: "draft",
+      primaryVideoId: videoId,
+    };
+    expect(
+      successfulValue(
+        await callTool("material_save", {
+          ...save,
+          expectedContentVersion: 1,
+          idempotencyKey: "video-select",
+        }),
+      ).contentVersion,
+    ).toBe(2);
+    expect(
+      successfulValue(await callTool("material_load", { materialId }))
+        .primaryVideoId,
+    ).toBe(videoId);
+    expect(
+      successfulValue(
+        await callTool("material_save", {
+          ...save,
+          expectedContentVersion: 2,
+          idempotencyKey: "video-keep",
+        }),
+      ).contentVersion,
+    ).toBe(3);
+    expect(
+      successfulValue(await callTool("material_load", { materialId }))
+        .primaryVideoId,
+    ).toBe(videoId);
+    const stale = await callTool("material_save", {
+      ...save,
+      primaryVideoId: null,
+      expectedContentVersion: 2,
+      idempotencyKey: "video-stale",
+    });
+    expect(stale).toMatchObject({
+      isError: true,
+      structuredContent: { error: { code: "stale_content_version" } },
+    });
+    expect(
+      successfulValue(await callTool("material_load", { materialId }))
+        .primaryVideoId,
+    ).toBe(videoId);
+    expect(
+      successfulValue(
+        await callTool("material_save", {
+          ...save,
+          primaryVideoId: null,
+          expectedContentVersion: 3,
+          idempotencyKey: "video-detach",
+        }),
+      ).contentVersion,
+    ).toBe(4);
+    const retained = await database.prisma.video.findUniqueOrThrow({
+      where: { id: videoId },
+    });
     expect(retained.state).toBe("ready");
     expect(retained.origin).toBe("external_attachment");
-    expect(successfulValue(await callTool("material_load", { materialId })).primaryVideoId).toBeNull();
-    const other = successfulMaterialId(await callTool("material_create_draft", { idempotencyKey: "video-other", metadata: meta, body }));
-    expect(await callTool("video_attach_existing", { ...attachment, materialId: other })).toMatchObject({ isError: true, structuredContent: { error: { code: "provider_mismatch" } } });
+    expect(
+      successfulValue(await callTool("material_load", { materialId }))
+        .primaryVideoId,
+    ).toBeNull();
+    const other = successfulMaterialId(
+      await callTool("material_create_draft", {
+        idempotencyKey: "video-other",
+        metadata: meta,
+        body,
+      }),
+    );
+    expect(
+      await callTool("video_attach_existing", {
+        ...attachment,
+        materialId: other,
+      }),
+    ).toMatchObject({
+      isError: true,
+      structuredContent: { error: { code: "provider_mismatch" } },
+    });
   });
 
   test("initializes resumable upload once and rejects actor injection", async () => {
     const meta = metadata("MCP upload", "membership");
-    const materialId = successfulMaterialId(await callTool("material_create_draft", { idempotencyKey: "upload-create", metadata: meta, body: representativeDocument("Upload.") }));
-    const args = { materialId, access: "membership", filename: "recording.mp4", title: "Recording", byteSize: 1024, idempotencyKey: "mcp-upload-once" };
-    expect(await callTool("video_init_upload", { ...args, actor: ownerAccountId })).toMatchObject({ isError: true });
-    await expect(database.prisma.video.count({ where: { materialId } })).resolves.toBe(0);
+    const materialId = successfulMaterialId(
+      await callTool("material_create_draft", {
+        idempotencyKey: "upload-create",
+        metadata: meta,
+        body: representativeDocument("Upload."),
+      }),
+    );
+    const args = {
+      materialId,
+      access: "membership",
+      filename: "recording.mp4",
+      title: "Recording",
+      byteSize: 1024,
+      idempotencyKey: "mcp-upload-once",
+    };
+    expect(
+      await callTool("video_init_upload", { ...args, actor: ownerAccountId }),
+    ).toMatchObject({ isError: true });
+    await expect(
+      database.prisma.video.count({ where: { materialId } }),
+    ).resolves.toBe(0);
     const first = successfulValue(await callTool("video_init_upload", args));
     const second = successfulValue(await callTool("video_init_upload", args));
     expect(second).toEqual(first);
-    await expect(database.prisma.video.count({ where: { materialId } })).resolves.toBe(1);
+    await expect(
+      database.prisma.video.count({ where: { materialId } }),
+    ).resolves.toBe(1);
     expect(first.uploadEndpoint).toMatch(/^https:\/\/uploads\.invalid\//u);
   });
 
@@ -525,10 +659,7 @@ describe("delegated Material authoring over MCP", () => {
   }
 });
 
-function metadata(
-  title: string,
-  access: "free" | "membership",
-) {
+function metadata(title: string, access: "free" | "membership") {
   return {
     title,
     summary: "Material managed through the delegated MCP adapter.",

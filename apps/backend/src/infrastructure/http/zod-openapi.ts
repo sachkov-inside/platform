@@ -26,18 +26,21 @@ export function problemDetailsSchema<const Code extends string>(
   codes: readonly [Code, ...Code[]],
 ) {
   const [first, ...rest] = codes;
-  return z.object({
-    code: z.enum(codes),
-    status: z.literal(status),
-    title: z.string(),
-    // `ProblemDetailsFilter` derives the type from the code, so the contract names it per code.
-    type: z.enum([problemType(first), ...rest.map((code) => problemType(code))]),
-  }).loose();
+  return z
+    .object({
+      code: z.enum(codes),
+      status: z.literal(status),
+      title: z.string(),
+      // `ProblemDetailsFilter` derives the type from the code, so the contract names it per code.
+      type: z.enum([
+        problemType(first),
+        ...rest.map((code) => problemType(code)),
+      ]),
+    })
+    .loose();
 }
 
-export function problemDetailsOneOfContent(
-  ...schemas: readonly z.ZodType[]
-) {
+export function problemDetailsOneOfContent(...schemas: readonly z.ZodType[]) {
   return {
     "application/problem+json": {
       schema: { oneOf: schemas.map(toOpenApiSchema) },
@@ -51,7 +54,7 @@ export function problemDetailsOneOfContent(
  * generated clients receive concrete recursive component schemas.
  */
 export function hoistZodRecursiveSchemas(document: OpenAPIObject): void {
-  const schemas = (document.components ??= {}).schemas ??= {};
+  const schemas = ((document.components ??= {}).schemas ??= {});
   let group = 0;
 
   const visit = (value: unknown): void => {
@@ -101,7 +104,9 @@ function rewriteDefinitionReferences(
       value.$ref = `#/components/schemas/${componentName}`;
     }
   }
-  Object.values(value).forEach((item) => rewriteDefinitionReferences(item, names));
+  Object.values(value).forEach((item) =>
+    rewriteDefinitionReferences(item, names),
+  );
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

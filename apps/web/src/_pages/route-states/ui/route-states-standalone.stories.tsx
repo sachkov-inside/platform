@@ -19,7 +19,9 @@ const meta = {
 export default meta;
 type Story = StoryObj<typeof meta>;
 
-const desktop = { viewport: { isRotated: false, value: "desktop1440" } } as const;
+const desktop = {
+  viewport: { isRotated: false, value: "desktop1440" },
+} as const;
 const mobile = { viewport: { isRotated: false, value: "mobile390" } } as const;
 
 export const LayoutErrorDesktop: Story = {
@@ -27,7 +29,12 @@ export const LayoutErrorDesktop: Story = {
   name: "Layout error · desktop",
   play: async ({ canvasElement }) => {
     const page = within(canvasElement);
-    await expect(page.getByRole("heading", { level: 1, name: "Страница сейчас недоступна" })).toBeVisible();
+    await expect(
+      page.getByRole("heading", {
+        level: 1,
+        name: "Страница сейчас недоступна",
+      }),
+    ).toBeVisible();
   },
 };
 
@@ -47,11 +54,17 @@ export const AuthoringErrorDesktop: Story = {
   ...authoring,
   globals: desktop,
   name: "Authoring error · desktop",
-  render: ({ onRetry }) => <MaterialAuthoringRouteError digest="2195732781" onRetry={onRetry} />,
+  render: ({ onRetry }) => (
+    <MaterialAuthoringRouteError digest="2195732781" onRetry={onRetry} />
+  ),
   play: async ({ canvasElement }) => {
     const page = within(canvasElement);
-    await expect(page.getByRole("heading", { level: 1, name: "Редактор остановлен" })).toBeVisible();
-    await expect(page.getByRole("link", { name: "Вернуться к материалам" })).toBeVisible();
+    await expect(
+      page.getByRole("heading", { level: 1, name: "Редактор остановлен" }),
+    ).toBeVisible();
+    await expect(
+      page.getByRole("link", { name: "Вернуться к материалам" }),
+    ).toBeVisible();
   },
 };
 
@@ -59,8 +72,12 @@ export const AuthoringErrorMobile: Story = {
   ...authoring,
   globals: mobile,
   name: "Authoring error · mobile",
-  render: ({ onRetry }) => <MaterialAuthoringRouteError digest={undefined} onRetry={onRetry} />,
+  render: ({ onRetry }) => (
+    <MaterialAuthoringRouteError digest={undefined} onRetry={onRetry} />
+  ),
   play: async ({ canvasElement }) => {
-    await expect(within(canvasElement).getByText("Код обращения: authoring-boundary")).toBeVisible();
+    await expect(
+      within(canvasElement).getByText("Код обращения: authoring-boundary"),
+    ).toBeVisible();
   },
 };

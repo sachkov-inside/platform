@@ -24,11 +24,16 @@ export async function executeAcceptTerms(
   dependencies: {
     readonly accept: typeof requestAcceptTerms;
     readonly completeTelegramSignIn: typeof completeTelegramAccountSignIn;
-  } = { accept: requestAcceptTerms, completeTelegramSignIn: completeTelegramAccountSignIn },
+  } = {
+    accept: requestAcceptTerms,
+    completeTelegramSignIn: completeTelegramAccountSignIn,
+  },
 ): Promise<AcceptTermsResult> {
   let input: z.infer<typeof acceptTermsInputSchema>;
   try {
-    input = acceptTermsInputSchema.parse(JSON.parse(z.string().parse(form.get("input"))));
+    input = acceptTermsInputSchema.parse(
+      JSON.parse(z.string().parse(form.get("input"))),
+    );
   } catch {
     return { kind: "unavailable" };
   }

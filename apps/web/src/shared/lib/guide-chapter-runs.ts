@@ -12,16 +12,20 @@ export function guideChapterRuns<Item, Chapter extends { readonly id: string }>(
   readonly items: readonly Item[];
   readonly offset: number;
 }[] {
-  const runs: { chapterId: string | null; items: Item[]; offset: number }[] = [];
+  const runs: { chapterId: string | null; items: Item[]; offset: number }[] =
+    [];
   for (const [offset, item] of items.entries()) {
     const chapterId = chapterIdOf(item);
     const current = runs.at(-1);
-    if (current !== undefined && current.chapterId === chapterId) current.items.push(item);
+    if (current !== undefined && current.chapterId === chapterId)
+      current.items.push(item);
     else runs.push({ chapterId, items: [item], offset });
   }
 
   const byId = new Map(chapters.map((chapter) => [chapter.id, chapter]));
-  const filled = new Set(runs.flatMap(({ chapterId }) => (chapterId === null ? [] : [chapterId])));
+  const filled = new Set(
+    runs.flatMap(({ chapterId }) => (chapterId === null ? [] : [chapterId])),
+  );
   const pending = chapters.filter(({ id }) => !filled.has(id));
   const sections: {
     chapter: Chapter | null;
@@ -36,15 +40,18 @@ export function guideChapterRuns<Item, Chapter extends { readonly id: string }>(
         chapters.findIndex(({ id }) => id === (pending[0]?.id ?? "")) < position
       ) {
         const empty = pending.shift();
-        if (empty !== undefined) sections.push({ chapter: empty, items: [], offset: run.offset });
+        if (empty !== undefined)
+          sections.push({ chapter: empty, items: [], offset: run.offset });
       }
     }
     sections.push({
-      chapter: run.chapterId === null ? null : byId.get(run.chapterId) ?? null,
+      chapter:
+        run.chapterId === null ? null : (byId.get(run.chapterId) ?? null),
       items: run.items,
       offset: run.offset,
     });
   }
-  for (const empty of pending) sections.push({ chapter: empty, items: [], offset: items.length });
+  for (const empty of pending)
+    sections.push({ chapter: empty, items: [], offset: items.length });
   return sections;
 }

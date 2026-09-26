@@ -104,7 +104,8 @@ function PublicationNotice({
 }) {
   if (result === null) return null;
   const removalNeedsEditor =
-    result.kind === "conflict" && result.reason === "guide_removal_confirmation_required";
+    result.kind === "conflict" &&
+    result.reason === "guide_removal_confirmation_required";
   if (result.kind === "saved") {
     return (
       <span className="sr-only" role="status">
@@ -124,12 +125,12 @@ function PublicationNotice({
           : removalNeedsEditor
             ? "Материал входит в купленный продукт. Снять его можно в редакторе, подтвердив снятие."
             : result.kind === "conflict"
-            ? "Материал изменился в другой сессии. Обновите список."
-            : result.kind === "invalid_input"
-              ? "Материал пока нельзя опубликовать."
-              : result.kind === "infrastructure_error"
-                ? `Действие временно недоступно. Код: ${result.reference}`
-                : `Не удалось проверить результат. Код: ${result.reference}`;
+              ? "Материал изменился в другой сессии. Обновите список."
+              : result.kind === "invalid_input"
+                ? "Материал пока нельзя опубликовать."
+                : result.kind === "infrastructure_error"
+                  ? `Действие временно недоступно. Код: ${result.reference}`
+                  : `Не удалось проверить результат. Код: ${result.reference}`;
   return (
     <div
       className="col-span-2 rounded-xl border border-destructive/30 bg-destructive/6 p-3 text-sm sm:basis-full"

@@ -1,8 +1,14 @@
 import { z } from "zod";
 
 import { dependencyFailure } from "../../../../infrastructure/observability/index.js";
-import type { MaterialsPrisma, MaterialsPrismaClient } from "../../../../infrastructure/prisma/index.js";
-import type { MaterialBodyOperations, MaterialBodySnapshot } from "../../domain/material-body/material-body.js";
+import type {
+  MaterialsPrisma,
+  MaterialsPrismaClient,
+} from "../../../../infrastructure/prisma/index.js";
+import type {
+  MaterialBodyOperations,
+  MaterialBodySnapshot,
+} from "../../domain/material-body/material-body.js";
 import {
   materialId,
   type MaterialId,
@@ -25,14 +31,16 @@ export interface MaterialAccessFacts {
 }
 
 type MaterialContentError =
-  | { readonly code: "invalid_request_shape" }
-  | SystemError;
+  { readonly code: "invalid_request_shape" } | SystemError;
 
 export interface MaterialContent {
   /** Reads in the caller's transaction when it holds one, as a reading command does under its lock. */
   findAccessFacts(
     materialId: MaterialId,
-    transaction?: Pick<MaterialsPrisma, "material" | "publishedMaterialGuideMembership">,
+    transaction?: Pick<
+      MaterialsPrisma,
+      "material" | "publishedMaterialGuideMembership"
+    >,
   ): Promise<Result<MaterialAccessFacts | null, MaterialContentError>>;
   findAccessFactsMany(
     materialIds: readonly MaterialId[],
@@ -42,11 +50,14 @@ export interface MaterialContent {
     readonly checkedContentVersion: number;
   }): Promise<Result<MaterialBodySnapshot | null, MaterialContentError>>;
   /** Reads in the caller's transaction when it holds one, as orphan Asset cleanup does. */
-  containsAssetReference(input: {
-    readonly assetId: string;
-    readonly checkedContentVersion?: number;
-    readonly materialId: string;
-  }, transaction?: Pick<MaterialsPrisma, "material">): Promise<Result<boolean, MaterialContentError>>;
+  containsAssetReference(
+    input: {
+      readonly assetId: string;
+      readonly checkedContentVersion?: number;
+      readonly materialId: string;
+    },
+    transaction?: Pick<MaterialsPrisma, "material">,
+  ): Promise<Result<boolean, MaterialContentError>>;
   /** Reads in the Video deletion claim's transaction, under the Material reference lock it holds. */
   containsVideoReference(
     transaction: Pick<MaterialsPrisma, "material" | "publishedMaterial">,
@@ -80,10 +91,12 @@ const assetReferenceQuerySchema = z
     materialId: z.uuid(),
   })
   .strict();
-const videoReferenceQuerySchema = z.object({
-  materialId: z.uuid(),
-  videoId: z.uuid(),
-}).strict();
+const videoReferenceQuerySchema = z
+  .object({
+    materialId: z.uuid(),
+    videoId: z.uuid(),
+  })
+  .strict();
 
 export function assembleMaterialContent(dependencies: {
   readonly prisma: MaterialsPrismaClient;
@@ -92,7 +105,10 @@ export function assembleMaterialContent(dependencies: {
   return Object.freeze({
     async findAccessFacts(
       materialIdValue: MaterialId,
-      transaction: Pick<MaterialsPrisma, "material" | "publishedMaterialGuideMembership"> = dependencies.prisma,
+      transaction: Pick<
+        MaterialsPrisma,
+        "material" | "publishedMaterialGuideMembership"
+      > = dependencies.prisma,
     ): Promise<Result<MaterialAccessFacts | null, MaterialContentError>> {
       const parsed = normalizedUuidSchema.safeParse(materialIdValue);
       if (!parsed.success) {
@@ -116,15 +132,35 @@ export function assembleMaterialContent(dependencies: {
         if (facts === undefined) {
           return {
             ok: false,
-            error: invalidStoredMaterial("findAccessFacts", "invalid Material facts"),
+            error: invalidStoredMaterial(
+              "findAccessFacts",
+              "invalid Material facts",
+            ),
           };
         }
-        const memberships = await transaction.publishedMaterialGuideMembership.findMany({
-          where: { materialId: parsed.data }, select: { seriesId: true },
-        });
-        return { ok: true, value: { ...facts, ...(memberships.length ? { guideIds: memberships.map(value => value.seriesId) } : {}) } };
+        const memberships =
+          await transaction.publishedMaterialGuideMembership.findMany({
+            where: { materialId: parsed.data },
+            select: { seriesId: true },
+          });
+        return {
+          ok: true,
+          value: {
+            ...facts,
+            ...(memberships.length
+              ? { guideIds: memberships.map((value) => value.seriesId) }
+              : {}),
+          },
+        };
       } catch (error) {
-        return { ok: false, error: dependencyFailure({ module: "materials", operation: "findAccessFacts" }, error, mapPostgresReadError(error)) };
+        return {
+          ok: false,
+          error: dependencyFailure(
+            { module: "materials", operation: "findAccessFacts" },
+            error,
+            mapPostgresReadError(error),
+          ),
+        };
       }
     },
 
@@ -147,18 +183,25 @@ export function assembleMaterialContent(dependencies: {
             primaryVideoId: true,
           },
         });
-        const memberships = await dependencies.prisma.publishedMaterialGuideMembership.findMany({
-          where: { materialId: { in: checkedMaterialIds } }, select: { materialId: true, seriesId: true },
-        });
-        const facts: (MaterialAccessFacts | undefined)[] = rows.map(row => {
+        const memberships =
+          await dependencies.prisma.publishedMaterialGuideMembership.findMany({
+            where: { materialId: { in: checkedMaterialIds } },
+            select: { materialId: true, seriesId: true },
+          });
+        const facts: (MaterialAccessFacts | undefined)[] = rows.map((row) => {
           const fact = toAccessFacts(row);
-          const guideIds = memberships.filter(value => value.materialId === row.id).map(value => value.seriesId);
+          const guideIds = memberships
+            .filter((value) => value.materialId === row.id)
+            .map((value) => value.seriesId);
           return fact && { ...fact, ...(guideIds.length ? { guideIds } : {}) };
         });
         if (facts.some((item) => item === undefined)) {
           return {
             ok: false,
-            error: invalidStoredMaterial("findAccessFactsMany", "invalid Material facts"),
+            error: invalidStoredMaterial(
+              "findAccessFactsMany",
+              "invalid Material facts",
+            ),
           };
         }
         return {
@@ -168,7 +211,14 @@ export function assembleMaterialContent(dependencies: {
           ),
         };
       } catch (error) {
-        return { ok: false, error: dependencyFailure({ module: "materials", operation: "findAccessFactsMany" }, error, mapPostgresReadError(error)) };
+        return {
+          ok: false,
+          error: dependencyFailure(
+            { module: "materials", operation: "findAccessFactsMany" },
+            error,
+            mapPostgresReadError(error),
+          ),
+        };
       }
     },
 
@@ -189,15 +239,25 @@ export function assembleMaterialContent(dependencies: {
         );
         return { ok: true, value: body ?? null };
       } catch (error) {
-        return { ok: false, error: dependencyFailure({ module: "materials", operation: "loadPublishedBody" }, error, mapPostgresReadError(error)) };
+        return {
+          ok: false,
+          error: dependencyFailure(
+            { module: "materials", operation: "loadPublishedBody" },
+            error,
+            mapPostgresReadError(error),
+          ),
+        };
       }
     },
 
-    async containsAssetReference(input: {
-      readonly assetId: string;
-      readonly checkedContentVersion?: number;
-      readonly materialId: string;
-    }, transaction: Pick<MaterialsPrisma, "material"> = dependencies.prisma): Promise<Result<boolean, MaterialContentError>> {
+    async containsAssetReference(
+      input: {
+        readonly assetId: string;
+        readonly checkedContentVersion?: number;
+        readonly materialId: string;
+      },
+      transaction: Pick<MaterialsPrisma, "material"> = dependencies.prisma,
+    ): Promise<Result<boolean, MaterialContentError>> {
       const parsed = assetReferenceQuerySchema.safeParse(input);
       if (!parsed.success) {
         return { error: { code: "invalid_request_shape" }, ok: false };
@@ -220,14 +280,22 @@ export function assembleMaterialContent(dependencies: {
         });
         if (!body.ok) {
           return {
-            error: invalidStoredMaterial("containsAssetReference", "Stored Material body is invalid"),
+            error: invalidStoredMaterial(
+              "containsAssetReference",
+              "Stored Material body is invalid",
+            ),
             ok: false,
           };
         }
-        const extraction = dependencies.materialBodyOperations.extract(body.value);
+        const extraction = dependencies.materialBodyOperations.extract(
+          body.value,
+        );
         if (!extraction.ok) {
           return {
-            error: invalidStoredMaterial("containsAssetReference", "Stored Material body cannot be inspected"),
+            error: invalidStoredMaterial(
+              "containsAssetReference",
+              "Stored Material body cannot be inspected",
+            ),
             ok: false,
           };
         }
@@ -238,7 +306,14 @@ export function assembleMaterialContent(dependencies: {
           ),
         };
       } catch (error) {
-        return { error: dependencyFailure({ module: "materials", operation: "containsAssetReference" }, error, mapPostgresReadError(error)), ok: false };
+        return {
+          error: dependencyFailure(
+            { module: "materials", operation: "containsAssetReference" },
+            error,
+            mapPostgresReadError(error),
+          ),
+          ok: false,
+        };
       }
     },
 
@@ -268,7 +343,14 @@ export function assembleMaterialContent(dependencies: {
         });
         return { ok: true, value: published !== null };
       } catch (error) {
-        return { error: dependencyFailure({ module: "materials", operation: "containsVideoReference" }, error, mapPostgresReadError(error)), ok: false };
+        return {
+          error: dependencyFailure(
+            { module: "materials", operation: "containsVideoReference" },
+            error,
+            mapPostgresReadError(error),
+          ),
+          ok: false,
+        };
       }
     },
   });
@@ -294,5 +376,9 @@ function toAccessFacts(row: unknown): MaterialAccessFacts | undefined {
 /** Сохранённые факты Material не прошли проверку: это сбой хранилища, а не отказ участнику. */
 function invalidStoredMaterial(operation: string, reason: string): SystemError {
   const error = new TypeError(reason);
-  return dependencyFailure({ module: "materials", operation }, error, mapPostgresReadError(error));
+  return dependencyFailure(
+    { module: "materials", operation },
+    error,
+    mapPostgresReadError(error),
+  );
 }

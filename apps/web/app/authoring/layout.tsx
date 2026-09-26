@@ -10,7 +10,11 @@ export const instant = false;
 /** Авторская часть закрыта от индексации целиком, включая будущие разделы. */
 export const metadata: Metadata = { robots: { follow: false, index: false } };
 
-export default function AuthoringLayout({ children }: { readonly children: ReactNode }) {
+export default function AuthoringLayout({
+  children,
+}: {
+  readonly children: ReactNode;
+}) {
   return (
     <QueryProvider>
       <AuthoringShell>{children}</AuthoringShell>

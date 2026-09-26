@@ -35,11 +35,15 @@ type Story = StoryObj<typeof meta>;
 export const OptedOut: Story = {
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
-    await expect(canvas.getByRole("checkbox", { name: /Email/u })).not.toBeChecked();
+    await expect(
+      canvas.getByRole("checkbox", { name: /Email/u }),
+    ).not.toBeChecked();
     await expect(
       canvas.getByRole("checkbox", { name: /Telegram/u }),
     ).not.toBeChecked();
-    await expect(canvas.getByRole("button", { name: "Сохранить" })).toBeDisabled();
+    await expect(
+      canvas.getByRole("button", { name: "Сохранить" }),
+    ).toBeDisabled();
   },
 };
 
@@ -47,7 +51,9 @@ export const ChangedAndSavable: Story = {
   args: { dirty: true, email: true },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
-    await expect(canvas.getByRole("button", { name: "Сохранить" })).toBeEnabled();
+    await expect(
+      canvas.getByRole("button", { name: "Сохранить" }),
+    ).toBeEnabled();
   },
 };
 
@@ -55,11 +61,15 @@ export const Saved: Story = {
   args: { email: true, saved: true, telegram: true },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
-    await expect(canvas.getByRole("status")).toHaveTextContent("Выбор сохранён.");
+    await expect(canvas.getByRole("status")).toHaveTextContent(
+      "Выбор сохранён.",
+    );
   },
 };
 
-export const Saving: Story = { args: { dirty: true, email: true, pending: true } };
+export const Saving: Story = {
+  args: { dirty: true, email: true, pending: true },
+};
 export const Loading: Story = { args: { loading: true } };
 export const SessionExpired: Story = { args: { sessionExpired: true } };
 export const Unavailable: Story = {

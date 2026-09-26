@@ -6,7 +6,10 @@ import {
 } from "@nestjs/common";
 import type { FastifyReply } from "fastify";
 
-import { problemDetails, problemType } from "../../../../infrastructure/http/problem-details.js";
+import {
+  problemDetails,
+  problemType,
+} from "../../../../infrastructure/http/problem-details.js";
 
 @Catch(HttpException)
 export class AccountProblemDetailsFilter implements ExceptionFilter {
@@ -14,9 +17,12 @@ export class AccountProblemDetailsFilter implements ExceptionFilter {
     const status = exception.getStatus();
     const response = exception.getResponse();
     const fields = isRecord(response) ? response : {};
-    const code = typeof fields.code === "string" ? fields.code : "account_request_failed";
+    const code =
+      typeof fields.code === "string" ? fields.code : "account_request_failed";
     const correlationId =
-      typeof fields.correlationId === "string" ? fields.correlationId : undefined;
+      typeof fields.correlationId === "string"
+        ? fields.correlationId
+        : undefined;
     host
       .switchToHttp()
       .getResponse<FastifyReply>()

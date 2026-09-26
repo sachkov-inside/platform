@@ -74,7 +74,10 @@ describe("restricted production deployment key", () => {
       provision,
       /install -m 755[\s\S]*?inside-deploy[\s\S]*?\/usr\/local\/libexec\/inside\/inside-deploy/u,
     );
-    assert.match(provision, /Defaults:inside-deploy env_keep \+= "SSH_ORIGINAL_COMMAND"/u);
+    assert.match(
+      provision,
+      /Defaults:inside-deploy env_keep \+= "SSH_ORIGINAL_COMMAND"/u,
+    );
     assert.match(
       provision,
       /inside-deploy ALL=\(root\) NOPASSWD: \/usr\/local\/libexec\/inside\/inside-deploy/u,

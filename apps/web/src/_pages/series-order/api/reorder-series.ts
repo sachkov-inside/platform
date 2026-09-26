@@ -2,7 +2,10 @@ import "server-only";
 
 import { z } from "zod";
 
-import { guideChapterDraftSchema, type ReorderSeriesResult } from "@/features/series-order";
+import {
+  guideChapterDraftSchema,
+  type ReorderSeriesResult,
+} from "@/features/series-order";
 import { guideRemovalsFromProblem } from "@/shared/lib/guide-removal";
 import {
   requestSeriesReorder,
@@ -15,7 +18,10 @@ const formSchema = z.object({
   seriesId: z.uuid(),
 });
 const receiptSchema = z
-  .object({ orderVersion: z.string().regex(/^[a-f0-9]{64}$/u), seriesId: z.uuid() })
+  .object({
+    orderVersion: z.string().regex(/^[a-f0-9]{64}$/u),
+    seriesId: z.uuid(),
+  })
   .strict();
 
 export async function executeReorderSeries(
@@ -45,7 +51,11 @@ export async function executeReorderSeries(
     "stepGroups",
     z.record(z.uuid(), z.string().trim().min(1).max(120)),
   );
-  const chapters = readJsonField(formData, "chapters", z.array(guideChapterDraftSchema));
+  const chapters = readJsonField(
+    formData,
+    "chapters",
+    z.array(guideChapterDraftSchema),
+  );
   const chapterAssignments = readJsonField(
     formData,
     "chapterAssignments",
@@ -74,7 +84,9 @@ export async function executeReorderSeries(
         ...(stepGroups === undefined ? {} : { stepGroups }),
         ...(chapters === undefined ? {} : { chapters }),
         ...(chapterAssignments === undefined ? {} : { chapterAssignments }),
-        ...(confirmedGuideRemovals === undefined ? {} : { confirmedGuideRemovals }),
+        ...(confirmedGuideRemovals === undefined
+          ? {}
+          : { confirmedGuideRemovals }),
         seriesId: parsed.data.seriesId,
       },
       accessToken,

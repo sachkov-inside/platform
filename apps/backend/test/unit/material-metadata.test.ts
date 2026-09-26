@@ -36,7 +36,9 @@ describe("MaterialMetadata", () => {
 
     expect(result.ok).toBe(true);
     if (!result.ok) {
-      throw new Error("expected incomplete draft metadata to be structurally valid");
+      throw new Error(
+        "expected incomplete draft metadata to be structurally valid",
+      );
     }
     expect(result.value.validateForPublication()).toEqual({
       ok: false,
@@ -70,15 +72,28 @@ describe("MaterialMetadata", () => {
       return created.value.validateForPublication();
     };
 
-    expect(publication({ access: "membership", seriesMemberships: [] })).toEqual({
+    expect(
+      publication({ access: "membership", seriesMemberships: [] }),
+    ).toEqual({
       ok: false,
       error: {
         code: "invalid_content",
-        issues: [{ code: "membership_outside_product", path: "/metadata/seriesIds" }],
+        issues: [
+          { code: "membership_outside_product", path: "/metadata/seriesIds" },
+        ],
       },
     });
-    expect(publication({ access: "membership", seriesMemberships: [{ seriesId: "72000000-0000-4000-8000-000000000003", ordinal: 1 }] })).toMatchObject({ ok: true });
+    expect(
+      publication({
+        access: "membership",
+        seriesMemberships: [
+          { seriesId: "72000000-0000-4000-8000-000000000003", ordinal: 1 },
+        ],
+      }),
+    ).toMatchObject({ ok: true });
     // Открытый материал вне руководства публикуется: открытое доступно всем.
-    expect(publication({ access: "free", seriesMemberships: [] })).toMatchObject({ ok: true });
+    expect(
+      publication({ access: "free", seriesMemberships: [] }),
+    ).toMatchObject({ ok: true });
   });
 });

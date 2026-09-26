@@ -31,7 +31,11 @@ export function assembleMaterialAssetMaintenance(dependencies: {
         const result = await dependencies.assets.cleanupOrphans({
           graceMs: dependencies.config.objectStorage.orphanGraceMs,
           async isReferenced(transaction, input) {
-            const reference = await dependencies.materials.containsAssetReference(input, transaction);
+            const reference =
+              await dependencies.materials.containsAssetReference(
+                input,
+                transaction,
+              );
             if (!reference.ok) throw new Error(reference.error.code);
             return reference.value;
           },
@@ -46,10 +50,14 @@ export function assembleMaterialAssetMaintenance(dependencies: {
           retained: result.value.retained + covers.retained,
         };
       } catch (error) {
-        return dependencyFailure({ module: "materials", operation: "cleanup" }, error, {
-          error: { code: "dependency_unavailable", retryable: true },
-          ok: false,
-        });
+        return dependencyFailure(
+          { module: "materials", operation: "cleanup" },
+          error,
+          {
+            error: { code: "dependency_unavailable", retryable: true },
+            ok: false,
+          },
+        );
       }
     },
   });

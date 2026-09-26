@@ -8,7 +8,8 @@ export type NotificationPreferencesChange = Parameters<
 
 export function requestNotificationPreferences(accessToken: string) {
   return executeGeneratedRequest(
-    (request) => new NotificationsService(request).readNotificationPreferences(),
+    (request) =>
+      new NotificationsService(request).readNotificationPreferences(),
     200,
     { accessToken },
   );

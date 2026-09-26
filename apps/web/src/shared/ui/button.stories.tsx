@@ -14,11 +14,27 @@ const meta = {
   argTypes: {
     size: {
       control: "select",
-      options: ["xs", "sm", "default", "lg", "icon", "icon-xs", "icon-sm", "icon-lg"],
+      options: [
+        "xs",
+        "sm",
+        "default",
+        "lg",
+        "icon",
+        "icon-xs",
+        "icon-sm",
+        "icon-lg",
+      ],
     },
     variant: {
       control: "select",
-      options: ["default", "outline", "secondary", "ghost", "destructive", "link"],
+      options: [
+        "default",
+        "outline",
+        "secondary",
+        "ghost",
+        "destructive",
+        "link",
+      ],
     },
   },
   component: Button,
@@ -41,10 +57,16 @@ type Story = StoryObj<typeof meta>;
 export const PrimaryAction: Story = {
   name: "Primary action",
   parameters: {
-    docs: { description: { story: "The single highest-priority action in a local task." } },
+    docs: {
+      description: {
+        story: "The single highest-priority action in a local task.",
+      },
+    },
   },
   play: async ({ args, canvasElement }) => {
-    const button = within(canvasElement).getByRole("button", { name: "Сохранить" });
+    const button = within(canvasElement).getByRole("button", {
+      name: "Сохранить",
+    });
 
     await userEvent.click(button);
     await expect(args.onClick).toHaveBeenCalledOnce();
@@ -58,7 +80,12 @@ export const SecondaryAction: Story = {
   },
   name: "Secondary action",
   parameters: {
-    docs: { description: { story: "A safe alternative that should not compete with primary intent." } },
+    docs: {
+      description: {
+        story:
+          "A safe alternative that should not compete with primary intent.",
+      },
+    },
   },
 };
 
@@ -74,7 +101,12 @@ export const DestructiveAction: Story = {
   },
   name: "Destructive action",
   parameters: {
-    docs: { description: { story: "Reserved for an action with a material destructive consequence." } },
+    docs: {
+      description: {
+        story:
+          "Reserved for an action with a material destructive consequence.",
+      },
+    },
   },
 };
 
@@ -84,10 +116,17 @@ export const Disabled: Story = {
     disabled: true,
   },
   parameters: {
-    docs: { description: { story: "Communicates unavailable action state without removing its context." } },
+    docs: {
+      description: {
+        story:
+          "Communicates unavailable action state without removing its context.",
+      },
+    },
   },
   play: async ({ args, canvasElement }) => {
-    const button = within(canvasElement).getByRole("button", { name: "Недоступно" });
+    const button = within(canvasElement).getByRole("button", {
+      name: "Недоступно",
+    });
 
     await expect(button).toBeDisabled();
     await expect(args.onClick).not.toHaveBeenCalled();

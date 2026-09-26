@@ -9,7 +9,11 @@ import styles from "./broadcasts.module.css";
  * разделов. Приложение и Storybook берут её отсюда, поэтому панели видны в том же кадре, что и
  * на `/authoring/communications/broadcasts`.
  */
-export function BroadcastsPageFrame({ children }: { readonly children: ReactNode }) {
+export function BroadcastsPageFrame({
+  children,
+}: {
+  readonly children: ReactNode;
+}) {
   return (
     <main
       id="authoring-content"

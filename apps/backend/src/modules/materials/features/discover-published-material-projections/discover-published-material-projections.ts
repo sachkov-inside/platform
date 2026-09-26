@@ -27,10 +27,13 @@ const querySchema = z
     path: ["first"],
     message: "Only complete Series discovery may omit a page size",
   })
-  .refine(({ first, kind }) => kind !== "related" || (first !== null && first > 0), {
-    path: ["first"],
-    message: "Related Material discovery requires a positive page size",
-  });
+  .refine(
+    ({ first, kind }) => kind !== "related" || (first !== null && first > 0),
+    {
+      path: ["first"],
+      message: "Related Material discovery requires a positive page size",
+    },
+  );
 
 export async function discoverPublishedMaterialProjections(
   prisma: MaterialsPrisma,
@@ -50,7 +53,17 @@ export async function discoverPublishedMaterialProjections(
           value: { ...page, kind: parsed.data.kind },
         };
   } catch (error) {
-    return { ok: false, error: dependencyFailure({ module: "materials", operation: "discoverPublishedMaterialProjections" }, error, mapPostgresReadError(error)) };
+    return {
+      ok: false,
+      error: dependencyFailure(
+        {
+          module: "materials",
+          operation: "discoverPublishedMaterialProjections",
+        },
+        error,
+        mapPostgresReadError(error),
+      ),
+    };
   }
 }
 

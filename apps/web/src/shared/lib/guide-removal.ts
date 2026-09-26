@@ -15,7 +15,9 @@ export const guideRemovalSchema = z
 export type GuideRemoval = z.infer<typeof guideRemovalSchema>;
 
 /** Отказ сервера, который требует подтвердить снятие; иначе `null`. */
-export function guideRemovalsFromProblem(problem: unknown): readonly GuideRemoval[] | null {
+export function guideRemovalsFromProblem(
+  problem: unknown,
+): readonly GuideRemoval[] | null {
   const parsed = z
     .looseObject({
       code: z.literal("guide_removal_confirmation_required"),

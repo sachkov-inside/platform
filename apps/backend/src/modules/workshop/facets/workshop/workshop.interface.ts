@@ -88,9 +88,7 @@ export type LoadWorkshopCaseResult =
       ok: false;
       error: {
         readonly code:
-          | "case_not_found"
-          | "dependency_unavailable"
-          | "invalid_request";
+          "case_not_found" | "dependency_unavailable" | "invalid_request";
       };
     }>;
 

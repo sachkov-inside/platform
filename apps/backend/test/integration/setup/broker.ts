@@ -12,15 +12,19 @@ export function brokerAdmin(broker: StartedTestContainer) {
 }
 
 const queues = z.array(z.object({ name: z.string(), messages: z.number() }));
-const queueConsumerCounts = z.array(z.object({ name: z.string(), consumers: z.number() }));
+const queueConsumerCounts = z.array(
+  z.object({ name: z.string(), consumers: z.number() }),
+);
 /**
  * `rabbitmqctl` печатает аргументы очереди списком троек `[имя, тип, значение]`, а не объектом.
  * Разбираем ровно эту форму: подставленный объект прошёл бы молча и вернул бы `undefined`.
  */
-const queueArguments = z.array(z.object({
-  name: z.string(),
-  arguments: z.array(z.tuple([z.string(), z.string(), z.unknown()])),
-}));
+const queueArguments = z.array(
+  z.object({
+    name: z.string(),
+    arguments: z.array(z.tuple([z.string(), z.string(), z.unknown()])),
+  }),
+);
 
 /**
  * Ready plus unacknowledged messages, so a depth of zero proves a publish was consumed and
@@ -31,8 +35,17 @@ export async function queueDepth(
   vhost: string,
   queue: string,
 ): Promise<number | undefined> {
-  const listed = await admin(["list_queues", "-p", vhost, "name", "messages", "--formatter", "json"]);
-  return queues.parse(JSON.parse(listed)).find((row) => row.name === queue)?.messages;
+  const listed = await admin([
+    "list_queues",
+    "-p",
+    vhost,
+    "name",
+    "messages",
+    "--formatter",
+    "json",
+  ]);
+  return queues.parse(JSON.parse(listed)).find((row) => row.name === queue)
+    ?.messages;
 }
 
 /**
@@ -45,9 +58,21 @@ export async function queueLimit(
   vhost: string,
   queue: string,
 ): Promise<number | undefined> {
-  const listed = await admin(["list_queues", "-p", vhost, "name", "arguments", "--formatter", "json"]);
-  const declared = queueArguments.parse(JSON.parse(listed)).find((row) => row.name === queue);
-  const limit = declared?.arguments.find(([name]) => name === "x-max-length")?.[2];
+  const listed = await admin([
+    "list_queues",
+    "-p",
+    vhost,
+    "name",
+    "arguments",
+    "--formatter",
+    "json",
+  ]);
+  const declared = queueArguments
+    .parse(JSON.parse(listed))
+    .find((row) => row.name === queue);
+  const limit = declared?.arguments.find(
+    ([name]) => name === "x-max-length",
+  )?.[2];
   return typeof limit === "number" ? limit : undefined;
 }
 
@@ -62,6 +87,16 @@ export async function queueConsumers(
   vhost: string,
   queue: string,
 ): Promise<number | undefined> {
-  const listed = await admin(["list_queues", "-p", vhost, "name", "consumers", "--formatter", "json"]);
-  return queueConsumerCounts.parse(JSON.parse(listed)).find((row) => row.name === queue)?.consumers;
+  const listed = await admin([
+    "list_queues",
+    "-p",
+    vhost,
+    "name",
+    "consumers",
+    "--formatter",
+    "json",
+  ]);
+  return queueConsumerCounts
+    .parse(JSON.parse(listed))
+    .find((row) => row.name === queue)?.consumers;
 }

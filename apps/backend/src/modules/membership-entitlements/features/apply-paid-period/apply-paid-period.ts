@@ -1,5 +1,8 @@
 import { tierSnapshotSchema } from "../../domain/subscription-enrollment.js";
-import { lockAccountEntitlementChanges, lockAccountAccess } from "../../../../infrastructure/prisma/index.js";
+import {
+  lockAccountEntitlementChanges,
+  lockAccountAccess,
+} from "../../../../infrastructure/prisma/index.js";
 import { randomUUID } from "node:crypto";
 import { z } from "zod";
 import type { Accounts } from "../../../accounts/index.js";
@@ -24,8 +27,16 @@ export const paidPeriodCommandSchema = z
     revision: z.number().int().positive(),
     revoked: z.boolean(),
     terms: grantTermsSchema,
-    enrollment: z.strictObject({ purchaseRef: z.uuid(), billingRef: z.uuid(), tier: tierSnapshotSchema,
-      startsAt: z.iso.datetime(), endsAt: z.iso.datetime(), benefitTerms: z.array(grantTermsSchema).min(1).max(100).optional() }).optional(),
+    enrollment: z
+      .strictObject({
+        purchaseRef: z.uuid(),
+        billingRef: z.uuid(),
+        tier: tierSnapshotSchema,
+        startsAt: z.iso.datetime(),
+        endsAt: z.iso.datetime(),
+        benefitTerms: z.array(grantTermsSchema).min(1).max(100).optional(),
+      })
+      .optional(),
   })
   .strict();
 const paidResultSchema = z.union([
@@ -80,37 +91,78 @@ export async function applyPaidPeriod(
     if (enrollmentId === null && command.enrollment === undefined) {
       const purchaseRef = command.periodRef.split(":")[0];
       if (z.uuid().safeParse(purchaseRef).success) {
-        const imported = await transaction.subscriptionEnrollment.findUnique({ where: { origin_sourceRef: { origin: "platform_payment", sourceRef: `purchase:${purchaseRef ?? ""}` } } });
-        if (imported !== null && imported.accountId !== command.accountId) return accessFailure("operation_conflict");
+        const imported = await transaction.subscriptionEnrollment.findUnique({
+          where: {
+            origin_sourceRef: {
+              origin: "platform_payment",
+              sourceRef: `purchase:${purchaseRef ?? ""}`,
+            },
+          },
+        });
+        if (imported !== null && imported.accountId !== command.accountId)
+          return accessFailure("operation_conflict");
         enrollmentId = imported?.id ?? null;
       }
     }
     if (command.enrollment !== undefined) {
-      const paid = command.enrollment; const sourceRef = `purchase:${paid.purchaseRef}`;
-      const prior = await transaction.subscriptionEnrollment.findUnique({ where: { origin_sourceRef: { origin: "platform_payment", sourceRef } } });
-      if (prior !== null && prior.accountId !== command.accountId) return accessFailure("operation_conflict");
-      const enrollment = prior ?? await transaction.subscriptionEnrollment.create({ data: {
-        id: randomUUID(), accountId: command.accountId, tierId: paid.tier.id, tierRevision: paid.tier.revision,
-        snapshot: paid.tier, origin: "platform_payment", sourceRef, startsAt: new Date(paid.startsAt), endsAt: new Date(paid.endsAt),
-        endPolicy: "fixed", billingRef: paid.billingRef, revision: 1, reason: command.terms.reason,
-      } });
+      const paid = command.enrollment;
+      const sourceRef = `purchase:${paid.purchaseRef}`;
+      const prior = await transaction.subscriptionEnrollment.findUnique({
+        where: { origin_sourceRef: { origin: "platform_payment", sourceRef } },
+      });
+      if (prior !== null && prior.accountId !== command.accountId)
+        return accessFailure("operation_conflict");
+      const enrollment =
+        prior ??
+        (await transaction.subscriptionEnrollment.create({
+          data: {
+            id: randomUUID(),
+            accountId: command.accountId,
+            tierId: paid.tier.id,
+            tierRevision: paid.tier.revision,
+            snapshot: paid.tier,
+            origin: "platform_payment",
+            sourceRef,
+            startsAt: new Date(paid.startsAt),
+            endsAt: new Date(paid.endsAt),
+            endPolicy: "fixed",
+            billingRef: paid.billingRef,
+            revision: 1,
+            reason: command.terms.reason,
+          },
+        }));
       enrollmentId = enrollment.id;
       contentScope = tierSnapshotSchema.parse(enrollment.snapshot).contentScope;
       enrollmentRevokedAt = enrollment.revokedAt;
       if (command.revoked && enrollment.revokedAt === null) {
         enrollmentRevokedAt = now;
-        await transaction.subscriptionEnrollment.update({ where: { id: enrollment.id }, data: { revokedAt: now, revision: { increment: 1 } } });
-        await transaction.accessGrant.updateMany({ where: { enrollmentId: enrollment.id }, data: { revokedAt: now } });
+        await transaction.subscriptionEnrollment.update({
+          where: { id: enrollment.id },
+          data: { revokedAt: now, revision: { increment: 1 } },
+        });
+        await transaction.accessGrant.updateMany({
+          where: { enrollmentId: enrollment.id },
+          data: { revokedAt: now },
+        });
       }
     }
     if (command.enrollment === undefined && enrollmentId !== null) {
-      const imported = await transaction.subscriptionEnrollment.findUniqueOrThrow({ where: { id: enrollmentId } });
+      const imported =
+        await transaction.subscriptionEnrollment.findUniqueOrThrow({
+          where: { id: enrollmentId },
+        });
       contentScope = tierSnapshotSchema.parse(imported.snapshot).contentScope;
       enrollmentRevokedAt = imported.revokedAt;
       if (command.revoked && imported.revokedAt === null) {
         enrollmentRevokedAt = now;
-        await transaction.subscriptionEnrollment.update({ where: { id: enrollmentId }, data: { revokedAt: now, revision: { increment: 1 } } });
-        await transaction.accessGrant.updateMany({ where: { enrollmentId }, data: { revokedAt: now } });
+        await transaction.subscriptionEnrollment.update({
+          where: { id: enrollmentId },
+          data: { revokedAt: now, revision: { increment: 1 } },
+        });
+        await transaction.accessGrant.updateMany({
+          where: { enrollmentId },
+          data: { revokedAt: now },
+        });
       }
     }
     const grantRef = existing?.id ?? randomUUID();
@@ -126,7 +178,9 @@ export async function applyPaidPeriod(
         command.terms.validUntil === null
           ? null
           : new Date(command.terms.validUntil),
-      revokedAt: enrollmentRevokedAt ?? (command.revoked ? now : existing?.revokedAt ?? null),
+      revokedAt:
+        enrollmentRevokedAt ??
+        (command.revoked ? now : (existing?.revokedAt ?? null)),
       revision: command.revision,
       reason: command.terms.reason,
     };
@@ -141,16 +195,37 @@ export async function applyPaidPeriod(
       for (const capability of terms.capabilities) {
         const sourceRef = `${command.enrollment?.purchaseRef ?? ""}:${capability}`;
         if (sourceRef === command.periodRef) continue;
-        const current = await transaction.accessGrant.findUnique({ where: { source_sourceRef: { source: "paid", sourceRef } } });
-        if (current !== null && current.accountId !== command.accountId) throw new Error("Paid composition account conflict");
+        const current = await transaction.accessGrant.findUnique({
+          where: { source_sourceRef: { source: "paid", sourceRef } },
+        });
+        if (current !== null && current.accountId !== command.accountId)
+          throw new Error("Paid composition account conflict");
         if (current !== null && current.revision >= command.revision) continue;
         const id = current?.id ?? randomUUID();
-        const benefit = { ...data, sourceRef, capabilities: [capability], startsAt: new Date(terms.startsAt),
-          validUntil: terms.validUntil === null ? null : new Date(terms.validUntil),
-          revokedAt: data.revokedAt ?? current?.revokedAt ?? null };
-        await transaction.accessGrant.upsert({ where: { id }, create: { id, ...benefit }, update: benefit });
-        await transaction.accessChange.create({ data: { accountId: command.accountId, grantId: id, operationId: command.eventRef,
-          kind: command.revoked ? "paid_revoked" : "paid_applied", reason: command.terms.reason, recordedAt: now } });
+        const benefit = {
+          ...data,
+          sourceRef,
+          capabilities: [capability],
+          startsAt: new Date(terms.startsAt),
+          validUntil:
+            terms.validUntil === null ? null : new Date(terms.validUntil),
+          revokedAt: data.revokedAt ?? current?.revokedAt ?? null,
+        };
+        await transaction.accessGrant.upsert({
+          where: { id },
+          create: { id, ...benefit },
+          update: benefit,
+        });
+        await transaction.accessChange.create({
+          data: {
+            accountId: command.accountId,
+            grantId: id,
+            operationId: command.eventRef,
+            kind: command.revoked ? "paid_revoked" : "paid_applied",
+            reason: command.terms.reason,
+            recordedAt: now,
+          },
+        });
       }
     }
     const result = { ok: true as const, grantRef, revision: command.revision };

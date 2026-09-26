@@ -31,8 +31,16 @@ function recordedFetch(respond: () => Response) {
  * Тот же шов, что на маршруте: оболочка разрешает аккаунт посетителя один раз и публикует его
  * в этом контексте. Своё хранилище запросов — чтобы ответы не переносились между story.
  */
-function BookmarkScope({ accountId: account, children }: { readonly accountId: string | null; readonly children: ReactNode }) {
-  const [client] = useState(() => new QueryClient({ defaultOptions: { queries: { retry: false } } }));
+function BookmarkScope({
+  accountId: account,
+  children,
+}: {
+  readonly accountId: string | null;
+  readonly children: ReactNode;
+}) {
+  const [client] = useState(
+    () => new QueryClient({ defaultOptions: { queries: { retry: false } } }),
+  );
   return (
     <QueryClientProvider client={client}>
       <MaterialReadingContext
@@ -45,7 +53,9 @@ function BookmarkScope({ accountId: account, children }: { readonly accountId: s
           refresh: () => Promise.resolve(),
         }}
       >
-        <div className="flex min-h-40 items-start justify-end p-8">{children}</div>
+        <div className="flex min-h-40 items-start justify-end p-8">
+          {children}
+        </div>
       </MaterialReadingContext>
     </QueryClientProvider>
   );
@@ -71,22 +81,40 @@ type Story = StoryObj<typeof meta>;
 /** Гость: приглашение войти без единого личного запроса, поэтому в консоли нет отказа 401. */
 export const Guest: Story = {
   beforeEach: recordedFetch(() => new Response(null, { status: 401 })),
-  decorators: [(Story) => <BookmarkScope accountId={null}><Story /></BookmarkScope>],
+  decorators: [
+    (Story) => (
+      <BookmarkScope accountId={null}>
+        <Story />
+      </BookmarkScope>
+    ),
+  ],
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
-    await expect(canvas.getByRole("link", { name: "В закладки" })).toHaveAttribute("href", "/account");
+    await expect(
+      canvas.getByRole("link", { name: "В закладки" }),
+    ).toHaveAttribute("href", "/account");
     await expect(requestPath).not.toHaveBeenCalled();
   },
 };
 
 /** Участник: тот же адаптер спрашивает состояние и показывает сохранённую закладку. */
 export const Member: Story = {
-  beforeEach: recordedFetch(() => Response.json({ kind: "ready", states: [bookmarkedState] })),
-  decorators: [(Story) => <BookmarkScope accountId={accountId}><Story /></BookmarkScope>],
+  beforeEach: recordedFetch(() =>
+    Response.json({ kind: "ready", states: [bookmarkedState] }),
+  ),
+  decorators: [
+    (Story) => (
+      <BookmarkScope accountId={accountId}>
+        <Story />
+      </BookmarkScope>
+    ),
+  ],
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
     await waitFor(async () => {
-      await expect(canvas.getByRole("button", { name: "В закладках" })).toHaveAttribute("aria-pressed", "true");
+      await expect(
+        canvas.getByRole("button", { name: "В закладках" }),
+      ).toHaveAttribute("aria-pressed", "true");
     });
     await expect(requestPath).toHaveBeenCalledWith("/api/bookmarks/states");
   },

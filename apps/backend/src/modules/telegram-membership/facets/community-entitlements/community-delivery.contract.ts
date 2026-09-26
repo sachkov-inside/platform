@@ -41,7 +41,8 @@ export const communityDeliveryViewSchema = z.strictObject({
 export type CommunityDeliveryView = z.infer<typeof communityDeliveryViewSchema>;
 
 /** Отказ операторского чтения сообщества: неверный ввод, нет права, недоступна зависимость. */
-export type CommunityOperatorFailureCode = "invalid_input" | "forbidden" | "unavailable";
+export type CommunityOperatorFailureCode =
+  "invalid_input" | "forbidden" | "unavailable";
 
 /**
  * Список оператора: кого Telegram по последнему наблюдению видит в общем чате, хотя действующего
@@ -59,4 +60,6 @@ export const communityMembersWithoutRightSchema = z.strictObject({
   truncated: z.boolean(),
 });
 
-export type CommunityMembersWithoutRight = z.infer<typeof communityMembersWithoutRightSchema>;
+export type CommunityMembersWithoutRight = z.infer<
+  typeof communityMembersWithoutRightSchema
+>;

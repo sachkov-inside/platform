@@ -36,6 +36,10 @@ export async function checkPermission(
     });
     return { ok: true, allowed: grant !== null };
   } catch (error) {
-    return dependencyFailure({ module: "accounts", operation: "checkPermission" }, error, internalFailure());
+    return dependencyFailure(
+      { module: "accounts", operation: "checkPermission" },
+      error,
+      internalFailure(),
+    );
   }
 }

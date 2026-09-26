@@ -28,10 +28,7 @@ export type GuideArtifactResource = Readonly<{
 }>;
 
 export type Resource =
-  | MaterialResource
-  | AssetResource
-  | GuideArtifactResource
-  | VideoResource;
+  MaterialResource | AssetResource | GuideArtifactResource | VideoResource;
 
 export type AccessAction = "read" | "preview" | "download" | "play";
 
@@ -81,10 +78,7 @@ export type AvailabilityBatchResult =
   | Readonly<{
       ok: false;
       error: {
-        readonly code:
-          | "empty_batch"
-          | "duplicate_item_id"
-          | "batch_too_large";
+        readonly code: "empty_batch" | "duplicate_item_id" | "batch_too_large";
       };
     }>;
 

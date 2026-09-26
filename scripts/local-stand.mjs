@@ -32,10 +32,19 @@ const standPorts = {
 // остаётся в режиме разработки с горячей перезагрузкой.
 const productionWeb = process.argv.slice(2).includes("--production-web");
 const composeFiles = productionWeb
-  ? ["--file", "compose.yaml", "--file", "config/compose/local/production-web.compose.yaml"]
+  ? [
+      "--file",
+      "compose.yaml",
+      "--file",
+      "config/compose/local/production-web.compose.yaml",
+    ]
   : [];
 // The stand is always the shared project, even when a shell still names the disposable smoke one.
-const environment = { ...process.env, ...standPorts, COMPOSE_PROJECT_NAME: "inside-platform" };
+const environment = {
+  ...process.env,
+  ...standPorts,
+  COMPOSE_PROJECT_NAME: "inside-platform",
+};
 const smokeProject = "inside-platform-smoke";
 
 ensureSharedIdentityDirectory(repositoryRoot);
@@ -62,22 +71,31 @@ try {
   await runPnpm(["identity:proof:certs"]);
   shouldCleanupCompose = true;
   // Сначала поднимается вход: bootstrap настраивает уже работающий Logto, а не наоборот.
-  await compose(["up", "--detach", "--build", "--wait", "logto-postgres", "logto"]);
+  await compose([
+    "up",
+    "--detach",
+    "--build",
+    "--wait",
+    "logto-postgres",
+    "logto",
+  ]);
   await runPnpm(["identity:proof:bootstrap"], { LOGTO_ON_STAND: "true" });
   // Остальной стенд поднимается после bootstrap: только теперь у веба и API есть значения входа.
   await compose(["up", "--detach", "--build", "--wait"]);
   shouldCleanupCompose = false;
-  process.stdout.write([
-    "",
-    "Стенд поднят одной командой. Дальше всё в одном окружении:",
-    `  приложение        http://127.0.0.1:${standPorts.IDENTITY_PROOF_WEB_PORT}${productionWeb ? " (production-сборка: после правок кода пересоберите стенд)" : ""}`,
-    `  вход              https://identity.inside.localhost:${logtoPort}`,
-    `  письма            http://127.0.0.1:${standPorts.IDENTITY_PROOF_MAILPIT_PORT}`,
-    `  двойник банка     http://127.0.0.1:${process.env.BANK_DOUBLE_HOST_PORT ?? "8090"}`,
-    "",
-    "Остановить: docker compose --profile identity down",
-    "",
-  ].join("\n"));
+  process.stdout.write(
+    [
+      "",
+      "Стенд поднят одной командой. Дальше всё в одном окружении:",
+      `  приложение        http://127.0.0.1:${standPorts.IDENTITY_PROOF_WEB_PORT}${productionWeb ? " (production-сборка: после правок кода пересоберите стенд)" : ""}`,
+      `  вход              https://identity.inside.localhost:${logtoPort}`,
+      `  письма            http://127.0.0.1:${standPorts.IDENTITY_PROOF_MAILPIT_PORT}`,
+      `  двойник банка     http://127.0.0.1:${process.env.BANK_DOUBLE_HOST_PORT ?? "8090"}`,
+      "",
+      "Остановить: docker compose --profile identity down",
+      "",
+    ].join("\n"),
+  );
 } catch (error) {
   await shutdown();
   if (interruptedSignal === undefined) {
@@ -92,21 +110,43 @@ if (interruptedSignal !== undefined) {
 }
 
 async function isComposeRunning() {
-  const stand = await compose(["ps", "--services", "--status", "running"], { capture: true });
+  const stand = await compose(["ps", "--services", "--status", "running"], {
+    capture: true,
+  });
   // The disposable smoke project holds the same ports.
-  const smoke = await run("docker", ["compose", "--project-name", smokeProject, "ps", "--services", "--status", "running"], { capture: true });
+  const smoke = await run(
+    "docker",
+    [
+      "compose",
+      "--project-name",
+      smokeProject,
+      "ps",
+      "--services",
+      "--status",
+      "running",
+    ],
+    { capture: true },
+  );
   return `${stand.output}${smoke.output}`.trim().length > 0;
 }
 
 function compose(arguments_, options = {}) {
-  return run("docker", ["compose", ...composeFiles, "--profile", "identity", ...arguments_], options);
+  return run(
+    "docker",
+    ["compose", ...composeFiles, "--profile", "identity", ...arguments_],
+    options,
+  );
 }
 
 function runPnpm(arguments_, extraEnvironment = {}) {
   return run(process.execPath, [pnpmPath, ...arguments_], { extraEnvironment });
 }
 
-async function run(command, arguments_, { capture = false, extraEnvironment = {} } = {}) {
+async function run(
+  command,
+  arguments_,
+  { capture = false, extraEnvironment = {} } = {},
+) {
   const label = `${command === process.execPath ? "pnpm" : command} ${arguments_.join(" ")}`;
   const child = spawn(command, arguments_, {
     cwd: repositoryRoot,

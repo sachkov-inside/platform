@@ -29,6 +29,10 @@ export async function validateAuthorContent(
     );
     return { ...authorization, status: "ok", targetErrors } as const;
   } catch (error) {
-    return dependencyFailure({ module: "communications", operation: "validateAuthorContent" }, error, { status: "unavailable" } as const);
+    return dependencyFailure(
+      { module: "communications", operation: "validateAuthorContent" },
+      error,
+      { status: "unavailable" } as const,
+    );
   }
 }

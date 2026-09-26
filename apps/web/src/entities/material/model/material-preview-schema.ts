@@ -29,7 +29,14 @@ export const materialPreviewSchema: z.ZodType<MaterialPreview> = z
     ),
     slug: z.string(),
     summary: z.string(),
-    noteExcerpt: z.object({ text: z.string().max(2400), truncated: z.boolean(), linkUrl: z.url().max(2048).optional() }).strict().optional(),
+    noteExcerpt: z
+      .object({
+        text: z.string().max(2400),
+        truncated: z.boolean(),
+        linkUrl: z.url().max(2048).optional(),
+      })
+      .strict()
+      .optional(),
     tags: z.array(z.string()),
     title: z.string(),
     topic: z.string(),
@@ -65,7 +72,14 @@ export const publishedMaterialProjectionSchema = z
     ),
     slug: z.string(),
     summary: z.string(),
-    noteExcerpt: z.object({ text: z.string().max(2400), truncated: z.boolean(), linkUrl: z.url().max(2048).optional() }).strict().optional(),
+    noteExcerpt: z
+      .object({
+        text: z.string().max(2400),
+        truncated: z.boolean(),
+        linkUrl: z.url().max(2048).optional(),
+      })
+      .strict()
+      .optional(),
     tags: z.array(z.object({ id: z.string(), name: z.string() }).strict()),
     title: z.string(),
     topic: z
@@ -90,8 +104,7 @@ export function toMaterialPreview(
     ...(projection.primaryVideoDurationSeconds === undefined
       ? {}
       : {
-          primaryVideoDurationSeconds:
-            projection.primaryVideoDurationSeconds,
+          primaryVideoDurationSeconds: projection.primaryVideoDurationSeconds,
         }),
     seriesMemberships: projection.seriesMemberships.map(
       ({ ordinal, series, stepGroup }) => ({
@@ -103,7 +116,9 @@ export function toMaterialPreview(
     ),
     slug: projection.slug,
     summary: projection.summary,
-    ...(projection.noteExcerpt === undefined ? {} : { noteExcerpt: projection.noteExcerpt }),
+    ...(projection.noteExcerpt === undefined
+      ? {}
+      : { noteExcerpt: projection.noteExcerpt }),
     tags: projection.tags.map(({ name }) => name),
     title: projection.title,
     topic: projection.topic.name,

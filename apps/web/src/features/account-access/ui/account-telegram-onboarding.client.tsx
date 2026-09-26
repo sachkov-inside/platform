@@ -51,16 +51,13 @@ export function AccountTelegramOnboarding({
     authenticated &&
     !dismissed &&
     presentation !== null &&
-    (presentation.telegramMembership.link.kind !== "linked" ||
-      journeyStarted);
+    (presentation.telegramMembership.link.kind !== "linked" || journeyStarted);
 
   useEffect(() => {
     if (!journeyOpen || dialogRef.current?.open === true) return;
     const dialog = dialogRef.current;
     dialog?.showModal();
-    dialog
-      ?.querySelector<HTMLElement>("#telegram-onboarding-heading")
-      ?.focus();
+    dialog?.querySelector<HTMLElement>("#telegram-onboarding-heading")?.focus();
   }, [journeyOpen, presentation]);
 
   const dismiss = () => {

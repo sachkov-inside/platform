@@ -9,32 +9,50 @@ describe("Guide chapter placement", () => {
   test("accepts a flat Guide, a fully grouped Guide and unassigned Materials between chapters", () => {
     expect(guideChapterPlacementIssues([one, two], {}, [])).toEqual([]);
     expect(
-      guideChapterPlacementIssues([one, two, three], { [one]: alpha, [two]: alpha, [three]: beta }, [
-        alpha,
-        beta,
-      ]),
+      guideChapterPlacementIssues(
+        [one, two, three],
+        { [one]: alpha, [two]: alpha, [three]: beta },
+        [alpha, beta],
+      ),
     ).toEqual([]);
     expect(
-      guideChapterPlacementIssues([one, two, three], { [one]: alpha, [three]: beta }, [alpha, beta]),
+      guideChapterPlacementIssues(
+        [one, two, three],
+        { [one]: alpha, [three]: beta },
+        [alpha, beta],
+      ),
     ).toEqual([]);
   });
 
   test("accepts a declared chapter that holds no Material anywhere in the list", () => {
     expect(
-      guideChapterPlacementIssues([one, two], { [one]: alpha, [two]: gamma }, [alpha, beta, gamma]),
+      guideChapterPlacementIssues([one, two], { [one]: alpha, [two]: gamma }, [
+        alpha,
+        beta,
+        gamma,
+      ]),
     ).toEqual([]);
   });
 
   test("rejects a chapter split by another chapter or by an unassigned Material", () => {
     expect(
-      guideChapterPlacementIssues([one, two, three], { [one]: alpha, [two]: beta, [three]: alpha }, [
-        alpha,
-        beta,
-      ]),
-    ).toEqual([{ code: "guide_chapter_not_continuous", path: "/orderedMaterialIds/2" }]);
+      guideChapterPlacementIssues(
+        [one, two, three],
+        { [one]: alpha, [two]: beta, [three]: alpha },
+        [alpha, beta],
+      ),
+    ).toEqual([
+      { code: "guide_chapter_not_continuous", path: "/orderedMaterialIds/2" },
+    ]);
     expect(
-      guideChapterPlacementIssues([one, two, three], { [one]: alpha, [three]: alpha }, [alpha]),
-    ).toEqual([{ code: "guide_chapter_not_continuous", path: "/orderedMaterialIds/2" }]);
+      guideChapterPlacementIssues(
+        [one, two, three],
+        { [one]: alpha, [three]: alpha },
+        [alpha],
+      ),
+    ).toEqual([
+      { code: "guide_chapter_not_continuous", path: "/orderedMaterialIds/2" },
+    ]);
   });
 
   test("rejects chapters whose runs contradict the declared chapter order", () => {

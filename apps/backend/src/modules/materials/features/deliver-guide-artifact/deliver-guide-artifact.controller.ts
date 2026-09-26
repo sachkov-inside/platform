@@ -34,7 +34,10 @@ import {
   OptionalCurrentAccount,
   type AuthenticatedAccount,
 } from "../../../accounts/index.js";
-import { anonymousSubject, type Subject } from "../../../content-access/index.js";
+import {
+  anonymousSubject,
+  type Subject,
+} from "../../../content-access/index.js";
 import {
   GUIDE_ARTIFACT_DELIVERY,
   type GuideArtifactDelivery,
@@ -203,9 +206,17 @@ function subjectOf(account: AuthenticatedAccount | undefined): Subject {
 }
 
 function artifactNotFound(): HttpException {
-  return problemException(404, "artifact_not_found", "Guide Artifact not found");
+  return problemException(
+    404,
+    "artifact_not_found",
+    "Guide Artifact not found",
+  );
 }
 
 function artifactDependencyUnavailable(): HttpException {
-  return problemException(503, "dependency_unavailable", "Guide Artifact dependency unavailable");
+  return problemException(
+    503,
+    "dependency_unavailable",
+    "Guide Artifact dependency unavailable",
+  );
 }

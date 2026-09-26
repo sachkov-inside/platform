@@ -169,17 +169,30 @@ export const MobileAccount: Story = {
 
 function SwitchingNavigation() {
   const [path, setPath] = useState("/");
-  return <div onClick={(event) => {
-    const link = event.target instanceof Element ? event.target.closest("a") : null;
-    if (link === null) return;
-    event.preventDefault();
-    setPath(new URL(link.href).pathname);
-  }}>
-    <ApplicationShell {...meta.args} currentPath={path}>
-      <h1 className="text-4xl font-bold">{path === "/" ? "Главная" : path === "/bookmarks" ? "Закладки" : "Профиль"}</h1>
-      <p className="mt-4 text-muted-foreground">Переключайте разделы нижней панели.</p>
-    </ApplicationShell>
-  </div>;
+  return (
+    <div
+      onClick={(event) => {
+        const link =
+          event.target instanceof Element ? event.target.closest("a") : null;
+        if (link === null) return;
+        event.preventDefault();
+        setPath(new URL(link.href).pathname);
+      }}
+    >
+      <ApplicationShell {...meta.args} currentPath={path}>
+        <h1 className="text-4xl font-bold">
+          {path === "/"
+            ? "Главная"
+            : path === "/bookmarks"
+              ? "Закладки"
+              : "Профиль"}
+        </h1>
+        <p className="mt-4 text-muted-foreground">
+          Переключайте разделы нижней панели.
+        </p>
+      </ApplicationShell>
+    </div>
+  );
 }
 
 export const MobileSwitching: Story = {
@@ -187,7 +200,9 @@ export const MobileSwitching: Story = {
   globals: { viewport: { isRotated: false, value: "mobile390" } },
   render: () => <SwitchingNavigation />,
   play: async ({ canvasElement }) => {
-    const navigation = within(canvasElement).getByRole("navigation", { name: "Мобильная навигация" });
+    const navigation = within(canvasElement).getByRole("navigation", {
+      name: "Мобильная навигация",
+    });
     const width = navigation.getBoundingClientRect().width;
     for (const name of ["Закладки", "Профиль", "Главная"]) {
       const link = within(navigation).getByRole("link", { name });
@@ -224,5 +239,11 @@ function shortPageFooter(viewport: string): Story {
   };
 }
 
-export const ShortPageFooterDesktop: Story = { name: "Desktop · подвал внизу короткой страницы", ...shortPageFooter("desktop1440") };
-export const ShortPageFooterMobile: Story = { name: "Mobile · подвал внизу короткой страницы", ...shortPageFooter("mobile390") };
+export const ShortPageFooterDesktop: Story = {
+  name: "Desktop · подвал внизу короткой страницы",
+  ...shortPageFooter("desktop1440"),
+};
+export const ShortPageFooterMobile: Story = {
+  name: "Mobile · подвал внизу короткой страницы",
+  ...shortPageFooter("mobile390"),
+};

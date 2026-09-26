@@ -1,24 +1,13 @@
 {
+  "extends": "../../tsconfig.nest-app.json",
   "compilerOptions": {
-    "target": "ES2023",
-    "module": "NodeNext",
-    "moduleResolution": "NodeNext",
-    "lib": ["ES2023"],
-    "strict": true,
-    "exactOptionalPropertyTypes": true,
-    "noFallthroughCasesInSwitch": true,
-    "noImplicitOverride": true,
-    "noImplicitReturns": true,
-    "noUncheckedIndexedAccess": true,
-    "noUncheckedSideEffectImports": true,
-    "esModuleInterop": true,
-    "experimentalDecorators": true,
-    "emitDecoratorMetadata": true,
-    "skipLibCheck": true,
-    "incremental": true,
-    "sourceMap": true,
-    "types": ["node"]
+    "incremental": true
   },
-  "include": ["src/**/*.ts", "scripts/**/*.ts", "prisma.config.ts", "vitest*.config.mts"],
+  "include": [
+    "src/**/*.ts",
+    "scripts/**/*.ts",
+    "prisma.config.ts",
+    "vitest*.config.mts"
+  ],
   "exclude": ["dist", "node_modules"]
 }

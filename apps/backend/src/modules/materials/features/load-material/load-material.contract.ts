@@ -13,10 +13,7 @@ export interface LoadMaterialQuery {
 }
 
 export type LoadMaterialError =
-  | InvalidContentError
-  | ForbiddenError
-  | MaterialNotFoundError
-  | SystemError;
+  InvalidContentError | ForbiddenError | MaterialNotFoundError | SystemError;
 export type LoadMaterialResult = Result<MaterialDto, LoadMaterialError>;
 export type LoadMaterialOperation = (
   query: LoadMaterialQuery,

@@ -24,9 +24,7 @@ import {
   type TestDatabase,
 } from "./setup/test-database.js";
 
-const explainPlanRowSchema = z
-  .object({ "QUERY PLAN": z.string() })
-  .strict();
+const explainPlanRowSchema = z.object({ "QUERY PLAN": z.string() }).strict();
 const indexDefinitionRowSchema = z.object({ indexdef: z.string() }).strict();
 
 describe("ListPublishedMaterials", () => {
@@ -65,7 +63,9 @@ describe("ListPublishedMaterials", () => {
         ],
       },
     });
-    expect(firstPage.ok && typeof firstPage.value.nextCursor === "string").toBe(true);
+    expect(firstPage.ok && typeof firstPage.value.nextCursor === "string").toBe(
+      true,
+    );
     if (!firstPage.ok || firstPage.value.nextCursor === null) {
       throw new Error("Expected the first catalog page to continue");
     }
@@ -95,7 +95,9 @@ describe("ListPublishedMaterials", () => {
     expect(
       secondPage.ok && typeof secondPage.value.nextCursor === "string",
     ).toBe(true);
-    expect(JSON.stringify([firstPage, secondPage])).not.toContain("schemaVersion");
+    expect(JSON.stringify([firstPage, secondPage])).not.toContain(
+      "schemaVersion",
+    );
     expect(JSON.stringify([firstPage, secondPage])).not.toContain("blocks");
   });
 
@@ -139,7 +141,8 @@ describe("ListPublishedMaterials", () => {
       metadata,
       body,
     });
-    if (!created.ok) throw new Error(`Workshop draft failed: ${created.error.code}`);
+    if (!created.ok)
+      throw new Error(`Workshop draft failed: ${created.error.code}`);
     const published = await authoring.saveMaterial({
       actor: actorId,
       idempotencyKey: "publish-synthetic-workshop-material",
@@ -151,12 +154,14 @@ describe("ListPublishedMaterials", () => {
       primaryVideoId: null,
       deleteVideoId: null,
     });
-    if (!published.ok) throw new Error(`Workshop publish failed: ${published.error.code}`);
+    if (!published.ok)
+      throw new Error(`Workshop publish failed: ${published.error.code}`);
 
     const caseSpec = { fixture: "material-protection" };
     let nextWorkshopId = 500;
     let workshopNow = new Date("2030-01-01T00:00:00.000Z");
-    const realMaterialCatalog = assembleWorkshopMaterialCatalog(materialContent);
+    const realMaterialCatalog =
+      assembleWorkshopMaterialCatalog(materialContent);
     let catalogReadCount = 0;
     let signalLockedRevalidation!: () => void;
     const lockedRevalidation = new Promise<void>((resolve) => {
@@ -293,9 +298,7 @@ describe("ListPublishedMaterials", () => {
       materialResourceFacts: {
         findMany: (materialIds) =>
           Promise.resolve(
-            materialIds.includes(workshopMaterialId)
-              ? [materialFacts]
-              : [],
+            materialIds.includes(workshopMaterialId) ? [materialFacts] : [],
           ),
         findOne: (materialId) =>
           Promise.resolve(
@@ -324,11 +327,16 @@ describe("ListPublishedMaterials", () => {
     ).resolves.toMatchObject({ ok: true, value: { kind: "available" } });
 
     await expect(
-      listPublishedMaterials(publishedMaterialReader, contentAccess, emptyCatalogVideos, {
-        subject: anonymousSubject,
-        first: 12,
-        q: "Synthetic Workshop delivery retries",
-      }),
+      listPublishedMaterials(
+        publishedMaterialReader,
+        contentAccess,
+        emptyCatalogVideos,
+        {
+          subject: anonymousSubject,
+          first: 12,
+          q: "Synthetic Workshop delivery retries",
+        },
+      ),
     ).resolves.toMatchObject({
       ok: true,
       value: { items: [], totalCount: 0 },
@@ -476,10 +484,11 @@ describe("ListPublishedMaterials", () => {
   });
 
   test("searches current Topic and Series descriptions after publication", async () => {
-    const { authoring, contentAccess, publishedMaterialReader } = assembleMaterials({
-      prisma: testDatabase.prisma,
-      authorPolicy: { canManage: (accountId) => accountId === actorId },
-    });
+    const { authoring, contentAccess, publishedMaterialReader } =
+      assembleMaterials({
+        prisma: testDatabase.prisma,
+        authorPolicy: { canManage: (accountId) => accountId === actorId },
+      });
     await expect(
       authoring.updateContentCollection({
         actor: actorId,
@@ -619,14 +628,19 @@ describe("ListPublishedMaterials", () => {
     );
 
     await expect(
-      listPublishedMaterials(publishedMaterialReader, contentAccess, emptyCatalogVideos, {
-        subject: anonymousSubject,
-        after: firstPage.value.nextCursor,
-        first: 1,
-        formatSlugs: ["video"],
-        topicSlugs: ["career"],
-        sort: "title",
-      }),
+      listPublishedMaterials(
+        publishedMaterialReader,
+        contentAccess,
+        emptyCatalogVideos,
+        {
+          subject: anonymousSubject,
+          after: firstPage.value.nextCursor,
+          first: 1,
+          formatSlugs: ["video"],
+          topicSlugs: ["career"],
+          sort: "title",
+        },
+      ),
     ).resolves.toEqual({
       ok: false,
       error: { code: "invalid_request_shape" },
@@ -667,12 +681,10 @@ describe("ListPublishedMaterials", () => {
     ]);
   });
 
-  test(
-    "keeps representative PostgreSQL search below the 300ms p95 budget at 10k rows",
-    async () => {
-      await seedSearchPerformanceCorpus(testDatabase);
-      const plan = explainPlanRowSchema.array().parse(
-        await testDatabase.prisma.$queryRaw(Prisma.sql`
+  test("keeps representative PostgreSQL search below the 300ms p95 budget at 10k rows", async () => {
+    await seedSearchPerformanceCorpus(testDatabase);
+    const plan = explainPlanRowSchema.array().parse(
+      await testDatabase.prisma.$queryRaw(Prisma.sql`
           explain
           select publication.material_id
           from materials.published_materials as publication
@@ -682,49 +694,47 @@ describe("ListPublishedMaterials", () => {
             websearch_to_tsquery('simple'::regconfig, 'benchmark needle')
           )
         `),
-      );
-      expect(plan.map((row) => row["QUERY PLAN"]).join("\n")).toContain(
-        "Bitmap Index Scan on published_materials_search_vector_idx",
-      );
-      const indexes = indexDefinitionRowSchema.array().parse(
-        await testDatabase.prisma.$queryRaw(Prisma.sql`
+    );
+    expect(plan.map((row) => row["QUERY PLAN"]).join("\n")).toContain(
+      "Bitmap Index Scan on published_materials_search_vector_idx",
+    );
+    const indexes = indexDefinitionRowSchema.array().parse(
+      await testDatabase.prisma.$queryRaw(Prisma.sql`
           select indexdef
           from pg_indexes
           where schemaname = 'materials'
             and indexname = 'published_materials_search_vector_idx'
         `),
+    );
+    expect(indexes).toHaveLength(1);
+    expect(indexes[0]?.indexdef).toContain("USING gin");
+
+    const durations: number[] = [];
+    for (let sample = 0; sample < 20; sample += 1) {
+      const startedAt = performance.now();
+      const result = await selectPublishedMaterialProjectionPage(
+        testDatabase.prisma,
+        {
+          formatSlugs: [],
+          first: 12,
+          q: "benchmark needle",
+          feedOnly: false,
+          seriesSlugs: [],
+          sort: "relevance",
+          topicSlugs: [],
+        },
       );
-      expect(indexes).toHaveLength(1);
-      expect(indexes[0]?.indexdef).toContain("USING gin");
+      durations.push(performance.now() - startedAt);
+      expect(result).toMatchObject({
+        totalCount: 1,
+      });
+    }
 
-      const durations: number[] = [];
-      for (let sample = 0; sample < 20; sample += 1) {
-        const startedAt = performance.now();
-        const result = await selectPublishedMaterialProjectionPage(
-          testDatabase.prisma,
-          {
-            formatSlugs: [],
-            first: 12,
-            q: "benchmark needle",
-            feedOnly: false,
-            seriesSlugs: [],
-            sort: "relevance",
-            topicSlugs: [],
-          },
-        );
-        durations.push(performance.now() - startedAt);
-        expect(result).toMatchObject({
-          totalCount: 1,
-        });
-      }
-
-      const sortedDurations = durations.toSorted((left, right) => left - right);
-      const p95 = sortedDurations[Math.ceil(sortedDurations.length * 0.95) - 1];
-      expect(p95).toBeDefined();
-      expect(p95).toBeLessThanOrEqual(300);
-    },
-    60_000,
-  );
+    const sortedDurations = durations.toSorted((left, right) => left - right);
+    const p95 = sortedDurations[Math.ceil(sortedDurations.length * 0.95) - 1];
+    expect(p95).toBeDefined();
+    expect(p95).toBeLessThanOrEqual(300);
+  }, 60_000);
 });
 
 const actorId = "74000000-0000-4000-8000-000000000001";
@@ -1005,13 +1015,17 @@ function assembleWorkshopMaterialCatalog(
 ) {
   return Object.freeze({
     async findMany(materialIds: readonly string[]) {
-      const result = await materialContent.findAccessFactsMany(materialIds.map(materialId));
+      const result = await materialContent.findAccessFactsMany(
+        materialIds.map(materialId),
+      );
       if (!result.ok) throw new Error(result.error.code);
-      return result.value.map(({ access, materialId: id, publicationState }) => ({
-        access,
-        materialId: id,
-        publicationState,
-      }));
+      return result.value.map(
+        ({ access, materialId: id, publicationState }) => ({
+          access,
+          materialId: id,
+          publicationState,
+        }),
+      );
     },
   });
 }

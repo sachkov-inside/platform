@@ -41,8 +41,14 @@ const recoveredUploadModes: Partial<
   >
 > = {
   "authoring-recovered-checking": { phase: "processing", state: "processing" },
-  "authoring-recovered-failed": { phase: "interrupted_unusable", state: "failed" },
-  "authoring-recovered-incomplete": { phase: "interrupted_unusable", state: "uploading" },
+  "authoring-recovered-failed": {
+    phase: "interrupted_unusable",
+    state: "failed",
+  },
+  "authoring-recovered-incomplete": {
+    phase: "interrupted_unusable",
+    state: "uploading",
+  },
 };
 
 const actions = {
@@ -62,7 +68,14 @@ function MaterialVideoStateBoard({ mode }: { readonly mode: VideoStoryMode }) {
     return (
       <div className="mx-auto max-w-5xl p-5 sm:p-8">
         <MaterialVideoPlayerView
-          chapters={mode === "player-chapters" ? [{ start: 0, title: "Введение" }, { start: 75, title: "Проверка результата" }] : []}
+          chapters={
+            mode === "player-chapters"
+              ? [
+                  { start: 0, title: "Введение" },
+                  { start: 75, title: "Проверка результата" },
+                ]
+              : []
+          }
           activeChapter={mode === "player-chapters" ? 75 : null}
           onLoad={actions.onLoad}
           onToggleWatched={() => {
@@ -232,7 +245,9 @@ export const AuthoringRecoveredIncomplete: Story = {
       canvas.getByRole("button", { name: "Загрузить" }),
     ).toBeEnabled();
     // Another tab may still be sending the same file, so re-checking stays available.
-    await expect(canvas.getByRole("button", { name: "Проверить" })).toBeEnabled();
+    await expect(
+      canvas.getByRole("button", { name: "Проверить" }),
+    ).toBeEnabled();
   },
 };
 
@@ -241,9 +256,7 @@ export const AuthoringRecoveredFailed: Story = {
   name: "Authoring · adopted upload Kinescope could not process",
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
-    await expect(
-      canvas.getByText(/не смог обработать файл/u),
-    ).toBeVisible();
+    await expect(canvas.getByText(/не смог обработать файл/u)).toBeVisible();
     await expect(
       canvas.queryByText("Нужна повторная попытка"),
     ).not.toBeInTheDocument();
@@ -418,23 +431,33 @@ export const PlayerChapters: Story = {
   args: { mode: "player-chapters" },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
-    const navigation = within(canvas.getByRole("navigation", { name: "Главы видео" }));
-    const chapter = navigation.getByRole("link", { name: "1:15 Проверка результата" });
+    const navigation = within(
+      canvas.getByRole("navigation", { name: "Главы видео" }),
+    );
+    const chapter = navigation.getByRole("link", {
+      name: "1:15 Проверка результата",
+    });
     await expect(chapter).toHaveAttribute("aria-current", "true");
-    await expect(navigation.getByRole("link", { name: "0:00 Введение" })).not.toHaveAttribute("aria-current");
+    await expect(
+      navigation.getByRole("link", { name: "0:00 Введение" }),
+    ).not.toHaveAttribute("aria-current");
     await expect(chapter).toHaveAttribute("href", "#t=75");
     const view = canvasElement.ownerDocument.defaultView;
     if (view === null) throw new Error("Story canvas has no window");
     const originalUrl = view.location.href;
     const onHashChange = fn();
     // The test runner frame must not navigate; the component handler still runs first.
-    const stayOnPage = (event: MouseEvent) => { event.preventDefault(); };
+    const stayOnPage = (event: MouseEvent) => {
+      event.preventDefault();
+    };
     try {
       view.history.replaceState(null, "", "#t=75");
       view.addEventListener("click", stayOnPage);
       view.addEventListener("hashchange", onHashChange);
       await userEvent.click(chapter);
-      await waitFor(async () => { await expect(onHashChange).toHaveBeenCalled(); });
+      await waitFor(async () => {
+        await expect(onHashChange).toHaveBeenCalled();
+      });
     } finally {
       view.removeEventListener("hashchange", onHashChange);
       view.removeEventListener("click", stayOnPage);

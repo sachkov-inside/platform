@@ -40,15 +40,25 @@ export function WelcomeView({
         <p className="text-[0.95rem] font-semibold tracking-[-0.02em]">
           Sachkov <span className="text-action">Inside</span>
         </p>
-        <h1 className="mt-5 text-[1.75rem] font-bold leading-[1.1] tracking-[-0.04em]" id={titleId}>
+        <h1
+          className="mt-5 text-[1.75rem] font-bold leading-[1.1] tracking-[-0.04em]"
+          id={titleId}
+        >
           {returning ? "Условия обновились" : "Добро пожаловать"}
         </h1>
         {unavailable ? (
           <>
             <p className="mt-4 text-sm leading-6" role="alert">
-              Условия сейчас не удаётся загрузить. Обновите страницу немного позже.
+              Условия сейчас не удаётся загрузить. Обновите страницу немного
+              позже.
             </p>
-            <Button asChild className="mt-6 min-h-12 w-full text-base" data-dialog-initial-focus size="lg" variant="outline">
+            <Button
+              asChild
+              className="mt-6 min-h-12 w-full text-base"
+              data-dialog-initial-focus
+              size="lg"
+              variant="outline"
+            >
               <Link href="/">На главную</Link>
             </Button>
           </>
@@ -56,11 +66,18 @@ export function WelcomeView({
           <>
             <p className="mt-3 text-sm leading-6 text-muted-foreground">
               Нажимая кнопку, вы принимаете{" "}
-              <Link className="text-action underline underline-offset-4" href={termsHref}>
+              <Link
+                className="text-action underline underline-offset-4"
+                href={termsHref}
+              >
                 условия использования
               </Link>
-              ; пользоваться Inside можно с 14 лет. Данные аккаунта обрабатываются по{" "}
-              <Link className="text-action underline underline-offset-4" href={privacyHref}>
+              ; пользоваться Inside можно с 14 лет. Данные аккаунта
+              обрабатываются по{" "}
+              <Link
+                className="text-action underline underline-offset-4"
+                href={privacyHref}
+              >
                 политике персональных данных
               </Link>
               .

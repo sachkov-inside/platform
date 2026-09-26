@@ -1,6 +1,9 @@
 import { randomUUID } from "node:crypto";
 
-import { dependencyFailure, reportDependencyFailure } from "../../../../infrastructure/observability/index.js";
+import {
+  dependencyFailure,
+  reportDependencyFailure,
+} from "../../../../infrastructure/observability/index.js";
 import type { WorkshopEntitlementState } from "../workshop-entitlements/workshop-entitlements.interface.js";
 import type {
   WorkshopAccess,
@@ -49,7 +52,10 @@ export function assembleWorkshopAccess(
         );
         factsByResource = uniqueFactsByResource(facts);
       } catch (error) {
-        reportDependencyFailure({ module: "workshop", operation: "checkAvailabilityMany" }, error);
+        reportDependencyFailure(
+          { module: "workshop", operation: "checkAvailabilityMany" },
+          error,
+        );
         factsByResource = new Map();
       }
 
@@ -73,7 +79,11 @@ export function assembleWorkshopAccess(
       try {
         facts = await dependencies.resourceFacts.findOne(request.resource);
       } catch (error) {
-        return dependencyFailure({ module: "workshop", operation: "authorize" }, error, deny("dependency_unavailable"));
+        return dependencyFailure(
+          { module: "workshop", operation: "authorize" },
+          error,
+          deny("dependency_unavailable"),
+        );
       }
       if (facts === null) return deny("resource_not_found");
       if (resourceKey(facts.resource) !== resourceKey(request.resource)) {
@@ -102,7 +112,11 @@ export function assembleWorkshopAccess(
           request.subject.accountId,
         );
       } catch (error) {
-        return dependencyFailure({ module: "workshop", operation: "authorize" }, error, deny("dependency_unavailable"));
+        return dependencyFailure(
+          { module: "workshop", operation: "authorize" },
+          error,
+          deny("dependency_unavailable"),
+        );
       }
       switch (entitlement.kind) {
         case "active":
@@ -199,9 +213,11 @@ function isValidAction(
     case "production_case":
       return action === "read";
     case "laboratory":
-      return action === "read" ||
+      return (
+        action === "read" ||
         action === "read_progress" ||
-        action === "write_progress";
+        action === "write_progress"
+      );
     case "laboratory_artifact":
     case "production_case_artifact":
       return action === "read" || action === "download";

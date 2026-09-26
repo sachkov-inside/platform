@@ -3,7 +3,10 @@ import { usePathname } from "next/navigation";
 import { createContext, useContext, type ReactNode } from "react";
 
 import type { PriceSnapshot } from "@/entities/subscription";
-import { useCurrentBilling, useOwnEnrollments } from "@/features/billing-subscription";
+import {
+  useCurrentBilling,
+  useOwnEnrollments,
+} from "@/features/billing-subscription";
 
 import { visibleAccountSections } from "../model/account-sections";
 import { AccountSectionNav } from "./account-section-nav.client";
@@ -49,7 +52,9 @@ export function AccountCabinet({ children, options }: AccountCabinetProps) {
   const sections = visibleAccountSections({
     subscriptionOffered,
     // Назначения остаются видны вместе с историей после окончания и отзыва.
-    subscriptionOwned: (enrollments.data?.length ?? 0) > 0 || (subscription !== null && subscription.state !== "ended"),
+    subscriptionOwned:
+      (enrollments.data?.length ?? 0) > 0 ||
+      (subscription !== null && subscription.state !== "ended"),
   });
 
   return (

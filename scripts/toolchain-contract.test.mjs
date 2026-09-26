@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
 import { readFileSync } from "node:fs";
-import { dirname, resolve } from "node:path";
+import { dirname, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, it } from "node:test";
 
@@ -12,7 +12,10 @@ const backendPackage = JSON.parse(read("apps/backend/package.json"));
 const webPackage = JSON.parse(read("apps/web/package.json"));
 const nodeVersion = read(".node-version").trim();
 const pnpmVersion = rootPackage.packageManager.replace(/^pnpm@/u, "");
-const applicationDockerfiles = ["apps/backend/Dockerfile", "apps/web/Dockerfile"];
+const applicationDockerfiles = [
+  "apps/backend/Dockerfile",
+  "apps/web/Dockerfile",
+];
 
 describe("supported toolchain contract", () => {
   it("keeps Docker on the repository Node and pnpm pins", () => {
@@ -29,20 +32,28 @@ describe("supported toolchain contract", () => {
       assertNodeBasesPinnedByDigest(path, dockerfile);
       assert.match(
         dockerfile,
-        new RegExp(`corepack install --global pnpm@${escapeRegExp(pnpmVersion)}(?:\\s|$)`, "u"),
+        new RegExp(
+          `corepack install --global pnpm@${escapeRegExp(pnpmVersion)}(?:\\s|$)`,
+          "u",
+        ),
       );
     }
   });
 
-  it("copies Prisma generation inputs before dependency postinstall", () => {
+  it("copies Prisma generation and package build inputs before dependency postinstall", () => {
     for (const path of applicationDockerfiles) {
       const dockerfile = read(path);
-      const installPosition = dockerfile.indexOf("pnpm install --frozen-lockfile");
+      const installPosition = dockerfile.indexOf(
+        "pnpm install --frozen-lockfile",
+      );
 
       assert.ok(installPosition > 0);
+      // Package postinstall compiles through tsconfig.node-lib.json, which extends the shared base.
       for (const input of [
         "apps/backend/prisma.config.ts",
         "apps/backend/prisma ./apps/backend/prisma",
+        "tsconfig.base.json",
+        "tsconfig.node-lib.json",
       ]) {
         const copyPosition = dockerfile.indexOf(input);
         assert.ok(copyPosition >= 0, `${path} must copy ${input}`);
@@ -57,13 +68,20 @@ describe("supported toolchain contract", () => {
   it("keeps TypeScript exact and Node declarations on the runtime major", () => {
     const nodeMajor = nodeVersion.split(".")[0];
     const packages = [rootPackage, backendPackage, webPackage];
-    const typeScriptPins = packages.map((manifest) => manifest.devDependencies.typescript);
+    const typeScriptPins = packages.map(
+      (manifest) => manifest.devDependencies.typescript,
+    );
 
     assert.equal(new Set(typeScriptPins).size, 1);
     assert.equal(typeScriptPins[0], "7.0.2");
-    assert.ok(typeScriptPins.every((version) => /^\d+\.\d+\.\d+$/u.test(version)));
+    assert.ok(
+      typeScriptPins.every((version) => /^\d+\.\d+\.\d+$/u.test(version)),
+    );
     for (const manifest of [backendPackage, webPackage]) {
-      assert.equal(manifest.devDependencies["@types/node"].split(".")[0], nodeMajor);
+      assert.equal(
+        manifest.devDependencies["@types/node"].split(".")[0],
+        nodeMajor,
+      );
     }
   });
 
@@ -83,7 +101,7 @@ describe("supported toolchain contract", () => {
       true,
     );
     assert.equal(
-      backendTypeScript.compilerOptions.experimentalDecorators,
+      compilerOptionsOf("apps/backend/tsconfig.json").experimentalDecorators,
       true,
     );
     assert.ok(backendTypeScript.include.includes("src/**/*.ts"));
@@ -104,8 +122,78 @@ describe("supported toolchain contract", () => {
     assert.match(nextConfig, /process\.env\.HIDE_DEV_INDICATOR === "true"/u);
     assert.match(nextConfig, /devIndicators: false/u);
     // Browser checks of `pnpm test:e2e` run on the production build, which has no indicator.
-    assert.match(read("apps/web/playwright.config.ts"), /command: "node test\/support\/production-web\.mjs"/u);
-    assert.match(read("config/compose/local/web.env"), /^HIDE_DEV_INDICATOR=true$/mu);
+    assert.match(
+      read("apps/web/playwright.config.ts"),
+      /command: "node test\/support\/production-web\.mjs"/u,
+    );
+    assert.match(
+      read("config/compose/local/web.env"),
+      /^HIDE_DEV_INDICATOR=true$/mu,
+    );
+  });
+
+  it("builds every TypeScript project on the shared strict base", () => {
+    const listed = spawnSync(
+      "git",
+      ["ls-files", "-z", "--", "*tsconfig*.json"],
+      { cwd: repositoryRoot, encoding: "utf8" },
+    );
+    assert.equal(listed.status, 0, listed.stderr);
+    const configs = listed.stdout.split("\0").filter((path) => path !== "");
+    assert.ok(configs.length >= 14);
+    assert.deepEqual(
+      configs.flatMap((path) => sharedBaseViolations(path)),
+      [],
+    );
+    for (const [flag, value] of Object.entries(sharedStrictness)) {
+      assert.equal(compilerOptionsOf("tsconfig.base.json")[flag], value, flag);
+    }
+    assert.equal(
+      compilerOptionsOf("tsconfig.node-lib.json").erasableSyntaxOnly,
+      true,
+    );
+    assert.equal(
+      compilerOptionsOf("tsconfig.node-lib.json").isolatedDeclarations,
+      true,
+    );
+
+    // Negative fixtures: a project with its own flags, a package on an application preset, and a
+    // project that switches off a shared flag.
+    assert.deepEqual(
+      sharedBaseViolations("apps/backend/tsconfig.json", {
+        "apps/backend/tsconfig.json": { compilerOptions: { strict: true } },
+      }),
+      ["apps/backend/tsconfig.json must extend tsconfig.base.json"],
+    );
+    assert.deepEqual(
+      sharedBaseViolations("packages/legal/tsconfig.json", {
+        "packages/legal/tsconfig.json": {
+          extends: "../../tsconfig.nest-app.json",
+        },
+      }),
+      ["packages/legal/tsconfig.json must use tsconfig.node-lib.json"],
+    );
+    assert.deepEqual(
+      sharedBaseViolations("apps/web/tsconfig.json", {
+        "apps/web/tsconfig.json": {
+          extends: "../../tsconfig.next-app.json",
+          compilerOptions: { noUnusedLocals: false },
+        },
+      }),
+      ["apps/web/tsconfig.json must not override noUnusedLocals"],
+    );
+
+    // Packages compile with the application rules, so type-aware lint covers them too.
+    const typeAwareFiles = JSON.parse(read(".oxlintrc.json")).overrides.flatMap(
+      (override) =>
+        "typescript/no-floating-promises" in (override.rules ?? {})
+          ? override.files
+          : [],
+    );
+    assert.ok(
+      typeAwareFiles.includes("packages/**/*.{ts,mts,cts}"),
+      "type-aware lint must cover every package",
+    );
   });
 
   it("uses only the Oxc lint and parser toolchain", () => {
@@ -131,7 +219,10 @@ describe("supported toolchain contract", () => {
   });
 
   it("keeps TypeScript-API consumers out of active Web tooling", () => {
-    assert.equal(webPackage.devDependencies["@storybook/nextjs-vite"], undefined);
+    assert.equal(
+      webPackage.devDependencies["@storybook/nextjs-vite"],
+      undefined,
+    );
     assert.equal(webPackage.devDependencies["@storybook/addon-mcp"], undefined);
     assert.equal(webPackage.devDependencies["@storybook/react-vite"], "10.6.0");
     assert.equal(
@@ -141,47 +232,92 @@ describe("supported toolchain contract", () => {
     assert.equal(webPackage.devDependencies["openapi-typescript"], undefined);
     assert.equal(webPackage.dependencies["openapi-fetch"], undefined);
     // Только security overrides из docs/runbooks/dependency-updates.md; новый требует той же записи.
-    assert.deepEqual(overrideNames(read("pnpm-workspace.yaml")), documentedSecurityOverrides);
+    assert.deepEqual(
+      overrideNames(read("pnpm-workspace.yaml")),
+      documentedSecurityOverrides,
+    );
   });
 
   it("allows TypeScript 7 only for the unused Swagger compiler plugin", () => {
     // @nestjs/swagger imports the TypeScript API only from its CLI plugin; Platform never loads it.
     const workspace = read("pnpm-workspace.yaml");
-    assert.equal(peerDependencyRulesBlock(workspace), swaggerTypeScriptAllowance);
+    assert.equal(
+      peerDependencyRulesBlock(workspace),
+      swaggerTypeScriptAllowance,
+    );
     for (const widened of [
       `  allowAny: [typescript]\n`,
       `  ignoreMissing: [typescript]\n`,
       `    storybook>typescript: "7"\n`,
     ]) {
-      const rules = peerDependencyRulesBlock(workspace.replace(swaggerTypeScriptAllowance, `${swaggerTypeScriptAllowance}${widened}`));
+      const rules = peerDependencyRulesBlock(
+        workspace.replace(
+          swaggerTypeScriptAllowance,
+          `${swaggerTypeScriptAllowance}${widened}`,
+        ),
+      );
       assert.notEqual(rules, swaggerTypeScriptAllowance, widened);
     }
 
-    const tracked = spawnSync("git", ["ls-files", "-z", "--", "apps", "packages", "scripts", "*nest-cli.json"], {
-      cwd: repositoryRoot,
-      encoding: "utf8",
-    });
+    const tracked = spawnSync(
+      "git",
+      ["ls-files", "-z", "--", "apps", "packages", "scripts", "*nest-cli.json"],
+      {
+        cwd: repositoryRoot,
+        encoding: "utf8",
+      },
+    );
     assert.equal(tracked.status, 0, tracked.stderr);
     const loaders = tracked.stdout
       .split("\0")
-      .filter((path) => path !== "" && path !== "scripts/toolchain-contract.test.mjs")
+      .filter(
+        (path) => path !== "" && path !== "scripts/toolchain-contract.test.mjs",
+      )
       .filter((path) => /\.(?:[cm]?[jt]sx?|json)$/u.test(path))
       .filter((path) => loadsSwaggerPlugin(path, read(path)));
     assert.deepEqual(loaders, []);
-    assert.ok(loadsSwaggerPlugin("apps/backend/nest-cli.json", `{"compilerOptions":{"plugins":["@nestjs/swagger"]}}`));
-    assert.ok(loadsSwaggerPlugin("apps/backend/build.mjs", `import { before } from "@nestjs/swagger/plugin";`));
-    assert.ok(!loadsSwaggerPlugin("apps/backend/src/app.ts", `import { SwaggerModule } from "@nestjs/swagger";`));
+    assert.ok(
+      loadsSwaggerPlugin(
+        "apps/backend/nest-cli.json",
+        `{"compilerOptions":{"plugins":["@nestjs/swagger"]}}`,
+      ),
+    );
+    assert.ok(
+      loadsSwaggerPlugin(
+        "apps/backend/build.mjs",
+        `import { before } from "@nestjs/swagger/plugin";`,
+      ),
+    );
+    assert.ok(
+      !loadsSwaggerPlugin(
+        "apps/backend/src/app.ts",
+        `import { SwaggerModule } from "@nestjs/swagger";`,
+      ),
+    );
   });
 
   it("rejects a Node base pinned only by tag and an undocumented override", () => {
     const dockerfile = read("apps/web/Dockerfile");
     assert.throws(
-      () => assertNodeBasesPinnedByDigest("apps/web/Dockerfile", dockerfile.replace(/@sha256:[a-f0-9]{64} AS web-production/u, " AS web-production")),
+      () =>
+        assertNodeBasesPinnedByDigest(
+          "apps/web/Dockerfile",
+          dockerfile.replace(
+            /@sha256:[a-f0-9]{64} AS web-production/u,
+            " AS web-production",
+          ),
+        ),
       /apps\/web\/Dockerfile: FROM node:/u,
     );
     const workspace = read("pnpm-workspace.yaml");
-    assert.notDeepEqual(overrideNames(`${workspace}  left-pad: 1.3.0\n`), documentedSecurityOverrides);
-    assert.deepEqual(overrideNames(workspace.replace(/^overrides:[\s\S]*$/mu, "")), []);
+    assert.notDeepEqual(
+      overrideNames(`${workspace}  left-pad: 1.3.0\n`),
+      documentedSecurityOverrides,
+    );
+    assert.deepEqual(
+      overrideNames(workspace.replace(/^overrides:[\s\S]*$/mu, "")),
+      [],
+    );
   });
 
   it("uses explicit container version tags", () => {
@@ -189,11 +325,16 @@ describe("supported toolchain contract", () => {
       .split("\n")
       .filter((line) => /^\s*image:/u.test(line));
     assert.ok(localImageLines.length > 0);
-    assert.ok(localImageLines.every((line) => {
-      const image = line.trim();
-      return /:[A-Za-z0-9][^\s@]*$/u.test(image) && !/:latest$/u.test(image);
-    }));
-    assert.match(read("compose.production.yaml"), /PLATFORM_BACKEND_IMAGE_DIGEST/u);
+    assert.ok(
+      localImageLines.every((line) => {
+        const image = line.trim();
+        return /:[A-Za-z0-9][^\s@]*$/u.test(image) && !/:latest$/u.test(image);
+      }),
+    );
+    assert.match(
+      read("compose.production.yaml"),
+      /PLATFORM_BACKEND_IMAGE_DIGEST/u,
+    );
     assert.match(read("compose.production.yaml"), /PLATFORM_WEB_IMAGE_DIGEST/u);
   });
 
@@ -216,7 +357,8 @@ describe("supported toolchain contract", () => {
       "profile-avatars-worker",
       "video-deletions-worker",
       "web",
-    ]) assert.match(productionCompose, new RegExp(`^  ${service}:$`, "mu"));
+    ])
+      assert.match(productionCompose, new RegExp(`^  ${service}:$`, "mu"));
     assert.match(productionCompose, /^networks:$/mu);
     assert.match(productionCompose, /FOUNDATION_DATABASE_NETWORK/u);
   });
@@ -225,7 +367,10 @@ describe("supported toolchain contract", () => {
     const localCompose = read("compose.yaml");
     const productionCompose = read("compose.production.yaml");
 
-    assert.doesNotMatch(`${localCompose}\n${productionCompose}`, /^\s+environment:/mu);
+    assert.doesNotMatch(
+      `${localCompose}\n${productionCompose}`,
+      /^\s+environment:/mu,
+    );
     assert.doesNotMatch(localCompose, /^ {2}bootstrap:/mu);
     assert.match(localCompose, /^ {2}migrations:/mu);
     assert.match(localCompose, /^ {2}seed:/mu);
@@ -261,11 +406,21 @@ describe("supported toolchain contract", () => {
   });
 
   it("tests object storage against the image the local stand runs", () => {
-    const composeImage = read("compose.yaml").match(/^ {2}object-storage:\n {4}image: (\S+)$/mu)?.[1];
-    assert.ok(composeImage, "compose.yaml must declare the object-storage image");
-    assert.ok(composeImage.includes("@sha256:"), "object-storage image must be pinned by digest");
+    const composeImage = read("compose.yaml").match(
+      /^ {2}object-storage:\n {4}image: (\S+)$/mu,
+    )?.[1];
     assert.ok(
-      read("apps/backend/test/integration/material-assets-object-storage.test.ts").includes(`"${composeImage}"`),
+      composeImage,
+      "compose.yaml must declare the object-storage image",
+    );
+    assert.ok(
+      composeImage.includes("@sha256:"),
+      "object-storage image must be pinned by digest",
+    );
+    assert.ok(
+      read(
+        "apps/backend/test/integration/material-assets-object-storage.test.ts",
+      ).includes(`"${composeImage}"`),
       "the object storage integration test must start the Compose object-storage image",
     );
   });
@@ -280,13 +435,22 @@ describe("supported toolchain contract", () => {
       const contents = read(path);
       assert.match(contents, /^TBANK_PROVIDER_MODE=test$/mu);
       assert.doesNotMatch(contents, /^TBANK_CONFIG_JSON=/mu);
-      assert.match(contents, /^TBANK_TEST_API_BASE_URL=http:\/\/bank-double:8090\/v2$/mu);
+      assert.match(
+        contents,
+        /^TBANK_TEST_API_BASE_URL=http:\/\/bank-double:8090\/v2$/mu,
+      );
       assert.match(contents, /^BILLING_CONTACT_SMTP_HOST=mailpit$/mu);
       assert.match(contents, /^BILLING_CONTACT_SMTP_LOCAL_CAPTURE=true$/mu);
     }
-    assert.match(read("config/compose/local/bank-double.env"), /^TBANK_PROVIDER_MODE=test$/mu);
+    assert.match(
+      read("config/compose/local/bank-double.env"),
+      /^TBANK_PROVIDER_MODE=test$/mu,
+    );
     // Перехватчик писем никуда их не пересылает: отправляющий узел ему не настроен.
-    assert.doesNotMatch(read("config/compose/local/mailpit.env"), /MP_SMTP_RELAY/u);
+    assert.doesNotMatch(
+      read("config/compose/local/mailpit.env"),
+      /MP_SMTP_RELAY/u,
+    );
   });
 
   it("keeps production native dependencies and excludes development scripts", () => {
@@ -299,19 +463,31 @@ describe("supported toolchain contract", () => {
   it("isolates production smoke resources and removes local build images", () => {
     const smoke = read("scripts/production-compose-smoke.sh");
 
-    assert.match(smoke, /project_name="inside-platform-production-smoke-\$\$"/u);
+    assert.match(
+      smoke,
+      /project_name="inside-platform-production-smoke-\$\$"/u,
+    );
     assert.match(smoke, /down --rmi local --volumes --remove-orphans/u);
     assert.match(smoke, /local test_status=\$\?/u);
     assert.match(smoke, /^PGBACKREST_ARCHIVE_ASYNC=n$/mu);
-    assert.doesNotMatch(smoke, /down --rmi local --volumes --remove-orphans \|\| true/u);
+    assert.doesNotMatch(
+      smoke,
+      /down --rmi local --volumes --remove-orphans \|\| true/u,
+    );
   });
 
   it("checks every worker readiness without a pipefail-sensitive grep", () => {
     const smoke = read("scripts/production-compose-smoke.sh");
 
     assert.doesNotMatch(smoke, /\|\s*rg(?:\s|$)/u);
-    assert.match(smoke, /^application_workers=\(material-assets-worker profile-avatars-worker video-deletions-worker billing-worker notifications-worker\)$/mu);
-    assert.match(smoke, /for worker in "\$\{application_workers\[@\]\}"; do\n\s+worker_state=/u);
+    assert.match(
+      smoke,
+      /^application_workers=\(material-assets-worker profile-avatars-worker video-deletions-worker billing-worker notifications-worker\)$/mu,
+    );
+    assert.match(
+      smoke,
+      /for worker in "\$\{application_workers\[@\]\}"; do\n\s+worker_state=/u,
+    );
     assert.match(smoke, /running:healthy:0/u);
     assert.match(smoke, /did not report release\/schema readiness/u);
   });
@@ -322,8 +498,14 @@ describe("supported toolchain contract", () => {
     assert.match(smoke, /wait_for_pgboss_job_state "\$drain_job_id" active/u);
     assert.match(smoke, /docker kill --signal TERM "\$old_worker_container"/u);
     assert.match(smoke, /exited before its in-flight PgBoss job could drain/u);
-    assert.match(smoke, /pg_terminate_backend\(\$\{worker_drain_lock_backend_pid\}\)/u);
-    assert.match(smoke, /wait_for_pgboss_job_state "\$drain_job_id" completed/u);
+    assert.match(
+      smoke,
+      /pg_terminate_backend\(\$\{worker_drain_lock_backend_pid\}\)/u,
+    );
+    assert.match(
+      smoke,
+      /wait_for_pgboss_job_state "\$drain_job_id" completed/u,
+    );
   });
 
   it("runs fresh, upgrade, and N-1 migration compatibility fixtures", () => {
@@ -377,16 +559,26 @@ describe("supported toolchain contract", () => {
 
   it("groups only patch/minor Dependabot updates", () => {
     const dependabot = read(".github/dependabot.yml");
-    const groupBodies = [...dependabot.matchAll(/^\s{6}(\S+):\n((?:\s{8,}.*\n?)*)/gmu)];
+    const groupBodies = [
+      ...dependabot.matchAll(/^\s{6}(\S+):\n((?:\s{8,}.*\n?)*)/gmu),
+    ];
 
     assert.ok(groupBodies.length > 0);
     for (const [, name, body] of groupBodies) {
-      assert.match(body, /^\s{8}update-types: \[minor, patch\]$/mu, `${name} can mix major updates`);
+      assert.match(
+        body,
+        /^\s{8}update-types: \[minor, patch\]$/mu,
+        `${name} can mix major updates`,
+      );
     }
     // The merge queue keeps main current; automatic rebases re-ran full CI after every merge.
-    const ecosystems = dependabot.match(/^ {2}- package-ecosystem: /gmu)?.length ?? 0;
+    const ecosystems =
+      dependabot.match(/^ {2}- package-ecosystem: /gmu)?.length ?? 0;
     assert.ok(ecosystems > 0);
-    assert.equal(dependabot.match(/^ {4}rebase-strategy: disabled$/gmu)?.length, ecosystems);
+    assert.equal(
+      dependabot.match(/^ {4}rebase-strategy: disabled$/gmu)?.length,
+      ecosystems,
+    );
     // Pins inside composite actions age like workflow pins; Dependabot must visit them too.
     assert.match(dependabot, /^ {6}- \/\.github\/actions\/\*$/mu);
   });
@@ -425,9 +617,16 @@ const documentedSecurityOverrides = ["mysql2", "deepmerge-ts"];
 /** Тег читает человек, digest фиксирует базу: перевыпущенный тег не меняет следующий выпуск. */
 function assertNodeBasesPinnedByDigest(path, dockerfile) {
   const nodeBases = dockerfile.match(/^FROM node:\S+/gmu) ?? [];
-  assert.ok(nodeBases.length > 1, `${path} must build its production stage from Node`);
+  assert.ok(
+    nodeBases.length > 1,
+    `${path} must build its production stage from Node`,
+  );
   for (const base of nodeBases) {
-    assert.match(base, /^FROM node:[^\s@]+@sha256:[a-f0-9]{64}$/u, `${path}: ${base}`);
+    assert.match(
+      base,
+      /^FROM node:[^\s@]+@sha256:[a-f0-9]{64}$/u,
+      `${path}: ${base}`,
+    );
   }
 }
 
@@ -438,18 +637,86 @@ const swaggerTypeScriptAllowance = `peerDependencyRules:
 
 /** The whole top-level block, so a widened rule next to the allowance cannot pass unnoticed. */
 function peerDependencyRulesBlock(workspace) {
-  return workspace.match(/^peerDependencyRules:\n(?:(?: {2}.*)?\n)*/mu)?.[0] ?? "";
+  return (
+    workspace.match(/^peerDependencyRules:\n(?:(?: {2}.*)?\n)*/mu)?.[0] ?? ""
+  );
 }
 
 /** Nest CLI loads the plugin by package name from nest-cli.json; code loads it by its subpath. */
 function loadsSwaggerPlugin(path, source) {
-  return source.includes("@nestjs/swagger/plugin") ||
-    (path.endsWith("nest-cli.json") && source.includes("@nestjs/swagger"));
+  return (
+    source.includes("@nestjs/swagger/plugin") ||
+    (path.endsWith("nest-cli.json") && source.includes("@nestjs/swagger"))
+  );
 }
 
 function overrideNames(workspace) {
   const overrides = workspace.match(/^overrides:\n((?:(?: {2}.*)?\n)*)/mu);
-  return overrides === null ? [] : [...overrides[1].matchAll(/^ {2}([^#\s:][^:]*):/gmu)].map((match) => match[1]);
+  return overrides === null
+    ? []
+    : [...overrides[1].matchAll(/^ {2}([^#\s:][^:]*):/gmu)].map(
+        (match) => match[1],
+      );
+}
+
+const sharedStrictness = {
+  strict: true,
+  exactOptionalPropertyTypes: true,
+  noUncheckedIndexedAccess: true,
+  noImplicitOverride: true,
+  noImplicitReturns: true,
+  noFallthroughCasesInSwitch: true,
+  noUncheckedSideEffectImports: true,
+  noUnusedLocals: true,
+  noUnusedParameters: true,
+  allowUnreachableCode: false,
+  allowUnusedLabels: false,
+  verbatimModuleSyntax: true,
+  isolatedModules: true,
+};
+
+/** Why one tracked tsconfig breaks the shared base contract; `overrides` replaces files for fixtures. */
+function sharedBaseViolations(path, overrides = {}) {
+  if (path === "tsconfig.base.json") return [];
+  const chain = extendsChain(path, overrides);
+  if (!chain.includes("tsconfig.base.json"))
+    return [`${path} must extend tsconfig.base.json`];
+  if (
+    path.startsWith("packages/") &&
+    !chain.includes("tsconfig.node-lib.json")
+  ) {
+    return [`${path} must use tsconfig.node-lib.json`];
+  }
+  const own = (overrides[path] ?? JSON.parse(read(path))).compilerOptions ?? {};
+  return Object.keys(sharedStrictness)
+    .filter((flag) => flag in own)
+    .map((flag) => `${path} must not override ${flag}`);
+}
+
+/** Repository-relative configs a project inherits, nearest first; `overrides` replaces files for fixtures. */
+function extendsChain(path, overrides = {}) {
+  const chain = [];
+  for (let current = path; current !== undefined;) {
+    chain.push(current);
+    const config = overrides[current] ?? JSON.parse(read(current));
+    current =
+      typeof config.extends === "string"
+        ? relative(
+            repositoryRoot,
+            resolve(repositoryRoot, dirname(current), config.extends),
+          )
+        : undefined;
+  }
+  return chain;
+}
+
+function compilerOptionsOf(path) {
+  return Object.assign(
+    {},
+    ...extendsChain(path)
+      .reverse()
+      .map((config) => JSON.parse(read(config)).compilerOptions ?? {}),
+  );
 }
 
 function escapeRegExp(value) {

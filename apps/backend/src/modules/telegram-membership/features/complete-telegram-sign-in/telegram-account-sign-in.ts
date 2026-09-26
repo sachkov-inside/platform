@@ -133,7 +133,11 @@ export class TelegramAccountSignIn {
       });
       return { ok: true, account } as const;
     } catch (error) {
-      return dependencyFailure({ module: "telegram-membership", operation: "complete" }, error, { ok: false, error: { code: "unavailable" } } as const);
+      return dependencyFailure(
+        { module: "telegram-membership", operation: "complete" },
+        error,
+        { ok: false, error: { code: "unavailable" } } as const,
+      );
     }
   }
 

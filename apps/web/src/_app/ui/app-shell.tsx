@@ -31,8 +31,13 @@ interface AppShellProps {
 export function AppShell({ children }: AppShellProps) {
   const pathname = usePathname();
   const authStatus = useAuthStatus();
-  const accountKnown = authStatus.resolved && authStatus.state !== "unavailable";
-  const mobileNavigation = useMobileNavigation(pathname, authStatus.accountId, accountKnown);
+  const accountKnown =
+    authStatus.resolved && authStatus.state !== "unavailable";
+  const mobileNavigation = useMobileNavigation(
+    pathname,
+    authStatus.accountId,
+    accountKnown,
+  );
   useAccessChangeRefresh(authStatus.accountId, accountKnown);
   const navigationItems = navigationItemsFor({
     canManageMaterials: authStatus.canManageMaterials,
@@ -71,11 +76,23 @@ export function AppShell({ children }: AppShellProps) {
         <MobileNavigationLocation onChange={mobileNavigation.recordLocation} />
         <NavigationTiming />
       </Suspense>
-      <ReadingProgressProvider key={authStatus.accountId ?? "guest"} accountId={authStatus.accountId} resolved={authStatus.resolved}>
-        <div aria-hidden={mobileNavigation.pendingHref !== null || undefined} inert={mobileNavigation.pendingHref !== null} className={mobileNavigation.pendingHref !== null ? "invisible" : undefined}>
+      <ReadingProgressProvider
+        key={authStatus.accountId ?? "guest"}
+        accountId={authStatus.accountId}
+        resolved={authStatus.resolved}
+      >
+        <div
+          aria-hidden={mobileNavigation.pendingHref !== null || undefined}
+          inert={mobileNavigation.pendingHref !== null}
+          className={
+            mobileNavigation.pendingHref !== null ? "invisible" : undefined
+          }
+        >
           {children}
         </div>
-        {mobileNavigation.pendingHref !== null ? <PublicNavigationPending href={mobileNavigation.pendingHref} /> : null}
+        {mobileNavigation.pendingHref !== null ? (
+          <PublicNavigationPending href={mobileNavigation.pendingHref} />
+        ) : null}
       </ReadingProgressProvider>
       <AccountTelegramOnboarding
         authenticated={authStatus.state === "authenticated"}

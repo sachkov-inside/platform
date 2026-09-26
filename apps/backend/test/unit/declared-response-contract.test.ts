@@ -14,10 +14,21 @@ import {
 // the one owner of the shape, so this proof takes it from there instead of restating a schema.
 describe("declared response contract", () => {
   const continuation = {
-    collection: { cover: null, count: 3, id: "5a1c6f10-0b33-4e2f-9a8c-7d4e12b0f001", name: "Demo · Прогресс обучения", previewItems: [], slug: "demo-progress-series", summary: null },
+    collection: {
+      cover: null,
+      count: 3,
+      id: "5a1c6f10-0b33-4e2f-9a8c-7d4e12b0f001",
+      name: "Demo · Прогресс обучения",
+      previewItems: [],
+      slug: "demo-progress-series",
+      summary: null,
+    },
     read: 1,
     total: 3,
-    continuation: { materialSlug: "video-pro-developer-pipeline", resume: { kind: "start" } },
+    continuation: {
+      materialSlug: "video-pro-developer-pipeline",
+      resume: { kind: "start" },
+    },
   };
   const learningHome = (series: unknown) => ({
     method: "GET",
@@ -33,26 +44,46 @@ describe("declared response contract", () => {
   });
 
   test("accepts the Guide continuation the module publishes", () => {
-    expect(() => { assertDeclaredResponse(learningHome(continuation)); }).not.toThrow();
-    expect(() => { assertDeclaredResponse(guideContinuation(continuation)); }).not.toThrow();
+    expect(() => {
+      assertDeclaredResponse(learningHome(continuation));
+    }).not.toThrow();
+    expect(() => {
+      assertDeclaredResponse(guideContinuation(continuation));
+    }).not.toThrow();
   });
 
   test("rejects a Guide field the collection does not declare", () => {
-    const leaked = { ...continuation, collection: { ...continuation.collection, introduction: null } };
-    expect(() => { assertDeclaredResponse(learningHome(leaked)); }).toThrow(/introduction/u);
-    expect(() => { assertDeclaredResponse(guideContinuation(leaked)); }).toThrow(/introduction/u);
+    const leaked = {
+      ...continuation,
+      collection: { ...continuation.collection, introduction: null },
+    };
+    expect(() => {
+      assertDeclaredResponse(learningHome(leaked));
+    }).toThrow(/introduction/u);
+    expect(() => {
+      assertDeclaredResponse(guideContinuation(leaked));
+    }).toThrow(/introduction/u);
   });
 
   test("rejects a success the document never declared and an address it does not know", () => {
-    expect(() => { assertDeclaredResponse({ ...learningHome(continuation), status: 299 }); })
-      .toThrow(/does not declare/u);
-    expect(() => { assertDeclaredResponse({ ...learningHome(continuation), url: "/reading-activity/series-continuation" }); })
-      .toThrow(/declares no such address/u);
+    expect(() => {
+      assertDeclaredResponse({ ...learningHome(continuation), status: 299 });
+    }).toThrow(/does not declare/u);
+    expect(() => {
+      assertDeclaredResponse({
+        ...learningHome(continuation),
+        url: "/reading-activity/series-continuation",
+      });
+    }).toThrow(/declares no such address/u);
   });
 
   test("leaves a refusal from an address the document never declared alone", () => {
     expect(() => {
-      assertDeclaredResponse({ ...learningHome(continuation), url: "/reading-activity/series-continuation", status: 404 });
+      assertDeclaredResponse({
+        ...learningHome(continuation),
+        url: "/reading-activity/series-continuation",
+        status: 404,
+      });
     }).not.toThrow();
   });
 
@@ -62,7 +93,9 @@ describe("declared response contract", () => {
         method: "PUT",
         url: "/materials/9f1a/videos/2b7c/progress",
         status: 204,
-        body: () => { throw new Error("body read"); },
+        body: () => {
+          throw new Error("body read");
+        },
       });
     }).not.toThrow();
   });
@@ -71,15 +104,25 @@ describe("declared response contract", () => {
   test("a leaking server fails the inject its test performed", async () => {
     const leaking: InjectableServer<DeclaredResponseParts> = {
       ready: () => Promise.resolve(),
-      inject: () => Promise.resolve({
-        statusCode: 200,
-        json: () => ({ video: null, series: { ...continuation, collection: { ...continuation.collection, introduction: null } } }),
-      }),
+      inject: () =>
+        Promise.resolve({
+          statusCode: 200,
+          json: () => ({
+            video: null,
+            series: {
+              ...continuation,
+              collection: { ...continuation.collection, introduction: null },
+            },
+          }),
+        }),
     };
-    await expect(declaredServer(leaking).inject({ method: "GET", url: "/reading-activity/learning-home" }))
-      .rejects.toThrow(/introduction/u);
+    await expect(
+      declaredServer(leaking).inject({
+        method: "GET",
+        url: "/reading-activity/learning-home",
+      }),
+    ).rejects.toThrow(/introduction/u);
   });
-
 
   // Отказ тоже объявленный ответ: `application/problem+json` описывает большую часть документа.
   // Расширять его тело контракт разрешает, поэтому проверяются состав обязательных полей и
@@ -89,10 +132,19 @@ describe("declared response contract", () => {
       method: "POST",
       url: "/accounts/current/billing/quote",
       status: 409,
-      body: () => ({ type: `urn:inside:problem:${code}`, title: "Quote changed", status: 409, code }),
+      body: () => ({
+        type: `urn:inside:problem:${code}`,
+        title: "Quote changed",
+        status: 409,
+        code,
+      }),
     });
-    expect(() => { assertDeclaredResponse(problem("quote_changed")); }).not.toThrow();
-    expect(() => { assertDeclaredResponse(problem("quote_vanished")); }).toThrow(/allowed values/u);
+    expect(() => {
+      assertDeclaredResponse(problem("quote_changed"));
+    }).not.toThrow();
+    expect(() => {
+      assertDeclaredResponse(problem("quote_vanished"));
+    }).toThrow(/allowed values/u);
   });
 
   // Документ перечисляет варианты тела отказа через `oneOf`, и открытый вариант пересекается с
@@ -103,7 +155,13 @@ describe("declared response contract", () => {
         method: "PUT",
         url: "/reading-activity/materials/9f1a",
         status: 400,
-        body: () => ({ type: "urn:inside:problem:invalid_request", title: "Bad request", status: 400, code: "invalid_request", detail: "materialId is not a UUID" }),
+        body: () => ({
+          type: "urn:inside:problem:invalid_request",
+          title: "Bad request",
+          status: 400,
+          code: "invalid_request",
+          detail: "materialId is not a UUID",
+        }),
       });
     }).not.toThrow();
   });
@@ -117,8 +175,22 @@ describe("declared response contract", () => {
       state: "pending",
       paymentUrl: "https://securepay.tinkoff.ru/test",
       snapshot: {
-        offer: { id: "5a1c6f10-0b33-4e2f-9a8c-7d4e12b0f001", revision: 2, name: "Synthetic subscription", benefits: ["materials"], archived: false, published: true },
-        paymentOption: { id: "5a1c6f10-0b33-4e2f-9a8c-7d4e12b0f002", revision: 1, offerId: "5a1c6f10-0b33-4e2f-9a8c-7d4e12b0f001", months: 1, priceKopecks: 200_000, archived: false },
+        offer: {
+          id: "5a1c6f10-0b33-4e2f-9a8c-7d4e12b0f001",
+          revision: 2,
+          name: "Synthetic subscription",
+          benefits: ["materials"],
+          archived: false,
+          published: true,
+        },
+        paymentOption: {
+          id: "5a1c6f10-0b33-4e2f-9a8c-7d4e12b0f002",
+          revision: 1,
+          offerId: "5a1c6f10-0b33-4e2f-9a8c-7d4e12b0f001",
+          months: 1,
+          priceKopecks: 200_000,
+          archived: false,
+        },
         promotion: null,
         currency: "RUB",
         timezone: "Europe/Moscow",
@@ -136,7 +208,11 @@ describe("declared response contract", () => {
       status: 200,
       body: () => body,
     });
-    expect(() => { assertDeclaredResponse(read(purchase)); }).not.toThrow();
-    expect(() => { assertDeclaredResponse(read({ ...purchase, ok: true })); }).toThrow(/ok/u);
+    expect(() => {
+      assertDeclaredResponse(read(purchase));
+    }).not.toThrow();
+    expect(() => {
+      assertDeclaredResponse(read({ ...purchase, ok: true }));
+    }).toThrow(/ok/u);
   });
 });

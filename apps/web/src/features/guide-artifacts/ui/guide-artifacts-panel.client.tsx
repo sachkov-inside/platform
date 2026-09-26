@@ -46,7 +46,9 @@ export function GuideArtifactsPanel({
   const headingId = useId();
   const queryClient = useQueryClient();
   const query = useQuery(guideArtifactsQueryOptions(guideId));
-  const [notice, setNotice] = useState<GuideArtifactMutationResult | null>(null);
+  const [notice, setNotice] = useState<GuideArtifactMutationResult | null>(
+    null,
+  );
 
   function applyResult(result: GuideArtifactMutationResult) {
     setNotice(result);
@@ -56,7 +58,10 @@ export function GuideArtifactsPanel({
   }
 
   return (
-    <section aria-labelledby={headingId} className="border-t border-border py-8">
+    <section
+      aria-labelledby={headingId}
+      className="border-t border-border py-8"
+    >
       <h2 className="text-xl font-semibold tracking-tight" id={headingId}>
         Артефакты
       </h2>
@@ -168,7 +173,10 @@ function ArtifactCard({
   });
   const replaceLink = useMutation({
     mutationFn: (externalUrl: string) =>
-      replaceGuideArtifactLink({ artifactId: artifact.artifactId, externalUrl }),
+      replaceGuideArtifactLink({
+        artifactId: artifact.artifactId,
+        externalUrl,
+      }),
     onSuccess: onResult,
   });
   const archive = useMutation({
@@ -572,9 +580,7 @@ function MetadataForm({
         />
       </label>
       <label className="block">
-        <span className="text-xs text-muted-foreground">
-          Зачем он читателю
-        </span>
+        <span className="text-xs text-muted-foreground">Зачем он читателю</span>
         <textarea
           className="mt-1 block w-full resize-y rounded-md border border-input bg-transparent px-2 py-1 text-sm"
           maxLength={1000}
@@ -602,19 +608,21 @@ function MetadataForm({
       ) : null}
       <fieldset className="grid gap-1">
         <legend className="text-xs text-muted-foreground">Кому доступен</legend>
-        {(["membership", "free"] satisfies GuideArtifactAccess[]).map((value) => (
-          <label className="flex items-center gap-2 text-sm" key={value}>
-            <input
-              checked={draft.access === value}
-              onChange={() => {
-                setDraft({ ...draft, access: value });
-              }}
-              type="radio"
-              value={value}
-            />
-            {describeArtifactAccess(value)}
-          </label>
-        ))}
+        {(["membership", "free"] satisfies GuideArtifactAccess[]).map(
+          (value) => (
+            <label className="flex items-center gap-2 text-sm" key={value}>
+              <input
+                checked={draft.access === value}
+                onChange={() => {
+                  setDraft({ ...draft, access: value });
+                }}
+                type="radio"
+                value={value}
+              />
+              {describeArtifactAccess(value)}
+            </label>
+          ),
+        )}
       </fieldset>
       <div className="flex flex-wrap gap-2">
         <Button disabled={pending} type="submit">
@@ -635,7 +643,9 @@ function MutationNotice({
 }) {
   switch (result.kind) {
     case "saved":
-      return <span role="status">Артефакт «{result.artifact.title}» сохранён.</span>;
+      return (
+        <span role="status">Артефакт «{result.artifact.title}» сохранён.</span>
+      );
     case "removed":
       return <span role="status">Артефакт удалён.</span>;
     case "referenced":

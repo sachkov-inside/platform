@@ -45,8 +45,8 @@ export const legalEditions: readonly LegalEdition[] = [
  */
 export function currentLegalEdition(key: LegalDocumentKey): LegalEdition {
   const editions = legalEditions.filter((edition) => edition.key === key);
-  const [current] = [...editions].sort((left, right) =>
-    right.version - left.version,
+  const [current] = [...editions].sort(
+    (left, right) => right.version - left.version,
   );
   if (current === undefined)
     throw new Error(`Legal document without an edition: ${key}`);
@@ -124,7 +124,11 @@ interface ConsentDefinition {
 const consentDefinitions: readonly ConsentDefinition[] = [
   { kind: "terms", appliesTo: ["one_time"], edition: purchaseV4 },
   { kind: "terms", appliesTo: ["subscription"], edition: subscriptionV1 },
-  { kind: "recurring", appliesTo: ["subscription"], edition: recurringConsentV1 },
+  {
+    kind: "recurring",
+    appliesTo: ["subscription"],
+    edition: recurringConsentV1,
+  },
 ];
 
 /**

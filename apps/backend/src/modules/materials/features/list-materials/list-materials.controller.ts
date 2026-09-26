@@ -5,9 +5,18 @@ import { z } from "zod";
 import { materialFormatSchema } from "../../domain/material-format.js";
 
 import { toOpenApiSchema } from "../../../../infrastructure/http/zod-openapi.js";
-import { CurrentAccount, type AuthenticatedAccount } from "../../../accounts/index.js";
-import { ApiMaterialAuthoringErrors, MaterialAuthoringEndpoint } from "../../adapters/nest/material-authoring-endpoint.js";
-import { contentVersionSchema, throwMaterialAuthoringError } from "../../adapters/nest/material-authoring-http.js";
+import {
+  CurrentAccount,
+  type AuthenticatedAccount,
+} from "../../../accounts/index.js";
+import {
+  ApiMaterialAuthoringErrors,
+  MaterialAuthoringEndpoint,
+} from "../../adapters/nest/material-authoring-endpoint.js";
+import {
+  contentVersionSchema,
+  throwMaterialAuthoringError,
+} from "../../adapters/nest/material-authoring-http.js";
 import { MATERIAL_AUTHORING } from "../../facets/material-authoring/material-authoring.token.js";
 import type { MaterialAuthoring } from "../../facets/material-authoring/material-authoring.js";
 import { problemException } from "../../../../infrastructure/http/problem-details.js";
@@ -16,7 +25,9 @@ const PAGE_SIZE = 20;
 const publicationStateSchema = z.enum(["draft", "published", "unpublished"]);
 const pageSchema = z.coerce.number().int().min(1).max(10_000);
 const searchSchema = z.string().trim().min(1).max(160);
-const referenceSchema = z.object({ id: z.uuid(), name: z.string().min(1) }).strict();
+const referenceSchema = z
+  .object({ id: z.uuid(), name: z.string().min(1) })
+  .strict();
 const itemSchema = z
   .object({
     canDelete: z.boolean(),
@@ -52,13 +63,21 @@ export class ListMaterialsController {
     operationId: "listAuthoringMaterials",
     summary: "List the complete Material authoring corpus",
   })
-  @ApiQuery({ name: "page", required: false, schema: toOpenApiSchema(pageSchema) })
+  @ApiQuery({
+    name: "page",
+    required: false,
+    schema: toOpenApiSchema(pageSchema),
+  })
   @ApiQuery({
     name: "publicationState",
     required: false,
     schema: toOpenApiSchema(publicationStateSchema),
   })
-  @ApiQuery({ name: "search", required: false, schema: toOpenApiSchema(searchSchema) })
+  @ApiQuery({
+    name: "search",
+    required: false,
+    schema: toOpenApiSchema(searchSchema),
+  })
   @ApiOkResponse({ schema: toOpenApiSchema(responseSchema) })
   @ApiMaterialAuthoringErrors(400, 401, 403, 500, 503)
   async list(
@@ -80,7 +99,11 @@ export class ListMaterialsController {
         search: searchInput?.trim() === "" ? undefined : searchInput,
       });
     if (!parsed.success) {
-      throw problemException(400, "invalid_request_shape", "Material authoring query is malformed");
+      throw problemException(
+        400,
+        "invalid_request_shape",
+        "Material authoring query is malformed",
+      );
     }
     const result = await this.authoring.listMaterials({
       actor: account.accountId,
@@ -89,7 +112,9 @@ export class ListMaterialsController {
       ...(parsed.data.publicationState === undefined
         ? {}
         : { publicationState: parsed.data.publicationState }),
-      ...(parsed.data.search === undefined ? {} : { search: parsed.data.search }),
+      ...(parsed.data.search === undefined
+        ? {}
+        : { search: parsed.data.search }),
     });
     if (!result.ok) {
       throwMaterialAuthoringError(result.error);

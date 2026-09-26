@@ -3,7 +3,6 @@ import "server-only";
 import { materialDifficultySchema } from "@/shared/api/material-lesson-facts";
 import { materialFormatSchema } from "@/shared/api/material-format";
 
-
 import { z } from "zod";
 
 import {
@@ -26,8 +25,21 @@ const seriesMembershipSchema = z
   .strict();
 const currentMaterialSchema = z
   .object({
-    source: z.object({ id: z.string(), path: z.string(), revision: z.hash("sha256"), showInFeed: z.boolean() }).strict().optional(),
-    body: z.object({ doc: materialDocumentContentSchema, schemaVersion: z.literal(1) }).strict(),
+    source: z
+      .object({
+        id: z.string(),
+        path: z.string(),
+        revision: z.hash("sha256"),
+        showInFeed: z.boolean(),
+      })
+      .strict()
+      .optional(),
+    body: z
+      .object({
+        doc: materialDocumentContentSchema,
+        schemaVersion: z.literal(1),
+      })
+      .strict(),
     contentVersion: z.number().int().positive(),
     cover: contentCoverSchema.nullable(),
     firstPublishedAt: z.iso.datetime({ offset: true }).nullable(),
@@ -54,7 +66,9 @@ const currentMaterialSchema = z
     unselectedVideoUpload: authoringVideoSchema.nullable(),
   })
   .strict();
-const problemSchema = z.object({ code: z.string(), correlationId: z.string().optional() }).loose();
+const problemSchema = z
+  .object({ code: z.string(), correlationId: z.string().optional() })
+  .loose();
 
 export type CurrentMaterialState =
   | {
@@ -96,7 +110,10 @@ export async function getCurrentMaterial(
       getMaterialAuthoringReferences(accessToken, dependencies.references),
     ]);
   } catch (error) {
-    if (error instanceof BackendConnectionError && error.code === "unavailable") {
+    if (
+      error instanceof BackendConnectionError &&
+      error.code === "unavailable"
+    ) {
       return { kind: "unexpected_error", reference: error.code };
     }
     throw error;
@@ -137,7 +154,9 @@ export async function getCurrentMaterial(
 
   return {
     draft: {
-      ...(parsed.data.source === undefined ? {} : { sourcePath: parsed.data.source.path }),
+      ...(parsed.data.source === undefined
+        ? {}
+        : { sourcePath: parsed.data.source.path }),
       access: parsed.data.metadata.access,
       canDelete:
         parsed.data.source === undefined &&
@@ -156,7 +175,9 @@ export async function getCurrentMaterial(
       primaryVideo: parsed.data.primaryVideo,
       primaryVideoId: parsed.data.primaryVideoId,
       readOnly: parsed.data.source !== undefined,
-      seriesIds: parsed.data.metadata.seriesMemberships.map(({ seriesId }) => seriesId),
+      seriesIds: parsed.data.metadata.seriesMemberships.map(
+        ({ seriesId }) => seriesId,
+      ),
       status: parsed.data.publicationState,
       summary: parsed.data.metadata.summary ?? "",
       tagIds: parsed.data.metadata.tagIds,

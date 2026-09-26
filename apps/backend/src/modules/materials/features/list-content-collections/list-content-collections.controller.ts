@@ -3,7 +3,10 @@ import { ApiOkResponse, ApiOperation, ApiQuery } from "@nestjs/swagger";
 import { z } from "zod";
 
 import { toOpenApiSchema } from "../../../../infrastructure/http/zod-openapi.js";
-import { CurrentAccount, type AuthenticatedAccount } from "../../../accounts/index.js";
+import {
+  CurrentAccount,
+  type AuthenticatedAccount,
+} from "../../../accounts/index.js";
 import {
   ApiMaterialAuthoringErrors,
   MaterialAuthoringEndpoint,
@@ -16,7 +19,9 @@ import {
 import { MATERIAL_AUTHORING } from "../../facets/material-authoring/material-authoring.token.js";
 import type { MaterialAuthoring } from "../../facets/material-authoring/material-authoring.js";
 
-const querySchema = z.object({ kind: z.enum(["guide", "series", "topic"]) }).strict();
+const querySchema = z
+  .object({ kind: z.enum(["guide", "series", "topic"]) })
+  .strict();
 
 @MaterialAuthoringEndpoint()
 @Controller("authoring/collections")

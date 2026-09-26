@@ -14,7 +14,11 @@ import {
 export const MAX_CLIENT_TELEMETRY_BYTES = 16 * 1_024;
 
 /** Путь страницы без запроса: параметры адреса в журнал не попадают. */
-const pagePathSchema = z.string().startsWith("/").max(REPORT_PATH_LENGTH).regex(/^[^?#]*$/u);
+const pagePathSchema = z
+  .string()
+  .startsWith("/")
+  .max(REPORT_PATH_LENGTH)
+  .regex(/^[^?#]*$/u);
 
 export const webVitalSchema = z
   .object({

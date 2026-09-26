@@ -23,8 +23,14 @@ function localImageSources(): string {
   const origin = process.env.CSP_LOCAL_OBJECT_STORAGE_ORIGIN;
   if (origin === undefined || origin === "") return "";
   const url = new URL(origin);
-  if (url.protocol !== "http:" || !["127.0.0.1", "localhost"].includes(url.hostname) || url.origin !== origin) {
-    throw new Error(`CSP_LOCAL_OBJECT_STORAGE_ORIGIN must be a loopback HTTP origin, got ${origin}`);
+  if (
+    url.protocol !== "http:" ||
+    !["127.0.0.1", "localhost"].includes(url.hostname) ||
+    url.origin !== origin
+  ) {
+    throw new Error(
+      `CSP_LOCAL_OBJECT_STORAGE_ORIGIN must be a loopback HTTP origin, got ${origin}`,
+    );
   }
   return ` ${origin}`;
 }
@@ -104,19 +110,25 @@ const nextConfig: NextConfig = {
    * Прежний адрес формы контакта. Перенаправление живёт здесь, а не в маршруте: раздел
    * «Покупки» стримится, и редирект из страницы успел бы отдать каркас с кодом 200.
    */
-  redirects: () => Promise.resolve([{
-    source: "/account/email",
-    destination: "/account/purchases",
-    permanent: true,
-  }]),
-  headers: () => Promise.resolve([{
-    headers: [
-      { key: "Content-Security-Policy", value: contentSecurityPolicy },
-      { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
-      { key: "X-Content-Type-Options", value: "nosniff" },
-    ],
-    source: "/:path*",
-  }]),
+  redirects: () =>
+    Promise.resolve([
+      {
+        source: "/account/email",
+        destination: "/account/purchases",
+        permanent: true,
+      },
+    ]),
+  headers: () =>
+    Promise.resolve([
+      {
+        headers: [
+          { key: "Content-Security-Policy", value: contentSecurityPolicy },
+          { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
+          { key: "X-Content-Type-Options", value: "nosniff" },
+        ],
+        source: "/:path*",
+      },
+    ]),
   typedRoutes: true,
   typescript: {
     tsconfigPath: "tsconfig.next.json",

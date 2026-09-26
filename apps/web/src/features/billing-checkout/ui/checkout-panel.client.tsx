@@ -3,7 +3,10 @@ import type { Route } from "next";
 import Link from "next/link";
 import { useId } from "react";
 
-import { LegalDocumentLinks, legalNavigationEntry } from "@/entities/legal-document";
+import {
+  LegalDocumentLinks,
+  legalNavigationEntry,
+} from "@/entities/legal-document";
 import {
   AcceptanceNote,
   billingActionClass,
@@ -56,7 +59,9 @@ export interface CheckoutPanelProps {
 /** Название принимаемого документа в строке «вы принимаете …»: оферты называются по документу. */
 function documentLabel(document: LegalDocument): string {
   const entry = legalNavigationEntry(document.documentId);
-  return entry?.consentLabel ?? entry?.navLabel ?? legalDocumentLabel(document.kind);
+  return (
+    entry?.consentLabel ?? entry?.navLabel ?? legalDocumentLabel(document.kind)
+  );
 }
 
 export function CheckoutPanel({
@@ -98,10 +103,7 @@ export function CheckoutPanel({
       aria-labelledby={headingId}
       className="min-w-0 rounded-2xl border border-border bg-card p-6 shadow-card"
     >
-      <h2
-        className="text-2xl font-bold tracking-[-0.035em]"
-        id={headingId}
-      >
+      <h2 className="text-2xl font-bold tracking-[-0.035em]" id={headingId}>
         {recurring ? "Оформление подписки" : "Оформление покупки"}
       </h2>
 
@@ -178,7 +180,8 @@ export function CheckoutPanel({
             <div className="mt-5 rounded-xl border border-border bg-secondary/50 p-4 text-sm leading-6">
               <p className="font-semibold">Нужен подтверждённый email.</p>
               <p className="mt-1 text-muted-foreground">
-                На него придёт чек{recurring ? " и служебные сообщения о подписке" : ""}.
+                На него придёт чек
+                {recurring ? " и служебные сообщения о подписке" : ""}.
               </p>
               <Link
                 className={`mt-3 inline-flex items-center font-semibold text-action underline underline-offset-4 ${billingActionClass}`}
@@ -198,9 +201,12 @@ export function CheckoutPanel({
           )}
 
           {missingRequired.length > 0 ? (
-            <p className="mt-5 rounded-xl border border-border bg-muted/50 p-4 text-sm leading-6" role="status">
-              Условия продажи ещё не опубликованы, поэтому принять оплату нельзя.
-              Мы включим оформление, как только документы появятся.
+            <p
+              className="mt-5 rounded-xl border border-border bg-muted/50 p-4 text-sm leading-6"
+              role="status"
+            >
+              Условия продажи ещё не опубликованы, поэтому принять оплату
+              нельзя. Мы включим оформление, как только документы появятся.
             </p>
           ) : null}
 
@@ -239,9 +245,13 @@ export function CheckoutPanel({
           ) : null}
 
           {legacyBlocked ? (
-            <p className="mt-5 rounded-xl border border-border bg-muted/50 p-4 text-sm leading-6" role="status">
-              Ваша прежняя подписка ещё не разобрана. Пока проверка не завершена,
-              новое списание не начинаем — доступ по прежнему основанию сохраняется.
+            <p
+              className="mt-5 rounded-xl border border-border bg-muted/50 p-4 text-sm leading-6"
+              role="status"
+            >
+              Ваша прежняя подписка ещё не разобрана. Пока проверка не
+              завершена, новое списание не начинаем — доступ по прежнему
+              основанию сохраняется.
             </p>
           ) : (
             <>
@@ -293,7 +303,10 @@ export function CheckoutPanel({
       )}
 
       {error === undefined ? null : (
-        <p className="mt-5 rounded-xl border border-destructive/30 bg-destructive/6 p-4 text-sm leading-6" role="alert">
+        <p
+          className="mt-5 rounded-xl border border-destructive/30 bg-destructive/6 p-4 text-sm leading-6"
+          role="alert"
+        >
           {error}
         </p>
       )}

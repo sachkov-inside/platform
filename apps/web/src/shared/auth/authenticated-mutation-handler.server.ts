@@ -1,6 +1,10 @@
 import "server-only";
 
-import { expirePublicCatalog, expirePublicCatalogAfter, isCatalogWrite } from "@/shared/api/catalog-cache.server";
+import {
+  expirePublicCatalog,
+  expirePublicCatalogAfter,
+  isCatalogWrite,
+} from "@/shared/api/catalog-cache.server";
 import { MAX_BROWSER_MUTATION_BYTES } from "@/shared/api/mutation-limits";
 import {
   getPlatformAccessToken,
@@ -33,9 +37,7 @@ export type AuthenticatedMutationFailure =
   | "identity_unavailable";
 
 export interface StreamingMutationOptions {
-  readonly failureResponse: (
-    failure: AuthenticatedMutationFailure,
-  ) => Response;
+  readonly failureResponse: (failure: AuthenticatedMutationFailure) => Response;
   readonly maxBytes: number;
   readonly mode: "stream";
 }
@@ -151,7 +153,10 @@ export async function handleOptionalAuthenticatedMutation(
     return mutationResponse(null, 403);
   }
   const contentLength = Number(request.headers.get("content-length"));
-  if (Number.isFinite(contentLength) && contentLength > MAX_BROWSER_MUTATION_BYTES) {
+  if (
+    Number.isFinite(contentLength) &&
+    contentLength > MAX_BROWSER_MUTATION_BYTES
+  ) {
     return mutationResponse(null, 413);
   }
   let formData: FormData;
@@ -201,9 +206,7 @@ function formDataByteLength(formData: FormData): number {
   for (const [name, value] of formData.entries()) {
     bytes += encoder.encode(name).byteLength;
     bytes +=
-      typeof value === "string"
-        ? encoder.encode(value).byteLength
-        : value.size;
+      typeof value === "string" ? encoder.encode(value).byteLength : value.size;
     if (bytes > MAX_BROWSER_MUTATION_BYTES) return bytes;
   }
   return bytes;

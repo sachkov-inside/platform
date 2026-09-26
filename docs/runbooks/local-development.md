@@ -405,10 +405,12 @@ With pinned host Node.js and pnpm:
 pnpm check
 ```
 
-This covers lint, strict typecheck, backend architecture guardrails, unit/module/Storybook tests,
-Playwright, production builds and the Storybook build without claiming a real database. It runs
-the four stages `pnpm check:static`, `check:unit`, `check:ui` and `check:web-e2e` in order; CI runs
-each stage as its own job, so run the one stage that matches a CI failure to reproduce it.
+This covers formatting, lint, strict typecheck, backend architecture guardrails,
+unit/module/Storybook tests, Playwright, production builds and the Storybook build without
+claiming a real database. It runs the four stages `pnpm check:static`, `check:unit`, `check:ui` and
+`check:web-e2e` in order; CI runs each stage as its own job, so run the one stage that matches a CI
+failure to reproduce it. A failed `pnpm format:check` is fixed by `pnpm format`; `.prettierignore`
+names the generated, pinned and managed files that keep their own bytes.
 
 A full run takes about ten minutes. `check:static` rebuilds the `packages/*/dist` that later stages
 import, so leave the tree alone while it runs: an edit or package rebuild in the middle fails an

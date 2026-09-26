@@ -13,4 +13,8 @@ export {
   writeLog,
 } from "./log.js";
 export { StructuredNestLogger } from "./nest-log.js";
-export { observeJob, reportProcessFailure, reportQueueFailure } from "./process-log.js";
+export {
+  observeJob,
+  reportProcessFailure,
+  reportQueueFailure,
+} from "./process-log.js";

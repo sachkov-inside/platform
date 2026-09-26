@@ -12,7 +12,9 @@ describe("release image contract", () => {
   it("ships backend and web production targets without a runtime source checkout", () => {
     const rootPackage = JSON.parse(read("package.json"));
     const backendDockerfile = read("apps/backend/Dockerfile");
-    const backendProduction = JSON.parse(read("apps/backend/tsconfig.production.json"));
+    const backendProduction = JSON.parse(
+      read("apps/backend/tsconfig.production.json"),
+    );
     const smoke = read("scripts/release-image-smoke.sh");
     const ci = read(".github/workflows/ci.yml");
     const images = spawnSync(
@@ -37,7 +39,10 @@ describe("release image contract", () => {
       },
     ]);
     assert.match(backendDockerfile, /^FROM node:.* AS backend-production$/mu);
-    assert.match(backendDockerfile, /^FROM backend-production AS api-production$/mu);
+    assert.match(
+      backendDockerfile,
+      /^FROM backend-production AS api-production$/mu,
+    );
     for (const entrypoint of [
       "src/entrypoints/api.ts",
       "src/entrypoints/mcp.ts",
@@ -46,8 +51,17 @@ describe("release image contract", () => {
       "src/entrypoints/video-deletions-worker.ts",
       "src/migrations/migrate.ts",
     ]) {
-      assert.ok(backendProduction.files.includes(entrypoint), `${entrypoint} must ship`);
-      assert.match(smoke, new RegExp(entrypoint.replace(/^src\//u, "dist/").replace(/\.ts$/u, "\\.js"), "u"));
+      assert.ok(
+        backendProduction.files.includes(entrypoint),
+        `${entrypoint} must ship`,
+      );
+      assert.match(
+        smoke,
+        new RegExp(
+          entrypoint.replace(/^src\//u, "dist/").replace(/\.ts$/u, "\\.js"),
+          "u",
+        ),
+      );
     }
     assert.equal(smoke.match(/^ {2}docker build \\/gmu)?.length, 1);
     assert.equal(smoke.match(/^ {4}--provenance=false \\/gmu)?.length, 1);
@@ -59,7 +73,10 @@ describe("release image contract", () => {
     assert.doesNotMatch(smoke, /(?:backend|web)-production/u);
     assert.match(smoke, /test ! -e \/workspace/u);
     assert.match(smoke, /test ! -d \/app\/src/u);
-    assert.equal(rootPackage.scripts["release:images:smoke"], "bash scripts/release-image-smoke.sh");
+    assert.equal(
+      rootPackage.scripts["release:images:smoke"],
+      "bash scripts/release-image-smoke.sh",
+    );
     assert.match(ci, /run: pnpm release:images:smoke/u);
   });
 });

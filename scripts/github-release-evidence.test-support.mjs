@@ -5,11 +5,7 @@ export function writeTrustedReleaseEvidence(
   root,
   { manifest, publicationRunId, sourceSha, version },
 ) {
-  const evidenceRoot = resolve(
-    root,
-    "etc/inside/test-release-trust",
-    version,
-  );
+  const evidenceRoot = resolve(root, "etc/inside/test-release-trust", version);
   mkdirSync(evidenceRoot, { recursive: true });
   writeFileSync(
     resolve(evidenceRoot, "github-release.json"),

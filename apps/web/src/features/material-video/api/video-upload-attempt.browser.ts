@@ -6,10 +6,12 @@ export interface BrowserVideoUploadAttempt {
   readonly videoId?: string;
 }
 
-const storedUploadAttemptSchema = z.object({
-  submissionId: z.uuid(),
-  version: z.literal(1),
-}).strict();
+const storedUploadAttemptSchema = z
+  .object({
+    submissionId: z.uuid(),
+    version: z.literal(1),
+  })
+  .strict();
 
 export async function getOrCreateBrowserVideoUploadAttempt(
   materialId: string,
@@ -36,14 +38,19 @@ export async function getOrCreateBrowserVideoUploadAttempt(
   }
   const submissionId = crypto.randomUUID();
   try {
-    localStorage.setItem(storageKey, JSON.stringify({ submissionId, version: 1 }));
+    localStorage.setItem(
+      storageKey,
+      JSON.stringify({ submissionId, version: 1 }),
+    );
   } catch {
     // Upload remains available when storage is disabled, with server-side fail-closed protection.
   }
   return { storageKey, submissionId };
 }
 
-export function clearBrowserVideoUploadAttempt(attempt: BrowserVideoUploadAttempt): void {
+export function clearBrowserVideoUploadAttempt(
+  attempt: BrowserVideoUploadAttempt,
+): void {
   if (attempt.storageKey === undefined) return;
   try {
     const stored = storedUploadAttemptSchema.safeParse(

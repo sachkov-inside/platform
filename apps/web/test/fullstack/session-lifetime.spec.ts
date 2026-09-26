@@ -37,16 +37,40 @@ test("names the expired session when signing in cannot succeed", async ({
   );
 });
 
-test("browser owner mutation keeps the renewed Secure session on loopback", async ({ context, page }) => {
+test("browser owner mutation keeps the renewed Secure session on loopback", async ({
+  context,
+  page,
+}) => {
   await addFullStackSessionCookie(context, "PAST_EXPIRY");
   await expect(fullStackSessionState(context)).resolves.toBe("authenticated");
   await page.goto(`${fullStackBaseUrl()}/account`);
-  const created = await fullStackBrowserRequest(page, "/api/authoring/collections", "POST", {
-    kind: "series", name: "Synthetic refreshed owner", slug: `refresh-proof-${crypto.randomUUID()}`, summary: "Session refresh regression" });
+  const created = await fullStackBrowserRequest(
+    page,
+    "/api/authoring/collections",
+    "POST",
+    {
+      kind: "series",
+      name: "Synthetic refreshed owner",
+      slug: `refresh-proof-${crypto.randomUUID()}`,
+      summary: "Session refresh regression",
+    },
+  );
   expect(created.status()).toBe(200);
-  const value = await created.json() as { kind: string; collection: { id: string; version: number } };
+  const value = (await created.json()) as {
+    kind: string;
+    collection: { id: string; version: number };
+  };
   expect(value.kind).toBe("saved");
-  const archived = await fullStackBrowserRequest(page, "/api/authoring/collections/archive", "PUT", {
-    kind: "series", collectionId: value.collection.id, expectedVersion: String(value.collection.version), archived: "true" });
+  const archived = await fullStackBrowserRequest(
+    page,
+    "/api/authoring/collections/archive",
+    "PUT",
+    {
+      kind: "series",
+      collectionId: value.collection.id,
+      expectedVersion: String(value.collection.version),
+      archived: "true",
+    },
+  );
   expect(await archived.json()).toMatchObject({ kind: "saved" });
 });

@@ -74,7 +74,10 @@ describe("Authoring Materials server adapter", () => {
               materialId,
               publicationState: "published",
               title: "Управляемый Material",
-              topic: { id: "96000000-0000-4000-8000-000000000003", name: "Platform" },
+              topic: {
+                id: "96000000-0000-4000-8000-000000000003",
+                name: "Platform",
+              },
               updatedAt: "2026-08-30T10:00:00.000Z",
             },
           ],
@@ -209,19 +212,22 @@ describe("Authoring Materials server adapter", () => {
       problem: { code: "teapot" },
       status: 418,
     },
-  ])("maps HTTP $status to $expected.kind", async ({ expected, problem, status }) => {
-    const dependencies = {
-      list: vi.fn().mockResolvedValue({
-        ok: false,
-        problem,
-        response: Response.json(problem, { status }),
-      }),
-    } satisfies AuthoringMaterialsDependencies;
+  ])(
+    "maps HTTP $status to $expected.kind",
+    async ({ expected, problem, status }) => {
+      const dependencies = {
+        list: vi.fn().mockResolvedValue({
+          ok: false,
+          problem,
+          response: Response.json(problem, { status }),
+        }),
+      } satisfies AuthoringMaterialsDependencies;
 
-    await expect(
-      getAuthoringMaterials({ page: 1 }, "access-token", dependencies),
-    ).resolves.toEqual(expected);
-  });
+      await expect(
+        getAuthoringMaterials({ page: 1 }, "access-token", dependencies),
+      ).resolves.toEqual(expected);
+    },
+  );
 
   it("fails closed for malformed success bodies and typed transport failures", async () => {
     await expect(
@@ -235,16 +241,20 @@ describe("Authoring Materials server adapter", () => {
     ).resolves.toEqual({ kind: "malformed_response" });
     await expect(
       getAuthoringMaterials({ page: 1 }, "access-token", {
-        list: vi.fn().mockRejectedValue(
-          new BackendConnectionError("unavailable", "backend offline"),
-        ),
+        list: vi
+          .fn()
+          .mockRejectedValue(
+            new BackendConnectionError("unavailable", "backend offline"),
+          ),
       }),
     ).resolves.toEqual({ kind: "unavailable", reference: "unavailable" });
     await expect(
       getAuthoringMaterials({ page: 1 }, "access-token", {
-        list: vi.fn().mockRejectedValue(
-          new BackendConnectionError("invalid-response", "bad json"),
-        ),
+        list: vi
+          .fn()
+          .mockRejectedValue(
+            new BackendConnectionError("invalid-response", "bad json"),
+          ),
       }),
     ).resolves.toEqual({ kind: "malformed_response" });
   });
@@ -304,7 +314,11 @@ describe("Authoring Materials server adapter", () => {
     const videoId = "96000000-0000-4000-8000-000000000009";
     formData.set("deleteVideoId", videoId);
 
-    await executeDeleteMaterialDraft(formData, "access-token", dependencies.delete);
+    await executeDeleteMaterialDraft(
+      formData,
+      "access-token",
+      dependencies.delete,
+    );
 
     expect(dependencies.delete).toHaveBeenCalledWith(
       expect.objectContaining({ deleteVideoId: videoId }),

@@ -2,7 +2,10 @@ import { Body, Controller, Inject, Post } from "@nestjs/common";
 import { ApiBody, ApiCreatedResponse, ApiOperation } from "@nestjs/swagger";
 
 import { toOpenApiSchema } from "../../../../infrastructure/http/zod-openapi.js";
-import { CurrentAccount, type AuthenticatedAccount } from "../../../accounts/index.js";
+import {
+  CurrentAccount,
+  type AuthenticatedAccount,
+} from "../../../accounts/index.js";
 import {
   ApiMaterialAuthoringErrors,
   MaterialAuthoringEndpoint,

@@ -34,7 +34,12 @@ export function coverLinkPreviewImage(
   const rendition =
     cover == null ? undefined : previewRendition(cover, SOCIAL_CARD_SIZE.width);
   return cover == null || rendition === undefined
-    ? { alt, height: SOCIAL_CARD_SIZE.height, url: socialCardPath, width: SOCIAL_CARD_SIZE.width }
+    ? {
+        alt,
+        height: SOCIAL_CARD_SIZE.height,
+        url: socialCardPath,
+        width: SOCIAL_CARD_SIZE.width,
+      }
     : {
         alt,
         height: rendition.height,
@@ -51,5 +56,7 @@ function previewRendition(
   const ascending = [...cover.renditions].sort(
     (left, right) => left.width - right.width,
   );
-  return ascending.find(({ width }) => width >= minimumWidth) ?? ascending.at(-1);
+  return (
+    ascending.find(({ width }) => width >= minimumWidth) ?? ascending.at(-1)
+  );
 }

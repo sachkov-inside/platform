@@ -1,7 +1,9 @@
 import type { JSONContent } from "@tiptap/core";
 import { z } from "zod";
 
-const issueSchema = z.object({ message: z.string(), path: z.string() }).strict();
+const issueSchema = z
+  .object({ message: z.string(), path: z.string() })
+  .strict();
 
 export const createMaterialDraftResultSchema = z.discriminatedUnion("kind", [
   z
@@ -23,7 +25,9 @@ export const createMaterialDraftResultSchema = z.discriminatedUnion("kind", [
     .strict(),
   z.object({ kind: z.literal("unauthorized") }).strict(),
   z.object({ kind: z.literal("forbidden") }).strict(),
-  z.object({ kind: z.literal("unexpected_error"), reference: z.string() }).strict(),
+  z
+    .object({ kind: z.literal("unexpected_error"), reference: z.string() })
+    .strict(),
 ]);
 
 export interface CreateMaterialDraftInput {

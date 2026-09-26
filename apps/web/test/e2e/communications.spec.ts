@@ -8,7 +8,9 @@ for (const path of [
     page,
   }) => {
     await page.goto(path);
-    await expect(page.getByRole("heading", { level: 1, name: "Страница не найдена" })).toBeVisible();
+    await expect(
+      page.getByRole("heading", { level: 1, name: "Страница не найдена" }),
+    ).toBeVisible();
     await expect(
       page.getByRole("link", { name: /Воронки|Рассылки/u }),
     ).toHaveCount(0);

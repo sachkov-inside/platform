@@ -4,9 +4,22 @@ import { z } from "zod";
  * Вид попытки оплаты. Разовая покупка стоит рядом с подпиской: она оплачивается один раз,
  * не создаёт расписание и не сохраняет привязку карты.
  */
-export const attemptKindSchema = z.enum(["initial", "one_time", "renewal", "upgrade"]);
+export const attemptKindSchema = z.enum([
+  "initial",
+  "one_time",
+  "renewal",
+  "upgrade",
+]);
 export type AttemptKind = z.infer<typeof attemptKindSchema>;
-export const attemptStateSchema = z.enum(["prepared", "sent", "unknown", "pending", "authorized", "confirmed", "failed"]);
+export const attemptStateSchema = z.enum([
+  "prepared",
+  "sent",
+  "unknown",
+  "pending",
+  "authorized",
+  "confirmed",
+  "failed",
+]);
 export type AttemptState = z.infer<typeof attemptStateSchema>;
 
 /**

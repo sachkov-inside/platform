@@ -6,7 +6,10 @@ import type {
   LoadMaterialOperation,
 } from "./load-material.contract.js";
 import type { MaterialAuthoringDependencies } from "../../facets/material-authoring/material-authoring.dependencies.js";
-import { loadCurrentMaterial, toMaterialDto } from "../../infrastructure/postgres/current-material.js";
+import {
+  loadCurrentMaterial,
+  toMaterialDto,
+} from "../../infrastructure/postgres/current-material.js";
 import { authorizeManager } from "../../ports/author-policy.js";
 import { failure } from "../../shared/application-result.js";
 import {
@@ -42,27 +45,35 @@ export function assembleLoadMaterial(
         parsed.value.materialId,
       );
       if (material === undefined) {
-        return failure<never, LoadMaterialError>({ code: "material_not_found" });
+        return failure<never, LoadMaterialError>({
+          code: "material_not_found",
+        });
       }
       if (!material.ok) return material;
-      const [primaryVideo, latestVideoDeletion, unselectedVideoUpload] = await Promise.all([
-        material.value.primaryVideoId === null || dependencies.videos === undefined
-          ? Promise.resolve({ ok: true as const, value: null })
-          : dependencies.videos.loadAuthoringPresentation({
-              materialId: parsed.value.materialId,
-              videoId: material.value.primaryVideoId,
-            }),
-        dependencies.videos === undefined
-          ? Promise.resolve({ ok: true as const, value: null })
-          : dependencies.videos.loadLatestDeletion(parsed.value.materialId),
-        dependencies.videos === undefined
-          ? Promise.resolve({ ok: true as const, value: null })
-          : dependencies.videos.loadUnselectedUpload({
-              materialId: parsed.value.materialId,
-              selectedVideoId: material.value.primaryVideoId,
-            }),
-      ]);
-      if (!primaryVideo.ok || !latestVideoDeletion.ok || !unselectedVideoUpload.ok) {
+      const [primaryVideo, latestVideoDeletion, unselectedVideoUpload] =
+        await Promise.all([
+          material.value.primaryVideoId === null ||
+          dependencies.videos === undefined
+            ? Promise.resolve({ ok: true as const, value: null })
+            : dependencies.videos.loadAuthoringPresentation({
+                materialId: parsed.value.materialId,
+                videoId: material.value.primaryVideoId,
+              }),
+          dependencies.videos === undefined
+            ? Promise.resolve({ ok: true as const, value: null })
+            : dependencies.videos.loadLatestDeletion(parsed.value.materialId),
+          dependencies.videos === undefined
+            ? Promise.resolve({ ok: true as const, value: null })
+            : dependencies.videos.loadUnselectedUpload({
+                materialId: parsed.value.materialId,
+                selectedVideoId: material.value.primaryVideoId,
+              }),
+        ]);
+      if (
+        !primaryVideo.ok ||
+        !latestVideoDeletion.ok ||
+        !unselectedVideoUpload.ok
+      ) {
         return failure<never, LoadMaterialError>({
           code: "dependency_unavailable",
           retryable: true,
@@ -77,7 +88,13 @@ export function assembleLoadMaterial(
         }),
       };
     } catch (error) {
-      return failure(dependencyFailure({ module: "materials", operation: "loadMaterial" }, error, mapPostgresReadError(error)));
+      return failure(
+        dependencyFailure(
+          { module: "materials", operation: "loadMaterial" },
+          error,
+          mapPostgresReadError(error),
+        ),
+      );
     }
   };
 }

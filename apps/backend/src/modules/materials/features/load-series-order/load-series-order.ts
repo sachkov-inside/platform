@@ -5,14 +5,16 @@ import type { MaterialAuthoringDependencies } from "../../facets/material-author
 import { loadSeriesOrderSnapshot } from "../../infrastructure/postgres/series-order.js";
 import { authorizeManager } from "../../ports/author-policy.js";
 import { failure } from "../../shared/application-result.js";
-import { accountId, entityId, parseCommand } from "../../shared/command-validation.js";
+import {
+  accountId,
+  entityId,
+  parseCommand,
+} from "../../shared/command-validation.js";
 import { mapPostgresReadError } from "../../shared/postgres-error-mapping.js";
 import { guideOrderVersion } from "../../shared/guide-order-version.js";
 import type { LoadSeriesOrderOperation } from "./load-series-order.contract.js";
 
-const querySchema = z
-  .object({ actor: accountId, seriesId: entityId })
-  .strict();
+const querySchema = z.object({ actor: accountId, seriesId: entityId }).strict();
 
 export function assembleLoadSeriesOrder(
   dependencies: MaterialAuthoringDependencies,
@@ -45,7 +47,13 @@ export function assembleLoadSeriesOrder(
         },
       };
     } catch (error) {
-      return failure(dependencyFailure({ module: "materials", operation: "loadSeriesOrder" }, error, mapPostgresReadError(error)));
+      return failure(
+        dependencyFailure(
+          { module: "materials", operation: "loadSeriesOrder" },
+          error,
+          mapPostgresReadError(error),
+        ),
+      );
     }
   };
 }

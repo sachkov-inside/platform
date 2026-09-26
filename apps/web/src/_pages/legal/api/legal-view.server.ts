@@ -45,7 +45,8 @@ export function legalDocumentView(
   let edition = current;
   if (version !== undefined) {
     const requested = legalEditionVersion(version);
-    const found = requested === undefined ? undefined : findLegalEdition(key, requested);
+    const found =
+      requested === undefined ? undefined : findLegalEdition(key, requested);
     if (found === undefined) return null;
     edition = found;
   }

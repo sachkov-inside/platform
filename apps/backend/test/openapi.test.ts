@@ -11,10 +11,13 @@ describe("OpenAPI contract", () => {
   let app: NestFastifyApplication;
 
   beforeAll(async () => {
-    app = await createApiApplication(parsePlatformConfig({ NODE_ENV: "test" }), {
-      abortOnError: false,
-      logger: false,
-    });
+    app = await createApiApplication(
+      parsePlatformConfig({ NODE_ENV: "test" }),
+      {
+        abortOnError: false,
+        logger: false,
+      },
+    );
   });
 
   afterAll(async () => {
@@ -42,11 +45,23 @@ describe("OpenAPI contract", () => {
         "transitionMaterialPublication",
       ],
       ["/authoring/materials/{materialId}", "delete", "deleteMaterialDraft"],
-      ["/authoring/materials/{materialId}/validation", "get", "validateCurrentMaterial"],
-      ["/authoring/materials/{materialId}/preview", "get", "previewCurrentMaterial"],
+      [
+        "/authoring/materials/{materialId}/validation",
+        "get",
+        "validateCurrentMaterial",
+      ],
+      [
+        "/authoring/materials/{materialId}/preview",
+        "get",
+        "previewCurrentMaterial",
+      ],
       ["/accounts", "post", "establishAccount"],
       ["/accounts/current", "get", "resolveCurrentAccount"],
-      ["/accounts/current/telegram-link", "post", "beginTelegramMembershipLink"],
+      [
+        "/accounts/current/telegram-link",
+        "post",
+        "beginTelegramMembershipLink",
+      ],
       [
         "/accounts/current/telegram-link/{linkRef}/confirm",
         "post",
@@ -67,7 +82,10 @@ describe("OpenAPI contract", () => {
       expect(isRecord(operation), `${method.toUpperCase()} ${path}`).toBe(true);
       if (!isRecord(operation)) continue;
       expect(operation.operationId).toBe(operationId);
-      expect(hasSuccessContent(operation), `${method.toUpperCase()} ${path} success schema`).toBe(true);
+      expect(
+        hasSuccessContent(operation),
+        `${method.toUpperCase()} ${path} success schema`,
+      ).toBe(true);
     }
   });
 
@@ -77,7 +95,9 @@ describe("OpenAPI contract", () => {
     const health = operation(document, "/health", "get");
     expect(health).toMatchObject({ operationId: "getApiHealth" });
     expect(hasResponseSchema(health, "200", "application/json")).toBe(true);
-    expect(hasResponseSchema(health, "503", "application/problem+json")).toBe(true);
+    expect(hasResponseSchema(health, "503", "application/problem+json")).toBe(
+      true,
+    );
     expect(health.parameters).toEqual([]);
     expect(health.security).toBeUndefined();
 
@@ -90,7 +110,9 @@ describe("OpenAPI contract", () => {
     const readiness = operation(document, "/health/ready", "get");
     expect(readiness).toMatchObject({ operationId: "getApiReadiness" });
     expect(hasResponseSchema(readiness, "200", "application/json")).toBe(true);
-    expect(hasResponseSchema(readiness, "503", "application/problem+json")).toBe(true);
+    expect(
+      hasResponseSchema(readiness, "503", "application/problem+json"),
+    ).toBe(true);
     expect(readiness.parameters).toEqual([]);
     expect(readiness.security).toBeUndefined();
 
@@ -164,7 +186,9 @@ describe("OpenAPI contract", () => {
     ]);
     expect(hasResponseSchema(library, "200", "application/json")).toBe(true);
     for (const status of ["400", "401", "500", "503"] as const) {
-      expect(hasResponseSchema(library, status, "application/problem+json")).toBe(true);
+      expect(
+        hasResponseSchema(library, status, "application/problem+json"),
+      ).toBe(true);
     }
     for (const status of ["500", "503"] as const) {
       expect(hasMaterialAndAccountProblemSchemas(library, status)).toBe(true);
@@ -185,7 +209,9 @@ describe("OpenAPI contract", () => {
     });
     expect(hasResponseSchema(reader, "200", "application/json")).toBe(true);
     for (const status of ["400", "401", "404", "500", "503"] as const) {
-      expect(hasResponseSchema(reader, status, "application/problem+json")).toBe(true);
+      expect(
+        hasResponseSchema(reader, status, "application/problem+json"),
+      ).toBe(true);
     }
     for (const status of ["500", "503"] as const) {
       expect(hasMaterialAndAccountProblemSchemas(reader, status)).toBe(true);
@@ -226,7 +252,9 @@ describe("OpenAPI contract", () => {
         ),
       ).toBe(true);
       for (const status of ["400", "401", "500", "503"] as const) {
-        expect(hasResponseSchema(account, status, "application/problem+json")).toBe(true);
+        expect(
+          hasResponseSchema(account, status, "application/problem+json"),
+        ).toBe(true);
       }
     }
   });
@@ -240,7 +268,9 @@ describe("OpenAPI contract", () => {
     );
     expect(begin.security).toEqual([{ logto: [] }]);
     for (const status of ["401", "503"] as const) {
-      expect(hasResponseSchema(begin, status, "application/problem+json")).toBe(true);
+      expect(hasResponseSchema(begin, status, "application/problem+json")).toBe(
+        true,
+      );
     }
 
     const confirm = operation(
@@ -260,7 +290,9 @@ describe("OpenAPI contract", () => {
       security: [{ logto: [] }],
     });
     for (const status of ["400", "401", "404", "503"] as const) {
-      expect(hasResponseSchema(confirm, status, "application/problem+json")).toBe(true);
+      expect(
+        hasResponseSchema(confirm, status, "application/problem+json"),
+      ).toBe(true);
     }
 
     const evidence = operation(
@@ -279,7 +311,9 @@ describe("OpenAPI contract", () => {
       { in: "header", name: "idempotency-key", required: true },
     ]);
     for (const status of ["400", "401", "409", "422", "503"] as const) {
-      expect(hasResponseSchema(evidence, status, "application/problem+json")).toBe(true);
+      expect(
+        hasResponseSchema(evidence, status, "application/problem+json"),
+      ).toBe(true);
     }
   });
 
@@ -300,7 +334,9 @@ describe("OpenAPI contract", () => {
         },
       },
     });
-    expect(responseSchema(upload, "409", "application/problem+json")).toMatchObject({
+    expect(
+      responseSchema(upload, "409", "application/problem+json"),
+    ).toMatchObject({
       additionalProperties: false,
       properties: {
         code: { enum: ["conflict"] },
@@ -318,7 +354,9 @@ describe("OpenAPI contract", () => {
       "get",
     );
     expect(delivery.security).toEqual([{}]);
-    expect(responseSchema(delivery, "404", "application/problem+json")).toMatchObject({
+    expect(
+      responseSchema(delivery, "404", "application/problem+json"),
+    ).toMatchObject({
       additionalProperties: false,
       properties: {
         code: { enum: ["cover_not_found"] },
@@ -376,7 +414,9 @@ function responseSchema(
   return media.schema;
 }
 
-function hasSuccessContent(operation: Readonly<Record<string, unknown>>): boolean {
+function hasSuccessContent(
+  operation: Readonly<Record<string, unknown>>,
+): boolean {
   const responses = operation.responses;
   if (!isRecord(responses)) return false;
   const success = responses["200"] ?? responses["201"];

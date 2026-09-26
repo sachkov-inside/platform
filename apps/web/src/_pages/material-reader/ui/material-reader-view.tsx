@@ -17,7 +17,10 @@ import {
 import { cn } from "@/shared/lib/utils";
 import { IntentPrefetchLink } from "@/shared/ui/intent-prefetch-link.client";
 import { Button } from "@/shared/ui/button";
-import { MaterialAssetFile, MaterialAssetImage } from "@/features/material-assets";
+import {
+  MaterialAssetFile,
+  MaterialAssetImage,
+} from "@/features/material-assets";
 import { MaterialPrimaryVideo } from "@/features/material-video";
 import {
   homeMaterialReaderReturnTarget,
@@ -70,7 +73,10 @@ export function MaterialReaderView({
       data-material-id={material.materialId}
       data-material-reader-state="available"
     >
-      <ReaderReturnNavigation repeatAtBottom={seriesContext === null} target={returnTarget}>
+      <ReaderReturnNavigation
+        repeatAtBottom={seriesContext === null}
+        target={returnTarget}
+      >
         <div className="mx-auto min-w-0 max-w-[43rem]">
           <MaterialReaderHeader material={material} />
           {modeSwitch}
@@ -98,8 +104,12 @@ export function MaterialReaderView({
                 : { hint: modeHint.node, hintAt: modeHint.at })}
             />
           </article>
-          {bookmarkAction === undefined && readingAction === undefined ? null : (
-            <div className="flex flex-wrap items-start justify-end gap-x-3" data-material-actions>
+          {bookmarkAction === undefined &&
+          readingAction === undefined ? null : (
+            <div
+              className="flex flex-wrap items-start justify-end gap-x-3"
+              data-material-actions
+            >
               {bookmarkAction}
               {readingAction}
             </div>
@@ -127,13 +137,24 @@ export function SeriesReaderNavigation({
       <p className="font-semibold">
         Материал {context.currentPosition} из {context.totalMaterials}
       </p>
-      <p className="mt-1 break-words text-sm text-muted-foreground">{context.series.name}</p>
+      <p className="mt-1 break-words text-sm text-muted-foreground">
+        {context.series.name}
+      </p>
       <div className="mt-5 grid gap-3 sm:grid-cols-2">
-        <Button asChild className="h-auto min-h-12 whitespace-normal rounded-xl px-5 py-3 text-center" variant="secondary">
-          <IntentPrefetchLink href={context.series.href}>Все материалы продукта</IntentPrefetchLink>
+        <Button
+          asChild
+          className="h-auto min-h-12 whitespace-normal rounded-xl px-5 py-3 text-center"
+          variant="secondary"
+        >
+          <IntentPrefetchLink href={context.series.href}>
+            Все материалы продукта
+          </IntentPrefetchLink>
         </Button>
         {context.next === null ? null : (
-          <Button asChild className="h-auto min-h-12 whitespace-normal rounded-xl px-5 py-3 text-center">
+          <Button
+            asChild
+            className="h-auto min-h-12 whitespace-normal rounded-xl px-5 py-3 text-center"
+          >
             <IntentPrefetchLink href={context.next.href}>
               Дальше <ArrowRight aria-hidden="true" />
             </IntentPrefetchLink>
@@ -141,8 +162,12 @@ export function SeriesReaderNavigation({
         )}
       </div>
       {context.previous === null ? null : (
-        <IntentPrefetchLink className="mt-3 inline-flex min-h-11 items-center gap-2 text-sm text-muted-foreground no-underline hover:text-foreground focus-visible:outline-ring" href={context.previous.href}>
-          <ArrowLeft aria-hidden="true" className="size-4" /> Предыдущий материал
+        <IntentPrefetchLink
+          className="mt-3 inline-flex min-h-11 items-center gap-2 text-sm text-muted-foreground no-underline hover:text-foreground focus-visible:outline-ring"
+          href={context.previous.href}
+        >
+          <ArrowLeft aria-hidden="true" className="size-4" /> Предыдущий
+          материал
         </IntentPrefetchLink>
       )}
     </nav>
@@ -205,7 +230,10 @@ export function MaterialReaderHeader({
           >
             Чему научишься
           </h2>
-          <ul className="mt-2 grid gap-2 text-[0.9375rem] leading-6 text-body-muted" role="list">
+          <ul
+            className="mt-2 grid gap-2 text-[0.9375rem] leading-6 text-body-muted"
+            role="list"
+          >
             {material.outcomes.map((outcome) => (
               <li className="flex gap-2" key={outcome}>
                 <span aria-hidden="true" className="text-accent">
@@ -262,15 +290,26 @@ function ReaderOutline({ items }: { readonly items: readonly OutlineItem[] }) {
             <List aria-hidden="true" className="size-4 text-action" />
             Содержание · {items.length}
           </span>
-          <span aria-hidden="true" className="text-xs text-muted-foreground group-open:hidden">
+          <span
+            aria-hidden="true"
+            className="text-xs text-muted-foreground group-open:hidden"
+          >
             Открыть
           </span>
-          <span aria-hidden="true" className="hidden text-xs text-muted-foreground group-open:inline">
+          <span
+            aria-hidden="true"
+            className="hidden text-xs text-muted-foreground group-open:inline"
+          >
             Скрыть
           </span>
         </summary>
-        <nav aria-label="В этом материале" className="border-t border-black/8 pb-2 pt-3">
-          <ul className="grid gap-2" role="list">{links}</ul>
+        <nav
+          aria-label="В этом материале"
+          className="border-t border-black/8 pb-2 pt-3"
+        >
+          <ul className="grid gap-2" role="list">
+            {links}
+          </ul>
         </nav>
       </details>
     </div>
@@ -294,7 +333,15 @@ function ReaderBlocks({
 }) {
   return blocks.map((block, index) => {
     const blockPath = [...path, index];
-    const view = <ReaderBlockView block={block} contentVersion={contentVersion} key={blockPath.join("-")} materialId={materialId} path={blockPath} />;
+    const view = (
+      <ReaderBlockView
+        block={block}
+        contentVersion={contentVersion}
+        key={blockPath.join("-")}
+        materialId={materialId}
+        path={blockPath}
+      />
+    );
     if (index !== hintAt) return view;
     return (
       <Fragment key={`hint-${blockPath.join("-")}`}>
@@ -329,9 +376,12 @@ function ReaderBlockView({
         <Heading
           className={cn(
             "scroll-mt-24 break-words text-balance font-semibold text-foreground first:mt-0",
-            block.level === 2 && "mt-12 text-xl leading-[1.35] tracking-[-0.025em] md:text-2xl md:leading-[1.3]",
-            block.level === 3 && "mt-10 text-lg md:text-xl leading-[1.35] tracking-[-0.02em]",
-            block.level === 4 && "mt-8 text-base md:text-lg leading-[1.45] tracking-[-0.015em]",
+            block.level === 2 &&
+              "mt-12 text-xl leading-[1.35] tracking-[-0.025em] md:text-2xl md:leading-[1.3]",
+            block.level === 3 &&
+              "mt-10 text-lg md:text-xl leading-[1.35] tracking-[-0.02em]",
+            block.level === 4 &&
+              "mt-8 text-base md:text-lg leading-[1.45] tracking-[-0.015em]",
           )}
           id={headingId(path)}
         >
@@ -352,7 +402,12 @@ function ReaderBlockView({
         >
           {block.items.map((item, index) => (
             <li key={index}>
-              <ReaderBlocks blocks={item} contentVersion={contentVersion} materialId={materialId} path={[...path, index]} />
+              <ReaderBlocks
+                blocks={item}
+                contentVersion={contentVersion}
+                materialId={materialId}
+                path={[...path, index]}
+              />
             </li>
           ))}
         </List>
@@ -361,7 +416,12 @@ function ReaderBlockView({
     case "blockquote":
       return (
         <blockquote className="mt-8 border-l-4 border-accent py-1 pl-5 text-muted-foreground">
-          <ReaderBlocks blocks={block.content} contentVersion={contentVersion} materialId={materialId} path={path} />
+          <ReaderBlocks
+            blocks={block.content}
+            contentVersion={contentVersion}
+            materialId={materialId}
+            path={path}
+          />
         </blockquote>
       );
     case "code_block":
@@ -376,7 +436,14 @@ function ReaderBlockView({
     case "horizontal_rule":
       return <hr className="my-12 border-border" />;
     case "table":
-      return <ReaderTable block={block} contentVersion={contentVersion} materialId={materialId} path={path} />;
+      return (
+        <ReaderTable
+          block={block}
+          contentVersion={contentVersion}
+          materialId={materialId}
+          path={path}
+        />
+      );
     case "agent_prompt":
     case "callout":
     case "key_point":
@@ -398,7 +465,12 @@ function ReaderBlockView({
               />
             ),
             renderBlocks: (blocks, branch) => (
-              <ReaderBlocks blocks={blocks} contentVersion={contentVersion} materialId={materialId} path={branch === undefined ? path : [...path, branch]} />
+              <ReaderBlocks
+                blocks={blocks}
+                contentVersion={contentVersion}
+                materialId={materialId}
+                path={branch === undefined ? path : [...path, branch]}
+              />
             ),
             renderInline: (content) => <ReaderInline content={content} />,
           }}
@@ -437,13 +509,21 @@ function ReaderBlockView({
   }
 }
 
-function ReaderInline({ content }: { readonly content: readonly ReaderText[] }) {
+function ReaderInline({
+  content,
+}: {
+  readonly content: readonly ReaderText[];
+}) {
   return content.map((text, index) => (
     <span key={index}>{applyMarks(text.text, text.marks, index)}</span>
   ));
 }
 
-function applyMarks(text: string, marks: readonly ReaderMark[], key: number): ReactNode {
+function applyMarks(
+  text: string,
+  marks: readonly ReaderMark[],
+  key: number,
+): ReactNode {
   return marks.reduceRight<ReactNode>((child, mark, index) => {
     const markKey = `${String(key)}-${String(index)}`;
     switch (mark.kind) {
@@ -451,7 +531,10 @@ function applyMarks(text: string, marks: readonly ReaderMark[], key: number): Re
         return <strong key={markKey}>{child}</strong>;
       case "code":
         return (
-          <code className="rounded bg-muted px-1.5 py-0.5 font-mono text-[0.9em]" key={markKey}>
+          <code
+            className="rounded bg-muted px-1.5 py-0.5 font-mono text-[0.9em]"
+            key={markKey}
+          >
             {child}
           </code>
         );
@@ -501,7 +584,11 @@ function ReaderTable({
                 const Cell = cell.header ? "th" : "td";
                 return (
                   <Cell
-                    className={cell.header ? "border-r border-border bg-muted px-4 py-3 font-semibold last:border-r-0" : "border-r border-border px-4 py-3 last:border-r-0"}
+                    className={
+                      cell.header
+                        ? "border-r border-border bg-muted px-4 py-3 font-semibold last:border-r-0"
+                        : "border-r border-border px-4 py-3 last:border-r-0"
+                    }
                     key={cellIndex}
                     scope={cell.header ? "col" : undefined}
                   >
@@ -522,11 +609,20 @@ function ReaderTable({
   );
 }
 
-function collectOutline(blocks: readonly ReaderBlock[], path: readonly number[] = []): OutlineItem[] {
+function collectOutline(
+  blocks: readonly ReaderBlock[],
+  path: readonly number[] = [],
+): OutlineItem[] {
   return blocks.flatMap((block, index): OutlineItem[] => {
     const blockPath = [...path, index];
     if (block.kind === "heading") {
-      return [{ id: headingId(blockPath), label: textContent(block.content), level: block.level }];
+      return [
+        {
+          id: headingId(blockPath),
+          label: textContent(block.content),
+          level: block.level,
+        },
+      ];
     }
     if (block.kind === "blockquote" || block.kind === "callout") {
       return collectOutline(block.content, blockPath);
@@ -547,4 +643,3 @@ function headingId(path: readonly number[]): string {
 function textContent(content: readonly ReaderText[]): string {
   return content.map(({ text }) => text).join("");
 }
-

@@ -1,5 +1,9 @@
 import { dependencyFailure } from "../../../../infrastructure/observability/index.js";
-import { newVideoId, providerVideoIdSchema, videoIdSchema } from "../../domain/video-identifiers.js";
+import {
+  newVideoId,
+  providerVideoIdSchema,
+  videoIdSchema,
+} from "../../domain/video-identifiers.js";
 import { attachInput } from "./video-inputs.js";
 import {
   dependencyUnavailable,
@@ -12,7 +16,10 @@ import {
   type VideoContext,
 } from "./video-records.js";
 import type { Videos } from "./videos.interface.js";
-import { markPendingWebhooksReconciled, reconcilePendingWebhooks } from "./reconcile-video.js";
+import {
+  markPendingWebhooksReconciled,
+  reconcilePendingWebhooks,
+} from "./reconcile-video.js";
 
 // Attaches a Video that already exists at the provider to a Material, as an External Attachment.
 
@@ -26,24 +33,34 @@ export async function attachExistingVideo(
   const projectId = projectForAccess(context.projects, parsed.data.access);
   try {
     const reconciliationCutoff = context.now();
-    const remote = await context.provider.find({ id: parsed.data.providerVideoId, projectId });
+    const remote = await context.provider.find({
+      id: parsed.data.providerVideoId,
+      projectId,
+    });
     if (
       remote === null ||
       remote.id !== parsed.data.providerVideoId ||
       remote.projectId !== projectId
-    ) return providerMismatch();
+    )
+      return providerMismatch();
     const duplicate = await context.prisma.video.findFirst({
       where: { providerVideoId: remote.id, projectId },
     });
     if (duplicate !== null) {
-      if (duplicate.materialId !== parsed.data.materialId || duplicate.access !== parsed.data.access) {
+      if (
+        duplicate.materialId !== parsed.data.materialId ||
+        duplicate.access !== parsed.data.access
+      ) {
         return providerMismatch();
       }
-      if (!(await reconcilePendingWebhooks(
-        context,
-        providerVideoIdSchema.parse(duplicate.providerVideoId),
-        videoIdSchema.parse(duplicate.id),
-      ))) return dependencyUnavailable();
+      if (
+        !(await reconcilePendingWebhooks(
+          context,
+          providerVideoIdSchema.parse(duplicate.providerVideoId),
+          videoIdSchema.parse(duplicate.id),
+        ))
+      )
+        return dependencyUnavailable();
       return { ok: true, value: toDto(duplicate) };
     }
     const lifecycle = providerLifecycle(remote);
@@ -80,13 +97,20 @@ export async function attachExistingVideo(
       );
       return video;
     });
-    if (!(await reconcilePendingWebhooks(
-      context,
-      parsed.data.providerVideoId,
-      videoIdSchema.parse(saved.id),
-    ))) return dependencyUnavailable();
+    if (
+      !(await reconcilePendingWebhooks(
+        context,
+        parsed.data.providerVideoId,
+        videoIdSchema.parse(saved.id),
+      ))
+    )
+      return dependencyUnavailable();
     return { ok: true, value: toDto(saved) };
   } catch (error) {
-    return dependencyFailure({ module: "videos", operation: "attachExisting" }, error, dependencyUnavailable());
+    return dependencyFailure(
+      { module: "videos", operation: "attachExisting" },
+      error,
+      dependencyUnavailable(),
+    );
   }
 }

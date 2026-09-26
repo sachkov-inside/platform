@@ -9,11 +9,13 @@ import {
   videoMaterialIdSchema,
 } from "../../domain/video-identifiers.js";
 
-const requestInput = z.object({
-  actor: videoAccountIdSchema,
-  materialId: videoMaterialIdSchema,
-  videoId: videoIdSchema,
-}).strict();
+const requestInput = z
+  .object({
+    actor: videoAccountIdSchema,
+    materialId: videoMaterialIdSchema,
+    videoId: videoIdSchema,
+  })
+  .strict();
 
 type VideoDeletionRequestPrisma = Pick<
   VideosPrisma,

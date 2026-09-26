@@ -73,6 +73,10 @@ export async function moderateMemberProfile(
       };
     });
   } catch (error) {
-    return dependencyFailure({ module: "member-profiles", operation: "moderateMemberProfile" }, error, { ok: false, error: internalProfileError() });
+    return dependencyFailure(
+      { module: "member-profiles", operation: "moderateMemberProfile" },
+      error,
+      { ok: false, error: internalProfileError() },
+    );
   }
 }

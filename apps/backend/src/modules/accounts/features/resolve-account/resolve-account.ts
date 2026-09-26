@@ -33,6 +33,10 @@ export async function resolveAccount(
       ? internalFailure()
       : { ok: true, account: { accountId } };
   } catch (error) {
-    return dependencyFailure({ module: "accounts", operation: "resolveAccount" }, error, internalFailure());
+    return dependencyFailure(
+      { module: "accounts", operation: "resolveAccount" },
+      error,
+      internalFailure(),
+    );
   }
 }

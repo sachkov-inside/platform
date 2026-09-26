@@ -11,7 +11,9 @@ const foundation = {
   databaseCompose: read("infra/production/database/compose.yaml"),
   databaseEnv: read("config/production/foundation/database.env.example"),
   dockerfile: read("infra/production/database/Dockerfile"),
-  initialization: read("infra/production/database/init-production-databases.sh"),
+  initialization: read(
+    "infra/production/database/init-production-databases.sh",
+  ),
   logtoCompose: read("infra/production/logto/compose.yaml"),
   pgbackrestConfig: read("infra/production/database/pgbackrest.conf"),
   postgresEnv: read("config/production/foundation/postgres.env.example"),
@@ -29,7 +31,9 @@ const hostLogs = {
 
 describe("production foundation architecture contract", () => {
   it("pulls Docker Hub images through the public mirror configured by provisioning", () => {
-    assert.deepEqual(hostLogs.daemon["registry-mirrors"], ["https://mirror.gcr.io"]);
+    assert.deepEqual(hostLogs.daemon["registry-mirrors"], [
+      "https://mirror.gcr.io",
+    ]);
     assert.match(
       read("infra/production/host/provision-host.sh"),
       /install -m 644 "\$script_dir\/docker-daemon\.json" \/etc\/docker\/daemon\.json/u,
@@ -52,10 +56,9 @@ describe("production foundation architecture contract", () => {
   it("rejects a production service that replaces the host log default", () => {
     const composeFiles = {
       ...hostLogs.composeFiles,
-      "compose.production.yaml": hostLogs.composeFiles["compose.production.yaml"].replace(
-        "  api:\n",
-        "  api:\n    logging:\n      driver: json-file\n",
-      ),
+      "compose.production.yaml": hostLogs.composeFiles[
+        "compose.production.yaml"
+      ].replace("  api:\n", "  api:\n    logging:\n      driver: json-file\n"),
     };
 
     assert.throws(
@@ -67,7 +70,10 @@ describe("production foundation architecture contract", () => {
   it("names the production Logto build with the current fork revision", () => {
     const { logto } = JSON.parse(read("infra/identity/logto/versions.json"));
     const image = foundation.logtoCompose.match(/^ {2}image: (.+)$/mu)?.[1];
-    assert.equal(image, `inside/logto-production:${logto.version}-${logto.forkRevision}`);
+    assert.equal(
+      image,
+      `inside/logto-production:${logto.version}-${logto.forkRevision}`,
+    );
   });
 
   it("shares only the internal database network across the database and Logto stacks", () => {
@@ -106,8 +112,14 @@ describe("production foundation architecture contract", () => {
 
   it("uses one shared non-superuser Platform role for migrations and runtime", () => {
     assert.match(foundation.postgresEnv, /^PLATFORM_DATABASE_PASSWORD=/mu);
-    assert.match(foundation.initialization, /CREATE ROLE platform LOGIN PASSWORD/u);
-    assert.match(foundation.initialization, /CREATE DATABASE inside OWNER platform/u);
+    assert.match(
+      foundation.initialization,
+      /CREATE ROLE platform LOGIN PASSWORD/u,
+    );
+    assert.match(
+      foundation.initialization,
+      /CREATE DATABASE inside OWNER platform/u,
+    );
     assert.doesNotMatch(
       `${foundation.postgresEnv}\n${foundation.initialization}`,
       /platform_(?:owner|runtime)|PLATFORM_DATABASE_(?:OWNER|RUNTIME)/u,
@@ -116,10 +128,14 @@ describe("production foundation architecture contract", () => {
 
   it("rejects PostgreSQL running as PID 1 with asynchronous pgBackRest children", () => {
     assert.throws(
-      () => assertFoundationContract({
-        ...foundation,
-        databaseCompose: foundation.databaseCompose.replace("    init: true\n", ""),
-      }),
+      () =>
+        assertFoundationContract({
+          ...foundation,
+          databaseCompose: foundation.databaseCompose.replace(
+            "    init: true\n",
+            "",
+          ),
+        }),
       /PostgreSQL must delegate orphaned pgBackRest children to Docker init/u,
     );
   });
@@ -128,14 +144,22 @@ describe("production foundation architecture contract", () => {
 // Docker fixes the log options when it creates a container, so one host default covers Platform,
 // foundation and Telegram containers alike; a service-level `logging` would silently opt out.
 function assertContainerLogRotation({ daemon, composeFiles }) {
-  assert.equal(daemon["log-driver"], "json-file", "rotate container logs with the json-file driver");
+  assert.equal(
+    daemon["log-driver"],
+    "json-file",
+    "rotate container logs with the json-file driver",
+  );
   assert.deepEqual(
     daemon["log-opts"],
     { "max-size": "20m", "max-file": "5" },
     "rotate container logs at 20 MB and keep five files per container",
   );
   for (const [path, compose] of Object.entries(composeFiles)) {
-    assert.doesNotMatch(compose, /^\s+logging:/mu, `${path} must keep the host log default`);
+    assert.doesNotMatch(
+      compose,
+      /^\s+logging:/mu,
+      `${path} must keep the host log default`,
+    );
   }
 }
 
@@ -148,7 +172,9 @@ function assertFoundationContract(files) {
   const databaseNetwork = networkVariable(files.databaseCompose);
   const logtoNetwork = networkVariable(files.logtoCompose);
   if (databaseNetwork !== logtoNetwork) {
-    throw new Error("stacks must consume the same named internal database network");
+    throw new Error(
+      "stacks must consume the same named internal database network",
+    );
   }
   assert.match(
     files.databaseCompose,
@@ -167,7 +193,11 @@ function assertFoundationContract(files) {
     files.databaseCompose,
     /INSIDE_RESTORE_VOLUME: \$\{([A-Z_]+):/u,
   );
-  assert.equal(restoreVolume, dataVolume, "restore must target the active data volume");
+  assert.equal(
+    restoreVolume,
+    dataVolume,
+    "restore must target the active data volume",
+  );
 
   const guard = files.restoreEntrypoint.indexOf(
     'case "${INSIDE_RESTORE_VOLUME:-}" in',
@@ -181,14 +211,19 @@ function assertFoundationContract(files) {
     recoveryPrefix < guard ||
     destructiveWrite < recoveryPrefix
   ) {
-    throw new Error("restore must guard a recovery-prefixed volume before deleting data");
+    throw new Error(
+      "restore must guard a recovery-prefixed volume before deleting data",
+    );
   }
 
   assert.match(
     files.dockerfile,
     /^ENV INSIDE_POSTGRES_DATA_PATH=\/var\/lib\/postgresql\/18\/docker$/mu,
   );
-  assert.match(files.dockerfile, /^ENV PGDATA=\$\{INSIDE_POSTGRES_DATA_PATH\}$/mu);
+  assert.match(
+    files.dockerfile,
+    /^ENV PGDATA=\$\{INSIDE_POSTGRES_DATA_PATH\}$/mu,
+  );
   assert.match(
     files.dockerfile,
     /^ENV PGBACKREST_PG1_PATH=\$\{INSIDE_POSTGRES_DATA_PATH\}$/mu,

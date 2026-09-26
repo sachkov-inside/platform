@@ -230,9 +230,10 @@ describe("ContentAccess availability", () => {
             action: policyCase.action,
           },
         ],
-        enforcementPoint: policyCase.action === "read"
-          ? "published_material_read"
-          : "material_preview",
+        enforcementPoint:
+          policyCase.action === "read"
+            ? "published_material_read"
+            : "material_preview",
         correlationId: "matrix-correlation-id",
       }),
     ).resolves.toEqual({
@@ -248,8 +249,30 @@ describe("ContentAccess availability", () => {
 
   test("authorizes a lifetime material grant without inventing an expiry", async () => {
     const facts = membershipMaterial(1);
-    const access = assembleContentAccess({ materialResourceFacts: { findOne: () => Promise.resolve(facts), findMany: () => Promise.resolve([facts]) }, accountPermissions: { hasMaterialsManage: () => Promise.resolve(false) }, membershipEntitlements: { resolveForAccess: () => Promise.resolve({ kind: "active", validUntil: null }) } });
-    expect(await access.authorize({ subject: { kind: "account", accountId }, resource: { kind: "material", materialId: facts.materialId }, action: "read", enforcementPoint: "published_material_read", correlationId: "lifetime" })).toMatchObject({ effect: "allow", reason: "active_membership", validUntil: null });
+    const access = assembleContentAccess({
+      materialResourceFacts: {
+        findOne: () => Promise.resolve(facts),
+        findMany: () => Promise.resolve([facts]),
+      },
+      accountPermissions: { hasMaterialsManage: () => Promise.resolve(false) },
+      membershipEntitlements: {
+        resolveForAccess: () =>
+          Promise.resolve({ kind: "active", validUntil: null }),
+      },
+    });
+    expect(
+      await access.authorize({
+        subject: { kind: "account", accountId },
+        resource: { kind: "material", materialId: facts.materialId },
+        action: "read",
+        enforcementPoint: "published_material_read",
+        correlationId: "lifetime",
+      }),
+    ).toMatchObject({
+      effect: "allow",
+      reason: "active_membership",
+      validUntil: null,
+    });
   });
 
   test.each([1, 100])(
@@ -287,7 +310,12 @@ describe("ContentAccess availability", () => {
         membershipEntitlements: {
           resolveManyForAccess(_accountId, resources) {
             membershipReads += 1;
-            return Promise.resolve(resources.map(() => ({ kind: "active" as const, validUntil: "2026-08-27T13:05:00.000Z" })));
+            return Promise.resolve(
+              resources.map(() => ({
+                kind: "active" as const,
+                validUntil: "2026-08-27T13:05:00.000Z",
+              })),
+            );
           },
           resolveForAccess() {
             membershipReads += 1;
@@ -435,34 +463,42 @@ describe("ContentAccess authorization", () => {
       subject: { kind: "account" as const, accountId },
       expected: { effect: "allow", reason: "active_membership" },
     },
-  ])("authorizes play through the referenced Material for a $name", async ({ facts, subject, expected }) => {
-    const video = primaryVideo(facts, 1);
-    const referencedFacts = { ...facts, primaryVideoId: video.videoId };
-    const contentAccess = assembleContentAccess({
-      videoResourceFacts: {
-        findMany: () => Promise.resolve([video]),
-        findOne: () => Promise.resolve(video),
-      },
-      materialResourceFacts: {
-        findMany: () => Promise.resolve([referencedFacts]),
-        findOne: () => Promise.resolve(referencedFacts),
-      },
-      accountPermissions: { hasMaterialsManage: () => Promise.resolve(false) },
-      membershipEntitlements: {
-        resolveForAccess: () => Promise.resolve({ kind: "active", validUntil: activeUntil }),
-      },
-      clock: () => new Date(decidedAt),
-      decisionId: () => "video-decision-id",
-    });
+  ])(
+    "authorizes play through the referenced Material for a $name",
+    async ({ facts, subject, expected }) => {
+      const video = primaryVideo(facts, 1);
+      const referencedFacts = { ...facts, primaryVideoId: video.videoId };
+      const contentAccess = assembleContentAccess({
+        videoResourceFacts: {
+          findMany: () => Promise.resolve([video]),
+          findOne: () => Promise.resolve(video),
+        },
+        materialResourceFacts: {
+          findMany: () => Promise.resolve([referencedFacts]),
+          findOne: () => Promise.resolve(referencedFacts),
+        },
+        accountPermissions: {
+          hasMaterialsManage: () => Promise.resolve(false),
+        },
+        membershipEntitlements: {
+          resolveForAccess: () =>
+            Promise.resolve({ kind: "active", validUntil: activeUntil }),
+        },
+        clock: () => new Date(decidedAt),
+        decisionId: () => "video-decision-id",
+      });
 
-    await expect(contentAccess.authorize({
-      subject,
-      resource: { kind: "video", videoId: video.videoId },
-      action: "play",
-      enforcementPoint: "playback_token_issue",
-      correlationId: "video-correlation-id",
-    })).resolves.toMatchObject(expected);
-  });
+      await expect(
+        contentAccess.authorize({
+          subject,
+          resource: { kind: "video", videoId: video.videoId },
+          action: "play",
+          enforcementPoint: "playback_token_issue",
+          correlationId: "video-correlation-id",
+        }),
+      ).resolves.toMatchObject(expected);
+    },
+  );
 
   test("fails closed when Video facts point at a different access class", async () => {
     const facts = membershipMaterial(42);
@@ -479,19 +515,22 @@ describe("ContentAccess authorization", () => {
       },
       accountPermissions: { hasMaterialsManage: () => Promise.resolve(false) },
       membershipEntitlements: {
-        resolveForAccess: () => Promise.resolve({ kind: "active", validUntil: activeUntil }),
+        resolveForAccess: () =>
+          Promise.resolve({ kind: "active", validUntil: activeUntil }),
       },
       clock: () => new Date(decidedAt),
       decisionId: () => "video-mismatch-decision-id",
     });
 
-    await expect(contentAccess.authorize({
-      subject: { kind: "account", accountId },
-      resource: { kind: "video", videoId: video.videoId },
-      action: "play",
-      enforcementPoint: "playback_token_issue",
-      correlationId: "video-mismatch-correlation-id",
-    })).resolves.toMatchObject({ effect: "deny", reason: "resource_mismatch" });
+    await expect(
+      contentAccess.authorize({
+        subject: { kind: "account", accountId },
+        resource: { kind: "video", videoId: video.videoId },
+        action: "play",
+        enforcementPoint: "playback_token_issue",
+        correlationId: "video-mismatch-correlation-id",
+      }),
+    ).resolves.toMatchObject({ effect: "deny", reason: "resource_mismatch" });
   });
 
   test("fails closed when Video is no longer the current published primary reference", async () => {
@@ -508,17 +547,20 @@ describe("ContentAccess authorization", () => {
       },
       accountPermissions: { hasMaterialsManage: () => Promise.resolve(true) },
       membershipEntitlements: {
-        resolveForAccess: () => Promise.resolve({ kind: "active", validUntil: activeUntil }),
+        resolveForAccess: () =>
+          Promise.resolve({ kind: "active", validUntil: activeUntil }),
       },
     });
 
-    await expect(contentAccess.authorize({
-      subject: { kind: "account", accountId },
-      resource: { kind: "video", videoId: video.videoId },
-      action: "play",
-      enforcementPoint: "playback_token_issue",
-      correlationId: "stale-video-correlation-id",
-    })).resolves.toMatchObject({ effect: "deny", reason: "resource_mismatch" });
+    await expect(
+      contentAccess.authorize({
+        subject: { kind: "account", accountId },
+        resource: { kind: "video", videoId: video.videoId },
+        action: "play",
+        enforcementPoint: "playback_token_issue",
+        correlationId: "stale-video-correlation-id",
+      }),
+    ).resolves.toMatchObject({ effect: "deny", reason: "resource_mismatch" });
   });
 
   test.each(policyCases)("decides $name", async (policyCase) => {
@@ -541,9 +583,10 @@ describe("ContentAccess authorization", () => {
           materialId: policyCase.facts.materialId,
         },
         action: policyCase.action,
-        enforcementPoint: policyCase.action === "read"
-          ? "published_material_read"
-          : "material_preview",
+        enforcementPoint:
+          policyCase.action === "read"
+            ? "published_material_read"
+            : "material_preview",
         correlationId: "matrix-correlation-id",
       }),
     ).resolves.toEqual(expectedDecision);
@@ -588,7 +631,10 @@ describe("ContentAccess authorization", () => {
     const membershipEntitlements = {
       resolveForAccess() {
         membershipReads += 1;
-        return Promise.resolve({ kind: "active" as const, validUntil: activeUntil });
+        return Promise.resolve({
+          kind: "active" as const,
+          validUntil: activeUntil,
+        });
       },
     };
     const request = {
@@ -626,15 +672,19 @@ describe("ContentAccess authorization", () => {
       membershipEntitlements,
     });
 
-    await expect(unavailableResource.authorize(request)).resolves.toMatchObject({
-      effect: "deny",
-      reason: "dependency_unavailable",
-    });
+    await expect(unavailableResource.authorize(request)).resolves.toMatchObject(
+      {
+        effect: "deny",
+        reason: "dependency_unavailable",
+      },
+    );
     await expect(missingResource.authorize(request)).resolves.toMatchObject({
       effect: "deny",
       reason: "resource_not_found",
     });
-    await expect(unavailablePermission.authorize(request)).resolves.toMatchObject({
+    await expect(
+      unavailablePermission.authorize(request),
+    ).resolves.toMatchObject({
       effect: "deny",
       reason: "dependency_unavailable",
     });
@@ -732,8 +782,16 @@ describe("ContentAccess authorization", () => {
     let membershipReads = 0;
     const contentAccess = assembleContentAccess({
       assetResourceFacts: {
-        findMany: () => Promise.resolve([{ assetId, kind: "file", materialId: facts.materialId }]),
-        findOne: () => Promise.resolve({ assetId, kind: "file", materialId: facts.materialId }),
+        findMany: () =>
+          Promise.resolve([
+            { assetId, kind: "file", materialId: facts.materialId },
+          ]),
+        findOne: () =>
+          Promise.resolve({
+            assetId,
+            kind: "file",
+            materialId: facts.materialId,
+          }),
       },
       materialResourceFacts: {
         findMany: () => Promise.resolve([facts]),
@@ -786,9 +844,7 @@ describe("ContentAccess authorization", () => {
       }),
     ).resolves.toEqual({
       ok: true,
-      items: [
-        { itemId: "invalid-action-item", availability: "available" },
-      ],
+      items: [{ itemId: "invalid-action-item", availability: "available" }],
     });
     expect({ permissionReads, membershipReads }).toEqual({
       permissionReads: 2,

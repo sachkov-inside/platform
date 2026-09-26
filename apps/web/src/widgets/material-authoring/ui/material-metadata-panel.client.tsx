@@ -3,7 +3,10 @@
 import { Plus, X } from "lucide-react";
 import { useState, type ReactNode } from "react";
 
-import { materialDifficultyLabel, materialTaxonomyLabel } from "@/entities/material";
+import {
+  materialDifficultyLabel,
+  materialTaxonomyLabel,
+} from "@/entities/material";
 import { MaterialDeleteDialog } from "@/features/material-lifecycle";
 import {
   MATERIAL_OUTCOMES,
@@ -229,7 +232,8 @@ function OutcomesEditor({
     <fieldset className="min-w-0 sm:col-span-2" data-material-outcomes>
       <legend className="text-sm font-medium">Чему научишься</legend>
       <p className="mt-1 text-xs text-muted-foreground">
-        {MATERIAL_OUTCOMES.minPublishedCount}–{MATERIAL_OUTCOMES.maxCount} пункта или ни одного.
+        {MATERIAL_OUTCOMES.minPublishedCount}–{MATERIAL_OUTCOMES.maxCount}{" "}
+        пункта или ни одного.
       </p>
       <div className="mt-3 grid gap-2">
         {outcomes.map((outcome, index) => (

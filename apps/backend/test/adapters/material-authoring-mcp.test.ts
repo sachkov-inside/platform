@@ -1,7 +1,4 @@
-import {
-  Client,
-  InMemoryTransport,
-} from "@modelcontextprotocol/client";
+import { Client, InMemoryTransport } from "@modelcontextprotocol/client";
 import type { McpServer } from "@modelcontextprotocol/server";
 import { afterEach, describe, expect, test } from "vitest";
 
@@ -44,18 +41,35 @@ describe("Material authoring MCP adapter", () => {
       "guide_load_composition",
       "guide_save_composition",
     ]);
-    expect(tools.find(({ name }) => name === "material_save")?.annotations)
-      .toMatchObject({ destructiveHint: true, idempotentHint: true });
+    expect(
+      tools.find(({ name }) => name === "material_save")?.annotations,
+    ).toMatchObject({ destructiveHint: true, idempotentHint: true });
     expect(tools.some(({ name }) => name.includes("sql"))).toBe(false);
   });
 
   test("Guide composition uses the same delegated command as legacy Playlist", async () => {
     const commands: unknown[] = [];
-    ({ client, server } = await connect(stubMaterialAuthoring({ loadSeriesOrder: (command) => { commands.push(command); return Promise.resolve(forbiddenAuthoringResult); } })));
+    ({ client, server } = await connect(
+      stubMaterialAuthoring({
+        loadSeriesOrder: (command) => {
+          commands.push(command);
+          return Promise.resolve(forbiddenAuthoringResult);
+        },
+      }),
+    ));
     const guideId = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb";
-    const canonical = await client.callTool({ name: "guide_load_composition", arguments: { guideId } });
-    const legacy = await client.callTool({ name: "playlist_load_composition", arguments: { seriesId: guideId } });
-    expect(commands).toEqual([{ actor: accountId, seriesId: guideId }, { actor: accountId, seriesId: guideId }]);
+    const canonical = await client.callTool({
+      name: "guide_load_composition",
+      arguments: { guideId },
+    });
+    const legacy = await client.callTool({
+      name: "playlist_load_composition",
+      arguments: { seriesId: guideId },
+    });
+    expect(commands).toEqual([
+      { actor: accountId, seriesId: guideId },
+      { actor: accountId, seriesId: guideId },
+    ]);
     expect(canonical).toEqual(legacy);
     expect(canonical.isError).toBe(true);
   });
@@ -92,57 +106,86 @@ describe("Material authoring MCP adapter", () => {
 
   test("requires an explicit primary Video decision before saving", async () => {
     let calls = 0;
-    ({ client, server } = await connect(stubMaterialAuthoring({ saveMaterial: () => {
-      calls += 1;
-      return Promise.resolve(forbiddenAuthoringResult);
-    } })));
-    const result = await client.callTool({ name: "material_save", arguments: {
-      idempotencyKey: "missing-video", materialId: "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
-      expectedContentVersion: 1, publicationState: "draft",
-      metadata: incompleteMetadata("Draft"), body: emptyBody(),
-    } });
+    ({ client, server } = await connect(
+      stubMaterialAuthoring({
+        saveMaterial: () => {
+          calls += 1;
+          return Promise.resolve(forbiddenAuthoringResult);
+        },
+      }),
+    ));
+    const result = await client.callTool({
+      name: "material_save",
+      arguments: {
+        idempotencyKey: "missing-video",
+        materialId: "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+        expectedContentVersion: 1,
+        publicationState: "draft",
+        metadata: incompleteMetadata("Draft"),
+        body: emptyBody(),
+      },
+    });
     expect(result.isError).toBe(true);
     expect(calls).toBe(0);
   });
 
-  test.each(["cccccccc-cccc-4ccc-8ccc-cccccccccccc", null])("forwards explicit primary Video %s with the loaded version", async (primaryVideoId) => {
-    let received: unknown;
-    ({ client, server } = await connect(stubMaterialAuthoring({ saveMaterial: command => {
-      received = command;
-      return Promise.resolve(forbiddenAuthoringResult);
-    } })));
-    await client.callTool({ name: "material_save", arguments: {
-      idempotencyKey: "explicit-video", materialId: "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
-      expectedContentVersion: 7, publicationState: "draft", primaryVideoId,
-      metadata: incompleteMetadata("Draft"), body: emptyBody(),
-    } });
-    expect(received).toMatchObject({ actor: accountId, primaryVideoId, expectedContentVersion: 7 });
-  });
+  test.each(["cccccccc-cccc-4ccc-8ccc-cccccccccccc", null])(
+    "forwards explicit primary Video %s with the loaded version",
+    async (primaryVideoId) => {
+      let received: unknown;
+      ({ client, server } = await connect(
+        stubMaterialAuthoring({
+          saveMaterial: (command) => {
+            received = command;
+            return Promise.resolve(forbiddenAuthoringResult);
+          },
+        }),
+      ));
+      await client.callTool({
+        name: "material_save",
+        arguments: {
+          idempotencyKey: "explicit-video",
+          materialId: "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+          expectedContentVersion: 7,
+          publicationState: "draft",
+          primaryVideoId,
+          metadata: incompleteMetadata("Draft"),
+          body: emptyBody(),
+        },
+      });
+      expect(received).toMatchObject({
+        actor: accountId,
+        primaryVideoId,
+        expectedContentVersion: 7,
+      });
+    },
+  );
 
   test("returns successful application values as structured content", async () => {
     ({ client, server } = await connect(
       stubMaterialAuthoring({
-        loadMaterial: ({ materialId }) => Promise.resolve({
-          ok: true,
-          value: {
-            materialId,
-            contentVersion: 4,
-            publicationState: "unpublished",
-            firstPublishedAt: "2026-08-30T10:00:00.000Z",
-            publishedAt: null,
-            primaryVideoId: null,
-            primaryVideo: null,
-            latestVideoDeletion: null,
-            unselectedVideoUpload: null,
-            cover: null,
-            metadata: {
-              ...incompleteMetadata("Loaded"),
-              seriesMemberships: [],
-              slug: null,
+        loadMaterial: ({ materialId }) =>
+          Promise.resolve({
+            ok: true,
+            value: {
+              materialId,
+              contentVersion: 4,
+              publicationState: "unpublished",
+              firstPublishedAt: "2026-08-30T10:00:00.000Z",
+              publishedAt: null,
+              primaryVideoId: null,
+              primaryVideo: null,
+              latestVideoDeletion: null,
+              unselectedVideoUpload: null,
+              cover: null,
+              metadata: {
+                ...incompleteMetadata("Loaded"),
+                seriesMemberships: [],
+                slug: null,
+              },
+              body: emptyBody(),
             },
-            body: emptyBody(),
-          },
-        }),
+          }),
       }),
     ));
 
@@ -165,12 +208,16 @@ async function connect(authoring: MaterialAuthoring): Promise<{
   readonly client: Client;
   readonly server: McpServer;
 }> {
-  const connectedClient = new Client({ name: "platform-test", version: "1.0.0" });
+  const connectedClient = new Client({
+    name: "platform-test",
+    version: "1.0.0",
+  });
   const connectedServer = assembleMaterialAuthoringMcpServer({
     accountId,
     authoring,
   });
-  const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
+  const [clientTransport, serverTransport] =
+    InMemoryTransport.createLinkedPair();
   await Promise.all([
     connectedClient.connect(clientTransport),
     connectedServer.connect(serverTransport),

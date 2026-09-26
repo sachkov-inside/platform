@@ -160,11 +160,11 @@ export const OneTimeGuide: Story = {
     await expect(
       canvas.queryByText("Согласие на регулярные списания"),
     ).not.toBeInTheDocument();
-    await expect(canvas.queryByText("Дальше каждый период")).not.toBeInTheDocument();
-    await expect(canvas.queryByText("Период")).not.toBeInTheDocument();
     await expect(
-      canvas.getByText(/Это разовый платёж/u),
-    ).toBeInTheDocument();
+      canvas.queryByText("Дальше каждый период"),
+    ).not.toBeInTheDocument();
+    await expect(canvas.queryByText("Период")).not.toBeInTheDocument();
+    await expect(canvas.getByText(/Это разовый платёж/u)).toBeInTheDocument();
     await expect(
       canvas.getByRole("button", { name: /оплатить/iu }),
     ).toBeEnabled();

@@ -20,7 +20,10 @@ export type LogLevel = "info" | "warn" | "error";
 
 const contexts = new AsyncLocalStorage<LogContext>();
 
-export function runWithLogContext<Value>(context: LogContext, work: () => Value): Value {
+export function runWithLogContext<Value>(
+  context: LogContext,
+  work: () => Value,
+): Value {
   return contexts.run(context, work);
 }
 
@@ -81,11 +84,16 @@ const secretPatterns: readonly (readonly [RegExp, string])[] = [
 
 export function redactText(text: string): string {
   return secretPatterns
-    .reduce((redacted, [pattern, replacement]) => redacted.replace(pattern, replacement), text)
+    .reduce(
+      (redacted, [pattern, replacement]) =>
+        redacted.replace(pattern, replacement),
+      text,
+    )
     .slice(0, MESSAGE_LIMIT);
 }
 
-const optional = <Schema extends z.ZodType>(schema: Schema) => schema.optional().catch(undefined);
+const optional = <Schema extends z.ZodType>(schema: Schema) =>
+  schema.optional().catch(undefined);
 const errorShape = z.object({
   name: optional(z.string()),
   code: optional(z.union([z.string(), z.number()])),
@@ -105,17 +113,21 @@ const errorShape = z.object({
  */
 export function describeError(error: unknown, depth = 0): LoggedError {
   const parsed = errorShape.safeParse(error);
-  if (typeof error !== "object" || error === null || !parsed.success) return { type: typeof error };
+  if (typeof error !== "object" || error === null || !parsed.success)
+    return { type: typeof error };
   const fields = parsed.data;
   // Своя ошибка без собственного name называется своим классом.
-  const type = fields.name === undefined || fields.name === "Error"
-    ? error.constructor?.name ?? fields.name ?? "object"
-    : fields.name;
+  const type =
+    fields.name === undefined || fields.name === "Error"
+      ? (error.constructor?.name ?? fields.name ?? "object")
+      : fields.name;
   const code = fields.code ?? fields.originalCode ?? fields.kind;
-  const message = fields.message === undefined || inputEchoingType.test(type)
-    ? ""
-    : redactText(fields.message);
-  const stack = (fields.stack ?? "").split("\n")
+  const message =
+    fields.message === undefined || inputEchoingType.test(type)
+      ? ""
+      : redactText(fields.message);
+  const stack = (fields.stack ?? "")
+    .split("\n")
     .filter((line) => /^\s+at /u.test(line))
     .slice(0, STACK_FRAME_LIMIT)
     .map((line) => line.trim());
@@ -127,7 +139,11 @@ export function describeError(error: unknown, depth = 0): LoggedError {
     ...(code === undefined ? {} : { code: String(code) }),
     ...(message === "" ? {} : { message }),
     ...(stack.length === 0 ? {} : { stack }),
-    ...(nested && cause !== undefined ? { cause: describeError(cause, depth + 1) } : {}),
-    ...(errors.length === 0 ? {} : { errors: errors.map((item) => describeError(item, depth + 1)) }),
+    ...(nested && cause !== undefined
+      ? { cause: describeError(cause, depth + 1) }
+      : {}),
+    ...(errors.length === 0
+      ? {}
+      : { errors: errors.map((item) => describeError(item, depth + 1)) }),
   };
 }

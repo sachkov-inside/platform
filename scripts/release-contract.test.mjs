@@ -106,7 +106,10 @@ describe("release contract CLI", () => {
     );
 
     assert.equal(result.status, 1);
-    assert.match(result.stderr, /ordinal history is not contiguous: missing v2/u);
+    assert.match(
+      result.stderr,
+      /ordinal history is not contiguous: missing v2/u,
+    );
   });
 
   it("rejects an ordinal Git tag without a retained immutable release", () => {
@@ -234,7 +237,9 @@ function runManifestWithBackend(backend) {
 }
 
 function runManifestWithImages(backend, web) {
-  const directory = mkdtempSync(resolve(tmpdir(), "platform-release-manifest-"));
+  const directory = mkdtempSync(
+    resolve(tmpdir(), "platform-release-manifest-"),
+  );
   const backendPath = resolve(directory, "backend.image.json");
   const webPath = resolve(directory, "web.image.json");
   const input = readJson("scripts/fixtures/release/manifest-input.json");

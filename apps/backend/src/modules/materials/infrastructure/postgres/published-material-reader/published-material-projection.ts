@@ -10,7 +10,10 @@ import { materialDifficultySchema } from "../../../domain/material-metadata.js";
 
 import type { PublishedMaterialProjectionDto } from "../../../facets/published-material-reader/published-material.contract.js";
 import type { ContentCoverProjection } from "../../../facets/content-covers/content-covers.js";
-import type { GuideIntroductionDto, GuideProductPageDto } from "../../../facets/material-authoring/content-collection.contract.js";
+import type {
+  GuideIntroductionDto,
+  GuideProductPageDto,
+} from "../../../facets/material-authoring/content-collection.contract.js";
 import { loadContentCoverProjections } from "../content-cover-projections.js";
 import { readGuidePage } from "../../../shared/guide-page-reader.js";
 import type {
@@ -130,7 +133,14 @@ const publishedMaterialProjectionRowSchema = z.object({
   slug: z.string(),
   title: z.string(),
   summary: z.string(),
-  note_excerpt: z.object({ text: z.string(), truncated: z.boolean(), linkUrl: z.string().nullable().optional() }).nullable().optional(),
+  note_excerpt: z
+    .object({
+      text: z.string(),
+      truncated: z.boolean(),
+      linkUrl: z.string().nullable().optional(),
+    })
+    .nullable()
+    .optional(),
   difficulty: materialDifficultySchema.nullable(),
   outcomes: z.array(z.string()),
   access: z.enum(["free", "membership", "workshop"]),
@@ -176,7 +186,12 @@ const facetOptionSchema = z
 
 const projectionMetadataRowSchema = z
   .object({
-    formats: z.array(facetOptionSchema.extend({ id: materialFormatSchema, slug: materialFormatSchema })),
+    formats: z.array(
+      facetOptionSchema.extend({
+        id: materialFormatSchema,
+        slug: materialFormatSchema,
+      }),
+    ),
     series: z.array(facetOptionSchema),
     topics: z.array(facetOptionSchema),
     total_count: z.coerce.number().int().nonnegative(),
@@ -241,7 +256,9 @@ export async function selectPublishedMaterialProjectionPage(
         ? toContinuation(lastRow, effectiveSort)
         : null,
     facets: {
-      formats: metadata.formats.map((facet) => projectFacet(facet, previewById)),
+      formats: metadata.formats.map((facet) =>
+        projectFacet(facet, previewById),
+      ),
       series: metadata.series.map((facet) => projectFacet(facet, previewById)),
       topics: metadata.topics.map((facet) => projectFacet(facet, previewById)),
     },
@@ -700,7 +717,13 @@ export async function selectPublishedMaterialProjectionsByTopic(
   const [reference, rawRows, rawRelatedSeries] = await Promise.all([
     prisma.topic.findUnique({
       where: { slug },
-      select: { coverId: true, id: true, name: true, slug: true, summary: true },
+      select: {
+        coverId: true,
+        id: true,
+        name: true,
+        slug: true,
+        summary: true,
+      },
     }),
     first === 0
       ? Promise.resolve([])
@@ -748,9 +771,10 @@ export async function selectPublishedMaterialProjectionsByTopic(
   const relatedSeries = relatedSeriesRowSchema.array().parse(rawRelatedSeries);
   const covers = await loadContentCoverProjections(
     prisma,
-    [reference.coverId, ...relatedSeries.map(({ cover_id }) => cover_id)].flatMap(
-      (coverId) => (coverId === null ? [] : [coverId]),
-    ),
+    [
+      reference.coverId,
+      ...relatedSeries.map(({ cover_id }) => cover_id),
+    ].flatMap((coverId) => (coverId === null ? [] : [coverId])),
   );
   return {
     chapters: [],
@@ -765,7 +789,7 @@ export async function selectPublishedMaterialProjectionsByTopic(
       cover:
         reference.coverId === null
           ? null
-          : covers.get(reference.coverId) ?? null,
+          : (covers.get(reference.coverId) ?? null),
     },
     relatedSeries: relatedSeries.map((series) => ({
       id: series.id,
@@ -775,7 +799,7 @@ export async function selectPublishedMaterialProjectionsByTopic(
       summary: series.summary,
       totalMaterialCount: series.total_material_count,
       cover:
-        series.cover_id === null ? null : covers.get(series.cover_id) ?? null,
+        series.cover_id === null ? null : (covers.get(series.cover_id) ?? null),
     })),
     topics: [],
     items: rows.slice(0, first).map(toProjection),
@@ -790,44 +814,41 @@ export async function selectPublishedMaterialProjectionsBySeries(
 ): Promise<PublishedMaterialDiscoveryPage | undefined> {
   const [reference, rawRows, rawTopics, rawChapters, rawGuideModes] =
     await Promise.all([
-    prisma.guide.findUnique({
-      where: { slug },
-      select: {
-        audience: true,
-        coverId: true,
-        id: true,
-        name: true,
-        outcome: true,
-        page: true,
-        presentation: true,
-        prerequisites: true,
-        scope: true,
-        slug: true,
-        summary: true,
-      },
-    }),
-    prisma.$queryRaw(
-      projectionQuery({
-        joins: Prisma.sql`
+      prisma.guide.findUnique({
+        where: { slug },
+        select: {
+          audience: true,
+          coverId: true,
+          id: true,
+          name: true,
+          outcome: true,
+          page: true,
+          presentation: true,
+          prerequisites: true,
+          scope: true,
+          slug: true,
+          summary: true,
+        },
+      }),
+      prisma.$queryRaw(
+        projectionQuery({
+          joins: Prisma.sql`
           join materials.published_material_series_memberships as selected_membership
             on selected_membership.material_id = publication.material_id
           join materials.series as selected_series
             on selected_series.id = selected_membership.series_id
         `,
-        where: Prisma.sql`
+          where: Prisma.sql`
           where selected_series.slug = ${slug}
             and publication.access <> 'workshop'
         `,
-        order: Prisma.sql`
+          order: Prisma.sql`
           order by selected_membership.ordinal, publication.material_id
         `,
-        limit:
-          first === null
-            ? Prisma.empty
-            : Prisma.sql`limit ${first + 1}`,
-      }),
-    ),
-    prisma.$queryRaw(Prisma.sql`
+          limit: first === null ? Prisma.empty : Prisma.sql`limit ${first + 1}`,
+        }),
+      ),
+      prisma.$queryRaw(Prisma.sql`
       select distinct topic.id, topic.name, topic.slug, topic.cover_id
       from materials.published_material_series_memberships as membership
       join materials.series as series on series.id = membership.series_id
@@ -839,7 +860,7 @@ export async function selectPublishedMaterialProjectionsBySeries(
         and publication.access <> 'workshop'
       order by topic.name, topic.id
     `),
-    prisma.$queryRaw(Prisma.sql`
+      prisma.$queryRaw(Prisma.sql`
       select
         chapter.id,
         chapter.name,
@@ -864,8 +885,8 @@ export async function selectPublishedMaterialProjectionsBySeries(
       where series.slug = ${slug}
       order by chapter.ordinal, chapter.id
     `),
-    // The route is paginated, so the visible page cannot answer this for the whole Guide.
-    prisma.$queryRaw(Prisma.sql`
+      // The route is paginated, so the visible page cannot answer this for the whole Guide.
+      prisma.$queryRaw(Prisma.sql`
       select exists (
         select 1
         from materials.published_material_series_memberships as membership
@@ -877,7 +898,7 @@ export async function selectPublishedMaterialProjectionsBySeries(
           and publication.has_mode_variants
       ) as has_mode_variants
     `),
-  ]);
+    ]);
   if (reference === null) {
     return undefined;
   }
@@ -919,12 +940,12 @@ export async function selectPublishedMaterialProjectionsBySeries(
       cover:
         reference.coverId === null
           ? null
-          : covers.get(reference.coverId) ?? null,
+          : (covers.get(reference.coverId) ?? null),
     },
     relatedSeries: [],
     topics: topics.map(({ cover_id, ...topic }) => ({
       ...topic,
-      cover: cover_id === null ? null : covers.get(cover_id) ?? null,
+      cover: cover_id === null ? null : (covers.get(cover_id) ?? null),
     })),
     items: (first === null ? rows : rows.slice(0, first)).map(toProjection),
     hasNext: first !== null && rows.length > first,
@@ -1131,7 +1152,9 @@ function toProjection(
     slug: row.slug,
     title: row.title,
     summary: row.summary,
-    ...(row.note_excerpt == null ? {} : { noteExcerpt: projectNoteExcerpt(row.note_excerpt) }),
+    ...(row.note_excerpt == null
+      ? {}
+      : { noteExcerpt: projectNoteExcerpt(row.note_excerpt) }),
     difficulty: row.difficulty,
     outcomes: row.outcomes,
     access: row.access,
@@ -1160,14 +1183,29 @@ function toProjection(
 }
 
 /** A public note may expose one link, never its private or stale body. */
-function projectNoteExcerpt(excerpt: { readonly text: string; readonly truncated: boolean; readonly linkUrl?: string | null | undefined }): NonNullable<PublishedMaterialProjectionDto["noteExcerpt"]> {
+function projectNoteExcerpt(excerpt: {
+  readonly text: string;
+  readonly truncated: boolean;
+  readonly linkUrl?: string | null | undefined;
+}): NonNullable<PublishedMaterialProjectionDto["noteExcerpt"]> {
   let linkUrl: string | undefined;
   if (excerpt.linkUrl != null && excerpt.linkUrl.length <= 2048) {
     // Invalid links do not invalidate the rest of a published note.
     const url = URL.parse(excerpt.linkUrl);
-    if (url !== null && (url.protocol === "https:" || url.protocol === "http:") && !url.username && !url.password && url.href.length <= 2048) linkUrl = url.href;
+    if (
+      url !== null &&
+      (url.protocol === "https:" || url.protocol === "http:") &&
+      !url.username &&
+      !url.password &&
+      url.href.length <= 2048
+    )
+      linkUrl = url.href;
   }
-  return { text: excerpt.text, truncated: excerpt.truncated, ...(linkUrl === undefined ? {} : { linkUrl }) };
+  return {
+    text: excerpt.text,
+    truncated: excerpt.truncated,
+    ...(linkUrl === undefined ? {} : { linkUrl }),
+  };
 }
 
 function projectionScopeSql(feedOnly: boolean): Prisma.Sql {

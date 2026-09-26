@@ -13,8 +13,12 @@ export const metadata: Metadata = {
 export default async function Page({
   searchParams,
 }: {
-  readonly searchParams: Promise<{ readonly from?: string | readonly string[] }>;
+  readonly searchParams: Promise<{
+    readonly from?: string | readonly string[];
+  }>;
 }) {
   const query = await searchParams;
-  return <MaterialAuthoringPage returnHref={parseAuthoringReturnHref(query.from)} />;
+  return (
+    <MaterialAuthoringPage returnHref={parseAuthoringReturnHref(query.from)} />
+  );
 }

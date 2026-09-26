@@ -1,6 +1,9 @@
 import type { z } from "zod";
 
-import type { ReadingState, readingStatesResultSchema } from "./reading-contract";
+import type {
+  ReadingState,
+  readingStatesResultSchema,
+} from "./reading-contract";
 
 type ReadingStatesResult = z.infer<typeof readingStatesResultSchema>;
 
@@ -33,9 +36,13 @@ export function createReadingStateBatcher(
     }
   };
 
-  const settle = async (batch: readonly string[], current: ReadonlyMap<string, Waiter[]>) => {
+  const settle = async (
+    batch: readonly string[],
+    current: ReadonlyMap<string, Waiter[]>,
+  ) => {
     const fail = (error: Error) => {
-      for (const id of batch) for (const waiter of current.get(id) ?? []) waiter.reject(error);
+      for (const id of batch)
+        for (const waiter of current.get(id) ?? []) waiter.reject(error);
     };
     let result: ReadingStatesResult;
     try {
@@ -48,15 +55,22 @@ export function createReadingStateBatcher(
       fail(new Error(result.kind));
       return;
     }
-    const states = new Map(result.states.map((state) => [state.materialId, state]));
+    const states = new Map(
+      result.states.map((state) => [state.materialId, state]),
+    );
     // Ответ обязан описать ровно запрошенные материалы: лишний, повторный или пропущенный — сбой контракта.
-    if (result.states.length !== batch.length || states.size !== batch.length || batch.some((id) => !states.has(id))) {
+    if (
+      result.states.length !== batch.length ||
+      states.size !== batch.length ||
+      batch.some((id) => !states.has(id))
+    ) {
       fail(new Error("invalid_response"));
       return;
     }
     for (const id of batch) {
       const state = states.get(id);
-      if (state !== undefined) for (const waiter of current.get(id) ?? []) waiter.resolve(state);
+      if (state !== undefined)
+        for (const waiter of current.get(id) ?? []) waiter.resolve(state);
     }
   };
 

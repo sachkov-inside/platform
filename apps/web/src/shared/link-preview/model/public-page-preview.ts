@@ -51,9 +51,13 @@ export function publicPageMetadata(
   const images = [
     {
       alt: preview.image.alt,
-      ...(preview.image.height === undefined ? {} : { height: preview.image.height }),
+      ...(preview.image.height === undefined
+        ? {}
+        : { height: preview.image.height }),
       url: preview.image.url,
-      ...(preview.image.width === undefined ? {} : { width: preview.image.width }),
+      ...(preview.image.width === undefined
+        ? {}
+        : { width: preview.image.width }),
     },
   ];
   const socialTitle = preview.socialTitle ?? preview.title;

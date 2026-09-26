@@ -43,12 +43,7 @@ export const memberProfileResponseSchema = z
 export const profileValidationIssueSchema = z
   .object({
     field: z.enum(["displayName", "bio"]),
-    code: z.enum([
-      "required",
-      "too_short",
-      "too_long",
-      "invalid_characters",
-    ]),
+    code: z.enum(["required", "too_short", "too_long", "invalid_characters"]),
   })
   .strict();
 

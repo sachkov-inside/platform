@@ -23,6 +23,12 @@ nearest `AGENTS.md` owns task routing and verification commands.
   duplicating environment parsing, transport paths, schemas, policy, or cache state.
 - Prefer a small deep interface at a proven seam. Do not add generic repositories, factories,
   services, or provider abstractions for hypothetical consumers.
+- Every TypeScript project extends `tsconfig.base.json` through its preset:
+  `tsconfig.node-lib.json` for `packages/`, `tsconfig.nest-app.json` for the backend and
+  `tsconfig.next-app.json` for the web. Change shared strictness in the base, not per project;
+  `scripts/toolchain-contract.test.mjs` fails a project that bypasses it. Where `isolatedDeclarations`
+  in packages asks for an exported Zod schema's type, write its exact Zod type, not a hand-written
+  wire type.
 - Keep checked-in generated contracts deterministic. Change their source and regenerate them; do
   not hand-edit generated output.
 - Name protocol, token, cookie, retry, and polling durations in domain units at the owning boundary.

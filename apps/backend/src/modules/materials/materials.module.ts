@@ -27,7 +27,11 @@ import {
   type AccessGrants,
   type MembershipEntitlements,
 } from "../membership-entitlements/index.js";
-import { AssetsModule, MATERIAL_ASSETS, type MaterialAssets } from "../assets/index.js";
+import {
+  AssetsModule,
+  MATERIAL_ASSETS,
+  type MaterialAssets,
+} from "../assets/index.js";
 import {
   OBJECT_STORAGE,
   ObjectStorageModule,
@@ -158,7 +162,9 @@ import {
           objectStorage,
           authorPolicy: {
             canManage: (accountId) =>
-              accountPermissions.hasMaterialsManage(checkedAccountId(accountId)),
+              accountPermissions.hasMaterialsManage(
+                checkedAccountId(accountId),
+              ),
           },
         });
       },
@@ -175,7 +181,9 @@ import {
         return assembleGuideArtifacts({
           authorPolicy: {
             canManage: (accountId) =>
-              accountPermissions.hasMaterialsManage(checkedAccountId(accountId)),
+              accountPermissions.hasMaterialsManage(
+                checkedAccountId(accountId),
+              ),
           },
           objectStorage,
           prisma,
@@ -184,7 +192,12 @@ import {
     },
     {
       provide: GUIDE_ARTIFACT_DELIVERY,
-      inject: [GUIDE_ARTIFACTS, CONTENT_ACCESS, OBJECT_STORAGE, PLATFORM_CONFIG],
+      inject: [
+        GUIDE_ARTIFACTS,
+        CONTENT_ACCESS,
+        OBJECT_STORAGE,
+        PLATFORM_CONFIG,
+      ],
       useFactory: (
         artifacts: GuideArtifacts,
         contentAccess: ContentAccess,
@@ -204,7 +217,8 @@ import {
       useFactory: (
         authoring: MaterialAuthoring,
         assets: MaterialAssets,
-      ): MaterialAssetAuthoring => assembleMaterialAssetAuthoring({ assets, authoring }),
+      ): MaterialAssetAuthoring =>
+        assembleMaterialAssetAuthoring({ assets, authoring }),
     },
     {
       provide: MATERIAL_ASSET_DELIVERY,
@@ -221,13 +235,14 @@ import {
         materialContent: MaterialContent,
         objectStorage: ObjectStorage,
         config: PlatformConfig,
-      ): MaterialAssetDelivery => assembleMaterialAssetDelivery({
-        assets,
-        contentAccess,
-        materialContent,
-        objectStorage,
-        signedGetTtlSeconds: config.objectStorage.signedGetTtlSeconds,
-      }),
+      ): MaterialAssetDelivery =>
+        assembleMaterialAssetDelivery({
+          assets,
+          contentAccess,
+          materialContent,
+          objectStorage,
+          signedGetTtlSeconds: config.objectStorage.signedGetTtlSeconds,
+        }),
     },
     {
       provide: CONTENT_ACCESS,
@@ -295,12 +310,13 @@ import {
         contentAccess: ContentAccess,
         videos: Videos,
         config: PlatformConfig,
-      ): VideoPlayback => assembleVideoPlayback({
-        contentAccess,
-        jwtSecret: config.kinescope.playbackJwtSecret,
-        jwtTtlSeconds: config.kinescope.playbackJwtTtlSeconds,
-        videos,
-      }),
+      ): VideoPlayback =>
+        assembleVideoPlayback({
+          contentAccess,
+          jwtSecret: config.kinescope.playbackJwtSecret,
+          jwtTtlSeconds: config.kinescope.playbackJwtTtlSeconds,
+          videos,
+        }),
     },
   ],
   exports: [

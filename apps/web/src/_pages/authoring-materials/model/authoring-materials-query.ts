@@ -75,6 +75,8 @@ export function serializeAuthoringMaterialsQuery(
 
 export const authoringDestinationHref = withAuthoringReturnHref;
 
-function single(value: string | readonly string[] | undefined): string | undefined {
+function single(
+  value: string | readonly string[] | undefined,
+): string | undefined {
   return typeof value === "string" ? value : undefined;
 }

@@ -12,6 +12,8 @@ import type { BankRequest } from "./tbank.js";
  */
 export function bankRequest(caFile: string | undefined): BankRequest {
   if (caFile === undefined) return fetch;
-  const dispatcher = new Agent({ connect: { ca: readFileSync(caFile, "utf8") } });
+  const dispatcher = new Agent({
+    connect: { ca: readFileSync(caFile, "utf8") },
+  });
   return (url, init) => fetchWithDispatcher(url, { ...init, dispatcher });
 }

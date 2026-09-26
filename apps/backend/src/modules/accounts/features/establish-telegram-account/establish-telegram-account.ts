@@ -1,6 +1,9 @@
 import { z } from "zod";
 import { dependencyFailure } from "../../../../infrastructure/observability/index.js";
-import { lockAccountRecords, type AccountsPrismaClient } from "../../../../infrastructure/prisma/index.js";
+import {
+  lockAccountRecords,
+  type AccountsPrismaClient,
+} from "../../../../infrastructure/prisma/index.js";
 import { newAccountId } from "../../domain/account-identifiers.js";
 import type { EstablishAccountResult } from "../../facets/accounts/accounts.interface.js";
 import type { VerifiedTelegramAccountSignIn } from "../../facets/accounts/verified-logto-identity.js";
@@ -62,6 +65,10 @@ export async function establishTelegramAccount(
       return { ok: true, account: { accountId } };
     });
   } catch (error) {
-    return dependencyFailure({ module: "accounts", operation: "establishTelegramAccount" }, error, internalFailure());
+    return dependencyFailure(
+      { module: "accounts", operation: "establishTelegramAccount" },
+      error,
+      internalFailure(),
+    );
   }
 }

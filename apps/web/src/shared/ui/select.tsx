@@ -1,18 +1,20 @@
-"use client"
+"use client";
 
-import * as React from "react"
-import { Check, ChevronDown, ChevronUp } from "lucide-react"
-import { Select as SelectPrimitive } from "radix-ui"
+import * as React from "react";
+import { Check, ChevronDown, ChevronUp } from "lucide-react";
+import { Select as SelectPrimitive } from "radix-ui";
 
-import { cn } from "@/shared/lib/utils"
+import { cn } from "@/shared/lib/utils";
 
 /** Accessible single- or multi-option selection built on the Radix Select state model. */
 function Select(props: React.ComponentProps<typeof SelectPrimitive.Root>) {
-  return <SelectPrimitive.Root data-slot="select" {...props} />
+  return <SelectPrimitive.Root data-slot="select" {...props} />;
 }
 
-function SelectValue(props: React.ComponentProps<typeof SelectPrimitive.Value>) {
-  return <SelectPrimitive.Value data-slot="select-value" {...props} />
+function SelectValue(
+  props: React.ComponentProps<typeof SelectPrimitive.Value>,
+) {
+  return <SelectPrimitive.Value data-slot="select-value" {...props} />;
 }
 
 function SelectTrigger({
@@ -31,10 +33,13 @@ function SelectTrigger({
     >
       <span className="min-w-0 truncate">{children}</span>
       <SelectPrimitive.Icon asChild>
-        <ChevronDown aria-hidden="true" className="size-4 shrink-0 text-muted-foreground" />
+        <ChevronDown
+          aria-hidden="true"
+          className="size-4 shrink-0 text-muted-foreground"
+        />
       </SelectPrimitive.Icon>
     </SelectPrimitive.Trigger>
-  )
+  );
 }
 
 function SelectContent({
@@ -67,7 +72,7 @@ function SelectContent({
         </SelectPrimitive.ScrollDownButton>
       </SelectPrimitive.Content>
     </SelectPrimitive.Portal>
-  )
+  );
 }
 
 function SelectItem({
@@ -91,7 +96,7 @@ function SelectItem({
       </span>
       <SelectPrimitive.ItemText>{children}</SelectPrimitive.ItemText>
     </SelectPrimitive.Item>
-  )
+  );
 }
 
-export { Select, SelectContent, SelectItem, SelectTrigger, SelectValue }
+export { Select, SelectContent, SelectItem, SelectTrigger, SelectValue };

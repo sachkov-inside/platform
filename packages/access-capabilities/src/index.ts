@@ -8,9 +8,19 @@ import { z } from "zod";
  * ничего не выдал. Пока описаний было два, расхождение между ними ничем не ловилось, и покупатель
  * мог увидеть на витрине один состав, а получить другой.
  */
-export const globalAccessCapabilities = ["materials", "community", "reviews", "support"] as const;
+export const globalAccessCapabilities = [
+  "materials",
+  "community",
+  "reviews",
+  "support",
+] as const;
 
-export const accessCapabilitySchema = z.union([
+export const accessCapabilitySchema: z.ZodUnion<
+  readonly [
+    z.ZodEnum<z.core.util.ToEnum<(typeof globalAccessCapabilities)[number]>>,
+    z.ZodTemplateLiteral<`guide:${string}`>,
+  ]
+> = z.union([
   z.enum(globalAccessCapabilities),
   z.templateLiteral(["guide:", z.uuid()]),
 ]);
@@ -34,14 +44,18 @@ export function guideCapability(guideId: string): AccessCapability {
 export function capabilitiesOpenedBy(
   capability: AccessCapability,
 ): readonly AccessCapability[] {
-  return isGuideCapability(capability) || capability === "support" ? [capability, "community"] : [capability];
+  return isGuideCapability(capability) || capability === "support"
+    ? [capability, "community"]
+    : [capability];
 }
 
 /**
  * Право, которое на релизе не выдаёт ни одно основание (#648): ни покупка, ни тариф, ни мост.
  * Словарь его ещё называет, чтобы читались прежние записи, но действующим оно не становится.
  */
-export const withheldAccessCapabilities: readonly AccessCapability[] = ["reviews"];
+export const withheldAccessCapabilities: readonly AccessCapability[] = [
+  "reviews",
+];
 
 /** Не выдаётся ли право: принимает и сырую строку прежней записи. */
 export function isWithheldCapability(capability: string): boolean {
@@ -56,7 +70,9 @@ export function capabilitiesOpening(
   opened: AccessCapability,
   capabilities: readonly AccessCapability[],
 ): readonly AccessCapability[] {
-  return capabilities.filter((capability) => capabilitiesOpenedBy(capability).includes(opened));
+  return capabilities.filter((capability) =>
+    capabilitiesOpenedBy(capability).includes(opened),
+  );
 }
 
 /**
@@ -75,22 +91,42 @@ export function accessComposition(
 }
 
 /** Explicit products included by a tier. Legacy promises are frozen by the migration baseline. */
-export const contentScopeSchema = z.strictObject({
-  guideIds: z.array(z.uuid()).max(1000).refine(ids => new Set(ids).size === ids.length),
-  materialIds: z.array(z.uuid()).max(1000).refine(ids => new Set(ids).size === ids.length),
-  /**
-   * Все продукты платформы, включая опубликованные позже: состав подписки и стартового тарифа.
-   * Отдельные материалы состав не образуют; прежние снимки ещё могут их называть.
-   */
-  allGuides: z.literal(true).exactOptional(),
-}).refine(
-  // «Все продукты» ничего не перечисляет: иначе состав противоречил бы сам себе.
-  scope => scope.allGuides !== true || (scope.guideIds.length === 0 && scope.materialIds.length === 0),
-);
+export const contentScopeSchema: z.ZodObject<
+  {
+    guideIds: z.ZodArray<z.ZodUUID>;
+    materialIds: z.ZodArray<z.ZodUUID>;
+    allGuides: z.ZodExactOptional<z.ZodLiteral<true>>;
+  },
+  z.core.$strict
+> = z
+  .strictObject({
+    guideIds: z
+      .array(z.uuid())
+      .max(1000)
+      .refine((ids) => new Set(ids).size === ids.length),
+    materialIds: z
+      .array(z.uuid())
+      .max(1000)
+      .refine((ids) => new Set(ids).size === ids.length),
+    /**
+     * Все продукты платформы, включая опубликованные позже: состав подписки и стартового тарифа.
+     * Отдельные материалы состав не образуют; прежние снимки ещё могут их называть.
+     */
+    allGuides: z.literal(true).exactOptional(),
+  })
+  .refine(
+    // «Все продукты» ничего не перечисляет: иначе состав противоречил бы сам себе.
+    (scope) =>
+      scope.allGuides !== true ||
+      (scope.guideIds.length === 0 && scope.materialIds.length === 0),
+  );
 export type ContentScope = z.infer<typeof contentScopeSchema>;
 
 /** Открывает ли состав продукт: продукт назван явно или состав включает все продукты. */
-export function scopeIncludesGuide(scope: ContentScope, guideId: string): boolean {
+export function scopeIncludesGuide(
+  scope: ContentScope,
+  guideId: string,
+): boolean {
   return scope.allGuides === true || scope.guideIds.includes(guideId);
 }
 
@@ -100,10 +136,16 @@ export function scopeIncludesGuide(scope: ContentScope, guideId: string): boolea
  */
 export function scopeOpensResource(
   scope: ContentScope,
-  resource: { readonly guideIds: readonly string[]; readonly materialId?: string | undefined },
+  resource: {
+    readonly guideIds: readonly string[];
+    readonly materialId?: string | undefined;
+  },
 ): boolean {
-  return resource.guideIds.some((id) => scopeIncludesGuide(scope, id)) ||
-    (resource.materialId !== undefined && scope.materialIds.includes(resource.materialId));
+  return (
+    resource.guideIds.some((id) => scopeIncludesGuide(scope, id)) ||
+    (resource.materialId !== undefined &&
+      scope.materialIds.includes(resource.materialId))
+  );
 }
 
 /**
@@ -113,8 +155,31 @@ export function scopeOpensResource(
  */
 export function isEmptyContentScope(scope: unknown): boolean {
   const parsed = contentScopeSchema.safeParse(scope);
-  return !parsed.success ||
-    (parsed.data.allGuides !== true && parsed.data.guideIds.length === 0 && parsed.data.materialIds.length === 0);
+  return (
+    !parsed.success ||
+    (parsed.data.allGuides !== true &&
+      parsed.data.guideIds.length === 0 &&
+      parsed.data.materialIds.length === 0)
+  );
 }
 
-export const contentScopeEntrySchema = z.strictObject({ kind: z.enum(["guide", "material"]), id: z.uuid(), title: z.string(), slug: z.string().nullable(), available: z.boolean() });
+const contentScopeEntryKinds = ["guide", "material"] as const;
+
+export const contentScopeEntrySchema: z.ZodObject<
+  {
+    kind: z.ZodEnum<
+      z.core.util.ToEnum<(typeof contentScopeEntryKinds)[number]>
+    >;
+    id: z.ZodUUID;
+    title: z.ZodString;
+    slug: z.ZodNullable<z.ZodString>;
+    available: z.ZodBoolean;
+  },
+  z.core.$strict
+> = z.strictObject({
+  kind: z.enum(contentScopeEntryKinds),
+  id: z.uuid(),
+  title: z.string(),
+  slug: z.string().nullable(),
+  available: z.boolean(),
+});

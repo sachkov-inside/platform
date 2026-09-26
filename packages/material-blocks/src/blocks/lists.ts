@@ -6,10 +6,7 @@ import type { MaterialBlockDefinition } from "../block-definition.js";
 
 type ListKind = "bullet_list" | "ordered_list";
 
-function listBlock(
-  type: string,
-  kind: ListKind,
-): MaterialBlockDefinition {
+function listBlock(type: string, kind: ListKind): MaterialBlockDefinition {
   return defineMaterialBlock<ListKind>({
     children: (block) => block.items.flat(),
     kind,
@@ -28,7 +25,9 @@ function listBlock(
       kind,
     }),
     renderedSchema: (block) =>
-      z.object({ items: z.array(z.array(block)), kind: z.literal(kind) }).strict(),
+      z
+        .object({ items: z.array(z.array(block)), kind: z.literal(kind) })
+        .strict(),
     text: (block, tools) =>
       block.items
         .map((item) => item.map(tools.blockText).filter(Boolean).join("\n"))
@@ -38,5 +37,11 @@ function listBlock(
   });
 }
 
-export const bulletListBlock = listBlock("bulletList", "bullet_list");
-export const orderedListBlock = listBlock("orderedList", "ordered_list");
+export const bulletListBlock: MaterialBlockDefinition = listBlock(
+  "bulletList",
+  "bullet_list",
+);
+export const orderedListBlock: MaterialBlockDefinition = listBlock(
+  "orderedList",
+  "ordered_list",
+);

@@ -165,7 +165,12 @@ export const Empty: Story = {
 };
 
 const chapters = [
-  { id: "95000000-0000-4000-8000-000000000021", name: "Проект и CI", summary: "Разберём проверки до слияния в основную ветку.\n\nТы настроишь запуск сборки и тестов." },
+  {
+    id: "95000000-0000-4000-8000-000000000021",
+    name: "Проект и CI",
+    summary:
+      "Разберём проверки до слияния в основную ветку.\n\nТы настроишь запуск сборки и тестов.",
+  },
   { id: "95000000-0000-4000-8000-000000000022", name: "Релизы", summary: "" },
 ];
 const chaptered = {
@@ -173,7 +178,8 @@ const chaptered = {
   chapters,
   items: meta.args.presentation.items.map((item, index) => ({
     ...item,
-    chapterId: index === 2 ? chapters[1]?.id ?? null : chapters[0]?.id ?? null,
+    chapterId:
+      index === 2 ? (chapters[1]?.id ?? null) : (chapters[0]?.id ?? null),
   })),
 };
 
@@ -181,10 +187,18 @@ export const Chapters: Story = {
   args: { presentation: chaptered },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
-    await expect(canvas.getByRole("list", { name: "Материалы главы «Проект и CI»" })).toBeVisible();
-    await expect(canvas.getByRole("list", { name: "Материалы главы «Релизы»" })).toBeVisible();
-    await expect(canvas.getByRole("textbox", { name: "Название главы 1" })).toHaveValue("Проект и CI");
-    await expect(canvas.getByRole("button", { name: "Поднять главу «Проект и CI»" })).toBeDisabled();
+    await expect(
+      canvas.getByRole("list", { name: "Материалы главы «Проект и CI»" }),
+    ).toBeVisible();
+    await expect(
+      canvas.getByRole("list", { name: "Материалы главы «Релизы»" }),
+    ).toBeVisible();
+    await expect(
+      canvas.getByRole("textbox", { name: "Название главы 1" }),
+    ).toHaveValue("Проект и CI");
+    await expect(
+      canvas.getByRole("button", { name: "Поднять главу «Проект и CI»" }),
+    ).toBeDisabled();
   },
 };
 
@@ -198,18 +212,33 @@ export const CreateChapter: Story = {
   play: async ({ canvasElement }) => {
     saveOrderSpy.mockClear();
     const canvas = within(canvasElement);
-    await userEvent.click(canvas.getByRole("button", { name: "Добавить главу" }));
+    await userEvent.click(
+      canvas.getByRole("button", { name: "Добавить главу" }),
+    );
     const name = canvas.getByRole("textbox", { name: "Название главы 1" });
     await userEvent.clear(name);
     await userEvent.type(name, "Проект и CI");
-    await expect(await canvas.findByText("Порядок сохранён.")).toBeInTheDocument();
+    await expect(
+      await canvas.findByText("Порядок сохранён."),
+    ).toBeInTheDocument();
     const body = saveOrderSpy.mock.calls.at(-1)?.[1]?.body;
-    if (!(body instanceof FormData)) throw new Error("Expected composition form");
-    const saved = JSON.parse(formField(body, "chapters")) as readonly { readonly name: string }[];
-    await expect(saved.map(({ name: value }) => value)).toEqual(["Проект и CI"]);
+    if (!(body instanceof FormData))
+      throw new Error("Expected composition form");
+    const saved = JSON.parse(formField(body, "chapters")) as readonly {
+      readonly name: string;
+    }[];
+    await expect(saved.map(({ name: value }) => value)).toEqual([
+      "Проект и CI",
+    ]);
     await expect(body.get("chapterAssignments")).toBe("{}");
-    await expect(canvas.getByText("Глава пока пустая. Перенесите в неё материал из списка ниже.")).toBeVisible();
-    await expect(canvas.getByRole("heading", { name: "Вне глав" })).toBeVisible();
+    await expect(
+      canvas.getByText(
+        "Глава пока пустая. Перенесите в неё материал из списка ниже.",
+      ),
+    ).toBeVisible();
+    await expect(
+      canvas.getByRole("heading", { name: "Вне глав" }),
+    ).toBeVisible();
   },
 };
 
@@ -220,7 +249,7 @@ export const PartiallyGrouped: Story = {
       chapters,
       items: meta.args.presentation.items.map((item, index) => ({
         ...item,
-        chapterId: index === 0 ? null : chapters[0]?.id ?? null,
+        chapterId: index === 0 ? null : (chapters[0]?.id ?? null),
       })),
     },
   },
@@ -230,8 +259,12 @@ export const PartiallyGrouped: Story = {
     const canvas = within(canvasElement);
     const lists = canvas.getAllByRole("list", { name: /Материалы/u });
     await expect(lists[0]).toHaveAccessibleName("Материалы вне глав");
-    await expect(lists[1]).toHaveAccessibleName("Материалы главы «Проект и CI»");
-    await expect(canvasElement.querySelectorAll("ol[aria-label^='Материалы'] > li")).toHaveLength(3);
+    await expect(lists[1]).toHaveAccessibleName(
+      "Материалы главы «Проект и CI»",
+    );
+    await expect(
+      canvasElement.querySelectorAll("ol[aria-label^='Материалы'] > li"),
+    ).toHaveLength(3);
     await expect(saveOrderSpy).not.toHaveBeenCalled();
   },
 };
@@ -248,9 +281,12 @@ export const MoveMaterialIntoChapter: Story = {
     const select = canvas.getAllByRole("combobox", { name: "Глава" })[0];
     if (select === undefined) throw new Error("Missing chapter select");
     await userEvent.selectOptions(select, chapters[0]?.id ?? "");
-    await expect(await canvas.findByText("Порядок сохранён.")).toBeInTheDocument();
+    await expect(
+      await canvas.findByText("Порядок сохранён."),
+    ).toBeInTheDocument();
     const body = saveOrderSpy.mock.calls.at(-1)?.[1]?.body;
-    if (!(body instanceof FormData)) throw new Error("Expected composition form");
+    if (!(body instanceof FormData))
+      throw new Error("Expected composition form");
     await expect(JSON.parse(formField(body, "chapterAssignments"))).toEqual({
       "95000000-0000-4000-8000-000000000001": chapters[0]?.id,
     });
@@ -259,8 +295,12 @@ export const MoveMaterialIntoChapter: Story = {
       "95000000-0000-4000-8000-000000000002",
       "95000000-0000-4000-8000-000000000003",
     ]);
-    await expect(canvas.getByRole("list", { name: "Материалы главы «Проект и CI»" })).toBeVisible();
-    await expect(canvas.getByRole("list", { name: "Материалы вне глав" })).toBeVisible();
+    await expect(
+      canvas.getByRole("list", { name: "Материалы главы «Проект и CI»" }),
+    ).toBeVisible();
+    await expect(
+      canvas.getByRole("list", { name: "Материалы вне глав" }),
+    ).toBeVisible();
   },
 };
 

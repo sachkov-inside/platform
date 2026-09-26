@@ -1,4 +1,7 @@
-import type { ObjectStorage, StoredObject } from "../../../infrastructure/object-storage/index.js";
+import type {
+  ObjectStorage,
+  StoredObject,
+} from "../../../infrastructure/object-storage/index.js";
 import { dependencyFailure } from "../../../infrastructure/observability/index.js";
 
 /**
@@ -11,7 +14,8 @@ import { dependencyFailure } from "../../../infrastructure/observability/index.j
 export function attachmentDisposition(filename: string): string {
   const encoded = encodeURIComponent(filename).replace(
     /[!'()*]/gu,
-    (character) => `%${character.codePointAt(0)?.toString(16).toUpperCase() ?? ""}`,
+    (character) =>
+      `%${character.codePointAt(0)?.toString(16).toUpperCase() ?? ""}`,
   );
   return `attachment; filename="download"; filename*=UTF-8''${encoded}`;
 }
@@ -24,7 +28,8 @@ export function signedDeliveryTtlSeconds(
   configuredTtlSeconds: number,
   validUntil: string | null | undefined,
 ): number | null {
-  if (validUntil === undefined || validUntil === null) return configuredTtlSeconds;
+  if (validUntil === undefined || validUntil === null)
+    return configuredTtlSeconds;
   const remainingWholeSeconds = Math.floor(
     (Date.parse(validUntil) - Date.now()) / 1_000,
   );
@@ -51,7 +56,11 @@ export async function readPublicObject(
   try {
     stored = await objectStorage.read("public", expected.key);
   } catch (error) {
-    return dependencyFailure({ module: "materials", operation: "readPublicObject" }, error, { kind: "unavailable" });
+    return dependencyFailure(
+      { module: "materials", operation: "readPublicObject" },
+      error,
+      { kind: "unavailable" },
+    );
   }
   return stored === null ||
     stored.contentLength !== expected.size ||

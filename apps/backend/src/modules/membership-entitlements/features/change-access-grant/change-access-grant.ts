@@ -29,7 +29,9 @@ export const changeAccessGrantCommandSchema = z.discriminatedUnion("action", [
     .strict(),
   z.object({ ...common, action: z.literal("revoke") }).strict(),
 ]);
-export type ChangeAccessGrantCommand = z.input<typeof changeAccessGrantCommandSchema>;
+export type ChangeAccessGrantCommand = z.input<
+  typeof changeAccessGrantCommandSchema
+>;
 export async function changeAccessGrant(
   prisma: MembershipEntitlementsPrismaClient,
   actorId: string,
@@ -61,7 +63,8 @@ export async function changeAccessGrant(
     });
     if (grant === null) return accessFailure("not_found");
     // Billing owns paid revisions. Refund access decisions use its projector.
-    if (grant.source === "paid" || grant.enrollmentId !== null) return accessFailure("forbidden");
+    if (grant.source === "paid" || grant.enrollmentId !== null)
+      return accessFailure("forbidden");
     if (grant.revision !== command.expectedRevision)
       return accessFailure("revision_conflict");
     if (grant.revokedAt !== null) return accessFailure("revision_conflict");

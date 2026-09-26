@@ -165,7 +165,10 @@ describe("Material Authoring action workflow", () => {
         }),
         references: successfulReferences(),
       }),
-    ).resolves.toEqual({ kind: "unexpected_error", reference: "preview-request" });
+    ).resolves.toEqual({
+      kind: "unexpected_error",
+      reference: "preview-request",
+    });
   });
 
   it("loads the complete current Material into the production editor presentation", async () => {
@@ -175,7 +178,12 @@ describe("Material Authoring action workflow", () => {
         body: {
           body: {
             doc: {
-              content: [{ content: [{ text: "Saved body", type: "text" }], type: "paragraph" }],
+              content: [
+                {
+                  content: [{ text: "Saved body", type: "text" }],
+                  type: "paragraph",
+                },
+              ],
               type: "doc",
             },
             schemaVersion: 1,
@@ -187,7 +195,10 @@ describe("Material Authoring action workflow", () => {
           metadata: {
             access: "membership",
             difficulty: "intermediate",
-            outcomes: ["Провести задачу до мержа", "Назвать место, где она застревает"],
+            outcomes: [
+              "Провести задачу до мержа",
+              "Назвать место, где она застревает",
+            ],
             formatId,
             seriesMemberships: [{ ordinal: 4, seriesId }],
             slug: "saved-material",
@@ -230,7 +241,9 @@ describe("Material Authoring action workflow", () => {
         },
       },
       kind: "ready",
-      references: { references: { series: [{ label: "Build", value: seriesId }] } },
+      references: {
+        references: { series: [{ label: "Build", value: seriesId }] },
+      },
     });
     expect(dependencies.load).toHaveBeenCalledWith(materialId, "access-token");
   });
@@ -347,7 +360,12 @@ describe("Material Authoring action workflow", () => {
         detachVideoIds: [],
         difficulty: "basic",
         document: {
-          content: [{ content: [{ text: "Local full state", type: "text" }], type: "paragraph" }],
+          content: [
+            {
+              content: [{ text: "Local full state", type: "text" }],
+              type: "paragraph",
+            },
+          ],
           type: "doc",
         },
         expectedContentVersion: 3,
@@ -425,12 +443,18 @@ describe("Material Authoring action workflow", () => {
   });
 
   it("asks to confirm a removal from a bought product and sends the confirmed products", async () => {
-    const guides = [{ guideId: seriesId, holders: 2, name: "Купленный продукт" }];
+    const guides = [
+      { guideId: seriesId, holders: 2, name: "Купленный продукт" },
+    ];
     const refused = {
       ...successfulSaveDependencies(),
       save: vi.fn().mockResolvedValue({
         ok: false,
-        problem: { code: "guide_removal_confirmation_required", guides, status: 409 },
+        problem: {
+          code: "guide_removal_confirmation_required",
+          guides,
+          status: 409,
+        },
         response: Response.json({}, { status: 409 }),
       }),
     } satisfies SaveMaterialDependencies;
@@ -458,8 +482,16 @@ describe("Material Authoring action workflow", () => {
       }),
     } satisfies SaveMaterialDependencies;
 
-    await executeSaveMaterial(validSaveFormData(), "access-token", dependencies);
-    await executeSaveMaterial(validSaveFormData(), "access-token", dependencies);
+    await executeSaveMaterial(
+      validSaveFormData(),
+      "access-token",
+      dependencies,
+    );
+    await executeSaveMaterial(
+      validSaveFormData(),
+      "access-token",
+      dependencies,
+    );
 
     expect(dependencies.save).toHaveBeenCalledTimes(2);
     expect(dependencies.save).toHaveBeenNthCalledWith(
@@ -535,36 +567,41 @@ function successfulDependencies(): MaterialDraftWorkflowDependencies {
 
 function successfulPreview(): typeof requestMaterialPreview {
   return vi.fn().mockResolvedValue({
-      ok: true,
+    ok: true,
+    body: {
       body: {
-        body: {
-          blocks: [
-            {
-              kind: "paragraph",
-              content: [{ kind: "text", marks: [], text: "Current из PostgreSQL." }],
-            },
-          ],
-          schemaVersion: 1,
-        },
-        cacheScope: "private-no-store",
-        contentVersion: 1,
-        materialId,
-        metadata: {
-          access: "free",
-          difficulty: "intermediate",
-          outcomes: ["Understand the saved lesson", "Apply the documented workflow"],
-          formatId,
-          seriesMemberships: [],
-          slug: "one-production-path",
-          summary: "Проверяем create, validation и current Preview.",
-          tagIds: [tagId],
-          title: "Один production path",
-          topicId,
-        },
-        publicationState: "draft",
+        blocks: [
+          {
+            kind: "paragraph",
+            content: [
+              { kind: "text", marks: [], text: "Current из PostgreSQL." },
+            ],
+          },
+        ],
+        schemaVersion: 1,
       },
-      response: Response.json({}),
-    });
+      cacheScope: "private-no-store",
+      contentVersion: 1,
+      materialId,
+      metadata: {
+        access: "free",
+        difficulty: "intermediate",
+        outcomes: [
+          "Understand the saved lesson",
+          "Apply the documented workflow",
+        ],
+        formatId,
+        seriesMemberships: [],
+        slug: "one-production-path",
+        summary: "Проверяем create, validation и current Preview.",
+        tagIds: [tagId],
+        title: "Один production path",
+        topicId,
+      },
+      publicationState: "draft",
+    },
+    response: Response.json({}),
+  });
 }
 
 function successfulReferences() {

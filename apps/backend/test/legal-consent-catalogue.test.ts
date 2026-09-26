@@ -33,7 +33,9 @@ describe("published consent catalogue", () => {
 
   it("asks for an offer and recurring consent, never for the privacy policy", () => {
     const kinds = new Set(
-      consentDocuments(origin).map((document): LegalDocument["kind"] => document.kind),
+      consentDocuments(origin).map(
+        (document): LegalDocument["kind"] => document.kind,
+      ),
     );
     expect([...kinds].toSorted()).toEqual(["recurring", "terms"]);
   });

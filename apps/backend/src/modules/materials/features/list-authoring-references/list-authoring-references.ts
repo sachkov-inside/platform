@@ -46,7 +46,11 @@ export function assembleListAuthoringReferences(
       return {
         ok: true,
         value: {
-          formats: materialFormats.map(({ id, name }) => ({ id, name, archived: false })),
+          formats: materialFormats.map(({ id, name }) => ({
+            id,
+            name,
+            archived: false,
+          })),
           series: series.map(({ archivedAt, ...item }) => ({
             ...item,
             archived: archivedAt !== null,
@@ -59,7 +63,13 @@ export function assembleListAuthoringReferences(
         },
       };
     } catch (error) {
-      return failure(dependencyFailure({ module: "materials", operation: "listAuthoringReferences" }, error, mapPostgresReadError(error)));
+      return failure(
+        dependencyFailure(
+          { module: "materials", operation: "listAuthoringReferences" },
+          error,
+          mapPostgresReadError(error),
+        ),
+      );
     }
   };
 }

@@ -36,7 +36,8 @@ export function requestBookmarkStates(
 
 export function requestAddBookmark(materialId: string, accessToken: string) {
   return executeGeneratedRequest(
-    (request) => new BookmarksService(request).addMaterialBookmark({ materialId }),
+    (request) =>
+      new BookmarksService(request).addMaterialBookmark({ materialId }),
     200,
     { accessToken },
   );

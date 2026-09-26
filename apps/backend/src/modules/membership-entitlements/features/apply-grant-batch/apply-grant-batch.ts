@@ -1,4 +1,7 @@
-import { lockAccountEntitlementChanges, lockAccountAccess } from "../../../../infrastructure/prisma/index.js";
+import {
+  lockAccountEntitlementChanges,
+  lockAccountAccess,
+} from "../../../../infrastructure/prisma/index.js";
 import { randomUUID } from "node:crypto";
 import { z } from "zod";
 import type { Accounts } from "../../../accounts/index.js";
@@ -36,7 +39,9 @@ export const applyGrantBatchCommandSchema = z
       .transform((rows) => rows.sort()),
   })
   .strict();
-export type ApplyGrantBatchCommand = z.input<typeof applyGrantBatchCommandSchema>;
+export type ApplyGrantBatchCommand = z.input<
+  typeof applyGrantBatchCommandSchema
+>;
 /** Классифицированная строка отчитывается состоянием Account, выданная — своим основанием. */
 const classificationSuccessSchema = z.object({
   ok: z.literal(true),
@@ -118,9 +123,13 @@ export async function applyGrantBatch(
       await lockAccountEntitlementChanges(transaction, accountId);
     }
     // Stable source order avoids deadlocks between overlapping previews.
-    for (const row of [...rows].filter(isGrantRow).sort((a, b) =>
-      `${a.source}:${a.sourceRef}`.localeCompare(`${b.source}:${b.sourceRef}`),
-    )) {
+    for (const row of [...rows]
+      .filter(isGrantRow)
+      .sort((a, b) =>
+        `${a.source}:${a.sourceRef}`.localeCompare(
+          `${b.source}:${b.sourceRef}`,
+        ),
+      )) {
       await lockAccountAccess(transaction, `${row.source}:${row.sourceRef}`);
     }
     const classified = rows.filter(isClassificationRow);
@@ -175,7 +184,9 @@ export async function applyGrantBatch(
           source: row.source,
           sourceRef: row.sourceRef,
           capabilities: row.terms.capabilities,
-          ...(row.terms.contentScope === undefined ? {} : { contentScope: row.terms.contentScope }),
+          ...(row.terms.contentScope === undefined
+            ? {}
+            : { contentScope: row.terms.contentScope }),
           startsAt: new Date(row.terms.startsAt),
           validUntil:
             row.terms.validUntil === null

@@ -17,7 +17,8 @@ describe("pinned Logto SDK callback corpus", () => {
     ["missing state", () => `${redirectUri}?code=${validCode}`],
     [
       "replaced state",
-      (state: string) => `${redirectUri}?code=${validCode}&state=${state}-replaced`,
+      (state: string) =>
+        `${redirectUri}?code=${validCode}&state=${state}-replaced`,
     ],
     ["missing code", (state: string) => `${redirectUri}?state=${state}`],
     [
@@ -75,14 +76,16 @@ describe("pinned Logto SDK callback corpus", () => {
     const callback = `${redirectUri}?code=${validCode}&state=${proof.state}`;
 
     await Promise.all(
-      Array.from({ length: 20 }, () => proof.client.handleSignInCallback(callback)),
+      Array.from({ length: 20 }, () =>
+        proof.client.handleSignInCallback(callback),
+      ),
     );
     expect(proof.tokenRequests).toHaveLength(1);
     expect(proof.storage.has(PersistKey.IdToken)).toBe(true);
 
-    await expect(createClient(proof.storage).handleSignInCallback(callback)).rejects.toThrow(
-      "Sign-in session not found.",
-    );
+    await expect(
+      createClient(proof.storage).handleSignInCallback(callback),
+    ).rejects.toThrow("Sign-in session not found.");
     expect(proof.tokenRequests).toHaveLength(1);
   });
 });
@@ -109,7 +112,9 @@ async function createProofClient() {
         );
       }
       if (url === `${endpoint}/oidc/token`) {
-        const body = new URLSearchParams(typeof init?.body === "string" ? init.body : "");
+        const body = new URLSearchParams(
+          typeof init?.body === "string" ? init.body : "",
+        );
         tokenRequests.push(body);
         if (
           body.get("code") !== validCode ||
@@ -137,12 +142,15 @@ async function createProofClient() {
     authorizationUrl = url;
   };
   await client.signIn({ redirectUri });
-  const session = JSON.parse(storage.get(PersistKey.SignInSession) ?? "null") as {
+  const session = JSON.parse(
+    storage.get(PersistKey.SignInSession) ?? "null",
+  ) as {
     codeVerifier?: string;
   } | null;
   accepted.verifier = session?.codeVerifier;
   const state = new URL(authorizationUrl).searchParams.get("state");
-  if (state === null) throw new Error("Pinned Logto SDK did not create callback state");
+  if (state === null)
+    throw new Error("Pinned Logto SDK did not create callback state");
   return { client, state, storage, tokenRequests };
 }
 

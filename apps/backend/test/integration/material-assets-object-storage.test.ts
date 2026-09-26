@@ -2,11 +2,18 @@ import { createHash, randomUUID } from "node:crypto";
 
 import { CreateBucketCommand, S3Client } from "@aws-sdk/client-s3";
 import sharp from "sharp";
-import { GenericContainer, type StartedTestContainer, Wait } from "testcontainers";
+import {
+  GenericContainer,
+  type StartedTestContainer,
+  Wait,
+} from "testcontainers";
 import { afterAll, beforeAll, describe, expect, test } from "vitest";
 import { z } from "zod";
 
-import { createS3ObjectStorage, type ObjectStorage } from "../../src/infrastructure/object-storage/index.js";
+import {
+  createS3ObjectStorage,
+  type ObjectStorage,
+} from "../../src/infrastructure/object-storage/index.js";
 import { Prisma } from "../../src/infrastructure/prisma/index.js";
 import { assembleMaterialAssets } from "../../src/modules/assets/index.js";
 import { assembleMaterials } from "../../src/modules/materials/index.js";
@@ -94,12 +101,19 @@ describe("MaterialAssets against PostgreSQL and S3", () => {
     const uploaded = await assets.upload(input);
     expect(uploaded).toMatchObject({
       ok: true,
-      value: { contentType: "text/plain", filename: "guide.txt", kind: "file", state: "ready" },
+      value: {
+        contentType: "text/plain",
+        filename: "guide.txt",
+        kind: "file",
+        state: "ready",
+      },
     });
     if (!uploaded.ok) throw new Error(uploaded.error.code);
     await expect(assets.upload(input)).resolves.toEqual(uploaded);
     await expect(
-      assets.inspectReferences(database.prisma, materialId, [{ assetId: uploaded.value.assetId, kind: "file" }]),
+      assets.inspectReferences(database.prisma, materialId, [
+        { assetId: uploaded.value.assetId, kind: "file" },
+      ]),
     ).resolves.toEqual({ ok: true, value: [] });
 
     const deliveryResult = await assets.loadDelivery({
@@ -118,15 +132,19 @@ describe("MaterialAssets against PostgreSQL and S3", () => {
       contentType: "text/plain",
     });
 
-    await expect(assets.cleanupOrphans({
-      graceMs: 60 * 60 * 1_000,
-      isReferenced: () => Promise.resolve(false),
-      now: new Date(Date.now() + 2 * 60 * 60 * 1_000),
-    })).resolves.toEqual({ ok: true, value: { cleaned: 1, retained: 0 } });
-    await expect(assets.loadDelivery({
-      assetId: uploaded.value.assetId,
-      materialId,
-    })).resolves.toEqual({ ok: true, value: null });
+    await expect(
+      assets.cleanupOrphans({
+        graceMs: 60 * 60 * 1_000,
+        isReferenced: () => Promise.resolve(false),
+        now: new Date(Date.now() + 2 * 60 * 60 * 1_000),
+      }),
+    ).resolves.toEqual({ ok: true, value: { cleaned: 1, retained: 0 } });
+    await expect(
+      assets.loadDelivery({
+        assetId: uploaded.value.assetId,
+        materialId,
+      }),
+    ).resolves.toEqual({ ok: true, value: null });
     await expect(storage.read("public", publicKey)).resolves.toBeNull();
   });
 
@@ -173,7 +191,10 @@ describe("MaterialAssets against PostgreSQL and S3", () => {
         },
       },
     });
-    expect(failed).toMatchObject({ failureCode: "storage_failure", state: "failed" });
+    expect(failed).toMatchObject({
+      failureCode: "storage_failure",
+      state: "failed",
+    });
     if (failed === null || failed.publicObjectKey === null) {
       throw new Error("failed upload did not retain its cleanup locators");
     }
@@ -185,18 +206,24 @@ describe("MaterialAssets against PostgreSQL and S3", () => {
       ok: true,
       value: { assetId: failed.id, state: "ready" },
     });
-    await expect(database.prisma.materialAsset.count({
-      where: {
-        idempotencyKey: input.idempotencyKey,
-        materialId: input.materialId,
-        uploadedBy: input.actor,
-      },
-    })).resolves.toBe(1);
-    await expect(storage.read("public", failedPublicObjectKey)).resolves.toBeNull();
-    await expect(assets.cleanupOrphans({
-      graceMs: 0,
-      isReferenced: () => Promise.resolve(false),
-    })).resolves.toMatchObject({ ok: true, value: { cleaned: 1 } });
+    await expect(
+      database.prisma.materialAsset.count({
+        where: {
+          idempotencyKey: input.idempotencyKey,
+          materialId: input.materialId,
+          uploadedBy: input.actor,
+        },
+      }),
+    ).resolves.toBe(1);
+    await expect(
+      storage.read("public", failedPublicObjectKey),
+    ).resolves.toBeNull();
+    await expect(
+      assets.cleanupOrphans({
+        graceMs: 0,
+        isReferenced: () => Promise.resolve(false),
+      }),
+    ).resolves.toMatchObject({ ok: true, value: { cleaned: 1 } });
   });
 
   test("cleanup cannot claim a storage failure after its retry wins the row race", async () => {
@@ -246,18 +273,21 @@ describe("MaterialAssets against PostgreSQL and S3", () => {
 
     const lockReady = deferredSignal();
     const releaseLock = deferredSignal();
-    const lockTransaction = database.prisma.$transaction(async (transaction) => {
-      materialAssetLockRowsSchema.parse(
-        await transaction.$queryRaw(Prisma.sql`
+    const lockTransaction = database.prisma.$transaction(
+      async (transaction) => {
+        materialAssetLockRowsSchema.parse(
+          await transaction.$queryRaw(Prisma.sql`
           select id
           from assets.material_assets
           where id = ${failed.id}::uuid
           for update
         `),
-      );
-      lockReady.resolve();
-      await releaseLock.promise;
-    }, { timeout: 10_000 });
+        );
+        lockReady.resolve();
+        await releaseLock.promise;
+      },
+      { timeout: 10_000 },
+    );
     void lockTransaction.catch(lockReady.reject);
     await lockReady.promise;
 
@@ -273,24 +303,34 @@ describe("MaterialAssets against PostgreSQL and S3", () => {
     releaseLock.resolve();
     await lockTransaction;
 
-    const [retried, cleanup] = await Promise.all([retriedPromise, cleanupPromise]);
+    const [retried, cleanup] = await Promise.all([
+      retriedPromise,
+      cleanupPromise,
+    ]);
     expect(retried).toMatchObject({
       ok: true,
       value: { assetId: failed.id, state: "ready" },
     });
     expect(cleanup).toEqual({ ok: true, value: { cleaned: 0, retained: 0 } });
-    await expect(database.prisma.materialAsset.findUnique({
-      where: { id: failed.id },
-    })).resolves.toMatchObject({ failureCode: null, state: "ready" });
-    await expect(assets.cleanupOrphans({
-      graceMs: 0,
-      isReferenced: () => Promise.resolve(false),
-      now: new Date(Date.now() + 2 * 60 * 60 * 1_000),
-    })).resolves.toMatchObject({ ok: true, value: { cleaned: 1 } });
+    await expect(
+      database.prisma.materialAsset.findUnique({
+        where: { id: failed.id },
+      }),
+    ).resolves.toMatchObject({ failureCode: null, state: "ready" });
+    await expect(
+      assets.cleanupOrphans({
+        graceMs: 0,
+        isReferenced: () => Promise.resolve(false),
+        now: new Date(Date.now() + 2 * 60 * 60 * 1_000),
+      }),
+    ).resolves.toMatchObject({ ok: true, value: { cleaned: 1 } });
   }, 20_000);
 
   test("replaces an image through Material application facets and cleans only the old Asset", async () => {
-    const assets = assembleMaterialAssets({ objectStorage: storage, prisma: database.prisma });
+    const assets = assembleMaterialAssets({
+      objectStorage: storage,
+      prisma: database.prisma,
+    });
     const actor = randomUUID();
     const materials = assembleMaterials({
       authorPolicy: { canManage: (accountId) => accountId === actor },
@@ -314,11 +354,13 @@ describe("MaterialAssets against PostgreSQL and S3", () => {
         schemaVersion: 1,
         doc: {
           type: "doc",
-          content: [{
-            type: "paragraph",
-            attrs: { nodeId: randomUUID() },
-            content: [{ type: "text", text: "Initial body" }],
-          }],
+          content: [
+            {
+              type: "paragraph",
+              attrs: { nodeId: randomUUID() },
+              content: [{ type: "text", text: "Initial body" }],
+            },
+          ],
         },
       },
       idempotencyKey: "integration-asset-draft",
@@ -333,20 +375,29 @@ describe("MaterialAssets against PostgreSQL and S3", () => {
         height: 320,
         width: 640,
       },
-    }).jpeg().withExif({ IFD0: { Artist: "must be stripped" } }).toBuffer();
-    const upload = (idempotencyKey: string) => assets.upload({
-      actor,
-      body: image,
-      declaredContentType: "image/jpeg",
-      declaredSize: image.byteLength,
-      expectedChecksumSha256: createHash("sha256").update(image).digest("hex"),
-      filename: "architecture.jpg",
-      idempotencyKey,
-      kind: "image",
-      materialId,
-    });
+    })
+      .jpeg()
+      .withExif({ IFD0: { Artist: "must be stripped" } })
+      .toBuffer();
+    const upload = (idempotencyKey: string) =>
+      assets.upload({
+        actor,
+        body: image,
+        declaredContentType: "image/jpeg",
+        declaredSize: image.byteLength,
+        expectedChecksumSha256: createHash("sha256")
+          .update(image)
+          .digest("hex"),
+        filename: "architecture.jpg",
+        idempotencyKey,
+        kind: "image",
+        materialId,
+      });
     const original = await upload("integration-image-original");
-    expect(original).toMatchObject({ ok: true, value: { kind: "image", state: "ready" } });
+    expect(original).toMatchObject({
+      ok: true,
+      value: { kind: "image", state: "ready" },
+    });
     if (!original.ok) throw new Error("original image upload failed");
 
     const savedOriginal = await materials.authoring.saveMaterial({
@@ -358,19 +409,29 @@ describe("MaterialAssets against PostgreSQL and S3", () => {
       metadata,
       publicationState: "draft",
     });
-    expect(savedOriginal).toMatchObject({ ok: true, value: { contentVersion: 2 } });
+    expect(savedOriginal).toMatchObject({
+      ok: true,
+      value: { contentVersion: 2 },
+    });
     if (!savedOriginal.ok) throw new Error(savedOriginal.error.code);
-    await expect(materials.materialContent.containsAssetReference({
-      assetId: original.value.assetId,
-      checkedContentVersion: savedOriginal.value.contentVersion,
-      materialId,
-    })).resolves.toEqual({ ok: true, value: true });
+    await expect(
+      materials.materialContent.containsAssetReference({
+        assetId: original.value.assetId,
+        checkedContentVersion: savedOriginal.value.contentVersion,
+        materialId,
+      }),
+    ).resolves.toEqual({ ok: true, value: true });
 
     const replacement = await upload("integration-image-replacement");
-    expect(replacement).toMatchObject({ ok: true, value: { kind: "image", state: "ready" } });
+    expect(replacement).toMatchObject({
+      ok: true,
+      value: { kind: "image", state: "ready" },
+    });
     if (!replacement.ok) throw new Error("replacement image upload failed");
     expect(replacement.value.assetId).not.toBe(original.value.assetId);
-    expect(replacement.value.variants?.map(({ width }) => width)).toEqual([480, 640]);
+    expect(replacement.value.variants?.map(({ width }) => width)).toEqual([
+      480, 640,
+    ]);
 
     const savedReplacement = await materials.authoring.saveMaterial({
       actor,
@@ -381,18 +442,24 @@ describe("MaterialAssets against PostgreSQL and S3", () => {
       metadata,
       publicationState: "draft",
     });
-    expect(savedReplacement).toMatchObject({ ok: true, value: { contentVersion: 3 } });
+    expect(savedReplacement).toMatchObject({
+      ok: true,
+      value: { contentVersion: 3 },
+    });
     if (!savedReplacement.ok) throw new Error(savedReplacement.error.code);
     const removedBoundary = await database.prisma.materialAsset.findUnique({
       select: { currentlyReferenced: true, orphanedAt: true },
       where: { id: original.value.assetId },
     });
     expect(removedBoundary).toMatchObject({ currentlyReferenced: false });
-    if (removedBoundary === null) throw new Error("removed image Asset was not persisted");
-    await expect(database.prisma.materialAsset.findUnique({
-      select: { currentlyReferenced: true },
-      where: { id: replacement.value.assetId },
-    })).resolves.toEqual({ currentlyReferenced: true });
+    if (removedBoundary === null)
+      throw new Error("removed image Asset was not persisted");
+    await expect(
+      database.prisma.materialAsset.findUnique({
+        select: { currentlyReferenced: true },
+        where: { id: replacement.value.assetId },
+      }),
+    ).resolves.toEqual({ currentlyReferenced: true });
 
     const repeatedSave = await materials.authoring.saveMaterial({
       actor,
@@ -403,32 +470,41 @@ describe("MaterialAssets against PostgreSQL and S3", () => {
       metadata,
       publicationState: "draft",
     });
-    expect(repeatedSave).toMatchObject({ ok: true, value: { contentVersion: 4 } });
+    expect(repeatedSave).toMatchObject({
+      ok: true,
+      value: { contentVersion: 4 },
+    });
     if (!repeatedSave.ok) throw new Error(repeatedSave.error.code);
-    await expect(database.prisma.materialAsset.findUnique({
-      select: { currentlyReferenced: true, orphanedAt: true },
-      where: { id: original.value.assetId },
-    })).resolves.toEqual(removedBoundary);
-    await expect(Promise.all([
-      materials.materialContent.containsAssetReference({
-        assetId: original.value.assetId,
-        checkedContentVersion: repeatedSave.value.contentVersion,
-        materialId,
+    await expect(
+      database.prisma.materialAsset.findUnique({
+        select: { currentlyReferenced: true, orphanedAt: true },
+        where: { id: original.value.assetId },
       }),
-      materials.materialContent.containsAssetReference({
-        assetId: replacement.value.assetId,
-        checkedContentVersion: repeatedSave.value.contentVersion,
-        materialId,
-      }),
-    ])).resolves.toEqual([
+    ).resolves.toEqual(removedBoundary);
+    await expect(
+      Promise.all([
+        materials.materialContent.containsAssetReference({
+          assetId: original.value.assetId,
+          checkedContentVersion: repeatedSave.value.contentVersion,
+          materialId,
+        }),
+        materials.materialContent.containsAssetReference({
+          assetId: replacement.value.assetId,
+          checkedContentVersion: repeatedSave.value.contentVersion,
+          materialId,
+        }),
+      ]),
+    ).resolves.toEqual([
       { ok: true, value: false },
       { ok: true, value: true },
     ]);
 
-    await expect(assets.loadDelivery({
-      assetId: replacement.value.assetId,
-      materialId,
-    })).resolves.toEqual({ ok: true, value: null });
+    await expect(
+      assets.loadDelivery({
+        assetId: replacement.value.assetId,
+        materialId,
+      }),
+    ).resolves.toEqual({ ok: true, value: null });
     const variantResult = await assets.loadDelivery({
       assetId: replacement.value.assetId,
       materialId,
@@ -445,20 +521,28 @@ describe("MaterialAssets against PostgreSQL and S3", () => {
     const variantPublicKey = variant.object.publicKey;
     if (variantPublicKey === null) throw new Error("missing image variant key");
     const publicBytes = await storage.read("public", variantPublicKey);
-    expect(publicBytes).toMatchObject({ contentType: "image/webp", contentLength: variant.size });
+    expect(publicBytes).toMatchObject({
+      contentType: "image/webp",
+      contentLength: variant.size,
+    });
     if (publicBytes === null) throw new Error("missing public image bytes");
     expect((await sharp(publicBytes.body).metadata()).exif).toBeUndefined();
 
     const orphanGraceMs = 250;
-    const cleanupAt = async (now: Date) => assets.cleanupOrphans({
-      graceMs: orphanGraceMs,
-      async isReferenced(transaction, input) {
-        const referenced = await materials.materialContent.containsAssetReference(input, transaction);
-        if (!referenced.ok) throw new Error(referenced.error.code);
-        return referenced.value;
-      },
-      now,
-    });
+    const cleanupAt = async (now: Date) =>
+      assets.cleanupOrphans({
+        graceMs: orphanGraceMs,
+        async isReferenced(transaction, input) {
+          const referenced =
+            await materials.materialContent.containsAssetReference(
+              input,
+              transaction,
+            );
+          if (!referenced.ok) throw new Error(referenced.error.code);
+          return referenced.value;
+        },
+        now,
+      });
     const beforeGrace = new Date(
       removedBoundary.orphanedAt.getTime() + orphanGraceMs - 1,
     );
@@ -466,31 +550,35 @@ describe("MaterialAssets against PostgreSQL and S3", () => {
       ok: true,
       value: { cleaned: 0 },
     });
-    await expect(assets.loadDelivery({
-      assetId: original.value.assetId,
-      materialId,
-      variantWidth: 480,
-    })).resolves.toMatchObject({
+    await expect(
+      assets.loadDelivery({
+        assetId: original.value.assetId,
+        materialId,
+        variantWidth: 480,
+      }),
+    ).resolves.toMatchObject({
       ok: true,
       value: { assetId: original.value.assetId },
     });
-    const afterGrace = new Date(
-      beforeGrace.getTime() + orphanGraceMs + 1,
-    );
+    const afterGrace = new Date(beforeGrace.getTime() + orphanGraceMs + 1);
     await expect(cleanupAt(afterGrace)).resolves.toEqual({
       ok: true,
       value: { cleaned: 1, retained: 1 },
     });
-    await expect(assets.loadDelivery({
-      assetId: original.value.assetId,
-      materialId,
-      variantWidth: 480,
-    })).resolves.toEqual({ ok: true, value: null });
-    await expect(assets.loadDelivery({
-      assetId: replacement.value.assetId,
-      materialId,
-      variantWidth: 480,
-    })).resolves.toMatchObject({
+    await expect(
+      assets.loadDelivery({
+        assetId: original.value.assetId,
+        materialId,
+        variantWidth: 480,
+      }),
+    ).resolves.toEqual({ ok: true, value: null });
+    await expect(
+      assets.loadDelivery({
+        assetId: replacement.value.assetId,
+        materialId,
+        variantWidth: 480,
+      }),
+    ).resolves.toMatchObject({
       ok: true,
       value: { assetId: replacement.value.assetId },
     });
@@ -502,15 +590,17 @@ function imageBody(assetId: string, alt: string) {
     schemaVersion: 1,
     doc: {
       type: "doc",
-      content: [{
-        type: "assetImage",
-        attrs: {
-          alt,
-          assetId,
-          caption: null,
-          nodeId: randomUUID(),
+      content: [
+        {
+          type: "assetImage",
+          attrs: {
+            alt,
+            assetId,
+            caption: null,
+            nodeId: randomUUID(),
+          },
         },
-      }],
+      ],
     },
   };
 }
@@ -540,5 +630,7 @@ async function waitForMaterialAssetLockWaiters(minimum: number): Promise<void> {
     if ((rows[0]?.waiting ?? 0) >= minimum) return;
     await new Promise((resolve) => setTimeout(resolve, 10));
   }
-  throw new Error(`Timed out waiting for ${minimum} MaterialAsset row-lock waiter(s)`);
+  throw new Error(
+    `Timed out waiting for ${minimum} MaterialAsset row-lock waiter(s)`,
+  );
 }

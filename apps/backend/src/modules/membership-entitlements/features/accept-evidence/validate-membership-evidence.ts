@@ -85,9 +85,7 @@ export type MembershipEvidenceValidation =
       ok: false;
       error: {
         readonly code:
-          | "unsupported_contract"
-          | "invalid_evidence"
-          | "expired_evidence";
+          "unsupported_contract" | "invalid_evidence" | "expired_evidence";
       };
     }>;
 

@@ -1,6 +1,9 @@
 import { expect, test, type Page } from "@playwright/test";
 
-async function metaContent(page: Page, property: string): Promise<string | null> {
+async function metaContent(
+  page: Page,
+  property: string,
+): Promise<string | null> {
   return page.locator(`meta[property="${property}"]`).getAttribute("content");
 }
 
@@ -18,7 +21,9 @@ test("главная отдаёт карточку ссылки с назван�
   expect(await metaContent(page, "og:url")).toBe(String(baseURL));
   expect(await metaContent(page, "og:site_name")).toBe("Sachkov Inside");
   expect(await metaContent(page, "og:locale")).toBe("ru_RU");
-  expect(await metaContent(page, "og:image")).toBe(`${String(baseURL)}/social-card`);
+  expect(await metaContent(page, "og:image")).toBe(
+    `${String(baseURL)}/social-card`,
+  );
 });
 
 test("ссылка на продукт и на материал показывает название, описание и картинку", async ({
@@ -73,7 +78,9 @@ test("закрытый материал отдаёт карточку назва
     }),
   ).toBeVisible();
   await expect(page.locator("[data-reader-body]")).toHaveCount(0);
-  await expect(page.locator('[data-material-reader-state="available"]')).toHaveCount(0);
+  await expect(
+    page.locator('[data-material-reader-state="available"]'),
+  ).toHaveCount(0);
 });
 
 test("карта сайта перечисляет опубликованные продукты, темы и материалы", async ({
@@ -84,7 +91,9 @@ test("карта сайта перечисляет опубликованные 
 
   expect(response.status()).toBe(200);
   const body = await response.text();
-  expect(body).toContain(`<loc>${String(baseURL)}/guides/platform-inside</loc>`);
+  expect(body).toContain(
+    `<loc>${String(baseURL)}/guides/platform-inside</loc>`,
+  );
   expect(body).toContain(`<loc>${String(baseURL)}/topics/platform</loc>`);
   expect(body).toContain(
     `<loc>${String(baseURL)}/materials/kak-ustroen-inside-platform</loc>`,

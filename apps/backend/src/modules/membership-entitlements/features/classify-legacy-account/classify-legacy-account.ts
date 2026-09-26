@@ -1,4 +1,7 @@
-import { lockAccountEntitlementChanges, lockAccountAccess } from "../../../../infrastructure/prisma/index.js";
+import {
+  lockAccountEntitlementChanges,
+  lockAccountAccess,
+} from "../../../../infrastructure/prisma/index.js";
 import { z } from "zod";
 import type { Accounts } from "../../../accounts/index.js";
 import type { MembershipEntitlementsPrismaClient } from "../../infrastructure/prisma.js";

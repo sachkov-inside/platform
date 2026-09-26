@@ -67,7 +67,14 @@ export async function getLibraryCatalogPage(
   signal?: AbortSignal,
   feedOnly = false,
 ): Promise<LibraryCatalogPage> {
-  return requestLibraryCatalogPage(query, after, accessToken, signal, undefined, feedOnly);
+  return requestLibraryCatalogPage(
+    query,
+    after,
+    accessToken,
+    signal,
+    undefined,
+    feedOnly,
+  );
 }
 
 export async function getTopicMaterialCatalogPage(
@@ -104,7 +111,10 @@ async function requestLibraryCatalogPage(
       },
     );
   } catch (error) {
-    if (error instanceof BackendConnectionError && error.code === "unavailable") {
+    if (
+      error instanceof BackendConnectionError &&
+      error.code === "unavailable"
+    ) {
       return { kind: "unavailable" };
     }
     throw error;

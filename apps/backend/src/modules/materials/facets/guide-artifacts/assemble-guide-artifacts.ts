@@ -1,6 +1,9 @@
 import type { ObjectStorage } from "../../../../infrastructure/object-storage/index.js";
 import type { MaterialsPrismaClient } from "../../../../infrastructure/prisma/index.js";
-import { authorizeManager, type AuthorPolicy } from "../../ports/author-policy.js";
+import {
+  authorizeManager,
+  type AuthorPolicy,
+} from "../../ports/author-policy.js";
 import {
   createGuideArtifact,
   removeGuideArtifact,
@@ -29,7 +32,10 @@ export function assembleGuideArtifacts(dependencies: {
 }): GuideArtifacts {
   const context: GuideArtifactContext = {
     async authorize(actor) {
-      const authorization = await authorizeManager(dependencies.authorPolicy, actor);
+      const authorization = await authorizeManager(
+        dependencies.authorPolicy,
+        actor,
+      );
       return authorization.ok ? null : authorization.error;
     },
     files: assembleGuideArtifactFiles(dependencies.objectStorage),
@@ -40,7 +46,8 @@ export function assembleGuideArtifacts(dependencies: {
     create: (command) => createGuideArtifact(context, command),
     listForGuide: (query) => listGuideArtifacts(context, query),
     listReusable: (query) => listReusableGuideArtifacts(context, query),
-    loadAccessFacts: (artifactIds) => loadGuideArtifactAccessFacts(context, artifactIds),
+    loadAccessFacts: (artifactIds) =>
+      loadGuideArtifactAccessFacts(context, artifactIds),
     loadFileDelivery: (input) => loadGuideArtifactFileDelivery(context, input),
     loadForReader: (guideId) => loadReaderGuideArtifacts(context, guideId),
     remove: (command) => removeGuideArtifact(context, command),

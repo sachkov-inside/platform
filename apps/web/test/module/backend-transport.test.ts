@@ -9,7 +9,10 @@ describe("generated backend transport", () => {
   });
 
   it("serializes generated path parameters and preserves Problem Details", async () => {
-    vi.stubEnv("BACKEND_BASE_URL", "https://platform-api.example.test/internal/");
+    vi.stubEnv(
+      "BACKEND_BASE_URL",
+      "https://platform-api.example.test/internal/",
+    );
     const problem = {
       type: "urn:inside:problem:material_not_found",
       title: "Material not found",
@@ -61,10 +64,9 @@ describe("generated backend transport", () => {
     });
     vi.stubGlobal("fetch", fetchMock);
 
-    await requestPublishedMaterial(
-      "missing-material",
-      { accessToken: "platform-access-token" },
-    );
+    await requestPublishedMaterial("missing-material", {
+      accessToken: "platform-access-token",
+    });
 
     expect(fetchMock).toHaveBeenCalledOnce();
   });

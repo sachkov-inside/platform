@@ -12,7 +12,10 @@ import { existsSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
-const applicationDirectory = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
+const applicationDirectory = resolve(
+  dirname(fileURLToPath(import.meta.url)),
+  "../..",
+);
 const identityPath = resolve(applicationDirectory, "release-identity.json");
 const port = required("PRODUCTION_WEB_PORT");
 const backendBaseUrl = required("PRODUCTION_WEB_BACKEND_URL");
@@ -34,7 +37,10 @@ const environment = {
 
 const identity = `${JSON.stringify(release)}\n`;
 // Прерванный прогон оставляет собственный файл: его можно занять снова, чужой — нельзя.
-if (existsSync(identityPath) && readFileSync(identityPath, "utf8") !== identity) {
+if (
+  existsSync(identityPath) &&
+  readFileSync(identityPath, "utf8") !== identity
+) {
   throw new Error(`Refusing to replace ${identityPath}`);
 }
 rmSync(identityPath, { force: true });
@@ -42,7 +48,8 @@ writeFileSync(identityPath, identity, { mode: 0o444 });
 
 function required(name) {
   const value = process.env[name];
-  if (value === undefined || value === "") throw new Error(`${name} is required`);
+  if (value === undefined || value === "")
+    throw new Error(`${name} is required`);
   return value;
 }
 

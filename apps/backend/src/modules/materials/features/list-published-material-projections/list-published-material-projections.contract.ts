@@ -15,10 +15,7 @@ export interface ListPublishedMaterialProjectionsQuery {
 }
 
 export type PublishedMaterialProjectionSort =
-  | "newest"
-  | "relevance"
-  | "series"
-  | "title";
+  "newest" | "relevance" | "series" | "title";
 
 export type PublishedMaterialProjectionCursor =
   | {

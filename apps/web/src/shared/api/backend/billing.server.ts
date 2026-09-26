@@ -1,10 +1,14 @@
 import "server-only";
-import { BillingService, AccountsService, TelegramCommunityService } from "./generated/platform-api";
+import {
+  BillingService,
+  AccountsService,
+  TelegramCommunityService,
+} from "./generated/platform-api";
 import { executeGeneratedRequest } from "./transport-core.server";
 
-type BillingRequest<Method extends Exclude<keyof BillingService, "httpRequest">> = Parameters<
-  BillingService[Method]
->[0];
+type BillingRequest<
+  Method extends Exclude<keyof BillingService, "httpRequest">,
+> = Parameters<BillingService[Method]>[0];
 
 /**
  * Команды, доходящие до банка, ждут его ответа на сервере: бюджет чуть больше, чем у самого
@@ -34,17 +38,21 @@ export function requestBillingQuote(
   accessToken: string,
 ) {
   return executeGeneratedRequest(
-    (request) => new BillingService(request).quoteBillingPurchase({ requestBody }),
+    (request) =>
+      new BillingService(request).quoteBillingPurchase({ requestBody }),
     200,
     { accessToken },
   );
 }
 export function requestBillingConsents(
-  requestBody: Parameters<AccountsService["acceptBillingConsents"]>[0]["requestBody"],
+  requestBody: Parameters<
+    AccountsService["acceptBillingConsents"]
+  >[0]["requestBody"],
   accessToken: string,
 ) {
   return executeGeneratedRequest(
-    (request) => new AccountsService(request).acceptBillingConsents({ requestBody }),
+    (request) =>
+      new AccountsService(request).acceptBillingConsents({ requestBody }),
     200,
     { accessToken },
   );
@@ -65,7 +73,8 @@ export function requestBillingPurchaseStatus(
   accessToken: string,
 ) {
   return executeGeneratedRequest(
-    (request) => new BillingService(request).readBillingPurchase({ purchaseRef }),
+    (request) =>
+      new BillingService(request).readBillingPurchase({ purchaseRef }),
     200,
     { accessToken },
   );
@@ -75,7 +84,8 @@ export function requestCancelBillingRenewal(
   accessToken: string,
 ) {
   return executeGeneratedRequest(
-    (request) => new BillingService(request).cancelBillingRenewal({ requestBody }),
+    (request) =>
+      new BillingService(request).cancelBillingRenewal({ requestBody }),
     200,
     { accessToken },
   );
@@ -85,7 +95,8 @@ export function requestResumeBillingRenewal(
   accessToken: string,
 ) {
   return executeGeneratedRequest(
-    (request) => new BillingService(request).resumeBillingRenewal({ requestBody }),
+    (request) =>
+      new BillingService(request).resumeBillingRenewal({ requestBody }),
     200,
     { accessToken },
   );
@@ -95,7 +106,8 @@ export function requestBillingChangeQuote(
   accessToken: string,
 ) {
   return executeGeneratedRequest(
-    (request) => new BillingService(request).quoteBillingChange({ requestBody }),
+    (request) =>
+      new BillingService(request).quoteBillingChange({ requestBody }),
     200,
     { accessToken },
   );
@@ -105,7 +117,8 @@ export function requestBillingChange(
   accessToken: string,
 ) {
   return executeGeneratedRequest(
-    (request) => new BillingService(request).changeBillingOption({ requestBody }),
+    (request) =>
+      new BillingService(request).changeBillingOption({ requestBody }),
     200,
     { accessToken, timeoutMs: bankCommandTimeoutMs },
   );
@@ -115,7 +128,8 @@ export function requestCancelBillingChange(
   accessToken: string,
 ) {
   return executeGeneratedRequest(
-    (request) => new BillingService(request).cancelBillingChange({ requestBody }),
+    (request) =>
+      new BillingService(request).cancelBillingChange({ requestBody }),
     200,
     { accessToken },
   );
@@ -125,7 +139,8 @@ export function requestChangeBillingMethod(
   accessToken: string,
 ) {
   return executeGeneratedRequest(
-    (request) => new BillingService(request).changeBillingMethod({ requestBody }),
+    (request) =>
+      new BillingService(request).changeBillingMethod({ requestBody }),
     200,
     { accessToken, timeoutMs: bankCommandTimeoutMs },
   );
@@ -135,12 +150,14 @@ export function requestRevokeBillingMethod(
   accessToken: string,
 ) {
   return executeGeneratedRequest(
-    (request) => new BillingService(request).revokeBillingMethod({ requestBody }),
+    (request) =>
+      new BillingService(request).revokeBillingMethod({ requestBody }),
     200,
     { accessToken },
   );
 }
-export type ManageBillingCommand = BillingRequest<"manageBilling">["requestBody"];
+export type ManageBillingCommand =
+  BillingRequest<"manageBilling">["requestBody"];
 
 /**
  * Владельческая поверхность: одна операция за вызов. BFF даёт каждой операции собственный
@@ -161,7 +178,18 @@ export function requestManageBilling(
 }
 
 export function requestCurrentEnrollments(accessToken: string) {
-  return executeGeneratedRequest(request => new BillingService(request).currentEnrollments(), 200, { accessToken });
+  return executeGeneratedRequest(
+    (request) => new BillingService(request).currentEnrollments(),
+    200,
+    { accessToken },
+  );
 }
 
-export function requestCurrentCommunityAdmission(accessToken: string) { return executeGeneratedRequest(request => new TelegramCommunityService(request).currentCommunityAdmission(), 200, { accessToken }); }
+export function requestCurrentCommunityAdmission(accessToken: string) {
+  return executeGeneratedRequest(
+    (request) =>
+      new TelegramCommunityService(request).currentCommunityAdmission(),
+    200,
+    { accessToken },
+  );
+}

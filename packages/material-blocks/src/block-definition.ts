@@ -13,8 +13,9 @@ import type {
  * One variant of the rendered-block union. `discriminatedUnion` needs the discriminator to stay
  * visible in the type, so the registry keeps this shape instead of the erased `z.ZodType`.
  */
-export type RenderedBlockVariantSchema<Block extends RenderedBlock = RenderedBlock> =
-  z.ZodType<Block> & z.core.$ZodTypeDiscriminable<"kind">;
+export type RenderedBlockVariantSchema<
+  Block extends RenderedBlock = RenderedBlock,
+> = z.ZodType<Block> & z.core.$ZodTypeDiscriminable<"kind">;
 
 /**
  * ProseMirror node declaration as plain data. The registry stays free of Tiptap; the document
@@ -56,12 +57,17 @@ export interface MaterialBlockNodeDescription extends MaterialBlockChildNodeDesc
    * child node has no registry entry of its own and is therefore never addressed by progress or
    * bookmarks; the block that contains it is.
    */
-  readonly childNodes?: Readonly<Record<string, MaterialBlockChildNodeDescription>>;
+  readonly childNodes?: Readonly<
+    Record<string, MaterialBlockChildNodeDescription>
+  >;
   readonly group: "block";
 }
 
 /** Reports one field rule failure. `attribute` names the offending `attrs` entry. */
-export type MaterialBlockIssueReport = (code: string, attribute: string) => void;
+export type MaterialBlockIssueReport = (
+  code: string,
+  attribute: string,
+) => void;
 
 /** Recursion the renderer owns, handed to a block so definitions stay independent. */
 export interface MaterialBlockRenderTools {
@@ -75,7 +81,10 @@ export interface MaterialBlockTextTools {
   readonly inlineText: (content: readonly RenderedText[]) => string;
 }
 
-type BlockOf<Kind extends RenderedBlockKind> = Extract<RenderedBlock, { kind: Kind }>;
+type BlockOf<Kind extends RenderedBlockKind> = Extract<
+  RenderedBlock,
+  { kind: Kind }
+>;
 
 /**
  * Registers one block under the registry's element type. Every dispatch selects a definition by
@@ -108,7 +117,10 @@ export interface MaterialBlockDefinition<
   /** Nested blocks in document order; used by extraction and by asset hydration. */
   children?(block: BlockOf<Kind>): readonly RenderedBlock[];
   /** Contribution to the table of contents. */
-  heading?(block: BlockOf<Kind>, tools: MaterialBlockTextTools): MaterialBodyHeading;
+  heading?(
+    block: BlockOf<Kind>,
+    tools: MaterialBlockTextTools,
+  ): MaterialBodyHeading;
   /** Field rules beyond the shape the ProseMirror schema already enforces. */
   issues?(node: JsonObject, report: MaterialBlockIssueReport): void;
   /** Rebuilds the block with every nested block replaced. */
@@ -122,7 +134,9 @@ export interface MaterialBlockDefinition<
    * Rendered shape for the wire contract and the reading client. `block` is the schema for
    * nested blocks, so one recursive union covers the whole document.
    */
-  renderedSchema(block: z.ZodType<RenderedBlock>): RenderedBlockVariantSchema<BlockOf<Kind>>;
+  renderedSchema(
+    block: z.ZodType<RenderedBlock>,
+  ): RenderedBlockVariantSchema<BlockOf<Kind>>;
   /** Asset the block references, for the extraction summary. */
   resource?(block: BlockOf<Kind>): MaterialBodyResourceSummary;
   /** Plain text for full-text search. */

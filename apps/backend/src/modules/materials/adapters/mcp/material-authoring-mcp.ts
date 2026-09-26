@@ -1,7 +1,4 @@
-import {
-  McpServer,
-  type CallToolResult,
-} from "@modelcontextprotocol/server";
+import { McpServer, type CallToolResult } from "@modelcontextprotocol/server";
 import { z } from "zod";
 import {
   guideChapterAssignmentsSchema,

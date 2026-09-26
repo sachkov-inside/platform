@@ -30,14 +30,41 @@ describe("Logto access token verifier", () => {
   });
 
   test("Telegram proof is explicit, feature-gated, and does not disable already-issued access tokens", async () => {
-    const telegram = { subjectRef: "29900000-0000-4000-8000-000000000001", requestRef: "29900000-0000-4000-8000-000000000002" };
-    const token = await signToken({ inside_telegram_sign_in: telegram }, { insideVerifiedEmail: undefined });
-    await expect(localVerifier(publicJwk).verifyAccountSignIn(token)).resolves.toMatchObject({ ok: false });
-    await expect(localVerifier(publicJwk).verifyAccount(token)).resolves.toMatchObject({ ok: true });
-    const enabled = createLogtoAccessTokenVerifier({ issuer, audience, jwks: { keys: [publicJwk] }, telegramSignInEnabled: true });
-    await expect(enabled.verifyAccountSignIn(token)).resolves.toMatchObject({ ok: true, identity: { telegram } });
-    for (const malformed of [null, {}, { ...telegram, subjectRef: "username" }, { ...telegram, admin: true }]) {
-      await expect(enabled.verifyAccountSignIn(await signToken({ inside_telegram_sign_in: malformed }))).resolves.toMatchObject({ ok: false });
+    const telegram = {
+      subjectRef: "29900000-0000-4000-8000-000000000001",
+      requestRef: "29900000-0000-4000-8000-000000000002",
+    };
+    const token = await signToken(
+      { inside_telegram_sign_in: telegram },
+      { insideVerifiedEmail: undefined },
+    );
+    await expect(
+      localVerifier(publicJwk).verifyAccountSignIn(token),
+    ).resolves.toMatchObject({ ok: false });
+    await expect(
+      localVerifier(publicJwk).verifyAccount(token),
+    ).resolves.toMatchObject({ ok: true });
+    const enabled = createLogtoAccessTokenVerifier({
+      issuer,
+      audience,
+      jwks: { keys: [publicJwk] },
+      telegramSignInEnabled: true,
+    });
+    await expect(enabled.verifyAccountSignIn(token)).resolves.toMatchObject({
+      ok: true,
+      identity: { telegram },
+    });
+    for (const malformed of [
+      null,
+      {},
+      { ...telegram, subjectRef: "username" },
+      { ...telegram, admin: true },
+    ]) {
+      await expect(
+        enabled.verifyAccountSignIn(
+          await signToken({ inside_telegram_sign_in: malformed }),
+        ),
+      ).resolves.toMatchObject({ ok: false });
     }
   });
 
@@ -82,7 +109,10 @@ describe("Logto access token verifier", () => {
   test.each([
     ["issuer", { issuer: "https://attacker.example.test" }],
     ["audience", { audience: "https://another-api.example.test" }],
-    ["multiple audiences", { audience: [audience, "https://other.example.test"] }],
+    [
+      "multiple audiences",
+      { audience: [audience, "https://other.example.test"] },
+    ],
     ["expired", { issuedAt: now - 601, expiresAt: now - 301 }],
     ["future issued-at", { issuedAt: now + 60 }],
     ["future not-before", { notBefore: now + 60 }],
@@ -91,7 +121,9 @@ describe("Logto access token verifier", () => {
     ["verified email", { insideVerifiedEmail: undefined }],
   ])("fails closed for an invalid %s", async (_name, overrides) => {
     const token = await signToken({}, overrides);
-    await expect(localVerifier(publicJwk).verifyAccountSignIn(token)).resolves.toEqual({
+    await expect(
+      localVerifier(publicJwk).verifyAccountSignIn(token),
+    ).resolves.toEqual({
       ok: false,
       error: { code: "invalid_proof" },
     });
@@ -120,8 +152,16 @@ describe("Logto access token verifier", () => {
       alg: "RS256",
       kid: "rsa-key",
     };
-    const rsaToken = await signToken({}, {}, rsa.privateKey, "rsa-key", "RS256");
-    await expect(localVerifier(rsaJwk).verifyAccount(rsaToken)).resolves.toMatchObject({
+    const rsaToken = await signToken(
+      {},
+      {},
+      rsa.privateKey,
+      "rsa-key",
+      "RS256",
+    );
+    await expect(
+      localVerifier(rsaJwk).verifyAccount(rsaToken),
+    ).resolves.toMatchObject({
       ok: false,
       error: { code: "invalid_proof" },
     });
@@ -140,8 +180,15 @@ describe("Logto access token verifier", () => {
       error: { code: "invalid_proof" },
     });
 
-    const attackerToken = await signToken({}, {}, attacker.privateKey, "attacker");
-    await expect(localVerifier(publicJwk).verifyAccount(attackerToken)).resolves.toMatchObject({
+    const attackerToken = await signToken(
+      {},
+      {},
+      attacker.privateKey,
+      "attacker",
+    );
+    await expect(
+      localVerifier(publicJwk).verifyAccount(attackerToken),
+    ).resolves.toMatchObject({
       ok: false,
       error: { code: "invalid_proof" },
     });
@@ -155,9 +202,12 @@ describe("Logto access token verifier", () => {
         .writeHead(200, { "content-type": "application/json" })
         .end(JSON.stringify({ keys: [publicJwk] }));
     });
-    await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
+    await new Promise<void>((resolve) =>
+      server.listen(0, "127.0.0.1", resolve),
+    );
     const address = server.address();
-    if (address === null || typeof address === "string") throw new Error("missing port");
+    if (address === null || typeof address === "string")
+      throw new Error("missing port");
     try {
       const verifier = createLogtoAccessTokenVerifier({
         issuer,
@@ -175,19 +225,27 @@ describe("Logto access token verifier", () => {
         audience,
         jwksUrl: `http://127.0.0.1:${String(address.port)}/jwks`,
       });
-      await expect(recoveredVerifier.verifyAccount(await signToken())).resolves.toMatchObject({
+      await expect(
+        recoveredVerifier.verifyAccount(await signToken()),
+      ).resolves.toMatchObject({
         ok: true,
         identity: { issuer, subject: "human-001" },
       });
     } finally {
       await new Promise<void>((resolve, reject) =>
-        server.close((error) => (error === undefined ? resolve() : reject(error))),
+        server.close((error) =>
+          error === undefined ? resolve() : reject(error),
+        ),
       );
     }
   });
 
   function localVerifier(jwk: JWK) {
-    return createLogtoAccessTokenVerifier({ issuer, audience, jwks: { keys: [jwk] } });
+    return createLogtoAccessTokenVerifier({
+      issuer,
+      audience,
+      jwks: { keys: [jwk] },
+    });
   }
 
   async function signToken(

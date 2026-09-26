@@ -9,9 +9,9 @@ describe("Command fingerprints", () => {
     expect(fingerprintCommand({ operation: "revise_draft", changes: {} })).toBe(
       "86e65b719b29a3f3c8f2ee0d79820728bd97e566f889110bc88d17159558b4ab",
     );
-    expect(
-      fingerprintCommand({ changes: {}, operation: "revise_draft" }),
-    ).toBe(fingerprintCommand({ operation: "revise_draft", changes: {} }));
+    expect(fingerprintCommand({ changes: {}, operation: "revise_draft" })).toBe(
+      fingerprintCommand({ operation: "revise_draft", changes: {} }),
+    );
   });
 
   // Stored receipts hold these digests: Materials and Billing share one canonical form, and its
@@ -35,7 +35,12 @@ describe("Command fingerprints", () => {
       tributeFingerprint({
         name: "new_subscription",
         created_at: "x",
-        payload: { b: undefined, a: [1, undefined, null], Z: 2, zeta: { B: 1, a: 2 } },
+        payload: {
+          b: undefined,
+          a: [1, undefined, null],
+          Z: 2,
+          zeta: { B: 1, a: 2 },
+        },
       }),
     ).toBe("c3dfee01596677bc4d3fb8a88b24b4c4c79d12f7bd45fa65aa3502f7b8f30bba");
     expect(tributeFingerprint(["new_subscription", "x", 1, 2])).toBe(

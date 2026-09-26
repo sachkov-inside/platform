@@ -1,6 +1,9 @@
 import { expect, it } from "vitest";
 
-import { accountSections, visibleAccountSections } from "@/widgets/account-cabinet";
+import {
+  accountSections,
+  visibleAccountSections,
+} from "@/widgets/account-cabinet";
 
 it("каждый раздел кабинета живёт по своему адресу", () => {
   const addresses = accountSections.map((section) => section.href);

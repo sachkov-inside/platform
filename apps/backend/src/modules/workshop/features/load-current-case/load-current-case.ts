@@ -36,6 +36,10 @@ export async function loadCurrentWorkshopCase(
       },
     };
   } catch (error) {
-    return dependencyFailure({ module: "workshop", operation: "loadCurrentWorkshopCase" }, error, { ok: false, error: { code: "dependency_unavailable" } });
+    return dependencyFailure(
+      { module: "workshop", operation: "loadCurrentWorkshopCase" },
+      error,
+      { ok: false, error: { code: "dependency_unavailable" } },
+    );
   }
 }

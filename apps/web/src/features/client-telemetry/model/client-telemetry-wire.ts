@@ -7,9 +7,20 @@ export const WEB_VITALS_ROUTE = "/api/web-vitals";
 export const RENDER_ERRORS_ROUTE = "/api/render-errors";
 
 /** Core Web Vitals, которые сообщает `useReportWebVitals`. */
-export const REPORTED_WEB_VITALS = ["CLS", "FCP", "INP", "LCP", "TTFB"] as const;
+export const REPORTED_WEB_VITALS = [
+  "CLS",
+  "FCP",
+  "INP",
+  "LCP",
+  "TTFB",
+] as const;
 export const WEB_VITAL_RATINGS = ["good", "needs-improvement", "poor"] as const;
-export const RENDER_ERROR_BOUNDARIES = ["authoring", "global", "public", "root"] as const;
+export const RENDER_ERROR_BOUNDARIES = [
+  "authoring",
+  "global",
+  "public",
+  "root",
+] as const;
 
 /** Больше метрик одна загрузка страницы не набирает: каждая приходит один раз. */
 export const MAX_WEB_VITALS_PER_REPORT = 20;

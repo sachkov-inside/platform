@@ -1,4 +1,7 @@
-import { SavedReadingAction, VisibleMaterialOpen } from "@/features/reading-progress";
+import {
+  SavedReadingAction,
+  VisibleMaterialOpen,
+} from "@/features/reading-progress";
 import { SavedBookmarkAction } from "@/features/bookmarks";
 import { notFound } from "next/navigation";
 import { connection } from "next/server";
@@ -11,14 +14,27 @@ import {
   readerHasSeenGuideModeHint,
 } from "@/features/guide-modes.reader.server";
 import type { PublishedSeriesResult } from "@/features/library-discovery";
-import { loadPublishedSeries, readPublicSeries } from "@/features/library-discovery.server";
+import {
+  loadPublishedSeries,
+  readPublicSeries,
+} from "@/features/library-discovery.server";
 import { getOptionalPlatformAccessToken } from "@/shared/auth/optional-platform-access-token.server";
-import { GuideModeProvider, defaultGuideMode, type GuideMode } from "@/shared/guide-mode";
+import {
+  GuideModeProvider,
+  defaultGuideMode,
+  type GuideMode,
+} from "@/shared/guide-mode";
 import { loadMaterialReader } from "../api/load-material-reader";
 import { readPublicMaterial } from "../api/public-material.public-cache.server";
-import type { MaterialReaderResult, PublicMaterialResult } from "../model/material-reader-view";
+import type {
+  MaterialReaderResult,
+  PublicMaterialResult,
+} from "../model/material-reader-view";
 import { soleSoldGuide } from "../model/purchase-guide";
-import { resolveSeriesReaderContext, type SeriesReaderContext } from "../model/series-reader-context";
+import {
+  resolveSeriesReaderContext,
+  type SeriesReaderContext,
+} from "../model/series-reader-context";
 import {
   homeMaterialReaderReturnTarget,
   materialReaderHref,
@@ -34,7 +50,10 @@ import {
 } from "./material-reader-states";
 import { MaterialReaderView } from "./material-reader-view";
 
-type ResolvedMaterial = Extract<MaterialReaderResult, { readonly kind: "available" | "access" }>;
+type ResolvedMaterial = Extract<
+  MaterialReaderResult,
+  { readonly kind: "available" | "access" }
+>;
 
 /**
  * Общая часть урока (ADR 0027). Адрес читается здесь, под скелетом маршрута; метаданные и состав
@@ -47,7 +66,9 @@ export async function MaterialReaderPage({
   searchParams,
 }: {
   readonly params: Promise<{ readonly slug: string }>;
-  readonly searchParams: Promise<{ readonly from?: string | readonly string[] | undefined }>;
+  readonly searchParams: Promise<{
+    readonly from?: string | readonly string[] | undefined;
+  }>;
 }) {
   const [{ slug }, query] = await Promise.all([params, searchParams]);
   const returnTarget = parseMaterialReaderReturnTarget(query.from);
@@ -55,7 +76,9 @@ export async function MaterialReaderPage({
   const guideSlug = guideSlugOf(returnTarget);
   const [material, series] = await Promise.all([
     readPublicMaterial(slug),
-    guideSlug === undefined ? Promise.resolve(null) : readPublicSeries(guideSlug),
+    guideSlug === undefined
+      ? Promise.resolve(null)
+      : readPublicSeries(guideSlug),
   ]);
   if (material.kind === "unavailable") {
     return <ReaderUnavailable returnTarget={returnTarget} />;
@@ -68,9 +91,19 @@ export async function MaterialReaderPage({
       </Suspense>
     );
   }
-  const seriesContext = seriesContextOf(material.material.slug, returnTarget, series);
-  const effectiveReturnTarget = effectiveReturnTargetOf(returnTarget, seriesContext);
-  if (material.kind === "available" && seriesContext?.series.hasModeVariants !== true) {
+  const seriesContext = seriesContextOf(
+    material.material.slug,
+    returnTarget,
+    series,
+  );
+  const effectiveReturnTarget = effectiveReturnTargetOf(
+    returnTarget,
+    seriesContext,
+  );
+  if (
+    material.kind === "available" &&
+    seriesContext?.series.hasModeVariants !== true
+  ) {
     return (
       <ResolvedMaterialReader
         guideMode={defaultGuideMode}
@@ -92,7 +125,11 @@ export async function MaterialReaderPage({
         />
       }
     >
-      <PersonalMaterialReader sharedMaterial={material} returnTarget={returnTarget} slug={slug} />
+      <PersonalMaterialReader
+        sharedMaterial={material}
+        returnTarget={returnTarget}
+        slug={slug}
+      />
     </Suspense>
   );
 }
@@ -133,7 +170,9 @@ async function PersonalMaterialReader({
     sharedMaterial?.kind === "available"
       ? Promise.resolve(sharedMaterial)
       : loadMaterialReader(slug, accessToken),
-    guideSlug === undefined ? Promise.resolve(null) : readSeriesAs(guideSlug, accessToken),
+    guideSlug === undefined
+      ? Promise.resolve(null)
+      : readSeriesAs(guideSlug, accessToken),
     guideSlug === undefined
       ? Promise.resolve(defaultGuideMode)
       : loadReaderGuideMode(accessToken),
@@ -147,11 +186,17 @@ async function PersonalMaterialReader({
   if (result.kind === "unavailable") {
     return <ReaderUnavailable returnTarget={returnTarget} />;
   }
-  const seriesContext = seriesContextOf(result.material.slug, returnTarget, seriesResult);
+  const seriesContext = seriesContextOf(
+    result.material.slug,
+    returnTarget,
+    seriesResult,
+  );
   return (
     <ResolvedMaterialReader
       {...(accessToken === undefined ? {} : { accessToken })}
-      {...(guestPurchaseGuide === undefined ? {} : { purchaseGuide: guestPurchaseGuide })}
+      {...(guestPurchaseGuide === undefined
+        ? {}
+        : { purchaseGuide: guestPurchaseGuide })}
       guideMode={guideMode}
       hintSeen={hintSeen}
       result={result}
@@ -193,7 +238,14 @@ async function ResolvedMaterialReader({
     return (
       <div className="@container/material-reader">
         <MaterialReaderAccess
-          readingAction={<SavedReadingAction key={result.material.materialId} materialId={result.material.materialId} format={result.material.format.slug} canMark={false} />}
+          readingAction={
+            <SavedReadingAction
+              key={result.material.materialId}
+              materialId={result.material.materialId}
+              format={result.material.format.slug}
+              canMark={false}
+            />
+          }
           invitation={invitation}
           material={result.material}
           returnTarget={returnTarget}
@@ -211,43 +263,72 @@ async function ResolvedMaterialReader({
       block.options.some((option) => option.mode === guideMode),
   );
   return (
-    <VisibleMaterialOpen key={`${result.material.materialId}:${String(result.material.contentVersion)}`} materialId={result.material.materialId} contentVersion={result.material.contentVersion}>
-    <GuideModeProvider initialMode={guideMode}>
-    <MaterialReaderView
-      readingAction={<SavedReadingAction key={result.material.materialId} materialId={result.material.materialId} format={result.material.format.slug} />}
-      bookmarkAction={<SavedBookmarkAction materialId={result.material.materialId} />}
-      body={result.body}
-      material={result.material}
-      {...(showsModes
-        ? {
-            ...(hintSeen || hintAt < 0
-              ? {}
-              : { modeHint: { at: hintAt, node: <GuideModeHint /> } }),
-            modeSwitch: <GuideModeSwitch signedIn={accessToken !== undefined} />,
+    <VisibleMaterialOpen
+      key={`${result.material.materialId}:${String(result.material.contentVersion)}`}
+      materialId={result.material.materialId}
+      contentVersion={result.material.contentVersion}
+    >
+      <GuideModeProvider initialMode={guideMode}>
+        <MaterialReaderView
+          readingAction={
+            <SavedReadingAction
+              key={result.material.materialId}
+              materialId={result.material.materialId}
+              format={result.material.format.slug}
+            />
           }
-        : {})}
-      primaryVideo={result.primaryVideo}
-      returnTarget={returnTarget}
-      seriesContext={seriesContext}
-    />
-    </GuideModeProvider>
+          bookmarkAction={
+            <SavedBookmarkAction materialId={result.material.materialId} />
+          }
+          body={result.body}
+          material={result.material}
+          {...(showsModes
+            ? {
+                ...(hintSeen || hintAt < 0
+                  ? {}
+                  : { modeHint: { at: hintAt, node: <GuideModeHint /> } }),
+                modeSwitch: (
+                  <GuideModeSwitch signedIn={accessToken !== undefined} />
+                ),
+              }
+            : {})}
+          primaryVideo={result.primaryVideo}
+          returnTarget={returnTarget}
+          seriesContext={seriesContext}
+        />
+      </GuideModeProvider>
     </VisibleMaterialOpen>
   );
 }
 
 /** Продукт, из которого урок открыт; вне продукта его нет. */
-function guideSlugOf(returnTarget: MaterialReaderReturnTarget): string | undefined {
+function guideSlugOf(
+  returnTarget: MaterialReaderReturnTarget,
+): string | undefined {
   return returnTarget.kind === "series" ? returnTarget.seriesSlug : undefined;
 }
 
 /** Состав продукта глазами читателя: гостю хватает общего кеша, вошедшему нужен его собственный. */
-function readSeriesAs(slug: string, accessToken: string | undefined): Promise<PublishedSeriesResult> {
-  return accessToken === undefined ? readPublicSeries(slug) : loadPublishedSeries(slug, accessToken);
+function readSeriesAs(
+  slug: string,
+  accessToken: string | undefined,
+): Promise<PublishedSeriesResult> {
+  return accessToken === undefined
+    ? readPublicSeries(slug)
+    : loadPublishedSeries(slug, accessToken);
 }
 
 /** Без урока нет и его места в продукте, поэтому возврат в продукт заменяется возвратом на Главную. */
-function ReaderUnavailable({ returnTarget }: { readonly returnTarget: MaterialReaderReturnTarget }) {
-  return <MaterialReaderUnavailable returnTarget={effectiveReturnTargetOf(returnTarget, null)} />;
+function ReaderUnavailable({
+  returnTarget,
+}: {
+  readonly returnTarget: MaterialReaderReturnTarget;
+}) {
+  return (
+    <MaterialReaderUnavailable
+      returnTarget={effectiveReturnTargetOf(returnTarget, null)}
+    />
+  );
 }
 
 function seriesContextOf(
@@ -287,8 +368,14 @@ function resolvePurchaseGuide(
 ): Promise<PurchaseGuide | undefined> {
   const returnGuideSlug = guideSlugOf(returnTarget);
   return returnGuideSlug !== undefined
-    ? guideIsSold(returnGuideSlug, accessToken).then((sold) => ({ slug: returnGuideSlug, sold }))
-    : soleSoldMembership(material.seriesMemberships.map(({ series }) => series.slug), accessToken);
+    ? guideIsSold(returnGuideSlug, accessToken).then((sold) => ({
+        slug: returnGuideSlug,
+        sold,
+      }))
+    : soleSoldMembership(
+        material.seriesMemberships.map(({ series }) => series.slug),
+        accessToken,
+      );
 }
 
 /** Единственное продаваемое руководство материала, если такое есть. */
@@ -297,17 +384,25 @@ async function soleSoldMembership(
   accessToken?: string,
 ): Promise<{ readonly slug: string; readonly sold: true } | undefined> {
   const guides = await Promise.all(
-    slugs.map(async (slug) => ({ slug, sold: await guideIsSold(slug, accessToken) })),
+    slugs.map(async (slug) => ({
+      slug,
+      sold: await guideIsSold(slug, accessToken),
+    })),
   );
   const slug = soleSoldGuide(guides);
   return slug === undefined ? undefined : { slug, sold: true };
 }
 
 /** Руководство продаётся, только когда владелец завёл ему цену; сбой каталога её не выдумывает. */
-async function guideIsSold(slug: string, accessToken?: string): Promise<boolean> {
+async function guideIsSold(
+  slug: string,
+  accessToken?: string,
+): Promise<boolean> {
   const guide = await readSeriesAs(slug, accessToken);
   const guideId =
-    guide.kind === "ready" || guide.kind === "empty" ? guide.reference.id : undefined;
+    guide.kind === "ready" || guide.kind === "empty"
+      ? guide.reference.id
+      : undefined;
   if (guideId === undefined) return false;
   const offers = await loadGuideOffers(guideId);
   return offers.kind === "ready" && offers.offers.length > 0;
