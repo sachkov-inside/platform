@@ -409,7 +409,9 @@ unit/module/Storybook tests, Playwright, production builds and the Storybook bui
 claiming a real database. It runs the four stages `pnpm check:static`, `check:unit`, `check:ui` and
 `check:web-e2e` in order; CI runs each stage as its own job, so run the one stage that matches a CI
 failure to reproduce it. A failed `pnpm format:check` is fixed by `pnpm format`; `.prettierignore`
-names the generated, pinned and managed files that keep their own bytes.
+names the generated, pinned and managed files that keep their own bytes. `.git-blame-ignore-revs`
+lists the mechanical formatting commits; run `git config blame.ignoreRevsFile .git-blame-ignore-revs`
+once per clone so local `git blame` skips them, as GitHub does.
 
 A full run takes about ten minutes. `check:static` rebuilds the `packages/*/dist` that later stages
 import, so leave the tree alone while it runs: an edit or package rebuild in the middle fails an

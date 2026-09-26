@@ -1,0 +1,5 @@
+# Mechanical formatting commits that `git blame` skips. GitHub reads this file by itself; locally run
+# `git config blame.ignoreRevsFile .git-blame-ignore-revs` once per clone.
+
+# Prettier 3.9.9 across Platform (#693, #749)
+96ae54897a1ea58c122c24b91b7cd53869d43b4f
