@@ -1,9 +1,9 @@
 import { z } from "zod";
 
-import { defineMaterialBlock } from "../block-definition.js";
+import { defineMaterialBlock, type MaterialBlockDefinition } from "../block-definition.js";
 import { expectArray, expectObject } from "../document-node.js";
 
-export const tableBlock = defineMaterialBlock<"table">({
+export const tableBlock: MaterialBlockDefinition = defineMaterialBlock<"table">({
   children: (block) => block.rows.flatMap((row) => row.cells.flatMap((cell) => cell.content)),
   kind: "table",
   mapChildren: (block, map) => ({

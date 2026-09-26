@@ -1,9 +1,9 @@
 import { z } from "zod";
 
-import { defineMaterialBlock } from "../block-definition.js";
+import { defineMaterialBlock, type MaterialBlockDefinition } from "../block-definition.js";
 import { inlineText } from "../rendered-block.js";
 
-export const codeBlock = defineMaterialBlock<"code_block">({
+export const codeBlock: MaterialBlockDefinition = defineMaterialBlock<"code_block">({
   kind: "code_block",
   render: (node, tools) => ({
     kind: "code_block",

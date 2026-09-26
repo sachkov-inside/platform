@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-import { defineMaterialBlock } from "../block-definition.js";
+import { defineMaterialBlock, type MaterialBlockDefinition } from "../block-definition.js";
 import { expectString, nodeAttributes } from "../document-node.js";
 import type { RenderedBlock } from "../rendered-block.js";
 import { attributeText, requiredTextIssue } from "./block-fields.js";
@@ -9,7 +9,7 @@ import { nestedBlocks } from "./nested-blocks.js";
 const nested = nestedBlocks<Extract<RenderedBlock, { kind: "takeaways" }>>();
 
 /** What the lesson leaves behind: a named list the reader checks off point by point. */
-export const takeawaysBlock = defineMaterialBlock<"takeaways">({
+export const takeawaysBlock: MaterialBlockDefinition = defineMaterialBlock<"takeaways">({
   ...nested,
   issues: (node, report) => {
     requiredTextIssue(node, report, "missing_takeaways_title", "title");

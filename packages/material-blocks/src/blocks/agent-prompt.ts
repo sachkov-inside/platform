@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-import { defineMaterialBlock } from "../block-definition.js";
+import { defineMaterialBlock, type MaterialBlockDefinition } from "../block-definition.js";
 import { nodeAttributes, optionalText } from "../document-node.js";
 import { inlineText } from "../rendered-block.js";
 import { attributeText, optionalTextIssue, titleAttributeSchema } from "./block-fields.js";
@@ -9,7 +9,7 @@ import { attributeText, optionalTextIssue, titleAttributeSchema } from "./block-
  * A prompt the reader copies and runs. The body is verbatim text like a code block: newlines are
  * part of the prompt and formatting marks would change what the reader pastes.
  */
-export const agentPromptBlock = defineMaterialBlock<"agent_prompt">({
+export const agentPromptBlock: MaterialBlockDefinition = defineMaterialBlock<"agent_prompt">({
   issues: (node, report) => {
     optionalTextIssue(node, report, "invalid_agent_prompt_title");
   },

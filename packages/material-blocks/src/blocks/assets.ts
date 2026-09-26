@@ -1,8 +1,11 @@
 import { z } from "zod";
 
-import { defineMaterialBlock } from "../block-definition.js";
+import {
+  defineMaterialBlock,
+  type MaterialBlockDefinition,
+  type MaterialBlockNodeDescription,
+} from "../block-definition.js";
 import { expectString, nodeAttributes, optionalText } from "../document-node.js";
-import type { MaterialBlockNodeDescription } from "../block-definition.js";
 import { isJsonObject, stringAttribute } from "../json.js";
 
 /** Field rules, declared once and read both by the document node and by the rendered block. */
@@ -48,7 +51,7 @@ function assetNode(
   };
 }
 
-export const assetImageBlock = defineMaterialBlock<"image">({
+export const assetImageBlock: MaterialBlockDefinition = defineMaterialBlock<"image">({
   issues: (node, report) => {
     const attributes = isJsonObject(node.attrs) ? node.attrs : undefined;
     const displayWidthPercent = attributes?.displayWidthPercent;
@@ -113,7 +116,7 @@ export const assetImageBlock = defineMaterialBlock<"image">({
   type: "assetImage",
 });
 
-export const assetFileBlock = defineMaterialBlock<"file">({
+export const assetFileBlock: MaterialBlockDefinition = defineMaterialBlock<"file">({
   issues: (node, report) => {
     if (!accepts(assetIdSchema, stringAttribute(node, "assetId"))) {
       report("invalid_asset_id", "assetId");

@@ -13,7 +13,7 @@ USER node
 
 FROM toolchain AS dependencies
 
-COPY --chown=node:node package.json pnpm-lock.yaml pnpm-workspace.yaml ./
+COPY --chown=node:node package.json pnpm-lock.yaml pnpm-workspace.yaml tsconfig.base.json tsconfig.node-lib.json ./
 COPY --chown=node:node apps/backend/package.json ./apps/backend/package.json
 COPY --chown=node:node apps/backend/prisma.config.ts ./apps/backend/prisma.config.ts
 COPY --chown=node:node apps/backend/prisma ./apps/backend/prisma

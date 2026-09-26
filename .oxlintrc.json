@@ -149,7 +149,7 @@
     {
       "files": [
         "apps/backend/**/*.{ts,mts,cts}",
-        "packages/material-blocks/**/*.{ts,mts,cts}"
+        "packages/**/*.{ts,mts,cts}"
       ],
       "rules": {
         "constructor-super": "off",

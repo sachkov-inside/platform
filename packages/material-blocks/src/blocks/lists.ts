@@ -38,5 +38,5 @@ function listBlock(
   });
 }
 
-export const bulletListBlock = listBlock("bulletList", "bullet_list");
-export const orderedListBlock = listBlock("orderedList", "ordered_list");
+export const bulletListBlock: MaterialBlockDefinition = listBlock("bulletList", "bullet_list");
+export const orderedListBlock: MaterialBlockDefinition = listBlock("orderedList", "ordered_list");

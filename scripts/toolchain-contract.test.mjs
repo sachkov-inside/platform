@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
 import { readFileSync } from "node:fs";
-import { dirname, resolve } from "node:path";
+import { dirname, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, it } from "node:test";
 
@@ -34,15 +34,18 @@ describe("supported toolchain contract", () => {
     }
   });
 
-  it("copies Prisma generation inputs before dependency postinstall", () => {
+  it("copies Prisma generation and package build inputs before dependency postinstall", () => {
     for (const path of applicationDockerfiles) {
       const dockerfile = read(path);
       const installPosition = dockerfile.indexOf("pnpm install --frozen-lockfile");
 
       assert.ok(installPosition > 0);
+      // Package postinstall compiles through tsconfig.node-lib.json, which extends the shared base.
       for (const input of [
         "apps/backend/prisma.config.ts",
         "apps/backend/prisma ./apps/backend/prisma",
+        "tsconfig.base.json",
+        "tsconfig.node-lib.json",
       ]) {
         const copyPosition = dockerfile.indexOf(input);
         assert.ok(copyPosition >= 0, `${path} must copy ${input}`);
@@ -83,7 +86,7 @@ describe("supported toolchain contract", () => {
       true,
     );
     assert.equal(
-      backendTypeScript.compilerOptions.experimentalDecorators,
+      compilerOptionsOf("apps/backend/tsconfig.json").experimentalDecorators,
       true,
     );
     assert.ok(backendTypeScript.include.includes("src/**/*.ts"));
@@ -106,6 +109,37 @@ describe("supported toolchain contract", () => {
     // Browser checks of `pnpm test:e2e` run on the production build, which has no indicator.
     assert.match(read("apps/web/playwright.config.ts"), /command: "node test\/support\/production-web\.mjs"/u);
     assert.match(read("config/compose/local/web.env"), /^HIDE_DEV_INDICATOR=true$/mu);
+  });
+
+  it("builds every TypeScript project on the shared strict base", () => {
+    const listed = spawnSync("git", ["ls-files", "-z", "--", "*tsconfig*.json"], { cwd: repositoryRoot, encoding: "utf8" });
+    assert.equal(listed.status, 0, listed.stderr);
+    const configs = listed.stdout.split("\0").filter((path) => path !== "");
+    assert.ok(configs.length >= 14);
+    assert.deepEqual(configs.flatMap((path) => sharedBaseViolations(path)), []);
+    for (const [flag, value] of Object.entries(sharedStrictness)) {
+      assert.equal(compilerOptionsOf("tsconfig.base.json")[flag], value, flag);
+    }
+    assert.equal(compilerOptionsOf("tsconfig.node-lib.json").erasableSyntaxOnly, true);
+    assert.equal(compilerOptionsOf("tsconfig.node-lib.json").isolatedDeclarations, true);
+
+    // Negative fixtures: a project with its own flags, a package on an application preset, and a
+    // project that switches off a shared flag.
+    assert.deepEqual(sharedBaseViolations("apps/backend/tsconfig.json", {
+      "apps/backend/tsconfig.json": { compilerOptions: { strict: true } },
+    }), ["apps/backend/tsconfig.json must extend tsconfig.base.json"]);
+    assert.deepEqual(sharedBaseViolations("packages/legal/tsconfig.json", {
+      "packages/legal/tsconfig.json": { extends: "../../tsconfig.nest-app.json" },
+    }), ["packages/legal/tsconfig.json must use tsconfig.node-lib.json"]);
+    assert.deepEqual(sharedBaseViolations("apps/web/tsconfig.json", {
+      "apps/web/tsconfig.json": { extends: "../../tsconfig.next-app.json", compilerOptions: { noUnusedLocals: false } },
+    }), ["apps/web/tsconfig.json must not override noUnusedLocals"]);
+
+    // Packages compile with the application rules, so type-aware lint covers them too.
+    const typeAwareFiles = JSON.parse(read(".oxlintrc.json")).overrides.flatMap((override) =>
+      "typescript/no-floating-promises" in (override.rules ?? {}) ? override.files : [],
+    );
+    assert.ok(typeAwareFiles.includes("packages/**/*.{ts,mts,cts}"), "type-aware lint must cover every package");
   });
 
   it("uses only the Oxc lint and parser toolchain", () => {
@@ -450,6 +484,53 @@ function loadsSwaggerPlugin(path, source) {
 function overrideNames(workspace) {
   const overrides = workspace.match(/^overrides:\n((?:(?: {2}.*)?\n)*)/mu);
   return overrides === null ? [] : [...overrides[1].matchAll(/^ {2}([^#\s:][^:]*):/gmu)].map((match) => match[1]);
+}
+
+const sharedStrictness = {
+  strict: true,
+  exactOptionalPropertyTypes: true,
+  noUncheckedIndexedAccess: true,
+  noImplicitOverride: true,
+  noImplicitReturns: true,
+  noFallthroughCasesInSwitch: true,
+  noUncheckedSideEffectImports: true,
+  noUnusedLocals: true,
+  noUnusedParameters: true,
+  allowUnreachableCode: false,
+  allowUnusedLabels: false,
+  verbatimModuleSyntax: true,
+  isolatedModules: true,
+};
+
+/** Why one tracked tsconfig breaks the shared base contract; `overrides` replaces files for fixtures. */
+function sharedBaseViolations(path, overrides = {}) {
+  if (path === "tsconfig.base.json") return [];
+  const chain = extendsChain(path, overrides);
+  if (!chain.includes("tsconfig.base.json")) return [`${path} must extend tsconfig.base.json`];
+  if (path.startsWith("packages/") && !chain.includes("tsconfig.node-lib.json")) {
+    return [`${path} must use tsconfig.node-lib.json`];
+  }
+  const own = (overrides[path] ?? JSON.parse(read(path))).compilerOptions ?? {};
+  return Object.keys(sharedStrictness)
+    .filter((flag) => flag in own)
+    .map((flag) => `${path} must not override ${flag}`);
+}
+
+/** Repository-relative configs a project inherits, nearest first; `overrides` replaces files for fixtures. */
+function extendsChain(path, overrides = {}) {
+  const chain = [];
+  for (let current = path; current !== undefined;) {
+    chain.push(current);
+    const config = overrides[current] ?? JSON.parse(read(current));
+    current = typeof config.extends === "string"
+      ? relative(repositoryRoot, resolve(repositoryRoot, dirname(current), config.extends))
+      : undefined;
+  }
+  return chain;
+}
+
+function compilerOptionsOf(path) {
+  return Object.assign({}, ...extendsChain(path).reverse().map((config) => JSON.parse(read(config)).compilerOptions ?? {}));
 }
 
 function escapeRegExp(value) {

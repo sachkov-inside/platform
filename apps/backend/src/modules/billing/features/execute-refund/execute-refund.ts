@@ -31,7 +31,7 @@ const contactSchema = z.object({ emailCiphertext: z.string() });
  * `ExternalRequestId` закрепляет один запрос: потерянный ответ сверяется той же попыткой и не
  * создаёт второй возврат. Доступ и автопродление меняются только после подтверждённого возврата.
  */
-export async function executeRefund(dependencies: Dependencies, actorId: string, command: ExecuteRefundCommand): Promise<OwnerResult> {
+export async function executeRefund(dependencies: Dependencies, command: ExecuteRefundCommand): Promise<OwnerResult> {
   const { prisma, bank } = dependencies;
   if (!bank) return ownerFailure("method_unavailable");
   const decision = await prisma.billingRefundDecision.findUnique({ where: { id: command.decisionRef } });

@@ -10,7 +10,10 @@ import { z } from "zod";
  */
 export const globalAccessCapabilities = ["materials", "community", "reviews", "support"] as const;
 
-export const accessCapabilitySchema = z.union([
+export const accessCapabilitySchema: z.ZodUnion<readonly [
+  z.ZodEnum<z.core.util.ToEnum<(typeof globalAccessCapabilities)[number]>>,
+  z.ZodTemplateLiteral<`guide:${string}`>,
+]> = z.union([
   z.enum(globalAccessCapabilities),
   z.templateLiteral(["guide:", z.uuid()]),
 ]);
@@ -75,7 +78,11 @@ export function accessComposition(
 }
 
 /** Explicit products included by a tier. Legacy promises are frozen by the migration baseline. */
-export const contentScopeSchema = z.strictObject({
+export const contentScopeSchema: z.ZodObject<{
+  guideIds: z.ZodArray<z.ZodUUID>;
+  materialIds: z.ZodArray<z.ZodUUID>;
+  allGuides: z.ZodExactOptional<z.ZodLiteral<true>>;
+}, z.core.$strict> = z.strictObject({
   guideIds: z.array(z.uuid()).max(1000).refine(ids => new Set(ids).size === ids.length),
   materialIds: z.array(z.uuid()).max(1000).refine(ids => new Set(ids).size === ids.length),
   /**
@@ -117,4 +124,12 @@ export function isEmptyContentScope(scope: unknown): boolean {
     (parsed.data.allGuides !== true && parsed.data.guideIds.length === 0 && parsed.data.materialIds.length === 0);
 }
 
-export const contentScopeEntrySchema = z.strictObject({ kind: z.enum(["guide", "material"]), id: z.uuid(), title: z.string(), slug: z.string().nullable(), available: z.boolean() });
+const contentScopeEntryKinds = ["guide", "material"] as const;
+
+export const contentScopeEntrySchema: z.ZodObject<{
+  kind: z.ZodEnum<z.core.util.ToEnum<(typeof contentScopeEntryKinds)[number]>>;
+  id: z.ZodUUID;
+  title: z.ZodString;
+  slug: z.ZodNullable<z.ZodString>;
+  available: z.ZodBoolean;
+}, z.core.$strict> = z.strictObject({ kind: z.enum(contentScopeEntryKinds), id: z.uuid(), title: z.string(), slug: z.string().nullable(), available: z.boolean() });

@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-import { defineMaterialBlock } from "../block-definition.js";
+import { defineMaterialBlock, type MaterialBlockDefinition } from "../block-definition.js";
 import { nodeAttributes } from "../document-node.js";
 import {
   headingLevelSchema,
@@ -8,7 +8,7 @@ import {
   renderedTextSchema,
 } from "../rendered-block.js";
 
-export const headingBlock = defineMaterialBlock<"heading">({
+export const headingBlock: MaterialBlockDefinition = defineMaterialBlock<"heading">({
   heading: (block, tools) => ({ level: block.level, text: tools.inlineText(block.content) }),
   kind: "heading",
   render: (node, tools) => {
