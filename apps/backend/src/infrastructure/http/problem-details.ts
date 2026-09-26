@@ -45,9 +45,9 @@ export function problemDetails<
   title: Title,
   details?: Details,
 ): ProblemBody<Status, Code, Title, Details> {
-  const body = { ...details, code, status, title, type: problemType(code) };
-  // The spread keeps every detail and the four fields below override nothing: `ProblemFields`
+  // The spread keeps every detail and the four fields after it override nothing: `ProblemFields`
   // forbids them in `details`, which TypeScript cannot see through the generic spread.
+  const body = { ...details, code, status, title, type: problemType(code) };
   // oxlint-disable-next-line typescript/no-unsafe-type-assertion
   return body as ProblemBody<Status, Code, Title, Details>;
 }

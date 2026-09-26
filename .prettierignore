@@ -1,6 +1,8 @@
 # Prettier also reads .gitignore; this file adds sources whose bytes are owned elsewhere.
-*.md
 pnpm-lock.yaml
+
+# Markdown keeps its hand-wrapped prose and tables, as in inside-telegram.
+*.md
 
 # Managed by the Inside product harness package; formatting here would drift from its snapshot.
 .inside-harness/
@@ -21,7 +23,6 @@ infra/notifications/local-definitions.json
 contracts/
 docs/contracts/
 apps/backend/src/modules/*/contracts/
-apps/backend/src/infrastructure/contracts/
 
 # Captured evidence stays byte-for-byte as recorded.
 docs/evidence/
