@@ -12,9 +12,12 @@ const fixture = fileURLToPath(
   new URL("fixtures/module-initialization-order", import.meta.url),
 );
 
-/** @param {string} root */
-function run(root) {
-  const result = spawnSync(process.execPath, [checker, root], {
+/**
+ * @param {string} root
+ * @param {string[]} [project]
+ */
+function run(root, project = []) {
+  const result = spawnSync(process.execPath, [checker, root, ...project], {
     encoding: "utf8",
   });
   return { ...result, output: `${result.stdout ?? ""}${result.stderr ?? ""}` };
@@ -27,7 +30,7 @@ test("repository scripts declare module values before the code that runs", () =>
 });
 
 test("a top-level call into a function that reads a later declaration fails", () => {
-  const result = run(fixture);
+  const result = run(fixture, ["scripts-project.json"]);
   assert.notEqual(result.status, 0, "the checker accepted a late declaration");
   assert.match(
     result.output,

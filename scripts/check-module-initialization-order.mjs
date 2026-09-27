@@ -23,6 +23,8 @@ import { parseSync } from "oxc-parser";
  * обработчик на потом.
  */
 const repositoryRoot = path.resolve(process.argv[2] ?? ".");
+/** Project file relative to the root; a fixture passes its own to stay out of the tsconfig set. */
+const projectFile = process.argv[3] ?? "tsconfig.scripts.json";
 
 if (!statSync(repositoryRoot).isDirectory()) {
   throw new TypeError(
@@ -297,7 +299,7 @@ function violationsIn(source, body) {
  */
 function scriptFiles() {
   const project = JSON.parse(
-    readFileSync(path.join(repositoryRoot, "tsconfig.scripts.json"), "utf8"),
+    readFileSync(path.join(repositoryRoot, projectFile), "utf8"),
   );
   /** @type {string[]} */
   const include = project.include ?? [];
