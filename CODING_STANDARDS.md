@@ -49,9 +49,9 @@ nearest `AGENTS.md` owns task routing and verification commands.
 ## Waiting in tests
 
 A test that waits by duration measures the machine instead of the behaviour: it hides a defect on an
-idle machine and fails at random on a loaded one. No executable check owns the waiting rules, because
-a pause is the right instrument for proving that nothing happens, and a mechanical ban on pauses would
-reject correct tests. They become a fitness candidate if a narrower seam appears.
+idle machine and fails at random on a loaded one. No executable check owns this rule, because a
+pause is the right instrument for proving that nothing happens, and a mechanical ban on pauses would
+reject correct tests. It becomes a fitness candidate if a narrower seam appears.
 
 - End every wait on a committed fact: a persisted row, a rendered state, a drained queue, a reported
   outcome. A pause and an advanced virtual clock start work; neither observes it.
@@ -59,13 +59,14 @@ reject correct tests. They become a fitness candidate if a narrower seam appears
   nothing and leaves the assertion racing the change it was meant to follow.
 - Bound a barrier with a budget that only stops a stuck run. Neither raising that budget nor
   re-running the check repairs a flaky test; both hide the cause the failure was pointing at.
-- Browser suites never retry a failed test, in CI either (owner decision of 2026-09-27, #476): a
-  flaky test turns the run red on its first attempt and is fixed, not retried until it passes.
-  `scripts/playwright-specs-load.test.mjs` fails a Playwright configuration that retries.
 - Read the fact without depending on the order of rows that share a sort key: such a read answers
   from an arbitrary row and turns a correct assertion into a coin toss.
 - Proving that nothing happened is the exception. Advance a virtual clock past the interval in
   question and assert the absence, once the step before it is already pinned to its own fact.
+
+Browser suites never retry a failed test, in CI either (owner decision of 2026-09-27, #476): a flaky
+test turns the run red on its first attempt and is fixed, not retried until it passes.
+`scripts/playwright-specs-load.test.mjs` fails a Playwright configuration that retries.
 
 The nearest standard names the helper for each surface.
 

@@ -256,7 +256,9 @@ async function transition(
   await act();
   await ready();
   const millisecondsToReady = Date.now() - startedAt;
-  // Окно замера закрывает не пауза, а устоявшаяся страница с полученными ответами.
+  // Окно замера закрывает не пауза, а устоявшаяся страница с полученными ответами. Запросы,
+  // без которых переход не завершить, роутер шлёт синхронно в самом переходе, до отрисовки новой
+  // страницы (`spawnDynamicRequests` в Next.js), поэтому к готовой странице они уже посчитаны.
   await personalPartLanded(page);
   await rscRequestsSettled(page);
   const probe = z

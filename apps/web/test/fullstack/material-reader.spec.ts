@@ -167,7 +167,7 @@ test("server-renders the representative PostgreSQL Material through Nest", async
     }
   });
   page.on("pageerror", (error) => browserErrors.push(error.message));
-  await page.addInitScript(() => {
+  await page.addInitScript((takeRecordsEvent) => {
     const measurements = {
       cls: 0,
       inp: 0,
@@ -242,11 +242,11 @@ test("server-renders the representative PostgreSQL Material through Nest", async
         durationThreshold: 16,
       } as PerformanceObserverInit);
       // Колбэк наблюдателя приходит позже, чем запись встаёт в очередь; проверка забирает её сама.
-      window.addEventListener("inside:take-performance-records", () => {
+      window.addEventListener(takeRecordsEvent, () => {
         recordEvents(events.takeRecords());
       });
     }
-  });
+  }, takePerformanceRecords);
   const documentResponse = await request.get(
     "/materials/kak-ustroen-inside-platform",
   );
@@ -294,14 +294,7 @@ test("server-renders the representative PostgreSQL Material through Nest", async
   await expect(outline).toBeVisible();
   await page.getByRole("link", { name: "Проверяемый результат" }).click();
   await expect(page).toHaveURL(/#.+/u);
-  // Запись о клике для INP встаёт в очередь после кадра, показавшего его результат. Кадр после него
-  // значит, что она уже в очереди наблюдателя, и её можно забрать, не дожидаясь колбэка.
-  await page.evaluate(async () => {
-    await new Promise((resolve) =>
-      requestAnimationFrame(() => requestAnimationFrame(resolve)),
-    );
-    window.dispatchEvent(new Event("inside:take-performance-records"));
-  });
+  await framesPresented(page);
 
   const accessibility = await new AxeBuilder({ page })
     .withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"])
@@ -893,7 +886,7 @@ test("keeps desktop shell fixed while main content owns scrolling", async ({
 }, testInfo) => {
   test.skip(testInfo.project.name !== "desktop-chromium");
 
-  await page.addInitScript(() => {
+  await page.addInitScript((takeRecordsEvent) => {
     const shellCls = { value: 0 };
     Object.defineProperty(window, "__shellCls", { value: shellCls });
     const recordShifts = (entries: PerformanceEntryList) => {
@@ -910,10 +903,10 @@ test("keeps desktop shell fixed while main content owns scrolling", async ({
       recordShifts(list.getEntries());
     });
     shifts.observe({ type: "layout-shift", buffered: true });
-    window.addEventListener("inside:take-performance-records", () => {
+    window.addEventListener(takeRecordsEvent, () => {
       recordShifts(shifts.takeRecords());
     });
-  });
+  }, takePerformanceRecords);
   await page.goto("/materials/kak-ustroen-inside-platform");
   const header = page.getByRole("banner");
   const main = page.getByRole("main");
@@ -955,20 +948,33 @@ test("keeps desktop shell fixed while main content owns scrolling", async ({
   expect(await page.evaluate(() => window.scrollY)).toBe(0);
 });
 
+/** Событие, по которому наблюдатели проверок забирают свою очередь записей через `takeRecords`. */
+const takePerformanceRecords = "inside:take-performance-records";
+
+/**
+ * Два кадра отрисованы, и наблюдатели забрали записи из очереди, не дожидаясь своего колбэка:
+ * первый кадр применяет ввод и стили, после второго записи о первом уже стоят в очереди. Запись
+ * Event Timing (INP) Chromium ставит по ответу о показе кадра, и если он опоздает, событие выпадет
+ * из замера: проверка его не учтёт, но и не покраснеет от этого.
+ */
+async function framesPresented(page: Page) {
+  await page.evaluate(async (takeRecordsEvent) => {
+    await new Promise((resolve) =>
+      requestAnimationFrame(() => requestAnimationFrame(resolve)),
+    );
+    window.dispatchEvent(new Event(takeRecordsEvent));
+  }, takePerformanceRecords);
+}
+
 /**
  * Наведение отыграло целиком: стили применены, конечные анимации и переходы, которые оно запустило,
- * закончились, а сдвиги раскладки забраны из очереди наблюдателя. Бесконечные анимации не ждём:
- * они не заканчиваются, а сдвиг от них проверка увидит и так. Два кадра подряд: первый применяет
- * ввод и стили, после второго записи о первом уже стоят в очереди.
+ * закончились, а сдвиги раскладки забраны. Бесконечные анимации не ждём: они не заканчиваются, а
+ * сдвиг от них проверка увидит и так.
  */
 async function hoverSettled(page: Page) {
-  await page.evaluate(async () => {
-    const frames = () =>
-      new Promise((resolve) =>
-        requestAnimationFrame(() => requestAnimationFrame(resolve)),
-      );
-    await frames();
-    await Promise.all(
+  await framesPresented(page);
+  await page.evaluate(() =>
+    Promise.all(
       document
         .getAnimations()
         .filter(
@@ -977,41 +983,29 @@ async function hoverSettled(page: Page) {
             Number.POSITIVE_INFINITY,
         )
         .map((animation) => animation.finished.catch(() => undefined)),
-    );
-    await frames();
-    window.dispatchEvent(new Event("inside:take-performance-records"));
-  });
+    ),
+  );
+  await framesPresented(page);
 }
 
 /**
- * Колесо дошло до страницы, и кадр после него отрисован: прокрутка от него, если она есть, уже
+ * Колесо дошло до страницы, и кадры после него отрисованы: прокрутка от него, если она есть, уже
  * началась. `mouse.wheel` не ждёт ни доставки события, ни прокрутки.
  */
 async function wheelPresented(page: Page, deltaY: number) {
-  await page.evaluate(() => {
-    const delivered = new Promise<void>((resolve) => {
+  const wheel = await page.evaluateHandle(() => ({
+    delivered: new Promise<void>((resolve) => {
       window.addEventListener(
         "wheel",
         () => {
           resolve();
         },
-        {
-          capture: true,
-          once: true,
-          passive: true,
-        },
+        { capture: true, once: true, passive: true },
       );
-    });
-    Object.defineProperty(window, "__wheelDelivered", {
-      configurable: true,
-      value: delivered,
-    });
-  });
+    }),
+  }));
   await page.mouse.wheel(0, deltaY);
-  await page.evaluate(async () => {
-    await Reflect.get(window, "__wheelDelivered");
-    await new Promise((resolve) =>
-      requestAnimationFrame(() => requestAnimationFrame(resolve)),
-    );
-  });
+  await wheel.evaluate(({ delivered }) => delivered);
+  await wheel.dispose();
+  await framesPresented(page);
 }

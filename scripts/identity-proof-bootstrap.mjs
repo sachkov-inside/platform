@@ -18,6 +18,7 @@ import { fileURLToPath, URLSearchParams } from "node:url";
 import { z } from "zod";
 
 import { checkDatabaseUrl } from "./check-database.mjs";
+import { readAccessTokenTtl } from "./identity-proof-access-token.mjs";
 import {
   readIdentityProofEndpoints,
   readIdentityProofPort,
@@ -646,26 +647,6 @@ export async function retry(operation) {
   throw new Error("Logto did not become ready for bootstrap", {
     cause: lastError,
   });
-}
-
-function minutesInSeconds(minutes) {
-  return minutes * 60;
-}
-
-function readAccessTokenTtl() {
-  const value = process.env.IDENTITY_PROOF_ACCESS_TOKEN_TTL_SECONDS;
-  if (value === undefined) return minutesInSeconds(5);
-  const seconds = Number(value);
-  if (
-    !Number.isInteger(seconds) ||
-    seconds < 60 ||
-    seconds > minutesInSeconds(5)
-  ) {
-    throw new Error(
-      "IDENTITY_PROOF_ACCESS_TOKEN_TTL_SECONDS must be between 60 and 300",
-    );
-  }
-  return seconds;
 }
 
 if (process.argv[1] === fileURLToPath(import.meta.url)) {
