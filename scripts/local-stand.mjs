@@ -2,11 +2,10 @@
 // Один стенд: приложение целиком плюс вход. Одна команда доводит его до состояния, в котором
 // владелец входит по коду из письма и покупает, не переключая окружения.
 import { spawn } from "node:child_process";
-import { tmpdir } from "node:os";
 import { dirname, resolve } from "node:path";
 import process from "node:process";
 import { fileURLToPath } from "node:url";
-import lockfile from "proper-lockfile";
+import { acquireLocalSetupLock } from "./local-setup-lock.mjs";
 import { ensureSharedIdentityDirectory } from "./shared-identity-directory.mjs";
 
 const repositoryRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
@@ -50,7 +49,9 @@ const environment = {
 const smokeProject = "inside-platform-smoke";
 
 ensureSharedIdentityDirectory(repositoryRoot);
-const releaseStandLock = await acquireStandLock();
+const releaseStandLock = await acquireLocalSetupLock(
+  "Another local setup owns the machine-wide setup lock. Wait for its handoff or stop that session before retrying.",
+);
 let shouldCleanupCompose = false;
 /** @type {NodeJS.Signals | undefined} */
 let interruptedSignal;
@@ -206,30 +207,6 @@ async function run(
     activeProcesses.delete(child);
   }
   return { output };
-}
-
-/**
- * Стенд владеет тем же проектом Compose, портами и томом PostgreSQL, что и локальная установка,
- * поэтому замок у них общий: два старта одновременно означали бы две сборки одного стенда.
- */
-async function acquireStandLock() {
-  const lockTarget = resolve(tmpdir(), "inside-platform-local-setup");
-  try {
-    return await lockfile.lock(lockTarget, {
-      realpath: false,
-      retries: 0,
-      stale: 30_000,
-      update: 10_000,
-    });
-  } catch (error) {
-    if (error instanceof Error && "code" in error && error.code === "ELOCKED") {
-      throw new Error(
-        "Another local setup owns the machine-wide setup lock. Wait for its handoff or stop that session before retrying.",
-        { cause: error },
-      );
-    }
-    throw error;
-  }
 }
 
 function shutdown() {

@@ -1,11 +1,10 @@
 // @ts-check
 import { spawn } from "node:child_process";
 import { copyFileSync, existsSync } from "node:fs";
-import { tmpdir } from "node:os";
 import { dirname, resolve } from "node:path";
 import process from "node:process";
 import { fileURLToPath } from "node:url";
-import lockfile from "proper-lockfile";
+import { acquireLocalSetupLock } from "./local-setup-lock.mjs";
 
 const repositoryRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 // The smoke needs published demonstration content, so this verified stack is a disposable project
@@ -22,7 +21,9 @@ if (pnpmExecutable === undefined) {
 }
 const pnpmPath = pnpmExecutable;
 
-const releaseSetupLock = await acquireSetupLock();
+const releaseSetupLock = await acquireLocalSetupLock(
+  "Another local setup owns the machine-wide setup lock. Wait for its handoff or stop that session before retrying.",
+);
 const environmentPath = resolve(repositoryRoot, ".env");
 if (!existsSync(environmentPath)) {
   copyFileSync(resolve(repositoryRoot, ".env.example"), environmentPath);
@@ -119,26 +120,6 @@ async function runPnpm(arguments_, capture = false) {
     );
   }
   return { output };
-}
-
-async function acquireSetupLock() {
-  const lockTarget = resolve(tmpdir(), "inside-platform-local-setup");
-  try {
-    return await lockfile.lock(lockTarget, {
-      realpath: false,
-      retries: 0,
-      stale: 30_000,
-      update: 10_000,
-    });
-  } catch (error) {
-    if (error instanceof Error && "code" in error && error.code === "ELOCKED") {
-      throw new Error(
-        "Another local setup owns the machine-wide setup lock. Wait for its handoff or stop that session before retrying.",
-        { cause: error },
-      );
-    }
-    throw error;
-  }
 }
 
 function shutdown() {
