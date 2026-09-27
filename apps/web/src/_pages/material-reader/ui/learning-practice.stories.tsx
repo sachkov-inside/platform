@@ -159,7 +159,7 @@ export const PublicLesson: Story = {
     await expect(slot?.getBoundingClientRect().height).toBe(44);
     await expect(
       canvas.queryByRole("region", { name: "Проверка практики" }),
-    ).not.toBeInTheDocument();
+    ).not.toBeVisible();
     await userEvent.click(
       canvas.getByText("Открыть проверку практики", { exact: true }),
     );
