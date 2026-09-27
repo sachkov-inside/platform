@@ -68,9 +68,9 @@ nearest `AGENTS.md` owns task routing and verification commands.
 ## Waiting in tests
 
 A test that waits by duration measures the machine instead of the behaviour: it hides a defect on an
-idle machine and fails at random on a loaded one. No executable check owns this rule, because a
-pause is the right instrument for proving that nothing happens, and a mechanical ban on pauses would
-reject correct tests. It becomes a fitness candidate if a narrower seam appears.
+idle machine and fails at random on a loaded one. No executable check owns this rule as a whole,
+because a pause is the right instrument for proving that nothing happens, and a mechanical ban on
+pauses would reject correct tests; the quiet-window exception below has its own check.
 
 - End every wait on a committed fact: a persisted row, a rendered state, a drained queue, a reported
   outcome. A pause and an advanced virtual clock start work; neither observes it.
@@ -82,6 +82,14 @@ reject correct tests. It becomes a fitness candidate if a narrower seam appears.
   from an arbitrary row and turns a correct assertion into a coin toss.
 - Proving that nothing happened is the exception. Advance a virtual clock past the interval in
   question and assert the absence, once the step before it is already pinned to its own fact.
+
+One wait ends on a quiet window instead of a fact (owner decision of 2026-09-27, #758):
+`viewportPrefetchDrained` in `apps/web/test/navigation/instant-navigation.spec.ts` waits for
+`networkidle`. The Next.js prefetch queue is private module state, and optimistic routing skips
+requests for links whose route it predicts, so no page-visible fact marks the end of the queue (the
+analysis is in #758). Revisit it when Next.js exposes the queue or optimistic routing changes.
+`scripts/quiet-window-waits.test.mjs` fails any other `networkidle` wait in the application tests
+and browser scripts.
 
 Browser suites never retry a failed test, in CI either (owner decision of 2026-09-27, #476): a flaky
 test turns the run red on its first attempt and is fixed, not retried until it passes.

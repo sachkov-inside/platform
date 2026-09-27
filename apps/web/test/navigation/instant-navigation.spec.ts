@@ -333,7 +333,8 @@ async function readWebVitals(page: Page): Promise<Record<string, number>> {
  * Очередь предзагрузки видимых ссылок опустела: роутер начинает её после гидрации и шлёт запросы
  * один за другим, поэтому её конец — затихшая сеть свежего документа. Барьер годится только сразу
  * после `goto`: для уже затихшего документа Playwright отвечает сразу, ничего не дожидаясь, а
- * backend, замедленный раньше времени, достался бы самой предзагрузке.
+ * backend, замедленный раньше времени, достался бы самой предзагрузке. Единственное окно тишины
+ * вместо факта — исключение из «Waiting in tests» в корневом CODING_STANDARDS.md (#758).
  */
 async function viewportPrefetchDrained(page: Page) {
   await page.waitForLoadState("networkidle");
