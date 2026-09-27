@@ -244,8 +244,8 @@ test("guide programme appends a real composition and restores Reader return posi
     await expect(row).toBeInViewport();
     await expect(page.locator("[data-series-ordinal]:visible")).toHaveCount(13);
     // Возврат загружает документ заново. Пока личная часть в пути, на экране программа на общих
-    // данных, и выбор вкладки в ней пропадает, когда личная часть её сменяет (ADR 0027). «Всё
-    // открыто» пишет только личная часть.
+    // данных (ADR 0027); личная часть сменяет её своим деревом, и выбранная там вкладка пропадает.
+    // «Всё открыто» пишет только личная часть.
     await expect(
       page.getByText("13 материалов · всё открыто").filter({ visible: true }),
     ).toBeVisible();
