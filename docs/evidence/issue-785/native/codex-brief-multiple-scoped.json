@@ -1,0 +1,11 @@
+{
+  "action": "clarify_scope",
+  "question": "В текущем проекте найдены два самостоятельных варианта брифа: workspaces/approach-one/brief.md и workspaces/approach-two/brief.md. Какой из них проверять?",
+  "contextVersion": "274ddd1f22596330a63f5e72e6b29a190423aecc572729fbd4e082f41f647f8f",
+  "partsRead": [
+    0,
+    1
+  ],
+  "terminalMarker": "END_CONTEXT:274ddd1f22596330a63f5e72e6b29a190423aecc572729fbd4e082f41f647f8f",
+  "criteria": []
+}
