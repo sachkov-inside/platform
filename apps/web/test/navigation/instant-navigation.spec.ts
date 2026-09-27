@@ -124,14 +124,41 @@ async function backendRequests(): Promise<
     .parse(await response.json()).requests;
 }
 
-/** Записывает всё занятое (`aria-busy`) и все скелеты маршрутов, которые появлялись в документе. */
+/**
+ * Записывает всё занятое (`aria-busy`) и все скелеты маршрутов, которые появлялись в документе, и
+ * считает запросы RSC в момент вызова `fetch`: счёт в самой странице не зависит от того, когда
+ * событие запроса дойдёт до проверки.
+ */
 async function installProbe(page: Page) {
   await page.addInitScript(() => {
     const probe = {
       highestFooterWhileLoading: null as number | null,
+      /** Запросы RSC ради перехода; предзагрузка сюда не входит. */
+      navigationRequests: 0,
+      /** Запросы RSC, ответ на которые ещё не дочитан до конца. */
+      pendingRequests: 0,
       skeletons: [] as string[],
     };
     Object.assign(window, { __navigationProbe: probe });
+    const nativeFetch = window.fetch.bind(window);
+    window.fetch = (input, init) => {
+      const headers = new Headers(
+        init?.headers ?? (input instanceof Request ? input.headers : undefined),
+      );
+      if (headers.get("rsc") !== "1") return nativeFetch(input, init);
+      if (!headers.has("next-router-prefetch")) probe.navigationRequests += 1;
+      probe.pendingRequests += 1;
+      const response = nativeFetch(input, init);
+      // Копию ответа дочитываем сами: роутер может бросить поток, взяв из него нужное, а сервер
+      // закончил работу над запросом, только когда отдал ответ целиком или запрос оборван.
+      void response
+        .then((answer) => answer.clone().arrayBuffer())
+        .catch(() => undefined)
+        .finally(() => {
+          probe.pendingRequests -= 1;
+        });
+      return response;
+    };
     const describe = (element: Element) =>
       element.getAttribute("data-route-skeleton") ??
       element.getAttribute("data-discovery-state") ??
@@ -184,14 +211,25 @@ async function resetProbe(page: Page) {
     // Проба читает поля при каждой записи, поэтому новые значения сразу становятся её состоянием.
     Reflect.set(probe, "skeletons", []);
     Reflect.set(probe, "highestFooterWhileLoading", null);
+    Reflect.set(probe, "navigationRequests", 0);
   });
 }
 
-function isNavigationRequest(request: Request): boolean {
-  const headers = request.headers();
-  return (
-    headers["rsc"] === "1" && headers["next-router-prefetch"] === undefined
-  );
+/**
+ * На все запросы RSC, начатые страницей, ответ получен целиком. Сервер к этому моменту закончил их
+ * рисовать, поэтому каждое чтение backend ради них уже есть в журнале подставного backend.
+ */
+async function rscRequestsSettled(page: Page) {
+  await expect
+    .poll(() =>
+      page.evaluate((): unknown => {
+        const probe: unknown = Reflect.get(window, "__navigationProbe");
+        return typeof probe === "object" && probe !== null
+          ? Reflect.get(probe, "pendingRequests")
+          : "проба не установлена";
+      }),
+    )
+    .toBe(0);
 }
 
 /**
@@ -214,21 +252,17 @@ async function transition(
 ): Promise<TransitionMetrics> {
   await personalPartLanded(page);
   await resetProbe(page);
-  let navigationRequests = 0;
-  const count = (request: Request) => {
-    if (isNavigationRequest(request)) navigationRequests += 1;
-  };
-  page.on("request", count);
   const startedAt = Date.now();
   await act();
   await ready();
   const millisecondsToReady = Date.now() - startedAt;
-  // Запрос, начатый переходом, мог ещё не уйти: даём ему такт.
-  await page.waitForTimeout(150);
-  page.off("request", count);
+  // Окно замера закрывает не пауза, а устоявшаяся страница с полученными ответами.
+  await personalPartLanded(page);
+  await rscRequestsSettled(page);
   const probe = z
     .object({
       highestFooterWhileLoading: z.number().nullable(),
+      navigationRequests: z.number(),
       skeletons: z.array(z.string()),
     })
     .parse(
@@ -246,7 +280,7 @@ async function transition(
   return {
     highestFooterWhileLoading: probe.highestFooterWhileLoading,
     millisecondsToReady,
-    navigationRequests,
+    navigationRequests: probe.navigationRequests,
     routerTransitionMilliseconds,
     skeletons: [...probe.skeletons],
   };
@@ -502,6 +536,11 @@ test("программа ↔ урок: свой скелет на первом �
     foreign(toLesson.skeletons, "material-reader"),
     "и никакого другого",
   ).toEqual([]);
+  // Без этого нули ниже ничего не доказывали бы: проба обязана видеть запросы роутера.
+  expect(
+    toLesson.navigationRequests,
+    "первый переход в урок запрашивает RSC",
+  ).toBeGreaterThan(0);
   expect(
     toLesson.highestFooterWhileLoading ?? 1,
     "подвал не поднимается под скелет урока",
@@ -617,6 +656,7 @@ test("намерение предзагружает общую часть уро
 test("повторный переход не ходит в backend, а гость нигде не предъявляет токен", async ({
   page,
 }) => {
+  await installProbe(page);
   await fetch(`${backend}/__requests`, { method: "DELETE" });
   await page.goto(programme);
   await programmeReady(page)();
@@ -657,7 +697,8 @@ test("повторный переход не ходит в backend, а гост�
   await lessonReady(page, freeLesson)();
   await page.getByRole("link", { name: "Назад к программе" }).first().click();
   await programmeReady(page)();
-  await page.waitForTimeout(300);
+  await personalPartLanded(page);
+  await rscRequestsSettled(page);
 
   const requests = await backendRequests();
   // Личные чтения браузера (прогресс, закладки) гостю выключены, а страницы взяты из памяти.

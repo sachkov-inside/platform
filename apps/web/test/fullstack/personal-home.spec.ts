@@ -401,6 +401,7 @@ test("personal Home retries an already visible open with the same command after 
   page,
   context,
 }) => {
+  await page.clock.install();
   await signInFullStack(context);
   await dismissOnboarding(page);
   const commands: string[] = [];
@@ -424,10 +425,16 @@ test("personal Home retries an already visible open with the same command after 
       response.url().endsWith("/api/reading-progress/open") &&
       response.status() === 200,
   );
+  const failed = page.waitForEvent("requestfailed", (request) =>
+    request.url().endsWith("/api/reading-progress/open"),
+  );
   await page.goto("/materials/kak-ustroen-inside-platform");
-  await expect.poll(() => commands.length).toBe(1);
-  // Cross the retry delay while hidden: TanStack may pause delivery, but it must retain the command.
-  await page.waitForTimeout(1_200);
+  // The page sets the retry timer once the failure reaches it, so the clock runs only after that.
+  await failed;
+  expect(commands).toHaveLength(1);
+  // Cross OPEN_RETRY_DELAY_MS (1 s) while hidden: TanStack may pause delivery, but it must retain
+  // the command. The virtual clock is the trigger; the retried response below is the fact.
+  await page.clock.runFor(1_200);
   await page.evaluate(() => {
     Object.defineProperty(document, "visibilityState", {
       configurable: true,

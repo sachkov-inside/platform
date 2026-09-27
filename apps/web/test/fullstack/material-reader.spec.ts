@@ -228,15 +228,23 @@ test("server-renders the representative PostgreSQL Material through Nest", async
       }).observe({ type: "largest-contentful-paint", buffered: true });
     }
     if (PerformanceObserver.supportedEntryTypes.includes("event")) {
-      new PerformanceObserver((list) => {
-        for (const entry of list.getEntries()) {
+      const recordEvents = (entries: PerformanceEntryList) => {
+        for (const entry of entries) {
           measurements.inp = Math.max(measurements.inp, entry.duration);
         }
-      }).observe({
+      };
+      const events = new PerformanceObserver((list) => {
+        recordEvents(list.getEntries());
+      });
+      events.observe({
         type: "event",
         buffered: true,
         durationThreshold: 16,
       } as PerformanceObserverInit);
+      // Колбэк наблюдателя приходит позже, чем запись встаёт в очередь; проверка забирает её сама.
+      window.addEventListener("inside:take-performance-records", () => {
+        recordEvents(events.takeRecords());
+      });
     }
   });
   const documentResponse = await request.get(
@@ -285,7 +293,15 @@ test("server-renders the representative PostgreSQL Material through Nest", async
   }
   await expect(outline).toBeVisible();
   await page.getByRole("link", { name: "Проверяемый результат" }).click();
-  await page.waitForTimeout(100);
+  await expect(page).toHaveURL(/#.+/u);
+  // Запись о клике для INP встаёт в очередь после кадра, показавшего его результат. Кадр после него
+  // значит, что она уже в очереди наблюдателя, и её можно забрать, не дожидаясь колбэка.
+  await page.evaluate(async () => {
+    await new Promise((resolve) =>
+      requestAnimationFrame(() => requestAnimationFrame(resolve)),
+    );
+    window.dispatchEvent(new Event("inside:take-performance-records"));
+  });
 
   const accessibility = await new AxeBuilder({ page })
     .withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"])
@@ -880,16 +896,23 @@ test("keeps desktop shell fixed while main content owns scrolling", async ({
   await page.addInitScript(() => {
     const shellCls = { value: 0 };
     Object.defineProperty(window, "__shellCls", { value: shellCls });
-    new PerformanceObserver((list) => {
+    const recordShifts = (entries: PerformanceEntryList) => {
       // lib.dom has no LayoutShift yet, so the entry fields are read as unknown.
-      for (const entry of list.getEntries()) {
+      for (const entry of entries) {
         if (!("value" in entry) || typeof entry.value !== "number") continue;
         if ("hadRecentInput" in entry && entry.hadRecentInput === true) {
           continue;
         }
         shellCls.value += entry.value;
       }
-    }).observe({ type: "layout-shift", buffered: true });
+    };
+    const shifts = new PerformanceObserver((list) => {
+      recordShifts(list.getEntries());
+    });
+    shifts.observe({ type: "layout-shift", buffered: true });
+    window.addEventListener("inside:take-performance-records", () => {
+      recordShifts(shifts.takeRecords());
+    });
   });
   await page.goto("/materials/kak-ustroen-inside-platform");
   const header = page.getByRole("banner");
@@ -906,33 +929,89 @@ test("keeps desktop shell fixed while main content owns scrolling", async ({
     }
   });
   await header.hover();
-  await expect
-    .poll(() =>
-      main.evaluate((element) => {
-        const { width, x } = element.getBoundingClientRect();
-        return { width, x };
-      }),
-    )
-    .toEqual(initialMainRect);
-  await page.waitForTimeout(500);
+  await hoverSettled(page);
+  expect(
+    await main.evaluate((element) => {
+      const { width, x } = element.getBoundingClientRect();
+      return { width, x };
+    }),
+  ).toEqual(initialMainRect);
   const shellCls = z
     .object({ value: z.number() })
     .parse(
       await page.evaluate((): unknown => Reflect.get(window, "__shellCls")),
     );
   expect(shellCls.value).toBeLessThanOrEqual(0.001);
-  await page.mouse.wheel(0, 600);
-  await page.waitForTimeout(100);
-  await expect.poll(() => page.evaluate(() => window.scrollY)).toBe(0);
-  await expect
-    .poll(() => main.evaluate((element) => element.scrollTop))
-    .toBe(0);
+  await wheelPresented(page, 600);
+  expect(await page.evaluate(() => window.scrollY)).toBe(0);
+  expect(await main.evaluate((element) => element.scrollTop)).toBe(0);
 
   await main.hover({ position: { x: 600, y: 400 } });
-  await page.mouse.wheel(0, 600);
-  await page.waitForTimeout(100);
-  await expect.poll(() => page.evaluate(() => window.scrollY)).toBe(0);
+  await wheelPresented(page, 600);
+  // Сначала факт прокрутки основной области, потом отсутствие прокрутки окна при нём.
   await expect
     .poll(() => main.evaluate((element) => element.scrollTop))
     .toBeGreaterThan(0);
+  expect(await page.evaluate(() => window.scrollY)).toBe(0);
 });
+
+/**
+ * Наведение отыграло целиком: стили применены, конечные анимации и переходы, которые оно запустило,
+ * закончились, а сдвиги раскладки забраны из очереди наблюдателя. Бесконечные анимации не ждём:
+ * они не заканчиваются, а сдвиг от них проверка увидит и так. Два кадра подряд: первый применяет
+ * ввод и стили, после второго записи о первом уже стоят в очереди.
+ */
+async function hoverSettled(page: Page) {
+  await page.evaluate(async () => {
+    const frames = () =>
+      new Promise((resolve) =>
+        requestAnimationFrame(() => requestAnimationFrame(resolve)),
+      );
+    await frames();
+    await Promise.all(
+      document
+        .getAnimations()
+        .filter(
+          (animation) =>
+            animation.effect?.getComputedTiming().endTime !==
+            Number.POSITIVE_INFINITY,
+        )
+        .map((animation) => animation.finished.catch(() => undefined)),
+    );
+    await frames();
+    window.dispatchEvent(new Event("inside:take-performance-records"));
+  });
+}
+
+/**
+ * Колесо дошло до страницы, и кадр после него отрисован: прокрутка от него, если она есть, уже
+ * началась. `mouse.wheel` не ждёт ни доставки события, ни прокрутки.
+ */
+async function wheelPresented(page: Page, deltaY: number) {
+  await page.evaluate(() => {
+    const delivered = new Promise<void>((resolve) => {
+      window.addEventListener(
+        "wheel",
+        () => {
+          resolve();
+        },
+        {
+          capture: true,
+          once: true,
+          passive: true,
+        },
+      );
+    });
+    Object.defineProperty(window, "__wheelDelivered", {
+      configurable: true,
+      value: delivered,
+    });
+  });
+  await page.mouse.wheel(0, deltaY);
+  await page.evaluate(async () => {
+    await Reflect.get(window, "__wheelDelivered");
+    await new Promise((resolve) =>
+      requestAnimationFrame(() => requestAnimationFrame(resolve)),
+    );
+  });
+}
