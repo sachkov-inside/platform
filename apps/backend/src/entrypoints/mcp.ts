@@ -22,9 +22,15 @@ import {
   type LogtoAccessTokenVerifier,
 } from "../modules/accounts/index.js";
 import {
+  PUBLISHED_MATERIAL_READER,
+  type PublishedMaterialReader,
   MATERIAL_AUTHORING,
   type MaterialAuthoring,
 } from "../modules/materials/index.js";
+import {
+  CONTENT_ACCESS,
+  type ContentAccess,
+} from "../modules/content-access/index.js";
 import { createMcpApplication } from "./create-mcp-application.js";
 import { createMcpHttpServer } from "./mcp/mcp-http-server.js";
 
@@ -37,6 +43,13 @@ async function bootstrap(): Promise<void> {
   const shutdown = listenForProcessShutdown();
   const server = createMcpHttpServer({
     accounts: application.get<Accounts>(ACCOUNTS),
+    learning: {
+      reader: application.get<PublishedMaterialReader>(
+        PUBLISHED_MATERIAL_READER,
+      ),
+      contentAccess: application.get<ContentAccess>(CONTENT_ACCESS),
+      videos: application.get<Videos>(VIDEOS),
+    },
     authoring: application.get<MaterialAuthoring>(MATERIAL_AUTHORING),
     videos: application.get<Videos>(VIDEOS),
     communications: application.get(Communications),

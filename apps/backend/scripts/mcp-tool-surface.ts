@@ -1,3 +1,5 @@
+import { assembleLearnerMcpServer } from "../src/modules/content-library/index.js";
+import { refusingLearnerMcpDependencies } from "../test/fixtures/learner-mcp.js";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import path from "node:path";
 import process from "node:process";
@@ -9,12 +11,16 @@ import { assembleInsideMcpServer } from "../src/entrypoints/mcp/inside-mcp-serve
 import { refusingMcpToolDependencies } from "../test/fixtures/inside-mcp-dependencies.js";
 import {
   committedToolSurfacePath,
+  committedLearnerToolSurfacePath,
   formatToolSurface,
   parseToolSurface,
 } from "./mcp-tool-surface-file.js";
 
 const checkOnly = process.argv.includes("--check");
-const surfacePath = readOption("--surface") ?? committedToolSurfacePath;
+const learning = process.argv.includes("--learning");
+const surfacePath =
+  readOption("--surface") ??
+  (learning ? committedLearnerToolSurfacePath : committedToolSurfacePath);
 
 const registered = await registeredToolNames();
 const generated = formatToolSurface(registered);
@@ -44,10 +50,15 @@ if (checkOnly) {
 
 /** Имена инструментов ровно того сервера, который собирает HTTP-вход MCP. */
 async function registeredToolNames(): Promise<string[]> {
-  const server = assembleInsideMcpServer({
-    accountId: "00000000-0000-4000-8000-000000000000",
-    ...refusingMcpToolDependencies(),
-  });
+  const server = learning
+    ? assembleLearnerMcpServer({
+        accountId: "00000000-0000-4000-8000-000000000000",
+        ...refusingLearnerMcpDependencies(),
+      })
+    : assembleInsideMcpServer({
+        accountId: "00000000-0000-4000-8000-000000000000",
+        ...refusingMcpToolDependencies(),
+      });
   const [clientTransport, serverTransport] =
     InMemoryTransport.createLinkedPair();
   const client = new Client({

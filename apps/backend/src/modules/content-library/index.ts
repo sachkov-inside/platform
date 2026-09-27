@@ -14,3 +14,8 @@ export {
   publishedCatalogItemHttpSchema,
   publishedCatalogFacetHttpSchema,
 } from "./shared/published-catalog-http.js";
+
+export {
+  assembleLearnerMcpServer,
+  type LearnerMcpDependencies,
+} from "./adapters/mcp/learning-materials-mcp.js";

@@ -1,3 +1,8 @@
+import { verifiedAccountSignIn } from "../../src/modules/accounts/facets/accounts/verified-logto-identity.js";
+import {
+  CONTENT_ACCESS,
+  type ContentAccess,
+} from "../../src/modules/content-access/index.js";
 import { VIDEOS, type Videos } from "../../src/modules/videos/index.js";
 import { BillingOperations } from "../../src/modules/billing/index.js";
 import { Communications } from "../../src/modules/communications/index.js";
@@ -28,6 +33,8 @@ import {
   type LogtoAccessTokenVerifier,
 } from "../../src/modules/accounts/index.js";
 import {
+  PUBLISHED_MATERIAL_READER,
+  type PublishedMaterialReader,
   MATERIAL_AUTHORING,
   type MaterialAuthoring,
 } from "../../src/modules/materials/index.js";
@@ -52,6 +59,7 @@ describe("delegated Material authoring over MCP", () => {
   let jwksServer: Server;
   let mcpServer: McpHttpServer;
   let ownerAccountId: string;
+  let endpoint: URL;
   let privateKey: CryptoKey;
 
   beforeAll(async () => {
@@ -108,6 +116,13 @@ describe("delegated Material authoring over MCP", () => {
     application = await createMcpApplication(config, { logger: false });
     mcpServer = createMcpHttpServer({
       accounts: application.get<Accounts>(ACCOUNTS),
+      learning: {
+        reader: application.get<PublishedMaterialReader>(
+          PUBLISHED_MATERIAL_READER,
+        ),
+        contentAccess: application.get<ContentAccess>(CONTENT_ACCESS),
+        videos: application.get<Videos>(VIDEOS),
+      },
       authoring: application.get<MaterialAuthoring>(MATERIAL_AUTHORING),
       videos: application.get<Videos>(VIDEOS),
       communications: application.get(Communications),
@@ -123,7 +138,7 @@ describe("delegated Material authoring over MCP", () => {
         LOGTO_ACCESS_TOKEN_VERIFIER,
       ),
     });
-    const endpoint = await mcpServer.listen();
+    endpoint = await mcpServer.listen();
     client = new Client({ name: "platform-integration", version: "1.0.0" });
     const token = await signOwnerToken();
     await client.connect(
@@ -644,6 +659,97 @@ describe("delegated Material authoring over MCP", () => {
     expect(first["uploadEndpoint"]).toMatch(/^https:\/\/uploads\.invalid\//u);
   });
 
+  test("ordinary participant discovers and reads full published content without author rights", async () => {
+    const accounts = application.get<Accounts>(ACCOUNTS);
+    const identity = verifiedAccountSignIn({
+      issuer,
+      subject: "learner-782",
+      verifiedEmail: "learner782@example.test",
+    });
+    const established = await accounts.establishAccount({
+      identity: identity.identity,
+    });
+    if (!established.ok) throw new Error("Fixture account failed");
+    expect(
+      await accounts.checkPermission({
+        accountId: established.account.accountId,
+        permission: "materials:manage",
+      }),
+    ).toMatchObject({ ok: true, allowed: false });
+    const learner = new Client({ name: "ordinary-learner", version: "1" });
+    const token = await signOwnerToken("learner-782");
+    try {
+      await learner.connect(
+        new StreamableHTTPClientTransport(
+          new URL(`${endpoint.pathname}/learning`, endpoint),
+          { authProvider: { token: () => Promise.resolve(token) } },
+        ),
+      );
+      for (const access of ["free", "membership"] as const) {
+        const title = `Learner ${access}`;
+        const created = await callTool("material_create_draft", {
+          idempotencyKey: `learner-${access}-create`,
+          metadata: metadata(title, access),
+          body: representativeDocument(`PRIVATE ${access} full lesson END`),
+        });
+        const materialId = successfulMaterialId(created);
+        await callTool("material_save", {
+          idempotencyKey: `learner-${access}-publish`,
+          materialId,
+          expectedContentVersion: 1,
+          primaryVideoId: null,
+          publicationState: "published",
+          metadata: metadata(title, access),
+          body: representativeDocument(`PRIVATE ${access} full lesson END`),
+        });
+        const loaded = successfulValue(
+          await callTool("material_load", { materialId }),
+        );
+        const slug = z
+          .object({ metadata: z.object({ slug: z.string() }) })
+          .parse(loaded).metadata.slug;
+        const read = await learner.callTool({
+          name: "learning_material_read",
+          arguments: { slug, expectedContentVersion: 2 },
+        });
+        const text = z
+          .object({
+            content: z.array(
+              z.object({ type: z.literal("text"), text: z.string() }),
+            ),
+          })
+          .parse(read)
+          .content.map((item) => item.text)
+          .join("");
+        if (access === "free") {
+          expect(read.isError).toBe(false);
+          expect(text).toContain("PRIVATE free full lesson END");
+          const stale = await learner.callTool({
+            name: "learning_material_read",
+            arguments: { slug, expectedContentVersion: 1 },
+          });
+          expect(JSON.stringify(stale)).toContain("content_version_mismatch");
+          expect(JSON.stringify(stale)).not.toContain("PRIVATE free");
+        } else {
+          expect(read.isError).toBe(true);
+          expect(text).not.toContain("PRIVATE membership");
+        }
+      }
+      const catalog = await learner.callTool({
+        name: "learning_materials_list",
+        arguments: { first: 24 },
+      });
+      expect(catalog.isError).toBe(false);
+      expect(JSON.stringify(catalog)).toContain("Learner free");
+      expect(JSON.stringify(catalog)).not.toContain("PRIVATE membership");
+      await expect(
+        learner.callTool({ name: "material_save", arguments: {} }),
+      ).rejects.toThrow("not found");
+    } finally {
+      await learner.close();
+    }
+  });
+
   function callTool(
     name: string,
     arguments_: Record<string, unknown>,
@@ -651,13 +757,13 @@ describe("delegated Material authoring over MCP", () => {
     return client.callTool({ name, arguments: arguments_ });
   }
 
-  function signOwnerToken(): Promise<string> {
+  function signOwnerToken(subject: string = ownerSubject): Promise<string> {
     const now = Math.floor(Date.now() / 1_000);
     return new SignJWT({ roles: ["owner"], scope: "materials:manage" })
       .setProtectedHeader({ alg: "ES384", kid: "mcp-integration-key" })
       .setIssuer(issuer)
       .setAudience(audience)
-      .setSubject(ownerSubject)
+      .setSubject(subject)
       .setIssuedAt(now)
       .setExpirationTime(now + 300)
       .sign(privateKey);

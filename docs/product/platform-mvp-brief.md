@@ -468,6 +468,12 @@ Material: content, metadata, series membership, assets, access и publication st
 архивирует их и атомарно сохраняет полный состав, порядок и главы Guide с optimistic conflict
 protection.
 
+Участник также может читать доступные материалы через отдельную учебную MCP-поверхность
+([#782](https://github.com/sachkov-inside/platform/issues/782)). Она передаёт полный текст в
+структурированных блоках и ссылки на медиа по существующим правам участника. Проверка практики,
+задания и AI-помощник не входят в эту основу; контракт чтения находится в
+[спецификации MCP](../specifications/platform-v1.md#mcp).
+
 MCP является обязательной частью первой версии. Админка и MCP используют один application API и
 одни domain rules; MCP не обращается к базе напрямую. Agent interface должен позволять:
 

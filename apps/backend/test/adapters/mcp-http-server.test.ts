@@ -1,3 +1,4 @@
+import { refusingLearnerMcpDependencies } from "../fixtures/learner-mcp.js";
 import { exportJWK, generateKeyPair, SignJWT, type CryptoKey } from "jose";
 import {
   Client,
@@ -34,6 +35,7 @@ describe("MCP Streamable HTTP adapter", () => {
     };
     server = createMcpHttpServer({
       accounts: fakeAccounts(),
+      learning: refusingLearnerMcpDependencies(),
       ...refusingMcpToolDependencies(),
       config: {
         host: "127.0.0.1",
@@ -95,6 +97,45 @@ describe("MCP Streamable HTTP adapter", () => {
         tools.find((tool) => tool.name === "billing_grants_classify")
           ?.annotations,
       ).toMatchObject({ readOnlyHint: false, destructiveHint: true });
+    } finally {
+      await client.close();
+    }
+  });
+
+  test("isolates the authenticated learner endpoint and its discovery metadata", async () => {
+    const learning = new URL(`${endpoint.pathname}/learning`, endpoint);
+    const client = new Client({ name: "learning-http", version: "1" });
+    try {
+      await client.connect(
+        new StreamableHTTPClientTransport(learning, {
+          authProvider: { token: () => signToken("owner-001") },
+        }),
+      );
+      const listed = await client.listTools();
+      expect(listed.tools.map(({ name }) => name).sort()).toEqual([
+        "learning_material_read",
+        "learning_materials_list",
+      ]);
+      await expect(
+        client.callTool({ name: "material_create_draft", arguments: {} }),
+      ).rejects.toThrow("not found");
+      const rejected = await fetch(learning, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: "{}",
+      });
+      expect(rejected.status).toBe(401);
+      expect(rejected.headers.get("cache-control")).toBe("private, no-store");
+      expect(rejected.headers.get("www-authenticate")).toContain(
+        "/.well-known/oauth-protected-resource/mcp/learning",
+      );
+      const metadata = await fetch(
+        new URL("/.well-known/oauth-protected-resource/mcp/learning", endpoint),
+      );
+      await expect(metadata.json()).resolves.toMatchObject({
+        resource: "http://127.0.0.1:0/mcp/learning",
+        resource_name: "Sachkov Inside learning materials",
+      });
     } finally {
       await client.close();
     }
