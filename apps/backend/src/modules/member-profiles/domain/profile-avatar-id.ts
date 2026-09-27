@@ -2,21 +2,17 @@ import { randomUUID } from "node:crypto";
 
 import { z } from "zod";
 
-declare const profileAvatarIdBrand: unique symbol;
-export type ProfileAvatarId = string & {
-  readonly [profileAvatarIdBrand]: true;
-};
+const profileAvatarIdSchema = z.uuid().brand<"ProfileAvatarId">();
+
+export type ProfileAvatarId = z.output<typeof profileAvatarIdSchema>;
 
 export function newProfileAvatarId(): ProfileAvatarId {
-  // This is the single constructor for UUIDs produced by the trusted runtime.
-  // oxlint-disable-next-line typescript/no-unsafe-type-assertion
-  return randomUUID() as ProfileAvatarId;
+  return profileAvatarIdSchema.parse(randomUUID());
 }
 
 export function parseProfileAvatarId(
   value: unknown,
 ): ProfileAvatarId | undefined {
-  const result = z.uuid().safeParse(value);
-  // oxlint-disable-next-line typescript/no-unsafe-type-assertion
-  return result.success ? (result.data as ProfileAvatarId) : undefined;
+  const result = profileAvatarIdSchema.safeParse(value);
+  return result.success ? result.data : undefined;
 }
