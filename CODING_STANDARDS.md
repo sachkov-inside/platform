@@ -40,6 +40,12 @@ nearest `AGENTS.md` owns task routing and verification commands.
   application's dependency through `createRequire` takes its types from the application's
   `test/support/proof-dependencies`: a type import by a relative path into `node_modules` cannot
   resolve the package's own imports.
+- Code that runs at a script's top level calls a module function only after every module `const`,
+  `let` and `class` that function reads is declared: a function is hoisted, its values are not, and
+  the script fails with `ReferenceError` only when it runs (#774).
+  `scripts/check-module-initialization-order.mjs` in `pnpm guardrails` fails a top-level statement
+  that calls or passes by name such a function, arrow function or class declaration; a callback the
+  statement runs at once, such as one given to `.map()`, is outside the check.
 - Keep checked-in generated contracts deterministic. Change their source and regenerate them; do
   not hand-edit generated output.
 - Name protocol, token, cookie, retry, and polling durations in domain units at the owning boundary.
