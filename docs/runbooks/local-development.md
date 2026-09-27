@@ -450,11 +450,12 @@ failure-diagnostics contract.
 
 `FULLSTACK_TEST_GREP='<test title>'` limits the host full-stack smoke to matching tests. The smoke
 resets `inside_checks` in the `inside-platform` Compose project even when `COMPOSE_PROJECT_NAME`
-names another one (#757); export `DATABASE_URL` for a run in your own project. After `@playwright/test`
-changes version, install its browsers on the host before a run with
-`pnpm --filter @inside/web exec playwright install chromium chromium-headless-shell`, as CI does in
-`setup-platform`. On macOS run a long host suite under `caffeinate -i`: a sleeping Mac stalls tests
-for minutes and fails them with `net::ERR_NETWORK_IO_SUSPENDED`, which is not a product defect.
+names another one (#757); export `DATABASE_URL` for a run in your own project. After
+`@playwright/test` changes version, install its browsers on the host before a run with
+`pnpm --filter @inside/web exec playwright install chromium chromium-headless-shell`. The nightly
+full-stack run on `main` shows whether a failing test also fails without your change. On macOS a
+sleeping Mac stalls a long host suite for minutes and fails it with `net::ERR_NETWORK_IO_SUSPENDED`,
+which is not a product defect; the #745 run passed under `caffeinate -i`.
 
 ### Snapshots as issue evidence
 
@@ -893,9 +894,8 @@ owner's stand personal access token in `.identity-proof/authoring-owner-pat.json
 for short API tokens, renewing the stored token once when the stand's sign-in database was
 recreated. It forwards only canonical `/authoring/` API paths from non-browser clients; any process
 on this machine can act as the stand owner while it runs, so stop it after the transfer.
-Run the stand from a worktree only through `pnpm local:stand`, which links the owner checkout's
-`.identity-proof/`: a fresh bootstrap there would generate new sign-in keys for the owner's stand
-accounts.
+Run the stand from a worktree only as [Local product view](#local-product-view) describes: a fresh
+bootstrap there would generate new sign-in keys for the owner's stand accounts.
 
 ```bash
 pnpm authoring:sync-git-local CONTENT_REPOSITORY GUIDE_ID STATE_DIRECTORY [REF] [--target editor|stand] [--archive SOURCE_ID]...
