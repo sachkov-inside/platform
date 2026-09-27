@@ -143,7 +143,8 @@ async function installProbe(page: Page) {
     const nativeFetch = window.fetch.bind(window);
     window.fetch = (input, init) => {
       const headers = new Headers(
-        init?.headers ?? (input instanceof Request ? input.headers : undefined),
+        init?.headers ??
+          (input instanceof globalThis.Request ? input.headers : undefined),
       );
       if (headers.get("rsc") !== "1") return nativeFetch(input, init);
       if (!headers.has("next-router-prefetch")) probe.navigationRequests += 1;

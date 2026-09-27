@@ -5,6 +5,14 @@ import { readdirSync } from "node:fs";
 import test from "node:test";
 import path from "node:path";
 import { fileURLToPath, URL } from "node:url";
+import { z } from "zod";
+
+/** Часть JSON-отчёта Playwright, которую читает проверка повтора. */
+const listReportSchema = z.object({
+  config: z.object({
+    projects: z.array(z.object({ name: z.string(), retries: z.number() })),
+  }),
+});
 
 const webRoot = fileURLToPath(new URL("../apps/web", import.meta.url));
 const playwrightCli = path.join(
@@ -84,15 +92,16 @@ test("no Playwright configuration retries a failed test, in CI either", () => {
       CI: "1",
     });
     // Набор, отказавшийся от недостающего окружения, всё равно печатает отчёт с конфигурацией.
-    /** @type {{ config: { projects: { name: string, retries: number }[] } }} */
-    let report;
+    /** @type {unknown} */
+    let output;
     try {
-      report = JSON.parse(result.stdout);
+      output = JSON.parse(result.stdout);
     } catch {
       assert.fail(
         `${configuration} printed no JSON report:\n${result.stdout}${result.stderr}`,
       );
     }
+    const report = listReportSchema.parse(output);
     for (const project of report.config.projects) {
       assert.equal(
         project.retries,
