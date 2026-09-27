@@ -27,6 +27,10 @@ export default defineConfig({
           name: "module",
           environment: "node",
           include: ["test/module/**/*.test.ts"],
+          // Настоящий SDK Logto в проверках (#766) идёт через Vite: он импортирует `next/navigation`
+          // без расширения, как принято внутри Next.js, а `vi.mock("next/headers")` действует и на
+          // его динамический импорт.
+          server: { deps: { inline: ["@logto/next"] } },
           restoreMocks: true,
           setupFiles: ["./test/support/request-scope.ts"],
           unstubEnvs: true,
