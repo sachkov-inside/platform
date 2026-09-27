@@ -448,9 +448,7 @@ the four-job application and Docker Compose gate on clean GitHub-hosted runners;
 [Continuous integration](continuous-integration.md) for its job, the nightly smoke and the
 failure-diagnostics contract.
 
-`FULLSTACK_TEST_GREP='<test title>'` limits the host full-stack smoke to matching tests. The smoke
-resets `inside_checks` in the `inside-platform` Compose project even when `COMPOSE_PROJECT_NAME`
-names another one (#757); export `DATABASE_URL` for a run in your own project. After
+`FULLSTACK_TEST_GREP='<test title>'` limits the host full-stack smoke to matching tests. After
 `@playwright/test` changes version, install its browsers on the host before a run with
 `pnpm --filter @inside/web exec playwright install chromium chromium-headless-shell`. The nightly
 full-stack run on `main` shows whether a failing test also fails without your change. On macOS a
@@ -831,7 +829,9 @@ shared `inside-platform_*` volumes, so every branch and worktree sees the same c
   the Telegram sign-in launcher) use the `inside_checks` database, never the stand's `inside`,
   unless `DATABASE_URL` is exported explicitly. `pnpm smoke:fullstack` drops and recreates that
   database at the start of every run, so products, lessons and buyers created by an earlier run
-  never change what the next one sees. An explicitly exported `DATABASE_URL` is used as it is and
+  never change what the next one sees. The reset always targets the `inside-platform` Compose
+  project, even when `COMPOSE_PROJECT_NAME` names another one (#757), so a run in your own project
+  exports `DATABASE_URL`. An explicitly exported `DATABASE_URL` is used as it is and
   never reset: point it at a freshly created database before a run whose result you report.
 
 - The seed reads `config/compose/local/seed-stand.env` (`LOCAL_SEED_DEMO=hidden`) unless
