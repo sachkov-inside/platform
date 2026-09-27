@@ -119,11 +119,10 @@ it("читает каталог от имени вошедшего покупа�
   );
 });
 
-it("сессия, которую не удалось прочитать, не ломает витрину: каталог читается как гостем", async () => {
+it("сбой чтения сессии не выдаётся за гостевую витрину", async () => {
   fakes.readerToken.mockRejectedValue(new Error("refresh failed"));
-  fakes.offers.mockResolvedValue(ok({ items: [], nextCursor: null }));
-  expect(await loadBillingOffers()).toEqual({ kind: "ready", offers: [] });
-  expect(fakes.offers).toHaveBeenCalledWith({ limit: 50 }, undefined);
+  await expect(loadBillingOffers()).rejects.toThrow("refresh failed");
+  expect(fakes.offers).not.toHaveBeenCalled();
 });
 
 it("сообщает о недоступности каталога, а не показывает пустую витрину", async () => {

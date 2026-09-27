@@ -41,9 +41,9 @@ async function signInWithTelegram(page: Page, telegramUserId: string) {
   await accept.click({ timeout: 30_000 });
   await page.waitForURL((url) => url.pathname !== "/welcome");
   // Вход завершён: вместо «Войти» у человека его аккаунт.
-  const status = z
-    .object({ state: z.string() })
-    .parse(await (await page.request.get("/auth/status")).json());
+  const response = await page.request.get("/auth/status");
+  expect(response.ok()).toBe(true);
+  const status = z.object({ state: z.string() }).parse(await response.json());
   expect(status.state).toBe("authenticated");
 }
 
@@ -117,6 +117,8 @@ test("покупатель курса проходит путь от стран�
   // Выдано право на общий чат: покупка видна в кабинете, а её права — с условиями курса.
   await page.goto("/account/purchases");
   await expect(page.getByText("Общий чат").first()).toBeVisible();
+  const billingResponse = await page.request.get("/api/account/billing");
+  expect(billingResponse.ok()).toBe(true);
   const billing = z
     .object({
       value: z.object({
@@ -130,7 +132,7 @@ test("покупатель курса проходит путь от стран�
         ),
       }),
     })
-    .parse(await (await page.request.get("/api/account/billing")).json());
+    .parse(await billingResponse.json());
   const paid = billing.value.grounds.filter(
     (ground) => ground.source === "paid" && ground.active,
   );

@@ -15,7 +15,7 @@ import { failure, idSchema, type PricingResult } from "../../domain/pricing.js";
 import {
   offerGrantsWithheld,
   productOfferUnsellable,
-  productOfferTermsInvalid,
+  productSupportTermMissing,
   tierLacksComposition,
 } from "../../shared/tier-composition.js";
 import {
@@ -155,7 +155,7 @@ async function changeCatalog(
       )
         return failure("invalid_request");
       if (
-        productOfferTermsInvalid({
+        productSupportTermMissing({
           benefits: command.value.benefits,
           benefitPeriods: periods,
         })

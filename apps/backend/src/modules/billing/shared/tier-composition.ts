@@ -28,40 +28,20 @@ export function tierLacksComposition(
 }
 
 /**
- * Объявленный в предложении срок права: месяцы, `null` — без срока, `undefined` — срок не назван.
- * Нечитаемые сроки читаются как не названные.
- */
-function declaredMonths(
-  offer: { readonly benefitPeriods: unknown },
-  capability: string,
-): number | null | undefined {
-  const periods = benefitPeriodsSchema.safeParse(offer.benefitPeriods);
-  return periods.success
-    ? periods.data.find((period) => period.capability === capability)?.months
-    : undefined;
-}
-
-/**
  * Сопровождение предложения продукта длится столько, сколько называет само предложение: срок
- * задаёт владелец, и без названного срока сопровождение не выдаётся бессрочным по умолчанию.
+ * задаёт владелец, и без названного срока (месяцы или `null` — без срока) сопровождение не
+ * выдаётся бессрочным по умолчанию. Черновик без сопровождения сохраняется.
  */
-function productSupportTermMissing(
+export function productSupportTermMissing(
   offer: CatalogOffer & { readonly benefitPeriods: unknown },
 ): boolean {
+  if (!isProductOffer(offer) || !offer.benefits.includes("support"))
+    return false;
+  const periods = benefitPeriodsSchema.safeParse(offer.benefitPeriods);
   return (
-    offer.benefits.includes("support") &&
-    declaredMonths(offer, "support") === undefined
+    !periods.success ||
+    !periods.data.some((period) => period.capability === "support")
   );
-}
-
-/**
- * Сроки предложения продукта, которые нельзя сохранить: сопровождение без названного срока.
- * Черновик без сопровождения сохраняется.
- */
-export function productOfferTermsInvalid(
-  offer: CatalogOffer & { readonly benefitPeriods: unknown },
-): boolean {
-  return isProductOffer(offer) && productSupportTermMissing(offer);
 }
 
 /**

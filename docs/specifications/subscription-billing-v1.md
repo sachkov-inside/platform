@@ -599,14 +599,16 @@ unavailable — временный сбой, а не решение, и не с�
 legacy gate (#150: классификация и остановка списаний Tribute) остаётся прежним. Сохранение
 предложения без `eligibility` наследует прежнее значение, поэтому форма владельца без этого поля
 не открывает предложение всем. Допуск задаётся владельческой операцией `offers.save` и
-MCP-инструментом `billing_offers_save`; форма `/authoring/billing` его пока не показывает (шаг
-выпуска — в [runbook](../runbooks/production-release.md)). Включение продажи, цена и флаги
+MCP-инструментом `billing_offers_save`; форма `/authoring/billing` его пока не показывает
+([#781](https://github.com/sachkov-inside/platform/issues/781); шаг выпуска — в
+[runbook](../runbooks/production-release.md)). Включение продажи, цена и флаги
 терминала остаются решениями владельца.
 
 Страница оплаты и описание продукта называют сроки по действующей оферте разовой покупки
 (`@inside/legal/purchase-terms`, редакция 4: 2 года гарантированно, сопровождение 6 месяцев), а не
 по срокам предложения. Для предложения курса это совпадает; перевод подписей на сроки предложения
-ждёт новой редакции оферты (Workspace #239).
+ждёт новой редакции оферты (Workspace #239,
+[#780](https://github.com/sachkov-inside/platform/issues/780)).
 
 Правила исполняются сценариями покупки таблицы доступа (`course-offer-terms`, `offer-own-terms`,
 `offer-terms-change-keeps-earlier-purchase`, `subscription-offer-without-tribute-ground`,
@@ -710,7 +712,8 @@ Upgrade: рациональный расчёт стоимости старшег
 снимки не изменяются. Архив варианта оплаты и промо-акции по-прежнему снимается их Save.
 
 `GET billing/offers` публично возвращает активные варианты с лучшей доступной публичной
-скидкой. Закрытые промокоды не раскрываются. Пагинация — opaque UUID cursor и limit 1..100.
+скидкой; предложение с ограничением допуска видит только допущенный Account (#775). Закрытые
+промокоды не раскрываются. Пагинация — opaque UUID cursor и limit 1..100.
 `POST accounts/current/billing/quote` сохраняет ценовой quote на 15 минут для Account из
 trusted adapter. Он содержит offer/option revisions, названия, состав, календарные месяцы,
 RUB/Europe/Moscow, первую и обычную следующую сумму, выбранную скидку. Это ценовой этап:
@@ -800,7 +803,7 @@ Target Account в owner batch — цель разрешённой операци
 
 | HTTP / operationId | Request сверх общего envelope | Result |
 |---|---|---|
-| GET `billing/offers` / `billingOffers` | — | Активные варианты, обычная/применимая первая цена и revision; без закрытых данных |
+| GET `billing/offers` / `billingOffers` | необязательный токен Account (#775) | Активные варианты, обычная/применимая первая цена и revision; без закрытых данных и без предложений, к которым Account не допущен |
 | GET `accounts/current/billing` / `currentBilling` | — | Own subscription, grants summary, next charge, pending change, notices/delivery и operation status |
 | POST `accounts/current/billing/contact/start` / `startBillingContact` | email | challengeRef, expiry; старый адрес продолжает действовать до подтверждения |
 | POST `accounts/current/billing/contact/confirm` / `confirmBillingContact` | challengeRef, code | verified contact revision; не merge другого Account |
@@ -837,7 +840,7 @@ previewRef/revision и подтверждённые строки; при изм�
 Общий command result: success с operationRef/outcome/revision или error из фактического use case.
 Ожидаемые ошибки: `forbidden`, `invalid_input`, `not_found`, `revision_conflict`, `operation_conflict`,
 `contact_required`, `consent_required`, `quote_expired`, `price_changed`, `legacy_review_required`,
-`payment_in_progress`, `unsupported_amount`, `method_unavailable`, `provider_unavailable`.
+`not_eligible` (#775), `payment_in_progress`, `unsupported_amount`, `method_unavailable`, `provider_unavailable`.
 404 скрывает чужой resource; HTTP 409 — revision/operation/state conflict; provider timeout после
 отправки возвращает сохранённый pending/unknown operation, а не совет начать новую покупку.
 HTTP схемы и исчерпывающий mapping реализуются вместе с endpoints, без fake OpenAPI в #403.
