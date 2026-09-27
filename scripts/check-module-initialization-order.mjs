@@ -14,8 +14,9 @@ import { parseSync } from "oxc-parser";
  * чтение до объявления на верхнем уровне уже ловит TypeScript через `// @ts-check`.
  *
  * Проверка обходит каждый скрипт из `tsconfig.scripts.json`. Модульные функции — это объявления
- * `function`, функции и стрелки в модульном `const` или `let` и классы; объявление класса выполняет
- * его `extends`, вычисляемые ключи, статические поля и блоки. Для каждой инструкции верхнего уровня
+ * `function`, функции и стрелки в модульном `const` или `let` и объявления `class`; объявление класса
+ * выполняет его `extends`, вычисляемые ключи, статические поля и блоки. Выражение класса в `const`
+ * проверка не разбирает. Для каждой инструкции верхнего уровня
  * проверка находит функции, которые инструкция вызывает или передаёт по имени, и всё, что достижимо
  * из них, и ищет в их телах модульные значения, объявленные не раньше этой инструкции. Тела функций,
  * вложенных прямо в инструкцию верхнего уровня, считаются отложенными: так `node:test` запускает
@@ -298,11 +299,12 @@ function violationsIn(source, body) {
     ) {
       continue;
     }
-    const references =
-      declaration.type === "ClassDeclaration"
-        ? classInitializationReferences(declaration)
-        : new Set();
-    if (declaration.type !== "ClassDeclaration") {
+    /** @type {Set<string>} */
+    let references;
+    if (declaration.type === "ClassDeclaration") {
+      references = classInitializationReferences(declaration);
+    } else {
+      references = new Set();
       collectReferences(statement, references, true);
     }
     const pending = [...references].filter((name) => functions.has(name));

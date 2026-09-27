@@ -1,4 +1,8 @@
 // @ts-check
+// Allowed: exports name a function without running it, even before the value it reads.
+export { assertReady };
+export default assertReady;
+
 // Allowed: the callback runs after the module has loaded, as node:test runs test().
 setTimeout(() => {
   assertReady("ready");
@@ -10,6 +14,3 @@ const readyStatus = "ready";
 function assertReady(status) {
   if (status !== readyStatus) throw new Error("not ready");
 }
-
-// Allowed: an export names a function without running it.
-export { assertReady };

@@ -50,7 +50,7 @@ test("a top-level call into a function that reads a later declaration fails", ()
   );
   assert.doesNotMatch(
     result.output,
-    /deferred-callback\.mjs/u,
-    "a callback that runs after the module has loaded was reported",
+    /allowed-deferred\.mjs/u,
+    "an export or a callback that runs after the module has loaded was reported",
   );
 });
