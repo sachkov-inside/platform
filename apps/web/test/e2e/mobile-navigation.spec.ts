@@ -240,9 +240,22 @@ test("native Back preserves the latest Home feed filter and scroll for the next 
     page.getByRole("heading", { name: "Навигация 1", exact: true }),
   ).toBeVisible();
   await page.getByRole("searchbox").blur();
-  await page.evaluate(() => {
-    window.scrollTo(0, 700);
-  });
+  // Позицию ленты приложение записывает по событию scroll, а браузер доставляет его в следующем кадре:
+  // «Назад» в том же кадре уносит несохранённую позицию (#735). Событие рассылается всем обработчикам
+  // целиком до следующей команды теста.
+  await page.evaluate(
+    () =>
+      new Promise<void>((resolve) => {
+        document.addEventListener(
+          "scroll",
+          () => {
+            resolve();
+          },
+          { capture: true, once: true },
+        );
+        window.scrollTo(0, 700);
+      }),
+  );
   await expect.poll(() => page.evaluate(() => window.scrollY)).toBe(700);
   await page.goBack();
   await expect(page).toHaveURL(/\/account$/u);
