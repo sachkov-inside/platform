@@ -96,6 +96,17 @@ export async function readLearningMaterial(
     for (const item of batch.items)
       resourceAvailability.set(item.itemId, item.availability);
   }
+  const videoId = material.projection.primaryVideoId;
+  const videoAccess =
+    videoId !== null && material.primaryVideo?.state === "ready"
+      ? await dependencies.contentAccess.authorize({
+          subject,
+          resource: { kind: "video", videoId },
+          action: "play",
+          enforcementPoint: "mcp_material_read",
+          correlationId: randomUUID(),
+        })
+      : undefined;
   // Asset/video presentation loading can span a Save or access revocation. Recheck the
   // same version before publishing any body, without claiming an immutable archive.
   const current = await dependencies.contentAccess.authorize({
@@ -139,7 +150,19 @@ export async function readLearningMaterial(
           : "unavailable",
         contentIncluded: false,
       })),
-      primaryVideo: material.primaryVideo,
+      primaryVideo:
+        videoId === null
+          ? null
+          : {
+              videoId,
+              availability:
+                videoAccess?.effect === "allow" &&
+                videoAccess.checkedContentVersion === contentVersion
+                  ? "available"
+                  : "unavailable",
+              presentation: material.primaryVideo,
+              contentIncluded: false,
+            },
       videoChapters: material.videoChapters ?? [],
     },
   };

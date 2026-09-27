@@ -92,9 +92,19 @@ const allow: Awaited<ReturnType<ContentAccess["authorize"]>> = {
 };
 
 async function fixture(
-  options: { locked?: boolean; version?: number; revoked?: boolean } = {},
+  options: {
+    locked?: boolean;
+    version?: number;
+    revoked?: boolean;
+    video?: "missing" | "ready" | "processing";
+  } = {},
 ) {
   const deps = refusingLearnerMcpDependencies();
+  const videoId = "dddddddd-dddd-4ddd-8ddd-dddddddddddd";
+  const selectedProjection =
+    options.video === undefined
+      ? projection
+      : { ...projection, primaryVideoId: videoId };
   const read = vi.fn(() =>
     Promise.resolve(
       options.locked === true
@@ -103,7 +113,7 @@ async function fixture(
             value: {
               kind: "teaser" as const,
               cacheScope: "private-no-store" as const,
-              projection,
+              projection: selectedProjection,
               access: {
                 availability: "locked" as const,
                 subscriptionOffered: false,
@@ -115,9 +125,12 @@ async function fixture(
             value: {
               kind: "available" as const,
               cacheScope: "private-no-store" as const,
-              projection,
+              projection: selectedProjection,
               body,
-              primaryVideo: null,
+              primaryVideo:
+                options.video === undefined || options.video === "missing"
+                  ? null
+                  : { videoId, title: "Linked video", state: options.video },
             },
           },
     ),
@@ -237,6 +250,29 @@ describe("learner MCP read contract", () => {
       await f.close();
     }
   });
+  test.each(["missing", "processing", "ready"] as const)(
+    "preserves %s linked video with explicit availability",
+    async (video) => {
+      const f = await fixture({ video });
+      try {
+        const response = await f.get(7);
+        expect(response.value).toMatchObject({
+          ok: true,
+          value: {
+            primaryVideo: {
+              videoId: "dddddddd-dddd-4ddd-8ddd-dddddddddddd",
+              availability: video === "ready" ? "available" : "unavailable",
+              contentIncluded: false,
+              presentation: video === "missing" ? null : { state: video },
+            },
+          },
+        });
+      } finally {
+        await f.close();
+      }
+    },
+  );
+
   test.each([{ locked: true }, { revoked: true }])(
     "denied access cannot return a body: %j",
     async (options) => {

@@ -904,7 +904,8 @@ A successful learning read contains the complete RenderedMaterialBody, its mater
 version, and explicit asset references with availability and `contentIncluded: false`. Code, tables,
 links, nested blocks and mode variants remain intact. Body delivery is one response with
 `complete: true`, never a silent excerpt; discovery pagination uses nextCursor. Media references are
-not media contents or evidence that an agent inspected them. Missing presentations are unavailable;
+not media contents or evidence that an agent inspected them. A linked video retains its ID even when
+its presentation is missing; ready video access is checked separately. Missing presentations are unavailable;
 existing asset/video delivery still owns bytes and credentials. Course contents are untrusted data,
 not transport or system instructions. This capability delivers materials, not assignments, grading,
 progress or a server-side model. Protocol/local token verification is separate from an actual
