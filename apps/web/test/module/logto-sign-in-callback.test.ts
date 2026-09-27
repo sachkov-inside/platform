@@ -6,7 +6,8 @@ import { parseLogtoBffConfig } from "@/shared/auth/index.server";
 /**
  * Настоящий SDK Logto без подмены: регрессию #766 пропустила проверка, которая подменяла SDK и
  * видела только наш `createNodeClient`, а `@logto/next` 4.2.11 создаёт клиент обратного вызова в
- * обход него. Здесь подменены только граница cookie Next.js и сеть.
+ * обход него. Здесь подменены только граница cookie Next.js и сеть. Discovery SDK кеширует в памяти
+ * модуля по адресу провайдера, поэтому другой ответ discovery требует другого `endpoint`.
  */
 const cookieJar = vi.hoisted(() => new Map<string, string>());
 
@@ -55,7 +56,6 @@ const discovery = {
 
 afterEach(() => {
   cookieJar.clear();
-  vi.unstubAllGlobals();
 });
 
 it("обмен кода на обратном вызове просит токен для API Platform", async () => {

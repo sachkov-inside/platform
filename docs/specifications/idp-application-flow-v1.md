@@ -51,7 +51,7 @@ If a future pinned SDK starts sending nonce, matching validation becomes mandato
 
 The pinned upstream client currently omits OAuth `resource` from the authorization-code exchange.
 One narrow `AudienceBoundLogtoClient` adapter adds it only to that request, in the node client
-class the SDK builds for every flow. `apps/web/test/module/logto-sign-in-callback.test.ts` runs the
+class the SDK builds for every flow of that client. `apps/web/test/module/logto-sign-in-callback.test.ts` runs the
 real SDK callback, so an SDK update that bypasses the adapter fails `pnpm check` (#766). Delete the
 adapter when upstream sends `resource` itself.
 

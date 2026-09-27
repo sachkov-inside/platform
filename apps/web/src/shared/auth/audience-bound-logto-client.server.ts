@@ -11,9 +11,9 @@ export class AudienceBoundLogtoClient extends LogtoClient {
     const { audience } = config;
     // @logto/client sends `resource` on authorization but omits it from the authorization-code
     // exchange. The first Platform token must be audience-bound because Logto adds our sign-in
-    // proof only to that grant. Every SDK path builds its node client from `adapters.NodeClient`
-    // (since 4.2.11 the callback no longer goes through `createNodeClient`, #766), so the binding
-    // lives in that class rather than in one creation method.
+    // proof only to that grant. Every flow of this client builds its node client from the SDK's
+    // protected, per-instance `adapters.NodeClient`, so the binding lives in that class rather than
+    // in one creation method; `logto-sign-in-callback.test.ts` fails if the SDK stops using it.
     const NodeClient = this.adapters.NodeClient;
     this.adapters.NodeClient = class AudienceBoundNodeClient extends (
       NodeClient
