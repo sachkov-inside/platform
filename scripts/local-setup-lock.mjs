@@ -4,8 +4,8 @@ import { resolve } from "node:path";
 import lockfile from "proper-lockfile";
 
 /**
- * Local setup, the stand and the identity proofs own the same Compose project, ports and
- * PostgreSQL volume, so one machine-wide lock serialises them.
+ * Local setup, the stand and the identity proofs each build Platform Compose stacks on this
+ * machine; one machine-wide lock lets only one of them run at a time.
  */
 const localSetupLockTarget = resolve(tmpdir(), "inside-platform-local-setup");
 
