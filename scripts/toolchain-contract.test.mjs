@@ -45,7 +45,7 @@ const oxlintConfigSchema = z
  */
 /** @param {string} path */
 const readTsconfig = (path) => tsconfigSchema.parse(JSON.parse(read(path)));
-const scriptsProject = readTsconfig("tsconfig.scripts.json");
+const scriptsTsconfig = readTsconfig("tsconfig.scripts.json");
 /** @param {string} path */
 const readManifest = (path) =>
   readPackageManifest(resolve(repositoryRoot, path));
@@ -409,7 +409,7 @@ describe("supported toolchain contract", () => {
     const config = oxlintConfigSchema.parse(JSON.parse(read(".oxlintrc.json")));
     const rootProject = readTsconfig("tsconfig.json");
     assert.deepEqual(
-      scriptLintViolations(config, scriptsProject, rootProject),
+      scriptLintViolations(config, scriptsTsconfig, rootProject),
       [],
     );
 
@@ -420,7 +420,7 @@ describe("supported toolchain contract", () => {
       ...config,
       overrides: config.overrides.map(change),
     });
-    const scriptsInclude = scriptsProject.include ?? [];
+    const scriptsInclude = scriptsTsconfig.include ?? [];
     const isScripts = (/** @type {OxlintOverride} */ override) =>
       isDeepStrictEqual(override.files, scriptsInclude);
     assert.deepEqual(
@@ -435,7 +435,7 @@ describe("supported toolchain contract", () => {
               }
             : override,
         ),
-        scriptsProject,
+        scriptsTsconfig,
         rootProject,
       ),
       [`script lint must have an override for ${scriptsInclude.join(", ")}`],
@@ -448,7 +448,7 @@ describe("supported toolchain contract", () => {
             override.rules ?? {};
           return { ...override, rules };
         }),
-        scriptsProject,
+        scriptsTsconfig,
         rootProject,
       ),
       [
@@ -468,13 +468,13 @@ describe("supported toolchain contract", () => {
               }
             : override,
         ),
-        scriptsProject,
+        scriptsTsconfig,
         rootProject,
       ),
       ["typescript/no-unsafe-call must be off for **/fixtures/**/*.mjs"],
     );
     assert.deepEqual(
-      scriptLintViolations(config, scriptsProject, {
+      scriptLintViolations(config, scriptsTsconfig, {
         ...rootProject,
         references: [],
       }),
@@ -511,6 +511,16 @@ describe("supported toolchain contract", () => {
         scripts,
       ),
       ["tools/** must not ignore a script"],
+    );
+    assert.deepEqual(
+      relaxedScriptLintViolations(
+        {
+          ...config,
+          ignorePatterns: [...(config.ignorePatterns ?? []), "authoring"],
+        },
+        scripts,
+      ),
+      ["authoring must not ignore a script"],
     );
   });
 
@@ -1076,7 +1086,7 @@ function scriptLintOverrides(scriptsProject) {
  * @param {OxlintOverride} override
  */
 function isScriptLintOverride(override) {
-  return scriptLintOverrides(scriptsProject).some(([files]) =>
+  return scriptLintOverrides(scriptsTsconfig).some(([files]) =>
     isDeepStrictEqual(override.files, files),
   );
 }
@@ -1133,7 +1143,7 @@ function scriptLintViolations(config, scriptsProject, rootProject) {
 function relaxedScriptLintViolations(config, scripts) {
   /** @type {string[]} */
   const violations = (config.ignorePatterns ?? [])
-    .filter((pattern) => scripts.some((path) => matchesGlob(path, pattern)))
+    .filter((pattern) => scripts.some((path) => ignoresPath(pattern, path)))
     .map((pattern) => `${pattern} must not ignore a script`);
   for (const override of config.overrides) {
     if (isTypeAwareOverride(override) || isScriptLintOverride(override))
@@ -1154,6 +1164,26 @@ function relaxedScriptLintViolations(config, scripts) {
     }
   }
   return violations;
+}
+
+/**
+ * Oxlint reads ignore patterns as `.gitignore` does: a pattern without an inner slash names a file
+ * or directory at any depth, and a matched directory ignores everything below it.
+ *
+ * @param {string} pattern
+ * @param {string} path
+ */
+function ignoresPath(pattern, path) {
+  if (pattern.startsWith("!")) return false;
+  const trimmed = pattern.replace(/\/$/u, "");
+  const anchored = trimmed.replace(/^\//u, "");
+  const globs =
+    trimmed.slice(0, -1).includes("/") || trimmed.startsWith("**/")
+      ? [anchored]
+      : [anchored, `**/${anchored}`];
+  return globs.some(
+    (glob) => matchesGlob(path, glob) || matchesGlob(path, `${glob}/**`),
+  );
 }
 
 /** Tracked repository scripts: every `.mjs` except the ones outsideScriptCheck names. */
@@ -1187,7 +1217,7 @@ function outsideScriptCheck(path) {
  * @param {(path: string) => string} contentOf
  */
 function scriptCheckViolations(scripts, contentOf) {
-  const { include = [], exclude = [] } = scriptsProject;
+  const { include = [], exclude = [] } = scriptsTsconfig;
   /** @type {string[]} */
   const violations = [];
   for (const path of scripts) {
