@@ -27,6 +27,7 @@ const tsconfigSchema = z
   .passthrough();
 const oxlintConfigSchema = z
   .object({
+    ignorePatterns: z.array(z.string()).optional(),
     overrides: z.array(
       z
         .object({
@@ -44,6 +45,7 @@ const oxlintConfigSchema = z
  */
 /** @param {string} path */
 const readTsconfig = (path) => tsconfigSchema.parse(JSON.parse(read(path)));
+const scriptsProject = readTsconfig("tsconfig.scripts.json");
 /** @param {string} path */
 const readManifest = (path) =>
   readPackageManifest(resolve(repositoryRoot, path));
@@ -376,12 +378,7 @@ describe("supported toolchain contract", () => {
       rootPackage.scripts["typecheck"] ?? "",
       /tsc -p tsconfig\.scripts\.json/u,
     );
-    const scripts = spawnSync("git", ["ls-files", "-z", "--", "*.mjs"], {
-      cwd: repositoryRoot,
-      encoding: "utf8",
-    })
-      .stdout.split("\0")
-      .filter((path) => path.length > 0 && !outsideScriptCheck(path));
+    const scripts = repositoryScripts();
     assert.deepEqual(scriptCheckViolations(scripts, read), []);
 
     // Negative fixtures: a new script without the check, one that starts with a different comment,
@@ -410,7 +407,6 @@ describe("supported toolchain contract", () => {
 
   it("lints every repository script with the shared no-unsafe rules", () => {
     const config = oxlintConfigSchema.parse(JSON.parse(read(".oxlintrc.json")));
-    const scriptsProject = readTsconfig("tsconfig.scripts.json");
     const rootProject = readTsconfig("tsconfig.json");
     assert.deepEqual(
       scriptLintViolations(config, scriptsProject, rootProject),
@@ -486,12 +482,7 @@ describe("supported toolchain contract", () => {
     );
 
     // No other override may relax a script rule, even for a single script.
-    const scripts = spawnSync("git", ["ls-files", "-z", "--", "*.mjs"], {
-      cwd: repositoryRoot,
-      encoding: "utf8",
-    })
-      .stdout.split("\0")
-      .filter((path) => path.length > 0 && !outsideScriptCheck(path));
+    const scripts = repositoryScripts();
     assert.deepEqual(relaxedScriptLintViolations(config, scripts), []);
     assert.deepEqual(
       relaxedScriptLintViolations(
@@ -510,6 +501,16 @@ describe("supported toolchain contract", () => {
       [
         "scripts/setup-local.mjs must not relax typescript/no-unsafe-member-access for scripts",
       ],
+    );
+    assert.deepEqual(
+      relaxedScriptLintViolations(
+        {
+          ...config,
+          ignorePatterns: [...(config.ignorePatterns ?? []), "tools/**"],
+        },
+        scripts,
+      ),
+      ["tools/** must not ignore a script"],
     );
   });
 
@@ -1075,8 +1076,8 @@ function scriptLintOverrides(scriptsProject) {
  * @param {OxlintOverride} override
  */
 function isScriptLintOverride(override) {
-  return scriptLintOverrides(readTsconfig("tsconfig.scripts.json")).some(
-    ([files]) => isDeepStrictEqual(override.files, files),
+  return scriptLintOverrides(scriptsProject).some(([files]) =>
+    isDeepStrictEqual(override.files, files),
   );
 }
 
@@ -1124,14 +1125,16 @@ function scriptLintViolations(config, scriptsProject, rootProject) {
 
 /**
  * Only the script lint overrides set the scripts' `no-unsafe-*` rules; another override that
- * matches a script must not weaken one.
+ * matches a script must not weaken one, and no ignore pattern may drop a script from lint.
  *
  * @param {OxlintConfig} config
  * @param {string[]} scripts
  */
 function relaxedScriptLintViolations(config, scripts) {
   /** @type {string[]} */
-  const violations = [];
+  const violations = (config.ignorePatterns ?? [])
+    .filter((pattern) => scripts.some((path) => matchesGlob(path, pattern)))
+    .map((pattern) => `${pattern} must not ignore a script`);
   for (const override of config.overrides) {
     if (isTypeAwareOverride(override) || isScriptLintOverride(override))
       continue;
@@ -1151,6 +1154,16 @@ function relaxedScriptLintViolations(config, scripts) {
     }
   }
   return violations;
+}
+
+/** Tracked repository scripts: every `.mjs` except the ones outsideScriptCheck names. */
+function repositoryScripts() {
+  return spawnSync("git", ["ls-files", "-z", "--", "*.mjs"], {
+    cwd: repositoryRoot,
+    encoding: "utf8",
+  })
+    .stdout.split("\0")
+    .filter((path) => path.length > 0 && !outsideScriptCheck(path));
 }
 
 /**
@@ -1174,7 +1187,7 @@ function outsideScriptCheck(path) {
  * @param {(path: string) => string} contentOf
  */
 function scriptCheckViolations(scripts, contentOf) {
-  const { include = [], exclude = [] } = readTsconfig("tsconfig.scripts.json");
+  const { include = [], exclude = [] } = scriptsProject;
   /** @type {string[]} */
   const violations = [];
   for (const path of scripts) {
