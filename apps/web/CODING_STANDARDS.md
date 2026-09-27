@@ -10,7 +10,9 @@ mutations and ADR 0027 owns navigation and caching.
   models, and data adapters live in feature-owned slices under `src`. A route file declares its
   `params` and `searchParams` types itself rather than through the generated `PageProps` and
   `LayoutProps`: `pnpm lint` runs type-aware rules before `next typegen`, and on a clean checkout
-  the generated types do not exist yet.
+  the generated types do not exist yet. The same code must also pass after `next typegen`, when
+  `Route` narrows to the known routes: build a `Route` from text with `internalRoute`, not with an
+  assertion that only one of the two states accepts.
 - `_app` owns root providers and shell; `_pages` owns route slices; `widgets`, `features`, `entities`,
   and `shared` follow the enforced downward dependency direction. Import through a public entrypoint
   and use a focused sub-entrypoint when a broad barrel crosses runtime or bundle boundaries.

@@ -182,18 +182,6 @@ describe("supported toolchain contract", () => {
       }),
       ["apps/web/tsconfig.json must not override noUnusedLocals"],
     );
-
-    // Packages compile with the application rules, so type-aware lint covers them too.
-    const typeAwareFiles = JSON.parse(read(".oxlintrc.json")).overrides.flatMap(
-      (override) =>
-        "typescript/no-floating-promises" in (override.rules ?? {})
-          ? override.files
-          : [],
-    );
-    assert.ok(
-      typeAwareFiles.includes("packages/**/*.{ts,mts,cts}"),
-      "type-aware lint must cover every package",
-    );
   });
 
   it("uses only the Oxc lint and parser toolchain", () => {
@@ -216,6 +204,68 @@ describe("supported toolchain contract", () => {
     ]) {
       assert.equal(rootPackage.devDependencies[dependency], undefined);
     }
+  });
+
+  it("keeps one strict type-aware lint set for backend, web and packages", () => {
+    const config = JSON.parse(read(".oxlintrc.json"));
+    assert.deepEqual(strictLintViolations(config), []);
+
+    // Negative fixtures: a second type-aware copy, a package left out, a strict rule missing from
+    // the shared set, and an application override that switches a strict rule off.
+    const [shared] = config.overrides.filter(isTypeAwareOverride);
+    const withOverrides = (overrides) => ({ ...config, overrides });
+    assert.deepEqual(
+      strictLintViolations(
+        withOverrides([
+          ...config.overrides,
+          { ...shared, files: ["apps/web/**/*.tsx"] },
+        ]),
+      ),
+      ["expected one type-aware override, found 2"],
+    );
+    assert.deepEqual(
+      strictLintViolations(
+        withOverrides(
+          config.overrides.map((override) =>
+            override === shared
+              ? {
+                  ...shared,
+                  files: shared.files.filter(
+                    (files) => !files.startsWith("packages/"),
+                  ),
+                }
+              : override,
+          ),
+        ),
+      ),
+      ["type-aware lint must cover packages/**/*.{ts,mts,cts}"],
+    );
+    const { "typescript/prefer-optional-chain": _omitted, ...withoutRule } =
+      shared.rules;
+    assert.deepEqual(
+      strictLintViolations(
+        withOverrides(
+          config.overrides.map((override) =>
+            override === shared ? { ...shared, rules: withoutRule } : override,
+          ),
+        ),
+      ),
+      ["typescript/prefer-optional-chain must be an error in the shared set"],
+    );
+    assert.deepEqual(
+      strictLintViolations(
+        withOverrides([
+          ...config.overrides,
+          {
+            files: ["apps/web/src/**/*.tsx"],
+            rules: { "typescript/no-unsafe-type-assertion": "off" },
+          },
+        ]),
+      ),
+      [
+        "apps/web/src/**/*.tsx must not override typescript/no-unsafe-type-assertion",
+      ],
+    );
   });
 
   it("keeps TypeScript-API consumers out of active Web tooling", () => {
@@ -657,6 +707,51 @@ function overrideNames(workspace) {
     : [...overrides[1].matchAll(/^ {2}([^#\s:][^:]*):/gmu)].map(
         (match) => match[1],
       );
+}
+
+/** Files that compile with the strict application rules and so get the type-aware lint set. */
+const typeAwareLintFiles = [
+  "apps/backend/**/*.{ts,mts,cts}",
+  "packages/**/*.{ts,mts,cts}",
+  "apps/web/**/*.{ts,tsx,mts,cts}",
+];
+/** Rules #694 enables everywhere; only generated code and generated migrations may relax them. */
+const strictLintRules = [
+  "typescript/no-unsafe-type-assertion",
+  "typescript/no-unnecessary-condition",
+  "typescript/prefer-optional-chain",
+];
+const generatedCodeFiles =
+  "apps/backend/src/infrastructure/prisma/generated/**/*.ts";
+
+function isTypeAwareOverride(override) {
+  return "typescript/no-floating-promises" in (override.rules ?? {});
+}
+
+function strictLintViolations(config) {
+  const typeAware = config.overrides.filter(isTypeAwareOverride);
+  if (typeAware.length !== 1) {
+    return [`expected one type-aware override, found ${typeAware.length}`];
+  }
+  const [shared] = typeAware;
+  const violations = typeAwareLintFiles
+    .filter((files) => !shared.files.includes(files))
+    .map((files) => `type-aware lint must cover ${files}`);
+  for (const rule of strictLintRules) {
+    if (shared.rules[rule] !== "error") {
+      violations.push(`${rule} must be an error in the shared set`);
+    }
+    for (const override of config.overrides) {
+      if (override === shared || override.files.includes(generatedCodeFiles))
+        continue;
+      if (rule in (override.rules ?? {})) {
+        violations.push(
+          `${override.files.join(", ")} must not override ${rule}`,
+        );
+      }
+    }
+  }
+  return violations;
 }
 
 const sharedStrictness = {
