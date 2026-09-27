@@ -1,3 +1,4 @@
+// @ts-check
 import assert from "node:assert/strict";
 import {
   mkdirSync,
@@ -13,6 +14,7 @@ import { test } from "node:test";
 
 import { ensureSharedIdentityDirectory } from "./shared-identity-directory.mjs";
 
+/** @param {import("node:test").TestContext} t */
 function layout(t) {
   const base = mkdtempSync(join(tmpdir(), "shared-identity-"));
   t.after(() => rmSync(base, { recursive: true, force: true }));

@@ -1,3 +1,4 @@
+// @ts-check
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
 import { readFileSync } from "node:fs";
@@ -46,6 +47,7 @@ test("Workshop evaluator CI executes every native beta target", () => {
 
 test("Workflow native targets exactly match the CaseSpec host contract", () => {
   const contractTargets = caseSpecSchema.$defs.supportedHost.oneOf.map(
+    /** @param {{ properties: { os: { const: string }; arch: { const: string } } }} host */
     (host) => `${host.properties.os.const}-${host.properties.arch.const}`,
   );
   const workflowTargets = [...workflow.matchAll(/- target: ([^\n]+)/gu)].map(

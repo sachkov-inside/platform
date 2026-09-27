@@ -33,6 +33,9 @@ nearest `AGENTS.md` owns task routing and verification commands.
   context. `hasText` and `presentText` in `apps/backend/src/infrastructure/contracts/text.ts` and
   `apps/web/src/shared/lib/text.ts` keep the former truthiness of text: `null`, `undefined` and `""`
   are absent.
+- Repository `.mjs` scripts compile through `tsconfig.scripts.json` in `pnpm typecheck` (#694). A
+  script is checked when it starts with `// @ts-check`; the ones not yet typed are listed in
+  `untypedScripts` in `scripts/toolchain-contract.test.mjs`, which fails for a new unchecked script.
 - Keep checked-in generated contracts deterministic. Change their source and regenerate them; do
   not hand-edit generated output.
 - Name protocol, token, cookie, retry, and polling durations in domain units at the owning boundary.

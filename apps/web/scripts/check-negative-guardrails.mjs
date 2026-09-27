@@ -1,3 +1,4 @@
+// @ts-check
 import { spawnSync } from "node:child_process";
 import process from "node:process";
 import { fileURLToPath, URL } from "node:url";

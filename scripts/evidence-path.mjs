@@ -1,3 +1,4 @@
+// @ts-check
 import { existsSync } from "node:fs";
 import { mkdir } from "node:fs/promises";
 import path from "node:path";
@@ -35,9 +36,13 @@ function findRepositoryRoot() {
  *
  * Обновление своих свидетельств остаётся явным: `UPDATE_EVIDENCE=issue-529` кладёт в
  * `docs/evidence/issue-529` снимки только этой задачи, остальные по-прежнему уходят в артефакты.
+ *
+ * @param {string} issueFolder
+ * @param {NodeJS.ProcessEnv} [environment]
+ * @returns {string}
  */
 export function evidenceDirectory(issueFolder, environment = process.env) {
-  const requested = environment.UPDATE_EVIDENCE?.trim();
+  const requested = environment["UPDATE_EVIDENCE"]?.trim();
   // Опечатка в имени задачи иначе просто не сработала бы: снимки молча ушли бы в артефакты, а
   // человек искал бы их в дереве и решил, что явный режим не работает.
   if (
@@ -54,11 +59,23 @@ export function evidenceDirectory(issueFolder, environment = process.env) {
     : path.join(findRepositoryRoot(), "ci-artifacts", "evidence", issueFolder);
 }
 
+/**
+ * @param {string} issueFolder
+ * @param {string} fileName
+ * @param {NodeJS.ProcessEnv} [environment]
+ * @returns {string}
+ */
 export function evidencePath(issueFolder, fileName, environment = process.env) {
   return path.join(evidenceDirectory(issueFolder, environment), fileName);
 }
 
-/** Каталог создаётся перед первым снимком: у артефактов его обычно ещё нет. */
+/**
+ * Каталог создаётся перед первым снимком: у артефактов его обычно ещё нет.
+ *
+ * @param {string} issueFolder
+ * @param {NodeJS.ProcessEnv} [environment]
+ * @returns {Promise<string>}
+ */
 export async function prepareEvidenceDirectory(
   issueFolder,
   environment = process.env,

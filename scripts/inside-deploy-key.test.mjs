@@ -1,3 +1,4 @@
+// @ts-check
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
 import {
@@ -87,6 +88,10 @@ describe("restricted production deployment key", () => {
   });
 });
 
+/**
+ * @param {string} root
+ * @param {string} publicKey
+ */
 function runInstaller(root, publicKey) {
   return spawnSync(
     "bash",

@@ -1,3 +1,4 @@
+// @ts-check
 import {
   cpSync,
   mkdtempSync,
@@ -72,6 +73,7 @@ try {
 }
 process.exitCode = exitCode;
 
+/** @param {string} root */
 function normalizeGeneratedFiles(root) {
   removeUnusedGeneratedRuntime(root);
 
@@ -81,6 +83,7 @@ function normalizeGeneratedFiles(root) {
   }
 }
 
+/** @param {string} root */
 function removeUnusedGeneratedRuntime(root) {
   for (const file of [
     "PlatformApiClient.ts",
@@ -98,6 +101,10 @@ function removeUnusedGeneratedRuntime(root) {
   writeFileSync(indexPath, indexSource);
 }
 
+/**
+ * @param {string} actualRoot
+ * @param {string} expectedRoot
+ */
 function compareDirectories(actualRoot, expectedRoot) {
   const actualFiles = listFiles(actualRoot);
   const expectedFiles = listFiles(expectedRoot);
@@ -114,6 +121,7 @@ function compareDirectories(actualRoot, expectedRoot) {
   });
 }
 
+/** @param {string} root */
 function listFiles(root) {
   try {
     return readdirSync(root, { recursive: true, withFileTypes: true })

@@ -1,6 +1,16 @@
+// @ts-check
 import { mkdirSync, writeFileSync } from "node:fs";
 import { resolve } from "node:path";
 
+/**
+ * @param {string} root
+ * @param {{
+ *   manifest: string;
+ *   publicationRunId: number;
+ *   sourceSha: string;
+ *   version: string;
+ * }} release
+ */
 export function writeTrustedReleaseEvidence(
   root,
   { manifest, publicationRunId, sourceSha, version },

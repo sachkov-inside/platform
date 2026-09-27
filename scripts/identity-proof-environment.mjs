@@ -1,3 +1,12 @@
+// @ts-check
+/** @typedef {Record<string, string | undefined>} IdentityProofEnvironment */
+
+/**
+ * @param {IdentityProofEnvironment} environment
+ * @param {string} name
+ * @param {number} fallback
+ * @returns {number}
+ */
 export function readIdentityProofPort(environment, name, fallback) {
   const value = environment[name];
   if (value === undefined) return fallback;
@@ -8,6 +17,7 @@ export function readIdentityProofPort(environment, name, fallback) {
   return port;
 }
 
+/** @param {IdentityProofEnvironment} environment */
 export function readIdentityProofEndpoints(environment) {
   const apiPort = readIdentityProofPort(
     environment,
@@ -27,6 +37,11 @@ export function readIdentityProofEndpoints(environment) {
   };
 }
 
+/**
+ * @param {IdentityProofEnvironment} environment
+ * @param {Iterable<string>} envSources
+ * @returns {IdentityProofEnvironment}
+ */
 export function isolateIdentityProofEnvironment(environment, envSources) {
   const isolated = { ...environment };
   for (const source of envSources) {

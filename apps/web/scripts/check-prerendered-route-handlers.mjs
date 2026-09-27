@@ -1,3 +1,4 @@
+// @ts-check
 /**
  * После production-сборки: ни один Route Handler не должен оказаться предсобранным, кроме
  * статичных по замыслу. Под Cache Components `GET`, который не коснулся запроса до ответа,
@@ -12,6 +13,7 @@ const buildRoot = fileURLToPath(new URL("../.next/", import.meta.url));
 // `/social-card` — статичная карточка ссылки площадки, тот же перечень держит guardrail формы кода.
 // `/icon.svg` — файл метаданных `app/icon.svg`: Next.js сам заводит ему маршрут, кода у него нет.
 const allowed = new Set(["/social-card", "/icon.svg"]);
+/** @param {string} name */
 const readManifest = (name) =>
   JSON.parse(readFileSync(`${buildRoot}${name}`, "utf8"));
 

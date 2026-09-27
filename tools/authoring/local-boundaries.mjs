@@ -1,3 +1,4 @@
+// @ts-check
 import { z } from "zod";
 import { canonical, checksum } from "./package.mjs";
 
@@ -119,6 +120,10 @@ const applyBodySchema = z
   })
   .passthrough();
 
+/**
+ * @param {string} path
+ * @param {unknown} value
+ */
 export function parseLocalResponse(path, value) {
   let schema;
   switch (path) {
@@ -246,6 +251,7 @@ const journalSchema = z
   })
   .passthrough();
 
+/** @param {unknown} value */
 export function parseJournal(value) {
   const journal = journalSchema.parse(value);
   for (const [key, entry] of Object.entries(journal.operations)) {
@@ -256,11 +262,17 @@ export function parseJournal(value) {
     const operation = operationSchema.parse(entry);
     if (key !== `authoring:${checksum(canonical(operation.request))}`)
       throw new Error("Journal request fingerprint mismatch");
-    if (operation.request?.path === "/authoring/import/materials/apply") {
-      applyBodySchema.parse(operation.request.body);
+    const request = operation.request;
+    if (
+      typeof request === "object" &&
+      request !== null &&
+      !Array.isArray(request) &&
+      request["path"] === "/authoring/import/materials/apply"
+    ) {
+      const body = applyBodySchema.parse(request["body"]);
       if (operation.status === "applied") {
         const receipt = materialReceiptSchema.parse(operation.result);
-        if (receipt.materialId !== operation.request.body.materialId)
+        if (receipt.materialId !== body.materialId)
           throw new Error("Journal receipt Material identity mismatch");
       }
     }

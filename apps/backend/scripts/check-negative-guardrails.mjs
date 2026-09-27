@@ -1,3 +1,4 @@
+// @ts-check
 import { spawnSync } from "node:child_process";
 import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -7,6 +8,10 @@ import { URL, fileURLToPath } from "node:url";
 
 const backendRoot = fileURLToPath(new URL("..", import.meta.url));
 
+/**
+ * @param {string} command
+ * @param {string[]} arguments_
+ */
 function expectSuccess(command, arguments_) {
   const result = spawnSync(command, arguments_, {
     cwd: backendRoot,
@@ -22,6 +27,11 @@ function expectSuccess(command, arguments_) {
   }
 }
 
+/**
+ * @param {string} command
+ * @param {string[]} arguments_
+ * @param {string[]} expectedDiagnostics
+ */
 function expectFailure(command, arguments_, expectedDiagnostics) {
   const result = spawnSync(command, arguments_, {
     cwd: backendRoot,
@@ -153,6 +163,7 @@ try {
     "--surface",
     staleSurfacePath,
   ]);
+  /** @type {string[]} */
   const registered = JSON.parse(readFileSync(staleSurfacePath, "utf8"));
   const appearedTool = registered[0];
   if (appearedTool === undefined) {

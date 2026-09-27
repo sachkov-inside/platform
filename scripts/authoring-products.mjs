@@ -1,3 +1,4 @@
+// @ts-check
 // Lists the products of a local environment (#671). The stand needs its authoring gateway, which this
 // command reuses or starts for the duration of the listing; the editor runtime serves the API itself.
 import { parseArgs } from "node:util";
