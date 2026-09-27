@@ -1,3 +1,4 @@
+// @ts-check
 import { z } from "zod";
 
 import {
@@ -44,6 +45,10 @@ export const releaseImageResultSchema = z.strictObject({
   sourceSha: sourceShaSchema,
 });
 
+/**
+ * @template {string} ImageName
+ * @param {ImageName} imageName
+ */
 const imageReferenceSchema = (imageName) =>
   z.intersection(
     z.templateLiteral([z.literal(imageName), "@sha256:", z.hash("sha256")]),
@@ -124,12 +129,22 @@ export const releaseManifestInputSchema = z.strictObject({
   }),
 });
 
+/**
+ * @template {z.ZodType} Schema
+ * @param {Schema} schema
+ * @param {unknown} value
+ * @param {string} label
+ * @returns {z.output<Schema>}
+ */
 export function parseSchema(schema, value, label) {
   const result = schema.safeParse(value);
   if (result.success) {
     return result.data;
   }
   const issue = result.error.issues[0];
+  if (issue === undefined) {
+    throw new Error(`${label} is invalid`);
+  }
   const path = issue.path.length > 0 ? ` at ${issue.path.join(".")}` : "";
   throw new Error(`${label}${path}: ${issue.message}`);
 }

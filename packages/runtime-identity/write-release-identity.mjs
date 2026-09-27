@@ -1,3 +1,4 @@
+// @ts-check
 import { writeFileSync } from "node:fs";
 
 import { productionRuntimeIdentitySchema } from "./index.mjs";

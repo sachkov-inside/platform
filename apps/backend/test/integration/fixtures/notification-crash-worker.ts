@@ -15,7 +15,7 @@ const config = z
     caFile: z.string(),
     phase: z.string(),
   })
-  .parse(JSON.parse(process.env.CRASH_CONFIG ?? "null"));
+  .parse(JSON.parse(process.env["CRASH_CONFIG"] ?? "null"));
 const prisma = createPrismaClient(config.databaseUrl);
 const connection = await connectNotificationBroker(config);
 // Готовность отделена от проверяемого поведения: загрузка tsx, TLS-рукопожатие с брокером и запуск

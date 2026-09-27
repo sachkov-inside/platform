@@ -23,7 +23,7 @@ const config = z
       amountMinor: z.number().optional(),
     }),
   })
-  .parse(JSON.parse(process.env.NOTIFICATION_CRASH_FIXTURE ?? "null"));
+  .parse(JSON.parse(process.env["NOTIFICATION_CRASH_FIXTURE"] ?? "null"));
 const { amountMinor, ...fact } = config.fact;
 const source = {
   ...fact,

@@ -1,6 +1,7 @@
 import { defineConfig } from "@playwright/test";
 
-const baseURL = process.env.FULLSTACK_WEB_BASE_URL ?? "http://127.0.0.1:3000";
+const baseURL =
+  process.env["FULLSTACK_WEB_BASE_URL"] ?? "http://127.0.0.1:3000";
 
 export default defineConfig({
   testDir: "./test/fullstack",

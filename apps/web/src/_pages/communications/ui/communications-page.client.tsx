@@ -94,9 +94,9 @@ export function CommunicationsPage() {
   }
   return (
     <BroadcastsPageFrame>
-      <header className={styles.header}>
+      <header className={styles["header"]}>
         <div className="space-y-3">
-          <p className={styles.eyebrow}>Коммуникации · Telegram</p>
+          <p className={styles["eyebrow"]}>Коммуникации · Telegram</p>
           <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">
             Рассылки и аналитика
           </h1>

@@ -1,3 +1,4 @@
+// @ts-check
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 
@@ -32,6 +33,10 @@ export const runtimeIdentitySchema = z.union([
   localRuntimeIdentitySchema,
 ]);
 
+/**
+ * @param {Parameters<typeof import("./index.mjs").resolveRuntimeIdentity>[0]} input
+ * @returns {import("./index.mjs").RuntimeIdentity}
+ */
 export function resolveRuntimeIdentity(input) {
   if (input.mode !== "production") {
     return Object.freeze({
@@ -73,6 +78,10 @@ function readEmbeddedIdentity() {
   }
 }
 
+/**
+ * @param {unknown} value
+ * @param {string} label
+ */
 function parseProductionIdentity(value, label) {
   const parsed = productionRuntimeIdentitySchema.safeParse(value);
   if (!parsed.success) {
@@ -81,6 +90,10 @@ function parseProductionIdentity(value, label) {
   return parsed.data;
 }
 
+/**
+ * @param {Readonly<Record<string, string | undefined>>} environment
+ * @param {string} name
+ */
 function required(environment, name) {
   const value = environment[name]?.trim();
   if (value === undefined || value.length === 0) {

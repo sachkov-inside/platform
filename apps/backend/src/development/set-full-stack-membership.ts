@@ -13,7 +13,7 @@ async function main() {
   const decision = process.argv[2];
   if (
     config.mode !== "development" ||
-    process.env.FULLSTACK_WEB_BASE_URL === undefined ||
+    process.env["FULLSTACK_WEB_BASE_URL"] === undefined ||
     config.identity.issuer !== "https://identity.fullstack.test/oidc" ||
     (decision !== "member" && decision !== "not_member")
   )

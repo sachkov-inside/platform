@@ -9,7 +9,7 @@ export default defineConfig({
   timeout: 180_000,
   workers: 1,
   use: {
-    baseURL: process.env.WEB_BASE_URL ?? "http://127.0.0.1:3500",
+    baseURL: process.env["WEB_BASE_URL"] ?? "http://127.0.0.1:3500",
     ignoreHTTPSErrors: true,
     screenshot: "off",
     trace: "off",

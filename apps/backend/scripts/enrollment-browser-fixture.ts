@@ -65,7 +65,7 @@ const token = await new SignJWT({})
   .setExpirationTime("5m")
   .sign(keyPair.privateKey);
 await writeFile(
-  z.string().min(1).parse(process.env.ENROLLMENT_FIXTURE_PATH),
+  z.string().min(1).parse(process.env["ENROLLMENT_FIXTURE_PATH"]),
   JSON.stringify({
     BACKEND_BASE_URL: await app.getUrl(),
     LOGTO_AUDIENCE: audience,

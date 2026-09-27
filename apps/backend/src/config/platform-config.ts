@@ -410,7 +410,7 @@ export function parsePlatformProcessConfig(
   environment: NodeJS.ProcessEnv,
   process: BackendProcess,
 ): PlatformConfig {
-  if (parsePlatformMode(environment.NODE_ENV) !== "production") {
+  if (parsePlatformMode(environment["NODE_ENV"]) !== "production") {
     return parsePlatformConfig(environment);
   }
   const effectiveEnvironment = { ...environment };
@@ -427,11 +427,11 @@ export function parsePlatformProcessConfig(
 export function parsePlatformConfig(
   environment: NodeJS.ProcessEnv,
 ): PlatformConfig {
-  const mode = parsePlatformMode(environment.NODE_ENV);
+  const mode = parsePlatformMode(environment["NODE_ENV"]);
   // Перехватчик писем существует только на стенде: production не принимает его даже объявленным.
   if (
     mode === "production" &&
-    environment.BILLING_CONTACT_SMTP_LOCAL_CAPTURE?.trim() === "true"
+    environment["BILLING_CONTACT_SMTP_LOCAL_CAPTURE"]?.trim() === "true"
   ) {
     throw new Error(
       "BILLING_CONTACT_SMTP_LOCAL_CAPTURE is not a production mail transport",
@@ -440,75 +440,76 @@ export function parsePlatformConfig(
   const config = platformConfigSchema.safeParse({
     notifications: parseNotificationsConfig(environment),
     notificationDelivery:
-      hasText(environment.NOTIFICATIONS_PLATFORM_ORIGIN) ||
-      hasText(environment.NOTIFICATIONS_TELEGRAM_SECRET)
+      hasText(environment["NOTIFICATIONS_PLATFORM_ORIGIN"]) ||
+      hasText(environment["NOTIFICATIONS_TELEGRAM_SECRET"])
         ? {
-            origin: environment.NOTIFICATIONS_PLATFORM_ORIGIN,
-            telegramSecret: environment.NOTIFICATIONS_TELEGRAM_SECRET,
+            origin: environment["NOTIFICATIONS_PLATFORM_ORIGIN"],
+            telegramSecret: environment["NOTIFICATIONS_TELEGRAM_SECRET"],
           }
         : undefined,
     mode,
     tbank: parseBankContour(environment),
     tribute:
-      environment.TRIBUTE_API_KEY === undefined &&
-      environment.TRIBUTE_SIGNATURE_ENCODING === undefined
+      environment["TRIBUTE_API_KEY"] === undefined &&
+      environment["TRIBUTE_SIGNATURE_ENCODING"] === undefined
         ? undefined
         : {
-            apiKey: environment.TRIBUTE_API_KEY,
-            signatureEncoding: environment.TRIBUTE_SIGNATURE_ENCODING,
+            apiKey: environment["TRIBUTE_API_KEY"],
+            signatureEncoding: environment["TRIBUTE_SIGNATURE_ENCODING"],
           },
     billingContact: [
-      environment.BILLING_CONTACT_ENCRYPTION_KEY,
-      environment.BILLING_CONTACT_SMTP_HOST,
-      environment.BILLING_CONTACT_SMTP_PORT,
-      environment.BILLING_CONTACT_SMTP_USER,
-      environment.BILLING_CONTACT_SMTP_PASSWORD,
-      environment.BILLING_CONTACT_FROM,
+      environment["BILLING_CONTACT_ENCRYPTION_KEY"],
+      environment["BILLING_CONTACT_SMTP_HOST"],
+      environment["BILLING_CONTACT_SMTP_PORT"],
+      environment["BILLING_CONTACT_SMTP_USER"],
+      environment["BILLING_CONTACT_SMTP_PASSWORD"],
+      environment["BILLING_CONTACT_FROM"],
     ].every((value) => value === undefined)
       ? undefined
       : {
-          encryptionKey: environment.BILLING_CONTACT_ENCRYPTION_KEY,
-          smtpHost: environment.BILLING_CONTACT_SMTP_HOST,
-          smtpPort: environment.BILLING_CONTACT_SMTP_PORT ?? "587",
-          smtpUser: environment.BILLING_CONTACT_SMTP_USER,
-          smtpPassword: environment.BILLING_CONTACT_SMTP_PASSWORD,
-          from: environment.BILLING_CONTACT_FROM,
+          encryptionKey: environment["BILLING_CONTACT_ENCRYPTION_KEY"],
+          smtpHost: environment["BILLING_CONTACT_SMTP_HOST"],
+          smtpPort: environment["BILLING_CONTACT_SMTP_PORT"] ?? "587",
+          smtpUser: environment["BILLING_CONTACT_SMTP_USER"],
+          smtpPassword: environment["BILLING_CONTACT_SMTP_PASSWORD"],
+          from: environment["BILLING_CONTACT_FROM"],
           // Открытый SMTP вне production: петля или объявленный перехватчик писем на стенде, у которого
           // нет ни домена, ни сертификата. Production всегда требует проверенный TLS.
           localInsecure:
             mode !== "production" &&
             (["127.0.0.1", "localhost", "::1"].includes(
-              environment.BILLING_CONTACT_SMTP_HOST ?? "",
+              environment["BILLING_CONTACT_SMTP_HOST"] ?? "",
             ) ||
-              environment.BILLING_CONTACT_SMTP_LOCAL_CAPTURE?.trim() ===
+              environment["BILLING_CONTACT_SMTP_LOCAL_CAPTURE"]?.trim() ===
                 "true"),
         },
     communityEntitlements: [
-      environment.TELEGRAM_COMMUNITY_ENTITLEMENT_ENDPOINT,
-      environment.TELEGRAM_COMMUNITY_ENTITLEMENT_SECRET,
-      environment.TELEGRAM_COMMUNITY_DISPATCH_SECRET,
+      environment["TELEGRAM_COMMUNITY_ENTITLEMENT_ENDPOINT"],
+      environment["TELEGRAM_COMMUNITY_ENTITLEMENT_SECRET"],
+      environment["TELEGRAM_COMMUNITY_DISPATCH_SECRET"],
     ].every((value) => value === undefined)
       ? undefined
       : {
-          contractVersion: environment.TELEGRAM_COMMUNITY_CONTRACT_VERSION,
-          endpoint: environment.TELEGRAM_COMMUNITY_ENTITLEMENT_ENDPOINT,
-          providerSecret: environment.TELEGRAM_COMMUNITY_ENTITLEMENT_SECRET,
-          dispatchSecret: environment.TELEGRAM_COMMUNITY_DISPATCH_SECRET,
+          contractVersion: environment["TELEGRAM_COMMUNITY_CONTRACT_VERSION"],
+          endpoint: environment["TELEGRAM_COMMUNITY_ENTITLEMENT_ENDPOINT"],
+          providerSecret: environment["TELEGRAM_COMMUNITY_ENTITLEMENT_SECRET"],
+          dispatchSecret: environment["TELEGRAM_COMMUNITY_DISPATCH_SECRET"],
         },
-    communicationsTrackingOrigin: environment.TELEGRAM_TRACKING_ORIGIN,
+    communicationsTrackingOrigin: environment["TELEGRAM_TRACKING_ORIGIN"],
     communications: [
-      environment.TELEGRAM_COMMUNICATIONS_ENDPOINT,
-      environment.TELEGRAM_COMMUNICATIONS_SECRET,
-      environment.TELEGRAM_AUTHOR_AUTHORIZATION_SECRET,
-      environment.TELEGRAM_COMMUNICATIONS_BOT_IDENTITY,
+      environment["TELEGRAM_COMMUNICATIONS_ENDPOINT"],
+      environment["TELEGRAM_COMMUNICATIONS_SECRET"],
+      environment["TELEGRAM_AUTHOR_AUTHORIZATION_SECRET"],
+      environment["TELEGRAM_COMMUNICATIONS_BOT_IDENTITY"],
     ].every((value) => value === undefined)
       ? undefined
       : {
-          endpoint: environment.TELEGRAM_COMMUNICATIONS_ENDPOINT,
-          secret: environment.TELEGRAM_COMMUNICATIONS_SECRET,
-          publicOrigin: environment.TELEGRAM_COMMUNICATIONS_PUBLIC_ORIGIN,
-          authorizationSecret: environment.TELEGRAM_AUTHOR_AUTHORIZATION_SECRET,
-          botIdentity: environment.TELEGRAM_COMMUNICATIONS_BOT_IDENTITY,
+          endpoint: environment["TELEGRAM_COMMUNICATIONS_ENDPOINT"],
+          secret: environment["TELEGRAM_COMMUNICATIONS_SECRET"],
+          publicOrigin: environment["TELEGRAM_COMMUNICATIONS_PUBLIC_ORIGIN"],
+          authorizationSecret:
+            environment["TELEGRAM_AUTHOR_AUTHORIZATION_SECRET"],
+          botIdentity: environment["TELEGRAM_COMMUNICATIONS_BOT_IDENTITY"],
         },
     database: parsePlatformDatabaseConfig(environment, mode),
     api: {
@@ -516,14 +517,14 @@ export function parsePlatformConfig(
       port: readRuntimeValue(environment, "API_PORT", mode, DEFAULT_API_PORT),
     },
     identity: {
-      telegramSignInProviderUrl: environment.TELEGRAM_SIGN_IN_PROVIDER_URL,
+      telegramSignInProviderUrl: environment["TELEGRAM_SIGN_IN_PROVIDER_URL"],
       telegramSignInIntegrationSecret:
-        environment.TELEGRAM_SIGN_IN_INTEGRATION_SECRET,
+        environment["TELEGRAM_SIGN_IN_INTEGRATION_SECRET"],
       telegramSignInEnabled:
         z
           .enum(["true", "false"])
           .default("false")
-          .parse(environment.TELEGRAM_SIGN_IN_ENABLED) === "true",
+          .parse(environment["TELEGRAM_SIGN_IN_ENABLED"]) === "true",
       issuer: readRuntimeValue(
         environment,
         "LOGTO_ISSUER",
@@ -582,14 +583,14 @@ export function parsePlatformConfig(
         mode,
         DEFAULT_OBJECT_STORAGE_ENDPOINT,
       ),
-      ...(hasText(environment.OBJECT_STORAGE_SIGNED_GET_ENDPOINT?.trim())
+      ...(hasText(environment["OBJECT_STORAGE_SIGNED_GET_ENDPOINT"]?.trim())
         ? {
             signedGetEndpoint:
-              environment.OBJECT_STORAGE_SIGNED_GET_ENDPOINT.trim(),
+              environment["OBJECT_STORAGE_SIGNED_GET_ENDPOINT"].trim(),
           }
         : {}),
       forcePathStyle:
-        presentText(environment.OBJECT_STORAGE_FORCE_PATH_STYLE?.trim()) ??
+        presentText(environment["OBJECT_STORAGE_FORCE_PATH_STYLE"]?.trim()) ??
         (mode === "production" ? "false" : "true"),
       orphanGraceMs: readRuntimeValue(
         environment,
@@ -666,7 +667,7 @@ export function parsePlatformConfig(
         DEFAULT_KINESCOPE_PLAYBACK_JWT_TTL_SECONDS,
       ),
       providerMode:
-        presentText(environment.KINESCOPE_PROVIDER_MODE?.trim()) ??
+        presentText(environment["KINESCOPE_PROVIDER_MODE"]?.trim()) ??
         (mode === "production" ? "real" : DEFAULT_KINESCOPE_PROVIDER_MODE),
       publicProjectId: readRuntimeValue(
         environment,
@@ -694,7 +695,8 @@ export function parsePlatformConfig(
       ),
     },
     telegramMembership: {
-      activationIngressSecret: environment.TELEGRAM_ACTIVATION_INGRESS_SECRET,
+      activationIngressSecret:
+        environment["TELEGRAM_ACTIVATION_INGRESS_SECRET"],
       botStartUrl: readRuntimeValue(
         environment,
         "TELEGRAM_BOT_START_URL",
@@ -870,7 +872,7 @@ export function parsePlatformConfig(
   if (config.data.identity.telegramSignInEnabled) {
     if (
       !hasText(config.data.identity.telegramSignInIntegrationSecret) ||
-      !hasText(environment.TELEGRAM_SIGN_IN_PROVIDER_URL)
+      !hasText(environment["TELEGRAM_SIGN_IN_PROVIDER_URL"])
     ) {
       throw new Error(
         "Telegram sign-in requires TELEGRAM_SIGN_IN_PROVIDER_URL and TELEGRAM_SIGN_IN_INTEGRATION_SECRET",
@@ -892,7 +894,7 @@ export function parsePlatformConfig(
 
 export function parsePlatformDatabaseConfig(
   environment: NodeJS.ProcessEnv,
-  mode: PlatformMode = parsePlatformMode(environment.NODE_ENV),
+  mode: PlatformMode = parsePlatformMode(environment["NODE_ENV"]),
 ): PlatformDatabaseConfig {
   const config = platformDatabaseConfigSchema.safeParse({
     url: readRuntimeValue(

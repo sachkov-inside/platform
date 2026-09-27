@@ -1,3 +1,4 @@
+// @ts-check
 import assert from "node:assert/strict";
 import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -60,6 +61,7 @@ describe("production runtime manifest contract", () => {
   });
 });
 
+/** @param {unknown} input */
 function run(input) {
   const directory = mkdtempSync(resolve(tmpdir(), "inside-runtime-contract-"));
   const path = resolve(directory, "release-manifest.json");

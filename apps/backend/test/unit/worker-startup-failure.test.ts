@@ -34,7 +34,7 @@ describe("worker startup failure", () => {
           cwd: backendRoot,
           encoding: "utf8",
           env: {
-            PATH: process.env.PATH,
+            PATH: process.env["PATH"],
             NODE_ENV: "test",
             DATABASE_URL: "postgresql://inside:db-secret@127.0.0.1:1/inside",
           },
@@ -48,7 +48,7 @@ describe("worker startup failure", () => {
         .filter((line) => line.trim() !== "");
       const records = lines.map((line) => logRecord.parse(JSON.parse(line)));
       expect(
-        records.find((record) => record.event === "process_failed"),
+        records.find((record) => record["event"] === "process_failed"),
       ).toMatchObject({
         level: "error",
         process: worker,

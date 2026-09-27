@@ -7,7 +7,7 @@ export function BroadcastStatus({
   readonly state: Broadcast["state"];
 }) {
   return (
-    <span className={styles.badge} data-state={state}>
+    <span className={styles["badge"]} data-state={state}>
       {stateLabels[state]}
     </span>
   );

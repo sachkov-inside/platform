@@ -4,7 +4,8 @@ export default defineConfig({
   testDir: "./test/reading-proof",
   fullyParallel: false,
   use: {
-    baseURL: process.env.READING_PROOF_STORYBOOK_URL ?? "http://127.0.0.1:6006",
+    baseURL:
+      process.env["READING_PROOF_STORYBOOK_URL"] ?? "http://127.0.0.1:6006",
     contextOptions: { reducedMotion: "reduce" },
   },
   projects: [

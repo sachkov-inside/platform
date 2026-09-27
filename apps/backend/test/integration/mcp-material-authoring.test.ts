@@ -342,8 +342,8 @@ describe("delegated Material authoring over MCP", () => {
     });
     const playlist = successfulValue(createdPlaylist);
     if (
-      typeof playlist.id !== "string" ||
-      typeof playlist.version !== "number"
+      typeof playlist["id"] !== "string" ||
+      typeof playlist["version"] !== "number"
     ) {
       throw new TypeError("MCP result has no Playlist identity");
     }
@@ -355,24 +355,24 @@ describe("delegated Material authoring over MCP", () => {
     });
     const materialId = successfulMaterialId(material);
     const initialComposition = await callTool("playlist_load_composition", {
-      seriesId: playlist.id,
+      seriesId: playlist["id"],
     });
     const initial = successfulValue(initialComposition);
-    expect(initial.items).toEqual([]);
-    if (typeof initial.orderVersion !== "string") {
+    expect(initial["items"]).toEqual([]);
+    if (typeof initial["orderVersion"] !== "string") {
       throw new TypeError("MCP result has no Playlist order version");
     }
 
     expect(
       await callTool("playlist_save_composition", {
-        expectedOrderVersion: initial.orderVersion,
+        expectedOrderVersion: initial["orderVersion"],
         orderedMaterialIds: [materialId],
         stepGroups: { [materialId]: "  MCP instruction  " },
-        seriesId: playlist.id,
+        seriesId: playlist["id"],
       }),
     ).toMatchObject({ structuredContent: { ok: true } });
     expect(
-      await callTool("playlist_load_composition", { seriesId: playlist.id }),
+      await callTool("playlist_load_composition", { seriesId: playlist["id"] }),
     ).toMatchObject({
       structuredContent: {
         ok: true,
@@ -390,8 +390,8 @@ describe("delegated Material authoring over MCP", () => {
         "Одна продуктовая поверхность; эксплуатация остаётся за границами.",
     };
     const updated = await callTool("content_collection_update", {
-      collectionId: playlist.id,
-      expectedVersion: playlist.version,
+      collectionId: playlist["id"],
+      expectedVersion: playlist["version"],
       introduction,
       kind: "series",
       name: "MCP Platform journey",
@@ -411,7 +411,7 @@ describe("delegated Material authoring over MCP", () => {
     // An MCP edit without the object keeps the authored text.
     expect(
       await callTool("content_collection_update", {
-        collectionId: playlist.id,
+        collectionId: playlist["id"],
         expectedVersion: 2,
         kind: "series",
         name: "MCP Platform journey",
@@ -422,8 +422,8 @@ describe("delegated Material authoring over MCP", () => {
     });
     expect(
       await callTool("content_collection_update", {
-        collectionId: playlist.id,
-        expectedVersion: playlist.version,
+        collectionId: playlist["id"],
+        expectedVersion: playlist["version"],
         kind: "series",
         name: "Stale",
         summary: "",
@@ -439,7 +439,7 @@ describe("delegated Material authoring over MCP", () => {
     expect(
       await callTool("content_collection_set_archive", {
         archived: true,
-        collectionId: playlist.id,
+        collectionId: playlist["id"],
         expectedVersion: 3,
         kind: "series",
       }),
@@ -461,7 +461,7 @@ describe("delegated Material authoring over MCP", () => {
         ),
       })
       .parse(listed.structuredContent).value;
-    expect(collections.find(({ id }) => id === playlist.id)).toMatchObject({
+    expect(collections.find(({ id }) => id === playlist["id"])).toMatchObject({
       archived: true,
     });
   });
@@ -512,13 +512,14 @@ describe("delegated Material authoring over MCP", () => {
       providerVideoId: "test-mcp-existing-444",
     };
     const first = await callTool("video_attach_existing", attachment);
-    const videoId = z.uuid().parse(successfulValue(first).videoId);
+    const videoId = z.uuid().parse(successfulValue(first)["videoId"]);
     expect(
-      successfulValue(await callTool("video_attach_existing", attachment))
-        .videoId,
+      successfulValue(await callTool("video_attach_existing", attachment))[
+        "videoId"
+      ],
     ).toBe(videoId);
     expect(
-      successfulValue(await callTool("video_reconcile", { videoId })).state,
+      successfulValue(await callTool("video_reconcile", { videoId }))["state"],
     ).toBe("ready");
     await expect(
       database.prisma.video.count({ where: { materialId } }),
@@ -537,11 +538,12 @@ describe("delegated Material authoring over MCP", () => {
           expectedContentVersion: 1,
           idempotencyKey: "video-select",
         }),
-      ).contentVersion,
+      )["contentVersion"],
     ).toBe(2);
     expect(
-      successfulValue(await callTool("material_load", { materialId }))
-        .primaryVideoId,
+      successfulValue(await callTool("material_load", { materialId }))[
+        "primaryVideoId"
+      ],
     ).toBe(videoId);
     expect(
       successfulValue(
@@ -550,11 +552,12 @@ describe("delegated Material authoring over MCP", () => {
           expectedContentVersion: 2,
           idempotencyKey: "video-keep",
         }),
-      ).contentVersion,
+      )["contentVersion"],
     ).toBe(3);
     expect(
-      successfulValue(await callTool("material_load", { materialId }))
-        .primaryVideoId,
+      successfulValue(await callTool("material_load", { materialId }))[
+        "primaryVideoId"
+      ],
     ).toBe(videoId);
     const stale = await callTool("material_save", {
       ...save,
@@ -567,8 +570,9 @@ describe("delegated Material authoring over MCP", () => {
       structuredContent: { error: { code: "stale_content_version" } },
     });
     expect(
-      successfulValue(await callTool("material_load", { materialId }))
-        .primaryVideoId,
+      successfulValue(await callTool("material_load", { materialId }))[
+        "primaryVideoId"
+      ],
     ).toBe(videoId);
     expect(
       successfulValue(
@@ -578,7 +582,7 @@ describe("delegated Material authoring over MCP", () => {
           expectedContentVersion: 3,
           idempotencyKey: "video-detach",
         }),
-      ).contentVersion,
+      )["contentVersion"],
     ).toBe(4);
     const retained = await database.prisma.video.findUniqueOrThrow({
       where: { id: videoId },
@@ -586,8 +590,9 @@ describe("delegated Material authoring over MCP", () => {
     expect(retained.state).toBe("ready");
     expect(retained.origin).toBe("external_attachment");
     expect(
-      successfulValue(await callTool("material_load", { materialId }))
-        .primaryVideoId,
+      successfulValue(await callTool("material_load", { materialId }))[
+        "primaryVideoId"
+      ],
     ).toBeNull();
     const other = successfulMaterialId(
       await callTool("material_create_draft", {
@@ -636,7 +641,7 @@ describe("delegated Material authoring over MCP", () => {
     await expect(
       database.prisma.video.count({ where: { materialId } }),
     ).resolves.toBe(1);
-    expect(first.uploadEndpoint).toMatch(/^https:\/\/uploads\.invalid\//u);
+    expect(first["uploadEndpoint"]).toMatch(/^https:\/\/uploads\.invalid\//u);
   });
 
   function callTool(

@@ -275,7 +275,10 @@ const token = await new SignJWT({})
   .setIssuedAt()
   .setExpirationTime("5m")
   .sign(keyPair.privateKey);
-const path = z.string().min(1).parse(process.env.COMMUNICATIONS_FIXTURE_PATH);
+const path = z
+  .string()
+  .min(1)
+  .parse(process.env["COMMUNICATIONS_FIXTURE_PATH"]);
 await writeFile(
   path,
   JSON.stringify({

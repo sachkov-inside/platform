@@ -30,8 +30,10 @@ export const resourceCardBlock: MaterialBlockDefinition =
   defineMaterialBlock<"resource_card">({
     issues: (node, report) => {
       requiredTextIssue(node, report, "missing_resource_title", "title");
-      const attributes = isJsonObject(node.attrs) ? node.attrs : undefined;
-      if (urlIssue(attributes?.url)) {
+      const attributes = isJsonObject(node["attrs"])
+        ? node["attrs"]
+        : undefined;
+      if (urlIssue(attributes?.["url"])) {
         report("invalid_resource_url", "url");
       }
       optionalTextIssue(
@@ -55,18 +57,18 @@ export const resourceCardBlock: MaterialBlockDefinition =
         "div",
         { ...attributes, "data-material-block": "resourceCard" },
         ["p", {}, attributeText(attributes["data-resource-title"])],
-        ["p", {}, attributeText(attributes.description)],
-        ["a", { href: attributeText(attributes.url) }, "Открыть"],
+        ["p", {}, attributeText(attributes["description"])],
+        ["a", { href: attributeText(attributes["url"]) }, "Открыть"],
       ],
     },
     render: (node) => {
       const attributes = nodeAttributes(node);
-      const description = optionalText(attributes.description);
+      const description = optionalText(attributes["description"]);
       return {
         ...(description === undefined ? {} : { description }),
         kind: "resource_card",
-        title: expectString(attributes.title, "resource title"),
-        url: expectString(attributes.url, "resource url"),
+        title: expectString(attributes["title"], "resource title"),
+        url: expectString(attributes["url"], "resource url"),
       };
     },
     renderedSchema: () =>

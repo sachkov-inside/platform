@@ -47,7 +47,7 @@ export function stringAttribute(
   node: JsonObject,
   name: string,
 ): string | undefined {
-  const attributes = node.attrs;
+  const attributes = node["attrs"];
   if (!isJsonObject(attributes)) {
     return undefined;
   }

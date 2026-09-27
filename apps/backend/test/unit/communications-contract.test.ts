@@ -79,17 +79,17 @@ describe("vendored communications contract", () => {
     );
     if (!fixture) throw new Error("Missing elapsed broadcast fixture");
     const input = { ...fixture.value } as Record<string, unknown>;
-    delete input.actor;
+    delete input["actor"];
     const parsed = managementRequestSchema.parse(input);
-    expect(parsed.payload).toEqual(input.payload);
+    expect(parsed.payload).toEqual(input["payload"]);
     const funnelFixture = fixtures.find(
       (f) => f.name === "funnels.save-entry-anchor",
     );
     if (!funnelFixture) throw new Error("Missing entry anchor fixture");
     const funnelInput = { ...funnelFixture.value } as Record<string, unknown>;
-    delete funnelInput.actor;
+    delete funnelInput["actor"];
     expect(managementRequestSchema.parse(funnelInput).payload).toEqual(
-      funnelInput.payload,
+      funnelInput["payload"],
     );
     expect(
       managementRequestSchema.safeParse({

@@ -25,8 +25,8 @@ export function mountProcessArtwork(
     return {
       el,
       text,
-      start: Number(el.dataset.t ?? 0),
-      speed: Number(el.dataset.speed ?? 42),
+      start: Number(el.dataset["t"] ?? 0),
+      speed: Number(el.dataset["speed"] ?? 42),
       caret: next?.classList.contains("caret") === true ? next : null,
     };
   };
@@ -64,7 +64,7 @@ export function mountProcessArtwork(
       typer.el.textContent = "";
       typer.caret?.classList.remove("is-on");
     }
-    if (stage) stage.dataset.scene = String(index + 1);
+    if (stage) stage.dataset["scene"] = String(index + 1);
   }
 
   function renderTyping(sceneTime: number) {
@@ -175,7 +175,7 @@ export function mountProcessArtwork(
     reduced.removeEventListener("change", resetMode);
     for (const animation of pausedAnimations) animation.cancel();
     stage.classList.remove("is-static", "is-paused");
-    delete stage.dataset.scene;
+    delete stage.dataset["scene"];
     scenes.forEach((item) => {
       item.classList.remove("is-active", "is-leaving");
     });

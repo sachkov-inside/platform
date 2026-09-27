@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+// @ts-check
 
 import { readFile } from "node:fs/promises";
 
@@ -49,6 +50,7 @@ try {
   process.exitCode = 1;
 }
 
+/** @param {string} reference */
 function splitDigestReference(reference) {
   const separator = "@sha256:";
   const index = reference.lastIndexOf(separator);

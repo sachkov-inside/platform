@@ -1,3 +1,4 @@
+// @ts-check
 import { existsSync, readFileSync, statSync } from "node:fs";
 import path from "node:path";
 import process from "node:process";
@@ -26,8 +27,11 @@ const sideEffectImport = /(?:^|[\s;])import\s*["']([^"']+)["']/gmu;
 
 const visited = new Set();
 const pending = existsSync(registryEntry) ? [registryEntry] : [];
-while (pending.length > 0) {
-  const filename = pending.pop();
+for (
+  let filename = pending.pop();
+  filename !== undefined;
+  filename = pending.pop()
+) {
   if (visited.has(filename)) continue;
   visited.add(filename);
   const source = readFileSync(filename, "utf8");
@@ -35,7 +39,8 @@ while (pending.length > 0) {
     pattern.lastIndex = 0;
     let match = pattern.exec(source);
     while (match !== null) {
-      const specifier = match[1];
+      // The capture group is mandatory, so a match always carries it.
+      const specifier = /** @type {string} */ (match[1]);
       if (specifier.startsWith("@tiptap/")) {
         findings.push(
           `${relative(filename)}: the block registry entry point cannot depend on Tiptap; the reading path imports it (${specifier})`,
@@ -55,6 +60,10 @@ if (findings.length > 0) {
   process.stdout.write("Material block registry boundary passed.\n");
 }
 
+/**
+ * @param {string} importer
+ * @param {string} specifier
+ */
 function resolveLocal(importer, specifier) {
   if (!specifier.startsWith(".")) return undefined;
   const base = path.resolve(path.dirname(importer), specifier);
@@ -68,6 +77,7 @@ function resolveLocal(importer, specifier) {
   return undefined;
 }
 
+/** @param {string} filename */
 function relative(filename) {
   return path.relative(repositoryRoot, filename).split(path.sep).join("/");
 }

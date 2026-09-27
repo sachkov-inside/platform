@@ -200,7 +200,7 @@ describe("локальная продажа через двойника банк
         expect(url).toBe(config.notificationUrl);
         const accepted = await inbox.payments?.notification(payload);
         delivered.push({
-          status: String(payload.Status),
+          status: String(payload["Status"]),
           accepted: accepted?.ok === true,
         });
       },

@@ -121,7 +121,7 @@ describe("local bank double", () => {
         Success: false,
       });
       // Разовая покупка не просит привязку, поэтому её не получает ни при каком исходе.
-      expect(notifications[0]?.RebillId).toBeUndefined();
+      expect(notifications[0]?.["RebillId"]).toBeUndefined();
     }
   });
 
@@ -281,7 +281,7 @@ describe("local bank double", () => {
       }),
     ).toMatchObject({ Success: false, ErrorCode: "3007" });
     // О возврате банк сообщает так же, как об оплате: приложение получает подписанное событие.
-    expect(notifications.map((item) => item.Status)).toEqual([
+    expect(notifications.map((item) => item["Status"])).toEqual([
       "CONFIRMED",
       "PARTIAL_REFUNDED",
       "REFUNDED",

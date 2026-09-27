@@ -19,10 +19,10 @@ import type {
 export function renderMaterialBody(
   document: MaterialBody,
 ): RenderedMaterialBody {
-  if (document.doc.type !== "doc") {
+  if (document.doc["type"] !== "doc") {
     throw new TypeError("Expected document root");
   }
-  const content = document.doc.content;
+  const content = document.doc["content"];
   if (content === undefined) {
     return { schemaVersion: 1, blocks: [] };
   }

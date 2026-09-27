@@ -49,7 +49,9 @@ function renderedRows(value: unknown): readonly unknown[] {
 export const labeledListBlock: MaterialBlockDefinition =
   defineMaterialBlock<"labeled_list">({
     issues: (node, report) => {
-      const rows = isJsonObject(node.attrs) ? node.attrs.rows : undefined;
+      const rows = isJsonObject(node["attrs"])
+        ? node["attrs"]["rows"]
+        : undefined;
       if (!storedRowsSchema.safeParse(rows).success) {
         report("invalid_labeled_rows", "rows");
       }
@@ -72,9 +74,9 @@ export const labeledListBlock: MaterialBlockDefinition =
             [
               "dt",
               {},
-              `${attributeText(parsed.label)} ${attributeText(parsed.name)}`.trim(),
+              `${attributeText(parsed["label"])} ${attributeText(parsed["name"])}`.trim(),
             ],
-            ["dd", {}, attributeText(parsed.description)],
+            ["dd", {}, attributeText(parsed["description"])],
           ];
         }),
       ],
@@ -83,7 +85,7 @@ export const labeledListBlock: MaterialBlockDefinition =
     // schema throws rather than repairing the row.
     render: (node) => ({
       kind: "labeled_list",
-      rows: storedRowsSchema.parse(nodeAttributes(node).rows).map((row) => {
+      rows: storedRowsSchema.parse(nodeAttributes(node)["rows"]).map((row) => {
         const description = optionalText(row.description ?? undefined);
         return {
           ...(description === undefined ? {} : { description }),

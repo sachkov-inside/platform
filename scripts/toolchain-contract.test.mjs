@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 import { isDeepStrictEqual } from "node:util";
-import { dirname, relative, resolve } from "node:path";
+import { dirname, matchesGlob, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, it } from "node:test";
 
@@ -78,7 +78,7 @@ describe("supported toolchain contract", () => {
     assert.ok(
       typeScriptPins.every((version) => /^\d+\.\d+\.\d+$/u.test(version)),
     );
-    for (const manifest of [backendPackage, webPackage]) {
+    for (const manifest of [rootPackage, backendPackage, webPackage]) {
       assert.equal(
         manifest.devDependencies["@types/node"].split(".")[0],
         nodeMajor,
@@ -120,7 +120,10 @@ describe("supported toolchain contract", () => {
     // одними лишь плавающими промахами. Причину и выбор держит `apps/web/next.config.ts`.
     const nextConfig = read("apps/web/next.config.ts");
 
-    assert.match(nextConfig, /process\.env\.HIDE_DEV_INDICATOR === "true"/u);
+    assert.match(
+      nextConfig,
+      /process\.env\["HIDE_DEV_INDICATOR"\] === "true"/u,
+    );
     assert.match(nextConfig, /devIndicators: false/u);
     // Browser checks of `pnpm test:e2e` run on the production build, which has no indicator.
     assert.match(
@@ -299,6 +302,41 @@ describe("supported toolchain contract", () => {
     assert.equal(
       read("apps/web/src/shared/lib/text.ts"),
       read("apps/backend/src/infrastructure/contracts/text.ts"),
+    );
+  });
+
+  it("type-checks every repository script unless it is listed as not yet typed", () => {
+    assert.match(
+      rootPackage.scripts.typecheck,
+      /tsc -p tsconfig\.scripts\.json/u,
+    );
+    const scripts = spawnSync("git", ["ls-files", "-z", "--", "*.mjs"], {
+      cwd: repositoryRoot,
+      encoding: "utf8",
+    })
+      .stdout.split("\0")
+      .filter((path) => path.length > 0 && !outsideScriptCheck(path));
+    assert.deepEqual(scriptCheckViolations(scripts, read), []);
+
+    // Negative fixtures: an unchecked new script, a listed script that is typed now, a script outside
+    // the project, a checked script that switches the check off and a listed script that is gone.
+    const [listed] = untypedScripts;
+    const contents = {
+      "scripts/new.mjs": "export {};\n",
+      "scripts/typed.mjs": "#!/usr/bin/env node\n// @ts-check\n",
+      "other/checked.mjs": "// @ts-check\n",
+      "scripts/escaped.mjs": "// @ts-check\n// @ts-nocheck\n",
+      [listed]: "// @ts-check\n",
+    };
+    assert.deepEqual(
+      scriptCheckViolations(Object.keys(contents), (path) => contents[path]),
+      [
+        "scripts/new.mjs must start with // @ts-check",
+        "other/checked.mjs must be in tsconfig.scripts.json",
+        "scripts/escaped.mjs must not switch its check off with @ts-nocheck",
+        `${listed} is typed now: remove it from untypedScripts`,
+        ...untypedScripts.slice(1).map((path) => `${path} no longer exists`),
+      ],
     );
   });
 
@@ -609,7 +647,7 @@ describe("supported toolchain contract", () => {
 
     assert.match(
       migrationEntrypoint,
-      /parseRuntimeIdentity\(\s*process\.env,\s*parsePlatformMode\(process\.env\.NODE_ENV\)/u,
+      /parseRuntimeIdentity\(\s*process\.env,\s*parsePlatformMode\(process\.env\["NODE_ENV"\]\)/u,
     );
     assert.doesNotMatch(
       migrationEntrypoint,
@@ -808,10 +846,107 @@ function strictLintViolations(config) {
   return violations;
 }
 
+/**
+ * Repository `.mjs` files that are not yet typed under `tsconfig.scripts.json` (#694). A file leaves
+ * this list by starting with `// @ts-check` and passing `pnpm typecheck`; a new script starts typed.
+ */
+const untypedScripts = [
+  "apps/backend/scripts/check-backend-architecture.mjs",
+  "apps/backend/scripts/generate-communications-contract.mjs",
+  "apps/web/scripts/check-web-architecture.mjs",
+  "apps/web/test/navigation/fake-backend.mjs",
+  "packages/runtime-identity/http-healthcheck.mjs",
+  "scripts/authoring-stand-gateway.mjs",
+  "scripts/billing-contact-proof.mjs",
+  "scripts/check-access-capabilities-boundary.mjs",
+  "scripts/check-agent-documentation.mjs",
+  "scripts/check-database.test.mjs",
+  "scripts/communications-browser-smoke.mjs",
+  "scripts/editor-local-review.mjs",
+  "scripts/enrollment-browser-smoke.mjs",
+  "scripts/full-stack-identity.mjs",
+  "scripts/full-stack-identity.test.mjs",
+  "scripts/full-stack-smoke.mjs",
+  "scripts/http-healthcheck.test.mjs",
+  "scripts/identity-hardening-proof.mjs",
+  "scripts/identity-proof-artifacts.test.mjs",
+  "scripts/identity-proof-bootstrap.mjs",
+  "scripts/identity-proof-session.mjs",
+  "scripts/identity-proof-start.mjs",
+  "scripts/inside-deploy-gateway.test.mjs",
+  "scripts/integration-serial-files.test.mjs",
+  "scripts/local-stand.mjs",
+  "scripts/production-deployment.test.mjs",
+  "scripts/production-foundation-contract.test.mjs",
+  "scripts/production-runtime-contract.test.mjs",
+  "scripts/release-contract.mjs",
+  "scripts/release-contract.test.mjs",
+  "scripts/release-workflow-contract.test.mjs",
+  "scripts/setup-local.mjs",
+  "scripts/telegram-sign-in-local.mjs",
+  "scripts/toolchain-contract.test.mjs",
+  "scripts/tribute-local-acceptance.mjs",
+  "tools/authoring/git-local.mjs",
+  "tools/authoring/git-local.test.mjs",
+  "tools/authoring/journal.mjs",
+  "tools/authoring/local-boundaries.test.mjs",
+  "tools/authoring/local-sync.mjs",
+  "tools/authoring/local-sync.test.mjs",
+  "tools/authoring/markdown.mjs",
+  "tools/authoring/markdown.test.mjs",
+  "tools/authoring/package.mjs",
+  "tools/authoring/package.test.mjs",
+  "tools/authoring/products.mjs",
+  "tools/authoring/release.mjs",
+  "tools/authoring/release.test.mjs",
+  "tools/authoring/sync-completion.test.mjs",
+  "tools/authoring/target.mjs",
+  "tools/authoring/video.mjs",
+  "tools/authoring/video.test.mjs",
+];
+
+/** Managed harness copies, recorded evidence and test fixtures are not repository scripts. */
+function outsideScriptCheck(path) {
+  return (
+    path.startsWith(".inside-harness/") ||
+    path.startsWith("docs/evidence/") ||
+    path.includes("/fixtures/")
+  );
+}
+
+function scriptCheckViolations(scripts, contentOf) {
+  const { include, exclude } = JSON.parse(read("tsconfig.scripts.json"));
+  const violations = [];
+  for (const path of scripts) {
+    if (
+      !include.some((pattern) => matchesGlob(path, pattern)) ||
+      exclude.some((pattern) => matchesGlob(path, pattern))
+    ) {
+      violations.push(`${path} must be in tsconfig.scripts.json`);
+      continue;
+    }
+    const checked = /^(?:#!.*\n)?\/\/ @ts-check\n/u.test(contentOf(path));
+    if (checked && /^\s*(?:\/\/|\/\*)\s*@ts-nocheck/mu.test(contentOf(path))) {
+      violations.push(`${path} must not switch its check off with @ts-nocheck`);
+    }
+    if (!checked && !untypedScripts.includes(path)) {
+      violations.push(`${path} must start with // @ts-check`);
+    }
+    if (checked && untypedScripts.includes(path)) {
+      violations.push(`${path} is typed now: remove it from untypedScripts`);
+    }
+  }
+  for (const path of untypedScripts) {
+    if (!scripts.includes(path)) violations.push(`${path} no longer exists`);
+  }
+  return violations;
+}
+
 const sharedStrictness = {
   strict: true,
   exactOptionalPropertyTypes: true,
   noUncheckedIndexedAccess: true,
+  noPropertyAccessFromIndexSignature: true,
   noImplicitOverride: true,
   noImplicitReturns: true,
   noFallthroughCasesInSwitch: true,

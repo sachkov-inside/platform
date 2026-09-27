@@ -136,7 +136,7 @@ describe("Material block child nodes", () => {
       const child = type.createAndFill();
       if (child === null) throw new TypeError(`Cannot build ${name}`);
       expect(() =>
-        materialDocumentSchemaV1.nodes.doc?.createChecked(null, child),
+        materialDocumentSchemaV1.nodes["doc"]?.createChecked(null, child),
       ).toThrow();
     }
   });
@@ -160,7 +160,7 @@ describe("Material document schema", () => {
 
   it("carries a stable node identity on every block the registry addresses", () => {
     const addressed = Object.values(materialDocumentSchemaV1.nodes)
-      .filter((type) => type.spec.attrs?.nodeId !== undefined)
+      .filter((type) => type.spec.attrs?.["nodeId"] !== undefined)
       .map((type) => type.name)
       .sort();
     expect(addressed).toEqual([...addressableMaterialBlockTypes].sort());

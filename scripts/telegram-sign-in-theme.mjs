@@ -1,3 +1,4 @@
+// @ts-check
 import { readFile, writeFile } from "node:fs/promises";
 
 const root = new URL("../", import.meta.url);

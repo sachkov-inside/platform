@@ -8,7 +8,7 @@ import { decodeJwt } from "jose";
  */
 export function isTelegramSignInToken(accessToken: string): boolean {
   try {
-    return decodeJwt(accessToken).inside_telegram_sign_in !== undefined;
+    return decodeJwt(accessToken)["inside_telegram_sign_in"] !== undefined;
   } catch {
     return false;
   }

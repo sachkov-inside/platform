@@ -1,3 +1,4 @@
+// @ts-check
 /**
  * Поднимает production-сборку web для браузерных проверок: e2e с подставленным в браузере BFF и
  * переходы (#670). Предзагрузка ссылок и кеш маршрутов работают только в `next start`, а dev
@@ -46,6 +47,7 @@ if (
 rmSync(identityPath, { force: true });
 writeFileSync(identityPath, identity, { mode: 0o444 });
 
+/** @param {string} name */
 function required(name) {
   const value = process.env[name];
   if (value === undefined || value === "")
@@ -53,11 +55,14 @@ function required(name) {
   return value;
 }
 
+/** @type {import("node:child_process").ChildProcess | undefined} */
 let child;
 function cleanup() {
   rmSync(identityPath, { force: true });
 }
-for (const signal of ["SIGINT", "SIGTERM"]) {
+/** @type {NodeJS.Signals[]} */
+const signals = ["SIGINT", "SIGTERM"];
+for (const signal of signals) {
   process.once(signal, () => {
     child?.kill(signal);
     cleanup();
@@ -66,6 +71,10 @@ for (const signal of ["SIGINT", "SIGTERM"]) {
 }
 process.once("exit", cleanup);
 
+/**
+ * @param {string[]} args
+ * @returns {Promise<void>}
+ */
 function run(args) {
   return new Promise((resolveRun, reject) => {
     child = spawn("pnpm", ["exec", "next", ...args], {
@@ -81,5 +90,5 @@ function run(args) {
   });
 }
 
-if (process.env.PRODUCTION_WEB_SKIP_BUILD !== "1") await run(["build"]);
+if (process.env["PRODUCTION_WEB_SKIP_BUILD"] !== "1") await run(["build"]);
 await run(["start", "--hostname", "127.0.0.1", "--port", port]);

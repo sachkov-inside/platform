@@ -15,9 +15,9 @@ function listBlock(type: string, kind: ListKind): MaterialBlockDefinition {
       items: block.items.map((item) => item.map(map)),
     }),
     render: (node, tools) => ({
-      items: expectArray(node.content, "list items").map((value) => {
+      items: expectArray(node["content"], "list items").map((value) => {
         const item = expectObject(value, "list item");
-        if (item.type !== "listItem") {
+        if (item["type"] !== "listItem") {
           throw new TypeError("Expected list item");
         }
         return tools.blockContent(item);

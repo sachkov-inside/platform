@@ -64,7 +64,7 @@ export function hoistZodRecursiveSchemas(document: OpenAPIObject): void {
     }
     if (!isRecord(value)) return;
 
-    const definitions = value.definitions;
+    const definitions = value["definitions"];
     if (isRecord(definitions)) {
       const names = new Map(
         Object.keys(definitions).map((name) => [
@@ -80,7 +80,7 @@ export function hoistZodRecursiveSchemas(document: OpenAPIObject): void {
           schemas[componentName] = schema;
         }
       }
-      delete value.definitions;
+      delete value["definitions"];
     }
     Object.values(value).forEach(visit);
   };
@@ -97,11 +97,11 @@ function rewriteDefinitionReferences(
     return;
   }
   if (!isRecord(value)) return;
-  const reference = value.$ref;
+  const reference = value["$ref"];
   if (typeof reference === "string" && reference.startsWith("#/definitions/")) {
     const componentName = names.get(reference.slice("#/definitions/".length));
     if (componentName !== undefined) {
-      value.$ref = `#/components/schemas/${componentName}`;
+      value["$ref"] = `#/components/schemas/${componentName}`;
     }
   }
   Object.values(value).forEach((item) =>

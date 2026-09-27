@@ -418,7 +418,7 @@ test("renders a locked teaser whose purchase starts inside the platform and fail
   ).toHaveCount(0);
 
   const invalidProof = await request.get(
-    `${process.env.FULLSTACK_API_BASE_URL ?? "http://127.0.0.1:3001"}/materials/developer-pipeline-bez-poteri-konteksta`,
+    `${process.env["FULLSTACK_API_BASE_URL"] ?? "http://127.0.0.1:3001"}/materials/developer-pipeline-bez-poteri-konteksta`,
     { headers: { authorization: "Bearer not-a-jwt" } },
   );
   expect(invalidProof.status()).toBe(401);
@@ -810,7 +810,7 @@ async function captureIssue93Evidence(
   testInfo: TestInfo,
   name: string,
 ) {
-  if (process.env.CAPTURE_ISSUE_93_EVIDENCE !== "1") return;
+  if (process.env["CAPTURE_ISSUE_93_EVIDENCE"] !== "1") return;
   const snapshots = await prepareEvidenceDirectory("issue-93");
   const viewport =
     testInfo.project.name === "mobile-chromium" ? "mobile" : "desktop";
@@ -826,7 +826,7 @@ async function captureIssue195Evidence(
   testInfo: TestInfo,
   name: string,
 ) {
-  if (process.env.CAPTURE_ISSUE_195_EVIDENCE !== "1") return;
+  if (process.env["CAPTURE_ISSUE_195_EVIDENCE"] !== "1") return;
   const snapshots = await prepareEvidenceDirectory("issue-195");
   const viewport =
     testInfo.project.name === "mobile-chromium" ? "mobile" : "desktop";
@@ -842,7 +842,7 @@ async function captureIssue271Evidence(
   testInfo: TestInfo,
   name: string,
 ) {
-  if (process.env.CAPTURE_ISSUE_271_EVIDENCE !== "1") return;
+  if (process.env["CAPTURE_ISSUE_271_EVIDENCE"] !== "1") return;
   const snapshots = await prepareEvidenceDirectory("issue-271");
   const viewport =
     testInfo.project.name === "mobile-chromium" ? "390x844" : "1440x1024";

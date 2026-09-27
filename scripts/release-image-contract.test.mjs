@@ -1,3 +1,4 @@
+// @ts-check
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
@@ -6,6 +7,7 @@ import { describe, it } from "node:test";
 import { spawnSync } from "node:child_process";
 
 const repositoryRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
+/** @param {string} path */
 const read = (path) => readFileSync(resolve(repositoryRoot, path), "utf8");
 
 describe("release image contract", () => {

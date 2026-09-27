@@ -1,3 +1,4 @@
+// @ts-check
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
@@ -22,13 +23,16 @@ const unsafeWorkflows = [
   "unsafe-checkout.yml",
   "unsafe-permissions.yml",
   "unsafe-ssh.yml",
-].map((name) => [
-  name,
-  readFileSync(
-    resolve(repositoryRoot, "scripts/fixtures/deployment", name),
-    "utf8",
-  ),
-]);
+].map(
+  /** @returns {[name: string, workflow: string]} */
+  (name) => [
+    name,
+    readFileSync(
+      resolve(repositoryRoot, "scripts/fixtures/deployment", name),
+      "utf8",
+    ),
+  ],
+);
 
 describe("production deployment workflow", () => {
   it("downloads and rechecks its release outside a Git checkout", () => {
@@ -111,7 +115,7 @@ esac
           encoding: "utf8",
           env: {
             ...process.env,
-            PATH: `${directory}:${process.env.PATH}`,
+            PATH: `${directory}:${process.env["PATH"]}`,
             FIXTURE_DIR: directory,
             RUNNER_TEMP: directory,
             GITHUB_ENV: resolve(directory, "github.env"),
@@ -186,6 +190,7 @@ esac
   }
 });
 
+/** @param {string} candidate */
 function assertDeploymentSafety(candidate) {
   assert.match(candidate, /^permissions: \{\}$/mu);
   assert.match(candidate, /^ {6}actions: read$/mu);

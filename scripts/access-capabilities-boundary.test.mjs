@@ -1,3 +1,4 @@
+// @ts-check
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
 import { test } from "node:test";
@@ -11,6 +12,7 @@ const negativeFixture = fileURLToPath(
   new URL("fixtures/access-capabilities-boundary", import.meta.url),
 );
 
+/** @param {string} root */
 function run(root) {
   const result = spawnSync(process.execPath, [checker, root], {
     encoding: "utf8",

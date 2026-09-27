@@ -1,3 +1,4 @@
+// @ts-check
 import { readFileSync, writeFileSync } from "node:fs";
 const source = new URL(
   "../../../docs/contracts/notifications-v1/schema.json",

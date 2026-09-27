@@ -59,7 +59,7 @@ beforeAll(async () => {
   if (address === null || typeof address === "string")
     throw new Error("Fixture server did not bind");
   fixtureOrigin = `http://127.0.0.1:${String(address.port)}`;
-  origin = process.env.TELEGRAM_UI_ORIGIN ?? fixtureOrigin;
+  origin = process.env["TELEGRAM_UI_ORIGIN"] ?? fixtureOrigin;
   browser = await chromium.launch();
 });
 
@@ -102,7 +102,7 @@ async function open(page: Page, status: InsideTelegramPresentation["status"]) {
   offline = false;
   requests = 0;
   state = { status, deepLink: botLink };
-  if (hasText(process.env.TELEGRAM_UI_ORIGIN)) {
+  if (hasText(process.env["TELEGRAM_UI_ORIGIN"])) {
     await page.unrouteAll();
     await page.route(`${origin}/api/inside-telegram/status`, async (route) => {
       requests += 1;
@@ -160,10 +160,10 @@ it("renders every production state without overflow or accessibility violations 
           "/sign-in",
         );
       }
-      if (process.env.CAPTURE_TELEGRAM_EVIDENCE === "1") {
+      if (process.env["CAPTURE_TELEGRAM_EVIDENCE"] === "1") {
         await prepareEvidenceDirectory("issue-303");
         await page.screenshot({
-          path: `${evidence}/${hasText(process.env.TELEGRAM_UI_ORIGIN) ? "logto-" : ""}${status}-${String(width)}.png`,
+          path: `${evidence}/${hasText(process.env["TELEGRAM_UI_ORIGIN"]) ? "logto-" : ""}${status}-${String(width)}.png`,
           fullPage: true,
         });
       }
@@ -267,7 +267,7 @@ it("offers a keyboard-accessible return during persistent connection failure, in
   await page.close();
 });
 
-it.runIf(Boolean(process.env.STORYBOOK_UI_ORIGIN))(
+it.runIf(Boolean(process.env["STORYBOOK_UI_ORIGIN"]))(
   "captures the exact Storybook presentation on desktop and mobile",
   async () => {
     for (const width of [1440, 320]) {
@@ -277,7 +277,7 @@ it.runIf(Boolean(process.env.STORYBOOK_UI_ORIGIN))(
       });
       const page = await context.newPage();
       await page.goto(
-        `${process.env.STORYBOOK_UI_ORIGIN ?? ""}/iframe.html?id=patterns-identity-telegram-sign-in--pending&viewMode=story`,
+        `${process.env["STORYBOOK_UI_ORIGIN"] ?? ""}/iframe.html?id=patterns-identity-telegram-sign-in--pending&viewMode=story`,
       );
       await page
         .getByRole("heading", { name: "Вход через Telegram" })
@@ -334,7 +334,7 @@ it("keeps the complete Telegram button geometry on narrow WebKit after loading",
       expect(geometry.label.left).toBeGreaterThanOrEqual(geometry.button.left);
       expect(geometry.label.right).toBeLessThanOrEqual(geometry.button.right);
       expect(geometry.label.bottom).toBeLessThanOrEqual(geometry.button.bottom);
-      if (process.env.CAPTURE_TELEGRAM_EVIDENCE === "1") {
+      if (process.env["CAPTURE_TELEGRAM_EVIDENCE"] === "1") {
         await prepareEvidenceDirectory("issue-303");
         await page.screenshot({
           path: `${evidence}/webkit-${String(width)}.png`,

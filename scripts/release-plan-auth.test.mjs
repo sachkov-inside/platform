@@ -1,3 +1,4 @@
+// @ts-check
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
 import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
@@ -72,7 +73,7 @@ if (settings) {
       encoding: "utf8",
       env: {
         ...process.env,
-        PATH: `${directory}:${process.env.PATH}`,
+        PATH: `${directory}:${process.env["PATH"]}`,
         GH_TOKEN: "workflow-token",
         RELEASE_SETTINGS_READ_TOKEN: "settings-read",
         GITHUB_REPOSITORY: "sachkov-inside/platform",

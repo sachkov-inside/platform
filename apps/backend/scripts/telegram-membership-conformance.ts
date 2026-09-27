@@ -161,7 +161,7 @@ try {
     "recovery-required",
   );
   assert(
-    duplicateState.status === "recovery-required",
+    duplicateState["status"] === "recovery-required",
     "duplicate identity did not require recovery",
   );
 
@@ -229,7 +229,7 @@ try {
       schemaVersionRejected: true,
       userRequestTelegramCalls: callsAfter - callsBefore,
     },
-    firstLinkStatus: firstLink.status,
+    firstLinkStatus: firstLink["status"],
     platform: {
       evidenceReceipts: receipts.length,
       linkTransactions: await prisma.telegramLinkTransaction.count(),
@@ -258,9 +258,12 @@ async function establishAccount(
     response.status === 201 || response.status === 200,
     `Account establish failed: ${String(response.status)} ${JSON.stringify(response.body)}`,
   );
-  const account = record(record(response.body).account);
-  assert(typeof account.accountId === "string", "Account response has no id");
-  return { accountId: account.accountId, token };
+  const account = record(record(response.body)["account"]);
+  assert(
+    typeof account["accountId"] === "string",
+    "Account response has no id",
+  );
+  return { accountId: account["accountId"], token };
 }
 
 async function linkAccount(
@@ -276,17 +279,17 @@ async function linkAccount(
   assert(begun.status === 200, "begin-link failed");
   const pending = record(begun.body);
   assert(
-    typeof pending.deepLink === "string",
+    typeof pending["deepLink"] === "string",
     "begin-link returned no deep link",
   );
   assert(
-    typeof pending.linkRef === "string",
+    typeof pending["linkRef"] === "string",
     "begin-link returned no link ref",
   );
-  const rawToken = new URL(pending.deepLink).searchParams.get("start");
+  const rawToken = new URL(pending["deepLink"]).searchParams.get("start");
   assert(rawToken !== null, "deep link returned no bearer");
   await postWebhook(startUpdate(updateId, telegramUserId, rawToken));
-  return waitForLink(token, pending.linkRef, expectedStatus);
+  return waitForLink(token, pending["linkRef"], expectedStatus);
 }
 
 async function waitForLink(
@@ -302,11 +305,11 @@ async function waitForLink(
     );
     assert(response.status === 200, "confirm-link failed");
     const state = record(response.body);
-    if (state.status === expectedStatus) {
+    if (state["status"] === expectedStatus) {
       return state;
     }
-    if (state.status !== "pending") {
-      throw new Error(`Unexpected link status: ${String(state.status)}`);
+    if (state["status"] !== "pending") {
+      throw new Error(`Unexpected link status: ${String(state["status"])}`);
     }
     await pause(250);
   }
@@ -331,7 +334,7 @@ async function waitForMaterial(
   const deadline = Date.now() + 20_000;
   while (Date.now() < deadline) {
     const material = await readMembershipMaterial(token);
-    if (material.kind === kind) {
+    if (material["kind"] === kind) {
       return material;
     }
     await pause(250);
@@ -385,10 +388,10 @@ async function telegramCallCount(): Promise<number> {
   });
   const body = record(await response.json());
   assert(
-    typeof body.calls === "number",
+    typeof body["calls"] === "number",
     "Conformance control has no call count",
   );
-  return body.calls;
+  return body["calls"];
 }
 
 async function evidenceRequest(
@@ -549,7 +552,7 @@ function assertKind(
   kind: string,
   message: string,
 ): void {
-  assert(value.kind === kind, `${message}: ${JSON.stringify(value)}`);
+  assert(value["kind"] === kind, `${message}: ${JSON.stringify(value)}`);
 }
 
 function assert(condition: boolean, message: string): asserts condition {

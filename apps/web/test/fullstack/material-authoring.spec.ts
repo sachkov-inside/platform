@@ -991,7 +991,7 @@ test("member Material hides bytes from anonymous access and issues only a protec
   ).get(href, { maxRedirects: 0 });
   expect(manager.status()).toBe(302);
   expect(manager.headers()["cache-control"]).toBe("private, no-store");
-  const location = manager.headers().location;
+  const location = manager.headers()["location"];
   expect(location).toContain("X-Amz-Expires=60");
 
   await unpublishFromPurchasedProduct(page, title);
@@ -1721,7 +1721,7 @@ async function captureLifecycleEvidence(
   testInfo: TestInfo,
   name: string,
 ) {
-  if (process.env.CAPTURE_EVIDENCE !== "1") return;
+  if (process.env["CAPTURE_EVIDENCE"] !== "1") return;
   const snapshots = await prepareEvidenceDirectory("issue-150");
   const viewport =
     testInfo.project.name === "mobile-chromium" ? "mobile" : "desktop";
@@ -1737,7 +1737,7 @@ async function captureAssetEvidence(
   testInfo: TestInfo,
   name: string,
 ) {
-  if (process.env.CAPTURE_EVIDENCE !== "1") return;
+  if (process.env["CAPTURE_EVIDENCE"] !== "1") return;
   const snapshots = await prepareEvidenceDirectory("issue-180");
   const viewport =
     testInfo.project.name === "mobile-chromium" ? "mobile" : "desktop";
@@ -1753,7 +1753,7 @@ async function captureVideoEvidence(
   testInfo: TestInfo,
   name: string,
 ) {
-  if (process.env.CAPTURE_EVIDENCE !== "1") return;
+  if (process.env["CAPTURE_EVIDENCE"] !== "1") return;
   const snapshots = await prepareEvidenceDirectory("issue-183");
   const viewport =
     testInfo.project.name === "mobile-chromium" ? "mobile" : "desktop";
@@ -1769,7 +1769,7 @@ async function captureVideoDeletionEvidence(
   testInfo: TestInfo,
   name: string,
 ) {
-  if (process.env.CAPTURE_EVIDENCE !== "1") return;
+  if (process.env["CAPTURE_EVIDENCE"] !== "1") return;
   const snapshots = await prepareEvidenceDirectory("issue-227");
   const viewport =
     testInfo.project.name === "mobile-chromium" ? "mobile" : "desktop";
@@ -1806,8 +1806,8 @@ async function installPlaybackProviderDouble(page: Page): Promise<void> {
             const iframe = document.createElement("iframe");
             iframe.src = options.url;
             iframe.style.cssText = "width:100%;height:100%;border:0";
-            iframe.dataset.autoplay = String(options.behavior.autoPlay);
-            iframe.dataset.preload = options.behavior.preload;
+            iframe.dataset["autoplay"] = String(options.behavior.autoPlay);
+            iframe.dataset["preload"] = options.behavior.preload;
             mount.append(iframe);
             return Promise.resolve({
               Events: { TimeUpdate: "time", Pause: "pause", Ended: "ended" },
@@ -1821,20 +1821,20 @@ async function installPlaybackProviderDouble(page: Page): Promise<void> {
               seekTo: (seconds: number) => {
                 if (sessionStorage.getItem("test-player-defer-seek") === "1") {
                   sessionStorage.removeItem("test-player-defer-seek");
-                  iframe.dataset.pendingSeekSeconds = String(seconds);
+                  iframe.dataset["pendingSeekSeconds"] = String(seconds);
                   return new Promise<void>((resolve) => {
                     window.addEventListener(
                       "test-player-finish-seek",
                       () => {
-                        iframe.dataset.seekSeconds = String(seconds);
-                        delete iframe.dataset.pendingSeekSeconds;
+                        iframe.dataset["seekSeconds"] = String(seconds);
+                        delete iframe.dataset["pendingSeekSeconds"];
                         resolve();
                       },
                       { once: true },
                     );
                   });
                 }
-                iframe.dataset.seekSeconds = String(seconds);
+                iframe.dataset["seekSeconds"] = String(seconds);
                 return Promise.resolve();
               },
             });

@@ -48,25 +48,25 @@ export type NotificationsConfig = z.infer<typeof notificationsConfigSchema>;
 export function parseNotificationsConfig(
   environment: NodeJS.ProcessEnv,
 ): NotificationsConfig | undefined {
-  if (!hasText(environment.NOTIFICATIONS_BROKER_URLS)) return undefined;
+  if (!hasText(environment["NOTIFICATIONS_BROKER_URLS"])) return undefined;
   let urls: unknown;
   try {
-    urls = JSON.parse(environment.NOTIFICATIONS_BROKER_URLS);
+    urls = JSON.parse(environment["NOTIFICATIONS_BROKER_URLS"]);
   } catch {
     throw new Error("Invalid NOTIFICATIONS_BROKER_URLS JSON");
   }
   const parsed = notificationsConfigSchema.safeParse({
     urls,
-    caFile: environment.NOTIFICATIONS_BROKER_CA_FILE,
-    prefetch: environment.NOTIFICATIONS_PREFETCH,
-    quarantineCapacity: environment.NOTIFICATIONS_QUARANTINE_CAPACITY,
+    caFile: environment["NOTIFICATIONS_BROKER_CA_FILE"],
+    prefetch: environment["NOTIFICATIONS_PREFETCH"],
+    quarantineCapacity: environment["NOTIFICATIONS_QUARANTINE_CAPACITY"],
   });
   // Avoid Zod errors reflecting credential-bearing URLs.
   if (!parsed.success)
     throw new Error("Invalid Notifications broker configuration");
   if (
-    environment.NODE_ENV !== "development" &&
-    environment.NODE_ENV !== "test" &&
+    environment["NODE_ENV"] !== "development" &&
+    environment["NODE_ENV"] !== "test" &&
     Object.values(parsed.data.urls).some(
       (url) => new URL(url).protocol !== "amqps:",
     )

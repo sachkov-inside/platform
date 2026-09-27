@@ -46,6 +46,6 @@ export function legalEditionPath(
 /** Parses the version segment of an edition address; rejects anything but `v<number>`. */
 export function legalEditionVersion(segment: string): number | undefined {
   const match = /^v(?<version>[1-9][0-9]{0,2})$/u.exec(segment);
-  const version = match?.groups?.version;
+  const version = match?.groups?.["version"];
   return version === undefined ? undefined : Number(version);
 }

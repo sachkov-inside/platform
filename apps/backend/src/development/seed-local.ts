@@ -11,7 +11,7 @@ async function main(): Promise<void> {
   const prisma = createPrismaClient(config.database.url);
   try {
     // The shared stand is the default target, so demos stay hidden unless a check asks for them.
-    const demo = process.env.LOCAL_SEED_DEMO ?? "hidden";
+    const demo = process.env["LOCAL_SEED_DEMO"] ?? "hidden";
     if (demo !== "published" && demo !== "hidden") {
       throw new Error("LOCAL_SEED_DEMO must be published or hidden");
     }

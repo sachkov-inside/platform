@@ -1,3 +1,4 @@
+// @ts-check
 import { spawnSync } from "node:child_process";
 import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -7,6 +8,10 @@ import { URL, fileURLToPath } from "node:url";
 
 const backendRoot = fileURLToPath(new URL("..", import.meta.url));
 
+/**
+ * @param {string} command
+ * @param {string[]} arguments_
+ */
 function expectSuccess(command, arguments_) {
   const result = spawnSync(command, arguments_, {
     cwd: backendRoot,
@@ -22,6 +27,11 @@ function expectSuccess(command, arguments_) {
   }
 }
 
+/**
+ * @param {string} command
+ * @param {string[]} arguments_
+ * @param {string[]} expectedDiagnostics
+ */
 function expectFailure(command, arguments_, expectedDiagnostics) {
   const result = spawnSync(command, arguments_, {
     cwd: backendRoot,
@@ -153,7 +163,19 @@ try {
     "--surface",
     staleSurfacePath,
   ]);
-  const registered = JSON.parse(readFileSync(staleSurfacePath, "utf8"));
+  /** @type {unknown} */
+  const surface = JSON.parse(readFileSync(staleSurfacePath, "utf8"));
+  if (!Array.isArray(surface)) {
+    throw new Error("MCP tool surface fixture must list tool names");
+  }
+  /** @type {string[]} */
+  const registered = [];
+  for (const name of surface) {
+    if (typeof name !== "string") {
+      throw new Error("MCP tool surface fixture must list tool names");
+    }
+    registered.push(name);
+  }
   const appearedTool = registered[0];
   if (appearedTool === undefined) {
     throw new Error(

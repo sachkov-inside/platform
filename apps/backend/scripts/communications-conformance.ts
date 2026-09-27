@@ -54,15 +54,15 @@ const dirty =
     encoding: "utf8",
   }).trim().length > 0;
 const databaseUrl = localProofDatabaseUrl(
-  process.env.DATABASE_URL ?? "",
+  process.env["DATABASE_URL"] ?? "",
   "DATABASE_URL",
 );
 const provider = loopbackHttpUrl(
-  process.env.CONFORMANCE_TELEGRAM_URL ?? "http://127.0.0.1:44112",
+  process.env["CONFORMANCE_TELEGRAM_URL"] ?? "http://127.0.0.1:44112",
   "CONFORMANCE_TELEGRAM_URL",
 );
 const control = loopbackHttpUrl(
-  process.env.CONFORMANCE_TELEGRAM_CONTROL_URL ?? "http://127.0.0.1:44113",
+  process.env["CONFORMANCE_TELEGRAM_CONTROL_URL"] ?? "http://127.0.0.1:44113",
   "CONFORMANCE_TELEGRAM_CONTROL_URL",
 );
 const issuer = "https://communications.conformance.invalid/oidc";

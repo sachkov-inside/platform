@@ -1,0 +1,24 @@
+{
+  "extends": "./tsconfig.base.json",
+  "compilerOptions": {
+    "allowJs": true,
+    "checkJs": false,
+    "noEmit": true,
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "target": "ES2023",
+    "lib": ["ES2024"],
+    "types": ["node"]
+  },
+  "include": [
+    "scripts/**/*.mjs",
+    "tools/**/*.mjs",
+    "release/**/*.mjs",
+    "apps/backend/scripts/**/*.mjs",
+    "apps/web/scripts/**/*.mjs",
+    "apps/web/*.mjs",
+    "apps/web/test/**/*.mjs",
+    "packages/runtime-identity/*.mjs"
+  ],
+  "exclude": ["**/node_modules/**", "**/fixtures/**"]
+}

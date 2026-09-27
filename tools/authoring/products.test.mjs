@@ -1,10 +1,13 @@
+// @ts-check
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { formatProducts, listProducts } from "./products.mjs";
 
+/** @param {number} n */
 const uuid = (n) => `${String(n).padStart(8, "0")}-0000-4000-8000-000000000000`;
 
 test("the product list shows the permanent key, address, look, Home pin and lessons", async () => {
+  /** @type {Record<string, unknown>} */
   const responses = {
     "/authoring/collections?kind=guide": [
       {
@@ -36,7 +39,9 @@ test("the product list shows the permanent key, address, look, Home pin and less
     ],
     "/authoring/home-pin": { seriesId: uuid(1), version: 4 },
   };
-  const products = await listProducts(async (path) => responses[path]);
+  const products = await listProducts(
+    async (/** @type {string} */ path) => responses[path],
+  );
   assert.deepEqual(products, [
     {
       sourceId: "inside-content:working-with-agents",
@@ -70,7 +75,7 @@ test("the product list shows the permanent key, address, look, Home pin and less
 
 test("a response of another shape stops the listing", async () => {
   await assert.rejects(
-    listProducts(async (path) =>
+    listProducts(async (/** @type {string} */ path) =>
       path === "/authoring/home-pin"
         ? { seriesId: null }
         : [{ id: "not-a-uuid" }],

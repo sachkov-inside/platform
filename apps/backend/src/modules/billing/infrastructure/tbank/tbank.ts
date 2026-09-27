@@ -182,7 +182,7 @@ export class Tbank {
     return {
       ...payment,
       PaymentURL: validatedPaymentUrl(
-        notificationSchema.parse(result).PaymentURL,
+        notificationSchema.parse(result)["PaymentURL"],
         this.config.endpoints.formOrigins,
       ),
     };
@@ -341,14 +341,14 @@ export class Tbank {
     const parsed = notificationSchema.safeParse(input);
     if (
       !parsed.success ||
-      typeof parsed.data.Token !== "string" ||
-      !/^[a-f0-9]{64}$/u.test(parsed.data.Token)
+      typeof parsed.data["Token"] !== "string" ||
+      !/^[a-f0-9]{64}$/u.test(parsed.data["Token"])
     )
       return undefined;
     const expected = tbankToken(parsed.data, this.config.password);
     if (
       !timingSafeEqual(
-        Buffer.from(parsed.data.Token, "hex"),
+        Buffer.from(parsed.data["Token"], "hex"),
         Buffer.from(expected, "hex"),
       )
     )

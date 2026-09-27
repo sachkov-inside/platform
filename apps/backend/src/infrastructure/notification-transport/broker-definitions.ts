@@ -45,7 +45,7 @@ export function notificationBrokerDefinitions(environment: NodeJS.ProcessEnv) {
     throw refusal();
   }
   const telegram = brokerUrlSchema.safeParse(
-    environment.NOTIFICATIONS_TELEGRAM_BROKER_URL,
+    environment["NOTIFICATIONS_TELEGRAM_BROKER_URL"],
   );
   if (platform === undefined || !telegram.success) throw refusal();
   const { billing, materials, notifications, email } = platform.urls;

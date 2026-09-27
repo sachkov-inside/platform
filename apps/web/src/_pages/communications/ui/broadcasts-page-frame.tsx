@@ -20,7 +20,7 @@ export function BroadcastsPageFrame({
       tabIndex={-1}
       className="h-full overflow-y-auto bg-background px-4 pb-24 pt-5 text-foreground sm:px-6"
     >
-      <div className={styles.page}>
+      <div className={styles["page"]}>
         <Link
           className="flex min-h-11 w-fit items-center gap-2 text-sm text-muted-foreground hover:text-foreground"
           href="/authoring/communications"

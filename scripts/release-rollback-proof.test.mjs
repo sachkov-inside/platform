@@ -1,3 +1,4 @@
+// @ts-check
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import { spawnSync } from "node:child_process";
@@ -137,6 +138,7 @@ function createFixture() {
   };
 }
 
+/** @param {string} path */
 function run(path) {
   return spawnSync(
     process.execPath,
@@ -145,6 +147,7 @@ function run(path) {
   );
 }
 
+/** @param {string} value */
 function sha256(value) {
   return `sha256:${createHash("sha256").update(value).digest("hex")}`;
 }

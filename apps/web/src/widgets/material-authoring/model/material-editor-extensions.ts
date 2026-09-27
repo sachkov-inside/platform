@@ -31,7 +31,7 @@ const ExitMaterialBlock = Extension.create({
           $from.depth > 0
             ? $from.after(1)
             : $from.pos + (state.doc.nodeAt($from.pos)?.nodeSize ?? 0);
-        const paragraph = state.schema.nodes.paragraph?.create();
+        const paragraph = state.schema.nodes["paragraph"]?.create();
         if (!paragraph) return false;
         const transaction = state.tr.insert(position, paragraph);
         transaction.setSelection(

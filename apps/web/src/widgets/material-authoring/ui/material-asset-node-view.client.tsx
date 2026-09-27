@@ -49,16 +49,16 @@ export function MaterialAssetNodeView({
   const { materialId, contentVersion, blocks, localImages } =
     useContext(EditorAssetContext);
   const altFieldId = useId();
-  const assetId = String(node.attrs.assetId ?? "");
+  const assetId = String(node.attrs["assetId"] ?? "");
   const isImage = node.type.name === "assetImage";
   const image = imageBlock(blocks, assetId);
   const localImage = localImages[assetId];
-  const label = String(node.attrs.label ?? "Файл");
+  const label = String(node.attrs["label"] ?? "Файл");
   const displayWidthPercent =
-    typeof node.attrs.displayWidthPercent === "number"
-      ? node.attrs.displayWidthPercent
+    typeof node.attrs["displayWidthPercent"] === "number"
+      ? node.attrs["displayWidthPercent"]
       : 100;
-  const alt = String(node.attrs.alt ?? "");
+  const alt = String(node.attrs["alt"] ?? "");
   return (
     <NodeViewWrapper
       className="group relative mx-auto my-6 rounded-xl bg-card"
@@ -130,7 +130,7 @@ export function MaterialAssetNodeView({
                 });
               }}
               placeholder="Подпись…"
-              value={String(node.attrs.caption ?? "")}
+              value={String(node.attrs["caption"] ?? "")}
             />
           </div>
           {/* The description belongs to the attachment itself: a reader hears it instead of the image. */}
