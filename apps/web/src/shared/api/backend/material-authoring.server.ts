@@ -149,7 +149,7 @@ export function requestMaterialDraftCreation(
             formatId: input.formatId,
             outcomes: [...input.outcomes],
             seriesIds: [...input.seriesIds],
-            summary: input.summary || null,
+            summary: input.summary === "" ? null : input.summary,
             tagIds: [...input.tagIds],
             title: input.title,
             topicId: input.topicId,

@@ -21,6 +21,7 @@ import {
   type CommunityBinding,
 } from "../../domain/community-entitlement.js";
 import type { TelegramAccountLinks } from "../../facets/telegram-account-links/telegram-account-links.js";
+import { hasText } from "../../../../infrastructure/contracts/text.js";
 
 export interface CommunityProjectionDependencies {
   readonly prisma: TelegramMembershipPrismaClient;
@@ -169,7 +170,7 @@ export async function projectCommunityEntitlement(
 
       const sameRecipient =
         currentAccountRef !== null && stored?.accountRef === currentAccountRef;
-      const latest = stored?.latestOperationId
+      const latest = hasText(stored?.latestOperationId)
         ? await transaction.telegramCommunityOperation.findUnique({
             where: { operationId: stored.latestOperationId },
           })

@@ -12,6 +12,7 @@ import {
   evidenceDirectory,
   prepareEvidenceDirectory,
 } from "../../../../scripts/evidence-path.mjs";
+import { hasText } from "../../src/shared/lib/text";
 
 let browser: Browser;
 let server: Server;
@@ -34,7 +35,7 @@ beforeAll(async () => {
       response.end(telegramSignInScript);
     } else if (request.url === "/api/inside-telegram/status") {
       requests += 1;
-      if (stalledStatus) {
+      if (stalledStatus !== undefined) {
         const stage = stalledStatus;
         stalledStatus = undefined;
         if (stage === "body") {
@@ -55,7 +56,7 @@ beforeAll(async () => {
   });
   await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
   const address = server.address();
-  if (!address || typeof address === "string")
+  if (address === null || typeof address === "string")
     throw new Error("Fixture server did not bind");
   fixtureOrigin = `http://127.0.0.1:${String(address.port)}`;
   origin = process.env.TELEGRAM_UI_ORIGIN ?? fixtureOrigin;
@@ -101,7 +102,7 @@ async function open(page: Page, status: InsideTelegramPresentation["status"]) {
   offline = false;
   requests = 0;
   state = { status, deepLink: botLink };
-  if (process.env.TELEGRAM_UI_ORIGIN) {
+  if (hasText(process.env.TELEGRAM_UI_ORIGIN)) {
     await page.unrouteAll();
     await page.route(`${origin}/api/inside-telegram/status`, async (route) => {
       requests += 1;
@@ -162,7 +163,7 @@ it("renders every production state without overflow or accessibility violations 
       if (process.env.CAPTURE_TELEGRAM_EVIDENCE === "1") {
         await prepareEvidenceDirectory("issue-303");
         await page.screenshot({
-          path: `${evidence}/${process.env.TELEGRAM_UI_ORIGIN ? "logto-" : ""}${status}-${String(width)}.png`,
+          path: `${evidence}/${hasText(process.env.TELEGRAM_UI_ORIGIN) ? "logto-" : ""}${status}-${String(width)}.png`,
           fullPage: true,
         });
       }

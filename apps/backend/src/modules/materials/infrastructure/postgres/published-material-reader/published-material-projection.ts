@@ -1195,8 +1195,8 @@ function projectNoteExcerpt(excerpt: {
     if (
       url !== null &&
       (url.protocol === "https:" || url.protocol === "http:") &&
-      !url.username &&
-      !url.password &&
+      url.username === "" &&
+      url.password === "" &&
       url.href.length <= 2048
     )
       linkUrl = url.href;

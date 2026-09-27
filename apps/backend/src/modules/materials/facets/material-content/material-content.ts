@@ -147,7 +147,7 @@ export function assembleMaterialContent(dependencies: {
           ok: true,
           value: {
             ...facts,
-            ...(memberships.length
+            ...(memberships.length > 0
               ? { guideIds: memberships.map((value) => value.seriesId) }
               : {}),
           },
@@ -193,7 +193,9 @@ export function assembleMaterialContent(dependencies: {
           const guideIds = memberships
             .filter((value) => value.materialId === row.id)
             .map((value) => value.seriesId);
-          return fact && { ...fact, ...(guideIds.length ? { guideIds } : {}) };
+          return (
+            fact && { ...fact, ...(guideIds.length > 0 ? { guideIds } : {}) }
+          );
         });
         if (facts.some((item) => item === undefined)) {
           return {

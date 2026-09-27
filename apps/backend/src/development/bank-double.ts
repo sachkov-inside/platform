@@ -1,6 +1,7 @@
 import { loadPlatformConfig } from "../config/load-platform-config.js";
 import { parsePlatformMode } from "../config/platform-config.js";
 import { startLocalBankDouble } from "./bank-double/start-local-bank-double.js";
+import { presentText } from "../infrastructure/contracts/text.js";
 
 const DEFAULT_BANK_DOUBLE_HOST = "127.0.0.1";
 const DEFAULT_BANK_DOUBLE_LEDGER = "/data/bank-double.json";
@@ -20,10 +21,13 @@ async function main(): Promise<void> {
   const endpoint = new URL(config.tbank.endpoints.apiBaseUrl);
   const running = await startLocalBankDouble({
     config: config.tbank,
-    host: process.env.BANK_DOUBLE_HOST?.trim() || DEFAULT_BANK_DOUBLE_HOST,
-    port: Number(endpoint.port || "80"),
+    host:
+      presentText(process.env.BANK_DOUBLE_HOST?.trim()) ??
+      DEFAULT_BANK_DOUBLE_HOST,
+    port: Number(endpoint.port === "" ? "80" : endpoint.port),
     ledgerPath:
-      process.env.BANK_DOUBLE_LEDGER?.trim() || DEFAULT_BANK_DOUBLE_LEDGER,
+      presentText(process.env.BANK_DOUBLE_LEDGER?.trim()) ??
+      DEFAULT_BANK_DOUBLE_LEDGER,
   });
   process.stdout.write(
     `${JSON.stringify({ process: "bank-double", status: "ready", port: running.port })}\n`,

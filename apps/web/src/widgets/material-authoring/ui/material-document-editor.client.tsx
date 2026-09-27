@@ -62,6 +62,7 @@ import {
   MaterialAssetUploadQueue,
   useMaterialAssetUploads,
 } from "./material-asset-upload-controls.client";
+import { hasText } from "@/shared/lib/text";
 
 const noAssetPreviewBlocks: NonNullable<
   MaterialAuthoringPresentation["draft"]["assetPreviewBlocks"]
@@ -140,7 +141,7 @@ function MaterialDocumentEditorView({
   >({});
   const imageReady = useCallback((assetId: string, file: File) => {
     const previous = imageUrls.current.get(assetId);
-    if (previous) URL.revokeObjectURL(previous);
+    if (hasText(previous)) URL.revokeObjectURL(previous);
     const url = URL.createObjectURL(file);
     imageUrls.current.set(assetId, url);
     setLocalImages(Object.fromEntries(imageUrls.current));
@@ -435,7 +436,7 @@ function MaterialDocumentEditorView({
           className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-left text-sm hover:bg-muted focus:bg-muted"
           key={block.name}
           onClick={() => {
-            if (!block.deferInsertion) prepareTextBlock();
+            if (block.deferInsertion !== true) prepareTextBlock();
             block.run();
             setMenuOpen(false);
           }}
@@ -478,7 +479,7 @@ function MaterialDocumentEditorView({
     >
       <div className="sticky top-0 z-30 flex min-h-12 flex-wrap items-center justify-end gap-1 rounded-t-2xl bg-card/95 px-3 py-1">
         <div className="mr-auto flex min-w-0 flex-wrap items-center gap-1">
-          {toolbarState?.table ? (
+          {toolbarState?.table === true ? (
             <div className="flex gap-1" role="toolbar" aria-label="Таблица">
               <Button
                 aria-label="Добавить строку"

@@ -8,7 +8,8 @@ test("owner assigns scoped course and the open cabinet converges through real BF
 }, info) => {
   await signInFullStack(context, "OWNER");
   const owner = process.env.ENROLLMENT_OWNER_ID;
-  if (!owner) throw new Error("Missing enrollment owner fixture");
+  if (owner === undefined || owner === "")
+    throw new Error("Missing enrollment owner fixture");
   async function selectRecipient(surface: typeof page) {
     await surface
       .getByLabel("Подтверждённая Telegram identity получателя")

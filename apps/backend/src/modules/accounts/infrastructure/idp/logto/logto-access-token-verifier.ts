@@ -72,7 +72,7 @@ export function createLogtoAccessTokenVerifier(
           .object({ subjectRef: z.uuid(), requestRef: z.uuid() })
           .strict()
           .safeParse(verified.payload.inside_telegram_sign_in);
-        if (!config.telegramSignInEnabled || !telegram.success)
+        if (config.telegramSignInEnabled !== true || !telegram.success)
           return invalidProof();
         return {
           ok: true,

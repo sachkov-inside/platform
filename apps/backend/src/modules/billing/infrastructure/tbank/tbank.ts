@@ -109,7 +109,12 @@ export function validatedPaymentUrl(
   origins: readonly string[],
 ): string {
   const url = new URL(z.url().parse(value));
-  if (!origins.includes(url.origin) || url.username || url.password || url.hash)
+  if (
+    !origins.includes(url.origin) ||
+    url.username !== "" ||
+    url.password !== "" ||
+    url.hash !== ""
+  )
     throw new Error("Invalid bank payment URL");
   return url.toString();
 }

@@ -28,6 +28,7 @@ import { brokerAdmin, queueDepth } from "./setup/broker.js";
 import { distinctClock } from "./setup/distinct-clock.js";
 import { eventually } from "./setup/eventually.js";
 import { createMigratedTestDatabase } from "./setup/test-database.js";
+import { hasText } from "../../src/infrastructure/contracts/text.js";
 
 // Каждое ожидание заканчивается на зафиксированном факте; бюджет только ограничивает зависший прогон.
 const barrierBudgetMs = 30_000;
@@ -164,7 +165,8 @@ test("первая публикация доходит до обоих кана�
             if (channel === "email") return contacts.binding(account);
             const link = await links.readBinding({ accountId: account });
             if (!link.ok) throw new Error("notification_binding_unavailable");
-            return link.binding?.telegramIdentityRef && link.binding.accountRef
+            return hasText(link.binding?.telegramIdentityRef) &&
+              hasText(link.binding.accountRef)
               ? {
                   channel: "telegram",
                   ...link.binding,

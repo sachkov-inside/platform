@@ -161,7 +161,7 @@ function useNavigationSave(
         !(anchor instanceof HTMLAnchorElement) ||
         anchor.target === "_blank" ||
         anchor.hasAttribute("download") ||
-        (anchor.hash && anchor.pathname === window.location.pathname)
+        (anchor.hash !== "" && anchor.pathname === window.location.pathname)
       )
         return;
       event.preventDefault();

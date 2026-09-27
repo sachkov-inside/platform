@@ -33,6 +33,7 @@ import {
   optionalFormText,
   reasonMaxLength,
 } from "./admin-form.client";
+import { presentText } from "@/shared/lib/text";
 
 /** Основание возврата словами владельца и его последствие: одна карта для выбора и для истории решений. */
 const refundBases = {
@@ -102,7 +103,9 @@ export function PaymentsSection({
               optionalFormText(form.get("paymentsKind")),
             ).data;
             onListPayments({
-              limit: Number(formText(form.get("paymentsLimit")) || "50"),
+              limit: Number(
+                presentText(formText(form.get("paymentsLimit"))) ?? "50",
+              ),
               ...(accountId === undefined ? {} : { accountId }),
               ...(state === undefined ? {} : { state }),
               ...(kind === undefined ? {} : { kind }),

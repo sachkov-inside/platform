@@ -3,6 +3,7 @@
 import { useState } from "react";
 
 import type { MemberProfileAvatar } from "../model/member-profile";
+import { presentText } from "@/shared/lib/text";
 
 export function ProfileAvatar({
   avatar,
@@ -28,7 +29,7 @@ export function ProfileAvatar({
     return (
       /* eslint-disable-next-line next/no-img-element -- the protected route requires the viewer's session and cannot pass through the Next optimizer */
       <img
-        alt={`Аватар: ${displayName.trim() || "участник"}`}
+        alt={`Аватар: ${presentText(displayName.trim()) ?? "участник"}`}
         className={`${className} rounded-full bg-muted object-cover`}
         decoding="async"
         height={320}
@@ -43,7 +44,7 @@ export function ProfileAvatar({
 
   return (
     <div
-      aria-label={`Аватар: ${displayName.trim() || "участник"}`}
+      aria-label={`Аватар: ${presentText(displayName.trim()) ?? "участник"}`}
       className={`${className} grid place-items-center rounded-full bg-accent/14 font-bold tracking-[-0.03em] text-foreground`}
       role="img"
     >

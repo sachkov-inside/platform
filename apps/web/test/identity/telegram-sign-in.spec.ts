@@ -10,7 +10,12 @@ import {
   prepareEvidenceDirectory,
 } from "../../../../scripts/evidence-path.mjs";
 
-if (!process.env.WEB_BASE_URL || !process.env.LOGTO_ENDPOINT)
+if (
+  process.env.WEB_BASE_URL === undefined ||
+  process.env.WEB_BASE_URL === "" ||
+  process.env.LOGTO_ENDPOINT === undefined ||
+  process.env.LOGTO_ENDPOINT === ""
+)
   throw new Error(
     "Explicit isolated WEB_BASE_URL and LOGTO_ENDPOINT are required",
   );

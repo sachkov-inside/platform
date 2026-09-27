@@ -5,6 +5,7 @@ import { Button } from "@/shared/ui/button";
 import { type SavedPost, type Part } from "../model/broadcasts";
 import { fieldClass } from "./communications-fields";
 import styles from "./broadcasts.module.css";
+import { hasText, presentText } from "@/shared/lib/text";
 
 const contentLabels = {
   text: "Текст",
@@ -54,9 +55,9 @@ export function PostLibrary(
       </Button>
       {props.loading ? (
         <p role="status">Загружаем посты…</p>
-      ) : props.error ? (
+      ) : hasText(props.error) ? (
         <p role="alert">{props.error}</p>
-      ) : !props.posts.length ? (
+      ) : props.posts.length === 0 ? (
         <p>Постов пока нет. Создайте первый в Telegram.</p>
       ) : (
         <div className="grid gap-2">
@@ -74,7 +75,7 @@ export function PostLibrary(
                 setSelected(post);
               }}
             >
-              {post.content.text.slice(0, 90) ||
+              {presentText(post.content.text.slice(0, 90)) ??
                 contentLabels[post.content.type]}{" "}
               · v{post.revision}
             </Button>
@@ -122,7 +123,7 @@ function PostDetails({
   return (
     <div className="min-w-0 space-y-3 rounded-xl border border-border p-3">
       <p className="whitespace-pre-wrap break-words">
-        {saved.content.text || contentLabels[saved.content.type]}
+        {presentText(saved.content.text) ?? contentLabels[saved.content.type]}
       </p>
       <p className={styles.hint}>
         Сохранённая версия {saved.revision}. Текст и медиа меняются через
@@ -278,7 +279,7 @@ function PostDetails({
           {chooseLabel ?? "Добавить в рассылку"}
         </Button>
       </div>
-      {message ? <p role="status">{message}</p> : null}
+      {hasText(message) ? <p role="status">{message}</p> : null}
     </div>
   );
 }

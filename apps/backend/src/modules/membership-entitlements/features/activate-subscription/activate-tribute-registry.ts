@@ -40,7 +40,7 @@ export async function activateTributeRegistry(
   const policy = await tx.tributePolicy.findUnique({
     where: { id: policyRef },
   });
-  if (!policy?.enabled) return pending;
+  if (policy?.enabled !== true) return pending;
   const source = await tx.sourceEntitlement.findUnique({
     where: { origin_sourceRef: { origin: "tribute", sourceRef } },
   });

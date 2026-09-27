@@ -2,6 +2,7 @@ import type { z } from "zod";
 import type { PublicContentTargets } from "../../../materials/index.js";
 import type { partSchema } from "../../communications-schema.generated.js";
 import type { targetErrorSchema } from "../../communications-contract.js";
+import { hasText } from "../../../../infrastructure/contracts/text.js";
 
 export async function validateTargets(
   parts: z.infer<typeof partSchema>[],
@@ -16,7 +17,8 @@ export async function validateTargets(
       urls.add(match[0].replace(/[),.!?;:]+$/u, ""));
     for (const button of part.content.buttons) urls.add(button.url);
     for (const entity of part.content.entities) {
-      if (entity.type === "text_link" && entity.url) urls.add(entity.url);
+      if (entity.type === "text_link" && hasText(entity.url))
+        urls.add(entity.url);
       if (entity.type === "url")
         urls.add(
           part.content.text.slice(entity.offset, entity.offset + entity.length),
@@ -39,7 +41,7 @@ export async function validateTargets(
         return "";
       }
     })();
-    if (!slug || slug.length > 120) {
+    if (slug === "" || slug.length > 120) {
       errors.push({ url: url.href, reason: "not_found", targetId: null });
       continue;
     }

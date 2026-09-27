@@ -1,6 +1,7 @@
 import "server-only";
 import { z } from "zod";
 import { requestCommunicationVisit } from "@/shared/api/backend/index.server";
+import { hasText } from "@/shared/lib/text";
 const headers = {
   "cache-control": "private, no-store",
   "referrer-policy": "no-referrer",
@@ -19,7 +20,7 @@ export function classifyTrackingTraffic(
 }
 export async function handleTrackingVisit(request: Request): Promise<Response> {
   const token = new URL(request.url).searchParams.get("token");
-  if (!token || !/^[A-Za-z0-9_-]{32,128}$/u.test(token))
+  if (!hasText(token) || !/^[A-Za-z0-9_-]{32,128}$/u.test(token))
     return new Response("Ссылка недействительна.", { status: 404, headers });
   try {
     const response = await requestCommunicationVisit({
@@ -27,7 +28,7 @@ export async function handleTrackingVisit(request: Request): Promise<Response> {
       traffic: classifyTrackingTraffic(request.headers.get("user-agent")),
     });
     const parsed = response.ok ? resolved.safeParse(response.body) : null;
-    if (parsed?.success)
+    if (parsed?.success === true)
       return new Response(null, {
         status: 302,
         headers: { ...headers, location: parsed.data.safeUrl },

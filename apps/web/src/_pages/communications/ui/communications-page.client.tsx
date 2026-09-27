@@ -21,6 +21,7 @@ import {
   fieldClass,
 } from "./broadcast-editor.client";
 import { AnalyticsPanel, EntryHistory } from "./analytics-panel";
+import { hasText } from "@/shared/lib/text";
 
 export function CommunicationsPage() {
   const queries = useQueryClient();
@@ -81,9 +82,9 @@ export function CommunicationsPage() {
   function selectScope(value: string) {
     const [kind, id] = value.split(":");
     setScope(
-      kind === "funnel" && id
+      kind === "funnel" && hasText(id)
         ? { funnelId: id }
-        : kind === "broadcast" && id
+        : kind === "broadcast" && hasText(id)
           ? { broadcastId: id }
           : {},
     );
@@ -151,7 +152,8 @@ export function CommunicationsPage() {
       {funnelPage.data?.kind === "error" ? (
         <p role="alert">Воронки: {errorMessage(funnelPage.data.code)}</p>
       ) : null}
-      {funnelPage.data?.kind === "ready" && funnelPage.data.nextCursor ? (
+      {funnelPage.data?.kind === "ready" &&
+      hasText(funnelPage.data.nextCursor) ? (
         <Button
           variant="outline"
           onClick={() => {
@@ -251,7 +253,7 @@ export function CommunicationsPage() {
               : null;
           }}
         />
-      ) : error ? (
+      ) : hasText(error) ? (
         <p role="alert">{errorMessage(error)}</p>
       ) : null}
       <section
@@ -266,9 +268,9 @@ export function CommunicationsPage() {
           <select
             className={fieldClass}
             value={
-              scope.funnelId
+              hasText(scope.funnelId)
                 ? `funnel:${scope.funnelId}`
-                : scope.broadcastId
+                : hasText(scope.broadcastId)
                   ? `broadcast:${scope.broadcastId}`
                   : "all"
             }
@@ -290,7 +292,7 @@ export function CommunicationsPage() {
                   >
                     Рассылка:{" "}
                     {b.parts
-                      .find((p) => p.content.text)
+                      .find((p) => p.content.text !== "")
                       ?.content.text.slice(0, 35) ?? b.broadcastId}
                   </option>
                 ))
@@ -309,7 +311,7 @@ export function CommunicationsPage() {
             ) : null}
           </select>
         </label>
-        {contactCursor || deliveryCursor ? (
+        {hasText(contactCursor) || hasText(deliveryCursor) ? (
           <Button
             variant="outline"
             onClick={() => {
@@ -349,7 +351,7 @@ export function CommunicationsPage() {
                   entries={history.data.entries}
                   funnels={funnels}
                 />
-                {history.data.nextCursor ? (
+                {hasText(history.data.nextCursor) ? (
                   <Button
                     variant="outline"
                     onClick={() => {

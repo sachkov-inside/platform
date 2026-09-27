@@ -16,6 +16,7 @@ import {
   AdminSection,
   AdminSelect,
 } from "./admin-form.client";
+import { hasText } from "@/shared/lib/text";
 export function ActivationRulesPanel() {
   const [error, setError] = useState<string>();
   const [notice, setNotice] = useState<string>();
@@ -63,10 +64,10 @@ export function ActivationRulesPanel() {
       title="Ссылки активации курса и Tribute"
       description="Код выбирает правило, но не подтверждает покупку. Право выдаётся только после проверки источника и текущей связи аккаунта."
     >
-      {error || rules.isError ? (
+      {hasText(error) || rules.isError ? (
         <p role="alert">{error ?? rules.error?.message}</p>
       ) : null}
-      {notice ? <p role="status">{notice}</p> : null}
+      {hasText(notice) ? <p role="status">{notice}</p> : null}
       {rules.data?.map((rule) => (
         <div key={rule.id} className="grid gap-2 border-b border-border pb-4">
           <p className="font-semibold">

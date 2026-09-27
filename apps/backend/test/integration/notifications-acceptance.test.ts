@@ -63,6 +63,7 @@ import {
   pressedPaymentButton,
   syntheticConsentDocuments,
 } from "./setup/consent-documents.js";
+import { hasText } from "../../src/infrastructure/contracts/text.js";
 
 // Каждое ожидание заканчивается на зафиксированном факте; бюджет только ограничивает зависший прогон.
 const barrierBudgetMs = 45_000;
@@ -296,8 +297,8 @@ describe("приёмка обоих источников Notifications (реал
               if (channel === "email") return contacts.binding(account);
               const link = await links.readBinding({ accountId: account });
               if (!link.ok) throw new Error("notification_binding_unavailable");
-              return link.binding?.telegramIdentityRef &&
-                link.binding.accountRef
+              return hasText(link.binding?.telegramIdentityRef) &&
+                hasText(link.binding.accountRef)
                 ? {
                     channel: "telegram",
                     ...link.binding,
@@ -468,7 +469,7 @@ describe("приёмка обоих источников Notifications (реал
         value: {
           id: optionId,
           offerId,
-          ...(input.mode ? { mode: input.mode } : {}),
+          ...(input.mode !== undefined ? { mode: input.mode } : {}),
           months: 1,
           priceKopecks: input.priceKopecks,
         },

@@ -20,6 +20,7 @@ import {
 import { guideProgrammeHref } from "@/shared/routing/subscription-route";
 import { IntentPrefetchLink } from "@/shared/ui/intent-prefetch-link.client";
 import type { HomePinnedCollection } from "../model/home-view";
+import { hasText } from "@/shared/lib/text";
 
 /** Реестр оформлений карточки Главной (ADR 0026): оформление продукта выбирает её вид. */
 const featuredCards: Record<
@@ -66,9 +67,9 @@ function AiFirstFeaturedGuide({
             {fillOneTimeTerms(card.subtitle)}
           </p>
         )}
-        {series.summary && (
+        {hasText(series.summary) ? (
           <p className="home-guide-summary">{series.summary}</p>
-        )}
+        ) : null}
         <div className="home-guide-actions">
           <span>{formatMaterialCount(series.count)}</span>
           <IntentPrefetchLink
@@ -112,7 +113,7 @@ function DefaultFeaturedGuide({
     <section className="home-guide" aria-labelledby="featured-title">
       <div className="home-guide-copy">
         <h2 id="featured-title">{series.name}</h2>
-        {series.summary && <p>{series.summary}</p>}
+        {hasText(series.summary) ? <p>{series.summary}</p> : null}
         <div className="home-guide-actions">
           <span>{formatMaterialCount(series.count)}</span>
           <IntentPrefetchLink

@@ -4,6 +4,7 @@ import {
   parseNotificationsConfig,
 } from "./notifications-config.js";
 import { z } from "zod";
+import { hasText, presentText } from "../infrastructure/contracts/text.js";
 
 const DEFAULT_DATABASE_URL = "postgresql://inside:inside@127.0.0.1:5432/inside";
 const DEFAULT_API_HOST = "127.0.0.1";
@@ -139,10 +140,10 @@ const telegramIntegrationEndpointSchema = (name: string, path: string) =>
       return (
         (url.protocol === "https:" ||
           ["127.0.0.1", "localhost", "[::1]"].includes(url.hostname)) &&
-        !url.username &&
-        !url.password &&
-        !url.search &&
-        !url.hash &&
+        url.username === "" &&
+        url.password === "" &&
+        url.search === "" &&
+        url.hash === "" &&
         url.pathname === path
       );
     },
@@ -281,10 +282,10 @@ const platformConfigSchema = z
         return (
           url.protocol === "https:" &&
           url.pathname === "/" &&
-          !url.search &&
-          !url.hash &&
-          !url.username &&
-          !url.password
+          url.search === "" &&
+          url.hash === "" &&
+          url.username === "" &&
+          url.password === ""
         );
       })
       .optional(),
@@ -439,8 +440,8 @@ export function parsePlatformConfig(
   const config = platformConfigSchema.safeParse({
     notifications: parseNotificationsConfig(environment),
     notificationDelivery:
-      environment.NOTIFICATIONS_PLATFORM_ORIGIN ||
-      environment.NOTIFICATIONS_TELEGRAM_SECRET
+      hasText(environment.NOTIFICATIONS_PLATFORM_ORIGIN) ||
+      hasText(environment.NOTIFICATIONS_TELEGRAM_SECRET)
         ? {
             origin: environment.NOTIFICATIONS_PLATFORM_ORIGIN,
             telegramSecret: environment.NOTIFICATIONS_TELEGRAM_SECRET,
@@ -581,14 +582,14 @@ export function parsePlatformConfig(
         mode,
         DEFAULT_OBJECT_STORAGE_ENDPOINT,
       ),
-      ...(environment.OBJECT_STORAGE_SIGNED_GET_ENDPOINT?.trim()
+      ...(hasText(environment.OBJECT_STORAGE_SIGNED_GET_ENDPOINT?.trim())
         ? {
             signedGetEndpoint:
               environment.OBJECT_STORAGE_SIGNED_GET_ENDPOINT.trim(),
           }
         : {}),
       forcePathStyle:
-        environment.OBJECT_STORAGE_FORCE_PATH_STYLE?.trim() ||
+        presentText(environment.OBJECT_STORAGE_FORCE_PATH_STYLE?.trim()) ??
         (mode === "production" ? "false" : "true"),
       orphanGraceMs: readRuntimeValue(
         environment,
@@ -665,7 +666,7 @@ export function parsePlatformConfig(
         DEFAULT_KINESCOPE_PLAYBACK_JWT_TTL_SECONDS,
       ),
       providerMode:
-        environment.KINESCOPE_PROVIDER_MODE?.trim() ||
+        presentText(environment.KINESCOPE_PROVIDER_MODE?.trim()) ??
         (mode === "production" ? "real" : DEFAULT_KINESCOPE_PROVIDER_MODE),
       publicProjectId: readRuntimeValue(
         environment,
@@ -868,8 +869,8 @@ export function parsePlatformConfig(
 
   if (config.data.identity.telegramSignInEnabled) {
     if (
-      !config.data.identity.telegramSignInIntegrationSecret ||
-      !environment.TELEGRAM_SIGN_IN_PROVIDER_URL
+      !hasText(config.data.identity.telegramSignInIntegrationSecret) ||
+      !hasText(environment.TELEGRAM_SIGN_IN_PROVIDER_URL)
     ) {
       throw new Error(
         "Telegram sign-in requires TELEGRAM_SIGN_IN_PROVIDER_URL and TELEGRAM_SIGN_IN_INTEGRATION_SECRET",
@@ -878,10 +879,10 @@ export function parsePlatformConfig(
     const providerUrl = new URL(config.data.identity.telegramSignInProviderUrl);
     if (
       (mode === "production" && providerUrl.protocol !== "https:") ||
-      providerUrl.username ||
-      providerUrl.password ||
-      providerUrl.search ||
-      providerUrl.hash
+      providerUrl.username !== "" ||
+      providerUrl.password !== "" ||
+      providerUrl.search !== "" ||
+      providerUrl.hash !== ""
     ) {
       throw new Error("TELEGRAM_SIGN_IN_PROVIDER_URL is invalid");
     }
@@ -998,10 +999,10 @@ function publicOriginSchema(name: string) {
         const url = new URL(value);
         return (
           url.pathname === "/" &&
-          !url.search &&
-          !url.hash &&
-          !url.username &&
-          !url.password
+          url.search === "" &&
+          url.hash === "" &&
+          url.username === "" &&
+          url.password === ""
         );
       },
       { message: `${name} must be a bare origin` },

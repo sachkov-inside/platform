@@ -4,7 +4,7 @@ export function bearerCredential(
   authorization: string | undefined,
 ): string | undefined {
   const prefix = "Bearer ";
-  return authorization?.startsWith(prefix)
+  return authorization?.startsWith(prefix) === true
     ? authorization.slice(prefix.length)
     : undefined;
 }

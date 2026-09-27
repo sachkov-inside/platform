@@ -123,8 +123,8 @@ export function HomeFeedView({
       ) : page?.kind === "empty" ||
         (page?.kind === "ready" && page.totalCount === 0) ? (
         <p className="py-10 text-muted-foreground">
-          {catalog.searchQuery.q ||
-          catalog.searchQuery.formatSlugs.length ||
+          {catalog.searchQuery.q !== "" ||
+          catalog.searchQuery.formatSlugs.length > 0 ||
           catalog.searchQuery.topicSlug !== null
             ? "Ничего не найдено. Измените запрос, тему или формат."
             : "Материалы скоро появятся."}

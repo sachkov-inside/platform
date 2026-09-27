@@ -33,6 +33,7 @@ import {
   pressedPaymentButton,
   syntheticConsentDocuments,
 } from "./setup/consent-documents.js";
+import { hasText } from "../../src/infrastructure/contracts/text.js";
 
 function value<T>(
   result: { ok: true; value: T } | { ok: false; error: { code: string } },
@@ -231,7 +232,8 @@ test("подтверждённая оплата доходит до обоих �
           if (channel === "email") return contacts.binding(account);
           const link = await links.readBinding({ accountId: account });
           if (!link.ok) throw new Error("notification_binding_unavailable");
-          return link.binding?.telegramIdentityRef && link.binding.accountRef
+          return hasText(link.binding?.telegramIdentityRef) &&
+            hasText(link.binding.accountRef)
             ? {
                 channel: "telegram",
                 ...link.binding,

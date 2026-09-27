@@ -343,7 +343,7 @@ function crc32(data: Buffer): number {
   for (const byte of data) {
     crc ^= byte;
     for (let bit = 0; bit < 8; bit += 1) {
-      crc = (crc >>> 1) ^ (crc & 1 ? 0xedb88320 : 0);
+      crc = (crc >>> 1) ^ ((crc & 1) !== 0 ? 0xedb88320 : 0);
     }
   }
   return (crc ^ 0xffffffff) >>> 0;

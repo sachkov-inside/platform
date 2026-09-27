@@ -16,10 +16,10 @@ export const templateReferenceSchema = z
       const id = z.guid().safeParse(parts[3]);
       if (
         url.protocol === "https:" &&
-        !url.username &&
-        !url.password &&
-        !url.search &&
-        !url.hash &&
+        url.username === "" &&
+        url.password === "" &&
+        url.search === "" &&
+        url.hash === "" &&
         parts.length === 4 &&
         parts[1] === "communications" &&
         parts[2] === "templates" &&

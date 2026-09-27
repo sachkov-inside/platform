@@ -30,6 +30,7 @@ export interface BroadcastEditorProps {
   readonly onTemplate: (reference: string) => Promise<Part | null>;
 }
 import { fieldClass } from "./communications-fields";
+import { hasText } from "@/shared/lib/text";
 export { fieldClass } from "./communications-fields";
 const mediaNames = {
   text: "Текст",
@@ -40,7 +41,7 @@ const mediaNames = {
   document: "Документ",
 };
 function localDate(value: string | null): string {
-  if (!value) return "";
+  if (!hasText(value)) return "";
   const date = new Date(value);
   return new Date(+date - date.getTimezoneOffset() * 60_000)
     .toISOString()
@@ -64,7 +65,7 @@ export function BroadcastEditor(props: BroadcastEditorProps) {
   const scheduledAt =
     scheduled === localDate(broadcast.scheduledAt)
       ? broadcast.scheduledAt
-      : scheduled
+      : scheduled !== ""
         ? new Date(scheduled).toISOString()
         : null;
   const dirty =
@@ -109,7 +110,7 @@ export function BroadcastEditor(props: BroadcastEditorProps) {
         <summary>ID рассылки</summary>
         <p className="break-all font-mono text-xs">{broadcast.broadcastId}</p>
       </details>
-      {props.error || localError ? (
+      {hasText(props.error) || hasText(localError) ? (
         <p role="alert" className={styles.alert}>
           {localError ?? errorMessage(props.error ?? "")}
         </p>
@@ -147,7 +148,7 @@ export function BroadcastEditor(props: BroadcastEditorProps) {
                           : value,
                       )
                     : current.length === 1 &&
-                        !current[0]?.content.text &&
+                        !hasText(current[0]?.content.text) &&
                         current[0]?.content.type === "text"
                       ? [part]
                       : [...current, part],
@@ -356,7 +357,7 @@ export function BroadcastEditor(props: BroadcastEditorProps) {
             </label>
             <Button
               variant="outline"
-              disabled={!reference || parts.length >= 20}
+              disabled={reference === "" || parts.length >= 20}
               onClick={() => {
                 void (async () => {
                   setImporting(true);
@@ -367,8 +368,8 @@ export function BroadcastEditor(props: BroadcastEditorProps) {
                       setParts((current) =>
                         current.length === 1 &&
                         current[0]?.content.type === "text" &&
-                        !current[0].content.text &&
-                        !current[0].content.buttons.length
+                        current[0].content.text === "" &&
+                        current[0].content.buttons.length === 0
                           ? [part]
                           : [...current, part],
                       );
@@ -414,7 +415,7 @@ export function BroadcastEditor(props: BroadcastEditorProps) {
             </label>
             {audience.kind === "funnels" ? (
               <div className="space-y-2 pl-4">
-                {funnels.length ? (
+                {funnels.length > 0 ? (
                   funnels.map((funnel) => (
                     <label key={funnel.funnelId} className={styles.choice}>
                       <input
@@ -483,7 +484,7 @@ export function BroadcastEditor(props: BroadcastEditorProps) {
             onClick={() => {
               setLocalError(null);
               if (
-                scheduledAt &&
+                hasText(scheduledAt) &&
                 scheduled !== localDate(broadcast.scheduledAt) &&
                 +new Date(scheduledAt) <= Date.now()
               ) {
@@ -544,7 +545,9 @@ export function BroadcastEditor(props: BroadcastEditorProps) {
               props.onLaunch(action());
             }}
           >
-            {broadcast.scheduledAt ? "Запланировать" : "Запустить сейчас"}
+            {hasText(broadcast.scheduledAt)
+              ? "Запланировать"
+              : "Запустить сейчас"}
           </Button>
         ) : null}
         {["running", "scheduled"].includes(broadcast.state) ? (
@@ -597,7 +600,7 @@ export function BroadcastEditor(props: BroadcastEditorProps) {
               <p className="whitespace-pre-wrap break-words">
                 {part.content.text}
               </p>
-              {part.content.entities.length ? (
+              {part.content.entities.length > 0 ? (
                 <p className="text-sm">
                   Форматирование заготовки сохранено (
                   {part.content.entities.length} фрагментов).

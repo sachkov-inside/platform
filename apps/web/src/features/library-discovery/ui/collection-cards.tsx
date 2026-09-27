@@ -129,7 +129,9 @@ export function PlaylistCard({
         {playlist.name}
       </strong>
       <span className="mt-2 block text-sm leading-5 text-white/65">
-        {playlist.summary || "Последовательность материалов"}
+        {playlist.summary === ""
+          ? "Последовательность материалов"
+          : playlist.summary}
       </span>
       <span className="mt-auto grid grid-cols-3 gap-2 pt-6" aria-hidden="true">
         {Array.from({ length: Math.max(previews.length, 1) }, (_, index) => {

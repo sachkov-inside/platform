@@ -47,6 +47,7 @@ import {
   GUIDE_CHAPTER_SUMMARY_MAX,
 } from "../model/presentation";
 import { dragLeftElement } from "@/shared/lib/drag-left-element";
+import { presentText } from "@/shared/lib/text";
 
 const STEP_GROUP_LIMIT = 120;
 const UNASSIGNED = "unassigned";
@@ -938,7 +939,7 @@ function ChapterSection({
             <summary className="flex min-h-9 w-fit max-w-full cursor-pointer list-none items-center gap-1.5 rounded-md text-muted-foreground hover:text-foreground focus-visible:outline-2 focus-visible:outline-ring [&::-webkit-details-marker]:hidden">
               <ChevronDown aria-hidden="true" className="size-3.5 shrink-0" />
               <span>
-                {chapter.summary.trim()
+                {chapter.summary.trim() !== ""
                   ? "Описание главы"
                   : "Добавить описание главы"}
               </span>
@@ -1117,9 +1118,8 @@ function MaterialRow({
             <summary className="flex min-h-9 w-fit max-w-full cursor-pointer list-none items-center gap-1.5 rounded-md text-muted-foreground hover:text-foreground focus-visible:outline-2 focus-visible:outline-ring [&::-webkit-details-marker]:hidden">
               <ChevronDown aria-hidden="true" className="size-3.5 shrink-0" />
               <span className="[overflow-wrap:anywhere]">
-                {item.stepGroup?.trim()
-                  ? item.stepGroup.trim()
-                  : "Последовательность шагов"}
+                {presentText(item.stepGroup?.trim()) ??
+                  "Последовательность шагов"}
               </span>
             </summary>
             <div className="mt-2 grid max-w-sm gap-3 pb-2">
@@ -1293,7 +1293,7 @@ function composition(
     entries: items.map(({ chapterId, materialId, stepGroup }) => ({
       chapterId: chapterId ?? null,
       materialId,
-      stepGroup: stepGroup?.trim() ? stepGroup.trim() : null,
+      stepGroup: presentText(stepGroup?.trim()) ?? null,
     })),
   };
 }

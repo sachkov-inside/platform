@@ -16,6 +16,7 @@ import {
   createMigratedTestDatabase,
   type TestDatabase,
 } from "./setup/test-database.js";
+import { hasText } from "../../src/infrastructure/contracts/text.js";
 
 let database: TestDatabase;
 beforeAll(async () => {
@@ -105,7 +106,7 @@ test("a lost provider response retains one Account and principal, and a fresh pr
     error: { code: "unavailable" },
   });
   const principalRef = principals[0];
-  if (!principalRef || !first.identity.telegram)
+  if (!hasText(principalRef) || !first.identity.telegram)
     throw new Error("Expected a retained principal");
   await expect(
     signIn.resolveLink(

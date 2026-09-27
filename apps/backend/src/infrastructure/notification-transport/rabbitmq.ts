@@ -12,6 +12,7 @@ import {
   type NotificationEnvelope,
   type NotificationLane,
 } from "./wire.js";
+import { hasText } from "../contracts/text.js";
 
 export const BROKER_CONFIRM_TIMEOUT_MS = 5_000;
 export interface BrokerConnectionConfig {
@@ -23,7 +24,7 @@ export async function connectNotificationBroker(
 ): Promise<ChannelModel> {
   const connection = await connect(config.url, {
     timeout: BROKER_CONFIRM_TIMEOUT_MS,
-    ...(config.caFile ? { ca: [await readFile(config.caFile)] } : {}),
+    ...(hasText(config.caFile) ? { ca: [await readFile(config.caFile)] } : {}),
   });
   // The owner observes close; never log AMQP errors containing URLs or credentials.
   connection.on("error", () => undefined);
@@ -62,8 +63,8 @@ export async function publishNotification(
           messageId: envelope.messageId,
           type: envelope.version,
         },
-        (error) => {
-          if (error || returned)
+        (error: unknown) => {
+          if ((error !== null && error !== undefined) || returned)
             reject(new Error(returned ? "publisher_return" : "publisher_nack"));
           else resolve();
         },

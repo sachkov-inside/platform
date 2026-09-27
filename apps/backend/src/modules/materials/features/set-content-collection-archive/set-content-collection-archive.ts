@@ -18,6 +18,7 @@ import type {
   SetContentCollectionArchiveError,
   SetContentCollectionArchiveOperation,
 } from "./set-content-collection-archive.contract.js";
+import { hasText } from "../../../../infrastructure/contracts/text.js";
 
 const commandSchema = z
   .object({
@@ -51,7 +52,7 @@ export function assembleSetContentCollectionArchive(
             where: { id: command.collectionId },
             select: { sourceId: true },
           });
-          if (source?.sourceId) return rollback({ code: "forbidden" });
+          if (hasText(source?.sourceId)) return rollback({ code: "forbidden" });
         }
         const persistence = contentCollectionPersistence(
           transaction,

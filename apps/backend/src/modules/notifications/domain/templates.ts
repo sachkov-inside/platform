@@ -24,11 +24,11 @@ export function renderNotification(
   const url = new URL(source.readerPath, base);
   if (
     !readerLinkAllowed(base) ||
-    base.username ||
-    base.password ||
+    base.username !== "" ||
+    base.password !== "" ||
     url.origin !== base.origin ||
-    url.username ||
-    url.password ||
+    url.username !== "" ||
+    url.password !== "" ||
     !source.readerPath.startsWith("/") ||
     source.readerPath.startsWith("//")
   )
@@ -48,7 +48,7 @@ export function renderNotification(
       ? ""
       : `\nДата: ${new Date(source.dueAt).toISOString()}.`;
   const title = source.title.replaceAll(/[\r\n]+/gu, " ").trim();
-  if (!title || title.length > 1_500)
+  if (title === "" || title.length > 1_500)
     throw new Error("notification_title_invalid");
   return {
     templateRef: `inside.${source.content.kind}`,

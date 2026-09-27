@@ -49,7 +49,7 @@ function materialSlugBase(title: string): string {
     .replace(/[^a-z0-9]+/gu, "-")
     .replace(/^-+|-+$/gu, "")
     .replace(/-+/gu, "-");
-  return (transliterated || "material")
+  return (transliterated === "" ? "material" : transliterated)
     .slice(0, maximumSlugLength)
     .replace(/-+$/u, "");
 }

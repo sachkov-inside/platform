@@ -8,6 +8,7 @@ import {
   dispatchResponseSchema,
   type Channel,
 } from "../../domain/notification-wire.js";
+import { hasText } from "../../../../infrastructure/contracts/text.js";
 
 export async function acceptDeliveryResult(
   prisma: NotificationsPrismaClient,
@@ -34,7 +35,7 @@ export async function acceptDeliveryResult(
     )
       return "correlation_conflict" as const;
     const current = command.delivery;
-    if (result.attemptRef) {
+    if (hasText(result.attemptRef)) {
       const permits = await transaction.notificationAuthorization.findMany({
         where: {
           channel,
@@ -86,7 +87,7 @@ export async function acceptDeliveryResult(
       // Leave its durable inbox pending; do not tombstone it as a projected duplicate.
       if (
         current.state === "unknown" &&
-        result.attemptRef &&
+        hasText(result.attemptRef) &&
         result.attemptRef !== current.attemptRef
       )
         return "deferred" as const;
