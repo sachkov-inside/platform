@@ -14,7 +14,7 @@ test("без настройки стенд и проверки берут наи
   assert.equal(accessTokenExpiredAt(signedInAt, {}), signedInAt + 301_000);
 });
 
-test("срок стенда hardening, 60 секунд, даёт ту же паузу, что прежние 61 секунда", () => {
+test("срок стенда hardening, 60 секунд, даёт паузу 61 секунда", () => {
   const environment = { IDENTITY_PROOF_ACCESS_TOKEN_TTL_SECONDS: "60" };
   assert.equal(readAccessTokenTtl(environment), 60);
   assert.equal(
