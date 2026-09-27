@@ -1,16 +1,14 @@
 // @ts-check
 import { spawn } from "node:child_process";
 import { readFile } from "node:fs/promises";
-import { tmpdir } from "node:os";
 import { dirname, resolve } from "node:path";
 import process from "node:process";
 import { parseEnv } from "node:util";
 import { fileURLToPath } from "node:url";
 
-import lockfile from "proper-lockfile";
-
 import { isolateIdentityProofEnvironment } from "./identity-proof-environment.mjs";
 import { runIdentityProofSession } from "./identity-proof-session.mjs";
+import { acquireLocalSetupLock } from "./local-setup-lock.mjs";
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const proofCompose = resolve(root, "infra/identity/logto/compose.yaml");
@@ -22,7 +20,9 @@ if (pnpmExecutable === undefined) {
 }
 const pnpmPath = pnpmExecutable;
 
-const releaseLock = await acquireOwnershipLock();
+const releaseLock = await acquireLocalSetupLock(
+  "Another local session owns the machine-wide Platform setup lock. Wait for its handoff before starting the identity proof.",
+);
 /** @type {Set<import("node:child_process").ChildProcess>} */
 const activeProcesses = new Set();
 /** @type {NodeJS.Signals | undefined} */
@@ -114,26 +114,6 @@ async function runPnpm(arguments_, capture = false, environment = process.env) {
     );
   }
   return { output };
-}
-
-async function acquireOwnershipLock() {
-  const lockTarget = resolve(tmpdir(), "inside-platform-local-setup");
-  try {
-    return await lockfile.lock(lockTarget, {
-      realpath: false,
-      retries: 0,
-      stale: 30_000,
-      update: 10_000,
-    });
-  } catch (error) {
-    if (error instanceof Error && "code" in error && error.code === "ELOCKED") {
-      throw new Error(
-        "Another local session owns the machine-wide Platform setup lock. Wait for its handoff before starting the identity proof.",
-        { cause: error },
-      );
-    }
-    throw error;
-  }
 }
 
 async function stopActiveProcesses() {
