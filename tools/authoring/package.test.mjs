@@ -1,3 +1,4 @@
+// @ts-check
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
@@ -44,6 +45,7 @@ const fixture = () => ({
   assets: [],
   diagnostics: [],
 });
+/** @param {import("node:test").TestContext} t */
 async function temporary(t) {
   const path = await mkdtemp(join(tmpdir(), "authoring-package-"));
   t.after(() => rm(path, { recursive: true, force: true }));
@@ -55,7 +57,7 @@ test("package selection, paid access and raw checksum survive loading", async (t
   const path = join(root, "package.json");
   await writeFile(path, canonical(fixture()));
   const loaded = await loadPackage(path);
-  assert.equal(loaded.manifest.materials[0].access, "membership");
+  assert.equal(loaded.manifest.materials[0]?.access, "membership");
   assert.equal(loaded.id.length, 64);
   const invalid = fixture();
   invalid.selection.materialIds = ["missing"];
@@ -83,6 +85,7 @@ test("unrecognized provider fields and escaping source paths fail closed", async
 
 test("uncertain requests persist before transmission and retry the same key", async (t) => {
   const root = await temporary(t);
+  /** @type {string[]} */
   const keys = [];
   const request = {
     materialId: "one",

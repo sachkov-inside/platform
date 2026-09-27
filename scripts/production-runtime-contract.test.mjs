@@ -1,3 +1,4 @@
+// @ts-check
 import assert from "node:assert/strict";
 import { readFileSync, readdirSync } from "node:fs";
 import { dirname, resolve } from "node:path";
@@ -5,6 +6,7 @@ import { fileURLToPath } from "node:url";
 import { describe, it } from "node:test";
 
 const repositoryRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
+/** @param {string} path */
 const read = (path) => readFileSync(resolve(repositoryRoot, path), "utf8");
 const productionTemplates = readdirSync(
   resolve(repositoryRoot, "config/compose/production"),
@@ -20,6 +22,7 @@ const activationPaths = ["binding", "own-access", "attempts", "evidence"]
   )
   .join(" ");
 // The bank, Tribute and Telegram call exactly these API callbacks; each Caddy matcher is POST-only.
+/** @type {[string, string][]} */
 const callbackRoutes = [
   ["tbank_notification", "/billing/tbank/notification"],
   ["tribute_webhook", "/integrations/tribute/v1/webhook"],
@@ -244,14 +247,16 @@ describe("production runtime architecture contract", () => {
   });
 
   it("rejects an application process that keeps kernel capabilities or a writable root", () => {
-    for (const [removed, reason] of [
+    /** @type {[string, RegExp][]} */
+    const removals = [
       ["\n  cap_drop: [ALL]\n", /backend processes must drop capabilities/u],
       ["\n  read_only: true\n", /backend processes must drop capabilities/u],
       [
         "\n    cap_drop: [ALL]\n    mem_limit: 512m\n",
         /web must drop capabilities/u,
       ],
-    ]) {
+    ];
+    for (const [removed, reason] of removals) {
       assert.ok(runtime.compose.includes(removed), removed);
       assert.throws(
         () =>
@@ -265,7 +270,7 @@ describe("production runtime architecture contract", () => {
   });
 
   it("rejects an edge that trusts a client-supplied X-Forwarded-For", () => {
-    for (const key of ["caddy", "hostCaddy"]) {
+    for (const key of /** @type {const} */ (["caddy", "hostCaddy"])) {
       assert.throws(
         () =>
           assertRuntimeContract({
@@ -278,7 +283,7 @@ describe("production runtime architecture contract", () => {
   });
 
   it("keeps HSTS on the application and the maintenance page", () => {
-    for (const key of ["caddy", "maintenanceCaddy"]) {
+    for (const key of /** @type {const} */ (["caddy", "maintenanceCaddy"])) {
       assert.throws(
         () =>
           assertRuntimeContract({
@@ -305,6 +310,7 @@ describe("production runtime architecture contract", () => {
   });
 });
 
+/** @param {typeof runtime} files */
 function assertRuntimeContract(files) {
   if (/^\s+build:/mu.test(files.compose)) {
     throw new Error("production runtime must not build application source");
@@ -313,10 +319,10 @@ function assertRuntimeContract(files) {
   // объявляет их адреса даже в шаблонах.
   const standOnly =
     /bank-double|mailpit|TBANK_PROVIDER_MODE\s*[:=]\s*["']?test|TBANK_TEST_|BILLING_CONTACT_SMTP_LOCAL_CAPTURE/u;
-  for (const [name, contents] of [
+  for (const [name, contents] of /** @type {const} */ ([
     ["runtime Compose", files.compose],
     ["environment templates", files.productionTemplates],
-  ]) {
+  ])) {
     if (standOnly.test(contents)) {
       throw new Error(
         `production ${name} must not accept the local bank double or mail interceptor`,
@@ -418,10 +424,10 @@ function assertRuntimeContract(files) {
       );
     }
   }
-  for (const [name, caddy] of [
+  for (const [name, caddy] of /** @type {const} */ ([
     ["platform.caddy", files.caddy],
     ["maintenance.caddy", files.maintenanceCaddy],
-  ]) {
+  ])) {
     if (
       !/^\theader Strict-Transport-Security "max-age=31536000; includeSubDomains"$/mu.test(
         caddy,
@@ -431,10 +437,10 @@ function assertRuntimeContract(files) {
     }
   }
   // Web считает запросы по X-Forwarded-For только потому, что Caddy не доверяет входящему заголовку.
-  for (const [name, caddy] of [
+  for (const [name, caddy] of /** @type {const} */ ([
     ["platform.caddy", files.caddy],
     ["host Caddyfile", files.hostCaddy],
-  ]) {
+  ])) {
     if (/^\s*(?:trusted_proxies|client_ip_headers)\b/mu.test(caddy)) {
       throw new Error(
         `${name} must not trust a client-supplied X-Forwarded-For`,
@@ -541,24 +547,29 @@ function assertRuntimeContract(files) {
  * Every method and path that Caddy proxies to the API or MCP; `ANY` when the matcher has no method.
  * A matcher in any other shape fails instead of silently disappearing from both sides of the check.
  */
+/** @param {string} caddy */
 function caddyProxiedRoutes(caddy) {
   const proxied = new Set(
     [
       ...caddy.matchAll(
         /reverse_proxy @([a-z_]+) \{\$PLATFORM_(?:API|MCP)_UPSTREAM:/gu,
       ),
-    ].map(([, name]) => name),
+    ].map(([, name = ""]) => name),
   );
+  /** @type {string[]} */
   const routes = [];
+  /** @type {Set<string>} */
   const understood = new Set();
-  for (const [, name, method, paths] of caddy.matchAll(
+  for (const [, name = "", method = "", paths = ""] of caddy.matchAll(
     /@([a-z_]+) \{\n\t+method ([A-Z]+)\n\t+path ([^\n]+)\n\t+\}/gu,
   )) {
     if (!proxied.has(name)) continue;
     understood.add(name);
     routes.push(...paths.split(" ").map((path) => `${method} ${path}`));
   }
-  for (const [, name, paths] of caddy.matchAll(/@([a-z_]+) path ([^\n]+)/gu)) {
+  for (const [, name = "", paths = ""] of caddy.matchAll(
+    /@([a-z_]+) path ([^\n]+)/gu,
+  )) {
     if (!proxied.has(name)) continue;
     understood.add(name);
     routes.push(...paths.split(" ").map((path) => `ANY ${path}`));
@@ -575,6 +586,7 @@ function caddyProxiedRoutes(caddy) {
 }
 
 /** Rows of the release runbook's public API route table as `METHOD path`; «любой» means any method. */
+/** @param {string} runbook */
 function runbookRoutes(runbook) {
   const section =
     runbook.split("\n## Public API routes\n")[1]?.split("\n## ")[0] ?? "";
@@ -583,6 +595,7 @@ function runbookRoutes(runbook) {
     .sort();
 }
 
+/** @param {string} value */
 function escapeRegExp(value) {
   return value.replace(/[.*+?^${}()|[\]\\]/gu, "\\$&");
 }

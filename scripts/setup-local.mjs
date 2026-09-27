@@ -1,3 +1,4 @@
+// @ts-check
 import { spawn } from "node:child_process";
 import { copyFileSync, existsSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -14,11 +15,12 @@ Object.assign(process.env, {
   COMPOSE_PROJECT_NAME: smokeProject,
   LOCAL_SEED_VIEW: "checks",
 });
-const pnpmPath = process.env.npm_execpath;
+const pnpmExecutable = process.env["npm_execpath"];
 
-if (pnpmPath === undefined) {
+if (pnpmExecutable === undefined) {
   throw new Error("Run local setup through the pinned pnpm CLI");
 }
+const pnpmPath = pnpmExecutable;
 
 const releaseSetupLock = await acquireSetupLock();
 const environmentPath = resolve(repositoryRoot, ".env");
@@ -27,10 +29,13 @@ if (!existsSync(environmentPath)) {
   process.stdout.write("Created .env from .env.example\n");
 }
 let shouldCleanupCompose = false;
+/** @type {NodeJS.Signals | undefined} */
 let interruptedSignal;
+/** @type {Promise<void> | undefined} */
 let shutdownPromise;
+/** @type {Set<import("node:child_process").ChildProcess>} */
 const activeProcesses = new Set();
-for (const signal of ["SIGINT", "SIGTERM"]) {
+for (const signal of /** @type {const} */ (["SIGINT", "SIGTERM"])) {
   process.once(signal, () => {
     void handleSignal(signal);
   });
@@ -84,6 +89,10 @@ async function isComposeRunning() {
   return false;
 }
 
+/**
+ * @param {string[]} arguments_
+ * @param {boolean} [capture]
+ */
 async function runPnpm(arguments_, capture = false) {
   const child = spawn(process.execPath, [pnpmPath, ...arguments_], {
     cwd: repositoryRoot,
@@ -122,11 +131,7 @@ async function acquireSetupLock() {
       update: 10_000,
     });
   } catch (error) {
-    if (
-      error instanceof Error &&
-      Reflect.has(error, "code") &&
-      error.code === "ELOCKED"
-    ) {
+    if (error instanceof Error && "code" in error && error.code === "ELOCKED") {
       throw new Error(
         "Another local setup owns the machine-wide setup lock. Wait for its handoff or stop that session before retrying.",
         { cause: error },
@@ -153,6 +158,7 @@ function shutdown() {
   return shutdownPromise;
 }
 
+/** @param {string[]} arguments_ */
 async function runCleanupPnpm(arguments_) {
   const child = spawn(process.execPath, [pnpmPath, ...arguments_], {
     cwd: repositoryRoot,
@@ -167,6 +173,7 @@ async function runCleanupPnpm(arguments_) {
   }
 }
 
+/** @param {import("node:child_process").ChildProcess} child */
 async function stopProcess(child) {
   if (child.pid === undefined || child.exitCode !== null) {
     return;
@@ -181,6 +188,7 @@ async function stopProcess(child) {
   }
 }
 
+/** @param {NodeJS.Signals} signal */
 async function handleSignal(signal) {
   interruptedSignal ??= signal;
   await shutdown();

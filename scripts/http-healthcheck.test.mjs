@@ -1,3 +1,4 @@
+// @ts-check
 import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
 import { once } from "node:events";
@@ -16,6 +17,7 @@ const loopbackFixture = resolve(
   "scripts/fixtures/http-healthcheck-loopback.mjs",
 );
 
+/** @param {string} service */
 function ready(service) {
   return {
     process: service,
@@ -28,6 +30,11 @@ function ready(service) {
   };
 }
 
+/**
+ * @param {string} service
+ * @param {string} url
+ * @param {Record<string, string | undefined>} [environment]
+ */
 async function probe(service, url, environment = {}) {
   const child = spawn(
     process.execPath,
@@ -57,6 +64,10 @@ async function probe(service, url, environment = {}) {
   return { code, stderr };
 }
 
+/**
+ * @param {import("node:test").TestContext} t
+ * @param {import("node:http").RequestListener} handler
+ */
 async function serverFor(t, handler) {
   const server = createServer(handler);
   server.listen(0, "127.0.0.1");
@@ -65,14 +76,16 @@ async function serverFor(t, handler) {
     server.closeAllConnections();
     server.close();
   });
-  return { server, url: `http://127.0.0.1:${server.address().port}` };
+  const address = server.address();
+  assert.ok(address !== null && typeof address === "object");
+  return { server, url: `http://127.0.0.1:${address.port}` };
 }
 
-for (const [service, path, port] of [
+for (const [service, path, port] of /** @type {const} */ ([
   ["api", "/health/ready", 3001],
   ["mcp", "/_health/ready", 3002],
   ["web", "/_health/ready", 3000],
-]) {
+])) {
   test(`${service}: live HTTP command succeeds with exact readiness and Host`, async (t) => {
     let requests = 0;
     const { url } = await serverFor(t, (request, response) => {
@@ -113,15 +126,15 @@ test("safe failures reject HTTP, JSON, missing fields and wrong releases", async
       { release: "v1", sourceSha: "secret" },
     ].map((release) => ({ ...ready("api"), release })),
   ];
+  /** @type {[number, string, string][]} */
   const cases = [
     [503, "secret", "HTTP 503"],
     [302, "secret", "HTTP 302"],
     [200, "secret", "invalid JSON response"],
-    ...invalidReports.map((report) => [
-      200,
-      JSON.stringify(report),
-      "invalid readiness report",
-    ]),
+    ...invalidReports.map(
+      /** @returns {[number, string, string]} */
+      (report) => [200, JSON.stringify(report), "invalid readiness report"],
+    ),
     [
       200,
       JSON.stringify({
@@ -139,10 +152,12 @@ test("safe failures reject HTTP, JSON, missing fields and wrong releases", async
       "source SHA mismatch",
     ],
   ];
+  /** @type {[number, string, string?] | undefined} */
   let current;
   let requests = 0;
   const { url } = await serverFor(t, (_request, response) => {
     requests += 1;
+    assert.ok(current);
     response.writeHead(current[0], {
       location: "https://external.example.invalid/secret",
     });

@@ -1,6 +1,25 @@
+// @ts-check
 import { ensureCheckDatabase } from "./check-database.mjs";
 import { readIdentityProofPort } from "./identity-proof-environment.mjs";
 
+/**
+ * @typedef {Record<string, string | undefined>} Environment
+ * @typedef {(
+ *   project: "identity" | "platform",
+ *   args: string[],
+ *   environment: Environment,
+ *   capture?: boolean,
+ * ) => Promise<string>} RunCompose
+ * @typedef {object} IdentityProofSession
+ * @property {Environment} environment
+ * @property {() => Promise<Environment>} readGeneratedEnvironment
+ * @property {RunCompose} runCompose
+ * @property {(args: string[], environment: Environment) => Promise<unknown>} runPnpm
+ * @property {() => boolean} [shouldStop]
+ * @property {(options: { composeProject: string }) => void} [ensureDatabase]
+ */
+
+/** @param {IdentityProofSession} session */
 export async function runIdentityProofSession({
   environment,
   readGeneratedEnvironment,
@@ -81,12 +100,18 @@ export async function runIdentityProofSession({
   }
 }
 
+/** @param {() => boolean} shouldStop */
 function assertNotStopped(shouldStop) {
   if (shouldStop()) {
     throw new Error("Identity proof startup was interrupted");
   }
 }
 
+/**
+ * @param {RunCompose} runCompose
+ * @param {"identity" | "platform"} project
+ * @param {Environment} environment
+ */
 async function hasRunningServices(runCompose, project, environment) {
   const output = await runCompose(
     project,

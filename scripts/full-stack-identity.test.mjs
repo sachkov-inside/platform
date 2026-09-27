@@ -1,9 +1,30 @@
+// @ts-check
 import assert from "node:assert/strict";
 import { after, before, describe, it } from "node:test";
 
 import { unwrapSession } from "@logto/node";
+import { z } from "zod";
 
 import { startFullStackIdentity } from "./full-stack-identity.mjs";
+
+// The response fields the assertions below read; the rest passes through.
+const discoverySchema = z
+  .object({
+    issuer: z.unknown().optional(),
+    jwks_uri: z.unknown().optional(),
+    token_endpoint: z.string(),
+  })
+  .passthrough();
+const grantSchema = z
+  .object({ expires_in: z.unknown().optional(), access_token: z.string() })
+  .passthrough();
+const grantFailureSchema = z
+  .object({
+    error: z.unknown().optional(),
+    code: z.unknown().optional(),
+    message: z.string(),
+  })
+  .passthrough();
 
 /**
  * Срок сессии сквозного набора. Доступ живёт пять минут и проверяется приложением, а набор идёт
@@ -13,11 +34,19 @@ import { startFullStackIdentity } from "./full-stack-identity.mjs";
  */
 describe("full-stack identity", () => {
   const apiBaseUrl = "http://127.0.0.1:65001";
+  /** @type {Awaited<ReturnType<typeof startFullStackIdentity>>} */
   let identity;
+  /** @type {string} */
   let tokenEndpoint;
-  /** Всё, чем описана сессия, объявляет сама фикстура: тест не заводит второй копии этих фактов. */
+  /**
+   * Всё, чем описана сессия, объявляет сама фикстура: тест не заводит второй копии этих фактов.
+   *
+   * @type {string}
+   */
   let clientId;
+  /** @type {string} */
   let cookieSecret;
+  /** @type {string} */
   let ownerSubject;
 
   before(async () => {
@@ -29,7 +58,7 @@ describe("full-stack identity", () => {
       `${identity.environment.LOGTO_ENDPOINT}/oidc/.well-known/openid-configuration`,
     );
     assert.equal(discovery.status, 200);
-    const document = await discovery.json();
+    const document = discoverySchema.parse(await discovery.json());
     assert.equal(document.issuer, identity.environment.LOGTO_ISSUER);
     assert.equal(document.jwks_uri, identity.environment.LOGTO_JWKS_URL);
     tokenEndpoint = document.token_endpoint;
@@ -54,7 +83,7 @@ describe("full-stack identity", () => {
     });
 
     assert.equal(renewed.status, 200);
-    const body = await renewed.json();
+    const body = grantSchema.parse(await renewed.json());
     assert.equal(body.expires_in, identity.accessTokenTtlSeconds);
     assert.equal(typeof body.access_token, "string");
     const claims = claimsOf(body.access_token);
@@ -91,7 +120,7 @@ describe("full-stack identity", () => {
     assert.equal(refused.status, 400);
     // Клиент Logto считает ошибкой сервера только тело с code и message. Без них отказ станет
     // «неожиданным ответом», и непродлеваемая сессия покажется приложению недоступностью.
-    const body = await refused.json();
+    const body = grantFailureSchema.parse(await refused.json());
     assert.equal(body.error, "invalid_grant");
     assert.equal(body.code, "invalid_grant");
     assert.equal(typeof body.message, "string");
@@ -118,6 +147,7 @@ describe("full-stack identity", () => {
     });
   });
 
+  /** @param {Record<string, string>} parameters */
   function grant(parameters) {
     return fetch(tokenEndpoint, {
       method: "POST",
@@ -126,22 +156,51 @@ describe("full-stack identity", () => {
     });
   }
 
-  /** Cookie зашифрован секретом, который объявила фикстура; тест читает его тем же способом. */
+  /**
+   * Cookie зашифрован секретом, который объявила фикстура; тест читает его тем же способом.
+   *
+   * @param {string} cookie
+   */
   function sessionOf(cookie) {
     return unwrapSession(cookie, cookieSecret);
   }
 
+  /** @param {string} cookie */
   async function refreshTokenOf(cookie) {
-    return (await sessionOf(cookie)).refreshToken;
+    const { refreshToken } = await sessionOf(cookie);
+    assert.ok(
+      refreshToken !== undefined,
+      "the session carries a refresh token",
+    );
+    return refreshToken;
   }
 });
 
-/** Доступ, сохранённый в сессии для своей аудитории. */
+/**
+ * Доступ, сохранённый в сессии для своей аудитории.
+ *
+ * @param {import("@logto/node").SessionData} session
+ * @param {string} audience
+ */
 function accessTokenOf(session, audience) {
-  return JSON.parse(session.accessToken)[`@${audience}`].token;
+  assert.ok(session.accessToken !== undefined, "the session carries access");
+  const stored = z
+    .record(z.string(), z.object({ token: z.string() }).passthrough())
+    .parse(JSON.parse(session.accessToken))[`@${audience}`];
+  assert.ok(stored, `the session holds access for ${audience}`);
+  return stored.token;
 }
 
+/** @param {string} accessToken */
 function claimsOf(accessToken) {
-  const payload = accessToken.split(".")[1];
-  return JSON.parse(Buffer.from(payload, "base64url").toString("utf8"));
+  const [, payload = ""] = accessToken.split(".");
+  return z
+    .object({
+      sub: z.unknown().optional(),
+      aud: z.unknown().optional(),
+      iat: z.number(),
+      exp: z.number(),
+    })
+    .passthrough()
+    .parse(JSON.parse(Buffer.from(payload, "base64url").toString("utf8")));
 }
