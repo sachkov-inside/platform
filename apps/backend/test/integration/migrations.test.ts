@@ -239,6 +239,7 @@ describe("Platform migrations", () => {
         "0068_starter_tier_access",
         "0065_authoring_source",
         "0070_guide_page",
+        "0071_offer_eligibility",
       ],
     });
     expect(second).toEqual({ appliedMigrations: [] });
@@ -895,6 +896,7 @@ describe("Platform migrations", () => {
           "0068_starter_tier_access",
           "0065_authoring_source",
           "0070_guide_page",
+          "0071_offer_eligibility",
         ],
       });
 

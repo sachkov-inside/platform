@@ -6,8 +6,18 @@ import { z } from "zod";
  * Telegram у тестового провайдера, бесплатная глава открыта, закрытая — нет, покупка на двойнике
  * банка, после оплаты материалы открыты и выдано право на общий чат. Стенд — `smoke:buyer-journey`.
  */
-const controlUrl = z.url().parse(process.env["BUYER_JOURNEY_CONTROL_URL"]);
-const slug = z.string().min(1).parse(process.env["BUYER_JOURNEY_GUIDE_SLUG"]);
+/** Адреса стенда читаются в самом тесте: список тестов собирается и без стенда. */
+function stand() {
+  return z
+    .object({
+      controlUrl: z.url(),
+      slug: z.string().min(1),
+    })
+    .parse({
+      controlUrl: process.env["BUYER_JOURNEY_CONTROL_URL"],
+      slug: process.env["BUYER_JOURNEY_GUIDE_SLUG"],
+    });
+}
 const freeChapter = "/materials/kak-ustroen-inside-platform";
 const paidChapter = "/materials/developer-pipeline-bez-poteri-konteksta";
 const freeBody =
@@ -40,6 +50,7 @@ async function signInWithTelegram(page: Page, telegramUserId: string) {
 test("покупатель курса проходит путь от страницы продукта до материалов и общего чата", async ({
   page,
 }, info) => {
+  const { controlUrl, slug } = stand();
   const telegramUserId =
     info.project.name === "mobile-chromium" ? "775000002" : "775000001";
   const email = `buyer-${telegramUserId}@inside.test`;

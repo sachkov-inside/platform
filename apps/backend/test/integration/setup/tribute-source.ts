@@ -1,4 +1,4 @@
-import { randomUUID } from "node:crypto";
+import { randomInt, randomUUID } from "node:crypto";
 
 import type { PlatformPrisma } from "../../../src/infrastructure/prisma/index.js";
 
@@ -12,6 +12,9 @@ export async function bindConfirmedTributeSource(
   accountId: string,
 ): Promise<{ readonly revoke: () => Promise<void> }> {
   const id = randomUUID();
+  // Подписка и человек Tribute у каждого источника свои: внешняя identity уникальна.
+  const subscriptionId = randomInt(1, 2_147_483_647);
+  const telegramUserId = String(randomInt(1, 2 ** 47));
   await prisma.sourceEntitlement.create({
     data: {
       id,
@@ -24,8 +27,8 @@ export async function bindConfirmedTributeSource(
       evidence: {},
       checkedAt: new Date("2026-01-01T00:00:00Z"),
       tributeState: {
-        subscriptionId: 775,
-        telegramUserId: "775000",
+        subscriptionId,
+        telegramUserId,
         verificationRef: `tribute-verification-${accountId}`,
         mode: "confirmed_period",
         startsAt: "2026-01-01T00:00:00.000Z",

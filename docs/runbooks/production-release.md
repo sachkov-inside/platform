@@ -256,6 +256,12 @@ Telegram ([Telegram #45](https://github.com/sachkov-inside/inside-telegram/issue
 Постоянную продажу разового продукта владелец включает после шага 12; приёмка реальными платежами —
 Workspace #184.
 
+Предложение подписки продаётся только прежним подписчикам Tribute (Workspace #238, Platform #775).
+Форма `/authoring/billing` допуск не показывает и сохраняет прежний, поэтому до включения продажи
+подписки владелец задаёт его владельческой операцией `offers.save` или MCP-инструментом
+`billing_offers_save` со значением `eligibility: former_tribute_subscribers` и проверяет, что гость
+не видит подписку на `/subscription`. Предложение без этого значения продаётся всем.
+
 ## Checks after rollout
 
 Команды читают состояние и ничего не меняют. Имена контейнеров следуют `PLATFORM_COMPOSE_PROJECT`

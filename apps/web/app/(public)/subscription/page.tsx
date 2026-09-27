@@ -20,8 +20,8 @@ export default async function SubscriptionRoute({
     readonly from?: string | readonly string[];
   }>;
 }) {
-  // Витрина читает цены без токена, поэтому до первого чтения сессии её работа попала бы в
-  // предзагрузку. `connection()` оставляет её запросу, как у остальных разделов, зависящих от сессии.
+  // Витрина читает каталог от имени читателя: какие предложения ему продаются, решает его сессия.
+  // `connection()` оставляет эту работу запросу, как у остальных разделов, зависящих от сессии.
   await connection();
   const query = await searchParams;
   return <SubscriptionPage target={subscriptionRouteTarget(query.from)} />;

@@ -442,53 +442,42 @@ describe("one-time guide purchase (real PostgreSQL and real facets; synthetic ba
         ],
       }),
     );
+    // Группу по-прежнему открывают и право на продукт, и сопровождение (#524): срок группы короче
+    // их сроков участие не сокращает — действует самый длинный.
+    const shorter = await scenario({
+      term: 12,
+      communityMonths: 3,
+      supportMonths: 3,
+    });
+    await shorter.buy();
+    expect(
+      (await capabilitiesOf(shorter.buyer)).capabilities.find(
+        (entry) => entry.capability === "community",
+      ),
+    ).toEqual({
+      capability: "community",
+      validUntil: "2031-01-31T10:00:00.000Z",
+    });
   });
 
-  test("сопровождение живёт срок, названный в Offer, а группа не бывает короче продукта и сопровождения", async () => {
+  test("сопровождение живёт срок, названный в Offer, и без названного срока не сохраняется", async () => {
     const guideId = randomUUID();
     const capability = `guide:${guideId}`;
-    // Без названного срока сопровождение разовой покупки стало бы бессрочным по умолчанию, а срок
-    // группы короче права на продукт или сопровождения ничего бы не ограничил: каталог их не сохраняет.
-    for (const [benefits, benefitPeriods] of [
-      [[capability, "support"], [{ capability, months: null }]],
-      [
-        [capability, "community", "support"],
-        [
-          { capability, months: null },
-          { capability: "community", months: 12 },
-          { capability: "support", months: 6 },
-        ],
-      ],
-      [
-        [capability, "community", "support"],
-        [
-          { capability, months: 12 },
-          { capability: "community", months: 12 },
-          { capability: "support", months: 24 },
-        ],
-      ],
-      [
-        [capability, "community", "support"],
-        [
-          { capability: "community", months: 12 },
-          { capability: "support", months: 6 },
-        ],
-      ],
-    ] as const)
-      expect(
-        code(
-          await pricing.manage(owner, {
-            operationId: randomUUID(),
-            operation: "offers.save",
-            value: {
-              id: randomUUID(),
-              name: "Продукт с сопровождением",
-              benefits: [...benefits],
-              benefitPeriods: [...benefitPeriods],
-            },
-          }),
-        ),
-      ).toBe("invalid_request");
+    // Без названного срока сопровождение разовой покупки стало бы бессрочным по умолчанию.
+    expect(
+      code(
+        await pricing.manage(owner, {
+          operationId: randomUUID(),
+          operation: "offers.save",
+          value: {
+            id: randomUUID(),
+            name: "Продукт с сопровождением",
+            benefits: [capability, "support"],
+            benefitPeriods: [{ capability, months: null }],
+          },
+        }),
+      ),
+    ).toBe("invalid_request");
     // Другой срок сопровождения и бессрочное сопровождение — решение владельца, а не ошибка.
     const short = await scenario({ supportMonths: 3 });
     await short.buy();

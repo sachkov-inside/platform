@@ -55,40 +55,13 @@ function productSupportTermMissing(
 }
 
 /**
- * Общую группу открывают право на продукт и сопровождение, поэтому срок группы, названный в
- * предложении продукта, не может быть короче их сроков: такой срок ничего бы не ограничил. Право
- * разовой покупки без названного срока — бессрочное.
- */
-function productCommunityTermShorter(
-  offer: CatalogOffer & { readonly benefitPeriods: unknown },
-): boolean {
-  const community = declaredMonths(offer, "community");
-  if (!offer.benefits.includes("community") || community == null) return false;
-  return offer.benefits
-    .filter((value) => {
-      const capability = accessCapabilitySchema.safeParse(value);
-      return (
-        capability.success &&
-        (capability.data === "support" || isGuideCapability(capability.data))
-      );
-    })
-    .some((value) => {
-      const months = declaredMonths(offer, value);
-      return months == null || months > community;
-    });
-}
-
-/**
- * Сроки предложения продукта, которые нельзя сохранить: сопровождение без названного срока и
- * общая группа короче права на продукт или сопровождения. Черновик без сопровождения сохраняется.
+ * Сроки предложения продукта, которые нельзя сохранить: сопровождение без названного срока.
+ * Черновик без сопровождения сохраняется.
  */
 export function productOfferTermsInvalid(
   offer: CatalogOffer & { readonly benefitPeriods: unknown },
 ): boolean {
-  return (
-    isProductOffer(offer) &&
-    (productSupportTermMissing(offer) || productCommunityTermShorter(offer))
-  );
+  return isProductOffer(offer) && productSupportTermMissing(offer);
 }
 
 /**
@@ -100,7 +73,7 @@ export function productOfferUnsellable(
 ): boolean {
   return (
     isProductOffer(offer) &&
-    (!offer.benefits.includes("support") || productOfferTermsInvalid(offer))
+    (!offer.benefits.includes("support") || productSupportTermMissing(offer))
   );
 }
 

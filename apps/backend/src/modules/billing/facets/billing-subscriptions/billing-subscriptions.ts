@@ -64,6 +64,7 @@ import { commandFingerprint } from "../../shared/command-fingerprint.js";
 import {
   offerAdmits,
   readPurchaseGrounds,
+  type PurchaseGrounds,
 } from "../../shared/offer-eligibility.js";
 import { acceptRecurringConsent } from "../../shared/recurring-consent.js";
 import {
@@ -253,6 +254,12 @@ export class BillingSubscriptions {
     const command = parsed.data;
     const digest = commandFingerprint("quoteChange", command);
     try {
+      // Основания допуска читаются до открытия транзакции: замки не ждут чужого соединения.
+      const grounds = await readPurchaseGrounds(
+        this.dependencies.grants,
+        accountId,
+      );
+      if (grounds === null) return paymentFailure("dependency_unavailable");
       return await this.dependencies.prisma.$transaction(
         async (tx): Promise<PaymentResult<ChangeQuoteResult>> => {
           const now = this.clock();
@@ -288,6 +295,7 @@ export class BillingSubscriptions {
             row,
             command.paymentOptionId,
             now,
+            grounds,
           );
           if (!plan.ok) return plan;
           // У отменённого расписания нет следующего периода: остаётся только повышение текущего срока.
@@ -339,8 +347,14 @@ export class BillingSubscriptions {
     const command = parsed.data;
     const digest = commandFingerprint("change", command);
     const { prisma, bank, payments } = this.dependencies;
-    // Контакт чека читается до открытия транзакции: замки не удерживаются на чужом чтении.
+    // Контакт чека и основания допуска читаются до открытия транзакции: замки не удерживаются
+    // на чужом чтении.
     const verified = await this.dependencies.contact.read(accountId);
+    const grounds = await readPurchaseGrounds(
+      this.dependencies.grants,
+      accountId,
+    );
+    if (grounds === null) return paymentFailure("dependency_unavailable");
     let accepted: z.infer<typeof changeReceiptSchema> | undefined;
     try {
       const previous = await prisma.billingSubscriptionCommand.findUnique({
@@ -383,6 +397,7 @@ export class BillingSubscriptions {
           row,
           plan.snapshot.paymentOption.id,
           now,
+          grounds,
         );
         if (!current.ok) throw new CommandFailure(current.error.code);
         if (
@@ -839,6 +854,7 @@ export class BillingSubscriptions {
     row: SubscriptionRow,
     paymentOptionId: string,
     now: Date,
+    grounds: PurchaseGrounds,
   ): Promise<PaymentResult<ChangePlan>> {
     const { bank } = this.dependencies;
     const target = await tx.billingPaymentOption.findUnique({
@@ -853,11 +869,6 @@ export class BillingSubscriptions {
     )
       return paymentFailure("not_found");
     // Смена варианта — тоже покупка Offer: ограничение допуска действует и здесь.
-    const grounds = await readPurchaseGrounds(
-      this.dependencies.grants,
-      row.accountId,
-    );
-    if (grounds === null) return paymentFailure("dependency_unavailable");
     const eligibility = offerEligibilitySchema.parse(target.offer.eligibility);
     if (!offerAdmits(eligibility, grounds))
       return paymentFailure("not_eligible");

@@ -15,6 +15,7 @@ import {
 import { syntheticTbankConfig } from "../support/bank-terminal.js";
 import { BankFixture } from "./setup/bank.js";
 import { bindConfirmedTributeSource } from "./setup/tribute-source.js";
+import { withExhaustedPool } from "./setup/exhausted-pool.js";
 import {
   createMigratedTestDatabase,
   type TestDatabase,
@@ -585,8 +586,8 @@ describe("подписка: продление, отмена, смена вар�
         value: {
           id: restrictedOption,
           offerId: restrictedOffer,
-          months: 1,
-          priceKopecks: 120_000,
+          months: 2,
+          priceKopecks: 180_000,
         },
       }),
     );
@@ -599,14 +600,47 @@ describe("подписка: продление, отмена, смена вар�
       }),
     );
     // Смена варианта — та же покупка Offer: без основания она отклоняется до расчёта доплаты.
+    // Основания читаются до транзакции смены: на пуле из одного соединения она не ждёт сама себя.
     const active = await s.view();
-    expect(
-      await s.subscriptions.quoteChange(s.buyer, {
-        operationId: randomUUID(),
-        expectedRevision: active?.revision,
-        paymentOptionId: restrictedOption,
-      }),
-    ).toEqual({ ok: false, error: { code: "not_eligible" } });
+    await withExhaustedPool(db, async (pool) => {
+      const subscriptions = new BillingSubscriptions({
+        prisma: pool,
+        bank: s.bank.client(),
+        contact,
+        grants: assembleAccessGrants({
+          prisma: pool,
+          accounts,
+          clock: () => now,
+        }),
+        payments: s.payments,
+        notices: new BillingNotices({ prisma: pool, clock: () => now }),
+        clock: () => now,
+      });
+      expect(
+        await subscriptions.quoteChange(s.buyer, {
+          operationId: randomUUID(),
+          expectedRevision: active?.revision,
+          paymentOptionId: restrictedOption,
+        }),
+      ).toEqual({ ok: false, error: { code: "not_eligible" } });
+      // С подтверждённым периодом Tribute смена на этот вариант рассчитывается и применяется.
+      await bindConfirmedTributeSource(db.prisma, s.buyer);
+      const quoted = value(
+        await subscriptions.quoteChange(s.buyer, {
+          operationId: randomUUID(),
+          expectedRevision: active?.revision,
+          paymentOptionId: restrictedOption,
+        }),
+      );
+      expect(quoted.plan).toMatchObject({ kind: "scheduled" });
+      expect(
+        await subscriptions.change(s.buyer, {
+          operationId: randomUUID(),
+          expectedRevision: active?.revision,
+          changeQuoteRef: quoted.changeQuoteRef,
+        }),
+      ).toMatchObject({ ok: true });
+    });
 
     // Расчёт, сохранённый при действующем основании, после его отзыва не покупает Offer.
     const other = await scenario();
