@@ -31,7 +31,15 @@ test("a top-level call into a function that reads a later declaration fails", ()
   assert.notEqual(result.status, 0, "the checker accepted a late declaration");
   assert.match(
     result.output,
-    /late-schema\.mjs: line 3 runs assertHealth, which reads healthStatuses declared later on line 9/u,
+    /late-schema\.mjs: line 3 runs assertHealth, which reads healthStatuses declared on line 9/u,
+  );
+  assert.match(
+    result.output,
+    /late-arrow-and-class\.mjs: line 4 runs describeStatus, which reads statusLabel declared on line 7/u,
+  );
+  assert.match(
+    result.output,
+    /late-arrow-and-class\.mjs: line 5 runs HealthReport, which reads reportPrefix declared on line 15/u,
   );
   assert.doesNotMatch(
     result.output,

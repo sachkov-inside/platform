@@ -10,13 +10,17 @@ import { parseSync } from "oxc-parser";
  * поднимается, а `const`, `let` и `class` нет: если код верхнего уровня вызывает функцию, которая
  * читает модульное значение, объявленное ниже точки вызова, скрипт падает с `ReferenceError`
  * только при запуске. Так `pnpm smoke:fullstack` сломался после #765 (#774), а ни lint, ни
- * TypeScript этого не видят: внутри функции значение упомянуто ниже своего объявления.
+ * TypeScript этого не видят: внутри функции значение упомянуто ниже своего объявления. Прямое
+ * чтение до объявления на верхнем уровне уже ловит TypeScript через `// @ts-check`.
  *
- * Проверка обходит каждый скрипт из `tsconfig.scripts.json`: для каждой инструкции верхнего уровня
- * находит модульные функции, достижимые из неё, и ищет в них модульные значения, объявленные ниже
- * этой инструкции. Вызов и передача модульной функции по имени считаются выполнением сразу, а тела
- * функций, вложенных в инструкцию верхнего уровня, отложенными: так `node:test` запускает `test()`
- * уже после загрузки модуля. Внутри достижимой функции учитывается всё её тело.
+ * Проверка обходит каждый скрипт из `tsconfig.scripts.json`. Модульные функции — это объявления
+ * `function`, функции и стрелки в модульном `const` и классы. Для каждой инструкции верхнего уровня
+ * проверка находит функции, которые инструкция вызывает или передаёт по имени, и всё, что достижимо
+ * из них, и ищет в их телах модульные значения, объявленные не раньше этой инструкции. Тела функций,
+ * вложенных прямо в инструкцию верхнего уровня, считаются отложенными: так `node:test` запускает
+ * `test()` уже после загрузки модуля. Поэтому колбэк, который инструкция выполняет сразу (например,
+ * в `.map()`), проверка не видит. Передача функции по имени считается вызовом, даже если это
+ * обработчик на потом.
  */
 const repositoryRoot = path.resolve(process.argv[2] ?? ".");
 
@@ -27,6 +31,18 @@ if (!statSync(repositoryRoot).isDirectory()) {
 }
 
 /** @typedef {{ type: string; start: number; [key: string]: unknown }} AstNode */
+
+const functionTypes = new Set([
+  "FunctionDeclaration",
+  "FunctionExpression",
+  "ArrowFunctionExpression",
+]);
+/** Nodes whose bodies do not run where they are written. */
+const deferredBodyTypes = new Set([
+  ...functionTypes,
+  "ClassDeclaration",
+  "ClassExpression",
+]);
 
 /** @param {unknown} value @returns {value is AstNode} */
 function isNode(value) {
@@ -43,31 +59,45 @@ function childNodes(value) {
   return isNode(value) ? [value] : [];
 }
 
-const nestedFunctionTypes = new Set([
-  "FunctionExpression",
-  "ArrowFunctionExpression",
-  "FunctionDeclaration",
-  "ClassDeclaration",
-  "ClassExpression",
-]);
+/**
+ * Child nodes by field. The walk is manual rather than an oxc `Visitor` because reading a name
+ * depends on the parent field (a property name is not a read) and nested bodies can be skipped.
+ * @param {AstNode} node
+ * @returns {[string, AstNode][]}
+ */
+function fields(node) {
+  return Object.entries(node).flatMap(([key, value]) =>
+    key === "type" || key === "start" || key === "end"
+      ? []
+      : childNodes(value).map(
+          (child) => /** @type {[string, AstNode]} */ ([key, child]),
+        ),
+  );
+}
 
 /**
- * Names a subtree reads, without property names, object keys and labels. With `skipNested`, the
- * bodies of nested functions and classes are left out: code at the top level only defines them.
+ * Names a subtree reads, without declared names, property names, object keys and labels. With
+ * `skipDeferred`, the
+ * bodies of nested functions and classes are left out.
  * @param {AstNode} node
  * @param {Set<string>} names
- * @param {boolean} [skipNested]
+ * @param {boolean} [skipDeferred]
  */
-function collectReferences(node, names, skipNested = false) {
-  if (skipNested && nestedFunctionTypes.has(node.type)) return;
+function collectReferences(node, names, skipDeferred = false) {
+  if (skipDeferred && deferredBodyTypes.has(node.type)) return;
   if (node.type === "Identifier") {
     names.add(/** @type {string} */ (node["name"]));
     return;
   }
-  for (const [key, value] of Object.entries(node)) {
-    if (key === "type" || key === "start" || key === "end") continue;
-    if (key === "property" && node.type === "MemberExpression") {
-      if (node["computed"] !== true) continue;
+  for (const [key, child] of fields(node)) {
+    if (key === "label") continue;
+    if (key === "id" && node.type === "VariableDeclarator") continue;
+    if (
+      key === "property" &&
+      node.type === "MemberExpression" &&
+      node["computed"] !== true
+    ) {
+      continue;
     }
     if (
       key === "key" &&
@@ -78,10 +108,7 @@ function collectReferences(node, names, skipNested = false) {
     ) {
       continue;
     }
-    if (key === "label") continue;
-    for (const child of childNodes(value)) {
-      collectReferences(child, names, skipNested);
-    }
+    collectReferences(child, names, skipDeferred);
   }
 }
 
@@ -113,38 +140,33 @@ function patternNames(pattern) {
 }
 
 /**
- * Names a function declares for itself: parameters, variables, inner functions and classes.
+ * Names a function declares in its own scope: parameters and the declarations directly in its body.
+ * A name declared only in a nested block or callback still counts as a read of the module value,
+ * which can report a shadowed name but never hides a real read.
  * @param {AstNode} node
- * @param {Set<string>} names
+ * @returns {Set<string>}
  */
-function collectLocalDeclarations(node, names) {
-  if (
-    node.type === "FunctionDeclaration" ||
-    node.type === "FunctionExpression" ||
-    node.type === "ArrowFunctionExpression"
-  ) {
-    for (const parameter of childNodes(node["params"])) {
-      for (const name of patternNames(parameter)) names.add(name);
+function ownDeclarations(node) {
+  const names = new Set(childNodes(node["params"]).flatMap(patternNames));
+  const body = node["body"];
+  const statements =
+    isNode(body) && body.type === "BlockStatement"
+      ? childNodes(body["body"])
+      : [];
+  for (const statement of statements) {
+    if (statement.type === "VariableDeclaration") {
+      for (const declarator of childNodes(statement["declarations"])) {
+        for (const name of patternNames(declarator["id"])) names.add(name);
+      }
+    } else if (
+      (statement.type === "FunctionDeclaration" ||
+        statement.type === "ClassDeclaration") &&
+      isNode(statement["id"])
+    ) {
+      names.add(/** @type {string} */ (statement["id"]["name"]));
     }
   }
-  if (node.type === "VariableDeclarator") {
-    for (const name of patternNames(node["id"])) names.add(name);
-  }
-  if (
-    (node.type === "FunctionDeclaration" || node.type === "ClassDeclaration") &&
-    isNode(node["id"])
-  ) {
-    names.add(/** @type {string} */ (node["id"]["name"]));
-  }
-  if (node.type === "CatchClause") {
-    for (const name of patternNames(node["param"])) names.add(name);
-  }
-  for (const [key, value] of Object.entries(node)) {
-    if (key === "type" || key === "start" || key === "end") continue;
-    for (const child of childNodes(value)) {
-      collectLocalDeclarations(child, names);
-    }
-  }
+  return names;
 }
 
 /** @param {AstNode} statement */
@@ -167,10 +189,10 @@ function violationsIn(source, body) {
   /** @param {number} offset */
   const lineOf = (offset) => source.slice(0, offset).split("\n").length;
 
-  /** Module `const`, `let` and `class` bindings and where they are declared. */
+  /** Module `const`, `let` and `class` bindings and the statement that declares each. */
   /** @type {Map<string, number>} */
   const bindings = new Map();
-  /** Module function declarations. */
+  /** Module functions: `function` declarations, functions in a module `const`, classes. */
   /** @type {Map<string, AstNode>} */
   const functions = new Map();
   for (const statement of body) {
@@ -184,15 +206,24 @@ function violationsIn(source, body) {
         for (const name of patternNames(declarator["id"])) {
           bindings.set(name, declaration.start);
         }
+        const id = declarator["id"];
+        const init = declarator["init"];
+        if (
+          isNode(id) &&
+          id.type === "Identifier" &&
+          isNode(init) &&
+          functionTypes.has(init.type)
+        ) {
+          functions.set(/** @type {string} */ (id["name"]), init);
+        }
       }
     } else if (
       declaration.type === "ClassDeclaration" &&
       isNode(declaration["id"])
     ) {
-      bindings.set(
-        /** @type {string} */ (declaration["id"]["name"]),
-        declaration.start,
-      );
+      const name = /** @type {string} */ (declaration["id"]["name"]);
+      bindings.set(name, declaration.start);
+      functions.set(name, declaration);
     } else if (
       declaration.type === "FunctionDeclaration" &&
       isNode(declaration["id"])
@@ -209,16 +240,15 @@ function violationsIn(source, body) {
   const readsOf = new Map();
   for (const [name, node] of functions) {
     const references = new Set();
-    collectReferences(/** @type {AstNode} */ (node["body"]), references);
-    for (const parameter of childNodes(node["params"])) {
-      collectReferences(parameter, references);
+    for (const [key, child] of fields(node)) {
+      if (key !== "id") collectReferences(child, references);
     }
-    const local = new Set();
-    collectLocalDeclarations(node, local);
-    local.delete(name);
+    const own = functionTypes.has(node.type)
+      ? ownDeclarations(node)
+      : new Set();
     readsOf.set(
       name,
-      new Set([...references].filter((reference) => !local.has(reference))),
+      new Set([...references].filter((reference) => !own.has(reference))),
     );
   }
 
@@ -228,7 +258,8 @@ function violationsIn(source, body) {
     const declaration = declarationOf(statement);
     if (
       statement.type === "ImportDeclaration" ||
-      declaration?.type === "FunctionDeclaration"
+      declaration?.type === "FunctionDeclaration" ||
+      declaration?.type === "ClassDeclaration"
     ) {
       continue;
     }
@@ -248,9 +279,9 @@ function violationsIn(source, body) {
     for (const functionName of reached) {
       for (const name of readsOf.get(functionName) ?? []) {
         const declaredAt = bindings.get(name);
-        if (declaredAt !== undefined && declaredAt > statement.start) {
+        if (declaredAt !== undefined && declaredAt >= statement.start) {
           violations.push(
-            `line ${lineOf(statement.start)} runs ${functionName}, which reads ${name} declared later on line ${lineOf(declaredAt)}; declare ${name} before the code that runs`,
+            `line ${lineOf(statement.start)} runs ${functionName}, which reads ${name} declared on line ${lineOf(declaredAt)}; declare ${name} before the code that runs`,
           );
         }
       }
@@ -260,7 +291,8 @@ function violationsIn(source, body) {
 }
 
 /**
- * Script files the scripts TypeScript project includes: `dir/**\/*.mjs` or `dir/*.mjs` patterns.
+ * Script files of the scripts TypeScript project: its `include` patterns `dir/**\/*.mjs` or
+ * `dir/*.mjs`, without directories its `exclude` patterns `**\/name/**` name.
  * @returns {string[]}
  */
 function scriptFiles() {
@@ -268,39 +300,50 @@ function scriptFiles() {
     readFileSync(path.join(repositoryRoot, "tsconfig.scripts.json"), "utf8"),
   );
   /** @type {string[]} */
-  const include = project.include;
+  const include = project.include ?? [];
+  /** @type {string[]} */
+  const exclude = project.exclude ?? [];
+  const excludedDirectories = new Set(
+    exclude.map((pattern) => {
+      const match = /^\*\*\/([^/*]+)\/\*\*$/u.exec(pattern);
+      if (match?.[1] === undefined) {
+        throw new TypeError(`Unsupported scripts exclude pattern: ${pattern}`);
+      }
+      return match[1];
+    }),
+  );
   /** @type {string[]} */
   const files = [];
+  /**
+   * @param {string} directory
+   * @param {boolean} recursive
+   */
+  const collect = (directory, recursive) => {
+    for (const entry of readdirSync(directory, { withFileTypes: true })) {
+      const entryPath = path.join(directory, entry.name);
+      if (entry.isDirectory()) {
+        if (recursive && !excludedDirectories.has(entry.name)) {
+          collect(entryPath, true);
+        }
+      } else if (entry.name.endsWith(".mjs")) {
+        files.push(entryPath);
+      }
+    }
+  };
   for (const pattern of include) {
     const recursive = pattern.endsWith("/**/*.mjs");
-    const flat = !recursive && pattern.endsWith("/*.mjs");
-    if (!recursive && !flat) {
-      throw new TypeError(`Unsupported scripts pattern: ${pattern}`);
+    if (!recursive && !pattern.endsWith("/*.mjs")) {
+      throw new TypeError(`Unsupported scripts include pattern: ${pattern}`);
     }
     const directory = path.join(
       repositoryRoot,
-      pattern.slice(0, recursive ? -"/**/*.mjs".length : -"/*.mjs".length),
+      pattern.slice(0, -(recursive ? "/**/*.mjs" : "/*.mjs").length),
     );
-    if (statSync(directory, { throwIfNoEntry: false })?.isDirectory() !== true)
-      continue;
-    /** @param {string} current */
-    const walk = (current) => {
-      for (const entry of readdirSync(current, { withFileTypes: true })) {
-        const entryPath = path.join(current, entry.name);
-        if (entry.isDirectory()) {
-          if (
-            recursive &&
-            entry.name !== "node_modules" &&
-            entry.name !== "fixtures"
-          ) {
-            walk(entryPath);
-          }
-        } else if (entry.name.endsWith(".mjs")) {
-          files.push(entryPath);
-        }
-      }
-    };
-    walk(directory);
+    if (
+      statSync(directory, { throwIfNoEntry: false })?.isDirectory() === true
+    ) {
+      collect(directory, recursive);
+    }
   }
   return [...new Set(files)];
 }
