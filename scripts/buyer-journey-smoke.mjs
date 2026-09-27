@@ -4,6 +4,7 @@ import { mkdtemp, readFile, rm } from "node:fs/promises";
 import { createServer } from "node:net";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { z } from "zod";
 import { signalProcessGroup } from "./process-group-signal.mjs";
 
 /**
@@ -11,6 +12,15 @@ import { signalProcessGroup } from "./process-group-signal.mjs";
  * бесплатная и закрытая глава, покупка на двойнике банка, открытые материалы и право на общий чат.
  * Стенд поднимает `apps/backend/scripts/buyer-journey-fixture.ts`, браузер ходит в настоящий web.
  */
+// The backend fixture writes the stand addresses the browser and the web process need.
+const fixtureStateSchema = z.object({
+  BACKEND_BASE_URL: z.string(),
+  LOGTO_ENDPOINT: z.string(),
+  LOGTO_AUDIENCE: z.string(),
+  LOGTO_APP_ID: z.string(),
+  CONTROL_URL: z.string(),
+  GUIDE_SLUG: z.string(),
+});
 const directory = await mkdtemp(join(tmpdir(), "inside-buyer-journey-"));
 const fixturePath = join(directory, "fixture.json");
 /** @type {import("node:child_process").ChildProcess[]} */
@@ -28,7 +38,7 @@ function start(args, env) {
     stdio: ["ignore", "pipe", "pipe"],
   });
   for (const stream of [child.stdout, child.stderr])
-    stream.on("data", (data) => {
+    stream.on("data", (/** @type {Buffer} */ data) => {
       output.push(data.toString());
       process.stdout.write(data);
     });
@@ -91,7 +101,8 @@ try {
     },
   );
   const state = await waitFor(
-    async () => JSON.parse(await readFile(fixturePath, "utf8")),
+    async () =>
+      fixtureStateSchema.parse(JSON.parse(await readFile(fixturePath, "utf8"))),
     fixture,
   );
   const env = {
@@ -132,7 +143,9 @@ try {
     ],
     env,
   );
-  const code = await new Promise((resolve) => test.on("exit", resolve));
+  /** @type {Promise<number | null>} */
+  const exited = new Promise((resolve) => test.on("exit", resolve));
+  const code = await exited;
   if (code !== 0) throw new Error(`Browser assertions failed: ${String(code)}`);
   process.stdout.write(
     "Buyer journey passed on desktop and mobile against real Nest/PostgreSQL, the stand bank double and a synthetic Telegram sign-in provider.\n",
