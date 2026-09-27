@@ -14,18 +14,19 @@ interface ViewportStory {
  * общий — в `preview.tsx`, особый — явно в самой истории. Встроенные размеры Storybook туда не входят.
  */
 export function assertDeclaredViewport(story: ViewportStory): void {
-  const viewport = asRecord(story.parameters.viewport);
-  if (viewport.disable === true || viewport.disabled === true) return;
+  const viewport = asRecord(story.parameters["viewport"]);
+  if (viewport["disable"] === true || viewport["disabled"] === true) return;
   const label = `История «${story.title} › ${story.name}»`;
-  const viewportGlobal = story.globals.viewport;
+  const viewportGlobal = story.globals["viewport"];
   if (typeof viewportGlobal === "string") {
     throw new Error(
       `${label} задаёт размер строкой «${viewportGlobal}», а прогон читает только { value: "<имя>" }. Запишите globals.viewport как { value: "${viewportGlobal}", isRotated: false }.`,
     );
   }
-  const requested = asRecord(viewportGlobal).value ?? viewport.defaultViewport;
+  const requested =
+    asRecord(viewportGlobal)["value"] ?? viewport["defaultViewport"];
   if (requested === undefined) return;
-  const declared = Object.keys(asRecord(viewport.options));
+  const declared = Object.keys(asRecord(viewport["options"]));
   if (typeof requested === "string" && declared.includes(requested)) return;
   const requestedLabel =
     typeof requested === "string" ? requested : JSON.stringify(requested);

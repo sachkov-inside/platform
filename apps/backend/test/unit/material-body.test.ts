@@ -407,23 +407,23 @@ describe("MaterialBodyOperations", () => {
     });
 
     const nestedDuplicate = fullRepresentativeDocument();
-    const blocks = nestedDuplicate.doc.content;
+    const blocks = nestedDuplicate.doc["content"];
     if (!isUnknownArray(blocks)) {
       throw new Error("Expected document blocks");
     }
     const list = blocks[2];
-    if (!isUnknownRecord(list) || !isUnknownArray(list.content)) {
+    if (!isUnknownRecord(list) || !isUnknownArray(list["content"])) {
       throw new Error("Expected list content");
     }
-    const item = list.content[0];
-    if (!isUnknownRecord(item) || !isUnknownArray(item.content)) {
+    const item = list["content"][0];
+    if (!isUnknownRecord(item) || !isUnknownArray(item["content"])) {
       throw new Error("Expected list item content");
     }
-    const paragraph = item.content[0];
+    const paragraph = item["content"][0];
     if (!isUnknownRecord(paragraph)) {
       throw new Error("Expected nested paragraph");
     }
-    paragraph.attrs = { nodeId: "01000000-0000-4000-8000-000000000001" };
+    paragraph["attrs"] = { nodeId: "01000000-0000-4000-8000-000000000001" };
 
     expect(documentOperations.accept(nestedDuplicate)).toMatchObject({
       ok: false,
@@ -431,7 +431,7 @@ describe("MaterialBodyOperations", () => {
     });
 
     const caseInsensitiveDuplicate = representativeDocument();
-    const caseInsensitiveBlocks = caseInsensitiveDuplicate.doc.content;
+    const caseInsensitiveBlocks = caseInsensitiveDuplicate.doc["content"];
     if (!Array.isArray(caseInsensitiveBlocks)) {
       throw new Error("Expected document blocks");
     }
@@ -480,7 +480,7 @@ describe("MaterialBodyOperations", () => {
     if (!result.ok) {
       throw new Error(result.error.issues[0]?.code);
     }
-    const blocks = result.value.doc.content;
+    const blocks = result.value.doc["content"];
     if (!Array.isArray(blocks)) {
       throw new Error("Expected document blocks");
     }
@@ -573,7 +573,7 @@ describe("MaterialBodyOperations", () => {
     if (!result.ok) {
       throw new Error(result.error.issues[0]?.code);
     }
-    const blocks = result.value.doc.content;
+    const blocks = result.value.doc["content"];
     if (!Array.isArray(blocks)) {
       throw new Error("Expected document blocks");
     }
@@ -662,14 +662,14 @@ describe("MaterialBodyOperations", () => {
     if (!result.ok) {
       throw new Error(result.error.issues[0]?.code);
     }
-    const content = result.value.doc.content;
+    const content = result.value.doc["content"];
     if (!isUnknownArray(content)) {
       throw new Error("Expected document content");
     }
     const list = content[0];
     const item =
-      isUnknownRecord(list) && isUnknownArray(list.content)
-        ? list.content[0]
+      isUnknownRecord(list) && isUnknownArray(list["content"])
+        ? list["content"][0]
         : undefined;
     expect(item).toMatchObject({
       content: [
@@ -737,7 +737,7 @@ describe("MaterialBodyOperations", () => {
   test("fails closed for duplicate IDs, unsafe links, unknown nodes and document limits", () => {
     const documentOperations = materialBodyOperations;
     const duplicateId = representativeDocument();
-    const duplicateBlocks = duplicateId.doc.content;
+    const duplicateBlocks = duplicateId.doc["content"];
     if (!Array.isArray(duplicateBlocks)) {
       throw new Error("Expected document blocks");
     }

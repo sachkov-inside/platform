@@ -67,11 +67,11 @@ export function createLogtoAccessTokenVerifier(
       const verified = await verifyToken(token, config, keyResolver);
       if (!verified.ok) return verified;
       if (isMachineToken(verified.payload)) return invalidProof();
-      if (verified.payload.inside_telegram_sign_in !== undefined) {
+      if (verified.payload["inside_telegram_sign_in"] !== undefined) {
         const telegram = z
           .object({ subjectRef: z.uuid(), requestRef: z.uuid() })
           .strict()
-          .safeParse(verified.payload.inside_telegram_sign_in);
+          .safeParse(verified.payload["inside_telegram_sign_in"]);
         if (config.telegramSignInEnabled !== true || !telegram.success)
           return invalidProof();
         return {
@@ -84,7 +84,7 @@ export function createLogtoAccessTokenVerifier(
         };
       }
       const email = verifiedEmailSchema.safeParse(
-        verified.payload.inside_verified_email,
+        verified.payload["inside_verified_email"],
       );
       if (isMachineToken(verified.payload) || !email.success) {
         return invalidProof();
@@ -197,7 +197,7 @@ function createKeyResolver(config: LogtoVerifierConfig): JWTVerifyGetKey {
 }
 
 function isMachineToken(payload: ValidatedPayload): boolean {
-  return payload.client_id === payload.sub;
+  return payload["client_id"] === payload.sub;
 }
 
 function invalidProof(): ProofFailure {

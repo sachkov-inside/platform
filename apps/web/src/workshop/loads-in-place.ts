@@ -54,7 +54,7 @@ export async function settleStoryFrame(width: number): Promise<void> {
 export function stagedLoadingOf(
   loaded: Record<string, unknown>,
 ): StagedLoading {
-  const sequence = loaded.sequence;
+  const sequence = loaded["sequence"];
   if (!(sequence instanceof StagedLoading))
     throw new Error("История загрузки не получила последовательность слоёв");
   return sequence;

@@ -54,8 +54,8 @@ export async function executeForm<I extends z.ZodType, O extends z.ZodType>(
       .safeParse(result.body);
     if (
       !envelope.success ||
-      envelope.data.value.status !== "ok" ||
-      envelope.data.value.contractVersion !== "inside-communications-v1"
+      envelope.data.value["status"] !== "ok" ||
+      envelope.data.value["contractVersion"] !== "inside-communications-v1"
     )
       return { kind: "error", code: "unavailable" };
     const value =
@@ -70,7 +70,7 @@ export async function executeForm<I extends z.ZodType, O extends z.ZodType>(
           ? {
               ...z
                 .record(z.string(), z.unknown())
-                .parse(envelope.data.value.preview),
+                .parse(envelope.data.value["preview"]),
               targetErrors: envelope.data.targetErrors ?? [],
             }
           : envelope.data.value[key];

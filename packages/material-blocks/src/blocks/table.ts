@@ -23,20 +23,23 @@ export const tableBlock: MaterialBlockDefinition = defineMaterialBlock<"table">(
     }),
     render: (node, tools) => ({
       kind: "table",
-      rows: expectArray(node.content, "table rows").map((rowValue) => {
+      rows: expectArray(node["content"], "table rows").map((rowValue) => {
         const row = expectObject(rowValue, "table row");
-        if (row.type !== "tableRow") {
+        if (row["type"] !== "tableRow") {
           throw new TypeError("Expected table row");
         }
         return {
-          cells: expectArray(row.content, "table cells").map((cellValue) => {
+          cells: expectArray(row["content"], "table cells").map((cellValue) => {
             const cell = expectObject(cellValue, "table cell");
-            if (cell.type !== "tableCell" && cell.type !== "tableHeader") {
+            if (
+              cell["type"] !== "tableCell" &&
+              cell["type"] !== "tableHeader"
+            ) {
               throw new TypeError("Expected table cell");
             }
             return {
               content: tools.blockContent(cell),
-              header: cell.type === "tableHeader",
+              header: cell["type"] === "tableHeader",
             };
           }),
         };

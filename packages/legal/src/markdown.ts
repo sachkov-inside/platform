@@ -75,17 +75,17 @@ function parseList(
     if (line.trim().length === 0) break;
     const item = listItemPattern.exec(line);
     if (item?.groups !== undefined) {
-      const numbered = item.groups.number !== undefined;
+      const numbered = item.groups["number"] !== undefined;
       if (ordered !== undefined && ordered !== numbered)
         throw new LegalTextError(
           `list mixes numbered and bulleted items: ${line}`,
         );
       ordered = numbered;
-      if (numbered && Number(item.groups.number) !== items.length + 1)
+      if (numbered && Number(item.groups["number"]) !== items.length + 1)
         throw new LegalTextError(
           `numbered list must count from 1 without gaps: ${line}`,
         );
-      items.push([item.groups.text ?? ""]);
+      items.push([item.groups["text"] ?? ""]);
     } else if (/^\s/u.test(line)) {
       if (anyListMarkerPattern.test(line) || quotePattern.test(line))
         throw new LegalTextError(`nested lists are not supported: ${line}`);
@@ -133,12 +133,12 @@ export function parseLegalInline(line: string): readonly LegalInline[] {
     assertPlain(plain, line);
     if (plain.length > 0) content.push({ kind: "text", text: plain });
     plainFrom = match.index + match[0].length;
-    if (groups.strong !== undefined) {
-      content.push({ kind: "strong", text: groups.strong });
+    if (groups["strong"] !== undefined) {
+      content.push({ kind: "strong", text: groups["strong"] });
       continue;
     }
-    if (groups.code !== undefined) {
-      content.push({ kind: "code", text: groups.code });
+    if (groups["code"] !== undefined) {
+      content.push({ kind: "code", text: groups["code"] });
       continue;
     }
     const { label, href } = groups;
@@ -206,8 +206,8 @@ export function parseLegalText(text: string): readonly LegalBlock[] {
     }
     if (line.startsWith("#")) {
       const heading = /^(?<hashes>#{1,3}) (?<title>\S.*)$/u.exec(line);
-      const hashes = heading?.groups?.hashes;
-      const title = heading?.groups?.title;
+      const hashes = heading?.groups?.["hashes"];
+      const title = heading?.groups?.["title"];
       if (hashes === undefined || title === undefined)
         throw new LegalTextError(`unsupported heading: ${line}`);
       blocks.push({

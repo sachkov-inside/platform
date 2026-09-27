@@ -95,10 +95,10 @@ export function BroadcastEditor(props: BroadcastEditorProps) {
     );
   }
   return (
-    <section aria-labelledby={`${editorId}-title`} className={styles.editor}>
-      <header className={styles.editorHeader}>
+    <section aria-labelledby={`${editorId}-title`} className={styles["editor"]}>
+      <header className={styles["editorHeader"]}>
         <div>
-          <p className={styles.eyebrow}>Разовое сообщение</p>
+          <p className={styles["eyebrow"]}>Разовое сообщение</p>
           <h2 id={`${editorId}-title`} className="text-xl font-semibold">
             Рассылка{" "}
             <span className="sr-only">· {stateLabels[broadcast.state]}</span>
@@ -106,23 +106,23 @@ export function BroadcastEditor(props: BroadcastEditorProps) {
         </div>
         <BroadcastStatus state={broadcast.state} />
       </header>
-      <details className={styles.identifier}>
+      <details className={styles["identifier"]}>
         <summary>ID рассылки</summary>
         <p className="break-all font-mono text-xs">{broadcast.broadcastId}</p>
       </details>
       {hasText(props.error) || hasText(localError) ? (
-        <p role="alert" className={styles.alert}>
+        <p role="alert" className={styles["alert"]}>
           {localError ?? errorMessage(props.error ?? "")}
         </p>
       ) : null}
       <fieldset
         disabled={disabled || !editable}
-        className={styles.editorFields}
+        className={styles["editorFields"]}
       >
         <legend className="sr-only">Редактирование рассылки</legend>
-        <div className={styles.messageColumn}>
-          <h3 className={styles.sectionTitle}>Сообщение</h3>
-          <p className={styles.hint}>
+        <div className={styles["messageColumn"]}>
+          <h3 className={styles["sectionTitle"]}>Сообщение</h3>
+          <p className={styles["hint"]}>
             Выберите готовые посты из Telegram. Части отправятся по порядку.
             Рассылка сохраняет свою версию: правка исходного поста её не меняет.
           </p>
@@ -168,7 +168,7 @@ export function BroadcastEditor(props: BroadcastEditorProps) {
             </Button>
           ) : null}
           {parts.map((part, index) => (
-            <div key={part.partId} className={styles.part}>
+            <div key={part.partId} className={styles["part"]}>
               <h3 className="font-semibold">
                 Часть {index + 1} · {mediaNames[part.content.type]}
               </h3>
@@ -185,7 +185,7 @@ export function BroadcastEditor(props: BroadcastEditorProps) {
                     maxLength={part.content.type === "text" ? 4096 : 1024}
                     readOnly
                   />
-                  <span className={styles.hint}>
+                  <span className={styles["hint"]}>
                     Текст и оформление сохранены из Telegram. Для правки
                     замените часть готовым постом.
                   </span>
@@ -343,7 +343,7 @@ export function BroadcastEditor(props: BroadcastEditorProps) {
               </div>
             </div>
           ))}
-          <details className={styles.template}>
+          <details className={styles["template"]}>
             <summary>Добавить пост по ID или ссылке</summary>
             <label className="block text-sm font-medium">
               ID или ссылка заготовки
@@ -388,10 +388,10 @@ export function BroadcastEditor(props: BroadcastEditorProps) {
             </Button>
           </details>
         </div>
-        <div className={styles.settingsColumn}>
-          <fieldset className={styles.audience}>
-            <legend className={styles.sectionTitle}>Аудитория</legend>
-            <label className={styles.choice}>
+        <div className={styles["settingsColumn"]}>
+          <fieldset className={styles["audience"]}>
+            <legend className={styles["sectionTitle"]}>Аудитория</legend>
+            <label className={styles["choice"]}>
               <input
                 type="radio"
                 name={`${editorId}-audience`}
@@ -402,7 +402,7 @@ export function BroadcastEditor(props: BroadcastEditorProps) {
               />{" "}
               Все контакты
             </label>
-            <label className={styles.choice}>
+            <label className={styles["choice"]}>
               <input
                 type="radio"
                 name={`${editorId}-audience`}
@@ -417,7 +417,7 @@ export function BroadcastEditor(props: BroadcastEditorProps) {
               <div className="space-y-2 pl-4">
                 {funnels.length > 0 ? (
                   funnels.map((funnel) => (
-                    <label key={funnel.funnelId} className={styles.choice}>
+                    <label key={funnel.funnelId} className={styles["choice"]}>
                       <input
                         type="checkbox"
                         checked={audience.funnelIds.includes(funnel.funnelId)}
@@ -445,7 +445,7 @@ export function BroadcastEditor(props: BroadcastEditorProps) {
               </div>
             ) : null}
           </fieldset>
-          <div className={styles.schedule}>
+          <div className={styles["schedule"]}>
             <label className="block text-sm font-semibold">
               Время отправки ·{" "}
               {Intl.DateTimeFormat().resolvedOptions().timeZone}
@@ -458,13 +458,13 @@ export function BroadcastEditor(props: BroadcastEditorProps) {
                 }}
               />
             </label>
-            <p className={styles.hint}>
+            <p className={styles["hint"]}>
               Пустое время — запуск сразу отдельной кнопкой. Будущая дата
               сохраняется в черновике. Кнопка «Запланировать» включает отправку;
               получатели будут определены в назначенное время.
             </p>
           </div>
-          <div className={styles.snapshot}>
+          <div className={styles["snapshot"]}>
             <p className="font-semibold text-sm">
               Получателей в снимке:{" "}
               {broadcast.audienceSnapshotId === null
@@ -472,7 +472,7 @@ export function BroadcastEditor(props: BroadcastEditorProps) {
                 : broadcast.snapshotSize}
               .
             </p>
-            <p className={styles.hint}>
+            <p className={styles["hint"]}>
               Состав получателей фиксируется при фактическом запуске. Поздние
               участники не добавляются; возобновление сохраняет тот же состав.
               Отказ от сообщений навсегда пропускает оставшиеся части этой
@@ -504,7 +504,7 @@ export function BroadcastEditor(props: BroadcastEditorProps) {
           >
             Сохранить черновик
           </Button>
-          <p role="status" className={styles.saveStatus}>
+          <p role="status" className={styles["saveStatus"]}>
             {pending
               ? "Сохраняем результат операции…"
               : dirty
@@ -515,7 +515,7 @@ export function BroadcastEditor(props: BroadcastEditorProps) {
           </p>
         </div>
       </fieldset>
-      <div className={styles.lifecycle}>
+      <div className={styles["lifecycle"]}>
         <Button
           variant="outline"
           aria-expanded={preview}
@@ -587,15 +587,15 @@ export function BroadcastEditor(props: BroadcastEditorProps) {
         <section
           id={`${editorId}-preview`}
           aria-label="Предпросмотр сообщения"
-          className={styles.preview}
+          className={styles["preview"]}
         >
-          <h3 className={styles.sectionTitle}>Предпросмотр сообщения</h3>
-          <p className={styles.hint}>
+          <h3 className={styles["sectionTitle"]}>Предпросмотр сообщения</h3>
+          <p className={styles["hint"]}>
             Предпросмотр ничего не отправляет. Медиа показано обозначением
             формата.
           </p>
           {parts.map((part) => (
-            <article key={part.partId} className={styles.previewMessage}>
+            <article key={part.partId} className={styles["previewMessage"]}>
               <p className="font-semibold">{mediaNames[part.content.type]}</p>
               <p className="whitespace-pre-wrap break-words">
                 {part.content.text}
@@ -607,7 +607,7 @@ export function BroadcastEditor(props: BroadcastEditorProps) {
                 </p>
               ) : null}
               {part.content.buttons.map((button, i) => (
-                <p className={styles.previewButton} key={i}>
+                <p className={styles["previewButton"]} key={i}>
                   {button.text} · {button.url}
                 </p>
               ))}

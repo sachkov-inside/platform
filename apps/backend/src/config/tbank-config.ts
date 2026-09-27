@@ -114,17 +114,17 @@ export function parseBankContour(
   environment: NodeJS.ProcessEnv,
 ): TbankConfig | undefined {
   const providerMode =
-    presentText(environment.TBANK_PROVIDER_MODE?.trim()) ??
+    presentText(environment["TBANK_PROVIDER_MODE"]?.trim()) ??
     DEFAULT_TBANK_PROVIDER_MODE;
   if (providerMode !== "real" && providerMode !== "test") {
     throw new Error("TBANK_PROVIDER_MODE must be real or test");
   }
   if (providerMode === "real")
     return parseTbankConfig(
-      environment.TBANK_CONFIG_JSON,
-      environment.TBANK_CA_FILE,
+      environment["TBANK_CONFIG_JSON"],
+      environment["TBANK_CA_FILE"],
     );
-  if (environment.TBANK_CONFIG_JSON !== undefined) {
+  if (environment["TBANK_CONFIG_JSON"] !== undefined) {
     throw new Error(
       "TBANK_PROVIDER_MODE=test replaces TBANK_CONFIG_JSON; remove one of them",
     );
@@ -182,18 +182,18 @@ export function localTbankConfig(environment: NodeJS.ProcessEnv): TbankConfig {
       minimumKopecks: 100,
       maximumKopecks: 100_000_000,
       returnUrl:
-        presentText(environment.TBANK_TEST_RETURN_URL?.trim()) ??
+        presentText(environment["TBANK_TEST_RETURN_URL"]?.trim()) ??
         DEFAULT_LOCAL_BANK_RETURN_URL,
       notificationUrl:
-        presentText(environment.TBANK_TEST_NOTIFICATION_URL?.trim()) ??
+        presentText(environment["TBANK_TEST_NOTIFICATION_URL"]?.trim()) ??
         DEFAULT_LOCAL_BANK_NOTIFICATION_URL,
       receipt: { taxation: "usn_income", tax: "none" },
       endpoints: {
         apiBaseUrl:
-          presentText(environment.TBANK_TEST_API_BASE_URL?.trim()) ??
+          presentText(environment["TBANK_TEST_API_BASE_URL"]?.trim()) ??
           DEFAULT_LOCAL_BANK_API_BASE_URL,
         formOrigins: [
-          presentText(environment.TBANK_TEST_PUBLIC_ORIGIN?.trim()) ??
+          presentText(environment["TBANK_TEST_PUBLIC_ORIGIN"]?.trim()) ??
             DEFAULT_LOCAL_BANK_FORM_ORIGIN,
         ],
       },

@@ -98,7 +98,7 @@ export function MaterialResourceCardNodeView({
           updateAttributes({ title: event.currentTarget.value });
         }}
         placeholder="Название"
-        value={attributeText(node.attrs.title)}
+        value={attributeText(node.attrs["title"])}
       />
       <textarea
         aria-label="Описание ресурса"
@@ -113,7 +113,7 @@ export function MaterialResourceCardNodeView({
           });
         }}
         placeholder="Зачем читателю открывать ссылку"
-        value={attributeText(node.attrs.description)}
+        value={attributeText(node.attrs["description"])}
       />
       <input
         aria-label="Адрес ресурса"
@@ -124,7 +124,7 @@ export function MaterialResourceCardNodeView({
         }}
         placeholder="https://…"
         type="url"
-        value={attributeText(node.attrs.url)}
+        value={attributeText(node.attrs["url"])}
       />
     </BlockForm>
   );
@@ -134,11 +134,11 @@ function readRows(value: unknown): readonly MaterialLabeledRow[] {
   if (!isUnknownArray(value)) return [];
   return value.map((row) => {
     const parsed = isUnknownRecord(row) ? row : {};
-    const description = attributeText(parsed.description);
+    const description = attributeText(parsed["description"]);
     return {
       ...(description.length === 0 ? {} : { description }),
-      label: attributeText(parsed.label),
-      name: attributeText(parsed.name),
+      label: attributeText(parsed["label"]),
+      name: attributeText(parsed["name"]),
     };
   });
 }
@@ -151,7 +151,7 @@ export function MaterialLabeledListNodeView({
   editor,
 }: NodeViewProps) {
   const editable = editor.isEditable;
-  const rows = readRows(node.attrs.rows);
+  const rows = readRows(node.attrs["rows"]);
   const writeRows = (next: readonly MaterialLabeledRow[]) => {
     updateAttributes({ rows: next.map((row) => ({ ...row })) });
   };
@@ -257,7 +257,7 @@ export function MaterialLabeledListNodeView({
  * обычно, поэтому содержимое остаётся содержимым узла, а не полем формы.
  */
 export function MaterialVariantOptionNodeView({ node }: NodeViewProps) {
-  const mode: unknown = node.attrs.mode;
+  const mode: unknown = node.attrs["mode"];
   const label = isGuideMode(mode) ? guideModeLabels[mode] : "Режим не выбран";
 
   return (

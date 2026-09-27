@@ -172,7 +172,7 @@ async function healthResponse(
 function authenticatedAccountId(
   extra: Record<string, unknown> | undefined,
 ): string {
-  const accountId = extra?.accountId;
+  const accountId = extra?.["accountId"];
   if (typeof accountId !== "string") {
     throw new Error("Authenticated MCP request has no resolved Account");
   }

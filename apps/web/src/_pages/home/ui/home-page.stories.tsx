@@ -279,7 +279,7 @@ class FeedSequence {
 }
 
 function sequenceOf(loaded: Record<string, unknown>): FeedSequence {
-  const sequence = loaded.sequence;
+  const sequence = loaded["sequence"];
   if (!(sequence instanceof FeedSequence))
     throw new Error("История загрузки не получила последовательность ленты");
   return sequence;

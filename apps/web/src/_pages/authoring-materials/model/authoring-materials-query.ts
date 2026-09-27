@@ -18,11 +18,11 @@ export type AuthoringMaterialsSearchParams = Readonly<
 export function parseAuthoringMaterialsQuery(
   searchParams: AuthoringMaterialsSearchParams,
 ): AuthoringMaterialsQuery {
-  const pageInput = single(searchParams.page);
+  const pageInput = single(searchParams["page"]);
   const page = z.coerce.number().int().min(1).max(10_000).safeParse(pageInput);
-  const stateInput = single(searchParams.state);
+  const stateInput = single(searchParams["state"]);
   const publicationState = publicationStateSchema.safeParse(stateInput);
-  const searchInput = single(searchParams.search);
+  const searchInput = single(searchParams["search"]);
   const search = z
     .string()
     .trim()

@@ -11,7 +11,7 @@ async function main(): Promise<void> {
   const config = parsePlatformConfig(process.env);
   const prisma = createPrismaClient(config.database.url);
   try {
-    const action = process.env.PROFILE_MODERATION_ACTION;
+    const action = process.env["PROFILE_MODERATION_ACTION"];
     if (action !== "disable" && action !== "restore") {
       throw new Error("PROFILE_MODERATION_ACTION must be disable or restore");
     }

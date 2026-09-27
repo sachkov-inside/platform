@@ -171,10 +171,10 @@ export function assembleVideoPlayback(dependencies: {
           clockTolerance: 0,
           currentDate: clock(),
         });
-        const localVideoId = verified.payload.vid;
+        const localVideoId = verified.payload["vid"];
         if (
           typeof localVideoId !== "string" ||
-          verified.payload.pid !== input.providerVideoId ||
+          verified.payload["pid"] !== input.providerVideoId ||
           typeof verified.payload.sub !== "string"
         ) {
           return false;

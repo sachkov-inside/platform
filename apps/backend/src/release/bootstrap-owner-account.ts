@@ -18,7 +18,7 @@ async function main(): Promise<void> {
   }
   const permission = z
     .enum(platformPermissions)
-    .parse(process.env.OWNER_PERMISSION ?? "materials:manage");
+    .parse(process.env["OWNER_PERMISSION"] ?? "materials:manage");
   const prisma = createPrismaClient(config.database.url);
   try {
     const result = await bootstrapOwnerAccount(

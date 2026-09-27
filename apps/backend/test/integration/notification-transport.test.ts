@@ -810,8 +810,8 @@ describe("Notifications real PostgreSQL / RabbitMQ transport", () => {
         expect(
           observed.some(
             (event) =>
-              event.reason === "inbox_sweep_failed" &&
-              String(event.error).includes("поддельный отказ разбора"),
+              event["reason"] === "inbox_sweep_failed" &&
+              String(event["error"]).includes("поддельный отказ разбора"),
           ),
         ).toBe(true);
         return Promise.resolve();
@@ -922,8 +922,8 @@ describe("Notifications real PostgreSQL / RabbitMQ transport", () => {
       expect(
         observed.some(
           (event) =>
-            event.status === "transport_observation" ||
-            event.status === "operator_attention",
+            event["status"] === "transport_observation" ||
+            event["status"] === "operator_attention",
         ),
       ).toBe(true);
       await admin(["stop_app"]);

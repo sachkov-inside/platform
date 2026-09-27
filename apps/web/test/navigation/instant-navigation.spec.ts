@@ -13,7 +13,7 @@ import {
 import { evidenceDirectory } from "../../../../scripts/evidence-path.mjs";
 import { z } from "zod";
 
-const backend = `http://127.0.0.1:${process.env.FAKE_BACKEND_PORT ?? "3190"}`;
+const backend = `http://127.0.0.1:${process.env["FAKE_BACKEND_PORT"] ?? "3190"}`;
 const programme = "/guides/navigation-proof/programme";
 const product = "/guides/navigation-proof";
 const freeLesson = "navigation-lesson-1";
@@ -189,7 +189,9 @@ async function resetProbe(page: Page) {
 
 function isNavigationRequest(request: Request): boolean {
   const headers = request.headers();
-  return headers.rsc === "1" && headers["next-router-prefetch"] === undefined;
+  return (
+    headers["rsc"] === "1" && headers["next-router-prefetch"] === undefined
+  );
 }
 
 /**
@@ -401,7 +403,7 @@ const programmeReady =
 function evidenceFile(fileName: string): string {
   const path = join(
     evidenceDirectory("issue-670"),
-    process.env.NAVIGATION_EVIDENCE_STAGE ?? "after",
+    process.env["NAVIGATION_EVIDENCE_STAGE"] ?? "after",
     fileName,
   );
   mkdirSync(dirname(path), { recursive: true });
@@ -487,7 +489,7 @@ test("программа ↔ урок: свой скелет на первом �
   const webVitals = await readWebVitals(page);
   record("web-vitals", testInfo.project.name, webVitals);
   // Порог «хорошо» у CLS — 0,1; цикл переходов не должен набрать и его.
-  expect(webVitals.CLS, "переходы не сдвигают раскладку").toBeLessThan(0.1);
+  expect(webVitals["CLS"], "переходы не сдвигают раскладку").toBeLessThan(0.1);
 
   const foreign = (seen: readonly string[], own: string) =>
     seen.filter((name) => name !== own);
@@ -814,7 +816,7 @@ test("закрытое тело не попадает ни в предзагру
 });
 
 /** Стадия «до» снимает кадры на коде без слоёв: общей части и её опор там ещё нет. */
-const beforeStage = process.env.NAVIGATION_EVIDENCE_STAGE === "before";
+const beforeStage = process.env["NAVIGATION_EVIDENCE_STAGE"] === "before";
 
 test("снимки перехода «программа → урок → программа» при медленном backend", async ({
   page,

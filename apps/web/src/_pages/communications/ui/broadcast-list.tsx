@@ -23,23 +23,23 @@ export function BroadcastList({
   readonly onFirst: () => void;
 }) {
   return (
-    <section aria-label="Список рассылок" className={styles.list}>
-      <header className={styles.listHeader}>
+    <section aria-label="Список рассылок" className={styles["list"]}>
+      <header className={styles["listHeader"]}>
         <h2 className="text-lg font-semibold">Рассылки</h2>
-        <span className={styles.hint}>Черновики и история отправок</span>
+        <span className={styles["hint"]}>Черновики и история отправок</span>
       </header>
       {!result ? (
-        <p role="status" className={styles.empty}>
+        <p role="status" className={styles["empty"]}>
           Загружаем рассылки…
         </p>
       ) : result.kind === "error" ? (
-        <p role="alert" className={styles.alert}>
+        <p role="alert" className={styles["alert"]}>
           {errorMessage(result.code)}
         </p>
       ) : (
         <>
           {result.broadcasts.length === 0 ? (
-            <div className={styles.empty}>
+            <div className={styles["empty"]}>
               <p className="font-semibold text-foreground">
                 Рассылок пока нет.
               </p>
@@ -53,7 +53,7 @@ export function BroadcastList({
               {result.broadcasts.map((broadcast) => (
                 <li key={broadcast.broadcastId}>
                   <button
-                    className={styles.listRow}
+                    className={styles["listRow"]}
                     type="button"
                     disabled={pending}
                     aria-pressed={selectedId === broadcast.broadcastId}
@@ -62,12 +62,12 @@ export function BroadcastList({
                     }}
                   >
                     <span className="min-w-0">
-                      <span className={styles.listTitle}>
+                      <span className={styles["listTitle"]}>
                         {broadcast.parts
                           .find((part) => part.content.text !== "")
                           ?.content.text.slice(0, 100) ?? "Рассылка с медиа"}
                       </span>
-                      <span className={styles.listMeta}>
+                      <span className={styles["listMeta"]}>
                         {broadcast.audience.kind === "all"
                           ? "Все контакты"
                           : `Выбранных воронок: ${String(broadcast.audience.funnelIds.length)}`}
@@ -89,7 +89,7 @@ export function BroadcastList({
       )}
       {hasPrevious ||
       (result?.kind === "ready" && hasText(result.nextCursor)) ? (
-        <nav aria-label="Страницы рассылок" className={styles.pagination}>
+        <nav aria-label="Страницы рассылок" className={styles["pagination"]}>
           {hasPrevious ? (
             <Button variant="outline" onClick={onFirst}>
               К началу списка

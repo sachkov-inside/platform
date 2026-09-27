@@ -23,8 +23,8 @@ interface TextNode extends JsonObject {
 function isTextNode(value: JsonValue): value is TextNode {
   return (
     isJsonObject(value) &&
-    value.type === "text" &&
-    typeof value.text === "string"
+    value["type"] === "text" &&
+    typeof value["text"] === "string"
   );
 }
 
@@ -39,11 +39,11 @@ function fail(index: number, code: string): MaterialBodyResult<never> {
 }
 
 function nodeId(block: unknown): string | undefined {
-  if (!isJsonObject(block) || !isJsonObject(block.attrs)) {
+  if (!isJsonObject(block) || !isJsonObject(block["attrs"])) {
     return undefined;
   }
-  return typeof block.attrs.nodeId === "string"
-    ? block.attrs.nodeId
+  return typeof block["attrs"]["nodeId"] === "string"
+    ? block["attrs"]["nodeId"]
     : undefined;
 }
 
@@ -65,10 +65,10 @@ function withNodeId(
     return undefined;
   }
   if (
-    candidate.attrs !== undefined &&
-    (candidate.attrs === null ||
-      Array.isArray(candidate.attrs) ||
-      typeof candidate.attrs !== "object")
+    candidate["attrs"] !== undefined &&
+    (candidate["attrs"] === null ||
+      Array.isArray(candidate["attrs"]) ||
+      typeof candidate["attrs"] !== "object")
   ) {
     return undefined;
   }
@@ -86,7 +86,7 @@ function mutableContent(node: unknown): unknown[] | undefined {
   if (!isUnknownRecord(node)) {
     return undefined;
   }
-  return isUnknownArray(node.content) ? node.content : undefined;
+  return isUnknownArray(node["content"]) ? node["content"] : undefined;
 }
 
 function findNode(
@@ -116,7 +116,7 @@ function replaceText(
   if (!isJsonObject(block)) {
     return undefined;
   }
-  const textNodes = block.content === undefined ? [] : block.content;
+  const textNodes = block["content"] === undefined ? [] : block["content"];
   if (!isJsonArray(textNodes) || !textNodes.every(isTextNode)) {
     return undefined;
   }
@@ -145,7 +145,7 @@ function replaceText(
       if (JSON.stringify(previousShape) === JSON.stringify(candidateShape)) {
         nextContent[nextContent.length - 1] = {
           ...previous,
-          text: `${typeof previous.text === "string" ? previous.text : ""}${text}`,
+          text: `${typeof previous["text"] === "string" ? previous["text"] : ""}${text}`,
         };
         return;
       }
@@ -177,8 +177,8 @@ function replaceText(
   if (
     insertionTemplate === undefined &&
     textNodes.length === 0 &&
-    typeof block.type === "string" &&
-    ["paragraph", "heading", "codeBlock"].includes(block.type)
+    typeof block["type"] === "string" &&
+    ["paragraph", "heading", "codeBlock"].includes(block["type"])
   ) {
     insertionTemplate = { type: "text" };
   }

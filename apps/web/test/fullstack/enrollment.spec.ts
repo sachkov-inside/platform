@@ -7,7 +7,7 @@ test("owner assigns scoped course and the open cabinet converges through real BF
   context,
 }, info) => {
   await signInFullStack(context, "OWNER");
-  const owner = process.env.ENROLLMENT_OWNER_ID;
+  const owner = process.env["ENROLLMENT_OWNER_ID"];
   if (owner === undefined || owner === "")
     throw new Error("Missing enrollment owner fixture");
   async function selectRecipient(surface: typeof page) {

@@ -79,6 +79,6 @@ async function bootstrap() {
 function transportLogLevel(
   event: Readonly<Record<string, unknown>>,
 ): "info" | "warn" | "error" {
-  if (event.error !== undefined) return "error";
-  return event.status === "operator_attention" ? "warn" : "info";
+  if (event["error"] !== undefined) return "error";
+  return event["status"] === "operator_attention" ? "warn" : "info";
 }

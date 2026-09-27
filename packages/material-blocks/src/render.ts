@@ -15,7 +15,7 @@ import type {
 
 function renderMark(value: JsonValue): RenderedMark {
   const mark = expectObject(value, "mark");
-  const type = expectString(mark.type, "mark type");
+  const type = expectString(mark["type"], "mark type");
   switch (type) {
     case "bold":
     case "code":
@@ -24,7 +24,7 @@ function renderMark(value: JsonValue): RenderedMark {
       return { kind: type };
     case "link":
       return {
-        href: expectString(nodeAttributes(mark).href, "link href"),
+        href: expectString(nodeAttributes(mark)["href"], "link href"),
         kind: "link",
       };
     default:
@@ -34,29 +34,29 @@ function renderMark(value: JsonValue): RenderedMark {
 
 function renderText(value: JsonValue): RenderedText {
   const node = expectObject(value, "text node");
-  if (node.type !== "text") {
+  if (node["type"] !== "text") {
     throw new TypeError("Expected text node");
   }
   return {
     kind: "text",
     marks:
-      node.marks === undefined
+      node["marks"] === undefined
         ? []
-        : expectArray(node.marks, "marks").map(renderMark),
-    text: expectString(node.text, "text"),
+        : expectArray(node["marks"], "marks").map(renderMark),
+    text: expectString(node["text"], "text"),
   };
 }
 
 function inlineContent(node: JsonObject): readonly RenderedText[] {
-  return node.content === undefined
+  return node["content"] === undefined
     ? []
-    : expectArray(node.content, "inline content").map(renderText);
+    : expectArray(node["content"], "inline content").map(renderText);
 }
 
 function blockContent(node: JsonObject): readonly RenderedBlock[] {
-  return node.content === undefined
+  return node["content"] === undefined
     ? []
-    : renderMaterialBlocks(expectArray(node.content, "block content"));
+    : renderMaterialBlocks(expectArray(node["content"], "block content"));
 }
 
 const tools: MaterialBlockRenderTools = { blockContent, inlineContent };
@@ -64,7 +64,7 @@ const tools: MaterialBlockRenderTools = { blockContent, inlineContent };
 /** Turns one accepted document node into its rendered block. */
 export function renderMaterialBlock(value: JsonValue): RenderedBlock {
   const node = expectObject(value, "block node");
-  const type = expectString(node.type, "block type");
+  const type = expectString(node["type"], "block type");
   const definition = materialBlockByType(type);
   if (definition === undefined) {
     throw new TypeError(`Unsupported block: ${type}`);

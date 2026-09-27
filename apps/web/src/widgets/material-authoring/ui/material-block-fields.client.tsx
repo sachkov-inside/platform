@@ -58,7 +58,7 @@ function blockFieldsState(editor: Editor): BlockFieldsState {
 }
 
 function blockTitle(editor: Editor, type: string): string {
-  const value: unknown = editor.getAttributes(type).title;
+  const value: unknown = editor.getAttributes(type)["title"];
   return typeof value === "string" ? value : "";
 }
 
@@ -110,7 +110,8 @@ function selectBranchMode(
 ): void {
   const variant = variantUnderCursor(editor.state);
   const occupied = variant?.branchPositions.find((position) => {
-    const branchMode: unknown = editor.state.doc.nodeAt(position)?.attrs.mode;
+    const branchMode: unknown =
+      editor.state.doc.nodeAt(position)?.attrs["mode"];
     return position !== variant.currentBranch && branchMode === mode;
   });
   if (variant === undefined || occupied === undefined) {

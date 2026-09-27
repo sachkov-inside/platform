@@ -120,7 +120,10 @@ describe("supported toolchain contract", () => {
     // одними лишь плавающими промахами. Причину и выбор держит `apps/web/next.config.ts`.
     const nextConfig = read("apps/web/next.config.ts");
 
-    assert.match(nextConfig, /process\.env\.HIDE_DEV_INDICATOR === "true"/u);
+    assert.match(
+      nextConfig,
+      /process\.env\["HIDE_DEV_INDICATOR"\] === "true"/u,
+    );
     assert.match(nextConfig, /devIndicators: false/u);
     // Browser checks of `pnpm test:e2e` run on the production build, which has no indicator.
     assert.match(
@@ -609,7 +612,7 @@ describe("supported toolchain contract", () => {
 
     assert.match(
       migrationEntrypoint,
-      /parseRuntimeIdentity\(\s*process\.env,\s*parsePlatformMode\(process\.env\.NODE_ENV\)/u,
+      /parseRuntimeIdentity\(\s*process\.env,\s*parsePlatformMode\(process\.env\["NODE_ENV"\]\)/u,
     );
     assert.doesNotMatch(
       migrationEntrypoint,
@@ -812,6 +815,7 @@ const sharedStrictness = {
   strict: true,
   exactOptionalPropertyTypes: true,
   noUncheckedIndexedAccess: true,
+  noPropertyAccessFromIndexSignature: true,
   noImplicitOverride: true,
   noImplicitReturns: true,
   noFallthroughCasesInSwitch: true,

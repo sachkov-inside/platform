@@ -63,7 +63,7 @@ test("broker configuration requires separate principals, vhost and production TL
     parseNotificationsConfig({
       NOTIFICATIONS_BROKER_URLS: JSON.stringify({
         ...urls,
-        email: urls.billing,
+        email: urls["billing"],
       }),
     }),
   ).toThrow("Invalid Notifications broker configuration");

@@ -41,8 +41,8 @@ function assetNode(
     renderHTML: (nodeAttributes) => {
       const isImage = name === "assetImage";
       const label = isImage
-        ? attributeText(nodeAttributes.alt, "Декоративное изображение")
-        : attributeText(nodeAttributes.label, "Файл");
+        ? attributeText(nodeAttributes["alt"], "Декоративное изображение")
+        : attributeText(nodeAttributes["label"], "Файл");
       return [
         isImage ? "figure" : "div",
         {
@@ -64,8 +64,10 @@ function assetNode(
 export const assetImageBlock: MaterialBlockDefinition =
   defineMaterialBlock<"image">({
     issues: (node, report) => {
-      const attributes = isJsonObject(node.attrs) ? node.attrs : undefined;
-      const displayWidthPercent = attributes?.displayWidthPercent;
+      const attributes = isJsonObject(node["attrs"])
+        ? node["attrs"]
+        : undefined;
+      const displayWidthPercent = attributes?.["displayWidthPercent"];
       if (
         displayWidthPercent !== undefined &&
         displayWidthPercent !== null &&
@@ -89,13 +91,13 @@ export const assetImageBlock: MaterialBlockDefinition =
     ]),
     render: (node) => {
       const attributes = nodeAttributes(node);
-      const caption = optionalText(attributes.caption);
+      const caption = optionalText(attributes["caption"]);
       return {
-        alt: expectString(attributes.alt, "image alt"),
-        assetId: expectString(attributes.assetId, "asset ID"),
+        alt: expectString(attributes["alt"], "image alt"),
+        assetId: expectString(attributes["assetId"], "asset ID"),
         ...(caption === undefined ? {} : { caption }),
-        ...(typeof attributes.displayWidthPercent === "number"
-          ? { displayWidthPercent: attributes.displayWidthPercent }
+        ...(typeof attributes["displayWidthPercent"] === "number"
+          ? { displayWidthPercent: attributes["displayWidthPercent"] }
           : {}),
         kind: "image",
       };
@@ -148,9 +150,9 @@ export const assetFileBlock: MaterialBlockDefinition =
     render: (node) => {
       const attributes = nodeAttributes(node);
       return {
-        assetId: expectString(attributes.assetId, "asset ID"),
+        assetId: expectString(attributes["assetId"], "asset ID"),
         kind: "file",
-        label: expectString(attributes.label, "file label"),
+        label: expectString(attributes["label"], "file label"),
       };
     },
     renderedSchema: () =>

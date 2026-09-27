@@ -37,10 +37,10 @@ export function PostLibrary(
   return (
     <section
       aria-label="Сохранённые Telegram-посты"
-      className={cn(styles.template, styles.postLibrary)}
+      className={cn(styles["template"], styles["postLibrary"])}
     >
-      <h3 className={styles.sectionTitle}>Посты из Telegram</h3>
-      <p className={styles.hint}>
+      <h3 className={styles["sectionTitle"]}>Посты из Telegram</h3>
+      <p className={styles["hint"]}>
         Откройте /admin в боте и создайте пост. Текст, медиа и форматирование
         сохранятся. Здесь можно настроить кнопки и выбрать пост для рассылки или
         воронки.
@@ -125,7 +125,7 @@ function PostDetails({
       <p className="whitespace-pre-wrap break-words">
         {presentText(saved.content.text) ?? contentLabels[saved.content.type]}
       </p>
-      <p className={styles.hint}>
+      <p className={styles["hint"]}>
         Сохранённая версия {saved.revision}. Текст и медиа меняются через
         «Заменить сообщение» в боте. Вид сообщения проверьте образцом в
         Telegram.

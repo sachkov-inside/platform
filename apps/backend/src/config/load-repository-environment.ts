@@ -16,7 +16,7 @@ export const repositoryEnvPath = fileURLToPath(
 export function composedEnvFilePath(
   environment: NodeJS.ProcessEnv = process.env,
 ): string | undefined {
-  return parsePlatformMode(environment.NODE_ENV) === "test"
+  return parsePlatformMode(environment["NODE_ENV"]) === "test"
     ? undefined
     : repositoryEnvPath;
 }

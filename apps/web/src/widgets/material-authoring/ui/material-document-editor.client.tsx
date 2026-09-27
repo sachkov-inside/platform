@@ -627,7 +627,7 @@ function MaterialDocumentEditorView({
               onClick={() => {
                 setLinkAsBlock(false);
                 setLinkOpen(true);
-                setLinkUrl(String(editor.getAttributes("link").href ?? ""));
+                setLinkUrl(String(editor.getAttributes("link")["href"] ?? ""));
                 setLinkInvalid(false);
               }}
             >
@@ -707,7 +707,7 @@ function MaterialDocumentEditorView({
               hover(event.target);
             }}
             className={cn(
-              styles.content,
+              styles["content"],
               "[&_.ProseMirror>*+*]:mt-6 [&_.ProseMirror>p]:min-h-7 [&_.ProseMirror_table]:w-full [&_.ProseMirror_table]:table-fixed [&_.ProseMirror_td]:border [&_.ProseMirror_td]:border-border [&_.ProseMirror_td]:p-2 [&_.ProseMirror_th]:border [&_.ProseMirror_th]:border-border [&_.ProseMirror_th]:bg-muted [&_.ProseMirror_th]:p-2 [&_.ProseMirror]:mx-auto [&_.ProseMirror]:min-h-[28rem] [&_.ProseMirror_blockquote]:border-l-2 [&_.ProseMirror_blockquote]:border-accent [&_.ProseMirror_blockquote]:pl-5 [&_.ProseMirror_pre]:rounded-xl [&_.ProseMirror_pre]:bg-muted [&_.ProseMirror_pre]:p-4 [&_.ProseMirror_hr]:my-8 [&_.ProseMirror_hr]:border-border [&_.ProseMirror_h3]:mt-6 [&_.ProseMirror_h3]:text-xl [&_.ProseMirror_h3]:font-semibold [&_.ProseMirror]:py-2 [&_.ProseMirror]:text-[1rem] [&_.ProseMirror]:leading-[1.75] [&_.ProseMirror]:outline-none [&_.ProseMirror_h2]:mb-3 [&_.ProseMirror_h2]:mt-8 [&_.ProseMirror_h2]:text-2xl [&_.ProseMirror_h2]:font-semibold [&_.ProseMirror_h2]:tracking-[-0.025em] [&_.ProseMirror_li]:my-1 [&_.ProseMirror_ol]:ml-6 [&_.ProseMirror_ol]:list-decimal [&_.ProseMirror_p]:my-4 [&_.ProseMirror_ul]:ml-6 [&_.ProseMirror_ul]:list-disc [&_.material-asset-node]:my-5 [&_.material-asset-node]:grid [&_.material-asset-node]:gap-1 [&_.material-asset-node]:rounded-xl [&_.material-asset-node]:border [&_.material-asset-node]:border-border [&_.material-asset-node]:bg-muted/50 [&_.material-asset-node]:p-4 [&_.material-asset-node__kind]:font-mono [&_.material-asset-node__kind]:text-xs [&_.material-asset-node__kind]:text-muted-foreground [&_.material-asset-node__label]:font-semibold [&_.ProseMirror_p:empty]:min-h-7 [&_.ProseMirror_p:empty]:before:pointer-events-none [&_.ProseMirror_p:empty]:before:float-left [&_.ProseMirror_p:empty]:before:text-muted-foreground/60 [&_.ProseMirror_p:empty]:before:content-['Напишите_текст…']",
             )}
             editor={editor}

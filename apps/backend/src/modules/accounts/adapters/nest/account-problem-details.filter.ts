@@ -18,10 +18,12 @@ export class AccountProblemDetailsFilter implements ExceptionFilter {
     const response = exception.getResponse();
     const fields = isRecord(response) ? response : {};
     const code =
-      typeof fields.code === "string" ? fields.code : "account_request_failed";
+      typeof fields["code"] === "string"
+        ? fields["code"]
+        : "account_request_failed";
     const correlationId =
-      typeof fields.correlationId === "string"
-        ? fields.correlationId
+      typeof fields["correlationId"] === "string"
+        ? fields["correlationId"]
         : undefined;
     host
       .switchToHttp()
@@ -45,10 +47,10 @@ function isProblemDetails(
   status: number,
 ): boolean {
   return (
-    typeof fields.type === "string" &&
-    typeof fields.title === "string" &&
-    fields.status === status &&
-    typeof fields.code === "string"
+    typeof fields["type"] === "string" &&
+    typeof fields["title"] === "string" &&
+    fields["status"] === status &&
+    typeof fields["code"] === "string"
   );
 }
 
