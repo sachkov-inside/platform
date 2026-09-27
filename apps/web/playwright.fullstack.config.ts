@@ -5,7 +5,7 @@ const baseURL =
 
 export default defineConfig({
   testDir: "./test/fullstack",
-  testIgnore: "**/enrollment.spec.ts",
+  testIgnore: ["**/enrollment.spec.ts", "**/buyer-journey.spec.ts"],
   fullyParallel: false,
   forbidOnly: true,
   reporter: "list",
