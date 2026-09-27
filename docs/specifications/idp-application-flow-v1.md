@@ -50,8 +50,10 @@ If a future pinned SDK starts sending nonce, matching validation becomes mandato
 6. BFF requests a JWT for the exact Platform audience and sends it server-to-server to Nest.
 
 The pinned upstream client currently omits OAuth `resource` from the authorization-code exchange.
-One narrow `AudienceBoundLogtoClient` adapter adds it only to that request. It is contract-tested
-and should be deleted when upstream does the same.
+One narrow `AudienceBoundLogtoClient` adapter adds it only to that request, in the node client
+class the SDK builds for every flow. `apps/web/test/module/logto-sign-in-callback.test.ts` runs the
+real SDK callback, so an SDK update that bypasses the adapter fails `pnpm check` (#766). Delete the
+adapter when upstream sends `resource` itself.
 
 Platform does not add `inside_session`, `inside_signin`, sessionRef, custom callback idempotency or
 reauthentication cookies. Official Logto SDK context is the only BFF session.

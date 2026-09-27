@@ -27,6 +27,9 @@ export default defineConfig({
           name: "module",
           environment: "node",
           include: ["test/module/**/*.test.ts"],
+          // SDK Logto импортирует `next/navigation` без расширения, как принято внутри Next.js;
+          // через Vite разрешение идёт так же, и проверка гоняет настоящий SDK (#766).
+          server: { deps: { inline: [/@logto\/next/u] } },
           restoreMocks: true,
           setupFiles: ["./test/support/request-scope.ts"],
           unstubEnvs: true,

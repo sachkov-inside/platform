@@ -6,23 +6,24 @@ import { bindAuthorizationCodeResource } from "./authorization-code-resource.ser
 import type { ResolvedLogtoBffConfig } from "./logto-bff-config.server";
 
 export class AudienceBoundLogtoClient extends LogtoClient {
-  readonly #audience: string;
-
   constructor(config: ResolvedLogtoBffConfig) {
     super(config);
-    this.#audience = config.audience;
-  }
-
-  override async createNodeClient(
-    options?: Parameters<LogtoClient["createNodeClient"]>[0],
-  ): ReturnType<LogtoClient["createNodeClient"]> {
-    const client = await super.createNodeClient(options);
-    const request = client.adapter.requester;
-    // @logto/client sends `resource` on authorization but currently omits it
-    // from the authorization-code exchange. The first Platform token must be
-    // audience-bound because Logto adds our sign-in proof only to that grant.
-    client.adapter.requester = (input, init) =>
-      request(input, bindAuthorizationCodeResource(init, this.#audience));
-    return client;
+    const { audience } = config;
+    // @logto/client sends `resource` on authorization but omits it from the authorization-code
+    // exchange. The first Platform token must be audience-bound because Logto adds our sign-in
+    // proof only to that grant. Every SDK path builds its node client from `adapters.NodeClient`
+    // (since 4.2.11 the callback no longer goes through `createNodeClient`, #766), so the binding
+    // lives in that class rather than in one creation method.
+    const NodeClient = this.adapters.NodeClient;
+    this.adapters.NodeClient = class AudienceBoundNodeClient extends (
+      NodeClient
+    ) {
+      constructor(...parameters: ConstructorParameters<typeof NodeClient>) {
+        super(...parameters);
+        const request = this.adapter.requester;
+        this.adapter.requester = (input, init) =>
+          request(input, bindAuthorizationCodeResource(init, audience));
+      }
+    };
   }
 }

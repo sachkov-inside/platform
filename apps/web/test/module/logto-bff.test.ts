@@ -1,8 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import { z } from "zod";
 
-import { AudienceBoundLogtoClient } from "@/shared/auth/audience-bound-logto-client.server";
-
 import {
   bindAuthorizationCodeResource,
   clearLogtoSessionCookie,
@@ -21,17 +19,9 @@ const embeddedRuntimeIdentity = {
   release: "v7",
   sourceSha: "7".repeat(40),
 } as const;
-const sdkFake = vi.hoisted<{ nodeClient: unknown }>(() => ({
-  nodeClient: undefined,
-}));
 const cookieSet = vi.hoisted(() => vi.fn());
 
 vi.mock("@logto/next/server-actions", () => ({
-  default: class LogtoClient {
-    createNodeClient() {
-      return Promise.resolve(sdkFake.nodeClient);
-    }
-  },
   getAccessToken: vi.fn(),
 }));
 
@@ -141,45 +131,6 @@ describe("Logto BFF configuration", () => {
     );
     expect(
       new URLSearchParams(z.string().parse(searchParams?.body)).get("resource"),
-    ).toBe("https://api.example.test");
-  });
-
-  it("wires the audience binding into the pinned SDK requester", async () => {
-    const requester = vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
-      void input;
-      void init;
-      return Promise.resolve(new Response(null, { status: 200 }));
-    });
-    sdkFake.nodeClient = { adapter: { requester } };
-    const config = parseLogtoBffConfig(
-      {
-        ...productionRuntimeIdentity,
-        NODE_ENV: "production",
-        BACKEND_BASE_URL: "https://api-internal.example.test",
-        LOGTO_ENDPOINT: "https://identity.example.test",
-        LOGTO_AUDIENCE: "https://api.example.test",
-        LOGTO_APP_ID: "inside-web",
-        LOGTO_APP_SECRET: "inside-web-confidential-secret",
-        LOGTO_COOKIE_SECRET: secret,
-        WEB_BASE_URL: "https://inside.example.test",
-      },
-      embeddedRuntimeIdentity,
-    );
-    const client = new AudienceBoundLogtoClient(config);
-    const created = await client.createNodeClient();
-
-    await created.adapter.requester(
-      "https://identity.example.test/oidc/token",
-      {
-        method: "POST",
-        body: "grant_type=authorization_code&code=opaque",
-      },
-    );
-
-    expect(requester).toHaveBeenCalledOnce();
-    const init = requester.mock.calls[0]?.[1];
-    expect(
-      new URLSearchParams(z.string().parse(init?.body)).get("resource"),
     ).toBe("https://api.example.test");
   });
 
