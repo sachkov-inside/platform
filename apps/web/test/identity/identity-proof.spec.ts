@@ -13,6 +13,8 @@ import {
 } from "@playwright/test";
 import { z } from "zod";
 
+import { waitPastAccessTokenExpiry } from "./access-token-expiry";
+
 const webBaseUrl = requiredEnvironment("WEB_BASE_URL");
 const backendBaseUrl = requiredEnvironment("BACKEND_BASE_URL");
 const logtoEndpoint = requiredEnvironment("LOGTO_ENDPOINT");
@@ -204,8 +206,9 @@ test.describe.serial("issue 116 pinned Logto proof", () => {
     await beginSignIn(recovery, recipient);
     await enterCode(recovery, await waitForCode(recipient, 2));
     await expect(recovery).toHaveURL(`${webBaseUrl}/library`);
+    const signedInAt = Date.now();
 
-    await recovery.waitForTimeout(61_000);
+    await waitPastAccessTokenExpiry(recovery, signedInAt);
     await stopService("logto");
     const unavailable = await recovery.request.get("/auth/status");
     await expect(unavailable.json()).resolves.toEqual({

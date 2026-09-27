@@ -67,6 +67,10 @@ reject correct tests. It becomes a fitness candidate if a narrower seam appears.
 - Proving that nothing happened is the exception. Advance a virtual clock past the interval in
   question and assert the absence, once the step before it is already pinned to its own fact.
 
+Browser suites never retry a failed test, in CI either (owner decision of 2026-09-27, #476): a flaky
+test turns the run red on its first attempt and is fixed, not retried until it passes.
+`scripts/playwright-specs-load.test.mjs` fails a Playwright configuration that retries.
+
 The nearest standard names the helper for each surface.
 
 ## Live HTTP checks
