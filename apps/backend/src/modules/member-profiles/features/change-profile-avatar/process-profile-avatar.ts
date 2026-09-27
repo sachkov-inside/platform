@@ -82,11 +82,7 @@ export async function processProfileAvatar(input: {
       limitInputPixels: PROFILE_AVATAR_LIMITS.pixels,
     };
     const metadata = await sharp(input.body, options).metadata();
-    if (
-      metadata.width === undefined ||
-      metadata.height === undefined ||
-      metadata.width * metadata.height > PROFILE_AVATAR_LIMITS.pixels
-    ) {
+    if (metadata.width * metadata.height > PROFILE_AVATAR_LIMITS.pixels) {
       return failure("image_too_large");
     }
     const normalized = await sharp(input.body, options)

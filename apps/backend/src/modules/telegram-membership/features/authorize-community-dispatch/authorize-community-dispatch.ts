@@ -174,9 +174,9 @@ async function decide(
   const current = binding.binding;
   const bindsCurrentIdentity =
     current?.telegramIdentityRef === operation.identityRef &&
-    current?.accountRef === operation.accountRef &&
-    current?.linkRef === operation.linkRef &&
-    current?.linkRevision === operation.linkRevision;
+    current.accountRef === operation.accountRef &&
+    current.linkRef === operation.linkRef &&
+    current.linkRevision === operation.linkRevision;
 
   if (input.effect === "community.ensure_absence") {
     const targetsHistory =

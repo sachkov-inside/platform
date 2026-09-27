@@ -91,7 +91,7 @@ export function AnalyticsPanel({
             {Object.entries(group.values).map(([label, value]) => (
               <div key={label}>
                 <dt>{label}</dt>
-                <dd>{value?.toLocaleString("ru-RU")}</dd>
+                <dd>{value.toLocaleString("ru-RU")}</dd>
               </div>
             ))}
           </dl>

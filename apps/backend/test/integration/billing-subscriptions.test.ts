@@ -845,7 +845,7 @@ describe("подписка: продление, отмена, смена вар�
     const pending = await s.view();
     const attemptRef = pending?.inFlightPayment?.attemptRef;
     if (!attemptRef) throw new Error("Missing synthetic renewal attempt");
-    expect(pending?.inFlightPayment).toMatchObject({
+    expect(pending.inFlightPayment).toMatchObject({
       kind: "renewal",
       state: "unknown",
     });

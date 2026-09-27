@@ -605,8 +605,7 @@ export class BillingPayments {
         where: { id: attemptRef },
       });
       if (
-        !row ||
-        row.state !== "prepared" ||
+        row?.state !== "prepared" ||
         row.terminalRef !== bank.config.terminalKey ||
         row.environment !== bank.config.environment
       )
@@ -704,7 +703,7 @@ export class BillingPayments {
     const current = await prisma.billingSubscription.findUnique({
       where: { id: subscriptionRef },
     });
-    if (!current || current.state !== "active") return {};
+    if (current?.state !== "active") return {};
     const [legacy, verified, consented] = await Promise.all([
       grants.readLegacyClassification(current.accountId),
       contact.read(current.accountId),
@@ -728,7 +727,7 @@ export class BillingPayments {
         const row = await tx.billingSubscription.findUnique({
           where: { id: subscriptionRef },
         });
-        if (!row || row.state !== "active" || row.paidUntil > now) return {};
+        if (row?.state !== "active" || row.paidUntil > now) return {};
         if (
           await tx.billingPurchase.count({
             where: { subscriptionRef, state: { in: [...inFlightStates] } },

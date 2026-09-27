@@ -445,16 +445,20 @@ interface TiptapEditorInstance {
 function tiptapEditor(canvasElement: HTMLElement): TiptapEditorInstance {
   const dom = canvasElement.querySelector(".ProseMirror");
   const editor: unknown = dom === null ? undefined : Reflect.get(dom, "editor");
-  if (
-    typeof editor !== "object" ||
-    editor === null ||
-    typeof Reflect.get(editor, "setOptions") !== "function"
-  ) {
+  if (!isTiptapEditor(editor)) {
     throw new Error(
       "У документа нет экземпляра Tiptap: не к чему подключить счётчик перерисовок",
     );
   }
-  return editor as TiptapEditorInstance;
+  return editor;
+}
+
+function isTiptapEditor(value: unknown): value is TiptapEditorInstance {
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    typeof Reflect.get(value, "setOptions") === "function"
+  );
 }
 
 /**
@@ -605,13 +609,10 @@ export const ExactPreviewEmptyDark: Story = {
     presentation: {
       ...materialAuthoringPresentation,
       mode: "preview",
-      preview:
-        materialAuthoringPresentation.preview === null
-          ? null
-          : {
-              ...materialAuthoringPresentation.preview,
-              blocks: emptyLessonBlocks,
-            },
+      preview: {
+        ...materialAuthoringPresentation.preview,
+        blocks: emptyLessonBlocks,
+      },
     },
   },
   globals: {
@@ -636,13 +637,10 @@ export const ExactPreviewLongDark: Story = {
     presentation: {
       ...materialAuthoringPresentation,
       mode: "preview",
-      preview:
-        materialAuthoringPresentation.preview === null
-          ? null
-          : {
-              ...materialAuthoringPresentation.preview,
-              blocks: longLessonBlocks,
-            },
+      preview: {
+        ...materialAuthoringPresentation.preview,
+        blocks: longLessonBlocks,
+      },
     },
   },
   globals: {

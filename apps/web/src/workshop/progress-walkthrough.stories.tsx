@@ -68,13 +68,13 @@ const body: readonly ReaderBlock[] = [
 ];
 const register = () => () => undefined;
 const refresh = () => Promise.resolve();
-const surfaces = {
-  home: "Профиль",
-  reader: "Материал",
-  series: "Продукт",
-  cards: "Карточки",
-} as const;
-type Surface = keyof typeof surfaces;
+const surfaces = [
+  ["home", "Профиль"],
+  ["reader", "Материал"],
+  ["series", "Продукт"],
+  ["cards", "Карточки"],
+] as const;
+type Surface = (typeof surfaces)[number][0];
 
 function preview(item: ContinueMaterialView): MaterialPreview {
   const cover =
@@ -280,21 +280,19 @@ function ProgressWalkthrough({
             изученное.
           </p>
           <div className="mt-3 flex flex-wrap gap-2">
-            {(Object.entries(surfaces) as [Surface, string][]).map(
-              ([value, label]) => (
-                <Button
-                  aria-pressed={surface === value}
-                  key={value}
-                  size="sm"
-                  variant={surface === value ? "default" : "outline"}
-                  onClick={() => {
-                    navigate(value);
-                  }}
-                >
-                  {label}
-                </Button>
-              ),
-            )}
+            {surfaces.map(([value, label]) => (
+              <Button
+                aria-pressed={surface === value}
+                key={value}
+                size="sm"
+                variant={surface === value ? "default" : "outline"}
+                onClick={() => {
+                  navigate(value);
+                }}
+              >
+                {label}
+              </Button>
+            ))}
             <Button
               size="sm"
               variant="ghost"

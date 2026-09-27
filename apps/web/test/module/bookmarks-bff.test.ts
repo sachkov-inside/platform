@@ -182,20 +182,19 @@ it("maps the bookmark list into safe material previews and requires a session", 
   );
   expect(fakes.list).toHaveBeenCalledWith({}, "trusted-token");
   expect(response.headers.get("cache-control")).toBe("no-store, private");
-  const body = (await response.json()) as {
-    items: { materialId: string; topic: string; cover?: unknown }[];
-    nextCursor: null;
-  };
-  expect(body.items).toEqual([
-    expect.objectContaining({
-      materialId,
-      topic: "Bookmarks",
-      format: "Заметка",
-      slug: "bookmark-me",
-    }),
-  ]);
+  const body: unknown = await response.json();
+  expect(body).toMatchObject({
+    items: [
+      expect.objectContaining({
+        materialId,
+        topic: "Bookmarks",
+        format: "Заметка",
+        slug: "bookmark-me",
+      }),
+    ],
+    nextCursor: null,
+  });
   expect(body).not.toHaveProperty("cover", "storage-key");
-  expect(body.nextCursor).toBeNull();
 });
 
 it("returns 401 for the bookmark list without a session", async () => {

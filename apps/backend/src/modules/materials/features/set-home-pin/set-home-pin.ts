@@ -44,7 +44,7 @@ export function assembleSetHomePin(
             where: { id: command.seriesId },
             select: { archivedAt: true },
           });
-          if (series === null || series.archivedAt !== null)
+          if (series?.archivedAt !== null)
             return rollback({
               code: "invalid_reference",
               issues: [{ code: "series_not_available", path: "/seriesId" }],

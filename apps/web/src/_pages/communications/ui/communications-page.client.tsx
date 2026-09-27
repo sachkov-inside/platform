@@ -354,7 +354,7 @@ export function CommunicationsPage() {
                     variant="outline"
                     onClick={() => {
                       setEntryCursor(
-                        history.data?.kind === "ready"
+                        history.data.kind === "ready"
                           ? (history.data.nextCursor ?? undefined)
                           : undefined,
                       );

@@ -460,8 +460,7 @@ export function assembleMaterialAssets(dependencies: {
             },
           });
           if (
-            asset === null ||
-            asset.protectedObjectKey === null ||
+            asset?.protectedObjectKey == null ||
             asset.actualContentType === null ||
             asset.actualSize === null
           ) {

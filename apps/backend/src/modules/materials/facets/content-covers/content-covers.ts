@@ -197,9 +197,7 @@ export function assembleContentCovers(dependencies: {
         );
         if (
           outcomes.some(
-            (outcome) =>
-              outcome.status === "rejected" ||
-              (outcome.status === "fulfilled" && !outcome.value.ok),
+            (outcome) => outcome.status === "rejected" || !outcome.value.ok,
           )
         ) {
           throw new Error("Content cover storage failed");
@@ -261,8 +259,7 @@ export function assembleContentCovers(dependencies: {
             },
           });
         if (
-          rendition === null ||
-          rendition.cover.state !== "ready" ||
+          rendition?.cover.state !== "ready" ||
           !rendition.cover.currentlyReferenced
         ) {
           return notFound();

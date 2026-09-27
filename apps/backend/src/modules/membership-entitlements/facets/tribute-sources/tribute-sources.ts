@@ -867,11 +867,7 @@ export class TributeSources {
       const initial = await tx.sourceEntitlement.findUnique({
         where: { id: command.sourceId },
       });
-      if (
-        !initial ||
-        initial.origin !== "tribute" ||
-        initial.tributeState == null
-      )
+      if (initial?.origin !== "tribute" || initial.tributeState == null)
         return accessFailure("not_found");
       if (initial.accountId !== null)
         await lockTelegramAccountBinding(tx, initial.accountId);

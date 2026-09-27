@@ -119,8 +119,7 @@ export async function recordMaterialOpen(
         if (!facts.ok)
           return { ok: false, error: { code: "dependency_unavailable" } };
         if (
-          facts.value === null ||
-          facts.value.publicationState !== "published" ||
+          facts.value?.publicationState !== "published" ||
           facts.value.contentVersion !== command.contentVersion ||
           decision.checkedContentVersion !== command.contentVersion ||
           ("validUntil" in decision &&

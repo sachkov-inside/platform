@@ -130,7 +130,7 @@ export function assembleGuideArtifactFiles(
         putObject({ ...object, key: publicObjectKey, namespace: "public" }),
       ]);
       const failed = written.find((result) => !result.ok);
-      if (failed !== undefined && !failed.ok) {
+      if (failed !== undefined) {
         await forgetObject("quarantine", quarantineObjectKey);
         return failed;
       }

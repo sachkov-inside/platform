@@ -79,11 +79,15 @@ function normalizeLibraryFormat(
     : null;
 }
 
+export function isLibraryRouteSort(value: string): value is LibraryRouteSort {
+  return value === "newest" || value === "relevance" || value === "title";
+}
+
 function normalizeLibrarySort(
   value: string | undefined,
   q: string,
 ): LibraryRouteSort {
-  return value === "newest" || value === "relevance" || value === "title"
+  return value !== undefined && isLibraryRouteSort(value)
     ? value
     : defaultLibraryRouteSort(q);
 }

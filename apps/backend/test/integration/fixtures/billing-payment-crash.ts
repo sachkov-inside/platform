@@ -45,7 +45,7 @@ const contact = new BillingContact({
     Promise.reject(new Error("No email in crash recovery fixture")),
 });
 const bank = new Tbank(input.config, async (_url, options) => {
-  if (typeof options?.body !== "string")
+  if (typeof options.body !== "string")
     throw new Error("Invalid fixture request");
   const body = z.object({ OrderId: z.uuid() }).parse(JSON.parse(options.body));
   process.send?.({ purchaseRef: body.OrderId });

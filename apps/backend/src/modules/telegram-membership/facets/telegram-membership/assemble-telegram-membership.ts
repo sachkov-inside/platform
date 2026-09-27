@@ -488,7 +488,7 @@ async function acceptEvidence(
   ) {
     return { ok: false, error: { code: "unavailable" } };
   }
-  if (link === null || link.status !== "linked") {
+  if (link?.status !== "linked") {
     return { ok: false, error: { code: "principal_mismatch" } };
   }
   return dependencies.membershipEntitlements.acceptEvidence({

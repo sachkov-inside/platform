@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { z } from "zod";
 
 import { getPublicSiteIndex } from "@/features/public-site-index.server";
 
@@ -51,9 +52,10 @@ describe("Указатель опубликованных страниц", () =>
       topicSlugs: ["platform"],
     });
     expect(fetchMock).toHaveBeenCalledTimes(2);
-    const secondRequest = fetchMock.mock.calls[1]?.[0] as Request | undefined;
-    expect(secondRequest).toBeInstanceOf(Request);
-    expect(secondRequest?.url).toContain("after=cursor-2");
+    const secondRequest = z
+      .instanceof(Request)
+      .parse(fetchMock.mock.calls[1]?.[0]);
+    expect(secondRequest.url).toContain("after=cursor-2");
   });
 
   it("не запрашивает каталог от имени участника: указатель перечисляет только опубликованное", async () => {
@@ -65,9 +67,8 @@ describe("Указатель опубликованных страниц", () =>
 
     await getPublicSiteIndex();
 
-    const request = fetchMock.mock.calls[0]?.[0] as Request | undefined;
-    expect(request).toBeInstanceOf(Request);
-    expect(request?.headers.has("authorization")).toBe(false);
+    const request = z.instanceof(Request).parse(fetchMock.mock.calls[0]?.[0]);
+    expect(request.headers.has("authorization")).toBe(false);
   });
 
   it("сообщает о недоступном каталоге вместо ошибки", async () => {

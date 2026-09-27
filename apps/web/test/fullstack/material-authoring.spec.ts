@@ -10,6 +10,7 @@ import {
   signInFullStack,
 } from "../support/full-stack-session";
 import { prepareEvidenceDirectory } from "../../../../scripts/evidence-path.mjs";
+import { z } from "zod";
 
 const currentMaterialEditorUrl =
   /\/authoring\/materials\/[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?:\?.*)?$/u;
@@ -32,8 +33,9 @@ for (const access of ["public", "membership"] as const) {
           memberPage,
           "/auth/status",
         );
-        const value = (await identity.json()) as { accountId: string };
-        recipientAccountId = value.accountId;
+        recipientAccountId = z
+          .object({ accountId: z.string() })
+          .parse(await identity.json()).accountId;
       } finally {
         await memberContext.close();
       }
@@ -803,13 +805,12 @@ test("member primary Video denies anonymous and non-member access while authoriz
     multipart: { materialId, videoId },
   });
   expect(ownerSession.status()).toBe(200);
-  const memberBody = (await ownerSession.json()) as {
-    readonly drmAuthToken?: unknown;
-    readonly progressScope?: unknown;
-    readonly videoId?: unknown;
-  };
-  expect(memberBody).toMatchObject({ progressScope: "account", videoId });
-  expect(memberBody.drmAuthToken).toEqual(expect.any(String));
+  const memberBody: unknown = await ownerSession.json();
+  expect(memberBody).toMatchObject({
+    drmAuthToken: expect.any(String),
+    progressScope: "account",
+    videoId,
+  });
 
   await signInFullStack(context, "OWNER");
   await unpublishFromPurchasedProduct(page, title);

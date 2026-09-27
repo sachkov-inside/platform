@@ -14,6 +14,7 @@ import {
   evidenceDirectory,
   prepareEvidenceDirectory,
 } from "../../../../scripts/evidence-path.mjs";
+import { z } from "zod";
 
 test("shows private Account Telegram and Membership presentation without disclosure", async ({
   context,
@@ -28,9 +29,9 @@ test("shows private Account Telegram and Membership presentation without disclos
     "/api/account",
   );
   expect(accountStateResponse.status()).toBe(200);
-  const accountState = (await accountStateResponse.json()) as {
-    readonly telegramMembership?: unknown;
-  };
+  const accountState = z
+    .object({ telegramMembership: z.unknown() })
+    .parse(await accountStateResponse.json());
   expect(accountState.telegramMembership).toEqual({
     link: { kind: "unlinked" },
     // No subscription is on sale in the check catalogue, so membership is not offered (#507).
@@ -151,9 +152,9 @@ test("creates or edits the Account Profile that only its owner sees", async ({
     "/api/account/profile",
   );
   expect(profileStateResponse.status()).toBe(200);
-  const profileState = (await profileStateResponse.json()) as {
-    readonly state?: { readonly kind?: string };
-  };
+  const profileState = z
+    .object({ state: z.object({ kind: z.string().optional() }).nullish() })
+    .parse(await profileStateResponse.json());
   const profileKind = profileState.state?.kind;
   const account = await page.goto("/account");
   expect(account?.status()).toBe(200);

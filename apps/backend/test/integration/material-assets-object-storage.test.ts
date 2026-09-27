@@ -195,7 +195,7 @@ describe("MaterialAssets against PostgreSQL and S3", () => {
       failureCode: "storage_failure",
       state: "failed",
     });
-    if (failed === null || failed.publicObjectKey === null) {
+    if (failed?.publicObjectKey == null) {
       throw new Error("failed upload did not retain its cleanup locators");
     }
     const failedPublicObjectKey = failed.publicObjectKey;

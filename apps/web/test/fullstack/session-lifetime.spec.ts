@@ -7,6 +7,7 @@ import {
   fullStackBaseUrl,
   signInFullStack,
 } from "../support/full-stack-session";
+import { z } from "zod";
 
 /**
  * Срок сессии в наборе. Доступ живёт пять минут и проверяется приложением, а набор идёт дольше
@@ -56,11 +57,12 @@ test("browser owner mutation keeps the renewed Secure session on loopback", asyn
     },
   );
   expect(created.status()).toBe(200);
-  const value = (await created.json()) as {
-    kind: string;
-    collection: { id: string; version: number };
-  };
-  expect(value.kind).toBe("saved");
+  const value = z
+    .object({
+      kind: z.literal("saved"),
+      collection: z.object({ id: z.string(), version: z.number() }),
+    })
+    .parse(await created.json());
   const archived = await fullStackBrowserRequest(
     page,
     "/api/authoring/collections/archive",

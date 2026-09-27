@@ -261,11 +261,7 @@ async function processImage(
       failOn: "warning",
       limitInputPixels: MATERIAL_ASSET_LIMITS.imagePixels,
     }).metadata();
-    if (
-      metadata.width === undefined ||
-      metadata.height === undefined ||
-      metadata.width * metadata.height > MATERIAL_ASSET_LIMITS.imagePixels
-    ) {
+    if (metadata.width * metadata.height > MATERIAL_ASSET_LIMITS.imagePixels) {
       return failure("image_too_large");
     }
     const normalized = await sharp(body, {

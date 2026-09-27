@@ -513,7 +513,7 @@ async function ensureSeriesReaderScenario(seed: SeedContext): Promise<void> {
       outcomes: "outcomes" in definition ? definition.outcomes : [],
       seriesIds: definition.seriesIds,
       summary:
-        "summary" in definition && definition.summary !== undefined
+        "summary" in definition
           ? definition.summary
           : `${definition.bodyText} Не является контентом Кирилла.`,
       tagIds: [tagId],

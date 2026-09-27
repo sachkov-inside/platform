@@ -11,6 +11,7 @@ import {
 } from "@playwright/test";
 
 import { evidenceDirectory } from "../../../../scripts/evidence-path.mjs";
+import { z } from "zod";
 
 const backend = `http://127.0.0.1:${process.env.FAKE_BACKEND_PORT ?? "3190"}`;
 const programme = "/guides/navigation-proof/programme";
@@ -114,11 +115,13 @@ async function backendRequests(): Promise<
   readonly { readonly authorized: boolean; readonly path: string }[]
 > {
   const response = await fetch(`${backend}/__requests`);
-  return (
-    (await response.json()) as {
-      requests: { authorized: boolean; path: string }[];
-    }
-  ).requests;
+  return z
+    .object({
+      requests: z.array(
+        z.object({ authorized: z.boolean(), path: z.string() }),
+      ),
+    })
+    .parse(await response.json()).requests;
 }
 
 /** Записывает всё занятое (`aria-busy`) и все скелеты маршрутов, которые появлялись в документе. */
@@ -167,7 +170,8 @@ async function installProbe(page: Page) {
       });
       scan();
     };
-    if (document.documentElement === null)
+    // An init script can run before the document element exists, which the lib type omits.
+    if ((document.documentElement as HTMLElement | null) === null)
       document.addEventListener("DOMContentLoaded", start);
     else start();
   });
@@ -175,16 +179,11 @@ async function installProbe(page: Page) {
 
 async function resetProbe(page: Page) {
   await page.evaluate(() => {
-    const probe = (
-      window as unknown as {
-        __navigationProbe: {
-          highestFooterWhileLoading: number | null;
-          skeletons: string[];
-        };
-      }
-    ).__navigationProbe;
-    probe.skeletons.length = 0;
-    probe.highestFooterWhileLoading = null;
+    const probe: unknown = Reflect.get(window, "__navigationProbe");
+    if (typeof probe !== "object" || probe === null) return;
+    // Проба читает поля при каждой записи, поэтому новые значения сразу становятся её состоянием.
+    Reflect.set(probe, "skeletons", []);
+    Reflect.set(probe, "highestFooterWhileLoading", null);
   });
 }
 
@@ -225,17 +224,16 @@ async function transition(
   // Запрос, начатый переходом, мог ещё не уйти: даём ему такт.
   await page.waitForTimeout(150);
   page.off("request", count);
-  const probe = await page.evaluate(
-    () =>
-      (
-        window as unknown as {
-          __navigationProbe: {
-            highestFooterWhileLoading: number | null;
-            skeletons: string[];
-          };
-        }
-      ).__navigationProbe,
-  );
+  const probe = z
+    .object({
+      highestFooterWhileLoading: z.number().nullable(),
+      skeletons: z.array(z.string()),
+    })
+    .parse(
+      await page.evaluate((): unknown =>
+        Reflect.get(window, "__navigationProbe"),
+      ),
+    );
   const routerTransitionMilliseconds = await page.evaluate(() => {
     const measure = performance
       .getEntriesByName("inside:navigation", "measure")
@@ -275,7 +273,16 @@ async function readWebVitals(page: Page): Promise<Record<string, number>> {
     const vitals: Record<string, number> = {};
     for (const mark of performance.getEntriesByType("mark")) {
       if (!mark.name.startsWith("inside:web-vital:")) continue;
-      const detail = (mark as PerformanceMark).detail as { value: number };
+      if (!(mark instanceof PerformanceMark)) continue;
+      const detail: unknown = mark.detail;
+      if (
+        typeof detail !== "object" ||
+        detail === null ||
+        !("value" in detail) ||
+        typeof detail.value !== "number"
+      ) {
+        continue;
+      }
       vitals[mark.name.slice("inside:web-vital:".length)] =
         Math.round(detail.value * 1_000) / 1_000;
     }

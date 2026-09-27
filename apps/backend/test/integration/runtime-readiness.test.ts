@@ -158,7 +158,7 @@ describe("production runtime readiness", () => {
     await expect(
       verifyRuntimeDatabaseSchema(database.url, expectedIdentity),
     ).rejects.toThrow(
-      `Migration checksum mismatch: ${platformMigrations[0]?.name}`,
+      `Migration checksum mismatch: ${platformMigrations[0].name}`,
     );
   });
 

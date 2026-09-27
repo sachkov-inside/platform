@@ -36,7 +36,9 @@ export function assertDeclaredViewport(story: ViewportStory): void {
 }
 
 function asRecord(value: unknown): Readonly<Record<string, unknown>> {
-  return typeof value === "object" && value !== null
-    ? (value as Record<string, unknown>)
-    : {};
+  return isRecord(value) ? value : {};
+}
+
+function isRecord(value: unknown): value is Readonly<Record<string, unknown>> {
+  return typeof value === "object" && value !== null;
 }

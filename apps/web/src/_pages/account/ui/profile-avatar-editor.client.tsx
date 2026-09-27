@@ -36,6 +36,7 @@ import {
   type ProfileAvatarMutation,
   type ProfileAvatarMutationInput,
 } from "../api/profile-avatar-mutation.browser";
+import { dragLeftElement } from "@/shared/lib/drag-left-element";
 
 export type { ProfileAvatarMutation } from "../api/profile-avatar-mutation.browser";
 
@@ -210,8 +211,7 @@ export function ProfileAvatarEditor({
         if (!busy) setDragging(true);
       }}
       onDragLeave={(event) => {
-        if (!event.currentTarget.contains(event.relatedTarget as Node | null))
-          setDragging(false);
+        if (dragLeftElement(event)) setDragging(false);
       }}
       onDragOver={(event) => {
         event.preventDefault();

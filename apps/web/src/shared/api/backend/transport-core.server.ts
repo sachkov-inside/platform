@@ -244,6 +244,9 @@ class BackendHttpRequest extends BaseHttpRequest {
         options.errors?.[response.status] ?? response.statusText,
       );
     }
+    // The generated `BaseHttpRequest` contract names `T` from the OpenAPI operation and gives
+    // this transport no schema to check it against.
+    // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- generated client contract
     return body as T;
   }
 }

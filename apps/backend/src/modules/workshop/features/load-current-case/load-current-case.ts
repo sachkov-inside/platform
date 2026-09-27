@@ -16,10 +16,8 @@ export async function loadCurrentWorkshopCase(
       include: { currentVersion: true },
     });
     if (
-      workshopCase === null ||
-      workshopCase.lifecycle !== "published" ||
-      workshopCase.currentVersion === null ||
-      workshopCase.currentVersion.withdrawnAt !== null
+      workshopCase?.lifecycle !== "published" ||
+      workshopCase.currentVersion?.withdrawnAt !== null
     ) {
       return { ok: false, error: { code: "case_not_found" } };
     }

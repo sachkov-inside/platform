@@ -4,6 +4,7 @@ import {
   type BrowserContext,
   type Page,
 } from "@playwright/test";
+import { z } from "zod";
 
 /**
  * Роли сквозного набора. Имя роли — это то, чем она является для продукта; в какой переменной
@@ -116,7 +117,10 @@ export async function fullStackSessionState(
   if (!response.ok()) {
     return `HTTP ${String(response.status())}`;
   }
-  return String(((await response.json()) as { readonly state?: string }).state);
+  return String(
+    z.object({ state: z.string() }).safeParse(await response.json()).data
+      ?.state,
+  );
 }
 
 /** Use the browser cookie rules for real user mutations, including refreshed Secure cookies on loopback. */

@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
+import { z } from "zod";
 
 const authMocks = vi.hoisted(() => ({
   getPlatformAccessToken: vi.fn(),
@@ -285,9 +286,11 @@ describe("Material Authoring action workflow", () => {
     const preview = successfulPreview();
     const response = await preview(materialId, "access-token");
     if (!response.ok) throw new Error("Preview fixture must succeed");
-    const malformedPreview = structuredClone(response.body) as {
-      metadata: { seriesMemberships: unknown[] };
-    };
+    const malformedPreview = z
+      .looseObject({
+        metadata: z.looseObject({ seriesMemberships: z.array(z.unknown()) }),
+      })
+      .parse(structuredClone(response.body));
     malformedPreview.metadata.seriesMemberships = [{ ordinal: 0, seriesId }];
     expect(mapCurrentMaterialPreview(malformedPreview).ok).toBe(false);
   });
@@ -296,9 +299,9 @@ describe("Material Authoring action workflow", () => {
     const preview = successfulPreview();
     const response = await preview(materialId, "access-token");
     if (!response.ok) throw new Error("Preview fixture must succeed");
-    const representativePreview = structuredClone(response.body) as {
-      body: { blocks: unknown[] };
-    };
+    const representativePreview = z
+      .looseObject({ body: z.looseObject({ blocks: z.array(z.unknown()) }) })
+      .parse(structuredClone(response.body));
     representativePreview.body.blocks.push(
       {
         kind: "table",

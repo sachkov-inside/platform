@@ -40,6 +40,7 @@ import {
   type MaterialVideo,
   type MaterialVideoAuthoringPhase,
 } from "../model/video";
+import { dragLeftElement } from "@/shared/lib/drag-left-element";
 
 const VIDEO_RECONCILIATION_POLL_INTERVAL_MILLISECONDS = 5_000;
 
@@ -427,8 +428,7 @@ export function MaterialVideoAuthoringView({
         setDragging(true);
       }}
       onDragLeave={(event) => {
-        if (!event.currentTarget.contains(event.relatedTarget as Node | null))
-          setDragging(false);
+        if (dragLeftElement(event)) setDragging(false);
       }}
       onDrop={(event) => {
         if (busy) return;

@@ -42,7 +42,11 @@ function loggedEvents(
   event: string,
 ): unknown[] {
   return loggedLines(spy).filter(
-    (line) => (line as { readonly event?: unknown }).event === event,
+    (line) =>
+      typeof line === "object" &&
+      line !== null &&
+      "event" in line &&
+      line.event === event,
   );
 }
 
