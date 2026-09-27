@@ -9,6 +9,7 @@ import { createServer } from "node:net";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { parseEnv } from "node:util";
+import { z } from "zod";
 import { startFullStackIdentity } from "./full-stack-identity.mjs";
 import { signalProcessGroup } from "./process-group-signal.mjs";
 import { evidenceDirectory } from "./evidence-path.mjs";
@@ -19,12 +20,21 @@ const backendRequire = createRequire(
 );
 const webRequire = createRequire(resolve(root, "apps/web/package.json"));
 // The proof borrows the applications' test dependencies; their types come from the same packages.
-/** @type {typeof import("../apps/backend/test/support/proof-dependencies.js")} */
-const { PostgreSqlContainer } = backendRequire("@testcontainers/postgresql");
-/** @type {typeof import("../apps/web/test/support/proof-dependencies.mjs")} */
-const { chromium } = webRequire("@playwright/test");
-/** @type {{ default: typeof import("../apps/web/test/support/proof-dependencies.mjs").AxeBuilder }} */
-const { default: AxeBuilder } = webRequire("@axe-core/playwright");
+// createRequire returns `any`, so each module is asserted to the type proof-dependencies declares.
+/* oxlint-disable typescript/no-unsafe-type-assertion -- proof-dependencies types these modules. */
+const { PostgreSqlContainer } =
+  /** @type {typeof import("../apps/backend/test/support/proof-dependencies.js")} */ (
+    backendRequire("@testcontainers/postgresql")
+  );
+const { chromium } =
+  /** @type {typeof import("../apps/web/test/support/proof-dependencies.mjs")} */ (
+    webRequire("@playwright/test")
+  );
+const { default: AxeBuilder } =
+  /** @type {{ default: typeof import("../apps/web/test/support/proof-dependencies.mjs").AxeBuilder }} */ (
+    webRequire("@axe-core/playwright")
+  );
+/* oxlint-enable typescript/no-unsafe-type-assertion */
 const pnpmExecutable = process.env["npm_execpath"];
 if (!pnpmExecutable) throw new Error("Run pnpm smoke:billing-contact");
 const pnpmPath = pnpmExecutable;
@@ -45,7 +55,7 @@ const smtp = createServer((socket) => {
   let data = false;
   /** @type {string[]} */
   let message = [];
-  socket.on("data", (chunk) => {
+  socket.on("data", (/** @type {Buffer} */ chunk) => {
     buffer += chunk.toString();
     while (buffer.includes("\r\n")) {
       const end = buffer.indexOf("\r\n");
@@ -102,7 +112,9 @@ function run(args, env) {
  */
 async function command(args, env) {
   const child = run(args, env);
-  const code = await new Promise((done) => child.once("exit", done));
+  /** @type {Promise<number | null>} */
+  const exited = new Promise((done) => child.once("exit", done));
+  const code = await exited;
   assert.equal(code, 0, `Command failed: ${args.join(" ")}`);
 }
 /**
@@ -171,7 +183,9 @@ try {
   );
   await waitReady(
     `${apiBaseUrl}/health`,
-    (body) => JSON.parse(body).status === "ready",
+    (body) =>
+      z.object({ status: z.unknown() }).passthrough().parse(JSON.parse(body))
+        .status === "ready",
   );
   run(
     [

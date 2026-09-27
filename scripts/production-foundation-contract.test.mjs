@@ -4,6 +4,7 @@ import { readFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, it } from "node:test";
+import { z } from "zod";
 
 const repositoryRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 /** @param {string} path */
@@ -23,7 +24,9 @@ const foundation = {
 };
 
 const hostLogs = {
-  daemon: JSON.parse(read("infra/production/host/docker-daemon.json")),
+  daemon: z
+    .record(z.string(), z.unknown())
+    .parse(JSON.parse(read("infra/production/host/docker-daemon.json"))),
   composeFiles: {
     "compose.production.yaml": read("compose.production.yaml"),
     "infra/production/database/compose.yaml": foundation.databaseCompose,
@@ -70,7 +73,14 @@ describe("production foundation architecture contract", () => {
   });
 
   it("names the production Logto build with the current fork revision", () => {
-    const { logto } = JSON.parse(read("infra/identity/logto/versions.json"));
+    const { logto } = z
+      .object({
+        logto: z
+          .object({ version: z.string(), forkRevision: z.string() })
+          .passthrough(),
+      })
+      .passthrough()
+      .parse(JSON.parse(read("infra/identity/logto/versions.json")));
     const image = foundation.logtoCompose.match(/^ {2}image: (.+)$/mu)?.[1];
     assert.equal(
       image,

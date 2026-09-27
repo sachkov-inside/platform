@@ -4,6 +4,9 @@ import { readdirSync, readFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, it } from "node:test";
+import { z } from "zod";
+
+import { readPackageManifest } from "./package-manifest.mjs";
 
 const repositoryRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const workflow = readFileSync(
@@ -29,12 +32,12 @@ const setupAction = readFileSync(
 const commitPinnedAction = /^[^@\s]+@[0-9a-f]{40} # v\d+\.\d+\.\d+$/u;
 /** @param {string} source */
 const actionReferenceLines = (source) =>
-  [...source.matchAll(/^\s+-?\s*uses:\s*(.+)$/gmu)].map((match) =>
+  [...source.matchAll(/^\s+-?\s*uses:\s*(.+)$/gmu)].map(
     // The capture group is mandatory, so every match carries it.
-    /** @type {string} */ (match[1]).trim(),
+    ([, reference = ""]) => reference.trim(),
   );
-const rootScripts = JSON.parse(
-  readFileSync(resolve(repositoryRoot, "package.json"), "utf8"),
+const rootScripts = readPackageManifest(
+  resolve(repositoryRoot, "package.json"),
 ).scripts;
 /** Каждая часть `pnpm check` идёт своей задачей; порядок совпадает с агрегатом. */
 /** @type {[job: string, script: string][]} */
@@ -111,7 +114,7 @@ describe("application CI workflow contract", () => {
 
   it("runs every stage of pnpm check as its own job", () => {
     assert.equal(
-      rootScripts.check,
+      rootScripts["check"],
       checkStages.map(([, script]) => `pnpm ${script}`).join(" && "),
     );
     for (const [job, script] of checkStages) {
@@ -380,12 +383,17 @@ function escapeRegExp(value) {
 describe("repository-owned workflow supply chain", () => {
   // Управляемые файлы harness закрепляются в пакете Workspace (workspace#211) и приходят раскаткой.
   const managedFiles = new Set(
-    JSON.parse(
-      readFileSync(
-        resolve(repositoryRoot, ".inside-harness/product-harness.json"),
-        "utf8",
-      ),
-    ).managedFiles,
+    z
+      .object({ managedFiles: z.array(z.string()) })
+      .passthrough()
+      .parse(
+        JSON.parse(
+          readFileSync(
+            resolve(repositoryRoot, ".inside-harness/product-harness.json"),
+            "utf8",
+          ),
+        ),
+      ).managedFiles,
   );
   const ownedSources = [
     ...readdirSync(resolve(repositoryRoot, ".github/workflows")).map(

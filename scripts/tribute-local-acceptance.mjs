@@ -11,12 +11,21 @@ const backendRequire = createRequire(
   new URL("../apps/backend/package.json", import.meta.url),
 );
 // The proof borrows the applications' test dependencies; their types come from the same packages.
-/** @type {typeof import("../apps/web/test/support/proof-dependencies.mjs")} */
-const { chromium, expect: baseExpect } = webRequire("@playwright/test");
-/** @type {{ AxeBuilder: typeof import("../apps/web/test/support/proof-dependencies.mjs").AxeBuilder }} */
-const { AxeBuilder } = webRequire("@axe-core/playwright");
-/** @type {typeof import("../apps/backend/test/support/proof-dependencies.js")} */
-const { Client } = backendRequire("pg");
+// createRequire returns `any`, so each module is asserted to the type proof-dependencies declares.
+/* oxlint-disable typescript/no-unsafe-type-assertion -- proof-dependencies types these modules. */
+const { chromium, expect: baseExpect } =
+  /** @type {typeof import("../apps/web/test/support/proof-dependencies.mjs")} */ (
+    webRequire("@playwright/test")
+  );
+const { AxeBuilder } =
+  /** @type {{ AxeBuilder: typeof import("../apps/web/test/support/proof-dependencies.mjs").AxeBuilder }} */ (
+    webRequire("@axe-core/playwright")
+  );
+const { Client } =
+  /** @type {typeof import("../apps/backend/test/support/proof-dependencies.js")} */ (
+    backendRequire("pg")
+  );
+/* oxlint-enable typescript/no-unsafe-type-assertion */
 
 // The proof reads live responses. Each schema names the fields the steps below read and passes
 // every other field through untouched.
@@ -134,6 +143,37 @@ const reconciledSchema = commandValue({
   id: z.unknown().optional(),
   revision: z.unknown().optional(),
 });
+// Database rows and application responses the steps below read.
+const countRowSchema = z.object({ count: z.number() }).passthrough();
+const activationAttemptRowSchema = z
+  .object({ identity_ref: z.string(), account_id: z.unknown() })
+  .passthrough();
+const topicRowSchema = z.object({ topic_id: z.string() }).passthrough();
+const slugRowSchema = z.object({ slug: z.string() }).passthrough();
+const statusResponseSchema = z
+  .object({ status: z.unknown().optional() })
+  .passthrough();
+const signInStatusSchema = z
+  .object({ status: z.unknown(), requestRef: z.unknown() })
+  .passthrough();
+const authStatusSchema = z
+  .object({
+    state: z.unknown().optional(),
+    accountId: z.unknown().optional(),
+  })
+  .passthrough();
+const materialDraftSchema = z
+  .object({ materialId: z.string(), contentVersion: z.unknown() })
+  .passthrough();
+const materialSaveSchema = z
+  .object({ kind: z.unknown(), draft: materialDraftSchema.optional() })
+  .passthrough();
+const createdCollectionSchema = z
+  .object({ collection: z.object({ id: z.string() }).passthrough() })
+  .passthrough();
+const telegramMembersSchema = z
+  .object({ members: z.record(z.string(), z.unknown()) })
+  .passthrough();
 const expect = baseExpect.configure({ timeout: 30000 });
 const web = "http://127.0.0.1:3600",
   telegram = "http://127.0.0.1:3606",
@@ -323,12 +363,14 @@ try {
   await expect
     .poll(
       async () =>
-        (
-          await sql.query(
-            "SELECT count(*)::int AS count FROM membership_entitlements.activation_attempts WHERE rule_id=$1",
-            [ruleId],
-          )
-        ).rows[0].count,
+        countRowSchema.parse(
+          (
+            await sql.query(
+              "SELECT count(*)::int AS count FROM membership_entitlements.activation_attempts WHERE rule_id=$1",
+              [ruleId],
+            )
+          ).rows[0],
+        ).count,
       { timeout: 90000 },
     )
     .toBe(1);
@@ -337,8 +379,9 @@ try {
     [ruleId],
   );
   expect(attempt.rows).toHaveLength(1);
-  expect(attempt.rows[0].account_id).toBeNull();
-  const identityRef = attempt.rows[0].identity_ref;
+  const activationAttempt = activationAttemptRowSchema.parse(attempt.rows[0]);
+  expect(activationAttempt.account_id).toBeNull();
+  const identityRef = activationAttempt.identity_ref;
   const startsAt = new Date(Date.now() - 10000).toISOString(),
     endsAt = new Date(Date.now() + 86400000 * 20).toISOString();
   const row = {
@@ -411,7 +454,9 @@ try {
       },
     );
     expect(response.status()).toBe(200);
-    expect((await response.json()).status).toBe("pending_reconciliation");
+    expect(statusResponseSchema.parse(await response.json()).status).toBe(
+      "pending_reconciliation",
+    );
   }
   report.scenarios.push(
     "PASS pending registry import after actual private ingress creates neither Account nor grant",
@@ -426,9 +471,11 @@ try {
   const botLink = await page.locator("#bot").getAttribute("href");
   if (botLink === null) throw new Error("Telegram sign-in link is missing");
   const loginToken = new URL(botLink).searchParams.get("start");
-  const login = await (
-    await page.request.get(`${identity}/api/inside-telegram/status`)
-  ).json();
+  const login = signInStatusSchema.parse(
+    await (
+      await page.request.get(`${identity}/api/inside-telegram/status`)
+    ).json(),
+  );
   expect(login.status).toBe("pending");
   await send(`/start ${String(loginToken)}`);
   await expect
@@ -466,7 +513,9 @@ try {
   await expect
     .poll(
       async () =>
-        (await (await buyer.request.get(`${web}/auth/status`)).json()).state,
+        authStatusSchema.parse(
+          await (await buyer.request.get(`${web}/auth/status`)).json(),
+        ).state,
       { timeout: 60000 },
     )
     .toBe("authenticated");
@@ -474,23 +523,27 @@ try {
     await expect
       .poll(
         async () =>
-          (
-            await sql.query(
-              "SELECT count(*)::int AS count FROM membership_entitlements.access_receipts WHERE scope='source-evidence' AND payload->>'identityRef'=$1 AND payload->>'decision'='registry_lookup'",
-              [identityRef],
-            )
-          ).rows[0].count,
+          countRowSchema.parse(
+            (
+              await sql.query(
+                "SELECT count(*)::int AS count FROM membership_entitlements.access_receipts WHERE scope='source-evidence' AND payload->>'identityRef'=$1 AND payload->>'decision'='registry_lookup'",
+                [identityRef],
+              )
+            ).rows[0],
+          ).count,
         { timeout: 90000 },
       )
       .toBeGreaterThan(0);
     expect(await ownEnrollments()).toHaveLength(0);
     expect(
-      (
-        await sql.query(
-          "SELECT count(*)::int AS count FROM billing.purchases WHERE account_id IN (SELECT account_id FROM membership_entitlements.activation_attempts WHERE identity_ref=$1)",
-          [identityRef],
-        )
-      ).rows[0].count,
+      countRowSchema.parse(
+        (
+          await sql.query(
+            "SELECT count(*)::int AS count FROM billing.purchases WHERE account_id IN (SELECT account_id FROM membership_entitlements.activation_attempts WHERE identity_ref=$1)",
+            [identityRef],
+          )
+        ).rows[0],
+      ).count,
     ).toBe(0);
     await send("/access");
     await expect
@@ -533,7 +586,7 @@ try {
             "SELECT count(*)::int AS count FROM membership_entitlements.access_receipts WHERE scope='source-evidence' AND payload->>'identityRef'=$1 AND payload->>'decision'='registry_lookup'",
             [identityRef],
           );
-          return result.rows[0].count;
+          return countRowSchema.parse(result.rows[0]).count;
         },
         { timeout: 90000 },
       )
@@ -550,12 +603,14 @@ try {
     const includedGuide = contentScope?.guideIds[0];
     if (!contentScope || !includedGuide)
       throw new Error("Acceptance tier must name an included Guide");
-    const metadata = (
-      await sql.query(
-        "SELECT topic_id FROM materials.materials WHERE slug=$1",
-        ["developer-pipeline-bez-poteri-konteksta"],
-      )
-    ).rows[0];
+    const metadata = topicRowSchema.parse(
+      (
+        await sql.query(
+          "SELECT topic_id FROM materials.materials WHERE slug=$1",
+          ["developer-pipeline-bez-poteri-konteksta"],
+        )
+      ).rows[0],
+    );
     const materialFields = {
       access: "membership",
       difficulty: "unassigned",
@@ -587,8 +642,9 @@ try {
       },
     );
     expect(createdResponse.status()).toBe(200);
-    const created = await createdResponse.json();
+    const created = materialSaveSchema.parse(await createdResponse.json());
     expect(created.kind).toBe("created");
+    const createdDraft = materialDraftSchema.parse(created.draft);
     const publishedResponse = await owner.request.put(
       `${web}/api/authoring/materials`,
       {
@@ -596,19 +652,23 @@ try {
         multipart: {
           ...materialFields,
           submissionId: randomUUID(),
-          materialId: created.draft.materialId,
-          expectedContentVersion: String(created.draft.contentVersion),
+          materialId: createdDraft.materialId,
+          expectedContentVersion: String(createdDraft.contentVersion),
           publicationState: "published",
         },
       },
     );
     expect(publishedResponse.status()).toBe(200);
-    expect((await publishedResponse.json()).kind).toBe("saved");
-    const material = (
-      await sql.query("SELECT slug FROM materials.materials WHERE id=$1", [
-        created.draft.materialId,
-      ])
-    ).rows[0];
+    expect(materialSaveSchema.parse(await publishedResponse.json()).kind).toBe(
+      "saved",
+    );
+    const material = slugRowSchema.parse(
+      (
+        await sql.query("SELECT slug FROM materials.materials WHERE id=$1", [
+          createdDraft.materialId,
+        ])
+      ).rows[0],
+    );
     await page.goto(`${web}/materials/${material.slug}`);
     await expect(page.locator("[data-reader-body]:visible")).toBeVisible();
     expect(
@@ -617,8 +677,8 @@ try {
     report.scenarios.push(
       "PASS newly published material inside the included Guide opens without replacing or extending the existing Enrollment",
     );
-    const secondHolder = (
-      await (await owner.request.get(`${web}/auth/status`)).json()
+    const secondHolder = authStatusSchema.parse(
+      await (await owner.request.get(`${web}/auth/status`)).json(),
     ).accountId;
     const unselected = identifiedValueSchema.parse(
       await command("enrollments/assign", {
@@ -654,7 +714,9 @@ try {
       },
     );
     expect(guideResponse.status()).toBe(200);
-    const newGuide = (await guideResponse.json()).collection;
+    const newGuide = createdCollectionSchema.parse(
+      await guideResponse.json(),
+    ).collection;
     const newFields = {
       ...materialFields,
       title: `New excluded Guide material ${String(user)}`,
@@ -668,7 +730,9 @@ try {
       },
     );
     expect(newDraftResponse.status()).toBe(200);
-    const newDraft = (await newDraftResponse.json()).draft;
+    const newDraft = materialDraftSchema.parse(
+      materialSaveSchema.parse(await newDraftResponse.json()).draft,
+    );
     const newPublished = await owner.request.put(
       `${web}/api/authoring/materials`,
       {
@@ -683,12 +747,16 @@ try {
       },
     );
     expect(newPublished.status()).toBe(200);
-    expect((await newPublished.json()).kind).toBe("saved");
-    const newMaterial = (
-      await sql.query("SELECT slug FROM materials.materials WHERE id=$1", [
-        newDraft.materialId,
-      ])
-    ).rows[0];
+    expect(materialSaveSchema.parse(await newPublished.json()).kind).toBe(
+      "saved",
+    );
+    const newMaterial = slugRowSchema.parse(
+      (
+        await sql.query("SELECT slug FROM materials.materials WHERE id=$1", [
+          newDraft.materialId,
+        ])
+      ).rows[0],
+    );
     await page.goto(`${web}/materials/${newMaterial.slug}`);
     await expect(
       page.locator('[data-material-reader-state="access-required"]:visible'),
@@ -793,8 +861,9 @@ try {
     await expect
       .poll(
         async () =>
-          (await (await buyer.request.get(`${telegram}/proof/state`)).json())
-            .members[String(user)],
+          telegramMembersSchema.parse(
+            await (await buyer.request.get(`${telegram}/proof/state`)).json(),
+          ).members[String(user)],
         { timeout: 30000 },
       )
       .toBe("member");
@@ -853,7 +922,7 @@ try {
       );
       expect(response.status()).toBe(200);
       expect(response.headers()["cache-control"]).toBe("private, no-store");
-      return response.json();
+      return statusResponseSchema.parse(await response.json());
     }
     expect((await tributeEvent(event)).status).toBe("applied");
     expect((await tributeEvent(event)).status).toBe("duplicate");
@@ -1039,7 +1108,7 @@ try {
       "SELECT count(*)::int AS count FROM billing.purchases WHERE account_id=$1",
       [first.accountId],
     );
-    expect(purchaseCount.rows[0].count).toBe(0);
+    expect(countRowSchema.parse(purchaseCount.rows[0]).count).toBe(0);
     await page.goto(`${web}/account/subscription`);
     await expect(
       page.getByText("Оплачено через Tribute", { exact: true }),

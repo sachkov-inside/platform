@@ -3,6 +3,8 @@ import { existsSync, readFileSync, readdirSync } from "node:fs";
 import { dirname, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
+import { readPackageManifest } from "./package-manifest.mjs";
+
 const scriptPath = fileURLToPath(import.meta.url);
 const defaultRepositoryRoot = resolve(dirname(scriptPath), "..");
 const ignoredDirectories = new Set([
@@ -171,7 +173,9 @@ export function checkDocumentation(repositoryRoot = defaultRepositoryRoot) {
     repositoryRoot,
     "docs/research/platform-v1-engineering-contract.md",
   );
-  const rootPackage = JSON.parse(read(repositoryRoot, "package.json"));
+  const rootPackage = readPackageManifest(
+    resolve(repositoryRoot, "package.json"),
+  );
 
   requireText(
     failures,
@@ -279,8 +283,8 @@ export function checkDocumentation(repositoryRoot = defaultRepositoryRoot) {
     );
   }
   if (
-    !rootPackage.scripts.check.startsWith("pnpm check:static &&") ||
-    !rootPackage.scripts["check:static"].startsWith("pnpm docs:check &&")
+    !rootPackage.scripts["check"]?.startsWith("pnpm check:static &&") ||
+    !rootPackage.scripts["check:static"]?.startsWith("pnpm docs:check &&")
   ) {
     failures.push(
       "package.json: the root check must start with pnpm check:static, which starts with pnpm docs:check",

@@ -1,12 +1,17 @@
 // @ts-check
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { mkdtemp, mkdir, readFile, rm, writeFile } from "node:fs/promises";
+import { mkdtemp, mkdir, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { canonical } from "./package.mjs";
 import { reviewOrigin } from "./local-sync.mjs";
 import { transferRequired, uploadVideo } from "./video.mjs";
+import {
+  sourceVideoReceiptSchema,
+  uploadReceiptSchema,
+} from "./local-boundaries.mjs";
+import { readJournalFile, resourcesOf } from "./test-support.mjs";
 
 const materialId = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
 const videoId = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb";
@@ -40,8 +45,7 @@ async function fixture(t) {
   return {
     state,
     file,
-    read: async () =>
-      JSON.parse(await readFile(join(state, "journal.json"), "utf8")),
+    read: () => readJournalFile(state),
   };
 }
 
@@ -115,7 +119,9 @@ test("a lost init response retries the persisted key and reaches a ready video o
   const setup = await fixture(t);
   const api = providerApi({ loseFirstInit: true });
   await assert.rejects(upload(setup, api), /Connection lost/u);
-  const pending = Object.values((await setup.read()).resources)[0];
+  const pending = uploadReceiptSchema.parse(
+    Object.values(resourcesOf(await setup.read()))[0],
+  );
   assert.equal(pending.phase, "initializing");
   const result = await upload(setup, api);
   assert.deepEqual(result, {
@@ -132,7 +138,9 @@ test("a lost init response retries the persisted key and reaches a ready video o
   assert.equal(api.attempts.size, 1);
   const journal = await setup.read();
   assert.deepEqual(
-    journal.resources[`source-video:${sourceId}`].videoId,
+    sourceVideoReceiptSchema.parse(
+      resourcesOf(journal)[`source-video:${sourceId}`],
+    ).videoId,
     videoId,
   );
   const before = api.calls.length;
@@ -150,7 +158,8 @@ test("a real provider endpoint is refused before any byte is sent", async (t) =>
   });
   await assert.rejects(upload(setup, api), /separate owner approval/u);
   assert.equal(
-    Object.values((await setup.read()).resources)[0].phase,
+    uploadReceiptSchema.parse(Object.values(resourcesOf(await setup.read()))[0])
+      .phase,
     "transfer",
   );
   assert.equal(transferRequired("https://uploads.invalid/x"), false);
@@ -169,10 +178,13 @@ test("an unknown upload outcome stops without a new key", async (t) => {
     },
   };
   await assert.rejects(upload(setup, api), /unknown; inspect the attempt/u);
-  const first = Object.values((await setup.read()).resources)[0].idempotencyKey;
+  const first = uploadReceiptSchema.parse(
+    Object.values(resourcesOf(await setup.read()))[0],
+  ).idempotencyKey;
   await assert.rejects(upload(setup, api), /unknown/u);
   assert.equal(
-    Object.values((await setup.read()).resources)[0].idempotencyKey,
+    uploadReceiptSchema.parse(Object.values(resourcesOf(await setup.read()))[0])
+      .idempotencyKey,
     first,
   );
 });

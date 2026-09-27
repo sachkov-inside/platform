@@ -276,7 +276,9 @@ function spawnApplication(arguments_, environment) {
   });
   applicationProcesses.add(child);
   for (const source of [child.stdout, child.stderr]) {
-    source?.on("data", (chunk) => observeOutput(chunk.toString(), environment));
+    source?.on("data", (/** @type {Buffer} */ chunk) =>
+      observeOutput(chunk.toString(), environment),
+    );
   }
   child.once("exit", () => applicationProcesses.delete(child));
 }
@@ -414,16 +416,16 @@ async function run(command, arguments_, environment, capture) {
   });
   let output = "";
   if (capture) {
-    child.stdout?.on("data", (chunk) => {
+    child.stdout?.on("data", (/** @type {Buffer} */ chunk) => {
       output += chunk.toString();
     });
-    child.stderr?.on("data", (chunk) => {
+    child.stderr?.on("data", (/** @type {Buffer} */ chunk) => {
       output += chunk.toString();
     });
   }
-  const exitCode = await new Promise((resolveExit) =>
-    child.once("exit", resolveExit),
-  );
+  /** @type {Promise<number | null>} */
+  const exited = new Promise((resolveExit) => child.once("exit", resolveExit));
+  const exitCode = await exited;
   if (exitCode !== 0)
     throw new Error(`${command} ${arguments_.join(" ")} failed`);
   return output;

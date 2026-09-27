@@ -3,6 +3,7 @@ import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import path from "node:path";
 import process from "node:process";
 import { fileURLToPath, URL } from "node:url";
+import { z } from "zod";
 
 import { parseSync, Visitor } from "oxc-parser";
 
@@ -20,12 +21,17 @@ const scanRoots = (
 ).map((root) => path.resolve(webRoot, root));
 const backendOperationPaths = new Set(
   Object.keys(
-    JSON.parse(
-      readFileSync(
-        path.resolve(webRoot, "../backend/openapi/platform-api.json"),
-        "utf8",
-      ),
-    ).paths,
+    z
+      .object({ paths: z.record(z.string(), z.unknown()) })
+      .passthrough()
+      .parse(
+        JSON.parse(
+          readFileSync(
+            path.resolve(webRoot, "../backend/openapi/platform-api.json"),
+            "utf8",
+          ),
+        ),
+      ).paths,
   ),
 );
 const backendOperationPathPatterns = [...backendOperationPaths].map(

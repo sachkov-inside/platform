@@ -663,11 +663,11 @@ function findSingle(values, predicate) {
 }
 
 /**
- * @template {z.ZodType} S
- * @param {S} schema
+ * @template T
+ * @param {z.ZodType<T>} schema
  * @param {unknown} payload
  * @param {string} operation
- * @returns {z.infer<S>}
+ * @returns {T}
  */
 function parseManagementPayload(schema, payload, operation) {
   const result = schema.safeParse(payload);

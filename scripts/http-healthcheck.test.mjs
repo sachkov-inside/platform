@@ -58,7 +58,11 @@ async function probe(service, url, environment = {}) {
   child.stderr.setEncoding("utf8").on("data", (chunk) => {
     stderr += chunk;
   });
-  const [code, signal] = await once(child, "close");
+  /** @type {Promise<[number | null, NodeJS.Signals | null]>} */
+  const closed = new Promise((resolveClose) =>
+    child.once("close", (code, signal) => resolveClose([code, signal])),
+  );
+  const [code, signal] = await closed;
   assert.equal(signal, null, stderr);
   assert.equal(stdout, "");
   return { code, stderr };
@@ -103,7 +107,7 @@ for (const [service, path, port] of /** @type {const} */ ([
   });
 }
 
-test("safe failures reject HTTP, JSON, missing fields and wrong releases", async (t) => {
+test("safe failures reject HTTP, JSON, missing fields and wrong releases", async (/** @type {import("node:test").TestContext} */ t) => {
   const invalidReports = [
     null,
     [],

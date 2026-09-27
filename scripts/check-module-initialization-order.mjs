@@ -4,6 +4,15 @@ import path from "node:path";
 import process from "node:process";
 
 import { parseSync } from "oxc-parser";
+import { z } from "zod";
+
+// The fields of tsconfig.scripts.json the check reads; the rest passes through.
+const scriptsProjectSchema = z
+  .object({
+    include: z.array(z.string()).optional(),
+    exclude: z.array(z.string()).optional(),
+  })
+  .passthrough();
 
 /**
  * Служебный скрипт выполняет код прямо на верхнем уровне модуля, а функции объявляет ниже. Функция
@@ -190,6 +199,7 @@ function ownDeclarations(node) {
  * @returns {Set<string>}
  */
 function classInitializationReferences(node) {
+  /** @type {Set<string>} */
   const names = new Set();
   if (isNode(node["superClass"])) {
     collectReferences(node["superClass"], names, true);
@@ -273,10 +283,12 @@ function violationsIn(source, body) {
   /** @type {Map<string, Set<string>>} */
   const readsOf = new Map();
   for (const [name, node] of functions) {
+    /** @type {Set<string>} */
     const references = new Set();
     for (const [key, child] of fields(node)) {
       if (key !== "id") collectReferences(child, references);
     }
+    /** @type {Set<string>} */
     const own = functionTypes.has(node.type)
       ? ownDeclarations(node)
       : new Set();
@@ -339,12 +351,10 @@ function violationsIn(source, body) {
  * @returns {string[]}
  */
 function scriptFiles() {
-  const project = JSON.parse(
-    readFileSync(path.join(repositoryRoot, projectFile), "utf8"),
+  const project = scriptsProjectSchema.parse(
+    JSON.parse(readFileSync(path.join(repositoryRoot, projectFile), "utf8")),
   );
-  /** @type {string[]} */
   const include = project.include ?? [];
-  /** @type {string[]} */
   const exclude = project.exclude ?? [];
   const excludedDirectories = new Set(
     exclude.map((pattern) => {

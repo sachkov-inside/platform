@@ -159,7 +159,9 @@ function jobPermissions(workflow, job) {
       ...block
         .slice(start + marker.length)
         .matchAll(/^ {6}([a-z-]+): (read|write)$/gmu),
-    ].map((match) => [match[1], match[2]]),
+    ].map(
+      ([, name = "", access = ""]) => /** @type {const} */ ([name, access]),
+    ),
   );
 }
 

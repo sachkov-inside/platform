@@ -40,6 +40,16 @@ nearest `AGENTS.md` owns task routing and verification commands.
   application's dependency through `createRequire` takes its types from the application's
   `test/support/proof-dependencies`: a type import by a relative path into `node_modules` cannot
   resolve the package's own imports.
+- `pnpm lint` applies every `typescript/no-unsafe-*` rule of the shared type-aware set to the files
+  `tsconfig.scripts.json` compiles (#763). The root `tsconfig.json` compiles nothing (`files: []`)
+  and only references that project, so type-aware lint resolves script types.
+  `scripts/toolchain-contract.test.mjs` fails when a script directory, a rule or the reference
+  drops out, or when another override or ignore pattern weakens lint for a script. Parse
+  `JSON.parse`, `Response.json()` and database rows with a schema, or keep them `unknown` until an
+  explicit check; `package.json` is parsed by the schema in `scripts/package-manifest.mjs`. The
+  `any` that `createRequire` returns is asserted to its `proof-dependencies` type inside an
+  `oxlint-disable`/`oxlint-enable` block for `typescript/no-unsafe-type-assertion`: a
+  `disable-next-line` comment inside a JSDoc cast does not suppress it.
 - Code that runs at a script's top level calls a module function only after every module `const`,
   `let` and `class` that function reads is declared: a function is hoisted, its values are not, and
   the script fails with `ReferenceError` only when it runs (#774).

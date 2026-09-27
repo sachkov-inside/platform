@@ -14,6 +14,7 @@ import { createHash } from "node:crypto";
 import { tmpdir } from "node:os";
 import { resolve } from "node:path";
 import { describe, it } from "node:test";
+import { z } from "zod";
 
 import { writeTrustedReleaseEvidence } from "./github-release-evidence.test-support.mjs";
 
@@ -127,7 +128,13 @@ describe("inside-deploy forced SSH command", () => {
         { encoding: "utf8" },
       );
       assert.equal(forgedBundleResult.status, 0, forgedBundleResult.stderr);
-      const forgedManifest = JSON.parse(fixture.manifest);
+      const forgedManifest = z
+        .object({
+          source: z.object({ sha: z.string() }).passthrough(),
+          runtimeBundle: z.object({ sha256: z.string() }).passthrough(),
+        })
+        .passthrough()
+        .parse(JSON.parse(fixture.manifest));
       forgedManifest.source.sha = "9".repeat(40);
       forgedManifest.runtimeBundle.sha256 = sha256(
         readFileSync(fixture.bundle),

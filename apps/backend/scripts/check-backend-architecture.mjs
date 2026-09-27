@@ -887,9 +887,10 @@ function recordImports(consumerPath, program, { graph }) {
     }
     if (graph && consumerModule !== undefined) {
       const edge = `${consumerModule} -> ${importedModule}`;
-      const kinds = moduleEdges.get(edge) ?? new Map();
-      if (!kinds.has(kind)) kinds.set(kind, consumerPath);
-      moduleEdges.set(edge, kinds);
+      const kinds = moduleEdges.get(edge);
+      if (kinds === undefined)
+        moduleEdges.set(edge, new Map([[kind, consumerPath]]));
+      else if (!kinds.has(kind)) kinds.set(kind, consumerPath);
     }
   }
 }

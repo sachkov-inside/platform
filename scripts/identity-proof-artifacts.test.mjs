@@ -3,6 +3,8 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
 import { URL } from "node:url";
+import { runInThisContext } from "node:vm";
+import { z } from "zod";
 
 import {
   ensureApplication,
@@ -18,6 +20,7 @@ import {
   readIdentityProofPort,
 } from "./identity-proof-environment.mjs";
 import { runIdentityProofSession } from "./identity-proof-session.mjs";
+import { packageManifestSchema } from "./package-manifest.mjs";
 
 /**
  * @typedef {import("./identity-proof-bootstrap.mjs").ManagementApi} ManagementApi
@@ -29,6 +32,39 @@ import { runIdentityProofSession } from "./identity-proof-session.mjs";
  *   connectors: FakeEntry[];
  * }} FakeManagementState
  */
+
+// The pinned proof images the artifacts must agree on.
+const pinnedImageSchema = z.object({ digest: z.string() }).passthrough();
+const proofVersionsSchema = z
+  .object({
+    logto: pinnedImageSchema.extend({
+      version: z.string(),
+      upstreamRevision: z.string(),
+      forkRevision: z.string(),
+    }),
+    postgres: pinnedImageSchema,
+    mailpit: pinnedImageSchema,
+    logtoNext: z.string(),
+  })
+  .passthrough();
+/** @type {z.ZodType<(input: unknown) => unknown>} */
+const customClaimsFunctionSchema = z.custom(
+  (value) => typeof value === "function",
+);
+const claimsSchema = z.record(z.string(), z.unknown());
+
+/**
+ * Loads the Logto custom access-token script the way Logto runs it: its function in strict mode.
+ *
+ * @param {string} source
+ */
+function loadCustomJwtClaims(source) {
+  return customClaimsFunctionSchema.parse(
+    runInThisContext(
+      `(() => { "use strict"; ${source}; return getCustomJwtClaims; })()`,
+    ),
+  );
+}
 
 /**
  * The value at a path inside a request body the bootstrap sent; a missing step fails the test.
@@ -91,8 +127,8 @@ test("identity proof dependencies and fork lineage are immutable", async () => {
     readFile(new URL("apps/web/package.json", root), "utf8"),
     readFile(new URL("patches/issue-116-logto-proof.patch", proofRoot), "utf8"),
   ]);
-  const versions = JSON.parse(versionsSource);
-  const webPackage = JSON.parse(packageSource);
+  const versions = proofVersionsSchema.parse(JSON.parse(versionsSource));
+  const webPackage = packageManifestSchema.parse(JSON.parse(packageSource));
 
   assert.equal(versions.logto.version, "1.41.0");
   assert.match(versions.logto.digest, /^sha256:[0-9a-f]{64}$/u);
@@ -222,9 +258,7 @@ test("custom access-token claims expose only a matching fresh email-code interac
     new URL("custom-access-token.js", proofRoot),
     "utf8",
   );
-  const getCustomJwtClaims = Function(
-    `"use strict"; ${source}; return getCustomJwtClaims;`,
-  )();
+  const getCustomJwtClaims = loadCustomJwtClaims(source);
   const verifiedContext = {
     user: { primaryEmail: "Member@Example.Test" },
     interaction: {
@@ -238,11 +272,13 @@ test("custom access-token claims expose only a matching fresh email-code interac
     },
   };
 
-  const claims = await getCustomJwtClaims({
-    token: { gty: "authorization_code" },
-    context: verifiedContext,
-  });
-  assert.equal(claims.inside_verified_email, "member@example.test");
+  const claims = claimsSchema.parse(
+    await getCustomJwtClaims({
+      token: { gty: "authorization_code" },
+      context: verifiedContext,
+    }),
+  );
+  assert.equal(claims["inside_verified_email"], "member@example.test");
   assert.equal("inside_interactive_at" in claims, false);
   assert.deepEqual(
     await getCustomJwtClaims({ token: { gty: "refresh_token" }, context: {} }),
@@ -275,19 +311,19 @@ test("identity proof bootstrap replaces the manual wizard and isolates generated
       readFile(new URL("apps/web/next.config.ts", root), "utf8"),
       readFile(new URL("README.md", proofRoot), "utf8"),
     ]);
-  const packageJson = JSON.parse(packageSource);
+  const packageJson = packageManifestSchema.parse(JSON.parse(packageSource));
 
   assert.equal(packageJson.scripts["identity:proof:setup"], undefined);
   assert.match(
-    packageJson.scripts["identity:proof:up"],
+    packageJson.scripts["identity:proof:up"] ?? "",
     /identity:proof:bootstrap/u,
   );
   assert.match(
-    packageJson.scripts["identity:proof:start"],
+    packageJson.scripts["identity:proof:start"] ?? "",
     /identity-proof-start/u,
   );
   assert.match(
-    packageJson.scripts["identity:proof:hardening"],
+    packageJson.scripts["identity:proof:hardening"] ?? "",
     /identity-hardening-proof/u,
   );
   assert.match(bootstrap, /id='m-default'/u);
@@ -322,7 +358,7 @@ test("identity proof launcher isolates root env, applies ports, and cleans owned
     readFile(new URL("identity-proof-dev.mjs", import.meta.url), "utf8"),
     readFile(new URL("package.json", root), "utf8"),
   ]);
-  const packageJson = JSON.parse(packageSource);
+  const packageJson = packageManifestSchema.parse(JSON.parse(packageSource));
   const environment = isolateIdentityProofEnvironment(
     {
       IDENTITY_PROOF_API_PORT: "3501",
@@ -455,7 +491,7 @@ test("identity proof launcher isolates root env, applies ports, and cleans owned
   assert.doesNotMatch(development, /loadEnvFile|resolve\(root, "\.env"\)/u);
   assert.match(start, /infra\/identity\/logto\/compose\.env/u);
   assert.match(
-    packageJson.scripts["identity:proof:up"],
+    packageJson.scripts["identity:proof:up"] ?? "",
     /--env-file infra\/identity\/logto\/compose\.env/u,
   );
   assert.equal(
@@ -708,9 +744,7 @@ test("Telegram establishment claims require the exact fresh social verification 
   const source = (
     await readFile(new URL("custom-access-token.js", proofRoot), "utf8")
   ).replace("__INSIDE_TELEGRAM_CONNECTOR_ID__", "telegram-id");
-  const claims = Function(
-    `"use strict"; ${source}; return getCustomJwtClaims;`,
-  )();
+  const claims = loadCustomJwtClaims(source);
   const proof = {
     subjectRef: "31000000-0000-4000-8000-000000000001",
     requestRef: "31000000-0000-4000-8000-000000000002",

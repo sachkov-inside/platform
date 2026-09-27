@@ -36,7 +36,9 @@ for (const signal of /** @type {const} */ (["SIGINT", "SIGTERM"])) {
   process.once(signal, () => child.kill(signal));
 }
 
-const exitCode = await new Promise((resolveExit) => {
+/** @type {Promise<number>} */
+const exited = new Promise((resolveExit) => {
   child.once("exit", (code) => resolveExit(code ?? 1));
 });
+const exitCode = await exited;
 process.exitCode = exitCode;

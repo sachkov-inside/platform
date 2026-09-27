@@ -103,16 +103,18 @@ async function runPnpm(arguments_, capture = false) {
   activeProcesses.add(child);
   let output = "";
   if (capture) {
-    child.stdout?.on("data", (chunk) => {
+    child.stdout?.on("data", (/** @type {Buffer} */ chunk) => {
       output += chunk.toString();
     });
-    child.stderr?.on("data", (chunk) => {
+    child.stderr?.on("data", (/** @type {Buffer} */ chunk) => {
       output += chunk.toString();
     });
   }
-  const exitCode = await new Promise((resolveExit) => {
+  /** @type {Promise<number | null>} */
+  const exited = new Promise((resolveExit) => {
     child.once("exit", (code) => resolveExit(code));
   });
+  const exitCode = await exited;
   activeProcesses.delete(child);
   if (exitCode !== 0) {
     throw new Error(
@@ -146,9 +148,11 @@ async function runCleanupPnpm(arguments_) {
     env: process.env,
     stdio: "inherit",
   });
-  const exitCode = await new Promise((resolveExit) => {
+  /** @type {Promise<number | null>} */
+  const exited = new Promise((resolveExit) => {
     child.once("exit", (code) => resolveExit(code));
   });
+  const exitCode = await exited;
   if (exitCode !== 0) {
     throw new Error(`pnpm ${arguments_.join(" ")} failed during cleanup`);
   }
