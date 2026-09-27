@@ -2,8 +2,9 @@
  * Таблица сценариев доступа к контенту Inside: что открывается и на каком основании.
  *
  * Это исполняемая форма канонической модели доступа (Workspace `product/access-model.md`). Каждая
- * клетка «что открывается × основание», каждый переход и сценарий публикации имеет то же имя, что
- * в модели: `product-material/one-time-purchase`, `refund`, `standalone-membership-publication-rejected`.
+ * клетка «что открывается × основание», каждый переход, сценарий публикации и покупки имеет то же
+ * имя, что в модели: `product-material/one-time-purchase`, `refund`,
+ * `standalone-membership-publication-rejected`, `course-offer-terms`.
  * Полноту держат тип и контроль в `pnpm check` (`test/unit/access-scenario-table.test.ts`), а
  * поведение — сценарии через публичные фасады на PostgreSQL (`test/integration/access-scenarios.test.ts`).
  *
@@ -67,6 +68,19 @@ export const accessPublicationScenarios = [
 export type AccessPublicationScenario =
   (typeof accessPublicationScenarios)[number];
 
+/**
+ * Покупка Offer: какие права она выдаёт и на какой срок, и кому Offer вообще продаётся. Срок каждого
+ * права — свойство Offer, а допуск к покупке — основание Account.
+ */
+export const accessPurchaseScenarios = [
+  "course-offer-terms",
+  "offer-own-terms",
+  "offer-terms-change-keeps-earlier-purchase",
+  "subscription-offer-without-tribute-ground",
+  "subscription-offer-with-tribute-ground",
+] as const;
+export type AccessPurchaseScenario = (typeof accessPurchaseScenarios)[number];
+
 /** Стабильное имя клетки для документов и сообщений о расхождении. */
 export function accessCellId(surface: string, ground: string): string {
   return `${surface}/${ground}`;
@@ -113,6 +127,34 @@ export interface AccessPublicationRule {
   readonly rejectedWith: string;
 }
 
+/** Срок права из Offer: без даты окончания или столько календарных месяцев с подтверждения оплаты. */
+export type OfferTerm = "lifetime" | { readonly months: number };
+
+/** Права покупки Offer продукта: материалы продукта, общая группа и сопровождение. */
+export interface OfferTerms {
+  readonly "product-material": OfferTerm;
+  readonly "community-chat": OfferTerm;
+  readonly support: OfferTerm;
+}
+
+export type AccessPurchaseRule =
+  | {
+      readonly kind: "terms";
+      readonly rule: string;
+      /** Сроки, которые Offer называет правам в момент покупки. */
+      readonly offer: OfferTerms;
+      /** Что открыто у покупателя после подтверждения оплаты и на какой срок. */
+      readonly granted: OfferTerms;
+    }
+  | {
+      readonly kind: "admission";
+      readonly rule: string;
+      /** Видит ли Account Offer на витрине. */
+      readonly listed: boolean;
+      /** Код, которым сервер отклоняет покупку, либо `null`, если покупка проходит. */
+      readonly rejectedWith: string | null;
+    };
+
 /** Форма, которую читает контроль полноты: он не доверяет типу и проверяет каждое имя. */
 export interface AccessScenarioTable {
   readonly cells: Readonly<
@@ -120,6 +162,7 @@ export interface AccessScenarioTable {
   >;
   readonly transitions: Readonly<Record<string, AccessTransitionScenario>>;
   readonly publications: Readonly<Record<string, AccessPublicationRule>>;
+  readonly purchases: Readonly<Record<string, AccessPurchaseRule>>;
 }
 
 type ByGround = Readonly<Record<AccessGround, AccessExpectation>>;
@@ -210,7 +253,8 @@ export const accessScenarioTable = {
       "withdrawal-refund": entryClosed,
       moderation: closed,
     },
-    // Сопровождение из предложения продукта — шесть месяцев с покупки; у тарифа — по его правам.
+    // Сопровождение из предложения продукта — на срок Offer (у Offer сценариев, как у курса, шесть
+    // месяцев с покупки); у тарифа — по его правам.
     support: {
       guest: closed,
       "account-without-rights": closed,
@@ -340,4 +384,60 @@ export const accessScenarioTable = {
       rejectedWith: "membership_outside_product",
     },
   } satisfies Record<AccessPublicationScenario, AccessPublicationRule>,
+  purchases: {
+    "course-offer-terms": {
+      kind: "terms",
+      rule: "Offer курса: материалы и общая группа без срока, сопровождение шесть месяцев с подтверждения оплаты.",
+      offer: {
+        "product-material": "lifetime",
+        "community-chat": "lifetime",
+        support: { months: 6 },
+      },
+      granted: {
+        "product-material": "lifetime",
+        "community-chat": "lifetime",
+        support: { months: 6 },
+      },
+    },
+    "offer-own-terms": {
+      kind: "terms",
+      rule: "Offer с другими сроками выдаёт свои сроки. Общую группу открывают и право на продукт, и сопровождение (#524): действует самый длинный из сроков группы, продукта и сопровождения.",
+      offer: {
+        "product-material": { months: 12 },
+        "community-chat": { months: 24 },
+        support: { months: 3 },
+      },
+      granted: {
+        "product-material": { months: 12 },
+        "community-chat": { months: 24 },
+        support: { months: 3 },
+      },
+    },
+    "offer-terms-change-keeps-earlier-purchase": {
+      kind: "terms",
+      rule: "Новая редакция сроков Offer не меняет уже выданные права: прежняя покупка сохраняет сроки своей редакции.",
+      offer: {
+        "product-material": { months: 12 },
+        "community-chat": { months: 12 },
+        support: { months: 3 },
+      },
+      granted: {
+        "product-material": "lifetime",
+        "community-chat": "lifetime",
+        support: { months: 6 },
+      },
+    },
+    "subscription-offer-without-tribute-ground": {
+      kind: "admission",
+      rule: "Offer подписки для прежних подписчиков Tribute не виден и не продаётся Account без этого основания.",
+      listed: false,
+      rejectedWith: "not_eligible",
+    },
+    "subscription-offer-with-tribute-ground": {
+      kind: "admission",
+      rule: "Account с подтверждённым периодом Tribute видит Offer подписки и покупает его обычной покупкой с новым согласием на списания, в том числе после окончания периода. Автосписания по-прежнему ждут остановки списаний Tribute.",
+      listed: true,
+      rejectedWith: null,
+    },
+  } satisfies Record<AccessPurchaseScenario, AccessPurchaseRule>,
 } as const satisfies AccessScenarioTable;

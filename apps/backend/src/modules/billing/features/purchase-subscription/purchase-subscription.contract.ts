@@ -27,6 +27,7 @@ export type PurchaseStatus = z.infer<typeof purchaseStatusSchema>;
 export const paymentFailureCodes = [
   "invalid_request",
   "forbidden",
+  "not_eligible",
   "not_found",
   "operation_conflict",
   "revision_conflict",

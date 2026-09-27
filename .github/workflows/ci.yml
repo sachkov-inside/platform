@@ -121,6 +121,8 @@ jobs:
         run: pnpm test:integration:parallel
       - name: Run enrollment browser and real API smoke
         run: pnpm smoke:enrollments
+      - name: Run buyer journey from product page to access
+        run: pnpm smoke:buyer-journey
 
   integration-serial:
     name: Integration serial

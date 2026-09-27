@@ -17,6 +17,15 @@ export const benefitPeriodsSchema = z
     }),
   )
   .max(100);
+/**
+ * Кому Offer продаётся: всем или только Account с основанием «прежний подписчик Tribute» —
+ * подтверждённым периодом Tribute. Отсутствующее поле в прежнем снимке читается как `everyone`.
+ */
+export const offerEligibilitySchema = z.enum([
+  "everyone",
+  "former_tribute_subscribers",
+]);
+export type OfferEligibility = z.infer<typeof offerEligibilitySchema>;
 export const offerSchema = z.strictObject({
   id: idSchema,
   revision: revisionSchema,
@@ -28,6 +37,7 @@ export const offerSchema = z.strictObject({
   published: z.boolean().optional(),
   availableForAssignment: z.boolean().optional(),
   contentScope: contentScopeSchema.nullable().optional(),
+  eligibility: offerEligibilitySchema.optional(),
 });
 /**
  * Как оплачивается вариант. `subscription` списывается по расписанию, `one_time` покупается
@@ -96,7 +106,8 @@ export type PricingError = {
     | "unsupported_amount"
     | "reservation_conflict"
     | "dependency_unavailable"
-    | "method_unavailable";
+    | "method_unavailable"
+    | "not_eligible";
 };
 export type PricingResult<
   T,

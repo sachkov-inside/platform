@@ -555,6 +555,7 @@ export function ownerPaymentFailure(
     case "consent_required":
     case "existing_access":
     case "legacy_review_required":
+    case "not_eligible":
     case "quote_expired":
     case "quote_changed":
       return ownerFailure("state_conflict");

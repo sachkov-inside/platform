@@ -12,10 +12,12 @@ const { "one-time-purchase": _missing, ...supportWithoutPurchase } =
   accessScenarioTable.cells.support;
 const { "guide-archived": _missingTransition, ...transitionsWithoutOne } =
   accessScenarioTable.transitions;
+const { "offer-own-terms": _missingPurchase, ...purchasesWithoutOne } =
+  accessScenarioTable.purchases;
 
 /**
- * Пропущены клетка, переход и сценарий публикации, добавлено несуществующее основание,
- * неприменимость без причины.
+ * Пропущены клетка, переход, сценарии публикации и покупки, добавлено несуществующее основание,
+ * неприменимость без причины и продажа Offer, которого Account не видит.
  */
 export const incompleteAccessScenarioTable: AccessScenarioTable = {
   cells: {
@@ -31,6 +33,15 @@ export const incompleteAccessScenarioTable: AccessScenarioTable = {
   },
   transitions: transitionsWithoutOne,
   publications: {},
+  purchases: {
+    ...purchasesWithoutOne,
+    "subscription-offer-without-tribute-ground": {
+      kind: "admission",
+      rule: "Скрытый Offer всё же продаётся",
+      listed: false,
+      rejectedWith: null,
+    },
+  },
 };
 
 /** Ожидание, которое расходится с моделью: возврат по отказу якобы оставляет материал открытым. */

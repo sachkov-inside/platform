@@ -14,6 +14,8 @@ import {
 } from "../../src/modules/billing/index.js";
 import { syntheticTbankConfig } from "../support/bank-terminal.js";
 import { BankFixture } from "./setup/bank.js";
+import { bindConfirmedTributeSource } from "./setup/tribute-source.js";
+import { withExhaustedPool } from "./setup/exhausted-pool.js";
 import {
   createMigratedTestDatabase,
   type TestDatabase,
@@ -81,6 +83,7 @@ describe("подписка: продление, отмена, смена вар�
     pricing = new BillingPricing({
       prisma: db.prisma,
       accounts,
+      grants,
       clock: () => now,
       sale: { payments: true, subscriptions: true },
     });
@@ -556,6 +559,117 @@ describe("подписка: продление, отмена, смена вар�
       started: 0,
     });
     expect(s.bank.chargeCalls).toBe(1);
+  });
+
+  test("Offer для прежних подписчиков Tribute не выбирается сменой варианта и не покупается по расчёту, пережившему основание", async () => {
+    const s = await scenario();
+    await s.buy();
+    const restrictedOffer = randomUUID(),
+      restrictedOption = randomUUID();
+    value(
+      await pricing.manage(owner, {
+        operationId: randomUUID(),
+        operation: "offers.save",
+        value: {
+          id: restrictedOffer,
+          name: "Продление подписки Tribute",
+          benefits: ["materials", "support"],
+          contentScope: { guideIds: [randomUUID()], materialIds: [] },
+          eligibility: "former_tribute_subscribers",
+        },
+      }),
+    );
+    value(
+      await pricing.manage(owner, {
+        operationId: randomUUID(),
+        operation: "paymentOptions.save",
+        value: {
+          id: restrictedOption,
+          offerId: restrictedOffer,
+          months: 2,
+          priceKopecks: 180_000,
+        },
+      }),
+    );
+    value(
+      await pricing.manage(owner, {
+        operationId: randomUUID(),
+        operation: "offers.publish",
+        expectedRevision: 1,
+        id: restrictedOffer,
+      }),
+    );
+    // Смена варианта — та же покупка Offer: без основания она отклоняется до расчёта доплаты.
+    // Основания читаются до транзакции смены: на пуле из одного соединения она не ждёт сама себя.
+    const active = await s.view();
+    await withExhaustedPool(db, async (pool) => {
+      const subscriptions = new BillingSubscriptions({
+        prisma: pool,
+        bank: s.bank.client(),
+        contact,
+        grants: assembleAccessGrants({
+          prisma: pool,
+          accounts,
+          clock: () => now,
+        }),
+        payments: s.payments,
+        notices: new BillingNotices({ prisma: pool, clock: () => now }),
+        clock: () => now,
+      });
+      expect(
+        await subscriptions.quoteChange(s.buyer, {
+          operationId: randomUUID(),
+          expectedRevision: active?.revision,
+          paymentOptionId: restrictedOption,
+        }),
+      ).toEqual({ ok: false, error: { code: "not_eligible" } });
+      // С подтверждённым периодом Tribute смена на этот вариант рассчитывается и применяется.
+      await bindConfirmedTributeSource(db.prisma, s.buyer);
+      const quoted = value(
+        await subscriptions.quoteChange(s.buyer, {
+          operationId: randomUUID(),
+          expectedRevision: active?.revision,
+          paymentOptionId: restrictedOption,
+        }),
+      );
+      expect(quoted.plan).toMatchObject({ kind: "scheduled" });
+      expect(
+        await subscriptions.change(s.buyer, {
+          operationId: randomUUID(),
+          expectedRevision: active?.revision,
+          changeQuoteRef: quoted.changeQuoteRef,
+        }),
+      ).toMatchObject({ ok: true });
+    });
+
+    // Расчёт, сохранённый при действующем основании, после его отзыва не покупает Offer.
+    const other = await scenario();
+    const source = await bindConfirmedTributeSource(db.prisma, other.buyer);
+    const quote = value(
+      await pricing.quote(other.buyer, {
+        operationId: randomUUID(),
+        paymentOptionId: restrictedOption,
+        optionRevision: 1,
+      }),
+    );
+    await source.revoke();
+    expect(
+      await other.payments.purchase(other.buyer, {
+        operationId: randomUUID(),
+        quoteRef: quote.quoteRef,
+        contactRevision: 1,
+        consentEvidenceRefs: await other.consentFor(quote.quoteRef, {
+          snapshot: quote.snapshot,
+        }),
+        acknowledgeExistingAccess: true,
+      }),
+    ).toEqual({ ok: false, error: { code: "not_eligible" } });
+    // Отказ не держит резерв цены: покупки не было.
+    expect(
+      await db.prisma.billingPurchase.count({
+        where: { accountId: other.buyer, state: { not: "failed" } },
+      }),
+    ).toBe(0);
   });
 
   test("повышение доплачивает остаток срока, а понижение и другая длительность ждут следующего периода", async () => {

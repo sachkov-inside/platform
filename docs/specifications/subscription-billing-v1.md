@@ -441,7 +441,8 @@ unavailable — временный сбой, а не решение, и не с�
 Срок каждого права разовой покупки приходит из `benefitPeriods`. Право без объявленного срока
 выдаётся без даты окончания: наследовать нечего, потому что оплаченного периода у такой покупки нет.
 Владелец может назвать праву свой срок в месяцах, и тогда он считается от подтверждения оплаты.
-Сопровождение предложения продукта обязательно и длится ровно 6 месяцев (#648).
+Сопровождение предложения продукта обязательно; его срок называет предложение (#775, прежде —
+ровно 6 месяцев по #648).
 
 Повторная покупка того же руководства честно сообщает о существующем праве (`existing_access`) и
 проходит только с явным подтверждением покупателя. Второе основание существует отдельно, но
@@ -561,6 +562,59 @@ unavailable — временный сбой, а не решение, и не с�
 Состав, который покупатель видит на странице оплаты руководства и в кабинете, называет общий чат
 там и только там, где продажа его действительно даёт.
 
+## Текущая поставка #775
+
+Спецификация [Workspace #238](https://github.com/sachkov-inside/workspace/issues/238) готовит запуск
+курса Inside AI Engineering: срок каждого права становится свойством предложения, а подписку
+покупают только прежние подписчики Tribute.
+
+**Срок прав в предложении.** Разовая покупка выдаёт каждое право на срок из `benefitPeriods`, в том
+числе право на продукт `guide:<id>` и общую группу `community`: прежде они выдавались без даты
+окончания независимо от названного срока. Право без названного срока у разовой покупки бессрочно,
+названный срок считается календарными месяцами от подтверждения оплаты. Предложение курса —
+`guide:<id>` и `community` с `months: null`, `support` с `months: 6`. Каталог не сохраняет
+предложение продукта с `support` без названного срока: прежнее «ровно 6 месяцев» (#648) стало
+значением предложения, а без значения сопровождение стало бы бессрочным по умолчанию.
+
+Общую группу по-прежнему открывают и право на продукт, и сопровождение (#524), и действует самый
+длинный срок. Поэтому названный в предложении срок `community` удлиняет участие, но не сокращает
+его ниже срока права на продукт или сопровождения. Более короткая группа потребует изменить
+правило #524 — это открытое решение владельца. Уже выданные права не меняются: покупка хранит
+снимок предложения, и новая редакция сроков действует только на следующие покупки.
+
+**Допуск к предложению.** `Offer.eligibility` — `everyone` (по умолчанию и в прежних снимках) или
+`former_tribute_subscribers`. Основание «прежний подписчик Tribute» — привязанный к Account и не
+отозванный источник Tribute с подтверждённым периодом (`mode: confirmed_period`); окончание периода
+основание не снимает, иначе продлить было бы нечем, а временный источник участника группы период не
+подтверждает. Основания читает `AccessGrants.readPurchaseGrounds`; billing решает по ним сам:
+
+- `GET billing/offers` принимает необязательный токен Account и показывает предложение с
+  ограничением только допущенному Account; гость его не видит;
+- «подписка предлагается» (`hasOffersForSale`) считается для конкретного Account: материалы,
+  Главная и кабинет Telegram не зовут к подписке того, кому она не продаётся;
+- расчёт, покупка и смена варианта подписки отклоняют недопущенный Account кодом `not_eligible`
+  (HTTP 403); покупка проверяет допуск повторно, потому что расчёт мог пережить основание.
+
+Продление прежним подписчиком — обычная покупка варианта подписки с новым согласием на списания;
+legacy gate (#150: классификация и остановка списаний Tribute) остаётся прежним. Сохранение
+предложения без `eligibility` наследует прежнее значение, поэтому форма владельца без этого поля
+не открывает предложение всем. Допуск задаётся владельческой операцией `offers.save` и
+MCP-инструментом `billing_offers_save`; форма `/authoring/billing` его пока не показывает
+([#781](https://github.com/sachkov-inside/platform/issues/781); шаг выпуска — в
+[runbook](../runbooks/production-release.md)). Включение продажи, цена и флаги
+терминала остаются решениями владельца.
+
+Страница оплаты и описание продукта называют сроки по действующей оферте разовой покупки
+(`@inside/legal/purchase-terms`, редакция 4: 2 года гарантированно, сопровождение 6 месяцев), а не
+по срокам предложения. Для предложения курса это совпадает; перевод подписей на сроки предложения
+ждёт новой редакции оферты (Workspace #239,
+[#780](https://github.com/sachkov-inside/platform/issues/780)).
+
+Правила исполняются сценариями покупки таблицы доступа (`course-offer-terms`, `offer-own-terms`,
+`offer-terms-change-keeps-earlier-purchase`, `subscription-offer-without-tribute-ground`,
+`subscription-offer-with-tribute-ground`) и наборами `billing-one-time-purchase`,
+`billing-subscriptions` и `billing-pricing-http`.
+
 ## Возможности и модули
 
 Сохраняются Nest modular monolith, capability interfaces и PostgreSQL/Prisma из действующих
@@ -658,7 +712,8 @@ Upgrade: рациональный расчёт стоимости старшег
 снимки не изменяются. Архив варианта оплаты и промо-акции по-прежнему снимается их Save.
 
 `GET billing/offers` публично возвращает активные варианты с лучшей доступной публичной
-скидкой. Закрытые промокоды не раскрываются. Пагинация — opaque UUID cursor и limit 1..100.
+скидкой; предложение с ограничением допуска видит только допущенный Account (#775). Закрытые
+промокоды не раскрываются. Пагинация — opaque UUID cursor и limit 1..100.
 `POST accounts/current/billing/quote` сохраняет ценовой quote на 15 минут для Account из
 trusted adapter. Он содержит offer/option revisions, названия, состав, календарные месяцы,
 RUB/Europe/Moscow, первую и обычную следующую сумму, выбранную скидку. Это ценовой этап:
@@ -748,7 +803,7 @@ Target Account в owner batch — цель разрешённой операци
 
 | HTTP / operationId | Request сверх общего envelope | Result |
 |---|---|---|
-| GET `billing/offers` / `billingOffers` | — | Активные варианты, обычная/применимая первая цена и revision; без закрытых данных |
+| GET `billing/offers` / `billingOffers` | необязательный токен Account (#775) | Активные варианты, обычная/применимая первая цена и revision; без закрытых данных и без предложений, к которым Account не допущен |
 | GET `accounts/current/billing` / `currentBilling` | — | Own subscription, grants summary, next charge, pending change, notices/delivery и operation status |
 | POST `accounts/current/billing/contact/start` / `startBillingContact` | email | challengeRef, expiry; старый адрес продолжает действовать до подтверждения |
 | POST `accounts/current/billing/contact/confirm` / `confirmBillingContact` | challengeRef, code | verified contact revision; не merge другого Account |
@@ -785,7 +840,7 @@ previewRef/revision и подтверждённые строки; при изм�
 Общий command result: success с operationRef/outcome/revision или error из фактического use case.
 Ожидаемые ошибки: `forbidden`, `invalid_input`, `not_found`, `revision_conflict`, `operation_conflict`,
 `contact_required`, `consent_required`, `quote_expired`, `price_changed`, `legacy_review_required`,
-`payment_in_progress`, `unsupported_amount`, `method_unavailable`, `provider_unavailable`.
+`not_eligible` (#775), `payment_in_progress`, `unsupported_amount`, `method_unavailable`, `provider_unavailable`.
 404 скрывает чужой resource; HTTP 409 — revision/operation/state conflict; provider timeout после
 отправки возвращает сохранённый pending/unknown operation, а не совет начать новую покупку.
 HTTP схемы и исчерпывающий mapping реализуются вместе с endpoints, без fake OpenAPI в #403.

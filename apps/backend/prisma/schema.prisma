@@ -1055,6 +1055,7 @@ model BillingOffer {
   published Boolean @default(false)
   availableForAssignment Boolean @default(false) @map("available_for_assignment")
   contentScope Json? @map("content_scope")
+  eligibility String @default("everyone")
   options BillingPaymentOption[]
   @@map("offers")
   @@schema("billing")

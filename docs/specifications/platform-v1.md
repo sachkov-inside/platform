@@ -644,7 +644,8 @@ redirect и cache policy остаются за backend.
 2. Material route получает Subject из trusted identity и вызывает single authoritative
    `ContentAccess.authorize(materialId, read)` до загрузки protected body.
 3. Deny возвращает indexable public teaser, единое coarse state `locked` и признак
-   `subscriptionOffered` — продаётся ли сейчас подписка; адреса покупки в ответе нет, путь
+   `subscriptionOffered` — продаётся ли сейчас подписка этому читателю (гостю — только подписка для
+   всех, #775); адреса покупки в ответе нет, путь
    покупателя внутри платформы выбирает Web. Точная internal reason не раскрывается. `materials:manage` даёт
    bypass Membership для published reader. Allow условно читает одно body только пока
    Material остаётся `published` с тем же accepted `contentVersion`; concurrent Save заставляет

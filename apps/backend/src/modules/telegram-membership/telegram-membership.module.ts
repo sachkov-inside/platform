@@ -139,7 +139,8 @@ import {
         assembleTelegramMembership({
           botStartUrl: config.telegramMembership.botStartUrl,
           linkLifetimeMs: config.telegramMembership.linkLifetimeMs,
-          subscriptionForSale: () => pricing.hasOffersForSale(),
+          subscriptionForSale: (accountId) =>
+            pricing.hasOffersForSale(accountId),
           membershipEntitlements,
           ...(config.telegramMembership.supportUrl === undefined
             ? {}

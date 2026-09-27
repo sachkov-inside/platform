@@ -2,6 +2,7 @@ import {
   accessCellId,
   accessGrounds,
   accessPublicationScenarios,
+  accessPurchaseScenarios,
   accessSurfaces,
   accessTransitions,
   type AccessExpectation,
@@ -11,8 +12,8 @@ import {
 } from "./access-scenarios.js";
 
 /**
- * Контроль полноты таблицы: каждая клетка «что открывается × основание», каждый переход и каждый
- * сценарий публикации описаны, лишних имён нет, а неприменимая клетка объясняет почему. Возвращает
+ * Контроль полноты таблицы: каждая клетка «что открывается × основание», каждый переход, каждый
+ * сценарий публикации и покупки описаны, лишних имён нет, а неприменимая клетка объясняет почему. Возвращает
  * список нарушений; пустой список означает, что таблица покрывает модель целиком.
  */
 export function checkAccessScenarioTable(
@@ -68,6 +69,22 @@ export function checkAccessScenarioTable(
     ) {
       problems.push(`publication scenario ${id} has no rule or rejection`);
     }
+  }
+  for (const id of accessPurchaseScenarios) {
+    if (!Object.hasOwn(table.purchases, id))
+      problems.push(`missing purchase scenario ${id}`);
+  }
+  for (const [id, purchase] of Object.entries(table.purchases)) {
+    if (!(accessPurchaseScenarios as readonly string[]).includes(id))
+      problems.push(`unknown purchase scenario ${id}`);
+    if (purchase.rule.trim().length === 0)
+      problems.push(`purchase scenario ${id} has no rule`);
+    if (
+      purchase.kind === "admission" &&
+      !purchase.listed &&
+      purchase.rejectedWith === null
+    )
+      problems.push(`purchase scenario ${id} sells an Offer it does not list`);
   }
   return problems;
 }

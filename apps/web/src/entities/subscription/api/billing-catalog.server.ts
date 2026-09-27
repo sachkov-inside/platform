@@ -1,6 +1,7 @@
 import "server-only";
 
 import { requestBillingOffers } from "@/shared/api/backend/index.server";
+import { getOptionalPlatformAccessToken } from "@/shared/auth/index.server";
 
 import {
   guideCapability,
@@ -24,19 +25,29 @@ export interface CatalogQuery {
   readonly capability?: string;
 }
 
-/** Каталог рендерится сервером: цены и состав приходят из billing, а не из разметки страницы. */
+/**
+ * Каталог рендерится сервером: цены и состав приходят из billing, а не из разметки страницы.
+ * Каталог читается от имени покупателя, если он вошёл: Offer с ограничением допуска виден только
+ * допущенному Account. Гость видит Offer для всех.
+ */
 export async function loadBillingOffers(
   query: CatalogQuery = {},
 ): Promise<OffersResult> {
   const offers: PriceSnapshot[] = [];
   let cursor: string | undefined;
+  // Отсутствие сессии — гость; сбой чтения сессии, как и в остальной личной части страницы, не
+  // выдаётся за гостевую витрину.
+  const accessToken = await getOptionalPlatformAccessToken();
   try {
     for (let page = 0; page < catalogPageBudget; page += 1) {
-      const result = await requestBillingOffers({
-        ...query,
-        limit: catalogPageSize,
-        ...(cursor === undefined ? {} : { cursor }),
-      });
+      const result = await requestBillingOffers(
+        {
+          ...query,
+          limit: catalogPageSize,
+          ...(cursor === undefined ? {} : { cursor }),
+        },
+        accessToken,
+      );
       if (!result.ok) return { kind: "unavailable" };
       const parsed = offersPageSchema.safeParse(result.body);
       if (!parsed.success) return { kind: "unavailable" };

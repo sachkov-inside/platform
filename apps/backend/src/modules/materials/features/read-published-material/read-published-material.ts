@@ -44,7 +44,7 @@ export async function readPublishedMaterial(
     readonly contentAccess: ContentAccess;
     readonly materialContent: MaterialContent;
     readonly materialBodyOperations: MaterialBodyOperations;
-    readonly subscriptionForSale?: () => Promise<boolean>;
+    readonly subscriptionForSale?: (accountId?: string) => Promise<boolean>;
     readonly materialAssets?: Pick<MaterialAssets, "loadPresentations">;
     readonly videos?: Pick<Videos, "loadPresentation">;
   },
@@ -97,7 +97,9 @@ export async function readPublishedMaterial(
               availability: "locked",
               subscriptionOffered:
                 dependencies.subscriptionForSale === undefined ||
-                (await dependencies.subscriptionForSale()),
+                (await dependencies.subscriptionForSale(
+                  subject.kind === "account" ? subject.accountId : undefined,
+                )),
             },
           },
         };

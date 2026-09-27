@@ -369,7 +369,15 @@ sure no other smoke is running in this worktree, delete the file, and start agai
 
 `pnpm smoke:enrollments` separately owns the course-recipient, catalog and provider fixtures for
 `playwright.enrollment.config.ts`; the general full-stack configuration does not run that fixture-dependent suite.
-`pnpm check:full` runs both smokes, and CI Integration runs the enrollment smoke after PostgreSQL integration tests.
+`pnpm smoke:buyer-journey` owns the buyer path of a product (Platform #775): its fixture
+`apps/backend/scripts/buyer-journey-fixture.ts` starts disposable PostgreSQL, the real API with the
+seeded demo product, the stand bank double, a mail capture for the receipt email code and a
+synthetic OIDC provider whose only sign-in is Telegram, confirmed by a synthetic Inside bot. The
+browser suite `playwright.buyer-journey.config.ts` opens the product page, signs in with Telegram,
+checks the free and the closed chapter, buys on the bank double and checks the opened chapter and
+the community right, on desktop and mobile. It needs Docker and the Chromium of Playwright only.
+`pnpm check:full` runs all three smokes, and CI Integration runs the enrollment and buyer journey smokes
+after PostgreSQL integration tests.
 The legacy full-stack fixture freezes the seeded material corpus. Materials created afterward do not become
 accessible to that cohort without an explicit scoped basis; video checks distinguish this denial from owner access.
 
@@ -450,7 +458,9 @@ failure-diagnostics contract.
 
 `FULLSTACK_TEST_GREP='<test title>'` limits the host full-stack smoke to matching tests. After
 `@playwright/test` changes version, install its browsers on the host before a run with
-`pnpm --filter @inside/web exec playwright install chromium chromium-headless-shell`. The nightly
+`pnpm --filter @inside/web exec playwright install chromium chromium-headless-shell`; `pnpm check`
+also runs the WebKit browser-engine checks, which fail with `Executable doesn't exist` until `webkit`
+is installed the same way. The nightly
 full-stack run on `main` shows whether a failing test also fails without your change. On macOS a
 sleeping Mac stalls a long host suite for minutes and fails it with `net::ERR_NETWORK_IO_SUSPENDED`,
 which is not a product defect; the #745 run passed under `caffeinate -i`.

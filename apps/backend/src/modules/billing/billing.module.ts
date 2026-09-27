@@ -114,15 +114,17 @@ const BILLING_BANK = Symbol("BillingBank");
     },
     {
       provide: BillingPricing,
-      inject: [PrismaClientProvider, ACCOUNTS, PLATFORM_CONFIG],
+      inject: [PrismaClientProvider, ACCOUNTS, PLATFORM_CONFIG, ACCESS_GRANTS],
       useFactory: (
         prisma: PrismaClientProvider,
         accounts: Accounts,
         config: PlatformConfig,
+        grants: AccessGrants,
       ) =>
         new BillingPricing({
           prisma,
           accounts,
+          grants,
           sale: saleCapability(
             config.tbank,
             config.billingContact !== undefined,

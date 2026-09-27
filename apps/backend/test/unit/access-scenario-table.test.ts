@@ -3,6 +3,7 @@ import { describe, expect, test } from "vitest";
 import {
   accessGrounds,
   accessPublicationScenarios,
+  accessPurchaseScenarios,
   accessScenarioTable,
   accessSurfaces,
   accessTransitions,
@@ -17,7 +18,7 @@ import {
 } from "../access-scenarios/fixtures/broken-access-scenarios.js";
 
 describe("таблица сценариев доступа", () => {
-  test("описывает каждую клетку «что открывается × основание», каждый переход и сценарий публикации", () => {
+  test("описывает каждую клетку «что открывается × основание», каждый переход, сценарий публикации и покупки", () => {
     expect(checkAccessScenarioTable(accessScenarioTable)).toEqual([]);
     const cells = Object.values(accessScenarioTable.cells).flatMap((row) =>
       Object.keys(row),
@@ -29,15 +30,20 @@ describe("таблица сценариев доступа", () => {
     expect(Object.keys(accessScenarioTable.publications)).toHaveLength(
       accessPublicationScenarios.length,
     );
+    expect(Object.keys(accessScenarioTable.purchases)).toHaveLength(
+      accessPurchaseScenarios.length,
+    );
   });
 
-  test("пропущенные клетка, переход и публикация, лишнее имя и неприменимость без причины роняют контроль", () => {
+  test("пропущенные клетка, переход, публикация и покупка, лишнее имя, неприменимость без причины и продажа скрытого Offer роняют контроль", () => {
     expect(checkAccessScenarioTable(incompleteAccessScenarioTable)).toEqual([
       "missing cell support/one-time-purchase",
       "unknown cell support/gift-certificate",
       "cell mcp/guest is not applicable without a reason",
       "missing transition guide-archived",
       "missing publication scenario standalone-membership-publication-rejected",
+      "missing purchase scenario offer-own-terms",
+      "purchase scenario subscription-offer-without-tribute-ground sells an Offer it does not list",
     ]);
   });
 

@@ -23,6 +23,10 @@ import {
   statement as authoringSourceStatement,
 } from "../modules/materials/infrastructure/postgres/migrations/0065-authoring-source.js";
 import {
+  name as offerEligibilityName,
+  statement as offerEligibilityStatement,
+} from "../modules/billing/infrastructure/postgres/migrations/0071-offer-eligibility.js";
+import {
   name as guidePageName,
   statement as guidePageStatement,
 } from "../modules/materials/infrastructure/postgres/migrations/0070-guide-page.js";
@@ -482,6 +486,7 @@ export const platformMigrations = [
   { name: starterTierAccessName, statement: starterTierAccessStatement },
   { name: authoringSourceName, statement: authoringSourceStatement },
   { name: guidePageName, statement: guidePageStatement },
+  { name: offerEligibilityName, statement: offerEligibilityStatement },
 ] as const;
 
 export function migrateToLatest(

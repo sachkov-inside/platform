@@ -34,7 +34,7 @@ import { quotePurchaseSchema, priceQuoteSchema } from "./quote-purchase.js";
 @ApiTags("Billing")
 @ApiBearerAuth("logto")
 @PrivateNoStore()
-@AcceptedTermsEndpoint()
+@AcceptedTermsEndpoint(problemDetailsSchema(403, ["not_eligible"]))
 @UseFilters(AccountProblemDetailsFilter)
 @ApiResponse({
   status: 400,

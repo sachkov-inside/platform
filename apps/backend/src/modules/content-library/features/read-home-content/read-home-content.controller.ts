@@ -121,7 +121,7 @@ export class ReadHomeContentController {
       this.contentAccess,
       this.videos,
       this.membershipEntitlements,
-      await this.pricing.hasOffersForSale(),
+      await this.pricing.hasOffersForSale(account?.accountId),
       account === undefined
         ? anonymousSubject
         : { kind: "account", accountId: accountId(account.accountId) },

@@ -71,6 +71,7 @@ export class BillingService {
               guideIds: Array<string>;
               materialIds: Array<string>;
             } | null;
+            eligibility?: 'everyone' | 'former_tribute_subscribers';
             id: string;
             name: string;
             published?: boolean;
@@ -118,6 +119,7 @@ export class BillingService {
             guideIds: Array<string>;
             materialIds: Array<string>;
           } | null;
+          eligibility?: 'everyone' | 'former_tribute_subscribers';
           id: string;
           name: string;
           published?: boolean;
@@ -277,6 +279,7 @@ export class BillingService {
             guideIds: Array<string>;
             materialIds: Array<string>;
           } | null;
+          eligibility?: 'everyone' | 'former_tribute_subscribers';
           id: string;
           name: string;
           published?: boolean;
@@ -324,6 +327,7 @@ export class BillingService {
           guideIds: Array<string>;
           materialIds: Array<string>;
         } | null;
+        eligibility?: 'everyone' | 'former_tribute_subscribers';
         id: string;
         name: string;
         published?: boolean;
@@ -393,6 +397,7 @@ export class BillingService {
           guideIds: Array<string>;
           materialIds: Array<string>;
         } | null;
+        eligibility?: 'everyone' | 'former_tribute_subscribers';
         id: string;
         name: string;
         published?: boolean;
@@ -461,6 +466,7 @@ export class BillingService {
           guideIds: Array<string>;
           materialIds: Array<string>;
         } | null;
+        eligibility?: 'everyone' | 'former_tribute_subscribers';
         id: string;
         name: string;
         published?: boolean;
@@ -532,6 +538,7 @@ export class BillingService {
           guideIds: Array<string>;
           materialIds: Array<string>;
         } | null;
+        eligibility?: 'everyone' | 'former_tribute_subscribers';
         id: string;
         name: string;
         published?: boolean;
@@ -609,6 +616,7 @@ export class BillingService {
             guideIds: Array<string>;
             materialIds: Array<string>;
           } | null;
+          eligibility?: 'everyone' | 'former_tribute_subscribers';
           id: string;
           name: string;
           published?: boolean;
@@ -656,6 +664,7 @@ export class BillingService {
           guideIds: Array<string>;
           materialIds: Array<string>;
         } | null;
+        eligibility?: 'everyone' | 'former_tribute_subscribers';
         id: string;
         name: string;
         published?: boolean;
@@ -724,6 +733,7 @@ export class BillingService {
             guideIds: Array<string>;
             materialIds: Array<string>;
           } | null;
+          eligibility?: 'everyone' | 'former_tribute_subscribers';
           id: string;
           name: string;
           published?: boolean;
@@ -779,6 +789,7 @@ export class BillingService {
               guideIds: Array<string>;
               materialIds: Array<string>;
             } | null;
+            eligibility?: 'everyone' | 'former_tribute_subscribers';
             id: string;
             name: string;
             published?: boolean;
@@ -826,6 +837,7 @@ export class BillingService {
             guideIds: Array<string>;
             materialIds: Array<string>;
           } | null;
+          eligibility?: 'everyone' | 'former_tribute_subscribers';
           id: string;
           name: string;
           published?: boolean;
@@ -900,6 +912,7 @@ export class BillingService {
             guideIds: Array<string>;
             materialIds: Array<string>;
           } | null;
+          eligibility?: 'everyone' | 'former_tribute_subscribers';
           id: string;
           name: string;
           published?: boolean;
@@ -947,6 +960,7 @@ export class BillingService {
           guideIds: Array<string>;
           materialIds: Array<string>;
         } | null;
+        eligibility?: 'everyone' | 'former_tribute_subscribers';
         id: string;
         name: string;
         published?: boolean;
@@ -1014,6 +1028,7 @@ export class BillingService {
             guideIds: Array<string>;
             materialIds: Array<string>;
           } | null;
+          eligibility?: 'everyone' | 'former_tribute_subscribers';
           id: string;
           name: string;
           published?: boolean;
@@ -1058,6 +1073,7 @@ export class BillingService {
             guideIds: Array<string>;
             materialIds: Array<string>;
           } | null;
+          eligibility?: 'everyone' | 'former_tribute_subscribers';
           id: string;
           name: string;
           published?: boolean;
@@ -1137,6 +1153,7 @@ export class BillingService {
             guideIds: Array<string>;
             materialIds: Array<string>;
           } | null;
+          eligibility?: 'everyone' | 'former_tribute_subscribers';
           id: string;
           name: string;
           published?: boolean;
@@ -1184,6 +1201,7 @@ export class BillingService {
           guideIds: Array<string>;
           materialIds: Array<string>;
         } | null;
+        eligibility?: 'everyone' | 'former_tribute_subscribers';
         id: string;
         name: string;
         published?: boolean;
@@ -1307,6 +1325,7 @@ export class BillingService {
           guideIds: Array<string>;
           materialIds: Array<string>;
         } | null;
+        eligibility?: 'everyone' | 'former_tribute_subscribers';
         id: string;
         name: string;
       };
@@ -2041,6 +2060,7 @@ export class BillingService {
             guideIds: Array<string>;
             materialIds: Array<string>;
           } | null;
+          eligibility?: 'everyone' | 'former_tribute_subscribers';
           id: string;
           name: string;
           published?: boolean;
@@ -2098,6 +2118,7 @@ export class BillingService {
               guideIds: Array<string>;
               materialIds: Array<string>;
             } | null;
+            eligibility?: 'everyone' | 'former_tribute_subscribers';
             id: string;
             name: string;
             published?: boolean;
@@ -2196,6 +2217,7 @@ export class BillingService {
               guideIds: Array<string>;
               materialIds: Array<string>;
             } | null;
+            eligibility?: 'everyone' | 'former_tribute_subscribers';
             id: string;
             name: string;
             published?: boolean;
@@ -2257,6 +2279,7 @@ export class BillingService {
               guideIds: Array<string>;
               materialIds: Array<string>;
             } | null;
+            eligibility?: 'everyone' | 'former_tribute_subscribers';
             id: string;
             name: string;
             published?: boolean;
@@ -2317,6 +2340,7 @@ export class BillingService {
                 guideIds: Array<string>;
                 materialIds: Array<string>;
               } | null;
+              eligibility?: 'everyone' | 'former_tribute_subscribers';
               id: string;
               name: string;
               published?: boolean;
@@ -2364,6 +2388,7 @@ export class BillingService {
               guideIds: Array<string>;
               materialIds: Array<string>;
             } | null;
+            eligibility?: 'everyone' | 'former_tribute_subscribers';
             id: string;
             name: string;
             published?: boolean;
@@ -2515,7 +2540,7 @@ export class BillingService {
     });
   }
   /**
-   * Read active options and public first-payment prices, filtered by sale mode and access capability
+   * Read active options and public first-payment prices, filtered by sale mode, access capability and the reader's eligibility
    * @returns any
    * @throws ApiError
    */
@@ -2546,6 +2571,7 @@ export class BillingService {
           guideIds: Array<string>;
           materialIds: Array<string>;
         } | null;
+        eligibility?: 'everyone' | 'former_tribute_subscribers';
         id: string;
         name: string;
         published?: boolean;
@@ -2579,6 +2605,10 @@ export class BillingService {
         'mode': mode,
         'limit': limit,
         'cursor': cursor,
+      },
+      errors: {
+        401: `Optional Account proof is invalid`,
+        500: `Account resolution failed`,
       },
     });
   }

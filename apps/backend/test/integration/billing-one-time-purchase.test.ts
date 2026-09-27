@@ -66,6 +66,13 @@ describe("one-time guide purchase (real PostgreSQL and real facets; synthetic ba
   let contact: BillingContact;
   const codes = new Map<string, string>();
 
+  /** Права покупателя так, как их видит проверка доступа. */
+  async function capabilitiesOf(buyer: string) {
+    const resolved = await grants.resolveCapabilities(buyer);
+    if (!resolved.ok) throw new Error(resolved.error.code);
+    return resolved;
+  }
+
   beforeAll(async () => {
     db = await createMigratedTestDatabase();
     owner = randomUUID();
@@ -114,7 +121,9 @@ describe("one-time guide purchase (real PostgreSQL and real facets; synthetic ba
     options: {
       readonly benefitPeriods?: { capability: string; months: number | null }[];
       readonly term?: number;
-      readonly supportMonths?: number;
+      readonly supportMonths?: number | null;
+      /** Срок общей группы в Offer; без него группа не называется в составе. */
+      readonly communityMonths?: number | null;
       readonly terminal?: ReturnType<typeof syntheticTbankConfig>;
     } = {},
   ) {
@@ -154,13 +163,23 @@ describe("one-time guide purchase (real PostgreSQL and real facets; synthetic ba
         operationId: randomUUID(),
         operation: "offers.save",
         value: {
-          // Предложение продукта продаётся только с сопровождением на срок оферты.
+          // Предложение продукта продаётся только с сопровождением на названный в нём срок.
           id: offerId,
           name: "Руководство «Синтетика»",
-          benefits: [capability, "support"],
+          benefits:
+            options.communityMonths === undefined
+              ? [capability, "support"]
+              : [capability, "community", "support"],
           benefitPeriods: options.benefitPeriods ?? [
             { capability, months: options.term ?? null },
-            { capability: "support", months: options.supportMonths ?? 6 },
+            ...(options.communityMonths === undefined
+              ? []
+              : [{ capability: "community", months: options.communityMonths }]),
+            {
+              capability: "support",
+              months:
+                options.supportMonths === undefined ? 6 : options.supportMonths,
+            },
           ],
         },
       }),
@@ -357,8 +376,8 @@ describe("one-time guide purchase (real PostgreSQL and real facets; synthetic ba
     expect(s.requests()[0]).not.toHaveProperty("Recurrent");
   });
 
-  test("новая разовая покупка Guide бессрочна даже при старом ограниченном варианте", async () => {
-    // У права на продукт нет своего срока: у разовой покупки нет оплаченного периода, чтобы его унаследовать.
+  test("право на продукт живёт срок, который называет Offer, а без названного срока бессрочно", async () => {
+    // Право без названного срока не наследует срок варианта: у разовой покупки нет оплаченного периода.
     const silent = await scenario({
       benefitPeriods: [{ capability: "support", months: 6 }],
     });
@@ -373,6 +392,7 @@ describe("one-time guide purchase (real PostgreSQL and real facets; synthetic ba
         })
       )?.validUntil,
     ).toBeNull();
+    // Названный срок считается от подтверждения оплаты.
     const yearly = await scenario({ term: 12 });
     await yearly.buy();
     expect(
@@ -383,45 +403,104 @@ describe("one-time guide purchase (real PostgreSQL and real facets; synthetic ba
             capabilities: { has: yearly.capability },
           },
         })
-      )?.validUntil,
-    ).toBeNull();
+      )?.validUntil?.toISOString(),
+    ).toBe("2031-01-31T10:00:00.000Z");
   });
 
-  test("сопровождение в предложении продукта живёт шесть месяцев с покупки и не бывает бессрочным", async () => {
+  test("Offer называет сроки продукта, общей группы и сопровождения, и покупка выдаёт именно их", async () => {
+    // Группу открывает и право на продукт: без своего срока она живёт срок продукта.
+    const derived = await scenario({ term: 12, supportMonths: 3 });
+    await derived.buy();
+    expect(await capabilitiesOf(derived.buyer)).toEqual(
+      expect.objectContaining({
+        capabilities: [
+          { capability: "community", validUntil: "2031-01-31T10:00:00.000Z" },
+          {
+            capability: derived.capability,
+            validUntil: "2031-01-31T10:00:00.000Z",
+          },
+          { capability: "support", validUntil: "2030-04-30T10:00:00.000Z" },
+        ],
+      }),
+    );
+    // Названный срок группы длиннее права на продукт — группа живёт его.
+    const longer = await scenario({
+      term: 12,
+      communityMonths: 24,
+      supportMonths: 3,
+    });
+    await longer.buy();
+    expect(await capabilitiesOf(longer.buyer)).toEqual(
+      expect.objectContaining({
+        capabilities: [
+          { capability: "community", validUntil: "2032-01-31T10:00:00.000Z" },
+          {
+            capability: longer.capability,
+            validUntil: "2031-01-31T10:00:00.000Z",
+          },
+          { capability: "support", validUntil: "2030-04-30T10:00:00.000Z" },
+        ],
+      }),
+    );
+    // Группу по-прежнему открывают и право на продукт, и сопровождение (#524): срок группы короче
+    // их сроков участие не сокращает — действует самый длинный.
+    const shorter = await scenario({
+      term: 12,
+      communityMonths: 3,
+      supportMonths: 3,
+    });
+    await shorter.buy();
+    expect(
+      (await capabilitiesOf(shorter.buyer)).capabilities.find(
+        (entry) => entry.capability === "community",
+      ),
+    ).toEqual({
+      capability: "community",
+      validUntil: "2031-01-31T10:00:00.000Z",
+    });
+  });
+
+  test("сопровождение живёт срок, названный в Offer, и без названного срока не сохраняется", async () => {
     const guideId = randomUUID();
     const capability = `guide:${guideId}`;
-    // Без срока сопровождение из разовой покупки стало бы бессрочным, а с другим сроком разошлось бы
-    // с офертой: каталог сохраняет только шесть месяцев.
-    for (const benefitPeriods of [
-      [{ capability, months: null }],
-      [
-        { capability, months: null },
-        { capability: "support", months: null },
-      ],
-      [
-        { capability, months: null },
-        { capability: "support", months: 3 },
-      ],
-    ])
-      expect(
-        code(
-          await pricing.manage(owner, {
-            operationId: randomUUID(),
-            operation: "offers.save",
-            value: {
-              id: randomUUID(),
-              name: "Продукт с сопровождением",
-              benefits: [capability, "support"],
-              benefitPeriods,
-            },
-          }),
-        ),
-      ).toBe("invalid_request");
+    // Без названного срока сопровождение разовой покупки стало бы бессрочным по умолчанию.
+    expect(
+      code(
+        await pricing.manage(owner, {
+          operationId: randomUUID(),
+          operation: "offers.save",
+          value: {
+            id: randomUUID(),
+            name: "Продукт с сопровождением",
+            benefits: [capability, "support"],
+            benefitPeriods: [{ capability, months: null }],
+          },
+        }),
+      ),
+    ).toBe("invalid_request");
+    // Другой срок сопровождения и бессрочное сопровождение — решение владельца, а не ошибка.
+    const short = await scenario({ supportMonths: 3 });
+    await short.buy();
+    const lifetime = await scenario({ supportMonths: null });
+    await lifetime.buy();
+    expect(
+      (await capabilitiesOf(short.buyer)).capabilities.find(
+        (entry) => entry.capability === "support",
+      ),
+    ).toEqual({
+      capability: "support",
+      validUntil: "2030-04-30T10:00:00.000Z",
+    });
+    expect(
+      (await capabilitiesOf(lifetime.buyer)).capabilities.find(
+        (entry) => entry.capability === "support",
+      ),
+    ).toEqual({ capability: "support", validUntil: null });
     const s = await scenario({ supportMonths: 6 });
     await s.buy();
     const bought = await grants.resolveCapabilities(s.buyer);
     if (!bought.ok) throw new Error("resolve");
-    // Продукт и чат бессрочны, сопровождение — ровно шесть календарных месяцев с оплаты.
+    // Offer курса: продукт и чат бессрочны, сопровождение — шесть календарных месяцев с оплаты.
     expect(bought.capabilities).toEqual([
       { capability: "community", validUntil: null },
       { capability: s.capability, validUntil: null },

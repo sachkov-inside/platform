@@ -9,9 +9,6 @@ import { benefitPeriodsSchema } from "../domain/pricing.js";
 
 type CatalogOffer = { readonly benefits: readonly string[] };
 
-/** Сопровождение из предложения продукта: столько календарных месяцев с подтверждения оплаты. */
-export const productSupportMonths = 6;
-
 /** Предложение продукта открывает своё руководство; состав тарифа к нему не относится. */
 export function isProductOffer(offer: CatalogOffer): boolean {
   return offer.benefits.some((value) => {
@@ -30,40 +27,33 @@ export function tierLacksComposition(
   return !isProductOffer(offer) && isEmptyContentScope(offer.contentScope);
 }
 
-function supportPeriodMonths(offer: {
-  readonly benefitPeriods: unknown;
-}): number | null | undefined {
-  const periods = benefitPeriodsSchema.safeParse(offer.benefitPeriods);
-  return periods.success
-    ? periods.data.find((period) => period.capability === "support")?.months
-    : undefined;
-}
-
 /**
- * Сопровождение в предложении продукта длится столько, сколько обещает оферта: шесть месяцев.
- * Черновик без сопровождения сохраняется, а сопровождение с другим сроком — нет.
+ * Сопровождение предложения продукта длится столько, сколько называет само предложение: срок
+ * задаёт владелец, и без названного срока (месяцы или `null` — без срока) сопровождение не
+ * выдаётся бессрочным по умолчанию. Черновик без сопровождения сохраняется.
  */
-export function productSupportTermMismatch(
+export function productSupportTermMissing(
   offer: CatalogOffer & { readonly benefitPeriods: unknown },
 ): boolean {
+  if (!isProductOffer(offer) || !offer.benefits.includes("support"))
+    return false;
+  const periods = benefitPeriodsSchema.safeParse(offer.benefitPeriods);
   return (
-    isProductOffer(offer) &&
-    offer.benefits.includes("support") &&
-    supportPeriodMonths(offer) !== productSupportMonths
+    !periods.success ||
+    !periods.data.some((period) => period.capability === "support")
   );
 }
 
 /**
  * Покупка продукта — это материалы продукта и сопровождение. Продаётся только предложение продукта,
- * которое даёт сопровождение на срок оферты.
+ * которое даёт сопровождение на названный в нём срок.
  */
 export function productOfferUnsellable(
   offer: CatalogOffer & { readonly benefitPeriods: unknown },
 ): boolean {
   return (
     isProductOffer(offer) &&
-    (!offer.benefits.includes("support") ||
-      supportPeriodMonths(offer) !== productSupportMonths)
+    (!offer.benefits.includes("support") || productSupportTermMissing(offer))
   );
 }
 

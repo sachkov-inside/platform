@@ -39,7 +39,7 @@ export async function selectPrice(
     (options.allowUnpublished !== true && !row.offer.published)
   )
     return failure("not_found");
-  // Строка, записанная в обход каталога, не продаёт пустой тариф, запрещённый состав и продукт без сопровождения на срок оферты.
+  // Строка, записанная в обход каталога, не продаёт пустой тариф, запрещённый состав и продукт без сопровождения на названный срок.
   if (
     options.allowUnpublished !== true &&
     (tierLacksComposition(row.offer) ||
@@ -56,6 +56,7 @@ export async function selectPrice(
     published: row.offer.published,
     availableForAssignment: row.offer.availableForAssignment,
     contentScope: row.offer.contentScope,
+    eligibility: row.offer.eligibility,
     ...(Array.isArray(row.offer.benefitPeriods) &&
     row.offer.benefitPeriods.length > 0
       ? { benefitPeriods: row.offer.benefitPeriods }

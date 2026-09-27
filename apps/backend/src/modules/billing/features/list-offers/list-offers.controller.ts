@@ -9,15 +9,23 @@ import {
 import { PrivateNoStore } from "../../../../infrastructure/http/http-cache-policy.js";
 import {
   problemDetailsContent,
+  problemDetailsOneOfContent,
   problemDetailsSchema,
   toOpenApiSchema,
 } from "../../../../infrastructure/http/zod-openapi.js";
+import {
+  accountProblemSchema,
+  OptionalAccountEndpoint,
+  OptionalCurrentAccount,
+  type AuthenticatedAccount,
+} from "../../../accounts/index.js";
 import { BillingPricing } from "../../facets/billing-pricing/billing-pricing.js";
 import { throwPricingError } from "../../shared/pricing-http.filter.js";
 import { listOffersSchema, offersPageSchema } from "./list-offers.js";
 
 @ApiTags("Billing")
 @PrivateNoStore()
+@OptionalAccountEndpoint()
 @Controller("billing/offers")
 export class ListOffersController {
   constructor(
@@ -27,7 +35,7 @@ export class ListOffersController {
   @ApiOperation({
     operationId: "billingOffers",
     summary:
-      "Read active options and public first-payment prices, filtered by sale mode and access capability",
+      "Read active options and public first-payment prices, filtered by sale mode, access capability and the reader's eligibility",
   })
   @ApiQuery({
     name: "cursor",
@@ -58,12 +66,16 @@ export class ListOffersController {
   })
   @ApiResponse({
     status: 503,
-    content: problemDetailsContent(
+    content: problemDetailsOneOfContent(
       problemDetailsSchema(503, ["dependency_unavailable"]),
+      accountProblemSchema,
     ),
   })
-  async execute(@Query() input: unknown) {
-    const result = await this.pricing.offers(input);
+  async execute(
+    @OptionalCurrentAccount() account: AuthenticatedAccount | undefined,
+    @Query() input: unknown,
+  ) {
+    const result = await this.pricing.offers(input, account?.accountId);
     if (!result.ok) throwPricingError(result.error);
     return result.value;
   }

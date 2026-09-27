@@ -13,6 +13,7 @@ import {
 import type { BillingContact } from "../../../accounts/index.js";
 import type { AccessGrants } from "../../../membership-entitlements/index.js";
 import {
+  offerEligibilitySchema,
   offerSchema,
   optionSchema,
   priceSnapshotSchema,
@@ -60,6 +61,11 @@ import {
 } from "../../shared/record-notice.js";
 import type { BillingNotices } from "../billing-notices/billing-notices.js";
 import { commandFingerprint } from "../../shared/command-fingerprint.js";
+import {
+  offerAdmits,
+  readPurchaseGrounds,
+  type PurchaseGrounds,
+} from "../../shared/offer-eligibility.js";
 import { acceptRecurringConsent } from "../../shared/recurring-consent.js";
 import {
   advanceSubscription,
@@ -82,7 +88,7 @@ interface Dependencies {
   readonly contact: Pick<BillingContact, "read" | "readConsent">;
   readonly grants: Pick<
     AccessGrants,
-    "readLegacyClassification" | "readOwnAccess"
+    "readLegacyClassification" | "readOwnAccess" | "readPurchaseGrounds"
   >;
   readonly payments: Pick<BillingPayments, "dispatch" | "status" | "history">;
   readonly notices: Pick<BillingNotices, "readNotices">;
@@ -248,6 +254,12 @@ export class BillingSubscriptions {
     const command = parsed.data;
     const digest = commandFingerprint("quoteChange", command);
     try {
+      // Основания допуска читаются до открытия транзакции: замки не ждут чужого соединения.
+      const grounds = await readPurchaseGrounds(
+        this.dependencies.grants,
+        accountId,
+      );
+      if (grounds === null) return paymentFailure("dependency_unavailable");
       return await this.dependencies.prisma.$transaction(
         async (tx): Promise<PaymentResult<ChangeQuoteResult>> => {
           const now = this.clock();
@@ -283,6 +295,7 @@ export class BillingSubscriptions {
             row,
             command.paymentOptionId,
             now,
+            grounds,
           );
           if (!plan.ok) return plan;
           // У отменённого расписания нет следующего периода: остаётся только повышение текущего срока.
@@ -334,8 +347,14 @@ export class BillingSubscriptions {
     const command = parsed.data;
     const digest = commandFingerprint("change", command);
     const { prisma, bank, payments } = this.dependencies;
-    // Контакт чека читается до открытия транзакции: замки не удерживаются на чужом чтении.
+    // Контакт чека и основания допуска читаются до открытия транзакции: замки не удерживаются
+    // на чужом чтении.
     const verified = await this.dependencies.contact.read(accountId);
+    const grounds = await readPurchaseGrounds(
+      this.dependencies.grants,
+      accountId,
+    );
+    if (grounds === null) return paymentFailure("dependency_unavailable");
     let accepted: z.infer<typeof changeReceiptSchema> | undefined;
     try {
       const previous = await prisma.billingSubscriptionCommand.findUnique({
@@ -378,6 +397,7 @@ export class BillingSubscriptions {
           row,
           plan.snapshot.paymentOption.id,
           now,
+          grounds,
         );
         if (!current.ok) throw new CommandFailure(current.error.code);
         if (
@@ -834,6 +854,7 @@ export class BillingSubscriptions {
     row: SubscriptionRow,
     paymentOptionId: string,
     now: Date,
+    grounds: PurchaseGrounds,
   ): Promise<PaymentResult<ChangePlan>> {
     const { bank } = this.dependencies;
     const target = await tx.billingPaymentOption.findUnique({
@@ -847,6 +868,10 @@ export class BillingSubscriptions {
       !target.offer.published
     )
       return paymentFailure("not_found");
+    // Смена варианта — тоже покупка Offer: ограничение допуска действует и здесь.
+    const eligibility = offerEligibilitySchema.parse(target.offer.eligibility);
+    if (!offerAdmits(eligibility, grounds))
+      return paymentFailure("not_eligible");
     const current = subscriptionSnapshotSchema.parse(row.snapshot);
     if (
       target.id === current.paymentOption.id &&
@@ -861,6 +886,7 @@ export class BillingSubscriptions {
         benefits: target.offer.benefits,
         archived: target.offer.archived,
         published: target.offer.published,
+        eligibility,
         ...(Array.isArray(target.offer.benefitPeriods) &&
         target.offer.benefitPeriods.length > 0
           ? { benefitPeriods: target.offer.benefitPeriods }

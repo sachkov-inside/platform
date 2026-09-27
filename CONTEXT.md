@@ -374,7 +374,10 @@ _Avoid_: Payment, MembershipEvidence, AccessGrant
 **Offer**:
 A versioned description of a chosen access composition, independent of a Guide and a payment.
 It can be available for assignment without being published for sale. Its payment option specifies the price, period and sale mode: a subscription charged on a schedule,
-or a one-time purchase that is paid once and creates no schedule. It carries a reversible `published`
+or a one-time purchase that is paid once and creates no schedule. Each right it grants carries its own
+term in months or none; rights already granted keep the terms of their purchase. An Offer may be
+sold only to Accounts with a proven ground, such as a confirmed Tribute period; others neither see
+nor buy it. It carries a reversible `published`
 (for-sale) state, separate from permanent archival; while no offer is published, neither the
 subscription nor a separately sold Guide is offered anywhere. Archival is final: it withdraws the
 offer from sale and assignment for good, while existing enrollments keep their snapshot.
