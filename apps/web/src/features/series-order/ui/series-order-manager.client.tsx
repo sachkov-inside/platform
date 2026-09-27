@@ -46,6 +46,7 @@ import {
   GUIDE_CHAPTER_NAME_MAX,
   GUIDE_CHAPTER_SUMMARY_MAX,
 } from "../model/presentation";
+import { dragLeftElement } from "@/shared/lib/drag-left-element";
 
 const STEP_GROUP_LIMIT = 120;
 const UNASSIGNED = "unassigned";
@@ -1060,11 +1061,7 @@ function MaterialRow({
         setDropId(item.materialId);
       }}
       onDragLeave={(event) => {
-        if (!(
-          event.relatedTarget instanceof Node &&
-          event.currentTarget.contains(event.relatedTarget)
-        ))
-          setDropId(null);
+        if (dragLeftElement(event)) setDropId(null);
       }}
       onDrop={(event) => {
         if (draggedId === null) return;

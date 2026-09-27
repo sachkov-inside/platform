@@ -724,6 +724,7 @@ const strictLintRules = [
 const generatedCodeFiles =
   "apps/backend/src/infrastructure/prisma/generated/**/*.ts";
 
+/** `no-floating-promises` needs type information, so only a type-aware set declares it. */
 function isTypeAwareOverride(override) {
   return "typescript/no-floating-promises" in (override.rules ?? {});
 }

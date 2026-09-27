@@ -13,6 +13,7 @@ import {
   removeContentCover,
   uploadContentCover,
 } from "../api/change-content-cover.browser";
+import { dragLeftElement } from "@/shared/lib/drag-left-element";
 
 export function ContentCoverEditor({
   disabled = false,
@@ -83,11 +84,7 @@ export function ContentCoverEditor({
         setDragging(true);
       }}
       onDragLeave={(event) => {
-        if (!(
-          event.relatedTarget instanceof Node &&
-          event.currentTarget.contains(event.relatedTarget)
-        ))
-          setDragging(false);
+        if (dragLeftElement(event)) setDragging(false);
       }}
       onDrop={(event) => {
         if (disabled || pending) return;

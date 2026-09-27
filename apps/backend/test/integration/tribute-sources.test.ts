@@ -142,8 +142,12 @@ describe("Tribute source production facets and signed HTTP with PostgreSQL", () 
     await http.getHttpAdapter().getInstance().ready();
   });
   afterAll(async () => {
-    await http.close();
-    await db.dispose();
+    // beforeAll may stop before a later resource exists; `finally` still releases the earlier ones.
+    try {
+      await http.close();
+    } finally {
+      await db.dispose();
+    }
   });
   async function setup(
     mode: "confirmed_period" | "temporary_membership" = "confirmed_period",

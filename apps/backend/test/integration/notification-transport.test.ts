@@ -262,9 +262,16 @@ describe("Notifications real PostgreSQL / RabbitMQ transport", () => {
     await Promise.allSettled(
       connections.map((connection) => connection.close()),
     );
-    await database.dispose();
-    await broker.stop();
-    if (directory) await rm(directory, { recursive: true, force: true });
+    // beforeAll may stop before a later resource exists; `finally` still releases the earlier ones.
+    try {
+      try {
+        await database.dispose();
+      } finally {
+        await broker.stop();
+      }
+    } finally {
+      if (directory) await rm(directory, { recursive: true, force: true });
+    }
   }, 60_000);
 
   test("TLS trust, environment isolation, publish/read/configure ACLs and bounded quorum topology", async () => {

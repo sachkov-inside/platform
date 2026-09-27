@@ -70,8 +70,12 @@ describe("communications permission and confirmed author HTTP authorization", ()
     await app.getHttpAdapter().getInstance().ready();
   });
   afterAll(async () => {
-    await app.close();
-    await database.dispose();
+    // beforeAll may stop before a later resource exists; `finally` still releases the earlier ones.
+    try {
+      await app.close();
+    } finally {
+      await database.dispose();
+    }
   });
 
   function request(
