@@ -103,8 +103,9 @@ try {
     runtimeEnvironment,
   );
   await waitForRuntime(runtimeEnvironment);
+  // Корпус #116. Telegram-вход проверяется на своём стенде с provider (docs/verification).
   await runPnpm(
-    ["--filter", "@inside/web", "test:identity"],
+    ["--filter", "@inside/web", "test:identity", "identity-proof.spec.ts"],
     runtimeEnvironment,
   );
   if (sensitiveOutputObserved) {
@@ -190,6 +191,19 @@ function requiredUrl(environment, name) {
   return value;
 }
 
+/**
+ * База, в которую стенд мигрировал и с которой работал API: проверка смотрит туда же, а не в базу
+ * стенда владельца.
+ *
+ * @param {Environment} environment
+ */
+function applicationDatabase(environment) {
+  const url = environment["DATABASE_URL"];
+  if (url === undefined)
+    throw new Error("The proof runtime has no DATABASE_URL");
+  return decodeURIComponent(new URL(url).pathname.slice(1));
+}
+
 /** @param {Environment} environment */
 async function assertDatabaseInvariants(environment) {
   const platformEffects = await runCompose(
@@ -202,7 +216,7 @@ async function assertDatabaseInvariants(environment) {
       "-U",
       "inside",
       "-d",
-      "inside",
+      applicationDatabase(environment),
       "-Atc",
       "select (select count(*) from accounts.accounts)::text || '|' || coalesce(to_regclass('identity_principals.platform_sessions')::text, 'absent')",
     ],

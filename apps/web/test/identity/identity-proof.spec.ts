@@ -172,15 +172,15 @@ test.describe.serial("issue 116 pinned Logto proof", () => {
     if (new URL(page.url()).searchParams.get("authentication") === "failed") {
       throw new Error("Real Logto callback failed");
     }
-    // Первый вход открывает экран условий и возвращает туда, куда человек шёл.
-    await expect(page).toHaveURL(`${webBaseUrl}/welcome?returnTo=%2Flibrary`);
+    // Первый вход открывает экран условий и возвращает туда, куда человек шёл: на Главную.
+    await expect(page).toHaveURL(`${webBaseUrl}/welcome?returnTo=%2F`);
     await expect(page.getByRole("checkbox")).toHaveCount(0);
     await page
       .getByRole("button", { name: "Принять условия и продолжить" })
       .click();
-    await expect(page).toHaveURL(`${webBaseUrl}/library`);
+    await expect(page).toHaveURL(`${webBaseUrl}/`);
     await expect(
-      page.getByRole("button", { exact: true, name: "Выйти" }),
+      page.getByRole("button", { exact: true, name: "Аккаунт" }),
     ).toBeVisible();
     expect(callbackUrl).toContain("/callback?");
 
@@ -198,6 +198,7 @@ test.describe.serial("issue 116 pinned Logto proof", () => {
     await expect(page).toHaveURL(/authentication=failed/u);
     const replayStatus = await page.request.get("/auth/status");
     await expect(replayStatus.json()).resolves.toEqual({
+      accountId: null,
       canManageMaterials: false,
       state: "guest",
     });
@@ -205,13 +206,14 @@ test.describe.serial("issue 116 pinned Logto proof", () => {
     const recovery = await browser.newPage({ ignoreHTTPSErrors: true });
     await beginSignIn(recovery, recipient);
     await enterCode(recovery, await waitForCode(recipient, 2));
-    await expect(recovery).toHaveURL(`${webBaseUrl}/library`);
+    await expect(recovery).toHaveURL(`${webBaseUrl}/`);
     const signedInAt = Date.now();
 
     await waitPastAccessTokenExpiry(recovery, signedInAt);
     await stopService("logto");
     const unavailable = await recovery.request.get("/auth/status");
     await expect(unavailable.json()).resolves.toEqual({
+      accountId: null,
       canManageMaterials: false,
       state: "unavailable",
     });
@@ -235,30 +237,28 @@ test.describe.serial("issue 116 pinned Logto proof", () => {
       name: appSession.name,
       path: appSession.path,
     });
-    await recovery.goto(webBaseUrl);
-    await recovery.locator("button:visible", { hasText: "Войти" }).click();
-    await recovery.waitForURL((url) => url.origin === webBaseUrl);
-    expect(new URL(recovery.url()).searchParams.get("authentication")).not.toBe(
-      "failed",
-    );
+    // Вход всегда явный (`prompt: login`, #372): без cookie BFF человек снова вводит код, а
+    // Account остаётся прежним — это сверяет `assertDatabaseInvariants` после набора.
+    await beginSignIn(recovery, recipient);
+    await enterCode(recovery, await waitForCode(recipient, 3));
+    await expect(recovery).toHaveURL(`${webBaseUrl}/`);
     await expect(
-      recovery.getByRole("button", { exact: true, name: "Выйти" }),
+      recovery.getByRole("button", { exact: true, name: "Аккаунт" }),
     ).toBeVisible();
 
+    // Три кода уже отправлены, потолок получателя — десять писем за окно.
     const existingAccountAttempts = await Promise.all(
       Array.from({ length: 9 }, () => sendFromFreshFlow(browser, recipient)),
     );
     expect(
       existingAccountAttempts.filter(({ outcome }) => outcome === "delivered"),
-    ).toHaveLength(8);
+    ).toHaveLength(7);
     const existingAccountLimited = existingAccountAttempts.filter(
       ({ outcome }) => outcome === "limited",
     );
-    expect(existingAccountLimited).toHaveLength(1);
-    const existingLimited = existingAccountLimited[0];
-    if (existingLimited === undefined)
-      throw new Error("Expected an existing-Account rate limit");
-    assertGenericRateLimit(existingLimited);
+    expect(existingAccountLimited).toHaveLength(2);
+    for (const limited of existingAccountLimited)
+      assertGenericRateLimit(limited);
     await expectDeliveryCount(recipient, 10);
     await closeAttempts(existingAccountAttempts);
     await recovery.close();

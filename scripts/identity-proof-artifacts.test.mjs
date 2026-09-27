@@ -561,16 +561,20 @@ test("identity proof launcher stops startup and cleans ownership after interrupt
   assert.deepEqual(calls.at(-1), ["compose", "identity", ["down"]]);
 });
 
-test("identity hardening proof uses an exact semantic logout assertion", async () => {
+test("identity hardening proof finds the signed-in account control by exact role", async () => {
   const hardeningSpec = await readFile(
     new URL("apps/web/test/identity/identity-proof.spec.ts", root),
     "utf8",
   );
 
-  assert.doesNotMatch(hardeningSpec, /locator\([^\n]+hasText: "Выйти"/u);
+  // Выход живёт в меню «Аккаунт»; признак входа — эта кнопка по точной роли, а не текст.
+  assert.doesNotMatch(
+    hardeningSpec,
+    /locator\([^\n]+hasText: "(?:Выйти|Аккаунт)"/u,
+  );
   assert.match(
     hardeningSpec,
-    /getByRole\("button", \{ exact: true, name: "Выйти" \}\)/u,
+    /getByRole\("button", \{ exact: true, name: "Аккаунт" \}\)/u,
   );
 });
 
