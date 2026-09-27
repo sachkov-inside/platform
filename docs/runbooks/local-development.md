@@ -829,10 +829,10 @@ shared `inside-platform_*` volumes, so every branch and worktree sees the same c
   the Telegram sign-in launcher) use the `inside_checks` database, never the stand's `inside`,
   unless `DATABASE_URL` is exported explicitly. `pnpm smoke:fullstack` drops and recreates that
   database at the start of every run, so products, lessons and buyers created by an earlier run
-  never change what the next one sees. The reset always targets the `inside-platform` Compose
-  project, even when `COMPOSE_PROJECT_NAME` names another one (#757), so a run in your own project
-  must export `DATABASE_URL`. An explicitly exported `DATABASE_URL` is used as it is and
-  never reset: point it at a freshly created database before a run whose result you report.
+  never change what the next one sees. The reset, like the Telegram launcher's creation of that
+  database, runs in the Compose project named by `COMPOSE_PROJECT_NAME`, or `inside-platform` when
+  it is unset. An explicitly exported `DATABASE_URL` is used as it is and never reset: point it at
+  a freshly created database before a run whose result you report.
 
 - The seed reads `config/compose/local/seed-stand.env` (`LOCAL_SEED_DEMO=hidden`) unless
   `LOCAL_SEED_VIEW=checks` selects `seed-checks.env`: demonstration Materials stay drafts or

@@ -55,3 +55,25 @@ test("a reset recreates only the check database", () => {
     "create database inside_checks",
   ]);
 });
+
+test("check database commands run in the Compose project named by COMPOSE_PROJECT_NAME", () => {
+  for (const [environment, project] of /** @type {const} */ ([
+    [{ COMPOSE_PROJECT_NAME: "inside-platform-x" }, "inside-platform-x"],
+    [{}, "inside-platform"],
+    [{ COMPOSE_PROJECT_NAME: " " }, "inside-platform"],
+  ])) {
+    for (const command of [resetCheckDatabase, ensureCheckDatabase]) {
+      /** @type {string[]} */
+      const projects = [];
+      command({
+        environment,
+        run: (_command, args) => {
+          projects.push(args[args.indexOf("--project-name") + 1] ?? "");
+          return "";
+        },
+      });
+      assert.ok(projects.length > 0);
+      assert.deepEqual(new Set(projects), new Set([project]));
+    }
+  }
+});
