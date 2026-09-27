@@ -1101,21 +1101,17 @@ async function markScriptCreatedElements(page: Page) {
         return element;
       },
     });
-    Object.assign(window, {
-      __createdByScript: (element: Element) => created.has(element),
-    });
+    Object.assign(window, { __createdByScript: created });
   });
 }
 
 function productCoverFromServer(page: Page): Promise<boolean> {
-  return page.locator(productCover).evaluate(
-    (image) =>
-      !(
-        window as unknown as {
-          __createdByScript: (element: Element) => boolean;
-        }
-      ).__createdByScript(image),
-  );
+  return page.locator(productCover).evaluate((image) => {
+    const created: unknown = Reflect.get(window, "__createdByScript");
+    if (!(created instanceof WeakSet))
+      throw new Error("Метки созданных скриптом элементов не установлены");
+    return !created.has(image);
+  });
 }
 
 test("ответ о входе не заставляет рисовать заново часть страницы, ещё не пришедшую потоком", async ({

@@ -63,10 +63,13 @@ function sameReading(
   left: MaterialReadingValue,
   right: MaterialReadingValue,
 ): boolean {
-  return (Object.keys(left) as (keyof MaterialReadingValue)[]).every((key) =>
+  const rightFields: ReadonlyMap<string, unknown> = new Map(
+    Object.entries(right),
+  );
+  return Object.entries(left).every(([key, value]) =>
     key === "states"
       ? sameStates(left.states, right.states)
-      : left[key] === right[key],
+      : rightFields.get(key) === value,
   );
 }
 function sameStates(
