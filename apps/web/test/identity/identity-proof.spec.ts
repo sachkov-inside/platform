@@ -21,6 +21,8 @@ const logtoEndpoint = requiredEnvironment("LOGTO_ENDPOINT");
 const mailpitEndpoint = `http://127.0.0.1:${requiredEnvironment("IDENTITY_PROOF_MAILPIT_PORT")}`;
 const composeFile = resolve("../../infra/identity/logto/compose.yaml");
 const execFileAsync = promisify(execFile);
+/** Потолок писем с кодом на одного получателя за окно Logto (#116). */
+const recipientCodesPerWindow = 10;
 const rateLimitMessage =
   "Слишком много писем. Пожалуйста, повторите попытку позже.";
 const messagesSchema = z.object({
@@ -56,21 +58,23 @@ test.describe.serial("issue 116 pinned Logto proof", () => {
     await clearMailpit();
     const recipient = "parallel-116@example.test";
     const attempts = await Promise.all(
-      Array.from({ length: 12 }, () => sendFromFreshFlow(browser, recipient)),
+      Array.from({ length: recipientCodesPerWindow + 2 }, () =>
+        sendFromFreshFlow(browser, recipient),
+      ),
     );
     const delivered = attempts.filter(({ outcome }) => outcome === "delivered");
     const limited = attempts.filter(({ outcome }) => outcome === "limited");
 
-    expect(delivered).toHaveLength(10);
+    expect(delivered).toHaveLength(recipientCodesPerWindow);
     expect(limited).toHaveLength(2);
-    await expectDeliveryCount(recipient, 10);
+    await expectDeliveryCount(recipient, recipientCodesPerWindow);
     for (const attempt of limited) assertGenericRateLimit(attempt);
 
     const firstDelivered = delivered[0];
     if (firstDelivered === undefined)
       throw new Error("Expected one delivered flow");
     await firstDelivered.page.reload();
-    await expectDeliveryCount(recipient, 10);
+    await expectDeliveryCount(recipient, recipientCodesPerWindow);
     await firstDelivered.page.goBack();
     const backAttempt = await submitEmailFromCurrentPage(
       firstDelivered.page,
@@ -78,7 +82,7 @@ test.describe.serial("issue 116 pinned Logto proof", () => {
     );
     expect(backAttempt.status()).toBe(429);
     expect(await backAttempt.text()).toContain(rateLimitMessage);
-    await expectDeliveryCount(recipient, 10);
+    await expectDeliveryCount(recipient, recipientCodesPerWindow);
 
     const caseVariant = await sendFromFreshFlow(
       browser,
@@ -91,7 +95,7 @@ test.describe.serial("issue 116 pinned Logto proof", () => {
       Array.from({ length: 4 }, () => sendFromFreshFlow(browser, recipient)),
     );
     expect(afterCap.every(({ outcome }) => outcome === "limited")).toBe(true);
-    await expectDeliveryCount(recipient, 10);
+    await expectDeliveryCount(recipient, recipientCodesPerWindow);
     await closeAttempts([...attempts, caseVariant, ...afterCap]);
   });
 
@@ -183,6 +187,7 @@ test.describe.serial("issue 116 pinned Logto proof", () => {
       page.getByRole("button", { exact: true, name: "Аккаунт" }),
     ).toBeVisible();
     expect(callbackUrl).toContain("/callback?");
+    const accountId = await signedInAccountId(page);
 
     const cookies = await page.context().cookies();
     expect(
@@ -207,6 +212,7 @@ test.describe.serial("issue 116 pinned Logto proof", () => {
     await beginSignIn(recovery, recipient);
     await enterCode(recovery, await waitForCode(recipient, 2));
     await expect(recovery).toHaveURL(`${webBaseUrl}/`);
+    expect(await signedInAccountId(recovery)).toBe(accountId);
     const signedInAt = Date.now();
 
     await waitPastAccessTokenExpiry(recovery, signedInAt);
@@ -237,29 +243,32 @@ test.describe.serial("issue 116 pinned Logto proof", () => {
       name: appSession.name,
       path: appSession.path,
     });
-    // Вход всегда явный (`prompt: login`, #372): без cookie BFF человек снова вводит код, а
-    // Account остаётся прежним — это сверяет `assertDatabaseInvariants` после набора.
+    // Вход всегда явный (`prompt: [Prompt.Login, Prompt.Consent]`, #372): без cookie BFF
+    // человек снова вводит код и попадает в тот же Account.
     await beginSignIn(recovery, recipient);
-    await enterCode(recovery, await waitForCode(recipient, 3));
+    const codesBeforeWave = 3;
+    await enterCode(recovery, await waitForCode(recipient, codesBeforeWave));
     await expect(recovery).toHaveURL(`${webBaseUrl}/`);
     await expect(
       recovery.getByRole("button", { exact: true, name: "Аккаунт" }),
     ).toBeVisible();
+    expect(await signedInAccountId(recovery)).toBe(accountId);
 
-    // Три кода уже отправлены, потолок получателя — десять писем за окно.
+    const wave = 9;
     const existingAccountAttempts = await Promise.all(
-      Array.from({ length: 9 }, () => sendFromFreshFlow(browser, recipient)),
+      Array.from({ length: wave }, () => sendFromFreshFlow(browser, recipient)),
     );
+    const deliveredInWave = recipientCodesPerWindow - codesBeforeWave;
     expect(
       existingAccountAttempts.filter(({ outcome }) => outcome === "delivered"),
-    ).toHaveLength(7);
+    ).toHaveLength(deliveredInWave);
     const existingAccountLimited = existingAccountAttempts.filter(
       ({ outcome }) => outcome === "limited",
     );
-    expect(existingAccountLimited).toHaveLength(2);
+    expect(existingAccountLimited).toHaveLength(wave - deliveredInWave);
     for (const limited of existingAccountLimited)
       assertGenericRateLimit(limited);
-    await expectDeliveryCount(recipient, 10);
+    await expectDeliveryCount(recipient, recipientCodesPerWindow);
     await closeAttempts(existingAccountAttempts);
     await recovery.close();
   });
@@ -309,6 +318,14 @@ function assertGenericRateLimit(attempt: SendAttempt): void {
   expect(`${attempt.responseText}\n${attempt.visibleText}`).not.toMatch(
     /429|recipient|quota|example\.test/iu,
   );
+}
+
+/** Account, в который привёл вход: его называет `/auth/status` вошедшей сессии. */
+async function signedInAccountId(page: Page): Promise<string> {
+  const status = await page.request.get("/auth/status");
+  return z
+    .object({ accountId: z.string(), state: z.literal("authenticated") })
+    .parse(await status.json()).accountId;
 }
 
 async function beginSignIn(page: Page, email: string) {

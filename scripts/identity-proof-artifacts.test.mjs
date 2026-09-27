@@ -561,6 +561,19 @@ test("identity proof launcher stops startup and cleans ownership after interrupt
   assert.deepEqual(calls.at(-1), ["compose", "identity", ["down"]]);
 });
 
+test("identity hardening proof runs only the #116 corpus it starts a stand for", async () => {
+  const hardening = await readFile(
+    new URL("scripts/identity-hardening-proof.mjs", root),
+    "utf8",
+  );
+
+  // Telegram-вход нужен provider `inside-telegram`, которого hardening не поднимает.
+  assert.match(
+    hardening,
+    /\["--filter", "@inside\/web", "test:identity", "identity-proof\.spec\.ts"\]/u,
+  );
+});
+
 test("identity hardening proof finds the signed-in account control by exact role", async () => {
   const hardeningSpec = await readFile(
     new URL("apps/web/test/identity/identity-proof.spec.ts", root),
