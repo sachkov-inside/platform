@@ -17,6 +17,7 @@ import {
 import type { NotificationDependencies } from "../expand-audience/expand-audience.js";
 import { authorizeDispatch } from "../authorize-dispatch/authorize-dispatch.js";
 import type { SendNotificationEmail } from "../../ports/notification-sources.js";
+import { hasText } from "../../../../infrastructure/contracts/text.js";
 
 const retryDelaysMs = [1_000, 5_000, 30_000] as const;
 async function persistResult(
@@ -59,7 +60,7 @@ async function persistResult(
       resultRevision: result.resultRevision,
       resultPayload: JSON.stringify(result),
       updatedAt: now,
-      ...(result.nextAttemptAt
+      ...(hasText(result.nextAttemptAt)
         ? { nextAttemptAt: new Date(result.nextAttemptAt) }
         : {}),
     },
@@ -116,7 +117,10 @@ export async function acceptEmailCommand(
       where: { deliveryId: command.deliveryRef },
     });
     if (inserted.count === 0) {
-      if (effect?.resultPayload && effect.operationId === command.operationId)
+      if (
+        hasText(effect?.resultPayload) &&
+        effect.operationId === command.operationId
+      )
         await replayResult(transaction, effect.resultPayload);
       return "duplicate" as const;
     }
@@ -225,7 +229,8 @@ export async function dispatchEmail(
         Date.parse(command.notAfter) <= deps.now().getTime() ||
         permit.status === "denied" ||
         (permit.status === "allowed" &&
-          (!email || Date.parse(permit.validUntil) <= deps.now().getTime()))
+          (!hasText(email) ||
+            Date.parse(permit.validUntil) <= deps.now().getTime()))
       ) {
         await persistResult(
           transaction,
@@ -238,7 +243,7 @@ export async function dispatchEmail(
               permit.status === "denied" &&
               !["not_found", "payload_conflict"].includes(permit.reason)
                 ? permit.reason
-                : !email && permit.status === "allowed"
+                : !hasText(email) && permit.status === "allowed"
                   ? "binding_conflict"
                   : "expired",
           },
@@ -305,7 +310,7 @@ export async function dispatchEmail(
       );
       return true;
     });
-    if (!started || !email) return true;
+    if (!started || !hasText(email)) return true;
     // A commit or process pause can outlive the five-second permit. This process can
     // prove no I/O occurred here; its durable attempt is resolved as not_sent below.
     const outcome =
@@ -338,7 +343,7 @@ export async function dispatchEmail(
         where: { id: attemptRef },
         data: { state: outcome.state, receiptRef, completedAt: deps.now() },
       });
-      if (outcome.state === "sent" && receiptRef)
+      if (outcome.state === "sent" && hasText(receiptRef))
         await persistResult(
           transaction,
           command,

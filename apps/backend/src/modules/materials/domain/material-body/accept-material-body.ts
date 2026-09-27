@@ -39,11 +39,10 @@ function invalid(
     error: {
       code: "invalid_content",
       issues: [...issues]
-        .sort(
-          (left, right) =>
-            left.path.localeCompare(right.path) ||
-            left.code.localeCompare(right.code),
-        )
+        .sort((left, right) => {
+          const byPath = left.path.localeCompare(right.path);
+          return byPath !== 0 ? byPath : left.code.localeCompare(right.code);
+        })
         .slice(0, DOCUMENT_LIMITS.issues),
     },
   };

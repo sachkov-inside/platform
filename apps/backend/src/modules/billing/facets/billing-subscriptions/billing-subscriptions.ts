@@ -66,6 +66,7 @@ import {
   inFlightStates,
 } from "../../shared/subscription-outcome.js";
 import type { BillingPayments } from "../billing-payments/billing-payments.js";
+import { hasText } from "../../../../infrastructure/contracts/text.js";
 
 const changeQuoteLifetimeMs = 15 * 60 * 1_000;
 const changeReceiptSchema = z.strictObject({
@@ -221,7 +222,7 @@ export class BillingSubscriptions {
         // Возобновляется только действующий оплаченный срок на прежних условиях.
         if (row.state !== "canceled" || row.paidUntil <= now)
           return paymentFailure("not_found");
-        if (!row.bindingCiphertext || row.bindingRevokedAt !== null)
+        if (!hasText(row.bindingCiphertext) || row.bindingRevokedAt !== null)
           return paymentFailure("method_unavailable");
         await advanceSubscription(
           tx,
@@ -387,13 +388,13 @@ export class BillingSubscriptions {
         if (plan.kind === "scheduled") {
           // Отправленная попытка уже несёт прежние условия следующего периода.
           if (
-            await tx.billingPurchase.count({
+            (await tx.billingPurchase.count({
               where: {
                 subscriptionRef: row.id,
                 kind: "renewal",
                 state: { in: inFlightStates },
               },
-            })
+            })) > 0
           )
             throw new CommandFailure("payment_in_progress");
           await advanceSubscription(
@@ -437,15 +438,15 @@ export class BillingSubscriptions {
         }
         if (!bank) throw new CommandFailure("method_unavailable");
         if (
-          !row.bindingCiphertext ||
-          !row.bindingRef ||
+          !hasText(row.bindingCiphertext) ||
+          !hasText(row.bindingRef) ||
           row.bindingRevokedAt !== null
         )
           throw new CommandFailure("method_unavailable");
         if (
-          await tx.billingPurchase.count({
+          (await tx.billingPurchase.count({
             where: { subscriptionRef: row.id, state: { in: inFlightStates } },
-          })
+          })) > 0
         )
           throw new CommandFailure("payment_in_progress");
         if (!verified.ok) throw new CommandFailure("dependency_unavailable");
@@ -509,8 +510,9 @@ export class BillingSubscriptions {
             paymentFailure("dependency_unavailable"),
           );
     }
-    if (accepted.attemptRef) await payments.dispatch(accepted.attemptRef);
-    const payment = accepted.attemptRef
+    if (hasText(accepted.attemptRef))
+      await payments.dispatch(accepted.attemptRef);
+    const payment = hasText(accepted.attemptRef)
       ? await payments.status(accountId, accepted.attemptRef)
       : undefined;
     const current = await this.currentSubscription(accountId).catch(
@@ -525,7 +527,7 @@ export class BillingSubscriptions {
       ok: true,
       value: {
         subscription: current ?? accepted.subscription,
-        payment: payment?.ok ? payment.value : null,
+        payment: payment?.ok === true ? payment.value : null,
       },
     };
   }
@@ -548,13 +550,13 @@ export class BillingSubscriptions {
           return paymentFailure("not_found");
         // Отправленная попытка уже несёт согласованные условия следующего периода.
         if (
-          await tx.billingPurchase.count({
+          (await tx.billingPurchase.count({
             where: {
               subscriptionRef: row.id,
               kind: "renewal",
               state: { in: inFlightStates },
             },
-          })
+          })) > 0
         )
           return paymentFailure("payment_in_progress");
         await advanceSubscription(
@@ -608,9 +610,9 @@ export class BillingSubscriptions {
             return paymentFailure("revision_conflict");
           await lockBillingSubscription(tx, row.id);
           if (
-            await tx.billingPaymentMethodFlow.count({
+            (await tx.billingPaymentMethodFlow.count({
               where: { subscriptionRef: row.id, state: "started" },
-            })
+            })) > 0
           )
             return paymentFailure("operation_conflict");
           const id = randomUUID();
@@ -761,7 +763,7 @@ export class BillingSubscriptions {
           });
           continue;
         }
-        if (!observed.rebillId) continue;
+        if (!hasText(observed.rebillId)) continue;
         const rebillId = observed.rebillId;
         applied += await prisma.$transaction(async (tx) => {
           await lockBillingSubscription(tx, row.subscriptionRef);
@@ -1044,7 +1046,7 @@ async function subscriptionView(
     paidUntil: row.paidUntil.toISOString(),
     periodAmountKopecks: Number(row.periodAmountKopecks),
     periodIndex: row.periodIndex,
-    paymentMethod: row.bindingRef
+    paymentMethod: hasText(row.bindingRef)
       ? { methodRef: row.bindingRef, revoked: row.bindingRevokedAt !== null }
       : null,
     pendingChange: pending.success ? pending.data : null,

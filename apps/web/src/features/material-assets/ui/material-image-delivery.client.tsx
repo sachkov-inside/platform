@@ -53,7 +53,7 @@ export function MaterialImageDelivery({
           }}
           ref={(element) => {
             // A server-rendered image may fail before React attaches onError.
-            if (element?.complete && element.naturalWidth === 0)
+            if (element?.complete === true && element.naturalWidth === 0)
               setFailed(true);
           }}
           sizes="(max-width: 48rem) calc(100vw - 2.5rem), 70ch"

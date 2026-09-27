@@ -27,7 +27,7 @@ export function mountProcessArtwork(
       text,
       start: Number(el.dataset.t ?? 0),
       speed: Number(el.dataset.speed ?? 42),
-      caret: next?.classList.contains("caret") ? next : null,
+      caret: next?.classList.contains("caret") === true ? next : null,
     };
   };
   const typers = scenes.map((item) =>

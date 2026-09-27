@@ -33,8 +33,8 @@ function parseFeedHref(
     const url = new URL(href);
     if (
       (url.protocol !== "http:" && url.protocol !== "https:") ||
-      url.username ||
-      url.password
+      url.username !== "" ||
+      url.password !== ""
     )
       return undefined;
     return { href: url.href, label: url.hostname.replace(/^www\./u, "") };

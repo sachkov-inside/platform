@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
 import { readFileSync } from "node:fs";
+import { isDeepStrictEqual } from "node:util";
 import { dirname, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, it } from "node:test";
@@ -254,6 +255,31 @@ describe("supported toolchain contract", () => {
     );
     assert.deepEqual(
       strictLintViolations(
+        withOverrides(
+          config.overrides.map((override) =>
+            override === shared
+              ? {
+                  ...shared,
+                  rules: {
+                    ...shared.rules,
+                    "typescript/strict-boolean-expressions": [
+                      "error",
+                      {
+                        allowString: true,
+                        allowNumber: false,
+                        allowNullableObject: true,
+                      },
+                    ],
+                  },
+                }
+              : override,
+          ),
+        ),
+      ),
+      ["typescript/strict-boolean-expressions must keep its #694 options"],
+    );
+    assert.deepEqual(
+      strictLintViolations(
         withOverrides([
           ...config.overrides,
           {
@@ -265,6 +291,14 @@ describe("supported toolchain contract", () => {
       [
         "apps/web/src/**/*.tsx must not override typescript/no-unsafe-type-assertion",
       ],
+    );
+  });
+
+  it("keeps the backend and web text helpers identical", () => {
+    // Each application owns a copy so neither depends on the other; the copies must not drift.
+    assert.equal(
+      read("apps/web/src/shared/lib/text.ts"),
+      read("apps/backend/src/infrastructure/contracts/text.ts"),
     );
   });
 
@@ -720,7 +754,16 @@ const strictLintRules = [
   "typescript/no-unsafe-type-assertion",
   "typescript/no-unnecessary-condition",
   "typescript/prefer-optional-chain",
+  "typescript/strict-boolean-expressions",
 ];
+/** Options #694 fixes for rules that take them; a weaker option is a violation too. */
+const strictLintOptions = {
+  "typescript/strict-boolean-expressions": {
+    allowString: false,
+    allowNumber: false,
+    allowNullableObject: true,
+  },
+};
 const generatedCodeFiles =
   "apps/backend/src/infrastructure/prisma/generated/**/*.ts";
 
@@ -739,8 +782,18 @@ function strictLintViolations(config) {
     .filter((files) => !shared.files.includes(files))
     .map((files) => `type-aware lint must cover ${files}`);
   for (const rule of strictLintRules) {
-    if (shared.rules[rule] !== "error") {
+    const setting = shared.rules[rule];
+    if ((Array.isArray(setting) ? setting[0] : setting) !== "error") {
       violations.push(`${rule} must be an error in the shared set`);
+    }
+    if (
+      rule in strictLintOptions &&
+      !isDeepStrictEqual(
+        Array.isArray(setting) ? setting[1] : undefined,
+        strictLintOptions[rule],
+      )
+    ) {
+      violations.push(`${rule} must keep its #694 options`);
     }
     for (const override of config.overrides) {
       if (override === shared || override.files.includes(generatedCodeFiles))

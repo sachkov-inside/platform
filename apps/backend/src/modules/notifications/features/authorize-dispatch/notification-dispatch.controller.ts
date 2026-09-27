@@ -33,6 +33,7 @@ import {
   dispatchResponseSchema,
 } from "../../domain/notification-wire.js";
 import { Notifications } from "../../facets/notifications/notifications.js";
+import { hasText } from "../../../../infrastructure/contracts/text.js";
 const genericError = z.object({ code: z.enum(["malformed", "unauthorized"]) });
 @Controller("internal/notifications/dispatch")
 @ApiBearerAuth("telegram-notifications")
@@ -64,7 +65,7 @@ export class NotificationDispatchController {
   ) {
     const secret = this.config.notificationDelivery?.telegramSecret;
     if (
-      !secret ||
+      !hasText(secret) ||
       !credentialsMatch(bearerCredential(authorization) ?? "", secret)
     )
       throw new HttpException({ code: "unauthorized" }, 401);

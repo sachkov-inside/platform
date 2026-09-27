@@ -67,7 +67,7 @@ test("named BFF writes preserve operation ID/revision on repeated requests and d
           ...input,
           contractVersion: "inside-communications-v1",
           operation,
-          payload: action ? { broadcastId, action } : { broadcastId },
+          payload: action !== null ? { broadcastId, action } : { broadcastId },
         },
         "delegated-token",
       );

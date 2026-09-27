@@ -10,6 +10,7 @@ import type {
   MaterialAuthoringActions,
   MaterialAuthoringPresentation,
 } from "../model/presentation";
+import { presentText } from "@/shared/lib/text";
 
 interface MaterialAuthoringChromeProps {
   readonly actions: MaterialAuthoringActions;
@@ -40,7 +41,7 @@ export function MaterialAuthoringHeader({
               className="max-w-[36ch] truncate text-sm font-semibold"
               id="material-editor-heading"
             >
-              {presentation.draft.title || "Новый материал"}
+              {presentText(presentation.draft.title) ?? "Новый материал"}
             </h1>
             <p className="mt-1 text-xs text-muted-foreground" role="status">
               <span>{materialStateLabel(presentation.draft.status)}</span> ·{" "}

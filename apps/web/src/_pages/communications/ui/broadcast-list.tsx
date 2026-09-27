@@ -3,6 +3,7 @@ import { Button } from "@/shared/ui/button";
 import { type broadcastListSchema, errorMessage } from "../model/broadcasts";
 import { BroadcastStatus } from "./broadcast-status";
 import styles from "./broadcasts.module.css";
+import { hasText } from "@/shared/lib/text";
 
 export function BroadcastList({
   result,
@@ -37,7 +38,7 @@ export function BroadcastList({
         </p>
       ) : (
         <>
-          {!result.broadcasts.length ? (
+          {result.broadcasts.length === 0 ? (
             <div className={styles.empty}>
               <p className="font-semibold text-foreground">
                 Рассылок пока нет.
@@ -63,17 +64,17 @@ export function BroadcastList({
                     <span className="min-w-0">
                       <span className={styles.listTitle}>
                         {broadcast.parts
-                          .find((part) => part.content.text)
+                          .find((part) => part.content.text !== "")
                           ?.content.text.slice(0, 100) ?? "Рассылка с медиа"}
                       </span>
                       <span className={styles.listMeta}>
                         {broadcast.audience.kind === "all"
                           ? "Все контакты"
                           : `Выбранных воронок: ${String(broadcast.audience.funnelIds.length)}`}
-                        {broadcast.scheduledAt
+                        {hasText(broadcast.scheduledAt)
                           ? ` · ${new Date(broadcast.scheduledAt).toLocaleString("ru-RU", { timeZoneName: "short" })}`
                           : ""}
-                        {broadcast.audienceSnapshotId
+                        {hasText(broadcast.audienceSnapshotId)
                           ? ` · Получателей в снимке: ${String(broadcast.snapshotSize)}`
                           : ""}
                       </span>
@@ -86,18 +87,19 @@ export function BroadcastList({
           )}
         </>
       )}
-      {hasPrevious || (result?.kind === "ready" && result.nextCursor) ? (
+      {hasPrevious ||
+      (result?.kind === "ready" && hasText(result.nextCursor)) ? (
         <nav aria-label="Страницы рассылок" className={styles.pagination}>
           {hasPrevious ? (
             <Button variant="outline" onClick={onFirst}>
               К началу списка
             </Button>
           ) : null}
-          {result?.kind === "ready" && result.nextCursor ? (
+          {result?.kind === "ready" && hasText(result.nextCursor) ? (
             <Button
               variant="outline"
               onClick={() => {
-                if (result.nextCursor) onNext(result.nextCursor);
+                if (hasText(result.nextCursor)) onNext(result.nextCursor);
               }}
             >
               Следующие рассылки

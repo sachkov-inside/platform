@@ -322,10 +322,10 @@ export function guidePurchaseOffers(
         paymentMode(snapshot) === "one_time" &&
         snapshot.offer.benefits.includes(capability),
     )
-    .sort(
-      (left, right) =>
-        left.firstPriceKopecks - right.firstPriceKopecks ||
-        left.paymentOption.id.localeCompare(right.paymentOption.id),
+    .sort((left, right) =>
+      left.firstPriceKopecks !== right.firstPriceKopecks
+        ? left.firstPriceKopecks - right.firstPriceKopecks
+        : left.paymentOption.id.localeCompare(right.paymentOption.id),
     );
 }
 

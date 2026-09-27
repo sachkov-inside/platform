@@ -109,7 +109,7 @@ describe("sale configuration at process start (real PostgreSQL)", () => {
         },
       }),
     );
-    if (options.archiveOption)
+    if (options.archiveOption === true)
       value(
         await pricing.manage(owner, {
           operation: "paymentOptions.archive",

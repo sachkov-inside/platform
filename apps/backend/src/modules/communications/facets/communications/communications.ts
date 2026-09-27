@@ -12,6 +12,7 @@ import {
 } from "../../communications-contract.js";
 import { requestSchema } from "../../communications-schema.generated.js";
 import type { HttpCommunicationsProvider } from "../../infrastructure/http-communications-provider.js";
+import { hasText } from "../../../../infrastructure/contracts/text.js";
 
 export class Communications {
   constructor(
@@ -62,7 +63,7 @@ export class Communications {
       ["funnels.preview", "funnels.publish"].includes(request.operation) &&
       "funnelId" in request.payload
     ) {
-      if (!this.presentation?.publicOrigin)
+      if (!hasText(this.presentation?.publicOrigin))
         return communicationsFailure("provider_unavailable");
       const loaded = await this.provider.execute(
         requestSchema.parse({

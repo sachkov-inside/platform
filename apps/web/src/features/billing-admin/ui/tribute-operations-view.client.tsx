@@ -21,6 +21,7 @@ import {
   formText,
   onAdminSubmit,
 } from "./admin-form.client";
+import { hasText, presentText } from "@/shared/lib/text";
 
 type Data = z.infer<typeof tributeOperationsViewSchema>;
 type PolicyInput = Omit<z.infer<typeof saveTributePolicySchema>, "operationId">;
@@ -97,7 +98,7 @@ export function TributeOperationsView(props: Props) {
         </Button>
       </div>
       {props.loading ? <p role="status">Загружаем источники Tribute…</p> : null}
-      {props.error ? <p role="alert">{props.error}</p> : null}
+      {hasText(props.error) ? <p role="alert">{props.error}</p> : null}
       <p role="status" aria-live="polite" className="break-words text-sm">
         {props.message}
       </p>
@@ -168,7 +169,8 @@ export function TributeOperationsView(props: Props) {
               enabled: form.get("enabled") === "on",
               tierId: tier?.id,
               tierRevision: tier?.revision,
-              temporaryUntil: formText(form.get("temporaryUntil")) || null,
+              temporaryUntil:
+                presentText(formText(form.get("temporaryUntil"))) ?? null,
               reason: formText(form.get("reason")),
             };
             const parsed = saveTributePolicySchema

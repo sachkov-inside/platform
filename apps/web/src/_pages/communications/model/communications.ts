@@ -4,7 +4,9 @@ const id = z.guid();
 const revision = z.number().int().nonnegative();
 const httpsUrl = z.url().refine((value) => {
   const url = new URL(value);
-  return url.protocol === "https:" && !url.username && !url.password;
+  return (
+    url.protocol === "https:" && url.username === "" && url.password === ""
+  );
 });
 const contentFields = z.object({
   text: z.string().max(4096),

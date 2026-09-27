@@ -29,6 +29,10 @@ nearest `AGENTS.md` owns task routing and verification commands.
   `scripts/toolchain-contract.test.mjs` fails a project that bypasses it. Where `isolatedDeclarations`
   in packages asks for an exported Zod schema's type, write its exact Zod type, not a hand-written
   wire type.
+- `strict-boolean-expressions` (#694) rejects strings, numbers and nullable primitives in a boolean
+  context. `hasText` and `presentText` in `apps/backend/src/infrastructure/contracts/text.ts` and
+  `apps/web/src/shared/lib/text.ts` keep the former truthiness of text: `null`, `undefined` and `""`
+  are absent.
 - Keep checked-in generated contracts deterministic. Change their source and regenerate them; do
   not hand-edit generated output.
 - Name protocol, token, cookie, retry, and polling durations in domain units at the owning boundary.

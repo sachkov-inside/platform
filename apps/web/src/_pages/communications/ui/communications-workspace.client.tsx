@@ -24,6 +24,7 @@ import type { SavedPost } from "../model/broadcasts";
 import { sampleOperation } from "../model/sample-operation";
 import { DeliveryHistory } from "./delivery-history.client";
 import { fieldClass, moveItem, PartsEditor } from "./parts-editor.client";
+import { hasText } from "@/shared/lib/text";
 
 export type CommunicationsActions = typeof Browser;
 export function CommunicationsWorkspace({
@@ -46,14 +47,14 @@ export function CommunicationsWorkspace({
   function operationId(input: unknown): string {
     const key = JSON.stringify(input);
     const prior = operationIds.current.get(key);
-    if (prior) return prior;
+    if (hasText(prior)) return prior;
     const next = crypto.randomUUID();
     operationIds.current.set(key, next);
     return next;
   }
   const list = useQuery({
     queryKey: ["communications", "funnels", cursor],
-    queryFn: () => actions.listFunnels(cursor ? { cursor } : {}),
+    queryFn: () => actions.listFunnels(hasText(cursor) ? { cursor } : {}),
     retry: false,
     refetchOnWindowFocus: false,
   });
@@ -75,7 +76,7 @@ export function CommunicationsWorkspace({
       selected
         ? actions.readDeliveries({
             funnelId: selected.funnelId,
-            ...(deliveryCursor ? { cursor: deliveryCursor } : {}),
+            ...(hasText(deliveryCursor) ? { cursor: deliveryCursor } : {}),
           })
         : Promise.resolve({
             kind: "error" as const,
@@ -450,7 +451,7 @@ export function CommunicationsWorkspace({
                 </ul>
               )}
               <div className="flex gap-3">
-                {cursor ? (
+                {hasText(cursor) ? (
                   <Button
                     type="button"
                     variant="outline"
@@ -463,7 +464,7 @@ export function CommunicationsWorkspace({
                     В начало списка
                   </Button>
                 ) : null}
-                {list.data.value.nextCursor ? (
+                {hasText(list.data.value.nextCursor) ? (
                   <Button
                     type="button"
                     variant="outline"
@@ -529,7 +530,7 @@ export function CommunicationsWorkspace({
                     <Button
                       type="submit"
                       className="min-h-12"
-                      disabled={busy || !activeIntro.parts.length}
+                      disabled={busy || activeIntro.parts.length === 0}
                     >
                       Сохранить общее знакомство
                     </Button>
@@ -1081,7 +1082,7 @@ export function CommunicationsWorkspace({
                             });
                           }}
                         />
-                        {deliveries.data.value.nextCursor ? (
+                        {hasText(deliveries.data.value.nextCursor) ? (
                           <Button
                             type="button"
                             variant="outline"
@@ -1096,7 +1097,7 @@ export function CommunicationsWorkspace({
                             Следующие отправки
                           </Button>
                         ) : null}
-                        {deliveryCursor ? (
+                        {hasText(deliveryCursor) ? (
                           <Button
                             type="button"
                             variant="outline"

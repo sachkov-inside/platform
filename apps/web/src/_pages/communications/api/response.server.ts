@@ -2,6 +2,7 @@ import "server-only";
 import { z } from "zod";
 import type { BackendTransportResult } from "@/shared/api/backend/index.server";
 import type { Result, Failure } from "../model/communications";
+import { hasText } from "@/shared/lib/text";
 
 export async function executeForm<I extends z.ZodType, O extends z.ZodType>(
   form: FormData,
@@ -61,7 +62,7 @@ export async function executeForm<I extends z.ZodType, O extends z.ZodType>(
       key === undefined
         ? {
             ...envelope.data.value,
-            ...(envelope.data.botStartUrl
+            ...(hasText(envelope.data.botStartUrl)
               ? { botStartUrl: envelope.data.botStartUrl }
               : {}),
           }

@@ -21,7 +21,7 @@ const ExitMaterialBlock = Extension.create({
         // Resolve the current DOM caret through ProseMirror's public mapping API.
         const selection = view.dom.ownerDocument.getSelection();
         const caret =
-          selection?.isCollapsed &&
+          selection?.isCollapsed === true &&
           selection.anchorNode &&
           view.dom.contains(selection.anchorNode)
             ? view.posAtDOM(selection.anchorNode, selection.anchorOffset)

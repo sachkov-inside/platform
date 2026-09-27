@@ -1,6 +1,7 @@
 import nodemailer from "nodemailer";
 
 import type { PlatformConfig } from "../../config/platform-config.js";
+import { hasText } from "../contracts/text.js";
 
 const smtpTimeoutMs = 10_000;
 
@@ -40,7 +41,7 @@ export function assembleSmtpTransport(
     connectionTimeout: smtpTimeoutMs,
     greetingTimeout: smtpTimeoutMs,
     socketTimeout: smtpTimeoutMs,
-    ...(config.smtpUser && config.smtpPassword
+    ...(hasText(config.smtpUser) && hasText(config.smtpPassword)
       ? { auth: { user: config.smtpUser, pass: config.smtpPassword } }
       : {}),
     disableFileAccess: true,

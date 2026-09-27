@@ -90,7 +90,7 @@ export function BillingContactForm({
         Это не способ входа.
       </p>
 
-      {sessionExpired ? (
+      {sessionExpired === true ? (
         <div
           className="mt-5 rounded-xl border border-destructive/30 bg-destructive/6 p-4 text-sm"
           role="alert"

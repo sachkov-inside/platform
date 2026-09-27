@@ -52,6 +52,7 @@ import { verifyRecurringConsent } from "../../shared/recurring-consent.js";
 import { attemptSourceRef, lifecycleWindow } from "../../domain/notice.js";
 import { recordBillingNotice } from "../../shared/record-notice.js";
 import { replayCommandFingerprint } from "../../shared/command-fingerprint.js";
+import { hasText } from "../../../../infrastructure/contracts/text.js";
 
 const fulfillmentRetryDelayMilliseconds = 60_000;
 // Кабинет показывает обозримую историю; полный журнал платежей остаётся владельческой операцией.
@@ -322,7 +323,7 @@ export class BillingPayments {
           access:
             row.state !== "confirmed"
               ? "awaiting_payment"
-              : waiting
+              : waiting > 0
                 ? "preparing"
                 : "ready",
           fiscalization: row.fiscalization,
@@ -427,10 +428,10 @@ export class BillingPayments {
       if (row.state === "confirmed" || row.state === "failed")
         return { ok: true, value: true };
       let paymentId = row.paymentId;
-      if (!paymentId) {
+      if (!hasText(paymentId)) {
         const candidates = await bank.order(row.id);
         // Empty/multiple results are uncertainty, not permission to send another Init.
-        if (candidates.length !== 1 || !candidates[0])
+        if (candidates.length !== 1 || !hasText(candidates[0]))
           return paymentFailure("provider_unavailable");
         paymentId = candidates[0];
       }
@@ -543,10 +544,10 @@ export class BillingPayments {
         blocked = 0;
       for (const subscription of due) {
         const prepared = await this.prepareRenewal(subscription.id);
-        if (prepared.attemptRef) {
+        if (hasText(prepared.attemptRef)) {
           await this.dispatch(prepared.attemptRef);
           started += 1;
-        } else if (prepared.blocked) blocked += 1;
+        } else if (prepared.blocked === true) blocked += 1;
       }
       // Закончившийся оплаченный срок без продления освобождает Account для новой покупки.
       const lapsed = await prisma.billingSubscription.findMany({
@@ -612,7 +613,7 @@ export class BillingPayments {
         return undefined;
       const kind = attemptKindSchema.parse(row.kind);
       const now = this.clock();
-      if (row.subscriptionRef) {
+      if (hasText(row.subscriptionRef)) {
         await lockBillingSubscription(tx, row.subscriptionRef);
         const subscription = await tx.billingSubscription.findUnique({
           where: { id: row.subscriptionRef },
@@ -625,7 +626,7 @@ export class BillingPayments {
         if (
           !subscription ||
           !schedulable ||
-          !subscription.bindingCiphertext ||
+          !hasText(subscription.bindingCiphertext) ||
           subscription.bindingRevokedAt !== null
         ) {
           // Отмена или отзыв привязки до отправки: внешнего эффекта нет, попытка закрывается.
@@ -686,7 +687,7 @@ export class BillingPayments {
           where: { id: row.id, state: { in: ["sent", "pending"] } },
           data: { state: "unknown", updatedAt: this.clock() },
         });
-        if (changed.count && isQuotedPurchase(kind))
+        if (changed.count > 0 && isQuotedPurchase(kind))
           await tx.billingPromoReservation.update({
             where: { purchaseRef: attemptRef },
             data: { state: "unknown" },
@@ -729,14 +730,14 @@ export class BillingPayments {
         });
         if (row?.state !== "active" || row.paidUntil > now) return {};
         if (
-          await tx.billingPurchase.count({
+          (await tx.billingPurchase.count({
             where: { subscriptionRef, state: { in: [...inFlightStates] } },
-          })
+          })) > 0
         )
           return {};
         if (
-          !row.bindingCiphertext ||
-          !row.bindingRef ||
+          !hasText(row.bindingCiphertext) ||
+          !hasText(row.bindingRef) ||
           row.bindingRevokedAt !== null
         ) {
           // Отозванная или неполученная привязка закрывает расписание вместе с оплаченным сроком.
@@ -805,9 +806,9 @@ export class BillingPayments {
         where: { id: attemptRef },
       });
       if (
-        !row?.subscriptionRef ||
+        !hasText(row?.subscriptionRef) ||
         row.chargeCalled ||
-        !row.bindingCiphertext ||
+        !hasText(row.bindingCiphertext) ||
         !["sent", "pending"].includes(row.state)
       )
         return undefined;
@@ -818,7 +819,7 @@ export class BillingPayments {
       });
       return bank.openBinding(row.id, row.bindingCiphertext);
     });
-    if (!prepared) return false;
+    if (!hasText(prepared)) return false;
     return (
       await this.accept(await bank.charge({ paymentId, rebillId: prepared }))
     ).ok;
@@ -848,7 +849,7 @@ export class BillingPayments {
           return paymentFailure("invalid_notification");
         const now = this.clock();
         const kind = attemptKindSchema.parse(row.kind);
-        if (row.subscriptionRef)
+        if (hasText(row.subscriptionRef))
           await lockBillingSubscription(tx, row.subscriptionRef);
         if (payment.Status === "RECEIPT") {
           const fiscalization =
@@ -887,8 +888,8 @@ export class BillingPayments {
         }
         if (row.state === "confirmed") {
           if (
-            payment.RebillId &&
-            !row.bindingCiphertext &&
+            hasText(payment.RebillId) &&
+            !hasText(row.bindingCiphertext) &&
             payment.Success &&
             payment.ErrorCode === "0"
           ) {
@@ -900,7 +901,7 @@ export class BillingPayments {
               where: { id: row.id },
               data: { bindingCiphertext },
             });
-            const subscription = row.subscriptionRef
+            const subscription = hasText(row.subscriptionRef)
               ? await tx.billingSubscription.findUnique({
                   where: { id: row.subscriptionRef },
                 })
@@ -909,7 +910,7 @@ export class BillingPayments {
             if (
               subscription &&
               subscription.state !== "ended" &&
-              !subscription.bindingCiphertext
+              !hasText(subscription.bindingCiphertext)
             )
               await tx.billingSubscription.update({
                 where: { id: subscription.id },
@@ -930,7 +931,7 @@ export class BillingPayments {
         const common = {
           paymentId: payment.PaymentId,
           updatedAt: now,
-          ...(payment.RebillId
+          ...(hasText(payment.RebillId)
             ? { bindingCiphertext: bank.sealBinding(row.id, payment.RebillId) }
             : {}),
         };
@@ -1096,7 +1097,7 @@ export class BillingPayments {
               data: { state: "failed" },
             });
           // Однозначный отказ по расписанию завершает продление без automatic retry и без неоплаченного grace.
-          if (kind === "renewal" && row.subscriptionRef) {
+          if (kind === "renewal" && hasText(row.subscriptionRef)) {
             // О списании без покупателя сообщаем: отказ по расписанию он иначе не увидит.
             await recordBillingNotice(
               tx,
@@ -1139,7 +1140,7 @@ export class BillingPayments {
             data: {
               ...common,
               state: authorized ? "authorized" : "pending",
-              ...(paymentUrl && !authorized
+              ...(hasText(paymentUrl) && !authorized
                 ? {
                     paymentUrl: validatedPaymentUrl(
                       paymentUrl,

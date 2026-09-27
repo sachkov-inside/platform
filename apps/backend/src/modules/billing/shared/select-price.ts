@@ -14,6 +14,7 @@ import {
   productOfferUnsellable,
   tierLacksComposition,
 } from "./tier-composition.js";
+import { hasText } from "../../../infrastructure/contracts/text.js";
 
 export interface SelectPriceOptions {
   /** Владельческий каталог читает и выключенные из продажи предложения; покупка их не видит. */
@@ -74,7 +75,10 @@ export async function selectPrice(
       archived: false,
       startsAt: { lte: now },
       endsAt: { gt: now },
-      OR: [{ code: null }, ...(promoCode ? [{ code: promoCode }] : [])],
+      OR: [
+        { code: null },
+        ...(hasText(promoCode) ? [{ code: promoCode }] : []),
+      ],
     },
   });
   const available = [];
@@ -94,7 +98,9 @@ export async function selectPrice(
     if (promotion.usageLimit === null || used < promotion.usageLimit)
       available.push(promotion);
   }
-  available.sort((a, b) => b.percent - a.percent || a.id.localeCompare(b.id));
+  available.sort((a, b) =>
+    b.percent !== a.percent ? b.percent - a.percent : a.id.localeCompare(b.id),
+  );
   const best = available[0];
   const firstPriceKopecks = discountedPrice(
     option.priceKopecks,

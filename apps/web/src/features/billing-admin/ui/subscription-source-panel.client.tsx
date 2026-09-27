@@ -7,6 +7,7 @@ import { useRepeatableOperations } from "@/shared/lib/repeatable-operations.clie
 import { registerSubscriptionSource } from "../api/enrollments.browser";
 import { registerSourceInputSchema } from "../model/enrollment-operations";
 import { AdminField, AdminSection, formText } from "./admin-form.client";
+import { hasText } from "@/shared/lib/text";
 export function SubscriptionSourcePanel() {
   // Время читается при первой отправке: предсборка не видит часов, а повтор команды получает тот же `operationId`.
   const checkedAt = useRef<string | undefined>(undefined);
@@ -35,7 +36,7 @@ export function SubscriptionSourcePanel() {
       title="Подтверждение до регистрации"
       description="Сохраните проверенный курс для известного пользователя источника. Tribute переносится в разделе «Перенос доступа из Tribute». Запись не создаёт аккаунт, платёж или право сама по себе."
     >
-      {message ? <p role="status">{message}</p> : null}
+      {hasText(message) ? <p role="status">{message}</p> : null}
       <form
         className="grid gap-4"
         onSubmit={(event) => {

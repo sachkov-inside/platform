@@ -29,7 +29,7 @@ export interface MaterialCardProps {
   /** Series-owned context rendered below the row title. */
   readonly rowAnnotation?: React.ReactNode;
   readonly seriesOrdinal?: number;
-  readonly readingStatus?: React.ReactNode;
+  readonly readingStatus?: React.ReactElement;
   /** Existing video card with a short continuation caption supplied by its page. */
   readonly resumeLabel?: string;
   readonly showAccessDetails?: boolean;
@@ -284,7 +284,7 @@ export function MaterialCard({
           {material.title}
         </IntentPrefetchLink>
       </Heading>
-      {readingStatus ? (
+      {readingStatus !== undefined ? (
         <span className="mt-2 block">{readingStatus}</span>
       ) : null}
       {isCompact ? (
@@ -323,7 +323,7 @@ function MaterialRow({
   readonly resumeLabel: string | undefined;
   readonly returnHref?: Route;
   readonly rowAnnotation?: React.ReactNode;
-  readonly readingStatus?: React.ReactNode;
+  readonly readingStatus?: React.ReactElement | undefined;
 }) {
   const Heading = headingLevel;
   const isVideo = materialPreviewHasVideo(material);
@@ -392,7 +392,7 @@ function MaterialRow({
             {material.summary}
           </span>
         ) : null}
-        {readingStatus || resumeLabel !== undefined ? (
+        {readingStatus !== undefined || resumeLabel !== undefined ? (
           <span className="mt-2 flex min-h-6 items-center">
             {resumeLabel === undefined ? (
               readingStatus

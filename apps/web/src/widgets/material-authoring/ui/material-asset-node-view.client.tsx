@@ -9,6 +9,7 @@ import {
   MaterialAssetImage,
   materialAssetFileHref,
 } from "@/features/material-assets";
+import { hasText } from "@/shared/lib/text";
 
 export const EditorAssetContext = createContext<{
   materialId: string | null;
@@ -87,13 +88,16 @@ export function MaterialAssetNodeView({
             className="mx-auto"
             style={{ width: `${String(displayWidthPercent)}%` }}
           >
-            {localImage ? (
+            {hasText(localImage) ? (
               <img
                 alt={alt}
                 className="max-h-[65vh] w-full rounded-t-xl object-contain"
                 src={localImage}
               />
-            ) : image && materialId && contentVersion ? (
+            ) : image &&
+              hasText(materialId) &&
+              contentVersion !== null &&
+              contentVersion !== 0 ? (
               <MaterialAssetImage
                 {...image}
                 alt={alt}
@@ -119,7 +123,10 @@ export function MaterialAssetNodeView({
               disabled={!editor.isEditable}
               onChange={(event) => {
                 updateAttributes({
-                  caption: event.currentTarget.value || null,
+                  caption:
+                    event.currentTarget.value === ""
+                      ? null
+                      : event.currentTarget.value,
                 });
               }}
               placeholder="Подпись…"
@@ -184,7 +191,9 @@ export function MaterialAssetNodeView({
             }}
             value={label}
           />
-          {materialId && contentVersion ? (
+          {hasText(materialId) &&
+          contentVersion !== null &&
+          contentVersion !== 0 ? (
             <a
               className="text-sm underline"
               href={materialAssetFileHref({

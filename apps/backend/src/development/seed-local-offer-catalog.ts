@@ -210,7 +210,7 @@ async function withdrawDemoOffers(
     ]),
   );
   for (const offer of offers.values()) {
-    if (!offerIds.has(offer.id) || !offer.published) continue;
+    if (!offerIds.has(offer.id) || offer.published !== true) continue;
     await sendCatalogCommand(pricing, actor, {
       operation: "offers.unpublish",
       operationId: randomUUID(),

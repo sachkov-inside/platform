@@ -127,7 +127,7 @@ export function useMaterialBlockControls(
     const follow = (transaction?: Transaction) => {
       if (editor.isDestroyed) return;
       if (frozen) {
-        if (transaction?.docChanged)
+        if (transaction?.docChanged === true)
           position.current = transaction.mapping.map(position.current);
       } else {
         const { $from } = editor.state.selection;

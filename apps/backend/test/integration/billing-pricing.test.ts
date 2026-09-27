@@ -12,6 +12,7 @@ import {
   type TestDatabase,
 } from "./setup/test-database.js";
 import type { PricingResult } from "../../src/modules/billing/domain/pricing.js";
+import { hasText } from "../../src/infrastructure/contracts/text.js";
 
 function value<T>(result: PricingResult<T>): T {
   if (!result.ok) throw new Error(result.error.code);
@@ -126,7 +127,7 @@ describe("Billing catalog, quotes and reservations on PostgreSQL", () => {
         operationId: randomUUID(),
         paymentOptionId: optionId,
         optionRevision: 1,
-        ...(promoCode ? { promoCode } : {}),
+        ...(hasText(promoCode) ? { promoCode } : {}),
       }),
     );
   }

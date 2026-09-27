@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { hasText } from "../infrastructure/contracts/text.js";
 
 export const brokerUrlSchema = z.url().refine((value) => {
   const url = new URL(value);
@@ -8,7 +9,7 @@ export const brokerUrlSchema = z.url().refine((value) => {
     url.password.length > 0 &&
     url.pathname.length > 1 &&
     !["/", "/%2f"].includes(url.pathname.toLowerCase()) &&
-    !url.hash
+    url.hash === ""
   );
 }, "Notifications broker requires credentials and a non-default environment vhost");
 /** Все principals окружения — разные имена на одном брокере и одном vhost. */
@@ -47,7 +48,7 @@ export type NotificationsConfig = z.infer<typeof notificationsConfigSchema>;
 export function parseNotificationsConfig(
   environment: NodeJS.ProcessEnv,
 ): NotificationsConfig | undefined {
-  if (!environment.NOTIFICATIONS_BROKER_URLS) return undefined;
+  if (!hasText(environment.NOTIFICATIONS_BROKER_URLS)) return undefined;
   let urls: unknown;
   try {
     urls = JSON.parse(environment.NOTIFICATIONS_BROKER_URLS);

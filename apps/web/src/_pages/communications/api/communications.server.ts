@@ -27,6 +27,7 @@ import {
   broadcastSaveInputSchema,
   broadcastActionInputSchema,
 } from "../model/broadcasts";
+import { hasText } from "@/shared/lib/text";
 const version = { contractVersion: "inside-communications-v1" } as const;
 const problemSchema = z.object({ code: z.string() });
 const envelopeSchema = z.object({
@@ -103,7 +104,7 @@ async function read(
         operation,
         payload: {
           contactId: query.get("contactId") ?? "",
-          ...(cursor ? { cursor } : {}),
+          ...(hasText(cursor) ? { cursor } : {}),
         },
       };
     else if (operation === "statistics.read" || operation === "deliveries.read")
@@ -111,16 +112,21 @@ async function read(
         ...base,
         operation,
         payload: {
-          ...(cursor ? { cursor } : {}),
-          ...(query.get("funnelId")
+          ...(hasText(cursor) ? { cursor } : {}),
+          ...(hasText(query.get("funnelId"))
             ? { funnelId: query.get("funnelId") ?? "" }
             : {}),
-          ...(query.get("broadcastId")
+          ...(hasText(query.get("broadcastId"))
             ? { broadcastId: query.get("broadcastId") ?? "" }
             : {}),
         },
       };
-    else input = { ...base, operation, payload: cursor ? { cursor } : {} };
+    else
+      input = {
+        ...base,
+        operation,
+        payload: hasText(cursor) ? { cursor } : {},
+      };
     return Response.json(await execute(input, token, schema), {
       headers: privateHeaders,
     });

@@ -5,6 +5,7 @@ import {
   type NotificationsPrismaClient,
 } from "../../../../infrastructure/prisma/index.js";
 import { channelSchema, fingerprint } from "../../domain/notification-wire.js";
+import { hasText } from "../../../../infrastructure/contracts/text.js";
 export const recoverySchema = z.strictObject({
   operationId: z.uuid(),
   deliveryRef: z.uuid(),
@@ -38,7 +39,7 @@ export async function readDeliveries(
   const rows = await prisma.notificationDelivery.findMany({
     where: {
       notification: { accountId },
-      ...(after ? { id: { gt: z.uuid().parse(after) } } : {}),
+      ...(hasText(after) ? { id: { gt: z.uuid().parse(after) } } : {}),
     },
     orderBy: { id: "asc" },
     take: 50,

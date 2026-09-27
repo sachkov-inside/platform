@@ -27,6 +27,7 @@ import {
   type ReadContactResult,
   type StartContactResult,
 } from "./billing-contact.contract.js";
+import { hasText } from "../../../../infrastructure/contracts/text.js";
 
 const challengeLifetimeMs = 10 * 60 * 1_000;
 const resendCooldownMs = 60 * 1_000;
@@ -81,7 +82,7 @@ export class BillingContact {
       const row = await prisma.billingContact.findUnique({
         where: { accountId },
       });
-      if (!row?.emailCiphertext || !row.verifiedAt)
+      if (!hasText(row?.emailCiphertext) || !row.verifiedAt)
         return { ok: true, contact: null, documents: [...this.documents] };
       if (!protection) return contactFailure("provider_unavailable");
       return {
@@ -115,7 +116,7 @@ export class BillingContact {
         // First sign-in acceptances have no payment context and never stand in for a payment consent.
         where: { id: evidenceRef, accountId, contextRef: { not: null } },
       });
-      if (!row?.contextRef) return contactFailure("not_found");
+      if (!hasText(row?.contextRef)) return contactFailure("not_found");
       return {
         ok: true,
         evidence: {

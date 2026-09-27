@@ -8,6 +8,7 @@ import {
   type CommunicationsActions,
 } from "./communications-workspace.client";
 import { authoringPageEnvironment } from "@/workshop/story-environment";
+import { hasText } from "@/shared/lib/text";
 
 const id = "30800000-0000-4000-8000-000000000001";
 const part: Part = {
@@ -487,7 +488,7 @@ export const SavedPostPagination: Story = {
         Promise.resolve({
           kind: "ready",
           templates: [{ templateId: id, revision: 1, content: part.content }],
-          nextCursor: cursor ? null : "next-page",
+          nextCursor: hasText(cursor) ? null : "next-page",
         }),
       ),
     },

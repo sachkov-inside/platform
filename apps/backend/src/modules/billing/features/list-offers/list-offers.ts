@@ -10,6 +10,7 @@ import {
   type PricingResult,
 } from "../../domain/pricing.js";
 import { selectPrice } from "../../shared/select-price.js";
+import { hasText } from "../../../../infrastructure/contracts/text.js";
 
 export const listOffersSchema = z.strictObject({
   cursor: idSchema.optional(),
@@ -53,7 +54,7 @@ export async function listOffers(
             : { benefits: { has: capability } }),
         },
         ...(mode === undefined ? {} : { mode }),
-        ...(cursor ? { id: { gt: cursor } } : {}),
+        ...(hasText(cursor) ? { id: { gt: cursor } } : {}),
       },
       orderBy: { id: "asc" },
       take: limit + 1,

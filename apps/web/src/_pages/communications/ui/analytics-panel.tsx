@@ -10,6 +10,7 @@ import {
   type deliveryListSchema,
 } from "../model/broadcasts";
 import type { z } from "zod";
+import { hasText } from "@/shared/lib/text";
 export function AnalyticsPanel({
   result,
   funnels,
@@ -111,7 +112,7 @@ export function AnalyticsPanel({
         с.
       </p>
       <h3 className="text-lg font-semibold">Контакты и источники входа</h3>
-      {!s.contacts.length ? (
+      {s.contacts.length === 0 ? (
         <p>Контактов пока нет.</p>
       ) : (
         <ul className={styles.contacts}>
@@ -144,7 +145,7 @@ export function AnalyticsPanel({
           ))}
         </ul>
       )}
-      {s.nextCursor ? (
+      {hasText(s.nextCursor) ? (
         <Button
           variant="outline"
           onClick={() => {
@@ -161,7 +162,7 @@ export function AnalyticsPanel({
         <p role="alert">{errorMessage(deliveries.code)}</p>
       ) : (
         <>
-          {!deliveries.deliveries.length ? (
+          {deliveries.deliveries.length === 0 ? (
             <p>Доставок пока нет.</p>
           ) : (
             <ul className={styles.contacts}>
@@ -180,7 +181,9 @@ export function AnalyticsPanel({
                     {delivery.parts.map((part, i) => (
                       <li key={part.partId} className="break-words">
                         Часть {i + 1}: {deliveryLabels[part.state]}
-                        {part.diagnosticCode ? ` · ${part.diagnosticCode}` : ""}
+                        {hasText(part.diagnosticCode)
+                          ? ` · ${part.diagnosticCode}`
+                          : ""}
                       </li>
                     ))}
                   </ul>
@@ -188,7 +191,7 @@ export function AnalyticsPanel({
               ))}
             </ul>
           )}
-          {deliveries.nextCursor ? (
+          {hasText(deliveries.nextCursor) ? (
             <Button
               variant="outline"
               onClick={() => {
@@ -211,7 +214,7 @@ export function EntryHistory({
   readonly funnels: readonly Funnel[];
 }) {
   const sources = funnels.flatMap((f) => f.sources);
-  return entries.length ? (
+  return entries.length > 0 ? (
     <ol className={styles.history}>
       {entries.map((entry, i) => (
         <li key={i} className="break-words">

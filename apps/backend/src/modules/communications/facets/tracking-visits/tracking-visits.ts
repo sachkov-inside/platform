@@ -6,6 +6,7 @@ import {
 } from "../../../../infrastructure/observability/index.js";
 import type { HttpCommunicationsProvider } from "../../infrastructure/http-communications-provider.js";
 import type { CommunicationsPrisma } from "../../infrastructure/prisma.js";
+import { hasText } from "../../../../infrastructure/contracts/text.js";
 
 export const trackingInputSchema = z.strictObject({
   token: z.string().regex(/^[A-Za-z0-9_-]{32,128}$/u),
@@ -38,17 +39,17 @@ export function isSafeTrackingTarget(
   value: string,
   origin: string | undefined,
 ): boolean {
-  if (!origin) return false;
+  if (!hasText(origin)) return false;
   const parsed = z.url().safeParse(value);
   if (!parsed.success) return false;
   const url = new URL(parsed.data);
   return (
     url.protocol === "https:" &&
     url.origin === new URL(origin).origin &&
-    !url.username &&
-    !url.password &&
-    !url.search &&
-    !url.hash &&
+    url.username === "" &&
+    url.password === "" &&
+    url.search === "" &&
+    url.hash === "" &&
     /^\/(?:materials|series)\/[a-z0-9]+(?:-[a-z0-9]+)*$/u.test(url.pathname)
   );
 }
@@ -67,7 +68,7 @@ export class TrackingVisits {
   async resolve(input: unknown): Promise<z.infer<typeof trackingResultSchema>> {
     const parsed = trackingInputSchema.safeParse(input);
     if (!parsed.success) return { kind: "invalid" };
-    if (!this.origin) return { kind: "unavailable" };
+    if (!hasText(this.origin)) return { kind: "unavailable" };
     const result = await this.provider.execute({
       ...envelope,
       operation: "tracking.resolve",
@@ -164,7 +165,7 @@ export class TrackingVisits {
             availableAt: new Date(+this.now() + HIT_CLAIM_DURATION_MS),
           },
         });
-        if (!claim.count) return;
+        if (claim.count === 0) return;
         // Event and operation IDs survive retries, process restarts and ambiguous ACKs.
         const result = await this.provider.execute({
           ...envelope,

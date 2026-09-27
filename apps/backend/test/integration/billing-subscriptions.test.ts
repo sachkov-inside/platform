@@ -23,6 +23,7 @@ import {
   syntheticConsentDocuments,
   type RenewalSource,
 } from "./setup/consent-documents.js";
+import { hasText } from "../../src/infrastructure/contracts/text.js";
 
 function value<T>(
   result: { ok: true; value: T } | { ok: false; error: { code: string } },
@@ -537,7 +538,8 @@ describe("подписка: продление, отмена, смена вар�
     expect(canceled.inFlightPayment).not.toBeNull();
     s.bank.failCharge = false;
     const attemptRef = pending?.inFlightPayment?.attemptRef;
-    if (!attemptRef) throw new Error("Missing synthetic renewal attempt");
+    if (!hasText(attemptRef))
+      throw new Error("Missing synthetic renewal attempt");
     s.bank.settle(attemptRef, "CONFIRMED");
     expect(await s.payments.reconcile(attemptRef)).toMatchObject({ ok: true });
     expect(await s.view()).toMatchObject({
@@ -586,7 +588,8 @@ describe("подписка: продление, отмена, смена вар�
       }),
     );
     const attemptRef = applied.payment?.purchaseRef;
-    if (!attemptRef) throw new Error("Upgrade payment attempt is missing");
+    if (!hasText(attemptRef))
+      throw new Error("Upgrade payment attempt is missing");
     expect(
       await db.prisma.billingPurchase.findUniqueOrThrow({
         where: { id: attemptRef },
@@ -675,7 +678,8 @@ describe("подписка: продление, отмена, смена вар�
       }),
     );
     const attemptRef = applied.payment?.purchaseRef;
-    if (!attemptRef) throw new Error("Upgrade payment attempt is missing");
+    if (!hasText(attemptRef))
+      throw new Error("Upgrade payment attempt is missing");
     expect(
       (
         await db.prisma.billingPurchase.findUniqueOrThrow({
@@ -752,7 +756,8 @@ describe("подписка: продление, отмена, смена вар�
       }),
     );
     const attemptRef = applied.payment?.purchaseRef;
-    if (!attemptRef) throw new Error("Upgrade payment attempt is missing");
+    if (!hasText(attemptRef))
+      throw new Error("Upgrade payment attempt is missing");
     expect(
       await s.payments.notification(s.bank.notify(attemptRef, "CONFIRMED")),
     ).toMatchObject({ ok: true });
@@ -824,7 +829,8 @@ describe("подписка: продление, отмена, смена вар�
       }),
     );
     const attemptRef = applied.payment?.purchaseRef;
-    if (!attemptRef) throw new Error("Upgrade payment attempt is missing");
+    if (!hasText(attemptRef))
+      throw new Error("Upgrade payment attempt is missing");
     expect(
       await s.payments.notification(s.bank.notify(attemptRef, "CONFIRMED")),
     ).toMatchObject({ ok: true });
@@ -844,8 +850,9 @@ describe("подписка: продление, отмена, смена вар�
     value(await s.payments.renew());
     const pending = await s.view();
     const attemptRef = pending?.inFlightPayment?.attemptRef;
-    if (!attemptRef) throw new Error("Missing synthetic renewal attempt");
-    expect(pending.inFlightPayment).toMatchObject({
+    if (!hasText(attemptRef))
+      throw new Error("Missing synthetic renewal attempt");
+    expect(pending?.inFlightPayment).toMatchObject({
       kind: "renewal",
       state: "unknown",
     });

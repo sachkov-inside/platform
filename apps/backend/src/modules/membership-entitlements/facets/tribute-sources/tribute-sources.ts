@@ -223,7 +223,7 @@ export class TributeSources {
       prior?.mode === "confirmed_period" ||
       enrollment?.endPolicy === "confirmed_external";
     const binding =
-      link?.ok && link.state === "found"
+      link?.ok === true && link.state === "found"
         ? accessFingerprint(link.recipient)
         : null;
     const result = {
@@ -232,7 +232,9 @@ export class TributeSources {
       detail: "Подтверждённое обновление",
       sourceId: source?.id ?? null,
       accountId:
-        link?.ok && link.state === "found" ? link.recipient.accountId : null,
+        link?.ok === true && link.state === "found"
+          ? link.recipient.accountId
+          : null,
       bindingFingerprint:
         binding === null
           ? null
@@ -1029,7 +1031,7 @@ export class TributeSources {
         if (
           !link.ok ||
           link.state !== "found" ||
-          !policy?.enabled ||
+          policy?.enabled !== true ||
           !eligibleTierIds.includes(state.data.tier.id)
         ) {
           pending++;

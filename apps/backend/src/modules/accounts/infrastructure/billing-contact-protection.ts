@@ -5,6 +5,7 @@ import {
   randomBytes,
   timingSafeEqual,
 } from "node:crypto";
+import { hasText } from "../../../infrastructure/contracts/text.js";
 
 export function billingContactProtection(secret: string) {
   const key = Buffer.from(secret, "base64");
@@ -36,7 +37,13 @@ export function billingContactProtection(secret: string) {
     },
     open(accountId: string, envelope: string): string {
       const [version, iv, tag, ciphertext, extra] = envelope.split(".");
-      if (version !== "v1" || !iv || !tag || !ciphertext || extra !== undefined)
+      if (
+        version !== "v1" ||
+        !hasText(iv) ||
+        !hasText(tag) ||
+        !hasText(ciphertext) ||
+        extra !== undefined
+      )
         throw new Error("Invalid contact envelope");
       const decipher = createDecipheriv(
         "aes-256-gcm",

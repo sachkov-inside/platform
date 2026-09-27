@@ -33,6 +33,7 @@ import {
   NotificationOperationsController,
 } from "./features/read-deliveries/notifications.controller.js";
 import { NotificationDispatchController } from "./features/authorize-dispatch/notification-dispatch.controller.js";
+import { hasText } from "../../infrastructure/contracts/text.js";
 
 @Module({
   imports: [
@@ -121,8 +122,8 @@ import { NotificationDispatchController } from "./features/authorize-dispatch/no
                 });
                 if (!result.ok)
                   throw new Error("notification_binding_unavailable");
-                return result.binding?.telegramIdentityRef &&
-                  result.binding.accountRef
+                return hasText(result.binding?.telegramIdentityRef) &&
+                  hasText(result.binding.accountRef)
                   ? {
                       channel: "telegram",
                       ...result.binding,
