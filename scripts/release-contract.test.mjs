@@ -1,3 +1,4 @@
+// @ts-check
 import assert from "node:assert/strict";
 import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -185,6 +186,10 @@ describe("release contract CLI", () => {
   });
 });
 
+/**
+ * @param {string} command
+ * @param {string} inputPath
+ */
 function runReleaseContract(command, inputPath) {
   return spawnSync(
     process.execPath,
@@ -196,6 +201,10 @@ function runReleaseContract(command, inputPath) {
   );
 }
 
+/**
+ * @param {string} command
+ * @param {unknown} input
+ */
 function runReleaseContractWithInput(command, input) {
   return spawnSync(
     process.execPath,
@@ -208,6 +217,7 @@ function runReleaseContractWithInput(command, input) {
   );
 }
 
+/** @param {unknown} input */
 function runImageReference(input) {
   return spawnSync(
     process.execPath,
@@ -229,6 +239,7 @@ function runImageReference(input) {
   );
 }
 
+/** @param {unknown} backend */
 function runManifestWithBackend(backend) {
   return runManifestWithImages(
     backend,
@@ -236,6 +247,10 @@ function runManifestWithBackend(backend) {
   );
 }
 
+/**
+ * @param {unknown} backend
+ * @param {unknown} web
+ */
 function runManifestWithImages(backend, web) {
   const directory = mkdtempSync(
     resolve(tmpdir(), "platform-release-manifest-"),
@@ -260,6 +275,17 @@ function runManifestWithImages(backend, web) {
   }
 }
 
+/**
+ * A JSON object fixture; the tests spread it into altered inputs.
+ *
+ * @param {string} path
+ */
 function readJson(path) {
-  return JSON.parse(readFileSync(resolve(repositoryRoot, path), "utf8"));
+  /** @type {unknown} */
+  const value = JSON.parse(readFileSync(resolve(repositoryRoot, path), "utf8"));
+  assert.ok(
+    typeof value === "object" && value !== null,
+    `${path} must hold a JSON object`,
+  );
+  return value;
 }

@@ -17,6 +17,7 @@ export const checkDatabaseName = "inside_checks";
  * @property {RunCommand} [run]
  */
 
+/** @param {number | string} [port] */
 export function checkDatabaseUrl(port = 5432) {
   return `postgresql://inside:inside@127.0.0.1:${String(port)}/${checkDatabaseName}`;
 }

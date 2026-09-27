@@ -1,3 +1,4 @@
+// @ts-check
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
 import { readFileSync } from "node:fs";
@@ -5,9 +6,39 @@ import { isDeepStrictEqual } from "node:util";
 import { dirname, matchesGlob, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, it } from "node:test";
+import { z } from "zod";
 
 const repositoryRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
+/** @param {string} path */
 const read = (path) => readFileSync(resolve(repositoryRoot, path), "utf8");
+// The tsconfig and lint fields the contracts below compare; the rest passes through.
+const tsconfigSchema = z
+  .object({
+    extends: z.unknown().optional(),
+    compilerOptions: z.record(z.string(), z.unknown()).optional(),
+    include: z.array(z.string()).optional(),
+    exclude: z.array(z.string()).optional(),
+  })
+  .passthrough();
+const oxlintConfigSchema = z
+  .object({
+    overrides: z.array(
+      z
+        .object({
+          files: z.array(z.string()),
+          rules: z.record(z.string(), z.unknown()).optional(),
+        })
+        .passthrough(),
+    ),
+  })
+  .passthrough();
+/**
+ * @typedef {z.infer<typeof tsconfigSchema>} TsConfig
+ * @typedef {z.infer<typeof oxlintConfigSchema>} OxlintConfig
+ * @typedef {OxlintConfig["overrides"][number]} OxlintOverride
+ */
+/** @param {string} path */
+const readTsconfig = (path) => tsconfigSchema.parse(JSON.parse(read(path)));
 const rootPackage = JSON.parse(read("package.json"));
 const backendPackage = JSON.parse(read("apps/backend/package.json"));
 const webPackage = JSON.parse(read("apps/web/package.json"));
@@ -102,7 +133,7 @@ describe("supported toolchain contract", () => {
       true,
     );
     assert.equal(
-      compilerOptionsOf("apps/backend/tsconfig.json").experimentalDecorators,
+      compilerOptionsOf("apps/backend/tsconfig.json")["experimentalDecorators"],
       true,
     );
     assert.ok(backendTypeScript.include.includes("src/**/*.ts"));
@@ -153,11 +184,11 @@ describe("supported toolchain contract", () => {
       assert.equal(compilerOptionsOf("tsconfig.base.json")[flag], value, flag);
     }
     assert.equal(
-      compilerOptionsOf("tsconfig.node-lib.json").erasableSyntaxOnly,
+      compilerOptionsOf("tsconfig.node-lib.json")["erasableSyntaxOnly"],
       true,
     );
     assert.equal(
-      compilerOptionsOf("tsconfig.node-lib.json").isolatedDeclarations,
+      compilerOptionsOf("tsconfig.node-lib.json")["isolatedDeclarations"],
       true,
     );
 
@@ -211,12 +242,14 @@ describe("supported toolchain contract", () => {
   });
 
   it("keeps one strict type-aware lint set for backend, web and packages", () => {
-    const config = JSON.parse(read(".oxlintrc.json"));
+    const config = oxlintConfigSchema.parse(JSON.parse(read(".oxlintrc.json")));
     assert.deepEqual(strictLintViolations(config), []);
 
     // Negative fixtures: a second type-aware copy, a package left out, a strict rule missing from
     // the shared set, and an application override that switches a strict rule off.
     const [shared] = config.overrides.filter(isTypeAwareOverride);
+    assert.ok(shared);
+    /** @param {OxlintOverride[]} overrides */
     const withOverrides = (overrides) => ({ ...config, overrides });
     assert.deepEqual(
       strictLintViolations(
@@ -245,7 +278,7 @@ describe("supported toolchain contract", () => {
       ["type-aware lint must cover packages/**/*.{ts,mts,cts}"],
     );
     const { "typescript/prefer-optional-chain": _omitted, ...withoutRule } =
-      shared.rules;
+      shared.rules ?? {};
     assert.deepEqual(
       strictLintViolations(
         withOverrides(
@@ -305,7 +338,7 @@ describe("supported toolchain contract", () => {
     );
   });
 
-  it("type-checks every repository script unless it is listed as not yet typed", () => {
+  it("type-checks every repository script", () => {
     assert.match(
       rootPackage.scripts.typecheck,
       /tsc -p tsconfig\.scripts\.json/u,
@@ -318,24 +351,26 @@ describe("supported toolchain contract", () => {
       .filter((path) => path.length > 0 && !outsideScriptCheck(path));
     assert.deepEqual(scriptCheckViolations(scripts, read), []);
 
-    // Negative fixtures: an unchecked new script, a listed script that is typed now, a script outside
-    // the project, a checked script that switches the check off and a listed script that is gone.
-    const [listed] = untypedScripts;
+    // Negative fixtures: a new script without the check, one that starts with a different comment,
+    // a script outside the project and a checked script that switches the check off.
+    /** @type {Record<string, string>} */
     const contents = {
       "scripts/new.mjs": "export {};\n",
+      "tools/authoring/commented.mjs": "// Local tool.\n// @ts-check\n",
       "scripts/typed.mjs": "#!/usr/bin/env node\n// @ts-check\n",
       "other/checked.mjs": "// @ts-check\n",
       "scripts/escaped.mjs": "// @ts-check\n// @ts-nocheck\n",
-      [listed]: "// @ts-check\n",
     };
     assert.deepEqual(
-      scriptCheckViolations(Object.keys(contents), (path) => contents[path]),
+      scriptCheckViolations(
+        Object.keys(contents),
+        (path) => contents[path] ?? "",
+      ),
       [
         "scripts/new.mjs must start with // @ts-check",
+        "tools/authoring/commented.mjs must start with // @ts-check",
         "other/checked.mjs must be in tsconfig.scripts.json",
         "scripts/escaped.mjs must not switch its check off with @ts-nocheck",
-        `${listed} is typed now: remove it from untypedScripts`,
-        ...untypedScripts.slice(1).map((path) => `${path} no longer exists`),
       ],
     );
   });
@@ -668,8 +703,9 @@ describe("supported toolchain contract", () => {
       /\n {2}profile-avatars-worker:\n([\s\S]*?)(?=\n {2}[a-z][a-z0-9-]*:\n|$)/u,
     );
 
-    assert.ok(workerBlock, "compose.yaml must declare profile-avatars-worker");
-    assert.match(workerBlock[1], /profile-avatars-worker\.env/u);
+    const [, workerBody] = workerBlock ?? [];
+    assert.ok(workerBody, "compose.yaml must declare profile-avatars-worker");
+    assert.match(workerBody, /profile-avatars-worker\.env/u);
     for (const path of [
       "config/compose/local/profile-avatars-worker.env",
       "config/compose/production/api.env.example",
@@ -686,7 +722,7 @@ describe("supported toolchain contract", () => {
     ];
 
     assert.ok(groupBodies.length > 0);
-    for (const [, name, body] of groupBodies) {
+    for (const [, name, body = ""] of groupBodies) {
       assert.match(
         body,
         /^\s{8}update-types: \[minor, patch\]$/mu,
@@ -736,7 +772,12 @@ describe("supported toolchain contract", () => {
 
 const documentedSecurityOverrides = ["mysql2", "deepmerge-ts"];
 
-/** Тег читает человек, digest фиксирует базу: перевыпущенный тег не меняет следующий выпуск. */
+/**
+ * Тег читает человек, digest фиксирует базу: перевыпущенный тег не меняет следующий выпуск.
+ *
+ * @param {string} path
+ * @param {string} dockerfile
+ */
 function assertNodeBasesPinnedByDigest(path, dockerfile) {
   const nodeBases = dockerfile.match(/^FROM node:\S+/gmu) ?? [];
   assert.ok(
@@ -757,14 +798,23 @@ const swaggerTypeScriptAllowance = `peerDependencyRules:
     "@nestjs/swagger>typescript": "7"
 `;
 
-/** The whole top-level block, so a widened rule next to the allowance cannot pass unnoticed. */
+/**
+ * The whole top-level block, so a widened rule next to the allowance cannot pass unnoticed.
+ *
+ * @param {string} workspace
+ */
 function peerDependencyRulesBlock(workspace) {
   return (
     workspace.match(/^peerDependencyRules:\n(?:(?: {2}.*)?\n)*/mu)?.[0] ?? ""
   );
 }
 
-/** Nest CLI loads the plugin by package name from nest-cli.json; code loads it by its subpath. */
+/**
+ * Nest CLI loads the plugin by package name from nest-cli.json; code loads it by its subpath.
+ *
+ * @param {string} path
+ * @param {string} source
+ */
 function loadsSwaggerPlugin(path, source) {
   return (
     source.includes("@nestjs/swagger/plugin") ||
@@ -772,12 +822,14 @@ function loadsSwaggerPlugin(path, source) {
   );
 }
 
+/** @param {string} workspace */
 function overrideNames(workspace) {
-  const overrides = workspace.match(/^overrides:\n((?:(?: {2}.*)?\n)*)/mu);
-  return overrides === null
+  const [, overrides] =
+    workspace.match(/^overrides:\n((?:(?: {2}.*)?\n)*)/mu) ?? [];
+  return overrides === undefined
     ? []
-    : [...overrides[1].matchAll(/^ {2}([^#\s:][^:]*):/gmu)].map(
-        (match) => match[1],
+    : [...overrides.matchAll(/^ {2}([^#\s:][^:]*):/gmu)].map(
+        ([, name = ""]) => name,
       );
 }
 
@@ -794,7 +846,11 @@ const strictLintRules = [
   "typescript/prefer-optional-chain",
   "typescript/strict-boolean-expressions",
 ];
-/** Options #694 fixes for rules that take them; a weaker option is a violation too. */
+/**
+ * Options #694 fixes for rules that take them; a weaker option is a violation too.
+ *
+ * @type {Record<string, unknown>}
+ */
 const strictLintOptions = {
   "typescript/strict-boolean-expressions": {
     allowString: false,
@@ -805,22 +861,27 @@ const strictLintOptions = {
 const generatedCodeFiles =
   "apps/backend/src/infrastructure/prisma/generated/**/*.ts";
 
-/** `no-floating-promises` needs type information, so only a type-aware set declares it. */
+/**
+ * `no-floating-promises` needs type information, so only a type-aware set declares it.
+ *
+ * @param {OxlintOverride} override
+ */
 function isTypeAwareOverride(override) {
   return "typescript/no-floating-promises" in (override.rules ?? {});
 }
 
+/** @param {OxlintConfig} config */
 function strictLintViolations(config) {
   const typeAware = config.overrides.filter(isTypeAwareOverride);
-  if (typeAware.length !== 1) {
+  const [shared] = typeAware;
+  if (typeAware.length !== 1 || shared === undefined) {
     return [`expected one type-aware override, found ${typeAware.length}`];
   }
-  const [shared] = typeAware;
   const violations = typeAwareLintFiles
     .filter((files) => !shared.files.includes(files))
     .map((files) => `type-aware lint must cover ${files}`);
   for (const rule of strictLintRules) {
-    const setting = shared.rules[rule];
+    const setting = shared.rules?.[rule];
     if ((Array.isArray(setting) ? setting[0] : setting) !== "error") {
       violations.push(`${rule} must be an error in the shared set`);
     }
@@ -847,65 +908,10 @@ function strictLintViolations(config) {
 }
 
 /**
- * Repository `.mjs` files that are not yet typed under `tsconfig.scripts.json` (#694). A file leaves
- * this list by starting with `// @ts-check` and passing `pnpm typecheck`; a new script starts typed.
+ * Managed harness copies, recorded evidence and test fixtures are not repository scripts.
+ *
+ * @param {string} path
  */
-const untypedScripts = [
-  "apps/backend/scripts/check-backend-architecture.mjs",
-  "apps/backend/scripts/generate-communications-contract.mjs",
-  "apps/web/scripts/check-web-architecture.mjs",
-  "apps/web/test/navigation/fake-backend.mjs",
-  "packages/runtime-identity/http-healthcheck.mjs",
-  "scripts/authoring-stand-gateway.mjs",
-  "scripts/billing-contact-proof.mjs",
-  "scripts/check-access-capabilities-boundary.mjs",
-  "scripts/check-agent-documentation.mjs",
-  "scripts/check-database.test.mjs",
-  "scripts/communications-browser-smoke.mjs",
-  "scripts/editor-local-review.mjs",
-  "scripts/enrollment-browser-smoke.mjs",
-  "scripts/full-stack-identity.mjs",
-  "scripts/full-stack-identity.test.mjs",
-  "scripts/full-stack-smoke.mjs",
-  "scripts/http-healthcheck.test.mjs",
-  "scripts/identity-hardening-proof.mjs",
-  "scripts/identity-proof-artifacts.test.mjs",
-  "scripts/identity-proof-bootstrap.mjs",
-  "scripts/identity-proof-session.mjs",
-  "scripts/identity-proof-start.mjs",
-  "scripts/inside-deploy-gateway.test.mjs",
-  "scripts/integration-serial-files.test.mjs",
-  "scripts/local-stand.mjs",
-  "scripts/production-deployment.test.mjs",
-  "scripts/production-foundation-contract.test.mjs",
-  "scripts/production-runtime-contract.test.mjs",
-  "scripts/release-contract.mjs",
-  "scripts/release-contract.test.mjs",
-  "scripts/release-workflow-contract.test.mjs",
-  "scripts/setup-local.mjs",
-  "scripts/telegram-sign-in-local.mjs",
-  "scripts/toolchain-contract.test.mjs",
-  "scripts/tribute-local-acceptance.mjs",
-  "tools/authoring/git-local.mjs",
-  "tools/authoring/git-local.test.mjs",
-  "tools/authoring/journal.mjs",
-  "tools/authoring/local-boundaries.test.mjs",
-  "tools/authoring/local-sync.mjs",
-  "tools/authoring/local-sync.test.mjs",
-  "tools/authoring/markdown.mjs",
-  "tools/authoring/markdown.test.mjs",
-  "tools/authoring/package.mjs",
-  "tools/authoring/package.test.mjs",
-  "tools/authoring/products.mjs",
-  "tools/authoring/release.mjs",
-  "tools/authoring/release.test.mjs",
-  "tools/authoring/sync-completion.test.mjs",
-  "tools/authoring/target.mjs",
-  "tools/authoring/video.mjs",
-  "tools/authoring/video.test.mjs",
-];
-
-/** Managed harness copies, recorded evidence and test fixtures are not repository scripts. */
 function outsideScriptCheck(path) {
   return (
     path.startsWith(".inside-harness/") ||
@@ -914,8 +920,16 @@ function outsideScriptCheck(path) {
   );
 }
 
+/**
+ * Every repository script is inside tsconfig.scripts.json and checked there: it starts with
+ * `// @ts-check` and never switches the check off (#694, #756).
+ *
+ * @param {string[]} scripts
+ * @param {(path: string) => string} contentOf
+ */
 function scriptCheckViolations(scripts, contentOf) {
-  const { include, exclude } = JSON.parse(read("tsconfig.scripts.json"));
+  const { include = [], exclude = [] } = readTsconfig("tsconfig.scripts.json");
+  /** @type {string[]} */
   const violations = [];
   for (const path of scripts) {
     if (
@@ -926,18 +940,11 @@ function scriptCheckViolations(scripts, contentOf) {
       continue;
     }
     const checked = /^(?:#!.*\n)?\/\/ @ts-check\n/u.test(contentOf(path));
-    if (checked && /^\s*(?:\/\/|\/\*)\s*@ts-nocheck/mu.test(contentOf(path))) {
+    if (!checked) {
+      violations.push(`${path} must start with // @ts-check`);
+    } else if (/^\s*(?:\/\/|\/\*)\s*@ts-nocheck/mu.test(contentOf(path))) {
       violations.push(`${path} must not switch its check off with @ts-nocheck`);
     }
-    if (!checked && !untypedScripts.includes(path)) {
-      violations.push(`${path} must start with // @ts-check`);
-    }
-    if (checked && untypedScripts.includes(path)) {
-      violations.push(`${path} is typed now: remove it from untypedScripts`);
-    }
-  }
-  for (const path of untypedScripts) {
-    if (!scripts.includes(path)) violations.push(`${path} no longer exists`);
   }
   return violations;
 }
@@ -959,7 +966,12 @@ const sharedStrictness = {
   isolatedModules: true,
 };
 
-/** Why one tracked tsconfig breaks the shared base contract; `overrides` replaces files for fixtures. */
+/**
+ * Why one tracked tsconfig breaks the shared base contract; `overrides` replaces files for fixtures.
+ *
+ * @param {string} path
+ * @param {Record<string, TsConfig>} [overrides]
+ */
 function sharedBaseViolations(path, overrides = {}) {
   if (path === "tsconfig.base.json") return [];
   const chain = extendsChain(path, overrides);
@@ -971,18 +983,28 @@ function sharedBaseViolations(path, overrides = {}) {
   ) {
     return [`${path} must use tsconfig.node-lib.json`];
   }
-  const own = (overrides[path] ?? JSON.parse(read(path))).compilerOptions ?? {};
+  const own = (overrides[path] ?? readTsconfig(path)).compilerOptions ?? {};
   return Object.keys(sharedStrictness)
     .filter((flag) => flag in own)
     .map((flag) => `${path} must not override ${flag}`);
 }
 
-/** Repository-relative configs a project inherits, nearest first; `overrides` replaces files for fixtures. */
+/**
+ * Repository-relative configs a project inherits, nearest first; `overrides` replaces files for
+ * fixtures.
+ *
+ * @param {string} path
+ * @param {Record<string, TsConfig>} [overrides]
+ */
 function extendsChain(path, overrides = {}) {
+  /** @type {string[]} */
   const chain = [];
-  for (let current = path; current !== undefined;) {
+  /** @type {string | undefined} */
+  let current = path;
+  while (current !== undefined) {
     chain.push(current);
-    const config = overrides[current] ?? JSON.parse(read(current));
+    /** @type {TsConfig} */
+    const config = overrides[current] ?? readTsconfig(current);
     current =
       typeof config.extends === "string"
         ? relative(
@@ -994,15 +1016,16 @@ function extendsChain(path, overrides = {}) {
   return chain;
 }
 
+/** @param {string} path */
 function compilerOptionsOf(path) {
-  return Object.assign(
-    {},
-    ...extendsChain(path)
-      .reverse()
-      .map((config) => JSON.parse(read(config)).compilerOptions ?? {}),
-  );
+  /** @type {Record<string, unknown>} */
+  const options = {};
+  for (const config of extendsChain(path).reverse())
+    Object.assign(options, readTsconfig(config).compilerOptions ?? {});
+  return options;
 }
 
+/** @param {string} value */
 function escapeRegExp(value) {
   return value.replace(/[.*+?^${}()|[\]\\]/gu, "\\$&");
 }

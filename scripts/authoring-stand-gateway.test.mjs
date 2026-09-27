@@ -22,7 +22,8 @@ test("forwards only authoring API paths from a non-browser loopback client", () 
     ),
     "/authoring/collections?kind=topic",
   );
-  for (const [candidateHost, url, origin] of [
+  /** @type {[string, string, string | undefined][]} */
+  const refused = [
     ["localhost:4398", "/__local-api/authoring/materials", undefined],
     ["evil.example", "/__local-api/authoring/materials", undefined],
     [host, "/__local-api/authoring/materials", "http://127.0.0.1:3000"],
@@ -31,7 +32,8 @@ test("forwards only authoring API paths from a non-browser loopback client", () 
     [host, "/__local-api/authoring/../accounts/me", undefined],
     [host, "/__local-api/authoring/%2e%2e/accounts", undefined],
     [host, "/__local-api/authoring//materials", undefined],
-  ])
+  ];
+  for (const [candidateHost, url, origin] of refused)
     assert.equal(
       forwardedPath(candidateHost, url, origin),
       null,

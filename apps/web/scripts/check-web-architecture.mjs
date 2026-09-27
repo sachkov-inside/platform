@@ -1,9 +1,17 @@
+// @ts-check
 import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import path from "node:path";
 import process from "node:process";
 import { fileURLToPath, URL } from "node:url";
 
 import { parseSync, Visitor } from "oxc-parser";
+
+/**
+ * @typedef {import("oxc-parser").Program} Program
+ * @typedef {import("oxc-parser").Statement} Statement
+ * @typedef {import("oxc-parser").Function | import("oxc-parser").ArrowFunctionExpression} FunctionNode
+ * @typedef {import("oxc-parser").Node} AstNode
+ */
 
 const webRoot = fileURLToPath(new URL("..", import.meta.url));
 const requestedRoots = process.argv.slice(2);
@@ -59,6 +67,10 @@ const runtimeConfigurationNames = new Set([
   "WEB_BASE_URL",
 ]);
 
+/**
+ * @param {string} root
+ * @returns {string[]}
+ */
 function sourceFiles(root) {
   if (statSync(root).isFile()) return [root];
   return readdirSync(root, { withFileTypes: true }).flatMap((entry) => {
@@ -68,11 +80,14 @@ function sourceFiles(root) {
   });
 }
 
+/** @param {string} file */
 function scannedPath(file) {
   return path.relative(webRoot, file).split(path.sep).join("/");
 }
 
+/** @param {Program} program */
 function moduleSpecifiers(program) {
+  /** @type {string[]} */
   const specifiers = [];
   new Visitor({
     ImportDeclaration(node) {
@@ -91,7 +106,9 @@ function moduleSpecifiers(program) {
   return specifiers;
 }
 
+/** @param {Program} program */
 function stringLiterals(program) {
+  /** @type {string[]} */
   const values = [];
   new Visitor({
     Literal(node) {
@@ -108,6 +125,7 @@ function stringLiterals(program) {
   return values;
 }
 
+/** @param {Program} program */
 function hasUseClientDirective(program) {
   for (const statement of program.body) {
     if (
@@ -122,6 +140,10 @@ function hasUseClientDirective(program) {
   return false;
 }
 
+/**
+ * @param {Program} program
+ * @param {string} directive
+ */
 function hasDirective(program, directive) {
   return program.body.some(
     (statement) =>
@@ -130,7 +152,12 @@ function hasDirective(program, directive) {
   );
 }
 
-/** `"use cache"` и его варианты: `"use cache: private"`, `"use cache: remote"`. */
+/**
+ * `"use cache"` и его варианты: `"use cache: private"`, `"use cache: remote"`.
+ *
+ * @param {Statement} statement
+ * @returns {statement is import("oxc-parser").ExpressionStatement & { directive: string }}
+ */
 function isCacheDirective(statement) {
   return (
     statement.type === "ExpressionStatement" &&
@@ -142,8 +169,11 @@ function isCacheDirective(statement) {
 /**
  * Кеш-директивы файла: на уровне модуля и внутри функций. Общий кеш держит только гостевое чтение
  * каталога (ADR 0027), поэтому искать приходится и во вложенных телах.
+ *
+ * @param {Program} program
  */
 function cacheDirectives(program) {
+  /** @type {string[]} */
   const directives = [];
   new Visitor({
     ExpressionStatement(node) {
@@ -156,16 +186,26 @@ function cacheDirectives(program) {
 /**
  * Политика кеша принадлежит функции, а не файлу: у второго кешированного чтения в том же модуле без
  * неё не было бы ни тега, ни срока, и авторская запись его бы не сбросила.
+ *
+ * @param {Program} program
  */
 function hasCachedReadWithoutPolicy(program) {
   let found = false;
+  /** @param {FunctionNode} node */
   const check = (node) => {
     if (
       node.body?.type !== "BlockStatement" ||
       !node.body.body.some(isCacheDirective)
     )
       return;
-    if (!namesIdentifier(node.body, "applyCatalogCachePolicy")) found = true;
+    // The visitor walks a program's statements, so the function's own statements form one.
+    if (
+      !namesIdentifier(
+        { ...program, body: node.body.body },
+        "applyCatalogCachePolicy",
+      )
+    )
+      found = true;
   };
   new Visitor({
     ArrowFunctionExpression: check,
@@ -175,7 +215,13 @@ function hasCachedReadWithoutPolicy(program) {
   return found;
 }
 
-/** Именованный импорт под своим именем: переименованный или чужой одноимённый правило не выполняет. */
+/**
+ * Именованный импорт под своим именем: переименованный или чужой одноимённый правило не выполняет.
+ *
+ * @param {Program} program
+ * @param {string} source
+ * @param {string} name
+ */
 function importsNamed(program, source, name) {
   return program.body.some(
     (statement) =>
@@ -191,6 +237,10 @@ function importsNamed(program, source, name) {
   );
 }
 
+/**
+ * @param {Program} program
+ * @param {string} name
+ */
 function namesIdentifier(program, name) {
   let seen = false;
   new Visitor({
@@ -201,6 +251,7 @@ function namesIdentifier(program, name) {
   return seen;
 }
 
+/** @param {string} specifier */
 function importsTheSession(specifier) {
   return specifier.includes("shared/auth") || specifier === "next/headers";
 }
@@ -209,6 +260,8 @@ function importsTheSession(specifier) {
  * Модуль с кеш-директивой не должен видеть сессию: ни токена, ни cookie, ни модуля входа. Проверка
  * ловит прямое нарушение; токен под другим именем или сессия через посредника остаются делом
  * обзора — их не отличить от обычного кода по форме.
+ *
+ * @param {Program} program
  */
 function seesTheSession(program) {
   return (
@@ -217,7 +270,11 @@ function seesTheSession(program) {
   );
 }
 
-/** `proxy` решает только по тому, что web знает сам (ADR 0027, «Настоящий 404 до начала ответа»). */
+/**
+ * `proxy` решает только по тому, что web знает сам (ADR 0027, «Настоящий 404 до начала ответа»).
+ *
+ * @param {string} specifier
+ */
 function reachesRequestTimeDependency(specifier) {
   return (
     importsTheSession(specifier) ||
@@ -229,6 +286,8 @@ function reachesRequestTimeDependency(specifier) {
 /**
  * Сессия и сеть без импорта: обращение к `.cookies` и вызов `fetch`. Cookie из сырого заголовка
  * остаётся делом обзора — по форме это обычное чтение заголовка.
+ *
+ * @param {Program} program
  */
 function readsCookiesOrFetches(program) {
   let found = false;
@@ -250,10 +309,16 @@ function readsCookiesOrFetches(program) {
   return found;
 }
 
-/** Обходит модули, до которых дотягивается `entry`, и отдаёт каждый вместе с его программой. */
+/**
+ * Обходит модули, до которых дотягивается `entry`, и отдаёт каждый вместе с его программой.
+ *
+ * @param {string} entry
+ */
 function reachableModules(entry) {
+  /** @type {Set<string>} */
   const visited = new Set();
   const pending = [entry];
+  /** @type {{ file: string; program: Program }[]} */
   const reached = [];
   while (pending.length > 0) {
     const file = pending.pop();
@@ -282,6 +347,8 @@ const prerenderedRouteHandlers = ["app/(public)/social-card/route.tsx"];
  * предсборки приходит исключением, и `catch` выдаёт его за сбой зависимости, который застывает в
  * образе (ADR 0027). Поэтому обработчик объявлен в самом файле маршрута и начинается с
  * `await connection()`; переэкспорт допустим только из другого файла маршрута.
+ *
+ * @param {Program} program
  */
 function getHandlerFinding(program) {
   for (const statement of program.body) {
@@ -339,21 +406,27 @@ const layerRanks = new Map([
   ["app", 5],
 ]);
 
+/** @param {string} file */
 function moduleLayer(file) {
   const segments = scannedPath(file).split("/");
   const sourceIndex = segments.lastIndexOf("src");
   const appIndex = segments.lastIndexOf("app");
   const layerIndex = sourceIndex >= 0 ? sourceIndex + 1 : appIndex;
   const layer = segments[layerIndex];
-  if (!layerRanks.has(layer)) return undefined;
+  const rank = layer === undefined ? undefined : layerRanks.get(layer);
+  if (layer === undefined || rank === undefined) return undefined;
   const rawSlice = segments[layerIndex + 1] ?? "";
   return {
     layer,
-    rank: layerRanks.get(layer),
+    rank,
     slice: rawSlice.split(".")[0] ?? rawSlice,
   };
 }
 
+/**
+ * @param {string} importer
+ * @param {string} dependency
+ */
 function layerFinding(importer, dependency) {
   const source = moduleLayer(importer);
   const target = moduleLayer(dependency);
@@ -371,7 +444,9 @@ function layerFinding(importer, dependency) {
   return undefined;
 }
 
+/** @param {Program} program */
 function declaresDocumentNode(program) {
+  /** @type {Set<string>} */
   const nodeBindings = new Set();
   for (const statement of program.body) {
     if (
@@ -383,7 +458,7 @@ function declaresDocumentNode(program) {
     for (const specifier of statement.specifiers) {
       if (
         specifier.type === "ImportSpecifier" &&
-        (specifier.imported.name ?? specifier.imported.value) === "Node"
+        exportedName(specifier.imported) === "Node"
       ) {
         nodeBindings.add(specifier.local.name);
       }
@@ -406,6 +481,7 @@ function declaresDocumentNode(program) {
   return found;
 }
 
+/** @param {Program} program */
 function readsPublicSiteOrigin(program) {
   let found = false;
   new Visitor({
@@ -422,16 +498,22 @@ function readsPublicSiteOrigin(program) {
   return found;
 }
 
+/** @param {Program} program */
 function readsBackendEndpointEnvironment(program) {
   return readsProcessEnvironment(program, isBackendEndpointName);
 }
 
+/** @param {Program} program */
 function readsRuntimeConfigurationEnvironment(program) {
   return readsProcessEnvironment(program, (name) =>
     runtimeConfigurationNames.has(name),
   );
 }
 
+/**
+ * @param {Program} program
+ * @param {(name: string) => boolean} matchesName
+ */
 function readsProcessEnvironment(program, matchesName) {
   let found = false;
   new Visitor({
@@ -450,6 +532,7 @@ function readsProcessEnvironment(program, matchesName) {
   return found;
 }
 
+/** @param {string} name */
 function isBackendEndpointName(name) {
   return (
     name === "BACKEND_BASE_URL" ||
@@ -459,7 +542,9 @@ function isBackendEndpointName(name) {
   );
 }
 
+/** @param {Program} program */
 function callsNestOperationByAbsoluteUrl(program) {
+  /** @type {Map<string, string>} */
   const absoluteStringBindings = new Map();
   let found = false;
   new Visitor({
@@ -491,8 +576,11 @@ function callsNestOperationByAbsoluteUrl(program) {
   return found;
 }
 
+/** @param {Program} program */
 function callsSameOriginMutationDynamically(program) {
+  /** @type {Set<string>} */
   const directBindings = new Set();
+  /** @type {Set<string>} */
   const namespaceBindings = new Set();
   for (const statement of program.body) {
     if (
@@ -504,8 +592,7 @@ function callsSameOriginMutationDynamically(program) {
     for (const specifier of statement.specifiers) {
       if (
         specifier.type === "ImportSpecifier" &&
-        (specifier.imported.name ?? specifier.imported.value) ===
-          "requestSameOriginMutation"
+        exportedName(specifier.imported) === "requestSameOriginMutation"
       ) {
         directBindings.add(specifier.local.name);
       }
@@ -544,6 +631,10 @@ function callsSameOriginMutationDynamically(program) {
   return found;
 }
 
+/**
+ * @param {import("oxc-parser").Expression} argument
+ * @param {Map<string, string>} absoluteStringBindings
+ */
 function resolveAbsoluteFetchArgument(argument, absoluteStringBindings) {
   const literal = literalString(argument);
   if (literal !== undefined && /^https?:\/\//u.test(literal)) {
@@ -566,6 +657,7 @@ function resolveAbsoluteFetchArgument(argument, absoluteStringBindings) {
   return /^https?:\/\//u.test(value) ? value : undefined;
 }
 
+/** @param {AstNode | null | undefined} node */
 function literalString(node) {
   if (node?.type === "Literal" && typeof node.value === "string") {
     return node.value;
@@ -576,12 +668,26 @@ function literalString(node) {
   return undefined;
 }
 
+/** @param {AstNode | null | undefined} node */
 function memberPropertyName(node) {
   if (node?.type !== "MemberExpression") return "";
   if (node.property.type === "Identifier") return node.property.name;
-  return typeof node.property.value === "string" ? node.property.value : "";
+  return node.property.type === "Literal" &&
+    typeof node.property.value === "string"
+    ? node.property.value
+    : "";
 }
 
+/**
+ * The name an import or export specifier names, written as an identifier or a string.
+ *
+ * @param {import("oxc-parser").ModuleExportName} node
+ */
+function exportedName(node) {
+  return "name" in node ? node.name : node.value;
+}
+
+/** @param {string | undefined} value */
 function isNestOperationUrl(value) {
   if (value === undefined) return false;
   try {
@@ -594,6 +700,11 @@ function isNestOperationUrl(value) {
   }
 }
 
+/**
+ * @param {string} importer
+ * @param {string} specifier
+ * @param {ReadonlyMap<string, unknown>} knownFiles
+ */
 function resolveLocalModule(importer, specifier, knownFiles) {
   let base;
   if (specifier.startsWith("@/")) {
@@ -627,12 +738,13 @@ for (const scanRoot of scanRoots) {
 const parsedFiles = new Map(
   [...new Set(scanRoots.flatMap(sourceFiles))].map((file) => {
     const { errors, program } = parseSync(file, readFileSync(file, "utf8"));
-    if (errors.length > 0) {
+    const [firstError] = errors;
+    if (firstError !== undefined) {
       throw new SyntaxError(
-        `Oxc could not parse ${file}: ${errors[0].message}`,
+        `Oxc could not parse ${file}: ${firstError.message}`,
       );
     }
-    return [file, program];
+    return /** @type {const} */ ([file, program]);
   }),
 );
 const browserFiles = new Set(
@@ -645,6 +757,7 @@ const browserFiles = new Set(
 const pendingBrowserFiles = [...browserFiles];
 while (pendingBrowserFiles.length > 0) {
   const file = pendingBrowserFiles.pop();
+  if (file === undefined) break;
   const program = parsedFiles.get(file);
   if (program === undefined) continue;
   for (const specifier of moduleSpecifiers(program)) {
@@ -858,6 +971,7 @@ if (findings.length > 0) {
   process.stdout.write("Web transport architecture passed.\n");
 }
 
+/** @param {string} value */
 function escapeRegExp(value) {
   return value.replace(/[.*+?^${}()|[\]\\]/gu, "\\$&");
 }

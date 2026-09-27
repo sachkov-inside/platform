@@ -1,3 +1,4 @@
+// @ts-check
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { execFile } from "node:child_process";
@@ -8,9 +9,11 @@ import { join } from "node:path";
 import { withGitSnapshot } from "./git-local.mjs";
 
 const execute = promisify(execFile);
+/** @param {import("node:test").TestContext} t */
 async function repository(t) {
   const root = await mkdtemp(join(tmpdir(), "git-content-test-"));
   t.after(() => rm(root, { recursive: true, force: true }));
+  /** @param {string[]} args */
   const git = async (...args) =>
     (await execute("git", ["-C", root, ...args])).stdout.trim();
   await git("init");
@@ -33,7 +36,7 @@ test("snapshot contains exactly the chosen commit and leaves all working changes
   await writeFile(join(root, "lesson.md"), "Unstaged draft");
   await writeFile(join(root, "private.md"), "Untracked draft");
   const status = await git("status", "--porcelain");
-  let temporary;
+  let temporary = "";
   await withGitSnapshot(root, initial, async ({ snapshot, commit }) => {
     temporary = snapshot;
     assert.equal(commit, initial);
@@ -43,6 +46,7 @@ test("snapshot contains exactly the chosen commit and leaves all working changes
     );
     await assert.rejects(access(join(snapshot, "private.md")));
   });
+  assert.notEqual(temporary, "");
   await assert.rejects(access(temporary));
   assert.equal(await git("status", "--porcelain"), status);
   assert.equal(
@@ -61,7 +65,7 @@ test("invalid refs never run the exporter; failed export cleans up the snapshot"
     }),
   );
   assert.equal(called, false);
-  let temporary;
+  let temporary = "";
   await assert.rejects(
     withGitSnapshot(root, "HEAD", ({ snapshot }) => {
       temporary = snapshot;
@@ -69,5 +73,6 @@ test("invalid refs never run the exporter; failed export cleans up the snapshot"
     }),
     /Rejected content/,
   );
+  assert.notEqual(temporary, "");
   await assert.rejects(access(temporary));
 });

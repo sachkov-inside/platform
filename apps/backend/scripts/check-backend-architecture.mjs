@@ -1,3 +1,4 @@
+// @ts-check
 import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import path from "node:path";
 import process from "node:process";
@@ -5,9 +6,34 @@ import { URL, fileURLToPath } from "node:url";
 
 import { parseSync, Visitor } from "oxc-parser";
 
+/**
+ * @typedef {import("oxc-parser").Program} Program
+ * @typedef {import("oxc-parser").Node} AstNode
+ * @typedef {"type" | "dynamic" | "value"} ImportKind
+ * @typedef {{ kind: ImportKind; names: string[]; specifier: string }} FileImport
+ */
+
+/**
+ * The value a map holds for a key the check put there earlier.
+ *
+ * @template K, V
+ * @param {ReadonlyMap<K, V>} map
+ * @param {K} key
+ * @returns {V}
+ */
+function valueAt(map, key) {
+  const value = map.get(key);
+  if (value === undefined) throw new Error(`Missing entry for ${String(key)}`);
+  return value;
+}
+
 const backendRoot = fileURLToPath(new URL("..", import.meta.url));
 const scanRoot = path.resolve(backendRoot, process.argv[2] ?? "src");
 
+/**
+ * @param {string} directory
+ * @returns {string[]}
+ */
 function sourceFiles(directory) {
   return readdirSync(directory, { withFileTypes: true }).flatMap((entry) => {
     const entryPath = path.join(directory, entry.name);
@@ -18,7 +44,9 @@ function sourceFiles(directory) {
   });
 }
 
+/** @param {Program} program */
 function moduleSpecifiers(program) {
+  /** @type {string[]} */
   const specifiers = [];
   new Visitor({
     ImportDeclaration(node) {
@@ -50,18 +78,23 @@ const sqlTableReference = new RegExp(
   "giu",
 );
 
+/** @param {string} identifier */
 function normalizeSqlIdentifier(identifier) {
   return identifier.replaceAll('"', "").replaceAll(/\s/gu, "");
 }
 
+/** @param {string} sqlText */
 function referencesFromSql(sqlText) {
   return [...sqlText.matchAll(sqlTableReference)].flatMap((match) =>
     match[1] === undefined ? [] : [normalizeSqlIdentifier(match[1])],
   );
 }
 
+/** @param {Program} program */
 function databaseTableReferences(program) {
+  /** @type {string[]} */
   const references = [];
+  /** @type {string[]} */
   const unresolved = [];
   new Visitor({
     CallExpression(node) {
@@ -90,6 +123,11 @@ function databaseTableReferences(program) {
   return { references, unresolved };
 }
 
+/**
+ * @param {AstNode | null | undefined} node
+ * @param {string} objectName
+ * @param {string} propertyName
+ */
 function isMember(node, objectName, propertyName) {
   return (
     node?.type === "MemberExpression" &&
@@ -99,17 +137,26 @@ function isMember(node, objectName, propertyName) {
   );
 }
 
+/** @param {AstNode | null | undefined} node */
 function memberPropertyName(node) {
   if (node?.type !== "MemberExpression") return "";
   if (node.property.type === "Identifier") return node.property.name;
-  return typeof node.property.value === "string" ? node.property.value : "";
+  return node.property.type === "Literal" &&
+    typeof node.property.value === "string"
+    ? node.property.value
+    : "";
 }
 
+/** @param {string} file */
 function scannedPath(file) {
   const relative = path.relative(scanRoot, file).split(path.sep).join("/");
   return path.basename(scanRoot) === "src" ? `src/${relative}` : relative;
 }
 
+/**
+ * @param {string} sourcePath
+ * @param {string} specifier
+ */
 function importedRepositoryPath(sourcePath, specifier) {
   if (!specifier.startsWith(".")) {
     return undefined;
@@ -119,14 +166,17 @@ function importedRepositoryPath(sourcePath, specifier) {
   );
 }
 
+/** @param {string} file */
 function owningModule(file) {
   return /^src\/modules\/([^/]+)\//.exec(file)?.[1];
 }
 
+/** @param {string} moduleName */
 function owningSchema(moduleName) {
   return moduleName.replaceAll("-", "_");
 }
 
+/** @param {string} file */
 function isNestAdapter(file) {
   return (
     file.includes("/adapters/nest/") ||
@@ -134,15 +184,21 @@ function isNestAdapter(file) {
   );
 }
 
+/**
+ * @param {string} source
+ * @param {string} specifier
+ */
 function violationsFor(source, specifier) {
   const sourcePath = scannedPath(source);
   const importedPath = importedRepositoryPath(sourcePath, specifier);
+  /** @type {string[]} */
   const violations = [];
   const sourceModule = owningModule(sourcePath);
   const importedModule =
     importedPath === undefined ? undefined : owningModule(importedPath);
 
   const importsCapabilityImplementation =
+    importedPath !== undefined &&
     importedModule !== undefined &&
     sourceModule !== importedModule &&
     !/^src\/modules\/[^/]+\/index\.[cm]?[jt]s$/u.test(importedPath);
@@ -221,6 +277,10 @@ function violationsFor(source, specifier) {
   return violations;
 }
 
+/**
+ * @param {string} sourceFile
+ * @param {Program} program
+ */
 function databaseReferenceViolations(sourceFile, program) {
   const sourcePath = scannedPath(sourceFile);
   const sourceModule = owningModule(sourcePath);
@@ -277,6 +337,7 @@ const advisoryLockOwners = [
   "src/infrastructure/worker-runtime.ts",
 ];
 
+/** @param {Program} program */
 function writesAdvisoryLock(program) {
   let found = false;
   new Visitor({
@@ -292,6 +353,10 @@ function writesAdvisoryLock(program) {
   return found;
 }
 
+/**
+ * @param {string} sourceFile
+ * @param {Program} program
+ */
 function advisoryLockViolations(sourceFile, program) {
   const sourcePath = scannedPath(sourceFile);
   if (
@@ -358,10 +423,15 @@ const prismaModelOperations = new Set([
   "upsert",
 ]);
 
+/**
+ * @param {string} sourceFile
+ * @param {Program} program
+ */
 function handoffDelegateViolations(sourceFile, program) {
   const sourcePath = scannedPath(sourceFile);
   const delegates = handoffDelegates.get(owningModule(sourcePath) ?? "");
   if (delegates === undefined) return [];
+  /** @type {Set<string>} */
   const used = new Set();
   new Visitor({
     MemberExpression(node) {
@@ -389,12 +459,28 @@ const inputRejectionMarker = "Not a dependency failure:";
 const reporters =
   "dependencyFailure|reportDependencyFailure|describeError|loggableFailure";
 
+/**
+ * @typedef {import("oxc-parser").FunctionBody | import("oxc-parser").BlockStatement | import("oxc-parser").Expression} HandlerBody
+ */
+
+/**
+ * @param {string} sourceFile
+ * @param {string} sourceText
+ * @param {Program} program
+ * @param {import("oxc-parser").Comment[]} comments
+ */
 function swallowedFailureViolations(sourceFile, sourceText, program, comments) {
   const sourcePath = scannedPath(sourceFile);
   if (owningModule(sourcePath) === undefined) return [];
+  /** @type {string[]} */
   const violations = [];
+  /** @param {number} offset */
   const lineOf = (offset) => sourceText.slice(0, offset).split("\n").length;
   // Метка засчитывается только первой строкой: между началом обработчика и его первым оператором.
+  /**
+   * @param {number} from
+   * @param {HandlerBody} body
+   */
   const explains = (from, body) => {
     const firstCode =
       body.type === "BlockStatement"
@@ -408,6 +494,7 @@ function swallowedFailureViolations(sourceFile, sourceText, program, comments) {
     );
   };
   // Текст обработчика без комментариев: упоминание reporter в комментарии ничего не записывает.
+  /** @param {HandlerBody} body */
   const codeOf = (body) =>
     comments
       .filter(
@@ -422,6 +509,10 @@ function swallowedFailureViolations(sourceFile, sourceText, program, comments) {
       );
   // Пойманное значение уходит reporter, становится причиной новой ошибки или бросается дальше.
   // Условный throw засчитывается: так устроены обработчики гонок, где остальные ветки — ответы.
+  /**
+   * @param {HandlerBody} body
+   * @param {string} name
+   */
   const passesOn = (body, name) => {
     const caught = `(?<![\\w$.])${name}(?![\\w$])`;
     return [
@@ -430,6 +521,12 @@ function swallowedFailureViolations(sourceFile, sourceText, program, comments) {
       new RegExp(`\\bthrow\\s+${caught}`, "u"),
     ].some((pattern) => pattern.test(codeOf(body)));
   };
+  /**
+   * @param {string} kind
+   * @param {number} start
+   * @param {AstNode | null | undefined} param
+   * @param {HandlerBody} body
+   */
   const check = (kind, start, param, body) => {
     if (explains(start, body)) return;
     const advice = `report it with dependencyFailure or explain it with "// ${inputRejectionMarker}"`;
@@ -451,7 +548,9 @@ function swallowedFailureViolations(sourceFile, sourceText, program, comments) {
       if (
         memberPropertyName(node.callee) === "catch" &&
         (handler?.type === "ArrowFunctionExpression" ||
-          handler?.type === "FunctionExpression")
+          handler?.type === "FunctionExpression") &&
+        // Only a declared function has no body, and a call argument is never one.
+        handler.body !== null
       ) {
         check(".catch", node.start, handler.params[0], handler.body);
       }
@@ -467,23 +566,39 @@ function swallowedFailureViolations(sourceFile, sourceText, program, comments) {
 // import, a re-export or a dynamic import(). The dependency graph stays acyclic, so a Module
 // loads, composes and changes without the Modules that depend on it.
 // A cycle diagnostic names the strongest import on each edge, the one to remove first.
+/** @type {Record<ImportKind, number>} */
 const importKindRank = { type: 0, dynamic: 1, value: 2 };
 
+/** @param {AstNode} node */
 function exportedName(node) {
-  return node.type === "Identifier" ? node.name : String(node.value);
+  if (node.type === "Identifier") return node.name;
+  return "value" in node ? String(node.value) : "";
 }
 
+/**
+ * @param {import("oxc-parser").ImportDeclaration | import("oxc-parser").ExportNamedDeclaration} node
+ * @param {"importKind" | "exportKind"} kindField
+ * @returns {ImportKind}
+ */
 function declarationKind(node, kindField) {
-  return node[kindField] === "type" ||
+  return Reflect.get(node, kindField) === "type" ||
     (node.specifiers.length > 0 &&
-      node.specifiers.every((specifier) => specifier[kindField] === "type"))
+      node.specifiers.every(
+        (specifier) => Reflect.get(specifier, kindField) === "type",
+      ))
     ? "type"
     : "value";
 }
 
-// Every import of another file with the names it takes; "*" takes the whole interface.
+/**
+ * Every import of another file with the names it takes; "*" takes the whole interface.
+ *
+ * @param {Program} program
+ */
 function fileImports(program) {
+  /** @type {FileImport[]} */
   const imports = [];
+  /** @type {Map<number, string[]>} */
   const destructured = new Map();
   new Visitor({
     ImportDeclaration(node) {
@@ -525,15 +640,15 @@ function fileImports(program) {
         node.id.type !== "ObjectPattern"
       )
         return;
-      if (
-        node.id.properties.some(
-          (property) => property.type !== "Property" || property.computed,
-        )
-      )
-        return;
+      const keys = node.id.properties.flatMap((property) =>
+        property.type === "Property" && !property.computed
+          ? [property.key]
+          : [],
+      );
+      if (keys.length !== node.id.properties.length) return;
       destructured.set(
         imported.start,
-        node.id.properties.map((property) => exportedName(property.key)),
+        keys.map((key) => exportedName(key)),
       );
     },
     ImportExpression(node) {
@@ -552,15 +667,23 @@ function fileImports(program) {
   return imports.filter((entry) => typeof entry.specifier === "string");
 }
 
+/** @param {string | undefined} repositoryPath */
 function capabilityIndexModule(repositoryPath) {
   return /^src\/modules\/([^/]+)\/index\.[cm]?[jt]s$/u.exec(
     repositoryPath ?? "",
   )?.[1];
 }
 
-// The names a capability index.ts offers. A wildcard re-export cannot be checked for consumers.
+/**
+ * The names a capability index.ts offers. A wildcard re-export cannot be checked for consumers.
+ *
+ * @param {string} indexPath
+ * @param {Program} program
+ */
 function indexExports(indexPath, program) {
+  /** @type {string[]} */
   const names = [];
+  /** @type {string[]} */
   const violations = [];
   for (const node of program.body) {
     if (node.type === "ExportAllDeclaration") {
@@ -573,9 +696,17 @@ function indexExports(indexPath, program) {
       ...node.specifiers.map((specifier) => exportedName(specifier.exported)),
     );
     const declaration = node.declaration;
-    if (declaration?.id) names.push(declaration.id.name);
-    for (const declarator of declaration?.declarations ?? []) {
-      if (declarator.id.type === "Identifier") names.push(declarator.id.name);
+    if (
+      declaration &&
+      "id" in declaration &&
+      declaration.id &&
+      "name" in declaration.id
+    )
+      names.push(declaration.id.name);
+    if (declaration?.type === "VariableDeclaration") {
+      for (const declarator of declaration.declarations) {
+        if (declarator.id.type === "Identifier") names.push(declarator.id.name);
+      }
     }
   }
   return { names, violations };
@@ -589,6 +720,10 @@ function consumerRoots() {
     .filter((directory) => existsSync(directory));
 }
 
+/**
+ * @param {Map<string, { indexPath: string; names: string[] }>} indexes
+ * @param {Map<string, Set<string>>} consumers
+ */
 function unusedExportViolations(indexes, consumers) {
   return [...indexes].flatMap(([moduleName, { indexPath, names }]) => {
     const used = consumers.get(moduleName) ?? new Set();
@@ -602,28 +737,40 @@ function unusedExportViolations(indexes, consumers) {
   });
 }
 
+/** @param {Map<string, Set<string>>} graph */
 function stronglyConnectedComponents(graph) {
+  /** @type {Map<string, number>} */
   const order = new Map();
+  /** @type {Map<string, number>} */
   const lowest = new Map();
+  /** @type {string[]} */
   const stack = [];
+  /** @type {string[][]} */
   const components = [];
+  /** @param {string} node */
   const visit = (node) => {
     order.set(node, order.size);
-    lowest.set(node, order.get(node));
+    lowest.set(node, valueAt(order, node));
     stack.push(node);
     for (const next of graph.get(node) ?? []) {
       if (!order.has(next)) {
         visit(next);
-        lowest.set(node, Math.min(lowest.get(node), lowest.get(next)));
+        lowest.set(
+          node,
+          Math.min(valueAt(lowest, node), valueAt(lowest, next)),
+        );
       } else if (stack.includes(next)) {
-        lowest.set(node, Math.min(lowest.get(node), order.get(next)));
+        lowest.set(node, Math.min(valueAt(lowest, node), valueAt(order, next)));
       }
     }
     if (lowest.get(node) !== order.get(node)) return;
+    /** @type {string[]} */
     const component = [];
     let member;
     do {
       member = stack.pop();
+      // The node itself is on the stack, so the loop ends before the stack does.
+      if (member === undefined) throw new Error(`${node} left the stack`);
       component.push(member);
     } while (member !== node);
     components.push(component);
@@ -634,13 +781,19 @@ function stronglyConnectedComponents(graph) {
   return components.filter((component) => component.length > 1);
 }
 
-// The shortest path between two Modules, for a readable diagnostic.
+/**
+ * The shortest path between two Modules, for a readable diagnostic.
+ *
+ * @param {Map<string, Set<string>>} graph
+ * @param {string} start
+ * @param {string} goal
+ */
 function shortestPath(graph, start, goal) {
   const previous = new Map([[start, start]]);
   const queue = [start];
   while (queue.length > 0) {
     const node = queue.shift();
-    if (node === goal) break;
+    if (node === undefined || node === goal) break;
     for (const next of [...(graph.get(node) ?? [])].sort()) {
       if (previous.has(next)) continue;
       previous.set(next, node);
@@ -648,24 +801,30 @@ function shortestPath(graph, start, goal) {
     }
   }
   const path = [goal];
-  while (path[0] !== start) path.unshift(previous.get(path[0]));
+  for (let node = goal; node !== start;) {
+    node = valueAt(previous, node);
+    path.unshift(node);
+  }
   return path;
 }
 
 // An edge lies on a cycle when both Modules share a strongly connected component of the complete
 // graph. Every such edge fails and names the cycle it closes.
+/** @param {Map<string, Map<ImportKind, string>>} moduleEdges */
 function moduleCycleViolations(moduleEdges) {
+  /** @type {Map<string, Set<string>>} */
   const graph = new Map();
   for (const edge of moduleEdges.keys()) {
-    const [from, to] = edge.split(" -> ");
+    const [from, to] = edgeEnds(edge);
     graph.set(from, new Set([...(graph.get(from) ?? []), to]));
   }
+  /** @type {Map<string, string[]>} */
   const componentOf = new Map();
   for (const component of stronglyConnectedComponents(graph)) {
     for (const member of component) componentOf.set(member, component);
   }
   return [...moduleEdges.keys()]
-    .map((edge) => edge.split(" -> "))
+    .map((edge) => edgeEnds(edge))
     .filter(
       ([from, to]) =>
         componentOf.has(from) && componentOf.get(from) === componentOf.get(to),
@@ -674,24 +833,44 @@ function moduleCycleViolations(moduleEdges) {
       const cycle = [from, ...shortestPath(graph, to, from)];
       const evidence = cycle.slice(1).map((next, step) => {
         const edge = `${cycle[step]} -> ${next}`;
-        const kinds = moduleEdges.get(edge);
-        const strongest = [...kinds.keys()].sort(
-          (left, right) => importKindRank[right] - importKindRank[left],
-        )[0];
-        return `${edge}: ${kinds.get(strongest)}`;
+        const [strongest] = [...valueAt(moduleEdges, edge)].sort(
+          ([left], [right]) => importKindRank[right] - importKindRank[left],
+        );
+        return `${edge}: ${String(strongest?.[1])}`;
       });
       return `Module dependency cycle ${cycle.join(" -> ")}; depend on a lower Module or invert the edge through a port (${evidence.join("; ")})`;
     });
+}
+
+/**
+ * Both Modules of an edge key written as `from -> to`.
+ *
+ * @param {string} edge
+ * @returns {[string, string]}
+ */
+function edgeEnds(edge) {
+  const [from, to] = edge.split(" -> ");
+  if (from === undefined || to === undefined)
+    throw new Error(`Malformed Module edge: ${edge}`);
+  return [from, to];
 }
 
 if (!statSync(scanRoot).isDirectory()) {
   throw new TypeError(`Architecture scan root is not a directory: ${scanRoot}`);
 }
 
+/** @type {Map<string, { indexPath: string; names: string[] }>} */
 const indexes = new Map();
+/** @type {Map<string, Set<string>>} */
 const consumers = new Map();
+/** @type {Map<string, Map<ImportKind, string>>} */
 const moduleEdges = new Map();
 
+/**
+ * @param {string} consumerPath
+ * @param {Program} program
+ * @param {{ graph: boolean }} options
+ */
 function recordImports(consumerPath, program, { graph }) {
   const consumerModule = owningModule(consumerPath);
   for (const { kind, names, specifier } of fileImports(program)) {
@@ -715,12 +894,14 @@ function recordImports(consumerPath, program, { graph }) {
   }
 }
 
+/** @param {string} source */
 function parsed(source) {
   const sourceText = readFileSync(source, "utf8");
   const { comments, errors, program } = parseSync(source, sourceText);
-  if (errors.length > 0) {
+  const [firstError] = errors;
+  if (firstError !== undefined) {
     throw new SyntaxError(
-      `Oxc could not parse ${source}: ${errors[0].message}`,
+      `Oxc could not parse ${source}: ${firstError.message}`,
     );
   }
   return { comments, program, sourceText };
@@ -731,6 +912,7 @@ const findings = sourceFiles(scanRoot).flatMap((source) => {
   const sourcePath = scannedPath(source);
   recordImports(sourcePath, program, { graph: true });
   const indexModule = capabilityIndexModule(sourcePath);
+  /** @type {string[]} */
   const indexFindings = [];
   if (indexModule !== undefined) {
     const { names, violations } = indexExports(sourcePath, program);

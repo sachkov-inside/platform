@@ -1,3 +1,4 @@
+// @ts-check
 /* global fetch */
 
 import { Buffer } from "node:buffer";
@@ -32,7 +33,7 @@ const composeEnvironment = resolve(root, "infra/identity/logto/compose.env");
  * основной, где вход включён профилем. Один флаг на оба места запуска, чтобы у bootstrap не
  * появился второй экземпляр ради второго стенда.
  */
-const onStand = process.env.LOGTO_ON_STAND === "true";
+const onStand = process.env["LOGTO_ON_STAND"] === "true";
 const logtoComposeArguments = onStand
   ? ["-f", resolve(root, "compose.yaml"), "--profile", "identity"]
   : ["--env-file", composeEnvironment, "-f", composeFile];
@@ -58,6 +59,13 @@ const platformPostgresPort = readIdentityProofPort(
 );
 const bootstrapMaxAttempts = 20;
 const bootstrapRetryDelayMilliseconds = 500;
+
+/**
+ * @typedef {(
+ *   path: string,
+ *   options?: { method?: string; body?: unknown },
+ * ) => Promise<unknown>} ManagementApi
+ */
 
 const managementAccessTokenSchema = z.object({
   access_token: z.string().min(1),
@@ -165,6 +173,7 @@ export function readSeededManagementSecret() {
   return secret;
 }
 
+/** @param {string} secret */
 export async function fetchManagementAccessToken(secret) {
   const body = new URLSearchParams({
     grant_type: "client_credentials",
@@ -187,6 +196,10 @@ export async function fetchManagementAccessToken(secret) {
   return payload.access_token;
 }
 
+/**
+ * @param {string} accessToken
+ * @returns {ManagementApi}
+ */
 export function createManagementApi(accessToken) {
   return async (path, { method = "GET", body } = {}) => {
     const response = await fetch(`${endpoint}/api${path}`, {
@@ -195,12 +208,13 @@ export function createManagementApi(accessToken) {
         authorization: `Bearer ${accessToken}`,
         ...(body === undefined ? {} : { "content-type": "application/json" }),
       },
-      body: body === undefined ? undefined : JSON.stringify(body),
+      ...(body === undefined ? {} : { body: JSON.stringify(body) }),
     });
     return readResponse(response, `${method} ${path}`);
   };
 }
 
+/** @param {ManagementApi} api */
 export async function ensureResource(api) {
   const resources = parseManagementPayload(
     z.array(resourceSchema),
@@ -226,6 +240,7 @@ export async function ensureResource(api) {
   });
 }
 
+/** @param {ManagementApi} api */
 export async function ensureApplication(api) {
   const applications = parseManagementPayload(
     z.array(applicationSchema),
@@ -264,6 +279,7 @@ export async function ensureApplication(api) {
   );
 }
 
+/** @param {ManagementApi} api */
 export async function ensureAuthoringStandApplication(api) {
   const applications = parseManagementPayload(
     z.array(applicationSchema),
@@ -295,6 +311,10 @@ export async function ensureAuthoringStandApplication(api) {
   );
 }
 
+/**
+ * @param {string} applicationId
+ * @param {string} applicationSecret
+ */
 async function writeAuthoringStandEnvironment(
   applicationId,
   applicationSecret,
@@ -311,6 +331,7 @@ async function writeAuthoringStandEnvironment(
   );
 }
 
+/** @param {ManagementApi} api */
 export async function ensureEmailConnector(api) {
   const connectors = parseManagementPayload(
     z.array(connectorSchema),
@@ -334,6 +355,7 @@ export async function ensureEmailConnector(api) {
   });
 }
 
+/** @param {ManagementApi} api */
 export async function ensureSignInExperience(api) {
   await api("/sign-in-exp", {
     method: "PATCH",
@@ -365,7 +387,7 @@ export async function ensureSignInExperience(api) {
       agreeToTermsPolicy: "Automatic",
       socialSignIn: { skipRequiredIdentifiers: true },
       socialSignInConnectorTargets:
-        process.env.TELEGRAM_SIGN_IN_ENABLED === "true"
+        process.env["TELEGRAM_SIGN_IN_ENABLED"] === "true"
           ? ["inside-telegram"]
           : [],
     },
@@ -381,6 +403,7 @@ export const signInAgreementPhrases = {
   },
 };
 
+/** @param {ManagementApi} api */
 export async function ensureSignInPhrases(api) {
   await api("/custom-phrases/ru", {
     method: "PUT",
@@ -388,6 +411,10 @@ export async function ensureSignInPhrases(api) {
   });
 }
 
+/**
+ * @param {ManagementApi} api
+ * @param {string | undefined} telegramConnectorId
+ */
 async function ensureJwtCustomizer(api, telegramConnectorId) {
   const script = await readFile(
     resolve(root, "infra/identity/logto/custom-access-token.js"),
@@ -405,6 +432,7 @@ async function ensureJwtCustomizer(api, telegramConnectorId) {
   });
 }
 
+/** @param {ManagementApi} api */
 export async function ensureTelegramConnector(api) {
   const connectors = z
     .array(
@@ -416,7 +444,7 @@ export async function ensureTelegramConnector(api) {
   const existing = connectors.find(
     (connector) => connector.connectorId === "inside-telegram",
   );
-  if (process.env.TELEGRAM_SIGN_IN_ENABLED !== "true") {
+  if (process.env["TELEGRAM_SIGN_IN_ENABLED"] !== "true") {
     if (existing)
       await api(`/connectors/${existing.id}`, {
         method: "PATCH",
@@ -452,10 +480,10 @@ export async function ensureTelegramConnector(api) {
   const config = {
     enabled: true,
     issuer: `${endpoint}/oidc`,
-    platformUrl: process.env.TELEGRAM_SIGN_IN_PLATFORM_URL,
-    providerUrl: process.env.TELEGRAM_SIGN_IN_PROVIDER_URL,
-    integrationSecret: process.env.TELEGRAM_SIGN_IN_INTEGRATION_SECRET,
-    botUsername: process.env.TELEGRAM_SIGN_IN_BOT_USERNAME,
+    platformUrl: process.env["TELEGRAM_SIGN_IN_PLATFORM_URL"],
+    providerUrl: process.env["TELEGRAM_SIGN_IN_PROVIDER_URL"],
+    integrationSecret: process.env["TELEGRAM_SIGN_IN_INTEGRATION_SECRET"],
+    botUsername: process.env["TELEGRAM_SIGN_IN_BOT_USERNAME"],
   };
   if (existing) {
     await api(`/connectors/${existing.id}`, {
@@ -473,6 +501,10 @@ export async function ensureTelegramConnector(api) {
   return created.id;
 }
 
+/**
+ * @param {ManagementApi} api
+ * @param {string} applicationId
+ */
 async function readApplicationSecret(api, applicationId) {
   const secrets = parseManagementPayload(
     z.array(applicationSecretSchema),
@@ -486,6 +518,7 @@ async function readApplicationSecret(api, applicationId) {
   return secret.value;
 }
 
+/** @param {ManagementApi} api */
 async function testEmailConnector(api) {
   await api(`/connectors/${smtpConnectorId}/test`, {
     method: "POST",
@@ -497,13 +530,18 @@ async function testEmailConnector(api) {
   });
 }
 
+/**
+ * @param {string} applicationId
+ * @param {string} applicationSecret
+ */
 async function writeRuntimeEnvironment(applicationId, applicationSecret) {
   const envPath = resolve(root, ".identity-proof/platform.env");
   const current = await readFile(envPath, "utf8").catch(() => "");
   const existing = parseEnv(current);
   const updates = {
     NODE_ENV: "development",
-    TELEGRAM_SIGN_IN_ENABLED: process.env.TELEGRAM_SIGN_IN_ENABLED ?? "false",
+    TELEGRAM_SIGN_IN_ENABLED:
+      process.env["TELEGRAM_SIGN_IN_ENABLED"] ?? "false",
     // Identity proof host processes migrate their own database, never the stand's.
     DATABASE_URL: checkDatabaseUrl(platformPostgresPort),
     BACKEND_BASE_URL: platformResource,
@@ -513,9 +551,9 @@ async function writeRuntimeEnvironment(applicationId, applicationSecret) {
     LOGTO_JWKS_URL: `${endpoint}/oidc/jwks`,
     LOGTO_APP_ID: applicationId,
     LOGTO_APP_SECRET: applicationSecret,
-    LOGTO_COOKIE_SECRET: existing.LOGTO_COOKIE_SECRET ?? randomSecret(),
+    LOGTO_COOKIE_SECRET: existing["LOGTO_COOKIE_SECRET"] ?? randomSecret(),
     IDENTITY_EMAIL_FINGERPRINT_KEY:
-      existing.IDENTITY_EMAIL_FINGERPRINT_KEY ?? randomSecret(),
+      existing["IDENTITY_EMAIL_FINGERPRINT_KEY"] ?? randomSecret(),
     WEB_BASE_URL: webBaseUrl,
   };
   await mkdir(dirname(envPath), { recursive: true });
@@ -540,7 +578,7 @@ async function writeRuntimeEnvironment(applicationId, applicationSecret) {
 }
 
 /** Значения входа, которые контейнеры стенда берут у bootstrap. Адреса базы и бэкенда — их свои. */
-const standEnvironmentKeys = [
+const standEnvironmentKeys = /** @type {const} */ ([
   "LOGTO_ENDPOINT",
   "LOGTO_ISSUER",
   "LOGTO_AUDIENCE",
@@ -550,8 +588,12 @@ const standEnvironmentKeys = [
   "LOGTO_COOKIE_SECRET",
   "IDENTITY_EMAIL_FINGERPRINT_KEY",
   "WEB_BASE_URL",
-];
+]);
 
+/**
+ * @param {string} envPath
+ * @param {string} contents
+ */
 async function writeEnvFile(envPath, contents) {
   const temporaryPath = `${envPath}.${String(process.pid)}.tmp`;
   try {
@@ -565,6 +607,10 @@ async function writeEnvFile(envPath, contents) {
   }
 }
 
+/**
+ * @param {string} source
+ * @param {Record<string, string>} updates
+ */
 export function mergeEnv(source, updates) {
   const pending = new Map(Object.entries(updates));
   const lines =
@@ -585,16 +631,29 @@ export function mergeEnv(source, updates) {
   return `${merged.join("\n")}\n`;
 }
 
+/**
+ * @param {string} source
+ * @returns {Record<string, string>}
+ */
 export function parseEnv(source) {
   return Object.fromEntries(
     source
       .split(/\r?\n/u)
       .map((line) => /^([A-Z][A-Z0-9_]*)=(.*)$/u.exec(line))
       .filter((match) => match !== null)
-      .map((match) => [match[1], match[2]]),
+      // Both groups take part in every match.
+      .map(
+        /** @returns {[string, string]} */
+        ([, key = "", value = ""]) => [key, value],
+      ),
   );
 }
 
+/**
+ * @template T
+ * @param {T[]} values
+ * @param {(value: T) => boolean} predicate
+ */
 function findSingle(values, predicate) {
   const matches = values.filter(predicate);
   if (matches.length > 1) {
@@ -603,6 +662,13 @@ function findSingle(values, predicate) {
   return matches[0];
 }
 
+/**
+ * @template {z.ZodType} S
+ * @param {S} schema
+ * @param {unknown} payload
+ * @param {string} operation
+ * @returns {z.infer<S>}
+ */
 function parseManagementPayload(schema, payload, operation) {
   const result = schema.safeParse(payload);
   if (!result.success) {
@@ -611,6 +677,11 @@ function parseManagementPayload(schema, payload, operation) {
   return result.data;
 }
 
+/**
+ * @param {Response} response
+ * @param {string} operation
+ * @returns {Promise<unknown>}
+ */
 async function readResponse(response, operation) {
   const text = await response.text();
   if (!response.ok) {
@@ -621,6 +692,10 @@ async function readResponse(response, operation) {
   return text.length === 0 ? undefined : JSON.parse(text);
 }
 
+/**
+ * @param {string} usageType
+ * @param {string} subject
+ */
 function template(usageType, subject) {
   return {
     usageType,
@@ -634,6 +709,11 @@ function randomSecret() {
   return randomBytes(32).toString("hex");
 }
 
+/**
+ * @template T
+ * @param {() => T | Promise<T>} operation
+ * @returns {Promise<T>}
+ */
 export async function retry(operation) {
   let lastError;
   for (let attempt = 1; attempt <= bootstrapMaxAttempts; attempt += 1) {

@@ -1,10 +1,10 @@
+// @ts-check
 import { spawn } from "node:child_process";
 import { copyFileSync, existsSync } from "node:fs";
-import { tmpdir } from "node:os";
 import { dirname, resolve } from "node:path";
 import process from "node:process";
 import { fileURLToPath } from "node:url";
-import lockfile from "proper-lockfile";
+import { acquireLocalSetupLock } from "./local-setup-lock.mjs";
 
 const repositoryRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 // The smoke needs published demonstration content, so this verified stack is a disposable project
@@ -14,23 +14,29 @@ Object.assign(process.env, {
   COMPOSE_PROJECT_NAME: smokeProject,
   LOCAL_SEED_VIEW: "checks",
 });
-const pnpmPath = process.env.npm_execpath;
+const pnpmExecutable = process.env["npm_execpath"];
 
-if (pnpmPath === undefined) {
+if (pnpmExecutable === undefined) {
   throw new Error("Run local setup through the pinned pnpm CLI");
 }
+const pnpmPath = pnpmExecutable;
 
-const releaseSetupLock = await acquireSetupLock();
+const releaseSetupLock = await acquireLocalSetupLock(
+  "Another local setup owns the machine-wide setup lock. Wait for its handoff or stop that session before retrying.",
+);
 const environmentPath = resolve(repositoryRoot, ".env");
 if (!existsSync(environmentPath)) {
   copyFileSync(resolve(repositoryRoot, ".env.example"), environmentPath);
   process.stdout.write("Created .env from .env.example\n");
 }
 let shouldCleanupCompose = false;
+/** @type {NodeJS.Signals | undefined} */
 let interruptedSignal;
+/** @type {Promise<void> | undefined} */
 let shutdownPromise;
+/** @type {Set<import("node:child_process").ChildProcess>} */
 const activeProcesses = new Set();
-for (const signal of ["SIGINT", "SIGTERM"]) {
+for (const signal of /** @type {const} */ (["SIGINT", "SIGTERM"])) {
   process.once(signal, () => {
     void handleSignal(signal);
   });
@@ -84,6 +90,10 @@ async function isComposeRunning() {
   return false;
 }
 
+/**
+ * @param {string[]} arguments_
+ * @param {boolean} [capture]
+ */
 async function runPnpm(arguments_, capture = false) {
   const child = spawn(process.execPath, [pnpmPath, ...arguments_], {
     cwd: repositoryRoot,
@@ -112,30 +122,6 @@ async function runPnpm(arguments_, capture = false) {
   return { output };
 }
 
-async function acquireSetupLock() {
-  const lockTarget = resolve(tmpdir(), "inside-platform-local-setup");
-  try {
-    return await lockfile.lock(lockTarget, {
-      realpath: false,
-      retries: 0,
-      stale: 30_000,
-      update: 10_000,
-    });
-  } catch (error) {
-    if (
-      error instanceof Error &&
-      Reflect.has(error, "code") &&
-      error.code === "ELOCKED"
-    ) {
-      throw new Error(
-        "Another local setup owns the machine-wide setup lock. Wait for its handoff or stop that session before retrying.",
-        { cause: error },
-      );
-    }
-    throw error;
-  }
-}
-
 function shutdown() {
   shutdownPromise ??= (async () => {
     await Promise.all([...activeProcesses].map((child) => stopProcess(child)));
@@ -153,6 +139,7 @@ function shutdown() {
   return shutdownPromise;
 }
 
+/** @param {string[]} arguments_ */
 async function runCleanupPnpm(arguments_) {
   const child = spawn(process.execPath, [pnpmPath, ...arguments_], {
     cwd: repositoryRoot,
@@ -167,6 +154,7 @@ async function runCleanupPnpm(arguments_) {
   }
 }
 
+/** @param {import("node:child_process").ChildProcess} child */
 async function stopProcess(child) {
   if (child.pid === undefined || child.exitCode !== null) {
     return;
@@ -181,6 +169,7 @@ async function stopProcess(child) {
   }
 }
 
+/** @param {NodeJS.Signals} signal */
 async function handleSignal(signal) {
   interruptedSignal ??= signal;
   await shutdown();

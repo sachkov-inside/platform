@@ -1,3 +1,4 @@
+// @ts-check
 import { readFileSync, readdirSync, statSync } from "node:fs";
 import path from "node:path";
 import process from "node:process";
@@ -30,6 +31,10 @@ const vocabulary = new Set([
   "guideCapability",
 ]);
 
+/**
+ * @param {string} directory
+ * @returns {string[]}
+ */
 function sourceFiles(directory) {
   return readdirSync(directory, { withFileTypes: true }).flatMap((entry) => {
     const entryPath = path.join(directory, entry.name);
@@ -38,8 +43,11 @@ function sourceFiles(directory) {
   });
 }
 
+/** @param {import("oxc-parser").Program} program */
 function violationsIn(program) {
+  /** @type {string[]} */
   const violations = [];
+  /** @param {string} name */
   const declared = (name) => {
     if (vocabulary.has(name)) {
       violations.push(
@@ -85,9 +93,10 @@ const applicationSources = readdirSync(path.join(repositoryRoot, "apps"), {
 const findings = applicationSources.flatMap((directory) =>
   sourceFiles(directory).flatMap((file) => {
     const { errors, program } = parseSync(file, readFileSync(file, "utf8"));
-    if (errors.length > 0) {
+    const [firstError] = errors;
+    if (firstError !== undefined) {
       throw new SyntaxError(
-        `Oxc could not parse ${file}: ${errors[0].message}`,
+        `Oxc could not parse ${file}: ${firstError.message}`,
       );
     }
     return violationsIn(program).map(

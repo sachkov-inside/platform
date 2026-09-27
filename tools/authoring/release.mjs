@@ -1,3 +1,4 @@
+// @ts-check
 import { mkdir, readFile } from "node:fs/promises";
 import { join, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
@@ -5,7 +6,14 @@ import { parseArgs } from "node:util";
 import { z } from "zod";
 import { loadPackage, canonical, checksum } from "./package.mjs";
 import { writeAtomic } from "./journal.mjs";
-import { parseJournal, parseLocalResponse } from "./local-boundaries.mjs";
+import {
+  artifactReceiptSchema,
+  attachedVideoReceiptSchema,
+  parseJournal,
+  parseLocalResponse,
+  parseReceipt,
+  sourceVideoReceiptSchema,
+} from "./local-boundaries.mjs";
 import {
   archiveProposalKeys,
   artifactDeclarations,
@@ -15,6 +23,7 @@ import {
   guideDetails,
   guideDetailsMatch,
   normalizeSourceIds,
+  valueAt,
   sourceKey,
   syncLocal,
   validateGuidePages,
@@ -26,8 +35,47 @@ import {
   resolveLocalTarget,
 } from "./target.mjs";
 
-// A release applies one reviewed package to one environment. Only local environments are enabled:
-// production needs an owner-approved credential path and an explicit approval of this command.
+/**
+ * @typedef {import("./journal.mjs").Journal} Journal
+ * @typedef {import("./local-sync.mjs").DefaultAccess} DefaultAccess
+ * @typedef {import("./target.mjs").LocalTransport} LocalTransport
+ * @typedef {object} MaterialChange
+ * @property {string} sourceId
+ * @property {string} title
+ * @property {string} access
+ * @property {boolean} showInFeed
+ * @property {string | null} video
+ * @property {"new" | "changed" | "restore" | "unchanged" | "conflict"} change
+ * @property {boolean} [coverChange]
+ * @property {boolean} [videoChange]
+ * @property {string} [conflictReason]
+ * @property {{ from: boolean; to: boolean }} [feedChange]
+ * @property {{ from: string; to: string }} [accessChange]
+ * @typedef {object} GuideChange
+ * @property {string} sourceId
+ * @property {string} title
+ * @property {"new" | "composition" | "details" | "unchanged"} change
+ * @property {number} materials
+ * @property {string[]} artifactChanges
+ * @property {string} [slug]
+ * @property {string} [presentation]
+ * @property {"none" | "new"} [page]
+ * @property {boolean} [detailsChange]
+ * @property {number} [chapterTextChanges]
+ * @property {boolean} [pageChange]
+ * @property {{ from: string; to: string }} [slugChange]
+ * @property {{ from: string; to: string }} [presentationChange]
+ * @property {number} [added]
+ * @property {number} [removed]
+ * @property {boolean} [reorderedOrRegrouped]
+ */
+
+/**
+ * A release applies one reviewed package to one environment. Only local environments are enabled:
+ * production needs an owner-approved credential path and an explicit approval of this command.
+ *
+ * @param {string} value
+ */
 export function releaseTarget(value) {
   if (Object.hasOwn(localTargets, value)) return resolveLocalTarget(value);
   try {
@@ -39,6 +87,11 @@ export function releaseTarget(value) {
   }
 }
 
+/**
+ * @param {string} stateDirectory
+ * @param {string} target
+ * @returns {Promise<Journal>}
+ */
 async function readJournal(stateDirectory, target) {
   try {
     const journal = parseJournal(
@@ -50,7 +103,7 @@ async function readJournal(stateDirectory, target) {
       throw new Error("Release state belongs to another environment");
     return journal;
   } catch (error) {
-    if (error.code === "ENOENT")
+    if (error instanceof Error && "code" in error && error.code === "ENOENT")
       return {
         schemaVersion: 1,
         target,
@@ -63,14 +116,21 @@ async function readJournal(stateDirectory, target) {
   }
 }
 
-/** Read-only comparison of a package with what this environment already holds. */
+/**
+ * Read-only comparison of a package with what this environment already holds.
+ *
+ * @param {string} packagePath
+ * @param {string} stateDirectory
+ * @param {{ origin: string; request?: LocalTransport | undefined; defaultAccess?: DefaultAccess }} options
+ */
 export async function previewRelease(
   packagePath,
   stateDirectory,
-  { origin, request: transport, defaultAccess = "membership" } = {},
+  { origin, request: transport, defaultAccess = "membership" },
 ) {
   const target = loopbackOrigin(origin);
   const send = transport ?? localTransport(target);
+  /** @type {<P extends string>(path: P) => Promise<import("./local-boundaries.mjs").LocalResponse<P>>} */
   const request = async (path) => parseLocalResponse(path, await send(path));
   const pkg = await loadPackage(packagePath);
   const { manifest } = pkg;
@@ -102,7 +162,9 @@ export async function previewRelease(
   const assets = new Map(
     manifest.assets.map((asset) => [asset.sourceId, asset]),
   );
+  /** @type {MaterialChange[]} */
   const materials = [];
+  /** @type {Record<string, number | string>} */
   const expected = {};
   for (const row of manifest.materials) {
     const key = sourceKey(manifest, row.sourceId);
@@ -125,13 +187,18 @@ export async function previewRelease(
     const current = await request(`/authoring/materials/${entry.materialId}`);
     expected[key] = current.contentVersion;
     // A named provider record that was never attached here makes the Material change on apply.
-    const uploaded = resources[`source-video:${key}`];
+    const uploaded = parseReceipt(
+      sourceVideoReceiptSchema,
+      resources[`source-video:${key}`],
+    );
     // Attaching the provider record of this Material's own upload returns the same Video.
     const attached =
       row.video === null
         ? (uploaded?.videoId ?? current.primaryVideoId)
-        : (resources[`video:${entry.materialId}:${row.video.kinescopeId}`]
-            ?.videoId ??
+        : (parseReceipt(
+            attachedVideoReceiptSchema,
+            resources[`video:${entry.materialId}:${row.video.kinescopeId}`],
+          )?.videoId ??
           (uploaded?.providerVideoId === row.video.kinescopeId
             ? uploaded.videoId
             : `attach:${row.video.kinescopeId}`));
@@ -158,7 +225,9 @@ export async function previewRelease(
             ? "changed"
             : "unchanged";
     const coverSha =
-      row.coverAssetId === null ? null : assets.get(row.coverAssetId).sha256;
+      row.coverAssetId === null
+        ? null
+        : valueAt(assets, row.coverAssetId).sha256;
     materials.push({
       ...item,
       change,
@@ -178,6 +247,7 @@ export async function previewRelease(
         : {}),
     });
   }
+  /** @type {GuideChange[]} */
   const guides = [];
   const currentGuides = storedGuides;
   for (const guide of manifest.guides) {
@@ -190,12 +260,19 @@ export async function previewRelease(
         const receipt =
           guideId === undefined
             ? undefined
-            : resources[
-                `artifact:${guideId}:${sourceKey(manifest, artifactSourceId)}`
-              ];
+            : parseReceipt(
+                artifactReceiptSchema,
+                resources[
+                  `artifact:${guideId}:${sourceKey(manifest, artifactSourceId)}`
+                ],
+              );
         return (
           receipt?.fingerprint !==
-          artifactFingerprint(assets.get(artifact.assetId), artifact, access)
+          artifactFingerprint(
+            valueAt(assets, artifact.assetId),
+            artifact,
+            access,
+          )
         );
       })
       .map(([artifactSourceId]) => artifactSourceId);
@@ -340,7 +417,13 @@ const previewSchema = z
   })
   .strict();
 
-/** Applies exactly the reviewed preview; any drift since the preview stops before the first write. */
+/**
+ * Applies exactly the reviewed preview; any drift since the preview stops before the first write.
+ *
+ * @param {string} previewPath
+ * @param {string} stateDirectory
+ * @param {{ archive?: string[]; request?: LocalTransport }} [options]
+ */
 export async function applyRelease(
   previewPath,
   stateDirectory,

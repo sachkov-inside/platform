@@ -1,3 +1,4 @@
+// @ts-check
 import { createServer } from "node:net";
 import { spawn, spawnSync } from "node:child_process";
 import { dirname, resolve } from "node:path";
@@ -8,12 +9,19 @@ import { ensureSharedIdentityDirectory } from "./shared-identity-directory.mjs";
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 ensureSharedIdentityDirectory(root);
-const web = new URL(process.env.WEB_BASE_URL);
-const api = new URL(process.env.BACKEND_BASE_URL);
+const webBaseUrl = process.env["WEB_BASE_URL"];
+const backendBaseUrl = process.env["BACKEND_BASE_URL"];
+if (webBaseUrl === undefined || backendBaseUrl === undefined) {
+  throw new Error(
+    "This launcher requires explicit loopback URLs and NODE_ENV=development",
+  );
+}
+const web = new URL(webBaseUrl);
+const api = new URL(backendBaseUrl);
 if (
   web.hostname !== "127.0.0.1" ||
   api.hostname !== "127.0.0.1" ||
-  process.env.NODE_ENV !== "development"
+  process.env["NODE_ENV"] !== "development"
 ) {
   throw new Error(
     "This launcher requires explicit loopback URLs and NODE_ENV=development",
@@ -33,9 +41,9 @@ for (const port of [Number(web.port), Number(api.port), 3602]) {
   });
 }
 const databaseUrl =
-  process.env.DATABASE_URL ??
+  process.env["DATABASE_URL"] ??
   (ensureCheckDatabase({ cwd: root }),
-  checkDatabaseUrl(process.env.POSTGRES_HOST_PORT ?? 5432));
+  checkDatabaseUrl(process.env["POSTGRES_HOST_PORT"] ?? 5432));
 if (new URL(databaseUrl).pathname === "/inside")
   throw new Error(
     "The Telegram sign-in launcher must not migrate or seed the stand database",

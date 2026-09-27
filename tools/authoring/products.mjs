@@ -1,3 +1,4 @@
+// @ts-check
 import { z } from "zod";
 import { localTransport } from "./target.mjs";
 
@@ -16,7 +17,15 @@ const productRowSchema = z
   .passthrough();
 const pinSchema = z.object({ seriesId: z.uuid().nullable() }).passthrough();
 
-/** Every product of one environment: its permanent key, current address, look, Home pin and lessons. */
+/**
+ * @typedef {Awaited<ReturnType<typeof listProducts>>[number]} ProductListing
+ */
+
+/**
+ * Every product of one environment: its permanent key, current address, look, Home pin and lessons.
+ *
+ * @param {import("./target.mjs").LocalTransport} request
+ */
 export async function listProducts(request) {
   const [rows, pin] = await Promise.all([
     request("/authoring/collections?kind=guide"),
@@ -40,6 +49,7 @@ export async function listProducts(request) {
     }));
 }
 
+/** @param {ProductListing[]} products */
 export function formatProducts(products) {
   const header = [
     "sourceId",
@@ -60,18 +70,22 @@ export function formatProducts(products) {
     `${item.name}${item.archived ? " (archived)" : ""}`,
   ]);
   const widths = header.map((title, index) =>
-    Math.max(title.length, ...lines.map((line) => line[index].length)),
+    Math.max(title.length, ...lines.map((line) => (line[index] ?? "").length)),
   );
   return [header, ...lines]
     .map((line) =>
       line
-        .map((cell, index) => cell.padEnd(widths[index]))
+        .map((cell, index) => cell.padEnd(widths[index] ?? 0))
         .join("  ")
         .trimEnd(),
     )
     .join("\n");
 }
 
+/**
+ * @param {string} origin
+ * @param {{ json?: boolean }} [options]
+ */
 export async function printProducts(origin, { json = false } = {}) {
   const products = await listProducts(localTransport(origin));
   process.stdout.write(

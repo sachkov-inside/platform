@@ -1,30 +1,34 @@
+// @ts-check
 import { spawn } from "node:child_process";
 import { readFile } from "node:fs/promises";
-import { tmpdir } from "node:os";
 import { dirname, resolve } from "node:path";
 import process from "node:process";
 import { parseEnv } from "node:util";
 import { fileURLToPath } from "node:url";
 
-import lockfile from "proper-lockfile";
-
 import { isolateIdentityProofEnvironment } from "./identity-proof-environment.mjs";
 import { runIdentityProofSession } from "./identity-proof-session.mjs";
+import { acquireLocalSetupLock } from "./local-setup-lock.mjs";
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const proofCompose = resolve(root, "infra/identity/logto/compose.yaml");
 const platformCompose = resolve(root, "compose.yaml");
 const composeEnvironment = resolve(root, "infra/identity/logto/compose.env");
-const pnpmPath = process.env.npm_execpath;
-if (pnpmPath === undefined) {
+const pnpmExecutable = process.env["npm_execpath"];
+if (pnpmExecutable === undefined) {
   throw new Error("Run the identity proof through the pinned pnpm CLI");
 }
+const pnpmPath = pnpmExecutable;
 
-const releaseLock = await acquireOwnershipLock();
+const releaseLock = await acquireLocalSetupLock(
+  "Another local session owns the machine-wide Platform setup lock. Wait for its handoff before starting the identity proof.",
+);
+/** @type {Set<import("node:child_process").ChildProcess>} */
 const activeProcesses = new Set();
+/** @type {NodeJS.Signals | undefined} */
 let interruptedSignal;
 
-for (const signal of ["SIGINT", "SIGTERM"]) {
+for (const signal of /** @type {const} */ (["SIGINT", "SIGTERM"])) {
   process.once(signal, () => {
     interruptedSignal ??= signal;
     void stopActiveProcesses();
@@ -59,6 +63,7 @@ if (interruptedSignal !== undefined) {
   process.exitCode = interruptedSignal === "SIGINT" ? 130 : 143;
 }
 
+/** @type {import("./identity-proof-session.mjs").RunCompose} */
 async function runCompose(project, arguments_, environment, capture = false) {
   const compose = project === "identity" ? proofCompose : platformCompose;
   const result = await runPnpm(
@@ -78,6 +83,11 @@ async function runCompose(project, arguments_, environment, capture = false) {
   return result.output;
 }
 
+/**
+ * @param {string[]} arguments_
+ * @param {boolean} [capture]
+ * @param {NodeJS.ProcessEnv} [environment]
+ */
 async function runPnpm(arguments_, capture = false, environment = process.env) {
   const child = spawn(process.execPath, [pnpmPath, ...arguments_], {
     cwd: root,
@@ -106,34 +116,11 @@ async function runPnpm(arguments_, capture = false, environment = process.env) {
   return { output };
 }
 
-async function acquireOwnershipLock() {
-  const lockTarget = resolve(tmpdir(), "inside-platform-local-setup");
-  try {
-    return await lockfile.lock(lockTarget, {
-      realpath: false,
-      retries: 0,
-      stale: 30_000,
-      update: 10_000,
-    });
-  } catch (error) {
-    if (
-      error instanceof Error &&
-      Reflect.has(error, "code") &&
-      error.code === "ELOCKED"
-    ) {
-      throw new Error(
-        "Another local session owns the machine-wide Platform setup lock. Wait for its handoff before starting the identity proof.",
-        { cause: error },
-      );
-    }
-    throw error;
-  }
-}
-
 async function stopActiveProcesses() {
   await Promise.all([...activeProcesses].map((child) => stopProcess(child)));
 }
 
+/** @param {import("node:child_process").ChildProcess} child */
 async function stopProcess(child) {
   if (child.pid === undefined || child.exitCode !== null) {
     return;
