@@ -8,6 +8,23 @@ import { reportProcessFailure } from "../../src/infrastructure/observability/ind
 
 const backendRoot = fileURLToPath(new URL("../..", import.meta.url));
 const logRecord = z.record(z.string(), z.unknown());
+/**
+ * Прогон воркера отдельным процессом до выхода — холодная компиляция входа через tsx, загрузка
+ * модулей и отказ при старте. Эта длительность принадлежит машине, а не проверяемому поведению.
+ * Измерено: локально 0.9–2.2 с, когда файл идёт один, и 1.3–1.5 с под всем unit-набором; на раннере
+ * CI (23 прогона) 2.8–5.1 с у `notifications-worker` и 2.0–3.8 с у `material-assets-worker`.
+ * Бюджет — почти двенадцатикратный запас к худшему наблюдённому прогону: он останавливает только
+ * воркер, который не завершился.
+ */
+const workerExitBudgetMs = 60_000;
+/**
+ * Тело случая синхронно: `spawnSync` держит поток, и срок Vitest не прерывает случай, а после
+ * возврата бракует его задним числом, если тот шёл дольше срока. Так CI и упал на 5000 мс у
+ * воркера, который отработал верно. Поэтому срок случая не меньше бюджета процесса: прогон,
+ * уложившийся в бюджет, не бракуется, а зависший приходит как `ETIMEDOUT` из `run.error`. Сверх
+ * бюджета остаётся разбор вывода и проверки — миллисекунды.
+ */
+const workerCaseTimeoutMs = workerExitBudgetMs + 5_000;
 
 describe("worker startup failure", () => {
   it.each([
@@ -38,10 +55,12 @@ describe("worker startup failure", () => {
             NODE_ENV: "test",
             DATABASE_URL: "postgresql://inside:db-secret@127.0.0.1:1/inside",
           },
-          timeout: 60_000,
+          timeout: workerExitBudgetMs,
         },
       );
 
+      // Если бюджет убил процесс, случай падает здесь с `ETIMEDOUT`, а не на `null` вместо кода.
+      expect(run.error).toBeUndefined();
       expect(run.status).toBe(1);
       const lines = `${run.stdout}${run.stderr}`
         .split("\n")
@@ -57,6 +76,7 @@ describe("worker startup failure", () => {
       });
       expect(lines.join("\n")).not.toContain("db-secret");
     },
+    workerCaseTimeoutMs,
   );
 
   describe("when an open connection outlives the failure", () => {

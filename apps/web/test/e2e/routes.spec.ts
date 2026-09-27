@@ -113,9 +113,14 @@ test("страница отправляет площадке свои Core Web V
     document.dispatchEvent(new Event("visibilitychange"));
   });
 
-  // Ответ настоящего обработчика: отчёт прошёл проверку источника и схемы и записан в журнал.
+  // Ответ настоящего обработчика: отчёт прошёл проверку источника и схемы. Запись в журнал ограничивает
+  // общий на процесс web потолок строк за минуту, и его тратят страницы соседних тестов набора. Отказ
+  // потолка (`429` с `Retry-After`) приходит только после тех же проверок; сам потолок проверяет
+  // `test/module/client-telemetry-bff.test.ts`.
   const response = await answered;
-  expect(response.status()).toBe(204);
+  if (response.status() === 429)
+    expect(response.headers()["retry-after"]).toMatch(/^\d+$/u);
+  else expect(response.status()).toBe(204);
   const body = z
     .object({
       metrics: z.array(z.object({ name: z.string(), value: z.number() })),

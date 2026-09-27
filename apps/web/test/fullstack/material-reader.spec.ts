@@ -167,7 +167,7 @@ test("server-renders the representative PostgreSQL Material through Nest", async
     }
   });
   page.on("pageerror", (error) => browserErrors.push(error.message));
-  await page.addInitScript(() => {
+  await page.addInitScript((takeRecordsEvent) => {
     const measurements = {
       cls: 0,
       inp: 0,
@@ -228,17 +228,25 @@ test("server-renders the representative PostgreSQL Material through Nest", async
       }).observe({ type: "largest-contentful-paint", buffered: true });
     }
     if (PerformanceObserver.supportedEntryTypes.includes("event")) {
-      new PerformanceObserver((list) => {
-        for (const entry of list.getEntries()) {
+      const recordEvents = (entries: PerformanceEntryList) => {
+        for (const entry of entries) {
           measurements.inp = Math.max(measurements.inp, entry.duration);
         }
-      }).observe({
+      };
+      const events = new PerformanceObserver((list) => {
+        recordEvents(list.getEntries());
+      });
+      events.observe({
         type: "event",
         buffered: true,
         durationThreshold: 16,
       } as PerformanceObserverInit);
+      // Колбэк наблюдателя приходит позже, чем запись встаёт в очередь; проверка забирает её сама.
+      window.addEventListener(takeRecordsEvent, () => {
+        recordEvents(events.takeRecords());
+      });
     }
-  });
+  }, takePerformanceRecords);
   const documentResponse = await request.get(
     "/materials/kak-ustroen-inside-platform",
   );
@@ -285,7 +293,8 @@ test("server-renders the representative PostgreSQL Material through Nest", async
   }
   await expect(outline).toBeVisible();
   await page.getByRole("link", { name: "Проверяемый результат" }).click();
-  await page.waitForTimeout(100);
+  await expect(page).toHaveURL(/#.+/u);
+  await framesPresented(page);
 
   const accessibility = await new AxeBuilder({ page })
     .withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"])
@@ -877,20 +886,27 @@ test("keeps desktop shell fixed while main content owns scrolling", async ({
 }, testInfo) => {
   test.skip(testInfo.project.name !== "desktop-chromium");
 
-  await page.addInitScript(() => {
+  await page.addInitScript((takeRecordsEvent) => {
     const shellCls = { value: 0 };
     Object.defineProperty(window, "__shellCls", { value: shellCls });
-    new PerformanceObserver((list) => {
+    const recordShifts = (entries: PerformanceEntryList) => {
       // lib.dom has no LayoutShift yet, so the entry fields are read as unknown.
-      for (const entry of list.getEntries()) {
+      for (const entry of entries) {
         if (!("value" in entry) || typeof entry.value !== "number") continue;
         if ("hadRecentInput" in entry && entry.hadRecentInput === true) {
           continue;
         }
         shellCls.value += entry.value;
       }
-    }).observe({ type: "layout-shift", buffered: true });
-  });
+    };
+    const shifts = new PerformanceObserver((list) => {
+      recordShifts(list.getEntries());
+    });
+    shifts.observe({ type: "layout-shift", buffered: true });
+    window.addEventListener(takeRecordsEvent, () => {
+      recordShifts(shifts.takeRecords());
+    });
+  }, takePerformanceRecords);
   await page.goto("/materials/kak-ustroen-inside-platform");
   const header = page.getByRole("banner");
   const main = page.getByRole("main");
@@ -906,33 +922,90 @@ test("keeps desktop shell fixed while main content owns scrolling", async ({
     }
   });
   await header.hover();
-  await expect
-    .poll(() =>
-      main.evaluate((element) => {
-        const { width, x } = element.getBoundingClientRect();
-        return { width, x };
-      }),
-    )
-    .toEqual(initialMainRect);
-  await page.waitForTimeout(500);
+  await hoverSettled(page);
+  expect(
+    await main.evaluate((element) => {
+      const { width, x } = element.getBoundingClientRect();
+      return { width, x };
+    }),
+  ).toEqual(initialMainRect);
   const shellCls = z
     .object({ value: z.number() })
     .parse(
       await page.evaluate((): unknown => Reflect.get(window, "__shellCls")),
     );
   expect(shellCls.value).toBeLessThanOrEqual(0.001);
-  await page.mouse.wheel(0, 600);
-  await page.waitForTimeout(100);
-  await expect.poll(() => page.evaluate(() => window.scrollY)).toBe(0);
-  await expect
-    .poll(() => main.evaluate((element) => element.scrollTop))
-    .toBe(0);
+  await wheelPresented(page, 600);
+  expect(await page.evaluate(() => window.scrollY)).toBe(0);
+  expect(await main.evaluate((element) => element.scrollTop)).toBe(0);
 
   await main.hover({ position: { x: 600, y: 400 } });
-  await page.mouse.wheel(0, 600);
-  await page.waitForTimeout(100);
-  await expect.poll(() => page.evaluate(() => window.scrollY)).toBe(0);
+  await wheelPresented(page, 600);
+  // Сначала факт прокрутки основной области, потом отсутствие прокрутки окна при нём.
   await expect
     .poll(() => main.evaluate((element) => element.scrollTop))
     .toBeGreaterThan(0);
+  expect(await page.evaluate(() => window.scrollY)).toBe(0);
 });
+
+/** Событие, по которому наблюдатели проверок забирают свою очередь записей через `takeRecords`. */
+const takePerformanceRecords = "inside:take-performance-records";
+
+/**
+ * Два кадра отрисованы, и наблюдатели забрали записи из очереди, не дожидаясь своего колбэка:
+ * первый кадр применяет ввод и стили, после второго записи о первом уже стоят в очереди. Запись
+ * Event Timing (INP) Chromium ставит по ответу о показе кадра, и если он опоздает, событие выпадет
+ * из замера: проверка его не учтёт, но и не покраснеет от этого.
+ */
+async function framesPresented(page: Page) {
+  await page.evaluate(async (takeRecordsEvent) => {
+    await new Promise((resolve) =>
+      requestAnimationFrame(() => requestAnimationFrame(resolve)),
+    );
+    window.dispatchEvent(new Event(takeRecordsEvent));
+  }, takePerformanceRecords);
+}
+
+/**
+ * Наведение отыграло целиком: стили применены, конечные анимации и переходы, которые оно запустило,
+ * закончились, а сдвиги раскладки забраны. Бесконечные анимации не ждём: они не заканчиваются, а
+ * сдвиг от них проверка увидит и так.
+ */
+async function hoverSettled(page: Page) {
+  await framesPresented(page);
+  await page.evaluate(() =>
+    Promise.all(
+      document
+        .getAnimations()
+        .filter(
+          (animation) =>
+            animation.effect?.getComputedTiming().endTime !==
+            Number.POSITIVE_INFINITY,
+        )
+        .map((animation) => animation.finished.catch(() => undefined)),
+    ),
+  );
+  await framesPresented(page);
+}
+
+/**
+ * Колесо дошло до страницы, и кадры после него отрисованы: прокрутка от него, если она есть, уже
+ * началась. `mouse.wheel` не ждёт ни доставки события, ни прокрутки.
+ */
+async function wheelPresented(page: Page, deltaY: number) {
+  const wheel = await page.evaluateHandle(() => ({
+    delivered: new Promise<void>((resolve) => {
+      window.addEventListener(
+        "wheel",
+        () => {
+          resolve();
+        },
+        { capture: true, once: true, passive: true },
+      );
+    }),
+  }));
+  await page.mouse.wheel(0, deltaY);
+  await wheel.evaluate(({ delivered }) => delivered);
+  await wheel.dispose();
+  await framesPresented(page);
+}

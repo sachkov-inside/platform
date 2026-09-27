@@ -9,6 +9,7 @@ import {
   evidencePath,
   prepareEvidenceDirectory,
 } from "../../../../scripts/evidence-path.mjs";
+import { waitPastAccessTokenExpiry } from "./access-token-expiry";
 
 if (
   process.env["WEB_BASE_URL"] === undefined ||
@@ -164,9 +165,9 @@ test("Telegram sign-in, logout and fresh repeat use the real Logto session", asy
   await expect(
     page.getByRole("button", { name: "Выйти", exact: true }),
   ).toBeVisible();
+  const signedInAt = Date.now();
   const before = await createProfile(page);
-  // The isolated proof resource uses a 60-second access-token lifetime.
-  await page.waitForTimeout(61_000);
+  await waitPastAccessTokenExpiry(page, signedInAt);
   const refreshed = await page.request.get("/auth/status");
   expect(
     z.object({ state: z.string() }).parse(await refreshed.json()).state,

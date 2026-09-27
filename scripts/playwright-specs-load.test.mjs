@@ -5,8 +5,20 @@ import { readdirSync } from "node:fs";
 import test from "node:test";
 import path from "node:path";
 import { fileURLToPath, URL } from "node:url";
+import { z } from "zod";
+
+/** Часть JSON-отчёта Playwright, которую читает проверка повтора. */
+const listReportSchema = z.object({
+  config: z.object({
+    projects: z.array(z.object({ name: z.string(), retries: z.number() })),
+  }),
+});
 
 const webRoot = fileURLToPath(new URL("../apps/web", import.meta.url));
+const playwrightCli = path.join(
+  webRoot,
+  "node_modules/@playwright/test/cli.js",
+);
 
 /**
  * Набор, который нельзя загрузить, не проверяет ничего, а сказать об этом некому: сквозные наборы
@@ -20,21 +32,33 @@ const configurations = readdirSync(webRoot)
   )
   .sort();
 
+/**
+ * Список тестов конфигурации без запуска. Playwright вызывается напрямую, без pnpm: служебные строки
+ * pnpm в stdout ломают JSON-отчёт.
+ *
+ * @param {string} configuration
+ * @param {readonly string[]} options
+ * @param {NodeJS.ProcessEnv} [environment]
+ */
+function listTests(configuration, options, environment = process.env) {
+  return spawnSync(
+    process.execPath,
+    [
+      playwrightCli,
+      "test",
+      "--config",
+      path.join(webRoot, configuration),
+      "--list",
+      ...options,
+    ],
+    { cwd: webRoot, encoding: "utf8", env: environment },
+  );
+}
+
 test("every Playwright configuration names at least one spec it can load", () => {
   assert.ok(configurations.length > 0, "no Playwright configuration found");
   for (const configuration of configurations) {
-    const result = spawnSync(
-      "pnpm",
-      [
-        "exec",
-        "playwright",
-        "test",
-        "--config",
-        path.join(webRoot, configuration),
-        "--list",
-      ],
-      { cwd: webRoot, encoding: "utf8" },
-    );
+    const result = listTests(configuration, []);
     const output = `${result.stdout ?? ""}${result.stderr ?? ""}`;
     // Набор, который сам объявил недостающее окружение, загрузился: он разобран, импортирован и
     // отказался осознанно. Это его собственный контракт, а не поломка загрузки, которую мы ловим.
@@ -54,5 +78,36 @@ test("every Playwright configuration names at least one spec it can load", () =>
       "0",
       `${configuration} loaded no tests:\n${output}`,
     );
+  }
+});
+
+/**
+ * Исполняемая часть правила о повторе из «Waiting in tests» в корневом `CODING_STANDARDS.md` (#476).
+ * Конфигурация читается так, как её видит Playwright под `CI=1`.
+ */
+test("no Playwright configuration retries a failed test, in CI either", () => {
+  for (const configuration of configurations) {
+    const result = listTests(configuration, ["--reporter=json"], {
+      ...process.env,
+      CI: "1",
+    });
+    // Набор, отказавшийся от недостающего окружения, всё равно печатает отчёт с конфигурацией.
+    /** @type {unknown} */
+    let output;
+    try {
+      output = JSON.parse(result.stdout);
+    } catch {
+      assert.fail(
+        `${configuration} printed no JSON report:\n${result.stdout}${result.stderr}`,
+      );
+    }
+    const report = listReportSchema.parse(output);
+    for (const project of report.config.projects) {
+      assert.equal(
+        project.retries,
+        0,
+        `${configuration} retries project ${project.name}`,
+      );
+    }
   }
 });

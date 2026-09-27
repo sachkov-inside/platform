@@ -21,9 +21,8 @@ export default defineConfig({
       ],
   fullyParallel: true,
   forbidOnly: Boolean(process.env["CI"]),
-  // Повтор нужен только для следа: тест, прошедший со второй попытки, валит прогон.
-  failOnFlakyTests: Boolean(process.env["CI"]),
-  retries: process.env["CI"] !== undefined && process.env["CI"] !== "" ? 1 : 0,
+  // Без повтора и в CI: «Waiting in tests» в корневом CODING_STANDARDS.md (#476).
+  retries: 0,
   reporter: [["list"], ["html", { open: "never" }]],
   use: {
     baseURL,
