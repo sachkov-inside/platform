@@ -179,6 +179,7 @@ async function run(
   activeProcesses.add(child);
   // Несостоявшийся запуск процесса — такая же неудача команды, как ненулевой код возврата, и
   // сообщать о нём надо тем же текстом.
+  /** @type {Promise<never>} */
   const failedToStart = new Promise((_, rejectStart) => {
     child.once("error", (error) => {
       rejectStart(new Error(`${label} failed to start`, { cause: error }));
@@ -186,20 +187,19 @@ async function run(
   });
   let output = "";
   if (capture) {
-    child.stdout?.on("data", (chunk) => {
+    child.stdout?.on("data", (/** @type {Buffer} */ chunk) => {
       output += chunk.toString();
     });
-    child.stderr?.on("data", (chunk) => {
+    child.stderr?.on("data", (/** @type {Buffer} */ chunk) => {
       output += chunk.toString();
     });
   }
   try {
-    const exitCode = await Promise.race([
-      new Promise((resolveExit) => {
-        child.once("exit", (code) => resolveExit(code));
-      }),
-      failedToStart,
-    ]);
+    /** @type {Promise<number | null>} */
+    const exited = new Promise((resolveExit) => {
+      child.once("exit", (code) => resolveExit(code));
+    });
+    const exitCode = await Promise.race([exited, failedToStart]);
     if (exitCode !== 0) {
       throw new Error(`${label} failed${capture ? `:\n${output}` : ""}`);
     }

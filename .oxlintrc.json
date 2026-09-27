@@ -258,6 +258,41 @@
       }
     },
     {
+      "files": [
+        "scripts/**/*.mjs",
+        "tools/**/*.mjs",
+        "release/**/*.mjs",
+        "apps/backend/scripts/**/*.mjs",
+        "apps/web/scripts/**/*.mjs",
+        "apps/web/*.mjs",
+        "apps/web/test/**/*.mjs",
+        "packages/runtime-identity/*.mjs"
+      ],
+      "rules": {
+        "typescript/no-unsafe-argument": "error",
+        "typescript/no-unsafe-assignment": "error",
+        "typescript/no-unsafe-call": "error",
+        "typescript/no-unsafe-enum-comparison": "error",
+        "typescript/no-unsafe-member-access": "error",
+        "typescript/no-unsafe-return": "error",
+        "typescript/no-unsafe-unary-minus": "error",
+        "typescript/no-unsafe-type-assertion": "error"
+      }
+    },
+    {
+      "files": ["**/fixtures/**/*.mjs"],
+      "rules": {
+        "typescript/no-unsafe-argument": "off",
+        "typescript/no-unsafe-assignment": "off",
+        "typescript/no-unsafe-call": "off",
+        "typescript/no-unsafe-enum-comparison": "off",
+        "typescript/no-unsafe-member-access": "off",
+        "typescript/no-unsafe-return": "off",
+        "typescript/no-unsafe-unary-minus": "off",
+        "typescript/no-unsafe-type-assertion": "off"
+      }
+    },
+    {
       "files": ["apps/backend/**/*.{ts,mts,cts}", "packages/**/*.{ts,mts,cts}"],
       "rules": {
         "typescript/no-confusing-void-expression": "off",

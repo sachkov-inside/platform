@@ -1,11 +1,12 @@
 // @ts-check
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { canonical, loadPackage } from "./package.mjs";
 import { applyJournaled, withJournal } from "./journal.mjs";
+import { operationAt, readJournalFile } from "./test-support.mjs";
 
 const material = {
   sourceId: "one",
@@ -97,10 +98,8 @@ test("uncertain requests persist before transmission and retry the same key", as
       await applyJournaled(context, request, async (sent, key) => {
         keys.push(key);
         assert.deepEqual(sent, request);
-        const stored = JSON.parse(
-          await readFile(join(root, "journal.json"), "utf8"),
-        );
-        assert.equal(stored.operations[key].status, "pending");
+        const stored = await readJournalFile(root);
+        assert.equal(operationAt(stored, key).status, "pending");
         throw new Error("Connection lost after commit");
       });
     }),

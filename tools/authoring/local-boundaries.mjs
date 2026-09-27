@@ -305,6 +305,7 @@ export function parseLocalResponse(path, value) {
 
 // A journal file holds canonical JSON. In memory a request or result may still carry undefined
 // fields that canonical() drops on write, so the checked value keeps the type unknown.
+/** @type {z.ZodType<unknown>} */
 const journalValue = z.custom((value) => z.json().safeParse(value).success);
 const operationSchema = z.discriminatedUnion("status", [
   z
@@ -428,10 +429,10 @@ export const uploadReceiptSchema = z.discriminatedUnion("phase", [
 /**
  * The receipt stored under a resource key, checked against the shape its prefix names.
  *
- * @template {z.ZodType} S
- * @param {S} schema
+ * @template T
+ * @param {z.ZodType<T>} schema
  * @param {unknown} value
- * @returns {z.infer<S> | undefined}
+ * @returns {T | undefined}
  */
 export function parseReceipt(schema, value) {
   return value === undefined ? undefined : schema.parse(value);

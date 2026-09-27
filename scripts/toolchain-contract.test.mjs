@@ -8,6 +8,8 @@ import { fileURLToPath } from "node:url";
 import { describe, it } from "node:test";
 import { z } from "zod";
 
+import { readPackageManifest } from "./package-manifest.mjs";
+
 const repositoryRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 /** @param {string} path */
 const read = (path) => readFileSync(resolve(repositoryRoot, path), "utf8");
@@ -18,6 +20,9 @@ const tsconfigSchema = z
     compilerOptions: z.record(z.string(), z.unknown()).optional(),
     include: z.array(z.string()).optional(),
     exclude: z.array(z.string()).optional(),
+    references: z
+      .array(z.object({ path: z.string() }).passthrough())
+      .optional(),
   })
   .passthrough();
 const oxlintConfigSchema = z
@@ -39,11 +44,14 @@ const oxlintConfigSchema = z
  */
 /** @param {string} path */
 const readTsconfig = (path) => tsconfigSchema.parse(JSON.parse(read(path)));
-const rootPackage = JSON.parse(read("package.json"));
-const backendPackage = JSON.parse(read("apps/backend/package.json"));
-const webPackage = JSON.parse(read("apps/web/package.json"));
+/** @param {string} path */
+const readManifest = (path) =>
+  readPackageManifest(resolve(repositoryRoot, path));
+const rootPackage = readManifest("package.json");
+const backendPackage = readManifest("apps/backend/package.json");
+const webPackage = readManifest("apps/web/package.json");
 const nodeVersion = read(".node-version").trim();
-const pnpmVersion = rootPackage.packageManager.replace(/^pnpm@/u, "");
+const pnpmVersion = (rootPackage.packageManager ?? "").replace(/^pnpm@/u, "");
 const applicationDockerfiles = [
   "apps/backend/Dockerfile",
   "apps/web/Dockerfile",
@@ -101,27 +109,35 @@ describe("supported toolchain contract", () => {
     const nodeMajor = nodeVersion.split(".")[0];
     const packages = [rootPackage, backendPackage, webPackage];
     const typeScriptPins = packages.map(
-      (manifest) => manifest.devDependencies.typescript,
+      (manifest) => manifest.devDependencies["typescript"],
     );
 
     assert.equal(new Set(typeScriptPins).size, 1);
     assert.equal(typeScriptPins[0], "7.0.2");
     assert.ok(
-      typeScriptPins.every((version) => /^\d+\.\d+\.\d+$/u.test(version)),
+      typeScriptPins.every(
+        (version) => version !== undefined && /^\d+\.\d+\.\d+$/u.test(version),
+      ),
     );
     for (const manifest of [rootPackage, backendPackage, webPackage]) {
       assert.equal(
-        manifest.devDependencies["@types/node"].split(".")[0],
+        manifest.devDependencies["@types/node"]?.split(".")[0],
         nodeMajor,
       );
     }
   });
 
   it("keeps editors, Next and CLI checks on TypeScript 7 projects", () => {
-    const editorSettings = JSON.parse(read(".vscode/settings.json"));
-    const backendTypeScript = JSON.parse(read("apps/backend/tsconfig.json"));
-    const webTypeScript = JSON.parse(read("apps/web/tsconfig.json"));
-    const nextTypeScript = JSON.parse(read("apps/web/tsconfig.next.json"));
+    const editorSettings = z
+      .record(z.string(), z.unknown())
+      .parse(JSON.parse(read(".vscode/settings.json")));
+    const { include: backendInclude = [] } = readTsconfig(
+      "apps/backend/tsconfig.json",
+    );
+    const { include: webInclude = [], exclude: webExclude = [] } = readTsconfig(
+      "apps/web/tsconfig.json",
+    );
+    const nextTypeScript = readTsconfig("apps/web/tsconfig.next.json");
     const nextConfig = read("apps/web/next.config.ts");
 
     assert.equal(
@@ -136,12 +152,14 @@ describe("supported toolchain contract", () => {
       compilerOptionsOf("apps/backend/tsconfig.json")["experimentalDecorators"],
       true,
     );
-    assert.ok(backendTypeScript.include.includes("src/**/*.ts"));
-    assert.ok(webTypeScript.include.includes(".next/types/**/*.ts"));
-    assert.ok(!webTypeScript.include.includes(".next/dev/types/**/*.ts"));
-    assert.ok(webTypeScript.exclude.includes(".next/dev"));
+    assert.ok(backendInclude.includes("src/**/*.ts"));
+    assert.ok(webInclude.includes(".next/types/**/*.ts"));
+    assert.ok(!webInclude.includes(".next/dev/types/**/*.ts"));
+    assert.ok(webExclude.includes(".next/dev"));
     assert.equal(nextTypeScript.extends, "./tsconfig.json");
-    assert.ok(nextTypeScript.include.includes(".next/dev/types/**/*.ts"));
+    assert.ok(
+      (nextTypeScript.include ?? []).includes(".next/dev/types/**/*.ts"),
+    );
     assert.doesNotMatch(nextConfig, /useTypeScriptCli:\s*false/u);
     assert.match(nextConfig, /tsconfigPath: "tsconfig\.next\.json"/u);
   });
@@ -221,10 +239,10 @@ describe("supported toolchain contract", () => {
 
   it("uses only the Oxc lint and parser toolchain", () => {
     assert.equal(
-      rootPackage.scripts.lint,
+      rootPackage.scripts["lint"],
       "oxlint --deny-warnings --report-unused-disable-directives --ignore-pattern 'apps/backend/test/guardrails/fixtures/oxlint/**' .",
     );
-    assert.equal(rootPackage.devDependencies.oxlint, "1.85.0");
+    assert.equal(rootPackage.devDependencies["oxlint"], "1.85.0");
     assert.equal(rootPackage.devDependencies["oxlint-tsgolint"], "7.0.2002");
     assert.equal(rootPackage.devDependencies["oxc-parser"], "0.151.0");
 
@@ -340,7 +358,7 @@ describe("supported toolchain contract", () => {
 
   it("type-checks every repository script", () => {
     assert.match(
-      rootPackage.scripts.typecheck,
+      rootPackage.scripts["typecheck"] ?? "",
       /tsc -p tsconfig\.scripts\.json/u,
     );
     const scripts = spawnSync("git", ["ls-files", "-z", "--", "*.mjs"], {
@@ -372,6 +390,84 @@ describe("supported toolchain contract", () => {
         "other/checked.mjs must be in tsconfig.scripts.json",
         "scripts/escaped.mjs must not switch its check off with @ts-nocheck",
       ],
+    );
+  });
+
+  it("lints every repository script with the shared no-unsafe rules", () => {
+    const config = oxlintConfigSchema.parse(JSON.parse(read(".oxlintrc.json")));
+    const scriptsProject = readTsconfig("tsconfig.scripts.json");
+    const rootProject = readTsconfig("tsconfig.json");
+    assert.deepEqual(
+      scriptLintViolations(config, scriptsProject, rootProject),
+      [],
+    );
+
+    // Negative fixtures: a script directory left out, a rule missing from the scripts set, lint of
+    // the excluded fixtures, and a root tsconfig that no longer leads to the scripts project.
+    /** @param {(override: OxlintOverride) => OxlintOverride} change */
+    const changed = (change) => ({
+      ...config,
+      overrides: config.overrides.map(change),
+    });
+    const scriptsInclude = scriptsProject.include ?? [];
+    const isScripts = (/** @type {OxlintOverride} */ override) =>
+      isDeepStrictEqual(override.files, scriptsInclude);
+    assert.deepEqual(
+      scriptLintViolations(
+        changed((override) =>
+          isScripts(override)
+            ? {
+                ...override,
+                files: override.files.filter(
+                  (files) => files !== "tools/**/*.mjs",
+                ),
+              }
+            : override,
+        ),
+        scriptsProject,
+        rootProject,
+      ),
+      [`script lint must have an override for ${scriptsInclude.join(", ")}`],
+    );
+    assert.deepEqual(
+      scriptLintViolations(
+        changed((override) => {
+          if (!isScripts(override)) return override;
+          const { "typescript/no-unsafe-member-access": _omitted, ...rules } =
+            override.rules ?? {};
+          return { ...override, rules };
+        }),
+        scriptsProject,
+        rootProject,
+      ),
+      [
+        `typescript/no-unsafe-member-access must be error for ${scriptsInclude.join(", ")}`,
+      ],
+    );
+    assert.deepEqual(
+      scriptLintViolations(
+        changed((override) =>
+          isDeepStrictEqual(override.files, ["**/fixtures/**/*.mjs"])
+            ? {
+                ...override,
+                rules: {
+                  ...override.rules,
+                  "typescript/no-unsafe-call": "error",
+                },
+              }
+            : override,
+        ),
+        scriptsProject,
+        rootProject,
+      ),
+      ["typescript/no-unsafe-call must be off for **/fixtures/**/*.mjs"],
+    );
+    assert.deepEqual(
+      scriptLintViolations(config, scriptsProject, {
+        ...rootProject,
+        references: [],
+      }),
+      ["tsconfig.json must reference tsconfig.scripts.json"],
     );
   });
 
@@ -895,12 +991,77 @@ function strictLintViolations(config) {
       violations.push(`${rule} must keep its #694 options`);
     }
     for (const override of config.overrides) {
-      if (override === shared || override.files.includes(generatedCodeFiles))
+      if (
+        override === shared ||
+        override.files.includes(generatedCodeFiles) ||
+        matchesScriptsOnly(override)
+      )
         continue;
       if (rule in (override.rules ?? {})) {
         violations.push(
           `${override.files.join(", ")} must not override ${rule}`,
         );
+      }
+    }
+  }
+  return violations;
+}
+
+/**
+ * An override that matches only `.mjs` scripts cannot relax the TypeScript set.
+ *
+ * @param {OxlintOverride} override
+ */
+function matchesScriptsOnly(override) {
+  return override.files.every((files) => files.endsWith(".mjs"));
+}
+
+/**
+ * Scripts get every `no-unsafe-*` rule of the shared type-aware set (#763). The set covers exactly
+ * the files tsconfig.scripts.json compiles and is off where that project excludes files: outside a
+ * program every type is an error. Type-aware lint finds that project through the root tsconfig.
+ *
+ * @param {OxlintConfig} config
+ * @param {TsConfig} scriptsProject
+ * @param {TsConfig} rootProject
+ */
+function scriptLintViolations(config, scriptsProject, rootProject) {
+  /** @type {string[]} */
+  const violations = [];
+  if (
+    !(rootProject.references ?? []).some(
+      ({ path }) => path === "./tsconfig.scripts.json",
+    )
+  ) {
+    violations.push("tsconfig.json must reference tsconfig.scripts.json");
+  }
+  const [shared] = config.overrides.filter(isTypeAwareOverride);
+  const unsafeRules = Object.keys(shared?.rules ?? {}).filter((rule) =>
+    rule.startsWith("typescript/no-unsafe-"),
+  );
+  /** @type {[string[], string][]} */
+  const expected = [
+    [scriptsProject.include ?? [], "error"],
+    ...(scriptsProject.exclude ?? [])
+      .filter((pattern) => pattern !== "**/node_modules/**")
+      .map(
+        (pattern) =>
+          /** @type {[string[], string]} */ ([[`${pattern}/*.mjs`], "off"]),
+      ),
+  ];
+  for (const [files, setting] of expected) {
+    const override = config.overrides.find((candidate) =>
+      isDeepStrictEqual(candidate.files, files),
+    );
+    if (override === undefined) {
+      violations.push(
+        `script lint must have an override for ${files.join(", ")}`,
+      );
+      continue;
+    }
+    for (const rule of unsafeRules) {
+      if (override.rules?.[rule] !== setting) {
+        violations.push(`${rule} must be ${setting} for ${files.join(", ")}`);
       }
     }
   }

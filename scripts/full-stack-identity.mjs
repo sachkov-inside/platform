@@ -266,6 +266,8 @@ async function readBody(request) {
   /** @type {Buffer[]} */
   const chunks = [];
   for await (const chunk of request) {
+    // Without an encoding a request stream yields bytes.
+    if (!Buffer.isBuffer(chunk)) throw new Error("Request stream yielded text");
     chunks.push(chunk);
   }
   return Buffer.concat(chunks).toString("utf8");

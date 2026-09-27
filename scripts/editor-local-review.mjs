@@ -147,7 +147,9 @@ function run(args) {
 /** @param {string[]} args */
 async function command(args) {
   const child = run(args);
-  const code = await new Promise((done) => child.once("exit", done));
+  /** @type {Promise<number | null>} */
+  const exited = new Promise((done) => child.once("exit", done));
+  const code = await exited;
   if (code !== 0) throw new Error(`Local setup failed: ${args.join(" ")}`);
 }
 async function close() {

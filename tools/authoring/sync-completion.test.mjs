@@ -1,7 +1,7 @@
 // @ts-check
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { mkdtemp, mkdir, readFile, rm, writeFile } from "node:fs/promises";
+import { mkdtemp, mkdir, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { canonical, checksum } from "./package.mjs";
@@ -9,7 +9,14 @@ import { syncLocal } from "./local-sync.mjs";
 import { loopbackOrigin, resolveLocalTarget } from "./target.mjs";
 import { applyRelease, previewRelease } from "./release.mjs";
 import { materialApplyRequest } from "./local-boundaries.mjs";
-import { itemAt, reservationBodySchema, valueAt } from "./test-support.mjs";
+import {
+  entryAt,
+  itemAt,
+  readJournalFile,
+  reservationBodySchema,
+  resourcesOf,
+  valueAt,
+} from "./test-support.mjs";
 import { z } from "zod";
 
 /** @param {number} n */
@@ -541,9 +548,9 @@ test("the product page travels with the Guide: unknown looks stop early, edits w
   assert.equal(updates(), once, "an unchanged product page writes nothing");
   // Журнал прежних переносов не помнит описания: повтор сверяется с тем, что держит цель.
   const journalPath = join(setup.state, "journal.json");
-  const forgotten = JSON.parse(await readFile(journalPath, "utf8"));
+  const forgotten = await readJournalFile(setup.state);
   for (const entry of Object.values(forgotten.guides)) {
-    delete entry.version;
+    delete entry["version"];
   }
   await writeFile(journalPath, canonical(forgotten));
   await run(setup, api);
@@ -776,7 +783,7 @@ test("an uploaded recording is saved with the original's chapters until the orig
   const api = applicationApi();
   await run(setup, api);
   const journalPath = join(setup.state, "journal.json");
-  const journal = JSON.parse(await readFile(journalPath, "utf8"));
+  const journal = await readJournalFile(setup.state);
   const uploadedId = uuid(555);
   api.videos.set(uploadedId, {
     videoId: uploadedId,
@@ -785,7 +792,7 @@ test("an uploaded recording is saved with the original's chapters until the orig
     providerVideoId: "uploaded",
     reconciles: 0,
   });
-  journal.resources["source-video:inside-content:lesson"] = {
+  resourcesOf(journal)["source-video:inside-content:lesson"] = {
     videoId: uploadedId,
     providerVideoId: "uploaded",
     sha256: "c".repeat(64),
@@ -838,12 +845,13 @@ test("a cover change whose response was lost is adopted on the retry", async (t)
   const applied = valueAt(api.materials, "inside-content:lesson").cover
     ?.coverId;
   await run(setup, { request: conflicting });
-  const journal = JSON.parse(
-    await readFile(join(setup.state, "journal.json"), "utf8"),
-  );
-  assert.equal(journal.materials["inside-content:lesson"].coverId, applied);
+  const journal = await readJournalFile(setup.state);
   assert.equal(
-    journal.resources[
+    entryAt(journal.materials, "inside-content:lesson")["coverId"],
+    applied,
+  );
+  assert.equal(
+    resourcesOf(journal)[
       `cover-pending:${valueAt(api.materials, "inside-content:lesson").materialId}`
     ],
     undefined,
@@ -862,11 +870,12 @@ test("an archive whose receipt was stored before the crash stays archived", asyn
   await setup.write();
   await run(setup, api, { archive: ["old"] });
   const journalPath = join(setup.state, "journal.json");
-  const journal = JSON.parse(await readFile(journalPath, "utf8"));
+  const journal = await readJournalFile(setup.state);
   // Simulate the crash: the operation receipt exists, the cache still shows the published version.
-  Object.assign(journal.materials["inside-content:old"], {
+  Object.assign(entryAt(journal.materials, "inside-content:old"), {
     archived: false,
-    contentVersion: journal.materials["inside-content:old"].contentVersion - 1,
+    contentVersion:
+      entryAt(journal.materials, "inside-content:old").contentVersion - 1,
   });
   await writeFile(journalPath, canonical(journal));
   const report = await run(setup, api);
@@ -904,10 +913,8 @@ test("release preview reports video, composition and artifact changes that the s
   });
 
   // A recording uploaded after the review changes what apply would save, so apply refuses.
-  const reviewedJournal = JSON.parse(
-    await readFile(join(setup.state, "journal.json"), "utf8"),
-  );
-  reviewedJournal.resources["source-video:inside-content:old"] = {
+  const reviewedJournal = await readJournalFile(setup.state);
+  resourcesOf(reviewedJournal)["source-video:inside-content:old"] = {
     videoId: uuid(557),
     providerVideoId: "late",
     sha256: "e".repeat(64),
@@ -927,15 +934,15 @@ test("release preview reports video, composition and artifact changes that the s
     applyRelease(clean.path, setup.state, { request: api.request }),
     /changed after the preview/u,
   );
-  delete reviewedJournal.resources["source-video:inside-content:old"];
+  delete resourcesOf(reviewedJournal)["source-video:inside-content:old"];
   await writeFile(
     join(setup.state, "journal.json"),
     canonical(reviewedJournal),
   );
 
   const journalPath = join(setup.state, "journal.json");
-  const journal = JSON.parse(await readFile(journalPath, "utf8"));
-  journal.resources["source-video:inside-content:lesson"] = {
+  const journal = await readJournalFile(setup.state);
+  resourcesOf(journal)["source-video:inside-content:lesson"] = {
     videoId: uuid(556),
     providerVideoId: "uploaded",
     sha256: "d".repeat(64),
@@ -1015,12 +1022,12 @@ test("release preview reports video, composition and artifact changes that the s
   );
 
   // Once the original names its own upload, the preview expects no video change.
-  journal.resources["source-video:inside-content:video"] = {
+  resourcesOf(journal)["source-video:inside-content:video"] = {
     videoId: valueAt(api.materials, "inside-content:video").primaryVideoId,
     providerVideoId: itemAt(setup.manifest.materials, 1).video?.kinescopeId,
     sha256: "f".repeat(64),
   };
-  delete journal.resources[
+  delete resourcesOf(journal)[
     `video:${valueAt(api.materials, "inside-content:video").materialId}:${itemAt(setup.manifest.materials, 1).video?.kinescopeId}`
   ];
   await writeFile(journalPath, canonical(journal));
@@ -1091,8 +1098,8 @@ test("release preview separates Video access conflicts from plain access changes
 
   // A legacy journal entry without access still sees the target's current access.
   const journalPath = join(setup.state, "journal.json");
-  const journal = JSON.parse(await readFile(journalPath, "utf8"));
-  delete journal.materials["inside-content:video"].access;
+  const journal = await readJournalFile(setup.state);
+  delete entryAt(journal.materials, "inside-content:video")["access"];
   await writeFile(journalPath, canonical(journal));
   const legacy = await previewRelease(setup.packagePath, setup.state, {
     origin,

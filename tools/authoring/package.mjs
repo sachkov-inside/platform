@@ -169,7 +169,11 @@ export const checksum = (value) =>
 /** @param {string} path */
 export async function fileChecksum(path) {
   const hash = createHash("sha256");
-  for await (const chunk of createReadStream(path)) hash.update(chunk);
+  for await (const chunk of createReadStream(path)) {
+    // Without an encoding a file stream yields bytes.
+    if (!Buffer.isBuffer(chunk)) throw new Error("File stream yielded text");
+    hash.update(chunk);
+  }
   return hash.digest("hex");
 }
 /**

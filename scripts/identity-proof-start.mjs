@@ -97,16 +97,18 @@ async function runPnpm(arguments_, capture = false, environment = process.env) {
   activeProcesses.add(child);
   let output = "";
   if (capture) {
-    child.stdout?.on("data", (chunk) => {
+    child.stdout?.on("data", (/** @type {Buffer} */ chunk) => {
       output += chunk.toString();
     });
-    child.stderr?.on("data", (chunk) => {
+    child.stderr?.on("data", (/** @type {Buffer} */ chunk) => {
       output += chunk.toString();
     });
   }
-  const exitCode = await new Promise((resolveExit) => {
+  /** @type {Promise<number | null>} */
+  const exited = new Promise((resolveExit) => {
     child.once("exit", (code) => resolveExit(code));
   });
+  const exitCode = await exited;
   activeProcesses.delete(child);
   if (exitCode !== 0) {
     throw new Error(

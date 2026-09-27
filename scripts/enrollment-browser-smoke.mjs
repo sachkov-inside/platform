@@ -5,7 +5,16 @@ import { createServer } from "node:net";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { wrapSession } from "@logto/node";
+import { z } from "zod";
 import { signalProcessGroup } from "./process-group-signal.mjs";
+// The backend fixture writes its stand environment as strings; the smoke reads three of them.
+const fixtureStateSchema = z
+  .object({
+    LOGTO_AUDIENCE: z.string(),
+    token: z.string(),
+    providerUrl: z.string(),
+  })
+  .catchall(z.string());
 const directory = await mkdtemp(join(tmpdir(), "inside-enrollment-smoke-"));
 const fixturePath = join(directory, "fixture.json");
 /** @type {import("node:child_process").ChildProcess[]} */
@@ -22,11 +31,11 @@ function start(args, env) {
     env: { ...process.env, ...env },
     stdio: ["ignore", "pipe", "pipe"],
   });
-  child.stdout.on("data", (data) => {
+  child.stdout.on("data", (/** @type {Buffer} */ data) => {
     output.push(data.toString());
     process.stdout.write(data);
   });
-  child.stderr.on("data", (data) => {
+  child.stderr.on("data", (/** @type {Buffer} */ data) => {
     output.push(data.toString());
     process.stdout.write(data);
   });
@@ -78,7 +87,8 @@ try {
     { ENROLLMENT_FIXTURE_PATH: fixturePath },
   );
   const state = await waitFor(
-    async () => JSON.parse(await readFile(fixturePath, "utf8")),
+    async () =>
+      fixtureStateSchema.parse(JSON.parse(await readFile(fixturePath, "utf8"))),
     fixture,
   );
   const port = await freePort();
@@ -139,7 +149,9 @@ try {
     ],
     env,
   );
-  const code = await new Promise((resolve) => test.on("exit", resolve));
+  /** @type {Promise<number | null>} */
+  const exited = new Promise((resolve) => test.on("exit", resolve));
+  const code = await exited;
   if (code !== 0) throw new Error(`Browser assertions failed: ${String(code)}`);
   process.stdout.write(
     "Enrollment browser/HTTP smoke passed on desktop and mobile against real Nest/PostgreSQL and synthetic identity only.\n",

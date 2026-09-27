@@ -8,6 +8,7 @@ import { canonical } from "./package.mjs";
 import { syncLocal } from "./local-sync.mjs";
 import { materialApplyRequest } from "./local-boundaries.mjs";
 import { applyRelease, previewRelease, releaseTarget } from "./release.mjs";
+import { z } from "zod";
 import { itemAt, reservationBodySchema } from "./test-support.mjs";
 
 const materialId = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
@@ -157,8 +158,10 @@ test("drift after preview, an edited preview and unreviewed archive requests sto
     }),
     /reviewed proposals/u,
   );
-  const edited = JSON.parse(await readFile(reviewed.path, "utf8"));
-  edited.archiveProposals = ["inside-content:other"];
+  const edited = z
+    .record(z.string(), z.unknown())
+    .parse(JSON.parse(await readFile(reviewed.path, "utf8")));
+  edited["archiveProposals"] = ["inside-content:other"];
   await writeFile(reviewed.path, JSON.stringify(edited));
   await assert.rejects(
     applyRelease(reviewed.path, setup.state, { request: server.request }),

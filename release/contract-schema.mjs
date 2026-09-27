@@ -130,11 +130,11 @@ export const releaseManifestInputSchema = z.strictObject({
 });
 
 /**
- * @template {z.ZodType} Schema
- * @param {Schema} schema
+ * @template T
+ * @param {z.ZodType<T>} schema
  * @param {unknown} value
  * @param {string} label
- * @returns {z.output<Schema>}
+ * @returns {T}
  */
 export function parseSchema(schema, value, label) {
   const result = schema.safeParse(value);

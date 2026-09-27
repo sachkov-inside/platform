@@ -280,7 +280,14 @@ async function main() {
       const hasBody = request.method !== "GET" && request.method !== "HEAD";
       /** @type {Buffer[]} */
       const chunks = [];
-      if (hasBody) for await (const chunk of request) chunks.push(chunk);
+      if (hasBody) {
+        for await (const chunk of request) {
+          // Without an encoding a request stream yields bytes.
+          if (!Buffer.isBuffer(chunk))
+            throw new Error("Request stream yielded text");
+          chunks.push(chunk);
+        }
+      }
       const upstream = await fetch(`${apiOrigin}${path}`, {
         ...(request.method === undefined ? {} : { method: request.method }),
         headers,
