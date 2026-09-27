@@ -46,7 +46,7 @@ export {
 } from "./ui/material-reading-status";
 
 export {
-  MaterialReadingContext,
+  MaterialReadingScope,
   useMaterialReading,
   type MaterialReadingSnapshot,
 } from "./model/reading-context.client";

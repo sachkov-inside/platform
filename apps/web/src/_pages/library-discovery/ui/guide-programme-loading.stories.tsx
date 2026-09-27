@@ -3,7 +3,7 @@ import { Suspense, use } from "react";
 import { expect, within } from "storybook/test";
 
 import {
-  MaterialReadingContext,
+  MaterialReadingScope,
   type MaterialPreview,
 } from "@/entities/material";
 import type { PublishedSeriesResult } from "@/features/library-discovery";
@@ -204,7 +204,7 @@ function loadsInPlace(
     globals,
     decorators: [
       (Story) => (
-        <MaterialReadingContext
+        <MaterialReadingScope
           value={{
             accountId: signedIn ? "story-account" : null,
             resolved: true,
@@ -215,7 +215,7 @@ function loadsInPlace(
           }}
         >
           <Story />
-        </MaterialReadingContext>
+        </MaterialReadingScope>
       ),
     ],
     loaders: stagedLoaders,

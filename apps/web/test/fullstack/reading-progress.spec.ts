@@ -247,7 +247,15 @@ test("reading progress appears on Home and Topic for video and other formats", a
     await expect(card.locator("[data-material-reading-status]")).toHaveText(
       material.label,
     );
+    // Поиск принадлежит браузеру: каталог темы читает материалы, только когда уже смонтирован. Текст,
+    // введённый до гидрации, React заменяет состоянием поля.
+    const catalogRead = page.waitForRequest(
+      (request) =>
+        new URL(request.url()).pathname ===
+        "/api/library/topics/platform/materials",
+    );
     await page.goto("/topics/platform");
+    await catalogRead;
     await page.getByRole("searchbox").fill(material.title);
     await expect(card.locator("[data-material-reading-status]")).toHaveText(
       material.label,
