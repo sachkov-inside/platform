@@ -1,3 +1,4 @@
+// @ts-check
 /**
  * Подставной backend для проверок переходов на production-сборке (#670).
  *
@@ -8,8 +9,18 @@
  */
 import { createServer } from "node:http";
 import { deflateSync } from "node:zlib";
+import { z } from "zod";
 
-const port = Number(process.env.FAKE_BACKEND_PORT ?? "3190");
+// Request bodies the checks send to the double; a malformed body fails the request.
+const controlSchema = z
+  .object({ delayMs: z.unknown(), unavailable: z.unknown() })
+  .partial()
+  .passthrough();
+const homePinSchema = z
+  .object({ expectedVersion: z.number(), seriesId: z.unknown() })
+  .passthrough();
+
+const port = Number(process.env["FAKE_BACKEND_PORT"] ?? "3190");
 const guideId = "11111111-1111-4111-8111-111111111111";
 const guideSlug = "navigation-proof";
 const topic = {
@@ -37,6 +48,20 @@ const cover = {
     { height: 720, width: 1280 },
   ],
 };
+/**
+ * @typedef {{
+ *   cover: typeof cover | null;
+ *   hasModeVariants: boolean;
+ *   id: string;
+ *   name: string;
+ *   slug: string;
+ * }} Guide
+ * @typedef {(typeof lessons)[number]} Lesson
+ * @typedef {{ status: number; value: unknown; contentType?: undefined }} JsonResult
+ * @typedef {{ status: number; value: Buffer; contentType: string }} ImageResult
+ */
+
+/** @type {[Guide, Guide, Guide]} */
 const guides = [
   {
     cover: null,
@@ -101,13 +126,25 @@ const lessons = [
   title,
   topic,
 }));
+/** @param {Guide} guide */
 const lessonsOf = (guide) =>
   lessons.filter(
-    (lesson) => lesson.seriesMemberships[0].series.id === guide.id,
+    (lesson) => lesson.seriesMemberships[0]?.series.id === guide.id,
   );
 
+/**
+ * @type {{
+ *   delayMs: number;
+ *   requests: { authorized: boolean; method: string | undefined; path: string }[];
+ *   unavailable: boolean;
+ * }}
+ */
 const state = { delayMs: 0, requests: [], unavailable: false };
 
+/**
+ * @param {Lesson} lesson
+ * @param {boolean} entitled
+ */
 function projection(lesson, entitled) {
   return {
     ...lesson,
@@ -115,6 +152,10 @@ function projection(lesson, entitled) {
   };
 }
 
+/**
+ * @param {Lesson} lesson
+ * @param {boolean} entitled
+ */
 function body(lesson, entitled) {
   const paragraphs = Array.from({ length: 12 }, (_, index) => ({
     kind: "paragraph",
@@ -142,7 +183,7 @@ function body(lesson, entitled) {
     })),
   };
   const written =
-    lesson.seriesMemberships[0].series.id === modesGuideId ? [step] : [];
+    lesson.seriesMemberships[0]?.series.id === modesGuideId ? [step] : [];
   return {
     schemaVersion: 1,
     blocks: [
@@ -157,6 +198,7 @@ function body(lesson, entitled) {
   };
 }
 
+/** @param {Lesson} lesson */
 function readerProjection(lesson) {
   const { availability: _availability, ...rest } = projection(lesson, false);
   const { seriesMemberships, ...base } = rest;
@@ -169,6 +211,7 @@ function readerProjection(lesson) {
   };
 }
 
+/** @param {boolean} entitled */
 function collection(entitled) {
   const [guide] = guides;
   return {
@@ -184,6 +227,12 @@ function collection(entitled) {
   };
 }
 
+/**
+ * @param {string | undefined} method
+ * @param {URL} url
+ * @param {boolean} entitled
+ * @returns {JsonResult | ImageResult | undefined}
+ */
 function route(method, url, entitled) {
   const path = url.pathname;
   if (method !== "GET") return undefined;
@@ -414,18 +463,30 @@ function route(method, url, entitled) {
   return undefined;
 }
 
-/** Однотонная PNG нужного размера: браузеру важны размер и то, что картинка настоящая. */
+/**
+ * Однотонная PNG нужного размера: браузеру важны размер и то, что картинка настоящая.
+ *
+ * @param {{ height: number; width: number }} size
+ * @returns {ImageResult}
+ */
 function image({ height, width }) {
   const crcTable = Array.from({ length: 256 }, (_, n) => {
     let c = n;
     for (let k = 0; k < 8; k += 1) c = c & 1 ? 0xedb88320 ^ (c >>> 1) : c >>> 1;
     return c >>> 0;
   });
+  /** @param {Buffer} buffer */
   const crc = (buffer) => {
     let c = 0xffffffff;
-    for (const byte of buffer) c = crcTable[(c ^ byte) & 0xff] ^ (c >>> 8);
+    // The index is masked to the table's 256 entries.
+    for (const byte of buffer)
+      c = (crcTable[(c ^ byte) & 0xff] ?? 0) ^ (c >>> 8);
     return (c ^ 0xffffffff) >>> 0;
   };
+  /**
+   * @param {string} type
+   * @param {Buffer} data
+   */
   const chunk = (type, data) => {
     const length = Buffer.alloc(4);
     length.writeUInt32BE(data.length);
@@ -451,6 +512,11 @@ function image({ height, width }) {
   return { contentType: "image/png", status: 200, value: png };
 }
 
+/**
+ * @param {unknown} value
+ * @param {number} [status]
+ * @returns {JsonResult}
+ */
 function json(value, status = 200) {
   return { status, value };
 }
@@ -467,14 +533,24 @@ function discoveryNotFound() {
   );
 }
 
+/** @param {import("node:http").IncomingMessage} request */
 async function readBody(request) {
+  /** @type {Buffer[]} */
   const chunks = [];
-  for await (const chunk of request) chunks.push(chunk);
+  for await (const chunk of request) {
+    // Without an encoding a request stream yields bytes.
+    if (!Buffer.isBuffer(chunk)) throw new Error("Request stream yielded text");
+    chunks.push(chunk);
+  }
   return Buffer.concat(chunks).toString("utf8");
 }
 
 const server = createServer(async (request, response) => {
   const url = new URL(request.url ?? "/", `http://127.0.0.1:${String(port)}`);
+  /**
+   * @param {number} status
+   * @param {unknown} value
+   */
   const send = (status, value) => {
     response.writeHead(status, {
       "cache-control": "private, no-store",
@@ -488,7 +564,7 @@ const server = createServer(async (request, response) => {
     return;
   }
   if (url.pathname === "/__control" && request.method === "POST") {
-    const control = JSON.parse(await readBody(request));
+    const control = controlSchema.parse(JSON.parse(await readBody(request)));
     if (typeof control.delayMs === "number") state.delayMs = control.delayMs;
     if (typeof control.unavailable === "boolean")
       state.unavailable = control.unavailable;
@@ -503,7 +579,9 @@ const server = createServer(async (request, response) => {
   });
   // Авторская запись закрепа: набор сбрасывает ею общий кеш web, как это делает автор в жизни.
   if (url.pathname === "/authoring/home-pin" && request.method === "PUT") {
-    const { expectedVersion, seriesId } = JSON.parse(await readBody(request));
+    const { expectedVersion, seriesId } = homePinSchema.parse(
+      JSON.parse(await readBody(request)),
+    );
     if (authorized) send(200, { seriesId, version: expectedVersion + 1 });
     else
       send(401, {

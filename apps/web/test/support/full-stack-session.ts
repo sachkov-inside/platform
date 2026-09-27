@@ -24,7 +24,7 @@ const sessionEnvironmentNames = {
 export type FullStackRole = keyof typeof sessionEnvironmentNames;
 
 export function fullStackBaseUrl(): string {
-  return process.env.FULLSTACK_WEB_BASE_URL ?? "http://127.0.0.1:3000";
+  return process.env["FULLSTACK_WEB_BASE_URL"] ?? "http://127.0.0.1:3000";
 }
 
 /** Cookie сессии без проверки: нужен там, где проверяется само поведение недействующей сессии. */
@@ -33,7 +33,7 @@ export async function addFullStackSessionCookie(
   role: FullStackRole,
 ): Promise<void> {
   const environmentName = sessionEnvironmentNames[role];
-  const cookieName = process.env.FULLSTACK_LOGTO_COOKIE_NAME;
+  const cookieName = process.env["FULLSTACK_LOGTO_COOKIE_NAME"];
   const value = process.env[environmentName];
   if (cookieName === undefined || value === undefined) {
     throw new Error(

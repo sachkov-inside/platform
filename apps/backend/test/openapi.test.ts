@@ -81,7 +81,7 @@ describe("OpenAPI contract", () => {
       const operation = pathItem[method];
       expect(isRecord(operation), `${method.toUpperCase()} ${path}`).toBe(true);
       if (!isRecord(operation)) continue;
-      expect(operation.operationId).toBe(operationId);
+      expect(operation["operationId"]).toBe(operationId);
       expect(
         hasSuccessContent(operation),
         `${method.toUpperCase()} ${path} success schema`,
@@ -98,14 +98,14 @@ describe("OpenAPI contract", () => {
     expect(hasResponseSchema(health, "503", "application/problem+json")).toBe(
       true,
     );
-    expect(health.parameters).toEqual([]);
-    expect(health.security).toBeUndefined();
+    expect(health["parameters"]).toEqual([]);
+    expect(health["security"]).toBeUndefined();
 
     const liveness = operation(document, "/health/live", "get");
     expect(liveness).toMatchObject({ operationId: "getApiLiveness" });
     expect(hasResponseSchema(liveness, "200", "application/json")).toBe(true);
-    expect(liveness.parameters).toEqual([]);
-    expect(liveness.security).toBeUndefined();
+    expect(liveness["parameters"]).toEqual([]);
+    expect(liveness["security"]).toBeUndefined();
 
     const readiness = operation(document, "/health/ready", "get");
     expect(readiness).toMatchObject({ operationId: "getApiReadiness" });
@@ -113,8 +113,8 @@ describe("OpenAPI contract", () => {
     expect(
       hasResponseSchema(readiness, "503", "application/problem+json"),
     ).toBe(true);
-    expect(readiness.parameters).toEqual([]);
-    expect(readiness.security).toBeUndefined();
+    expect(readiness["parameters"]).toEqual([]);
+    expect(readiness["security"]).toBeUndefined();
 
     const library = operation(document, "/library/materials", "get");
     expect(library).toMatchObject({ operationId: "listPublishedMaterials" });
@@ -127,7 +127,7 @@ describe("OpenAPI contract", () => {
       maxItems: 20,
       type: "array",
     };
-    expect(library.parameters).toEqual([
+    expect(library["parameters"]).toEqual([
       {
         in: "query",
         name: "sort",
@@ -193,7 +193,7 @@ describe("OpenAPI contract", () => {
     for (const status of ["500", "503"] as const) {
       expect(hasMaterialAndAccountProblemSchemas(library, status)).toBe(true);
     }
-    expect(library.security).toEqual([{}, { logto: [] }]);
+    expect(library["security"]).toEqual([{}, { logto: [] }]);
 
     const reader = operation(document, "/materials/{slug}", "get");
     expect(reader).toMatchObject({
@@ -216,7 +216,7 @@ describe("OpenAPI contract", () => {
     for (const status of ["500", "503"] as const) {
       expect(hasMaterialAndAccountProblemSchemas(reader, status)).toBe(true);
     }
-    expect(reader.security).toEqual([{}, { logto: [] }]);
+    expect(reader["security"]).toEqual([{}, { logto: [] }]);
 
     const preview = operation(
       document,
@@ -231,7 +231,7 @@ describe("OpenAPI contract", () => {
         ([name, schema]) =>
           name.startsWith("RecursiveSchema") &&
           isRecord(schema) &&
-          Array.isArray(schema.oneOf),
+          Array.isArray(schema["oneOf"]),
       ),
     ).toBe(true);
 
@@ -266,7 +266,7 @@ describe("OpenAPI contract", () => {
       "/accounts/current/telegram-link",
       "post",
     );
-    expect(begin.security).toEqual([{ logto: [] }]);
+    expect(begin["security"]).toEqual([{ logto: [] }]);
     for (const status of ["401", "503"] as const) {
       expect(hasResponseSchema(begin, status, "application/problem+json")).toBe(
         true,
@@ -300,9 +300,9 @@ describe("OpenAPI contract", () => {
       "/integrations/telegram/v1/membership-evidence",
       "post",
     );
-    expect(evidence.security).toEqual([{ "telegram-membership": [] }]);
+    expect(evidence["security"]).toEqual([{ "telegram-membership": [] }]);
     expect(hasRequestBodySchema(evidence, "application/json")).toBe(true);
-    expect(evidence.parameters).toMatchObject([
+    expect(evidence["parameters"]).toMatchObject([
       {
         in: "header",
         name: "x-inside-membership-evidence-source",
@@ -353,7 +353,7 @@ describe("OpenAPI contract", () => {
       "/content-covers/{coverId}/{width}",
       "get",
     );
-    expect(delivery.security).toEqual([{}]);
+    expect(delivery["security"]).toEqual([{}]);
     expect(
       responseSchema(delivery, "404", "application/problem+json"),
     ).toMatchObject({
@@ -385,15 +385,15 @@ function requestBodySchema(
   operation: Readonly<Record<string, unknown>>,
   mediaType: string,
 ): Readonly<Record<string, unknown>> {
-  const requestBody = operation.requestBody;
-  if (!isRecord(requestBody) || !isRecord(requestBody.content)) {
+  const requestBody = operation["requestBody"];
+  if (!isRecord(requestBody) || !isRecord(requestBody["content"])) {
     throw new TypeError(`Missing ${mediaType} request body`);
   }
-  const media = requestBody.content[mediaType];
-  if (!isRecord(media) || !isRecord(media.schema)) {
+  const media = requestBody["content"][mediaType];
+  if (!isRecord(media) || !isRecord(media["schema"])) {
     throw new TypeError(`Missing ${mediaType} request schema`);
   }
-  return media.schema;
+  return media["schema"];
 }
 
 function responseSchema(
@@ -401,26 +401,26 @@ function responseSchema(
   status: string,
   mediaType: string,
 ): Readonly<Record<string, unknown>> {
-  const responses = operation.responses;
+  const responses = operation["responses"];
   if (!isRecord(responses)) throw new TypeError("Missing responses");
   const response = responses[status];
-  if (!isRecord(response) || !isRecord(response.content)) {
+  if (!isRecord(response) || !isRecord(response["content"])) {
     throw new TypeError(`Missing ${status} response`);
   }
-  const media = response.content[mediaType];
-  if (!isRecord(media) || !isRecord(media.schema)) {
+  const media = response["content"][mediaType];
+  if (!isRecord(media) || !isRecord(media["schema"])) {
     throw new TypeError(`Missing ${status} ${mediaType} response schema`);
   }
-  return media.schema;
+  return media["schema"];
 }
 
 function hasSuccessContent(
   operation: Readonly<Record<string, unknown>>,
 ): boolean {
-  const responses = operation.responses;
+  const responses = operation["responses"];
   if (!isRecord(responses)) return false;
   const success = responses["200"] ?? responses["201"];
-  return isRecord(success) && isRecord(success.content);
+  return isRecord(success) && isRecord(success["content"]);
 }
 
 function hasResponseSchema(
@@ -428,39 +428,39 @@ function hasResponseSchema(
   status: string,
   mediaType: string,
 ): boolean {
-  const responses = operation.responses;
+  const responses = operation["responses"];
   if (!isRecord(responses)) return false;
   const response = responses[status];
-  if (!isRecord(response) || !isRecord(response.content)) return false;
-  const media = response.content[mediaType];
-  return isRecord(media) && isRecord(media.schema);
+  if (!isRecord(response) || !isRecord(response["content"])) return false;
+  const media = response["content"][mediaType];
+  return isRecord(media) && isRecord(media["schema"]);
 }
 
 function hasRequestBodySchema(
   operation: Readonly<Record<string, unknown>>,
   mediaType: string,
 ): boolean {
-  const requestBody = operation.requestBody;
-  if (!isRecord(requestBody) || !isRecord(requestBody.content)) return false;
-  const media = requestBody.content[mediaType];
-  return isRecord(media) && isRecord(media.schema);
+  const requestBody = operation["requestBody"];
+  if (!isRecord(requestBody) || !isRecord(requestBody["content"])) return false;
+  const media = requestBody["content"][mediaType];
+  return isRecord(media) && isRecord(media["schema"]);
 }
 
 function hasMaterialAndAccountProblemSchemas(
   operation: Readonly<Record<string, unknown>>,
   status: string,
 ): boolean {
-  const responses = operation.responses;
+  const responses = operation["responses"];
   if (!isRecord(responses)) return false;
   const response = responses[status];
-  if (!isRecord(response) || !isRecord(response.content)) return false;
-  const media = response.content["application/problem+json"];
-  if (!isRecord(media) || !isRecord(media.schema)) return false;
-  const alternatives = media.schema.oneOf;
+  if (!isRecord(response) || !isRecord(response["content"])) return false;
+  const media = response["content"]["application/problem+json"];
+  if (!isRecord(media) || !isRecord(media["schema"])) return false;
+  const alternatives = media["schema"]["oneOf"];
   if (!Array.isArray(alternatives) || alternatives.length !== 2) return false;
   const requiredFields = alternatives.map((alternative) =>
-    isRecord(alternative) && Array.isArray(alternative.required)
-      ? alternative.required.filter(
+    isRecord(alternative) && Array.isArray(alternative["required"])
+      ? alternative["required"].filter(
           (field: unknown): field is string => typeof field === "string",
         )
       : [],

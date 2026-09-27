@@ -1,3 +1,4 @@
+// @ts-check
 import { readFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import { setTimeout as delay } from "node:timers/promises";
@@ -6,12 +7,25 @@ import { parseArgs } from "node:util";
 import { loadPackage, canonical, checksum } from "./package.mjs";
 import { convertMarkdown, sourceUuid } from "./markdown.mjs";
 import { withJournal, applyJournaled } from "./journal.mjs";
-import { parseLocalResponse } from "./local-boundaries.mjs";
+import {
+  artifactReceiptSchema,
+  assetReceiptSchema,
+  attachedVideoReceiptSchema,
+  isJournalOperation,
+  materialApplyRequest,
+  materialReceiptSchema,
+  parseLocalResponse,
+  parseReceipt,
+  pendingCoverReceiptSchema,
+  sourceVideoReceiptSchema,
+} from "./local-boundaries.mjs";
 import {
   localTransport,
   loopbackOrigin,
   readerOriginFor,
   resolveLocalTarget,
+  failureBodyField,
+  failureStatus,
 } from "./target.mjs";
 import { waitUntilReady } from "./video.mjs";
 
@@ -19,13 +33,70 @@ import { waitUntilReady } from "./video.mjs";
 export const reviewOrigin = resolveLocalTarget("editor");
 export const localRequest = localTransport(reviewOrigin);
 
+/**
+ * @typedef {import("./package.mjs").Manifest} Manifest
+ * @typedef {import("./package.mjs").ManifestMaterial} ManifestMaterial
+ * @typedef {import("./package.mjs").ManifestGuide} ManifestGuide
+ * @typedef {import("./package.mjs").ManifestAsset} ManifestAsset
+ * @typedef {ManifestMaterial["artifacts"][number]} ManifestArtifact
+ * @typedef {import("./local-boundaries.mjs").StoredGuide} StoredGuide
+ * @typedef {import("./local-boundaries.mjs").LocalRequest} LocalRequest
+ * @typedef {import("./journal.mjs").Journal} Journal
+ * @typedef {"free" | "membership"} DefaultAccess
+ * @typedef {{ code: string; message: string; path?: string; line?: number }} SyncNotice
+ * @typedef {object} SyncReport
+ * @property {string} packageId
+ * @property {number} applied
+ * @property {number} unchanged
+ * @property {{ sourceId: string; title: string; url: string }[]} materials
+ * @property {{
+ *   title: string;
+ *   url: string;
+ *   programmeUrl: string;
+ *   mainMaterials: number;
+ *   supplementaryMaterials: { sourceId: string; url: string }[];
+ * }[]} guides
+ * @property {{ sourceId: string }[]} archived
+ * @property {{ sourceId: string; url: string | null }[]} archiveProposals
+ * @property {SyncNotice[]} notices
+ * @property {string} [homePinned]
+ * @typedef {object} SyncOptions
+ * @property {string} [origin]
+ * @property {import("./target.mjs").LocalTransport | undefined} [request]
+ * @property {DefaultAccess} [defaultAccess]
+ * @property {string[]} [archive]
+ * @property {(milliseconds: number) => Promise<unknown>} [sleep]
+ * @property {number} [videoAttempts]
+ * @property {boolean} [pinHome]
+ */
+
+/**
+ * The value a map holds for a key the synchronization put there earlier.
+ *
+ * @template K, V
+ * @param {Map<K, V>} map
+ * @param {K} key
+ * @returns {V}
+ */
+export function valueAt(map, key) {
+  const value = map.get(key);
+  if (value === undefined) throw new Error(`Unknown key: ${String(key)}`);
+  return value;
+}
+
+/** @type {Record<string, string>} */
 const topicNames = {
   "ai-agents": "AI-агенты",
   "software-engineering": "Разработка ПО",
   "product-development": "Разработка продукта",
 };
 
-// The revision covers the whole original row and the bytes of every file it references.
+/**
+ * The revision covers the whole original row and the bytes of every file it references.
+ *
+ * @param {Manifest} manifest
+ * @param {ManifestMaterial} row
+ */
 export function materialRevision(manifest, row) {
   return checksum(
     canonical({
@@ -41,9 +112,18 @@ export function materialRevision(manifest, row) {
   );
 }
 
+/**
+ * @param {Pick<Manifest, "sourceNamespace">} manifest
+ * @param {string} id
+ */
 export const sourceKey = (manifest, id) => `${manifest.sourceNamespace}:${id}`;
 
-/** Guides whose programme or supplementary part contains this original. */
+/**
+ * Guides whose programme or supplementary part contains this original.
+ *
+ * @param {Manifest} manifest
+ * @param {ManifestMaterial} row
+ */
 export function productsOf(manifest, row) {
   return manifest.guides.filter((guide) =>
     [...guide.materialIds, ...guide.supplementaryMaterialIds].includes(
@@ -52,6 +132,14 @@ export function productsOf(manifest, row) {
   );
 }
 
+/**
+ * @param {{
+ *   revision: string;
+ *   metadata: unknown;
+ *   primaryVideoId: string | null;
+ *   videoChapters: unknown;
+ * }} material
+ */
 function materialDigest({ revision, metadata, primaryVideoId, videoChapters }) {
   return checksum(
     canonical({
@@ -62,7 +150,18 @@ function materialDigest({ revision, metadata, primaryVideoId, videoChapters }) {
   );
 }
 
-/** The Material state an original asks for; a changed digest is what the sync applies. */
+/**
+ * The Material state an original asks for; a changed digest is what the sync applies.
+ *
+ * @param {Manifest} manifest
+ * @param {ManifestMaterial} row
+ * @param {{
+ *   topicIds: Map<string, string>;
+ *   guideIds: Map<string, string>;
+ *   defaultAccess: DefaultAccess;
+ *   primaryVideoId: string | null;
+ * }} targets
+ */
 export function desiredMaterial(
   manifest,
   row,
@@ -96,11 +195,15 @@ export function desiredMaterial(
 
 const guideTeaserLimit = 500;
 
-/** The product teaser: the whole summary when it fits, otherwise its first paragraph. */
+/**
+ * The product teaser: the whole summary when it fits, otherwise its first paragraph.
+ *
+ * @param {Pick<ManifestGuide, "sourceId" | "summary">} guide
+ */
 export function guideTeaser(guide) {
   if (guide.summary.length <= guideTeaserLimit)
     return { teaser: guide.summary, partial: false };
-  const [first] = guide.summary.split(/\n\s*\n/u);
+  const [first = ""] = guide.summary.split(/\n\s*\n/u);
   if (first.length > guideTeaserLimit)
     throw new Error(
       `Guide ${guide.sourceId}: first paragraph exceeds the ${String(guideTeaserLimit)} character teaser limit`,
@@ -112,6 +215,9 @@ export function guideTeaser(guide) {
  * Everything the source owns about a Guide besides its programme (ADR 0026). The page keeps the
  * shape Platform stores, so an absent Home card caption is not a change. A package that names no
  * address leaves the current one alone: an older package must not move a published product.
+ *
+ * @param {ManifestGuide} guide
+ * @param {StoredGuide} [current]
  */
 export function guideDetails(guide, current) {
   // Пакет, который не называет описание или оформление, оставляет их прежними: так старый пакет не
@@ -130,7 +236,12 @@ export function guideDetails(guide, current) {
     page,
   };
 }
-/** Сравнение идёт с тем, что цель уже держит: журнал ничего об описании не помнит. */
+/**
+ * Сравнение идёт с тем, что цель уже держит: журнал ничего об описании не помнит.
+ *
+ * @param {StoredGuide} current
+ * @param {ReturnType<typeof guideDetails>} details
+ */
 export function guideDetailsMatch(current, details) {
   // Нечитаемое описание цели — всегда несовпадение: только перенос может его заменить.
   return (
@@ -146,6 +257,9 @@ export function guideDetailsMatch(current, details) {
 /**
  * The whole page description is checked before the first write: Platform owns the schema, so the
  * transfer asks it instead of keeping a fourth copy of the rules.
+ *
+ * @param {Manifest} manifest
+ * @param {import("./target.mjs").LocalTransport} send
  */
 export async function validateGuidePages(manifest, send) {
   for (const guide of manifest.guides) {
@@ -169,13 +283,25 @@ export async function validateGuidePages(manifest, send) {
       );
     } catch (error) {
       throw new Error(
-        `Product ${guide.sourceId}: Platform rejected its page description or presentation '${details.presentation}'. ${error.message}`,
+        `Product ${guide.sourceId}: Platform rejected its page description or presentation '${details.presentation}'. ${errorMessage(error)}`,
         { cause: error },
       );
     }
   }
 }
 
+/**
+ * @param {unknown} error
+ * @returns {string}
+ */
+function errorMessage(error) {
+  return error instanceof Error ? error.message : String(error);
+}
+
+/**
+ * @param {Manifest} manifest
+ * @param {ManifestGuide} guide
+ */
 export function guideChapters(manifest, guide) {
   return guide.chapters.map((chapter) => ({
     id: sourceUuid(
@@ -186,19 +312,44 @@ export function guideChapters(manifest, guide) {
   }));
 }
 
+/**
+ * @param {ManifestAsset} asset
+ * @param {ManifestArtifact} artifact
+ * @param {DefaultAccess} access
+ */
 export function artifactFingerprint(asset, artifact, access) {
   return checksum(
     canonical({ sha256: asset.sha256, title: artifact.title, access }),
   );
 }
 
-/** Artifacts a product carries, each with the Materials that declare it and the access it needs. */
+/**
+ * Artifacts a product carries, each with the Materials that declare it and the access it needs.
+ *
+ * @param {Manifest} manifest
+ * @param {ManifestGuide} guide
+ * @param {DefaultAccess} defaultAccess
+ */
 export function artifactDeclarations(manifest, guide, defaultAccess) {
+  /**
+   * The access starts free and is raised below once every declaring Material is known.
+   *
+   * @type {Map<
+   *   string,
+   *   { artifact: ManifestArtifact; owners: ManifestMaterial[]; access: DefaultAccess }
+   * >}
+   */
   const declared = new Map();
   for (const id of [...guide.materialIds, ...guide.supplementaryMaterialIds]) {
     const row = manifest.materials.find((item) => item.sourceId === id);
+    if (row === undefined)
+      throw new Error(`Guide ${guide.sourceId} names a missing Material ${id}`);
     for (const artifact of row.artifacts) {
-      const entry = declared.get(artifact.sourceId) ?? { artifact, owners: [] };
+      const entry = declared.get(artifact.sourceId) ?? {
+        artifact,
+        owners: [],
+        access: "free",
+      };
       if (
         entry.artifact.assetId !== artifact.assetId ||
         entry.artifact.title !== artifact.title
@@ -214,7 +365,7 @@ export function artifactDeclarations(manifest, guide, defaultAccess) {
     const accesses = entry.owners.map((row) => row.access ?? defaultAccess);
     if (accesses.includes("workshop"))
       throw new Error(
-        `${entry.owners[0].sourcePath}: workshop Materials cannot carry Guide artifacts`,
+        `${entry.owners[0]?.sourcePath ?? entry.artifact.sourceId}: workshop Materials cannot carry Guide artifacts`,
       );
     // One artifact serves every declaring Material, so it is paid when any of them is.
     entry.access = accesses.includes("membership") ? "membership" : "free";
@@ -222,11 +373,21 @@ export function artifactDeclarations(manifest, guide, defaultAccess) {
   return declared;
 }
 
+/**
+ * @param {Pick<Manifest, "sourceNamespace">} manifest
+ * @param {string[]} ids
+ */
 export function normalizeSourceIds(manifest, ids) {
   return ids.map((id) => (id.includes(":") ? id : sourceKey(manifest, id)));
 }
 
-// A missing original is never an instruction: previously synchronized Materials of the selected products are proposed.
+/**
+ * A missing original is never an instruction: previously synchronized Materials of the selected
+ * products are proposed.
+ *
+ * @param {Pick<Journal, "materials">} journal
+ * @param {Manifest} manifest
+ */
 export function archiveProposalKeys(journal, manifest) {
   const present = new Set(
     manifest.materials.map((row) => sourceKey(manifest, row.sourceId)),
@@ -248,6 +409,11 @@ export function archiveProposalKeys(journal, manifest) {
     .map(([key]) => key);
 }
 
+/**
+ * @param {string} packagePath
+ * @param {string} stateDirectory
+ * @param {SyncOptions} [options]
+ */
 export async function syncLocal(
   packagePath,
   stateDirectory,
@@ -264,6 +430,7 @@ export async function syncLocal(
   const target = loopbackOrigin(origin);
   const reader = readerOriginFor(target);
   const send = transport ?? localTransport(target);
+  /** @type {LocalRequest} */
   const request = async (path, body, key, options) =>
     parseLocalResponse(path, await send(path, body, key, options));
   if (!["free", "membership"].includes(defaultAccess))
@@ -275,7 +442,8 @@ export async function syncLocal(
   await validateGuidePages(pkg.manifest, send);
   return withJournal(stateDirectory, target, async (context) => {
     const { journal, persist } = context;
-    journal.resources ??= {};
+    const resources = (journal.resources ??= {});
+    /** @type {SyncReport} */
     const report = {
       packageId: pkg.id,
       applied: 0,
@@ -292,19 +460,27 @@ export async function syncLocal(
     const assets = new Map(
       pkg.manifest.assets.map((asset) => [asset.sourceId, asset]),
     );
+    /** @param {string} id */
     const sourceId = (id) => sourceKey(pkg.manifest, id);
+    /** @param {ManifestMaterial} row */
     const source = (row) => ({
       id: sourceId(row.sourceId),
       path: row.sourcePath,
       revision: materialRevision(pkg.manifest, row),
       showInFeed: row.showInFeed,
     });
+    /** @param {ManifestAsset} asset */
     const readAsset = async (asset) => {
       const bytes = await readFile(resolve(pkg.directory, asset.path));
       if (checksum(bytes) !== asset.sha256)
         throw new Error("Package asset changed during synchronization");
       return bytes;
     };
+    /**
+     * @param {Record<string, string>} fields
+     * @param {Buffer<ArrayBuffer>} bytes
+     * @param {ManifestAsset} asset
+     */
     const fileForm = (fields, bytes, asset) => {
       const form = new FormData();
       for (const [name, value] of Object.entries(fields)) form.set(name, value);
@@ -320,22 +496,28 @@ export async function syncLocal(
 
     // Reconcile receipts before reading versions, including a crash between receipt and material cache.
     for (const entry of Object.values(journal.operations)) {
+      const operation = isJournalOperation(entry)
+        ? materialApplyRequest(entry.request)
+        : undefined;
       if (
-        entry.request?.path !== "/authoring/import/materials/apply" ||
+        !isJournalOperation(entry) ||
+        operation === undefined ||
         entry.status === "rejected"
       )
         continue;
-      const body = entry.request.body;
+      const body = operation.body;
       const previous = journal.materials[body.source.id];
       if (
         entry.status === "applied" &&
-        previous?.contentVersion >= entry.result.contentVersion
+        previous !== undefined &&
+        previous.contentVersion >=
+          materialReceiptSchema.parse(entry.result).contentVersion
       )
         continue;
-      const saved = await applyJournaled(
-        context,
-        entry.request,
-        (operation, key) => request(operation.path, operation.body, key),
+      const saved = materialReceiptSchema.parse(
+        await applyJournaled(context, operation, (replayed, key) =>
+          request(replayed.path, replayed.body, key),
+        ),
       );
       journal.materials[body.source.id] = {
         ...previous,
@@ -365,20 +547,28 @@ export async function syncLocal(
     const topics = await request("/authoring/collections?kind=topic");
     const topicIds = new Map(topics.map((item) => [item.slug, item.id]));
     for (const id of new Set(
-      pkg.manifest.materials.map((row) => row.topicId).filter(Boolean),
+      pkg.manifest.materials
+        .map((row) => row.topicId)
+        .filter((topicId) => topicId !== null),
     )) {
-      if (!(id in topicNames))
+      const name = topicNames[id];
+      if (name === undefined)
         throw new Error(`Topic is outside the approved dictionary: ${id}`);
       if (!topicIds.has(id)) {
         const created = await request("/authoring/collections", {
           kind: "topic",
           slug: id,
-          name: topicNames[id],
+          name,
           summary: "",
         });
         topicIds.set(id, created.id);
       }
     }
+    /**
+     * @param {ManifestMaterial} row
+     * @param {Map<string, string>} links
+     * @param {Map<string, string>} images
+     */
     const convert = (row, links, images) =>
       convertMarkdown(row.markdown, {
         sourceId: sourceId(row.sourceId),
@@ -400,7 +590,7 @@ export async function syncLocal(
           const id = row.images[href] ?? row.images[decodeURI(href)];
           if (id === undefined || !images.has(id))
             throw new Error(`${row.sourcePath}: unresolved image: ${href}`);
-          return images.get(id);
+          return valueAt(images, id);
         },
       });
     const placeholderLinks = new Map(
@@ -412,6 +602,7 @@ export async function syncLocal(
         sourceUuid(asset.sourceId),
       ]),
     );
+    /** @type {Map<string, StoredGuide>} */
     const guides = new Map();
     // Цель называет свой адрес и ключ источника, поэтому перенос не выдумывает адрес из ключа.
     const storedGuides =
@@ -472,7 +663,7 @@ export async function syncLocal(
         guides.set(guide.sourceId, current);
         await persist();
       } catch (error) {
-        throw new Error(`Product ${guide.sourceId}: ${error.message}`, {
+        throw new Error(`Product ${guide.sourceId}: ${errorMessage(error)}`, {
           cause: error,
         });
       }
@@ -481,6 +672,10 @@ export async function syncLocal(
     // Paid Materials must belong to a product, so validation uses the reserved Guides' real identities.
     // Supplementary originals are Guide members outside chapters: the product's "Additional Materials" part.
     const guideIds = new Map([...guides].map(([id, guide]) => [id, guide.id]));
+    /**
+     * @param {ManifestMaterial} row
+     * @param {string | null} primaryVideoId
+     */
     const desired = (row, primaryVideoId) =>
       desiredMaterial(pkg.manifest, row, {
         topicIds,
@@ -506,13 +701,26 @@ export async function syncLocal(
           videoChapters: [],
         });
       } catch (error) {
-        throw new Error(`${row.sourcePath}: ${error.message}`, {
+        throw new Error(`${row.sourcePath}: ${errorMessage(error)}`, {
           cause: error,
         });
       }
     }
 
+    /**
+     * @type {Map<
+     *   string,
+     *   {
+     *     materialId: string;
+     *     contentVersion: number;
+     *     primaryVideoId: string | null;
+     *     cover?: { coverId: string } | null | undefined;
+     *     metadata: { slug?: string | undefined };
+     *   }
+     * >}
+     */
     const currentMaterials = new Map();
+    /** @type {Map<string, string>} */
     const links = new Map();
     for (const row of rows.values()) {
       const previous = journal.materials[sourceId(row.sourceId)];
@@ -521,22 +729,24 @@ export async function syncLocal(
         (await request("/authoring/import/materials/reserve", {
           source: source(row),
         }));
-      const cached =
+      const current =
         previous?.revision === source(row).revision &&
-        previous.url &&
+        previous.url !== undefined &&
+        previous.url !== "" &&
         previous.primaryVideoId !== undefined &&
         previous.coverId !== undefined &&
-        !previous.archived;
-      const current = cached
-        ? {
-            materialId: previous.materialId,
-            contentVersion: previous.contentVersion,
-            primaryVideoId: previous.primaryVideoId,
-            cover:
-              previous.coverId === null ? null : { coverId: previous.coverId },
-            metadata: { slug: previous.url.split("/").at(-1) },
-          }
-        : await request(`/authoring/materials/${reserved.materialId}`);
+        previous.archived !== true
+          ? {
+              materialId: previous.materialId,
+              contentVersion: previous.contentVersion,
+              primaryVideoId: previous.primaryVideoId,
+              cover:
+                previous.coverId === null
+                  ? null
+                  : { coverId: previous.coverId },
+              metadata: { slug: previous.url.split("/").at(-1) },
+            }
+          : await request(`/authoring/materials/${reserved.materialId}`);
       if (!current.metadata.slug)
         throw new Error(
           "Source reservation did not allocate a stable local URL",
@@ -545,42 +755,55 @@ export async function syncLocal(
       links.set(row.sourceId, `/materials/${current.metadata.slug}`);
     }
 
-    // An existing provider record is attached once; the server refuses to move it to another Material.
+    /**
+     * An existing provider record is attached once; the server refuses to move it to another Material.
+     *
+     * @param {ManifestMaterial} row
+     * @param {{ materialId: string; primaryVideoId: string | null }} current
+     * @param {import("./local-boundaries.mjs").Access} access
+     * @returns {Promise<string | null>}
+     */
     const attachVideo = async (row, current, access) => {
       if (row.video === null) {
         // A recording uploaded by authoring:video stays attached until the original names its provider record.
-        const uploaded =
-          journal.resources[`source-video:${sourceId(row.sourceId)}`];
+        const uploaded = parseReceipt(
+          sourceVideoReceiptSchema,
+          resources[`source-video:${sourceId(row.sourceId)}`],
+        );
         return uploaded?.videoId ?? current.primaryVideoId;
       }
       const key = `video:${current.materialId}:${row.video.kinescopeId}`;
-      const receipt = journal.resources[key];
+      const receipt = parseReceipt(attachedVideoReceiptSchema, resources[key]);
       if (
         receipt?.state === "ready" &&
         receipt.videoId === current.primaryVideoId
       )
         return current.primaryVideoId;
-      const attached = receipt?.videoId
+      const attached = receipt
         ? null
         : await request(
             `/authoring/materials/${current.materialId}/videos/attach`,
             { access, providerVideoId: row.video.kinescopeId },
           );
       if (attached) {
-        journal.resources[key] = {
+        resources[key] = {
           videoId: attached.videoId,
           state: attached.state,
         };
         await persist();
       }
-      const videoId = attached?.videoId ?? receipt.videoId;
-      if ((attached?.state ?? receipt.state) !== "ready") {
+      // Without a stored receipt the video was attached above.
+      const known = attached ?? receipt;
+      if (known === undefined)
+        throw new Error(`${key}: video was not attached`);
+      const videoId = known.videoId;
+      if (known.state !== "ready") {
         await waitUntilReady(request, videoId, {
           sleep,
           attempts: videoAttempts,
           label: `${row.sourcePath} (${row.video.kinescopeId})`,
           onState: async (video) => {
-            journal.resources[key] = { videoId, state: video.state };
+            resources[key] = { videoId, state: video.state };
             await persist();
           },
         });
@@ -590,7 +813,7 @@ export async function syncLocal(
 
     for (const row of rows.values()) {
       const key = sourceId(row.sourceId);
-      let current = currentMaterials.get(row.sourceId);
+      let current = valueAt(currentMaterials, row.sourceId);
       const revision = source(row).revision;
       const previous = journal.materials[key];
       const primaryVideoId = await attachVideo(
@@ -614,11 +837,15 @@ export async function syncLocal(
       ) {
         report.unchanged++;
       } else {
+        /** @type {Map<string, string>} */
         const images = new Map();
         for (const assetId of new Set(Object.values(row.images))) {
-          const asset = assets.get(assetId);
+          const asset = valueAt(assets, assetId);
           const imageKey = `image:${current.materialId}:${asset.sha256}`;
-          let uploaded = journal.operations[imageKey];
+          let uploaded = parseReceipt(
+            assetReceiptSchema,
+            journal.operations[imageKey],
+          );
           if (!uploaded) {
             const bytes = await readAsset(asset);
             uploaded = await request(
@@ -641,31 +868,36 @@ export async function syncLocal(
           primaryVideoId,
           videoChapters,
         };
-        const saved = await applyJournaled(
-          context,
-          { path: "/authoring/import/materials/apply", body: command },
-          (operation, operationKey) =>
-            request(operation.path, operation.body, operationKey),
+        const saved = materialReceiptSchema.parse(
+          await applyJournaled(
+            context,
+            { path: "/authoring/import/materials/apply", body: command },
+            (operation, operationKey) =>
+              request(operation.path, operation.body, operationKey),
+          ),
         );
         journal.materials[key] = {
           ...previous,
           materialId: saved.materialId,
           contentVersion: saved.contentVersion,
           digest,
-          url: links.get(row.sourceId),
+          url: valueAt(links, row.sourceId),
           archived: false,
         };
         current = { ...current, contentVersion: saved.contentVersion };
         await persist();
         report.applied++;
       }
-      const cover = await syncCover(row, current, journal.materials[key]);
-      Object.assign(journal.materials[key], {
+      const synchronized = journal.materials[key];
+      if (synchronized === undefined)
+        throw new Error(`${row.sourcePath}: Material was not synchronized`);
+      const cover = await syncCover(row, current, synchronized);
+      Object.assign(synchronized, {
         revision,
         defaultAccess,
         access: desiredMetadata.access,
         primaryVideoId,
-        url: links.get(row.sourceId),
+        url: valueAt(links, row.sourceId),
         guideSourceIds: productsOf(pkg.manifest, row).map((guide) =>
           sourceId(guide.sourceId),
         ),
@@ -685,6 +917,11 @@ export async function syncLocal(
         });
     }
 
+    /**
+     * @param {ManifestMaterial} row
+     * @param {{ materialId: string; cover?: { coverId: string } | null | undefined }} current
+     * @param {Journal["materials"][string]} entry
+     */
     async function syncCover(row, current, entry) {
       const known = {
         coverId: entry.coverId ?? current.cover?.coverId ?? null,
@@ -700,13 +937,16 @@ export async function syncLocal(
           });
         return known;
       }
-      const asset = assets.get(row.coverAssetId);
+      const asset = valueAt(assets, row.coverAssetId);
       if (known.coverSha256 === asset.sha256) return known;
       const bytes = await readAsset(asset);
       // The cover route has no idempotency key: a pending marker lets a retry adopt a change the lost response hid.
       const pendingKey = `cover-pending:${current.materialId}`;
-      const pending = journal.resources[pendingKey];
-      journal.resources[pendingKey] = {
+      const pending = parseReceipt(
+        pendingCoverReceiptSchema,
+        resources[pendingKey],
+      );
+      resources[pendingKey] = {
         sha256: asset.sha256,
         expectedCoverId: known.coverId,
       };
@@ -732,35 +972,40 @@ export async function syncLocal(
           ).cover?.coverId ?? null;
       } catch (error) {
         // Imported covers change only through this source, so a conflict after an unfinished upload is that upload.
+        const currentCoverId = failureBodyField(error, "currentCoverId");
         if (
-          error.status !== 409 ||
+          failureStatus(error) !== 409 ||
           pending?.sha256 !== asset.sha256 ||
-          typeof error.body?.currentCoverId !== "string"
+          typeof currentCoverId !== "string"
         )
           throw error;
-        coverId = error.body.currentCoverId;
+        coverId = currentCoverId;
       }
-      delete journal.resources[pendingKey];
+      delete resources[pendingKey];
       return { coverId, coverSha256: asset.sha256 };
     }
 
     for (const guide of pkg.manifest.guides) {
       try {
-        const current = guides.get(guide.sourceId);
+        const current = valueAt(guides, guide.sourceId);
         const order = await request(`/authoring/guides/${current.id}/order`);
         const chapters = guideChapters(pkg.manifest, guide);
         const chapterAssignments = Object.fromEntries(
-          guide.chapters.flatMap((chapter, index) =>
-            chapter.materialIds.map((id) => [
-              currentMaterials.get(id).materialId,
-              chapters[index].id,
-            ]),
-          ),
+          guide.chapters.flatMap((chapter, index) => {
+            // guideChapters keeps the order of guide.chapters.
+            const chapterId = chapters[index]?.id;
+            if (chapterId === undefined)
+              throw new Error(`Chapter ${chapter.sourceId} has no identity`);
+            return chapter.materialIds.map((id) => [
+              valueAt(currentMaterials, id).materialId,
+              chapterId,
+            ]);
+          }),
         );
         const orderedMaterialIds = [
           ...guide.materialIds,
           ...guide.supplementaryMaterialIds,
-        ].map((id) => currentMaterials.get(id).materialId);
+        ].map((id) => valueAt(currentMaterials, id).materialId);
         await request("/authoring/import/guides/composition", {
           sourceId: sourceId(guide.sourceId),
           seriesId: current.id,
@@ -781,21 +1026,30 @@ export async function syncLocal(
           })),
         });
       } catch (error) {
-        throw new Error(`Product ${guide.sourceId}: ${error.message}`, {
+        throw new Error(`Product ${guide.sourceId}: ${errorMessage(error)}`, {
           cause: error,
         });
       }
     }
 
-    // Material artifacts become authoring-owned Guide artifacts linked back to every Material that declares them.
+    /**
+     * Material artifacts become authoring-owned Guide artifacts linked back to every Material that
+     * declares them.
+     *
+     * @param {ManifestGuide} guide
+     * @param {StoredGuide} current
+     */
     async function syncArtifacts(guide, current) {
       const guideSource = sourceId(guide.sourceId);
       const declared = artifactDeclarations(pkg.manifest, guide, defaultAccess);
       for (const [artifactSourceId, { artifact, owners, access }] of declared) {
-        const asset = assets.get(artifact.assetId);
+        const asset = valueAt(assets, artifact.assetId);
         const receiptKey = `artifact:${current.id}:${sourceId(artifactSourceId)}`;
         const fingerprint = artifactFingerprint(asset, artifact, access);
-        let receipt = journal.resources[receiptKey];
+        let receipt = parseReceipt(
+          artifactReceiptSchema,
+          resources[receiptKey],
+        );
         if (receipt?.fingerprint !== fingerprint) {
           const bytes = await readAsset(asset);
           const outcome = await request(
@@ -815,7 +1069,7 @@ export async function syncLocal(
           if (outcome.outcome === "diverged") {
             report.notices.push({
               code: "artifact_diverged",
-              path: owners[0].sourcePath,
+              path: owners[0]?.sourcePath ?? artifact.sourceId,
               message: `Артефакт «${artifact.title}» изменён в Platform; импорт его не перезаписал`,
             });
           }
@@ -827,11 +1081,11 @@ export async function syncLocal(
                 ? receipt.materialIds
                 : null,
           };
-          journal.resources[receiptKey] = receipt;
+          resources[receiptKey] = receipt;
           await persist();
         }
         const materialIds = owners
-          .map((row) => currentMaterials.get(row.sourceId).materialId)
+          .map((row) => valueAt(currentMaterials, row.sourceId).materialId)
           .sort();
         if (canonical(receipt.materialIds) !== canonical(materialIds)) {
           await request(
@@ -840,7 +1094,7 @@ export async function syncLocal(
             undefined,
             { method: "PUT" },
           );
-          journal.resources[receiptKey] = { ...receipt, materialIds };
+          resources[receiptKey] = { ...receipt, materialIds };
           await persist();
         }
       }
@@ -849,7 +1103,7 @@ export async function syncLocal(
       for (const artifact of placed.artifacts) {
         if (
           artifact.origin === "authoring" &&
-          !expected.has(artifact.sourceId)
+          (artifact.sourceId === null || !expected.has(artifact.sourceId))
         ) {
           report.notices.push({
             code: "artifact_missing",
@@ -872,6 +1126,8 @@ export async function syncLocal(
     const requested = new Set(normalizeSourceIds(pkg.manifest, archive));
     for (const key of archiveProposalKeys(journal, pkg.manifest)) {
       const entry = journal.materials[key];
+      if (entry === undefined)
+        throw new Error(`${key}: archive proposal has no journal entry`);
       if (!requested.has(key)) {
         report.archiveProposals.push({
           sourceId: key,
@@ -881,12 +1137,19 @@ export async function syncLocal(
       }
       requested.delete(key);
       const last = Object.values(journal.operations)
-        .filter(
-          (operation) =>
-            operation.status === "applied" &&
-            operation.request?.path === "/authoring/import/materials/apply" &&
-            operation.request.body.source.id === key,
-        )
+        .flatMap((operation) => {
+          if (!isJournalOperation(operation) || operation.status !== "applied")
+            return [];
+          const applied = materialApplyRequest(operation.request);
+          return applied?.body.source.id === key
+            ? [
+                {
+                  body: applied.body,
+                  result: materialReceiptSchema.parse(operation.result),
+                },
+              ]
+            : [];
+        })
         .sort(
           (left, right) =>
             right.result.contentVersion - left.result.contentVersion,
@@ -895,18 +1158,20 @@ export async function syncLocal(
         throw new Error(
           `${key}: no applied original is recorded; archive it in Platform instead`,
         );
-      const body = last.request.body;
+      const body = last.body;
       const command = {
         ...body,
         expectedContentVersion: entry.contentVersion,
         publicationState: "unpublished",
         metadata: { ...body.metadata, seriesIds: [] },
       };
-      const saved = await applyJournaled(
-        context,
-        { path: "/authoring/import/materials/apply", body: command },
-        (operation, operationKey) =>
-          request(operation.path, operation.body, operationKey),
+      const saved = materialReceiptSchema.parse(
+        await applyJournaled(
+          context,
+          { path: "/authoring/import/materials/apply", body: command },
+          (operation, operationKey) =>
+            request(operation.path, operation.body, operationKey),
+        ),
       );
       Object.assign(entry, {
         contentVersion: saved.contentVersion,
@@ -926,11 +1191,12 @@ export async function syncLocal(
       });
     // The local product view features the transferred product on Home, like production will.
     if (pinHome) {
-      if (pkg.manifest.guides.length !== 1)
+      const [product] = pkg.manifest.guides;
+      if (pkg.manifest.guides.length !== 1 || product === undefined)
         throw new Error(
           "Pinning Home needs exactly one product in the package",
         );
-      const guideId = guides.get(pkg.manifest.guides[0].sourceId).id;
+      const guideId = valueAt(guides, product.sourceId).id;
       const pin = await request("/authoring/home-pin");
       if (pin.seriesId !== guideId)
         await request(
@@ -958,11 +1224,15 @@ if (
       archive: { type: "string", multiple: true, default: [] },
     },
   });
-  if (positionals.length !== 2)
+  const [packagePath, stateDirectory] = positionals;
+  if (
+    positionals.length !== 2 ||
+    packagePath === undefined ||
+    stateDirectory === undefined
+  )
     throw new Error(
       "Usage: pnpm authoring:sync-local PACKAGE_JSON STATE_DIRECTORY [--target editor|stand] [--archive SOURCE_ID]...",
     );
-  const [packagePath, stateDirectory] = positionals;
   const report = await syncLocal(packagePath, stateDirectory, {
     origin: resolveLocalTarget(values.target),
     archive: values.archive,

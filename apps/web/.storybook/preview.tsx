@@ -10,7 +10,7 @@ import { assertDeclaredViewport } from "./viewport-guard";
 import "./workshop.css";
 
 const withWorkshop: Decorator = (Story, context) => {
-  const theme = context.globals.theme === "dark" ? "dark" : "light";
+  const theme = context.globals["theme"] === "dark" ? "dark" : "light";
   const isTestRun = import.meta.env.MODE === "test";
 
   return (

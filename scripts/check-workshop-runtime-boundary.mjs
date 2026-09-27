@@ -1,3 +1,4 @@
+// @ts-check
 import { readdirSync, readFileSync, statSync } from "node:fs";
 import path from "node:path";
 import process from "node:process";
@@ -61,6 +62,10 @@ if (findings.length > 0) {
   process.stdout.write("Workshop participant-runtime boundary passed.\n");
 }
 
+/**
+ * @param {string} directory
+ * @returns {string[]}
+ */
 function sourceFiles(directory) {
   return readdirSync(directory, { withFileTypes: true }).flatMap((entry) => {
     const filename = path.join(directory, entry.name);
@@ -71,6 +76,7 @@ function sourceFiles(directory) {
   });
 }
 
+/** @param {string} filename */
 function existsDirectory(filename) {
   try {
     return statSync(filename).isDirectory();
@@ -79,6 +85,7 @@ function existsDirectory(filename) {
   }
 }
 
+/** @param {string} filename */
 function existsFile(filename) {
   try {
     return statSync(filename).isFile();
@@ -87,6 +94,7 @@ function existsFile(filename) {
   }
 }
 
+/** @param {string} filename */
 function relative(filename) {
   return path.relative(repositoryRoot, filename).split(path.sep).join("/");
 }

@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+// @ts-check
 
 import { createHash } from "node:crypto";
 import { readFile } from "node:fs/promises";
@@ -19,6 +20,12 @@ import {
   sourceShaSchema,
   webImageName,
 } from "../release/contract-schema.mjs";
+
+/**
+ * @typedef {import("zod").z.infer<
+ *   typeof import("../release/contract-schema.mjs").releaseManifestInputSchema
+ * >} ReleaseManifestInput
+ */
 
 const [command, ...arguments_] = process.argv.slice(2);
 
@@ -69,6 +76,7 @@ try {
     throw new Error("usage: release-contract.mjs <command> --input <path>");
   }
 
+  /** @type {unknown} */
   const input = JSON.parse(
     inputPath === "-"
       ? await readStandardInput()
@@ -89,6 +97,7 @@ try {
   process.exitCode = 1;
 }
 
+/** @param {unknown} result */
 function writeResult(result) {
   process.stdout.write(`${JSON.stringify(result, null, 2)}\n`);
 }
@@ -102,8 +111,9 @@ async function readStandardInput() {
   return text;
 }
 
-function planRelease(input) {
-  input = parseSchema(releasePlanInputSchema, input, "release plan");
+/** @param {unknown} value */
+function planRelease(value) {
+  const input = parseSchema(releasePlanInputSchema, value, "release plan");
   const ordinal = parseOrdinalVersion(input.requestedVersion);
   const ordinalReleases = input.existingReleases.filter(
     ({ version }) => ordinalVersionSchema.safeParse(version).success,
@@ -171,10 +181,11 @@ function planRelease(input) {
   };
 }
 
-async function createManifest(input) {
-  input = parseSchema(
+/** @param {unknown} value */
+async function createManifest(value) {
+  const input = parseSchema(
     releaseManifestInputSchema,
-    input,
+    value,
     "release manifest input",
   );
   const backend = await readImageResult(
@@ -220,6 +231,7 @@ async function createManifest(input) {
   );
 }
 
+/** @param {ReleaseManifestInput} input */
 async function createPreviousProof(input) {
   const ordinal = parseOrdinalVersion(input.version);
   if (input.rollback.previous === null) {
@@ -261,14 +273,24 @@ async function createPreviousProof(input) {
   };
 }
 
+/**
+ * @param {string} path
+ * @param {string} label
+ */
 async function sha256File(path, label) {
   return sha256(await readBytes(path, label));
 }
 
+/** @param {string | Buffer} value */
 function sha256(value) {
   return `sha256:${createHash("sha256").update(value).digest("hex")}`;
 }
 
+/**
+ * @param {string} path
+ * @param {string} imageName
+ * @param {string} sourceSha
+ */
 async function readImageResult(path, imageName, sourceSha) {
   return bindImageResult(
     await readJson(path, `${imageName} result`),
@@ -277,6 +299,11 @@ async function readImageResult(path, imageName, sourceSha) {
   );
 }
 
+/**
+ * @param {unknown} input
+ * @param {string} imageName
+ * @param {string} sourceSha
+ */
 function bindImageResult(input, imageName, sourceSha) {
   const image = parseSchema(
     releaseImageResultSchema,
@@ -291,22 +318,39 @@ function bindImageResult(input, imageName, sourceSha) {
   return image;
 }
 
+/**
+ * @param {string} path
+ * @param {string} label
+ */
 async function readJson(path, label) {
   return parseJson(await readText(path, label), label);
 }
 
+/**
+ * @param {string} path
+ * @param {string} label
+ */
 async function readText(path, label) {
   return readFile(path, "utf8").catch(() => {
     throw new Error(`${label} is missing`);
   });
 }
 
+/**
+ * @param {string} path
+ * @param {string} label
+ */
 async function readBytes(path, label) {
   return readFile(path).catch(() => {
     throw new Error(`${label} is missing`);
   });
 }
 
+/**
+ * @param {string} text
+ * @param {string} label
+ * @returns {unknown}
+ */
 function parseJson(text, label) {
   try {
     return JSON.parse(text);
@@ -315,7 +359,8 @@ function parseJson(text, label) {
   }
 }
 
-function parseOrdinalVersion(version) {
-  version = parseSchema(ordinalVersionSchema, version, "release version");
+/** @param {unknown} value */
+function parseOrdinalVersion(value) {
+  const version = parseSchema(ordinalVersionSchema, value, "release version");
   return Number(version.slice(1));
 }

@@ -1,3 +1,4 @@
+// @ts-check
 import { createServer } from "node:http";
 import { randomUUID } from "node:crypto";
 import { wrapSession } from "@logto/node";
@@ -9,6 +10,8 @@ import { exportJWK, generateKeyPair, SignJWT } from "jose";
  * keeps verifying it; when it runs out, the web BFF renews it exactly as it does in production.
  * Without that grant a run longer than five minutes silently loses every signed-in session and
  * reports it as broken pages instead of an expired token.
+ *
+ * @param {{ apiBaseUrl: string; webBaseUrl: string }} endpoints
  */
 export async function startFullStackIdentity({ apiBaseUrl, webBaseUrl }) {
   const fullStackAccessTokenTtlSeconds = 300;
@@ -25,7 +28,12 @@ export async function startFullStackIdentity({ apiBaseUrl, webBaseUrl }) {
     kid: "fullstack-key-1",
   };
   /** Выданные refresh-токены: каждый помнит, чью сессию он продлевает. */
+  /** @type {Map<string, string>} */
   const refreshTokens = new Map();
+  /**
+   * @param {string} tokenSubject
+   * @param {number} issuedAt
+   */
   const mintAccessToken = async (tokenSubject, issuedAt) => {
     const token = await new SignJWT({
       inside_verified_email: `${tokenSubject}@inside.test`,
@@ -45,6 +53,7 @@ export async function startFullStackIdentity({ apiBaseUrl, webBaseUrl }) {
   };
   const createAccessToken = (tokenSubject = subject) =>
     mintAccessToken(tokenSubject, Math.floor(Date.now() / 1_000));
+  /** @param {{ token: string; expiresAt: number; refreshToken: string }} session */
   const sessionCookie = ({ token, expiresAt, refreshToken }) =>
     wrapSession(
       {
@@ -56,6 +65,7 @@ export async function startFullStackIdentity({ apiBaseUrl, webBaseUrl }) {
       },
       cookieSecret,
     );
+  /** @param {string} tokenSubject */
   const issueRefreshToken = (tokenSubject) => {
     const refreshToken = `fullstack-refresh-${randomUUID()}`;
     refreshTokens.set(refreshToken, tokenSubject);
@@ -64,6 +74,10 @@ export async function startFullStackIdentity({ apiBaseUrl, webBaseUrl }) {
   /**
    * Сессия, доступ которой уже истёк. Продление обязано случиться на первом же запросе, поэтому
    * проверять его можно за секунды, а не ожиданием пяти минут в каждом следующем прогоне.
+   */
+  /**
+   * @param {string} tokenSubject
+   * @param {string} refreshToken
    */
   const sessionCookiePastExpiry = async (tokenSubject, refreshToken) => {
     const issuedAt =
@@ -78,15 +92,21 @@ export async function startFullStackIdentity({ apiBaseUrl, webBaseUrl }) {
   const server = createServer((request, response) => {
     void route(request, response);
   });
-  await new Promise((resolveListen) =>
+  /** @type {Promise<void>} */
+  const listening = new Promise((resolveListen) =>
     server.listen(0, "127.0.0.1", resolveListen),
   );
+  await listening;
   const address = server.address();
   if (address === null || typeof address === "string") {
     throw new Error("Full-stack identity server has no TCP port");
   }
   const origin = `http://127.0.0.1:${String(address.port)}`;
 
+  /**
+   * @param {import("node:http").IncomingMessage} request
+   * @param {import("node:http").ServerResponse} response
+   */
   async function route(request, response) {
     if (request.url === "/jwks") {
       sendJson(response, 200, { keys: [publicJwk] });
@@ -117,6 +137,9 @@ export async function startFullStackIdentity({ apiBaseUrl, webBaseUrl }) {
    * Отказ отдаётся в том же виде, в каком его отдаёт Logto: `code` и `message` рядом с `error`.
    * Клиент Logto разбирает ошибку только по этой паре, иначе отказ станет для приложения
    * «неожиданным ответом», и непродлеваемая сессия покажется недоступностью сервиса.
+   *
+   * @param {import("node:http").IncomingMessage} request
+   * @param {import("node:http").ServerResponse} response
    */
   async function issueRenewedToken(request, response) {
     const parameters = new URLSearchParams(await readBody(request));
@@ -174,6 +197,8 @@ export async function startFullStackIdentity({ apiBaseUrl, webBaseUrl }) {
     /**
      * Cookie сессии. Вместе с первым токеном в неё кладётся refresh-токен, поэтому истёкший
      * доступ приложение продлевает само и сессия живёт весь прогон, а не первые пять минут.
+     *
+     * @param {{ token: string; expiresAt: number; subject?: string }} session
      */
     createSession: ({ token, expiresAt, subject: tokenSubject = subject }) =>
       sessionCookie({
@@ -205,28 +230,44 @@ export async function startFullStackIdentity({ apiBaseUrl, webBaseUrl }) {
       OWNER_LOGTO_SUBJECT: subject,
       WEB_BASE_URL: webBaseUrl,
     },
-    close: () =>
-      new Promise((resolveClose, rejectClose) => {
+    close: () => {
+      /** @type {Promise<void>} */
+      const closed = new Promise((resolveClose, rejectClose) => {
         server.close((error) =>
           error === undefined ? resolveClose() : rejectClose(error),
         );
-      }),
+      });
+      return closed;
+    },
   };
 }
 
 /** Отказ в выдаче токена: `error` — это OIDC, `code` и `message` — то, что читает клиент Logto. */
+/**
+ * @param {string} code
+ * @param {string} message
+ */
 function grantFailure(code, message) {
   return { error: code, code, message };
 }
 
+/**
+ * @param {import("node:http").ServerResponse} response
+ * @param {number} status
+ * @param {unknown} body
+ */
 function sendJson(response, status, body) {
   response.writeHead(status, { "content-type": "application/json" });
   response.end(JSON.stringify(body));
 }
 
+/** @param {import("node:http").IncomingMessage} request */
 async function readBody(request) {
+  /** @type {Buffer[]} */
   const chunks = [];
   for await (const chunk of request) {
+    // Without an encoding a request stream yields bytes.
+    if (!Buffer.isBuffer(chunk)) throw new Error("Request stream yielded text");
     chunks.push(chunk);
   }
   return Buffer.concat(chunks).toString("utf8");

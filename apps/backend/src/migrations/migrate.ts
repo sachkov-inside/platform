@@ -114,7 +114,7 @@ async function main(): Promise<void> {
   const databaseConfig = parsePlatformDatabaseConfig(process.env);
   const runtimeIdentity = parseRuntimeIdentity(
     process.env,
-    parsePlatformMode(process.env.NODE_ENV),
+    parsePlatformMode(process.env["NODE_ENV"]),
   );
   const [operation, expectedIdentity, extra] = process.argv.slice(2);
   if (

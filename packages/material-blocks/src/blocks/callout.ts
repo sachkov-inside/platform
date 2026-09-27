@@ -78,12 +78,12 @@ export const calloutBlock: MaterialBlockDefinition =
       parseHTML: ["aside[data-callout]"],
       renderHTML: (attributes) => [
         "aside",
-        { ...attributes, "data-callout": attributes.kind },
+        { ...attributes, "data-callout": attributes["kind"] },
         [
           "p",
           { "data-callout-kind": "" },
           calloutToneLabels[
-            isCalloutTone(attributes.kind) ? attributes.kind : "note"
+            isCalloutTone(attributes["kind"]) ? attributes["kind"] : "note"
           ],
         ],
         [
@@ -96,11 +96,11 @@ export const calloutBlock: MaterialBlockDefinition =
     },
     render: (node, tools) => {
       const attributes = nodeAttributes(node);
-      const tone = attributes.kind;
+      const tone = attributes["kind"];
       if (!isCalloutTone(tone)) {
         throw new TypeError("Unsupported callout tone");
       }
-      const title = optionalText(attributes.title);
+      const title = optionalText(attributes["title"]);
       return {
         content: tools.blockContent(node),
         kind: "callout",

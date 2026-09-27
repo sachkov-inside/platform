@@ -1,16 +1,25 @@
+// @ts-check
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { mkdtemp, mkdir, readFile, rm, writeFile } from "node:fs/promises";
+import { mkdtemp, mkdir, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { canonical } from "./package.mjs";
 import { reviewOrigin } from "./local-sync.mjs";
 import { transferRequired, uploadVideo } from "./video.mjs";
+import {
+  sourceVideoReceiptSchema,
+  uploadReceiptSchema,
+} from "./local-boundaries.mjs";
+import { readJournalFile, resourcesOf } from "./test-support.mjs";
 
 const materialId = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
 const videoId = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb";
 const sourceId = "inside-content:lesson";
 
+/** @typedef {import("./target.mjs").LocalTransport} LocalTransport */
+
+/** @param {import("node:test").TestContext} t */
 async function fixture(t) {
   const directory = await mkdtemp(join(tmpdir(), "authoring-video-"));
   t.after(() => rm(directory, { recursive: true, force: true }));
@@ -36,8 +45,7 @@ async function fixture(t) {
   return {
     state,
     file,
-    read: async () =>
-      JSON.parse(await readFile(join(state, "journal.json"), "utf8")),
+    read: () => readJournalFile(state),
   };
 }
 
@@ -45,18 +53,21 @@ function providerApi({
   endpoint = "https://uploads.invalid/provider-one",
   loseFirstInit = false,
 } = {}) {
+  /** @type {{ path: string; key: string | undefined }[]} */
   const calls = [];
+  /** @type {Map<string, unknown>} */
   const attempts = new Map();
   let lose = loseFirstInit;
   let reconciles = 0;
   return {
     calls,
+    /** @type {LocalTransport} */
     async request(path, body, key) {
       calls.push({ path, key });
       if (path === "/authoring/import/materials/environment")
         return { mode: "development" };
       if (path === `/authoring/materials/${materialId}/videos/uploads`) {
-        assert.ok(key?.startsWith("video-upload:"));
+        assert.ok(key !== undefined && key.startsWith("video-upload:"));
         assert.deepEqual(body, {
           access: "membership",
           byteSize: 15,
@@ -88,6 +99,11 @@ function providerApi({
   };
 }
 
+/**
+ * @param {{ state: string; file: string }} setup
+ * @param {{ request: LocalTransport }} api
+ * @param {Partial<Parameters<typeof uploadVideo>[0]>} [extra]
+ */
 const upload = (setup, api, extra = {}) =>
   uploadVideo({
     stateDirectory: setup.state,
@@ -103,7 +119,9 @@ test("a lost init response retries the persisted key and reaches a ready video o
   const setup = await fixture(t);
   const api = providerApi({ loseFirstInit: true });
   await assert.rejects(upload(setup, api), /Connection lost/u);
-  const pending = Object.values((await setup.read()).resources)[0];
+  const pending = uploadReceiptSchema.parse(
+    Object.values(resourcesOf(await setup.read()))[0],
+  );
   assert.equal(pending.phase, "initializing");
   const result = await upload(setup, api);
   assert.deepEqual(result, {
@@ -120,7 +138,9 @@ test("a lost init response retries the persisted key and reaches a ready video o
   assert.equal(api.attempts.size, 1);
   const journal = await setup.read();
   assert.deepEqual(
-    journal.resources[`source-video:${sourceId}`].videoId,
+    sourceVideoReceiptSchema.parse(
+      resourcesOf(journal)[`source-video:${sourceId}`],
+    ).videoId,
     videoId,
   );
   const before = api.calls.length;
@@ -138,7 +158,8 @@ test("a real provider endpoint is refused before any byte is sent", async (t) =>
   });
   await assert.rejects(upload(setup, api), /separate owner approval/u);
   assert.equal(
-    Object.values((await setup.read()).resources)[0].phase,
+    uploadReceiptSchema.parse(Object.values(resourcesOf(await setup.read()))[0])
+      .phase,
     "transfer",
   );
   assert.equal(transferRequired("https://uploads.invalid/x"), false);
@@ -148,6 +169,7 @@ test("a real provider endpoint is refused before any byte is sent", async (t) =>
 test("an unknown upload outcome stops without a new key", async (t) => {
   const setup = await fixture(t);
   const api = {
+    /** @type {LocalTransport} */
     async request(path) {
       if (path.endsWith("/environment")) return { mode: "development" };
       throw Object.assign(new Error("409"), {
@@ -156,10 +178,13 @@ test("an unknown upload outcome stops without a new key", async (t) => {
     },
   };
   await assert.rejects(upload(setup, api), /unknown; inspect the attempt/u);
-  const first = Object.values((await setup.read()).resources)[0].idempotencyKey;
+  const first = uploadReceiptSchema.parse(
+    Object.values(resourcesOf(await setup.read()))[0],
+  ).idempotencyKey;
   await assert.rejects(upload(setup, api), /unknown/u);
   assert.equal(
-    Object.values((await setup.read()).resources)[0].idempotencyKey,
+    uploadReceiptSchema.parse(Object.values(resourcesOf(await setup.read()))[0])
+      .idempotencyKey,
     first,
   );
 });
@@ -180,9 +205,11 @@ test("a Material that was never synchronized cannot receive a recording", async 
 test("a failed provider outcome lets the same file start a new attempt", async (t) => {
   const setup = await fixture(t);
   let state = "failed";
+  /** @type {(string | undefined)[]} */
   const keys = [];
   const api = {
-    async request(path, body, key) {
+    /** @type {LocalTransport} */
+    async request(path, _body, key) {
       if (path.endsWith("/environment")) return { mode: "development" };
       if (path.endsWith("/uploads")) {
         keys.push(key);

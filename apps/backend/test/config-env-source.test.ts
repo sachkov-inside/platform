@@ -53,7 +53,7 @@ describe("process env file source", () => {
     await application?.close();
     application = undefined;
     source.path = undefined;
-    delete process.env.OBJECT_STORAGE_REGION;
+    delete process.env["OBJECT_STORAGE_REGION"];
     vi.unstubAllEnvs();
   });
 

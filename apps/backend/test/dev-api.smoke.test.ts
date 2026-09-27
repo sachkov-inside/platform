@@ -27,7 +27,7 @@ describe("API development process", () => {
   it("serves health through the documented dev command", async () => {
     const port = await findAvailablePort();
     const output: string[] = [];
-    const pnpmPath = globalThis.process.env.npm_execpath;
+    const pnpmPath = globalThis.process.env["npm_execpath"];
 
     if (pnpmPath === undefined) {
       throw new Error("npm_execpath is required to launch the pinned pnpm CLI");

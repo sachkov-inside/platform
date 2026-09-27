@@ -20,7 +20,7 @@ const scriptSources = isDevelopment
  */
 function localImageSources(): string {
   if (isDevelopment) return " http://127.0.0.1:* http://localhost:9000";
-  const origin = process.env.CSP_LOCAL_OBJECT_STORAGE_ORIGIN;
+  const origin = process.env["CSP_LOCAL_OBJECT_STORAGE_ORIGIN"];
   if (origin === undefined || origin === "") return "";
   const url = new URL(origin);
   if (
@@ -71,7 +71,7 @@ const contentSecurityPolicy = [
  * платформу именно там. Запасной host `pnpm dev` запускается без переменной и индикатор
  * сохраняет — вместе с перекрытием, которое там остаётся.
  */
-const hideDevIndicator = process.env.HIDE_DEV_INDICATOR === "true";
+const hideDevIndicator = process.env["HIDE_DEV_INDICATOR"] === "true";
 
 const nextConfig: NextConfig = {
   allowedDevOrigins: ["127.0.0.1"],

@@ -78,9 +78,11 @@ Web, API, MCP и фоновые workers. Порты берутся из `WEB_BAS
 Для сквозного теста выполните в Platform:
 
 ```bash
-LOGTO_ENDPOINT=https://identity.inside.localhost:3631 WEB_BASE_URL=http://127.0.0.1:3600 TELEGRAM_PROOF_WEBHOOK_URL=http://127.0.0.1:3606/webhooks/telegram TELEGRAM_PROOF_WEBHOOK_SECRET=your_local_webhook_secret pnpm --filter @inside/web exec playwright test --config playwright.identity.config.ts telegram-sign-in.spec.ts
+IDENTITY_PROOF_ACCESS_TOKEN_TTL_SECONDS=60 LOGTO_ENDPOINT=https://identity.inside.localhost:3631 WEB_BASE_URL=http://127.0.0.1:3600 TELEGRAM_PROOF_WEBHOOK_URL=http://127.0.0.1:3606/webhooks/telegram TELEGRAM_PROOF_WEBHOOK_SECRET=your_local_webhook_secret pnpm --filter @inside/web exec playwright test --config playwright.identity.config.ts telegram-sign-in.spec.ts
 ```
 
+`IDENTITY_PROOF_ACCESS_TOKEN_TTL_SECONDS` совпадает со значением из `.identity-proof/299.env`: по нему
+тест ждёт истечения токена доступа перед проверкой его обновления.
 Тест проверяет обычный callback, обновление страницы, выход, новый вход, отказ и чужой браузер.
 PostgreSQL tests проверяют неизменность Account, отсутствие фиктивной почты и прав, конкуренцию и
 повтор после потерянного ответа. Provider integration tests используют отдельную disposable БД,

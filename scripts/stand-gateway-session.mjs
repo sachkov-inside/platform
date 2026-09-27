@@ -1,3 +1,4 @@
+// @ts-check
 // Runs one piece of work through the stand's authoring gateway: reuses a running gateway or starts
 // one for the duration of the work, because the gateway acts as the stand owner while it runs.
 import { spawn } from "node:child_process";
@@ -12,6 +13,7 @@ import { ensureSharedIdentityDirectory } from "./shared-identity-directory.mjs";
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const gatewayStartTimeoutMs = 60_000;
 
+/** @param {string} origin */
 async function isGatewayRunning(origin) {
   try {
     await fetch(`${origin}/__local-api/authoring/home-pin`, {
@@ -23,6 +25,7 @@ async function isGatewayRunning(origin) {
   }
 }
 
+/** @param {string} email */
 function startGateway(email) {
   const child = spawn(
     process.execPath,
@@ -43,6 +46,7 @@ function startGateway(email) {
       stdio: ["ignore", "pipe", "inherit"],
     },
   );
+  /** @type {Promise<void>} */
   const ready = new Promise((accept, reject) => {
     const timer = setTimeout(
       () => reject(new Error("The authoring gateway did not start in time")),
@@ -64,14 +68,28 @@ function startGateway(email) {
   return { child, ready };
 }
 
-/** The shared identity directory and the stand author's email, stored by an earlier gateway run. */
+/**
+ * The shared identity directory and the stand author's email, stored by an earlier gateway run.
+ *
+ * @param {string | undefined} ownerEmail
+ * @returns {Promise<{ identity: string; email: string }>}
+ */
 export async function standIdentity(ownerEmail) {
   const identity = ensureSharedIdentityDirectory(root);
   const stored = await readFile(
     resolve(identity, "authoring-owner-pat.json"),
     "utf8",
   )
-    .then((text) => JSON.parse(text).email)
+    .then((text) => {
+      /** @type {unknown} */
+      const saved = JSON.parse(text);
+      return typeof saved === "object" &&
+        saved !== null &&
+        "email" in saved &&
+        typeof saved.email === "string"
+        ? saved.email
+        : undefined;
+    })
     .catch(() => undefined);
   const email = ownerEmail ?? stored;
   if (!email)
@@ -81,6 +99,12 @@ export async function standIdentity(ownerEmail) {
   return { identity, email };
 }
 
+/**
+ * @template T
+ * @param {string} email
+ * @param {(origin: string) => Promise<T>} work
+ * @returns {Promise<T>}
+ */
 export async function withStandGateway(email, work) {
   const origin = resolveLocalTarget("stand");
   const gateway = (await isGatewayRunning(origin))

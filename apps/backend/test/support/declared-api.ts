@@ -269,8 +269,11 @@ function translatedSchema(value: object): Record<string, unknown> {
   const source: Record<string, unknown> = { ...value };
   const bounds: Record<string, number> = {};
   const dropped = new Set(["nullable"]);
-  if (source.exclusiveMinimum === true && typeof source.minimum === "number") {
-    bounds.exclusiveMinimum = source.minimum;
+  if (
+    source["exclusiveMinimum"] === true &&
+    typeof source["minimum"] === "number"
+  ) {
+    bounds["exclusiveMinimum"] = source["minimum"];
     dropped.add("minimum").add("exclusiveMinimum");
   }
   const schema: Record<string, unknown> = {
@@ -288,7 +291,7 @@ function translatedSchema(value: object): Record<string, unknown> {
     ),
     ...bounds,
   };
-  const alternatives = schema.oneOf;
+  const alternatives = schema["oneOf"];
   // `oneOf` здесь — перечень вариантов ответа, а не исключающий выбор: его строит
   // `problemDetailsOneOfContent` из перечисленных схем, и открытый вариант заведомо пересекается с
   // закрытым. Требование «ровно один» отвергло бы честное тело отказа, которое подходит обоим.
@@ -301,7 +304,7 @@ function translatedSchema(value: object): Record<string, unknown> {
           ),
           anyOf: alternatives,
         };
-  return source.nullable === true
+  return source["nullable"] === true
     ? { anyOf: [alternated, { type: "null" }] }
     : alternated;
 }

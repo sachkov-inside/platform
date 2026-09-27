@@ -19,7 +19,7 @@ export class ProblemDetailsFilter implements ExceptionFilter {
       ? { ...fields, type: problemType(fields.code) }
       : problemDetails(
           status,
-          typeof fields.code === "string" ? fields.code : "http_error",
+          typeof fields["code"] === "string" ? fields["code"] : "http_error",
           titleFor(status),
         );
 
@@ -38,10 +38,10 @@ function isProblemDetails(
   status: number,
 ): fields is Readonly<Record<string, unknown>> & { readonly code: string } {
   return (
-    typeof fields.type === "string" &&
-    typeof fields.title === "string" &&
-    fields.status === status &&
-    typeof fields.code === "string"
+    typeof fields["type"] === "string" &&
+    typeof fields["title"] === "string" &&
+    fields["status"] === status &&
+    typeof fields["code"] === "string"
   );
 }
 

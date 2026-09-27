@@ -77,14 +77,15 @@ export function parseTributeCsv(text: string) {
     const parsed = tributeImportRowSchema.safeParse({
       ...input,
       subscriptionId:
-        input.subscriptionId === "" ? null : Number(input.subscriptionId),
-      expectedRevision: Number(input.expectedRevision),
-      identityRef: input.identityRef === "" ? null : input.identityRef,
-      telegramUserId: input.telegramUserId === "" ? null : input.telegramUserId,
+        input["subscriptionId"] === "" ? null : Number(input["subscriptionId"]),
+      expectedRevision: Number(input["expectedRevision"]),
+      identityRef: input["identityRef"] === "" ? null : input["identityRef"],
+      telegramUserId:
+        input["telegramUserId"] === "" ? null : input["telegramUserId"],
       verificationRef:
-        input.verificationRef === "" ? null : input.verificationRef,
-      startsAt: input.startsAt === "" ? null : input.startsAt,
-      endsAt: input.endsAt === "" ? null : input.endsAt,
+        input["verificationRef"] === "" ? null : input["verificationRef"],
+      startsAt: input["startsAt"] === "" ? null : input["startsAt"],
+      endsAt: input["endsAt"] === "" ? null : input["endsAt"],
     });
     if (!parsed.success)
       throw new Error(

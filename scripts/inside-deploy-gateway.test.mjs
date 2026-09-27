@@ -1,3 +1,4 @@
+// @ts-check
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
 import {
@@ -13,16 +14,17 @@ import { createHash } from "node:crypto";
 import { tmpdir } from "node:os";
 import { resolve } from "node:path";
 import { describe, it } from "node:test";
+import { z } from "zod";
 
 import { writeTrustedReleaseEvidence } from "./github-release-evidence.test-support.mjs";
 
 const gateway = readFileSync("infra/production/host/inside-deploy", "utf8");
 
 describe("inside-deploy forced SSH command", () => {
-  for (const [paddingBytes, diagnostic] of [
+  for (const [paddingBytes, diagnostic] of /** @type {const} */ ([
     [33 * 1024 * 1024, /Decoded archive exceeds/u],
     [2 * 1024 * 1024, /Archive member exceeds/u],
-  ]) {
+  ])) {
     it(`rejects a compressed manifest with ${paddingBytes} bytes before parsing it`, () => {
       const fixture = createFixture();
       try {
@@ -126,7 +128,13 @@ describe("inside-deploy forced SSH command", () => {
         { encoding: "utf8" },
       );
       assert.equal(forgedBundleResult.status, 0, forgedBundleResult.stderr);
-      const forgedManifest = JSON.parse(fixture.manifest);
+      const forgedManifest = z
+        .object({
+          source: z.object({ sha: z.string() }).passthrough(),
+          runtimeBundle: z.object({ sha256: z.string() }).passthrough(),
+        })
+        .passthrough()
+        .parse(JSON.parse(fixture.manifest));
       forgedManifest.source.sha = "9".repeat(40);
       forgedManifest.runtimeBundle.sha256 = sha256(
         readFileSync(fixture.bundle),
@@ -306,6 +314,9 @@ fi
   return fixture;
 }
 
+/** @typedef {ReturnType<typeof createFixture>} Fixture */
+
+/** @param {Fixture} fixture */
 function createEnvelope(fixture) {
   const envelopeRoot = resolve(fixture.directory, "envelope");
   rmSync(envelopeRoot, { force: true, recursive: true });
@@ -333,24 +344,34 @@ function createEnvelope(fixture) {
   assert.equal(result.status, 0, result.stderr);
 }
 
+/**
+ * @param {Fixture} fixture
+ * @param {string} command
+ * @param {string | Buffer} [input]
+ */
 function runGateway(fixture, command, input = readFileSync(fixture.payload)) {
   return spawnSync("bash", ["infra/production/host/inside-deploy"], {
     encoding: "utf8",
     env: {
       ...process.env,
       INSIDE_DEPLOY_TEST_ROOT: fixture.root,
-      PATH: `${fixture.bin}:${process.env.PATH}`,
+      PATH: `${fixture.bin}:${process.env["PATH"]}`,
       SSH_ORIGINAL_COMMAND: command,
     },
     input,
   });
 }
 
+/**
+ * @param {string} path
+ * @param {string} content
+ */
 function writeExecutable(path, content) {
   writeFileSync(path, content);
   chmodSync(path, 0o755);
 }
 
+/** @param {string | Buffer} value */
 function sha256(value) {
   return `sha256:${createHash("sha256").update(value).digest("hex")}`;
 }

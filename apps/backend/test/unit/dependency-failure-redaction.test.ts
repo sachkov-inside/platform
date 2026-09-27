@@ -76,17 +76,17 @@ describe("dependency failure redaction", () => {
       },
     );
 
-    const prisma = reported(prismaFailure).record.error;
+    const prisma = reported(prismaFailure).record["error"];
     expect(prisma).toMatchObject({
       type: "PrismaClientKnownRequestError",
       code: "P2002",
     });
     expect(prisma).not.toHaveProperty("message");
-    const parse = reported(parseFailure).record.error;
+    const parse = reported(parseFailure).record["error"];
     expect(parse).toMatchObject({ type: "SyntaxError" });
     expect(parse).not.toHaveProperty("message");
     const postgres = reported(postgresFailure);
-    expect(postgres.record.error).toMatchObject({
+    expect(postgres.record["error"]).toMatchObject({
       type: "Error",
       code: "23505",
       message: "duplicate key value violates unique constraint",

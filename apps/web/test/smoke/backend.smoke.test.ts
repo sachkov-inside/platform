@@ -33,25 +33,25 @@ describe("real backend connection", () => {
       return;
     }
 
-    expect(isRecord(document.info)).toBe(true);
-    if (!isRecord(document.info)) {
+    expect(isRecord(document["info"])).toBe(true);
+    if (!isRecord(document["info"])) {
       return;
     }
 
-    expect(document.info.title).toBe("Inside Platform API");
-    expect(document.info.version).toBe("1.0.0");
-    expect(isRecord(document.paths)).toBe(true);
-    if (!isRecord(document.paths)) {
+    expect(document["info"]["title"]).toBe("Inside Platform API");
+    expect(document["info"]["version"]).toBe("1.0.0");
+    expect(isRecord(document["paths"])).toBe(true);
+    if (!isRecord(document["paths"])) {
       return;
     }
 
-    const healthPath = document.paths["/health"];
+    const healthPath = document["paths"]["/health"];
     expect(isRecord(healthPath)).toBe(true);
     if (!isRecord(healthPath)) {
       return;
     }
 
-    expect(isRecord(healthPath.get)).toBe(true);
+    expect(isRecord(healthPath["get"])).toBe(true);
   });
 });
 

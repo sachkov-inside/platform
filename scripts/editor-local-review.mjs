@@ -1,3 +1,4 @@
+// @ts-check
 // Explicit, loopback-only review runtime. Real Platform/DB/storage; synthetic local identity/video provider.
 import { spawn } from "node:child_process";
 import { connect } from "node:net";
@@ -10,7 +11,9 @@ import { startFullStackIdentity } from "./full-stack-identity.mjs";
 import { signalProcessGroup } from "./process-group-signal.mjs";
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
-if (!process.env.npm_execpath) throw new Error("Run pnpm editor:local");
+const pnpmExecutable = process.env["npm_execpath"];
+if (!pnpmExecutable) throw new Error("Run pnpm editor:local");
+const pnpmPath = pnpmExecutable;
 const webBaseUrl = "http://127.0.0.1:4396";
 const apiBaseUrl = "http://127.0.0.1:4397";
 const identity = await startFullStackIdentity({ apiBaseUrl, webBaseUrl });
@@ -18,8 +21,8 @@ const identity = await startFullStackIdentity({ apiBaseUrl, webBaseUrl });
 const environment = {
   // The isolated editor review keeps the published demonstration catalogue in its own database.
   LOCAL_SEED_DEMO: "published",
-  PATH: process.env.PATH,
-  HOME: process.env.HOME,
+  PATH: process.env["PATH"],
+  HOME: process.env["HOME"],
   ...parseEnv(readFileSync(resolve(root, ".env.example"), "utf8")),
   ...identity.environment,
   NODE_ENV: "development",
@@ -31,12 +34,14 @@ const environment = {
   KINESCOPE_PROVIDER_MODE: "test",
   OWNER_PERMISSION: "platform:admin",
   // A machine with a low open-file limit needs polling for `next dev`; see local-development.md.
-  ...(process.env.WATCHPACK_POLLING
-    ? { WATCHPACK_POLLING: process.env.WATCHPACK_POLLING }
+  ...(process.env["WATCHPACK_POLLING"]
+    ? { WATCHPACK_POLLING: process.env["WATCHPACK_POLLING"] }
     : {}),
 };
+/** @type {import("node:child_process").ChildProcess[]} */
 const children = [];
 let closing = false;
+/** @type {Set<import("node:net").Socket>} */
 const sockets = new Set();
 const gateway = createServer(async (request, response) => {
   if (request.headers.host !== "127.0.0.1:4396") {
@@ -128,8 +133,9 @@ gateway.on("upgrade", (request, socket, head) => {
   upstream.on("error", () => socket.destroy());
   socket.on("error", () => upstream.destroy());
 });
+/** @param {string[]} args */
 function run(args) {
-  const child = spawn(process.execPath, [process.env.npm_execpath, ...args], {
+  const child = spawn(process.execPath, [pnpmPath, ...args], {
     cwd: root,
     env: environment,
     stdio: "inherit",
@@ -138,9 +144,12 @@ function run(args) {
   children.push(child);
   return child;
 }
+/** @param {string[]} args */
 async function command(args) {
   const child = run(args);
-  const code = await new Promise((done) => child.once("exit", done));
+  /** @type {Promise<number | null>} */
+  const exited = new Promise((done) => child.once("exit", done));
+  const code = await exited;
   if (code !== 0) throw new Error(`Local setup failed: ${args.join(" ")}`);
 }
 async function close() {
@@ -171,7 +180,11 @@ try {
     "--port",
     "4398",
   ]);
-  await new Promise((done) => gateway.listen(4396, "127.0.0.1", done));
+  /** @type {Promise<void>} */
+  const listening = new Promise((done) =>
+    gateway.listen(4396, "127.0.0.1", done),
+  );
+  await listening;
   process.stdout.write(
     `Local editor: ${webBaseUrl}/authoring/materials — local administrator, synthetic Kinescope provider.\n`,
   );

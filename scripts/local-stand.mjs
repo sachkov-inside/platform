@@ -1,19 +1,20 @@
+// @ts-check
 // Один стенд: приложение целиком плюс вход. Одна команда доводит его до состояния, в котором
 // владелец входит по коду из письма и покупает, не переключая окружения.
 import { spawn } from "node:child_process";
-import { tmpdir } from "node:os";
 import { dirname, resolve } from "node:path";
 import process from "node:process";
 import { fileURLToPath } from "node:url";
-import lockfile from "proper-lockfile";
+import { acquireLocalSetupLock } from "./local-setup-lock.mjs";
 import { ensureSharedIdentityDirectory } from "./shared-identity-directory.mjs";
 
 const repositoryRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
-const pnpmPath = process.env.npm_execpath;
+const pnpmExecutable = process.env["npm_execpath"];
 
-if (pnpmPath === undefined) {
+if (pnpmExecutable === undefined) {
   throw new Error("Run the local stand through the pinned pnpm CLI");
 }
+const pnpmPath = pnpmExecutable;
 
 // Порт входа не настраивается: OIDC сверяет issuer точным совпадением строки, поэтому адрес
 // должен быть один и тот же и для браузера, и для приложения внутри сети Compose.
@@ -23,9 +24,9 @@ const logtoAdminPort = "3302";
 const standPorts = {
   IDENTITY_PROOF_LOGTO_PORT: logtoPort,
   IDENTITY_PROOF_LOGTO_ADMIN_PORT: logtoAdminPort,
-  IDENTITY_PROOF_API_PORT: process.env.API_HOST_PORT ?? "3001",
-  IDENTITY_PROOF_WEB_PORT: process.env.WEB_HOST_PORT ?? "3000",
-  IDENTITY_PROOF_MAILPIT_PORT: process.env.MAIL_CAPTURE_HOST_PORT ?? "8025",
+  IDENTITY_PROOF_API_PORT: process.env["API_HOST_PORT"] ?? "3001",
+  IDENTITY_PROOF_WEB_PORT: process.env["WEB_HOST_PORT"] ?? "3000",
+  IDENTITY_PROOF_MAILPIT_PORT: process.env["MAIL_CAPTURE_HOST_PORT"] ?? "8025",
 };
 // `--production-web` поднимает web production-сборкой: только в ней работают предзагрузка ссылок и
 // кеш маршрутов, по которым владелец оценивает скорость переходов (ADR 0027). По умолчанию web
@@ -48,12 +49,17 @@ const environment = {
 const smokeProject = "inside-platform-smoke";
 
 ensureSharedIdentityDirectory(repositoryRoot);
-const releaseStandLock = await acquireStandLock();
+const releaseStandLock = await acquireLocalSetupLock(
+  "Another local setup owns the machine-wide setup lock. Wait for its handoff or stop that session before retrying.",
+);
 let shouldCleanupCompose = false;
+/** @type {NodeJS.Signals | undefined} */
 let interruptedSignal;
+/** @type {Promise<void> | undefined} */
 let shutdownPromise;
+/** @type {Set<import("node:child_process").ChildProcess>} */
 const activeProcesses = new Set();
-for (const signal of ["SIGINT", "SIGTERM"]) {
+for (const signal of /** @type {const} */ (["SIGINT", "SIGTERM"])) {
   process.once(signal, () => {
     void handleSignal(signal);
   });
@@ -90,7 +96,7 @@ try {
       `  приложение        http://127.0.0.1:${standPorts.IDENTITY_PROOF_WEB_PORT}${productionWeb ? " (production-сборка: после правок кода пересоберите стенд)" : ""}`,
       `  вход              https://identity.inside.localhost:${logtoPort}`,
       `  письма            http://127.0.0.1:${standPorts.IDENTITY_PROOF_MAILPIT_PORT}`,
-      `  двойник банка     http://127.0.0.1:${process.env.BANK_DOUBLE_HOST_PORT ?? "8090"}`,
+      `  двойник банка     http://127.0.0.1:${process.env["BANK_DOUBLE_HOST_PORT"] ?? "8090"}`,
       "",
       "Остановить: docker compose --profile identity down",
       "",
@@ -130,6 +136,14 @@ async function isComposeRunning() {
   return `${stand.output}${smoke.output}`.trim().length > 0;
 }
 
+/**
+ * @typedef {{ capture?: boolean; extraEnvironment?: Record<string, string> }} RunOptions
+ */
+
+/**
+ * @param {string[]} arguments_
+ * @param {RunOptions} [options]
+ */
 function compose(arguments_, options = {}) {
   return run(
     "docker",
@@ -138,10 +152,19 @@ function compose(arguments_, options = {}) {
   );
 }
 
+/**
+ * @param {string[]} arguments_
+ * @param {Record<string, string>} [extraEnvironment]
+ */
 function runPnpm(arguments_, extraEnvironment = {}) {
   return run(process.execPath, [pnpmPath, ...arguments_], { extraEnvironment });
 }
 
+/**
+ * @param {string} command
+ * @param {string[]} arguments_
+ * @param {RunOptions} [options]
+ */
 async function run(
   command,
   arguments_,
@@ -156,6 +179,7 @@ async function run(
   activeProcesses.add(child);
   // Несостоявшийся запуск процесса — такая же неудача команды, как ненулевой код возврата, и
   // сообщать о нём надо тем же текстом.
+  /** @type {Promise<never>} */
   const failedToStart = new Promise((_, rejectStart) => {
     child.once("error", (error) => {
       rejectStart(new Error(`${label} failed to start`, { cause: error }));
@@ -163,20 +187,19 @@ async function run(
   });
   let output = "";
   if (capture) {
-    child.stdout?.on("data", (chunk) => {
+    child.stdout?.on("data", (/** @type {Buffer} */ chunk) => {
       output += chunk.toString();
     });
-    child.stderr?.on("data", (chunk) => {
+    child.stderr?.on("data", (/** @type {Buffer} */ chunk) => {
       output += chunk.toString();
     });
   }
   try {
-    const exitCode = await Promise.race([
-      new Promise((resolveExit) => {
-        child.once("exit", (code) => resolveExit(code));
-      }),
-      failedToStart,
-    ]);
+    /** @type {Promise<number | null>} */
+    const exited = new Promise((resolveExit) => {
+      child.once("exit", (code) => resolveExit(code));
+    });
+    const exitCode = await Promise.race([exited, failedToStart]);
     if (exitCode !== 0) {
       throw new Error(`${label} failed${capture ? `:\n${output}` : ""}`);
     }
@@ -184,34 +207,6 @@ async function run(
     activeProcesses.delete(child);
   }
   return { output };
-}
-
-/**
- * Стенд владеет тем же проектом Compose, портами и томом PostgreSQL, что и локальная установка,
- * поэтому замок у них общий: два старта одновременно означали бы две сборки одного стенда.
- */
-async function acquireStandLock() {
-  const lockTarget = resolve(tmpdir(), "inside-platform-local-setup");
-  try {
-    return await lockfile.lock(lockTarget, {
-      realpath: false,
-      retries: 0,
-      stale: 30_000,
-      update: 10_000,
-    });
-  } catch (error) {
-    if (
-      error instanceof Error &&
-      Reflect.has(error, "code") &&
-      error.code === "ELOCKED"
-    ) {
-      throw new Error(
-        "Another local setup owns the machine-wide setup lock. Wait for its handoff or stop that session before retrying.",
-        { cause: error },
-      );
-    }
-    throw error;
-  }
 }
 
 function shutdown() {
@@ -226,6 +221,7 @@ function shutdown() {
   return shutdownPromise;
 }
 
+/** @param {import("node:child_process").ChildProcess} child */
 async function stopProcess(child) {
   if (child.pid === undefined || child.exitCode !== null) {
     return;
@@ -240,6 +236,7 @@ async function stopProcess(child) {
   }
 }
 
+/** @param {NodeJS.Signals} signal */
 async function handleSignal(signal) {
   interruptedSignal ??= signal;
   await shutdown();

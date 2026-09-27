@@ -1,13 +1,19 @@
+// @ts-check
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { mkdtemp, mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { canonical, checksum } from "./package.mjs";
-import { parseLocalResponse, parseJournal } from "./local-boundaries.mjs";
+import {
+  localResponseKind,
+  parseLocalResponse,
+  parseJournal,
+} from "./local-boundaries.mjs";
 import { syncLocal, reviewOrigin } from "./local-sync.mjs";
 
 const id = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
+/** @param {import("node:test").TestContext} t */
 async function fixture(t) {
   const directory = await mkdtemp(join(tmpdir(), "local-boundaries-"));
   t.after(() => rm(directory, { recursive: true, force: true }));
@@ -59,8 +65,54 @@ async function fixture(t) {
   return { packagePath, state };
 }
 
+/**
+ * A path and the schema its type names; the compiler checks the name against LocalResponseKindOf.
+ *
+ * @template {string} P
+ * @param {P} path
+ * @param {import("./local-boundaries.mjs").LocalResponseKindOf<P>} kind
+ * @returns {[string, string]}
+ */
+const typedKind = (path, kind) => [path, kind];
+
+// The type of a response and the schema that checks it come from one path: this table pins the
+// written type and the runtime selection to the same answer for every boundary.
+test("each local path selects the schema its response type names", () => {
+  for (const [path, kind] of [
+    typedKind("/authoring/import/materials/environment", "environment"),
+    typedKind("/authoring/collections?kind=topic", "topics"),
+    typedKind("/authoring/collections?kind=guide", "guides"),
+    typedKind("/authoring/collections", "topic"),
+    typedKind("/authoring/import/materials/validate", "valid"),
+    typedKind("/authoring/import/guides/validate", "valid"),
+    typedKind("/authoring/import/materials/reserve", "materialReceipt"),
+    typedKind("/authoring/import/materials/apply", "materialReceipt"),
+    typedKind("/authoring/import/guides/reserve", "guide"),
+    typedKind("/authoring/import/guides/update", "guide"),
+    typedKind("/authoring/import/guides/composition", "order"),
+    typedKind("/authoring/home-pin", "homePin"),
+    typedKind(`/authoring/materials/${id}/assets`, "assetReceipt"),
+    typedKind(`/authoring/materials/${id}/videos/attach`, "video"),
+    typedKind(`/authoring/materials/${id}/videos/uploads`, "videoUpload"),
+    typedKind(`/authoring/videos/${id}/reconcile`, "video"),
+    typedKind(`/authoring/materials/${id}`, "material"),
+    typedKind(`/authoring/import/content-covers/material/${id}`, "coverChange"),
+    typedKind(`/authoring/import/content-covers/series/${id}`, "coverChange"),
+    typedKind(`/authoring/import/guides/${id}/artifacts`, "artifactOutcome"),
+    typedKind(`/authoring/guides/${id}/artifacts`, "guideArtifacts"),
+    typedKind(`/authoring/guide-artifacts/${id}/materials`, "artifact"),
+    typedKind(`/authoring/guides/${id}/order`, "guideOrder"),
+  ])
+    assert.equal(localResponseKind(path), kind, path);
+  assert.throws(
+    () => localResponseKind("/authoring/unknown"),
+    /Unsupported local response boundary/u,
+  );
+});
+
 // Every response schema rejects corrupt consumed fields without relying on a transport implementation.
-for (const [path, response] of [
+/** @type {[string, unknown][]} */
+const malformedResponses = [
   ["/authoring/import/materials/environment", { mode: false }],
   ["/authoring/collections?kind=topic", [{ id: "not-a-uuid", slug: "topic" }]],
   ["/authoring/collections", { id, slug: null }],
@@ -90,12 +142,14 @@ for (const [path, response] of [
   ],
   [`/authoring/guides/${id}/order`, { orderVersion: "corrupt" }],
   ["/authoring/import/guides/composition", { orderVersion: null }],
-])
+];
+for (const [path, response] of malformedResponses)
   test(`rejects malformed response at ${path}`, () =>
     assert.throws(() => parseLocalResponse(path, response)));
 
 test("malformed injected reservation stops local sync before read or Save", async (t) => {
   const { packagePath, state } = await fixture(t);
+  /** @type {string[]} */
   const paths = [];
   await assert.rejects(
     syncLocal(packagePath, state, {
@@ -148,6 +202,7 @@ test("corrupt recovery entries fail before replay and leave the original journal
     });
     const path = join(state, "journal.json");
     await writeFile(path, journal);
+    /** @type {string[]} */
     const calls = [];
     await assert.rejects(
       syncLocal(packagePath, state, {

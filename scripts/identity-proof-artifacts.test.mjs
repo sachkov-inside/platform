@@ -1,7 +1,10 @@
+// @ts-check
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
 import { URL } from "node:url";
+import { runInThisContext } from "node:vm";
+import { z } from "zod";
 
 import {
   ensureApplication,
@@ -17,6 +20,93 @@ import {
   readIdentityProofPort,
 } from "./identity-proof-environment.mjs";
 import { runIdentityProofSession } from "./identity-proof-session.mjs";
+import { packageManifestSchema } from "./package-manifest.mjs";
+
+/**
+ * @typedef {import("./identity-proof-bootstrap.mjs").ManagementApi} ManagementApi
+ * @typedef {{ path: string; method?: string; body?: unknown }} ManagementRequest
+ * @typedef {Record<string, unknown>} FakeEntry
+ * @typedef {{
+ *   resources: FakeEntry[];
+ *   applications: FakeEntry[];
+ *   connectors: FakeEntry[];
+ * }} FakeManagementState
+ */
+
+// The pinned proof images the artifacts must agree on.
+const pinnedImageSchema = z.object({ digest: z.string() }).passthrough();
+const proofVersionsSchema = z
+  .object({
+    logto: pinnedImageSchema.extend({
+      version: z.string(),
+      upstreamRevision: z.string(),
+      forkRevision: z.string(),
+    }),
+    postgres: pinnedImageSchema,
+    mailpit: pinnedImageSchema,
+    logtoNext: z.string(),
+  })
+  .passthrough();
+/** @type {z.ZodType<(input: unknown) => unknown>} */
+const customClaimsFunctionSchema = z.custom(
+  (value) => typeof value === "function",
+);
+const claimsSchema = z.record(z.string(), z.unknown());
+
+/**
+ * Loads the Logto custom access-token script the way Logto runs it: its function in strict mode.
+ *
+ * @param {string} source
+ */
+function loadCustomJwtClaims(source) {
+  return customClaimsFunctionSchema.parse(
+    runInThisContext(
+      `(() => { "use strict"; ${source}; return getCustomJwtClaims; })()`,
+    ),
+  );
+}
+
+/**
+ * The value at a path inside a request body the bootstrap sent; a missing step fails the test.
+ *
+ * @param {unknown} value
+ * @param {string[]} path
+ * @returns {unknown}
+ */
+function at(value, ...path) {
+  let current = value;
+  for (const key of path) {
+    assert.ok(
+      typeof current === "object" && current !== null && key in current,
+      `missing ${path.join(".")}`,
+    );
+    current = Reflect.get(current, key);
+  }
+  return current;
+}
+
+/**
+ * @param {unknown} value
+ * @param {string[]} path
+ */
+function textAt(value, ...path) {
+  const text = at(value, ...path);
+  assert.equal(typeof text, "string", `${path.join(".")} is text`);
+  return String(text);
+}
+
+/**
+ * Records every Management API call and answers with an empty object.
+ *
+ * @param {ManagementRequest[]} requests
+ * @returns {ManagementApi}
+ */
+function recordingApi(requests) {
+  return async (path, options) => {
+    requests.push({ path, ...options });
+    return {};
+  };
+}
 
 const root = new URL("../", import.meta.url);
 const proofRoot = new URL("infra/identity/logto/", root);
@@ -37,8 +127,8 @@ test("identity proof dependencies and fork lineage are immutable", async () => {
     readFile(new URL("apps/web/package.json", root), "utf8"),
     readFile(new URL("patches/issue-116-logto-proof.patch", proofRoot), "utf8"),
   ]);
-  const versions = JSON.parse(versionsSource);
-  const webPackage = JSON.parse(packageSource);
+  const versions = proofVersionsSchema.parse(JSON.parse(versionsSource));
+  const webPackage = packageManifestSchema.parse(JSON.parse(packageSource));
 
   assert.equal(versions.logto.version, "1.41.0");
   assert.match(versions.logto.digest, /^sha256:[0-9a-f]{64}$/u);
@@ -118,48 +208,49 @@ test("Experience UI fork keeps the Inside shell and removes the unknown-account 
 });
 
 test("Management API bootstrap forces the Platform light Russian experience", async () => {
-  let request;
-  await ensureSignInExperience(async (path, options) => {
-    request = { path, ...options };
-    return {};
-  });
+  /** @type {ManagementRequest[]} */
+  const requests = [];
+  await ensureSignInExperience(recordingApi(requests));
+  const [request] = requests;
+  assert.ok(request);
 
   assert.equal(request.path, "/sign-in-exp");
   assert.equal(request.method, "PATCH");
-  assert.equal(request.body.color.primaryColor, "#EE5D27");
-  assert.equal(request.body.color.isDarkModeEnabled, false);
-  assert.deepEqual(request.body.languageInfo, {
+  assert.equal(at(request.body, "color", "primaryColor"), "#EE5D27");
+  assert.equal(at(request.body, "color", "isDarkModeEnabled"), false);
+  assert.deepEqual(at(request.body, "languageInfo"), {
     autoDetect: false,
     fallbackLanguage: "ru",
   });
 });
 
 test("sign-in screen links the policy and defers terms to the Platform first sign-in", async () => {
-  let experience;
-  await ensureSignInExperience(async (path, options) => {
-    experience = { path, ...options };
-    return {};
-  });
-  assert.equal(experience.body.agreeToTermsPolicy, "Automatic");
-  assert.equal(experience.body.termsOfUseUrl, null);
+  /** @type {ManagementRequest[]} */
+  const experiences = [];
+  await ensureSignInExperience(recordingApi(experiences));
+  const [experience] = experiences;
+  assert.ok(experience);
+  assert.equal(at(experience.body, "agreeToTermsPolicy"), "Automatic");
+  assert.equal(at(experience.body, "termsOfUseUrl"), null);
   assert.match(
-    experience.body.privacyPolicyUrl,
+    textAt(experience.body, "privacyPolicyUrl"),
     /^https?:\/\/[^/]+\/legal\/privacy$/u,
   );
 
-  let phrases;
-  await ensureSignInPhrases(async (path, options) => {
-    phrases = { path, ...options };
-    return {};
-  });
+  /** @type {ManagementRequest[]} */
+  const phraseRequests = [];
+  await ensureSignInPhrases(recordingApi(phraseRequests));
+  const [phrases] = phraseRequests;
+  assert.ok(phrases);
+  const agreement = textAt(phrases.body, "description", "auto_agreement");
   assert.equal(phrases.path, "/custom-phrases/ru");
   assert.equal(phrases.method, "PUT");
-  assert.match(phrases.body.description.auto_agreement, /<link><\/link>/u);
+  assert.match(agreement, /<link><\/link>/u);
   assert.match(
-    phrases.body.description.auto_agreement,
+    agreement,
     /Условия использования вы примете сразу после входа\./u,
   );
-  assert.doesNotMatch(phrases.body.description.auto_agreement, /соглаша/u);
+  assert.doesNotMatch(agreement, /соглаша/u);
 });
 
 test("custom access-token claims expose only a matching fresh email-code interaction", async () => {
@@ -167,9 +258,7 @@ test("custom access-token claims expose only a matching fresh email-code interac
     new URL("custom-access-token.js", proofRoot),
     "utf8",
   );
-  const getCustomJwtClaims = Function(
-    `"use strict"; ${source}; return getCustomJwtClaims;`,
-  )();
+  const getCustomJwtClaims = loadCustomJwtClaims(source);
   const verifiedContext = {
     user: { primaryEmail: "Member@Example.Test" },
     interaction: {
@@ -183,11 +272,13 @@ test("custom access-token claims expose only a matching fresh email-code interac
     },
   };
 
-  const claims = await getCustomJwtClaims({
-    token: { gty: "authorization_code" },
-    context: verifiedContext,
-  });
-  assert.equal(claims.inside_verified_email, "member@example.test");
+  const claims = claimsSchema.parse(
+    await getCustomJwtClaims({
+      token: { gty: "authorization_code" },
+      context: verifiedContext,
+    }),
+  );
+  assert.equal(claims["inside_verified_email"], "member@example.test");
   assert.equal("inside_interactive_at" in claims, false);
   assert.deepEqual(
     await getCustomJwtClaims({ token: { gty: "refresh_token" }, context: {} }),
@@ -220,19 +311,19 @@ test("identity proof bootstrap replaces the manual wizard and isolates generated
       readFile(new URL("apps/web/next.config.ts", root), "utf8"),
       readFile(new URL("README.md", proofRoot), "utf8"),
     ]);
-  const packageJson = JSON.parse(packageSource);
+  const packageJson = packageManifestSchema.parse(JSON.parse(packageSource));
 
   assert.equal(packageJson.scripts["identity:proof:setup"], undefined);
   assert.match(
-    packageJson.scripts["identity:proof:up"],
+    packageJson.scripts["identity:proof:up"] ?? "",
     /identity:proof:bootstrap/u,
   );
   assert.match(
-    packageJson.scripts["identity:proof:start"],
+    packageJson.scripts["identity:proof:start"] ?? "",
     /identity-proof-start/u,
   );
   assert.match(
-    packageJson.scripts["identity:proof:hardening"],
+    packageJson.scripts["identity:proof:hardening"] ?? "",
     /identity-hardening-proof/u,
   );
   assert.match(bootstrap, /id='m-default'/u);
@@ -267,7 +358,7 @@ test("identity proof launcher isolates root env, applies ports, and cleans owned
     readFile(new URL("identity-proof-dev.mjs", import.meta.url), "utf8"),
     readFile(new URL("package.json", root), "utf8"),
   ]);
-  const packageJson = JSON.parse(packageSource);
+  const packageJson = packageManifestSchema.parse(JSON.parse(packageSource));
   const environment = isolateIdentityProofEnvironment(
     {
       IDENTITY_PROOF_API_PORT: "3501",
@@ -283,7 +374,17 @@ test("identity proof launcher isolates root env, applies ports, and cleans owned
       ].join("\n"),
     ],
   );
+  /**
+   * @type {{
+   *   type: "compose" | "pnpm";
+   *   arguments: string[];
+   *   environment: Record<string, string | undefined>;
+   *   project?: string;
+   *   capture?: boolean | undefined;
+   * }[]}
+   */
   const calls = [];
+  /** @type {import("./identity-proof-session.mjs").RunCompose} */
   const runCompose = async (
     project,
     arguments_,
@@ -299,6 +400,7 @@ test("identity proof launcher isolates root env, applies ports, and cleans owned
     });
     return "";
   };
+  /** @type {import("./identity-proof-session.mjs").IdentityProofSession["runPnpm"]} */
   const runPnpm = async (arguments_, commandEnvironment) => {
     calls.push({
       arguments: arguments_,
@@ -323,11 +425,11 @@ test("identity proof launcher isolates root env, applies ports, and cleans owned
     (call) => call.type === "pnpm" && call.arguments.includes("db:migrate"),
   );
   assert.equal(
-    migration.environment.DATABASE_URL,
+    migration?.environment["DATABASE_URL"],
     "postgresql://inside:inside@127.0.0.1:55432/inside",
   );
-  assert.equal(migration.environment.OBJECT_STORAGE_ENDPOINT, "");
-  assert.equal(migration.environment.WEB_BASE_URL, "http://127.0.0.1:3500");
+  assert.equal(migration?.environment["OBJECT_STORAGE_ENDPOINT"], "");
+  assert.equal(migration?.environment["WEB_BASE_URL"], "http://127.0.0.1:3500");
   const platformUp = calls.find(
     (call) =>
       call.type === "compose" &&
@@ -341,11 +443,14 @@ test("identity proof launcher isolates root env, applies ports, and cleans owned
       call.arguments[0] === "up",
   );
   assert.equal(
-    identityUp.environment.COMPOSE_PROJECT_NAME,
+    identityUp?.environment["COMPOSE_PROJECT_NAME"],
     "inside-identity-proof",
   );
-  assert.equal(platformUp.environment.COMPOSE_PROJECT_NAME, "inside-platform");
-  assert.equal(platformUp.environment.POSTGRES_HOST_PORT, "55432");
+  assert.equal(
+    platformUp?.environment["COMPOSE_PROJECT_NAME"],
+    "inside-platform",
+  );
+  assert.equal(platformUp?.environment["POSTGRES_HOST_PORT"], "55432");
   assert.deepEqual(
     calls
       .slice(-2)
@@ -375,15 +480,18 @@ test("identity proof launcher isolates root env, applies ports, and cleans owned
     webBaseUrl: "http://127.0.0.1:3000",
     webPort: 3000,
   });
-  assert.equal(rootOnlyProofOverrides.IDENTITY_PROOF_POSTGRES_PORT, undefined);
   assert.equal(
-    rootOnlyProofOverrides.IDENTITY_PROOF_ACCESS_TOKEN_TTL_SECONDS,
+    rootOnlyProofOverrides["IDENTITY_PROOF_POSTGRES_PORT"],
+    undefined,
+  );
+  assert.equal(
+    rootOnlyProofOverrides["IDENTITY_PROOF_ACCESS_TOKEN_TTL_SECONDS"],
     undefined,
   );
   assert.doesNotMatch(development, /loadEnvFile|resolve\(root, "\.env"\)/u);
   assert.match(start, /infra\/identity\/logto\/compose\.env/u);
   assert.match(
-    packageJson.scripts["identity:proof:up"],
+    packageJson.scripts["identity:proof:up"] ?? "",
     /--env-file infra\/identity\/logto\/compose\.env/u,
   );
   assert.equal(
@@ -410,6 +518,7 @@ test("identity proof launcher isolates root env, applies ports, and cleans owned
 });
 
 test("identity proof launcher rejects any running Platform service", async () => {
+  /** @type {[string, string[]][]} */
   const composeCalls = [];
   await assert.rejects(
     runIdentityProofSession({
@@ -430,6 +539,7 @@ test("identity proof launcher rejects any running Platform service", async () =>
 });
 
 test("identity proof launcher cleans both owned stacks after development stops", async () => {
+  /** @type {(["compose", string, string[]] | ["pnpm", string[]])[]} */
   const calls = [];
   await assert.rejects(
     runIdentityProofSession({
@@ -456,6 +566,7 @@ test("identity proof launcher cleans both owned stacks after development stops",
 });
 
 test("identity proof launcher stops startup and cleans ownership after interruption", async () => {
+  /** @type {(["compose", string, string[]] | ["pnpm", string[]])[]} */
   const calls = [];
   let interrupted = false;
   await assert.rejects(
@@ -486,20 +597,38 @@ test("identity proof launcher stops startup and cleans ownership after interrupt
   assert.deepEqual(calls.at(-1), ["compose", "identity", ["down"]]);
 });
 
-test("identity hardening proof uses an exact semantic logout assertion", async () => {
+test("identity hardening proof runs only the #116 corpus it starts a stand for", async () => {
+  const hardening = await readFile(
+    new URL("scripts/identity-hardening-proof.mjs", root),
+    "utf8",
+  );
+
+  // Telegram-вход нужен provider `inside-telegram`, которого hardening не поднимает.
+  assert.match(
+    hardening,
+    /\["--filter", "@inside\/web", "test:identity", "identity-proof\.spec\.ts"\]/u,
+  );
+});
+
+test("identity hardening proof finds the signed-in account control by exact role", async () => {
   const hardeningSpec = await readFile(
     new URL("apps/web/test/identity/identity-proof.spec.ts", root),
     "utf8",
   );
 
-  assert.doesNotMatch(hardeningSpec, /locator\([^\n]+hasText: "Выйти"/u);
+  // Выход живёт в меню «Аккаунт»; признак входа — эта кнопка по точной роли, а не текст.
+  assert.doesNotMatch(
+    hardeningSpec,
+    /locator\([^\n]+hasText: "(?:Выйти|Аккаунт)"/u,
+  );
   assert.match(
     hardeningSpec,
-    /getByRole\("button", \{ exact: true, name: "Выйти" \}\)/u,
+    /getByRole\("button", \{ exact: true, name: "Аккаунт" \}\)/u,
   );
 });
 
 test("Management API bootstrap converges after partial state and a repeated run", async () => {
+  /** @type {FakeManagementState} */
   const state = {
     resources: [
       {
@@ -521,16 +650,17 @@ test("Management API bootstrap converges after partial state and a repeated run"
   }
 
   assert.equal(state.resources.length, 1);
-  assert.equal(state.resources[0].name, "Inside Platform API");
-  assert.equal(state.resources[0].accessTokenTtl, 300);
+  assert.equal(state.resources[0]?.["name"], "Inside Platform API");
+  assert.equal(state.resources[0]?.["accessTokenTtl"], 300);
   assert.equal(state.applications.length, 1);
-  assert.equal(state.applications[0].name, "Inside Web");
-  assert.deepEqual(state.applications[0].oidcClientMetadata.redirectUris, [
-    "http://127.0.0.1:3000/callback",
-  ]);
+  assert.equal(state.applications[0]?.["name"], "Inside Web");
+  assert.deepEqual(
+    at(state.applications[0], "oidcClientMetadata", "redirectUris"),
+    ["http://127.0.0.1:3000/callback"],
+  );
   assert.equal(state.connectors.length, 1);
   assert.equal(
-    state.connectors[0].connectorId,
+    state.connectors[0]?.["connectorId"],
     "simple-mail-transfer-protocol",
   );
 });
@@ -548,6 +678,10 @@ test("Management API bootstrap rejects malformed resource and application payloa
   );
 });
 
+/**
+ * @param {FakeManagementState} state
+ * @returns {ManagementApi}
+ */
 function managementApiFake(state) {
   return async (path, { method = "GET", body } = {}) => {
     const collection =
@@ -562,18 +696,23 @@ function managementApiFake(state) {
       return collection.map((entry) => ({ ...entry }));
     }
     if (method === "POST" && collection !== undefined) {
+      /** @type {FakeEntry} */
       const created = {
         id: `${path.slice(1)}-${String(collection.length + 1)}`,
-        ...body,
+        ...(typeof body === "object" ? body : {}),
       };
       collection.push(created);
       return { ...created };
     }
     if (method === "PATCH") {
       const [name, id] = path.slice(1).split("/");
-      const target = state[name]?.find((entry) => entry.id === id);
+      const target = (
+        name === "resources" || name === "applications" || name === "connectors"
+          ? state[name]
+          : undefined
+      )?.find((entry) => entry["id"] === id);
       assert.ok(target, `Missing fake Management API target ${path}`);
-      Object.assign(target, body);
+      Object.assign(target, typeof body === "object" ? body : {});
       return { ...target };
     }
     throw new Error(`Unhandled fake Management API call: ${method} ${path}`);
@@ -583,6 +722,7 @@ function managementApiFake(state) {
 test("disabling an existing Telegram connector preserves its identity for in-flight token claims", async () => {
   const { ensureTelegramConnector } =
     await import("./identity-proof-bootstrap.mjs");
+  /** @type {{ path: string; options: { body?: unknown } | undefined }[]} */
   const requests = [];
   const id = await ensureTelegramConnector(async (path, options) => {
     requests.push({ path, options });
@@ -597,16 +737,14 @@ test("disabling an existing Telegram connector preserves its identity for in-fli
         ];
   });
   assert.equal(id, "telegram-id");
-  assert.equal(requests[1].options.body.config.enabled, false);
+  assert.equal(at(requests[1]?.options?.body, "config", "enabled"), false);
 });
 
 test("Telegram establishment claims require the exact fresh social verification and never appear on refresh", async () => {
   const source = (
     await readFile(new URL("custom-access-token.js", proofRoot), "utf8")
   ).replace("__INSIDE_TELEGRAM_CONNECTOR_ID__", "telegram-id");
-  const claims = Function(
-    `"use strict"; ${source}; return getCustomJwtClaims;`,
-  )();
+  const claims = loadCustomJwtClaims(source);
   const proof = {
     subjectRef: "31000000-0000-4000-8000-000000000001",
     requestRef: "31000000-0000-4000-8000-000000000002",

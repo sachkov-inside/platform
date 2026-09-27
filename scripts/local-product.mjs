@@ -1,3 +1,4 @@
+// @ts-check
 // Restores the production-like product view on the local stand from the committed Inside Content
 // originals: the AI-first product with its page, programme, files and videos, featured on Home. It is
 // safe to repeat on any branch; the stand data lives in the shared Compose volumes.

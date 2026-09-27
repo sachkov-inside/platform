@@ -247,7 +247,7 @@ function validateManifestBindings(
     );
   if (variant === undefined) return { valid: false, code: "binding_mismatch" };
 
-  const evaluatorBundle = asRecord(manifest.evaluatorBundle);
+  const evaluatorBundle = asRecord(manifest["evaluatorBundle"]);
   if (
     stringField(manifest, "starterArtifactSha256") !==
       stringField(variant, "starterArtifactSha256") ||
@@ -308,7 +308,7 @@ function validateReportBindings(
   }
 
   const declared = scenarioRequirements(caseSpec);
-  const environment = asRecord(report.environment);
+  const environment = asRecord(report["environment"]);
   const reportHost =
     environment === undefined
       ? ""
@@ -326,7 +326,7 @@ function validateReportBindings(
     seen.add(id);
     if (!declared.has(id)) return { valid: false, code: "unknown_scenario" };
 
-    const diagnostic = asRecord(scenario.diagnostic);
+    const diagnostic = asRecord(scenario["diagnostic"]);
     if (diagnostic !== undefined) {
       const message = stringField(diagnostic, "message");
       const messageBytes = Buffer.byteLength(message, "utf8");
@@ -377,7 +377,10 @@ function scenarioRequirements(
   for (const scenarioValue of arrayField(value, "scenarios")) {
     const scenario = asRecord(scenarioValue);
     if (scenario === undefined) continue;
-    requirements.set(stringField(scenario, "id"), scenario.required === true);
+    requirements.set(
+      stringField(scenario, "id"),
+      scenario["required"] === true,
+    );
   }
   return requirements;
 }
@@ -428,49 +431,51 @@ function supportedHosts(caseSpec: Record<string, unknown>): Set<string> {
 
 function corpusCases(value: unknown): CorpusCase[] {
   const root = asRecord(value);
-  const cases = root === undefined ? undefined : root.cases;
+  const cases = root === undefined ? undefined : root["cases"];
   if (!Array.isArray(cases))
     throw new TypeError("conformance index must contain cases");
   return cases.map((candidate) => {
     const record = asRecord(candidate);
     if (
       record === undefined ||
-      typeof record.name !== "string" ||
-      !isContractKind(record.target) ||
-      typeof record.document !== "string" ||
-      typeof record.valid !== "boolean"
+      typeof record["name"] !== "string" ||
+      !isContractKind(record["target"]) ||
+      typeof record["document"] !== "string" ||
+      typeof record["valid"] !== "boolean"
     ) {
       throw new TypeError("invalid conformance case");
     }
-    if (!record.valid && typeof record.expectedCode !== "string") {
-      throw new TypeError(`${record.name}: invalid cases require expectedCode`);
+    if (!record["valid"] && typeof record["expectedCode"] !== "string") {
+      throw new TypeError(
+        `${record["name"]}: invalid cases require expectedCode`,
+      );
     }
     if (
-      record.trailingWhitespaceBytes !== undefined &&
-      (typeof record.trailingWhitespaceBytes !== "number" ||
-        !Number.isSafeInteger(record.trailingWhitespaceBytes) ||
-        record.trailingWhitespaceBytes <= 0)
+      record["trailingWhitespaceBytes"] !== undefined &&
+      (typeof record["trailingWhitespaceBytes"] !== "number" ||
+        !Number.isSafeInteger(record["trailingWhitespaceBytes"]) ||
+        record["trailingWhitespaceBytes"] <= 0)
     ) {
-      throw new TypeError(`${record.name}: invalid trailingWhitespaceBytes`);
+      throw new TypeError(`${record["name"]}: invalid trailingWhitespaceBytes`);
     }
     return {
-      name: record.name,
-      target: record.target,
-      document: record.document,
-      valid: record.valid,
-      ...(typeof record.caseSpec === "string"
-        ? { caseSpec: record.caseSpec }
+      name: record["name"],
+      target: record["target"],
+      document: record["document"],
+      valid: record["valid"],
+      ...(typeof record["caseSpec"] === "string"
+        ? { caseSpec: record["caseSpec"] }
         : {}),
-      ...(typeof record.assignmentManifest === "string"
-        ? { assignmentManifest: record.assignmentManifest }
+      ...(typeof record["assignmentManifest"] === "string"
+        ? { assignmentManifest: record["assignmentManifest"] }
         : {}),
-      ...(typeof record.expectedCode === "string"
-        ? { expectedCode: record.expectedCode }
+      ...(typeof record["expectedCode"] === "string"
+        ? { expectedCode: record["expectedCode"] }
         : {}),
-      ...(typeof record.trailingWhitespaceBytes === "number" &&
-      Number.isSafeInteger(record.trailingWhitespaceBytes) &&
-      record.trailingWhitespaceBytes > 0
-        ? { trailingWhitespaceBytes: record.trailingWhitespaceBytes }
+      ...(typeof record["trailingWhitespaceBytes"] === "number" &&
+      Number.isSafeInteger(record["trailingWhitespaceBytes"]) &&
+      record["trailingWhitespaceBytes"] > 0
+        ? { trailingWhitespaceBytes: record["trailingWhitespaceBytes"] }
         : {}),
     };
   });

@@ -470,8 +470,8 @@ async function postNotification(
   console.log(
     JSON.stringify({
       process: "bank-double",
-      notification: payload.Status,
-      order: payload.OrderId,
+      notification: payload["Status"],
+      order: payload["OrderId"],
       accepted: response.ok,
     }),
   );

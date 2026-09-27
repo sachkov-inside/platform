@@ -24,15 +24,38 @@ nearest `AGENTS.md` owns task routing and verification commands.
 - Prefer a small deep interface at a proven seam. Do not add generic repositories, factories,
   services, or provider abstractions for hypothetical consumers.
 - Every TypeScript project extends `tsconfig.base.json` through its preset:
-  `tsconfig.node-lib.json` for `packages/`, `tsconfig.nest-app.json` for the backend and
-  `tsconfig.next-app.json` for the web. Change shared strictness in the base, not per project;
-  `scripts/toolchain-contract.test.mjs` fails a project that bypasses it. Where `isolatedDeclarations`
+  `tsconfig.node-lib.json` for `packages/`, `tsconfig.nest-app.json` for the backend,
+  `tsconfig.next-app.json` for the web and `tsconfig.scripts.json` for repository `.mjs` scripts.
+  Change shared strictness in the base, not per project; `scripts/toolchain-contract.test.mjs`
+  fails a project that bypasses it. Where `isolatedDeclarations`
   in packages asks for an exported Zod schema's type, write its exact Zod type, not a hand-written
   wire type.
 - `strict-boolean-expressions` (#694) rejects strings, numbers and nullable primitives in a boolean
   context. `hasText` and `presentText` in `apps/backend/src/infrastructure/contracts/text.ts` and
   `apps/web/src/shared/lib/text.ts` keep the former truthiness of text: `null`, `undefined` and `""`
   are absent.
+- Repository `.mjs` scripts compile through `tsconfig.scripts.json` in `pnpm typecheck` (#694).
+  Every script starts with `// @ts-check` (#756); `scripts/toolchain-contract.test.mjs` fails for a
+  script without it, outside that project or with `@ts-nocheck`. A script that loads an
+  application's dependency through `createRequire` takes its types from the application's
+  `test/support/proof-dependencies`: a type import by a relative path into `node_modules` cannot
+  resolve the package's own imports.
+- `pnpm lint` applies every `typescript/no-unsafe-*` rule of the shared type-aware set to the files
+  `tsconfig.scripts.json` compiles (#763). The root `tsconfig.json` compiles nothing (`files: []`)
+  and only references that project, so type-aware lint resolves script types.
+  `scripts/toolchain-contract.test.mjs` fails when a script directory, a rule or the reference
+  drops out, or when another override or ignore pattern weakens lint for a script. Parse
+  `JSON.parse`, `Response.json()` and database rows with a schema, or keep them `unknown` until an
+  explicit check; `package.json` is parsed by the schema in `scripts/package-manifest.mjs`. The
+  `any` that `createRequire` returns is asserted to its `proof-dependencies` type inside an
+  `oxlint-disable`/`oxlint-enable` block for `typescript/no-unsafe-type-assertion`: a
+  `disable-next-line` comment inside a JSDoc cast does not suppress it.
+- Code that runs at a script's top level calls a module function only after every module `const`,
+  `let` and `class` that function reads is declared: a function is hoisted, its values are not, and
+  the script fails with `ReferenceError` only when it runs (#774).
+  `scripts/check-module-initialization-order.mjs` in `pnpm guardrails` fails a top-level statement
+  that calls or passes by name such a function, arrow function or class declaration; a callback the
+  statement runs at once, such as one given to `.map()`, is outside the check.
 - Keep checked-in generated contracts deterministic. Change their source and regenerate them; do
   not hand-edit generated output.
 - Name protocol, token, cookie, retry, and polling durations in domain units at the owning boundary.
@@ -59,6 +82,10 @@ reject correct tests. It becomes a fitness candidate if a narrower seam appears.
   from an arbitrary row and turns a correct assertion into a coin toss.
 - Proving that nothing happened is the exception. Advance a virtual clock past the interval in
   question and assert the absence, once the step before it is already pinned to its own fact.
+
+Browser suites never retry a failed test, in CI either (owner decision of 2026-09-27, #476): a flaky
+test turns the run red on its first attempt and is fixed, not retried until it passes.
+`scripts/playwright-specs-load.test.mjs` fails a Playwright configuration that retries.
 
 The nearest standard names the helper for each surface.
 

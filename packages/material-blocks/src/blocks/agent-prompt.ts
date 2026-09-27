@@ -46,7 +46,7 @@ export const agentPromptBlock: MaterialBlockDefinition =
       ],
     },
     render: (node, tools) => {
-      const title = optionalText(nodeAttributes(node).title);
+      const title = optionalText(nodeAttributes(node)["title"]);
       return {
         kind: "agent_prompt",
         text: inlineText(tools.inlineContent(node)),

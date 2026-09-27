@@ -145,7 +145,9 @@ describe("Telegram Membership API", () => {
       `Bearer ${linkingSecret}`,
     );
     expect(provider.registrations[0]?.body).not.toHaveProperty("token");
-    expect(provider.registrations[0]?.body.accountRef).not.toBe(ownerAccountId);
+    expect(provider.registrations[0]?.body["accountRef"]).not.toBe(
+      ownerAccountId,
+    );
 
     const otherToken = await signToken("telegram-link-other");
     await establish(otherToken);
@@ -191,7 +193,7 @@ describe("Telegram Membership API", () => {
       ownerToken,
     );
     const pending = readPendingLink(begun.json<unknown>());
-    const principalRef = provider.registrations.at(-1)?.body.accountRef;
+    const principalRef = provider.registrations.at(-1)?.body["accountRef"];
     if (typeof principalRef !== "string") {
       throw new TypeError("Provider registration has no principalRef");
     }
@@ -368,9 +370,9 @@ class ControlledTelegramProvider {
       response.end(
         JSON.stringify({
           contractVersion: "inside.identity-linking.v1",
-          expiresAt: body.expiresAt,
+          expiresAt: body["expiresAt"],
           linkTransactionRef: `provider-${String(this.registrations.length)}`,
-          returnCorrelation: body.returnCorrelation,
+          returnCorrelation: body["returnCorrelation"],
           status: "pending",
         }),
       );
@@ -383,7 +385,7 @@ class ControlledTelegramProvider {
         JSON.stringify({
           contractVersion: "inside.identity-linking.v1",
           linkTransactionRef: providerRef,
-          returnCorrelation: body.returnCorrelation,
+          returnCorrelation: body["returnCorrelation"],
           status: "linked",
           telegramIdentityRef: `telegram-identity-${String(this.confirmations.length)}`,
         }),

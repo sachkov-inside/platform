@@ -15,7 +15,7 @@ export function attributeText(value: unknown): string {
 }
 
 function attributeValue(node: JsonObject, name: string): unknown {
-  const attributes = node.attrs;
+  const attributes = node["attrs"];
   return isJsonObject(attributes) ? attributes[name] : undefined;
 }
 

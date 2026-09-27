@@ -42,7 +42,7 @@ export const takeawaysBlock: MaterialBlockDefinition =
     render: (node, tools) => ({
       content: tools.blockContent(node),
       kind: "takeaways",
-      title: expectString(nodeAttributes(node).title, "takeaways title"),
+      title: expectString(nodeAttributes(node)["title"], "takeaways title"),
     }),
     renderedSchema: (block) =>
       z

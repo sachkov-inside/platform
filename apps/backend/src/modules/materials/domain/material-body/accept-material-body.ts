@@ -84,7 +84,7 @@ function validateTree(doc: JsonObject): readonly ValidationIssue[] {
       return;
     }
 
-    const type = value.type;
+    const type = value["type"];
     if (typeof type === "string") {
       nodes += 1;
       if (nodes > DOCUMENT_LIMITS.nodes) {
@@ -94,8 +94,8 @@ function validateTree(doc: JsonObject): readonly ValidationIssue[] {
         });
         return;
       }
-      if (type === "text" && typeof value.text === "string") {
-        textCodePoints += [...value.text].length;
+      if (type === "text" && typeof value["text"] === "string") {
+        textCodePoints += [...value["text"]].length;
         if (textCodePoints > DOCUMENT_LIMITS.textCodePoints) {
           issues.push({
             code: "document_has_too_much_text",
@@ -129,10 +129,10 @@ function validateTree(doc: JsonObject): readonly ValidationIssue[] {
       });
     }
 
-    const marks = value.marks;
+    const marks = value["marks"];
     if (marks !== undefined && isJsonArray(marks)) {
       marks.forEach((mark, index) => {
-        if (isJsonObject(mark) && mark.type === "link") {
+        if (isJsonObject(mark) && mark["type"] === "link") {
           const href = stringAttribute(mark, "href");
           if (href === undefined || !validateUrl(href)) {
             issues.push({
@@ -150,7 +150,7 @@ function validateTree(doc: JsonObject): readonly ValidationIssue[] {
       });
     }
 
-    const content = value.content;
+    const content = value["content"];
     if (content !== undefined && isJsonArray(content)) {
       content.forEach((child, index) =>
         walk(child, [...path, "content", index], depth + 1),
@@ -231,7 +231,7 @@ export function acceptMaterialBody(
     }
   }
   if (options?.assignMissingNodeIds === true) {
-    const document = isUnknownRecord(candidate) ? candidate.doc : undefined;
+    const document = isUnknownRecord(candidate) ? candidate["doc"] : undefined;
     assignMissingNodeIds(document);
   }
 

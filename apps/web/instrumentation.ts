@@ -1,7 +1,7 @@
 import type { Instrumentation } from "next";
 
 export async function register(): Promise<void> {
-  if (process.env.NEXT_RUNTIME !== "nodejs") {
+  if (process.env["NEXT_RUNTIME"] !== "nodejs") {
     return;
   }
 
@@ -16,7 +16,7 @@ export const onRequestError: Instrumentation.onRequestError = async (
   request,
   context,
 ) => {
-  if (process.env.NEXT_RUNTIME !== "nodejs") {
+  if (process.env["NEXT_RUNTIME"] !== "nodejs") {
     return;
   }
 

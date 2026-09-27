@@ -47,7 +47,7 @@ describe("dependency failure log", () => {
 
     expect(response.statusCode).toBe(503);
     const failure = loggedRecords(errors).find(
-      (record) => record.event === "dependency_failure",
+      (record) => record["event"] === "dependency_failure",
     );
     expect(failure).toMatchObject({
       level: "error",
@@ -66,12 +66,12 @@ describe("dependency failure log", () => {
         },
       },
     });
-    expect(failure?.requestId).toEqual(expect.any(String));
+    expect(failure?.["requestId"]).toEqual(expect.any(String));
     const completed = loggedRecords(infos).find(
-      (record) => record.event === "request_completed",
+      (record) => record["event"] === "request_completed",
     );
     expect(completed).toMatchObject({
-      requestId: failure?.requestId,
+      requestId: failure?.["requestId"],
       route: "/billing/offers",
       statusCode: 503,
     });

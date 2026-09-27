@@ -1,3 +1,4 @@
+// @ts-check
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { materialDocumentSchemaV1 } from "@inside/material-blocks/schema";
@@ -6,9 +7,10 @@ import { convertMarkdown } from "./markdown.mjs";
 const options = {
   sourcePath: "chapter/lesson.md",
   sourceId: "lesson",
-  link: (href) => href,
+  link: (/** @type {string} */ href) => href,
   image: () => "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
 };
+/** @param {string} markdown */
 function convert(markdown) {
   const snapshot = convertMarkdown(markdown, options);
   materialDocumentSchemaV1.nodeFromJSON(snapshot.doc).check();
@@ -23,12 +25,12 @@ test("real authoring constructs preserve variant placement, bold code, tables an
     doc.content.map((node) => node.type),
     ["paragraph", "variant", "paragraph", "variant", "table", "callout"],
   );
-  const code = doc.content[0].content.find((node) => node.text === "command");
+  const code = doc.content[0]?.content?.find((node) => node.text === "command");
   assert.deepEqual(
-    new Set(code.marks.map((mark) => mark.type)),
+    new Set(code?.marks?.map((mark) => mark.type)),
     new Set(["bold", "code"]),
   );
-  assert.equal(doc.content[5].content[0].type, "codeBlock");
+  assert.equal(doc.content[5]?.content?.[0]?.type, "codeBlock");
 });
 
 test("a practice task keeps the reader's own block and drops the repeated name", () => {
@@ -36,11 +38,11 @@ test("a practice task keeps the reader's own block and drops the repeated name",
     "> [!todo] Задание\n> Сохрани описание и сделай первый коммит.\n\n> [!todo] Проверка себя\n> Сверь результат с программой.",
   );
   assert.deepEqual(
-    doc.content.map((node) => node.attrs.kind),
+    doc.content.map((node) => node.attrs?.["kind"]),
     ["task", "task"],
   );
-  assert.equal(doc.content[0].attrs.title, null);
-  assert.equal(doc.content[1].attrs.title, "Проверка себя");
+  assert.equal(doc.content[0]?.attrs?.["title"], null);
+  assert.equal(doc.content[1]?.attrs?.["title"], "Проверка себя");
 });
 
 test("unsupported constructs report original path and prevent replacement", () => {
@@ -62,10 +64,10 @@ test("renaming the original does not change node identities", () => {
 
 test("soft line breaks merge adjacent equal-mark text without dropping author words", () => {
   const doc = convert("One line\nsecond line **bold**\nthird line.");
-  const content = doc.content[0].content;
-  assert.equal(content[0].text, "One line\nsecond line ");
-  assert.equal(content[1].text, "bold");
-  assert.equal(content[2].text, "\nthird line.");
+  const content = doc.content[0]?.content;
+  assert.equal(content?.[0]?.text, "One line\nsecond line ");
+  assert.equal(content?.[1]?.text, "bold");
+  assert.equal(content?.[2]?.text, "\nthird line.");
   assert.deepEqual(
     JSON.parse(
       JSON.stringify(materialDocumentSchemaV1.nodeFromJSON(doc).toJSON()),
@@ -97,11 +99,17 @@ test("callout fences retain literal headers and adjacent callouts stay separate"
       doc.content.map((node) => node.type),
       ["callout", "callout"],
     );
-    assert.equal(doc.content[0].attrs.kind, "example");
-    assert.equal(doc.content[0].content.length, 1);
-    assert.equal(doc.content[0].content[0].type, "codeBlock");
-    assert.equal(doc.content[0].content[0].content[0].text, `${literal}\n`);
-    assert.equal(doc.content[1].attrs.kind, "tip");
-    assert.equal(doc.content[1].content[0].content[0].text, "Following text");
+    assert.equal(doc.content[0]?.attrs?.["kind"], "example");
+    assert.equal(doc.content[0]?.content?.length, 1);
+    assert.equal(doc.content[0]?.content?.[0]?.type, "codeBlock");
+    assert.equal(
+      doc.content[0]?.content?.[0]?.content?.[0]?.text,
+      `${literal}\n`,
+    );
+    assert.equal(doc.content[1]?.attrs?.["kind"], "tip");
+    assert.equal(
+      doc.content[1]?.content?.[0]?.content?.[0]?.text,
+      "Following text",
+    );
   }
 });

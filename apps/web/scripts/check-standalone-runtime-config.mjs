@@ -1,3 +1,4 @@
+// @ts-check
 import { spawnSync } from "node:child_process";
 import { createServer } from "node:net";
 import process from "node:process";
@@ -56,6 +57,7 @@ process.stdout.write(
   "Standalone server rejected incomplete production config before readiness.\n",
 );
 
+/** @returns {Promise<number>} */
 function findAvailablePort() {
   return new Promise((resolve, reject) => {
     const server = createServer();

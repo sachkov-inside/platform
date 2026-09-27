@@ -1,3 +1,4 @@
+// @ts-check
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 import { mkdtemp, mkdir, rm } from "node:fs/promises";
@@ -12,7 +13,15 @@ import { resolveLocalTarget } from "./target.mjs";
 const execute = promisify(execFile);
 const commandOptions = { timeout: 120_000, maxBuffer: 1024 * 1024 };
 
-// Resolve once: later commits, staged edits and working-copy files cannot enter this snapshot.
+/**
+ * Resolve once: later commits, staged edits and working-copy files cannot enter this snapshot.
+ *
+ * @template T
+ * @param {string} repository
+ * @param {string} ref
+ * @param {(snapshot: { snapshot: string; commit: string }) => T | Promise<T>} use
+ * @returns {Promise<T>}
+ */
 export async function withGitSnapshot(repository, ref, use) {
   const root = resolve(repository);
   const { stdout } = await execute(
@@ -45,6 +54,13 @@ export async function withGitSnapshot(repository, ref, use) {
   }
 }
 
+/**
+ * @param {string} repository
+ * @param {string} guideId
+ * @param {string} stateDirectory
+ * @param {string} [ref]
+ * @param {import("./local-sync.mjs").SyncOptions} [options]
+ */
 export async function syncGitLocal(
   repository,
   guideId,

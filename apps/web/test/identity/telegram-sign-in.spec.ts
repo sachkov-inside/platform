@@ -9,29 +9,31 @@ import {
   evidencePath,
   prepareEvidenceDirectory,
 } from "../../../../scripts/evidence-path.mjs";
+import { waitPastAccessTokenExpiry } from "./access-token-expiry";
 
 if (
-  process.env.WEB_BASE_URL === undefined ||
-  process.env.WEB_BASE_URL === "" ||
-  process.env.LOGTO_ENDPOINT === undefined ||
-  process.env.LOGTO_ENDPOINT === ""
+  process.env["WEB_BASE_URL"] === undefined ||
+  process.env["WEB_BASE_URL"] === "" ||
+  process.env["LOGTO_ENDPOINT"] === undefined ||
+  process.env["LOGTO_ENDPOINT"] === ""
 )
   throw new Error(
     "Explicit isolated WEB_BASE_URL and LOGTO_ENDPOINT are required",
   );
 
-const webBaseUrl = process.env.WEB_BASE_URL;
+const webBaseUrl = process.env["WEB_BASE_URL"];
 const statusSchema = z.object({
   status: z.string(),
   requestRef: z.uuid().optional(),
 });
 // The guard above already requires an explicit endpoint.
-const logtoEndpoint = process.env.LOGTO_ENDPOINT;
+const logtoEndpoint = process.env["LOGTO_ENDPOINT"];
 const webhookEndpoint =
-  process.env.TELEGRAM_PROOF_WEBHOOK_URL ??
+  process.env["TELEGRAM_PROOF_WEBHOOK_URL"] ??
   "http://127.0.0.1:3606/webhooks/telegram";
 const webhookSecret =
-  process.env.TELEGRAM_PROOF_WEBHOOK_SECRET ?? "inside-299-synthetic-webhook";
+  process.env["TELEGRAM_PROOF_WEBHOOK_SECRET"] ??
+  "inside-299-synthetic-webhook";
 const telegramUserId = 29900001;
 let lastUpdateId = Date.now() % 1_000_000_000;
 function nextUpdateId() {
@@ -163,9 +165,9 @@ test("Telegram sign-in, logout and fresh repeat use the real Logto session", asy
   await expect(
     page.getByRole("button", { name: "Выйти", exact: true }),
   ).toBeVisible();
+  const signedInAt = Date.now();
   const before = await createProfile(page);
-  // The isolated proof resource uses a 60-second access-token lifetime.
-  await page.waitForTimeout(61_000);
+  await waitPastAccessTokenExpiry(page, signedInAt);
   const refreshed = await page.request.get("/auth/status");
   expect(
     z.object({ state: z.string() }).parse(await refreshed.json()).state,
@@ -371,7 +373,7 @@ test("two fresh Logto interactions for one Telegram identity converge on one Acc
     ]);
     const authenticated = async (candidate: Page) => {
       const response = await candidate.request.get(
-        `${process.env.WEB_BASE_URL ?? ""}/auth/status`,
+        `${process.env["WEB_BASE_URL"] ?? ""}/auth/status`,
       );
       return (
         z.object({ state: z.string() }).parse(await response.json()).state ===

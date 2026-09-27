@@ -1,3 +1,4 @@
+// @ts-check
 import { randomUUID } from "node:crypto";
 import { stat } from "node:fs/promises";
 import { basename, resolve } from "node:path";
@@ -6,8 +7,13 @@ import { pathToFileURL } from "node:url";
 import { parseArgs } from "node:util";
 import { fileChecksum } from "./package.mjs";
 import { withJournal } from "./journal.mjs";
-import { parseLocalResponse } from "./local-boundaries.mjs";
 import {
+  parseLocalResponse,
+  parseReceipt,
+  uploadReceiptSchema,
+} from "./local-boundaries.mjs";
+import {
+  failureBodyField,
   localTransport,
   loopbackOrigin,
   resolveLocalTarget,
@@ -16,6 +22,16 @@ import {
 // Provider processing is polled at this interval until the Video is ready or terminal.
 export const videoReconcileIntervalMs = 3_000;
 
+/**
+ * @param {import("./local-boundaries.mjs").LocalRequest} request
+ * @param {string} videoId
+ * @param {{
+ *   sleep?: (milliseconds: number) => Promise<unknown>;
+ *   attempts: number;
+ *   label: string;
+ *   onState?: (video: import("./local-boundaries.mjs").Video) => Promise<void>;
+ * }} options
+ */
 export async function waitUntilReady(
   request,
   videoId,
@@ -39,7 +55,11 @@ export async function waitUntilReady(
   );
 }
 
-// Real provider transfer needs an explicit owner approval for a concrete file and project.
+/**
+ * Real provider transfer needs an explicit owner approval for a concrete file and project.
+ *
+ * @param {string} uploadEndpoint
+ */
 export function transferRequired(uploadEndpoint) {
   return !new URL(uploadEndpoint).hostname.endsWith(".invalid");
 }
@@ -49,6 +69,16 @@ export function transferRequired(uploadEndpoint) {
  * The upload receipt is keyed by Material and file checksum; the next local sync saves it with the
  * original's chapters. The idempotency key is persisted before the first call, so a retry never
  * starts a second upload.
+ *
+ * @param {object} options
+ * @param {string} options.stateDirectory
+ * @param {string} [options.origin]
+ * @param {string} options.sourceId
+ * @param {string} options.file
+ * @param {string | undefined} [options.title]
+ * @param {import("./target.mjs").LocalTransport} [options.request]
+ * @param {(milliseconds: number) => Promise<unknown>} [options.sleep]
+ * @param {number} [options.attempts]
  */
 export async function uploadVideo({
   stateDirectory,
@@ -62,6 +92,7 @@ export async function uploadVideo({
 }) {
   const target = loopbackOrigin(origin);
   const send = transport ?? localTransport(target);
+  /** @type {import("./local-boundaries.mjs").LocalRequest} */
   const request = async (path, body, key, options) =>
     parseLocalResponse(path, await send(path, body, key, options));
   const environment = await request("/authoring/import/materials/environment");
@@ -72,12 +103,12 @@ export async function uploadVideo({
   if (!info.isFile() || info.size === 0)
     throw new Error(`Recording is not a finished file: ${path}`);
   return withJournal(stateDirectory, target, async ({ journal, persist }) => {
-    journal.resources ??= {};
+    const resources = (journal.resources ??= {});
     const material = journal.materials[sourceId];
     if (!material || material.archived)
       throw new Error(`Synchronize ${sourceId} before attaching its recording`);
     const receiptKey = `upload:${material.materialId}:${sha256}`;
-    let receipt = journal.resources[receiptKey];
+    let receipt = parseReceipt(uploadReceiptSchema, resources[receiptKey]);
     // A failed provider outcome is known, so the same file may start a fresh attempt.
     if (receipt?.phase === "failed") receipt = undefined;
     if (receipt === undefined) {
@@ -90,7 +121,7 @@ export async function uploadVideo({
         access: material.access ?? "membership",
         phase: "initializing",
       };
-      journal.resources[receiptKey] = receipt;
+      resources[receiptKey] = receipt;
       await persist();
     }
     if (receipt.phase === "initializing") {
@@ -107,7 +138,7 @@ export async function uploadVideo({
           receipt.idempotencyKey,
         );
       } catch (error) {
-        if (error.body?.code === "upload_outcome_unknown")
+        if (failureBodyField(error, "code") === "upload_outcome_unknown")
           throw new Error(
             `Upload outcome for ${sourceId} is unknown; inspect the attempt before retrying (key ${receipt.idempotencyKey})`,
             { cause: error },
@@ -121,7 +152,7 @@ export async function uploadVideo({
         providerVideoId: initialized.providerVideoId,
         uploadEndpoint: initialized.uploadEndpoint,
       };
-      journal.resources[receiptKey] = receipt;
+      resources[receiptKey] = receipt;
       await persist();
     }
     if (receipt.phase === "transfer") {
@@ -131,7 +162,7 @@ export async function uploadVideo({
         );
       }
       receipt = { ...receipt, phase: "processing" };
-      journal.resources[receiptKey] = receipt;
+      resources[receiptKey] = receipt;
       await persist();
     }
     if (receipt.phase !== "ready") {
@@ -143,8 +174,11 @@ export async function uploadVideo({
           label: sourceId,
         });
       } catch (error) {
-        if (/video is (failed|delet)/u.test(error.message)) {
-          journal.resources[receiptKey] = { ...receipt, phase: "failed" };
+        if (
+          error instanceof Error &&
+          /video is (failed|delet)/u.test(error.message)
+        ) {
+          resources[receiptKey] = { ...receipt, phase: "failed" };
           await persist();
         }
         throw error;
@@ -154,8 +188,8 @@ export async function uploadVideo({
         phase: "ready",
         durationSeconds: video.durationSeconds ?? null,
       };
-      journal.resources[receiptKey] = receipt;
-      journal.resources[`source-video:${sourceId}`] = {
+      resources[receiptKey] = receipt;
+      resources[`source-video:${sourceId}`] = {
         videoId: receipt.videoId,
         providerVideoId: receipt.providerVideoId,
         sha256,

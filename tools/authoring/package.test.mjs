@@ -1,10 +1,12 @@
+// @ts-check
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { canonical, loadPackage } from "./package.mjs";
 import { applyJournaled, withJournal } from "./journal.mjs";
+import { operationAt, readJournalFile } from "./test-support.mjs";
 
 const material = {
   sourceId: "one",
@@ -44,6 +46,7 @@ const fixture = () => ({
   assets: [],
   diagnostics: [],
 });
+/** @param {import("node:test").TestContext} t */
 async function temporary(t) {
   const path = await mkdtemp(join(tmpdir(), "authoring-package-"));
   t.after(() => rm(path, { recursive: true, force: true }));
@@ -55,7 +58,7 @@ test("package selection, paid access and raw checksum survive loading", async (t
   const path = join(root, "package.json");
   await writeFile(path, canonical(fixture()));
   const loaded = await loadPackage(path);
-  assert.equal(loaded.manifest.materials[0].access, "membership");
+  assert.equal(loaded.manifest.materials[0]?.access, "membership");
   assert.equal(loaded.id.length, 64);
   const invalid = fixture();
   invalid.selection.materialIds = ["missing"];
@@ -83,6 +86,7 @@ test("unrecognized provider fields and escaping source paths fail closed", async
 
 test("uncertain requests persist before transmission and retry the same key", async (t) => {
   const root = await temporary(t);
+  /** @type {string[]} */
   const keys = [];
   const request = {
     materialId: "one",
@@ -94,10 +98,8 @@ test("uncertain requests persist before transmission and retry the same key", as
       await applyJournaled(context, request, async (sent, key) => {
         keys.push(key);
         assert.deepEqual(sent, request);
-        const stored = JSON.parse(
-          await readFile(join(root, "journal.json"), "utf8"),
-        );
-        assert.equal(stored.operations[key].status, "pending");
+        const stored = await readJournalFile(root);
+        assert.equal(operationAt(stored, key).status, "pending");
         throw new Error("Connection lost after commit");
       });
     }),

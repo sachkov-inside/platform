@@ -22,27 +22,27 @@ export function assignMissingNodeIds(
     }
     const node = candidate;
     if (
-      typeof node.type === "string" &&
-      addressableBlockTypeSet.has(node.type)
+      typeof node["type"] === "string" &&
+      addressableBlockTypeSet.has(node["type"])
     ) {
-      if (node.attrs === undefined) {
-        node.attrs = {
+      if (node["attrs"] === undefined) {
+        node["attrs"] = {
           nodeId: root ? (stableRootNodeId ?? randomUUID()) : randomUUID(),
         };
-      } else if (isUnknownRecord(node.attrs)) {
-        const attributes = node.attrs;
+      } else if (isUnknownRecord(node["attrs"])) {
+        const attributes = node["attrs"];
         if (root && stableRootNodeId !== undefined) {
-          attributes.nodeId = stableRootNodeId;
+          attributes["nodeId"] = stableRootNodeId;
         } else if (
-          attributes.nodeId === undefined ||
-          attributes.nodeId === null
+          attributes["nodeId"] === undefined ||
+          attributes["nodeId"] === null
         ) {
-          attributes.nodeId = randomUUID();
+          attributes["nodeId"] = randomUUID();
         }
       }
     }
-    if (isUnknownArray(node.content)) {
-      node.content.forEach((child) => visit(child, false));
+    if (isUnknownArray(node["content"])) {
+      node["content"].forEach((child) => visit(child, false));
     }
   }
 

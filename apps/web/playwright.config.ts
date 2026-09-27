@@ -1,8 +1,8 @@
 import { defineConfig } from "@playwright/test";
 
-const port = process.env.PLAYWRIGHT_PORT ?? "3100";
+const port = process.env["PLAYWRIGHT_PORT"] ?? "3100";
 const baseURL = `http://127.0.0.1:${port}`;
-const captureEvidence = process.env.CAPTURE_EVIDENCE === "1";
+const captureEvidence = process.env["CAPTURE_EVIDENCE"] === "1";
 
 export default defineConfig({
   testDir: "./test/e2e",
@@ -20,15 +20,14 @@ export default defineConfig({
         "subscription.spec.ts",
       ],
   fullyParallel: true,
-  forbidOnly: Boolean(process.env.CI),
-  // Повтор нужен только для следа: тест, прошедший со второй попытки, валит прогон.
-  failOnFlakyTests: Boolean(process.env.CI),
-  retries: process.env.CI !== undefined && process.env.CI !== "" ? 1 : 0,
+  forbidOnly: Boolean(process.env["CI"]),
+  // Без повтора и в CI: «Waiting in tests» в корневом CODING_STANDARDS.md (#476).
+  retries: 0,
   reporter: [["list"], ["html", { open: "never" }]],
   use: {
     baseURL,
     screenshot: "only-on-failure",
-    storageState: process.env.EVIDENCE_STORAGE_STATE,
+    storageState: process.env["EVIDENCE_STORAGE_STATE"],
     trace: "retain-on-failure",
   },
   projects: [
@@ -54,7 +53,7 @@ export default defineConfig({
         command: `pnpm build && pnpm start --hostname 127.0.0.1 --port ${port}`,
         env: {
           BACKEND_BASE_URL:
-            process.env.PLAYWRIGHT_BACKEND_BASE_URL ?? "http://127.0.0.1:1",
+            process.env["PLAYWRIGHT_BACKEND_BASE_URL"] ?? "http://127.0.0.1:1",
           /** Публичный адрес площадки читается из конфигурации, а не из заголовка запроса. */
           WEB_BASE_URL: baseURL,
         },
@@ -70,7 +69,7 @@ export default defineConfig({
         command: "node test/support/production-web.mjs",
         env: {
           PRODUCTION_WEB_BACKEND_URL:
-            process.env.PLAYWRIGHT_BACKEND_BASE_URL ?? "http://127.0.0.1:1",
+            process.env["PLAYWRIGHT_BACKEND_BASE_URL"] ?? "http://127.0.0.1:1",
           PRODUCTION_WEB_PORT: port,
         },
         // Лаунчер убирает за собой идентичность выпуска, поэтому ему нужен сигнал, а не SIGKILL.

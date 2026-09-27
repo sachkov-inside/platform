@@ -1,3 +1,4 @@
+// @ts-check
 import { createHash } from "node:crypto";
 import { readFile, realpath, stat } from "node:fs/promises";
 import { createReadStream } from "node:fs";
@@ -32,9 +33,10 @@ const chapters = z
   .max(200)
   .refine(
     (values) =>
-      values.every(
-        (value, index) => index === 0 || value.start > values[index - 1].start,
-      ),
+      values.every((value, index) => {
+        const previous = values[index - 1];
+        return previous === undefined || value.start > previous.start;
+      }),
     "Chapters must increase",
   );
 const manifestSchema = z
@@ -145,26 +147,55 @@ const manifestSchema = z
   })
   .strict();
 
+/**
+ * @param {unknown} value
+ * @returns {string}
+ */
 export function canonical(value) {
-  if (Array.isArray(value)) return `[${value.map(canonical).join(",")}]`;
+  if (Array.isArray(value))
+    return `[${value.map((item) => canonical(item)).join(",")}]`;
   if (value !== null && typeof value === "object")
     return `{${Object.keys(value)
       .sort()
-      .map((key) => `${JSON.stringify(key)}:${canonical(value[key])}`)
+      .map(
+        (key) => `${JSON.stringify(key)}:${canonical(Reflect.get(value, key))}`,
+      )
       .join(",")}}`;
   return JSON.stringify(value);
 }
+/** @param {string | NodeJS.ArrayBufferView} value */
 export const checksum = (value) =>
   createHash("sha256").update(value).digest("hex");
+/** @param {string} path */
 export async function fileChecksum(path) {
   const hash = createHash("sha256");
-  for await (const chunk of createReadStream(path)) hash.update(chunk);
+  for await (const chunk of createReadStream(path)) {
+    // Without an encoding a file stream yields bytes.
+    if (!Buffer.isBuffer(chunk)) throw new Error("File stream yielded text");
+    hash.update(chunk);
+  }
   return hash.digest("hex");
 }
+/**
+ * @param {unknown[]} values
+ * @param {string} label
+ */
 function unique(values, label) {
   if (new Set(values).size !== values.length)
     throw new Error(`Duplicate ${label}`);
 }
+/**
+ * @typedef {z.infer<typeof manifestSchema>} Manifest
+ * @typedef {Manifest["materials"][number]} ManifestMaterial
+ * @typedef {Manifest["guides"][number]} ManifestGuide
+ * @typedef {Manifest["assets"][number]} ManifestAsset
+ * @typedef {{ id: string; manifest: Manifest; directory: string }} AuthoringPackage
+ */
+
+/**
+ * @param {string} path
+ * @returns {Promise<AuthoringPackage>}
+ */
 export async function loadPackage(path) {
   const manifestPath = await realpath(path);
   if ((await stat(manifestPath)).size > 32 * 1024 * 1024)

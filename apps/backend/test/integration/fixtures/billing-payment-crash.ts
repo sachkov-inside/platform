@@ -29,7 +29,7 @@ const input = z
       }),
     ),
   })
-  .parse(JSON.parse(process.env.BILLING_CRASH_FIXTURE ?? "null"));
+  .parse(JSON.parse(process.env["BILLING_CRASH_FIXTURE"] ?? "null"));
 const prisma = createPrismaClient(input.databaseUrl);
 const clock = () => new Date(input.now);
 const accounts = assembleAccounts({

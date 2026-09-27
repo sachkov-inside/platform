@@ -1,3 +1,4 @@
+// @ts-check
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
@@ -6,6 +7,7 @@ import { describe, it } from "node:test";
 import { isDeepStrictEqual } from "node:util";
 
 const repositoryRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
+/** @param {string} path */
 const read = (path) => readFileSync(resolve(repositoryRoot, path), "utf8");
 const releaseWorkflow = read(".github/workflows/release.yml");
 const ciWorkflow = read(".github/workflows/ci.yml");
@@ -117,6 +119,10 @@ describe("ordinal release workflow contract", () => {
   });
 });
 
+/**
+ * @param {string} workflow
+ * @param {string} key
+ */
 function topLevelBlock(workflow, key) {
   const marker = `${key}:\n`;
   const start = workflow.indexOf(marker);
@@ -126,6 +132,10 @@ function topLevelBlock(workflow, key) {
   return (end === -1 ? remainder : remainder.slice(0, end)).trimEnd();
 }
 
+/**
+ * @param {string} workflow
+ * @param {string} job
+ */
 function jobBlock(workflow, job) {
   const marker = `  ${job}:\n`;
   const start = workflow.indexOf(marker, workflow.indexOf("jobs:\n"));
@@ -135,6 +145,10 @@ function jobBlock(workflow, job) {
   return marker + (end === -1 ? remainder : remainder.slice(0, end));
 }
 
+/**
+ * @param {string} workflow
+ * @param {string} job
+ */
 function jobPermissions(workflow, job) {
   const block = jobBlock(workflow, job);
   const marker = "    permissions:\n";
@@ -145,10 +159,13 @@ function jobPermissions(workflow, job) {
       ...block
         .slice(start + marker.length)
         .matchAll(/^ {6}([a-z-]+): (read|write)$/gmu),
-    ].map((match) => [match[1], match[2]]),
+    ].map(
+      ([, name = "", access = ""]) => /** @type {const} */ ([name, access]),
+    ),
   );
 }
 
+/** @param {string} workflow */
 function assertReleasePermissions(workflow) {
   const expected = {
     plan: { contents: "read" },

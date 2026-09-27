@@ -1,3 +1,4 @@
+// @ts-check
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import { spawnSync } from "node:child_process";
@@ -14,6 +15,7 @@ import {
 import { tmpdir } from "node:os";
 import { resolve } from "node:path";
 import { describe, it } from "node:test";
+import { z } from "zod";
 
 import { writeTrustedReleaseEvidence } from "./github-release-evidence.test-support.mjs";
 
@@ -21,10 +23,10 @@ describe("production deployment state machine", () => {
   it("repairs forward again when the first repair release also fails", () => {
     const fixture = createHostFixture();
     try {
-      for (const [version, runId] of [
+      for (const [version, runId] of /** @type {const} */ ([
         ["v1", 510],
         ["v2", 511],
-      ]) {
+      ])) {
         const failed = runGateway(fixture, "deploy", version, runId, {
           INSIDE_DEPLOY_FAIL_PHASE: "readiness",
         });
@@ -55,17 +57,16 @@ describe("production deployment state machine", () => {
       assert.equal(state.current.version, "v3");
       assert.equal(state.previous, null);
       assert.equal(state.rollback, null);
-      for (const [version, runId] of [
+      for (const [version, runId] of /** @type {const} */ ([
         ["v1", 510],
         ["v2", 511],
-      ]) {
-        const archived = JSON.parse(
-          readFileSync(
+      ])) {
+        const archived = deploymentOperationSchema.parse(
+          readJson(
             resolve(
               fixture.root,
               `var/lib/inside/deployments/operation-history/deploy-${version}-run-${runId}.json`,
             ),
-            "utf8",
           ),
         );
         assert.equal(archived.version, version);
@@ -163,7 +164,7 @@ describe("production deployment state machine", () => {
       assertGatewaySuccess(fixture, "deploy", "v3", 504);
       const state = readState(fixture);
       assert.equal(state.current.version, "v3");
-      assert.equal(state.previous.version, "v1");
+      assert.equal(state.previous?.version, "v1");
       assert.equal(state.rollback, null);
       assert.doesNotMatch(
         readExternalLog(fixture).slice(logStart),
@@ -207,7 +208,7 @@ describe("production deployment state machine", () => {
         assertGatewaySuccess(fixture, "deploy", "v4", 526);
         const state = readState(fixture);
         assert.equal(state.current.version, "v4");
-        assert.equal(state.previous.version, "v1");
+        assert.equal(state.previous?.version, "v1");
         assert.equal(state.rollback, null);
       } finally {
         fixture.cleanup();
@@ -218,10 +219,10 @@ describe("production deployment state machine", () => {
   it("rejects a broken repair history before changing the active journal or routes", () => {
     const fixture = createHostFixture();
     try {
-      for (const [version, runId] of [
+      for (const [version, runId] of /** @type {const} */ ([
         ["v1", 530],
         ["v2", 531],
-      ]) {
+      ])) {
         assert.notEqual(
           runGateway(fixture, "deploy", version, runId, {
             INSIDE_DEPLOY_FAIL_PHASE: "readiness",
@@ -284,7 +285,8 @@ describe("production deployment state machine", () => {
       assertGatewaySuccess(fixture, "deploy", "v2", 103);
       state = readState(fixture);
       assert.equal(state.current.version, "v2");
-      assert.equal(state.previous.version, "v1");
+      assert.equal(state.previous?.version, "v1");
+      assert.ok(state.rollback);
       assert.equal(state.rollback.targetVersion, "v1");
       assert.equal(state.rollback.compatible, true);
       assert.ok(
@@ -299,7 +301,7 @@ describe("production deployment state machine", () => {
       assert.equal(state.current.version, "v1");
       assert.equal(state.previous, null);
       assert.equal(state.rollback, null);
-      assert.equal(state.rolledBackFrom.version, "v2");
+      assert.equal(state.rolledBackFrom?.version, "v2");
       const journals = `${JSON.stringify(state)}${readFileSync(
         resolve(fixture.root, "var/lib/inside/deployments/operation.json"),
         "utf8",
@@ -340,10 +342,9 @@ describe("production deployment state machine", () => {
         });
 
         assert.notEqual(failed.status, 0);
-        const operation = JSON.parse(
-          readFileSync(
+        const operation = deploymentOperationSchema.parse(
+          readJson(
             resolve(fixture.root, "var/lib/inside/deployments/operation.json"),
-            "utf8",
           ),
         );
         assert.equal(operation.status, "failed");
@@ -384,10 +385,9 @@ describe("production deployment state machine", () => {
 
       assert.notEqual(failed.status, 0);
       assert.equal(
-        JSON.parse(
-          readFileSync(
+        deploymentOperationSchema.parse(
+          readJson(
             resolve(fixture.root, "var/lib/inside/deployments/operation.json"),
-            "utf8",
           ),
         ).phase,
         "preflight",
@@ -502,8 +502,8 @@ describe("production deployment state machine", () => {
         fixture.root,
         "var/lib/inside/deployments/operation.json",
       );
-      const interruptedOperation = JSON.parse(
-        readFileSync(operationPath, "utf8"),
+      const interruptedOperation = deploymentOperationSchema.parse(
+        readJson(operationPath),
       );
       writeFileSync(
         operationPath,
@@ -517,7 +517,7 @@ describe("production deployment state machine", () => {
         0,
       );
       assert.equal(
-        JSON.parse(readFileSync(operationPath, "utf8")).recoveryPhase,
+        deploymentOperationSchema.parse(readJson(operationPath)).recoveryPhase,
         "readiness",
       );
 
@@ -611,10 +611,9 @@ describe("production deployment state machine", () => {
           }).status,
           0,
         );
-        const operation = JSON.parse(
-          readFileSync(
+        const operation = deploymentOperationSchema.parse(
+          readJson(
             resolve(fixture.root, "var/lib/inside/deployments/operation.json"),
-            "utf8",
           ),
         );
         assert.equal(operation.phase, "preflight");
@@ -685,7 +684,9 @@ describe("production deployment state machine", () => {
         }).status,
         0,
       );
-      const repairOperation = JSON.parse(readFileSync(operationPath, "utf8"));
+      const repairOperation = deploymentOperationSchema.parse(
+        readJson(operationPath),
+      );
       assert.deepEqual(repairOperation.repairForward, {
         version: "v1",
         githubRunId: 222,
@@ -796,7 +797,7 @@ describe("production deployment state machine", () => {
       );
       const state = readState(fixture);
       assert.equal(state.current.version, "v3");
-      assert.equal(state.previous.version, "v1");
+      assert.equal(state.previous?.version, "v1");
       assert.equal(state.rollback, null);
       assert.equal(
         readFileSync(
@@ -839,10 +840,9 @@ describe("production deployment state machine", () => {
         }).status,
         0,
       );
-      const repairOperation = JSON.parse(
-        readFileSync(
+      const repairOperation = deploymentOperationSchema.parse(
+        readJson(
           resolve(fixture.root, "var/lib/inside/deployments/operation.json"),
-          "utf8",
         ),
       );
       assert.deepEqual(repairOperation.repairForward, {
@@ -901,7 +901,7 @@ describe("production deployment state machine", () => {
         fixture.root,
         "var/lib/inside/deployments/operation.json",
       );
-      let operation = JSON.parse(readFileSync(operationPath, "utf8"));
+      let operation = deploymentOperationSchema.parse(readJson(operationPath));
       assert.equal(operation.status, "running");
       assert.equal(operation.phase, "journal");
       assert.deepEqual(operation.repairForward, {
@@ -911,7 +911,7 @@ describe("production deployment state machine", () => {
       });
 
       assertGatewaySuccess(fixture, "deploy", "v3", 245);
-      operation = JSON.parse(readFileSync(operationPath, "utf8"));
+      operation = deploymentOperationSchema.parse(readJson(operationPath));
       assert.equal(operation.status, "succeeded");
       assert.equal(operation.phase, "complete");
       assert.equal(operation.recoveryPhase, null);
@@ -935,13 +935,13 @@ describe("production deployment state machine", () => {
       assert.equal(state.current.version, "v1");
       assert.equal(state.current.githubRunId, 248);
       assert.equal(state.rollback, null);
-      assert.equal(state.rolledBackFrom.version, "v2");
+      assert.equal(state.rolledBackFrom?.version, "v2");
 
       const operationPath = resolve(
         fixture.root,
         "var/lib/inside/deployments/operation.json",
       );
-      let operation = JSON.parse(readFileSync(operationPath, "utf8"));
+      let operation = deploymentOperationSchema.parse(readJson(operationPath));
       assert.equal(operation.status, "running");
       assert.equal(operation.operation, "rollback");
       assert.equal(operation.version, "v1");
@@ -964,7 +964,7 @@ describe("production deployment state machine", () => {
       state = readState(fixture);
       assert.equal(state.current.version, "v1");
       assert.equal(state.current.githubRunId, 248);
-      operation = JSON.parse(readFileSync(operationPath, "utf8"));
+      operation = deploymentOperationSchema.parse(readJson(operationPath));
       assert.equal(operation.status, "succeeded");
       assert.equal(operation.phase, "complete");
       assert.equal(operation.recoveryPhase, null);
@@ -1086,10 +1086,9 @@ describe("production deployment state machine", () => {
       });
       assert.notEqual(accepted.status, 0);
       assert.equal(readState(fixture).current.version, "v2");
-      const operation = JSON.parse(
-        readFileSync(
+      const operation = deploymentOperationSchema.parse(
+        readJson(
           resolve(fixture.root, "var/lib/inside/deployments/operation.json"),
-          "utf8",
         ),
       );
       assert.equal(operation.status, "failed");
@@ -1293,12 +1292,14 @@ fi
     version: "v3",
   });
 
+  /** @type {Record<string, string>} */
+  const manifests = { v1: v1Manifest, v2: v2Manifest, v3: v3Manifest };
   const fixture = {
     bin,
     bundle,
     cleanup: () => rmSync(directory, { force: true, recursive: true }),
     directory,
-    manifests: { v1: v1Manifest, v2: v2Manifest, v3: v3Manifest },
+    manifests,
     root,
   };
   const v4Manifest = releaseManifest({
@@ -1316,7 +1317,7 @@ fi
       verifiedByWorkflowRunId: 94,
     },
   });
-  fixture.manifests.v4 = v4Manifest;
+  fixture.manifests["v4"] = v4Manifest;
   writeTrustedReleaseEvidence(root, {
     manifest: v4Manifest,
     publicationRunId: 94,
@@ -1329,6 +1330,18 @@ fi
   return fixture;
 }
 
+/** @typedef {ReturnType<typeof createHostFixture>} HostFixture */
+
+/**
+ * @param {{
+ *   bundleDigest: string;
+ *   previous: unknown;
+ *   runId: number;
+ *   schemaIdentity: string;
+ *   sourceSha: string;
+ *   version: string;
+ * }} release
+ */
 function releaseManifest({
   bundleDigest,
   previous,
@@ -1337,12 +1350,14 @@ function releaseManifest({
   sourceSha,
   version,
 }) {
-  const imageDigests = {
+  /** @type {Record<string, [string, string]>} */
+  const imageDigestsByVersion = {
     v1: ["a", "b"],
     v2: ["d", "e"],
     v3: ["f", "0"],
     v4: ["4", "5"],
-  }[version];
+  };
+  const imageDigests = imageDigestsByVersion[version];
   assert.ok(imageDigests, `missing image fixture for ${version}`);
   return `${JSON.stringify(
     {
@@ -1366,13 +1381,16 @@ function releaseManifest({
   )}\n`;
 }
 
+/**
+ * @param {HostFixture} fixture
+ * @param {string} version
+ */
 function createEnvelope(fixture, version) {
   const root = resolve(fixture.directory, `envelope-${version}`);
   mkdirSync(root);
-  writeFileSync(
-    resolve(root, "release-manifest.json"),
-    fixture.manifests[version],
-  );
+  const manifest = fixture.manifests[version];
+  assert.ok(manifest !== undefined, `missing manifest fixture for ${version}`);
+  writeFileSync(resolve(root, "release-manifest.json"), manifest);
   copyFileSync(fixture.bundle, resolve(root, "production-runtime.tar.gz"));
   const result = spawnSync(
     "tar",
@@ -1389,18 +1407,31 @@ function createEnvelope(fixture, version) {
   assert.equal(result.status, 0, result.stderr);
 }
 
+/**
+ * @param {HostFixture} fixture
+ * @param {string} operation
+ * @param {string} version
+ * @param {number} runId
+ */
 function assertGatewaySuccess(fixture, operation, version, runId) {
   const result = runGateway(fixture, operation, version, runId);
   assert.equal(result.status, 0, result.stderr);
 }
 
+/**
+ * @param {HostFixture} fixture
+ * @param {string} operation
+ * @param {string} version
+ * @param {number} runId
+ * @param {Record<string, string>} [extraEnvironment]
+ */
 function runGateway(fixture, operation, version, runId, extraEnvironment = {}) {
   return spawnSync("bash", ["infra/production/host/inside-deploy"], {
     encoding: "utf8",
     env: {
       ...process.env,
       INSIDE_DEPLOY_TEST_ROOT: fixture.root,
-      PATH: `${fixture.bin}:${process.env.PATH}`,
+      PATH: `${fixture.bin}:${process.env["PATH"]}`,
       SSH_ORIGINAL_COMMAND: `${operation} ${version} ${String(runId)}`,
       ...extraEnvironment,
     },
@@ -1408,25 +1439,69 @@ function runGateway(fixture, operation, version, runId, extraEnvironment = {}) {
   });
 }
 
+// The deployment journal fields the assertions read; the rest passes through.
+const deployedReleaseSchema = z.object({ version: z.string() }).passthrough();
+const deploymentStateSchema = z
+  .object({
+    operation: z.string(),
+    current: deployedReleaseSchema.extend({
+      deployedAtEpochSeconds: z.number(),
+      githubRunId: z.number(),
+    }),
+    previous: deployedReleaseSchema.nullable(),
+    rollback: z
+      .object({
+        targetVersion: z.string(),
+        compatible: z.boolean(),
+        expiresAtEpochSeconds: z.number(),
+      })
+      .passthrough()
+      .nullable(),
+    rolledBackFrom: deployedReleaseSchema.nullish(),
+  })
+  .passthrough();
+const deploymentOperationSchema = z
+  .object({
+    operation: z.string(),
+    version: z.string(),
+    status: z.string(),
+    phase: z.string(),
+    recoveryPhase: z.string().nullish(),
+    repairForward: z.unknown(),
+  })
+  .passthrough();
+
+/**
+ * @param {string} path
+ * @returns {unknown}
+ */
+function readJson(path) {
+  return JSON.parse(readFileSync(path, "utf8"));
+}
+
+/** @param {HostFixture} fixture */
 function readState(fixture) {
-  return JSON.parse(
-    readFileSync(
-      resolve(fixture.root, "var/lib/inside/deployments/state.json"),
-      "utf8",
-    ),
+  return deploymentStateSchema.parse(
+    readJson(resolve(fixture.root, "var/lib/inside/deployments/state.json")),
   );
 }
 
+/** @param {HostFixture} fixture */
 function readExternalLog(fixture) {
   const path = resolve(fixture.root, "external.log");
   return existsSync(path) ? readFileSync(path, "utf8") : "";
 }
 
+/**
+ * @param {string} path
+ * @param {string} content
+ */
 function writeExecutable(path, content) {
   writeFileSync(path, content);
   chmodSync(path, 0o755);
 }
 
+/** @param {string | Buffer} value */
 function sha256(value) {
   return `sha256:${createHash("sha256").update(value).digest("hex")}`;
 }

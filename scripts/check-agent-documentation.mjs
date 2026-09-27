@@ -1,6 +1,9 @@
+// @ts-check
 import { existsSync, readFileSync, readdirSync } from "node:fs";
 import { dirname, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+
+import { readPackageManifest } from "./package-manifest.mjs";
 
 const scriptPath = fileURLToPath(import.meta.url);
 const defaultRepositoryRoot = resolve(dirname(scriptPath), "..");
@@ -14,13 +17,15 @@ const ignoredDirectories = new Set([
   "storybook-static",
 ]);
 
+/** @param {string} markdown */
 export function extractLocalMarkdownTargets(markdown) {
+  /** @type {string[]} */
   const targets = [];
   const links = markdown.matchAll(
     /\[[^\]]*\]\((<[^>]+>|[^)\s]+)(?:\s+[^)]*)?\)/gu,
   );
 
-  for (const [, rawTarget] of links) {
+  for (const [, rawTarget = ""] of links) {
     const target = rawTarget.replace(/^<|>$/gu, "");
     if (
       target.startsWith("#") ||
@@ -30,12 +35,15 @@ export function extractLocalMarkdownTargets(markdown) {
       continue;
     }
 
-    targets.push(decodeURIComponent(target.split("#", 1)[0].split("?", 1)[0]));
+    const [withoutFragment = ""] = target.split("#", 1);
+    const [file = ""] = withoutFragment.split("?", 1);
+    targets.push(decodeURIComponent(file));
   }
 
   return targets.filter(Boolean);
 }
 
+/** @param {string} repositoryRoot */
 function collectAgentDocumentation(repositoryRoot) {
   const files = new Set(["AGENTS.md", "CLAUDE.md", "CODING_STANDARDS.md"]);
   const roots = [
@@ -60,6 +68,10 @@ function collectAgentDocumentation(repositoryRoot) {
   return [...files].sort();
 }
 
+/**
+ * @param {string} root
+ * @param {(path: string, name: string) => void} visit
+ */
 function walk(root, visit) {
   if (!existsSync(root)) {
     return;
@@ -74,16 +86,34 @@ function walk(root, visit) {
   }
 }
 
+/**
+ * @param {string} repositoryRoot
+ * @param {string} path
+ */
 function read(repositoryRoot, path) {
   return readFileSync(resolve(repositoryRoot, path), "utf8");
 }
 
+/**
+ * @param {string[]} failures
+ * @param {string} path
+ * @param {string} content
+ * @param {string} expected
+ * @param {string} explanation
+ */
 function requireText(failures, path, content, expected, explanation) {
   if (!content.includes(expected)) {
     failures.push(`${path}: ${explanation}`);
   }
 }
 
+/**
+ * @param {string[]} failures
+ * @param {string} path
+ * @param {string} content
+ * @param {string} forbidden
+ * @param {string} explanation
+ */
 function rejectText(failures, path, content, forbidden, explanation) {
   if (content.includes(forbidden)) {
     failures.push(`${path}: ${explanation}`);
@@ -91,6 +121,7 @@ function rejectText(failures, path, content, forbidden, explanation) {
 }
 
 export function checkDocumentation(repositoryRoot = defaultRepositoryRoot) {
+  /** @type {string[]} */
   const failures = [];
   const agentFiles = collectAgentDocumentation(repositoryRoot);
 
@@ -142,7 +173,9 @@ export function checkDocumentation(repositoryRoot = defaultRepositoryRoot) {
     repositoryRoot,
     "docs/research/platform-v1-engineering-contract.md",
   );
-  const rootPackage = JSON.parse(read(repositoryRoot, "package.json"));
+  const rootPackage = readPackageManifest(
+    resolve(repositoryRoot, "package.json"),
+  );
 
   requireText(
     failures,
@@ -221,10 +254,10 @@ export function checkDocumentation(repositoryRoot = defaultRepositoryRoot) {
     "один mutable Material",
     "retain the current one-mutable-Material contract",
   );
-  for (const [path, content] of [
+  for (const [path, content] of /** @type {const} */ ([
     ["docs/research/backend-architecture-audit.md", backendAudit],
     ["docs/research/platform-v1-engineering-contract.md", engineeringResearch],
-  ]) {
+  ])) {
     requireText(
       failures,
       path,
@@ -250,8 +283,8 @@ export function checkDocumentation(repositoryRoot = defaultRepositoryRoot) {
     );
   }
   if (
-    !rootPackage.scripts.check.startsWith("pnpm check:static &&") ||
-    !rootPackage.scripts["check:static"].startsWith("pnpm docs:check &&")
+    !rootPackage.scripts["check"]?.startsWith("pnpm check:static &&") ||
+    !rootPackage.scripts["check:static"]?.startsWith("pnpm docs:check &&")
   ) {
     failures.push(
       "package.json: the root check must start with pnpm check:static, which starts with pnpm docs:check",

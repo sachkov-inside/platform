@@ -1,48 +1,210 @@
+// @ts-check
 import { createRequire } from "node:module";
 import { randomUUID, createHmac } from "node:crypto";
 import { mkdir, writeFile } from "node:fs/promises";
 import { resolve } from "node:path";
+import { z } from "zod";
 const webRequire = createRequire(
   new URL("../apps/web/package.json", import.meta.url),
 );
 const backendRequire = createRequire(
   new URL("../apps/backend/package.json", import.meta.url),
 );
-const { chromium, expect: baseExpect } = webRequire("@playwright/test");
-const { AxeBuilder } = webRequire("@axe-core/playwright");
-const { Client } = backendRequire("pg");
+// The proof borrows the applications' test dependencies; their types come from the same packages.
+// createRequire returns `any`, so each module is asserted to the type proof-dependencies declares.
+/* oxlint-disable typescript/no-unsafe-type-assertion -- proof-dependencies types these modules. */
+const { chromium, expect: baseExpect } =
+  /** @type {typeof import("../apps/web/test/support/proof-dependencies.mjs")} */ (
+    webRequire("@playwright/test")
+  );
+const { AxeBuilder } =
+  /** @type {{ AxeBuilder: typeof import("../apps/web/test/support/proof-dependencies.mjs").AxeBuilder }} */ (
+    webRequire("@axe-core/playwright")
+  );
+const { Client } =
+  /** @type {typeof import("../apps/backend/test/support/proof-dependencies.js")} */ (
+    backendRequire("pg")
+  );
+/* oxlint-enable typescript/no-unsafe-type-assertion */
+
+// The proof reads live responses. Each schema names the fields the steps below read and passes
+// every other field through untouched.
+const proofStateSchema = z
+  .object({
+    messages: z.array(
+      z
+        .object({
+          id: z.string(),
+          chatId: z.string(),
+          text: z.string(),
+          buttons: z
+            .array(
+              z
+                .object({
+                  url: z.string().optional(),
+                  callbackData: z.string().optional(),
+                })
+                .passthrough(),
+            )
+            .optional(),
+        })
+        .passthrough(),
+    ),
+  })
+  .passthrough();
+const commandEnvelopeSchema = z
+  .object({
+    ok: z.boolean(),
+    code: z.unknown().optional(),
+    value: z
+      .object({ result: z.unknown().optional() })
+      .passthrough()
+      .optional(),
+  })
+  .passthrough();
+const enrollmentSchema = z
+  .object({
+    id: z.unknown().optional(),
+    origin: z.unknown().optional(),
+    state: z.unknown().optional(),
+    endsAt: z.unknown().optional(),
+    startsAt: z.unknown().optional(),
+    endPolicy: z.unknown().optional(),
+    revision: z.unknown().optional(),
+    accountId: z.unknown().optional(),
+  })
+  .passthrough();
+const ownEnrollmentsSchema = z
+  .object({
+    ok: z.unknown().optional(),
+    value: z.object({ items: z.array(enrollmentSchema) }).passthrough(),
+  })
+  .passthrough();
+/**
+ * @template {z.ZodRawShape} T
+ * @param {T} shape
+ */
+const commandValue = (shape) =>
+  z.object({ value: z.object(shape).passthrough() }).passthrough();
+const tiersSchema = z
+  .object({
+    items: z.array(
+      z
+        .object({
+          availableForAssignment: z.unknown().optional(),
+          archived: z.unknown().optional(),
+          tier: z
+            .object({
+              id: z.unknown().optional(),
+              revision: z.unknown().optional(),
+              benefits: z.array(z.unknown().optional()),
+              contentScope: z
+                .object({ guideIds: z.array(z.unknown().optional()) })
+                .passthrough()
+                .nullable()
+                .optional(),
+            })
+            .passthrough(),
+        })
+        .passthrough(),
+    ),
+  })
+  .passthrough();
+const tributePreviewSchema = commandValue({
+  previewRef: z.unknown().optional(),
+  rows: z.array(z.object({ status: z.unknown().optional() }).passthrough()),
+});
+const tributeApplySchema = commandValue({
+  sources: z.array(
+    z.object({ accountId: z.unknown().optional() }).passthrough(),
+  ),
+});
+const enrollmentListSchema = z
+  .object({
+    items: z.array(z.object({ id: z.unknown().optional() }).passthrough()),
+  })
+  .passthrough();
+const identifiedValueSchema = commandValue({ id: z.unknown().optional() });
+const expansionPreviewSchema = commandValue({
+  previewRef: z.unknown().optional(),
+});
+const tributeStatusSchema = commandValue({
+  sources: z.array(
+    z
+      .object({
+        id: z.unknown().optional(),
+        revision: z.unknown().optional(),
+        identityRef: z.unknown().optional(),
+      })
+      .passthrough(),
+  ),
+});
+const reconciledSchema = commandValue({
+  id: z.unknown().optional(),
+  revision: z.unknown().optional(),
+});
+// Database rows and application responses the steps below read.
+const countRowSchema = z.object({ count: z.number() }).passthrough();
+const activationAttemptRowSchema = z
+  .object({ identity_ref: z.string(), account_id: z.unknown() })
+  .passthrough();
+const topicRowSchema = z.object({ topic_id: z.string() }).passthrough();
+const slugRowSchema = z.object({ slug: z.string() }).passthrough();
+const statusResponseSchema = z
+  .object({ status: z.unknown().optional() })
+  .passthrough();
+const signInStatusSchema = z
+  .object({ status: z.unknown(), requestRef: z.unknown() })
+  .passthrough();
+const authStatusSchema = z
+  .object({
+    state: z.unknown().optional(),
+    accountId: z.unknown().optional(),
+  })
+  .passthrough();
+const materialDraftSchema = z
+  .object({ materialId: z.string(), contentVersion: z.unknown() })
+  .passthrough();
+const materialSaveSchema = z
+  .object({ kind: z.unknown(), draft: materialDraftSchema.optional() })
+  .passthrough();
+const createdCollectionSchema = z
+  .object({ collection: z.object({ id: z.string() }).passthrough() })
+  .passthrough();
+const telegramMembersSchema = z
+  .object({ members: z.record(z.string(), z.unknown()) })
+  .passthrough();
 const expect = baseExpect.configure({ timeout: 30000 });
 const web = "http://127.0.0.1:3600",
   telegram = "http://127.0.0.1:3606",
   identity = "https://identity.inside.localhost:3631";
-const negative = process.env.TRIBUTE_PROOF_NEGATIVE;
+const negative = process.env["TRIBUTE_PROOF_NEGATIVE"];
 if (negative !== undefined && !["unknown_period", "nonpaid"].includes(negative))
   throw new Error("Unsupported negative fixture");
-const user = Number(process.env.TRIBUTE_PROOF_USER),
-  output = process.env.TRIBUTE_PROOF_OUTPUT,
-  ownerState = process.env.TRIBUTE_PROOF_OWNER_STATE;
+const user = Number(process.env["TRIBUTE_PROOF_USER"]),
+  output = process.env["TRIBUTE_PROOF_OUTPUT"],
+  ownerState = process.env["TRIBUTE_PROOF_OWNER_STATE"];
 if (!/^64[0-9]{5}$/u.test(String(user)) || !output || !ownerState)
   throw new Error(
     "Fresh synthetic user64xxxxx, output and owner browser state are required",
   );
-const database = new URL(process.env.DATABASE_URL ?? "");
+const database = new URL(process.env["DATABASE_URL"] ?? "");
 if (
   database.hostname !== "127.0.0.1" ||
   database.port !== "55439" ||
   database.pathname !== "/inside"
 )
   throw new Error("Only handed-over synthetic Platform DB is allowed");
-if (
-  !process.env.TRIBUTE_API_KEY ||
-  process.env.TRIBUTE_SIGNATURE_ENCODING !== "hex"
-)
+const tributeApiKey = process.env["TRIBUTE_API_KEY"];
+if (!tributeApiKey || process.env["TRIBUTE_SIGNATURE_ENCODING"] !== "hex")
   throw new Error("Synthetic hex Tribute ingress required");
+const signingKey = tributeApiKey;
 const sql = new Client({ connectionString: database.toString() });
 await sql.connect();
 // SQL below is read-only observation of real ingress and application effects, never seeding grants or identities.
 const browser = await chromium.launch({ headless: true });
 const viewport =
-  process.env.TRIBUTE_PROOF_MOBILE === "true"
+  process.env["TRIBUTE_PROOF_MOBILE"] === "true"
     ? { width: 390, height: 844 }
     : { width: 1440, height: 1024 };
 const owner = await browser.newContext({
@@ -53,6 +215,7 @@ const owner = await browser.newContext({
 const ownerPage = await owner.newPage();
 const buyer = await browser.newContext({ ignoreHTTPSErrors: true, viewport });
 const page = await buyer.newPage();
+/** @type {{ scope: string; scenarios: string[]; evidence: string[]; code: string }} */
 const report = {
   scope:
     "real Platform and accepted Telegram AppModule with real PG; external providers only are synthetic",
@@ -64,6 +227,7 @@ await mkdir(output, { recursive: true });
 let updateId = Date.now() % 1000000000;
 const from = { id: user, is_bot: false, first_name: "Synthetic" },
   chat = { id: user, type: "private" };
+/** @param {Record<string, unknown>} body */
 async function update(body) {
   const response = await buyer.request.post(`${telegram}/webhooks/telegram`, {
     headers: {
@@ -73,6 +237,7 @@ async function update(body) {
   });
   expect(response.status()).toBe(202);
 }
+/** @param {string} text */
 async function send(text) {
   await update({
     message: {
@@ -85,27 +250,31 @@ async function send(text) {
   });
 }
 async function messages() {
-  return (
-    await (await buyer.request.get(`${telegram}/proof/state`)).json()
-  ).messages.filter((row) => row.chatId === String(user));
+  return proofStateSchema
+    .parse(await (await buyer.request.get(`${telegram}/proof/state`)).json())
+    .messages.filter((row) => row.chatId === String(user));
 }
+/**
+ * @param {string} path
+ * @param {unknown} input
+ */
 async function command(path, input) {
   const response = await owner.request.post(
     `${web}/api/authoring/billing/${path}`,
     { headers: { origin: web }, multipart: { input: JSON.stringify(input) } },
   );
   expect(response.status()).toBe(200);
-  const result = await response.json();
+  const result = commandEnvelopeSchema.parse(await response.json());
   if (!result.ok)
     throw new Error(`Owner command ${path} failed: ${String(result.code)}`);
-  return result.value.result;
+  return result.value?.result;
 }
 async function ownEnrollments() {
   const response = await buyer.request.get(
     `${web}/api/account/billing/enrollments`,
   );
   expect(response.status()).toBe(200);
-  const result = await response.json();
+  const result = ownEnrollmentsSchema.parse(await response.json());
   expect(result.ok).toBe(true);
   return result.value.items;
 }
@@ -114,10 +283,12 @@ try {
   await expect(
     ownerPage.getByRole("heading", { name: "Перенос доступа из Tribute" }),
   ).toBeVisible();
-  const tiers = await command("tiers/list", {
-    operationId: randomUUID(),
-    limit: 100,
-  });
+  const tiers = tiersSchema.parse(
+    await command("tiers/list", {
+      operationId: randomUUID(),
+      limit: 100,
+    }),
+  );
   let tier = tiers.items.find(
     (row) =>
       row.availableForAssignment &&
@@ -192,12 +363,14 @@ try {
   await expect
     .poll(
       async () =>
-        (
-          await sql.query(
-            "SELECT count(*)::int AS count FROM membership_entitlements.activation_attempts WHERE rule_id=$1",
-            [ruleId],
-          )
-        ).rows[0].count,
+        countRowSchema.parse(
+          (
+            await sql.query(
+              "SELECT count(*)::int AS count FROM membership_entitlements.activation_attempts WHERE rule_id=$1",
+              [ruleId],
+            )
+          ).rows[0],
+        ).count,
       { timeout: 90000 },
     )
     .toBe(1);
@@ -206,8 +379,9 @@ try {
     [ruleId],
   );
   expect(attempt.rows).toHaveLength(1);
-  expect(attempt.rows[0].account_id).toBeNull();
-  const identityRef = attempt.rows[0].identity_ref;
+  const activationAttempt = activationAttemptRowSchema.parse(attempt.rows[0]);
+  expect(activationAttempt.account_id).toBeNull();
+  const identityRef = activationAttempt.identity_ref;
   const startsAt = new Date(Date.now() - 10000).toISOString(),
     endsAt = new Date(Date.now() + 86400000 * 20).toISOString();
   const row = {
@@ -225,12 +399,14 @@ try {
     expectedRevision: 0,
     reason: "Synthetic period confirmed independently of source chat",
   };
-  const preview = await command("tribute/preview", {
-    operationId: randomUUID(),
-    batchRef: `batch-${String(user)}`,
-    rows: [{ ...row, ...(negative ? { endsAt: null } : {}) }],
-  });
-  expect(preview.value.rows[0].status).toBe(
+  const preview = tributePreviewSchema.parse(
+    await command("tribute/preview", {
+      operationId: randomUUID(),
+      batchRef: `batch-${String(user)}`,
+      rows: [{ ...row, ...(negative ? { endsAt: null } : {}) }],
+    }),
+  );
+  expect(preview.value.rows[0]?.status).toBe(
     negative ? "unknown_term" : "pending_identity",
   );
   const apply = {
@@ -238,8 +414,10 @@ try {
     previewRef: preview.value.previewRef,
     selectedRows: [row.rowRef],
   };
-  const imported = negative ? null : await command("tribute/apply", apply);
-  if (imported) expect(imported.value.sources[0].accountId).toBeNull();
+  const imported = negative
+    ? null
+    : tributeApplySchema.parse(await command("tribute/apply", apply));
+  if (imported) expect(imported.value.sources[0]?.accountId).toBeNull();
   if (negative === "nonpaid") {
     const trial = {
       name: "new_subscription",
@@ -268,7 +446,7 @@ try {
       {
         headers: {
           "content-type": "application/json",
-          "trbt-signature": createHmac("sha256", process.env.TRIBUTE_API_KEY)
+          "trbt-signature": createHmac("sha256", signingKey)
             .update(raw)
             .digest("hex"),
         },
@@ -276,7 +454,9 @@ try {
       },
     );
     expect(response.status()).toBe(200);
-    expect((await response.json()).status).toBe("pending_reconciliation");
+    expect(statusResponseSchema.parse(await response.json()).status).toBe(
+      "pending_reconciliation",
+    );
   }
   report.scenarios.push(
     "PASS pending registry import after actual private ingress creates neither Account nor grant",
@@ -288,12 +468,14 @@ try {
     .click();
   await page.getByRole("button", { name: /Telegram/u }).click();
   await expect(page.locator("#bot")).toBeVisible();
-  const loginToken = new URL(
-    await page.locator("#bot").getAttribute("href"),
-  ).searchParams.get("start");
-  const login = await (
-    await page.request.get(`${identity}/api/inside-telegram/status`)
-  ).json();
+  const botLink = await page.locator("#bot").getAttribute("href");
+  if (botLink === null) throw new Error("Telegram sign-in link is missing");
+  const loginToken = new URL(botLink).searchParams.get("start");
+  const login = signInStatusSchema.parse(
+    await (
+      await page.request.get(`${identity}/api/inside-telegram/status`)
+    ).json(),
+  );
   expect(login.status).toBe("pending");
   await send(`/start ${String(loginToken)}`);
   await expect
@@ -313,6 +495,8 @@ try {
         button.callbackData === `signin:approve:${String(login.requestRef)}`,
     ),
   );
+  if (approval === undefined)
+    throw new Error("The sign-in approval message is missing");
   await update({
     callback_query: {
       id: `proof625-${String(updateId)}`,
@@ -329,7 +513,9 @@ try {
   await expect
     .poll(
       async () =>
-        (await (await buyer.request.get(`${web}/auth/status`)).json()).state,
+        authStatusSchema.parse(
+          await (await buyer.request.get(`${web}/auth/status`)).json(),
+        ).state,
       { timeout: 60000 },
     )
     .toBe("authenticated");
@@ -337,23 +523,27 @@ try {
     await expect
       .poll(
         async () =>
-          (
-            await sql.query(
-              "SELECT count(*)::int AS count FROM membership_entitlements.access_receipts WHERE scope='source-evidence' AND payload->>'identityRef'=$1 AND payload->>'decision'='registry_lookup'",
-              [identityRef],
-            )
-          ).rows[0].count,
+          countRowSchema.parse(
+            (
+              await sql.query(
+                "SELECT count(*)::int AS count FROM membership_entitlements.access_receipts WHERE scope='source-evidence' AND payload->>'identityRef'=$1 AND payload->>'decision'='registry_lookup'",
+                [identityRef],
+              )
+            ).rows[0],
+          ).count,
         { timeout: 90000 },
       )
       .toBeGreaterThan(0);
     expect(await ownEnrollments()).toHaveLength(0);
     expect(
-      (
-        await sql.query(
-          "SELECT count(*)::int AS count FROM billing.purchases WHERE account_id IN (SELECT account_id FROM membership_entitlements.activation_attempts WHERE identity_ref=$1)",
-          [identityRef],
-        )
-      ).rows[0].count,
+      countRowSchema.parse(
+        (
+          await sql.query(
+            "SELECT count(*)::int AS count FROM billing.purchases WHERE account_id IN (SELECT account_id FROM membership_entitlements.activation_attempts WHERE identity_ref=$1)",
+            [identityRef],
+          )
+        ).rows[0],
+      ).count,
     ).toBe(0);
     await send("/access");
     await expect
@@ -384,6 +574,8 @@ try {
     const first = (await ownEnrollments()).find(
       (item) => item.origin === "tribute",
     );
+    if (first === undefined)
+      throw new Error("The Tribute Enrollment is missing");
     expect(first.endsAt).toBe(endsAt);
     expect(first.endPolicy).toBe("confirmed_external");
     expect(first.state).toBe("active");
@@ -394,7 +586,7 @@ try {
             "SELECT count(*)::int AS count FROM membership_entitlements.access_receipts WHERE scope='source-evidence' AND payload->>'identityRef'=$1 AND payload->>'decision'='registry_lookup'",
             [identityRef],
           );
-          return result.rows[0].count;
+          return countRowSchema.parse(result.rows[0]).count;
         },
         { timeout: 90000 },
       )
@@ -407,15 +599,18 @@ try {
     report.scenarios.push(
       "PASS Tribute registry grant opens the protected included material through real Reader/BFF/Platform",
     );
-    const includedGuide = tier.tier.contentScope?.guideIds[0];
-    if (!includedGuide)
+    const contentScope = tier.tier.contentScope;
+    const includedGuide = contentScope?.guideIds[0];
+    if (!contentScope || !includedGuide)
       throw new Error("Acceptance tier must name an included Guide");
-    const metadata = (
-      await sql.query(
-        "SELECT topic_id FROM materials.materials WHERE slug=$1",
-        ["developer-pipeline-bez-poteri-konteksta"],
-      )
-    ).rows[0];
+    const metadata = topicRowSchema.parse(
+      (
+        await sql.query(
+          "SELECT topic_id FROM materials.materials WHERE slug=$1",
+          ["developer-pipeline-bez-poteri-konteksta"],
+        )
+      ).rows[0],
+    );
     const materialFields = {
       access: "membership",
       difficulty: "unassigned",
@@ -447,8 +642,9 @@ try {
       },
     );
     expect(createdResponse.status()).toBe(200);
-    const created = await createdResponse.json();
+    const created = materialSaveSchema.parse(await createdResponse.json());
     expect(created.kind).toBe("created");
+    const createdDraft = materialDraftSchema.parse(created.draft);
     const publishedResponse = await owner.request.put(
       `${web}/api/authoring/materials`,
       {
@@ -456,19 +652,23 @@ try {
         multipart: {
           ...materialFields,
           submissionId: randomUUID(),
-          materialId: created.draft.materialId,
-          expectedContentVersion: String(created.draft.contentVersion),
+          materialId: createdDraft.materialId,
+          expectedContentVersion: String(createdDraft.contentVersion),
           publicationState: "published",
         },
       },
     );
     expect(publishedResponse.status()).toBe(200);
-    expect((await publishedResponse.json()).kind).toBe("saved");
-    const material = (
-      await sql.query("SELECT slug FROM materials.materials WHERE id=$1", [
-        created.draft.materialId,
-      ])
-    ).rows[0];
+    expect(materialSaveSchema.parse(await publishedResponse.json()).kind).toBe(
+      "saved",
+    );
+    const material = slugRowSchema.parse(
+      (
+        await sql.query("SELECT slug FROM materials.materials WHERE id=$1", [
+          createdDraft.materialId,
+        ])
+      ).rows[0],
+    );
     await page.goto(`${web}/materials/${material.slug}`);
     await expect(page.locator("[data-reader-body]:visible")).toBeVisible();
     expect(
@@ -477,26 +677,30 @@ try {
     report.scenarios.push(
       "PASS newly published material inside the included Guide opens without replacing or extending the existing Enrollment",
     );
-    const secondHolder = (
-      await (await owner.request.get(`${web}/auth/status`)).json()
+    const secondHolder = authStatusSchema.parse(
+      await (await owner.request.get(`${web}/auth/status`)).json(),
     ).accountId;
-    const unselected = await command("enrollments/assign", {
-      operationId: randomUUID(),
-      accountId: secondHolder,
-      origin: "manual",
-      sourceRef: `unselected625-${String(user)}`,
-      tierId,
-      tierRevision: 1,
-      terms: { startsAt, endsAt, endPolicy: "fixed" },
-      billingRef: null,
-      reason: "Synthetic unselected cohort comparator",
-    });
-    const secondBefore = (
-      await command("enrollments/list", {
+    const unselected = identifiedValueSchema.parse(
+      await command("enrollments/assign", {
         operationId: randomUUID(),
         accountId: secondHolder,
-      })
-    ).items.find((item) => item.id === unselected.value.id);
+        origin: "manual",
+        sourceRef: `unselected625-${String(user)}`,
+        tierId,
+        tierRevision: 1,
+        terms: { startsAt, endsAt, endPolicy: "fixed" },
+        billingRef: null,
+        reason: "Synthetic unselected cohort comparator",
+      }),
+    );
+    const secondBefore = enrollmentListSchema
+      .parse(
+        await command("enrollments/list", {
+          operationId: randomUUID(),
+          accountId: secondHolder,
+        }),
+      )
+      .items.find((item) => item.id === unselected.value.id);
     const guideResponse = await owner.request.post(
       `${web}/api/authoring/collections`,
       {
@@ -510,7 +714,9 @@ try {
       },
     );
     expect(guideResponse.status()).toBe(200);
-    const newGuide = (await guideResponse.json()).collection;
+    const newGuide = createdCollectionSchema.parse(
+      await guideResponse.json(),
+    ).collection;
     const newFields = {
       ...materialFields,
       title: `New excluded Guide material ${String(user)}`,
@@ -524,7 +730,9 @@ try {
       },
     );
     expect(newDraftResponse.status()).toBe(200);
-    const newDraft = (await newDraftResponse.json()).draft;
+    const newDraft = materialDraftSchema.parse(
+      materialSaveSchema.parse(await newDraftResponse.json()).draft,
+    );
     const newPublished = await owner.request.put(
       `${web}/api/authoring/materials`,
       {
@@ -539,12 +747,16 @@ try {
       },
     );
     expect(newPublished.status()).toBe(200);
-    expect((await newPublished.json()).kind).toBe("saved");
-    const newMaterial = (
-      await sql.query("SELECT slug FROM materials.materials WHERE id=$1", [
-        newDraft.materialId,
-      ])
-    ).rows[0];
+    expect(materialSaveSchema.parse(await newPublished.json()).kind).toBe(
+      "saved",
+    );
+    const newMaterial = slugRowSchema.parse(
+      (
+        await sql.query("SELECT slug FROM materials.materials WHERE id=$1", [
+          newDraft.materialId,
+        ])
+      ).rows[0],
+    );
     await page.goto(`${web}/materials/${newMaterial.slug}`);
     await expect(
       page.locator('[data-material-reader-state="access-required"]:visible'),
@@ -557,8 +769,8 @@ try {
         name: "Changed next cohort",
         benefits: tier.tier.benefits,
         contentScope: {
-          ...tier.tier.contentScope,
-          guideIds: [...tier.tier.contentScope.guideIds, newGuide.id],
+          ...contentScope,
+          guideIds: [...contentScope.guideIds, newGuide.id],
         },
         availableForAssignment: true,
       },
@@ -570,27 +782,31 @@ try {
     await expect(
       page.locator('[data-material-reader-state="access-required"]:visible'),
     ).toBeVisible();
-    const expansion = await command("enrollments/preview-expansion", {
-      operationId: randomUUID(),
-      tierId,
-      tierRevision: 2,
-      targets: [
-        {
-          enrollmentId: first.id,
-          expectedRevision: first.revision,
-          tierRevision: 1,
-        },
-      ],
-      reason: "Synthetic explicitly selected existing cohort",
-    });
+    const expansion = expansionPreviewSchema.parse(
+      await command("enrollments/preview-expansion", {
+        operationId: randomUUID(),
+        tierId,
+        tierRevision: 2,
+        targets: [
+          {
+            enrollmentId: first.id,
+            expectedRevision: first.revision,
+            tierRevision: 1,
+          },
+        ],
+        reason: "Synthetic explicitly selected existing cohort",
+      }),
+    );
     await command("enrollments/apply-expansion", {
       operationId: randomUUID(),
       previewRef: expansion.value.previewRef,
     });
-    const secondAfter = await command("enrollments/list", {
-      operationId: randomUUID(),
-      accountId: secondHolder,
-    });
+    const secondAfter = enrollmentListSchema.parse(
+      await command("enrollments/list", {
+        operationId: randomUUID(),
+        accountId: secondHolder,
+      }),
+    );
     expect(
       secondAfter.items.find((item) => item.id === unselected.value.id),
     ).toEqual(secondBefore);
@@ -613,6 +829,7 @@ try {
         (await messages()).some((message) => message.text.includes("Tribute")),
       )
       .toBe(true);
+    /** @type {string | undefined} */
     let invite;
     await expect
       .poll(
@@ -644,8 +861,9 @@ try {
     await expect
       .poll(
         async () =>
-          (await (await buyer.request.get(`${telegram}/proof/state`)).json())
-            .members[String(user)],
+          telegramMembersSchema.parse(
+            await (await buyer.request.get(`${telegram}/proof/state`)).json(),
+          ).members[String(user)],
         { timeout: 30000 },
       )
       .toBe("member");
@@ -653,8 +871,10 @@ try {
       "PASS finite Tribute source authorizes intended community join through actual consumer and Platform dispatch permit",
     );
     await send(`/start a_${report.code}`);
-    const replay = await command("tribute/apply", apply);
-    expect(replay.value).toEqual(imported.value);
+    const replay = tributeApplySchema.parse(
+      await command("tribute/apply", apply),
+    );
+    expect(replay.value).toEqual(imported?.value);
     expect(
       (await ownEnrollments()).filter((item) => item.origin === "tribute"),
     ).toHaveLength(1);
@@ -685,6 +905,7 @@ try {
         type: "regular",
       },
     };
+    /** @param {unknown} document */
     async function tributeEvent(document) {
       const raw = JSON.stringify(document);
       const response = await buyer.request.post(
@@ -692,7 +913,7 @@ try {
         {
           headers: {
             "content-type": "application/json",
-            "trbt-signature": createHmac("sha256", process.env.TRIBUTE_API_KEY)
+            "trbt-signature": createHmac("sha256", signingKey)
               .update(raw)
               .digest("hex"),
           },
@@ -701,12 +922,12 @@ try {
       );
       expect(response.status()).toBe(200);
       expect(response.headers()["cache-control"]).toBe("private, no-store");
-      return response.json();
+      return statusResponseSchema.parse(await response.json());
     }
     expect((await tributeEvent(event)).status).toBe("applied");
     expect((await tributeEvent(event)).status).toBe("duplicate");
     expect(
-      (await ownEnrollments()).find((item) => item.id === first.id).endsAt,
+      (await ownEnrollments()).find((item) => item.id === first.id)?.endsAt,
     ).toBe(expiresAt);
     const cancel = {
       ...event,
@@ -722,38 +943,45 @@ try {
     report.scenarios.push(
       "PASS signed HTTP renewal/dedup/cancel retains exact paid remainder on real account",
     );
-    const status = await command("tribute/status", {
-      operationId: randomUUID(),
-      page: 0,
-    });
+    const status = tributeStatusSchema.parse(
+      await command("tribute/status", {
+        operationId: randomUUID(),
+        page: 0,
+      }),
+    );
     const source = status.value.sources.find(
       (item) => item.identityRef === identityRef,
     );
     expect(source).toBeDefined();
-    const revoked = await command("tribute/reconcile", {
-      operationId: randomUUID(),
-      sourceId: source.id,
-      expectedRevision: source.revision,
-      action: "revoke",
-      reason: "Synthetic exact-source revoke acceptance",
-    });
+    if (source === undefined) throw new Error("The Tribute source is missing");
+    const revoked = reconciledSchema.parse(
+      await command("tribute/reconcile", {
+        operationId: randomUUID(),
+        sourceId: source.id,
+        expectedRevision: source.revision,
+        action: "revoke",
+        reason: "Synthetic exact-source revoke acceptance",
+      }),
+    );
     expect(
-      (await ownEnrollments()).find((item) => item.id === first.id).state,
+      (await ownEnrollments()).find((item) => item.id === first.id)?.state,
     ).toBe("revoked");
     await send(`/start a_${report.code}`);
-    const blockedPreview = await command("tribute/preview", {
-      operationId: randomUUID(),
-      batchRef: `revoked-${String(user)}`,
-      rows: [
-        {
-          ...row,
-          checkedAt: new Date().toISOString(),
-          endsAt: expiresAt,
-          expectedRevision: revoked.value.revision,
-        },
-      ],
-    });
-    expect(blockedPreview.value.rows[0].status).toBe("conflict");
+    const blockedPreview = tributePreviewSchema.parse(
+      await command("tribute/preview", {
+        operationId: randomUUID(),
+        batchRef: `revoked-${String(user)}`,
+        rows: [
+          {
+            ...row,
+            checkedAt: new Date().toISOString(),
+            endsAt: expiresAt,
+            expectedRevision: revoked.value.revision,
+          },
+        ],
+      }),
+    );
+    expect(blockedPreview.value.rows[0]?.status).toBe("conflict");
     const afterRevoke = {
       ...event,
       created_at: new Date().toISOString(),
@@ -763,20 +991,22 @@ try {
       "pending_reconciliation",
     );
     expect(
-      (await ownEnrollments()).find((item) => item.id === first.id).state,
+      (await ownEnrollments()).find((item) => item.id === first.id)?.state,
     ).toBe("revoked");
-    const restored = await command("tribute/reconcile", {
-      operationId: randomUUID(),
-      sourceId: source.id,
-      expectedRevision: revoked.value.revision,
-      action: "restore",
-      reason: "Synthetic explicit restoration after verified paid period",
-      confirmedTerms: {
-        startsAt,
-        endsAt: expiresAt,
-        verificationRef: `restore-${String(user)}`,
-      },
-    });
+    const restored = reconciledSchema.parse(
+      await command("tribute/reconcile", {
+        operationId: randomUUID(),
+        sourceId: source.id,
+        expectedRevision: revoked.value.revision,
+        action: "restore",
+        reason: "Synthetic explicit restoration after verified paid period",
+        confirmedTerms: {
+          startsAt,
+          endsAt: expiresAt,
+          verificationRef: `restore-${String(user)}`,
+        },
+      }),
+    );
     expect(restored.value.id).toBe(source.id);
     expect(
       (await ownEnrollments()).filter((item) => item.origin === "tribute"),
@@ -788,7 +1018,7 @@ try {
       "PASS actual owner revoke survives bot start/import/signed renewal; explicit restore keeps same source and Enrollment",
     );
     await ownerPage.reload();
-    const columns = [
+    const columns = /** @type {const} */ ([
       "rowRef",
       "policyRef",
       "subscriptionId",
@@ -802,7 +1032,7 @@ try {
       "renewal",
       "expectedRevision",
       "reason",
-    ];
+    ]);
     const csvRow = {
       ...row,
       rowRef: `ui-${String(user)}`,
@@ -878,14 +1108,15 @@ try {
       "SELECT count(*)::int AS count FROM billing.purchases WHERE account_id=$1",
       [first.accountId],
     );
-    expect(purchaseCount.rows[0].count).toBe(0);
+    expect(countRowSchema.parse(purchaseCount.rows[0]).count).toBe(0);
     await page.goto(`${web}/account/subscription`);
     await expect(
       page.getByText("Оплачено через Tribute", { exact: true }),
     ).toBeVisible();
     expect(
       await page.evaluate(
-        () => document.documentElement.scrollWidth <= window.innerWidth,
+        // The expression runs inside the page; scripts compile without the DOM library.
+        "document.documentElement.scrollWidth <= window.innerWidth",
       ),
     ).toBe(true);
     const audit = await new AxeBuilder({ page })
@@ -915,7 +1146,7 @@ try {
     ).toBeVisible();
     expect(
       await ownerPage.evaluate(
-        () => document.documentElement.scrollWidth <= window.innerWidth,
+        "document.documentElement.scrollWidth <= window.innerWidth",
       ),
     ).toBe(true);
     await ownerPage

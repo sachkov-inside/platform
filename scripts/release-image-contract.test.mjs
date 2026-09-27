@@ -1,20 +1,28 @@
+// @ts-check
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, it } from "node:test";
 import { spawnSync } from "node:child_process";
+import { z } from "zod";
+
+import { readPackageManifest } from "./package-manifest.mjs";
 
 const repositoryRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
+/** @param {string} path */
 const read = (path) => readFileSync(resolve(repositoryRoot, path), "utf8");
 
 describe("release image contract", () => {
   it("ships backend and web production targets without a runtime source checkout", () => {
-    const rootPackage = JSON.parse(read("package.json"));
-    const backendDockerfile = read("apps/backend/Dockerfile");
-    const backendProduction = JSON.parse(
-      read("apps/backend/tsconfig.production.json"),
+    const rootPackage = readPackageManifest(
+      resolve(repositoryRoot, "package.json"),
     );
+    const backendDockerfile = read("apps/backend/Dockerfile");
+    const backendProduction = z
+      .object({ files: z.array(z.string()) })
+      .passthrough()
+      .parse(JSON.parse(read("apps/backend/tsconfig.production.json")));
     const smoke = read("scripts/release-image-smoke.sh");
     const ci = read(".github/workflows/ci.yml");
     const images = spawnSync(

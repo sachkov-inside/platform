@@ -41,6 +41,6 @@ export function optionalText(value: JsonValue | undefined): string | undefined {
 }
 
 export function nodeAttributes(node: JsonObject): JsonObject {
-  const value = node.attrs;
+  const value = node["attrs"];
   return value === undefined ? {} : expectObject(value, "node attributes");
 }

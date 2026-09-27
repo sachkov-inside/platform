@@ -19,7 +19,7 @@ export const headingBlock: MaterialBlockDefinition =
     }),
     kind: "heading",
     render: (node, tools) => {
-      const level = nodeAttributes(node).level;
+      const level = nodeAttributes(node)["level"];
       if (!isHeadingLevel(level)) {
         throw new TypeError("Unsupported heading level");
       }

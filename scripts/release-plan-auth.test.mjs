@@ -1,15 +1,23 @@
+// @ts-check
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
 import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { resolve } from "node:path";
 import { describe, it } from "node:test";
+import { z } from "zod";
 
 describe("release settings authentication", () => {
   it("uses settings access only for the administration endpoint", () => {
     const result = runPlan();
     assert.equal(result.status, 0, result.stderr);
-    assert.equal(JSON.parse(result.stdout).version, "v1");
+    assert.equal(
+      z
+        .object({ version: z.unknown() })
+        .passthrough()
+        .parse(JSON.parse(result.stdout)).version,
+      "v1",
+    );
     assert.deepEqual(result.calls, [
       "settings",
       "standard",
@@ -72,7 +80,7 @@ if (settings) {
       encoding: "utf8",
       env: {
         ...process.env,
-        PATH: `${directory}:${process.env.PATH}`,
+        PATH: `${directory}:${process.env["PATH"]}`,
         GH_TOKEN: "workflow-token",
         RELEASE_SETTINGS_READ_TOKEN: "settings-read",
         GITHUB_REPOSITORY: "sachkov-inside/platform",

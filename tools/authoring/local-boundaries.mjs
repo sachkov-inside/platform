@@ -1,9 +1,12 @@
+// @ts-check
 import { z } from "zod";
 import { canonical, checksum } from "./package.mjs";
 
 const version = z.number().int().positive().max(Number.MAX_SAFE_INTEGER);
 const text = z.string().min(1);
 const hash = z.hash("sha256");
+const access = z.enum(["free", "membership", "workshop"]);
+/** @typedef {z.infer<typeof access>} Access */
 // Validate consumed fields, preserving additional wire fields and exact replay bytes.
 const source = z
   .object({ id: text, path: text, revision: hash, showInFeed: z.boolean() })
@@ -17,7 +20,7 @@ const materialSchema = materialReceiptSchema.extend({
   metadata: z
     .object({
       slug: text,
-      access: z.enum(["free", "membership", "workshop"]).optional(),
+      access: access.optional(),
     })
     .passthrough(),
   source: source.nullable(),
@@ -34,6 +37,7 @@ const guideSchema = topicSchema.extend({
   pageRejected: z.boolean().optional(),
   sourceId: z.string().nullable().optional(),
 });
+/** @typedef {z.infer<typeof guideSchema>} StoredGuide */
 const coverChangeSchema = z
   .object({ cover: coverSchema.nullable() })
   .passthrough();
@@ -71,8 +75,13 @@ export const videoSchema = z
     durationSeconds: z.number().int().positive().optional(),
   })
   .passthrough();
+/** @typedef {z.infer<typeof videoSchema>} Video */
 const videoUploadSchema = z
-  .object({ uploadEndpoint: z.url(), video: videoSchema })
+  .object({
+    uploadEndpoint: z.url(),
+    providerVideoId: text,
+    video: videoSchema,
+  })
   .passthrough();
 const orderSchema = z.object({ orderVersion: hash }).passthrough();
 const guideOrderSchema = orderSchema.extend({
@@ -98,7 +107,7 @@ const applyBodySchema = z
       .object({
         title: z.string().nullable(),
         summary: z.string().nullable(),
-        access: z.enum(["free", "membership", "workshop"]),
+        access,
         difficulty: z.enum(["basic", "intermediate", "advanced"]).nullable(),
         outcomes: z.array(z.string()),
         topicId: z.uuid().nullable(),
@@ -119,86 +128,200 @@ const applyBodySchema = z
   })
   .passthrough();
 
-export function parseLocalResponse(path, value) {
-  let schema;
+const environmentSchema = z
+  .object({ mode: z.enum(["development", "test", "production"]) })
+  .passthrough();
+const validSchema = z.object({ valid: z.literal(true) }).passthrough();
+const homePinSchema = z
+  .object({ seriesId: z.uuid().nullable(), version })
+  .passthrough();
+const guideArtifactsSchema = z
+  .object({ artifacts: z.array(artifactSchema) })
+  .passthrough();
+
+/** Every response schema of the local API by name; the path of a request selects one. */
+const localResponseSchemas = {
+  environment: environmentSchema,
+  topics: z.array(topicSchema),
+  guides: z.array(guideSchema),
+  topic: topicSchema,
+  valid: validSchema,
+  materialReceipt: materialReceiptSchema,
+  guide: guideSchema,
+  order: orderSchema,
+  homePin: homePinSchema,
+  assetReceipt: assetReceiptSchema,
+  video: videoSchema,
+  videoUpload: videoUploadSchema,
+  material: materialSchema,
+  coverChange: coverChangeSchema,
+  artifactOutcome: artifactOutcomeSchema,
+  guideArtifacts: guideArtifactsSchema,
+  artifact: artifactSchema,
+  guideOrder: guideOrderSchema,
+};
+
+/**
+ * @typedef {keyof typeof localResponseSchemas} LocalResponseKind
+ */
+
+/**
+ * The response schema a path selects, written as a type in the order `localResponseKind` tests
+ * paths; `local-boundaries.test.mjs` pins both to the same examples.
+ *
+ * @template {string} P
+ * @typedef {P extends "/authoring/import/materials/environment"
+ *   ? "environment"
+ *   : P extends "/authoring/collections?kind=topic"
+ *   ? "topics"
+ *   : P extends "/authoring/collections?kind=guide"
+ *   ? "guides"
+ *   : P extends "/authoring/collections"
+ *   ? "topic"
+ *   : P extends "/authoring/import/materials/validate" | "/authoring/import/guides/validate"
+ *   ? "valid"
+ *   : P extends "/authoring/import/materials/reserve" | "/authoring/import/materials/apply"
+ *   ? "materialReceipt"
+ *   : P extends "/authoring/import/guides/reserve" | "/authoring/import/guides/update"
+ *   ? "guide"
+ *   : P extends "/authoring/import/guides/composition"
+ *   ? "order"
+ *   : P extends "/authoring/home-pin"
+ *   ? "homePin"
+ *   : P extends `/authoring/materials/${string}/assets`
+ *   ? "assetReceipt"
+ *   : P extends `/authoring/materials/${string}/videos/attach`
+ *   ? "video"
+ *   : P extends `/authoring/materials/${string}/videos/uploads`
+ *   ? "videoUpload"
+ *   : P extends `/authoring/videos/${string}/reconcile`
+ *   ? "video"
+ *   : P extends `/authoring/materials/${string}`
+ *   ? "material"
+ *   : P extends `/authoring/import/content-covers/${"material" | "series"}/${string}`
+ *   ? "coverChange"
+ *   : P extends `/authoring/import/guides/${string}/artifacts`
+ *   ? "artifactOutcome"
+ *   : P extends `/authoring/guides/${string}/artifacts`
+ *   ? "guideArtifacts"
+ *   : P extends `/authoring/guide-artifacts/${string}/materials`
+ *   ? "artifact"
+ *   : P extends `/authoring/guides/${string}/order`
+ *   ? "guideOrder"
+ *   : never} LocalResponseKindOf
+ */
+
+/**
+ * The response each local path returns.
+ *
+ * @template {string} P
+ * @typedef {[LocalResponseKindOf<P>] extends [never]
+ *   ? unknown
+ *   : z.infer<(typeof localResponseSchemas)[LocalResponseKindOf<P>]>} LocalResponse
+ */
+
+/**
+ * A transport whose response is checked by `parseLocalResponse` for its path.
+ *
+ * @typedef {<P extends string>(
+ *   path: P,
+ *   body?: unknown,
+ *   key?: string,
+ *   options?: { method?: string },
+ * ) => Promise<LocalResponse<P>>} LocalRequest
+ */
+
+/**
+ * The response schema a local path selects.
+ *
+ * @param {string} path
+ * @returns {LocalResponseKind}
+ */
+export function localResponseKind(path) {
   switch (path) {
     case "/authoring/import/materials/environment":
-      schema = z
-        .object({ mode: z.enum(["development", "test", "production"]) })
-        .passthrough();
-      break;
+      return "environment";
     case "/authoring/collections?kind=topic":
-      schema = z.array(topicSchema);
-      break;
+      return "topics";
     case "/authoring/collections?kind=guide":
-      schema = z.array(guideSchema);
-      break;
+      return "guides";
     case "/authoring/collections":
-      schema = topicSchema;
-      break;
+      return "topic";
     case "/authoring/import/materials/validate":
     case "/authoring/import/guides/validate":
-      schema = z.object({ valid: z.literal(true) }).passthrough();
-      break;
+      return "valid";
     case "/authoring/import/materials/reserve":
     case "/authoring/import/materials/apply":
-      schema = materialReceiptSchema;
-      break;
+      return "materialReceipt";
     case "/authoring/import/guides/reserve":
     case "/authoring/import/guides/update":
-      schema = guideSchema;
-      break;
+      return "guide";
     case "/authoring/import/guides/composition":
-      schema = orderSchema;
-      break;
+      return "order";
     case "/authoring/home-pin":
-      schema = z
-        .object({ seriesId: z.uuid().nullable(), version })
-        .passthrough();
-      break;
+      return "homePin";
     default:
       if (/^\/authoring\/materials\/[^/]+\/assets$/u.test(path))
-        schema = assetReceiptSchema;
-      else if (/^\/authoring\/materials\/[^/]+\/videos\/attach$/u.test(path))
-        schema = videoSchema;
-      else if (/^\/authoring\/materials\/[^/]+\/videos\/uploads$/u.test(path))
-        schema = videoUploadSchema;
-      else if (/^\/authoring\/videos\/[^/]+\/reconcile$/u.test(path))
-        schema = videoSchema;
-      else if (/^\/authoring\/materials\/[^/]+$/u.test(path))
-        schema = materialSchema;
-      else if (
+        return "assetReceipt";
+      if (/^\/authoring\/materials\/[^/]+\/videos\/attach$/u.test(path))
+        return "video";
+      if (/^\/authoring\/materials\/[^/]+\/videos\/uploads$/u.test(path))
+        return "videoUpload";
+      if (/^\/authoring\/videos\/[^/]+\/reconcile$/u.test(path)) return "video";
+      if (/^\/authoring\/materials\/[^/]+$/u.test(path)) return "material";
+      if (
         /^\/authoring\/import\/content-covers\/(material|series)\/[^/]+$/u.test(
           path,
         )
       )
-        schema = coverChangeSchema;
-      else if (/^\/authoring\/import\/guides\/[^/]+\/artifacts$/u.test(path))
-        schema = artifactOutcomeSchema;
-      else if (/^\/authoring\/guides\/[^/]+\/artifacts$/u.test(path))
-        schema = z.object({ artifacts: z.array(artifactSchema) }).passthrough();
-      else if (/^\/authoring\/guide-artifacts\/[^/]+\/materials$/u.test(path))
-        schema = artifactSchema;
-      else if (/^\/authoring\/guides\/[^/]+\/order$/u.test(path))
-        schema = guideOrderSchema;
-      else throw new Error(`Unsupported local response boundary: ${path}`);
+        return "coverChange";
+      if (/^\/authoring\/import\/guides\/[^/]+\/artifacts$/u.test(path))
+        return "artifactOutcome";
+      if (/^\/authoring\/guides\/[^/]+\/artifacts$/u.test(path))
+        return "guideArtifacts";
+      if (/^\/authoring\/guide-artifacts\/[^/]+\/materials$/u.test(path))
+        return "artifact";
+      if (/^\/authoring\/guides\/[^/]+\/order$/u.test(path))
+        return "guideOrder";
+      throw new Error(`Unsupported local response boundary: ${path}`);
   }
-  return schema.parse(value);
 }
 
+/**
+ * @template {string} P
+ * @overload
+ * @param {P} path
+ * @param {unknown} value
+ * @returns {LocalResponse<P>}
+ */
+/**
+ * @param {string} path
+ * @param {unknown} value
+ * @returns {unknown}
+ */
+export function parseLocalResponse(path, value) {
+  return localResponseSchemas[localResponseKind(path)].parse(value);
+}
+
+// A journal file holds canonical JSON. In memory a request or result may still carry undefined
+// fields that canonical() drops on write, so the checked value keeps the type unknown.
+/** @type {z.ZodType<unknown>} */
+const journalValue = z.custom((value) => z.json().safeParse(value).success);
 const operationSchema = z.discriminatedUnion("status", [
-  z.object({ status: z.literal("pending"), request: z.json() }).passthrough(),
+  z
+    .object({ status: z.literal("pending"), request: journalValue })
+    .passthrough(),
   z
     .object({
       status: z.literal("applied"),
-      request: z.json(),
-      result: z.json(),
+      request: journalValue,
+      result: journalValue,
     })
     .passthrough(),
   z
     .object({
       status: z.literal("rejected"),
-      request: z.json(),
+      request: journalValue,
       error: z
         .object({
           status: z
@@ -222,7 +345,7 @@ const cacheSchema = materialReceiptSchema.extend({
   coverSha256: hash.nullable().optional(),
   guideSourceIds: z.array(text).optional(),
   archived: z.boolean().optional(),
-  access: z.enum(["free", "membership", "workshop"]).optional(),
+  access: access.optional(),
   url: z
     .string()
     .startsWith("/materials/")
@@ -238,7 +361,12 @@ const journalSchema = z
     schemaVersion: z.literal(1),
     target: text,
     materials: z.record(text, cacheSchema),
-    guides: z.record(text, z.json()),
+    guides: z.record(
+      text,
+      z
+        .object({ guideId: z.uuid(), slug: text, version: version.optional() })
+        .passthrough(),
+    ),
     operations: z.record(text, z.union([operationSchema, assetReceiptSchema])),
     // Durable receipts for covers, artifacts and videos; they are not replayable request operations.
     resources: z.record(text, z.json()).optional(),
@@ -246,6 +374,100 @@ const journalSchema = z
   })
   .passthrough();
 
+// Receipts under `journal.resources`, one shape per key prefix. They are written by this tool, and
+// a reader checks the one it expects before trusting it.
+/** `video:<materialId>:<providerVideoId>`: a provider record attached to a Material. */
+export const attachedVideoReceiptSchema = z.object({
+  videoId: z.uuid(),
+  state: videoSchema.shape.state,
+});
+/** `source-video:<sourceKey>`: the recording `authoring:video` uploaded for an original. */
+export const sourceVideoReceiptSchema = z.object({
+  videoId: z.uuid(),
+  providerVideoId: text,
+  sha256: hash,
+});
+/** `cover-pending:<materialId>`: a cover change whose response may have been lost. */
+export const pendingCoverReceiptSchema = z.object({
+  sha256: hash,
+  expectedCoverId: z.uuid().nullable(),
+});
+/** `artifact:<guideId>:<sourceKey>`: a Guide artifact and the Materials it was linked to. */
+export const artifactReceiptSchema = z.object({
+  artifactId: z.uuid(),
+  fingerprint: hash,
+  materialIds: z.array(z.uuid()).nullable(),
+});
+const uploadStart = {
+  sourceId: text,
+  idempotencyKey: text,
+  byteSize: z.number().int().positive(),
+  filename: text,
+  title: z.string(),
+  access,
+};
+const uploadTransfer = {
+  ...uploadStart,
+  videoId: z.uuid(),
+  providerVideoId: text,
+  uploadEndpoint: z.url(),
+};
+/** `upload:<materialId>:<sha256>`: one recording upload, persisted before every step. */
+export const uploadReceiptSchema = z.discriminatedUnion("phase", [
+  z.object({ ...uploadStart, phase: z.literal("initializing") }),
+  z.object({
+    ...uploadTransfer,
+    phase: z.enum(["transfer", "processing", "failed"]),
+  }),
+  z.object({
+    ...uploadTransfer,
+    phase: z.literal("ready"),
+    durationSeconds: z.number().int().positive().nullable(),
+  }),
+]);
+
+/**
+ * The receipt stored under a resource key, checked against the shape its prefix names.
+ *
+ * @template T
+ * @param {z.ZodType<T>} schema
+ * @param {unknown} value
+ * @returns {T | undefined}
+ */
+export function parseReceipt(schema, value) {
+  return value === undefined ? undefined : schema.parse(value);
+}
+
+/**
+ * A request operation of the journal; image receipts share the record under their own key prefix.
+ *
+ * @param {unknown} entry
+ * @returns {entry is z.infer<typeof operationSchema>}
+ */
+export function isJournalOperation(entry) {
+  return operationSchema.safeParse(entry).success;
+}
+
+const materialApplyPath = "/authoring/import/materials/apply";
+const materialApplyRequestSchema = z
+  .object({ path: z.literal(materialApplyPath), body: applyBodySchema })
+  .passthrough();
+
+/**
+ * The Material apply command a journal request holds, or undefined for another request.
+ *
+ * @param {unknown} request
+ */
+export function materialApplyRequest(request) {
+  return typeof request === "object" &&
+    request !== null &&
+    "path" in request &&
+    request.path === materialApplyPath
+    ? materialApplyRequestSchema.parse(request)
+    : undefined;
+}
+
+/** @param {unknown} value */
 export function parseJournal(value) {
   const journal = journalSchema.parse(value);
   for (const [key, entry] of Object.entries(journal.operations)) {
@@ -256,11 +478,12 @@ export function parseJournal(value) {
     const operation = operationSchema.parse(entry);
     if (key !== `authoring:${checksum(canonical(operation.request))}`)
       throw new Error("Journal request fingerprint mismatch");
-    if (operation.request?.path === "/authoring/import/materials/apply") {
-      applyBodySchema.parse(operation.request.body);
+    const apply = materialApplyRequest(operation.request);
+    if (apply !== undefined) {
+      const body = apply.body;
       if (operation.status === "applied") {
         const receipt = materialReceiptSchema.parse(operation.result);
-        if (receipt.materialId !== operation.request.body.materialId)
+        if (receipt.materialId !== body.materialId)
           throw new Error("Journal receipt Material identity mismatch");
       }
     }

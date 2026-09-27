@@ -1,3 +1,4 @@
+// @ts-check
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
 import { createServer } from "node:net";
@@ -37,10 +38,11 @@ describe("standalone runtime configuration check", () => {
   });
 });
 
+/** @returns {Promise<import("node:net").Server | undefined>} */
 function occupyDefaultPortIfAvailable() {
   return new Promise((resolve, reject) => {
     const server = createServer();
-    server.once("error", (error) => {
+    server.once("error", (/** @type {NodeJS.ErrnoException} */ error) => {
       if (error.code === "EADDRINUSE") {
         resolve(undefined);
       } else {
@@ -51,6 +53,10 @@ function occupyDefaultPortIfAvailable() {
   });
 }
 
+/**
+ * @param {import("node:net").Server} server
+ * @returns {Promise<void>}
+ */
 function closeServer(server) {
   return new Promise((resolve, reject) => {
     server.close((error) => {

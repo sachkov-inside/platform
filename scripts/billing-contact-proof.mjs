@@ -1,3 +1,4 @@
+// @ts-check
 // Disposable local PostgreSQL + real SMTP adapter + BFF/browser. All identities/recipients are synthetic.
 import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
@@ -8,6 +9,7 @@ import { createServer } from "node:net";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { parseEnv } from "node:util";
+import { z } from "zod";
 import { startFullStackIdentity } from "./full-stack-identity.mjs";
 import { signalProcessGroup } from "./process-group-signal.mjs";
 import { evidenceDirectory } from "./evidence-path.mjs";
@@ -17,17 +19,33 @@ const backendRequire = createRequire(
   resolve(root, "apps/backend/package.json"),
 );
 const webRequire = createRequire(resolve(root, "apps/web/package.json"));
-const { PostgreSqlContainer } = backendRequire("@testcontainers/postgresql");
-const { chromium } = webRequire("@playwright/test");
-const { default: AxeBuilder } = webRequire("@axe-core/playwright");
-const pnpmPath = process.env.npm_execpath;
-if (!pnpmPath) throw new Error("Run pnpm smoke:billing-contact");
+// The proof borrows the applications' test dependencies; their types come from the same packages.
+// createRequire returns `any`, so each module is asserted to the type proof-dependencies declares.
+/* oxlint-disable typescript/no-unsafe-type-assertion -- proof-dependencies types these modules. */
+const { PostgreSqlContainer } =
+  /** @type {typeof import("../apps/backend/test/support/proof-dependencies.js")} */ (
+    backendRequire("@testcontainers/postgresql")
+  );
+const { chromium } =
+  /** @type {typeof import("../apps/web/test/support/proof-dependencies.mjs")} */ (
+    webRequire("@playwright/test")
+  );
+const { default: AxeBuilder } =
+  /** @type {{ default: typeof import("../apps/web/test/support/proof-dependencies.mjs").AxeBuilder }} */ (
+    webRequire("@axe-core/playwright")
+  );
+/* oxlint-enable typescript/no-unsafe-type-assertion */
+const pnpmExecutable = process.env["npm_execpath"];
+if (!pnpmExecutable) throw new Error("Run pnpm smoke:billing-contact");
+const pnpmPath = pnpmExecutable;
 const apiPort = 6406;
 const webPort = 6407;
 const apiBaseUrl = `http://127.0.0.1:${apiPort}`;
 const webBaseUrl = `http://127.0.0.1:${webPort}`;
 const evidence = evidenceDirectory("issue-406");
+/** @type {string[]} */
 const messages = [];
+/** @type {Set<import("node:net").Socket>} */
 const sockets = new Set();
 const smtp = createServer((socket) => {
   sockets.add(socket);
@@ -35,8 +53,9 @@ const smtp = createServer((socket) => {
   socket.write("220 localhost synthetic SMTP\r\n");
   let buffer = "";
   let data = false;
+  /** @type {string[]} */
   let message = [];
-  socket.on("data", (chunk) => {
+  socket.on("data", (/** @type {Buffer} */ chunk) => {
     buffer += chunk.toString();
     while (buffer.includes("\r\n")) {
       const end = buffer.indexOf("\r\n");
@@ -65,10 +84,18 @@ const smtp = createServer((socket) => {
     }
   });
 });
+/** @type {import("node:child_process").ChildProcess[]} */
 const children = [];
+/** @type {import("../apps/backend/test/support/proof-dependencies.js").StartedPostgreSqlContainer | undefined} */
 let database;
+/** @type {Awaited<ReturnType<typeof startFullStackIdentity>> | undefined} */
 let identity;
+/** @type {import("../apps/web/test/support/proof-dependencies.mjs").Browser | undefined} */
 let browser;
+/**
+ * @param {string[]} args
+ * @param {NodeJS.ProcessEnv} env
+ */
 function run(args, env) {
   const child = spawn(process.execPath, [pnpmPath, ...args], {
     cwd: root,
@@ -79,11 +106,21 @@ function run(args, env) {
   children.push(child);
   return child;
 }
+/**
+ * @param {string[]} args
+ * @param {NodeJS.ProcessEnv} env
+ */
 async function command(args, env) {
   const child = run(args, env);
-  const code = await new Promise((done) => child.once("exit", done));
+  /** @type {Promise<number | null>} */
+  const exited = new Promise((done) => child.once("exit", done));
+  const code = await exited;
   assert.equal(code, 0, `Command failed: ${args.join(" ")}`);
 }
+/**
+ * @param {string} url
+ * @param {(body: string) => boolean} accepts
+ */
 async function waitReady(url, accepts) {
   for (let index = 0; index < 120; index++) {
     try {
@@ -97,25 +134,36 @@ async function waitReady(url, accepts) {
   }
   throw new Error(`Readiness timed out: ${url}`);
 }
+/** @param {number} port */
 async function assertPortFree(port) {
   const probe = createServer();
-  await new Promise((done, reject) => {
+  /** @type {Promise<void>} */
+  const listening = new Promise((done, reject) => {
     probe.once("error", reject);
     probe.listen(port, "127.0.0.1", done);
   });
+  await listening;
   await new Promise((done) => probe.close(done));
 }
 try {
   await assertPortFree(apiPort);
   await assertPortFree(webPort);
-  await new Promise((done) => smtp.listen(0, "127.0.0.1", done));
+  /** @type {Promise<void>} */
+  const smtpListening = new Promise((done) =>
+    smtp.listen(0, "127.0.0.1", done),
+  );
+  await smtpListening;
   const smtpAddress = smtp.address();
   assert(smtpAddress && typeof smtpAddress !== "string");
   database = await new PostgreSqlContainer("postgres:18.4-alpine").start();
-  identity = await startFullStackIdentity({ apiBaseUrl, webBaseUrl });
+  const fullStackIdentity = await startFullStackIdentity({
+    apiBaseUrl,
+    webBaseUrl,
+  });
+  identity = fullStackIdentity;
   const env = {
-    PATH: process.env.PATH,
-    HOME: process.env.HOME,
+    PATH: process.env["PATH"],
+    HOME: process.env["HOME"],
     ...parseEnv(await readFile(resolve(root, ".env.example"), "utf8")),
     ...identity.environment,
     NODE_ENV: "test",
@@ -135,7 +183,9 @@ try {
   );
   await waitReady(
     `${apiBaseUrl}/health`,
-    (body) => JSON.parse(body).status === "ready",
+    (body) =>
+      z.object({ status: z.unknown() }).passthrough().parse(JSON.parse(body))
+        .status === "ready",
   );
   run(
     [
@@ -161,25 +211,26 @@ try {
     body.includes("Email"),
   );
   await mkdir(evidence, { recursive: true });
-  browser = await chromium.launch();
-  for (const [name, width, height] of [
+  const launched = await chromium.launch();
+  browser = launched;
+  for (const [name, width, height] of /** @type {const} */ ([
     ["desktop", 1440, 1024],
     ["mobile", 390, 844],
-  ]) {
-    const token = await identity.createAccessToken(`billing-${name}`);
+  ])) {
+    const token = await fullStackIdentity.createAccessToken(`billing-${name}`);
     const established = await fetch(`${apiBaseUrl}/accounts`, {
       method: "POST",
       headers: { authorization: `Bearer ${token.token}` },
     });
     assert.equal(established.status, 201);
-    const context = await browser.newContext({
+    const context = await launched.newContext({
       viewport: { width, height },
       reducedMotion: "reduce",
     });
     await context.addCookies([
       {
-        name: identity.cookieName,
-        value: await identity.createSession(token),
+        name: fullStackIdentity.cookieName,
+        value: await fullStackIdentity.createSession(token),
         url: webBaseUrl,
         httpOnly: true,
         sameSite: "Lax",
@@ -237,10 +288,9 @@ try {
       .withTags(["wcag2a", "wcag2aa", "wcag21aa"])
       .analyze();
     assert.deepEqual(a11y.violations, []);
+    // The expression runs inside the page; scripts compile without the DOM library.
     assert(
-      await page.evaluate(
-        () => document.documentElement.scrollWidth <= innerWidth,
-      ),
+      await page.evaluate("document.documentElement.scrollWidth <= innerWidth"),
     );
     await page.getByLabel("Код из письма").fill(code);
     await page

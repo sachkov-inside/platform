@@ -28,13 +28,13 @@ export function AnalyticsPanel({
 }) {
   if (!result)
     return (
-      <p role="status" className={styles.empty}>
+      <p role="status" className={styles["empty"]}>
         Загружаем аналитику…
       </p>
     );
   if (result.kind === "error")
     return (
-      <p role="alert" className={styles.alert}>
+      <p role="alert" className={styles["alert"]}>
         {errorMessage(result.code)}
       </p>
     );
@@ -46,7 +46,10 @@ export function AnalyticsPanel({
           .flatMap((f) => f.sources)
           .find((source) => source.sourceId === id)?.name ?? id);
   return (
-    <section className={styles.analytics} aria-label="Аналитика коммуникаций">
+    <section
+      className={styles["analytics"]}
+      aria-label="Аналитика коммуникаций"
+    >
       {[
         {
           title: "Аудитория бота",
@@ -84,11 +87,11 @@ export function AnalyticsPanel({
         <section
           key={group.title}
           aria-label={group.title}
-          className={styles.metricGroup}
+          className={styles["metricGroup"]}
         >
-          <h3 className={styles.sectionTitle}>{group.title}</h3>
-          <p className={styles.hint}>{group.hint}</p>
-          <dl className={styles.metrics}>
+          <h3 className={styles["sectionTitle"]}>{group.title}</h3>
+          <p className={styles["hint"]}>{group.hint}</p>
+          <dl className={styles["metrics"]}>
             {Object.entries(group.values).map(([label, value]) => (
               <div key={label}>
                 <dt>{label}</dt>
@@ -98,13 +101,13 @@ export function AnalyticsPanel({
           </dl>
         </section>
       ))}
-      <p className={styles.hint}>
+      <p className={styles["hint"]}>
         Общие контакты и доступность относятся ко всему боту. Фильтр сужает
         участников, доставки, переходы и список контактов. Отправка не означает
         прочтение. Ссылку можно переслать: переход не доказывает личность
         читателя, вход в аккаунт или оплату.
       </p>
-      <p role="status" className={styles.notice}>
+      <p role="status" className={styles["notice"]}>
         {trackingBacklog.kind === "unavailable"
           ? "Задержка передачи переходов сейчас неизвестна; статистика может быть неполной."
           : `Ожидают передачи: ${String(trackingBacklog.pending)}. Возраст самого старого события: ${String(trackingBacklog.oldestAgeSeconds)} с.`}{" "}
@@ -115,9 +118,9 @@ export function AnalyticsPanel({
       {s.contacts.length === 0 ? (
         <p>Контактов пока нет.</p>
       ) : (
-        <ul className={styles.contacts}>
+        <ul className={styles["contacts"]}>
           {s.contacts.map((contact) => (
-            <li key={contact.contactId} className={styles.contact}>
+            <li key={contact.contactId} className={styles["contact"]}>
               <p className="break-all font-mono text-xs">
                 Контакт {contact.contactId}
               </p>
@@ -165,9 +168,9 @@ export function AnalyticsPanel({
           {deliveries.deliveries.length === 0 ? (
             <p>Доставок пока нет.</p>
           ) : (
-            <ul className={styles.contacts}>
+            <ul className={styles["contacts"]}>
               {deliveries.deliveries.map((delivery) => (
-                <li key={delivery.deliveryId} className={styles.contact}>
+                <li key={delivery.deliveryId} className={styles["contact"]}>
                   <p className="break-all text-xs">
                     Контакт {delivery.contactId}
                   </p>
@@ -215,7 +218,7 @@ export function EntryHistory({
 }) {
   const sources = funnels.flatMap((f) => f.sources);
   return entries.length > 0 ? (
-    <ol className={styles.history}>
+    <ol className={styles["history"]}>
       {entries.map((entry, i) => (
         <li key={i} className="break-words">
           {new Date(entry.enteredAt).toLocaleString("ru-RU")} ·{" "}
@@ -226,6 +229,6 @@ export function EntryHistory({
       ))}
     </ol>
   ) : (
-    <p className={styles.empty}>Входов пока нет.</p>
+    <p className={styles["empty"]}>Входов пока нет.</p>
   );
 }

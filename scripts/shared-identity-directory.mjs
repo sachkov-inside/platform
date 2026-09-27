@@ -1,3 +1,4 @@
+// @ts-check
 import { execFileSync } from "node:child_process";
 import { lstatSync, mkdirSync, readlinkSync, symlinkSync } from "node:fs";
 import { dirname, resolve } from "node:path";
@@ -5,6 +6,11 @@ import { dirname, resolve } from "node:path";
 // Every checkout of this repository shares one local stand, so it must share the stand's sign-in keys.
 // A linked worktree therefore points `.identity-proof` at the primary checkout instead of generating
 // its own keys, which would silently detach the owner's stand accounts.
+/**
+ * @param {string} root
+ * @param {{ git?: (args: string[]) => string }} [options]
+ * @returns {string}
+ */
 export function ensureSharedIdentityDirectory(
   root,
   {

@@ -17,7 +17,7 @@ import { isJsonArray, isJsonObject } from "../json.js";
 export const variantOptionType = "variantOption";
 
 function optionNodes(node: JsonObject): readonly JsonObject[] {
-  const content = node.content;
+  const content = node["content"];
   return content === undefined || !isJsonArray(content)
     ? []
     : content.filter(isJsonObject);
@@ -35,7 +35,7 @@ export const variantBlock: MaterialBlockDefinition =
       // cannot say is that each branch names a mode the registry knows, and names a different one.
       // Both are reported against the block, because a branch carries no field of its own to name.
       const modes = optionNodes(node).map(
-        (option) => nodeAttributes(option).mode,
+        (option) => nodeAttributes(option)["mode"],
       );
       if (!modes.every(isGuideMode)) {
         report("invalid_variant_mode", "mode");
@@ -78,12 +78,12 @@ export const variantBlock: MaterialBlockDefinition =
     },
     render: (node, tools) => ({
       kind: "variant",
-      options: expectArray(node.content, "variant options").map((value) => {
+      options: expectArray(node["content"], "variant options").map((value) => {
         const option = expectObject(value, "variant option");
-        if (option.type !== variantOptionType) {
+        if (option["type"] !== variantOptionType) {
           throw new TypeError("Expected variant option");
         }
-        const mode = nodeAttributes(option).mode;
+        const mode = nodeAttributes(option)["mode"];
         if (!isGuideMode(mode)) {
           throw new TypeError("Unsupported guide mode");
         }

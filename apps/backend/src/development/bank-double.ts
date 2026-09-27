@@ -9,7 +9,7 @@ const DEFAULT_BANK_DOUBLE_LEDGER = "/data/bank-double.json";
 async function main(): Promise<void> {
   // Режим проверяется до остальной конфигурации: отказ двойника не должен зависеть от того,
   // какие боевые значения оказались рядом.
-  if (parsePlatformMode(process.env.NODE_ENV) !== "development") {
+  if (parsePlatformMode(process.env["NODE_ENV"]) !== "development") {
     throw new Error(
       "The local bank double runs only with NODE_ENV=development",
     );
@@ -22,11 +22,11 @@ async function main(): Promise<void> {
   const running = await startLocalBankDouble({
     config: config.tbank,
     host:
-      presentText(process.env.BANK_DOUBLE_HOST?.trim()) ??
+      presentText(process.env["BANK_DOUBLE_HOST"]?.trim()) ??
       DEFAULT_BANK_DOUBLE_HOST,
     port: Number(endpoint.port === "" ? "80" : endpoint.port),
     ledgerPath:
-      presentText(process.env.BANK_DOUBLE_LEDGER?.trim()) ??
+      presentText(process.env["BANK_DOUBLE_LEDGER"]?.trim()) ??
       DEFAULT_BANK_DOUBLE_LEDGER,
   });
   process.stdout.write(

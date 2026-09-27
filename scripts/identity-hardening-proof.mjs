@@ -1,26 +1,26 @@
+// @ts-check
 import { spawn } from "node:child_process";
 import { readFile } from "node:fs/promises";
-import { tmpdir } from "node:os";
 import { dirname, resolve } from "node:path";
 import process from "node:process";
 import { setTimeout as delay } from "node:timers/promises";
 import { parseEnv } from "node:util";
 import { fileURLToPath } from "node:url";
 
-import lockfile from "proper-lockfile";
-
 import { ensureCheckDatabase } from "./check-database.mjs";
+import { acquireLocalSetupLock } from "./local-setup-lock.mjs";
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const identityCompose = resolve(root, "infra/identity/logto/compose.yaml");
 const platformCompose = resolve(root, "compose.yaml");
 const composeEnvironment = resolve(root, "infra/identity/logto/compose.env");
-const pnpmPath = process.env.npm_execpath;
-if (pnpmPath === undefined) {
+const pnpmExecutable = process.env["npm_execpath"];
+if (pnpmExecutable === undefined) {
   throw new Error(
     "Run the identity hardening proof through the pinned pnpm CLI",
   );
 }
+const pnpmPath = pnpmExecutable;
 
 const identityEnvironment = {
   ...process.env,
@@ -40,7 +40,11 @@ const platformEnvironment = {
   POSTGRES_HOST_PORT: identityEnvironment.IDENTITY_PROOF_POSTGRES_PORT,
 };
 
-const releaseLock = await acquireOwnershipLock();
+const releaseLock = await acquireLocalSetupLock(
+  "Another local session owns the machine-wide Platform setup lock",
+);
+/** @typedef {NodeJS.ProcessEnv} Environment */
+/** @type {Set<import("node:child_process").ChildProcess>} */
 const applicationProcesses = new Set();
 let ownsIdentity = false;
 let ownsPlatform = false;
@@ -99,8 +103,9 @@ try {
     runtimeEnvironment,
   );
   await waitForRuntime(runtimeEnvironment);
+  // Корпус #116. Telegram-вход проверяется на своём стенде с provider (docs/verification).
   await runPnpm(
-    ["--filter", "@inside/web", "test:identity"],
+    ["--filter", "@inside/web", "test:identity", "identity-proof.spec.ts"],
     runtimeEnvironment,
   );
   if (sensitiveOutputObserved) {
@@ -125,10 +130,10 @@ try {
 }
 
 async function assertNoRunningProof() {
-  for (const [compose, environment] of [
+  for (const [compose, environment] of /** @type {const} */ ([
     [identityCompose, identityEnvironment],
     [platformCompose, platformEnvironment],
-  ]) {
+  ])) {
     const output = await runCompose(
       compose,
       ["ps", "--services", "--status", "running"],
@@ -156,15 +161,18 @@ async function resetStoppedProof() {
   );
 }
 
+/** @param {Environment} environment */
 async function waitForRuntime(environment) {
   for (let attempt = 0; attempt < 120; attempt += 1) {
     if ([...applicationProcesses].some((child) => child.exitCode !== null)) {
       throw new Error("An application proof process exited before readiness");
     }
     const responses = await Promise.all([
-      globalThis.fetch(environment.WEB_BASE_URL).catch(() => undefined),
       globalThis
-        .fetch(`${environment.BACKEND_BASE_URL}/health`)
+        .fetch(requiredUrl(environment, "WEB_BASE_URL"))
+        .catch(() => undefined),
+      globalThis
+        .fetch(`${requiredUrl(environment, "BACKEND_BASE_URL")}/health`)
         .catch(() => undefined),
     ]);
     if (responses.every((response) => response?.ok)) return;
@@ -173,6 +181,29 @@ async function waitForRuntime(environment) {
   throw new Error("Issue 116 application runtime did not become ready");
 }
 
+/**
+ * @param {Environment} environment
+ * @param {string} name
+ */
+function requiredUrl(environment, name) {
+  const value = environment[name];
+  if (value === undefined) throw new Error(`${name} is required`);
+  return value;
+}
+
+/**
+ * База, в которую стенд мигрировал и с которой работал API: проверка смотрит туда же.
+ *
+ * @param {Environment} environment
+ */
+function applicationDatabase(environment) {
+  const url = environment["DATABASE_URL"];
+  if (url === undefined)
+    throw new Error("The proof runtime has no DATABASE_URL");
+  return decodeURIComponent(new URL(url).pathname.slice(1));
+}
+
+/** @param {Environment} environment */
 async function assertDatabaseInvariants(environment) {
   const platformEffects = await runCompose(
     platformCompose,
@@ -184,7 +215,7 @@ async function assertDatabaseInvariants(environment) {
       "-U",
       "inside",
       "-d",
-      "inside",
+      applicationDatabase(environment),
       "-Atc",
       "select (select count(*) from accounts.accounts)::text || '|' || coalesce(to_regclass('identity_principals.platform_sessions')::text, 'absent')",
     ],
@@ -198,8 +229,8 @@ async function assertDatabaseInvariants(environment) {
   }
 
   const secretCanaries = [
-    environment.LOGTO_APP_SECRET,
-    environment.LOGTO_COOKIE_SECRET,
+    environment["LOGTO_APP_SECRET"],
+    environment["LOGTO_COOKIE_SECRET"],
   ]
     .filter((value) => typeof value === "string" && value.length > 0)
     .map((value) => `payload::text like ${sqlLiteral(`%${value}%`)}`);
@@ -233,6 +264,10 @@ async function assertDatabaseInvariants(environment) {
   }
 }
 
+/**
+ * @param {string[]} arguments_
+ * @param {Environment} environment
+ */
 function spawnApplication(arguments_, environment) {
   const child = spawn(process.execPath, [pnpmPath, ...arguments_], {
     cwd: root,
@@ -241,20 +276,29 @@ function spawnApplication(arguments_, environment) {
   });
   applicationProcesses.add(child);
   for (const source of [child.stdout, child.stderr]) {
-    source?.on("data", (chunk) => observeOutput(chunk.toString(), environment));
+    source?.on("data", (/** @type {Buffer} */ chunk) =>
+      observeOutput(chunk.toString(), environment),
+    );
   }
   child.once("exit", () => applicationProcesses.delete(child));
 }
 
+/**
+ * @param {string} output
+ * @param {Environment} environment
+ */
 function observeOutput(output, environment) {
   const canaries = [
     "provider-payload-canary-116",
     "proof-code-canary-116",
     "proof-jwt-canary-116",
     "proof-state-canary-116",
-    environment.LOGTO_APP_SECRET,
-    environment.LOGTO_COOKIE_SECRET,
-  ].filter((value) => typeof value === "string" && value.length > 0);
+    environment["LOGTO_APP_SECRET"],
+    environment["LOGTO_COOKIE_SECRET"],
+  ].filter(
+    /** @returns {value is string} */
+    (value) => typeof value === "string" && value.length > 0,
+  );
   if (
     canaries.some((canary) => output.includes(canary)) ||
     /[a-z0-9._+-]+@example\.test/iu.test(output)
@@ -281,6 +325,7 @@ async function stopApplications() {
 }
 
 async function cleanup() {
+  /** @type {unknown[]} */
   const failures = [];
   if (ownsPlatform) {
     ownsPlatform = false;
@@ -306,10 +351,10 @@ async function cleanup() {
       failures.push(error);
     }
   }
-  for (const [compose, environment] of [
+  for (const [compose, environment] of /** @type {const} */ ([
     [platformCompose, platformEnvironment],
     [identityCompose, identityEnvironment],
-  ]) {
+  ])) {
     try {
       const remaining = await runCompose(
         compose,
@@ -334,6 +379,12 @@ async function cleanup() {
   }
 }
 
+/**
+ * @param {string} compose
+ * @param {string[]} arguments_
+ * @param {Environment} environment
+ * @param {boolean} [capture]
+ */
 function runCompose(compose, arguments_, environment, capture = false) {
   return run(
     "docker",
@@ -343,10 +394,20 @@ function runCompose(compose, arguments_, environment, capture = false) {
   );
 }
 
+/**
+ * @param {string[]} arguments_
+ * @param {Environment} environment
+ */
 function runPnpm(arguments_, environment) {
   return run(process.execPath, [pnpmPath, ...arguments_], environment, false);
 }
 
+/**
+ * @param {string} command
+ * @param {string[]} arguments_
+ * @param {Environment} environment
+ * @param {boolean} capture
+ */
 async function run(command, arguments_, environment, capture) {
   const child = spawn(command, arguments_, {
     cwd: root,
@@ -355,45 +416,22 @@ async function run(command, arguments_, environment, capture) {
   });
   let output = "";
   if (capture) {
-    child.stdout?.on("data", (chunk) => {
+    child.stdout?.on("data", (/** @type {Buffer} */ chunk) => {
       output += chunk.toString();
     });
-    child.stderr?.on("data", (chunk) => {
+    child.stderr?.on("data", (/** @type {Buffer} */ chunk) => {
       output += chunk.toString();
     });
   }
-  const exitCode = await new Promise((resolveExit) =>
-    child.once("exit", resolveExit),
-  );
+  /** @type {Promise<number | null>} */
+  const exited = new Promise((resolveExit) => child.once("exit", resolveExit));
+  const exitCode = await exited;
   if (exitCode !== 0)
     throw new Error(`${command} ${arguments_.join(" ")} failed`);
   return output;
 }
 
+/** @param {string} value */
 function sqlLiteral(value) {
   return `'${value.replaceAll("'", "''")}'`;
-}
-
-async function acquireOwnershipLock() {
-  const lockTarget = resolve(tmpdir(), "inside-platform-local-setup");
-  try {
-    return await lockfile.lock(lockTarget, {
-      realpath: false,
-      retries: 0,
-      stale: 30_000,
-      update: 10_000,
-    });
-  } catch (error) {
-    if (
-      error instanceof Error &&
-      Reflect.has(error, "code") &&
-      error.code === "ELOCKED"
-    ) {
-      throw new Error(
-        "Another local session owns the machine-wide Platform setup lock",
-        { cause: error },
-      );
-    }
-    throw error;
-  }
 }
