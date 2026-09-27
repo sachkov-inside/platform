@@ -10,3 +10,6 @@ const readyStatus = "ready";
 function assertReady(status) {
   if (status !== readyStatus) throw new Error("not ready");
 }
+
+// Allowed: an export names a function without running it.
+export { assertReady };

@@ -44,6 +44,10 @@ test("a top-level call into a function that reads a later declaration fails", ()
     result.output,
     /late-arrow-and-class\.mjs: line 5 runs HealthReport, which reads reportPrefix declared on line 15/u,
   );
+  assert.match(
+    result.output,
+    /late-static\.mjs: line 3 runs readLimit, which reads limit declared on line 8/u,
+  );
   assert.doesNotMatch(
     result.output,
     /deferred-callback\.mjs/u,

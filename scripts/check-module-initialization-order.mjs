@@ -14,7 +14,8 @@ import { parseSync } from "oxc-parser";
  * чтение до объявления на верхнем уровне уже ловит TypeScript через `// @ts-check`.
  *
  * Проверка обходит каждый скрипт из `tsconfig.scripts.json`. Модульные функции — это объявления
- * `function`, функции и стрелки в модульном `const` и классы. Для каждой инструкции верхнего уровня
+ * `function`, функции и стрелки в модульном `const` или `let` и классы; объявление класса выполняет
+ * его `extends`, вычисляемые ключи, статические поля и блоки. Для каждой инструкции верхнего уровня
  * проверка находит функции, которые инструкция вызывает или передаёт по имени, и всё, что достижимо
  * из них, и ищет в их телах модульные значения, объявленные не раньше этой инструкции. Тела функций,
  * вложенных прямо в инструкцию верхнего уровня, считаются отложенными: так `node:test` запускает
@@ -62,6 +63,17 @@ function childNodes(value) {
 }
 
 /**
+ * The name of an identifier, or of the `id` of a function or class declaration.
+ * @param {unknown} node
+ * @returns {string | null}
+ */
+function declaredName(node) {
+  if (!isNode(node)) return null;
+  if (node.type === "Identifier") return String(node["name"]);
+  return isNode(node["id"]) ? declaredName(node["id"]) : null;
+}
+
+/**
  * Child nodes by field. The walk is manual rather than an oxc `Visitor` because reading a name
  * depends on the parent field (a property name is not a read) and nested bodies can be skipped.
  * @param {AstNode} node
@@ -79,8 +91,7 @@ function fields(node) {
 
 /**
  * Names a subtree reads, without declared names, property names, object keys and labels. With
- * `skipDeferred`, the
- * bodies of nested functions and classes are left out.
+ * `skipDeferred`, the bodies of nested functions and classes are left out.
  * @param {AstNode} node
  * @param {Set<string>} names
  * @param {boolean} [skipDeferred]
@@ -88,7 +99,7 @@ function fields(node) {
 function collectReferences(node, names, skipDeferred = false) {
   if (skipDeferred && deferredBodyTypes.has(node.type)) return;
   if (node.type === "Identifier") {
-    names.add(/** @type {string} */ (node["name"]));
+    names.add(String(node["name"]));
     return;
   }
   for (const [key, child] of fields(node)) {
@@ -123,7 +134,7 @@ function patternNames(pattern) {
   if (!isNode(pattern)) return [];
   switch (pattern.type) {
     case "Identifier":
-      return [/** @type {string} */ (pattern["name"])];
+      return [String(pattern["name"])];
     case "ObjectPattern":
       return childNodes(pattern["properties"]).flatMap((property) =>
         property.type === "RestElement"
@@ -161,11 +172,42 @@ function ownDeclarations(node) {
         for (const name of patternNames(declarator["id"])) names.add(name);
       }
     } else if (
-      (statement.type === "FunctionDeclaration" ||
-        statement.type === "ClassDeclaration") &&
-      isNode(statement["id"])
+      statement.type === "FunctionDeclaration" ||
+      statement.type === "ClassDeclaration"
     ) {
-      names.add(/** @type {string} */ (statement["id"]["name"]));
+      const name = declaredName(statement);
+      if (name !== null) names.add(name);
+    }
+  }
+  return names;
+}
+
+/**
+ * Names a class declaration reads while it is declared: its `extends`, computed keys, static
+ * fields and static blocks. Instance members and methods run later.
+ * @param {AstNode} node
+ * @returns {Set<string>}
+ */
+function classInitializationReferences(node) {
+  const names = new Set();
+  if (isNode(node["superClass"])) {
+    collectReferences(node["superClass"], names, true);
+  }
+  const body = node["body"];
+  for (const member of isNode(body) ? childNodes(body["body"]) : []) {
+    if (member["computed"] === true && isNode(member["key"])) {
+      collectReferences(member["key"], names, true);
+    }
+    if (member.type === "StaticBlock") {
+      for (const statement of childNodes(member["body"])) {
+        collectReferences(statement, names, true);
+      }
+    } else if (
+      member.type === "PropertyDefinition" &&
+      member["static"] === true &&
+      isNode(member["value"])
+    ) {
+      collectReferences(member["value"], names, true);
     }
   }
   return names;
@@ -194,7 +236,7 @@ function violationsIn(source, body) {
   /** Module `const`, `let` and `class` bindings and the statement that declares each. */
   /** @type {Map<string, number>} */
   const bindings = new Map();
-  /** Module functions: `function` declarations, functions in a module `const`, classes. */
+  /** Module functions: `function` declarations, functions in a module `const` or `let`, classes. */
   /** @type {Map<string, AstNode>} */
   const functions = new Map();
   for (const statement of body) {
@@ -208,32 +250,21 @@ function violationsIn(source, body) {
         for (const name of patternNames(declarator["id"])) {
           bindings.set(name, declaration.start);
         }
-        const id = declarator["id"];
+        const name = declaredName(declarator["id"]);
         const init = declarator["init"];
-        if (
-          isNode(id) &&
-          id.type === "Identifier" &&
-          isNode(init) &&
-          functionTypes.has(init.type)
-        ) {
-          functions.set(/** @type {string} */ (id["name"]), init);
+        if (name !== null && isNode(init) && functionTypes.has(init.type)) {
+          functions.set(name, init);
         }
       }
-    } else if (
-      declaration.type === "ClassDeclaration" &&
-      isNode(declaration["id"])
-    ) {
-      const name = /** @type {string} */ (declaration["id"]["name"]);
-      bindings.set(name, declaration.start);
-      functions.set(name, declaration);
-    } else if (
-      declaration.type === "FunctionDeclaration" &&
-      isNode(declaration["id"])
-    ) {
-      functions.set(
-        /** @type {string} */ (declaration["id"]["name"]),
-        declaration,
-      );
+    } else if (declaration.type === "ClassDeclaration") {
+      const name = declaredName(declaration);
+      if (name !== null) {
+        bindings.set(name, declaration.start);
+        functions.set(name, declaration);
+      }
+    } else if (declaration.type === "FunctionDeclaration") {
+      const name = declaredName(declaration);
+      if (name !== null) functions.set(name, declaration);
     }
   }
 
@@ -258,19 +289,27 @@ function violationsIn(source, body) {
   const violations = [];
   for (const statement of body) {
     const declaration = declarationOf(statement);
+    // Imports, `export { name }` and `export default name` only name bindings; they run nothing.
     if (
       statement.type === "ImportDeclaration" ||
-      declaration?.type === "FunctionDeclaration" ||
-      declaration?.type === "ClassDeclaration"
+      declaration === null ||
+      declaration.type === "Identifier" ||
+      declaration.type === "FunctionDeclaration"
     ) {
       continue;
     }
-    const references = new Set();
-    collectReferences(statement, references, true);
+    const references =
+      declaration.type === "ClassDeclaration"
+        ? classInitializationReferences(declaration)
+        : new Set();
+    if (declaration.type !== "ClassDeclaration") {
+      collectReferences(statement, references, true);
+    }
     const pending = [...references].filter((name) => functions.has(name));
     const reached = new Set(pending);
     while (pending.length > 0) {
-      const current = /** @type {string} */ (pending.pop());
+      const current = pending.pop();
+      if (current === undefined) break;
       for (const name of readsOf.get(current) ?? []) {
         if (functions.has(name) && !reached.has(name)) {
           reached.add(name);
