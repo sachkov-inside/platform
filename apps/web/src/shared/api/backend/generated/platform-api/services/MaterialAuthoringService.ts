@@ -1643,6 +1643,113 @@ export class MaterialAuthoringService {
     });
   }
   /**
+   * Import the current practice definition against explicit source and mutation versions
+   * @returns any
+   * @throws ApiError
+   */
+  public applySourcePractice({
+    idempotencyKey,
+    requestBody,
+  }: {
+    idempotencyKey: string,
+    requestBody: {
+      definition: {
+        allowedFreedom: string;
+        businessInputs: string;
+        criteria: Array<{
+          acceptableEvidence: Array<string>;
+          id: string;
+          requirement: string;
+        }>;
+        expectedOutcome: string;
+        schemaVersion: 1;
+        title: string;
+      };
+      expectedContentVersion: number;
+      expectedPracticeVersion: number | null;
+      materialId: string;
+      practiceId: string;
+      provenance: {
+        commit: string;
+        path: string;
+        repository: string;
+      };
+      publicationState: 'published' | 'unpublished';
+      sourceReference: {
+        materialSourceId: string;
+        materialSourceRevision: string;
+      };
+    },
+  }): CancelablePromise<{
+    boundContentVersion: number;
+    definitionDigest: string;
+    materialId: string;
+    practiceId: string;
+    practiceVersion: number;
+    publicationState: 'published' | 'unpublished';
+  }> {
+    return this.httpRequest.request({
+      method: 'POST',
+      url: '/authoring/import/practices/apply',
+      headers: {
+        'idempotency-key': idempotencyKey,
+      },
+      body: requestBody,
+      mediaType: 'application/json',
+    });
+  }
+  /**
+   * Validate authored practice data and inspect its current CAS version without writes
+   * @returns any
+   * @throws ApiError
+   */
+  public validateSourcePractice({
+    requestBody,
+  }: {
+    requestBody: {
+      definition: {
+        allowedFreedom: string;
+        businessInputs: string;
+        criteria: Array<{
+          acceptableEvidence: Array<string>;
+          id: string;
+          requirement: string;
+        }>;
+        expectedOutcome: string;
+        schemaVersion: 1;
+        title: string;
+      };
+      practiceId: string;
+      provenance: {
+        commit: string;
+        path: string;
+        repository: string;
+      };
+      publicationState: 'published' | 'unpublished';
+      sourceReference: {
+        materialSourceId: string;
+        materialSourceRevision: string;
+      };
+    },
+  }): CancelablePromise<{
+    current: {
+      boundContentVersion: number;
+      definitionDigest: string;
+      materialId: string;
+      practiceId: string;
+      practiceVersion: number;
+      publicationState: 'published' | 'unpublished';
+    } | null;
+    valid: boolean;
+  }> {
+    return this.httpRequest.request({
+      method: 'POST',
+      url: '/authoring/import/practices/validate',
+      body: requestBody,
+      mediaType: 'application/json',
+    });
+  }
+  /**
    * List the complete Material authoring corpus
    * @returns any
    * @throws ApiError

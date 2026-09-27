@@ -105,3 +105,15 @@ export function requestPublishedMaterial(
     options,
   );
 }
+
+export function requestLearningPractices(
+  slug: string,
+  options: PublicRequestOptions = {},
+): Promise<BackendTransportResult> {
+  return executeGeneratedRequest(
+    (request) =>
+      new ContentLibraryService(request).listLearningPractices({ slug }),
+    200,
+    options,
+  );
+}

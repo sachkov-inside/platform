@@ -256,3 +256,10 @@ future public reverse proxy and native OAuth client only as an explicitly approv
 the local HTTP endpoint and tests need no production data or published course. A successful material
 read returns one complete structured body; a client response/context limit must be reported as an
 incomplete client read, not converted into a successful course check.
+
+Practice review (#785) adds `learning_practice_read` to that same learner endpoint and two
+`materials:manage` import API operations under `/authoring/import/practices`. It adds no process,
+provider model key or learner progress storage. A local package can include `practiceDefinitions`
+with commit provenance; its source references must match the selected Material revisions. New
+migration `0072-practice-definitions` creates the current delivery projection and scoped import
+receipts. Author MCP permissions and tool inventory remain separate from the learner surface.

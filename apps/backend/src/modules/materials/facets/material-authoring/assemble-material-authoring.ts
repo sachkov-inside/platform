@@ -1,4 +1,8 @@
 import {
+  assembleApplySourcePractice,
+  assembleValidateSourcePractice,
+} from "../../features/import-source-practice/import-source-practice.js";
+import {
   assembleReserveSourceGuide,
   assembleValidateSourceGuide,
   assembleUpdateSourceGuide,
@@ -35,6 +39,8 @@ export function assembleMaterialAuthoring(
   const loadMaterial = assembleLoadMaterial(dependencies);
   const saveMaterial = assembleSaveMaterial(dependencies);
   return {
+    applySourcePractice: assembleApplySourcePractice(dependencies),
+    validateSourcePractice: assembleValidateSourcePractice(dependencies),
     reserveSourceGuide: assembleReserveSourceGuide(dependencies),
     validateSourceGuide: assembleValidateSourceGuide(dependencies),
     updateSourceGuide: assembleUpdateSourceGuide(dependencies),

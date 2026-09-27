@@ -1,3 +1,4 @@
+import { ImportSourcePracticeController } from "./features/import-source-practice/import-source-practice.controller.js";
 import { Module } from "@nestjs/common";
 
 import { AccountsModule } from "../accounts/index.js";
@@ -44,6 +45,7 @@ import { MaterialsModule } from "./materials.module.js";
 @Module({
   imports: [AccountsModule, MaterialsModule],
   controllers: [
+    ImportSourcePracticeController,
     ReadPublishedMaterialController,
     CreateDraftController,
     ListMaterialsController,

@@ -6,6 +6,7 @@ import process from "node:process";
 import { fileURLToPath } from "node:url";
 import { checkDatabaseUrl, resetCheckDatabase } from "./check-database.mjs";
 import { startFullStackIdentity } from "./full-stack-identity.mjs";
+import { seedFullStackPractice } from "./full-stack-practice.mjs";
 
 import { signalProcessGroup } from "./process-group-signal.mjs";
 import { z } from "zod";
@@ -218,6 +219,10 @@ try {
     },
   );
   const browserAccessToken = await fullStackIdentity.createAccessToken();
+  const practiceFixture = await seedFullStackPractice(
+    apiBaseUrl,
+    browserAccessToken.token,
+  );
   const fullStackSession =
     await fullStackIdentity.createSession(browserAccessToken);
   const fullStackMemberSession =
@@ -225,6 +230,7 @@ try {
   await runPnpm(fullStackTestArguments(), {
     ...childEnvironment,
     FULLSTACK_API_BASE_URL: apiBaseUrl,
+    FULLSTACK_PRACTICE_SLUG: practiceFixture.slug,
     FULLSTACK_LOGTO_COOKIE_NAME: fullStackIdentity.cookieName,
     FULLSTACK_LOGTO_MEMBER_SESSION: fullStackMemberSession,
     FULLSTACK_LOGTO_NON_MEMBER_SESSION:

@@ -19,6 +19,7 @@ import { PrismaModule } from "../../infrastructure/prisma/index.js";
 import {
   DiscoverPublishedMaterialsController,
   ListPublishedMaterialsController,
+  ListLearningPracticesController,
   ReadHomeContentController,
 } from "../../modules/content-library/index.js";
 import { AccountsModule } from "../../modules/accounts/index.js";
@@ -45,6 +46,7 @@ import { HealthController } from "./health.controller.js";
   controllers: [
     HealthController,
     ListPublishedMaterialsController,
+    ListLearningPracticesController,
     DiscoverPublishedMaterialsController,
     ReadHomeContentController,
     VideoAuthoringController,

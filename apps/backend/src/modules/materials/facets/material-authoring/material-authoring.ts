@@ -1,4 +1,8 @@
 import type {
+  ApplySourcePracticeOperation,
+  ValidateSourcePracticeOperation,
+} from "../../features/import-source-practice/import-source-practice.contract.js";
+import type {
   ReserveSourceGuideOperation,
   UpdateSourceGuideOperation,
   ReorderSourceGuideOperation,
@@ -28,6 +32,8 @@ import type { SetContentCollectionArchiveOperation } from "../../features/set-co
 import type { UpdateContentCollectionOperation } from "../../features/update-content-collection/update-content-collection.contract.js";
 
 export interface MaterialAuthoring {
+  readonly applySourcePractice: ApplySourcePracticeOperation;
+  readonly validateSourcePractice: ValidateSourcePracticeOperation;
   readonly reserveSourceGuide: ReserveSourceGuideOperation;
   readonly validateSourceGuide: ValidateSourceGuideOperation;
   readonly updateSourceGuide: UpdateSourceGuideOperation;

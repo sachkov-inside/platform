@@ -19,3 +19,5 @@ export {
   assembleLearnerMcpServer,
   type LearnerMcpDependencies,
 } from "./adapters/mcp/learning-materials-mcp.js";
+
+export { ListLearningPracticesController } from "./features/list-learning-practices/list-learning-practices.controller.js";

@@ -1,3 +1,4 @@
+import { SavedLearningPractices } from "./saved-learning-practices";
 import {
   SavedReadingAction,
   VisibleMaterialOpen,
@@ -279,6 +280,11 @@ async function ResolvedMaterialReader({
           }
           bookmarkAction={
             <SavedBookmarkAction materialId={result.material.materialId} />
+          }
+          practiceActions={
+            <Suspense fallback={null}>
+              <SavedLearningPractices slug={result.material.slug} />
+            </Suspense>
           }
           body={result.body}
           material={result.material}

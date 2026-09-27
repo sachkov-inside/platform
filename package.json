@@ -52,7 +52,7 @@
     "build:storybook": "pnpm --filter @inside/web build-storybook",
     "check": "pnpm check:static && pnpm check:unit && pnpm check:ui && pnpm check:web-e2e",
     "check:static": "pnpm docs:check && pnpm format:check && pnpm build:generated && pnpm api:check && pnpm lint && pnpm typecheck && pnpm guardrails",
-    "check:unit": "pnpm test:tooling && pnpm test:authoring && pnpm workshop:contracts:check && pnpm workshop:evaluator:test && pnpm --recursive --if-present --filter '!@inside/web' test && pnpm --filter @inside/web test:module",
+    "check:unit": "pnpm test:tooling && pnpm test:authoring && pnpm test:practice-review && pnpm workshop:contracts:check && pnpm workshop:evaluator:test && pnpm --recursive --if-present --filter '!@inside/web' test && pnpm --filter @inside/web test:module",
     "check:ui": "pnpm --filter @inside/web test:browser-engines && pnpm test:storybook && pnpm build:storybook",
     "check:web-e2e": "pnpm build && pnpm --filter @inside/web test:prerendered-handlers && pnpm --filter @inside/web test:standalone-config && pnpm test:e2e && pnpm test:navigation",
     "compose:up": "docker compose up -d --build --wait",
@@ -83,7 +83,8 @@
     "authoring:video": "node tools/authoring/video.mjs",
     "authoring:release": "node tools/authoring/release.mjs",
     "authoring:sync-git-local": "node tools/authoring/git-local.mjs",
-    "authoring:products": "node scripts/authoring-products.mjs"
+    "authoring:products": "node scripts/authoring-products.mjs",
+    "test:practice-review": "node --test tools/practice-review/*.test.mjs"
   },
   "dependencies": {
     "zod": "4.6.5"

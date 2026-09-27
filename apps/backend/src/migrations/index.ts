@@ -1,4 +1,8 @@
 import {
+  name as practiceDefinitionsName,
+  statement as practiceDefinitionsStatement,
+} from "../modules/materials/infrastructure/postgres/migrations/0072-practice-definitions.js";
+import {
   name as refundBasisName,
   statement as refundBasisStatement,
 } from "../modules/billing/infrastructure/postgres/migrations/0066-refund-basis.js";
@@ -487,6 +491,7 @@ export const platformMigrations = [
   { name: authoringSourceName, statement: authoringSourceStatement },
   { name: guidePageName, statement: guidePageStatement },
   { name: offerEligibilityName, statement: offerEligibilityStatement },
+  { name: practiceDefinitionsName, statement: practiceDefinitionsStatement },
 ] as const;
 
 export function migrateToLatest(
