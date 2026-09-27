@@ -68,7 +68,7 @@ and token verifier. It is distinct from production Logto onboarding and from syn
 
 `tools/practice-review/fixtures.mjs` builds three full reference materials, assignments and neutrally
 named project directories. The expected outcomes and scenario labels remain outside the learner's
-accessible project and prompt. Brief/spec alternatives use different formats and a serialized file
+selected project and prompt. Brief/spec alternatives use different formats and a serialized file
 journal; the feature is an actual small HTTP service with server-owned synthetic session identities.
 The outside runner executes it and records requests, responses, record counts, source hashes and
 full source snapshots. Reviewers never execute it. Text comparison of a full snapshot is not claimed

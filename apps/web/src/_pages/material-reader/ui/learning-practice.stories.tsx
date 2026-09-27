@@ -88,7 +88,9 @@ export const Ready: Story = {
       navigator.clipboard,
       "writeText",
     ).mockResolvedValue();
-    return () => clipboard.mockRestore();
+    return () => {
+      clipboard.mockRestore();
+    };
   },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);

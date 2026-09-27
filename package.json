@@ -32,7 +32,7 @@
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "lint": "oxlint --deny-warnings --report-unused-disable-directives --ignore-pattern 'apps/backend/test/guardrails/fixtures/oxlint/**' .",
-    "typecheck": "pnpm --recursive --if-present typecheck && tsc -p tsconfig.scripts.json",
+    "typecheck": "pnpm --recursive --if-present typecheck && tsc -p tsconfig.scripts.json && tsc -p tools/practice-review/native/tsconfig.json",
     "guardrails": "node scripts/check-workshop-runtime-boundary.mjs . && node scripts/check-material-blocks-boundary.mjs . && node scripts/check-access-capabilities-boundary.mjs . && node scripts/check-module-initialization-order.mjs . && pnpm --filter @inside/backend guardrails && pnpm --filter @inside/web guardrails",
     "build:packages": "pnpm --filter @inside/material-blocks build && pnpm --filter @inside/access-capabilities build && pnpm --filter @inside/legal build",
     "build:generated": "pnpm build:packages && pnpm --filter @inside/backend prisma:generate",
@@ -84,7 +84,7 @@
     "authoring:release": "node tools/authoring/release.mjs",
     "authoring:sync-git-local": "node tools/authoring/git-local.mjs",
     "authoring:products": "node scripts/authoring-products.mjs",
-    "test:practice-review": "node --test tools/practice-review/*.test.mjs"
+    "test:practice-review": "node --test tools/practice-review/*.test.mjs && node apps/backend/node_modules/tsx/dist/cli.mjs --tsconfig apps/backend/tsconfig.json --test tools/practice-review/native/*.test.mts"
   },
   "dependencies": {
     "zod": "4.6.5"
