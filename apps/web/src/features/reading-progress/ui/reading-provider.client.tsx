@@ -8,7 +8,7 @@ import {
 } from "react";
 import { useQueries, useQueryClient } from "@tanstack/react-query";
 import {
-  MaterialReadingContext,
+  MaterialReadingScope,
   type MaterialReadingSnapshot,
 } from "@/entities/material";
 import { clearOtherReadingAccounts } from "../model/reading-cache";
@@ -83,7 +83,7 @@ export function ReadingProgressProvider({
       if (!result.isError && result.data !== undefined)
         states.set(result.data.materialId, result.data);
   return (
-    <MaterialReadingContext
+    <MaterialReadingScope
       value={{
         accountId: signedOut ? null : accountId,
         resolved,
@@ -94,6 +94,6 @@ export function ReadingProgressProvider({
       }}
     >
       {children}
-    </MaterialReadingContext>
+    </MaterialReadingScope>
   );
 }

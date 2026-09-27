@@ -3,7 +3,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { useState, type ReactNode } from "react";
 import { expect, fn, waitFor, within } from "storybook/test";
 
-import { MaterialReadingContext } from "@/entities/material";
+import { MaterialReadingScope } from "@/entities/material";
 import { fetchBeforeRender } from "@/workshop/mutation-mock";
 
 import { SavedBookmarkAction } from "./saved-bookmark-action.client";
@@ -43,7 +43,7 @@ function BookmarkScope({
   );
   return (
     <QueryClientProvider client={client}>
-      <MaterialReadingContext
+      <MaterialReadingScope
         value={{
           accountId: account,
           resolved: true,
@@ -56,7 +56,7 @@ function BookmarkScope({
         <div className="flex min-h-40 items-start justify-end p-8">
           {children}
         </div>
-      </MaterialReadingContext>
+      </MaterialReadingScope>
     </QueryClientProvider>
   );
 }

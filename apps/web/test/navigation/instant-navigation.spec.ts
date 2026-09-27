@@ -1074,3 +1074,78 @@ test("обложка первого экрана продукта грузитс
   // Порог «хорошо» у LCP — 2,5 секунды.
   expect(lcp.startTime).toBeLessThan(2_500);
 });
+
+/**
+ * Помечает каждый элемент, который создал скрипт. Разметку, пришедшую с сервера, создаёт парсер, а
+ * часть страницы, которую React не смог гидрировать и нарисовал заново, — `createElement` (#747).
+ */
+async function markScriptCreatedElements(page: Page) {
+  await page.addInitScript(() => {
+    const created = new WeakSet<Element>();
+    const createElement: unknown = Reflect.get(document, "createElement");
+    if (typeof createElement !== "function") return;
+    Object.defineProperty(document, "createElement", {
+      value: (...args: unknown[]) => {
+        const element: unknown = Reflect.apply(createElement, document, args);
+        if (element instanceof Element) created.add(element);
+        return element;
+      },
+    });
+    Object.assign(window, {
+      __createdByScript: (element: Element) => created.has(element),
+    });
+  });
+}
+
+function productCoverFromServer(page: Page): Promise<boolean> {
+  return page.locator("#content [data-product-part='hero'] img").evaluate(
+    (image) =>
+      !(
+        window as unknown as {
+          __createdByScript: (element: Element) => boolean;
+        }
+      ).__createdByScript(image),
+  );
+}
+
+test("ответ о входе не заставляет рисовать заново часть страницы, ещё не пришедшую потоком", async ({
+  page,
+}) => {
+  await markScriptCreatedElements(page);
+  // Продукт ждёт backend, а ответ гостю о входе backend не читает: он приходит, пока продукт в пути.
+  await setBackendDelay(1_500);
+  const authStatus = page.waitForResponse((response) =>
+    response.url().endsWith("/auth/status"),
+  );
+  await page.goto("/guides/navigation-cover");
+  expect(await (await authStatus).json()).toMatchObject({ state: "guest" });
+  await expect(
+    page.locator("#content [data-product-part='hero'] img"),
+  ).toBeVisible();
+
+  expect(
+    await productCoverFromServer(page),
+    "обложка — узел из серверной разметки, а не нарисованный браузером заново",
+  ).toBe(true);
+});
+
+test("первый ответ о входе не пересоздаёт уже нарисованную страницу вошедшего читателя", async ({
+  baseURL,
+  context,
+  page,
+}) => {
+  if (baseURL === undefined) throw new Error("Проверке нужен адрес приложения");
+  await signInAsMember(context, baseURL);
+  await markScriptCreatedElements(page);
+  // Оболочка спрашивает представление аккаунта только рендером, который применил ответ о входе.
+  const accountPresentation = page.waitForRequest(
+    (request) => new URL(request.url()).pathname === "/api/account",
+  );
+  await page.goto("/guides/navigation-cover");
+  await accountPresentation;
+
+  expect(
+    await productCoverFromServer(page),
+    "обложка — узел из серверной разметки, а не нарисованный браузером заново",
+  ).toBe(true);
+});

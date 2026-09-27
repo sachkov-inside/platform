@@ -18,7 +18,7 @@ import {
 import { resolveSeriesReaderContext } from "@/_pages/material-reader/model/series-reader-context";
 import {
   MaterialCard,
-  MaterialReadingContext,
+  MaterialReadingScope,
   type MaterialPreview,
 } from "@/entities/material";
 import {
@@ -340,7 +340,7 @@ function ProgressWalkthrough({
         </div>
       </aside>
       <div onClickCapture={followLink}>
-        <MaterialReadingContext
+        <MaterialReadingScope
           value={{
             accountId: "storybook-account",
             resolved: true,
@@ -407,7 +407,7 @@ function ProgressWalkthrough({
               </div>
             ) : null}
           </PublicShellFrame>
-        </MaterialReadingContext>
+        </MaterialReadingScope>
       </div>
     </>
   );
