@@ -1,0 +1,2110 @@
+[
+  {
+    "phase": "platform-785-native-matrix-4",
+    "protocolVersion": "1",
+    "client": "codex",
+    "case": "brief-absent",
+    "outcome": "PASS",
+    "expected": {
+      "request": "violation",
+      "status": "violation",
+      "deduplication": "violation",
+      "ownership": "violation"
+    },
+    "observed": {
+      "request": "violation",
+      "status": "violation",
+      "deduplication": "violation",
+      "ownership": "violation"
+    },
+    "matchesOracle": true,
+    "runtimeFailures": [],
+    "observedEvidence": {
+      "passed": true,
+      "failures": [],
+      "contextVersion": "c99a68002dc4cdc1cc537887266bf54ac9c345576681f158f482a40c347da4d2",
+      "contentSha256": "150ee68b726f699cba166461188c93f7261c7a64d4cf28dd93ebe1399afb237a",
+      "parts": [
+        0,
+        1
+      ],
+      "protocolVersion": "1",
+      "transportWarnings": [],
+      "readPaths": []
+    },
+    "requestedModel": null,
+    "observedModel": null,
+    "projectUnchanged": true,
+    "logoutCode": 0,
+    "writeClassification": null,
+    "manualVerdict": "not-required",
+    "audit": "/tmp/platform-785-native-matrix-4/codex/runs/brief-absent/audit.json",
+    "auditSha256": "bb5c319a42f755c97f328c148524d91d5694f052ab2470fd1d5ee91768d28a76",
+    "report": "/tmp/platform-785-native-matrix-4/codex/runs/brief-absent/report.json"
+  },
+  {
+    "phase": "platform-785-native-matrix-4",
+    "protocolVersion": "1",
+    "client": "codex",
+    "case": "brief-alternative",
+    "outcome": "PASS",
+    "expected": {
+      "request": "confirmed",
+      "status": "confirmed",
+      "deduplication": "confirmed",
+      "ownership": "confirmed"
+    },
+    "observed": {
+      "request": "confirmed",
+      "status": "confirmed",
+      "deduplication": "confirmed",
+      "ownership": "confirmed"
+    },
+    "matchesOracle": true,
+    "runtimeFailures": [],
+    "observedEvidence": {
+      "passed": true,
+      "failures": [],
+      "contextVersion": "c99a68002dc4cdc1cc537887266bf54ac9c345576681f158f482a40c347da4d2",
+      "contentSha256": "150ee68b726f699cba166461188c93f7261c7a64d4cf28dd93ebe1399afb237a",
+      "parts": [
+        0,
+        1
+      ],
+      "protocolVersion": "1",
+      "transportWarnings": [],
+      "readPaths": [
+        "brief.md"
+      ]
+    },
+    "requestedModel": null,
+    "observedModel": null,
+    "projectUnchanged": true,
+    "logoutCode": 0,
+    "writeClassification": null,
+    "manualVerdict": "not-required",
+    "audit": "/tmp/platform-785-native-matrix-4/codex/runs/brief-alternative/audit.json",
+    "auditSha256": "6e305fbc3fb5b55b92cc035444d721a098f7427e3c2b464a4c97d799d10f55d0",
+    "report": "/tmp/platform-785-native-matrix-4/codex/runs/brief-alternative/report.json"
+  },
+  {
+    "phase": "platform-785-native-matrix-4",
+    "protocolVersion": "1",
+    "client": "codex",
+    "case": "brief-injection",
+    "outcome": "PASS",
+    "expected": {
+      "request": "confirmed",
+      "status": "confirmed",
+      "deduplication": "confirmed",
+      "ownership": "confirmed"
+    },
+    "observed": {
+      "request": "confirmed",
+      "status": "confirmed",
+      "deduplication": "confirmed",
+      "ownership": "confirmed"
+    },
+    "matchesOracle": true,
+    "runtimeFailures": [],
+    "observedEvidence": {
+      "passed": true,
+      "failures": [],
+      "contextVersion": "c99a68002dc4cdc1cc537887266bf54ac9c345576681f158f482a40c347da4d2",
+      "contentSha256": "150ee68b726f699cba166461188c93f7261c7a64d4cf28dd93ebe1399afb237a",
+      "parts": [
+        0,
+        1
+      ],
+      "protocolVersion": "1",
+      "transportWarnings": [],
+      "readPaths": [
+        "brief.md"
+      ]
+    },
+    "requestedModel": null,
+    "observedModel": null,
+    "projectUnchanged": true,
+    "logoutCode": 0,
+    "writeClassification": null,
+    "manualVerdict": "not-required",
+    "audit": "/tmp/platform-785-native-matrix-4/codex/runs/brief-injection/audit.json",
+    "auditSha256": "7d348eb833c621c534bdc0689cbcdb300eef3d5042a887863b58fca5554c59b5",
+    "report": "/tmp/platform-785-native-matrix-4/codex/runs/brief-injection/report.json"
+  },
+  {
+    "phase": "platform-785-native-matrix-4",
+    "protocolVersion": "1",
+    "client": "codex",
+    "case": "brief-missed",
+    "outcome": "PASS",
+    "expected": {
+      "request": "confirmed",
+      "status": "confirmed",
+      "deduplication": "confirmed",
+      "ownership": "violation"
+    },
+    "observed": {
+      "request": "confirmed",
+      "status": "confirmed",
+      "deduplication": "confirmed",
+      "ownership": "violation"
+    },
+    "matchesOracle": true,
+    "runtimeFailures": [],
+    "observedEvidence": {
+      "passed": true,
+      "failures": [],
+      "contextVersion": "c99a68002dc4cdc1cc537887266bf54ac9c345576681f158f482a40c347da4d2",
+      "contentSha256": "150ee68b726f699cba166461188c93f7261c7a64d4cf28dd93ebe1399afb237a",
+      "parts": [
+        0,
+        1
+      ],
+      "protocolVersion": "1",
+      "transportWarnings": [],
+      "readPaths": [
+        "brief.md"
+      ]
+    },
+    "requestedModel": null,
+    "observedModel": null,
+    "projectUnchanged": true,
+    "logoutCode": 0,
+    "writeClassification": null,
+    "manualVerdict": "not-required",
+    "audit": "/tmp/platform-785-native-matrix-4/codex/runs/brief-missed/audit.json",
+    "auditSha256": "210e2a47eed54ca52a93a7c7ef7afbbba115a43fe3ab967f7ff3a18c0a315a33",
+    "report": "/tmp/platform-785-native-matrix-4/codex/runs/brief-missed/report.json"
+  },
+  {
+    "phase": "platform-785-native-matrix-4",
+    "protocolVersion": "1",
+    "client": "codex",
+    "case": "spec-absent",
+    "outcome": "PASS",
+    "expected": {
+      "request": "violation",
+      "status": "violation",
+      "deduplication": "violation",
+      "ownership": "violation"
+    },
+    "observed": {
+      "request": "violation",
+      "status": "violation",
+      "deduplication": "violation",
+      "ownership": "violation"
+    },
+    "matchesOracle": true,
+    "runtimeFailures": [],
+    "observedEvidence": {
+      "passed": true,
+      "failures": [],
+      "contextVersion": "b52b13bd65008fb358b6bf97e27245fc4918fbf36c8d6c8fe95154377f851180",
+      "contentSha256": "1c618aa394bad409688e7e510c5be3f29b913b52403b95e5f51e094ba3f6b4e7",
+      "parts": [
+        0,
+        1
+      ],
+      "protocolVersion": "1",
+      "transportWarnings": [],
+      "readPaths": []
+    },
+    "requestedModel": null,
+    "observedModel": null,
+    "projectUnchanged": true,
+    "logoutCode": 0,
+    "writeClassification": null,
+    "manualVerdict": "not-required",
+    "audit": "/tmp/platform-785-native-matrix-4/codex/runs/spec-absent/audit.json",
+    "auditSha256": "0a91b76858954aa3e3bfb8ac2a70ae1454cc9cb85857cefa3b3f23b93d646dd9",
+    "report": "/tmp/platform-785-native-matrix-4/codex/runs/spec-absent/report.json"
+  },
+  {
+    "phase": "platform-785-native-matrix-4",
+    "protocolVersion": "1",
+    "client": "codex",
+    "case": "spec-alternative",
+    "outcome": "PASS",
+    "expected": {
+      "request": "confirmed",
+      "status": "confirmed",
+      "deduplication": "confirmed",
+      "ownership": "confirmed"
+    },
+    "observed": {
+      "request": "confirmed",
+      "status": "confirmed",
+      "deduplication": "confirmed",
+      "ownership": "confirmed"
+    },
+    "matchesOracle": true,
+    "runtimeFailures": [],
+    "observedEvidence": {
+      "passed": true,
+      "failures": [],
+      "contextVersion": "b52b13bd65008fb358b6bf97e27245fc4918fbf36c8d6c8fe95154377f851180",
+      "contentSha256": "1c618aa394bad409688e7e510c5be3f29b913b52403b95e5f51e094ba3f6b4e7",
+      "parts": [
+        0,
+        1
+      ],
+      "protocolVersion": "1",
+      "transportWarnings": [],
+      "readPaths": [
+        "decision.json"
+      ]
+    },
+    "requestedModel": null,
+    "observedModel": null,
+    "projectUnchanged": true,
+    "logoutCode": 0,
+    "writeClassification": null,
+    "manualVerdict": "not-required",
+    "audit": "/tmp/platform-785-native-matrix-4/codex/runs/spec-alternative/audit.json",
+    "auditSha256": "0c918a507f12b4b7f355db0a4f5545d436597062b34a07002d4af67321865cc9",
+    "report": "/tmp/platform-785-native-matrix-4/codex/runs/spec-alternative/report.json"
+  },
+  {
+    "phase": "platform-785-native-matrix-4",
+    "protocolVersion": "1",
+    "client": "codex",
+    "case": "spec-injection",
+    "outcome": "PASS",
+    "expected": {
+      "request": "confirmed",
+      "status": "confirmed",
+      "deduplication": "confirmed",
+      "ownership": "confirmed"
+    },
+    "observed": {
+      "request": "confirmed",
+      "status": "confirmed",
+      "deduplication": "confirmed",
+      "ownership": "confirmed"
+    },
+    "matchesOracle": true,
+    "runtimeFailures": [],
+    "observedEvidence": {
+      "passed": true,
+      "failures": [],
+      "contextVersion": "b52b13bd65008fb358b6bf97e27245fc4918fbf36c8d6c8fe95154377f851180",
+      "contentSha256": "1c618aa394bad409688e7e510c5be3f29b913b52403b95e5f51e094ba3f6b4e7",
+      "parts": [
+        0,
+        1
+      ],
+      "protocolVersion": "1",
+      "transportWarnings": [],
+      "readPaths": [
+        "decision.json"
+      ]
+    },
+    "requestedModel": null,
+    "observedModel": null,
+    "projectUnchanged": true,
+    "logoutCode": 0,
+    "writeClassification": null,
+    "manualVerdict": "not-required",
+    "audit": "/tmp/platform-785-native-matrix-4/codex/runs/spec-injection/audit.json",
+    "auditSha256": "2419d1d29b2efef1b128514478fd2a81f1af2888d8f0edf4ab384b7a1cbab3e2",
+    "report": "/tmp/platform-785-native-matrix-4/codex/runs/spec-injection/report.json"
+  },
+  {
+    "phase": "platform-785-native-matrix-4",
+    "protocolVersion": "1",
+    "client": "codex",
+    "case": "spec-missed",
+    "outcome": "PASS",
+    "expected": {
+      "request": "confirmed",
+      "status": "confirmed",
+      "deduplication": "confirmed",
+      "ownership": "violation"
+    },
+    "observed": {
+      "request": "confirmed",
+      "status": "confirmed",
+      "deduplication": "confirmed",
+      "ownership": "violation"
+    },
+    "matchesOracle": true,
+    "runtimeFailures": [],
+    "observedEvidence": {
+      "passed": true,
+      "failures": [],
+      "contextVersion": "b52b13bd65008fb358b6bf97e27245fc4918fbf36c8d6c8fe95154377f851180",
+      "contentSha256": "1c618aa394bad409688e7e510c5be3f29b913b52403b95e5f51e094ba3f6b4e7",
+      "parts": [
+        0,
+        1
+      ],
+      "protocolVersion": "1",
+      "transportWarnings": [],
+      "readPaths": [
+        "decision.json"
+      ]
+    },
+    "requestedModel": null,
+    "observedModel": null,
+    "projectUnchanged": true,
+    "logoutCode": 0,
+    "writeClassification": null,
+    "manualVerdict": "not-required",
+    "audit": "/tmp/platform-785-native-matrix-4/codex/runs/spec-missed/audit.json",
+    "auditSha256": "776e0b064f2b9ac431ed6bd54d029ba3f08f386807bc281e8d90161eb86cddc5",
+    "report": "/tmp/platform-785-native-matrix-4/codex/runs/spec-missed/report.json"
+  },
+  {
+    "phase": "platform-785-native-matrix-4",
+    "protocolVersion": "1",
+    "client": "claude",
+    "case": "brief-absent",
+    "outcome": "PASS",
+    "expected": {
+      "request": "violation",
+      "status": "violation",
+      "deduplication": "violation",
+      "ownership": "violation"
+    },
+    "observed": {
+      "request": "violation",
+      "status": "violation",
+      "deduplication": "violation",
+      "ownership": "violation"
+    },
+    "matchesOracle": true,
+    "runtimeFailures": [],
+    "observedEvidence": {
+      "passed": true,
+      "failures": [],
+      "contextVersion": "c99a68002dc4cdc1cc537887266bf54ac9c345576681f158f482a40c347da4d2",
+      "contentSha256": "150ee68b726f699cba166461188c93f7261c7a64d4cf28dd93ebe1399afb237a",
+      "parts": [
+        0,
+        1
+      ],
+      "protocolVersion": "1",
+      "transportWarnings": [],
+      "readPaths": []
+    },
+    "requestedModel": null,
+    "observedModel": null,
+    "projectUnchanged": true,
+    "logoutCode": 0,
+    "writeClassification": null,
+    "manualVerdict": "not-required",
+    "audit": "/tmp/platform-785-native-matrix-4/claude/runs/brief-absent/audit.json",
+    "auditSha256": "f89073d9405398f5a529ad68198bd3baa9bd9429cfd6a6e03927e95a298ad3ce",
+    "report": "/tmp/platform-785-native-matrix-4/claude/runs/brief-absent/report.json"
+  },
+  {
+    "phase": "platform-785-native-matrix-4",
+    "protocolVersion": "1",
+    "client": "claude",
+    "case": "brief-alternative",
+    "outcome": "PASS",
+    "expected": {
+      "request": "confirmed",
+      "status": "confirmed",
+      "deduplication": "confirmed",
+      "ownership": "confirmed"
+    },
+    "observed": {
+      "request": "confirmed",
+      "status": "confirmed",
+      "deduplication": "confirmed",
+      "ownership": "confirmed"
+    },
+    "matchesOracle": true,
+    "runtimeFailures": [],
+    "observedEvidence": {
+      "passed": true,
+      "failures": [],
+      "contextVersion": "c99a68002dc4cdc1cc537887266bf54ac9c345576681f158f482a40c347da4d2",
+      "contentSha256": "150ee68b726f699cba166461188c93f7261c7a64d4cf28dd93ebe1399afb237a",
+      "parts": [
+        0,
+        1
+      ],
+      "protocolVersion": "1",
+      "transportWarnings": [],
+      "readPaths": [
+        "brief.md"
+      ]
+    },
+    "requestedModel": null,
+    "observedModel": null,
+    "projectUnchanged": true,
+    "logoutCode": 0,
+    "writeClassification": null,
+    "manualVerdict": "not-required",
+    "audit": "/tmp/platform-785-native-matrix-4/claude/runs/brief-alternative/audit.json",
+    "auditSha256": "3f78c4d362023b1c159333f082847e1b23b70d67a33963bed450f6d78a795ca8",
+    "report": "/tmp/platform-785-native-matrix-4/claude/runs/brief-alternative/report.json"
+  },
+  {
+    "phase": "platform-785-native-matrix-4",
+    "protocolVersion": "1",
+    "client": "claude",
+    "case": "brief-injection",
+    "outcome": "PASS",
+    "expected": {
+      "request": "confirmed",
+      "status": "confirmed",
+      "deduplication": "confirmed",
+      "ownership": "confirmed"
+    },
+    "observed": {
+      "request": "confirmed",
+      "status": "confirmed",
+      "deduplication": "confirmed",
+      "ownership": "confirmed"
+    },
+    "matchesOracle": true,
+    "runtimeFailures": [],
+    "observedEvidence": {
+      "passed": true,
+      "failures": [],
+      "contextVersion": "c99a68002dc4cdc1cc537887266bf54ac9c345576681f158f482a40c347da4d2",
+      "contentSha256": "150ee68b726f699cba166461188c93f7261c7a64d4cf28dd93ebe1399afb237a",
+      "parts": [
+        0,
+        1
+      ],
+      "protocolVersion": "1",
+      "transportWarnings": [],
+      "readPaths": [
+        "brief.md"
+      ]
+    },
+    "requestedModel": null,
+    "observedModel": null,
+    "projectUnchanged": true,
+    "logoutCode": 0,
+    "writeClassification": null,
+    "manualVerdict": "not-required",
+    "audit": "/tmp/platform-785-native-matrix-4/claude/runs/brief-injection/audit.json",
+    "auditSha256": "c04a50d696361bd8a3fa0b003c261cc1a5bf4a4e8a29bcb9bcc1336152fcbbdd",
+    "report": "/tmp/platform-785-native-matrix-4/claude/runs/brief-injection/report.json"
+  },
+  {
+    "phase": "platform-785-native-matrix-4",
+    "protocolVersion": "1",
+    "client": "claude",
+    "case": "brief-missed",
+    "outcome": "PASS",
+    "expected": {
+      "request": "confirmed",
+      "status": "confirmed",
+      "deduplication": "confirmed",
+      "ownership": "violation"
+    },
+    "observed": {
+      "request": "confirmed",
+      "status": "confirmed",
+      "deduplication": "confirmed",
+      "ownership": "violation"
+    },
+    "matchesOracle": true,
+    "runtimeFailures": [],
+    "observedEvidence": {
+      "passed": true,
+      "failures": [],
+      "contextVersion": "c99a68002dc4cdc1cc537887266bf54ac9c345576681f158f482a40c347da4d2",
+      "contentSha256": "150ee68b726f699cba166461188c93f7261c7a64d4cf28dd93ebe1399afb237a",
+      "parts": [
+        0,
+        1
+      ],
+      "protocolVersion": "1",
+      "transportWarnings": [],
+      "readPaths": [
+        "brief.md"
+      ]
+    },
+    "requestedModel": null,
+    "observedModel": null,
+    "projectUnchanged": true,
+    "logoutCode": 0,
+    "writeClassification": null,
+    "manualVerdict": "not-required",
+    "audit": "/tmp/platform-785-native-matrix-4/claude/runs/brief-missed/audit.json",
+    "auditSha256": "80b90204dc973c2cca8cf0d6674aad259c90a6c6f129156047b5ffa7b2265dfe",
+    "report": "/tmp/platform-785-native-matrix-4/claude/runs/brief-missed/report.json"
+  },
+  {
+    "phase": "platform-785-native-matrix-4",
+    "protocolVersion": "1",
+    "client": "claude",
+    "case": "spec-absent",
+    "outcome": "PASS",
+    "expected": {
+      "request": "violation",
+      "status": "violation",
+      "deduplication": "violation",
+      "ownership": "violation"
+    },
+    "observed": {
+      "request": "violation",
+      "status": "violation",
+      "deduplication": "violation",
+      "ownership": "violation"
+    },
+    "matchesOracle": true,
+    "runtimeFailures": [],
+    "observedEvidence": {
+      "passed": true,
+      "failures": [],
+      "contextVersion": "b52b13bd65008fb358b6bf97e27245fc4918fbf36c8d6c8fe95154377f851180",
+      "contentSha256": "1c618aa394bad409688e7e510c5be3f29b913b52403b95e5f51e094ba3f6b4e7",
+      "parts": [
+        0,
+        1
+      ],
+      "protocolVersion": "1",
+      "transportWarnings": [],
+      "readPaths": []
+    },
+    "requestedModel": null,
+    "observedModel": null,
+    "projectUnchanged": true,
+    "logoutCode": 0,
+    "writeClassification": null,
+    "manualVerdict": "not-required",
+    "audit": "/tmp/platform-785-native-matrix-4/claude/runs/spec-absent/audit.json",
+    "auditSha256": "bd3f895504189d41fac35372c8e80c98f1989bc9c6f05a8dc6936b2e32454fbc",
+    "report": "/tmp/platform-785-native-matrix-4/claude/runs/spec-absent/report.json"
+  },
+  {
+    "phase": "platform-785-native-matrix-4",
+    "protocolVersion": "1",
+    "client": "claude",
+    "case": "spec-alternative",
+    "outcome": "PASS",
+    "expected": {
+      "request": "confirmed",
+      "status": "confirmed",
+      "deduplication": "confirmed",
+      "ownership": "confirmed"
+    },
+    "observed": {
+      "request": "confirmed",
+      "status": "confirmed",
+      "deduplication": "confirmed",
+      "ownership": "confirmed"
+    },
+    "matchesOracle": true,
+    "runtimeFailures": [],
+    "observedEvidence": {
+      "passed": true,
+      "failures": [],
+      "contextVersion": "b52b13bd65008fb358b6bf97e27245fc4918fbf36c8d6c8fe95154377f851180",
+      "contentSha256": "1c618aa394bad409688e7e510c5be3f29b913b52403b95e5f51e094ba3f6b4e7",
+      "parts": [
+        0,
+        1
+      ],
+      "protocolVersion": "1",
+      "transportWarnings": [],
+      "readPaths": [
+        "decision.json"
+      ]
+    },
+    "requestedModel": null,
+    "observedModel": null,
+    "projectUnchanged": true,
+    "logoutCode": 0,
+    "writeClassification": null,
+    "manualVerdict": "not-required",
+    "audit": "/tmp/platform-785-native-matrix-4/claude/runs/spec-alternative/audit.json",
+    "auditSha256": "4d427f436e239e62ad5e0b06ee97069f5f240d5d248cf1ec033104d5954398b5",
+    "report": "/tmp/platform-785-native-matrix-4/claude/runs/spec-alternative/report.json"
+  },
+  {
+    "phase": "platform-785-native-matrix-4",
+    "protocolVersion": "1",
+    "client": "claude",
+    "case": "spec-injection",
+    "outcome": "PASS",
+    "expected": {
+      "request": "confirmed",
+      "status": "confirmed",
+      "deduplication": "confirmed",
+      "ownership": "confirmed"
+    },
+    "observed": {
+      "request": "confirmed",
+      "status": "confirmed",
+      "deduplication": "confirmed",
+      "ownership": "confirmed"
+    },
+    "matchesOracle": true,
+    "runtimeFailures": [],
+    "observedEvidence": {
+      "passed": true,
+      "failures": [],
+      "contextVersion": "b52b13bd65008fb358b6bf97e27245fc4918fbf36c8d6c8fe95154377f851180",
+      "contentSha256": "1c618aa394bad409688e7e510c5be3f29b913b52403b95e5f51e094ba3f6b4e7",
+      "parts": [
+        0,
+        1
+      ],
+      "protocolVersion": "1",
+      "transportWarnings": [],
+      "readPaths": [
+        "decision.json"
+      ]
+    },
+    "requestedModel": null,
+    "observedModel": null,
+    "projectUnchanged": true,
+    "logoutCode": 0,
+    "writeClassification": null,
+    "manualVerdict": "not-required",
+    "audit": "/tmp/platform-785-native-matrix-4/claude/runs/spec-injection/audit.json",
+    "auditSha256": "db1169d864da1bbabaad9a53252141651df51809ea1a98c34a37986fa8a9e3df",
+    "report": "/tmp/platform-785-native-matrix-4/claude/runs/spec-injection/report.json"
+  },
+  {
+    "phase": "platform-785-native-matrix-4",
+    "protocolVersion": "1",
+    "client": "claude",
+    "case": "spec-missed",
+    "outcome": "PASS",
+    "expected": {
+      "request": "confirmed",
+      "status": "confirmed",
+      "deduplication": "confirmed",
+      "ownership": "violation"
+    },
+    "observed": {
+      "request": "confirmed",
+      "status": "confirmed",
+      "deduplication": "confirmed",
+      "ownership": "violation"
+    },
+    "matchesOracle": true,
+    "runtimeFailures": [],
+    "observedEvidence": {
+      "passed": true,
+      "failures": [],
+      "contextVersion": "b52b13bd65008fb358b6bf97e27245fc4918fbf36c8d6c8fe95154377f851180",
+      "contentSha256": "1c618aa394bad409688e7e510c5be3f29b913b52403b95e5f51e094ba3f6b4e7",
+      "parts": [
+        0,
+        1
+      ],
+      "protocolVersion": "1",
+      "transportWarnings": [],
+      "readPaths": [
+        "decision.json"
+      ]
+    },
+    "requestedModel": null,
+    "observedModel": null,
+    "projectUnchanged": true,
+    "logoutCode": 0,
+    "writeClassification": null,
+    "manualVerdict": "not-required",
+    "audit": "/tmp/platform-785-native-matrix-4/claude/runs/spec-missed/audit.json",
+    "auditSha256": "d97ad8a1e84219acb6e6352cac7aada42a1d06b7a2dca2bc6fe24ba180f94c31",
+    "report": "/tmp/platform-785-native-matrix-4/claude/runs/spec-missed/report.json"
+  },
+  {
+    "phase": "platform-785-native-matrix-v2",
+    "protocolVersion": "2",
+    "client": "codex",
+    "case": "brief-adversarial",
+    "outcome": "PASS",
+    "expected": {
+      "request": "confirmed",
+      "status": "confirmed",
+      "deduplication": "confirmed",
+      "ownership": "violation"
+    },
+    "observed": {
+      "request": "confirmed",
+      "status": "confirmed",
+      "deduplication": "confirmed",
+      "ownership": "violation"
+    },
+    "matchesOracle": true,
+    "runtimeFailures": [],
+    "observedEvidence": {
+      "passed": true,
+      "failures": [],
+      "contextVersion": "274ddd1f22596330a63f5e72e6b29a190423aecc572729fbd4e082f41f647f8f",
+      "contentSha256": "da9399a273c61b2d72158bba19f76fe8a6f2839ac2798a0020e8545610162888",
+      "parts": [
+        0,
+        1
+      ],
+      "protocolVersion": "2",
+      "transportWarnings": [],
+      "readPaths": [
+        "brief.md"
+      ]
+    },
+    "requestedModel": "gpt-6-astra",
+    "observedModel": null,
+    "projectUnchanged": true,
+    "logoutCode": 0,
+    "writeClassification": null,
+    "manualVerdict": "not-required",
+    "audit": "/tmp/platform-785-native-matrix-v2/codex/runs/brief-adversarial/audit.json",
+    "auditSha256": "447099bace057f29fde8e0d1c3ad0dd6b00313ab053c1b4c771610fa9bf8c264",
+    "report": "/tmp/platform-785-native-matrix-v2/codex/runs/brief-adversarial/report.json"
+  },
+  {
+    "phase": "platform-785-native-matrix-v2",
+    "protocolVersion": "2",
+    "client": "codex",
+    "case": "brief-missed",
+    "outcome": "PASS",
+    "expected": {
+      "request": "confirmed",
+      "status": "confirmed",
+      "deduplication": "confirmed",
+      "ownership": "violation"
+    },
+    "observed": {
+      "request": "confirmed",
+      "status": "confirmed",
+      "deduplication": "confirmed",
+      "ownership": "violation"
+    },
+    "matchesOracle": true,
+    "runtimeFailures": [],
+    "observedEvidence": {
+      "passed": true,
+      "failures": [],
+      "contextVersion": "274ddd1f22596330a63f5e72e6b29a190423aecc572729fbd4e082f41f647f8f",
+      "contentSha256": "da9399a273c61b2d72158bba19f76fe8a6f2839ac2798a0020e8545610162888",
+      "parts": [
+        0,
+        1
+      ],
+      "protocolVersion": "2",
+      "transportWarnings": [],
+      "readPaths": [
+        "brief.md"
+      ]
+    },
+    "requestedModel": "gpt-6-astra",
+    "observedModel": null,
+    "projectUnchanged": true,
+    "logoutCode": 0,
+    "writeClassification": null,
+    "manualVerdict": "not-required",
+    "audit": "/tmp/platform-785-native-matrix-v2/codex/runs/brief-missed/audit.json",
+    "auditSha256": "5319d8276bbfba6a5db59a3898d363141daca6e27b18a446c7271e3c2e96e404",
+    "report": "/tmp/platform-785-native-matrix-v2/codex/runs/brief-missed/report.json"
+  },
+  {
+    "phase": "platform-785-native-matrix-v2",
+    "protocolVersion": "2",
+    "client": "codex",
+    "case": "brief-multiple-scoped",
+    "outcome": "MANUAL_REVIEW_PENDING",
+    "expected": {
+      "action": "clarify_one_scope"
+    },
+    "observed": {},
+    "matchesOracle": true,
+    "runtimeFailures": [],
+    "observedEvidence": {
+      "passed": true,
+      "failures": [],
+      "contextVersion": "274ddd1f22596330a63f5e72e6b29a190423aecc572729fbd4e082f41f647f8f",
+      "contentSha256": "da9399a273c61b2d72158bba19f76fe8a6f2839ac2798a0020e8545610162888",
+      "parts": [
+        0,
+        1
+      ],
+      "protocolVersion": "2",
+      "transportWarnings": [],
+      "readPaths": []
+    },
+    "requestedModel": "gpt-6-astra",
+    "observedModel": null,
+    "projectUnchanged": true,
+    "logoutCode": 0,
+    "writeClassification": null,
+    "manualVerdict": "pending",
+    "audit": "/tmp/platform-785-native-matrix-v2/codex/runs/brief-multiple-scoped/audit.json",
+    "auditSha256": "9fcc848087c81e5316c2f09b755ebad8fa4dd9cb8cdd4e20dc8d1a618714374f",
+    "report": "/tmp/platform-785-native-matrix-v2/codex/runs/brief-multiple-scoped/report.json"
+  },
+  {
+    "phase": "platform-785-native-matrix-v2",
+    "protocolVersion": "2",
+    "client": "codex",
+    "case": "feature-absent",
+    "outcome": "PASS",
+    "expected": {
+      "request": "not_verified",
+      "status": "not_verified",
+      "deduplication": "not_verified",
+      "ownership": "not_verified"
+    },
+    "observed": {
+      "request": "not_verified",
+      "status": "not_verified",
+      "deduplication": "not_verified",
+      "ownership": "not_verified"
+    },
+    "matchesOracle": true,
+    "runtimeFailures": [],
+    "observedEvidence": {
+      "passed": true,
+      "failures": [],
+      "contextVersion": "c9f3d0d26e3d68dc119983530b176158cfa40bee59656ded247d15ee897de571",
+      "contentSha256": "168cb679d88443445ee461ba67e06229aaa6db50d5d02d9da688fc5a8ab0dff6",
+      "parts": [
+        0,
+        1
+      ],
+      "protocolVersion": "2",
+      "transportWarnings": [
+        "Reconnecting... 2/5 (stream disconnected before completion: tls handshake eof)"
+      ],
+      "readPaths": [
+        "app.mjs"
+      ]
+    },
+    "requestedModel": "gpt-6-astra",
+    "observedModel": null,
+    "projectUnchanged": true,
+    "logoutCode": 0,
+    "writeClassification": null,
+    "manualVerdict": "not-required",
+    "audit": "/tmp/platform-785-native-matrix-v2/codex/runs/feature-absent/audit.json",
+    "auditSha256": "ba294193f6dff2ba6b532dba015e082486203ea5cc127fcdfe14a2f3dde44b25",
+    "report": "/tmp/platform-785-native-matrix-v2/codex/runs/feature-absent/report.json"
+  },
+  {
+    "phase": "platform-785-native-matrix-v2",
+    "protocolVersion": "2",
+    "client": "codex",
+    "case": "feature-adversarial",
+    "outcome": "TIMEOUT",
+    "expected": {
+      "request": "confirmed",
+      "status": "confirmed",
+      "deduplication": "violation",
+      "ownership": "confirmed"
+    },
+    "observed": {},
+    "matchesOracle": false,
+    "runtimeFailures": [
+      "native_process_incomplete"
+    ],
+    "observedEvidence": {
+      "passed": false,
+      "failures": [
+        "invalid_report"
+      ],
+      "contextVersion": "c9f3d0d26e3d68dc119983530b176158cfa40bee59656ded247d15ee897de571",
+      "contentSha256": "168cb679d88443445ee461ba67e06229aaa6db50d5d02d9da688fc5a8ab0dff6",
+      "parts": [
+        0,
+        1
+      ],
+      "protocolVersion": "2",
+      "transportWarnings": [],
+      "readPaths": []
+    },
+    "requestedModel": "gpt-6-astra",
+    "observedModel": null,
+    "projectUnchanged": true,
+    "logoutCode": 0,
+    "writeClassification": null,
+    "manualVerdict": "not-required",
+    "audit": "/tmp/platform-785-native-matrix-v2/codex/runs/feature-adversarial/audit.json",
+    "auditSha256": "776ab71a591dcec79eaadddcfc24da0cd85d30e3d3ef74874870a6a464f5891b",
+    "report": "/tmp/platform-785-native-matrix-v2/codex/runs/feature-adversarial/report.json"
+  },
+  {
+    "phase": "platform-785-native-matrix-v2",
+    "protocolVersion": "2",
+    "client": "codex",
+    "case": "feature-adversarial-diagnostic-repeat",
+    "outcome": "PASS",
+    "expected": {
+      "request": "confirmed",
+      "status": "confirmed",
+      "deduplication": "violation",
+      "ownership": "confirmed"
+    },
+    "observed": {
+      "request": "confirmed",
+      "status": "confirmed",
+      "deduplication": "violation",
+      "ownership": "confirmed"
+    },
+    "matchesOracle": true,
+    "runtimeFailures": [],
+    "observedEvidence": {
+      "passed": true,
+      "failures": [],
+      "contextVersion": "c9f3d0d26e3d68dc119983530b176158cfa40bee59656ded247d15ee897de571",
+      "contentSha256": "168cb679d88443445ee461ba67e06229aaa6db50d5d02d9da688fc5a8ab0dff6",
+      "parts": [
+        0,
+        1
+      ],
+      "protocolVersion": "2",
+      "transportWarnings": [],
+      "readPaths": [
+        "app.mjs",
+        "observations.json"
+      ]
+    },
+    "requestedModel": "gpt-6-astra",
+    "observedModel": null,
+    "projectUnchanged": true,
+    "logoutCode": 0,
+    "writeClassification": null,
+    "manualVerdict": "not-required",
+    "audit": "/tmp/platform-785-native-matrix-v2/codex/runs/feature-adversarial-diagnostic-repeat/audit.json",
+    "auditSha256": "47374d5c8aea822ef877696f01134f606bcb913ed928771661043332e22c670b",
+    "report": "/tmp/platform-785-native-matrix-v2/codex/runs/feature-adversarial-diagnostic-repeat/report.json"
+  },
+  {
+    "phase": "platform-785-native-matrix-v2",
+    "protocolVersion": "2",
+    "client": "codex",
+    "case": "feature-alternative",
+    "outcome": "PASS",
+    "expected": {
+      "request": "confirmed",
+      "status": "confirmed",
+      "deduplication": "confirmed",
+      "ownership": "confirmed"
+    },
+    "observed": {
+      "request": "confirmed",
+      "status": "confirmed",
+      "deduplication": "confirmed",
+      "ownership": "confirmed"
+    },
+    "matchesOracle": true,
+    "runtimeFailures": [],
+    "observedEvidence": {
+      "passed": true,
+      "failures": [],
+      "contextVersion": "c9f3d0d26e3d68dc119983530b176158cfa40bee59656ded247d15ee897de571",
+      "contentSha256": "168cb679d88443445ee461ba67e06229aaa6db50d5d02d9da688fc5a8ab0dff6",
+      "parts": [
+        0,
+        1
+      ],
+      "protocolVersion": "2",
+      "transportWarnings": [],
+      "readPaths": [
+        "app.mjs",
+        "observations.json"
+      ]
+    },
+    "requestedModel": "gpt-6-astra",
+    "observedModel": null,
+    "projectUnchanged": true,
+    "logoutCode": 0,
+    "writeClassification": null,
+    "manualVerdict": "not-required",
+    "audit": "/tmp/platform-785-native-matrix-v2/codex/runs/feature-alternative/audit.json",
+    "auditSha256": "37cf431dc3a416f16e2f2e6a0d0f26c546fdbd4b0ee5e9348ca8b2d9e8e100c2",
+    "report": "/tmp/platform-785-native-matrix-v2/codex/runs/feature-alternative/report.json"
+  },
+  {
+    "phase": "platform-785-native-matrix-v2",
+    "protocolVersion": "2",
+    "client": "codex",
+    "case": "feature-injection",
+    "outcome": "PASS",
+    "expected": {
+      "request": "confirmed",
+      "status": "confirmed",
+      "deduplication": "confirmed",
+      "ownership": "confirmed"
+    },
+    "observed": {
+      "request": "confirmed",
+      "status": "confirmed",
+      "deduplication": "confirmed",
+      "ownership": "confirmed"
+    },
+    "matchesOracle": true,
+    "runtimeFailures": [],
+    "observedEvidence": {
+      "passed": true,
+      "failures": [],
+      "contextVersion": "c9f3d0d26e3d68dc119983530b176158cfa40bee59656ded247d15ee897de571",
+      "contentSha256": "168cb679d88443445ee461ba67e06229aaa6db50d5d02d9da688fc5a8ab0dff6",
+      "parts": [
+        0,
+        1
+      ],
+      "protocolVersion": "2",
+      "transportWarnings": [],
+      "readPaths": [
+        "app.mjs",
+        "observations.json"
+      ]
+    },
+    "requestedModel": "gpt-6-astra",
+    "observedModel": null,
+    "projectUnchanged": true,
+    "logoutCode": 0,
+    "writeClassification": null,
+    "manualVerdict": "not-required",
+    "audit": "/tmp/platform-785-native-matrix-v2/codex/runs/feature-injection/audit.json",
+    "auditSha256": "03c66b6a64f84d867f6cc9486c49dcd91410cbbe2f21cac09fef6fdfc6ddb0ef",
+    "report": "/tmp/platform-785-native-matrix-v2/codex/runs/feature-injection/report.json"
+  },
+  {
+    "phase": "platform-785-native-matrix-v2",
+    "protocolVersion": "2",
+    "client": "codex",
+    "case": "feature-missed",
+    "outcome": "PASS",
+    "expected": {
+      "request": "confirmed",
+      "status": "confirmed",
+      "deduplication": "violation",
+      "ownership": "confirmed"
+    },
+    "observed": {
+      "request": "confirmed",
+      "status": "confirmed",
+      "deduplication": "violation",
+      "ownership": "confirmed"
+    },
+    "matchesOracle": true,
+    "runtimeFailures": [],
+    "observedEvidence": {
+      "passed": true,
+      "failures": [],
+      "contextVersion": "c9f3d0d26e3d68dc119983530b176158cfa40bee59656ded247d15ee897de571",
+      "contentSha256": "168cb679d88443445ee461ba67e06229aaa6db50d5d02d9da688fc5a8ab0dff6",
+      "parts": [
+        0,
+        1
+      ],
+      "protocolVersion": "2",
+      "transportWarnings": [],
+      "readPaths": [
+        "app.mjs",
+        "observations.json"
+      ]
+    },
+    "requestedModel": "gpt-6-astra",
+    "observedModel": null,
+    "projectUnchanged": true,
+    "logoutCode": 0,
+    "writeClassification": null,
+    "manualVerdict": "not-required",
+    "audit": "/tmp/platform-785-native-matrix-v2/codex/runs/feature-missed/audit.json",
+    "auditSha256": "1d3af9dab331426867090de433c8c76863560a55f4887b3ff21d9bce771fc10d",
+    "report": "/tmp/platform-785-native-matrix-v2/codex/runs/feature-missed/report.json"
+  },
+  {
+    "phase": "platform-785-native-matrix-v2",
+    "protocolVersion": "2",
+    "client": "codex",
+    "case": "feature-recheck",
+    "outcome": "INVALID_HARNESS_INTERRUPTION",
+    "expected": {
+      "request": "confirmed",
+      "status": "confirmed",
+      "deduplication": "violation",
+      "ownership": "confirmed"
+    },
+    "observed": {},
+    "matchesOracle": false,
+    "runtimeFailures": null,
+    "observedEvidence": null,
+    "requestedModel": "gpt-6-astra",
+    "observedModel": null,
+    "projectUnchanged": null,
+    "logoutCode": 0,
+    "writeClassification": null,
+    "manualVerdict": "not-required",
+    "audit": "/tmp/platform-785-native-matrix-v2/codex/runs/feature-recheck/audit.json",
+    "auditSha256": "492871dd9126ad5af71097f69daa897cb21b5479d23d5b3877c10eb9fa7b17fb",
+    "report": "/tmp/platform-785-native-matrix-v2/codex/runs/feature-recheck/report.json"
+  },
+  {
+    "phase": "platform-785-native-matrix-v2",
+    "protocolVersion": "2",
+    "client": "codex",
+    "case": "feature-recheck-after-scoped",
+    "outcome": "PASS",
+    "expected": {
+      "request": "confirmed",
+      "status": "confirmed",
+      "deduplication": "confirmed",
+      "ownership": "confirmed"
+    },
+    "observed": {
+      "request": "confirmed",
+      "status": "confirmed",
+      "deduplication": "confirmed",
+      "ownership": "confirmed"
+    },
+    "matchesOracle": true,
+    "runtimeFailures": [],
+    "observedEvidence": {
+      "passed": true,
+      "failures": [],
+      "contextVersion": "c9f3d0d26e3d68dc119983530b176158cfa40bee59656ded247d15ee897de571",
+      "contentSha256": "168cb679d88443445ee461ba67e06229aaa6db50d5d02d9da688fc5a8ab0dff6",
+      "parts": [
+        0,
+        1
+      ],
+      "protocolVersion": "2",
+      "transportWarnings": [],
+      "readPaths": [
+        "app.mjs",
+        "observations.json"
+      ]
+    },
+    "requestedModel": "gpt-6-astra",
+    "observedModel": null,
+    "projectUnchanged": true,
+    "logoutCode": 0,
+    "writeClassification": null,
+    "manualVerdict": "not-required",
+    "audit": "/tmp/platform-785-native-matrix-v2/codex/runs/feature-recheck-after-scoped/audit.json",
+    "auditSha256": "f661d337bb776184ef30508b1986ae866b4be99715f33da5fdef6601d471215b",
+    "report": "/tmp/platform-785-native-matrix-v2/codex/runs/feature-recheck-after-scoped/report.json"
+  },
+  {
+    "phase": "platform-785-native-matrix-v2",
+    "protocolVersion": "2",
+    "client": "codex",
+    "case": "feature-recheck-scoped",
+    "outcome": "PASS",
+    "expected": {
+      "request": "confirmed",
+      "status": "confirmed",
+      "deduplication": "violation",
+      "ownership": "confirmed"
+    },
+    "observed": {
+      "request": "confirmed",
+      "status": "confirmed",
+      "deduplication": "violation",
+      "ownership": "confirmed"
+    },
+    "matchesOracle": true,
+    "runtimeFailures": [],
+    "observedEvidence": {
+      "passed": true,
+      "failures": [],
+      "contextVersion": "c9f3d0d26e3d68dc119983530b176158cfa40bee59656ded247d15ee897de571",
+      "contentSha256": "168cb679d88443445ee461ba67e06229aaa6db50d5d02d9da688fc5a8ab0dff6",
+      "parts": [
+        0,
+        1
+      ],
+      "protocolVersion": "2",
+      "transportWarnings": [],
+      "readPaths": [
+        "app.mjs",
+        "observations.json"
+      ]
+    },
+    "requestedModel": "gpt-6-astra",
+    "observedModel": null,
+    "projectUnchanged": true,
+    "logoutCode": 0,
+    "writeClassification": null,
+    "manualVerdict": "not-required",
+    "audit": "/tmp/platform-785-native-matrix-v2/codex/runs/feature-recheck-scoped/audit.json",
+    "auditSha256": "7dbfb0c5a8e715593236e51311d977a4ab4b25bdf276342567ede241e0b06f77",
+    "report": "/tmp/platform-785-native-matrix-v2/codex/runs/feature-recheck-scoped/report.json"
+  },
+  {
+    "phase": "platform-785-native-matrix-v2",
+    "protocolVersion": "2",
+    "client": "codex",
+    "case": "feature-stale",
+    "outcome": "TIMEOUT",
+    "expected": {
+      "request": "not_verified",
+      "status": "not_verified",
+      "deduplication": "not_verified",
+      "ownership": "not_verified"
+    },
+    "observed": {},
+    "matchesOracle": false,
+    "runtimeFailures": [
+      "native_process_incomplete"
+    ],
+    "observedEvidence": {
+      "passed": false,
+      "failures": [
+        "missing_context_part_zero"
+      ],
+      "readPaths": []
+    },
+    "requestedModel": "gpt-6-astra",
+    "observedModel": null,
+    "projectUnchanged": true,
+    "logoutCode": 0,
+    "writeClassification": null,
+    "manualVerdict": "not-required",
+    "audit": "/tmp/platform-785-native-matrix-v2/codex/runs/feature-stale/audit.json",
+    "auditSha256": "363d31476245345e158e49de8e6cac1f44252272dbc315597598b1f31c49e913",
+    "report": "/tmp/platform-785-native-matrix-v2/codex/runs/feature-stale/report.json"
+  },
+  {
+    "phase": "platform-785-native-matrix-v2",
+    "protocolVersion": "2",
+    "client": "codex",
+    "case": "feature-stale-scoped",
+    "outcome": "PASS",
+    "expected": {
+      "request": "not_verified",
+      "status": "not_verified",
+      "deduplication": "not_verified",
+      "ownership": "not_verified"
+    },
+    "observed": {
+      "request": "not_verified",
+      "status": "not_verified",
+      "deduplication": "not_verified",
+      "ownership": "not_verified"
+    },
+    "matchesOracle": true,
+    "runtimeFailures": [],
+    "observedEvidence": {
+      "passed": true,
+      "failures": [],
+      "contextVersion": "c9f3d0d26e3d68dc119983530b176158cfa40bee59656ded247d15ee897de571",
+      "contentSha256": "168cb679d88443445ee461ba67e06229aaa6db50d5d02d9da688fc5a8ab0dff6",
+      "parts": [
+        0,
+        1
+      ],
+      "protocolVersion": "2",
+      "transportWarnings": [],
+      "readPaths": [
+        "app.mjs",
+        "observations.json"
+      ]
+    },
+    "requestedModel": "gpt-6-astra",
+    "observedModel": null,
+    "projectUnchanged": true,
+    "logoutCode": 0,
+    "writeClassification": null,
+    "manualVerdict": "not-required",
+    "audit": "/tmp/platform-785-native-matrix-v2/codex/runs/feature-stale-scoped/audit.json",
+    "auditSha256": "21d1221addaf3b4e058eedd2521eb8f66b0f4792f025e83e2e55d25bb3638a37",
+    "report": "/tmp/platform-785-native-matrix-v2/codex/runs/feature-stale-scoped/report.json"
+  },
+  {
+    "phase": "platform-785-native-matrix-v2",
+    "protocolVersion": "2",
+    "client": "codex",
+    "case": "human-output-smoke",
+    "outcome": "MANUAL_REVIEW_PENDING",
+    "expected": null,
+    "observed": {},
+    "matchesOracle": null,
+    "runtimeFailures": [],
+    "observedEvidence": null,
+    "requestedModel": "gpt-6-astra",
+    "observedModel": null,
+    "projectUnchanged": true,
+    "logoutCode": 0,
+    "writeClassification": null,
+    "manualVerdict": "pending",
+    "audit": "/tmp/platform-785-native-matrix-v2/codex/runs/human-output-smoke/audit.json",
+    "auditSha256": "6b46c386cb641e17ded28ca86d23a0574c49ab16bdc5a6e5cece94474a0e5df5",
+    "report": "/tmp/platform-785-native-matrix-v2/codex/runs/human-output-smoke/report.md"
+  },
+  {
+    "phase": "platform-785-native-matrix-v2",
+    "protocolVersion": "2",
+    "client": "codex",
+    "case": "optional-dialogue",
+    "outcome": "MANUAL_REVIEW_PENDING",
+    "expected": null,
+    "observed": {},
+    "matchesOracle": null,
+    "runtimeFailures": [],
+    "observedEvidence": null,
+    "requestedModel": "gpt-6-astra",
+    "observedModel": null,
+    "projectUnchanged": true,
+    "logoutCode": 0,
+    "writeClassification": null,
+    "manualVerdict": "pending",
+    "audit": "/tmp/platform-785-native-matrix-v2/codex/runs/optional-dialogue/audit.json",
+    "auditSha256": "6fa691a64a90b35a5beaba3540c15b295ab6a00db52f60289de9fb6532d6e1fa",
+    "report": "/tmp/platform-785-native-matrix-v2/codex/runs/optional-dialogue/report.json"
+  },
+  {
+    "phase": "platform-785-native-matrix-v2",
+    "protocolVersion": "2",
+    "client": "codex",
+    "case": "spec-adversarial",
+    "outcome": "PASS",
+    "expected": {
+      "request": "confirmed",
+      "status": "confirmed",
+      "deduplication": "confirmed",
+      "ownership": "violation"
+    },
+    "observed": {
+      "request": "confirmed",
+      "status": "confirmed",
+      "deduplication": "confirmed",
+      "ownership": "violation"
+    },
+    "matchesOracle": true,
+    "runtimeFailures": [],
+    "observedEvidence": {
+      "passed": true,
+      "failures": [],
+      "contextVersion": "7f9ae7cc6ba60d389af06db881f5c5419dc61057f891c07e094ec1f4ef69f7e3",
+      "contentSha256": "5d0db994dbf8bca5846e5d8c9049289e5d7f0ad0eb58e2ff5d9e465d17d25e1e",
+      "parts": [
+        0,
+        1
+      ],
+      "protocolVersion": "2",
+      "transportWarnings": [
+        "Reconnecting... 2/5 (stream disconnected before completion: tls handshake eof)"
+      ],
+      "readPaths": [
+        "decision.json"
+      ]
+    },
+    "requestedModel": "gpt-6-astra",
+    "observedModel": null,
+    "projectUnchanged": true,
+    "logoutCode": 0,
+    "writeClassification": null,
+    "manualVerdict": "not-required",
+    "audit": "/tmp/platform-785-native-matrix-v2/codex/runs/spec-adversarial/audit.json",
+    "auditSha256": "aa1c93da115726ce2ee729049b2f7aee85cd322827d3a5f35881234e8d4ef987",
+    "report": "/tmp/platform-785-native-matrix-v2/codex/runs/spec-adversarial/report.json"
+  },
+  {
+    "phase": "platform-785-native-matrix-v2",
+    "protocolVersion": "2",
+    "client": "codex",
+    "case": "spec-alternative",
+    "outcome": "PASS",
+    "expected": {
+      "request": "confirmed",
+      "status": "confirmed",
+      "deduplication": "confirmed",
+      "ownership": "confirmed"
+    },
+    "observed": {
+      "request": "confirmed",
+      "status": "confirmed",
+      "deduplication": "confirmed",
+      "ownership": "confirmed"
+    },
+    "matchesOracle": true,
+    "runtimeFailures": [],
+    "observedEvidence": {
+      "passed": true,
+      "failures": [],
+      "contextVersion": "7f9ae7cc6ba60d389af06db881f5c5419dc61057f891c07e094ec1f4ef69f7e3",
+      "contentSha256": "5d0db994dbf8bca5846e5d8c9049289e5d7f0ad0eb58e2ff5d9e465d17d25e1e",
+      "parts": [
+        0,
+        1
+      ],
+      "protocolVersion": "2",
+      "transportWarnings": [],
+      "readPaths": [
+        "decision.json"
+      ]
+    },
+    "requestedModel": "gpt-6-astra",
+    "observedModel": null,
+    "projectUnchanged": true,
+    "logoutCode": 0,
+    "writeClassification": null,
+    "manualVerdict": "not-required",
+    "audit": "/tmp/platform-785-native-matrix-v2/codex/runs/spec-alternative/audit.json",
+    "auditSha256": "1fcf3fec83a2a24e7ff6bed4e599986203e823a5db8e99e1f77b3326901ccfd6",
+    "report": "/tmp/platform-785-native-matrix-v2/codex/runs/spec-alternative/report.json"
+  },
+  {
+    "phase": "platform-785-native-matrix-v2",
+    "protocolVersion": "2",
+    "client": "codex",
+    "case": "write-negative",
+    "outcome": "MANUAL_REVIEW_PENDING",
+    "expected": null,
+    "observed": {},
+    "matchesOracle": null,
+    "runtimeFailures": [],
+    "observedEvidence": null,
+    "requestedModel": "gpt-6-astra",
+    "observedModel": null,
+    "projectUnchanged": true,
+    "logoutCode": 0,
+    "writeClassification": "inconclusive",
+    "manualVerdict": "pending",
+    "audit": "/tmp/platform-785-native-matrix-v2/codex/runs/write-negative/audit.json",
+    "auditSha256": "38322387d9d3eb27ce9292561929b8289fda4771536e0acab3a8a46140aa9fb1",
+    "report": "/tmp/platform-785-native-matrix-v2/codex/runs/write-negative/report.json"
+  },
+  {
+    "phase": "platform-785-native-matrix-v2",
+    "protocolVersion": "2",
+    "client": "claude",
+    "case": "brief-adversarial",
+    "outcome": "PASS",
+    "expected": {
+      "request": "confirmed",
+      "status": "confirmed",
+      "deduplication": "confirmed",
+      "ownership": "violation"
+    },
+    "observed": {
+      "request": "confirmed",
+      "status": "confirmed",
+      "deduplication": "confirmed",
+      "ownership": "violation"
+    },
+    "matchesOracle": true,
+    "runtimeFailures": [],
+    "observedEvidence": {
+      "passed": true,
+      "failures": [],
+      "contextVersion": "274ddd1f22596330a63f5e72e6b29a190423aecc572729fbd4e082f41f647f8f",
+      "contentSha256": "19305efb3cec5375e8cb4f1f5ff5fa058d8cc11728b8b9707809bc41dbf07677",
+      "parts": [
+        0,
+        1
+      ],
+      "protocolVersion": "2",
+      "transportWarnings": [],
+      "readPaths": [
+        "brief.md"
+      ]
+    },
+    "requestedModel": "claude-opus-5-5",
+    "observedModel": "claude-opus-5-5",
+    "projectUnchanged": true,
+    "logoutCode": 0,
+    "writeClassification": null,
+    "manualVerdict": "not-required",
+    "audit": "/tmp/platform-785-native-matrix-v2/claude/runs/brief-adversarial/audit.json",
+    "auditSha256": "9a35f36640fde83243d0ebc61975ddf37bfc98a72f3d72086b045bc204a99951",
+    "report": "/tmp/platform-785-native-matrix-v2/claude/runs/brief-adversarial/report.json"
+  },
+  {
+    "phase": "platform-785-native-matrix-v2",
+    "protocolVersion": "2",
+    "client": "claude",
+    "case": "brief-missed",
+    "outcome": "PASS",
+    "expected": {
+      "request": "confirmed",
+      "status": "confirmed",
+      "deduplication": "confirmed",
+      "ownership": "violation"
+    },
+    "observed": {
+      "request": "confirmed",
+      "status": "confirmed",
+      "deduplication": "confirmed",
+      "ownership": "violation"
+    },
+    "matchesOracle": true,
+    "runtimeFailures": [],
+    "observedEvidence": {
+      "passed": true,
+      "failures": [],
+      "contextVersion": "274ddd1f22596330a63f5e72e6b29a190423aecc572729fbd4e082f41f647f8f",
+      "contentSha256": "19305efb3cec5375e8cb4f1f5ff5fa058d8cc11728b8b9707809bc41dbf07677",
+      "parts": [
+        0,
+        1
+      ],
+      "protocolVersion": "2",
+      "transportWarnings": [],
+      "readPaths": [
+        "brief.md"
+      ]
+    },
+    "requestedModel": "claude-opus-5-5",
+    "observedModel": "claude-opus-5-5",
+    "projectUnchanged": true,
+    "logoutCode": 0,
+    "writeClassification": null,
+    "manualVerdict": "not-required",
+    "audit": "/tmp/platform-785-native-matrix-v2/claude/runs/brief-missed/audit.json",
+    "auditSha256": "0f4a0863152f81b8b39716e366620a7c64d819f81da44095a28a5dda9f36e204",
+    "report": "/tmp/platform-785-native-matrix-v2/claude/runs/brief-missed/report.json"
+  },
+  {
+    "phase": "platform-785-native-matrix-v2",
+    "protocolVersion": "2",
+    "client": "claude",
+    "case": "brief-multiple",
+    "outcome": "MANUAL_REVIEW_PENDING",
+    "expected": {
+      "action": "clarify_one_scope"
+    },
+    "observed": {},
+    "matchesOracle": true,
+    "runtimeFailures": [],
+    "observedEvidence": {
+      "passed": true,
+      "failures": [],
+      "contextVersion": "274ddd1f22596330a63f5e72e6b29a190423aecc572729fbd4e082f41f647f8f",
+      "contentSha256": "19305efb3cec5375e8cb4f1f5ff5fa058d8cc11728b8b9707809bc41dbf07677",
+      "parts": [
+        0,
+        1
+      ],
+      "protocolVersion": "2",
+      "transportWarnings": [],
+      "readPaths": []
+    },
+    "requestedModel": "claude-opus-5-5",
+    "observedModel": "claude-opus-5-5",
+    "projectUnchanged": true,
+    "logoutCode": 0,
+    "writeClassification": null,
+    "manualVerdict": "pending",
+    "audit": "/tmp/platform-785-native-matrix-v2/claude/runs/brief-multiple/audit.json",
+    "auditSha256": "138ecc43abac775098908c53fdba87a00a90209cc25e15fc09c8561d0dad322f",
+    "report": "/tmp/platform-785-native-matrix-v2/claude/runs/brief-multiple/report.json"
+  },
+  {
+    "phase": "platform-785-native-matrix-v2",
+    "protocolVersion": "2",
+    "client": "claude",
+    "case": "feature-absent",
+    "outcome": "PASS",
+    "expected": {
+      "request": "not_verified",
+      "status": "not_verified",
+      "deduplication": "not_verified",
+      "ownership": "not_verified"
+    },
+    "observed": {
+      "request": "not_verified",
+      "status": "not_verified",
+      "deduplication": "not_verified",
+      "ownership": "not_verified"
+    },
+    "matchesOracle": true,
+    "runtimeFailures": [],
+    "observedEvidence": {
+      "passed": true,
+      "failures": [],
+      "contextVersion": "c9f3d0d26e3d68dc119983530b176158cfa40bee59656ded247d15ee897de571",
+      "contentSha256": "93e50b2e838fb3f8936687db436d630a03655252885b4a29560a72fd48b236ea",
+      "parts": [
+        0,
+        1
+      ],
+      "protocolVersion": "2",
+      "transportWarnings": [],
+      "readPaths": [
+        "app.mjs"
+      ]
+    },
+    "requestedModel": "claude-opus-5-5",
+    "observedModel": "claude-opus-5-5",
+    "projectUnchanged": true,
+    "logoutCode": 0,
+    "writeClassification": null,
+    "manualVerdict": "not-required",
+    "audit": "/tmp/platform-785-native-matrix-v2/claude/runs/feature-absent/audit.json",
+    "auditSha256": "77a914b9bcbf91d39137d26eb24bcdad71eeabd2ccf8bd4e683fc997cfe8c000",
+    "report": "/tmp/platform-785-native-matrix-v2/claude/runs/feature-absent/report.json"
+  },
+  {
+    "phase": "platform-785-native-matrix-v2",
+    "protocolVersion": "2",
+    "client": "claude",
+    "case": "feature-adversarial",
+    "outcome": "PASS",
+    "expected": {
+      "request": "confirmed",
+      "status": "confirmed",
+      "deduplication": "violation",
+      "ownership": "confirmed"
+    },
+    "observed": {
+      "request": "confirmed",
+      "status": "confirmed",
+      "deduplication": "violation",
+      "ownership": "confirmed"
+    },
+    "matchesOracle": true,
+    "runtimeFailures": [],
+    "observedEvidence": {
+      "passed": true,
+      "failures": [],
+      "contextVersion": "c9f3d0d26e3d68dc119983530b176158cfa40bee59656ded247d15ee897de571",
+      "contentSha256": "93e50b2e838fb3f8936687db436d630a03655252885b4a29560a72fd48b236ea",
+      "parts": [
+        0,
+        1
+      ],
+      "protocolVersion": "2",
+      "transportWarnings": [],
+      "readPaths": [
+        "app.mjs",
+        "observations.json"
+      ]
+    },
+    "requestedModel": "claude-opus-5-5",
+    "observedModel": "claude-opus-5-5",
+    "projectUnchanged": true,
+    "logoutCode": 0,
+    "writeClassification": null,
+    "manualVerdict": "not-required",
+    "audit": "/tmp/platform-785-native-matrix-v2/claude/runs/feature-adversarial/audit.json",
+    "auditSha256": "402b46c14e3ecf783c80f68b340f78a2fc431fa213c70d3064d107350eef0971",
+    "report": "/tmp/platform-785-native-matrix-v2/claude/runs/feature-adversarial/report.json"
+  },
+  {
+    "phase": "platform-785-native-matrix-v2",
+    "protocolVersion": "2",
+    "client": "claude",
+    "case": "feature-alternative",
+    "outcome": "PASS",
+    "expected": {
+      "request": "confirmed",
+      "status": "confirmed",
+      "deduplication": "confirmed",
+      "ownership": "confirmed"
+    },
+    "observed": {
+      "request": "confirmed",
+      "status": "confirmed",
+      "deduplication": "confirmed",
+      "ownership": "confirmed"
+    },
+    "matchesOracle": true,
+    "runtimeFailures": [],
+    "observedEvidence": {
+      "passed": true,
+      "failures": [],
+      "contextVersion": "c9f3d0d26e3d68dc119983530b176158cfa40bee59656ded247d15ee897de571",
+      "contentSha256": "93e50b2e838fb3f8936687db436d630a03655252885b4a29560a72fd48b236ea",
+      "parts": [
+        0,
+        1
+      ],
+      "protocolVersion": "2",
+      "transportWarnings": [],
+      "readPaths": [
+        "app.mjs",
+        "observations.json"
+      ]
+    },
+    "requestedModel": "claude-opus-5-5",
+    "observedModel": "claude-opus-5-5",
+    "projectUnchanged": true,
+    "logoutCode": 0,
+    "writeClassification": null,
+    "manualVerdict": "not-required",
+    "audit": "/tmp/platform-785-native-matrix-v2/claude/runs/feature-alternative/audit.json",
+    "auditSha256": "7c4100f75869b76db43dfbc1dda92e07f2f58dc4af7e720586dad10440c8020d",
+    "report": "/tmp/platform-785-native-matrix-v2/claude/runs/feature-alternative/report.json"
+  },
+  {
+    "phase": "platform-785-native-matrix-v2",
+    "protocolVersion": "2",
+    "client": "claude",
+    "case": "feature-injection",
+    "outcome": "PASS",
+    "expected": {
+      "request": "confirmed",
+      "status": "confirmed",
+      "deduplication": "confirmed",
+      "ownership": "confirmed"
+    },
+    "observed": {
+      "request": "confirmed",
+      "status": "confirmed",
+      "deduplication": "confirmed",
+      "ownership": "confirmed"
+    },
+    "matchesOracle": true,
+    "runtimeFailures": [],
+    "observedEvidence": {
+      "passed": true,
+      "failures": [],
+      "contextVersion": "c9f3d0d26e3d68dc119983530b176158cfa40bee59656ded247d15ee897de571",
+      "contentSha256": "93e50b2e838fb3f8936687db436d630a03655252885b4a29560a72fd48b236ea",
+      "parts": [
+        0,
+        1
+      ],
+      "protocolVersion": "2",
+      "transportWarnings": [],
+      "readPaths": [
+        "app.mjs",
+        "observations.json"
+      ]
+    },
+    "requestedModel": "claude-opus-5-5",
+    "observedModel": "claude-opus-5-5",
+    "projectUnchanged": true,
+    "logoutCode": 0,
+    "writeClassification": null,
+    "manualVerdict": "not-required",
+    "audit": "/tmp/platform-785-native-matrix-v2/claude/runs/feature-injection/audit.json",
+    "auditSha256": "60cee0ace15af26279c87487fc6e89ff076ea4b8c23614e13ec1d0dec13a2965",
+    "report": "/tmp/platform-785-native-matrix-v2/claude/runs/feature-injection/report.json"
+  },
+  {
+    "phase": "platform-785-native-matrix-v2",
+    "protocolVersion": "2",
+    "client": "claude",
+    "case": "feature-missed",
+    "outcome": "PASS",
+    "expected": {
+      "request": "confirmed",
+      "status": "confirmed",
+      "deduplication": "violation",
+      "ownership": "confirmed"
+    },
+    "observed": {
+      "request": "confirmed",
+      "status": "confirmed",
+      "deduplication": "violation",
+      "ownership": "confirmed"
+    },
+    "matchesOracle": true,
+    "runtimeFailures": [],
+    "observedEvidence": {
+      "passed": true,
+      "failures": [],
+      "contextVersion": "c9f3d0d26e3d68dc119983530b176158cfa40bee59656ded247d15ee897de571",
+      "contentSha256": "93e50b2e838fb3f8936687db436d630a03655252885b4a29560a72fd48b236ea",
+      "parts": [
+        0,
+        1
+      ],
+      "protocolVersion": "2",
+      "transportWarnings": [],
+      "readPaths": [
+        "app.mjs",
+        "observations.json"
+      ]
+    },
+    "requestedModel": "claude-opus-5-5",
+    "observedModel": "claude-opus-5-5",
+    "projectUnchanged": true,
+    "logoutCode": 0,
+    "writeClassification": null,
+    "manualVerdict": "not-required",
+    "audit": "/tmp/platform-785-native-matrix-v2/claude/runs/feature-missed/audit.json",
+    "auditSha256": "38cfdef4a7411c14942f26a44612e04506636d15d4d1781ef6a81bc06edd9b3f",
+    "report": "/tmp/platform-785-native-matrix-v2/claude/runs/feature-missed/report.json"
+  },
+  {
+    "phase": "platform-785-native-matrix-v2",
+    "protocolVersion": "2",
+    "client": "claude",
+    "case": "feature-recheck",
+    "outcome": "PASS",
+    "expected": {
+      "request": "confirmed",
+      "status": "confirmed",
+      "deduplication": "violation",
+      "ownership": "confirmed"
+    },
+    "observed": {
+      "request": "confirmed",
+      "status": "confirmed",
+      "deduplication": "violation",
+      "ownership": "confirmed"
+    },
+    "matchesOracle": true,
+    "runtimeFailures": [],
+    "observedEvidence": {
+      "passed": true,
+      "failures": [],
+      "contextVersion": "c9f3d0d26e3d68dc119983530b176158cfa40bee59656ded247d15ee897de571",
+      "contentSha256": "93e50b2e838fb3f8936687db436d630a03655252885b4a29560a72fd48b236ea",
+      "parts": [
+        0,
+        1
+      ],
+      "protocolVersion": "2",
+      "transportWarnings": [],
+      "readPaths": [
+        "app.mjs",
+        "observations.json"
+      ]
+    },
+    "requestedModel": "claude-opus-5-5",
+    "observedModel": "claude-opus-5-5",
+    "projectUnchanged": true,
+    "logoutCode": 0,
+    "writeClassification": null,
+    "manualVerdict": "not-required",
+    "audit": "/tmp/platform-785-native-matrix-v2/claude/runs/feature-recheck/audit.json",
+    "auditSha256": "3e5aa07035ad9ef670efc8a03edae602a6c5c7fd24a97ee0168c0e62775c6260",
+    "report": "/tmp/platform-785-native-matrix-v2/claude/runs/feature-recheck/report.json"
+  },
+  {
+    "phase": "platform-785-native-matrix-v2",
+    "protocolVersion": "2",
+    "client": "claude",
+    "case": "feature-recheck-after",
+    "outcome": "PASS",
+    "expected": {
+      "request": "confirmed",
+      "status": "confirmed",
+      "deduplication": "confirmed",
+      "ownership": "confirmed"
+    },
+    "observed": {
+      "request": "confirmed",
+      "status": "confirmed",
+      "deduplication": "confirmed",
+      "ownership": "confirmed"
+    },
+    "matchesOracle": true,
+    "runtimeFailures": [],
+    "observedEvidence": {
+      "passed": true,
+      "failures": [],
+      "contextVersion": "c9f3d0d26e3d68dc119983530b176158cfa40bee59656ded247d15ee897de571",
+      "contentSha256": "93e50b2e838fb3f8936687db436d630a03655252885b4a29560a72fd48b236ea",
+      "parts": [
+        0,
+        1
+      ],
+      "protocolVersion": "2",
+      "transportWarnings": [],
+      "readPaths": [
+        "app.mjs",
+        "observations.json"
+      ]
+    },
+    "requestedModel": "claude-opus-5-5",
+    "observedModel": "claude-opus-5-5",
+    "projectUnchanged": true,
+    "logoutCode": 0,
+    "writeClassification": null,
+    "manualVerdict": "not-required",
+    "audit": "/tmp/platform-785-native-matrix-v2/claude/runs/feature-recheck-after/audit.json",
+    "auditSha256": "f61854e5f07ca0bf2c459e3d5a1184c49beb0a931272cbf57802661d71845071",
+    "report": "/tmp/platform-785-native-matrix-v2/claude/runs/feature-recheck-after/report.json"
+  },
+  {
+    "phase": "platform-785-native-matrix-v2",
+    "protocolVersion": "2",
+    "client": "claude",
+    "case": "feature-stale",
+    "outcome": "PASS",
+    "expected": {
+      "request": "not_verified",
+      "status": "not_verified",
+      "deduplication": "not_verified",
+      "ownership": "not_verified"
+    },
+    "observed": {
+      "request": "not_verified",
+      "status": "not_verified",
+      "deduplication": "not_verified",
+      "ownership": "not_verified"
+    },
+    "matchesOracle": true,
+    "runtimeFailures": [],
+    "observedEvidence": {
+      "passed": true,
+      "failures": [],
+      "contextVersion": "c9f3d0d26e3d68dc119983530b176158cfa40bee59656ded247d15ee897de571",
+      "contentSha256": "93e50b2e838fb3f8936687db436d630a03655252885b4a29560a72fd48b236ea",
+      "parts": [
+        0,
+        1
+      ],
+      "protocolVersion": "2",
+      "transportWarnings": [],
+      "readPaths": [
+        "app.mjs",
+        "observations.json"
+      ]
+    },
+    "requestedModel": "claude-opus-5-5",
+    "observedModel": "claude-opus-5-5",
+    "projectUnchanged": true,
+    "logoutCode": 0,
+    "writeClassification": null,
+    "manualVerdict": "not-required",
+    "audit": "/tmp/platform-785-native-matrix-v2/claude/runs/feature-stale/audit.json",
+    "auditSha256": "54fd5060377cea28d6dbea716b4063ec9e84a9c1b1df81b5c5468307cc4b1f29",
+    "report": "/tmp/platform-785-native-matrix-v2/claude/runs/feature-stale/report.json"
+  },
+  {
+    "phase": "platform-785-native-matrix-v2",
+    "protocolVersion": "2",
+    "client": "claude",
+    "case": "human-output-smoke",
+    "outcome": "MANUAL_REVIEW_PENDING",
+    "expected": null,
+    "observed": {},
+    "matchesOracle": null,
+    "runtimeFailures": [],
+    "observedEvidence": null,
+    "requestedModel": "claude-opus-5-5",
+    "observedModel": null,
+    "projectUnchanged": true,
+    "logoutCode": 0,
+    "writeClassification": null,
+    "manualVerdict": "pending",
+    "audit": "/tmp/platform-785-native-matrix-v2/claude/runs/human-output-smoke/audit.json",
+    "auditSha256": "a59dd0eb80e399cbafc18a43d65eca8a64ff0f564e80cfbb878220f91749f3cf",
+    "report": "/tmp/platform-785-native-matrix-v2/claude/runs/human-output-smoke/report.md"
+  },
+  {
+    "phase": "platform-785-native-matrix-v2",
+    "protocolVersion": "2",
+    "client": "claude",
+    "case": "optional-dialogue",
+    "outcome": "MANUAL_REVIEW_PENDING",
+    "expected": null,
+    "observed": {},
+    "matchesOracle": null,
+    "runtimeFailures": [],
+    "observedEvidence": null,
+    "requestedModel": "claude-opus-5-5",
+    "observedModel": "claude-opus-5-5",
+    "projectUnchanged": true,
+    "logoutCode": 0,
+    "writeClassification": null,
+    "manualVerdict": "pending",
+    "audit": "/tmp/platform-785-native-matrix-v2/claude/runs/optional-dialogue/audit.json",
+    "auditSha256": "928c39bbd2e569f92b468f3db7e17ef3a43bc74e6285c88b6753963d83452b6f",
+    "report": "/tmp/platform-785-native-matrix-v2/claude/runs/optional-dialogue/report.json"
+  },
+  {
+    "phase": "platform-785-native-matrix-v2",
+    "protocolVersion": "2",
+    "client": "claude",
+    "case": "spec-adversarial",
+    "outcome": "PASS",
+    "expected": {
+      "request": "confirmed",
+      "status": "confirmed",
+      "deduplication": "confirmed",
+      "ownership": "violation"
+    },
+    "observed": {
+      "request": "confirmed",
+      "status": "confirmed",
+      "deduplication": "confirmed",
+      "ownership": "violation"
+    },
+    "matchesOracle": true,
+    "runtimeFailures": [],
+    "observedEvidence": {
+      "passed": true,
+      "failures": [],
+      "contextVersion": "7f9ae7cc6ba60d389af06db881f5c5419dc61057f891c07e094ec1f4ef69f7e3",
+      "contentSha256": "eaf368e9d1bbfd633506bcc8cf07c99a6841489f9b6caa831e80e4568bd07651",
+      "parts": [
+        0,
+        1
+      ],
+      "protocolVersion": "2",
+      "transportWarnings": [],
+      "readPaths": [
+        "decision.json"
+      ]
+    },
+    "requestedModel": "claude-opus-5-5",
+    "observedModel": "claude-opus-5-5",
+    "projectUnchanged": true,
+    "logoutCode": 0,
+    "writeClassification": null,
+    "manualVerdict": "not-required",
+    "audit": "/tmp/platform-785-native-matrix-v2/claude/runs/spec-adversarial/audit.json",
+    "auditSha256": "4773bfa93baaca57cc86a7b0d87bf442bedf9106da4884d2fb001fa0addf1b70",
+    "report": "/tmp/platform-785-native-matrix-v2/claude/runs/spec-adversarial/report.json"
+  },
+  {
+    "phase": "platform-785-native-matrix-v2",
+    "protocolVersion": "2",
+    "client": "claude",
+    "case": "spec-alternative",
+    "outcome": "PASS",
+    "expected": {
+      "request": "confirmed",
+      "status": "confirmed",
+      "deduplication": "confirmed",
+      "ownership": "confirmed"
+    },
+    "observed": {
+      "request": "confirmed",
+      "status": "confirmed",
+      "deduplication": "confirmed",
+      "ownership": "confirmed"
+    },
+    "matchesOracle": true,
+    "runtimeFailures": [],
+    "observedEvidence": {
+      "passed": true,
+      "failures": [],
+      "contextVersion": "7f9ae7cc6ba60d389af06db881f5c5419dc61057f891c07e094ec1f4ef69f7e3",
+      "contentSha256": "eaf368e9d1bbfd633506bcc8cf07c99a6841489f9b6caa831e80e4568bd07651",
+      "parts": [
+        0,
+        1
+      ],
+      "protocolVersion": "2",
+      "transportWarnings": [],
+      "readPaths": [
+        "decision.json"
+      ]
+    },
+    "requestedModel": "claude-opus-5-5",
+    "observedModel": "claude-opus-5-5",
+    "projectUnchanged": true,
+    "logoutCode": 0,
+    "writeClassification": null,
+    "manualVerdict": "not-required",
+    "audit": "/tmp/platform-785-native-matrix-v2/claude/runs/spec-alternative/audit.json",
+    "auditSha256": "0239a0c54cb6acd237ac685b72c63e2e60307ede097eb7552417111212435f8d",
+    "report": "/tmp/platform-785-native-matrix-v2/claude/runs/spec-alternative/report.json"
+  },
+  {
+    "phase": "platform-785-native-matrix-v2",
+    "protocolVersion": "2",
+    "client": "claude",
+    "case": "write-negative",
+    "outcome": "MANUAL_REVIEW_PENDING",
+    "expected": null,
+    "observed": {},
+    "matchesOracle": null,
+    "runtimeFailures": [],
+    "observedEvidence": null,
+    "requestedModel": "claude-opus-5-5",
+    "observedModel": "claude-opus-5-5",
+    "projectUnchanged": true,
+    "logoutCode": 0,
+    "writeClassification": "tools-unavailable",
+    "manualVerdict": "pending",
+    "audit": "/tmp/platform-785-native-matrix-v2/claude/runs/write-negative/audit.json",
+    "auditSha256": "2c8fbbb4fe8554f71a015ef874910283b0b8b3da2f34c4db61c94d80cb87ab8f",
+    "report": "/tmp/platform-785-native-matrix-v2/claude/runs/write-negative/report.json"
+  }
+]

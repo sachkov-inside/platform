@@ -1,0 +1,34 @@
+[
+  {
+    "client": "codex",
+    "exitCode": 0,
+    "timedOut": false,
+    "projectUnchanged": true,
+    "logoutCode": 0,
+    "nativeOAuthPkce": true,
+    "successfulPracticeParts": [
+      0,
+      1
+    ],
+    "observedLocalRead": "text exec trace nl -ba brief.md with full current bytes",
+    "contextPins": "reported by final; recorder retains call success and part but not argument pins or body",
+    "report": "/tmp/platform-785-native-matrix-v2/codex/runs/human-output-smoke/report.md",
+    "manualVerdict": "pending root product review"
+  },
+  {
+    "client": "claude",
+    "exitCode": 0,
+    "timedOut": false,
+    "projectUnchanged": true,
+    "logoutCode": 0,
+    "nativeOAuthPkce": true,
+    "successfulPracticeParts": [
+      0,
+      1
+    ],
+    "observedLocalRead": "not exposed by text output mode; final cites current brief; independent Read tool evidence in earlier same-profile JSON trials",
+    "contextPins": "reported by final; recorder retains call success and part but not argument pins or body",
+    "report": "/tmp/platform-785-native-matrix-v2/claude/runs/human-output-smoke/report.md",
+    "manualVerdict": "pending root product review"
+  }
+]

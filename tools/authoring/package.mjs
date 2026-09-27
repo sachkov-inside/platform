@@ -39,10 +39,40 @@ const chapters = z
       }),
     "Chapters must increase",
   );
+export const sourcePracticeSchema = z
+  .object({
+    practiceId: z
+      .string()
+      .trim()
+      .max(200)
+      .regex(/^[a-z0-9]+(?:-[a-z0-9]+)*:[a-z0-9]+(?:-[a-z0-9]+)*$/u),
+    // The owning backend validates the complete authored definition during preflight.
+    definition: z.record(z.string(), z.json()),
+    sourceReference: z
+      .object({
+        materialSourceId: z.string().min(1).max(200),
+        materialSourceRevision: z.hash("sha256"),
+      })
+      .strict(),
+    provenance: z
+      .object({
+        repository: z
+          .string()
+          .regex(/^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/u)
+          .max(256),
+        commit: z.hash("sha1"),
+        path: relativePath,
+      })
+      .strict(),
+    publicationState: z.enum(["published", "unpublished"]),
+  })
+  .strict();
+
 const manifestSchema = z
   .object({
     schemaVersion: z.literal(1),
     sourceNamespace: identifier,
+    practiceDefinitions: z.array(sourcePracticeSchema).max(100).optional(),
     selection: z
       .object({
         guideId: identifier.nullable(),
@@ -166,6 +196,25 @@ export function canonical(value) {
 /** @param {string | NodeJS.ArrayBufferView} value */
 export const checksum = (value) =>
   createHash("sha256").update(value).digest("hex");
+/** The same Material revision used by existing source import; practice sidecars are excluded.
+ * @param {Manifest} manifest
+ * @param {ManifestMaterial} row
+ */
+export function materialRevision(manifest, row) {
+  return checksum(
+    canonical({
+      row,
+      assets: manifest.assets.filter((asset) =>
+        [
+          ...Object.values(row.images),
+          row.coverAssetId,
+          ...row.artifacts.map((item) => item.assetId),
+        ].includes(asset.sourceId),
+      ),
+    }),
+  );
+}
+
 /** @param {string} path */
 export async function fileChecksum(path) {
   const hash = createHash("sha256");
@@ -260,6 +309,27 @@ export async function loadPackage(path) {
         canonical(guide.materialIds)
     )
       throw new Error("Chapter order does not match Guide order");
+  }
+  unique(
+    (manifest.practiceDefinitions ?? []).map((item) => item.practiceId),
+    "Practice identity",
+  );
+  for (const practice of manifest.practiceDefinitions ?? []) {
+    if (!practice.practiceId.startsWith(`${manifest.sourceNamespace}:`))
+      throw new Error("Practice identity belongs to another namespace");
+    const row = manifest.materials.find(
+      (item) =>
+        `${manifest.sourceNamespace}:${item.sourceId}` ===
+        practice.sourceReference.materialSourceId,
+    );
+    if (
+      row === undefined ||
+      practice.sourceReference.materialSourceRevision !==
+        materialRevision(manifest, row)
+    )
+      throw new Error(
+        "Practice reference does not match a complete selected Material revision",
+      );
   }
   const directory = dirname(manifestPath);
   for (const asset of assets.values()) {

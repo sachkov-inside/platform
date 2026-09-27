@@ -1,0 +1,9 @@
+{
+  "extends": "../../../tsconfig.nest-app.json",
+  "compilerOptions": {
+    "noEmit": true,
+    "incremental": false,
+    "allowJs": true
+  },
+  "include": ["./**/*.mts"]
+}

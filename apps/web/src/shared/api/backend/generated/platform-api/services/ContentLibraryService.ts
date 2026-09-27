@@ -849,6 +849,34 @@ export class ContentLibraryService {
     });
   }
   /**
+   * List available assignments and their current context versions for a signed-in participant
+   * @returns any
+   * @throws ApiError
+   */
+  public listLearningPractices({
+    slug,
+  }: {
+    slug: string,
+  }): CancelablePromise<{
+    practices: Array<{
+      contextVersion: string;
+      practiceId: string;
+      reviewProtocolVersion: string;
+      title: string;
+    }>;
+  }> {
+    return this.httpRequest.request({
+      method: 'GET',
+      url: '/library/materials/{slug}/practices',
+      path: {
+        'slug': slug,
+      },
+      errors: {
+        401: `Optional Account proof is invalid`,
+      },
+    });
+  }
+  /**
    * Read deterministic related Materials
    * @returns any Explicit pins followed by metadata-related Materials
    * @throws ApiError

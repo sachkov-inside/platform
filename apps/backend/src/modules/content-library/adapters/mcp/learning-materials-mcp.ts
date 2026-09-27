@@ -1,3 +1,8 @@
+import {
+  learningPracticeQuerySchema,
+  readLearningPractice,
+} from "../../features/read-learning-practice/read-learning-practice.js";
+import { practiceReviewProtocol } from "../../features/read-learning-practice/review-protocol.js";
 import { McpServer, type CallToolResult } from "@modelcontextprotocol/server";
 import { z } from "zod";
 
@@ -31,7 +36,8 @@ export function assembleLearnerMcpServer(
         "This surface only reads: it does not grade work, change projects or grant access. " +
         "A complete response contains every structured body block, including code and tables; do not replace it with a summary. " +
         "Images, files and video references are not their contents: report unavailable or uninspected media explicitly. " +
-        "Only current versions exist; a version mismatch requires a fresh read and must not silently replace requested content.",
+        "Only current versions exist; a version mismatch requires a fresh read and must not silently replace requested content. " +
+        practiceReviewProtocol.instructions.join(" "),
     },
   );
   const annotations = {
@@ -93,6 +99,19 @@ export function assembleLearnerMcpServer(
             ? {}
             : { expectedContentVersion }),
         }),
+      ),
+  );
+  server.registerTool(
+    "learning_practice_read",
+    {
+      description:
+        "Read the complete version-pinned practice context and full reference lesson in bounded canonical JSON parts. Start with part 0; request every nextPart with expectedContextVersion and expectedContentSha256 from the first response until endOfContext, tracking all indices. Only all parts form the context; complete is true only for a single-part context. Never grade with missing parts. No project access, writes or server grading.",
+      inputSchema: learningPracticeQuerySchema,
+      annotations,
+    },
+    async (query) =>
+      toolResult(
+        await readLearningPractice(dependencies, { subject, ...query }),
       ),
   );
   return server;

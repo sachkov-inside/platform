@@ -38,6 +38,7 @@ export interface MaterialReaderViewProps {
   readonly seriesContext?: SeriesReaderContext | null;
   readonly readingAction?: ReactNode;
   readonly bookmarkAction?: ReactNode;
+  readonly practiceActions?: ReactNode;
   /**
    * Подсказка о двух режимах и место, куда она встаёт: перед шагом с этим номером. Место выбирает
    * страница, потому что подсказка должна стоять у шага, который читатель действительно видит.
@@ -62,6 +63,7 @@ export function MaterialReaderView({
   seriesContext = null,
   readingAction,
   bookmarkAction,
+  practiceActions,
   modeHint,
   modeSwitch,
 }: MaterialReaderViewProps) {
@@ -104,6 +106,7 @@ export function MaterialReaderView({
                 : { hint: modeHint.node, hintAt: modeHint.at })}
             />
           </article>
+          {practiceActions}
           {bookmarkAction === undefined &&
           readingAction === undefined ? null : (
             <div

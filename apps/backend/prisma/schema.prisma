@@ -1793,3 +1793,33 @@ model TributeImportReview {
  @@map("tribute_import_reviews")
  @@schema("membership_entitlements")
 }
+
+model PracticeDefinition {
+  practiceId String @id @map("practice_id")
+  materialId String @map("material_id") @db.Uuid
+  definition Json
+  definitionDigest String @map("definition_digest") @db.Char(64)
+  practiceVersion BigInt @map("practice_version")
+  boundSourceId String @map("bound_source_id")
+  boundSourceRevision String @map("bound_source_revision") @db.Char(64)
+  boundContentVersion BigInt @map("bound_content_version")
+  publicationState String @map("publication_state")
+  sourceRepository String @map("source_repository")
+  sourceCommit String @map("source_commit") @db.Char(40)
+  sourcePath String @map("source_path")
+  updatedAt DateTime @map("updated_at") @db.Timestamptz
+  @@index([materialId, publicationState], map: "practice_definitions_material_idx")
+  @@map("practice_definitions")
+  @@schema("materials")
+}
+
+model PracticeImportReceipt {
+  actorId String @map("actor_id") @db.Uuid
+  operation String
+  idempotencyKey String @map("idempotency_key")
+  requestFingerprint String @map("request_fingerprint") @db.Char(64)
+  receipt Json?
+  @@id([actorId, operation, idempotencyKey])
+  @@map("practice_import_receipts")
+  @@schema("materials")
+}

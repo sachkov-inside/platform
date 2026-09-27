@@ -44,6 +44,8 @@ const materialTables = [
   "material_tags",
   "materials",
   "notification_outbox",
+  "practice_definitions",
+  "practice_import_receipts",
   "publication_announcement_revisions",
   "publication_announcements",
   "published_material_series_memberships",
@@ -240,6 +242,7 @@ describe("Platform migrations", () => {
         "0065_authoring_source",
         "0070_guide_page",
         "0071_offer_eligibility",
+        "0072_practice_definitions",
       ],
     });
     expect(second).toEqual({ appliedMigrations: [] });
@@ -897,6 +900,7 @@ describe("Platform migrations", () => {
           "0065_authoring_source",
           "0070_guide_page",
           "0071_offer_eligibility",
+          "0072_practice_definitions",
         ],
       });
 

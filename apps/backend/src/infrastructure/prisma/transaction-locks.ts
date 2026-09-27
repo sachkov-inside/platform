@@ -48,6 +48,14 @@ export async function lockContentCoverOwner(
   await lockTransactionKey(transaction, `${owner.kind}:${owner.id}`);
 }
 
+/** Serializes creation and source rebinding of a stable practice identity. */
+export async function lockPracticeImport(
+  transaction: AdvisoryLockTransaction,
+  practiceId: string,
+): Promise<void> {
+  await lockTransactionKey(transaction, `practice-import:${practiceId}`);
+}
+
 /** Serializes slug allocation, so two first publications cannot take the same slug. */
 export async function lockMaterialSlugAllocation(
   transaction: AdvisoryLockTransaction,

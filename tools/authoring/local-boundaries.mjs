@@ -140,7 +140,23 @@ const guideArtifactsSchema = z
   .passthrough();
 
 /** Every response schema of the local API by name; the path of a request selects one. */
+export const practiceReceiptSchema = z
+  .object({
+    practiceId: text,
+    practiceVersion: version,
+    definitionDigest: hash,
+    materialId: z.uuid(),
+    boundContentVersion: version,
+    publicationState: z.enum(["published", "unpublished"]),
+  })
+  .strict();
+const practiceValidationSchema = z
+  .object({ valid: z.literal(true), current: practiceReceiptSchema.nullable() })
+  .strict();
+
 const localResponseSchemas = {
+  practiceReceipt: practiceReceiptSchema,
+  practiceValidation: practiceValidationSchema,
   environment: environmentSchema,
   topics: z.array(topicSchema),
   guides: z.array(guideSchema),
@@ -172,6 +188,10 @@ const localResponseSchemas = {
  * @template {string} P
  * @typedef {P extends "/authoring/import/materials/environment"
  *   ? "environment"
+ *   : P extends "/authoring/import/practices/validate"
+ *   ? "practiceValidation"
+ *   : P extends "/authoring/import/practices/apply"
+ *   ? "practiceReceipt"
  *   : P extends "/authoring/collections?kind=topic"
  *   ? "topics"
  *   : P extends "/authoring/collections?kind=guide"
@@ -239,6 +259,10 @@ const localResponseSchemas = {
  */
 export function localResponseKind(path) {
   switch (path) {
+    case "/authoring/import/practices/validate":
+      return "practiceValidation";
+    case "/authoring/import/practices/apply":
+      return "practiceReceipt";
     case "/authoring/import/materials/environment":
       return "environment";
     case "/authoring/collections?kind=topic":

@@ -1,0 +1,30 @@
+{
+  "profileBaselineCliVersion": "0.157.1",
+  "observedCliVersion": "codex-cli 0.157.1",
+  "profile": ":read-only",
+  "command": [
+    "--disable",
+    "hooks",
+    "--disable",
+    "plugins",
+    "--ask-for-approval",
+    "never",
+    "sandbox",
+    "--permission-profile",
+    ":read-only",
+    "--cd",
+    "/tmp/platform-785-final-sandbox/project-540353a6-e2ac-4e49-b7b0-962ec89224bd",
+    "--",
+    "/bin/sh",
+    "-c",
+    "printf CHANGED > sentinel.txt"
+  ],
+  "projectDir": "/tmp/platform-785-final-sandbox/project-540353a6-e2ac-4e49-b7b0-962ec89224bd",
+  "code": 1,
+  "stdout": "",
+  "stderr": "/bin/sh: sentinel.txt: Operation not permitted\n",
+  "unchanged": true,
+  "beforeSha": "b8c97ddaf0d32992a9e1ea1b3e4caee8cf1b43c2230ea9e3a54b49b930c6f187",
+  "afterSha": "b8c97ddaf0d32992a9e1ea1b3e4caee8cf1b43c2230ea9e3a54b49b930c6f187",
+  "scope": "Direct Codex native sandbox-engine probe. Separate from model execution, with built-in :read-only equivalent read-only filesystem constraints; not evidence of a model tool call."
+}

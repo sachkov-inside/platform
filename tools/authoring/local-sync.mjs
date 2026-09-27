@@ -1,10 +1,20 @@
 // @ts-check
+import {
+  validateSourcePractices,
+  replayPracticeImports,
+  syncSourcePractices,
+} from "./practice-import.mjs";
 import { readFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import { setTimeout as delay } from "node:timers/promises";
 import { pathToFileURL } from "node:url";
 import { parseArgs } from "node:util";
-import { loadPackage, canonical, checksum } from "./package.mjs";
+import {
+  loadPackage,
+  canonical,
+  checksum,
+  materialRevision,
+} from "./package.mjs";
 import { convertMarkdown, sourceUuid } from "./markdown.mjs";
 import { withJournal, applyJournaled } from "./journal.mjs";
 import {
@@ -91,26 +101,7 @@ const topicNames = {
   "product-development": "Разработка продукта",
 };
 
-/**
- * The revision covers the whole original row and the bytes of every file it references.
- *
- * @param {Manifest} manifest
- * @param {ManifestMaterial} row
- */
-export function materialRevision(manifest, row) {
-  return checksum(
-    canonical({
-      row,
-      assets: manifest.assets.filter((asset) =>
-        [
-          ...Object.values(row.images),
-          row.coverAssetId,
-          ...row.artifacts.map((item) => item.assetId),
-        ].includes(asset.sourceId),
-      ),
-    }),
-  );
-}
+export { materialRevision } from "./package.mjs";
 
 /**
  * @param {Pick<Manifest, "sourceNamespace">} manifest
@@ -440,6 +431,7 @@ export async function syncLocal(
   if (environment.mode !== "development")
     throw new Error("Local synchronization requires a development runtime");
   await validateGuidePages(pkg.manifest, send);
+  await validateSourcePractices(pkg.manifest, request);
   return withJournal(stateDirectory, target, async (context) => {
     const { journal, persist } = context;
     const resources = (journal.resources ??= {});
@@ -533,6 +525,8 @@ export async function syncLocal(
       };
       await persist();
     }
+
+    await replayPracticeImports(context, request);
 
     const teasers = new Map(
       pkg.manifest.guides.map((guide) => [guide.sourceId, guideTeaser(guide)]),
@@ -1121,6 +1115,8 @@ export async function syncLocal(
             "Артефакты самостоятельного материала переносятся только вместе с продуктом",
         });
     }
+
+    await syncSourcePractices(pkg.manifest, context, request);
 
     // Proposed Materials are unpublished only when named explicitly.
     const requested = new Set(normalizeSourceIds(pkg.manifest, archive));

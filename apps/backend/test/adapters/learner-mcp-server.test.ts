@@ -212,7 +212,7 @@ describe("learner MCP read contract", () => {
           committedLearnerToolSurfacePath,
         ),
       );
-      expect(tools).toHaveLength(2);
+      expect(tools).toHaveLength(3);
       for (const tool of tools)
         expect(tool.annotations).toMatchObject({
           readOnlyHint: true,

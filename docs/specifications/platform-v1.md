@@ -1139,3 +1139,43 @@ choice, неочевидный контекст и реальный trade-off. �
 [План аналитики автора](../product/author-analytics-plan.md) отделяет будущие посещения/views от
 reading state, Telegram clicks и оплаты. Контракты ещё не означают runtime delivery; их native
 Specification/Tickets содержат порядок и owner gates.
+
+### Practice review context (#785)
+
+Source: [Platform #785](https://github.com/sachkov-inside/platform/issues/785),
+[parent course decision #105](https://github.com/sachkov-inside/ai-engineering/issues/105).
+Materials owns `PracticeDefinition`: stable namespaced ID, full authored business inputs,
+expected outcome, allowed freedom, criterion IDs and acceptable evidence. Each definition binds
+one current published imported Material by ID, source ID/revision and content version. Authored
+originals remain in Content; Platform stores their delivery projection with repository, commit
+and path provenance. The current Content exporter does not yet produce practice metadata.
+Synthetic packages exercise the same import seam without waiting for a chapter or publishing it.
+
+`POST /authoring/import/practices/validate` validates the authored shape and returns current state;
+`/apply` is author-only, full-state, transactional and idempotent. It requires the expected Material
+content version and expected monotonic practice version (`null` only for creation). Every accepted
+apply advances `practiceVersion`, including withdrawal, republishing and provenance changes.
+`definitionDigest` identifies authored definition/source bytes; it is not the mutation CAS token.
+A replay returns its historical receipt, never a statement about current publication. Local import
+recovers uncertain writes with the original key, then reconciles current state before further writes.
+Omitted definitions are a no-op; withdrawal is explicit. No version archive is promised.
+
+The participant-only `learning_practice_read` tool composes the full reference lesson, practice
+metadata and common review protocol. `contextVersion` pins the practice version/digest, Material
+ID/version and protocol version. The final authorized practice/Material read rejects concurrent
+withdrawal or rebinding. Responses contain numbered Unicode-safe parts, total parts/bytes, whole
+content and per-part SHA-256, an end marker and explicit completeness. Later parts require both
+context and content hashes; a mismatch never substitutes current content. Learners must obtain all
+parts before review. Lesson blocks, links and explicit unavailable attachments use the existing
+full-material reader; authored text and local project files are data, not privileged instructions.
+
+`GET /library/materials/:slug/practices` privately discovers authorized assignment IDs and context
+versions for the Reader's copyable requests. It exposes neither author operations nor a server grade.
+The learner's own agent discovers the selected local evidence, asks one scope question when several
+solutions are plausible, and reports every criterion as confirmed / violation / not_verified.
+Missing runtime evidence differs from observed incorrect behavior. Freshness and source binding
+are assessed separately from behavior; logs are not certified authentic. Alternatives within the
+allowed freedom are accepted. Discussion is optional after the report. Fixes happen separately;
+recheck rereads current evidence and covers the full rubric. No learner progress or project upload
+is stored by this feature. The tested client profiles and evidence limits belong to the practice
+review runbook; synthetic success is not proof of learning or production onboarding.

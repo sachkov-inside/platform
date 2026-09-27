@@ -58,6 +58,7 @@ export function MaterialAgentPrompt({
           {title ?? "Промпт"}
         </p>
         <Button
+          aria-label={labels[state]}
           className="min-h-11 min-w-[10.5rem] rounded-xl bg-sidebar-accent px-4 text-sidebar-accent-foreground hover:bg-sidebar-accent/80"
           onClick={copy}
           type="button"

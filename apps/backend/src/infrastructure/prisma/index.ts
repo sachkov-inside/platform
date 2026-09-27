@@ -38,6 +38,7 @@ export {
   lockContentCoverOwner,
   lockMaterialReferenceChanges,
   lockMaterialSlugAllocation,
+  lockPracticeImport,
   lockNotification,
   lockProfileAvatarOwner,
   lockReadingCommand,

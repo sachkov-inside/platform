@@ -115,6 +115,7 @@ describe("MCP Streamable HTTP adapter", () => {
       expect(listed.tools.map(({ name }) => name).sort()).toEqual([
         "learning_material_read",
         "learning_materials_list",
+        "learning_practice_read",
       ]);
       await expect(
         client.callTool({ name: "material_create_draft", arguments: {} }),
