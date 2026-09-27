@@ -24,7 +24,8 @@ const standComposeProject = "inside-platform";
  */
 
 /**
- * The Compose project a plain `docker compose` command in this repository would use.
+ * The Compose project named by `COMPOSE_PROJECT_NAME` in this environment; a missing or blank
+ * value selects the stand project.
  * @param {NodeJS.ProcessEnv} environment
  */
 function composeProjectName(environment) {
