@@ -438,7 +438,7 @@ function evaluate(
   if (action === "preview") {
     return "permission_required";
   }
-  switch (subjectFacts?.membership?.kind) {
+  switch (subjectFacts.membership?.kind) {
     case "active":
       return "active_membership";
     case "expired":

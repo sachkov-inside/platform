@@ -262,8 +262,8 @@ describe("Notifications real PostgreSQL / RabbitMQ transport", () => {
     await Promise.allSettled(
       connections.map((connection) => connection.close()),
     );
-    await database?.dispose();
-    await broker?.stop();
+    await database.dispose();
+    await broker.stop();
     if (directory) await rm(directory, { recursive: true, force: true });
   }, 60_000);
 

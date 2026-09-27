@@ -109,7 +109,7 @@ export const SignedOut: Story = {
     // Цена в приглашении войти приходит из снимка сервера, а не из разметки.
     await expect(
       canvas.getByText(
-        (_, node) => node?.textContent?.includes("2\u00a0500") === true,
+        (_, node) => node?.textContent.includes("2\u00a0500") === true,
         {
           selector: "p",
         },

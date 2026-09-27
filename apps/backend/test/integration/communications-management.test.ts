@@ -264,10 +264,10 @@ describe("HTTP and delegated OAuth communications parity against a contract stub
   });
   afterAll(async () => {
     await Promise.all([...clients.values()].map((client) => client.close()));
-    await mcp?.close();
-    await app?.close();
+    await mcp.close();
+    await app.close();
     await provider.close();
-    await database?.dispose();
+    await database.dispose();
   });
 
   function token(subject: string) {

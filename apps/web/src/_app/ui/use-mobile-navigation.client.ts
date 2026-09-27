@@ -13,6 +13,7 @@ import {
 } from "react";
 
 import { accountPresentationQueryKey } from "@/features/account-access";
+import { internalRoute } from "@/shared/routing/internal-route";
 import {
   libraryCatalogQueryRootKey,
   homeFeedQueryOptions,
@@ -52,7 +53,9 @@ export function useMobileNavigation(
   const recordLocation = useCallback((pathname: string, search: string) => {
     const path = rootPaths.find((root) => root === pathname);
     if (path === undefined) return;
-    const href = `${path}${search.length > 0 ? `?${search}` : ""}` as Route;
+    const href = internalRoute(
+      `${path}${search.length > 0 ? `?${search}` : ""}`,
+    );
     const previous = positions.current[path];
     const top =
       pending.current?.href.split("?")[0] === path

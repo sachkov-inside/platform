@@ -244,7 +244,8 @@
         "typescript/prefer-string-starts-ends-with": "error",
         "typescript/consistent-type-imports": "error",
         "typescript/switch-exhaustiveness-check": "error",
-        "typescript/no-unsafe-type-assertion": "error"
+        "typescript/no-unsafe-type-assertion": "error",
+        "typescript/no-unnecessary-condition": "error"
       }
     },
     {

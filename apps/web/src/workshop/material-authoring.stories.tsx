@@ -609,13 +609,10 @@ export const ExactPreviewEmptyDark: Story = {
     presentation: {
       ...materialAuthoringPresentation,
       mode: "preview",
-      preview:
-        materialAuthoringPresentation.preview === null
-          ? null
-          : {
-              ...materialAuthoringPresentation.preview,
-              blocks: emptyLessonBlocks,
-            },
+      preview: {
+        ...materialAuthoringPresentation.preview,
+        blocks: emptyLessonBlocks,
+      },
     },
   },
   globals: {
@@ -640,13 +637,10 @@ export const ExactPreviewLongDark: Story = {
     presentation: {
       ...materialAuthoringPresentation,
       mode: "preview",
-      preview:
-        materialAuthoringPresentation.preview === null
-          ? null
-          : {
-              ...materialAuthoringPresentation.preview,
-              blocks: longLessonBlocks,
-            },
+      preview: {
+        ...materialAuthoringPresentation.preview,
+        blocks: longLessonBlocks,
+      },
     },
   },
   globals: {

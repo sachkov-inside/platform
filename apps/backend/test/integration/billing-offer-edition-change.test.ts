@@ -202,7 +202,7 @@ describe("one-time offer edition change (real PostgreSQL and real facets; synthe
       ErrorCode: "0",
     });
     const bank = new Tbank(config, (url, init) => {
-      if (typeof init?.body !== "string" || typeof url !== "string")
+      if (typeof init.body !== "string" || typeof url !== "string")
         throw new Error("Unexpected bank request");
       const body = z
         .object({ OrderId: z.string().optional() })

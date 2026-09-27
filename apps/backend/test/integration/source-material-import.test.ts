@@ -44,8 +44,8 @@ describe("authoring source Material", () => {
       authoring.reserveSourceMaterial({ actor, source }),
     ]);
     const first = reservations[0];
-    expect(first?.ok).toBe(true);
-    if (!first?.ok) throw new Error("Source reservation failed");
+    expect(first.ok).toBe(true);
+    if (!first.ok) throw new Error("Source reservation failed");
     expect(reservations[1]).toEqual(first);
     const command = {
       actor,

@@ -31,7 +31,8 @@ export function variantUnderCursor(
       position += child.nodeSize;
     });
     const currentBranch =
-      $from.node(depth + 1)?.type.name === "variantOption"
+      // The innermost variant has no child level on the path below it.
+      depth < $from.depth && $from.node(depth + 1).type.name === "variantOption"
         ? $from.before(depth + 1)
         : $from.nodeAfter?.type.name === "variantOption"
           ? $from.pos

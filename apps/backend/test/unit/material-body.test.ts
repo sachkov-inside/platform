@@ -578,18 +578,18 @@ describe("MaterialBodyOperations", () => {
       throw new Error("Expected document blocks");
     }
     expect(blocks).toHaveLength(3);
-    expect(blocks?.[0]).toMatchObject({
+    expect(blocks[0]).toMatchObject({
       type: "heading",
       attrs: {
         level: 3,
         nodeId: "11111111-1111-4111-8111-111111111111",
       },
     });
-    expect(blocks?.[1]).toMatchObject({
+    expect(blocks[1]).toMatchObject({
       attrs: { nodeId: "22222222-2222-4222-8222-222222222222" },
       content: [{ type: "text", text: "Issue сохраняет intent." }],
     });
-    expect(blocks?.[2]).toMatchObject({
+    expect(blocks[2]).toMatchObject({
       type: "paragraph",
       attrs: { nodeId: stringMatching(/^[0-9a-f-]{36}$/) },
       content: [{ type: "text", text: "Новый блок" }],

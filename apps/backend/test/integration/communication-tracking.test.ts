@@ -70,7 +70,7 @@ beforeAll(async () => {
   database = await createMigratedTestDatabase();
 });
 afterAll(async () => {
-  await database?.dispose();
+  await database.dispose();
 });
 beforeEach(async () => {
   await database.prisma.communicationTrackingHit.deleteMany();

@@ -170,7 +170,8 @@ async function installProbe(page: Page) {
       });
       scan();
     };
-    if (document.documentElement === null)
+    // An init script can run before the document element exists, which the lib type omits.
+    if ((document.documentElement as HTMLElement | null) === null)
       document.addEventListener("DOMContentLoaded", start);
     else start();
   });

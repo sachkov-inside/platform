@@ -197,9 +197,7 @@ export function assembleContentCovers(dependencies: {
         );
         if (
           outcomes.some(
-            (outcome) =>
-              outcome.status === "rejected" ||
-              (outcome.status === "fulfilled" && !outcome.value.ok),
+            (outcome) => outcome.status === "rejected" || !outcome.value.ok,
           )
         ) {
           throw new Error("Content cover storage failed");

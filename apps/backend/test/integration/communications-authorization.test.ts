@@ -70,8 +70,8 @@ describe("communications permission and confirmed author HTTP authorization", ()
     await app.getHttpAdapter().getInstance().ready();
   });
   afterAll(async () => {
-    await app?.close();
-    await database?.dispose();
+    await app.close();
+    await database.dispose();
   });
 
   function request(

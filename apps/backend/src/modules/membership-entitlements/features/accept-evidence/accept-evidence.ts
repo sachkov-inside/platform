@@ -30,6 +30,7 @@ import type {
   MembershipEvidenceFailureCode,
 } from "../../facets/membership-entitlements/membership-entitlements.interface.js";
 import type { WorkshopEntitlements } from "../../../workshop/index.js";
+import { jsonText } from "../../../../infrastructure/contracts/json-text.js";
 
 const EVIDENCE_RECEIPT_RETENTION_DAYS = 30;
 
@@ -600,7 +601,7 @@ function fingerprint(value: unknown): ReplayFingerprint {
   try {
     return replayFingerprint(
       { version: 2, value },
-      sha256(JSON.stringify(value) ?? "undefined"),
+      sha256(jsonText(value) ?? "undefined"),
     );
   } catch {
     // Not a dependency failure: a value JSON cannot serialize is fingerprinted by its type.

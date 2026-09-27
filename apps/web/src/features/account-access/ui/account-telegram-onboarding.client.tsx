@@ -65,7 +65,7 @@ export function AccountTelegramOnboarding({
     setJourneyStarted(false);
   };
 
-  if (!journeyOpen || presentation === null) return null;
+  if (!journeyOpen) return null;
 
   return (
     <dialog

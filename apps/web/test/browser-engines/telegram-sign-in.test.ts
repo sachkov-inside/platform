@@ -63,9 +63,9 @@ beforeAll(async () => {
 });
 
 afterAll(async () => {
-  await browser?.close();
+  await browser.close();
   await new Promise<void>((resolve, reject) =>
-    server?.close((error) => {
+    server.close((error) => {
       if (error) reject(error);
       else resolve();
     }),

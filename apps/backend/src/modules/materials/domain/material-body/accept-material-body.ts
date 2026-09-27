@@ -20,6 +20,7 @@ import { DOCUMENT_LIMITS } from "./document-limits.js";
 import { restoreStoredMaterialBodyV1 } from "./stored-material-body-v1.js";
 import { validationIssuePath } from "./validation-issue-path.js";
 import { isUuid } from "../uuid.js";
+import { jsonText } from "../../../../infrastructure/contracts/json-text.js";
 
 const addressableBlockTypeSet = new Set<string>(addressableMaterialBlockTypes);
 
@@ -212,7 +213,7 @@ export function acceptMaterialBody(
 ): MaterialBodyResult<MaterialBody> {
   let serialized: string | undefined;
   try {
-    serialized = JSON.stringify(input);
+    serialized = jsonText(input);
   } catch {
     // Not a dependency failure: a document that cannot be serialized is not JSON.
     return invalid([{ code: "document_is_not_json", path: "" }]);
