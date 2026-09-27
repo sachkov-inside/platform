@@ -1,4 +1,11 @@
-import { Body, Controller, Headers, Inject, Post } from "@nestjs/common";
+import {
+  Body,
+  Controller,
+  Headers,
+  HttpCode,
+  Inject,
+  Post,
+} from "@nestjs/common";
 import {
   ApiBody,
   ApiHeader,
@@ -34,6 +41,7 @@ export class ImportSourcePracticeController {
   ) {}
 
   @Post("validate")
+  @HttpCode(200)
   @ApiOperation({
     operationId: "validateSourcePractice",
     summary:
@@ -64,6 +72,7 @@ export class ImportSourcePracticeController {
   }
 
   @Post("apply")
+  @HttpCode(200)
   @ApiOperation({
     operationId: "applySourcePractice",
     summary:

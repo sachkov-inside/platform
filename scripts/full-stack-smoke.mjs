@@ -6,7 +6,10 @@ import process from "node:process";
 import { fileURLToPath } from "node:url";
 import { checkDatabaseUrl, resetCheckDatabase } from "./check-database.mjs";
 import { startFullStackIdentity } from "./full-stack-identity.mjs";
-import { seedFullStackPractice } from "./full-stack-practice.mjs";
+import {
+  seedFullStackPractice,
+  startPracticeReadProxy,
+} from "./full-stack-practice.mjs";
 
 import { signalProcessGroup } from "./process-group-signal.mjs";
 import { z } from "zod";
@@ -73,6 +76,14 @@ const fullStackIdentity = await startFullStackIdentity({
   webBaseUrl,
 });
 Object.assign(childEnvironment, fullStackIdentity.environment);
+const practiceDelayMs = Number(
+  process.env["FULLSTACK_PRACTICE_READ_DELAY_MS"] ?? "0",
+);
+const practiceReadProxy =
+  practiceDelayMs > 0
+    ? await startPracticeReadProxy(apiBaseUrl, practiceDelayMs)
+    : undefined;
+const webBackendUrl = practiceReadProxy?.origin ?? apiBaseUrl;
 // Web собирается как production, а превью и аватары браузер берёт по подписанным адресам локального
 // хранилища. Production CSP его не пускает (ADR 0028), поэтому сборка smoke называет адрес явно: тот,
 // который подписывает backend.
@@ -160,7 +171,7 @@ try {
         "--port",
         webPort,
       ],
-      { ...webEnvironment, BACKEND_BASE_URL: apiBaseUrl },
+      { ...webEnvironment, BACKEND_BASE_URL: webBackendUrl },
     ),
   );
 
@@ -223,6 +234,11 @@ try {
     apiBaseUrl,
     browserAccessToken.token,
   );
+  const freePracticeFixture = await seedFullStackPractice(
+    apiBaseUrl,
+    browserAccessToken.token,
+    "free",
+  );
   const fullStackSession =
     await fullStackIdentity.createSession(browserAccessToken);
   const fullStackMemberSession =
@@ -231,6 +247,7 @@ try {
     ...childEnvironment,
     FULLSTACK_API_BASE_URL: apiBaseUrl,
     FULLSTACK_PRACTICE_SLUG: practiceFixture.slug,
+    FULLSTACK_FREE_PRACTICE_SLUG: freePracticeFixture.slug,
     FULLSTACK_LOGTO_COOKIE_NAME: fullStackIdentity.cookieName,
     FULLSTACK_LOGTO_MEMBER_SESSION: fullStackMemberSession,
     FULLSTACK_LOGTO_NON_MEMBER_SESSION:
@@ -263,6 +280,7 @@ try {
 } finally {
   await cleanup();
   await fullStackIdentity.close();
+  await practiceReadProxy?.close();
   rmSync(webReleaseIdentityPath, { force: true });
 }
 

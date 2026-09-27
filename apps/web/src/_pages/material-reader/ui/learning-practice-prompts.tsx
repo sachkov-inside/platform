@@ -5,6 +5,34 @@ import {
   type LearningPracticesView,
 } from "../model/learning-practice";
 
+/** Public lessons retain their prefetched body; only an explicit disclosure expands this row. */
+export function LearningPracticeDisclosure({
+  result,
+}: {
+  readonly result: LearningPracticesView | null;
+}) {
+  return (
+    <div className="mt-8 min-h-11" data-practice-slot>
+      {result === null ? (
+        <p
+          className="flex h-11 items-center text-sm text-muted-foreground"
+          role="status"
+        >
+          Проверяем доступность заданий…
+        </p>
+      ) : result.kind === "available" &&
+        result.practices.length === 0 ? null : (
+        <details>
+          <summary className="flex h-11 cursor-pointer items-center font-semibold underline underline-offset-4">
+            Открыть проверку практики
+          </summary>
+          <LearningPracticePrompts result={result} />
+        </details>
+      )}
+    </div>
+  );
+}
+
 /** Reuses the production Reader prompt block; there is no second grading interface. */
 export function LearningPracticePrompts({
   result,
@@ -36,6 +64,16 @@ export function LearningPracticePrompts({
           адрес ещё не выдан или вход не проходит, обратитесь к автору; после
           подключения вернитесь к запросу ниже. Входите своим аккаунтом
           участника. Авторский MCP для проверки не нужен.
+        </p>
+        <p className="mt-3">
+          <a
+            className="underline underline-offset-4"
+            href="/practice-review-setup.txt"
+            target="_blank"
+            rel="noreferrer"
+          >
+            Открыть команды подключения и запуска
+          </a>
         </p>
         <h3 className="mt-5 font-semibold" id="practice-review-codex">
           Codex

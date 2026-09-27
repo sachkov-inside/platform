@@ -1,4 +1,8 @@
-import { SavedLearningPractices } from "./saved-learning-practices";
+import {
+  LearningPracticeDisclosure,
+  LearningPracticePrompts,
+} from "./learning-practice-prompts";
+import { loadLearningPractices } from "../api/load-learning-practices.server";
 import {
   SavedReadingAction,
   VisibleMaterialOpen,
@@ -6,7 +10,7 @@ import {
 import { SavedBookmarkAction } from "@/features/bookmarks";
 import { notFound } from "next/navigation";
 import { connection } from "next/server";
-import { Suspense } from "react";
+import { Suspense, type ReactNode } from "react";
 
 import { loadGuideOffers } from "@/entities/subscription.catalog.server";
 import { GuideModeHint, GuideModeSwitch } from "@/features/guide-modes";
@@ -60,7 +64,8 @@ type ResolvedMaterial = Extract<
  * Общая часть урока (ADR 0027). Адрес читается здесь, под скелетом маршрута; метаданные и состав
  * продукта приходят из гостевого кеша, поэтому шапка, возврат и соседи по продукту появляются
  * сразу. Личная часть — тело закрытого урока, предложение о покупке, режим прохождения — стримится
- * на место тела. Бесплатный урок без режимов личной части не имеет и рисуется целиком отсюда.
+ * на место тела. Бесплатное тело не ждёт личных заданий: их закрытая панель занимает одну строку,
+ * а полное содержимое появляется только по действию читателя.
  */
 export async function MaterialReaderPage({
   params,
@@ -109,6 +114,11 @@ export async function MaterialReaderPage({
       <ResolvedMaterialReader
         guideMode={defaultGuideMode}
         hintSeen
+        practiceActions={
+          <Suspense fallback={<LearningPracticeDisclosure result={null} />}>
+            <PublicMaterialPractice slug={slug} />
+          </Suspense>
+        }
         result={material}
         returnTarget={effectiveReturnTarget}
         seriesContext={seriesContext}
@@ -133,6 +143,17 @@ export async function MaterialReaderPage({
       />
     </Suspense>
   );
+}
+
+/** A fixed closed row preserves the prefetched public body and surrounding geometry. */
+async function PublicMaterialPractice({ slug }: { readonly slug: string }) {
+  await connection();
+  const accessToken = await getOptionalPlatformAccessToken();
+  const result =
+    accessToken === undefined
+      ? { kind: "available" as const, practices: [] }
+      : await loadLearningPractices(slug, accessToken);
+  return <LearningPracticeDisclosure result={result} />;
 }
 
 /**
@@ -167,20 +188,24 @@ async function PersonalMaterialReader({
   // Если личное чтение закончится не отказом, поиск никто не дождётся: его сбой не должен остаться
   // необработанным. Тот, кто дождётся, получит исключение как обычно.
   guestPurchaseGuide?.catch(() => undefined);
-  const [result, seriesResult, guideMode, hintSeen] = await Promise.all([
-    sharedMaterial?.kind === "available"
-      ? Promise.resolve(sharedMaterial)
-      : loadMaterialReader(slug, accessToken),
-    guideSlug === undefined
-      ? Promise.resolve(null)
-      : readSeriesAs(guideSlug, accessToken),
-    guideSlug === undefined
-      ? Promise.resolve(defaultGuideMode)
-      : loadReaderGuideMode(accessToken),
-    guideSlug === undefined
-      ? Promise.resolve(true)
-      : readerHasSeenGuideModeHint(),
-  ]);
+  const [result, seriesResult, guideMode, hintSeen, practices] =
+    await Promise.all([
+      sharedMaterial?.kind === "available"
+        ? Promise.resolve(sharedMaterial)
+        : loadMaterialReader(slug, accessToken),
+      guideSlug === undefined
+        ? Promise.resolve(null)
+        : readSeriesAs(guideSlug, accessToken),
+      guideSlug === undefined
+        ? Promise.resolve(defaultGuideMode)
+        : loadReaderGuideMode(accessToken),
+      guideSlug === undefined
+        ? Promise.resolve(true)
+        : readerHasSeenGuideModeHint(),
+      accessToken === undefined
+        ? Promise.resolve({ kind: "available" as const, practices: [] })
+        : loadLearningPractices(slug, accessToken),
+    ]);
   if (result.kind === "not-found") {
     notFound();
   }
@@ -199,6 +224,7 @@ async function PersonalMaterialReader({
         ? {}
         : { purchaseGuide: guestPurchaseGuide })}
       guideMode={guideMode}
+      practiceActions={<LearningPracticePrompts result={practices} />}
       hintSeen={hintSeen}
       result={result}
       returnTarget={effectiveReturnTargetOf(returnTarget, seriesContext)}
@@ -212,6 +238,7 @@ async function ResolvedMaterialReader({
   accessToken,
   guideMode,
   hintSeen,
+  practiceActions,
   purchaseGuide: startedPurchaseGuide,
   result,
   returnTarget,
@@ -221,6 +248,7 @@ async function ResolvedMaterialReader({
   readonly accessToken?: string;
   /** Поиск предложения, начатый до личного чтения. */
   readonly purchaseGuide?: Promise<PurchaseGuide | undefined>;
+  readonly practiceActions: ReactNode;
   readonly guideMode: GuideMode;
   readonly hintSeen: boolean;
   readonly result: ResolvedMaterial;
@@ -281,11 +309,7 @@ async function ResolvedMaterialReader({
           bookmarkAction={
             <SavedBookmarkAction materialId={result.material.materialId} />
           }
-          practiceActions={
-            <Suspense fallback={null}>
-              <SavedLearningPractices slug={result.material.slug} />
-            </Suspense>
-          }
+          practiceActions={practiceActions}
           body={result.body}
           material={result.material}
           {...(showsModes

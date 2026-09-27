@@ -1,20 +1,25 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
-import { expect, userEvent, within } from "storybook/test";
+import { expect, spyOn, userEvent, within } from "storybook/test";
 import { publicPageEnvironment } from "@/workshop/story-environment";
 import type { LearningPracticesView } from "../model/learning-practice";
 import { MaterialReaderView } from "./material-reader-view";
-import { LearningPracticePrompts } from "./learning-practice-prompts";
+import {
+  LearningPracticeDisclosure,
+  LearningPracticePrompts,
+} from "./learning-practice-prompts";
 
 const descriptor = {
   practiceId: "synthetic:brief",
   title: "Разобрать обращение бизнеса",
   contextVersion: "a".repeat(64),
-  reviewProtocolVersion: "1",
+  reviewProtocolVersion: "2",
 };
 function PracticeReader({
   result,
+  disclosure = false,
 }: {
   readonly result: LearningPracticesView;
+  readonly disclosure?: boolean;
 }) {
   return (
     <MaterialReaderView
@@ -47,7 +52,13 @@ function PracticeReader({
         },
       ]}
       primaryVideo={null}
-      practiceActions={<LearningPracticePrompts result={result} />}
+      practiceActions={
+        disclosure ? (
+          <LearningPracticeDisclosure result={result} />
+        ) : (
+          <LearningPracticePrompts result={result} />
+        )
+      }
     />
   );
 }
@@ -72,6 +83,13 @@ export default meta;
 type Story = StoryObj<typeof meta>;
 export const Ready: Story = {
   args: { result: { kind: "available", practices: [descriptor] } },
+  beforeEach: () => {
+    const clipboard = spyOn(
+      navigator.clipboard,
+      "writeText",
+    ).mockResolvedValue();
+    return () => clipboard.mockRestore();
+  },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
     await expect(
@@ -127,5 +145,26 @@ export const NoAssignment: Story = {
         name: "Проверка практики",
       }),
     ).not.toBeInTheDocument();
+  },
+};
+
+export const PublicLesson: Story = {
+  args: {
+    result: { kind: "available", practices: [descriptor] },
+    disclosure: true,
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    const slot = canvasElement.querySelector("[data-practice-slot]");
+    await expect(slot?.getBoundingClientRect().height).toBe(44);
+    await expect(
+      canvas.queryByRole("region", { name: "Проверка практики" }),
+    ).not.toBeInTheDocument();
+    await userEvent.click(
+      canvas.getByText("Открыть проверку практики", { exact: true }),
+    );
+    await expect(
+      canvas.getByRole("region", { name: "Проверка практики" }),
+    ).toBeVisible();
   },
 };

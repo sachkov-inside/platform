@@ -1,3 +1,6 @@
+import { resolve } from "node:path";
+import { writeFile } from "node:fs/promises";
+import { prepareEvidenceDirectory } from "../../../../scripts/evidence-path.mjs";
 import AxeBuilder from "@axe-core/playwright";
 import { expect, test } from "@playwright/test";
 import { signInFullStack } from "../support/full-stack-session";
@@ -8,12 +11,58 @@ function practiceSlug(): string {
   return slug;
 }
 
-test("practice Reader offers pinned requests only to an authorized participant", async ({
+test("practice Reader preserves the ready public body and closed practice geometry", async ({
   page,
   context,
 }) => {
+  const slug = process.env["FULLSTACK_FREE_PRACTICE_SLUG"];
+  if (slug === undefined) throw new Error("Missing free practice fixture");
   await signInFullStack(context, "MEMBER");
-  await page.goto(`/materials/${practiceSlug()}`);
+  await page.goto(`/materials/${slug}`, { waitUntil: "commit" });
+  await expect(page.locator("[data-reader-body]")).toBeVisible();
+  const slot = page.locator("[data-practice-slot]");
+  const actions = page.locator("[data-material-actions]");
+  if (Number(process.env["FULLSTACK_PRACTICE_READ_DELAY_MS"] ?? "0") >= 1000) {
+    await expect(slot.getByRole("status")).toBeVisible();
+    const before = await actions.boundingBox();
+    await expect(
+      slot.getByText("Открыть проверку практики", { exact: true }),
+    ).toBeVisible();
+    const after = await actions.boundingBox();
+    expect(before).not.toBeNull();
+    expect(after?.y).toBe(before?.y);
+    expect((await slot.boundingBox())?.height).toBe(44);
+  }
+  await page
+    .getByRole("button", { name: "Закрыть подключение Telegram" })
+    .click();
+  await page.getByRole("button", { name: "Понятно", exact: true }).click();
+  await expect(
+    page.getByRole("region", { name: "Проверка практики" }),
+  ).not.toBeVisible();
+  await slot.getByText("Открыть проверку практики", { exact: true }).click();
+  await expect(
+    page.getByRole("region", { name: "Проверка практики" }),
+  ).toBeVisible();
+  await expect(slot.getByRole("button", { name: "Копировать" })).toHaveCount(2);
+});
+
+test("practice Reader offers pinned requests only to an authorized participant", async ({
+  page,
+  context,
+}, testInfo) => {
+  await signInFullStack(context, "MEMBER");
+  await page.goto(`/materials/${practiceSlug()}`, { waitUntil: "commit" });
+  if (Number(process.env["FULLSTACK_PRACTICE_READ_DELAY_MS"] ?? "0") >= 1000) {
+    await expect(
+      page.locator('[data-material-reader-state="pending"]'),
+    ).toBeVisible();
+    await expect(page.locator("[data-reader-body]")).toHaveCount(0);
+  }
+  await page
+    .getByRole("button", { name: "Закрыть подключение Telegram" })
+    .click();
+  await page.getByRole("button", { name: "Понятно", exact: true }).click();
   const region = page.getByRole("region", { name: "Проверка практики" });
   await expect(region).toBeVisible();
   await expect(region.getByRole("button", { name: "Копировать" })).toHaveCount(
@@ -30,12 +79,42 @@ test("practice Reader offers pinned requests only to an authorized participant",
   expect(copied).toMatch(/"expectedContextVersion": "[a-f0-9]{64}"/u);
   expect(copied).toContain("Codex");
   expect(copied).not.toContain("FULLSTACK_PRIVATE_PRACTICE_BODY");
+  await region.getByText("Настройка проверки", { exact: true }).click();
+  await expect(
+    region.getByRole("link", { name: "Открыть команды подключения и запуска" }),
+  ).toHaveAttribute("href", "/practice-review-setup.txt");
+  const setup = await page.request.get("/practice-review-setup.txt");
+  expect(setup.status()).toBe(200);
+  expect(await setup.text()).toContain("--strict-mcp-config");
+  await region.getByText("Настройка проверки", { exact: true }).click();
   const violations = (
     await new AxeBuilder({ page })
       .include('[aria-label="Проверка практики"]')
       .analyze()
   ).violations.filter((v) => v.impact === "serious" || v.impact === "critical");
   expect(violations).toEqual([]);
+  const evidence = await prepareEvidenceDirectory("issue-785");
+  await region.scrollIntoViewIfNeeded();
+  await page.screenshot({
+    path: resolve(evidence, `reader-${testInfo.project.name}.png`),
+    animations: "disabled",
+    fullPage: false,
+  });
+  await writeFile(
+    resolve(evidence, `reader-${testInfo.project.name}.json`),
+    JSON.stringify(
+      {
+        viewport: page.viewportSize(),
+        violations,
+        delayedPracticeReadMs: Number(
+          process.env["FULLSTACK_PRACTICE_READ_DELAY_MS"] ?? "0",
+        ),
+        copiedStablePracticeId: copied.includes("synthetic:fullstack-practice"),
+      },
+      null,
+      2,
+    ),
+  );
   expect(
     await page.evaluate(
       () =>

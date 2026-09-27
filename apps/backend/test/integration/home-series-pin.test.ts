@@ -59,6 +59,7 @@ beforeAll(async () => {
       "0065_authoring_source",
       "0070_guide_page",
       "0071_offer_eligibility",
+      "0072_practice_definitions",
     ],
   });
   await database.prisma.topic.create({

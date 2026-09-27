@@ -38,7 +38,9 @@ test("full synthetic package, real behavior, stale binding and external repair a
       link: (href) => href,
       image: (href) => href,
     });
-    const rendered = renderMaterialBlocks(document.doc.content);
+    const rendered = renderMaterialBlocks(
+      z.array(z.json()).parse(document.doc.content),
+    );
     assert.ok(rendered.length > 5);
     assert.ok(
       JSON.stringify(rendered).includes("Контрольный смысл конца урока"),

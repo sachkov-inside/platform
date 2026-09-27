@@ -4,8 +4,13 @@ import { z } from "zod";
 import { convertMarkdown } from "../tools/authoring/markdown.mjs";
 const receipt = z.object({ materialId: z.uuid(), contentVersion: z.number() });
 
-/** @param {string} origin @param {string} accessToken */
-export async function seedFullStackPractice(origin, accessToken) {
+/** @param {string} origin @param {string} accessToken @param {"free" | "membership"} [access] */
+export async function seedFullStackPractice(
+  origin,
+  accessToken,
+  access = "membership",
+) {
+  const practiceId = `synthetic:fullstack-practice${access === "free" ? "-free" : ""}`;
   /** @param {string} path @param {unknown} [body] */
   const request = async (path, body) => {
     const response = await fetch(`${origin}${path}`, {
@@ -13,7 +18,7 @@ export async function seedFullStackPractice(origin, accessToken) {
       headers: {
         authorization: `Bearer ${accessToken}`,
         "content-type": "application/json",
-        "idempotency-key": `fullstack-practice-${path}`,
+        "idempotency-key": `fullstack-practice-${access}-${path}`,
       },
       ...(body === undefined ? {} : { body: JSON.stringify(body) }),
     });
@@ -24,21 +29,19 @@ export async function seedFullStackPractice(origin, accessToken) {
     return /** @type {unknown} */ (await response.json());
   };
   const source = {
-    id: "synthetic:fullstack-practice",
+    id: practiceId,
     path: "practice.md",
     revision: "a".repeat(64),
     showInFeed: false,
   };
-  const guide = z
-    .object({ id: z.uuid() })
-    .parse(
-      await request("/authoring/import/guides/reserve", {
-        sourceId: "synthetic:fullstack-practice-guide",
-        name: "Synthetic practice",
-        slug: "synthetic-practice",
-        summary: "Isolated imported practice fixture",
-      }),
-    );
+  const guide = z.object({ id: z.uuid() }).parse(
+    await request("/authoring/import/guides/reserve", {
+      sourceId: "synthetic:fullstack-practice-guide",
+      name: "Synthetic practice",
+      slug: "synthetic-practice",
+      summary: "Isolated imported practice fixture",
+    }),
+  );
   const reserved = receipt.parse(
     await request("/authoring/import/materials/reserve", { source }),
   );
@@ -50,9 +53,9 @@ export async function seedFullStackPractice(origin, accessToken) {
       publicationState: "published",
       primaryVideoId: null,
       metadata: {
-        title: "Synthetic practice reference",
+        title: `Synthetic practice reference ${access}`,
         summary: "Isolated Reader and authorization fixture",
-        access: "membership",
+        access,
         topicId: "72000000-0000-4000-8000-000000000002",
         formatId: "guide",
         tagIds: [],
@@ -72,7 +75,7 @@ export async function seedFullStackPractice(origin, accessToken) {
     }),
   );
   await request("/authoring/import/practices/apply", {
-    practiceId: "synthetic:fullstack-practice",
+    practiceId,
     materialId: saved.materialId,
     expectedContentVersion: saved.contentVersion,
     expectedPracticeVersion: null,
@@ -106,6 +109,44 @@ export async function seedFullStackPractice(origin, accessToken) {
     .parse(await request(`/authoring/materials/${saved.materialId}`));
   return {
     slug: material.metadata.slug,
-    practiceId: "synthetic:fullstack-practice",
+    practiceId,
+  };
+}
+
+/** A disposable stand-only proxy delays the real practice response to exercise Reader readiness.
+ * @param {string} upstream @param {number} delayMs */
+export async function startPracticeReadProxy(upstream, delayMs) {
+  const { createServer, request } = await import("node:http");
+  const { setTimeout: delay } = await import("node:timers/promises");
+  const proxy = createServer((incoming, outgoing) => {
+    void (async () => {
+      if (incoming.url?.endsWith("/practices") === true) await delay(delayMs);
+      const forwarded = request(
+        new URL(incoming.url ?? "/", upstream),
+        {
+          method: incoming.method,
+          headers: { ...incoming.headers, host: new URL(upstream).host },
+        },
+        (response) => {
+          outgoing.writeHead(response.statusCode ?? 502, response.headers);
+          response.pipe(outgoing);
+        },
+      );
+      forwarded.on("error", () => outgoing.writeHead(502).end());
+      incoming.pipe(forwarded);
+    })().catch(() => outgoing.writeHead(502).end());
+  });
+  await new Promise((resolve) =>
+    proxy.listen(0, "127.0.0.1", () => resolve(undefined)),
+  );
+  const address = proxy.address();
+  if (address === null || typeof address === "string")
+    throw new Error("No practice proxy port");
+  return {
+    origin: `http://127.0.0.1:${address.port}`,
+    close: () =>
+      new Promise((resolve, reject) =>
+        proxy.close((error) => (error ? reject(error) : resolve(undefined))),
+      ),
   };
 }

@@ -263,3 +263,5 @@ provider model key or learner progress storage. A local package can include `pra
 with commit provenance; its source references must match the selected Material revisions. New
 migration `0072-practice-definitions` creates the current delivery projection and scoped import
 receipts. Author MCP permissions and tool inventory remain separate from the learner surface.
+
+The participant setup and bounded native verification live in [learner practice review](learning-practice-review.md).
