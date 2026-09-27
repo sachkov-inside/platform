@@ -458,7 +458,9 @@ failure-diagnostics contract.
 
 `FULLSTACK_TEST_GREP='<test title>'` limits the host full-stack smoke to matching tests. After
 `@playwright/test` changes version, install its browsers on the host before a run with
-`pnpm --filter @inside/web exec playwright install chromium chromium-headless-shell`. The nightly
+`pnpm --filter @inside/web exec playwright install chromium chromium-headless-shell`; `pnpm check`
+also runs the WebKit browser-engine checks, which fail with `Executable doesn't exist` until `webkit`
+is installed the same way. The nightly
 full-stack run on `main` shows whether a failing test also fails without your change. On macOS a
 sleeping Mac stalls a long host suite for minutes and fails it with `net::ERR_NETWORK_IO_SUSPENDED`,
 which is not a product defect; the #745 run passed under `caffeinate -i`.
