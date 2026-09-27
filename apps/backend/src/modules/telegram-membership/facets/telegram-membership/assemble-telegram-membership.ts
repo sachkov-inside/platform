@@ -41,7 +41,8 @@ export interface TelegramMembershipDependencies {
   readonly clock?: () => Date;
   readonly linkLifetimeMs: number;
   readonly membershipEntitlements: MembershipEntitlements;
-  readonly subscriptionForSale?: () => Promise<boolean>;
+  /** Предлагается ли подписка этому Account; гостю — без Account. */
+  readonly subscriptionForSale?: (accountId?: string) => Promise<boolean>;
   readonly membershipSupportUrl?: string;
   readonly prisma: TelegramMembershipPrismaClient;
   readonly provider: TelegramLinkProvider;
@@ -229,7 +230,7 @@ async function readAccountPresentation(
   const subscriptionForSale =
     dependencies.subscriptionForSale === undefined
       ? true
-      : await dependencies.subscriptionForSale();
+      : await dependencies.subscriptionForSale(account);
 
   return {
     ok: true,

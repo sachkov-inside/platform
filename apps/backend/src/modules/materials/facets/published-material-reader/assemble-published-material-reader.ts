@@ -18,7 +18,8 @@ export function assemblePublishedMaterialReader(dependencies: {
   readonly contentAccess: ContentAccess;
   readonly materialContent: MaterialContent;
   readonly materialBodyOperations: MaterialBodyOperations;
-  readonly subscriptionForSale?: () => Promise<boolean>;
+  /** Предлагается ли подписка этому Account; гостю — без Account. */
+  readonly subscriptionForSale?: (accountId?: string) => Promise<boolean>;
   readonly materialAssets?: Pick<MaterialAssets, "loadPresentations">;
   readonly videos?: Pick<Videos, "loadPresentation">;
 }): PublishedMaterialReader {

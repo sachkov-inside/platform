@@ -14,6 +14,10 @@ import {
 } from "../../domain/pricing.js";
 import { selectPrice } from "../../shared/select-price.js";
 import { replayCommandFingerprint } from "../../shared/command-fingerprint.js";
+import {
+  offerAdmits,
+  type PurchaseGrounds,
+} from "../../shared/offer-eligibility.js";
 
 export const quotePurchaseSchema = z.strictObject({
   operationId: idSchema,
@@ -37,6 +41,7 @@ type QuotePurchaseResult = PricingResult<
   | "unsupported_amount"
   | "operation_conflict"
   | "quote_changed"
+  | "not_eligible"
   | "dependency_unavailable"
 >;
 
@@ -45,6 +50,7 @@ export async function quotePurchase(
   accountId: string,
   input: unknown,
   clock: () => Date,
+  grounds: PurchaseGrounds,
 ): Promise<QuotePurchaseResult> {
   const parsed = quotePurchaseSchema.safeParse(input);
   const identity = idSchema.safeParse(accountId);
@@ -84,6 +90,9 @@ export async function quotePurchase(
         if (!price.ok) return price;
         if (price.value.paymentOption.revision !== command.optionRevision)
           return failure("quote_changed");
+        // Offer с ограничением допуска не рассчитывается для Account без основания.
+        if (!offerAdmits(price.value.offer.eligibility, grounds))
+          return failure("not_eligible");
         const expiresAt = new Date(
           now.getTime() + quoteValidityMinutes * 60_000,
         );

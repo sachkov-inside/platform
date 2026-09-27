@@ -2,6 +2,7 @@ import { beforeEach, expect, it, vi } from "vitest";
 
 const fakes = vi.hoisted(() => ({
   token: vi.fn(),
+  readerToken: vi.fn(),
   offers: vi.fn(),
   quote: vi.fn(),
   consents: vi.fn(),
@@ -28,6 +29,9 @@ vi.mock("@/shared/api/backend/index.server", () => ({
 vi.mock("@/shared/auth/platform-access-token.server", () => ({
   getPlatformAccessToken: fakes.token,
   LogtoSessionUnavailableError: class extends Error {},
+}));
+vi.mock("@/shared/auth/optional-platform-access-token.server", () => ({
+  getOptionalPlatformAccessToken: fakes.readerToken,
 }));
 vi.mock("@/shared/auth/logto-bff-config.server", () => ({
   readLogtoBffConfig: () => ({ baseUrl: "https://inside.example.test" }),
@@ -80,6 +84,7 @@ const problem = (code: string, status: number) => ({
 beforeEach(() => {
   vi.clearAllMocks();
   fakes.token.mockResolvedValue("trusted-token");
+  fakes.readerToken.mockResolvedValue(undefined);
 });
 
 it("дочитывает каталог по курсору и не обрывает его молча", async () => {
@@ -91,8 +96,34 @@ it("дочитывает каталог по курсору и не обрыва
     kind: "ready",
     offers: [materialsOffer, supportOffer],
   });
-  expect(fakes.offers).toHaveBeenNthCalledWith(1, { limit: 50 });
-  expect(fakes.offers).toHaveBeenNthCalledWith(2, { limit: 50, cursor });
+  expect(fakes.offers).toHaveBeenNthCalledWith(1, { limit: 50 }, undefined);
+  expect(fakes.offers).toHaveBeenNthCalledWith(
+    2,
+    { limit: 50, cursor },
+    undefined,
+  );
+});
+
+it("читает каталог от имени вошедшего покупателя: Offer с ограничением допуска решает сервер", async () => {
+  fakes.readerToken.mockResolvedValue("reader-token");
+  fakes.offers.mockResolvedValue(
+    ok({ items: [materialsOffer], nextCursor: null }),
+  );
+  expect(await loadBillingOffers({ mode: "subscription" })).toEqual({
+    kind: "ready",
+    offers: [materialsOffer],
+  });
+  expect(fakes.offers).toHaveBeenCalledWith(
+    { mode: "subscription", limit: 50 },
+    "reader-token",
+  );
+});
+
+it("сессия, которую не удалось прочитать, не ломает витрину: каталог читается как гостем", async () => {
+  fakes.readerToken.mockRejectedValue(new Error("refresh failed"));
+  fakes.offers.mockResolvedValue(ok({ items: [], nextCursor: null }));
+  expect(await loadBillingOffers()).toEqual({ kind: "ready", offers: [] });
+  expect(fakes.offers).toHaveBeenCalledWith({ limit: 50 }, undefined);
 });
 
 it("сообщает о недоступности каталога, а не показывает пустую витрину", async () => {

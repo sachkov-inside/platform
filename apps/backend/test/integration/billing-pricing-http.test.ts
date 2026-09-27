@@ -13,6 +13,7 @@ import {
   type TestDatabase,
 } from "./setup/test-database.js";
 import { declaredServer } from "../support/declared-api.js";
+import { bindConfirmedTributeSource } from "./setup/tribute-source.js";
 
 const issuer = "https://identity.example.test/oidc";
 const audience = "https://api.example.test";
@@ -601,6 +602,117 @@ describe("Billing pricing HTTP", () => {
     expect(stale.statusCode).toBe(409);
     expect(stale.headers["content-type"]).toContain("application/problem+json");
     expect(stale.json()).toMatchObject({ code: "revision_conflict" });
+  });
+
+  test("Offer для прежних подписчиков Tribute виден и рассчитывается только Account с подтверждённым периодом Tribute", async () => {
+    const server = declaredServer(app.getHttpAdapter().getInstance());
+    async function member(subject: string) {
+      const headers = {
+        authorization: `Bearer ${await signToken({ subject, email: `${subject}@example.test` })}`,
+      };
+      expect(
+        (await server.inject({ method: "POST", url: "/accounts", headers }))
+          .statusCode,
+      ).toBe(201);
+      await acceptCurrentTerms(server, headers);
+      const account = await database.prisma.account.findUniqueOrThrow({
+        where: {
+          logtoIssuer_logtoSubject: {
+            logtoIssuer: issuer,
+            logtoSubject: subject,
+          },
+        },
+      });
+      return { headers, accountId: account.id };
+    }
+    const owner = await member("tribute-owner-001");
+    await database.prisma.accountPermission.create({
+      data: { accountId: owner.accountId, permission: "platform:admin" },
+    });
+    const offerId = randomUUID();
+    const optionId = randomUUID();
+    const admin = (payload: Record<string, unknown>) =>
+      server.inject({
+        method: "POST",
+        url: "/billing/admin",
+        headers: owner.headers,
+        payload: { operationId: randomUUID(), ...payload },
+      });
+    expect(
+      (
+        await admin({
+          operation: "offers.save",
+          value: {
+            id: offerId,
+            name: "Продление подписки Tribute",
+            benefits: ["community", "materials", "support"],
+            contentScope: { guideIds: [], materialIds: [], allGuides: true },
+            eligibility: "former_tribute_subscribers",
+          },
+        })
+      ).statusCode,
+    ).toBe(200);
+    expect(
+      (
+        await admin({
+          operation: "paymentOptions.save",
+          value: { id: optionId, offerId, months: 1, priceKopecks: 90_000 },
+        })
+      ).statusCode,
+    ).toBe(200);
+    expect(
+      (
+        await admin({
+          operation: "offers.publish",
+          expectedRevision: 1,
+          id: offerId,
+        })
+      ).statusCode,
+    ).toBe(200);
+    async function listed(headers?: Record<string, string>) {
+      const response = await server.inject({
+        method: "GET",
+        url: "/billing/offers?mode=subscription&limit=100",
+        ...(headers === undefined ? {} : { headers }),
+      });
+      expect(response.statusCode).toBe(200);
+      return response
+        .json<{ items: readonly { offer: { id: string } }[] }>()
+        .items.some((item) => item.offer.id === offerId);
+    }
+    const quote = (headers: Record<string, string>) =>
+      server.inject({
+        method: "POST",
+        url: "/accounts/current/billing/quote",
+        headers,
+        payload: {
+          operationId: randomUUID(),
+          paymentOptionId: optionId,
+          optionRevision: 1,
+        },
+      });
+
+    // Гость и Account без основания Offer не видят, а расчёт получает понятный отказ.
+    expect(await listed()).toBe(false);
+    const stranger = await member("tribute-stranger-001");
+    expect(await listed(stranger.headers)).toBe(false);
+    const refused = await quote(stranger.headers);
+    expect(refused.statusCode).toBe(403);
+    expect(refused.json()).toMatchObject({ code: "not_eligible" });
+
+    // Подтверждённый период Tribute — основание, в том числе после окончания периода.
+    const subscriber = await member("tribute-subscriber-001");
+    const source = await bindConfirmedTributeSource(
+      database.prisma,
+      subscriber.accountId,
+    );
+    expect(await listed(subscriber.headers)).toBe(true);
+    expect((await quote(subscriber.headers)).statusCode).toBe(200);
+
+    // Отозванный источник основанием не является.
+    await source.revoke();
+    expect(await listed(subscriber.headers)).toBe(false);
+    expect((await quote(subscriber.headers)).statusCode).toBe(403);
   });
 
   async function signToken(

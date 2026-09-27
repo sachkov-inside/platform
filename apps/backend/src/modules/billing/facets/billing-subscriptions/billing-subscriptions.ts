@@ -13,6 +13,7 @@ import {
 import type { BillingContact } from "../../../accounts/index.js";
 import type { AccessGrants } from "../../../membership-entitlements/index.js";
 import {
+  offerEligibilitySchema,
   offerSchema,
   optionSchema,
   priceSnapshotSchema,
@@ -60,6 +61,10 @@ import {
 } from "../../shared/record-notice.js";
 import type { BillingNotices } from "../billing-notices/billing-notices.js";
 import { commandFingerprint } from "../../shared/command-fingerprint.js";
+import {
+  offerAdmits,
+  readPurchaseGrounds,
+} from "../../shared/offer-eligibility.js";
 import { acceptRecurringConsent } from "../../shared/recurring-consent.js";
 import {
   advanceSubscription,
@@ -82,7 +87,7 @@ interface Dependencies {
   readonly contact: Pick<BillingContact, "read" | "readConsent">;
   readonly grants: Pick<
     AccessGrants,
-    "readLegacyClassification" | "readOwnAccess"
+    "readLegacyClassification" | "readOwnAccess" | "readPurchaseGrounds"
   >;
   readonly payments: Pick<BillingPayments, "dispatch" | "status" | "history">;
   readonly notices: Pick<BillingNotices, "readNotices">;
@@ -847,6 +852,15 @@ export class BillingSubscriptions {
       !target.offer.published
     )
       return paymentFailure("not_found");
+    // Смена варианта — тоже покупка Offer: ограничение допуска действует и здесь.
+    const grounds = await readPurchaseGrounds(
+      this.dependencies.grants,
+      row.accountId,
+    );
+    if (grounds === null) return paymentFailure("dependency_unavailable");
+    const eligibility = offerEligibilitySchema.parse(target.offer.eligibility);
+    if (!offerAdmits(eligibility, grounds))
+      return paymentFailure("not_eligible");
     const current = subscriptionSnapshotSchema.parse(row.snapshot);
     if (
       target.id === current.paymentOption.id &&
@@ -861,6 +875,7 @@ export class BillingSubscriptions {
         benefits: target.offer.benefits,
         archived: target.offer.archived,
         published: target.offer.published,
+        eligibility,
         ...(Array.isArray(target.offer.benefitPeriods) &&
         target.offer.benefitPeriods.length > 0
           ? { benefitPeriods: target.offer.benefitPeriods }

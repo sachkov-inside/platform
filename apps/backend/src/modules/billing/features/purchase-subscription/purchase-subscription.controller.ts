@@ -41,7 +41,7 @@ import { throwPaymentError } from "../../shared/payment-http.filter.js";
 @ApiTags("Billing")
 @ApiBearerAuth("logto")
 @PrivateNoStore()
-@AcceptedTermsEndpoint(problemDetailsSchema(403, ["forbidden"]))
+@AcceptedTermsEndpoint(problemDetailsSchema(403, ["forbidden", "not_eligible"]))
 @UseFilters(AccountProblemDetailsFilter)
 @ApiResponse({
   status: 400,

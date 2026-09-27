@@ -306,6 +306,9 @@ video locators и иные связанные с body ресурсы в projecti
 `support-kept-by-other-ground`, `material-added-to-product`,
 `material-removed-from-product`, `guide-archived`, `tier-composition-change`,
 `tier-archived-with-assignments`. Публикация: `standalone-membership-publication-rejected`.
+Покупки (#775): `course-offer-terms`, `offer-own-terms`, `offer-terms-change-keeps-earlier-purchase`,
+`subscription-offer-without-tribute-ground`, `subscription-offer-with-tribute-ground` — какие права
+и на какой срок выдаёт покупка предложения и кому предложение продаётся.
 У каждой клетки стабильное имя `<строка>/<столбец>`.
 
 `pnpm check` проверяет полноту таблицы и негативную фикстуру (`test/unit/access-scenario-table.test.ts`);

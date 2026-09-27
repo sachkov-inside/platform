@@ -10,6 +10,10 @@ import {
   type PricingResult,
 } from "../../domain/pricing.js";
 import { selectPrice } from "../../shared/select-price.js";
+import {
+  offerAdmits,
+  type PurchaseGrounds,
+} from "../../shared/offer-eligibility.js";
 import { hasText } from "../../../../infrastructure/contracts/text.js";
 
 export const listOffersSchema = z.strictObject({
@@ -27,6 +31,11 @@ export const offersPageSchema = z.strictObject({
 export interface ListOffersOptions {
   /** Публичная витрина видит только предложения, включённые в продажу; владелец — весь непустой каталог. */
   readonly publishedOnly?: boolean;
+  /**
+   * Основания читателя витрины: Offer с ограничением допуска виден только допущенному Account.
+   * Владельческий каталог их не передаёт и видит всё.
+   */
+  readonly grounds?: PurchaseGrounds;
 }
 export async function listOffers(
   prisma: BillingPrismaClient,
@@ -66,7 +75,12 @@ export async function listOffers(
       const price = await selectPrice(prisma, row.id, now, undefined, {
         allowUnpublished: options.publishedOnly !== true,
       });
-      if (price.ok) items.push(price.value);
+      if (
+        price.ok &&
+        (options.grounds === undefined ||
+          offerAdmits(price.value.offer.eligibility, options.grounds))
+      )
+        items.push(price.value);
     }
     return {
       ok: true,

@@ -52,6 +52,10 @@ import { verifyRecurringConsent } from "../../shared/recurring-consent.js";
 import { attemptSourceRef, lifecycleWindow } from "../../domain/notice.js";
 import { recordBillingNotice } from "../../shared/record-notice.js";
 import { replayCommandFingerprint } from "../../shared/command-fingerprint.js";
+import {
+  offerAdmits,
+  readPurchaseGrounds,
+} from "../../shared/offer-eligibility.js";
 import { hasText } from "../../../../infrastructure/contracts/text.js";
 
 const fulfillmentRetryDelayMilliseconds = 60_000;
@@ -76,6 +80,7 @@ interface Dependencies {
     AccessGrants,
     | "readCompatibilityContentScope"
     | "readLegacyClassification"
+    | "readPurchaseGrounds"
     | "resolveCapabilities"
     | "applyPaidPeriod"
   >;
@@ -130,12 +135,13 @@ export class BillingPayments {
       // первый платёж прошёл бы, а продление — нет. Разовая покупка от этого не зависит.
       if (recurring && !subscriptionSaleConfirmed(bank.config))
         return paymentFailure("method_unavailable");
-      const [contact, legacy, capabilities] = await Promise.all([
+      const [contact, legacy, capabilities, grounds] = await Promise.all([
         this.dependencies.contact.read(accountId),
         this.dependencies.grants.readLegacyClassification(accountId),
         this.dependencies.grants.resolveCapabilities(accountId),
+        readPurchaseGrounds(this.dependencies.grants, accountId),
       ]);
-      if (!contact.ok || !legacy.ok || !capabilities.ok)
+      if (!contact.ok || !legacy.ok || !capabilities.ok || grounds === null)
         return paymentFailure("dependency_unavailable");
       if (
         !contact.contact ||
@@ -236,6 +242,11 @@ export class BillingPayments {
                 ? "payment_in_progress"
                 : reservation.error.code,
             );
+          // Расчёт мог быть сохранён, пока основание ещё действовало: допуск проверяется и здесь.
+          if (!offerAdmits(reservation.value.offer.eligibility, grounds)) {
+            await tx.billingPromoReservation.delete({ where: { purchaseRef } });
+            return paymentFailure("not_eligible");
+          }
           if (
             !command.acknowledgeExistingAccess &&
             capabilities.capabilities.some((value) =>
@@ -1010,18 +1021,17 @@ export class BillingPayments {
             const term = snapshot.offer.benefitPeriods?.find(
               (value) => value.capability === capability,
             );
+            // Срок права называет Offer. Право без названного срока живёт оплаченный период, а у
+            // разовой покупки, где периода нет, — без даты окончания.
             const validUntil =
-              kind === "one_time" &&
-              (isGuideCapability(capability) || capability === "community")
-                ? null
-                : term === undefined
-                  ? (paidUntil?.toISOString() ?? null)
-                  : term.months === null
-                    ? null
-                    : subscriptionPeriodEnd(
-                        period.startsAt,
-                        term.months,
-                      ).toISOString();
+              term === undefined
+                ? (paidUntil?.toISOString() ?? null)
+                : term.months === null
+                  ? null
+                  : subscriptionPeriodEnd(
+                      period.startsAt,
+                      term.months,
+                    ).toISOString();
             return {
               capabilities: [capability],
               startsAt: period.startsAt.toISOString(),

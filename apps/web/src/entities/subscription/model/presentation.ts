@@ -302,6 +302,8 @@ export function billingErrorMessage(code: BillingFailureCode): string {
       return "У вас уже есть доступ к части этого состава. Подтвердите, что понимаете это, и продолжите.";
     case "legacy_review_required":
       return "Ваша прежняя подписка ещё не разобрана. Мы включим оплату после проверки — новое списание пока не начинаем.";
+    case "not_eligible":
+      return "Это предложение доступно только прежним подписчикам Tribute.";
     case "quote_expired":
       return "Расчёт устарел. Обновите условия и повторите.";
     case "quote_changed":

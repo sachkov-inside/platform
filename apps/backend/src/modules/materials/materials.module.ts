@@ -300,7 +300,8 @@ import {
           materialBodyOperations,
           materialAssets,
           videos,
-          subscriptionForSale: () => pricing.hasOffersForSale(),
+          subscriptionForSale: (accountId) =>
+            pricing.hasOffersForSale(accountId),
         }),
     },
     {

@@ -9,9 +9,6 @@ import { benefitPeriodsSchema } from "../domain/pricing.js";
 
 type CatalogOffer = { readonly benefits: readonly string[] };
 
-/** Сопровождение из предложения продукта: столько календарных месяцев с подтверждения оплаты. */
-export const productSupportMonths = 6;
-
 /** Предложение продукта открывает своё руководство; состав тарифа к нему не относится. */
 export function isProductOffer(offer: CatalogOffer): boolean {
   return offer.benefits.some((value) => {
@@ -30,40 +27,80 @@ export function tierLacksComposition(
   return !isProductOffer(offer) && isEmptyContentScope(offer.contentScope);
 }
 
-function supportPeriodMonths(offer: {
-  readonly benefitPeriods: unknown;
-}): number | null | undefined {
+/**
+ * Объявленный в предложении срок права: месяцы, `null` — без срока, `undefined` — срок не назван.
+ * Нечитаемые сроки читаются как не названные.
+ */
+function declaredMonths(
+  offer: { readonly benefitPeriods: unknown },
+  capability: string,
+): number | null | undefined {
   const periods = benefitPeriodsSchema.safeParse(offer.benefitPeriods);
   return periods.success
-    ? periods.data.find((period) => period.capability === "support")?.months
+    ? periods.data.find((period) => period.capability === capability)?.months
     : undefined;
 }
 
 /**
- * Сопровождение в предложении продукта длится столько, сколько обещает оферта: шесть месяцев.
- * Черновик без сопровождения сохраняется, а сопровождение с другим сроком — нет.
+ * Сопровождение предложения продукта длится столько, сколько называет само предложение: срок
+ * задаёт владелец, и без названного срока сопровождение не выдаётся бессрочным по умолчанию.
  */
-export function productSupportTermMismatch(
+function productSupportTermMissing(
+  offer: CatalogOffer & { readonly benefitPeriods: unknown },
+): boolean {
+  return (
+    offer.benefits.includes("support") &&
+    declaredMonths(offer, "support") === undefined
+  );
+}
+
+/**
+ * Общую группу открывают право на продукт и сопровождение, поэтому срок группы, названный в
+ * предложении продукта, не может быть короче их сроков: такой срок ничего бы не ограничил. Право
+ * разовой покупки без названного срока — бессрочное.
+ */
+function productCommunityTermShorter(
+  offer: CatalogOffer & { readonly benefitPeriods: unknown },
+): boolean {
+  const community = declaredMonths(offer, "community");
+  if (!offer.benefits.includes("community") || community == null) return false;
+  return offer.benefits
+    .filter((value) => {
+      const capability = accessCapabilitySchema.safeParse(value);
+      return (
+        capability.success &&
+        (capability.data === "support" || isGuideCapability(capability.data))
+      );
+    })
+    .some((value) => {
+      const months = declaredMonths(offer, value);
+      return months == null || months > community;
+    });
+}
+
+/**
+ * Сроки предложения продукта, которые нельзя сохранить: сопровождение без названного срока и
+ * общая группа короче права на продукт или сопровождения. Черновик без сопровождения сохраняется.
+ */
+export function productOfferTermsInvalid(
   offer: CatalogOffer & { readonly benefitPeriods: unknown },
 ): boolean {
   return (
     isProductOffer(offer) &&
-    offer.benefits.includes("support") &&
-    supportPeriodMonths(offer) !== productSupportMonths
+    (productSupportTermMissing(offer) || productCommunityTermShorter(offer))
   );
 }
 
 /**
  * Покупка продукта — это материалы продукта и сопровождение. Продаётся только предложение продукта,
- * которое даёт сопровождение на срок оферты.
+ * которое даёт сопровождение на названный в нём срок.
  */
 export function productOfferUnsellable(
   offer: CatalogOffer & { readonly benefitPeriods: unknown },
 ): boolean {
   return (
     isProductOffer(offer) &&
-    (!offer.benefits.includes("support") ||
-      supportPeriodMonths(offer) !== productSupportMonths)
+    (!offer.benefits.includes("support") || productOfferTermsInvalid(offer))
   );
 }
 

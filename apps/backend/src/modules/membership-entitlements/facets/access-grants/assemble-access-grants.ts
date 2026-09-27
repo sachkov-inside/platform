@@ -589,6 +589,42 @@ export function assembleAccessGrants(dependencies: AccessGrantsDependencies) {
      */
     readLegacyClassification: (targetAccountId: string) =>
       readClassificationOf(targetAccountId),
+    /**
+     * Основания Account, по которым billing допускает к Offer. Прежний подписчик Tribute — Account
+     * с привязанным и не отозванным подтверждённым периодом Tribute; окончание периода основание
+     * не снимает, иначе продлить было бы нечем. Временный источник участника группы периода не
+     * подтверждает и основанием не является.
+     */
+    async readPurchaseGrounds(targetAccountId: string) {
+      if (!z.uuid().safeParse(targetAccountId).success)
+        return accessFailure("invalid_input");
+      try {
+        const sources = await prisma.sourceEntitlement.findMany({
+          where: {
+            origin: "tribute",
+            accountId: targetAccountId,
+            revokedAt: null,
+          },
+          select: { tributeState: true },
+        });
+        return {
+          ok: true as const,
+          formerTributeSubscriber: sources.some((source) => {
+            const state = tributeStateSchema.safeParse(source.tributeState);
+            return state.success && state.data.mode === "confirmed_period";
+          }),
+        };
+      } catch (error) {
+        return dependencyFailure(
+          {
+            module: "membership-entitlements",
+            operation: "readPurchaseGrounds",
+          },
+          error,
+          accessFailure("unavailable"),
+        );
+      }
+    },
   });
 }
 export type AccessGrants = ReturnType<typeof assembleAccessGrants>;

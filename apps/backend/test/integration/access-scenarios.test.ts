@@ -58,6 +58,7 @@ import type {
   ObjectStorage,
   StoredObject,
 } from "../../src/infrastructure/object-storage/index.js";
+import { subscriptionPeriodEnd } from "../../src/modules/billing/domain/subscription-period.js";
 import { syntheticTbankConfig } from "../support/bank-terminal.js";
 import { representativeDocument } from "../fixtures/material-body/representative.js";
 import {
@@ -70,6 +71,8 @@ import {
   type AccessSurface,
   type AccessTerm,
   type AccessTransition,
+  type OfferTerm,
+  type OfferTerms,
 } from "../access-scenarios/access-scenarios.js";
 import {
   compareAccessObservation,
@@ -272,6 +275,7 @@ describe("таблица сценариев доступа (реальный Pos
     pricing = new BillingPricing({
       prisma: db.prisma,
       accounts,
+      grants,
       clock: () => now,
       sale: { payments: true, subscriptions: true },
     });
@@ -570,7 +574,21 @@ describe("таблица сценариев доступа (реальный Pos
     if (!created.ok) throw new Error(created.error.code);
     return created.value.artifactId;
   }
-  async function productOffer(guideId: string) {
+  /** Сроки прав Offer продукта словами таблицы: `null` — без срока. */
+  function offerPeriods(capability: AccessCapability, terms: OfferTerms) {
+    const months = (term: OfferTerm) =>
+      term === "lifetime" ? null : term.months;
+    return [
+      { capability, months: months(terms["product-material"]) },
+      { capability: "community", months: months(terms["community-chat"]) },
+      { capability: "support", months: months(terms.support) },
+    ] as const;
+  }
+  /**
+   * Offer продукта с разовой оплатой. Без сроков — прежний Offer мира: право на продукт без срока и
+   * сопровождение на шесть месяцев; со сроками таблицы — Offer называет срок и общей группе.
+   */
+  async function productOffer(guideId: string, terms?: OfferTerms) {
     const offerId = randomUUID(),
       optionId = randomUUID();
     const capability: AccessCapability = `guide:${guideId}`;
@@ -581,11 +599,18 @@ describe("таблица сценариев доступа (реальный Pos
         value: {
           id: offerId,
           name: "Продукт сценариев",
-          benefits: [capability, "support"],
-          benefitPeriods: [
-            { capability, months: null },
-            { capability: "support", months: 6 },
-          ],
+          ...(terms === undefined
+            ? {
+                benefits: [capability, "support"],
+                benefitPeriods: [
+                  { capability, months: null },
+                  { capability: "support", months: 6 },
+                ],
+              }
+            : {
+                benefits: [capability, "community", "support"],
+                benefitPeriods: [...offerPeriods(capability, terms)],
+              }),
         },
       }),
     );
@@ -739,6 +764,7 @@ describe("таблица сценариев доступа (реальный Pos
     mode: "confirmed_period" | "temporary_membership",
     endsAt: string,
     existing?: { readonly policyRef: string; readonly subscriptionId: number },
+    renewal: "enabled" | "stopped" = "enabled",
   ) {
     let policy = existing;
     if (policy === undefined) {
@@ -782,7 +808,7 @@ describe("таблица сценариев доступа (реальный Pos
       mode,
       startsAt: now.toISOString(),
       endsAt,
-      renewal: "enabled" as const,
+      renewal,
       expectedRevision: source?.revision ?? 0,
       reason: "Подтверждённые даты и identity",
     };
@@ -803,9 +829,12 @@ describe("таблица сценариев доступа (реальный Pos
     await convergence.sweep();
     return policy;
   }
-  async function tributeMember(endsAt: string): Promise<Participant> {
+  async function tributeMember(
+    endsAt: string,
+    renewal: "enabled" | "stopped" = "enabled",
+  ): Promise<Participant> {
     const member = await participant("tribute");
-    await importTribute(member, "confirmed_period", endsAt);
+    await importTribute(member, "confirmed_period", endsAt, undefined, renewal);
     return member;
   }
   /** Наблюдение бота за прежней группой: принятое свидетельство членства или выхода. */
@@ -1733,5 +1762,284 @@ describe("таблица сценариев доступа (реальный Pos
         where: { materialId: created.value.materialId },
       }),
     ).toBe(0);
+  });
+
+  // ------------------------------------------------------------------------------- покупки
+
+  /** Срок права словами таблицы: без даты окончания или число календарных месяцев с оплаты. */
+  function describeTerm(term: OfferTerm): string {
+    return term === "lifetime" ? "lifetime" : `${String(term.months)} months`;
+  }
+  function observedTerm(validUntil: string | null, paidAt: Date): string {
+    if (validUntil === null) return "lifetime";
+    for (let months = 1; months <= 1200; months += 1)
+      if (subscriptionPeriodEnd(paidAt, months).toISOString() === validUntil)
+        return `${String(months)} months`;
+    return `until ${validUntil}`;
+  }
+  /** Что открыто у покупателя: материал продукта, общая группа и сопровождение со своими сроками. */
+  async function grantedTerms(
+    account: string,
+    paidAt: Date,
+  ): Promise<Readonly<Record<keyof OfferTerms, string>>> {
+    const material = await readerAccess.authorize({
+      subject: subjectOf(account),
+      action: "read",
+      resource: { kind: "material", materialId: productMaterial },
+      enforcementPoint: "published_material_read",
+      correlationId: randomUUID(),
+    });
+    const resolved = await grants.resolveCapabilities(account);
+    if (!resolved.ok) throw new Error(resolved.error.code);
+    const capabilityTerm = (name: AccessCapability) => {
+      const found = resolved.capabilities.find(
+        (entry) => entry.capability === name,
+      );
+      return found === undefined
+        ? "closed"
+        : observedTerm(found.validUntil, paidAt);
+    };
+    return {
+      "product-material":
+        material.effect === "deny" || !("validUntil" in material)
+          ? "closed"
+          : observedTerm(material.validUntil, paidAt),
+      "community-chat": capabilityTerm("community"),
+      support: capabilityTerm("support"),
+    };
+  }
+  function termVerdicts(
+    id: string,
+    expected: OfferTerms,
+    observed: Readonly<Record<keyof OfferTerms, string>>,
+  ): readonly string[] {
+    return (["product-material", "community-chat", "support"] as const)
+      .filter((right) => describeTerm(expected[right]) !== observed[right])
+      .map(
+        (right) =>
+          `${id}:${right} expected ${describeTerm(expected[right])} but observed ${observed[right]}`,
+      );
+  }
+
+  test("course-offer-terms", async () => {
+    now = new Date(startedAt);
+    const scenario = accessScenarioTable.purchases["course-offer-terms"];
+    const { optionId } = await productOffer(guideA, scenario.offer);
+    const buyer = await purchased(optionId);
+    expect(
+      termVerdicts(
+        "course-offer-terms",
+        scenario.granted,
+        await grantedTerms(buyer, now),
+      ),
+    ).toEqual([]);
+  });
+
+  test("offer-own-terms", async () => {
+    now = new Date(startedAt);
+    const scenario = accessScenarioTable.purchases["offer-own-terms"];
+    const { optionId } = await productOffer(guideA, scenario.offer);
+    const buyer = await purchased(optionId);
+    expect(
+      termVerdicts(
+        "offer-own-terms",
+        scenario.granted,
+        await grantedTerms(buyer, now),
+      ),
+    ).toEqual([]);
+  });
+
+  test("offer-terms-change-keeps-earlier-purchase", async () => {
+    now = new Date(startedAt);
+    const scenario =
+      accessScenarioTable.purchases[
+        "offer-terms-change-keeps-earlier-purchase"
+      ];
+    const { offerId, optionId } = await productOffer(
+      guideA,
+      accessScenarioTable.purchases["course-offer-terms"].offer,
+    );
+    const earlier = await purchased(optionId);
+    const capability: AccessCapability = `guide:${guideA}`;
+    value(
+      await pricing.manage(owner, {
+        operationId: randomUUID(),
+        operation: "offers.save",
+        expectedRevision: 2,
+        value: {
+          id: offerId,
+          name: "Продукт сценариев",
+          benefits: [capability, "community", "support"],
+          benefitPeriods: [...offerPeriods(capability, scenario.offer)],
+        },
+      }),
+    );
+    const later = await purchased(optionId);
+    expect([
+      ...termVerdicts(
+        "offer-terms-change-keeps-earlier-purchase:earlier",
+        scenario.granted,
+        await grantedTerms(earlier, now),
+      ),
+      ...termVerdicts(
+        "offer-terms-change-keeps-earlier-purchase:later",
+        scenario.offer,
+        await grantedTerms(later, now),
+      ),
+    ]).toEqual([]);
+  });
+
+  /** Offer подписки со стартовым составом, который продаётся только прежним подписчикам Tribute. */
+  async function tributeSubscriptionOffer() {
+    const offerId = randomUUID(),
+      optionId = randomUUID();
+    value(
+      await pricing.manage(owner, {
+        operationId: randomUUID(),
+        operation: "offers.save",
+        value: {
+          id: offerId,
+          name: "Подписка прежних подписчиков Tribute",
+          benefits: ["community", "materials", "support"],
+          contentScope: { guideIds: [], materialIds: [], allGuides: true },
+          eligibility: "former_tribute_subscribers",
+        },
+      }),
+    );
+    value(
+      await pricing.manage(owner, {
+        operationId: randomUUID(),
+        operation: "paymentOptions.save",
+        value: {
+          id: optionId,
+          offerId,
+          mode: "subscription",
+          months: 1,
+          priceKopecks: guidePriceKopecks,
+        },
+      }),
+    );
+    value(
+      await pricing.manage(owner, {
+        operationId: randomUUID(),
+        operation: "offers.publish",
+        expectedRevision: 1,
+        id: offerId,
+      }),
+    );
+    return { offerId, optionId };
+  }
+  let subscriptionOffer:
+    { readonly offerId: string; readonly optionId: string } | undefined;
+  async function restrictedSubscription() {
+    subscriptionOffer ??= await tributeSubscriptionOffer();
+    return subscriptionOffer;
+  }
+  /** Видит ли Account Offer на витрине подписки и предлагается ли ему подписка вообще. */
+  async function listed(account: string, offerId: string): Promise<boolean> {
+    const page = value(await pricing.offers({ mode: "subscription" }, account));
+    const inCatalog = page.items.some((item) => item.offer.id === offerId);
+    expect(await pricing.hasOffersForSale(account)).toBe(inCatalog);
+    return inCatalog;
+  }
+  /** Покупка подписки: расчёт, оферта и согласие на списания, ответ банка и выдача прав. */
+  async function buySubscription(
+    buyer: string,
+    optionId: string,
+  ): Promise<string | null> {
+    const quote = await pricing.quote(buyer, {
+      operationId: randomUUID(),
+      paymentOptionId: optionId,
+      optionRevision: 1,
+    });
+    if (!quote.ok) return quote.error.code;
+    const accepted = await contact.acceptConsents(
+      buyer,
+      pressedPaymentButton(
+        {
+          operationId: randomUUID(),
+          contextRef: quote.value.quoteRef,
+          documents: syntheticConsentDocuments
+            .filter(
+              (document) =>
+                document.kind === "terms" || document.kind === "recurring",
+            )
+            .map((document) => ({
+              kind: document.kind,
+              documentId: document.documentId,
+              version: document.version,
+              digest: document.digest,
+              accepted: true,
+            })),
+        },
+        quote.value,
+      ),
+    );
+    if (!accepted.ok) throw new Error(accepted.error.code);
+    const bought = await payments.purchase(buyer, {
+      operationId: randomUUID(),
+      quoteRef: quote.value.quoteRef,
+      contactRevision: 1,
+      consentEvidenceRefs: accepted.evidenceRefs,
+      acknowledgeExistingAccess: true,
+    });
+    if (!bought.ok) return bought.error.code;
+    expect(
+      await payments.notification(
+        bank.notify(bought.value.purchaseRef, "CONFIRMED"),
+      ),
+    ).toMatchObject({ ok: true });
+    value(await payments.recover());
+    expect(
+      value(await payments.status(buyer, bought.value.purchaseRef)).state,
+    ).toBe("confirmed");
+    return null;
+  }
+
+  test("subscription-offer-without-tribute-ground", async () => {
+    now = new Date(startedAt);
+    const scenario =
+      accessScenarioTable.purchases[
+        "subscription-offer-without-tribute-ground"
+      ];
+    const { offerId, optionId } = await restrictedSubscription();
+    // Ни новый Account, ни покупатель продукта, ни участник по курсу основания Tribute не имеют.
+    for (const buyer of [
+      await account(),
+      await purchased(productOptionId),
+      await assigned("course", null),
+    ]) {
+      expect(await listed(buyer, offerId)).toBe(scenario.listed);
+      expect(await buySubscription(buyer, optionId)).toBe(
+        scenario.rejectedWith,
+      );
+    }
+  });
+
+  test("subscription-offer-with-tribute-ground", async () => {
+    now = new Date(startedAt);
+    const scenario =
+      accessScenarioTable.purchases["subscription-offer-with-tribute-ground"];
+    const { offerId, optionId } = await restrictedSubscription();
+    const member = await tributeMember(groundEndsAt, "stopped");
+    // Покупка с автосписаниями по-прежнему ждёт решения владельца об остановке списаний Tribute.
+    expect(
+      await grants.classifyLegacy(owner, {
+        operationId: randomUUID(),
+        accountId: member.account,
+        expectedRevision: 0,
+        classification: "confirmed_legacy",
+        sourceRef: `tribute-${member.account}`,
+        reason: "Прежний подписчик Tribute",
+        bridgeEnabled: false,
+        tributeStopped: true,
+      }),
+    ).toMatchObject({ ok: true });
+    // Продление — после окончания оплаченного в Tribute периода.
+    now = new Date(new Date(groundEndsAt).getTime() + 86_400_000);
+    expect(await listed(member.account, offerId)).toBe(scenario.listed);
+    expect(await buySubscription(member.account, optionId)).toBe(
+      scenario.rejectedWith,
+    );
   });
 });

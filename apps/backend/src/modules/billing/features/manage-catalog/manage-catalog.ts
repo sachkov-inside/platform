@@ -15,7 +15,7 @@ import { failure, idSchema, type PricingResult } from "../../domain/pricing.js";
 import {
   offerGrantsWithheld,
   productOfferUnsellable,
-  productSupportTermMismatch,
+  productOfferTermsInvalid,
   tierLacksComposition,
 } from "../../shared/tier-composition.js";
 import {
@@ -155,7 +155,7 @@ async function changeCatalog(
       )
         return failure("invalid_request");
       if (
-        productSupportTermMismatch({
+        productOfferTermsInvalid({
           benefits: command.value.benefits,
           benefitPeriods: periods,
         })
@@ -169,12 +169,16 @@ async function changeCatalog(
         })
       )
         return failure("invalid_request");
-      const { contentScope, availableForAssignment, ...value } = command.value;
+      // Допуск, как и признак назначения, наследуется от прежней редакции, если команда его не
+      // называет: сохранение формой без этого поля не открывает Offer всем.
+      const { contentScope, availableForAssignment, eligibility, ...value } =
+        command.value;
       const data = {
         ...value,
         ...(availableForAssignment === undefined
           ? {}
           : { availableForAssignment }),
+        ...(eligibility === undefined ? {} : { eligibility }),
         ...(contentScope === undefined
           ? {}
           : {

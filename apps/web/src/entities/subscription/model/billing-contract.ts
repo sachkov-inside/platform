@@ -242,6 +242,8 @@ export const billingFailureCodeSchema = z.enum([
   "document_changed",
   "existing_access",
   "legacy_review_required",
+  // Offer продаётся только Account с основанием, которого у покупателя нет.
+  "not_eligible",
   "quote_expired",
   "quote_changed",
   "unsupported_amount",

@@ -9,6 +9,7 @@ export function throwPaymentError(code: PaymentFailureCode): never {
       status = 400;
       break;
     case "forbidden":
+    case "not_eligible":
       status = 403;
       break;
     case "not_found":
