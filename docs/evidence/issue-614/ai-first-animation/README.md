@@ -5,8 +5,7 @@
 документу и по `docs/agents/frontend-delivery.md`. Продолжение #614, рядом с
 `ai-first-guide-iteration.md`.
 
-Источник правды — `index.html` в этой папке. Копия для просмотра вне репозитория:
-`/Users/dev/Work/Inbox/ai-first-guide-animation/index.html`; при расхождении верна версия в репозитории.
+Источник правды — `index.html` в этой папке.
 
 ## Как посмотреть
 
@@ -174,5 +173,7 @@ cd apps/web && node ../../docs/evidence/issue-614/ai-first-animation/shoot.mjs
 `git status`). Их нельзя откатывать и перезаписывать. Файлы этой передачи новые и лежат только в
 `docs/evidence/issue-614/ai-first-animation/`.
 
-Ход обсуждения, отклонённые варианты и ссылки на практики `vertical-content` записаны в памяти
-проекта (файлы `animation-real-slot-and-icons.md` и `vertical-content-motion-kit.md`).
+Решения владельца и отклонённые варианты записаны выше, в «Решения владельца, которые нельзя
+терять». Владелец 13.09.2026 разрешил брать практики движения для анимаций Inside из своего проекта
+`vertical-content`: кривые и длительности — `production/src/design/tokens.ts`, примитивы сцен —
+`production/src/kit/course/`, правило выбора иконок — `production/.claude/rules/frame.md`.

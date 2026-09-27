@@ -448,6 +448,14 @@ the four-job application and Docker Compose gate on clean GitHub-hosted runners;
 [Continuous integration](continuous-integration.md) for its job, the nightly smoke and the
 failure-diagnostics contract.
 
+`FULLSTACK_TEST_GREP='<test title>'` limits the host full-stack smoke to matching tests. The smoke
+resets `inside_checks` in the `inside-platform` Compose project even when `COMPOSE_PROJECT_NAME`
+names another one (#757); export `DATABASE_URL` for a run in your own project. After `@playwright/test`
+changes version, install its browsers on the host before a run with
+`pnpm --filter @inside/web exec playwright install chromium chromium-headless-shell`, as CI does in
+`setup-platform`. On macOS run a long host suite under `caffeinate -i`: a sleeping Mac stalls tests
+for minutes and fails them with `net::ERR_NETWORK_IO_SUSPENDED`, which is not a product defect.
+
 ### Snapshots as issue evidence
 
 A run takes screenshots for every scenario it walks, not only for the issue you are working on. By
@@ -832,7 +840,11 @@ shared `inside-platform_*` volumes, so every branch and worktree sees the same c
   Telegram launcher and the editor review.
 - Home lists only originals marked `show_in_feed: true`; an empty feed means no original is marked yet.
 
-Keep the volumes: stop the stand with `docker compose --profile identity down` without `-v`.
+Keep the volumes: stop the stand with `docker compose --profile identity down` without `-v`. While
+the stand is stopped, Docker lists its `inside-platform_*` volumes as dangling, so
+`docker volume prune`, `docker system prune --volumes` or removing every dangling volume erases the
+owner's product data. Remove only volumes whose `com.docker.compose.project` label names your own
+Compose project.
 
 ### Former MinIO objects
 
@@ -881,8 +893,9 @@ owner's stand personal access token in `.identity-proof/authoring-owner-pat.json
 for short API tokens, renewing the stored token once when the stand's sign-in database was
 recreated. It forwards only canonical `/authoring/` API paths from non-browser clients; any process
 on this machine can act as the stand owner while it runs, so stop it after the transfer.
-Run the stand from a worktree only with the owner checkout's `.identity-proof/` copied in: a fresh
-bootstrap there would generate new sign-in keys for the owner's stand accounts.
+Run the stand from a worktree only through `pnpm local:stand`, which links the owner checkout's
+`.identity-proof/`: a fresh bootstrap there would generate new sign-in keys for the owner's stand
+accounts.
 
 ```bash
 pnpm authoring:sync-git-local CONTENT_REPOSITORY GUIDE_ID STATE_DIRECTORY [REF] [--target editor|stand] [--archive SOURCE_ID]...

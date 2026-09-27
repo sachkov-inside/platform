@@ -56,10 +56,15 @@ successful `CI Gate` on its own head; the ruleset no longer requires the branch 
 with `main`. The queue builds each entry on top of the current `main` plus the entries ahead of it,
 runs this workflow for the `merge_group` event and merges only after that combined `CI Gate`
 succeeds. Freshness is therefore proved once, by the queue, instead of by rebasing every open branch
-after each merge. Add a ready pull request with `gh pr merge <number> --squash` (or the queue button);
-merge approval under `Owner gates` in `WORKFLOW.md` is unchanged. A direct merge through the REST API
-answers `405 Changes must be made through the merge queue` even for a clean pull request. The
-ruleset changes only by owner decision; an agent never edits it to get a merge through.
+after each merge. Add a ready pull request with the queue button or the GraphQL mutation
+`enqueuePullRequest(input: {pullRequestId, expectedHeadOid})` through `gh api graphql`; merge
+approval under `Owner gates` in `WORKFLOW.md` is unchanged. `gh pr merge` does not work here: it
+queues a pull request only by enabling auto-merge, and auto-merge is off in this repository. Read
+`isInMergeQueue` through `gh api graphql`, because `gh pr view --json` has no such field, and read
+the outcome from `gh api repos/sachkov-inside/platform/pulls/<number> --jq '.merged, .merge_commit_sha'`.
+A direct merge through the REST API answers `405 Changes must be made through the merge queue` even
+for a clean pull request. The ruleset changes only by owner decision; an agent never edits it to get
+a merge through.
 
 `compose-production` can time out waiting for a `pg-boss` job to become active on a change that does
 not touch workers, queues or Compose; #728 tracks the wait budget, and a re-run follows the rule for

@@ -214,6 +214,9 @@ these are the rules a change follows.
 - Build site animation as a CSS component next to its page, with a `prefers-reduced-motion` guard
   and platform tokens. The static cover is the same component with its loop stopped. Do not use
   Remotion, framer-motion or an embedded video as a site asset (owner decision of 2026-09-11).
+  Design a card or hero animation for its real slot through container queries, draw its icons with
+  `lucide-react` and change scenes without morphing objects into each other; the owner's decisions of
+  2026-09-13 and their reasons are in `docs/evidence/issue-614/ai-first-animation/README.md`.
 - Keep Web guardrails and negative fixtures aligned with environment ownership, browser bypass,
   slice direction, mutation boundaries, and bundle limits. Use focused mapping/query tests,
   Storybook for meaningful UI states, and Playwright for route behaviour and accessibility.
