@@ -106,6 +106,16 @@ writeFileSync(
  *   detached: boolean;
  * }} ProcessEntry
  */
+const developmentHealthSchema = z
+  .object({
+    process: z.literal("api"),
+    status: z.literal("ready"),
+    database: z.literal("reachable"),
+    release: z.object({ release: z.literal("development") }).passthrough(),
+    schema: z.object({ migrationCount: z.number().int() }).passthrough(),
+  })
+  .passthrough();
+
 /** @type {ProcessEntry[]} */
 const processes = [];
 /** @type {Set<ProcessEntry>} */
@@ -357,16 +367,6 @@ async function waitForHttp(url, entries) {
     `Timed out waiting for ${url}\n${formatProcessOutput(entries)}`,
   );
 }
-
-const developmentHealthSchema = z
-  .object({
-    process: z.literal("api"),
-    status: z.literal("ready"),
-    database: z.literal("reachable"),
-    release: z.object({ release: z.literal("development") }).passthrough(),
-    schema: z.object({ migrationCount: z.number().int() }).passthrough(),
-  })
-  .passthrough();
 
 /** @param {unknown} value */
 function assertHealth(value) {
