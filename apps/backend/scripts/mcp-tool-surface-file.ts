@@ -10,6 +10,10 @@ export const committedToolSurfacePath = fileURLToPath(
   new URL("../mcp/tool-surface.json", import.meta.url),
 );
 
+export const committedLearnerToolSurfacePath = fileURLToPath(
+  new URL("../mcp/learner-tool-surface.json", import.meta.url),
+);
+
 export function formatToolSurface(names: readonly string[]): string {
   return `${JSON.stringify(names, undefined, 2)}\n`;
 }

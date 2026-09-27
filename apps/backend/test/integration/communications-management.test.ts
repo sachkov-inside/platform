@@ -1,3 +1,7 @@
+import {
+  CONTENT_ACCESS,
+  type ContentAccess,
+} from "../../src/modules/content-access/index.js";
 import { VIDEOS, type Videos } from "../../src/modules/videos/index.js";
 import { z } from "zod";
 import { OperationalReadiness } from "../../src/infrastructure/operational-readiness.js";
@@ -33,6 +37,8 @@ import {
 } from "../../src/modules/accounts/index.js";
 import { verifiedAccountSignIn } from "../../src/modules/accounts/facets/accounts/verified-logto-identity.js";
 import {
+  PUBLISHED_MATERIAL_READER,
+  type PublishedMaterialReader,
   MATERIAL_AUTHORING,
   type MaterialAuthoring,
 } from "../../src/modules/materials/index.js";
@@ -226,6 +232,11 @@ describe("HTTP and delegated OAuth communications parity against a contract stub
     await app.getHttpAdapter().getInstance().ready();
     mcp = createMcpHttpServer({
       accounts: app.get<Accounts>(ACCOUNTS),
+      learning: {
+        reader: app.get<PublishedMaterialReader>(PUBLISHED_MATERIAL_READER),
+        contentAccess: app.get<ContentAccess>(CONTENT_ACCESS),
+        videos: app.get<Videos>(VIDEOS),
+      },
       authoring: app.get<MaterialAuthoring>(MATERIAL_AUTHORING),
       videos: app.get<Videos>(VIDEOS),
       communications: app.get(Communications),

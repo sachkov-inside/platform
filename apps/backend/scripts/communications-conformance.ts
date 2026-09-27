@@ -1,3 +1,7 @@
+import {
+  CONTENT_ACCESS,
+  type ContentAccess,
+} from "../src/modules/content-access/index.js";
 import { VIDEOS, type Videos } from "../src/modules/videos/index.js";
 import "reflect-metadata";
 import { execFileSync } from "node:child_process";
@@ -24,6 +28,8 @@ import {
   type LogtoAccessTokenVerifier,
 } from "../src/modules/accounts/index.js";
 import {
+  PUBLISHED_MATERIAL_READER,
+  type PublishedMaterialReader,
   MATERIAL_AUTHORING,
   type MaterialAuthoring,
 } from "../src/modules/materials/index.js";
@@ -124,6 +130,11 @@ for (const subject of ["owner", "ordinary"]) {
 await app.listen(44111, "127.0.0.1");
 const mcp = createMcpHttpServer({
   accounts: app.get<Accounts>(ACCOUNTS),
+  learning: {
+    reader: app.get<PublishedMaterialReader>(PUBLISHED_MATERIAL_READER),
+    contentAccess: app.get<ContentAccess>(CONTENT_ACCESS),
+    videos: app.get<Videos>(VIDEOS),
+  },
   authoring: app.get<MaterialAuthoring>(MATERIAL_AUTHORING),
   videos: app.get<Videos>(VIDEOS),
   communications: app.get(Communications),

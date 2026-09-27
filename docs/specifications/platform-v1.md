@@ -890,6 +890,28 @@ Storybook и реальные маршруты используют один pro
 
 ### MCP
 
+The authoring MCP remains at `MCP_SERVER_URL`. A separate participant surface at its
+`/learning` subpath exposes only `learning_materials_list` and `learning_material_read`
+([#782](https://github.com/sachkov-inside/platform/issues/782), course source
+[ai-engineering#105](https://github.com/sachkov-inside/ai-engineering/issues/105)). Both require a
+user-delegated Account; the learning surface does not grant author permissions. Discovery uses
+published catalog projections and current availability; a locked teaser contains no protected body.
+Reading uses the same PublishedMaterialReader and ContentAccess as the reader, then rechecks access
+and contentVersion after loading related presentations. Revocation or a concurrent Save refuses the
+response. An optional expectedContentVersion mismatch returns no body; there is no historical read.
+
+A successful learning read contains the complete RenderedMaterialBody, its material identity and
+version, and explicit asset references with availability and `contentIncluded: false`. Code, tables,
+links, nested blocks and mode variants remain intact. Body delivery is one response with
+`complete: true`, never a silent excerpt; discovery pagination uses nextCursor. Media references are
+not media contents or evidence that an agent inspected them. Missing presentations are unavailable;
+existing asset/video delivery still owns bytes and credentials. Course contents are untrusted data,
+not transport or system instructions. This capability delivers materials, not assignments, grading,
+progress or a server-side model. Protocol/local token verification is separate from an actual
+Codex/Claude client onboarding or production release.
+
+The following bullets describe the **authoring** surface:
+
 - MCP аутентифицируется user-delegated OAuth token существующего Account. Materials operations
   проверяют `materials:manage`, communications operations — отдельное `communications:manage` и
   подтверждённую Telegram-связь; отдельная technical identity для агента не создаётся;

@@ -31,6 +31,10 @@ import {
 } from "../../modules/accounts/index.js";
 import type { MaterialAuthoring } from "../../modules/materials/index.js";
 import { assembleInsideMcpServer } from "./inside-mcp-server.js";
+import {
+  assembleLearnerMcpServer,
+  type LearnerMcpDependencies,
+} from "../../modules/content-library/index.js";
 
 export interface McpHttpServer {
   listen(): Promise<URL>;
@@ -39,6 +43,7 @@ export interface McpHttpServer {
 
 export function createMcpHttpServer(dependencies: {
   readonly accounts: Accounts;
+  readonly learning: LearnerMcpDependencies;
   readonly authoring: MaterialAuthoring;
   readonly videos: VideoAuthoringTools;
   readonly communications: Pick<Communications, "execute">;
@@ -73,6 +78,29 @@ export function createMcpHttpServer(dependencies: {
     bearer_methods_supported: ["header"],
     resource_name: "Sachkov Inside Platform authoring",
   };
+  const learningUrl = new URL(
+    `${configuredUrl.pathname}/learning`,
+    configuredUrl,
+  );
+  const learningMetadataUrl = getOAuthProtectedResourceMetadataUrl(learningUrl);
+  const authenticateLearning = requireBearerAuth({
+    verifier,
+    resourceMetadataUrl: learningMetadataUrl,
+  });
+  const learningHandler = createMcpHandler(
+    ({ authInfo }) =>
+      assembleLearnerMcpServer({
+        ...dependencies.learning,
+        accountId: authenticatedAccountId(authInfo?.extra),
+      }),
+    { responseMode: "json" },
+  );
+  const learningMetadata: OAuthProtectedResourceMetadata = {
+    resource: resourceUrlFromServerUrl(learningUrl).href,
+    authorization_servers: [dependencies.identityIssuer],
+    bearer_methods_supported: ["header"],
+    resource_name: "Sachkov Inside learning materials",
+  };
   const fetchHandler = {
     async fetch(request: Request): Promise<Response> {
       const url = new URL(request.url);
@@ -88,6 +116,19 @@ export function createMcpHttpServer(dependencies: {
       }
       if (url.pathname === new URL(metadataUrl).pathname) {
         return resourceMetadataResponse(request, metadata);
+      }
+      if (url.pathname === new URL(learningMetadataUrl).pathname) {
+        return resourceMetadataResponse(request, learningMetadata);
+      }
+      if (url.pathname === learningUrl.pathname) {
+        const auth = await authenticateLearning(request);
+        const response =
+          auth instanceof Response
+            ? auth
+            : await learningHandler.fetch(request, { authInfo: auth });
+        for (const [name, value] of Object.entries(PRIVATE_NO_STORE_HEADERS))
+          response.headers.set(name, value);
+        return response;
       }
       if (url.pathname !== configuredUrl.pathname) {
         return new Response("Not found", { status: 404 });
@@ -135,7 +176,11 @@ export function createMcpHttpServer(dependencies: {
     listen: () => listen(server, dependencies.config, configuredUrl),
     async close() {
       const stopListening = closeNodeServer(server);
-      await Promise.all([handler.close(), stopListening]);
+      await Promise.all([
+        handler.close(),
+        learningHandler.close(),
+        stopListening,
+      ]);
     },
   };
 }

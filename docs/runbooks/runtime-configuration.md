@@ -240,3 +240,19 @@ signed Tribute inbox. Both absent means disabled; one without the other fails co
 Encoding requires a credentialed provider fixture before rollout. The key never reaches the web
 application. Billing worker reconciles pending verified sources in bounded batches independently of
 community dispatch. See [Tribute operations](tribute-access-convergence.md) for scope and gates.
+
+## Participant learning MCP
+
+The existing MCP process serves the author endpoint at `MCP_SERVER_URL` and a separate read-only
+participant endpoint at `<MCP_SERVER_URL>/learning`; no additional process or credential is created
+(#782). Each endpoint publishes its own OAuth protected-resource metadata. The learning route uses
+the existing Logto token verifier and Account resolution; published content authorization still
+belongs to ContentAccess. A native client must obtain a token for the configured Platform resource;
+metadata and a local signed-token test do not prove a particular client's login flow. No native
+Codex/Claude onboarding or production route deployment is implied by this change.
+
+`pnpm mcp:generate` and `pnpm mcp:check` cover both generated tool-name snapshots. Configure any
+future public reverse proxy and native OAuth client only as an explicitly approved release step;
+the local HTTP endpoint and tests need no production data or published course. A successful material
+read returns one complete structured body; a client response/context limit must be reported as an
+incomplete client read, not converted into a successful course check.
