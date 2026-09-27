@@ -1,3 +1,4 @@
+// @ts-check
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
@@ -5,6 +6,7 @@ import { fileURLToPath } from "node:url";
 import { describe, it } from "node:test";
 
 const repositoryRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
+/** @param {string} path */
 const read = (path) => readFileSync(resolve(repositoryRoot, path), "utf8");
 
 const foundation = {
@@ -143,6 +145,7 @@ describe("production foundation architecture contract", () => {
 
 // Docker fixes the log options when it creates a container, so one host default covers Platform,
 // foundation and Telegram containers alike; a service-level `logging` would silently opt out.
+/** @param {typeof hostLogs} logs */
 function assertContainerLogRotation({ daemon, composeFiles }) {
   assert.equal(
     daemon["log-driver"],
@@ -163,6 +166,7 @@ function assertContainerLogRotation({ daemon, composeFiles }) {
   }
 }
 
+/** @param {typeof foundation} files */
 function assertFoundationContract(files) {
   assert.match(
     files.databaseCompose,
@@ -236,6 +240,7 @@ function assertFoundationContract(files) {
   );
 }
 
+/** @param {string} compose */
 function networkVariable(compose) {
   return composeVariable(
     compose,
@@ -243,6 +248,10 @@ function networkVariable(compose) {
   );
 }
 
+/**
+ * @param {string} compose
+ * @param {RegExp} pattern
+ */
 function composeVariable(compose, pattern) {
   const match = compose.match(pattern);
   assert.ok(match, `Compose source must match ${pattern}`);

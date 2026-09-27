@@ -1,3 +1,4 @@
+// @ts-check
 import assert from "node:assert/strict";
 import { readdirSync, readFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
@@ -25,6 +26,10 @@ const serialMarkers = [
   /\bWORKER_READINESS_PATH\b/u,
 ];
 
+/**
+ * @param {{ path: string; source: string }[]} files
+ * @param {string[]} serialFiles
+ */
 export function misplacedIntegrationFiles(files, serialFiles) {
   const listed = new Set(serialFiles);
   return files
@@ -36,13 +41,15 @@ export function misplacedIntegrationFiles(files, serialFiles) {
     .map(({ path }) => path);
 }
 
+/** @param {string} config */
 function listedSerialFiles(config) {
   const block = /const serialFiles = \[([^\]]*)\]/u.exec(config);
   assert.ok(
     block !== null,
     "vitest.integration.config.mts must declare serialFiles",
   );
-  return [...block[1].matchAll(/"([^"]+)"/gu)].map((match) => match[1]);
+  const [, list = ""] = block;
+  return [...list.matchAll(/"([^"]+)"/gu)].map(([, file = ""]) => file);
 }
 
 describe("integration serial project", () => {

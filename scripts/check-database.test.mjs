@@ -1,3 +1,4 @@
+// @ts-check
 import assert from "node:assert/strict";
 import { test } from "node:test";
 
@@ -17,10 +18,12 @@ test("checks use their own database beside the stand database", () => {
 });
 
 test("the check database is created once and never replaces the stand database", () => {
+  /** @type {string[]} */
   const statements = [];
   let exists = "";
+  /** @type {import("./check-database.mjs").RunCommand} */
   const run = (_command, args) => {
-    const sql = args.at(-1);
+    const sql = args.at(-1) ?? "";
     statements.push(sql);
     if (sql.startsWith("create")) exists = "1";
     return sql.startsWith("select") ? exists : "";
@@ -39,6 +42,7 @@ test("the check database is created once and never replaces the stand database",
 });
 
 test("a reset recreates only the check database", () => {
+  /** @type {(string | undefined)[]} */
   const statements = [];
   resetCheckDatabase({
     run: (_command, args) => {

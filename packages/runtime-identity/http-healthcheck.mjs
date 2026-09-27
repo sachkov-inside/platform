@@ -1,3 +1,4 @@
+// @ts-check
 import { get } from "node:http";
 
 import { z } from "zod";
@@ -31,6 +32,10 @@ const webReportSchema = reportSchema.extend({
   dependencies: z.object({ api: z.literal("ready") }),
 });
 
+/**
+ * @param {string} reason
+ * @returns {never}
+ */
 function fail(reason) {
   // Only caller-owned fixed messages reach Docker health logs, never response/env values.
   console.error(`readiness: ${reason}`);
@@ -43,18 +48,19 @@ async function main() {
     fail("invalid process argument");
   const service = selected.data;
   const expected = productionRuntimeIdentitySchema.safeParse({
-    release: process.env.PLATFORM_RELEASE_VERSION,
-    sourceSha: process.env.PLATFORM_SOURCE_SHA,
+    release: process.env["PLATFORM_RELEASE_VERSION"],
+    sourceSha: process.env["PLATFORM_SOURCE_SHA"],
   });
   if (!expected.success) fail("invalid expected release identity");
 
+  /** @type {Record<string, string>} */
   const headers = {};
   if (service === "mcp") {
     const serverUrl = z
       .url({ protocol: /^https?$/ })
-      .safeParse(process.env.MCP_SERVER_URL);
+      .safeParse(process.env["MCP_SERVER_URL"]);
     if (!serverUrl.success) fail("invalid MCP server URL");
-    headers.host = new URL(serverUrl.data).host;
+    headers["host"] = new URL(serverUrl.data).host;
   }
 
   // Covers both response headers and body; the timer also bounds a stalled body stream.
@@ -62,10 +68,14 @@ async function main() {
     () => fail("request timed out"),
     readinessTimeoutMilliseconds,
   );
+  /** @type {unknown} */
   const body = await new Promise((resolve) => {
     // node:http preserves MCP's explicit Host and never follows redirects.
     const request = get(endpoints[service], { headers }, (response) => {
-      if (response.statusCode < 200 || response.statusCode >= 300) {
+      if (
+        response.statusCode !== undefined &&
+        (response.statusCode < 200 || response.statusCode >= 300)
+      ) {
         fail(`HTTP ${response.statusCode}`);
       }
       let text = "";

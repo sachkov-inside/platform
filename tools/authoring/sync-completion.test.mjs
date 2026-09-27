@@ -1,3 +1,4 @@
+// @ts-check
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { mkdtemp, mkdir, readFile, rm, writeFile } from "node:fs/promises";
@@ -7,7 +8,11 @@ import { canonical, checksum } from "./package.mjs";
 import { syncLocal } from "./local-sync.mjs";
 import { loopbackOrigin, resolveLocalTarget } from "./target.mjs";
 import { applyRelease, previewRelease } from "./release.mjs";
+import { materialApplyRequest } from "./local-boundaries.mjs";
+import { itemAt, reservationBodySchema, valueAt } from "./test-support.mjs";
+import { z } from "zod";
 
+/** @param {number} n */
 const uuid = (n) => `${String(n).padStart(8, "0")}-0000-4000-8000-000000000000`;
 const guideId = uuid(900);
 const productPage = {
@@ -15,6 +20,7 @@ const productPage = {
   blocks: [{ id: "hero", kind: "hero", lead: "Лид продукта.", highlights: [] }],
 };
 
+/** @param {import("node:test").TestContext} t */
 async function fixture(t) {
   const directory = await mkdtemp(join(tmpdir(), "authoring-completion-"));
   t.after(() => rm(directory, { recursive: true, force: true }));
@@ -25,6 +31,11 @@ async function fixture(t) {
   };
   await writeFile(join(directory, "assets", "cover.png"), files.cover);
   await writeFile(join(directory, "assets", "checklist.md"), files.checklist);
+  /**
+   * @param {string} id
+   * @param {Partial<ManifestMaterial>} [extra]
+   * @returns {ManifestMaterial}
+   */
   const row = (id, extra = {}) => ({
     sourceId: id,
     sourcePath: `${id}.md`,
@@ -50,6 +61,7 @@ async function fixture(t) {
     artifacts: [],
     ...extra,
   });
+  /** @type {Manifest} */
   const manifest = {
     schemaVersion: 1,
     sourceNamespace: "inside-content",
@@ -112,12 +124,98 @@ async function fixture(t) {
   return { manifest, write, state: join(directory, "state"), packagePath };
 }
 
+/**
+ * @typedef {import("./package.mjs").Manifest} Manifest
+ * @typedef {import("./package.mjs").ManifestMaterial} ManifestMaterial
+ * @typedef {import("./target.mjs").LocalTransport} LocalTransport
+ * @typedef {{ path: string; key: string | undefined; method: string; body: unknown }} Call
+ * @typedef {object} FakeMaterial
+ * @property {string} materialId
+ * @property {number} contentVersion
+ * @property {string | null} primaryVideoId
+ * @property {{ coverId: string } | null} cover
+ * @property {{ slug: string; access?: string }} metadata
+ * @property {{ id: string }} source
+ * @property {string} publicationState
+ * @property {unknown} [videoChapters]
+ * @property {string[]} [seriesIds]
+ * @typedef {{
+ *   videoId: string;
+ *   materialId: string;
+ *   providerVideoId: string;
+ *   state: string;
+ *   reconciles: number;
+ * }} FakeVideo
+ * @typedef {{
+ *   artifactId: string;
+ *   origin: string;
+ *   sourceId: string;
+ *   title: string;
+ *   materialIds: string[];
+ * }} FakeArtifact
+ * @typedef {object} FakeGuide
+ * @property {string} id
+ * @property {string} slug
+ * @property {string} sourceId
+ * @property {string} name
+ * @property {string} summary
+ * @property {number} version
+ * @property {boolean} archived
+ * @property {string} presentation
+ * @property {unknown} page
+ * @property {boolean} pageRejected
+ * @property {string[]} [members]
+ */
+
+// Bodies the double reads; the sync under test builds them, so a missing field fails the test.
+const guideValidationBodySchema = z
+  .object({ source: z.object({ presentation: z.string() }).passthrough() })
+  .passthrough();
+const guideUpdateBodySchema = z
+  .object({
+    expectedVersion: z.number(),
+    introduction: z.unknown().optional(),
+    name: z.string(),
+    summary: z.string(),
+    source: z
+      .object({ slug: z.string(), presentation: z.string(), page: z.unknown() })
+      .passthrough(),
+  })
+  .passthrough();
+const homePinBodySchema = z
+  .object({ expectedVersion: z.number(), seriesId: z.string() })
+  .passthrough();
+const compositionBodySchema = z
+  .object({ orderedMaterialIds: z.array(z.string()) })
+  .passthrough();
+const attachBodySchema = z
+  .object({ providerVideoId: z.string() })
+  .passthrough();
+const linkBodySchema = z
+  .object({ materialIds: z.array(z.string()) })
+  .passthrough();
+
+/**
+ * @param {FormData} form
+ * @param {string} name
+ */
+function formText(form, name) {
+  const value = form.get(name);
+  assert.equal(typeof value, "string", `form field ${name}`);
+  return String(value);
+}
+
 // Stateful application double for the loopback API; it records every call and enforces versions.
 function applicationApi() {
+  /** @type {Map<string, FakeMaterial>} */
   const materials = new Map();
+  /** @type {Call[]} */
   const calls = [];
+  /** @type {Map<string, FakeVideo>} */
   const videos = new Map();
+  /** @type {Map<string, FakeArtifact>} */
   const artifacts = new Map();
+  /** @type {FakeGuide} */
   const guide = {
     id: guideId,
     slug: "product",
@@ -138,7 +236,11 @@ function applicationApi() {
     artifacts,
     guide,
     pin: { seriesId: uuid(901), version: 3 },
+    /** @type {string | undefined} */
+    rejectValidation: undefined,
+    /** @param {RegExp} pattern */
     count: (pattern) => calls.filter((call) => pattern.test(call.path)).length,
+    /** @type {LocalTransport} */
     async request(path, body, key, options = {}) {
       calls.push({
         path,
@@ -157,10 +259,11 @@ function applicationApi() {
       if (path === "/authoring/import/materials/validate")
         return { valid: true };
       if (path === "/authoring/import/guides/validate") {
-        assert.ok(body.source, "validation carries the page");
-        if (api.rejectValidation)
+        const { source } = guideValidationBodySchema.parse(body);
+        assert.ok(source, "validation carries the page");
+        if (api.rejectValidation !== undefined)
           throw Object.assign(new Error(api.rejectValidation), { status: 422 });
-        if (!["default", "ai-first-process"].includes(body.source.presentation))
+        if (!["default", "ai-first-process"].includes(source.presentation))
           throw Object.assign(
             new Error(`invalid_content /source/presentation`),
             { status: 422 },
@@ -174,23 +277,25 @@ function applicationApi() {
       if (path === "/authoring/home-pin" && body === undefined)
         return structuredClone(api.pin);
       if (path === "/authoring/home-pin") {
-        assert.equal(body.expectedVersion, api.pin.version);
-        api.pin = { seriesId: body.seriesId, version: api.pin.version + 1 };
+        const pin = homePinBodySchema.parse(body);
+        assert.equal(pin.expectedVersion, api.pin.version);
+        api.pin = { seriesId: pin.seriesId, version: api.pin.version + 1 };
         return structuredClone(api.pin);
       }
       if (path === "/authoring/import/guides/update") {
-        assert.equal(body.expectedVersion, guide.version);
+        const update = guideUpdateBodySchema.parse(body);
+        assert.equal(update.expectedVersion, guide.version);
         assert.equal(
-          body.introduction,
+          update.introduction,
           undefined,
           "The editor-owned introduction is never imported",
         );
         Object.assign(guide, {
-          name: body.name,
-          summary: body.summary,
-          slug: body.source.slug,
-          presentation: body.source.presentation,
-          page: body.source.page,
+          name: update.name,
+          summary: update.summary,
+          slug: update.source.slug,
+          presentation: update.source.presentation,
+          page: update.source.page,
           pageRejected: false,
           version: guide.version + 1,
         });
@@ -206,40 +311,49 @@ function applicationApi() {
           chapters: [],
         };
       if (path === "/authoring/import/guides/composition") {
-        guide.members = body.orderedMaterialIds;
+        guide.members = compositionBodySchema.parse(body).orderedMaterialIds;
         return { orderVersion: "b".repeat(64) };
       }
       if (path === "/authoring/import/materials/reserve") {
-        if (!materials.has(body.source.id))
-          materials.set(body.source.id, {
+        const { source } = reservationBodySchema.parse(body);
+        if (!materials.has(source.id))
+          materials.set(source.id, {
             materialId: uuid(next++),
             contentVersion: 1,
             primaryVideoId: null,
             cover: null,
-            metadata: { slug: body.source.id.split(":")[1] },
-            source: body.source,
+            metadata: { slug: itemAt(source.id.split(":"), 1) },
+            source,
             publicationState: "draft",
           });
-        return structuredClone(materials.get(body.source.id));
+        return structuredClone(materials.get(source.id));
       }
-      const byId = (id) =>
-        [...materials.values()].find((item) => item.materialId === id);
+      /** @param {string | undefined} id */
+      const byId = (id) => {
+        const found = [...materials.values()].find(
+          (item) => item.materialId === id,
+        );
+        assert.ok(found, `Unknown Material ${String(id)}`);
+        return found;
+      };
       let match;
       if ((match = /^\/authoring\/materials\/([^/]+)$/u.exec(path)))
         return structuredClone(byId(match[1]));
       if (path === "/authoring/import/materials/apply") {
-        const current = materials.get(body.source.id);
-        if (body.expectedContentVersion !== current.contentVersion)
+        const command = materialApplyRequest({ path, body })?.body;
+        assert.ok(command);
+        const current = valueAt(materials, command.source.id);
+        if (command.expectedContentVersion !== current.contentVersion)
           throw new Error("stale_content_version");
-        if (body.primaryVideoId !== null)
-          assert.equal(videos.get(body.primaryVideoId).state, "ready");
+        if (command.primaryVideoId !== null)
+          assert.equal(valueAt(videos, command.primaryVideoId).state, "ready");
         Object.assign(current, {
           contentVersion: current.contentVersion + 1,
-          primaryVideoId: body.primaryVideoId,
-          videoChapters: body.videoChapters,
-          publicationState: body.publicationState,
-          seriesIds: body.metadata.seriesIds,
-          metadata: { ...current.metadata, access: body.metadata.access },
+          primaryVideoId: command.primaryVideoId,
+          videoChapters: command.videoChapters,
+          publicationState: command.publicationState,
+          seriesIds: command.metadata.seriesIds,
+          metadata: { ...current.metadata, access: command.metadata.access },
         });
         return {
           materialId: current.materialId,
@@ -251,14 +365,15 @@ function applicationApi() {
           path,
         ))
       ) {
+        const { providerVideoId } = attachBodySchema.parse(body);
         const existing = [...videos.values()].find(
-          (video) => video.providerVideoId === body.providerVideoId,
+          (video) => video.providerVideoId === providerVideoId,
         );
         if (existing) return structuredClone(existing);
         const video = {
           videoId: uuid(next++),
-          materialId: match[1],
-          providerVideoId: body.providerVideoId,
+          materialId: itemAt(match, 1),
+          providerVideoId,
           state: "processing",
           reconciles: 0,
         };
@@ -266,7 +381,7 @@ function applicationApi() {
         return structuredClone(video);
       }
       if ((match = /^\/authoring\/videos\/([^/]+)\/reconcile$/u.exec(path))) {
-        const video = videos.get(match[1]);
+        const video = valueAt(videos, itemAt(match, 1));
         if (++video.reconciles >= 2) video.state = "ready";
         return structuredClone(video);
       }
@@ -278,6 +393,7 @@ function applicationApi() {
       ) {
         const current = byId(match[1]);
         assert.equal(options.method, "PUT");
+        assert.ok(body instanceof FormData);
         assert.equal(
           body.get("expectedCoverId"),
           current.cover?.coverId ?? "null",
@@ -287,13 +403,15 @@ function applicationApi() {
         return { cover: current.cover };
       }
       if (path === `/authoring/import/guides/${guideId}/artifacts`) {
+        assert.ok(body instanceof FormData);
         assert.equal(body.get("guideSourceId"), "inside-content:product");
-        const existing = artifacts.get(body.get("sourceId"));
+        const sourceId = formText(body, "sourceId");
+        const existing = artifacts.get(sourceId);
         const artifact = existing ?? {
           artifactId: uuid(next++),
           origin: "authoring",
-          sourceId: body.get("sourceId"),
-          title: body.get("title"),
+          sourceId,
+          title: formText(body, "title"),
           materialIds: [],
         };
         artifacts.set(artifact.sourceId, artifact);
@@ -309,10 +427,12 @@ function applicationApi() {
           path,
         ))
       ) {
+        const artifactId = match[1];
         const artifact = [...artifacts.values()].find(
-          (item) => item.artifactId === match[1],
+          (item) => item.artifactId === artifactId,
         );
-        artifact.materialIds = body.materialIds;
+        assert.ok(artifact);
+        artifact.materialIds = linkBodySchema.parse(body).materialIds;
         return structuredClone(artifact);
       }
       if (path === `/authoring/guides/${guideId}/artifacts`)
@@ -327,6 +447,11 @@ function applicationApi() {
   return api;
 }
 
+/**
+ * @param {{ packagePath: string; state: string }} setup
+ * @param {{ request: LocalTransport }} api
+ * @param {import("./local-sync.mjs").SyncOptions} [options]
+ */
 const run = (setup, api, options = {}) =>
   syncLocal(setup.packagePath, setup.state, {
     request: api.request,
@@ -339,17 +464,18 @@ test("covers, video and artifacts transfer once and replay as no-ops", async (t)
   const api = applicationApi();
   const first = await run(setup, api);
   assert.equal(first.applied, 3);
-  const video = api.materials.get("inside-content:video");
-  assert.equal(api.videos.get(video.primaryVideoId).state, "ready");
+  const video = valueAt(api.materials, "inside-content:video");
+  assert.equal(valueAt(api.videos, video.primaryVideoId).state, "ready");
   assert.deepEqual(video.videoChapters, [
     { start: 0, title: "Введение" },
     { start: 90, title: "Итог" },
   ]);
-  const lesson = api.materials.get("inside-content:lesson");
+  const lesson = valueAt(api.materials, "inside-content:lesson");
   assert.ok(lesson.cover?.coverId);
-  assert.deepEqual(api.artifacts.get("inside-content:checklist").materialIds, [
-    lesson.materialId,
-  ]);
+  assert.deepEqual(
+    valueAt(api.artifacts, "inside-content:checklist").materialIds,
+    [lesson.materialId],
+  );
   assert.equal(api.guide.name, "Продукт");
   assert.equal(
     first.notices.some((notice) => /pending|missing/u.test(notice.code)),
@@ -375,7 +501,7 @@ test("covers, video and artifacts transfer once and replay as no-ops", async (t)
 
 test("the product page travels with the Guide: unknown looks stop early, edits write once and a new address keeps the product", async (t) => {
   const setup = await fixture(t);
-  setup.manifest.guides[0].presentation = "neon";
+  itemAt(setup.manifest.guides, 0).presentation = "neon";
   await setup.write();
   const api = applicationApi();
   await assert.rejects(run(setup, api), /presentation 'neon'/u);
@@ -396,7 +522,7 @@ test("the product page travels with the Guide: unknown looks stop early, edits w
     ],
   );
 
-  setup.manifest.guides[0].presentation = "ai-first-process";
+  itemAt(setup.manifest.guides, 0).presentation = "ai-first-process";
   await setup.write();
   await run(setup, api);
   assert.deepEqual(
@@ -435,10 +561,10 @@ test("the product page travels with the Guide: unknown looks stop early, edits w
 
   const edited = {
     ...productPage,
-    blocks: [{ ...productPage.blocks[0], lead: "Правка текста." }],
+    blocks: [{ ...itemAt(productPage.blocks, 0), lead: "Правка текста." }],
   };
-  setup.manifest.guides[0].page = edited;
-  setup.manifest.guides[0].slug = "product-moved";
+  itemAt(setup.manifest.guides, 0).page = edited;
+  itemAt(setup.manifest.guides, 0).slug = "product-moved";
   await setup.write();
   const report = await run(setup, api);
   assert.equal(updates(), once + 2);
@@ -446,7 +572,7 @@ test("the product page travels with the Guide: unknown looks stop early, edits w
     { id: api.guide.id, slug: api.guide.slug, page: api.guide.page },
     { id: guideId, slug: "product-moved", page: edited },
   );
-  assert.match(report.guides[0].url, /\/guides\/product-moved$/u);
+  assert.match(itemAt(report.guides, 0).url, /\/guides\/product-moved$/u);
 });
 
 test("Platform checks the whole description before the first write, and an older package keeps the address", async (t) => {
@@ -465,8 +591,8 @@ test("Platform checks the whole description before the first write, and an older
 
   // Пакет, собранный до появления адреса и подписи карточки, ничего не переносит на новый адрес.
   api.guide.slug = "product-published";
-  delete setup.manifest.guides[0].slug;
-  setup.manifest.guides[0].page = { blocks: productPage.blocks };
+  delete itemAt(setup.manifest.guides, 0).slug;
+  itemAt(setup.manifest.guides, 0).page = { blocks: productPage.blocks };
   await setup.write();
   await run(setup, api);
   assert.equal(api.guide.slug, "product-published");
@@ -510,8 +636,8 @@ test("a package that names no description leaves the stored page alone", async (
       .length;
   const before = updates();
 
-  delete setup.manifest.guides[0].page;
-  delete setup.manifest.guides[0].presentation;
+  delete itemAt(setup.manifest.guides, 0).page;
+  delete itemAt(setup.manifest.guides, 0).presentation;
   await setup.write();
   await run(setup, api);
   assert.deepEqual(
@@ -524,7 +650,7 @@ test("a package that names no description leaves the stored page alone", async (
   );
 
   // Снять описание можно только явным null.
-  setup.manifest.guides[0].page = null;
+  itemAt(setup.manifest.guides, 0).page = null;
   await setup.write();
   await run(setup, api);
   assert.equal(api.guide.page, null);
@@ -534,18 +660,23 @@ test("a replaced cover uses the current cover as its expected version", async (t
   const setup = await fixture(t);
   const api = applicationApi();
   await run(setup, api);
-  const firstCover = api.materials.get("inside-content:lesson").cover.coverId;
+  const firstCover = valueAt(api.materials, "inside-content:lesson").cover
+    ?.coverId;
   const bytes = Buffer.from("new-cover");
   await writeFile(join(setup.packagePath, "..", "assets", "cover.png"), bytes);
-  setup.manifest.assets[1].sha256 = checksum(bytes);
+  itemAt(setup.manifest.assets, 1).sha256 = checksum(bytes);
   await setup.write();
   await run(setup, api);
   const upload = api.calls
     .filter((call) => call.path.includes("content-covers"))
     .at(-1);
-  assert.equal(upload.body.expectedCoverId, firstCover);
+  assert.equal(
+    z.object({ expectedCoverId: z.string() }).parse(upload?.body)
+      .expectedCoverId,
+    firstCover,
+  );
   assert.notEqual(
-    api.materials.get("inside-content:lesson").cover.coverId,
+    valueAt(api.materials, "inside-content:lesson").cover?.coverId,
     firstCover,
   );
 });
@@ -558,7 +689,7 @@ test("a missing original is proposed first and unpublished only on explicit requ
     (row) => row.sourceId !== "old",
   );
   setup.manifest.selection.materialIds = ["lesson", "video"];
-  setup.manifest.guides[0].materialIds = ["lesson", "video"];
+  itemAt(setup.manifest.guides, 0).materialIds = ["lesson", "video"];
   await setup.write();
   const proposed = await run(setup, api);
   assert.deepEqual(
@@ -566,7 +697,7 @@ test("a missing original is proposed first and unpublished only on explicit requ
     ["inside-content:old"],
   );
   assert.equal(
-    api.materials.get("inside-content:old").publicationState,
+    valueAt(api.materials, "inside-content:old").publicationState,
     "published",
   );
   await assert.rejects(
@@ -576,10 +707,10 @@ test("a missing original is proposed first and unpublished only on explicit requ
   const archived = await run(setup, api, { archive: ["old"] });
   assert.deepEqual(archived.archived, [{ sourceId: "inside-content:old" }]);
   assert.equal(
-    api.materials.get("inside-content:old").publicationState,
+    valueAt(api.materials, "inside-content:old").publicationState,
     "unpublished",
   );
-  assert.deepEqual(api.materials.get("inside-content:old").seriesIds, []);
+  assert.deepEqual(valueAt(api.materials, "inside-content:old").seriesIds, []);
   const after = await run(setup, api);
   assert.deepEqual(after.archiveProposals, []);
 });
@@ -592,7 +723,7 @@ test("a video that never becomes ready stops before Save and resumes with the sa
     /still processing/u,
   );
   assert.equal(
-    api.materials.get("inside-content:video")?.primaryVideoId ?? null,
+    valueAt(api.materials, "inside-content:video")?.primaryVideoId ?? null,
     null,
   );
   await run(setup, api);
@@ -602,23 +733,27 @@ test("a video that never becomes ready stops before Save and resumes with the sa
 
 test("supplementary originals join the Guide after the programme without a chapter", async (t) => {
   const setup = await fixture(t);
-  setup.manifest.guides[0].materialIds = ["lesson", "video"];
-  setup.manifest.guides[0].supplementaryMaterialIds = ["old"];
+  itemAt(setup.manifest.guides, 0).materialIds = ["lesson", "video"];
+  itemAt(setup.manifest.guides, 0).supplementaryMaterialIds = ["old"];
   await setup.write();
   const api = applicationApi();
   const report = await run(setup, api);
   const ids = ["lesson", "video", "old"].map(
-    (id) => api.materials.get(`inside-content:${id}`).materialId,
+    (id) => valueAt(api.materials, `inside-content:${id}`).materialId,
   );
   assert.deepEqual(api.guide.members, ids);
-  assert.deepEqual(api.materials.get("inside-content:old").seriesIds, [
+  assert.deepEqual(valueAt(api.materials, "inside-content:old").seriesIds, [
     guideId,
   ]);
   const composition = api.calls.find(
     (call) => call.path === "/authoring/import/guides/composition",
   );
-  assert.deepEqual(composition.body.chapterAssignments, {});
-  assert.equal(report.guides[0].mainMaterials, 2);
+  assert.deepEqual(
+    z.object({ chapterAssignments: z.unknown() }).parse(composition?.body)
+      .chapterAssignments,
+    {},
+  );
+  assert.equal(itemAt(report.guides, 0).mainMaterials, 2);
 });
 
 test("only loopback HTTP origins are accepted as targets", () => {
@@ -645,8 +780,10 @@ test("an uploaded recording is saved with the original's chapters until the orig
   const uploadedId = uuid(555);
   api.videos.set(uploadedId, {
     videoId: uploadedId,
+    materialId: valueAt(api.materials, "inside-content:lesson").materialId,
     state: "ready",
     providerVideoId: "uploaded",
+    reconciles: 0,
   });
   journal.resources["source-video:inside-content:lesson"] = {
     videoId: uploadedId,
@@ -654,10 +791,12 @@ test("an uploaded recording is saved with the original's chapters until the orig
     sha256: "c".repeat(64),
   };
   await writeFile(journalPath, canonical(journal));
-  setup.manifest.materials[0].videoChapters = [{ start: 0, title: "Старт" }];
+  itemAt(setup.manifest.materials, 0).videoChapters = [
+    { start: 0, title: "Старт" },
+  ];
   await setup.write();
   await run(setup, api);
-  const lesson = api.materials.get("inside-content:lesson");
+  const lesson = valueAt(api.materials, "inside-content:lesson");
   assert.equal(lesson.primaryVideoId, uploadedId);
   assert.deepEqual(lesson.videoChapters, [{ start: 0, title: "Старт" }]);
 });
@@ -668,10 +807,11 @@ test("a cover change whose response was lost is adopted on the retry", async (t)
   await run(setup, api);
   const bytes = Buffer.from("replacement-cover");
   await writeFile(join(setup.packagePath, "..", "assets", "cover.png"), bytes);
-  setup.manifest.assets[1].sha256 = checksum(bytes);
+  itemAt(setup.manifest.assets, 1).sha256 = checksum(bytes);
   await setup.write();
   const original = api.request;
   let lose = true;
+  /** @type {LocalTransport} */
   const lossy = async (path, body, key, options) => {
     const result = await original(path, body, key, options);
     if (lose && path.includes("content-covers")) {
@@ -680,9 +820,12 @@ test("a cover change whose response was lost is adopted on the retry", async (t)
     }
     return result;
   };
+  /** @type {LocalTransport} */
   const conflicting = async (path, body, key, options) => {
     if (path.includes("content-covers")) {
-      const current = api.materials.get("inside-content:lesson").cover.coverId;
+      assert.ok(body instanceof FormData);
+      const current = valueAt(api.materials, "inside-content:lesson").cover
+        ?.coverId;
       if (body.get("expectedCoverId") !== current)
         throw Object.assign(new Error("409"), {
           status: 409,
@@ -692,7 +835,8 @@ test("a cover change whose response was lost is adopted on the retry", async (t)
     return original(path, body, key, options);
   };
   await assert.rejects(run(setup, { request: lossy }), /Connection lost/u);
-  const applied = api.materials.get("inside-content:lesson").cover.coverId;
+  const applied = valueAt(api.materials, "inside-content:lesson").cover
+    ?.coverId;
   await run(setup, { request: conflicting });
   const journal = JSON.parse(
     await readFile(join(setup.state, "journal.json"), "utf8"),
@@ -700,7 +844,7 @@ test("a cover change whose response was lost is adopted on the retry", async (t)
   assert.equal(journal.materials["inside-content:lesson"].coverId, applied);
   assert.equal(
     journal.resources[
-      `cover-pending:${api.materials.get("inside-content:lesson").materialId}`
+      `cover-pending:${valueAt(api.materials, "inside-content:lesson").materialId}`
     ],
     undefined,
   );
@@ -714,7 +858,7 @@ test("an archive whose receipt was stored before the crash stays archived", asyn
     (row) => row.sourceId !== "old",
   );
   setup.manifest.selection.materialIds = ["lesson", "video"];
-  setup.manifest.guides[0].materialIds = ["lesson", "video"];
+  itemAt(setup.manifest.guides, 0).materialIds = ["lesson", "video"];
   await setup.write();
   await run(setup, api, { archive: ["old"] });
   const journalPath = join(setup.state, "journal.json");
@@ -745,7 +889,7 @@ test("release preview reports video, composition and artifact changes that the s
     unchanged: 3,
     conflict: 0,
   });
-  assert.deepEqual(clean.preview.guides[0], {
+  assert.deepEqual(itemAt(clean.preview.guides, 0), {
     sourceId: "product",
     title: "Продукт",
     materials: 3,
@@ -772,7 +916,13 @@ test("release preview reports video, composition and artifact changes that the s
     join(setup.state, "journal.json"),
     canonical(reviewedJournal),
   );
-  api.videos.set(uuid(557), { videoId: uuid(557), state: "ready" });
+  api.videos.set(uuid(557), {
+    videoId: uuid(557),
+    materialId: valueAt(api.materials, "inside-content:old").materialId,
+    state: "ready",
+    providerVideoId: "late",
+    reconciles: 0,
+  });
   await assert.rejects(
     applyRelease(clean.path, setup.state, { request: api.request }),
     /changed after the preview/u,
@@ -792,14 +942,19 @@ test("release preview reports video, composition and artifact changes that the s
   };
   await writeFile(journalPath, canonical(journal));
   setup.manifest.materials.push({
-    ...setup.manifest.materials[2],
+    ...itemAt(setup.manifest.materials, 2),
     sourceId: "extra",
     sourcePath: "extra.md",
     title: "extra",
   });
   setup.manifest.selection.materialIds.push("extra");
-  setup.manifest.guides[0].materialIds = ["video", "lesson", "old", "extra"];
-  setup.manifest.materials[0].artifacts[0].title = "Чек-лист 2";
+  itemAt(setup.manifest.guides, 0).materialIds = [
+    "video",
+    "lesson",
+    "old",
+    "extra",
+  ];
+  itemAt(itemAt(setup.manifest.materials, 0).artifacts, 0).title = "Чек-лист 2";
   await setup.write();
   const next = await previewRelease(setup.packagePath, setup.state, {
     origin,
@@ -808,13 +963,14 @@ test("release preview reports video, composition and artifact changes that the s
   const lesson = next.preview.materials.find(
     (item) => item.sourceId === "lesson",
   );
+  assert.ok(lesson);
   assert.equal(lesson.change, "changed");
   assert.equal(lesson.videoChange, true);
   assert.equal(
-    next.preview.materials.find((item) => item.sourceId === "extra").change,
+    next.preview.materials.find((item) => item.sourceId === "extra")?.change,
     "new",
   );
-  assert.deepEqual(next.preview.guides[0], {
+  assert.deepEqual(itemAt(next.preview.guides, 0), {
     sourceId: "product",
     title: "Продукт",
     materials: 4,
@@ -827,18 +983,18 @@ test("release preview reports video, composition and artifact changes that the s
     removed: 0,
     reorderedOrRegrouped: true,
   });
-  setup.manifest.guides[0].title = "Новое имя";
+  itemAt(setup.manifest.guides, 0).title = "Новое имя";
   await setup.write();
   const renamed = await previewRelease(setup.packagePath, setup.state, {
     origin,
     request: api.request,
   });
-  assert.equal(renamed.preview.guides[0].detailsChange, true);
-  setup.manifest.guides[0].slug = "product-moved";
-  setup.manifest.guides[0].presentation = "default";
-  setup.manifest.guides[0].page = {
+  assert.equal(itemAt(renamed.preview.guides, 0).detailsChange, true);
+  itemAt(setup.manifest.guides, 0).slug = "product-moved";
+  itemAt(setup.manifest.guides, 0).presentation = "default";
+  itemAt(setup.manifest.guides, 0).page = {
     ...productPage,
-    blocks: [{ ...productPage.blocks[0], lead: "Новый лид." }],
+    blocks: [{ ...itemAt(productPage.blocks, 0), lead: "Новый лид." }],
   };
   await setup.write();
   const redesigned = await previewRelease(setup.packagePath, setup.state, {
@@ -850,7 +1006,7 @@ test("release preview reports video, composition and artifact changes that the s
       pageChange,
       slugChange,
       presentationChange,
-    }))(redesigned.preview.guides[0]),
+    }))(itemAt(redesigned.preview.guides, 0)),
     {
       pageChange: true,
       slugChange: { from: "product", to: "product-moved" },
@@ -860,12 +1016,12 @@ test("release preview reports video, composition and artifact changes that the s
 
   // Once the original names its own upload, the preview expects no video change.
   journal.resources["source-video:inside-content:video"] = {
-    videoId: api.materials.get("inside-content:video").primaryVideoId,
-    providerVideoId: setup.manifest.materials[1].video.kinescopeId,
+    videoId: valueAt(api.materials, "inside-content:video").primaryVideoId,
+    providerVideoId: itemAt(setup.manifest.materials, 1).video?.kinescopeId,
     sha256: "f".repeat(64),
   };
   delete journal.resources[
-    `video:${api.materials.get("inside-content:video").materialId}:${setup.manifest.materials[1].video.kinescopeId}`
+    `video:${valueAt(api.materials, "inside-content:video").materialId}:${itemAt(setup.manifest.materials, 1).video?.kinescopeId}`
   ];
   await writeFile(journalPath, canonical(journal));
   const named = await previewRelease(setup.packagePath, setup.state, {
@@ -873,10 +1029,10 @@ test("release preview reports video, composition and artifact changes that the s
     request: api.request,
   });
   assert.equal(
-    named.preview.materials.find((item) => item.sourceId === "video").change,
+    named.preview.materials.find((item) => item.sourceId === "video")?.change,
     "unchanged",
   );
-  setup.manifest.materials[1].access = "free";
+  itemAt(setup.manifest.materials, 1).access = "free";
   await setup.write();
   const accessChanged = await previewRelease(setup.packagePath, setup.state, {
     origin,
@@ -885,6 +1041,7 @@ test("release preview reports video, composition and artifact changes that the s
   const video = accessChanged.preview.materials.find(
     (item) => item.sourceId === "video",
   );
+  assert.ok(video);
   assert.equal(video.change, "conflict");
   assert.equal(video.conflictReason, "video_access_change");
   await assert.rejects(
@@ -892,7 +1049,7 @@ test("release preview reports video, composition and artifact changes that the s
     /conflicts/u,
   );
   // A new provider record is attached with the new access, so that change is not a conflict.
-  setup.manifest.materials[1].video = { kinescopeId: uuid(778) };
+  itemAt(setup.manifest.materials, 1).video = { kinescopeId: uuid(778) };
   await setup.write();
   const newRecording = await previewRelease(setup.packagePath, setup.state, {
     origin,
@@ -901,6 +1058,7 @@ test("release preview reports video, composition and artifact changes that the s
   const replaced = newRecording.preview.materials.find(
     (item) => item.sourceId === "video",
   );
+  assert.ok(replaced);
   assert.equal(replaced.change, "changed");
   assert.equal(replaced.videoChange, true);
 });
@@ -910,8 +1068,8 @@ test("release preview separates Video access conflicts from plain access changes
   const api = applicationApi();
   await run(setup, api);
   const origin = "http://127.0.0.1:4396";
-  setup.manifest.materials[1].access = "free";
-  setup.manifest.materials[0].access = "free";
+  itemAt(setup.manifest.materials, 1).access = "free";
+  itemAt(setup.manifest.materials, 0).access = "free";
   await setup.write();
   const preview = await previewRelease(setup.packagePath, setup.state, {
     origin,
@@ -920,11 +1078,13 @@ test("release preview separates Video access conflicts from plain access changes
   const attached = preview.preview.materials.find(
     (item) => item.sourceId === "video",
   );
+  assert.ok(attached);
   assert.equal(attached.change, "conflict");
   assert.equal(attached.conflictReason, "video_access_change");
   const plain = preview.preview.materials.find(
     (item) => item.sourceId === "lesson",
   );
+  assert.ok(plain);
   assert.equal(plain.change, "changed");
   assert.equal(plain.conflictReason, undefined);
   assert.deepEqual(plain.accessChange, { from: "membership", to: "free" });
@@ -940,11 +1100,11 @@ test("release preview separates Video access conflicts from plain access changes
   });
   assert.equal(
     legacy.preview.materials.find((item) => item.sourceId === "video")
-      .conflictReason,
+      ?.conflictReason,
     "video_access_change",
   );
 
-  setup.manifest.materials[1].video = { kinescopeId: uuid(779) };
+  itemAt(setup.manifest.materials, 1).video = { kinescopeId: uuid(779) };
   await setup.write();
   const replaced = (
     await previewRelease(setup.packagePath, setup.state, {
@@ -952,6 +1112,7 @@ test("release preview separates Video access conflicts from plain access changes
       request: api.request,
     })
   ).preview.materials.find((item) => item.sourceId === "video");
+  assert.ok(replaced);
   assert.equal(replaced.conflictReason, undefined);
   assert.deepEqual(replaced.accessChange, { from: "membership", to: "free" });
 });

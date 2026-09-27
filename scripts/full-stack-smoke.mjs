@@ -1,3 +1,4 @@
+// @ts-check
 import { spawn } from "node:child_process";
 import { existsSync, rmSync, writeFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
@@ -7,51 +8,54 @@ import { checkDatabaseUrl, resetCheckDatabase } from "./check-database.mjs";
 import { startFullStackIdentity } from "./full-stack-identity.mjs";
 
 import { signalProcessGroup } from "./process-group-signal.mjs";
+import { z } from "zod";
 
 const repositoryRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
-const pnpmPath = process.env.npm_execpath;
+const pnpmExecutable = process.env["npm_execpath"];
 
-if (pnpmPath === undefined) {
+if (pnpmExecutable === undefined) {
   throw new Error("Run the full-stack smoke through the pinned pnpm CLI");
 }
+const pnpmPath = pnpmExecutable;
 
 // Only an explicitly exported DATABASE_URL may point the smoke at another database; a personal `.env`
 // usually names the stand database, which this smoke must never migrate, seed or rewrite.
-const explicitDatabaseUrl = process.env.DATABASE_URL;
+const explicitDatabaseUrl = process.env["DATABASE_URL"];
 const environmentPath = resolve(repositoryRoot, ".env");
 if (existsSync(environmentPath)) {
   process.loadEnvFile(environmentPath);
 }
 if (explicitDatabaseUrl === undefined) {
   resetCheckDatabase({ cwd: repositoryRoot });
-  process.env.DATABASE_URL = checkDatabaseUrl(
-    process.env.POSTGRES_HOST_PORT ?? 5432,
+  process.env["DATABASE_URL"] = checkDatabaseUrl(
+    process.env["POSTGRES_HOST_PORT"] ?? 5432,
   );
 }
-const apiPort = process.env.API_PORT ?? "3001";
+const apiPort = process.env["API_PORT"] ?? "3001";
 const apiBaseUrl =
-  process.env.BACKEND_BASE_URL ?? `http://127.0.0.1:${apiPort}`;
-const webPort = process.env.FULLSTACK_WEB_PORT ?? "3000";
+  process.env["BACKEND_BASE_URL"] ?? `http://127.0.0.1:${apiPort}`;
+const webPort = process.env["FULLSTACK_WEB_PORT"] ?? "3000";
 const webBaseUrl = `http://127.0.0.1:${webPort}`;
-const mcpPort = process.env.FULLSTACK_MCP_PORT ?? "3002";
+const mcpPort = process.env["FULLSTACK_MCP_PORT"] ?? "3002";
 const mcpServerUrl = `http://127.0.0.1:${mcpPort}/mcp`;
 const childEnvironment = { ...process.env };
-childEnvironment.NODE_ENV ??= "development";
+childEnvironment["NODE_ENV"] ??= "development";
 // Сид включает продажу руководства, а API и billing отказываются стартовать с продажей без банка и
 // адреса для чеков. Прогон ничего не покупает, поэтому ему хватает локального контура стенда:
 // двойник банка по недостижимому адресу и перехват писем. Явные значения окружения важнее.
-childEnvironment.TBANK_PROVIDER_MODE ??= "test";
-childEnvironment.TBANK_TEST_API_BASE_URL ??= "http://127.0.0.1:9/v2";
-childEnvironment.BILLING_CONTACT_ENCRYPTION_KEY ??=
+childEnvironment["TBANK_PROVIDER_MODE"] ??= "test";
+childEnvironment["TBANK_TEST_API_BASE_URL"] ??= "http://127.0.0.1:9/v2";
+childEnvironment["BILLING_CONTACT_ENCRYPTION_KEY"] ??=
   "aW5zaWRlLWxvY2FsLWJpbGxpbmctY29udGFjdC1rZXk=";
-childEnvironment.BILLING_CONTACT_SMTP_HOST ??= "127.0.0.1";
-childEnvironment.BILLING_CONTACT_SMTP_PORT ??= "9";
-childEnvironment.BILLING_CONTACT_FROM ??= "no-reply@inside.localhost";
-childEnvironment.BILLING_CONTACT_SMTP_LOCAL_CAPTURE ??= "true";
+childEnvironment["BILLING_CONTACT_SMTP_HOST"] ??= "127.0.0.1";
+childEnvironment["BILLING_CONTACT_SMTP_PORT"] ??= "9";
+childEnvironment["BILLING_CONTACT_FROM"] ??= "no-reply@inside.localhost";
+childEnvironment["BILLING_CONTACT_SMTP_LOCAL_CAPTURE"] ??= "true";
 // Хранилище прогона — локальное хранилище Compose; адрес закреплён здесь, а не взят молча из
 // значения backend по умолчанию, потому что по нему же строится CSP сборки web ниже.
-childEnvironment.OBJECT_STORAGE_ENDPOINT =
-  childEnvironment.OBJECT_STORAGE_ENDPOINT?.trim() || "http://127.0.0.1:9000";
+childEnvironment["OBJECT_STORAGE_ENDPOINT"] =
+  childEnvironment["OBJECT_STORAGE_ENDPOINT"]?.trim() ||
+  "http://127.0.0.1:9000";
 // OWNER получает platform:admin для реальных операций каталога/назначения; отдельный MCP автор — только materials:manage.
 // Разрешение делегированных Account стенда принадлежит прогону, а не личному `.env`: иначе
 // `release:bootstrap-owner` возьмёт оттуда чужое значение и прогон начнёт зависеть от машины.
@@ -75,8 +79,8 @@ const webEnvironment = {
   ...childEnvironment,
   NODE_ENV: "production",
   CSP_LOCAL_OBJECT_STORAGE_ORIGIN: new URL(
-    childEnvironment.OBJECT_STORAGE_SIGNED_GET_ENDPOINT?.trim() ||
-      childEnvironment.OBJECT_STORAGE_ENDPOINT,
+    childEnvironment["OBJECT_STORAGE_SIGNED_GET_ENDPOINT"]?.trim() ||
+      childEnvironment["OBJECT_STORAGE_ENDPOINT"],
   ).origin,
 };
 const webReleaseIdentityPath = resolve(
@@ -94,12 +98,24 @@ writeFileSync(
   })}\n`,
   { mode: 0o444 },
 );
+/**
+ * @typedef {{
+ *   name: string;
+ *   child: import("node:child_process").ChildProcess;
+ *   output: string[];
+ *   detached: boolean;
+ * }} ProcessEntry
+ */
+/** @type {ProcessEntry[]} */
 const processes = [];
+/** @type {Set<ProcessEntry>} */
 const activeProcesses = new Set();
+/** @type {Promise<void> | undefined} */
 let cleanupPromise;
+/** @type {NodeJS.Signals | undefined} */
 let interruptedSignal;
 
-for (const signal of ["SIGINT", "SIGTERM"]) {
+for (const signal of /** @type {const} */ (["SIGINT", "SIGTERM"])) {
   process.once(signal, () => {
     void handleSignal(signal);
   });
@@ -240,14 +256,22 @@ if (interruptedSignal !== undefined) {
 
 function fullStackTestArguments() {
   const arguments_ = ["--filter", "@inside/web", "test:fullstack"];
-  const grep = process.env.FULLSTACK_TEST_GREP?.trim();
+  const grep = process.env["FULLSTACK_TEST_GREP"]?.trim();
   if (grep !== undefined && grep.length > 0) {
     arguments_.push("--grep", grep);
   }
   return arguments_;
 }
 
+/**
+ * @param {string} name
+ * @param {string[]} arguments_
+ * @param {NodeJS.ProcessEnv} environment
+ * @param {boolean} [detached]
+ * @returns {ProcessEntry}
+ */
 function startPnpm(name, arguments_, environment, detached = true) {
+  /** @type {string[]} */
   const output = [];
   const child = spawn(process.execPath, [pnpmPath, ...arguments_], {
     cwd: repositoryRoot,
@@ -263,6 +287,10 @@ function startPnpm(name, arguments_, environment, detached = true) {
   return entry;
 }
 
+/**
+ * @param {string[]} arguments_
+ * @param {NodeJS.ProcessEnv} [environment]
+ */
 async function runPnpm(arguments_, environment = childEnvironment) {
   const entry = startPnpm("pnpm", arguments_, environment, false);
   const exitCode = await new Promise((resolveExit) => {
@@ -275,11 +303,17 @@ async function runPnpm(arguments_, environment = childEnvironment) {
   }
 }
 
+/**
+ * @param {string} url
+ * @param {ProcessEntry[]} entries
+ * @returns {Promise<unknown>}
+ */
 async function waitForJson(url, entries) {
   const response = await waitForHttp(url, entries);
   return response.json();
 }
 
+/** @param {string} accessToken */
 async function establishFullStackAccount(accessToken) {
   const response = await globalThis.fetch(`${apiBaseUrl}/accounts`, {
     method: "POST",
@@ -292,6 +326,10 @@ async function establishFullStackAccount(accessToken) {
   }
 }
 
+/**
+ * @param {string} url
+ * @param {ProcessEntry[]} entries
+ */
 async function waitForHttp(url, entries) {
   const deadline = Date.now() + 30_000;
   while (Date.now() < deadline) {
@@ -320,24 +358,24 @@ async function waitForHttp(url, entries) {
   );
 }
 
+const developmentHealthSchema = z
+  .object({
+    process: z.literal("api"),
+    status: z.literal("ready"),
+    database: z.literal("reachable"),
+    release: z.object({ release: z.literal("development") }).passthrough(),
+    schema: z.object({ migrationCount: z.number().int() }).passthrough(),
+  })
+  .passthrough();
+
+/** @param {unknown} value */
 function assertHealth(value) {
-  if (
-    typeof value !== "object" ||
-    value === null ||
-    value.process !== "api" ||
-    value.status !== "ready" ||
-    value.database !== "reachable" ||
-    typeof value.release !== "object" ||
-    value.release === null ||
-    value.release.release !== "development" ||
-    typeof value.schema !== "object" ||
-    value.schema === null ||
-    !Number.isInteger(value.schema.migrationCount)
-  ) {
+  if (!developmentHealthSchema.safeParse(value).success) {
     throw new Error(`Unexpected API health response: ${JSON.stringify(value)}`);
   }
 }
 
+/** @param {ProcessEntry[]} entries */
 function assertProcessesRunning(entries) {
   const stopped = entries.find(({ child }) => child.exitCode !== null);
   if (stopped !== undefined) {
@@ -347,6 +385,7 @@ function assertProcessesRunning(entries) {
   }
 }
 
+/** @param {ProcessEntry} entry */
 async function stopProcess({ child, detached }) {
   if (child.pid === undefined || child.exitCode !== null) {
     return;
@@ -376,11 +415,16 @@ function cleanup() {
   return cleanupPromise;
 }
 
+/** @param {NodeJS.Signals} signal */
 async function handleSignal(signal) {
   interruptedSignal ??= signal;
   await cleanup();
 }
 
+/**
+ * @param {string[]} output
+ * @param {Buffer} chunk
+ */
 function retainOutput(output, chunk) {
   output.push(chunk.toString());
   while (output.join("").length > 40_000) {
@@ -388,6 +432,7 @@ function retainOutput(output, chunk) {
   }
 }
 
+/** @param {ProcessEntry[]} entries */
 function formatProcessOutput(entries) {
   return entries
     .map(({ name, output }) => `${name}:\n${output.join("")}`)

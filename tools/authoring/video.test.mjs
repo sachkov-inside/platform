@@ -1,3 +1,4 @@
+// @ts-check
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { mkdtemp, mkdir, readFile, rm, writeFile } from "node:fs/promises";
@@ -11,6 +12,9 @@ const materialId = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
 const videoId = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb";
 const sourceId = "inside-content:lesson";
 
+/** @typedef {import("./target.mjs").LocalTransport} LocalTransport */
+
+/** @param {import("node:test").TestContext} t */
 async function fixture(t) {
   const directory = await mkdtemp(join(tmpdir(), "authoring-video-"));
   t.after(() => rm(directory, { recursive: true, force: true }));
@@ -45,18 +49,21 @@ function providerApi({
   endpoint = "https://uploads.invalid/provider-one",
   loseFirstInit = false,
 } = {}) {
+  /** @type {{ path: string; key: string | undefined }[]} */
   const calls = [];
+  /** @type {Map<string, unknown>} */
   const attempts = new Map();
   let lose = loseFirstInit;
   let reconciles = 0;
   return {
     calls,
+    /** @type {LocalTransport} */
     async request(path, body, key) {
       calls.push({ path, key });
       if (path === "/authoring/import/materials/environment")
         return { mode: "development" };
       if (path === `/authoring/materials/${materialId}/videos/uploads`) {
-        assert.ok(key?.startsWith("video-upload:"));
+        assert.ok(key !== undefined && key.startsWith("video-upload:"));
         assert.deepEqual(body, {
           access: "membership",
           byteSize: 15,
@@ -88,6 +95,11 @@ function providerApi({
   };
 }
 
+/**
+ * @param {{ state: string; file: string }} setup
+ * @param {{ request: LocalTransport }} api
+ * @param {Partial<Parameters<typeof uploadVideo>[0]>} [extra]
+ */
 const upload = (setup, api, extra = {}) =>
   uploadVideo({
     stateDirectory: setup.state,
@@ -148,6 +160,7 @@ test("a real provider endpoint is refused before any byte is sent", async (t) =>
 test("an unknown upload outcome stops without a new key", async (t) => {
   const setup = await fixture(t);
   const api = {
+    /** @type {LocalTransport} */
     async request(path) {
       if (path.endsWith("/environment")) return { mode: "development" };
       throw Object.assign(new Error("409"), {
@@ -180,9 +193,11 @@ test("a Material that was never synchronized cannot receive a recording", async 
 test("a failed provider outcome lets the same file start a new attempt", async (t) => {
   const setup = await fixture(t);
   let state = "failed";
+  /** @type {(string | undefined)[]} */
   const keys = [];
   const api = {
-    async request(path, body, key) {
+    /** @type {LocalTransport} */
+    async request(path, _body, key) {
       if (path.endsWith("/environment")) return { mode: "development" };
       if (path.endsWith("/uploads")) {
         keys.push(key);

@@ -1,3 +1,4 @@
+// @ts-check
 // Loopback authoring gateway for the full local stand (`pnpm local:stand`).
 // It turns the stand owner's personal access token into short Platform API tokens through the
 // stand's own Logto. There is no other trusted issuer and no production mode.
@@ -38,8 +39,15 @@ const storedPatSchema = z.object({
   value: z.string().min(1),
 });
 
-// Only authoring API paths reach the stand, and only from non-browser clients on this machine.
-// Any local process can act as the stand owner through this gateway; it never serves another host.
+/**
+ * Only authoring API paths reach the stand, and only from non-browser clients on this machine.
+ * Any local process can act as the stand owner through this gateway; it never serves another host.
+ *
+ * @param {string | undefined} host
+ * @param {string} url
+ * @param {string | undefined} origin
+ * @param {string | string[]} [fetchSite]
+ */
 export function forwardedPath(host, url, origin, fetchSite) {
   if (host !== gateway.host || origin !== undefined || fetchSite !== undefined)
     return null;
@@ -57,7 +65,12 @@ export function forwardedPath(host, url, origin, fetchSite) {
   return normalized;
 }
 
+/**
+ * @param {() => Promise<{ access_token: string; expires_in: number }>} exchange
+ * @param {() => number} [now]
+ */
 export function tokenCache(exchange, now = () => Date.now()) {
+  /** @type {{ value: string; expiresAt: number } | undefined} */
   let current;
   return async () => {
     if (
@@ -74,6 +87,10 @@ export function tokenCache(exchange, now = () => Date.now()) {
   };
 }
 
+/**
+ * @param {string} path
+ * @param {unknown} value
+ */
 async function writePrivate(path, value) {
   const temporary = `${path}.${String(process.pid)}.tmp`;
   await writeFile(temporary, `${JSON.stringify(value)}\n`, { mode: 0o600 });
@@ -81,6 +98,11 @@ async function writePrivate(path, value) {
   await rename(temporary, path);
 }
 
+/**
+ * @param {z.infer<typeof settingsSchema>} settings
+ * @param {string} email
+ * @param {{ renew: boolean }} options
+ */
 async function ownerPersonalAccessToken(settings, email, { renew }) {
   const stored = await readFile(patPath, "utf8")
     .then((text) => storedPatSchema.parse(JSON.parse(text)))
@@ -104,11 +126,12 @@ async function ownerPersonalAccessToken(settings, email, { renew }) {
   const owner = users.filter(
     (user) => user.primaryEmail?.toLowerCase() === email.toLowerCase(),
   );
-  if (owner.length !== 1)
+  const [ownerUser] = owner;
+  if (owner.length !== 1 || ownerUser === undefined)
     throw new Error(
       `Sign in to the stand once as ${email} before starting the authoring gateway`,
     );
-  const userId = owner[0].id;
+  const userId = ownerUser.id;
   const existing = z
     .array(z.object({ name: z.string() }))
     .parse(await api(`/users/${userId}/personal-access-tokens`));
@@ -143,7 +166,7 @@ async function main() {
     );
   ensureSharedIdentityDirectory(root);
   // The bootstrap module reads its stand flag when first imported.
-  process.env.LOGTO_ON_STAND = "true";
+  process.env["LOGTO_ON_STAND"] = "true";
   const { parseEnv } = await import("./identity-proof-bootstrap.mjs");
   const settings = settingsSchema.parse(
     parseEnv(
@@ -158,6 +181,13 @@ async function main() {
     ),
   );
   const apiOrigin = `http://127.0.0.1:${String(readIdentityProofPort(process.env, "API_HOST_PORT", 3001))}`;
+  /**
+   * @param {string} pat
+   * @returns {Promise<
+   *   | { ok: false; status: number; detail: string }
+   *   | { ok: true; token: { access_token: string; expires_in: number } }
+   * >}
+   */
   const exchange = async (pat) => {
     const response = await fetch(`${settings.LOGTO_ENDPOINT}/oidc/token`, {
       method: "POST",
@@ -200,6 +230,7 @@ async function main() {
     throw new Error(
       `Stand token exchange failed: ${String(first.status)} ${first.detail}`,
     );
+  /** @type {{ access_token: string; expires_in: number } | undefined} */
   let initial = first.token;
   const accessToken = tokenCache(async () => {
     if (initial !== undefined) {
@@ -240,16 +271,18 @@ async function main() {
       return;
     }
     try {
+      /** @type {Record<string, string>} */
       const headers = { authorization: `Bearer ${await accessToken()}` };
       for (const name of ["content-type", "idempotency-key", "accept"]) {
         const value = request.headers[name];
         if (typeof value === "string") headers[name] = value;
       }
       const hasBody = request.method !== "GET" && request.method !== "HEAD";
+      /** @type {Buffer[]} */
       const chunks = [];
       if (hasBody) for await (const chunk of request) chunks.push(chunk);
       const upstream = await fetch(`${apiOrigin}${path}`, {
-        method: request.method,
+        ...(request.method === undefined ? {} : { method: request.method }),
         headers,
         redirect: "error",
         ...(hasBody ? { body: Buffer.concat(chunks) } : {}),

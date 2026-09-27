@@ -1,3 +1,4 @@
+// @ts-check
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
 import {
@@ -19,10 +20,10 @@ import { writeTrustedReleaseEvidence } from "./github-release-evidence.test-supp
 const gateway = readFileSync("infra/production/host/inside-deploy", "utf8");
 
 describe("inside-deploy forced SSH command", () => {
-  for (const [paddingBytes, diagnostic] of [
+  for (const [paddingBytes, diagnostic] of /** @type {const} */ ([
     [33 * 1024 * 1024, /Decoded archive exceeds/u],
     [2 * 1024 * 1024, /Archive member exceeds/u],
-  ]) {
+  ])) {
     it(`rejects a compressed manifest with ${paddingBytes} bytes before parsing it`, () => {
       const fixture = createFixture();
       try {
@@ -306,6 +307,9 @@ fi
   return fixture;
 }
 
+/** @typedef {ReturnType<typeof createFixture>} Fixture */
+
+/** @param {Fixture} fixture */
 function createEnvelope(fixture) {
   const envelopeRoot = resolve(fixture.directory, "envelope");
   rmSync(envelopeRoot, { force: true, recursive: true });
@@ -333,24 +337,34 @@ function createEnvelope(fixture) {
   assert.equal(result.status, 0, result.stderr);
 }
 
+/**
+ * @param {Fixture} fixture
+ * @param {string} command
+ * @param {string | Buffer} [input]
+ */
 function runGateway(fixture, command, input = readFileSync(fixture.payload)) {
   return spawnSync("bash", ["infra/production/host/inside-deploy"], {
     encoding: "utf8",
     env: {
       ...process.env,
       INSIDE_DEPLOY_TEST_ROOT: fixture.root,
-      PATH: `${fixture.bin}:${process.env.PATH}`,
+      PATH: `${fixture.bin}:${process.env["PATH"]}`,
       SSH_ORIGINAL_COMMAND: command,
     },
     input,
   });
 }
 
+/**
+ * @param {string} path
+ * @param {string} content
+ */
 function writeExecutable(path, content) {
   writeFileSync(path, content);
   chmodSync(path, 0o755);
 }
 
+/** @param {string | Buffer} value */
 function sha256(value) {
   return `sha256:${createHash("sha256").update(value).digest("hex")}`;
 }

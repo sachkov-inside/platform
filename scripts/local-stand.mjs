@@ -1,3 +1,4 @@
+// @ts-check
 // Один стенд: приложение целиком плюс вход. Одна команда доводит его до состояния, в котором
 // владелец входит по коду из письма и покупает, не переключая окружения.
 import { spawn } from "node:child_process";
@@ -9,11 +10,12 @@ import lockfile from "proper-lockfile";
 import { ensureSharedIdentityDirectory } from "./shared-identity-directory.mjs";
 
 const repositoryRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
-const pnpmPath = process.env.npm_execpath;
+const pnpmExecutable = process.env["npm_execpath"];
 
-if (pnpmPath === undefined) {
+if (pnpmExecutable === undefined) {
   throw new Error("Run the local stand through the pinned pnpm CLI");
 }
+const pnpmPath = pnpmExecutable;
 
 // Порт входа не настраивается: OIDC сверяет issuer точным совпадением строки, поэтому адрес
 // должен быть один и тот же и для браузера, и для приложения внутри сети Compose.
@@ -23,9 +25,9 @@ const logtoAdminPort = "3302";
 const standPorts = {
   IDENTITY_PROOF_LOGTO_PORT: logtoPort,
   IDENTITY_PROOF_LOGTO_ADMIN_PORT: logtoAdminPort,
-  IDENTITY_PROOF_API_PORT: process.env.API_HOST_PORT ?? "3001",
-  IDENTITY_PROOF_WEB_PORT: process.env.WEB_HOST_PORT ?? "3000",
-  IDENTITY_PROOF_MAILPIT_PORT: process.env.MAIL_CAPTURE_HOST_PORT ?? "8025",
+  IDENTITY_PROOF_API_PORT: process.env["API_HOST_PORT"] ?? "3001",
+  IDENTITY_PROOF_WEB_PORT: process.env["WEB_HOST_PORT"] ?? "3000",
+  IDENTITY_PROOF_MAILPIT_PORT: process.env["MAIL_CAPTURE_HOST_PORT"] ?? "8025",
 };
 // `--production-web` поднимает web production-сборкой: только в ней работают предзагрузка ссылок и
 // кеш маршрутов, по которым владелец оценивает скорость переходов (ADR 0027). По умолчанию web
@@ -50,10 +52,13 @@ const smokeProject = "inside-platform-smoke";
 ensureSharedIdentityDirectory(repositoryRoot);
 const releaseStandLock = await acquireStandLock();
 let shouldCleanupCompose = false;
+/** @type {NodeJS.Signals | undefined} */
 let interruptedSignal;
+/** @type {Promise<void> | undefined} */
 let shutdownPromise;
+/** @type {Set<import("node:child_process").ChildProcess>} */
 const activeProcesses = new Set();
-for (const signal of ["SIGINT", "SIGTERM"]) {
+for (const signal of /** @type {const} */ (["SIGINT", "SIGTERM"])) {
   process.once(signal, () => {
     void handleSignal(signal);
   });
@@ -90,7 +95,7 @@ try {
       `  приложение        http://127.0.0.1:${standPorts.IDENTITY_PROOF_WEB_PORT}${productionWeb ? " (production-сборка: после правок кода пересоберите стенд)" : ""}`,
       `  вход              https://identity.inside.localhost:${logtoPort}`,
       `  письма            http://127.0.0.1:${standPorts.IDENTITY_PROOF_MAILPIT_PORT}`,
-      `  двойник банка     http://127.0.0.1:${process.env.BANK_DOUBLE_HOST_PORT ?? "8090"}`,
+      `  двойник банка     http://127.0.0.1:${process.env["BANK_DOUBLE_HOST_PORT"] ?? "8090"}`,
       "",
       "Остановить: docker compose --profile identity down",
       "",
@@ -130,6 +135,14 @@ async function isComposeRunning() {
   return `${stand.output}${smoke.output}`.trim().length > 0;
 }
 
+/**
+ * @typedef {{ capture?: boolean; extraEnvironment?: Record<string, string> }} RunOptions
+ */
+
+/**
+ * @param {string[]} arguments_
+ * @param {RunOptions} [options]
+ */
 function compose(arguments_, options = {}) {
   return run(
     "docker",
@@ -138,10 +151,19 @@ function compose(arguments_, options = {}) {
   );
 }
 
+/**
+ * @param {string[]} arguments_
+ * @param {Record<string, string>} [extraEnvironment]
+ */
 function runPnpm(arguments_, extraEnvironment = {}) {
   return run(process.execPath, [pnpmPath, ...arguments_], { extraEnvironment });
 }
 
+/**
+ * @param {string} command
+ * @param {string[]} arguments_
+ * @param {RunOptions} [options]
+ */
 async function run(
   command,
   arguments_,
@@ -200,11 +222,7 @@ async function acquireStandLock() {
       update: 10_000,
     });
   } catch (error) {
-    if (
-      error instanceof Error &&
-      Reflect.has(error, "code") &&
-      error.code === "ELOCKED"
-    ) {
+    if (error instanceof Error && "code" in error && error.code === "ELOCKED") {
       throw new Error(
         "Another local setup owns the machine-wide setup lock. Wait for its handoff or stop that session before retrying.",
         { cause: error },
@@ -226,6 +244,7 @@ function shutdown() {
   return shutdownPromise;
 }
 
+/** @param {import("node:child_process").ChildProcess} child */
 async function stopProcess(child) {
   if (child.pid === undefined || child.exitCode !== null) {
     return;
@@ -240,6 +259,7 @@ async function stopProcess(child) {
   }
 }
 
+/** @param {NodeJS.Signals} signal */
 async function handleSignal(signal) {
   interruptedSignal ??= signal;
   await shutdown();
