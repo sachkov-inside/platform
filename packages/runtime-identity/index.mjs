@@ -67,6 +67,7 @@ export function resolveRuntimeIdentity(input) {
   return Object.freeze(runtime);
 }
 
+/** @returns {unknown} */
 function readEmbeddedIdentity() {
   const path = resolve(process.cwd(), "release-identity.json");
   try {

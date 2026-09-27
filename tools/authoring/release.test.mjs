@@ -4,6 +4,7 @@ import assert from "node:assert/strict";
 import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
+import { z } from "zod";
 import { canonical } from "./package.mjs";
 import { syncLocal } from "./local-sync.mjs";
 import { materialApplyRequest } from "./local-boundaries.mjs";
@@ -157,8 +158,10 @@ test("drift after preview, an edited preview and unreviewed archive requests sto
     }),
     /reviewed proposals/u,
   );
-  const edited = JSON.parse(await readFile(reviewed.path, "utf8"));
-  edited.archiveProposals = ["inside-content:other"];
+  const edited = z
+    .record(z.string(), z.unknown())
+    .parse(JSON.parse(await readFile(reviewed.path, "utf8")));
+  edited["archiveProposals"] = ["inside-content:other"];
   await writeFile(reviewed.path, JSON.stringify(edited));
   await assert.rejects(
     applyRelease(reviewed.path, setup.state, { request: server.request }),

@@ -106,6 +106,16 @@ writeFileSync(
  *   detached: boolean;
  * }} ProcessEntry
  */
+const developmentHealthSchema = z
+  .object({
+    process: z.literal("api"),
+    status: z.literal("ready"),
+    database: z.literal("reachable"),
+    release: z.object({ release: z.literal("development") }).passthrough(),
+    schema: z.object({ migrationCount: z.number().int() }).passthrough(),
+  })
+  .passthrough();
+
 /** @type {ProcessEntry[]} */
 const processes = [];
 /** @type {Set<ProcessEntry>} */
@@ -282,8 +292,12 @@ function startPnpm(name, arguments_, environment, detached = true) {
   const entry = { name, child, output, detached };
   activeProcesses.add(entry);
   child.once("exit", () => activeProcesses.delete(entry));
-  child.stdout?.on("data", (chunk) => retainOutput(output, chunk));
-  child.stderr?.on("data", (chunk) => retainOutput(output, chunk));
+  child.stdout?.on("data", (/** @type {Buffer} */ chunk) =>
+    retainOutput(output, chunk),
+  );
+  child.stderr?.on("data", (/** @type {Buffer} */ chunk) =>
+    retainOutput(output, chunk),
+  );
   return entry;
 }
 
@@ -293,9 +307,11 @@ function startPnpm(name, arguments_, environment, detached = true) {
  */
 async function runPnpm(arguments_, environment = childEnvironment) {
   const entry = startPnpm("pnpm", arguments_, environment, false);
-  const exitCode = await new Promise((resolveExit) => {
+  /** @type {Promise<number | null>} */
+  const exited = new Promise((resolveExit) => {
     entry.child.once("exit", (code) => resolveExit(code));
   });
+  const exitCode = await exited;
   if (exitCode !== 0) {
     throw new Error(
       `pnpm ${arguments_.join(" ")} failed:\n${entry.output.join("")}`,
@@ -357,16 +373,6 @@ async function waitForHttp(url, entries) {
     `Timed out waiting for ${url}\n${formatProcessOutput(entries)}`,
   );
 }
-
-const developmentHealthSchema = z
-  .object({
-    process: z.literal("api"),
-    status: z.literal("ready"),
-    database: z.literal("reachable"),
-    release: z.object({ release: z.literal("development") }).passthrough(),
-    schema: z.object({ migrationCount: z.number().int() }).passthrough(),
-  })
-  .passthrough();
 
 /** @param {unknown} value */
 function assertHealth(value) {

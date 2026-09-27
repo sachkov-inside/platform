@@ -8,6 +8,8 @@ const target = new URL(
   "../src/infrastructure/notification-transport/schema.generated.ts",
   import.meta.url,
 );
+// The generator copies the contract verbatim; the backend validates payloads against it.
+/** @type {unknown} */
 const schema = JSON.parse(readFileSync(source, "utf8"));
 const output = `// Generated from docs/contracts/notifications-v1/schema.json. Do not edit.\nexport const notificationSchema = ${JSON.stringify(schema, null, 2)};\n`;
 if (process.argv.includes("--check")) {

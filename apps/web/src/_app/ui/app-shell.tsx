@@ -1,7 +1,7 @@
 "use client";
 
 import { usePathname } from "next/navigation";
-import { Suspense, type ReactNode } from "react";
+import { Suspense, useState, type ReactNode } from "react";
 import { useQuery } from "@tanstack/react-query";
 
 import {
@@ -39,6 +39,10 @@ export function AppShell({ children }: AppShellProps) {
     accountKnown,
   );
   useAccessChangeRefresh(authStatus.accountId, accountKnown);
+  const readingProviderKey = useReadingProviderKey(
+    authStatus.accountId,
+    authStatus.resolved,
+  );
   const navigationItems = navigationItemsFor({
     canManageMaterials: authStatus.canManageMaterials,
   });
@@ -77,7 +81,7 @@ export function AppShell({ children }: AppShellProps) {
         <NavigationTiming />
       </Suspense>
       <ReadingProgressProvider
-        key={authStatus.accountId ?? "guest"}
+        key={readingProviderKey}
         accountId={authStatus.accountId}
         resolved={authStatus.resolved}
       >
@@ -100,4 +104,22 @@ export function AppShell({ children }: AppShellProps) {
       />
     </ApplicationShell>
   );
+}
+
+/**
+ * Прогресс чтения принадлежит аккаунту, поэтому при смене аккаунта провайдер создаётся заново. Первый
+ * ответ о входе аккаунт не меняет: до него личного на странице нет, а новый ключ пересоздал бы
+ * страницу, уже нарисованную сервером (#747).
+ */
+function useReadingProviderKey(
+  accountId: string | null,
+  resolved: boolean,
+): string {
+  // Объект отличает «первого ответа ещё не было» от «первым ответил гость».
+  const [first, setFirst] = useState<{ readonly accountId: string | null }>();
+  if (resolved && first === undefined) setFirst({ accountId });
+  const firstAccountId = first === undefined ? accountId : first.accountId;
+  return !resolved || accountId === firstAccountId
+    ? "first-account"
+    : (accountId ?? "guest");
 }

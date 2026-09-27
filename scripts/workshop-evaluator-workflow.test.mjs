@@ -4,6 +4,7 @@ import { execFileSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 import { test } from "node:test";
 import { fileURLToPath } from "node:url";
+import { z } from "zod";
 
 const workflow = readFileSync(
   fileURLToPath(
@@ -12,17 +13,42 @@ const workflow = readFileSync(
   "utf8",
 );
 const repositoryRoot = fileURLToPath(new URL("..", import.meta.url));
-const caseSpecSchema = JSON.parse(
-  readFileSync(
-    fileURLToPath(
-      new URL(
-        "../contracts/workshop/inside.workshop.case-spec.v1.schema.json",
-        import.meta.url,
+// The CaseSpec host contract the workflow matrix must match.
+const hostConstSchema = z.object({ const: z.string() }).passthrough();
+const caseSpecSchema = z
+  .object({
+    $defs: z
+      .object({
+        supportedHost: z
+          .object({
+            oneOf: z.array(
+              z
+                .object({
+                  properties: z
+                    .object({ os: hostConstSchema, arch: hostConstSchema })
+                    .passthrough(),
+                })
+                .passthrough(),
+            ),
+          })
+          .passthrough(),
+      })
+      .passthrough(),
+  })
+  .passthrough()
+  .parse(
+    JSON.parse(
+      readFileSync(
+        fileURLToPath(
+          new URL(
+            "../contracts/workshop/inside.workshop.case-spec.v1.schema.json",
+            import.meta.url,
+          ),
+        ),
+        "utf8",
       ),
     ),
-    "utf8",
-  ),
-);
+  );
 
 test("Workshop evaluator CI executes every native beta target", () => {
   for (const expected of [
@@ -47,7 +73,6 @@ test("Workshop evaluator CI executes every native beta target", () => {
 
 test("Workflow native targets exactly match the CaseSpec host contract", () => {
   const contractTargets = caseSpecSchema.$defs.supportedHost.oneOf.map(
-    /** @param {{ properties: { os: { const: string }; arch: { const: string } } }} host */
     (host) => `${host.properties.os.const}-${host.properties.arch.const}`,
   );
   const workflowTargets = [...workflow.matchAll(/- target: ([^\n]+)/gu)].map(

@@ -6,6 +6,21 @@ import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { resolve } from "node:path";
 import { describe, it } from "node:test";
+import { z } from "zod";
+
+// The rollback fields of a release plan the proof prints.
+const rollbackPlanSchema = z
+  .object({
+    rollback: z
+      .object({
+        previous: z.object({ compatible: z.unknown() }).passthrough(),
+      })
+      .passthrough(),
+  })
+  .passthrough();
+/** @param {string} stdout */
+const readRollbackPlan = (stdout) =>
+  rollbackPlanSchema.parse(JSON.parse(stdout));
 
 describe("release rollback proof", () => {
   it("binds the exact previous manifest and both image schema identities", () => {
@@ -13,7 +28,7 @@ describe("release rollback proof", () => {
     try {
       const compatible = run(fixture.inputPath);
       assert.equal(compatible.status, 0, compatible.stderr);
-      assert.deepEqual(JSON.parse(compatible.stdout).rollback.previous, {
+      assert.deepEqual(readRollbackPlan(compatible.stdout).rollback.previous, {
         version: "v1",
         sourceSha: "1".repeat(40),
         manifestSha256: sha256(fixture.previousManifest),
@@ -30,7 +45,7 @@ describe("release rollback proof", () => {
       const incompatible = run(fixture.inputPath);
       assert.equal(incompatible.status, 0, incompatible.stderr);
       assert.equal(
-        JSON.parse(incompatible.stdout).rollback.previous.compatible,
+        readRollbackPlan(incompatible.stdout).rollback.previous.compatible,
         false,
       );
     } finally {

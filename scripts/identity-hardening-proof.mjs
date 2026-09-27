@@ -103,8 +103,9 @@ try {
     runtimeEnvironment,
   );
   await waitForRuntime(runtimeEnvironment);
+  // Корпус #116. Telegram-вход проверяется на своём стенде с provider (docs/verification).
   await runPnpm(
-    ["--filter", "@inside/web", "test:identity"],
+    ["--filter", "@inside/web", "test:identity", "identity-proof.spec.ts"],
     runtimeEnvironment,
   );
   if (sensitiveOutputObserved) {
@@ -190,6 +191,18 @@ function requiredUrl(environment, name) {
   return value;
 }
 
+/**
+ * База, в которую стенд мигрировал и с которой работал API: проверка смотрит туда же.
+ *
+ * @param {Environment} environment
+ */
+function applicationDatabase(environment) {
+  const url = environment["DATABASE_URL"];
+  if (url === undefined)
+    throw new Error("The proof runtime has no DATABASE_URL");
+  return decodeURIComponent(new URL(url).pathname.slice(1));
+}
+
 /** @param {Environment} environment */
 async function assertDatabaseInvariants(environment) {
   const platformEffects = await runCompose(
@@ -202,7 +215,7 @@ async function assertDatabaseInvariants(environment) {
       "-U",
       "inside",
       "-d",
-      "inside",
+      applicationDatabase(environment),
       "-Atc",
       "select (select count(*) from accounts.accounts)::text || '|' || coalesce(to_regclass('identity_principals.platform_sessions')::text, 'absent')",
     ],
@@ -263,7 +276,9 @@ function spawnApplication(arguments_, environment) {
   });
   applicationProcesses.add(child);
   for (const source of [child.stdout, child.stderr]) {
-    source?.on("data", (chunk) => observeOutput(chunk.toString(), environment));
+    source?.on("data", (/** @type {Buffer} */ chunk) =>
+      observeOutput(chunk.toString(), environment),
+    );
   }
   child.once("exit", () => applicationProcesses.delete(child));
 }
@@ -401,16 +416,16 @@ async function run(command, arguments_, environment, capture) {
   });
   let output = "";
   if (capture) {
-    child.stdout?.on("data", (chunk) => {
+    child.stdout?.on("data", (/** @type {Buffer} */ chunk) => {
       output += chunk.toString();
     });
-    child.stderr?.on("data", (chunk) => {
+    child.stderr?.on("data", (/** @type {Buffer} */ chunk) => {
       output += chunk.toString();
     });
   }
-  const exitCode = await new Promise((resolveExit) =>
-    child.once("exit", resolveExit),
-  );
+  /** @type {Promise<number | null>} */
+  const exited = new Promise((resolveExit) => child.once("exit", resolveExit));
+  const exitCode = await exited;
   if (exitCode !== 0)
     throw new Error(`${command} ${arguments_.join(" ")} failed`);
   return output;

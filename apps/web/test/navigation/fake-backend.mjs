@@ -9,6 +9,16 @@
  */
 import { createServer } from "node:http";
 import { deflateSync } from "node:zlib";
+import { z } from "zod";
+
+// Request bodies the checks send to the double; a malformed body fails the request.
+const controlSchema = z
+  .object({ delayMs: z.unknown(), unavailable: z.unknown() })
+  .partial()
+  .passthrough();
+const homePinSchema = z
+  .object({ expectedVersion: z.number(), seriesId: z.unknown() })
+  .passthrough();
 
 const port = Number(process.env["FAKE_BACKEND_PORT"] ?? "3190");
 const guideId = "11111111-1111-4111-8111-111111111111";
@@ -527,7 +537,11 @@ function discoveryNotFound() {
 async function readBody(request) {
   /** @type {Buffer[]} */
   const chunks = [];
-  for await (const chunk of request) chunks.push(chunk);
+  for await (const chunk of request) {
+    // Without an encoding a request stream yields bytes.
+    if (!Buffer.isBuffer(chunk)) throw new Error("Request stream yielded text");
+    chunks.push(chunk);
+  }
   return Buffer.concat(chunks).toString("utf8");
 }
 
@@ -550,7 +564,7 @@ const server = createServer(async (request, response) => {
     return;
   }
   if (url.pathname === "/__control" && request.method === "POST") {
-    const control = JSON.parse(await readBody(request));
+    const control = controlSchema.parse(JSON.parse(await readBody(request)));
     if (typeof control.delayMs === "number") state.delayMs = control.delayMs;
     if (typeof control.unavailable === "boolean")
       state.unavailable = control.unavailable;
@@ -565,7 +579,9 @@ const server = createServer(async (request, response) => {
   });
   // Авторская запись закрепа: набор сбрасывает ею общий кеш web, как это делает автор в жизни.
   if (url.pathname === "/authoring/home-pin" && request.method === "PUT") {
-    const { expectedVersion, seriesId } = JSON.parse(await readBody(request));
+    const { expectedVersion, seriesId } = homePinSchema.parse(
+      JSON.parse(await readBody(request)),
+    );
     if (authorized) send(200, { seriesId, version: expectedVersion + 1 });
     else
       send(401, {

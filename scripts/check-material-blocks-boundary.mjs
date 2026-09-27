@@ -40,7 +40,7 @@ for (
     let match = pattern.exec(source);
     while (match !== null) {
       // The capture group is mandatory, so a match always carries it.
-      const specifier = /** @type {string} */ (match[1]);
+      const [, specifier = ""] = match;
       if (specifier.startsWith("@tiptap/")) {
         findings.push(
           `${relative(filename)}: the block registry entry point cannot depend on Tiptap; the reading path imports it (${specifier})`,

@@ -40,6 +40,22 @@ nearest `AGENTS.md` owns task routing and verification commands.
   application's dependency through `createRequire` takes its types from the application's
   `test/support/proof-dependencies`: a type import by a relative path into `node_modules` cannot
   resolve the package's own imports.
+- `pnpm lint` applies every `typescript/no-unsafe-*` rule of the shared type-aware set to the files
+  `tsconfig.scripts.json` compiles (#763). The root `tsconfig.json` compiles nothing (`files: []`)
+  and only references that project, so type-aware lint resolves script types.
+  `scripts/toolchain-contract.test.mjs` fails when a script directory, a rule or the reference
+  drops out, or when another override or ignore pattern weakens lint for a script. Parse
+  `JSON.parse`, `Response.json()` and database rows with a schema, or keep them `unknown` until an
+  explicit check; `package.json` is parsed by the schema in `scripts/package-manifest.mjs`. The
+  `any` that `createRequire` returns is asserted to its `proof-dependencies` type inside an
+  `oxlint-disable`/`oxlint-enable` block for `typescript/no-unsafe-type-assertion`: a
+  `disable-next-line` comment inside a JSDoc cast does not suppress it.
+- Code that runs at a script's top level calls a module function only after every module `const`,
+  `let` and `class` that function reads is declared: a function is hoisted, its values are not, and
+  the script fails with `ReferenceError` only when it runs (#774).
+  `scripts/check-module-initialization-order.mjs` in `pnpm guardrails` fails a top-level statement
+  that calls or passes by name such a function, arrow function or class declaration; a callback the
+  statement runs at once, such as one given to `.map()`, is outside the check.
 - Keep checked-in generated contracts deterministic. Change their source and regenerate them; do
   not hand-edit generated output.
 - Name protocol, token, cookie, retry, and polling durations in domain units at the owning boundary.
@@ -52,9 +68,9 @@ nearest `AGENTS.md` owns task routing and verification commands.
 ## Waiting in tests
 
 A test that waits by duration measures the machine instead of the behaviour: it hides a defect on an
-idle machine and fails at random on a loaded one. No executable check owns this rule, because a
-pause is the right instrument for proving that nothing happens, and a mechanical ban on pauses would
-reject correct tests. It becomes a fitness candidate if a narrower seam appears.
+idle machine and fails at random on a loaded one. No executable check owns this rule as a whole,
+because a pause is the right instrument for proving that nothing happens, and a mechanical ban on
+pauses would reject correct tests; the quiet-window exception below has its own check.
 
 - End every wait on a committed fact: a persisted row, a rendered state, a drained queue, a reported
   outcome. A pause and an advanced virtual clock start work; neither observes it.
@@ -66,6 +82,14 @@ reject correct tests. It becomes a fitness candidate if a narrower seam appears.
   from an arbitrary row and turns a correct assertion into a coin toss.
 - Proving that nothing happened is the exception. Advance a virtual clock past the interval in
   question and assert the absence, once the step before it is already pinned to its own fact.
+
+One wait ends on a quiet window instead of a fact (owner decision of 2026-09-27, #758):
+`viewportPrefetchDrained` in `apps/web/test/navigation/instant-navigation.spec.ts` waits for
+`networkidle`. The Next.js prefetch queue is private module state, and optimistic routing skips
+requests for links whose route it predicts, so no page-visible fact marks the end of the queue (the
+analysis is in #758). Revisit it when Next.js exposes the queue or optimistic routing changes.
+`scripts/quiet-window-waits.test.mjs` fails any other `networkidle` wait in the application tests
+and browser scripts.
 
 Browser suites never retry a failed test, in CI either (owner decision of 2026-09-27, #476): a flaky
 test turns the run red on its first attempt and is fixed, not retried until it passes.

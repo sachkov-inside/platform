@@ -1,13 +1,20 @@
 // @ts-check
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { canonical } from "./package.mjs";
 import { materialApplyRequest } from "./local-boundaries.mjs";
 import { syncLocal } from "./local-sync.mjs";
-import { itemAt, reservationBodySchema, valueAt } from "./test-support.mjs";
+import {
+  entryAt,
+  itemAt,
+  operationAt,
+  readJournalFile,
+  reservationBodySchema,
+  valueAt,
+} from "./test-support.mjs";
 
 /**
  * @typedef {import("./package.mjs").Manifest} Manifest
@@ -171,13 +178,11 @@ test("local restart replays a lost response with the original key and creates no
   const api = applicationApi({ loseFirstResponse: true });
   await assert.rejects(setup.sync(api), /Connection lost after commit/);
   assert.equal(api.commits, 1);
-  const pending = JSON.parse(
-    await readFile(join(setup.stateDirectory, "journal.json"), "utf8"),
-  );
+  const pending = await readJournalFile(setup.stateDirectory);
   const first = itemAt(applyCalls(api), 0);
   assert.ok(first.key);
-  assert.equal(pending.operations[first.key].status, "pending");
-  assert.deepEqual(pending.operations[first.key].request.body, first.body);
+  assert.equal(operationAt(pending, first.key).status, "pending");
+  assert.deepEqual(operationAt(pending, first.key).request.body, first.body);
 
   const report = await setup.sync(api);
   const calls = applyCalls(api);
@@ -187,11 +192,9 @@ test("local restart replays a lost response with the original key and creates no
   assert.equal(api.materials.size, 1);
   assert.equal(valueAt(api.materials, sourceId).contentVersion, 2);
   assert.equal(report.unchanged, 1);
-  const recovered = JSON.parse(
-    await readFile(join(setup.stateDirectory, "journal.json"), "utf8"),
-  );
-  assert.equal(recovered.operations[first.key].status, "applied");
-  assert.equal(recovered.materials[sourceId].contentVersion, 2);
+  const recovered = await readJournalFile(setup.stateDirectory);
+  assert.equal(operationAt(recovered, first.key).status, "applied");
+  assert.equal(entryAt(recovered.materials, sourceId).contentVersion, 2);
 });
 
 test("editing and moving an original retains its material ID and URL and applies the new body once", async (t) => {
@@ -255,10 +258,8 @@ test("an edited original stops on a foreign target version and preserves the for
   assert.equal(applyCalls(api).length, 1);
   assert.equal(current.contentVersion, 3);
   assert.deepEqual(current.body, { foreign: "Keep this change" });
-  const journal = JSON.parse(
-    await readFile(join(setup.stateDirectory, "journal.json"), "utf8"),
-  );
-  assert.equal(journal.materials[sourceId].contentVersion, 2);
+  const journal = await readJournalFile(setup.stateDirectory);
+  assert.equal(entryAt(journal.materials, sourceId).contentVersion, 2);
 });
 
 test("a definitive 422 rejection does not replay ahead of a corrected package", async (t) => {
@@ -285,13 +286,11 @@ test("a definitive 422 rejection does not replay ahead of a corrected package", 
   };
   await assert.rejects(setup.sync(transport), { status: 422 });
   assert.equal(api.commits, 0);
-  const rejected = JSON.parse(
-    await readFile(join(setup.stateDirectory, "journal.json"), "utf8"),
-  );
+  const rejected = await readJournalFile(setup.stateDirectory);
   const first = itemAt(transmitted, 0);
   assert.ok(first.key);
-  assert.equal(rejected.operations[first.key].status, "rejected");
-  assert.equal(rejected.operations[first.key].error.status, 422);
+  assert.equal(operationAt(rejected, first.key).status, "rejected");
+  assert.equal(operationAt(rejected, first.key).error?.status, 422);
   assert.equal(valueAt(api.materials, sourceId).contentVersion, 1);
 
   itemAt(setup.manifest.materials, 0).markdown = "Corrected original text";
@@ -313,11 +312,9 @@ test("a definitive 422 rejection does not replay ahead of a corrected package", 
   assert.equal(api.commits, 1);
   assert.equal(api.materials.size, 1);
   assert.equal(valueAt(api.materials, sourceId).contentVersion, 2);
-  const recovered = JSON.parse(
-    await readFile(join(setup.stateDirectory, "journal.json"), "utf8"),
-  );
-  assert.equal(recovered.operations[first.key].status, "rejected");
-  assert.equal(recovered.operations[second.key].status, "applied");
+  const recovered = await readJournalFile(setup.stateDirectory);
+  assert.equal(operationAt(recovered, first.key).status, "rejected");
+  assert.equal(operationAt(recovered, second.key).status, "applied");
   assert.equal((await setup.sync(transport)).unchanged, 1);
   assert.equal(transmitted.length, 2);
 });

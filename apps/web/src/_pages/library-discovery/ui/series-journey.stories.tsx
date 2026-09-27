@@ -2,7 +2,7 @@ import { useState } from "react";
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { expect, userEvent, waitFor, within } from "storybook/test";
 import {
-  MaterialReadingContext,
+  MaterialReadingScope,
   type MaterialPreview,
 } from "@/entities/material";
 import type { PublishedSeriesResult } from "@/features/library-discovery";
@@ -123,7 +123,7 @@ const meta = {
           .map((item) => [item.materialId ?? "", { isRead: true, version: 1 }]),
       );
       return (
-        <MaterialReadingContext
+        <MaterialReadingScope
           value={{
             accountId: view?.kind === "guest" ? null : "story-account",
             resolved: true,
@@ -134,7 +134,7 @@ const meta = {
           }}
         >
           <Story />
-        </MaterialReadingContext>
+        </MaterialReadingScope>
       );
     },
     ...environment.decorators,

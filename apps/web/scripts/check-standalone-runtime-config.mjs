@@ -57,6 +57,7 @@ process.stdout.write(
   "Standalone server rejected incomplete production config before readiness.\n",
 );
 
+/** @returns {Promise<number>} */
 function findAvailablePort() {
   return new Promise((resolve, reject) => {
     const server = createServer();
