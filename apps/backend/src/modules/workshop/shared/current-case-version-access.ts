@@ -12,10 +12,8 @@ export async function resolveCurrentCaseVersionAccess(
     include: { currentFor: true },
   });
   if (
-    version === null ||
-    version.withdrawnAt !== null ||
-    version.currentFor === null ||
-    version.currentFor.lifecycle !== "published"
+    version?.withdrawnAt !== null ||
+    version.currentFor?.lifecycle !== "published"
   ) {
     return undefined;
   }

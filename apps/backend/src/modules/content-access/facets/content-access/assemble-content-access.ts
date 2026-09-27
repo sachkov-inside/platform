@@ -376,7 +376,7 @@ function projectAvailability(
   subjectFacts: SubjectFacts | undefined,
   workshopAccess: WorkshopMaterialAccessState | undefined,
 ): AccessAvailability["availability"] {
-  if (facts === undefined || facts.publicationState !== "published") {
+  if (facts?.publicationState !== "published") {
     return "unavailable";
   }
   const reason = evaluate(facts, action, subject, subjectFacts, workshopAccess);

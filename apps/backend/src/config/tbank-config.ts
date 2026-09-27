@@ -143,7 +143,7 @@ export function parseTbankConfig(
       "Invalid TBANK_CONFIG_JSON; check the terminal capability and receipt configuration",
     );
   }
-  if (caFile !== undefined && caFile.length === 0)
+  if (caFile?.length === 0)
     throw new Error(
       "Invalid TBANK_CA_FILE; provide the path to the bank certificate root",
     );

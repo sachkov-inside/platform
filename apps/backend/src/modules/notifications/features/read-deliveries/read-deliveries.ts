@@ -92,7 +92,7 @@ export async function resolveUnknown(
     const delivery = await transaction.notificationDelivery.findUnique({
       where: { id: command.deliveryRef },
     });
-    if (!delivery || delivery.state !== "unknown")
+    if (delivery?.state !== "unknown")
       return { ok: false as const, code: "not_unknown" as const };
     await transaction.notificationRecoveryAudit.create({
       data: {

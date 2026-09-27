@@ -168,9 +168,7 @@ export async function projectCommunityEntitlement(
       }
 
       const sameRecipient =
-        stored !== null &&
-        stored.accountRef !== null &&
-        stored.accountRef === currentAccountRef;
+        currentAccountRef !== null && stored?.accountRef === currentAccountRef;
       const latest = stored?.latestOperationId
         ? await transaction.telegramCommunityOperation.findUnique({
             where: { operationId: stored.latestOperationId },

@@ -259,8 +259,7 @@ export function assembleContentCovers(dependencies: {
             },
           });
         if (
-          rendition === null ||
-          rendition.cover.state !== "ready" ||
+          rendition?.cover.state !== "ready" ||
           !rendition.cover.currentlyReferenced
         ) {
           return notFound();
