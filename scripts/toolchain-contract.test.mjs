@@ -346,6 +346,21 @@ describe("supported toolchain contract", () => {
         "apps/web/src/**/*.tsx must not override typescript/no-unsafe-type-assertion",
       ],
     );
+    // A scripts-only override outside the two script lint overrides relaxes a strict rule too.
+    assert.deepEqual(
+      strictLintViolations(
+        withOverrides([
+          ...config.overrides,
+          {
+            files: ["scripts/**/*.mjs"],
+            rules: { "typescript/no-unsafe-type-assertion": "off" },
+          },
+        ]),
+      ),
+      [
+        "scripts/**/*.mjs must not override typescript/no-unsafe-type-assertion",
+      ],
+    );
   });
 
   it("keeps the backend and web text helpers identical", () => {
@@ -468,6 +483,33 @@ describe("supported toolchain contract", () => {
         references: [],
       }),
       ["tsconfig.json must reference tsconfig.scripts.json"],
+    );
+
+    // No other override may relax a script rule, even for a single script.
+    const scripts = spawnSync("git", ["ls-files", "-z", "--", "*.mjs"], {
+      cwd: repositoryRoot,
+      encoding: "utf8",
+    })
+      .stdout.split("\0")
+      .filter((path) => path.length > 0 && !outsideScriptCheck(path));
+    assert.deepEqual(relaxedScriptLintViolations(config, scripts), []);
+    assert.deepEqual(
+      relaxedScriptLintViolations(
+        {
+          ...config,
+          overrides: [
+            ...config.overrides,
+            {
+              files: ["scripts/setup-local.mjs"],
+              rules: { "typescript/no-unsafe-member-access": "off" },
+            },
+          ],
+        },
+        scripts,
+      ),
+      [
+        "scripts/setup-local.mjs must not relax typescript/no-unsafe-member-access for scripts",
+      ],
     );
   });
 
@@ -994,7 +1036,7 @@ function strictLintViolations(config) {
       if (
         override === shared ||
         override.files.includes(generatedCodeFiles) ||
-        matchesScriptsOnly(override)
+        isScriptLintOverride(override)
       )
         continue;
       if (rule in (override.rules ?? {})) {
@@ -1008,12 +1050,34 @@ function strictLintViolations(config) {
 }
 
 /**
- * An override that matches only `.mjs` scripts cannot relax the TypeScript set.
+ * The script lint overrides and the `no-unsafe-*` setting each must hold: the files
+ * tsconfig.scripts.json compiles, and the files it excludes.
+ *
+ * @param {TsConfig} scriptsProject
+ * @returns {[files: string[], setting: string][]}
+ */
+function scriptLintOverrides(scriptsProject) {
+  return [
+    [scriptsProject.include ?? [], "error"],
+    ...(scriptsProject.exclude ?? [])
+      .filter((pattern) => pattern !== "**/node_modules/**")
+      .map(
+        (pattern) =>
+          /** @type {[string[], string]} */ ([[`${pattern}/*.mjs`], "off"]),
+      ),
+  ];
+}
+
+/**
+ * The script lint overrides set the scripts' own rules, which scriptLintViolations checks; any
+ * other override stays under the strict-rule check.
  *
  * @param {OxlintOverride} override
  */
-function matchesScriptsOnly(override) {
-  return override.files.every((files) => files.endsWith(".mjs"));
+function isScriptLintOverride(override) {
+  return scriptLintOverrides(readTsconfig("tsconfig.scripts.json")).some(
+    ([files]) => isDeepStrictEqual(override.files, files),
+  );
 }
 
 /**
@@ -1039,17 +1103,7 @@ function scriptLintViolations(config, scriptsProject, rootProject) {
   const unsafeRules = Object.keys(shared?.rules ?? {}).filter((rule) =>
     rule.startsWith("typescript/no-unsafe-"),
   );
-  /** @type {[string[], string][]} */
-  const expected = [
-    [scriptsProject.include ?? [], "error"],
-    ...(scriptsProject.exclude ?? [])
-      .filter((pattern) => pattern !== "**/node_modules/**")
-      .map(
-        (pattern) =>
-          /** @type {[string[], string]} */ ([[`${pattern}/*.mjs`], "off"]),
-      ),
-  ];
-  for (const [files, setting] of expected) {
+  for (const [files, setting] of scriptLintOverrides(scriptsProject)) {
     const override = config.overrides.find((candidate) =>
       isDeepStrictEqual(candidate.files, files),
     );
@@ -1062,6 +1116,37 @@ function scriptLintViolations(config, scriptsProject, rootProject) {
     for (const rule of unsafeRules) {
       if (override.rules?.[rule] !== setting) {
         violations.push(`${rule} must be ${setting} for ${files.join(", ")}`);
+      }
+    }
+  }
+  return violations;
+}
+
+/**
+ * Only the script lint overrides set the scripts' `no-unsafe-*` rules; another override that
+ * matches a script must not weaken one.
+ *
+ * @param {OxlintConfig} config
+ * @param {string[]} scripts
+ */
+function relaxedScriptLintViolations(config, scripts) {
+  /** @type {string[]} */
+  const violations = [];
+  for (const override of config.overrides) {
+    if (isTypeAwareOverride(override) || isScriptLintOverride(override))
+      continue;
+    const matchesScript = scripts.some((path) =>
+      override.files.some((files) => matchesGlob(path, files)),
+    );
+    if (!matchesScript) continue;
+    for (const [rule, setting] of Object.entries(override.rules ?? {})) {
+      if (
+        rule.startsWith("typescript/no-unsafe-") &&
+        (Array.isArray(setting) ? setting[0] : setting) !== "error"
+      ) {
+        violations.push(
+          `${override.files.join(", ")} must not relax ${rule} for scripts`,
+        );
       }
     }
   }

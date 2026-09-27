@@ -4,11 +4,11 @@ import assert from "node:assert/strict";
 import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
+import { z } from "zod";
 import { canonical } from "./package.mjs";
 import { syncLocal } from "./local-sync.mjs";
 import { materialApplyRequest } from "./local-boundaries.mjs";
 import { applyRelease, previewRelease, releaseTarget } from "./release.mjs";
-import { z } from "zod";
 import { itemAt, reservationBodySchema } from "./test-support.mjs";
 
 const materialId = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";

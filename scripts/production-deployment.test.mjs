@@ -1440,31 +1440,36 @@ function runGateway(fixture, operation, version, runId, extraEnvironment = {}) {
 }
 
 // The deployment journal fields the assertions read; the rest passes through.
-const deployedReleaseSchema = z.looseObject({ version: z.string() });
-const deploymentStateSchema = z.looseObject({
-  operation: z.string(),
-  current: deployedReleaseSchema.extend({
-    deployedAtEpochSeconds: z.number(),
-    githubRunId: z.number(),
-  }),
-  previous: deployedReleaseSchema.nullable(),
-  rollback: z
-    .looseObject({
-      targetVersion: z.string(),
-      compatible: z.boolean(),
-      expiresAtEpochSeconds: z.number(),
-    })
-    .nullable(),
-  rolledBackFrom: deployedReleaseSchema.nullish(),
-});
-const deploymentOperationSchema = z.looseObject({
-  operation: z.string(),
-  version: z.string(),
-  status: z.string(),
-  phase: z.string(),
-  recoveryPhase: z.string().nullish(),
-  repairForward: z.unknown(),
-});
+const deployedReleaseSchema = z.object({ version: z.string() }).passthrough();
+const deploymentStateSchema = z
+  .object({
+    operation: z.string(),
+    current: deployedReleaseSchema.extend({
+      deployedAtEpochSeconds: z.number(),
+      githubRunId: z.number(),
+    }),
+    previous: deployedReleaseSchema.nullable(),
+    rollback: z
+      .object({
+        targetVersion: z.string(),
+        compatible: z.boolean(),
+        expiresAtEpochSeconds: z.number(),
+      })
+      .passthrough()
+      .nullable(),
+    rolledBackFrom: deployedReleaseSchema.nullish(),
+  })
+  .passthrough();
+const deploymentOperationSchema = z
+  .object({
+    operation: z.string(),
+    version: z.string(),
+    status: z.string(),
+    phase: z.string(),
+    recoveryPhase: z.string().nullish(),
+    repairForward: z.unknown(),
+  })
+  .passthrough();
 
 /**
  * @param {string} path

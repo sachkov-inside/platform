@@ -41,11 +41,11 @@ nearest `AGENTS.md` owns task routing and verification commands.
   `test/support/proof-dependencies`: a type import by a relative path into `node_modules` cannot
   resolve the package's own imports.
 - `pnpm lint` applies every `typescript/no-unsafe-*` rule of the shared type-aware set to the files
-  `tsconfig.scripts.json` compiles (#763); the root `tsconfig.json` references that project so
-  type-aware lint resolves script types, and `scripts/toolchain-contract.test.mjs` fails when a
+  `tsconfig.scripts.json` compiles (#763); the root `tsconfig.json` compiles nothing (`files: []`)
+  and only references that project so type-aware lint resolves script types, and `scripts/toolchain-contract.test.mjs` fails when a
   script directory, a rule or the reference drops out. Parse `JSON.parse`, `Response.json()` and
   database rows with a schema, or keep them `unknown` until an explicit check; `package.json` is
-  read through `scripts/package-manifest.mjs`. The `any` that `createRequire` returns is asserted
+  parsed by the schema in `scripts/package-manifest.mjs`. The `any` that `createRequire` returns is asserted
   to its `proof-dependencies` type inside an `oxlint-disable`/`oxlint-enable` block for
   `typescript/no-unsafe-type-assertion`: a `disable-next-line` comment inside a JSDoc cast does not
   suppress it.
