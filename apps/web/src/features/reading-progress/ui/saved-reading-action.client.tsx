@@ -71,7 +71,7 @@ export function SavedReadingAction({
       kind: "pending",
       isRead,
       canMark: canMark && !denied,
-      desiredIsRead: mutation.variables?.isRead ?? !isRead,
+      desiredIsRead: mutation.variables.isRead,
     };
   else if (notice === "error")
     view = {

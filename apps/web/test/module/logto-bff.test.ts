@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
+import { z } from "zod";
 
 import { AudienceBoundLogtoClient } from "@/shared/auth/audience-bound-logto-client.server";
 
@@ -139,7 +140,7 @@ describe("Logto BFF configuration", () => {
       "https://api.example.test",
     );
     expect(
-      new URLSearchParams(searchParams?.body as string).get("resource"),
+      new URLSearchParams(z.string().parse(searchParams?.body)).get("resource"),
     ).toBe("https://api.example.test");
   });
 
@@ -177,10 +178,9 @@ describe("Logto BFF configuration", () => {
 
     expect(requester).toHaveBeenCalledOnce();
     const init = requester.mock.calls[0]?.[1];
-    expect(typeof init?.body).toBe("string");
-    expect(new URLSearchParams(init?.body as string).get("resource")).toBe(
-      "https://api.example.test",
-    );
+    expect(
+      new URLSearchParams(z.string().parse(init?.body)).get("resource"),
+    ).toBe("https://api.example.test");
   });
 
   it("derives the SDK cookie key and accepts only same-origin mutations", () => {

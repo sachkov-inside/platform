@@ -17,8 +17,7 @@ export function guideChapterRuns<Item, Chapter extends { readonly id: string }>(
   for (const [offset, item] of items.entries()) {
     const chapterId = chapterIdOf(item);
     const current = runs.at(-1);
-    if (current !== undefined && current.chapterId === chapterId)
-      current.items.push(item);
+    if (current?.chapterId === chapterId) current.items.push(item);
     else runs.push({ chapterId, items: [item], offset });
   }
 

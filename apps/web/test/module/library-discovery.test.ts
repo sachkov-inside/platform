@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { z } from "zod";
 
 import {
   getPublishedSeries,
@@ -166,9 +167,10 @@ describe("Library discovery server adapter", () => {
         relatedSeries: [],
         topics: [],
       });
-      const request = vi.mocked(fetch).mock.calls[0]?.[0];
-      expect(request).toBeInstanceOf(Request);
-      expect((request as Request).url).toBe(
+      const request = z
+        .instanceof(Request)
+        .parse(vi.mocked(fetch).mock.calls[0]?.[0]);
+      expect(request.url).toBe(
         `https://platform-api.example.test${expectedPath}`,
       );
     },

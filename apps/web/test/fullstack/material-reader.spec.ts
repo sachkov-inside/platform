@@ -4,6 +4,7 @@ import { resolve } from "node:path";
 
 import { signInFullStack } from "../support/full-stack-session";
 import { prepareEvidenceDirectory } from "../../../../scripts/evidence-path.mjs";
+import { z } from "zod";
 
 test("Home exposes one client-owned feed and preserves the reader return", async ({
   page,
@@ -181,29 +182,38 @@ test("server-renders the representative PostgreSQL Material through Nest", async
     });
     if (PerformanceObserver.supportedEntryTypes.includes("layout-shift")) {
       new PerformanceObserver((list) => {
+        // lib.dom has no LayoutShift yet, so the entry fields are read as unknown.
         for (const entry of list.getEntries()) {
-          const shift = entry as PerformanceEntry & {
-            hadRecentInput: boolean;
-            sources?: readonly { readonly node?: Node }[];
-            value: number;
-          };
-          if (!shift.hadRecentInput) {
-            measurements.cls += shift.value;
-            measurements.shifts.push({
-              sources: (shift.sources ?? []).map(({ node }) => {
-                if (!(node instanceof Element)) {
-                  return node instanceof Node ? node.nodeName : "unknown";
-                }
-                const id = node.id.length === 0 ? "" : `#${node.id}`;
-                const classes = [...node.classList]
-                  .slice(0, 4)
-                  .map((className) => `.${className}`)
-                  .join("");
-                return `${node.tagName.toLowerCase()}${id}${classes}`;
-              }),
-              value: shift.value,
-            });
+          if (!("value" in entry) || typeof entry.value !== "number") continue;
+          if ("hadRecentInput" in entry && entry.hadRecentInput === true) {
+            continue;
           }
+          const value = entry.value;
+          const sources: readonly unknown[] =
+            "sources" in entry && Array.isArray(entry.sources)
+              ? entry.sources
+              : [];
+          measurements.cls += value;
+          measurements.shifts.push({
+            sources: sources.map((source) => {
+              const node =
+                typeof source === "object" &&
+                source !== null &&
+                "node" in source
+                  ? source.node
+                  : undefined;
+              if (!(node instanceof Element)) {
+                return node instanceof Node ? node.nodeName : "unknown";
+              }
+              const id = node.id.length === 0 ? "" : `#${node.id}`;
+              const classes = [...node.classList]
+                .slice(0, 4)
+                .map((className) => `.${className}`)
+                .join("");
+              return `${node.tagName.toLowerCase()}${id}${classes}`;
+            }),
+            value,
+          });
         }
       }).observe({ type: "layout-shift", buffered: true });
     }
@@ -292,30 +302,30 @@ test("server-renders the representative PostgreSQL Material through Nest", async
   }));
   expect(overflow.scrollWidth).toBeLessThanOrEqual(overflow.clientWidth);
 
-  const metrics = await page.evaluate(() => {
-    const navigation = window.performance.getEntriesByType("navigation")[0] as
-      PerformanceNavigationTiming | undefined;
-    const measured = (
-      window as unknown as Window & {
-        __readerPerformance: {
-          cls: number;
-          inp: number;
-          lcp: number;
-          shifts: readonly {
-            readonly sources: readonly string[];
-            readonly value: number;
-          }[];
-        };
-      }
-    ).__readerPerformance;
+  const collected = await page.evaluate(() => {
+    const navigation = window.performance.getEntriesByType("navigation")[0];
+    const measured: unknown = Reflect.get(window, "__readerPerformance");
     return {
-      ...measured,
+      measured,
       ttfb:
-        navigation === undefined
-          ? Number.POSITIVE_INFINITY
-          : navigation.responseStart,
+        navigation instanceof PerformanceNavigationTiming
+          ? navigation.responseStart
+          : Number.POSITIVE_INFINITY,
     };
   });
+  const metrics = {
+    ...z
+      .object({
+        cls: z.number(),
+        inp: z.number(),
+        lcp: z.number(),
+        shifts: z.array(
+          z.object({ sources: z.array(z.string()), value: z.number() }),
+        ),
+      })
+      .parse(collected.measured),
+    ttfb: collected.ttfb,
+  };
   expect(metrics.ttfb).toBeLessThanOrEqual(800);
   expect(metrics.lcp).toBeLessThanOrEqual(2_500);
   expect(metrics.inp).toBeLessThanOrEqual(200);
@@ -868,20 +878,16 @@ test("keeps desktop shell fixed while main content owns scrolling", async ({
   test.skip(testInfo.project.name !== "desktop-chromium");
 
   await page.addInitScript(() => {
-    Object.defineProperty(window, "__shellCls", { value: { value: 0 } });
+    const shellCls = { value: 0 };
+    Object.defineProperty(window, "__shellCls", { value: shellCls });
     new PerformanceObserver((list) => {
+      // lib.dom has no LayoutShift yet, so the entry fields are read as unknown.
       for (const entry of list.getEntries()) {
-        const shift = entry as PerformanceEntry & {
-          readonly hadRecentInput: boolean;
-          readonly value: number;
-        };
-        if (!shift.hadRecentInput) {
-          (
-            window as unknown as Window & {
-              readonly __shellCls: { value: number };
-            }
-          ).__shellCls.value += shift.value;
+        if (!("value" in entry) || typeof entry.value !== "number") continue;
+        if ("hadRecentInput" in entry && entry.hadRecentInput === true) {
+          continue;
         }
+        shellCls.value += entry.value;
       }
     }).observe({ type: "layout-shift", buffered: true });
   });
@@ -894,11 +900,10 @@ test("keeps desktop shell fixed while main content owns scrolling", async ({
   });
 
   await page.evaluate(() => {
-    (
-      window as unknown as Window & {
-        readonly __shellCls: { value: number };
-      }
-    ).__shellCls.value = 0;
+    const shellCls: unknown = Reflect.get(window, "__shellCls");
+    if (typeof shellCls === "object" && shellCls !== null) {
+      Reflect.set(shellCls, "value", 0);
+    }
   });
   await header.hover();
   await expect
@@ -910,16 +915,12 @@ test("keeps desktop shell fixed while main content owns scrolling", async ({
     )
     .toEqual(initialMainRect);
   await page.waitForTimeout(500);
-  expect(
-    await page.evaluate(
-      () =>
-        (
-          window as unknown as Window & {
-            readonly __shellCls: { value: number };
-          }
-        ).__shellCls.value,
-    ),
-  ).toBeLessThanOrEqual(0.001);
+  const shellCls = z
+    .object({ value: z.number() })
+    .parse(
+      await page.evaluate((): unknown => Reflect.get(window, "__shellCls")),
+    );
+  expect(shellCls.value).toBeLessThanOrEqual(0.001);
   await page.mouse.wheel(0, 600);
   await page.waitForTimeout(100);
   await expect.poll(() => page.evaluate(() => window.scrollY)).toBe(0);

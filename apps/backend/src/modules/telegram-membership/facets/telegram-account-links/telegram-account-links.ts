@@ -29,11 +29,7 @@ export class TelegramAccountLinks {
       if (rows.length > 1)
         return { ok: true as const, state: "ambiguous" as const };
       const row = rows[0];
-      if (
-        row === undefined ||
-        row.principalRef === null ||
-        row.identityRef === null
-      )
+      if (row?.principalRef == null || row.identityRef === null)
         return { ok: true as const, state: "not_found" as const };
       return {
         ok: true as const,
@@ -133,11 +129,7 @@ export class TelegramAccountLinks {
       });
       const row = rows[0];
       // Ambiguous persisted ownership must not select an arbitrary author.
-      if (
-        rows.length !== 1 ||
-        row === undefined ||
-        row.providerIdentityRef === null
-      )
+      if (rows.length !== 1 || row?.providerIdentityRef == null)
         return { ok: true, link: null };
       return {
         ok: true,

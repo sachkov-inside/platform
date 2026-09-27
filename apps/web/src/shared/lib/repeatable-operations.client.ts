@@ -16,9 +16,10 @@ export function createRepeatableOperations(): RepeatableOperations {
   const slots = new Map<string, { key: string; id: string }>();
   return {
     operationId: (slot, payload) => {
-      const key = JSON.stringify(payload);
+      // Wrapped, the key is always text: `JSON.stringify(undefined)` alone is undefined.
+      const key = JSON.stringify({ payload });
       const current = slots.get(slot);
-      if (current !== undefined && current.key === key) return current.id;
+      if (current?.key === key) return current.id;
       const next = { key, id: crypto.randomUUID() };
       slots.set(slot, next);
       return next.id;

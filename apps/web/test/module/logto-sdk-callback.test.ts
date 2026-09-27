@@ -1,5 +1,6 @@
 import LogtoClient, { PersistKey } from "@logto/node/edge";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { z } from "zod";
 
 import { providerCallbackUrl } from "@/shared/auth/provider-callback-url.server";
 
@@ -42,9 +43,11 @@ describe("pinned Logto SDK callback corpus", () => {
     for (const mutation of ["code", "verifier"] as const) {
       const proof = await createProofClient();
       if (mutation === "verifier") {
-        const session = JSON.parse(
-          proof.storage.get(PersistKey.SignInSession) ?? "null",
-        ) as Record<string, unknown>;
+        const session = z
+          .record(z.string(), z.unknown())
+          .parse(
+            JSON.parse(proof.storage.get(PersistKey.SignInSession) ?? "null"),
+          );
         proof.storage.set(
           PersistKey.SignInSession,
           JSON.stringify({ ...session, codeVerifier: "wrong-verifier" }),
@@ -142,11 +145,10 @@ async function createProofClient() {
     authorizationUrl = url;
   };
   await client.signIn({ redirectUri });
-  const session = JSON.parse(
-    storage.get(PersistKey.SignInSession) ?? "null",
-  ) as {
-    codeVerifier?: string;
-  } | null;
+  const session = z
+    .object({ codeVerifier: z.string().optional() })
+    .nullable()
+    .parse(JSON.parse(storage.get(PersistKey.SignInSession) ?? "null"));
   accepted.verifier = session?.codeVerifier;
   const state = new URL(authorizationUrl).searchParams.get("state");
   if (state === null)

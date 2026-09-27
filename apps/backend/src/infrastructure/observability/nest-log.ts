@@ -1,6 +1,7 @@
 import type { LoggerService } from "@nestjs/common";
 
 import { describeError, type LogLevel, redactText, writeLog } from "./log.js";
+import { jsonText } from "../contracts/json-text.js";
 
 /**
  * Журнал Nest в том же формате, что остальные записи процесса. Отладочные уровни Nest не
@@ -39,9 +40,7 @@ function write(
       ? { error: describeError(message) }
       : {
           message: redactText(
-            typeof message === "string"
-              ? message
-              : (JSON.stringify(message) ?? ""),
+            typeof message === "string" ? message : (jsonText(message) ?? ""),
           ),
         }),
   });

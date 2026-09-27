@@ -809,7 +809,9 @@ export const Desktop: Story = {
     ).toBeInTheDocument();
     const image = canvas.getByRole("img", {
       name: "Маршрут от project rules через skill к evidence",
-    }) as HTMLImageElement;
+    });
+    if (!(image instanceof HTMLImageElement))
+      throw new Error("Expected the material image");
     image.scrollIntoView({ behavior: "instant" });
     await image.decode();
     await expect(image.naturalWidth).toBeGreaterThan(0);

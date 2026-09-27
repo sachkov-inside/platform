@@ -120,8 +120,7 @@ export async function setReadingState(
           if (!facts.ok)
             return { ok: false, error: { code: "dependency_unavailable" } };
           if (
-            facts.value === null ||
-            facts.value.publicationState !== "published" ||
+            facts.value?.publicationState !== "published" ||
             facts.value.contentVersion !== decision.checkedContentVersion ||
             ("validUntil" in decision &&
               decision.validUntil !== null &&

@@ -21,9 +21,9 @@ export function WelcomeDialog({
     const element = dialog.current;
     if (element === null || element.matches(":modal")) return;
     // Focus the reader already moved inside the server-rendered dialog is kept.
-    const kept = element.contains(document.activeElement)
-      ? (document.activeElement as HTMLElement)
-      : null;
+    const active = document.activeElement;
+    const kept =
+      active instanceof HTMLElement && element.contains(active) ? active : null;
     if (element.open) element.close();
     element.showModal();
     (

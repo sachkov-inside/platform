@@ -228,8 +228,8 @@ function MobileBottomNavigation({
   );
 }
 
-function isCurrentPath(pathname: string, href: Route): boolean {
-  href = href.split("?")[0] as Route;
+function isCurrentPath(pathname: string, route: Route): boolean {
+  const href = route.split("?")[0] ?? route;
   if (href === "/" && pathname === "/") return true;
   if (
     href === "/" &&

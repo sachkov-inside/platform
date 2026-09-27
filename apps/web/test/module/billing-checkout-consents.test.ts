@@ -40,6 +40,7 @@ const documents: readonly LegalDocument[] = [
 
 /** Расчёт несёт режим покупки: правило берёт его оттуда же, откуда берут панель и приложение. */
 const quoteFor = (mode: PaymentMode): BillingQuote =>
+  // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- The consent rule reads only the payment mode.
   ({ snapshot: { paymentOption: { mode } } }) as unknown as BillingQuote;
 
 it("кнопка принимает только обязательные документы своей покупки", () => {

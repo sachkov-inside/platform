@@ -207,7 +207,7 @@ describe("one-time guide purchase (real PostgreSQL and real facets; synthetic ba
       ...extra,
     });
     const bank = new Tbank(terminal, (url, init) => {
-      if (typeof init?.body !== "string" || typeof url !== "string")
+      if (typeof init.body !== "string" || typeof url !== "string")
         throw new Error("Unexpected bank request");
       const body = z
         .object({

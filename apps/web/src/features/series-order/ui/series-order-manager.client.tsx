@@ -46,6 +46,7 @@ import {
   GUIDE_CHAPTER_NAME_MAX,
   GUIDE_CHAPTER_SUMMARY_MAX,
 } from "../model/presentation";
+import { dragLeftElement } from "@/shared/lib/drag-left-element";
 
 const STEP_GROUP_LIMIT = 120;
 const UNASSIGNED = "unassigned";
@@ -316,11 +317,7 @@ export function SeriesOrderManager({
           <header className="flex flex-wrap items-start justify-between gap-4 border-b border-border pb-5">
             <div className="flex min-w-0 items-start gap-3">
               <Button
-                aria-label={
-                  embedded
-                    ? "Закрыть состав продукта"
-                    : "Вернуться к материалам"
-                }
+                aria-label="Вернуться к материалам"
                 className="mt-0.5 size-10"
                 onClick={close}
                 size="icon"
@@ -342,44 +339,42 @@ export function SeriesOrderManager({
               </div>
             </div>
             <div className="grid w-full gap-3 sm:w-72">
-              {embedded ? null : (
-                <div>
-                  <label
-                    className="mb-2 block text-sm font-medium"
-                    htmlFor="playlist-switcher"
+              <div>
+                <label
+                  className="mb-2 block text-sm font-medium"
+                  htmlFor="playlist-switcher"
+                >
+                  Продукт
+                </label>
+                <Select
+                  onValueChange={(value) => {
+                    onSelectPlaylist(value);
+                  }}
+                  value={presentation.seriesId}
+                >
+                  <SelectTrigger
+                    className="min-h-11 w-full rounded-xl bg-card"
+                    id="playlist-switcher"
                   >
-                    Продукт
-                  </label>
-                  <Select
-                    onValueChange={(value) => {
-                      onSelectPlaylist(value);
-                    }}
-                    value={presentation.seriesId}
-                  >
-                    <SelectTrigger
-                      className="min-h-11 w-full rounded-xl bg-card"
-                      id="playlist-switcher"
-                    >
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {presentation.options.map((option) => (
-                        <SelectItem
-                          disabled={
-                            option.archived === true &&
-                            option.value !== presentation.seriesId
-                          }
-                          key={option.value}
-                          value={option.value}
-                        >
-                          {option.label}
-                          {option.archived === true ? " · архив" : ""}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-              )}
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {presentation.options.map((option) => (
+                      <SelectItem
+                        disabled={
+                          option.archived === true &&
+                          option.value !== presentation.seriesId
+                        }
+                        key={option.value}
+                        value={option.value}
+                      >
+                        {option.label}
+                        {option.archived === true ? " · архив" : ""}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
               <div className="grid grid-cols-2 gap-2">
                 <Button
                   disabled={presentation.archived}
@@ -1066,8 +1061,7 @@ function MaterialRow({
         setDropId(item.materialId);
       }}
       onDragLeave={(event) => {
-        if (!event.currentTarget.contains(event.relatedTarget as Node | null))
-          setDropId(null);
+        if (dragLeftElement(event)) setDropId(null);
       }}
       onDrop={(event) => {
         if (draggedId === null) return;

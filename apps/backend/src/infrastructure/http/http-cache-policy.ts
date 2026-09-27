@@ -64,10 +64,9 @@ export class HttpCachePolicyInterceptor implements NestInterceptor {
   constructor(@Inject(Reflector) private readonly reflector: Reflector) {}
 
   intercept(context: ExecutionContext, next: CallHandler): Observable<unknown> {
-    const policy = this.reflector.getAllAndOverride<HttpCachePolicy>(
-      CACHE_POLICY_METADATA,
-      [context.getHandler(), context.getClass()],
-    );
+    const policy = this.reflector.getAllAndOverride<
+      HttpCachePolicy | undefined
+    >(CACHE_POLICY_METADATA, [context.getHandler(), context.getClass()]);
     if (policy === undefined) {
       return next.handle();
     }

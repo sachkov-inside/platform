@@ -54,8 +54,9 @@ export function handleAuthenticatedMutation(
 ): Promise<Response>;
 export async function handleAuthenticatedMutation(
   request: Request,
-  execute: ExecuteMutation | ExecuteStreamingMutation,
-  options?: StreamingMutationOptions,
+  ...[execute, options]:
+    | [execute: ExecuteMutation, options?: undefined]
+    | [execute: ExecuteStreamingMutation, options: StreamingMutationOptions]
 ): Promise<Response> {
   const config = readLogtoBffConfig();
   if (!isSameOriginMutation(request, config.baseUrl)) {
@@ -99,9 +100,7 @@ export async function handleAuthenticatedMutation(
         ? null
         : limitBodyStream(request.body, options.maxBytes, limit);
     try {
-      return privateMutationResponse(
-        await (execute as ExecuteStreamingMutation)(body, accessToken),
-      );
+      return privateMutationResponse(await execute(body, accessToken));
     } catch {
       return privateMutationResponse(
         options.failureResponse(
@@ -128,7 +127,7 @@ export async function handleAuthenticatedMutation(
 
   let result: unknown;
   try {
-    result = await (execute as ExecuteMutation)(formData, accessToken);
+    result = await execute(formData, accessToken);
   } catch (error) {
     // Запись могла состояться до того, как потерялся ответ backend. Отложенный сброс кеша Next.js
     // выполняет только при обычном возврате обработчика, а с исключением отбрасывает, поэтому сбой

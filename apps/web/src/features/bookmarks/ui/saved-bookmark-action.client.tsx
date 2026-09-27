@@ -65,7 +65,7 @@ export function SavedBookmarkAction({
     view = {
       kind: "pending",
       bookmarked,
-      desired: mutation.variables?.bookmarked ?? !bookmarked,
+      desired: mutation.variables.bookmarked,
     };
   else if (notice === "error")
     view = {

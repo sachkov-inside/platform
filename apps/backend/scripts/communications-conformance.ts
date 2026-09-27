@@ -642,11 +642,10 @@ try {
     command("deliveries.read", { deliveryId: unknown.deliveryId }),
   );
   assert("deliveries" in resolved);
-  assert.equal(resolved.deliveries[0]?.parts[0]?.state, "skipped");
-  assert.deepEqual(
-    resolved.deliveries[0]?.parts[0]?.attempts,
-    unknownPart.attempts,
-  );
+  const resolvedPart = resolved.deliveries[0]?.parts[0];
+  assert.ok(resolvedPart !== undefined);
+  assert.equal(resolvedPart.state, "skipped");
+  assert.deepEqual(resolvedPart.attempts, unknownPart.attempts);
   pass(
     "unknown has no automatic resend; delegated explicit skip preserves attempt evidence",
   );

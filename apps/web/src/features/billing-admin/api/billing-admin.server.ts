@@ -355,8 +355,7 @@ export async function loadBillingOffersForOwner(): Promise<
     );
     if (!result.ok) return [];
     const parsed = catalogOffersOutcomeSchema.safeParse(result.body);
-    if (!parsed.success || parsed.data.result.outcome !== "catalogOffers")
-      return [];
+    if (!parsed.success) return [];
     return parsed.data.result.items;
   } catch {
     return [];

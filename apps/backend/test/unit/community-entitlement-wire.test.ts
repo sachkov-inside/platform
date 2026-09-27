@@ -81,13 +81,15 @@ describe("community entitlement wire agreement", () => {
                 })
               : undefined;
       if (codec === undefined) continue;
-      const parsed = codec.safeParse(fixture.value);
+      // The fixture file may hold any JSON value, whatever the current examples infer to.
+      const value: unknown = fixture.value;
+      const parsed = codec.safeParse(value);
       const isStatusQuery =
-        typeof fixture.value === "object" &&
-        fixture.value !== null &&
-        "operation" in fixture.value &&
-        fixture.value.operation !== "entitlement.set" &&
-        fixture.value.operation !== "entitlement.result";
+        typeof value === "object" &&
+        value !== null &&
+        "operation" in value &&
+        value.operation !== "entitlement.set" &&
+        value.operation !== "entitlement.result";
       if (fixture.valid && !isStatusQuery) {
         expect(parsed.success, fixture.name).toBe(true);
       }

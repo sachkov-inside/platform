@@ -93,7 +93,7 @@ export function SeriesJourneyControls({
     ? 0
     : restoredIndex >= 0
       ? restoredIndex + 1
-      : !selection.explicit && search.has("page")
+      : search.has("page")
         ? requestedPage * SERIES_BATCH_SIZE
         : resumeIndex + 1;
   const initialCount = Math.min(

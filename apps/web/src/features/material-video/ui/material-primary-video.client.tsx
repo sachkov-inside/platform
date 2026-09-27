@@ -92,6 +92,8 @@ export function MaterialPrimaryVideo({
   useEffect(() => {
     if (video.state !== "ready") return;
     let active = true;
+    // A call is not narrowed, so each check reads the value the cleanup may have changed.
+    const isActive = () => active;
     let mountedPlayer: { destroy(): Promise<void> } | null = null;
     let removeTimeListener: (() => void) | undefined;
     const loadPlayer = async () => {
@@ -100,7 +102,7 @@ export function MaterialPrimaryVideo({
           materialId,
           videoId: video.videoId,
         });
-        if (!active) return;
+        if (!isActive()) return;
         if (session === null || session.videoId !== video.videoId) {
           throw new Error("Playback session is unavailable");
         }
@@ -134,9 +136,9 @@ export function MaterialPrimaryVideo({
           }
         }
         const iframeApi = await import("@kinescope/player-iframe-api-loader");
-        if (!active) return;
+        if (!isActive()) return;
         const factory = await iframeApi.load();
-        if (!active) return;
+        if (!isActive()) return;
         const player = await factory.create(mount, {
           behavior: {
             autoPlay: false,
@@ -149,7 +151,7 @@ export function MaterialPrimaryVideo({
           ui: { controls: true, fullscreenButton: true, language: "ru" },
           url: source.toString(),
         });
-        if (!active) {
+        if (!isActive()) {
           await player.destroy();
           return;
         }
@@ -162,7 +164,7 @@ export function MaterialPrimaryVideo({
         iframe?.setAttribute("allowfullscreen", "true");
         iframe?.setAttribute("title", video.title);
         const duration = Math.max(1, Math.round(await player.getDuration()));
-        if (!active) return;
+        if (!isActive()) return;
         const playbackProgress = resolveVideoPlaybackProgress(
           savedPositionSeconds,
           duration,
@@ -187,11 +189,11 @@ export function MaterialPrimaryVideo({
           if (seeking) return;
           seeking = true;
           try {
-            while (active && pendingSeek !== null) {
+            while (isActive() && pendingSeek !== null) {
               const target = pendingSeek;
               pendingSeek = null;
               await player.seekTo(target);
-              if (active) {
+              if (isActive()) {
                 currentTime = target;
                 updateChapter(target);
               }
@@ -202,9 +204,9 @@ export function MaterialPrimaryVideo({
         };
         const seekToFragment = () => {
           const seconds = readVideoTimeFragment(window.location.hash, duration);
-          if (!active || seconds === null) return;
+          if (!isActive() || seconds === null) return;
           void seekToMoment(seconds).catch(() => {
-            if (active) setPhase("error");
+            if (isActive()) setPhase("error");
           });
         };
         window.addEventListener("hashchange", seekToFragment);
@@ -214,7 +216,7 @@ export function MaterialPrimaryVideo({
         if (resumeSeconds !== null) {
           await seekToMoment(resumeSeconds);
         }
-        if (!active) return;
+        if (!isActive()) return;
         setMeasuredDuration(duration);
         progressContextRef.current = {
           durationSeconds: duration,
@@ -224,7 +226,7 @@ export function MaterialPrimaryVideo({
           setWatchedOverride(playbackProgress.watched);
         let lastPersisted = currentTime;
         const persist = (position: number) => {
-          if (!active) return;
+          if (!isActive()) return;
           const rounded = Math.max(0, Math.min(duration, Math.round(position)));
           lastPersisted = rounded;
           if (session.progressScope === "anonymous") {
@@ -251,13 +253,13 @@ export function MaterialPrimaryVideo({
           persist(currentTime);
         });
         player.on(player.Events.Ended, () => {
-          if (!active) return;
+          if (!isActive()) return;
           persist(duration);
           setWatchedOverride(true);
         });
         setPhase("playing");
       } catch {
-        if (active) {
+        if (isActive()) {
           removeTimeListener?.();
           void mountedPlayer?.destroy();
           mountedPlayer = null;

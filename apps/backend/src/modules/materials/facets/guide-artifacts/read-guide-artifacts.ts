@@ -163,8 +163,7 @@ export async function loadGuideArtifactFileDelivery(
     const row = await loadArtifactRow(prisma, parsedArtifactId.data);
     const current = row === null ? null : readyVersion(row);
     if (
-      current === null ||
-      current.contentKind !== "file" ||
+      current?.contentKind !== "file" ||
       current.protectedObjectKey === null ||
       current.contentType === null ||
       current.byteSize === null ||

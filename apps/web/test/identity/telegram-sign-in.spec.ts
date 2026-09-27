@@ -20,8 +20,8 @@ const statusSchema = z.object({
   status: z.string(),
   requestRef: z.uuid().optional(),
 });
-const logtoEndpoint =
-  process.env.LOGTO_ENDPOINT ?? "https://identity.inside.localhost:3631";
+// The guard above already requires an explicit endpoint.
+const logtoEndpoint = process.env.LOGTO_ENDPOINT;
 const webhookEndpoint =
   process.env.TELEGRAM_PROOF_WEBHOOK_URL ??
   "http://127.0.0.1:3606/webhooks/telegram";

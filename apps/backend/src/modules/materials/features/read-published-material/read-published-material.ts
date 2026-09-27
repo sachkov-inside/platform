@@ -128,8 +128,7 @@ export async function readPublishedMaterial(
         },
       });
       if (
-        currentVideo === null ||
-        currentVideo.publicationState !== "published" ||
+        currentVideo?.publicationState !== "published" ||
         currentVideo.contentVersion !== BigInt(access.checkedContentVersion)
       )
         continue;

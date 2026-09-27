@@ -263,11 +263,23 @@ describe("HTTP and delegated OAuth communications parity against a contract stub
     };
   });
   afterAll(async () => {
-    await Promise.all([...clients.values()].map((client) => client.close()));
-    await mcp?.close();
-    await app?.close();
-    await provider.close();
-    await database?.dispose();
+    // beforeAll may stop before a later resource exists; `finally` still releases the earlier ones.
+    try {
+      try {
+        await Promise.all(
+          [...clients.values()].map((client) => client.close()),
+        );
+        await mcp.close();
+      } finally {
+        await app.close();
+      }
+    } finally {
+      try {
+        await provider.close();
+      } finally {
+        await database.dispose();
+      }
+    }
   });
 
   function token(subject: string) {

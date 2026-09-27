@@ -53,7 +53,7 @@ export async function getPersonalHome(
                 label: continuationLabel(video.resume),
               },
             }),
-        ...(series === null || series.continuation === null
+        ...(series?.continuation == null
           ? {}
           : {
               series: {

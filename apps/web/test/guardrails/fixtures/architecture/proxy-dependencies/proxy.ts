@@ -6,7 +6,9 @@ import { topicAddressExists } from "./direct-fetch";
 import { hasSessionCookie } from "./session-cookie";
 
 /** Нарушение: proxy спрашивает backend и читает сессию до ответа. */
-export async function proxy(request: NextRequest): Promise<NextResponse | undefined> {
+export async function proxy(
+  request: NextRequest,
+): Promise<NextResponse | undefined> {
   await cookies();
   if (hasSessionCookie(request)) return undefined;
   if (await catalogAddressExists(request.nextUrl.pathname)) return undefined;

@@ -11,47 +11,45 @@ export interface AccountSection {
   readonly summary: string;
 }
 
-const sections = [
-  {
+/** Название и задача раздела живут в одном месте: их берут и навигация, и заголовок раздела. */
+export const accountSectionById: {
+  readonly [Id in AccountSectionId]: AccountSection & { readonly id: Id };
+} = {
+  profile: {
     id: "profile",
     href: "/account",
     label: "Профиль",
     summary: "Аватар, имя и о себе — видите только вы",
   },
-  {
+  access: {
     id: "access",
     href: "/account/access",
     label: "Аккаунт",
     summary: "Связь с Telegram, принятые документы и выход",
   },
-  {
+  purchases: {
     id: "purchases",
     href: "/account/purchases",
     label: "Покупки",
     summary: "Что доступно, списания, чеки и способ оплаты",
   },
-  {
+  subscription: {
     id: "subscription",
     href: "/account/subscription",
     label: "Подписка",
     summary: "Тариф, срок, следующее списание и управление",
   },
-  {
+  notifications: {
     id: "notifications",
     href: "/account/notifications",
     label: "Уведомления",
     summary: "Каналы, по которым приходят сообщения",
   },
-] as const satisfies readonly AccountSection[];
+};
 
-export const accountSections: readonly AccountSection[] = sections;
-
-/** Название и задача раздела живут в одном месте: их берут и навигация, и заголовок раздела. */
-export const accountSectionById: Readonly<
-  Record<AccountSectionId, AccountSection>
-> = Object.fromEntries(
-  sections.map((section) => [section.id, section]),
-) as Readonly<Record<AccountSectionId, AccountSection>>;
+/** Порядок разделов в навигации — порядок ключей выше. */
+export const accountSections: readonly AccountSection[] =
+  Object.values(accountSectionById);
 
 /**
  * Раздел подписки доступен для управления уже купленной подпиской.

@@ -63,13 +63,17 @@ beforeAll(async () => {
 });
 
 afterAll(async () => {
-  await browser?.close();
-  await new Promise<void>((resolve, reject) =>
-    server?.close((error) => {
-      if (error) reject(error);
-      else resolve();
-    }),
-  );
+  // beforeAll may stop before the browser exists; `finally` still stops the fixture server.
+  try {
+    await browser.close();
+  } finally {
+    await new Promise<void>((resolve, reject) =>
+      server.close((error) => {
+        if (error) reject(error);
+        else resolve();
+      }),
+    );
+  }
 });
 
 // One step of the virtual clock lands just past the page's own polling interval, so the poll timer

@@ -82,7 +82,7 @@ export function SubscriptionPlan({
           </span>
         </Row>
         <Row label="Следующее списание">
-          {subscription.state === "active" && renewal !== null ? (
+          {subscription.state === "active" ? (
             <span className="font-mono tabular-nums">
               {formatBillingDate(subscription.paidUntil)} ·{" "}
               {formatKopecks(renewal)}

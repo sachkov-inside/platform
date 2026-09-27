@@ -51,6 +51,18 @@ const recoveredUploadModes: Partial<
   },
 };
 
+/** Modes that show one upload phase as is; deletion modes keep the idle upload phase. */
+const phaseModes: Partial<Record<VideoStoryMode, MaterialVideoAuthoringPhase>> =
+  {
+    "authoring-error": "error",
+    "authoring-idle": "idle",
+    "authoring-processing": "processing",
+    "authoring-ready": "ready",
+    "authoring-uploading": "uploading",
+    "authoring-upload_not_authorized": "upload_not_authorized",
+    "authoring-upload_outcome_unknown": "upload_outcome_unknown",
+  };
+
 const actions = {
   onAttach: fn(),
   onDeleteOwned: fn(),
@@ -118,9 +130,7 @@ function MaterialVideoStateBoard({ mode }: { readonly mode: VideoStoryMode }) {
     recovery?.phase ??
     (mode === "authoring-external-ready"
       ? "ready"
-      : mode.includes("deletion") || mode === "authoring-delete-failed"
-        ? "idle"
-        : (mode.replace("authoring-", "") as MaterialVideoAuthoringPhase));
+      : (phaseModes[mode] ?? "idle"));
   const hasVideo =
     recovery !== null ||
     phase === "processing" ||

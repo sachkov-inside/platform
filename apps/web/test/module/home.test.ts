@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { z } from "zod";
 import { getHome } from "../../src/_pages/home/api/get-home";
 
 const home = {
@@ -36,7 +37,7 @@ describe("Home membership presentation", () => {
         value: { ...home, membership: { kind: membership.kind } },
       });
       expect(fetch).toHaveBeenCalledOnce();
-      const request = fetch.mock.calls[0]?.[0] as Request;
+      const request = z.instanceof(Request).parse(fetch.mock.calls[0]?.[0]);
       expect(new Headers(request.headers).get("authorization")).toBe(
         "Bearer member-token",
       );

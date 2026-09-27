@@ -236,7 +236,7 @@ describe("subscription payment recovery (real PostgreSQL and real facets; synthe
       ...extra,
     });
     const bank = new Tbank(config, async (url, init) => {
-      if (typeof init?.body !== "string" || typeof url !== "string")
+      if (typeof init.body !== "string" || typeof url !== "string")
         throw new Error("Unexpected bank request");
       const body = z
         .object({

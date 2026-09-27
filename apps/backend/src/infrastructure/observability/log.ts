@@ -119,7 +119,12 @@ export function describeError(error: unknown, depth = 0): LoggedError {
   // Своя ошибка без собственного name называется своим классом.
   const type =
     fields.name === undefined || fields.name === "Error"
-      ? (error.constructor?.name ?? fields.name ?? "object")
+      ? // An object without a prototype has no constructor at all.
+        ((typeof error.constructor === "function"
+          ? error.constructor.name
+          : undefined) ??
+        fields.name ??
+        "object")
       : fields.name;
   const code = fields.code ?? fields.originalCode ?? fields.kind;
   const message =
