@@ -39,7 +39,7 @@ export function AppShell({ children }: AppShellProps) {
     accountKnown,
   );
   useAccessChangeRefresh(authStatus.accountId, accountKnown);
-  const readingScope = useReadingScope(
+  const readingProviderKey = useReadingProviderKey(
     authStatus.accountId,
     authStatus.resolved,
   );
@@ -81,7 +81,7 @@ export function AppShell({ children }: AppShellProps) {
         <NavigationTiming />
       </Suspense>
       <ReadingProgressProvider
-        key={readingScope}
+        key={readingProviderKey}
         accountId={authStatus.accountId}
         resolved={authStatus.resolved}
       >
@@ -111,10 +111,15 @@ export function AppShell({ children }: AppShellProps) {
  * ответ о входе аккаунт не меняет: до него личного на странице нет, а новый ключ пересоздал бы
  * страницу, уже нарисованную сервером (#747).
  */
-function useReadingScope(accountId: string | null, resolved: boolean): string {
+function useReadingProviderKey(
+  accountId: string | null,
+  resolved: boolean,
+): string {
+  // Объект отличает «первого ответа ещё не было» от «первым ответил гость».
   const [first, setFirst] = useState<{ readonly accountId: string | null }>();
   if (resolved && first === undefined) setFirst({ accountId });
-  return !resolved || accountId === (first ?? { accountId }).accountId
+  const firstAccountId = first === undefined ? accountId : first.accountId;
+  return !resolved || accountId === firstAccountId
     ? "first-account"
     : (accountId ?? "guest");
 }

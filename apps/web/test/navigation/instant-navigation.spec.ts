@@ -1026,6 +1026,9 @@ test("смена режима прохождения сбрасывает стр
   await expect(step("example")).toHaveCount(0);
 });
 
+/** Обложка продукта в видимой странице, а не её копия в скрытом контейнере потока. */
+const productCover = "#content [data-product-part='hero'] img";
+
 test("обложка первого экрана продукта грузится сразу и даёт LCP в пределах «хорошо»", async ({
   page,
 }) => {
@@ -1033,7 +1036,7 @@ test("обложка первого экрана продукта грузитс
 
   // Если ответ `/auth/status` меняет context над ещё не показанной частью, React рисует её на клиенте,
   // а копия с сервера до показа лежит в скрытом контейнере вне `#content` (#740, #747).
-  const cover = page.locator("#content [data-product-part='hero'] img");
+  const cover = page.locator(productCover);
   await expect(cover).toHaveAttribute("fetchpriority", "high");
   await expect(cover).toHaveAttribute("loading", "eager");
   // Факт, которого ждёт проверка, — картинка обложки действительно отрисована.
@@ -1098,7 +1101,7 @@ async function markScriptCreatedElements(page: Page) {
 }
 
 function productCoverFromServer(page: Page): Promise<boolean> {
-  return page.locator("#content [data-product-part='hero'] img").evaluate(
+  return page.locator(productCover).evaluate(
     (image) =>
       !(
         window as unknown as {
@@ -1119,9 +1122,22 @@ test("ответ о входе не заставляет рисовать зан
   );
   await page.goto("/guides/navigation-cover");
   expect(await (await authStatus).json()).toMatchObject({ state: "guest" });
-  await expect(
-    page.locator("#content [data-product-part='hero'] img"),
-  ).toBeVisible();
+  await expect(page.locator(productCover)).toBeVisible();
+  // Без этого тест прошёл бы и там, где ответ опоздал и пришёл после всей страницы.
+  expect(
+    await page.evaluate(() => {
+      const [navigation] = performance.getEntriesByType("navigation");
+      const [status] = performance
+        .getEntriesByType("resource")
+        .filter((entry) => entry.name.endsWith("/auth/status"));
+      return (
+        navigation instanceof PerformanceNavigationTiming &&
+        status instanceof PerformanceResourceTiming &&
+        status.responseEnd < navigation.responseEnd
+      );
+    }),
+    "ответ о входе пришёл, пока страница ещё шла потоком",
+  ).toBe(true);
 
   expect(
     await productCoverFromServer(page),

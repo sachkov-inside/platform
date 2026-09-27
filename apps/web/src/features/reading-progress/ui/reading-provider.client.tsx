@@ -43,7 +43,7 @@ export function ReadingProgressProvider({
     };
   }, []);
   // Запросы одного такта собираются в пакет; у аккаунта свой сборщик, потому что провайдер
-  // пересоздаётся при смене аккаунта.
+  // пересоздаётся, когда аккаунт сменился после первого ответа о входе.
   const [loadState] = useState(() =>
     createReadingStateBatcher(getReadingStates),
   );

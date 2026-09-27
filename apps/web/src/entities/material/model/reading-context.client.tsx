@@ -12,7 +12,7 @@ export interface MaterialReadingSnapshot {
   readonly isRead: boolean;
   readonly version: number;
 }
-export interface MaterialReadingContextValue {
+export interface MaterialReadingValue {
   readonly accountId: string | null;
   readonly resolved: boolean;
   readonly states: ReadonlyMap<string, MaterialReadingSnapshot>;
@@ -23,17 +23,19 @@ export interface MaterialReadingContextValue {
 /**
  * Context несёт не само значение, а хранилище, которое не меняется. Новое значение context над
  * страницей заставляет React нарисовать на клиенте заново часть страницы, пришедшую потоком, но ещё
- * не показанную (#747). Хранилище будит только уже гидрированных читателей.
+ * не показанную (#747). Хранилище будит только уже гидрированных читателей. Цена — лишний проход:
+ * читатель, нарисованный вместе с провайдером, видит прежнее значение, пока его не обновит
+ * публикация до отрисовки на экране.
  */
 interface MaterialReadingStore {
   readonly subscribe: (listener: () => void) => () => void;
-  readonly getSnapshot: () => MaterialReadingContextValue;
+  readonly getSnapshot: () => MaterialReadingValue;
   /** Значение, с которым страница нарисована на сервере: по нему гидрируется каждая граница. */
-  readonly getServerSnapshot: () => MaterialReadingContextValue;
-  readonly publish: (value: MaterialReadingContextValue) => void;
+  readonly getServerSnapshot: () => MaterialReadingValue;
+  readonly publish: (value: MaterialReadingValue) => void;
 }
 function createMaterialReadingStore(
-  initial: MaterialReadingContextValue,
+  initial: MaterialReadingValue,
 ): MaterialReadingStore {
   let current = initial;
   const listeners = new Set<() => void>();
@@ -53,20 +55,28 @@ function createMaterialReadingStore(
     },
   };
 }
-/** Состояния сравниваются по содержанию: провайдер собирает их заново на каждый рендер. */
+/**
+ * Поля сравниваются по одному, а состояния — по содержанию: провайдер собирает их заново на каждый
+ * рендер. Новое поле значения сравнивается само.
+ */
 function sameReading(
-  left: MaterialReadingContextValue,
-  right: MaterialReadingContextValue,
+  left: MaterialReadingValue,
+  right: MaterialReadingValue,
+): boolean {
+  return (Object.keys(left) as (keyof MaterialReadingValue)[]).every((key) =>
+    key === "states"
+      ? sameStates(left.states, right.states)
+      : left[key] === right[key],
+  );
+}
+function sameStates(
+  left: MaterialReadingValue["states"],
+  right: MaterialReadingValue["states"],
 ): boolean {
   return (
-    left.accountId === right.accountId &&
-    left.resolved === right.resolved &&
-    left.failed === right.failed &&
-    left.register === right.register &&
-    left.refresh === right.refresh &&
-    left.states.size === right.states.size &&
-    [...left.states].every(([materialId, state]) => {
-      const other = right.states.get(materialId);
+    left.size === right.size &&
+    [...left].every(([materialId, state]) => {
+      const other = right.get(materialId);
       return (
         other !== undefined &&
         other.isRead === state.isRead &&
@@ -90,7 +100,7 @@ export function MaterialReadingScope({
   value,
   children,
 }: {
-  readonly value: MaterialReadingContextValue;
+  readonly value: MaterialReadingValue;
   readonly children: ReactNode;
 }) {
   const [store] = useState(() => createMaterialReadingStore(value));
