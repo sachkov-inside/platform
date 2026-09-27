@@ -1177,10 +1177,9 @@ function ignoresPath(pattern, path) {
   if (pattern.startsWith("!")) return false;
   const trimmed = pattern.replace(/\/$/u, "");
   const anchored = trimmed.replace(/^\//u, "");
-  const globs =
-    trimmed.slice(0, -1).includes("/") || trimmed.startsWith("**/")
-      ? [anchored]
-      : [anchored, `**/${anchored}`];
+  const globs = trimmed.includes("/")
+    ? [anchored]
+    : [anchored, `**/${anchored}`];
   return globs.some(
     (glob) => matchesGlob(path, glob) || matchesGlob(path, `${glob}/**`),
   );
