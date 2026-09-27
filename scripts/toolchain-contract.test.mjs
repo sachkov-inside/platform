@@ -926,7 +926,7 @@ function scriptCheckViolations(scripts, contentOf) {
       continue;
     }
     const checked = /^(?:#!.*\n)?\/\/ @ts-check\n/u.test(contentOf(path));
-    if (checked && /@ts-nocheck/u.test(contentOf(path))) {
+    if (checked && /^\s*(?:\/\/|\/\*)\s*@ts-nocheck/mu.test(contentOf(path))) {
       violations.push(`${path} must not switch its check off with @ts-nocheck`);
     }
     if (!checked && !untypedScripts.includes(path)) {
