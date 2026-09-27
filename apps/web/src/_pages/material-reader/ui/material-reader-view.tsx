@@ -352,6 +352,8 @@ function ReaderBlocks({
   });
 }
 
+const headingTag = { 2: "h2", 3: "h3", 4: "h4" } as const;
+
 function ReaderBlockView({
   block,
   contentVersion,
@@ -371,7 +373,7 @@ function ReaderBlockView({
         </p>
       );
     case "heading": {
-      const Heading = `h${String(block.level)}` as "h2" | "h3" | "h4";
+      const Heading = headingTag[block.level];
       return (
         <Heading
           className={cn(

@@ -243,7 +243,8 @@
         "typescript/prefer-regexp-exec": "error",
         "typescript/prefer-string-starts-ends-with": "error",
         "typescript/consistent-type-imports": "error",
-        "typescript/switch-exhaustiveness-check": "error"
+        "typescript/switch-exhaustiveness-check": "error",
+        "typescript/no-unsafe-type-assertion": "error"
       }
     },
     {
@@ -259,8 +260,7 @@
         ],
         "typescript/consistent-indexed-object-style": "off",
         "typescript/consistent-type-definitions": "off",
-        "typescript/prefer-nullish-coalescing": "off",
-        "typescript/no-unsafe-type-assertion": "error"
+        "typescript/prefer-nullish-coalescing": "off"
       }
     },
     {

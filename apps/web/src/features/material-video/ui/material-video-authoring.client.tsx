@@ -427,7 +427,10 @@ export function MaterialVideoAuthoringView({
         setDragging(true);
       }}
       onDragLeave={(event) => {
-        if (!event.currentTarget.contains(event.relatedTarget as Node | null))
+        if (!(
+          event.relatedTarget instanceof Node &&
+          event.currentTarget.contains(event.relatedTarget)
+        ))
           setDragging(false);
       }}
       onDrop={(event) => {

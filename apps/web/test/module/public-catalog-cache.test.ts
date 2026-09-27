@@ -36,7 +36,7 @@ const body = {
 function backendAnswers(answer: unknown, status = 200) {
   vi.stubEnv("BACKEND_BASE_URL", "https://platform-api.example.test");
   const fetchBackend = vi
-    .fn()
+    .fn<typeof fetch>()
     .mockResolvedValue(Response.json(answer, { status }));
   vi.stubGlobal("fetch", fetchBackend);
   return fetchBackend;
@@ -61,10 +61,7 @@ describe("guest Material read kept in the shared cache", () => {
     const result = await getGuestMaterial("lesson");
 
     expect(result.kind).toBe("available");
-    const [input, init] = fetchBackend.mock.calls[0] as [
-      Request | string,
-      RequestInit | undefined,
-    ];
+    const [input, init] = fetchBackend.mock.calls[0] ?? [];
     const headers =
       input instanceof Request ? input.headers : new Headers(init?.headers);
     expect(headers.has("authorization")).toBe(false);

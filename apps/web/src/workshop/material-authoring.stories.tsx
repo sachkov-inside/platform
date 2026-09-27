@@ -445,16 +445,20 @@ interface TiptapEditorInstance {
 function tiptapEditor(canvasElement: HTMLElement): TiptapEditorInstance {
   const dom = canvasElement.querySelector(".ProseMirror");
   const editor: unknown = dom === null ? undefined : Reflect.get(dom, "editor");
-  if (
-    typeof editor !== "object" ||
-    editor === null ||
-    typeof Reflect.get(editor, "setOptions") !== "function"
-  ) {
+  if (!isTiptapEditor(editor)) {
     throw new Error(
       "У документа нет экземпляра Tiptap: не к чему подключить счётчик перерисовок",
     );
   }
-  return editor as TiptapEditorInstance;
+  return editor;
+}
+
+function isTiptapEditor(value: unknown): value is TiptapEditorInstance {
+  return (
+    typeof value === "object" &&
+    value !== null &&
+    typeof Reflect.get(value, "setOptions") === "function"
+  );
 }
 
 /**

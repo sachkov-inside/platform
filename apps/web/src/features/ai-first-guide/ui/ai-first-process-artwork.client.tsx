@@ -12,6 +12,11 @@ import { ProcessArtworkScenes } from "./process-artwork-scenes";
 
 import "./ai-first-process-artwork.css";
 
+const artworkTiming: CSSProperties & Record<`--${string}`, number | string> = {
+  "--time-scale": PROCESS_ARTWORK_TIME_SCALE,
+  "--scene-transition": `${String(PROCESS_ARTWORK_TRANSITION_MS)}ms`,
+};
+
 export function AiFirstProcessArtwork({
   mode = "animated",
   scene = 5,
@@ -24,16 +29,7 @@ export function AiFirstProcessArtwork({
       : undefined;
   }, [mode, scene, loop]);
   return (
-    <div
-      className="ai-process-artwork"
-      style={
-        {
-          "--time-scale": PROCESS_ARTWORK_TIME_SCALE,
-          "--scene-transition": `${String(PROCESS_ARTWORK_TRANSITION_MS)}ms`,
-        } as CSSProperties
-      }
-      ref={host}
-    >
+    <div className="ai-process-artwork" style={artworkTiming} ref={host}>
       <ProcessArtworkScenes />
     </div>
   );

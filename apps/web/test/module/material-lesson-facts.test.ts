@@ -44,7 +44,7 @@ function declaredLessonFacts(value: unknown): {
       return;
     }
     if (node === null || typeof node !== "object") return;
-    const entries = Object.entries(node as Record<string, unknown>);
+    const entries: [string, unknown][] = Object.entries(node);
     for (const [key, child] of entries) {
       if (key === "outcomes") {
         const parsed = outcomesSchema.safeParse(child);

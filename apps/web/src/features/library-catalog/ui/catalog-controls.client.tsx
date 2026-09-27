@@ -2,6 +2,7 @@
 
 import { Search, X } from "lucide-react";
 
+import { isLibraryRouteSort } from "@/shared/routing/library-route";
 import { Button } from "@/shared/ui/button";
 import {
   Select,
@@ -13,7 +14,6 @@ import {
 import type { LibraryCatalogFacet } from "../model/library-view";
 import {
   changeLibraryQuery,
-  type LibraryCatalogSort,
   type LibrarySearchQuery,
 } from "../model/library-search-query";
 
@@ -182,11 +182,8 @@ export function MaterialCatalogControls({
           <Select
             name="sort"
             onValueChange={(value) => {
-              onQueryChange(
-                changeLibraryQuery(query, {
-                  sort: value as LibraryCatalogSort,
-                }),
-              );
+              if (!isLibraryRouteSort(value)) return;
+              onQueryChange(changeLibraryQuery(query, { sort: value }));
             }}
             value={query.sort}
           >

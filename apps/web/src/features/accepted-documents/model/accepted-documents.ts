@@ -64,10 +64,6 @@ export function acceptedDocumentItems(
 ): readonly AcceptedDocumentItem[] {
   return documents.map((document) => {
     const version = Number(document.version);
-    const known =
-      isLegalDocumentKey(document.documentId) &&
-      Number.isInteger(version) &&
-      version > 0;
     return {
       key: document.acceptanceRef,
       title:
@@ -76,9 +72,12 @@ export function acceptedDocumentItems(
       acceptedAt: acceptedAtFormat.format(new Date(document.acceptedAt)),
       buttonLabel: document.buttonLabel,
       edition: `редакция ${document.version}`,
-      href: known
-        ? legalEditionPath(document.documentId as LegalDocumentKey, version)
-        : null,
+      href:
+        isLegalDocumentKey(document.documentId) &&
+        Number.isInteger(version) &&
+        version > 0
+          ? legalEditionPath(document.documentId, version)
+          : null,
       shownTerms:
         document.shownTerms === null
           ? null

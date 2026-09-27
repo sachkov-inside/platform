@@ -1066,7 +1066,10 @@ function MaterialRow({
         setDropId(item.materialId);
       }}
       onDragLeave={(event) => {
-        if (!event.currentTarget.contains(event.relatedTarget as Node | null))
+        if (!(
+          event.relatedTarget instanceof Node &&
+          event.currentTarget.contains(event.relatedTarget)
+        ))
           setDropId(null);
       }}
       onDrop={(event) => {

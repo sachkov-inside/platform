@@ -97,12 +97,14 @@ describe("Material document DOM contract", () => {
       const attributes = renderedAttributes(type.spec.toDOM?.(node));
       // Буфер обмена собирает узел заново из разметки, поэтому поле обязано пройти оба конца.
       // Правило разбора читает только `getAttribute`, поэтому элемент здесь — этот один метод.
-      const element = {
+      const attributeReader = {
         getAttribute: (attribute: string) =>
           typeof attributes[attribute] === "string"
             ? attributes[attribute]
             : null,
-      } as unknown as HTMLElement;
+      };
+      // oxlint-disable-next-line typescript/no-unsafe-type-assertion -- The parse rule reads only getAttribute.
+      const element = attributeReader as unknown as HTMLElement;
       const parsed = type.spec.parseDOM?.[0]?.getAttrs?.(element);
 
       expect([name, parsed]).toEqual([name, expect.objectContaining(fields)]);

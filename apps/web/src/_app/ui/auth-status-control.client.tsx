@@ -12,6 +12,13 @@ interface AuthStatusSnapshot {
   readonly state: AuthControlState;
 }
 
+/** Ответ `/auth/status`: неизвестное состояние делает статус недоступным, неверные поля — пустыми. */
+const authStatusPayloadSchema = z.object({
+  accountId: z.uuid().nullable().catch(null),
+  canManageMaterials: z.boolean().catch(false),
+  state: z.enum(["authenticated", "guest", "unavailable"]),
+});
+
 const initialStatus: AuthStatusSnapshot = {
   accountId: null,
   canManageMaterials: false,
@@ -71,8 +78,11 @@ function sameAuthStatus(
   left: AuthStatusSnapshot,
   right: AuthStatusSnapshot,
 ): boolean {
-  return (Object.keys(left) as (keyof AuthStatusSnapshot)[]).every(
-    (key) => left[key] === right[key],
+  const rightFields: ReadonlyMap<string, unknown> = new Map(
+    Object.entries(right),
+  );
+  return Object.entries(left).every(
+    ([key, value]) => rightFields.get(key) === value,
   );
 }
 
@@ -92,26 +102,12 @@ function loadAuthStatus(): Promise<AuthStatusSnapshot> {
 }
 
 function parseAuthStatus(value: unknown): AuthStatusSnapshot {
-  if (typeof value !== "object" || value === null || Array.isArray(value)) {
-    return unavailableStatus;
-  }
-  const state = (value as Record<string, unknown>).state;
-  if (
-    state !== "authenticated" &&
-    state !== "guest" &&
-    state !== "unavailable"
-  ) {
-    return unavailableStatus;
-  }
-  const accountId = z
-    .uuid()
-    .safeParse((value as Record<string, unknown>).accountId);
+  const parsed = authStatusPayloadSchema.safeParse(value);
+  if (!parsed.success) return unavailableStatus;
+  const { accountId, canManageMaterials, state } = parsed.data;
   return {
-    accountId:
-      state === "authenticated" && accountId.success ? accountId.data : null,
-    canManageMaterials:
-      state === "authenticated" &&
-      (value as Record<string, unknown>).canManageMaterials === true,
+    accountId: state === "authenticated" ? accountId : null,
+    canManageMaterials: state === "authenticated" && canManageMaterials,
     resolved: true,
     state,
   };

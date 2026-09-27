@@ -1,6 +1,7 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { keepPreviousData, queryOptions } from "@tanstack/react-query";
 import { expect, fn, userEvent, waitFor, within } from "storybook/test";
+import { z } from "zod";
 
 import {
   SeriesOrderManager,
@@ -224,9 +225,9 @@ export const CreateChapter: Story = {
     const body = saveOrderSpy.mock.calls.at(-1)?.[1]?.body;
     if (!(body instanceof FormData))
       throw new Error("Expected composition form");
-    const saved = JSON.parse(formField(body, "chapters")) as readonly {
-      readonly name: string;
-    }[];
+    const saved = z
+      .array(z.object({ name: z.string() }))
+      .parse(JSON.parse(formField(body, "chapters")));
     await expect(saved.map(({ name: value }) => value)).toEqual([
       "Проект и CI",
     ]);

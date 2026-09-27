@@ -59,7 +59,7 @@ describe("communications browser and presentation boundary", () => {
       partId: id,
       content: { type: "text", text: "Hello", entities: [], buttons: [] },
     });
-    const fetcher = vi.fn(() =>
+    const fetcher = vi.fn<typeof fetch>(() =>
       Promise.resolve(
         Response.json({ kind: "ready", value: { ...draft, revision: 1 } }),
       ),
@@ -69,19 +69,15 @@ describe("communications browser and presentation boundary", () => {
     await saveFunnel(input);
     await saveFunnel(input);
     expect(fetcher.mock.calls).toHaveLength(2);
-    for (const [url, options] of fetcher.mock.calls as unknown as [
-      string,
-      RequestInit,
-    ][]) {
+    for (const [url, options] of fetcher.mock.calls) {
       expect(url).toBe("/api/communications/funnels/save");
-      expect(options.method).toBe("POST");
-      expect(
-        JSON.parse(z.string().parse((options.body as FormData).get("input"))),
-      ).toEqual(input);
+      expect(options?.method).toBe("POST");
+      const body = z.instanceof(FormData).parse(options?.body);
+      expect(JSON.parse(z.string().parse(body.get("input")))).toEqual(input);
     }
   });
   it("keeps publish, template resolution, retry and skip on their own literal routes", async () => {
-    const fetcher = vi.fn(() =>
+    const fetcher = vi.fn<typeof fetch>(() =>
       Promise.resolve(Response.json({ kind: "error", code: "unavailable" })),
     );
     vi.stubGlobal("fetch", fetcher);
@@ -97,9 +93,7 @@ describe("communications browser and presentation boundary", () => {
     };
     await retryDelivery(decision);
     await skipDelivery(decision);
-    expect(
-      fetcher.mock.calls.map((call) => (call as unknown as [string])[0]),
-    ).toEqual([
+    expect(fetcher.mock.calls.map(([url]) => url)).toEqual([
       "/api/communications/funnels/publish",
       "/api/communications/templates/resolve",
       "/api/communications/deliveries/retry",

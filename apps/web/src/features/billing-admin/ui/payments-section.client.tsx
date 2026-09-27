@@ -18,6 +18,10 @@ import type {
   PurchaseCommandInput,
   RefundsOutcome,
 } from "../model/admin-operations";
+import {
+  decideRefundInputSchema,
+  listPaymentsInputSchema,
+} from "../model/admin-operations";
 import type { AdminCommand } from "./admin-command";
 import {
   AdminField,
@@ -90,17 +94,18 @@ export function PaymentsSection({
           className="grid gap-4"
           onSubmit={onAdminSubmit((form) => {
             const accountId = optionalFormText(form.get("paymentsAccount"));
-            const state = optionalFormText(form.get("paymentsState"));
-            const kind = optionalFormText(form.get("paymentsKind"));
+            // «any» и пустое поле не проходят схему фильтра и означают «без фильтра».
+            const state = listPaymentsInputSchema.shape.state.safeParse(
+              optionalFormText(form.get("paymentsState")),
+            ).data;
+            const kind = listPaymentsInputSchema.shape.kind.safeParse(
+              optionalFormText(form.get("paymentsKind")),
+            ).data;
             onListPayments({
               limit: Number(formText(form.get("paymentsLimit")) || "50"),
               ...(accountId === undefined ? {} : { accountId }),
-              ...(state === undefined || state === "any"
-                ? {}
-                : { state: state as ListPaymentsInput["state"] }),
-              ...(kind === undefined || kind === "any"
-                ? {}
-                : { kind: kind as ListPaymentsInput["kind"] }),
+              ...(state === undefined ? {} : { state }),
+              ...(kind === undefined ? {} : { kind }),
             });
           })}
         >
@@ -290,13 +295,19 @@ export function PaymentsSection({
         <form
           className="grid gap-4"
           onSubmit={onAdminSubmit((form) => {
+            // Значения приходят из собственных списков формы и проверяются той же схемой, что команда.
+            const basis = decideRefundInputSchema.shape.basis.safeParse(
+              formText(form.get("refundBasis")),
+            );
+            const recurring = decideRefundInputSchema.shape.recurring.safeParse(
+              formText(form.get("refundRecurring")),
+            );
+            if (!basis.success || !recurring.success) return;
             onDecideRefund({
               purchaseRef: formText(form.get("refundPurchase")),
               amountKopecks: Number(formText(form.get("refundAmount"))),
-              basis: formText(form.get("refundBasis")) as
-                "withdrawal" | "compensation",
-              recurring: formText(form.get("refundRecurring")) as
-                "keep" | "cancel",
+              basis: basis.data,
+              recurring: recurring.data,
               reason: formText(form.get("refundReason")),
             });
           })}

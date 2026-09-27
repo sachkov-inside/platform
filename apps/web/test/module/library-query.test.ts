@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { z } from "zod";
 import { QueryClient } from "@tanstack/react-query";
 
 import { GET } from "../../app/api/library/materials/route";
@@ -263,9 +264,10 @@ describe("Library TanStack Query interface", () => {
 
     expect(response.status).toBe(200);
     await expect(response.json()).resolves.toEqual({ kind: "empty" });
-    const backendRequest = vi.mocked(fetch).mock.calls[0]?.[0];
-    expect(backendRequest).toBeInstanceOf(Request);
-    expect((backendRequest as Request).url).toBe(
+    const backendRequest = z
+      .instanceof(Request)
+      .parse(vi.mocked(fetch).mock.calls[0]?.[0]);
+    expect(backendRequest.url).toBe(
       "https://platform-api.example.test/library/materials?sort=newest&canonicalTopic=platform",
     );
   });
@@ -375,9 +377,10 @@ describe("Library TanStack Query interface", () => {
     );
 
     expect(response.status).toBe(200);
-    const backendRequest = vi.mocked(fetch).mock.calls[0]?.[0];
-    expect(backendRequest).toBeInstanceOf(Request);
-    const backendUrl = new URL((backendRequest as Request).url);
+    const backendRequest = z
+      .instanceof(Request)
+      .parse(vi.mocked(fetch).mock.calls[0]?.[0]);
+    const backendUrl = new URL(backendRequest.url);
     expect(backendUrl.searchParams.get("q")).toBe("platform");
     expect(backendUrl.searchParams.getAll("topic")).toEqual([
       "product-engineering",

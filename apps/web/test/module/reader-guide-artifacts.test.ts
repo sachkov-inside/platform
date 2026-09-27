@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { z } from "zod";
 
 import { readReaderGuideArtifacts } from "@/features/guide-artifacts/api/read-reader-guide-artifacts.server";
 
@@ -46,8 +47,10 @@ describe("Guide artifact section reader adapter", () => {
     const result = await readReaderGuideArtifacts(guideId);
     expect(result).toMatchObject({ kind: "ready" });
     expect(result.kind === "ready" ? result.artifacts : []).toHaveLength(2);
-    const request = vi.mocked(fetch).mock.calls[0]?.[0];
-    expect((request as Request).url).toBe(
+    const request = z
+      .instanceof(Request)
+      .parse(vi.mocked(fetch).mock.calls[0]?.[0]);
+    expect(request.url).toBe(
       `https://platform-api.example.test/guides/${guideId}/artifacts`,
     );
   });

@@ -124,7 +124,9 @@ test("images, files and ready video persist automatically; fullscreen preserves 
     .poll(() =>
       page
         .locator("[contenteditable=true] img")
-        .evaluate((element) => (element as HTMLImageElement).naturalWidth),
+        .evaluate((element) =>
+          element instanceof HTMLImageElement ? element.naturalWidth : 0,
+        ),
     )
     .toBeGreaterThan(0);
   await page.screenshot({
@@ -256,7 +258,9 @@ test("cover drop and paste persist immediately; article paste inserts an image",
     .poll(() =>
       body
         .locator("img")
-        .evaluate((element) => (element as HTMLImageElement).naturalWidth),
+        .evaluate((element) =>
+          element instanceof HTMLImageElement ? element.naturalWidth : 0,
+        ),
     )
     .toBeGreaterThan(0);
 });
@@ -823,12 +827,13 @@ test("responsive image preview loads real pixels, reports a failed delivery and 
   const picture = page.locator("figure img");
   await expect
     .poll(() =>
-      picture.evaluate((element) => (element as HTMLImageElement).naturalWidth),
+      picture.evaluate((element) =>
+        element instanceof HTMLImageElement ? element.naturalWidth : 0,
+      ),
     )
     .toBeGreaterThan(1);
   const shape = await picture.evaluate((element) => {
-    const img = element as HTMLImageElement;
-    const box = img.getBoundingClientRect();
+    const box = element.getBoundingClientRect();
     return {
       displayed: box.width / box.height,
     };
@@ -850,7 +855,9 @@ test("responsive image preview loads real pixels, reports a failed delivery and 
     .click();
   await expect
     .poll(() =>
-      picture.evaluate((element) => (element as HTMLImageElement).naturalWidth),
+      picture.evaluate((element) =>
+        element instanceof HTMLImageElement ? element.naturalWidth : 0,
+      ),
     )
     .toBeGreaterThan(1);
   await expect(picture).toHaveAttribute("alt", "Синий фон с белым текстом");

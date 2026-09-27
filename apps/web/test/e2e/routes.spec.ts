@@ -1,5 +1,6 @@
 import AxeBuilder from "@axe-core/playwright";
 import { expect, test, type Page } from "@playwright/test";
+import { z } from "zod";
 
 const destinations = [
   { path: "/", label: "Главная", heading: "Главная" },
@@ -115,13 +116,12 @@ test("страница отправляет площадке свои Core Web V
   // Ответ настоящего обработчика: отчёт прошёл проверку источника и схемы и записан в журнал.
   const response = await answered;
   expect(response.status()).toBe(204);
-  const body = JSON.parse(sentReport) as {
-    readonly metrics: readonly {
-      readonly name: string;
-      readonly value: number;
-    }[];
-    readonly route: string;
-  };
+  const body = z
+    .object({
+      metrics: z.array(z.object({ name: z.string(), value: z.number() })),
+      route: z.string(),
+    })
+    .parse(JSON.parse(sentReport));
   expect(body.route).toBe("/");
   expect(body.metrics.map((metric) => metric.name)).toContain("TTFB");
 });
