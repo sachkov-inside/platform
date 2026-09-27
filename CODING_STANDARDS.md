@@ -73,6 +73,13 @@ reject correct tests. It becomes a fitness candidate if a narrower seam appears.
 - Proving that nothing happened is the exception. Advance a virtual clock past the interval in
   question and assert the absence, once the step before it is already pinned to its own fact.
 
+One wait ends on a quiet window instead of a fact (owner decision of 2026-09-27, #758):
+`viewportPrefetchDrained` in `apps/web/test/navigation/instant-navigation.spec.ts` waits for
+`networkidle`. The Next.js prefetch queue is private module state, and optimistic routing skips
+requests for links whose route it predicts, so no page-visible fact marks the end of the queue (the
+analysis is in #758). Revisit it when Next.js exposes the queue or optimistic routing changes.
+`scripts/quiet-window-waits.test.mjs` fails any other `networkidle` wait.
+
 Browser suites never retry a failed test, in CI either (owner decision of 2026-09-27, #476): a flaky
 test turns the run red on its first attempt and is fixed, not retried until it passes.
 `scripts/playwright-specs-load.test.mjs` fails a Playwright configuration that retries.
