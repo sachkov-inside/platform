@@ -319,12 +319,13 @@ describe("supported toolchain contract", () => {
     assert.deepEqual(scriptCheckViolations(scripts, read), []);
 
     // Negative fixtures: an unchecked new script, a listed script that is typed now, a script outside
-    // the project and a listed script that no longer exists.
+    // the project, a checked script that switches the check off and a listed script that is gone.
     const [listed] = untypedScripts;
     const contents = {
       "scripts/new.mjs": "export {};\n",
       "scripts/typed.mjs": "#!/usr/bin/env node\n// @ts-check\n",
       "other/checked.mjs": "// @ts-check\n",
+      "scripts/escaped.mjs": "// @ts-check\n// @ts-nocheck\n",
       [listed]: "// @ts-check\n",
     };
     assert.deepEqual(
@@ -332,6 +333,7 @@ describe("supported toolchain contract", () => {
       [
         "scripts/new.mjs must start with // @ts-check",
         "other/checked.mjs must be in tsconfig.scripts.json",
+        "scripts/escaped.mjs must not switch its check off with @ts-nocheck",
         `${listed} is typed now: remove it from untypedScripts`,
         ...untypedScripts.slice(1).map((path) => `${path} no longer exists`),
       ],
@@ -924,6 +926,9 @@ function scriptCheckViolations(scripts, contentOf) {
       continue;
     }
     const checked = /^(?:#!.*\n)?\/\/ @ts-check\n/u.test(contentOf(path));
+    if (checked && /@ts-nocheck/u.test(contentOf(path))) {
+      violations.push(`${path} must not switch its check off with @ts-nocheck`);
+    }
     if (!checked && !untypedScripts.includes(path)) {
       violations.push(`${path} must start with // @ts-check`);
     }

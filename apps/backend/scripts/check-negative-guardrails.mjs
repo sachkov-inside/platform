@@ -163,8 +163,19 @@ try {
     "--surface",
     staleSurfacePath,
   ]);
+  /** @type {unknown} */
+  const surface = JSON.parse(readFileSync(staleSurfacePath, "utf8"));
+  if (!Array.isArray(surface)) {
+    throw new Error("MCP tool surface fixture must list tool names");
+  }
   /** @type {string[]} */
-  const registered = JSON.parse(readFileSync(staleSurfacePath, "utf8"));
+  const registered = [];
+  for (const name of surface) {
+    if (typeof name !== "string") {
+      throw new Error("MCP tool surface fixture must list tool names");
+    }
+    registered.push(name);
+  }
   const appearedTool = registered[0];
   if (appearedTool === undefined) {
     throw new Error(

@@ -80,7 +80,16 @@ export async function standIdentity(ownerEmail) {
     resolve(identity, "authoring-owner-pat.json"),
     "utf8",
   )
-    .then((text) => JSON.parse(text).email)
+    .then((text) => {
+      /** @type {unknown} */
+      const saved = JSON.parse(text);
+      return typeof saved === "object" &&
+        saved !== null &&
+        "email" in saved &&
+        typeof saved.email === "string"
+        ? saved.email
+        : undefined;
+    })
     .catch(() => undefined);
   const email = ownerEmail ?? stored;
   if (!email)
