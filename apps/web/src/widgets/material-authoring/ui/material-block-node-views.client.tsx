@@ -105,7 +105,12 @@ export function MaterialResourceCardNodeView({
         className={`${fieldClass} min-h-14 resize-y text-[0.9375rem] leading-7 text-body-muted`}
         disabled={!editable}
         onChange={(event) => {
-          updateAttributes({ description: event.currentTarget.value || null });
+          updateAttributes({
+            description:
+              event.currentTarget.value === ""
+                ? null
+                : event.currentTarget.value,
+          });
         }}
         placeholder="Зачем читателю открывать ссылку"
         value={attributeText(node.attrs.description)}

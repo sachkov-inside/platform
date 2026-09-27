@@ -720,6 +720,7 @@ const strictLintRules = [
   "typescript/no-unsafe-type-assertion",
   "typescript/no-unnecessary-condition",
   "typescript/prefer-optional-chain",
+  "typescript/strict-boolean-expressions",
 ];
 const generatedCodeFiles =
   "apps/backend/src/infrastructure/prisma/generated/**/*.ts";
@@ -739,7 +740,8 @@ function strictLintViolations(config) {
     .filter((files) => !shared.files.includes(files))
     .map((files) => `type-aware lint must cover ${files}`);
   for (const rule of strictLintRules) {
-    if (shared.rules[rule] !== "error") {
+    const setting = shared.rules[rule];
+    if ((Array.isArray(setting) ? setting[0] : setting) !== "error") {
       violations.push(`${rule} must be an error in the shared set`);
     }
     for (const override of config.overrides) {

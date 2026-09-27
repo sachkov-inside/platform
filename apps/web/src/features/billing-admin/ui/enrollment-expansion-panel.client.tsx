@@ -17,6 +17,7 @@ import {
 import type { expansionPreviewSchema } from "../model/enrollment-operations";
 import { type tiersOutcomeSchema } from "../model/enrollment-operations";
 import { formText, AdminField } from "./admin-form.client";
+import { hasText } from "@/shared/lib/text";
 export function EnrollmentExpansionPanel({
   items,
   tiers,
@@ -68,8 +69,8 @@ export function EnrollmentExpansionPanel({
         Сначала сохраните новую редакцию того же тарифа. Предпросмотр проверит,
         что прежние права не сокращаются.
       </p>
-      {error ? <p role="alert">{error}</p> : null}
-      {notice ? <p role="status">{notice}</p> : null}
+      {hasText(error) ? <p role="alert">{error}</p> : null}
+      {hasText(notice) ? <p role="status">{notice}</p> : null}
       <form
         className="grid gap-4"
         onSubmit={(event) => {

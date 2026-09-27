@@ -23,6 +23,7 @@ import {
   paymentFailure,
   type PaymentResult,
 } from "../../features/purchase-subscription/purchase-subscription.contract.js";
+import { hasText } from "../../../../infrastructure/contracts/text.js";
 
 type NoticeRow = Awaited<
   ReturnType<BillingPrismaClient["billingNotice"]["findUniqueOrThrow"]>
@@ -246,7 +247,7 @@ export class BillingNotices {
     notice: NoticeRow,
     now: Date,
   ): Promise<boolean> {
-    if (!notice.subscriptionRef) return false;
+    if (!hasText(notice.subscriptionRef)) return false;
     const subscription =
       await this.dependencies.prisma.billingSubscription.findUnique({
         where: { id: notice.subscriptionRef },

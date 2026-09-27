@@ -85,12 +85,12 @@ export async function executeRefund(
         return ownerFailure("method_unavailable");
       // Одна незавершённая попытка на платёж: чужая отправка видна как незавершённый возврат.
       if (
-        await tx.billingRefund.count({
+        (await tx.billingRefund.count({
           where: {
             purchaseRef: purchase.id,
             state: { in: unsettledRefundStates },
           },
-        })
+        })) > 0
       )
         return ownerFailure("refund_in_progress");
       const totals = await refundTotals(

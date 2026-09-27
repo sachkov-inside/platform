@@ -61,6 +61,7 @@ import {
   pressedPaymentButton,
   syntheticConsentDocuments,
 } from "./setup/consent-documents.js";
+import { hasText } from "../../src/infrastructure/contracts/text.js";
 
 function value<T>(
   result: { ok: true; value: T } | { ok: false; error: { code: string } },
@@ -574,7 +575,7 @@ describe("оплата, выдача прав и доступ к материа�
         value: {
           id: optionId,
           offerId,
-          ...(input.mode ? { mode: input.mode } : {}),
+          ...(input.mode !== undefined ? { mode: input.mode } : {}),
           months: 1,
           priceKopecks: input.priceKopecks,
         },
@@ -996,7 +997,7 @@ describe("оплата, выдача прав и доступ к материа�
       subject,
       correlationId: randomUUID(),
     });
-    if (!session.ok || !session.value.drmAuthToken)
+    if (!session.ok || !hasText(session.value.drmAuthToken))
       throw new Error("Expected a protected playback token");
     expect(
       await playback.authorizeProvider({

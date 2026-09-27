@@ -26,6 +26,7 @@ import type {
   MaterialAuthoringActions,
   MaterialAuthoringPresentation,
 } from "../model/presentation";
+import { presentText } from "@/shared/lib/text";
 
 interface MaterialMetadataPanelProps {
   readonly actions: MaterialAuthoringActions;
@@ -201,7 +202,7 @@ export function MaterialMetadataPanel({
               primaryVideo={presentation.draft.primaryVideo}
               result={presentation.deletion.result}
               submissionId={presentation.submissionId}
-              title={presentation.draft.title || null}
+              title={presentText(presentation.draft.title) ?? null}
             />
           </div>
         </details>
@@ -396,7 +397,9 @@ function SeriesSelector({
       <legend className="mb-2 text-sm font-medium">
         Продукты
         <span className="ml-1 text-muted-foreground">
-          {presentation.draft.seriesIds.length || ""}
+          {presentation.draft.seriesIds.length > 0
+            ? presentation.draft.seriesIds.length
+            : ""}
         </span>
       </legend>
       <input
@@ -440,14 +443,14 @@ function SeriesSelector({
               />
               <span className="truncate">
                 {series.label}
-                {series.archived ? " · архив" : ""}
+                {series.archived === true ? " · архив" : ""}
               </span>
             </label>
           );
         })}
         {matching.length === 0 ? (
           <p className="p-2 text-xs text-muted-foreground">
-            {search ? "Продукты не найдены" : "Пока нет продуктов"}
+            {search !== "" ? "Продукты не найдены" : "Пока нет продуктов"}
           </p>
         ) : null}
         {limit < matching.length ? (

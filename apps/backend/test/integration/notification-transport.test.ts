@@ -62,6 +62,10 @@ import {
 import { stageBillingNotification } from "../../src/modules/billing/facets/notification-outbox/notification-outbox.js";
 import { stageMaterialsNotification } from "../../src/modules/materials/facets/notification-outbox/notification-outbox.js";
 import { assembleNotificationTransport } from "../../src/modules/notifications/index.js";
+import {
+  hasText,
+  presentText,
+} from "../../src/infrastructure/contracts/text.js";
 
 const billingFixture = fixtures.find(
   (f) => f.valid && f.definition === "billingEvent",
@@ -145,7 +149,7 @@ function watchCrashWorker(child: ChildProcess) {
       resolve();
     });
   });
-  const detail = () => stderr.trim() || "no stderr output";
+  const detail = () => presentText(stderr.trim()) ?? "no stderr output";
   return {
     /**
      * Смерть на барьере — шаг сценария. Ждём её по `close`, который приходит ровно один раз:
@@ -270,7 +274,8 @@ describe("Notifications real PostgreSQL / RabbitMQ transport", () => {
         await broker.stop();
       }
     } finally {
-      if (directory) await rm(directory, { recursive: true, force: true });
+      if (hasText(directory))
+        await rm(directory, { recursive: true, force: true });
     }
   }, 60_000);
 
@@ -666,7 +671,8 @@ describe("Notifications real PostgreSQL / RabbitMQ transport", () => {
             type: lanes.emailResult.version,
             messageId: randomUUID(),
           },
-          (error) => (error ? reject(new Error("publish failed")) : resolve()),
+          (error: Error | null) =>
+            error === null ? resolve() : reject(new Error("publish failed")),
         ),
       );
     const transport = assembleNotificationTransport(database.prisma, 1);

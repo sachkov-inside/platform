@@ -33,6 +33,7 @@ import {
   credentialsMatch,
 } from "../../adapters/nest/telegram-membership-http.js";
 import { TelegramAccountSignIn } from "./telegram-account-sign-in.js";
+import { hasText } from "../../../../infrastructure/contracts/text.js";
 const accountSchema = z.object({ account: z.object({ accountId: z.uuid() }) });
 const linkSchema = z
   .object({
@@ -124,7 +125,7 @@ export class TelegramAccountSignInController {
     const secret = this.config.identity.telegramSignInIntegrationSecret;
     if (
       !this.config.identity.telegramSignInEnabled ||
-      !secret ||
+      !hasText(secret) ||
       !credentialsMatch(bearerCredential(authorization) ?? "", secret)
     )
       throw new HttpException({ code: "invalid_proof" }, 401);

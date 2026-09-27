@@ -4,6 +4,7 @@ import addFormats from "ajv-formats";
 import { z } from "zod";
 import { redactText } from "../observability/index.js";
 import { notificationSchema } from "./schema.generated.js";
+import { hasText } from "../contracts/text.js";
 
 export const NOTIFICATION_MESSAGE_MAX_BYTES = 16 * 1024;
 // Протокол ленты материалов: notAfter события первой публикации — ровно сутки от самой
@@ -158,7 +159,7 @@ export function encodeNotification(
     route.version === "inside.notification-delivery.v1"
       ? body.operationId
       : body.messageId;
-  if (!messageId) throw new Error("missing_message_id");
+  if (!hasText(messageId)) throw new Error("missing_message_id");
   return {
     lane,
     messageId: messageId.toLowerCase(),

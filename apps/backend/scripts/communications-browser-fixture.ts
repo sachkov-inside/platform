@@ -13,6 +13,7 @@ import {
   type broadcastSchema,
   requestSchema,
 } from "../src/modules/communications/communications-schema.generated.js";
+import { hasText } from "../src/infrastructure/contracts/text.js";
 
 // A contract stub for the external Telegram port. It proves Platform's live path,
 // not Telegram scheduling or delivery; those remain provider/#310 acceptance.
@@ -188,7 +189,7 @@ provider.post("/integrations/platform/v1/communications", (request, reply) => {
       eventId: command.payload.eventId,
       outcome: "recorded",
     };
-  if (!("broadcastId" in payload) || !payload.broadcastId)
+  if (!("broadcastId" in payload) || !hasText(payload.broadcastId))
     return reply.code(501).send({ ...version, status: "not_implemented" });
   let broadcast = broadcasts.get(payload.broadcastId);
   if (command.operation === "broadcasts.read")
@@ -209,9 +210,9 @@ provider.post("/integrations/platform/v1/communications", (request, reply) => {
     broadcast = {
       ...broadcast,
       revision: broadcast.revision + 1,
-      state: broadcast.scheduledAt ? "scheduled" : "running",
-      audienceSnapshotId: broadcast.scheduledAt ? null : randomUUID(),
-      snapshotSize: broadcast.scheduledAt ? 0 : 2,
+      state: hasText(broadcast.scheduledAt) ? "scheduled" : "running",
+      audienceSnapshotId: hasText(broadcast.scheduledAt) ? null : randomUUID(),
+      snapshotSize: hasText(broadcast.scheduledAt) ? 0 : 2,
     };
   else if (broadcast && command.operation === "broadcasts.lifecycle")
     broadcast = {

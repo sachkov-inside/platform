@@ -32,6 +32,7 @@ import {
   createMigratedTestDatabase,
   type TestDatabase,
 } from "./setup/test-database.js";
+import { hasText } from "../../src/infrastructure/contracts/text.js";
 
 // Every access read and write uses production facets over real PostgreSQL.
 // No bank payment, Telegram link, public offer or production grant is created.
@@ -436,7 +437,7 @@ describe("independent guide, library, support and shared chat rights", () => {
         subject,
         correlationId: randomUUID(),
       });
-      if (!session.ok || !session.value.drmAuthToken)
+      if (!session.ok || !hasText(session.value.drmAuthToken))
         throw new Error("Expected protected playback token");
       expect(
         await playback.authorizeProvider({

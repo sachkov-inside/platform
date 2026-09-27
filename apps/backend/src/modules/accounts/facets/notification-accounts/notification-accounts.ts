@@ -1,6 +1,7 @@
 import { z } from "zod";
 import type { AccountsPrismaClient } from "../../../../infrastructure/prisma/index.js";
 import type { billingContactProtection } from "../../infrastructure/billing-contact-protection.js";
+import { hasText } from "../../../../infrastructure/contracts/text.js";
 
 /** Account enumeration and current verified contact, shared by the Notifications composition. */
 export class NotificationAccounts {
@@ -18,7 +19,9 @@ export class NotificationAccounts {
     const rows = await this.prisma.account.findMany({
       where: {
         createdAt: { lte: query.occurredAt },
-        ...(query.after ? { id: { gt: z.uuid().parse(query.after) } } : {}),
+        ...(hasText(query.after)
+          ? { id: { gt: z.uuid().parse(query.after) } }
+          : {}),
       },
       orderBy: { id: "asc" },
       take: limit,
@@ -39,7 +42,7 @@ export class NotificationAccounts {
       where: { accountId: z.uuid().parse(accountId) },
     });
     // The verified contact row is keyed by Account, and revision changes after each confirmation.
-    return row?.verifiedAt && row.emailCiphertext
+    return row?.verifiedAt && hasText(row.emailCiphertext)
       ? {
           channel: "email" as const,
           accountRef: accountId,
@@ -63,7 +66,7 @@ export class NotificationAccounts {
     });
     if (
       !row?.verifiedAt ||
-      !row.emailCiphertext ||
+      !hasText(row.emailCiphertext) ||
       row.revision !== binding.contactRevision
     )
       return null;

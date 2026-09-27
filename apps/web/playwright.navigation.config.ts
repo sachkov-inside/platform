@@ -15,7 +15,7 @@ export default defineConfig({
   // Повтор нужен только для следа: тест, прошедший со второй попытки, валит прогон.
   failOnFlakyTests: Boolean(process.env.CI),
   reporter: [["list"]],
-  retries: process.env.CI ? 1 : 0,
+  retries: process.env.CI !== undefined && process.env.CI !== "" ? 1 : 0,
   workers: 1,
   use: {
     baseURL,

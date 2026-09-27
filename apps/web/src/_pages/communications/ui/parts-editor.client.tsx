@@ -2,6 +2,7 @@
 import { useState, type ReactNode } from "react";
 import { Button } from "@/shared/ui/button";
 import type { Part } from "../model/communications";
+import { hasText, presentText } from "@/shared/lib/text";
 
 export { fieldClass } from "./communications-fields";
 const types = {
@@ -98,16 +99,16 @@ export function PartsEditor({
               </div>
             </div>
             <p className="whitespace-pre-wrap break-words [overflow-wrap:anywhere]">
-              {part.content.text ||
+              {presentText(part.content.text) ??
                 `Сохранено из Telegram: ${types[part.content.type]}`}
             </p>
-            {part.content.entities.length ? (
+            {part.content.entities.length > 0 ? (
               <p className="text-sm text-muted-foreground">
                 Форматирование Telegram сохранено. Точный вид можно проверить
                 образцом в боте.
               </p>
             ) : null}
-            {part.content.buttons.length ? (
+            {part.content.buttons.length > 0 ? (
               <div aria-label="Кнопки сообщения" className="space-y-2">
                 {Array.from(
                   new Set(
@@ -148,7 +149,7 @@ export function PartsEditor({
           </li>
         ))}
       </ol>
-      {!parts.length ? (
+      {parts.length === 0 ? (
         <p className="rounded-lg border border-dashed border-border p-4 text-sm text-muted-foreground">
           Сообщений пока нет. Выберите первый сохранённый пост.
         </p>
@@ -164,7 +165,7 @@ export function PartsEditor({
       >
         Добавить сохранённый пост
       </Button>
-      {choosing ? (
+      {hasText(choosing) ? (
         <div className="min-w-0 space-y-3 rounded-xl border border-border p-3 sm:p-4">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <p className="font-medium">
@@ -220,7 +221,7 @@ export function PartsEditor({
         Изменение исходного поста не меняет уже выбранную часть. Чтобы применить
         новую версию, замените её явно.
       </p>
-      {notice ? (
+      {notice !== "" ? (
         <p role="status" className="text-sm">
           {notice}
         </p>

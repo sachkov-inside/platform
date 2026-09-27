@@ -6,6 +6,7 @@ import type { TelegramAccountLinks } from "../../../telegram-membership/index.js
 import type { contentValidationRequestSchema } from "../../communications-schema.generated.js";
 import { authorizeAuthor } from "../authorize-author/authorize-author.js";
 import { validateTargets } from "../validate-targets/validate-targets.js";
+import { hasText } from "../../../../infrastructure/contracts/text.js";
 
 /** Checks the supplied snapshot without calling Telegram while its author transaction is open. */
 export async function validateAuthorContent(
@@ -20,7 +21,8 @@ export async function validateAuthorContent(
 ) {
   const authorization = await authorizeAuthor(dependencies, request);
   if (authorization.status !== "allowed") return authorization;
-  if (!dependencies.publicOrigin) return { status: "unavailable" } as const;
+  if (!hasText(dependencies.publicOrigin))
+    return { status: "unavailable" } as const;
   try {
     const targetErrors = await validateTargets(
       request.parts,

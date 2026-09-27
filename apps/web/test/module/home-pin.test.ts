@@ -52,7 +52,7 @@ it("authenticates selection and removal and keeps both reads and writes private"
   for (const id of [seriesId, ""]) {
     fakes.save.mockResolvedValue({
       ok: true,
-      body: { seriesId: id || null, version: 2 },
+      body: { seriesId: id === "" ? null : id, version: 2 },
       response: new Response(),
     });
     const response = await handleHomePinWriteRequest(
@@ -60,10 +60,10 @@ it("authenticates selection and removal and keeps both reads and writes private"
     );
     expect(await response.json()).toEqual({
       kind: "ready",
-      pin: { seriesId: id || null, version: 2 },
+      pin: { seriesId: id === "" ? null : id, version: 2 },
     });
     expect(fakes.save).toHaveBeenLastCalledWith(
-      { seriesId: id || null, expectedVersion: 1 },
+      { seriesId: id === "" ? null : id, expectedVersion: 1 },
       "trusted-token",
     );
     expect(response.headers.get("cache-control")).toBe("no-store, private");

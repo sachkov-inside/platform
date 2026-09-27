@@ -1,5 +1,6 @@
 import { queryOptions } from "@tanstack/react-query";
 import * as api from "../api/broadcasts.browser";
+import { hasText } from "@/shared/lib/text";
 const COMMUNICATIONS_POLL_INTERVAL_MS = 10_000;
 export const communicationsQueries = {
   posts: (cursor?: string) =>
@@ -30,7 +31,10 @@ export const communicationsQueries = {
         cursor,
       ],
       queryFn: () =>
-        api.readStatistics({ ...scope, ...(cursor ? { cursor } : {}) }),
+        api.readStatistics({
+          ...scope,
+          ...(hasText(cursor) ? { cursor } : {}),
+        }),
       refetchInterval: COMMUNICATIONS_POLL_INTERVAL_MS,
     }),
   deliveries: (
@@ -46,7 +50,10 @@ export const communicationsQueries = {
         cursor,
       ],
       queryFn: () =>
-        api.readDeliveries({ ...scope, ...(cursor ? { cursor } : {}) }),
+        api.readDeliveries({
+          ...scope,
+          ...(hasText(cursor) ? { cursor } : {}),
+        }),
       refetchInterval: COMMUNICATIONS_POLL_INTERVAL_MS,
     }),
   entries: (contactId: string | undefined, cursor?: string) =>

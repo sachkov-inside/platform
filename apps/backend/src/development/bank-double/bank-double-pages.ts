@@ -61,13 +61,13 @@ export function indexPage(view: StandView): string {
     </form>
     <h2>Заказы</h2>
     ${
-      orders
+      orders !== ""
         ? `<table><tr><th>Заказ</th><th>Сумма</th><th>Статус</th><th>Чек</th><th>Возвращено</th></tr>${orders}</table>`
         : '<p class="note">Пока ни одной оплаты.</p>'
     }
     <h2>Привязки карты</h2>
     ${
-      sessions
+      sessions !== ""
         ? `<table><tr><th>Сессия</th><th>Статус</th></tr>${sessions}</table>`
         : '<p class="note">Пока ни одной сессии привязки.</p>'
     }`;

@@ -24,6 +24,7 @@ import {
   recordBillingNotice,
   supersedeRenewalReminders,
 } from "./record-notice.js";
+import { hasText } from "../../../infrastructure/contracts/text.js";
 
 const acceptanceSchema = z.object({
   command: z.object({ consentEvidenceRefs: z.array(z.uuid()) }),
@@ -134,7 +135,7 @@ export async function settleConfirmedAttempt(
         paidUntil: endsAt,
         periodAmountKopecks: attempt.amountKopecks,
         // Привязка запечатана на идентификатор своей операции: он же публичный methodRef.
-        ...(attempt.bindingCiphertext
+        ...(hasText(attempt.bindingCiphertext)
           ? {
               bindingRef: attempt.id,
               bindingCiphertext: attempt.bindingCiphertext,
@@ -162,7 +163,7 @@ export async function settleConfirmedAttempt(
     return { subscriptionRef, startsAt: paidAt, endsAt, snapshot };
   }
   const subscriptionRef = attempt.subscriptionRef;
-  if (!subscriptionRef)
+  if (!hasText(subscriptionRef))
     throw new Error("Scheduled attempt without a subscription");
   const current = await tx.billingSubscription.findUniqueOrThrow({
     where: { id: subscriptionRef },
@@ -284,9 +285,9 @@ export async function endLapsedSubscriptions(
     });
     if (row.state === "ended" || row.paidUntil > now) continue;
     if (
-      await tx.billingPurchase.count({
+      (await tx.billingPurchase.count({
         where: { subscriptionRef: row.id, state: { in: inFlightStates } },
-      })
+      })) > 0
     )
       continue;
     if (

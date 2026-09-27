@@ -25,6 +25,7 @@ import {
 import { formText, AdminField, AdminSection } from "./admin-form.client";
 
 import { useOwnerEnrollments } from "../model/use-owner-enrollments.client";
+import { hasText } from "@/shared/lib/text";
 export function EnrollmentAdminPanel() {
   // Время читается при первой отправке, а не при рендере: предсборка не имеет права видеть часы.
   // Дальше оно не меняется, поэтому повтор той же команды получает тот же `operationId`.
@@ -143,12 +144,12 @@ export function EnrollmentAdminPanel() {
       title="Тарифы и назначения"
       description="Назначение не требует продажи или оплаты. Разовые покупки и другие основания остаются независимыми."
     >
-      {error || tiers.isError || assignments.isError ? (
+      {hasText(error) || tiers.isError || assignments.isError ? (
         <p role="alert" className="text-destructive">
           {error ?? tiers.error?.message ?? assignments.error?.message}
         </p>
       ) : null}
-      {notice ? <p role="status">{notice}</p> : null}
+      {hasText(notice) ? <p role="status">{notice}</p> : null}
       <form
         className="grid gap-4"
         onSubmit={(event) => {

@@ -2,6 +2,7 @@
 import { useState } from "react";
 import { Button } from "@/shared/ui/button";
 import type { Delivery, ResolveDelivery } from "../model/communications";
+import { hasText } from "@/shared/lib/text";
 const labels = {
   pending: "Ожидает отправки",
   in_flight: "Отправляется",
@@ -41,7 +42,9 @@ export function DeliveryHistory({
             </h3>
             <p className="text-sm">
               Версия сообщения: {delivery.publishedRevision}.{" "}
-              {delivery.completedAt ? "Шаг завершён." : "Шаг ещё не завершён."}{" "}
+              {hasText(delivery.completedAt)
+                ? "Шаг завершён."
+                : "Шаг ещё не завершён."}{" "}
               {delivery.cancelRequested
                 ? "Запрошена отмена. Неизвестный результат требует решения."
                 : ""}
@@ -63,7 +66,7 @@ export function DeliveryHistory({
                   <p className="font-medium">
                     Часть {i + 1}: {labels[part.state]}
                   </p>
-                  {part.diagnosticCode ? (
+                  {hasText(part.diagnosticCode) ? (
                     <p className="break-words text-sm">
                       Причина: {part.diagnosticCode}
                     </p>
@@ -86,7 +89,7 @@ export function DeliveryHistory({
                             className="break-words py-1 text-sm"
                           >
                             {attempt.attemptedAt}: {attempt.outcome}
-                            {attempt.diagnosticCode
+                            {hasText(attempt.diagnosticCode)
                               ? ` · ${attempt.diagnosticCode}`
                               : ""}
                           </li>
@@ -95,7 +98,7 @@ export function DeliveryHistory({
                     </details>
                   ) : null}
                   {["failed", "unknown"].includes(part.state) &&
-                  !delivery.completedAt ? (
+                  !hasText(delivery.completedAt) ? (
                     <fieldset disabled={disabled} className="space-y-3">
                       <legend className="sr-only">
                         Решение по части {i + 1}
@@ -131,7 +134,7 @@ export function DeliveryHistory({
                             type="button"
                             variant="outline"
                             className="min-h-12"
-                            disabled={!accepted[key]}
+                            disabled={accepted[key] !== true}
                             onClick={() => {
                               onRetry(input);
                             }}

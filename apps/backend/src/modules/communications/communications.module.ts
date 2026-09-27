@@ -31,6 +31,7 @@ import { AuthorizeCommunicationsAuthorController } from "./features/authorize-au
 import { ManageCommunicationsController } from "./features/manage-communications/manage-communications.controller.js";
 import { Communications } from "./facets/communications/communications.js";
 import { HttpCommunicationsProvider } from "./infrastructure/http-communications-provider.js";
+import { hasText } from "../../infrastructure/contracts/text.js";
 
 const OUTBOX_POLL_INTERVAL_MS = 5_000;
 
@@ -47,7 +48,10 @@ export class TrackingHitPump
     @Inject(PLATFORM_CONFIG) private readonly config: PlatformConfig,
   ) {}
   onApplicationBootstrap() {
-    if (this.config.communicationsTrackingOrigin && this.config.communications)
+    if (
+      hasText(this.config.communicationsTrackingOrigin) &&
+      this.config.communications
+    )
       this.schedule();
   }
   private schedule() {

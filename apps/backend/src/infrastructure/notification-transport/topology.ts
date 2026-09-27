@@ -5,7 +5,7 @@ export const NOTIFICATION_BROKER_IMAGE = "rabbitmq:4.2.4-management-alpine";
 /** Ёмкость каждой очереди окружения: сообщения; байты — по 16 KiB на сообщение. Одна для стенда и production. */
 export const NOTIFICATION_QUEUE_CAPACITY = 1_000;
 const exact = (names: string[]) =>
-  names.length
+  names.length > 0
     ? `^(?:${[...new Set(names)].map((name) => name.replaceAll(".", "\\.")).join("|")})$`
     : "^$";
 // Deployment-only declarations. Runtime identities have no configure permission.

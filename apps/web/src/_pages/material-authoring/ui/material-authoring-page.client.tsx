@@ -29,6 +29,7 @@ import { createMaterialDraft } from "../api/create-material-draft.browser";
 import { saveMaterial } from "../api/save-material.browser";
 import type { CreateMaterialDraftInput } from "../model/create-material-draft";
 import type { SaveMaterialInput } from "../model/save-material";
+import { hasText } from "@/shared/lib/text";
 
 interface MaterialAuthoringPageClientProps {
   readonly initialPresentation: MaterialAuthoringPresentation;
@@ -187,7 +188,7 @@ export function MaterialAuthoringPageClient({
         canDelete:
           draftRef.current.canDelete && result.publicationState === "draft",
         latestVideoDeletion:
-          input.deleteVideoId &&
+          hasText(input.deleteVideoId) &&
           draftRef.current.latestVideoDeletion?.videoId === input.deleteVideoId
             ? {
                 ...draftRef.current.latestVideoDeletion,

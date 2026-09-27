@@ -40,6 +40,7 @@ import {
   type TestDatabase,
 } from "./setup/test-database.js";
 import { linkTelegramAccount } from "./setup/telegram-link.js";
+import { hasText } from "../../src/infrastructure/contracts/text.js";
 
 function deferredValue<T>() {
   let resolve!: (value: T) => void;
@@ -369,7 +370,8 @@ describe("Tribute source production facets and signed HTTP with PostgreSQL", () 
     ).toBe(0);
     const imported = await apply(context.row);
     const source = imported.result.sources[0];
-    if (!source?.enrollmentId) throw new Error("Expected pending enrollment");
+    if (!hasText(source?.enrollmentId))
+      throw new Error("Expected pending enrollment");
     const row = await db.prisma.subscriptionEnrollment.findUniqueOrThrow({
       where: { id: source.enrollmentId },
     });
@@ -858,7 +860,8 @@ describe("Tribute source production facets and signed HTTP with PostgreSQL", () 
     const customer = await link(context.row.identityRef);
     const imported = await apply(context.row);
     const source = imported.result.sources[0];
-    if (!source?.enrollmentId) throw new Error("Expected linked source");
+    if (!hasText(source?.enrollmentId))
+      throw new Error("Expected linked source");
     value(
       await grants.changeEnrollment(owner, {
         operationId: randomUUID(),

@@ -1,11 +1,12 @@
 import { z } from "zod";
+import { presentText } from "../infrastructure/contracts/text.js";
 const cleanUrl = z.url().refine((value) => {
   const url = new URL(value);
   return (
     (url.protocol === "https:" || url.protocol === "http:") &&
-    !url.username &&
-    !url.password &&
-    !url.hash
+    url.username === "" &&
+    url.password === "" &&
+    url.hash === ""
   );
 });
 const httpsUrl = cleanUrl.refine(
@@ -113,7 +114,8 @@ export function parseBankContour(
   environment: NodeJS.ProcessEnv,
 ): TbankConfig | undefined {
   const providerMode =
-    environment.TBANK_PROVIDER_MODE?.trim() || DEFAULT_TBANK_PROVIDER_MODE;
+    presentText(environment.TBANK_PROVIDER_MODE?.trim()) ??
+    DEFAULT_TBANK_PROVIDER_MODE;
   if (providerMode !== "real" && providerMode !== "test") {
     throw new Error("TBANK_PROVIDER_MODE must be real or test");
   }
@@ -180,18 +182,18 @@ export function localTbankConfig(environment: NodeJS.ProcessEnv): TbankConfig {
       minimumKopecks: 100,
       maximumKopecks: 100_000_000,
       returnUrl:
-        environment.TBANK_TEST_RETURN_URL?.trim() ||
+        presentText(environment.TBANK_TEST_RETURN_URL?.trim()) ??
         DEFAULT_LOCAL_BANK_RETURN_URL,
       notificationUrl:
-        environment.TBANK_TEST_NOTIFICATION_URL?.trim() ||
+        presentText(environment.TBANK_TEST_NOTIFICATION_URL?.trim()) ??
         DEFAULT_LOCAL_BANK_NOTIFICATION_URL,
       receipt: { taxation: "usn_income", tax: "none" },
       endpoints: {
         apiBaseUrl:
-          environment.TBANK_TEST_API_BASE_URL?.trim() ||
+          presentText(environment.TBANK_TEST_API_BASE_URL?.trim()) ??
           DEFAULT_LOCAL_BANK_API_BASE_URL,
         formOrigins: [
-          environment.TBANK_TEST_PUBLIC_ORIGIN?.trim() ||
+          presentText(environment.TBANK_TEST_PUBLIC_ORIGIN?.trim()) ??
             DEFAULT_LOCAL_BANK_FORM_ORIGIN,
         ],
       },

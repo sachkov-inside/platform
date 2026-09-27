@@ -53,6 +53,7 @@ import {
   type AuthorizeRequest,
 } from "../../src/modules/notifications/domain/notification-wire.js";
 import { renderNotification } from "../../src/modules/notifications/domain/templates.js";
+import { hasText } from "../../src/infrastructure/contracts/text.js";
 const protection = billingContactProtection(
   Buffer.alloc(32, 43).toString("base64"),
 );
@@ -279,7 +280,7 @@ describe("Notifications persistence and delivery (real PostgreSQL; synthetic sou
     const expansions: AudienceExpansion[] = [];
     for (let batch = 0; batch < 20; batch += 1) {
       expansions.push(await expandAudience(deps, lane, quarantined));
-      if (!expansions.at(-1)?.progressed) return expansions;
+      if (expansions.at(-1)?.progressed !== true) return expansions;
     }
     throw new Error("Audience expansion did not drain");
   }
@@ -299,7 +300,7 @@ describe("Notifications persistence and delivery (real PostgreSQL; synthetic sou
       await database.prisma.notificationEmailEffect.findUniqueOrThrow({
         where: { deliveryId: deliveryRef },
       });
-    if (!effect.resultPayload) throw new Error("Missing result");
+    if (!hasText(effect.resultPayload)) throw new Error("Missing result");
     const result = resultSchema.parse(JSON.parse(effect.resultPayload));
     await app.acceptDeliveryResult("email", result);
     return result;

@@ -18,6 +18,7 @@ import {
   consumeNotificationLane,
   publishNotification,
 } from "./rabbitmq.js";
+import { hasText } from "../contracts/text.js";
 
 const RELAY_SWEEP_MS = 1_000;
 const OBSERVATION_INTERVAL_MS = 60_000;
@@ -79,7 +80,9 @@ export function assembleNotificationWorker(input: {
         ] as const) {
           const connection = await connectNotificationBroker({
             url: input.config.urls[principal],
-            ...(input.config.caFile ? { caFile: input.config.caFile } : {}),
+            ...(hasText(input.config.caFile)
+              ? { caFile: input.config.caFile }
+              : {}),
           });
           connections.set(principal, connection);
           connection.on("close", () => {

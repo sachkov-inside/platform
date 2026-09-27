@@ -16,7 +16,7 @@ const input = z
     buyer: z.uuid(),
     command: z.unknown(),
     now: z.string(),
-    notification: z.unknown().optional(),
+    notification: z.record(z.string(), z.unknown()).optional(),
     documents: z.array(
       z.object({
         kind: z.enum(["terms", "recurring"]),

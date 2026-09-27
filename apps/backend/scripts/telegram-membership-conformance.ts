@@ -13,6 +13,7 @@ import {
   localProofDatabaseUrl,
   loopbackHttpUrl,
 } from "./conformance-safety.js";
+import { hasText } from "../src/infrastructure/contracts/text.js";
 
 const platformPort = port("CONFORMANCE_PLATFORM_PORT", 44_101);
 const platformBase = `http://127.0.0.1:${String(platformPort)}`;
@@ -343,7 +344,7 @@ async function request(
   options: { method: "GET" | "POST"; token?: string },
 ): Promise<{ body: unknown; status: number }> {
   const response = await fetch(`${platformBase}${path}`, {
-    ...(options.token
+    ...(hasText(options.token)
       ? { headers: { authorization: `Bearer ${options.token}` } }
       : {}),
     method: options.method,
@@ -551,7 +552,7 @@ function assertKind(
   assert(value.kind === kind, `${message}: ${JSON.stringify(value)}`);
 }
 
-function assert(condition: unknown, message: string): asserts condition {
+function assert(condition: boolean, message: string): asserts condition {
   if (!condition) {
     throw new Error(message);
   }
@@ -583,7 +584,7 @@ function port(name: string, fallback: number): number {
 
 function required(name: string): string {
   const value = process.env[name];
-  if (!value) {
+  if (!hasText(value)) {
     throw new Error(`${name} is required`);
   }
   return value;

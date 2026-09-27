@@ -150,7 +150,7 @@ function DiscoveryHero({
           <h1 className="mt-3 max-w-3xl break-words text-[1.75rem] font-semibold leading-[1.15] tracking-[-0.035em] md:text-4xl">
             {result.reference.name}
           </h1>
-          {result.reference.summary ? (
+          {result.reference.summary !== "" ? (
             <p className="mt-4 max-w-2xl text-base leading-7 text-body-muted md:text-lg">
               {result.reference.summary}
             </p>

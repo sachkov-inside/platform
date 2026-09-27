@@ -43,6 +43,7 @@ import {
   localProofDatabaseUrl,
   loopbackHttpUrl,
 } from "./conformance-safety.js";
+import { hasText } from "../src/infrastructure/contracts/text.js";
 
 // Real consumer and provider communicate only over HTTP; no neighboring code or database imports.
 const revision = execFileSync("git", ["rev-parse", "HEAD"], {
@@ -527,7 +528,7 @@ try {
     .find((b) => b.url.startsWith(`${origin}/c`));
   assert(tracked);
   const trackingToken = new URL(tracked.url).searchParams.get("token");
-  assert(trackingToken);
+  assert(hasText(trackingToken));
   const tracking = app.get(TrackingVisits);
   assert.equal(
     (await tracking.resolve({ token: trackingToken, traffic: "unknown" })).kind,

@@ -1,6 +1,7 @@
 import "server-only";
 import { getOptionalPlatformAccessToken } from "@/shared/auth/index.server";
 import { getSeriesOrder } from "./get-series-order";
+import { hasText } from "@/shared/lib/text";
 export async function handleReadSeriesOrderRequest(
   seriesId: string,
 ): Promise<Response> {
@@ -8,7 +9,9 @@ export async function handleReadSeriesOrderRequest(
   try {
     const token = await getOptionalPlatformAccessToken();
     return Response.json(
-      token ? await getSeriesOrder(seriesId, token) : { kind: "unauthorized" },
+      hasText(token)
+        ? await getSeriesOrder(seriesId, token)
+        : { kind: "unauthorized" },
       { headers },
     );
   } catch {

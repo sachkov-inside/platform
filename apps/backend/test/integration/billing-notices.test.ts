@@ -36,6 +36,7 @@ import {
   syntheticConsentDocuments,
   type RenewalSource,
 } from "./setup/consent-documents.js";
+import { hasText } from "../../src/infrastructure/contracts/text.js";
 
 function value<T>(
   result: { ok: true; value: T } | { ok: false; error: { code: string } },
@@ -165,7 +166,7 @@ describe("служебные сообщения подписки (реальны
         code: codes.get(start.challengeRef),
       }),
     ).toMatchObject({ ok: true });
-    if (options.telegram)
+    if (options.telegram === true)
       await db.prisma.telegramAccountLinkState.create({
         data: {
           accountId: buyer,
@@ -249,8 +250,8 @@ describe("служебные сообщения подписки (реальны
             if (channel === "email") return contacts.binding(account);
             const result = await links.readBinding({ accountId: account });
             if (!result.ok) throw new Error("notification_binding_unavailable");
-            return result.binding?.telegramIdentityRef &&
-              result.binding.accountRef
+            return hasText(result.binding?.telegramIdentityRef) &&
+              hasText(result.binding.accountRef)
               ? {
                   channel: "telegram",
                   ...result.binding,

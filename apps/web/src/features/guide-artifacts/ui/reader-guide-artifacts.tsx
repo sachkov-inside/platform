@@ -37,7 +37,7 @@ export function ReaderGuideArtifacts({
               <Heading className="break-words text-base font-semibold leading-6">
                 {artifact.title}
               </Heading>
-              {artifact.purpose ? (
+              {artifact.purpose !== "" ? (
                 <p className="mt-1 text-sm leading-6 text-muted-foreground">
                   {artifact.purpose}
                 </p>

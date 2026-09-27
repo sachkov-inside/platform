@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { dependencyFailure } from "../../../../infrastructure/observability/index.js";
 import type { TelegramSignInProvider } from "./telegram-account-sign-in.js";
+import { hasText } from "../../../../infrastructure/contracts/text.js";
 const responseSchema = z
   .object({
     contractVersion: z.literal("inside.bot-sign-in.v1"),
@@ -19,7 +20,7 @@ export class HttpTelegramSignInProvider implements TelegramSignInProvider {
     subjectRef: string,
     principalRef: string,
   ) {
-    if (!this.secret) return { status: "unavailable" } as const;
+    if (!hasText(this.secret)) return { status: "unavailable" } as const;
     try {
       const response = await fetch(
         `${this.endpoint}/integrations/identity/v1/sign-in/${requestRef}/account-link`,
