@@ -831,7 +831,7 @@ shared `inside-platform_*` volumes, so every branch and worktree sees the same c
   database at the start of every run, so products, lessons and buyers created by an earlier run
   never change what the next one sees. The reset always targets the `inside-platform` Compose
   project, even when `COMPOSE_PROJECT_NAME` names another one (#757), so a run in your own project
-  exports `DATABASE_URL`. An explicitly exported `DATABASE_URL` is used as it is and
+  must export `DATABASE_URL`. An explicitly exported `DATABASE_URL` is used as it is and
   never reset: point it at a freshly created database before a run whose result you report.
 
 - The seed reads `config/compose/local/seed-stand.env` (`LOCAL_SEED_DEMO=hidden`) unless
