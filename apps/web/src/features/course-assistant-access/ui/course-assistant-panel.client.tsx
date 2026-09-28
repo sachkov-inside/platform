@@ -1,7 +1,7 @@
 "use client";
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 
 import {
   acknowledgeCourseAssistantDataNotice,
@@ -14,13 +14,17 @@ import {
   courseAssistantErrorMessage,
   type CourseAssistantParticipant,
   type CourseAssistantWriteResult,
-  type LinkableRepository,
   type RepositoryConnectionOutcome,
 } from "../model/course-assistant";
 import {
   CourseAssistantPanelView,
   type CourseAssistantAction,
 } from "./course-assistant-panel-view";
+
+const courseAssistantRepositoriesQueryKey = [
+  "course-assistant",
+  "repositories",
+] as const;
 
 /**
  * Производственный путь экрана помощника: каждое действие — своя мутация через собственный BFF;
@@ -34,9 +38,16 @@ export function CourseAssistantPanel({
   readonly outcome?: RepositoryConnectionOutcome | undefined;
 }) {
   const router = useRouter();
+  const queryClient = useQueryClient();
   const [error, setError] = useState<string>();
-  const [repositories, setRepositories] =
-    useState<readonly LinkableRepository[]>();
+  // После установки с несколькими репозиториями выбор нужен сразу, без лишнего нажатия.
+  const [choosing, setChoosing] = useState(outcome === "choose_repository");
+  const repositories = useQuery({
+    queryKey: courseAssistantRepositoriesQueryKey,
+    queryFn: readCourseAssistantRepositories,
+    enabled: choosing,
+    retry: false,
+  });
 
   const settle = (result: CourseAssistantWriteResult) => {
     if (!result.ok) {
@@ -44,7 +55,10 @@ export function CourseAssistantPanel({
       return;
     }
     setError(undefined);
-    setRepositories(undefined);
+    setChoosing(false);
+    queryClient.removeQueries({
+      queryKey: courseAssistantRepositoriesQueryKey,
+    });
     router.refresh();
   };
   const acknowledge = useMutation({
@@ -64,18 +78,6 @@ export function CourseAssistantPanel({
       window.location.assign(result.installUrl);
     },
   });
-  const listRepositories = useMutation({
-    mutationFn: readCourseAssistantRepositories,
-    retry: false,
-    onSuccess: (result) => {
-      if (!result.ok) {
-        setError(courseAssistantErrorMessage(result.code));
-        return;
-      }
-      setError(undefined);
-      setRepositories(result.repositories);
-    },
-  });
   const link = useMutation({
     mutationFn: linkCourseAssistantRepository,
     retry: false,
@@ -87,17 +89,13 @@ export function CourseAssistantPanel({
     onSuccess: settle,
   });
 
-  const { mutate: showRepositories } = listRepositories;
-  // После установки с несколькими репозиториями выбор нужен сразу, без лишнего нажатия.
-  useEffect(() => {
-    if (outcome === "choose_repository") showRepositories();
-  }, [outcome, showRepositories]);
+  const listed = choosing ? repositories.data : undefined;
 
   const pending: CourseAssistantAction | undefined = acknowledge.isPending
     ? "acknowledge"
     : connect.isPending || connect.data?.ok === true
       ? "connect"
-      : listRepositories.isPending
+      : choosing && repositories.isPending
         ? "repositories"
         : link.isPending
           ? "link"
@@ -107,7 +105,12 @@ export function CourseAssistantPanel({
 
   return (
     <CourseAssistantPanelView
-      error={error}
+      error={
+        error ??
+        (listed?.ok === false
+          ? courseAssistantErrorMessage(listed.code)
+          : undefined)
+      }
       onAcknowledge={() => {
         acknowledge.mutate();
       }}
@@ -124,12 +127,14 @@ export function CourseAssistantPanel({
         });
       }}
       onShowRepositories={() => {
-        showRepositories();
+        // Повтор после ошибки: запрос уже включён, поэтому его перечитывают явно.
+        if (choosing) void repositories.refetch();
+        else setChoosing(true);
       }}
       outcome={outcome}
       participant={participant}
       pending={pending}
-      repositories={repositories}
+      repositories={listed?.ok === true ? listed.repositories : undefined}
     />
   );
 }

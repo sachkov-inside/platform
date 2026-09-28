@@ -308,6 +308,40 @@ describe("Course assistant on PostgreSQL", () => {
     });
   });
 
+  test("parallel choices leave exactly one active Repository Link", async () => {
+    const account = randomUUID();
+    await database.prisma.account.create({
+      data: {
+        id: account,
+        logtoIssuer: "https://identity.example.test",
+        logtoSubject: account,
+      },
+    });
+    const allowed = assistant({ enabled: true, accountAllowlist: [account] });
+    await connect(allowed, account, {
+      id: 7009,
+      login: "racer",
+      repositories: [repositoryA, repositoryB],
+    });
+
+    const choices = await Promise.all(
+      Array.from({ length: 6 }, (_, index) =>
+        allowed.linkRepository({
+          accountId: account,
+          installationId: 7009,
+          repositoryId: index % 2 === 0 ? repositoryA.id : repositoryB.id,
+        }),
+      ),
+    );
+
+    expect(choices.every((choice) => choice.ok)).toBe(true);
+    expect(
+      await database.prisma.repositoryLink.count({
+        where: { accountId: account, disconnectedAt: null },
+      }),
+    ).toBe(1);
+  });
+
   test("an installation with one repository links it at once", async () => {
     const subject = assistant();
     const completed = await connect(subject, otherParticipant, {

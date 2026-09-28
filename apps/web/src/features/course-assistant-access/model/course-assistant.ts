@@ -107,7 +107,7 @@ export function courseAssistantErrorMessage(
     case "invalid_connection":
       return "Подключение устарело. Начните его заново.";
     case "installation_not_owned":
-      return "Эта установка GitHub App принадлежит другому пользователю GitHub.";
+      return "Эта установка GitHub App недоступна вашему пользователю GitHub. Установите приложение со своего аккаунта.";
     case "write_access_requested":
       return "Установка просит больше прав, чем чтение. Такую установку курс не принимает.";
     case "repository_not_available":

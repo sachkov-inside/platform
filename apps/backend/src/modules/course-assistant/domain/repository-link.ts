@@ -1,7 +1,7 @@
 import { z } from "zod";
 
-/** Как долго действует начатое подключение: от кнопки до возврата из GitHub. */
-export const repositoryConnectionLifetimeMinutes = 15;
+/** Как долго действует начатое подключение: от кнопки до возврата из GitHub, 15 минут. */
+export const repositoryConnectionLifetimeMilliseconds = 15 * 60 * 1000;
 
 const repositorySchema = z
   .object({

@@ -274,11 +274,10 @@ _Avoid_: AccessGrant, ReadingState, collection, favorite
 
 **Repository Link**:
 The link between one Account and one repository of its training project, opened to the course
-through an installation of the course GitHub App that the Account's GitHub user verified. The App
-reads only metadata, contents and pull requests; an installation asking for more is refused. An
-Account has at most one active Repository Link; changing or disconnecting it closes the previous
-one and keeps it in history. When the installation is removed or the repository is taken out of
-it on GitHub, the link stays visible and the assistant's review becomes unavailable. Part of the
+read-only through an installation of the course GitHub App available to the Account's GitHub user.
+An Account has one current Repository Link at most, and earlier links remain its history. When
+the installation or its access to the repository is withdrawn on GitHub, the link remains and the
+assistant cannot review the work. Part of the
 course assistant prototype behind `COURSE_ASSISTANT_ENABLED`
 ([specification](docs/specifications/course-assistant-v1.md)). In Russian product language:
 «подключённый репозиторий».

@@ -91,6 +91,35 @@ export async function replaceRepositoryLink(
     readonly now: Date;
   },
 ): Promise<void> {
+  try {
+    await replaceInTransaction(prisma, input);
+  } catch (error) {
+    // Параллельный выбор уже сделал другую связь действующей: это ответ, а не сбой. Выигрывает
+    // тот выбор, который записался первым; участник видит его при следующем чтении.
+    if (isActiveLinkRace(error)) return;
+    throw error;
+  }
+}
+
+function isActiveLinkRace(error: unknown): boolean {
+  return (
+    error instanceof Error &&
+    "code" in error &&
+    // Единственное уникальное ограничение, которое задевает эта запись, кроме случайного UUID, —
+    // `repository_links_one_active`.
+    error.code === "P2002"
+  );
+}
+
+async function replaceInTransaction(
+  prisma: CourseAssistantPrismaClient,
+  input: {
+    readonly id: string;
+    readonly accountId: string;
+    readonly linkable: LinkableRepository;
+    readonly now: Date;
+  },
+): Promise<void> {
   await prisma.$transaction(async (transaction) => {
     const active = await transaction.repositoryLink.findFirst({
       where: { accountId: input.accountId, disconnectedAt: null },

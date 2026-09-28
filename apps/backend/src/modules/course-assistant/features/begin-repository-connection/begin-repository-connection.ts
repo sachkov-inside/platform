@@ -2,7 +2,7 @@ import { randomBytes, randomUUID } from "node:crypto";
 import { z } from "zod";
 import { dependencyFailure } from "../../../../infrastructure/observability/index.js";
 import { admitsParticipant } from "../../domain/course-assistant-settings.js";
-import { repositoryConnectionLifetimeMinutes } from "../../domain/repository-link.js";
+import { repositoryConnectionLifetimeMilliseconds } from "../../domain/repository-link.js";
 import {
   dependencyUnavailable,
   invalidRequest,
@@ -55,7 +55,7 @@ export async function beginRepositoryConnection(
         stateDigest: connectionStateDigest(state),
         createdAt,
         expiresAt: new Date(
-          createdAt.getTime() + repositoryConnectionLifetimeMinutes * 60_000,
+          createdAt.getTime() + repositoryConnectionLifetimeMilliseconds,
         ),
       },
     });

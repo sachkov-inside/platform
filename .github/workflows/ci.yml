@@ -5,7 +5,7 @@ on:
     branches:
       - main
       # Долгая ветка прототипа помощника курса (#786): PR child-задач проходят тот же CI.
-      - prototype/**
+      - prototype/course-assistant
   merge_group:
   workflow_call:
     inputs:

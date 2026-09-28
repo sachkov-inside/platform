@@ -78,6 +78,10 @@ describe("HttpGitHubApp", () => {
     expect(exchange === undefined ? "" : requestUrl(exchange[0])).toBe(
       "https://github.example.test/login/oauth/access_token",
     );
+    // Этот адрес отвечает JSON только на `Accept: application/json`, иначе — формой.
+    expect(new Headers(exchange?.[1]?.headers).get("accept")).toBe(
+      "application/json",
+    );
     const body = exchange?.[1]?.body;
     if (typeof body !== "string") throw new TypeError("Expected a JSON body");
     expect(JSON.parse(body)).toEqual({
@@ -127,7 +131,17 @@ describe("HttpGitHubApp", () => {
   test("repositories are read with an installation token signed by the app key", async () => {
     const { app, fetcher } = github({
       "/app/installations/42/access_tokens": () =>
-        json({ token: "ghs_installation" }, 201),
+        json(
+          {
+            token: "ghs_installation",
+            permissions: {
+              metadata: "read",
+              contents: "read",
+              pull_requests: "read",
+            },
+          },
+          201,
+        ),
       "/installation/repositories": () =>
         json({
           total_count: 1,
@@ -161,6 +175,23 @@ describe("HttpGitHubApp", () => {
     expect(
       new Headers(fetcher.mock.calls[1]?.[1]?.headers).get("authorization"),
     ).toBe("Bearer ghs_installation");
+  });
+
+  test("an installation whose permissions grew beyond reading is no longer available", async () => {
+    const { app } = github({
+      "/app/installations/42/access_tokens": () =>
+        json(
+          {
+            token: "ghs_installation",
+            permissions: { metadata: "read", contents: "write" },
+          },
+          201,
+        ),
+    });
+    await expect(app.listInstallationRepositories(42)).resolves.toEqual({
+      ok: false,
+      reason: "revoked",
+    });
   });
 
   test("a removed or suspended installation is revoked; a GitHub outage is not", async () => {

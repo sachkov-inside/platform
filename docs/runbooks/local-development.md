@@ -568,7 +568,7 @@ or client reports unsafe `any` errors in files the change never touched. `pnpm c
 before lint.
 
 The Prisma schema maps the product-owned `billing`, `materials`, `assets`, `accounts`, `member_profiles`,
-`membership_entitlements`, `reading_activity`, `notifications` and `telegram_membership` schemas. Checked-in,
+`membership_entitlements`, `reading_activity`, `notifications`, `telegram_membership` and, in the course assistant prototype branch, `course_assistant` schemas. Checked-in,
 append-only SQL migrations remain the database authority. Their explicit positions and checksums
 must form an exact registry prefix, rejecting drift, gaps, reordering, and newer unknown migrations;
 generated client files are not committed or edited. A pre-Prisma local volume must be recreated

@@ -36,7 +36,10 @@ const userInstallationsSchema = z.object({
     }),
   ),
 });
-const installationTokenSchema = z.object({ token: z.string().min(1) });
+const installationTokenSchema = z.object({
+  token: z.string().min(1),
+  permissions: z.record(z.string(), z.string()),
+});
 const installationRepositoriesSchema = z.object({
   total_count: z.number().int().nonnegative(),
   repositories: z.array(
@@ -100,7 +103,11 @@ export class HttpGitHubApp implements GitHubApp {
           new URL("/login/oauth/access_token", this.origins.web),
           {
             method: "POST",
-            headers: { "content-type": "application/json" },
+            // Этот адрес отвечает JSON только на `Accept: application/json`, иначе — формой.
+            headers: {
+              accept: "application/json",
+              "content-type": "application/json",
+            },
             body: JSON.stringify({
               client_id: this.credentials.clientId,
               client_secret: this.credentials.clientSecret,
@@ -122,11 +129,8 @@ export class HttpGitHubApp implements GitHubApp {
         input.installationId,
       );
       if (installation === undefined) return { ok: false, reason: "not_owner" };
-      const writes = Object.entries(installation.permissions).some(
-        ([permission, level]) =>
-          !readOnlyPermissions.has(permission) || level !== "read",
-      );
-      if (writes) return { ok: false, reason: "write_access_requested" };
+      if (!readsOnly(installation.permissions))
+        return { ok: false, reason: "write_access_requested" };
       return { ok: true, login: user.login };
     } catch (error) {
       reportDependencyFailure(
@@ -201,7 +205,10 @@ export class HttpGitHubApp implements GitHubApp {
     return undefined;
   }
 
-  /** Токен установки; удалённая (404) или приостановленная (403) установка — `undefined`. */
+  /**
+   * Токен установки. Удалённая (404) или приостановленная (403) установка, как и установка, чьи
+   * права выросли за пределы чтения, — `undefined`: читать через неё курс больше не вправе.
+   */
   private async installationToken(
     installationId: number,
   ): Promise<string | undefined> {
@@ -217,7 +224,8 @@ export class HttpGitHubApp implements GitHubApp {
     );
     if (response.status === 404 || response.status === 403) return undefined;
     if (!response.ok) throw new GitHubUnavailable(response.status);
-    return installationTokenSchema.parse(await response.json()).token;
+    const issued = installationTokenSchema.parse(await response.json());
+    return readsOnly(issued.permissions) ? issued.token : undefined;
   }
 
   private appToken(): Promise<string> {
@@ -249,6 +257,13 @@ export class HttpGitHubApp implements GitHubApp {
       signal: AbortSignal.timeout(requestTimeoutMilliseconds),
     });
   }
+}
+
+function readsOnly(permissions: Readonly<Record<string, string>>): boolean {
+  return Object.entries(permissions).every(
+    ([permission, level]) =>
+      readOnlyPermissions.has(permission) && level === "read",
+  );
 }
 
 /** Помощник выключен и GitHub App не настроена: ни одна операция до GitHub не доходит. */

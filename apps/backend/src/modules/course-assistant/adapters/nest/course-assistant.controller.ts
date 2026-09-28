@@ -293,7 +293,7 @@ export class CourseAssistantController {
   }
 }
 
-type CourseAssistantError =
+type CourseAssistantHttpError =
   | CompleteRepositoryConnectionError
   | Extract<
       | AcknowledgeDataNoticeResult
@@ -302,7 +302,7 @@ type CourseAssistantError =
       { readonly ok: false }
     >["error"];
 
-function throwCourseAssistantError(error: CourseAssistantError): never {
+function throwCourseAssistantError(error: CourseAssistantHttpError): never {
   switch (error.code) {
     case "invalid_request":
       throw courseAssistantException(400, error.code);
