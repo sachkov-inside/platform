@@ -243,6 +243,7 @@ describe("Platform migrations", () => {
         "0070_guide_page",
         "0071_offer_eligibility",
         "0072_practice_definitions",
+        "0073_course_assistant",
       ],
     });
     expect(second).toEqual({ appliedMigrations: [] });
@@ -268,6 +269,12 @@ describe("Platform migrations", () => {
       "reader_preferences",
     ]);
     await expectTables(testDatabase, "bookmarks", ["bookmarked_materials"]);
+    await expectTables(testDatabase, "course_assistant", [
+      "data_notice_acknowledgements",
+      "github_installations",
+      "repository_connection_attempts",
+      "repository_links",
+    ]);
     await expectTables(testDatabase, "assets", assetTables);
     await expectTables(testDatabase, "videos", videoTables);
     await expectTables(testDatabase, "workshop", workshopTables);
@@ -295,6 +302,7 @@ describe("Platform migrations", () => {
         and source_schema.nspname in (
           'reading_activity',
           'bookmarks',
+          'course_assistant',
           'materials',
           'membership_entitlements',
           'telegram_membership',
@@ -901,6 +909,7 @@ describe("Platform migrations", () => {
           "0070_guide_page",
           "0071_offer_eligibility",
           "0072_practice_definitions",
+          "0073_course_assistant",
         ],
       });
 
@@ -1084,6 +1093,7 @@ async function expectTables(
   schema:
     | "reading_activity"
     | "bookmarks"
+    | "course_assistant"
     | "accounts"
     | "assets"
     | "identity_principals"

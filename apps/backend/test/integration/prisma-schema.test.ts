@@ -24,6 +24,10 @@ describe("Prisma schema", () => {
       testDatabase.prisma.readingCommand.count(),
       testDatabase.prisma.readingMaterialVisit.count(),
       testDatabase.prisma.bookmarkedMaterial.count(),
+      testDatabase.prisma.dataNoticeAcknowledgement.count(),
+      testDatabase.prisma.repositoryConnectionAttempt.count(),
+      testDatabase.prisma.gitHubInstallation.count(),
+      testDatabase.prisma.repositoryLink.count(),
       testDatabase.prisma.account.count(),
       testDatabase.prisma.accountPermission.count(),
       testDatabase.prisma.accountAuditEvent.count(),
@@ -64,6 +68,6 @@ describe("Prisma schema", () => {
       testDatabase.prisma.telegramCommunityProjectionCursor.count(),
     ]);
 
-    expect(counts).toEqual(Array.from({ length: 43 }, () => 0));
+    expect(counts).toEqual(Array.from({ length: 47 }, () => 0));
   });
 });

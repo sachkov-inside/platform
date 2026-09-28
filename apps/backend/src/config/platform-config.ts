@@ -230,6 +230,22 @@ const platformConfigSchema = z
       })
       .optional(),
     mode: platformModeSchema,
+    // Прототип помощника курса (#786): выключен по умолчанию, открыт только Account из allowlist.
+    courseAssistant: z
+      .object({
+        enabled: z.boolean(),
+        accountAllowlist: z.array(z.uuid().toLowerCase()).max(50),
+        githubApp: z
+          .strictObject({
+            slug: z.string().regex(/^[a-z0-9][a-z0-9-]{0,99}$/u),
+            clientId: z.string().min(1).max(200),
+            clientSecret: z.string().min(1).max(200),
+            privateKey: z.string().includes("PRIVATE KEY-----"),
+          })
+          .readonly()
+          .optional(),
+      })
+      .readonly(),
     database: z.object({ url: databaseUrlSchema }).readonly(),
     api: z
       .object({
@@ -448,6 +464,7 @@ export function parsePlatformConfig(
           }
         : undefined,
     mode,
+    courseAssistant: parseCourseAssistant(environment),
     tbank: parseBankContour(environment),
     tribute:
       environment["TRIBUTE_API_KEY"] === undefined &&
@@ -869,6 +886,16 @@ export function parsePlatformConfig(
     );
   }
 
+  if (config.data.courseAssistant.enabled) {
+    if (mode === "production") {
+      throw new Error(
+        "Course assistant prototype is not available in production",
+      );
+    }
+    if (config.data.courseAssistant.githubApp === undefined) {
+      throw new Error("Course assistant requires a configured GitHub App");
+    }
+  }
   if (config.data.identity.telegramSignInEnabled) {
     if (
       !hasText(config.data.identity.telegramSignInIntegrationSecret) ||
@@ -890,6 +917,41 @@ export function parsePlatformConfig(
     }
   }
   return config.data;
+}
+
+function parseCourseAssistant(environment: NodeJS.ProcessEnv) {
+  const githubApp = {
+    slug: environment["COURSE_ASSISTANT_GITHUB_APP_SLUG"],
+    clientId: environment["COURSE_ASSISTANT_GITHUB_APP_CLIENT_ID"],
+    clientSecret: environment["COURSE_ASSISTANT_GITHUB_APP_CLIENT_SECRET"],
+    privateKeyBase64:
+      environment["COURSE_ASSISTANT_GITHUB_APP_PRIVATE_KEY_BASE64"],
+  };
+  return {
+    enabled:
+      z
+        .enum(["true", "false"])
+        .default("false")
+        .parse(environment["COURSE_ASSISTANT_ENABLED"]) === "true",
+    accountAllowlist: (environment["COURSE_ASSISTANT_ACCOUNT_ALLOWLIST"] ?? "")
+      .split(",")
+      .map((value) => value.trim())
+      .filter(hasText),
+    // Ключ PEM многострочный, а env-файл Compose хранит одну строку: ключ передаётся в base64.
+    githubApp: Object.values(githubApp).every((value) => value === undefined)
+      ? undefined
+      : {
+          slug: githubApp.slug,
+          clientId: githubApp.clientId,
+          clientSecret: githubApp.clientSecret,
+          privateKey:
+            githubApp.privateKeyBase64 === undefined
+              ? undefined
+              : Buffer.from(githubApp.privateKeyBase64, "base64").toString(
+                  "utf8",
+                ),
+        },
+  };
 }
 
 export function parsePlatformDatabaseConfig(

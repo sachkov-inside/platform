@@ -9,6 +9,8 @@ export {
   type ReadingActivityPrismaClient,
   type BookmarksPrisma,
   type BookmarksPrismaClient,
+  type CourseAssistantPrisma,
+  type CourseAssistantPrismaClient,
   type AccountsPrisma,
   type AccountsPrismaClient,
   type AssetsPrisma,

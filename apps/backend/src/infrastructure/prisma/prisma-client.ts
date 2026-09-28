@@ -140,6 +140,16 @@ export type BookmarksPrisma = Pick<
 export type BookmarksPrismaClient = BookmarksPrisma &
   TransactionClient<BookmarksPrisma>;
 
+export type CourseAssistantPrisma = Pick<
+  PlatformPrisma,
+  | "dataNoticeAcknowledgement"
+  | "repositoryConnectionAttempt"
+  | "gitHubInstallation"
+  | "repositoryLink"
+>;
+export type CourseAssistantPrismaClient = CourseAssistantPrisma &
+  TransactionClient<CourseAssistantPrisma>;
+
 export type BillingPrisma = Pick<
   PlatformPrisma,
   | "$executeRaw"

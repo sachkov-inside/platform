@@ -31,6 +31,7 @@ describe("process configuration", () => {
 
     expect(config).toEqual({
       mode: "test",
+      courseAssistant: { enabled: false, accountAllowlist: [] },
       database: { url: "postgresql://database.example/inside" },
       api: { host: "api.example", port: 4100 },
       identity: {
@@ -84,6 +85,7 @@ describe("process configuration", () => {
   it("uses local defaults only in explicit development or test mode", () => {
     expect(parsePlatformConfig({ NODE_ENV: "development" })).toEqual({
       mode: "development",
+      courseAssistant: { enabled: false, accountAllowlist: [] },
       database: {
         url: "postgresql://inside:inside@127.0.0.1:5432/inside",
       },
@@ -428,6 +430,70 @@ describe("billing contact configuration", () => {
     ).toThrow(
       "BILLING_CONTACT_SMTP_LOCAL_CAPTURE is not a production mail transport",
     );
+  });
+});
+
+describe("course assistant prototype configuration", () => {
+  const owner = "AAAAAAAA-AAAA-4AAA-8AAA-AAAAAAAAAAAA";
+  const githubApp = {
+    COURSE_ASSISTANT_GITHUB_APP_SLUG: "inside-course-local",
+    COURSE_ASSISTANT_GITHUB_APP_CLIENT_ID: "Iv23synthetic",
+    COURSE_ASSISTANT_GITHUB_APP_CLIENT_SECRET: "synthetic-client-secret",
+    COURSE_ASSISTANT_GITHUB_APP_PRIVATE_KEY_BASE64: Buffer.from(
+      "-----BEGIN RSA PRIVATE KEY-----\nsynthetic\n-----END RSA PRIVATE KEY-----\n",
+    ).toString("base64"),
+  };
+  it("is off by default and opens no Account", () => {
+    expect(parsePlatformConfig({ NODE_ENV: "test" }).courseAssistant).toEqual({
+      enabled: false,
+      accountAllowlist: [],
+      githubApp: undefined,
+    });
+  });
+  it("opens only allowlisted Accounts and needs a complete GitHub App when enabled", () => {
+    const config = parsePlatformConfig({
+      NODE_ENV: "test",
+      COURSE_ASSISTANT_ENABLED: "true",
+      COURSE_ASSISTANT_ACCOUNT_ALLOWLIST: ` ${owner} ,`,
+      ...githubApp,
+    }).courseAssistant;
+    expect(config.enabled).toBe(true);
+    expect(config.accountAllowlist).toEqual([owner.toLowerCase()]);
+    expect(config.githubApp?.privateKey).toContain("BEGIN RSA PRIVATE KEY");
+
+    expect(() =>
+      parsePlatformConfig({
+        NODE_ENV: "test",
+        COURSE_ASSISTANT_ENABLED: "true",
+        COURSE_ASSISTANT_ACCOUNT_ALLOWLIST: owner,
+      }),
+    ).toThrow("Course assistant requires a configured GitHub App");
+    expect(() =>
+      parsePlatformConfig({
+        NODE_ENV: "test",
+        COURSE_ASSISTANT_ACCOUNT_ALLOWLIST: "not-an-account",
+      }),
+    ).toThrow();
+    expect(() =>
+      parsePlatformConfig({
+        NODE_ENV: "test",
+        ...githubApp,
+        COURSE_ASSISTANT_GITHUB_APP_CLIENT_SECRET: undefined,
+      }),
+    ).toThrow();
+  });
+  it("is never enabled in production", () => {
+    expect(() =>
+      parsePlatformProcessConfig(
+        {
+          ...productionWorker,
+          COURSE_ASSISTANT_ENABLED: "true",
+          COURSE_ASSISTANT_ACCOUNT_ALLOWLIST: owner,
+          ...githubApp,
+        },
+        "billing-worker",
+      ),
+    ).toThrow("Course assistant prototype is not available in production");
   });
 });
 
