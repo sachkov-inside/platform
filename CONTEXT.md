@@ -272,6 +272,18 @@ its linked resources, survives the loss of Membership and adds no public field. 
 language: «Закладка».
 _Avoid_: AccessGrant, ReadingState, collection, favorite
 
+**Repository Link**:
+The link between one Account and one repository of its training project, opened to the course
+through an installation of the course GitHub App that the Account's GitHub user verified. The App
+reads only metadata, contents and pull requests; an installation asking for more is refused. An
+Account has at most one active Repository Link; changing or disconnecting it closes the previous
+one and keeps it in history. When the installation is removed or the repository is taken out of
+it on GitHub, the link stays visible and the assistant's review becomes unavailable. Part of the
+course assistant prototype behind `COURSE_ASSISTANT_ENABLED`
+([specification](docs/specifications/course-assistant-v1.md)). In Russian product language:
+«подключённый репозиторий».
+_Avoid_: GitHub integration, repository access, connected account
+
 ## Deferred Workshop vocabulary
 
 Workshop is deferred while the current platform develops Materials and Guides. These terms retain

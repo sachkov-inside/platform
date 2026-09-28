@@ -4,6 +4,8 @@ on:
   pull_request:
     branches:
       - main
+      # Долгая ветка прототипа помощника курса (#786): PR child-задач проходят тот же CI.
+      - prototype/**
   merge_group:
   workflow_call:
     inputs:

@@ -32,9 +32,7 @@ export interface GitHubApp {
       }
   >;
   /** Репозитории установки; удалённая или приостановленная установка — `revoked`. */
-  listInstallationRepositories(
-    installationId: number,
-  ): Promise<
+  listInstallationRepositories(installationId: number): Promise<
     | { readonly ok: true; readonly repositories: readonly GitHubRepository[] }
     | {
         readonly ok: false;
