@@ -299,6 +299,10 @@ import {
   name as seriesStepGroupsMigrationName,
   statement as seriesStepGroupsMigrationStatement,
 } from "../modules/materials/infrastructure/postgres/migrations/0028-series-step-groups.js";
+import {
+  name as courseAssistantName,
+  statement as courseAssistantStatement,
+} from "../modules/course-assistant/infrastructure/postgres/migrations/0073-course-assistant.js";
 
 export const platformMigrations = [
   {
@@ -492,6 +496,7 @@ export const platformMigrations = [
   { name: guidePageName, statement: guidePageStatement },
   { name: offerEligibilityName, statement: offerEligibilityStatement },
   { name: practiceDefinitionsName, statement: practiceDefinitionsStatement },
+  { name: courseAssistantName, statement: courseAssistantStatement },
 ] as const;
 
 export function migrateToLatest(

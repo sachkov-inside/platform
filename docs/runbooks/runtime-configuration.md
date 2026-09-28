@@ -265,3 +265,14 @@ migration `0072-practice-definitions` creates the current delivery projection an
 receipts. Author MCP permissions and tool inventory remain separate from the learner surface.
 
 The participant setup and bounded native verification live in [learner practice review](learning-practice-review.md).
+
+## Course assistant prototype
+
+`COURSE_ASSISTANT_ENABLED` is `false` by default and opens the course assistant only to the Account
+UUIDs in `COURSE_ASSISTANT_ACCOUNT_ALLOWLIST` (#787). When it is `true`, the API requires the
+complete course GitHub App: `COURSE_ASSISTANT_GITHUB_APP_SLUG`, `_CLIENT_ID`, `_CLIENT_SECRET`
+and `_PRIVATE_KEY_BASE64` (the PEM key as one base64 line, because a Compose env file holds one line
+per value). The prototype never runs in production: an enabled production configuration fails at
+start, and the production examples do not list these variables. The Compose stand reads them from
+the optional `.course-assistant/stand.env` outside Git; see the
+[course assistant specification](../specifications/course-assistant-v1.md).

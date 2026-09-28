@@ -126,6 +126,10 @@ services:
       # того арендатора, который на стенде сейчас.
       - path: ./.identity-proof/stand.env
         required: false
+      # Прототип помощника курса (#786) включается только на стенде владельца: флаг, allowlist и
+      # ключи GitHub App лежат в файле вне Git. Без файла помощник выключен.
+      - path: ./.course-assistant/stand.env
+        required: false
     volumes:
       - ./.identity-proof/tls:/identity-tls:ro
     depends_on:

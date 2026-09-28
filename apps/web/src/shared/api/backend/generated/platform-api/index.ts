@@ -18,6 +18,7 @@ export { CommunicationsService } from './services/CommunicationsService';
 export { CommunicationsTrackingService } from './services/CommunicationsTrackingService';
 export { ContentCoversService } from './services/ContentCoversService';
 export { ContentLibraryService } from './services/ContentLibraryService';
+export { CourseAssistantService } from './services/CourseAssistantService';
 export { GuideArtifactsService } from './services/GuideArtifactsService';
 export { KinescopeIntegrationService } from './services/KinescopeIntegrationService';
 export { MaterialAssetsService } from './services/MaterialAssetsService';

@@ -7,6 +7,7 @@ config/production/foundation/*.env
 .next/
 .impeccable/review/
 .identity-proof
+.course-assistant
 ci-artifacts/
 .playwright-cli/
 playwright-report/

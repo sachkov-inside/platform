@@ -8,7 +8,7 @@ generator client {
 
 datasource db {
   provider = "postgresql"
-  schemas  = ["notifications", "billing", "accounts", "assets", "bookmarks", "communications", "materials", "member_profiles", "reading_activity", "membership_entitlements", "telegram_membership", "videos", "workshop"]
+  schemas  = ["notifications", "billing", "accounts", "assets", "bookmarks", "communications", "materials", "member_profiles", "reading_activity", "membership_entitlements", "telegram_membership", "videos", "workshop", "course_assistant"]
 }
 
 model Account {
@@ -1822,4 +1822,48 @@ model PracticeImportReceipt {
   @@id([actorId, operation, idempotencyKey])
   @@map("practice_import_receipts")
   @@schema("materials")
+}
+
+model DataNoticeAcknowledgement {
+  accountId      String   @map("account_id") @db.Uuid
+  noticeVersion  String   @map("notice_version")
+  acknowledgedAt DateTime @map("acknowledged_at") @db.Timestamptz
+  @@id([accountId, noticeVersion])
+  @@map("data_notice_acknowledgements")
+  @@schema("course_assistant")
+}
+
+model RepositoryConnectionAttempt {
+  id          String    @id @db.Uuid
+  accountId   String    @map("account_id") @db.Uuid
+  stateDigest String    @unique @map("state_digest")
+  createdAt   DateTime  @map("created_at") @db.Timestamptz
+  expiresAt   DateTime  @map("expires_at") @db.Timestamptz
+  completedAt DateTime? @map("completed_at") @db.Timestamptz
+  @@index([accountId, createdAt(sort: Desc)], map: "repository_connection_attempts_account")
+  @@map("repository_connection_attempts")
+  @@schema("course_assistant")
+}
+
+model GitHubInstallation {
+  accountId      String   @map("account_id") @db.Uuid
+  installationId BigInt   @map("installation_id") @db.BigInt
+  githubLogin    String   @map("github_login")
+  verifiedAt     DateTime @map("verified_at") @db.Timestamptz
+  @@id([accountId, installationId])
+  @@map("github_installations")
+  @@schema("course_assistant")
+}
+
+model RepositoryLink {
+  id                 String    @id @db.Uuid
+  accountId          String    @map("account_id") @db.Uuid
+  installationId     BigInt    @map("installation_id") @db.BigInt
+  repositoryId       BigInt    @map("repository_id") @db.BigInt
+  repositoryFullName String    @map("repository_full_name")
+  connectedAt        DateTime  @map("connected_at") @db.Timestamptz
+  disconnectedAt     DateTime? @map("disconnected_at") @db.Timestamptz
+  @@index([accountId, connectedAt(sort: Desc), id], map: "repository_links_history")
+  @@map("repository_links")
+  @@schema("course_assistant")
 }

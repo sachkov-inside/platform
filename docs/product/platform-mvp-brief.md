@@ -540,7 +540,11 @@ migration pipeline в Platform нет.
 - анонимно доступный или индексируемый internet-public profile, social graph, follows, direct
   messages и broad member directory;
 - редакционные команды и материалы участников;
-- сложный learning progress, задания, achievements и gamification;
+- сложный learning progress, задания, achievements и gamification; исключение — прототип помощника
+  курса в ветке `prototype/course-assistant` за выключенной настройкой, только на локальном стенде
+  владельца ([#786](https://github.com/sachkov-inside/platform/issues/786),
+  [спецификация](../specifications/course-assistant-v1.md)); в `main` граница не меняется до
+  решения владельца об интеграции;
 - внутренний notification center и email-кампании; служебные сообщения и анонсы материалов
   входят в [Notifications v1](../specifications/notifications-v1.md);
 - AI-поиск и отдельный autonomous content generation workflow вне user-delegated MCP Save.
