@@ -8,6 +8,7 @@ import { z } from "zod";
 
 import {
   ensureApplication,
+  ensureLearnerStandApplication,
   ensureEmailConnector,
   ensureResource,
   ensureSignInExperience,
@@ -663,6 +664,22 @@ test("Management API bootstrap converges after partial state and a repeated run"
     state.connectors[0]?.["connectorId"],
     "simple-mail-transfer-protocol",
   );
+});
+
+test("local learner bootstrap repeats without secrets or duplicate Native clients", async () => {
+  /** @type {FakeManagementState} */
+  const state = { resources: [], applications: [], connectors: [] };
+  const api = managementApiFake(state);
+  const first = await ensureLearnerStandApplication(api);
+  const second = await ensureLearnerStandApplication(api);
+  assert.equal(first.id, second.id);
+  assert.equal(state.applications.length, 1);
+  assert.equal(at(state.applications[0], "type"), "Native");
+  assert.deepEqual(
+    at(state.applications[0], "oidcClientMetadata", "redirectUris"),
+    ["http://127.0.0.1:4387/callback"],
+  );
+  assert.equal(state.applications[0]?.["customClientMetadata"], undefined);
 });
 
 test("Management API bootstrap rejects malformed resource and application payloads", async () => {

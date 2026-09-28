@@ -240,6 +240,32 @@ describe("Logto access token verifier", () => {
     }
   });
 
+  test("learner resource tokens do not become API sign-in or accept arbitrary audiences", async () => {
+    const learner = "https://api.inside.example.test/mcp/learning";
+    const token = await signToken({}, { audience: learner });
+    const verifier = localVerifier(publicJwk);
+    await expect(verifier.verifyAccount(token, learner)).resolves.toMatchObject(
+      { ok: true },
+    );
+    await expect(verifier.verifyAccount(token)).resolves.toMatchObject({
+      ok: false,
+    });
+    await expect(verifier.verifyAccountSignIn(token)).resolves.toMatchObject({
+      ok: false,
+    });
+    const unrelated = await signToken(
+      {},
+      { audience: "https://other.example.test" },
+    );
+    await expect(
+      verifier.verifyAccount(unrelated, learner),
+    ).resolves.toMatchObject({ ok: false });
+    const multiple = await signToken({}, { audience: [audience, learner] });
+    await expect(
+      verifier.verifyAccount(multiple, learner),
+    ).resolves.toMatchObject({ ok: false });
+  });
+
   function localVerifier(jwk: JWK) {
     return createLogtoAccessTokenVerifier({
       issuer,

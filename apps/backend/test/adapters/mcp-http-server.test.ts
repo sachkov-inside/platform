@@ -108,7 +108,12 @@ describe("MCP Streamable HTTP adapter", () => {
     try {
       await client.connect(
         new StreamableHTTPClientTransport(learning, {
-          authProvider: { token: () => signToken("owner-001") },
+          authProvider: {
+            token: () =>
+              signToken("owner-001", {
+                audience: "http://127.0.0.1:0/mcp/learning",
+              }),
+          },
         }),
       );
       const listed = await client.listTools();
@@ -137,6 +142,15 @@ describe("MCP Streamable HTTP adapter", () => {
         resource: "http://127.0.0.1:0/mcp/learning",
         resource_name: "Sachkov Inside learning materials",
       });
+      const authoring = await fetch(endpoint, {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          authorization: `Bearer ${await signToken("owner-001", { audience: "http://127.0.0.1:0/mcp/learning" })}`,
+        },
+        body: "{}",
+      });
+      expect(authoring.status).toBe(401);
     } finally {
       await client.close();
     }
@@ -209,13 +223,13 @@ describe("MCP Streamable HTTP adapter", () => {
 
   function signToken(
     subject: string,
-    overrides: { readonly expiresAt?: number } = {},
+    overrides: { readonly expiresAt?: number; readonly audience?: string } = {},
   ): Promise<string> {
     const issuedAt = currentTime();
     return new SignJWT({})
       .setProtectedHeader({ alg: "ES384", kid: "mcp-http-test-key" })
       .setIssuer(issuer)
-      .setAudience(audience)
+      .setAudience(overrides.audience ?? audience)
       .setSubject(subject)
       .setIssuedAt(issuedAt)
       .setExpirationTime(overrides.expiresAt ?? issuedAt + 300)

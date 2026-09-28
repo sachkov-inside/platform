@@ -37,9 +37,16 @@ const composeFiles = productionWeb
       "--file",
       "compose.yaml",
       "--file",
+      "config/compose/local/learner-setup.compose.yaml",
+      "--file",
       "config/compose/local/production-web.compose.yaml",
     ]
-  : [];
+  : [
+      "--file",
+      "compose.yaml",
+      "--file",
+      "config/compose/local/learner-setup.compose.yaml",
+    ];
 // The stand is always the shared project, even when a shell still names the disposable smoke one.
 const environment = {
   ...process.env,

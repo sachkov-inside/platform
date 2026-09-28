@@ -19,7 +19,12 @@ import { fileURLToPath, URLSearchParams } from "node:url";
 import { z } from "zod";
 
 import { checkDatabaseUrl } from "./check-database.mjs";
+import { ensureLearnerStandPermission } from "./learner-stand-permission.mjs";
 import { readAccessTokenTtl } from "./identity-proof-access-token.mjs";
+import {
+  learnerStandProfile,
+  writeLearnerStandSetup,
+} from "./learner-stand-setup.mjs";
 import {
   readIdentityProofEndpoints,
   readIdentityProofPort,
@@ -45,6 +50,7 @@ const managementResource = "https://default.logto.app/api";
 const applicationName = "Inside Web";
 // Stand-only client for the loopback authoring gateway; production and proof tenants never get it.
 export const authoringStandApplicationName = "Inside Authoring Stand";
+export const learnerStandApplicationName = "Inside Learner Codex Stand";
 const smtpConnectorId = "simple-mail-transfer-protocol";
 const platformAccessTokenTtlSeconds = readAccessTokenTtl();
 const mailpitPort = readIdentityProofPort(
@@ -123,10 +129,26 @@ async function main() {
   const applicationSecret = await readApplicationSecret(api, application.id);
   await writeRuntimeEnvironment(application.id, applicationSecret);
   if (onStand) {
+    await ensureResource(api, learnerStandProfile.url);
+    await ensureLearnerStandPermission(api);
     const authoring = await ensureAuthoringStandApplication(api);
     await writeAuthoringStandEnvironment(
       authoring.id,
       await readApplicationSecret(api, authoring.id),
+    );
+    const learner = await ensureLearnerStandApplication(api);
+    await writeLearnerStandSetup(root, learner.id, learnerStandProfile.url);
+    await writeFile(
+      resolve(root, ".identity-proof/learner-stand.json"),
+      JSON.stringify(
+        {
+          clientId: learner.id,
+          resource: learnerStandProfile.url,
+          ...learnerStandProfile,
+        },
+        null,
+        2,
+      ),
     );
   }
   if (process.argv.includes("--email-smoke")) {
@@ -214,8 +236,12 @@ export function createManagementApi(accessToken) {
   };
 }
 
-/** @param {ManagementApi} api */
-export async function ensureResource(api) {
+/** @param {ManagementApi} api
+ * @param {string} [resourceIndicator] */
+export async function ensureResource(
+  api,
+  resourceIndicator = platformResource,
+) {
   const resources = parseManagementPayload(
     z.array(resourceSchema),
     await api("/resources"),
@@ -223,11 +249,14 @@ export async function ensureResource(api) {
   );
   const resource = findSingle(
     resources,
-    ({ indicator }) => indicator === platformResource,
+    ({ indicator }) => indicator === resourceIndicator,
   );
   const body = {
-    name: "Inside Platform API",
-    indicator: platformResource,
+    name:
+      resourceIndicator === platformResource
+        ? "Inside Platform API"
+        : "Inside Learner MCP",
+    indicator: resourceIndicator,
     accessTokenTtl: platformAccessTokenTtlSeconds,
   };
   if (resource === undefined) {
@@ -308,6 +337,37 @@ export async function ensureAuthoringStandApplication(api) {
         })
       : await api(`/applications/${current.id}`, { method: "PATCH", body }),
     "Logto authoring stand application response",
+  );
+}
+
+/** Public PKCE client: no client secret, author permission or token exchange.
+ * @param {ManagementApi} api */
+export async function ensureLearnerStandApplication(api) {
+  const applications = parseManagementPayload(
+    z.array(applicationSchema),
+    await api("/applications"),
+    "Logto applications response",
+  );
+  const current = findSingle(
+    applications,
+    ({ name }) => name === learnerStandApplicationName,
+  );
+  const body = {
+    name: learnerStandApplicationName,
+    oidcClientMetadata: {
+      redirectUris: [learnerStandProfile.callbackUrl],
+      postLogoutRedirectUris: [],
+    },
+  };
+  return parseManagementPayload(
+    applicationSchema,
+    current === undefined
+      ? await api("/applications", {
+          method: "POST",
+          body: { ...body, type: "Native" },
+        })
+      : await api(`/applications/${current.id}`, { method: "PATCH", body }),
+    "Logto learner stand application response",
   );
 }
 

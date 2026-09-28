@@ -6,6 +6,8 @@
 # вход и остальные сервисы остаются прежними.
 services:
   web:
+    volumes:
+      - ./.identity-proof/practice-review-setup.txt:/app/apps/web/public/practice-review-setup.txt:ro
     build:
       target: web-production
       args:

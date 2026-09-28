@@ -41,6 +41,16 @@ test("snapshot contains exactly the chosen commit and leaves all working changes
     temporary = snapshot;
     assert.equal(commit, initial);
     assert.equal(
+      (
+        await execute("git", ["-C", snapshot, "rev-parse", "HEAD"])
+      ).stdout.trim(),
+      initial,
+    );
+    assert.equal(
+      (await execute("git", ["-C", snapshot, "show", "HEAD:lesson.md"])).stdout,
+      "Committed lesson",
+    );
+    assert.equal(
       await readFile(join(snapshot, "lesson.md"), "utf8"),
       "Committed lesson",
     );
