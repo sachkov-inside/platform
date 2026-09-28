@@ -857,6 +857,50 @@ the stand is stopped, Docker lists its `inside-platform_*` volumes as dangling, 
 owner's product data. Remove only volumes whose `com.docker.compose.project` label names your own
 Compose project.
 
+
+### AI Engineering course acceptance stand
+
+`pnpm local:stand --production-web` starts the full local environment. Use the production web build
+for manual reading and navigation checks; the development server compiles routes on demand.
+Then run `pnpm local:course` (optionally `--owner-email EMAIL` on first use). It uses the same
+owner sign-in/bootstrap and persistent journal as `local:product`, but selects `inside-ai-engineering`
+and an explicit **local preview**. The source repository can be selected with `--content PATH`;
+`--ref COMMIT` pins the chosen content revision.
+
+The local preview leaves the original package and Content files unchanged. It creates a separately
+hashed package with preparation lessons, the first two chapter-one lessons and supplementary
+materials free; the remaining lessons require the product. Practice definitions are published only
+in this local copy, while lesson editorial stages stay drafts. The receipt records both package
+paths and `coursePreview: true`. Repeat the same command after committing edits in Obsidian/Content;
+refresh the browser. It is a one-shot committed sync, not a watcher for unsaved edits.
+
+Open `/guides/inside-ai-engineering` and `/guides/inside-ai-engineering/programme`. The programme
+includes closed lessons. Use a fresh test email to see the unpaid view; sign-in codes and receipt
+confirmation messages stay in Mailpit. The local test offer created for #796 costs 30 RUB and uses
+the bank double. Its saved product grant is perpetual and support is six months. Existing checkout
+and legal wording still needs the separately tracked offer review; this is no approval of public
+course terms or price. The offer and account progress persist in the stand volume.
+
+The stand bootstrap also provisions a public Native Logto client for learner Codex, with PKCE and a
+loopback callback. A stand-only default User role carries `learning:read` for that resource;
+bootstrap adds it to existing local users without replacing their roles. This transport scope
+prevents an empty-scope native refresh request; it grants no product access. Both Codex commands
+request the same scopes and learner resource. `/practice-review-setup.txt` on the stand contains its public settings and the
+restricted review procedure. It is generated from the existing instruction and mounted only in the
+local stand; production instructions are unchanged. The local profile currently targets Codex.
+The login command uses `--no-browser`; append `&prompt=consent` to its authorization URL before
+opening it. Logto requires this consent parameter to retain `offline_access` and issue a refresh
+token ([provider contract](https://docs.logto.io/end-user-flows/sign-out)). Without it, initial
+login succeeds but another login is needed after the five-minute access token expires.
+Log in with the same test account as the website. The copied lesson request calls only the learner
+endpoint `/mcp/learning`, and access still follows that account's product rights.
+
+Local TLS uses a CA and a separate server leaf (the old pair is preserved when upgraded), bundled in
+`.identity-proof/tls/certificate.pem`. MCP also mounts that CA for its outgoing Logto verification.
+The generated instruction sets native CA variables and bypasses proxies only for local addresses;
+it does not disable TLS checks. The browser may require accepting the local certificate once.
+This local OAuth setup does not configure production or certify other native clients.
+
 ### Former MinIO objects
 
 Until platform#699 the stand kept files, covers and attachments in MinIO, in the
@@ -911,17 +955,18 @@ bootstrap there would generate new sign-in keys for the owner's stand accounts.
 pnpm authoring:sync-git-local CONTENT_REPOSITORY GUIDE_ID STATE_DIRECTORY [REF] [--target editor|stand] [--archive SOURCE_ID]...
 ```
 
-`REF` defaults to `HEAD` and is resolved to one commit SHA before export. The command archives
-that commit into a temporary directory, runs its exporter with frozen dependencies, and applies
-the resulting package. Staged, unstaged and untracked files are excluded; no checkout, commit,
-push, Git hook or file watcher is involved. Immutable packages remain under
+`REF` defaults to `HEAD` and is resolved to one commit SHA before export. The command checks out
+that commit in a temporary private clone with its own index and Git provenance, runs its exporter with frozen dependencies, and applies
+the resulting package. Staged, unstaged and untracked files are excluded. The owner’s checkout is
+not modified; no commit, push, Git hook or file watcher is involved. Immutable packages remain under
 `STATE_DIRECTORY/packages`; `last-git-sync.json` records the last successful commit, package and
 report. After an error, rerun the same commit: the journal resumes partial application.
 Refresh the browser after a transfer; report links point at the reader origin of the target.
 
 What the transfer applies:
 
-- Material text, images, links, access, topic, feed choice and product membership. Paid Materials
+- Material text, images, links, access, topic, feed choice and product membership. Editorial SVG
+  diagrams are rasterized to PNG for the image upload boundary; the source package keeps its SVG. Paid Materials
   validate inside their product; `supplementary_materials` join the product after the programme
   without a chapter, which is its "Additional Materials" part.
 - Material covers through `PUT /authoring/import/content-covers/material/:id`, and Material

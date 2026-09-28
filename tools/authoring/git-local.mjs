@@ -9,6 +9,7 @@ import { parseArgs } from "node:util";
 import { syncLocal } from "./local-sync.mjs";
 import { writeAtomic } from "./journal.mjs";
 import { resolveLocalTarget } from "./target.mjs";
+import { prepareCoursePreview } from "./course-preview.mjs";
 
 const execute = promisify(execFile);
 const commandOptions = { timeout: 120_000, maxBuffer: 1024 * 1024 };
@@ -40,14 +41,26 @@ export async function withGitSnapshot(repository, ref, use) {
   const temporary = await mkdtemp(join(tmpdir(), "inside-content-commit-"));
   try {
     const snapshot = join(temporary, "source");
-    await mkdir(snapshot);
-    const archive = join(temporary, "source.tar");
+    // Practice provenance reads HEAD and its committed sidecar. An archive has no Git metadata.
+    // This private clone shares only immutable objects, never the owner's index or working tree.
     await execute(
       "git",
-      ["-C", root, "archive", "--format=tar", `--output=${archive}`, commit],
+      ["clone", "--shared", "--no-checkout", "--quiet", "--", root, snapshot],
       commandOptions,
     );
-    await execute("tar", ["-xf", archive, "-C", snapshot], commandOptions);
+    await execute(
+      "git",
+      [
+        "-C",
+        snapshot,
+        "-c",
+        "core.hooksPath=/dev/null",
+        "checkout",
+        "--detach",
+        commit,
+      ],
+      commandOptions,
+    );
     return await use({ snapshot, commit });
   } finally {
     await rm(temporary, { recursive: true, force: true });
@@ -59,7 +72,7 @@ export async function withGitSnapshot(repository, ref, use) {
  * @param {string} guideId
  * @param {string} stateDirectory
  * @param {string} [ref]
- * @param {import("./local-sync.mjs").SyncOptions} [options]
+ * @param {import("./local-sync.mjs").SyncOptions & { coursePreview?: boolean }} [options]
  */
 export async function syncGitLocal(
   repository,
@@ -87,12 +100,18 @@ export async function syncGitLocal(
       ],
       { ...commandOptions, cwd: snapshot },
     );
-    const packagePath = resolve(stdout.trim(), "package.json");
-    const report = await syncLocal(packagePath, state, options);
+    const originalPackagePath = resolve(stdout.trim(), "package.json");
+    const { coursePreview = false, ...syncOptions } = options;
+    const packagePath = coursePreview
+      ? await prepareCoursePreview(originalPackagePath, state)
+      : originalPackagePath;
+    const report = await syncLocal(packagePath, state, syncOptions);
     const receipt = {
       commit,
       guideId,
       packagePath,
+      originalPackagePath,
+      coursePreview,
       completedAt: new Date().toISOString(),
       ...report,
     };

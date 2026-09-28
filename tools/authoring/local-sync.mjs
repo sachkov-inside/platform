@@ -1,4 +1,5 @@
 // @ts-check
+import { imageUpload } from "./image-upload.mjs";
 import {
   validateSourcePractices,
   replayPracticeImports,
@@ -835,16 +836,16 @@ export async function syncLocal(
         const images = new Map();
         for (const assetId of new Set(Object.values(row.images))) {
           const asset = valueAt(assets, assetId);
-          const imageKey = `image:${current.materialId}:${asset.sha256}`;
+          const upload = await imageUpload(await readAsset(asset), asset);
+          const imageKey = `image:${current.materialId}:${upload.asset.sha256}`;
           let uploaded = parseReceipt(
             assetReceiptSchema,
             journal.operations[imageKey],
           );
           if (!uploaded) {
-            const bytes = await readAsset(asset);
             uploaded = await request(
               `/authoring/materials/${current.materialId}/assets`,
-              fileForm({ kind: "image" }, bytes, asset),
+              fileForm({ kind: "image" }, upload.bytes, upload.asset),
               imageKey,
             );
             journal.operations[imageKey] = uploaded;

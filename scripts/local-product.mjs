@@ -19,6 +19,7 @@ const { values } = parseArgs({
     content: { type: "string" },
     guide: { type: "string", default: "working-with-agents" },
     ref: { type: "string", default: "HEAD" },
+    "course-preview": { type: "boolean", default: false },
   },
 });
 const { identity, email } = await standIdentity(values["owner-email"]);
@@ -34,10 +35,10 @@ const receipt = await withStandGateway(email, (origin) =>
     values.guide,
     resolve(content, standStateDirectory),
     values.ref,
-    { origin, pinHome: true },
+    { origin, pinHome: true, coursePreview: values["course-preview"] },
   ),
 );
 // Уведомления переноса показываются здесь же: иначе «пропажа» продукта осталась бы без объяснения.
 process.stdout.write(
-  `${JSON.stringify({ commit: receipt.commit, applied: receipt.applied, unchanged: receipt.unchanged, homePinned: receipt.homePinned, product: receipt.guides[0]?.url, archiveProposals: receipt.archiveProposals, notices: receipt.notices }, null, 2)}\n`,
+  `${JSON.stringify({ commit: receipt.commit, coursePreview: receipt.coursePreview, applied: receipt.applied, unchanged: receipt.unchanged, homePinned: receipt.homePinned, product: receipt.guides[0]?.url, archiveProposals: receipt.archiveProposals, notices: receipt.notices }, null, 2)}\n`,
 );
