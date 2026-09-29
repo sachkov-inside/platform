@@ -1,8 +1,9 @@
 # Помощник курса v1 (прототип)
 
 Статус: черновик. Спецификация [#786](https://github.com/sachkov-inside/platform/issues/786);
-разделы ниже поставлены в [#787](https://github.com/sachkov-inside/platform/issues/787). Проверка
-задания, статусы, спор, разговор, память, evals и приёмка дописываются задачами #788–#791.
+подключение репозитория поставлено в [#787](https://github.com/sachkov-inside/platform/issues/787),
+проверка задания — в [#788](https://github.com/sachkov-inside/platform/issues/788). Блокировка,
+спор, разговор, память, evals и приёмка дописываются задачами #789–#791.
 Требования курса остаются в ai-engineering `docs/course-assistant.md`, решения владельца — в
 ai-engineering `docs/decisions.md` от 27.09.2026.
 
@@ -120,6 +121,10 @@ Backend-модуль `course-assistant` (ADR 0004/0005/0029) владеет сх
 | `repository_connection_attempts` | Отпечаток одноразового `state`, срок, момент использования |
 | `github_installations` | Установки, подтверждённые пользователем GitHub этого Account |
 | `repository_links` | Repository Link с историей подключений и отключений |
+| `assistant_conversations` | Assistant Conversation: одна на Account и practiceId |
+| `assistant_messages` | Сообщения беседы в порядке появления |
+| `practice_reviews` | Practice Review: версия контекста, варианты, проверенный коммит, итог, сбой |
+| `assistant_usages` | Assistant Usage каждого вызова модели |
 
 Код репозитория, токены пользователя и установки не хранятся.
 
@@ -137,6 +142,10 @@ Backend-модуль `course-assistant` (ADR 0004/0005/0029) владеет сх
 | `linkCourseAssistantRepository` | `PUT /course-assistant/repository-link` |
 | `disconnectCourseAssistantRepository` | `DELETE /course-assistant/repository-link` |
 | `listCourseAssistantRepositoryLinks` | `GET /course-assistant/author/repository-links` |
+| `readCourseAssistantPracticeConversation` | `GET /course-assistant/practices/{practiceId}/conversation` |
+| `requestCourseAssistantPracticeReview` | `POST /course-assistant/practices/{practiceId}/reviews` |
+| `readCourseAssistantPracticeReview` | `GET /course-assistant/reviews/{reviewId}` |
+| `chooseCourseAssistantReviewCandidate` | `POST /course-assistant/reviews/{reviewId}/candidate` |
 
 `state` помечается использованным до обращения к GitHub: одноразовый код авторизации GitHub тоже
 нельзя предъявить повторно, поэтому после сбоя участник начинает подключение заново.
@@ -147,19 +156,132 @@ Backend-модуль `course-assistant` (ADR 0004/0005/0029) владеет сх
 ### Web
 
 `/account/course-assistant` в кабинете: предупреждение о данных, подключение, выбор, смена и
-отключение репозитория. Раздел не показан в навигации кабинета; точки входа с урока и задания
-приходят в #788. Интерфейс — временная семантическая разметка по `docs/agents/frontend-delivery.md`;
+отключение репозитория. Раздел не показан в навигации кабинета; вход в проверку — кнопка
+«Проверить задание» у практики на уроке (см. «Проверка задания»). Интерфейс — временная семантическая разметка по `docs/agents/frontend-delivery.md`;
 визуальный модуль приходит в [#798](https://github.com/sachkov-inside/platform/issues/798).
 
 Адрес возврата из GitHub пока не входит в ограничитель частоты входных маршрутов (`proxy.ts`):
 помощник открыт только аккаунтам из allowlist. Включить его туда нужно в Specification интеграции
 в `main`.
 
-## Решения, которые допишут следующие задачи
+## Проверка задания
 
-- ADR «GitHub App только на чтение и снимок репозитория по commit SHA без хранения кода» —
-  в #788 вместе со снимком репозитория; часть «только чтение» описана выше.
-- ADR о доступе к модели через Vercel AI SDK и порт модуля — в #788.
+Поставлено в [#788](https://github.com/sachkov-inside/platform/issues/788). Решения —
+[ADR 0030](../adr/0030-course-assistant-model-through-ai-sdk-port.md) (модель через Vercel AI SDK и
+порт модуля) и [ADR 0031](../adr/0031-course-assistant-reads-commit-snapshots.md) (GitHub только на
+чтение и снимок по commit SHA).
+
+### Путь участника
+
+1. У практики на уроке участник из allowlist видит «Проверить задание» рядом с путём своим агентом
+   (#785). Кнопка ставит Practice Review и открывает Assistant Conversation практики
+   `/account/course-assistant/practices/{practiceId}`.
+2. В беседе видно, что проверка поставлена или идёт. Если правдоподобных вариантов работы несколько,
+   помощник спрашивает, какой проверить, и участник выбирает кнопкой.
+3. Итог — отдельный блок: Practice Status, проверенный вариант и коммит, версия задания, вердикт по
+   каждому критерию со ссылками на файлы и строки на GitHub, объяснение и следующий шаг.
+4. «Проверить снова» после исправлений перечитывает текущий коммит той же работы и показывает у
+   каждого критерия прошлый вердикт, если он изменился.
+
+### Контекст задания
+
+Задание и урок берутся только через публичные операции #785/#782: `readPractice` Materials для
+показа и сверки версии, `readLearningPractice` ContentLibrary по частям для проверки. ContentAccess
+решает доступ Account. Помощник не хранит копию критериев: в проверке остаётся только
+`contextVersion`. Запрос несёт версию, которую видел участник. Если версия другая, API отвечает
+`practice_context_version_mismatch` (409) с `currentContextVersion`. Если задание изменилось, пока
+проверка ждала worker, она завершается сбоем `context_version_mismatch`. Участник выбирает новую
+версию явно, по догадке помощник не проверяет.
+
+### Работа участника
+
+Варианты — голова основной ветки и головы открытых PR этого же репозитория. PR из форков не
+рассматриваются, последние коммиты основной ветки агент видит в обзоре. Один вариант проверяется
+сразу, а из нескольких участник выбирает сам (`awaiting_choice`). Повторная проверка без выбора
+смотрит тот же вариант, что и прошлая; если PR закрыт, помощник спрашивает снова. Незакоммиченная
+работа недоступна, и итог говорит об этом прямо.
+
+### Выполнение
+
+API записывает проверку `queued` и ставит задание в очередь pg-boss
+`course-assistant.practice-reviews`. Worker `course-assistant-worker` (ADR 0001) переводит её в
+`running`; повторная доставка задания ничего не делает. Если постановка потерялась, сторож раз в
+минуту возвращает в очередь проверки, ждущие дольше 30 секунд. Проверку дольше 15 минут он
+закрывает сбоем `interrupted`. У Account одна идущая проверка на практику: повторное нажатие
+возвращает её же.
+
+Worker скачивает архив проверяемого коммита не больше 50 MiB. Снимок распаковывается во временный
+каталог: обычные файлы, не больше 20 000 файлов и 200 MiB. После проверки снимок удаляется.
+
+### Агент
+
+Один агент с тонким циклом `generateText` за портом модели (ADR 0030). Начало контекста стабильно
+для кэша поставщика. Сначала идёт доверенный протокол #785 с правилами серверного режима, затем
+контекст задания и урока как недоверенные данные, затем запрос этой проверки. Инструменты только
+читают:
+
+| Инструмент | Что делает |
+|---|---|
+| `repository_overview` | Основная ветка, открытые PR, последние коммиты и выбранная работа |
+| `list_files` | Файлы снимка под каталогом с размерами, до 500 строк |
+| `search_text` | Поиск текста без учёта регистра, до 100 совпадений |
+| `read_file` | Диапазон строк текстового файла с номерами, до 400 строк |
+| `compare_changes` | Изменения PR относительно базы с урезанными патчами; только для PR |
+| `submit_review` | Итог проверки по схеме; единственный ответ, который принимается |
+
+Схема итога: `summary` и ровно один вердикт на каждый критерий задания. У вердикта есть статус
+`confirmed | violation | not_verified`, свидетельства (путь и строки внутри репозитория), объяснение
+и следующий шаг. Следующий шаг обязателен для `violation` и `not_verified`. Ответ вне схемы
+возвращается модели как ошибка инструмента. Если цикл закончился без принятого итога, проверка
+завершается сбоем `invalid_report` или `limit_exceeded`, и статус не меняется.
+
+### Practice Status
+
+Сервер вычисляет статус из проверок практики, от новой к старой. `not_started` — проверок нет.
+`in_review` — проверка идёт или ждёт выбора. Иначе статус берётся из последней завершённой
+проверки: `accepted`, если подтверждён каждый критерий, иначе `needs_work`. Сбой статус не меняет.
+Блокировку следующей практики, спор и отложенную проверку добавляет #789.
+
+### Сбои проверки
+
+| Код | Когда |
+|---|---|
+| `context_version_mismatch` | Задание изменилось после запроса |
+| `practice_unavailable` | Задание стало недоступно Account |
+| `repository_access_revoked` | Установка удалена, приостановлена или больше не открывает репозиторий |
+| `repository_too_large` | Архив или снимок больше предела |
+| `invalid_report` | Модель не вернула итог по схеме |
+| `limit_exceeded` | Исчерпан лимит шагов или токенов |
+| `model_unavailable` | Поставщик модели не ответил |
+| `dependency_unavailable` | GitHub или хранилище не ответили |
+| `interrupted` | Проверка не завершилась за 15 минут |
+
+### Assistant Usage
+
+Каждый вызов модели — строка `assistant_usages`: поставщик, модель из ответа, токены входа, чтения
+и записи кэша, выхода и шаг цикла. Стоимость хранится в миллиардных долях доллара по таблице цен из
+настроек вместе с её версией. Без таблицы цен стоимость пуста. Расход записывается и у проверки со
+сбоем.
+
+### Настройки
+
+Модель, поставщик, ключ, цены и лимиты шагов и токенов — переменные `COURSE_ASSISTANT_MODEL_*` и
+`COURSE_ASSISTANT_REVIEW_*` (runbook [runtime configuration](../runbooks/runtime-configuration.md)).
+Лимиты временные, окончательные числа выбирает владелец. Без модели API отвечает на запрос
+проверки `review_unavailable` (503), а worker заданий не берёт.
+
+### Web
+
+Беседа — `useChat` AI SDK UI под assistant-ui. Сообщения участника — текст. Сообщение помощника —
+часть данных `practice-review` с этапом `progress`, `choice` или `result`, либо часть
+`practice-review-refusal` с причиной отказа. BFF `/api/account/course-assistant/practice-chat`
+принимает действие участника: проверить с версией задания или выбрать вариант. Он ставит команду
+через REST backend и отдаёт поток, который перечитывает проверку раз в секунду до итога или вопроса,
+не дольше 10 минут. `GET` того же адреса возобновляет поток идущей проверки после перезагрузки или
+отвечает 204. Кнопка на уроке ставит проверку через
+`/api/account/course-assistant/practice-reviews` и переходит в беседу. Интерфейс — временная
+семантическая разметка по `docs/agents/frontend-delivery.md`; визуальный модуль приходит в
+[#800](https://github.com/sachkov-inside/platform/issues/800).
 
 ## GitHub App курса
 
@@ -197,3 +319,15 @@ COURSE_ASSISTANT_GITHUB_APP_PRIVATE_KEY_BASE64=<PEM ключа в base64 одн�
 - Контрактный тест адаптера GitHub App (`test/unit/http-github-app.test.ts`) и HTTP-тест модуля.
 - Web: BFF и возврат из GitHub (`test/module/course-assistant-bff.test.ts`), состояния экрана в
   Storybook.
+- Проверка задания на PostgreSQL (`test/integration/course-assistant-practice-review.test.ts`) с
+  детерминированной моделью (`test/fixtures/course-assistant-model.ts`) и синтетическими
+  репозиториями #785 (`test/fixtures/course-assistant-repositories.ts`): допустимая альтернатива,
+  нарушение и `not_verified`, текст-инъекция и прозу модели, ответ вне схемы, выбор варианта,
+  повторная проверка с изменениями, отказ по версии контекста, Assistant Usage, удаление снимка,
+  сбой поставщика, доступ и сторож очереди.
+- Схема итога и статус (`test/unit/course-assistant-practice-review.test.ts`), снимок
+  (`test/unit/course-assistant-repository-snapshot.test.ts`), чтение репозитория адаптером GitHub
+  App (`test/unit/http-github-app.test.ts`).
+- Web: поток BFF (`test/module/practice-review-bff.test.ts`), состояния чата в Storybook
+  (`Pages/Account/Practice review`) и кнопка у практики (`Pages/Mobile-first Platform/Practice
+  Review`).

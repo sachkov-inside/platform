@@ -1,4 +1,5 @@
 import "server-only";
+import { loadCourseAssistantParticipant } from "@/features/course-assistant-access.server";
 import {
   BackendConnectionError,
   requestLearningPractices,
@@ -20,9 +21,13 @@ export async function loadLearningPractices(
         ? { kind: "available", practices: [] }
         : { kind: "unavailable" };
     const parsed = learningPracticesSchema.safeParse(result.body);
-    return parsed.success
-      ? { kind: "available", practices: parsed.data.practices }
-      : { kind: "unavailable" };
+    if (!parsed.success) return { kind: "unavailable" };
+    const { practices } = parsed.data;
+    // Закрытый помощник отвечает 404: кнопки проверки нет, остальной путь #785 не меняется.
+    const assistant =
+      practices.length > 0 &&
+      (await loadCourseAssistantParticipant(accessToken)).kind === "ready";
+    return { kind: "available", practices, assistant };
   } catch (error) {
     if (error instanceof BackendConnectionError) return { kind: "unavailable" };
     throw error;

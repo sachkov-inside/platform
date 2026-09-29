@@ -24,6 +24,7 @@ const workerProcessSchema = z.enum([
   "video-deletions-worker",
   "notifications-worker",
   "billing-worker",
+  "course-assistant-worker",
 ]);
 const readinessMarkerSchema = z
   .object({

@@ -16,6 +16,8 @@ import { NotificationsWorkerModule } from "../src/entrypoints/notifications-work
 import { MaterialAssetsWorkerModule } from "../src/entrypoints/material-assets-worker/material-assets-worker.module.js";
 import { ProfileAvatarsWorkerModule } from "../src/entrypoints/profile-avatars-worker/profile-avatars-worker.module.js";
 import { VideoDeletionsWorkerModule } from "../src/entrypoints/video-deletions-worker/video-deletions-worker.module.js";
+import { CourseAssistantWorkerModule } from "../src/entrypoints/course-assistant-worker/course-assistant-worker.module.js";
+import { PracticeReviewer } from "../src/modules/course-assistant/index.js";
 import { OperationalReadiness } from "../src/infrastructure/operational-readiness.js";
 import {
   PrismaClientProvider,
@@ -235,6 +237,33 @@ describe("backend process composition", () => {
 
     expect(application.get<PlatformConfig>(PLATFORM_CONFIG)).toBe(config);
     expect(application.get(VIDEO_DELETION_MAINTENANCE)).toBeDefined();
+  });
+
+  it("binds the course assistant worker without a reviewer until the assistant and its model are configured", async () => {
+    application = await NestFactory.createApplicationContext(
+      CourseAssistantWorkerModule.forRoot(config),
+      { logger: false },
+    );
+    expect(application.get(PracticeReviewer)).toBeNull();
+    await application.close();
+
+    application = await NestFactory.createApplicationContext(
+      CourseAssistantWorkerModule.forRoot({
+        ...config,
+        courseAssistant: {
+          ...config.courseAssistant,
+          enabled: true,
+          model: {
+            provider: "openai-compatible",
+            baseUrl: "http://127.0.0.1:4010/v1",
+            apiKey: "synthetic-model-key",
+            modelId: "stub",
+          },
+        },
+      }),
+      { logger: false },
+    );
+    expect(application.get(PracticeReviewer)).toBeInstanceOf(PracticeReviewer);
   });
 
   it("keeps the API running while health reports an unreachable database", async () => {

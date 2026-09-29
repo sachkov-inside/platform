@@ -244,6 +244,7 @@ describe("Platform migrations", () => {
         "0071_offer_eligibility",
         "0072_practice_definitions",
         "0073_course_assistant",
+        "0074_course_assistant_practice_reviews",
       ],
     });
     expect(second).toEqual({ appliedMigrations: [] });
@@ -270,8 +271,12 @@ describe("Platform migrations", () => {
     ]);
     await expectTables(testDatabase, "bookmarks", ["bookmarked_materials"]);
     await expectTables(testDatabase, "course_assistant", [
+      "assistant_conversations",
+      "assistant_messages",
+      "assistant_usages",
       "data_notice_acknowledgements",
       "github_installations",
+      "practice_reviews",
       "repository_connection_attempts",
       "repository_links",
     ]);
@@ -910,6 +915,7 @@ describe("Platform migrations", () => {
           "0071_offer_eligibility",
           "0072_practice_definitions",
           "0073_course_assistant",
+          "0074_course_assistant_practice_reviews",
         ],
       });
 

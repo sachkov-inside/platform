@@ -27,6 +27,51 @@ const repository = {
   htmlUrl: "https://github.com/learner/agent-course",
 };
 let open = false;
+const practiceId = "synthetic:practice-brief";
+const contextVersion = "c".repeat(64);
+const review = {
+  id: "dddddddd-dddd-4ddd-8ddd-dddddddddddd",
+  practiceId,
+  kind: "initial" as const,
+  state: "completed" as const,
+  contextVersion,
+  repository: { fullName: repository.fullName, htmlUrl: repository.htmlUrl },
+  requestedAt: "2026-09-29T09:00:00.000Z",
+  completedAt: "2026-09-29T09:01:00.000Z",
+  candidates: null,
+  checked: {
+    id: "default_branch",
+    kind: "default_branch" as const,
+    label: "основная ветка main",
+    ref: "main",
+    commitSha: "1".repeat(40),
+    url: `${repository.htmlUrl}/tree/${"1".repeat(40)}`,
+  },
+  result: {
+    practiceStatus: "needs_work" as const,
+    summary: "Итог",
+    criteria: [
+      {
+        criterionId: "ownership",
+        status: "violation" as const,
+        evidence: [
+          {
+            path: "docs/brief.md",
+            startLine: 1,
+            endLine: 2,
+            url: `${repository.htmlUrl}/blob/${"1".repeat(40)}/docs/brief.md#L1-L2`,
+          },
+        ],
+        explanation: "Нет ограничения доступа.",
+        nextStep: "Опиши, кто видит заявку.",
+        previousStatus: null,
+        changed: false,
+      },
+    ],
+  },
+  previousReviewId: null,
+  failure: null,
+};
 
 const assistant: Pick<CourseAssistant, keyof CourseAssistant> = {
   readParticipantState: () =>
@@ -60,6 +105,79 @@ const assistant: Pick<CourseAssistant, keyof CourseAssistant> = {
   linkRepository: () => unavailable,
   disconnectRepository: () => unavailable,
   listRepositoryLinks: () => unavailable,
+  requestPracticeReview: ({ expectedContextVersion }) =>
+    !open
+      ? unavailable
+      : Promise.resolve(
+          expectedContextVersion === contextVersion
+            ? {
+                ok: true,
+                value: {
+                  ...review,
+                  state: "queued",
+                  completedAt: null,
+                  checked: null,
+                  result: null,
+                },
+              }
+            : {
+                ok: false,
+                error: {
+                  code: "practice_context_version_mismatch",
+                  currentContextVersion: contextVersion,
+                },
+              },
+        ),
+  chooseReviewCandidate: () =>
+    open
+      ? Promise.resolve({
+          ok: false,
+          error: { code: "review_not_awaiting_choice" },
+        })
+      : unavailable,
+  readPracticeConversation: () =>
+    open
+      ? Promise.resolve({
+          ok: true,
+          value: {
+            practice: {
+              practiceId,
+              title: "Разобрать обращение бизнеса",
+              contextVersion,
+              criteria: [
+                {
+                  id: "ownership",
+                  requirement: "Чужой участник не видит заявку.",
+                },
+              ],
+            },
+            status: "needs_work",
+            activeReview: null,
+            messages: [
+              {
+                id: "eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee",
+                role: "participant",
+                kind: "text",
+                text: "Проверить задание",
+                review: null,
+                createdAt: "2026-09-29T09:00:00.000Z",
+              },
+              {
+                id: "ffffffff-ffff-4fff-8fff-ffffffffffff",
+                role: "assistant",
+                kind: "review_result",
+                text: null,
+                review,
+                createdAt: "2026-09-29T09:01:00.000Z",
+              },
+            ],
+          },
+        })
+      : unavailable,
+  readPracticeReview: () =>
+    open
+      ? Promise.resolve({ ok: false, error: { code: "review_not_found" } })
+      : unavailable,
 };
 
 @Module({
@@ -140,6 +258,21 @@ describe("course assistant HTTP", () => {
       },
       { method: "DELETE", url: "/course-assistant/repository-link" },
       { method: "GET", url: "/course-assistant/author/repository-links" },
+      {
+        method: "GET",
+        url: `/course-assistant/practices/${practiceId}/conversation`,
+      },
+      {
+        method: "POST",
+        url: `/course-assistant/practices/${practiceId}/reviews`,
+        payload: { expectedContextVersion: contextVersion },
+      },
+      { method: "GET", url: `/course-assistant/reviews/${review.id}` },
+      {
+        method: "POST",
+        url: `/course-assistant/reviews/${review.id}/candidate`,
+        payload: { candidateId: "default_branch" },
+      },
     ] as const;
     for (const request of requests) {
       const response = await server.inject({ ...request, headers });
@@ -187,5 +320,70 @@ describe("course assistant HTTP", () => {
       url: "/course-assistant/participant",
     });
     expect(anonymous.statusCode).toBe(401);
+  });
+
+  test("practice reviews: the conversation, a queued review and explicit refusals", async () => {
+    open = true;
+    const conversation = await server.inject({
+      method: "GET",
+      url: `/course-assistant/practices/${encodeURIComponent(practiceId)}/conversation`,
+      headers,
+    });
+    expect(conversation.statusCode).toBe(200);
+    expect(conversation.headers["cache-control"]).toBe("private, no-store");
+    expect(conversation.json()).toMatchObject({
+      status: "needs_work",
+      messages: [{ text: "Проверить задание" }, { review: { id: review.id } }],
+    });
+
+    const queued = await server.inject({
+      method: "POST",
+      url: `/course-assistant/practices/${encodeURIComponent(practiceId)}/reviews`,
+      headers,
+      payload: { expectedContextVersion: contextVersion },
+    });
+    expect(queued.statusCode).toBe(202);
+    expect(queued.json()).toMatchObject({ id: review.id, state: "queued" });
+
+    const stale = await server.inject({
+      method: "POST",
+      url: `/course-assistant/practices/${encodeURIComponent(practiceId)}/reviews`,
+      headers,
+      payload: { expectedContextVersion: "f".repeat(64) },
+    });
+    expect(stale.statusCode).toBe(409);
+    expect(stale.json()).toMatchObject({
+      type: "urn:inside:problem:practice_context_version_mismatch",
+      currentContextVersion: contextVersion,
+    });
+
+    const malformed = await server.inject({
+      method: "POST",
+      url: `/course-assistant/practices/${encodeURIComponent(practiceId)}/reviews`,
+      headers,
+      payload: {
+        expectedContextVersion: contextVersion,
+        candidate: { kind: "tag" },
+      },
+    });
+    expect(malformed.statusCode).toBe(400);
+
+    const missing = await server.inject({
+      method: "GET",
+      url: `/course-assistant/reviews/${review.id}`,
+      headers,
+    });
+    expect(missing.statusCode).toBe(404);
+    expect(missing.json()).toMatchObject({
+      type: "urn:inside:problem:review_not_found",
+    });
+
+    const late = await server.inject({
+      method: "POST",
+      url: `/course-assistant/reviews/${review.id}/candidate`,
+      headers,
+      payload: { candidateId: "default_branch" },
+    });
+    expect(late.statusCode).toBe(409);
   });
 });

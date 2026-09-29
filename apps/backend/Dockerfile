@@ -67,6 +67,9 @@ CMD ["pnpm", "--filter", "@inside/backend", "dev:video-deletions-worker"]
 FROM development AS billing-worker
 CMD ["pnpm", "--filter", "@inside/backend", "dev:billing-worker"]
 
+FROM development AS course-assistant-worker
+CMD ["pnpm", "--filter", "@inside/backend", "dev:course-assistant-worker"]
+
 FROM development AS notifications-worker
 CMD ["pnpm", "--filter", "@inside/backend", "dev:notifications-worker"]
 

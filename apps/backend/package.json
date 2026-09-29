@@ -49,11 +49,13 @@
     "dev:notifications-worker": "tsx watch src/entrypoints/notifications-worker.ts",
     "start:notifications-worker": "node dist/entrypoints/notifications-worker.js",
     "dev:billing-worker": "tsx watch src/entrypoints/billing-worker.ts",
+    "dev:course-assistant-worker": "tsx watch src/entrypoints/course-assistant-worker.ts",
     "start:billing-worker": "node dist/entrypoints/billing-worker.js",
     "contracts:generate": "tsx scripts/generate-subscription-contracts.ts",
     "contracts:check": "tsx scripts/generate-subscription-contracts.ts --check"
   },
   "dependencies": {
+    "@ai-sdk/openai-compatible": "3.0.57",
     "@aws-sdk/client-s3": "3.1139.0",
     "@aws-sdk/s3-request-presigner": "3.1139.0",
     "@fastify/multipart": "10.1.2",
@@ -71,6 +73,7 @@
     "@nestjs/swagger": "12.0.2",
     "@prisma/adapter-pg": "7.10.0",
     "@prisma/client": "7.10.0",
+    "ai": "7.0.118",
     "ajv": "8.20.0",
     "ajv-formats": "3.0.1",
     "amqplib": "2.0.1",
@@ -83,6 +86,7 @@
     "reflect-metadata": "0.2.2",
     "rxjs": "7.8.2",
     "sharp": "0.35.4",
+    "tar": "7.5.22",
     "undici": "8.11.0",
     "zod": "4.6.5"
   },

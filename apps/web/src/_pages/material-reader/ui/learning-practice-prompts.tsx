@@ -1,4 +1,5 @@
 import { MaterialAgentPrompt } from "@/entities/material";
+import { RequestPracticeReviewButton } from "@/features/practice-review";
 import { RetryPageButton } from "@/shared/ui/retry-page-button.client";
 import {
   practiceReviewPrompt,
@@ -103,6 +104,23 @@ export function LearningPracticePrompts({
           сначала уточните настройку у автора курса.
         </p>
       </details>
+      {result.assistant === true ? (
+        <div className="mt-5 flex flex-col gap-4">
+          {result.practices.map((practice) => (
+            <div className="rounded-xl border p-5" key={practice.practiceId}>
+              <h3 className="font-semibold">{practice.title}</h3>
+              <p className="mt-2 text-sm text-muted-foreground">
+                Помощник курса проверит работу из подключённого репозитория
+                GitHub и покажет итог по каждому критерию.
+              </p>
+              <RequestPracticeReviewButton
+                contextVersion={practice.contextVersion}
+                practiceId={practice.practiceId}
+              />
+            </div>
+          ))}
+        </div>
+      ) : null}
       {result.practices.map((practice) => (
         <div key={practice.practiceId}>
           <MaterialAgentPrompt

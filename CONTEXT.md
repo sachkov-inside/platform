@@ -283,6 +283,33 @@ course assistant prototype behind `COURSE_ASSISTANT_ENABLED`
 «подключённый репозиторий».
 _Avoid_: GitHub integration, repository access, connected account
 
+**Assistant Conversation**:
+The course assistant chat of one Account about one practice. It keeps the messages the participant
+sees, including review requests, questions about which work to check and review outcomes. In
+Russian product language: «беседа с помощником».
+_Avoid_: Support ticket, agent session, thread
+
+**Practice Review**:
+One server check of an Account's work on a practice: the pinned assignment context version, one
+exact commit of its Repository Link and one verdict per criterion (`confirmed`, `violation` or
+`not_verified`) with evidence, explanation and next step. A recheck reads the current commit again
+and compares each criterion with the previous review. In Russian product language: «проверка
+задания».
+_Avoid_: Grade, test run, CI check, submission
+
+**Practice Status**:
+The state of an Account's practice as the server derives it from its Practice Reviews: `in_review`
+while a review runs, otherwise `accepted` when every criterion of the latest completed review is
+confirmed and `needs_work` when any is not. A failed review leaves it unchanged. The model never
+sets it. In Russian product language: «статус задания».
+_Avoid_: Model verdict, completion checkbox, learning progress
+
+**Assistant Usage**:
+The record of one model call made for the course assistant: provider, model, input, cached and
+output tokens, and the cost by a named price table version, bound to the Account, the practice,
+the conversation and the review. In Russian product language: «расход помощника».
+_Avoid_: Billing charge, participant quota, token limit
+
 ## Deferred Workshop vocabulary
 
 Workshop is deferred while the current platform develops Materials and Guides. These terms retain

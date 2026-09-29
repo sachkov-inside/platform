@@ -6,19 +6,23 @@ import {
   HttpCode,
   type HttpException,
   Inject,
+  Param,
   Post,
   Put,
   UseFilters,
   UseGuards,
 } from "@nestjs/common";
 import {
+  ApiAcceptedResponse,
   ApiBearerAuth,
   ApiBody,
   ApiOkResponse,
   ApiOperation,
+  ApiParam,
   ApiResponse,
   ApiTags,
 } from "@nestjs/swagger";
+import { z } from "zod";
 import { problemException } from "../../../../infrastructure/http/problem-details.js";
 import { PrivateNoStore } from "../../../../infrastructure/http/http-cache-policy.js";
 import {
@@ -54,8 +58,27 @@ import {
 import { linkableRepositoriesSchema } from "../../features/list-linkable-repositories/list-linkable-repositories.js";
 import { repositoryLinkHistorySchema } from "../../features/list-repository-links/list-repository-links.js";
 import { participantStateSchema } from "../../features/read-participant-state/read-participant-state.js";
+import {
+  chooseReviewCandidateSchema,
+  type ChooseReviewCandidateResult,
+} from "../../features/choose-review-candidate/choose-review-candidate.js";
+import {
+  practiceConversationSchema,
+  type ReadPracticeConversationResult,
+} from "../../features/read-practice-conversation/read-practice-conversation.js";
+import type { ReadPracticeReviewResult } from "../../features/read-practice-review/read-practice-review.js";
+import {
+  requestPracticeReviewSchema,
+  type RequestPracticeReviewResult,
+} from "../../features/request-practice-review/request-practice-review.js";
+import {
+  practiceReviewViewSchema,
+  type PracticeReviewView,
+} from "../../shared/practice-review-view.js";
 import type { AcknowledgeDataNoticeResult } from "../../features/acknowledge-data-notice/acknowledge-data-notice.js";
 import type { BeginRepositoryConnectionResult } from "../../features/begin-repository-connection/begin-repository-connection.js";
+
+const practiceIdParam = z.string().min(1).max(200);
 
 @ApiTags("Course assistant")
 @ApiBearerAuth("logto")
@@ -291,6 +314,200 @@ export class CourseAssistantController {
     if (!result.ok) throwCourseAssistantError(result.error);
     return { links: result.value.links };
   }
+
+  @Get("practices/:practiceId/conversation")
+  @ApiOperation({
+    operationId: "readCourseAssistantPracticeConversation",
+    summary:
+      "Read the Assistant Conversation of a practice with its reviews and Practice Status",
+  })
+  @ApiParam({ name: "practiceId", schema: toOpenApiSchema(practiceIdParam) })
+  @ApiOkResponse({ schema: toOpenApiSchema(practiceConversationSchema) })
+  @ApiResponse({
+    status: 404,
+    content: problemDetailsContent(
+      problemDetailsSchema(404, [
+        "course_assistant_unavailable",
+        "practice_unavailable",
+      ]),
+    ),
+  })
+  async conversation(
+    @CurrentAccount() current: AuthenticatedAccount,
+    @Param("practiceId") practiceId: string,
+  ) {
+    const result = await this.assistant.readPracticeConversation({
+      accountId: current.accountId,
+      practiceId,
+    });
+    if (!result.ok) throwCourseAssistantError(result.error);
+    return {
+      practice: result.value.practice,
+      status: result.value.status,
+      activeReview: result.value.activeReview,
+      messages: result.value.messages,
+    };
+  }
+
+  @Post("practices/:practiceId/reviews")
+  @HttpCode(202)
+  @ApiOperation({
+    operationId: "requestCourseAssistantPracticeReview",
+    summary:
+      "Queue a Practice Review of the current Account's linked repository, or return the running one",
+  })
+  @ApiParam({ name: "practiceId", schema: toOpenApiSchema(practiceIdParam) })
+  @ApiBody({ schema: toOpenApiSchema(requestPracticeReviewSchema) })
+  @ApiAcceptedResponse({ schema: toOpenApiSchema(practiceReviewViewSchema) })
+  @ApiResponse({
+    status: 403,
+    content: problemDetailsContent(
+      problemDetailsSchema(403, ["data_notice_required"]),
+    ),
+  })
+  @ApiResponse({
+    status: 404,
+    content: problemDetailsContent(
+      problemDetailsSchema(404, [
+        "course_assistant_unavailable",
+        "practice_unavailable",
+      ]),
+    ),
+  })
+  @ApiResponse({
+    status: 409,
+    content: problemDetailsContent(
+      problemDetailsSchema(409, [
+        "repository_link_required",
+        "repository_access_revoked",
+        "practice_context_version_mismatch",
+      ]).extend({ currentContextVersion: z.hash("sha256").optional() }),
+    ),
+  })
+  @ApiResponse({
+    status: 503,
+    content: problemDetailsContent(
+      problemDetailsSchema(503, [
+        "dependency_unavailable",
+        "review_unavailable",
+      ]),
+    ),
+  })
+  async request(
+    @CurrentAccount() current: AuthenticatedAccount,
+    @Param("practiceId") practiceId: string,
+    @Body() input: unknown,
+  ) {
+    const parsed = requestPracticeReviewSchema.safeParse(input);
+    if (!parsed.success) throwCourseAssistantError({ code: "invalid_request" });
+    const result = await this.assistant.requestPracticeReview({
+      accountId: current.accountId,
+      practiceId,
+      expectedContextVersion: parsed.data.expectedContextVersion,
+      candidate: parsed.data.candidate,
+    });
+    if (!result.ok) throwCourseAssistantError(result.error);
+    return reviewBody(result.value);
+  }
+
+  @Get("reviews/:reviewId")
+  @ApiOperation({
+    operationId: "readCourseAssistantPracticeReview",
+    summary: "Read one Practice Review of the current Account",
+  })
+  @ApiParam({ name: "reviewId", schema: { type: "string", format: "uuid" } })
+  @ApiOkResponse({ schema: toOpenApiSchema(practiceReviewViewSchema) })
+  @ApiResponse({
+    status: 404,
+    content: problemDetailsContent(
+      problemDetailsSchema(404, [
+        "course_assistant_unavailable",
+        "review_not_found",
+      ]),
+    ),
+  })
+  async review(
+    @CurrentAccount() current: AuthenticatedAccount,
+    @Param("reviewId") reviewId: string,
+  ) {
+    const result = await this.assistant.readPracticeReview({
+      accountId: current.accountId,
+      reviewId,
+    });
+    if (!result.ok) throwCourseAssistantError(result.error);
+    return reviewBody(result.value);
+  }
+
+  @Post("reviews/:reviewId/candidate")
+  @HttpCode(202)
+  @ApiOperation({
+    operationId: "chooseCourseAssistantReviewCandidate",
+    summary:
+      "Choose which branch or pull request a waiting Practice Review checks",
+  })
+  @ApiParam({ name: "reviewId", schema: { type: "string", format: "uuid" } })
+  @ApiBody({ schema: toOpenApiSchema(chooseReviewCandidateSchema) })
+  @ApiAcceptedResponse({ schema: toOpenApiSchema(practiceReviewViewSchema) })
+  @ApiResponse({
+    status: 404,
+    content: problemDetailsContent(
+      problemDetailsSchema(404, [
+        "course_assistant_unavailable",
+        "review_not_found",
+      ]),
+    ),
+  })
+  @ApiResponse({
+    status: 409,
+    content: problemDetailsContent(
+      problemDetailsSchema(409, [
+        "review_not_awaiting_choice",
+        "candidate_not_available",
+      ]),
+    ),
+  })
+  @ApiResponse({
+    status: 503,
+    content: problemDetailsContent(
+      problemDetailsSchema(503, [
+        "dependency_unavailable",
+        "review_unavailable",
+      ]),
+    ),
+  })
+  async choose(
+    @CurrentAccount() current: AuthenticatedAccount,
+    @Param("reviewId") reviewId: string,
+    @Body() input: unknown,
+  ) {
+    const parsed = chooseReviewCandidateSchema.safeParse(input);
+    if (!parsed.success) throwCourseAssistantError({ code: "invalid_request" });
+    const result = await this.assistant.chooseReviewCandidate({
+      accountId: current.accountId,
+      reviewId,
+      candidateId: parsed.data.candidateId,
+    });
+    if (!result.ok) throwCourseAssistantError(result.error);
+    return reviewBody(result.value);
+  }
+}
+
+function reviewBody(review: PracticeReviewView) {
+  return {
+    id: review.id,
+    practiceId: review.practiceId,
+    kind: review.kind,
+    state: review.state,
+    contextVersion: review.contextVersion,
+    repository: review.repository,
+    requestedAt: review.requestedAt,
+    completedAt: review.completedAt,
+    candidates: review.candidates,
+    checked: review.checked,
+    result: review.result,
+    previousReviewId: review.previousReviewId,
+    failure: review.failure,
+  };
 }
 
 type CourseAssistantHttpError =
@@ -298,7 +515,11 @@ type CourseAssistantHttpError =
   | Extract<
       | AcknowledgeDataNoticeResult
       | BeginRepositoryConnectionResult
-      | LinkRepositoryResult,
+      | LinkRepositoryResult
+      | RequestPracticeReviewResult
+      | ChooseReviewCandidateResult
+      | ReadPracticeConversationResult
+      | ReadPracticeReviewResult,
       { readonly ok: false }
     >["error"];
 
@@ -311,13 +532,30 @@ function throwCourseAssistantError(error: CourseAssistantHttpError): never {
     case "data_notice_required":
     case "installation_not_owned":
       throw courseAssistantException(403, error.code);
+    case "practice_unavailable":
+    case "review_not_found":
+      throw courseAssistantException(404, error.code);
     case "stale_data_notice":
     case "invalid_connection":
     case "repository_not_available":
+    case "repository_link_required":
+    case "repository_access_revoked":
+    case "review_not_awaiting_choice":
+    case "candidate_not_available":
       throw courseAssistantException(409, error.code);
+    case "practice_context_version_mismatch":
+      throw problemException(
+        409,
+        error.code,
+        "Course assistant request failed",
+        {
+          currentContextVersion: error.currentContextVersion,
+        },
+      );
     case "write_access_requested":
       throw courseAssistantException(422, error.code);
     case "dependency_unavailable":
+    case "review_unavailable":
       throw courseAssistantException(503, error.code);
     default:
       return assertNever(error);
