@@ -4,7 +4,5 @@ export async function readMaterialByHand(
   transaction: { material: { findUnique(input: unknown): Promise<unknown> } },
   candidate: { material: { materialId: string } },
 ): Promise<unknown> {
-  return transaction.material.findUnique({
-    where: { id: candidate.material.materialId },
-  });
+  return transaction.material.findUnique({ where: { id: candidate.material.materialId } });
 }
