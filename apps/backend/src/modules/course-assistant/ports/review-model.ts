@@ -14,6 +14,8 @@ export interface ReviewLimits {
   /** Сколько токенов входа и выхода вместе может занять одна проверка. */
   readonly maxTokens: number;
   readonly maxOutputTokens: number;
+  /** Сколько может длиться цикл агента; меньше срока, после которого проверка прерывается. */
+  readonly timeoutMilliseconds?: number;
 }
 
 /**

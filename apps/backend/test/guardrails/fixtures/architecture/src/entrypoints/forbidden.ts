@@ -3,6 +3,4 @@ import type { MembershipEvidence } from "../modules/membership-entitlements/feat
 import type { TelegramMembership } from "../modules/telegram-membership/facets/telegram-membership/telegram-membership.interface.js";
 
 export type ForbiddenCapabilityImport =
-  | Result<string, Error>
-  | MembershipEvidence
-  | TelegramMembership;
+  Result<string, Error> | MembershipEvidence | TelegramMembership;

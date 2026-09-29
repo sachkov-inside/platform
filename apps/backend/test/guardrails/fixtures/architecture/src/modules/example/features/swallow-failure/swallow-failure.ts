@@ -1,4 +1,6 @@
-export async function swallowFailure(read: () => Promise<string>): Promise<string | undefined> {
+export async function swallowFailure(
+  read: () => Promise<string>,
+): Promise<string | undefined> {
   try {
     return await read();
   } catch {
@@ -6,7 +8,9 @@ export async function swallowFailure(read: () => Promise<string>): Promise<strin
   }
 }
 
-export async function dropFailure(read: () => Promise<string>): Promise<string> {
+export async function dropFailure(
+  read: () => Promise<string>,
+): Promise<string> {
   try {
     return await read();
   } catch (error) {
@@ -33,11 +37,15 @@ export function lateExplanation(text: string): unknown {
   }
 }
 
-export async function swallowRejection(read: () => Promise<string>): Promise<string | null> {
+export async function swallowRejection(
+  read: () => Promise<string>,
+): Promise<string | null> {
   return read().catch(() => null);
 }
 
-export async function replaceFailure(read: () => Promise<string>): Promise<string> {
+export async function replaceFailure(
+  read: () => Promise<string>,
+): Promise<string> {
   try {
     return await read();
   } catch (error) {

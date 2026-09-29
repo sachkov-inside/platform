@@ -1,7 +1,8 @@
-import { mkdtemp, readdir, rm } from "node:fs/promises";
+import { mkdir, mkdtemp, readdir, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, test } from "vitest";
+import { removeLeftoverSnapshots } from "../../src/modules/course-assistant/features/run-practice-review/run-practice-review.js";
 import { openRepositorySnapshot } from "../../src/modules/course-assistant/infrastructure/snapshot/repository-snapshot.js";
 import { repositoryArchive } from "../fixtures/course-assistant-repositories.js";
 
@@ -95,5 +96,14 @@ describe("repository snapshot", () => {
       openRepositorySnapshot(archive, directory, { unpackedByteLimit: 1024 }),
     ).resolves.toEqual({ ok: false, reason: "too_large" });
     expect(await readdir(directory)).toEqual([]);
+  });
+
+  test("a starting worker removes snapshots left by a stopped process", async () => {
+    const parent = await root();
+    const snapshotDirectory = join(parent, "inside-course-assistant");
+    await mkdir(join(snapshotDirectory, "review-left"), { recursive: true });
+    await writeFile(join(snapshotDirectory, "review-left", "app.mjs"), "code");
+    await removeLeftoverSnapshots({ snapshotDirectory });
+    expect(await readdir(parent)).toEqual([]);
   });
 });

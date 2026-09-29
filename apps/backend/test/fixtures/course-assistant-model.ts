@@ -38,6 +38,12 @@ export function scriptedReviewModel(
     readonly prices?: ModelPrices;
     readonly maxSteps?: number;
     readonly maxTokens?: number;
+    readonly timeoutMilliseconds?: number;
+    /** Вызывается до ответа на каждый вызов модели: так тест вмешивается посреди проверки. */
+    readonly beforeCall?: (
+      call: number,
+      abortSignal: AbortSignal | undefined,
+    ) => Promise<void>;
   } = {},
 ): {
   readonly model: ReviewModel;
@@ -48,12 +54,13 @@ export function scriptedReviewModel(
   const languageModel = new MockLanguageModelV4({
     provider: "synthetic",
     modelId: "synthetic-reviewer",
-    doGenerate: () => {
+    doGenerate: async (callOptions) => {
       const step = steps[Math.min(index, steps.length - 1)];
       index += 1;
+      await options.beforeCall?.(index, callOptions.abortSignal);
       if (step === undefined) throw new Error("Empty scenario");
-      if ("error" in step) return Promise.reject(step.error);
-      return Promise.resolve({
+      if ("error" in step) throw step.error;
+      return {
         content:
           "text" in step
             ? [{ type: "text" as const, text: step.text }]
@@ -81,7 +88,7 @@ export function scriptedReviewModel(
           },
         },
         warnings: [],
-      });
+      };
     },
   });
   return {
@@ -94,6 +101,9 @@ export function scriptedReviewModel(
         maxSteps: options.maxSteps ?? 8,
         maxTokens: options.maxTokens ?? 1_000_000,
         maxOutputTokens: 4_000,
+        ...(options.timeoutMilliseconds === undefined
+          ? {}
+          : { timeoutMilliseconds: options.timeoutMilliseconds }),
       },
     },
     calls: languageModel.doGenerateCalls,

@@ -112,7 +112,10 @@ export async function runReviewAgent(input: {
       maxOutputTokens: input.model.limits.maxOutputTokens,
       // Повтор сбоя поставщика — дело очереди; здесь один вызов, чтобы расход оставался видимым.
       maxRetries: 0,
-      abortSignal: AbortSignal.timeout(reviewAgentTimeoutMilliseconds),
+      abortSignal: AbortSignal.timeout(
+        input.model.limits.timeoutMilliseconds ??
+          reviewAgentTimeoutMilliseconds,
+      ),
       onStepEnd(step) {
         usages.push({
           step: usages.length,

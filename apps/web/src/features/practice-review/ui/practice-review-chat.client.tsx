@@ -16,10 +16,8 @@ import { useChat } from "@ai-sdk/react";
 import { DefaultChatTransport, type ChatTransport } from "ai";
 import { createContext, useContext, useMemo } from "react";
 
-import { z } from "zod";
-
 import {
-  candidateCommandSchema,
+  practiceReviewActionSchema,
   practiceReviewPartSchema,
   practiceStatusLabels,
   reviewRefusalPartSchema,
@@ -80,26 +78,18 @@ function chatTransport(
     // Истории беседы серверу не нужно: она хранится на сервере. Уходит только команда, и у
     // каждой команды свой адрес.
     prepareSendMessagesRequest: ({ body }) => {
-      const action: unknown = body?.["action"];
-      const command = candidateCommandSchema.safeParse(action);
-      return command.success
-        ? { api: candidateChatApi, body: command.data }
-        : { api: reviewChatApi, body: { practiceId, ...reviewBody(action) } };
+      const action = practiceReviewActionSchema.safeParse(body?.["action"]);
+      if (!action.success) return { api: reviewChatApi, body: {} };
+      const { kind, ...command } = action.data;
+      return {
+        api: kind === "choose" ? candidateChatApi : reviewChatApi,
+        body: command,
+      };
     },
     prepareReconnectToStreamRequest: () => ({
       api: `${reviewChatApi}?${new URLSearchParams({ practiceId }).toString()}`,
     }),
   });
-}
-
-function reviewBody(action: unknown) {
-  const parsed = z
-    .object({
-      expectedContextVersion: z.string(),
-      chooseWork: z.boolean().optional(),
-    })
-    .safeParse(action);
-  return parsed.success ? parsed.data : {};
 }
 
 /** Assistant Conversation практики (#788): проверка одной кнопкой и её итог в чате. */

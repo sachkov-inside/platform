@@ -172,9 +172,11 @@ export const candidateCommandSchema = z.object({
 export type CandidateCommand = z.infer<typeof candidateCommandSchema>;
 
 /** Действие участника в чате; каждое уходит своему адресу BFF. */
-export type PracticeReviewAction =
-  | ({ readonly kind: "review" } & ReviewCommand)
-  | ({ readonly kind: "choose" } & CandidateCommand);
+export const practiceReviewActionSchema = z.discriminatedUnion("kind", [
+  reviewCommandSchema.extend({ kind: z.literal("review") }),
+  candidateCommandSchema.extend({ kind: z.literal("choose") }),
+]);
+export type PracticeReviewAction = z.infer<typeof practiceReviewActionSchema>;
 
 const activeStates = new Set<PracticeReview["state"]>([
   "queued",
@@ -284,7 +286,7 @@ export const reviewFailureMessages: Readonly<
   invalid_report:
     "Помощник не вернул итог по всем критериям. Статус задания не изменился; попробуйте ещё раз.",
   limit_exceeded:
-    "Проверка не уложилась в лимит шагов модели. Статус задания не изменился; попробуйте ещё раз.",
+    "Проверка не уложилась в лимит шагов, токенов или времени модели. Статус задания не изменился; попробуйте ещё раз.",
   model_unavailable:
     "Модель не ответила. Статус задания не изменился; попробуйте ещё раз чуть позже.",
   dependency_unavailable:

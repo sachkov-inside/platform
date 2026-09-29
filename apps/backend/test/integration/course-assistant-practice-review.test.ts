@@ -801,6 +801,72 @@ describe("Practice Review on PostgreSQL", () => {
     ).toEqual({ ok: false, error: { code: "practice_unavailable" } });
   });
 
+  test("a review closed as interrupted keeps the usage of its late model calls", async () => {
+    const current: { subject?: Awaited<ReturnType<typeof harness>> } = {};
+    const scripted = scriptedReviewModel(
+      [
+        { toolCalls: [{ toolName: "list_files", input: { path: "" } }] },
+        { toolCalls: [submitReview(allConfirmed)] },
+      ],
+      {
+        // Сторож закрывает проверку посреди второго вызова модели.
+        async beforeCall(call) {
+          if (call !== 2 || current.subject === undefined) return;
+          current.subject.advance(16 * 60 * 1000);
+          await current.subject.reviewer.resumeStalled();
+        },
+      },
+    );
+    const subject = await harness([], { model: scripted.model });
+    current.subject = subject;
+    const review = requested(await subject.request());
+    const closed = await subject.reviewed(review.id);
+    expect(closed).toMatchObject({
+      state: "failed",
+      result: null,
+      failure: { code: "interrupted" },
+    });
+    expect(
+      await database.prisma.assistantUsage.count({
+        where: { reviewId: review.id },
+      }),
+    ).toBe(2);
+    expect(
+      await database.prisma.assistantMessage.count({
+        where: { reviewId: review.id, kind: "review_result" },
+      }),
+    ).toBe(1);
+    expect(requested(await subject.conversation()).status).toBe("not_started");
+  });
+
+  test("a model call longer than the agent time limit ends the review as limit_exceeded", async () => {
+    const scripted = scriptedReviewModel(
+      [{ toolCalls: [submitReview(allConfirmed)] }],
+      {
+        timeoutMilliseconds: 50,
+        beforeCall: (_call, abortSignal) =>
+          new Promise((_resolve, reject) => {
+            abortSignal?.addEventListener("abort", () => {
+              reject(
+                abortSignal.reason instanceof Error
+                  ? abortSignal.reason
+                  : new Error("Aborted"),
+              );
+            });
+          }),
+      },
+    );
+    const subject = await harness([], { model: scripted.model });
+    const failed = await subject.reviewed(
+      requested(await subject.request()).id,
+    );
+    expect(failed).toMatchObject({
+      state: "failed",
+      failure: { code: "limit_exceeded" },
+    });
+    expect(await readdir(snapshotRoot)).toEqual([]);
+  });
+
   test("a lost enqueue is resumed and a stalled run is closed as interrupted", async () => {
     const subject = await harness([
       { toolCalls: [submitReview(allConfirmed)] },
