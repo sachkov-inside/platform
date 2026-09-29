@@ -229,6 +229,7 @@ export class CourseAssistantService {
         kind: 'pull_request';
         number: number;
       });
+      chooseWork?: boolean;
       expectedContextVersion: string;
     },
   }): CancelablePromise<{

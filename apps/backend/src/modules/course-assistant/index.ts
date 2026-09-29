@@ -5,5 +5,6 @@ export type { GitHubApp, GitHubRepository } from "./ports/github-app.js";
 export { CourseAssistantModule } from "./course-assistant.module.js";
 export { PracticeReviewer } from "./facets/practice-reviewer/practice-reviewer.js";
 export { assemblePracticeContextSource } from "./adapters/content-library/practice-context.js";
-export { CourseAssistantWorkerModule } from "./course-assistant-worker.module.js";
+export { PracticeReviewerModule } from "./course-assistant-worker.module.js";
+export { runningReviewTimeoutMilliseconds } from "./features/resume-stalled-reviews/resume-stalled-reviews.js";
 export { PRACTICE_REVIEW_QUEUE } from "./infrastructure/queue/pg-boss-review-queue.js";

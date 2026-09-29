@@ -71,14 +71,13 @@ import {
   requestPracticeReviewSchema,
   type RequestPracticeReviewResult,
 } from "../../features/request-practice-review/request-practice-review.js";
+import { practiceIdSchema } from "../../shared/practice-reviews.js";
 import {
   practiceReviewViewSchema,
   type PracticeReviewView,
 } from "../../shared/practice-review-view.js";
 import type { AcknowledgeDataNoticeResult } from "../../features/acknowledge-data-notice/acknowledge-data-notice.js";
 import type { BeginRepositoryConnectionResult } from "../../features/begin-repository-connection/begin-repository-connection.js";
-
-const practiceIdParam = z.string().min(1).max(200);
 
 @ApiTags("Course assistant")
 @ApiBearerAuth("logto")
@@ -321,7 +320,7 @@ export class CourseAssistantController {
     summary:
       "Read the Assistant Conversation of a practice with its reviews and Practice Status",
   })
-  @ApiParam({ name: "practiceId", schema: toOpenApiSchema(practiceIdParam) })
+  @ApiParam({ name: "practiceId", schema: toOpenApiSchema(practiceIdSchema) })
   @ApiOkResponse({ schema: toOpenApiSchema(practiceConversationSchema) })
   @ApiResponse({
     status: 404,
@@ -356,7 +355,7 @@ export class CourseAssistantController {
     summary:
       "Queue a Practice Review of the current Account's linked repository, or return the running one",
   })
-  @ApiParam({ name: "practiceId", schema: toOpenApiSchema(practiceIdParam) })
+  @ApiParam({ name: "practiceId", schema: toOpenApiSchema(practiceIdSchema) })
   @ApiBody({ schema: toOpenApiSchema(requestPracticeReviewSchema) })
   @ApiAcceptedResponse({ schema: toOpenApiSchema(practiceReviewViewSchema) })
   @ApiResponse({
@@ -405,6 +404,7 @@ export class CourseAssistantController {
       practiceId,
       expectedContextVersion: parsed.data.expectedContextVersion,
       candidate: parsed.data.candidate,
+      chooseWork: parsed.data.chooseWork,
     });
     if (!result.ok) throwCourseAssistantError(result.error);
     return reviewBody(result.value);

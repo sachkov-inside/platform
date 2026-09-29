@@ -3,6 +3,7 @@ import {
   compareWithPreviousReview,
   criterionStatuses,
   storedPracticeReviewReportSchema,
+  reviewKindOf,
   reviewStates,
   type PracticeReviewReport,
   type ReviewState,
@@ -148,7 +149,7 @@ export function toPracticeReviewView(
   return {
     id: row.id,
     practiceId: row.practiceId,
-    kind: row.kind === "recheck" ? "recheck" : "initial",
+    kind: reviewKindOf(row.kind),
     state: z.enum(reviewStates).parse(row.state) satisfies ReviewState,
     contextVersion: row.contextVersion,
     repository: { fullName: row.repositoryFullName, htmlUrl: repositoryUrl },
@@ -169,7 +170,9 @@ export function toPracticeReviewView(
               criterionId: criterion.criterionId,
               status: criterion.status,
               evidence: criterion.evidence.map((evidence) => ({
-                ...evidence,
+                path: evidence.path,
+                startLine: evidence.startLine,
+                endLine: evidence.endLine,
                 url: evidenceUrl(repositoryUrl, checked.commitSha, evidence),
               })),
               explanation: criterion.explanation,

@@ -1,12 +1,15 @@
 import { randomUUID } from "node:crypto";
-import { mkdir } from "node:fs/promises";
+import { mkdir, rm } from "node:fs/promises";
 import {
   dependencyFailure,
   reportDependencyFailure,
 } from "../../../../infrastructure/observability/index.js";
 import type { CourseAssistantPrismaClient } from "../../../../infrastructure/prisma/index.js";
 import { costNanoUsd } from "../../domain/assistant-usage.js";
-import { practiceStatusOf } from "../../domain/practice-review.js";
+import {
+  practiceStatusOf,
+  reviewKindOf,
+} from "../../domain/practice-review.js";
 import {
   candidatesOf,
   requestedCandidateSchema,
@@ -31,6 +34,13 @@ export interface PracticeReviewerDependencies {
   /** Каталог для временных снимков; снимок удаляется после проверки. */
   readonly snapshotDirectory: string;
   readonly clock: () => Date;
+}
+
+/** Снимки, оставшиеся от процесса, который остановился посреди проверки. */
+export async function removeLeftoverSnapshots(
+  dependencies: Pick<PracticeReviewerDependencies, "snapshotDirectory">,
+): Promise<void> {
+  await rm(dependencies.snapshotDirectory, { recursive: true, force: true });
 }
 
 export type RunPracticeReviewResult =
@@ -155,10 +165,7 @@ async function performReview(
   });
   if (!context.ok)
     return fail({
-      code:
-        context.reason === "context_version_mismatch"
-          ? "context_version_mismatch"
-          : context.reason,
+      code: context.reason,
       currentContextVersion:
         context.reason === "context_version_mismatch"
           ? context.currentContextVersion
@@ -198,7 +205,7 @@ async function performReview(
       candidate,
       overview: overview.overview,
       snapshot: snapshot.value,
-      kind: review.kind === "recheck" ? "recheck" : "initial",
+      kind: reviewKindOf(review.kind),
       async compareChanges() {
         if (candidate.kind !== "pull_request") return undefined;
         const compared = await dependencies.repositories.compareCommits(
@@ -316,8 +323,7 @@ async function finish(
             }
           : { state: "failed", failure: outcome.failure, completedAt: now },
     });
-    // Проверку уже закрыли как прерванную: поздний итог статус не меняет.
-    if (finished.count === 0) return;
+    // Расход записывается всегда: и поздний вызов модели оплачен поставщиком.
     if (outcome.usages.length > 0)
       await transaction.assistantUsage.createMany({
         data: outcome.usages.map((usage) => ({
@@ -341,6 +347,8 @@ async function finish(
           createdAt: now,
         })),
       });
+    // Проверку уже закрыли как прерванную: поздний итог статус и беседу не меняет.
+    if (finished.count === 0) return;
     await transaction.assistantMessage.create({
       data: {
         id: randomUUID(),

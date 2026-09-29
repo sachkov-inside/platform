@@ -62,6 +62,7 @@ export class CourseAssistant {
     readonly practiceId: string;
     readonly expectedContextVersion: string;
     readonly candidate?: RequestedCandidate | undefined;
+    readonly chooseWork?: boolean | undefined;
   }) {
     return requestPracticeReview(this.dependencies, command);
   }

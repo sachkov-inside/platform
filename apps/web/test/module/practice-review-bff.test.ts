@@ -28,6 +28,7 @@ import {
   handlePracticeReviewChat,
   handlePracticeReviewResume,
   handleRequestPracticeReview,
+  handleReviewCandidateChat,
 } from "@/features/practice-review.server";
 import {
   toUIMessages,
@@ -130,10 +131,7 @@ it("ставит проверку и ведёт поток до итога од�
 
   const message = await finalMessage(
     await handlePracticeReviewChat(
-      chatRequest({
-        practiceId,
-        action: { kind: "review", expectedContextVersion: contextVersion },
-      }),
+      chatRequest({ practiceId, expectedContextVersion: contextVersion }),
     ),
   );
 
@@ -162,10 +160,7 @@ it("останавливает поток на вопросе о вариант�
   );
   const message = await finalMessage(
     await handlePracticeReviewChat(
-      chatRequest({
-        practiceId,
-        action: { kind: "review", expectedContextVersion: contextVersion },
-      }),
+      chatRequest({ practiceId, expectedContextVersion: contextVersion }),
     ),
   );
   expect(message.parts[0]).toMatchObject({ data: { stage: "choice" } });
@@ -179,15 +174,8 @@ it("передаёт выбор варианта и объясняет отка�
     response: new Response(null, { status: 409 }),
   });
   const refused = await finalMessage(
-    await handlePracticeReviewChat(
-      chatRequest({
-        practiceId,
-        action: {
-          kind: "choose",
-          reviewId: review.id,
-          candidateId: "pull_request:3",
-        },
-      }),
+    await handleReviewCandidateChat(
+      chatRequest({ reviewId: review.id, candidateId: "pull_request:3" }),
     ),
   );
   expect(fakes.choose).toHaveBeenCalledWith(
@@ -213,10 +201,7 @@ it("передаёт выбор варианта и объясняет отка�
   });
   const stale = await finalMessage(
     await handlePracticeReviewChat(
-      chatRequest({
-        practiceId,
-        action: { kind: "review", expectedContextVersion: contextVersion },
-      }),
+      chatRequest({ practiceId, expectedContextVersion: contextVersion }),
     ),
   );
   expect(stale.parts[0]).toMatchObject({

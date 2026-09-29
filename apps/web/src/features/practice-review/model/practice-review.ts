@@ -152,28 +152,29 @@ export type PracticeReviewUIMessage = UIMessage<
   }
 >;
 
-/** Действие участника в чате; тело запроса чата несёт только его. */
-export const practiceReviewActionSchema = z.discriminatedUnion("kind", [
-  z.object({
-    kind: z.literal("review"),
-    expectedContextVersion: z.string().regex(/^[a-f0-9]{64}$/u),
-    candidate: z
-      .discriminatedUnion("kind", [
-        z.object({ kind: z.literal("default_branch") }),
-        z.object({
-          kind: z.literal("pull_request"),
-          number: z.number().int().positive(),
-        }),
-      ])
-      .optional(),
-  }),
-  z.object({
-    kind: z.literal("choose"),
-    reviewId: z.uuid(),
-    candidateId: z.string().min(1).max(100),
-  }),
-]);
-export type PracticeReviewAction = z.infer<typeof practiceReviewActionSchema>;
+export const practiceIdSchema = z.string().trim().min(1).max(200);
+export const contextVersionSchema = z.hash("sha256");
+
+/** «Проверить задание» или «Проверить снова» в чате практики. */
+export const reviewCommandSchema = z.object({
+  practiceId: practiceIdSchema,
+  expectedContextVersion: contextVersionSchema,
+  /** Не повторять выбор прошлой проверки: спросить, какую работу проверить. */
+  chooseWork: z.boolean().optional(),
+});
+export type ReviewCommand = z.infer<typeof reviewCommandSchema>;
+
+/** Выбор варианта работы в проверке, которая его ждёт. */
+export const candidateCommandSchema = z.object({
+  reviewId: z.uuid(),
+  candidateId: z.string().min(1).max(100),
+});
+export type CandidateCommand = z.infer<typeof candidateCommandSchema>;
+
+/** Действие участника в чате; каждое уходит своему адресу BFF. */
+export type PracticeReviewAction =
+  | ({ readonly kind: "review" } & ReviewCommand)
+  | ({ readonly kind: "choose" } & CandidateCommand);
 
 const activeStates = new Set<PracticeReview["state"]>([
   "queued",

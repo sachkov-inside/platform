@@ -10,7 +10,7 @@ import { BillingModule } from "../../modules/billing/index.js";
 import { CommunicationsModule } from "../../modules/communications/index.js";
 import { ContentScopeCatalogModule } from "../../modules/materials/index.js";
 import { RecipientLinksModule } from "../../modules/telegram-membership/index.js";
-import { CourseAssistantWorkerModule as CourseAssistantReviewsModule } from "../../modules/course-assistant/index.js";
+import { PracticeReviewerModule } from "../../modules/course-assistant/index.js";
 
 @Module({})
 export class CourseAssistantWorkerModule {
@@ -27,7 +27,7 @@ export class CourseAssistantWorkerModule {
         BillingModule,
         ContentScopeCatalogModule,
         RecipientLinksModule,
-        CourseAssistantReviewsModule,
+        PracticeReviewerModule,
       ],
       providers: [OperationalReadiness],
     };

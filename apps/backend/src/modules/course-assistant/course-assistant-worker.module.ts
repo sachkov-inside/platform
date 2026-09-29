@@ -65,4 +65,4 @@ import { openAiCompatibleReviewModel } from "./infrastructure/model/openai-compa
   ],
   exports: [PracticeReviewer],
 })
-export class CourseAssistantWorkerModule {}
+export class PracticeReviewerModule {}

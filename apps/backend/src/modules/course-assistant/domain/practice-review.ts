@@ -126,6 +126,15 @@ export const activeReviewStates = [
   "running",
 ] as const satisfies readonly ReviewState[];
 
+export function isActiveReviewState(state: ReviewState): boolean {
+  return (activeReviewStates as readonly ReviewState[]).includes(state);
+}
+
+/** Вид проверки из базы: первая или повторная. */
+export function reviewKindOf(kind: string): "initial" | "recheck" {
+  return kind === "recheck" ? "recheck" : "initial";
+}
+
 /**
  * Practice Status Account по заданию из его проверок, от новой к старой: идущая проверка —
  * `in_review`, иначе итог последней завершённой. Сбой проверки статус не меняет (#788; отложенную
@@ -139,8 +148,7 @@ export function practiceStatusOfReviews(
 ): PracticeStatus {
   const [latest] = reviews;
   if (latest === undefined) return "not_started";
-  if ((activeReviewStates as readonly ReviewState[]).includes(latest.state))
-    return "in_review";
+  if (isActiveReviewState(latest.state)) return "in_review";
   return (
     reviews.find(({ state }) => state === "completed")?.practiceStatus ??
     "not_started"

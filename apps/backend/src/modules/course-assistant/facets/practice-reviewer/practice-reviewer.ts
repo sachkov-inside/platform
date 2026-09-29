@@ -1,5 +1,6 @@
 import { resumeStalledReviews } from "../../features/resume-stalled-reviews/resume-stalled-reviews.js";
 import {
+  removeLeftoverSnapshots,
   runPracticeReview,
   type PracticeReviewerDependencies,
 } from "../../features/run-practice-review/run-practice-review.js";
@@ -13,6 +14,10 @@ export class PracticeReviewer {
 
   run(command: { readonly reviewId: string }) {
     return runPracticeReview(this.dependencies, command);
+  }
+  /** Вызывается при запуске worker: ни одна проверка этого процесса ещё не идёт. */
+  removeLeftoverSnapshots() {
+    return removeLeftoverSnapshots(this.dependencies);
   }
   resumeStalled() {
     return resumeStalledReviews(this.dependencies);

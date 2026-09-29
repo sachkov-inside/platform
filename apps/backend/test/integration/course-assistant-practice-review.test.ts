@@ -546,6 +546,17 @@ describe("Practice Review on PostgreSQL", () => {
     expect(recheck.kind).toBe("recheck");
     const rechecked = await subject.reviewed(recheck.id);
     expect(rechecked.checked?.kind).toBe("pull_request");
+
+    // «Проверить другую работу»: прошлый выбор не повторяется, помощник спрашивает снова.
+    const other = requested(
+      await subject.assistant.requestPracticeReview({
+        accountId: subject.accountId,
+        practiceId: subject.practice.practiceId,
+        expectedContextVersion: subject.contextVersion,
+        chooseWork: true,
+      }),
+    );
+    expect((await subject.reviewed(other.id)).state).toBe("awaiting_choice");
   });
 
   test("a recheck rereads the current commit and shows what changed per criterion", async () => {

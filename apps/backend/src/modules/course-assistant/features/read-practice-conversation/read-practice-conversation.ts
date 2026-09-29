@@ -2,10 +2,9 @@ import { z } from "zod";
 import { dependencyFailure } from "../../../../infrastructure/observability/index.js";
 import { admitsParticipant } from "../../domain/course-assistant-settings.js";
 import {
-  activeReviewStates,
+  isActiveReviewState,
   practiceStatusOfReviews,
   reviewStates,
-  type ReviewState,
 } from "../../domain/practice-review.js";
 import {
   dependencyUnavailable,
@@ -114,9 +113,7 @@ export async function readPracticeConversation(
             },
           });
     const active =
-      reviews.find(({ state }) =>
-        (activeReviewStates as readonly ReviewState[]).includes(state),
-      ) ?? null;
+      reviews.find(({ state }) => isActiveReviewState(state)) ?? null;
     return {
       ok: true,
       value: {

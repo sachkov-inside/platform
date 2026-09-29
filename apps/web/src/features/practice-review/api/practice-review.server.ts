@@ -24,24 +24,22 @@ import {
 
 import {
   isReviewActive,
+  candidateCommandSchema,
+  contextVersionSchema,
   practiceConversationSchema,
-  practiceReviewActionSchema,
+  practiceIdSchema,
   practiceReviewSchema,
+  reviewCommandSchema,
   reviewRefusalCodeSchema,
   stageOf,
   type PracticeConversation,
   type PracticeReview,
-  type PracticeReviewAction,
+  type CandidateCommand,
+  type ReviewCommand,
   type PracticeReviewUIMessage,
   type ReviewRefusalCode,
 } from "../model/practice-review";
 
-const practiceIdSchema = z.string().min(1).max(200);
-/** Тело запроса чата: практика и действие участника. */
-const chatRequestSchema = z.object({
-  practiceId: practiceIdSchema,
-  action: practiceReviewActionSchema,
-});
 const chatRequestByteLimit = 16 * 1024;
 /** Как часто поток перечитывает проверку, пока её выполняет worker. */
 const reviewPollIntervalMilliseconds = 1_000;
@@ -78,25 +76,37 @@ export async function loadPracticeConversation(
 }
 
 /**
- * Действие участника в чате практики (#788): «Проверить задание», повторная проверка или выбор
- * варианта работы. Ответ — поток AI SDK UI, который следит за проверкой, пока её выполняет
- * worker, и заканчивается вопросом о варианте или итогом.
+ * «Проверить задание» или «Проверить снова» в чате практики (#788). Ответ — поток AI SDK UI,
+ * который следит за проверкой, пока её выполняет worker, и заканчивается вопросом о варианте
+ * работы или итогом.
  */
 export function handlePracticeReviewChat(request: Request): Promise<Response> {
+  return handleStreamingCommand(request, reviewCommandSchema, requestReview);
+}
+
+/** Выбор варианта работы в чате практики; ответ — такой же поток проверки. */
+export function handleReviewCandidateChat(request: Request): Promise<Response> {
+  return handleStreamingCommand(
+    request,
+    candidateCommandSchema,
+    chooseCandidate,
+  );
+}
+
+function handleStreamingCommand<Command>(
+  request: Request,
+  schema: z.ZodType<Command>,
+  start: (command: Command, accessToken: string) => Promise<ActionOutcome>,
+): Promise<Response> {
   return handleAuthenticatedMutation(
     request,
     async (body, accessToken) => {
-      const action = chatRequestSchema.safeParse(
+      const command = schema.safeParse(
         parseJson(await new Response(body).text()),
       );
-      if (!action.success)
+      if (!command.success)
         return new Response(null, { headers: privateHeaders, status: 400 });
-      const started = await startAction(
-        action.data.practiceId,
-        action.data.action,
-        accessToken,
-      );
-      return reviewStream(started, accessToken);
+      return reviewStream(await start(command.data, accessToken), accessToken);
     },
     {
       mode: "stream",
@@ -125,18 +135,12 @@ export function handleRequestPracticeReview(
   request: Request,
 ): Promise<Response> {
   return handleAuthenticatedMutation(request, async (form, accessToken) => {
-    const practiceId = practiceIdSchema.safeParse(form.get("practiceId"));
-    const expectedContextVersion = z
-      .string()
-      .regex(/^[a-f0-9]{64}$/u)
-      .safeParse(form.get("expectedContextVersion"));
-    if (!practiceId.success || !expectedContextVersion.success)
-      return { ok: false, code: "unavailable" };
-    const started = await startAction(
-      practiceId.data,
-      { kind: "review", expectedContextVersion: expectedContextVersion.data },
-      accessToken,
-    );
+    const command = reviewCommandSchema.safeParse({
+      practiceId: form.get("practiceId"),
+      expectedContextVersion: form.get("expectedContextVersion"),
+    });
+    if (!command.success) return { ok: false, code: "unavailable" };
+    const started = await requestReview(command.data, accessToken);
     return started.ok
       ? { ok: true, reviewId: started.review.id }
       : { ok: false, code: started.code };
@@ -183,37 +187,49 @@ type ActionOutcome =
       readonly currentContextVersion: string | null;
     };
 
-async function startAction(
-  practiceId: string,
-  action: PracticeReviewAction,
+async function requestReview(
+  command: ReviewCommand,
   accessToken: string,
 ): Promise<ActionOutcome> {
   try {
-    const result =
-      action.kind === "review"
-        ? await requestCourseAssistantPracticeReview(
-            practiceId,
-            {
-              expectedContextVersion: action.expectedContextVersion,
-              ...(action.candidate === undefined
-                ? {}
-                : { candidate: action.candidate }),
-            },
-            accessToken,
-          )
-        : await requestChooseCourseAssistantReviewCandidate(
-            action.reviewId,
-            action.candidateId,
-            accessToken,
-          );
-    if (!result.ok) return refusal(result);
-    const review = practiceReviewSchema.safeParse(result.body);
-    return review.success
-      ? { ok: true, review: review.data }
-      : { ok: false, code: "unavailable", currentContextVersion: null };
+    return reviewOutcome(
+      await requestCourseAssistantPracticeReview(
+        command.practiceId,
+        {
+          expectedContextVersion: command.expectedContextVersion,
+          ...(command.chooseWork === true ? { chooseWork: true } : {}),
+        },
+        accessToken,
+      ),
+    );
   } catch {
     return { ok: false, code: "unavailable", currentContextVersion: null };
   }
+}
+
+async function chooseCandidate(
+  command: CandidateCommand,
+  accessToken: string,
+): Promise<ActionOutcome> {
+  try {
+    return reviewOutcome(
+      await requestChooseCourseAssistantReviewCandidate(
+        command.reviewId,
+        command.candidateId,
+        accessToken,
+      ),
+    );
+  } catch {
+    return { ok: false, code: "unavailable", currentContextVersion: null };
+  }
+}
+
+function reviewOutcome(result: BackendTransportResult): ActionOutcome {
+  if (!result.ok) return refusal(result);
+  const review = practiceReviewSchema.safeParse(result.body);
+  return review.success
+    ? { ok: true, review: review.data }
+    : { ok: false, code: "unavailable", currentContextVersion: null };
 }
 
 function refusal(
@@ -222,7 +238,7 @@ function refusal(
   const problem = z
     .object({
       code: z.string(),
-      currentContextVersion: z.string().optional(),
+      currentContextVersion: contextVersionSchema.optional(),
     })
     .safeParse(result.problem);
   if (!problem.success)

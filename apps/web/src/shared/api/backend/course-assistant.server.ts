@@ -111,6 +111,7 @@ export function requestCourseAssistantPracticeReview(
   practiceId: string,
   requestBody: {
     readonly expectedContextVersion: string;
+    readonly chooseWork?: boolean;
     readonly candidate?:
       | { readonly kind: "default_branch" }
       | { readonly kind: "pull_request"; readonly number: number };

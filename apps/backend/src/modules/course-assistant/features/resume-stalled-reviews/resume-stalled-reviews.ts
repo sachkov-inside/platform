@@ -5,7 +5,10 @@ import type { ReviewFailure } from "../../shared/practice-review-view.js";
 
 /** Постановка в очередь могла потеряться: такая проверка ждёт worker не дольше этого. */
 export const queuedReviewGraceMilliseconds = 30_000;
-/** Проверка дольше этого считается прерванной: процесс worker остановился посреди неё. */
+/**
+ * Проверка дольше этого считается прерванной: процесс worker остановился посреди неё. Этот же
+ * срок задания ставит очередь.
+ */
 export const runningReviewTimeoutMilliseconds = 15 * 60 * 1000;
 
 export type ResumeStalledReviewsResult =

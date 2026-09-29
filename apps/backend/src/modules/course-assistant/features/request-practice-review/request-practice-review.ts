@@ -30,6 +30,8 @@ import { readActiveRepositoryLink } from "../../shared/repository-access.js";
 export const requestPracticeReviewSchema = z.strictObject({
   expectedContextVersion: z.hash("sha256"),
   candidate: requestedCandidateSchema.optional(),
+  /** Не повторять выбор прошлой проверки: спросить заново, если вариантов несколько. */
+  chooseWork: z.boolean().optional(),
 });
 
 export type RequestPracticeReviewError =
@@ -61,6 +63,7 @@ export async function requestPracticeReview(
     readonly practiceId: string;
     readonly expectedContextVersion: string;
     readonly candidate?: RequestedCandidate | undefined;
+    readonly chooseWork?: boolean | undefined;
   },
 ): Promise<RequestPracticeReviewResult> {
   const accountId = z.uuid().safeParse(command.accountId);
@@ -68,6 +71,7 @@ export async function requestPracticeReview(
   const input = requestPracticeReviewSchema.safeParse({
     expectedContextVersion: command.expectedContextVersion,
     candidate: command.candidate,
+    chooseWork: command.chooseWork,
   });
   if (!accountId.success || !practiceId.success || !input.success)
     return invalidRequest;
@@ -113,6 +117,7 @@ export async function requestPracticeReview(
       repositoryId: link.repository.id,
       repositoryFullName: link.repository.fullName,
       candidate: input.data.candidate ?? null,
+      chooseWork: input.data.chooseWork ?? false,
     });
     try {
       await queue.enqueue(reviewId);
@@ -148,6 +153,7 @@ async function createReview(
     readonly repositoryId: number;
     readonly repositoryFullName: string;
     readonly candidate: RequestedCandidate | null;
+    readonly chooseWork: boolean;
   },
 ): Promise<string> {
   try {
@@ -197,7 +203,7 @@ function insertReview(
     // Повторная проверка без явного выбора смотрит ту же работу, что и прошлая: её ветку или PR.
     const requested =
       input.candidate ??
-      (previous === null
+      (previous === null || input.chooseWork
         ? null
         : requestOf(reviewCandidateSchema.parse(previous.checkedCandidate)));
     const kind = previous === null ? "initial" : "recheck";
