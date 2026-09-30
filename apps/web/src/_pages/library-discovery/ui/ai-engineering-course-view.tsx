@@ -754,6 +754,12 @@ function Audience({ block }: { readonly block: GuidePageBlockOf<"cards"> }) {
   );
 }
 
+type CssVariables = CSSProperties & Record<`--${string}`, number | string>;
+/** CSS-переменные ступеней: значение задаёт высоту, остальное делает таблица стилей. */
+function cssVariables(values: Record<`--${string}`, number>): CssVariables {
+  return values;
+}
+
 /**
  * Что даёт курс: польза поднимается ступенями, как harness на обложке. Каждая ступень выше
  * предыдущей, верхняя выделена акцентом. На телефоне ступени становятся вертикальным путём.
@@ -765,11 +771,11 @@ function ValueGrid({ block }: { readonly block: GuidePageBlockOf<"cards"> }) {
         <h2>{block.title}</h2>
         {block.lead === "" ? null : <p>{block.lead}</p>}
       </div>
-      <ol style={{ "--aie-steps": block.items.length } as CSSProperties}>
+      <ol style={cssVariables({ "--aie-steps": block.items.length })}>
         {block.items.map((item, index) => (
           <li
             key={`${String(index)}-${item.title}`}
-            style={{ "--aie-step": index } as CSSProperties}
+            style={cssVariables({ "--aie-step": index })}
           >
             <span aria-hidden="true" className="aie-value-number">
               {String(index + 1).padStart(2, "0")}
