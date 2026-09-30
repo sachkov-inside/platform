@@ -37,7 +37,7 @@ import type {
   GuidePageBlock,
   GuidePageBlockOf,
 } from "@/entities/guide-page";
-import { ContentCoverImage } from "@/entities/material";
+import { CourseFilm } from "@/features/ai-engineering-course";
 import type { PublishedSeriesResult } from "@/features/library-discovery";
 import type { MaterialReaderReturnTarget } from "@/shared/routing/material-reader";
 import { guideProgrammeHref } from "@/shared/routing/subscription-route";
@@ -93,16 +93,7 @@ export function AiEngineeringCourseView({
 
       <Hero
         block={hero}
-        cover={
-          <ContentCoverImage
-            alt=""
-            className="aspect-[3/2] min-h-0 w-full"
-            cover={reference.cover ?? null}
-            fallbackKind="playlist"
-            fallbackSeed={reference.slug}
-            priority
-          />
-        }
+        cover={<CourseFilm />}
         name={reference.name}
         programme={programme}
         summary={reference.summary}
