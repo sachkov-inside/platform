@@ -1578,6 +1578,18 @@ export class BillingService {
       operation: 'grants.revoke';
       operationId: string;
       reason: string;
+    } | {
+      list: string;
+      operation: 'respondents.import';
+      operationId: string;
+    } | {
+      operation: 'respondents.issue';
+      operationId: string;
+      templatePromotionId: string;
+      username: string;
+    } | {
+      operation: 'respondents.status';
+      operationId: string;
     }),
   }): CancelablePromise<{
     operationRef: string;
@@ -2530,6 +2542,34 @@ export class BillingService {
       grantRef: string;
       outcome: 'grant';
       revision: number;
+    } | {
+      outcome: 'respondentImport';
+      value: {
+        added: number;
+        recognized: number;
+        total: number;
+        unrecognized: number;
+      };
+    } | {
+      outcome: 'respondentLink';
+      value: {
+        alreadyIssued: boolean;
+        code: string;
+        guideSlug: string | null;
+        promotionId: string;
+      };
+    } | {
+      outcome: 'respondents';
+      value: {
+        issued: number;
+        purchased: number;
+        respondents: Array<{
+          issuedAt: string | null;
+          purchased: boolean;
+          username: string;
+        }>;
+        total: number;
+      };
     });
   }> {
     return this.httpRequest.request({

@@ -118,6 +118,21 @@ export const SignedOut: Story = {
   },
 };
 
+/** Персональная ссылка владельца: код переживает вход, а цену со скидкой назовёт расчёт (#815). */
+export const SignedOutWithPersonalLink: Story = {
+  args: { viewer: "guest", promoCode: "Syn7hetic-Code" },
+  play: async ({ canvasElement }) => {
+    const canvas = routeContent(canvasElement);
+    await expect(
+      canvas.getByText(/скидка по ссылке применится/u),
+    ).toBeInTheDocument();
+    const returnTo = canvasElement.querySelector<HTMLInputElement>(
+      'input[name="returnTo"]',
+    );
+    await expect(returnTo?.value).toMatch(/\/buy\?promo=Syn7hetic-Code$/u);
+  },
+};
+
 export const Loading: Story = { args: { viewer: "loading" } };
 
 export const PurchasesUnavailable: Story = {

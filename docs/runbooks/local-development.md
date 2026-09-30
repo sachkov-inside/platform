@@ -574,6 +574,10 @@ must form an exact registry prefix, rejecting drift, gaps, reordering, and newer
 generated client files are not committed or edited. A pre-Prisma local volume must be recreated
 with the destructive reset below rather than supported by application compatibility code.
 
+A new migration also changes the applied-migration lists that integration tests pin: find them with
+`grep -rl '"<previous migration name>"' apps/backend/test` (on 30.09.2026 `migrations.test.ts` and
+`home-series-pin.test.ts`) and add the new name after the previous one.
+
 ## Owner Account release bootstrap
 
 After migrations and before serving production traffic, confirm that the owner exists in Logto and

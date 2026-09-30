@@ -47,7 +47,7 @@ import {
 } from "../model/admin-operations";
 
 /** Одна владельческая операция за маршрут: дискриминатор не становится общим прокси браузера. */
-function ownerCommand<Input extends z.ZodType>(
+export function ownerCommand<Input extends z.ZodType>(
   request: Request,
   inputSchema: Input,
   valueSchema: z.ZodType,

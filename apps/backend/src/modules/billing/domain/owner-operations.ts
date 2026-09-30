@@ -46,6 +46,13 @@ import {
   revisionSchema,
 } from "./pricing.js";
 import { attemptKindSchema, attemptStateSchema } from "./payment-attempt.js";
+import {
+  importRespondentsSchema,
+  issueRespondentLinkSchema,
+  respondentImportSchema,
+  respondentLinkSchema,
+  respondentsViewSchema,
+} from "../features/survey-respondents/survey-respondents.contract.js";
 import { subscriptionViewSchema } from "./subscription-change.js";
 import type { PaymentFailureCode } from "../features/purchase-subscription/purchase-subscription.contract.js";
 
@@ -225,6 +232,16 @@ export const ownerOperationSchema = z.discriminatedUnion("operation", [
     ...changeAccessGrantCommandSchema.options[1].omit({ action: true }).shape,
     operation: z.literal("grants.revoke"),
   }),
+  // Скидка респондентам анкеты (#815): список ников и личные одноразовые ссылки.
+  z.strictObject({
+    ...importRespondentsSchema.shape,
+    operation: z.literal("respondents.import"),
+  }),
+  z.strictObject({
+    ...issueRespondentLinkSchema.shape,
+    operation: z.literal("respondents.issue"),
+  }),
+  z.strictObject({ ...command, operation: z.literal("respondents.status") }),
 ]);
 export type OwnerOperation = z.infer<typeof ownerOperationSchema>;
 /** Чтение не меняет состояние: такие операции не пишут receipt и повторяются свободно. */
@@ -241,6 +258,7 @@ export const ownerReadOperations = [
   "refunds.read",
   "grants.read",
   "grants.readClassification",
+  "respondents.status",
 ] as const;
 const readOperations: readonly string[] = ownerReadOperations;
 export function isOwnerReadOperation(operation: string): boolean {
@@ -488,6 +506,18 @@ export const ownerSuccessSchema = z.union([
     outcome: z.literal("grant"),
     grantRef: idSchema,
     revision: revisionSchema,
+  }),
+  z.strictObject({
+    outcome: z.literal("respondentImport"),
+    value: respondentImportSchema,
+  }),
+  z.strictObject({
+    outcome: z.literal("respondentLink"),
+    value: respondentLinkSchema,
+  }),
+  z.strictObject({
+    outcome: z.literal("respondents"),
+    value: respondentsViewSchema,
   }),
 ]);
 export type OwnerOutcome = z.infer<typeof ownerSuccessSchema>;
