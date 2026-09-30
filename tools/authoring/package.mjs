@@ -68,6 +68,9 @@ export const sourcePracticeSchema = z
   })
   .strict();
 
+/** The only explicit selection scope; a package without it selects Materials. */
+export const guideShellScope = z.literal("guide-shell");
+
 export const manifestSchema = z
   .object({
     schemaVersion: z.literal(1),
@@ -80,7 +83,7 @@ export const manifestSchema = z
         materialIds: z.array(identifier),
         complete: z.literal(true),
         // An explicit Guide shell release (#803): only the product page and programme, no Materials.
-        scope: z.literal("guide-shell").optional(),
+        scope: guideShellScope.optional(),
       })
       .strict(),
     materials: z.array(

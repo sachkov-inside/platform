@@ -484,3 +484,32 @@ test("preview shows the shell and exact apply stops on drift", async (t) => {
   });
   assert.equal(itemAt(again.preview.guides, 0).change, "unchanged");
 });
+
+test("a new product's shell preview lists its chapters", async (t) => {
+  const setup = await fixture(t);
+  const api = platform({ stored: false });
+  const { preview } = await previewRelease(setup.packagePath, setup.state, {
+    origin: resolveLocalTarget("editor"),
+    request: api.request,
+  });
+  assert.equal(itemAt(preview.guides, 0).change, "new");
+  assert.deepEqual(itemAt(preview.guides, 0).chapterListChange, {
+    added: 8,
+    removed: 0,
+  });
+});
+
+test("a page edited on the target after the preview stops exact apply", async (t) => {
+  const setup = await fixture(t);
+  const api = platform();
+  const { path } = await previewRelease(setup.packagePath, setup.state, {
+    origin: resolveLocalTarget("editor"),
+    request: api.request,
+  });
+  api.guide.version++;
+  await assert.rejects(
+    applyRelease(path, setup.state, { request: api.request }),
+    /changed after the preview/u,
+  );
+  assert.equal(api.count(/reserve|update|composition/u), 0);
+});

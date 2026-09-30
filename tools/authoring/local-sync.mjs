@@ -309,7 +309,7 @@ export function guideChapters(manifest, guide) {
 /**
  * The composition a Guide shell release sends: the package's chapter list over the Materials the
  * target already holds, in their current order and chapters. A placed Material whose chapter the
- * package drops would lose its placement, so that shell is refused instead.
+ * package drops would lose its placement, so that shell is refused before any write.
  *
  * @param {Manifest} manifest
  * @param {ManifestGuide} guide
@@ -321,22 +321,14 @@ export function guideShellComposition(manifest, guide, order) {
   const ungrouped = order.items.filter(
     (item) => item.chapterId !== null && !ids.has(item.chapterId),
   ).length;
+  if (ungrouped > 0)
+    throw new Error(
+      `Product ${guide.sourceId}: the Guide shell drops chapters that hold ${String(ungrouped)} Materials; move them in Platform or keep those chapters`,
+    );
   return {
     chapters,
     orderedMaterialIds: order.items.map((item) => item.materialId),
-    ungrouped,
   };
-}
-
-/**
- * @param {string} guideSourceId
- * @param {number} ungrouped
- */
-function refuseUngrouping(guideSourceId, ungrouped) {
-  if (ungrouped > 0)
-    throw new Error(
-      `Product ${guideSourceId}: the Guide shell drops chapters that hold ${String(ungrouped)} Materials; move them in Platform or keep those chapters`,
-    );
 }
 
 /**
@@ -656,10 +648,7 @@ export async function syncLocal(
         );
         if (stored === undefined) continue;
         const order = await request(`/authoring/guides/${stored.id}/order`);
-        refuseUngrouping(
-          guide.sourceId,
-          guideShellComposition(pkg.manifest, guide, order).ungrouped,
-        );
+        guideShellComposition(pkg.manifest, guide, order);
       }
     for (const guide of pkg.manifest.guides) {
       if (!guide.complete)
@@ -726,7 +715,6 @@ export async function syncLocal(
         const current = valueAt(guides, guide.sourceId);
         const order = await request(`/authoring/guides/${current.id}/order`);
         const composition = guideShellComposition(pkg.manifest, guide, order);
-        refuseUngrouping(guide.sourceId, composition.ungrouped);
         // Omitted assignments keep every retained Material in its chapter; an unchanged shell writes nothing.
         await request("/authoring/import/guides/composition", {
           sourceId: sourceId(guide.sourceId),
@@ -743,6 +731,14 @@ export async function syncLocal(
           supplementaryMaterials: [],
         });
       }
+      const pending = Object.values(journal.operations).filter(
+        (entry) => isJournalOperation(entry) && entry.status === "pending",
+      ).length;
+      if (pending)
+        report.notices.push({
+          code: "journal_pending",
+          message: `Оболочка не продолжает ${String(pending)} незавершённых записей материалов; повторите перенос их пакета`,
+        });
       return finish();
     }
 

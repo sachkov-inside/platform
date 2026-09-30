@@ -4,7 +4,13 @@ import { join, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 import { parseArgs } from "node:util";
 import { z } from "zod";
-import { loadPackage, canonical, checksum, isGuideShell } from "./package.mjs";
+import {
+  loadPackage,
+  canonical,
+  checksum,
+  guideShellScope,
+  isGuideShell,
+} from "./package.mjs";
 import { writeAtomic } from "./journal.mjs";
 import {
   artifactReceiptSchema,
@@ -70,7 +76,6 @@ import {
  * @property {number} [removed]
  * @property {boolean} [reorderedOrRegrouped]
  * @property {{ added: number; removed: number }} [chapterListChange]
- * @property {number} [ungrouped]
  */
 
 /**
@@ -295,12 +300,18 @@ export async function previewRelease(
         slug: details.slug,
         presentation: details.presentation,
         page: details.page === null ? "none" : "new",
+        ...(shell
+          ? { chapterListChange: { added: guide.chapters.length, removed: 0 } }
+          : {}),
       });
       continue;
     }
     const order = await request(`/authoring/guides/${guideId}/order`);
     expected[`${sourceKey(manifest, guide.sourceId)}:order`] =
       order.orderVersion;
+    // A page edited on the target after the review is drift, not something apply may overwrite.
+    if (stored !== undefined)
+      expected[`${sourceKey(manifest, guide.sourceId)}:guide`] = stored.version;
     const ids = new Map(
       programme.map((id) => [
         id,
@@ -329,9 +340,8 @@ export async function previewRelease(
         canonical({ name: chapter.name, summary: chapter.summary }),
       ]),
     );
-    const desiredChapterIds = guideChapters(manifest, guide).map(
-      (chapter) => chapter.id,
-    );
+    const desiredChapters = guideChapters(manifest, guide);
+    const desiredChapterIds = desiredChapters.map((chapter) => chapter.id);
     const currentChapterIds = order.chapters.map((chapter) => chapter.id);
     const chapterListChange = {
       added: desiredChapterIds.filter((id) => !currentChapterIds.includes(id))
@@ -341,7 +351,7 @@ export async function previewRelease(
     };
     const chaptersChanged =
       canonical(desiredChapterIds) !== canonical(currentChapterIds);
-    const chapterTextChanges = guideChapters(manifest, guide).filter(
+    const chapterTextChanges = desiredChapters.filter(
       (chapter) =>
         currentChapterText.has(chapter.id) &&
         currentChapterText.get(chapter.id) !==
@@ -363,8 +373,9 @@ export async function previewRelease(
         : undefined;
     const detailsChange =
       stored === undefined || !guideDetailsMatch(stored, details);
+    // A shell that would move a placed Material is refused while composing it.
     const moved = shellComposition
-      ? shellComposition.ungrouped
+      ? 0
       : order.items.filter(
           (item) =>
             (chapterOf.get(item.materialId) ?? null) !==
@@ -372,10 +383,6 @@ export async function previewRelease(
               ? null
               : (currentChapters.get(item.chapterId) ?? null)),
         ).length;
-    if (shellComposition !== undefined && shellComposition.ungrouped > 0)
-      throw new Error(
-        `Product ${guide.sourceId}: the Guide shell drops chapters that hold ${String(shellComposition.ungrouped)} Materials; move them in Platform or keep those chapters`,
-      );
     guides.push({
       sourceId: guide.sourceId,
       title: guide.title,
@@ -412,7 +419,7 @@ export async function previewRelease(
     packageId: pkg.id,
     packagePath: resolve(packagePath),
     namespace: manifest.sourceNamespace,
-    ...(shell ? { scope: "guide-shell" } : {}),
+    ...(shell ? { scope: guideShellScope.value } : {}),
     expected,
     materials,
     guides,
@@ -440,7 +447,7 @@ const previewSchema = z
     packageId: z.hash("sha256"),
     packagePath: z.string(),
     namespace: z.string(),
-    scope: z.literal("guide-shell").optional(),
+    scope: guideShellScope.optional(),
     expected: z.record(z.string(), z.union([z.number().int(), z.string()])),
     materials: z.array(z.object({ change: z.string() }).passthrough()),
     guides: z.array(z.json()),
