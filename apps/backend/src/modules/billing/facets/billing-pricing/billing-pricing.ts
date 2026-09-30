@@ -8,6 +8,7 @@ import {
   type SalePaymentConfiguration,
 } from "../../features/assert-sale-configured/assert-sale-configured.js";
 import { listOffers } from "../../features/list-offers/list-offers.js";
+import { listGuideCohorts } from "../../features/list-guide-cohorts/list-guide-cohorts.js";
 import {
   reservePurchase,
   type ReservePurchase,
@@ -56,6 +57,10 @@ export class BillingPricing {
       publishedOnly: true,
       grounds: grounds ?? noPurchaseGrounds,
     });
+  }
+  /** Текущие потоки продуктов: публичный факт, одинаковый для гостя, покупателя и владельца. */
+  cohorts() {
+    return listGuideCohorts(this.dependencies.prisma);
   }
   /** Владельческий каталог: весь неархивный каталог вместе с выключенными из продажи предложениями. */
   ownerCatalog(input: unknown) {

@@ -15,6 +15,7 @@ import {
   billingErrorMessage,
   type BillingCommandResult,
   type BillingFailureCode,
+  type GuideCohort,
   type PriceSnapshot,
 } from "@/entities/subscription";
 import { useRepeatableOperations } from "@/shared/lib/repeatable-operations.client";
@@ -41,6 +42,7 @@ import {
   saveBillingOffer,
   saveBillingPaymentOption,
   saveBillingPromotion,
+  saveBillingCohort,
   unpublishBillingOffer,
 } from "../api/billing-admin.browser";
 import type {
@@ -65,13 +67,17 @@ interface Task {
 
 export interface BillingAdminPanelProps {
   readonly offers: readonly PriceSnapshot[];
+  readonly cohorts: readonly GuideCohort[];
 }
 
 /**
  * Владельческие команды повторяются безопасно: тот же `operationId` сохраняется, пока не
  * изменилась нагрузка, поэтому повтор читает исходный результат, а не создаёт второй.
  */
-export function BillingAdminPanel({ offers }: BillingAdminPanelProps) {
+export function BillingAdminPanel({
+  offers,
+  cohorts: initialCohorts,
+}: BillingAdminPanelProps) {
   const queryClient = useQueryClient();
   const content = useQuery({
     queryKey: ["owner-content-scope"],
@@ -93,6 +99,8 @@ export function BillingAdminPanel({ offers }: BillingAdminPanelProps) {
     },
   });
   const [catalog, setCatalog] = useState<readonly PriceSnapshot[]>(offers);
+  const [cohorts, setCohorts] =
+    useState<readonly GuideCohort[]>(initialCohorts);
   const [payments, setPayments] = useState<readonly PaymentView[]>([]);
   const [paymentsCursor, setPaymentsCursor] = useState<string | null>(null);
   const [payment, setPayment] = useState<PaymentOutcome["result"] | null>(null);
@@ -180,6 +188,7 @@ export function BillingAdminPanel({ offers }: BillingAdminPanelProps) {
       tiers={tiers.data ?? []}
       catalogLoading={content.isPending || tiers.isPending}
       catalogError={content.error?.message ?? tiers.error?.message}
+      cohorts={cohorts}
       enrollmentControls={
         <>
           <EnrollmentAdminPanel />
@@ -482,6 +491,30 @@ export function BillingAdminPanel({ offers }: BillingAdminPanelProps) {
             );
           },
           "Вариант оплаты сохранён.",
+        );
+      }}
+      onSaveCohort={(input) => {
+        dispatch(
+          () =>
+            saveBillingCohort({
+              ...input,
+              operationId: operationId("cohorts.save", input),
+            }),
+          (value) => {
+            // Список обновляется сразу: следующая правка идёт с новой редакцией без перезагрузки.
+            const saved: GuideCohort = {
+              ...input.value,
+              revision: value.result.value.revision,
+            };
+            setCohorts((current) => [
+              ...current.filter((cohort) => cohort.guideId !== saved.guideId),
+              saved,
+            ]);
+            setNotice(
+              `Поток сохранён, редакция ${String(value.result.value.revision)}.`,
+            );
+          },
+          "Поток сохранён.",
         );
       }}
       onSavePromotion={(input) => {

@@ -64,10 +64,13 @@ type ResolvedSeriesResult = Extract<
  * Программа и прохождение живут на странице программы: туда ведут все кнопки.
  */
 export function AiEngineeringCourseView({
+  heroCall,
   result,
   page,
   returnTarget,
 }: {
+  /** Плашка потока и кнопка по этапу продаж; без неё первый экран ведёт в программу. */
+  readonly heroCall?: ReactNode;
   readonly result: ResolvedSeriesResult;
   readonly page: GuidePage;
   readonly returnTarget: MaterialReaderReturnTarget;
@@ -96,6 +99,7 @@ export function AiEngineeringCourseView({
         <CourseHero
           action={{ href: programme, label: "Открыть программу" }}
           badge={hero?.badge ?? ""}
+          call={heroCall}
           compactActionOnPhone
           highlights={hero?.highlights ?? []}
           lead={hero?.lead ?? reference.summary}

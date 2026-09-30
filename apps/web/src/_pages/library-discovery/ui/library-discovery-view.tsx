@@ -8,6 +8,7 @@ import {
 } from "lucide-react";
 import type { Route } from "next";
 import Link from "next/link";
+import type { ReactNode } from "react";
 
 import type {
   LibraryDiscoveryKind,
@@ -52,10 +53,13 @@ type PublishedTopicResultResolved = Exclude<
  */
 export function LibraryDiscoveryView({
   artifacts = { kind: "ready", artifacts: [] },
+  heroCall,
   result,
   returnTarget = homeMaterialReaderReturnTarget,
 }: {
   readonly artifacts?: ReaderGuideArtifactsResult;
+  /** Личная часть первого экрана продукта: плашка потока и кнопка по этапу продаж. */
+  readonly heroCall?: ReactNode;
   readonly result: ResolvedDiscoveryResult;
   readonly returnTarget?: MaterialReaderReturnTarget;
 }) {
@@ -64,6 +68,7 @@ export function LibraryDiscoveryView({
     return (
       <GuideProductView
         artifacts={artifacts}
+        heroCall={heroCall}
         result={result}
         returnTarget={returnTarget}
         {...(entry === undefined ? {} : { freeEntryHref: entry })}

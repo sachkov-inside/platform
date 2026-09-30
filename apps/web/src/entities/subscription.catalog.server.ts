@@ -3,4 +3,8 @@
  * спрашивает, продаётся ли руководство, и не должна тянуть за собой платёжные команды, согласия
  * и серверную сессию покупателя из широкого входа `subscription.server`.
  */
-export { loadGuideOffers } from "./subscription/api/billing-catalog.server";
+export {
+  loadGuideCohort,
+  loadGuideCohorts,
+  loadGuideOffers,
+} from "./subscription/api/billing-catalog.server";

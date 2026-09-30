@@ -33,6 +33,7 @@ import { ManageBillingController } from "./adapters/nest/manage-billing.controll
 import { BillingOperations } from "./facets/billing-operations/billing-operations.js";
 import { QuotePurchaseController } from "./features/quote-purchase/quote-purchase.controller.js";
 import { ListOffersController } from "./features/list-offers/list-offers.controller.js";
+import { ListGuideCohortsController } from "./features/list-guide-cohorts/list-guide-cohorts.controller.js";
 
 // Один банковский adapter на модуль: у привязки один владелец. Права выдаёт общий провайдер
 // модуля прав, поэтому у оплаты нет собственной копии facet.
@@ -49,6 +50,7 @@ const BILLING_BANK = Symbol("BillingBank");
     ManageBillingController,
     QuotePurchaseController,
     ListOffersController,
+    ListGuideCohortsController,
   ],
   providers: [
     {

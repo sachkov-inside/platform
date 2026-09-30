@@ -9,6 +9,8 @@ export {
 export { handleBillingConsents } from "./subscription/api/billing-consents.server";
 export {
   loadBillingOffers,
+  loadGuideCohort,
+  loadGuideCohorts,
   loadGuideOffers,
   type CatalogQuery,
   type OffersResult,

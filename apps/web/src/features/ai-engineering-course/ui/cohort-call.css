@@ -1,0 +1,49 @@
+.aie-cohort {
+  display: grid;
+  justify-items: start;
+  min-width: 0;
+}
+.aie-cohort-banner {
+  display: grid;
+  gap: 0.375rem;
+  max-width: 36rem;
+  margin-top: 1.5rem;
+  padding: 0.875rem 1rem;
+  border-radius: 0.875rem;
+  background: var(--secondary);
+  color: var(--foreground);
+}
+.aie-cohort-text {
+  font-weight: 600;
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+}
+.aie-cohort-label {
+  display: inline-block;
+  margin-right: 0.25rem;
+  padding: 0.125rem 0.5rem;
+  border-radius: 999px;
+  background: var(--accent);
+  color: var(--accent-foreground);
+  font-size: 0.75rem;
+  font-weight: 700;
+  vertical-align: 0.1em;
+}
+.aie-cohort-detail {
+  color: var(--muted-foreground);
+  font-size: 0.875rem;
+  line-height: 1.5;
+}
+.aie-cohort-banner + * .aie-hero-action,
+.aie-cohort-banner + .aie-hero-action {
+  margin-top: 1rem;
+}
+.aie-cohort form {
+  display: contents;
+}
+.aie-cohort button.aie-hero-action {
+  border: 0;
+  cursor: pointer;
+  font: inherit;
+  font-weight: 650;
+}

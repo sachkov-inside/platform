@@ -1,13 +1,17 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { expect, within } from "storybook/test";
 
+import type { GuideCohort } from "@/entities/subscription";
+import { CohortCallView } from "@/features/ai-engineering-course";
 import { homeMaterialReaderReturnTarget } from "@/shared/routing/material-reader";
+import { guideWithSupportOffer } from "@/workshop/billing.fixtures";
 import {
   aiEngineeringCourseChapters,
   aiEngineeringCoursePage,
 } from "@/workshop/ai-engineering-course.fixtures";
 import { publicPageEnvironment } from "@/workshop/story-environment";
 
+import { cohortCall } from "../model/cohort-call";
 import { GuideProductView } from "./guide-product-view";
 
 const environment = publicPageEnvironment("/products/ai-engineering");
@@ -148,4 +152,100 @@ export const OptionalFields: Story = {
 
 export const Mobile: Story = {
   globals: { viewport: { value: "mobile390", isRotated: false } },
+};
+
+const cohort: GuideCohort = {
+  guideId: "00000000-0000-4000-8000-000000000814",
+  revision: 1,
+  name: "Поток 1",
+  stage: "preorder",
+  startsOn: "2026-10-20",
+  nextEvent: "",
+};
+
+/** Предзаказ: плашка потока над кнопкой, цена — из предложения, которое видит этот человек. */
+export const CohortPreorder: Story = {
+  args: {
+    heroCall: (
+      <CohortCallView
+        call={cohortCall({
+          cohort,
+          offer: guideWithSupportOffer,
+          ownership: "lacks",
+          signedIn: true,
+          slug: "ai-engineering",
+        })}
+      />
+    ),
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await expect(canvas.getByText("Поток 1")).toBeVisible();
+    await expect(
+      canvas.getByText(/Предзаказ открыт до 20 октября/u),
+    ).toBeVisible();
+    await expect(
+      canvas.getByRole("link", { name: /^Оплатить/u }),
+    ).toHaveAttribute("href", "/products/ai-engineering/buy");
+  },
+};
+
+export const CohortPreorderMobile: Story = {
+  ...CohortPreorder,
+  globals: { viewport: { value: "mobile390", isRotated: false } },
+};
+
+/** Анонс: денег не принимают, гость входит через Telegram и читает главу 1. */
+export const CohortAnnouncement: Story = {
+  args: {
+    heroCall: (
+      <CohortCallView
+        call={cohortCall({
+          cohort: { ...cohort, stage: "announcement" },
+          offer: guideWithSupportOffer,
+          ownership: "unknown",
+          signedIn: false,
+          slug: "ai-engineering",
+        })}
+      />
+    ),
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await expect(canvas.getByText(/Старт 20 октября/u)).toBeVisible();
+    await expect(
+      canvas.getByRole("button", { name: /Читать главу 1 бесплатно/u }),
+    ).toBeVisible();
+    await expect(canvas.queryByRole("link", { name: /^Оплатить/u })).toBeNull();
+  },
+};
+
+/** Между потоками: курс открыт, плашка называет событие следующего потока. */
+export const CohortBetween: Story = {
+  args: {
+    heroCall: (
+      <CohortCallView
+        call={cohortCall({
+          cohort: {
+            ...cohort,
+            name: "Поток 2",
+            stage: "between",
+            startsOn: null,
+            nextEvent: "эфир 15 декабря",
+          },
+          offer: guideWithSupportOffer,
+          ownership: "lacks",
+          signedIn: true,
+          slug: "ai-engineering",
+        })}
+      />
+    ),
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await expect(
+      canvas.getByText(/Следующий поток: эфир 15 декабря/u),
+    ).toBeVisible();
+    await expect(canvas.getByRole("link", { name: "Оплатить" })).toBeVisible();
+  },
 };

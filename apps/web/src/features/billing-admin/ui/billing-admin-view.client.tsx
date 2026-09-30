@@ -7,6 +7,10 @@ import {
   type CatalogSectionProps,
 } from "./catalog-section.client";
 import {
+  CohortSection,
+  type CohortSectionProps,
+} from "./cohort-section.client";
+import {
   ClassificationSection,
   type ClassificationSectionProps,
 } from "./classification-section.client";
@@ -22,6 +26,7 @@ import {
 export interface BillingAdminViewProps
   extends
     Omit<CatalogSectionProps, "offers" | "pending">,
+    Omit<CohortSectionProps, "content" | "pending">,
     Omit<PaymentsSectionProps, "pending">,
     Omit<GrantsSectionProps, "pending">,
     Omit<ClassificationSectionProps, "pending"> {
@@ -43,6 +48,8 @@ export function BillingAdminView({
   tiers,
   catalogLoading,
   catalogError,
+  cohorts,
+  onSaveCohort,
   enrollmentControls,
   respondentControls,
   offers,
@@ -124,6 +131,12 @@ export function BillingAdminView({
         onSaveOffer={onSaveOffer}
         onSavePaymentOption={onSavePaymentOption}
         onSavePromotion={onSavePromotion}
+        pending={pending}
+      />
+      <CohortSection
+        cohorts={cohorts}
+        content={content}
+        onSaveCohort={onSaveCohort}
         pending={pending}
       />
       {respondentControls}
