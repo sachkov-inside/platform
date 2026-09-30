@@ -15,7 +15,9 @@ export const materialReceiptSchema = z
   .object({ materialId: z.uuid(), contentVersion: version })
   .passthrough();
 const coverSchema = z.object({ coverId: z.uuid() }).passthrough();
+const publicationState = z.enum(["draft", "published", "unpublished"]);
 const materialSchema = materialReceiptSchema.extend({
+  publicationState: publicationState.optional(),
   primaryVideoId: z.uuid().nullable(),
   metadata: z
     .object({
@@ -368,6 +370,7 @@ const cacheSchema = materialReceiptSchema.extend({
   coverId: z.uuid().nullable().optional(),
   coverSha256: hash.nullable().optional(),
   guideSourceIds: z.array(text).optional(),
+  publicationState: publicationState.optional(),
   archived: z.boolean().optional(),
   access: access.optional(),
   url: z

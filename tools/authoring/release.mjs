@@ -31,6 +31,10 @@ import {
   guideShellComposition,
   normalizeSourceIds,
   pendingOperations,
+  publicationConflict,
+  publicationPolicy,
+  publishOption,
+  recordedPublication,
   valueAt,
   sourceKey,
   syncLocal,
@@ -56,6 +60,8 @@ import {
  * @property {"new" | "changed" | "restore" | "unchanged" | "conflict"} change
  * @property {boolean} [coverChange]
  * @property {boolean} [videoChange]
+ * @property {"draft" | "published"} publication
+ * @property {{ from: string; to: string }} [publicationChange]
  * @property {string} [conflictReason]
  * @property {{ from: boolean; to: boolean }} [feedChange]
  * @property {{ from: string; to: string }} [accessChange]
@@ -130,12 +136,17 @@ async function readJournal(stateDirectory, target) {
  *
  * @param {string} packagePath
  * @param {string} stateDirectory
- * @param {{ origin: string; request?: LocalTransport | undefined; defaultAccess?: DefaultAccess }} options
+ * @param {{
+ *   origin: string;
+ *   request?: LocalTransport | undefined;
+ *   defaultAccess?: DefaultAccess;
+ *   publish?: import("./local-sync.mjs").PublishSelection;
+ * }} options
  */
 export async function previewRelease(
   packagePath,
   stateDirectory,
-  { origin, request: transport, defaultAccess = "membership" },
+  { origin, request: transport, defaultAccess = "membership", publish = [] },
 ) {
   const target = loopbackOrigin(origin);
   const send = transport ?? localTransport(target);
@@ -144,6 +155,7 @@ export async function previewRelease(
   const pkg = await loadPackage(packagePath);
   const { manifest } = pkg;
   const shell = isGuideShell(manifest);
+  const publicationOf = publicationPolicy(manifest, publish);
   const environment = await request("/authoring/import/materials/environment");
   await validateGuidePages(manifest, send);
   const journal = await readJournal(stateDirectory, target);
@@ -185,6 +197,7 @@ export async function previewRelease(
       access: row.access ?? defaultAccess,
       showInFeed: row.showInFeed,
       video: row.video?.kinescopeId ?? null,
+      publication: publicationOf(row),
     };
     if (!entry) {
       materials.push({
@@ -217,7 +230,13 @@ export async function previewRelease(
       guideIds,
       defaultAccess,
       primaryVideoId: attached,
+      publicationState: item.publication,
     });
+    const currentPublication =
+      current.publicationState ?? recordedPublication(entry);
+    const alreadyPublic =
+      publicationConflict(row, currentPublication, item.publication) !==
+      undefined;
     // A Video keeps the access it was attached with; changing a Material's access needs a new recording decision.
     const currentAccess = current.metadata.access ?? entry.access;
     const existingVideo =
@@ -227,7 +246,9 @@ export async function previewRelease(
       currentAccess !== undefined &&
       currentAccess !== item.access;
     const change =
-      current.contentVersion !== entry.contentVersion || videoAccessConflict
+      current.contentVersion !== entry.contentVersion ||
+      videoAccessConflict ||
+      alreadyPublic
         ? "conflict"
         : entry.archived
           ? "restore"
@@ -243,6 +264,15 @@ export async function previewRelease(
       change,
       ...(attached !== current.primaryVideoId ? { videoChange: true } : {}),
       ...(videoAccessConflict ? { conflictReason: "video_access_change" } : {}),
+      ...(alreadyPublic ? { conflictReason: "already_published" } : {}),
+      ...(!alreadyPublic && currentPublication !== item.publication
+        ? {
+            publicationChange: {
+              from: currentPublication,
+              to: item.publication,
+            },
+          }
+        : {}),
       ...(coverSha !== null && coverSha !== (entry.coverSha256 ?? null)
         ? { coverChange: true }
         : {}),
@@ -413,6 +443,14 @@ export async function previewRelease(
     });
   }
   const archiveProposals = archiveProposalKeys(journal, manifest);
+  // The owner's publication approval is part of what apply must match.
+  /** @type {{ publish?: import("./local-sync.mjs").PublishSelection }} */
+  const approval =
+    publish === "all"
+      ? { publish }
+      : publish.length
+        ? { publish: normalizeSourceIds(manifest, publish).sort() }
+        : {};
   const plan = {
     schemaVersion: 1,
     target,
@@ -420,6 +458,7 @@ export async function previewRelease(
     packageId: pkg.id,
     packagePath: resolve(packagePath),
     namespace: manifest.sourceNamespace,
+    ...approval,
     ...(shell ? { scope: guideShellScope.value } : {}),
     // A shell leaves these writes for their own package; the reviewer sees them before apply.
     ...(shell && pendingOperations(journal)
@@ -453,6 +492,7 @@ const previewSchema = z
     packagePath: z.string(),
     namespace: z.string(),
     scope: guideShellScope.optional(),
+    publish: z.union([z.literal("all"), z.array(z.string())]).optional(),
     pendingMaterialWrites: z.number().int().positive().optional(),
     expected: z.record(z.string(), z.union([z.number().int(), z.string()])),
     materials: z.array(z.object({ change: z.string() }).passthrough()),
@@ -501,9 +541,11 @@ export async function applyRelease(
   if (pkg.id !== preview.packageId)
     throw new Error("Package differs from the reviewed preview");
   // The recomputed plan must be the reviewed one: versions, local receipts and every listed change.
+  const publish = preview.publish ?? [];
   const current = await previewRelease(preview.packagePath, stateDirectory, {
     origin: target,
     request: transport,
+    publish,
   });
   if (current.preview.fingerprint !== fingerprint)
     throw new Error(
@@ -513,6 +555,7 @@ export async function applyRelease(
     origin: target,
     request: transport,
     archive,
+    publish,
   });
 }
 
@@ -528,6 +571,8 @@ if (
       state: { type: "string" },
       preview: { type: "string" },
       archive: { type: "string", multiple: true, default: [] },
+      publish: { type: "string", multiple: true, default: [] },
+      "publish-all": { type: "boolean", default: false },
     },
   });
   const [command] = positionals;
@@ -540,10 +585,10 @@ if (
     const { path, summary, preview } = await previewRelease(
       values.package,
       values.state,
-      { origin: releaseTarget(values.target) },
+      { origin: releaseTarget(values.target), publish: publishOption(values) },
     );
     process.stdout.write(
-      `${JSON.stringify({ preview: path, scope: preview.scope ?? "materials", summary, guides: preview.guides, archiveProposals: preview.archiveProposals, changes: preview.materials.filter((item) => item.change !== "unchanged") }, null, 2)}\n`,
+      `${JSON.stringify({ preview: path, scope: preview.scope ?? "materials", publish: preview.publish ?? [], summary, guides: preview.guides, archiveProposals: preview.archiveProposals, changes: preview.materials.filter((item) => item.change !== "unchanged") }, null, 2)}\n`,
     );
   } else if (command === "apply" && values.preview && values.state) {
     const report = await applyRelease(values.preview, values.state, {
@@ -554,7 +599,7 @@ if (
     );
   } else {
     throw new Error(
-      "Usage: pnpm authoring:release preview --package PACKAGE_JSON --target editor|stand --state STATE_DIRECTORY\n       pnpm authoring:release apply --preview PREVIEW_JSON --state STATE_DIRECTORY [--archive SOURCE_ID]...",
+      "Usage: pnpm authoring:release preview --package PACKAGE_JSON --target editor|stand --state STATE_DIRECTORY [--publish SOURCE_ID]... [--publish-all]\n       pnpm authoring:release apply --preview PREVIEW_JSON --state STATE_DIRECTORY [--archive SOURCE_ID]...",
     );
   }
 }

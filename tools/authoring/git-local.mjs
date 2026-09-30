@@ -6,7 +6,7 @@ import { tmpdir } from "node:os";
 import { resolve, join } from "node:path";
 import { pathToFileURL } from "node:url";
 import { parseArgs } from "node:util";
-import { syncLocal } from "./local-sync.mjs";
+import { publishOption, syncLocal } from "./local-sync.mjs";
 import { writeAtomic } from "./journal.mjs";
 import { resolveLocalTarget } from "./target.mjs";
 import { prepareCoursePreview } from "./course-preview.mjs";
@@ -130,17 +130,20 @@ if (
       target: { type: "string", default: "editor" },
       archive: { type: "string", multiple: true, default: [] },
       "pin-home": { type: "boolean", default: false },
+      publish: { type: "string", multiple: true, default: [] },
+      "publish-all": { type: "boolean", default: false },
     },
   });
   const [repository, guideId, state, ref = "HEAD", ...extra] = positionals;
   if (!repository || !guideId || !state || extra.length)
     throw new Error(
-      "Usage: pnpm authoring:sync-git-local CONTENT_REPOSITORY GUIDE_ID STATE_DIRECTORY [REF=HEAD] [--target editor|stand] [--archive SOURCE_ID]... [--pin-home]",
+      "Usage: pnpm authoring:sync-git-local CONTENT_REPOSITORY GUIDE_ID STATE_DIRECTORY [REF=HEAD] [--target editor|stand] [--publish SOURCE_ID]... [--publish-all] [--archive SOURCE_ID]... [--pin-home]",
     );
   const report = await syncGitLocal(repository, guideId, state, ref, {
     origin: resolveLocalTarget(values.target),
     archive: values.archive,
     pinHome: values["pin-home"],
+    publish: publishOption(values),
   });
   console.log(
     JSON.stringify(

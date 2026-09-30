@@ -61,7 +61,7 @@ export const localRequest = localTransport(reviewOrigin);
  * @property {string} packageId
  * @property {number} applied
  * @property {number} unchanged
- * @property {{ sourceId: string; title: string; url: string }[]} materials
+ * @property {{ sourceId: string; title: string; url: string; publicationState: "draft" | "published" }[]} materials
  * @property {{
  *   title: string;
  *   url: string;
@@ -82,6 +82,10 @@ export const localRequest = localTransport(reviewOrigin);
  * @property {(milliseconds: number) => Promise<unknown>} [sleep]
  * @property {number} [videoAttempts]
  * @property {boolean} [pinHome]
+ * @property {PublishSelection} [publish]
+ * @typedef {string[] | "all"} PublishSelection Originals the owner approved for publication;
+ *   every other Material stays a private draft.
+ * @typedef {"draft" | "published" | "unpublished"} PublicationState
  */
 
 /**
@@ -128,21 +132,79 @@ export function productsOf(manifest, row) {
 }
 
 /**
+ * A published state keeps the digest older journals recorded; any other state changes it.
+ *
  * @param {{
  *   revision: string;
  *   metadata: unknown;
  *   primaryVideoId: string | null;
  *   videoChapters: unknown;
+ *   publicationState: PublicationState;
  * }} material
  */
-function materialDigest({ revision, metadata, primaryVideoId, videoChapters }) {
+function materialDigest({
+  revision,
+  metadata,
+  primaryVideoId,
+  videoChapters,
+  publicationState,
+}) {
   return checksum(
     canonical({
       revision,
       metadata,
       ...(primaryVideoId ? { primaryVideoId, videoChapters } : {}),
+      ...(publicationState === "published" ? {} : { publicationState }),
     }),
   );
+}
+
+/**
+ * The publication an original asks for (#804): only an explicit owner selection publishes it; an
+ * editorial stage or missing access never does.
+ *
+ * @param {Pick<Manifest, "sourceNamespace" | "materials">} manifest
+ * @param {PublishSelection} publish
+ * @returns {(row: Pick<ManifestMaterial, "sourceId">) => "draft" | "published"}
+ */
+export function publicationPolicy(manifest, publish) {
+  if (publish === "all") return () => "published";
+  const selected = new Set(normalizeSourceIds(manifest, publish));
+  const present = new Set(
+    manifest.materials.map((row) => sourceKey(manifest, row.sourceId)),
+  );
+  const unknown = [...selected].filter((id) => !present.has(id));
+  if (unknown.length)
+    throw new Error(
+      `Publication names originals outside this package: ${unknown.join(", ")}`,
+    );
+  return (row) =>
+    selected.has(sourceKey(manifest, row.sourceId)) ? "published" : "draft";
+}
+
+/**
+ * The state the target holds; journals written before #804 recorded only archival.
+ *
+ * @param {{ publicationState?: PublicationState | undefined; archived?: boolean | undefined }} entry
+ * @returns {PublicationState}
+ */
+export function recordedPublication(entry) {
+  return (
+    entry.publicationState ?? (entry.archived ? "unpublished" : "published")
+  );
+}
+
+/**
+ * A private import never takes back or replaces what readers already see.
+ *
+ * @param {ManifestMaterial} row
+ * @param {PublicationState} current
+ * @param {"draft" | "published"} desired
+ */
+export function publicationConflict(row, current, desired) {
+  return desired === "draft" && current !== "draft"
+    ? `${row.sourcePath}: the Material is already ${current} in Platform; a private import neither unpublishes it nor replaces its public body. Approve its publication explicitly or leave it out of this import`
+    : undefined;
 }
 
 /**
@@ -155,12 +217,13 @@ function materialDigest({ revision, metadata, primaryVideoId, videoChapters }) {
  *   guideIds: Map<string, string>;
  *   defaultAccess: DefaultAccess;
  *   primaryVideoId: string | null;
+ *   publicationState: "draft" | "published";
  * }} targets
  */
 export function desiredMaterial(
   manifest,
   row,
-  { topicIds, guideIds, defaultAccess, primaryVideoId },
+  { topicIds, guideIds, defaultAccess, primaryVideoId, publicationState },
 ) {
   const metadata = {
     title: row.title,
@@ -184,6 +247,7 @@ export function desiredMaterial(
       metadata,
       primaryVideoId,
       videoChapters,
+      publicationState,
     }),
   };
 }
@@ -433,6 +497,8 @@ export function archiveProposalKeys(journal, manifest) {
         key.startsWith(`${manifest.sourceNamespace}:`) &&
         !present.has(key) &&
         !entry.archived &&
+        // A private draft was never public, so a missing original has nothing to withdraw.
+        entry.publicationState !== "draft" &&
         // Entries recorded before products were tracked belong to any product selection.
         (entry.guideSourceIds
           ? entry.guideSourceIds.some((id) => selected.has(id))
@@ -457,6 +523,7 @@ export async function syncLocal(
     sleep = delay,
     videoAttempts = 20,
     pinHome = false,
+    publish = [],
   } = {},
 ) {
   const target = loopbackOrigin(origin);
@@ -474,8 +541,32 @@ export async function syncLocal(
   const environment = await request("/authoring/import/materials/environment");
   if (environment.mode !== "development")
     throw new Error("Local synchronization requires a development runtime");
+  const publicationOf = publicationPolicy(pkg.manifest, publish);
+  // Practice context follows its lesson: a private draft never carries a published practice.
+  const manifest = {
+    ...pkg.manifest,
+    ...(pkg.manifest.practiceDefinitions
+      ? {
+          practiceDefinitions: pkg.manifest.practiceDefinitions.map(
+            (definition) => {
+              const row = pkg.manifest.materials.find(
+                (item) =>
+                  sourceKey(pkg.manifest, item.sourceId) ===
+                  definition.sourceReference.materialSourceId,
+              );
+              return row !== undefined && publicationOf(row) === "draft"
+                ? {
+                    ...definition,
+                    publicationState: /** @type {const} */ ("unpublished"),
+                  }
+                : definition;
+            },
+          ),
+        }
+      : {}),
+  };
   await validateGuidePages(pkg.manifest, send);
-  await validateSourcePractices(pkg.manifest, request);
+  await validateSourcePractices(manifest, request);
   return withJournal(stateDirectory, target, async (context) => {
     const { journal, persist } = context;
     const resources = (journal.resources ??= {});
@@ -566,7 +657,9 @@ export async function syncLocal(
           metadata: body.metadata,
           primaryVideoId: body.primaryVideoId,
           videoChapters: body.videoChapters,
+          publicationState: body.publicationState,
         }),
+        publicationState: body.publicationState,
         archived: body.publicationState === "unpublished",
       };
       await persist();
@@ -764,6 +857,7 @@ export async function syncLocal(
         guideIds,
         defaultAccess,
         primaryVideoId,
+        publicationState: publicationOf(row),
       });
     // Validate every document before changing any previously correct Material; only empty Guide shells exist so far.
     for (const row of rows.values()) {
@@ -777,7 +871,7 @@ export async function syncLocal(
       try {
         await request("/authoring/import/materials/validate", {
           source: source(row),
-          publicationState: "published",
+          publicationState: publicationOf(row),
           metadata: desired(row, null).metadata,
           body: convert(row, placeholderLinks, placeholderImages),
           videoChapters: [],
@@ -833,8 +927,31 @@ export async function syncLocal(
         throw new Error(
           "Source reservation did not allocate a stable local URL",
         );
+      const conflict = publicationConflict(
+        row,
+        "publicationState" in current && current.publicationState
+          ? current.publicationState
+          : recordedPublication(previous ?? {}),
+        publicationOf(row),
+      );
+      if (conflict) throw new Error(conflict);
       currentMaterials.set(row.sourceId, current);
       links.set(row.sourceId, `/materials/${current.metadata.slug}`);
+    }
+
+    // A public body may link a private draft; readers reach that link only once it is published.
+    for (const row of rows.values()) {
+      if (publicationOf(row) !== "published") continue;
+      const drafts = [...new Set(Object.values(row.links))].filter((id) => {
+        const linked = rows.get(id);
+        return linked !== undefined && publicationOf(linked) === "draft";
+      });
+      if (drafts.length)
+        report.notices.push({
+          code: "link_to_draft",
+          path: row.sourcePath,
+          message: `Опубликованный материал ссылается на приватные черновики (${drafts.join(", ")}); читатели откроют ссылку только после их публикации`,
+        });
     }
 
     /**
@@ -944,7 +1061,7 @@ export async function syncLocal(
           source: source(row),
           materialId: current.materialId,
           expectedContentVersion: current.contentVersion,
-          publicationState: "published",
+          publicationState: publicationOf(row),
           metadata: desiredMetadata,
           body: convert(row, links, images),
           primaryVideoId,
@@ -964,6 +1081,7 @@ export async function syncLocal(
           contentVersion: saved.contentVersion,
           digest,
           url: valueAt(links, row.sourceId),
+          publicationState: publicationOf(row),
           archived: false,
         };
         current = { ...current, contentVersion: saved.contentVersion };
@@ -990,6 +1108,7 @@ export async function syncLocal(
         sourceId: row.sourceId,
         title: row.title,
         url: `${reader}${links.get(row.sourceId)}`,
+        publicationState: publicationOf(row),
       });
       if (row.kind === "video" && primaryVideoId === null)
         report.notices.push({
@@ -1124,7 +1243,20 @@ export async function syncLocal(
     async function syncArtifacts(guide, current) {
       const guideSource = sourceId(guide.sourceId);
       const declared = artifactDeclarations(pkg.manifest, guide, defaultAccess);
-      for (const [artifactSourceId, { artifact, owners, access }] of declared) {
+      for (const [artifactSourceId, declaration] of declared) {
+        const { artifact, access } = declaration;
+        // Guide artifacts are public by placement, so one declared only by private drafts waits for publication.
+        const owners = declaration.owners.filter(
+          (row) => publicationOf(row) === "published",
+        );
+        if (owners.length === 0) {
+          report.notices.push({
+            code: "artifact_waits_publication",
+            path: declaration.owners[0]?.sourcePath ?? artifact.sourceId,
+            message: `Артефакт «${artifact.title}» перенесётся вместе с публикацией материала`,
+          });
+          continue;
+        }
         const asset = valueAt(assets, artifact.assetId);
         const receiptKey = `artifact:${current.id}:${sourceId(artifactSourceId)}`;
         const fingerprint = artifactFingerprint(asset, artifact, access);
@@ -1204,7 +1336,7 @@ export async function syncLocal(
         });
     }
 
-    await syncSourcePractices(pkg.manifest, context, request);
+    await syncSourcePractices(manifest, context, request);
 
     // Proposed Materials are unpublished only when named explicitly.
     const requested = new Set(normalizeSourceIds(pkg.manifest, archive));
@@ -1303,6 +1435,19 @@ export async function syncLocal(
   });
 }
 
+/**
+ * The command-line approval: named originals, or every original of the package.
+ *
+ * @param {{ publish?: string[] | undefined; "publish-all"?: boolean | undefined }} values
+ * @returns {PublishSelection}
+ */
+export function publishOption(values) {
+  const named = values.publish ?? [];
+  if (values["publish-all"] && named.length)
+    throw new Error("Use either --publish-all or --publish, not both");
+  return values["publish-all"] ? "all" : named;
+}
+
 if (
   process.argv[1] &&
   import.meta.url === pathToFileURL(resolve(process.argv[1])).href
@@ -1312,6 +1457,8 @@ if (
     options: {
       target: { type: "string", default: "editor" },
       archive: { type: "string", multiple: true, default: [] },
+      publish: { type: "string", multiple: true, default: [] },
+      "publish-all": { type: "boolean", default: false },
     },
   });
   const [packagePath, stateDirectory] = positionals;
@@ -1321,11 +1468,12 @@ if (
     stateDirectory === undefined
   )
     throw new Error(
-      "Usage: pnpm authoring:sync-local PACKAGE_JSON STATE_DIRECTORY [--target editor|stand] [--archive SOURCE_ID]...",
+      "Usage: pnpm authoring:sync-local PACKAGE_JSON STATE_DIRECTORY [--target editor|stand] [--publish SOURCE_ID]... [--publish-all] [--archive SOURCE_ID]...",
     );
   const report = await syncLocal(packagePath, stateDirectory, {
     origin: resolveLocalTarget(values.target),
     archive: values.archive,
+    publish: publishOption(values),
   });
   process.stdout.write(
     `${JSON.stringify({ packageId: report.packageId, scope: report.scope ?? "materials", applied: report.applied, unchanged: report.unchanged, guides: report.guides, archived: report.archived, archiveProposals: report.archiveProposals, notices: report.notices }, null, 2)}\n`,

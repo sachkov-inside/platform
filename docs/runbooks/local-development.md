@@ -834,7 +834,9 @@ shared `inside-platform_*` volumes, so every branch and worktree sees the same c
   one set of sign-in keys whatever branch starts it.
 - `pnpm local:product [--owner-email EMAIL]` transfers the committed AI-first originals from the
   sibling `inside-content` checkout and features that product on Home. It starts the authoring
-  gateway for the run when none is running and repeats safely at any time.
+  gateway for the run when none is running and repeats safely at any time. This local reader view
+  approves the publication of every transferred original (`--publish-all`); see the publication
+  policy below.
 - Host checks that migrate, seed or bootstrap owners (`pnpm smoke:fullstack`, the identity proof,
   the Telegram sign-in launcher) use the `inside_checks` database, never the stand's `inside`,
   unless `DATABASE_URL` is exported explicitly. `pnpm smoke:fullstack` drops and recreates that
@@ -979,6 +981,18 @@ What the transfer applies:
   page description before the transfer's first write, and its refusal names the product. The editor-owned Guide introduction fields are not
   imported; editing the page text is a commit in Inside Content plus a transfer, with no web rebuild.
 
+Publication is an explicit owner decision (#804). By default every original is transferred as a
+private draft: its author previews it through the authoring preview, while guests, other accounts,
+search, the feed, the product programme, assets, practice and the learning MCP do not see it. An
+editorial `stage` or a missing `access` never publishes or protects anything by itself.
+`--publish SOURCE_ID` (repeatable) or `--publish-all` approves publication for that transfer; a
+repeated transfer without the approval keeps drafts private. A private transfer stops before any
+Material write when the target Material is already published or unpublished: it neither takes a
+public Material back nor replaces its public body. A Guide artifact declared only by private drafts
+waits for a published owner, a practice of a private lesson is imported unpublished, and a published
+body that links a private draft is reported as `link_to_draft`. A private draft that leaves the
+package is never proposed for archive.
+
 Imported Materials and Guides change only through these source-scoped routes; ordinary editor,
 API and MCP writes are refused. A missing original appears in `archiveProposals`. It is unpublished
 and removed from the product only when the same command repeats with `--archive SOURCE_ID`.
@@ -1002,8 +1016,11 @@ in their order and chapters, proposes no archive and refuses `--archive`; an emp
 that scope is refused. The [Guide shell contract](../contracts/authoring-guide-shell-v1/README.md)
 describes the package the Content exporter writes.
 
-`pnpm authoring:release preview --package PACKAGE_JSON --target editor|stand --state STATE_DIRECTORY`
-compares a package with the target without writing and saves a fingerprinted preview.
+`pnpm authoring:release preview --package PACKAGE_JSON --target editor|stand --state STATE_DIRECTORY [--publish SOURCE_ID]... [--publish-all]`
+compares a package with the target without writing and saves a fingerprinted preview. Each Material
+shows its `publication`, a `publicationChange` from draft to published, or the conflict
+`already_published` for a private import of a public Material; the approval is part of the preview,
+so `apply` publishes exactly what was reviewed.
 `pnpm authoring:release apply --preview PREVIEW_JSON --state STATE_DIRECTORY` applies exactly that
 preview and stops on drift, an edited preview or an unreviewed archive request. Drift covers
 Material versions, each Guide's version and its programme order, so a page edited on the target
