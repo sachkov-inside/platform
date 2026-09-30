@@ -5,12 +5,12 @@ import {
   Bot,
   Check,
   Code2,
+  Coins,
   FileCode2,
   FileText,
   FolderGit2,
   Gauge,
   GitBranch,
-  GitPullRequest,
   Layers,
   LifeBuoy,
   ListChecks,
@@ -250,19 +250,17 @@ const topicTiles: readonly {
     art: (
       <div className="aie-art-flow">
         <div className="aie-art-flow-steps">
-          {["Требования", "Задачи", "Код", "Pull request"].map(
-            (step, index) => (
-              <span key={step}>
-                {index === 3 ? <GitPullRequest /> : <Check />}
-                {step}
-              </span>
-            ),
-          )}
+          {["Задача", "План", "Код", "Проверка"].map((step, index) => (
+            <span key={step}>
+              {index === 3 ? <ShieldCheck /> : <Check />}
+              {step}
+            </span>
+          ))}
         </div>
         <div className="aie-art-flow-roles">
           <span>
             <UserRound />
-            Ты решаешь
+            Ты контролируешь
           </span>
           <span>
             <Bot />
@@ -428,6 +426,57 @@ const topicTiles: readonly {
       </div>
     ),
   },
+  {
+    size: "wide",
+    tone: "good",
+    art: (
+      <div className="aie-art-process">
+        {["Разбор обращений", "Ревью изменений", "Подготовка релиза"].map(
+          (label) => (
+            <div key={label}>
+              <span>
+                <Bot />
+                {label}
+              </span>
+              <ArrowRight />
+              <span className="aie-art-process-human">
+                <UserRound />
+                Проверка
+              </span>
+            </div>
+          ),
+        )}
+      </div>
+    ),
+  },
+  {
+    size: "wide",
+    tone: "blue",
+    art: (
+      <div className="aie-art-tokens">
+        <div className="aie-art-tokens-meter">
+          <span>
+            <Layers />
+            Контекст
+          </span>
+          <i>
+            <b />
+          </i>
+          <small>18k из 200k</small>
+        </div>
+        <div className="aie-art-tokens-chips">
+          <span>
+            <Sparkles />
+            Модель под задачу
+          </span>
+          <span>
+            <Coins />
+            $0.04 за задачу
+          </span>
+        </div>
+      </div>
+    ),
+  },
 ];
 const topicIcons = [
   Workflow,
@@ -438,6 +487,8 @@ const topicIcons = [
   Search,
   ShieldCheck,
   Gauge,
+  Workflow,
+  Coins,
 ] as const;
 function TopicGrid({ block }: { readonly block: GuidePageBlockOf<"cards"> }) {
   return (
