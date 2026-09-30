@@ -101,7 +101,7 @@ describe("Guide access HTTP", () => {
         reason: "Synthetic #831 product right",
       },
     });
-    const read = (bearer: string | null, id = guideId) =>
+    const read = (bearer: string | null, id: string = guideId) =>
       server.inject({
         method: "GET",
         url: `/accounts/current/guides/${id}/access`,
