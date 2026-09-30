@@ -126,8 +126,8 @@ function Hero({
   return (
     <header className="ai-guide-hero">
       <div className="ai-guide-hero-copy">
-        <h1>
-          {name}
+        <h1 className="aie-course-title">
+          <span className="aie-course-name">{name}</span>
           {block === undefined || block.badge === "" ? null : (
             <>
               {" "}

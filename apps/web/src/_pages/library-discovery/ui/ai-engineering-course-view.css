@@ -3,6 +3,14 @@
  * (`ai-first-guide-view.css`): метка у названия, обложка, менторинг, тона иллюстраций, статус.
  */
 
+/* Название не рвётся посередине: при нехватке места на новую строку уходит только метка. */
+.ai-guide-page .aie-course-title {
+  text-wrap: wrap;
+}
+.aie-course-name {
+  white-space: nowrap;
+}
+
 .aie-course-badge {
   display: inline-block;
   margin-left: 0.1em;
