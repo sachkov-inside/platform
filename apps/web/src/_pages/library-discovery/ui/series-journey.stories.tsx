@@ -95,7 +95,9 @@ const resume = {
 };
 const register = () => () => undefined;
 const refresh = () => Promise.resolve();
-const environment = publicPageEnvironment("/products/platform-inside/programme");
+const environment = publicPageEnvironment(
+  "/products/platform-inside/programme",
+);
 const meta = {
   ...environment,
   component: GuideProgrammeView,

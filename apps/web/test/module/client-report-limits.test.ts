@@ -116,7 +116,10 @@ it("загруженная минута обычных посещений со �
     name,
     value: 1,
   }));
-  const vitals = JSON.stringify({ metrics: loadMetrics, route: "/products/ai" });
+  const vitals = JSON.stringify({
+    metrics: loadMetrics,
+    route: "/products/ai",
+  });
   const renderError = JSON.stringify({
     boundary: "public",
     message: "Сбой",

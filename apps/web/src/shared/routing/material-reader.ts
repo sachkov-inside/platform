@@ -109,7 +109,8 @@ function readReturnTarget(
   if (match === null) return undefined;
   const slug = match[2] ?? match[5];
   if (slug === undefined || !slugPattern.test(slug)) return undefined;
-  const routeKind = match[3] === undefined ? (match[1] ?? match[4]) : "products";
+  const routeKind =
+    match[3] === undefined ? (match[1] ?? match[4]) : "products";
   if (url.search.length > 0) {
     const from = singleSearchValue(url.searchParams, "from");
     const page = singleSearchValue(url.searchParams, "page");

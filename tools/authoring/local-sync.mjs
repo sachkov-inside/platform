@@ -81,6 +81,18 @@ export const localRequest = localTransport(reviewOrigin);
  * @property {boolean} [pinHome]
  */
 
+/** @param {unknown} value */
+function stringOrNull(value) {
+  return typeof value === "string" ? value : null;
+}
+
+/** Обложка, уже назначенная в Platform: её id ожидает следующая замена. @param {unknown} cover */
+function storedCoverId(cover) {
+  return typeof cover === "object" && cover !== null && "coverId" in cover
+    ? stringOrNull(cover.coverId)
+    : null;
+}
+
 /**
  * The value a map holds for a key the synchronization put there earlier.
  *
@@ -616,10 +628,7 @@ export async function syncLocal(
       const coverAssetId = guide.coverAssetId ?? null;
       if (entry === undefined) return;
       const knownCoverId =
-        /** @type {string | null | undefined} */ (entry["coverId"]) ??
-        /** @type {{ cover?: { coverId?: string } | null }} */ (current).cover
-          ?.coverId ??
-        null;
+        stringOrNull(entry["coverId"]) ?? storedCoverId(current["cover"]);
       if (coverAssetId === null) {
         if (entry["coverSha256"] !== undefined && entry["coverSha256"] !== null)
           report.notices.push({
