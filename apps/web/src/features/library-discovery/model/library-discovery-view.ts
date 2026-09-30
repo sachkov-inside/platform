@@ -82,7 +82,6 @@ export type LibraryDiscoveryResult<
 
 export type PublishedTopicResult = LibraryDiscoveryResult<"topic">;
 export type PublishedSeriesResult = LibraryDiscoveryResult<"series">;
-
 export type RelatedMaterialsResult = LibraryDiscoveryResult<"related">;
 
 /**
