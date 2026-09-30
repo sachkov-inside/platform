@@ -111,6 +111,7 @@ test("preview reads only and apply releases exactly the reviewed package", async
   const setup = await fixture(t);
   const server = api();
   const first = await previewRelease(setup.packagePath, setup.state, {
+    publish: "all",
     origin: "http://127.0.0.1:4396",
     request: server.request,
   });
@@ -130,6 +131,7 @@ test("preview reads only and apply releases exactly the reviewed package", async
   itemAt(setup.manifest.materials, 0).showInFeed = false;
   await setup.write();
   const second = await previewRelease(setup.packagePath, setup.state, {
+    publish: "all",
     origin: "http://127.0.0.1:4396",
     request: server.request,
   });
@@ -143,10 +145,14 @@ test("preview reads only and apply releases exactly the reviewed package", async
 test("drift after preview, an edited preview and unreviewed archive requests stop before any write", async (t) => {
   const setup = await fixture(t);
   const server = api();
-  await syncLocal(setup.packagePath, setup.state, { request: server.request });
+  await syncLocal(setup.packagePath, setup.state, {
+    request: server.request,
+    publish: "all",
+  });
   itemAt(setup.manifest.materials, 0).markdown = "Next";
   await setup.write();
   const reviewed = await previewRelease(setup.packagePath, setup.state, {
+    publish: "all",
     origin: "http://127.0.0.1:4396",
     request: server.request,
   });
@@ -168,6 +174,7 @@ test("drift after preview, an edited preview and unreviewed archive requests sto
     /changed after review/u,
   );
   const fresh = await previewRelease(setup.packagePath, setup.state, {
+    publish: "all",
     origin: "http://127.0.0.1:4396",
     request: server.request,
   });

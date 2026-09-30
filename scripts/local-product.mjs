@@ -35,7 +35,13 @@ const receipt = await withStandGateway(email, (origin) =>
     values.guide,
     resolve(content, standStateDirectory),
     values.ref,
-    { origin, pinHome: true, coursePreview: values["course-preview"] },
+    // The stand restores the reader view, so this local profile approves every original (#804).
+    {
+      origin,
+      pinHome: true,
+      coursePreview: values["course-preview"],
+      publish: "all",
+    },
   ),
 );
 // Уведомления переноса показываются здесь же: иначе «пропажа» продукта осталась бы без объяснения.
