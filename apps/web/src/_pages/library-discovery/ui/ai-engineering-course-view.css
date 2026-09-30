@@ -570,6 +570,139 @@
   color: var(--cover-blue-foreground);
 }
 
+/* ---------- Что даёт курс ---------- */
+.aie-value {
+  margin-block: 5rem;
+}
+.aie-value ul {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 1rem;
+  margin: 2rem 0 0;
+  padding: 0;
+  list-style: none;
+}
+.aie-value li {
+  grid-column: span 2;
+  display: grid;
+  align-content: start;
+  gap: 0.5rem;
+  padding: 1.5rem;
+  border: 1px solid var(--border);
+  border-radius: 1.25rem;
+  background: var(--card);
+}
+.aie-value li:nth-child(n + 4) {
+  grid-column: span 3;
+}
+.aie-value li > svg {
+  width: 2.5rem;
+  height: 2.5rem;
+  margin-bottom: 0.25rem;
+  padding: 0.55rem;
+  border-radius: 0.75rem;
+  background: color-mix(in srgb, var(--accent) 12%, var(--background));
+  color: var(--accent);
+}
+.aie-value h3 {
+  font-size: 1.05rem;
+}
+.ai-guide-page .aie-value li p {
+  margin: 0;
+  font-size: 0.92rem;
+  line-height: 1.55;
+  color: var(--muted-foreground);
+}
+
+/* ---------- Частые вопросы ---------- */
+.aie-faq {
+  max-width: 48rem;
+  margin: 5rem auto;
+}
+.aie-faq-list {
+  display: grid;
+  gap: 0.6rem;
+  margin-top: 1.5rem;
+}
+.aie-faq details {
+  border-radius: 1rem;
+  background: var(--secondary);
+}
+.aie-faq summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  min-height: 3.5rem;
+  padding: 0.9rem 1.25rem;
+  font-weight: 650;
+  line-height: 1.4;
+  cursor: pointer;
+  list-style: none;
+}
+.aie-faq summary::-webkit-details-marker {
+  display: none;
+}
+.aie-faq summary:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+  border-radius: 1rem;
+}
+.aie-faq summary svg {
+  flex: none;
+  width: 1.1rem;
+  height: 1.1rem;
+  color: var(--muted-foreground);
+}
+.aie-faq details[open] summary svg {
+  transform: rotate(180deg);
+}
+.ai-guide-page .aie-faq details p {
+  margin: 0;
+  padding: 0 1.25rem 1.1rem;
+  color: var(--muted-foreground);
+}
+@media (prefers-reduced-motion: no-preference) {
+  .aie-faq summary svg {
+    transition: transform var(--motion-duration-fast, 160ms)
+      var(--motion-ease-out, ease-out);
+  }
+}
+@media (max-width: 63.999rem) {
+  .aie-value ul {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .aie-value li,
+  .aie-value li:nth-child(n + 4) {
+    grid-column: auto;
+  }
+}
+@media (max-width: 47.999rem) {
+  .aie-value,
+  .aie-faq {
+    margin-block: 3rem;
+  }
+  .aie-value ul {
+    grid-template-columns: 1fr;
+  }
+  .aie-value li {
+    grid-template-columns: 2.5rem minmax(0, 1fr);
+    column-gap: 0.9rem;
+    row-gap: 0.2rem;
+    padding: 1.1rem;
+  }
+  .aie-value li > svg {
+    grid-row: span 2;
+    margin: 0;
+  }
+  .aie-faq summary {
+    padding-inline: 1rem;
+  }
+  .ai-guide-page .aie-faq details p {
+    padding-inline: 1rem;
+  }
+}
+
 /* ---------- Как проходит обучение: четыре витрины ---------- */
 .aie-format {
   margin-block: 5rem;

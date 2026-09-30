@@ -3,9 +3,12 @@ import {
   ArrowRight,
   BookOpen,
   Bot,
+  Briefcase,
   Check,
+  ChevronDown,
   Code2,
   Coins,
+  Compass,
   FileCode2,
   FileText,
   FolderGit2,
@@ -22,7 +25,9 @@ import {
   Search,
   ShieldCheck,
   Sparkles,
+  Target,
   Terminal,
+  TrendingUp,
   UserRound,
   Workflow,
   Wrench,
@@ -191,6 +196,8 @@ function CourseBlock({
     case "cards":
       if (block.id === "topics") return <TopicGrid block={block} />;
       if (block.id === "audience") return <Audience block={block} />;
+      if (block.id === "value") return <ValueGrid block={block} />;
+      if (block.id === "faq") return <Faq block={block} />;
       return <ChecklistCards block={block} />;
     case "text":
       if (block.id === "mentoring") return <Mentoring block={block} />;
@@ -746,6 +753,57 @@ function Audience({ block }: { readonly block: GuidePageBlockOf<"cards"> }) {
           <Check aria-hidden="true" />
           {block.note}
         </p>
+      )}
+    </section>
+  );
+}
+
+const valueIcons = [Sparkles, TrendingUp, Compass, Briefcase, Target] as const;
+/** Что даёт курс: пять польз со значками, три в первом ряду и две во втором. */
+function ValueGrid({ block }: { readonly block: GuidePageBlockOf<"cards"> }) {
+  return (
+    <section className="aie-value">
+      <h2>{block.title}</h2>
+      {block.lead === "" ? null : (
+        <p className="ai-guide-section-intro ai-guide-promise">{block.lead}</p>
+      )}
+      <ul>
+        {block.items.map((item, index) => {
+          const Icon = iconAt(valueIcons, index);
+          return (
+            <li key={`${String(index)}-${item.title}`}>
+              <Icon aria-hidden="true" />
+              <h3>{item.title}</h3>
+              <p>{item.text}</p>
+            </li>
+          );
+        })}
+      </ul>
+    </section>
+  );
+}
+
+/** Частые вопросы: вопрос раскрывает ответ; нативный `details` работает с клавиатуры и без скриптов. */
+function Faq({ block }: { readonly block: GuidePageBlockOf<"cards"> }) {
+  return (
+    <section className="aie-faq">
+      <h2>{block.title}</h2>
+      {block.lead === "" ? null : (
+        <p className="ai-guide-section-intro">{block.lead}</p>
+      )}
+      <div className="aie-faq-list">
+        {block.items.map((item, index) => (
+          <details key={`${String(index)}-${item.title}`}>
+            <summary>
+              <span>{item.title}</span>
+              <ChevronDown aria-hidden="true" />
+            </summary>
+            <p>{item.text}</p>
+          </details>
+        ))}
+      </div>
+      {block.note === "" ? null : (
+        <p className="ai-guide-career">{block.note}</p>
       )}
     </section>
   );
