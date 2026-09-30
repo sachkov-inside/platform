@@ -42,11 +42,12 @@ import {
   validateGuidePages,
 } from "./local-sync.mjs";
 import {
-  loopbackOrigin,
-  localTargets,
-  localTransport,
-  resolveLocalTarget,
+  assertTargetEnvironment,
+  authoringTarget,
+  transportFor,
 } from "./target.mjs";
+import { keychainStore, ownerSession } from "./credentials.mjs";
+import { exportCommittedPackage } from "./git-local.mjs";
 
 /**
  * @typedef {import("./journal.mjs").Journal} Journal
@@ -87,18 +88,17 @@ import {
  */
 
 /**
- * A release applies one reviewed package to one environment. Only local environments are enabled:
- * production needs an owner-approved credential path and an explicit approval of this command.
+ * A release applies one reviewed package to one environment: a local loopback target, or a trusted
+ * target named in target.mjs and reached with the owner's session (#805). Any other address is refused.
  *
  * @param {string} value
  */
 export function releaseTarget(value) {
-  if (Object.hasOwn(localTargets, value)) return resolveLocalTarget(value);
   try {
-    return loopbackOrigin(value);
+    return authoringTarget(value);
   } catch {
     throw new Error(
-      `Release to ${value} is not enabled: a non-local release needs a separate owner approval and credential path`,
+      `Release to ${value} is not enabled: only local loopback targets and the named trusted targets exist`,
     );
   }
 }
@@ -142,15 +142,22 @@ async function readJournal(stateDirectory, target) {
  *   request?: LocalTransport | undefined;
  *   defaultAccess?: DefaultAccess;
  *   publish?: import("./local-boundaries.mjs").PublishSelection;
+ *   accessToken?: import("./target.mjs").AccessToken | undefined;
  * }} options
  */
 export async function previewRelease(
   packagePath,
   stateDirectory,
-  { origin, request: transport, defaultAccess = "membership", publish = [] },
+  {
+    origin,
+    request: transport,
+    defaultAccess = "membership",
+    publish = [],
+    accessToken,
+  },
 ) {
-  const target = loopbackOrigin(origin);
-  const send = transport ?? localTransport(target);
+  const target = releaseTarget(origin);
+  const send = transport ?? transportFor(target, accessToken);
   /** @type {<P extends string>(path: P) => Promise<import("./local-boundaries.mjs").LocalResponse<P>>} */
   const request = async (path) => parseLocalResponse(path, await send(path));
   const pkg = await loadPackage(packagePath);
@@ -158,8 +165,9 @@ export async function previewRelease(
   const shell = isGuideShell(manifest);
   const publicationOfKey = publicationPolicy(manifest, publish);
   const environment = await request("/authoring/import/materials/environment");
+  assertTargetEnvironment(target, environment.mode);
   await validateGuidePages(manifest, send);
-  const journal = await readJournal(stateDirectory, target);
+  const journal = await readJournal(stateDirectory, target.id);
   const resources = journal.resources ?? {};
   const topics = await request("/authoring/collections?kind=topic");
   const topicIds = new Map(topics.map((item) => [item.slug, item.id]));
@@ -461,7 +469,7 @@ export async function previewRelease(
         : {};
   const plan = {
     schemaVersion: 1,
-    target,
+    target: target.id,
     environment: environment.mode,
     packageId: pkg.id,
     packagePath: resolve(packagePath),
@@ -511,16 +519,21 @@ const previewSchema = z
   .strict();
 
 /**
- * Applies exactly the reviewed preview; any drift since the preview stops before the first write.
+ * Applies exactly the reviewed preview. Unfinished writes this journal already started are first
+ * completed with their original keys; any other drift since the preview stops before a new write.
  *
  * @param {string} previewPath
  * @param {string} stateDirectory
- * @param {{ archive?: string[]; request?: LocalTransport }} [options]
+ * @param {{
+ *   archive?: string[];
+ *   request?: LocalTransport | undefined;
+ *   accessToken?: import("./target.mjs").AccessToken | undefined;
+ * }} [options]
  */
 export async function applyRelease(
   previewPath,
   stateDirectory,
-  { archive = [], request: transport } = {},
+  { archive = [], request: transport, accessToken } = {},
 ) {
   const preview = previewSchema.parse(
     JSON.parse(await readFile(previewPath, "utf8")),
@@ -529,9 +542,9 @@ export async function applyRelease(
   if (checksum(canonical(plan)) !== fingerprint)
     throw new Error("Preview file was changed after review");
   const target = releaseTarget(preview.target);
-  if (preview.environment !== "development")
+  if (preview.environment !== target.environment)
     throw new Error(
-      "Only a development environment can be released to by this command",
+      `The preview was made against a ${preview.environment} runtime; ${target.id} is ${target.environment}`,
     );
   if (preview.materials.some((item) => item.change === "conflict"))
     throw new Error(
@@ -548,22 +561,34 @@ export async function applyRelease(
   const pkg = await loadPackage(preview.packagePath);
   if (pkg.id !== preview.packageId)
     throw new Error("Package differs from the reviewed preview");
-  // The recomputed plan must be the reviewed one: versions, local receipts and every listed change.
   const publish = preview.publish ?? [];
-  const current = await previewRelease(preview.packagePath, stateDirectory, {
-    origin: target,
+  // A write whose outcome was lost is completed with its original key first; if it changed the
+  // target, the reviewed plan no longer matches and a new preview is required.
+  await syncLocal(preview.packagePath, stateDirectory, {
+    origin: target.id,
     request: transport,
     publish,
+    accessToken,
+    reconcileOnly: true,
+  });
+  // The recomputed plan must be the reviewed one: versions, local receipts and every listed change.
+  const current = await previewRelease(preview.packagePath, stateDirectory, {
+    origin: target.id,
+    request: transport,
+    publish,
+    accessToken,
   });
   if (current.preview.fingerprint !== fingerprint)
     throw new Error(
       "The environment changed after the preview; preview again before releasing",
     );
   return syncLocal(preview.packagePath, stateDirectory, {
-    origin: target,
+    origin: target.id,
     request: transport,
     archive,
     publish,
+    accessToken,
+    reviewed: true,
   });
 }
 
@@ -575,6 +600,9 @@ if (
     allowPositionals: true,
     options: {
       package: { type: "string" },
+      content: { type: "string" },
+      guide: { type: "string" },
+      ref: { type: "string", default: "HEAD" },
       target: { type: "string" },
       state: { type: "string" },
       preview: { type: "string" },
@@ -584,30 +612,58 @@ if (
     },
   });
   const [command] = positionals;
+  /** @param {string} value */
+  const sessionFor = (value) => {
+    const target = releaseTarget(value);
+    return target.kind === "trusted"
+      ? ownerSession(target, { store: keychainStore() })
+      : undefined;
+  };
   if (
     command === "preview" &&
-    values.package &&
+    (values.package || (values.content && values.guide)) &&
     values.target &&
     values.state
   ) {
+    // A Content checkout is exported at one committed revision; a ready package is used as given.
+    const exported =
+      values.package === undefined && values.content && values.guide
+        ? await exportCommittedPackage(
+            values.content,
+            values.guide,
+            values.state,
+            values.ref,
+          )
+        : undefined;
+    const packagePath = exported?.packagePath ?? values.package;
+    if (packagePath === undefined) throw new Error("Name a package or Content");
     const { path, summary, preview } = await previewRelease(
-      values.package,
+      packagePath,
       values.state,
-      { origin: releaseTarget(values.target), publish: publishOption(values) },
+      {
+        origin: values.target,
+        publish: publishOption(values),
+        accessToken: sessionFor(values.target),
+      },
     );
     process.stdout.write(
-      `${JSON.stringify({ preview: path, scope: preview.scope ?? "materials", publish: preview.publish ?? [], summary, guides: preview.guides, archiveProposals: preview.archiveProposals, changes: preview.materials.filter((item) => item.change !== "unchanged") }, null, 2)}\n`,
+      `${JSON.stringify({ preview: path, ...(exported ? { commit: exported.commit } : {}), scope: preview.scope ?? "materials", publish: preview.publish ?? [], summary, guides: preview.guides, archiveProposals: preview.archiveProposals, changes: preview.materials.filter((item) => item.change !== "unchanged") }, null, 2)}\n`,
     );
   } else if (command === "apply" && values.preview && values.state) {
+    const reviewed = z
+      .object({ target: z.string() })
+      .passthrough()
+      .parse(JSON.parse(await readFile(values.preview, "utf8")));
     const report = await applyRelease(values.preview, values.state, {
       archive: values.archive,
+      accessToken: sessionFor(reviewed.target),
     });
     process.stdout.write(
       `${JSON.stringify({ applied: report.applied, unchanged: report.unchanged, archived: report.archived, guides: report.guides }, null, 2)}\n`,
     );
   } else {
     throw new Error(
-      "Usage: pnpm authoring:release preview --package PACKAGE_JSON --target editor|stand --state STATE_DIRECTORY [--publish SOURCE_ID]... [--publish-all]\n       pnpm authoring:release apply --preview PREVIEW_JSON --state STATE_DIRECTORY [--archive SOURCE_ID]...",
+      "Usage: pnpm authoring:release preview (--package PACKAGE_JSON | --content CONTENT_REPOSITORY --guide GUIDE_ID [--ref REF]) --target editor|stand|production --state STATE_DIRECTORY [--publish SOURCE_ID]... [--publish-all]\n       pnpm authoring:release apply --preview PREVIEW_JSON --state STATE_DIRECTORY [--archive SOURCE_ID]...",
     );
   }
 }

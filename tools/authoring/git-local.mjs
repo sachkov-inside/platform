@@ -68,18 +68,19 @@ export async function withGitSnapshot(repository, ref, use) {
 }
 
 /**
+ * Exports one committed Content revision as an immutable package under `STATE/packages`; staged,
+ * unstaged and untracked files never enter it.
+ *
  * @param {string} repository
  * @param {string} guideId
  * @param {string} stateDirectory
  * @param {string} [ref]
- * @param {import("./local-sync.mjs").SyncOptions & { coursePreview?: boolean }} [options]
  */
-export async function syncGitLocal(
+export async function exportCommittedPackage(
   repository,
   guideId,
   stateDirectory,
   ref = "HEAD",
-  options = {},
 ) {
   const state = resolve(stateDirectory);
   await mkdir(state, { recursive: true });
@@ -100,24 +101,43 @@ export async function syncGitLocal(
       ],
       { ...commandOptions, cwd: snapshot },
     );
-    const originalPackagePath = resolve(stdout.trim(), "package.json");
-    const { coursePreview = false, ...syncOptions } = options;
-    const packagePath = coursePreview
-      ? await prepareCoursePreview(originalPackagePath, state)
-      : originalPackagePath;
-    const report = await syncLocal(packagePath, state, syncOptions);
-    const receipt = {
-      commit,
-      guideId,
-      packagePath,
-      originalPackagePath,
-      coursePreview,
-      completedAt: new Date().toISOString(),
-      ...report,
-    };
-    await writeAtomic(join(state, "last-git-sync.json"), receipt);
-    return receipt;
+    return { commit, packagePath: resolve(stdout.trim(), "package.json") };
   });
+}
+
+/**
+ * @param {string} repository
+ * @param {string} guideId
+ * @param {string} stateDirectory
+ * @param {string} [ref]
+ * @param {import("./local-sync.mjs").SyncOptions & { coursePreview?: boolean }} [options]
+ */
+export async function syncGitLocal(
+  repository,
+  guideId,
+  stateDirectory,
+  ref = "HEAD",
+  options = {},
+) {
+  const state = resolve(stateDirectory);
+  const { commit, packagePath: originalPackagePath } =
+    await exportCommittedPackage(repository, guideId, state, ref);
+  const { coursePreview = false, ...syncOptions } = options;
+  const packagePath = coursePreview
+    ? await prepareCoursePreview(originalPackagePath, state)
+    : originalPackagePath;
+  const report = await syncLocal(packagePath, state, syncOptions);
+  const receipt = {
+    commit,
+    guideId,
+    packagePath,
+    originalPackagePath,
+    coursePreview,
+    completedAt: new Date().toISOString(),
+    ...report,
+  };
+  await writeAtomic(join(state, "last-git-sync.json"), receipt);
+  return receipt;
 }
 
 if (

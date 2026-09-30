@@ -83,6 +83,7 @@
     "authoring:stand-gateway": "NODE_EXTRA_CA_CERTS=.identity-proof/tls/certificate.pem node scripts/authoring-stand-gateway.mjs",
     "authoring:video": "node tools/authoring/video.mjs",
     "authoring:release": "node tools/authoring/release.mjs",
+    "authoring:login": "node tools/authoring/login.mjs",
     "authoring:sync-git-local": "node tools/authoring/git-local.mjs",
     "authoring:products": "node scripts/authoring-products.mjs",
     "test:practice-review": "node --test tools/practice-review/*.test.mjs && node apps/backend/node_modules/tsx/dist/cli.mjs --tsconfig apps/backend/tsconfig.json --test tools/practice-review/native/*.test.mts"
