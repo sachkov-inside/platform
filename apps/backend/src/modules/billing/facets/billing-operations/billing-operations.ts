@@ -578,7 +578,8 @@ export class BillingOperations {
       case "paymentOptions.save":
       case "paymentOptions.archive":
       case "promotions.save":
-      case "promotions.archive": {
+      case "promotions.archive":
+      case "cohorts.save": {
         const result = await this.dependencies.pricing.manage(actorId, command);
         return result.ok
           ? {
@@ -886,6 +887,9 @@ function targetOf(command: OwnerOperation, outcome: OwnerOutcome): string {
     case "paymentOptions.save":
     case "promotions.save":
       return command.value.id;
+    // Поток адресуется своим продуктом.
+    case "cohorts.save":
+      return command.value.guideId;
     case "offers.archive":
     case "offers.publish":
     case "offers.unpublish":

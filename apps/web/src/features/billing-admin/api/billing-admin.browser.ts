@@ -45,6 +45,7 @@ import {
   type SaveOfferInput,
   type SavePaymentOptionInput,
   type SavePromotionInput,
+  type SaveCohortInput,
 } from "../model/admin-operations";
 
 export async function saveBillingOffer(
@@ -131,6 +132,19 @@ export async function saveBillingPromotion(
   return billingCommandResult(
     await requestSameOriginMutation(
       "/api/authoring/billing/promotions/save",
+      "POST",
+      billingCommandPayload(input),
+    ),
+    catalogOutcomeSchema,
+  );
+}
+
+export async function saveBillingCohort(
+  input: SaveCohortInput,
+): Promise<BillingCommandResult<CatalogOutcome>> {
+  return billingCommandResult(
+    await requestSameOriginMutation(
+      "/api/authoring/billing/cohorts/save",
       "POST",
       billingCommandPayload(input),
     ),

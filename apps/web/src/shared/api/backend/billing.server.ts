@@ -26,6 +26,14 @@ export function requestBillingOffers(
     accessToken === undefined ? {} : { accessToken },
   );
 }
+/** Потоки продуктов публичны: запрос идёт без токена и одинаков для всех. */
+export function requestGuideCohorts() {
+  return executeGeneratedRequest(
+    (request) => new BillingService(request).billingGuideCohorts(),
+    200,
+    {},
+  );
+}
 export function requestCurrentBilling(accessToken: string) {
   return executeGeneratedRequest(
     (request) => new BillingService(request).currentBilling(),

@@ -1,6 +1,7 @@
 [
   "billing_activationRules_list",
   "billing_activationRules_save",
+  "billing_cohorts_save",
   "billing_content_list",
   "billing_enrollments_applyExpansion",
   "billing_enrollments_assign",

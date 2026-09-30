@@ -1,5 +1,5 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
-import { expect, fn, within } from "storybook/test";
+import { expect, fn, userEvent, within } from "storybook/test";
 
 import {
   billingOffers,
@@ -21,6 +21,8 @@ const meta = {
   component: BillingAdminView,
   args: {
     offers: billingOffers,
+    cohorts: [],
+    onSaveCohort: fn(),
     payments: [],
     paymentsCursor: null,
     payment: null,
@@ -270,5 +272,67 @@ export const AssignmentOnlyTier: Story = {
     await expect(
       canvas.getByRole("checkbox", { name: "Продукт: Инженерная практика" }),
     ).toBeInTheDocument();
+  },
+};
+
+/** Поток продукта: владелец переключает этап и дату, страница курса читает их без выпуска. */
+export const ProductCohort: Story = {
+  args: {
+    content: [
+      {
+        kind: "guide",
+        id: "62000000-0000-4000-8000-000000000814",
+        title: "AI Engineering",
+        slug: "ai-engineering",
+        available: true,
+      },
+    ],
+    cohorts: [
+      {
+        guideId: "62000000-0000-4000-8000-000000000814",
+        revision: 3,
+        name: "Поток 1",
+        stage: "preorder",
+        startsOn: "2026-10-20",
+        nextEvent: "",
+      },
+    ],
+  },
+  play: async ({ args, canvasElement }) => {
+    const canvas = within(canvasElement);
+    await expect(
+      canvas.getByText(/AI Engineering · Поток 1 · Предзаказ до старта/u),
+    ).toBeInTheDocument();
+    await userEvent.click(canvas.getByRole("button", { name: "Изменить" }));
+    await expect(canvas.getByLabelText("Название потока")).toHaveValue(
+      "Поток 1",
+    );
+    await userEvent.click(
+      canvas.getByRole("button", { name: "Сохранить поток" }),
+    );
+    await expect(args.onSaveCohort).toHaveBeenCalledWith({
+      expectedRevision: 3,
+      value: {
+        guideId: "62000000-0000-4000-8000-000000000814",
+        name: "Поток 1",
+        stage: "preorder",
+        startsOn: "2026-10-20",
+        nextEvent: "",
+      },
+    });
+  },
+};
+
+/** Потоки не прочитаны: раздел говорит об этом и не даёт сохранить поток без текущей редакции. */
+export const ProductCohortUnavailable: Story = {
+  args: { cohorts: null },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await expect(
+      canvas.getByText(/Не удалось прочитать текущие потоки/u),
+    ).toBeInTheDocument();
+    await expect(
+      canvas.getByRole("button", { name: "Сохранить поток" }),
+    ).toBeDisabled();
   },
 };

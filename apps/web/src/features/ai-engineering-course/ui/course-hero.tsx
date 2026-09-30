@@ -1,5 +1,6 @@
 import { ArrowRight } from "lucide-react";
 import type { Route } from "next";
+import type { ReactNode } from "react";
 
 import { IntentPrefetchLink } from "@/shared/ui/intent-prefetch-link.client";
 
@@ -25,6 +26,7 @@ export function CourseHero({
   heading = "h1",
   headingId,
   compactActionOnPhone = false,
+  call,
 }: {
   readonly name: string;
   readonly badge: string;
@@ -36,6 +38,11 @@ export function CourseHero({
   readonly headingId?: string;
   /** На телефоне страница курса ведёт в программу нижней панелью, кнопка в первом экране лишняя. */
   readonly compactActionOnPhone?: boolean;
+  /**
+   * Плашка потока и кнопка по этапу продаж вместо обычной кнопки. Страница курса передаёт сюда
+   * личную часть, а её запасной вид — ту же обычную кнопку.
+   */
+  readonly call?: ReactNode;
 }) {
   const Heading = heading;
   return (
@@ -63,14 +70,16 @@ export function CourseHero({
             })}
           </ul>
         )}
-        <IntentPrefetchLink
-          className="aie-hero-action"
-          data-compact-on-phone={compactActionOnPhone}
-          href={action.href}
-        >
-          {action.label}
-          <ArrowRight aria-hidden="true" />
-        </IntentPrefetchLink>
+        {call ?? (
+          <IntentPrefetchLink
+            className="aie-hero-action"
+            data-compact-on-phone={compactActionOnPhone}
+            href={action.href}
+          >
+            {action.label}
+            <ArrowRight aria-hidden="true" />
+          </IntentPrefetchLink>
+        )}
       </div>
       <div className="aie-hero-film">
         <CourseFilm />

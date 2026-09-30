@@ -6,6 +6,7 @@ import {
   optionSchema,
   promotionSchema,
 } from "../../domain/pricing.js";
+import { cohortValueSchema } from "../../domain/guide-cohort.js";
 
 const envelope = {
   operationId: idSchema,
@@ -44,6 +45,12 @@ export const manageCatalogSchema = z.discriminatedUnion("operation", [
     value: promotionSchema.omit({ revision: true, archived: true }),
   }),
   z.strictObject({ ...archive, operation: z.literal("promotions.archive") }),
+  // Текущий поток продукта (#814): одна запись на продукт, её адресует идентификатор продукта.
+  z.strictObject({
+    ...envelope,
+    operation: z.literal("cohorts.save"),
+    value: cohortValueSchema,
+  }),
 ]);
 export type ManageCatalogCommand = z.infer<typeof manageCatalogSchema>;
 export const catalogOutcomeSchema = z.strictObject({

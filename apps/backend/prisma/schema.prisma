@@ -1099,6 +1099,17 @@ model BillingSurveyRespondent {
   @@map("survey_respondents")
   @@schema("billing")
 }
+model BillingGuideCohort {
+  guideId String @id @map("guide_id") @db.Uuid
+  revision Int
+  name String
+  stage String
+  startsOn DateTime? @map("starts_on") @db.Date
+  nextEvent String @default("") @map("next_event")
+  updatedAt DateTime @default(now()) @map("updated_at") @db.Timestamptz
+  @@map("guide_cohorts")
+  @@schema("billing")
+}
 model BillingPricingCommand {
   actor String @db.Uuid
   operationId String @map("operation_id") @db.Uuid

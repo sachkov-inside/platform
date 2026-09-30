@@ -25,6 +25,7 @@ import {
   LibraryDiscoveryUnavailable,
   LibraryDiscoveryView,
 } from "./library-discovery-view";
+import { PendingCohortCall, PersonalCohortCall } from "./cohort-call.server";
 import { PersonalSeries } from "./personal-series.server";
 import { PendingSeries } from "./guide-programme-view";
 
@@ -70,8 +71,9 @@ export async function PublishedTopicPage({
 }
 
 /**
- * Страница продукта рассказывает о нём и ничего не знает о читателе: состав, главы и артефакты
- * как обещание результата приходят из гостевого кеша. Доступ и оплата живут в программе.
+ * Страница продукта рассказывает о нём: состав, главы и артефакты как обещание результата приходят
+ * из гостевого кеша. О читателе знает только первый экран курса с потоком: плашка этапа и кнопка
+ * по нему стримятся личной частью. Доступ по урокам живёт в программе.
  */
 export async function PublishedSeriesPage({
   params,
@@ -88,6 +90,13 @@ export async function PublishedSeriesPage({
   return (
     <LibraryDiscoveryView
       artifacts={await publicArtifactsOf(result)}
+      // Поток и кнопка по этапу продаж — единственная личная часть страницы продукта. Её рисует
+      // только оформление, у которого она есть; остальные продукты её не запрашивают (#814).
+      heroCall={
+        <Suspense fallback={<PendingCohortCall slug={slug} />}>
+          <PersonalCohortCall result={result} />
+        </Suspense>
+      }
       result={result}
       returnTarget={parseMaterialReaderReturnTarget(query.from)}
     />

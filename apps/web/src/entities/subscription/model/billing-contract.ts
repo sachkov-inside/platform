@@ -64,6 +64,29 @@ export const priceSnapshotSchema = z.object({
   firstPriceKopecks: z.number().int().positive(),
   renewalPriceKopecks: z.number().int().positive(),
 });
+/**
+ * Текущий поток продукта из каталога: этап продаж, название, дата старта и событие между
+ * потоками. Этап выбирает обещание страницы, но деньги принимает только включённое предложение.
+ */
+export const cohortStageSchema = z.enum([
+  "announcement",
+  "preorder",
+  "running",
+  "between",
+]);
+export const guideCohortSchema = z.object({
+  guideId: z.uuid(),
+  revision: z.number().int().positive(),
+  name: z.string().min(1),
+  stage: cohortStageSchema,
+  startsOn: z.iso.date().nullable(),
+  nextEvent: z.string(),
+});
+export const guideCohortsSchema = z.object({
+  items: z.array(guideCohortSchema),
+});
+export type CohortStage = z.infer<typeof cohortStageSchema>;
+export type GuideCohort = z.infer<typeof guideCohortSchema>;
 export const offersPageSchema = z.object({
   items: z.array(priceSnapshotSchema),
   nextCursor: z.uuid().nullable(),

@@ -20,6 +20,7 @@ export {
   handleSaveOffer,
   handleSavePaymentOption,
   handleSavePromotion,
+  handleSaveCohort,
   handleUnpublishOffer,
   loadBillingOffersForOwner,
 } from "./billing-admin/api/billing-admin.server";

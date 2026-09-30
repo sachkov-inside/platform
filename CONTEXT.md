@@ -92,7 +92,8 @@ _Avoid_: A separate product category, Topic, Material format guide
 **GuideProgramme**:
 The reader-facing surface that carries a Guide's Materials, their chapters, access states and
 progress, and the Guide's own price. It is separate from the product page, which explains the Guide
-and neither prices nor sells it.
+and does not sell it by itself; only a Product with a Cohort names the stage and, when it is on
+sale, the price on its first screen.
 _Avoid_: Guide page, route, catalog
 
 **Product Page Description**:
@@ -383,6 +384,14 @@ subscription nor a separately sold Guide is offered anywhere. Archival is final:
 offer from sale and assignment for good, while existing enrollments keep their snapshot.
 _Avoid_: Guide, Order, AccessGrant
 
+**Cohort**:
+The current sales run of a Product: a name, a sales stage (announcement, preorder, running, between
+cohorts), a calendar start date and the next event. The owner switches it in the catalogue. The stage
+decides what the product page promises; money is taken only while an Offer of the Product is on
+sale, and a new price after the start is a new Offer, not a change of rights already sold. In Russian
+product language: «Поток».
+_Avoid_: Offer, Subscription period, a separate copy of the Product, funnel period
+
 **SubscriptionEnrollment**:
 An Account's assignment to a promised version of an Inside tier, with its own origin and term.
 Course, Tribute, owner assignment and Platform payment are independent origins; an assignment is not a payment or consent to renewal.
@@ -526,7 +535,7 @@ towards buying one Product: entered, gave marketing consent, opened the chosen c
 checkout, paid. The period chooses the cohort; later steps count who of it has reached them so far.
 Bot steps count bot contacts, the later steps count Accounts. In Russian product language:
 «Воронка продаж».
-_Avoid_: Events of the period, conversion of one person, поток as a stored entity
+_Avoid_: Events of the period, conversion of one person, the Product's Cohort
 
 **Source Label**:
 The label of the bot link a person first entered the bot through, such as `m_survey`. An Account

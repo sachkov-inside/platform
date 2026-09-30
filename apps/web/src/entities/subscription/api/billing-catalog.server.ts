@@ -1,12 +1,17 @@
 import "server-only";
 
-import { requestBillingOffers } from "@/shared/api/backend/index.server";
+import {
+  requestBillingOffers,
+  requestGuideCohorts,
+} from "@/shared/api/backend/index.server";
 import { getOptionalPlatformAccessToken } from "@/shared/auth/index.server";
 
 import {
   guideCapability,
+  guideCohortsSchema,
   guidePurchaseOffers,
   offersPageSchema,
+  type GuideCohort,
   type PaymentMode,
   type PriceSnapshot,
 } from "../model/billing-contract";
@@ -79,4 +84,40 @@ export async function loadGuideOffers(
   return result.kind === "unavailable"
     ? result
     : { kind: "ready", offers: guidePurchaseOffers(result.offers, guideId) };
+}
+
+/**
+ * Текущие потоки продуктов. Поток не кешируется, как и цены: владелец переключает этап в
+ * каталоге, и страница показывает его со следующего запроса.
+ */
+export async function loadGuideCohorts(): Promise<
+  | { readonly kind: "ready"; readonly cohorts: readonly GuideCohort[] }
+  | { readonly kind: "unavailable" }
+> {
+  try {
+    const result = await requestGuideCohorts();
+    if (!result.ok) return { kind: "unavailable" };
+    const parsed = guideCohortsSchema.safeParse(result.body);
+    return parsed.success
+      ? { kind: "ready", cohorts: parsed.data.items }
+      : { kind: "unavailable" };
+  } catch {
+    return { kind: "unavailable" };
+  }
+}
+
+/** Поток одного продукта. Продукт без потока — обычное состояние: страница зовёт в программу. */
+export async function loadGuideCohort(
+  guideId: string,
+): Promise<
+  | { readonly kind: "ready"; readonly cohort: GuideCohort | null }
+  | { readonly kind: "unavailable" }
+> {
+  const result = await loadGuideCohorts();
+  return result.kind === "unavailable"
+    ? result
+    : {
+        kind: "ready",
+        cohort: result.cohorts.find((item) => item.guideId === guideId) ?? null,
+      };
 }

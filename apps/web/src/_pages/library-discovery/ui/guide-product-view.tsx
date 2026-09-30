@@ -44,6 +44,7 @@ interface ProductViewProps {
   readonly returnTarget: MaterialReaderReturnTarget;
   readonly freeEntryHref: Route | undefined;
   readonly page: GuidePage | null;
+  readonly heroCall: ReactNode;
 }
 
 /**
@@ -78,6 +79,7 @@ const productViews: Record<
       />
     ) : (
       <AiEngineeringCourseView
+        heroCall={props.heroCall}
         page={page}
         result={props.result}
         returnTarget={props.returnTarget}
@@ -93,6 +95,7 @@ const productViews: Record<
  */
 export function GuideProductView({
   artifacts = { kind: "ready", artifacts: [] },
+  heroCall,
   result,
   freeEntryHref,
   returnTarget,
@@ -103,6 +106,8 @@ export function GuideProductView({
   readonly returnTarget: MaterialReaderReturnTarget;
   /** Бесплатный вход из обложки. Он ведёт в программу: там читатель сразу видит открытые уроки. */
   readonly freeEntryHref?: Route;
+  /** Плашка потока и кнопка по этапу: её рисует оформление курса, остальные её не показывают. */
+  readonly heroCall?: ReactNode;
 }) {
   const productPage = result.reference.productPage ?? null;
   const View = productViews[productPage?.presentation ?? "default"];
@@ -111,6 +116,7 @@ export function GuideProductView({
     <View
       artifacts={artifacts}
       freeEntryHref={freeEntryHref}
+      heroCall={heroCall}
       // Сроки оферты подставляются один раз, до выбора оформления: каждое оформление получает
       // готовый текст и не пропускает ни одного поля (ADR 0026).
       page={page === null ? null : fillGuidePage(page, fillTerms)}
