@@ -68,6 +68,21 @@ export function requestPublishedTopic(
   );
 }
 
+/** Открыт ли продукт текущему Account: читается только с его токеном. */
+export function requestGuideAccess(
+  guideId: string,
+  accessToken: string,
+): Promise<BackendTransportResult> {
+  return executeGeneratedRequest(
+    (request) =>
+      new ContentLibraryService(request).readCurrentAccountGuideAccess({
+        guideId,
+      }),
+    200,
+    { accessToken },
+  );
+}
+
 export function requestPublishedSeries(
   slug: string,
   options: PublicRequestOptions = {},

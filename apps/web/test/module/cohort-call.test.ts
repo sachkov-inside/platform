@@ -1,11 +1,10 @@
 import { describe, expect, it } from "vitest";
 
-import type { MaterialPreview } from "@/entities/material";
 import type { GuideCohort, PriceSnapshot } from "@/entities/subscription";
+import type { GuideAccess } from "@/features/library-discovery";
 import {
   cohortCall,
   formatCohortDate,
-  productOwnership,
 } from "@/_pages/library-discovery/model/cohort-call";
 import { guideWithSupportOffer } from "@/workshop/billing.fixtures";
 
@@ -22,14 +21,14 @@ const call = (
   overrides: Partial<{
     cohort: GuideCohort | null;
     offer: PriceSnapshot | null;
-    ownership: "holds" | "lacks" | "unknown";
+    productAccess: GuideAccess;
     signedIn: boolean;
   }> = {},
 ) =>
   cohortCall({
     cohort,
     offer: guideWithSupportOffer,
-    ownership: "lacks",
+    productAccess: "closed",
     signedIn: true,
     slug,
     ...overrides,
@@ -103,33 +102,14 @@ describe("first screen call of a product cohort", () => {
     });
   });
 
-  it("hides payment without a sale and from a person who already holds the product", () => {
+  it("hides payment without a sale and from a person the product is open to", () => {
     expect(call({ offer: null }).action.kind).toBe("programme");
-    expect(call({ ownership: "holds" }).action.kind).toBe("programme");
-    expect(call({ ownership: "unknown" }).action.kind).toBe("purchase");
-  });
-});
-
-describe("product ownership seen in the programme", () => {
-  const item = (
-    access: MaterialPreview["access"],
-    availability: MaterialPreview["availability"],
-  ) => ({ access, availability });
-
-  it("reads paid lessons only", () => {
-    expect(productOwnership([item("free", "available")])).toBe("unknown");
-    expect(
-      productOwnership([
-        item("free", "available"),
-        item("membership", "available"),
-      ]),
-    ).toBe("holds");
-    expect(
-      productOwnership([
-        item("membership", "available"),
-        item("membership", "locked"),
-      ]),
-    ).toBe("lacks");
+    expect(call({ productAccess: "unknown" }).action.kind).toBe("purchase");
+    for (const stage of ["preorder", "running", "between"] as const)
+      expect(
+        call({ cohort: { ...cohort, stage }, productAccess: "open" }).action
+          .kind,
+      ).toBe("programme");
   });
 });
 
