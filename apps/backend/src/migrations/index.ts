@@ -3,6 +3,10 @@ import {
   statement as surveyRespondentsStatement,
 } from "../modules/billing/infrastructure/postgres/migrations/0073-survey-respondents.js";
 import {
+  name as salesFunnelName,
+  statement as salesFunnelStatement,
+} from "../modules/sales-funnel/infrastructure/postgres/migrations/0074-sales-funnel.js";
+import {
   name as practiceDefinitionsName,
   statement as practiceDefinitionsStatement,
 } from "../modules/materials/infrastructure/postgres/migrations/0072-practice-definitions.js";
@@ -497,6 +501,7 @@ export const platformMigrations = [
   { name: offerEligibilityName, statement: offerEligibilityStatement },
   { name: practiceDefinitionsName, statement: practiceDefinitionsStatement },
   { name: surveyRespondentsName, statement: surveyRespondentsStatement },
+  { name: salesFunnelName, statement: salesFunnelStatement },
 ] as const;
 
 export function migrateToLatest(

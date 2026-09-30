@@ -140,9 +140,17 @@ export type BookmarksPrisma = Pick<
 export type BookmarksPrismaClient = BookmarksPrisma &
   TransactionClient<BookmarksPrisma>;
 
+export type SalesFunnelPrisma = Pick<
+  PlatformPrisma,
+  "$queryRaw" | "salesFunnelBotEvent"
+>;
+export type SalesFunnelPrismaClient = SalesFunnelPrisma &
+  TransactionClient<SalesFunnelPrisma>;
+
 export type BillingPrisma = Pick<
   PlatformPrisma,
   | "$executeRaw"
+  | "$queryRaw"
   | "billingNotificationOutbox"
   | "billingOffer"
   | "billingPaymentOption"

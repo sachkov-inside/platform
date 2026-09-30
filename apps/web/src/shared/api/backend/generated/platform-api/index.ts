@@ -29,6 +29,8 @@ export { OperationsService } from './services/OperationsService';
 export { PersonalHomeService } from './services/PersonalHomeService';
 export { PublishedMaterialsService } from './services/PublishedMaterialsService';
 export { ReadingActivityService } from './services/ReadingActivityService';
+export { SalesFunnelService } from './services/SalesFunnelService';
+export { SalesFunnelIntegrationService } from './services/SalesFunnelIntegrationService';
 export { SubscriptionActivationIntegrationService } from './services/SubscriptionActivationIntegrationService';
 export { TelegramCommunityService } from './services/TelegramCommunityService';
 export { TelegramMembershipService } from './services/TelegramMembershipService';

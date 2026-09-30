@@ -18,3 +18,5 @@ export { tbankToken } from "./infrastructure/tbank/tbank.js";
 export { SubscriptionActivation } from "./facets/subscription-activation/subscription-activation.js";
 
 export { TributeConvergence } from "./facets/tribute-convergence/tribute-convergence.js";
+
+export { BillingGuideSales } from "./features/list-guide-sales/list-guide-sales.js";

@@ -244,6 +244,7 @@ describe("Platform migrations", () => {
         "0071_offer_eligibility",
         "0072_practice_definitions",
         "0073_survey_respondents",
+        "0074_sales_funnel",
       ],
     });
     expect(second).toEqual({ appliedMigrations: [] });
@@ -269,6 +270,7 @@ describe("Platform migrations", () => {
       "reader_preferences",
     ]);
     await expectTables(testDatabase, "bookmarks", ["bookmarked_materials"]);
+    await expectTables(testDatabase, "sales_funnel", ["bot_events"]);
     await expectTables(testDatabase, "assets", assetTables);
     await expectTables(testDatabase, "videos", videoTables);
     await expectTables(testDatabase, "workshop", workshopTables);
@@ -296,6 +298,7 @@ describe("Platform migrations", () => {
         and source_schema.nspname in (
           'reading_activity',
           'bookmarks',
+          'sales_funnel',
           'materials',
           'membership_entitlements',
           'telegram_membership',
@@ -903,6 +906,7 @@ describe("Platform migrations", () => {
           "0071_offer_eligibility",
           "0072_practice_definitions",
           "0073_survey_respondents",
+          "0074_sales_funnel",
         ],
       });
 
@@ -1086,6 +1090,7 @@ async function expectTables(
   schema:
     | "reading_activity"
     | "bookmarks"
+    | "sales_funnel"
     | "accounts"
     | "assets"
     | "identity_principals"

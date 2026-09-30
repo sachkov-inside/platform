@@ -689,4 +689,31 @@ describe("notification delivery contour", () => {
       }).notificationDelivery,
     ).toBeDefined();
   });
+
+  it("keeps the sales funnel ingress credential apart from every other Telegram direction", () => {
+    // Вход воронки пишет события от имени бота: чужой секрет дал бы это право другому направлению.
+    const shared = "shared-telegram-direction-secret-000000";
+    for (const other of [
+      { TELEGRAM_EVIDENCE_INGRESS_SECRET: shared },
+      { TELEGRAM_LINKING_SECRET: shared },
+      { TELEGRAM_ACTIVATION_INGRESS_SECRET: shared },
+      { TELEGRAM_SIGN_IN_INTEGRATION_SECRET: shared },
+    ]) {
+      expect(() =>
+        parsePlatformConfig({
+          ...stand,
+          ...other,
+          TELEGRAM_SALES_FUNNEL_INGRESS_SECRET: shared,
+        }),
+      ).toThrow("Sales funnel ingress requires a separate Telegram secret");
+    }
+    expect(parsePlatformConfig(stand).salesFunnelIngressSecret).toBeUndefined();
+    expect(
+      parsePlatformConfig({
+        ...stand,
+        TELEGRAM_SALES_FUNNEL_INGRESS_SECRET:
+          "sales-funnel-direction-secret-00000",
+      }).salesFunnelIngressSecret,
+    ).toBe("sales-funnel-direction-secret-00000");
+  });
 });
