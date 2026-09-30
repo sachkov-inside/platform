@@ -25,18 +25,16 @@ import {
 import type { Route } from "next";
 import type { CSSProperties, ReactNode } from "react";
 
-import {
-  fillGuidePage,
-  type GuidePage,
-  type GuidePageBlock,
-  type GuidePageBlockOf,
+import type {
+  GuidePage,
+  GuidePageBlock,
+  GuidePageBlockOf,
 } from "@/entities/guide-page";
 import {
   CourseHero,
   CourseIcon,
   type CourseIconName,
 } from "@/features/ai-engineering-course";
-import { fillOneTimeTerms as fillTerms } from "@/features/billing-checkout.terms";
 import type { PublishedSeriesResult } from "@/features/library-discovery";
 import type { MaterialReaderReturnTarget } from "@/shared/routing/material-reader";
 import { guideProgrammeHref } from "@/shared/routing/subscription-route";
@@ -67,7 +65,7 @@ type ResolvedSeriesResult = Extract<
  */
 export function AiEngineeringCourseView({
   result,
-  page: sourcePage,
+  page,
   returnTarget,
 }: {
   readonly result: ResolvedSeriesResult;
@@ -78,8 +76,6 @@ export function AiEngineeringCourseView({
   const programme = guideProgrammeHref(reference.slug);
   const hasFreeLessons =
     countFreeLessons(result.kind === "ready" ? result.items : []) > 0;
-  // Автор пишет сроки оферты подстановкой; оформление получает уже готовый текст.
-  const page = fillGuidePage(sourcePage, fillTerms);
   const hero = page.blocks.find(
     (block): block is GuidePageBlockOf<"hero"> => block.kind === "hero",
   );
