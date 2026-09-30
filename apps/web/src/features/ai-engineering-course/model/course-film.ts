@@ -9,7 +9,7 @@
 export const FILM_WIDTH = 960;
 export const FILM_HEIGHT = 640;
 export const FILM_DURATION = 32;
-/** Итоговый кадр для reduced motion: открыт harness проекта с пайплайном. */
+/** Итоговый кадр для reduced motion: harness проекта собран вокруг агента. */
 export const FILM_POSTER_TIME = 9.2;
 
 const CANVAS = "#f3f1ed";
@@ -119,7 +119,7 @@ const EPISODES: readonly Episode[] = [
     enter: "fromRight",
     exit: "toTop",
     states: [
-      { id: "harness", at: 6.2, w: 840, h: 480, r: 30 },
+      { id: "harness", at: 6.2, w: 860, h: 500, r: 32 },
       { id: "roles", at: 9.9, w: 840, h: 440, r: 32 },
     ],
   },
@@ -187,19 +187,21 @@ function placement(t: number, episode: Episode) {
   let scale = 1;
   const enter = 1 - spring(t - episode.start, 150, 22);
   if (episode.enter === "fromRight") {
-    x += 760 * enter;
+    // Старт полностью за правым краем: карточка не выскакивает в первом кадре.
+    x += 1180 * enter;
     rot += 0.14 * enter;
   } else if (episode.enter === "fromBottom") {
-    y += 560 * enter;
+    y += 720 * enter;
     scale -= 0.12 * enter;
   }
   const leave = clamp((t - episode.end) / SWING);
   const eased = leave * leave * (3 - 2 * leave);
   if (episode.exit === "toLeft") {
-    x -= 820 * eased;
+    // Уход полностью за левый край: карточка не пропадает на последнем кадре взмаха.
+    x -= 1250 * eased;
     rot -= 0.1 * eased;
   } else if (episode.exit === "toTop") {
-    y -= 620 * eased;
+    y -= 760 * eased;
     scale -= 0.1 * eased;
   }
   return { x, y, rot, scale };
@@ -415,78 +417,87 @@ function drawThink({ g, t }: Frame) {
   g.stroke();
 }
 
-const FILES = [
-  "AGENTS.md",
-  "skills/",
-  "roles/",
-  "pipeline.yaml",
-  "evals/",
+/** Модули harness вокруг агента: место на схеме и сторона, откуда модуль прилетает. */
+const MODULES = [
+  ["AGENTS.md", -270, -130, -1, -1],
+  ["skills", 270, -130, 1, -1],
+  ["roles", -290, 20, -1, 0],
+  ["MCP", 290, 20, 1, 0],
+  ["pipeline", -270, 170, -1, 1],
+  ["evals", 270, 170, 1, 1],
 ] as const;
-const PIPELINE = [
-  "Спецификация",
-  "Задачи",
-  "Реализация",
-  "Ревью",
-  "CI/CD",
-  "Deploy",
-] as const;
-/** Окно harness проекта: слева файлы, справа пайплайн, по которому бежит задача. */
-function drawHarness({ g, f, local, w, h }: Frame) {
-  const top = -h / 2;
-  const left = -w / 2;
-  // Строка окна: три точки и название проекта.
-  for (let i = 0; i < 3; i++) {
-    g.fillStyle = i === 0 ? ACCENT_BRIGHT : INK_HIGH;
-    g.beginPath();
-    g.arc(left + 32 + i * 22, top + 34, 7, 0, Math.PI * 2);
-    g.fill();
-  }
-  text(g, "harness проекта", left + 110, top + 35, 28, 700, MUTED, f.sans);
-  g.fillStyle = INK_LINE;
-  g.fillRect(left, top + 66, w, 1.5);
-  g.fillRect(left + 300, top + 66, 1.5, h - 66);
-  // Файлы прилетают слева по одному; roles/ подсвечивается перед тем, как раскрыться в команду.
-  for (const [i, file] of FILES.entries()) {
-    const p = spring(local - 0.35 - i * 0.14, 240, 22);
-    const y = top + 112 + i * 62;
-    const hot = file === "roles/" ? clamp((local - 2.5) / 0.3) : 0;
-    flyIn(g, p, -120, 0, () => {
-      if (hot > 0) {
-        roundRect(g, left + 20, y - 24, 260, 48, 12);
-        g.fillStyle = `rgba(199, 70, 30, ${String(0.35 * hot)})`;
+const MODULE_W = 190;
+const MODULE_H = 58;
+/**
+ * Harness проекта собирается вокруг агента: модули прилетают с краёв, встают на свои места и
+ * подключаются к ядру линиями, по которым бегут импульсы. Затем roles подсвечивается и
+ * раскрывается в команду агентов.
+ */
+function drawHarness({ g, t, f, local, h }: Frame) {
+  const coreX = 0;
+  const coreY = 20;
+  text(g, "harness проекта", 0, -h / 2 + 46, 28, 700, MUTED, f.sans, "center");
+  for (const [i, [name, x, y, sx, sy]] of MODULES.entries()) {
+    const at = 0.35 + i * 0.16;
+    const p = spring(local - at, 190, 19);
+    const link = clamp((local - at - 0.45) / 0.35);
+    const edgeX = x - Math.sign(x) * (MODULE_W / 2 + 8);
+    if (link > 0) {
+      g.save();
+      g.strokeStyle = INK_LINE;
+      g.lineWidth = 3;
+      g.beginPath();
+      g.moveTo(edgeX, y);
+      g.lineTo(lerp(edgeX, coreX, link), lerp(y, coreY, link));
+      g.stroke();
+      if (link >= 1) {
+        // Импульс бежит от модуля к агенту: harness питает агента контекстом и правилами.
+        const k = (local * 0.8 + i * 0.17) % 1;
+        g.fillStyle = ACCENT_BRIGHT;
+        g.beginPath();
+        g.arc(lerp(edgeX, coreX, k), lerp(y, coreY, k), 5, 0, Math.PI * 2);
         g.fill();
       }
-      g.fillStyle = file.endsWith("/") ? ACCENT_BRIGHT : MUTED;
-      g.fillRect(left + 36, y - 9, 18, 18);
-      text(g, file, left + 70, y + 1, 30, 600, TEXT, f.mono);
+      g.restore();
+    }
+    const hot = name === "roles" ? clamp((local - 2.9) / 0.35) : 0;
+    flyIn(g, p, sx * 260, sy * 160, () => {
+      roundRect(g, x - MODULE_W / 2, y - MODULE_H / 2, MODULE_W, MODULE_H, 16);
+      g.fillStyle = hot > 0 ? ACCENT : INK_HIGH;
+      g.fill();
+      text(g, name, x, y + 1, 28, 700, TEXT, f.mono, "center");
     });
   }
-  // Этапы пайплайна падают сверху, точка задачи идёт от этапа к этапу.
-  const px = left + 350;
-  for (const [i, stage] of PIPELINE.entries()) {
-    const p = spring(local - 0.6 - i * 0.12, 240, 20);
-    const y = top + 106 + i * 62;
-    const passed = clamp((local - 1.3 - i * 0.32) / 0.2);
-    flyIn(g, p, 0, -60, () => {
-      if (i < PIPELINE.length - 1) {
-        g.fillStyle = passed > 0 ? ACCENT : INK_HIGH;
-        g.fillRect(px + 14, y + 16, 3, 30);
-      }
-      g.fillStyle = passed > 0 ? ACCENT_BRIGHT : INK_HIGH;
+  // Ядро-агент: круг с кольцом, кольцо светлеет по мере подключения модулей.
+  const core = spring(local - 0.15, 200, 18);
+  if (core > 0) {
+    const connected = clamp((local - 0.8) / 1.4);
+    g.save();
+    g.translate(coreX, coreY);
+    g.scale(core, core);
+    g.strokeStyle = ACCENT_BRIGHT;
+    g.lineWidth = 4;
+    g.beginPath();
+    g.arc(0, 0, 60, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * connected);
+    g.stroke();
+    g.fillStyle = INK_HIGH;
+    g.beginPath();
+    g.arc(0, 0, 48, 0, Math.PI * 2);
+    g.fill();
+    g.fillStyle = ACCENT_BRIGHT;
+    for (let i = -1; i <= 1; i++) {
       g.beginPath();
-      g.arc(px + 15, y, 11, 0, Math.PI * 2);
-      g.fill();
-      text(
-        g,
-        stage,
-        px + 46,
-        y + 1,
-        30,
-        700,
-        passed > 0 ? TEXT : MUTED,
-        f.sans,
+      g.arc(
+        i * 15,
+        0,
+        5 + (i === 0 ? Math.sin(t * 4) * 1.2 : 0),
+        0,
+        Math.PI * 2,
       );
-    });
+      g.fill();
+    }
+    g.restore();
+    text(g, "агент", coreX, coreY + 88, 26, 700, MUTED, f.sans, "center");
   }
 }
 
@@ -561,13 +572,16 @@ function avatar(
   g.save();
   g.translate(x, y);
   if (busy > 0) {
+    // Прозрачность орбиты — в своём save/restore: деление обратно даёт значение чуть больше 1,
+    // холст его игнорирует, и аватар на кадр становится прозрачным (мерцание).
+    g.save();
     g.strokeStyle = member.color;
     g.globalAlpha *= 0.55 * busy;
     g.lineWidth = 3;
     g.beginPath();
     g.arc(0, 0, r + 9, t * 3, t * 3 + Math.PI * 1.2);
     g.stroke();
-    g.globalAlpha /= 0.55 * busy;
+    g.restore();
   }
   g.fillStyle = member.color;
   g.beginPath();
@@ -728,10 +742,19 @@ function drawFeatures({ g, t, f, local, w, h }: Frame) {
       g.fillStyle = INK_HIGH;
       g.fill();
       roundRect(g, barLeft, y + 34, barW * p, 12, 6);
-      g.fillStyle = p >= 1 ? GREEN : ACCENT;
+      g.fillStyle = ACCENT;
       g.fill();
       // Готовая фича: аватар растворяется, на его месте встаёт галочка.
       const done = clamp((local - 0.4 - 1.7 / speed) / 0.25);
+      if (done > 0) {
+        // Готовая полоса зеленеет плавно, а не одним кадром.
+        g.save();
+        g.globalAlpha *= done;
+        roundRect(g, barLeft, y + 34, barW, 12, 6);
+        g.fillStyle = GREEN;
+        g.fill();
+        g.restore();
+      }
       if (developer && done < 1) {
         g.save();
         g.globalAlpha *= 1 - done;
