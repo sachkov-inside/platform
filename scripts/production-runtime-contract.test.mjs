@@ -142,6 +142,32 @@ describe("production runtime architecture contract", () => {
     }
   });
 
+  it("publishes the authoring transfer only for backend /authoring/* behind its prefix", () => {
+    for (const [shape, replacement] of [
+      [
+        "without removing the prefix",
+        "\t\t@authoring_api path /authoring-api/authoring/*\n\t\treverse_proxy @authoring_api {$PLATFORM_API_UPSTREAM:127.0.0.1:13001}\n",
+      ],
+      [
+        "wider than /authoring/*",
+        "\t\t@authoring_api path /authoring-api/*\n\t\turi @authoring_api strip_prefix /authoring-api\n\t\treverse_proxy @authoring_api {$PLATFORM_API_UPSTREAM:127.0.0.1:13001}\n",
+      ],
+    ]) {
+      assert.throws(
+        () =>
+          assertRuntimeContract({
+            ...runtime,
+            caddy: runtime.caddy.replace(
+              /\t\t@authoring_api path [^\n]+\n(?:\t\turi [^\n]+\n)?\t\treverse_proxy @authoring_api [^\n]+\n/u,
+              replacement,
+            ),
+          }),
+        /only backend \/authoring\/\*/u,
+        shape,
+      );
+    }
+  });
+
   it("lists every published API and MCP route in the release runbook exactly as Caddy publishes it", () => {
     const table =
       "docs/runbooks/production-release.md must list exactly the Caddy API and MCP routes";
@@ -535,6 +561,16 @@ function assertRuntimeContract(files) {
     files.caddy,
     /@private_health path \/health \/health\/\* \/_health\/\*/u,
   );
+  // The authoring transfer reaches only backend /authoring/*: its prefix is removed before the API.
+  if (
+    !/@authoring_api path \/authoring-api\/authoring\/\*\n\t\turi @authoring_api strip_prefix \/authoring-api\n\t\treverse_proxy @authoring_api \{\$PLATFORM_API_UPSTREAM:127\.0\.0\.1:13001\}/u.test(
+      files.caddy,
+    )
+  ) {
+    throw new Error(
+      "the authoring API must publish only backend /authoring/* behind its removed prefix",
+    );
+  }
   // The operator table is checked last, so a broken Caddy rule above reports its own reason first.
   assert.deepEqual(
     runbookRoutes(files.releaseRunbook),

@@ -1029,8 +1029,9 @@ checks its real state before any write.
 `pnpm authoring:release apply --preview PREVIEW_JSON --state STATE_DIRECTORY` applies exactly that
 preview and stops on drift, an edited preview or an unreviewed archive request. Drift covers
 Material versions, each Guide's version and its programme order, so a page edited on the target
-after the review is not overwritten; a preview also lists added and removed chapters. Non-local targets
-are refused; production publication needs an owner-approved credential path first.
+after the review is not overwritten; a preview also lists added and removed chapters. The only
+non-local target is the trusted `production` target, reached with the owner's one-time sign-in; see
+[Content production delivery](content-production-delivery.md). Every other address is refused.
 
 ```bash
 pnpm authoring:products [--target stand|editor] [--owner-email EMAIL] [--json]

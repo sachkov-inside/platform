@@ -1,5 +1,6 @@
 // @ts-check
-// Local authoring targets. Every origin is loopback HTTP; there is no remote or production mode here.
+// Authoring targets. Local ones are loopback HTTP behind a gateway that adds the credential; a trusted
+// remote target is named here, pinned to one HTTPS base and reached only by the reviewed release (#805).
 export const localTargets = Object.freeze({
   editor: "http://127.0.0.1:4396",
   stand: "http://127.0.0.1:4398",
@@ -8,6 +9,21 @@ export const localTargets = Object.freeze({
 const readerOrigins = Object.freeze({
   editor: localTargets.editor,
   stand: "http://127.0.0.1:3000",
+});
+
+/**
+ * The production edge publishes backend `/authoring/*` under this base only; the owner's Logto
+ * access token for the API resource authorizes each request, and `materials:manage` is checked by
+ * Platform. Origins come from docs/runbooks/production-delivery.md and the production api.env.
+ */
+export const trustedTargets = Object.freeze({
+  production: Object.freeze({
+    id: "https://inside.sachkov.dev/authoring-api",
+    reader: "https://inside.sachkov.dev",
+    environment: /** @type {const} */ ("production"),
+    issuer: "https://auth.sachkov.dev/oidc",
+    resource: "https://api.inside.sachkov.dev",
+  }),
 });
 
 const loopbackHosts = new Set(["127.0.0.1", "localhost", "[::1]"]);
@@ -22,6 +38,11 @@ const localRequestTimeoutMs = 60_000;
  *   options?: { method?: string },
  * ) => Promise<unknown>} LocalTransport
  * @typedef {keyof typeof localTargets} LocalTargetName
+ * @typedef {keyof typeof trustedTargets} TrustedTargetName
+ * @typedef {{ kind: "local"; id: string; reader: string; environment: "development" }} LocalTarget
+ * @typedef {{ kind: "trusted"; name: TrustedTargetName } & (typeof trustedTargets)[TrustedTargetName]} TrustedTarget
+ * @typedef {LocalTarget | TrustedTarget} AuthoringTarget
+ * @typedef {() => Promise<string>} AccessToken A fresh bearer for a trusted target.
  */
 
 /** @param {string} value */
@@ -45,6 +66,14 @@ export function loopbackOrigin(value) {
 
 /**
  * @param {string} name
+ * @returns {name is TrustedTargetName}
+ */
+function isTrustedTargetName(name) {
+  return Object.hasOwn(trustedTargets, name);
+}
+
+/**
+ * @param {string} name
  * @returns {name is LocalTargetName}
  */
 function isLocalTargetName(name) {
@@ -55,6 +84,40 @@ export function resolveLocalTarget(name = "editor") {
   if (!isLocalTargetName(name))
     throw new Error(`Unknown local authoring target: ${name}`);
   return loopbackOrigin(localTargets[name]);
+}
+
+/**
+ * A local name or loopback origin, or a trusted target by name or base; anything else is refused.
+ *
+ * @param {string} value
+ * @returns {AuthoringTarget}
+ */
+export function authoringTarget(value) {
+  const name = Object.keys(trustedTargets)
+    .filter(isTrustedTargetName)
+    .find((key) => key === value || trustedTargets[key].id === value);
+  if (name !== undefined)
+    return { kind: "trusted", name, ...trustedTargets[name] };
+  const origin = isLocalTargetName(value)
+    ? resolveLocalTarget(value)
+    : loopbackOrigin(value);
+  return {
+    kind: "local",
+    id: origin,
+    reader: readerOriginFor(origin),
+    environment: "development",
+  };
+}
+
+/**
+ * @param {string} value
+ * @returns {TrustedTarget}
+ */
+export function trustedTarget(value) {
+  const target = authoringTarget(value);
+  if (target.kind !== "trusted")
+    throw new Error(`${value} is a local target; it needs no owner sign-in`);
+  return target;
 }
 
 /** @param {string} origin */
@@ -96,13 +159,55 @@ export function failureBodyField(error, field) {
  * @returns {LocalTransport}
  */
 export function localTransport(origin) {
-  const base = loopbackOrigin(origin);
+  return httpTransport(
+    `${loopbackOrigin(origin)}/__local-api`,
+    async () => ({}),
+  );
+}
+
+/**
+ * The trusted transport: the pinned HTTPS base with a fresh owner bearer on every request.
+ *
+ * @param {TrustedTarget} target
+ * @param {AccessToken} accessToken
+ * @returns {LocalTransport}
+ */
+export function trustedTransport(target, accessToken) {
+  const base = new URL(target.id);
+  if (base.protocol !== "https:")
+    throw new Error(`Trusted target must use HTTPS: ${target.id}`);
+  return httpTransport(target.id, async () => ({
+    authorization: `Bearer ${await accessToken()}`,
+  }));
+}
+
+/**
+ * @param {AuthoringTarget} target
+ * @param {AccessToken | undefined} accessToken
+ * @returns {LocalTransport}
+ */
+export function transportFor(target, accessToken) {
+  if (target.kind === "local") return localTransport(target.id);
+  if (accessToken === undefined)
+    throw new Error(
+      `Target ${target.name} needs the owner's session: run pnpm authoring:login --target ${target.name}`,
+    );
+  return trustedTransport(target, accessToken);
+}
+
+/**
+ * @param {string} base
+ * @param {() => Promise<Record<string, string>>} credential
+ * @returns {LocalTransport}
+ */
+function httpTransport(base, credential) {
   return async function request(path, body, key, { method } = {}) {
     const form = body instanceof FormData;
-    const response = await fetch(`${base}/__local-api${path}`, {
+    const response = await fetch(`${base}${path}`, {
       method: method ?? (body === undefined ? "GET" : "POST"),
       redirect: "error",
       headers: {
+        ...(await credential()),
         ...(body === undefined || form
           ? {}
           : { "content-type": "application/json" }),
