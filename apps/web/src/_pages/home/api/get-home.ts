@@ -14,6 +14,7 @@ import {
 import { dependencyUnavailableProblemSchema } from "@/shared/api/problem-details";
 import {
   readGuidePageCard,
+  readGuidePageHero,
   resolveGuidePresentation,
 } from "@/entities/guide-page";
 import type { HomeResult } from "../model/home-view";
@@ -35,7 +36,11 @@ const homeSchema = z
     // Подпись карточки разбирается отдельно: её несовпадение с выпуском сайта не должно
     // отнимать у читателя всю Главную (ADR 0026).
     pinnedSeries: homeCollectionSchema
-      .extend({ presentation: z.string(), card: z.unknown() })
+      .extend({
+        presentation: z.string(),
+        card: z.unknown(),
+        hero: z.unknown().optional(),
+      })
       .nullable(),
     guides: z.array(publishedMaterialProjectionSchema),
     notes: z.array(publishedMaterialProjectionSchema),
@@ -94,6 +99,10 @@ export async function getHome(accessToken?: string): Promise<HomeResult> {
               ...mapCollection(parsed.data.pinnedSeries),
               card: readGuidePageCard(
                 parsed.data.pinnedSeries.card,
+                `Home pinned Guide ${parsed.data.pinnedSeries.slug}`,
+              ),
+              hero: readGuidePageHero(
+                parsed.data.pinnedSeries.hero,
                 `Home pinned Guide ${parsed.data.pinnedSeries.slug}`,
               ),
               presentation: resolveGuidePresentation(

@@ -3,40 +3,13 @@
  * (`ai-first-guide-view.css`): метка у названия, обложка, менторинг, тона иллюстраций, статус.
  */
 
-/* Название не рвётся посередине: при нехватке места на новую строку уходит только метка. */
-.ai-guide-page .aie-course-title {
-  text-wrap: wrap;
-}
-.aie-course-name {
-  white-space: nowrap;
-}
-
-.aie-course-badge {
-  display: inline-block;
-  margin-left: 0.1em;
-  padding: 0.2em 0.6em 0.24em;
-  border-radius: 999px;
-  background: var(--accent);
-  color: var(--accent-foreground);
-  font-size: 0.4em;
-  font-weight: 700;
-  line-height: 1.2;
-  letter-spacing: 0;
-  vertical-align: 0.5em;
-  white-space: nowrap;
-  transform: rotate(-4deg);
+.aie-course-hero {
+  margin-top: 1.75rem;
 }
 
 /* Текст раздела не прилипает к заголовку, как бы ни был собран раздел. */
 .ai-guide-page.aie-course h2 + p {
   margin-top: 1rem;
-}
-
-.aie-course-cover {
-  min-width: 0;
-  overflow: hidden;
-  border-radius: 1.25rem;
-  background: var(--secondary);
 }
 
 /* Менторинг — главное отличие курса, поэтому это тёплая плашка, а не ещё один текстовый раздел. */
@@ -145,9 +118,6 @@
 }
 
 @media (max-width: 47.999rem) {
-  .aie-course .ai-guide-hero > .aie-course-cover {
-    order: -1;
-  }
   .aie-mentoring-points li:nth-child(n) {
     margin-left: 0;
   }
@@ -1248,10 +1218,6 @@
     font-size: 0.9375rem;
     line-height: 1.55;
   }
-  .ai-guide-page.aie-course .ai-guide-intro {
-    font-size: 1rem;
-    line-height: 1.5;
-  }
   .ai-guide-page.aie-course .ai-guide-promise,
   .ai-guide-page.aie-course .aie-practice p {
     font-size: 0.97rem;
@@ -1275,32 +1241,6 @@
   }
   .aie-bento-copy {
     padding: 0 1.1rem 1.2rem;
-  }
-
-  /* Пункты первого экрана — одна карточка во всю ширину с разделителями, без разнобоя пилюль. */
-  .aie-course .ai-guide-highlights {
-    display: grid;
-    gap: 0;
-    padding: 0.25rem 1rem;
-    border-radius: 1rem;
-    background: var(--secondary);
-  }
-  .aie-course .ai-guide-highlights li {
-    gap: 0.7rem;
-    padding: 0.8rem 0;
-    border-radius: 0;
-    background: transparent;
-    font-size: 0.9rem;
-    font-weight: 600;
-    animation: none;
-  }
-  .aie-course .ai-guide-highlights li + li {
-    border-top: 1px solid var(--border);
-  }
-  .aie-course .ai-guide-highlights svg {
-    width: 1.1rem;
-    height: 1.1rem;
-    color: var(--accent);
   }
 
   /* Роли — два ряда во всю ширину: текст не упирается в значок и край. */

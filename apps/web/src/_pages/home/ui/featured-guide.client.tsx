@@ -6,6 +6,7 @@ import type { ReactNode } from "react";
 
 import { useMaterialReading } from "@/entities/material";
 import type { GuidePresentation } from "@/entities/guide-page";
+import { CourseHero } from "@/features/ai-engineering-course";
 import { AiFirstProcessArtwork } from "@/features/ai-first-guide";
 import { fillOneTimeTerms } from "@/features/billing-checkout.terms";
 import { formatMaterialCount } from "@/features/library-discovery";
@@ -29,7 +30,7 @@ const featuredCards: Record<
 > = {
   default: DefaultFeaturedGuide,
   "ai-first-process": AiFirstFeaturedGuide,
-  "ai-engineering-course": DefaultFeaturedGuide,
+  "ai-engineering-course": AiEngineeringFeaturedGuide,
 };
 
 export function FeaturedGuide({
@@ -39,6 +40,42 @@ export function FeaturedGuide({
 }) {
   const Card = featuredCards[series.presentation];
   return <Card series={series} />;
+}
+
+/**
+ * Карточка курса AI Engineering повторяет первый экран страницы курса: тот же модуль, те же тексты
+ * из описания продукта и та же анимация. Без первого экрана в описании — общий вид карточки.
+ */
+function AiEngineeringFeaturedGuide({
+  series,
+}: {
+  readonly series: HomePinnedCollection;
+}) {
+  if (series.hero === null) return <DefaultFeaturedGuide series={series} />;
+  const open =
+    series.card === null || series.card.action === ""
+      ? "Открыть курс"
+      : fillOneTimeTerms(series.card.action);
+  return (
+    <section
+      aria-labelledby="featured-title"
+      className="home-guide-course"
+      data-guide-presentation="ai-engineering-course"
+    >
+      <CourseHero
+        action={{
+          href: collectionDiscoveryHref("series", series.slug, "/"),
+          label: open,
+        }}
+        badge={series.hero.badge}
+        heading="h2"
+        headingId="featured-title"
+        highlights={series.hero.highlights}
+        lead={series.hero.lead}
+        name={series.name}
+      />
+    </section>
+  );
 }
 
 function AiFirstFeaturedGuide({

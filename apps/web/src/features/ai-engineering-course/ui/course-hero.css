@@ -1,0 +1,138 @@
+.aie-hero {
+  display: grid;
+  grid-template-columns: minmax(0, 1.05fr) minmax(0, 1fr);
+  align-items: center;
+  gap: 2.5rem;
+  min-width: 0;
+}
+.aie-hero-copy {
+  min-width: 0;
+}
+.aie-hero-title {
+  margin: 0;
+  font-size: clamp(2.3rem, 4vw, 3.6rem);
+  font-weight: 700;
+  line-height: 1.08;
+  letter-spacing: -0.035em;
+  text-wrap: wrap;
+  overflow-wrap: anywhere;
+}
+/* Название не рвётся посередине: при нехватке места на новую строку уходит только метка. */
+.aie-hero-name {
+  white-space: nowrap;
+}
+.aie-hero-badge {
+  display: inline-block;
+  margin-left: 0.1em;
+  padding: 0.2em 0.6em 0.24em;
+  border-radius: 999px;
+  background: var(--accent);
+  color: var(--accent-foreground);
+  font-size: 0.4em;
+  font-weight: 700;
+  line-height: 1.2;
+  letter-spacing: 0;
+  vertical-align: 0.5em;
+  white-space: nowrap;
+  transform: rotate(-4deg);
+}
+.aie-hero-lead {
+  margin: 1rem 0 0;
+  font-size: 1rem;
+  line-height: 1.7;
+  color: var(--muted-foreground);
+}
+.aie-hero-points {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin: 1.25rem 0 0;
+  padding: 0;
+  list-style: none;
+}
+.aie-hero-points li {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.5rem 0.75rem;
+  border-radius: 999px;
+  background: var(--secondary);
+  font-size: 0.75rem;
+  line-height: 1.4;
+}
+.aie-hero-points svg {
+  width: 0.95rem;
+  height: 0.95rem;
+  flex: none;
+  color: var(--muted-foreground);
+}
+.aie-hero-action {
+  display: inline-flex;
+  align-items: center;
+  gap: 1rem;
+  min-height: 3rem;
+  margin-top: 1.75rem;
+  padding: 0 1.25rem;
+  border-radius: 0.75rem;
+  background: var(--primary);
+  color: var(--primary-foreground);
+  font-weight: 650;
+  text-decoration: none;
+}
+.aie-hero-action:hover {
+  background: var(--accent-hover);
+}
+.aie-hero-action:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+}
+.aie-hero-action svg {
+  width: 1rem;
+  height: 1rem;
+}
+.aie-hero-film {
+  min-width: 0;
+}
+
+@media (max-width: 47.999rem) {
+  .aie-hero {
+    grid-template-columns: 1fr;
+    gap: 1.5rem;
+  }
+  .aie-hero-film {
+    order: -1;
+  }
+  .aie-hero-title {
+    font-size: 2.2rem;
+  }
+  .aie-hero-lead {
+    line-height: 1.5;
+  }
+  /* Пункты на телефоне — одна карточка во всю ширину с разделителями. */
+  .aie-hero-points {
+    display: grid;
+    gap: 0;
+    padding: 0.25rem 1rem;
+    border-radius: 1rem;
+    background: var(--secondary);
+  }
+  .aie-hero-points li {
+    gap: 0.7rem;
+    padding: 0.8rem 0;
+    border-radius: 0;
+    background: transparent;
+    font-size: 0.9rem;
+    font-weight: 600;
+  }
+  .aie-hero-points li + li {
+    border-top: 1px solid var(--border);
+  }
+  .aie-hero-points svg {
+    width: 1.1rem;
+    height: 1.1rem;
+    color: var(--accent);
+  }
+  .aie-hero-action[data-compact-on-phone="true"] {
+    display: none;
+  }
+}

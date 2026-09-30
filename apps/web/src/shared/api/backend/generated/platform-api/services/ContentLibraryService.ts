@@ -320,6 +320,11 @@ export class ContentLibraryService {
           width: number;
         }>;
       } | null;
+      hero: {
+        badge: string;
+        highlights: Array<string>;
+        lead: string;
+      } | null;
       id: string;
       name: string;
       presentation: string;

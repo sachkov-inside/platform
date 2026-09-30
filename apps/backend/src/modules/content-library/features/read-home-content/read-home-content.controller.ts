@@ -37,7 +37,10 @@ import {
   type MembershipEntitlements,
 } from "../../../membership-entitlements/index.js";
 import { throwContentLibraryError } from "../../adapters/nest/content-library-http-errors.js";
-import { guidePageCardSchema } from "../../../materials/index.js";
+import {
+  guidePageCardSchema,
+  guidePageHeroSchema,
+} from "../../../materials/index.js";
 import {
   publishedCatalogFacetHttpSchema,
   publishedCatalogItemHttpSchema,
@@ -50,6 +53,7 @@ const homeContentHttpSchema = z
       .extend({
         presentation: z.string(),
         card: guidePageCardSchema.nullable(),
+        hero: guidePageHeroSchema.nullable(),
       })
       .nullable(),
     topics: z.array(publishedCatalogFacetHttpSchema),

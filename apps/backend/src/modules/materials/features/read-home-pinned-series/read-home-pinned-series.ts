@@ -1,6 +1,10 @@
 import { dependencyFailure } from "../../../../infrastructure/observability/index.js";
 import type { MaterialsPrisma } from "../../../../infrastructure/prisma/index.js";
-import type { GuidePageCard } from "../../domain/guide-page.js";
+import {
+  guidePageHero,
+  type GuidePageCard,
+  type GuidePageHero,
+} from "../../domain/guide-page.js";
 import { readGuidePage } from "../../shared/guide-page-reader.js";
 import type { SystemError } from "../../facets/material-authoring/material-authoring.contract.js";
 import type { Result } from "../../result.js";
@@ -11,6 +15,8 @@ export interface HomePinnedSeries {
   readonly id: string;
   readonly presentation: string;
   readonly card: GuidePageCard | null;
+  /** Первый экран страницы продукта: карточка Главной повторяет его. */
+  readonly hero: GuidePageHero | null;
 }
 
 export type ReadHomePinnedSeriesOperation = () => Promise<
@@ -38,6 +44,7 @@ export async function readHomePinnedSeries(
         id: pin.seriesId,
         presentation: guide.presentation,
         card: page?.card ?? null,
+        hero: guidePageHero(page),
       },
     };
   } catch (error) {

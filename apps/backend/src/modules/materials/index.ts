@@ -16,8 +16,11 @@ export type {
 } from "./facets/material-authoring/content-collection.contract.js";
 export {
   guidePageCardSchema,
+  guidePageHero,
+  guidePageHeroSchema,
   guidePageSchema,
   type GuidePageCard,
+  type GuidePageHero,
 } from "./domain/guide-page.js";
 export type { CreateDraftError } from "./features/create-draft/create-draft.contract.js";
 export {

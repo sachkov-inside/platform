@@ -493,3 +493,18 @@
     min-height: 0;
   }
 }
+
+/* Карточка курса AI Engineering: первый экран страницы курса в светлой рамке. */
+.home-guide-course {
+  padding: 2.25rem;
+  border: 1px solid var(--border);
+  border-radius: 1.5rem;
+  background: var(--card);
+  color: var(--foreground);
+}
+@media (max-width: 47.999rem) {
+  .home-guide-course {
+    padding: 1rem;
+    border-radius: 1.25rem;
+  }
+}

@@ -1,4 +1,8 @@
-import type { GuidePageCard, GuidePresentation } from "@/entities/guide-page";
+import type {
+  GuidePageCard,
+  GuidePageHero,
+  GuidePresentation,
+} from "@/entities/guide-page";
 import type { ContentCover, MaterialPreview } from "@/entities/material";
 
 /** Ready presentation for continuation inside the existing Home sections. */
@@ -28,6 +32,8 @@ export interface HomeCollection {
 export interface HomePinnedCollection extends HomeCollection {
   readonly presentation: GuidePresentation;
   readonly card: GuidePageCard | null;
+  /** Первый экран страницы продукта: оформление курса повторяет его на Главной. */
+  readonly hero: GuidePageHero | null;
 }
 
 export interface HomeView {

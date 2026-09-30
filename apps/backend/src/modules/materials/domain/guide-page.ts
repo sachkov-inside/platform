@@ -95,6 +95,24 @@ export const guidePageBlockSchema = z.discriminatedUnion("kind", [
   block("trial", { title: requiredShort, text: requiredLong, link: short }),
 ]);
 
+/** Первый экран продукта для карточки Главной: то же, что показывает страница продукта. */
+export const guidePageHeroSchema = z
+  .object({
+    badge: z.string(),
+    lead: z.string(),
+    highlights: z.array(z.string()),
+  })
+  .strict();
+export type GuidePageHero = z.infer<typeof guidePageHeroSchema>;
+
+/** Вводный блок описания, если он есть: одна запись, без второй копии текста. */
+export function guidePageHero(page: GuidePage | null): GuidePageHero | null {
+  const hero = page?.blocks.find((block) => block.kind === "hero");
+  return hero?.kind === "hero"
+    ? { badge: hero.badge, lead: hero.lead, highlights: hero.highlights }
+    : null;
+}
+
 export const guidePageCardSchema = z
   .object({ eyebrow: short, subtitle: short, action: short })
   .strict();

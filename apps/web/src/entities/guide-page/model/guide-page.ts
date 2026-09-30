@@ -165,6 +165,34 @@ export function readGuidePageCard(
   return null;
 }
 
+/** Первый экран продукта для карточки Главной: то же, что показывает страница продукта. */
+export interface GuidePageHero {
+  readonly badge: string;
+  readonly lead: string;
+  readonly highlights: readonly string[];
+}
+const heroSchema = z
+  .object({
+    badge: z.string().default(""),
+    lead: z.string(),
+    highlights: z.array(z.string()),
+  })
+  .strict();
+
+export function readGuidePageHero(
+  value: unknown,
+  context: string,
+  warn: PresentationWarning = reportToServerLog,
+): GuidePageHero | null {
+  if (value === null || value === undefined) return null;
+  const parsed = heroSchema.safeParse(value);
+  if (parsed.success) return parsed.data;
+  warn(
+    `[guide-presentation] ${context}: the stored Home hero does not match this site; it is not shown`,
+  );
+  return null;
+}
+
 /** Сроки оферты, которые автор пишет подстановкой: страница повторяет оферту, а не свои числа. */
 export interface OfferTerms {
   readonly access: string;

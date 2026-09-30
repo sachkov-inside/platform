@@ -1,7 +1,6 @@
 import {
   ArrowLeft,
   ArrowRight,
-  BookOpen,
   Bot,
   Check,
   ChevronDown,
@@ -37,7 +36,7 @@ import type {
   GuidePageBlock,
   GuidePageBlockOf,
 } from "@/entities/guide-page";
-import { CourseFilm } from "@/features/ai-engineering-course";
+import { CourseHero } from "@/features/ai-engineering-course";
 import type { PublishedSeriesResult } from "@/features/library-discovery";
 import type { MaterialReaderReturnTarget } from "@/shared/routing/material-reader";
 import { guideProgrammeHref } from "@/shared/routing/subscription-route";
@@ -91,13 +90,16 @@ export function AiEngineeringCourseView({
         </IntentPrefetchLink>
       </nav>
 
-      <Hero
-        block={hero}
-        cover={<CourseFilm />}
-        name={reference.name}
-        programme={programme}
-        summary={reference.summary}
-      />
+      <header className="aie-course-hero">
+        <CourseHero
+          action={{ href: programme, label: "Открыть программу" }}
+          badge={hero?.badge ?? ""}
+          compactActionOnPhone
+          highlights={hero?.highlights ?? []}
+          lead={hero?.lead ?? reference.summary}
+          name={reference.name}
+        />
+      </header>
 
       {page.blocks.map((block) => (
         <CourseBlock block={block} key={block.id} programme={programme} />
@@ -113,61 +115,9 @@ export function AiEngineeringCourseView({
   );
 }
 
-const highlightIcons = [BookOpen, ShieldCheck, MessagesSquare] as const;
-
 /** Значки и иллюстрации идут по порядку пунктов; лишний пункт получает общий значок. */
 function iconAt(icons: readonly LucideIcon[], index: number): LucideIcon {
   return icons[index] ?? Check;
-}
-
-function Hero({
-  block,
-  cover,
-  name,
-  programme,
-  summary,
-}: {
-  readonly block: GuidePageBlockOf<"hero"> | undefined;
-  readonly cover: ReactNode;
-  readonly name: string;
-  readonly programme: Route;
-  readonly summary: string;
-}) {
-  const lead = block?.lead ?? summary;
-  return (
-    <header className="ai-guide-hero">
-      <div className="ai-guide-hero-copy">
-        <h1 className="aie-course-title">
-          <span className="aie-course-name">{name}</span>
-          {block === undefined || block.badge === "" ? null : (
-            <>
-              {" "}
-              <span className="aie-course-badge">{block.badge}</span>
-            </>
-          )}
-        </h1>
-        {lead === "" ? null : <p className="ai-guide-intro">{lead}</p>}
-        {block === undefined || block.highlights.length === 0 ? null : (
-          <ul className="ai-guide-highlights" aria-label="Формат курса">
-            {block.highlights.map((highlight, index) => {
-              const Icon = iconAt(highlightIcons, index);
-              return (
-                <li key={`${String(index)}-${highlight}`}>
-                  <Icon aria-hidden="true" />
-                  {highlight}
-                </li>
-              );
-            })}
-          </ul>
-        )}
-        <IntentPrefetchLink className="ai-guide-button" href={programme}>
-          Открыть программу
-          <ArrowRight />
-        </IntentPrefetchLink>
-      </div>
-      <div className="aie-course-cover">{cover}</div>
-    </header>
-  );
 }
 
 function CourseBlock({
