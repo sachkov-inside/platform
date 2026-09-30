@@ -171,7 +171,7 @@ export const CohortPreorder: Story = {
         call={cohortCall({
           cohort,
           offer: guideWithSupportOffer,
-          ownership: "lacks",
+          access: "closed",
           signedIn: true,
           slug: "ai-engineering",
         })}
@@ -203,7 +203,7 @@ export const CohortAnnouncement: Story = {
         call={cohortCall({
           cohort: { ...cohort, stage: "announcement" },
           offer: guideWithSupportOffer,
-          ownership: "unknown",
+          access: "closed",
           signedIn: false,
           slug: "ai-engineering",
         })}
@@ -234,7 +234,7 @@ export const CohortBetween: Story = {
             nextEvent: "эфир 15 декабря",
           },
           offer: guideWithSupportOffer,
-          ownership: "lacks",
+          access: "closed",
           signedIn: true,
           slug: "ai-engineering",
         })}

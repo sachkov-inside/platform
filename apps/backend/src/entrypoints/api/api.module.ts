@@ -21,6 +21,7 @@ import {
   DiscoverPublishedMaterialsController,
   ListPublishedMaterialsController,
   ListLearningPracticesController,
+  ReadGuideAccessController,
   ReadHomeContentController,
 } from "../../modules/content-library/index.js";
 import { AccountsModule } from "../../modules/accounts/index.js";
@@ -50,6 +51,7 @@ import { HealthController } from "./health.controller.js";
     ListLearningPracticesController,
     DiscoverPublishedMaterialsController,
     ReadHomeContentController,
+    ReadGuideAccessController,
     VideoAuthoringController,
     KinescopeWebhookController,
   ],

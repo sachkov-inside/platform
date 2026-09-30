@@ -1,31 +1,14 @@
-import type { MaterialPreview } from "@/entities/material";
 import {
   formatKopecks,
   type GuideCohort,
   type PriceSnapshot,
 } from "@/entities/subscription";
 import type { CohortCall } from "@/features/ai-engineering-course";
+import type { GuideAccess } from "@/features/library-discovery";
 import {
   guideProgrammeHref,
   guidePurchaseHref,
 } from "@/shared/routing/subscription-route";
-
-/**
- * Открыт ли продукт этому человеку, насколько это видно по его программе: платные уроки открыты
- * — продукт у него есть; хоть один закрыт — нет. Пока в программе нет ни одного платного урока,
- * ответа нет, и страница не прячет оплату от того, кому она может быть нужна.
- */
-export type ProductOwnership = "holds" | "lacks" | "unknown";
-
-export function productOwnership(
-  items: readonly Pick<MaterialPreview, "access" | "availability">[],
-): ProductOwnership {
-  const paid = items.filter((item) => item.access === "membership");
-  if (paid.length === 0) return "unknown";
-  return paid.some((item) => item.availability === "locked")
-    ? "lacks"
-    : "holds";
-}
 
 const cohortDate = new Intl.DateTimeFormat("ru-RU", {
   day: "numeric",
@@ -47,14 +30,15 @@ export function formatCohortDate(startsOn: string): string {
 export function cohortCall({
   cohort,
   offer,
-  ownership,
+  access,
   signedIn,
   slug,
 }: {
   readonly cohort: GuideCohort | null;
   /** Самый дешёвый вариант продукта, который видит этот человек, или `null`, если продажи нет. */
   readonly offer: PriceSnapshot | null;
-  readonly ownership: ProductOwnership;
+  /** Открыт ли продукт этому человеку по его основаниям; тому, у кого он есть, оплата не нужна. */
+  readonly access: GuideAccess;
   readonly signedIn: boolean;
   readonly slug: string;
 }): CohortCall {
@@ -69,7 +53,7 @@ export function cohortCall({
 
   const date =
     cohort.startsOn === null ? "" : formatCohortDate(cohort.startsOn);
-  const payable = offer !== null && ownership !== "holds";
+  const payable = offer !== null && access !== "open";
   const pay = (label: string) =>
     payable
       ? ({ kind: "purchase", href: guidePurchaseHref(slug), label } as const)

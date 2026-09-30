@@ -15,6 +15,8 @@ import type {
   AvailabilityBatchResult,
   ContentAccess,
   DenyReason,
+  GuideAccess,
+  GuideAccessRequest,
   Resource,
   Subject,
 } from "./content-access.interface.js";
@@ -279,6 +281,38 @@ export function assembleContentAccess(
       return reason === "active_workshop"
         ? decision("dependency_unavailable")
         : decision(reason);
+    },
+
+    // Разрешение автора здесь не читается: оно открывает материалы для работы, а не продукт
+    // читателю, и не должно прятать от автора покупку.
+    async checkGuideAccess({
+      subject,
+      guideId,
+    }: GuideAccessRequest): Promise<GuideAccess> {
+      if (subject.kind === "anonymous") return { kind: "closed" };
+      let membership: MembershipAccessState;
+      try {
+        membership = await dependencies.membershipEntitlements.resolveForAccess(
+          subject.accountId,
+          [guideId],
+        );
+      } catch (error) {
+        return dependencyFailure(
+          { module: "content-access", operation: "checkGuideAccess" },
+          error,
+          { kind: "unavailable" },
+        );
+      }
+      switch (membership.kind) {
+        case "active":
+          return { kind: "open" };
+        case "required":
+        case "expired":
+          return { kind: "closed" };
+        case "stale":
+        case "unavailable":
+          return { kind: "unavailable" };
+      }
     },
   });
 

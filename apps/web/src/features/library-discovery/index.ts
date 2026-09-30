@@ -3,6 +3,7 @@ export type {
   LibraryDiscoveryReference,
   LibraryDiscoveryResult,
   DiscoveryTopic,
+  GuideAccess,
   GuideChapter,
   GuideIntroduction,
   RelatedPlaylist,

@@ -1297,6 +1297,58 @@ describe("таблица сценариев доступа (реальный Pos
     expect(verdicts.filter((entry) => entry !== null)).toEqual([]);
   });
 
+  // Первый экран продукта прячет оплату по этому ответу. Продукт без опубликованных платных
+  // материалов проверяет, что ответ идёт от оснований, а не от программы (#831).
+  test("guide-access-without-paid-materials", async () => {
+    now = new Date(startedAt);
+    const bare = await guide(`bare-product-${randomUUID()}`);
+    const namedTier = await tier([bare]);
+    const expected: readonly (readonly [string, string | null, string])[] = [
+      ["guest", null, "closed"],
+      ["account-without-rights", await account(), "closed"],
+      [
+        "one-time-purchase",
+        await purchased((await productOffer(bare)).optionId),
+        "open",
+      ],
+      [
+        "tier-naming-product",
+        await assigned("manual", groundEndsAt, namedTier),
+        "open",
+      ],
+      ["tier-all-products-via-course", await assigned("course", null), "open"],
+      [
+        "tier-all-products-via-tribute",
+        (await tributeMember(groundEndsAt)).account,
+        "open",
+      ],
+      ["right-to-another-product", await directHolder(), "closed"],
+      ...(grounds.get("expired-or-revoked") ?? []).map(
+        (holder) => ["expired-or-revoked", holder, "closed"] as const,
+      ),
+    ];
+    const observed = [];
+    for (const [ground, holder] of expected)
+      observed.push([
+        ground,
+        holder,
+        (
+          await readerAccess.checkGuideAccess({
+            subject: subjectOf(holder),
+            guideId: bare,
+          })
+        ).kind,
+      ]);
+    expect(observed).toEqual(expected);
+    // Разрешение автора открывает материалы для работы, но не продукт: покупка ему видна.
+    expect(
+      await authorAccess.checkGuideAccess({
+        subject: subjectOf(owner),
+        guideId: bare,
+      }),
+    ).toEqual({ kind: "closed" });
+  });
+
   // ------------------------------------------------------------------------------- переходы
 
   async function transitionVerdicts(

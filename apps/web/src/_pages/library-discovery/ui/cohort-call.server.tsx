@@ -10,10 +10,10 @@ import {
   type CohortCall,
 } from "@/features/ai-engineering-course";
 import type { PublishedSeriesResult } from "@/features/library-discovery";
-import { loadPublishedSeries } from "@/features/library-discovery.server";
+import { loadGuideAccess } from "@/features/library-discovery.server";
 import { getOptionalPlatformAccessToken } from "@/shared/auth/optional-platform-access-token.server";
 
-import { cohortCall, productOwnership } from "../model/cohort-call";
+import { cohortCall } from "../model/cohort-call";
 
 type ResolvedSeries = Extract<
   PublishedSeriesResult,
@@ -39,10 +39,13 @@ export async function PersonalCohortCall({
   const { id: guideId, slug } = result.reference;
   if (guideId === undefined) return <PendingCohortCall slug={slug} />;
   const accessToken = await getOptionalPlatformAccessToken();
-  const [cohort, offers, personal] = await Promise.all([
+  const [cohort, offers, access] = await Promise.all([
     loadGuideCohort(guideId),
     loadGuideOffers(guideId),
-    accessToken === undefined ? result : loadPublishedSeries(slug, accessToken),
+    // Гостю продукт не открыт: оплата ведёт через вход.
+    accessToken === undefined
+      ? ("closed" as const)
+      : loadGuideAccess(guideId, accessToken),
   ]);
   // Без потока страница остаётся прежней: сбой чтения каталога не выдумывает этап.
   if (cohort.kind === "unavailable") return <PendingCohortCall slug={slug} />;
@@ -51,10 +54,7 @@ export async function PersonalCohortCall({
       call={cohortCall({
         cohort: cohort.cohort,
         offer: offers.kind === "ready" ? (offers.offers[0] ?? null) : null,
-        ownership:
-          personal.kind === "ready"
-            ? productOwnership(personal.items)
-            : "unknown",
+        access,
         signedIn: accessToken !== undefined,
         slug,
       })}
@@ -66,7 +66,7 @@ function withoutCohort(slug: string): CohortCall {
   return cohortCall({
     cohort: null,
     offer: null,
-    ownership: "unknown",
+    access: "unknown",
     signedIn: false,
     slug,
   });
