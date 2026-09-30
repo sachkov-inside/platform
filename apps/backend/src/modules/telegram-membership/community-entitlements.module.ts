@@ -1,4 +1,5 @@
 import { OwnCommunityAdmissionController } from "./features/activate-subscription/own-community-admission.controller.js";
+import { OwnCommunityEntryController } from "./features/enter-community/own-community-entry.controller.js";
 import { Module } from "@nestjs/common";
 
 import {
@@ -32,6 +33,7 @@ import { TelegramAccountLinksModule } from "./telegram-account-links.module.js";
   ],
   controllers: [
     OwnCommunityAdmissionController,
+    OwnCommunityEntryController,
     CommunityDispatchController,
     CommunityDeliveryController,
   ],
@@ -54,6 +56,7 @@ import { TelegramAccountLinksModule } from "./telegram-account-links.module.js";
       ) =>
         new CommunityEntitlements({
           accounts,
+          botStartUrl: config.telegramMembership.botStartUrl,
           grants,
           links,
           prisma,

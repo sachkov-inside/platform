@@ -164,6 +164,7 @@ describe("community entitlement delivery (real PostgreSQL and real facets; synth
 
   function community(provider: ProviderDouble): CommunityEntitlements {
     return new CommunityEntitlements({
+      botStartUrl: "https://t.me/inside_test_bot",
       accounts,
       clock: () => now,
       grants,
@@ -687,6 +688,75 @@ describe("community entitlement delivery (real PostgreSQL and real facets; synth
     });
   });
 
+  test("the own community entry follows the right, the Telegram link and the observed membership", async () => {
+    now = new Date(start);
+    const provider = new ProviderDouble();
+    const app = community(provider);
+    const account = await member();
+
+    expect(await app.readOwnCommunityEntry(account)).toEqual({ kind: "none" });
+
+    // A right without a Telegram link cannot be admitted: the bot does not know this person yet.
+    await grantCommunity(account, null);
+    expect(await app.readOwnCommunityEntry(account)).toEqual({
+      kind: "link_telegram",
+    });
+
+    await link(account, `identity-${account}`);
+    expect(await app.readOwnCommunityEntry(account)).toEqual({
+      kind: "preparing",
+    });
+
+    await app.sweep();
+    const [queued] = await operations(account);
+    // Accepted is not yet an admission the bot can hand out.
+    expect(await app.readOwnCommunityEntry(account)).toEqual({
+      kind: "preparing",
+    });
+
+    provider.observe(
+      queued?.operationId ?? "",
+      "waiting_for_join",
+      "not_member",
+    );
+    now = new Date(new Date(start).getTime() + 61_000);
+    await app.sweep();
+    expect(await app.readOwnCommunityEntry(account)).toEqual({
+      botUrl: "https://t.me/inside_test_bot",
+      kind: "join",
+    });
+
+    provider.observe(queued?.operationId ?? "", "applied", "member");
+    now = new Date(new Date(start).getTime() + 122_000);
+    await app.sweep();
+    expect(await app.readOwnCommunityEntry(account)).toEqual({
+      kind: "member",
+    });
+    // The activation wire keeps its own admission shape.
+    expect(await app.readOwnAdmission(account)).toEqual({
+      admissionRestriction: "none",
+      state: "ready",
+    });
+  });
+
+  test("an unreadable Telegram link never turns into advice to link Telegram", async () => {
+    now = new Date(start);
+    const account = await member();
+    await grantCommunity(account, null);
+    const degraded = new CommunityEntitlements({
+      accounts,
+      botStartUrl: "https://t.me/inside_test_bot",
+      clock: () => now,
+      grants,
+      links: { readBinding: () => Promise.resolve({ ok: false as const }) },
+      prisma: database.prisma,
+      provider: new ProviderDouble(),
+    });
+    expect(await degraded.readOwnCommunityEntry(account)).toEqual({
+      kind: "none",
+    });
+  });
+
   test("the operator list names only people Telegram still sees in the chat without a current right", async () => {
     now = new Date(start);
     const stays = await member();
@@ -820,6 +890,7 @@ describe("community entitlement delivery (real PostgreSQL and real facets; synth
     );
 
     const degraded = new CommunityEntitlements({
+      botStartUrl: "https://t.me/inside_test_bot",
       accounts,
       clock: () => now,
       grants: {

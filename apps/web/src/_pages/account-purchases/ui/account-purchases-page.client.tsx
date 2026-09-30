@@ -2,6 +2,7 @@
 import type { Route } from "next";
 
 import { BillingContactPanel } from "@/features/billing-contact";
+import { CommunityEntryPanel } from "@/features/community-entry";
 import {
   PurchasesPanel,
   useBillingSessionExpired,
@@ -14,8 +15,9 @@ import {
 const storefrontHref: Route = "/subscription";
 
 /**
- * Раздел «Покупки»: что доступно и по какому основанию, куда придёт чек, какой картой платим
- * и что уже списано. Подтверждение email живёт здесь же — это часть одной задачи.
+ * Раздел «Покупки»: что доступно и по какому основанию, как попасть в сообщество,
+ * куда придёт чек, какой картой платим и что уже списано. Подтверждение email живёт
+ * здесь же — это часть одной задачи.
  */
 export function AccountPurchasesPage() {
   // Завершённая сессия объясняется один раз: форма контакта не повторяет ту же просьбу войти.
@@ -27,7 +29,14 @@ export function AccountPurchasesPage() {
     <div>
       <AccountSectionHeader section="purchases" />
       <PurchasesPanel
-        {...(sessionExpired ? {} : { contactSlot: <BillingContactPanel /> })}
+        {...(sessionExpired
+          ? {}
+          : {
+              communitySlot: (
+                <CommunityEntryPanel telegramHref="/account/access" />
+              ),
+              contactSlot: <BillingContactPanel />,
+            })}
         storefrontHref={subscriptionOffered ? storefrontHref : undefined}
       />
     </div>

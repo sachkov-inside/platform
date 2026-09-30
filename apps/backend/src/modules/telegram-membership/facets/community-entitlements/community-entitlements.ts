@@ -11,6 +11,9 @@ import {
   communityAccessFor,
   accessAllows,
   type DispatchAuthorizeRequest,
+  type ObservedMembership,
+  type OwnAdmission,
+  type OwnCommunityEntry,
 } from "../../domain/community-entitlement.js";
 import {
   communityDeliveryViewSchema,
@@ -45,6 +48,8 @@ export interface CommunityEntitlementsDependencies {
   >;
   readonly links: Pick<TelegramAccountLinks, "readBinding">;
   readonly provider: CommunityEntitlementProvider;
+  /** Адрес бота без параметра `/start`: вступление начинается с его `/community`. */
+  readonly botStartUrl: string;
   readonly clock?: () => Date;
 }
 
@@ -76,9 +81,41 @@ export class CommunityEntitlements {
     this.clock = dependencies.clock ?? (() => new Date());
   }
 
-  async readOwnAdmission(accountId: string) {
-    if (!z.uuid().safeParse(accountId).success)
-      return { admissionRestriction: null, state: "checking" as const };
+  async readOwnAdmission(accountId: string): Promise<OwnAdmission> {
+    return (await this.resolveOwnAdmission(accountId)).admission;
+  }
+
+  /** Какой переход в сообщество показать самому Account; правило живёт здесь, а не в интерфейсе. */
+  async readOwnCommunityEntry(accountId: string): Promise<OwnCommunityEntry> {
+    const { admission, linked, membership } =
+      await this.resolveOwnAdmission(accountId);
+    // Непрочитанные факты не превращаются в совет подключить Telegram: блока просто нет.
+    if (linked === null || admission.state === "no_access")
+      return { kind: "none" };
+    if (!linked) return { kind: "link_telegram" };
+    if (
+      admission.state === "moderation_blocked" ||
+      admission.admissionRestriction === "external_unknown"
+    )
+      return { kind: "restricted" };
+    if (admission.state !== "ready") return { kind: "preparing" };
+    return membership === "member"
+      ? { kind: "member" }
+      : { kind: "join", botUrl: this.dependencies.botStartUrl };
+  }
+
+  private async resolveOwnAdmission(accountId: string): Promise<{
+    readonly admission: OwnAdmission;
+    /** `null`, когда связь с Telegram не удалось прочитать. */
+    readonly linked: boolean | null;
+    readonly membership: ObservedMembership;
+  }> {
+    const unresolved = {
+      admission: { admissionRestriction: null, state: "checking" as const },
+      linked: null,
+      membership: "unknown" as const,
+    };
+    if (!z.uuid().safeParse(accountId).success) return unresolved;
     const [access, binding, desired] = await Promise.all([
       this.dependencies.grants.resolveCapabilities(accountId),
       this.dependencies.links.readBinding({ accountId }),
@@ -86,10 +123,14 @@ export class CommunityEntitlements {
         where: { accountId },
       }),
     ]);
-    if (!access.ok || !binding.ok)
-      return { admissionRestriction: null, state: "checking" as const };
+    if (!access.ok || !binding.ok) return unresolved;
+    const linked = binding.binding !== null;
     if (!accessAllows(communityAccessFor(access.capabilities), this.clock()))
-      return { admissionRestriction: null, state: "no_access" as const };
+      return {
+        ...unresolved,
+        admission: { admissionRestriction: null, state: "no_access" },
+        linked,
+      };
     const operation =
       desired?.latestOperationId === null ||
       desired?.latestOperationId === undefined
@@ -111,18 +152,22 @@ export class CommunityEntitlements {
       result.data.binding.telegramIdentityRef !==
         binding.binding.telegramIdentityRef
     )
-      return { admissionRestriction: null, state: "checking" as const };
+      return { ...unresolved, linked };
     const restriction = result.data.admissionRestriction;
     return {
-      admissionRestriction: restriction,
-      state:
-        restriction === "moderation"
-          ? ("moderation_blocked" as const)
-          : restriction === "none" &&
-              (result.data.status === "applied" ||
-                result.data.status === "waiting_for_join")
-            ? ("ready" as const)
-            : ("checking" as const),
+      admission: {
+        admissionRestriction: restriction,
+        state:
+          restriction === "moderation"
+            ? "moderation_blocked"
+            : restriction === "none" &&
+                (result.data.status === "applied" ||
+                  result.data.status === "waiting_for_join")
+              ? "ready"
+              : "checking",
+      },
+      linked,
+      membership: result.data.observedMembership,
     };
   }
 
