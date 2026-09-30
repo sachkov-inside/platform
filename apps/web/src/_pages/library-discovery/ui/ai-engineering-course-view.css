@@ -27,6 +27,11 @@
   transform: rotate(-4deg);
 }
 
+/* Текст раздела не прилипает к заголовку, как бы ни был собран раздел. */
+.ai-guide-page.aie-course h2 + p {
+  margin-top: 1rem;
+}
+
 .aie-course-cover {
   min-width: 0;
   overflow: hidden;
