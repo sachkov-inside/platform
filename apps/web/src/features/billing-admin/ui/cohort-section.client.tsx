@@ -164,7 +164,8 @@ export function CohortSection({
         <p>
           <Button
             className={billingActionClass}
-            disabled={pending}
+            // Без прочитанных потоков нет текущей редакции: сохранение подменило бы список.
+            disabled={pending || cohorts === null}
             type="submit"
           >
             Сохранить поток

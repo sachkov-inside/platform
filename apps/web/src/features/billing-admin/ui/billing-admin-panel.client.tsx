@@ -508,12 +508,16 @@ export function BillingAdminPanel({
               ...input.value,
               revision: value.result.value.revision,
             };
-            setCohorts((current) => [
-              ...(current ?? []).filter(
-                (cohort) => cohort.guideId !== saved.guideId,
-              ),
-              saved,
-            ]);
+            setCohorts((current) =>
+              current === null
+                ? null
+                : [
+                    ...current.filter(
+                      (cohort) => cohort.guideId !== saved.guideId,
+                    ),
+                    saved,
+                  ],
+            );
             setNotice(
               `Поток сохранён, редакция ${String(value.result.value.revision)}.`,
             );

@@ -322,3 +322,17 @@ export const ProductCohort: Story = {
     });
   },
 };
+
+/** Потоки не прочитаны: раздел говорит об этом и не даёт сохранить поток без текущей редакции. */
+export const ProductCohortUnavailable: Story = {
+  args: { cohorts: null },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await expect(
+      canvas.getByText(/Не удалось прочитать текущие потоки/u),
+    ).toBeInTheDocument();
+    await expect(
+      canvas.getByRole("button", { name: "Сохранить поток" }),
+    ).toBeDisabled();
+  },
+};
