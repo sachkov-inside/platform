@@ -1,9 +1,4 @@
-import {
-  ArrowRight,
-  BookOpen,
-  MessagesSquare,
-  ShieldCheck,
-} from "lucide-react";
+import { ArrowRight, BookOpen, Clock3, ShieldCheck } from "lucide-react";
 import type { Route } from "next";
 
 import { IntentPrefetchLink } from "@/shared/ui/intent-prefetch-link.client";
@@ -12,7 +7,7 @@ import { CourseFilm } from "./course-film.client";
 
 import "./course-hero.css";
 
-const pointIcons = [BookOpen, ShieldCheck, MessagesSquare] as const;
+const pointIcons = [BookOpen, ShieldCheck, Clock3] as const;
 
 /**
  * Первый экран курса AI Engineering: название с меткой, вводная фраза, пункты, кнопка и анимация.

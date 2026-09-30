@@ -42,29 +42,30 @@
   line-height: 1.7;
   color: var(--muted-foreground);
 }
+/* Пункты — короткий столбец со значками: на любой ширине колонки они не рвутся на неровные ряды. */
 .aie-hero-points {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.5rem;
-  margin: 1.25rem 0 0;
+  display: grid;
+  gap: 0.6rem;
+  margin: 1.4rem 0 0;
   padding: 0;
   list-style: none;
 }
 .aie-hero-points li {
   display: flex;
   align-items: center;
-  gap: 0.4rem;
-  padding: 0.5rem 0.75rem;
-  border-radius: 999px;
-  background: var(--secondary);
-  font-size: 0.75rem;
+  gap: 0.7rem;
+  font-size: 0.95rem;
+  font-weight: 600;
   line-height: 1.4;
 }
 .aie-hero-points svg {
-  width: 0.95rem;
-  height: 0.95rem;
   flex: none;
-  color: var(--muted-foreground);
+  width: 2rem;
+  height: 2rem;
+  padding: 0.45rem;
+  border-radius: 0.6rem;
+  background: color-mix(in srgb, var(--accent) 12%, var(--background));
+  color: var(--accent);
 }
 .aie-hero-action {
   display: inline-flex;
@@ -130,9 +131,69 @@
   .aie-hero-points svg {
     width: 1.1rem;
     height: 1.1rem;
-    color: var(--accent);
+    padding: 0;
+    border-radius: 0;
+    background: none;
   }
   .aie-hero-action[data-compact-on-phone="true"] {
     display: none;
+  }
+}
+
+/*
+ * Первый экран собирается при загрузке: текст поднимается по очереди, метка «приклеивается» с
+ * небольшим перелётом поворота. Без анимации всё сразу стоит на месте.
+ */
+@media (prefers-reduced-motion: no-preference) {
+  .aie-hero-name,
+  .aie-hero-lead,
+  .aie-hero-points li,
+  .aie-hero-action,
+  .aie-hero-film {
+    animation: aie-hero-rise 700ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+  }
+  .aie-hero-name {
+    display: inline-block;
+  }
+  .aie-hero-lead {
+    animation-delay: 120ms;
+  }
+  .aie-hero-points li:nth-child(1) {
+    animation-delay: 200ms;
+  }
+  .aie-hero-points li:nth-child(2) {
+    animation-delay: 260ms;
+  }
+  .aie-hero-points li:nth-child(3) {
+    animation-delay: 320ms;
+  }
+  .aie-hero-action {
+    animation-delay: 400ms;
+  }
+  .aie-hero-film {
+    animation-name: aie-hero-film-in;
+    animation-duration: 900ms;
+    animation-delay: 80ms;
+  }
+  .aie-hero-badge {
+    animation: aie-hero-badge-in 650ms cubic-bezier(0.3, 1.5, 0.5, 1) 380ms both;
+  }
+}
+@keyframes aie-hero-rise {
+  from {
+    opacity: 0;
+    translate: 0 0.9rem;
+  }
+}
+@keyframes aie-hero-film-in {
+  from {
+    opacity: 0;
+    scale: 0.97;
+  }
+}
+@keyframes aie-hero-badge-in {
+  from {
+    opacity: 0;
+    transform: scale(0.6) rotate(-16deg);
   }
 }

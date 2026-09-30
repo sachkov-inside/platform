@@ -46,6 +46,7 @@ import {
   ClaudeCodeLogo,
   CodexLogo,
   DeepSeekLogo,
+  HermesAgentLogo,
   OpenCodeLogo,
 } from "./agent-logos";
 
@@ -135,9 +136,9 @@ function CourseBlock({
       if (block.id === "audience") return <Audience block={block} />;
       if (block.id === "value") return <ValueGrid block={block} />;
       if (block.id === "faq") return <Faq block={block} />;
+      if (block.id === "mentoring") return <Mentoring block={block} />;
       return <ChecklistCards block={block} />;
     case "text":
-      if (block.id === "mentoring") return <Mentoring block={block} />;
       if (block.id === "practice") return <Practice block={block} />;
       return <SplitText block={block} />;
     case "steps":
@@ -153,27 +154,28 @@ function CourseBlock({
   }
 }
 
-const mentorPoints = [
-  { icon: MessagesSquare, label: "Вопросы автору по материалам и практике" },
-  { icon: LifeBuoy, label: "Помощь с проблемами в твоём проекте" },
-  { icon: RefreshCw, label: "Курс обновляется вместе с технологиями" },
-] as const;
-function Mentoring({ block }: { readonly block: GuidePageBlockOf<"text"> }) {
+const mentoringIcons = [MessagesSquare, LifeBuoy, RefreshCw] as const;
+/** Менторинг: вводный текст слева, пункты из описания курса лесенкой справа. */
+function Mentoring({ block }: { readonly block: GuidePageBlockOf<"cards"> }) {
   return (
     <section className="ai-guide-support aie-mentoring">
       <div className="ai-guide-support-intro">
         <h2>{block.title}</h2>
-        {block.paragraphs.map((paragraph, index) => (
-          <p key={`${String(index)}-${paragraph}`}>{paragraph}</p>
-        ))}
+        {block.lead === "" ? null : <p>{block.lead}</p>}
       </div>
-      <ul className="aie-mentoring-points" aria-hidden="true">
-        {mentorPoints.map(({ icon: Icon, label }) => (
-          <li key={label}>
-            <Icon />
-            <span>{label}</span>
-          </li>
-        ))}
+      <ul className="aie-mentoring-points">
+        {block.items.map((item, index) => {
+          const Icon = iconAt(mentoringIcons, index);
+          return (
+            <li key={`${String(index)}-${item.title}`}>
+              <Icon aria-hidden="true" />
+              <span>
+                <b>{item.title}</b>
+                {item.text}
+              </span>
+            </li>
+          );
+        })}
       </ul>
     </section>
   );
@@ -571,10 +573,20 @@ function FormatCards({
   const titleId = `aie-${block.id}-title`;
   return (
     <section className="aie-format" aria-labelledby={titleId}>
-      <h2 id={titleId}>{block.title}</h2>
-      {block.lead === "" ? null : (
-        <p className="ai-guide-section-intro">{block.lead}</p>
-      )}
+      <div className="aie-format-head">
+        <div>
+          <h2 id={titleId}>{block.title}</h2>
+          {block.lead === "" ? null : (
+            <p className="ai-guide-section-intro">{block.lead}</p>
+          )}
+        </div>
+        {block.link === "" ? null : (
+          <IntentPrefetchLink className="ai-guide-text-link" href={programme}>
+            {block.link}
+            <ArrowRight />
+          </IntentPrefetchLink>
+        )}
+      </div>
       <ol>
         {block.items.map((step, index) => (
           <li key={`${String(index)}-${step.title}`}>
@@ -586,12 +598,6 @@ function FormatCards({
           </li>
         ))}
       </ol>
-      {block.link === "" ? null : (
-        <IntentPrefetchLink className="ai-guide-text-link" href={programme}>
-          {block.link}
-          <ArrowRight />
-        </IntentPrefetchLink>
-      )}
     </section>
   );
 }
@@ -600,8 +606,8 @@ function FormatCards({
 const practiceTasks = [
   { label: "Первая фича вместе с агентом", state: "done" },
   { label: "MCP-сервер для своего агента", state: "done" },
-  { label: "Агент с поиском по документации", state: "current" },
-  { label: "Evals и выпуск изменений", state: "next" },
+  { label: "Агент с поиском по документам проекта", state: "current" },
+  { label: "Evals и проверка перед релизом", state: "next" },
 ] as const;
 function Practice({ block }: { readonly block: GuidePageBlockOf<"text"> }) {
   return (
@@ -636,6 +642,7 @@ const agentLogos: Record<string, (props: { className?: string }) => ReactNode> =
     codex: CodexLogo,
     opencode: OpenCodeLogo,
     deepseek: DeepSeekLogo,
+    hermes: HermesAgentLogo,
   };
 /** Агенты с логотипами; незнакомое название получает нейтральный знак. */
 function Agents({ block }: { readonly block: GuidePageBlockOf<"list"> }) {
@@ -740,10 +747,12 @@ function ValueGrid({ block }: { readonly block: GuidePageBlockOf<"cards"> }) {
 function Faq({ block }: { readonly block: GuidePageBlockOf<"cards"> }) {
   return (
     <section className="aie-faq">
-      <h2>{block.title}</h2>
-      {block.lead === "" ? null : (
-        <p className="ai-guide-section-intro">{block.lead}</p>
-      )}
+      <div className="aie-faq-head">
+        <h2>{block.title}</h2>
+        {block.lead === "" ? null : (
+          <p className="ai-guide-section-intro">{block.lead}</p>
+        )}
+      </div>
       <div className="aie-faq-list">
         {block.items.map((item, index) => (
           <details key={`${String(index)}-${item.title}`}>

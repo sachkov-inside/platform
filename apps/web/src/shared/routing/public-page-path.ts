@@ -9,7 +9,7 @@ import { internalRoute } from "./internal-route";
 
 /**
  * Канонические адреса публичных страниц. Продукт живёт по `/products/<slug>` (решение владельца
- * 30.09.2026, platform#808); прежние `/products/<slug>` и `/series/<slug>` постоянно перенаправляются
+ * 30.09.2026, platform#808); прежние `/guides/<slug>` и `/series/<slug>` постоянно перенаправляются
  * туда в `next.config.ts`.
  */
 export const HOME_PATH = internalRoute("/");

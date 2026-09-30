@@ -42,7 +42,8 @@ export const Desktop: Story = {
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
     await expect(
-      canvas.getByRole("heading", { level: 1, name: "AI Engineering" }),
+      // Метка «+ менторинг» — часть заголовка, поэтому имя начинается с названия курса.
+      canvas.getByRole("heading", { level: 1, name: /^AI Engineering/u }),
     ).toBeVisible();
     // Программа и прохождение живут на своей странице: все кнопки ведут туда.
     for (const link of canvas.getAllByRole("link", {

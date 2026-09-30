@@ -39,7 +39,20 @@
 .aie-mentoring-points li:nth-child(3) {
   margin-left: 3rem;
 }
+.aie-mentoring-points li > span {
+  display: grid;
+  gap: 0.15rem;
+  font-size: 0.875rem;
+  font-weight: 450;
+  color: var(--muted-foreground);
+}
+.aie-mentoring-points b {
+  font-size: 1rem;
+  font-weight: 650;
+  color: var(--foreground);
+}
 .aie-mentoring-points svg {
+  flex: none;
   width: 2.25rem;
   height: 2.25rem;
   padding: 0.5rem;
@@ -115,6 +128,20 @@
 
 .aie-course .ai-guide-sticky {
   margin-top: 2rem;
+}
+/*
+ * Одна кнопка в программу на каждом экране: на широком её несут первый экран и финальная плашка,
+ * на планшете и телефоне — нижняя панель, поэтому кнопка в плашке там не повторяется.
+ */
+@media (min-width: 64rem) {
+  .aie-course .ai-guide-sticky {
+    display: none;
+  }
+}
+@media (max-width: 63.999rem) {
+  .aie-status-button {
+    display: none;
+  }
 }
 
 @media (max-width: 47.999rem) {
@@ -298,8 +325,11 @@
 .aie-art-stack span:nth-child(1) {
   border-left: 3px solid var(--accent);
 }
+/* Лишнее выглядит вычеркнутым пунктиром, но остаётся читаемым: контраст не ниже 4.5:1. */
 .aie-art-stack span[data-muted="true"] {
-  opacity: 0.45;
+  border: 1px dashed var(--border);
+  background: transparent;
+  color: var(--muted-foreground);
   text-decoration: line-through;
   box-shadow: none;
 }
@@ -608,8 +638,9 @@
   font-size: 1rem;
   line-height: 1.3;
   color: var(--primary-foreground);
+  /* Длинное слово уходит на новую строку целиком, а не рвётся переносом. */
   overflow-wrap: normal;
-  hyphens: auto;
+  hyphens: manual;
 }
 .ai-guide-page .aie-value li p {
   margin: 0.4rem 0 0;
@@ -619,14 +650,46 @@
 }
 
 /* ---------- Частые вопросы ---------- */
+/*
+ * На широком экране вопросы стоят справа от заголовка, как в других разделах из двух колонок,
+ * а контакт — под заголовком. На узком всё идёт подряд: заголовок, вопросы, контакт.
+ */
 .aie-faq {
-  max-width: 48rem;
-  margin: 5rem auto;
+  display: grid;
+  grid-template-columns: minmax(0, 0.8fr) minmax(0, 1.2fr);
+  grid-template-rows: auto 1fr;
+  align-items: start;
+  column-gap: 3rem;
+  margin-block: 5rem;
+}
+.aie-faq-head {
+  grid-column: 1;
+  grid-row: 1;
 }
 .aie-faq-list {
+  grid-column: 2;
+  grid-row: 1 / span 2;
   display: grid;
   gap: 0.6rem;
-  margin-top: 1.5rem;
+}
+.ai-guide-page .aie-faq .aie-faq-note {
+  grid-column: 1;
+  grid-row: 2;
+}
+@media (max-width: 63.999rem) {
+  .aie-faq {
+    grid-template-columns: 1fr;
+    grid-template-rows: none;
+  }
+  .aie-faq-head,
+  .aie-faq-list,
+  .ai-guide-page .aie-faq .aie-faq-note {
+    grid-column: auto;
+    grid-row: auto;
+  }
+  .aie-faq-list {
+    margin-top: 1.5rem;
+  }
 }
 .aie-faq details {
   border-radius: 1rem;
@@ -666,11 +729,11 @@
   padding: 0 1.25rem 1.1rem;
   color: var(--muted-foreground);
 }
-.aie-faq-note {
+.ai-guide-page .aie-faq-note {
   display: flex;
   align-items: center;
   gap: 0.75rem;
-  margin-top: 1.25rem;
+  margin-top: 1.5rem;
   padding: 1rem 1.25rem;
   border-radius: 1rem;
   background: color-mix(in srgb, var(--accent) 10%, var(--background));
@@ -682,9 +745,12 @@
   height: 1.25rem;
   color: var(--accent);
 }
+/* Оранжевый текст на тёплой плашке не дотягивает до 4.5:1, поэтому акцент несёт подчёркивание. */
 .aie-faq-note a {
-  color: var(--accent);
-  text-underline-offset: 3px;
+  color: var(--foreground);
+  text-decoration-color: var(--accent);
+  text-decoration-thickness: 2px;
+  text-underline-offset: 4px;
 }
 .aie-faq-note a:focus-visible {
   outline: 2px solid var(--ring);
@@ -727,10 +793,11 @@
   .aie-value-rise {
     display: none;
   }
+  /* Номер мелкий, поэтому на тёмном он светлый: оранжевый не даёт нужного контраста. */
   .aie-value-number {
     grid-row: span 2;
     display: grid;
-    color: var(--accent-bright);
+    color: var(--primary-foreground);
     place-items: center;
     width: 2.7rem;
     height: 2.7rem;
@@ -766,6 +833,22 @@
 /* ---------- Как проходит обучение: четыре витрины ---------- */
 .aie-format {
   margin-block: 5rem;
+}
+.aie-format-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 0.5rem 2rem;
+}
+.aie-format-head .ai-guide-text-link {
+  flex: none;
+}
+@media (max-width: 63.999rem) {
+  /* На планшете и телефоне в программу ведёт нижняя панель. */
+  .aie-format-head .ai-guide-text-link {
+    display: none;
+  }
 }
 .aie-format ol {
   display: grid;
@@ -1028,10 +1111,6 @@
 /* ---------- Для кого курс ---------- */
 .aie-audience {
   margin-block: 5rem;
-  text-align: center;
-}
-.aie-audience > h2 {
-  margin-inline: auto;
 }
 .aie-audience ul {
   display: grid;
@@ -1043,10 +1122,10 @@
 }
 .aie-audience li {
   display: grid;
-  justify-items: center;
+  justify-items: start;
   align-content: start;
   gap: 0.6rem;
-  padding: 1.75rem 1.25rem;
+  padding: 1.5rem;
   border-radius: 1.25rem;
   background: var(--secondary);
 }
@@ -1133,7 +1212,11 @@
     padding: 0.45rem 0.55rem;
   }
   .aie-format-art {
-    aspect-ratio: 16 / 9;
+    aspect-ratio: 2 / 1;
+  }
+  .aie-mock-chat span,
+  .aie-mock-terminal code {
+    font-size: 0.8rem;
   }
   .aie-agents ul {
     grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -1148,9 +1231,6 @@
   .aie-agents .aie-agent-mark {
     width: 1.75rem;
     height: 1.75rem;
-  }
-  .aie-audience {
-    text-align: left;
   }
   .aie-audience li {
     grid-template-columns: 3rem minmax(0, 1fr);
@@ -1252,5 +1332,128 @@
     padding: 0.55rem 0.8rem;
     white-space: nowrap;
     text-align: left;
+  }
+}
+
+/*
+ * ---------- Движение при прокрутке ----------
+ * Разделы и карточки проявляются, когда входят в экран; столбики пользы растут снизу вверх.
+ * Анимация привязана к прокрутке средствами CSS: без скриптов, без сдвига вёрстки и только там,
+ * где браузер это умеет. Без поддержки и при просьбе уменьшить движение страница стоит на месте.
+ */
+@media (prefers-reduced-motion: no-preference) {
+  @supports (animation-timeline: view()) {
+    .aie-course > section > h2,
+    .aie-course > section > div:first-child,
+    .aie-course > section > .ai-guide-section-intro,
+    .aie-bento > li,
+    .aie-mentoring-points li,
+    .aie-format li,
+    .aie-practice-tasks li,
+    .aie-agents li,
+    .aie-audience li,
+    .aie-audience-note,
+    .aie-faq details,
+    .aie-faq-note,
+    .aie-status ul li {
+      animation: aie-reveal linear both;
+      animation-timeline: view();
+      /* Высокая плитка проявляется за первые строки, а не пока целиком не войдёт в экран. */
+      animation-range: entry var(--aie-reveal-from, 0%) entry
+        min(90%, var(--aie-reveal-to, 9rem));
+    }
+    /* Соседние карточки ряда входят не разом, а волной. */
+    .aie-bento > li:nth-child(even),
+    .aie-format li:nth-child(2),
+    .aie-agents li:nth-child(3n + 2),
+    .aie-audience li:nth-child(2),
+    .aie-mentoring-points li:nth-child(2),
+    .aie-practice-tasks li:nth-child(2) {
+      --aie-reveal-from: min(10%, 1.5rem);
+      --aie-reveal-to: 10.5rem;
+    }
+    .aie-format li:nth-child(3),
+    .aie-agents li:nth-child(3n),
+    .aie-audience li:nth-child(3),
+    .aie-mentoring-points li:nth-child(3),
+    .aie-practice-tasks li:nth-child(3) {
+      --aie-reveal-from: min(20%, 3rem);
+      --aie-reveal-to: 12rem;
+    }
+    .aie-format li:nth-child(4),
+    .aie-practice-tasks li:nth-child(4) {
+      --aie-reveal-from: min(30%, 4.5rem);
+      --aie-reveal-to: 13.5rem;
+    }
+    .aie-practice-tasks li {
+      animation-name: aie-slide;
+    }
+
+    /* Столбики растут от общей линии; время роста задаёт положение списка на экране. */
+    .aie-value ol {
+      view-timeline: --aie-value block;
+    }
+    .aie-value-rise b {
+      animation: aie-grow linear both;
+      animation-timeline: --aie-value;
+      animation-range: entry calc(10% + var(--aie-step, 0) * 8%) cover
+        calc(20% + var(--aie-step, 0) * 4%);
+    }
+    .aie-value li h3,
+    .aie-value li p,
+    .aie-value-number {
+      animation: aie-reveal linear both;
+      animation-timeline: view();
+      animation-range: entry 0% entry min(90%, 9rem);
+    }
+  }
+}
+@keyframes aie-reveal {
+  from {
+    opacity: 0;
+    translate: 0 1.5rem;
+  }
+}
+@keyframes aie-slide {
+  from {
+    opacity: 0;
+    translate: -1.5rem 0;
+  }
+}
+@keyframes aie-grow {
+  from {
+    clip-path: inset(100% 0 0 0 round 0.9rem 0.9rem 0.3rem 0.3rem);
+  }
+  to {
+    clip-path: inset(0 0 0 0 round 0.9rem 0.9rem 0.3rem 0.3rem);
+  }
+}
+
+/* Ответ на вопрос раскрывается плавно там, где браузер умеет анимировать высоту `details`. */
+@media (prefers-reduced-motion: no-preference) {
+  @supports selector(::details-content) {
+    .aie-faq {
+      interpolate-size: allow-keywords;
+    }
+    .aie-faq details::details-content {
+      block-size: 0;
+      overflow: clip;
+      transition:
+        block-size 280ms cubic-bezier(0.2, 0.8, 0.2, 1),
+        content-visibility 280ms allow-discrete;
+    }
+    .aie-faq details[open]::details-content {
+      block-size: auto;
+    }
+  }
+}
+
+/* Карточки формата отвечают на наведение: витрина чуть приподнимается. */
+@media (prefers-reduced-motion: no-preference) and (hover: hover) {
+  .aie-format-art {
+    transition: translate 220ms cubic-bezier(0.2, 0.8, 0.2, 1);
+  }
+  .aie-format li:hover .aie-format-art {
+    translate: 0 -3px;
   }
 }

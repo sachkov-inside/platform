@@ -220,20 +220,20 @@ function ProgressWalkthrough({
       event.preventDefault();
       setSelectedId(item.id);
       setReaderFromSeries(
-        /^\/(guides|series)\//u.test(url.searchParams.get("from") ?? ""),
+        (url.searchParams.get("from") ?? "").startsWith("/products/"),
       );
       navigate("reader");
     } else if (
       path === "/account" ||
       path === "/" ||
-      /^\/(guides|series)\//u.test(path) ||
+      path.startsWith("/products/") ||
       path.startsWith("/topics/")
     ) {
       event.preventDefault();
       navigate(
         path === "/account" || path === "/"
           ? "home"
-          : /^\/(guides|series)\//u.test(path)
+          : path.startsWith("/products/")
             ? "series"
             : "cards",
       );
@@ -257,7 +257,7 @@ function ProgressWalkthrough({
     seriesMemberships: [],
   };
   const returnTarget = parseMaterialReaderReturnTarget(
-    readerFromSeries ? "/series/platform-inside" : "/account",
+    readerFromSeries ? "/products/platform-inside" : "/account",
   );
   const seriesContext = resolveSeriesReaderContext({
     currentMaterialSlug: selected.slug,
