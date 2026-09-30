@@ -7,6 +7,8 @@ export {
   type CommunicationsPrisma,
   type ReadingActivityPrisma,
   type ReadingActivityPrismaClient,
+  type SalesFunnelPrisma,
+  type SalesFunnelPrismaClient,
   type BookmarksPrisma,
   type BookmarksPrismaClient,
   type AccountsPrisma,

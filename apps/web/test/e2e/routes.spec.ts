@@ -506,6 +506,37 @@ test("authoring route owns a dedicated shell outside the public application shel
   expect((box?.width ?? 0) + (sidebarBox?.width ?? 0)).toBe(1_440);
 });
 
+test("sales funnel report asks a signed-out visitor to sign in inside the authoring shell", async ({
+  page,
+}, testInfo) => {
+  const response = await page.goto("/authoring/sales-funnel");
+
+  expect(response?.status()).toBe(200);
+  await expect(page).toHaveTitle(/^Воронка продаж · Authoring/u);
+  await expect(page.getByRole("heading", { name: "Нужен вход" })).toBeVisible();
+  const signIn = page.getByRole("button", { name: "Войти" });
+  await expect(signIn.locator("xpath=ancestor::form")).toHaveAttribute(
+    "action",
+    "/auth/sign-in",
+  );
+  await expect(
+    signIn.locator("xpath=ancestor::form").locator("input[name=returnTo]"),
+  ).toHaveValue("/authoring/sales-funnel");
+  if (navigationMode(testInfo.project.name) === "desktop")
+    await expect(
+      page
+        .getByRole("complementary", { name: "Редактор" })
+        .getByRole("link", { name: "Воронка продаж" }),
+    ).toHaveAttribute("aria-current", "page");
+  expect(
+    await page.evaluate(
+      () => document.documentElement.scrollWidth <= window.innerWidth,
+    ),
+  ).toBe(true);
+  const accessibility = await new AxeBuilder({ page }).analyze();
+  expect(accessibility.violations).toEqual([]);
+});
+
 test("auth control hydrates without a server-client mismatch", async ({
   page,
 }, testInfo) => {

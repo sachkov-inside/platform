@@ -1,4 +1,8 @@
 import {
+  name as salesFunnelName,
+  statement as salesFunnelStatement,
+} from "../modules/sales-funnel/infrastructure/postgres/migrations/0073-sales-funnel.js";
+import {
   name as practiceDefinitionsName,
   statement as practiceDefinitionsStatement,
 } from "../modules/materials/infrastructure/postgres/migrations/0072-practice-definitions.js";
@@ -492,6 +496,7 @@ export const platformMigrations = [
   { name: guidePageName, statement: guidePageStatement },
   { name: offerEligibilityName, statement: offerEligibilityStatement },
   { name: practiceDefinitionsName, statement: practiceDefinitionsStatement },
+  { name: salesFunnelName, statement: salesFunnelStatement },
 ] as const;
 
 export function migrateToLatest(

@@ -8,7 +8,7 @@ generator client {
 
 datasource db {
   provider = "postgresql"
-  schemas  = ["notifications", "billing", "accounts", "assets", "bookmarks", "communications", "materials", "member_profiles", "reading_activity", "membership_entitlements", "telegram_membership", "videos", "workshop"]
+  schemas  = ["notifications", "billing", "accounts", "assets", "bookmarks", "communications", "materials", "member_profiles", "reading_activity", "sales_funnel", "membership_entitlements", "telegram_membership", "videos", "workshop"]
 }
 
 model Account {
@@ -1822,4 +1822,21 @@ model PracticeImportReceipt {
   @@id([actorId, operation, idempotencyKey])
   @@map("practice_import_receipts")
   @@schema("materials")
+}
+
+model SalesFunnelBotEvent {
+  eventId             String   @id(map: "bot_events_primary") @map("event_id") @db.Uuid
+  contactRef          String   @map("contact_ref") @db.Uuid
+  kind                String
+  sourceCode          String?  @map("source_code")
+  granted             Boolean?
+  telegramIdentityRef String?  @map("telegram_identity_ref")
+  accountId           String?  @map("account_id") @db.Uuid
+  occurredAt          DateTime @map("occurred_at") @db.Timestamptz
+  receivedAt          DateTime @map("received_at") @db.Timestamptz
+
+  @@index([contactRef, kind, occurredAt, eventId], map: "bot_events_contact_kind")
+  @@index([kind, occurredAt], map: "bot_events_kind_time")
+  @@map("bot_events")
+  @@schema("sales_funnel")
 }

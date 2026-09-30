@@ -70,6 +70,13 @@ inside.sachkov.dev {
 		}
 		reverse_proxy @communications_validate {$PLATFORM_API_UPSTREAM:127.0.0.1:13001}
 
+		# События воронки продаж от бота (#816): отдельный bearer воронки; без секрета вход закрыт.
+		@sales_funnel_events {
+			method POST
+			path /integrations/telegram/v1/sales-funnel/events
+		}
+		reverse_proxy @sales_funnel_events {$PLATFORM_API_UPSTREAM:127.0.0.1:13001}
+
 		# Перенос из Content (#805): наружу выходит только backend /authoring/*. Bearer Logto автора и
 		# право materials:manage проверяет API. Префикс не пересекается со страницами /authoring и BFF /api.
 		@authoring_api path /authoring-api/authoring/*

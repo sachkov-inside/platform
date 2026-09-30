@@ -38,6 +38,7 @@ export * from "./billing-contact.server";
 export * from "./legal-acceptances.server";
 export * from "./notifications.server";
 export * from "./bookmarks.server";
+export * from "./sales-funnel.server";
 export * from "./billing.server";
 
 export { requestCurrentEnrollments } from "./billing.server";

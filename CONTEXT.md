@@ -517,3 +517,21 @@ _Avoid_: Notification, broker acknowledgement, прочтение
 переименование, перестановка и включение в другое руководство его не создают. В русском языке
 продукта: «анонс первой публикации».
 _Avoid_: Publication event, рассылка, повторный анонс
+
+## Sales funnel
+
+**Sales Funnel**:
+The owner's aggregated view of how far the people who first entered the bot in a period have got
+towards buying one Product: entered, gave marketing consent, opened the chosen chapter, reached
+checkout, paid. The period chooses the cohort; later steps count who of it has reached them so far.
+Bot steps count bot contacts, the later steps count Accounts. In Russian product language:
+«Воронка продаж».
+_Avoid_: Events of the period, conversion of one person, поток as a stored entity
+
+**Source Label**:
+The label of the bot link a person first entered the bot through, such as `m_survey`. An Account
+takes the label of its linked bot contact and keeps it after an unlink; an Account without a known
+bot entry has none. It is an
+observation of the first entry, not a proven cause of a purchase. In Russian product language:
+«метка источника».
+_Avoid_: UTM, campaign, attribution model, referrer

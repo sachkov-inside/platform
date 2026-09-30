@@ -67,3 +67,4 @@ export {
 export { PublishedMaterialSelection } from "./features/select-published-materials/select-published-materials.js";
 export { assembleMaterialsNotificationOutbox } from "./facets/notification-outbox/notification-outbox.js";
 export { MaterialAnnouncements } from "./facets/material-announcements/material-announcements.js";
+export { GuideOutlines } from "./features/list-guide-outlines/list-guide-outlines.js";

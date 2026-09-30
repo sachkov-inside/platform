@@ -1,3 +1,4 @@
+import { MaterialFirstOpens } from "./features/list-first-opens/list-first-opens.js";
 import { GetLearningHomeController } from "./features/get-learning-home/get-learning-home.controller.js";
 import { GetSeriesContinuationController } from "./features/get-series-continuation/get-series-continuation.controller.js";
 import {
@@ -42,6 +43,12 @@ import { ReadingActivity } from "./facets/reading-activity/reading-activity.js";
     GetContinueMaterialsController,
   ],
   providers: [
+    {
+      provide: MaterialFirstOpens,
+      inject: [PrismaClientProvider],
+      useFactory: (prisma: PrismaClientProvider) =>
+        new MaterialFirstOpens(prisma),
+    },
     {
       provide: PersonalHome,
       inject: [
@@ -94,5 +101,6 @@ import { ReadingActivity } from "./facets/reading-activity/reading-activity.js";
         }),
     },
   ],
+  exports: [MaterialFirstOpens],
 })
 export class ReadingActivityModule {}
