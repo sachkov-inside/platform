@@ -647,12 +647,15 @@ function drawSpec({ g, f, local, w, h }: Frame) {
   const lines: readonly (readonly [number, () => void])[] = [
     [
       0.3,
-      () => text(g, "# Вход через GitHub", x, top + 112, 32, 800, TEXT, f.sans),
+      () => {
+        text(g, "# Вход через GitHub", x, top + 112, 32, 800, TEXT, f.sans);
+      },
     ],
     [
       0.5,
-      () =>
-        text(g, "## Поведение", x, top + 166, 28, 800, ACCENT_BRIGHT, f.sans),
+      () => {
+        text(g, "## Поведение", x, top + 166, 28, 800, ACCENT_BRIGHT, f.sans);
+      },
     ],
     [
       0.65,
@@ -666,7 +669,7 @@ function drawSpec({ g, f, local, w, h }: Frame) {
     ],
     [
       0.85,
-      () =>
+      () => {
         text(
           g,
           "## Критерии приёмки",
@@ -676,7 +679,8 @@ function drawSpec({ g, f, local, w, h }: Frame) {
           800,
           ACCENT_BRIGHT,
           f.sans,
-        ),
+        );
+      },
     ],
   ];
   for (const [at, draw] of lines)
