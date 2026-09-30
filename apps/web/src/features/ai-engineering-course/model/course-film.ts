@@ -120,7 +120,7 @@ const EPISODES: readonly Episode[] = [
     exit: "toTop",
     states: [
       { id: "harness", at: 6.2, w: 840, h: 480, r: 30 },
-      { id: "roles", at: 9.9, w: 820, h: 420, r: 32 },
+      { id: "roles", at: 9.9, w: 840, h: 440, r: 32 },
     ],
   },
   {
@@ -131,7 +131,7 @@ const EPISODES: readonly Episode[] = [
     states: [
       { id: "spec", at: 12.8, w: 620, h: 430, r: 32 },
       { id: "features", at: 15.6, w: 740, h: 380, r: 32 },
-      { id: "diff", at: 18.2, w: 700, h: 430, r: 30 },
+      { id: "diff", at: 18.2, w: 780, h: 400, r: 30 },
     ],
   },
   {
@@ -140,11 +140,11 @@ const EPISODES: readonly Episode[] = [
     enter: "fromRight",
     exit: "none",
     states: [
-      { id: "cicd", at: 21.0, w: 780, h: 350, r: 34 },
-      { id: "monitor", at: 24.6, w: 760, h: 400, r: 32 },
-      { id: "releases", at: 27.4, w: 620, h: 390, r: 34 },
-      { id: "toast", at: 29.6, w: 620, h: 104, r: 52 },
-      { id: "pill", at: 31.0, w: 430, h: 100, r: 50 },
+      { id: "cicd", at: 21.0, w: 760, h: 440, r: 34 },
+      { id: "monitor", at: 25.2, w: 760, h: 400, r: 32 },
+      { id: "releases", at: 27.9, w: 620, h: 390, r: 34 },
+      { id: "toast", at: 30.0, w: 620, h: 104, r: 52 },
+      { id: "pill", at: 31.2, w: 430, h: 100, r: 50 },
     ],
   },
 ];
@@ -292,30 +292,6 @@ function check(
   }
   g.stroke();
   g.restore();
-}
-
-/** Кружок со статусом: пустой — ждёт, заполненный с галочкой — готово. */
-function doneDot(
-  g: CanvasRenderingContext2D,
-  x: number,
-  y: number,
-  on: number,
-  radius = 16,
-) {
-  g.strokeStyle = on > 0 ? ACCENT_BRIGHT : MUTED;
-  g.lineWidth = 3;
-  g.beginPath();
-  g.arc(x, y, radius, 0, Math.PI * 2);
-  g.stroke();
-  if (on <= 0) return;
-  g.save();
-  g.globalAlpha *= on;
-  g.fillStyle = ACCENT;
-  g.beginPath();
-  g.arc(x, y, radius, 0, Math.PI * 2);
-  g.fill();
-  g.restore();
-  check(g, x, y, radius, on, TEXT);
 }
 
 /** Прилёт элемента: пружиной из смещения `(dx, dy)` в своё место. */
@@ -469,7 +445,7 @@ function drawHarness({ g, f, local, w, h }: Frame) {
   g.fillStyle = INK_LINE;
   g.fillRect(left, top + 66, w, 1.5);
   g.fillRect(left + 300, top + 66, 1.5, h - 66);
-  // Файлы прилетают слева по одному; roles/ подсвечен, когда к нему идёт курсор.
+  // Файлы прилетают слева по одному; roles/ подсвечивается перед тем, как раскрыться в команду.
   for (const [i, file] of FILES.entries()) {
     const p = spring(local - 0.35 - i * 0.14, 240, 22);
     const y = top + 112 + i * 62;
@@ -514,82 +490,214 @@ function drawHarness({ g, f, local, w, h }: Frame) {
   }
 }
 
-const ROLES = [
-  ["Архитектор", "пишет спецификацию", -1],
-  ["Разработчик", "реализует задачи", 0],
-  ["Ревьюер", "проверяет PR", 1],
-] as const;
-/** Роли агентов прилетают с трёх сторон и встают в ряд. */
-function drawRoles({ g, t, f, local, w, h }: Frame) {
-  const top = -h / 2;
-  text(g, "Роли агентов", -w / 2 + 44, top + 56, 34, 800, TEXT, f.sans);
-  text(
-    g,
-    "roles/",
-    w / 2 - 44,
-    top + 56,
-    28,
-    700,
-    ACCENT_BRIGHT,
-    f.mono,
-    "right",
-  );
-  const cardW = 234;
-  for (const [i, [role, job, side]] of ROLES.entries()) {
-    const p = spring(local - 0.35 - i * 0.2, 180, 17);
-    const x = -cardW * 1.5 - 18 + i * (cardW + 18);
-    flyIn(g, p, side * 260, side === 0 ? 220 : -40, () => {
-      roundRect(g, x, top + 110, cardW, 250, 20);
-      g.fillStyle = INK_HIGH;
-      g.fill();
-      const pulse = 1 + 0.15 * Math.sin(t * 6 + i);
-      g.fillStyle = ACCENT_BRIGHT;
+const GREEN = "#3fb950";
+const GREEN_TEXT = "#7ee787";
+const GREEN_BG = "rgba(46, 160, 67, 0.22)";
+const RED_TEXT = "#ffa198";
+const RED_BG = "rgba(248, 81, 73, 0.2)";
+const RUNNING = "#d29922";
+
+type Glyph = "plan" | "code" | "test";
+interface Member {
+  readonly name: string;
+  readonly color: string;
+  readonly glyph: Glyph;
+}
+/** Команда агентов: у каждой роли свой цвет и знак, нарисованный кодом. */
+const TEAM: readonly Member[] = [
+  { name: "Планировщик", color: "#9d8cf0", glyph: "plan" },
+  { name: "Разработчик", color: ACCENT_BRIGHT, glyph: "code" },
+  { name: "Тестировщик", color: GREEN, glyph: "test" },
+];
+
+function glyph(g: CanvasRenderingContext2D, kind: Glyph, r: number) {
+  g.strokeStyle = INK;
+  g.fillStyle = INK;
+  g.lineWidth = r * 0.13;
+  g.lineCap = "round";
+  g.lineJoin = "round";
+  g.beginPath();
+  if (kind === "plan") {
+    for (let i = -1; i <= 1; i++) {
+      g.moveTo(-r * 0.22, i * r * 0.32);
+      g.lineTo(r * 0.42, i * r * 0.32);
+    }
+    g.stroke();
+    for (let i = -1; i <= 1; i++) {
       g.beginPath();
-      g.arc(x + 40, top + 160, 14 * pulse, 0, Math.PI * 2);
+      g.arc(-r * 0.42, i * r * 0.32, r * 0.08, 0, Math.PI * 2);
       g.fill();
-      text(g, role, x + 24, top + 222, 30, 800, TEXT, f.sans);
-      text(
-        g,
-        job.split(" ")[0] ?? "",
-        x + 24,
-        top + 272,
-        26,
-        600,
-        MUTED,
-        f.sans,
-      );
-      text(
-        g,
-        job.split(" ").slice(1).join(" "),
-        x + 24,
-        top + 306,
-        26,
-        600,
-        MUTED,
-        f.sans,
-      );
+    }
+    return;
+  }
+  if (kind === "code") {
+    g.moveTo(-r * 0.2, -r * 0.3);
+    g.lineTo(-r * 0.48, 0);
+    g.lineTo(-r * 0.2, r * 0.3);
+    g.moveTo(r * 0.2, -r * 0.3);
+    g.lineTo(r * 0.48, 0);
+    g.lineTo(r * 0.2, r * 0.3);
+    g.moveTo(r * 0.08, -r * 0.36);
+    g.lineTo(-r * 0.08, r * 0.36);
+    g.stroke();
+    return;
+  }
+  g.moveTo(-r * 0.4, 0);
+  g.lineTo(-r * 0.1, r * 0.3);
+  g.lineTo(r * 0.42, -r * 0.32);
+  g.stroke();
+}
+
+/** Аватар агента: цветной круг со знаком роли; занятый агент крутит орбиту. */
+function avatar(
+  g: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  r: number,
+  member: Member,
+  t: number,
+  busy: number,
+) {
+  g.save();
+  g.translate(x, y);
+  if (busy > 0) {
+    g.strokeStyle = member.color;
+    g.globalAlpha *= 0.55 * busy;
+    g.lineWidth = 3;
+    g.beginPath();
+    g.arc(0, 0, r + 9, t * 3, t * 3 + Math.PI * 1.2);
+    g.stroke();
+    g.globalAlpha /= 0.55 * busy;
+  }
+  g.fillStyle = member.color;
+  g.beginPath();
+  g.arc(0, 0, r, 0, Math.PI * 2);
+  g.fill();
+  glyph(g, member.glyph, r);
+  g.restore();
+}
+
+/** Три агента прилетают с разных сторон и начинают работать над одной задачей. */
+function drawRoles({ g, t, f, local }: Frame) {
+  const task = spring(local - 0.25, 220, 20);
+  flyIn(g, task, 0, 80, () => {
+    roundRect(g, -170, 90, 340, 92, 20);
+    g.fillStyle = INK_HIGH;
+    g.fill();
+    text(g, "задача", -144, 118, 24, 700, MUTED, f.sans);
+    text(g, "Вход через GitHub", -144, 154, 30, 800, TEXT, f.sans);
+  });
+  const spots = [
+    [-270, -50, -320, -40],
+    [0, -96, 0, -260],
+    [270, -50, 320, -40],
+  ] as const;
+  for (const [i, member] of TEAM.entries()) {
+    const [x, y, dx, dy] = spots[i] ?? [0, 0, 0, 0];
+    const p = spring(local - 0.5 - i * 0.18, 180, 16);
+    const link = clamp((local - 1.1 - i * 0.12) / 0.4);
+    if (link > 0) {
+      // Связь от агента к задаче рисуется, по ней бегут точки работы.
+      const tx = x * 0.35;
+      const ty = 90;
+      g.save();
+      g.strokeStyle = member.color;
+      g.globalAlpha *= 0.5;
+      g.lineWidth = 2.5;
+      g.setLineDash([8, 8]);
+      g.beginPath();
+      g.moveTo(x, y + 52);
+      g.lineTo(lerp(x, tx, link), lerp(y + 52, ty, link));
+      g.stroke();
+      g.restore();
+      if (link >= 1) {
+        const k = (t * 0.9 + i * 0.33) % 1;
+        g.fillStyle = member.color;
+        g.beginPath();
+        g.arc(lerp(x, tx, k), lerp(y + 52, ty, k), 6, 0, Math.PI * 2);
+        g.fill();
+      }
+    }
+    flyIn(g, p, dx, dy, () => {
+      avatar(g, x, y, 44, member, t, link);
+      text(g, member.name, x, y - 70, 26, 800, TEXT, f.sans, "center");
     });
   }
 }
 
-const SPEC = [
-  "Поведение",
-  "Критерии приёмки",
-  "API и данные",
-  "Тесты",
-] as const;
+/** Спецификация как файл: вкладка spec.md, markdown, чекбоксы критериев отмечаются. */
 function drawSpec({ g, f, local, w, h }: Frame) {
-  const left = -w / 2 + 44;
+  const left = -w / 2;
   const top = -h / 2;
-  text(g, "Спецификация", left, top + 56, 34, 800, TEXT, f.sans);
-  text(g, "вход через GitHub", left, top + 100, 28, 600, MUTED, f.sans);
-  for (const [i, item] of SPEC.entries()) {
-    const y = top + 172 + i * 62;
-    const on = clamp((local - 0.8 - i * 0.4) / 0.28);
-    const p = spring(local - 0.3 - i * 0.1, 240, 22);
-    flyIn(g, p, 60, 0, () => {
-      doneDot(g, left + 16, y, on);
-      text(g, item, left + 52, y + 1, 30, 700, on > 0.5 ? TEXT : MUTED, f.sans);
+  roundRect(g, left + 28, top + 22, 170, 44, 12);
+  g.fillStyle = INK_HIGH;
+  g.fill();
+  text(g, "spec.md", left + 50, top + 45, 26, 700, TEXT, f.mono);
+  g.fillStyle = INK_LINE;
+  g.fillRect(left, top + 66, w, 1.5);
+  // Загнутый угол страницы.
+  g.fillStyle = INK_HIGH;
+  g.beginPath();
+  g.moveTo(w / 2 - 44, top);
+  g.lineTo(w / 2, top + 44);
+  g.lineTo(w / 2 - 44, top + 44);
+  g.closePath();
+  g.fill();
+  const x = left + 44;
+  const lines: readonly (readonly [number, () => void])[] = [
+    [
+      0.3,
+      () => text(g, "# Вход через GitHub", x, top + 112, 32, 800, TEXT, f.sans),
+    ],
+    [
+      0.5,
+      () =>
+        text(g, "## Поведение", x, top + 166, 28, 800, ACCENT_BRIGHT, f.sans),
+    ],
+    [
+      0.65,
+      () => {
+        g.fillStyle = INK_HIGH;
+        roundRect(g, x, top + 196, w * 0.62, 10, 5);
+        g.fill();
+        roundRect(g, x, top + 218, w * 0.46, 10, 5);
+        g.fill();
+      },
+    ],
+    [
+      0.85,
+      () =>
+        text(
+          g,
+          "## Критерии приёмки",
+          x,
+          top + 266,
+          28,
+          800,
+          ACCENT_BRIGHT,
+          f.sans,
+        ),
+    ],
+  ];
+  for (const [at, draw] of lines)
+    flyIn(g, spring(local - at, 240, 22), 0, 16, draw);
+  const criteria = ["вход и выход работают", "права проверяет сервер"] as const;
+  for (const [i, item] of criteria.entries()) {
+    const y = top + 314 + i * 50;
+    const p = spring(local - 1.0 - i * 0.12, 240, 22);
+    const on = clamp((local - 1.5 - i * 0.45) / 0.25);
+    flyIn(g, p, 0, 16, () => {
+      roundRect(g, x, y - 14, 28, 28, 6);
+      g.strokeStyle = on > 0 ? GREEN : MUTED;
+      g.lineWidth = 2.5;
+      g.stroke();
+      if (on > 0) {
+        roundRect(g, x, y - 14, 28, 28, 6);
+        g.fillStyle = GREEN;
+        g.fill();
+        check(g, x + 14, y, 18, on, INK);
+      }
+      text(g, item, x + 46, y + 1, 28, 600, on > 0.5 ? TEXT : MUTED, f.sans);
     });
   }
 }
@@ -599,159 +707,184 @@ const FEATURES = [
   ["Роли и доступ", 1.05],
   ["MCP-сервер", 1.25],
 ] as const;
+/** Три агента-разработчика едут по своим полосам: параллельную работу видно без подписи. */
 function drawFeatures({ g, t, f, local, w, h }: Frame) {
   const left = -w / 2 + 44;
   const top = -h / 2;
-  text(g, "Реализация фич", left, top + 56, 34, 800, TEXT, f.sans);
-  text(
-    g,
-    "3 агента параллельно",
-    w / 2 - 44,
-    top + 56,
-    28,
-    700,
-    ACCENT_BRIGHT,
-    f.sans,
-    "right",
-  );
+  const developer = TEAM[1];
+  const barLeft = left + 12;
+  const barW = w - 88 - 60;
   for (const [i, [feature, speed]] of FEATURES.entries()) {
-    const y = top + 136 + i * 76;
-    const p = clamp(((local - 0.4) * speed) / 1.6);
-    const enter = spring(local - 0.25 - i * 0.12, 220, 20);
+    const y = top + 92 + i * 104;
+    const p = clamp(((local - 0.4) * speed) / 1.7);
+    const enter = spring(local - 0.2 - i * 0.14, 220, 20);
     flyIn(g, enter, -80, 0, () => {
-      g.fillStyle = ACCENT_BRIGHT;
-      g.beginPath();
-      g.arc(
-        left + 12,
-        y,
-        10 + (p < 1 ? Math.sin(t * 8 + i) * 2 : 0),
-        0,
-        Math.PI * 2,
-      );
-      g.fill();
-      text(g, feature, left + 40, y - 14, 30, 700, TEXT, f.sans);
-      roundRect(g, left + 40, y + 14, w - 190, 10, 5);
+      text(g, feature, barLeft, y, 30, 700, TEXT, f.sans);
+      roundRect(g, barLeft, y + 34, barW, 12, 6);
       g.fillStyle = INK_HIGH;
       g.fill();
-      roundRect(g, left + 40, y + 14, (w - 190) * p, 10, 5);
-      g.fillStyle = p >= 1 ? ACCENT : ACCENT_BRIGHT;
+      roundRect(g, barLeft, y + 34, barW * p, 12, 6);
+      g.fillStyle = p >= 1 ? GREEN : ACCENT;
       g.fill();
-      if (p >= 1) {
-        check(
+      // Готовая фича: аватар растворяется, на его месте встаёт галочка.
+      const done = clamp((local - 0.4 - 1.7 / speed) / 0.25);
+      if (developer && done < 1) {
+        g.save();
+        g.globalAlpha *= 1 - done;
+        avatar(
           g,
-          w / 2 - 70,
-          y,
-          26,
-          clamp((local - 0.4 - 1.6 / speed) / 0.25),
-          ACCENT_BRIGHT,
+          barLeft + barW * p,
+          y + 40,
+          22,
+          developer,
+          t + i,
+          p < 1 ? 1 : 0,
         );
+        g.restore();
       }
+      if (p >= 1) check(g, barLeft + barW + 30, y + 40, 26, done, GREEN);
     });
   }
 }
 
-const DIFF = [
-  ["+", "auth/github.ts", 0.9],
-  ["+", "auth/session.ts", 0.7],
-  ["~", "routes/login.tsx", 0.5],
-  ["+", "tests/login.test.ts", 0.8],
-] as const;
+type DiffLine = readonly [kind: " " | "+" | "-", number: string, code: string];
+const DIFF: readonly DiffLine[] = [
+  [" ", "12", "export async function signIn() {"],
+  ["-", "13", "  return legacyLogin();"],
+  ["+", "13", "  const code = await github.authorize();"],
+  ["+", "14", "  const user = await github.user(code);"],
+  ["+", "15", "  return createSession(user);"],
+  [" ", "16", "}"],
+];
+/** Дифф как в GitHub: файл, счётчики, удалённая строка красная, добавленные зелёные. */
 function drawDiff({ g, f, local, w, h }: Frame) {
-  const left = -w / 2 + 44;
+  const left = -w / 2;
   const top = -h / 2;
-  text(g, "Изменения", left, top + 58, 34, 800, TEXT, f.sans);
-  for (const [i, [mark, file, size]] of DIFF.entries()) {
-    const p = spring(local - 0.4 - i * 0.24, 240, 22);
-    const y = top + 140 + i * 62;
-    flyIn(g, p, 40, 0, () => {
+  text(g, "auth/github.ts", left + 40, top + 44, 28, 700, TEXT, f.mono);
+  const pr = spring(local - 2.0, 200, 17);
+  if (pr <= 0.5) {
+    text(g, "+24", w / 2 - 110, top + 44, 28, 800, GREEN_TEXT, f.mono, "right");
+    text(g, "−3", w / 2 - 40, top + 44, 28, 800, RED_TEXT, f.mono, "right");
+  }
+  g.fillStyle = INK_LINE;
+  g.fillRect(left, top + 76, w, 1.5);
+  for (const [i, [kind, number, code]] of DIFF.entries()) {
+    const y = top + 112 + i * 44;
+    const p = spring(local - 0.35 - i * 0.18, 240, 22);
+    flyIn(g, p, 30, 0, () => {
+      if (kind !== " ") {
+        g.fillStyle = kind === "+" ? GREEN_BG : RED_BG;
+        g.fillRect(left, y - 20, w, 40);
+      }
+      text(g, number, left + 60, y + 1, 22, 600, MUTED, f.mono, "right");
+      const sign = kind === "-" ? "−" : kind;
+      const color = kind === "+" ? GREEN_TEXT : kind === "-" ? RED_TEXT : MUTED;
+      text(g, sign, left + 80, y + 1, 24, 700, color, f.mono);
       text(
         g,
-        mark,
-        left,
-        y,
-        32,
-        800,
-        mark === "+" ? ACCENT_BRIGHT : MUTED,
+        code,
+        left + 104,
+        y + 1,
+        23,
+        600,
+        kind === " " ? TEXT : color,
         f.mono,
       );
-      text(g, file, left + 40, y, 30, 600, TEXT, f.mono);
-      g.fillStyle = mark === "+" ? ACCENT : INK_HIGH;
-      g.fillRect(w / 2 - 44 - 120 * size * p, y - 6, 120 * size * p, 12);
     });
   }
-  // Бейдж PR встаёт в шапку, когда все изменения на месте, и держится до смены эпизода.
-  const pr = spring(local - 1.75, 200, 17);
+  // Бейдж PR встаёт в шапку вместо счётчиков и держится до смены эпизода.
   if (pr > 0) {
     g.save();
-    g.translate(w / 2 - 44 - 130, top + 58);
+    g.translate(w / 2 - 44 - 130, top + 44);
     g.scale(0.6 + 0.4 * pr, 0.6 + 0.4 * pr);
     g.globalAlpha *= clamp(pr * 1.5);
-    roundRect(g, -130, -28, 260, 56, 28);
-    g.fillStyle = ACCENT;
+    roundRect(g, -130, -26, 260, 52, 26);
+    g.fillStyle = GREEN;
     g.fill();
-    text(g, "PR #42 открыт", 0, 1, 28, 700, TEXT, f.sans, "center");
+    text(g, "PR #42 открыт", 0, 1, 26, 800, INK, f.sans, "center");
     g.restore();
   }
 }
 
-const CICD = ["build", "tests", "deploy"] as const;
-/** CI/CD: точка задачи проходит сборку, тесты и деплой, в конце — production. */
-function drawCicd({ g, f, local, w, h }: Frame) {
-  const left = -w / 2 + 44;
+type Job = readonly [name: string, start: number, done: number, took: string];
+const JOBS: readonly Job[] = [
+  ["build", 0.4, 1.2, "32s"],
+  ["lint", 0.5, 1.1, "18s"],
+  ["tests", 1.3, 2.3, "1m 04s"],
+  ["deploy · production", 2.45, 3.1, "21s"],
+];
+/** CI/CD как GitHub Actions: задачи идут, крутятся, получают зелёную галочку и время. */
+function drawCicd({ g, t, f, local, w, h }: Frame) {
+  const left = -w / 2;
   const top = -h / 2;
-  text(g, "CI/CD", left, top + 56, 34, 800, TEXT, f.sans);
-  const passed = Math.round(24 * clamp((local - 1.0) / 1.2));
-  text(
-    g,
-    `проверки ${String(passed)}/24`,
-    w / 2 - 44,
-    top + 56,
-    28,
-    700,
-    passed === 24 ? ACCENT_BRIGHT : MUTED,
-    f.sans,
-    "right",
-  );
-  const y = top + 170;
-  const gap = (w - 88 - 60) / (CICD.length - 1);
-  const travel = clamp((local - 0.5) / 2.1);
-  g.fillStyle = INK_HIGH;
-  g.fillRect(left + 30, y - 3, w - 148, 6);
-  g.fillStyle = ACCENT;
-  g.fillRect(left + 30, y - 3, (w - 148) * travel, 6);
-  for (const [i, node] of CICD.entries()) {
-    const x = left + 30 + i * gap;
-    const on = clamp((travel * (CICD.length - 1) - i + 0.05) / 0.1);
-    doneDot(g, x, y, on, 22);
+  const all = local >= 3.1;
+  g.fillStyle = all ? GREEN : RUNNING;
+  g.beginPath();
+  g.arc(left + 50, top + 46, 12, 0, Math.PI * 2);
+  g.fill();
+  text(g, "CI · main", left + 76, top + 46, 30, 800, TEXT, f.sans);
+  text(g, "a1b2c3d", w / 2 - 40, top + 46, 26, 600, MUTED, f.mono, "right");
+  g.fillStyle = INK_LINE;
+  g.fillRect(left, top + 82, w, 1.5);
+  for (const [i, [name, start, done, took]] of JOBS.entries()) {
+    const y = top + 124 + i * 56;
+    const p = spring(local - 0.2 - i * 0.1, 240, 22);
+    const running = local >= start && local < done;
+    const finished = clamp((local - done) / 0.25);
+    flyIn(g, p, -40, 0, () => {
+      const cx = left + 50;
+      if (finished > 0) {
+        g.fillStyle = GREEN;
+        g.beginPath();
+        g.arc(cx, y, 14, 0, Math.PI * 2);
+        g.fill();
+        check(g, cx, y, 14, finished, INK);
+      } else if (running) {
+        g.strokeStyle = RUNNING;
+        g.lineWidth = 4;
+        g.lineCap = "round";
+        g.beginPath();
+        g.arc(cx, y, 12, t * 7, t * 7 + Math.PI * 1.3);
+        g.stroke();
+      } else {
+        g.strokeStyle = MUTED;
+        g.lineWidth = 2.5;
+        g.beginPath();
+        g.arc(cx, y, 12, 0, Math.PI * 2);
+        g.stroke();
+      }
+      text(
+        g,
+        name,
+        cx + 34,
+        y + 1,
+        28,
+        700,
+        finished > 0 || running ? TEXT : MUTED,
+        f.mono,
+      );
+      if (finished > 0)
+        text(g, took, w / 2 - 40, y + 1, 26, 600, MUTED, f.mono, "right");
+    });
+  }
+  const shipped = spring(local - 3.25, 200, 18);
+  if (shipped > 0) {
+    g.save();
+    g.globalAlpha *= clamp(shipped * 1.5);
+    g.translate(0, 24 * (1 - shipped));
+    roundRect(g, left + 32, h / 2 - 76, w - 64, 52, 16);
+    g.fillStyle = GREEN_BG;
+    g.fill();
     text(
       g,
-      node,
-      x,
-      y + 50,
-      30,
+      "Деплой в production завершён",
+      left + 60,
+      h / 2 - 49,
+      28,
       700,
-      on > 0.5 ? TEXT : MUTED,
-      f.mono,
-      "center",
+      GREEN_TEXT,
+      f.sans,
     );
-  }
-  const dotX = left + 30 + (w - 148) * travel;
-  if (travel > 0 && travel < 1) {
-    g.fillStyle = TEXT;
-    g.beginPath();
-    g.arc(dotX, y, 8, 0, Math.PI * 2);
-    g.fill();
-  }
-  const prod = spring(local - 2.75, 220, 16);
-  if (prod > 0) {
-    g.save();
-    g.translate(0, top + 290);
-    g.scale(0.6 + 0.4 * prod, 0.6 + 0.4 * prod);
-    g.globalAlpha *= clamp(prod * 1.5);
-    roundRect(g, -150, -26, 300, 52, 26);
-    g.fillStyle = ACCENT;
-    g.fill();
-    text(g, "production обновлён", 0, 1, 28, 700, TEXT, f.sans, "center");
     g.restore();
   }
 }
@@ -883,11 +1016,9 @@ const CURSOR: readonly (readonly [number, number, number])[] = [
   [0.7, 600, 350],
   [3.2, 830, 330],
   [4.5, 780, 560],
-  [7.8, 700, 560],
-  [8.4, 260, 238],
-  [10.4, 820, 600],
 ];
-const CLICKS = [1.0, 3.95, 8.75] as const;
+/** Курсор нужен только там, где он действует: нажимает плашку и отправляет запрос. */
+const CLICKS = [1.0, 3.95] as const;
 function drawCursor(g: CanvasRenderingContext2D, t: number) {
   const x = track(
     t,
@@ -901,9 +1032,7 @@ function drawCursor(g: CanvasRenderingContext2D, t: number) {
     120,
     22,
   );
-  const visible =
-    Math.min(clamp((t - 0.4) / 0.3), clamp((4.6 - t) / 0.3)) +
-    Math.min(clamp((t - 7.7) / 0.3), clamp((9.6 - t) / 0.3));
+  const visible = Math.min(clamp((t - 0.4) / 0.3), clamp((4.6 - t) / 0.3));
   let press = 0;
   for (const at of CLICKS)
     if (t >= at && t < at + 0.45) press = (t - at) / 0.45;
