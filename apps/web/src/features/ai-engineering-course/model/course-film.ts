@@ -1,21 +1,23 @@
 /**
  * Анимация курса AI Engineering как чистая функция времени: `drawFilm(ctx, t)` рисует кадр для
- * любого момента без таймеров и накопленного состояния, поэтому пауза, шаг и итоговый кадр — это
- * просто разные `t`. Бриф и покадровый план — docs/evidence/issue-808/animation/README.md.
+ * любого момента без таймеров и накопленного состояния, поэтому пауза и итоговый кадр — просто
+ * разные `t`. Одна тёмная форма перетекает из состояния в состояние и не обрывается; курсор ведёт
+ * каждую смену. Бриф и покадровый план — docs/evidence/issue-808/animation/README.md.
  */
 
 export const FILM_WIDTH = 960;
 export const FILM_HEIGHT = 640;
-export const FILM_DURATION = 16;
-/** Итоговый кадр: все задачи закрыты, релизы выпущены. Его видит reduced motion. */
-export const FILM_POSTER_TIME = 15;
+export const FILM_DURATION = 20;
+/** Итоговый кадр для reduced motion: harness собран целиком. */
+export const FILM_POSTER_TIME = 13.8;
 
+const CANVAS = "#f3f1ed";
 const INK = "#202124";
-const PANEL = "#2b2c31";
-const PANEL_HIGH = "#36373d";
-const LINE = "rgba(243, 241, 237, 0.14)";
+const INK_HIGH = "#2f3035";
+const INK_LINE = "rgba(243, 241, 237, 0.16)";
 const TEXT = "#f3f1ed";
-const MUTED = "rgba(243, 241, 237, 0.62)";
+const MUTED = "rgba(243, 241, 237, 0.6)";
+const INK_MUTED = "rgba(32, 33, 36, 0.55)";
 const ACCENT = "#c7461e";
 const ACCENT_BRIGHT = "#ef6b3c";
 
@@ -59,24 +61,83 @@ export function track(
   return value;
 }
 
-/** Сид-шум mulberry32: одинаковый в каждом прогоне. */
-function rng(seed: number) {
-  let s = seed;
-  return () => {
-    s = (s + 0x6d2b79f5) | 0;
-    let x = Math.imul(s ^ (s >>> 15), 1 | s);
-    x = (x + Math.imul(x ^ (x >>> 7), 61 | x)) ^ x;
-    return ((x ^ (x >>> 14)) >>> 0) / 4294967296;
+/* ---------- Состояния одной формы ---------- */
+
+type StateId =
+  | "pill"
+  | "prompt"
+  | "think"
+  | "plan"
+  | "diff"
+  | "checks"
+  | "harness"
+  | "agents"
+  | "releases"
+  | "toast";
+
+interface State {
+  readonly id: StateId;
+  readonly at: number;
+  readonly w: number;
+  readonly h: number;
+  readonly r: number;
+}
+
+/** Покадровый план: каждое состояние держится около двух секунд, форма перетекает между ними. */
+const STATES: readonly State[] = [
+  { id: "pill", at: 0, w: 430, h: 100, r: 50 },
+  { id: "prompt", at: 1.5, w: 780, h: 112, r: 56 },
+  { id: "think", at: 4.1, w: 120, h: 120, r: 60 },
+  { id: "plan", at: 5.4, w: 560, h: 400, r: 34 },
+  { id: "diff", at: 7.7, w: 640, h: 360, r: 30 },
+  { id: "checks", at: 9.6, w: 660, h: 220, r: 40 },
+  { id: "harness", at: 11.6, w: 540, h: 460, r: 34 },
+  { id: "agents", at: 14.0, w: 720, h: 330, r: 34 },
+  { id: "releases", at: 16.0, w: 600, h: 390, r: 34 },
+  { id: "toast", at: 18.0, w: 620, h: 104, r: 52 },
+  { id: "pill", at: 19.3, w: 430, h: 100, r: 50 },
+];
+
+const CX = FILM_WIDTH / 2;
+const CY = FILM_HEIGHT / 2;
+
+function shape(t: number) {
+  const key = (pick: (state: State) => number) =>
+    STATES.map((state) => [state.at, pick(state)] as const);
+  return {
+    w: track(
+      t,
+      key((s) => s.w),
+      230,
+      26,
+    ),
+    h: track(
+      t,
+      key((s) => s.h),
+      230,
+      28,
+    ),
+    r: track(
+      t,
+      key((s) => s.r),
+      230,
+      28,
+    ),
   };
 }
 
-/** Видимость сцены: вход пружиной, уход вверх с затуханием. */
-function sceneAlpha(t: number, from: number, to: number) {
-  return Math.min(clamp((t - from) / 0.2), clamp((to - t) / 0.22));
+/** Содержимое входит после начала перетекания и уходит до следующего. */
+function contentAlpha(t: number, index: number) {
+  const state = STATES[index];
+  if (!state) return 0;
+  const next = STATES[index + 1]?.at ?? FILM_DURATION;
+  return Math.min(
+    clamp((t - state.at - 0.14) / 0.16),
+    clamp((next - 0.08 - t) / 0.12),
+  );
 }
-function sceneLift(t: number, to: number) {
-  return -56 * clamp((t - (to - 0.22)) / 0.22);
-}
+
+/* ---------- Рисование ---------- */
 
 function roundRect(
   g: CanvasRenderingContext2D,
@@ -86,7 +147,7 @@ function roundRect(
   h: number,
   r: number,
 ) {
-  const radius = Math.min(r, w / 2, h / 2);
+  const radius = Math.max(0, Math.min(r, w / 2, h / 2));
   g.beginPath();
   g.moveTo(x + radius, y);
   g.arcTo(x + w, y, x + w, y + h, radius);
@@ -96,7 +157,29 @@ function roundRect(
   g.closePath();
 }
 
-/** Галочка рисуется штрихом: `p` — доля нарисованного пути. */
+function text(
+  g: CanvasRenderingContext2D,
+  value: string,
+  x: number,
+  y: number,
+  size: number,
+  weight: number,
+  color: string,
+  family: string,
+  align: CanvasTextAlign = "left",
+) {
+  g.font = `${String(weight)} ${String(size)}px ${family}`;
+  g.fillStyle = color;
+  g.textAlign = align;
+  g.textBaseline = "middle";
+  g.fillText(value, x, y);
+}
+
+function width(g: CanvasRenderingContext2D, value: string, font: string) {
+  g.font = font;
+  return g.measureText(value).width;
+}
+
 function check(
   g: CanvasRenderingContext2D,
   x: number,
@@ -130,423 +213,536 @@ function check(
   g.restore();
 }
 
-/** Агент — терракотовая точка с орбитой; орбита вращается от времени. */
-function agent(
+/** Курсор нарисован кодом: стрелка с тёмным контуром и кольцо нажатия. */
+function cursor(
   g: CanvasRenderingContext2D,
   x: number,
   y: number,
-  t: number,
-  scale = 1,
+  alpha: number,
+  press: number,
 ) {
-  if (scale <= 0) return;
+  if (alpha <= 0) return;
   g.save();
+  g.globalAlpha = alpha;
+  if (press > 0 && press < 1) {
+    g.strokeStyle = ACCENT_BRIGHT;
+    g.lineWidth = 3;
+    g.globalAlpha = alpha * (1 - press);
+    g.beginPath();
+    g.arc(x, y, 8 + press * 30, 0, Math.PI * 2);
+    g.stroke();
+    g.globalAlpha = alpha;
+  }
+  const s = 1 - 0.12 * Math.sin(Math.PI * clamp(press));
   g.translate(x, y);
-  g.scale(scale, scale);
-  g.strokeStyle = "rgba(239, 107, 60, 0.45)";
-  g.lineWidth = 3;
+  g.scale(s * 1.35, s * 1.35);
   g.beginPath();
-  g.arc(0, 0, 30, t * 2.6, t * 2.6 + Math.PI * 1.35);
+  g.moveTo(0, 0);
+  g.lineTo(0, 26);
+  g.lineTo(7, 20);
+  g.lineTo(12, 31);
+  g.lineTo(17, 29);
+  g.lineTo(12, 18);
+  g.lineTo(21, 18);
+  g.closePath();
+  g.fillStyle = "#ffffff";
+  g.fill();
+  g.strokeStyle = INK;
+  g.lineWidth = 1.6;
+  g.lineJoin = "round";
   g.stroke();
-  g.fillStyle = ACCENT_BRIGHT;
-  g.beginPath();
-  g.arc(0, 0, 15 + Math.sin(t * 6) * 1.5, 0, Math.PI * 2);
-  g.fill();
-  g.fillStyle = ACCENT_BRIGHT;
-  g.beginPath();
-  g.arc(Math.cos(t * 2.6) * 30, Math.sin(t * 2.6) * 30, 5, 0, Math.PI * 2);
-  g.fill();
   g.restore();
 }
 
-function label(
-  g: CanvasRenderingContext2D,
-  text: string,
-  x: number,
-  y: number,
-  size: number,
-  weight: number,
-  color: string,
-  family: string,
-  align: CanvasTextAlign = "left",
-) {
-  g.font = `${String(weight)} ${String(size)}px ${family}`;
-  g.fillStyle = color;
-  g.textAlign = align;
-  g.textBaseline = "middle";
-  g.fillText(text, x, y);
+/* ---------- Содержимое состояний ---------- */
+
+function drawPill(g: CanvasRenderingContext2D, t: number, f: FilmFonts) {
+  const pulse = 1 + 0.18 * Math.sin(t * 5);
+  g.fillStyle = ACCENT_BRIGHT;
+  g.beginPath();
+  g.arc(-150, 0, 11 * pulse, 0, Math.PI * 2);
+  g.fill();
+  text(g, "AI Engineering", -120, 2, 40, 800, TEXT, f.sans);
 }
 
-/* ---------- Сцена 1: AI-first и задача ---------- */
 const PROMPT = "Добавь вход через GitHub";
-/** Буквы заголовка по отдельности: каждая влетает на своей пружине. */
-const TITLE_LETTERS = ["A", "I", "-", "f", "i", "r", "s", "t"] as const;
-function sceneTask(g: CanvasRenderingContext2D, t: number, f: FilmFonts) {
-  const a = sceneAlpha(t, 0, 2.7);
-  if (a <= 0) return;
-  g.save();
-  g.globalAlpha = a;
-  g.translate(0, sceneLift(t, 2.7));
-  // Буквы влетают по одной снизу: заголовок собирается, а не проявляется.
-  g.font = `800 132px ${f.sans}`;
-  let letterX = 72;
-  for (const [i, letter] of TITLE_LETTERS.entries()) {
-    const p = spring(t - 0.04 - i * 0.05, 260, 20);
-    const width = g.measureText(letter).width;
-    if (p > 0) {
-      g.save();
-      g.globalAlpha = a * clamp(p * 1.6);
-      g.translate(letterX, 250 + 70 * (1 - p));
-      label(g, letter, 0, 0, 132, 800, i >= 3 ? ACCENT_BRIGHT : TEXT, f.sans);
-      g.restore();
-    }
-    letterX += width;
-  }
-  const bar = spring(t - 0.5, 240, 26);
-  g.fillStyle = ACCENT;
-  g.fillRect(76, 322, 520 * bar, 12);
-
-  const box = spring(t - 0.7, 200, 24);
-  g.save();
-  g.globalAlpha = a * box;
-  g.translate(0, 40 * (1 - box));
-  roundRect(g, 72, 390, 816, 104, 22);
-  g.fillStyle = PANEL;
-  g.fill();
-  label(g, "›", 108, 442, 44, 700, ACCENT_BRIGHT, f.mono);
-  const typed = Math.floor(clamp((t - 0.95) / 1.1) * PROMPT.length);
-  label(g, PROMPT.slice(0, typed), 150, 442, 40, 600, TEXT, f.sans);
-  g.font = `600 40px ${f.sans}`;
-  const caretX = 150 + g.measureText(PROMPT.slice(0, typed)).width + 6;
-  if (Math.floor(t * 3) % 2 === 0 || typed < PROMPT.length) {
+function drawPrompt(
+  g: CanvasRenderingContext2D,
+  t: number,
+  f: FilmFonts,
+  local: number,
+) {
+  const typed = Math.floor(clamp((local - 0.35) / 1.3) * PROMPT.length);
+  const shown = PROMPT.slice(0, typed);
+  text(g, "›", -350, 2, 44, 700, ACCENT_BRIGHT, f.sans);
+  text(g, shown, -312, 2, 36, 600, TEXT, f.sans);
+  const caret = -312 + width(g, shown, `600 36px ${f.sans}`) + 6;
+  if (typed < PROMPT.length || Math.floor(t * 3) % 2 === 0) {
     g.fillStyle = ACCENT_BRIGHT;
-    g.fillRect(caretX, 420, 4, 44);
+    g.fillRect(caret, -20, 3, 42);
   }
-  g.restore();
-  // Задача дописана — агент просыпается в конце строки и принимает её.
-  const wake = spring(t - 2.05, 240, 16);
-  agent(g, 830, 442, t, wake);
-  if (wake > 0) {
-    g.save();
-    g.globalAlpha = a * clamp(wake);
-    label(g, "агент принял задачу", 888, 548, 30, 700, MUTED, f.sans, "right");
-    g.restore();
-  }
+  // Кнопка отправки нажимается курсором и на миг вдавливается.
+  const press = clamp((local - 2.25) / 0.3);
+  const s = 1 - 0.12 * Math.sin(Math.PI * press);
+  g.save();
+  g.translate(330, 0);
+  g.scale(s, s);
+  g.fillStyle = typed >= PROMPT.length ? ACCENT : INK_HIGH;
+  g.beginPath();
+  g.arc(0, 0, 36, 0, Math.PI * 2);
+  g.fill();
+  g.strokeStyle = TEXT;
+  g.lineWidth = 4;
+  g.lineCap = "round";
+  g.beginPath();
+  g.moveTo(0, 14);
+  g.lineTo(0, -14);
+  g.moveTo(-11, -3);
+  g.lineTo(0, -14);
+  g.lineTo(11, -3);
+  g.stroke();
   g.restore();
 }
 
-/* ---------- Сцена 2: агент проходит этапы, код, тесты ---------- */
-const STAGES = ["Спецификация", "Задачи", "Код", "Проверка"] as const;
-const STAGE_AT = [2.9, 3.35, 3.8, 4.25] as const;
-function sceneAgent(g: CanvasRenderingContext2D, t: number, f: FilmFonts) {
-  const a = sceneAlpha(t, 2.45, 6.55);
-  if (a <= 0) return;
-  g.save();
-  g.globalAlpha = a;
-  g.translate(0, sceneLift(t, 6.55));
+function drawThink(g: CanvasRenderingContext2D, t: number) {
+  g.strokeStyle = ACCENT_BRIGHT;
+  g.lineWidth = 7;
+  g.lineCap = "round";
+  const spin = t * 5;
+  g.beginPath();
+  g.arc(0, 0, 30, spin, spin + Math.PI * 1.3);
+  g.stroke();
+}
 
-  // Задача сверху: это та же задача, что набиралась, теперь как карточка.
-  const card = spring(t - 2.5, 220, 24);
-  g.save();
-  g.globalAlpha = a * card;
-  g.translate(0, -20 * (1 - card));
-  roundRect(g, 60, 56, 520, 76, 18);
-  g.fillStyle = PANEL;
-  g.fill();
-  label(g, "Задача", 88, 94, 30, 700, ACCENT_BRIGHT, f.sans);
-  label(g, PROMPT, 212, 94, 30, 600, TEXT, f.sans);
-  g.restore();
-
-  // Этапы в колонку слева, агент спускается вдоль них.
-  g.font = `700 32px ${f.sans}`;
-  for (const [i, name] of STAGES.entries()) {
-    const at = STAGE_AT[i] ?? 0;
-    const p = spring(t - at + 0.3, 260, 22);
-    if (p <= 0) continue;
-    const y = 190 + i * 96;
-    const done = clamp((t - at - 0.2) / 0.3);
-    g.save();
-    g.globalAlpha = a * clamp(p * 1.3);
-    g.translate(-30 * (1 - p), 0);
-    roundRect(g, 130, y, 350, 74, 18);
-    g.fillStyle = done > 0.5 ? PANEL_HIGH : PANEL;
-    g.fill();
-    if (done > 0) {
-      g.strokeStyle = ACCENT;
-      g.lineWidth = 2;
-      roundRect(g, 130, y, 350, 74, 18);
-      g.stroke();
+const PLAN = ["Спецификация", "Задачи", "Код", "Тесты"] as const;
+function drawPlan(
+  g: CanvasRenderingContext2D,
+  f: FilmFonts,
+  local: number,
+  w: number,
+  h: number,
+) {
+  const left = -w / 2 + 44;
+  text(g, "План", left, -h / 2 + 60, 36, 800, TEXT, f.sans);
+  text(
+    g,
+    "агент",
+    w / 2 - 44,
+    -h / 2 + 60,
+    28,
+    700,
+    ACCENT_BRIGHT,
+    f.sans,
+    "right",
+  );
+  for (const [i, step] of PLAN.entries()) {
+    const y = -h / 2 + 138 + i * 66;
+    const on = clamp((local - 0.5 - i * 0.38) / 0.28);
+    g.fillStyle = INK_LINE;
+    g.fillRect(left, y + 30, w - 88, 1.5);
+    // Кружок шага заполняется, когда шаг сделан.
+    g.strokeStyle = on > 0 ? ACCENT_BRIGHT : MUTED;
+    g.lineWidth = 3;
+    g.beginPath();
+    g.arc(left + 16, y, 16, 0, Math.PI * 2);
+    g.stroke();
+    if (on > 0) {
+      g.save();
+      g.globalAlpha *= on;
+      g.fillStyle = ACCENT;
+      g.beginPath();
+      g.arc(left + 16, y, 16, 0, Math.PI * 2);
+      g.fill();
+      g.restore();
+      check(g, left + 16, y, 16, on, TEXT);
     }
-    label(g, name, 160, y + 37, 32, 700, TEXT, f.sans);
-    check(g, 448, y + 37, 24, done, ACCENT_BRIGHT);
+    text(g, step, left + 52, y + 1, 32, 700, on > 0.5 ? TEXT : MUTED, f.sans);
+  }
+}
+
+const DIFF = [
+  ["+", "auth/github.ts", 0.9],
+  ["+", "auth/session.ts", 0.7],
+  ["~", "routes/login.tsx", 0.5],
+  ["+", "tests/login.test.ts", 0.8],
+] as const;
+function drawDiff(
+  g: CanvasRenderingContext2D,
+  f: FilmFonts,
+  local: number,
+  w: number,
+  h: number,
+) {
+  const left = -w / 2 + 44;
+  text(g, "Изменения", left, -h / 2 + 58, 34, 800, TEXT, f.sans);
+  for (const [i, [mark, file, size]] of DIFF.entries()) {
+    const p = spring(local - 0.35 - i * 0.22, 240, 22);
+    if (p <= 0) continue;
+    const y = -h / 2 + 128 + i * 52;
+    g.save();
+    g.globalAlpha *= clamp(p * 1.4);
+    g.translate(24 * (1 - p), 0);
+    text(
+      g,
+      mark,
+      left,
+      y,
+      32,
+      800,
+      mark === "+" ? ACCENT_BRIGHT : MUTED,
+      f.mono,
+    );
+    text(g, file, left + 40, y, 30, 600, TEXT, f.mono);
+    g.fillStyle = mark === "+" ? ACCENT : INK_HIGH;
+    g.fillRect(w / 2 - 44 - 120 * size * p, y - 6, 120 * size * p, 12);
     g.restore();
   }
-  const agentY = track(
+  const pr = spring(local - 1.35, 240, 18);
+  if (pr > 0) {
+    g.save();
+    g.translate(w / 2 - 44 - 120, h / 2 - 50);
+    g.scale(0.7 + 0.3 * pr, 0.7 + 0.3 * pr);
+    g.globalAlpha *= clamp(pr * 1.5);
+    roundRect(g, -120, -26, 240, 52, 26);
+    g.fillStyle = ACCENT;
+    g.fill();
+    text(g, "PR #42 открыт", 0, 1, 28, 700, TEXT, f.sans, "center");
+    g.restore();
+  }
+}
+
+function drawChecks(
+  g: CanvasRenderingContext2D,
+  f: FilmFonts,
+  local: number,
+  w: number,
+) {
+  const left = -w / 2 + 44;
+  const p = clamp((local - 0.3) / 1.1);
+  const passed = Math.round(24 * p);
+  text(g, "Проверки", left, -58, 32, 800, TEXT, f.sans);
+  text(
+    g,
+    `${String(passed)}/24`,
+    w / 2 - 44,
+    -58,
+    32,
+    800,
+    p >= 1 ? ACCENT_BRIGHT : MUTED,
+    f.sans,
+    "right",
+  );
+  roundRect(g, left, -12, w - 88, 16, 8);
+  g.fillStyle = INK_HIGH;
+  g.fill();
+  roundRect(g, left, -12, (w - 88) * p, 16, 8);
+  g.fillStyle = ACCENT_BRIGHT;
+  g.fill();
+  // Переключатель merge включается курсором, когда проверки прошли.
+  const on = spring(local - 1.55, 260, 22);
+  const tx = w / 2 - 44 - 92;
+  roundRect(g, tx, 30, 92, 50, 25);
+  g.fillStyle = on > 0.5 ? ACCENT : INK_HIGH;
+  g.fill();
+  g.fillStyle = TEXT;
+  g.beginPath();
+  g.arc(tx + 25 + 42 * on, 55, 19, 0, Math.PI * 2);
+  g.fill();
+  text(
+    g,
+    "merge",
+    tx - 18,
+    56,
+    28,
+    700,
+    on > 0.5 ? TEXT : MUTED,
+    f.sans,
+    "right",
+  );
+}
+
+const LAYERS = ["AGENTS.md", "skills", "MCP", "RAG", "evals"] as const;
+function drawHarness(
+  g: CanvasRenderingContext2D,
+  f: FilmFonts,
+  local: number,
+  w: number,
+  h: number,
+) {
+  const left = -w / 2 + 40;
+  text(g, "harness проекта", left, -h / 2 + 54, 30, 700, MUTED, f.sans);
+  const version = Math.min(
+    LAYERS.length,
+    Math.floor(clamp((local - 0.3) / 1.9) * LAYERS.length + 1),
+  );
+  text(
+    g,
+    `v${String(version)}`,
+    w / 2 - 40,
+    -h / 2 + 54,
+    30,
+    800,
+    ACCENT_BRIGHT,
+    f.sans,
+    "right",
+  );
+  // Слои встают снизу вверх внутри формы: система собирается из частей.
+  for (const [i, name] of LAYERS.entries()) {
+    const p = spring(local - 0.3 - i * 0.42, 230, 19);
+    if (p <= 0) continue;
+    const y = h / 2 - 50 - i * 68;
+    g.save();
+    g.globalAlpha *= clamp(p * 1.6);
+    g.translate(0, -60 * (1 - p));
+    roundRect(g, left, y - 28, w - 80, 56, 14);
+    g.fillStyle = i === LAYERS.length - 1 ? ACCENT : INK_HIGH;
+    g.fill();
+    text(g, name, left + 22, y + 1, 30, 700, TEXT, f.mono);
+    g.restore();
+  }
+}
+
+const AGENTS = [
+  ["Роли и доступ", 1.3],
+  ["MCP-сервер", 1.7],
+  ["Поиск по докам", 1.1],
+] as const;
+function drawAgents(
+  g: CanvasRenderingContext2D,
+  t: number,
+  f: FilmFonts,
+  local: number,
+  w: number,
+  h: number,
+) {
+  const left = -w / 2 + 44;
+  text(
+    g,
+    "3 агента работают параллельно",
+    left,
+    -h / 2 + 54,
+    30,
+    700,
+    MUTED,
+    f.sans,
+  );
+  for (const [i, [task, speed]] of AGENTS.entries()) {
+    const y = -h / 2 + 128 + i * 70;
+    const p = clamp(((local - 0.35) * speed) / 1.5);
+    g.fillStyle = ACCENT_BRIGHT;
+    g.beginPath();
+    g.arc(
+      left + 12,
+      y,
+      10 + (p < 1 ? Math.sin(t * 8 + i) * 2 : 0),
+      0,
+      Math.PI * 2,
+    );
+    g.fill();
+    text(g, task, left + 40, y - 14, 30, 700, TEXT, f.sans);
+    roundRect(g, left + 40, y + 12, w - 190, 10, 5);
+    g.fillStyle = INK_HIGH;
+    g.fill();
+    roundRect(g, left + 40, y + 12, (w - 190) * p, 10, 5);
+    g.fillStyle = p >= 1 ? ACCENT : ACCENT_BRIGHT;
+    g.fill();
+    if (p >= 1) {
+      check(
+        g,
+        w / 2 - 70,
+        y,
+        26,
+        clamp((local - 0.35 - 1.5 / speed) / 0.25),
+        ACCENT_BRIGHT,
+      );
+    }
+  }
+}
+
+const RELEASE_RISE = [0, 22, 14, 52, 46, 88, 104, 150] as const;
+function drawReleases(
+  g: CanvasRenderingContext2D,
+  f: FilmFonts,
+  local: number,
+  w: number,
+  h: number,
+) {
+  const left = -w / 2 + 44;
+  const p = clamp((local - 0.3) / 1.4);
+  const count = Math.round(2 + 12 * p);
+  text(g, String(count), left, -h / 2 + 78, 76, 800, TEXT, f.sans);
+  const numberW = width(g, String(count), `800 76px ${f.sans}`);
+  text(g, "релизов", left + numberW + 16, -h / 2 + 90, 30, 700, MUTED, f.sans);
+  const points = RELEASE_RISE.map((rise, i) => ({
+    x: left + (i * (w - 88)) / (RELEASE_RISE.length - 1),
+    y: h / 2 - 60 - rise,
+  }));
+  g.strokeStyle = INK_LINE;
+  g.lineWidth = 2;
+  g.beginPath();
+  g.moveTo(left, h / 2 - 40);
+  g.lineTo(w / 2 - 44, h / 2 - 40);
+  g.stroke();
+  g.strokeStyle = ACCENT_BRIGHT;
+  g.lineWidth = 5;
+  g.lineCap = "round";
+  g.lineJoin = "round";
+  const reach = p * (points.length - 1);
+  let tip = points[0];
+  g.beginPath();
+  for (const [i, point] of points.entries()) {
+    const prev = points[i - 1];
+    if (!prev) {
+      g.moveTo(point.x, point.y);
+      continue;
+    }
+    const k = clamp(reach - (i - 1));
+    if (k <= 0) break;
+    tip = { x: lerp(prev.x, point.x, k), y: lerp(prev.y, point.y, k) };
+    g.lineTo(tip.x, tip.y);
+  }
+  g.stroke();
+  if (p > 0 && tip) {
+    g.fillStyle = ACCENT_BRIGHT;
+    g.beginPath();
+    g.arc(tip.x, tip.y, 10, 0, Math.PI * 2);
+    g.fill();
+  }
+}
+
+function drawToast(g: CanvasRenderingContext2D, f: FilmFonts, local: number) {
+  g.fillStyle = ACCENT;
+  g.beginPath();
+  g.arc(-250, 0, 26, 0, Math.PI * 2);
+  g.fill();
+  check(g, -250, 0, 24, clamp((local - 0.35) / 0.3), TEXT);
+  text(g, "Релиз v1.4 выпущен", -206, 2, 36, 800, TEXT, f.sans);
+}
+
+/* ---------- Курсор по сцене ---------- */
+
+/** Точки курсора в координатах сцены: он подходит к элементу и нажимает. */
+const CURSOR: readonly (readonly [number, number, number])[] = [
+  [0, 760, 560],
+  [0.9, 600, 350],
+  [3.4, 830, 330],
+  [4.4, 760, 520],
+  [10.6, 640, 390],
+  [11.1, 690, 378],
+  [12.0, 820, 560],
+  [19.0, 760, 560],
+];
+const CLICKS = [1.2, 3.75, 11.15] as const;
+function drawCursor(g: CanvasRenderingContext2D, t: number) {
+  const x = track(
     t,
-    [[2.5, 227], ...STAGE_AT.map((at, i) => [at - 0.1, 227 + i * 96] as const)],
-    160,
+    CURSOR.map(([at, px]) => [at, px] as const),
+    120,
     22,
   );
-  agent(g, 82, agentY, t, spring(t - 2.6, 220, 22));
-
-  // Код справа: строки разной длины приходят по одной, затем штамп тестов.
-  const panel = spring(t - 3.1, 200, 24);
-  if (panel > 0) {
-    g.save();
-    g.globalAlpha = a * panel;
-    g.translate(30 * (1 - panel), 0);
-    roundRect(g, 520, 190, 380, 368, 20);
-    g.fillStyle = PANEL;
-    g.fill();
-    const random = rng(17);
-    for (let i = 0; i < 9; i++) {
-      const at = 3.4 + i * 0.26;
-      const lineP = clamp((t - at) / 0.18);
-      const indent = [0, 1, 1, 2, 2, 1, 2, 1, 0][i] ?? 0;
-      const width = (120 + random() * 170) * lineP;
-      g.fillStyle = i % 4 === 2 ? "rgba(239, 107, 60, 0.75)" : LINE;
-      roundRect(g, 552 + indent * 34, 222 + i * 34, width, 14, 7);
-      g.fill();
-    }
-    const stamp = spring(t - 5.75, 260, 16);
-    if (stamp > 0) {
-      g.save();
-      g.translate(710, 510);
-      g.scale(0.6 + 0.4 * stamp, 0.6 + 0.4 * stamp);
-      g.globalAlpha = a * clamp(stamp * 1.5);
-      roundRect(g, -150, -34, 300, 68, 34);
-      g.fillStyle = ACCENT;
-      g.fill();
-      check(g, -106, 0, 26, clamp((t - 5.85) / 0.25), TEXT);
-      label(g, "тесты 24/24", -80, 1, 30, 700, TEXT, f.sans);
-      g.restore();
-    }
-    g.restore();
-  }
-  g.restore();
-}
-
-/* ---------- Сцена 3: harness растёт — слои встают друг на друга ---------- */
-const LAYERS = ["AGENTS.md", "skills", "MCP", "RAG", "evals"] as const;
-const LAYER_AT = [6.8, 7.35, 7.9, 8.45, 9.0] as const;
-function sceneHarness(g: CanvasRenderingContext2D, t: number, f: FilmFonts) {
-  const a = sceneAlpha(t, 6.5, 10.55);
-  if (a <= 0) return;
-  g.save();
-  g.globalAlpha = a;
-  g.translate(0, sceneLift(t, 10.55));
-  const title = spring(t - 6.55, 220, 22);
-  g.save();
-  g.globalAlpha = a * clamp(title * 1.3);
-  g.translate(-40 * (1 - title), 0);
-  label(g, "harness", 60, 250, 96, 800, TEXT, f.sans);
-  g.fillStyle = ACCENT;
-  g.fillRect(64, 318, 360 * spring(t - 6.8, 240, 26), 12);
-  label(g, "растёт с каждой", 60, 390, 36, 600, MUTED, f.sans);
-  label(g, "задачей", 60, 436, 36, 600, MUTED, f.sans);
-  g.restore();
-
-  // Башня справа: каждый новый слой падает сверху и встаёт на предыдущий.
-  const x = 540;
-  const w = 360;
-  const h = 72;
-  const gap = 10;
-  const floor = 590;
-  for (const [i, name] of LAYERS.entries()) {
-    const at = LAYER_AT[i] ?? 0;
-    const p = spring(t - at, 260, 20);
-    if (p <= 0) continue;
-    const y = floor - (i + 1) * (h + gap);
-    g.save();
-    g.globalAlpha = a * clamp(p * 2);
-    g.translate(0, -180 * (1 - p));
-    roundRect(g, x, y, w, h, 16);
-    const top = i === LAYERS.length - 1;
-    g.fillStyle = top ? ACCENT : PANEL_HIGH;
-    g.fill();
-    label(g, name, x + 28, y + h / 2, 34, 700, TEXT, f.mono);
-    label(
-      g,
-      `0${String(i + 1)}`,
-      x + w - 28,
-      y + h / 2,
-      28,
-      700,
-      top ? TEXT : MUTED,
-      f.sans,
-      "right",
-    );
-    g.restore();
-  }
-  g.fillStyle = LINE;
-  g.fillRect(x - 20, floor + 4, w + 40, 3);
-  // Агент всегда стоит на верхнем слое.
-  const layerTop = track(
+  const y = track(
     t,
-    [
-      [6.6, floor - 20],
-      ...LAYER_AT.map(
-        (at, i) => [at + 0.08, floor - (i + 1) * (h + gap) - 24] as const,
-      ),
-    ],
-    200,
-    20,
+    CURSOR.map(([at, , py]) => [at, py] as const),
+    120,
+    22,
   );
-  agent(g, x + w / 2, layerTop, t, spring(t - 6.7, 220, 22) * 0.8);
-  g.restore();
+  const visible =
+    Math.min(clamp((t - 0.5) / 0.3), clamp((4.4 - t) / 0.3)) +
+    Math.min(clamp((t - 10.3) / 0.3), clamp((11.5 - t) / 0.25));
+  let press = 0;
+  for (const at of CLICKS)
+    if (t >= at && t < at + 0.45) press = (t - at) / 0.45;
+  cursor(g, x, y, clamp(visible), press);
 }
 
-/* ---------- Сцена 4: много задач и релизы ---------- */
-const TASKS = [
-  "Вход",
-  "Роли",
-  "MCP",
-  "RAG",
-  "Поиск",
-  "Evals",
-  "Логи",
-  "Бот",
-  "Релиз",
-] as const;
-function sceneShip(g: CanvasRenderingContext2D, t: number, f: FilmFonts) {
-  const a = sceneAlpha(t, 10.45, 15.65);
-  if (a <= 0) return;
-  g.save();
-  g.globalAlpha = a;
+/* ---------- Кадр ---------- */
 
-  const cardW = 138;
-  const cardH = 88;
-  let done = 0;
-  for (const [i, name] of TASKS.entries()) {
-    const col = i % 3;
-    const row = Math.floor(i / 3);
-    const x = 60 + col * (cardW + 14);
-    const y = 150 + row * (cardH + 14);
-    const p = spring(t - 10.5 - i * 0.06, 260, 20);
-    if (p <= 0) continue;
-    const closeAt = 11.0 + i * 0.2;
-    const closed = clamp((t - closeAt) / 0.25);
-    if (closed >= 1) done += 1;
-    g.save();
-    g.globalAlpha = a * clamp(p * 1.4);
-    g.translate(x + cardW / 2, y + cardH / 2);
-    g.scale(0.85 + 0.15 * p, 0.85 + 0.15 * p);
-    roundRect(g, -cardW / 2, -cardH / 2, cardW, cardH, 16);
-    g.fillStyle = closed >= 1 ? ACCENT : PANEL;
-    g.fill();
-    // Карточка в работе обведена: видно, какую задачу агент закрывает сейчас.
-    const working = clamp((t - (closeAt - 0.35)) / 0.1) * (1 - closed);
-    if (working > 0) {
-      g.strokeStyle = ACCENT_BRIGHT;
-      g.lineWidth = 3;
-      g.globalAlpha = a * working;
-      roundRect(g, -cardW / 2, -cardH / 2, cardW, cardH, 16);
-      g.stroke();
-      g.globalAlpha = a * clamp(p * 1.4);
-    }
-    label(g, name, -cardW / 2 + 16, -8, 30, 700, TEXT, f.sans);
-    check(g, cardW / 2 - 26, 22, 22, closed, TEXT);
-    g.restore();
-  }
-  // Три агента работают параллельно: стоят у счётчика, пока сетка закрывается.
-  const leave = clamp((t - 13.2) / 0.3);
-  for (let lane = 0; lane < 3; lane++) {
-    const pop = spring(t - 10.7 - lane * 0.1, 240, 18) * (1 - leave);
-    agent(g, 400 + lane * 52, 82, t + lane * 0.7, pop * 0.55);
-  }
-  // Счётчик закрытых задач.
-  const counter = spring(t - 10.6, 220, 24);
-  g.save();
-  g.globalAlpha = a * counter;
-  label(g, String(done), 60, 82, 72, 800, TEXT, f.sans);
-  g.font = `800 72px ${f.sans}`;
-  const numberW = g.measureText(String(done)).width;
-  label(g, "задач закрыто", 60 + numberW + 18, 88, 32, 600, MUTED, f.sans);
-  g.restore();
-
-  // Релизы поднимаются справа.
-  const chart = spring(t - 11.4, 200, 24);
-  if (chart > 0) {
-    g.save();
-    g.globalAlpha = a * chart;
-    g.translate(30 * (1 - chart), 0);
-    roundRect(g, 540, 150, 360, 404, 22);
-    g.fillStyle = PANEL;
-    g.fill();
-    label(g, "релизы", 568, 196, 32, 700, MUTED, f.sans);
-    const points = [0, 1, 2, 3, 4].map((i) => ({
-      x: 590 + i * 70,
-      y: 490 - i * 58 - (i === 4 ? 14 : 0),
-      at: 11.9 + i * 0.5,
-    }));
-    g.strokeStyle = "rgba(243, 241, 237, 0.2)";
-    g.lineWidth = 2;
-    g.beginPath();
-    g.moveTo(570, 520);
-    g.lineTo(880, 520);
-    g.stroke();
-    g.strokeStyle = ACCENT_BRIGHT;
-    g.lineWidth = 5;
-    g.lineCap = "round";
-    g.beginPath();
-    for (const [i, point] of points.entries()) {
-      const next = points[i + 1];
-      if (i === 0) g.moveTo(point.x, point.y);
-      if (!next) break;
-      const k = clamp((t - point.at) / (next.at - point.at));
-      if (k <= 0) break;
-      g.lineTo(lerp(point.x, next.x, k), lerp(point.y, next.y, k));
-    }
-    g.stroke();
-    for (const [i, point] of points.entries()) {
-      const p = spring(t - point.at, 280, 16);
-      if (p <= 0) continue;
-      const last = i === points.length - 1;
-      g.fillStyle = last ? ACCENT_BRIGHT : TEXT;
-      g.beginPath();
-      g.arc(point.x, point.y, (last ? 14 : 9) * p, 0, Math.PI * 2);
-      g.fill();
-      if (last) {
-        label(
-          g,
-          `v1.${String(i)}`,
-          point.x - 20,
-          point.y - 42,
-          34,
-          800,
-          TEXT,
-          f.sans,
-          "right",
-        );
-      }
-    }
-    g.restore();
-  }
-  g.restore();
-}
-
-/** Рисует кадр в момент `t` (секунды) на холсте с логическим размером FILM_WIDTH × FILM_HEIGHT. */
 export function drawFilm(
   g: CanvasRenderingContext2D,
   time: number,
   fonts: FilmFonts,
 ) {
   const t = ((time % FILM_DURATION) + FILM_DURATION) % FILM_DURATION;
-  g.fillStyle = INK;
+  g.fillStyle = CANVAS;
   g.fillRect(0, 0, FILM_WIDTH, FILM_HEIGHT);
-  sceneTask(g, t, fonts);
-  sceneAgent(g, t, fonts);
-  sceneHarness(g, t, fonts);
-  sceneShip(g, t, fonts);
-  // Шов цикла: затемнение в начальный кадр, чтобы повтор не прыгал.
-  const seam = clamp((t - 15.6) / 0.4);
-  if (seam > 0) {
-    g.fillStyle = INK;
-    g.globalAlpha = seam;
-    g.fillRect(0, 0, FILM_WIDTH, FILM_HEIGHT);
-    g.globalAlpha = 1;
+
+  const { w, h, r } = shape(t);
+  g.save();
+  g.translate(CX, CY);
+  g.shadowColor = "rgba(32, 33, 36, 0.22)";
+  g.shadowBlur = 40;
+  g.shadowOffsetY = 18;
+  roundRect(g, -w / 2, -h / 2, w, h, r);
+  g.fillStyle = INK;
+  g.fill();
+  g.shadowColor = "transparent";
+  roundRect(g, -w / 2, -h / 2, w, h, r);
+  g.clip();
+
+  for (const [index, state] of STATES.entries()) {
+    const alpha = contentAlpha(t, index);
+    if (alpha <= 0) continue;
+    const local = t - state.at;
+    g.save();
+    g.globalAlpha = alpha;
+    switch (state.id) {
+      case "pill":
+        drawPill(g, t, fonts);
+        break;
+      case "prompt":
+        drawPrompt(g, t, fonts, local);
+        break;
+      case "think":
+        drawThink(g, t);
+        break;
+      case "plan":
+        drawPlan(g, fonts, local, w, h);
+        break;
+      case "diff":
+        drawDiff(g, fonts, local, w, h);
+        break;
+      case "checks":
+        drawChecks(g, fonts, local, w);
+        break;
+      case "harness":
+        drawHarness(g, fonts, local, w, h);
+        break;
+      case "agents":
+        drawAgents(g, t, fonts, local, w, h);
+        break;
+      case "releases":
+        drawReleases(g, fonts, local, w, h);
+        break;
+      case "toast":
+        drawToast(g, fonts, local);
+        break;
+    }
+    g.restore();
   }
+  g.restore();
+
+  // Подпись под кружком «думает» стоит вне формы, на светлом фоне.
+  const thinkIndex = STATES.findIndex((s) => s.id === "think");
+  const thinking = contentAlpha(t, thinkIndex);
+  if (thinking > 0) {
+    g.save();
+    g.globalAlpha = thinking;
+    text(
+      g,
+      "агент изучает проект",
+      CX,
+      CY + 110,
+      30,
+      700,
+      INK_MUTED,
+      fonts.sans,
+      "center",
+    );
+    g.restore();
+  }
+  drawCursor(g, t);
 }
 
 /** Текстовый эквивалент для скринридера: то же, что показывает анимация. */
 export const FILM_DESCRIPTION =
-  "Анимация курса: задача ставится в подходе AI-first, агент проходит спецификацию, задачи, код и проверку, harness растёт ступенями AGENTS.md, skills, MCP, RAG и evals, агенты закрывают много задач, релизы идут один за другим.";
+  "Анимация курса: разработчик ставит агенту задачу в подходе AI-first, агент составляет план, вносит изменения и открывает pull request, проверки проходят, harness проекта растёт слоями AGENTS.md, skills, MCP, RAG и evals, несколько агентов работают параллельно, растёт число релизов.";
