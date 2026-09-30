@@ -56,12 +56,12 @@ export const Desktop: Story = {
     }
     await expect(canvas.queryByText(/Попробовать бесплатно/u)).toBeNull();
     // Анимация стоит в слоте первого экрана, описана для скринридера и идёт без кнопки паузы.
-    const film = canvasElement.querySelector(".aie-hero-film");
+    const film = canvasElement.querySelector<HTMLElement>(".aie-hero-film");
     if (film === null) throw new Error("Missing course film slot");
-    await expect(
-      within(film as HTMLElement).getByRole("img"),
-    ).toHaveAccessibleName(/harness/u);
-    await expect(within(film as HTMLElement).queryByRole("button")).toBeNull();
+    await expect(within(film).getByRole("img")).toHaveAccessibleName(
+      /harness/u,
+    );
+    await expect(within(film).queryByRole("button")).toBeNull();
   },
 };
 
