@@ -68,7 +68,10 @@ export const sourcePracticeSchema = z
   })
   .strict();
 
-const manifestSchema = z
+/** The only explicit selection scope; a package without it selects Materials. */
+export const guideShellScope = z.literal("guide-shell");
+
+export const manifestSchema = z
   .object({
     schemaVersion: z.literal(1),
     sourceNamespace: identifier,
@@ -77,50 +80,48 @@ const manifestSchema = z
       .object({
         guideId: identifier.nullable(),
         chapterIds: z.array(identifier),
-        materialIds: z.array(identifier).min(1),
+        materialIds: z.array(identifier),
         complete: z.literal(true),
+        // An explicit Guide shell release (#803): only the product page and programme, no Materials.
+        scope: guideShellScope.optional(),
       })
       .strict(),
-    materials: z
-      .array(
-        z
-          .object({
-            sourceId: identifier,
-            sourcePath: relativePath,
-            sourceIds: z.array(identifier),
-            relatedMaterialIds: z.array(identifier),
-            readingTimeMinutes: z.number().int().positive().nullable(),
-            kind: z.enum(["video", "guide", "note"]),
-            title: z.string().min(1),
-            summary: z.string().min(1),
-            stage: z.enum(["idea", "draft", "review", "ready", "published"]),
-            topicId: identifier.nullable(),
-            access: z.enum(["free", "membership", "workshop"]).nullable(),
-            showInFeed: z.boolean(),
-            difficulty: z
-              .enum(["basic", "intermediate", "advanced"])
-              .nullable(),
-            outcomes: z.array(z.string()).nullable(),
-            markdown: z.string(),
-            links: z.record(z.string(), identifier),
-            images: z.record(z.string(), z.string()),
-            coverAssetId: z.string().nullable(),
-            coverAlt: z.string().nullable(),
-            video: z.object({ kinescopeId: z.uuid() }).strict().nullable(),
-            videoChapters: chapters,
-            artifacts: z.array(
-              z
-                .object({
-                  sourceId: identifier,
-                  title: z.string().min(1),
-                  assetId: z.string(),
-                })
-                .strict(),
-            ),
-          })
-          .strict(),
-      )
-      .min(1),
+    materials: z.array(
+      z
+        .object({
+          sourceId: identifier,
+          sourcePath: relativePath,
+          sourceIds: z.array(identifier),
+          relatedMaterialIds: z.array(identifier),
+          readingTimeMinutes: z.number().int().positive().nullable(),
+          kind: z.enum(["video", "guide", "note"]),
+          title: z.string().min(1),
+          summary: z.string().min(1),
+          stage: z.enum(["idea", "draft", "review", "ready", "published"]),
+          topicId: identifier.nullable(),
+          access: z.enum(["free", "membership", "workshop"]).nullable(),
+          showInFeed: z.boolean(),
+          difficulty: z.enum(["basic", "intermediate", "advanced"]).nullable(),
+          outcomes: z.array(z.string()).nullable(),
+          markdown: z.string(),
+          links: z.record(z.string(), identifier),
+          images: z.record(z.string(), z.string()),
+          coverAssetId: z.string().nullable(),
+          coverAlt: z.string().nullable(),
+          video: z.object({ kinescopeId: z.uuid() }).strict().nullable(),
+          videoChapters: chapters,
+          artifacts: z.array(
+            z
+              .object({
+                sourceId: identifier,
+                title: z.string().min(1),
+                assetId: z.string(),
+              })
+              .strict(),
+          ),
+        })
+        .strict(),
+    ),
     // slug, presentation and page arrived with #671; packages exported before it describe no product page.
     guides: z.array(
       z
@@ -234,6 +235,56 @@ function unique(values, label) {
     throw new Error(`Duplicate ${label}`);
 }
 /**
+ * A Guide shell release carries the product page and its chapters, never a Material.
+ *
+ * @param {Pick<Manifest, "selection">} manifest
+ */
+export const isGuideShell = (manifest) =>
+  manifest.selection.scope === guideShellScope.value;
+
+/**
+ * An empty selection is refused unless it explicitly asks for the Guide shell, whose absent
+ * Materials never mean removal.
+ *
+ * @param {Manifest} manifest
+ */
+function checkSelectionScope(manifest) {
+  if (!isGuideShell(manifest)) {
+    if (manifest.selection.materialIds.length === 0)
+      throw new Error(
+        "Empty selection: a package without Materials must declare selection.scope guide-shell",
+      );
+    return;
+  }
+  const [guide] = manifest.guides;
+  if (
+    manifest.selection.guideId === null ||
+    manifest.guides.length !== 1 ||
+    guide?.sourceId !== manifest.selection.guideId
+  )
+    throw new Error("A Guide shell release names exactly its one Guide");
+  if (
+    manifest.selection.chapterIds.length ||
+    manifest.selection.materialIds.length ||
+    manifest.materials.length ||
+    manifest.assets.length ||
+    (manifest.practiceDefinitions ?? []).length
+  )
+    throw new Error(
+      "A Guide shell release carries no chapter subset, Material, asset or practice",
+    );
+  if (
+    !guide.complete ||
+    guide.materialIds.length ||
+    guide.supplementaryMaterialIds.length ||
+    guide.chapters.some((chapter) => chapter.materialIds.length)
+  )
+    throw new Error(
+      "A Guide shell release carries the complete chapter list without Material placement",
+    );
+}
+
+/**
  * @typedef {z.infer<typeof manifestSchema>} Manifest
  * @typedef {Manifest["materials"][number]} ManifestMaterial
  * @typedef {Manifest["guides"][number]} ManifestGuide
@@ -267,6 +318,7 @@ export async function loadPackage(path) {
     manifest.assets.map((item) => item.sourceId),
     "asset identity",
   );
+  checkSelectionScope(manifest);
   unique(manifest.selection.materialIds, "selection identity");
   const ids = new Set(manifest.materials.map((item) => item.sourceId));
   if (

@@ -15,6 +15,8 @@ import {
   canonical,
   checksum,
   materialRevision,
+  guideShellScope,
+  isGuideShell,
 } from "./package.mjs";
 import { convertMarkdown, sourceUuid } from "./markdown.mjs";
 import { withJournal, applyJournaled } from "./journal.mjs";
@@ -71,6 +73,7 @@ export const localRequest = localTransport(reviewOrigin);
  * @property {{ sourceId: string; url: string | null }[]} archiveProposals
  * @property {SyncNotice[]} notices
  * @property {string} [homePinned]
+ * @property {"guide-shell"} [scope]
  * @typedef {object} SyncOptions
  * @property {string} [origin]
  * @property {import("./target.mjs").LocalTransport | undefined} [request]
@@ -305,6 +308,41 @@ export function guideChapters(manifest, guide) {
 }
 
 /**
+ * The composition a Guide shell release sends: the package's chapter list over the Materials the
+ * target already holds, in their current order and chapters. A placed Material whose chapter the
+ * package drops would lose its placement, so that shell is refused before any write.
+ *
+ * @param {Manifest} manifest
+ * @param {ManifestGuide} guide
+ * @param {{ items: { materialId: string; chapterId: string | null }[] }} order
+ */
+export function guideShellComposition(manifest, guide, order) {
+  const chapters = guideChapters(manifest, guide);
+  const ids = new Set(chapters.map((chapter) => chapter.id));
+  const ungrouped = order.items.filter(
+    (item) => item.chapterId !== null && !ids.has(item.chapterId),
+  ).length;
+  if (ungrouped > 0)
+    throw new Error(
+      `Product ${guide.sourceId}: the Guide shell drops chapters that hold ${String(ungrouped)} Materials; move them in Platform or keep those chapters`,
+    );
+  return {
+    chapters,
+    orderedMaterialIds: order.items.map((item) => item.materialId),
+  };
+}
+
+/**
+ * Journaled writes whose outcome is still unknown; only a sync of their own package resumes them.
+ *
+ * @param {Pick<Journal, "operations">} journal
+ */
+export const pendingOperations = (journal) =>
+  Object.values(journal.operations).filter(
+    (entry) => isJournalOperation(entry) && entry.status === "pending",
+  ).length;
+
+/**
  * @param {ManifestAsset} asset
  * @param {ManifestArtifact} artifact
  * @param {DefaultAccess} access
@@ -381,6 +419,8 @@ export function normalizeSourceIds(manifest, ids) {
  * @param {Manifest} manifest
  */
 export function archiveProposalKeys(journal, manifest) {
+  // A Guide shell names no Material, so its absent Materials say nothing about removal.
+  if (isGuideShell(manifest)) return [];
   const present = new Set(
     manifest.materials.map((row) => sourceKey(manifest, row.sourceId)),
   );
@@ -428,6 +468,9 @@ export async function syncLocal(
   if (!["free", "membership"].includes(defaultAccess))
     throw new Error("Explicit local access must be free or membership");
   const pkg = await loadPackage(packagePath);
+  const shell = isGuideShell(pkg.manifest);
+  if (shell && archive.length)
+    throw new Error("A Guide shell release never archives Materials");
   const environment = await request("/authoring/import/materials/environment");
   if (environment.mode !== "development")
     throw new Error("Local synchronization requires a development runtime");
@@ -446,6 +489,7 @@ export async function syncLocal(
       archived: [],
       archiveProposals: [],
       notices: [...pkg.manifest.diagnostics],
+      ...(shell ? { scope: guideShellScope.value } : {}),
     };
     const rows = new Map(
       pkg.manifest.materials.map((row) => [row.sourceId, row]),
@@ -488,7 +532,8 @@ export async function syncLocal(
     };
 
     // Reconcile receipts before reading versions, including a crash between receipt and material cache.
-    for (const entry of Object.values(journal.operations)) {
+    // A Guide shell writes no Material; an interrupted Material sync resumes with its own package.
+    for (const entry of shell ? [] : Object.values(journal.operations)) {
       const operation = isJournalOperation(entry)
         ? materialApplyRequest(entry.request)
         : undefined;
@@ -527,7 +572,7 @@ export async function syncLocal(
       await persist();
     }
 
-    await replayPracticeImports(context, request);
+    if (!shell) await replayPracticeImports(context, request);
 
     const teasers = new Map(
       pkg.manifest.guides.map((guide) => [guide.sourceId, guideTeaser(guide)]),
@@ -604,6 +649,18 @@ export async function syncLocal(
       pkg.manifest.guides.length === 0
         ? []
         : await request("/authoring/collections?kind=guide");
+    // The shell's chapter check runs before its first write.
+    if (shell)
+      for (const guide of pkg.manifest.guides) {
+        const stored = storedGuides.find(
+          (item) =>
+            item.sourceId === sourceId(guide.sourceId) &&
+            item.archived !== true,
+        );
+        if (stored === undefined) continue;
+        const order = await request(`/authoring/guides/${stored.id}/order`);
+        guideShellComposition(pkg.manifest, guide, order);
+      }
     for (const guide of pkg.manifest.guides) {
       if (!guide.complete)
         throw new Error(
@@ -662,6 +719,36 @@ export async function syncLocal(
           cause: error,
         });
       }
+    }
+
+    if (shell) {
+      for (const guide of pkg.manifest.guides) {
+        const current = valueAt(guides, guide.sourceId);
+        const order = await request(`/authoring/guides/${current.id}/order`);
+        const composition = guideShellComposition(pkg.manifest, guide, order);
+        // Omitted assignments keep every retained Material in its chapter; an unchanged shell writes nothing.
+        await request("/authoring/import/guides/composition", {
+          sourceId: sourceId(guide.sourceId),
+          seriesId: current.id,
+          expectedOrderVersion: order.orderVersion,
+          orderedMaterialIds: composition.orderedMaterialIds,
+          chapters: composition.chapters,
+        });
+        report.guides.push({
+          title: guide.title,
+          url: `${reader}/guides/${current.slug}`,
+          programmeUrl: `${reader}/guides/${current.slug}/programme`,
+          mainMaterials: order.items.length,
+          supplementaryMaterials: [],
+        });
+      }
+      const pending = pendingOperations(journal);
+      if (pending)
+        report.notices.push({
+          code: "journal_pending",
+          message: `Оболочка не продолжает ${String(pending)} незавершённых записей материалов; повторите перенос их пакета`,
+        });
+      return finish();
     }
 
     // Paid Materials must belong to a product, so validation uses the reserved Guides' real identities.
@@ -1186,8 +1273,17 @@ export async function syncLocal(
         code: "archive_proposed",
         message: `Оригиналы пропали для ${report.archiveProposals.length} материалов; повторите синхронизацию с --archive, если их нужно снять`,
       });
-    // The local product view features the transferred product on Home, like production will.
-    if (pinHome) {
+    return finish();
+
+    async function finish() {
+      // The local product view features the transferred product on Home, like production will.
+      if (pinHome) await pinProduct();
+      journal.lastReport = report;
+      await persist();
+      return report;
+    }
+
+    async function pinProduct() {
       const [product] = pkg.manifest.guides;
       if (pkg.manifest.guides.length !== 1 || product === undefined)
         throw new Error(
@@ -1204,9 +1300,6 @@ export async function syncLocal(
         );
       report.homePinned = guideId;
     }
-    journal.lastReport = report;
-    await persist();
-    return report;
   });
 }
 
@@ -1235,6 +1328,6 @@ if (
     archive: values.archive,
   });
   process.stdout.write(
-    `${JSON.stringify({ packageId: report.packageId, applied: report.applied, unchanged: report.unchanged, guides: report.guides, archived: report.archived, archiveProposals: report.archiveProposals, notices: report.notices }, null, 2)}\n`,
+    `${JSON.stringify({ packageId: report.packageId, scope: report.scope ?? "materials", applied: report.applied, unchanged: report.unchanged, guides: report.guides, archived: report.archived, archiveProposals: report.archiveProposals, notices: report.notices }, null, 2)}\n`,
   );
 }

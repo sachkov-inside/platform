@@ -4,7 +4,13 @@ import { join, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 import { parseArgs } from "node:util";
 import { z } from "zod";
-import { loadPackage, canonical, checksum } from "./package.mjs";
+import {
+  loadPackage,
+  canonical,
+  checksum,
+  guideShellScope,
+  isGuideShell,
+} from "./package.mjs";
 import { writeAtomic } from "./journal.mjs";
 import {
   artifactReceiptSchema,
@@ -22,7 +28,9 @@ import {
   guideChapters,
   guideDetails,
   guideDetailsMatch,
+  guideShellComposition,
   normalizeSourceIds,
+  pendingOperations,
   valueAt,
   sourceKey,
   syncLocal,
@@ -68,6 +76,7 @@ import {
  * @property {number} [added]
  * @property {number} [removed]
  * @property {boolean} [reorderedOrRegrouped]
+ * @property {{ added: number; removed: number }} [chapterListChange]
  */
 
 /**
@@ -134,6 +143,7 @@ export async function previewRelease(
   const request = async (path) => parseLocalResponse(path, await send(path));
   const pkg = await loadPackage(packagePath);
   const { manifest } = pkg;
+  const shell = isGuideShell(manifest);
   const environment = await request("/authoring/import/materials/environment");
   await validateGuidePages(manifest, send);
   const journal = await readJournal(stateDirectory, target);
@@ -291,20 +301,32 @@ export async function previewRelease(
         slug: details.slug,
         presentation: details.presentation,
         page: details.page === null ? "none" : "new",
+        ...(shell
+          ? { chapterListChange: { added: guide.chapters.length, removed: 0 } }
+          : {}),
       });
       continue;
     }
     const order = await request(`/authoring/guides/${guideId}/order`);
     expected[`${sourceKey(manifest, guide.sourceId)}:order`] =
       order.orderVersion;
+    // A page edited on the target after the review is drift, not something apply may overwrite.
+    if (stored !== undefined)
+      expected[`${sourceKey(manifest, guide.sourceId)}:guide`] = stored.version;
     const ids = new Map(
       programme.map((id) => [
         id,
         journal.materials[sourceKey(manifest, id)]?.materialId,
       ]),
     );
-    const desiredOrder = programme.map((id) => ids.get(id) ?? `new:${id}`);
     const currentOrder = order.items.map((item) => item.materialId);
+    // A Guide shell keeps the Materials the target holds, in their order and chapters.
+    const shellComposition = shell
+      ? guideShellComposition(manifest, guide, order)
+      : undefined;
+    const desiredOrder =
+      shellComposition?.orderedMaterialIds ??
+      programme.map((id) => ids.get(id) ?? `new:${id}`);
     const chapterOf = new Map(
       guide.chapters.flatMap((chapter) =>
         chapter.materialIds.map((id) => [ids.get(id), chapter.title]),
@@ -319,7 +341,18 @@ export async function previewRelease(
         canonical({ name: chapter.name, summary: chapter.summary }),
       ]),
     );
-    const chapterTextChanges = guideChapters(manifest, guide).filter(
+    const desiredChapters = guideChapters(manifest, guide);
+    const desiredChapterIds = desiredChapters.map((chapter) => chapter.id);
+    const currentChapterIds = order.chapters.map((chapter) => chapter.id);
+    const chapterListChange = {
+      added: desiredChapterIds.filter((id) => !currentChapterIds.includes(id))
+        .length,
+      removed: currentChapterIds.filter((id) => !desiredChapterIds.includes(id))
+        .length,
+    };
+    const chaptersChanged =
+      canonical(desiredChapterIds) !== canonical(currentChapterIds);
+    const chapterTextChanges = desiredChapters.filter(
       (chapter) =>
         currentChapterText.has(chapter.id) &&
         currentChapterText.get(chapter.id) !==
@@ -341,13 +374,16 @@ export async function previewRelease(
         : undefined;
     const detailsChange =
       stored === undefined || !guideDetailsMatch(stored, details);
-    const moved = order.items.filter(
-      (item) =>
-        (chapterOf.get(item.materialId) ?? null) !==
-        (item.chapterId === null
-          ? null
-          : (currentChapters.get(item.chapterId) ?? null)),
-    ).length;
+    // A shell that would move a placed Material is refused while composing it.
+    const moved = shellComposition
+      ? 0
+      : order.items.filter(
+          (item) =>
+            (chapterOf.get(item.materialId) ?? null) !==
+            (item.chapterId === null
+              ? null
+              : (currentChapters.get(item.chapterId) ?? null)),
+        ).length;
     guides.push({
       sourceId: guide.sourceId,
       title: guide.title,
@@ -356,6 +392,7 @@ export async function previewRelease(
       change:
         canonical(desiredOrder) === canonical(currentOrder) &&
         moved === 0 &&
+        !chaptersChanged &&
         chapterTextChanges === 0
           ? detailsChange
             ? "details"
@@ -366,6 +403,7 @@ export async function previewRelease(
       pageChange,
       ...(slugChange ? { slugChange } : {}),
       ...(presentationChange ? { presentationChange } : {}),
+      ...(chaptersChanged ? { chapterListChange } : {}),
       added: desiredOrder.filter((id) => !currentOrder.includes(id)).length,
       removed: currentOrder.filter((id) => !desiredOrder.includes(id)).length,
       reorderedOrRegrouped:
@@ -382,6 +420,11 @@ export async function previewRelease(
     packageId: pkg.id,
     packagePath: resolve(packagePath),
     namespace: manifest.sourceNamespace,
+    ...(shell ? { scope: guideShellScope.value } : {}),
+    // A shell leaves these writes for their own package; the reviewer sees them before apply.
+    ...(shell && pendingOperations(journal)
+      ? { pendingMaterialWrites: pendingOperations(journal) }
+      : {}),
     expected,
     materials,
     guides,
@@ -409,6 +452,8 @@ const previewSchema = z
     packageId: z.hash("sha256"),
     packagePath: z.string(),
     namespace: z.string(),
+    scope: guideShellScope.optional(),
+    pendingMaterialWrites: z.number().int().positive().optional(),
     expected: z.record(z.string(), z.union([z.number().int(), z.string()])),
     materials: z.array(z.object({ change: z.string() }).passthrough()),
     guides: z.array(z.json()),
@@ -498,7 +543,7 @@ if (
       { origin: releaseTarget(values.target) },
     );
     process.stdout.write(
-      `${JSON.stringify({ preview: path, summary, guides: preview.guides, archiveProposals: preview.archiveProposals, changes: preview.materials.filter((item) => item.change !== "unchanged") }, null, 2)}\n`,
+      `${JSON.stringify({ preview: path, scope: preview.scope ?? "materials", summary, guides: preview.guides, archiveProposals: preview.archiveProposals, changes: preview.materials.filter((item) => item.change !== "unchanged") }, null, 2)}\n`,
     );
   } else if (command === "apply" && values.preview && values.state) {
     const report = await applyRelease(values.preview, values.state, {
