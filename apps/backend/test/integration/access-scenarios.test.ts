@@ -265,6 +265,7 @@ describe("таблица сценариев доступа (реальный Pos
       }),
     );
     community = new CommunityEntitlements({
+      botStartUrl: "https://t.me/inside_test_bot",
       accounts,
       clock: () => now,
       grants,

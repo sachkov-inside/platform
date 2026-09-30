@@ -193,6 +193,22 @@ test("каждый раздел решает одну задачу", async ({ pa
   await expect(page.getByRole("button", { name: "Сохранить" })).toBeDisabled();
 });
 
+test("«Покупки» ведут в сообщество, открытое покупкой", async ({ page }) => {
+  await stubAccount(page, { grounds: [paidGround] });
+  await page.route("**/api/account/community-entry", (route) =>
+    route.fulfill({ json: { ok: true, value: { kind: "link_telegram" } } }),
+  );
+
+  await page.goto("/account/purchases");
+
+  // Без подключённого Telegram бот не узнает покупателя: сначала подключение.
+  await expect(
+    page
+      .getByRole("region", { name: "Сообщество Inside" })
+      .getByRole("link", { name: "Подключить Telegram" }),
+  ).toHaveAttribute("href", "/account/access");
+});
+
 test("кабинет полезен без подписки и не предлагает её раздел", async ({
   page,
 }, testInfo) => {

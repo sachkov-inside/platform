@@ -82,6 +82,98 @@ test("возврат из банка не выдаётся за подтверж
   ).toBeVisible();
 });
 
+const returnedPurchaseRef = "00000000-0000-4000-8000-000000000701";
+const courseOffer = {
+  ...offer,
+  name: "AI Engineering",
+  benefits: ["guide:00000000-0000-4000-8000-000000000801", "community"],
+};
+
+async function returnFromBank(
+  page: Page,
+  access: "awaiting_payment" | "ready",
+  entry: unknown,
+) {
+  await page.addInitScript((purchaseRef) => {
+    window.sessionStorage.setItem("inside.billing.purchase", purchaseRef);
+  }, returnedPurchaseRef);
+  await page.route("**/api/account/billing/purchase-status**", (route) =>
+    route.fulfill({
+      json: {
+        ok: true,
+        value: {
+          purchaseRef: returnedPurchaseRef,
+          state: access === "ready" ? "confirmed" : "pending",
+          paymentUrl: null,
+          snapshot: {
+            offer: courseOffer,
+            paymentOption: { ...paymentOption, mode: "one_time" },
+            promotion: null,
+            currency: "RUB",
+            timezone: "Europe/Moscow",
+            firstPriceKopecks: 100_000,
+            renewalPriceKopecks: 100_000,
+          },
+          access,
+          fiscalization: "confirmed",
+          confirmedAt: access === "ready" ? "2026-09-30T10:00:00.000Z" : null,
+          periodEndsAt: null,
+        },
+      },
+    }),
+  );
+  await page.route("**/api/account/community-entry", (route) =>
+    route.fulfill({ json: { ok: true, value: entry } }),
+  );
+}
+
+test("после оплаты курса с сообществом виден переход в бота", async ({
+  page,
+}) => {
+  await returnFromBank(page, "ready", {
+    kind: "join",
+    botUrl: "https://t.me/inside_e2e_bot",
+  });
+  await page.goto("/subscription/return");
+
+  await expect(page.getByText("Оплата подтверждена")).toBeVisible();
+  const community = page.getByRole("region", { name: "Сообщество Inside" });
+  // Бот понимает обычный /start: ссылка не вводит новых параметров.
+  await expect(
+    community.getByRole("link", { name: "Вступить в сообщество" }),
+  ).toHaveAttribute("href", "https://t.me/inside_e2e_bot");
+
+  const results = await new AxeBuilder({ page })
+    .include("section[aria-labelledby='community-entry-title']")
+    .withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"])
+    .analyze();
+  expect(results.violations).toEqual([]);
+});
+
+test("участник сообщества после оплаты не зовётся вступать повторно", async ({
+  page,
+}) => {
+  await returnFromBank(page, "ready", { kind: "member" });
+  await page.goto("/subscription/return");
+
+  const community = page.getByRole("region", { name: "Сообщество Inside" });
+  await expect(community).toContainText("Вы уже в сообществе Inside");
+  await expect(community.getByRole("link")).toHaveCount(0);
+});
+
+test("до подтверждения оплаты переход в сообщество не показывается", async ({
+  page,
+}) => {
+  await returnFromBank(page, "awaiting_payment", {
+    kind: "join",
+    botUrl: "https://t.me/inside_e2e_bot",
+  });
+  await page.goto("/subscription/return");
+
+  await expect(page.getByText("Ждёт подтверждения оплаты")).toBeVisible();
+  await expect(page.getByText("Сообщество Inside")).toHaveCount(0);
+});
+
 test("раздел подписки просит войти без действующей сессии", async ({
   page,
 }) => {

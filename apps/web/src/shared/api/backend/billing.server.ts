@@ -193,3 +193,11 @@ export function requestCurrentCommunityAdmission(accessToken: string) {
     { accessToken },
   );
 }
+
+export function requestCurrentCommunityEntry(accessToken: string) {
+  return executeGeneratedRequest(
+    (request) => new TelegramCommunityService(request).currentCommunityEntry(),
+    200,
+    { accessToken },
+  );
+}

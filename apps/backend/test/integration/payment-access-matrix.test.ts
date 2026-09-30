@@ -621,6 +621,7 @@ describe("оплата, выдача прав и доступ к материа�
   /** Проекция сообщества: желаемое состояние считается здесь, а исполняет его бот. */
   function communityProjection() {
     return new CommunityEntitlements({
+      botStartUrl: "https://t.me/inside_test_bot",
       accounts,
       clock: () => now,
       grants,

@@ -25,6 +25,34 @@ export class TelegramCommunityService {
     });
   }
   /**
+   * Read which community entry to offer the current Account
+   * @returns any
+   * @throws ApiError
+   */
+  public currentCommunityEntry(): CancelablePromise<({
+    kind: 'none';
+  } | {
+    kind: 'link_telegram';
+  } | {
+    kind: 'preparing';
+  } | {
+    botUrl: string;
+    kind: 'join';
+  } | {
+    kind: 'member';
+  } | {
+    kind: 'restricted';
+  })> {
+    return this.httpRequest.request({
+      method: 'GET',
+      url: '/accounts/current/community-entry',
+      errors: {
+        403: `The terms of use in force are not accepted yet`,
+        500: `Terms acceptance could not be checked`,
+      },
+    });
+  }
+  /**
    * Read the desired, accepted and applied community states of one Account
    * @returns any
    * @throws ApiError

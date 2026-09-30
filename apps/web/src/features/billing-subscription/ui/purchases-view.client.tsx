@@ -18,6 +18,8 @@ import { SubscriptionGrounds } from "./subscription-grounds.client";
 export interface PurchasesSectionViewProps {
   /** Подтверждённый email: составляется страницей, потому что это отдельная поверхность. */
   readonly contactSlot?: ReactNode;
+  /** Переход в сообщество, открытое покупкой: отдельная поверхность, составляется страницей. */
+  readonly communitySlot?: ReactNode;
   readonly grounds: readonly AccessGround[];
   readonly payments: readonly OwnPayment[];
   readonly notices: readonly NoticeView[];
@@ -37,6 +39,7 @@ export interface PurchasesSectionViewProps {
  */
 export function PurchasesSectionView({
   contactSlot,
+  communitySlot,
   grounds,
   payments,
   notices,
@@ -65,6 +68,7 @@ export function PurchasesSectionView({
         loading={loading}
         storefrontHref={storefrontHref}
       />
+      {communitySlot}
       {contactSlot}
       <PaymentMethodCard
         onChangeMethod={onChangeMethod}
