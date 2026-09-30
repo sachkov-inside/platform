@@ -39,7 +39,7 @@ export async function PersonalCohortCall({
   const { id: guideId, slug } = result.reference;
   if (guideId === undefined) return <PendingCohortCall slug={slug} />;
   const accessToken = await getOptionalPlatformAccessToken();
-  const [cohort, offers, access] = await Promise.all([
+  const [cohort, offers, productAccess] = await Promise.all([
     loadGuideCohort(guideId),
     loadGuideOffers(guideId),
     // Гостю продукт не открыт: оплата ведёт через вход.
@@ -54,7 +54,7 @@ export async function PersonalCohortCall({
       call={cohortCall({
         cohort: cohort.cohort,
         offer: offers.kind === "ready" ? (offers.offers[0] ?? null) : null,
-        access,
+        productAccess,
         signedIn: accessToken !== undefined,
         slug,
       })}
@@ -66,7 +66,7 @@ function withoutCohort(slug: string): CohortCall {
   return cohortCall({
     cohort: null,
     offer: null,
-    access: "unknown",
+    productAccess: "unknown",
     signedIn: false,
     slug,
   });

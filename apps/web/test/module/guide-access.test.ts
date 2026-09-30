@@ -18,7 +18,8 @@ describe("Guide access server adapter", () => {
     await expect(loadGuideAccess(guideId, "member-token")).resolves.toBe(
       "open",
     );
-    const [request] = fetch.mock.calls[0] as [Request];
+    const request: unknown = fetch.mock.calls[0]?.[0];
+    if (!(request instanceof Request)) throw new Error("No backend request");
     expect(request.url).toBe(
       `https://platform-api.example.test/accounts/current/guides/${guideId}/access`,
     );

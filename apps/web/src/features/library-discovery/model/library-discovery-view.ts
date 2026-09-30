@@ -83,10 +83,11 @@ export type LibraryDiscoveryResult<
 export type PublishedTopicResult = LibraryDiscoveryResult<"topic">;
 export type PublishedSeriesResult = LibraryDiscoveryResult<"series">;
 
+export type RelatedMaterialsResult = LibraryDiscoveryResult<"related">;
+
 /**
  * Открыт ли продукт этому Account по его основаниям: покупке, тарифу с продуктом или тарифу «все
  * продукты». Ответ не зависит от того, опубликованы ли платные уроки. `unknown` — ответа нет:
  * страница не прячет оплату, а повторную покупку остановит страница оплаты.
  */
 export type GuideAccess = "open" | "closed" | "unknown";
-export type RelatedMaterialsResult = LibraryDiscoveryResult<"related">;

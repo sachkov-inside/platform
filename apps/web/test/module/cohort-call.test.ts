@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import type { GuideCohort, PriceSnapshot } from "@/entities/subscription";
+import type { GuideAccess } from "@/features/library-discovery";
 import {
   cohortCall,
   formatCohortDate,
@@ -20,14 +21,14 @@ const call = (
   overrides: Partial<{
     cohort: GuideCohort | null;
     offer: PriceSnapshot | null;
-    access: "open" | "closed" | "unknown";
+    productAccess: GuideAccess;
     signedIn: boolean;
   }> = {},
 ) =>
   cohortCall({
     cohort,
     offer: guideWithSupportOffer,
-    access: "closed",
+    productAccess: "closed",
     signedIn: true,
     slug,
     ...overrides,
@@ -103,10 +104,11 @@ describe("first screen call of a product cohort", () => {
 
   it("hides payment without a sale and from a person the product is open to", () => {
     expect(call({ offer: null }).action.kind).toBe("programme");
-    expect(call({ access: "unknown" }).action.kind).toBe("purchase");
+    expect(call({ productAccess: "unknown" }).action.kind).toBe("purchase");
     for (const stage of ["preorder", "running", "between"] as const)
       expect(
-        call({ cohort: { ...cohort, stage }, access: "open" }).action.kind,
+        call({ cohort: { ...cohort, stage }, productAccess: "open" }).action
+          .kind,
       ).toBe("programme");
   });
 });

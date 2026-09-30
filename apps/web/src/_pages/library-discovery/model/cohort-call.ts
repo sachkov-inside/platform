@@ -30,7 +30,7 @@ export function formatCohortDate(startsOn: string): string {
 export function cohortCall({
   cohort,
   offer,
-  access,
+  productAccess,
   signedIn,
   slug,
 }: {
@@ -38,7 +38,7 @@ export function cohortCall({
   /** Самый дешёвый вариант продукта, который видит этот человек, или `null`, если продажи нет. */
   readonly offer: PriceSnapshot | null;
   /** Открыт ли продукт этому человеку по его основаниям; тому, у кого он есть, оплата не нужна. */
-  readonly access: GuideAccess;
+  readonly productAccess: GuideAccess;
   readonly signedIn: boolean;
   readonly slug: string;
 }): CohortCall {
@@ -53,7 +53,7 @@ export function cohortCall({
 
   const date =
     cohort.startsOn === null ? "" : formatCohortDate(cohort.startsOn);
-  const payable = offer !== null && access !== "open";
+  const payable = offer !== null && productAccess !== "open";
   const pay = (label: string) =>
     payable
       ? ({ kind: "purchase", href: guidePurchaseHref(slug), label } as const)
