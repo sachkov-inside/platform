@@ -1,6 +1,7 @@
 import { expect, it } from "vitest";
 
 import {
+  guidePurchaseHref,
   purchaseInvitation,
   subscriptionHrefFrom,
   subscriptionRouteTarget,
@@ -68,4 +69,13 @@ it("ведёт призыв к покупке внутрь платформы и
     }),
   ).toBeNull();
   expect(purchaseInvitation({ subscriptionOffered: false })).toBeNull();
+});
+
+it("персональная ссылка оплаты несёт промокод и переживает вход", () => {
+  expect(guidePurchaseHref("platform-inside")).toBe(
+    "/guides/platform-inside/buy",
+  );
+  expect(guidePurchaseHref("platform-inside", "Survey 7&x")).toBe(
+    "/guides/platform-inside/buy?promo=Survey+7%26x",
+  );
 });

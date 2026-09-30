@@ -90,6 +90,12 @@ function description(operation: string): string {
       return "Extend one manual or legacy grant to a later end or explicit lifetime with expectedRevision. Paid periods belong to billing and are not editable here.";
     case "grants.revoke":
       return "Revoke one manual or legacy grant with expectedRevision. Other valid grounds of the same Account stay in force.";
+    case "respondents.import":
+      return "Add Telegram usernames from the survey column to the private respondent list. Accepts @nick, nick and t.me links one per line; duplicates collapse and unrecognized lines are only counted. Never removes names. The owner audit stores counts, not names.";
+    case "respondents.issue":
+      return "Issue one survey respondent a personal one-time promo code copied from an archived, unexpired template promotion. A username gets at most one code; a repeat returns the issued one. Returns the product slug when the template sells one product; the payment page is /guides/<slug>/buy?promo=<code>. Grants no access and sends nothing.";
+    case "respondents.status":
+      return "Read the survey respondent list: its size, issued personal links and purchases confirmed by them. Sends nothing.";
     default:
       return `Change the billing catalog through ${operation} with expectedRevision. Purchased conditions, existing subscriptions and issued grants are never rewritten. Reuse operationId on retry.`;
   }

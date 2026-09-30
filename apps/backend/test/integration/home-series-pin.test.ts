@@ -60,6 +60,7 @@ beforeAll(async () => {
       "0070_guide_page",
       "0071_offer_eligibility",
       "0072_practice_definitions",
+      "0073_survey_respondents",
     ],
   });
   await database.prisma.topic.create({

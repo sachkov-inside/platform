@@ -117,7 +117,9 @@ Two recurring traps affect what a snapshot shows:
   `iframe.html?id=<kebab-title>--<kebab-export>&viewMode=story` at 390 and 1440 wide. Put the
   capture script inside `apps/web` and import `chromium` from `@playwright/test`, which is the
   installed package. Assert `scrollWidth === clientWidth` before capturing to prove there is no
-  horizontal overflow.
+  horizontal overflow. Serve the build from a small `node:http` server inside that script:
+  `python3 -m http.server` drops the parallel module requests and stories fail at random with
+  "Failed to fetch dynamically imported module".
 
 ## Completion rules
 

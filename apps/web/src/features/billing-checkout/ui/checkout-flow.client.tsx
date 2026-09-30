@@ -41,6 +41,8 @@ export interface CheckoutFlowProps {
    * перечитывает их, чтобы покупатель увидел и принял действующую.
    */
   readonly onDocumentsChanged?: () => void;
+  /** Промокод персональной ссылки владельца: расчёт применяет его, если код действует. */
+  readonly promoCode?: string;
 }
 
 /**
@@ -56,6 +58,7 @@ export function CheckoutFlow({
   onNavigate,
   inclusions = [],
   onDocumentsChanged,
+  promoCode,
 }: CheckoutFlowProps) {
   const [quote, setQuote] = useState<BillingQuote | null>(null);
   const [acknowledge, setAcknowledge] = useState(false);
@@ -166,13 +169,14 @@ export function CheckoutFlow({
 
   const requestQuote = () => {
     setError(undefined);
-    quoteMutation.mutate({
-      operationId: operationId("quote", {
-        paymentOptionId: snapshot.paymentOption.id,
-        optionRevision: snapshot.paymentOption.revision,
-      }),
+    const input = {
       paymentOptionId: snapshot.paymentOption.id,
       optionRevision: snapshot.paymentOption.revision,
+      ...(promoCode === undefined ? {} : { promoCode }),
+    };
+    quoteMutation.mutate({
+      operationId: operationId("quote", input),
+      ...input,
     });
   };
   // Разовая покупка показывает цену сразу: отдельный шаг «рассчитать» здесь только мешал бы.
@@ -220,11 +224,17 @@ export function CheckoutFlow({
     snapshot,
   } as const;
 
+  // Сервер не говорит, почему код не подошёл: истёк, израсходован или не относится к этому
+  // варианту. Покупатель узнаёт главное — цена без скидки по ссылке.
+  const promoRejected =
+    promoCode !== undefined && quote?.snapshot.promotion === null;
+
   return oneTime ? (
     <OneTimeCheckoutPanel
       {...shared}
       inclusions={inclusions}
       onRetryQuote={requestQuote}
+      promoRejected={promoRejected}
     />
   ) : (
     <CheckoutPanel {...shared} onQuote={requestQuote} />

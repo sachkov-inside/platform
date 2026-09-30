@@ -29,11 +29,26 @@ export function acceptedPurchaseDocuments(
     }));
 }
 
+/** Промокод в границах контракта расчёта: сервер сравнивает его с учётом регистра. */
+export const promoCodeSchema = z.string().trim().min(1).max(100);
+
+/**
+ * Промокод из персональной ссылки `?promo=`. Повтор параметра и значение вне контракта расчёта
+ * не угадываются: страница показывает обычную цену.
+ */
+export function promoCodeFromQuery(
+  value: string | readonly string[] | undefined,
+): string | undefined {
+  if (typeof value !== "string") return undefined;
+  const parsed = promoCodeSchema.safeParse(value);
+  return parsed.success ? parsed.data : undefined;
+}
+
 export const quoteInputSchema = z.strictObject({
   operationId: z.uuid(),
   paymentOptionId: z.uuid(),
   optionRevision: z.number().int().positive(),
-  promoCode: z.string().trim().min(1).max(100).optional(),
+  promoCode: promoCodeSchema.optional(),
 });
 export const purchaseInputSchema = z.strictObject({
   operationId: z.uuid(),
