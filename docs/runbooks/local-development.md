@@ -996,6 +996,12 @@ Only the test Kinescope adapter, whose upload endpoint ends in `.invalid`, is ac
 provider transfer is refused without a separate owner approval. The next transfer saves the
 recording with the original's chapters; the returned `providerVideoId` belongs in the original.
 
+A package with `selection.scope: "guide-shell"` releases only a product's page, card, summary and
+complete chapter list, without any Material (#803). It keeps the Materials the target already holds
+in their order and chapters, proposes no archive and refuses `--archive`; an empty selection without
+that scope is refused. The [Guide shell contract](../contracts/authoring-guide-shell-v1/README.md)
+describes the package the Content exporter writes.
+
 `pnpm authoring:release preview --package PACKAGE_JSON --target editor|stand --state STATE_DIRECTORY`
 compares a package with the target without writing and saves a fingerprinted preview.
 `pnpm authoring:release apply --preview PREVIEW_JSON --state STATE_DIRECTORY` applies exactly that
