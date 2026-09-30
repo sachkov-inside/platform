@@ -12,6 +12,7 @@ const page = {
     {
       id: "hero",
       kind: "hero",
+      badge: "{support_term}",
       lead: "Помощь — {support_term}, доступ — {access_term}.",
       highlights: [],
     },
@@ -170,10 +171,25 @@ describe("Guide page description", () => {
     });
   });
 
+  test("reads a description saved before the hero badge existed", () => {
+    const hero = guidePageSchema.parse({
+      card: null,
+      blocks: [{ id: "hero", kind: "hero", lead: "Лид.", highlights: [] }],
+    }).blocks[0];
+    expect(hero).toEqual({
+      id: "hero",
+      kind: "hero",
+      badge: "",
+      lead: "Лид.",
+      highlights: [],
+    });
+  });
+
   test("knows only the presentations the site can draw", () => {
     expect(guidePresentationSchema.options).toEqual([
       "default",
       "ai-first-process",
+      "ai-engineering-course",
     ]);
     expect(
       guidePresentationSchema.safeParse("working-with-agents").success,
