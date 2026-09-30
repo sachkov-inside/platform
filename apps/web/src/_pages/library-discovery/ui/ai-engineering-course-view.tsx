@@ -755,14 +755,14 @@ function Audience({ block }: { readonly block: GuidePageBlockOf<"cards"> }) {
 }
 
 type CssVariables = CSSProperties & Record<`--${string}`, number | string>;
-/** CSS-переменные ступеней: значение задаёт высоту, остальное делает таблица стилей. */
+/** CSS-переменные блока: номер пункта задаёт высоту столбика, остальное делает таблица стилей. */
 function cssVariables(values: Record<`--${string}`, number>): CssVariables {
   return values;
 }
 
 /**
- * Что даёт курс: польза поднимается ступенями, как harness на обложке. Каждая ступень выше
- * предыдущей, верхняя выделена акцентом. На телефоне ступени становятся вертикальным путём.
+ * Что даёт курс: польза растёт от первой к последней. На широком экране над текстом растут
+ * столбики с номерами, текст стоит на одной линии; на планшете и телефоне это вертикальный путь.
  */
 function ValueGrid({ block }: { readonly block: GuidePageBlockOf<"cards"> }) {
   return (
@@ -772,18 +772,24 @@ function ValueGrid({ block }: { readonly block: GuidePageBlockOf<"cards"> }) {
         {block.lead === "" ? null : <p>{block.lead}</p>}
       </div>
       <ol style={cssVariables({ "--aie-steps": block.items.length })}>
-        {block.items.map((item, index) => (
-          <li
-            key={`${String(index)}-${item.title}`}
-            style={cssVariables({ "--aie-step": index })}
-          >
-            <span aria-hidden="true" className="aie-value-number">
-              {String(index + 1).padStart(2, "0")}
-            </span>
-            <h3>{item.title}</h3>
-            <p>{item.text}</p>
-          </li>
-        ))}
+        {block.items.map((item, index) => {
+          const number = String(index + 1).padStart(2, "0");
+          return (
+            <li
+              key={`${String(index)}-${item.title}`}
+              style={cssVariables({ "--aie-step": index })}
+            >
+              <span aria-hidden="true" className="aie-value-rise">
+                <b>{number}</b>
+              </span>
+              <span aria-hidden="true" className="aie-value-number">
+                {number}
+              </span>
+              <h3>{item.title}</h3>
+              <p>{item.text}</p>
+            </li>
+          );
+        })}
       </ol>
     </section>
   );
@@ -809,9 +815,33 @@ function Faq({ block }: { readonly block: GuidePageBlockOf<"cards"> }) {
         ))}
       </div>
       {block.note === "" ? null : (
-        <p className="ai-guide-career">{block.note}</p>
+        <p className="aie-faq-note">
+          <MessagesSquare aria-hidden="true" />
+          <span>{withTelegramLinks(block.note)}</span>
+        </p>
       )}
     </section>
+  );
+}
+
+/**
+ * Ник Telegram в тексте автора становится ссылкой: контакт хранится в описании курса, а не в коде.
+ * Правило Telegram: 5–32 символа, латиница, цифры и подчёркивание.
+ */
+function withTelegramLinks(text: string): ReactNode[] {
+  return text.split(/(@[A-Za-z][A-Za-z0-9_]{4,31})/u).map((part, index) =>
+    index % 2 === 1 ? (
+      <a
+        href={`https://t.me/${part.slice(1)}`}
+        key={`${String(index)}-${part}`}
+        rel="noopener noreferrer"
+        target="_blank"
+      >
+        {part}
+      </a>
+    ) : (
+      part
+    ),
   );
 }
 

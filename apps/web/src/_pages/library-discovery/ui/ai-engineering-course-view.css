@@ -570,7 +570,7 @@
   color: var(--cover-blue-foreground);
 }
 
-/* ---------- Что даёт курс: лестница роста ---------- */
+/* ---------- Что даёт курс: столбики роста ---------- */
 .aie-value {
   margin-block: 5rem;
   padding: 2.5rem;
@@ -592,38 +592,49 @@
 .aie-value ol {
   display: grid;
   grid-template-columns: repeat(var(--aie-steps, 5), minmax(0, 1fr));
-  align-items: end;
-  gap: 0.75rem;
+  align-items: start;
+  gap: 1rem;
   margin: 2.5rem 0 0;
   padding: 0;
   list-style: none;
 }
-/* Ступень i выше предыдущей: высота растёт на одну и ту же долю. */
 .aie-value li {
   display: flex;
   flex-direction: column;
-  gap: 0.5rem;
-  min-height: calc(16.5rem + var(--aie-step, 0) * 2rem);
-  padding: 1.1rem;
-  border-radius: 1rem 1rem 0.4rem 0.4rem;
-  background: color-mix(in srgb, var(--primary-foreground) 9%, var(--primary));
+  min-width: 0;
 }
-.aie-value li:last-child {
-  background: var(--accent);
+/* Столбик с номером растёт с каждой пользой; тексты под столбиками начинаются на одной линии. */
+.aie-value-rise {
+  display: flex;
+  align-items: flex-end;
+  height: 11rem;
 }
-.aie-value-number {
-  font-size: 1.75rem;
-  font-weight: 700;
+.aie-value-rise b {
+  display: flex;
+  align-items: flex-start;
+  width: 100%;
+  height: calc(3.5rem + var(--aie-step, 0) * 1.85rem);
+  padding: 0.8rem 0.9rem;
+  border-radius: 0.9rem 0.9rem 0.3rem 0.3rem;
+  background: color-mix(in srgb, var(--primary-foreground) 10%, var(--primary));
+  color: var(--accent-bright);
+  font-size: 1.5rem;
   line-height: 1;
   letter-spacing: -0.03em;
+  font-variant-numeric: tabular-nums;
+}
+.aie-value li:last-child .aie-value-rise b {
+  background: var(--accent);
+  color: var(--accent-foreground);
+}
+.aie-value-number {
+  display: none;
+  font-weight: 700;
   color: var(--accent-bright);
   font-variant-numeric: tabular-nums;
 }
-.aie-value li:last-child .aie-value-number {
-  color: var(--accent-foreground);
-}
 .aie-value h3 {
-  margin-top: auto;
+  margin-top: 1.1rem;
   font-size: 1rem;
   line-height: 1.3;
   color: var(--primary-foreground);
@@ -631,13 +642,10 @@
   hyphens: auto;
 }
 .ai-guide-page .aie-value li p {
-  margin: 0;
+  margin: 0.4rem 0 0;
   font-size: 0.85rem;
   line-height: 1.5;
   color: color-mix(in srgb, var(--primary-foreground) 70%, var(--primary));
-}
-.ai-guide-page .aie-value li:last-child p {
-  color: color-mix(in srgb, var(--accent-foreground) 85%, var(--accent));
 }
 
 /* ---------- Частые вопросы ---------- */
@@ -688,6 +696,30 @@
   padding: 0 1.25rem 1.1rem;
   color: var(--muted-foreground);
 }
+.aie-faq-note {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-top: 1.25rem;
+  padding: 1rem 1.25rem;
+  border-radius: 1rem;
+  background: color-mix(in srgb, var(--accent) 10%, var(--background));
+  font-weight: 600;
+}
+.aie-faq-note svg {
+  flex: none;
+  width: 1.25rem;
+  height: 1.25rem;
+  color: var(--accent);
+}
+.aie-faq-note a {
+  color: var(--accent);
+  text-underline-offset: 3px;
+}
+.aie-faq-note a:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+}
 @media (prefers-reduced-motion: no-preference) {
   .aie-faq summary svg {
     transition: transform var(--motion-duration-fast, 160ms)
@@ -695,7 +727,7 @@
   }
 }
 @media (max-width: 63.999rem) {
-  /* На планшете и телефоне ступени — вертикальный путь: линия слева, номер на ней, текст рядом. */
+  /* На планшете и телефоне польза — вертикальный путь: линия слева, номер на ней, текст рядом. */
   .aie-value {
     padding: 1.5rem;
   }
@@ -720,20 +752,15 @@
     grid-template-columns: 2.7rem minmax(0, 1fr);
     column-gap: 0.85rem;
     row-gap: 0.2rem;
-    min-height: 0;
     padding: 0.9rem 0.9rem 0.9rem 0;
-    border-radius: 1rem;
-    background: transparent;
   }
-  .aie-value li:last-child {
-    background: transparent;
-  }
-  .ai-guide-page .aie-value li:last-child p {
-    color: color-mix(in srgb, var(--primary-foreground) 70%, var(--primary));
+  .aie-value-rise {
+    display: none;
   }
   .aie-value-number {
     grid-row: span 2;
     display: grid;
+    color: var(--accent-bright);
     place-items: center;
     width: 2.7rem;
     height: 2.7rem;
@@ -747,6 +774,7 @@
   }
   .aie-value li:last-child .aie-value-number {
     background: var(--accent);
+    color: var(--accent-foreground);
   }
   .aie-value h3 {
     margin-top: 0;
