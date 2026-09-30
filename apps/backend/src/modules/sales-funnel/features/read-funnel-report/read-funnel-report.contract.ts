@@ -37,6 +37,18 @@ export const funnelCountsSchema = z.strictObject({
 });
 export type FunnelCounts = z.infer<typeof funnelCountsSchema>;
 
+/**
+ * Survey respondents of #815 as aggregates only. A username is never linked to an Account (owner
+ * decision of 2026-09-30, #818), so a respondent bought when their personal link ended in a
+ * confirmed payment for the selected Guide within the period. `paid` is `null` without a selected
+ * Guide.
+ */
+export const surveyRespondentsSchema = z.strictObject({
+  uploaded: countSchema,
+  issued: countSchema,
+  paid: countSchema.nullable(),
+});
+
 export const funnelReportSchema = z.strictObject({
   generatedAt: z.iso.datetime({ offset: true }),
   period: z.strictObject({
@@ -59,6 +71,8 @@ export const funnelReportSchema = z.strictObject({
     z.strictObject({ source: funnelSourceSchema, counts: funnelCountsSchema }),
   ),
   total: funnelCountsSchema,
+  /** `null` until the owner uploads the survey list: the basis is missing, not zero buyers. */
+  surveyRespondents: surveyRespondentsSchema.nullable(),
 });
 export type FunnelReport = z.infer<typeof funnelReportSchema>;
 

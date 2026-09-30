@@ -5,6 +5,7 @@ import { Button } from "@/shared/ui/button";
 import {
   funnelSteps,
   type SalesFunnelReportView as ReportView,
+  type SurveyRespondentsView,
 } from "../model/sales-funnel-report";
 
 const fieldClass =
@@ -187,6 +188,8 @@ export function SalesFunnelReportView({ view }: { readonly view: ReportView }) {
         )}
       </section>
 
+      <SurveyRespondents respondents={view.surveyRespondents} />
+
       <section aria-labelledby="sales-funnel-rules" className={cardClass}>
         <h2 className="text-base font-semibold" id="sales-funnel-rules">
           Как считаются числа
@@ -210,9 +213,13 @@ export function SalesFunnelReportView({ view }: { readonly view: ReportView }) {
             продукта. «Оплатил» — оплата подтверждена банком; возвраты не
             вычитаются.
           </li>
+          <li>«—» — шаг к этой строке не относится или ещё не измеряется.</li>
           <li>
-            «—» — шаг к этой строке не относится или ещё не измеряется. Доля
-            респондентов анкеты появится с #818.
+            Респонденты анкеты считаются по личным ссылкам со скидкой: ник из
+            анкеты не связан с аккаунтом. «Купили» — оплата этого продукта по
+            личной ссылке подтверждена банком в выбранный период; загруженные
+            ники и выданные ссылки — все на сегодня. Метка «survey» в таблице —
+            вход в бот по ссылке анкеты, а не число респондентов.
           </li>
         </ul>
         <p className="mt-4 text-xs text-muted-foreground">
@@ -223,6 +230,81 @@ export function SalesFunnelReportView({ view }: { readonly view: ReportView }) {
         </p>
       </section>
     </SalesFunnelReportFrame>
+  );
+}
+
+function SurveyRespondents({
+  respondents,
+}: {
+  readonly respondents: SurveyRespondentsView | null;
+}) {
+  return (
+    <section
+      aria-labelledby="sales-funnel-survey-title"
+      className={cardClass}
+      data-survey-respondents
+    >
+      <h2
+        className="text-xl font-semibold tracking-[-0.02em]"
+        id="sales-funnel-survey-title"
+      >
+        Респонденты анкеты
+      </h2>
+      {respondents === null ? (
+        <p className="mt-2 text-sm leading-6" data-survey-respondents-missing>
+          Показатель недоступен: список ников анкеты ещё не загружен в разделе
+          «Оплата и права».
+        </p>
+      ) : (
+        <dl className="mt-4 grid gap-4 sm:grid-cols-4">
+          <Figure label="Загружено ников" value={respondents.uploaded} />
+          <Figure label="Выдано личных ссылок" value={respondents.issued} />
+          <Figure label="Купили по ссылке" value={respondents.paid} />
+          <div className="grid gap-1">
+            <dt className="text-sm text-muted-foreground">Доля купивших</dt>
+            <dd className="text-2xl font-semibold tabular-nums">
+              {respondents.share ?? (
+                <span
+                  aria-label="не измеряется"
+                  className="text-muted-foreground"
+                >
+                  —
+                </span>
+              )}
+            </dd>
+            {respondents.share === null || respondents.paid === null ? null : (
+              <dd className="text-xs text-muted-foreground">
+                {respondents.paid.toLocaleString("ru-RU")} из{" "}
+                {respondents.issued.toLocaleString("ru-RU")} получивших ссылку
+              </dd>
+            )}
+          </div>
+        </dl>
+      )}
+    </section>
+  );
+}
+
+function Figure({
+  label,
+  value,
+}: {
+  readonly label: string;
+  readonly value: number | null;
+}) {
+  return (
+    <div className="grid gap-1">
+      <dt className="text-sm text-muted-foreground">{label}</dt>
+      <dd className="text-2xl font-semibold tabular-nums">
+        {value === null ? (
+          <span aria-label="не измеряется" className="text-muted-foreground">
+            —
+          </span>
+        ) : (
+          value.toLocaleString("ru-RU")
+        )}
+      </dd>
+    </div>
   );
 }
 

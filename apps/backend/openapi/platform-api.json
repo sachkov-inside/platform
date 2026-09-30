@@ -127541,6 +127541,34 @@
                       ],
                       "type": "object"
                     },
+                    "surveyRespondents": {
+                      "additionalProperties": false,
+                      "nullable": true,
+                      "properties": {
+                        "issued": {
+                          "maximum": 9007199254740991,
+                          "minimum": 0,
+                          "type": "integer"
+                        },
+                        "paid": {
+                          "maximum": 9007199254740991,
+                          "minimum": 0,
+                          "nullable": true,
+                          "type": "integer"
+                        },
+                        "uploaded": {
+                          "maximum": 9007199254740991,
+                          "minimum": 0,
+                          "type": "integer"
+                        }
+                      },
+                      "required": [
+                        "uploaded",
+                        "issued",
+                        "paid"
+                      ],
+                      "type": "object"
+                    },
                     "total": {
                       "additionalProperties": false,
                       "properties": {
@@ -127592,7 +127620,8 @@
                     "selection",
                     "lastBotEventReceivedAt",
                     "rows",
-                    "total"
+                    "total",
+                    "surveyRespondents"
                   ],
                   "type": "object"
                 }

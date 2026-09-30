@@ -1,4 +1,5 @@
 import { BillingGuideSales } from "./features/list-guide-sales/list-guide-sales.js";
+import { BillingSurveyRespondentSales } from "./features/survey-respondents/survey-respondent-sales.js";
 import { ReceiveTributeController } from "./features/receive-tribute/receive-tribute.controller.js";
 import { TributeConvergence } from "./facets/tribute-convergence/tribute-convergence.js";
 import {
@@ -56,6 +57,12 @@ const BILLING_BANK = Symbol("BillingBank");
       inject: [PrismaClientProvider],
       useFactory: (prisma: PrismaClientProvider) =>
         new BillingGuideSales(prisma),
+    },
+    {
+      provide: BillingSurveyRespondentSales,
+      inject: [PrismaClientProvider],
+      useFactory: (prisma: PrismaClientProvider) =>
+        new BillingSurveyRespondentSales(prisma),
     },
     {
       provide: TributeConvergence,
@@ -174,6 +181,7 @@ const BILLING_BANK = Symbol("BillingBank");
   ],
   exports: [
     BillingGuideSales,
+    BillingSurveyRespondentSales,
     TributeConvergence,
     BillingPayments,
     BillingSubscriptions,

@@ -97,6 +97,7 @@ const report: SalesFunnelReport = {
     checkout: 107,
     paid: 50,
   },
+  surveyRespondents: { uploaded: 312, issued: 48, paid: 21 },
 };
 
 const period = { from: "2030-03-01", to: "2030-03-31", corrected: false };
@@ -135,6 +136,24 @@ export const Ready: Story = {
     await expect(page.getByRole("combobox", { name: "Глава" })).toHaveValue(
       chapterId,
     );
+    const survey = page.getByRole("region", { name: "Респонденты анкеты" });
+    await expect(survey).toHaveTextContent("Выдано личных ссылок48");
+    await expect(survey).toHaveTextContent("21 из 48 получивших ссылку");
+  },
+};
+
+/** Список анкеты ещё не загружен (#815): доля недоступна, а не равна нулю. */
+export const SurveyListMissing: Story = {
+  args: {
+    view: presentSalesFunnelReport(
+      { ...report, surveyRespondents: null },
+      period,
+    ),
+  },
+  play: async ({ canvasElement }) => {
+    await expect(
+      canvasElement.querySelector("[data-survey-respondents-missing]"),
+    ).not.toBeNull();
   },
 };
 
