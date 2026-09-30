@@ -834,7 +834,9 @@ shared `inside-platform_*` volumes, so every branch and worktree sees the same c
   one set of sign-in keys whatever branch starts it.
 - `pnpm local:product [--owner-email EMAIL]` transfers the committed AI-first originals from the
   sibling `inside-content` checkout and features that product on Home. It starts the authoring
-  gateway for the run when none is running and repeats safely at any time.
+  gateway for the run when none is running and repeats safely at any time. This local reader view
+  approves the publication of every transferred original, as `--publish-all` does; see the publication
+  policy below.
 - Host checks that migrate, seed or bootstrap owners (`pnpm smoke:fullstack`, the identity proof,
   the Telegram sign-in launcher) use the `inside_checks` database, never the stand's `inside`,
   unless `DATABASE_URL` is exported explicitly. `pnpm smoke:fullstack` drops and recreates that
@@ -952,7 +954,7 @@ Run the stand from a worktree only as [Local product view](#local-product-view) 
 bootstrap there would generate new sign-in keys for the owner's stand accounts.
 
 ```bash
-pnpm authoring:sync-git-local CONTENT_REPOSITORY GUIDE_ID STATE_DIRECTORY [REF] [--target editor|stand] [--archive SOURCE_ID]...
+pnpm authoring:sync-git-local CONTENT_REPOSITORY GUIDE_ID STATE_DIRECTORY [REF] [--target editor|stand] [--publish SOURCE_ID]... [--publish-all] [--archive SOURCE_ID]...
 ```
 
 `REF` defaults to `HEAD` and is resolved to one commit SHA before export. The command checks out
@@ -970,7 +972,7 @@ What the transfer applies:
   validate inside their product; `supplementary_materials` join the product after the programme
   without a chapter, which is its "Additional Materials" part.
 - Material covers through `PUT /authoring/import/content-covers/material/:id`, and Material
-  artifacts as authoring-owned Guide artifacts linked to every declaring Material.
+  artifacts as authoring-owned Guide artifacts linked to every declaring Material that is published.
 - An existing provider record named by `platform_video.kinescope_id`: attached, reconciled until
   ready and saved with the original's video chapters.
 - The Guide name, first-paragraph teaser, page address (`slug`), page presentation and the typed
@@ -978,6 +980,21 @@ What the transfer applies:
   [ADR 0026](../adr/0026-guide-page-from-source-data.md)). Platform checks the presentation and the whole
   page description before the transfer's first write, and its refusal names the product. The editor-owned Guide introduction fields are not
   imported; editing the page text is a commit in Inside Content plus a transfer, with no web rebuild.
+
+Publication is an explicit owner decision (#804). By default every original is transferred as a
+private draft: its author previews it through the authoring preview, while guests, other accounts,
+search, the feed, the product programme, assets, practice and the learning MCP do not see it. An
+editorial `stage` or a missing `access` never publishes or protects anything by itself.
+`--publish SOURCE_ID` (repeatable) or `--publish-all` approves publication for that transfer; a
+repeated transfer without the approval keeps drafts private; an approval is not remembered, so a
+later transfer names a published Material again to update it. A private transfer checks every
+Material's own state on the target before its first topic, Guide or Material write and stops when
+one is already published or unpublished: it neither takes a public Material back nor replaces its
+public body (Platform itself never returns a Material to draft). An interrupted transfer that was
+publishing a Material resumes only when the next run carries the same approval. A Guide artifact declared only by private drafts
+waits for a published owner, a practice of a private lesson is imported unpublished, and a published
+body that links a private draft is reported as `link_to_draft`. A private draft that leaves the
+package is never proposed for archive.
 
 Imported Materials and Guides change only through these source-scoped routes; ordinary editor,
 API and MCP writes are refused. A missing original appears in `archiveProposals`. It is unpublished
@@ -996,11 +1013,26 @@ Only the test Kinescope adapter, whose upload endpoint ends in `.invalid`, is ac
 provider transfer is refused without a separate owner approval. The next transfer saves the
 recording with the original's chapters; the returned `providerVideoId` belongs in the original.
 
-`pnpm authoring:release preview --package PACKAGE_JSON --target editor|stand --state STATE_DIRECTORY`
-compares a package with the target without writing and saves a fingerprinted preview.
-`pnpm authoring:release apply --preview PREVIEW_JSON --state STATE_DIRECTORY` applies exactly that
-preview and stops on drift, an edited preview or an unreviewed archive request. Non-local targets
-are refused; production publication needs an owner-approved credential path first.
+A package with `selection.scope: "guide-shell"` releases only a product's page, card, summary and
+complete chapter list, without any Material (#803). It keeps the Materials the target already holds
+in their order and chapters, proposes no archive and refuses `--archive`; an empty selection without
+that scope is refused. The [Guide shell contract](../contracts/authoring-guide-shell-v1/README.md)
+describes the package the Content exporter writes.
+
+`pnpm authoring:release preview --package PACKAGE_JSON --target editor|stand --state STATE_DIRECTORY [--publish SOURCE_ID]... [--publish-all]`
+compares a package with the target without writing and saves a fingerprinted preview. Each Material
+shows its `publication`, a `publicationChange` from draft to published, or the conflict
+`target_not_draft` for a private import of a published or unpublished Material; the approval is part of the preview,
+so `apply` publishes exactly what was reviewed. A Material missing from this state directory's
+journal appears as `new`, because Platform offers no read-only lookup by source key; `apply` still
+checks its real state before any write.
+`pnpm authoring:release apply --preview PREVIEW_JSON --state STATE_DIRECTORY` first completes any
+write the journal left unfinished, with its original idempotency key, then applies exactly that
+preview and stops on drift, an edited preview or an unreviewed archive request. Drift covers
+Material versions, each Guide's version and its programme order, so a page edited on the target
+after the review is not overwritten; a preview also lists added and removed chapters. The only
+non-local target is the trusted `production` target, reached with the owner's one-time sign-in; see
+[Content production delivery](content-production-delivery.md). Every other address is refused.
 
 ```bash
 pnpm authoring:products [--target stand|editor] [--owner-email EMAIL] [--json]

@@ -6,7 +6,7 @@ import { tmpdir } from "node:os";
 import { resolve, join } from "node:path";
 import { pathToFileURL } from "node:url";
 import { parseArgs } from "node:util";
-import { syncLocal } from "./local-sync.mjs";
+import { publishOption, syncLocal } from "./local-sync.mjs";
 import { writeAtomic } from "./journal.mjs";
 import { resolveLocalTarget } from "./target.mjs";
 import { prepareCoursePreview } from "./course-preview.mjs";
@@ -68,18 +68,19 @@ export async function withGitSnapshot(repository, ref, use) {
 }
 
 /**
+ * Exports one committed Content revision as an immutable package under `STATE/packages`; staged,
+ * unstaged and untracked files never enter it.
+ *
  * @param {string} repository
  * @param {string} guideId
  * @param {string} stateDirectory
  * @param {string} [ref]
- * @param {import("./local-sync.mjs").SyncOptions & { coursePreview?: boolean }} [options]
  */
-export async function syncGitLocal(
+export async function exportCommittedPackage(
   repository,
   guideId,
   stateDirectory,
   ref = "HEAD",
-  options = {},
 ) {
   const state = resolve(stateDirectory);
   await mkdir(state, { recursive: true });
@@ -100,24 +101,43 @@ export async function syncGitLocal(
       ],
       { ...commandOptions, cwd: snapshot },
     );
-    const originalPackagePath = resolve(stdout.trim(), "package.json");
-    const { coursePreview = false, ...syncOptions } = options;
-    const packagePath = coursePreview
-      ? await prepareCoursePreview(originalPackagePath, state)
-      : originalPackagePath;
-    const report = await syncLocal(packagePath, state, syncOptions);
-    const receipt = {
-      commit,
-      guideId,
-      packagePath,
-      originalPackagePath,
-      coursePreview,
-      completedAt: new Date().toISOString(),
-      ...report,
-    };
-    await writeAtomic(join(state, "last-git-sync.json"), receipt);
-    return receipt;
+    return { commit, packagePath: resolve(stdout.trim(), "package.json") };
   });
+}
+
+/**
+ * @param {string} repository
+ * @param {string} guideId
+ * @param {string} stateDirectory
+ * @param {string} [ref]
+ * @param {import("./local-sync.mjs").SyncOptions & { coursePreview?: boolean }} [options]
+ */
+export async function syncGitLocal(
+  repository,
+  guideId,
+  stateDirectory,
+  ref = "HEAD",
+  options = {},
+) {
+  const state = resolve(stateDirectory);
+  const { commit, packagePath: originalPackagePath } =
+    await exportCommittedPackage(repository, guideId, state, ref);
+  const { coursePreview = false, ...syncOptions } = options;
+  const packagePath = coursePreview
+    ? await prepareCoursePreview(originalPackagePath, state)
+    : originalPackagePath;
+  const report = await syncLocal(packagePath, state, syncOptions);
+  const receipt = {
+    commit,
+    guideId,
+    packagePath,
+    originalPackagePath,
+    coursePreview,
+    completedAt: new Date().toISOString(),
+    ...report,
+  };
+  await writeAtomic(join(state, "last-git-sync.json"), receipt);
+  return receipt;
 }
 
 if (
@@ -130,17 +150,20 @@ if (
       target: { type: "string", default: "editor" },
       archive: { type: "string", multiple: true, default: [] },
       "pin-home": { type: "boolean", default: false },
+      publish: { type: "string", multiple: true, default: [] },
+      "publish-all": { type: "boolean", default: false },
     },
   });
   const [repository, guideId, state, ref = "HEAD", ...extra] = positionals;
   if (!repository || !guideId || !state || extra.length)
     throw new Error(
-      "Usage: pnpm authoring:sync-git-local CONTENT_REPOSITORY GUIDE_ID STATE_DIRECTORY [REF=HEAD] [--target editor|stand] [--archive SOURCE_ID]... [--pin-home]",
+      "Usage: pnpm authoring:sync-git-local CONTENT_REPOSITORY GUIDE_ID STATE_DIRECTORY [REF=HEAD] [--target editor|stand] [--publish SOURCE_ID]... [--publish-all] [--archive SOURCE_ID]... [--pin-home]",
     );
   const report = await syncGitLocal(repository, guideId, state, ref, {
     origin: resolveLocalTarget(values.target),
     archive: values.archive,
     pinHome: values["pin-home"],
+    publish: publishOption(values),
   });
   console.log(
     JSON.stringify(

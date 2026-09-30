@@ -70,6 +70,12 @@ inside.sachkov.dev {
 		}
 		reverse_proxy @communications_validate {$PLATFORM_API_UPSTREAM:127.0.0.1:13001}
 
+		# Перенос из Content (#805): наружу выходит только backend /authoring/*. Bearer Logto автора и
+		# право materials:manage проверяет API. Префикс не пересекается со страницами /authoring и BFF /api.
+		@authoring_api path /authoring-api/authoring/*
+		uri @authoring_api strip_prefix /authoring-api
+		reverse_proxy @authoring_api {$PLATFORM_API_UPSTREAM:127.0.0.1:13001}
+
 		@mcp path /mcp
 		reverse_proxy @mcp {$PLATFORM_MCP_UPSTREAM:127.0.0.1:13002}
 

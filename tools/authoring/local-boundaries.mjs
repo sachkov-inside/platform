@@ -15,7 +15,20 @@ export const materialReceiptSchema = z
   .object({ materialId: z.uuid(), contentVersion: version })
   .passthrough();
 const coverSchema = z.object({ coverId: z.uuid() }).passthrough();
+export const publicationStateSchema = z.enum([
+  "draft",
+  "published",
+  "unpublished",
+]);
+/** @typedef {z.infer<typeof publicationStateSchema>} PublicationState */
+/** Originals the owner approved for publication (#804); every other Material stays a private draft. */
+export const publishSelectionSchema = z.union([
+  z.literal("all"),
+  z.array(text),
+]);
+/** @typedef {z.infer<typeof publishSelectionSchema>} PublishSelection */
 const materialSchema = materialReceiptSchema.extend({
+  publicationState: publicationStateSchema.optional(),
   primaryVideoId: z.uuid().nullable(),
   metadata: z
     .object({
@@ -102,7 +115,7 @@ const applyBodySchema = z
     source,
     materialId: z.uuid(),
     expectedContentVersion: version,
-    publicationState: z.enum(["draft", "published", "unpublished"]),
+    publicationState: publicationStateSchema,
     metadata: z
       .object({
         title: z.string().nullable(),
@@ -368,6 +381,7 @@ const cacheSchema = materialReceiptSchema.extend({
   coverId: z.uuid().nullable().optional(),
   coverSha256: hash.nullable().optional(),
   guideSourceIds: z.array(text).optional(),
+  publicationState: publicationStateSchema.optional(),
   archived: z.boolean().optional(),
   access: access.optional(),
   url: z

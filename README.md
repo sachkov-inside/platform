@@ -108,6 +108,8 @@ Topic/Series authoring, including ordered composition and Preview through canoni
 See the [MCP authoring contract](docs/runbooks/local-development.md#mcp-authoring) for current
 operations and the Series metadata boundary.
 The local adapter does not provision Logto clients, service identities or production routing.
+Content reaches production through the reviewed release with the owner's one-time sign-in; see
+[Content production delivery](docs/runbooks/content-production-delivery.md).
 
 ## Docker-only smoke and shutdown
 

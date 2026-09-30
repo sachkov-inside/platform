@@ -5,7 +5,9 @@ status: accepted
 # Bind the production runtime to one immutable release and schema identity
 
 The process composition below is refined by [ADR 0025](0025-own-single-node-rabbitmq-broker.md);
-the remaining rules of this decision are unchanged.
+the public edge is refined by the owner decision in
+[#805](https://github.com/sachkov-inside/platform/issues/805); the remaining rules of this decision
+are unchanged.
 
 Platform deploys one release unit containing seven processes: migrations, API, MCP, web, Material
 Asset worker, Profile Avatar worker and Video deletion worker. Production Compose consumes only the
@@ -18,9 +20,13 @@ The foundation stack owns PostgreSQL and its internal network. All application p
 shared non-superuser `platform` credential, including migrations. This temporarily gives runtime
 processes the role's DDL rights; the owner accepted that risk to avoid an unproved privilege split.
 The application stack adds separate edge and internal application networks. Service ports bind only
-to host loopback, and the system Caddy imports a runtime-owned positive route fragment. Only web,
-the exact three integration callbacks, `/mcp` and its protected-resource metadata are public;
-unknown integration paths and all health routes return 404 at the edge.
+to host loopback, and the system Caddy imports a runtime-owned positive route fragment. Only web and
+the API and MCP routes listed in the release runbook's
+[public route table](../runbooks/production-release.md#public-api-routes) are public: exact
+integration callbacks, `/mcp` and its protected-resource metadata, and the Content transfer prefix
+`/authoring-api/authoring/*`. That prefix exposes the backend authoring API to the owner's Logto
+bearer, the same credential class `/mcp` already accepts, so the owner can release Content from an
+agent without a server tunnel. Unknown integration paths and all health routes return 404 at the edge.
 
 Configuration is validated per process. API receives the complete application configuration; MCP
 and each worker require only the groups they consume. Missing owned production configuration stops

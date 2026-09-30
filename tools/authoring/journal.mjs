@@ -124,7 +124,9 @@ export async function applyJournaled({ journal, persist }, request, send) {
       typeof error.status === "number" &&
       error.status >= 400 &&
       error.status < 500 &&
-      ![408, 429].includes(error.status)
+      // A timeout, throttling or an expired sign-in says nothing about the request itself: after a
+      // renewed sign-in the same request is sent again. 403 stays definitive (#805).
+      ![401, 408, 429].includes(error.status)
     ) {
       journal.operations[key] = {
         ...entry,
