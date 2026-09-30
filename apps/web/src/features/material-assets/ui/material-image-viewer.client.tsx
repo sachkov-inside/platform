@@ -82,6 +82,8 @@ export function MaterialImageViewer({
   const moved = useRef(false);
   const lastTap = useRef<{ at: number; point: ViewerPoint } | null>(null);
   const lastPointerType = useRef("mouse");
+  // Время двух последних нажатий на сцене: двойной клик считается, только если оба пришлись на неё.
+  const stagePresses = useRef<readonly number[]>([]);
 
   const bounds = viewerBounds({ height, width }, stageSize);
   // После поворота экрана или смены окна прежний сдвиг может увести край картинки внутрь сцены.
@@ -179,10 +181,8 @@ export function MaterialImageViewer({
 
   const onPointerDown = (event: PointerEvent<HTMLDivElement>) => {
     if (event.pointerType === "mouse" && event.button !== 0) return;
-    // Захват указателя сценой отнял бы нажатие у кнопки «Загрузить снова».
-    if (event.target instanceof Element && event.target.closest("button"))
-      return;
     lastPointerType.current = event.pointerType;
+    stagePresses.current = [...stagePresses.current, event.timeStamp].slice(-2);
     event.currentTarget.setPointerCapture(event.pointerId);
     pointers.current.set(event.pointerId, {
       x: event.clientX,
@@ -343,6 +343,14 @@ export function MaterialImageViewer({
           const area = stage.current;
           // Двойное касание пальцем уже обработано в onPointerUp.
           if (area === null || lastPointerType.current !== "mouse") return;
+          // Первый клик мог прийти на кнопку «Загрузить снова», которая после него исчезла.
+          const [first, second] = stagePresses.current;
+          if (
+            first === undefined ||
+            second === undefined ||
+            second - first > DOUBLE_TAP_MS * 2
+          )
+            return;
           const point = stagePoint(area, event.clientX, event.clientY);
           if (!isOnImage(point, shownView(), latestBounds.current)) return;
           update(
@@ -364,6 +372,12 @@ export function MaterialImageViewer({
             <span>Не удалось загрузить изображение.</span>
             <button
               className="rounded px-2 py-1 text-sidebar-foreground underline"
+              // Нажатие на кнопке не доходит до жестов сцены: захват указателя отнял бы клик. Оно же
+              // обрывает серию нажатий, чтобы второй клик по появившейся картинке не приблизил её.
+              onPointerDown={(event) => {
+                event.stopPropagation();
+                stagePresses.current = [];
+              }}
               onClick={() => {
                 setFailed(false);
               }}
