@@ -1,0 +1,111 @@
+/* Цвета мини-иллюстраций: тёмная плитка как карточки анимации, светлые детали и акцент. */
+.aie-sticker {
+  display: block;
+  flex: none;
+  width: 2.5rem;
+  height: 2.5rem;
+  overflow: visible;
+}
+.aie-sticker .st-tile {
+  fill: var(--primary);
+}
+.aie-sticker .st-panel {
+  fill: color-mix(in srgb, var(--primary-foreground) 13%, var(--primary));
+}
+.aie-sticker .st-paper {
+  fill: var(--primary-foreground);
+}
+.aie-sticker .st-soft {
+  fill: color-mix(in srgb, var(--primary-foreground) 40%, var(--primary));
+}
+.aie-sticker .st-accent {
+  fill: var(--accent-bright);
+}
+.aie-sticker .st-green {
+  fill: #3fb950;
+}
+.aie-sticker .st-red {
+  fill: color-mix(in srgb, #f85149 38%, var(--primary));
+}
+.aie-sticker .st-on-accent,
+.aie-sticker .st-on-green {
+  fill: var(--primary);
+}
+.aie-sticker
+  :is(
+    .st-ink-line,
+    .st-soft-line,
+    .st-paper-line,
+    .st-accent-line,
+    .st-on-accent-line,
+    .st-on-green,
+    .st-dash,
+    .st-green-stroke
+  ) {
+  fill: none;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 1.8;
+}
+.aie-sticker .st-on-green {
+  stroke: var(--primary);
+  stroke-width: 2;
+}
+.aie-sticker .st-ink-line {
+  stroke: color-mix(in srgb, var(--primary) 45%, var(--primary-foreground));
+}
+.aie-sticker .st-soft-line {
+  stroke: color-mix(in srgb, var(--primary-foreground) 45%, var(--primary));
+}
+.aie-sticker .st-paper-line {
+  stroke: var(--primary-foreground);
+}
+.aie-sticker .st-accent-line {
+  stroke: var(--accent-bright);
+}
+.aie-sticker .st-on-accent-line {
+  stroke: var(--primary);
+  stroke-width: 2;
+}
+.aie-sticker .st-accent-ring {
+  stroke: var(--accent-bright);
+  stroke-width: 1.6;
+}
+.aie-sticker .st-dash {
+  stroke: color-mix(in srgb, var(--primary-foreground) 55%, var(--primary));
+  stroke-dasharray: 2.2 3;
+}
+.aie-sticker .st-green-stroke {
+  stroke: #3fb950;
+  stroke-width: 1.6;
+}
+
+/* Точка на пути идёт сама, в своём темпе; при просьбе уменьшить движение она стоит посередине. */
+.aie-sticker .aie-sticker-runner {
+  offset-path: path("M8 30c5-1 6-9 12-10s7-8 12-9");
+  offset-distance: 58%;
+  offset-rotate: 0deg;
+}
+@media (prefers-reduced-motion: no-preference) {
+  .aie-sticker .aie-sticker-runner {
+    animation: aie-sticker-run 5.5s cubic-bezier(0.45, 0, 0.55, 1) infinite;
+  }
+}
+@keyframes aie-sticker-run {
+  0% {
+    offset-distance: 4%;
+    opacity: 0;
+  }
+  10% {
+    opacity: 1;
+  }
+  62% {
+    offset-distance: 88%;
+    opacity: 1;
+  }
+  72%,
+  100% {
+    offset-distance: 88%;
+    opacity: 0;
+  }
+}

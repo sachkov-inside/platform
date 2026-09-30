@@ -58,14 +58,9 @@
   font-weight: 600;
   line-height: 1.4;
 }
-.aie-hero-points svg {
-  flex: none;
-  width: 2rem;
-  height: 2rem;
-  padding: 0.45rem;
-  border-radius: 0.6rem;
-  background: color-mix(in srgb, var(--accent) 12%, var(--background));
-  color: var(--accent);
+.aie-hero-points .aie-sticker {
+  width: 2.25rem;
+  height: 2.25rem;
 }
 .aie-hero-action {
   display: inline-flex;
@@ -128,12 +123,9 @@
   .aie-hero-points li + li {
     border-top: 1px solid var(--border);
   }
-  .aie-hero-points svg {
-    width: 1.1rem;
-    height: 1.1rem;
-    padding: 0;
-    border-radius: 0;
-    background: none;
+  .aie-hero-points .aie-sticker {
+    width: 2rem;
+    height: 2rem;
   }
   .aie-hero-action[data-compact-on-phone="true"] {
     display: none;

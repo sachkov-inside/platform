@@ -494,7 +494,7 @@ export const ConnectedStepsDesktop: Story = {
       canvasElement.querySelectorAll("[data-series-rail]"),
     ).toHaveLength(0);
     for (const [index, row] of [...rows].entries()) {
-      await expect(row).toHaveTextContent(`${String(index + 1)}урок`);
+      await expect(row).toHaveTextContent(`Урок ${String(index + 1)}.`);
     }
     const guide = canvas
       .getByRole("heading", { name: "Подготовка приложения" })

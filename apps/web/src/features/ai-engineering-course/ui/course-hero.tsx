@@ -1,13 +1,19 @@
-import { ArrowRight, BookOpen, Clock3, ShieldCheck } from "lucide-react";
+import { ArrowRight } from "lucide-react";
 import type { Route } from "next";
 
 import { IntentPrefetchLink } from "@/shared/ui/intent-prefetch-link.client";
 
 import { CourseFilm } from "./course-film.client";
+import { CourseSticker, type CourseStickerName } from "./course-stickers";
 
 import "./course-hero.css";
 
-const pointIcons = [BookOpen, ShieldCheck, Clock3] as const;
+/** Иллюстрации пунктов идут по их порядку в описании курса. */
+const pointStickers: readonly CourseStickerName[] = [
+  "materials",
+  "check",
+  "pace",
+];
 
 /**
  * Первый экран курса AI Engineering: название с меткой, вводная фраза, пункты, кнопка и анимация.
@@ -52,10 +58,9 @@ export function CourseHero({
         {highlights.length === 0 ? null : (
           <ul className="aie-hero-points" aria-label="Формат курса">
             {highlights.map((highlight, index) => {
-              const Icon = pointIcons[index] ?? BookOpen;
               return (
                 <li key={`${String(index)}-${highlight}`}>
-                  <Icon aria-hidden="true" />
+                  <CourseSticker name={pointStickers[index] ?? "materials"} />
                   {highlight}
                 </li>
               );

@@ -51,14 +51,9 @@
   font-weight: 650;
   color: var(--foreground);
 }
-.aie-mentoring-points svg {
-  flex: none;
-  width: 2.25rem;
-  height: 2.25rem;
-  padding: 0.5rem;
-  border-radius: 0.65rem;
-  background: color-mix(in srgb, var(--accent) 14%, var(--background));
-  color: var(--accent);
+.aie-mentoring-points .aie-sticker {
+  width: 2.75rem;
+  height: 2.75rem;
 }
 
 .aie-status {
@@ -191,15 +186,7 @@
   padding: 0 1.4rem 1.4rem;
 }
 .aie-bento-copy h3 {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
   font-size: 1.05rem;
-}
-.aie-bento-copy h3 svg {
-  width: 1.1rem;
-  height: 1.1rem;
-  color: var(--accent);
 }
 .ai-guide-page .aie-bento-copy p {
   margin-top: 0.35rem;
@@ -213,9 +200,6 @@
 }
 .ai-guide-page .aie-bento > li[data-tone="ink"] p {
   color: color-mix(in srgb, var(--primary-foreground) 70%, var(--primary));
-}
-.aie-bento > li[data-tone="ink"] h3 svg {
-  color: var(--accent-bright);
 }
 .aie-bento > li[data-tone="example"] {
   background: color-mix(in srgb, var(--callout-example) 11%, var(--background));
@@ -739,11 +723,9 @@
   background: color-mix(in srgb, var(--accent) 10%, var(--background));
   font-weight: 600;
 }
-.aie-faq-note svg {
-  flex: none;
-  width: 1.25rem;
-  height: 1.25rem;
-  color: var(--accent);
+.aie-faq-note .aie-sticker {
+  width: 2rem;
+  height: 2rem;
 }
 /* Оранжевый текст на тёплой плашке не дотягивает до 4.5:1, поэтому акцент несёт подчёркивание. */
 .aie-faq-note a {
@@ -1129,13 +1111,9 @@
   border-radius: 1.25rem;
   background: var(--secondary);
 }
-.aie-audience li > svg {
+.aie-audience li > .aie-sticker {
   width: 3rem;
   height: 3rem;
-  padding: 0.7rem;
-  border-radius: 999px;
-  background: var(--background);
-  color: var(--accent);
 }
 .aie-audience h3 {
   font-size: 1.05rem;
@@ -1240,7 +1218,7 @@
     row-gap: 0.25rem;
     padding: 1.1rem;
   }
-  .aie-audience li > svg {
+  .aie-audience li > .aie-sticker {
     grid-row: span 2;
   }
   .aie-audience-note {

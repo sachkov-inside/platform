@@ -70,3 +70,84 @@
     animation: none;
   }
 }
+
+/*
+ * Главы программы стоят на одной линии пути: у открытой главы точка залита, у главы, которая ещё
+ * готовится, — пустая, а её описание лежит в пунктирной карточке. Так главы отделены друг от друга
+ * и видно, до какого места программа уже доступна.
+ */
+.programme-chapter {
+  --chapter-rail: 1.75rem;
+  position: relative;
+  min-width: 0;
+  padding-left: var(--chapter-rail);
+}
+.programme-chapter::before {
+  content: "";
+  position: absolute;
+  top: 0.45rem;
+  left: 0;
+  width: 0.8rem;
+  height: 0.8rem;
+  border: 2px solid var(--accent);
+  border-radius: 999px;
+  background: var(--accent);
+}
+.programme-chapter[data-chapter-state="preparing"]::before {
+  border-color: color-mix(in srgb, var(--foreground) 28%, transparent);
+  background: var(--background);
+}
+.programme-chapter::after {
+  content: "";
+  position: absolute;
+  top: 1.6rem;
+  bottom: -1.25rem;
+  left: calc(0.4rem - 1px);
+  border-left: 2px solid color-mix(in srgb, var(--accent) 35%, transparent);
+}
+.programme-chapter[data-chapter-state="preparing"]::after {
+  border-left-style: dashed;
+  border-left-color: color-mix(in srgb, var(--foreground) 16%, transparent);
+}
+.programme-chapter:last-child::after {
+  content: none;
+}
+.programme-chapter-preview {
+  display: grid;
+  gap: 0.6rem;
+  justify-items: start;
+  margin-top: 0.75rem;
+  padding: 0.9rem 1rem;
+  border: 1px dashed color-mix(in srgb, var(--foreground) 18%, transparent);
+  border-radius: 0.9rem;
+}
+.programme-chapter-soon {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  border-radius: 999px;
+  background: var(--secondary);
+  padding: 0.15rem 0.6rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--muted-foreground);
+}
+.programme-chapter-soon::before {
+  content: "";
+  width: 0.4rem;
+  height: 0.4rem;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--foreground) 35%, transparent);
+}
+@media (max-width: 39.999rem) {
+  .programme-chapter {
+    --chapter-rail: 1.35rem;
+  }
+  .programme-chapter::before {
+    width: 0.7rem;
+    height: 0.7rem;
+  }
+  .programme-chapter::after {
+    left: calc(0.35rem - 1px);
+  }
+}

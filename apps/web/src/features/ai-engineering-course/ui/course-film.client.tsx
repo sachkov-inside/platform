@@ -1,6 +1,5 @@
 "use client";
 
-import { Pause, Play } from "lucide-react";
 import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 
 import {
@@ -30,8 +29,9 @@ const MONO = "ui-monospace, SFMono-Regular, Menlo, monospace";
 
 /**
  * Анимация курса AI Engineering на холсте. Кадр задаёт только время: `drawFilm` — чистая функция,
- * поэтому пауза, продолжение и итоговый кадр не расходятся. Время идёт, только пока анимация видна
- * и вкладка открыта; с reduced motion показывается итоговый кадр, а запуск — по кнопке.
+ * поэтому пауза и итоговый кадр не расходятся. Время идёт, только пока анимация видна и вкладка
+ * открыта. Кнопки паузы нет по решению владельца (30.09.2026, platform#808): тому, кто просит
+ * уменьшить движение, анимация показывает неподвижный итоговый кадр.
  */
 export function CourseFilm({
   autoplay = true,
@@ -46,8 +46,7 @@ export function CourseFilm({
     readReducedMotion,
     readServerReducedMotion,
   );
-  const [chosen, setChosen] = useState<boolean | null>(null);
-  const playing = chosen ?? (autoplay && !reduced);
+  const playing = autoplay && !reduced;
   const [visible, setVisible] = useState(false);
   const [ready, setReady] = useState(false);
 
@@ -129,29 +128,16 @@ export function CourseFilm({
     };
   }, [playing, visible, ready]);
 
-  // Reduced motion без явного запуска — итоговый кадр.
+  // Reduced motion — итоговый кадр.
   useEffect(() => {
     if (playing || !ready) return;
     if (!started.current) time.current = FILM_POSTER_TIME;
     paintRef.current?.();
   }, [playing, ready]);
 
-  const label = playing ? "Пауза" : "Продолжить";
-  const Icon = playing ? Pause : Play;
   return (
     <div className="aie-film">
       <canvas aria-label={FILM_DESCRIPTION} ref={canvas} role="img" />
-      <button
-        aria-label={`${label} анимацию`}
-        className="aie-film-toggle"
-        onClick={() => {
-          setChosen(!playing);
-        }}
-        title={label}
-        type="button"
-      >
-        <Icon aria-hidden="true" />
-      </button>
     </div>
   );
 }

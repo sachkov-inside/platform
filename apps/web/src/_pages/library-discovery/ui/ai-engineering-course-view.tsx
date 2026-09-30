@@ -10,23 +10,17 @@ import {
   FileText,
   FolderGit2,
   Gauge,
-  GitBranch,
   Layers,
-  LifeBuoy,
-  ListChecks,
   MessagesSquare,
   Play,
   Plug,
-  RefreshCw,
   Rocket,
   Search,
   ShieldCheck,
   Sparkles,
   Terminal,
   UserRound,
-  Workflow,
   Wrench,
-  type LucideIcon,
 } from "lucide-react";
 import type { Route } from "next";
 import type { CSSProperties, ReactNode } from "react";
@@ -36,7 +30,11 @@ import type {
   GuidePageBlock,
   GuidePageBlockOf,
 } from "@/entities/guide-page";
-import { CourseHero } from "@/features/ai-engineering-course";
+import {
+  CourseHero,
+  CourseSticker,
+  type CourseStickerName,
+} from "@/features/ai-engineering-course";
 import type { PublishedSeriesResult } from "@/features/library-discovery";
 import type { MaterialReaderReturnTarget } from "@/shared/routing/material-reader";
 import { guideProgrammeHref } from "@/shared/routing/subscription-route";
@@ -116,11 +114,6 @@ export function AiEngineeringCourseView({
   );
 }
 
-/** Значки и иллюстрации идут по порядку пунктов; лишний пункт получает общий значок. */
-function iconAt(icons: readonly LucideIcon[], index: number): LucideIcon {
-  return icons[index] ?? Check;
-}
-
 function CourseBlock({
   block,
   programme,
@@ -154,7 +147,11 @@ function CourseBlock({
   }
 }
 
-const mentoringIcons = [MessagesSquare, LifeBuoy, RefreshCw] as const;
+const mentoringStickers: readonly CourseStickerName[] = [
+  "questions",
+  "help",
+  "updates",
+];
 /** Менторинг: вводный текст слева, пункты из описания курса лесенкой справа. */
 function Mentoring({ block }: { readonly block: GuidePageBlockOf<"cards"> }) {
   return (
@@ -165,10 +162,9 @@ function Mentoring({ block }: { readonly block: GuidePageBlockOf<"cards"> }) {
       </div>
       <ul className="aie-mentoring-points">
         {block.items.map((item, index) => {
-          const Icon = iconAt(mentoringIcons, index);
           return (
             <li key={`${String(index)}-${item.title}`}>
-              <Icon aria-hidden="true" />
+              <CourseSticker name={mentoringStickers[index] ?? "questions"} />
               <span>
                 <b>{item.title}</b>
                 {item.text}
@@ -424,18 +420,6 @@ const topicTiles: readonly {
     ),
   },
 ];
-const topicIcons = [
-  Workflow,
-  FolderGit2,
-  Layers,
-  GitBranch,
-  Bot,
-  Search,
-  ShieldCheck,
-  Gauge,
-  Workflow,
-  Coins,
-] as const;
 function TopicGrid({ block }: { readonly block: GuidePageBlockOf<"cards"> }) {
   return (
     <section className="ai-guide-outcomes aie-topics">
@@ -449,7 +433,6 @@ function TopicGrid({ block }: { readonly block: GuidePageBlockOf<"cards"> }) {
       <ul className="aie-bento">
         {block.items.map((item, index) => {
           const tile = topicTiles[index];
-          const Icon = iconAt(topicIcons, index);
           return (
             <li
               data-size={tile?.size ?? "narrow"}
@@ -462,10 +445,7 @@ function TopicGrid({ block }: { readonly block: GuidePageBlockOf<"cards"> }) {
                 </div>
               )}
               <div className="aie-bento-copy">
-                <h3>
-                  <Icon aria-hidden="true" />
-                  {item.title}
-                </h3>
+                <h3>{item.title}</h3>
                 <p>{item.text}</p>
               </div>
             </li>
@@ -671,7 +651,11 @@ function Agents({ block }: { readonly block: GuidePageBlockOf<"list"> }) {
   );
 }
 
-const audienceIcons = [Code2, Sparkles, ListChecks] as const;
+const audienceStickers: readonly CourseStickerName[] = [
+  "developer",
+  "engineer",
+  "basics",
+];
 /** Для кого: три равные карточки со значками, заметка отдельной строкой. */
 function Audience({ block }: { readonly block: GuidePageBlockOf<"cards"> }) {
   return (
@@ -682,10 +666,9 @@ function Audience({ block }: { readonly block: GuidePageBlockOf<"cards"> }) {
       )}
       <ul>
         {block.items.map((item, index) => {
-          const Icon = iconAt(audienceIcons, index);
           return (
             <li key={`${String(index)}-${item.title}`}>
-              <Icon aria-hidden="true" />
+              <CourseSticker name={audienceStickers[index] ?? "developer"} />
               <h3>{item.title}</h3>
               <p>{item.text}</p>
             </li>
@@ -766,7 +749,7 @@ function Faq({ block }: { readonly block: GuidePageBlockOf<"cards"> }) {
       </div>
       {block.note === "" ? null : (
         <p className="aie-faq-note">
-          <MessagesSquare aria-hidden="true" />
+          <CourseSticker name="telegram" />
           <span>{withTelegramLinks(block.note)}</span>
         </p>
       )}

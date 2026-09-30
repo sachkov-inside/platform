@@ -691,8 +691,7 @@ export const DesktopRouteDetails: Story = {
     const card = cards[2];
     const title = card?.querySelector("h3,h4");
     const preview = card?.querySelector("[data-series-preview]");
-    const ordinal = card?.querySelector("strong");
-    if (!card || !title || !preview || !ordinal)
+    if (!card || !title || !preview)
       throw new Error("Missing compact row geometry");
     const center = (element: Element) => {
       const box = element.getBoundingClientRect();
@@ -701,7 +700,8 @@ export const DesktopRouteDetails: Story = {
     await expect(Math.abs(center(title) - center(card))).toBeLessThan(1);
     await expect(Math.abs(center(preview) - center(card))).toBeLessThan(1);
     await expect(preview.getBoundingClientRect().width).toBe(64);
-    await expect(getComputedStyle(ordinal).fontSize).toBe("16px");
+    // Номер урока стоит в плитке: цифрами на месте обложки или меткой в её углу.
+    await expect(preview).toHaveTextContent(/^0?3$/u);
     for (const cover of canvasElement.querySelectorAll(
       "article .public-cover-grid",
     )) {

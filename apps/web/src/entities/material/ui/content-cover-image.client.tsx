@@ -21,6 +21,7 @@ export function ContentCoverImage({
   className,
   cover,
   fallbackKind = "material",
+  fallbackLabel,
   fallbackSeed = alt,
   priority = false,
   sizes = "(min-width: 768px) 28rem, 100vw",
@@ -29,6 +30,11 @@ export function ContentCoverImage({
   readonly className?: string;
   readonly cover: ContentCover | null;
   readonly fallbackKind?: ContentCoverFallbackKind;
+  /**
+   * Короткая подпись вместо значка, когда обложки нет: так строка программы показывает номер урока,
+   * а не одинаковый для всех значок.
+   */
+  readonly fallbackLabel?: string;
   readonly fallbackSeed?: string;
   /**
    * Обложка первого экрана — вероятный элемент LCP: она грузится сразу и раньше скриптов.
@@ -55,7 +61,16 @@ export function ContentCoverImage({
       )}
       data-content-cover-id={cover?.coverId}
     >
-      {fallbackKind === "video" ? (
+      {fallbackLabel === undefined ? null : (
+        <span
+          aria-hidden="true"
+          className="absolute inset-0 grid place-items-center text-[1.35rem] font-semibold tabular-nums tracking-[-0.04em]"
+          data-cover-label
+        >
+          {fallbackLabel}
+        </span>
+      )}
+      {fallbackLabel !== undefined ? null : fallbackKind === "video" ? (
         <>
           <span
             aria-hidden="true"
