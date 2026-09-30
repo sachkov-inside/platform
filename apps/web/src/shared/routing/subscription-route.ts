@@ -62,9 +62,15 @@ export function guideProgrammeHref(slug: string): Route {
 /**
  * Страница оплаты одного руководства: цена и оформление живут отдельным адресом, потому что
  * покупают здесь именно руководство, а не тариф подписки, и программа до неё только приглашает.
+ * Персональная ссылка владельца несёт промокод: он переживает вход и экран условий (#815).
  */
-export function guidePurchaseHref(slug: string): Route {
-  return internalRoute(`/products/${encodeURIComponent(slug)}/buy`);
+export function guidePurchaseHref(slug: string, promoCode?: string): Route {
+  const path = `/products/${encodeURIComponent(slug)}/buy`;
+  return internalRoute(
+    promoCode === undefined
+      ? path
+      : `${path}?${new URLSearchParams({ promo: promoCode }).toString()}`,
+  );
 }
 
 /**

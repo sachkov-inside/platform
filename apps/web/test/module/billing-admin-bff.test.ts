@@ -17,6 +17,8 @@ import {
   handleClassifyAccount,
   handleDecideRefund,
   handleExecuteRefund,
+  handleImportRespondents,
+  handleIssueRespondentLink,
   handleListPayments,
   handlePreviewGrantBatch,
   handlePublishOffer,
@@ -466,6 +468,57 @@ it("owner payments retain local one-time Guide purchases and their filter", asyn
       accountId,
       kind: "one_time",
       limit: 10,
+    },
+    "owner-token",
+    {},
+  );
+});
+
+it("загружает колонку анкеты и выдаёт личную ссылку отдельными маршрутами", async () => {
+  fakes.manage.mockResolvedValueOnce(
+    ok({
+      operationRef: operationId,
+      result: {
+        outcome: "respondentImport",
+        value: { recognized: 2, added: 2, unrecognized: 1, total: 2 },
+      },
+    }),
+  );
+  const imported = await handleImportRespondents(
+    command("/api/authoring/billing/respondents/import", {
+      operationId,
+      list: "@synthetic_one\nsynthetic_two\n+7 900",
+    }),
+  );
+  expect(await imported.json()).toMatchObject({ ok: true });
+  expect(fakes.manage).toHaveBeenLastCalledWith(
+    {
+      operation: "respondents.import",
+      operationId,
+      list: "@synthetic_one\nsynthetic_two\n+7 900",
+    },
+    "owner-token",
+    {},
+  );
+
+  fakes.manage.mockResolvedValueOnce(problem("state_conflict", 409));
+  const refused = await handleIssueRespondentLink(
+    command("/api/authoring/billing/respondents/issue", {
+      operationId,
+      username: "@synthetic_one",
+      templatePromotionId: offerId,
+    }),
+  );
+  expect(await refused.json()).toMatchObject({
+    ok: false,
+    code: "state_conflict",
+  });
+  expect(fakes.manage).toHaveBeenLastCalledWith(
+    {
+      operation: "respondents.issue",
+      operationId,
+      username: "@synthetic_one",
+      templatePromotionId: offerId,
     },
     "owner-token",
     {},

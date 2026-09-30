@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 
 import { GuidePurchasePage } from "@/_pages/guide-purchase.server";
+import { promoCodeFromQuery } from "@/features/billing-checkout";
 import { redirectUntilTermsAccepted } from "@/features/terms-acceptance.server";
 import { loadPublishedSeries } from "@/features/library-discovery.server";
 import { getOptionalPlatformAccessToken } from "@/shared/auth/optional-platform-access-token.server";
@@ -11,6 +12,10 @@ export const instant = false;
 
 interface GuidePurchaseRouteProps {
   readonly params: Promise<{ readonly slug: string }>;
+  /** `promo` — промокод персональной ссылки владельца (#815). */
+  readonly searchParams: Promise<{
+    readonly promo?: string | readonly string[];
+  }>;
 }
 
 export async function generateMetadata({
@@ -33,14 +38,17 @@ export async function generateMetadata({
 
 export default async function GuidePurchaseRoute({
   params,
+  searchParams,
 }: GuidePurchaseRouteProps) {
   const { slug } = await params;
+  const promoCode = promoCodeFromQuery((await searchParams).promo);
   // Покупка открывается после принятия действующей редакции условий на экране первого входа.
-  await redirectUntilTermsAccepted(guidePurchaseHref(slug));
+  await redirectUntilTermsAccepted(guidePurchaseHref(slug, promoCode));
   const accessToken = await getOptionalPlatformAccessToken();
   return (
     <GuidePurchasePage
       {...(accessToken === undefined ? {} : { accessToken })}
+      {...(promoCode === undefined ? {} : { promoCode })}
       slug={slug}
     />
   );

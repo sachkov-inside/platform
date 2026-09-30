@@ -50,6 +50,8 @@ export interface OneTimeCheckoutPanelProps {
   readonly onPay: () => void;
   readonly onRefreshStatus: () => void;
   readonly onRetryQuote: () => void;
+  /** Покупатель пришёл по ссылке с промокодом, а расчёт скидку по нему не дал. */
+  readonly promoRejected?: boolean;
 }
 
 /**
@@ -93,6 +95,7 @@ export function OneTimeCheckoutPanel({
   onPay,
   onRefreshStatus,
   onRetryQuote,
+  promoRejected = false,
 }: OneTimeCheckoutPanelProps) {
   const headingId = useId();
   const termsId = useId();
@@ -167,6 +170,12 @@ export function OneTimeCheckoutPanel({
         {promotion === undefined ? null : (
           <p className="mt-2 font-mono text-xs text-white/70">{promotion}</p>
         )}
+        {promoRejected ? (
+          <p className="mt-2 text-sm leading-6 text-white/85" role="status">
+            Скидка по ссылке не применилась: ссылка уже использована или больше
+            не действует. Если это ошибка, напишите тому, кто прислал ссылку.
+          </p>
+        ) : null}
         {quote === null ? (
           <p className="mt-3 text-sm leading-6 text-white/70" role="status">
             {pending

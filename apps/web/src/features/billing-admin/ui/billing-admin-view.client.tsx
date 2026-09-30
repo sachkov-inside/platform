@@ -27,6 +27,8 @@ export interface BillingAdminViewProps
     Omit<ClassificationSectionProps, "pending"> {
   readonly offers: readonly PriceSnapshot[];
   readonly enrollmentControls?: ReactNode;
+  /** Скидка респондентам анкеты живёт рядом с каталогом: она выдаёт личные скидки по его шаблону. */
+  readonly respondentControls?: ReactNode;
   readonly pending?: boolean;
   readonly error?: string | undefined;
   readonly notice?: string | undefined;
@@ -42,6 +44,7 @@ export function BillingAdminView({
   catalogLoading,
   catalogError,
   enrollmentControls,
+  respondentControls,
   offers,
   payments,
   paymentsCursor,
@@ -123,6 +126,7 @@ export function BillingAdminView({
         onSavePromotion={onSavePromotion}
         pending={pending}
       />
+      {respondentControls}
       <PaymentsSection
         onCancelSubscription={onCancelSubscription}
         onDecideRefund={onDecideRefund}
