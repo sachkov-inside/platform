@@ -1,6 +1,7 @@
 "use client";
 import { TributeOperationsPanel } from "./tribute-operations-panel.client";
 import { SubscriptionSourcePanel } from "./subscription-source-panel.client";
+import { SurveyRespondentsPanel } from "./survey-respondents-panel.client";
 import {
   listSubscriptionTiers,
   readContentCatalog,
@@ -187,6 +188,7 @@ export function BillingAdminPanel({ offers }: BillingAdminPanelProps) {
           <TributeOperationsPanel />
         </>
       }
+      respondentControls={<SurveyRespondentsPanel />}
       batch={batch}
       classification={classification}
       error={error}

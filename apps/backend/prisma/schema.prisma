@@ -1085,7 +1085,18 @@ model BillingPromotion {
   usageLimit Int? @map("usage_limit")
   archived Boolean @default(false)
   reservations BillingPromoReservation[]
+  surveyRespondent BillingSurveyRespondent?
   @@map("promotions")
+  @@schema("billing")
+}
+/** Список респондентов анкеты: только в production БД, не в Git и не в журнале (#815). */
+model BillingSurveyRespondent {
+  username String @id
+  importedAt DateTime @map("imported_at") @db.Timestamptz
+  promotionId String? @unique @map("promotion_id") @db.Uuid
+  promotion BillingPromotion? @relation(fields: [promotionId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  issuedAt DateTime? @map("issued_at") @db.Timestamptz
+  @@map("survey_respondents")
   @@schema("billing")
 }
 model BillingPricingCommand {

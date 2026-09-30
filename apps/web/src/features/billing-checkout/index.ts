@@ -20,4 +20,8 @@ export {
   type PurchaseReturnPanelProps,
   type PurchaseReturnViewProps,
 } from "./ui/purchase-return.client";
-export { forgetPurchase, recallPurchase } from "./model/checkout";
+export {
+  forgetPurchase,
+  promoCodeFromQuery,
+  recallPurchase,
+} from "./model/checkout";

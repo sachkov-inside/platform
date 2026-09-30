@@ -25,6 +25,8 @@ export interface GuidePurchaseViewProps {
   /** Цену не удалось прочитать: это временный сбой, а не «не продаётся». */
   readonly unavailable?: boolean;
   readonly notice?: string | undefined;
+  /** Промокод персональной ссылки: гость возвращается после входа с тем же кодом. */
+  readonly promoCode?: string;
   /** Оформление покупки участника: страница сама его не собирает. */
   readonly children?: ReactNode;
 }
@@ -41,6 +43,7 @@ export function GuidePurchaseView({
   viewer,
   unavailable = false,
   notice,
+  promoCode,
   children,
 }: GuidePurchaseViewProps) {
   const programmeHref = guideProgrammeHref(slug);
@@ -97,14 +100,15 @@ export function GuidePurchaseView({
           <section className="rounded-2xl border border-border bg-card p-6 shadow-card">
             <h2 className="text-xl font-semibold">Войдите, чтобы купить</h2>
             <p className="mt-2 text-sm leading-6 text-muted-foreground">
-              После входа вы вернётесь сюда и продолжите покупку за{" "}
-              {formatKopecks(offer.firstPriceKopecks)}.
+              {promoCode === undefined
+                ? `После входа вы вернётесь сюда и продолжите покупку за ${formatKopecks(offer.firstPriceKopecks)}.`
+                : "После входа вы вернётесь сюда, и скидка по ссылке применится к цене."}
             </p>
             <form action="/auth/sign-in" className="mt-4" method="post">
               <input
                 name="returnTo"
                 type="hidden"
-                value={guidePurchaseHref(slug)}
+                value={guidePurchaseHref(slug, promoCode)}
               />
               <Button className={billingActionClass} type="submit">
                 Войти

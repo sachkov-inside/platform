@@ -12,15 +12,26 @@ import { GuidePurchase } from "./guide-purchase.client";
  */
 export async function GuidePurchasePage({
   accessToken,
+  promoCode,
   slug,
 }: {
   readonly accessToken?: string;
+  /** Промокод персональной ссылки: расчёт цены применяет его, если он действует. */
+  readonly promoCode?: string;
   readonly slug: string;
 }) {
   const guide = await loadPublishedSeries(slug, accessToken);
   if (guide.kind === "not-found") notFound();
   if (guide.kind === "unavailable" || guide.reference.id === undefined) {
-    return <GuidePurchase guide={null} offers={[]} slug={slug} unavailable />;
+    return (
+      <GuidePurchase
+        guide={null}
+        offers={[]}
+        slug={slug}
+        unavailable
+        {...(promoCode === undefined ? {} : { promoCode })}
+      />
+    );
   }
   const catalog = await loadGuideOffers(guide.reference.id);
   return (
@@ -28,6 +39,7 @@ export async function GuidePurchasePage({
       guide={{ name: guide.reference.name, summary: guide.reference.summary }}
       offers={catalog.kind === "ready" ? catalog.offers : []}
       slug={slug}
+      {...(promoCode === undefined ? {} : { promoCode })}
       unavailable={catalog.kind === "unavailable"}
     />
   );
