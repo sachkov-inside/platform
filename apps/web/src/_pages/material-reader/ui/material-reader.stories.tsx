@@ -943,6 +943,36 @@ export const ImageViewerFailed: Story = {
   },
 };
 
+/** Тёмная тема: окно на токенах `sidebar`, нажатие на фон без приближения закрывает его. */
+export const ImageViewerDark: Story = {
+  args: { mode: "desktop" },
+  globals: {
+    theme: "dark",
+    viewport: { isRotated: false, value: "desktop1440" },
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await userEvent.click(
+      canvas.getByRole("button", {
+        name: `Открыть изображение крупно: ${readerImageAlt}`,
+      }),
+    );
+    const dialog = await canvas.findByRole("dialog", {
+      name: `${readerImageAlt}, просмотр крупно`,
+    });
+    const stage = within(dialog).getByTestId("image-viewer-stage");
+    const box = stage.getBoundingClientRect();
+    await userEvent.pointer({
+      keys: "[MouseLeft]",
+      target: stage,
+      coords: { clientX: box.left + 8, clientY: box.bottom - 8 },
+    });
+    await waitFor(() =>
+      expect(canvas.queryByRole("dialog")).not.toBeInTheDocument(),
+    );
+  },
+};
+
 /** На телефоне просмотр занимает весь экран; история оставляет его открытым и приближенным. */
 export const ImageViewerMobile: Story = {
   args: { mode: "desktop" },

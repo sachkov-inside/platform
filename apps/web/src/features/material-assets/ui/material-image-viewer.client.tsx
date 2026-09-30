@@ -6,6 +6,7 @@ import {
   type PointerEvent,
   type ReactNode,
   type Ref,
+  useCallback,
   useEffect,
   useId,
   useRef,
@@ -93,16 +94,23 @@ export function MaterialImageViewer({
     latestBounds.current = bounds;
   });
 
-  const update = (
-    next: (current: ViewerView, bounds: ViewerBounds) => ViewerView,
-    animate: boolean,
-  ) => {
-    const current = clampView(latestView.current, latestBounds.current);
-    const result = next(current, latestBounds.current);
-    latestView.current = result;
-    setAnimated(animate);
-    setStoredView(result);
-  };
+  // Единственный путь чтения и записи вида для обработчиков; читает только refs, поэтому стабилен.
+  const shownView = useCallback(
+    () => clampView(latestView.current, latestBounds.current),
+    [],
+  );
+  const update = useCallback(
+    (
+      next: (current: ViewerView, bounds: ViewerBounds) => ViewerView,
+      animate: boolean,
+    ) => {
+      const result = next(shownView(), latestBounds.current);
+      latestView.current = result;
+      setAnimated(animate);
+      setStoredView(result);
+    },
+    [shownView],
+  );
 
   useEffect(() => {
     const element = dialog.current;
@@ -144,22 +152,22 @@ export function MaterialImageViewer({
         return;
       const rate = event.ctrlKey ? PINCH_WHEEL_ZOOM_RATE : WHEEL_ZOOM_RATE;
       const point = stagePoint(area, event.clientX, event.clientY);
-      const current = clampView(latestView.current, latestBounds.current);
-      const result = zoomAt(
-        current,
-        current.scale * Math.exp(-event.deltaY * rate),
-        point,
-        latestBounds.current,
+      update(
+        (current, limits) =>
+          zoomAt(
+            current,
+            current.scale * Math.exp(-event.deltaY * rate),
+            point,
+            limits,
+          ),
+        false,
       );
-      latestView.current = result;
-      setAnimated(false);
-      setStoredView(result);
     };
     element.addEventListener("wheel", onWheel, { passive: false });
     return () => {
       element.removeEventListener("wheel", onWheel);
     };
-  }, []);
+  }, [update]);
 
   const zoomBy = (factor: number) => {
     update(
@@ -171,6 +179,9 @@ export function MaterialImageViewer({
 
   const onPointerDown = (event: PointerEvent<HTMLDivElement>) => {
     if (event.pointerType === "mouse" && event.button !== 0) return;
+    // Захват указателя сценой отнял бы нажатие у кнопки «Загрузить снова».
+    if (event.target instanceof Element && event.target.closest("button"))
+      return;
     lastPointerType.current = event.pointerType;
     event.currentTarget.setPointerCapture(event.pointerId);
     pointers.current.set(event.pointerId, {
@@ -179,10 +190,7 @@ export function MaterialImageViewer({
     });
     // Два пальца — это щипок, а не нажатие, даже если они не сдвинулись.
     moved.current = pointers.current.size > 1;
-    gesture.current = startGesture(
-      pointers.current,
-      clampView(latestView.current, bounds),
-    );
+    gesture.current = startGesture(pointers.current, shownView());
     setAnimated(false);
   };
 
@@ -227,7 +235,7 @@ export function MaterialImageViewer({
   const onPointerUp = (event: PointerEvent<HTMLDivElement>) => {
     if (!pointers.current.delete(event.pointerId)) return;
     const area = stage.current;
-    const shown = clampView(latestView.current, bounds);
+    const shown = shownView();
     if (pointers.current.size > 0) {
       // Один палец остался после щипка: дальше он двигает картинку от нового положения.
       gesture.current = startGesture(pointers.current, shown);
@@ -251,7 +259,8 @@ export function MaterialImageViewer({
       }
       lastTap.current = { at: event.timeStamp, point };
     }
-    if (!isOnImage(point, shown, bounds) && shown.scale === 1) onClose();
+    if (!isOnImage(point, shown, latestBounds.current) && shown.scale === 1)
+      onClose();
   };
 
   const onKeyDown = (event: KeyboardEvent<HTMLDialogElement>) => {
@@ -261,7 +270,7 @@ export function MaterialImageViewer({
     else if (event.key === "+" || event.key === "=") zoomBy(ZOOM_STEP);
     else if (event.key === "-" || event.key === "_") zoomBy(1 / ZOOM_STEP);
     else if (event.key === "0") update(() => FIT_VIEW, true);
-    else if (arrow !== null && view.scale > 1)
+    else if (arrow !== null && shownView().scale > 1)
       update((current, limits) => panBy(current, arrow, limits), true);
     else return;
     event.preventDefault();
@@ -335,7 +344,7 @@ export function MaterialImageViewer({
           // Двойное касание пальцем уже обработано в onPointerUp.
           if (area === null || lastPointerType.current !== "mouse") return;
           const point = stagePoint(area, event.clientX, event.clientY);
-          if (!isOnImage(point, view, bounds)) return;
+          if (!isOnImage(point, shownView(), latestBounds.current)) return;
           update(
             (current, limits) => toggleZoomAt(current, point, limits),
             true,
