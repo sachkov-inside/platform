@@ -13,6 +13,7 @@ import {
   listPublishedMaterials,
 } from "../../src/modules/content-library/index.js";
 import { readLearningMaterial } from "../../src/modules/content-library/features/read-learning-material/read-learning-material.js";
+import { readLearningPractice } from "../../src/modules/content-library/features/read-learning-practice/read-learning-practice.js";
 import {
   anonymousSubject,
   assembleContentAccess,
@@ -55,6 +56,42 @@ const siblingSource = {
   revision: "e".repeat(64),
   showInFeed: true,
 };
+// A source practice bound to the draft, shaped as tools/authoring/practice-import.mjs sends it.
+const practiceNeedle = "Quillpracticeneedle";
+const practiceDefinition = {
+  schemaVersion: 1 as const,
+  title: "Private draft practice",
+  businessInputs: `Confidential case context ${practiceNeedle}`,
+  expectedOutcome: `Hidden expected outcome ${practiceNeedle}`,
+  allowedFreedom: "Any format.",
+  criteria: [
+    {
+      id: "privacy",
+      requirement: `Protected criterion ${practiceNeedle}`,
+      acceptableEvidence: [`Protected evidence ${practiceNeedle}`],
+    },
+  ],
+};
+function sourcePractice(
+  practiceId: string,
+  publicationState: "published" | "unpublished",
+) {
+  return {
+    practiceId,
+    definition: practiceDefinition,
+    sourceReference: {
+      materialSourceId: draftSource.id,
+      materialSourceRevision: draftSource.revision,
+    },
+    provenance: {
+      repository: "inside/inside-content",
+      commit: "c".repeat(40),
+      path: "practices/private.json",
+    },
+    publicationState,
+  };
+}
+const practiceId = "inside-content:draft-privacy-practice";
 
 describe("source-imported draft privacy", () => {
   let database: TestDatabase;
@@ -222,6 +259,31 @@ describe("source-imported draft privacy", () => {
     });
     if (!uploaded.ok) throw new Error(uploaded.error.code);
     assetId = uploaded.value.assetId;
+
+    // The practice import: validate, then apply bound to the draft's current content version.
+    const practice = sourcePractice(practiceId, "unpublished");
+    expect(
+      await authoring.validateSourcePractice({ actor: owner, ...practice }),
+    ).toEqual({ ok: true, value: { valid: true, current: null } });
+    expect(
+      await authoring.applySourcePractice({
+        actor: owner,
+        idempotencyKey: "draft-practice-import",
+        ...practice,
+        materialId: draftId,
+        expectedContentVersion: 2,
+        expectedPracticeVersion: null,
+      }),
+    ).toMatchObject({
+      ok: true,
+      value: {
+        practiceId,
+        practiceVersion: 1,
+        materialId: draftId,
+        boundContentVersion: 2,
+        publicationState: "unpublished",
+      },
+    });
   });
   afterAll(async () => {
     await database.dispose();
@@ -361,6 +423,84 @@ describe("source-imported draft privacy", () => {
         materialId: draftId,
       }),
     ).toMatchObject({ ok: false });
+  });
+
+  test("an unpublished practice of the draft and its case context stay unreachable for a guest and a stranger", async () => {
+    const { publishedMaterialReader, authoring } = materials;
+    expect(
+      await authoring.validateSourcePractice({
+        actor: stranger,
+        ...sourcePractice(practiceId, "unpublished"),
+      }),
+    ).toMatchObject({ ok: false, error: { code: "forbidden" } });
+    const observed: unknown[] = [];
+    for (const subject of [guest, strangerSubject]) {
+      const read = await publishedMaterialReader.readPractice({
+        subject,
+        practiceId,
+      });
+      expect(read).toEqual({
+        ok: false,
+        error: { code: "practice_not_available" },
+      });
+      const listed = await publishedMaterialReader.listPractices({
+        subject,
+        materialSlug: draftSlug,
+      });
+      // A guest is refused outright; an account sees no practice of the unpublished lesson.
+      expect(listed).toEqual(
+        subject.kind === "anonymous"
+          ? { ok: false, error: { code: "practice_not_available" } }
+          : { ok: true, value: [] },
+      );
+      // The learning MCP tool `learning_practice_read` delegates to this function.
+      const learning = await readLearningPractice(
+        { reader: publishedMaterialReader, contentAccess: access },
+        { subject, practiceId },
+      );
+      expect(learning).toEqual({
+        ok: false,
+        error: { code: "practice_not_available" },
+      });
+      observed.push(read, listed, learning);
+    }
+    expect(JSON.stringify(observed)).not.toContain(practiceNeedle);
+    expect(JSON.stringify(observed)).not.toContain(draftNeedle);
+  });
+
+  test("a published practice cannot be applied to the draft lesson", async () => {
+    const { authoring, publishedMaterialReader } = materials;
+    const publishedId = "inside-content:draft-privacy-published-practice";
+    const practice = sourcePractice(publishedId, "published");
+    expect(
+      await authoring.validateSourcePractice({ actor: owner, ...practice }),
+    ).toEqual({ ok: true, value: { valid: true, current: null } });
+    const current = await database.prisma.material.findUniqueOrThrow({
+      where: { id: draftId },
+      select: { contentVersion: true },
+    });
+    expect(
+      await authoring.applySourcePractice({
+        actor: owner,
+        idempotencyKey: "draft-published-practice",
+        ...practice,
+        materialId: draftId,
+        expectedContentVersion: Number(current.contentVersion),
+        expectedPracticeVersion: null,
+      }),
+    ).toEqual({ ok: false, error: { code: "source_mismatch" } });
+    expect(
+      await database.prisma.practiceDefinition.count({
+        where: { practiceId: publishedId },
+      }),
+    ).toBe(0);
+    for (const subject of [guest, strangerSubject])
+      expect(
+        await publishedMaterialReader.readPractice({
+          subject,
+          practiceId: publishedId,
+        }),
+      ).toEqual({ ok: false, error: { code: "practice_not_available" } });
   });
 
   test("re-import keeps the draft, explicit approval publishes it, and a later draft apply cannot unpublish", async () => {

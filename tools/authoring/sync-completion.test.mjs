@@ -1224,12 +1224,22 @@ test("a private import stops before any Material write when the target is alread
   await run(setup, api);
   itemAt(setup.manifest.materials, 0).markdown = "Новая редакция";
   await setup.write();
-  const before = applies(api).length;
+  // The product page changes too, so a late check would already have rewritten it.
+  itemAt(setup.manifest.guides, 0).title = "Новое имя продукта";
+  await setup.write();
+  const calls = api.calls.length;
   await assert.rejects(
     run(setup, api, { publish: ["video"] }),
     /lesson\.md: the Material is already published in Platform/u,
   );
-  assert.equal(applies(api).length, before);
+  assert.deepEqual(
+    api.calls
+      .slice(calls)
+      .filter((call) => call.method !== "GET")
+      .map((call) => call.path)
+      .filter((path) => !path.endsWith("/validate")),
+    [],
+  );
   assert.equal(
     valueAt(api.materials, "inside-content:lesson").publicationState,
     "published",
@@ -1349,5 +1359,50 @@ test("preview shows each publication and apply follows only the reviewed approva
   await assert.rejects(
     applyRelease(privatePreview.path, setup.state, { request: api.request }),
     /contains conflicts/u,
+  );
+});
+
+test("a journal that missed a publication still stops a private import", async (t) => {
+  const setup = await fixture(t);
+  const api = applicationApi();
+  await run(setup, api, { publish: [] });
+  // Another state directory published the lesson; this journal still records a draft.
+  valueAt(api.materials, "inside-content:lesson").publicationState =
+    "published";
+  await assert.rejects(
+    run(setup, api, { publish: [] }),
+    /lesson\.md: the Material is already published/u,
+  );
+});
+
+test("an interrupted publication resumes only with the same approval", async (t) => {
+  const setup = await fixture(t);
+  const api = applicationApi();
+  await run(setup, api, { publish: [] });
+  itemAt(setup.manifest.materials, 2).markdown = "Новая редакция";
+  await setup.write();
+  const request = api.request;
+  let failed = false;
+  /** @type {LocalTransport} */
+  const lossy = async (path, body, key, options) => {
+    if (path === "/authoring/import/materials/apply" && !failed) {
+      failed = true;
+      throw Object.assign(new Error("connection lost"), { status: 503 });
+    }
+    return request(path, body, key, options);
+  };
+  await assert.rejects(run(setup, { request: lossy }, { publish: ["old"] }));
+  await assert.rejects(
+    run(setup, api, { publish: [] }),
+    /old\.md: an interrupted transfer was publishing this Material/u,
+  );
+  assert.equal(
+    valueAt(api.materials, "inside-content:old").publicationState,
+    "draft",
+  );
+  await run(setup, api, { publish: ["old"] });
+  assert.equal(
+    valueAt(api.materials, "inside-content:old").publicationState,
+    "published",
   );
 });

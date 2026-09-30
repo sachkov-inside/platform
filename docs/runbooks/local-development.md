@@ -986,9 +986,12 @@ private draft: its author previews it through the authoring preview, while guest
 search, the feed, the product programme, assets, practice and the learning MCP do not see it. An
 editorial `stage` or a missing `access` never publishes or protects anything by itself.
 `--publish SOURCE_ID` (repeatable) or `--publish-all` approves publication for that transfer; a
-repeated transfer without the approval keeps drafts private. A private transfer stops before any
-Material write when the target Material is already published or unpublished: it neither takes a
-public Material back nor replaces its public body. A Guide artifact declared only by private drafts
+repeated transfer without the approval keeps drafts private; an approval is not remembered, so a
+later transfer names a published Material again to update it. A private transfer checks every
+Material's own state on the target before its first topic, Guide or Material write and stops when
+one is already published or unpublished: it neither takes a public Material back nor replaces its
+public body (Platform itself never returns a Material to draft). An interrupted transfer that was
+publishing a Material resumes only when the next run carries the same approval. A Guide artifact declared only by private drafts
 waits for a published owner, a practice of a private lesson is imported unpublished, and a published
 body that links a private draft is reported as `link_to_draft`. A private draft that leaves the
 package is never proposed for archive.
@@ -1020,7 +1023,9 @@ describes the package the Content exporter writes.
 compares a package with the target without writing and saves a fingerprinted preview. Each Material
 shows its `publication`, a `publicationChange` from draft to published, or the conflict
 `already_published` for a private import of a public Material; the approval is part of the preview,
-so `apply` publishes exactly what was reviewed.
+so `apply` publishes exactly what was reviewed. A Material missing from this state directory's
+journal appears as `new`, because Platform offers no read-only lookup by source key; `apply` still
+checks its real state before any write.
 `pnpm authoring:release apply --preview PREVIEW_JSON --state STATE_DIRECTORY` applies exactly that
 preview and stops on drift, an edited preview or an unreviewed archive request. Drift covers
 Material versions, each Guide's version and its programme order, so a page edited on the target

@@ -18,6 +18,7 @@ import {
   parseJournal,
   parseLocalResponse,
   parseReceipt,
+  publishSelectionSchema,
   sourceVideoReceiptSchema,
 } from "./local-boundaries.mjs";
 import {
@@ -34,7 +35,7 @@ import {
   publicationConflict,
   publicationPolicy,
   publishOption,
-  recordedPublication,
+  targetPublication,
   valueAt,
   sourceKey,
   syncLocal,
@@ -140,7 +141,7 @@ async function readJournal(stateDirectory, target) {
  *   origin: string;
  *   request?: LocalTransport | undefined;
  *   defaultAccess?: DefaultAccess;
- *   publish?: import("./local-sync.mjs").PublishSelection;
+ *   publish?: import("./local-boundaries.mjs").PublishSelection;
  * }} options
  */
 export async function previewRelease(
@@ -155,7 +156,7 @@ export async function previewRelease(
   const pkg = await loadPackage(packagePath);
   const { manifest } = pkg;
   const shell = isGuideShell(manifest);
-  const publicationOf = publicationPolicy(manifest, publish);
+  const publicationOfKey = publicationPolicy(manifest, publish);
   const environment = await request("/authoring/import/materials/environment");
   await validateGuidePages(manifest, send);
   const journal = await readJournal(stateDirectory, target);
@@ -197,7 +198,7 @@ export async function previewRelease(
       access: row.access ?? defaultAccess,
       showInFeed: row.showInFeed,
       video: row.video?.kinescopeId ?? null,
-      publication: publicationOf(row),
+      publication: publicationOfKey(key),
     };
     if (!entry) {
       materials.push({
@@ -232,11 +233,16 @@ export async function previewRelease(
       primaryVideoId: attached,
       publicationState: item.publication,
     });
-    const currentPublication =
-      current.publicationState ?? recordedPublication(entry);
-    const alreadyPublic =
-      publicationConflict(row, currentPublication, item.publication) !==
-      undefined;
+    const currentPublication = targetPublication(
+      current.publicationState,
+      entry,
+    );
+    const publicationConflictFound = publicationConflict(
+      row,
+      currentPublication,
+      item.publication,
+    );
+    const alreadyPublic = publicationConflictFound !== undefined;
     // A Video keeps the access it was attached with; changing a Material's access needs a new recording decision.
     const currentAccess = current.metadata.access ?? entry.access;
     const existingVideo =
@@ -264,7 +270,9 @@ export async function previewRelease(
       change,
       ...(attached !== current.primaryVideoId ? { videoChange: true } : {}),
       ...(videoAccessConflict ? { conflictReason: "video_access_change" } : {}),
-      ...(alreadyPublic ? { conflictReason: "already_published" } : {}),
+      ...(publicationConflictFound
+        ? { conflictReason: publicationConflictFound.code }
+        : {}),
       ...(!alreadyPublic && currentPublication !== item.publication
         ? {
             publicationChange: {
@@ -444,7 +452,7 @@ export async function previewRelease(
   }
   const archiveProposals = archiveProposalKeys(journal, manifest);
   // The owner's publication approval is part of what apply must match.
-  /** @type {{ publish?: import("./local-sync.mjs").PublishSelection }} */
+  /** @type {{ publish?: import("./local-boundaries.mjs").PublishSelection }} */
   const approval =
     publish === "all"
       ? { publish }
@@ -492,7 +500,7 @@ const previewSchema = z
     packagePath: z.string(),
     namespace: z.string(),
     scope: guideShellScope.optional(),
-    publish: z.union([z.literal("all"), z.array(z.string())]).optional(),
+    publish: publishSelectionSchema.optional(),
     pendingMaterialWrites: z.number().int().positive().optional(),
     expected: z.record(z.string(), z.union([z.number().int(), z.string()])),
     materials: z.array(z.object({ change: z.string() }).passthrough()),

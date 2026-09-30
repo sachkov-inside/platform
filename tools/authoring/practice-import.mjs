@@ -73,6 +73,25 @@ export async function replayPracticeImports(context, request) {
   }
 }
 
+/**
+ * Practice context follows its lesson (#804): a private draft never carries a published practice.
+ *
+ * @param {import('./package.mjs').Manifest} manifest
+ * @param {(materialSourceId: string) => "draft" | "published"} publicationOf
+ * @returns {import('./package.mjs').Manifest}
+ */
+export function practicesFollowLessons(manifest, publicationOf) {
+  if (manifest.practiceDefinitions === undefined) return manifest;
+  return {
+    ...manifest,
+    practiceDefinitions: manifest.practiceDefinitions.map((definition) =>
+      publicationOf(definition.sourceReference.materialSourceId) === "draft"
+        ? { ...definition, publicationState: "unpublished" }
+        : definition,
+    ),
+  };
+}
+
 /** Absence is a no-op; publicationState is the explicit full-state decision of the package.
  * @param {import('./package.mjs').Manifest} manifest
  * @param {import('./journal.mjs').JournalContext} context
