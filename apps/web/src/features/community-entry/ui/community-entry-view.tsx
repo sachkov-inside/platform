@@ -17,6 +17,10 @@ export interface CommunityEntryViewProps {
 }
 
 /**
+ * Temporary semantic UI for #822.
+ * Replace through #824 after Storybook acceptance.
+ */
+/**
  * Переход в сообщество Inside рядом с покупкой. Личную ссылку в группу выдаёт только бот по
  * `/community`, поэтому кнопка ведёт в бота; адреса группы здесь нет, и участник видит статус.
  */

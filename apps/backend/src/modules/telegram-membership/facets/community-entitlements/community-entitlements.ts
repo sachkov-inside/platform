@@ -89,7 +89,9 @@ export class CommunityEntitlements {
   async readOwnCommunityEntry(accountId: string): Promise<OwnCommunityEntry> {
     const { admission, linked, membership } =
       await this.resolveOwnAdmission(accountId);
-    if (admission.state === "no_access") return { kind: "none" };
+    // Непрочитанные факты не превращаются в совет подключить Telegram: блока просто нет.
+    if (linked === null || admission.state === "no_access")
+      return { kind: "none" };
     if (!linked) return { kind: "link_telegram" };
     if (
       admission.state === "moderation_blocked" ||
@@ -104,15 +106,16 @@ export class CommunityEntitlements {
 
   private async resolveOwnAdmission(accountId: string): Promise<{
     readonly admission: OwnAdmission;
-    readonly linked: boolean;
+    /** `null`, когда связь с Telegram не удалось прочитать. */
+    readonly linked: boolean | null;
     readonly membership: ObservedMembership;
   }> {
-    const checking = {
+    const unresolved = {
       admission: { admissionRestriction: null, state: "checking" as const },
-      linked: false,
+      linked: null,
       membership: "unknown" as const,
     };
-    if (!z.uuid().safeParse(accountId).success) return checking;
+    if (!z.uuid().safeParse(accountId).success) return unresolved;
     const [access, binding, desired] = await Promise.all([
       this.dependencies.grants.resolveCapabilities(accountId),
       this.dependencies.links.readBinding({ accountId }),
@@ -120,13 +123,14 @@ export class CommunityEntitlements {
         where: { accountId },
       }),
     ]);
-    if (!access.ok || !binding.ok) return checking;
+    if (!access.ok || !binding.ok) return unresolved;
+    const linked = binding.binding !== null;
     if (!accessAllows(communityAccessFor(access.capabilities), this.clock()))
       return {
-        ...checking,
+        ...unresolved,
         admission: { admissionRestriction: null, state: "no_access" },
+        linked,
       };
-    const linked = binding.binding !== null;
     const operation =
       desired?.latestOperationId === null ||
       desired?.latestOperationId === undefined
@@ -148,7 +152,7 @@ export class CommunityEntitlements {
       result.data.binding.telegramIdentityRef !==
         binding.binding.telegramIdentityRef
     )
-      return { ...checking, linked };
+      return { ...unresolved, linked };
     const restriction = result.data.admissionRestriction;
     return {
       admission: {

@@ -42,7 +42,4 @@ export * from "./billing.server";
 
 export { requestCurrentEnrollments } from "./billing.server";
 
-export {
-  requestCurrentCommunityAdmission,
-  requestCurrentCommunityEntry,
-} from "./billing.server";
+export { requestCurrentCommunityAdmission } from "./billing.server";

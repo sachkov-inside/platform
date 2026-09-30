@@ -739,6 +739,24 @@ describe("community entitlement delivery (real PostgreSQL and real facets; synth
     });
   });
 
+  test("an unreadable Telegram link never turns into advice to link Telegram", async () => {
+    now = new Date(start);
+    const account = await member();
+    await grantCommunity(account, null);
+    const degraded = new CommunityEntitlements({
+      accounts,
+      botStartUrl: "https://t.me/inside_test_bot",
+      clock: () => now,
+      grants,
+      links: { readBinding: () => Promise.resolve({ ok: false as const }) },
+      prisma: database.prisma,
+      provider: new ProviderDouble(),
+    });
+    expect(await degraded.readOwnCommunityEntry(account)).toEqual({
+      kind: "none",
+    });
+  });
+
   test("the operator list names only people Telegram still sees in the chat without a current right", async () => {
     now = new Date(start);
     const stays = await member();

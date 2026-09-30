@@ -3,6 +3,7 @@ import type { Route } from "next";
 import { useQuery } from "@tanstack/react-query";
 
 import { readBillingEndpoint } from "@/entities/subscription";
+import { selfRefreshingRead } from "@/shared/api/self-refreshing-query";
 
 import { communityEntrySchema } from "../model/community-entry";
 import { CommunityEntryView } from "./community-entry-view";
@@ -22,8 +23,8 @@ export function CommunityEntryPanel({
     queryKey: ["account", "community-entry"],
     queryFn: () =>
       readBillingEndpoint("/api/account/community-entry", communityEntrySchema),
-    retry: false,
-    staleTime: 0,
+    // Человек ждёт бота и возвращается из Telegram: чтение освежается при возврате на вкладку.
+    ...selfRefreshingRead,
     refetchInterval: (query) => {
       const result = query.state.data;
       return result?.ok === true && result.value.kind === "preparing"
