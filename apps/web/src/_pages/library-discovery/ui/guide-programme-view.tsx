@@ -22,6 +22,7 @@ import {
 import "./guide-programme-view.css";
 
 import { formatChapterCount } from "./guide-counts";
+import { programmePurchaseRowClass } from "./programme-purchase-row";
 import { SeriesJourney } from "./series-journey";
 import {
   PendingPurchaseRow,
@@ -106,14 +107,18 @@ export function GuideProgrammeView({
         className="mt-2 rounded-2xl bg-muted/60 p-4 sm:p-5"
         data-programme-part="header"
       >
-        <div className="flex items-center gap-4 @max-[20rem]/programme:flex-col @max-[20rem]/programme:items-start">
-          <div className="w-16 shrink-0 overflow-hidden rounded-lg sm:w-20">
+        {/* Обложка, название и кнопка оплаты стоят в одном ряду; на узком экране кнопка уходит
+            под название и занимает всю ширину, чтобы до неё было удобно дотянуться. */}
+        <div className="grid grid-cols-[auto_minmax(0,1fr)] items-center gap-x-4 gap-y-4 @[36rem]/programme:grid-cols-[auto_minmax(0,1fr)_auto] @max-[20rem]/programme:grid-cols-1">
+          <div className="w-24 shrink-0 overflow-hidden rounded-xl ring-1 ring-border @[36rem]/programme:w-36">
             <ContentCoverImage
               alt=""
-              className="aspect-square min-h-0 w-full"
+              className="aspect-[3/2] min-h-0 w-full"
               cover={result.reference.cover ?? null}
               fallbackKind="playlist"
               fallbackSeed={slug}
+              priority
+              sizes="9rem"
             />
           </div>
           <div className="min-w-0 [overflow-wrap:anywhere]">
@@ -124,20 +129,20 @@ export function GuideProgrammeView({
               {meta.join(" · ")}
             </p>
           </div>
+          {accessPending ? (
+            <PendingPurchaseRow
+              lockedForGuest={hasLockedItems(result)}
+              slug={slug}
+            />
+          ) : purchase === null ? null : (
+            <div
+              className={programmePurchaseRowClass}
+              data-programme-purchase-row
+            >
+              <ProgrammePurchase invitation={purchase} offer={guideOffer} />
+            </div>
+          )}
         </div>
-        {accessPending ? (
-          <PendingPurchaseRow
-            lockedForGuest={hasLockedItems(result)}
-            slug={slug}
-          />
-        ) : purchase === null ? null : (
-          <div
-            className="mt-4 flex min-h-11 justify-end"
-            data-programme-purchase-row
-          >
-            <ProgrammePurchase invitation={purchase} offer={guideOffer} />
-          </div>
-        )}
         <ProgrammeProgress />
       </header>
 

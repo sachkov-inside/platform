@@ -8,8 +8,9 @@ import type { Route } from "next";
 import { internalRoute } from "./internal-route";
 
 /**
- * Канонические адреса публичных страниц. Руководство живёт по `/guides/<slug>`; `/series/<slug>`
- * остался совместимым адресом той же страницы и ведёт на канонический адрес, а не спорит с ним.
+ * Канонические адреса публичных страниц. Продукт живёт по `/products/<slug>` (решение владельца
+ * 30.09.2026, platform#808); прежние `/guides/<slug>` и `/series/<slug>` постоянно перенаправляются
+ * туда в `next.config.ts`.
  */
 export const HOME_PATH = internalRoute("/");
 export const MAP_PATH = internalRoute("/map");
@@ -37,7 +38,7 @@ export function materialPath(slug: string): Route {
 }
 
 export function guidePath(slug: string): Route {
-  return internalRoute(`/guides/${encodeURIComponent(slug)}`);
+  return internalRoute(`/products/${encodeURIComponent(slug)}`);
 }
 
 export function topicPath(slug: string): Route {

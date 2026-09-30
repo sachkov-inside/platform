@@ -95,7 +95,9 @@ const resume = {
 };
 const register = () => () => undefined;
 const refresh = () => Promise.resolve();
-const environment = publicPageEnvironment("/guides/platform-inside/programme");
+const environment = publicPageEnvironment(
+  "/products/platform-inside/programme",
+);
 const meta = {
   ...environment,
   component: GuideProgrammeView,
@@ -211,7 +213,7 @@ export const LockedSeriesOffersSubscription: Story = {
       canvas.getByRole("link", { name: "Посмотреть тарифы" }),
     ).toHaveAttribute(
       "href",
-      "/subscription?from=%2Fguides%2Fplatform-inside%2Fprogramme",
+      "/subscription?from=%2Fproducts%2Fplatform-inside%2Fprogramme",
     );
   },
 };
@@ -226,7 +228,7 @@ export const LockedSeriesInvitesPayment: Story = {
     // Приглашение, а не цена: сумму и состав показывает страница оплаты.
     await expect(
       canvas.getByRole("link", { name: "Оплатить сейчас" }),
-    ).toHaveAttribute("href", "/guides/platform-inside/buy");
+    ).toHaveAttribute("href", "/products/platform-inside/buy");
     await expect(canvas.queryByText(/2\s?500/u)).not.toBeInTheDocument();
     await expect(
       canvas.queryByRole("link", { name: "Посмотреть тарифы" }),
@@ -689,8 +691,7 @@ export const DesktopRouteDetails: Story = {
     const card = cards[2];
     const title = card?.querySelector("h3,h4");
     const preview = card?.querySelector("[data-series-preview]");
-    const ordinal = card?.querySelector("strong");
-    if (!card || !title || !preview || !ordinal)
+    if (!card || !title || !preview)
       throw new Error("Missing compact row geometry");
     const center = (element: Element) => {
       const box = element.getBoundingClientRect();
@@ -699,7 +700,8 @@ export const DesktopRouteDetails: Story = {
     await expect(Math.abs(center(title) - center(card))).toBeLessThan(1);
     await expect(Math.abs(center(preview) - center(card))).toBeLessThan(1);
     await expect(preview.getBoundingClientRect().width).toBe(64);
-    await expect(getComputedStyle(ordinal).fontSize).toBe("16px");
+    // Номер урока стоит в плитке: цифрами на месте обложки или меткой в её углу.
+    await expect(preview).toHaveTextContent(/^0?3$/u);
     for (const cover of canvasElement.querySelectorAll(
       "article .public-cover-grid",
     )) {

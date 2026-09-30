@@ -43,11 +43,11 @@ test("витрина отвечает и объясняет недоступно
 });
 
 test("витрина сохраняет исходную страницу продукта", async ({ page }) => {
-  await page.goto("/subscription?from=%2Fguides%2Fplatform-inside");
+  await page.goto("/subscription?from=%2Fproducts%2Fplatform-inside");
 
   await expect(
     page.getByRole("link", { name: "Вернуться к материалу" }),
-  ).toHaveAttribute("href", "/guides/platform-inside");
+  ).toHaveAttribute("href", "/products/platform-inside");
 });
 
 test("витрина не имеет серьёзных нарушений доступности", async ({ page }) => {

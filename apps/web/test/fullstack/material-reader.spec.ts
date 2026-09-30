@@ -621,7 +621,7 @@ test("navigates Library → Topic → ordered Series and exposes canonical Reade
   });
   await expect(seriesLink).toHaveAttribute(
     "href",
-    "/guides/platform-inside?from=%2Ftopics%2Fplatform%3Ffrom%3D%252F",
+    "/products/platform-inside?from=%2Ftopics%2Fplatform%3Ffrom%3D%252F",
   );
   await seriesLink.focus();
   await expect(seriesLink).toBeFocused();
@@ -688,7 +688,7 @@ test("navigates Library → Topic → ordered Series and exposes canonical Reade
     .click();
   await expect(page).toHaveURL(/\/materials\/kak-ustroen-inside-platform\?/u);
   expect(new URL(page.url()).searchParams.get("from")).toBe(
-    "/guides/platform-inside/programme?page=1&at=kak-ustroen-inside-platform",
+    "/products/platform-inside/programme?page=1&at=kak-ustroen-inside-platform",
   );
   const playlistBackLinks = page.getByRole("link", {
     name: "Все материалы продукта",
@@ -696,7 +696,7 @@ test("navigates Library → Topic → ordered Series and exposes canonical Reade
   await expect(playlistBackLinks).toHaveCount(1);
   await expect(playlistBackLinks.first()).toHaveAttribute(
     "href",
-    "/guides/platform-inside/programme?page=1&at=kak-ustroen-inside-platform",
+    "/products/platform-inside/programme?page=1&at=kak-ustroen-inside-platform",
   );
   await expect(
     page.getByRole("link", { name: "Platform", exact: true }),
@@ -719,7 +719,7 @@ test("uses the selected Series order for a shared Material and leaves standalone
   page,
 }) => {
   // Порядок материала берёт та программа, из которой читатель пришёл: маршрут живёт там.
-  await page.goto("/guides/demo-series-harness/programme");
+  await page.goto("/products/demo-series-harness/programme");
   await page
     .getByRole("link", { exact: true, name: "Demo #295 · Общий гайд" })
     .click();
@@ -733,14 +733,14 @@ test("uses the selected Series order for a shared Material and leaves standalone
       page.url(),
     ).searchParams.get("from"),
   ).toBe(
-    "/guides/demo-series-harness/programme?page=1&at=demo-295-obshchiy-gayd",
+    "/products/demo-series-harness/programme?page=1&at=demo-295-obshchiy-gayd",
   );
   await page.goBack();
   await expect(page).toHaveURL(/\/guides\/demo-series-harness\/programme/u);
   await page.goForward();
   await expect(page.getByRole("link", { name: "Дальше" })).toBeVisible();
 
-  await page.goto("/guides/demo-series-review/programme");
+  await page.goto("/products/demo-series-review/programme");
   await page
     .getByRole("link", { exact: true, name: "Demo #295 · Общий гайд" })
     .click();
@@ -756,7 +756,7 @@ test("uses the selected Series order for a shared Material and leaves standalone
       page.url(),
     ).searchParams.get("from"),
   ).toBe(
-    "/guides/demo-series-review/programme?page=1&at=demo-295-obshchiy-gayd",
+    "/products/demo-series-review/programme?page=1&at=demo-295-obshchiy-gayd",
   );
   await mixedNext.click();
   await expect(page.getByRole("link", { name: "Дальше" })).toBeVisible();

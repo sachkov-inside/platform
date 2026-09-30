@@ -125,7 +125,7 @@ export function EnrollmentList({
                           {entry.slug !== null && entry.available ? (
                             <Link
                               className="underline underline-offset-4"
-                              href={`/${entry.kind === "guide" ? "guides" : "materials"}/${encodeURIComponent(entry.slug)}`}
+                              href={`/${entry.kind === "guide" ? "products" : "materials"}/${encodeURIComponent(entry.slug)}`}
                             >
                               {entry.title}
                             </Link>

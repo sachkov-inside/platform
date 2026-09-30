@@ -87,7 +87,7 @@ const frameOf = (canvasElement: HTMLElement) => ({
   hero: originOf(boxOf(canvasElement, "[data-product-part='hero']")),
 });
 
-const environment = publicPageEnvironment("/guides/platform-inside");
+const environment = publicPageEnvironment("/products/platform-inside");
 const meta = {
   ...environment,
   component: GuideProductView,

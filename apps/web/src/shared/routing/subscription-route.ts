@@ -9,6 +9,8 @@ import { guidePath } from "./public-page-path";
  * только на публичные разделы каталога, поэтому список разделов задан явно.
  */
 const publicOriginSections = [
+  "/products/",
+  // Прежние адреса продукта перенаправляются на `/products/`, поэтому старый возврат остаётся рабочим.
   "/guides/",
   "/series/",
   "/topics/",
@@ -54,7 +56,7 @@ export const guideProductHref = guidePath;
  * продукта рассказывает, а программа учит. Приглашение к оплате встречает читателя именно здесь.
  */
 export function guideProgrammeHref(slug: string): Route {
-  return internalRoute(`/guides/${encodeURIComponent(slug)}/programme`);
+  return internalRoute(`/products/${encodeURIComponent(slug)}/programme`);
 }
 
 /**
@@ -63,7 +65,7 @@ export function guideProgrammeHref(slug: string): Route {
  * Персональная ссылка владельца несёт промокод: он переживает вход и экран условий (#815).
  */
 export function guidePurchaseHref(slug: string, promoCode?: string): Route {
-  const path = `/guides/${encodeURIComponent(slug)}/buy`;
+  const path = `/products/${encodeURIComponent(slug)}/buy`;
   return internalRoute(
     promoCode === undefined
       ? path

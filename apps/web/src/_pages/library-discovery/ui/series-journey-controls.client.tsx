@@ -40,6 +40,8 @@ export type JourneyPart =
       readonly id: "programme" | "supplementary";
       readonly kind: "materials";
       readonly label: string;
+      /** Короткое имя вкладки для узкого экрана; полное остаётся для скринридера. */
+      readonly shortLabel?: string;
       readonly runs: readonly JourneyRun[];
     }
   | {
@@ -219,7 +221,21 @@ export function SeriesJourneyControls({
               tabIndex={entry.id === part?.id ? 0 : -1}
               type="button"
             >
-              {entry.label}
+              {entry.kind === "materials" && entry.shortLabel !== undefined ? (
+                <>
+                  <span className="@max-[26rem]/programme:sr-only">
+                    {entry.label}
+                  </span>
+                  <span
+                    aria-hidden="true"
+                    className="hidden @max-[26rem]/programme:inline"
+                  >
+                    {entry.shortLabel}
+                  </span>
+                </>
+              ) : (
+                entry.label
+              )}
               {partCount(entry) > 0 ? (
                 <span className="ml-1.5 tabular-nums font-normal text-muted-foreground">
                   {partCount(entry)}
@@ -295,6 +311,16 @@ export function SeriesJourneyControls({
                       run.chapter === null
                         ? undefined
                         : `chapter-${run.chapter.id}`
+                    }
+                    className={
+                      run.chapter === null ? undefined : "programme-chapter"
+                    }
+                    data-chapter-state={
+                      run.chapter === null
+                        ? undefined
+                        : run.rows.length === 0
+                          ? "preparing"
+                          : "open"
                     }
                     key={run.chapter?.id ?? `open-${String(run.offset)}`}
                   >

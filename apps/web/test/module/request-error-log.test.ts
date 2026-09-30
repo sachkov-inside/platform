@@ -4,7 +4,7 @@ import { logRequestError } from "@/shared/lib/request-error-log.server";
 
 const renderContext = {
   renderSource: "react-server-components",
-  routePath: "/(public)/(catalog)/guides/[slug]",
+  routePath: "/(public)/(catalog)/products/[slug]",
   routeType: "render",
 } as const;
 
@@ -18,7 +18,7 @@ it("пишет серверный сбой одной строкой с кодо
   const request = {
     headers: { cookie: "session=secret" },
     method: "GET",
-    path: "/guides/ai?from=%2Faccount",
+    path: "/products/ai?from=%2Faccount",
   };
   logRequestError(failure, request, renderContext);
 
@@ -32,9 +32,9 @@ it("пишет серверный сбой одной строкой с кодо
       message: "Каталог не ответил",
       method: "GET",
       name: "Error",
-      path: "/guides/ai",
+      path: "/products/ai",
       renderSource: "react-server-components",
-      routePath: "/(public)/(catalog)/guides/[slug]",
+      routePath: "/(public)/(catalog)/products/[slug]",
       routeType: "render",
     }),
   );

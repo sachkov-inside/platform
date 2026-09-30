@@ -22,7 +22,6 @@ import type {
   GuidePageBlockOf,
 } from "@/entities/guide-page";
 import { AiFirstProcessArtwork } from "@/features/ai-first-guide";
-import { fillOneTimeTerms as fillTerms } from "@/features/billing-checkout.terms";
 import {
   formatMaterialCount,
   type PublishedSeriesResult,
@@ -31,6 +30,7 @@ import type { MaterialReaderReturnTarget } from "@/shared/routing/material-reade
 import { guideProgrammeHref } from "@/shared/routing/subscription-route";
 import { IntentPrefetchLink } from "@/shared/ui/intent-prefetch-link.client";
 
+import { countFreeLessons } from "../model/free-lessons";
 import "./ai-first-guide-view.css";
 
 /**
@@ -47,14 +47,10 @@ export function AiFirstGuideView({
   readonly page: GuidePage;
   readonly returnTarget: MaterialReaderReturnTarget;
 }) {
-  const freeCount =
-    result.kind === "ready"
-      ? result.items.filter(
-          (item) => item.access === "free" && item.availability === "available",
-        ).length
-      : 0;
+  const freeCount = countFreeLessons(
+    result.kind === "ready" ? result.items : [],
+  );
   const context: BlockContext = {
-    fill: fillTerms,
     programme: guideProgrammeHref(result.reference.slug),
     freeCount,
     name: result.reference.name,
@@ -96,7 +92,6 @@ export function AiFirstGuideView({
 }
 
 interface BlockContext {
-  readonly fill: (text: string) => string;
   readonly programme: Route;
   /** Сколько уроков продукта открыты без покупки: приглашение показывается только при них. */
   readonly freeCount: number;
@@ -114,30 +109,27 @@ function AiFirstBlock({
     case "hero":
       return <Hero block={block} context={context} />;
     case "cards":
-      if (block.id === "outcomes")
-        return <OutcomeCards block={block} fill={context.fill} />;
-      if (block.id === "support")
-        return <SupportCards block={block} fill={context.fill} />;
-      if (block.id === "bonuses")
-        return <BonusCards block={block} fill={context.fill} />;
-      return <PlainCards block={block} fill={context.fill} />;
+      if (block.id === "outcomes") return <OutcomeCards block={block} />;
+      if (block.id === "support") return <SupportCards block={block} />;
+      if (block.id === "bonuses") return <BonusCards block={block} />;
+      return <PlainCards block={block} />;
     case "text":
-      return <TextSection block={block} fill={context.fill} />;
+      return <TextSection block={block} />;
     case "steps":
       return <StepsSection block={block} context={context} />;
     case "list":
-      return <ListSection block={block} fill={context.fill} />;
+      return <ListSection block={block} />;
     case "trial":
       return context.freeCount === 0 ? null : (
         <section className="ai-guide-trial">
-          <h2>{context.fill(block.title)}</h2>
-          <p>{context.fill(block.text)}</p>
+          <h2>{block.title}</h2>
+          <p>{block.text}</p>
           {block.link === "" ? null : (
             <IntentPrefetchLink
               className="ai-guide-text-link"
               href={context.programme}
             >
-              {context.fill(block.link)}
+              {block.link}
               <ArrowRight />
             </IntentPrefetchLink>
           )}
@@ -165,8 +157,16 @@ function Hero({
   return (
     <header className="ai-guide-hero">
       <div className="ai-guide-hero-copy">
-        <h1>{context.name}</h1>
-        <p className="ai-guide-intro">{context.fill(block.lead)}</p>
+        <h1>
+          {context.name}
+          {block.badge === "" ? null : (
+            <>
+              {" "}
+              <span className="ai-guide-badge">{block.badge}</span>
+            </>
+          )}
+        </h1>
+        <p className="ai-guide-intro">{block.lead}</p>
         {block.highlights.length === 0 ? null : (
           <ul className="ai-guide-highlights" aria-label="Формат практикума">
             {block.highlights.map((highlight, index) => {
@@ -174,7 +174,7 @@ function Hero({
               return (
                 <li key={`${String(index)}-${highlight}`}>
                   <Icon aria-hidden="true" />
-                  {context.fill(highlight)}
+                  {highlight}
                 </li>
               );
             })}
@@ -200,37 +200,29 @@ function Hero({
   );
 }
 
-function PlainCards({
-  block,
-  fill,
-}: {
-  readonly block: GuidePageBlockOf<"cards">;
-  readonly fill: (text: string) => string;
-}) {
+function PlainCards({ block }: { readonly block: GuidePageBlockOf<"cards"> }) {
   return (
     <section className="ai-guide-audience">
       {block.eyebrow === "" ? null : (
-        <p className="ai-guide-eyebrow">{fill(block.eyebrow)}</p>
+        <p className="ai-guide-eyebrow">{block.eyebrow}</p>
       )}
-      <h2>{fill(block.title)}</h2>
+      <h2>{block.title}</h2>
       {block.lead === "" ? null : (
-        <p className="ai-guide-section-intro">{fill(block.lead)}</p>
+        <p className="ai-guide-section-intro">{block.lead}</p>
       )}
       <dl>
         {block.items.map((item, index) => (
           <div key={`${String(index)}-${item.title}`}>
             <dt>
               <Check />
-              {fill(item.title)}
+              {item.title}
             </dt>
             <dd>
-              {fill(item.text)}
+              {item.text}
               {item.detail === "" ? null : (
                 <span className="ai-guide-item-detail">
-                  {item.detailLabel === "" ? null : (
-                    <>{fill(item.detailLabel)}: </>
-                  )}
-                  {fill(item.detail)}
+                  {item.detailLabel === "" ? null : <>{item.detailLabel}: </>}
+                  {item.detail}
                 </span>
               )}
             </dd>
@@ -238,25 +230,19 @@ function PlainCards({
         ))}
       </dl>
       {block.note === "" ? null : (
-        <p className="ai-guide-career">{fill(block.note)}</p>
+        <p className="ai-guide-career">{block.note}</p>
       )}
     </section>
   );
 }
 
-function TextSection({
-  block,
-  fill,
-}: {
-  readonly block: GuidePageBlockOf<"text">;
-  readonly fill: (text: string) => string;
-}) {
+function TextSection({ block }: { readonly block: GuidePageBlockOf<"text"> }) {
   return (
     <section className="ai-guide-shift">
-      <h2>{fill(block.title)}</h2>
+      <h2>{block.title}</h2>
       <div>
         {block.paragraphs.map((paragraph, index) => (
-          <p key={`${String(index)}-${paragraph}`}>{fill(paragraph)}</p>
+          <p key={`${String(index)}-${paragraph}`}>{paragraph}</p>
         ))}
       </div>
     </section>
@@ -322,21 +308,17 @@ const outcomeVisuals: readonly ReactNode[] = [
 ];
 function OutcomeCards({
   block,
-  fill,
 }: {
   readonly block: GuidePageBlockOf<"cards">;
-  readonly fill: (text: string) => string;
 }) {
   return (
     <section className="ai-guide-outcomes">
       {block.eyebrow === "" ? null : (
-        <p className="ai-guide-eyebrow">{fill(block.eyebrow)}</p>
+        <p className="ai-guide-eyebrow">{block.eyebrow}</p>
       )}
-      <h2>{fill(block.title)}</h2>
+      <h2>{block.title}</h2>
       {block.lead === "" ? null : (
-        <p className="ai-guide-section-intro ai-guide-promise">
-          {fill(block.lead)}
-        </p>
+        <p className="ai-guide-section-intro ai-guide-promise">{block.lead}</p>
       )}
       <div className="ai-guide-outcome-grid">
         {block.items.map((item, index) => {
@@ -348,15 +330,15 @@ function OutcomeCards({
               <div className="ai-guide-result-copy">
                 <h3>
                   <Icon aria-hidden="true" />
-                  {fill(item.title)}
+                  {item.title}
                 </h3>
-                <p>{fill(item.text)}</p>
+                <p>{item.text}</p>
                 {item.detail === "" ? null : (
                   <div className="ai-guide-result-proof">
                     <Proof aria-hidden="true" />
                     <span>
-                      {fill(item.detailLabel)}
-                      <strong>{fill(item.detail)}</strong>
+                      {item.detailLabel}
+                      <strong>{item.detail}</strong>
                     </span>
                   </div>
                 )}
@@ -366,7 +348,7 @@ function OutcomeCards({
         })}
       </div>
       {block.note === "" ? null : (
-        <p className="ai-guide-career">{fill(block.note)}</p>
+        <p className="ai-guide-career">{block.note}</p>
       )}
     </section>
   );
@@ -382,15 +364,15 @@ function StepsSection({
   const titleId = `ai-${block.id}-title`;
   return (
     <section className="ai-guide-programme" aria-labelledby={titleId}>
-      <h2 id={titleId}>{context.fill(block.title)}</h2>
-      {block.lead === "" ? null : <p>{context.fill(block.lead)}</p>}
+      <h2 id={titleId}>{block.title}</h2>
+      {block.lead === "" ? null : <p>{block.lead}</p>}
       <ol>
         {block.items.map((stage, index) => (
           <li key={`${String(index)}-${stage.title}`}>
             <span>{index + 1}</span>
             <div>
-              <h3>{context.fill(stage.title)}</h3>
-              <p>{context.fill(stage.text)}</p>
+              <h3>{stage.title}</h3>
+              <p>{stage.text}</p>
             </div>
           </li>
         ))}
@@ -400,7 +382,7 @@ function StepsSection({
           className="ai-guide-text-link"
           href={context.programme}
         >
-          {context.fill(block.link)}
+          {block.link}
           <ArrowRight />
         </IntentPrefetchLink>
       )}
@@ -408,23 +390,17 @@ function StepsSection({
   );
 }
 
-function ListSection({
-  block,
-  fill,
-}: {
-  readonly block: GuidePageBlockOf<"list">;
-  readonly fill: (text: string) => string;
-}) {
+function ListSection({ block }: { readonly block: GuidePageBlockOf<"list"> }) {
   return (
     <section className="ai-guide-project">
       <div>
-        <h2>{fill(block.title)}</h2>
-        {block.text === "" ? null : <p>{fill(block.text)}</p>}
+        <h2>{block.title}</h2>
+        {block.text === "" ? null : <p>{block.text}</p>}
       </div>
       <div className="ai-guide-language-map">
         <ul className="ai-guide-languages">
           {block.items.map((language, index) => (
-            <li key={`${String(index)}-${language}`}>{fill(language)}</li>
+            <li key={`${String(index)}-${language}`}>{language}</li>
           ))}
         </ul>
         <div className="ai-guide-language-join" aria-hidden="true" />
@@ -442,19 +418,17 @@ function ListSection({
 const supportIcons = [MessagesSquare, Play, GitPullRequest] as const;
 function SupportCards({
   block,
-  fill,
 }: {
   readonly block: GuidePageBlockOf<"cards">;
-  readonly fill: (text: string) => string;
 }) {
   return (
     <section className="ai-guide-support" id={`ai-${block.id}`}>
       <div className="ai-guide-support-intro">
         {block.eyebrow === "" ? null : (
-          <p className="ai-guide-eyebrow">{fill(block.eyebrow)}</p>
+          <p className="ai-guide-eyebrow">{block.eyebrow}</p>
         )}
-        <h2>{fill(block.title)}</h2>
-        {block.lead === "" ? null : <p>{fill(block.lead)}</p>}
+        <h2>{block.title}</h2>
+        {block.lead === "" ? null : <p>{block.lead}</p>}
       </div>
       <div className="ai-guide-support-details">
         {block.items.map((item, index) => {
@@ -462,14 +436,12 @@ function SupportCards({
           return (
             <div key={`${String(index)}-${item.title}`}>
               <Icon aria-hidden="true" />
-              <h3>{fill(item.title)}</h3>
-              <p>{fill(item.text)}</p>
+              <h3>{item.title}</h3>
+              <p>{item.text}</p>
               {item.detail === "" ? null : (
                 <p className="ai-guide-item-detail">
-                  {item.detailLabel === "" ? null : (
-                    <>{fill(item.detailLabel)}: </>
-                  )}
-                  {fill(item.detail)}
+                  {item.detailLabel === "" ? null : <>{item.detailLabel}: </>}
+                  {item.detail}
                 </p>
               )}
             </div>
@@ -477,7 +449,7 @@ function SupportCards({
         })}
       </div>
       {block.note === "" ? null : (
-        <p className="ai-guide-career">{fill(block.note)}</p>
+        <p className="ai-guide-career">{block.note}</p>
       )}
     </section>
   );
@@ -516,41 +488,33 @@ const bonusPreviews: readonly ReactNode[] = [
     <span>От вопроса к разбору</span>
   </div>,
 ];
-function BonusCards({
-  block,
-  fill,
-}: {
-  readonly block: GuidePageBlockOf<"cards">;
-  readonly fill: (text: string) => string;
-}) {
+function BonusCards({ block }: { readonly block: GuidePageBlockOf<"cards"> }) {
   return (
     <section className="ai-guide-bonuses">
       {block.eyebrow === "" ? null : (
-        <p className="ai-guide-eyebrow">{fill(block.eyebrow)}</p>
+        <p className="ai-guide-eyebrow">{block.eyebrow}</p>
       )}
-      <h2>{fill(block.title)}</h2>
+      <h2>{block.title}</h2>
       {block.lead === "" ? null : (
-        <p className="ai-guide-section-intro">{fill(block.lead)}</p>
+        <p className="ai-guide-section-intro">{block.lead}</p>
       )}
       <div className="ai-guide-bonus-grid">
         {block.items.map((item, index) => (
           <div key={`${String(index)}-${item.title}`}>
             {bonusPreviews[index] ?? null}
-            <h3>{fill(item.title)}</h3>
-            <p>{fill(item.text)}</p>
+            <h3>{item.title}</h3>
+            <p>{item.text}</p>
             {item.detail === "" ? null : (
               <p className="ai-guide-item-detail">
-                {item.detailLabel === "" ? null : (
-                  <>{fill(item.detailLabel)}: </>
-                )}
-                {fill(item.detail)}
+                {item.detailLabel === "" ? null : <>{item.detailLabel}: </>}
+                {item.detail}
               </p>
             )}
           </div>
         ))}
       </div>
       {block.note === "" ? null : (
-        <p className="ai-guide-career">{fill(block.note)}</p>
+        <p className="ai-guide-career">{block.note}</p>
       )}
     </section>
   );

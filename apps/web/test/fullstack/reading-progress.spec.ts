@@ -278,7 +278,7 @@ test("reading progress counts a shared material in both real Series", async ({
   const directory = await prepareEvidenceDirectory("issue-329");
   // Отметка живёт у материала, поэтому её видно в программе каждого руководства, где он опубликован.
   for (const slug of ["demo-series-release", "demo-series-release-shared"]) {
-    await page.goto(`/guides/${slug}/programme`);
+    await page.goto(`/products/${slug}/programme`);
     // В маршруте изученное показывает не подпись на карточке, а галочка вместо номера строки.
     const row = page.locator(
       '[data-route-material="demo-podgotovka-prilozheniya-k-relizu"]:visible',
@@ -298,7 +298,7 @@ test("reading progress counts a shared material in both real Series", async ({
   await openReader(page, "demo-podgotovka-prilozheniya-k-relizu");
   await button.click();
   await expect(button).toHaveAttribute("aria-pressed", "false");
-  await page.goto("/guides/demo-series-release-shared/programme");
+  await page.goto("/products/demo-series-release-shared/programme");
   await expect(
     page.getByRole("main").locator('[data-series-marker-read="true"]'),
   ).toHaveCount(0);

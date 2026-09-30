@@ -16,6 +16,7 @@ export const aiFirstProductPage = {
     {
       id: "hero",
       kind: "hero",
+      badge: "",
       lead: "Практикум, на котором ты построишь свой процесс работы с AI-агентами и применишь инженерные навыки на проекте — от задачи до продакшена.",
       highlights: ["Твой стек", "В своём темпе", "Поддержка {support_term}"],
     },
@@ -200,17 +201,20 @@ export const aiFirstProductSummary =
 export const aiFirstProductPageWithEveryField: GuidePage = {
   ...aiFirstProductPage,
   blocks: aiFirstProductPage.blocks.map((block) =>
-    block.kind === "cards"
-      ? {
-          ...block,
-          eyebrow: block.eyebrow === "" ? "Раздел продукта" : block.eyebrow,
-          note: block.note === "" ? "Заметка раздела." : block.note,
-          items: block.items.map((item) => ({
-            ...item,
-            detailLabel: item.detailLabel === "" ? "Подпись" : item.detailLabel,
-            detail: item.detail === "" ? "Значение подписи" : item.detail,
-          })),
-        }
-      : block,
+    block.kind === "hero"
+      ? { ...block, badge: "Метка продукта" }
+      : block.kind === "cards"
+        ? {
+            ...block,
+            eyebrow: block.eyebrow === "" ? "Раздел продукта" : block.eyebrow,
+            note: block.note === "" ? "Заметка раздела." : block.note,
+            items: block.items.map((item) => ({
+              ...item,
+              detailLabel:
+                item.detailLabel === "" ? "Подпись" : item.detailLabel,
+              detail: item.detail === "" ? "Значение подписи" : item.detail,
+            })),
+          }
+        : block,
   ),
 };

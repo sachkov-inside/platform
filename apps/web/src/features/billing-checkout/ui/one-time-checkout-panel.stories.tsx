@@ -17,7 +17,7 @@ import { publicPageEnvironment } from "@/workshop/story-environment";
 // Состав и сроки читаются настоящим кодом: иначе история подтверждала бы свою же строку.
 const inclusions = oneTimePurchaseInclusions(guideWithSupportOffer);
 
-const environment = publicPageEnvironment("/guides/platform-inside/buy");
+const environment = publicPageEnvironment("/products/platform-inside/buy");
 
 const meta = {
   ...environment,

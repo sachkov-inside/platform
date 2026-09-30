@@ -638,3 +638,18 @@
   line-height: 1.5;
   color: var(--muted-foreground);
 }
+
+/* Метка у названия из описания продукта (`hero.badge`). */
+.ai-guide-badge {
+  display: inline-block;
+  padding: 0.2em 0.6em 0.24em;
+  border-radius: 999px;
+  background: var(--accent);
+  color: var(--accent-foreground);
+  font-size: 0.4em;
+  font-weight: 700;
+  line-height: 1.2;
+  letter-spacing: 0;
+  vertical-align: 0.5em;
+  white-space: nowrap;
+}

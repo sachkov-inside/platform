@@ -99,7 +99,7 @@ export const Authenticated: Story = {
   name: "Desktop · аккаунт",
   args: {
     accountSlot: <HeaderAuthControl state="authenticated" />,
-    currentPath: "/series/platform-inside",
+    currentPath: "/products/platform-inside",
   },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);

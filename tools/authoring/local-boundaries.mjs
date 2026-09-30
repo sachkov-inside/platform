@@ -402,7 +402,14 @@ const journalSchema = z
     guides: z.record(
       text,
       z
-        .object({ guideId: z.uuid(), slug: text, version: version.optional() })
+        .object({
+          guideId: z.uuid(),
+          slug: text,
+          version: version.optional(),
+          // Обложка продукта, поставленная переносом, и хеш её файла: повтор без изменений не грузит её снова.
+          coverId: z.uuid().nullable().optional(),
+          coverSha256: hash.nullable().optional(),
+        })
         .passthrough(),
     ),
     operations: z.record(text, z.union([operationSchema, assetReceiptSchema])),

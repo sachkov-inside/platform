@@ -322,17 +322,24 @@ async function readCoverUpload(
   };
 }
 
-/** Source-scoped cover changes for Materials owned by an authoring import. */
+/** Owners an authoring import creates: Topics are never source-owned. */
+const importedCoverOwnerKindSchema = z.enum(["material", "series"]);
+
+/** Source-scoped cover changes for Materials and Guides owned by an authoring import. */
 @MaterialAuthoringEndpoint()
 @Controller("authoring/import/content-covers")
 export class ImportContentCoverController {
   constructor(@Inject(CONTENT_COVERS) private readonly covers: ContentCovers) {}
 
-  @Put("material/:ownerId")
+  @Put(":ownerKind/:ownerId")
   @ApiOperation({
-    operationId: "uploadImportedMaterialCover",
+    operationId: "uploadImportedContentCover",
     summary:
-      "Upload or replace the cover of one Material owned by an authoring source",
+      "Upload or replace the cover of one Material or Guide owned by an authoring source",
+  })
+  @ApiParam({
+    name: "ownerKind",
+    schema: toOpenApiSchema(importedCoverOwnerKindSchema),
   })
   @ApiParam({ name: "ownerId", schema: { format: "uuid", type: "string" } })
   @ApiConsumes("multipart/form-data")
@@ -415,12 +422,16 @@ export class ImportContentCoverController {
   })
   async upload(
     @CurrentAccount() account: AuthenticatedAccount,
+    @Param("ownerKind") rawOwnerKind: string,
     @Param("ownerId") ownerId: string,
     @Req() request: FastifyRequest,
   ) {
+    const ownerKind = importedCoverOwnerKindSchema.safeParse(rawOwnerKind);
+    if (!ownerKind.success)
+      throw problemException(400, "invalid_cover", "Cover owner is malformed");
     const upload = await readCoverUpload(
       request,
-      "material",
+      ownerKind.data,
       ownerId,
       uploadFieldLimit + 1,
     );

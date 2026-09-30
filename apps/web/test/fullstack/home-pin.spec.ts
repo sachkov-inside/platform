@@ -121,7 +121,7 @@ test("author Home pin persists for guests and members, replaces and removes thro
       );
       await expect(
         viewer.getByRole("link", { name: "Открыть продукт", exact: true }),
-      ).toHaveAttribute("href", "/guides/demo-series-release?from=%2F");
+      ).toHaveAttribute("href", "/products/demo-series-release?from=%2F");
       await expect(
         viewer.locator(".home-guide-animation:visible"),
       ).toBeVisible();

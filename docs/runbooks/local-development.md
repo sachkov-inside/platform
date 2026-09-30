@@ -880,7 +880,7 @@ in this local copy, while lesson editorial stages stay drafts. The receipt recor
 paths and `coursePreview: true`. Repeat the same command after committing edits in Obsidian/Content;
 refresh the browser. It is a one-shot committed sync, not a watcher for unsaved edits.
 
-Open `/guides/inside-ai-engineering` and `/guides/inside-ai-engineering/programme`. The programme
+Open `/products/ai-engineering` and `/products/ai-engineering/programme`. The programme
 includes closed lessons. Use a fresh test email to see the unpaid view; sign-in codes and receipt
 confirmation messages stay in Mailpit. The local test offer created for #796 costs 30 RUB and uses
 the bank double. Its saved product grant is perpetual and support is six months. Existing checkout
@@ -975,7 +975,10 @@ What the transfer applies:
   diagrams are rasterized to PNG for the image upload boundary; the source package keeps its SVG. Paid Materials
   validate inside their product; `supplementary_materials` join the product after the programme
   without a chapter, which is its "Additional Materials" part.
-- Material covers through `PUT /authoring/import/content-covers/material/:id`, and Material
+- Material covers through `PUT /authoring/import/content-covers/material/:id`, and the product
+  cover (`guide.yaml` keys `cover` and `cover_alt`) through
+  `PUT /authoring/import/content-covers/series/:id`; a cover removed from the original is reported
+  as the `cover_removal_pending` notice and taken down in Platform by hand. Material
   artifacts as authoring-owned Guide artifacts linked to every declaring Material that is published.
 - An existing provider record named by `platform_video.kinescope_id`: attached, reconciled until
   ready and saved with the original's video chapters.

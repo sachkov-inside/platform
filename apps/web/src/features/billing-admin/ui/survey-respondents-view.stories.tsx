@@ -81,7 +81,7 @@ export const LinkIssued: Story = {
   play: async ({ args, canvasElement }) => {
     const canvas = within(canvasElement);
     const url =
-      "https://inside.example.test/guides/synthetic-course/buy?promo=Syn7hetic-Code";
+      "https://inside.example.test/products/synthetic-course/buy?promo=Syn7hetic-Code";
     await expect(canvas.getByText(url)).toBeVisible();
     await userEvent.click(canvas.getByRole("button", { name: "Скопировать" }));
     await expect(args.onCopy).toHaveBeenCalledWith(url);

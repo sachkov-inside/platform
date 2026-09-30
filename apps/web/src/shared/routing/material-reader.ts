@@ -32,7 +32,7 @@ export function materialReaderOriginHref(
   slug: string,
 ): Route {
   assertSlug(slug);
-  return internalRoute(`/${kind === "series" ? "guides" : "topics"}/${slug}`);
+  return internalRoute(`/${kind === "series" ? "products" : "topics"}/${slug}`);
 }
 
 export function materialReaderHref(slug: string, returnHref?: Route): Route {
@@ -53,7 +53,7 @@ export function collectionDiscoveryHref(
   returnHref?: Route,
 ): Route {
   assertSlug(slug);
-  const pathname = `/${kind === "series" ? "guides" : "topics"}/${slug}`;
+  const pathname = `/${kind === "series" ? "products" : "topics"}/${slug}`;
   if (returnHref === undefined) return internalRoute(pathname);
   if (readReturnTarget(returnHref) === undefined) {
     throw new TypeError("Expected a supported discovery return route");
@@ -103,21 +103,21 @@ function readReturnTarget(
   // именно оттуда и возвращается на ту же страницу и страницу списка.
   // Программа есть только у руководства, поэтому шаблон её темой и не допускает.
   const match =
-    /^\/(?:(guides|series)\/([^/]+)(\/programme)?|(topics)\/([^/]+))$/u.exec(
+    /^\/(?:(products|guides|series)\/([^/]+)(\/programme)?|(topics)\/([^/]+))$/u.exec(
       url.pathname,
     );
   if (match === null) return undefined;
   const slug = match[2] ?? match[5];
   if (slug === undefined || !slugPattern.test(slug)) return undefined;
-  const routeKind = match[3] === undefined ? (match[1] ?? match[4]) : "guides";
+  const routeKind =
+    match[3] === undefined ? (match[1] ?? match[4]) : "products";
+  // Прежние `/guides` и `/series` перенаправляются на `/products`, поэтому старый возврат работает.
+  const toProduct = routeKind !== "topics";
   if (url.search.length > 0) {
     const from = singleSearchValue(url.searchParams, "from");
     const page = singleSearchValue(url.searchParams, "page");
     const at = singleSearchValue(url.searchParams, "at");
-    const allowed =
-      routeKind === "series" || routeKind === "guides"
-        ? ["from", "page", "at"]
-        : ["from"];
+    const allowed = toProduct ? ["from", "page", "at"] : ["from"];
     if (
       depth >= 3 ||
       [...url.searchParams.keys()].some(
@@ -137,7 +137,7 @@ function readReturnTarget(
   }
 
   const href = internalRoute(`${url.pathname}${url.search}`);
-  if (routeKind === "series" || routeKind === "guides") {
+  if (toProduct) {
     return {
       href,
       kind: "series",
@@ -145,10 +145,7 @@ function readReturnTarget(
       seriesSlug: slug,
     };
   }
-  if (routeKind === "topics") {
-    return { href, kind: "topic", label: "Назад к теме" };
-  }
-  return undefined;
+  return { href, kind: "topic", label: "Назад к теме" };
 }
 
 function singleSearchValue(

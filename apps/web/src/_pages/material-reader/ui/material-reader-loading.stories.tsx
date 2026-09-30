@@ -67,7 +67,7 @@ const body = Array.from({ length: 8 }, (_, index): ReaderBlock => ({
 }));
 
 const returnTarget = parseMaterialReaderReturnTarget(
-  "/guides/platform-inside/programme",
+  "/products/platform-inside/programme",
 );
 const seriesContext = resolveSeriesReaderContext({
   currentMaterialSlug: material.slug,

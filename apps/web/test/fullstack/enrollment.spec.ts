@@ -170,7 +170,7 @@ test("owner assigns scoped course and the open cabinet converges through real BF
   await composition.getByText("Посмотреть состав", { exact: true }).click();
   await expect(
     composition.getByRole("link", { name: "Инженерная практика" }),
-  ).toHaveAttribute("href", "/guides/engineering-practice");
+  ).toHaveAttribute("href", "/products/engineering-practice");
   await cabinet.screenshot({
     path: info.outputPath("cabinet-enrollment.png"),
     fullPage: true,

@@ -1,0 +1,1436 @@
+/*
+ * Дополнения оформления `ai-engineering-course` к композициям страницы AI-first
+ * (`ai-first-guide-view.css`): метка у названия, обложка, менторинг, тона иллюстраций, статус.
+ */
+
+.aie-course-hero {
+  margin-top: 1.75rem;
+}
+
+/* Текст раздела не прилипает к заголовку, как бы ни был собран раздел. */
+.ai-guide-page.aie-course h2 + p {
+  margin-top: 1rem;
+}
+
+/* Менторинг — главное отличие курса, поэтому это тёплая плашка, а не ещё один текстовый раздел. */
+.aie-mentoring {
+  align-items: center;
+}
+.aie-mentoring-points {
+  display: grid;
+  gap: 0.75rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.aie-mentoring-points li {
+  display: flex;
+  align-items: center;
+  gap: 0.9rem;
+  padding: 1rem 1.1rem;
+  border-radius: 0.9rem;
+  background: var(--background);
+  font-weight: 600;
+  line-height: 1.4;
+}
+.aie-mentoring-points li:nth-child(2) {
+  margin-left: 1.5rem;
+}
+.aie-mentoring-points li:nth-child(3) {
+  margin-left: 3rem;
+}
+.aie-mentoring-points li > span {
+  display: grid;
+  gap: 0.15rem;
+  font-size: 0.875rem;
+  font-weight: 450;
+  color: var(--muted-foreground);
+}
+.aie-mentoring-points b {
+  font-size: 1rem;
+  font-weight: 650;
+  color: var(--foreground);
+}
+.aie-mentoring-points .aie-icon {
+  --aie-icon-size: 2.75rem;
+}
+
+.aie-status {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 1.5rem 3rem;
+  align-items: center;
+  margin-block: 5rem 0;
+  padding: 2.5rem;
+  border-radius: 1.5rem;
+  background: var(--primary);
+  color: var(--primary-foreground);
+}
+.aie-status h2 {
+  color: var(--primary-foreground);
+}
+.ai-guide-page .aie-status p {
+  margin-top: 0.75rem;
+  color: color-mix(in srgb, var(--primary-foreground) 72%, var(--primary));
+}
+.aie-status ul {
+  display: grid;
+  gap: 0.6rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.aie-status li {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.7rem 0.9rem;
+  border-radius: 0.75rem;
+  background: color-mix(in srgb, var(--primary-foreground) 10%, var(--primary));
+  font-size: 0.9rem;
+}
+.aie-status li svg {
+  width: 1rem;
+  height: 1rem;
+  color: var(--accent-bright);
+}
+.aie-status-button {
+  grid-column: 1 / -1;
+  justify-self: start;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.75rem;
+  min-height: 3rem;
+  padding: 0 1.25rem;
+  border-radius: 0.75rem;
+  background: var(--accent);
+  color: var(--accent-foreground);
+  font-weight: 650;
+  text-decoration: none;
+}
+.aie-status-button:hover {
+  background: var(--accent-hover);
+}
+.aie-status-button svg {
+  width: 1rem;
+  height: 1rem;
+}
+.aie-status-button:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+}
+
+.aie-course .ai-guide-sticky {
+  margin-top: 2rem;
+}
+/*
+ * Одна кнопка в программу на каждом экране: на широком её несут первый экран и финальная плашка,
+ * на планшете и телефоне — нижняя панель, поэтому кнопка в плашке там не повторяется.
+ */
+@media (min-width: 64rem) {
+  .aie-course .ai-guide-sticky {
+    display: none;
+  }
+}
+@media (max-width: 63.999rem) {
+  .aie-status-button {
+    display: none;
+  }
+}
+
+@media (max-width: 47.999rem) {
+  .aie-mentoring-points li:nth-child(n) {
+    margin-left: 0;
+  }
+  .aie-status {
+    grid-template-columns: 1fr;
+    margin-top: 3rem;
+    padding: 1.5rem;
+  }
+}
+
+/* ---------- Что изучим: bento-сетка тем ---------- */
+.aie-topics {
+  --aie-tile-ink: var(--primary);
+}
+.aie-bento {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 1rem;
+  margin: 2rem 0 0;
+  padding: 0;
+  list-style: none;
+}
+.aie-bento > li {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  overflow: hidden;
+  border-radius: 1.25rem;
+  background: var(--secondary);
+}
+.aie-bento > li[data-size="wide"] {
+  grid-column: span 2;
+}
+/* Плитки ряда одной высоты: иллюстрация занимает всё свободное место, текст стоит внизу. */
+.aie-bento-art {
+  display: grid;
+  place-items: center;
+  flex: 1 1 auto;
+  min-height: 12rem;
+  padding: 1.5rem 1.25rem 1rem;
+}
+.aie-bento-copy {
+  flex: none;
+  padding: 0 1.4rem 1.4rem;
+}
+.aie-bento-copy h3 {
+  font-size: 1.05rem;
+}
+.ai-guide-page .aie-bento-copy p {
+  margin-top: 0.35rem;
+  font-size: 0.9rem;
+  line-height: 1.55;
+  color: var(--muted-foreground);
+}
+.aie-bento > li[data-tone="ink"] {
+  background: var(--primary);
+  color: var(--primary-foreground);
+}
+.ai-guide-page .aie-bento > li[data-tone="ink"] p {
+  color: color-mix(in srgb, var(--primary-foreground) 70%, var(--primary));
+}
+.aie-bento > li[data-tone="example"] {
+  background: color-mix(in srgb, var(--callout-example) 11%, var(--background));
+}
+.aie-bento > li[data-tone="good"] {
+  background: color-mix(in srgb, var(--callout-good) 11%, var(--background));
+}
+.aie-bento > li[data-tone="coral"] {
+  background: var(--cover-coral);
+}
+.aie-bento > li[data-tone="blue"] {
+  background: var(--cover-blue);
+}
+.aie-bento > li[data-tone="lavender"] {
+  background: var(--cover-lavender);
+}
+.aie-bento > li[data-tone="sand"] {
+  background: var(--cover-sand);
+}
+
+/* Общие детали иллюстраций: белые плашки с тенью, значки lucide, ничто не касается. */
+.aie-bento-art svg {
+  width: 0.95rem;
+  height: 0.95rem;
+}
+.aie-bento-art span {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.45rem 0.7rem;
+  border-radius: 0.6rem;
+  background: var(--background);
+  color: var(--foreground);
+  font-size: 0.82rem;
+  font-weight: 600;
+  line-height: 1.2;
+  white-space: nowrap;
+  box-shadow: 0 1px 2px rgb(0 0 0 / 6%);
+}
+
+.aie-art-flow {
+  display: grid;
+  justify-items: center;
+  gap: 1.1rem;
+  width: 100%;
+}
+.aie-art-flow-steps {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0.6rem 1rem;
+}
+.aie-art-flow span {
+  position: relative;
+  padding: 0.55rem 0.7rem;
+  background: color-mix(in srgb, var(--primary-foreground) 12%, var(--primary));
+  color: var(--primary-foreground);
+  box-shadow: none;
+}
+.aie-art-flow span svg {
+  color: var(--accent-bright);
+}
+.aie-art-flow-steps span + span::before {
+  content: "";
+  position: absolute;
+  right: calc(100% + 0.25rem);
+  top: 50%;
+  width: 0.5rem;
+  border-top: 1.5px solid
+    color-mix(in srgb, var(--primary-foreground) 45%, var(--primary));
+}
+.aie-art-flow-roles {
+  display: flex;
+  gap: 0.6rem;
+}
+.aie-art-flow-roles span {
+  background: transparent;
+  border: 1px dashed
+    color-mix(in srgb, var(--primary-foreground) 35%, var(--primary));
+  font-weight: 500;
+}
+
+.aie-art-tree {
+  display: grid;
+  gap: 0.4rem;
+  font-family: var(--font-utility);
+}
+.aie-art-tree span {
+  font-weight: 500;
+}
+.aie-art-tree span:not(:first-child) {
+  margin-left: 1.1rem;
+}
+.aie-art-tree svg {
+  color: var(--callout-example);
+}
+
+.aie-art-stack {
+  display: grid;
+  gap: 0.35rem;
+  justify-items: center;
+}
+.aie-art-stack span {
+  min-width: 8.5rem;
+  justify-content: center;
+}
+.aie-art-stack span:nth-child(1) {
+  border-left: 3px solid var(--accent);
+}
+/* Лишнее выглядит вычеркнутым пунктиром, но остаётся читаемым: контраст не ниже 4.5:1. */
+.aie-art-stack span[data-muted="true"] {
+  border: 1px dashed var(--border);
+  background: transparent;
+  color: var(--muted-foreground);
+  text-decoration: line-through;
+  box-shadow: none;
+}
+
+.aie-art-pipeline {
+  position: relative;
+  display: grid;
+  gap: 0.55rem;
+  width: min(100%, 12rem);
+}
+/* Пунктир за плашками связывает этапы и не проходит сквозь подписи. */
+.aie-art-pipeline::before {
+  content: "";
+  position: absolute;
+  top: 1rem;
+  bottom: 1rem;
+  left: 1.25rem;
+  border-left: 1.5px dashed
+    color-mix(in srgb, var(--callout-good) 55%, transparent);
+}
+.aie-art-pipeline span {
+  position: relative;
+}
+.aie-art-pipeline span svg {
+  color: var(--callout-good);
+}
+
+.aie-art-agent {
+  display: grid;
+  grid-template-columns: auto auto auto auto auto;
+  align-items: center;
+  justify-content: center;
+  gap: 0.75rem 0.5rem;
+}
+.aie-art-agent .aie-art-agent-core {
+  padding: 0.75rem 1.1rem;
+  background: var(--accent);
+  color: var(--accent-foreground);
+  font-size: 1rem;
+}
+.aie-art-agent .aie-art-agent-core svg {
+  width: 1.1rem;
+  height: 1.1rem;
+}
+.aie-art-agent .aie-art-agent-arrow {
+  width: 1.1rem;
+  height: 1.1rem;
+  color: var(--cover-coral-foreground);
+}
+.aie-art-agent-end svg {
+  color: var(--accent);
+}
+.aie-art-agent-tools {
+  grid-column: 1 / -1;
+  display: flex;
+  justify-content: center;
+  gap: 0.6rem;
+  padding-top: 0.9rem;
+  border-top: 1.5px dashed
+    color-mix(in srgb, var(--cover-coral-foreground) 35%, transparent);
+}
+.aie-art-agent-tools span svg {
+  color: var(--accent);
+}
+
+.aie-art-rag {
+  display: grid;
+  gap: 0.4rem;
+  justify-items: start;
+}
+.aie-art-rag .aie-art-rag-query {
+  border: 1px solid
+    color-mix(in srgb, var(--cover-blue-foreground) 35%, transparent);
+  color: var(--cover-blue-foreground);
+}
+.aie-art-rag .aie-art-rag-answer {
+  margin-top: 0.25rem;
+  background: var(--cover-blue-foreground);
+  color: var(--background);
+  font-family: inherit;
+  font-weight: 600;
+}
+.aie-art-rag span:not(.aie-art-rag-query, .aie-art-rag-answer) {
+  margin-left: 1rem;
+  font-family: var(--font-utility);
+  font-weight: 500;
+}
+
+.aie-art-guard {
+  display: grid;
+  justify-items: center;
+  gap: 0.55rem;
+}
+.aie-art-guard .aie-art-guard-action {
+  font-family: var(--font-utility);
+  font-weight: 500;
+}
+.aie-art-guard .aie-art-guard-gate {
+  background: var(--primary);
+  color: var(--primary-foreground);
+}
+.aie-art-guard .aie-art-guard-gate svg {
+  color: var(--accent-bright);
+}
+.aie-art-guard .aie-art-guard-buttons {
+  gap: 0.4rem;
+  padding: 0;
+  background: none;
+  box-shadow: none;
+}
+.aie-art-guard-buttons b {
+  padding: 0.35rem 0.65rem;
+  border-radius: 0.5rem;
+  background: var(--background);
+  font-size: 0.72rem;
+  font-weight: 600;
+}
+.aie-art-guard-buttons b:first-child {
+  background: var(--callout-good);
+  color: var(--background);
+}
+
+.aie-art-evals {
+  position: relative;
+  display: flex;
+  align-items: flex-end;
+  gap: 0.45rem;
+  width: min(100%, 16rem);
+  height: 7.5rem;
+  padding-bottom: 0.2rem;
+  border-bottom: 1.5px solid
+    color-mix(in srgb, var(--cover-lavender-foreground) 40%, transparent);
+}
+.aie-art-evals i {
+  flex: 1;
+  border-radius: 0.35rem 0.35rem 0 0;
+  background: color-mix(
+    in srgb,
+    var(--cover-lavender-foreground) 30%,
+    var(--background)
+  );
+}
+.aie-art-evals i[data-after="true"] {
+  background: var(--cover-lavender-foreground);
+}
+.aie-art-evals span {
+  position: absolute;
+  top: -0.4rem;
+  left: 0;
+}
+.aie-art-evals span svg {
+  color: var(--cover-lavender-foreground);
+}
+
+.aie-art-process {
+  display: grid;
+  gap: 0.5rem;
+}
+.aie-art-process > div {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+.aie-art-process > div > svg {
+  color: var(--callout-good);
+}
+.aie-art-process span svg {
+  color: var(--callout-good);
+}
+.aie-art-process .aie-art-process-human {
+  background: var(--callout-good);
+  color: var(--background);
+}
+.aie-art-process .aie-art-process-human svg {
+  color: var(--background);
+}
+
+/* Самые узкие экраны (320 px): процесс без стрелки, чтобы строка не выходила за плитку. */
+.aie-bento > li {
+  container-type: inline-size;
+}
+@container (max-width: 19rem) {
+  .aie-art-process > div > svg {
+    display: none;
+  }
+  .aie-art-process span {
+    padding: 0.35rem 0.45rem;
+    font-size: 0.72rem;
+  }
+}
+
+.aie-art-tokens {
+  display: grid;
+  gap: 0.75rem;
+  width: min(100%, 20rem);
+}
+.aie-art-tokens-meter {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.7rem 0.8rem;
+  border-radius: 0.75rem;
+  background: var(--background);
+  box-shadow: 0 1px 2px rgb(0 0 0 / 6%);
+}
+.aie-art-tokens-meter span {
+  padding: 0;
+  box-shadow: none;
+}
+.aie-art-tokens-meter span svg {
+  color: var(--cover-blue-foreground);
+}
+.aie-art-tokens-meter i {
+  height: 0.45rem;
+  border-radius: 999px;
+  background: var(--muted);
+}
+.aie-art-tokens-meter i b {
+  display: block;
+  width: 24%;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--cover-blue-foreground);
+}
+.aie-art-tokens-meter small {
+  font-family: var(--font-utility);
+  font-size: 0.72rem;
+  color: var(--muted-foreground);
+}
+.aie-art-tokens-chips {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0.5rem;
+}
+.aie-art-tokens-chips span svg {
+  color: var(--cover-blue-foreground);
+}
+
+/* ---------- Что даёт курс: столбики роста ---------- */
+.aie-value {
+  margin-block: 5rem;
+  padding: 2.5rem;
+  border-radius: 1.5rem;
+  background: var(--primary);
+  color: var(--primary-foreground);
+}
+.aie-value-head {
+  max-width: 34rem;
+}
+.aie-value h2 {
+  color: var(--primary-foreground);
+}
+.ai-guide-page .aie-value-head p {
+  margin-top: 0.75rem;
+  font-size: 1.05rem;
+  color: color-mix(in srgb, var(--primary-foreground) 72%, var(--primary));
+}
+.aie-value ol {
+  display: grid;
+  grid-template-columns: repeat(var(--aie-steps, 5), minmax(0, 1fr));
+  align-items: start;
+  gap: 1rem;
+  margin: 2.5rem 0 0;
+  padding: 0;
+  list-style: none;
+}
+.aie-value li {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+/* Столбик с номером растёт с каждой пользой; тексты под столбиками начинаются на одной линии. */
+.aie-value-rise {
+  display: flex;
+  align-items: flex-end;
+  height: 11rem;
+}
+.aie-value-rise b {
+  display: flex;
+  align-items: flex-start;
+  width: 100%;
+  height: calc(3.5rem + var(--aie-step, 0) * 1.85rem);
+  padding: 0.8rem 0.9rem;
+  border-radius: 0.9rem 0.9rem 0.3rem 0.3rem;
+  background: color-mix(in srgb, var(--primary-foreground) 10%, var(--primary));
+  color: var(--accent-bright);
+  font-size: 1.5rem;
+  line-height: 1;
+  letter-spacing: -0.03em;
+  font-variant-numeric: tabular-nums;
+}
+.aie-value li:last-child .aie-value-rise b {
+  background: var(--accent);
+  color: var(--accent-foreground);
+}
+.aie-value-number {
+  display: none;
+  font-weight: 700;
+  color: var(--accent-bright);
+  font-variant-numeric: tabular-nums;
+}
+.aie-value h3 {
+  margin-top: 1.1rem;
+  font-size: 1rem;
+  line-height: 1.3;
+  color: var(--primary-foreground);
+  /* Длинное слово уходит на новую строку целиком, а не рвётся переносом. */
+  overflow-wrap: normal;
+  hyphens: manual;
+}
+.ai-guide-page .aie-value li p {
+  margin: 0.4rem 0 0;
+  font-size: 0.85rem;
+  line-height: 1.5;
+  color: color-mix(in srgb, var(--primary-foreground) 70%, var(--primary));
+}
+
+/* ---------- Частые вопросы ---------- */
+/*
+ * На широком экране вопросы стоят справа от заголовка, как в других разделах из двух колонок,
+ * а контакт — под заголовком. На узком всё идёт подряд: заголовок, вопросы, контакт.
+ */
+.aie-faq {
+  display: grid;
+  grid-template-columns: minmax(0, 0.8fr) minmax(0, 1.2fr);
+  grid-template-rows: auto 1fr;
+  align-items: start;
+  column-gap: 3rem;
+  margin-block: 5rem;
+}
+.aie-faq-head {
+  grid-column: 1;
+  grid-row: 1;
+}
+.aie-faq-list {
+  grid-column: 2;
+  grid-row: 1 / span 2;
+  display: grid;
+  gap: 0.6rem;
+}
+.ai-guide-page .aie-faq .aie-faq-note {
+  grid-column: 1;
+  grid-row: 2;
+}
+@media (max-width: 63.999rem) {
+  .aie-faq {
+    grid-template-columns: 1fr;
+    grid-template-rows: none;
+  }
+  .aie-faq-head,
+  .aie-faq-list,
+  .ai-guide-page .aie-faq .aie-faq-note {
+    grid-column: auto;
+    grid-row: auto;
+  }
+  .aie-faq-list {
+    margin-top: 1.5rem;
+  }
+}
+.aie-faq details {
+  border-radius: 1rem;
+  background: var(--secondary);
+}
+.aie-faq summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  min-height: 3.5rem;
+  padding: 0.9rem 1.25rem;
+  font-weight: 650;
+  line-height: 1.4;
+  cursor: pointer;
+  list-style: none;
+}
+.aie-faq summary::-webkit-details-marker {
+  display: none;
+}
+.aie-faq summary:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+  border-radius: 1rem;
+}
+.aie-faq summary svg {
+  flex: none;
+  width: 1.1rem;
+  height: 1.1rem;
+  color: var(--muted-foreground);
+}
+.aie-faq details[open] summary svg {
+  transform: rotate(180deg);
+}
+.ai-guide-page .aie-faq details p {
+  margin: 0;
+  padding: 0 1.25rem 1.1rem;
+  color: var(--muted-foreground);
+}
+.ai-guide-page .aie-faq-note {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-top: 1.5rem;
+  padding: 1rem 1.25rem;
+  border-radius: 1rem;
+  background: color-mix(in srgb, var(--accent) 10%, var(--background));
+  font-weight: 600;
+}
+.aie-faq-note .aie-icon {
+  --aie-icon-size: 2.25rem;
+  --aie-icon-tile: var(--background);
+}
+/* Оранжевый текст на тёплой плашке не дотягивает до 4.5:1, поэтому акцент несёт подчёркивание. */
+.aie-faq-note a {
+  color: var(--foreground);
+  text-decoration-color: var(--accent);
+  text-decoration-thickness: 2px;
+  text-underline-offset: 4px;
+}
+.aie-faq-note a:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+}
+@media (prefers-reduced-motion: no-preference) {
+  .aie-faq summary svg {
+    transition: transform var(--motion-duration-fast, 160ms)
+      var(--motion-ease-out, ease-out);
+  }
+}
+@media (max-width: 63.999rem) {
+  /* На планшете и телефоне польза — вертикальный путь: линия слева, номер на ней, текст рядом. */
+  .aie-value {
+    padding: 1.5rem;
+  }
+  .aie-value ol {
+    position: relative;
+    grid-template-columns: 1fr;
+    gap: 0.6rem;
+    margin-top: 1.75rem;
+  }
+  .aie-value ol::before {
+    content: "";
+    position: absolute;
+    top: 1.5rem;
+    bottom: 1.5rem;
+    left: 1.35rem;
+    border-left: 1.5px dashed
+      color-mix(in srgb, var(--primary-foreground) 30%, var(--primary));
+  }
+  .aie-value li {
+    position: relative;
+    display: grid;
+    grid-template-columns: 2.7rem minmax(0, 1fr);
+    column-gap: 0.85rem;
+    row-gap: 0.2rem;
+    padding: 0.9rem 0.9rem 0.9rem 0;
+  }
+  .aie-value-rise {
+    display: none;
+  }
+  /* Номер мелкий, поэтому на тёмном он светлый: оранжевый не даёт нужного контраста. */
+  .aie-value-number {
+    grid-row: span 2;
+    display: grid;
+    color: var(--primary-foreground);
+    place-items: center;
+    width: 2.7rem;
+    height: 2.7rem;
+    border-radius: 999px;
+    background: color-mix(
+      in srgb,
+      var(--primary-foreground) 12%,
+      var(--primary)
+    );
+    font-size: 0.95rem;
+  }
+  .aie-value li:last-child .aie-value-number {
+    background: var(--accent);
+    color: var(--accent-foreground);
+  }
+  .aie-value h3 {
+    margin-top: 0;
+  }
+}
+@media (max-width: 47.999rem) {
+  .aie-value,
+  .aie-faq {
+    margin-block: 3rem;
+  }
+  .aie-faq summary {
+    padding-inline: 1rem;
+  }
+  .ai-guide-page .aie-faq details p {
+    padding-inline: 1rem;
+  }
+}
+
+/* ---------- Как проходит обучение: четыре витрины ---------- */
+.aie-format {
+  margin-block: 5rem;
+}
+.aie-format-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 0.5rem 2rem;
+}
+.aie-format-head .ai-guide-text-link {
+  flex: none;
+}
+@media (max-width: 63.999rem) {
+  /* На планшете и телефоне в программу ведёт нижняя панель. */
+  .aie-format-head .ai-guide-text-link {
+    display: none;
+  }
+}
+.aie-format ol {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 1rem;
+  margin: 2rem 0 0;
+  padding: 0;
+  list-style: none;
+}
+.aie-format li {
+  min-width: 0;
+}
+.aie-format h3 {
+  margin-top: 1rem;
+  font-size: 1.05rem;
+}
+.ai-guide-page .aie-format li p {
+  margin-top: 0.35rem;
+  font-size: 0.9rem;
+  line-height: 1.55;
+  color: var(--muted-foreground);
+}
+.aie-format-art {
+  display: grid;
+  place-items: center;
+  aspect-ratio: 4 / 3;
+  padding: 1rem;
+  border-radius: 1.1rem;
+  background: var(--secondary);
+}
+.aie-format-art svg {
+  width: 1rem;
+  height: 1rem;
+}
+.aie-format li:nth-child(1) .aie-format-art {
+  background: var(--cover-sand);
+}
+.aie-format li:nth-child(2) .aie-format-art {
+  background: var(--primary);
+}
+.aie-format li:nth-child(3) .aie-format-art {
+  background: color-mix(in srgb, var(--callout-good) 11%, var(--background));
+}
+.aie-format li:nth-child(4) .aie-format-art {
+  background: var(--cover-coral);
+}
+
+.aie-mock-doc {
+  display: grid;
+  gap: 0.45rem;
+  width: 78%;
+  padding: 0.9rem;
+  border-radius: 0.7rem;
+  background: var(--background);
+  box-shadow: 0 1px 2px rgb(0 0 0 / 6%);
+}
+.aie-mock-doc b {
+  width: 60%;
+  height: 0.55rem;
+  border-radius: 0.3rem;
+  background: var(--foreground);
+}
+.aie-mock-doc i {
+  height: 0.35rem;
+  border-radius: 0.2rem;
+  background: var(--muted);
+}
+.aie-mock-doc span {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  padding: 0.45rem;
+  border-radius: 0.45rem;
+  background: var(--cover-sand);
+  color: var(--cover-sand-foreground);
+}
+
+.aie-mock-video {
+  display: grid;
+  place-items: center;
+  gap: 1rem;
+  width: 100%;
+}
+.aie-mock-video span {
+  display: grid;
+  place-items: center;
+  width: 3rem;
+  height: 3rem;
+  border-radius: 999px;
+  background: var(--accent);
+  color: var(--accent-foreground);
+}
+.aie-mock-video i {
+  width: 80%;
+  height: 0.3rem;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--primary-foreground) 20%, var(--primary));
+}
+.aie-mock-video i b {
+  display: block;
+  width: 40%;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--accent-bright);
+}
+
+.aie-mock-terminal {
+  display: grid;
+  gap: 0.35rem;
+  width: 86%;
+  padding: 0.8rem 0.9rem;
+  border-radius: 0.7rem;
+  background: var(--primary);
+  color: var(--primary-foreground);
+}
+.aie-mock-terminal code {
+  font-family: var(--font-utility);
+  font-size: 0.72rem;
+  white-space: nowrap;
+}
+.aie-mock-terminal code[data-ok="true"] {
+  color: color-mix(in srgb, var(--callout-good) 55%, var(--primary-foreground));
+}
+
+.aie-mock-chat {
+  display: grid;
+  gap: 0.5rem;
+  width: 90%;
+}
+.aie-mock-chat span {
+  justify-self: start;
+  max-width: 85%;
+  padding: 0.5rem 0.7rem;
+  border-radius: 0.8rem 0.8rem 0.8rem 0.2rem;
+  background: var(--background);
+  font-size: 0.72rem;
+  line-height: 1.35;
+}
+.aie-mock-chat span[data-author="true"] {
+  justify-self: end;
+  border-radius: 0.8rem 0.8rem 0.2rem 0.8rem;
+  background: var(--accent);
+  color: var(--accent-foreground);
+}
+
+/* ---------- Много практики ---------- */
+.aie-practice {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  align-items: center;
+  gap: 3rem;
+  margin-block: 5rem;
+}
+.ai-guide-page .aie-practice p {
+  margin-top: 1rem;
+  font-size: 1.05rem;
+  color: var(--muted-foreground);
+}
+.aie-practice-tasks {
+  display: grid;
+  gap: 0.6rem;
+  margin: 0;
+  padding: 1.25rem;
+  border-radius: 1.25rem;
+  background: var(--secondary);
+  list-style: none;
+}
+.aie-practice-tasks li {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.85rem 1rem;
+  border-radius: 0.8rem;
+  background: var(--background);
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+.aie-practice-tasks li:nth-child(2) {
+  margin-left: 1rem;
+}
+.aie-practice-tasks li:nth-child(3) {
+  margin-left: 2rem;
+}
+.aie-practice-tasks li:nth-child(4) {
+  margin-left: 3rem;
+}
+.aie-practice-tasks li > span {
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 1.6rem;
+  height: 1.6rem;
+  border-radius: 0.5rem;
+  border: 1.5px dashed var(--border);
+}
+.aie-practice-tasks li > span svg {
+  width: 0.9rem;
+  height: 0.9rem;
+}
+.aie-practice-tasks li[data-state="done"] > span {
+  border: 0;
+  background: var(--callout-good);
+  color: var(--background);
+}
+.aie-practice-tasks li[data-state="current"] {
+  outline: 2px solid var(--accent);
+}
+.aie-practice-tasks li[data-state="current"] > span {
+  border: 0;
+  background: var(--accent);
+  color: var(--accent-foreground);
+}
+.aie-practice-tasks li[data-state="next"] {
+  color: var(--muted-foreground);
+}
+
+/* ---------- Агенты с логотипами ---------- */
+.aie-agents {
+  display: grid;
+  grid-template-columns: minmax(0, 0.9fr) minmax(0, 1.1fr);
+  align-items: center;
+  gap: 3rem;
+  margin-block: 5rem;
+}
+.ai-guide-page .aie-agents-copy p {
+  margin-top: 1rem;
+  color: var(--muted-foreground);
+}
+.aie-agents ul {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.75rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.aie-agents li {
+  display: grid;
+  justify-items: center;
+  align-content: center;
+  gap: 0.6rem;
+  min-height: 7rem;
+  padding: 1rem 0.75rem;
+  border: 1px solid var(--border);
+  border-radius: 1rem;
+  background: var(--card);
+  font-size: 0.85rem;
+  font-weight: 600;
+  text-align: center;
+}
+.aie-agents .aie-agent-mark {
+  width: 2.25rem;
+  height: 2.25rem;
+}
+.aie-agents li:last-child .aie-agent-mark {
+  color: var(--muted-foreground);
+}
+
+/* ---------- Для кого курс ---------- */
+.aie-audience {
+  margin-block: 5rem;
+}
+.aie-audience ul {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 1rem;
+  margin: 2rem 0 0;
+  padding: 0;
+  list-style: none;
+}
+.aie-audience li {
+  display: grid;
+  justify-items: start;
+  align-content: start;
+  gap: 0.6rem;
+  padding: 1.5rem;
+  border-radius: 1.25rem;
+  background: var(--secondary);
+}
+.aie-audience li > .aie-icon {
+  --aie-icon-size: 3rem;
+  --aie-icon-tile: var(--background);
+}
+.aie-audience h3 {
+  font-size: 1.05rem;
+}
+.ai-guide-page .aie-audience li p {
+  margin: 0;
+  font-size: 0.92rem;
+  line-height: 1.55;
+  color: var(--muted-foreground);
+}
+.aie-audience-note {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 1.25rem;
+  padding: 0.5rem 1rem;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--callout-good) 11%, var(--background));
+  font-size: 0.9rem;
+}
+.aie-audience-note svg {
+  width: 1rem;
+  height: 1rem;
+  color: var(--callout-good);
+}
+
+@media (max-width: 63.999rem) {
+  .aie-bento {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .aie-format ol {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+@media (max-width: 47.999rem) {
+  /* Телефон — основной экран: всё в одну колонку, без висящих связок и пустых плашек. */
+  .aie-art-flow-steps {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.5rem;
+    width: 100%;
+  }
+  .aie-art-flow-steps span {
+    justify-content: center;
+  }
+  .aie-art-flow-steps span + span::before {
+    content: none;
+  }
+  .aie-art-flow-roles {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    width: 100%;
+    gap: 0.5rem;
+  }
+  .aie-art-flow-roles span {
+    justify-content: center;
+    padding-inline: 0.5rem;
+    white-space: normal;
+    text-align: center;
+  }
+  .aie-bento-art span {
+    font-size: 0.78rem;
+  }
+  .aie-art-agent-tools {
+    gap: 0.4rem;
+  }
+  .aie-art-process > div {
+    gap: 0.35rem;
+  }
+  .aie-art-process span {
+    padding: 0.4rem 0.5rem;
+  }
+  .aie-art-agent-tools span {
+    padding: 0.45rem 0.55rem;
+  }
+  .aie-format-art {
+    aspect-ratio: 2 / 1;
+  }
+  .aie-mock-chat span,
+  .aie-mock-terminal code {
+    font-size: 0.8rem;
+  }
+  .aie-agents ul {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 0.5rem;
+  }
+  .aie-agents li {
+    min-height: 5.75rem;
+    padding: 0.75rem 0.4rem;
+    font-size: 0.75rem;
+    line-height: 1.25;
+  }
+  .aie-agents .aie-agent-mark {
+    width: 1.75rem;
+    height: 1.75rem;
+  }
+  .aie-audience li {
+    grid-template-columns: 3rem minmax(0, 1fr);
+    justify-items: start;
+    align-items: start;
+    column-gap: 1rem;
+    row-gap: 0.25rem;
+    padding: 1.1rem;
+  }
+  .aie-audience li > .aie-icon {
+    grid-row: span 2;
+  }
+  .aie-audience-note {
+    display: flex;
+    width: 100%;
+    border-radius: 1rem;
+  }
+  .aie-art-agent {
+    grid-template-columns: auto;
+    justify-items: center;
+  }
+  .aie-art-agent .aie-art-agent-arrow {
+    transform: rotate(90deg);
+  }
+  .aie-art-agent-tools {
+    flex-wrap: wrap;
+  }
+  .aie-bento,
+  .aie-format ol,
+  .aie-audience ul {
+    grid-template-columns: 1fr;
+  }
+  .aie-bento > li[data-size="wide"] {
+    grid-column: auto;
+  }
+  .aie-practice,
+  .aie-agents {
+    grid-template-columns: 1fr;
+    gap: 1.75rem;
+    margin-block: 3rem;
+  }
+  .aie-format,
+  .aie-audience {
+    margin-block: 3rem;
+  }
+  .aie-practice-tasks li:nth-child(n) {
+    margin-left: 0;
+  }
+}
+@media (prefers-reduced-motion: no-preference) {
+  .aie-bento > li,
+  .aie-agents li {
+    transition: transform var(--motion-duration-fast, 160ms)
+      var(--motion-ease-out, ease-out);
+  }
+  .aie-bento > li:hover,
+  .aie-agents li:hover {
+    transform: translateY(-2px);
+  }
+}
+
+/* ---------- Телефон: плотнее типографика, пункты первого экрана одной карточкой ---------- */
+@media (max-width: 47.999rem) {
+  .ai-guide-page.aie-course p {
+    font-size: 0.9375rem;
+    line-height: 1.55;
+  }
+  .ai-guide-page.aie-course .ai-guide-promise,
+  .ai-guide-page.aie-course .aie-practice p {
+    font-size: 0.97rem;
+  }
+  .ai-guide-page.aie-course .aie-bento-copy p,
+  .ai-guide-page.aie-course .aie-format li p,
+  .ai-guide-page.aie-course .aie-value li p {
+    font-size: 0.875rem;
+    line-height: 1.5;
+  }
+  .ai-guide-page.aie-course h2 {
+    font-size: 1.375rem;
+  }
+  .aie-bento-copy h3,
+  .aie-format h3 {
+    font-size: 1rem;
+  }
+  .aie-bento-art {
+    min-height: 0;
+    padding: 1.4rem 1.1rem 1.1rem;
+  }
+  .aie-bento-copy {
+    padding: 0 1.1rem 1.2rem;
+  }
+
+  /* Роли — два ряда во всю ширину: текст не упирается в значок и край. */
+  .aie-art-flow-roles {
+    grid-template-columns: 1fr;
+  }
+  .aie-art-flow-roles span {
+    justify-content: flex-start;
+    padding: 0.55rem 0.8rem;
+    white-space: nowrap;
+    text-align: left;
+  }
+}
+
+/*
+ * ---------- Движение при прокрутке ----------
+ * Разделы и карточки проявляются, когда входят в экран; столбики пользы растут снизу вверх.
+ * Анимация привязана к прокрутке средствами CSS: без скриптов, без сдвига вёрстки и только там,
+ * где браузер это умеет. Без поддержки и при просьбе уменьшить движение страница стоит на месте.
+ */
+@media (prefers-reduced-motion: no-preference) {
+  @supports (animation-timeline: view()) {
+    .aie-course > section > h2,
+    .aie-course > section > div:first-child,
+    .aie-course > section > .ai-guide-section-intro,
+    .aie-bento > li,
+    .aie-mentoring-points li,
+    .aie-format li,
+    .aie-practice-tasks li,
+    .aie-agents li,
+    .aie-audience li,
+    .aie-audience-note,
+    .aie-faq details,
+    .aie-faq-note,
+    .aie-status ul li {
+      animation: aie-reveal linear both;
+      animation-timeline: view();
+      /* Высокая плитка проявляется за первые строки, а не пока целиком не войдёт в экран. */
+      animation-range: entry var(--aie-reveal-from, 0%) entry
+        min(90%, var(--aie-reveal-to, 9rem));
+    }
+    /* Соседние карточки ряда входят не разом, а волной. */
+    .aie-bento > li:nth-child(even),
+    .aie-format li:nth-child(2),
+    .aie-agents li:nth-child(3n + 2),
+    .aie-audience li:nth-child(2),
+    .aie-mentoring-points li:nth-child(2),
+    .aie-practice-tasks li:nth-child(2) {
+      --aie-reveal-from: min(10%, 1.5rem);
+      --aie-reveal-to: 10.5rem;
+    }
+    .aie-format li:nth-child(3),
+    .aie-agents li:nth-child(3n),
+    .aie-audience li:nth-child(3),
+    .aie-mentoring-points li:nth-child(3),
+    .aie-practice-tasks li:nth-child(3) {
+      --aie-reveal-from: min(20%, 3rem);
+      --aie-reveal-to: 12rem;
+    }
+    .aie-format li:nth-child(4),
+    .aie-practice-tasks li:nth-child(4) {
+      --aie-reveal-from: min(30%, 4.5rem);
+      --aie-reveal-to: 13.5rem;
+    }
+    .aie-practice-tasks li {
+      animation-name: aie-slide;
+    }
+
+    /* Столбики растут от общей линии; время роста задаёт положение списка на экране. */
+    .aie-value ol {
+      view-timeline: --aie-value block;
+    }
+    .aie-value-rise b {
+      animation: aie-grow linear both;
+      animation-timeline: --aie-value;
+      animation-range: entry calc(10% + var(--aie-step, 0) * 8%) cover
+        calc(20% + var(--aie-step, 0) * 4%);
+    }
+    .aie-value li h3,
+    .aie-value li p,
+    .aie-value-number {
+      animation: aie-reveal linear both;
+      animation-timeline: view();
+      animation-range: entry 0% entry min(90%, 9rem);
+    }
+  }
+}
+@keyframes aie-reveal {
+  from {
+    opacity: 0;
+    translate: 0 1.5rem;
+  }
+}
+@keyframes aie-slide {
+  from {
+    opacity: 0;
+    translate: -1.5rem 0;
+  }
+}
+@keyframes aie-grow {
+  from {
+    clip-path: inset(100% 0 0 0 round 0.9rem 0.9rem 0.3rem 0.3rem);
+  }
+  to {
+    clip-path: inset(0 0 0 0 round 0.9rem 0.9rem 0.3rem 0.3rem);
+  }
+}
+
+/* Ответ на вопрос раскрывается плавно там, где браузер умеет анимировать высоту `details`. */
+@media (prefers-reduced-motion: no-preference) {
+  @supports selector(::details-content) {
+    .aie-faq {
+      interpolate-size: allow-keywords;
+    }
+    .aie-faq details::details-content {
+      block-size: 0;
+      overflow: clip;
+      transition:
+        block-size 280ms cubic-bezier(0.2, 0.8, 0.2, 1),
+        content-visibility 280ms allow-discrete;
+    }
+    .aie-faq details[open]::details-content {
+      block-size: auto;
+    }
+  }
+}
+
+/* Карточки формата отвечают на наведение: витрина чуть приподнимается. */
+@media (prefers-reduced-motion: no-preference) and (hover: hover) {
+  .aie-format-art {
+    transition: translate 220ms cubic-bezier(0.2, 0.8, 0.2, 1);
+  }
+  .aie-format li:hover .aie-format-art {
+    translate: 0 -3px;
+  }
+}

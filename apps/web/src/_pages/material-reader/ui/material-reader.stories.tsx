@@ -437,7 +437,7 @@ const guideModeBody = [
 ] as const satisfies readonly ReaderBlock[];
 
 const guideModeReturnTarget = parseMaterialReaderReturnTarget(
-  "/guides/platform-inside",
+  "/products/platform-inside",
 );
 
 function GuideModeReader({
@@ -550,7 +550,7 @@ function MaterialReaderState({ mode }: { readonly mode: ReaderStoryMode }) {
       );
     case "playlist-return": {
       const returnTarget = parseMaterialReaderReturnTarget(
-        "/series/platform-inside",
+        "/products/platform-inside",
       );
       return (
         <MaterialReaderView
@@ -904,7 +904,7 @@ export const PlaylistReturn: Story = {
       name: "Все материалы продукта",
     });
     await expect(links).toHaveLength(1);
-    await expect(links[0]).toHaveAttribute("href", "/series/platform-inside");
+    await expect(links[0]).toHaveAttribute("href", "/products/platform-inside");
     const seriesNavigation = within(canvasElement).getByRole("navigation", {
       name: "Навигация по продукту «Создание Platform Inside»",
     });
@@ -924,7 +924,7 @@ export const PlaylistReturn: Story = {
     await expect(readerFooter.contains(seriesNavigation)).toBe(true);
     await expect(
       within(canvasElement).getByRole("link", { name: "Назад к продукту" }),
-    ).toHaveAttribute("href", "/series/platform-inside");
+    ).toHaveAttribute("href", "/products/platform-inside");
     await expect(
       within(canvasElement).queryByText(/· №/u),
     ).not.toBeInTheDocument();
@@ -934,7 +934,7 @@ export const PlaylistReturn: Story = {
       }),
     ).toHaveAttribute(
       "href",
-      "/materials/review-video?from=%2Fseries%2Fplatform-inside",
+      "/materials/review-video?from=%2Fproducts%2Fplatform-inside",
     );
   },
 };
@@ -1001,7 +1001,7 @@ export const AccessGuidePurchase: Story = {
     ).toBeInTheDocument();
     await expect(
       canvas.getByRole("link", { name: "Купить продукт" }),
-    ).toHaveAttribute("href", "/guides/platform-inside/buy");
+    ).toHaveAttribute("href", "/products/platform-inside/buy");
   },
 };
 

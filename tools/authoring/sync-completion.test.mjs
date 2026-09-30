@@ -587,7 +587,7 @@ test("the product page travels with the Guide: unknown looks stop early, edits w
     { id: api.guide.id, slug: api.guide.slug, page: api.guide.page },
     { id: guideId, slug: "product-moved", page: edited },
   );
-  assert.match(itemAt(report.guides, 0).url, /\/guides\/product-moved$/u);
+  assert.match(itemAt(report.guides, 0).url, /\/products\/product-moved$/u);
 });
 
 test("Platform checks the whole description before the first write, and an older package keeps the address", async (t) => {

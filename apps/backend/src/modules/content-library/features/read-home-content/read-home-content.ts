@@ -1,6 +1,7 @@
 import type { ContentAccess, Subject } from "../../../content-access/index.js";
 import type {
   GuidePageCard,
+  GuidePageHero,
   PublishedMaterialReader,
 } from "../../../materials/index.js";
 import type { Videos } from "../../../videos/index.js";
@@ -16,6 +17,7 @@ import { listPublishedMaterials } from "../list-published-materials/list-publish
 export interface HomePinnedSeriesDto extends PublishedMaterialCatalogFacetDto {
   readonly presentation: string;
   readonly card: GuidePageCard | null;
+  readonly hero: GuidePageHero | null;
 }
 
 export interface HomeContentDto {
@@ -125,6 +127,7 @@ export async function readHomeContent(
               previewItems: pinnedFacet.previewItems,
               presentation: pin.value.presentation,
               card: pin.value.card,
+              hero: pin.value.hero,
             },
       topics: catalog.value.facets.topics.slice(0, 8),
       playlists: catalog.value.facets.series.slice(0, 4),
