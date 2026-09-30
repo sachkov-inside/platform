@@ -62,6 +62,11 @@ counts as paid.
 - `lastBotEventReceivedAt` tells whether and when the bot last reported, so an empty bot column can
   be told apart from a bot that is not connected yet.
 
-The share of survey respondents who bought is
-[platform#818](https://github.com/sachkov-inside/platform/issues/818); it depends on the survey
-respondent basis of #815.
+`surveyRespondents` shows the survey discount of #815 as aggregates only (owner decision of
+2026-09-30, [platform#818](https://github.com/sachkov-inside/platform/issues/818)). A survey
+username is never linked to an Account, so a respondent bought when their personal promo link ended
+in a confirmed initial or one-time payment for an Offer naming the selected Product within the
+period. `uploaded` and `issued` count the list and the issued links as they are now; the page shows
+the share `paid / issued`. The field is `null` until the owner uploads the list, and `paid` is
+`null` without a selected Product. Billing owns the reading (`BillingSurveyRespondentSales`); the
+`survey` source label counts bot entries through the survey link, not respondents.

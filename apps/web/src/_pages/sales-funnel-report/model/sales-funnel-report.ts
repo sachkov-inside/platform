@@ -1,6 +1,7 @@
 import { z } from "zod";
 
-const countSchema = z.int().nonnegative().nullable();
+const amountSchema = z.int().nonnegative();
+const countSchema = amountSchema.nullable();
 const countsSchema = z.strictObject({
   entered: countSchema,
   consented: countSchema,
@@ -38,6 +39,13 @@ export const salesFunnelReportSchema = z.strictObject({
     }),
   ),
   total: countsSchema,
+  surveyRespondents: z
+    .strictObject({
+      uploaded: amountSchema,
+      issued: amountSchema,
+      paid: countSchema,
+    })
+    .nullable(),
 });
 export type SalesFunnelReport = z.infer<typeof salesFunnelReportSchema>;
 type Counts = SalesFunnelReport["total"];
@@ -77,7 +85,24 @@ export interface SalesFunnelReportView {
     readonly counts: readonly StepCount[];
   }[];
   readonly total: readonly StepCount[];
+  /** `null` — список анкеты ещё не загружен: доли нет, а не ноль купивших. */
+  readonly surveyRespondents: SurveyRespondentsView | null;
   readonly notice: string | null;
+}
+
+/** Итог скидки анкеты по личным ссылкам: только общие числа. */
+export interface SurveyRespondentsView {
+  readonly uploaded: number;
+  readonly issued: number;
+  /** `null` — продукт не выбран. */
+  readonly paid: number | null;
+  /** Доля купивших от получивших ссылку; `null`, когда её не из чего считать. */
+  readonly share: {
+    /** Например `25 %`. */
+    readonly percent: string;
+    /** Например `3 из 12`. */
+    readonly basis: string;
+  } | null;
 }
 
 const MOSCOW = "Europe/Moscow";
@@ -162,6 +187,30 @@ function sourceKey(source: SalesFunnelReport["rows"][number]["source"]) {
   return source.kind === "label" ? `label:${source.code}` : source.kind;
 }
 
+const percent = new Intl.NumberFormat("ru-RU", {
+  style: "percent",
+  maximumFractionDigits: 0,
+});
+
+function presentSurveyRespondents(
+  respondents: SalesFunnelReport["surveyRespondents"],
+): SurveyRespondentsView | null {
+  if (respondents === null) return null;
+  const { uploaded, issued, paid } = respondents;
+  return {
+    uploaded,
+    issued,
+    paid,
+    share:
+      paid === null || issued === 0
+        ? null
+        : {
+            percent: percent.format(paid / issued),
+            basis: `${paid.toLocaleString("ru-RU")} из ${issued.toLocaleString("ru-RU")}`,
+          },
+  };
+}
+
 const countsOf = (counts: Counts): readonly StepCount[] =>
   funnelSteps.map((step) => ({ step: step.key, value: counts[step.key] }));
 
@@ -197,6 +246,7 @@ export function presentSalesFunnelReport(
       counts: countsOf(row.counts),
     })),
     total: countsOf(report.total),
+    surveyRespondents: presentSurveyRespondents(report.surveyRespondents),
     notice: period.corrected ? correctedPeriodNotice : null,
   };
 }

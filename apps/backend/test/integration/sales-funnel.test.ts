@@ -16,7 +16,10 @@ import {
   assembleAccounts,
   bootstrapOwnerAccount,
 } from "../../src/modules/accounts/index.js";
-import { BillingGuideSales } from "../../src/modules/billing/index.js";
+import {
+  BillingGuideSales,
+  BillingSurveyRespondentSales,
+} from "../../src/modules/billing/index.js";
 import {
   assembleMaterials,
   GuideOutlines,
@@ -155,6 +158,7 @@ describe("Sales funnel report on PostgreSQL", () => {
       outlines: new GuideOutlines(db.prisma),
       firstOpens: new MaterialFirstOpens(db.prisma),
       sales: new BillingGuideSales(db.prisma),
+      surveyRespondents: new BillingSurveyRespondentSales(db.prisma),
       clock: () => new Date("2030-04-02T00:00:00.000Z"),
     });
     @Module({
@@ -294,12 +298,14 @@ describe("Sales funnel report on PostgreSQL", () => {
     accountId: string,
     state: "confirmed" | "failed",
     at: Date,
+    guide = guideId,
   ) {
-    const snapshot = scope([guideId]);
+    const snapshot = scope([guide]);
     const quoteRef = await quote(accountId, snapshot, at);
+    const id = randomUUID();
     await db.prisma.billingPurchase.create({
       data: {
-        id: randomUUID(),
+        id,
         accountId,
         quoteRef,
         kind: "one_time",
@@ -318,6 +324,7 @@ describe("Sales funnel report on PostgreSQL", () => {
         updatedAt: at,
       },
     });
+    return { id, quoteRef };
   }
 
   test("accepts bot events once and rejects a changed replay or a foreign credential", async () => {
@@ -357,6 +364,8 @@ describe("Sales funnel report on PostgreSQL", () => {
     if (!silent.ok) throw new Error(silent.error.code);
     expect(silent.value.lastBotEventReceivedAt).toBeNull();
     expect(silent.value.total).toEqual(counts(null, null, null, null, null));
+    // Before the survey list is uploaded the share has no basis: unavailable, not zero.
+    expect(silent.value.surveyRespondents).toBeNull();
   });
 
   test("follows the cohort that entered in the period on test data that matches bot events and payments", async () => {
@@ -467,6 +476,103 @@ describe("Sales funnel report on PostgreSQL", () => {
     expect(bareBot.value.total).toEqual(counts(4, 1, null, null, null));
   });
 
+  test("counts survey respondents who bought the Guide through their personal link in the period", async () => {
+    let respondent = 0;
+    // Synthetic list entries: the report and this test never name a real respondent.
+    const listed = async (promotionId: string | null) => {
+      respondent += 1;
+      await db.prisma.billingSurveyRespondent.create({
+        data: {
+          username: `respondent_${String(respondent)}`,
+          importedAt: before,
+          promotionId,
+          issuedAt: promotionId === null ? null : before,
+        },
+      });
+    };
+    async function withPersonalLink() {
+      const promotionId = randomUUID();
+      await db.prisma.billingPromotion.create({
+        data: {
+          id: promotionId,
+          revision: 1,
+          name: "Скидка анкеты",
+          percent: 10,
+          code: `code-${promotionId}`,
+          startsAt: before,
+          endsAt: new Date("2030-12-31T00:00:00.000Z"),
+          offerIds: [],
+          paymentOptionIds: [],
+          usageLimit: 1,
+        },
+      });
+      await listed(promotionId);
+      return promotionId;
+    }
+    async function boughtWith(
+      promotionId: string,
+      state: "confirmed" | "failed",
+      at: Date,
+      guide = guideId,
+    ) {
+      const accountId = await account();
+      const bought = await purchase(accountId, state, at, guide);
+      await db.prisma.billingPromoReservation.create({
+        data: {
+          purchaseRef: bought.id,
+          accountId,
+          quoteRef: bought.quoteRef,
+          promotionId,
+          state,
+          snapshot: {},
+        },
+      });
+    }
+
+    await boughtWith(await withPersonalLink(), "confirmed", inside(18));
+    await boughtWith(await withPersonalLink(), "confirmed", before);
+    await boughtWith(await withPersonalLink(), "failed", inside(18));
+    await boughtWith(
+      await withPersonalLink(),
+      "confirmed",
+      inside(18),
+      otherGuideId,
+    );
+    // An issued link nobody used and a listed username without a link.
+    await withPersonalLink();
+    await listed(null);
+    // A full-price purchase without a personal link is not a respondent's purchase.
+    await purchase(await account(), "confirmed", inside(18));
+
+    const report = await funnel.readReport(owner, { from, to, guideId });
+    if (!report.ok) throw new Error(report.error.code);
+    expect(report.value.surveyRespondents).toEqual({
+      uploaded: 6,
+      issued: 5,
+      paid: 1,
+    });
+
+    const earlier = await funnel.readReport(owner, {
+      from: "2030-02-01T00:00:00.000Z",
+      to: from,
+      guideId,
+    });
+    if (!earlier.ok) throw new Error(earlier.error.code);
+    expect(earlier.value.surveyRespondents).toEqual({
+      uploaded: 6,
+      issued: 5,
+      paid: 1,
+    });
+
+    const bareBot = await funnel.readReport(owner, { from, to });
+    if (!bareBot.ok) throw new Error(bareBot.error.code);
+    expect(bareBot.value.surveyRespondents).toEqual({
+      uploaded: 6,
+      issued: 5,
+      paid: null,
+    });
+  });
+
   test("records a link with its Account on a pool that one transaction holds whole", async () => {
     const linkedAccount = await account("identity-pool");
     const contact = randomUUID();
@@ -482,6 +588,7 @@ describe("Sales funnel report on PostgreSQL", () => {
         outlines: new GuideOutlines(prisma),
         firstOpens: new MaterialFirstOpens(prisma),
         sales: new BillingGuideSales(prisma),
+        surveyRespondents: new BillingSurveyRespondentSales(prisma),
         clock: () => new Date("2030-04-02T00:00:00.000Z"),
       }).recordBotEvents({ contractVersion: version, events: [event] }),
     );

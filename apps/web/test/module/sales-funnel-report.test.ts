@@ -99,6 +99,7 @@ describe("sales funnel report presentation", () => {
       },
     ],
     total: { entered: 6, consented: 4, openedChapter: 5, checkout: 3, paid: 2 },
+    surveyRespondents: { uploaded: 40, issued: 12, paid: 3 },
   };
 
   it("names sources in owner words and keeps unmeasured steps apart from zero", () => {
@@ -121,5 +122,33 @@ describe("sales funnel report presentation", () => {
     expect(view.chapterName).toBe("Глава 1");
     expect(view.lastBotEventAt).toBeNull();
     expect(view.generatedAt).toBe("1 апреля 2030 г. в 12:00");
+  });
+
+  const period = { from: "2030-03-01", to: "2030-03-31", corrected: false };
+
+  it("shows the share of survey respondents who bought through their personal link", () => {
+    const { surveyRespondents } = presentSalesFunnelReport(report, period);
+    expect(surveyRespondents).toMatchObject({
+      uploaded: 40,
+      issued: 12,
+      paid: 3,
+    });
+    expect(surveyRespondents?.share?.percent).toMatch(/^25\s%$/u);
+    expect(surveyRespondents?.share?.basis).toBe("3 из 12");
+  });
+
+  it("keeps a missing survey list or an unmeasured share apart from zero", () => {
+    expect(
+      presentSalesFunnelReport({ ...report, surveyRespondents: null }, period)
+        .surveyRespondents,
+    ).toBeNull();
+    for (const surveyRespondents of [
+      { uploaded: 40, issued: 0, paid: 0 },
+      { uploaded: 40, issued: 12, paid: null },
+    ])
+      expect(
+        presentSalesFunnelReport({ ...report, surveyRespondents }, period)
+          .surveyRespondents?.share,
+      ).toBeNull();
   });
 });

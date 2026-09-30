@@ -20,3 +20,4 @@ export { SubscriptionActivation } from "./facets/subscription-activation/subscri
 export { TributeConvergence } from "./facets/tribute-convergence/tribute-convergence.js";
 
 export { BillingGuideSales } from "./features/list-guide-sales/list-guide-sales.js";
+export { BillingSurveyRespondentSales } from "./features/read-survey-respondent-sales/read-survey-respondent-sales.js";

@@ -5,7 +5,10 @@ import {
   type SalesFunnelPrismaClient,
 } from "../../../../infrastructure/prisma/index.js";
 import type { Accounts } from "../../../accounts/index.js";
-import type { BillingGuideSales } from "../../../billing/index.js";
+import type {
+  BillingGuideSales,
+  BillingSurveyRespondentSales,
+} from "../../../billing/index.js";
 import type { GuideOutlines } from "../../../materials/index.js";
 import type { MaterialFirstOpens } from "../../../reading-activity/index.js";
 import type { TelegramAccountLinks } from "../../../telegram-membership/index.js";
@@ -25,6 +28,7 @@ export type ReadFunnelReportDependencies = {
   readonly outlines: Pick<GuideOutlines, "list">;
   readonly firstOpens: Pick<MaterialFirstOpens, "list">;
   readonly sales: Pick<BillingGuideSales, "list">;
+  readonly surveyRespondents: Pick<BillingSurveyRespondentSales, "read">;
   readonly clock: () => Date;
 };
 
@@ -111,8 +115,16 @@ export async function readFunnelReport(
   if (parsed.data.chapterId !== undefined && chapter === undefined)
     return failure("chapter_not_found");
 
-  const journal = await readJournal(dependencies.prisma);
+  const [journal, surveyRespondents] = await Promise.all([
+    readJournal(dependencies.prisma),
+    dependencies.surveyRespondents.read({
+      guideId: guide?.id ?? null,
+      from,
+      to,
+    }),
+  ]);
   if (journal === undefined) return failure("dependency_unavailable");
+  if (!surveyRespondents.ok) return failure(surveyRespondents.error.code);
   const measured: Readonly<Record<PlatformStep, boolean>> = {
     openedChapter: guide !== undefined && chapter !== undefined,
     checkout: guide !== undefined,
@@ -224,6 +236,7 @@ export async function readFunnelReport(
       checkout: total("checkout", measured.checkout),
       paid: total("paid", measured.paid),
     },
+    surveyRespondents: surveyRespondents.value,
   };
   return { ok: true, value: report };
 }

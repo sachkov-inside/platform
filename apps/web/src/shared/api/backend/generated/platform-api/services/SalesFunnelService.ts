@@ -57,6 +57,11 @@ export class SalesFunnelService {
       chapterId: string | null;
       guideId: string;
     } | null;
+    surveyRespondents: {
+      issued: number;
+      paid: number | null;
+      uploaded: number;
+    } | null;
     total: {
       checkout: number | null;
       consented: number | null;

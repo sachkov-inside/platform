@@ -4,7 +4,11 @@ import {
   PrismaModule,
 } from "../../infrastructure/prisma/index.js";
 import { ACCOUNTS, AccountsModule, type Accounts } from "../accounts/index.js";
-import { BillingGuideSales, BillingModule } from "../billing/index.js";
+import {
+  BillingGuideSales,
+  BillingModule,
+  BillingSurveyRespondentSales,
+} from "../billing/index.js";
 import { GuideOutlines, MaterialContentModule } from "../materials/index.js";
 import {
   MaterialFirstOpens,
@@ -38,6 +42,7 @@ import { RecordBotEventsController } from "./features/record-bot-events/record-b
         GuideOutlines,
         MaterialFirstOpens,
         BillingGuideSales,
+        BillingSurveyRespondentSales,
       ],
       useFactory: (
         prisma: PrismaClientProvider,
@@ -46,6 +51,7 @@ import { RecordBotEventsController } from "./features/record-bot-events/record-b
         outlines: GuideOutlines,
         firstOpens: MaterialFirstOpens,
         sales: BillingGuideSales,
+        surveyRespondents: BillingSurveyRespondentSales,
       ) =>
         new SalesFunnel({
           prisma,
@@ -54,6 +60,7 @@ import { RecordBotEventsController } from "./features/record-bot-events/record-b
           outlines,
           firstOpens,
           sales,
+          surveyRespondents,
           clock: () => new Date(),
         }),
     },
