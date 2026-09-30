@@ -813,6 +813,16 @@
   }
 }
 @media (max-width: 47.999rem) {
+  .aie-art-agent {
+    grid-template-columns: auto;
+    justify-items: center;
+  }
+  .aie-art-agent .aie-art-agent-arrow {
+    transform: rotate(90deg);
+  }
+  .aie-art-agent-tools {
+    flex-wrap: wrap;
+  }
   .aie-bento,
   .aie-format ol,
   .aie-audience ul {
