@@ -235,7 +235,10 @@ test("раздел «Подписка» появляется, когда под�
   await subscription.click();
 
   await expect(page).toHaveURL(/\/account\/subscription$/u);
-  await expect(page.getByRole("heading", { level: 1 })).toHaveText("Подписка");
+  // Сразу после смены адреса прежний раздел может ещё стоять на экране: ждём заголовок нового.
+  await expect(
+    page.getByRole("heading", { level: 1, name: "Подписка" }),
+  ).toBeVisible();
 });
 
 test("завершённая подписка не возвращает раздел «Подписка»", async ({
