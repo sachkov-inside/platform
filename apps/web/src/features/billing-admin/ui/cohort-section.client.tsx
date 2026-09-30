@@ -31,7 +31,8 @@ const stageLabels: Record<CohortStage, string> = {
 };
 
 export interface CohortSectionProps {
-  readonly cohorts: readonly GuideCohort[];
+  /** `null` — потоки прочитать не удалось; без текущей редакции сохранение получило бы конфликт. */
+  readonly cohorts: readonly GuideCohort[] | null;
   readonly content?:
     z.infer<typeof contentCatalogOutcomeSchema>["result"]["items"] | undefined;
   readonly pending: boolean;
@@ -51,7 +52,7 @@ export function CohortSection({
   onSaveCohort,
 }: CohortSectionProps) {
   const [editingId, setEditingId] = useState("");
-  const editing = cohorts.find((cohort) => cohort.guideId === editingId);
+  const editing = cohorts?.find((cohort) => cohort.guideId === editingId);
   const guides = content.filter((item) => item.kind === "guide");
   const guideName = (guideId: string) =>
     guides.find((item) => item.id === guideId)?.title ?? guideId;
@@ -60,7 +61,12 @@ export function CohortSection({
       description="Этап, название и дата потока видны на странице продукта сразу после сохранения. Анонс никогда не принимает оплату; на остальных этапах кнопка оплаты видна, только пока предложение продукта в продаже."
       title="Поток продукта"
     >
-      {cohorts.length === 0 ? (
+      {cohorts === null ? (
+        <p className="text-sm text-destructive" role="alert">
+          Не удалось прочитать текущие потоки. Обновите страницу, прежде чем
+          менять поток: без текущей редакции сохранение будет отклонено.
+        </p>
+      ) : cohorts.length === 0 ? (
         <p className="text-sm text-muted-foreground">Потоков пока нет.</p>
       ) : (
         <ul className="grid gap-2 text-sm">

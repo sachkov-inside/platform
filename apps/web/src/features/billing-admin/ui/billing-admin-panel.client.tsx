@@ -67,7 +67,8 @@ interface Task {
 
 export interface BillingAdminPanelProps {
   readonly offers: readonly PriceSnapshot[];
-  readonly cohorts: readonly GuideCohort[];
+  /** `null` — потоки прочитать не удалось: раздел говорит об этом, а не показывает пустой список. */
+  readonly cohorts: readonly GuideCohort[] | null;
 }
 
 /**
@@ -99,8 +100,9 @@ export function BillingAdminPanel({
     },
   });
   const [catalog, setCatalog] = useState<readonly PriceSnapshot[]>(offers);
-  const [cohorts, setCohorts] =
-    useState<readonly GuideCohort[]>(initialCohorts);
+  const [cohorts, setCohorts] = useState<readonly GuideCohort[] | null>(
+    initialCohorts,
+  );
   const [payments, setPayments] = useState<readonly PaymentView[]>([]);
   const [paymentsCursor, setPaymentsCursor] = useState<string | null>(null);
   const [payment, setPayment] = useState<PaymentOutcome["result"] | null>(null);
@@ -507,7 +509,9 @@ export function BillingAdminPanel({
               revision: value.result.value.revision,
             };
             setCohorts((current) => [
-              ...current.filter((cohort) => cohort.guideId !== saved.guideId),
+              ...(current ?? []).filter(
+                (cohort) => cohort.guideId !== saved.guideId,
+              ),
               saved,
             ]);
             setNotice(

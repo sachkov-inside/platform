@@ -9,7 +9,7 @@ export async function BillingAdminPage() {
   ]);
   return (
     <BillingAdminPanel
-      cohorts={cohorts.kind === "ready" ? cohorts.cohorts : []}
+      cohorts={cohorts.kind === "ready" ? cohorts.cohorts : null}
       offers={offers}
     />
   );

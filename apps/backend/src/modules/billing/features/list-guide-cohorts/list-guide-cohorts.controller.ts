@@ -26,6 +26,8 @@ export class ListGuideCohortsController {
   @Get()
   @ApiOperation({
     operationId: "billingGuideCohorts",
+    // Поток — публичный факт: страница гостя и бот читают его без входа.
+    security: [],
     summary:
       "Read the current cohort of every product: name, sales stage, start date and next event",
   })

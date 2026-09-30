@@ -75489,6 +75489,7 @@
             "description": ""
           }
         },
+        "security": [],
         "summary": "Read the current cohort of every product: name, sales stage, start date and next event",
         "tags": [
           "Billing"

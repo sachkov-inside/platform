@@ -8,7 +8,7 @@
 |---|---|---|
 | Анонс, гость | «Читать главу 1 бесплатно» — вход, возврат в программу | `announcement-desktop.png`, `announcement-mobile.png` |
 | Предзаказ | «Оплатить 4 900 ₽» → `/products/ai-engineering/buy` | `preorder-desktop.png`, `preorder-mobile.png` |
-| Поток идёт | «Оплатить 4 900 ₽» → страница оплаты | `running-desktop.png` |
-| Между потоками | «Оплатить» → страница оплаты | `between-mobile.png` |
+| Поток идёт | «Оплатить 4 900 ₽» → страница оплаты | `running-desktop.png`, `running-mobile.png` |
+| Между потоками | «Оплатить» → страница оплаты | `between-desktop.png`, `between-mobile.png` |
 
 Тексты плашек — черновик «Тексты запуска потока 1» из Inside Content, их примет владелец.
