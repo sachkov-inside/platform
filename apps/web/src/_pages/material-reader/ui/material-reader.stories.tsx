@@ -862,6 +862,68 @@ export const Desktop: Story = {
   },
 };
 
+const readerImageAlt = "Маршрут от project rules через skill к evidence";
+
+/** Картинка урока открывается на весь экран, приближается и возвращает фокус после закрытия. */
+export const ImageViewer: Story = {
+  args: { mode: "desktop" },
+  globals: { viewport: { isRotated: false, value: "desktop1440" } },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    const trigger = canvas.getByRole("button", {
+      name: `Открыть изображение крупно: ${readerImageAlt}`,
+    });
+    await userEvent.click(trigger);
+    const viewer = within(
+      await canvas.findByRole("dialog", {
+        name: `${readerImageAlt}, просмотр крупно`,
+      }),
+    );
+    await expect(viewer.getByRole("button", { name: "Закрыть" })).toHaveFocus();
+    await expect(
+      viewer.getByText("Один authority, один workflow, одна проверка"),
+    ).toBeVisible();
+    await expect(
+      viewer.getByRole("button", { name: "Отдалить" }),
+    ).toBeDisabled();
+    await userEvent.click(viewer.getByRole("button", { name: "Приблизить" }));
+    await expect(viewer.getByText("150%")).toBeInTheDocument();
+    await userEvent.keyboard("+");
+    await expect(viewer.getByText("225%")).toBeInTheDocument();
+    await userEvent.keyboard("0");
+    await expect(viewer.getByText("100%")).toBeInTheDocument();
+    await userEvent.keyboard("{Escape}");
+    await waitFor(() =>
+      expect(canvas.queryByRole("dialog")).not.toBeInTheDocument(),
+    );
+    await expect(trigger).toHaveFocus();
+  },
+};
+
+/** На телефоне просмотр занимает весь экран; история оставляет его открытым и приближенным. */
+export const ImageViewerMobile: Story = {
+  args: { mode: "desktop" },
+  globals: { viewport: { isRotated: false, value: "mobile390" } },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await userEvent.click(
+      canvas.getByRole("button", {
+        name: `Открыть изображение крупно: ${readerImageAlt}`,
+      }),
+    );
+    const dialog = await canvas.findByRole("dialog", {
+      name: `${readerImageAlt}, просмотр крупно`,
+    });
+    const viewer = within(dialog);
+    await userEvent.click(viewer.getByRole("button", { name: "Приблизить" }));
+    await expect(viewer.getByText("150%")).toBeInTheDocument();
+    const box = dialog.getBoundingClientRect();
+    const page = canvasElement.ownerDocument.documentElement;
+    await expect(box.width).toBe(page.clientWidth);
+    await expect(box.height).toBe(window.innerHeight);
+  },
+};
+
 export const VideoProcessing: Story = {
   args: { mode: "video-processing" },
   play: async ({ canvasElement }) => {
