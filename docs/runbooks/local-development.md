@@ -874,7 +874,7 @@ in this local copy, while lesson editorial stages stay drafts. The receipt recor
 paths and `coursePreview: true`. Repeat the same command after committing edits in Obsidian/Content;
 refresh the browser. It is a one-shot committed sync, not a watcher for unsaved edits.
 
-Open `/guides/inside-ai-engineering` and `/guides/inside-ai-engineering/programme`. The programme
+Open `/products/ai-engineering` and `/products/ai-engineering/programme`. The programme
 includes closed lessons. Use a fresh test email to see the unpaid view; sign-in codes and receipt
 confirmation messages stay in Mailpit. The local test offer created for #796 costs 30 RUB and uses
 the bank double. Its saved product grant is perpetual and support is six months. Existing checkout

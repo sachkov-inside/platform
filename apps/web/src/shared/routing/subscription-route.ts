@@ -9,7 +9,8 @@ import { guidePath } from "./public-page-path";
  * только на публичные разделы каталога, поэтому список разделов задан явно.
  */
 const publicOriginSections = [
-  "/guides/",
+  "/products/",
+  "/products/",
   "/series/",
   "/topics/",
   "/materials/",
@@ -54,7 +55,7 @@ export const guideProductHref = guidePath;
  * продукта рассказывает, а программа учит. Приглашение к оплате встречает читателя именно здесь.
  */
 export function guideProgrammeHref(slug: string): Route {
-  return internalRoute(`/guides/${encodeURIComponent(slug)}/programme`);
+  return internalRoute(`/products/${encodeURIComponent(slug)}/programme`);
 }
 
 /**
@@ -62,7 +63,7 @@ export function guideProgrammeHref(slug: string): Route {
  * покупают здесь именно руководство, а не тариф подписки, и программа до неё только приглашает.
  */
 export function guidePurchaseHref(slug: string): Route {
-  return internalRoute(`/guides/${encodeURIComponent(slug)}/buy`);
+  return internalRoute(`/products/${encodeURIComponent(slug)}/buy`);
 }
 
 /**

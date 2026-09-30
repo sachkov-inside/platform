@@ -34,8 +34,8 @@ const accepted = () =>
 
 describe("first sign-in screen", () => {
   it("returns only to an address of this site", () => {
-    expect(safeReturnPath("/guides/platform-inside/buy")).toBe(
-      "/guides/platform-inside/buy",
+    expect(safeReturnPath("/products/platform-inside/buy")).toBe(
+      "/products/platform-inside/buy",
     );
     for (const value of [
       "https://evil.example",

@@ -14,7 +14,7 @@ import { publicPageEnvironment } from "@/workshop/story-environment";
 
 import { GuideProductView } from "./guide-product-view";
 
-const environment = publicPageEnvironment("/guides/working-with-agents");
+const environment = publicPageEnvironment("/products/working-with-agents");
 const meta = {
   ...environment,
   component: GuideProductView,
@@ -53,7 +53,7 @@ export const Desktop: Story = {
     })) {
       await expect(link).toHaveAttribute(
         "href",
-        "/guides/working-with-agents/programme",
+        "/products/working-with-agents/programme",
       );
     }
   },
@@ -169,6 +169,6 @@ export const FreeEntryOpensWholeProgramme: Story = {
       within(canvasElement).getByRole("link", {
         name: "Посмотреть бесплатные уроки",
       }),
-    ).toHaveAttribute("href", "/guides/working-with-agents/programme");
+    ).toHaveAttribute("href", "/products/working-with-agents/programme");
   },
 };

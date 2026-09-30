@@ -95,7 +95,7 @@ const resume = {
 };
 const register = () => () => undefined;
 const refresh = () => Promise.resolve();
-const environment = publicPageEnvironment("/guides/platform-inside/programme");
+const environment = publicPageEnvironment("/products/platform-inside/programme");
 const meta = {
   ...environment,
   component: GuideProgrammeView,
@@ -211,7 +211,7 @@ export const LockedSeriesOffersSubscription: Story = {
       canvas.getByRole("link", { name: "Посмотреть тарифы" }),
     ).toHaveAttribute(
       "href",
-      "/subscription?from=%2Fguides%2Fplatform-inside%2Fprogramme",
+      "/subscription?from=%2Fproducts%2Fplatform-inside%2Fprogramme",
     );
   },
 };
@@ -226,7 +226,7 @@ export const LockedSeriesInvitesPayment: Story = {
     // Приглашение, а не цена: сумму и состав показывает страница оплаты.
     await expect(
       canvas.getByRole("link", { name: "Оплатить сейчас" }),
-    ).toHaveAttribute("href", "/guides/platform-inside/buy");
+    ).toHaveAttribute("href", "/products/platform-inside/buy");
     await expect(canvas.queryByText(/2\s?500/u)).not.toBeInTheDocument();
     await expect(
       canvas.queryByRole("link", { name: "Посмотреть тарифы" }),

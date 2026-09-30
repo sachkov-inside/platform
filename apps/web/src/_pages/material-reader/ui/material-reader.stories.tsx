@@ -437,7 +437,7 @@ const guideModeBody = [
 ] as const satisfies readonly ReaderBlock[];
 
 const guideModeReturnTarget = parseMaterialReaderReturnTarget(
-  "/guides/platform-inside",
+  "/products/platform-inside",
 );
 
 function GuideModeReader({
@@ -1001,7 +1001,7 @@ export const AccessGuidePurchase: Story = {
     ).toBeInTheDocument();
     await expect(
       canvas.getByRole("link", { name: "Купить продукт" }),
-    ).toHaveAttribute("href", "/guides/platform-inside/buy");
+    ).toHaveAttribute("href", "/products/platform-inside/buy");
   },
 };
 

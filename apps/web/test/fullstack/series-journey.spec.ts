@@ -29,7 +29,7 @@ test("guide product leads to the programme and the programme keeps the Reader re
   );
 
   // Страница продукта рассказывает о руководстве и ведёт в программу одним действием.
-  await page.goto("/guides/demo-series-harness");
+  await page.goto("/products/demo-series-harness");
   await expect(
     page.locator('[data-guide-product="demo-series-harness"]:visible'),
   ).toBeVisible();
@@ -89,7 +89,7 @@ test("guide product leads to the programme and the programme keeps the Reader re
 
   // Гость видит состав и замки, но не получает ни прогресса, ни обещания чужого продолжения.
   await context.clearCookies();
-  await page.goto("/guides/platform-inside/programme");
+  await page.goto("/products/platform-inside/programme");
   await expect(
     page.getByRole("main").getByText("Нужен доступ", { exact: true }).first(),
   ).toBeVisible();
@@ -130,7 +130,7 @@ test("guide programme marks the last opened material as the place to continue", 
     }
   }
 
-  await page.goto("/guides/demo-series-harness/programme");
+  await page.goto("/products/demo-series-harness/programme");
   const current = page.locator('[aria-current="step"]:visible');
   // Место возврата обозначено выделением строки, а не словами: подпись убрал #441 вместе с
   // прочими лишними статусами маршрута, и это решение о внешнем виде остаётся в силе.
@@ -214,7 +214,7 @@ test("guide programme appends a real composition and restores Reader return posi
       },
     );
     expect(await saved.json()).toMatchObject({ kind: "saved" });
-    await page.goto(`/guides/${slug}/programme?page=1`);
+    await page.goto(`/products/${slug}/programme?page=1`);
     await expect(page.locator("[data-series-ordinal]:visible")).toHaveCount(12);
     await page
       .getByRole("button", { name: "Показать ещё уроки" })

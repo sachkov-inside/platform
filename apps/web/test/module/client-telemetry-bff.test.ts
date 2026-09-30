@@ -66,7 +66,7 @@ it("пишет каждую метрику загрузки отдельной �
   const response = await handleWebVitalsReport(
     report(
       "/api/web-vitals",
-      JSON.stringify({ metrics: [lcp, cls], route: "/guides/ai" }),
+      JSON.stringify({ metrics: [lcp, cls], route: "/products/ai" }),
     ),
   );
 
@@ -76,13 +76,13 @@ it("пишет каждую метрику загрузки отдельной �
     expect.objectContaining({
       event: "web-vital",
       level: "info",
-      route: "/guides/ai",
+      route: "/products/ai",
       ...lcp,
     }),
     expect.objectContaining({
       event: "web-vital",
       level: "info",
-      route: "/guides/ai",
+      route: "/products/ai",
       ...cls,
     }),
   ]);

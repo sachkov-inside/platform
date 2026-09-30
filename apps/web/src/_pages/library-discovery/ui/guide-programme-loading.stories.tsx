@@ -172,7 +172,7 @@ function measure(canvasElement: HTMLElement): ProgrammeGeometry {
   };
 }
 
-const environment = publicPageEnvironment("/guides/platform-inside/programme");
+const environment = publicPageEnvironment("/products/platform-inside/programme");
 const meta = {
   ...environment,
   component: GuideProgrammeView,

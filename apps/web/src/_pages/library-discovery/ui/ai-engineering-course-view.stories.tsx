@@ -10,7 +10,7 @@ import { publicPageEnvironment } from "@/workshop/story-environment";
 
 import { GuideProductView } from "./guide-product-view";
 
-const environment = publicPageEnvironment("/guides/ai-engineering");
+const environment = publicPageEnvironment("/products/ai-engineering");
 const meta = {
   ...environment,
   component: GuideProductView,
@@ -50,7 +50,7 @@ export const Desktop: Story = {
     })) {
       await expect(link).toHaveAttribute(
         "href",
-        "/guides/ai-engineering/programme",
+        "/products/ai-engineering/programme",
       );
     }
     await expect(canvas.queryByText(/Попробовать бесплатно/u)).toBeNull();

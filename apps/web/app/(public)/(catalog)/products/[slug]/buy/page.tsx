@@ -4,6 +4,7 @@ import { GuidePurchasePage } from "@/_pages/guide-purchase.server";
 import { redirectUntilTermsAccepted } from "@/features/terms-acceptance.server";
 import { loadPublishedSeries } from "@/features/library-discovery.server";
 import { getOptionalPlatformAccessToken } from "@/shared/auth/optional-platform-access-token.server";
+import { guidePurchaseHref } from "@/shared/routing/subscription-route";
 
 /** Раздел целиком зависит от сессии и на слои не разложен: проверка мгновенности с него снята (ADR 0027). */
 export const instant = false;
@@ -35,7 +36,7 @@ export default async function GuidePurchaseRoute({
 }: GuidePurchaseRouteProps) {
   const { slug } = await params;
   // Покупка открывается после принятия действующей редакции условий на экране первого входа.
-  await redirectUntilTermsAccepted(`/guides/${encodeURIComponent(slug)}/buy`);
+  await redirectUntilTermsAccepted(guidePurchaseHref(slug));
   const accessToken = await getOptionalPlatformAccessToken();
   return (
     <GuidePurchasePage

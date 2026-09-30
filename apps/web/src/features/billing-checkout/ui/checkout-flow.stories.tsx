@@ -13,7 +13,7 @@ import { publicPageEnvironment } from "@/workshop/story-environment";
 import { oneTimePurchaseInclusions } from "../model/one-time-terms";
 import { CheckoutFlow } from "./checkout-flow.client";
 
-const environment = publicPageEnvironment("/guides/platform-inside/buy");
+const environment = publicPageEnvironment("/products/platform-inside/buy");
 
 /** Какие маршруты собственного BFF вызвал поток: по ним видно, что оплата не начиналась. */
 const requestPath = fn();

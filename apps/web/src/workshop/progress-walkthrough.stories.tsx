@@ -494,7 +494,7 @@ export const CheckConnections: Story = {
       canvas.getByRole("link", { name: /Создание Platform Inside/u }),
     ).toHaveAttribute(
       "href",
-      expect.stringContaining("/guides/platform-inside"),
+      expect.stringContaining("/products/platform-inside"),
     );
     await userEvent.click(
       canvas.getByRole("link", { name: /Создание Platform Inside/u }),

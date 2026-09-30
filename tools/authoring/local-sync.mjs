@@ -1085,8 +1085,8 @@ export async function syncLocal(
         await syncArtifacts(guide, current);
         report.guides.push({
           title: guide.title,
-          url: `${reader}/guides/${current.slug}`,
-          programmeUrl: `${reader}/guides/${current.slug}/programme`,
+          url: `${reader}/products/${current.slug}`,
+          programmeUrl: `${reader}/products/${current.slug}/programme`,
           mainMaterials: guide.materialIds.length,
           supplementaryMaterials: guide.supplementaryMaterialIds.map((id) => ({
             sourceId: id,

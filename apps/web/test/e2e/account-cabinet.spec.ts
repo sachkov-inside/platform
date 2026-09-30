@@ -533,7 +533,7 @@ test("подтверждение перечитывает контакт на в
   await stubAccount(cabinet, { contact: state.read });
 
   // Витрина руководства читает контакт для оформления, раздел подписки — редакции документов.
-  await listening("buy", "/guides/platform-inside/buy");
+  await listening("buy", "/products/platform-inside/buy");
   await listening("subscription", "/account/subscription");
 
   await confirmContactOn(cabinet, state);

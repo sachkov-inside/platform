@@ -117,6 +117,17 @@ const nextConfig: NextConfig = {
         destination: "/account/purchases",
         permanent: true,
       },
+      // Продукт переехал на `/products` (platform#808): старые ссылки и закладки не теряются.
+      {
+        source: "/guides/:path*",
+        destination: "/products/:path*",
+        permanent: true,
+      },
+      {
+        source: "/series/:path*",
+        destination: "/products/:path*",
+        permanent: true,
+      },
     ]),
   headers: () =>
     Promise.resolve([

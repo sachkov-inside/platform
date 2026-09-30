@@ -31,7 +31,7 @@ const guide = {
   summary: "Как устроен продукт: архитектура, границы и порядок поставки.",
 };
 
-const environment = publicPageEnvironment("/guides/platform-inside/buy");
+const environment = publicPageEnvironment("/products/platform-inside/buy");
 
 const meta = {
   ...environment,

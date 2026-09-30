@@ -79,12 +79,12 @@ describe("Карточка публичной ссылки", () => {
     expect(metadata.robots).toEqual({ follow: true, index: true });
   });
 
-  it("ведёт продукт на канонический адрес `/guides/`, а не на совместимый `/series/`", () => {
+  it("ведёт продукт на канонический адрес `/products/`, а не на совместимый `/series/`", () => {
     const preview = guideLinkPreview(guide);
 
-    expect(preview.canonicalPath).toBe("/guides/platform-inside");
+    expect(preview.canonicalPath).toBe("/products/platform-inside");
     expect(preview.title).toBe("Создание Platform Inside — продукт");
-    expect(preview.image.url).toBe("/guides/platform-inside/social-card");
+    expect(preview.image.url).toBe("/products/platform-inside/social-card");
   });
 
   it("называет тему темой и объясняет её содержимое, когда описания нет", () => {

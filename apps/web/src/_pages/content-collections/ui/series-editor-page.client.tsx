@@ -157,7 +157,7 @@ export function SeriesEditorPageClient({
                 }}
               />
               <span className="mt-2 block break-all text-xs text-muted-foreground">
-                Адрес: /guides/{collection.slug}
+                Адрес: /products/{collection.slug}
               </span>
             </label>
             <ContentCoverEditor
