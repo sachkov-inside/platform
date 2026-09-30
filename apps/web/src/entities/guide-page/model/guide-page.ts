@@ -6,7 +6,11 @@ import { z } from "zod";
  */
 
 /** Оформления, которые умеет рисовать этот web. Страница и карточка Главной держат карту по ним. */
-export const guidePresentations = ["default", "ai-first-process"] as const;
+export const guidePresentations = [
+  "default",
+  "ai-first-process",
+  "ai-engineering-course",
+] as const;
 export type GuidePresentation = (typeof guidePresentations)[number];
 
 const cardItemSchema = z
@@ -23,6 +27,7 @@ const blockSchema = z.discriminatedUnion("kind", [
     .object({
       id: z.string(),
       kind: z.literal("hero"),
+      badge: z.string().default(""),
       lead: z.string(),
       highlights: z.array(z.string()),
     })

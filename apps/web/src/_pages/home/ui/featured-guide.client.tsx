@@ -29,6 +29,7 @@ const featuredCards: Record<
 > = {
   default: DefaultFeaturedGuide,
   "ai-first-process": AiFirstFeaturedGuide,
+  "ai-engineering-course": DefaultFeaturedGuide,
 };
 
 export function FeaturedGuide({

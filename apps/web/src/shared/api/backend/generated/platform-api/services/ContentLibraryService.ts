@@ -93,6 +93,7 @@ export class ContentLibraryService {
       productPage: {
         page: {
           blocks: Array<({
+            badge: string;
             highlights: Array<string>;
             id: string;
             kind: 'hero';
@@ -963,6 +964,7 @@ export class ContentLibraryService {
       productPage: {
         page: {
           blocks: Array<({
+            badge: string;
             highlights: Array<string>;
             id: string;
             kind: 'hero';
@@ -1150,6 +1152,7 @@ export class ContentLibraryService {
       productPage: {
         page: {
           blocks: Array<({
+            badge: string;
             highlights: Array<string>;
             id: string;
             kind: 'hero';
@@ -1336,6 +1339,7 @@ export class ContentLibraryService {
       productPage: {
         page: {
           blocks: Array<({
+            badge: string;
             highlights: Array<string>;
             id: string;
             kind: 'hero';

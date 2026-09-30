@@ -138,6 +138,8 @@ const manifestSchema = z
             .optional(),
           title: z.string().min(1),
           summary: z.string(),
+          coverAssetId: z.string().nullable().optional(),
+          coverAlt: z.string().nullable().optional(),
           complete: z.boolean(),
           chapters: z.array(
             z
@@ -275,6 +277,13 @@ export async function loadPackage(path) {
   )
     throw new Error("Selection does not match package contents");
   const assets = new Map(manifest.assets.map((item) => [item.sourceId, item]));
+  for (const guide of manifest.guides)
+    if (
+      guide.coverAssetId !== undefined &&
+      guide.coverAssetId !== null &&
+      !assets.has(guide.coverAssetId)
+    )
+      throw new Error(`${guide.sourceId}: missing cover asset`);
   for (const material of manifest.materials) {
     const refs = [
       ...Object.values(material.images),

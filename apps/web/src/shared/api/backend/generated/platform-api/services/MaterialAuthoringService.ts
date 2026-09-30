@@ -37,6 +37,7 @@ export class MaterialAuthoringService {
     name: string;
     page: {
       blocks: Array<({
+        badge: string;
         highlights: Array<string>;
         id: string;
         kind: 'hero';
@@ -138,6 +139,7 @@ export class MaterialAuthoringService {
     name: string;
     page: {
       blocks: Array<({
+        badge: string;
         highlights: Array<string>;
         id: string;
         kind: 'hero';
@@ -246,6 +248,7 @@ export class MaterialAuthoringService {
     name: string;
     page: {
       blocks: Array<({
+        badge: string;
         highlights: Array<string>;
         id: string;
         kind: 'hero';
@@ -350,6 +353,7 @@ export class MaterialAuthoringService {
     name: string;
     page: {
       blocks: Array<({
+        badge: string;
         highlights: Array<string>;
         id: string;
         kind: 'hero';
@@ -1057,15 +1061,17 @@ export class MaterialAuthoringService {
     });
   }
   /**
-   * Upload or replace the cover of one Material owned by an authoring source
+   * Upload or replace the cover of one Material or Guide owned by an authoring source
    * @returns any
    * @throws ApiError
    */
-  public uploadImportedMaterialCover({
+  public uploadImportedContentCover({
     ownerId,
+    ownerKind,
     formData,
   }: {
     ownerId: string,
+    ownerKind: 'material' | 'series',
     formData: {
       checksumSha256: string;
       declaredSize: number;
@@ -1084,9 +1090,10 @@ export class MaterialAuthoringService {
   }> {
     return this.httpRequest.request({
       method: 'PUT',
-      url: '/authoring/import/content-covers/material/{ownerId}',
+      url: '/authoring/import/content-covers/{ownerKind}/{ownerId}',
       path: {
         'ownerId': ownerId,
+        'ownerKind': ownerKind,
       },
       formData: formData,
       mediaType: 'multipart/form-data',
@@ -1196,6 +1203,7 @@ export class MaterialAuthoringService {
     name: string;
     page: {
       blocks: Array<({
+        badge: string;
         highlights: Array<string>;
         id: string;
         kind: 'hero';
@@ -1276,6 +1284,7 @@ export class MaterialAuthoringService {
       source: {
         page: {
           blocks: Array<({
+            badge: string;
             highlights: Array<string>;
             id: string;
             kind: 'hero';
@@ -1327,7 +1336,7 @@ export class MaterialAuthoringService {
             subtitle: string;
           } | null;
         } | null;
-        presentation: 'default' | 'ai-first-process';
+        presentation: 'default' | 'ai-first-process' | 'ai-engineering-course';
         slug: string;
       };
       sourceId: string;
@@ -1354,6 +1363,7 @@ export class MaterialAuthoringService {
     name: string;
     page: {
       blocks: Array<({
+        badge: string;
         highlights: Array<string>;
         id: string;
         kind: 'hero';
@@ -1431,6 +1441,7 @@ export class MaterialAuthoringService {
       source: {
         page: {
           blocks: Array<({
+            badge: string;
             highlights: Array<string>;
             id: string;
             kind: 'hero';
@@ -1482,7 +1493,7 @@ export class MaterialAuthoringService {
             subtitle: string;
           } | null;
         } | null;
-        presentation: 'default' | 'ai-first-process';
+        presentation: 'default' | 'ai-first-process' | 'ai-engineering-course';
         slug?: string;
       };
       sourceId: string;

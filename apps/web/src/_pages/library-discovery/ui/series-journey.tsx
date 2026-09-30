@@ -170,10 +170,20 @@ function journeyRun(
                     </span>
                   ) : null}
                 </div>
+                {/* Глава без уроков остаётся частью программы: описание объясняет, что в ней
+                    будет, а пометка — что уроки ещё не вышли. С первым уроком глава становится
+                    обычной и её можно проходить. */}
                 {run.items.length === 0 ? (
-                  <p className="mt-1 text-xs text-muted-foreground">
-                    Материалы готовятся
-                  </p>
+                  <>
+                    {run.chapter.summary === "" ? null : (
+                      <p className="mt-2 max-w-[40rem] whitespace-pre-line text-sm leading-6 text-muted-foreground [overflow-wrap:anywhere]">
+                        {run.chapter.summary}
+                      </p>
+                    )}
+                    <p className="mt-2 inline-flex rounded-full bg-secondary px-2.5 py-0.5 text-xs font-medium text-muted-foreground">
+                      Материалы готовятся
+                    </p>
+                  </>
                 ) : null}
               </header>
             ),

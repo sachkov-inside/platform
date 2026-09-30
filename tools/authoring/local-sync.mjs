@@ -604,6 +604,78 @@ export async function syncLocal(
       pkg.manifest.guides.length === 0
         ? []
         : await request("/authoring/collections?kind=guide");
+    /**
+     * Обложка продукта — файл Content, как обложка урока: перенос ставит её тем же source-scoped
+     * маршрутом и помнит хеш, поэтому повтор без изменений ничего не загружает.
+     * @param {import("./package.mjs").Manifest["guides"][number]} guide
+     * @param {StoredGuide} current
+     * @param {string} key
+     */
+    async function syncGuideCover(guide, current, key) {
+      const entry = journal.guides[key];
+      const coverAssetId = guide.coverAssetId ?? null;
+      if (entry === undefined) return;
+      const knownCoverId =
+        /** @type {string | null | undefined} */ (entry["coverId"]) ??
+        /** @type {{ cover?: { coverId?: string } | null }} */ (current).cover
+          ?.coverId ??
+        null;
+      if (coverAssetId === null) {
+        if (entry["coverSha256"] !== undefined && entry["coverSha256"] !== null)
+          report.notices.push({
+            code: "cover_removal_pending",
+            message: `Обложка продукта ${guide.sourceId} убрана из оригинала; снимите её в Platform вручную`,
+          });
+        return;
+      }
+      const asset = valueAt(assets, coverAssetId);
+      if (entry["coverSha256"] === asset.sha256) return;
+      const pendingKey = `cover-pending:guide:${current.id}`;
+      const pending = parseReceipt(
+        pendingCoverReceiptSchema,
+        resources[pendingKey],
+      );
+      resources[pendingKey] = {
+        sha256: asset.sha256,
+        expectedCoverId: knownCoverId,
+      };
+      await persist();
+      const form = fileForm(
+        { sourceId: key, expectedCoverId: knownCoverId ?? "null" },
+        await readAsset(asset),
+        asset,
+      );
+      let coverId;
+      try {
+        coverId =
+          (
+            await request(
+              `/authoring/import/content-covers/series/${current.id}`,
+              form,
+              undefined,
+              { method: "PUT" },
+            )
+          ).cover?.coverId ?? null;
+      } catch (error) {
+        // Как у урока: конфликт после незавершённой загрузки того же файла — это та самая загрузка.
+        const currentCoverId = failureBodyField(error, "currentCoverId");
+        if (
+          failureStatus(error) !== 409 ||
+          pending?.sha256 !== asset.sha256 ||
+          typeof currentCoverId !== "string"
+        )
+          throw error;
+        coverId = currentCoverId;
+      }
+      delete resources[pendingKey];
+      journal.guides[key] = {
+        ...entry,
+        coverId,
+        coverSha256: asset.sha256,
+      };
+      await persist();
+    }
+
     for (const guide of pkg.manifest.guides) {
       if (!guide.complete)
         throw new Error(
@@ -657,6 +729,7 @@ export async function syncLocal(
         }
         guides.set(guide.sourceId, current);
         await persist();
+        await syncGuideCover(guide, current, key);
       } catch (error) {
         throw new Error(`Product ${guide.sourceId}: ${errorMessage(error)}`, {
           cause: error,

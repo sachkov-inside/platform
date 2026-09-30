@@ -27,6 +27,7 @@ import type { MaterialReaderReturnTarget } from "@/shared/routing/material-reade
 import { Button } from "@/shared/ui/button";
 import { IntentPrefetchLink } from "@/shared/ui/intent-prefetch-link.client";
 
+import { AiEngineeringCourseView } from "./ai-engineering-course-view";
 import { AiFirstGuideView } from "./ai-first-guide-view";
 import { formatArtifactCount, formatChapterCount } from "./guide-counts";
 
@@ -61,6 +62,20 @@ const productViews: Record<
       />
     ) : (
       <AiFirstGuideView
+        page={page}
+        result={props.result}
+        returnTarget={props.returnTarget}
+      />
+    ),
+  "ai-engineering-course": ({ page, freeEntryHref, ...props }) =>
+    page === null ? (
+      <DefaultGuideProductView
+        {...props}
+        freeEntryHref={freeEntryHref}
+        page={null}
+      />
+    ) : (
+      <AiEngineeringCourseView
         page={page}
         result={props.result}
         returnTarget={props.returnTarget}

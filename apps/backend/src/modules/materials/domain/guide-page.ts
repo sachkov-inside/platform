@@ -6,7 +6,11 @@ import { z } from "zod";
  */
 
 /** Реестр оформлений. Web держит компоненты для каждого значения; новое значение добавляется в оба. */
-export const guidePresentations = ["default", "ai-first-process"] as const;
+export const guidePresentations = [
+  "default",
+  "ai-first-process",
+  "ai-engineering-course",
+] as const;
 export const guidePresentationSchema = z.enum(guidePresentations);
 export type GuidePresentation = z.infer<typeof guidePresentationSchema>;
 
@@ -47,7 +51,12 @@ const block = <K extends string, S extends z.ZodRawShape>(kind: K, shape: S) =>
   z.object({ id: blockId, kind: z.literal(kind), ...shape }).strict();
 
 export const guidePageBlockSchema = z.discriminatedUnion("kind", [
-  block("hero", { lead: requiredLong, highlights: list(requiredShort, 0) }),
+  block("hero", {
+    // Короткая метка рядом с названием; описания, перенесённые до её появления, читаются без неё.
+    badge: short.default(""),
+    lead: requiredLong,
+    highlights: list(requiredShort, 0),
+  }),
   block("cards", {
     eyebrow: short,
     title: requiredShort,

@@ -22725,6 +22725,11 @@
                                 {
                                   "additionalProperties": false,
                                   "properties": {
+                                    "badge": {
+                                      "default": "",
+                                      "maxLength": 200,
+                                      "type": "string"
+                                    },
                                     "highlights": {
                                       "items": {
                                         "minLength": 1,
@@ -22752,6 +22757,7 @@
                                   "required": [
                                     "id",
                                     "kind",
+                                    "badge",
                                     "lead",
                                     "highlights"
                                   ],
@@ -23842,6 +23848,11 @@
                               {
                                 "additionalProperties": false,
                                 "properties": {
+                                  "badge": {
+                                    "default": "",
+                                    "maxLength": 200,
+                                    "type": "string"
+                                  },
                                   "highlights": {
                                     "items": {
                                       "minLength": 1,
@@ -23869,6 +23880,7 @@
                                 "required": [
                                   "id",
                                   "kind",
+                                  "badge",
                                   "lead",
                                   "highlights"
                                 ],
@@ -25236,6 +25248,11 @@
                               {
                                 "additionalProperties": false,
                                 "properties": {
+                                  "badge": {
+                                    "default": "",
+                                    "maxLength": 200,
+                                    "type": "string"
+                                  },
                                   "highlights": {
                                     "items": {
                                       "minLength": 1,
@@ -25263,6 +25280,7 @@
                                 "required": [
                                   "id",
                                   "kind",
+                                  "badge",
                                   "lead",
                                   "highlights"
                                 ],
@@ -26716,6 +26734,11 @@
                               {
                                 "additionalProperties": false,
                                 "properties": {
+                                  "badge": {
+                                    "default": "",
+                                    "maxLength": 200,
+                                    "type": "string"
+                                  },
                                   "highlights": {
                                     "items": {
                                       "minLength": 1,
@@ -26743,6 +26766,7 @@
                                 "required": [
                                   "id",
                                   "kind",
+                                  "badge",
                                   "lead",
                                   "highlights"
                                 ],
@@ -39591,9 +39615,9 @@
         ]
       }
     },
-    "/authoring/import/content-covers/material/{ownerId}": {
+    "/authoring/import/content-covers/{ownerKind}/{ownerId}": {
       "put": {
-        "operationId": "uploadImportedMaterialCover",
+        "operationId": "uploadImportedContentCover",
         "parameters": [
           {
             "in": "path",
@@ -39601,6 +39625,18 @@
             "required": true,
             "schema": {
               "format": "uuid",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "ownerKind",
+            "required": true,
+            "schema": {
+              "enum": [
+                "material",
+                "series"
+              ],
               "type": "string"
             }
           }
@@ -40268,7 +40304,7 @@
             "logto": []
           }
         ],
-        "summary": "Upload or replace the cover of one Material owned by an authoring source",
+        "summary": "Upload or replace the cover of one Material or Guide owned by an authoring source",
         "tags": [
           "Material authoring"
         ]
@@ -42236,6 +42272,11 @@
                               {
                                 "additionalProperties": false,
                                 "properties": {
+                                  "badge": {
+                                    "default": "",
+                                    "maxLength": 200,
+                                    "type": "string"
+                                  },
                                   "highlights": {
                                     "items": {
                                       "minLength": 1,
@@ -42263,6 +42304,7 @@
                                 "required": [
                                   "id",
                                   "kind",
+                                  "badge",
                                   "lead",
                                   "highlights"
                                 ],
@@ -43589,6 +43631,11 @@
                                 {
                                   "additionalProperties": false,
                                   "properties": {
+                                    "badge": {
+                                      "default": "",
+                                      "maxLength": 200,
+                                      "type": "string"
+                                    },
                                     "highlights": {
                                       "items": {
                                         "minLength": 1,
@@ -43616,6 +43663,7 @@
                                   "required": [
                                     "id",
                                     "kind",
+                                    "badge",
                                     "lead",
                                     "highlights"
                                   ],
@@ -43905,7 +43953,8 @@
                       "presentation": {
                         "enum": [
                           "default",
-                          "ai-first-process"
+                          "ai-first-process",
+                          "ai-engineering-course"
                         ],
                         "type": "string"
                       },
@@ -44059,6 +44108,11 @@
                               {
                                 "additionalProperties": false,
                                 "properties": {
+                                  "badge": {
+                                    "default": "",
+                                    "maxLength": 200,
+                                    "type": "string"
+                                  },
                                   "highlights": {
                                     "items": {
                                       "minLength": 1,
@@ -44086,6 +44140,7 @@
                                 "required": [
                                   "id",
                                   "kind",
+                                  "badge",
                                   "lead",
                                   "highlights"
                                 ],
@@ -45400,6 +45455,11 @@
                                 {
                                   "additionalProperties": false,
                                   "properties": {
+                                    "badge": {
+                                      "default": "",
+                                      "maxLength": 200,
+                                      "type": "string"
+                                    },
                                     "highlights": {
                                       "items": {
                                         "minLength": 1,
@@ -45427,6 +45487,7 @@
                                   "required": [
                                     "id",
                                     "kind",
+                                    "badge",
                                     "lead",
                                     "highlights"
                                   ],
@@ -45716,7 +45777,8 @@
                       "presentation": {
                         "enum": [
                           "default",
-                          "ai-first-process"
+                          "ai-first-process",
+                          "ai-engineering-course"
                         ],
                         "type": "string"
                       },
@@ -109271,6 +109333,11 @@
                                       {
                                         "additionalProperties": false,
                                         "properties": {
+                                          "badge": {
+                                            "default": "",
+                                            "maxLength": 200,
+                                            "type": "string"
+                                          },
                                           "highlights": {
                                             "items": {
                                               "minLength": 1,
@@ -109298,6 +109365,7 @@
                                         "required": [
                                           "id",
                                           "kind",
+                                          "badge",
                                           "lead",
                                           "highlights"
                                         ],
@@ -114678,6 +114746,11 @@
                                       {
                                         "additionalProperties": false,
                                         "properties": {
+                                          "badge": {
+                                            "default": "",
+                                            "maxLength": 200,
+                                            "type": "string"
+                                          },
                                           "highlights": {
                                             "items": {
                                               "minLength": 1,
@@ -114705,6 +114778,7 @@
                                         "required": [
                                           "id",
                                           "kind",
+                                          "badge",
                                           "lead",
                                           "highlights"
                                         ],
@@ -115897,6 +115971,11 @@
                                       {
                                         "additionalProperties": false,
                                         "properties": {
+                                          "badge": {
+                                            "default": "",
+                                            "maxLength": 200,
+                                            "type": "string"
+                                          },
                                           "highlights": {
                                             "items": {
                                               "minLength": 1,
@@ -115924,6 +116003,7 @@
                                         "required": [
                                           "id",
                                           "kind",
+                                          "badge",
                                           "lead",
                                           "highlights"
                                         ],
@@ -117115,6 +117195,11 @@
                                       {
                                         "additionalProperties": false,
                                         "properties": {
+                                          "badge": {
+                                            "default": "",
+                                            "maxLength": 200,
+                                            "type": "string"
+                                          },
                                           "highlights": {
                                             "items": {
                                               "minLength": 1,
@@ -117142,6 +117227,7 @@
                                         "required": [
                                           "id",
                                           "kind",
+                                          "badge",
                                           "lead",
                                           "highlights"
                                         ],
