@@ -210,12 +210,12 @@ export const targetPublication = (reported, entry) =>
  * @param {ManifestMaterial} row
  * @param {PublicationState} current
  * @param {DesiredPublication} desired
- * @returns {{ code: "already_published"; message: string } | undefined}
+ * @returns {{ code: "target_not_draft"; message: string } | undefined}
  */
 export function publicationConflict(row, current, desired) {
   return desired === "draft" && current !== "draft"
     ? {
-        code: "already_published",
+        code: "target_not_draft",
         message: `${row.sourcePath}: the Material is already ${current} in Platform; a private import neither unpublishes it nor replaces its public body. Approve its publication explicitly or leave it out of this import`,
       }
     : undefined;
@@ -701,7 +701,9 @@ export async function syncLocal(
         previous.url !== "" &&
         previous.primaryVideoId !== undefined &&
         previous.coverId !== undefined &&
-        previous.archived !== true
+        previous.archived !== true &&
+        // A private import reads the target's own state: another journal may have published it.
+        publicationOf(row) === "published"
           ? {
               materialId: previous.materialId,
               contentVersion: previous.contentVersion,
@@ -717,17 +719,12 @@ export async function syncLocal(
         throw new Error(
           "Source reservation did not allocate a stable local URL",
         );
-      // A private import reads the target's own state: another journal may have published it.
-      const reported =
-        "publicationState" in current
-          ? current.publicationState
-          : publicationOf(row) === "draft"
-            ? (await request(`/authoring/materials/${current.materialId}`))
-                .publicationState
-            : undefined;
       const conflict = publicationConflict(
         row,
-        targetPublication(reported, previous),
+        targetPublication(
+          "publicationState" in current ? current.publicationState : undefined,
+          previous,
+        ),
         publicationOf(row),
       );
       if (conflict) throw new Error(conflict.message);

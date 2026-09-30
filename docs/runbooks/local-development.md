@@ -835,7 +835,7 @@ shared `inside-platform_*` volumes, so every branch and worktree sees the same c
 - `pnpm local:product [--owner-email EMAIL]` transfers the committed AI-first originals from the
   sibling `inside-content` checkout and features that product on Home. It starts the authoring
   gateway for the run when none is running and repeats safely at any time. This local reader view
-  approves the publication of every transferred original (`--publish-all`); see the publication
+  approves the publication of every transferred original, as `--publish-all` does; see the publication
   policy below.
 - Host checks that migrate, seed or bootstrap owners (`pnpm smoke:fullstack`, the identity proof,
   the Telegram sign-in launcher) use the `inside_checks` database, never the stand's `inside`,
@@ -954,7 +954,7 @@ Run the stand from a worktree only as [Local product view](#local-product-view) 
 bootstrap there would generate new sign-in keys for the owner's stand accounts.
 
 ```bash
-pnpm authoring:sync-git-local CONTENT_REPOSITORY GUIDE_ID STATE_DIRECTORY [REF] [--target editor|stand] [--archive SOURCE_ID]...
+pnpm authoring:sync-git-local CONTENT_REPOSITORY GUIDE_ID STATE_DIRECTORY [REF] [--target editor|stand] [--publish SOURCE_ID]... [--publish-all] [--archive SOURCE_ID]...
 ```
 
 `REF` defaults to `HEAD` and is resolved to one commit SHA before export. The command checks out
@@ -972,7 +972,7 @@ What the transfer applies:
   validate inside their product; `supplementary_materials` join the product after the programme
   without a chapter, which is its "Additional Materials" part.
 - Material covers through `PUT /authoring/import/content-covers/material/:id`, and Material
-  artifacts as authoring-owned Guide artifacts linked to every declaring Material.
+  artifacts as authoring-owned Guide artifacts linked to every declaring Material that is published.
 - An existing provider record named by `platform_video.kinescope_id`: attached, reconciled until
   ready and saved with the original's video chapters.
 - The Guide name, first-paragraph teaser, page address (`slug`), page presentation and the typed
@@ -1022,7 +1022,7 @@ describes the package the Content exporter writes.
 `pnpm authoring:release preview --package PACKAGE_JSON --target editor|stand --state STATE_DIRECTORY [--publish SOURCE_ID]... [--publish-all]`
 compares a package with the target without writing and saves a fingerprinted preview. Each Material
 shows its `publication`, a `publicationChange` from draft to published, or the conflict
-`already_published` for a private import of a public Material; the approval is part of the preview,
+`target_not_draft` for a private import of a published or unpublished Material; the approval is part of the preview,
 so `apply` publishes exactly what was reviewed. A Material missing from this state directory's
 journal appears as `new`, because Platform offers no read-only lookup by source key; `apply` still
 checks its real state before any write.

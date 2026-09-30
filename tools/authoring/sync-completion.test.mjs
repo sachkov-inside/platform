@@ -1355,7 +1355,7 @@ test("preview shows each publication and apply follows only the reviewed approva
     (item) => item.sourceId === "video",
   );
   assert.equal(conflict?.change, "conflict");
-  assert.equal(conflict?.["conflictReason"], "already_published");
+  assert.equal(conflict?.["conflictReason"], "target_not_draft");
   await assert.rejects(
     applyRelease(privatePreview.path, setup.state, { request: api.request }),
     /contains conflicts/u,

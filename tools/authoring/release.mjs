@@ -61,8 +61,8 @@ import {
  * @property {"new" | "changed" | "restore" | "unchanged" | "conflict"} change
  * @property {boolean} [coverChange]
  * @property {boolean} [videoChange]
- * @property {"draft" | "published"} publication
- * @property {{ from: string; to: string }} [publicationChange]
+ * @property {import("./local-sync.mjs").DesiredPublication} publication
+ * @property {{ from: import("./local-boundaries.mjs").PublicationState; to: import("./local-sync.mjs").DesiredPublication }} [publicationChange]
  * @property {string} [conflictReason]
  * @property {{ from: boolean; to: boolean }} [feedChange]
  * @property {{ from: string; to: string }} [accessChange]
