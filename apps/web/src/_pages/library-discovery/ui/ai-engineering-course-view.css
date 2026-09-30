@@ -181,14 +181,17 @@
 .aie-bento > li[data-size="wide"] {
   grid-column: span 2;
 }
+/* Плитки ряда одной высоты: иллюстрация занимает всё свободное место, текст стоит внизу. */
 .aie-bento-art {
   display: grid;
   place-items: center;
-  min-height: 10.5rem;
-  padding: 1.25rem;
+  flex: 1 1 auto;
+  min-height: 12rem;
+  padding: 1.5rem 1.25rem 1rem;
 }
 .aie-bento-copy {
-  padding: 0 1.25rem 1.3rem;
+  flex: none;
+  padding: 0 1.4rem 1.4rem;
 }
 .aie-bento-copy h3 {
   display: flex;
@@ -249,7 +252,7 @@
   border-radius: 0.6rem;
   background: var(--background);
   color: var(--foreground);
-  font-size: 0.78rem;
+  font-size: 0.82rem;
   font-weight: 600;
   line-height: 1.2;
   white-space: nowrap;
@@ -257,13 +260,20 @@
 }
 
 .aie-art-flow {
+  display: grid;
+  justify-items: center;
+  gap: 1.1rem;
+  width: 100%;
+}
+.aie-art-flow-steps {
   display: flex;
   flex-wrap: wrap;
   justify-content: center;
-  gap: 0.5rem 1.4rem;
+  gap: 0.6rem 1rem;
 }
 .aie-art-flow span {
   position: relative;
+  padding: 0.55rem 0.7rem;
   background: color-mix(in srgb, var(--primary-foreground) 12%, var(--primary));
   color: var(--primary-foreground);
   box-shadow: none;
@@ -271,14 +281,24 @@
 .aie-art-flow span svg {
   color: var(--accent-bright);
 }
-.aie-art-flow span + span::before {
+.aie-art-flow-steps span + span::before {
   content: "";
   position: absolute;
-  right: calc(100% + 0.35rem);
+  right: calc(100% + 0.25rem);
   top: 50%;
-  width: 0.7rem;
+  width: 0.5rem;
   border-top: 1.5px solid
     color-mix(in srgb, var(--primary-foreground) 45%, var(--primary));
+}
+.aie-art-flow-roles {
+  display: flex;
+  gap: 0.6rem;
+}
+.aie-art-flow-roles span {
+  background: transparent;
+  border: 1px dashed
+    color-mix(in srgb, var(--primary-foreground) 35%, var(--primary));
+  font-weight: 500;
 }
 
 .aie-art-tree {
@@ -315,38 +335,63 @@
 }
 
 .aie-art-pipeline {
+  position: relative;
   display: grid;
-  justify-items: center;
-  gap: 0.3rem;
+  gap: 0.55rem;
+  width: min(100%, 12rem);
+}
+/* Пунктир за плашками связывает этапы и не проходит сквозь подписи. */
+.aie-art-pipeline::before {
+  content: "";
+  position: absolute;
+  top: 1rem;
+  bottom: 1rem;
+  left: 1.25rem;
+  border-left: 1.5px dashed
+    color-mix(in srgb, var(--callout-good) 55%, transparent);
 }
 .aie-art-pipeline span {
-  padding: 0.45rem;
-  border-radius: 0.65rem;
+  position: relative;
 }
 .aie-art-pipeline span svg {
   color: var(--callout-good);
 }
-.aie-art-pipeline i {
-  height: 0.55rem;
-  border-left: 1.5px dashed
-    color-mix(in srgb, var(--callout-good) 60%, transparent);
-}
 
 .aie-art-agent {
   display: grid;
-  grid-template-columns: repeat(3, auto);
+  grid-template-columns: auto auto auto auto auto;
+  align-items: center;
   justify-content: center;
-  gap: 0.6rem 0.75rem;
+  gap: 0.75rem 0.5rem;
 }
 .aie-art-agent .aie-art-agent-core {
-  grid-column: 1 / -1;
-  justify-self: center;
-  padding: 0.6rem 1rem;
+  padding: 0.75rem 1.1rem;
   background: var(--accent);
   color: var(--accent-foreground);
-  font-size: 0.9rem;
+  font-size: 1rem;
 }
-.aie-art-agent span:not(.aie-art-agent-core) svg {
+.aie-art-agent .aie-art-agent-core svg {
+  width: 1.1rem;
+  height: 1.1rem;
+}
+.aie-art-agent .aie-art-agent-arrow {
+  width: 1.1rem;
+  height: 1.1rem;
+  color: var(--cover-coral-foreground);
+}
+.aie-art-agent-end svg {
+  color: var(--accent);
+}
+.aie-art-agent-tools {
+  grid-column: 1 / -1;
+  display: flex;
+  justify-content: center;
+  gap: 0.6rem;
+  padding-top: 0.9rem;
+  border-top: 1.5px dashed
+    color-mix(in srgb, var(--cover-coral-foreground) 35%, transparent);
+}
+.aie-art-agent-tools span svg {
   color: var(--accent);
 }
 
@@ -360,7 +405,14 @@
     color-mix(in srgb, var(--cover-blue-foreground) 35%, transparent);
   color: var(--cover-blue-foreground);
 }
-.aie-art-rag span:not(.aie-art-rag-query) {
+.aie-art-rag .aie-art-rag-answer {
+  margin-top: 0.25rem;
+  background: var(--cover-blue-foreground);
+  color: var(--background);
+  font-family: inherit;
+  font-weight: 600;
+}
+.aie-art-rag span:not(.aie-art-rag-query, .aie-art-rag-answer) {
   margin-left: 1rem;
   font-family: var(--font-utility);
   font-weight: 500;

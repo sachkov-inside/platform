@@ -23,6 +23,7 @@ import {
   ShieldCheck,
   Sparkles,
   Terminal,
+  UserRound,
   Workflow,
   Wrench,
   type LucideIcon,
@@ -248,12 +249,26 @@ const topicTiles: readonly {
     tone: "ink",
     art: (
       <div className="aie-art-flow">
-        {["Требования", "Задачи", "Код", "Pull request"].map((step, index) => (
-          <span key={step}>
-            {index === 3 ? <GitPullRequest /> : <Check />}
-            {step}
+        <div className="aie-art-flow-steps">
+          {["Требования", "Задачи", "Код", "Pull request"].map(
+            (step, index) => (
+              <span key={step}>
+                {index === 3 ? <GitPullRequest /> : <Check />}
+                {step}
+              </span>
+            ),
+          )}
+        </div>
+        <div className="aie-art-flow-roles">
+          <span>
+            <UserRound />
+            Ты решаешь
           </span>
-        ))}
+          <span>
+            <Bot />
+            Агент выполняет
+          </span>
+        </div>
       </div>
     ),
   },
@@ -298,21 +313,19 @@ const topicTiles: readonly {
     tone: "good",
     art: (
       <div className="aie-art-pipeline">
-        <span>
-          <FileText />
-        </span>
-        <i />
-        <span>
-          <Code2 />
-        </span>
-        <i />
-        <span>
-          <ShieldCheck />
-        </span>
-        <i />
-        <span>
-          <Rocket />
-        </span>
+        {(
+          [
+            [FileText, "Спецификация"],
+            [Code2, "Реализация"],
+            [ShieldCheck, "Проверки"],
+            [Rocket, "Релиз"],
+          ] as const
+        ).map(([StepIcon, label]) => (
+          <span key={label}>
+            <StepIcon />
+            {label}
+          </span>
+        ))}
       </div>
     ),
   },
@@ -321,22 +334,34 @@ const topicTiles: readonly {
     tone: "coral",
     art: (
       <div className="aie-art-agent">
+        <span className="aie-art-agent-end">
+          <FileText />
+          Задача
+        </span>
+        <ArrowRight className="aie-art-agent-arrow" />
         <span className="aie-art-agent-core">
           <Bot />
           Агент
         </span>
-        <span>
-          <Sparkles />
-          Модель
+        <ArrowRight className="aie-art-agent-arrow" />
+        <span className="aie-art-agent-end">
+          <Check />
+          Результат
         </span>
-        <span>
-          <Wrench />
-          Инструменты
-        </span>
-        <span>
-          <Plug />
-          MCP
-        </span>
+        <div className="aie-art-agent-tools">
+          <span>
+            <Sparkles />
+            Модель
+          </span>
+          <span>
+            <Wrench />
+            Инструменты
+          </span>
+          <span>
+            <Plug />
+            MCP
+          </span>
+        </div>
       </div>
     ),
   },
@@ -356,6 +381,10 @@ const topicTiles: readonly {
         <span>
           <FileText />
           adr-012.md
+        </span>
+        <span className="aie-art-rag-answer">
+          <MessagesSquare />
+          Ответ со ссылками [1] [2]
         </span>
       </div>
     ),
