@@ -41,7 +41,11 @@ import {
   syncLocal,
   validateGuidePages,
 } from "./local-sync.mjs";
-import { authoringTarget, transportFor } from "./target.mjs";
+import {
+  assertTargetEnvironment,
+  authoringTarget,
+  transportFor,
+} from "./target.mjs";
 import { keychainStore, ownerSession } from "./credentials.mjs";
 import { exportCommittedPackage } from "./git-local.mjs";
 
@@ -161,11 +165,7 @@ export async function previewRelease(
   const shell = isGuideShell(manifest);
   const publicationOfKey = publicationPolicy(manifest, publish);
   const environment = await request("/authoring/import/materials/environment");
-  // A target that answers as another environment is the wrong one, whatever its address.
-  if (environment.mode !== target.environment)
-    throw new Error(
-      `Target ${target.id} reports a ${environment.mode} runtime; expected ${target.environment}`,
-    );
+  assertTargetEnvironment(target, environment.mode);
   await validateGuidePages(manifest, send);
   const journal = await readJournal(stateDirectory, target.id);
   const resources = journal.resources ?? {};
@@ -560,8 +560,17 @@ export async function applyRelease(
   const pkg = await loadPackage(preview.packagePath);
   if (pkg.id !== preview.packageId)
     throw new Error("Package differs from the reviewed preview");
-  // The recomputed plan must be the reviewed one: versions, local receipts and every listed change.
   const publish = preview.publish ?? [];
+  // A write whose outcome was lost is completed with its original key first; if it changed the
+  // target, the reviewed plan no longer matches and a new preview is required.
+  await syncLocal(preview.packagePath, stateDirectory, {
+    origin: target.id,
+    request: transport,
+    publish,
+    accessToken,
+    reconcileOnly: true,
+  });
+  // The recomputed plan must be the reviewed one: versions, local receipts and every listed change.
   const current = await previewRelease(preview.packagePath, stateDirectory, {
     origin: target.id,
     request: transport,

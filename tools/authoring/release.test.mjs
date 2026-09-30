@@ -76,11 +76,18 @@ function api(mode = "development") {
   };
   /** @type {string[]} */
   const writes = [];
+  /** Receipts by idempotency key, as Platform keeps them. @type {Map<string, unknown>} */
+  const receipts = new Map();
+  const faults = {
+    /** @type {"lost-response" | "expired-session" | undefined} */
+    nextApply: undefined,
+  };
   return {
     material,
     writes,
+    faults,
     /** @type {import("./target.mjs").LocalTransport} */
-    async request(path, body) {
+    async request(path, body, key) {
       if (path.endsWith("/environment")) return { mode };
       if (path === "/authoring/collections?kind=topic") return [];
       if (path === "/authoring/collections?kind=guide") return [];
@@ -93,6 +100,11 @@ function api(mode = "development") {
         return structuredClone(material);
       }
       if (path.endsWith("/apply")) {
+        if (key !== undefined && receipts.has(key)) return receipts.get(key);
+        if (faults.nextApply === "expired-session") {
+          faults.nextApply = undefined;
+          throw Object.assign(new Error("unauthorized"), { status: 401 });
+        }
         writes.push(path);
         const command = materialApplyRequest({ path, body })?.body;
         assert.ok(command);
@@ -101,7 +113,13 @@ function api(mode = "development") {
           contentVersion: material.contentVersion + 1,
           source: command.source,
         });
-        return { materialId, contentVersion: material.contentVersion };
+        const receipt = { materialId, contentVersion: material.contentVersion };
+        if (key !== undefined) receipts.set(key, receipt);
+        if (faults.nextApply === "lost-response") {
+          faults.nextApply = undefined;
+          throw Object.assign(new Error("connection lost"), { status: 502 });
+        }
+        return receipt;
       }
       throw new Error(`Unexpected ${path}`);
     },
@@ -302,4 +320,75 @@ test("the trusted transport sends the owner's bearer only to the pinned HTTPS ba
   );
   assert.equal(itemAt(seen, 0).headers.get("authorization"), "Bearer abc");
   assert.equal(itemAt(seen, 0).headers.get("idempotency-key"), "key-1");
+});
+
+test("a lost or unauthorized write is completed once with its key before a new preview", async (t) => {
+  for (const fault of /** @type {const} */ ([
+    "lost-response",
+    "expired-session",
+  ])) {
+    const setup = await fixture(t);
+    const server = api("production");
+    const token = async () => "owner-access-token";
+    const options = { request: server.request, accessToken: token };
+    const reviewed = await previewRelease(setup.packagePath, setup.state, {
+      ...options,
+      origin: "production",
+      publish: ["one"],
+    });
+    server.faults.nextApply = fault;
+    await assert.rejects(applyRelease(reviewed.path, setup.state, options));
+    const committed = server.writes.length;
+
+    // Repeating apply first completes the unfinished write with its original key.
+    await assert.rejects(
+      applyRelease(reviewed.path, setup.state, options),
+      /changed after the preview/u,
+    );
+    const applies = server.writes.filter((path) => path.endsWith("/apply"));
+    assert.equal(applies.length, 1, fault);
+    assert.ok(server.writes.length >= committed);
+
+    const fresh = await previewRelease(setup.packagePath, setup.state, {
+      ...options,
+      origin: "production",
+      publish: ["one"],
+    });
+    const report = await applyRelease(fresh.path, setup.state, options);
+    assert.equal(report.applied, 0, fault);
+    assert.equal(
+      server.writes.filter((path) => path.endsWith("/apply")).length,
+      1,
+      fault,
+    );
+  }
+});
+
+test("the trusted production target matches the production API configuration", async () => {
+  const { trustedTarget } = await import("./target.mjs");
+  const env = Object.fromEntries(
+    (
+      await readFile(
+        new URL(
+          "../../config/compose/production/api.env.example",
+          import.meta.url,
+        ),
+        "utf8",
+      )
+    )
+      .split("\n")
+      .filter((line) => /^[A-Z_]+=/u.test(line))
+      .map((line) => [
+        line.slice(0, line.indexOf("=")),
+        line.slice(line.indexOf("=") + 1),
+      ]),
+  );
+  const production = trustedTarget("production");
+  assert.equal(production.issuer, env["LOGTO_ISSUER"]);
+  assert.equal(production.resource, env["LOGTO_AUDIENCE"]);
+  assert.equal(production.reader, env["PUBLIC_SITE_ORIGIN"]);
+  assert.equal(
+    production.id,
+    `${String(env["PUBLIC_SITE_ORIGIN"])}/authoring-api`,
+  );
 });

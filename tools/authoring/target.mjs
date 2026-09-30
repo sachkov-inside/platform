@@ -109,6 +109,23 @@ export function authoringTarget(value) {
   };
 }
 
+/** @param {TrustedTarget} target */
+export const loginHint = (target) =>
+  `run pnpm authoring:login --target ${target.name} --client-id CLIENT_ID`;
+
+/**
+ * A target that answers as another environment is the wrong one, whatever its address.
+ *
+ * @param {AuthoringTarget} target
+ * @param {string} mode what the target's runtime reports
+ */
+export function assertTargetEnvironment(target, mode) {
+  if (mode !== target.environment)
+    throw new Error(
+      `Target ${target.id} reports a ${mode} runtime; expected ${target.environment}`,
+    );
+}
+
 /**
  * @param {string} value
  * @returns {TrustedTarget}
@@ -190,7 +207,7 @@ export function transportFor(target, accessToken) {
   if (target.kind === "local") return localTransport(target.id);
   if (accessToken === undefined)
     throw new Error(
-      `Target ${target.name} needs the owner's session: run pnpm authoring:login --target ${target.name}`,
+      `Target ${target.name} needs the owner's session: ${loginHint(target)}`,
     );
   return trustedTransport(target, accessToken);
 }

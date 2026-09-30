@@ -34,6 +34,7 @@ import {
   sourceVideoReceiptSchema,
 } from "./local-boundaries.mjs";
 import {
+  assertTargetEnvironment,
   authoringTarget,
   localTransport,
   resolveLocalTarget,
@@ -86,6 +87,8 @@ export const localRequest = localTransport(reviewOrigin);
  * @property {PublishSelection} [publish]
  * @property {import("./target.mjs").AccessToken | undefined} [accessToken] The owner's session for a trusted target.
  * @property {boolean} [reviewed] Set only by an exact release apply; a trusted target requires it.
+ * @property {boolean} [reconcileOnly] Complete the journal's unfinished writes with their original
+ *   idempotency keys and stop; allowed on a trusted target because it sends nothing new.
  * @typedef {import("./local-boundaries.mjs").PublishSelection} PublishSelection
  * @typedef {import("./local-boundaries.mjs").PublicationState} PublicationState
  * @typedef {"draft" | "published"} DesiredPublication The only states an import asks for.
@@ -542,11 +545,12 @@ export async function syncLocal(
     publish = [],
     accessToken,
     reviewed = false,
+    reconcileOnly = false,
   } = {},
 ) {
   const target = authoringTarget(origin);
   // A trusted remote target changes only through an exactly reviewed preview (#805).
-  if (target.kind === "trusted" && !reviewed)
+  if (target.kind === "trusted" && !reviewed && !reconcileOnly)
     throw new Error(
       `Target ${target.name} is released only through pnpm authoring:release preview and apply`,
     );
@@ -562,17 +566,16 @@ export async function syncLocal(
   if (shell && archive.length)
     throw new Error("A Guide shell release never archives Materials");
   const environment = await request("/authoring/import/materials/environment");
-  if (environment.mode !== target.environment)
-    throw new Error(
-      `Target ${target.id} reports a ${environment.mode} runtime; expected ${target.environment}`,
-    );
+  assertTargetEnvironment(target, environment.mode);
   const publicationOfKey = publicationPolicy(pkg.manifest, publish);
   /** @param {Pick<ManifestMaterial, "sourceId">} row */
   const publicationOf = (row) =>
     publicationOfKey(sourceKey(pkg.manifest, row.sourceId));
   const manifest = practicesFollowLessons(pkg.manifest, publicationOfKey);
-  await validateGuidePages(pkg.manifest, send);
-  await validateSourcePractices(manifest, request);
+  if (!reconcileOnly) {
+    await validateGuidePages(pkg.manifest, send);
+    await validateSourcePractices(manifest, request);
+  }
   return withJournal(stateDirectory, target.id, async (context) => {
     const { journal, persist } = context;
     const resources = (journal.resources ??= {});
@@ -680,6 +683,8 @@ export async function syncLocal(
     }
 
     if (!shell) await replayPracticeImports(context, request);
+    // Only the writes this journal already started are completed; nothing new is sent.
+    if (reconcileOnly) return report;
 
     // Reservations only create empty private drafts, so every publication conflict is found before
     // the first topic, Guide or Material write.

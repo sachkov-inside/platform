@@ -7,11 +7,15 @@ import { createHash, randomBytes } from "node:crypto";
 import { createServer } from "node:http";
 import { promisify } from "node:util";
 import { z } from "zod";
+import { loginHint } from "./target.mjs";
 
 const execute = promisify(execFile);
 // The loopback redirect registered for the native Logto application.
 export const loginPort = 47823;
 const loginTimeoutMs = 5 * 60_000;
+const discoveryTimeoutMs = 10_000;
+const tokenRequestTimeoutMs = 15_000;
+const millisecondsPerSecond = 1000;
 // A token is renewed this long before it expires; Platform accepts tokens of at most five minutes.
 const renewalMarginMs = 30_000;
 // Logto issues opaque URL-safe tokens and identifiers; anything else never reaches the Keychain.
@@ -51,6 +55,8 @@ const settingsSchema = z
  * @returns {SecretStore}
  */
 export function keychainStore(service = "inside-authoring") {
+  if (!storable.test(service))
+    throw new Error("Refusing an unexpected Keychain service name");
   return {
     async read(account) {
       try {
@@ -125,7 +131,7 @@ const accounts = (target) => ({
 async function discover(target, fetcher) {
   const response = await fetcher(
     `${target.issuer}/.well-known/openid-configuration`,
-    { redirect: "error", signal: AbortSignal.timeout(10_000) },
+    { redirect: "error", signal: AbortSignal.timeout(discoveryTimeoutMs) },
   );
   if (!response.ok)
     throw new Error(`Sign-in discovery failed: ${String(response.status)}`);
@@ -145,7 +151,7 @@ async function requestToken(fetcher, endpoint, fields) {
     redirect: "error",
     headers: { "content-type": "application/x-www-form-urlencoded" },
     body: new URLSearchParams(fields),
-    signal: AbortSignal.timeout(15_000),
+    signal: AbortSignal.timeout(tokenRequestTimeoutMs),
   });
   const body = /** @type {unknown} */ (await response.json().catch(() => null));
   if (!response.ok) {
@@ -200,23 +206,36 @@ export async function login(
       response.writeHead(404).end();
       return;
     }
+    // Another local process cannot end this sign-in: a callback for another request is ignored.
+    if (url.searchParams.get("state") !== state) {
+      response.writeHead(400).end();
+      return;
+    }
     const received = url.searchParams.get("code");
-    const valid = url.searchParams.get("state") === state && received !== null;
+    const refusal = url.searchParams.get("error");
     response
-      .writeHead(valid ? 200 : 400, {
+      .writeHead(received === null ? 400 : 200, {
         "content-type": "text/plain; charset=utf-8",
       })
       .end(
-        valid
-          ? "Вход выполнен. Вернитесь в терминал."
-          : "Вход не подтверждён. Запустите вход заново.",
+        received === null
+          ? "Вход не выполнен. Запустите вход заново."
+          : "Вход выполнен. Вернитесь в терминал.",
       );
-    if (valid) deliver(received);
-    else fail(new Error("Sign-in callback did not match this request"));
+    if (received !== null) deliver(received);
+    else fail(new Error(`Sign-in was refused: ${refusal ?? "no code"}`));
   });
-  await new Promise((resolve) =>
-    server.listen(port, "127.0.0.1", () => resolve(undefined)),
-  );
+  await new Promise((resolve, reject) => {
+    server.once("error", (error) =>
+      reject(
+        new Error(
+          `Sign-in callback port ${String(port)} is busy; close the other sign-in and retry`,
+          { cause: error },
+        ),
+      ),
+    );
+    server.listen(port, "127.0.0.1", () => resolve(undefined));
+  });
   const address = server.address();
   const redirectUri = `http://127.0.0.1:${String(typeof address === "object" && address ? address.port : port)}/callback`;
   try {
@@ -238,7 +257,12 @@ export async function login(
       authorize.searchParams.set(name, value);
     await openUrl(authorize.toString());
     const timeout = setTimeout(
-      () => fail(new Error("Sign-in was not completed in five minutes")),
+      () =>
+        fail(
+          new Error(
+            `Sign-in was not completed in ${String(loginTimeoutMs / 60_000)} minutes`,
+          ),
+        ),
       loginTimeoutMs,
     );
     let received;
@@ -301,7 +325,7 @@ export function ownerSession(
     ]);
     if (refresh === null || encoded === null)
       throw new Error(
-        `No owner session for ${target.name}: run pnpm authoring:login --target ${target.name} --client-id CLIENT_ID`,
+        `No owner session for ${target.name}: ${loginHint(target)}`,
       );
     const settings = settingsSchema.parse(
       JSON.parse(Buffer.from(encoded, "base64url").toString("utf8")),
@@ -318,7 +342,7 @@ export function ownerSession(
       await store.write(accounts(target).refresh, token.refresh_token);
     cached = {
       token: token.access_token,
-      expiresAt: now() + token.expires_in * 1000,
+      expiresAt: now() + token.expires_in * millisecondsPerSecond,
     };
     return token.access_token;
   };

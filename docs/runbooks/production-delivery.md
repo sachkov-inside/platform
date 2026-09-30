@@ -266,6 +266,9 @@ prove a completed sign-in or Membership access.
 
 ## Owner Account preparation
 
+The same `materials:manage` permission authorizes the
+[Content production delivery](content-production-delivery.md) through `/authoring-api/authoring/*`.
+
 The production backend image includes `dist/release/bootstrap-owner-account.js` for the
 explicit [owner Account bootstrap](local-development.md#owner-account-release-bootstrap).
 After verifying the owner's real Logto identity, run it in the current API container with

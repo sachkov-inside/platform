@@ -143,7 +143,8 @@ describe("production runtime architecture contract", () => {
   });
 
   it("publishes the authoring transfer only for backend /authoring/* behind its prefix", () => {
-    for (const [shape, replacement] of [
+    /** @type {[string, string][]} */
+    const variants = [
       [
         "without removing the prefix",
         "\t\t@authoring_api path /authoring-api/authoring/*\n\t\treverse_proxy @authoring_api {$PLATFORM_API_UPSTREAM:127.0.0.1:13001}\n",
@@ -152,7 +153,8 @@ describe("production runtime architecture contract", () => {
         "wider than /authoring/*",
         "\t\t@authoring_api path /authoring-api/*\n\t\turi @authoring_api strip_prefix /authoring-api\n\t\treverse_proxy @authoring_api {$PLATFORM_API_UPSTREAM:127.0.0.1:13001}\n",
       ],
-    ]) {
+    ];
+    for (const [shape, replacement] of variants) {
       assert.throws(
         () =>
           assertRuntimeContract({

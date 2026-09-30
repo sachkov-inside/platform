@@ -123,20 +123,46 @@ test("one browser sign-in stores only the refresh token and client settings", as
   assert.equal(store.items.size, 0);
 });
 
-test("a callback for another sign-in request is refused", async () => {
+test("a foreign callback cannot end a sign-in, and a refusal in Logto is reported", async () => {
   const store = memoryStore();
   const server = logto();
+  /** @type {number[]} */
+  const foreign = [];
+  await login(target, {
+    clientId: "native-client",
+    store,
+    fetcher: server.fetcher,
+    openUrl: async (value) => {
+      const url = new URL(value);
+      const redirect = new URL(url.searchParams.get("redirect_uri") ?? "");
+      redirect.searchParams.set("code", "stolen");
+      redirect.searchParams.set("state", "forged");
+      foreign.push((await fetch(redirect)).status);
+      await server.openUrl(value);
+    },
+    port: 0,
+  });
+  assert.deepEqual(foreign, [400]);
+  assert.equal(store.items.get("production:refresh-token"), "refresh-1");
+
+  const refused = memoryStore();
   await assert.rejects(
     login(target, {
       clientId: "native-client",
-      store,
+      store: refused,
       fetcher: server.fetcher,
-      openUrl: (url) => server.openUrl(url, { state: "forged" }),
+      openUrl: (value) => {
+        const url = new URL(value);
+        const redirect = new URL(url.searchParams.get("redirect_uri") ?? "");
+        redirect.searchParams.set("error", "access_denied");
+        redirect.searchParams.set("state", url.searchParams.get("state") ?? "");
+        setImmediate(() => void fetch(redirect).catch(() => {}));
+      },
       port: 0,
     }),
-    /did not match this request/u,
+    /Sign-in was refused: access_denied/u,
   );
-  assert.equal(store.items.size, 0);
+  assert.equal(refused.items.size, 0);
 });
 
 test("the session renews short tokens once, keeps the rotated refresh token and names no secret on failure", async () => {
