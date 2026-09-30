@@ -1,5 +1,5 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
-import { expect, fn, userEvent, within } from "storybook/test";
+import { expect, within } from "storybook/test";
 
 import { CommunityEntryView } from "./community-entry-view";
 import { accountSectionEnvironment } from "@/workshop/story-environment";
@@ -14,7 +14,6 @@ const meta = {
   args: {
     entry: { kind: "join", botUrl },
     telegramHref: "/account/access",
-    onRetry: fn(),
   },
   parameters: {
     ...environment.parameters,
@@ -97,12 +96,12 @@ export const WithoutCommunity: Story = {
 };
 export const ReadFailed: Story = {
   args: { entry: null, error: true },
-  play: async ({ args, canvasElement }) => {
+  play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
-    await userEvent.click(
-      canvas.getByRole("button", { name: "Проверить снова" }),
-    );
-    await expect(args.onRetry).toHaveBeenCalledOnce();
+    // Чтение повторяется само: ручной кнопки обновления нет.
+    const region = canvas.getByRole("region", { name: "Сообщество Inside" });
+    await expect(region).toHaveTextContent(/повторим автоматически/u);
+    await expect(within(region).queryByRole("button")).toBeNull();
   },
 };
 export const JoinMobile: Story = {

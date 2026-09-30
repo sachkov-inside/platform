@@ -13,14 +13,12 @@ export interface CommunityEntryViewProps {
   readonly error?: boolean;
   /** Раздел кабинета, где Telegram подключается к аккаунту. */
   readonly telegramHref: Route;
-  readonly onRetry: () => void;
 }
 
 /**
  * Temporary semantic UI for #822.
  * Replace through #824 after Storybook acceptance.
- */
-/**
+ *
  * Переход в сообщество Inside рядом с покупкой. Личную ссылку в группу выдаёт только бот по
  * `/community`, поэтому кнопка ведёт в бота; адреса группы здесь нет, и участник видит статус.
  */
@@ -28,25 +26,14 @@ export function CommunityEntryView({
   entry,
   error = false,
   telegramHref,
-  onRetry,
 }: CommunityEntryViewProps) {
   if (error) {
     return (
       <CommunityCard>
-        <p className="text-sm leading-6 text-muted-foreground" role="alert">
-          Не получилось проверить вход в сообщество. Доступ к материалам от
-          этого не зависит.
+        <p className="text-sm leading-6 text-muted-foreground" role="status">
+          Не получилось проверить вход в сообщество — повторим автоматически.
+          Доступ к материалам от этого не зависит.
         </p>
-        <div className="mt-4">
-          <Button
-            className={billingActionClass}
-            onClick={onRetry}
-            type="button"
-            variant="outline"
-          >
-            Проверить снова
-          </Button>
-        </div>
       </CommunityCard>
     );
   }

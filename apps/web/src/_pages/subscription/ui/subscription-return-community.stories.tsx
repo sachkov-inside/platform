@@ -19,7 +19,6 @@ const meta = {
     accessSlot: (
       <CommunityEntryView
         entry={{ kind: "join", botUrl }}
-        onRetry={fn()}
         telegramHref="/account/access"
       />
     ),
@@ -51,7 +50,6 @@ export const ConfirmedMember: Story = {
     accessSlot: (
       <CommunityEntryView
         entry={{ kind: "member" }}
-        onRetry={fn()}
         telegramHref="/account/access"
       />
     ),

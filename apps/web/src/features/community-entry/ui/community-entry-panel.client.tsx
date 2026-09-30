@@ -3,7 +3,10 @@ import type { Route } from "next";
 import { useQuery } from "@tanstack/react-query";
 
 import { readBillingEndpoint } from "@/entities/subscription";
-import { selfRefreshingRead } from "@/shared/api/self-refreshing-query";
+import {
+  selfRefreshingRead,
+  unavailableRetryIntervalMs,
+} from "@/shared/api/self-refreshing-query";
 
 import { communityEntrySchema } from "../model/community-entry";
 import { CommunityEntryView } from "./community-entry-view";
@@ -27,9 +30,12 @@ export function CommunityEntryPanel({
     ...selfRefreshingRead,
     refetchInterval: (query) => {
       const result = query.state.data;
-      return result?.ok === true && result.value.kind === "preparing"
-        ? preparingPollMs
-        : false;
+      if (result === undefined) return false;
+      if (!result.ok)
+        return result.code === "unauthorized"
+          ? false
+          : unavailableRetryIntervalMs;
+      return result.value.kind === "preparing" ? preparingPollMs : false;
     },
   });
   const result = query.data;
@@ -40,9 +46,6 @@ export function CommunityEntryPanel({
     <CommunityEntryView
       entry={result?.ok === true ? result.value : null}
       error={failed}
-      onRetry={() => {
-        void query.refetch();
-      }}
       telegramHref={telegramHref}
     />
   );
