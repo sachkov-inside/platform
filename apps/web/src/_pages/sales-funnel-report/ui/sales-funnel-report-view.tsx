@@ -263,19 +263,11 @@ function SurveyRespondents({
           <div className="grid gap-1">
             <dt className="text-sm text-muted-foreground">Доля купивших</dt>
             <dd className="text-2xl font-semibold tabular-nums">
-              {respondents.share ?? (
-                <span
-                  aria-label="не измеряется"
-                  className="text-muted-foreground"
-                >
-                  —
-                </span>
-              )}
+              {respondents.share?.percent ?? <Unmeasured />}
             </dd>
-            {respondents.share === null || respondents.paid === null ? null : (
+            {respondents.share === null ? null : (
               <dd className="text-xs text-muted-foreground">
-                {respondents.paid.toLocaleString("ru-RU")} из{" "}
-                {respondents.issued.toLocaleString("ru-RU")} получивших ссылку
+                {respondents.share.basis} получивших ссылку
               </dd>
             )}
           </div>
@@ -296,13 +288,7 @@ function Figure({
     <div className="grid gap-1">
       <dt className="text-sm text-muted-foreground">{label}</dt>
       <dd className="text-2xl font-semibold tabular-nums">
-        {value === null ? (
-          <span aria-label="не измеряется" className="text-muted-foreground">
-            —
-          </span>
-        ) : (
-          value.toLocaleString("ru-RU")
-        )}
+        {value === null ? <Unmeasured /> : value.toLocaleString("ru-RU")}
       </dd>
     </div>
   );
@@ -346,13 +332,7 @@ function Field({
 function Count({ value }: { readonly value: number | null }) {
   return (
     <td className="px-3 py-2.5 text-right tabular-nums">
-      {value === null ? (
-        <span aria-label="не измеряется" className="text-muted-foreground">
-          —
-        </span>
-      ) : (
-        value.toLocaleString("ru-RU")
-      )}
+      {value === null ? <Unmeasured /> : value.toLocaleString("ru-RU")}
     </td>
   );
 }
@@ -368,4 +348,12 @@ function formatPeriod(from: string, to: string) {
   const format = (date: string) =>
     dayFormat.format(new Date(`${date}T00:00:00Z`));
   return from === to ? format(from) : `${format(from)} — ${format(to)}`;
+}
+
+function Unmeasured() {
+  return (
+    <span aria-label="не измеряется" className="text-muted-foreground">
+      —
+    </span>
+  );
 }

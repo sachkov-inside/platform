@@ -1,5 +1,5 @@
 import { BillingGuideSales } from "./features/list-guide-sales/list-guide-sales.js";
-import { BillingSurveyRespondentSales } from "./features/survey-respondents/survey-respondent-sales.js";
+import { BillingSurveyRespondentSales } from "./features/read-survey-respondent-sales/read-survey-respondent-sales.js";
 import { ReceiveTributeController } from "./features/receive-tribute/receive-tribute.controller.js";
 import { TributeConvergence } from "./facets/tribute-convergence/tribute-convergence.js";
 import {

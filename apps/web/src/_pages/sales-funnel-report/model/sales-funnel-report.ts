@@ -1,6 +1,7 @@
 import { z } from "zod";
 
-const countSchema = z.int().nonnegative().nullable();
+const amountSchema = z.int().nonnegative();
+const countSchema = amountSchema.nullable();
 const countsSchema = z.strictObject({
   entered: countSchema,
   consented: countSchema,
@@ -40,8 +41,8 @@ export const salesFunnelReportSchema = z.strictObject({
   total: countsSchema,
   surveyRespondents: z
     .strictObject({
-      uploaded: z.int().nonnegative(),
-      issued: z.int().nonnegative(),
+      uploaded: amountSchema,
+      issued: amountSchema,
       paid: countSchema,
     })
     .nullable(),
@@ -95,8 +96,13 @@ export interface SurveyRespondentsView {
   readonly issued: number;
   /** `null` — продукт не выбран. */
   readonly paid: number | null;
-  /** Доля купивших от получивших ссылку, например `25 %`; `null`, когда её не из чего считать. */
-  readonly share: string | null;
+  /** Доля купивших от получивших ссылку; `null`, когда её не из чего считать. */
+  readonly share: {
+    /** Например `25 %`. */
+    readonly percent: string;
+    /** Например `3 из 12`. */
+    readonly basis: string;
+  } | null;
 }
 
 const MOSCOW = "Europe/Moscow";
@@ -195,7 +201,13 @@ function presentSurveyRespondents(
     uploaded,
     issued,
     paid,
-    share: paid === null || issued === 0 ? null : percent.format(paid / issued),
+    share:
+      paid === null || issued === 0
+        ? null
+        : {
+            percent: percent.format(paid / issued),
+            basis: `${paid.toLocaleString("ru-RU")} из ${issued.toLocaleString("ru-RU")}`,
+          },
   };
 }
 

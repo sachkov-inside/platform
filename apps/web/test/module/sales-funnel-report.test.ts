@@ -133,7 +133,8 @@ describe("sales funnel report presentation", () => {
       issued: 12,
       paid: 3,
     });
-    expect(surveyRespondents?.share).toMatch(/^25\s%$/u);
+    expect(surveyRespondents?.share?.percent).toMatch(/^25\s%$/u);
+    expect(surveyRespondents?.share?.basis).toBe("3 из 12");
   });
 
   it("keeps a missing survey list or an unmeasured share apart from zero", () => {

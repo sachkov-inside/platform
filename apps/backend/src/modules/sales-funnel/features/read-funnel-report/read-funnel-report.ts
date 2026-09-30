@@ -123,8 +123,8 @@ export async function readFunnelReport(
       to,
     }),
   ]);
-  if (journal === undefined || !surveyRespondents.ok)
-    return failure("dependency_unavailable");
+  if (journal === undefined) return failure("dependency_unavailable");
+  if (!surveyRespondents.ok) return failure(surveyRespondents.error.code);
   const measured: Readonly<Record<PlatformStep, boolean>> = {
     openedChapter: guide !== undefined && chapter !== undefined,
     checkout: guide !== undefined,

@@ -479,42 +479,42 @@ describe("Sales funnel report on PostgreSQL", () => {
   test("counts survey respondents who bought the Guide through their personal link in the period", async () => {
     let respondent = 0;
     // Synthetic list entries: the report and this test never name a real respondent.
-    async function listed(issued: boolean) {
+    const listed = async (promotionId: string | null) => {
       respondent += 1;
-      const username = `respondent_${String(respondent)}`;
-      const promotionId = issued ? randomUUID() : null;
-      if (promotionId !== null)
-        await db.prisma.billingPromotion.create({
-          data: {
-            id: promotionId,
-            revision: 1,
-            name: "Скидка анкеты",
-            percent: 10,
-            code: `code-${promotionId}`,
-            startsAt: before,
-            endsAt: new Date("2030-12-31T00:00:00.000Z"),
-            offerIds: [],
-            paymentOptionIds: [],
-            usageLimit: 1,
-          },
-        });
       await db.prisma.billingSurveyRespondent.create({
         data: {
-          username,
+          username: `respondent_${String(respondent)}`,
           importedAt: before,
           promotionId,
-          issuedAt: issued ? before : null,
+          issuedAt: promotionId === null ? null : before,
         },
       });
+    };
+    async function withPersonalLink() {
+      const promotionId = randomUUID();
+      await db.prisma.billingPromotion.create({
+        data: {
+          id: promotionId,
+          revision: 1,
+          name: "Скидка анкеты",
+          percent: 10,
+          code: `code-${promotionId}`,
+          startsAt: before,
+          endsAt: new Date("2030-12-31T00:00:00.000Z"),
+          offerIds: [],
+          paymentOptionIds: [],
+          usageLimit: 1,
+        },
+      });
+      await listed(promotionId);
       return promotionId;
     }
     async function boughtWith(
-      promotionId: string | null,
+      promotionId: string,
       state: "confirmed" | "failed",
       at: Date,
       guide = guideId,
     ) {
-      if (promotionId === null) throw new Error("No personal link");
       const accountId = await account();
       const bought = await purchase(accountId, state, at, guide);
       await db.prisma.billingPromoReservation.create({
@@ -529,21 +529,20 @@ describe("Sales funnel report on PostgreSQL", () => {
       });
     }
 
-    const [paidInPeriod, paidBefore, failed, otherGuide, unused] = [
-      await listed(true),
-      await listed(true),
-      await listed(true),
-      await listed(true),
-      await listed(true),
-    ];
-    await listed(false);
-    await boughtWith(paidInPeriod, "confirmed", inside(18));
-    await boughtWith(paidBefore, "confirmed", before);
-    await boughtWith(failed, "failed", inside(18));
-    await boughtWith(otherGuide, "confirmed", inside(18), otherGuideId);
+    await boughtWith(await withPersonalLink(), "confirmed", inside(18));
+    await boughtWith(await withPersonalLink(), "confirmed", before);
+    await boughtWith(await withPersonalLink(), "failed", inside(18));
+    await boughtWith(
+      await withPersonalLink(),
+      "confirmed",
+      inside(18),
+      otherGuideId,
+    );
+    // An issued link nobody used and a listed username without a link.
+    await withPersonalLink();
+    await listed(null);
     // A full-price purchase without a personal link is not a respondent's purchase.
     await purchase(await account(), "confirmed", inside(18));
-    expect(unused).not.toBeNull();
 
     const report = await funnel.readReport(owner, { from, to, guideId });
     if (!report.ok) throw new Error(report.error.code);
