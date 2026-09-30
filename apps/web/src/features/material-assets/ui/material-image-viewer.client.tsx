@@ -19,11 +19,13 @@ import {
   FIT_VIEW,
   ZOOM_STEP,
   clampView,
-  fittedSize,
-  maxZoom,
+  isOnImage,
   panBy,
+  pinchView,
   toggleZoomAt,
+  viewerBounds,
   zoomAt,
+  type ViewerBounds,
   type ViewerPoint,
   type ViewerSize,
   type ViewerView,
@@ -71,7 +73,7 @@ export function MaterialImageViewer({
   const closeButton = useRef<HTMLButtonElement>(null);
   const captionId = useId();
   const [stageSize, setStageSize] = useState<ViewerSize>(EMPTY_SIZE);
-  const [storedView, setView] = useState<ViewerView>(FIT_VIEW);
+  const [storedView, setStoredView] = useState<ViewerView>(FIT_VIEW);
   const [animated, setAnimated] = useState(false);
   const [failed, setFailed] = useState(false);
   const pointers = useRef(new Map<number, ViewerPoint>());
@@ -80,16 +82,27 @@ export function MaterialImageViewer({
   const lastTap = useRef<{ at: number; point: ViewerPoint } | null>(null);
   const lastPointerType = useRef("mouse");
 
-  const image = { height, width };
-  const fitted = fittedSize(image, stageSize);
-  const limit = maxZoom(image, fitted);
+  const bounds = viewerBounds({ height, width }, stageSize);
   // После поворота экрана или смены окна прежний сдвиг может увести край картинки внутрь сцены.
-  const view = clampView(storedView, fitted, stageSize, limit);
-  // Последние значения для обработчика колеса, который подписан один раз.
-  const latest = useRef({ fitted, limit, stageSize });
+  const view = clampView(storedView, bounds);
+  // Последний заданный вид и границы для обработчиков, которые срабатывают чаще рендера: новый
+  // жест начинается с того, что уже на экране, а не с прошлого рендера.
+  const latestView = useRef(FIT_VIEW);
+  const latestBounds = useRef(bounds);
   useEffect(() => {
-    latest.current = { fitted, limit, stageSize };
+    latestBounds.current = bounds;
   });
+
+  const update = (
+    next: (current: ViewerView, bounds: ViewerBounds) => ViewerView,
+    animate: boolean,
+  ) => {
+    const current = clampView(latestView.current, latestBounds.current);
+    const result = next(current, latestBounds.current);
+    latestView.current = result;
+    setAnimated(animate);
+    setStoredView(result);
+  };
 
   useEffect(() => {
     const element = dialog.current;
@@ -131,17 +144,16 @@ export function MaterialImageViewer({
         return;
       const rate = event.ctrlKey ? PINCH_WHEEL_ZOOM_RATE : WHEEL_ZOOM_RATE;
       const point = stagePoint(area, event.clientX, event.clientY);
-      setAnimated(false);
-      setView((current) =>
-        zoomAt(
-          current,
-          current.scale * Math.exp(-event.deltaY * rate),
-          point,
-          latest.current.fitted,
-          latest.current.stageSize,
-          latest.current.limit,
-        ),
+      const current = clampView(latestView.current, latestBounds.current);
+      const result = zoomAt(
+        current,
+        current.scale * Math.exp(-event.deltaY * rate),
+        point,
+        latestBounds.current,
       );
+      latestView.current = result;
+      setAnimated(false);
+      setStoredView(result);
     };
     element.addEventListener("wheel", onWheel, { passive: false });
     return () => {
@@ -149,20 +161,11 @@ export function MaterialImageViewer({
     };
   }, []);
 
-  const change = (next: (current: ViewerView) => ViewerView) => {
-    setAnimated(true);
-    setView(next);
-  };
   const zoomBy = (factor: number) => {
-    change((current) =>
-      zoomAt(
-        current,
-        current.scale * factor,
-        { x: 0, y: 0 },
-        fitted,
-        stageSize,
-        limit,
-      ),
+    update(
+      (current, limits) =>
+        zoomAt(current, current.scale * factor, { x: 0, y: 0 }, limits),
+      true,
     );
   };
 
@@ -174,15 +177,20 @@ export function MaterialImageViewer({
       x: event.clientX,
       y: event.clientY,
     });
-    if (pointers.current.size === 1) moved.current = false;
-    gesture.current = startGesture(pointers.current, view);
+    // Два пальца — это щипок, а не нажатие, даже если они не сдвинулись.
+    moved.current = pointers.current.size > 1;
+    gesture.current = startGesture(
+      pointers.current,
+      clampView(latestView.current, bounds),
+    );
     setAnimated(false);
   };
 
   const onPointerMove = (event: PointerEvent<HTMLDivElement>) => {
     const previous = pointers.current.get(event.pointerId);
     const current = gesture.current;
-    if (previous === undefined || current === null) return;
+    const area = stage.current;
+    if (previous === undefined || current === null || area === null) return;
     pointers.current.set(event.pointerId, {
       x: event.clientX,
       y: event.clientY,
@@ -193,8 +201,6 @@ export function MaterialImageViewer({
       y: center.y - current.startCenter.y,
     };
     if (Math.hypot(shift.x, shift.y) > TAP_SLOP_PX) moved.current = true;
-    const area = stage.current;
-    if (area === null) return;
     if (pointers.current.size >= 2 && current.startDistance > 0) {
       const ratio = pointersDistance(pointers.current) / current.startDistance;
       const origin = stagePoint(
@@ -202,33 +208,35 @@ export function MaterialImageViewer({
         current.startCenter.x,
         current.startCenter.y,
       );
-      const zoomed = zoomAt(
-        current.startView,
-        current.startView.scale * ratio,
-        origin,
-        fitted,
-        stageSize,
-        limit,
+      update(
+        (_, limits) =>
+          pinchView(
+            current.startView,
+            current.startView.scale * ratio,
+            origin,
+            shift,
+            limits,
+          ),
+        false,
       );
-      setView(panBy(zoomed, shift, fitted, stageSize, limit));
     } else if (current.startView.scale > 1) {
-      setView(panBy(current.startView, shift, fitted, stageSize, limit));
+      update((_, limits) => panBy(current.startView, shift, limits), false);
     }
   };
 
   const onPointerUp = (event: PointerEvent<HTMLDivElement>) => {
     if (!pointers.current.delete(event.pointerId)) return;
     const area = stage.current;
+    const shown = clampView(latestView.current, bounds);
     if (pointers.current.size > 0) {
       // Один палец остался после щипка: дальше он двигает картинку от нового положения.
-      gesture.current = startGesture(pointers.current, view);
+      gesture.current = startGesture(pointers.current, shown);
       return;
     }
     gesture.current = null;
     if (moved.current || area === null || event.type === "pointercancel")
       return;
     const point = stagePoint(area, event.clientX, event.clientY);
-    const onImage = isOnImage(point, view, fitted);
     if (event.pointerType !== "mouse") {
       const previous = lastTap.current;
       if (
@@ -238,14 +246,12 @@ export function MaterialImageViewer({
           TAP_SLOP_PX * 3
       ) {
         lastTap.current = null;
-        change((current) =>
-          toggleZoomAt(current, point, fitted, stageSize, limit),
-        );
+        update((current, limits) => toggleZoomAt(current, point, limits), true);
         return;
       }
       lastTap.current = { at: event.timeStamp, point };
     }
-    if (!onImage && view.scale === 1) onClose();
+    if (!isOnImage(point, shown, bounds) && shown.scale === 1) onClose();
   };
 
   const onKeyDown = (event: KeyboardEvent<HTMLDialogElement>) => {
@@ -254,9 +260,9 @@ export function MaterialImageViewer({
     if (event.key === "Escape") onClose();
     else if (event.key === "+" || event.key === "=") zoomBy(ZOOM_STEP);
     else if (event.key === "-" || event.key === "_") zoomBy(1 / ZOOM_STEP);
-    else if (event.key === "0") change(() => FIT_VIEW);
+    else if (event.key === "0") update(() => FIT_VIEW, true);
     else if (arrow !== null && view.scale > 1)
-      change((current) => panBy(current, arrow, fitted, stageSize, limit));
+      update((current, limits) => panBy(current, arrow, limits), true);
     else return;
     event.preventDefault();
   };
@@ -267,7 +273,7 @@ export function MaterialImageViewer({
     <dialog
       aria-describedby={hasText(caption) ? captionId : undefined}
       aria-label={`${label}, просмотр крупно`}
-      className="fixed inset-0 m-0 flex h-dvh max-h-none w-screen max-w-none touch-none flex-col overflow-hidden bg-neutral-950 p-0 text-white outline-none backdrop:bg-neutral-950"
+      className="fixed inset-0 m-0 flex h-dvh max-h-none w-screen max-w-none touch-none flex-col overflow-hidden bg-sidebar p-0 text-sidebar-foreground outline-none backdrop:bg-sidebar"
       onCancel={(event) => {
         event.preventDefault();
         onClose();
@@ -278,7 +284,7 @@ export function MaterialImageViewer({
       <div className="flex shrink-0 items-center justify-end gap-1 p-2 sm:p-3">
         <div
           aria-label="Масштаб"
-          className="mr-auto flex items-center gap-1 rounded-xl bg-white/10 p-1"
+          className="mr-auto flex items-center gap-1 rounded-xl bg-sidebar-accent p-1"
           role="group"
         >
           <ViewerButton
@@ -297,7 +303,7 @@ export function MaterialImageViewer({
             {`${String(Math.round(view.scale * 100))}%`}
           </output>
           <ViewerButton
-            disabled={view.scale >= limit}
+            disabled={view.scale >= bounds.limit}
             label="Приблизить"
             onClick={() => {
               zoomBy(ZOOM_STEP);
@@ -309,7 +315,7 @@ export function MaterialImageViewer({
             disabled={view.scale === 1 && view.x === 0 && view.y === 0}
             label="Вписать в экран"
             onClick={() => {
-              change(() => FIT_VIEW);
+              update(() => FIT_VIEW, true);
             }}
           >
             <Scan />
@@ -329,9 +335,10 @@ export function MaterialImageViewer({
           // Двойное касание пальцем уже обработано в onPointerUp.
           if (area === null || lastPointerType.current !== "mouse") return;
           const point = stagePoint(area, event.clientX, event.clientY);
-          if (!isOnImage(point, view, fitted)) return;
-          change((current) =>
-            toggleZoomAt(current, point, fitted, stageSize, limit),
+          if (!isOnImage(point, view, bounds)) return;
+          update(
+            (current, limits) => toggleZoomAt(current, point, limits),
+            true,
           );
         }}
         onPointerCancel={onPointerUp}
@@ -341,13 +348,22 @@ export function MaterialImageViewer({
         ref={stage}
       >
         {failed ? (
-          <p
-            className="absolute inset-0 flex items-center justify-center p-6 text-center text-sm text-white/80"
+          <div
+            className="absolute inset-0 flex flex-col items-center justify-center gap-2 p-6 text-center text-sm text-sidebar-foreground/80"
             role="status"
           >
-            Не удалось загрузить изображение.
-          </p>
-        ) : fitted.width > 0 ? (
+            <span>Не удалось загрузить изображение.</span>
+            <button
+              className="rounded px-2 py-1 text-sidebar-foreground underline"
+              onClick={() => {
+                setFailed(false);
+              }}
+              type="button"
+            >
+              Загрузить снова
+            </button>
+          </div>
+        ) : bounds.fitted.width > 0 ? (
           // oxlint-disable-next-line next/no-img-element -- The protected route needs the viewer's session.
           <img
             alt={alt}
@@ -364,9 +380,9 @@ export function MaterialImageViewer({
             }}
             src={src}
             style={{
-              height: fitted.height,
+              height: bounds.fitted.height,
               transform: `translate(-50%, -50%) translate(${String(view.x)}px, ${String(view.y)}px) scale(${String(view.scale)})`,
-              width: fitted.width,
+              width: bounds.fitted.width,
             }}
             width={width}
           />
@@ -374,7 +390,7 @@ export function MaterialImageViewer({
       </div>
       {hasText(caption) ? (
         <p
-          className="shrink-0 px-4 py-3 text-center text-sm text-white/80"
+          className="shrink-0 px-4 py-3 text-center text-sm text-sidebar-foreground/80"
           id={captionId}
         >
           {caption}
@@ -400,7 +416,7 @@ function ViewerButton({
   return (
     <Button
       aria-label={label}
-      className="size-11 text-white hover:bg-white/15 hover:text-white [&_svg:not([class*='size-'])]:size-5"
+      className="size-11 text-sidebar-foreground hover:bg-sidebar-accent hover:text-sidebar-accent-foreground [&_svg:not([class*='size-'])]:size-5"
       disabled={disabled}
       onClick={onClick}
       ref={ref}
@@ -420,17 +436,6 @@ function stagePoint(area: HTMLElement, x: number, y: number): ViewerPoint {
     x: x - rect.left - rect.width / 2,
     y: y - rect.top - rect.height / 2,
   };
-}
-
-function isOnImage(
-  point: ViewerPoint,
-  view: ViewerView,
-  fitted: ViewerSize,
-): boolean {
-  return (
-    Math.abs(point.x - view.x) <= (fitted.width * view.scale) / 2 &&
-    Math.abs(point.y - view.y) <= (fitted.height * view.scale) / 2
-  );
 }
 
 function startGesture(

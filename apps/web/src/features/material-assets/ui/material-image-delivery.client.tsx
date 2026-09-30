@@ -5,11 +5,12 @@ import { useEffect, useRef, useState } from "react";
 
 import { hasText } from "@/shared/lib/text";
 
+import type { ViewerSize } from "../model/image-viewer-view";
 import { MaterialImageViewer } from "./material-image-viewer.client";
 
 /**
  * Keep failed protected deliveries visible and retryable without reloading the article. With
- * `zoom`, a click opens `src` — the largest variant of that size — in a full-screen viewer.
+ * `viewerSize`, a click opens `src` — the largest variant of that size — in a full-screen viewer.
  */
 export function MaterialImageDelivery({
   alt,
@@ -19,7 +20,7 @@ export function MaterialImageDelivery({
   src,
   srcSet,
   width,
-  zoom,
+  viewerSize,
 }: {
   readonly alt: string;
   readonly caption?: string | undefined;
@@ -28,8 +29,7 @@ export function MaterialImageDelivery({
   readonly src: string;
   readonly srcSet: string;
   readonly width: number;
-  readonly zoom?:
-    { readonly height: number; readonly width: number } | undefined;
+  readonly viewerSize?: ViewerSize | undefined;
 }) {
   const [failed, setFailed] = useState(false);
   const [viewing, setViewing] = useState(false);
@@ -85,7 +85,7 @@ export function MaterialImageDelivery({
             Загрузить снова
           </button>
         </div>
-      ) : zoom !== undefined ? (
+      ) : viewerSize !== undefined ? (
         <button
           aria-haspopup="dialog"
           aria-label={
@@ -111,17 +111,17 @@ export function MaterialImageDelivery({
       ) : (
         image
       )}
-      {viewing && zoom !== undefined ? (
+      {viewing && viewerSize !== undefined ? (
         <MaterialImageViewer
           alt={alt}
           caption={caption}
-          height={zoom.height}
+          height={viewerSize.height}
           onClose={() => {
             returnFocus.current = true;
             setViewing(false);
           }}
           src={src}
-          width={zoom.width}
+          width={viewerSize.width}
         />
       ) : null}
     </div>

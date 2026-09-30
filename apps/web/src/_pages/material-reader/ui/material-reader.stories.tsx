@@ -897,6 +897,49 @@ export const ImageViewer: Story = {
       expect(canvas.queryByRole("dialog")).not.toBeInTheDocument(),
     );
     await expect(trigger).toHaveFocus();
+    await userEvent.keyboard("{Enter}");
+    await expect(
+      await canvas.findByRole("dialog", {
+        name: `${readerImageAlt}, просмотр крупно`,
+      }),
+    ).toBeInTheDocument();
+    await userEvent.keyboard("{Escape}");
+    await waitFor(() =>
+      expect(canvas.queryByRole("dialog")).not.toBeInTheDocument(),
+    );
+  },
+};
+
+/** Если крупная картинка не загрузилась, окно предлагает загрузить её снова, а не тупик. */
+export const ImageViewerFailed: Story = {
+  args: { mode: "desktop" },
+  globals: { viewport: { isRotated: false, value: "desktop1440" } },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await userEvent.click(
+      canvas.getByRole("button", {
+        name: `Открыть изображение крупно: ${readerImageAlt}`,
+      }),
+    );
+    const dialog = await canvas.findByRole("dialog", {
+      name: `${readerImageAlt}, просмотр крупно`,
+    });
+    const viewer = within(dialog);
+    const failure = "Не удалось загрузить изображение.";
+    // Окно рисует картинку после замера сцены. В тестовом запуске файл картинки может не прийти
+    // вовсе; если он загрузился, ошибку вызывает сама история.
+    const image = await waitFor(() => {
+      const shown = viewer.queryByRole("img", { name: readerImageAlt });
+      if (shown === null && viewer.queryByText(failure) === null)
+        throw new Error("Картинка ещё не появилась.");
+      return shown;
+    });
+    image?.dispatchEvent(new Event("error"));
+    await expect(await viewer.findByText(failure)).toBeVisible();
+    await expect(
+      viewer.getByRole("button", { name: "Загрузить снова" }),
+    ).toBeEnabled();
+    await expect(viewer.getByRole("button", { name: "Закрыть" })).toBeVisible();
   },
 };
 

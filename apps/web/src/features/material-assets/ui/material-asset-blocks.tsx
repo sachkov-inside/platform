@@ -58,7 +58,7 @@ export function MaterialAssetImage({
           .map((variant) => `${url(variant.width)} ${String(variant.width)}w`)
           .join(", ")}
         width={width}
-        zoom={zoomable ? available : undefined}
+        viewerSize={zoomable ? available : undefined}
       />
       {caption === undefined ? null : (
         <figcaption className="px-2 py-2 text-center text-sm text-muted-foreground">
