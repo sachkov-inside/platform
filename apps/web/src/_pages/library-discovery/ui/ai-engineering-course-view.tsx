@@ -25,16 +25,18 @@ import {
 import type { Route } from "next";
 import type { CSSProperties, ReactNode } from "react";
 
-import type {
-  GuidePage,
-  GuidePageBlock,
-  GuidePageBlockOf,
+import {
+  fillGuidePage,
+  type GuidePage,
+  type GuidePageBlock,
+  type GuidePageBlockOf,
 } from "@/entities/guide-page";
 import {
   CourseHero,
   CourseIcon,
   type CourseIconName,
 } from "@/features/ai-engineering-course";
+import { fillOneTimeTerms as fillTerms } from "@/features/billing-checkout.terms";
 import type { PublishedSeriesResult } from "@/features/library-discovery";
 import type { MaterialReaderReturnTarget } from "@/shared/routing/material-reader";
 import { guideProgrammeHref } from "@/shared/routing/subscription-route";
@@ -48,6 +50,7 @@ import {
   OpenCodeLogo,
 } from "./agent-logos";
 
+import { countFreeLessons } from "../model/free-lessons";
 import "./ai-first-guide-view.css";
 import "./ai-engineering-course-view.css";
 
@@ -64,7 +67,7 @@ type ResolvedSeriesResult = Extract<
  */
 export function AiEngineeringCourseView({
   result,
-  page,
+  page: sourcePage,
   returnTarget,
 }: {
   readonly result: ResolvedSeriesResult;
@@ -73,12 +76,10 @@ export function AiEngineeringCourseView({
 }) {
   const { reference } = result;
   const programme = guideProgrammeHref(reference.slug);
-  const freeCount =
-    result.kind === "ready"
-      ? result.items.filter(
-          (item) => item.access === "free" && item.availability === "available",
-        ).length
-      : 0;
+  const hasFreeLessons =
+    countFreeLessons(result.kind === "ready" ? result.items : []) > 0;
+  // Автор пишет сроки оферты подстановкой; оформление получает уже готовый текст.
+  const page = fillGuidePage(sourcePage, fillTerms);
   const hero = page.blocks.find(
     (block): block is GuidePageBlockOf<"hero"> => block.kind === "hero",
   );
@@ -109,7 +110,7 @@ export function AiEngineeringCourseView({
       {page.blocks.map((block) => (
         <CourseBlock
           block={block}
-          freeCount={freeCount}
+          hasFreeLessons={hasFreeLessons}
           key={block.id}
           programme={programme}
         />
@@ -127,11 +128,11 @@ export function AiEngineeringCourseView({
 
 function CourseBlock({
   block,
-  freeCount,
+  hasFreeLessons,
   programme,
 }: {
   readonly block: GuidePageBlock;
-  readonly freeCount: number;
+  readonly hasFreeLessons: boolean;
   readonly programme: Route;
 }): ReactNode {
   switch (block.kind) {
@@ -156,7 +157,7 @@ function CourseBlock({
       return <Status block={block} programme={programme} />;
     // Приглашение к бесплатным урокам имеет смысл, только пока такие уроки есть (ADR 0026).
     case "trial":
-      return freeCount === 0 ? null : (
+      return hasFreeLessons ? (
         <section className="ai-guide-trial">
           <h2>{block.title}</h2>
           <p>{block.text}</p>
@@ -167,7 +168,7 @@ function CourseBlock({
             </IntentPrefetchLink>
           )}
         </section>
-      );
+      ) : null;
   }
 }
 
@@ -471,9 +472,7 @@ const topicTiles: readonly {
 function TopicGrid({ block }: { readonly block: GuidePageBlockOf<"cards"> }) {
   return (
     <section className="ai-guide-outcomes aie-topics">
-      {block.eyebrow === "" ? null : (
-        <p className="ai-guide-eyebrow">{block.eyebrow}</p>
-      )}
+      <Eyebrow text={block.eyebrow} />
       <h2>{block.title}</h2>
       {block.lead === "" ? null : (
         <p className="ai-guide-section-intro ai-guide-promise">{block.lead}</p>
@@ -501,9 +500,7 @@ function TopicGrid({ block }: { readonly block: GuidePageBlockOf<"cards"> }) {
           );
         })}
       </ul>
-      {block.note === "" ? null : (
-        <p className="ai-guide-career">{block.note}</p>
-      )}
+      <Note text={block.note} />
     </section>
   );
 }
@@ -515,9 +512,7 @@ function ChecklistCards({
 }) {
   return (
     <section className="ai-guide-audience">
-      {block.eyebrow === "" ? null : (
-        <p className="ai-guide-eyebrow">{block.eyebrow}</p>
-      )}
+      <Eyebrow text={block.eyebrow} />
       <h2>{block.title}</h2>
       {block.lead === "" ? null : (
         <p className="ai-guide-section-intro">{block.lead}</p>
@@ -531,19 +526,12 @@ function ChecklistCards({
             </dt>
             <dd>
               {item.text}
-              {item.detail === "" ? null : (
-                <span className="ai-guide-item-detail">
-                  {item.detailLabel === "" ? null : <>{item.detailLabel}: </>}
-                  {item.detail}
-                </span>
-              )}
+              <ItemDetail item={item} />
             </dd>
           </div>
         ))}
       </dl>
-      {block.note === "" ? null : (
-        <p className="ai-guide-career">{block.note}</p>
-      )}
+      <Note text={block.note} />
     </section>
   );
 }

@@ -217,7 +217,8 @@ these are the rules a change follows.
   Design a card or hero animation for its real slot, draw its icons with `lucide-react` and change
   scenes without morphing objects into each other; the owner's decisions of
   2026-09-13 and their reasons are in `docs/evidence/issue-614/ai-first-animation/README.md`.
-  The AI Engineering course film (#808) is the owner-accepted exception of 2026-09-30: a canvas
+  The AI Engineering course film (#808) is the owner-approved exception of 2026-09-30, confirmed
+  by the owner in the #808 session before merge: a canvas
   drawn by a pure function of time, whose dark card moves between the states of one episode, with
   no pause button and the final frame under reduced motion; its brief and critique are in
   `docs/evidence/issue-808/animation/README.md`. Its course page and Home card draw list icons with

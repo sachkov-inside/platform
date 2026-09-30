@@ -31,6 +31,7 @@ import type { MaterialReaderReturnTarget } from "@/shared/routing/material-reade
 import { guideProgrammeHref } from "@/shared/routing/subscription-route";
 import { IntentPrefetchLink } from "@/shared/ui/intent-prefetch-link.client";
 
+import { countFreeLessons } from "../model/free-lessons";
 import "./ai-first-guide-view.css";
 
 /**
@@ -47,12 +48,9 @@ export function AiFirstGuideView({
   readonly page: GuidePage;
   readonly returnTarget: MaterialReaderReturnTarget;
 }) {
-  const freeCount =
-    result.kind === "ready"
-      ? result.items.filter(
-          (item) => item.access === "free" && item.availability === "available",
-        ).length
-      : 0;
+  const freeCount = countFreeLessons(
+    result.kind === "ready" ? result.items : [],
+  );
   const context: BlockContext = {
     fill: fillTerms,
     programme: guideProgrammeHref(result.reference.slug),

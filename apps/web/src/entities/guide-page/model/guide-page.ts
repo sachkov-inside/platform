@@ -90,6 +90,87 @@ export const guidePageSchema = z
 
 export type GuidePage = z.infer<typeof guidePageSchema>;
 export type GuidePageBlock = GuidePage["blocks"][number];
+
+/**
+ * Подставляет сроки оферты во все тексты описания: автор пишет `{access_term}` и `{support_term}`,
+ * а оформление получает готовый текст и не пропускает ни одного поля (ADR 0026).
+ */
+export function fillGuidePage(
+  page: GuidePage,
+  fill: (text: string) => string,
+): GuidePage {
+  return {
+    ...page,
+    blocks: page.blocks.map((block) => fillBlock(block, fill)),
+  };
+}
+
+/** Подпись Главной берёт те же поля, что первый экран страницы, и так же получает сроки. */
+export function fillGuidePageHero(
+  hero: GuidePageHero,
+  fill: (text: string) => string,
+): GuidePageHero {
+  return {
+    badge: fill(hero.badge),
+    lead: fill(hero.lead),
+    highlights: hero.highlights.map(fill),
+  };
+}
+
+function fillBlock(
+  block: GuidePageBlock,
+  fill: (text: string) => string,
+): GuidePageBlock {
+  switch (block.kind) {
+    case "hero":
+      return { ...block, ...fillGuidePageHero(block, fill) };
+    case "cards":
+      return {
+        ...block,
+        eyebrow: fill(block.eyebrow),
+        title: fill(block.title),
+        lead: fill(block.lead),
+        note: fill(block.note),
+        items: block.items.map((item) => ({
+          title: fill(item.title),
+          text: fill(item.text),
+          detailLabel: fill(item.detailLabel),
+          detail: fill(item.detail),
+        })),
+      };
+    case "text":
+      return {
+        ...block,
+        title: fill(block.title),
+        paragraphs: block.paragraphs.map(fill),
+      };
+    case "steps":
+      return {
+        ...block,
+        title: fill(block.title),
+        lead: fill(block.lead),
+        link: fill(block.link),
+        items: block.items.map((item) => ({
+          title: fill(item.title),
+          text: fill(item.text),
+        })),
+      };
+    case "list":
+      return {
+        ...block,
+        title: fill(block.title),
+        text: fill(block.text),
+        items: block.items.map(fill),
+      };
+    case "trial":
+      return {
+        ...block,
+        title: fill(block.title),
+        text: fill(block.text),
+        link: fill(block.link),
+      };
+  }
+}
 export type GuidePageCard = z.infer<typeof cardSchema>;
 export type GuidePageBlockOf<K extends GuidePageBlock["kind"]> = Extract<
   GuidePageBlock,

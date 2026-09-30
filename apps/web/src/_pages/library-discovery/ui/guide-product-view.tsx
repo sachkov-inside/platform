@@ -27,6 +27,7 @@ import type { MaterialReaderReturnTarget } from "@/shared/routing/material-reade
 import { Button } from "@/shared/ui/button";
 import { IntentPrefetchLink } from "@/shared/ui/intent-prefetch-link.client";
 
+import { countFreeLessons } from "../model/free-lessons";
 import { AiEngineeringCourseView } from "./ai-engineering-course-view";
 import { AiFirstGuideView } from "./ai-first-guide-view";
 import { formatArtifactCount, formatChapterCount } from "./guide-counts";
@@ -126,9 +127,7 @@ function DefaultGuideProductView({
   const { reference } = result;
   const introduction = page === null ? (reference.introduction ?? null) : null;
   const items = result.kind === "ready" ? result.items : [];
-  const freeCount = items.filter(
-    (item) => item.access === "free" && item.availability === "available",
-  ).length;
+  const freeCount = countFreeLessons(items);
   // Бесплатный вход обещает открытые уроки, поэтому он показывается там же, где они есть.
   const freeEntry = freeCount === 0 ? undefined : freeEntryHref;
   const chapters = result.chapters;

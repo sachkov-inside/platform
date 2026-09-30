@@ -5,7 +5,10 @@ import { ArrowRight, Check, Code2, Terminal } from "lucide-react";
 import type { ReactNode } from "react";
 
 import { useMaterialReading } from "@/entities/material";
-import type { GuidePresentation } from "@/entities/guide-page";
+import {
+  fillGuidePageHero,
+  type GuidePresentation,
+} from "@/entities/guide-page";
 import { CourseHero } from "@/features/ai-engineering-course";
 import { AiFirstProcessArtwork } from "@/features/ai-first-guide";
 import { fillOneTimeTerms } from "@/features/billing-checkout.terms";
@@ -52,6 +55,7 @@ function AiEngineeringFeaturedGuide({
   readonly series: HomePinnedCollection;
 }) {
   if (series.hero === null) return <DefaultFeaturedGuide series={series} />;
+  const hero = fillGuidePageHero(series.hero, fillOneTimeTerms);
   const open =
     series.card === null || series.card.action === ""
       ? "Открыть курс"
@@ -67,11 +71,11 @@ function AiEngineeringFeaturedGuide({
           href: collectionDiscoveryHref("series", series.slug, "/"),
           label: open,
         }}
-        badge={series.hero.badge}
+        badge={hero.badge}
         heading="h2"
         headingId="featured-title"
-        highlights={series.hero.highlights}
-        lead={series.hero.lead}
+        highlights={hero.highlights}
+        lead={hero.lead}
         name={series.name}
       />
     </section>

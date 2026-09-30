@@ -1,4 +1,6 @@
 export {
+  fillGuidePage,
+  fillGuidePageHero,
   fillOfferTerms,
   readGuidePageCard,
   readGuidePageHero,
