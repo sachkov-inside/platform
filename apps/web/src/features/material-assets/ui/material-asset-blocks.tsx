@@ -13,6 +13,7 @@ export function MaterialAssetImage({
   preview = false,
   variants,
   width,
+  zoomable = true,
 }: {
   readonly alt: string;
   readonly assetId: string;
@@ -25,6 +26,8 @@ export function MaterialAssetImage({
   readonly variants?:
     readonly { readonly height: number; readonly width: number }[] | undefined;
   readonly width?: number | undefined;
+  /** The authoring canvas selects the image on click instead of opening the viewer. */
+  readonly zoomable?: boolean;
 }) {
   const responsiveVariants = variants ?? [];
   const available = responsiveVariants.at(-1);
@@ -47,6 +50,7 @@ export function MaterialAssetImage({
       <MaterialImageDelivery
         key={url(available.width)}
         alt={alt}
+        caption={caption}
         height={height}
         preview={preview}
         src={url(available.width)}
@@ -54,6 +58,7 @@ export function MaterialAssetImage({
           .map((variant) => `${url(variant.width)} ${String(variant.width)}w`)
           .join(", ")}
         width={width}
+        viewerSize={zoomable ? available : undefined}
       />
       {caption === undefined ? null : (
         <figcaption className="px-2 py-2 text-center text-sm text-muted-foreground">

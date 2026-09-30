@@ -862,6 +862,141 @@ export const Desktop: Story = {
   },
 };
 
+const readerImageAlt = "Маршрут от project rules через skill к evidence";
+
+/** Картинка урока открывается на весь экран, приближается и возвращает фокус после закрытия. */
+export const ImageViewer: Story = {
+  args: { mode: "desktop" },
+  globals: { viewport: { isRotated: false, value: "desktop1440" } },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    const trigger = canvas.getByRole("button", {
+      name: `Открыть изображение крупно: ${readerImageAlt}`,
+    });
+    await userEvent.click(trigger);
+    const viewer = within(
+      await canvas.findByRole("dialog", {
+        name: `${readerImageAlt}, просмотр крупно`,
+      }),
+    );
+    await expect(viewer.getByRole("button", { name: "Закрыть" })).toHaveFocus();
+    await expect(
+      viewer.getByText("Один authority, один workflow, одна проверка"),
+    ).toBeVisible();
+    await expect(
+      viewer.getByRole("button", { name: "Отдалить" }),
+    ).toBeDisabled();
+    await userEvent.click(viewer.getByRole("button", { name: "Приблизить" }));
+    await expect(viewer.getByText("150%")).toBeInTheDocument();
+    await userEvent.keyboard("+");
+    await expect(viewer.getByText("225%")).toBeInTheDocument();
+    await userEvent.keyboard("0");
+    await expect(viewer.getByText("100%")).toBeInTheDocument();
+    await userEvent.keyboard("{Escape}");
+    await waitFor(() =>
+      expect(canvas.queryByRole("dialog")).not.toBeInTheDocument(),
+    );
+    await expect(trigger).toHaveFocus();
+    await userEvent.keyboard("{Enter}");
+    await expect(
+      await canvas.findByRole("dialog", {
+        name: `${readerImageAlt}, просмотр крупно`,
+      }),
+    ).toBeInTheDocument();
+    await userEvent.keyboard("{Escape}");
+    await waitFor(() =>
+      expect(canvas.queryByRole("dialog")).not.toBeInTheDocument(),
+    );
+  },
+};
+
+/** Если крупная картинка не загрузилась, окно предлагает загрузить её снова, а не тупик. */
+export const ImageViewerFailed: Story = {
+  args: { mode: "desktop" },
+  globals: { viewport: { isRotated: false, value: "desktop1440" } },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await userEvent.click(
+      canvas.getByRole("button", {
+        name: `Открыть изображение крупно: ${readerImageAlt}`,
+      }),
+    );
+    const dialog = await canvas.findByRole("dialog", {
+      name: `${readerImageAlt}, просмотр крупно`,
+    });
+    const viewer = within(dialog);
+    const failure = "Не удалось загрузить изображение.";
+    // Окно рисует картинку после замера сцены. В тестовом запуске файл картинки может не прийти
+    // вовсе; если он загрузился, ошибку вызывает сама история.
+    const image = await waitFor(() => {
+      const shown = viewer.queryByRole("img", { name: readerImageAlt });
+      if (shown === null && viewer.queryByText(failure) === null)
+        throw new Error("Картинка ещё не появилась.");
+      return shown;
+    });
+    image?.dispatchEvent(new Event("error"));
+    await expect(await viewer.findByText(failure)).toBeVisible();
+    await expect(
+      viewer.getByRole("button", { name: "Загрузить снова" }),
+    ).toBeEnabled();
+    await expect(viewer.getByRole("button", { name: "Закрыть" })).toBeVisible();
+  },
+};
+
+/** Тёмная тема: окно на токенах `sidebar`, нажатие на фон без приближения закрывает его. */
+export const ImageViewerDark: Story = {
+  args: { mode: "desktop" },
+  globals: {
+    theme: "dark",
+    viewport: { isRotated: false, value: "desktop1440" },
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await userEvent.click(
+      canvas.getByRole("button", {
+        name: `Открыть изображение крупно: ${readerImageAlt}`,
+      }),
+    );
+    const dialog = await canvas.findByRole("dialog", {
+      name: `${readerImageAlt}, просмотр крупно`,
+    });
+    const stage = within(dialog).getByTestId("image-viewer-stage");
+    const box = stage.getBoundingClientRect();
+    await userEvent.pointer({
+      keys: "[MouseLeft]",
+      target: stage,
+      coords: { clientX: box.left + 8, clientY: box.bottom - 8 },
+    });
+    await waitFor(() =>
+      expect(canvas.queryByRole("dialog")).not.toBeInTheDocument(),
+    );
+  },
+};
+
+/** На телефоне просмотр занимает весь экран; история оставляет его открытым и приближенным. */
+export const ImageViewerMobile: Story = {
+  args: { mode: "desktop" },
+  globals: { viewport: { isRotated: false, value: "mobile390" } },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await userEvent.click(
+      canvas.getByRole("button", {
+        name: `Открыть изображение крупно: ${readerImageAlt}`,
+      }),
+    );
+    const dialog = await canvas.findByRole("dialog", {
+      name: `${readerImageAlt}, просмотр крупно`,
+    });
+    const viewer = within(dialog);
+    await userEvent.click(viewer.getByRole("button", { name: "Приблизить" }));
+    await expect(viewer.getByText("150%")).toBeInTheDocument();
+    const box = dialog.getBoundingClientRect();
+    const page = canvasElement.ownerDocument.documentElement;
+    await expect(box.width).toBe(page.clientWidth);
+    await expect(box.height).toBe(window.innerHeight);
+  },
+};
+
 export const VideoProcessing: Story = {
   args: { mode: "video-processing" },
   play: async ({ canvasElement }) => {
