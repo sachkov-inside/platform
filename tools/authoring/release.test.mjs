@@ -10,6 +10,8 @@ import { syncLocal } from "./local-sync.mjs";
 import { materialApplyRequest } from "./local-boundaries.mjs";
 import { applyRelease, previewRelease, releaseTarget } from "./release.mjs";
 import { itemAt, reservationBodySchema } from "./test-support.mjs";
+import { trustedTarget, trustedTransport } from "./target.mjs";
+import { parseEnv } from "../../scripts/identity-proof-bootstrap.mjs";
 
 const materialId = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
 
@@ -299,7 +301,6 @@ test("the trusted production target is reached only by an exact reviewed release
 });
 
 test("the trusted transport sends the owner's bearer only to the pinned HTTPS base", async (t) => {
-  const { trustedTarget, trustedTransport } = await import("./target.mjs");
   /** @type {{ url: string; headers: Headers }[]} */
   const seen = [];
   const original = globalThis.fetch;
@@ -326,62 +327,52 @@ test("a lost or unauthorized write is completed once with its key before a new p
   for (const fault of /** @type {const} */ ([
     "lost-response",
     "expired-session",
-  ])) {
-    const setup = await fixture(t);
-    const server = api("production");
-    const token = async () => "owner-access-token";
-    const options = { request: server.request, accessToken: token };
-    const reviewed = await previewRelease(setup.packagePath, setup.state, {
-      ...options,
-      origin: "production",
-      publish: ["one"],
-    });
-    server.faults.nextApply = fault;
-    await assert.rejects(applyRelease(reviewed.path, setup.state, options));
-    const committed = server.writes.length;
+  ]))
+    await t.test(fault, async (t) => {
+      const setup = await fixture(t);
+      const server = api("production");
+      const token = async () => "owner-access-token";
+      const options = { request: server.request, accessToken: token };
+      const reviewed = await previewRelease(setup.packagePath, setup.state, {
+        ...options,
+        origin: "production",
+        publish: ["one"],
+      });
+      server.faults.nextApply = fault;
+      await assert.rejects(applyRelease(reviewed.path, setup.state, options));
 
-    // Repeating apply first completes the unfinished write with its original key.
-    await assert.rejects(
-      applyRelease(reviewed.path, setup.state, options),
-      /changed after the preview/u,
-    );
-    const applies = server.writes.filter((path) => path.endsWith("/apply"));
-    assert.equal(applies.length, 1, fault);
-    assert.ok(server.writes.length >= committed);
+      // Repeating apply first completes the unfinished write with its original key.
+      await assert.rejects(
+        applyRelease(reviewed.path, setup.state, options),
+        /changed after the preview/u,
+      );
+      const applies = server.writes.filter((path) => path.endsWith("/apply"));
+      assert.equal(applies.length, 1, fault);
 
-    const fresh = await previewRelease(setup.packagePath, setup.state, {
-      ...options,
-      origin: "production",
-      publish: ["one"],
+      const fresh = await previewRelease(setup.packagePath, setup.state, {
+        ...options,
+        origin: "production",
+        publish: ["one"],
+      });
+      const report = await applyRelease(fresh.path, setup.state, options);
+      assert.equal(report.applied, 0, fault);
+      assert.equal(
+        server.writes.filter((path) => path.endsWith("/apply")).length,
+        1,
+        fault,
+      );
     });
-    const report = await applyRelease(fresh.path, setup.state, options);
-    assert.equal(report.applied, 0, fault);
-    assert.equal(
-      server.writes.filter((path) => path.endsWith("/apply")).length,
-      1,
-      fault,
-    );
-  }
 });
 
 test("the trusted production target matches the production API configuration", async () => {
-  const { trustedTarget } = await import("./target.mjs");
-  const env = Object.fromEntries(
-    (
-      await readFile(
-        new URL(
-          "../../config/compose/production/api.env.example",
-          import.meta.url,
-        ),
-        "utf8",
-      )
-    )
-      .split("\n")
-      .filter((line) => /^[A-Z_]+=/u.test(line))
-      .map((line) => [
-        line.slice(0, line.indexOf("=")),
-        line.slice(line.indexOf("=") + 1),
-      ]),
+  const env = parseEnv(
+    await readFile(
+      new URL(
+        "../../config/compose/production/api.env.example",
+        import.meta.url,
+      ),
+      "utf8",
+    ),
   );
   const production = trustedTarget("production");
   assert.equal(production.issuer, env["LOGTO_ISSUER"]);

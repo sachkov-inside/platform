@@ -12,7 +12,8 @@ import { loginHint } from "./target.mjs";
 const execute = promisify(execFile);
 // The loopback redirect registered for the native Logto application.
 export const loginPort = 47823;
-const loginTimeoutMs = 5 * 60_000;
+const loginTimeoutMinutes = 5;
+const loginTimeoutMs = loginTimeoutMinutes * 60_000;
 const discoveryTimeoutMs = 10_000;
 const tokenRequestTimeoutMs = 15_000;
 const millisecondsPerSecond = 1000;
@@ -212,7 +213,10 @@ export async function login(
       return;
     }
     const received = url.searchParams.get("code");
-    const refusal = url.searchParams.get("error");
+    // The refusal code is an OAuth error name; anything else is not repeated back.
+    const refusal = /^[a-z_]{1,64}$/u.exec(
+      url.searchParams.get("error") ?? "",
+    )?.[0];
     response
       .writeHead(received === null ? 400 : 200, {
         "content-type": "text/plain; charset=utf-8",
@@ -260,7 +264,7 @@ export async function login(
       () =>
         fail(
           new Error(
-            `Sign-in was not completed in ${String(loginTimeoutMs / 60_000)} minutes`,
+            `Sign-in was not completed in ${String(loginTimeoutMinutes)} minutes`,
           ),
         ),
       loginTimeoutMs,

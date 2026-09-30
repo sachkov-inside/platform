@@ -519,7 +519,8 @@ const previewSchema = z
   .strict();
 
 /**
- * Applies exactly the reviewed preview; any drift since the preview stops before the first write.
+ * Applies exactly the reviewed preview. Unfinished writes this journal already started are first
+ * completed with their original keys; any other drift since the preview stops before a new write.
  *
  * @param {string} previewPath
  * @param {string} stateDirectory

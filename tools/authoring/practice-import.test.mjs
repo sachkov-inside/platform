@@ -120,6 +120,9 @@ async function fixture(t) {
   };
 }
 
+/** @type {() => "published"} */
+const approved = () => "published";
+
 test("practice sync recovers a lost response with the same receipt and refuses a foreign withdrawal", async (t) => {
   const f = await fixture(t);
   await validateSourcePractices(manifest, f.request);
@@ -128,15 +131,20 @@ test("practice sync recovers a lost response with the same receipt and refuses a
     f.journal((c) => syncSourcePractices(manifest, c, f.request)),
     /response lost/u,
   );
+  // An unfinished publication resumes only with the same approval of its lesson.
+  await assert.rejects(
+    f.journal((c) => replayPracticeImports(c, f.request, () => "draft")),
+    /interrupted transfer was publishing this practice/u,
+  );
   await f.journal(async (c) => {
-    await replayPracticeImports(c, f.request);
+    await replayPracticeImports(c, f.request, approved);
     await syncSourcePractices(manifest, c, f.request);
   });
   assert.equal(f.calls(), 1);
   f.withdrawElsewhere();
   await assert.rejects(
     f.journal(async (c) => {
-      await replayPracticeImports(c, f.request);
+      await replayPracticeImports(c, f.request, approved);
       await syncSourcePractices(manifest, c, f.request);
     }),
     /target changed/u,

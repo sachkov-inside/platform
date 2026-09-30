@@ -682,7 +682,7 @@ export async function syncLocal(
       await persist();
     }
 
-    if (!shell) await replayPracticeImports(context, request);
+    if (!shell) await replayPracticeImports(context, request, publicationOfKey);
     // Only the writes this journal already started are completed; nothing new is sent.
     if (reconcileOnly) return report;
 

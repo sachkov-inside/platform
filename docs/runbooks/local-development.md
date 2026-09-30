@@ -1026,7 +1026,8 @@ shows its `publication`, a `publicationChange` from draft to published, or the c
 so `apply` publishes exactly what was reviewed. A Material missing from this state directory's
 journal appears as `new`, because Platform offers no read-only lookup by source key; `apply` still
 checks its real state before any write.
-`pnpm authoring:release apply --preview PREVIEW_JSON --state STATE_DIRECTORY` applies exactly that
+`pnpm authoring:release apply --preview PREVIEW_JSON --state STATE_DIRECTORY` first completes any
+write the journal left unfinished, with its original idempotency key, then applies exactly that
 preview and stops on drift, an edited preview or an unreviewed archive request. Drift covers
 Material versions, each Guide's version and its programme order, so a page edited on the target
 after the review is not overwritten; a preview also lists added and removed chapters. The only

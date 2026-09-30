@@ -38,16 +38,27 @@ export async function validateSourcePractices(manifest, request) {
     await request("/authoring/import/practices/validate", definition);
 }
 
-/** Recover an uncertain request before reading current versions; never invent another key.
+/** Recover an uncertain request before reading current versions; never invent another key. An
+ * unfinished publication of a practice resumes only when this run approves its lesson (#805).
  * @param {import('./journal.mjs').JournalContext} context
- * @param {import('./local-boundaries.mjs').LocalRequest} request */
-export async function replayPracticeImports(context, request) {
+ * @param {import('./local-boundaries.mjs').LocalRequest} request
+ * @param {(materialSourceId: string) => import('./local-sync.mjs').DesiredPublication} publicationOf */
+export async function replayPracticeImports(context, request, publicationOf) {
   const resources = (context.journal.resources ??= {});
   for (const entry of Object.values(context.journal.operations)) {
     if (!isJournalOperation(entry) || entry.status === "rejected") continue;
     const parsed = operationSchema.safeParse(entry.request);
     if (!parsed.success) continue;
     const operation = parsed.data;
+    if (
+      entry.status === "pending" &&
+      operation.body.publicationState === "published" &&
+      publicationOf(operation.body.sourceReference.materialSourceId) !==
+        "published"
+    )
+      throw new Error(
+        `${operation.body.practiceId}: an interrupted transfer was publishing this practice; repeat it with the same publication approval`,
+      );
     const key = `practice:${operation.body.practiceId}`;
     const previous =
       resources[key] === undefined
