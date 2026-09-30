@@ -3,12 +3,10 @@ import {
   ArrowRight,
   BookOpen,
   Bot,
-  Briefcase,
   Check,
   ChevronDown,
   Code2,
   Coins,
-  Compass,
   FileCode2,
   FileText,
   FolderGit2,
@@ -25,16 +23,14 @@ import {
   Search,
   ShieldCheck,
   Sparkles,
-  Target,
   Terminal,
-  TrendingUp,
   UserRound,
   Workflow,
   Wrench,
   type LucideIcon,
 } from "lucide-react";
 import type { Route } from "next";
-import type { ReactNode } from "react";
+import type { CSSProperties, ReactNode } from "react";
 
 import type {
   GuidePage,
@@ -758,27 +754,31 @@ function Audience({ block }: { readonly block: GuidePageBlockOf<"cards"> }) {
   );
 }
 
-const valueIcons = [Sparkles, TrendingUp, Compass, Briefcase, Target] as const;
-/** Что даёт курс: пять польз со значками, три в первом ряду и две во втором. */
+/**
+ * Что даёт курс: польза поднимается ступенями, как harness на обложке. Каждая ступень выше
+ * предыдущей, верхняя выделена акцентом. На телефоне ступени становятся вертикальным путём.
+ */
 function ValueGrid({ block }: { readonly block: GuidePageBlockOf<"cards"> }) {
   return (
     <section className="aie-value">
-      <h2>{block.title}</h2>
-      {block.lead === "" ? null : (
-        <p className="ai-guide-section-intro ai-guide-promise">{block.lead}</p>
-      )}
-      <ul>
-        {block.items.map((item, index) => {
-          const Icon = iconAt(valueIcons, index);
-          return (
-            <li key={`${String(index)}-${item.title}`}>
-              <Icon aria-hidden="true" />
-              <h3>{item.title}</h3>
-              <p>{item.text}</p>
-            </li>
-          );
-        })}
-      </ul>
+      <div className="aie-value-head">
+        <h2>{block.title}</h2>
+        {block.lead === "" ? null : <p>{block.lead}</p>}
+      </div>
+      <ol style={{ "--aie-steps": block.items.length } as CSSProperties}>
+        {block.items.map((item, index) => (
+          <li
+            key={`${String(index)}-${item.title}`}
+            style={{ "--aie-step": index } as CSSProperties}
+          >
+            <span aria-hidden="true" className="aie-value-number">
+              {String(index + 1).padStart(2, "0")}
+            </span>
+            <h3>{item.title}</h3>
+            <p>{item.text}</p>
+          </li>
+        ))}
+      </ol>
     </section>
   );
 }
