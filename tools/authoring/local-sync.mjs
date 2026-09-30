@@ -836,56 +836,37 @@ export async function syncLocal(
         ? []
         : await request("/authoring/collections?kind=guide");
     /**
-     * Обложка продукта — файл Content, как обложка урока: перенос ставит её тем же source-scoped
-     * маршрутом и помнит хеш, поэтому повтор без изменений ничего не загружает.
-     * @param {import("./package.mjs").Manifest["guides"][number]} guide
-     * @param {StoredGuide} current
-     * @param {string} key
+     * Ставит обложку урока или продукта через source-scoped маршрут. У маршрута нет ключа
+     * идемпотентности, поэтому перед запросом пишется пометка: повтор после потерянного ответа
+     * принимает конфликт 409 с тем же файлом как ту самую загрузку.
+     * @param {{ route: `/authoring/import/content-covers/${"material" | "series"}/${string}`, pendingKey: string, sourceKey: string, expectedCoverId: string | null, asset: Parameters<typeof readAsset>[0] & { sha256: string } }} upload
+     * @returns {Promise<string | null>}
      */
-    async function syncGuideCover(guide, current, key) {
-      const entry = journal.guides[key];
-      const coverAssetId = guide.coverAssetId ?? null;
-      if (entry === undefined) return;
-      const knownCoverId =
-        stringOrNull(entry["coverId"]) ?? storedCoverId(current["cover"]);
-      if (coverAssetId === null) {
-        if (entry["coverSha256"] !== undefined && entry["coverSha256"] !== null)
-          report.notices.push({
-            code: "cover_removal_pending",
-            message: `Обложка продукта ${guide.sourceId} убрана из оригинала; снимите её в Platform вручную`,
-          });
-        return;
-      }
-      const asset = valueAt(assets, coverAssetId);
-      if (entry["coverSha256"] === asset.sha256) return;
-      const pendingKey = `cover-pending:guide:${current.id}`;
+    async function uploadCover({
+      route,
+      pendingKey,
+      sourceKey,
+      expectedCoverId,
+      asset,
+    }) {
       const pending = parseReceipt(
         pendingCoverReceiptSchema,
         resources[pendingKey],
       );
-      resources[pendingKey] = {
-        sha256: asset.sha256,
-        expectedCoverId: knownCoverId,
-      };
+      resources[pendingKey] = { sha256: asset.sha256, expectedCoverId };
       await persist();
       const form = fileForm(
-        { sourceId: key, expectedCoverId: knownCoverId ?? "null" },
+        { sourceId: sourceKey, expectedCoverId: expectedCoverId ?? "null" },
         await readAsset(asset),
         asset,
       );
       let coverId;
       try {
         coverId =
-          (
-            await request(
-              `/authoring/import/content-covers/series/${current.id}`,
-              form,
-              undefined,
-              { method: "PUT" },
-            )
-          ).cover?.coverId ?? null;
+          (await request(route, form, undefined, { method: "PUT" })).cover
+            ?.coverId ?? null;
       } catch (error) {
-        // Как у урока: конфликт после незавершённой загрузки того же файла — это та самая загрузка.
+        // Imported covers change only through this source, so a conflict after an unfinished upload is that upload.
         const currentCoverId = failureBodyField(error, "currentCoverId");
         if (
           failureStatus(error) !== 409 ||
@@ -896,6 +877,38 @@ export async function syncLocal(
         coverId = currentCoverId;
       }
       delete resources[pendingKey];
+      return coverId;
+    }
+
+    /**
+     * Обложка продукта — файл Content, как обложка урока: перенос ставит её тем же source-scoped
+     * маршрутом и помнит хеш, поэтому повтор без изменений ничего не загружает.
+     * @param {import("./package.mjs").Manifest["guides"][number]} guide
+     * @param {StoredGuide} current
+     * @param {string} key
+     */
+    async function syncGuideCover(guide, current, key) {
+      const entry = journal.guides[key];
+      const coverAssetId = guide.coverAssetId ?? null;
+      if (entry === undefined) return;
+      const knownCoverId = entry.coverId ?? storedCoverId(current["cover"]);
+      if (coverAssetId === null) {
+        if (entry.coverSha256 !== undefined && entry.coverSha256 !== null)
+          report.notices.push({
+            code: "cover_removal_pending",
+            message: `Обложка продукта ${guide.sourceId} убрана из оригинала; снимите её в Platform вручную`,
+          });
+        return;
+      }
+      const asset = valueAt(assets, coverAssetId);
+      if (entry.coverSha256 === asset.sha256) return;
+      const coverId = await uploadCover({
+        route: `/authoring/import/content-covers/series/${current.id}`,
+        pendingKey: `cover-pending:guide:${current.id}`,
+        sourceKey: key,
+        expectedCoverId: knownCoverId,
+        asset,
+      });
       journal.guides[key] = {
         ...entry,
         coverId,
@@ -1248,49 +1261,13 @@ export async function syncLocal(
       }
       const asset = valueAt(assets, row.coverAssetId);
       if (known.coverSha256 === asset.sha256) return known;
-      const bytes = await readAsset(asset);
-      // The cover route has no idempotency key: a pending marker lets a retry adopt a change the lost response hid.
-      const pendingKey = `cover-pending:${current.materialId}`;
-      const pending = parseReceipt(
-        pendingCoverReceiptSchema,
-        resources[pendingKey],
-      );
-      resources[pendingKey] = {
-        sha256: asset.sha256,
+      const coverId = await uploadCover({
+        route: `/authoring/import/content-covers/material/${current.materialId}`,
+        pendingKey: `cover-pending:${current.materialId}`,
+        sourceKey: sourceId(row.sourceId),
         expectedCoverId: known.coverId,
-      };
-      await persist();
-      const form = fileForm(
-        {
-          sourceId: sourceId(row.sourceId),
-          expectedCoverId: known.coverId ?? "null",
-        },
-        bytes,
         asset,
-      );
-      let coverId;
-      try {
-        coverId =
-          (
-            await request(
-              `/authoring/import/content-covers/material/${current.materialId}`,
-              form,
-              undefined,
-              { method: "PUT" },
-            )
-          ).cover?.coverId ?? null;
-      } catch (error) {
-        // Imported covers change only through this source, so a conflict after an unfinished upload is that upload.
-        const currentCoverId = failureBodyField(error, "currentCoverId");
-        if (
-          failureStatus(error) !== 409 ||
-          pending?.sha256 !== asset.sha256 ||
-          typeof currentCoverId !== "string"
-        )
-          throw error;
-        coverId = currentCoverId;
-      }
-      delete resources[pendingKey];
+      });
       return { coverId, coverSha256: asset.sha256 };
     }
 

@@ -11,6 +11,13 @@ it("сохраняет контекст страницы продукта и о�
     returnTo: "/subscription?from=%2Fproducts%2Fplatform-inside",
     originHref: "/products/platform-inside",
   });
+  // Прежние адреса продукта перенаправляются на `/products/`, поэтому возврат на них остаётся.
+  expect(subscriptionRouteTarget("/guides/platform-inside").originHref).toBe(
+    "/guides/platform-inside",
+  );
+  expect(subscriptionRouteTarget("/series/platform-inside").originHref).toBe(
+    "/series/platform-inside",
+  );
   expect(subscriptionRouteTarget(["/topics/platform"]).originHref).toBe(
     "/topics/platform",
   );

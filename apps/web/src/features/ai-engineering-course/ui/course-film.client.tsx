@@ -128,10 +128,12 @@ export function CourseFilm({
     };
   }, [playing, visible, ready]);
 
-  // Reduced motion — итоговый кадр.
+  // Без движения — всегда итоговый кадр, даже если reduced motion включили посреди проигрывания.
+  // Если движение вернут, фильм начнётся заново.
   useEffect(() => {
     if (playing || !ready) return;
-    if (!started.current) time.current = FILM_POSTER_TIME;
+    time.current = FILM_POSTER_TIME;
+    started.current = false;
     paintRef.current?.();
   }, [playing, ready]);
 

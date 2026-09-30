@@ -10,7 +10,8 @@ import { guidePath } from "./public-page-path";
  */
 const publicOriginSections = [
   "/products/",
-  "/products/",
+  // Прежние адреса продукта перенаправляются на `/products/`, поэтому старый возврат остаётся рабочим.
+  "/guides/",
   "/series/",
   "/topics/",
   "/materials/",

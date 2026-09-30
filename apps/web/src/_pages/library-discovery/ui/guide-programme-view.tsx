@@ -22,11 +22,11 @@ import {
 import "./guide-programme-view.css";
 
 import { formatChapterCount } from "./guide-counts";
+import { programmePurchaseRowClass } from "./programme-purchase-row";
 import { SeriesJourney } from "./series-journey";
 import {
   PendingPurchaseRow,
   PendingSeriesLearning,
-  programmePurchaseRowClass,
   ProgrammeProgress,
   SeriesLearningProvider,
   type SeriesLearningView,

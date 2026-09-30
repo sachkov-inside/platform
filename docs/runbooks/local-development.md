@@ -971,7 +971,10 @@ What the transfer applies:
   diagrams are rasterized to PNG for the image upload boundary; the source package keeps its SVG. Paid Materials
   validate inside their product; `supplementary_materials` join the product after the programme
   without a chapter, which is its "Additional Materials" part.
-- Material covers through `PUT /authoring/import/content-covers/material/:id`, and Material
+- Material covers through `PUT /authoring/import/content-covers/material/:id`, and the product
+  cover (`guide.yaml` keys `cover` and `cover_alt`) through
+  `PUT /authoring/import/content-covers/series/:id`; a cover removed from the original is reported
+  as the `cover_removal_pending` notice and taken down in Platform by hand. Material
   artifacts as authoring-owned Guide artifacts linked to every declaring Material that is published.
 - An existing provider record named by `platform_video.kinescope_id`: attached, reconciled until
   ready and saved with the original's video chapters.

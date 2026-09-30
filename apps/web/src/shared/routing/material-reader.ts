@@ -111,16 +111,13 @@ function readReturnTarget(
   if (slug === undefined || !slugPattern.test(slug)) return undefined;
   const routeKind =
     match[3] === undefined ? (match[1] ?? match[4]) : "products";
+  // Прежние `/guides` и `/series` перенаправляются на `/products`, поэтому старый возврат работает.
+  const toProduct = routeKind !== "topics";
   if (url.search.length > 0) {
     const from = singleSearchValue(url.searchParams, "from");
     const page = singleSearchValue(url.searchParams, "page");
     const at = singleSearchValue(url.searchParams, "at");
-    const allowed =
-      routeKind === "products" ||
-      routeKind === "series" ||
-      routeKind === "guides"
-        ? ["from", "page", "at"]
-        : ["from"];
+    const allowed = toProduct ? ["from", "page", "at"] : ["from"];
     if (
       depth >= 3 ||
       [...url.searchParams.keys()].some(
@@ -140,12 +137,7 @@ function readReturnTarget(
   }
 
   const href = internalRoute(`${url.pathname}${url.search}`);
-  // Прежние `/guides` и `/series` перенаправляются на `/products`, поэтому старый возврат работает.
-  if (
-    routeKind === "products" ||
-    routeKind === "series" ||
-    routeKind === "guides"
-  ) {
+  if (toProduct) {
     return {
       href,
       kind: "series",
@@ -153,10 +145,7 @@ function readReturnTarget(
       seriesSlug: slug,
     };
   }
-  if (routeKind === "topics") {
-    return { href, kind: "topic", label: "Назад к теме" };
-  }
-  return undefined;
+  return { href, kind: "topic", label: "Назад к теме" };
 }
 
 function singleSearchValue(

@@ -110820,15 +110820,21 @@
                           "nullable": true,
                           "properties": {
                             "badge": {
+                              "default": "",
+                              "maxLength": 200,
                               "type": "string"
                             },
                             "highlights": {
                               "items": {
+                                "minLength": 1,
                                 "type": "string"
                               },
+                              "maxItems": 12,
+                              "minItems": 0,
                               "type": "array"
                             },
                             "lead": {
+                              "minLength": 1,
                               "type": "string"
                             }
                           },

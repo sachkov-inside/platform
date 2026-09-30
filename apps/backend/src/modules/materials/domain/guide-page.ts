@@ -50,13 +50,15 @@ const blockId = z.string().regex(/^[a-z][a-z0-9-]{0,63}$/u);
 const block = <K extends string, S extends z.ZodRawShape>(kind: K, shape: S) =>
   z.object({ id: blockId, kind: z.literal(kind), ...shape }).strict();
 
+const heroBlock = block("hero", {
+  // Короткая метка рядом с названием; описания, перенесённые до её появления, читаются без неё.
+  badge: short.default(""),
+  lead: requiredLong,
+  highlights: list(requiredShort, 0),
+});
+
 export const guidePageBlockSchema = z.discriminatedUnion("kind", [
-  block("hero", {
-    // Короткая метка рядом с названием; описания, перенесённые до её появления, читаются без неё.
-    badge: short.default(""),
-    lead: requiredLong,
-    highlights: list(requiredShort, 0),
-  }),
+  heroBlock,
   block("cards", {
     eyebrow: short,
     title: requiredShort,
@@ -95,14 +97,8 @@ export const guidePageBlockSchema = z.discriminatedUnion("kind", [
   block("trial", { title: requiredShort, text: requiredLong, link: short }),
 ]);
 
-/** Первый экран продукта для карточки Главной: то же, что показывает страница продукта. */
-export const guidePageHeroSchema = z
-  .object({
-    badge: z.string(),
-    lead: z.string(),
-    highlights: z.array(z.string()),
-  })
-  .strict();
+/** Первый экран продукта для карточки Главной: поля блока `hero` без его `id` и вида. */
+export const guidePageHeroSchema = heroBlock.omit({ id: true, kind: true });
 export type GuidePageHero = z.infer<typeof guidePageHeroSchema>;
 
 /** Вводный блок описания, если он есть: одна запись, без второй копии текста. */

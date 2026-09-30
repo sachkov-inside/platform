@@ -22,16 +22,17 @@ const cardItemSchema = z
   })
   .strict();
 const stepSchema = z.object({ title: z.string(), text: z.string() }).strict();
+const heroBlockSchema = z
+  .object({
+    id: z.string(),
+    kind: z.literal("hero"),
+    badge: z.string().default(""),
+    lead: z.string(),
+    highlights: z.array(z.string()),
+  })
+  .strict();
 const blockSchema = z.discriminatedUnion("kind", [
-  z
-    .object({
-      id: z.string(),
-      kind: z.literal("hero"),
-      badge: z.string().default(""),
-      lead: z.string(),
-      highlights: z.array(z.string()),
-    })
-    .strict(),
+  heroBlockSchema,
   z
     .object({
       id: z.string(),
@@ -165,19 +166,9 @@ export function readGuidePageCard(
   return null;
 }
 
-/** Первый экран продукта для карточки Главной: то же, что показывает страница продукта. */
-export interface GuidePageHero {
-  readonly badge: string;
-  readonly lead: string;
-  readonly highlights: readonly string[];
-}
-const heroSchema = z
-  .object({
-    badge: z.string().default(""),
-    lead: z.string(),
-    highlights: z.array(z.string()),
-  })
-  .strict();
+/** Первый экран продукта для карточки Главной: поля блока `hero` без его `id` и вида. */
+const heroSchema = heroBlockSchema.omit({ id: true, kind: true });
+export type GuidePageHero = z.infer<typeof heroSchema>;
 
 export function readGuidePageHero(
   value: unknown,

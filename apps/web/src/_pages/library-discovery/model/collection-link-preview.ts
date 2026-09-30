@@ -33,7 +33,7 @@ const TOPIC: CollectionKind = {
 };
 
 /**
- * Карточка ссылки на продукт. Канонический адрес всегда `/products/<slug>`: прежние `/products/<slug>`
+ * Карточка ссылки на продукт. Канонический адрес всегда `/products/<slug>`: прежние `/guides/<slug>`
  * и `/series/<slug>` перенаправляются туда и не спорят с ним в поиске.
  */
 export function guideLinkPreview(

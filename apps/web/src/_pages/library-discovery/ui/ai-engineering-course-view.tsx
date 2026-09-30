@@ -73,6 +73,12 @@ export function AiEngineeringCourseView({
 }) {
   const { reference } = result;
   const programme = guideProgrammeHref(reference.slug);
+  const freeCount =
+    result.kind === "ready"
+      ? result.items.filter(
+          (item) => item.access === "free" && item.availability === "available",
+        ).length
+      : 0;
   const hero = page.blocks.find(
     (block): block is GuidePageBlockOf<"hero"> => block.kind === "hero",
   );
@@ -101,7 +107,12 @@ export function AiEngineeringCourseView({
       </header>
 
       {page.blocks.map((block) => (
-        <CourseBlock block={block} key={block.id} programme={programme} />
+        <CourseBlock
+          block={block}
+          freeCount={freeCount}
+          key={block.id}
+          programme={programme}
+        />
       ))}
 
       <div className="ai-guide-sticky">
@@ -116,9 +127,11 @@ export function AiEngineeringCourseView({
 
 function CourseBlock({
   block,
+  freeCount,
   programme,
 }: {
   readonly block: GuidePageBlock;
+  readonly freeCount: number;
   readonly programme: Route;
 }): ReactNode {
   switch (block.kind) {
@@ -141,10 +154,42 @@ function CourseBlock({
         return <Status block={block} programme={programme} />;
       if (block.id === "agents") return <Agents block={block} />;
       return <Status block={block} programme={programme} />;
-    // Бесплатных уроков у анонса нет, а сроки оферты он не называет: приглашение не показываем.
+    // Приглашение к бесплатным урокам имеет смысл, только пока такие уроки есть (ADR 0026).
     case "trial":
-      return null;
+      return freeCount === 0 ? null : (
+        <section className="ai-guide-trial">
+          <h2>{block.title}</h2>
+          <p>{block.text}</p>
+          {block.link === "" ? null : (
+            <IntentPrefetchLink className="ai-guide-text-link" href={programme}>
+              {block.link}
+              <ArrowRight />
+            </IntentPrefetchLink>
+          )}
+        </section>
+      );
   }
+}
+
+type CardItem = GuidePageBlockOf<"cards">["items"][number];
+
+/**
+ * Необязательные поля карточек: оформление курса рисует их у каждого блока, чтобы написанное в
+ * описании продукта не пропадало (ADR 0026).
+ */
+function Eyebrow({ text }: { readonly text: string }) {
+  return text === "" ? null : <p className="ai-guide-eyebrow">{text}</p>;
+}
+function ItemDetail({ item }: { readonly item: CardItem }) {
+  return item.detail === "" ? null : (
+    <span className="ai-guide-item-detail">
+      {item.detailLabel === "" ? null : <>{item.detailLabel}: </>}
+      {item.detail}
+    </span>
+  );
+}
+function Note({ text }: { readonly text: string }) {
+  return text === "" ? null : <p className="ai-guide-career">{text}</p>;
 }
 
 const mentoringIcons: readonly CourseIconName[] = [
@@ -157,8 +202,10 @@ function Mentoring({ block }: { readonly block: GuidePageBlockOf<"cards"> }) {
   return (
     <section className="ai-guide-support aie-mentoring">
       <div className="ai-guide-support-intro">
+        <Eyebrow text={block.eyebrow} />
         <h2>{block.title}</h2>
         {block.lead === "" ? null : <p>{block.lead}</p>}
+        <Note text={block.note} />
       </div>
       <ul className="aie-mentoring-points">
         {block.items.map((item, index) => {
@@ -168,6 +215,7 @@ function Mentoring({ block }: { readonly block: GuidePageBlockOf<"cards"> }) {
               <span>
                 <b>{item.title}</b>
                 {item.text}
+                <ItemDetail item={item} />
               </span>
             </li>
           );
@@ -447,6 +495,7 @@ function TopicGrid({ block }: { readonly block: GuidePageBlockOf<"cards"> }) {
               <div className="aie-bento-copy">
                 <h3>{item.title}</h3>
                 <p>{item.text}</p>
+                <ItemDetail item={item} />
               </div>
             </li>
           );
@@ -660,6 +709,7 @@ const audienceIcons: readonly CourseIconName[] = [
 function Audience({ block }: { readonly block: GuidePageBlockOf<"cards"> }) {
   return (
     <section className="aie-audience">
+      <Eyebrow text={block.eyebrow} />
       <h2>{block.title}</h2>
       {block.lead === "" ? null : (
         <p className="ai-guide-section-intro">{block.lead}</p>
@@ -671,6 +721,7 @@ function Audience({ block }: { readonly block: GuidePageBlockOf<"cards"> }) {
               <CourseIcon name={audienceIcons[index] ?? "developer"} />
               <h3>{item.title}</h3>
               <p>{item.text}</p>
+              <ItemDetail item={item} />
             </li>
           );
         })}
@@ -699,6 +750,7 @@ function ValueGrid({ block }: { readonly block: GuidePageBlockOf<"cards"> }) {
   return (
     <section className="aie-value">
       <div className="aie-value-head">
+        <Eyebrow text={block.eyebrow} />
         <h2>{block.title}</h2>
         {block.lead === "" ? null : <p>{block.lead}</p>}
       </div>
@@ -718,10 +770,12 @@ function ValueGrid({ block }: { readonly block: GuidePageBlockOf<"cards"> }) {
               </span>
               <h3>{item.title}</h3>
               <p>{item.text}</p>
+              <ItemDetail item={item} />
             </li>
           );
         })}
       </ol>
+      <Note text={block.note} />
     </section>
   );
 }
@@ -731,6 +785,7 @@ function Faq({ block }: { readonly block: GuidePageBlockOf<"cards"> }) {
   return (
     <section className="aie-faq">
       <div className="aie-faq-head">
+        <Eyebrow text={block.eyebrow} />
         <h2>{block.title}</h2>
         {block.lead === "" ? null : (
           <p className="ai-guide-section-intro">{block.lead}</p>
@@ -743,7 +798,10 @@ function Faq({ block }: { readonly block: GuidePageBlockOf<"cards"> }) {
               <span>{item.title}</span>
               <ChevronDown aria-hidden="true" />
             </summary>
-            <p>{item.text}</p>
+            <p>
+              {item.text}
+              <ItemDetail item={item} />
+            </p>
           </details>
         ))}
       </div>

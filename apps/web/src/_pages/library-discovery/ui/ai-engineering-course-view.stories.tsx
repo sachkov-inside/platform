@@ -55,6 +55,94 @@ export const Desktop: Story = {
       );
     }
     await expect(canvas.queryByText(/Попробовать бесплатно/u)).toBeNull();
+    // Анимация стоит в слоте первого экрана, описана для скринридера и идёт без кнопки паузы.
+    const film = canvasElement.querySelector(".aie-hero-film");
+    if (film === null) throw new Error("Missing course film slot");
+    await expect(
+      within(film as HTMLElement).getByRole("img"),
+    ).toHaveAccessibleName(/harness/u);
+    await expect(within(film as HTMLElement).queryByRole("button")).toBeNull();
+  },
+};
+
+/**
+ * Необязательные поля карточек и приглашение к бесплатным урокам: оформление курса показывает всё
+ * написанное в описании продукта (ADR 0026).
+ */
+export const OptionalFields: Story = {
+  args: {
+    result: {
+      ...meta.args.result,
+      kind: "ready",
+      hasNext: false,
+      items: [
+        {
+          access: "free",
+          availability: "available",
+          format: "Гайд",
+          seriesMemberships: [
+            { name: "AI Engineering", ordinal: 1, slug: "ai-engineering" },
+          ],
+          slug: "course-intro",
+          summary: "Как устроен курс.",
+          tags: [],
+          title: "Как устроен курс",
+          topic: "Разработка",
+          topicSlug: "development",
+        },
+      ],
+      reference: {
+        ...meta.args.result.reference,
+        productPage: {
+          presentation: "ai-engineering-course",
+          page: {
+            ...aiEngineeringCoursePage,
+            blocks: [
+              ...aiEngineeringCoursePage.blocks.map((block) =>
+                block.kind === "cards"
+                  ? {
+                      ...block,
+                      eyebrow: `Надзаголовок ${block.id}`,
+                      note:
+                        block.note === "" ? `Заметка ${block.id}` : block.note,
+                      items: block.items.map((item, index) =>
+                        index === 0
+                          ? {
+                              ...item,
+                              detailLabel: "Итог",
+                              detail: `Подробность ${block.id}`,
+                            }
+                          : item,
+                      ),
+                    }
+                  : block,
+              ),
+              {
+                id: "trial",
+                kind: "trial" as const,
+                title: "Начни с бесплатных уроков",
+                text: "Первые уроки открыты всем.",
+                link: "Открыть бесплатные уроки",
+              },
+            ],
+          },
+        },
+      },
+    },
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    for (const id of ["mentoring", "topics", "value", "audience", "faq"]) {
+      await expect(canvas.getByText(`Надзаголовок ${id}`)).toBeInTheDocument();
+      await expect(
+        canvas.getByText(`Подробность ${id}`, { exact: false }),
+      ).toBeInTheDocument();
+    }
+    for (const id of ["mentoring", "value"])
+      await expect(canvas.getByText(`Заметка ${id}`)).toBeInTheDocument();
+    await expect(
+      canvas.getByRole("heading", { name: "Начни с бесплатных уроков" }),
+    ).toBeVisible();
   },
 };
 

@@ -36,12 +36,13 @@ Videos продолжает владеть Video identity и resume. Повто�
 
 ## HTTP, MCP и ссылки
 
-Новые страницы: `/guides/:slug`, `/authoring/guides`, `/authoring/guides/:seriesId`.
-Старые `/series/:slug` и `/authoring/playlists/...` остаются рабочими страницами той же реализации.
+Публичная страница продукта — `/products/:slug` (решение владельца 30.09.2026,
+[#808](https://github.com/sachkov-inside/platform/issues/808)); `/guides/:slug` и `/series/:slug`
+постоянно перенаправляются туда. Страницы автора — `/authoring/guides`, `/authoring/guides/:seriesId`;
+старые `/authoring/playlists/...` остаются рабочими страницами той же реализации.
 Параметры `from`, `page`, `at` сохраняются. Reader принимает оба вида адресов руководства,
 сохраняет явно выбранный состав и не выбирает руководство при прямом входе в Material.
-Новые ссылки каталога ведут в `/guides/`. С 30.09.2026 публичный адрес продукта — `/products/`, а
-`/guides/` и `/series/` постоянно перенаправляются туда ([#808](https://github.com/sachkov-inside/platform/issues/808)).
+Ссылки каталога ведут в `/products/`.
 
 Новые операции HTTP используют существующие авторизацию, ошибки, cache policy и application calls:
 

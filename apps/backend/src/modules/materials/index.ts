@@ -16,7 +16,6 @@ export type {
 } from "./facets/material-authoring/content-collection.contract.js";
 export {
   guidePageCardSchema,
-  guidePageHero,
   guidePageHeroSchema,
   guidePageSchema,
   type GuidePageCard,

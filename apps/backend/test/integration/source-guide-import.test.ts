@@ -29,6 +29,7 @@ const page = {
     {
       id: "hero",
       kind: "hero" as const,
+      badge: "",
       lead: "Лид страницы.",
       highlights: ["Твой стек", "Поддержка {support_term}"],
     },
