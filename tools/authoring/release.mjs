@@ -30,6 +30,7 @@ import {
   guideDetailsMatch,
   guideShellComposition,
   normalizeSourceIds,
+  pendingOperations,
   valueAt,
   sourceKey,
   syncLocal,
@@ -420,6 +421,10 @@ export async function previewRelease(
     packagePath: resolve(packagePath),
     namespace: manifest.sourceNamespace,
     ...(shell ? { scope: guideShellScope.value } : {}),
+    // A shell leaves these writes for their own package; the reviewer sees them before apply.
+    ...(shell && pendingOperations(journal)
+      ? { pendingMaterialWrites: pendingOperations(journal) }
+      : {}),
     expected,
     materials,
     guides,
@@ -448,6 +453,7 @@ const previewSchema = z
     packagePath: z.string(),
     namespace: z.string(),
     scope: guideShellScope.optional(),
+    pendingMaterialWrites: z.number().int().positive().optional(),
     expected: z.record(z.string(), z.union([z.number().int(), z.string()])),
     materials: z.array(z.object({ change: z.string() }).passthrough()),
     guides: z.array(z.json()),

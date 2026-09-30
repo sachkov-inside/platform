@@ -15,6 +15,7 @@ import {
   canonical,
   checksum,
   materialRevision,
+  guideShellScope,
   isGuideShell,
 } from "./package.mjs";
 import { convertMarkdown, sourceUuid } from "./markdown.mjs";
@@ -332,6 +333,16 @@ export function guideShellComposition(manifest, guide, order) {
 }
 
 /**
+ * Journaled writes whose outcome is still unknown; only a sync of their own package resumes them.
+ *
+ * @param {Pick<Journal, "operations">} journal
+ */
+export const pendingOperations = (journal) =>
+  Object.values(journal.operations).filter(
+    (entry) => isJournalOperation(entry) && entry.status === "pending",
+  ).length;
+
+/**
  * @param {ManifestAsset} asset
  * @param {ManifestArtifact} artifact
  * @param {DefaultAccess} access
@@ -478,7 +489,7 @@ export async function syncLocal(
       archived: [],
       archiveProposals: [],
       notices: [...pkg.manifest.diagnostics],
-      ...(shell ? { scope: /** @type {const} */ ("guide-shell") } : {}),
+      ...(shell ? { scope: guideShellScope.value } : {}),
     };
     const rows = new Map(
       pkg.manifest.materials.map((row) => [row.sourceId, row]),
@@ -731,9 +742,7 @@ export async function syncLocal(
           supplementaryMaterials: [],
         });
       }
-      const pending = Object.values(journal.operations).filter(
-        (entry) => isJournalOperation(entry) && entry.status === "pending",
-      ).length;
+      const pending = pendingOperations(journal);
       if (pending)
         report.notices.push({
           code: "journal_pending",

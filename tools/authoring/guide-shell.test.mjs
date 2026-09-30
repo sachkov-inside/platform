@@ -513,3 +513,27 @@ test("a page edited on the target after the preview stops exact apply", async (t
   );
   assert.equal(api.count(/reserve|update|composition/u), 0);
 });
+
+test("a shell leaves an unfinished Material write alone and says so", async (t) => {
+  const setup = await fixture(t);
+  await journalWithLesson(setup.state);
+  const journal = await readJournalFile(setup.state);
+  const request = {
+    path: "/authoring/import/materials/reserve",
+    body: { source: { id: "inside-content:harness-intro" } },
+  };
+  journal.operations[`authoring:${checksum(canonical(request))}`] = {
+    status: "pending",
+    request,
+  };
+  await writeFile(join(setup.state, "journal.json"), canonical(journal));
+  const api = platform();
+  const { preview } = await previewRelease(setup.packagePath, setup.state, {
+    origin: resolveLocalTarget("editor"),
+    request: api.request,
+  });
+  assert.equal(preview.pendingMaterialWrites, 1);
+  const report = await sync(setup, api);
+  assert.ok(report.notices.some((notice) => notice.code === "journal_pending"));
+  assert.equal(api.count(/materials\/(reserve|apply|validate)/u), 0);
+});

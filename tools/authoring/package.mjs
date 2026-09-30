@@ -240,7 +240,7 @@ function unique(values, label) {
  * @param {Pick<Manifest, "selection">} manifest
  */
 export const isGuideShell = (manifest) =>
-  manifest.selection.scope === "guide-shell";
+  manifest.selection.scope === guideShellScope.value;
 
 /**
  * An empty selection is refused unless it explicitly asks for the Guide shell, whose absent

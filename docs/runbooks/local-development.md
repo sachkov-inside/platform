@@ -1005,7 +1005,9 @@ describes the package the Content exporter writes.
 `pnpm authoring:release preview --package PACKAGE_JSON --target editor|stand --state STATE_DIRECTORY`
 compares a package with the target without writing and saves a fingerprinted preview.
 `pnpm authoring:release apply --preview PREVIEW_JSON --state STATE_DIRECTORY` applies exactly that
-preview and stops on drift, an edited preview or an unreviewed archive request. Non-local targets
+preview and stops on drift, an edited preview or an unreviewed archive request. Drift covers
+Material versions, each Guide's version and its programme order, so a page edited on the target
+after the review is not overwritten; a preview also lists added and removed chapters. Non-local targets
 are refused; production publication needs an owner-approved credential path first.
 
 ```bash
