@@ -51,9 +51,8 @@
   font-weight: 650;
   color: var(--foreground);
 }
-.aie-mentoring-points .aie-sticker {
-  width: 2.75rem;
-  height: 2.75rem;
+.aie-mentoring-points .aie-icon {
+  --aie-icon-size: 2.75rem;
 }
 
 .aie-status {
@@ -723,9 +722,9 @@
   background: color-mix(in srgb, var(--accent) 10%, var(--background));
   font-weight: 600;
 }
-.aie-faq-note .aie-sticker {
-  width: 2rem;
-  height: 2rem;
+.aie-faq-note .aie-icon {
+  --aie-icon-size: 2.25rem;
+  --aie-icon-tile: var(--background);
 }
 /* Оранжевый текст на тёплой плашке не дотягивает до 4.5:1, поэтому акцент несёт подчёркивание. */
 .aie-faq-note a {
@@ -1111,9 +1110,9 @@
   border-radius: 1.25rem;
   background: var(--secondary);
 }
-.aie-audience li > .aie-sticker {
-  width: 3rem;
-  height: 3rem;
+.aie-audience li > .aie-icon {
+  --aie-icon-size: 3rem;
+  --aie-icon-tile: var(--background);
 }
 .aie-audience h3 {
   font-size: 1.05rem;
@@ -1218,7 +1217,7 @@
     row-gap: 0.25rem;
     padding: 1.1rem;
   }
-  .aie-audience li > .aie-sticker {
+  .aie-audience li > .aie-icon {
     grid-row: span 2;
   }
   .aie-audience-note {

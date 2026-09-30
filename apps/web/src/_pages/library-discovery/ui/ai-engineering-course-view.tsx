@@ -32,8 +32,8 @@ import type {
 } from "@/entities/guide-page";
 import {
   CourseHero,
-  CourseSticker,
-  type CourseStickerName,
+  CourseIcon,
+  type CourseIconName,
 } from "@/features/ai-engineering-course";
 import type { PublishedSeriesResult } from "@/features/library-discovery";
 import type { MaterialReaderReturnTarget } from "@/shared/routing/material-reader";
@@ -147,7 +147,7 @@ function CourseBlock({
   }
 }
 
-const mentoringStickers: readonly CourseStickerName[] = [
+const mentoringIcons: readonly CourseIconName[] = [
   "questions",
   "help",
   "updates",
@@ -164,7 +164,7 @@ function Mentoring({ block }: { readonly block: GuidePageBlockOf<"cards"> }) {
         {block.items.map((item, index) => {
           return (
             <li key={`${String(index)}-${item.title}`}>
-              <CourseSticker name={mentoringStickers[index] ?? "questions"} />
+              <CourseIcon name={mentoringIcons[index] ?? "questions"} />
               <span>
                 <b>{item.title}</b>
                 {item.text}
@@ -651,7 +651,7 @@ function Agents({ block }: { readonly block: GuidePageBlockOf<"list"> }) {
   );
 }
 
-const audienceStickers: readonly CourseStickerName[] = [
+const audienceIcons: readonly CourseIconName[] = [
   "developer",
   "engineer",
   "basics",
@@ -668,7 +668,7 @@ function Audience({ block }: { readonly block: GuidePageBlockOf<"cards"> }) {
         {block.items.map((item, index) => {
           return (
             <li key={`${String(index)}-${item.title}`}>
-              <CourseSticker name={audienceStickers[index] ?? "developer"} />
+              <CourseIcon name={audienceIcons[index] ?? "developer"} />
               <h3>{item.title}</h3>
               <p>{item.text}</p>
             </li>
@@ -749,7 +749,7 @@ function Faq({ block }: { readonly block: GuidePageBlockOf<"cards"> }) {
       </div>
       {block.note === "" ? null : (
         <p className="aie-faq-note">
-          <CourseSticker name="telegram" />
+          <CourseIcon name="telegram" />
           <span>{withTelegramLinks(block.note)}</span>
         </p>
       )}

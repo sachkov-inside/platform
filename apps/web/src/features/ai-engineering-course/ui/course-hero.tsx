@@ -4,16 +4,12 @@ import type { Route } from "next";
 import { IntentPrefetchLink } from "@/shared/ui/intent-prefetch-link.client";
 
 import { CourseFilm } from "./course-film.client";
-import { CourseSticker, type CourseStickerName } from "./course-stickers";
+import { CourseIcon, type CourseIconName } from "./course-icons";
 
 import "./course-hero.css";
 
 /** Иллюстрации пунктов идут по их порядку в описании курса. */
-const pointStickers: readonly CourseStickerName[] = [
-  "materials",
-  "check",
-  "pace",
-];
+const pointIcons: readonly CourseIconName[] = ["materials", "check", "pace"];
 
 /**
  * Первый экран курса AI Engineering: название с меткой, вводная фраза, пункты, кнопка и анимация.
@@ -60,7 +56,7 @@ export function CourseHero({
             {highlights.map((highlight, index) => {
               return (
                 <li key={`${String(index)}-${highlight}`}>
-                  <CourseSticker name={pointStickers[index] ?? "materials"} />
+                  <CourseIcon name={pointIcons[index] ?? "materials"} />
                   {highlight}
                 </li>
               );

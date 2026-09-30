@@ -58,9 +58,8 @@
   font-weight: 600;
   line-height: 1.4;
 }
-.aie-hero-points .aie-sticker {
-  width: 2.25rem;
-  height: 2.25rem;
+.aie-hero-points .aie-icon {
+  --aie-icon-size: 2.25rem;
 }
 .aie-hero-action {
   display: inline-flex;
@@ -123,9 +122,10 @@
   .aie-hero-points li + li {
     border-top: 1px solid var(--border);
   }
-  .aie-hero-points .aie-sticker {
-    width: 2rem;
-    height: 2rem;
+  /* В серой карточке пунктов плитка значка белая. */
+  .aie-hero-points .aie-icon {
+    --aie-icon-size: 2rem;
+    --aie-icon-tile: var(--background);
   }
   .aie-hero-action[data-compact-on-phone="true"] {
     display: none;

@@ -1,0 +1,44 @@
+/*
+ * Плитка значка светлая и нейтральная: на белом фоне она чуть темнее страницы, на серой карточке —
+ * белая (переменная `--aie-icon-tile` задаётся местом). Контур — цвет текста, заливка — акцент.
+ */
+.aie-icon {
+  --aie-icon-size: 2.5rem;
+  display: inline-grid;
+  flex: none;
+  place-items: center;
+  width: var(--aie-icon-size);
+  height: var(--aie-icon-size);
+  border-radius: calc(var(--aie-icon-size) * 0.3);
+  background: var(--aie-icon-tile, var(--secondary));
+}
+.aie-icon svg {
+  width: 56%;
+  height: 56%;
+  overflow: visible;
+}
+.aie-icon-line {
+  fill: var(--foreground);
+}
+.aie-icon-tone {
+  fill: var(--accent);
+  opacity: 0.32;
+}
+
+/* Отклик на наведение строки или карточки со значком: значок чуть подпрыгивает, заливка ярче. */
+@media (prefers-reduced-motion: no-preference) and (hover: hover) {
+  .aie-icon svg {
+    transition: transform 420ms cubic-bezier(0.34, 1.56, 0.64, 1);
+  }
+  .aie-icon-tone {
+    transition: opacity 240ms ease-out;
+  }
+  :hover > .aie-icon svg,
+  :hover > * > .aie-icon svg {
+    transform: translateY(-1px) rotate(-8deg) scale(1.08);
+  }
+  :hover > .aie-icon .aie-icon-tone,
+  :hover > * > .aie-icon .aie-icon-tone {
+    opacity: 0.55;
+  }
+}
