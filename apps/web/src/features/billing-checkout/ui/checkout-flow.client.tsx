@@ -33,7 +33,6 @@ export interface CheckoutFlowProps {
   readonly contactHref: Route;
   readonly onPurchase?: (purchase: PurchaseStatus) => void;
   readonly onNavigate?: (paymentUrl: string) => void;
-  /** Состав покупки для компактной страницы оплаты: что именно получает покупатель. */
   /** Показывать ли состав разовой покупки: его строит сама панель из снимка условий. */
   readonly showInclusions?: boolean;
   /**
