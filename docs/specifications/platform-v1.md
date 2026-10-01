@@ -650,8 +650,15 @@ platform#808). Сложность и результаты обучения ос�
 3. Save atomically меняет content, metadata, `free | membership`, publication state,
    `contentVersion` и public/search projections. Stale version возвращает conflict без записи;
    published Save сразу виден читателю и не создаёт history/audit snapshot.
-4. Preview читает current saved Material. Вход в `published` устанавливает `publishedAt`; обычный live
-   Save его не меняет, повторный вход после unpublish устанавливает новую publication date.
+4. Preview читает current saved Material. Для Material в Guide страница
+   `/authoring/materials/:id/preview` показывает его место в авторском составе (#806): главы в
+   объявленном порядке, затем материалы вне глав, с черновиками и снятыми материалами; «Назад» и
+   «Дальше» идут по этому же порядку и ведут в Preview соседнего Material. Параметр `guide`
+   выбирает Guide, когда Material входит в несколько; чужой идентификатор заменяется первым Guide.
+   Сбой чтения состава не прячет сам Preview; отказ в правах закрывает страницу целиком. Плеер
+   выдаётся только опубликованному Material, поэтому Preview называет состояние основного видео
+   словами. Вход в `published` устанавливает `publishedAt`; обычный live Save его не меняет,
+   повторный вход после unpublish устанавливает новую publication date.
 5. Agent имеет тот же full management contract: отдельный prepare/owner-GO gate отсутствует.
 6. Concurrency, idempotency и transport outcomes следуют единому
    [write atomicity contract](#validation-results-and-write-atomicity).

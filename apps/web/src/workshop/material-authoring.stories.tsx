@@ -9,6 +9,7 @@ import {
   MaterialAuthoringUnexpectedEditorState,
   MaterialAuthoringUnexpectedPreviewState,
   MaterialAuthoringWorkspace,
+  MaterialCurrentPreview,
   type MaterialAuthoringActions,
   type MaterialAuthoringPresentation,
   type MaterialDraftField,
@@ -25,6 +26,7 @@ import {
   imageAttachmentPresentation,
   longLessonBlocks,
   materialAuthoringPresentation,
+  materialPreviewRoute,
   savedAfterEditingPresentation,
   savedContentVersion,
   variantStepAuthoringPresentation,
@@ -1030,6 +1032,140 @@ export const ExactPreviewMobile: Story = {
       canvas.queryByText("v3", { exact: true }),
     ).not.toBeInTheDocument();
     await expectNoHorizontalOverflow(canvasElement);
+  },
+};
+
+const previewEditorHref =
+  "/authoring/materials/94000000-0000-4000-8000-000000000203";
+
+export const GuideRoutePreview: Story = {
+  args: { presentation: materialAuthoringPresentation },
+  globals: { viewport: { isRotated: false, value: "desktop1440" } },
+  name: "Предпросмотр по руководству · широкий экран",
+  render: () => (
+    <MaterialCurrentPreview
+      editorHref={previewEditorHref}
+      preview={{
+        ...materialAuthoringPresentation.preview,
+        video: { kind: "attached", ready: true, title: "Запись урока" },
+      }}
+      route={materialPreviewRoute}
+    />
+  ),
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await expect(canvas.getByText("черновик · версия 7")).toBeVisible();
+    const route = within(
+      canvas.getByRole("navigation", {
+        name: "Маршрут руководства «Inside AI Engineering»",
+      }),
+    );
+    await expect(
+      route.getByText(/Глава 1\. Harness и первые уроки · материал 3 из 5/u),
+    ).toBeVisible();
+    await expect(
+      route.getByRole("link", {
+        name: "Назад: Подготовка окружения и первый запуск агента",
+      }),
+    ).toHaveAttribute("href", materialPreviewRoute.previous.href);
+    await expect(
+      route.getByRole("link", { name: "Дальше: Проверка результата" }),
+    ).toHaveAttribute("href", materialPreviewRoute.next.href);
+    await userEvent.click(route.getByText("Все материалы руководства"));
+    // Текущий материал — не ссылка, а отмеченная строка; пустая глава остаётся в списке.
+    await expect(
+      route.getByText("Developer Pipeline без магии").closest("[aria-current]"),
+    ).toHaveAttribute("aria-current", "page");
+    await expect(route.getByText("В главе пока нет материалов.")).toBeVisible();
+    await expect(route.getByText("Вне глав")).toBeVisible();
+    await expect(
+      canvasElement.querySelector("[data-preview-video]"),
+    ).toHaveTextContent(
+      "Видео «Запись урока» готово. Плеер появится на странице урока после публикации.",
+    );
+    await expect(
+      canvas.getByRole("navigation", {
+        name: "Соседние материалы руководства",
+      }),
+    ).toBeVisible();
+  },
+};
+
+export const GuideRoutePreviewMobile: Story = {
+  args: { presentation: materialAuthoringPresentation },
+  globals: { viewport: { isRotated: false, value: "mobile390" } },
+  name: "Предпросмотр по руководству · мобильный",
+  render: () => (
+    <MaterialCurrentPreview
+      editorHref={previewEditorHref}
+      preview={{
+        ...materialAuthoringPresentation.preview,
+        video: { kind: "none" },
+      }}
+      route={materialPreviewRoute}
+    />
+  ),
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await userEvent.click(canvas.getByText("Все материалы руководства"));
+    await expect(canvas.getByText("Словарь курса")).toBeVisible();
+    await expect(
+      canvasElement.querySelector("[data-preview-video]"),
+    ).toHaveTextContent("Видео к материалу не прикреплено.");
+    await expectNoHorizontalOverflow(canvasElement);
+  },
+};
+
+export const GuideRoutePreviewFirstMaterial: Story = {
+  args: { presentation: materialAuthoringPresentation },
+  name: "Предпросмотр по руководству · первый материал",
+  render: () => (
+    <MaterialCurrentPreview
+      editorHref={previewEditorHref}
+      preview={materialAuthoringPresentation.preview}
+      route={{
+        ...materialPreviewRoute,
+        otherGuides: [
+          { href: materialPreviewRoute.next.href, name: "AI-first процесс" },
+        ],
+        position: 1,
+        previous: null,
+      }}
+    />
+  ),
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await expect(canvas.getByRole("button", { name: "Назад" })).toBeDisabled();
+    await expect(
+      canvas.getByRole("link", { name: "AI-first процесс" }),
+    ).toBeVisible();
+  },
+};
+
+export const GuideRoutePreviewUnavailable: Story = {
+  args: { presentation: materialAuthoringPresentation },
+  name: "Предпросмотр по руководству · маршрут недоступен",
+  render: () => (
+    <MaterialCurrentPreview
+      editorHref={previewEditorHref}
+      preview={{
+        ...materialAuthoringPresentation.preview,
+        video: { kind: "unavailable" },
+      }}
+      route={{ kind: "unavailable", reference: "series-order-response" }}
+    />
+  ),
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await expect(
+      canvasElement.querySelector('[data-preview-route="unavailable"]'),
+    ).toHaveTextContent(
+      "Не удалось показать маршрут руководства. Сам материал показан ниже. Код обращения: series-order-response",
+    );
+    // Сам материал остаётся на месте.
+    await expect(
+      canvas.getByRole("heading", { name: "Developer Pipeline без магии" }),
+    ).toBeInTheDocument();
   },
 };
 

@@ -1615,6 +1615,159 @@ test("trusted author reorders a PostgreSQL series with keyboard controls", async
   await expect(page.getByText("Порядок сохранён.")).toBeVisible();
 });
 
+test("trusted author walks a guide chapter through Previews that stay closed to a guest", async ({
+  browser,
+  context,
+  page,
+}, testInfo) => {
+  await signInFullStack(context, "OWNER");
+
+  await page.goto("/authoring/guides");
+  await completeProfileOnboardingIfPresent(page);
+  await page.getByRole("link", { name: /Создание Platform Inside/u }).click();
+  await expect(page).toHaveURL(/\/authoring\/guides\/[^/]+$/u);
+  const guideId = new URL(page.url()).pathname.split("/").at(-1) ?? "";
+
+  // Состав читается у backend: порядок в нём меняют другие сценарии этого прогона.
+  const order = await readGuideOrder(page, guideId);
+  const [outside, inChapter] = order.items;
+  if (outside === undefined || inChapter === undefined) {
+    throw new Error("The seeded guide must hold at least two Materials");
+  }
+  const total = order.items.length;
+  const chapterId = crypto.randomUUID();
+  const chapterName = "Глава 1. Проверка маршрута";
+  const orderedMaterialIds = order.items.map(({ materialId }) => materialId);
+  // Второй материал уходит в главу, первый остаётся вне глав: предпросмотр обязан начать с главы.
+  const placed = await fullStackBrowserRequest(
+    page,
+    "/api/authoring/guides/order",
+    "PUT",
+    {
+      chapterAssignments: JSON.stringify({ [inChapter.materialId]: chapterId }),
+      chapters: JSON.stringify([
+        { id: chapterId, name: chapterName, summary: "" },
+      ]),
+      expectedOrderVersion: order.orderVersion,
+      orderedMaterialIds: JSON.stringify(orderedMaterialIds),
+      seriesId: guideId,
+    },
+  );
+  expect(await placed.json()).toMatchObject({ kind: "saved" });
+
+  try {
+    await page.goto(
+      `/authoring/materials?${new URLSearchParams({ search: inChapter.title }).toString()}`,
+    );
+    await page
+      .getByRole("listitem")
+      .filter({
+        has: page.getByRole("link", { name: inChapter.title, exact: true }),
+      })
+      .getByRole("link", { name: "Предпросмотр" })
+      .click();
+
+    const route = page.getByRole("navigation", {
+      name: "Маршрут руководства «Создание Platform Inside»",
+    });
+    await expect(route).toContainText(
+      `${chapterName} · материал 1 из ${String(total)}`,
+    );
+    await expect(route.getByRole("button", { name: "Назад" })).toBeDisabled();
+    await expect(
+      page.getByRole("heading", { name: inChapter.title, level: 1 }),
+    ).toBeVisible();
+    await expect(page.locator("[data-preview-video]")).toBeVisible();
+    await route.getByText("Все материалы руководства").click();
+    await expect(route.locator("[aria-current=page]")).toContainText(
+      inChapter.title,
+    );
+    await expect(
+      route.getByRole("heading", { name: "Вне глав" }),
+    ).toBeVisible();
+    const accessibility = await new AxeBuilder({ page })
+      .withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"])
+      .analyze();
+    expect(
+      accessibility.violations.filter(
+        ({ impact }) => impact === "serious" || impact === "critical",
+      ),
+    ).toEqual([]);
+    expect(
+      await page.evaluate(
+        () =>
+          document.documentElement.scrollWidth <=
+          document.documentElement.clientWidth,
+      ),
+    ).toBe(true);
+    if (process.env["CAPTURE_EVIDENCE"] === "1") {
+      const snapshots = await prepareEvidenceDirectory("issue-806");
+      await page.screenshot({
+        animations: "disabled",
+        path: resolve(
+          snapshots,
+          `route-${testInfo.project.name === "mobile-chromium" ? "mobile" : "desktop"}.png`,
+        ),
+      });
+    }
+
+    await route.getByRole("link", { name: `Дальше: ${outside.title}` }).click();
+    await expect(
+      page.getByRole("heading", { name: outside.title, level: 1 }),
+    ).toBeVisible();
+    await expect(route).toContainText(
+      `Вне глав · материал 2 из ${String(total)}`,
+    );
+    // Выбранное руководство и возврат к тому же списку переживают переход.
+    const secondUrl = new URL(page.url());
+    expect(secondUrl.searchParams.get("guide")).toBe(guideId);
+    expect(secondUrl.searchParams.get("from")).toContain(
+      "/authoring/materials",
+    );
+    await expect(
+      page.getByRole("link", { name: "К материалам" }),
+    ).toHaveAttribute("href", /search=/u);
+
+    // Прямой адрес предпросмотра гостю ничего не раскрывает: ни тела, ни состава руководства.
+    const guest = await browser.newContext();
+    try {
+      const guestPage = await guest.newPage();
+      await guestPage.goto(secondUrl.href);
+      await expect(
+        guestPage.getByRole("heading", { name: "Нет доступа к предпросмотру" }),
+      ).toBeVisible();
+      await expect(guestPage.getByText(outside.title)).toHaveCount(0);
+      await expect(guestPage.getByText(inChapter.title)).toHaveCount(0);
+      await expect(guestPage.locator("[data-preview-route]")).toHaveCount(0);
+    } finally {
+      await guest.close();
+    }
+
+    await route
+      .getByRole("link", { name: `Назад: ${inChapter.title}` })
+      .click();
+    await expect(
+      page.getByRole("heading", { name: inChapter.title, level: 1 }),
+    ).toBeVisible();
+  } finally {
+    // Руководство общее для прогона: глава снимается, чтобы остальные сценарии видели прежний состав.
+    const current = await readGuideOrder(page, guideId);
+    const restored = await fullStackBrowserRequest(
+      page,
+      "/api/authoring/guides/order",
+      "PUT",
+      {
+        chapterAssignments: "{}",
+        chapters: "[]",
+        expectedOrderVersion: current.orderVersion,
+        orderedMaterialIds: JSON.stringify(orderedMaterialIds),
+        seriesId: guideId,
+      },
+    );
+    expect(await restored.json()).toMatchObject({ kind: "saved" });
+  }
+});
+
 test("guest cannot reach the production Material editor", async ({ page }) => {
   const response = await page.goto("/authoring/materials/new");
   expect(response?.status()).toBe(200);
@@ -1871,4 +2024,20 @@ async function unpublishFromPurchasedProduct(page: Page, title: string) {
   ).toBeVisible({
     timeout: 15_000,
   });
+}
+
+const guideOrderSchema = z.object({
+  kind: z.literal("ready"),
+  order: z.object({
+    items: z.array(z.object({ materialId: z.uuid(), title: z.string() })),
+    orderVersion: z.string(),
+  }),
+});
+
+async function readGuideOrder(page: Page, guideId: string) {
+  const response = await fullStackBrowserRequest(
+    page,
+    `/api/authoring/guides/${guideId}/order`,
+  );
+  return guideOrderSchema.parse(await response.json()).order;
 }
