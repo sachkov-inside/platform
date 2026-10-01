@@ -30,6 +30,7 @@ import { Button } from "@/shared/ui/button";
 import {
   oneTimeOfferTerms,
   oneTimePriceSharesLine,
+  oneTimePurchaseInclusions,
   oneTimeTermsSummary,
   type CheckoutInclusion,
 } from "../model/one-time-terms";
@@ -105,6 +106,12 @@ export function OneTimeCheckoutPanel({
   const conditions = quote?.snapshot ?? snapshot;
   const promotion = promotionLabel(conditions);
   const terms = oneTimeOfferTerms(conditions);
+  // Состав называет те же сроки, что сводка условий: оба читают снимок сохранённого расчёта, как
+  // только он есть. Иначе смена сроков между загрузкой страницы и расчётом развела бы их.
+  const shownInclusions =
+    inclusions.length === 0
+      ? inclusions
+      : oneTimePurchaseInclusions(conditions);
   const priceShares = oneTimePriceSharesLine(
     conditions.firstPriceKopecks,
     terms,
@@ -129,9 +136,9 @@ export function OneTimeCheckoutPanel({
         Оплата продукта
       </h2>
 
-      {inclusions.length === 0 ? null : (
+      {shownInclusions.length === 0 ? null : (
         <ul className="grid gap-3 sm:grid-cols-2">
-          {inclusions.map((inclusion) => {
+          {shownInclusions.map((inclusion) => {
             const Icon = inclusionIcons[inclusion.kind];
             return (
               <li
@@ -171,9 +178,7 @@ export function OneTimeCheckoutPanel({
           </span>
           <span className="text-sm text-white/70">разово</span>
         </p>
-        {priceShares === null ? null : (
-          <p className="mt-2 text-sm leading-6 text-white/85">{priceShares}</p>
-        )}
+        <p className="mt-2 text-sm leading-6 text-white/85">{priceShares}</p>
         {promotion === undefined ? null : (
           <p className="mt-2 font-mono text-xs text-white/70">{promotion}</p>
         )}

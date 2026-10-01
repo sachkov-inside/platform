@@ -64,14 +64,14 @@ describe("условия разовой покупки до оплаты", () =>
 
   it("показывает доли цены поровну под ценой", () => {
     expect(
-      plain(oneTimePriceSharesLine(250_000, oneTimeOfferTerms(course)) ?? ""),
+      plain(oneTimePriceSharesLine(250_000, oneTimeOfferTerms(course))),
     ).toBe(
       "Из них поровну: материалы и чат — 1 250 ₽, сопровождение — 1 250 ₽",
     );
     // Без сопровождения вся цена — материалы и чат: делить нечего.
     expect(
       oneTimePriceSharesLine(250_000, oneTimeOfferTerms(guideOnlyOffer)),
-    ).toBeNull();
+    ).toBe("Вся цена относится к материалам и чату");
   });
 
   it("берёт сроки составляющих из снимка предложения", () => {
@@ -189,6 +189,19 @@ describe("условия разовой покупки до оплаты", () =>
       "Материалы — без ограничения срока.",
       "Общий чат — 1 год гарантированно, дальше без гарантии срока.",
     ]);
+    // Расчётный срок не короче срока другой составляющей, названного в месяцах.
+    const longChat = oneTimeOfferTerms(
+      withPeriods(
+        [guide, "community"],
+        [
+          { capability: guide, months: null },
+          { capability: "community", months: 24 },
+        ],
+      ),
+    );
+    expect(oneTimeTermsSummary(longChat)[2]).toContain(
+      "из расчётного срока 24 месяца",
+    );
   });
 
   it("подставляет в описание продукта сроки его предложения", () => {

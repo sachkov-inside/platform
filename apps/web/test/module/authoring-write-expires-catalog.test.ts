@@ -85,6 +85,7 @@ describe("an authoring write expires the public catalog cache", () => {
   // Описание продукта подставляет сроки его предложения из общего кеша (#780).
   it.each([
     ["an offer write", "/api/authoring/billing/offers/save"],
+    ["a promotion write", "/api/authoring/billing/promotions/save"],
     [
       "a payment option write",
       "/api/authoring/billing/payment-options/archive",
@@ -104,7 +105,7 @@ describe("an authoring write expires the public catalog cache", () => {
     ["a reader's own write", "/api/reading-progress/state"],
     [
       "a billing command outside offers: prices never enter the shared cache",
-      "/api/authoring/billing/promotions/save",
+      "/api/authoring/billing/cohorts/save",
     ],
   ])("keeps the catalog after %s", async (_name, path) => {
     const { handleAuthenticatedMutation } =

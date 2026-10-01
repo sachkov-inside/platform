@@ -69,9 +69,21 @@ export function oneTimeOfferTerms(conditions: {
 }
 
 const unlimitedTerm = "без ограничения срока";
-const calculationTerm = formatMonths(
-  oneTimePurchaseTerms.unlimitedPartRefundMonths,
-);
+
+/**
+ * Расчётный срок части цены «материалы и общий чат», когда материалы или чат даны без ограничения
+ * срока: 12 месяцев из оферты, но не короче срока другой составляющей, названного в месяцах
+ * (оферта, раздел 4).
+ */
+function calculationTerm(terms: OneTimeOfferTerms): string {
+  return formatMonths(
+    Math.max(
+      oneTimePurchaseTerms.unlimitedPartRefundMonths,
+      terms.materialsMonths ?? 0,
+      terms.chatMonths ?? 0,
+    ),
+  );
+}
 const supportNotIncluded = "не входит в покупку";
 
 /** Срок словами: «2 года», «6 месяцев», «без ограничения срока». */
@@ -80,12 +92,12 @@ function termLabel(months: number | null): string {
 }
 
 /**
- * Подписи сроков для авторского текста описания продукта. Срок материалов и чата — более длинный
- * из двух: так оферта определяет срок части цены «материалы и общий чат».
+ * Подписи сроков для авторского текста описания продукта: срок доступа — срок материалов, как его
+ * гарантирует оферта; чат со своим сроком называет страница оплаты.
  */
 export function oneTimeTermLabels(terms: OneTimeOfferTerms): OfferTerms {
   return {
-    access: termLabel(longestTerm([terms.materialsMonths, terms.chatMonths])),
+    access: termLabel(terms.materialsMonths),
     support:
       terms.supportMonths === undefined
         ? supportNotIncluded
@@ -137,8 +149,8 @@ export function oneTimeTermsSummary(
     longestTerm([terms.materialsMonths, terms.chatMonths]) !== null
       ? "за вычетом истекшего времени"
       : terms.supportMonths === undefined
-        ? `за вычетом истекшего времени из расчётного срока ${calculationTerm}`
-        : `за вычетом истекшего времени: сопровождение — из его срока, материалы и чат — из расчётного срока ${calculationTerm}`;
+        ? `за вычетом истекшего времени из расчётного срока ${calculationTerm(terms)}`
+        : `за вычетом истекшего времени: сопровождение — из его срока, материалы и чат — из расчётного срока ${calculationTerm(terms)}`;
   return [
     ...(sameTerm
       ? [guaranteedTermLine("Материалы и чат", terms.materialsMonths)]
@@ -159,13 +171,14 @@ export function oneTimeTermsSummary(
 
 /**
  * Распределение цены до оплаты: по нему оферта считает возврат при отказе. У предложения без
- * сопровождения вся цена относится к материалам и чату, и делить нечего — строки нет.
+ * сопровождения вся цена относится к материалам и чату — строка так и говорит.
  */
 export function oneTimePriceSharesLine(
   totalKopecks: number,
   terms: OneTimeOfferTerms,
-): string | null {
-  if (terms.supportMonths === undefined) return null;
+): string {
+  if (terms.supportMonths === undefined)
+    return "Вся цена относится к материалам и чату";
   const shares = oneTimePriceShares(totalKopecks);
   return `Из них поровну: материалы и чат — ${formatKopecks(shares.materialsAndChatKopecks)}, сопровождение — ${formatKopecks(shares.supportKopecks)}`;
 }

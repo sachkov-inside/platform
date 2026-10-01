@@ -13,7 +13,16 @@ import { readPublicHome } from "./public-home.public-cache.server";
  * поэтому Главная по-прежнему ничего не ждёт (ADR 0027). Сбой чтения сроков срок не выдумывает.
  */
 export async function readPublicHomeWithOfferTerms(): Promise<HomeResult> {
-  const result = await readPublicHome();
+  return fillPinnedOfferTerms(await readPublicHome());
+}
+
+/**
+ * Подставляет сроки в тексты закреплённого продукта уже прочитанной Главной. Карточка рисует их
+ * как есть, поэтому каждый путь, который отдаёт ей Главную, проходит через эту функцию.
+ */
+export async function fillPinnedOfferTerms(
+  result: HomeResult,
+): Promise<HomeResult> {
   if (result.kind !== "ready") return result;
   const pinned = result.value.pinnedSeries;
   if (pinned === null || (pinned.card === null && pinned.hero === null))
