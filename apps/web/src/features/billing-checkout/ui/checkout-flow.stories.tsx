@@ -11,7 +11,6 @@ import {
 import { fetchBeforeRender } from "@/workshop/mutation-mock";
 import { publicPageEnvironment } from "@/workshop/story-environment";
 
-import { oneTimePurchaseInclusions } from "../model/one-time-terms";
 import { CheckoutFlow } from "./checkout-flow.client";
 
 const environment = publicPageEnvironment("/products/platform-inside/buy");
@@ -42,7 +41,7 @@ const meta = {
     contact: verifiedContact,
     documents: legalDocuments,
     contactHref: "/account/email",
-    inclusions: oneTimePurchaseInclusions(guideOnlyOffer),
+    showInclusions: true,
     onDocumentsChanged: fn(),
     onNavigate: fn(),
   },

@@ -11,12 +11,8 @@ import {
   verifiedContact,
 } from "@/workshop/billing.fixtures";
 
-import { oneTimePurchaseInclusions } from "../model/one-time-terms";
 import { OneTimeCheckoutPanel } from "./one-time-checkout-panel.client";
 import { publicPageEnvironment } from "@/workshop/story-environment";
-
-// Состав и сроки читаются настоящим кодом: иначе история подтверждала бы свою же строку.
-const inclusions = oneTimePurchaseInclusions(guideWithSupportOffer);
 
 const environment = publicPageEnvironment("/products/platform-inside/buy");
 
@@ -32,7 +28,7 @@ const meta = {
     contactHref: "/account/email",
     acknowledgeExistingAccess: false,
     purchase: null,
-    inclusions,
+    showInclusions: true,
     onToggleAcknowledge: fn(),
     onPay: fn(),
     onRefreshStatus: fn(),
@@ -117,7 +113,6 @@ export const FixedTermOffer: Story = {
   args: {
     snapshot: fixedTermGuideOffer,
     quote: fixedTermGuideQuote,
-    inclusions: oneTimePurchaseInclusions(fixedTermGuideOffer),
   },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);

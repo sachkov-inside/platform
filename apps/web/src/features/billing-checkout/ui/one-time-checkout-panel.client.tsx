@@ -47,7 +47,8 @@ export interface OneTimeCheckoutPanelProps {
   readonly pending?: boolean;
   readonly error?: string | undefined;
   readonly purchase: PurchaseStatus | null;
-  readonly inclusions?: readonly CheckoutInclusion[];
+  /** Показывать ли состав покупки: панель строит его из того же снимка, что и сводку условий. */
+  readonly showInclusions?: boolean;
   readonly onToggleAcknowledge: () => void;
   readonly onPay: () => void;
   readonly onRefreshStatus: () => void;
@@ -93,7 +94,7 @@ export function OneTimeCheckoutPanel({
   pending = false,
   error,
   purchase,
-  inclusions = [],
+  showInclusions = false,
   onToggleAcknowledge,
   onPay,
   onRefreshStatus,
@@ -108,10 +109,9 @@ export function OneTimeCheckoutPanel({
   const terms = oneTimeOfferTerms(conditions);
   // Состав называет те же сроки, что сводка условий: оба читают снимок сохранённого расчёта, как
   // только он есть. Иначе смена сроков между загрузкой страницы и расчётом развела бы их.
-  const shownInclusions =
-    inclusions.length === 0
-      ? inclusions
-      : oneTimePurchaseInclusions(conditions);
+  const shownInclusions = showInclusions
+    ? oneTimePurchaseInclusions(conditions)
+    : [];
   const priceShares = oneTimePriceSharesLine(
     conditions.firstPriceKopecks,
     terms,
