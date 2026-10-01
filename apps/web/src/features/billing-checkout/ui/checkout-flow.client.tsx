@@ -23,7 +23,6 @@ import {
   startBillingPurchase,
 } from "../api/billing-checkout.browser";
 import { acceptedPurchaseDocuments, rememberPurchase } from "../model/checkout";
-import type { CheckoutInclusion } from "../model/one-time-terms";
 import { CheckoutPanel } from "./checkout-panel.client";
 import { OneTimeCheckoutPanel } from "./one-time-checkout-panel.client";
 
@@ -34,8 +33,8 @@ export interface CheckoutFlowProps {
   readonly contactHref: Route;
   readonly onPurchase?: (purchase: PurchaseStatus) => void;
   readonly onNavigate?: (paymentUrl: string) => void;
-  /** Состав покупки для компактной страницы оплаты: что именно получает покупатель. */
-  readonly inclusions?: readonly CheckoutInclusion[];
+  /** Показывать ли состав разовой покупки: его строит сама панель из снимка условий. */
+  readonly showInclusions?: boolean;
   /**
    * Сервер не принял согласие, потому что действует другая редакция. Владелец документов
    * перечитывает их, чтобы покупатель увидел и принял действующую.
@@ -56,7 +55,7 @@ export function CheckoutFlow({
   contactHref,
   onPurchase,
   onNavigate,
-  inclusions = [],
+  showInclusions = false,
   onDocumentsChanged,
   promoCode,
 }: CheckoutFlowProps) {
@@ -232,7 +231,7 @@ export function CheckoutFlow({
   return oneTime ? (
     <OneTimeCheckoutPanel
       {...shared}
-      inclusions={inclusions}
+      showInclusions={showInclusions}
       onRetryQuote={requestQuote}
       promoRejected={promoRejected}
     />

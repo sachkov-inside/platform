@@ -8,10 +8,7 @@ import {
   type PriceSnapshot,
 } from "@/entities/subscription";
 import { useBillingContact } from "@/features/billing-contact";
-import {
-  CheckoutFlow,
-  oneTimePurchaseInclusions,
-} from "@/features/billing-checkout";
+import { CheckoutFlow } from "@/features/billing-checkout";
 import { useCurrentBilling } from "@/features/billing-subscription";
 import { internalRoute } from "@/shared/routing/internal-route";
 import { cn } from "@/shared/lib/utils";
@@ -119,7 +116,7 @@ export function GuidePurchase({
             contact={contactState?.contact ?? null}
             contactHref={contactHref}
             documents={contactState?.documents ?? []}
-            inclusions={oneTimePurchaseInclusions(selected)}
+            showInclusions
             onDocumentsChanged={() => {
               void contact.refetch();
             }}

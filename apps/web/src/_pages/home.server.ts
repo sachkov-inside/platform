@@ -1,2 +1,8 @@
 import "server-only";
-export { getHome, HomePage, readPublicHome } from "./home/index.server";
+export {
+  getHome,
+  HomePage,
+  readPublicHome,
+  fillPinnedOfferTerms,
+  readPublicHomeWithOfferTerms,
+} from "./home/index.server";

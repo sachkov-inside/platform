@@ -16,7 +16,10 @@ import {
   type GuidePresentation,
 } from "@/entities/guide-page";
 import { ContentCoverImage } from "@/entities/material";
-import { fillOneTimeTerms as fillTerms } from "@/features/billing-checkout.terms";
+import {
+  fillOneTimeTerms,
+  type OneTimeOfferTerms,
+} from "@/features/billing-checkout.terms";
 import type { ReaderGuideArtifactsResult } from "@/features/guide-artifacts.reader";
 import {
   formatMaterialCount,
@@ -96,6 +99,7 @@ const productViews: Record<
 export function GuideProductView({
   artifacts = { kind: "ready", artifacts: [] },
   heroCall,
+  offerTerms = null,
   result,
   freeEntryHref,
   returnTarget,
@@ -108,6 +112,8 @@ export function GuideProductView({
   readonly freeEntryHref?: Route;
   /** Плашка потока и кнопка по этапу: её рисует оформление курса, остальные её не показывают. */
   readonly heroCall?: ReactNode;
+  /** Сроки предложения этого продукта для подстановок в описании; `null` — продажи нет. */
+  readonly offerTerms?: OneTimeOfferTerms | null;
 }) {
   const productPage = result.reference.productPage ?? null;
   const View = productViews[productPage?.presentation ?? "default"];
@@ -117,9 +123,13 @@ export function GuideProductView({
       artifacts={artifacts}
       freeEntryHref={freeEntryHref}
       heroCall={heroCall}
-      // Сроки оферты подставляются один раз, до выбора оформления: каждое оформление получает
+      // Сроки предложения подставляются один раз, до выбора оформления: каждое оформление получает
       // готовый текст и не пропускает ни одного поля (ADR 0026).
-      page={page === null ? null : fillGuidePage(page, fillTerms)}
+      page={
+        page === null
+          ? null
+          : fillGuidePage(page, (text) => fillOneTimeTerms(text, offerTerms))
+      }
       result={result}
       returnTarget={returnTarget}
     />

@@ -82,8 +82,8 @@ function localCatalog(guideId: string): readonly CatalogOffer[] {
       offerId: "72000000-0000-4000-8000-000000000503",
       name: "Руководство «Создание Platform Inside»",
       benefits: [guideCapability(guideId), "support"],
-      // Право разовой покупки выдаётся без даты окончания; договорные сроки называет оферта.
-      // Сопровождение по оферте разовой покупки — шесть месяцев с оплаты (#648).
+      // Срок каждого права называет предложение: продукт без даты окончания (оферта, редакция 5).
+      // Сопровождение в этом предложении — шесть месяцев с оплаты (#648).
       benefitPeriods: [
         { capability: guideCapability(guideId), months: null },
         { capability: "support", months: 6 },

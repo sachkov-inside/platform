@@ -27,15 +27,28 @@ export function applyCatalogCachePolicy(kind: CatalogReadKind): void {
 }
 
 /**
+ * Команды биллинга, после которых описание продукта может назвать другие сроки: оно подставляет
+ * из общего кеша сроки самого дешёвого предложения, а какое из них дешевле, решают и вариант
+ * оплаты, и скидка. Остальные команды биллинга каталог не трогают.
+ */
+const offerTermWrites = [
+  "/api/authoring/billing/offers/",
+  "/api/authoring/billing/payment-options/",
+  "/api/authoring/billing/promotions/",
+] as const;
+
+/**
  * Авторская запись меняет то, что видит гость: публикацию, состав продукта, обложку, закреп.
- * Команды биллинга сюда не входят — цены и предложения в общий кеш не попадают.
+ * Из команд биллинга сюда входят только записи предложений, вариантов оплаты и скидок: в общем
+ * кеше лежат сроки предложения продукта, а цены, скидки и потоки в него не попадают.
  */
 export function isCatalogWrite(request: Request): boolean {
   const { pathname } = new URL(request.url);
+  if (request.method === "GET" || !pathname.startsWith("/api/authoring/"))
+    return false;
   return (
-    request.method !== "GET" &&
-    pathname.startsWith("/api/authoring/") &&
-    !pathname.startsWith("/api/authoring/billing/")
+    !pathname.startsWith("/api/authoring/billing/") ||
+    offerTermWrites.some((prefix) => pathname.startsWith(prefix))
   );
 }
 

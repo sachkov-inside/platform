@@ -75,6 +75,11 @@ export function formatYears(years: number): string {
   return pluralize(years, ["год", "года", "лет"]);
 }
 
+/** Срок предложения словами: целые годы называются годами, остальное — месяцами. */
+export function formatTermMonths(months: number): string {
+  return months % 12 === 0 ? formatYears(months / 12) : formatMonths(months);
+}
+
 /**
  * Состав доступа описывается независимыми правами предложения, а не названием тарифа.
  * Неизвестное право не выдумывается: показывается его точный идентификатор.
@@ -105,9 +110,10 @@ export interface BenefitLine {
 /**
  * Самый долгий из сроков, которыми держится одно право: неуказанный срок означает право без даты
  * окончания и побеждает любой другой. Так же объединяет основания сервер, когда их несколько.
- * Набор непустой: его собирают из прав, которые уже нашлись в составе предложения.
+ * Набор непустой: его собирают из прав, которые уже нашлись в составе предложения; вызывающая
+ * сторона пустой набор сюда не передаёт.
  */
-function longestTerm(terms: readonly (number | null)[]): number | null {
+export function longestTerm(terms: readonly (number | null)[]): number | null {
   let longest = 0;
   for (const term of terms) {
     if (term === null) return null;
@@ -130,8 +136,8 @@ export function contentScopeSummary(
 /**
  * Срок конкретного права может отличаться от периода списания: у подписки неуказанный срок
  * наследует период варианта оплаты, у разовой покупки такого периода нет и право выдаётся без
- * даты окончания. Явный `null` означает то же в обоих случаях. Договорный срок покупки называет
- * оферта, а не право, поэтому кабинет и сводки прав такой срок не называют — ни «бессрочно», ни
+ * даты окончания. Явный `null` означает то же в обоих случаях. Договорный срок разовой покупки называет
+ * страница оплаты по срокам предложения (оферта, редакция 5), поэтому кабинет и сводки прав такой срок не называют — ни «бессрочно», ни
  * «без даты окончания»: `term` тогда `null`, и вызывающая сторона его не показывает. Общий чат,
  * который открывают сами руководства предложения, живёт их сроком: даже когда чат объявлен
  * составом отдельно и на более короткий срок, участие держится дольше. Так же объединяет основания
@@ -142,6 +148,24 @@ export function benefitLines(conditions: {
   readonly offer: BillingOffer;
   readonly paymentOption: BillingPaymentOption;
 }): readonly BenefitLine[] {
+  return benefitTerms(conditions).map(({ capability, months }) => ({
+    capability,
+    label: capabilityLabel(capability),
+    term: months === null ? null : formatMonths(months),
+  }));
+}
+
+/** Срок одного права предложения в месяцах; `null` — право без даты окончания. */
+export interface BenefitTerm {
+  readonly capability: AccessCapability;
+  readonly months: number | null;
+}
+
+/** Те же сроки, что называет `benefitLines`, числами: по ним оплата показывает сроки предложения. */
+export function benefitTerms(conditions: {
+  readonly offer: BillingOffer;
+  readonly paymentOption: BillingPaymentOption;
+}): readonly BenefitTerm[] {
   const { offer, paymentOption } = conditions;
   const months = (capability: AccessCapability): number | null => {
     const period = offer.benefitPeriods?.find(
@@ -155,17 +179,13 @@ export function benefitLines(conditions: {
   const communityTerms = capabilitiesOpening("community", offer.benefits).map(
     months,
   );
-  return accessComposition(offer.benefits).map((capability) => {
-    const term =
+  return accessComposition(offer.benefits).map((capability) => ({
+    capability,
+    months:
       capability === "community"
         ? longestTerm(communityTerms)
-        : months(capability);
-    return {
-      capability,
-      label: capabilityLabel(capability),
-      term: term === null ? null : formatMonths(term),
-    };
-  });
+        : months(capability),
+  }));
 }
 
 /**

@@ -92,7 +92,7 @@ export type GuidePage = z.infer<typeof guidePageSchema>;
 export type GuidePageBlock = GuidePage["blocks"][number];
 
 /**
- * Подставляет сроки оферты во все тексты описания: автор пишет `{access_term}` и `{support_term}`,
+ * Подставляет сроки предложения во все тексты описания: автор пишет `{access_term}` и `{support_term}`,
  * а оформление получает готовый текст и не пропускает ни одного поля (ADR 0026).
  */
 export function fillGuidePage(
@@ -265,7 +265,7 @@ export function readGuidePageHero(
   return null;
 }
 
-/** Сроки оферты, которые автор пишет подстановкой: страница повторяет оферту, а не свои числа. */
+/** Сроки, которые автор пишет подстановкой: страница повторяет предложение продукта, а не свои числа. */
 export interface OfferTerms {
   readonly access: string;
   readonly support: string;

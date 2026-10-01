@@ -100,6 +100,14 @@ describe("first screen call of a product cohort", () => {
       kind: "purchase",
       label: "Оплатить",
     });
+    // Срок сопровождения — из предложения (в фикстуре 3 месяца), а не из текста оферты.
+    expect(between.banner?.detail).toBe(
+      "Проходи в своём темпе, автор сопровождает тебя 3 месяца после покупки",
+    );
+    expect(
+      call({ cohort: { ...cohort, stage: "between" }, offer: null }).banner
+        ?.detail,
+    ).toBe("Проходи в своём темпе");
   });
 
   it("hides payment without a sale and from a person the product is open to", () => {
