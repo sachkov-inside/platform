@@ -172,6 +172,13 @@ test("guide programme appends a real composition and restores Reader return posi
     })
     .parse(await created.json());
   try {
+    // Материалы практики прогона перенесены из источника, а в руководство, созданное в редакторе,
+    // backend такие не принимает и отвечает 403. Список источник не показывает, поэтому их
+    // идентификаторы называет сам прогон.
+    const practiceIds = process.env["FULLSTACK_PRACTICE_MATERIAL_IDS"];
+    if (practiceIds === undefined)
+      throw new Error("Missing isolated practice fixture");
+    const importedPracticeIds = new Set(practiceIds.split(","));
     const ids: string[] = [];
     for (let number = 1; number <= 3 && ids.length < 13; number++) {
       const response = await fullStackBrowserRequest(
@@ -182,23 +189,16 @@ test("guide programme appends a real composition and restores Reader return posi
         .object({
           kind: z.literal("ready"),
           items: z.array(
-            z.object({
-              materialId: z.uuid(),
-              publicationState: z.string(),
-              title: z.string().nullable(),
-            }),
+            z.object({ materialId: z.uuid(), publicationState: z.string() }),
           ),
         })
         .parse(await response.json());
       ids.push(
         ...data.items
-          // Материалы практики прогона перенесены из источника (`scripts/full-stack-practice.mjs`),
-          // а в руководство, созданное в редакторе, backend такие не принимает и отвечает 403.
-          // Список источник не показывает, поэтому они отличаются названием.
           .filter(
             (item) =>
               item.publicationState === "published" &&
-              item.title?.startsWith("Synthetic practice reference") !== true,
+              !importedPracticeIds.has(item.materialId),
           )
           .map((item) => item.materialId),
       );

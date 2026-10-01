@@ -248,6 +248,10 @@ try {
     FULLSTACK_API_BASE_URL: apiBaseUrl,
     FULLSTACK_PRACTICE_SLUG: practiceFixture.slug,
     FULLSTACK_FREE_PRACTICE_SLUG: freePracticeFixture.slug,
+    FULLSTACK_PRACTICE_MATERIAL_IDS: [
+      practiceFixture.materialId,
+      freePracticeFixture.materialId,
+    ].join(","),
     FULLSTACK_LOGTO_COOKIE_NAME: fullStackIdentity.cookieName,
     FULLSTACK_LOGTO_MEMBER_SESSION: fullStackMemberSession,
     FULLSTACK_LOGTO_NON_MEMBER_SESSION:
