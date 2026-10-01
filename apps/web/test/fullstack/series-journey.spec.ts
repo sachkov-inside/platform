@@ -37,7 +37,7 @@ test("guide product leads to the programme and the programme keeps the Reader re
   await page
     .getByRole("link", { name: "Открыть программу", exact: true })
     .click();
-  await expect(page).toHaveURL(/\/guides\/demo-series-harness\/programme/u);
+  await expect(page).toHaveURL(/\/products\/demo-series-harness\/programme/u);
 
   // Личный прогресс находится в шапке, продолжение — на карточке материала.
   await expect(
@@ -182,13 +182,24 @@ test("guide programme appends a real composition and restores Reader return posi
         .object({
           kind: z.literal("ready"),
           items: z.array(
-            z.object({ materialId: z.uuid(), publicationState: z.string() }),
+            z.object({
+              materialId: z.uuid(),
+              publicationState: z.string(),
+              title: z.string().nullable(),
+            }),
           ),
         })
         .parse(await response.json());
       ids.push(
         ...data.items
-          .filter((item) => item.publicationState === "published")
+          // Материалы практики прогона перенесены из источника (`scripts/full-stack-practice.mjs`),
+          // а в руководство, созданное в редакторе, backend такие не принимает и отвечает 403.
+          // Список источник не показывает, поэтому они отличаются названием.
+          .filter(
+            (item) =>
+              item.publicationState === "published" &&
+              item.title?.startsWith("Synthetic practice reference") !== true,
+          )
           .map((item) => item.materialId),
       );
     }
