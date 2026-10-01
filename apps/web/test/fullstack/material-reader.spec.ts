@@ -415,7 +415,7 @@ test("renders a locked teaser whose purchase starts inside the platform and fail
   } else {
     await expect(purchase).toHaveAttribute(
       "href",
-      /^\/(?:subscription(?:\?from=[^"]+)?|guides\/[a-z0-9-]+\/buy)$/u,
+      /^\/(?:subscription(?:\?from=[^"]+)?|products\/[a-z0-9-]+\/buy)$/u,
     );
     expect(await purchase.getAttribute("target")).toBeNull();
   }
@@ -627,7 +627,7 @@ test("navigates Library → Topic → ordered Series and exposes canonical Reade
   await expect(seriesLink).toBeFocused();
   await seriesLink.press("Enter");
   await expect(page).toHaveURL(
-    /\/guides\/platform-inside\?from=%2Ftopics%2Fplatform%3Ffrom%3D%252F$/u,
+    /\/products\/platform-inside\?from=%2Ftopics%2Fplatform%3Ffrom%3D%252F$/u,
   );
   await expect(
     page.getByRole("link", { name: "Назад к теме" }),
@@ -643,7 +643,7 @@ test("navigates Library → Topic → ordered Series and exposes canonical Reade
   await page
     .getByRole("link", { name: "Открыть программу", exact: true })
     .click();
-  await expect(page).toHaveURL(/\/guides\/platform-inside\/programme/u);
+  await expect(page).toHaveURL(/\/products\/platform-inside\/programme/u);
   await expect(page.locator("[data-guide-programme]:visible")).toBeVisible();
   // Authoring scenarios add their members-only lessons to this seeded product (#648), so it only grows.
   await expect(
@@ -736,7 +736,7 @@ test("uses the selected Series order for a shared Material and leaves standalone
     "/products/demo-series-harness/programme?page=1&at=demo-295-obshchiy-gayd",
   );
   await page.goBack();
-  await expect(page).toHaveURL(/\/guides\/demo-series-harness\/programme/u);
+  await expect(page).toHaveURL(/\/products\/demo-series-harness\/programme/u);
   await page.goForward();
   await expect(page.getByRole("link", { name: "Дальше" })).toBeVisible();
 

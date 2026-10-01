@@ -186,7 +186,9 @@ test("author Home pin persists for guests and members, replaces and removes thro
     await guestPage
       .getByRole("link", { name: "Открыть продукт", exact: true })
       .click();
-    await expect(guestPage).toHaveURL(/\/guides\/demo-series-release-shared/u);
+    await expect(guestPage).toHaveURL(
+      /\/products\/demo-series-release-shared/u,
+    );
     await pin
       .getByRole("button", { name: `Снять закреп «${nextName}»` })
       .click();

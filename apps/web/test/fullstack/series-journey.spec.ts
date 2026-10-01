@@ -37,7 +37,7 @@ test("guide product leads to the programme and the programme keeps the Reader re
   await page
     .getByRole("link", { name: "Открыть программу", exact: true })
     .click();
-  await expect(page).toHaveURL(/\/guides\/demo-series-harness\/programme/u);
+  await expect(page).toHaveURL(/\/products\/demo-series-harness\/programme/u);
 
   // Личный прогресс находится в шапке, продолжение — на карточке материала.
   await expect(
@@ -172,6 +172,13 @@ test("guide programme appends a real composition and restores Reader return posi
     })
     .parse(await created.json());
   try {
+    // Материалы практики прогона перенесены из источника, а в руководство, созданное в редакторе,
+    // backend такие не принимает и отвечает 403. Список источник не показывает, поэтому их
+    // идентификаторы называет сам прогон.
+    const practiceIds = process.env["FULLSTACK_PRACTICE_MATERIAL_IDS"];
+    if (practiceIds === undefined)
+      throw new Error("Missing isolated practice fixture");
+    const importedPracticeIds = new Set(practiceIds.split(","));
     const ids: string[] = [];
     for (let number = 1; number <= 3 && ids.length < 13; number++) {
       const response = await fullStackBrowserRequest(
@@ -188,7 +195,11 @@ test("guide programme appends a real composition and restores Reader return posi
         .parse(await response.json());
       ids.push(
         ...data.items
-          .filter((item) => item.publicationState === "published")
+          .filter(
+            (item) =>
+              item.publicationState === "published" &&
+              !importedPracticeIds.has(item.materialId),
+          )
           .map((item) => item.materialId),
       );
     }

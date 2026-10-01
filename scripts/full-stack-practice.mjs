@@ -108,6 +108,7 @@ export async function seedFullStackPractice(
     .object({ metadata: z.object({ slug: z.string() }) })
     .parse(await request(`/authoring/materials/${saved.materialId}`));
   return {
+    materialId: saved.materialId,
     slug: material.metadata.slug,
     practiceId,
   };
