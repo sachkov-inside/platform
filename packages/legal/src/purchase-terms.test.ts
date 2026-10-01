@@ -16,19 +16,31 @@ describe("one-time purchase terms shown before payment", () => {
     );
   });
 
-  it("repeat the terms and the equal price split of the offer text", () => {
+  it("repeat the calculation term, the refund window and the equal price split of the offer text", () => {
     const text = flat(currentLegalEdition("purchase").text);
 
     expect(oneTimePurchaseTerms).toMatchObject({
-      materialsAndChatYears: 2,
-      supportMonths: 6,
+      unlimitedPartRefundMonths: 12,
+      fullRefundDays: 7,
     });
-    expect(text).toContain("на гарантированный срок 2 года");
     expect(text).toContain(
-      "**Сопровождение автора** действует 6 календарных месяцев",
+      "на расчётный срок — 12 календарных месяцев с подтверждения оплаты",
+    );
+    expect(text).toContain(
+      "Если отказ получен в течение 7 дней, не считая дня оплаты",
     );
     expect(text).toContain(
       "половина — часть «материалы и общий чат», половина — часть «сопровождение автора»",
+    );
+    expect(text).toContain(
+      "Если предложение не включает сопровождение автора, вся цена относится к части «материалы и общий чат»",
+    );
+  });
+
+  it("leave the terms of materials, chat and support to the offer of the product", () => {
+    // С редакции 5 оферта не называет этих сроков числом: их задаёт предложение.
+    expect(flat(currentLegalEdition("purchase").text)).toContain(
+      "является условием предложения конкретного продукта",
     );
   });
 

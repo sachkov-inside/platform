@@ -95,7 +95,8 @@ these are the rules a change follows.
   inside the function, never for the whole module, and every cached function calls the policy
   itself: a second read in the same file would otherwise have neither a tag nor a lifetime. A read made with a token, a
   closed Material body, per-viewer availability, progress, the guide mode and offers are never
-  cached and so never enter link prefetch. `"use cache: private"` and `unstable_cache` are not
+  cached and so never enter link prefetch. The one exception is the guest read of a product's
+  offer terms for its description placeholders (ADR 0027): month counts only, no price. `"use cache: private"` and `unstable_cache` are not
   used. `check-web-architecture` enforces the module name, the policy call in each cached
   function, the absence of the session and the directive variant and placement, with the negative
   fixture `public-cache`. It sees a direct breach only: a

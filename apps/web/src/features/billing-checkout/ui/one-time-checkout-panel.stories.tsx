@@ -3,9 +3,10 @@ import { expect, fn, within } from "storybook/test";
 
 import {
   confirmedGuidePurchase,
-  guideOnlyOffer,
-  guideQuote,
+  fixedTermGuideOffer,
+  fixedTermGuideQuote,
   guideWithSupportOffer,
+  guideWithSupportQuote,
   legalDocuments,
   verifiedContact,
 } from "@/workshop/billing.fixtures";
@@ -24,8 +25,8 @@ const meta = {
   title: "Pages/Guide/Payment",
   component: OneTimeCheckoutPanel,
   args: {
-    snapshot: guideOnlyOffer,
-    quote: guideQuote,
+    snapshot: guideWithSupportOffer,
+    quote: guideWithSupportQuote,
     documents: legalDocuments,
     contact: verifiedContact,
     contactHref: "/account/email",
@@ -58,8 +59,9 @@ export const Ready: Story = {
     await expect(
       canvas.queryByText(/Всё включено|Навсегда/u),
     ).not.toBeInTheDocument();
-    await expect(canvas.getByText("2 года гарантированно")).toBeInTheDocument();
-    await expect(canvas.getByText("6 месяцев")).toBeInTheDocument();
+    // Сроки — из предложения: материалы и чат без срока, сопровождение на 3 месяца.
+    await expect(canvas.getByText("Без ограничения срока")).toBeInTheDocument();
+    await expect(canvas.getByText("3 месяца")).toBeInTheDocument();
     // Купленное руководство само по себе открывает общий чат, и состав называет его.
     await expect(
       canvas.getByText("Продукт с сопровождением и общим чатом"),
@@ -69,6 +71,9 @@ export const Ready: Story = {
       canvas.getByText(/^Из них поровну: материалы и чат — /u),
     ).toBeInTheDocument();
     const terms = canvas.getByRole("region", { name: "Условия покупки" });
+    await expect(
+      within(terms).getByText("Материалы и чат — без ограничения срока."),
+    ).toBeInTheDocument();
     await expect(
       within(terms).getByText(
         "После отказа доступ по этой покупке закрывается.",
@@ -104,6 +109,31 @@ export const Ready: Story = {
     await expect(
       canvas.queryByText("Согласие на регулярные списания"),
     ).not.toBeInTheDocument();
+  },
+};
+
+/** Предложение с другими сроками показывает до оплаты свои сроки, а не сроки курса. */
+export const FixedTermOffer: Story = {
+  args: {
+    snapshot: fixedTermGuideOffer,
+    quote: fixedTermGuideQuote,
+    inclusions: oneTimePurchaseInclusions(fixedTermGuideOffer),
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await expect(canvas.getByText("2 года гарантированно")).toBeInTheDocument();
+    await expect(canvas.getByText("1 год")).toBeInTheDocument();
+    const terms = within(
+      canvas.getByRole("region", { name: "Условия покупки" }),
+    );
+    await expect(
+      terms.getByText(
+        "Материалы и чат — 2 года гарантированно, дальше без гарантии срока.",
+      ),
+    ).toBeInTheDocument();
+    await expect(
+      terms.getByText(/^Сопровождение — 1 год:/u),
+    ).toBeInTheDocument();
   },
 };
 

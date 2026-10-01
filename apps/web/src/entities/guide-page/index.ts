@@ -2,6 +2,7 @@ export {
   fillGuidePage,
   fillGuidePageHero,
   fillOfferTerms,
+  type OfferTerms,
   readGuidePageCard,
   readGuidePageHero,
   readGuideProductPage,

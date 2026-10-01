@@ -55,6 +55,7 @@ export {
   accessSourceLabel,
   attemptStateLabel,
   benefitLines,
+  benefitTerms,
   contentScopeSummary,
   billingErrorMessage,
   capabilityLabel,
@@ -62,13 +63,16 @@ export {
   formatBillingDateTime,
   formatKopecks,
   formatMonths,
+  formatTermMonths,
   formatYears,
+  longestTerm,
   noticeLabel,
   offerCompositionLabel,
   paymentSubjectLabel,
   promotionLabel,
   subscriptionStateLabel,
   type BenefitLine,
+  type BenefitTerm,
 } from "./model/presentation";
 export { billingActionClass } from "./ui/billing-action-class";
 export { OfferCard, type OfferCardProps } from "./ui/offer-card";

@@ -3,6 +3,10 @@ import {
   type GuideCohort,
   type PriceSnapshot,
 } from "@/entities/subscription";
+import {
+  oneTimeOfferTerms,
+  oneTimeTermLabels,
+} from "@/features/billing-checkout.terms";
 import type { CohortCall } from "@/features/ai-engineering-course";
 import type { GuideAccess } from "@/features/library-discovery";
 import {
@@ -111,8 +115,12 @@ export function cohortCall({
         banner: {
           label,
           text: `Курс открыт. Следующий поток: ${cohort.nextEvent}`,
+          // Срок сопровождения называет предложение; без него в продаже срок назвать нечем.
           detail:
-            "Проходи в своём темпе, автор сопровождает тебя 6 месяцев после покупки",
+            offer !== null &&
+            oneTimeOfferTerms(offer).supportMonths !== undefined
+              ? `Проходи в своём темпе, автор сопровождает тебя ${oneTimeTermLabels(oneTimeOfferTerms(offer)).support} после покупки`
+              : "Проходи в своём темпе",
         },
         action: pay("Оплатить"),
         compactOnPhone: false,

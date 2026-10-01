@@ -82,11 +82,29 @@ describe("an authoring write expires the public catalog cache", () => {
     expect(fakes.expirePublicCatalog).not.toHaveBeenCalled();
   });
 
+  // Описание продукта подставляет сроки его предложения из общего кеша (#780).
+  it.each([
+    ["an offer write", "/api/authoring/billing/offers/save"],
+    [
+      "a payment option write",
+      "/api/authoring/billing/payment-options/archive",
+    ],
+  ])("expires the catalog after %s", async (_name, path) => {
+    const { handleAuthenticatedMutation } =
+      await import("@/shared/auth/authenticated-mutation-handler.server");
+
+    await handleAuthenticatedMutation(mutation(path), () =>
+      Promise.resolve({ ok: true }),
+    );
+
+    expect(fakes.expirePublicCatalog).toHaveBeenCalledTimes(1);
+  });
+
   it.each([
     ["a reader's own write", "/api/reading-progress/state"],
     [
-      "a billing command: prices never enter the shared cache",
-      "/api/authoring/billing/offers/save",
+      "a billing command outside offers: prices never enter the shared cache",
+      "/api/authoring/billing/promotions/save",
     ],
   ])("keeps the catalog after %s", async (_name, path) => {
     const { handleAuthenticatedMutation } =

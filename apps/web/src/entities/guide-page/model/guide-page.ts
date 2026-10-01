@@ -265,7 +265,7 @@ export function readGuidePageHero(
   return null;
 }
 
-/** Сроки оферты, которые автор пишет подстановкой: страница повторяет оферту, а не свои числа. */
+/** Сроки, которые автор пишет подстановкой: страница повторяет предложение продукта, а не свои числа. */
 export interface OfferTerms {
   readonly access: string;
   readonly support: string;

@@ -32,6 +32,7 @@ import {
   homeMaterialReaderReturnTarget,
   type MaterialReaderReturnTarget,
 } from "@/shared/routing/material-reader";
+import type { OneTimeOfferTerms } from "@/features/billing-checkout.terms";
 import type { ReaderGuideArtifactsResult } from "@/features/guide-artifacts.reader";
 import { GuideProductView } from "./guide-product-view";
 import { TopicMaterialCatalog } from "./topic-material-catalog.client";
@@ -54,12 +55,15 @@ type PublishedTopicResultResolved = Exclude<
 export function LibraryDiscoveryView({
   artifacts = { kind: "ready", artifacts: [] },
   heroCall,
+  offerTerms = null,
   result,
   returnTarget = homeMaterialReaderReturnTarget,
 }: {
   readonly artifacts?: ReaderGuideArtifactsResult;
   /** Личная часть первого экрана продукта: плашка потока и кнопка по этапу продаж. */
   readonly heroCall?: ReactNode;
+  /** Сроки предложения продукта для подстановок в его описании. */
+  readonly offerTerms?: OneTimeOfferTerms | null;
   readonly result: ResolvedDiscoveryResult;
   readonly returnTarget?: MaterialReaderReturnTarget;
 }) {
@@ -69,6 +73,7 @@ export function LibraryDiscoveryView({
       <GuideProductView
         artifacts={artifacts}
         heroCall={heroCall}
+        offerTerms={offerTerms}
         result={result}
         returnTarget={returnTarget}
         {...(entry === undefined ? {} : { freeEntryHref: entry })}

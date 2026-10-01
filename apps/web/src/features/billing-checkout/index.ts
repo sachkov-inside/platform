@@ -4,11 +4,13 @@ export {
 } from "./ui/checkout-flow.client";
 export {
   fillOneTimeTerms,
+  oneTimeOfferTerms,
   oneTimePriceSharesLine,
   oneTimePurchaseInclusions,
   oneTimeTermLabels,
   oneTimeTermsSummary,
   type CheckoutInclusion,
+  type OneTimeOfferTerms,
 } from "./model/one-time-terms";
 export {
   CheckoutPanel,

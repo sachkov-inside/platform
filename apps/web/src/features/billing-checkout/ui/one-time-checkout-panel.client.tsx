@@ -1,5 +1,5 @@
 "use client";
-import { CalendarClock, MessagesSquare, Play } from "lucide-react";
+import { CalendarClock, MessagesSquare, Play, Users } from "lucide-react";
 import type { Route } from "next";
 import Link from "next/link";
 import { useId } from "react";
@@ -28,6 +28,7 @@ import {
 import { Button } from "@/shared/ui/button";
 
 import {
+  oneTimeOfferTerms,
   oneTimePriceSharesLine,
   oneTimeTermsSummary,
   type CheckoutInclusion,
@@ -75,6 +76,7 @@ function documentLabel(document: LegalDocument): string {
 const inclusionIcons = {
   composition: Play,
   materials: CalendarClock,
+  chat: Users,
   support: MessagesSquare,
 } as const satisfies Record<CheckoutInclusion["kind"], unknown>;
 
@@ -102,6 +104,11 @@ export function OneTimeCheckoutPanel({
   const acknowledgeId = useId();
   const conditions = quote?.snapshot ?? snapshot;
   const promotion = promotionLabel(conditions);
+  const terms = oneTimeOfferTerms(conditions);
+  const priceShares = oneTimePriceSharesLine(
+    conditions.firstPriceKopecks,
+    terms,
+  );
   const { required, applicable } = purchaseConsentPolicy(
     documents,
     paymentMode(conditions),
@@ -164,9 +171,9 @@ export function OneTimeCheckoutPanel({
           </span>
           <span className="text-sm text-white/70">разово</span>
         </p>
-        <p className="mt-2 text-sm leading-6 text-white/85">
-          {oneTimePriceSharesLine(conditions.firstPriceKopecks)}
-        </p>
+        {priceShares === null ? null : (
+          <p className="mt-2 text-sm leading-6 text-white/85">{priceShares}</p>
+        )}
         {promotion === undefined ? null : (
           <p className="mt-2 font-mono text-xs text-white/70">{promotion}</p>
         )}
@@ -220,7 +227,7 @@ export function OneTimeCheckoutPanel({
           Условия покупки
         </h3>
         <ul className="mt-2 grid list-disc gap-1.5 pl-5 text-muted-foreground">
-          {oneTimeTermsSummary.map((line) => (
+          {oneTimeTermsSummary(terms).map((line) => (
             <li key={line}>{line}</li>
           ))}
         </ul>

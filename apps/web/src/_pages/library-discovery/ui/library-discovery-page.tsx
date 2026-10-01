@@ -7,6 +7,8 @@ import {
   guidePurchaseOffers,
   publicSubscriptionOffers,
 } from "@/entities/subscription";
+import type { OneTimeOfferTerms } from "@/features/billing-checkout.terms";
+import { readPublicGuideOfferTerms } from "@/features/billing-checkout.terms.server";
 import type { ReaderGuideArtifactsResult } from "@/features/guide-artifacts.reader";
 import {
   readPublicGuideArtifacts,
@@ -87,9 +89,13 @@ export async function PublishedSeriesPage({
   if (result.kind === "unavailable") {
     return <LibraryDiscoveryUnavailable />;
   }
+  const [artifacts, offerTerms] = await Promise.all([
+    publicArtifactsOf(result),
+    publicOfferTermsOf(result),
+  ]);
   return (
     <LibraryDiscoveryView
-      artifacts={await publicArtifactsOf(result)}
+      artifacts={artifacts}
       // Поток и кнопка по этапу продаж — единственная личная часть страницы продукта. Её рисует
       // только оформление, у которого она есть; остальные продукты её не запрашивают (#814).
       heroCall={
@@ -97,6 +103,7 @@ export async function PublishedSeriesPage({
           <PersonalCohortCall result={result} />
         </Suspense>
       }
+      offerTerms={offerTerms}
       result={result}
       returnTarget={parseMaterialReaderReturnTarget(query.from)}
     />
@@ -195,4 +202,21 @@ function publicArtifactsOf(
   return guideId === undefined
     ? Promise.resolve(noArtifacts)
     : readPublicGuideArtifacts(guideId);
+}
+
+/**
+ * Сроки для подстановок в описании продукта — из его предложения для всех. Продукт без описания
+ * их не спрашивает; сбой чтения не выдумывает срок: подстановка остаётся без чисел.
+ */
+async function publicOfferTermsOf(
+  result: ResolvedSeries,
+): Promise<OneTimeOfferTerms | null> {
+  const guideId = result.reference.id;
+  if (
+    guideId === undefined ||
+    (result.reference.productPage?.page ?? null) === null
+  )
+    return null;
+  const terms = await readPublicGuideOfferTerms(guideId);
+  return terms.kind === "ready" ? terms.terms : null;
 }

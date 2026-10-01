@@ -3,71 +3,193 @@ import {
   oneTimePurchaseTerms,
 } from "@inside/legal/purchase-terms";
 
-import { fillOfferTerms } from "@/entities/guide-page";
+import { fillOfferTerms, type OfferTerms } from "@/entities/guide-page";
 import {
+  benefitTerms,
   formatKopecks,
   formatMonths,
-  formatYears,
+  formatTermMonths,
+  isGuideCapability,
+  longestTerm,
   offerCompositionLabel,
+  type BillingOffer,
+  type BillingPaymentOption,
   type PriceSnapshot,
 } from "@/entities/subscription";
 
 /**
- * Одна строка состава покупки. `kind` называет, о чём она — состав, срок материалов и чата или
+ * Одна строка состава покупки. `kind` называет, о чём она — состав, срок материалов, чата или
  * сопровождение, — и по нему панель выбирает значок. Разбирать для этого подпись было бы гаданием.
  */
 export interface CheckoutInclusion {
-  readonly kind: "composition" | "materials" | "support";
+  readonly kind: "composition" | "materials" | "chat" | "support";
   readonly caption: string;
   readonly title: string;
   readonly detail?: string;
 }
 
 /**
- * Сроки действующей оферты словами: «2 года», «6 месяцев». `@inside/legal` сверяет числа с её
- * текстом; оплата и страница продукта называют сроки этими подписями, а не собирают свои.
+ * Сроки составляющих разовой покупки, как их задаёт предложение (оферта, раздел 4): число
+ * календарных месяцев или `null` — без ограничения срока. `supportMonths` не определён, когда
+ * сопровождения в составе предложения нет.
  */
-export const oneTimeTermLabels = {
-  materialsAndChat: formatYears(oneTimePurchaseTerms.materialsAndChatYears),
-  support: formatMonths(oneTimePurchaseTerms.supportMonths),
-} as const;
-
-/**
- * Подстановка сроков в авторский текст описания продукта: автор пишет `{access_term}` и
- * `{support_term}`, а подписи даёт действующая оферта, поэтому страница не заводит своих чисел.
- */
-export function fillOneTimeTerms(text: string): string {
-  return fillOfferTerms(text, {
-    access: oneTimeTermLabels.materialsAndChat,
-    support: oneTimeTermLabels.support,
-  });
+export interface OneTimeOfferTerms {
+  readonly materialsMonths: number | null;
+  readonly chatMonths: number | null;
+  readonly supportMonths?: number | null;
 }
 
 /**
- * Короткая сводка условий над согласием. Слова утверждены владельцем вместе с офертой (Workspace
- * #189); сводка не добавляет обещаний сверх оферты и не заменяет её текст.
+ * Сроки из снимка предложения. Материалы — самый долгий срок прав на продукты предложения. Чат
+ * без собственного срока в предложении живёт сроком материалов, как это записано в оферте; право
+ * в Platform при этом может не иметь даты окончания — договорный срок называет эта функция.
  */
-export const oneTimeTermsSummary: readonly string[] = [
-  `Материалы и чат — ${oneTimeTermLabels.materialsAndChat} гарантированно, дальше без гарантии срока.`,
-  `Сопровождение — ${oneTimeTermLabels.support}: ответы и помощь в общем чате. Личные встречи, гарантированный срок ответа и обязательная проверка кода не входят.`,
-  "Отказ до открытия доступа — полный возврат. Позже — за вычетом истекшего времени, но не меньше положенного по закону.",
-  "После отказа доступ по этой покупке закрывается.",
-  "Если с нашей стороны есть недостатки или нарушения, действуют правила закона. При наличии оснований возвращается вся сумма.",
-];
+export function oneTimeOfferTerms(conditions: {
+  readonly offer: BillingOffer;
+  readonly paymentOption: BillingPaymentOption;
+}): OneTimeOfferTerms {
+  const terms = benefitTerms(conditions);
+  const materials = terms.filter(
+    ({ capability }) =>
+      isGuideCapability(capability) || capability === "materials",
+  );
+  const materialsMonths =
+    materials.length === 0
+      ? null
+      : longestTerm(materials.map(({ months }) => months));
+  const ownChat = conditions.offer.benefitPeriods?.find(
+    ({ capability }) => capability === "community",
+  );
+  const support = terms.find(({ capability }) => capability === "support");
+  return {
+    materialsMonths,
+    chatMonths: ownChat === undefined ? materialsMonths : ownChat.months,
+    ...(support === undefined ? {} : { supportMonths: support.months }),
+  };
+}
 
-/** Распределение цены до оплаты: по нему оферта считает возврат при отказе. */
-export function oneTimePriceSharesLine(totalKopecks: number): string {
+const unlimitedTerm = "без ограничения срока";
+const calculationTerm = formatMonths(
+  oneTimePurchaseTerms.unlimitedPartRefundMonths,
+);
+const supportNotIncluded = "не входит в покупку";
+
+/** Срок словами: «2 года», «6 месяцев», «без ограничения срока». */
+function termLabel(months: number | null): string {
+  return months === null ? unlimitedTerm : formatTermMonths(months);
+}
+
+/**
+ * Подписи сроков для авторского текста описания продукта. Срок материалов и чата — более длинный
+ * из двух: так оферта определяет срок части цены «материалы и общий чат».
+ */
+export function oneTimeTermLabels(terms: OneTimeOfferTerms): OfferTerms {
+  return {
+    access: termLabel(longestTerm([terms.materialsMonths, terms.chatMonths])),
+    support:
+      terms.supportMonths === undefined
+        ? supportNotIncluded
+        : termLabel(terms.supportMonths),
+  };
+}
+
+/**
+ * Подписи для страницы, у продукта которой сейчас нет предложения в продаже: срок назвать нечем,
+ * а выдумывать его страница не должна.
+ */
+const termsWithoutOffer: OfferTerms = {
+  access: "по условиям предложения",
+  support: "по условиям предложения",
+};
+
+/**
+ * Подстановка сроков в авторский текст описания продукта: автор пишет `{access_term}` и
+ * `{support_term}`, а подписи даёт предложение этого продукта, поэтому страница не заводит своих
+ * чисел. `null` — предложения в продаже нет.
+ */
+export function fillOneTimeTerms(
+  text: string,
+  terms: OneTimeOfferTerms | null,
+): string {
+  return fillOfferTerms(
+    text,
+    terms === null ? termsWithoutOffer : oneTimeTermLabels(terms),
+  );
+}
+
+/** Срок в месяцах гарантированный; без ограничения — без даты окончания (оферта, раздел 4). */
+function guaranteedTermLine(subject: string, months: number | null): string {
+  return months === null
+    ? `${subject} — ${unlimitedTerm}.`
+    : `${subject} — ${formatTermMonths(months)} гарантированно, дальше без гарантии срока.`;
+}
+
+/**
+ * Короткая сводка условий над согласием. Сроки — из предложения, остальное повторяет оферту:
+ * сводка не добавляет обещаний сверх неё и не заменяет её текст.
+ */
+export function oneTimeTermsSummary(
+  terms: OneTimeOfferTerms,
+): readonly string[] {
+  const sameTerm = terms.materialsMonths === terms.chatMonths;
+  // У части цены без срока окончания оферта считает возврат по расчётному сроку (раздел 4).
+  const elapsed =
+    longestTerm([terms.materialsMonths, terms.chatMonths]) !== null
+      ? "за вычетом истекшего времени"
+      : terms.supportMonths === undefined
+        ? `за вычетом истекшего времени из расчётного срока ${calculationTerm}`
+        : `за вычетом истекшего времени: сопровождение — из его срока, материалы и чат — из расчётного срока ${calculationTerm}`;
+  return [
+    ...(sameTerm
+      ? [guaranteedTermLine("Материалы и чат", terms.materialsMonths)]
+      : [
+          guaranteedTermLine("Материалы", terms.materialsMonths),
+          guaranteedTermLine("Общий чат", terms.chatMonths),
+        ]),
+    ...(terms.supportMonths === undefined
+      ? []
+      : [
+          `Сопровождение — ${termLabel(terms.supportMonths)}: ответы и помощь в общем чате. Личные встречи, гарантированный срок ответа и обязательная проверка кода не входят.`,
+        ]),
+    `Отказ в первые ${String(oneTimePurchaseTerms.fullRefundDays)} дней или до открытия доступа — полный возврат. Позже — ${elapsed}, но не меньше положенного по закону.`,
+    "После отказа доступ по этой покупке закрывается.",
+    "Если с нашей стороны есть недостатки или нарушения, действуют правила закона. При наличии оснований возвращается вся сумма.",
+  ];
+}
+
+/**
+ * Распределение цены до оплаты: по нему оферта считает возврат при отказе. У предложения без
+ * сопровождения вся цена относится к материалам и чату, и делить нечего — строки нет.
+ */
+export function oneTimePriceSharesLine(
+  totalKopecks: number,
+  terms: OneTimeOfferTerms,
+): string | null {
+  if (terms.supportMonths === undefined) return null;
   const shares = oneTimePriceShares(totalKopecks);
   return `Из них поровну: материалы и чат — ${formatKopecks(shares.materialsAndChatKopecks)}, сопровождение — ${formatKopecks(shares.supportKopecks)}`;
 }
 
-/**
- * Что получает покупатель: состав — из предложения, сроки — из оферты. Право на продукт выдаётся
- * без даты окончания, поэтому договорный срок из прав не выводится.
- */
+function termInclusion(
+  kind: "materials" | "chat",
+  caption: string,
+  months: number | null,
+): CheckoutInclusion {
+  return months === null
+    ? { kind, caption, title: "Без ограничения срока" }
+    : {
+        kind,
+        caption,
+        title: `${formatTermMonths(months)} гарантированно`,
+        detail: "дальше без гарантии срока",
+      };
+}
+
+/** Что получает покупатель: состав и сроки — из снимка предложения, которое он оплачивает. */
 export function oneTimePurchaseInclusions(
   snapshot: PriceSnapshot,
 ): readonly CheckoutInclusion[] {
+  const terms = oneTimeOfferTerms(snapshot);
   return [
     {
       kind: "composition",
@@ -75,16 +197,29 @@ export function oneTimePurchaseInclusions(
       title: offerCompositionLabel(snapshot.offer),
       detail: snapshot.offer.name,
     },
-    {
-      kind: "materials",
-      caption: "Материалы и общий чат",
-      title: `${oneTimeTermLabels.materialsAndChat} гарантированно`,
-      detail: "дальше без гарантии срока",
-    },
-    {
-      kind: "support",
-      caption: "Сопровождение автора",
-      title: oneTimeTermLabels.support,
-    },
+    ...(terms.materialsMonths === terms.chatMonths
+      ? [
+          termInclusion(
+            "materials",
+            "Материалы и общий чат",
+            terms.materialsMonths,
+          ),
+        ]
+      : [
+          termInclusion("materials", "Материалы", terms.materialsMonths),
+          termInclusion("chat", "Общий чат", terms.chatMonths),
+        ]),
+    ...(terms.supportMonths === undefined
+      ? []
+      : [
+          {
+            kind: "support" as const,
+            caption: "Сопровождение автора",
+            title:
+              terms.supportMonths === null
+                ? "Без ограничения срока"
+                : formatTermMonths(terms.supportMonths),
+          },
+        ]),
   ];
 }
