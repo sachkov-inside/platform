@@ -1,0 +1,50 @@
+[
+  {
+    "surface": "checkout-course",
+    "viewport": "desktop",
+    "id": "pages-guide-payment--ready",
+    "overflow": false,
+    "previousTerms": [],
+    "serious": []
+  },
+  {
+    "surface": "checkout-fixed-term",
+    "viewport": "desktop",
+    "id": "pages-guide-payment--fixed-term-offer",
+    "overflow": false,
+    "previousTerms": [],
+    "serious": []
+  },
+  {
+    "surface": "offer",
+    "viewport": "desktop",
+    "id": "pages-legal-документ--purchase-offer",
+    "overflow": false,
+    "previousTerms": [],
+    "serious": []
+  },
+  {
+    "surface": "checkout-course",
+    "viewport": "mobile",
+    "id": "pages-guide-payment--ready",
+    "overflow": false,
+    "previousTerms": [],
+    "serious": []
+  },
+  {
+    "surface": "checkout-fixed-term",
+    "viewport": "mobile",
+    "id": "pages-guide-payment--fixed-term-offer",
+    "overflow": false,
+    "previousTerms": [],
+    "serious": []
+  },
+  {
+    "surface": "offer",
+    "viewport": "mobile",
+    "id": "pages-legal-документ--purchase-offer",
+    "overflow": false,
+    "previousTerms": [],
+    "serious": []
+  }
+]

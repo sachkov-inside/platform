@@ -20,6 +20,8 @@ const meta = {
   component: GuideProductView,
   title: "Pages/Guide/AI-first",
   args: {
+    // Сроки предложения практикума: описание подставляет их вместо `{access_term}` и `{support_term}`.
+    offerTerms: { materialsMonths: 24, chatMonths: 24, supportMonths: 6 },
     returnTarget: homeMaterialReaderReturnTarget,
     result: {
       kind: "empty",
