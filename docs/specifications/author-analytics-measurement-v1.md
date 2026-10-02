@@ -313,7 +313,7 @@ Platform не заводит — см. [сессии и principals](identity-pri
   [#334](https://github.com/sachkov-inside/platform/issues/334)–[#336](https://github.com/sachkov-inside/platform/issues/336),
   и они переводятся в `ready-for-agent`;
 - принятое решение о хранении и приближении посетителя фиксируется отдельным ADR;
-- принятые термины «посетитель», «сессия» и «событие» вносятся в [CONTEXT.md](../../CONTEXT.md);
+- принятые термины «посетитель», «сессия» и «событие» вносятся в [GLOSSARY.md](../../GLOSSARY.md);
 - сбор остаётся выключенным до отдельного GO.
 
 Проверки, которые обязана пройти реализация:

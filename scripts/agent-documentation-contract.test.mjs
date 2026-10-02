@@ -1,6 +1,13 @@
 // @ts-check
 import assert from "node:assert/strict";
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import {
+  mkdirSync,
+  mkdtempSync,
+  readdirSync,
+  rmSync,
+  symlinkSync,
+  writeFileSync,
+} from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -11,6 +18,7 @@ import {
   codingStandardsLineLimit,
   documentationWarnings,
   extractLocalMarkdownTargets,
+  processContractLineLimit,
 } from "./check-agent-documentation.mjs";
 
 const repositoryRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
@@ -52,6 +60,28 @@ describe("agent documentation contract", () => {
       assert.deepEqual(documentationWarnings(root), [
         `apps/web/CODING_STANDARDS.md: ${codingStandardsLineLimit + 2} lines, more than ${codingStandardsLineLimit}; open a task to turn rules into checks`,
       ]);
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });
+
+  it("warns about a process contract longer than the limit and still passes", () => {
+    const root = mkdtempSync(join(tmpdir(), "docs-check-"));
+    try {
+      for (const name of readdirSync(repositoryRoot)) {
+        if (name !== "WORKFLOW.md") {
+          symlinkSync(join(repositoryRoot, name), join(root, name));
+        }
+      }
+      const workflow = join(root, "WORKFLOW.md");
+      const warning = `WORKFLOW.md: ${processContractLineLimit + 1} lines, more than ${processContractLineLimit}; shorten the process contract`;
+
+      writeFileSync(workflow, "rule\n".repeat(processContractLineLimit));
+      assert.equal(documentationWarnings(root).includes(warning), false);
+
+      writeFileSync(workflow, "rule\n".repeat(processContractLineLimit + 1));
+      assert.equal(documentationWarnings(root).includes(warning), true);
+      assert.deepEqual(checkDocumentation(root), []);
     } finally {
       rmSync(root, { recursive: true, force: true });
     }
