@@ -95,9 +95,10 @@ export async function executeReorderSeries(
     return { kind: "error", reference: "backend-unavailable" };
   }
   if (!result.ok) {
-    if (result.response.status === 401 || result.response.status === 403) {
-      return { kind: "unauthorized" };
-    }
+    if (result.response.status === 401) return { kind: "unauthorized" };
+    // 403 при действующей сессии: состав перенесённого продукта меняет только перенос, либо у
+    // Account нет права автора. Вход заново этого не исправит.
+    if (result.response.status === 403) return { kind: "forbidden" };
     if (result.response.status === 409) {
       const removals = guideRemovalsFromProblem(result.problem);
       return removals === null
@@ -105,12 +106,12 @@ export async function executeReorderSeries(
         : { guides: removals, kind: "removal_confirmation_required" };
     }
     if (result.response.status === 422) {
-      const materialIds = sourceMismatchMaterialIds(
+      const mismatchedIds = sourceMismatchMaterialIds(
         result.problem,
         orderedMaterialIds.data,
       );
-      if (materialIds.length > 0)
-        return { kind: "source_mismatch", materialIds };
+      if (mismatchedIds.length > 0)
+        return { kind: "source_mismatch", materialIds: mismatchedIds };
     }
     return { kind: "error", reference: "series-order-save" };
   }

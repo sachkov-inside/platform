@@ -213,6 +213,21 @@ describe("Series order web adapters", () => {
     ).resolves.toEqual({ kind: "error", reference: "series-order-save" });
   });
 
+  it("keeps a refusal under a live session apart from a finished session", async () => {
+    const refusal = (status: number) =>
+      vi.fn().mockResolvedValue({
+        ok: false,
+        problem: {},
+        response: Response.json({}, { status }),
+      });
+    await expect(
+      executeReorderSeries(validFormData(), "access-token", refusal(401)),
+    ).resolves.toEqual({ kind: "unauthorized" });
+    await expect(
+      executeReorderSeries(validFormData(), "access-token", refusal(403)),
+    ).resolves.toEqual({ kind: "forbidden" });
+  });
+
   it("asks to confirm a removal from a bought product and passes the confirmation", async () => {
     const guides = [
       { guideId: seriesId, holders: 3, name: "Купленный продукт" },

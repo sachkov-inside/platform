@@ -403,6 +403,23 @@ export const SourceMismatch: Story = {
   },
 };
 
+export const Forbidden: Story = {
+  name: "Продукт нельзя менять в редакторе",
+  decorators: [
+    withMutationFetch(() =>
+      Promise.resolve(Response.json({ kind: "forbidden" })),
+    ),
+  ],
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await moveFirstItem(canvasElement);
+    await expect(
+      await canvas.findByText(/этот продукт нельзя менять в редакторе/u),
+    ).toBeInTheDocument();
+    await expect(canvas.queryByRole("button", { name: "Войти" })).toBeNull();
+  },
+};
+
 export const SaveError: Story = {
   decorators: [withMutationFetch(failedOrderSpy)],
   play: async ({ canvasElement }) => {
