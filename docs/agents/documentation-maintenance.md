@@ -21,14 +21,13 @@ source of truth for every durable fact, not a prose copy of every implementation
 | Skill copied from upstream | Replace the directory from upstream and update `.agents/skills/UPSTREAM.md`; do not edit the copy locally |
 
 Code, schemas, generated contracts, and tests may be the complete authority for a local
-implementation detail. In that case, record `None — code/schema/tests are the authority` in the PR
-Documentation impact section instead of making a no-op documentation edit.
+implementation detail. In that case, say `None — code/schema/tests are the authority` in the pull
+request instead of making a no-op documentation edit.
 
 ## Close the change
 
-`Documentation impact` in `WORKFLOW.md` owns the procedure: list the changed durable facts from the
-diff, update each in exactly one authority from the table above, and name the result in the pull
-request. Platform adds:
+List the changed durable facts from the final diff, update each in exactly one authority from the
+table above, and name the result in the pull request. Then:
 
 1. Update `AGENTS.md` only when the agent's trigger, routing, rule, verification command, or
    completion criterion changed.

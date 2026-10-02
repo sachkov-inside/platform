@@ -65,8 +65,8 @@ for a clean pull request. The ruleset changes only by owner decision; an agent n
 a merge through.
 
 `compose-production` can time out waiting for a `pg-boss` job to become active on a change that does
-not touch workers, queues or Compose; #728 tracks the wait budget, and a re-run follows the rule for
-known defects in `WORKFLOW.md` while it is open.
+not touch workers, queues or Compose; #728 tracks the wait budget, and a re-run of that check is
+allowed while #728 is open.
 
 ## Integration suites
 

@@ -119,6 +119,37 @@ function rejectText(failures, path, content, forbidden, explanation) {
   }
 }
 
+export const codingStandardsLineLimit = 200;
+const processContractLineLimit = 150;
+
+/**
+ * A root coding standard past the limit is a signal, not a failure (#848): the rules that a check
+ * can enforce should become checks.
+ *
+ * @param {string} repositoryRoot
+ */
+export function documentationWarnings(repositoryRoot = defaultRepositoryRoot) {
+  /** @type {string[]} */
+  const warnings = [];
+  const lines = lineCount(read(repositoryRoot, "CODING_STANDARDS.md"));
+  if (lines > codingStandardsLineLimit) {
+    warnings.push(
+      `CODING_STANDARDS.md: ${lines} lines, more than ${codingStandardsLineLimit}; open a task to turn rules into checks`,
+    );
+  }
+
+  return warnings;
+}
+
+/** @param {string} content */
+function lineCount(content) {
+  if (content.length === 0) {
+    return 0;
+  }
+
+  return content.replace(/\n$/u, "").split("\n").length;
+}
+
 export function checkDocumentation(repositoryRoot = defaultRepositoryRoot) {
   /** @type {string[]} */
   const failures = [];
@@ -142,6 +173,14 @@ export function checkDocumentation(repositoryRoot = defaultRepositoryRoot) {
   }
 
   const rootAgents = read(repositoryRoot, "AGENTS.md");
+  for (const path of ["AGENTS.md", "WORKFLOW.md"]) {
+    const lines = lineCount(read(repositoryRoot, path));
+    if (lines > processContractLineLimit) {
+      failures.push(
+        `${path}: ${lines} lines, the limit is ${processContractLineLimit} (#848)`,
+      );
+    }
+  }
   const backendAgents = read(repositoryRoot, "apps/backend/AGENTS.md");
   const context = read(repositoryRoot, "GLOSSARY.md");
   const materialsAdr = read(
@@ -294,6 +333,10 @@ export function checkDocumentation(repositoryRoot = defaultRepositoryRoot) {
 }
 
 function run() {
+  for (const warning of documentationWarnings()) {
+    console.warn(`Warning: ${warning}`);
+  }
+
   const failures = checkDocumentation();
   if (failures.length > 0) {
     console.error(`Documentation contract failed (${failures.length}):`);
