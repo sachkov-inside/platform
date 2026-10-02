@@ -123,19 +123,28 @@ export const codingStandardsLineLimit = 200;
 const processContractLineLimit = 150;
 
 /**
- * A root coding standard past the limit is a signal, not a failure (#848): the rules that a check
- * can enforce should become checks.
+ * A coding standard past the limit is a signal, not a failure (#848): the rules that a check can
+ * enforce should become checks.
  *
  * @param {string} repositoryRoot
  */
 export function documentationWarnings(repositoryRoot = defaultRepositoryRoot) {
   /** @type {string[]} */
   const warnings = [];
-  const lines = lineCount(read(repositoryRoot, "CODING_STANDARDS.md"));
-  if (lines > codingStandardsLineLimit) {
-    warnings.push(
-      `CODING_STANDARDS.md: ${lines} lines, more than ${codingStandardsLineLimit}; open a task to turn rules into checks`,
-    );
+  const standards = collectAgentDocumentation(repositoryRoot).filter((path) =>
+    path.endsWith("CODING_STANDARDS.md"),
+  );
+  for (const path of standards) {
+    if (!existsSync(resolve(repositoryRoot, path))) {
+      continue;
+    }
+
+    const lines = lineCount(read(repositoryRoot, path));
+    if (lines > codingStandardsLineLimit) {
+      warnings.push(
+        `${path}: ${lines} lines, more than ${codingStandardsLineLimit}; open a task to turn rules into checks`,
+      );
+    }
   }
 
   return warnings;

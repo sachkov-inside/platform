@@ -6,21 +6,24 @@
 #   bash scripts/copy-process.sh <target-repository>
 #   bash scripts/copy-process.sh --check <target-repository>
 #
-# --skip-labels leaves the GitHub labels of the target alone.
+# --skip-labels leaves the GitHub labels of the target alone. --allow-dirty copies uncommitted
+# process files; without it the copy starts only from committed process files.
 set -euo pipefail
 
 usage() {
-  echo "Usage: bash scripts/copy-process.sh [--check] [--skip-labels] <target-repository>" >&2
+  echo "Usage: bash scripts/copy-process.sh [--check] [--skip-labels] [--allow-dirty] <target-repository>" >&2
   exit 2
 }
 
 mode="copy"
 labels="yes"
+dirty="refuse"
 target=""
 while [ "$#" -gt 0 ]; do
   case "$1" in
     --check) mode="check" ;;
     --skip-labels) labels="no" ;;
+    --allow-dirty) dirty="allow" ;;
     -*) usage ;;
     *)
       if [ -n "$target" ]; then usage; fi
@@ -51,6 +54,17 @@ wayfinder:research|0e8a16|Wayfinder research ticket
 wayfinder:prototype|fbca04|Wayfinder prototype ticket
 wayfinder:grilling|d93f0b|Wayfinder grilling ticket
 wayfinder:task|1d76db|Wayfinder execution ticket"
+removed_labels="tracker:acceptance tracker:gate tracker:paused tracker:auto-complete backlog:human"
+
+if [ "$dirty" = "refuse" ]; then
+  # shellcheck disable=SC2086 # process_files is a list of plain paths
+  uncommitted="$(git -C "$source_root" status --porcelain -- $process_files .agents/skills)"
+  if [ -n "$uncommitted" ]; then
+    echo "Commit the process files in $source_root first:" >&2
+    echo "$uncommitted" >&2
+    exit 1
+  fi
+fi
 
 process_skills=""
 for directory in "$source_root"/.agents/skills/*/; do
@@ -72,6 +86,10 @@ if [ "$mode" = "copy" ]; then
     echo "$target/.agents/skills is a symlink; remove it before copying." >&2
     exit 1
   fi
+  if [ -d "$target/.claude/skills" ] && [ ! -L "$target/.claude/skills" ]; then
+    echo "$target/.claude/skills is a directory; remove it before copying." >&2
+    exit 1
+  fi
   for file in $process_files; do
     mkdir -p "$(dirname "$target/$file")"
     cp "$source_root/$file" "$target/$file"
@@ -85,7 +103,7 @@ if [ "$mode" = "copy" ]; then
   ln -s ../.agents/skills "$target/.claude/skills"
   if [ "$labels" = "yes" ]; then
     echo "$process_labels" | while IFS='|' read -r name color description; do
-      (cd "$target" && gh label create "$name" --color "$color" --description "$description" --force)
+      (cd "$target" && gh label create "$name" --color "$color" --description "$description" --force </dev/null)
     done
   fi
 fi
@@ -97,10 +115,13 @@ for name in $process_skills; do
   diff -rq "$source_root/.agents/skills/$name" "$target/.agents/skills/$name" >&2 ||
     fail "Differs: .agents/skills/$name"
 done
-for name in $frontend_skills; do
-  if [ -e "$target/.agents/skills/$name" ]; then
-    fail "Frontend skill is present in the target: $name"
-  fi
+for entry in "$target"/.agents/skills/* "$target"/.agents/skills/.[!.]*; do
+  if [ ! -e "$entry" ]; then continue; fi
+  name="$(basename "$entry")"
+  case " $process_skills UPSTREAM.md " in
+    *" $name "*) ;;
+    *) fail "Not part of the process: .agents/skills/$name" ;;
+  esac
 done
 if [ "$(readlink "$target/.claude/skills" 2>/dev/null || true)" != "../.agents/skills" ]; then
   fail ".claude/skills is not a symlink to ../.agents/skills"
@@ -113,6 +134,11 @@ if [ "$labels" = "yes" ]; then
   if [ -n "$missing" ]; then
     fail "Missing labels: $(echo "$missing" | tr '\n' ' ')"
   fi
+  for name in $removed_labels; do
+    if echo "$existing" | grep -qxF "$name"; then
+      fail "Removed label is present in the target: $name"
+    fi
+  done
 fi
 
 if [ "$failures" -gt 0 ]; then

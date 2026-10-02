@@ -20,7 +20,12 @@ const repositoryRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 function copyProcess(args) {
   return spawnSync(
     "bash",
-    [join(repositoryRoot, "scripts/copy-process.sh"), "--skip-labels", ...args],
+    [
+      join(repositoryRoot, "scripts/copy-process.sh"),
+      "--skip-labels",
+      "--allow-dirty",
+      ...args,
+    ],
     { encoding: "utf8" },
   );
 }
@@ -44,10 +49,15 @@ describe("developer process copy", () => {
       );
       assert.equal(copyProcess(["--check", target]).status, 0);
 
+      mkdirSync(join(target, ".agents/skills/local-skill"));
       appendFileSync(join(target, "WORKFLOW.md"), "local edit\n");
       const drift = copyProcess(["--check", target]);
       assert.equal(drift.status, 1);
       assert.match(drift.stderr, /Differs: WORKFLOW\.md/u);
+      assert.match(
+        drift.stderr,
+        /Not part of the process: \.agents\/skills\/local-skill/u,
+      );
     } finally {
       rmSync(target, { recursive: true, force: true });
     }

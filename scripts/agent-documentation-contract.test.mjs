@@ -1,6 +1,6 @@
 // @ts-check
 import assert from "node:assert/strict";
-import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -31,7 +31,7 @@ describe("agent documentation contract", () => {
     assert.deepEqual(extractLocalMarkdownTargets(markdown), ["../GLOSSARY.md"]);
   });
 
-  it("warns only when the root coding standard is longer than the limit", () => {
+  it("warns only when a coding standard is longer than the limit", () => {
     const root = mkdtempSync(join(tmpdir(), "docs-check-"));
     try {
       const standards = join(root, "CODING_STANDARDS.md");
@@ -41,6 +41,16 @@ describe("agent documentation contract", () => {
       writeFileSync(standards, "rule\n".repeat(codingStandardsLineLimit + 1));
       assert.deepEqual(documentationWarnings(root), [
         `CODING_STANDARDS.md: ${codingStandardsLineLimit + 1} lines, more than ${codingStandardsLineLimit}; open a task to turn rules into checks`,
+      ]);
+
+      mkdirSync(join(root, "apps/web"), { recursive: true });
+      writeFileSync(standards, "rule\n");
+      writeFileSync(
+        join(root, "apps/web/CODING_STANDARDS.md"),
+        "rule\n".repeat(codingStandardsLineLimit + 2),
+      );
+      assert.deepEqual(documentationWarnings(root), [
+        `apps/web/CODING_STANDARDS.md: ${codingStandardsLineLimit + 2} lines, more than ${codingStandardsLineLimit}; open a task to turn rules into checks`,
       ]);
     } finally {
       rmSync(root, { recursive: true, force: true });
