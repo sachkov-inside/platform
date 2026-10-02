@@ -120,11 +120,11 @@ function rejectText(failures, path, content, forbidden, explanation) {
 }
 
 export const codingStandardsLineLimit = 200;
-const processContractLineLimit = 150;
+export const processContractLineLimit = 150;
 
 /**
- * A coding standard past the limit is a signal, not a failure (#848): the rules that a check can
- * enforce should become checks.
+ * A document past its limit is a signal, not a failure (#848, #861): the rules of a coding standard
+ * that a check can enforce should become checks, and a process contract should stay short.
  *
  * @param {string} repositoryRoot
  */
@@ -143,6 +143,18 @@ export function documentationWarnings(repositoryRoot = defaultRepositoryRoot) {
     if (lines > codingStandardsLineLimit) {
       warnings.push(
         `${path}: ${lines} lines, more than ${codingStandardsLineLimit}; open a task to turn rules into checks`,
+      );
+    }
+  }
+  for (const path of ["AGENTS.md", "WORKFLOW.md"]) {
+    if (!existsSync(resolve(repositoryRoot, path))) {
+      continue;
+    }
+
+    const lines = lineCount(read(repositoryRoot, path));
+    if (lines > processContractLineLimit) {
+      warnings.push(
+        `${path}: ${lines} lines, more than ${processContractLineLimit}; shorten the process contract`,
       );
     }
   }
@@ -182,14 +194,6 @@ export function checkDocumentation(repositoryRoot = defaultRepositoryRoot) {
   }
 
   const rootAgents = read(repositoryRoot, "AGENTS.md");
-  for (const path of ["AGENTS.md", "WORKFLOW.md"]) {
-    const lines = lineCount(read(repositoryRoot, path));
-    if (lines > processContractLineLimit) {
-      failures.push(
-        `${path}: ${lines} lines, the limit is ${processContractLineLimit} (#848)`,
-      );
-    }
-  }
   const backendAgents = read(repositoryRoot, "apps/backend/AGENTS.md");
   const context = read(repositoryRoot, "GLOSSARY.md");
   const materialsAdr = read(

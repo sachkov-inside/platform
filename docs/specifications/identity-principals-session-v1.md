@@ -4,7 +4,7 @@
 `IdentityPrincipals + Platform Session` по owner decision из
 [Platform #124](https://github.com/sachkov-inside/platform/issues/124), 2026-08-26. Имя файла
 сохранено как совместимый documentation path; канонические термины теперь находятся в
-[`CONTEXT.md`](../../CONTEXT.md).
+[`GLOSSARY.md`](../../GLOSSARY.md).
 
 ## Решение
 

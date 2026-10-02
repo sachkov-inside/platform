@@ -2,7 +2,7 @@
 
 Общая пользовательская категория — «продукт» по [Workspace #181](https://github.com/sachkov-inside/workspace/issues/181).
 Product отображается на существующий Guide, а Series остаётся совместимым техническим именем;
-определения находятся в [CONTEXT](../../CONTEXT.md), коммерческая граница — в
+определения находятся в [GLOSSARY](../../GLOSSARY.md), коммерческая граница — в
 [brief](../product/platform-mvp-brief.md#продукты-и-подписки). «Руководство» в прежних описаниях
 ниже означает этот же продукт. Авторские названия и Format «Гайд» не меняются.
 
@@ -31,7 +31,7 @@ Account и отдельным Member Profile, связывает Account с Tele
 
 Этот документ владеет application contract: capability modules, logical model, flows,
 application-level NFR, порядком production foundations и ADR inputs. Продуктовая граница остаётся в
-[MVP brief](../product/platform-mvp-brief.md), а канонические термины — в [`CONTEXT.md`](../../CONTEXT.md).
+[MVP brief](../product/platform-mvp-brief.md), а канонические термины — в [`GLOSSARY.md`](../../GLOSSARY.md).
 Код, tests и возможные application ADR принадлежат этому repository.
 
 Текущий delivery scope задан [MVP brief](../product/platform-mvp-brief.md): Materials, Series и
