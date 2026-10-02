@@ -61,6 +61,26 @@ function pause(milliseconds) {
 }
 
 /**
+ * Waits for the promise no longer than the limit. The timer is cleared, so it does not keep the
+ * process alive after the promise settles.
+ *
+ * @param {Promise<unknown>} promise
+ * @param {number} milliseconds
+ */
+async function within(promise, milliseconds) {
+  /** @type {NodeJS.Timeout | undefined} */
+  let timer;
+  const limit = new Promise((resolve) => {
+    timer = setTimeout(resolve, milliseconds);
+  });
+  try {
+    await Promise.race([promise, limit]);
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+/**
  * Stops a detached child with its whole process group and waits for it to exit.
  *
  * @param {import("node:child_process").ChildProcess} child
@@ -75,10 +95,10 @@ export async function stopProcessGroup(child) {
     return;
   const exited = new Promise((resolve) => child.once("exit", resolve));
   signalProcessGroup(child.pid, "SIGTERM");
-  await Promise.race([exited, pause(stopGraceMilliseconds)]);
+  await within(exited, stopGraceMilliseconds);
   if (child.exitCode !== null || child.signalCode !== null) return;
   signalProcessGroup(child.pid, "SIGKILL");
-  await Promise.race([exited, pause(stopGraceMilliseconds)]);
+  await within(exited, stopGraceMilliseconds);
 }
 
 /**

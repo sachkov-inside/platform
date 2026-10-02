@@ -107,6 +107,7 @@ describe("smoke stand", () => {
     );
     try {
       for (let attempt = 0; attempt < 100; attempt += 1) {
+        /** @type {boolean} */
         const busy = await new Promise((resolve) => {
           const probe = createServer();
           probe.once("error", () => {
