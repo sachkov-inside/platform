@@ -1,11 +1,14 @@
 // @ts-check
 import { spawn } from "node:child_process";
 import { mkdtemp, readFile, rm } from "node:fs/promises";
-import { createServer } from "node:net";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { z } from "zod";
-import { signalProcessGroup } from "./process-group-signal.mjs";
+import {
+  reservePort,
+  startWithRoutes,
+  stopProcessGroup,
+} from "./smoke-stand.mjs";
 
 /**
  * Сквозной путь покупателя курса: страница продукта, вход через Telegram у тестового провайдера,
@@ -66,23 +69,11 @@ async function waitFor(operation, child) {
   }
   throw new Error("Buyer journey startup timed out");
 }
-async function freePort() {
-  const server = createServer();
-  /** @type {Promise<void>} */
-  const listening = new Promise((resolve) =>
-    server.listen(0, "127.0.0.1", resolve),
-  );
-  await listening;
-  const address = server.address();
-  if (!address || typeof address === "string") throw new Error("No test port");
-  await new Promise((resolve) => server.close(resolve));
-  return address.port;
-}
 try {
   const [apiPort, bankPort, webPort] = [
-    await freePort(),
-    await freePort(),
-    await freePort(),
+    await reservePort(),
+    await reservePort(),
+    await reservePort(),
   ];
   const webUrl = `http://127.0.0.1:${String(webPort)}`;
   const fixture = start(
@@ -118,19 +109,34 @@ try {
     BUYER_JOURNEY_CONTROL_URL: state.CONTROL_URL,
     BUYER_JOURNEY_GUIDE_SLUG: state.GUIDE_SLUG,
   };
-  const web = start(
-    [
-      "--filter",
-      "@inside/web",
-      "dev",
-      "--hostname",
-      "127.0.0.1",
-      "--port",
-      String(webPort),
+  // Адреса, которые открывает сценарий: сервер без любого из них перезапускается.
+  await startWithRoutes({
+    baseUrl: webUrl,
+    routes: [
+      "/",
+      `/products/${state.GUIDE_SLUG}`,
+      `/products/${state.GUIDE_SLUG}/buy`,
+      "/materials/kak-ustroen-inside-platform",
+      "/account",
+      "/auth/status",
     ],
-    env,
-  );
-  await waitFor(async () => (await fetch(`${webUrl}/`)).ok, web);
+    start: () =>
+      start(
+        [
+          "--filter",
+          "@inside/web",
+          "dev",
+          "--hostname",
+          "127.0.0.1",
+          "--port",
+          String(webPort),
+        ],
+        env,
+      ),
+    stop: stopProcessGroup,
+    ready: (web) =>
+      waitFor(async () => (await fetch(`${webUrl}/`)).status > 0, web),
+  });
   const test = start(
     [
       "--filter",
@@ -174,15 +180,6 @@ try {
   process.stderr.write(output.join("").slice(-18000));
   throw error;
 } finally {
-  for (const child of children.reverse()) {
-    // A child that never started has no process group to stop.
-    if (child.exitCode !== null || child.pid === undefined) continue;
-    signalProcessGroup(child.pid, "SIGTERM");
-    await Promise.race([
-      new Promise((resolve) => child.on("exit", resolve)),
-      new Promise((resolve) => setTimeout(resolve, 10000)),
-    ]);
-    if (child.exitCode === null) signalProcessGroup(child.pid, "SIGKILL");
-  }
+  for (const child of children.reverse()) await stopProcessGroup(child);
   await rm(directory, { recursive: true, force: true });
 }

@@ -21,8 +21,8 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        variant: [keep-dev-cache, clear-dev-cache]
-        run: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+        variant: [real-shape]
+        run: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16]
     steps:
       - name: Check out source
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -33,34 +33,12 @@ jobs:
         with:
           browsers: chromium
       - name: Repeat the smoke
-        env:
-          VARIANT: ${{ matrix.variant }}
-          NEXT_PRIVATE_DEBUG_CACHE: "1"
         run: |
-          mkdir -p evidence
           failures=0
-          for i in 1 2 3 4 5 6 7 8; do
-            pnpm smoke:enrollments >"evidence/enrollments-$i.log" 2>&1 || echo "enrollments $i failed"
-            if [ "$VARIANT" = "clear-dev-cache" ]; then rm -rf apps/web/.next/dev/cache; fi
-            rm -rf apps/web/test-results
-            if pnpm smoke:buyer-journey >"evidence/buyer-$i.log" 2>&1; then
-              echo "buyer $i passed at $(date -u +%H:%M:%S)"
-            else
-              echo "buyer $i FAILED at $(date -u +%H:%M:%S)"
-              failures=$((failures + 1))
-              mkdir -p "evidence/failure-$i"
-              cp -R apps/web/test-results "evidence/failure-$i/test-results" || true
-              cp -R apps/web/.next/dev/logs "evidence/failure-$i/next-logs" || true
-              cp apps/web/.next/dev/server/app-paths-manifest.json apps/web/.next/dev/routes-manifest.json apps/web/.next/dev/types/routes.d.ts "evidence/failure-$i/" || true
-              ls -laR apps/web/.next/dev/cache >"evidence/failure-$i/dev-cache-listing.txt" 2>&1 || true
-              grep -h "DEBUG-863" "evidence/buyer-$i.log" | cut -c1-600 || true
-            fi
+          for i in 1 2 3 4 5 6; do
+            pnpm smoke:enrollments || { echo "RESULT enrollments $i FAILED"; failures=$((failures + 1)); }
+            pnpm smoke:buyer-journey || { echo "RESULT buyer $i FAILED"; failures=$((failures + 1)); }
+            echo "RESULT pair $i done at $(date -u +%H:%M:%S)"
           done
-          echo "failures=$failures"
-      - name: Keep the evidence
-        if: always()
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
-        with:
-          name: evidence-${{ matrix.variant }}-${{ matrix.run }}
-          path: evidence
-          retention-days: 7
+          echo "RESULT failures=$failures"
+          exit "$failures"
