@@ -379,7 +379,7 @@ the community right, on desktop and mobile. It needs Docker and the Chromium of 
 `pnpm check:full` runs all three smokes, and CI Integration runs the enrollment and buyer journey smokes
 after PostgreSQL integration tests.
 
-Both smokes start the web with `next dev` and open every address of their scenario before the
+`pnpm smoke:enrollments` and `pnpm smoke:buyer-journey` start the web with `next dev` and open every address of their scenario before the
 browser suite runs. The Turbopack dev server of Next.js 16 sometimes reports `Ready` without a part
 of its routes, and a missing route answers 404 until the process ends
 ([vercel/next.js#98985](https://github.com/vercel/next.js/issues/98985)); the smoke then restarts

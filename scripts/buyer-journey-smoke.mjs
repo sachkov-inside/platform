@@ -158,7 +158,12 @@ try {
       ),
     stop: (web) => stopServerOnPort(web, webPort),
     ready: (web) =>
-      waitFor(async () => (await fetch(`${webUrl}/`)).status < 500, web),
+      waitFor(
+        async () =>
+          (await fetch(`${webUrl}/`, { signal: AbortSignal.timeout(30_000) }))
+            .status < 500,
+        web,
+      ),
   });
   const test = start(
     [

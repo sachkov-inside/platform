@@ -110,12 +110,21 @@ export async function stopProcessGroup(child) {
  */
 export async function stopServerOnPort(child, port) {
   await stopProcessGroup(child);
+  if (await portReleased(port)) return;
+  // The group leader is gone, but a process of its group still holds the port.
+  if (child.pid !== undefined) signalProcessGroup(child.pid, "SIGKILL");
+  if (await portReleased(port)) return;
+  throw new Error(`Port ${String(port)} is still busy after the server stop`);
+}
+
+/** @param {number} port */
+async function portReleased(port) {
   const end = Date.now() + portReleaseMilliseconds;
   while (Date.now() < end) {
-    if (await bindsOnLoopback(port)) return;
+    if (await bindsOnLoopback(port)) return true;
     await pause(250);
   }
-  throw new Error(`Port ${String(port)} is still busy after the server stop`);
+  return false;
 }
 
 const routeStarts = 3;

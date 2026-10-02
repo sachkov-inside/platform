@@ -125,6 +125,8 @@ jobs:
           path: |
             apps/web/test-results
             apps/web/.next/dev/logs
+          # The dev log lives under the hidden `.next` directory.
+          include-hidden-files: true
           if-no-files-found: ignore
           retention-days: 7
 

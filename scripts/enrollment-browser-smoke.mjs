@@ -163,7 +163,12 @@ try {
     stop: (web) => stopServerOnPort(web, port),
     ready: (web) =>
       waitFor(
-        async () => (await fetch(`${webUrl}/authoring/billing`)).status < 500,
+        async () =>
+          (
+            await fetch(`${webUrl}/authoring/billing`, {
+              signal: AbortSignal.timeout(30_000),
+            })
+          ).status < 500,
         web,
       ),
   });
