@@ -17,8 +17,8 @@
 
 ## Не из upstream
 
-- Frontend-набор: `impeccable`, `vercel-react-best-practices`, `modern-web-guidance`,
-  `playwright-cli`.
+- Frontend-набор, только в `platform`: `impeccable`, `vercel-react-best-practices`,
+  `modern-web-guidance`, `playwright-cli`.
 - `karpathy-guidelines`: остаётся до переноса его правил в профиль устройства.
 - Свои skills проекта: `session-cleanup`.
 
@@ -36,3 +36,15 @@ done
 
 Обновление: заменить 27 каталогов копией с нового commit, записать его здесь и посмотреть
 `git diff`.
+
+## Копия в другой репозиторий
+
+`platform` — источник процесса. `inside-telegram` получает `WORKFLOW.md`, skills без
+frontend-набора, `docs/agents/triage-labels.md` и labels одной командой из `platform`:
+
+```bash
+bash scripts/copy-process.sh <путь к репозиторию>
+bash scripts/copy-process.sh --check <путь к репозиторию>
+```
+
+Копию не правят на месте: правка идёт в `platform` и приходит повторным запуском команды.
