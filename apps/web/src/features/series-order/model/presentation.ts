@@ -94,7 +94,15 @@ export const reorderSeriesResultSchema = z.discriminatedUnion("kind", [
     .strict(),
   z.object({ kind: z.literal("conflict") }).strict(),
   z.object({ kind: z.literal("unauthorized") }).strict(),
+  z.object({ kind: z.literal("forbidden") }).strict(),
   z.object({ kind: z.literal("error"), reference: z.string() }).strict(),
+  // Материал из источника и материал редактора не смешиваются в одном составе.
+  z
+    .object({
+      kind: z.literal("source_mismatch"),
+      materialIds: z.array(z.uuid()).min(1).readonly(),
+    })
+    .strict(),
   z
     .object({
       guides: z.array(guideRemovalSchema).min(1).readonly(),

@@ -214,6 +214,23 @@ test("guide programme appends a real composition and restores Reader return posi
         order: z.object({ orderVersion: z.string() }),
       })
       .parse(await orderResponse.json());
+    // Материал практики перенесён из источника: продукт из редактора его не принимает, и отказ
+    // называет именно его, а не завершившуюся сессию (#841).
+    const [importedPracticeId] = importedPracticeIds;
+    const refused = await fullStackBrowserRequest(
+      page,
+      "/api/authoring/series/order",
+      "PUT",
+      {
+        seriesId: collection.id,
+        expectedOrderVersion: order.orderVersion,
+        orderedMaterialIds: JSON.stringify([ids[0], importedPracticeId]),
+      },
+    );
+    expect(await refused.json()).toEqual({
+      kind: "source_mismatch",
+      materialIds: [importedPracticeId],
+    });
     const saved = await fullStackBrowserRequest(
       page,
       "/api/authoring/series/order",

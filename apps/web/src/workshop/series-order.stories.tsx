@@ -379,6 +379,94 @@ export const RemovalConfirmation: Story = {
   },
 };
 
+const sourceMismatchSpy = fn((_input: RequestInfo | URL, _init?: RequestInit) =>
+  Promise.resolve(
+    Response.json({ kind: "saved", orderVersion: "b".repeat(64) }),
+  ),
+);
+
+export const SourceMismatch: Story = {
+  name: "Материал из другого источника",
+  decorators: [withMutationFetch(sourceMismatchSpy)],
+  play: async ({ canvasElement }) => {
+    sourceMismatchSpy.mockClear();
+    sourceMismatchSpy.mockImplementationOnce(() =>
+      Promise.resolve(
+        Response.json({
+          kind: "source_mismatch",
+          materialIds: ["95000000-0000-4000-8000-000000000002"],
+        }),
+      ),
+    );
+    const canvas = within(canvasElement);
+    await moveFirstItem(canvasElement);
+    await expect(
+      await canvas.findByText(
+        /«Границы продукта и первая версия» нельзя добавить в этот продукт/u,
+      ),
+    ).toBeInTheDocument();
+    await expect(canvas.queryByRole("button", { name: "Войти" })).toBeNull();
+  },
+};
+
+export const SourceMismatchRecovered: Story = {
+  name: "Материал из другого источника убран",
+  decorators: SourceMismatch.decorators ?? [],
+  play: async (context) => {
+    await SourceMismatch.play?.(context);
+    const canvas = within(context.canvasElement);
+    await userEvent.click(
+      canvas.getByRole("button", {
+        name: "Убрать «Границы продукта и первая версия»",
+      }),
+    );
+    await expect(await canvas.findByText("Порядок сохранён.")).toBeVisible();
+    await expect(sourceMismatchSpy).toHaveBeenCalledTimes(2);
+    const body = sourceMismatchSpy.mock.calls[1]?.[1]?.body;
+    await expect(
+      body instanceof FormData ? body.get("orderedMaterialIds") : null,
+    ).not.toContain("95000000-0000-4000-8000-000000000002");
+  },
+};
+
+export const SourceMismatchUndone: Story = {
+  name: "Материал из другого источника: правка отменена",
+  decorators: SourceMismatch.decorators ?? [],
+  play: async (context) => {
+    await SourceMismatch.play?.(context);
+    const canvas = within(context.canvasElement);
+    // Обратный ход возвращает исходный состав: сохранять нечего и повторять нечего.
+    await userEvent.click(
+      canvas.getByRole("button", {
+        name: "Поднять «С чего начинается Platform Inside»",
+      }),
+    );
+    await waitFor(() =>
+      expect(
+        canvas.queryByRole("button", { name: "Повторить сохранение" }),
+      ).toBeNull(),
+    );
+    await expect(sourceMismatchSpy).toHaveBeenCalledTimes(1);
+  },
+};
+
+export const Forbidden: Story = {
+  name: "Продукт нельзя менять в редакторе",
+  decorators: [
+    withMutationFetch(() =>
+      Promise.resolve(Response.json({ kind: "forbidden" })),
+    ),
+  ],
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await moveFirstItem(canvasElement);
+    await expect(
+      await canvas.findByText(/этот продукт нельзя менять в редакторе/u),
+    ).toBeInTheDocument();
+    await expect(canvas.queryByRole("button", { name: "Войти" })).toBeNull();
+  },
+};
+
 export const SaveError: Story = {
   decorators: [withMutationFetch(failedOrderSpy)],
   play: async ({ canvasElement }) => {

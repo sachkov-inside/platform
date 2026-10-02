@@ -191,12 +191,30 @@ export function assembleReorderSeries(
         const added = foundMaterials.filter(
           ({ id }) => !currentIds.includes(id),
         );
-        if (
-          added.some(
-            (material) => (material.sourceId === null) !== (sourceId === null),
-          )
-        ) {
-          return rollback({ code: "forbidden" });
+        // Перенесённый из источника материал и материал редактора не смешиваются в одном составе.
+        // Это свойство ссылки, а не права автора: редактор называет такой материал по пути отказа.
+        const mismatched = new Set(
+          added
+            .filter(
+              (material) =>
+                (material.sourceId === null) !== (sourceId === null),
+            )
+            .map(({ id }) => id),
+        );
+        if (mismatched.size > 0) {
+          return rollback({
+            code: "invalid_reference",
+            issues: command.orderedMaterialIds.flatMap((materialId, index) =>
+              mismatched.has(materialId)
+                ? [
+                    {
+                      code: "material_source_mismatch",
+                      path: `/orderedMaterialIds/${String(index)}`,
+                    },
+                  ]
+                : [],
+            ),
+          });
         }
         const removedIds = currentIds.filter(
           (id) => !command.orderedMaterialIds.includes(id),
