@@ -379,6 +379,30 @@ export const RemovalConfirmation: Story = {
   },
 };
 
+export const SourceMismatch: Story = {
+  name: "Материал из другого источника",
+  decorators: [
+    withMutationFetch(() =>
+      Promise.resolve(
+        Response.json({
+          kind: "source_mismatch",
+          materialIds: ["95000000-0000-4000-8000-000000000002"],
+        }),
+      ),
+    ),
+  ],
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await moveFirstItem(canvasElement);
+    await expect(
+      await canvas.findByText(
+        /«Границы продукта и первая версия» нельзя добавить в этот продукт/u,
+      ),
+    ).toBeInTheDocument();
+    await expect(canvas.queryByRole("button", { name: "Войти" })).toBeNull();
+  },
+};
+
 export const SaveError: Story = {
   decorators: [withMutationFetch(failedOrderSpy)],
   play: async ({ canvasElement }) => {

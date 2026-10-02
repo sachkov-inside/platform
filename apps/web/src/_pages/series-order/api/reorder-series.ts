@@ -104,6 +104,14 @@ export async function executeReorderSeries(
         ? { kind: "conflict" }
         : { guides: removals, kind: "removal_confirmation_required" };
     }
+    if (result.response.status === 422) {
+      const materialIds = sourceMismatchMaterialIds(
+        result.problem,
+        orderedMaterialIds.data,
+      );
+      if (materialIds.length > 0)
+        return { kind: "source_mismatch", materialIds };
+    }
     return { kind: "error", reference: "series-order-save" };
   }
   const receipt = receiptSchema.safeParse(result.body);
@@ -111,6 +119,28 @@ export async function executeReorderSeries(
     return { kind: "error", reference: "series-order-receipt" };
   }
   return { kind: "saved", orderVersion: receipt.data.orderVersion };
+}
+
+const sourceMismatchProblemSchema = z.looseObject({
+  code: z.literal("invalid_reference"),
+  issues: z.array(z.looseObject({ code: z.string(), path: z.string() })),
+});
+
+/** Materials the backend refused because their source ownership differs from the Guide. */
+function sourceMismatchMaterialIds(
+  problem: unknown,
+  orderedMaterialIds: readonly string[],
+): readonly string[] {
+  const parsed = sourceMismatchProblemSchema.safeParse(problem);
+  if (!parsed.success) return [];
+  return parsed.data.issues.flatMap(({ code, path }) => {
+    const index = /^\/orderedMaterialIds\/(\d+)$/u.exec(path)?.[1];
+    const materialId =
+      code === "material_source_mismatch" && index !== undefined
+        ? orderedMaterialIds[Number(index)]
+        : undefined;
+    return materialId === undefined ? [] : [materialId];
+  });
 }
 
 const invalidField = Symbol("invalid-series-order-field");

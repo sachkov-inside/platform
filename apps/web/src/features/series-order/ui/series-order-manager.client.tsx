@@ -409,6 +409,7 @@ export function SeriesOrderManager({
           onRefresh={onRefresh}
           result={result}
           seriesId={presentation.seriesId}
+          titles={new Map(items.map((item) => [item.materialId, item.title]))}
         />
         {removalConfirmation === null ? null : (
           <GuideRemovalConfirmationDialog
@@ -530,13 +531,15 @@ function OrderFeedback({
   onRefresh,
   result,
   seriesId,
+  titles,
 }: {
   readonly dirty: boolean;
   readonly onRefresh: () => void;
   readonly result: ReorderSeriesResult | null;
   readonly seriesId: string;
+  readonly titles: ReadonlyMap<string, string>;
 }) {
-  const message = actionMessage(result, dirty);
+  const message = actionMessage(result, dirty, titles);
   if (message === null) return null;
   return (
     <div className="mt-3 flex flex-wrap items-center justify-between gap-3 text-sm">
@@ -771,6 +774,7 @@ function MaterialPickerDialog({
 function actionMessage(
   result: ReorderSeriesResult | null,
   dirty: boolean,
+  titles: ReadonlyMap<string, string>,
 ): string | null {
   if (result?.kind === "conflict") {
     return "Состав или порядок изменился в другой вкладке.";
@@ -780,6 +784,12 @@ function actionMessage(
   }
   if (result?.kind === "error") {
     return `Не удалось сохранить. Код обращения: ${result.reference}`;
+  }
+  if (result?.kind === "source_mismatch") {
+    const names = result.materialIds
+      .map((materialId) => `«${titles.get(materialId) ?? "Без названия"}»`)
+      .join(", ");
+    return `Состав не сохранён: ${names} нельзя добавить в этот продукт. Материалы, перенесённые из источника, и материалы, созданные в редакторе, не смешиваются. Уберите материал из состава и сохраните снова.`;
   }
   if (result?.kind === "removal_confirmation_required") {
     return "Снятие материала из купленного продукта ждёт подтверждения.";

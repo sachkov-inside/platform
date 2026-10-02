@@ -285,4 +285,84 @@ describe("authoring source Material", () => {
       }),
     ).toBe(1);
   });
+
+  test("a composition names the Material whose source ownership differs from the Guide", async () => {
+    const { authoring } = assembleMaterials({
+      prisma: database.prisma,
+      authorPolicy: { canManage: (id) => id === actor },
+    });
+    const plain = await authoring.createDraft({
+      actor,
+      idempotencyKey: "mismatch-plain",
+      metadata,
+      body: representativeDocument("Plain"),
+    });
+    if (!plain.ok) throw new Error(plain.error.code);
+    const imported = await authoring.reserveSourceMaterial({
+      actor,
+      source: { ...source, id: "mismatch-imported" },
+    });
+    if (!imported.ok) throw new Error(imported.error.code);
+
+    const editorGuide = await authoring.createContentCollection({
+      actor,
+      kind: "series",
+      name: "Editor guide",
+      slug: "mismatch-editor-guide",
+      summary: "",
+    });
+    if (!editorGuide.ok) throw new Error(editorGuide.error.code);
+    const editorOrder = await authoring.loadSeriesOrder({
+      actor,
+      seriesId: editorGuide.value.id,
+    });
+    if (!editorOrder.ok) throw new Error(editorOrder.error.code);
+    expect(
+      await authoring.reorderSeries({
+        actor,
+        seriesId: editorGuide.value.id,
+        expectedOrderVersion: editorOrder.value.orderVersion,
+        orderedMaterialIds: [plain.value.materialId, imported.value.materialId],
+      }),
+    ).toEqual({
+      ok: false,
+      error: {
+        code: "invalid_reference",
+        issues: [
+          { code: "material_source_mismatch", path: "/orderedMaterialIds/1" },
+        ],
+      },
+    });
+
+    const sourceGuide = await authoring.reserveSourceGuide({
+      actor,
+      sourceId: "mismatch-source-guide",
+      name: "Source guide",
+      slug: "mismatch-source-guide",
+      summary: "",
+    });
+    if (!sourceGuide.ok) throw new Error(sourceGuide.error.code);
+    const sourceOrder = await authoring.loadSeriesOrder({
+      actor,
+      seriesId: sourceGuide.value.id,
+    });
+    if (!sourceOrder.ok) throw new Error(sourceOrder.error.code);
+    expect(
+      await authoring.reorderSourceGuide({
+        actor,
+        sourceId: "mismatch-source-guide",
+        seriesId: sourceGuide.value.id,
+        expectedOrderVersion: sourceOrder.value.orderVersion,
+        orderedMaterialIds: [plain.value.materialId, imported.value.materialId],
+      }),
+    ).toEqual({
+      ok: false,
+      error: {
+        code: "invalid_reference",
+        issues: [
+          { code: "material_source_mismatch", path: "/orderedMaterialIds/0" },
+        ],
+      },
+    });
+  });
 });

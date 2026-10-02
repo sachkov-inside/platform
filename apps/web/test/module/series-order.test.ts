@@ -184,6 +184,35 @@ describe("Series order web adapters", () => {
     ).resolves.toEqual({ kind: "conflict" });
   });
 
+  it("names the Materials refused for their source ownership and keeps other refusals apart", async () => {
+    // Порядок в форме: [secondId, firstId]; отказ называет позицию 1.
+    const refused = vi.fn().mockResolvedValue({
+      ok: false,
+      problem: {
+        code: "invalid_reference",
+        issues: [
+          { code: "material_source_mismatch", path: "/orderedMaterialIds/1" },
+        ],
+      },
+      response: Response.json({}, { status: 422 }),
+    });
+    await expect(
+      executeReorderSeries(validFormData(), "access-token", refused),
+    ).resolves.toEqual({ kind: "source_mismatch", materialIds: [firstId] });
+
+    const other = vi.fn().mockResolvedValue({
+      ok: false,
+      problem: {
+        code: "invalid_reference",
+        issues: [{ code: "material_not_found", path: "/orderedMaterialIds/1" }],
+      },
+      response: Response.json({}, { status: 422 }),
+    });
+    await expect(
+      executeReorderSeries(validFormData(), "access-token", other),
+    ).resolves.toEqual({ kind: "error", reference: "series-order-save" });
+  });
+
   it("asks to confirm a removal from a bought product and passes the confirmation", async () => {
     const guides = [
       { guideId: seriesId, holders: 3, name: "Купленный продукт" },
