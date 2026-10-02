@@ -4,13 +4,11 @@ pnpm-lock.yaml
 # Markdown keeps its hand-wrapped prose and tables, as in inside-telegram.
 *.md
 
-# Managed by the Inside product harness package; formatting here would drift from its snapshot.
-.inside-harness/
+# Skills are a byte-for-byte copy of their upstream; formatting here would drift from it.
 .agents/
 .claude/
 .github/workflows/add-to-inside-project.yml
 .github/workflows/inside-agent-sessions.yml
-.github/workflows/inside-harness-health.yml
 
 # Generated and checked byte for byte by api:check, guardrails and contract checks.
 apps/backend/openapi/

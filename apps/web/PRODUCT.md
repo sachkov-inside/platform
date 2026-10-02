@@ -44,7 +44,7 @@ web
 
 ## Capabilities and Constraints
 
-- Product terminology следует repository [`CONTEXT.md`](../../CONTEXT.md): Material, MaterialBody, publication state и
+- Product terminology следует repository [`GLOSSARY.md`](../../GLOSSARY.md): Material, MaterialBody, publication state и
   `contentVersion` не заменяются размытыми словами «post» или historical revision.
 - Preview всегда читает current saved Material и не меняет publication state. Технический
   `contentVersion` используется только для optimistic concurrency и не показывается в интерфейсе.
@@ -69,7 +69,7 @@ web
 - Approved structural UX: `docs/product/platform-v1-ux-brief.md`.
 - Owner-taste constraints and accepted UI-laboratory direction:
   `docs/product/platform-v1-visual-brief.md`.
-- Application vocabulary: `CONTEXT.md`.
+- Application vocabulary: `GLOSSARY.md`.
 - Storybook contains accepted shell, Library and Material reader proofs plus representative
   sanitized content fixtures. No testimonials, customer logos, commercial benchmarks or other
   marketing proof may be invented.

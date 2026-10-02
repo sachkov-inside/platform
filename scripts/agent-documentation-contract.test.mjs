@@ -18,12 +18,12 @@ describe("agent documentation contract", () => {
 
   it("extracts repository pointers without treating external links as files", () => {
     const markdown = [
-      "[local](../CONTEXT.md#material)",
+      "[local](../GLOSSARY.md#material)",
       "[external](https://example.com/reference)",
       "[anchor](#completion)",
       "[route](/materials/example)",
     ].join("\n");
 
-    assert.deepEqual(extractLocalMarkdownTargets(markdown), ["../CONTEXT.md"]);
+    assert.deepEqual(extractLocalMarkdownTargets(markdown), ["../GLOSSARY.md"]);
   });
 });

@@ -9,7 +9,6 @@ const scriptPath = fileURLToPath(import.meta.url);
 const defaultRepositoryRoot = resolve(dirname(scriptPath), "..");
 const ignoredDirectories = new Set([
   ".git",
-  ".inside-harness",
   ".next",
   "coverage",
   "dist",
@@ -144,7 +143,7 @@ export function checkDocumentation(repositoryRoot = defaultRepositoryRoot) {
 
   const rootAgents = read(repositoryRoot, "AGENTS.md");
   const backendAgents = read(repositoryRoot, "apps/backend/AGENTS.md");
-  const context = read(repositoryRoot, "CONTEXT.md");
+  const context = read(repositoryRoot, "GLOSSARY.md");
   const materialsAdr = read(
     repositoryRoot,
     "docs/adr/0002-deep-materials-module.md",
@@ -193,7 +192,7 @@ export function checkDocumentation(repositoryRoot = defaultRepositoryRoot) {
   );
   rejectText(
     failures,
-    "CONTEXT.md",
+    "GLOSSARY.md",
     context,
     "MaterialRevision",
     "the active glossary must not restore the superseded MaterialRevision term",

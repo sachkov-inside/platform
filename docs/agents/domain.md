@@ -1,7 +1,7 @@
 # Domain docs
 
 Read [`docs/product/platform-mvp-brief.md`](../product/platform-mvp-brief.md) for the canonical
-Platform product scope. Platform is a single-context repository; also read local `CONTEXT.md` and
+Platform product scope. Platform is a single-context repository; also read local `GLOSSARY.md` and
 relevant `docs/adr/` entries when they exist. Their absence is not a setup failure:
 `domain-modeling` creates them lazily when durable terminology or a hard-to-reverse trade-off is
 actually resolved.

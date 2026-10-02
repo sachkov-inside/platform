@@ -33,12 +33,6 @@ jobs:
         with:
           ref: ${{ inputs.source_sha || github.sha }}
           persist-credentials: false
-      - name: Check the product harness at its installed version
-        run: |
-          version="$(jq --raw-output .version .inside-harness/product-harness.json)"
-          git clone --quiet --depth 1 --branch "inside-engineering-v${version}" \
-            https://github.com/sachkov-inside/workspace.git "$RUNNER_TEMP/workspace"
-          python3 "$RUNNER_TEMP/workspace/harness/bin/inside-harness" health .
       - name: Set up Platform
         uses: ./.github/actions/setup-platform
       - name: Run static checks

@@ -4,7 +4,6 @@ import { readdirSync, readFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, it } from "node:test";
-import { z } from "zod";
 
 import { readPackageManifest } from "./package-manifest.mjs";
 
@@ -130,9 +129,6 @@ describe("application CI workflow contract", () => {
     assert.doesNotMatch(workflow, /run: pnpm check$/mu);
     assert.match(jobBlock("ui"), /browsers: chromium webkit$/mu);
     assert.match(jobBlock("web-e2e"), /browsers: chromium$/mu);
-    // Harness проверяется той версией пакета, что установлена, а не текущим main Workspace.
-    assert.match(jobBlock("static"), /inside-engineering-v\$\{version\}/u);
-    assert.match(jobBlock("static"), /inside-harness" health \.$/mu);
   });
 
   it("installs frozen dependencies and cached browser engines in one place", () => {
@@ -381,20 +377,11 @@ function escapeRegExp(value) {
 }
 
 describe("repository-owned workflow supply chain", () => {
-  // Управляемые файлы harness закрепляются в пакете Workspace (workspace#211) и приходят раскаткой.
-  const managedFiles = new Set(
-    z
-      .object({ managedFiles: z.array(z.string()) })
-      .passthrough()
-      .parse(
-        JSON.parse(
-          readFileSync(
-            resolve(repositoryRoot, ".inside-harness/product-harness.json"),
-            "utf8",
-          ),
-        ),
-      ).managedFiles,
-  );
+  // Workflows контроллера tracker пришли из пакета Workspace и уходят вместе с контроллером (#849).
+  const managedFiles = new Set([
+    ".github/workflows/add-to-inside-project.yml",
+    ".github/workflows/inside-agent-sessions.yml",
+  ]);
   const ownedSources = [
     ...readdirSync(resolve(repositoryRoot, ".github/workflows")).map(
       (name) => `.github/workflows/${name}`,

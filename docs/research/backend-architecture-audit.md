@@ -65,7 +65,7 @@ Target proposal: сохранить **один Materials module** и две call
 
 Repository authority:
 
-- [`CONTEXT.md`](../../CONTEXT.md) владеет словами `Material`, `MaterialRevision`, `CurrentDraft`,
+- [`CONTEXT.md`](../../GLOSSARY.md) владеет словами `Material`, `MaterialRevision`, `CurrentDraft`,
   `Topic`, `Format`, `Tag`, `Series`, `Principal` и access concepts.
 - [ADR 0001](../adr/0001-one-backend-multiple-entrypoints.md) фиксирует один backend codebase с
   тонкими `api`, `worker` и `mcp` entrypoints.
