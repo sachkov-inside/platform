@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import {
   mkdirSync,
   mkdtempSync,
+  readFileSync,
   readdirSync,
   rmSync,
   symlinkSync,
@@ -65,25 +66,39 @@ describe("agent documentation contract", () => {
     }
   });
 
-  it("warns about a process contract longer than the limit and still passes", () => {
-    const root = mkdtempSync(join(tmpdir(), "docs-check-"));
-    try {
-      for (const name of readdirSync(repositoryRoot)) {
-        if (name !== "WORKFLOW.md") {
-          symlinkSync(join(repositoryRoot, name), join(root, name));
+  for (const contract of ["AGENTS.md", "WORKFLOW.md"]) {
+    it(`warns about ${contract} longer than the limit and still passes`, () => {
+      const root = mkdtempSync(join(tmpdir(), "docs-check-"));
+      try {
+        writeFileSync(
+          join(root, contract),
+          "rule\n".repeat(processContractLineLimit),
+        );
+        assert.deepEqual(documentationWarnings(root), []);
+        rmSync(join(root, contract));
+
+        for (const name of readdirSync(repositoryRoot)) {
+          if (name !== contract) {
+            symlinkSync(join(repositoryRoot, name), join(root, name));
+          }
         }
+        const current = readFileSync(join(repositoryRoot, contract), "utf8");
+        writeFileSync(
+          join(root, contract),
+          current + "rule\n".repeat(processContractLineLimit),
+        );
+        const lines = current.split("\n").length - 1 + processContractLineLimit;
+
+        assert.equal(
+          documentationWarnings(root).includes(
+            `${contract}: ${lines} lines, more than ${processContractLineLimit}; shorten the process contract`,
+          ),
+          true,
+        );
+        assert.deepEqual(checkDocumentation(root), []);
+      } finally {
+        rmSync(root, { recursive: true, force: true });
       }
-      const workflow = join(root, "WORKFLOW.md");
-      const warning = `WORKFLOW.md: ${processContractLineLimit + 1} lines, more than ${processContractLineLimit}; shorten the process contract`;
-
-      writeFileSync(workflow, "rule\n".repeat(processContractLineLimit));
-      assert.equal(documentationWarnings(root).includes(warning), false);
-
-      writeFileSync(workflow, "rule\n".repeat(processContractLineLimit + 1));
-      assert.equal(documentationWarnings(root).includes(warning), true);
-      assert.deepEqual(checkDocumentation(root), []);
-    } finally {
-      rmSync(root, { recursive: true, force: true });
-    }
-  });
+    });
+  }
 });
