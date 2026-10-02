@@ -1,5 +1,6 @@
 // @ts-check
 import assert from "node:assert/strict";
+import { spawn } from "node:child_process";
 import { createServer } from "node:net";
 import { describe, it } from "node:test";
 
@@ -7,6 +8,7 @@ import {
   reservePort,
   reservedPortRange,
   startWithRoutes,
+  stopServerOnPort,
 } from "./smoke-stand.mjs";
 
 /** @param {number} status */
@@ -88,8 +90,45 @@ describe("smoke stand", () => {
         request: () => answer(404),
         log: () => {},
       }),
-      /\/products\/platform-inside.*3 starts/u,
+      /404 for \/products\/platform-inside after 3 starts/u,
     );
     assert.equal(stopped, 3);
+  });
+
+  it("stops a server with its process group and waits for the port", async () => {
+    const port = await reservePort();
+    const child = spawn(
+      process.execPath,
+      [
+        "-e",
+        `require("node:net").createServer().listen(${String(port)}, "127.0.0.1")`,
+      ],
+      { detached: true, stdio: "ignore" },
+    );
+    try {
+      for (let attempt = 0; attempt < 100; attempt += 1) {
+        const busy = await new Promise((resolve) => {
+          const probe = createServer();
+          probe.once("error", () => {
+            resolve(true);
+          });
+          probe.listen(port, "127.0.0.1", () => {
+            probe.close(() => {
+              resolve(false);
+            });
+          });
+        });
+        if (busy) break;
+        await new Promise((resolve) => setTimeout(resolve, 50));
+      }
+
+      await stopServerOnPort(child, port);
+
+      assert.equal(child.signalCode, "SIGTERM");
+      // A second stop of a child that a signal ended returns at once instead of waiting for an exit.
+      await stopServerOnPort(child, port);
+    } finally {
+      child.kill("SIGKILL");
+    }
   });
 });

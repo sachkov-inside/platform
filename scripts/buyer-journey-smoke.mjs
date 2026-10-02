@@ -8,6 +8,7 @@ import {
   reservePort,
   startWithRoutes,
   stopProcessGroup,
+  stopServerOnPort,
 } from "./smoke-stand.mjs";
 
 /**
@@ -57,8 +58,10 @@ function start(args, env) {
 async function waitFor(operation, child) {
   const end = Date.now() + 180_000;
   while (Date.now() < end) {
-    if (child.exitCode !== null)
-      throw new Error(`Child exited: ${String(child.exitCode)}`);
+    if (child.exitCode !== null || child.signalCode !== null)
+      throw new Error(
+        `Child exited: ${String(child.exitCode ?? child.signalCode)}`,
+      );
     try {
       const result = await operation();
       if (result) return result;
@@ -132,6 +135,8 @@ try {
       "/api/account/billing/contact/start",
       "/api/account/billing/enrollments",
       "/api/account/billing/purchase",
+      // Без ссылки покупки обработчик сам отвечает 404.
+      "/api/account/billing/purchase-status?purchaseRef=00000000-0000-4000-8000-000000000000",
       "/api/account/billing/quote",
       "/api/account/community-entry",
       "/api/account/terms",
@@ -151,9 +156,9 @@ try {
         ],
         env,
       ),
-    stop: stopProcessGroup,
+    stop: (web) => stopServerOnPort(web, webPort),
     ready: (web) =>
-      waitFor(async () => (await fetch(`${webUrl}/`)).status > 0, web),
+      waitFor(async () => (await fetch(`${webUrl}/`)).status < 500, web),
   });
   const test = start(
     [

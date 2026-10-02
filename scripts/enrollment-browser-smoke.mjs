@@ -9,6 +9,7 @@ import {
   reservePort,
   startWithRoutes,
   stopProcessGroup,
+  stopServerOnPort,
 } from "./smoke-stand.mjs";
 // The backend fixture writes its stand environment as strings; the smoke reads three of them.
 const fixtureStateSchema = z
@@ -54,8 +55,10 @@ function start(args, env) {
 async function waitFor(operation, child) {
   const end = Date.now() + 90_000;
   while (Date.now() < end) {
-    if (child.exitCode !== null)
-      throw new Error(`Child exited: ${String(child.exitCode)}`);
+    if (child.exitCode !== null || child.signalCode !== null)
+      throw new Error(
+        `Child exited: ${String(child.exitCode ?? child.signalCode)}`,
+      );
     try {
       const result = await operation();
       if (result) return result;
@@ -157,10 +160,10 @@ try {
         ],
         env,
       ),
-    stop: stopProcessGroup,
+    stop: (web) => stopServerOnPort(web, port),
     ready: (web) =>
       waitFor(
-        async () => (await fetch(`${webUrl}/authoring/billing`)).status > 0,
+        async () => (await fetch(`${webUrl}/authoring/billing`)).status < 500,
         web,
       ),
   });

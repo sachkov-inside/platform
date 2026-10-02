@@ -51,20 +51,51 @@ export async function reservePort(pick = randomReservedPort) {
   throw new Error("No free test port in the reserved range");
 }
 
+const stopGraceMilliseconds = 10_000;
+const portReleaseMilliseconds = 15_000;
+const probeTimeoutMilliseconds = 60_000;
+
+/** @param {number} milliseconds */
+function pause(milliseconds) {
+  return new Promise((resolve) => setTimeout(resolve, milliseconds));
+}
+
 /**
  * Stops a detached child with its whole process group and waits for it to exit.
  *
  * @param {import("node:child_process").ChildProcess} child
  */
 export async function stopProcessGroup(child) {
-  // A child that never started has no process group to stop.
-  if (child.exitCode !== null || child.pid === undefined) return;
+  // A child that never started has no process group to stop; one killed by a signal has no exit code.
+  if (
+    child.exitCode !== null ||
+    child.signalCode !== null ||
+    child.pid === undefined
+  )
+    return;
+  const exited = new Promise((resolve) => child.once("exit", resolve));
   signalProcessGroup(child.pid, "SIGTERM");
-  await Promise.race([
-    new Promise((resolve) => child.on("exit", resolve)),
-    new Promise((resolve) => setTimeout(resolve, 10000)),
-  ]);
-  if (child.exitCode === null) signalProcessGroup(child.pid, "SIGKILL");
+  await Promise.race([exited, pause(stopGraceMilliseconds)]);
+  if (child.exitCode !== null || child.signalCode !== null) return;
+  signalProcessGroup(child.pid, "SIGKILL");
+  await Promise.race([exited, pause(stopGraceMilliseconds)]);
+}
+
+/**
+ * Stops the dev server and waits until its port can be bound again. `pnpm` exits before the
+ * `next dev` process it started lets go of the port, and a restart on a busy port fails.
+ *
+ * @param {import("node:child_process").ChildProcess} child
+ * @param {number} port
+ */
+export async function stopServerOnPort(child, port) {
+  await stopProcessGroup(child);
+  const end = Date.now() + portReleaseMilliseconds;
+  while (Date.now() < end) {
+    if (await bindsOnLoopback(port)) return;
+    await pause(250);
+  }
+  throw new Error(`Port ${String(port)} is still busy after the server stop`);
 }
 
 const routeStarts = 3;
@@ -74,8 +105,13 @@ const routeStarts = 3;
  *
  * The Turbopack dev server of Next.js 16 can report `Ready` with a partial route graph on a CI
  * runner. A route missing from it answers 404 for the life of the process; only a restart recovers
- * (vercel/next.js#98985, #96139). Our pages answer an unknown address with 200 (ADR 0027), so a 404
- * here means the route itself is missing, not its data.
+ * (vercel/next.js#98985, #96139). In CI the stand came up without `/products/[slug]` or without
+ * `/products/[slug]/buy` about once in fifty starts (#863).
+ *
+ * The status alone cannot tell a missing route from a page that calls `notFound()` for missing
+ * data, so a 404 that survives every start fails the smoke and names both causes. List the address
+ * of every page and route handler the scenario reaches; give a handler that answers 404 to a bare
+ * GET the query it needs to answer something else.
  *
  * @template Server
  * @param {object} options
@@ -94,9 +130,16 @@ export async function startWithRoutes({
   start,
   stop,
   ready,
-  request = (url) => fetch(url, { redirect: "manual" }),
+  request = (url) =>
+    fetch(url, {
+      redirect: "manual",
+      signal: AbortSignal.timeout(probeTimeoutMilliseconds),
+    }),
   log = (message) => {
-    process.stdout.write(`${message}\n`);
+    // GitHub Actions turns the prefix into an annotation, so a restart stays visible on a green run.
+    const prefix =
+      process.env["GITHUB_ACTIONS"] === "true" ? "::warning::" : "";
+    process.stdout.write(`${prefix}${message}\n`);
   },
 }) {
   /** @type {string[]} */
@@ -111,11 +154,11 @@ export async function startWithRoutes({
     }
     if (missing.length === 0) return server;
     log(
-      `Dev server start ${String(attempt)} has no route for ${missing.join(", ")}; stopping it.`,
+      `Dev server start ${String(attempt)} of ${String(routeStarts)} answers 404 for ${missing.join(", ")}; restarting it (#863).`,
     );
     await stop(server);
   }
   throw new Error(
-    `Dev server has no route for ${missing.join(", ")} after ${String(routeStarts)} starts (vercel/next.js#98985)`,
+    `Dev server answers 404 for ${missing.join(", ")} after ${String(routeStarts)} starts. Either the address or its data is gone (fix the scenario, the seed or the route list), or the dev server keeps losing the route (vercel/next.js#98985).`,
   );
 }
