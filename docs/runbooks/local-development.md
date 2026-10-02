@@ -378,6 +378,17 @@ checks the free and the closed chapter, buys on the bank double and checks the o
 the community right, on desktop and mobile. It needs Docker and the Chromium of Playwright only.
 `pnpm check:full` runs all three smokes, and CI Integration runs the enrollment and buyer journey smokes
 after PostgreSQL integration tests.
+
+`pnpm smoke:enrollments` and `pnpm smoke:buyer-journey` start the web with `next dev` and open every address of their scenario before the
+browser suite runs. The Turbopack dev server of Next.js 16 sometimes reports `Ready` without a part
+of its routes, and a missing route answers 404 until the process ends
+([vercel/next.js#98985](https://github.com/vercel/next.js/issues/98985)); the smoke then restarts
+the server, at most three times, and prints `Dev server start … answers 404 for …`. In CI the line
+is a warning annotation on the run. A 404 that survives three starts fails the smoke: the address
+or its seed data is gone, or the route list in the smoke script is stale. When a scenario starts to
+reach a new page or route handler, add its address to the list in the smoke script. The smokes take
+their ports from 20000–29999, below the range the operating system and Docker hand out, so a
+reserved port stays free until its server binds it (`scripts/smoke-stand.mjs`, #863).
 The legacy full-stack fixture freezes the seeded material corpus. Materials created afterward do not become
 accessible to that cohort without an explicit scoped basis; video checks distinguish this denial from owner access.
 
