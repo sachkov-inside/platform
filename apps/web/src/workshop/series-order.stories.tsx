@@ -429,6 +429,27 @@ export const SourceMismatchRecovered: Story = {
   },
 };
 
+export const SourceMismatchUndone: Story = {
+  name: "Материал из другого источника: правка отменена",
+  decorators: SourceMismatch.decorators ?? [],
+  play: async (context) => {
+    await SourceMismatch.play?.(context);
+    const canvas = within(context.canvasElement);
+    // Обратный ход возвращает исходный состав: сохранять нечего и повторять нечего.
+    await userEvent.click(
+      canvas.getByRole("button", {
+        name: "Поднять «С чего начинается Platform Inside»",
+      }),
+    );
+    await waitFor(() =>
+      expect(
+        canvas.queryByRole("button", { name: "Повторить сохранение" }),
+      ).toBeNull(),
+    );
+    await expect(sourceMismatchSpy).toHaveBeenCalledTimes(1);
+  },
+};
+
 export const Forbidden: Story = {
   name: "Продукт нельзя менять в редакторе",
   decorators: [
