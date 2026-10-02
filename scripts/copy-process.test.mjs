@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
 import {
   appendFileSync,
+  cpSync,
   existsSync,
   mkdirSync,
   mkdtempSync,
@@ -56,9 +57,63 @@ describe("developer process copy", () => {
       assert.match(drift.stderr, /Differs: WORKFLOW\.md/u);
       assert.match(
         drift.stderr,
-        /Not part of the process: \.agents\/skills\/local-skill/u,
+        /remove it from the target: \.agents\/skills\/local-skill/u,
       );
     } finally {
+      rmSync(target, { recursive: true, force: true });
+    }
+  });
+
+  it("refuses to copy uncommitted process files", () => {
+    const source = mkdtempSync(join(tmpdir(), "process-source-"));
+    const target = mkdtempSync(join(tmpdir(), "process-copy-"));
+    try {
+      mkdirSync(join(target, ".git"));
+      mkdirSync(join(source, "scripts"));
+      mkdirSync(join(source, "docs/agents"), { recursive: true });
+      mkdirSync(join(source, ".agents/skills/implement"), { recursive: true });
+      cpSync(
+        join(repositoryRoot, "scripts/copy-process.sh"),
+        join(source, "scripts/copy-process.sh"),
+      );
+      for (const file of [
+        "WORKFLOW.md",
+        "docs/agents/triage-labels.md",
+        ".agents/skills/UPSTREAM.md",
+        ".agents/skills/implement/SKILL.md",
+      ]) {
+        cpSync(join(repositoryRoot, file), join(source, file));
+      }
+      const git = (/** @type {string[]} */ args) =>
+        spawnSync("git", ["-C", source, ...args], { encoding: "utf8" });
+      git(["init", "--quiet"]);
+      git(["add", "--all"]);
+      git([
+        "-c",
+        "user.name=test",
+        "-c",
+        "user.email=test@example.com",
+        "commit",
+        "--quiet",
+        "--message=process",
+      ]);
+      const script = join(source, "scripts/copy-process.sh");
+
+      appendFileSync(join(source, "WORKFLOW.md"), "uncommitted\n");
+      const refused = spawnSync("bash", [script, "--skip-labels", target], {
+        encoding: "utf8",
+      });
+      assert.equal(refused.status, 1);
+      assert.match(refused.stderr, /Commit the process files/u);
+      assert.ok(!existsSync(join(target, "WORKFLOW.md")));
+
+      git(["checkout", "--quiet", "--", "WORKFLOW.md"]);
+      const copied = spawnSync("bash", [script, "--skip-labels", target], {
+        encoding: "utf8",
+      });
+      assert.equal(copied.status, 0, copied.stderr);
+    } finally {
+      rmSync(source, { recursive: true, force: true });
       rmSync(target, { recursive: true, force: true });
     }
   });

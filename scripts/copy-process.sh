@@ -118,9 +118,10 @@ done
 for entry in "$target"/.agents/skills/* "$target"/.agents/skills/.[!.]*; do
   if [ ! -e "$entry" ]; then continue; fi
   name="$(basename "$entry")"
+  if [ "$name" = ".DS_Store" ]; then continue; fi
   case " $process_skills UPSTREAM.md " in
     *" $name "*) ;;
-    *) fail "Not part of the process: .agents/skills/$name" ;;
+    *) fail "Not part of the process, remove it from the target: .agents/skills/$name" ;;
   esac
 done
 if [ "$(readlink "$target/.claude/skills" 2>/dev/null || true)" != "../.agents/skills" ]; then
