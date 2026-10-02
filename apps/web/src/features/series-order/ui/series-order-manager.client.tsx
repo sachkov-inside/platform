@@ -45,6 +45,7 @@ import type {
 import {
   GUIDE_CHAPTER_NAME_MAX,
   GUIDE_CHAPTER_SUMMARY_MAX,
+  publicationStateLabel,
 } from "../model/presentation";
 import { dragLeftElement } from "@/shared/lib/drag-left-element";
 import { presentText } from "@/shared/lib/text";
@@ -715,7 +716,7 @@ function MaterialPickerDialog({
                       {material.title}
                     </span>
                     <span className="mt-1 block font-mono text-[0.6875rem] text-muted-foreground">
-                      {stateLabel(material.publicationState)}
+                      {publicationStateLabel(material.publicationState)}
                     </span>
                   </span>
                   <Button
@@ -806,14 +807,6 @@ function actionMessage(
   if (dirty) return "Есть несохранённые изменения.";
   if (result?.kind === "saved") return "Порядок сохранён.";
   return null;
-}
-
-function stateLabel(
-  state: SeriesOrderItemPresentation["publicationState"],
-): string {
-  if (state === "published") return "Опубликован";
-  if (state === "unpublished") return "Снят с публикации";
-  return "Черновик";
 }
 
 interface DragState {
@@ -1131,7 +1124,7 @@ function MaterialRow({
                 : "font-medium text-action",
             )}
           >
-            {stateLabel(item.publicationState)}
+            {publicationStateLabel(item.publicationState)}
           </span>
           <details className="col-span-2 col-start-2 row-start-3 min-w-0 text-sm sm:col-span-1 sm:col-start-3">
             <summary className="flex min-h-9 w-fit max-w-full cursor-pointer list-none items-center gap-1.5 rounded-md text-muted-foreground hover:text-foreground focus-visible:outline-2 focus-visible:outline-ring [&::-webkit-details-marker]:hidden">
