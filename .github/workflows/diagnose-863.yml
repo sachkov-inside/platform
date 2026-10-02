@@ -21,8 +21,8 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        variant: [full-job]
-        run: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16]
+        variant: [alone]
+        run: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]
     steps:
       - name: Check out source
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -40,11 +40,11 @@ jobs:
         run: |
           mkdir -p evidence
           failures=0
-          pnpm test:integration:parallel >evidence/integration.log 2>&1 || echo "integration failed"
-          docker ps -a >evidence/docker-after-integration.txt 2>&1 || true
-          ps -eo pid,ppid,etime,args >evidence/ps-after-integration.txt 2>&1 || true
-          for i in 1 2; do
-            pnpm smoke:enrollments >"evidence/enrollments-$i.log" 2>&1 || echo "enrollments $i failed"
+          sleep $((STAGGER * 4))
+          for i in 1 2 3 4 5 6 7 8 9 10 11 12; do
+            if [ "$VARIANT" = "after-enrollments" ]; then
+              pnpm smoke:enrollments >"evidence/enrollments-$i.log" 2>&1 || echo "enrollments $i failed"
+            fi
             rm -rf apps/web/test-results
             if pnpm smoke:buyer-journey >"evidence/buyer-$i.log" 2>&1; then
               echo "buyer $i passed at $(date -u +%H:%M:%S)"
@@ -53,10 +53,11 @@ jobs:
               failures=$((failures + 1))
               cp -R apps/web/test-results "evidence/test-results-$i" || true
               cp -R apps/web/.next/dev/logs "evidence/next-logs-$i" || true
-              grep -h "DEBUG-863" "evidence/buyer-$i.log" || true
+              ls -la apps/web/.next/dev apps/web/.next/dev/cache >"evidence/next-dev-listing-$i.txt" 2>&1 || true
             fi
           done
           echo "failures=$failures"
+          grep -h -B3 "GET /products/platform-inside " evidence/buyer-*.log | grep -oE '"time":"[^"]*"|GET /products/platform-inside [0-9]+' || true
       - name: Keep the evidence
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
