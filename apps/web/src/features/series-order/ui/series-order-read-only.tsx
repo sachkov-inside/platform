@@ -145,7 +145,7 @@ function MaterialList({
   readonly offset: number;
 }) {
   return (
-    <ol aria-label={label} className="divide-y divide-border">
+    <ol aria-label={label} className="divide-y divide-border" role="list">
       {items.map((item, index) => {
         const stepGroup = presentText(item.stepGroup?.trim());
         return (

@@ -1,13 +1,11 @@
 "use client";
-import { ArrowLeft, Archive, RotateCcw } from "lucide-react";
+import { Archive, RotateCcw } from "lucide-react";
 import { useState } from "react";
-import { useRouter } from "next/navigation";
 import { GuideArtifactsPanel } from "@/features/guide-artifacts";
 import { SeriesEditorPageFrame } from "./series-editor-page-frame";
 import { HomeSeriesPin, SeriesOrderPanel } from "@/features/series-order";
 import { ContentCoverEditor } from "@/features/content-covers";
 import { Button } from "@/shared/ui/button";
-import { flushPendingEdits } from "@/shared/lib/autosave/use-autosave";
 import { hasText } from "@/shared/lib/text";
 import {
   GUIDE_INTRODUCTION_FIELD_MAX,
@@ -16,7 +14,8 @@ import {
 import { GUIDE_INTRODUCTION_FIELDS } from "../model/guide-introduction-fields";
 import { useCollectionDraft } from "../model/use-collection-draft.client";
 import { MutationNotice } from "./collection-mutation-notice";
-import { ImportedProductPage } from "./imported-product-page.client";
+import { ImportedProductPage } from "./imported-product-page";
+import { ProductPageNavigation } from "./product-page-navigation.client";
 
 /**
  * Продукт, перенесённый из источника, backend из редактора не меняет: ни настройки, ни состав, ни
@@ -40,7 +39,6 @@ function AuthoredProductEditor({
 }: {
   readonly initialCollection: ContentCollection;
 }) {
-  const router = useRouter();
   const [collection, setCollection] = useState(initialCollection);
   const {
     name,
@@ -62,21 +60,9 @@ function AuthoredProductEditor({
     },
     { editsIntroduction: true },
   );
-  const back = () => {
-    void flushPendingEdits().then((ok) => {
-      if (ok) router.push("/authoring/guides");
-    });
-  };
   return (
     <SeriesEditorPageFrame>
-      <nav
-        aria-label="Навигация продукта"
-        className="flex flex-wrap items-center justify-between gap-3 border-b border-border py-4"
-      >
-        <Button onClick={back} type="button" variant="ghost">
-          <ArrowLeft aria-hidden="true" />
-          Все продукты
-        </Button>
+      <ProductPageNavigation>
         <div className="flex items-center gap-3">
           <span
             className="max-w-36 text-xs text-muted-foreground"
@@ -104,7 +90,7 @@ function AuthoredProductEditor({
             {collection.archived ? "Вернуть из архива" : "В архив"}
           </Button>
         </div>
-      </nav>
+      </ProductPageNavigation>
       <header className="py-8 sm:py-10">
         <h1 className="sr-only">Редактирование продукта: {name}</h1>
         <h2 className="sr-only">Настройки продукта</h2>

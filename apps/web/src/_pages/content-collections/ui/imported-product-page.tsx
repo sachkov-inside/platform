@@ -1,17 +1,11 @@
-"use client";
-import { ArrowLeft } from "lucide-react";
-import { useRouter } from "next/navigation";
-import { useState } from "react";
-
 import { ContentCoverEditor } from "@/features/content-covers";
 import { GuideArtifactsPanel } from "@/features/guide-artifacts";
 import { HomeSeriesPin, SeriesOrderPanel } from "@/features/series-order";
-import { flushPendingEdits } from "@/shared/lib/autosave/use-autosave";
 import { hasText } from "@/shared/lib/text";
-import { Button } from "@/shared/ui/button";
 
 import type { ContentCollection } from "../model/content-collections";
 import { GUIDE_INTRODUCTION_FIELDS } from "../model/guide-introduction-fields";
+import { ProductPageNavigation } from "./product-page-navigation.client";
 import { SeriesEditorPageFrame } from "./series-editor-page-frame";
 
 /**
@@ -24,8 +18,6 @@ export function ImportedProductPage({
 }: {
   readonly collection: ContentCollection;
 }) {
-  const router = useRouter();
-  const [cover, setCover] = useState(collection.cover ?? null);
   const summary = collection.summary.trim();
   const introduction = GUIDE_INTRODUCTION_FIELDS.flatMap(({ field, label }) => {
     const text = collection.introduction?.[field].trim();
@@ -33,35 +25,18 @@ export function ImportedProductPage({
   });
   return (
     <SeriesEditorPageFrame>
-      <nav
-        aria-label="Навигация продукта"
-        className="flex flex-wrap items-center justify-between gap-3 border-b border-border py-4"
-      >
-        <Button
-          onClick={() => {
-            // Загрузка обложки ещё может идти: уход дожидается её так же, как у обычного продукта.
-            void flushPendingEdits().then((ok) => {
-              if (ok) router.push("/authoring/guides");
-            });
-          }}
-          type="button"
-          variant="ghost"
-        >
-          <ArrowLeft aria-hidden="true" />
-          Все продукты
-        </Button>
+      <ProductPageNavigation>
         {collection.archived ? (
           <span className="text-sm text-muted-foreground">В архиве</span>
         ) : null}
-      </nav>
+      </ProductPageNavigation>
       <header className="py-8 sm:py-10">
         <h1 className="sr-only">Продукт из источника: {collection.name}</h1>
         <h2 className="sr-only">Настройки продукта</h2>
         <p className="rounded-xl bg-muted p-4 text-sm leading-6" role="note">
           <span className="font-semibold">Продукт перенесён из источника.</span>{" "}
-          Название, описание, блок «О продукте» и состав меняются только
-          переносом из источника. Отправить такой продукт в архив или вернуть из
-          архива в редакторе нельзя.
+          Название, описание и состав меняются только переносом из источника.
+          Блок «О продукте» и архив такого продукта в редакторе не меняются.
         </p>
         <dl className="mt-6">
           <dt className="text-sm text-muted-foreground">Название продукта</dt>
@@ -86,8 +61,7 @@ export function ImportedProductPage({
             </p>
           </div>
           <ContentCoverEditor
-            initialCover={cover}
-            onChange={setCover}
+            initialCover={collection.cover ?? null}
             ownerId={collection.id}
             ownerKind="series"
             ownerLabel={collection.name}

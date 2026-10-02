@@ -1,7 +1,7 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { useState, type ReactNode } from "react";
-import { expect, fn, userEvent, within } from "storybook/test";
+import { expect, userEvent, within } from "storybook/test";
 import { withMutationFetch } from "@/workshop/mutation-mock";
 import { ContentCollectionsPageClient } from "./content-collections-page.client";
 import { SeriesEditorPageClient } from "./series-editor-page.client";
@@ -98,13 +98,6 @@ function Fixture({
   return <QueryClientProvider client={client}>{children}</QueryClientProvider>;
 }
 
-// Декоратор meta ставит `fetch` последним, поэтому запросы страницы видит именно он.
-const pageFetchSpy = fn((_input: RequestInfo | URL, _init?: RequestInit) =>
-  Promise.resolve(
-    Response.json({ kind: "saved", orderVersion: "b".repeat(64) }),
-  ),
-);
-
 const environment = authoringPageEnvironment(
   "/authoring/playlists/95000000-0000-4000-8000-000000000010",
 );
@@ -119,7 +112,11 @@ const meta = {
         <Story />
       </Fixture>
     ),
-    withMutationFetch(pageFetchSpy),
+    withMutationFetch(() =>
+      Promise.resolve(
+        Response.json({ kind: "saved", orderVersion: "b".repeat(64) }),
+      ),
+    ),
     ...environment.decorators,
   ],
   title: "Pages/Authoring/Редактор продукта",
@@ -172,9 +169,6 @@ export const Imported: Story = {
   name: "Продукт из источника",
   args: { initialCollection: importedCollection },
   decorators: importedDecorators,
-  beforeEach: () => {
-    pageFetchSpy.mockClear();
-  },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
     await expect(canvas.getByRole("note")).toHaveTextContent(
@@ -196,8 +190,13 @@ export const Imported: Story = {
       canvas.queryByRole("textbox", { name: "Название продукта" }),
     ).toBeNull();
     await expect(canvas.queryByRole("textbox", { name: /глав/u })).toBeNull();
+    // «В архив» есть и у артефактов, поэтому архив продукта ищется в его навигации.
+    await expect(
+      within(
+        canvas.getByRole("navigation", { name: "Навигация продукта" }),
+      ).queryByRole("button", { name: "В архив" }),
+    ).toBeNull();
     for (const name of [
-      "В архив",
       "Добавить главу",
       "Добавить материал",
       "Убрать «Подготовка приложения»",
@@ -208,7 +207,6 @@ export const Imported: Story = {
     await expect(
       canvas.getByRole("button", { name: "Все продукты" }),
     ).toBeEnabled();
-    await expect(pageFetchSpy).not.toHaveBeenCalled();
   },
 };
 export const ImportedMobile: Story = {
@@ -222,9 +220,12 @@ export const ImportedArchived: Story = {
   decorators: importedDecorators,
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
-    await expect(canvas.getByText("В архиве")).toBeVisible();
+    const navigation = within(
+      canvas.getByRole("navigation", { name: "Навигация продукта" }),
+    );
+    await expect(navigation.getByText("В архиве")).toBeVisible();
     await expect(
-      canvas.queryByRole("button", { name: "Вернуть из архива" }),
+      navigation.queryByRole("button", { name: "Вернуть из архива" }),
     ).toBeNull();
   },
 };
