@@ -54,7 +54,7 @@ Before implementing a surface, inspect the Storybook catalog and its rendered Do
    keep that evidence in the production ticket or linked pull request, resolve every owner
    annotation, and record a new owner visual GO. The earlier proof acceptance is a prerequisite;
    it does not approve the promoted implementation. Production visual GO is not merge GO: the pull
-   request still requires the separate owner merge approval defined in `WORKFLOW.md`. When every
+   request still follows the merge rule in `WORKFLOW.md`. When every
    accepted-proof condition passes, the one ticket closes the functional path and visual
    integration without temporary UI, a temporary marker, or a second integration ticket.
 3. Otherwise, when a required UI module or state is missing, unaccepted, or still changing,

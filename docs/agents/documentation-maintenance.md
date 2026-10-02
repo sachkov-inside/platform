@@ -9,7 +9,7 @@ source of truth for every durable fact, not a prose copy of every implementation
 | Changed fact | Update |
 |---|---|
 | Product scope or user-visible behaviour | `docs/product/platform-mvp-brief.md` and the owning specification when its contract changes |
-| Domain term, meaning, or relationship | `CONTEXT.md`; keep implementation and history out of the glossary |
+| Domain term, meaning, or relationship | `GLOSSARY.md`; keep implementation and history out of the glossary |
 | Hard-to-reverse or surprising trade-off | Add an ADR, or let the replacement ADR supersede the old decision explicitly; do not rewrite accepted history as if it never happened |
 | Repository-wide coding rule | Root `CODING_STANDARDS.md`; keep it a short router and shared contract |
 | Backend module seam, slice layout, DI, persistence, REST, or import rule | `apps/backend/CODING_STANDARDS.md` for the current rule and the relevant ADR for rationale |
@@ -18,17 +18,16 @@ source of truth for every durable fact, not a prose copy of every implementation
 | MCP tool set | The registering module and the generated `apps/backend/mcp/tool-surface.json`; `pnpm mcp:check` owns drift detection |
 | Development, test, run, configuration, or deployment procedure | The owning README or runbook; keep exact executable commands in package/config files |
 | Agent trigger, routing, verification, or completion rule | The nearest `AGENTS.md` or `docs/agents/` contract; do not copy product/domain explanations into agent files |
-| Managed product-harness workflow | Change the canonical harness package and distribute it through the harness lifecycle; do not edit managed copies locally |
+| Skill copied from upstream | Replace the directory from upstream and update `.agents/skills/UPSTREAM.md`; do not edit the copy locally |
 
 Code, schemas, generated contracts, and tests may be the complete authority for a local
-implementation detail. In that case, record `None — code/schema/tests are the authority` in the PR
-Documentation impact section instead of making a no-op documentation edit.
+implementation detail. In that case, say `None — code/schema/tests are the authority` in the pull
+request instead of making a no-op documentation edit.
 
 ## Close the change
 
-`Documentation impact` in `WORKFLOW.md` owns the procedure: list the changed durable facts from the
-diff, update each in exactly one authority from the table above, and name the result in the pull
-request. Platform adds:
+List the changed durable facts from the final diff, update each in exactly one authority from the
+table above, and name the result in the pull request. Then:
 
 1. Update `AGENTS.md` only when the agent's trigger, routing, rule, verification command, or
    completion criterion changed.

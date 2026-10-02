@@ -42,7 +42,7 @@ redirect, автопродления и владения правами в Platf
   HEAD и чистота Education повторно проверены 2026-09-07; revision не изменилась. Это не утверждение о deployed revision.
 - Inside Platform: база `43275923c6dde086b5fcf6a4cad1a39efcff0530`, текущий `origin/main`
   при первом срезе; дополнение проверяет `057a7de7c1b2cc737dfb3805c07423054b0c5d24` от 2026-09-07. [Текущий контракт](../specifications/platform-v1.md),
-  [термины](../../CONTEXT.md),
+  [термины](../../GLOSSARY.md),
   [валидатор MembershipEvidence](../../apps/backend/src/modules/membership-entitlements/features/accept-evidence/validate-membership-evidence.ts).
 - Официальные документы Т-Банка просмотрены в дату исследования. Схемы API и требования могут меняться;
   перед реализацией повторно проверить выбранные методы и параметры.
@@ -340,7 +340,7 @@ DEMO-терминал использует `https://securepay.tinkoff.ru/v2`; к
 
 ## Владелец оплаты, доступа и событий
 
-Сегодня [MembershipEvidence](../../CONTEXT.md#access-and-activity) говорит о членстве в Telegram;
+Сегодня [MembershipEvidence](../../GLOSSARY.md#access-and-activity) говорит о членстве в Telegram;
 валидатор принимает именно chat_member/chat_not_member и ограничивает срок evidence. Это не банковский
 чек и не договор подписки. Текущий [ContentAccess contract](../specifications/content-access-authorization-v1.md)
 нельзя молча заменить платёжным webhook.

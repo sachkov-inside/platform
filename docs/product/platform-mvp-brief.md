@@ -13,7 +13,7 @@ Authority этого brief находится в этом Platform repository. �
 По решению владельца [Workspace #181](https://github.com/sachkov-inside/workspace/issues/181)
 общая пользовательская сущность называется «продукт»: отдельная программа из материалов.
 Конкретное авторское название может содержать «курс», «практикум» или «руководство».
-Канонические определения Product и Guide находятся в [словаре](../../CONTEXT.md).
+Канонические определения Product и Guide находятся в [словаре](../../GLOSSARY.md).
 Guide — существующее доменное имя продукта; сохранённые Series/Guide ID, маршруты и wire-поля
 не переименовываются. Формат отдельного материала «Гайд» остаётся самостоятельным понятием.
 В описаниях прежних поставок ниже «руководство» означает этот же продукт, а не другую категорию.
@@ -594,7 +594,7 @@ Workshop foundations и отдельный WorkshopEntitlement не означа
 - [Superseded case-first foundation](../specifications/production-workshop-v1.md) сохраняет ссылки
   на уже реализованные Workshop/Assignment/evaluator foundations без объявления их текущим
   product contract.
-- [`CONTEXT.md`](../../CONTEXT.md) задаёт канонические application terms без implementation
+- [`GLOSSARY.md`](../../GLOSSARY.md) задаёт канонические application terms без implementation
   details.
 - [Platform #19](https://github.com/sachkov-inside/platform/issues/19) — root Specification для
   UI laboratory и production frontend integration; application specification владеет delivery
