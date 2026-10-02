@@ -224,13 +224,16 @@ describe("application CI workflow contract", () => {
   it("uploads only bounded failure diagnostics for seven days", () => {
     assert.equal(
       workflow.match(/uses: actions\/upload-artifact@/gu)?.length,
-      3,
-    );
-    assert.equal(workflow.match(/^\s+retention-days: 7$/gmu)?.length, 3);
-    assert.equal(
-      workflow.match(/^\s+if: \$\{\{ failure\(\) \}\}$/gmu)?.length,
       4,
     );
+    assert.equal(workflow.match(/^\s+retention-days: 7$/gmu)?.length, 4);
+    assert.equal(
+      workflow.match(/^\s+if: \$\{\{ failure\(\) \}\}$/gmu)?.length,
+      5,
+    );
+    // A failed smoke keeps the Playwright results and the dev-server log (#863).
+    assert.match(jobBlock("integration"), /apps\/web\/test-results/u);
+    assert.match(jobBlock("integration"), /apps\/web\/\.next\/dev\/logs/u);
     assert.match(workflow, /docker compose logs --no-color --tail 500/u);
     assert.doesNotMatch(workflow, /\.ci-artifacts/u);
     assert.match(
