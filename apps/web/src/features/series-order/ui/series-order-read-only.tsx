@@ -13,7 +13,7 @@ import {
  * редактора, поэтому здесь нет ни одного действия правки: автор читает состав и уходит со страницы
  * без отказа.
  */
-export function SeriesOrderView({
+export function SeriesOrderReadOnly({
   chapters,
   items,
 }: {

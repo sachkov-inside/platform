@@ -4,7 +4,7 @@ import { Button } from "@/shared/ui/button";
 import { seriesOrderQueryOptions } from "../api/read-series-order.browser";
 import { seriesOrderMaterialSearchQueryOptions } from "../model/series-order-material-search-query";
 import { SeriesOrderManager } from "./series-order-manager.client";
-import { SeriesOrderView } from "./series-order-view";
+import { SeriesOrderReadOnly } from "./series-order-read-only";
 export function SeriesOrderPanel({
   seriesId,
   archived,
@@ -38,7 +38,9 @@ export function SeriesOrderPanel({
     );
   const order = query.data.order;
   if (readOnly)
-    return <SeriesOrderView chapters={order.chapters} items={order.items} />;
+    return (
+      <SeriesOrderReadOnly chapters={order.chapters} items={order.items} />
+    );
   return (
     <SeriesOrderManager
       key={order.orderVersion}

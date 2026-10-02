@@ -46,7 +46,17 @@ const chapters = [
     summary: "Готовим приложение и собираем образ.",
   },
   { id: "97000000-0000-4000-8000-000000000022", name: "Релиз", summary: "" },
+  {
+    id: "97000000-0000-4000-8000-000000000023",
+    name: "Эксплуатация",
+    summary: "",
+  },
 ];
+/** Две главы с материалами, глава без материалов и материал вне глав. */
+const chapteredItems = items.map((item, index) => ({
+  ...item,
+  chapterId: index < 2 ? chapters[0]?.id : index === 2 ? chapters[1]?.id : null,
+}));
 function Fixture({
   chaptered = false,
   children,
@@ -68,14 +78,7 @@ function Fixture({
         seriesId: collection.id,
         orderVersion: "a".repeat(64),
         chapters: chaptered ? chapters : [],
-        items: empty
-          ? []
-          : chaptered
-            ? items.map((item, index) => ({
-                ...item,
-                chapterId: chapters[index < 2 ? 0 : 1]?.id ?? null,
-              }))
-            : items,
+        items: empty ? [] : chaptered ? chapteredItems : items,
       },
     });
     queryClient.setQueryData(["guide-artifacts", collection.id], {
@@ -95,6 +98,13 @@ function Fixture({
   return <QueryClientProvider client={client}>{children}</QueryClientProvider>;
 }
 
+// Декоратор meta ставит `fetch` последним, поэтому запросы страницы видит именно он.
+const pageFetchSpy = fn((_input: RequestInfo | URL, _init?: RequestInit) =>
+  Promise.resolve(
+    Response.json({ kind: "saved", orderVersion: "b".repeat(64) }),
+  ),
+);
+
 const environment = authoringPageEnvironment(
   "/authoring/playlists/95000000-0000-4000-8000-000000000010",
 );
@@ -109,11 +119,7 @@ const meta = {
         <Story />
       </Fixture>
     ),
-    withMutationFetch(() =>
-      Promise.resolve(
-        Response.json({ kind: "saved", orderVersion: "b".repeat(64) }),
-      ),
-    ),
+    withMutationFetch(pageFetchSpy),
     ...environment.decorators,
   ],
   title: "Pages/Authoring/Редактор продукта",
@@ -153,24 +159,23 @@ const importedCollection = {
   slug: "demo-imported-product",
   sourceId: "inside-content:demo-imported-product",
 } as const;
-const importedWriteSpy = fn((_input: RequestInfo | URL, _init?: RequestInit) =>
-  Promise.resolve(Response.json({ kind: "forbidden" })),
-);
+const importedDecorators = [
+  (Story: () => ReactNode) => (
+    <Fixture chaptered>
+      <Story />
+    </Fixture>
+  ),
+];
 
 /** Продукт, перенесённый из источника, показан для чтения: править и отклонять нечего (#844). */
 export const Imported: Story = {
   name: "Продукт из источника",
   args: { initialCollection: importedCollection },
-  decorators: [
-    (Story) => (
-      <Fixture chaptered>
-        <Story />
-      </Fixture>
-    ),
-    withMutationFetch(importedWriteSpy),
-  ],
+  decorators: importedDecorators,
+  beforeEach: () => {
+    pageFetchSpy.mockClear();
+  },
   play: async ({ canvasElement }) => {
-    importedWriteSpy.mockClear();
     const canvas = within(canvasElement);
     await expect(canvas.getByRole("note")).toHaveTextContent(
       "Продукт перенесён из источника.",
@@ -180,7 +185,10 @@ export const Imported: Story = {
       canvas.getByRole("list", { name: "Материалы главы «Сборка»" }),
     ).toHaveTextContent("Подготовка приложения");
     await expect(
-      canvas.getByRole("list", { name: "Материалы главы «Релиз»" }),
+      canvas.getByRole("heading", { name: "Глава 3: Эксплуатация" }),
+    ).toBeVisible();
+    await expect(
+      canvas.getByRole("list", { name: "Материалы вне глав" }),
     ).toHaveTextContent("Проверка релиза");
     await expect(canvas.getAllByRole("heading", { level: 1 })).toHaveLength(1);
     // Ни одного поля и действия, запись которых backend отклонит.
@@ -200,7 +208,7 @@ export const Imported: Story = {
     await expect(
       canvas.getByRole("button", { name: "Все продукты" }),
     ).toBeEnabled();
-    await expect(importedWriteSpy).not.toHaveBeenCalled();
+    await expect(pageFetchSpy).not.toHaveBeenCalled();
   },
 };
 export const ImportedMobile: Story = {
@@ -211,13 +219,40 @@ export const ImportedMobile: Story = {
 export const ImportedArchived: Story = {
   name: "Продукт из источника в архиве",
   args: { initialCollection: { ...importedCollection, archived: true } },
-  decorators: Imported.decorators ?? [],
+  decorators: importedDecorators,
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
     await expect(canvas.getByText("В архиве")).toBeVisible();
     await expect(
       canvas.queryByRole("button", { name: "Вернуть из архива" }),
     ).toBeNull();
+  },
+};
+/** Источник не дал описаний и материалов: страница не показывает пустых подписей. */
+export const ImportedBare: Story = {
+  name: "Продукт из источника без описаний и материалов",
+  args: {
+    initialCollection: {
+      ...importedCollection,
+      introduction: null,
+      materialCount: 0,
+      summary: "",
+    },
+  },
+  decorators: [
+    (Story) => (
+      <Fixture empty>
+        <Story />
+      </Fixture>
+    ),
+  ],
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await expect(
+      canvas.getByText("В продукте пока нет материалов."),
+    ).toBeVisible();
+    await expect(canvas.queryByText("Краткое описание")).toBeNull();
+    await expect(canvas.queryByText("О продукте для читателя")).toBeNull();
   },
 };
 export const KeyboardReorder: Story = {
