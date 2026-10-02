@@ -377,11 +377,6 @@ function escapeRegExp(value) {
 }
 
 describe("repository-owned workflow supply chain", () => {
-  // Workflows контроллера tracker пришли из пакета Workspace и уходят вместе с контроллером (#849).
-  const managedFiles = new Set([
-    ".github/workflows/add-to-inside-project.yml",
-    ".github/workflows/inside-agent-sessions.yml",
-  ]);
   const ownedSources = [
     ...readdirSync(resolve(repositoryRoot, ".github/workflows")).map(
       (name) => `.github/workflows/${name}`,
@@ -389,7 +384,7 @@ describe("repository-owned workflow supply chain", () => {
     ...readdirSync(resolve(repositoryRoot, ".github/actions")).map(
       (name) => `.github/actions/${name}/action.yml`,
     ),
-  ].filter((path) => !managedFiles.has(path));
+  ];
 
   it("pins every third-party action in every owned workflow to a release commit", () => {
     assert.ok(ownedSources.includes(".github/workflows/release.yml"));

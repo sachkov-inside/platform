@@ -7,8 +7,6 @@ pnpm-lock.yaml
 # Skills are a byte-for-byte copy of their upstream; formatting here would drift from it.
 .agents/
 .claude/
-.github/workflows/add-to-inside-project.yml
-.github/workflows/inside-agent-sessions.yml
 
 # Generated and checked byte for byte by api:check, guardrails and contract checks.
 apps/backend/openapi/

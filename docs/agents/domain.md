@@ -6,8 +6,8 @@ relevant `docs/adr/` entries when they exist. Their absence is not a setup failu
 `domain-modeling` creates them lazily when durable terminology or a hard-to-reverse trade-off is
 actually resolved.
 
-Shared product and cross-repository decisions arrive through a linked Workspace issue. Record each
-Platform-specific consequence once:
+Shared product and legal documents live in the Workspace repository; it holds no issues. Record
+each Platform-specific consequence of a shared decision once:
 
 - product scope in `docs/product/platform-mvp-brief.md`;
 - an implementation contract in the technical specification;

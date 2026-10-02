@@ -2,9 +2,9 @@
 
 ## Repository role
 
-Platform owns its product brief, Membership application, implementation issues and
-application-specific ADRs. Shared product and cross-repository decisions are resolved in Workspace
-and arrive through linked issues; Platform work uses repository-local canonical documents, never a
+Platform owns its product brief, Membership application, issues, application-specific ADRs and
+the developer process of Inside: `inside-telegram` receives a copy of it. Shared product and legal
+documents live in Workspace; Platform work uses repository-local canonical documents, never a
 machine-local dependency.
 
 ## Working agreements
