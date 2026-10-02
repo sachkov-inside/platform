@@ -109,16 +109,34 @@ try {
     BUYER_JOURNEY_CONTROL_URL: state.CONTROL_URL,
     BUYER_JOURNEY_GUIDE_SLUG: state.GUIDE_SLUG,
   };
-  // Адреса, которые открывает сценарий: сервер без любого из них перезапускается.
+  // Адреса, к которым обращается сценарий: сервер без любого из них перезапускается. У адреса,
+  // который принимает только POST, существующий маршрут отвечает на GET кодом 405, а не 404.
   await startWithRoutes({
     baseUrl: webUrl,
     routes: [
       "/",
+      "/welcome",
       `/products/${state.GUIDE_SLUG}`,
       `/products/${state.GUIDE_SLUG}/buy`,
       "/materials/kak-ustroen-inside-platform",
       "/account",
+      "/account/purchases",
+      "/subscription/return",
       "/auth/status",
+      "/auth/sign-in",
+      "/api/account",
+      "/api/account/billing",
+      "/api/account/billing/consents",
+      "/api/account/billing/contact",
+      "/api/account/billing/contact/confirm",
+      "/api/account/billing/contact/start",
+      "/api/account/billing/enrollments",
+      "/api/account/billing/purchase",
+      "/api/account/billing/quote",
+      "/api/account/community-entry",
+      "/api/account/terms",
+      "/api/home/materials",
+      "/api/reading-progress/states",
     ],
     start: () =>
       start(
@@ -152,27 +170,7 @@ try {
   /** @type {Promise<number | null>} */
   const exited = new Promise((resolve) => test.on("exit", resolve));
   const code = await exited;
-  if (code !== 0) {
-    // [DEBUG-863] temporary probes, removed before the pull request is ready.
-    for (const url of [
-      `${webUrl}/products/${state.GUIDE_SLUG}`,
-      `${webUrl}/products/${state.GUIDE_SLUG}/programme`,
-      `${webUrl}/products/no-such-product`,
-      `${state.BACKEND_BASE_URL}/library/guides/${state.GUIDE_SLUG}`,
-      `${state.BACKEND_BASE_URL}/library/home`,
-    ]) {
-      try {
-        const response = await fetch(url);
-        const body = await response.text();
-        process.stdout.write(
-          `[DEBUG-863] ${url} ${String(response.status)} ${body.replace(/\s+/gu, " ").slice(0, 1500)}\n`,
-        );
-      } catch (error) {
-        process.stdout.write(`[DEBUG-863] ${url} threw ${String(error)}\n`);
-      }
-    }
-    throw new Error(`Browser assertions failed: ${String(code)}`);
-  }
+  if (code !== 0) throw new Error(`Browser assertions failed: ${String(code)}`);
   process.stdout.write(
     "Buyer journey passed on desktop and mobile against real Nest/PostgreSQL, the stand bank double and a synthetic Telegram sign-in provider.\n",
   );

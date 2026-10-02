@@ -111,10 +111,39 @@ try {
     FULLSTACK_LOGTO_SESSION: session,
     ENROLLMENT_PROVIDER_URL: state.providerUrl,
   };
-  // Адреса, которые открывает сценарий: сервер без любого из них перезапускается.
+  // Адреса, к которым обращается сценарий: сервер без любого из них перезапускается. У адреса,
+  // который принимает только POST, существующий маршрут отвечает на GET кодом 405, а не 404.
   await startWithRoutes({
     baseUrl: webUrl,
-    routes: ["/", "/authoring/billing", "/account", "/auth/status"],
+    routes: [
+      "/",
+      "/welcome",
+      "/authoring/billing",
+      "/account",
+      "/account/subscription",
+      "/auth/status",
+      "/api/account",
+      "/api/account/billing",
+      "/api/account/billing/community-admission",
+      "/api/account/billing/contact",
+      "/api/account/billing/enrollments",
+      "/api/account/terms",
+      "/api/authoring/billing/activation-rules/list",
+      "/api/authoring/billing/activation-rules/save",
+      "/api/authoring/billing/content/list",
+      "/api/authoring/billing/enrollments/apply-expansion",
+      "/api/authoring/billing/enrollments/assign",
+      "/api/authoring/billing/enrollments/change",
+      "/api/authoring/billing/enrollments/list",
+      "/api/authoring/billing/enrollments/preview-expansion",
+      "/api/authoring/billing/offers/save",
+      "/api/authoring/billing/recipients/lookup",
+      "/api/authoring/billing/respondents/status",
+      "/api/authoring/billing/tiers/list",
+      "/api/authoring/billing/tribute/status",
+      "/api/home/materials",
+      "/api/personal-home",
+    ],
     start: () =>
       start(
         [
