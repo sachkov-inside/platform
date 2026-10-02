@@ -28,6 +28,15 @@ export interface SeriesOrderItemPresentation {
   readonly title: string;
 }
 
+/** How the editor names a Material's publication state in a composition. */
+export function publicationStateLabel(
+  state: SeriesOrderItemPresentation["publicationState"],
+): string {
+  if (state === "published") return "Опубликован";
+  if (state === "unpublished") return "Снят с публикации";
+  return "Черновик";
+}
+
 export interface SeriesOrderPresentation {
   readonly archived: boolean;
   readonly chapters: readonly GuideChapterPresentation[];
