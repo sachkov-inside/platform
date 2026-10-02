@@ -379,19 +379,25 @@ export const RemovalConfirmation: Story = {
   },
 };
 
+const sourceMismatchSpy = fn((_input: RequestInfo | URL, _init?: RequestInit) =>
+  Promise.resolve(
+    Response.json({ kind: "saved", orderVersion: "b".repeat(64) }),
+  ),
+);
+
 export const SourceMismatch: Story = {
   name: "Материал из другого источника",
-  decorators: [
-    withMutationFetch(() =>
+  decorators: [withMutationFetch(sourceMismatchSpy)],
+  play: async ({ canvasElement }) => {
+    sourceMismatchSpy.mockClear();
+    sourceMismatchSpy.mockImplementationOnce(() =>
       Promise.resolve(
         Response.json({
           kind: "source_mismatch",
           materialIds: ["95000000-0000-4000-8000-000000000002"],
         }),
       ),
-    ),
-  ],
-  play: async ({ canvasElement }) => {
+    );
     const canvas = within(canvasElement);
     await moveFirstItem(canvasElement);
     await expect(
@@ -400,6 +406,26 @@ export const SourceMismatch: Story = {
       ),
     ).toBeInTheDocument();
     await expect(canvas.queryByRole("button", { name: "Войти" })).toBeNull();
+  },
+};
+
+export const SourceMismatchRecovered: Story = {
+  name: "Материал из другого источника убран",
+  decorators: SourceMismatch.decorators ?? [],
+  play: async (context) => {
+    await SourceMismatch.play?.(context);
+    const canvas = within(context.canvasElement);
+    await userEvent.click(
+      canvas.getByRole("button", {
+        name: "Убрать «Границы продукта и первая версия»",
+      }),
+    );
+    await expect(await canvas.findByText("Порядок сохранён.")).toBeVisible();
+    await expect(sourceMismatchSpy).toHaveBeenCalledTimes(2);
+    const body = sourceMismatchSpy.mock.calls[1]?.[1]?.body;
+    await expect(
+      body instanceof FormData ? body.get("orderedMaterialIds") : null,
+    ).not.toContain("95000000-0000-4000-8000-000000000002");
   },
 };
 

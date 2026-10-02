@@ -120,6 +120,12 @@ export function SeriesOrderManager({
         setRemovalConfirmation(next.guides);
         return "invalid";
       }
+      // Отказанный материал автор убирает сам: следующая правка уходит новым составом, а не
+      // повтором отклонённого.
+      if (next.kind === "source_mismatch") {
+        attempted.current = null;
+        return "invalid";
+      }
       if (next.kind !== "saved") return "failed";
       version.current = next.orderVersion;
       attempted.current = null;
