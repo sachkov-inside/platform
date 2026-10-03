@@ -94,32 +94,74 @@ function moduleConstants(program) {
 }
 
 /**
- * Выражение срока Vitest у вызова: число после функции или `timeout` в объекте параметров.
+ * Значение свойства с ключом `name` или `"name"` в литерале объекта.
  *
- * @param {import("oxc-parser").CallExpression} call
+ * @param {Node} node
+ * @param {string} name
  * @returns {Node | undefined}
  */
-function budgetArgument(call) {
-  const functionIndex = call.arguments.findIndex(
-    (argument) =>
-      argument.type === "ArrowFunctionExpression" ||
-      argument.type === "FunctionExpression",
-  );
-  if (functionIndex === -1) return undefined;
-  for (const [index, argument] of call.arguments.entries()) {
-    if (argument.type === "ObjectExpression") {
-      const timeout = argument.properties.find(
-        (property) =>
-          property.type === "Property" &&
-          property.key.type === "Identifier" &&
-          property.key.name === "timeout",
-      );
-      if (timeout?.type === "Property") return timeout.value;
-    } else if (index > functionIndex && argument.type !== "SpreadElement") {
-      return argument;
-    }
+function propertyValue(node, name) {
+  if (node.type !== "ObjectExpression") return undefined;
+  for (const property of node.properties) {
+    if (property.type !== "Property") continue;
+    const { key } = property;
+    if (
+      (key.type === "Identifier" && key.name === name) ||
+      (key.type === "Literal" && key.value === name)
+    )
+      return property.value;
   }
   return undefined;
+}
+
+/**
+ * Выражение срока по сигнатурам Vitest: `hook(fn, timeout)`, `test(name, fn, timeout | options)`
+ * и `test(name, options, fn)`. Тело может прийти ссылкой, поэтому место срока задаёт позиция.
+ *
+ * @param {import("oxc-parser").CallExpression} call
+ * @param {"test" | "hook"} kind
+ * @returns {Node | undefined}
+ */
+function budgetArgument(call, kind) {
+  const [, second, third] = call.arguments;
+  if (kind === "hook") return second;
+  if (second?.type === "ObjectExpression")
+    return propertyValue(second, "timeout");
+  if (
+    third === undefined ||
+    third.type === "ArrowFunctionExpression" ||
+    third.type === "FunctionExpression"
+  )
+    return undefined;
+  if (third.type === "ObjectExpression") return propertyValue(third, "timeout");
+  return third;
+}
+
+/**
+ * `vi.setConfig({ testTimeout, hookTimeout })` меняет общий бюджет файла.
+ *
+ * @param {import("oxc-parser").CallExpression} call
+ * @returns {[("test" | "hook"), Node][]}
+ */
+function configuredBudgets(call) {
+  const { callee } = call;
+  if (
+    callee.type !== "MemberExpression" ||
+    callee.object.type !== "Identifier" ||
+    callee.object.name !== "vi" ||
+    callee.property.type !== "Identifier" ||
+    callee.property.name !== "setConfig"
+  )
+    return [];
+  const [options] = call.arguments;
+  if (options === undefined) return [];
+  /** @type {[("test" | "hook"), Node][]} */
+  const budgets = [];
+  const test = propertyValue(options, "testTimeout");
+  const hook = propertyValue(options, "hookTimeout");
+  if (test !== undefined) budgets.push(["test", test]);
+  if (hook !== undefined) budgets.push(["hook", hook]);
+  return budgets;
 }
 
 /**
@@ -136,30 +178,35 @@ export function budgetsBelowDefault(sources, defaults) {
     const { program, errors } = parseSync(file, source, { lang: "ts" });
     assert.deepEqual(errors, [], `${file} must parse`);
     const constants = moduleConstants(program);
-    /** @param {number} offset */
-    const lineOf = (offset) => source.slice(0, offset).split("\n").length;
+    /**
+     * @param {"test" | "hook"} kind
+     * @param {Node | undefined} budget
+     */
+    const check = (kind, budget) => {
+      if (budget === undefined || budget.type === "SpreadElement") return;
+      const line = source.slice(0, budget.start).split("\n").length;
+      const where = `${file}:${String(line)}: ${kind} budget`;
+      const value = evaluate(budget, constants);
+      if (value === undefined)
+        violations.push(
+          `${where} cannot be evaluated; name it with a module-level constant`,
+        );
+      else if (value === 0)
+        violations.push(`${where} 0 ms turns off the stop for a stuck run`);
+      else if (value < defaults[kind])
+        violations.push(
+          `${where} ${String(value)} ms is below the default ${String(defaults[kind])} ms`,
+        );
+    };
     new Visitor({
       CallExpression(call) {
+        for (const [kind, budget] of configuredBudgets(call))
+          check(kind, budget);
         const name = rootName(call.callee);
         if (name === undefined) return;
-        const kind = testCalls.has(name)
-          ? "test"
-          : hookCalls.has(name)
-            ? "hook"
-            : undefined;
-        if (kind === undefined) return;
-        const budget = budgetArgument(call);
-        if (budget === undefined) return;
-        const where = `${file}:${String(lineOf(budget.start))}`;
-        const value = evaluate(budget, constants);
-        if (value === undefined)
-          violations.push(
-            `${where}: ${kind} budget cannot be evaluated; name it with a constant`,
-          );
-        else if (value < defaults[kind])
-          violations.push(
-            `${where}: ${kind} budget ${String(value)} ms is below the default ${String(defaults[kind])} ms`,
-          );
+        if (testCalls.has(name)) check("test", budgetArgument(call, "test"));
+        else if (hookCalls.has(name))
+          check("hook", budgetArgument(call, "hook"));
       },
     }).visit(program);
   }
@@ -169,10 +216,11 @@ export function budgetsBelowDefault(sources, defaults) {
 /** @returns {{ test: number; hook: number }} */
 function configuredDefaults() {
   const file = "vitest.integration.config.mts";
-  const { program } = parseSync(
+  const { program, errors } = parseSync(
     file,
     readFileSync(resolve(backendRoot, file), "utf8"),
   );
+  assert.deepEqual(errors, [], `${file} must parse`);
   const constants = moduleConstants(program);
   const test = constants.get("stuckTestBudgetMs");
   const hook = constants.get("stuckHookBudgetMs");
@@ -198,7 +246,7 @@ function integrationSources() {
   return sources;
 }
 
-const defaults = { test: 30_000, hook: 60_000 };
+const fixtureDefaults = { test: 30_000, hook: 60_000 };
 
 describe("integration test budgets", () => {
   it("no integration test or hook names a budget below the default", () => {
@@ -217,10 +265,15 @@ describe("integration test budgets", () => {
       "beforeAll(async () => {}, 30_000);",
       'describe.sequential("suite", () => {}, 10_000);',
       'test.each([1])("each %s", async () => {}, 1_000);',
+      'test("by reference", body, 2_000);',
+      "beforeEach(setup, 5_000);",
+      'test("string key", { "timeout": 3_000 }, async () => {});',
+      "vi.setConfig({ testTimeout: 4_000, hookTimeout: 50_000 });",
+      'test("disabled", async () => {}, 0);',
     ].join("\n");
 
     assert.deepEqual(
-      budgetsBelowDefault(new Map([["a.test.ts", source]]), defaults),
+      budgetsBelowDefault(new Map([["a.test.ts", source]]), fixtureDefaults),
       [
         "a.test.ts:2: test budget 20000 ms is below the default 30000 ms",
         "a.test.ts:3: test budget 15000 ms is below the default 30000 ms",
@@ -228,6 +281,12 @@ describe("integration test budgets", () => {
         "a.test.ts:5: hook budget 30000 ms is below the default 60000 ms",
         "a.test.ts:6: test budget 10000 ms is below the default 30000 ms",
         "a.test.ts:7: test budget 1000 ms is below the default 30000 ms",
+        "a.test.ts:8: test budget 2000 ms is below the default 30000 ms",
+        "a.test.ts:9: hook budget 5000 ms is below the default 60000 ms",
+        "a.test.ts:10: test budget 3000 ms is below the default 30000 ms",
+        "a.test.ts:11: test budget 4000 ms is below the default 30000 ms",
+        "a.test.ts:11: hook budget 50000 ms is below the default 60000 ms",
+        "a.test.ts:12: test budget 0 ms turns off the stop for a stuck run",
       ],
     );
   });
@@ -242,10 +301,14 @@ describe("integration test budgets", () => {
       'it("longer", async () => {}, 45_000);',
       "afterAll(async () => {}, 60_000);",
       'test("default", async () => {});',
+      'test("plain reference", body);',
+      'test("options first", { retry: 0 }, async () => {});',
+      'test.each([1])("each %s", async () => {});',
+      "afterEach(teardown);",
     ].join("\n");
 
     assert.deepEqual(
-      budgetsBelowDefault(new Map([["b.test.ts", source]]), defaults),
+      budgetsBelowDefault(new Map([["b.test.ts", source]]), fixtureDefaults),
       [],
     );
   });
@@ -254,8 +317,10 @@ describe("integration test budgets", () => {
     const source = 'test("dynamic", async () => {}, budget());';
 
     assert.deepEqual(
-      budgetsBelowDefault(new Map([["c.test.ts", source]]), defaults),
-      ["c.test.ts:1: test budget cannot be evaluated; name it with a constant"],
+      budgetsBelowDefault(new Map([["c.test.ts", source]]), fixtureDefaults),
+      [
+        "c.test.ts:1: test budget cannot be evaluated; name it with a module-level constant",
+      ],
     );
   });
 });
