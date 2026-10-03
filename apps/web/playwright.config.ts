@@ -1,6 +1,8 @@
 import { defineConfig } from "@playwright/test";
 
-const port = process.env["PLAYWRIGHT_PORT"] ?? "3100";
+import { browserTestPorts } from "./test/support/browser-test-ports.mjs";
+
+const [port] = browserTestPorts(["PLAYWRIGHT_PORT"]);
 const baseURL = `http://127.0.0.1:${port}`;
 const captureEvidence = process.env["CAPTURE_EVIDENCE"] === "1";
 

@@ -81,8 +81,9 @@ handoff; do not rebuild, migrate, stop or reset that stack. The successful start
 until that same session runs `docker compose down` and reports the shutdown. Integration tests are
 safe in parallel because Testcontainers owns an isolated database.
 
-Playwright does not use Compose. If another worktree owns its default port `3100`, use an available
-explicit port such as `PLAYWRIGHT_PORT=3200 pnpm check`; never stop another worktree's process.
+Playwright does not use Compose. The Playwright checks of `pnpm check` take free ports from the
+reserved range of `scripts/smoke-stand.mjs` (#896), so checks in two worktrees run side by side.
+`PLAYWRIGHT_PORT`, `NAVIGATION_WEB_PORT` and `FAKE_BACKEND_PORT` set a port explicitly.
 
 ## Start from a fresh clone
 
@@ -447,8 +448,8 @@ pnpm --filter @inside/web test:navigation
 The suite builds web and starts it with `next start` (`apps/web/test/support/production-web.mjs`,
 shared with `test:e2e`) next to a fake backend from
 `apps/web/test/navigation/fake-backend.mjs`; [ADR 0027](../adr/0027-web-navigation-and-caching.md)
-lists what it proves. It uses ports `3180` and `3190`; override them with `NAVIGATION_WEB_PORT` and
-`FAKE_BACKEND_PORT`. Each run writes its timings and transition snapshots as evidence of issue
+lists what it proves. It takes free ports unless `NAVIGATION_WEB_PORT` and `FAKE_BACKEND_PORT` set
+them. Each run writes its timings and transition snapshots as evidence of issue
 #670 under the rule in [Snapshots as issue evidence](#snapshots-as-issue-evidence). `pnpm check`
 runs the suite through root `pnpm test:navigation`, which reuses the production build the check
 has just made, right after `test:prerendered-handlers` has confirmed that the build prerendered no
