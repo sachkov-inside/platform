@@ -100,7 +100,7 @@
     "markdown-it": "15.0.2",
     "oxc-parser": "0.151.0",
     "oxlint": "1.85.0",
-    "oxlint-tsgolint": "7.0.2002",
+    "oxlint-tsgolint": "7.0.2003",
     "prettier": "3.9.9",
     "proper-lockfile": "4.1.2",
     "sharp": "0.35.4",
