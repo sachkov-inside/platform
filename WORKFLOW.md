@@ -75,6 +75,8 @@ Nothing protects the gap between the start and the first push.
   branch without its type prefix.
 - One task has one branch, one writing worktree and one open pull request. Another session's worktree,
   branch, containers, volumes and stash entries are live state: leave them alone.
+- One agent session works in one worktree. Do not `cd` into another worktree; work that needs
+  another worktree starts a new session.
 - After the first commit, push and open a draft pull request with `Closes #<issue>`. When one task
   needs several pull requests, only the last one closes it; the others say `Part of #<issue>`.
 - Once the branch is pushed, integrate `origin/main` by merge; do not rebase or force-push.
