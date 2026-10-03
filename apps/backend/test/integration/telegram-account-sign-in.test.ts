@@ -304,11 +304,10 @@ test("a Telegram sign-in completes the bot link only after the terms of use are 
   // Audience refresh no longer carries the authorization_code-only Telegram claim.
   const completed = await signIn.resume(first.account);
   expect(completed).toEqual(first);
-  const linked = await database.prisma.telegramLinkTransaction.findUniqueOrThrow(
-    {
+  const linked =
+    await database.prisma.telegramLinkTransaction.findUniqueOrThrow({
       where: { linkRef: pending.linkRef },
-    },
-  );
+    });
   expect(linked).toMatchObject({ linkRef: pending.linkRef, status: "linked" });
   expect(new Set(bound)).toEqual(new Set([pending.principalRef]));
   await expect(signIn.resume(first.account)).resolves.toEqual(first);
