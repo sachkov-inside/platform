@@ -106,14 +106,19 @@ state, not only a running process or copied file.
 
 ## Text that describes the system
 
-Documents, code comments, pull request text and check output that say how the system behaves are
-claims about the code (#897). Review checks each claim in the diff against the file that owns the
-fact and cites that file in the finding.
+Documents, code comments and check output in the diff that say how the system behaves are claims
+about the code (#897). Review checks each claim against the file that owns the fact and cites that
+file in the finding.
 
-- A claim about which process, route, audience, error code, test or check does something matches
-  its owning file on the reviewed head.
-- A measured number names its source and period. Two numbers for one quantity say why they differ.
+- A claim about which process, route, operation, audience, error code, test or check does something
+  matches its owning file on the reviewed head.
+- A quantifier such as all, only or none holds for every case in the owning file, or the text names
+  the exception.
+- A number aggregated over runs or logs names its source and period. Two numbers for one quantity
+  say why they differ. A conclusion drawn from a measurement gives the measured values.
+- A reference to a list, section or suite names its items or resolves to them.
 - A statement about a past or planned state names its issue or date, so it does not read as current.
-- A check reports only what it proved.
-- When a diff shows that a described behaviour is gone, search for every other document that still
-  describes it as current. Fix each in the change or list them in one linked issue.
+- A check's success message, or a sentence saying a test or check covers something, names only what
+  that check asserts.
+- When the diff removes a described behaviour, the author searches the repository for documents that
+  still describe it as current. Each one is fixed in the change or listed in one linked issue.
