@@ -424,7 +424,7 @@ describe("Platform migrations", () => {
     } finally {
       await database.dispose();
     }
-  }, 15_000);
+  });
 
   test("backfills Workshop entitlement from the current Membership projection", async () => {
     const database = await createTestDatabase();
@@ -495,7 +495,7 @@ describe("Platform migrations", () => {
     } finally {
       await database.dispose();
     }
-  }, 15_000);
+  });
 
   test("backfills conservative immutable Video origin from durable upload evidence", async () => {
     const database = await createTestDatabase();
@@ -573,7 +573,7 @@ describe("Platform migrations", () => {
     } finally {
       await database.dispose();
     }
-  }, 15_000);
+  });
 
   test("moves the visible published revision into the current Material", async () => {
     const database = await createTestDatabase();
@@ -1013,7 +1013,7 @@ describe("Platform migrations", () => {
     } finally {
       await database.dispose();
     }
-  }, 15_000);
+  });
 
   test("rejects drift in an already applied migration", async () => {
     const database = await createTestDatabase();
@@ -1031,7 +1031,7 @@ describe("Platform migrations", () => {
     } finally {
       await database.dispose();
     }
-  }, 15_000);
+  });
 
   test("rejects a ledger that is not an exact registry prefix", async () => {
     const database = await createTestDatabase();
@@ -1048,7 +1048,7 @@ describe("Platform migrations", () => {
     } finally {
       await database.dispose();
     }
-  }, 15_000);
+  });
 
   test("rejects migrations unknown to the running registry", async () => {
     const database = await createTestDatabase();
@@ -1066,7 +1066,7 @@ describe("Platform migrations", () => {
     } finally {
       await database.dispose();
     }
-  }, 15_000);
+  });
 
   test("rejects the checksum-less pre-Prisma ledger", async () => {
     const database = await createTestDatabase();

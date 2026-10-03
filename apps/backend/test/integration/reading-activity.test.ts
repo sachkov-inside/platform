@@ -630,7 +630,7 @@ describe("ReadingActivity on PostgreSQL", () => {
     expect(
       await reading.getSeriesProgress({ accountId: randomUUID(), seriesId }),
     ).toMatchObject({ ok: true, value: { total: 101, read: 0 } });
-  }, 20_000);
+  });
 
   test("database constraints reject invalid state and duplicate event versions", async () => {
     const id = await material();

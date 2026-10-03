@@ -324,7 +324,7 @@ describe("MaterialAssets against PostgreSQL and S3", () => {
         now: new Date(Date.now() + 2 * 60 * 60 * 1_000),
       }),
     ).resolves.toMatchObject({ ok: true, value: { cleaned: 1 } });
-  }, 20_000);
+  });
 
   test("replaces an image through Material application facets and cleans only the old Asset", async () => {
     const assets = assembleMaterialAssets({

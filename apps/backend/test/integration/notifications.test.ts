@@ -1057,7 +1057,7 @@ describe("Notifications persistence and delivery (real PostgreSQL; synthetic sou
       if (child.exitCode === null && child.signalCode === null)
         child.kill("SIGKILL");
     }
-  }, 15_000);
+  });
   test("audience checkpoint survives batches and excludes Accounts created after the occurrence", async () => {
     const s = await scenario("material");
     const existing = Array.from({ length: 31 }, () => randomUUID()).sort();
