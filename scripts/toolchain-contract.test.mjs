@@ -529,7 +529,6 @@ describe("supported toolchain contract", () => {
       webPackage.devDependencies["@storybook/nextjs-vite"],
       undefined,
     );
-    assert.equal(webPackage.devDependencies["@storybook/addon-mcp"], undefined);
     assert.equal(webPackage.devDependencies["@storybook/react-vite"], "10.6.0");
     assert.equal(
       webPackage.devDependencies["openapi-typescript-codegen"],
@@ -541,6 +540,17 @@ describe("supported toolchain contract", () => {
     assert.deepEqual(
       overrideNames(read("pnpm-workspace.yaml")),
       documentedSecurityOverrides,
+    );
+  });
+
+  it("keeps Storybook MCP on the compiler-free React docgen path", () => {
+    assert.equal(
+      webPackage.devDependencies["@storybook/addon-mcp"],
+      webPackage.devDependencies["@storybook/react-vite"],
+    );
+    assert.match(
+      read("apps/web/.storybook/main.ts"),
+      /typescript:\s*\{\s*reactDocgen:\s*"react-docgen"\s*\}/u,
     );
   });
 

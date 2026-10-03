@@ -78,8 +78,10 @@ template implementation has no TypeScript dependency. Storybook uses `@storybook
 
 Keep strict peer dependencies enabled and do not add peer overrides to force an incompatible tool
 onto TypeScript 7. A dependency that requires the removed API must be replaced, disabled until it
-publishes a compatible stable release, or rejected. In particular, the Storybook MCP add-on remains
-out of the baseline until its stable dependency graph installs without an override.
+publishes a compatible stable release, or rejected. Storybook MCP `10.6.0` is part of the baseline
+(#871): its stable dependency graph installs without an additional peer override, and
+`pnpm peers check` passes. Its component manifest uses the existing `react-docgen` path;
+`scripts/toolchain-contract.test.mjs` keeps that path and the matching MCP/framework versions.
 
 The one peer allowance is `@nestjs/swagger>typescript: 7` in `pnpm-workspace.yaml`. Swagger 12
 declares an optional TypeScript 5/6 peer only for its CLI compiler plugin, which is the sole part of
