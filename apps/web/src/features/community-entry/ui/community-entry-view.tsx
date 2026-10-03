@@ -50,7 +50,7 @@ const announcements = {
   link_telegram: "",
   preparing: "Готовим вход в сообщество.",
   join: "Ссылка в сообщество готова.",
-  member: "",
+  member: "Вы участник сообщества Inside.",
 } as const satisfies Record<PathEntry["kind"], string>;
 
 /**
@@ -76,7 +76,7 @@ export function CommunityEntryView({
   if (entry === null || entry.kind === "none") return null;
   if (entry.kind === "restricted") {
     return (
-      <CommunityCard>
+      <CommunityCard announcement="Вступление в сообщество ограничено.">
         <Notice icon={<ShieldAlert className="text-(--callout-warning)" />}>
           Вступление в сообщество сейчас ограничено. Доступ к материалам
           сохраняется; если это ошибка, напишите в поддержку.

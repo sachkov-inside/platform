@@ -58,6 +58,10 @@ export const Join: Story = {
     await expect(link).toHaveAttribute("href", botUrl);
     await expect(link).toHaveAttribute("target", "_blank");
     await expectCurrentStep(canvasElement, "bot_link");
+    // Ссылка, появившаяся после «готовим вход», объявляется той же живой областью.
+    await expect(canvas.getByRole("status")).toHaveTextContent(
+      "Ссылка в сообщество готова.",
+    );
   },
 };
 export const LinkTelegram: Story = {
