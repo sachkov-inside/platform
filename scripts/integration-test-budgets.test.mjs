@@ -24,16 +24,37 @@ const hookCalls = new Set(["beforeAll", "beforeEach", "afterAll", "afterEach"]);
 
 /** @typedef {import("oxc-parser").Node} Node */
 
+/** Модификаторы Vitest между именем и вызовом: `test.skip`, `describe.each(table)`. */
+const modifiers = new Set([
+  "concurrent",
+  "each",
+  "fails",
+  "for",
+  "only",
+  "runIf",
+  "sequential",
+  "shuffle",
+  "skip",
+  "skipIf",
+  "todo",
+]);
+
 /**
- * Имя в корне вызова: `test`, `test.skip`, `describe.sequential`, `test.each(table)`.
+ * Имя в корне вызова: `test`, `test.skip`, `describe.sequential`, `test.each(table)`,
+ * ``test.each`table` ``. Цепочка с другим свойством (`item.push`) вызовом Vitest не считается.
  *
  * @param {Node} callee
  * @returns {string | undefined}
  */
 function rootName(callee) {
   if (callee.type === "Identifier") return callee.name;
-  if (callee.type === "MemberExpression") return rootName(callee.object);
+  if (callee.type === "MemberExpression")
+    return callee.property.type === "Identifier" &&
+      modifiers.has(callee.property.name)
+      ? rootName(callee.object)
+      : undefined;
   if (callee.type === "CallExpression") return rootName(callee.callee);
+  if (callee.type === "TaggedTemplateExpression") return rootName(callee.tag);
   return undefined;
 }
 
@@ -115,26 +136,27 @@ function propertyValue(node, name) {
 }
 
 /**
- * Выражение срока по сигнатурам Vitest: `hook(fn, timeout)`, `test(name, fn, timeout | options)`
- * и `test(name, options, fn)`. Тело может прийти ссылкой, поэтому место срока задаёт позиция.
+ * Выражение срока по сигнатурам Vitest: `hook(fn, timeout)`, `test(name, fn, timeout)` и
+ * `test(name, options, fn)`. Тело и параметры могут прийти ссылками. Тогда третий аргумент
+ * считается сроком, только если второй — функция или третий вычисляется в число.
  *
  * @param {import("oxc-parser").CallExpression} call
  * @param {"test" | "hook"} kind
+ * @param {ReadonlyMap<string, number>} constants
  * @returns {Node | undefined}
  */
-function budgetArgument(call, kind) {
+function budgetArgument(call, kind, constants) {
   const [, second, third] = call.arguments;
   if (kind === "hook") return second;
   if (second?.type === "ObjectExpression")
     return propertyValue(second, "timeout");
+  if (third === undefined) return undefined;
   if (
-    third === undefined ||
-    third.type === "ArrowFunctionExpression" ||
-    third.type === "FunctionExpression"
+    second?.type === "ArrowFunctionExpression" ||
+    second?.type === "FunctionExpression"
   )
-    return undefined;
-  if (third.type === "ObjectExpression") return propertyValue(third, "timeout");
-  return third;
+    return third;
+  return evaluate(third, constants) === undefined ? undefined : third;
 }
 
 /**
@@ -204,9 +226,10 @@ export function budgetsBelowDefault(sources, defaults) {
           check(kind, budget);
         const name = rootName(call.callee);
         if (name === undefined) return;
-        if (testCalls.has(name)) check("test", budgetArgument(call, "test"));
+        if (testCalls.has(name))
+          check("test", budgetArgument(call, "test", constants));
         else if (hookCalls.has(name))
-          check("hook", budgetArgument(call, "hook"));
+          check("hook", budgetArgument(call, "hook", constants));
       },
     }).visit(program);
   }
@@ -270,6 +293,7 @@ describe("integration test budgets", () => {
       'test("string key", { "timeout": 3_000 }, async () => {});',
       "vi.setConfig({ testTimeout: 4_000, hookTimeout: 50_000 });",
       'test("disabled", async () => {}, 0);',
+      'test.each`a`("tagged %s", async () => {}, 6_000);',
     ].join("\n");
 
     assert.deepEqual(
@@ -287,6 +311,7 @@ describe("integration test budgets", () => {
         "a.test.ts:11: test budget 4000 ms is below the default 30000 ms",
         "a.test.ts:11: hook budget 50000 ms is below the default 60000 ms",
         "a.test.ts:12: test budget 0 ms turns off the stop for a stuck run",
+        "a.test.ts:13: test budget 6000 ms is below the default 30000 ms",
       ],
     );
   });
@@ -305,6 +330,8 @@ describe("integration test budgets", () => {
       'test("options first", { retry: 0 }, async () => {});',
       'test.each([1])("each %s", async () => {});',
       "afterEach(teardown);",
+      'test("options by reference", options, body);',
+      "items.forEach((it) => it.push(a, b, c));",
     ].join("\n");
 
     assert.deepEqual(
