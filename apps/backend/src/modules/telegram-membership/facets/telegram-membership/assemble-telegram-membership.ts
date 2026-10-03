@@ -12,6 +12,10 @@ import {
   type TelegramMembershipPrismaClient,
 } from "../../../../infrastructure/prisma/index.js";
 import { accountId, type AccountId } from "../../../accounts/index.js";
+import {
+  isDeferredTelegramSignInReceipt,
+  readConfirmedTelegramLink,
+} from "../../infrastructure/persistence/confirmed-telegram-link.js";
 import type {
   MembershipEntitlements,
   MembershipEvidenceAcceptance,
@@ -218,10 +222,7 @@ async function readAccountPresentation(
 ): Promise<AccountTelegramMembershipResult> {
   const [access, linkedTransaction, latestTransaction] = await Promise.all([
     dependencies.membershipEntitlements.resolveForAccess(account),
-    dependencies.prisma.telegramLinkTransaction.findFirst({
-      where: { accountId: account, status: "linked" },
-      orderBy: [{ updatedAt: "desc" }, { linkRef: "desc" }],
-    }),
+    readConfirmedTelegramLink(dependencies.prisma, account),
     dependencies.prisma.telegramLinkTransaction.findFirst({
       where: { accountId: account },
       orderBy: [{ updatedAt: "desc" }, { linkRef: "desc" }],
@@ -260,6 +261,12 @@ function accountLinkState(
 ): AccountTelegramLinkState {
   if (transaction === null) return { kind: "unlinked" };
   if (transaction.status === "linked") return { kind: "linked" };
+  if (isDeferredTelegramSignInReceipt(transaction)) {
+    return {
+      kind: "unavailable",
+      retry: { kind: "confirm", linkRef: transaction.linkRef },
+    };
+  }
   if (transaction.status === "conflict") {
     return {
       kind: "conflict",
@@ -331,12 +338,13 @@ async function currentLinkForBegin(
   account: string,
   now: Date,
 ): Promise<TelegramLinkState | undefined> {
-  const linked = await prisma.telegramLinkTransaction.findFirst({
-    where: { accountId: account, status: "linked" },
-    orderBy: [{ updatedAt: "desc" }, { linkRef: "desc" }],
-  });
+  const linked = await readConfirmedTelegramLink(prisma, account);
   if (linked !== null) {
-    return linkState(linked.linkRef, linked.expiresAt, "linked");
+    return linkState(
+      linked.linkRef,
+      linked.expiresAt,
+      linked.status === "linked" ? "linked" : "unavailable",
+    );
   }
   const latest = await prisma.telegramLinkTransaction.findFirst({
     where: { accountId: account },
@@ -379,8 +387,10 @@ async function confirmLink(
   if (transaction === null) {
     return failure("link_not_found");
   }
+  const deferredSignIn = isDeferredTelegramSignInReceipt(transaction);
   if (
     transaction.expiresAt <= now &&
+    !deferredSignIn &&
     transaction.status !== "linked" &&
     transaction.status !== "conflict" &&
     transaction.status !== "recovery_required"
@@ -390,6 +400,7 @@ async function confirmLink(
   }
   if (
     transaction.status !== "pending" &&
+    !deferredSignIn &&
     !(
       transaction.status === "unavailable" &&
       transaction.providerTransactionRef !== null
@@ -403,7 +414,10 @@ async function confirmLink(
       ),
     );
   }
-  if (transaction.providerTransactionRef === null) {
+  const providerTransactionRef =
+    transaction.providerTransactionRef ??
+    (deferredSignIn ? transaction.linkRef : null);
+  if (providerTransactionRef === null) {
     await updateLinkState(dependencies, linkRef, "recovery_required", now);
     return success(
       linkState(linkRef, transaction.expiresAt, "recovery-required"),
@@ -414,7 +428,7 @@ async function confirmLink(
   try {
     confirmation = await dependencies.provider.confirm({
       accountRef: transaction.principalRef,
-      linkTransactionRef: transaction.providerTransactionRef,
+      linkTransactionRef: providerTransactionRef,
       returnCorrelation: transaction.returnCorrelation,
     });
   } catch (error) {
@@ -426,41 +440,44 @@ async function confirmLink(
   }
   if (
     confirmation.kind === "linked" &&
-    (confirmation.linkTransactionRef !== transaction.providerTransactionRef ||
-      confirmation.returnCorrelation !== transaction.returnCorrelation)
+    (confirmation.linkTransactionRef !== providerTransactionRef ||
+      confirmation.returnCorrelation !== transaction.returnCorrelation ||
+      (transaction.providerIdentityRef !== null &&
+        confirmation.telegramIdentityRef !== transaction.providerIdentityRef))
   ) {
     confirmation = { kind: "recovery_required" };
   }
 
   if (confirmation.kind === "linked") {
-    const binding = await dependencies.membershipEntitlements.bindPrincipal({
-      accountId: accountId(transaction.accountId),
-      principalRef: transaction.principalRef,
-    });
-    if (!binding.ok) {
-      const state =
-        binding.error.code === "conflict" ? "conflict" : "unavailable";
-      await updateLinkState(dependencies, linkRef, state, now);
-      return success(linkState(linkRef, transaction.expiresAt, state));
-    }
-    try {
-      await dependencies.prisma.telegramLinkTransaction.update({
+    return dependencies.prisma.$transaction(async (prisma) => {
+      await lockTelegramMembershipLink(prisma, account);
+      const binding = await dependencies.membershipEntitlements.bindPrincipal(
+        {
+          accountId: accountId(transaction.accountId),
+          principalRef: transaction.principalRef,
+        },
+        prisma,
+      );
+      if (!binding.ok) {
+        const state =
+          binding.error.code === "conflict" ? "conflict" : "unavailable";
+        await prisma.telegramLinkTransaction.update({
+          where: { linkRef },
+          data: { status: state, updatedAt: now },
+        });
+        return success(linkState(linkRef, transaction.expiresAt, state));
+      }
+      await prisma.telegramLinkTransaction.update({
         where: { linkRef },
         data: {
           providerIdentityRef: confirmation.telegramIdentityRef,
+          providerTransactionRef,
           status: "linked",
           updatedAt: now,
         },
       });
       return success(linkState(linkRef, transaction.expiresAt, "linked"));
-    } catch (error) {
-      reportDependencyFailure(
-        { module: "telegram-membership", operation: "confirmLink" },
-        error,
-      );
-      await updateLinkState(dependencies, linkRef, "conflict", now);
-      return success(linkState(linkRef, transaction.expiresAt, "conflict"));
-    }
+    });
   }
 
   const state = confirmationState(confirmation.kind);

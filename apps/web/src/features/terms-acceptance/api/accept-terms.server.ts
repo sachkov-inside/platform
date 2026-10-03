@@ -3,10 +3,9 @@ import "server-only";
 import { z } from "zod";
 
 import {
-  completeTelegramAccountSignIn,
+  resumeTelegramAccountSignIn,
   requestAcceptTerms,
 } from "@/shared/api/backend/index.server";
-import { isTelegramSignInToken } from "@/shared/auth/telegram-sign-in-token.server";
 
 import {
   acceptTermsInputSchema,
@@ -23,10 +22,10 @@ export async function executeAcceptTerms(
   accessToken: string,
   dependencies: {
     readonly accept: typeof requestAcceptTerms;
-    readonly completeTelegramSignIn: typeof completeTelegramAccountSignIn;
+    readonly resumeTelegramSignIn: typeof resumeTelegramAccountSignIn;
   } = {
     accept: requestAcceptTerms,
-    completeTelegramSignIn: completeTelegramAccountSignIn,
+    resumeTelegramSignIn: resumeTelegramAccountSignIn,
   },
 ): Promise<AcceptTermsResult> {
   let input: z.infer<typeof acceptTermsInputSchema>;
@@ -52,14 +51,12 @@ export async function executeAcceptTerms(
   } catch {
     return { kind: "unavailable" };
   }
-  // Вход через Telegram откладывает связку с ботом до принятия условий. Пока жив токен входа,
-  // её завершает тот же вызов, что и при входе; иначе человек подключит Telegram в кабинете.
-  if (isTelegramSignInToken(accessToken)) {
-    try {
-      await dependencies.completeTelegramSignIn(accessToken);
-    } catch {
-      // Условия уже приняты: незавершённая связка не отменяет принятие.
-    }
+  // Refresh no longer carries sign-in proof. Backend resumes only a previously verified receipt
+  // of this Account and does nothing for an email sign-in without such a receipt.
+  try {
+    await dependencies.resumeTelegramSignIn(accessToken);
+  } catch {
+    // Условия уже приняты: незавершённая связка не отменяет принятие.
   }
   return { kind: "accepted" };
 }

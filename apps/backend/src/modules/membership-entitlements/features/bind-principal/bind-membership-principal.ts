@@ -1,12 +1,16 @@
 import { Prisma } from "../../../../infrastructure/prisma/index.js";
 import type { AccountId } from "../../../accounts/index.js";
 import type { MembershipPrincipalBinding } from "../../facets/membership-entitlements/membership-entitlements.interface.js";
-import type { MembershipEntitlementsPrismaClient } from "../../infrastructure/prisma.js";
+import type {
+  MembershipEntitlementsPrismaClient,
+  MembershipPrincipalBindingPrisma,
+} from "../../infrastructure/prisma.js";
 
 export async function bindMembershipPrincipal(
   prisma: MembershipEntitlementsPrismaClient,
   command: { readonly accountId: AccountId; readonly principalRef: string },
   now: Date,
+  transaction?: MembershipPrincipalBindingPrisma,
 ): Promise<MembershipPrincipalBinding> {
   if (
     command.principalRef.length < 1 ||
@@ -15,7 +19,9 @@ export async function bindMembershipPrincipal(
   ) {
     return { ok: false, error: { code: "invalid_input" } };
   }
-  return prisma.$transaction(async (transaction) => {
+  const bind = async (
+    transaction: MembershipPrincipalBindingPrisma,
+  ): Promise<MembershipPrincipalBinding> => {
     const inserted = await transaction.$executeRaw(Prisma.sql`
       insert into membership_entitlements.account_bindings (
         account_id,
@@ -41,5 +47,8 @@ export async function bindMembershipPrincipal(
       return { ok: true, outcome: inserted === 1 ? "bound" : "idempotent" };
     }
     return { ok: false, error: { code: "conflict" } };
-  });
+  };
+  return transaction === undefined
+    ? prisma.$transaction(bind)
+    : bind(transaction);
 }

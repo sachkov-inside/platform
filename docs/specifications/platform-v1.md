@@ -755,7 +755,9 @@ platform#808). Сложность и результаты обучения ос�
    (`accounts/current/legal-acceptances`) доступны до принятия.
 3. Вход через Telegram создаёт или находит Account и получает подтверждение личности от бота, но
    membership principal и статус связки `linked` появляются только после принятия. BFF принятия
-   повторно завершает связку, пока жив токен входа; иначе человек подключает Telegram в кабинете.
+   возобновляет сохранённый подтверждённый receipt этой Account без нового sign-in claim. Исходный
+   principal сохраняется после TTL и состояния `expired`; binding и `linked` записываются одной
+   транзакцией. Ошибка локальной записи не выдаёт Membership и позволяет повторить завершение.
 4. Журнал принятия — append-only `accounts.legal_acceptances` (прежние billing consent evidence):
    Account, вид, ключ, версия, digest и текст документа, постоянный адрес `/legal/<ключ>/v<номер>`,
    экран (`first-sign-in`, `checkout`, `subscription-resume`), подпись нажатой кнопки, для подписки
@@ -806,7 +808,11 @@ platform#808). Сложность и результаты обучения ос�
    основное техническое сообщение.
 7. Begin-link атомарно резервирует не более одной current attempt на Account и возвращает
    short-lived bot deep link только создавшему request; reload продолжает ту же попытку без нового
-   provider registration. Обычный expired/replayed outcome разрешает новую попытку. Conflict и
+   provider registration. Подтверждённый receipt Telegram sign-in до terms сохраняет исходный
+   principal после TTL: принятие terms или повторный confirm завершают эту же связь. Более поздняя
+   неудачная попытка не заменяет этот receipt. Provider identity и correlation проверяются снова;
+   перенос identity между Account не выполняется. Обычный expired/replayed outcome без такого
+   receipt разрешает новую попытку. Conflict и
    recovery с риском silent transfer не дают self-service unlink/relink даже после TTL: Account
    показывает optional configured HTTP(S) support destination либо безопасный owner-handoff text.
    Неоднозначный outage во время provider registration сохраняет ту же current attempt до expiry и

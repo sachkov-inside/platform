@@ -35,6 +35,12 @@ export type MembershipAccessPrisma = Pick<
   | "membershipProjection"
 >;
 
+/** A caller hands these delegates to Membership to finalize a principal in its transaction. */
+export type MembershipPrincipalBindingPrisma = Pick<
+  MembershipEntitlementsPrisma,
+  "$executeRaw" | "membershipBinding"
+>;
+
 export type MembershipEntitlementsPrismaTransaction =
   MembershipEntitlementsPrisma;
 

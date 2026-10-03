@@ -2,6 +2,10 @@ export { AccountsModule } from "./accounts.module.js";
 export { ACCOUNTS, LOGTO_ACCESS_TOKEN_VERIFIER } from "./accounts.tokens.js";
 export { AccountGuard } from "./adapters/nest/account.guard.js";
 export {
+  AccountEndpoint,
+  ApiAccountErrors,
+} from "./adapters/nest/account-endpoint.js";
+export {
   CurrentAccount,
   OptionalCurrentAccount,
 } from "./adapters/nest/current-account.js";

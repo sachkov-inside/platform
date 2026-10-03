@@ -7,10 +7,12 @@ import {
 import {
   accountId,
   type Accounts,
+  type AuthenticatedAccount,
   type LegalAcceptances,
   type VerifiedAccountSignIn,
 } from "../../../accounts/index.js";
 import type { MembershipEntitlements } from "../../../membership-entitlements/index.js";
+import { readConfirmedTelegramLink } from "../../infrastructure/persistence/confirmed-telegram-link.js";
 
 export interface TelegramSignInProvider {
   bindAccount(
@@ -37,8 +39,7 @@ export class TelegramAccountSignIn {
   async complete(identity: VerifiedAccountSignIn) {
     if (identity.telegram === undefined)
       return { ok: false, error: { code: "invalid_input" } } as const;
-    const { accounts, prisma, provider, membershipEntitlements } =
-      this.dependencies;
+    const { accounts, prisma, provider } = this.dependencies;
     const established = await accounts.establishAccount({ identity });
     if (!established.ok) return established;
     const account = established.account;
@@ -50,10 +51,7 @@ export class TelegramAccountSignIn {
       const link = await prisma.$transaction(async (transaction) => {
         await lockTelegramMembershipLink(transaction, account.accountId);
         const current =
-          (await transaction.telegramLinkTransaction.findFirst({
-            where: { accountId: account.accountId, status: "linked" },
-            orderBy: [{ updatedAt: "desc" }, { linkRef: "desc" }],
-          })) ??
+          (await readConfirmedTelegramLink(transaction, account.accountId)) ??
           (await transaction.telegramLinkTransaction.findFirst({
             where: { accountId: account.accountId },
             orderBy: [{ updatedAt: "desc" }, { linkRef: "desc" }],
@@ -99,6 +97,18 @@ export class TelegramAccountSignIn {
         link.providerIdentityRef !== bound.telegramIdentityRef
       )
         return { ok: false, error: { code: "identity_conflict" } } as const;
+      // Store the receipt before consulting terms. Refresh tokens carry no sign-in proof,
+      // but this confirmed request can be checked again for the same Account and principal.
+      await prisma.telegramLinkTransaction.update({
+        where: { linkRef: link.linkRef },
+        data: {
+          status: link.status === "linked" ? "linked" : "registering",
+          providerIdentityRef: bound.telegramIdentityRef,
+          providerTransactionRef: telegram.requestRef,
+          returnCorrelation: telegram.requestRef,
+          updatedAt: new Date(),
+        },
+      });
       // Бот подтвердил личность, но связка завершается только после принятия действующих условий
       // на экране первого входа: до этого у аккаунта нет ни членства, ни связанного Telegram.
       // Подтверждённая личность остаётся в попытке, и повторное завершение после принятия
@@ -107,31 +117,9 @@ export class TelegramAccountSignIn {
       if (!terms.ok)
         return { ok: false, error: { code: "unavailable" } } as const;
       if (!terms.accepted) {
-        await prisma.telegramLinkTransaction.update({
-          where: { linkRef: link.linkRef },
-          data: {
-            providerIdentityRef: bound.telegramIdentityRef,
-            updatedAt: new Date(),
-          },
-        });
         return { ok: true, account } as const;
       }
-      const principal = await membershipEntitlements.bindPrincipal({
-        accountId: accountId(account.accountId),
-        principalRef: link.principalRef,
-      });
-      if (!principal.ok)
-        return { ok: false, error: { code: "unavailable" } } as const;
-      await prisma.telegramLinkTransaction.update({
-        where: { linkRef: link.linkRef },
-        data: {
-          status: "linked",
-          providerIdentityRef: bound.telegramIdentityRef,
-          providerTransactionRef: telegram.requestRef,
-          updatedAt: new Date(),
-        },
-      });
-      return { ok: true, account } as const;
+      return await this.finalize(account, link, telegram.requestRef);
     } catch (error) {
       return dependencyFailure(
         { module: "telegram-membership", operation: "complete" },
@@ -139,6 +127,78 @@ export class TelegramAccountSignIn {
         { ok: false, error: { code: "unavailable" } } as const,
       );
     }
+  }
+
+  /** Resume only an already verified receipt; this operation never establishes an identity. */
+  async resume(account: AuthenticatedAccount) {
+    const { accounts, prisma, provider, terms } = this.dependencies;
+    try {
+      const acceptance = await terms.checkTerms(account.accountId);
+      if (!acceptance.ok || !acceptance.accepted)
+        return { ok: false, error: { code: "unavailable" } } as const;
+      const link = await readConfirmedTelegramLink(prisma, account.accountId);
+      if (link === null || link.status === "linked")
+        return { ok: true, account } as const;
+      const identity = await accounts.readIdentityForLink(account.accountId);
+      const subjectRef = identity?.telegramSubjectRef;
+      if (subjectRef === undefined || subjectRef === null)
+        return { ok: false, error: { code: "identity_conflict" } } as const;
+      // v10 stored the original sign-in request as linkRef, before recording the provider ref.
+      const requestRef = link.providerTransactionRef ?? link.linkRef;
+      if (link.returnCorrelation !== requestRef)
+        return { ok: false, error: { code: "identity_conflict" } } as const;
+      const bound = await provider.bindAccount(
+        requestRef,
+        subjectRef,
+        link.principalRef,
+      );
+      if (bound.status !== "linked")
+        return {
+          ok: false,
+          error: {
+            code:
+              bound.status === "conflict" ? "identity_conflict" : "unavailable",
+          },
+        } as const;
+      if (bound.telegramIdentityRef !== link.providerIdentityRef)
+        return { ok: false, error: { code: "identity_conflict" } } as const;
+      return await this.finalize(account, link, requestRef);
+    } catch (error) {
+      return dependencyFailure(
+        { module: "telegram-membership", operation: "resume" },
+        error,
+        { ok: false, error: { code: "unavailable" } } as const,
+      );
+    }
+  }
+
+  private async finalize(
+    account: AuthenticatedAccount,
+    link: { readonly linkRef: string; readonly principalRef: string },
+    requestRef: string,
+  ) {
+    return this.dependencies.prisma.$transaction(async (transaction) => {
+      await lockTelegramMembershipLink(transaction, account.accountId);
+      const principal =
+        await this.dependencies.membershipEntitlements.bindPrincipal(
+          {
+            accountId: accountId(account.accountId),
+            principalRef: link.principalRef,
+          },
+          transaction,
+        );
+      if (!principal.ok)
+        return { ok: false, error: { code: "unavailable" } } as const;
+      await transaction.telegramLinkTransaction.update({
+        where: { linkRef: link.linkRef },
+        data: {
+          status: "linked",
+          providerTransactionRef: requestRef,
+          updatedAt: new Date(),
+        },
+      });
+      return { ok: true, account } as const;
+    });
   }
 
   async resolveLink(

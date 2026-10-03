@@ -386,6 +386,18 @@ export async function completeTelegramAccountSignIn(
   );
 }
 
+export async function resumeTelegramAccountSignIn(
+  accessToken: string,
+): Promise<AuthenticatedAccount> {
+  return parseAccountResponse(
+    await executeGeneratedRequest(
+      (request) => new AccountsService(request).resumeTelegramAccountSignIn(),
+      200,
+      { accessToken },
+    ),
+  );
+}
+
 export async function resolveAccount(
   accessToken: string,
 ): Promise<AuthenticatedAccount> {

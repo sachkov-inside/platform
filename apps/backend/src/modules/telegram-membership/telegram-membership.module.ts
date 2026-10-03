@@ -6,6 +6,7 @@ import { TelegramAccountLinksModule } from "./telegram-account-links.module.js";
 import { TelegramAccountSignIn } from "./features/complete-telegram-sign-in/telegram-account-sign-in.js";
 import { HttpTelegramSignInProvider } from "./features/complete-telegram-sign-in/telegram-sign-in-provider.js";
 import { TelegramAccountSignInController } from "./features/complete-telegram-sign-in/telegram-account-sign-in.controller.js";
+import { ResumeTelegramAccountSignInController } from "./features/complete-telegram-sign-in/resume-telegram-account-sign-in.controller.js";
 import { Module } from "@nestjs/common";
 
 import {
@@ -58,6 +59,7 @@ import {
   controllers: [
     SubscriptionActivationController,
     TelegramAccountSignInController,
+    ResumeTelegramAccountSignInController,
     AccountTelegramMembershipController,
     TelegramLinkController,
     TelegramEvidenceController,

@@ -387,6 +387,7 @@ const handoffDelegates = new Map([
     ],
   ],
   ["reading-activity", ["material", "publishedMaterialGuideMembership"]],
+  ["telegram-membership", ["membershipBinding"]],
   ["videos", ["material", "publishedMaterial"]],
   [
     "workshop",
