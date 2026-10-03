@@ -193,7 +193,7 @@ test("каждый раздел решает одну задачу", async ({ pa
   await expect(page.getByRole("button", { name: "Сохранить" })).toBeDisabled();
 });
 
-test("«Покупки» ведут в сообщество, открытое покупкой", async ({ page }) => {
+test("«Покупки» ведут в сообщество Inside", async ({ page }) => {
   await stubAccount(page, { grounds: [paidGround] });
   await page.route("**/api/account/community-entry", (route) =>
     route.fulfill({ json: { ok: true, value: { kind: "link_telegram" } } }),

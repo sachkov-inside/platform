@@ -39,6 +39,20 @@ const passedSteps = {
   member: 3,
 } as const satisfies Record<PathEntry["kind"], number>;
 
+/** Кнопки блока одной ширины отступов: обе ведут к следующему шагу пути. */
+const pathActionClass = cn(billingActionClass, "px-4");
+
+/**
+ * Что вспомогательные технологии объявляют при смене состояния. Объявление живёт в карточке, а не
+ * в шаге: так переход «готовим вход» → «ссылка готова» слышен, хотя сам шаг перерисовывается.
+ */
+const announcements = {
+  link_telegram: "",
+  preparing: "Готовим вход в сообщество.",
+  join: "Ссылка в сообщество готова.",
+  member: "",
+} as const satisfies Record<PathEntry["kind"], string>;
+
 /**
  * Переход в сообщество Inside рядом с покупкой. Личную ссылку в группу выдаёт только бот по
  * `/community`, поэтому путь показан тремя шагами: Telegram, ссылка от бота, группа. Адреса
@@ -51,8 +65,8 @@ export function CommunityEntryView({
 }: CommunityEntryViewProps) {
   if (error) {
     return (
-      <CommunityCard>
-        <Notice icon={<RefreshCw />} status>
+      <CommunityCard announcement="Не получилось проверить вход в сообщество.">
+        <Notice icon={<RefreshCw />}>
           Не получилось проверить вход в сообщество — повторим автоматически.
           Доступ к материалам от этого не зависит.
         </Notice>
@@ -63,10 +77,7 @@ export function CommunityEntryView({
   if (entry.kind === "restricted") {
     return (
       <CommunityCard>
-        <Notice
-          icon={<ShieldAlert className="text-(--callout-warning)" />}
-          status={false}
-        >
+        <Notice icon={<ShieldAlert className="text-(--callout-warning)" />}>
           Вступление в сообщество сейчас ограничено. Доступ к материалам
           сохраняется; если это ошибка, напишите в поддержку.
         </Notice>
@@ -74,7 +85,7 @@ export function CommunityEntryView({
     );
   }
   return (
-    <CommunityCard>
+    <CommunityCard announcement={announcements[entry.kind]}>
       <EntryPath entry={entry} />
       <PathAction entry={entry} telegramHref={telegramHref} />
     </CommunityCard>
@@ -86,7 +97,7 @@ function EntryPath({ entry }: { readonly entry: PathEntry }) {
   const preparing = entry.kind === "preparing";
   const steps = [
     {
-      key: "link_telegram",
+      key: "telegram",
       title: "Подключить Telegram",
       hint: "Бот узнаёт вас по аккаунту Inside.",
     },
@@ -152,10 +163,7 @@ function EntryPath({ entry }: { readonly entry: PathEntry }) {
                   <span className="sr-only"> — готово</span>
                 ) : null}
               </p>
-              <p
-                className="mt-0.5 text-sm leading-5 text-muted-foreground"
-                role={waiting ? "status" : undefined}
-              >
+              <p className="mt-0.5 text-sm leading-5 text-muted-foreground">
                 {step.hint}
               </p>
             </div>
@@ -177,7 +185,7 @@ function PathAction({
     case "join":
       return (
         <div className="mt-6 flex flex-wrap items-center gap-x-4 gap-y-2">
-          <Button asChild className={cn(billingActionClass, "px-4")}>
+          <Button asChild className={pathActionClass}>
             <a href={entry.botUrl} rel="noopener noreferrer" target="_blank">
               <Send aria-hidden="true" />
               Вступить в сообщество
@@ -191,7 +199,7 @@ function PathAction({
     case "link_telegram":
       return (
         <div className="mt-6">
-          <Button asChild className={cn(billingActionClass, "px-4")}>
+          <Button asChild className={pathActionClass}>
             <Link href={telegramHref}>Подключить Telegram</Link>
           </Button>
         </div>
@@ -213,17 +221,12 @@ function PathAction({
 function Notice({
   children,
   icon,
-  status,
 }: {
   readonly children: ReactNode;
   readonly icon: ReactNode;
-  readonly status: boolean;
 }) {
   return (
-    <p
-      className="mt-5 flex gap-3 rounded-xl bg-muted p-4 text-sm leading-6"
-      role={status ? "status" : undefined}
-    >
+    <p className="mt-5 flex gap-3 rounded-xl bg-muted p-4 text-sm leading-6">
       <span
         aria-hidden="true"
         className="mt-0.5 shrink-0 text-muted-foreground [&_svg]:size-5"
@@ -235,7 +238,13 @@ function Notice({
   );
 }
 
-function CommunityCard({ children }: { readonly children: ReactNode }) {
+function CommunityCard({
+  announcement = "",
+  children,
+}: {
+  readonly announcement?: string;
+  readonly children: ReactNode;
+}) {
   return (
     <section
       aria-labelledby="community-entry-title"
@@ -255,6 +264,9 @@ function CommunityCard({ children }: { readonly children: ReactNode }) {
         </div>
       </div>
       {children}
+      <p className="sr-only" role="status">
+        {announcement}
+      </p>
     </section>
   );
 }

@@ -18,7 +18,7 @@ import { SubscriptionGrounds } from "./subscription-grounds.client";
 export interface PurchasesSectionViewProps {
   /** Подтверждённый email: составляется страницей, потому что это отдельная поверхность. */
   readonly contactSlot?: ReactNode;
-  /** Переход в сообщество, открытое покупкой: отдельная поверхность, составляется страницей. */
+  /** Переход в сообщество Inside: отдельная поверхность, составляется страницей. */
   readonly communitySlot?: ReactNode;
   readonly grounds: readonly AccessGround[];
   readonly payments: readonly OwnPayment[];

@@ -38,7 +38,7 @@ async function expectCurrentStep(
   });
   const steps = within(region).getAllByRole("listitem");
   await expect(steps.map((step) => step.dataset["step"])).toEqual([
-    "link_telegram",
+    "telegram",
     "bot_link",
     "group",
   ]);
@@ -67,7 +67,7 @@ export const LinkTelegram: Story = {
     await expect(
       canvas.getByRole("link", { name: "Подключить Telegram" }),
     ).toHaveAttribute("href", "/account/access");
-    await expectCurrentStep(canvasElement, "link_telegram");
+    await expectCurrentStep(canvasElement, "telegram");
   },
 };
 export const Preparing: Story = {
@@ -117,6 +117,14 @@ export const WithoutCommunity: Story = {
   args: { entry: { kind: "none" } },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
+    await expect(canvas.queryByText("Сообщество Inside")).toBeNull();
+  },
+};
+export const FirstReadPending: Story = {
+  args: { entry: null },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    // До первого ответа блок не рисует пустую карточку у покупки без сообщества.
     await expect(canvas.queryByText("Сообщество Inside")).toBeNull();
   },
 };
