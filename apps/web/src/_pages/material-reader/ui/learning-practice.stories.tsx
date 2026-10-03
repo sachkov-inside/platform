@@ -170,3 +170,24 @@ export const PublicLesson: Story = {
     ).toBeVisible();
   },
 };
+
+export const WithCourseAssistant: Story = {
+  args: {
+    result: { kind: "available", practices: [descriptor], assistant: true },
+  },
+  globals: { viewport: { value: "mobile320", isRotated: false } },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    const review = canvas.getByRole("button", { name: "Проверить задание" });
+    await expect(review).toBeVisible();
+    await expect(review.getBoundingClientRect().height).toBeGreaterThanOrEqual(
+      44,
+    );
+    const page = canvasElement.ownerDocument.documentElement;
+    await expect(page.scrollWidth).toBeLessThanOrEqual(page.clientWidth + 1);
+    // Путь своим агентом (#785) остаётся рядом с проверкой помощником.
+    await expect(
+      canvas.getAllByRole("button", { name: "Копировать" }),
+    ).toHaveLength(2);
+  },
+};

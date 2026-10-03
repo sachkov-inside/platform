@@ -146,6 +146,10 @@ export type CourseAssistantPrisma = Pick<
   | "repositoryConnectionAttempt"
   | "gitHubInstallation"
   | "repositoryLink"
+  | "assistantConversation"
+  | "assistantMessage"
+  | "practiceReview"
+  | "assistantUsage"
 >;
 export type CourseAssistantPrismaClient = CourseAssistantPrisma &
   TransactionClient<CourseAssistantPrisma>;

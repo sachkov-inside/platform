@@ -303,6 +303,10 @@ import {
   name as courseAssistantName,
   statement as courseAssistantStatement,
 } from "../modules/course-assistant/infrastructure/postgres/migrations/0073-course-assistant.js";
+import {
+  name as practiceReviewsName,
+  statement as practiceReviewsStatement,
+} from "../modules/course-assistant/infrastructure/postgres/migrations/0074-practice-reviews.js";
 
 export const platformMigrations = [
   {
@@ -497,6 +501,7 @@ export const platformMigrations = [
   { name: offerEligibilityName, statement: offerEligibilityStatement },
   { name: practiceDefinitionsName, statement: practiceDefinitionsStatement },
   { name: courseAssistantName, statement: courseAssistantStatement },
+  { name: practiceReviewsName, statement: practiceReviewsStatement },
 ] as const;
 
 export function migrateToLatest(

@@ -215,3 +215,188 @@ describe("HttpGitHubApp", () => {
     });
   });
 });
+
+describe("HttpGitHubApp as the repository reader", () => {
+  const repository = {
+    installationId: 42,
+    repositoryId: 101,
+    fullName: "learner/agent-course",
+  };
+  const readToken = () =>
+    json(
+      {
+        token: "ghs_repository",
+        permissions: {
+          metadata: "read",
+          contents: "read",
+          pull_requests: "read",
+        },
+      },
+      201,
+    );
+
+  test("the token is scoped to the linked repository and to reading", async () => {
+    const { app, fetcher } = github({
+      "/app/installations/42/access_tokens": readToken,
+      "/repos/learner/agent-course": () => json({ default_branch: "main" }),
+      "/repos/learner/agent-course/branches/main": () =>
+        json({ commit: { sha: "a".repeat(40) } }),
+      "/repos/learner/agent-course/pulls": () =>
+        json([
+          {
+            number: 3,
+            title: "Реализация консультаций",
+            head: {
+              ref: "feature",
+              sha: "b".repeat(40),
+              repo: { id: 101 },
+            },
+            base: { ref: "main", sha: "a".repeat(40) },
+          },
+          {
+            number: 4,
+            title: "Из форка",
+            head: { ref: "main", sha: "c".repeat(40), repo: { id: 999 } },
+            base: { ref: "main", sha: "a".repeat(40) },
+          },
+          {
+            number: 5,
+            title: "Удалённый форк",
+            head: { ref: "gone", sha: "d".repeat(40), repo: null },
+            base: { ref: "main", sha: "a".repeat(40) },
+          },
+        ]),
+      "/repos/learner/agent-course/commits": () =>
+        json([
+          {
+            sha: "a".repeat(40),
+            commit: {
+              message: "Бриф консультаций\n\nПодробности",
+              committer: { date: "2026-09-28T10:00:00Z" },
+            },
+          },
+        ]),
+    });
+
+    await expect(app.readOverview(repository)).resolves.toEqual({
+      ok: true,
+      overview: {
+        defaultBranch: { name: "main", sha: "a".repeat(40) },
+        pullRequests: [
+          {
+            number: 3,
+            title: "Реализация консультаций",
+            headRef: "feature",
+            headSha: "b".repeat(40),
+            baseRef: "main",
+            baseSha: "a".repeat(40),
+          },
+        ],
+        recentCommits: [
+          {
+            sha: "a".repeat(40),
+            message: "Бриф консультаций",
+            committedAt: "2026-09-28T10:00:00Z",
+          },
+        ],
+      },
+    });
+    const body = fetcher.mock.calls[0]?.[1]?.body;
+    if (typeof body !== "string") throw new TypeError("Expected a JSON body");
+    expect(JSON.parse(body)).toEqual({
+      repository_ids: [101],
+      permissions: {
+        metadata: "read",
+        contents: "read",
+        pull_requests: "read",
+      },
+    });
+  });
+
+  test("a repository removed from the installation is revoked", async () => {
+    const { app } = github({
+      "/app/installations/42/access_tokens": () =>
+        json(
+          { message: "There is at least one repository that does not exist" },
+          422,
+        ),
+    });
+    await expect(app.readOverview(repository)).resolves.toEqual({
+      ok: false,
+      reason: "revoked",
+    });
+  });
+
+  test("the archive of an exact commit is read within its size limit", async () => {
+    const archive = new Uint8Array([31, 139, 8, 0]);
+    const { app, fetcher } = github({
+      "/app/installations/42/access_tokens": readToken,
+      [`/repos/learner/agent-course/tarball/${"a".repeat(40)}`]: () =>
+        new Response(archive, { status: 200 }),
+    });
+    await expect(
+      app.downloadArchive(repository, "a".repeat(40)),
+    ).resolves.toEqual({ ok: true, archive });
+    expect(
+      new Headers(fetcher.mock.calls[1]?.[1]?.headers).get("authorization"),
+    ).toBe("Bearer ghs_repository");
+
+    const huge = github({
+      "/app/installations/42/access_tokens": readToken,
+      [`/repos/learner/agent-course/tarball/${"a".repeat(40)}`]: () =>
+        new Response(new Uint8Array(0), {
+          status: 200,
+          headers: { "content-length": String(200 * 1024 * 1024) },
+        }),
+    }).app;
+    await expect(
+      huge.downloadArchive(repository, "a".repeat(40)),
+    ).resolves.toEqual({ ok: false, reason: "too_large" });
+  });
+
+  test("a comparison lists changed files with their patches", async () => {
+    const { app } = github({
+      "/app/installations/42/access_tokens": readToken,
+      [`/repos/learner/agent-course/compare/${"a".repeat(40)}...${"b".repeat(40)}`]:
+        () =>
+          json({
+            files: [
+              {
+                filename: "app.mjs",
+                status: "modified",
+                additions: 2,
+                deletions: 1,
+                patch: "@@ -1 +1,2 @@",
+              },
+              {
+                filename: "logo.png",
+                status: "added",
+                additions: 0,
+                deletions: 0,
+              },
+            ],
+          }),
+    });
+    await expect(
+      app.compareCommits(repository, "a".repeat(40), "b".repeat(40)),
+    ).resolves.toEqual({
+      ok: true,
+      files: [
+        {
+          path: "app.mjs",
+          status: "modified",
+          additions: 2,
+          deletions: 1,
+          patch: "@@ -1 +1,2 @@",
+        },
+        {
+          path: "logo.png",
+          status: "added",
+          additions: 0,
+          deletions: 0,
+          patch: null,
+        },
+      ],
+    });
+  });
+});

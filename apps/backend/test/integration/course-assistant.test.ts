@@ -10,6 +10,7 @@ import {
   fakeGitHubApp,
   type FakeGitHubApp,
 } from "../fixtures/course-assistant-github.js";
+import { fakeRepositoryReader } from "../fixtures/course-assistant-repositories.js";
 import {
   createMigratedTestDatabase,
   type TestDatabase,
@@ -70,6 +71,13 @@ describe("Course assistant on PostgreSQL", () => {
       }),
       settings,
       github,
+      repositories: fakeRepositoryReader(),
+      practices: {
+        describe: () =>
+          Promise.reject(new Error("Not used by connection tests")),
+        read: () => Promise.reject(new Error("Not used by connection tests")),
+      },
+      reviewQueue: null,
       clock: () => now,
     });
   }

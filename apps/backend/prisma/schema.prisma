@@ -1867,3 +1867,87 @@ model RepositoryLink {
   @@map("repository_links")
   @@schema("course_assistant")
 }
+
+model AssistantConversation {
+  id         String   @id @db.Uuid
+  accountId  String   @map("account_id") @db.Uuid
+  practiceId String   @map("practice_id")
+  createdAt  DateTime @map("created_at") @db.Timestamptz
+  reviews    PracticeReview[]
+  messages   AssistantMessage[]
+  usages     AssistantUsage[]
+  @@unique([accountId, practiceId])
+  @@map("assistant_conversations")
+  @@schema("course_assistant")
+}
+
+model PracticeReview {
+  id                 String                @id @db.Uuid
+  accountId          String                @map("account_id") @db.Uuid
+  practiceId         String                @map("practice_id")
+  conversationId     String                @map("conversation_id") @db.Uuid
+  conversation       AssistantConversation @relation(fields: [conversationId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  kind               String
+  state              String
+  contextVersion     String                @map("context_version")
+  installationId     BigInt                @map("installation_id") @db.BigInt
+  repositoryId       BigInt                @map("repository_id") @db.BigInt
+  repositoryFullName String                @map("repository_full_name")
+  requestedCandidate Json?                 @map("requested_candidate")
+  candidates         Json?
+  checkedCandidate   Json?                 @map("checked_candidate")
+  report             Json?
+  practiceStatus     String?               @map("practice_status")
+  previousReviewId   String?               @map("previous_review_id") @db.Uuid
+  previousReview     PracticeReview?       @relation("PracticeReviewPrevious", fields: [previousReviewId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  laterReviews       PracticeReview[]      @relation("PracticeReviewPrevious")
+  failure            Json?
+  requestedAt        DateTime              @map("requested_at") @db.Timestamptz
+  startedAt          DateTime?             @map("started_at") @db.Timestamptz
+  completedAt        DateTime?             @map("completed_at") @db.Timestamptz
+  messages           AssistantMessage[]
+  usages             AssistantUsage[]
+  @@index([accountId, practiceId, requestedAt(sort: Desc), id], map: "practice_reviews_history")
+  @@map("practice_reviews")
+  @@schema("course_assistant")
+}
+
+model AssistantMessage {
+  id             String                @id @db.Uuid
+  conversationId String                @map("conversation_id") @db.Uuid
+  conversation   AssistantConversation @relation(fields: [conversationId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  position       BigInt                @default(autoincrement()) @db.BigInt
+  role           String
+  kind           String
+  text           String?
+  reviewId       String?               @map("review_id") @db.Uuid
+  review         PracticeReview?       @relation(fields: [reviewId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  createdAt      DateTime              @map("created_at") @db.Timestamptz
+  @@unique([conversationId, position], map: "assistant_messages_order")
+  @@map("assistant_messages")
+  @@schema("course_assistant")
+}
+
+model AssistantUsage {
+  id                String                @id @db.Uuid
+  accountId         String                @map("account_id") @db.Uuid
+  practiceId        String                @map("practice_id")
+  conversationId    String                @map("conversation_id") @db.Uuid
+  conversation      AssistantConversation @relation(fields: [conversationId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  reviewId          String?               @map("review_id") @db.Uuid
+  review            PracticeReview?       @relation(fields: [reviewId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  step              Int
+  provider          String
+  model             String
+  inputTokens       Int                   @map("input_tokens")
+  cachedInputTokens Int                   @map("cached_input_tokens")
+  cacheWriteTokens  Int                   @map("cache_write_tokens")
+  outputTokens      Int                   @map("output_tokens")
+  costNanoUsd       BigInt?               @map("cost_nano_usd") @db.BigInt
+  priceTableVersion String?               @map("price_table_version")
+  createdAt         DateTime              @map("created_at") @db.Timestamptz
+  @@index([accountId, createdAt(sort: Desc)], map: "assistant_usages_account")
+  @@index([reviewId, step], map: "assistant_usages_review")
+  @@map("assistant_usages")
+  @@schema("course_assistant")
+}

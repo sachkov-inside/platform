@@ -20,4 +20,8 @@ export {
   type LearnerMcpDependencies,
 } from "./adapters/mcp/learning-materials-mcp.js";
 
+export {
+  learningPracticeContextVersion,
+  readLearningPractice,
+} from "./features/read-learning-practice/read-learning-practice.js";
 export { ListLearningPracticesController } from "./features/list-learning-practices/list-learning-practices.controller.js";

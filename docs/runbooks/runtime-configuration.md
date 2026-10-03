@@ -276,3 +276,16 @@ per value). The prototype never runs in production: an enabled production config
 start, and the production examples do not list these variables. The Compose stand reads them from
 the optional `.course-assistant/stand.env` outside Git; see the
 [course assistant specification](../specifications/course-assistant-v1.md).
+
+Practice Review (#788) also needs the review model. `COURSE_ASSISTANT_MODEL_BASE_URL`,
+`COURSE_ASSISTANT_MODEL_API_KEY` and `COURSE_ASSISTANT_MODEL_ID` name any OpenAI-compatible provider
+together; `COURSE_ASSISTANT_MODEL_PROVIDER` labels it in Assistant Usage (default
+`openai-compatible`). Without them the API answers a review request with `review_unavailable` and
+`course-assistant-worker` takes no jobs. The optional price table is complete or absent:
+`COURSE_ASSISTANT_MODEL_PRICE_VERSION` and the USD prices per million tokens
+`_PRICE_INPUT_PER_MILLION`, `_PRICE_CACHED_INPUT_PER_MILLION`, `_PRICE_OUTPUT_PER_MILLION`; without it
+usage is recorded without a cost. `COURSE_ASSISTANT_REVIEW_MAX_STEPS` (default 40),
+`COURSE_ASSISTANT_REVIEW_MAX_TOKENS` (input and output together, default 400000) and
+`COURSE_ASSISTANT_MODEL_MAX_OUTPUT_TOKENS` (per call, default 8000) are temporary limits until the
+owner chooses final values. The worker reads the same `.course-assistant/stand.env`; the owner
+enters the provider key there, never in Git.

@@ -21,6 +21,8 @@ export type LearningPracticesView =
   | {
       readonly kind: "available";
       readonly practices: readonly LearningPractice[];
+      /** Помощник курса открыт этому Account (#788): у практики есть проверка одной кнопкой. */
+      readonly assistant?: boolean;
     }
   | { readonly kind: "unavailable" };
 

@@ -1,3 +1,8 @@
+import { chooseReviewCandidate } from "../../features/choose-review-candidate/choose-review-candidate.js";
+import { readPracticeConversation } from "../../features/read-practice-conversation/read-practice-conversation.js";
+import { readPracticeReview } from "../../features/read-practice-review/read-practice-review.js";
+import { requestPracticeReview } from "../../features/request-practice-review/request-practice-review.js";
+import type { RequestedCandidate } from "../../domain/review-candidate.js";
 import { acknowledgeDataNotice } from "../../features/acknowledge-data-notice/acknowledge-data-notice.js";
 import { beginRepositoryConnection } from "../../features/begin-repository-connection/begin-repository-connection.js";
 import { completeRepositoryConnection } from "../../features/complete-repository-connection/complete-repository-connection.js";
@@ -51,5 +56,33 @@ export class CourseAssistant {
   }
   listRepositoryLinks(query: { readonly accountId: string }) {
     return listRepositoryLinks(this.dependencies, query);
+  }
+  requestPracticeReview(command: {
+    readonly accountId: string;
+    readonly practiceId: string;
+    readonly expectedContextVersion: string;
+    readonly candidate?: RequestedCandidate | undefined;
+    readonly chooseWork?: boolean | undefined;
+  }) {
+    return requestPracticeReview(this.dependencies, command);
+  }
+  chooseReviewCandidate(command: {
+    readonly accountId: string;
+    readonly reviewId: string;
+    readonly candidateId: string;
+  }) {
+    return chooseReviewCandidate(this.dependencies, command);
+  }
+  readPracticeConversation(query: {
+    readonly accountId: string;
+    readonly practiceId: string;
+  }) {
+    return readPracticeConversation(this.dependencies, query);
+  }
+  readPracticeReview(query: {
+    readonly accountId: string;
+    readonly reviewId: string;
+  }) {
+    return readPracticeReview(this.dependencies, query);
   }
 }

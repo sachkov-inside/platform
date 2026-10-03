@@ -31,7 +31,15 @@ describe("process configuration", () => {
 
     expect(config).toEqual({
       mode: "test",
-      courseAssistant: { enabled: false, accountAllowlist: [] },
+      courseAssistant: {
+        enabled: false,
+        accountAllowlist: [],
+        reviewLimits: {
+          maxSteps: 40,
+          maxTokens: 400_000,
+          maxOutputTokens: 8_000,
+        },
+      },
       database: { url: "postgresql://database.example/inside" },
       api: { host: "api.example", port: 4100 },
       identity: {
@@ -85,7 +93,15 @@ describe("process configuration", () => {
   it("uses local defaults only in explicit development or test mode", () => {
     expect(parsePlatformConfig({ NODE_ENV: "development" })).toEqual({
       mode: "development",
-      courseAssistant: { enabled: false, accountAllowlist: [] },
+      courseAssistant: {
+        enabled: false,
+        accountAllowlist: [],
+        reviewLimits: {
+          maxSteps: 40,
+          maxTokens: 400_000,
+          maxOutputTokens: 8_000,
+        },
+      },
       database: {
         url: "postgresql://inside:inside@127.0.0.1:5432/inside",
       },
@@ -448,6 +464,12 @@ describe("course assistant prototype configuration", () => {
       enabled: false,
       accountAllowlist: [],
       githubApp: undefined,
+      model: undefined,
+      reviewLimits: {
+        maxSteps: 40,
+        maxTokens: 400_000,
+        maxOutputTokens: 8_000,
+      },
     });
   });
   it("opens only allowlisted Accounts and needs a complete GitHub App when enabled", () => {
@@ -479,6 +501,86 @@ describe("course assistant prototype configuration", () => {
         NODE_ENV: "test",
         ...githubApp,
         COURSE_ASSISTANT_GITHUB_APP_CLIENT_SECRET: undefined,
+      }),
+    ).toThrow();
+  });
+  it("reads the review model, its prices and the review limits as settings", () => {
+    const config = parsePlatformConfig({
+      NODE_ENV: "test",
+      COURSE_ASSISTANT_ENABLED: "true",
+      COURSE_ASSISTANT_ACCOUNT_ALLOWLIST: owner,
+      ...githubApp,
+      COURSE_ASSISTANT_MODEL_PROVIDER: "openrouter",
+      COURSE_ASSISTANT_MODEL_BASE_URL: "https://openrouter.ai/api/v1",
+      COURSE_ASSISTANT_MODEL_API_KEY: "synthetic-model-key",
+      COURSE_ASSISTANT_MODEL_ID: "vendor/model-1",
+      COURSE_ASSISTANT_MODEL_PRICE_VERSION: "2026-09-29",
+      COURSE_ASSISTANT_MODEL_PRICE_INPUT_PER_MILLION: "1.25",
+      COURSE_ASSISTANT_MODEL_PRICE_CACHED_INPUT_PER_MILLION: "0.125",
+      COURSE_ASSISTANT_MODEL_PRICE_OUTPUT_PER_MILLION: "10",
+      COURSE_ASSISTANT_REVIEW_MAX_STEPS: "12",
+      COURSE_ASSISTANT_REVIEW_MAX_TOKENS: "90000",
+    }).courseAssistant;
+    expect(config.model).toEqual({
+      provider: "openrouter",
+      baseUrl: "https://openrouter.ai/api/v1",
+      apiKey: "synthetic-model-key",
+      modelId: "vendor/model-1",
+      prices: {
+        version: "2026-09-29",
+        inputPerMillion: 1.25,
+        cachedInputPerMillion: 0.125,
+        outputPerMillion: 10,
+      },
+    });
+    expect(config.reviewLimits).toEqual({
+      maxSteps: 12,
+      maxTokens: 90_000,
+      maxOutputTokens: 8_000,
+    });
+
+    const unpriced = parsePlatformConfig({
+      NODE_ENV: "test",
+      COURSE_ASSISTANT_MODEL_BASE_URL: "http://127.0.0.1:4010/v1",
+      COURSE_ASSISTANT_MODEL_API_KEY: "synthetic-model-key",
+      COURSE_ASSISTANT_MODEL_ID: "stub",
+    }).courseAssistant;
+    expect(unpriced.model).toEqual({
+      provider: "openai-compatible",
+      baseUrl: "http://127.0.0.1:4010/v1",
+      apiKey: "synthetic-model-key",
+      modelId: "stub",
+      prices: undefined,
+    });
+    expect(unpriced.reviewLimits).toEqual({
+      maxSteps: 40,
+      maxTokens: 400_000,
+      maxOutputTokens: 8_000,
+    });
+    expect(
+      parsePlatformConfig({ NODE_ENV: "test" }).courseAssistant.model,
+    ).toBeUndefined();
+
+    expect(() =>
+      parsePlatformConfig({
+        NODE_ENV: "test",
+        COURSE_ASSISTANT_MODEL_BASE_URL: "http://127.0.0.1:4010/v1",
+        COURSE_ASSISTANT_MODEL_ID: "stub",
+      }),
+    ).toThrow();
+    expect(() =>
+      parsePlatformConfig({
+        NODE_ENV: "test",
+        COURSE_ASSISTANT_MODEL_BASE_URL: "http://127.0.0.1:4010/v1",
+        COURSE_ASSISTANT_MODEL_API_KEY: "synthetic-model-key",
+        COURSE_ASSISTANT_MODEL_ID: "stub",
+        COURSE_ASSISTANT_MODEL_PRICE_VERSION: "2026-09-29",
+      }),
+    ).toThrow();
+    expect(() =>
+      parsePlatformConfig({
+        NODE_ENV: "test",
+        COURSE_ASSISTANT_REVIEW_MAX_STEPS: "0",
       }),
     ).toThrow();
   });

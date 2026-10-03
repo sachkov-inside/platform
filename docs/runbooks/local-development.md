@@ -24,6 +24,9 @@ The default stack contains:
 - `video-deletions-worker`, which owns explicit Platform-uploaded Kinescope Video deletion,
   reference rechecks and bounded retry and has no HTTP listener;
 - `billing-worker`, which reconciles saved bank attempts and projects confirmed payments into access grants;
+- `course-assistant-worker`, which runs course assistant Practice Reviews from its `pg-boss` queue
+  and has no HTTP listener; without `.course-assistant/stand.env` and a review model it takes no
+  jobs (see the [course assistant specification](../specifications/course-assistant-v1.md));
 - `bank-double`, the stand's payment provider on <http://127.0.0.1:8090>, where a human chooses the
   outcome of every payment, renewal charge, refund and card binding;
 - `logto` and its own PostgreSQL behind the `identity` profile: the stand's sign-in, absent from the

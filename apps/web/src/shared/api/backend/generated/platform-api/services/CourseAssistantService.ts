@@ -73,6 +73,228 @@ export class CourseAssistantService {
     });
   }
   /**
+   * Read the Assistant Conversation of a practice with its reviews and Practice Status
+   * @returns any
+   * @throws ApiError
+   */
+  public readCourseAssistantPracticeConversation({
+    practiceId,
+  }: {
+    practiceId: string,
+  }): CancelablePromise<{
+    activeReview: {
+      candidates: Array<{
+        commitSha: string;
+        id: string;
+        kind: 'default_branch' | 'pull_request';
+        label: string;
+        ref: string;
+        url: string;
+      }> | null;
+      checked: {
+        commitSha: string;
+        id: string;
+        kind: 'default_branch' | 'pull_request';
+        label: string;
+        ref: string;
+        url: string;
+      } | null;
+      completedAt: string | null;
+      contextVersion: string;
+      failure: {
+        code: 'context_version_mismatch' | 'practice_unavailable' | 'repository_access_revoked' | 'repository_too_large' | 'invalid_report' | 'limit_exceeded' | 'model_unavailable' | 'dependency_unavailable' | 'interrupted';
+        currentContextVersion: string | null;
+      } | null;
+      id: string;
+      kind: 'initial' | 'recheck';
+      practiceId: string;
+      previousReviewId: string | null;
+      repository: {
+        fullName: string;
+        htmlUrl: string;
+      };
+      requestedAt: string;
+      result: {
+        criteria: Array<{
+          changed: boolean;
+          criterionId: string;
+          evidence: Array<{
+            endLine: number | null;
+            path: string;
+            startLine: number | null;
+            url: string;
+          }>;
+          explanation: string;
+          nextStep: string | null;
+          previousStatus: 'confirmed' | 'violation' | 'not_verified' | null;
+          status: 'confirmed' | 'violation' | 'not_verified';
+        }>;
+        practiceStatus: 'accepted' | 'needs_work';
+        summary: string;
+      } | null;
+      state: 'queued' | 'awaiting_choice' | 'running' | 'completed' | 'failed';
+    } | null;
+    messages: Array<{
+      createdAt: string;
+      id: string;
+      kind: 'text' | 'candidate_question' | 'review_result';
+      review: {
+        candidates: Array<{
+          commitSha: string;
+          id: string;
+          kind: 'default_branch' | 'pull_request';
+          label: string;
+          ref: string;
+          url: string;
+        }> | null;
+        checked: {
+          commitSha: string;
+          id: string;
+          kind: 'default_branch' | 'pull_request';
+          label: string;
+          ref: string;
+          url: string;
+        } | null;
+        completedAt: string | null;
+        contextVersion: string;
+        failure: {
+          code: 'context_version_mismatch' | 'practice_unavailable' | 'repository_access_revoked' | 'repository_too_large' | 'invalid_report' | 'limit_exceeded' | 'model_unavailable' | 'dependency_unavailable' | 'interrupted';
+          currentContextVersion: string | null;
+        } | null;
+        id: string;
+        kind: 'initial' | 'recheck';
+        practiceId: string;
+        previousReviewId: string | null;
+        repository: {
+          fullName: string;
+          htmlUrl: string;
+        };
+        requestedAt: string;
+        result: {
+          criteria: Array<{
+            changed: boolean;
+            criterionId: string;
+            evidence: Array<{
+              endLine: number | null;
+              path: string;
+              startLine: number | null;
+              url: string;
+            }>;
+            explanation: string;
+            nextStep: string | null;
+            previousStatus: 'confirmed' | 'violation' | 'not_verified' | null;
+            status: 'confirmed' | 'violation' | 'not_verified';
+          }>;
+          practiceStatus: 'accepted' | 'needs_work';
+          summary: string;
+        } | null;
+        state: 'queued' | 'awaiting_choice' | 'running' | 'completed' | 'failed';
+      } | null;
+      role: 'participant' | 'assistant';
+      text: string | null;
+    }>;
+    practice: {
+      contextVersion: string;
+      criteria: Array<{
+        id: string;
+        requirement: string;
+      }>;
+      practiceId: string;
+      title: string;
+    } | null;
+    status: 'not_started' | 'in_review' | 'needs_work' | 'accepted';
+  }> {
+    return this.httpRequest.request({
+      method: 'GET',
+      url: '/course-assistant/practices/{practiceId}/conversation',
+      path: {
+        'practiceId': practiceId,
+      },
+    });
+  }
+  /**
+   * Queue a Practice Review of the current Account's linked repository, or return the running one
+   * @returns any
+   * @throws ApiError
+   */
+  public requestCourseAssistantPracticeReview({
+    practiceId,
+    requestBody,
+  }: {
+    practiceId: string,
+    requestBody: {
+      candidate?: ({
+        kind: 'default_branch';
+      } | {
+        kind: 'pull_request';
+        number: number;
+      });
+      chooseWork?: boolean;
+      expectedContextVersion: string;
+    },
+  }): CancelablePromise<{
+    candidates: Array<{
+      commitSha: string;
+      id: string;
+      kind: 'default_branch' | 'pull_request';
+      label: string;
+      ref: string;
+      url: string;
+    }> | null;
+    checked: {
+      commitSha: string;
+      id: string;
+      kind: 'default_branch' | 'pull_request';
+      label: string;
+      ref: string;
+      url: string;
+    } | null;
+    completedAt: string | null;
+    contextVersion: string;
+    failure: {
+      code: 'context_version_mismatch' | 'practice_unavailable' | 'repository_access_revoked' | 'repository_too_large' | 'invalid_report' | 'limit_exceeded' | 'model_unavailable' | 'dependency_unavailable' | 'interrupted';
+      currentContextVersion: string | null;
+    } | null;
+    id: string;
+    kind: 'initial' | 'recheck';
+    practiceId: string;
+    previousReviewId: string | null;
+    repository: {
+      fullName: string;
+      htmlUrl: string;
+    };
+    requestedAt: string;
+    result: {
+      criteria: Array<{
+        changed: boolean;
+        criterionId: string;
+        evidence: Array<{
+          endLine: number | null;
+          path: string;
+          startLine: number | null;
+          url: string;
+        }>;
+        explanation: string;
+        nextStep: string | null;
+        previousStatus: 'confirmed' | 'violation' | 'not_verified' | null;
+        status: 'confirmed' | 'violation' | 'not_verified';
+      }>;
+      practiceStatus: 'accepted' | 'needs_work';
+      summary: string;
+    } | null;
+    state: 'queued' | 'awaiting_choice' | 'running' | 'completed' | 'failed';
+  }> {
+    return this.httpRequest.request({
+      method: 'POST',
+      url: '/course-assistant/practices/{practiceId}/reviews',
+      path: {
+        'practiceId': practiceId,
+      },
+      body: requestBody,
+      mediaType: 'application/json',
+    });
+  }
+  /**
    * List repositories the current Account's verified installations open
    * @returns any
    * @throws ApiError
@@ -183,6 +405,150 @@ export class CourseAssistantService {
     return this.httpRequest.request({
       method: 'PUT',
       url: '/course-assistant/repository-link',
+      body: requestBody,
+      mediaType: 'application/json',
+    });
+  }
+  /**
+   * Read one Practice Review of the current Account
+   * @returns any
+   * @throws ApiError
+   */
+  public readCourseAssistantPracticeReview({
+    reviewId,
+  }: {
+    reviewId: string,
+  }): CancelablePromise<{
+    candidates: Array<{
+      commitSha: string;
+      id: string;
+      kind: 'default_branch' | 'pull_request';
+      label: string;
+      ref: string;
+      url: string;
+    }> | null;
+    checked: {
+      commitSha: string;
+      id: string;
+      kind: 'default_branch' | 'pull_request';
+      label: string;
+      ref: string;
+      url: string;
+    } | null;
+    completedAt: string | null;
+    contextVersion: string;
+    failure: {
+      code: 'context_version_mismatch' | 'practice_unavailable' | 'repository_access_revoked' | 'repository_too_large' | 'invalid_report' | 'limit_exceeded' | 'model_unavailable' | 'dependency_unavailable' | 'interrupted';
+      currentContextVersion: string | null;
+    } | null;
+    id: string;
+    kind: 'initial' | 'recheck';
+    practiceId: string;
+    previousReviewId: string | null;
+    repository: {
+      fullName: string;
+      htmlUrl: string;
+    };
+    requestedAt: string;
+    result: {
+      criteria: Array<{
+        changed: boolean;
+        criterionId: string;
+        evidence: Array<{
+          endLine: number | null;
+          path: string;
+          startLine: number | null;
+          url: string;
+        }>;
+        explanation: string;
+        nextStep: string | null;
+        previousStatus: 'confirmed' | 'violation' | 'not_verified' | null;
+        status: 'confirmed' | 'violation' | 'not_verified';
+      }>;
+      practiceStatus: 'accepted' | 'needs_work';
+      summary: string;
+    } | null;
+    state: 'queued' | 'awaiting_choice' | 'running' | 'completed' | 'failed';
+  }> {
+    return this.httpRequest.request({
+      method: 'GET',
+      url: '/course-assistant/reviews/{reviewId}',
+      path: {
+        'reviewId': reviewId,
+      },
+    });
+  }
+  /**
+   * Choose which branch or pull request a waiting Practice Review checks
+   * @returns any
+   * @throws ApiError
+   */
+  public chooseCourseAssistantReviewCandidate({
+    reviewId,
+    requestBody,
+  }: {
+    reviewId: string,
+    requestBody: {
+      candidateId: string;
+    },
+  }): CancelablePromise<{
+    candidates: Array<{
+      commitSha: string;
+      id: string;
+      kind: 'default_branch' | 'pull_request';
+      label: string;
+      ref: string;
+      url: string;
+    }> | null;
+    checked: {
+      commitSha: string;
+      id: string;
+      kind: 'default_branch' | 'pull_request';
+      label: string;
+      ref: string;
+      url: string;
+    } | null;
+    completedAt: string | null;
+    contextVersion: string;
+    failure: {
+      code: 'context_version_mismatch' | 'practice_unavailable' | 'repository_access_revoked' | 'repository_too_large' | 'invalid_report' | 'limit_exceeded' | 'model_unavailable' | 'dependency_unavailable' | 'interrupted';
+      currentContextVersion: string | null;
+    } | null;
+    id: string;
+    kind: 'initial' | 'recheck';
+    practiceId: string;
+    previousReviewId: string | null;
+    repository: {
+      fullName: string;
+      htmlUrl: string;
+    };
+    requestedAt: string;
+    result: {
+      criteria: Array<{
+        changed: boolean;
+        criterionId: string;
+        evidence: Array<{
+          endLine: number | null;
+          path: string;
+          startLine: number | null;
+          url: string;
+        }>;
+        explanation: string;
+        nextStep: string | null;
+        previousStatus: 'confirmed' | 'violation' | 'not_verified' | null;
+        status: 'confirmed' | 'violation' | 'not_verified';
+      }>;
+      practiceStatus: 'accepted' | 'needs_work';
+      summary: string;
+    } | null;
+    state: 'queued' | 'awaiting_choice' | 'running' | 'completed' | 'failed';
+  }> {
+    return this.httpRequest.request({
+      method: 'POST',
+      url: '/course-assistant/reviews/{reviewId}/candidate',
+      path: {
+        'reviewId': reviewId,
+      },
       body: requestBody,
       mediaType: 'application/json',
     });

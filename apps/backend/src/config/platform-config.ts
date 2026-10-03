@@ -244,6 +244,33 @@ const platformConfigSchema = z
           })
           .readonly()
           .optional(),
+        // Модель проверки (#788): OpenAI-совместимый адрес, модель и ключ меняются настройкой. Цены
+        // нужны только для стоимости в Assistant Usage; без них стоимость не считается.
+        model: z
+          .strictObject({
+            provider: z.string().regex(/^[a-z0-9][a-z0-9.-]{0,63}$/u),
+            baseUrl: z.url({ protocol: /^https?$/u }),
+            apiKey: z.string().min(1).max(500),
+            modelId: z.string().trim().min(1).max(200),
+            prices: z
+              .strictObject({
+                version: z.string().trim().min(1).max(64),
+                inputPerMillion: z.number().nonnegative(),
+                cachedInputPerMillion: z.number().nonnegative(),
+                outputPerMillion: z.number().nonnegative(),
+              })
+              .readonly()
+              .optional(),
+          })
+          .readonly()
+          .optional(),
+        reviewLimits: z
+          .strictObject({
+            maxSteps: z.number().int().min(1).max(200),
+            maxTokens: z.number().int().min(1_000).max(10_000_000),
+            maxOutputTokens: z.number().int().min(256).max(200_000),
+          })
+          .readonly(),
       })
       .readonly(),
     database: z.object({ url: databaseUrlSchema }).readonly(),
@@ -355,7 +382,8 @@ export type BackendProcess =
   | "profile-avatars-worker"
   | "video-deletions-worker"
   | "notifications-worker"
-  | "billing-worker";
+  | "billing-worker"
+  | "course-assistant-worker";
 export type PlatformDatabaseConfig = z.infer<
   typeof platformDatabaseConfigSchema
 >;
@@ -420,6 +448,12 @@ const requiredGroupsByProcess = {
   "video-deletions-worker": new Set(["kinescope"]),
   "notifications-worker": new Set<string>(),
   "billing-worker": new Set<string>(),
+  // Помощник курса в production не включается; группы те же, что у чтения материалов в MCP.
+  "course-assistant-worker": new Set([
+    "kinescope",
+    "objectStorage",
+    "publicSite",
+  ]),
 } satisfies Record<BackendProcess, ReadonlySet<string>>;
 
 export function parsePlatformProcessConfig(
@@ -937,6 +971,21 @@ function parseCourseAssistant(environment: NodeJS.ProcessEnv) {
       .split(",")
       .map((value) => value.trim())
       .filter(hasText),
+    model: parseCourseAssistantModel(environment),
+    reviewLimits: {
+      maxSteps: integerSetting(
+        environment["COURSE_ASSISTANT_REVIEW_MAX_STEPS"],
+        40,
+      ),
+      maxTokens: integerSetting(
+        environment["COURSE_ASSISTANT_REVIEW_MAX_TOKENS"],
+        400_000,
+      ),
+      maxOutputTokens: integerSetting(
+        environment["COURSE_ASSISTANT_MODEL_MAX_OUTPUT_TOKENS"],
+        8_000,
+      ),
+    },
     // Ключ PEM многострочный, а env-файл Compose хранит одну строку: ключ передаётся в base64.
     githubApp: Object.values(githubApp).every((value) => value === undefined)
       ? undefined
@@ -952,6 +1001,48 @@ function parseCourseAssistant(environment: NodeJS.ProcessEnv) {
                 ),
         },
   };
+}
+
+function parseCourseAssistantModel(environment: NodeJS.ProcessEnv) {
+  const model = {
+    baseUrl: environment["COURSE_ASSISTANT_MODEL_BASE_URL"],
+    apiKey: environment["COURSE_ASSISTANT_MODEL_API_KEY"],
+    modelId: environment["COURSE_ASSISTANT_MODEL_ID"],
+  };
+  if (Object.values(model).every((value) => value === undefined))
+    return undefined;
+  const prices = {
+    version: environment["COURSE_ASSISTANT_MODEL_PRICE_VERSION"],
+    inputPerMillion:
+      environment["COURSE_ASSISTANT_MODEL_PRICE_INPUT_PER_MILLION"],
+    cachedInputPerMillion:
+      environment["COURSE_ASSISTANT_MODEL_PRICE_CACHED_INPUT_PER_MILLION"],
+    outputPerMillion:
+      environment["COURSE_ASSISTANT_MODEL_PRICE_OUTPUT_PER_MILLION"],
+  };
+  return {
+    provider:
+      environment["COURSE_ASSISTANT_MODEL_PROVIDER"] ?? "openai-compatible",
+    ...model,
+    // Неполная таблица цен — ошибка настройки: схема отклонит пропущенное поле.
+    prices: Object.values(prices).every((value) => value === undefined)
+      ? undefined
+      : {
+          version: prices.version,
+          inputPerMillion: decimalSetting(prices.inputPerMillion),
+          cachedInputPerMillion: decimalSetting(prices.cachedInputPerMillion),
+          outputPerMillion: decimalSetting(prices.outputPerMillion),
+        },
+  };
+}
+
+/** Число из env; пустое значение — значение по умолчанию, нечисло отклоняет схема. */
+function integerSetting(value: string | undefined, fallback: number): number {
+  return hasText(value) ? Number(value) : fallback;
+}
+
+function decimalSetting(value: string | undefined): number | undefined {
+  return hasText(value) ? Number(value) : undefined;
 }
 
 export function parsePlatformDatabaseConfig(

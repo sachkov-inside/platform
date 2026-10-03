@@ -92,3 +92,69 @@ export function requestDisconnectCourseAssistantRepository(
     { accessToken },
   );
 }
+
+export function requestCourseAssistantPracticeConversation(
+  practiceId: string,
+  accessToken: string,
+) {
+  return executeGeneratedRequest(
+    (request) =>
+      new CourseAssistantService(
+        request,
+      ).readCourseAssistantPracticeConversation({ practiceId }),
+    200,
+    { accessToken },
+  );
+}
+
+export function requestCourseAssistantPracticeReview(
+  practiceId: string,
+  requestBody: {
+    readonly expectedContextVersion: string;
+    readonly chooseWork?: boolean;
+    readonly candidate?:
+      | { readonly kind: "default_branch" }
+      | { readonly kind: "pull_request"; readonly number: number };
+  },
+  accessToken: string,
+) {
+  return executeGeneratedRequest(
+    (request) =>
+      new CourseAssistantService(request).requestCourseAssistantPracticeReview({
+        practiceId,
+        requestBody,
+      }),
+    202,
+    { accessToken },
+  );
+}
+
+export function requestReadCourseAssistantPracticeReview(
+  reviewId: string,
+  accessToken: string,
+) {
+  return executeGeneratedRequest(
+    (request) =>
+      new CourseAssistantService(request).readCourseAssistantPracticeReview({
+        reviewId,
+      }),
+    200,
+    { accessToken },
+  );
+}
+
+export function requestChooseCourseAssistantReviewCandidate(
+  reviewId: string,
+  candidateId: string,
+  accessToken: string,
+) {
+  return executeGeneratedRequest(
+    (request) =>
+      new CourseAssistantService(request).chooseCourseAssistantReviewCandidate({
+        reviewId,
+        requestBody: { candidateId },
+      }),
+    202,
+    { accessToken },
+  );
+}
