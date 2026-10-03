@@ -1,8 +1,8 @@
 # Developer process
 
 The process is the upstream skills in `.agents/skills` (sources in `.agents/skills/UPSTREAM.md`)
-plus this contract. The contract covers only what upstream leaves open. Do not edit the copied
-skills; standing behaviour lives here and in `AGENTS.md`.
+plus this contract. The contract covers what upstream leaves open and the owner's overrides of it.
+Do not edit the copied skills; standing behaviour lives here and in `AGENTS.md`.
 
 ## Flows and stages
 
@@ -34,18 +34,20 @@ window.
   `ready-for-human`, `wontfix`, plus `wayfinder:*` set by the `wayfinder` skill. `ready-for-human`
   is only for work a human does.
 - Create an issue in the repository that owns the outcome.
-- A defect outside the task that blocks it is a blocker. Find its open issue and label it
-  `ready-for-agent`, or open a linked one with that label; fix it first. When the task body gives
-  the agent the right to merge, one revert undoes the fix, and the fix changes nothing under `apps/`
-  or `packages/` except tests and no release or deploy script, copy the merge line into the
-  blocker issue. Otherwise ask the owner who merges.
+- A defect outside the task that blocks it is a blocker. Take its open issue labelled
+  `needs-triage` or `ready-for-agent`, or open one; label it `ready-for-agent`, link it to the task
+  and fix it first. When the task body gives the agent the right to merge, one revert undoes the
+  fix, and the fix changes only tests, CI jobs, documentation or scripts outside release and
+  deploy, copy the merge line into the body of the blocker issue. Otherwise ask the owner whether
+  the agent may merge.
 - A task that waits for the owner's acceptance stays open with a comment naming what the owner
   accepts.
 - Durable decisions live in `GLOSSARY.md`, ADRs and `CODING_STANDARDS.md`.
 
 ## Merge
 
-The right to merge is a line in the task body. Without that line, the owner merges.
+The right to merge is a line in the task body. Without that line, the owner merges. When
+`AGENTS.md` names a merge procedure, follow it.
 
 ## Is the task taken
 
@@ -99,11 +101,11 @@ final head with its real exit code. The agent then:
 
 1. marks the acceptance criteria in the task;
 2. brings the pull request to green CI on the current head. A failed check is diagnosed and fixed.
-   Re-run it once in two cases. First: diagnosis attributes the failure to the CI provider.
-   Second: the diff changes neither the failed test or job nor code that the failed test runs; then
-   re-run without further diagnosis, and make sure an open issue tracks the failure: find it or open
-   one with `needs-triage`. The re-run unblocks the pull request; the issue fixes the cause. A
-   failure after the re-run is diagnosed; when it blocks the task, it is a blocker (see `Tracker`);
+   Re-run a failure that diagnosis attributes to the CI provider. When the diff changes neither the
+   failed test or job nor code that the failed test runs, re-run it once without further diagnosis
+   and make sure an open issue tracks the failure: find it or open one with `needs-triage`. The
+   re-run unblocks the pull request; the issue fixes the cause. A failure after that re-run is
+   diagnosed; when it blocks the task, it is a blocker (see `Tracker`);
 3. reads `closingIssuesReferences` of the pull request and compares it with the task number:
    `gh pr view <pr> --json closingIssuesReferences --jq '.closingIssuesReferences[].number'`;
 4. cleans up with the skill `session-cleanup`;
