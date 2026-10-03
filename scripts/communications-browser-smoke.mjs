@@ -5,8 +5,12 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { wrapSession } from "@logto/node";
 import { z } from "zod";
-import { signalProcessGroup } from "./process-group-signal.mjs";
-import { reservePort } from "./smoke-stand.mjs";
+import {
+  reservePort,
+  startWithRoutes,
+  stopProcessGroup,
+  stopServerOnPort,
+} from "./smoke-stand.mjs";
 // The backend fixture writes its stand environment as strings; the smoke reads three of them.
 const fixtureStateSchema = z
   .object({
@@ -49,8 +53,10 @@ function start(args, env) {
 async function waitFor(operation, child) {
   const end = Date.now() + 90_000;
   while (Date.now() < end) {
-    if (child.exitCode !== null)
-      throw new Error(`Child exited: ${String(child.exitCode)}`);
+    if (child.exitCode !== null || child.signalCode !== null)
+      throw new Error(
+        `Child exited: ${String(child.exitCode ?? child.signalCode)}`,
+      );
     try {
       const result = await operation();
       if (result) return result;
@@ -106,22 +112,38 @@ try {
     FULLSTACK_LOGTO_SESSION: session,
     COMMUNICATIONS_PROVIDER_URL: state.providerUrl,
   };
-  const web = start(
-    [
-      "--filter",
-      "@inside/web",
-      "dev",
-      "--hostname",
-      "127.0.0.1",
-      "--port",
-      String(port),
-    ],
-    env,
-  );
-  await waitFor(
-    async () => (await fetch(`${webUrl}/authoring/communications`)).ok,
-    web,
-  );
+  // Управление Telegram ушло из редактора Platform (#419): `/authoring/communications` отвечает
+  // 404 любой сессии, и `broadcasts.spec.ts` проверяет именно это. Поэтому готовность и полноту
+  // маршрутов показывает главная страница: она отвечает без сессии.
+  await startWithRoutes({
+    baseUrl: webUrl,
+    routes: ["/"],
+    start: () =>
+      start(
+        [
+          "--filter",
+          "@inside/web",
+          "dev",
+          "--hostname",
+          "127.0.0.1",
+          "--port",
+          String(port),
+        ],
+        env,
+      ),
+    stop: (web) => stopServerOnPort(web, port),
+    ready: (web) =>
+      waitFor(
+        async () =>
+          (
+            await fetch(webUrl, {
+              redirect: "manual",
+              signal: AbortSignal.timeout(30_000),
+            })
+          ).status < 500,
+        web,
+      ),
+  });
   const test = start(
     [
       "--filter",
@@ -140,21 +162,12 @@ try {
   const code = await exited;
   if (code !== 0) throw new Error(`Browser assertions failed: ${String(code)}`);
   process.stdout.write(
-    "Communications browser/HTTP smoke passed on desktop and mobile against real Nest/PostgreSQL and a Telegram contract stub.\n",
+    "Communications smoke passed: Telegram management stays outside the Platform editor on desktop and mobile.\n",
   );
 } catch (error) {
   process.stderr.write(output.join("").slice(-18000));
   throw error;
 } finally {
-  for (const child of children.reverse()) {
-    // A child that never started has no process group to stop.
-    if (child.exitCode !== null || child.pid === undefined) continue;
-    signalProcessGroup(child.pid, "SIGTERM");
-    await Promise.race([
-      new Promise((resolve) => child.on("exit", resolve)),
-      new Promise((resolve) => setTimeout(resolve, 10000)),
-    ]);
-    if (child.exitCode === null) signalProcessGroup(child.pid, "SIGKILL");
-  }
+  for (const child of children.reverse()) await stopProcessGroup(child);
   await rm(directory, { recursive: true, force: true });
 }

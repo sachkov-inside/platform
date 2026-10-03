@@ -9,6 +9,12 @@ import { fileURLToPath } from "node:url";
 
 import { ensureCheckDatabase } from "./check-database.mjs";
 import { acquireLocalSetupLock } from "./local-setup-lock.mjs";
+import { signalProcessGroup } from "./process-group-signal.mjs";
+import {
+  startWithRoutes,
+  stopProcessGroup,
+  stopServerOnPort,
+} from "./smoke-stand.mjs";
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const identityCompose = resolve(root, "infra/identity/logto/compose.yaml");
@@ -49,6 +55,15 @@ const applicationProcesses = new Set();
 let ownsIdentity = false;
 let ownsPlatform = false;
 let sensitiveOutputObserved = false;
+// API и web живут в своих группах процессов, и Ctrl-C терминала до них не доходит. Прерванный
+// proof останавливает их сам, иначе `next dev` держит фиксированный порт стенда.
+for (const signal of /** @type {const} */ (["SIGINT", "SIGTERM"])) {
+  process.once(signal, () => {
+    for (const child of applicationProcesses)
+      if (child.pid !== undefined) signalProcessGroup(child.pid, "SIGTERM");
+    process.exit(signal === "SIGINT" ? 130 : 143);
+  });
+}
 
 try {
   await assertNoRunningProof();
@@ -86,23 +101,52 @@ try {
     ["--filter", "@inside/backend", "db:migrate"],
     runtimeEnvironment,
   );
-  spawnApplication(
+  const api = spawnApplication(
     ["--filter", "@inside/backend", "dev:api"],
     runtimeEnvironment,
   );
-  spawnApplication(
-    [
-      "--filter",
-      "@inside/web",
-      "dev",
-      "--hostname",
-      "127.0.0.1",
-      "--port",
-      identityEnvironment.IDENTITY_PROOF_WEB_PORT,
-    ],
-    runtimeEnvironment,
+  await waitForResponse(
+    api,
+    `${requiredUrl(runtimeEnvironment, "BACKEND_BASE_URL")}/health`,
+    (response) => response.ok,
   );
-  await waitForRuntime(runtimeEnvironment);
+  // Порт web фиксирован: bootstrap регистрирует в Logto redirect URI именно на нём.
+  const webPort = Number(identityEnvironment.IDENTITY_PROOF_WEB_PORT);
+  const webBaseUrl = requiredUrl(runtimeEnvironment, "WEB_BASE_URL");
+  // Адреса, которые проходит вход в `identity-proof.spec.ts`: сервер без любого из них
+  // перезапускается. У адреса, который принимает только POST, маршрут отвечает на GET кодом 405.
+  await startWithRoutes({
+    baseUrl: webBaseUrl,
+    routes: [
+      "/",
+      "/welcome",
+      "/callback",
+      "/auth/sign-in",
+      "/auth/status",
+      "/api/account",
+      "/api/account/terms",
+      "/api/home/materials",
+      "/api/personal-home",
+    ],
+    start: () =>
+      spawnApplication(
+        [
+          "--filter",
+          "@inside/web",
+          "dev",
+          "--hostname",
+          "127.0.0.1",
+          "--port",
+          String(webPort),
+        ],
+        runtimeEnvironment,
+      ),
+    stop: (web) => stopServerOnPort(web, webPort),
+    // Отсутствующий маршрут отвечает 404, его ловит `startWithRoutes`; готовность ждёт любого
+    // ответа сервера.
+    ready: (web) =>
+      waitForResponse(web, webBaseUrl, (response) => response.status < 500),
+  });
   // Корпус #116. Telegram-вход проверяется на своём стенде с provider (docs/verification).
   await runPnpm(
     ["--filter", "@inside/web", "test:identity", "identity-proof.spec.ts"],
@@ -161,21 +205,20 @@ async function resetStoppedProof() {
   );
 }
 
-/** @param {Environment} environment */
-async function waitForRuntime(environment) {
+/**
+ * @param {import("node:child_process").ChildProcess} child
+ * @param {string} url
+ * @param {(response: Response) => boolean} accepts
+ */
+async function waitForResponse(child, url, accepts) {
   for (let attempt = 0; attempt < 120; attempt += 1) {
-    if ([...applicationProcesses].some((child) => child.exitCode !== null)) {
+    if (child.exitCode !== null || child.signalCode !== null) {
       throw new Error("An application proof process exited before readiness");
     }
-    const responses = await Promise.all([
-      globalThis
-        .fetch(requiredUrl(environment, "WEB_BASE_URL"))
-        .catch(() => undefined),
-      globalThis
-        .fetch(`${requiredUrl(environment, "BACKEND_BASE_URL")}/health`)
-        .catch(() => undefined),
-    ]);
-    if (responses.every((response) => response?.ok)) return;
+    const response = await globalThis
+      .fetch(url, { redirect: "manual", signal: AbortSignal.timeout(30_000) })
+      .catch(() => undefined);
+    if (response !== undefined && accepts(response)) return;
     await delay(1_000);
   }
   throw new Error("Issue 116 application runtime did not become ready");
@@ -271,6 +314,7 @@ async function assertDatabaseInvariants(environment) {
 function spawnApplication(arguments_, environment) {
   const child = spawn(process.execPath, [pnpmPath, ...arguments_], {
     cwd: root,
+    detached: true,
     env: environment,
     stdio: ["ignore", "pipe", "pipe"],
   });
@@ -281,6 +325,7 @@ function spawnApplication(arguments_, environment) {
     );
   }
   child.once("exit", () => applicationProcesses.delete(child));
+  return child;
 }
 
 /**
@@ -308,20 +353,8 @@ function observeOutput(output, environment) {
 }
 
 async function stopApplications() {
-  const processes = [...applicationProcesses];
-  for (const child of processes) child.kill("SIGTERM");
-  await Promise.race([
-    Promise.all(
-      processes.map(
-        (child) =>
-          new Promise((resolveExit) => child.once("exit", resolveExit)),
-      ),
-    ),
-    delay(5_000),
-  ]);
-  for (const child of processes) {
-    if (child.exitCode === null) child.kill("SIGKILL");
-  }
+  for (const child of [...applicationProcesses].reverse())
+    await stopProcessGroup(child);
 }
 
 async function cleanup() {

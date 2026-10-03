@@ -1,6 +1,7 @@
 // @ts-check
 import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
+import { readdir, readFile } from "node:fs/promises";
 import { createServer } from "node:net";
 import { describe, it } from "node:test";
 
@@ -131,5 +132,35 @@ describe("smoke stand", () => {
     } finally {
       child.kill("SIGKILL");
     }
+  });
+
+  it("starts the dev server of every browser scenario through the route check", async () => {
+    // Локальные стенды для ручной проверки держат сервер для человека и маршруты не проверяют.
+    const manualStands = new Set([
+      "editor-local-review.mjs",
+      "telegram-sign-in-local.mjs",
+    ]);
+    const scripts = (await readdir(new URL(".", import.meta.url))).filter(
+      (name) => name.endsWith(".mjs") && !name.endsWith(".test.mjs"),
+    );
+    /** @type {string[]} */
+    const scenarios = [];
+
+    for (const script of scripts) {
+      const source = await readFile(new URL(script, import.meta.url), "utf8");
+      if (manualStands.has(script) || !/"@inside\/web",\s+"dev"/u.test(source))
+        continue;
+      scenarios.push(script);
+
+      assert.match(source, /await startWithRoutes\(\{/u, script);
+      assert.match(source, /await stopProcessGroup\(/u, script);
+    }
+    assert.deepEqual(scenarios, [
+      "billing-contact-proof.mjs",
+      "buyer-journey-smoke.mjs",
+      "communications-browser-smoke.mjs",
+      "enrollment-browser-smoke.mjs",
+      "identity-hardening-proof.mjs",
+    ]);
   });
 });

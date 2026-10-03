@@ -11,8 +11,13 @@ import { fileURLToPath } from "node:url";
 import { parseEnv } from "node:util";
 import { z } from "zod";
 import { startFullStackIdentity } from "./full-stack-identity.mjs";
-import { signalProcessGroup } from "./process-group-signal.mjs";
 import { evidenceDirectory } from "./evidence-path.mjs";
+import {
+  reservePort,
+  startWithRoutes,
+  stopProcessGroup,
+  stopServerOnPort,
+} from "./smoke-stand.mjs";
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const backendRequire = createRequire(
@@ -38,8 +43,8 @@ const { default: AxeBuilder } =
 const pnpmExecutable = process.env["npm_execpath"];
 if (!pnpmExecutable) throw new Error("Run pnpm smoke:billing-contact");
 const pnpmPath = pnpmExecutable;
-const apiPort = 6406;
-const webPort = 6407;
+const apiPort = await reservePort();
+const webPort = await reservePort();
 const apiBaseUrl = `http://127.0.0.1:${apiPort}`;
 const webBaseUrl = `http://127.0.0.1:${webPort}`;
 const evidence = evidenceDirectory("issue-406");
@@ -118,15 +123,22 @@ async function command(args, env) {
   assert.equal(code, 0, `Command failed: ${args.join(" ")}`);
 }
 /**
+ * Опрашивает адрес, пока ответ не подойдёт. Редиректы не выполняются: ответ даёт сам процесс.
+ *
+ * @param {import("node:child_process").ChildProcess} child
  * @param {string} url
- * @param {(body: string) => boolean} accepts
+ * @param {(response: Response) => Promise<boolean>} accepts
  */
-async function waitReady(url, accepts) {
+async function waitReady(child, url, accepts) {
   for (let index = 0; index < 120; index++) {
+    if (child.exitCode !== null || child.signalCode !== null)
+      throw new Error(`Process exited before readiness: ${url}`);
     try {
-      const response = await fetch(url);
-      const body = await response.text();
-      if (response.ok && accepts(body)) return;
+      const response = await fetch(url, {
+        redirect: "manual",
+        signal: AbortSignal.timeout(30_000),
+      });
+      if (await accepts(response)) return;
     } catch {
       /* process startup */
     }
@@ -134,20 +146,7 @@ async function waitReady(url, accepts) {
   }
   throw new Error(`Readiness timed out: ${url}`);
 }
-/** @param {number} port */
-async function assertPortFree(port) {
-  const probe = createServer();
-  /** @type {Promise<void>} */
-  const listening = new Promise((done, reject) => {
-    probe.once("error", reject);
-    probe.listen(port, "127.0.0.1", done);
-  });
-  await listening;
-  await new Promise((done) => probe.close(done));
-}
 try {
-  await assertPortFree(apiPort);
-  await assertPortFree(webPort);
   /** @type {Promise<void>} */
   const smtpListening = new Promise((done) =>
     smtp.listen(0, "127.0.0.1", done),
@@ -177,39 +176,69 @@ try {
     BILLING_CONTACT_FROM: "inside@example.test",
   };
   await command(["--filter", "@inside/backend", "db:migrate"], env);
-  run(
+  const api = run(
     ["--filter", "@inside/backend", "exec", "tsx", "src/entrypoints/api.ts"],
     env,
   );
   await waitReady(
+    api,
     `${apiBaseUrl}/health`,
-    (body) =>
-      z.object({ status: z.unknown() }).passthrough().parse(JSON.parse(body))
-        .status === "ready",
+    async (response) =>
+      response.ok &&
+      z
+        .object({ status: z.unknown() })
+        .passthrough()
+        .parse(await response.json()).status === "ready",
   );
-  run(
-    [
-      "--filter",
-      "@inside/web",
-      "dev",
-      "--hostname",
-      "127.0.0.1",
-      "--port",
-      String(webPort),
+  // Снимки-свидетельства делаются на 390 и целой страницей, поэтому индикатор режима
+  // разработки в них попадать не должен. Переменную читает `next.config.ts` из #594: до его
+  // мержа строка ничего не меняет.
+  const webEnv = {
+    ...env,
+    NODE_ENV: "development",
+    WATCHPACK_POLLING: "true",
+    HIDE_DEV_INDICATOR: "true",
+  };
+  // Адреса, к которым обращается сценарий: сервер без любого из них перезапускается. У адреса,
+  // который принимает только POST, существующий маршрут отвечает на GET кодом 405, а не 404.
+  await startWithRoutes({
+    baseUrl: webBaseUrl,
+    routes: [
+      "/account",
+      "/account/purchases",
+      "/welcome",
+      "/auth/status",
+      "/api/account",
+      "/api/account/billing",
+      "/api/account/billing/community-admission",
+      "/api/account/billing/contact",
+      "/api/account/billing/contact/confirm",
+      "/api/account/billing/contact/start",
+      "/api/account/billing/enrollments",
+      "/api/account/community-entry",
+      "/api/account/terms",
     ],
-    // Снимки-свидетельства делаются на 390 и целой страницей, поэтому индикатор режима
-    // разработки в них попадать не должен. Переменную читает `next.config.ts` из #594: до его
-    // мержа строка ничего не меняет.
-    {
-      ...env,
-      NODE_ENV: "development",
-      WATCHPACK_POLLING: "true",
-      HIDE_DEV_INDICATOR: "true",
-    },
-  );
-  await waitReady(`${webBaseUrl}/account/purchases`, (body) =>
-    body.includes("Email"),
-  );
+    start: () =>
+      run(
+        [
+          "--filter",
+          "@inside/web",
+          "dev",
+          "--hostname",
+          "127.0.0.1",
+          "--port",
+          String(webPort),
+        ],
+        webEnv,
+      ),
+    stop: (web) => stopServerOnPort(web, webPort),
+    // Отсутствующий маршрут отвечает 404, его ловит `startWithRoutes`; готовность ждёт любого
+    // ответа сервера.
+    ready: (web) =>
+      waitReady(web, `${webBaseUrl}/account/purchases`, (response) =>
+        Promise.resolve(response.status < 500),
+      ),
+  });
   await mkdir(evidence, { recursive: true });
   const launched = await chromium.launch();
   browser = launched;
@@ -237,6 +266,14 @@ try {
       },
     ]);
     const page = await context.newPage();
+    await page.goto(`${webBaseUrl}/account/purchases`);
+    // Новый Account сначала попадает на экран условий использования. После принятия экран ведёт
+    // в кабинет, поэтому покупки открываются ещё раз.
+    await page
+      .locator("dialog:modal")
+      .getByRole("button", { name: "Принять условия и продолжить" })
+      .click();
+    await page.waitForURL((url) => url.pathname !== "/welcome");
     await page.goto(`${webBaseUrl}/account/purchases`);
     await page.getByLabel("Email", { exact: true }).waitFor();
     await page
@@ -317,20 +354,7 @@ try {
   );
 } finally {
   await browser?.close();
-  for (const child of children)
-    if (child.exitCode === null && child.pid)
-      signalProcessGroup(child.pid, "SIGTERM");
-  await Promise.all(
-    children
-      .filter((child) => child.exitCode === null)
-      .map(
-        (child) =>
-          new Promise((done) => {
-            child.once("exit", done);
-            setTimeout(done, 5000).unref();
-          }),
-      ),
-  );
+  for (const child of children.reverse()) await stopProcessGroup(child);
   await identity?.close();
   for (const socket of sockets) socket.destroy();
   await new Promise((done) => smtp.close(done));

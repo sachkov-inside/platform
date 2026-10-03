@@ -39,9 +39,10 @@ SMTP acceptance не доказывает получение письма. Timeo
 ## Локальное доказательство
 
 `pnpm smoke:billing-contact` создаёт одноразовый Testcontainers PostgreSQL, локальный SMTP capture,
-синтетическую Logto-compatible identity, настоящий API и Next BFF. Порты 6406/6407 должны быть свободны;
-занятый порт приводит к отказу. Singleton Compose, существующие БД, credentials и реальные получатели
-не используются. SMTP принимает только `@example.test`. Команда проверяет desktop/mobile ввод,
+синтетическую Logto-compatible identity, настоящий API и Next BFF. API и Next берут свободные порты
+из диапазона `scripts/smoke-stand.mjs`; Next, запущенный без нужного маршрута, перезапускается.
+Singleton Compose, существующие БД, credentials и реальные получатели не используются. SMTP
+принимает только `@example.test`. Команда проверяет desktop/mobile ввод,
 получение кода через реальный Nodemailer adapter, подтверждение, reload, no-store, WCAG и отсутствие
 горизонтального overflow; сохраняет screenshots в `docs/evidence/issue-406`. После проверки останавливает
 свои процессы, SMTP и контейнер. Не запускать одновременно с `pnpm check` в том же worktree: Next
