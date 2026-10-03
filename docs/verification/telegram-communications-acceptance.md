@@ -60,12 +60,14 @@ are additional real-PostgreSQL evidence; their fake transports do not become cre
 | 4. Media and multipart | Six template IDs through MCP and six synthetic sends; Telegram communications suite snapshot/edit/deletion/permission; funnel suite terminal partial-cancel timestamp after unknown resolution |
 | 5. Broadcast snapshot | Cross-provider scheduled launch, receipt replay, late join and stop/resume before 429 retry; Telegram broadcast suite union audiences, concurrent launch and in-flight cancel |
 | 6. Failure and recovery | Cross-provider unknown/no resend/explicit skip and feature disable; Telegram funnel/broadcast suites independent workers, crash/claim/DB ACK, 429/permanent failure and explicit retry |
-| 7. Owner/agent authority | Cross-provider publish/launch/rollback via HTTP/MCP, ordinary permission denial; Platform communications management/authorization/targets suites; browser smoke and Storybook cover UI adapters |
+| 7. Owner/agent authority | Cross-provider publish/launch/rollback via HTTP/MCP, ordinary permission denial; Platform communications management/authorization/targets suites; Storybook covers UI presentation and module tests cover the BFF adapters; no browser check since #419 |
 | 8. Content and analytics | Cross-provider real free Material/Series, paid Reader remains protected, repeated/forwarded token hits separate from unique tokens; Platform tracking integration suite durable retries, invalid targets and degraded persistence |
 
-The browser command `pnpm smoke:communications` exercises Browser → BFF → real Nest/PostgreSQL on
-desktop/mobile and writes `ci-artifacts/communications`. Its Telegram contract stub does **not** prove
-provider scheduling. `pnpm check` covers Storybook, keyboard/UI tests, generated API and builds.
+No automated check drives Browser → BFF → real Nest/PostgreSQL for communications. Since #419
+`/authoring/communications` answers 404 for every session, so no browser page reaches the
+communications BFF; the former `pnpm smoke:communications` only proved that 404 and was removed in
+#881 (details in [communications v1](../integrations/communications-v1.md#public-tracking-and-durable-event-delivery)).
+`pnpm check` covers Storybook, keyboard/UI tests, generated API and builds.
 `pnpm test:integration` covers Platform PostgreSQL. Telegram uses `pnpm check:full` against its isolated
 check database. Run the existing Membership/sign-in suites as part of both full gates.
 
