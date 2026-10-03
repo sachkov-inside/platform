@@ -206,6 +206,31 @@ describe("production runtime architecture contract", () => {
     }
   });
 
+  it("rejects additional MCP routes even when the runbook lists them", () => {
+    for (const path of [
+      "/mcp/*",
+      "/mcp/unreviewed",
+      "/.well-known/oauth-protected-resource/mcp/*",
+    ]) {
+      assert.throws(
+        () =>
+          assertRuntimeContract({
+            ...runtime,
+            caddy: runtime.caddy.replace(
+              "\t\t@learning_mcp path",
+              `\t\t@additional_mcp path ${path}\n\t\treverse_proxy @additional_mcp {$PLATFORM_MCP_UPSTREAM:127.0.0.1:13002}\n\n\t\t@learning_mcp path`,
+            ),
+            releaseRunbook: runtime.releaseRunbook.replace(
+              "| любой | `/mcp/learning` |",
+              `| любой | \`${path}\` | additional MCP route |\n| любой | \`/mcp/learning\` |`,
+            ),
+          }),
+        /MCP upstream must expose only the reviewed exact routes/u,
+        path,
+      );
+    }
+  });
+
   it("lists every published API and MCP route in the release runbook exactly as Caddy publishes it", () => {
     const table =
       "docs/runbooks/production-release.md must list exactly the Caddy API and MCP routes";
@@ -574,6 +599,17 @@ function assertRuntimeContract(files) {
       );
     }
   }
+  assert.deepEqual(
+    [
+      ...files.caddy.matchAll(
+        /reverse_proxy @([a-z_]+) \{\$PLATFORM_MCP_UPSTREAM:/gu,
+      ),
+    ]
+      .map(([, name]) => name)
+      .sort(),
+    mcpRoutes.map(([name]) => name).sort(),
+    "MCP upstream must expose only the reviewed exact routes",
+  );
   assert.match(
     files.caddy,
     /@telegram_sign_in \{\s+method POST\s+path \/integrations\/telegram\/v1\/sign-in\/linked-identity\s+\}/u,
