@@ -227,6 +227,10 @@ The functional UI's temporary semantic implementation is tracked through visual 
 
 ## Посты из Telegram и рассылки (#317, уточнение #125)
 
+С #419 страница разовых рассылок отключена и отвечает 404 (см. [Editor ownership](#editor-ownership)).
+Описание веб-редактора ниже относится к коду в `apps/web/src/_pages/communications` и Storybook;
+MCP-операции действуют.
+
 Основной путь подготовки сообщения — `/admin` в Telegram. Страница разовых рассылок загружает
 `templates.list`, позволяет настроить кнопки сохранённого поста через `templates.save`, запросить
 `templates.testSend` только автору и выбрать сохранённую версию в рассылку. Текст в редакторе рассылки
@@ -250,6 +254,9 @@ Delegated MCP получает `communications_templates_list` и те же save
 на commit из `contracts/inside-communications-v1/snapshot.json`; production enablement не меняется.
 
 ## Создание воронок из сохранённых постов (#316)
+
+С #419 страница воронок отключена и отвечает 404 (см. [Editor ownership](#editor-ownership)).
+Описание веб-редактора ниже относится к коду в `apps/web/src/_pages/communications` и Storybook.
 
 Веб-редактор использует общую библиотеку постов рассылок: `templates.list/read/save/testSend`.
 Выбор добавляет копию содержимого в первый ответ, общий вводный блок или отложенный шаг.
