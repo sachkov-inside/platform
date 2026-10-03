@@ -91,11 +91,12 @@ final head with its real exit code. The agent then:
    not re-run; re-run only a failure that diagnosis attributes to the CI provider;
 3. reads `closingIssuesReferences` of the pull request and compares it with the task number:
    `gh pr view <pr> --json closingIssuesReferences --jq '.closingIssuesReferences[].number'`;
-4. cleans up with the skill `session-cleanup`;
+4. cleans up with the skill `session-cleanup`; when the cleanup removes the worktree, it runs
+   `report.py new` first;
 5. writes the report by the skill `report` and names in it each leftover of the cleanup;
 6. gives in chat the report link and one line of outcome.
 
-Steps 5 and 6 apply to any hand-off to the owner: a ready pull request, a stopped task or a result
+Steps 4 to 6 apply to any hand-off to the owner: a ready pull request, a stopped task or a result
 that waits for acceptance. The report's `verification.auto` names the check command and the pull
 request CI that ran; a check that did not run goes to `verification.unverified`. The report is
 delivered when `report.py finish` exits with 0.
