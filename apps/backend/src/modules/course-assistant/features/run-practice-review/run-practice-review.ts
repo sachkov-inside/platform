@@ -63,7 +63,6 @@ interface ClaimedReview {
   readonly accountId: string;
   readonly practiceId: string;
   readonly conversationId: string;
-  readonly kind: string;
   readonly contextVersion: string;
   readonly requestedAt: Date;
   readonly repository: LinkedRepository;
@@ -129,7 +128,6 @@ async function claim(
       accountId: true,
       practiceId: true,
       conversationId: true,
-      kind: true,
       contextVersion: true,
       requestedAt: true,
       installationId: true,
@@ -143,7 +141,6 @@ async function claim(
     accountId: row.accountId,
     practiceId: row.practiceId,
     conversationId: row.conversationId,
-    kind: row.kind,
     contextVersion: row.contextVersion,
     requestedAt: row.requestedAt,
     repository: {
@@ -191,6 +188,12 @@ async function performReview(
     return (await askToChoose(dependencies, review, candidates))
       ? "awaiting_choice"
       : "skipped";
+  // Повторная проверка — только той же работы; вид проверки, заданный при запросе, здесь уточняется.
+  const previousReviewId = await previousReviewOfWork(
+    dependencies.prisma,
+    review,
+    candidate,
+  );
   const archive = await dependencies.repositories.downloadArchive(
     review.repository,
     candidate.commitSha,
@@ -202,12 +205,6 @@ async function performReview(
     dependencies.snapshotDirectory,
   );
   if (!snapshot.ok) return fail(repositoryFailure("too_large"));
-  // Повторная проверка — только той же работы; вид проверки, заданный при запросе, здесь уточняется.
-  const previousReviewId = await previousReviewOfWork(
-    dependencies.prisma,
-    review,
-    candidate,
-  );
   let outcome: Awaited<ReturnType<typeof runReviewAgent>>;
   try {
     outcome = await runReviewAgent({

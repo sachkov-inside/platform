@@ -195,17 +195,23 @@ function insertReview(
       where: {
         accountId: input.accountId,
         practiceId: input.practiceId,
+        repositoryId: BigInt(input.repositoryId),
         state: "completed",
       },
       orderBy: [{ requestedAt: "desc" }, { id: "desc" }],
       select: { checkedCandidate: true },
     });
-    // Повторная проверка без явного выбора смотрит ту же работу, что и прошлая: её ветку или PR.
+    // Повторная проверка без явного выбора смотрит ту же работу того же репозитория, что и
+    // прошлая: её ветку или PR. Нечитаемая прошлая работа — повод спросить участника.
+    const checked =
+      previous === null
+        ? undefined
+        : reviewCandidateSchema.safeParse(previous.checkedCandidate);
     const requested =
       input.candidate ??
-      (previous === null || input.chooseWork
+      (checked?.success !== true || input.chooseWork
         ? null
-        : requestOf(reviewCandidateSchema.parse(previous.checkedCandidate)));
+        : requestOf(checked.data));
     // Вид предварительный: worker уточняет его, когда известна работа (повторная — только та же).
     const kind = previous === null ? "initial" : "recheck";
     const id = randomUUID();
