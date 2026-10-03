@@ -149,6 +149,24 @@ it("ставит проверку и ведёт поток до итога од�
   ]);
 });
 
+it("перестаёт читать проверку, когда браузер закрыл поток", async () => {
+  const closed = new AbortController();
+  fakes.request.mockResolvedValue(ok(review, 202));
+  fakes.read.mockImplementation(() => {
+    closed.abort();
+    return Promise.resolve(ok({ ...review, state: "running" }));
+  });
+  const request = chatRequest({
+    practiceId,
+    expectedContextVersion: contextVersion,
+  });
+  const response = await handlePracticeReviewChat(
+    new Request(request, { signal: closed.signal }),
+  );
+  await response.text().catch(() => undefined);
+  expect(fakes.read).toHaveBeenCalledTimes(1);
+});
+
 it("останавливает поток на вопросе о варианте работы", async () => {
   fakes.request.mockResolvedValue(ok(review, 202));
   fakes.read.mockResolvedValueOnce(

@@ -7,9 +7,11 @@ import type { ReviewFailure } from "../../shared/practice-review-view.js";
 export const queuedReviewGraceMilliseconds = 30_000;
 /**
  * Проверка дольше этого считается прерванной: процесс worker остановился посреди неё. Этот же
- * срок задания ставит очередь.
+ * срок задания ставит очередь, а она считает его в секундах.
  */
-export const runningReviewTimeoutMilliseconds = 15 * 60 * 1000;
+export const runningReviewTimeoutSeconds = 15 * 60;
+export const runningReviewTimeoutMilliseconds =
+  runningReviewTimeoutSeconds * 1000;
 
 export type ResumeStalledReviewsResult =
   | {

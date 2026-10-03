@@ -63,11 +63,27 @@ export type PracticeReviewReport = z.infer<
   typeof storedPracticeReviewReportSchema
 >;
 
-/** Схема итога для заданных критериев: ровно один вердикт на каждый критерий задания. */
+/**
+ * Схема итога для заданных критериев: ровно один вердикт на каждый критерий задания. `confirmed`
+ * требует хотя бы одного свидетельства — файла проверяемого коммита: подтверждение без
+ * проверяемой опоры не принимается, даже если модель уговорил текст репозитория.
+ */
 export function practiceReviewReportSchema(
   criterionIds: readonly string[],
+  snapshot: { readonly hasFile: (path: string) => boolean },
 ): z.ZodType<PracticeReviewReport> {
   return storedPracticeReviewReportSchema.superRefine((report, context) => {
+    for (const [index, verdict] of report.criteria.entries())
+      if (
+        verdict.status === "confirmed" &&
+        !verdict.evidence.some(({ path }) => snapshot.hasFile(path))
+      )
+        context.addIssue({
+          code: "custom",
+          path: ["criteria", index, "evidence"],
+          message:
+            "A confirmed verdict needs evidence: the path of a file in the reviewed commit",
+        });
     const reported = report.criteria.map(({ criterionId }) => criterionId);
     const expected = new Set(criterionIds);
     if (
@@ -130,9 +146,11 @@ export function isActiveReviewState(state: ReviewState): boolean {
   return (activeReviewStates as readonly ReviewState[]).includes(state);
 }
 
-/** Вид проверки из базы: первая или повторная. */
+const reviewKindSchema = z.enum(["initial", "recheck"]);
+
+/** Вид проверки из базы: первая или повторная; другое значение — ошибка данных. */
 export function reviewKindOf(kind: string): "initial" | "recheck" {
-  return kind === "recheck" ? "recheck" : "initial";
+  return reviewKindSchema.parse(kind);
 }
 
 /**

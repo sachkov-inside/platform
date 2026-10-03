@@ -265,6 +265,27 @@ export const RecheckShowsChanges: Story = {
   },
 };
 
+export const EarlierAssignmentVersion: Story = {
+  args: {
+    status: "needs_work",
+    initialMessages: [
+      participant("m1", "Проверить задание"),
+      assistant("m2", "result", {
+        ...needsWork,
+        contextVersion: "b".repeat(64),
+      }),
+    ],
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await expect(canvas.getByText(/по прошлой версии задания/u)).toBeVisible();
+    await expect(canvas.getByText("ownership")).toBeVisible();
+    await expect(
+      canvas.queryByText(criteria[2]?.requirement ?? ""),
+    ).not.toBeInTheDocument();
+  },
+};
+
 export const ChooseWork: Story = {
   args: {
     status: "in_review",

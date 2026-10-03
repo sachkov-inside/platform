@@ -4,15 +4,18 @@ import {
   dependencyFailure,
   reportDependencyFailure,
 } from "../../../../infrastructure/observability/index.js";
-import type { CourseAssistantPrismaClient } from "../../../../infrastructure/prisma/index.js";
+import type {
+  CourseAssistantPrisma,
+  CourseAssistantPrismaClient,
+} from "../../../../infrastructure/prisma/index.js";
 import { costNanoUsd } from "../../domain/assistant-usage.js";
+import { practiceStatusOf } from "../../domain/practice-review.js";
 import {
-  practiceStatusOf,
-  reviewKindOf,
-} from "../../domain/practice-review.js";
-import {
+  candidateId,
   candidatesOf,
   requestedCandidateSchema,
+  requestOf,
+  reviewCandidateSchema,
   selectCandidate,
   type ReviewCandidate,
 } from "../../domain/review-candidate.js";
@@ -60,7 +63,6 @@ interface ClaimedReview {
   readonly accountId: string;
   readonly practiceId: string;
   readonly conversationId: string;
-  readonly kind: string;
   readonly contextVersion: string;
   readonly requestedAt: Date;
   readonly repository: LinkedRepository;
@@ -76,12 +78,17 @@ export async function runPracticeReview(
   command: { readonly reviewId: string },
 ): Promise<RunPracticeReviewResult> {
   let review: ClaimedReview | undefined;
+  // Расход пишется после каждого вызова модели; неудачная запись ждёт итога проверки здесь,
+  // чтобы её не потерял и запасной итог после сбоя.
+  const unrecordedUsages: ModelCallUsage[] = [];
   try {
     review = await claim(dependencies, command.reviewId);
     if (review === undefined) return { ok: true, value: { state: "skipped" } };
     return {
       ok: true,
-      value: { state: await performReview(dependencies, review) },
+      value: {
+        state: await performReview(dependencies, review, unrecordedUsages),
+      },
     };
   } catch (error) {
     if (review !== undefined)
@@ -90,7 +97,7 @@ export async function runPracticeReview(
           code: "dependency_unavailable",
           currentContextVersion: null,
         },
-        usages: [],
+        unrecordedUsages,
       }).catch((cause: unknown) => {
         reportDependencyFailure(
           { module: "course-assistant", operation: "runPracticeReview" },
@@ -121,7 +128,6 @@ async function claim(
       accountId: true,
       practiceId: true,
       conversationId: true,
-      kind: true,
       contextVersion: true,
       requestedAt: true,
       installationId: true,
@@ -135,7 +141,6 @@ async function claim(
     accountId: row.accountId,
     practiceId: row.practiceId,
     conversationId: row.conversationId,
-    kind: row.kind,
     contextVersion: row.contextVersion,
     requestedAt: row.requestedAt,
     repository: {
@@ -150,12 +155,10 @@ async function claim(
 async function performReview(
   dependencies: PracticeReviewerDependencies,
   review: ClaimedReview,
-): Promise<"awaiting_choice" | "completed" | "failed"> {
-  const fail = async (
-    failure: ReviewFailure,
-    usages: readonly ModelCallUsage[] = [],
-  ) => {
-    await finish(dependencies, review, { failure, usages });
+  unrecordedUsages: ModelCallUsage[],
+): Promise<"skipped" | "awaiting_choice" | "completed" | "failed"> {
+  const fail = async (failure: ReviewFailure) => {
+    await finish(dependencies, review, { failure, unrecordedUsages });
     return "failed" as const;
   };
   const context = await dependencies.practices.read({
@@ -181,10 +184,16 @@ async function performReview(
       ? null
       : requestedCandidateSchema.parse(review.requestedCandidate);
   const candidate = selectCandidate(requested, candidates);
-  if (candidate === undefined) {
-    await askToChoose(dependencies, review, candidates);
-    return "awaiting_choice";
-  }
+  if (candidate === undefined)
+    return (await askToChoose(dependencies, review, candidates))
+      ? "awaiting_choice"
+      : "skipped";
+  // Повторная проверка — только той же работы; вид проверки, заданный при запросе, здесь уточняется.
+  const previousReviewId = await previousReviewOfWork(
+    dependencies.prisma,
+    review,
+    candidate,
+  );
   const archive = await dependencies.repositories.downloadArchive(
     review.repository,
     candidate.commitSha,
@@ -205,7 +214,20 @@ async function performReview(
       candidate,
       overview: overview.overview,
       snapshot: snapshot.value,
-      kind: reviewKindOf(review.kind),
+      kind: previousReviewId === null ? "initial" : "recheck",
+      async recordUsage(usage) {
+        try {
+          await dependencies.prisma.assistantUsage.createMany({
+            data: usageRows(dependencies, review, [usage]),
+          });
+        } catch (error) {
+          reportDependencyFailure(
+            { module: "course-assistant", operation: "runPracticeReview" },
+            error,
+          );
+          unrecordedUsages.push(usage);
+        }
+      },
       async compareChanges() {
         if (candidate.kind !== "pull_request") return undefined;
         const compared = await dependencies.repositories.compareCommits(
@@ -217,17 +239,20 @@ async function performReview(
       },
     });
   } finally {
-    // Код участника живёт только на время проверки.
-    await snapshot.value.dispose();
+    // Код участника живёт только на время проверки. Если удаление не удалось, остаток убирает
+    // следующий запуск worker; итог проверки от этого не зависит.
+    await snapshot.value.dispose().catch((error: unknown) => {
+      reportDependencyFailure(
+        { module: "course-assistant", operation: "runPracticeReview" },
+        error,
+      );
+    });
   }
   if (!outcome.ok)
-    return fail(
-      { code: outcome.reason, currentContextVersion: null },
-      outcome.usages,
-    );
+    return fail({ code: outcome.reason, currentContextVersion: null });
   await finish(dependencies, review, {
-    completed: { report: outcome.report, candidate },
-    usages: outcome.usages,
+    completed: { report: outcome.report, candidate, previousReviewId },
+    unrecordedUsages,
   });
   return "completed";
 }
@@ -250,17 +275,19 @@ async function askToChoose(
   dependencies: PracticeReviewerDependencies,
   review: ClaimedReview,
   candidates: readonly ReviewCandidate[],
-): Promise<void> {
+): Promise<boolean> {
   const now = dependencies.clock();
-  await dependencies.prisma.$transaction(async (transaction) => {
-    await transaction.practiceReview.update({
-      where: { id: review.id },
+  return dependencies.prisma.$transaction(async (transaction) => {
+    const asking = await transaction.practiceReview.updateMany({
+      where: { id: review.id, state: "running" },
       data: {
         state: "awaiting_choice",
         candidates: candidates.map((candidate) => ({ ...candidate })),
         startedAt: null,
       },
     });
+    // Проверку уже закрыли как прерванную: вопрос не задаётся.
+    if (asking.count === 0) return false;
     // Вопрос задаётся один раз; повторный выбор в той же проверке его не дублирует.
     const asked = await transaction.assistantMessage.count({
       where: { reviewId: review.id, kind: "candidate_question" },
@@ -276,39 +303,29 @@ async function askToChoose(
           createdAt: now,
         },
       });
+    return true;
   });
 }
 
-/** Итог проверки, её Assistant Usage и сообщение помощника записываются вместе. */
+/**
+ * Итог проверки, её сообщение помощника и ещё не записанный Assistant Usage записываются вместе.
+ */
 async function finish(
   dependencies: PracticeReviewerDependencies,
   review: ClaimedReview,
-  outcome: { readonly usages: readonly ModelCallUsage[] } & (
+  outcome: { readonly unrecordedUsages: readonly ModelCallUsage[] } & (
     | {
         readonly completed: {
           readonly report: Parameters<typeof practiceStatusOf>[0];
           readonly candidate: ReviewCandidate;
+          readonly previousReviewId: string | null;
         };
       }
     | { readonly failure: ReviewFailure }
   ),
 ): Promise<void> {
   const now = dependencies.clock();
-  const { model } = dependencies;
   await dependencies.prisma.$transaction(async (transaction) => {
-    const previous =
-      "completed" in outcome
-        ? await transaction.practiceReview.findFirst({
-            where: {
-              accountId: review.accountId,
-              practiceId: review.practiceId,
-              state: "completed",
-              requestedAt: { lt: review.requestedAt },
-            },
-            orderBy: [{ requestedAt: "desc" }, { id: "desc" }],
-            select: { id: true },
-          })
-        : null;
     const finished = await transaction.practiceReview.updateMany({
       where: { id: review.id, state: "running" },
       data:
@@ -318,34 +335,19 @@ async function finish(
               report: outcome.completed.report,
               practiceStatus: practiceStatusOf(outcome.completed.report),
               checkedCandidate: outcome.completed.candidate,
-              previousReviewId: previous?.id ?? null,
+              previousReviewId: outcome.completed.previousReviewId,
+              kind:
+                outcome.completed.previousReviewId === null
+                  ? "initial"
+                  : "recheck",
               completedAt: now,
             }
           : { state: "failed", failure: outcome.failure, completedAt: now },
     });
     // Расход записывается всегда: и поздний вызов модели оплачен поставщиком.
-    if (outcome.usages.length > 0)
+    if (outcome.unrecordedUsages.length > 0)
       await transaction.assistantUsage.createMany({
-        data: outcome.usages.map((usage) => ({
-          id: randomUUID(),
-          accountId: review.accountId,
-          practiceId: review.practiceId,
-          conversationId: review.conversationId,
-          reviewId: review.id,
-          step: usage.step,
-          provider: model.provider,
-          model: usage.modelId,
-          inputTokens: usage.inputTokens,
-          cachedInputTokens: usage.cachedInputTokens,
-          cacheWriteTokens: usage.cacheWriteTokens,
-          outputTokens: usage.outputTokens,
-          costNanoUsd:
-            model.prices === undefined
-              ? null
-              : costNanoUsd(usage, model.prices),
-          priceTableVersion: model.prices?.version ?? null,
-          createdAt: now,
-        })),
+        data: usageRows(dependencies, review, outcome.unrecordedUsages),
       });
     // Проверку уже закрыли как прерванную: поздний итог статус и беседу не меняет.
     if (finished.count === 0) return;
@@ -360,4 +362,60 @@ async function finish(
       },
     });
   });
+}
+
+/**
+ * Прошлая завершённая проверка той же работы того же репозитория: другая ветка, PR или
+ * репозиторий — не повторная проверка, и «было:» у критериев к ней не относится.
+ */
+async function previousReviewOfWork(
+  prisma: Pick<CourseAssistantPrisma, "practiceReview">,
+  review: ClaimedReview,
+  candidate: ReviewCandidate,
+): Promise<string | null> {
+  const earlier = await prisma.practiceReview.findMany({
+    where: {
+      accountId: review.accountId,
+      practiceId: review.practiceId,
+      repositoryId: BigInt(review.repository.repositoryId),
+      state: "completed",
+      requestedAt: { lt: review.requestedAt },
+    },
+    orderBy: [{ requestedAt: "desc" }, { id: "desc" }],
+    select: { id: true, checkedCandidate: true },
+  });
+  const work = candidateId(requestOf(candidate));
+  return (
+    earlier.find(({ checkedCandidate }) => {
+      const checked = reviewCandidateSchema.safeParse(checkedCandidate);
+      return checked.success && candidateId(requestOf(checked.data)) === work;
+    })?.id ?? null
+  );
+}
+
+function usageRows(
+  dependencies: PracticeReviewerDependencies,
+  review: ClaimedReview,
+  usages: readonly ModelCallUsage[],
+) {
+  const { model } = dependencies;
+  const now = dependencies.clock();
+  return usages.map((usage) => ({
+    id: randomUUID(),
+    accountId: review.accountId,
+    practiceId: review.practiceId,
+    conversationId: review.conversationId,
+    reviewId: review.id,
+    step: usage.step,
+    provider: model.provider,
+    model: usage.modelId,
+    inputTokens: usage.inputTokens,
+    cachedInputTokens: usage.cachedInputTokens,
+    cacheWriteTokens: usage.cacheWriteTokens,
+    outputTokens: usage.outputTokens,
+    costNanoUsd:
+      model.prices === undefined ? null : costNanoUsd(usage, model.prices),
+    priceTableVersion: model.prices?.version ?? null,
+    createdAt: now,
+  }));
 }

@@ -20,14 +20,12 @@ import { runWorker } from "../infrastructure/worker-runtime.js";
 import {
   PRACTICE_REVIEW_QUEUE,
   PracticeReviewer,
-  runningReviewTimeoutMilliseconds,
+  runningReviewTimeoutSeconds,
 } from "../modules/course-assistant/index.js";
 import { CourseAssistantWorkerModule } from "./course-assistant-worker/course-assistant-worker.module.js";
 
 const STALLED_REVIEWS_QUEUE = "course-assistant.stalled-reviews";
 const REVIEW_JOB_RETENTION_SECONDS = 86_400;
-/** Срок задания — тот же, после которого сторож закрывает проверку как прерванную. */
-const REVIEW_JOB_TIMEOUT_SECONDS = runningReviewTimeoutMilliseconds / 1000;
 const STALLED_REVIEWS_SCHEDULE = "* * * * *";
 const STALLED_REVIEWS_SINGLETON_SECONDS = 60;
 const reviewJobSchema = z.object({ reviewId: z.uuid() });
@@ -69,13 +67,13 @@ async function bootstrap(): Promise<void> {
       await reviewer.removeLeftoverSnapshots();
       await jobs.createQueue(PRACTICE_REVIEW_QUEUE, {
         deleteAfterSeconds: REVIEW_JOB_RETENTION_SECONDS,
-        expireInSeconds: REVIEW_JOB_TIMEOUT_SECONDS,
+        expireInSeconds: runningReviewTimeoutSeconds,
         // Проверка не повторяется очередью: сбой пишется в неё самой, участник запускает заново.
         retryLimit: 0,
       });
       await jobs.createQueue(STALLED_REVIEWS_QUEUE, {
         deleteAfterSeconds: REVIEW_JOB_RETENTION_SECONDS,
-        expireInSeconds: REVIEW_JOB_TIMEOUT_SECONDS,
+        expireInSeconds: runningReviewTimeoutSeconds,
         retryLimit: 0,
       });
       await jobs.schedule(STALLED_REVIEWS_QUEUE, STALLED_REVIEWS_SCHEDULE, {});
