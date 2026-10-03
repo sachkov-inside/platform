@@ -184,7 +184,7 @@ describe("production runtime architecture contract", () => {
 
   it("routes the exact authoring and learner MCP endpoints and discovery to the MCP process", () => {
     for (const [name, path] of mcpRoutes) {
-      const route = `@${name} path ${path}\n\t\treverse_proxy @${name} {$PLATFORM_MCP_UPSTREAM:127.0.0.1:13002}`;
+      const route = mcpRoute(name, path);
       for (const replacement of [
         "",
         route.replace(`path ${path}`, "path /mcp/*"),
@@ -199,7 +199,10 @@ describe("production runtime architecture contract", () => {
               ...runtime,
               caddy: runtime.caddy.replace(route, replacement),
             }),
-          /MCP routes must publish exact endpoints to the MCP upstream/u,
+          new RegExp(
+            `\\b${name}: MCP routes must publish exact endpoints to the MCP upstream`,
+            "u",
+          ),
           name,
         );
       }
@@ -218,7 +221,7 @@ describe("production runtime architecture contract", () => {
             ...runtime,
             caddy: runtime.caddy.replace(
               "\t\t@learning_mcp path",
-              `\t\t@additional_mcp path ${path}\n\t\treverse_proxy @additional_mcp {$PLATFORM_MCP_UPSTREAM:127.0.0.1:13002}\n\n\t\t@learning_mcp path`,
+              `\t\t${mcpRoute("additional_mcp", path)}\n\n\t\t@learning_mcp path`,
             ),
             releaseRunbook: runtime.releaseRunbook.replace(
               "| любой | `/mcp/learning` |",
@@ -589,13 +592,9 @@ function assertRuntimeContract(files) {
     assert.match(files.caddy, new RegExp(`path ${escapeRegExp(path)}$`, "mu"));
   }
   for (const [name, path] of mcpRoutes) {
-    if (
-      !files.caddy.includes(
-        `@${name} path ${path}\n\t\treverse_proxy @${name} {$PLATFORM_MCP_UPSTREAM:127.0.0.1:13002}`,
-      )
-    ) {
+    if (!files.caddy.includes(mcpRoute(name, path))) {
       throw new Error(
-        "MCP routes must publish exact endpoints to the MCP upstream",
+        `${name}: MCP routes must publish exact endpoints to the MCP upstream`,
       );
     }
   }
@@ -712,6 +711,12 @@ function runbookRoutes(runbook) {
   return [...section.matchAll(/^\| (POST|любой) \| `([^`]+)` \|/gmu)]
     .map(([, method, path]) => `${method === "любой" ? "ANY" : method} ${path}`)
     .sort();
+}
+
+/** Exact Caddy route from a named path matcher to the MCP process. */
+/** @param {string} name @param {string} path */
+function mcpRoute(name, path) {
+  return `@${name} path ${path}\n\t\treverse_proxy @${name} {$PLATFORM_MCP_UPSTREAM:127.0.0.1:13002}`;
 }
 
 /** @param {string} value */

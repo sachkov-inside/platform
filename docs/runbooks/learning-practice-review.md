@@ -8,8 +8,10 @@ The learner-facing setup has one source:
 [practice-review-setup.txt](../../apps/web/public/practice-review-setup.txt). Reader links the static
 `/practice-review-setup.txt` before any MCP call. It explains the separate OAuth login, the tested
 client profile, copying the lesson request, discussion and recheck. The deployment endpoint remains
-an explicit placeholder until an approved release provides it. This change does not deploy a route,
-register a production OAuth client, publish a course or certify a live IdP onboarding flow.
+an explicit placeholder until an approved release provides it. Practice review (#785) does not
+deploy a route, register a production OAuth client, publish a course or certify a live IdP
+onboarding flow. The edge routes come later, in
+[Production course acceptance](#production-course-acceptance-876).
 
 ## Delivery and ownership
 
@@ -99,8 +101,8 @@ authoring MCP still reject learner-resource tokens. Unrelated and multiple audie
 
 ## Production course acceptance (#876)
 
-The production edge forwards only the exact learner endpoint `/mcp/learning` and its discovery
-document `/.well-known/oauth-protected-resource/mcp/learning` to the existing MCP process. It does
+The production edge forwards only the exact learner routes listed in the
+[public route table](production-release.md#public-api-routes) to the existing MCP process. It does
 not expose a wildcard under `/mcp/`. Releasing these routes alone proves no production OAuth login
 or complete practice read.
 

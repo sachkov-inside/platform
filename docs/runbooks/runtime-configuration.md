@@ -251,8 +251,9 @@ belongs to ContentAccess. Accepted learner token audiences and the local Codex p
 in [Learner practice review](learning-practice-review.md#local-course-acceptance). Local checks do
 not certify other native clients or a production route deployment.
 
-`pnpm mcp:generate` and `pnpm mcp:check` cover both generated tool-name snapshots. Configure any
-future public reverse proxy and native OAuth client only as an explicitly approved release step;
+`pnpm mcp:generate` and `pnpm mcp:check` cover both generated tool-name snapshots. The public edge
+routes are listed in the [public route table](production-release.md#public-api-routes). Releasing
+them and configuring the production native OAuth client remain explicitly approved release steps;
 the local HTTP endpoint and tests need no production data or published course. A successful material
 read returns one complete structured body; a client response/context limit must be reported as an
 incomplete client read, not converted into a successful course check.
