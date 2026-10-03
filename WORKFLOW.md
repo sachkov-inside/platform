@@ -73,9 +73,11 @@ Nothing protects the gap between the start and the first push.
 - Worktree place: `worktrees/<repo>-<task>` at the Workspace root for a checkout under
   `repositories/`; `<parent>/<repo>.worktrees/<task>` for a standalone checkout. `<task>` is the
   branch without its type prefix.
-- One task has one branch, one writing worktree and one open pull request. One agent session works
-  in one worktree: do not `cd` into another; another worktree needs a new session. Another session's
-  worktree, branch, containers, volumes and stash entries are live state: leave them alone.
+- One task has one branch, one writing worktree and one open pull request. Another session's worktree,
+  branch, containers, volumes and stash entries are live state: leave them alone.
+- One agent session works in one worktree: the one it starts in, or the one it creates for its task.
+  Do not `cd` into any other; another worktree needs a new session. A subagent started in its own
+  worktree is a separate session.
 - After the first commit, push and open a draft pull request with `Closes #<issue>`. When one task
   needs several pull requests, only the last one closes it; the others say `Part of #<issue>`.
 - Once the branch is pushed, integrate `origin/main` by merge; do not rebase or force-push.
