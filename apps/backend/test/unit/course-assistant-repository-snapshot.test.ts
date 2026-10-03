@@ -4,7 +4,10 @@ import { join } from "node:path";
 import { afterEach, describe, expect, test } from "vitest";
 import { removeLeftoverSnapshots } from "../../src/modules/course-assistant/features/run-practice-review/run-practice-review.js";
 import { openRepositorySnapshot } from "../../src/modules/course-assistant/infrastructure/snapshot/repository-snapshot.js";
-import { repositoryArchive } from "../fixtures/course-assistant-repositories.js";
+import {
+  rawRepositoryArchive,
+  repositoryArchive,
+} from "../fixtures/course-assistant-repositories.js";
 
 const roots: string[] = [];
 afterEach(async () => {
@@ -85,6 +88,28 @@ describe("repository snapshot", () => {
     ]);
     await snapshot.value.dispose();
     expect(await readdir(directory)).toEqual([]);
+  });
+
+  test("never writes outside the snapshot for parent or absolute entry paths", async () => {
+    const base = await root();
+    const parent = join(base, "work", "snapshots");
+    await mkdir(parent, { recursive: true });
+    const archive = rawRepositoryArchive({
+      "learner-agent-course-0123456/README.md": "readme\n",
+      "learner-agent-course-0123456/../../escape.md": "escape\n",
+      "learner-agent-course-0123456/docs/../../../../outside.md": "outside\n",
+      "/learner-agent-course-0123456/absolute.md": "absolute\n",
+    });
+    const snapshot = await openRepositorySnapshot(archive, parent);
+    if (!snapshot.ok) throw new Error(snapshot.reason);
+    const listed = snapshot.value.listFiles("").files.map(({ path }) => path);
+    expect(listed).toContain("README.md");
+    expect(listed.every((path) => !path.split("/").includes(".."))).toBe(true);
+    await snapshot.value.dispose();
+    expect(await readdir(base, { recursive: true })).toEqual([
+      "work",
+      join("work", "snapshots"),
+    ]);
   });
 
   test("refuses an archive over the unpacked size limit", async () => {

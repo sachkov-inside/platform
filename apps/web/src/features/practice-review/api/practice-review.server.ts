@@ -106,7 +106,11 @@ function handleStreamingCommand<Command>(
       );
       if (!command.success)
         return new Response(null, { headers: privateHeaders, status: 400 });
-      return reviewStream(await start(command.data, accessToken), accessToken);
+      return reviewStream(
+        await start(command.data, accessToken),
+        accessToken,
+        request.signal,
+      );
     },
     {
       mode: "stream",
@@ -176,7 +180,11 @@ export async function handlePracticeReviewResume(
   const active = load.conversation.activeReview;
   if (active?.state !== "queued" && active?.state !== "running")
     return new Response(null, { headers: privateHeaders, status: 204 });
-  return reviewStream({ ok: true, review: active }, accessToken);
+  return reviewStream(
+    { ok: true, review: active },
+    accessToken,
+    request.signal,
+  );
 }
 
 type ActionOutcome =
@@ -255,8 +263,15 @@ function refusal(
   };
 }
 
-/** Одно сообщение помощника, чья часть обновляется по ходу проверки. */
-function reviewStream(started: ActionOutcome, accessToken: string): Response {
+/**
+ * Одно сообщение помощника, чья часть обновляется по ходу проверки. Поток следит за проверкой,
+ * пока браузер его читает: закрытая страница останавливает опрос backend.
+ */
+function reviewStream(
+  started: ActionOutcome,
+  accessToken: string,
+  signal: AbortSignal,
+): Response {
   const stream = createUIMessageStream<PracticeReviewUIMessage>({
     async execute({ writer }) {
       writer.write({ type: "start", messageId: randomUUID() });
@@ -272,7 +287,7 @@ function reviewStream(started: ActionOutcome, accessToken: string): Response {
         writer.write({ type: "finish" });
         return;
       }
-      await followReview(writer, started.review, accessToken);
+      await followReview(writer, started.review, accessToken, signal);
       writer.write({ type: "finish" });
     },
     onError: () => "Проверку не удалось показать. Обновите страницу.",
@@ -284,6 +299,7 @@ async function followReview(
   writer: UIMessageStreamWriter<PracticeReviewUIMessage>,
   initial: PracticeReview,
   accessToken: string,
+  signal: AbortSignal,
 ): Promise<void> {
   const deadline = Date.now() + reviewFollowLimitMilliseconds;
   let review = initial;
@@ -304,7 +320,11 @@ async function followReview(
       Date.now() > deadline
     )
       return;
-    await sleep(reviewPollIntervalMilliseconds);
+    // Закрытый поток прерывает ожидание; его отказ здесь и означает конец опроса.
+    await sleep(reviewPollIntervalMilliseconds, undefined, { signal }).catch(
+      () => undefined,
+    );
+    if (signal.aborted) return;
     const next = await readReview(review.id, accessToken);
     if (next !== undefined) review = next;
   }

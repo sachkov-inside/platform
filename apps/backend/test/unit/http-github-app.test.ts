@@ -246,6 +246,8 @@ describe("HttpGitHubApp as the repository reader", () => {
           {
             number: 3,
             title: "Реализация консультаций",
+            draft: false,
+            user: { type: "User" },
             head: {
               ref: "feature",
               sha: "b".repeat(40),
@@ -256,13 +258,25 @@ describe("HttpGitHubApp as the repository reader", () => {
           {
             number: 4,
             title: "Из форка",
+            draft: false,
+            user: { type: "User" },
             head: { ref: "main", sha: "c".repeat(40), repo: { id: 999 } },
             base: { ref: "main", sha: "a".repeat(40) },
           },
           {
             number: 5,
             title: "Удалённый форк",
+            draft: false,
+            user: null,
             head: { ref: "gone", sha: "d".repeat(40), repo: null },
+            base: { ref: "main", sha: "a".repeat(40) },
+          },
+          {
+            number: 6,
+            title: "Bump zod",
+            draft: true,
+            user: { type: "Bot" },
+            head: { ref: "deps", sha: "e".repeat(40), repo: { id: 101 } },
             base: { ref: "main", sha: "a".repeat(40) },
           },
         ]),
@@ -290,6 +304,18 @@ describe("HttpGitHubApp as the repository reader", () => {
             headSha: "b".repeat(40),
             baseRef: "main",
             baseSha: "a".repeat(40),
+            draft: false,
+            authorIsBot: false,
+          },
+          {
+            number: 6,
+            title: "Bump zod",
+            headRef: "deps",
+            headSha: "e".repeat(40),
+            baseRef: "main",
+            baseSha: "a".repeat(40),
+            draft: true,
+            authorIsBot: true,
           },
         ],
         recentCommits: [

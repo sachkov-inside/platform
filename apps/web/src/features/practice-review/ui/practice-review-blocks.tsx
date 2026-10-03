@@ -100,14 +100,18 @@ export function ReviewChoice({
   );
 }
 
-/** Итог Practice Review: статус, что проверено и вердикт по каждому критерию. */
+/**
+ * Итог Practice Review: статус, что проверено и вердикт по каждому критерию. `requirements` —
+ * формулировки критериев той версии задания, по которой шла проверка; `null` — проверка шла по
+ * прошлой версии, и критерий назван своим идентификатором.
+ */
 export function ReviewResult({
   review,
   requirements,
   onRecheckNewVersion,
 }: {
   readonly review: PracticeReview;
-  readonly requirements: ReadonlyMap<string, string>;
+  readonly requirements: ReadonlyMap<string, string> | null;
   readonly onRecheckNewVersion?: ((contextVersion: string) => void) | undefined;
 }) {
   if (review.failure !== null) {
@@ -158,6 +162,12 @@ export function ReviewResult({
         . Версия задания {review.contextVersion.slice(0, 8)}. Незакоммиченные
         изменения не проверялись.
       </p>
+      {requirements === null ? (
+        <p className="mt-1 text-muted-foreground">
+          Итог по прошлой версии задания: критерии названы идентификаторами, их
+          формулировки могли измениться.
+        </p>
+      ) : null}
       <p className="mt-3">{result.summary}</p>
       <ol className="mt-4 flex flex-col gap-3">
         {result.criteria.map((criterion) => (
@@ -180,7 +190,8 @@ export function ReviewResult({
               ) : null}
             </p>
             <p className="mt-1">
-              {requirements.get(criterion.criterionId) ?? criterion.criterionId}
+              {requirements?.get(criterion.criterionId) ??
+                criterion.criterionId}
             </p>
             <p className="mt-2">{criterion.explanation}</p>
             {criterion.evidence.length > 0 ? (

@@ -21,6 +21,7 @@ import {
   practiceReviewPartSchema,
   practiceStatusLabels,
   reviewRefusalPartSchema,
+  type PracticeReview,
   type PracticeReviewAction,
   type PracticeReviewUIMessage,
   type PracticeStatus,
@@ -51,7 +52,10 @@ export interface PracticeReviewChatProps {
 
 interface ChatActions {
   readonly busy: boolean;
-  readonly requirements: ReadonlyMap<string, string>;
+  /** Формулировки критериев текущей версии задания; итог прошлой версии их не получает. */
+  readonly requirementsOf: (
+    review: PracticeReview,
+  ) => ReadonlyMap<string, string> | null;
   readonly choose: (
     reviewId: string,
     candidate: { readonly id: string; readonly label: string },
@@ -112,11 +116,13 @@ export function PracticeReviewChat(props: PracticeReviewChatProps) {
   const hasReviews = chat.messages.some(
     (message) => message.role === "assistant",
   );
+  const requirements = new Map(
+    props.criteria.map(({ id, requirement }) => [id, requirement]),
+  );
   const actions: ChatActions = {
     busy,
-    requirements: new Map(
-      props.criteria.map(({ id, requirement }) => [id, requirement]),
-    ),
+    requirementsOf: (review) =>
+      review.contextVersion === props.contextVersion ? requirements : null,
     choose(reviewId, candidate) {
       send(`Проверить: ${candidate.label}`, {
         kind: "choose",
@@ -262,7 +268,7 @@ function PracticeReviewPart({ data }: { readonly data: unknown }) {
   return (
     <ReviewResult
       onRecheckNewVersion={actions.review}
-      requirements={actions.requirements}
+      requirements={actions.requirementsOf(review)}
       review={review}
     />
   );

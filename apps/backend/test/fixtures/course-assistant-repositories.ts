@@ -1,7 +1,8 @@
 import { mkdir, mkdtemp, rm, symlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
-import { create } from "tar";
+import { gzipSync } from "node:zlib";
+import { create, Header } from "tar";
 import type { RepositoryReader } from "../../src/modules/course-assistant/ports/repository-reader.js";
 
 export type RepositoryFiles = Readonly<Record<string, string | Uint8Array>>;
@@ -38,6 +39,30 @@ export async function repositoryArchive(
   }
 }
 
+/**
+ * tar.gz из записей с произвольными именами, в том числе `..` и абсолютными: такие архивы
+ * `create` не пишет, а враждебный репозиторий может прислать.
+ */
+export function rawRepositoryArchive(
+  entries: Readonly<Record<string, string>>,
+): Uint8Array {
+  const blocks: Buffer[] = [];
+  for (const [path, content] of Object.entries(entries)) {
+    const body = Buffer.from(content);
+    const header = Buffer.alloc(512);
+    new Header({
+      path,
+      mode: 0o644,
+      size: body.length,
+      mtime: new Date("2026-09-29T00:00:00.000Z"),
+      type: "File",
+    }).encode(header);
+    blocks.push(header, body, Buffer.alloc((512 - (body.length % 512)) % 512));
+  }
+  blocks.push(Buffer.alloc(1024));
+  return new Uint8Array(gzipSync(Buffer.concat(blocks)));
+}
+
 interface FakeRepositoryState {
   readonly defaultBranch: string;
   readonly head: string;
@@ -47,6 +72,8 @@ interface FakeRepositoryState {
     readonly title: string;
     readonly headRef: string;
     readonly headSha: string;
+    readonly draft: boolean;
+    readonly authorIsBot: boolean;
   }[];
 }
 
@@ -60,6 +87,8 @@ export interface FakeRepositoryReader extends RepositoryReader {
       readonly title: string;
       readonly sha: string;
       readonly files: RepositoryFiles;
+      readonly draft?: boolean;
+      readonly authorIsBot?: boolean;
     },
   ): void;
   closePullRequest(fullName: string, number: number): void;
@@ -157,6 +186,8 @@ export function fakeRepositoryReader(): FakeRepositoryReader {
         title: pull.title,
         headRef: `feature-${String(pull.number)}`,
         headSha: pull.sha,
+        draft: pull.draft ?? false,
+        authorIsBot: pull.authorIsBot ?? false,
       });
     },
     closePullRequest(fullName, number) {

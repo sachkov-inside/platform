@@ -3,8 +3,9 @@ import type { RepositoryOverview } from "../ports/repository-reader.js";
 
 /**
  * Где проверять работу участника (#788): последний коммит основной ветки или голова открытого PR
- * из этого же репозитория. Если правдоподобных вариантов несколько, участник выбирает сам; помощник
- * не угадывает и не смешивает свидетельства разных вариантов.
+ * из этого же репозитория. Черновик и PR бота вариантом не считаются (решение владельца,
+ * #878). Если правдоподобных вариантов несколько, участник выбирает сам; помощник не угадывает и
+ * не смешивает свидетельства разных вариантов.
  */
 export const requestedCandidateSchema = z.discriminatedUnion("kind", [
   z.strictObject({ kind: z.literal("default_branch") }),
@@ -44,15 +45,17 @@ export function candidatesOf(
       ref: overview.defaultBranch.name,
       commitSha: overview.defaultBranch.sha,
     },
-    ...overview.pullRequests.map((pull): ReviewCandidate => ({
-      kind: "pull_request",
-      number: pull.number,
-      title: pull.title.slice(0, 500),
-      ref: pull.headRef,
-      commitSha: pull.headSha,
-      baseRef: pull.baseRef,
-      baseSha: pull.baseSha,
-    })),
+    ...overview.pullRequests
+      .filter(({ draft, authorIsBot }) => !draft && !authorIsBot)
+      .map((pull): ReviewCandidate => ({
+        kind: "pull_request",
+        number: pull.number,
+        title: pull.title.slice(0, 500),
+        ref: pull.headRef,
+        commitSha: pull.headSha,
+        baseRef: pull.baseRef,
+        baseSha: pull.baseSha,
+      })),
   ];
 }
 

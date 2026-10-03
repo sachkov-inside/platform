@@ -115,7 +115,8 @@ export function submitReview(
   statuses: Readonly<
     Record<string, "confirmed" | "violation" | "not_verified">
   >,
-  evidencePath = "docs/brief.md",
+  /** `null` — итог без свидетельств. */
+  evidencePath: string | null = "docs/brief.md",
 ) {
   return {
     toolName: "submit_review",
@@ -124,7 +125,10 @@ export function submitReview(
       criteria: Object.entries(statuses).map(([criterionId, status]) => ({
         criterionId,
         status,
-        evidence: [{ path: evidencePath, startLine: 1, endLine: 3 }],
+        evidence:
+          evidencePath === null
+            ? []
+            : [{ path: evidencePath, startLine: 1, endLine: 3 }],
         explanation: `Критерий ${criterionId}: вывод по свидетельству.`,
         nextStep:
           status === "confirmed" ? null : "Добавь недостающее свидетельство.",

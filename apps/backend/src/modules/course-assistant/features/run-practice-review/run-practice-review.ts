@@ -4,15 +4,21 @@ import {
   dependencyFailure,
   reportDependencyFailure,
 } from "../../../../infrastructure/observability/index.js";
-import type { CourseAssistantPrismaClient } from "../../../../infrastructure/prisma/index.js";
+import type {
+  CourseAssistantPrisma,
+  CourseAssistantPrismaClient,
+} from "../../../../infrastructure/prisma/index.js";
 import { costNanoUsd } from "../../domain/assistant-usage.js";
 import {
   practiceStatusOf,
   reviewKindOf,
 } from "../../domain/practice-review.js";
 import {
+  candidateId,
   candidatesOf,
   requestedCandidateSchema,
+  requestOf,
+  reviewCandidateSchema,
   selectCandidate,
   type ReviewCandidate,
 } from "../../domain/review-candidate.js";
@@ -84,13 +90,14 @@ export async function runPracticeReview(
       value: { state: await performReview(dependencies, review) },
     };
   } catch (error) {
+    // Расход завершённых вызовов модели уже записан по шагам.
     if (review !== undefined)
       await finish(dependencies, review, {
         failure: {
           code: "dependency_unavailable",
           currentContextVersion: null,
         },
-        usages: [],
+        unrecordedUsages: [],
       }).catch((cause: unknown) => {
         reportDependencyFailure(
           { module: "course-assistant", operation: "runPracticeReview" },
@@ -153,9 +160,9 @@ async function performReview(
 ): Promise<"awaiting_choice" | "completed" | "failed"> {
   const fail = async (
     failure: ReviewFailure,
-    usages: readonly ModelCallUsage[] = [],
+    unrecordedUsages: readonly ModelCallUsage[] = [],
   ) => {
-    await finish(dependencies, review, { failure, usages });
+    await finish(dependencies, review, { failure, unrecordedUsages });
     return "failed" as const;
   };
   const context = await dependencies.practices.read({
@@ -206,6 +213,12 @@ async function performReview(
       overview: overview.overview,
       snapshot: snapshot.value,
       kind: reviewKindOf(review.kind),
+      recordUsage: (usage) =>
+        dependencies.prisma.assistantUsage
+          .createMany({
+            data: usageRows(dependencies, review, [usage]),
+          })
+          .then(() => undefined),
       async compareChanges() {
         if (candidate.kind !== "pull_request") return undefined;
         const compared = await dependencies.repositories.compareCommits(
@@ -223,11 +236,11 @@ async function performReview(
   if (!outcome.ok)
     return fail(
       { code: outcome.reason, currentContextVersion: null },
-      outcome.usages,
+      outcome.unrecordedUsages,
     );
   await finish(dependencies, review, {
     completed: { report: outcome.report, candidate },
-    usages: outcome.usages,
+    unrecordedUsages: outcome.unrecordedUsages,
   });
   return "completed";
 }
@@ -253,14 +266,16 @@ async function askToChoose(
 ): Promise<void> {
   const now = dependencies.clock();
   await dependencies.prisma.$transaction(async (transaction) => {
-    await transaction.practiceReview.update({
-      where: { id: review.id },
+    const asking = await transaction.practiceReview.updateMany({
+      where: { id: review.id, state: "running" },
       data: {
         state: "awaiting_choice",
         candidates: candidates.map((candidate) => ({ ...candidate })),
         startedAt: null,
       },
     });
+    // Проверку уже закрыли как прерванную: вопрос не задаётся.
+    if (asking.count === 0) return;
     // Вопрос задаётся один раз; повторный выбор в той же проверке его не дублирует.
     const asked = await transaction.assistantMessage.count({
       where: { reviewId: review.id, kind: "candidate_question" },
@@ -279,11 +294,13 @@ async function askToChoose(
   });
 }
 
-/** Итог проверки, её Assistant Usage и сообщение помощника записываются вместе. */
+/**
+ * Итог проверки, её сообщение помощника и ещё не записанный Assistant Usage записываются вместе.
+ */
 async function finish(
   dependencies: PracticeReviewerDependencies,
   review: ClaimedReview,
-  outcome: { readonly usages: readonly ModelCallUsage[] } & (
+  outcome: { readonly unrecordedUsages: readonly ModelCallUsage[] } & (
     | {
         readonly completed: {
           readonly report: Parameters<typeof practiceStatusOf>[0];
@@ -294,20 +311,14 @@ async function finish(
   ),
 ): Promise<void> {
   const now = dependencies.clock();
-  const { model } = dependencies;
   await dependencies.prisma.$transaction(async (transaction) => {
     const previous =
       "completed" in outcome
-        ? await transaction.practiceReview.findFirst({
-            where: {
-              accountId: review.accountId,
-              practiceId: review.practiceId,
-              state: "completed",
-              requestedAt: { lt: review.requestedAt },
-            },
-            orderBy: [{ requestedAt: "desc" }, { id: "desc" }],
-            select: { id: true },
-          })
+        ? await previousReviewOfWork(
+            transaction,
+            review,
+            outcome.completed.candidate,
+          )
         : null;
     const finished = await transaction.practiceReview.updateMany({
       where: { id: review.id, state: "running" },
@@ -318,34 +329,15 @@ async function finish(
               report: outcome.completed.report,
               practiceStatus: practiceStatusOf(outcome.completed.report),
               checkedCandidate: outcome.completed.candidate,
-              previousReviewId: previous?.id ?? null,
+              previousReviewId: previous,
               completedAt: now,
             }
           : { state: "failed", failure: outcome.failure, completedAt: now },
     });
     // Расход записывается всегда: и поздний вызов модели оплачен поставщиком.
-    if (outcome.usages.length > 0)
+    if (outcome.unrecordedUsages.length > 0)
       await transaction.assistantUsage.createMany({
-        data: outcome.usages.map((usage) => ({
-          id: randomUUID(),
-          accountId: review.accountId,
-          practiceId: review.practiceId,
-          conversationId: review.conversationId,
-          reviewId: review.id,
-          step: usage.step,
-          provider: model.provider,
-          model: usage.modelId,
-          inputTokens: usage.inputTokens,
-          cachedInputTokens: usage.cachedInputTokens,
-          cacheWriteTokens: usage.cacheWriteTokens,
-          outputTokens: usage.outputTokens,
-          costNanoUsd:
-            model.prices === undefined
-              ? null
-              : costNanoUsd(usage, model.prices),
-          priceTableVersion: model.prices?.version ?? null,
-          createdAt: now,
-        })),
+        data: usageRows(dependencies, review, outcome.unrecordedUsages),
       });
     // Проверку уже закрыли как прерванную: поздний итог статус и беседу не меняет.
     if (finished.count === 0) return;
@@ -360,4 +352,61 @@ async function finish(
       },
     });
   });
+}
+
+/**
+ * Прошлая завершённая проверка той же работы: другая ветка или PR — не повторная проверка, и
+ * «было:» у критериев к ней не относится.
+ */
+async function previousReviewOfWork(
+  transaction: Pick<CourseAssistantPrisma, "practiceReview">,
+  review: ClaimedReview,
+  candidate: ReviewCandidate,
+): Promise<string | null> {
+  const earlier = await transaction.practiceReview.findMany({
+    where: {
+      accountId: review.accountId,
+      practiceId: review.practiceId,
+      state: "completed",
+      requestedAt: { lt: review.requestedAt },
+    },
+    orderBy: [{ requestedAt: "desc" }, { id: "desc" }],
+    select: { id: true, checkedCandidate: true },
+  });
+  const work = candidateId(requestOf(candidate));
+  return (
+    earlier.find(
+      ({ checkedCandidate }) =>
+        candidateId(
+          requestOf(reviewCandidateSchema.parse(checkedCandidate)),
+        ) === work,
+    )?.id ?? null
+  );
+}
+
+function usageRows(
+  dependencies: PracticeReviewerDependencies,
+  review: ClaimedReview,
+  usages: readonly ModelCallUsage[],
+) {
+  const { model } = dependencies;
+  const now = dependencies.clock();
+  return usages.map((usage) => ({
+    id: randomUUID(),
+    accountId: review.accountId,
+    practiceId: review.practiceId,
+    conversationId: review.conversationId,
+    reviewId: review.id,
+    step: usage.step,
+    provider: model.provider,
+    model: usage.modelId,
+    inputTokens: usage.inputTokens,
+    cachedInputTokens: usage.cachedInputTokens,
+    cacheWriteTokens: usage.cacheWriteTokens,
+    outputTokens: usage.outputTokens,
+    costNanoUsd:
+      model.prices === undefined ? null : costNanoUsd(usage, model.prices),
+    priceTableVersion: model.prices?.version ?? null,
+    createdAt: now,
+  }));
 }

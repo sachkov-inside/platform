@@ -490,9 +490,158 @@ describe("Practice Review on PostgreSQL", () => {
     });
   });
 
+  test("a confirmed verdict needs evidence from the reviewed commit; the model is asked to correct it", async () => {
+    const subject = await harness([
+      { toolCalls: [submitReview(allConfirmed, "docs/invented.md")] },
+      { toolCalls: [submitReview(allConfirmed)] },
+    ]);
+    const done = await subject.reviewed(requested(await subject.request()).id);
+    expect(done.result?.practiceStatus).toBe("accepted");
+    expect(subject.calls).toHaveLength(2);
+    expect(JSON.stringify(subject.calls[1]?.prompt)).toContain(
+      "A confirmed verdict needs evidence",
+    );
+
+    const persuaded = await harness([
+      { toolCalls: [submitReview(allConfirmed, null)] },
+    ]);
+    const failed = await persuaded.reviewed(
+      requested(await persuaded.request()).id,
+    );
+    expect(failed).toMatchObject({ state: "failed", result: null });
+    expect(requested(await persuaded.conversation()).status).toBe(
+      "not_started",
+    );
+  });
+
+  test("pull request titles reach the model only as untrusted data", async () => {
+    const subject = await harness([
+      {
+        toolCalls: [
+          submitReview({
+            request: "confirmed",
+            status: "not_verified",
+            ownership: "not_verified",
+          }),
+        ],
+      },
+    ]);
+    subject.repositories.openPullRequest(repository.fullName, {
+      number: 7,
+      title: injection,
+      sha: "7".repeat(40),
+      files: missedOwnership,
+    });
+    const done = await subject.reviewed(
+      requested(
+        await subject.request({
+          candidate: { kind: "pull_request", number: 7 },
+        }),
+      ).id,
+    );
+    expect(done.result?.practiceStatus).toBe("needs_work");
+    const texts = (subject.calls[0]?.prompt ?? []).flatMap((message) =>
+      message.role === "user"
+        ? message.content.flatMap((part) =>
+            part.type === "text" ? [part.text] : [],
+          )
+        : [],
+    );
+    const carrying = texts.filter((text) => text.includes(injection));
+    expect(carrying).not.toEqual([]);
+    for (const text of carrying)
+      expect(text.split("\n")[0]).toContain("untrusted data");
+  });
+
+  test("a review of other work is not compared with the earlier work", async () => {
+    const subject = await harness([
+      {
+        toolCalls: [
+          submitReview({
+            request: "confirmed",
+            status: "confirmed",
+            ownership: "violation",
+          }),
+        ],
+      },
+    ]);
+    subject.repositories.openPullRequest(repository.fullName, {
+      number: 3,
+      title: "Бриф консультаций",
+      sha: "3".repeat(40),
+      files: missedOwnership,
+    });
+    const choose = async (reviewId: string, candidateId: string) => {
+      requested(
+        await subject.assistant.chooseReviewCandidate({
+          accountId: subject.accountId,
+          reviewId,
+          candidateId,
+        }),
+      );
+      return subject.reviewed(reviewId);
+    };
+    const first = requested(await subject.request());
+    await subject.reviewed(first.id);
+    await choose(first.id, "pull_request:3");
+
+    subject.advance(60_000);
+    const other = requested(
+      await subject.assistant.requestPracticeReview({
+        accountId: subject.accountId,
+        practiceId: subject.practice.practiceId,
+        expectedContextVersion: subject.contextVersion,
+        chooseWork: true,
+      }),
+    );
+    await subject.reviewed(other.id);
+    const otherDone = await choose(other.id, "default_branch");
+    expect(otherDone.previousReviewId).toBeNull();
+    expect(
+      otherDone.result?.criteria.map(({ previousStatus }) => previousStatus),
+    ).toEqual([null, null, null]);
+
+    subject.advance(60_000);
+    const again = await subject.reviewed(requested(await subject.request()).id);
+    expect(again.checked?.kind).toBe("default_branch");
+    expect(again.previousReviewId).toBe(other.id);
+  });
+
+  test("each model call is stored as Assistant Usage as soon as it ends", async () => {
+    const current: { subject?: Awaited<ReturnType<typeof harness>> } = {};
+    const storedBeforeSecondCall: number[] = [];
+    const scripted = scriptedReviewModel(
+      [
+        { toolCalls: [{ toolName: "list_files", input: { path: "" } }] },
+        { toolCalls: [submitReview(allConfirmed)] },
+      ],
+      {
+        // Если worker остановится посреди проверки, оплаченный первый вызов уже записан.
+        async beforeCall(call) {
+          if (call !== 2 || current.subject === undefined) return;
+          storedBeforeSecondCall.push(
+            await database.prisma.assistantUsage.count({
+              where: { accountId: current.subject.accountId },
+            }),
+          );
+        },
+      },
+    );
+    const subject = await harness([], { model: scripted.model });
+    current.subject = subject;
+    const review = requested(await subject.request());
+    await subject.reviewed(review.id);
+    expect(storedBeforeSecondCall).toEqual([1]);
+    expect(
+      await database.prisma.assistantUsage.count({
+        where: { reviewId: review.id },
+      }),
+    ).toBe(2);
+  });
+
   test("several plausible works need a choice; the choice is reviewed and kept for the recheck", async () => {
     const subject = await harness([
-      { toolCalls: [submitReview(allConfirmed)] },
+      { toolCalls: [submitReview(allConfirmed, "docs/brief.json")] },
     ]);
     subject.repositories.openPullRequest(repository.fullName, {
       number: 3,
@@ -570,7 +719,7 @@ describe("Practice Review on PostgreSQL", () => {
           }),
         ],
       },
-      { toolCalls: [submitReview(allConfirmed)] },
+      { toolCalls: [submitReview(allConfirmed, "docs/brief.json")] },
     ]);
     const first = await subject.reviewed(requested(await subject.request()).id);
     expect(

@@ -5,8 +5,10 @@ import {
   practiceReviewReportSchema,
   practiceStatusOf,
   practiceStatusOfReviews,
+  reviewKindOf,
   type PracticeReviewReport,
 } from "../../src/modules/course-assistant/domain/practice-review.js";
+import { candidatesOf } from "../../src/modules/course-assistant/domain/review-candidate.js";
 
 const criteria = ["request", "status", "ownership"] as const;
 
@@ -32,7 +34,9 @@ function report(
 }
 
 describe("Practice Review report", () => {
-  const schema = practiceReviewReportSchema(criteria);
+  const schema = practiceReviewReportSchema(criteria, {
+    hasFile: (path) => path === "docs/brief.md",
+  });
 
   it("accepts exactly one verdict for every criterion of the assignment", () => {
     const value = report({
@@ -222,5 +226,47 @@ describe("Assistant Usage cost", () => {
         },
       ),
     ).toBe(900_000_000n);
+  });
+});
+
+describe("review kind", () => {
+  it("reads a stored kind strictly", () => {
+    expect(reviewKindOf("initial")).toBe("initial");
+    expect(reviewKindOf("recheck")).toBe("recheck");
+    expect(() => reviewKindOf("retry")).toThrow();
+  });
+});
+
+describe("review candidates", () => {
+  const pull = (
+    number: number,
+    extra: { readonly draft?: boolean; readonly authorIsBot?: boolean } = {},
+  ) => ({
+    number,
+    title: `PR ${String(number)}`,
+    headRef: `feature-${String(number)}`,
+    headSha: String(number).repeat(40),
+    baseRef: "main",
+    baseSha: "a".repeat(40),
+    draft: extra.draft ?? false,
+    authorIsBot: extra.authorIsBot ?? false,
+  });
+
+  it("offers the default branch and every open pull request except drafts and bot pull requests", () => {
+    const candidates = candidatesOf({
+      defaultBranch: { name: "main", sha: "a".repeat(40) },
+      pullRequests: [
+        pull(3),
+        pull(4, { draft: true }),
+        pull(5, { authorIsBot: true }),
+        pull(6),
+      ],
+      recentCommits: [],
+    });
+    expect(
+      candidates.map((candidate) =>
+        candidate.kind === "default_branch" ? candidate.ref : candidate.number,
+      ),
+    ).toEqual(["main", 3, 6]);
   });
 });

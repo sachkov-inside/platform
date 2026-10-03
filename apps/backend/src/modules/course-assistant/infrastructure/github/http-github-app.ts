@@ -73,6 +73,8 @@ const pullRequestsSchema = z.array(
   z.object({
     number: z.number().int().positive(),
     title: z.string(),
+    draft: z.boolean(),
+    user: z.object({ type: z.string() }).nullable(),
     head: z.object({
       ref: z.string().min(1),
       sha: z.hash("sha1"),
@@ -280,6 +282,8 @@ export class HttpGitHubApp implements GitHubApp, RepositoryReader {
                 headSha: pull.head.sha,
                 baseRef: pull.base.ref,
                 baseSha: pull.base.sha,
+                draft: pull.draft,
+                authorIsBot: pull.user?.type === "Bot",
               })),
             recentCommits: commits.map(({ sha, commit }) => ({
               sha,

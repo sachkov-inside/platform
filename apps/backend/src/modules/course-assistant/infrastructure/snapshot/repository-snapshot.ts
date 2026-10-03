@@ -11,6 +11,8 @@ import { x as extract } from "tar";
  * пределы снимка.
  */
 export interface RepositorySnapshot {
+  /** Есть ли в снимке обычный файл по этому пути. */
+  hasFile(path: string): boolean;
   listFiles(prefix: string): {
     readonly files: readonly SnapshotFile[];
     readonly truncated: boolean;
@@ -80,6 +82,7 @@ export async function openRepositorySnapshot(
   let bytes = 0;
   let count = 0;
   const limit = { exceeded: false };
+  let files: readonly SnapshotFile[];
   try {
     await pipeline(
       Readable.from([archive]),
@@ -99,15 +102,15 @@ export async function openRepositorySnapshot(
         },
       }),
     );
+    if (limit.exceeded) {
+      await rm(root, { recursive: true, force: true });
+      return { ok: false, reason: "too_large" };
+    }
+    files = await indexFiles(root);
   } catch (error) {
     await rm(root, { recursive: true, force: true });
     throw error;
   }
-  if (limit.exceeded) {
-    await rm(root, { recursive: true, force: true });
-    return { ok: false, reason: "too_large" };
-  }
-  const files = await indexFiles(root);
   return { ok: true, value: snapshotOf(root, files) };
 }
 
@@ -149,6 +152,7 @@ function snapshotOf(
       : content.toString("utf8");
   };
   return {
+    hasFile: (path) => byPath.has(path),
     listFiles(prefix) {
       const listed = underPrefix(prefix);
       return {

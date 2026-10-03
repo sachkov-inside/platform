@@ -12,6 +12,9 @@ export interface PullRequestHead {
   readonly headSha: string;
   readonly baseRef: string;
   readonly baseSha: string;
+  readonly draft: boolean;
+  /** Автор — аккаунт GitHub типа Bot, например dependabot. */
+  readonly authorIsBot: boolean;
 }
 
 /** Где может лежать работа участника: основная ветка, открытые PR и недавние коммиты. */
