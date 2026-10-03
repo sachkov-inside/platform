@@ -35,8 +35,8 @@ SLUG = re.compile(r"[^a-z0-9а-яё]+")
 
 TOP_KEYS = {
     "version": True, "project": True, "task": True, "title": False, "status": True,
-    "created_at": True, "summary": True, "needs_owner": True, "verification": True,
-    "next": True, "actions": True, "session": True,
+    "created_at": True, "finished_at": False, "summary": True, "needs_owner": True,
+    "verification": True, "next": True, "actions": True, "session": True,
 }
 TASK_KEYS = {"id": False, "title": True, "url": False}
 CHECK_KEYS = {"text": True, "command": False, "link": False}
@@ -80,6 +80,22 @@ def _list(value: Any, where: str, errors: list[str]) -> list[Any]:
     return value
 
 
+def _time(value: Any, where: str, errors: list[str]) -> None:
+    try:
+        if datetime.fromisoformat(str(value)).tzinfo is None:
+            errors.append(f"{where}: нужен часовой пояс, например 2026-10-03T12:00:00+03:00")
+    except ValueError:
+        errors.append(f"{where}: нужна дата ISO 8601")
+
+
+def prs(session: Any) -> list[Any]:
+    """PR сессии списком. Старая форма: одна ссылка строкой или null."""
+    value = session.get("pr") if isinstance(session, dict) else None
+    if value is None:
+        return []
+    return value if isinstance(value, list) else [value]
+
+
 def _check_item(item: Any, where: str, errors: list[str], *, evidence: bool) -> None:
     if not _keys(item, CHECK_KEYS, where, errors):
         return
@@ -118,13 +134,9 @@ def validate(data: Any) -> list[str]:
         _text(data["title"], "report.title", errors, 160)
     if data.get("status") not in STATUSES:
         errors.append(f"report.status: допустимы {', '.join(STATUSES)} ({', '.join(STATUSES.values())})")
-    created = data.get("created_at")
-    try:
-        parsed = datetime.fromisoformat(str(created))
-        if parsed.tzinfo is None:
-            errors.append("report.created_at: нужен часовой пояс, например 2026-10-03T12:00:00+03:00")
-    except ValueError:
-        errors.append("report.created_at: нужна дата ISO 8601")
+    _time(data.get("created_at"), "report.created_at", errors)
+    if "finished_at" in data:
+        _time(data["finished_at"], "report.finished_at", errors)
 
     summary = _list(data.get("summary"), "report.summary", errors)
     if "summary" in data and isinstance(data["summary"], list) and not summary:
@@ -172,8 +184,14 @@ def validate(data: Any) -> list[str]:
         _text(worktree, "report.session.worktree", errors, 500)
         if isinstance(worktree, str) and not worktree.startswith("/"):
             errors.append("report.session.worktree: нужен абсолютный путь")
-        if session.get("pr") is not None:
-            _url(session["pr"], "report.session.pr", errors)
+        pr = session.get("pr")
+        if isinstance(pr, list):
+            for index, url in enumerate(pr):
+                _url(url, f"report.session.pr[{index}]", errors)
+        elif isinstance(pr, str):  # старая форма: один PR строкой
+            _url(pr, "report.session.pr", errors)
+        elif pr is not None:
+            errors.append("report.session.pr: нужен список ссылок на PR")
     return errors
 
 
@@ -299,10 +317,10 @@ def new(args: argparse.Namespace) -> int:
     worktree = Path(top)
     main = main_checkout(worktree)
     branch = _run(["git", "-C", str(worktree), "branch", "--show-current"]) or "detached"
-    pr = None
+    pr: list[str] = []
     if branch not in {"detached", "main", "master", "dev"}:
-        raw = _run(["gh", "pr", "list", "--state", "all", "--head", branch, "--json", "url", "-q", ".[0].url"], cwd=worktree)
-        pr = raw or None
+        raw = _run(["gh", "pr", "list", "--state", "all", "--head", branch, "--json", "url", "-q", ".[].url"], cwd=worktree)
+        pr = (raw or "").split()
     task, task_slug = task_facts(args.task, worktree)
     now = datetime.now().astimezone().replace(microsecond=0)
     base = main / ".reports" / task_slug
@@ -349,6 +367,10 @@ def finish(args: argparse.Namespace) -> int:
             print(f"ошибка: {error}", file=sys.stderr)
         print("Отчёт не сдан: исправь ошибки и запусти finish снова.", file=sys.stderr)
         return 1
+    # Время отчёта — время сдачи. Старая форма PR переходит в список.
+    data["finished_at"] = datetime.now().astimezone().replace(microsecond=0).isoformat()
+    data["session"]["pr"] = prs(data["session"])
+    (folder / "report.json").write_text(json.dumps(data, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     print(f"Отчёт: {report_url(folder)}")
     print(f"Папка: {folder}")
     print(f"Итог: {STATUSES[data['status']]}. {data['summary'][0]}")
