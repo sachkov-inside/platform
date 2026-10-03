@@ -211,7 +211,7 @@ AMQPS на `5671`. Топологию он читает из определен�
 | любой | `/authoring-api/authoring/*` | перенос из Content (`pnpm authoring:release`) | bearer Logto автора с аудиторией API и право `materials:manage`; префикс снимается до API | `401`, без права — `403` |
 | любой | `/mcp` | MCP-клиенты | bearer Logto с аудиторией MCP | `401` |
 | любой | `/.well-known/oauth-protected-resource/mcp` | MCP-клиенты | нет: публичные метаданные | `200` |
-| любой | `/mcp/learning` | агенты участников курса | bearer Logto с аудиторией учебного MCP; доступ по аккаунту участника | `401` |
+| любой | `/mcp/learning` | агенты участников курса | bearer Logto с аудиторией API или учебного MCP; доступ по аккаунту участника | `401` |
 | любой | `/.well-known/oauth-protected-resource/mcp/learning` | агенты участников курса | нет: публичные метаданные учебного MCP | `200` |
 
 Edge не ограничивает адрес отправителя: адрес исходящих запросов Telegram и банка репозиторию не
