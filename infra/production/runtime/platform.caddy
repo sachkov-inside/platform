@@ -89,6 +89,13 @@ inside.sachkov.dev {
 		@mcp_metadata path /.well-known/oauth-protected-resource/mcp
 		reverse_proxy @mcp_metadata {$PLATFORM_MCP_UPSTREAM:127.0.0.1:13002}
 
+		# Учебный MCP использует отдельный OAuth resource и не предоставляет авторские операции.
+		@learning_mcp path /mcp/learning
+		reverse_proxy @learning_mcp {$PLATFORM_MCP_UPSTREAM:127.0.0.1:13002}
+
+		@learning_mcp_metadata path /.well-known/oauth-protected-resource/mcp/learning
+		reverse_proxy @learning_mcp_metadata {$PLATFORM_MCP_UPSTREAM:127.0.0.1:13002}
+
 		@unknown_integration path /integrations/*
 		respond @unknown_integration 404
 

@@ -96,3 +96,35 @@ first authored chapter and provides a stand-only public Native OAuth client. The
 accepts a single audience equal to its advertised protected-resource URL, in addition to the
 existing API audience. This exception is scoped to learner MCP authentication: API sign-in and
 authoring MCP still reject learner-resource tokens. Unrelated and multiple audiences remain invalid.
+
+## Production course acceptance (#876)
+
+The production edge forwards only the exact learner endpoint `/mcp/learning` and its discovery
+document `/.well-known/oauth-protected-resource/mcp/learning` to the existing MCP process. It does
+not expose a wildcard under `/mcp/`. Releasing these routes alone proves no production OAuth login
+or complete practice read.
+
+Before giving participants an endpoint, verify the released configuration and live responses:
+
+1. The learner discovery document returns JSON with the configured public learner resource and
+   production issuer. With `MCP_SERVER_URL=https://inside.sachkov.dev/mcp`, the learner resource is
+   `https://inside.sachkov.dev/mcp/learning`. An HTML response or the authoring resource is a blocker.
+2. Without a token, the learner endpoint returns `401` and a challenge pointing at its learner
+   discovery document. An authoring credential is not a substitute for a participant login.
+3. The production IdP supports the selected client's normal OAuth onboarding. Verify its public
+   discovery, allowed client registration or pre-registered Native client, callback, learner
+   resource, short token lifetime and refresh. The local stand client is not a production client.
+4. Import the exact committed Content snapshot. Publish only the approved lessons and their practice
+   definitions; a private lesson's definition remains unpublished. For draft originals, definition
+   publication must be explicitly selected in the reviewed package; publishing the lesson alone
+   does not publish an unpublished definition.
+5. In a real supported client, sign in and read all parts of each approved practice. Record client
+   version, Content commit, Material version, practice version, `contextVersion`, `contentSha256`,
+   part count and the end marker. Never record tokens or local learner evidence in the delivery log.
+
+The first chapter's four practice IDs are `inside-content:aie-project-setup`,
+`inside-content:aie-first-task`, `inside-content:aie-project-foundation` and
+`inside-content:aie-github-app`. `aie-first-service` belongs to chapter three and is not part of
+this acceptance. An unavailable MCP blocks self-review, not the independent text transfer or
+author's Reader pass. State its precise blocker in the course rather than reporting the checkpoint
+as working. Update the participant setup's endpoint and tested profile only after this client pass.

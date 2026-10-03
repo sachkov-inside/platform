@@ -39,6 +39,18 @@ const callbackRoutes = [
   ],
 ];
 
+// Both MCP adapters and their discovery documents have exact routes to the MCP process.
+/** @type {[string, string][]} */
+const mcpRoutes = [
+  ["mcp", "/mcp"],
+  ["mcp_metadata", "/.well-known/oauth-protected-resource/mcp"],
+  ["learning_mcp", "/mcp/learning"],
+  [
+    "learning_mcp_metadata",
+    "/.well-known/oauth-protected-resource/mcp/learning",
+  ],
+];
+
 const runtime = {
   releaseRunbook: read("docs/runbooks/production-release.md"),
   caddy: read("infra/production/runtime/platform.caddy"),
@@ -167,6 +179,30 @@ describe("production runtime architecture contract", () => {
         /only backend \/authoring\/\*/u,
         shape,
       );
+    }
+  });
+
+  it("routes the exact authoring and learner MCP endpoints and discovery to the MCP process", () => {
+    for (const [name, path] of mcpRoutes) {
+      const route = `@${name} path ${path}\n\t\treverse_proxy @${name} {$PLATFORM_MCP_UPSTREAM:127.0.0.1:13002}`;
+      for (const replacement of [
+        "",
+        route.replace(`path ${path}`, "path /mcp/*"),
+        route.replace(
+          "{$PLATFORM_MCP_UPSTREAM:127.0.0.1:13002}",
+          "{$PLATFORM_API_UPSTREAM:127.0.0.1:13001}",
+        ),
+      ]) {
+        assert.throws(
+          () =>
+            assertRuntimeContract({
+              ...runtime,
+              caddy: runtime.caddy.replace(route, replacement),
+            }),
+          /MCP routes must publish exact endpoints to the MCP upstream/u,
+          name,
+        );
+      }
     }
   });
 
@@ -524,10 +560,19 @@ function assertRuntimeContract(files) {
     "/integrations/telegram/v1/sign-in/linked-identity",
     "/integrations/kinescope/v1/webhook",
     "/integrations/kinescope/v1/authorize",
-    "/mcp",
-    "/.well-known/oauth-protected-resource/mcp",
   ]) {
     assert.match(files.caddy, new RegExp(`path ${escapeRegExp(path)}$`, "mu"));
+  }
+  for (const [name, path] of mcpRoutes) {
+    if (
+      !files.caddy.includes(
+        `@${name} path ${path}\n\t\treverse_proxy @${name} {$PLATFORM_MCP_UPSTREAM:127.0.0.1:13002}`,
+      )
+    ) {
+      throw new Error(
+        "MCP routes must publish exact endpoints to the MCP upstream",
+      );
+    }
   }
   assert.match(
     files.caddy,
