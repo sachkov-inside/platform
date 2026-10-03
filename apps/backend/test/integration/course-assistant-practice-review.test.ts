@@ -596,6 +596,7 @@ describe("Practice Review on PostgreSQL", () => {
     );
     await subject.reviewed(other.id);
     const otherDone = await choose(other.id, "default_branch");
+    expect(otherDone.kind).toBe("initial");
     expect(otherDone.previousReviewId).toBeNull();
     expect(
       otherDone.result?.criteria.map(({ previousStatus }) => previousStatus),
@@ -604,6 +605,7 @@ describe("Practice Review on PostgreSQL", () => {
     subject.advance(60_000);
     const again = await subject.reviewed(requested(await subject.request()).id);
     expect(again.checked?.kind).toBe("default_branch");
+    expect(again.kind).toBe("recheck");
     expect(again.previousReviewId).toBe(other.id);
   });
 

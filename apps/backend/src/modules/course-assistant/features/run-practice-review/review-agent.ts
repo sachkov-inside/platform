@@ -28,17 +28,13 @@ export interface ModelCallUsage {
   readonly outputTokens: number;
 }
 
-export type ReviewAgentOutcome = {
-  /** Вызовы, чей расход не удалось записать сразу: их записывает итог проверки. */
-  readonly unrecordedUsages: readonly ModelCallUsage[];
-} & (
+export type ReviewAgentOutcome =
   | { readonly ok: true; readonly report: PracticeReviewReport }
   | {
       readonly ok: false;
       readonly reason:
         "invalid_report" | "limit_exceeded" | "model_unavailable";
-    }
-);
+    };
 
 /**
  * Сколько может длиться цикл агента. Меньше срока, после которого сторож закрывает проверку как
@@ -68,12 +64,12 @@ export async function runReviewAgent(input: {
   readonly snapshot: RepositorySnapshot;
   readonly compareChanges: () => Promise<readonly ChangedFile[] | undefined>;
   readonly kind: "initial" | "recheck";
+  /** Записывает расход одного вызова; AI SDK ждёт её, но её ошибку молча отбрасывает. */
   readonly recordUsage: (usage: ModelCallUsage) => Promise<void>;
 }): Promise<ReviewAgentOutcome> {
   const criterionIds = input.context.criteria.map(({ id }) => id);
   const reportSchema = practiceReviewReportSchema(criterionIds, input.snapshot);
   const usages: ModelCallUsage[] = [];
-  const unrecordedUsages: ModelCallUsage[] = [];
   const tools = reviewTools(input, reportSchema);
   const withinTokenBudget: StopCondition<typeof tools> = ({ steps }) =>
     steps.reduce(
@@ -134,21 +130,12 @@ export async function runReviewAgent(input: {
           outputTokens: step.usage.outputTokens ?? 0,
         };
         usages.push(usage);
-        try {
-          await input.recordUsage(usage);
-        } catch (error) {
-          // AI SDK молча глотает ошибку колбэка: расход дописывает итог проверки.
-          reportDependencyFailure(
-            { module: "course-assistant", operation: "recordAssistantUsage" },
-            error,
-          );
-          unrecordedUsages.push(usage);
-        }
+        await input.recordUsage(usage);
       },
     });
     for (const step of [...result.steps].reverse()) {
       const report = submittedReport(step.toolCalls, reportSchema);
-      if (report !== undefined) return { ok: true, report, unrecordedUsages };
+      if (report !== undefined) return { ok: true, report };
     }
     const spent = usages.reduce(
       (total, usage) => total + usage.inputTokens + usage.outputTokens,
@@ -161,7 +148,6 @@ export async function runReviewAgent(input: {
         spent >= input.model.limits.maxTokens
           ? "limit_exceeded"
           : "invalid_report",
-      unrecordedUsages,
     };
   } catch (error) {
     reportDependencyFailure(
@@ -174,7 +160,6 @@ export async function runReviewAgent(input: {
     return {
       ok: false,
       reason: timedOut ? "limit_exceeded" : "model_unavailable",
-      unrecordedUsages,
     };
   }
 }

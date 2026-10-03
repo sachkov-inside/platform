@@ -206,6 +206,7 @@ function insertReview(
       (previous === null || input.chooseWork
         ? null
         : requestOf(reviewCandidateSchema.parse(previous.checkedCandidate)));
+    // Вид предварительный: worker уточняет его, когда известна работа (повторная — только та же).
     const kind = previous === null ? "initial" : "recheck";
     const id = randomUUID();
     await transaction.practiceReview.create({

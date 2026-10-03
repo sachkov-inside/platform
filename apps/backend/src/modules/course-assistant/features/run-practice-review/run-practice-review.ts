@@ -9,10 +9,7 @@ import type {
   CourseAssistantPrismaClient,
 } from "../../../../infrastructure/prisma/index.js";
 import { costNanoUsd } from "../../domain/assistant-usage.js";
-import {
-  practiceStatusOf,
-  reviewKindOf,
-} from "../../domain/practice-review.js";
+import { practiceStatusOf } from "../../domain/practice-review.js";
 import {
   candidateId,
   candidatesOf,
@@ -82,22 +79,26 @@ export async function runPracticeReview(
   command: { readonly reviewId: string },
 ): Promise<RunPracticeReviewResult> {
   let review: ClaimedReview | undefined;
+  // Расход пишется после каждого вызова модели; неудачная запись ждёт итога проверки здесь,
+  // чтобы её не потерял и запасной итог после сбоя.
+  const unrecordedUsages: ModelCallUsage[] = [];
   try {
     review = await claim(dependencies, command.reviewId);
     if (review === undefined) return { ok: true, value: { state: "skipped" } };
     return {
       ok: true,
-      value: { state: await performReview(dependencies, review) },
+      value: {
+        state: await performReview(dependencies, review, unrecordedUsages),
+      },
     };
   } catch (error) {
-    // Расход завершённых вызовов модели уже записан по шагам.
     if (review !== undefined)
       await finish(dependencies, review, {
         failure: {
           code: "dependency_unavailable",
           currentContextVersion: null,
         },
-        unrecordedUsages: [],
+        unrecordedUsages,
       }).catch((cause: unknown) => {
         reportDependencyFailure(
           { module: "course-assistant", operation: "runPracticeReview" },
@@ -157,11 +158,9 @@ async function claim(
 async function performReview(
   dependencies: PracticeReviewerDependencies,
   review: ClaimedReview,
-): Promise<"awaiting_choice" | "completed" | "failed"> {
-  const fail = async (
-    failure: ReviewFailure,
-    unrecordedUsages: readonly ModelCallUsage[] = [],
-  ) => {
+  unrecordedUsages: ModelCallUsage[],
+): Promise<"skipped" | "awaiting_choice" | "completed" | "failed"> {
+  const fail = async (failure: ReviewFailure) => {
     await finish(dependencies, review, { failure, unrecordedUsages });
     return "failed" as const;
   };
@@ -188,10 +187,10 @@ async function performReview(
       ? null
       : requestedCandidateSchema.parse(review.requestedCandidate);
   const candidate = selectCandidate(requested, candidates);
-  if (candidate === undefined) {
-    await askToChoose(dependencies, review, candidates);
-    return "awaiting_choice";
-  }
+  if (candidate === undefined)
+    return (await askToChoose(dependencies, review, candidates))
+      ? "awaiting_choice"
+      : "skipped";
   const archive = await dependencies.repositories.downloadArchive(
     review.repository,
     candidate.commitSha,
@@ -203,6 +202,12 @@ async function performReview(
     dependencies.snapshotDirectory,
   );
   if (!snapshot.ok) return fail(repositoryFailure("too_large"));
+  // Повторная проверка — только той же работы; вид проверки, заданный при запросе, здесь уточняется.
+  const previousReviewId = await previousReviewOfWork(
+    dependencies.prisma,
+    review,
+    candidate,
+  );
   let outcome: Awaited<ReturnType<typeof runReviewAgent>>;
   try {
     outcome = await runReviewAgent({
@@ -212,13 +217,20 @@ async function performReview(
       candidate,
       overview: overview.overview,
       snapshot: snapshot.value,
-      kind: reviewKindOf(review.kind),
-      recordUsage: (usage) =>
-        dependencies.prisma.assistantUsage
-          .createMany({
+      kind: previousReviewId === null ? "initial" : "recheck",
+      async recordUsage(usage) {
+        try {
+          await dependencies.prisma.assistantUsage.createMany({
             data: usageRows(dependencies, review, [usage]),
-          })
-          .then(() => undefined),
+          });
+        } catch (error) {
+          reportDependencyFailure(
+            { module: "course-assistant", operation: "runPracticeReview" },
+            error,
+          );
+          unrecordedUsages.push(usage);
+        }
+      },
       async compareChanges() {
         if (candidate.kind !== "pull_request") return undefined;
         const compared = await dependencies.repositories.compareCommits(
@@ -230,17 +242,20 @@ async function performReview(
       },
     });
   } finally {
-    // Код участника живёт только на время проверки.
-    await snapshot.value.dispose();
+    // Код участника живёт только на время проверки. Если удаление не удалось, остаток убирает
+    // следующий запуск worker; итог проверки от этого не зависит.
+    await snapshot.value.dispose().catch((error: unknown) => {
+      reportDependencyFailure(
+        { module: "course-assistant", operation: "runPracticeReview" },
+        error,
+      );
+    });
   }
   if (!outcome.ok)
-    return fail(
-      { code: outcome.reason, currentContextVersion: null },
-      outcome.unrecordedUsages,
-    );
+    return fail({ code: outcome.reason, currentContextVersion: null });
   await finish(dependencies, review, {
-    completed: { report: outcome.report, candidate },
-    unrecordedUsages: outcome.unrecordedUsages,
+    completed: { report: outcome.report, candidate, previousReviewId },
+    unrecordedUsages,
   });
   return "completed";
 }
@@ -263,9 +278,9 @@ async function askToChoose(
   dependencies: PracticeReviewerDependencies,
   review: ClaimedReview,
   candidates: readonly ReviewCandidate[],
-): Promise<void> {
+): Promise<boolean> {
   const now = dependencies.clock();
-  await dependencies.prisma.$transaction(async (transaction) => {
+  return dependencies.prisma.$transaction(async (transaction) => {
     const asking = await transaction.practiceReview.updateMany({
       where: { id: review.id, state: "running" },
       data: {
@@ -275,7 +290,7 @@ async function askToChoose(
       },
     });
     // Проверку уже закрыли как прерванную: вопрос не задаётся.
-    if (asking.count === 0) return;
+    if (asking.count === 0) return false;
     // Вопрос задаётся один раз; повторный выбор в той же проверке его не дублирует.
     const asked = await transaction.assistantMessage.count({
       where: { reviewId: review.id, kind: "candidate_question" },
@@ -291,6 +306,7 @@ async function askToChoose(
           createdAt: now,
         },
       });
+    return true;
   });
 }
 
@@ -305,6 +321,7 @@ async function finish(
         readonly completed: {
           readonly report: Parameters<typeof practiceStatusOf>[0];
           readonly candidate: ReviewCandidate;
+          readonly previousReviewId: string | null;
         };
       }
     | { readonly failure: ReviewFailure }
@@ -312,14 +329,6 @@ async function finish(
 ): Promise<void> {
   const now = dependencies.clock();
   await dependencies.prisma.$transaction(async (transaction) => {
-    const previous =
-      "completed" in outcome
-        ? await previousReviewOfWork(
-            transaction,
-            review,
-            outcome.completed.candidate,
-          )
-        : null;
     const finished = await transaction.practiceReview.updateMany({
       where: { id: review.id, state: "running" },
       data:
@@ -329,7 +338,11 @@ async function finish(
               report: outcome.completed.report,
               practiceStatus: practiceStatusOf(outcome.completed.report),
               checkedCandidate: outcome.completed.candidate,
-              previousReviewId: previous,
+              previousReviewId: outcome.completed.previousReviewId,
+              kind:
+                outcome.completed.previousReviewId === null
+                  ? "initial"
+                  : "recheck",
               completedAt: now,
             }
           : { state: "failed", failure: outcome.failure, completedAt: now },
@@ -355,18 +368,19 @@ async function finish(
 }
 
 /**
- * Прошлая завершённая проверка той же работы: другая ветка или PR — не повторная проверка, и
- * «было:» у критериев к ней не относится.
+ * Прошлая завершённая проверка той же работы того же репозитория: другая ветка, PR или
+ * репозиторий — не повторная проверка, и «было:» у критериев к ней не относится.
  */
 async function previousReviewOfWork(
-  transaction: Pick<CourseAssistantPrisma, "practiceReview">,
+  prisma: Pick<CourseAssistantPrisma, "practiceReview">,
   review: ClaimedReview,
   candidate: ReviewCandidate,
 ): Promise<string | null> {
-  const earlier = await transaction.practiceReview.findMany({
+  const earlier = await prisma.practiceReview.findMany({
     where: {
       accountId: review.accountId,
       practiceId: review.practiceId,
+      repositoryId: BigInt(review.repository.repositoryId),
       state: "completed",
       requestedAt: { lt: review.requestedAt },
     },
@@ -375,12 +389,10 @@ async function previousReviewOfWork(
   });
   const work = candidateId(requestOf(candidate));
   return (
-    earlier.find(
-      ({ checkedCandidate }) =>
-        candidateId(
-          requestOf(reviewCandidateSchema.parse(checkedCandidate)),
-        ) === work,
-    )?.id ?? null
+    earlier.find(({ checkedCandidate }) => {
+      const checked = reviewCandidateSchema.safeParse(checkedCandidate);
+      return checked.success && candidateId(requestOf(checked.data)) === work;
+    })?.id ?? null
   );
 }
 
