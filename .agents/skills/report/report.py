@@ -38,13 +38,14 @@ def sections(text: str, is_html: bool) -> tuple[str, dict[str, str]]:
     """Шапка до первого раздела и разделы второго уровня: заголовок → текст."""
     text = COMMENT.sub("", text)
     if is_html:
-        text = re.sub(r"<style.*?</style>|<script.*?</script>", "", text, flags=re.S | re.I)
+        text = re.sub(r"<style.*?</style>|<script.*?</script>|<svg.*?</svg>", "", text, flags=re.S | re.I)
         text = re.sub(r"<h2[^>]*>(.*?)</h2>", lambda m: "\n## " + TAG.sub("", m.group(1)) + "\n", text, flags=re.S | re.I)
         text = re.sub(r"<h3[^>]*>(.*?)</h3>", lambda m: "\n### " + TAG.sub("", m.group(1)) + "\n", text, flags=re.S | re.I)
         text = re.sub(r"<li[^>]*>", "\n- ", text, flags=re.I)
         text = re.sub(r"</?code[^>]*>", "`", text, flags=re.I)
         text = re.sub(r'<a [^>]*href="(https?://[^"]+)"[^>]*>', r" \1 ", text, flags=re.I)
         text = TAG.sub("", text)
+    text = re.sub(r"^```.*?^```", "", text, flags=re.S | re.M)
     parts = re.split(r"^## +(.+?)\s*$", text, flags=re.M)
     return parts[0], {title.strip(): body.strip() for title, body in zip(parts[1::2], parts[2::2])}
 
@@ -265,13 +266,17 @@ def finish(args: argparse.Namespace) -> int:
     # Время отчёта — время сдачи: строка «Сдан:» встаёт после «Создан:» или обновляется.
     text = path.read_text(encoding="utf-8")
     stamp = f"Сдан: {datetime.now().astimezone().replace(microsecond=0).isoformat()}"
-    if re.search(r"^Сдан: .*$", text, re.M):
-        text = re.sub(r"^Сдан: .*$", stamp, text, count=1, flags=re.M)
-    else:
+    if re.search(r"^Сдан: ", text, re.M):
+        text = re.sub(r"^Сдан: [^\n<]*", stamp, text, count=1, flags=re.M)
+    elif re.search(r"^Создан: ", text, re.M):
         text = re.sub(r"^(Создан: [^\n<]*)", lambda m: f"{m.group(1)}\n{stamp}", text, count=1, flags=re.M)
+    else:
+        print("ошибка: в шапке нет строки «Создан: …»", file=sys.stderr)
+        print("Отчёт не сдан: исправь ошибки и запусти finish снова.", file=sys.stderr)
+        return 1
     path.write_text(text, encoding="utf-8")
-    _, found = sections(text, path.suffix == ".html")
-    status = re.search(r"^Статус:\s*(.+?)\s*$", text, re.M)
+    head, found = sections(text, path.suffix == ".html")
+    status = re.search(r"^Статус:\s*(.+?)\s*$", head, re.M)
     first = found["Что сделано"].splitlines()[0].lstrip("-* ")
     print(f"Отчёт: {path}")
     print(f"Итог: {status.group(1) if status else ''}. {first}")
