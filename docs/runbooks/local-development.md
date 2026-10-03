@@ -81,7 +81,7 @@ handoff; do not rebuild, migrate, stop or reset that stack. The successful start
 until that same session runs `docker compose down` and reports the shutdown. Integration tests are
 safe in parallel because Testcontainers owns an isolated database.
 
-Playwright does not use Compose. The browser checks of `pnpm check` take free ports from the
+Playwright does not use Compose. The Playwright checks of `pnpm check` take free ports from the
 reserved range of `scripts/smoke-stand.mjs` (#896), so checks in two worktrees run side by side.
 `PLAYWRIGHT_PORT`, `NAVIGATION_WEB_PORT` and `FAKE_BACKEND_PORT` set a port explicitly.
 

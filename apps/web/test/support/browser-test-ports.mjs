@@ -9,25 +9,15 @@
  * порт, а не новый.
  *
  * Конфигурация Playwright синхронна, а проверка свободного порта — нет, поэтому порты выбирает
- * дочерний процесс. Playwright транспилирует этот модуль в CommonJS, где `import.meta` нет, поэтому
- * `scripts/smoke-stand.mjs` ищется от корня рабочего пространства, как в `scripts/evidence-path.mjs`.
+ * дочерний процесс `scripts/reserve-ports.mjs`. Playwright транспилирует этот модуль в CommonJS, где
+ * `import.meta` нет, поэтому скрипт ищется от корня рабочего пространства, как в
+ * `scripts/evidence-path.mjs`.
  */
 import { execFileSync } from "node:child_process";
 import { existsSync } from "node:fs";
 import path from "node:path";
-import { pathToFileURL } from "node:url";
 
-/** Выбирает `argv[2]` портов одним процессом: `reservePort` не выдаёт порт дважды. */
-const reservePorts = `
-const { reservePort } = await import(process.argv[1]);
-const ports = [];
-for (let index = 0; index < Number(process.argv[2]); index += 1) {
-  ports.push(await reservePort());
-}
-process.stdout.write(ports.join(" "));
-`;
-
-function smokeStandModule() {
+function reservePortsScript() {
   let directory = process.cwd();
   while (!existsSync(path.join(directory, "pnpm-workspace.yaml"))) {
     const parent = path.dirname(directory);
@@ -36,11 +26,12 @@ function smokeStandModule() {
     }
     directory = parent;
   }
-  return pathToFileURL(path.join(directory, "scripts/smoke-stand.mjs")).href;
+  return path.join(directory, "scripts/reserve-ports.mjs");
 }
 
 /**
  * Порт каждой переменной в порядке `names`: заданный явно или свободный из резервного диапазона.
+ * Тип для TypeScript задаёт `browser-test-ports.d.mts`: кортеж той же длины, что `names`.
  *
  * @param {readonly string[]} names
  * @returns {string[]}
@@ -50,13 +41,7 @@ export function browserTestPorts(names) {
   if (missing.length > 0) {
     const reserved = execFileSync(
       process.execPath,
-      [
-        "--input-type=module",
-        "-e",
-        reservePorts,
-        smokeStandModule(),
-        String(missing.length),
-      ],
+      [reservePortsScript(), String(missing.length)],
       { encoding: "utf8" },
     ).split(" ");
     for (const [index, name] of missing.entries()) {

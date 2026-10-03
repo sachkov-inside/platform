@@ -11,11 +11,20 @@ import {
 } from "@playwright/test";
 
 import { evidenceDirectory } from "../../../../scripts/evidence-path.mjs";
-import { browserTestPorts } from "../support/browser-test-ports.mjs";
 import { z } from "zod";
 
-const [backendPort] = browserTestPorts(["FAKE_BACKEND_PORT"]);
-const backend = `http://127.0.0.1:${backendPort}`;
+/** Порт подставного backend выбирает `playwright.navigation.config.ts`; спека его только читает. */
+function fakeBackendPort() {
+  const port = process.env["FAKE_BACKEND_PORT"];
+  if (port === undefined || port === "") {
+    throw new Error(
+      "FAKE_BACKEND_PORT is required: run the spec through its configuration",
+    );
+  }
+  return port;
+}
+
+const backend = `http://127.0.0.1:${fakeBackendPort()}`;
 const programme = "/products/navigation-proof/programme";
 const product = "/products/navigation-proof";
 const freeLesson = "navigation-lesson-1";

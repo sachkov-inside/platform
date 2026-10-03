@@ -10,8 +10,8 @@ import { z } from "zod";
 import { reservedPortRange } from "./smoke-stand.mjs";
 
 /**
- * Браузерные проверки `pnpm check` не держат фиксированных портов (#896): параллельная проверка
- * соседнего worktree занимала 3100, и прогон падал до первого теста.
+ * Проверки Playwright в `pnpm check` (`test:e2e`, `test:navigation`) не держат фиксированных портов
+ * (#896): параллельная проверка соседнего worktree занимала 3100, и прогон падал до первого теста.
  */
 const webRoot = fileURLToPath(new URL("../apps/web", import.meta.url));
 const portVariables = [
@@ -27,7 +27,8 @@ const loadedSchema = z.object({
 });
 
 /**
- * Конфигурация так, как её загружает Playwright: модуль целиком, в своём процессе.
+ * Конфигурация в своём процессе, как её загружает Node. Путь Playwright через CommonJS покрывает
+ * `scripts/playwright-specs-load.test.mjs`.
  *
  * @param {string} configuration
  * @param {Record<string, string>} [ports]
@@ -135,17 +136,15 @@ function sourceFiles(directory) {
     .map((entry) => path.join(entry.parentPath, entry.name));
 }
 
-test("no browser test falls back to a fixed port", () => {
+test("no Playwright check of pnpm check falls back to a fixed port", () => {
   const files = [
-    ...readdirSync(webRoot)
-      .filter(
-        (entry) =>
-          entry.startsWith("playwright") && entry.endsWith(".config.ts"),
-      )
-      .map((entry) => path.join(webRoot, entry)),
-    ...sourceFiles(path.join(webRoot, "test")),
+    ...configurations.map(({ file }) => path.join(webRoot, file)),
+    ...["e2e", "navigation", "support"].flatMap((directory) =>
+      sourceFiles(path.join(webRoot, "test", directory)),
+    ),
   ];
-  const fixedFallback = /PORT"\]\s*\?\?\s*["'`]?\d/u;
+  // `process.env["X_PORT"] ?? "3100"`, `process.env.X_PORT || 3100` и подобные.
+  const fixedFallback = /_PORT"?\]?\s*(?:\?\?|\|\|)\s*["'`]?\d/u;
   const offenders = files.filter((file) =>
     fixedFallback.test(readFileSync(file, "utf8")),
   );
