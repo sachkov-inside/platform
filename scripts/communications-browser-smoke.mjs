@@ -162,7 +162,7 @@ try {
   const code = await exited;
   if (code !== 0) throw new Error(`Browser assertions failed: ${String(code)}`);
   process.stdout.write(
-    "Communications browser/HTTP smoke passed on desktop and mobile against real Nest/PostgreSQL and a Telegram contract stub.\n",
+    "Communications smoke passed: Telegram management stays outside the Platform editor on desktop and mobile.\n",
   );
 } catch (error) {
   process.stderr.write(output.join("").slice(-18000));

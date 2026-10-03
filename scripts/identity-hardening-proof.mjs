@@ -9,6 +9,7 @@ import { fileURLToPath } from "node:url";
 
 import { ensureCheckDatabase } from "./check-database.mjs";
 import { acquireLocalSetupLock } from "./local-setup-lock.mjs";
+import { signalProcessGroup } from "./process-group-signal.mjs";
 import {
   startWithRoutes,
   stopProcessGroup,
@@ -54,6 +55,15 @@ const applicationProcesses = new Set();
 let ownsIdentity = false;
 let ownsPlatform = false;
 let sensitiveOutputObserved = false;
+// API и web живут в своих группах процессов, и Ctrl-C терминала до них не доходит. Прерванный
+// proof останавливает их сам, иначе `next dev` держит фиксированный порт стенда.
+for (const signal of /** @type {const} */ (["SIGINT", "SIGTERM"])) {
+  process.once(signal, () => {
+    for (const child of applicationProcesses)
+      if (child.pid !== undefined) signalProcessGroup(child.pid, "SIGTERM");
+    process.exit(signal === "SIGINT" ? 130 : 143);
+  });
+}
 
 try {
   await assertNoRunningProof();

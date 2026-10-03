@@ -123,38 +123,22 @@ async function command(args, env) {
   assert.equal(code, 0, `Command failed: ${args.join(" ")}`);
 }
 /**
- * @param {string} url
- * @param {(body: string) => boolean} accepts
- */
-async function waitReady(url, accepts) {
-  for (let index = 0; index < 120; index++) {
-    try {
-      const response = await fetch(url);
-      const body = await response.text();
-      if (response.ok && accepts(body)) return;
-    } catch {
-      /* process startup */
-    }
-    await new Promise((done) => setTimeout(done, 1000));
-  }
-  throw new Error(`Readiness timed out: ${url}`);
-}
-/**
- * Ждёт первого ответа сервера. Отсутствующий маршрут отвечает 404, его ловит `startWithRoutes`.
+ * Опрашивает адрес, пока ответ не подойдёт. Редиректы не выполняются: ответ даёт сам процесс.
  *
  * @param {import("node:child_process").ChildProcess} child
  * @param {string} url
+ * @param {(response: Response) => Promise<boolean>} accepts
  */
-async function waitStarted(child, url) {
+async function waitReady(child, url, accepts) {
   for (let index = 0; index < 120; index++) {
     if (child.exitCode !== null || child.signalCode !== null)
-      throw new Error(`Web dev server exited before readiness: ${url}`);
+      throw new Error(`Process exited before readiness: ${url}`);
     try {
       const response = await fetch(url, {
         redirect: "manual",
         signal: AbortSignal.timeout(30_000),
       });
-      if (response.status < 500) return;
+      if (await accepts(response)) return;
     } catch {
       /* process startup */
     }
@@ -192,15 +176,19 @@ try {
     BILLING_CONTACT_FROM: "inside@example.test",
   };
   await command(["--filter", "@inside/backend", "db:migrate"], env);
-  run(
+  const api = run(
     ["--filter", "@inside/backend", "exec", "tsx", "src/entrypoints/api.ts"],
     env,
   );
   await waitReady(
+    api,
     `${apiBaseUrl}/health`,
-    (body) =>
-      z.object({ status: z.unknown() }).passthrough().parse(JSON.parse(body))
-        .status === "ready",
+    async (response) =>
+      response.ok &&
+      z
+        .object({ status: z.unknown() })
+        .passthrough()
+        .parse(await response.json()).status === "ready",
   );
   // Снимки-свидетельства делаются на 390 и целой страницей, поэтому индикатор режима
   // разработки в них попадать не должен. Переменную читает `next.config.ts` из #594: до его
@@ -216,8 +204,10 @@ try {
   await startWithRoutes({
     baseUrl: webBaseUrl,
     routes: [
+      "/account",
       "/account/purchases",
       "/welcome",
+      "/auth/status",
       "/api/account",
       "/api/account/billing",
       "/api/account/billing/community-admission",
@@ -225,6 +215,7 @@ try {
       "/api/account/billing/contact/confirm",
       "/api/account/billing/contact/start",
       "/api/account/billing/enrollments",
+      "/api/account/community-entry",
       "/api/account/terms",
     ],
     start: () =>
@@ -241,7 +232,12 @@ try {
         webEnv,
       ),
     stop: (web) => stopServerOnPort(web, webPort),
-    ready: (web) => waitStarted(web, `${webBaseUrl}/account/purchases`),
+    // Отсутствующий маршрут отвечает 404, его ловит `startWithRoutes`; готовность ждёт любого
+    // ответа сервера.
+    ready: (web) =>
+      waitReady(web, `${webBaseUrl}/account/purchases`, (response) =>
+        Promise.resolve(response.status < 500),
+      ),
   });
   await mkdir(evidence, { recursive: true });
   const launched = await chromium.launch();
