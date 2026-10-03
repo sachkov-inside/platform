@@ -60,7 +60,7 @@ are additional real-PostgreSQL evidence; their fake transports do not become cre
 | 4. Media and multipart | Six template IDs through MCP and six synthetic sends; Telegram communications suite snapshot/edit/deletion/permission; funnel suite terminal partial-cancel timestamp after unknown resolution |
 | 5. Broadcast snapshot | Cross-provider scheduled launch, receipt replay, late join and stop/resume before 429 retry; Telegram broadcast suite union audiences, concurrent launch and in-flight cancel |
 | 6. Failure and recovery | Cross-provider unknown/no resend/explicit skip and feature disable; Telegram funnel/broadcast suites independent workers, crash/claim/DB ACK, 429/permanent failure and explicit retry |
-| 7. Owner/agent authority | Cross-provider publish/launch/rollback via HTTP/MCP, ordinary permission denial; Platform communications management/authorization/targets suites; Storybook covers UI adapters, no browser check since #419 |
+| 7. Owner/agent authority | Cross-provider publish/launch/rollback via HTTP/MCP, ordinary permission denial; Platform communications management/authorization/targets suites; Storybook covers UI presentation and module tests cover the BFF adapters; no browser check since #419 |
 | 8. Content and analytics | Cross-provider real free Material/Series, paid Reader remains protected, repeated/forwarded token hits separate from unique tokens; Platform tracking integration suite durable retries, invalid targets and degraded persistence |
 
 No automated check drives Browser → BFF → real Nest/PostgreSQL for communications. Since #419

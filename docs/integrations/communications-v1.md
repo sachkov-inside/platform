@@ -121,6 +121,10 @@ and transport parity, not actual publication, audience selection or Telegram del
 
 ## Broadcasts and analytics UI
 
+Since #419 this page answers 404 like the rest of `/authoring/communications` (see
+[Editor ownership](#editor-ownership)). The UI below stays in `apps/web/src/_pages/communications` and
+its Storybook stories; no browser test exercises it against the BFF.
+
 `/authoring/communications/broadcasts` uses the same Account-authorized facade as MCP through named same-origin
 BFF operations. Browser TanStack Query owns lists and statistics; writes have distinct literal routes.
 A draft holds ordered text or imported template parts, buttons, union audience and a local-time date
@@ -174,15 +178,15 @@ No automated check drives the communications path Browser → BFF → Nest. Sinc
 [Editor ownership](#editor-ownership)), so no page reaches the BFF routes under `/api/communications`
 from a browser. `apps/web/test/fullstack/communications.spec.ts` and `broadcasts.spec.ts`, run by
 `pnpm smoke:fullstack`, prove only that both pages answer 404. The former `pnpm smoke:communications`
-ran the same 404 check against a disposable Nest/PostgreSQL stand and was removed in #881. The BFF
-adapters keep module tests in `apps/web/test/module/communications-bff.test.ts`, and the Nest side keeps
-the PostgreSQL suites listed under [Verification](#verification). Real provider scheduling, Telegram
-sends and the combined live content route remain #310 acceptance.
+ran only `broadcasts.spec.ts` against a disposable Nest/PostgreSQL stand and was removed in #881. The
+BFF adapters keep module tests in `apps/web/test/module/communications-bff.test.ts`; the Nest side keeps
+`apps/backend/test/integration/communications-{management,authorization,targets}.test.ts`. Real
+provider scheduling, Telegram sends and the combined live content route remain #310 acceptance.
 
 ## Funnel management UI
 
-Since #419 this page and the broadcasts page are not reachable: the `/authoring/communications`
-layout answers 404. The UI described below stays in `apps/web/src/_pages/communications` and its
+Since #419 this page is not reachable: the `/authoring/communications` layout answers 404. The UI
+described below stays in `apps/web/src/_pages/communications` and its
 Storybook stories; no browser test exercises it against the BFF.
 
 `/authoring/communications` uses the production AuthoringShell and a feature-local presentation
