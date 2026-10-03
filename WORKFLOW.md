@@ -17,7 +17,8 @@ each with its own command. Finish such a stage with its outcome and the stage yo
 then wait. An implementation task labelled `ready-for-agent` runs from `implement` to a ready pull
 request without stopping. The owner starts it with `/implement #<issue>`; when the task arrives as
 plain text, read `.agents/skills/implement/SKILL.md` and follow it. The acceptance criteria of the
-task are the pre-agreed seams for `tdd`: write the failing test first, without asking.
+task name the pre-agreed seams for `tdd`: write those seams down, then write the failing test first,
+without asking. A criterion with no behaviour needs no test.
 
 Everything that needs an owner decision is decided before tasks exist: in grilling, and for the
 look of an interface in a prototype. A task is one vertical slice sized for one fresh context
@@ -33,19 +34,18 @@ window.
   `ready-for-human`, `wontfix`, plus `wayfinder:*` set by the `wayfinder` skill. `ready-for-human`
   is only for work a human does.
 - Create an issue in the repository that owns the outcome.
-- A defect outside the task that blocks it is a blocker: open a linked issue labelled
-  `ready-for-agent` and fix it first. When the fix touches only tests, scripts, CI or documentation
-  and one revert undoes it, copy the merge line of the task into the new issue. Otherwise ask the
-  owner who merges.
+- A defect outside the task that blocks it is a blocker. Find its open issue and label it
+  `ready-for-agent`, or open a linked one with that label; fix it first. When the task body gives
+  the agent the right to merge, one revert undoes the fix, and the fix changes nothing under `apps/`
+  or `packages/` except tests and no release or deploy script, copy the merge line into the
+  blocker issue. Otherwise ask the owner who merges.
 - A task that waits for the owner's acceptance stays open with a comment naming what the owner
   accepts.
 - Durable decisions live in `GLOSSARY.md`, ADRs and `CODING_STANDARDS.md`.
 
 ## Merge
 
-The right to merge is a line in the task body. Without that line, the owner merges. A merge goes
-through the merge queue, not `gh pr merge`: see
-[Merge queue](docs/runbooks/continuous-integration.md#merge-queue).
+The right to merge is a line in the task body. Without that line, the owner merges.
 
 ## Is the task taken
 
@@ -76,9 +76,9 @@ Nothing protects the gap between the start and the first push.
   needs several pull requests, only the last one closes it; the others say `Part of #<issue>`.
 - Once the branch is pushed, integrate `origin/main` by merge; do not rebase or force-push.
 - The pull request body is a result card in the owner's language with the sections `Что сделано`,
-  `Что нужно от владельца`, `Проверка` (checked automatically, check yourself, not checked),
-  `Ревью` (findings with outcomes), `Риск merge` and `Что дальше`. The skill `pr` fills it: Summary
-  goes into `Что сделано`, Evidence into `Проверка`, Merge Danger into `Риск merge`.
+  `Что нужно от владельца`, `Проверка` (checked automatically, for the owner to check by hand, not
+  checked), `Ревью` (findings with outcomes), `Риск merge` and `Что дальше`. The skill `pr` fills
+  it: Summary goes into `Что сделано`, Evidence into `Проверка`, Merge Danger into `Риск merge`.
 
 ## Review
 
@@ -99,10 +99,11 @@ final head with its real exit code. The agent then:
 
 1. marks the acceptance criteria in the task;
 2. brings the pull request to green CI on the current head. A failed check is diagnosed and fixed.
-   Re-run it once in two cases: diagnosis attributes the failure to the CI provider, or the diff
-   does not touch the failed check. In the second case an open issue tracks the failure: find it or
-   open one with `needs-triage`. The re-run unblocks the pull request; the issue fixes the cause. A
-   failure after the re-run is a blocker (see `Tracker`);
+   Re-run it once in two cases. First: diagnosis attributes the failure to the CI provider.
+   Second: the diff changes neither the failed test or job nor code that the failed test runs; then
+   re-run without further diagnosis, and make sure an open issue tracks the failure: find it or open
+   one with `needs-triage`. The re-run unblocks the pull request; the issue fixes the cause. A
+   failure after the re-run is diagnosed; when it blocks the task, it is a blocker (see `Tracker`);
 3. reads `closingIssuesReferences` of the pull request and compares it with the task number:
    `gh pr view <pr> --json closingIssuesReferences --jq '.closingIssuesReferences[].number'`;
 4. cleans up with the skill `session-cleanup`;
