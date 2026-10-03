@@ -9,6 +9,11 @@ related_targets: ["apps/web/src/_pages/communications/ui/communications-workspac
 
 ## Назначение и статус
 
+С #419 маршрут отключён: layout `apps/web/app/authoring/communications/layout.tsx` вызывает
+`notFound()` по решению [#396](https://github.com/sachkov-inside/platform/issues/396), и воронками
+управляет Telegram-бот. Поверхность живёт только в Storybook; ниже описано её состояние до
+отключения.
+
 Режим: **Operate**. Подтверждённый автор управляет знакомством, воронками и историей доставки на
 `/authoring/communications`. #308 реализует функциональный путь через временный семантический UI
 по default path из `docs/agents/frontend-delivery.md`.

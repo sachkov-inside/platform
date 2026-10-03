@@ -314,7 +314,15 @@ docker ps --filter label=com.docker.compose.project=inside-platform-production \
 
 **Воронки идут.**
 
-- `/authoring/communications/broadcasts` показывает статистику и `trackingBacklog` без `unavailable`.
+- Статистика рассылок и `trackingBacklog` читаются MCP-инструментом `communications_statistics_read`.
+  Страница `/authoring/communications/broadcasts` с #419 отвечает 404, поэтому проверку ведёт агент
+  владельца, подключённый к `/mcp`; у его аккаунта есть право `communications:manage` и связанный
+  Telegram. Вход — новый `operationId` (UUID), `expectedRevision: 0` и `payload: {}`. Ответ
+  `ok: true` с `trackingBacklog.kind: "ready"` значит, что provider отдал статистику, а процесс `mcp`
+  прочитал очередь переходов; `pending` и `oldestAgeSeconds` показывают, копятся ли переходы.
+  `kind: "unavailable"` — `mcp` не прочитал таблицу `communications.tracking_hits`. Любой
+  `ok: false` — сбой, код в `error.code`: `provider_unavailable` — provider недоступен,
+  `link_required` — у аккаунта нет связанного Telegram.
 - Разрешение автора без bearer отвечает `401` с `"code":"unauthorized"`. Переход проверяется токеном
   правильного формата, но несуществующим — 43 символа `A`, как в шаге 12 совместной выкладки в
   `docs/operations/production.md` Telegram. Web передаёт такой токен в backend, backend спрашивает
