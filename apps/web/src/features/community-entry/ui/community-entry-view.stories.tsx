@@ -28,6 +28,28 @@ const meta = {
 export default meta;
 type Story = StoryObj<typeof meta>;
 
+/** Путь в группу показан тремя шагами; текущий шаг отмечен для вспомогательных технологий. */
+async function expectCurrentStep(
+  canvasElement: HTMLElement,
+  name: string | null,
+): Promise<void> {
+  const region = within(canvasElement).getByRole("region", {
+    name: "Сообщество Inside",
+  });
+  const steps = within(region).getAllByRole("listitem");
+  await expect(steps.map((step) => step.dataset["step"])).toEqual([
+    "link_telegram",
+    "bot_link",
+    "group",
+  ]);
+  const current = steps.filter(
+    (step) => step.getAttribute("aria-current") === "step",
+  );
+  await expect(current.map((step) => step.dataset["step"])).toEqual(
+    name === null ? [] : [name],
+  );
+}
+
 export const Join: Story = {
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
@@ -35,6 +57,7 @@ export const Join: Story = {
     // Бот понимает обычный /start: новых параметров ссылка не несёт.
     await expect(link).toHaveAttribute("href", botUrl);
     await expect(link).toHaveAttribute("target", "_blank");
+    await expectCurrentStep(canvasElement, "bot_link");
   },
 };
 export const LinkTelegram: Story = {
@@ -44,6 +67,7 @@ export const LinkTelegram: Story = {
     await expect(
       canvas.getByRole("link", { name: "Подключить Telegram" }),
     ).toHaveAttribute("href", "/account/access");
+    await expectCurrentStep(canvasElement, "link_telegram");
   },
 };
 export const Preparing: Story = {
@@ -58,6 +82,7 @@ export const Preparing: Story = {
         canvas.getByRole("region", { name: "Сообщество Inside" }),
       ).queryByRole("link"),
     ).toBeNull();
+    await expectCurrentStep(canvasElement, "bot_link");
   },
 };
 export const Member: Story = {
@@ -73,6 +98,8 @@ export const Member: Story = {
         canvas.getByRole("region", { name: "Сообщество Inside" }),
       ).queryByRole("link"),
     ).toBeNull();
+    // Все шаги пройдены: текущего шага нет.
+    await expectCurrentStep(canvasElement, null);
   },
 };
 export const Restricted: Story = {
@@ -80,11 +107,10 @@ export const Restricted: Story = {
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
     await expect(canvas.getByText(/сейчас ограничено/u)).toBeInTheDocument();
-    await expect(
-      within(
-        canvas.getByRole("region", { name: "Сообщество Inside" }),
-      ).queryByRole("link"),
-    ).toBeNull();
+    const region = canvas.getByRole("region", { name: "Сообщество Inside" });
+    await expect(within(region).queryByRole("link")).toBeNull();
+    // Ограничение не продвигает путь: шагов нет.
+    await expect(within(region).queryByRole("list")).toBeNull();
   },
 };
 export const WithoutCommunity: Story = {
@@ -102,8 +128,12 @@ export const ReadFailed: Story = {
     const region = canvas.getByRole("region", { name: "Сообщество Inside" });
     await expect(region).toHaveTextContent(/повторим автоматически/u);
     await expect(within(region).queryByRole("button")).toBeNull();
+    await expect(within(region).queryByRole("list")).toBeNull();
   },
 };
 export const JoinMobile: Story = {
   globals: { viewport: { isRotated: false, value: "mobile390" } },
+};
+export const JoinDesktop: Story = {
+  globals: { viewport: { isRotated: false, value: "desktop1440" } },
 };

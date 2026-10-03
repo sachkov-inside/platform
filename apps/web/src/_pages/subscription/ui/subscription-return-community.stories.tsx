@@ -3,7 +3,10 @@ import { expect, fn, within } from "storybook/test";
 
 import { PurchaseReturnView } from "@/features/billing-checkout";
 import { CommunityEntryView } from "@/features/community-entry";
-import { confirmedPurchase, failedPurchase } from "@/workshop/billing.fixtures";
+import {
+  confirmedGuidePurchase,
+  failedPurchase,
+} from "@/workshop/billing.fixtures";
 import { publicPageEnvironment } from "@/workshop/story-environment";
 
 const environment = publicPageEnvironment("/subscription/return");
@@ -14,7 +17,7 @@ const meta = {
   title: "Pages/Subscription/Return/Community",
   component: PurchaseReturnView,
   args: {
-    purchase: confirmedPurchase,
+    purchase: confirmedGuidePurchase,
     accountHref: "/account/subscription",
     accessSlot: (
       <CommunityEntryView
