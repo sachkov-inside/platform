@@ -56,8 +56,9 @@ Nothing protects the gap between the start and the first push.
 - Branch `<type>/<issue>-<slug>` from the current `origin/main`, in its own worktree. Types:
   `feat`, `fix`, `docs`, `chore`, `research`, `prototype`. Trivial untracked work uses
   `<type>/<slug>`.
-- The primary checkout belongs to the owner: read it, do not change it. After the merge,
-  fast-forward it only when it is on `main` and has no uncommitted changes.
+- The primary checkout belongs to the owner: read it, do not change it. The only exception is
+  `.reports/`, which the skill `report` writes. After the merge, fast-forward it only when it is
+  on `main` and has no uncommitted changes.
 - Worktree place: `worktrees/<repo>-<task>` at the Workspace root for a checkout under
   `repositories/`; `<parent>/<repo>.worktrees/<task>` for a standalone checkout. `<task>` is the
   branch without its type prefix.
@@ -90,14 +91,14 @@ final head with its real exit code. The agent then:
    not re-run; re-run only a failure that diagnosis attributes to the CI provider;
 3. reads `closingIssuesReferences` of the pull request and compares it with the task number:
    `gh pr view <pr> --json closingIssuesReferences --jq '.closingIssuesReferences[].number'`;
-4. writes the report by the skill `report` while the worktree still exists;
-5. cleans up with the skill `session-cleanup`, then gives in chat the report link and one line of
-   outcome.
+4. cleans up with the skill `session-cleanup`;
+5. writes the report by the skill `report` and names in it each leftover of the cleanup;
+6. gives in chat the report link and one line of outcome.
 
-The report is written whenever work goes to the owner: a ready pull request, a stopped task or a
-result that waits for acceptance. Its automatic verification is the check command and the CI of
-the pull request. The report is delivered when `report.py finish` exits with 0; until then, do
-not call the work delivered. If a check cannot run, the report names what was not run.
+Steps 5 and 6 apply to any hand-off to the owner: a ready pull request, a stopped task or a result
+that waits for acceptance. The report's `verification.auto` names the check command and the pull
+request CI that ran; a check that did not run goes to `verification.unverified`. The report is
+delivered when `report.py finish` exits with 0.
 
 ## Rules from session reports
 
