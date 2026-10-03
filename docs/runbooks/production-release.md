@@ -209,7 +209,7 @@ AMQPS на `5671`. Топологию он читает из определен�
 | POST | `/integrations/telegram/v1/communications/validate-content` | авторское меню бота | bearer `TELEGRAM_AUTHOR_AUTHORIZATION_SECRET` | `401 unauthorized` |
 | POST | `/integrations/telegram/v1/sales-funnel/events` | бот Telegram | bearer `TELEGRAM_SALES_FUNNEL_INGRESS_SECRET` | `401 unauthorized` (без настройки — тоже `401`) |
 | любой | `/authoring-api/authoring/*` | перенос из Content (`pnpm authoring:release`) | bearer Logto автора с аудиторией API и право `materials:manage`; префикс снимается до API | `401`, без права — `403` |
-| любой | `/mcp` | MCP-клиенты | bearer Logto с аудиторией MCP | `401` |
+| любой | `/mcp` | MCP-клиенты | bearer Logto с аудиторией API | `401` |
 | любой | `/.well-known/oauth-protected-resource/mcp` | MCP-клиенты | нет: публичные метаданные | `200` |
 | любой | `/mcp/learning` | агенты участников курса | bearer Logto с аудиторией API или учебного MCP; доступ по аккаунту участника | `401` |
 | любой | `/.well-known/oauth-protected-resource/mcp/learning` | агенты участников курса | нет: публичные метаданные учебного MCP | `200` |
