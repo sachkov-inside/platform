@@ -1,6 +1,7 @@
 // @ts-check
 import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
+import { readFile } from "node:fs/promises";
 import { createServer } from "node:net";
 import { describe, it } from "node:test";
 
@@ -130,6 +131,25 @@ describe("smoke stand", () => {
       await stopServerOnPort(child, port);
     } finally {
       child.kill("SIGKILL");
+    }
+  });
+
+  it("starts the dev server of every browser scenario through the route check", async () => {
+    // Сценарии, которые сами поднимают `next dev` и гоняют по нему браузер. Локальные стенды для
+    // ручной проверки (`editor-local-review`, `telegram-sign-in-local`) сюда не входят.
+    const scenarios = [
+      "billing-contact-proof.mjs",
+      "buyer-journey-smoke.mjs",
+      "communications-browser-smoke.mjs",
+      "enrollment-browser-smoke.mjs",
+      "identity-hardening-proof.mjs",
+    ];
+
+    for (const scenario of scenarios) {
+      const source = await readFile(new URL(scenario, import.meta.url), "utf8");
+
+      assert.match(source, /startWithRoutes\(/u, scenario);
+      assert.match(source, /stopProcessGroup\(/u, scenario);
     }
   });
 });
