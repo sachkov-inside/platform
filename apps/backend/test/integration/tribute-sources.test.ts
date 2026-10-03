@@ -648,7 +648,6 @@ describe("Tribute source production facets and signed HTTP with PostgreSQL", () 
         error: { code: "revision_conflict" },
       });
     },
-    20_000,
   );
   test("preview flags every period reduction and confirmed-to-temporary downgrade before apply", async () => {
     const context = await setup();
