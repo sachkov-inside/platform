@@ -9,6 +9,7 @@ config/production/foundation/*.env
 .identity-proof
 ci-artifacts/
 .playwright-cli/
+.reports/
 playwright-report/
 test-results/
 coverage/
