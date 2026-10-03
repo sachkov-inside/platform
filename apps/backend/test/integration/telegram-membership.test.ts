@@ -528,7 +528,7 @@ describe("TelegramMembership", () => {
       ok: true,
       state: { status: "pending" },
     });
-  }, 20_000);
+  });
 });
 
 class ControlledTelegramLinkProvider implements TelegramLinkProvider {

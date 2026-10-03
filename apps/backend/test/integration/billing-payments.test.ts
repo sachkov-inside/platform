@@ -695,7 +695,7 @@ describe("subscription payment recovery (real PostgreSQL and real facets; synthe
       await db.prisma.accessGrant.count({ where: { accountId: s.buyer } }),
     ).toBe(1);
     expect(s.requests()).toBe(0);
-  }, 15_000);
+  });
 
   test("HTTP callback acknowledges only durable valid notifications as plain text", async () => {
     const s = await scenario();

@@ -79,6 +79,7 @@ measure behaviour rather than runner load. `scripts/integration-serial-files.tes
 file that starts a RabbitMQ broker, forks a crash process or runs a worker is missing from that list.
 The default test and hook budgets in the same config only stop a stuck run: a test that needs more
 names its own budget, and a flaky test is fixed by its cause, never by raising a budget or re-running.
+A test never names a budget below the default: it only cuts the test short on a slow runner.
 
 ## Suites outside CI
 
