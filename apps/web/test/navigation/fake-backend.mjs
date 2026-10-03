@@ -11,6 +11,8 @@ import { createServer } from "node:http";
 import { deflateSync } from "node:zlib";
 import { z } from "zod";
 
+import { browserTestPorts } from "../support/browser-test-ports.mjs";
+
 // Request bodies the checks send to the double; a malformed body fails the request.
 const controlSchema = z
   .object({ delayMs: z.unknown(), unavailable: z.unknown() })
@@ -20,7 +22,8 @@ const homePinSchema = z
   .object({ expectedVersion: z.number(), seriesId: z.unknown() })
   .passthrough();
 
-const port = Number(process.env["FAKE_BACKEND_PORT"] ?? "3190");
+// Порт задаёт `playwright.navigation.config.ts`; при отдельном запуске сервер берёт свободный.
+const [port] = browserTestPorts(["FAKE_BACKEND_PORT"]).map(Number);
 const guideId = "11111111-1111-4111-8111-111111111111";
 const guideSlug = "navigation-proof";
 const topic = {

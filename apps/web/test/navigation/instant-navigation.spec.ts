@@ -11,9 +11,11 @@ import {
 } from "@playwright/test";
 
 import { evidenceDirectory } from "../../../../scripts/evidence-path.mjs";
+import { browserTestPorts } from "../support/browser-test-ports.mjs";
 import { z } from "zod";
 
-const backend = `http://127.0.0.1:${process.env["FAKE_BACKEND_PORT"] ?? "3190"}`;
+const [backendPort] = browserTestPorts(["FAKE_BACKEND_PORT"]);
+const backend = `http://127.0.0.1:${backendPort}`;
 const programme = "/products/navigation-proof/programme";
 const product = "/products/navigation-proof";
 const freeLesson = "navigation-lesson-1";

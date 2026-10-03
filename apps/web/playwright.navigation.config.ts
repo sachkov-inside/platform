@@ -1,7 +1,11 @@
 import { defineConfig } from "@playwright/test";
 
-const webPort = process.env["NAVIGATION_WEB_PORT"] ?? "3180";
-const backendPort = process.env["FAKE_BACKEND_PORT"] ?? "3190";
+import { browserTestPorts } from "./test/support/browser-test-ports.mjs";
+
+const [webPort, backendPort] = browserTestPorts([
+  "NAVIGATION_WEB_PORT",
+  "FAKE_BACKEND_PORT",
+]);
 const baseURL = `http://127.0.0.1:${webPort}`;
 
 /**
