@@ -103,3 +103,17 @@ Poll one captured response per attempt. For expected success, use a failing HTTP
 attempt and inspect the captured successful body. When a non-success status is expected, capture
 status and body from the same request. A readiness check proves the live response and accepted
 state, not only a running process or copied file.
+
+## Text that describes the system
+
+Documents, code comments, pull request text and check output that say how the system behaves are
+claims about the code (#897). Review checks each claim in the diff against the file that owns the
+fact and cites that file in the finding.
+
+- A claim about which process, route, audience, error code, test or check does something matches
+  its owning file on the reviewed head.
+- A measured number names its source and period. Two numbers for one quantity say why they differ.
+- A statement about a past or planned state names its issue or date, so it does not read as current.
+- A check reports only what it proved.
+- When a diff shows that a described behaviour is gone, search for every other document that still
+  describes it as current. Fix each in the change or list them in one linked issue.
