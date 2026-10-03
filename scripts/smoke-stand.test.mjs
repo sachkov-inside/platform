@@ -158,7 +158,6 @@ describe("smoke stand", () => {
     assert.deepEqual(scenarios, [
       "billing-contact-proof.mjs",
       "buyer-journey-smoke.mjs",
-      "communications-browser-smoke.mjs",
       "enrollment-browser-smoke.mjs",
       "identity-hardening-proof.mjs",
     ]);

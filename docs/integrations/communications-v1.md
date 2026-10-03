@@ -169,13 +169,21 @@ reports an unavailable backlog during that outage rather than a fabricated zero.
 retain already persisted events for retry. The BFF's named 12-second communications budget covers the
 provider's five-second bound and local persistence; normal backend requests retain their existing budget.
 
-`pnpm smoke:communications` owns disposable PostgreSQL and ephemeral host ports, synthetic delegated
-identity and a Telegram contract stub. It proves desktop/mobile Browser → BFF → Nest, management
-identity, preview/save/launch/lifecycle, analytics/history, private redirect and anonymous denial, and
-captures screenshots in `ci-artifacts/communications`. It does not touch the shared Compose stack.
-Real provider scheduling, Telegram sends and the combined live content route remain #310 acceptance.
+No automated check drives the communications path Browser → BFF → Nest. Since #419 the
+`/authoring/communications` layout calls `notFound()` for every session (see
+[Editor ownership](#editor-ownership)), so no page reaches the BFF routes under `/api/communications`
+from a browser. `apps/web/test/fullstack/communications.spec.ts` and `broadcasts.spec.ts`, run by
+`pnpm smoke:fullstack`, prove only that both pages answer 404. The former `pnpm smoke:communications`
+ran the same 404 check against a disposable Nest/PostgreSQL stand and was removed in #881. The BFF
+adapters keep module tests in `apps/web/test/module/communications-bff.test.ts`, and the Nest side keeps
+the PostgreSQL suites listed under [Verification](#verification). Real provider scheduling, Telegram
+sends and the combined live content route remain #310 acceptance.
 
 ## Funnel management UI
+
+Since #419 this page and the broadcasts page are not reachable: the `/authoring/communications`
+layout answers 404. The UI described below stays in `apps/web/src/_pages/communications` and its
+Storybook stories; no browser test exercises it against the BFF.
 
 `/authoring/communications` uses the production AuthoringShell and a feature-local presentation
 interface shared with Storybook. Browser-owned named mutations call capability BFF routes under
