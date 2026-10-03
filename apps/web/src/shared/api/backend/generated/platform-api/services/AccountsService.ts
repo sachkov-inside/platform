@@ -302,4 +302,23 @@ export class AccountsService {
       mediaType: 'application/json',
     });
   }
+  /**
+   * Finalize an already verified Telegram sign-in receipt after terms acceptance
+   * @returns any
+   * @throws ApiError
+   */
+  public resumeTelegramAccountSignIn(): CancelablePromise<{
+    account: {
+      accountId: string;
+    };
+  }> {
+    return this.httpRequest.request({
+      method: 'POST',
+      url: '/accounts/current/telegram-sign-in/resume',
+      errors: {
+        403: `The terms of use in force are not accepted yet`,
+        500: `Terms acceptance could not be checked`,
+      },
+    });
+  }
 }

@@ -1,4 +1,10 @@
 import { randomUUID } from "node:crypto";
+import { Module } from "@nestjs/common";
+import { APP_INTERCEPTOR, NestFactory } from "@nestjs/core";
+import {
+  FastifyAdapter,
+  type NestFastifyApplication,
+} from "@nestjs/platform-fastify";
 /** The first sign-in screen is already passed in these scenarios. */
 const acceptedTerms = {
   checkTerms: () => Promise.resolve({ ok: true as const, accepted: true }),
@@ -17,6 +23,16 @@ import {
   type TestDatabase,
 } from "./setup/test-database.js";
 import { hasText } from "../../src/infrastructure/contracts/text.js";
+import {
+  ACCOUNTS,
+  LegalAcceptances,
+  LOGTO_ACCESS_TOKEN_VERIFIER,
+} from "../../src/modules/accounts/index.js";
+import { ResumeTelegramAccountSignInController } from "../../src/modules/telegram-membership/features/complete-telegram-sign-in/resume-telegram-account-sign-in.controller.js";
+import { declaredServer } from "../support/declared-api.js";
+import { HttpCachePolicyInterceptor } from "../../src/infrastructure/http/http-cache-policy.js";
+import { accountId } from "../../src/modules/accounts/index.js";
+import { assembleTelegramMembership } from "../../src/modules/telegram-membership/index.js";
 
 let database: TestDatabase;
 beforeAll(async () => {
@@ -185,11 +201,18 @@ test("a Telegram sign-in completes the bot link only after the terms of use are 
     });
   expect(pending.status).not.toBe("linked");
   expect(pending.providerIdentityRef).toBe(telegramIdentityRef);
+  expect(pending.providerTransactionRef).toBe(
+    signedIn.identity.telegram?.requestRef,
+  );
   expect(
     await database.prisma.membershipBinding.count({
       where: { accountId: first.account.accountId },
     }),
   ).toBe(0);
+  await expect(signIn.resume(first.account)).resolves.toMatchObject({
+    ok: false,
+    error: { code: "unavailable" },
+  });
   // The bot keeps recognising the person, so leaving before the screen does not strand the identity.
   await expect(
     signIn.resolveLink(
@@ -200,7 +223,57 @@ test("a Telegram sign-in completes the bot link only after the terms of use are 
   ).resolves.toEqual({ issuer, subject: "telegram-before-terms" });
 
   accepted = true;
-  const completed = await signIn.complete(signedIn.identity);
+  await database.prisma.telegramLinkTransaction.update({
+    where: { linkRef: pending.linkRef },
+    data: {
+      createdAt: new Date(Date.now() - 301000),
+      expiresAt: new Date(Date.now() - 1000),
+      // v10 left this field empty; the verified original request is still linkRef.
+      providerTransactionRef: null,
+    },
+  });
+  const failedRetry = await database.prisma.telegramLinkTransaction.create({
+    data: {
+      linkRef: randomUUID(),
+      accountId: first.account.accountId,
+      principalRef: randomUUID(),
+      returnCorrelation: randomUUID(),
+      tokenDigest: randomUUID(),
+      status: "recovery_required",
+      createdAt: new Date(),
+      updatedAt: new Date(),
+      expiresAt: new Date(Date.now() + 300000),
+    },
+  });
+  const membership = assembleTelegramMembership({
+    prisma: database.prisma,
+    membershipEntitlements: assembleMembershipEntitlements({
+      prisma: database.prisma,
+      workshopEntitlements: assembleWorkshopEntitlements({
+        prisma: database.prisma,
+      }),
+    }),
+    botStartUrl: "https://t.me/inside_test_bot",
+    linkLifetimeMs: 300000,
+    provider: {
+      register: () => {
+        throw new Error(
+          "A confirmed sign-in must not register a new principal",
+        );
+      },
+      confirm: () => {
+        throw new Error("Not part of this scenario");
+      },
+    },
+  });
+  await expect(
+    membership.beginLink({ accountId: accountId(first.account.accountId) }),
+  ).resolves.toMatchObject({
+    ok: true,
+    state: { linkRef: pending.linkRef, status: "unavailable" },
+  });
+  // Audience refresh no longer carries the authorization_code-only Telegram claim.
+  const completed = await signIn.resume(first.account);
   expect(completed).toEqual(first);
   const linked = await database.prisma.telegramLinkTransaction.findFirstOrThrow(
     {
@@ -209,4 +282,278 @@ test("a Telegram sign-in completes the bot link only after the terms of use are 
   );
   expect(linked).toMatchObject({ linkRef: pending.linkRef, status: "linked" });
   expect(new Set(bound)).toEqual(new Set([pending.principalRef]));
+  await expect(signIn.resume(first.account)).resolves.toEqual(first);
+  await expect(
+    membership.readAccountPresentation({
+      accountId: accountId(first.account.accountId),
+    }),
+  ).resolves.toMatchObject({
+    ok: true,
+    presentation: { link: { kind: "linked" } },
+  });
+  expect(
+    await database.prisma.telegramLinkTransaction.findUnique({
+      where: { linkRef: failedRetry.linkRef },
+    }),
+  ).toMatchObject({ status: "recovery_required" });
+});
+
+test.each(["identity", "correlation"] as const)(
+  "a deferred %s mismatch never publishes another provider identity or principal",
+  async (mismatch) => {
+    const accounts = assembleAccounts({
+      prisma: database.prisma,
+      emailFingerprintKey: fingerprintKey,
+    });
+    let accepted = false;
+    let telegramIdentityRef = randomUUID();
+    const signIn = new TelegramAccountSignIn({
+      accounts,
+      prisma: database.prisma,
+      terms: {
+        checkTerms: () => Promise.resolve({ ok: true as const, accepted }),
+      },
+      provider: {
+        bindAccount: () =>
+          Promise.resolve({ status: "linked" as const, telegramIdentityRef }),
+      },
+      membershipEntitlements: assembleMembershipEntitlements({
+        prisma: database.prisma,
+        workshopEntitlements: assembleWorkshopEntitlements({
+          prisma: database.prisma,
+        }),
+      }),
+    });
+    const first = await signIn.complete(
+      proof(`telegram-receipt-mismatch-${mismatch}`).identity,
+    );
+    if (!first.ok) throw new Error(first.error.code);
+    accepted = true;
+    if (mismatch === "identity") telegramIdentityRef = randomUUID();
+    else {
+      await database.prisma.telegramLinkTransaction.updateMany({
+        where: { accountId: first.account.accountId },
+        data: { returnCorrelation: randomUUID() },
+      });
+    }
+    await expect(signIn.resume(first.account)).resolves.toEqual({
+      ok: false,
+      error: { code: "identity_conflict" },
+    });
+    expect(
+      await database.prisma.membershipBinding.count({
+        where: { accountId: first.account.accountId },
+      }),
+    ).toBe(0);
+    expect(
+      await database.prisma.telegramLinkTransaction.findFirst({
+        where: { accountId: first.account.accountId },
+      }),
+    ).toMatchObject({ status: "registering" });
+  },
+);
+
+test.each([
+  "linked",
+  "unavailable",
+  "identity-mismatch",
+  "correlation-mismatch",
+] as const)(
+  "confirm resumes an expired v10 receipt safely when the provider reports %s",
+  async (outcome) => {
+    const accounts = assembleAccounts({
+      prisma: database.prisma,
+      emailFingerprintKey: fingerprintKey,
+    });
+    const membershipEntitlements = assembleMembershipEntitlements({
+      prisma: database.prisma,
+      workshopEntitlements: assembleWorkshopEntitlements({
+        prisma: database.prisma,
+      }),
+    });
+    const telegramIdentityRef = randomUUID();
+    const signIn = new TelegramAccountSignIn({
+      accounts,
+      prisma: database.prisma,
+      membershipEntitlements,
+      terms: {
+        checkTerms: () =>
+          Promise.resolve({ ok: true as const, accepted: false }),
+      },
+      provider: {
+        bindAccount: () =>
+          Promise.resolve({ status: "linked" as const, telegramIdentityRef }),
+      },
+    });
+    const signedIn = proof(`telegram-confirm-${outcome}`);
+    const first = await signIn.complete(signedIn.identity);
+    if (!first.ok) throw new Error(first.error.code);
+    const receipt =
+      await database.prisma.telegramLinkTransaction.findFirstOrThrow({
+        where: { accountId: first.account.accountId },
+      });
+    await database.prisma.telegramLinkTransaction.update({
+      where: { linkRef: receipt.linkRef },
+      data: {
+        createdAt: new Date(Date.now() - 301000),
+        expiresAt: new Date(Date.now() - 1000),
+        providerTransactionRef: null,
+      },
+    });
+    let currentOutcome = outcome;
+    const membership = assembleTelegramMembership({
+      prisma: database.prisma,
+      membershipEntitlements,
+      botStartUrl: "https://t.me/inside_test_bot",
+      linkLifetimeMs: 300000,
+      provider: {
+        register: () => {
+          throw new Error("Must retain the confirmed principal");
+        },
+        confirm: (request) => {
+          expect(request).toEqual({
+            accountRef: receipt.principalRef,
+            linkTransactionRef: receipt.linkRef,
+            returnCorrelation: receipt.returnCorrelation,
+          });
+          return Promise.resolve(
+            currentOutcome === "unavailable"
+              ? { kind: "unavailable" as const }
+              : {
+                  kind: "linked" as const,
+                  linkTransactionRef: receipt.linkRef,
+                  returnCorrelation:
+                    currentOutcome === "correlation-mismatch"
+                      ? randomUUID()
+                      : receipt.returnCorrelation,
+                  telegramIdentityRef:
+                    currentOutcome === "identity-mismatch"
+                      ? randomUUID()
+                      : telegramIdentityRef,
+                },
+          );
+        },
+      },
+    });
+    const command = {
+      accountId: accountId(first.account.accountId),
+      linkRef: receipt.linkRef,
+    };
+    await expect(membership.confirmLink(command)).resolves.toMatchObject({
+      ok: true,
+      state: {
+        status: outcome.includes("mismatch") ? "recovery-required" : outcome,
+      },
+    });
+    if (outcome === "unavailable") {
+      await expect(
+        membership.beginLink({ accountId: command.accountId }),
+      ).resolves.toMatchObject({
+        ok: true,
+        state: { linkRef: receipt.linkRef, status: "unavailable" },
+      });
+      currentOutcome = "linked";
+      await expect(membership.confirmLink(command)).resolves.toMatchObject({
+        ok: true,
+        state: { status: "linked" },
+      });
+    }
+    expect(
+      await database.prisma.membershipBinding.count({
+        where: { accountId: first.account.accountId },
+      }),
+    ).toBe(outcome.includes("mismatch") ? 0 : 1);
+    expect(
+      await database.prisma.telegramLinkTransaction.findUnique({
+        where: { linkRef: receipt.linkRef },
+      }),
+    ).toMatchObject({
+      principalRef: receipt.principalRef,
+      providerIdentityRef: telegramIdentityRef,
+    });
+  },
+);
+
+test("current-account resume uses normal identity authentication and refuses before terms", async () => {
+  const accounts = assembleAccounts({
+    prisma: database.prisma,
+    emailFingerprintKey: fingerprintKey,
+  });
+  const signedIn = proof("telegram-resume-http");
+  let accepted = false;
+  const terms = {
+    checkTerms: () => Promise.resolve({ ok: true as const, accepted }),
+  };
+  const signIn = new TelegramAccountSignIn({
+    accounts,
+    prisma: database.prisma,
+    terms,
+    provider: {
+      bindAccount: () =>
+        Promise.resolve({
+          status: "linked" as const,
+          telegramIdentityRef: "7a0c2c1e-2d4b-4a57-8a1e-0d9d6f3b8a11",
+        }),
+    },
+    membershipEntitlements: assembleMembershipEntitlements({
+      prisma: database.prisma,
+      workshopEntitlements: assembleWorkshopEntitlements({
+        prisma: database.prisma,
+      }),
+    }),
+  });
+  const first = await signIn.complete(signedIn.identity);
+  if (!first.ok) throw new Error(first.error.code);
+  @Module({
+    controllers: [ResumeTelegramAccountSignInController],
+    providers: [
+      { provide: APP_INTERCEPTOR, useClass: HttpCachePolicyInterceptor },
+      { provide: TelegramAccountSignIn, useValue: signIn },
+      { provide: ACCOUNTS, useValue: accounts },
+      { provide: LegalAcceptances, useValue: terms },
+      {
+        provide: LOGTO_ACCESS_TOKEN_VERIFIER,
+        useValue: {
+          verifyAccount: (credential: string | undefined) =>
+            Promise.resolve(
+              credential === "refreshed-access-token"
+                ? { ok: true, identity: signedIn.accountIdentity }
+                : { ok: false, error: { code: "invalid_proof" } },
+            ),
+        },
+      },
+    ],
+  })
+  // oxlint-disable-next-line typescript/no-extraneous-class -- Nest owns the isolated HTTP fixture metadata.
+  class ResumeFixture {}
+  const app = await NestFactory.create<NestFastifyApplication>(
+    ResumeFixture,
+    new FastifyAdapter(),
+    { logger: false },
+  );
+  try {
+    await app.init();
+    const http = declaredServer(app.getHttpAdapter().getInstance());
+    await http.ready();
+    const request = {
+      method: "POST" as const,
+      url: "/accounts/current/telegram-sign-in/resume",
+    };
+    expect((await http.inject(request)).statusCode).toBe(401);
+    const authenticated = {
+      ...request,
+      headers: { authorization: "Bearer refreshed-access-token" },
+    };
+    expect((await http.inject(authenticated)).statusCode).toBe(403);
+    accepted = true;
+    const response = await http.inject({
+      ...authenticated,
+      payload: { accountId: randomUUID(), principalRef: randomUUID() },
+    });
+    expect(response.statusCode).toBe(200);
+    expect(response.json()).toEqual({ account: first.account });
+    expect(response.headers["cache-control"]).toContain("no-store");
+  } finally {
+    await app.close();
+  }
 });

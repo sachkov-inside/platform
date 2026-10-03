@@ -3,6 +3,10 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { z } from "zod";
 
 import { providerCallbackUrl } from "@/shared/auth/provider-callback-url.server";
+import { isTelegramSignInToken } from "@/shared/auth/telegram-sign-in-token.server";
+import { executeAcceptTerms } from "@/features/terms-acceptance/api/accept-terms.server";
+
+vi.mock("server-only", () => ({}));
 
 const endpoint = "https://identity.example.test";
 const redirectUri = "https://inside.example.test/callback";
@@ -91,6 +95,43 @@ describe("pinned Logto SDK callback corpus", () => {
     ).rejects.toThrow("Sign-in session not found.");
     expect(proof.tokenRequests).toHaveLength(1);
   });
+
+  it("resumes the durable receipt after audience refresh drops the sign-in claim", async () => {
+    const proof = await createProofClient();
+    await proof.client.handleSignInCallback(
+      `${redirectUri}?code=${validCode}&state=${proof.state}`,
+    );
+    expect(isTelegramSignInToken(await proof.client.getAccessToken())).toBe(
+      true,
+    );
+    const refreshed = await proof.client.getAccessToken(
+      "https://inside.example.test/api",
+    );
+    expect(isTelegramSignInToken(refreshed)).toBe(false);
+    expect(
+      proof.tokenRequests.map((request) => request.get("grant_type")),
+    ).toEqual(["authorization_code", "refresh_token"]);
+    const form = new FormData();
+    form.set(
+      "input",
+      JSON.stringify({
+        operationId: "7a0c2c1e-2d4b-4a57-8a1e-0d9d6f3b8a11",
+        version: "1",
+        digest: "a".repeat(64),
+      }),
+    );
+    const resumeTelegramSignIn = vi
+      .fn()
+      .mockResolvedValue({ accountId: "7a0c2c1e-2d4b-4a57-8a1e-0d9d6f3b8a11" });
+    await expect(
+      executeAcceptTerms(form, refreshed, {
+        accept: () =>
+          Promise.resolve({ ok: true, body: {}, response: Response.json({}) }),
+        resumeTelegramSignIn,
+      }),
+    ).resolves.toEqual({ kind: "accepted" });
+    expect(resumeTelegramSignIn).toHaveBeenCalledWith(refreshed);
+  });
 });
 
 async function createProofClient() {
@@ -119,6 +160,17 @@ async function createProofClient() {
           typeof init?.body === "string" ? init.body : "",
         );
         tokenRequests.push(body);
+        if (body.get("grant_type") === "refresh_token") {
+          return Promise.resolve(
+            jsonResponse({
+              access_token: accessToken({}),
+              expires_in: 300,
+              refresh_token: "refresh-token",
+              scope: "openid",
+              token_type: "Bearer",
+            }),
+          );
+        }
         if (
           body.get("code") !== validCode ||
           body.get("code_verifier") !== accepted.verifier
@@ -127,7 +179,12 @@ async function createProofClient() {
         }
         return Promise.resolve(
           jsonResponse({
-            access_token: "access-token",
+            access_token: accessToken({
+              inside_telegram_sign_in: {
+                subjectRef: "7a0c2c1e-2d4b-4a57-8a1e-0d9d6f3b8a11",
+                requestRef: "7a0c2c1e-2d4b-4a57-8a1e-0d9d6f3b8a11",
+              },
+            }),
             expires_in: 300,
             id_token: "header.payload.signature",
             refresh_token: "refresh-token",
@@ -183,4 +240,10 @@ function jsonResponse(body: unknown, status = 200): Response {
     status,
     headers: { "content-type": "application/json" },
   });
+}
+
+function accessToken(claims: Record<string, unknown>): string {
+  const part = (value: unknown) =>
+    Buffer.from(JSON.stringify(value)).toString("base64url");
+  return `${part({ alg: "ES384" })}.${part({ sub: "member", ...claims })}.signature`;
 }

@@ -806,7 +806,11 @@ platform#808). Сложность и результаты обучения ос�
    основное техническое сообщение.
 7. Begin-link атомарно резервирует не более одной current attempt на Account и возвращает
    short-lived bot deep link только создавшему request; reload продолжает ту же попытку без нового
-   provider registration. Обычный expired/replayed outcome разрешает новую попытку. Conflict и
+   provider registration. Подтверждённый receipt Telegram sign-in до terms сохраняет исходный
+   principal после TTL: принятие terms или повторный confirm завершают эту же связь. Более поздняя
+   неудачная попытка не заменяет этот receipt. Provider identity и correlation проверяются снова;
+   перенос identity между Account не выполняется. Обычный expired/replayed outcome без такого
+   receipt разрешает новую попытку. Conflict и
    recovery с риском silent transfer не дают self-service unlink/relink даже после TTL: Account
    показывает optional configured HTTP(S) support destination либо безопасный owner-handoff text.
    Неоднозначный outage во время provider registration сохраняет ту же current attempt до expiry и

@@ -66,7 +66,12 @@ redirects to `/welcome?returnTo=<local path>` instead of the post-sign-in return
 accepts only an address of this site. The same check guards the Account cabinet and purchase routes,
 and Nest refuses those surfaces with `403 terms_acceptance_required` until the terms are accepted.
 The acceptance needs no verified email. A Telegram sign-in finishes the bot link only after the
-acceptance; the acceptance BFF retries the completion with the still-fresh sign-in token.
+acceptance. Before that gate, Platform stores the verified provider receipt and its original
+principal. The acceptance BFF resumes that receipt for the authenticated current Account, even
+when an audience token refresh has removed the authorization_code-only sign-in claim. Resumption
+checks the original request, Telegram subject and provider identity; it establishes no new identity
+and registers no replacement principal. The receipt survives its bearer start-token expiry and a
+later failed link attempt. An email Account without such a receipt needs its explicit link flow.
 
 The Logto sign-in screen links the privacy policy and states that the terms are accepted right after
 sign-in (`agreeToTermsPolicy: Automatic`, no terms URL, `ru` custom phrase); the Management API

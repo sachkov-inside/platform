@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 
 vi.mock("server-only", () => ({}));
 vi.mock("@/shared/api/backend/index.server", () => ({
-  completeTelegramAccountSignIn: vi.fn(),
+  resumeTelegramAccountSignIn: vi.fn(),
   requestAcceptTerms: vi.fn(),
 }));
 
@@ -52,7 +52,7 @@ describe("first sign-in screen", () => {
 
   it("records the button label chosen by the server, not by the browser", async () => {
     const accept = vi.fn(accepted);
-    const completeTelegramSignIn = vi.fn();
+    const resumeTelegramSignIn = vi.fn();
     await expect(
       executeAcceptTerms(
         form({
@@ -62,13 +62,13 @@ describe("first sign-in screen", () => {
           buttonLabel: "Подменённая подпись",
         }),
         token({}),
-        { accept, completeTelegramSignIn },
+        { accept, resumeTelegramSignIn },
       ),
     ).resolves.toEqual({ kind: "unavailable" });
     await expect(
       executeAcceptTerms(form({ operationId, version, digest }), token({}), {
         accept,
-        completeTelegramSignIn,
+        resumeTelegramSignIn,
       }),
     ).resolves.toEqual({ kind: "accepted" });
     expect(accept).toHaveBeenCalledWith(
@@ -80,8 +80,8 @@ describe("first sign-in screen", () => {
       },
       expect.any(String),
     );
-    // A sign-in by email has no pending bot link.
-    expect(completeTelegramSignIn).not.toHaveBeenCalled();
+    // Refreshed access tokens do not say whether this Account has a deferred Telegram receipt.
+    expect(resumeTelegramSignIn).toHaveBeenCalledWith(token({}));
   });
 
   it("finishes a Telegram bot link only after the terms are accepted", async () => {
@@ -91,7 +91,7 @@ describe("first sign-in screen", () => {
         requestRef: operationId,
       },
     });
-    const completeTelegramSignIn = vi
+    const resumeTelegramSignIn = vi
       .fn()
       .mockRejectedValue(new Error("expired"));
     await expect(
@@ -100,11 +100,11 @@ describe("first sign-in screen", () => {
         telegramToken,
         {
           accept: vi.fn(accepted),
-          completeTelegramSignIn,
+          resumeTelegramSignIn,
         },
       ),
     ).resolves.toEqual({ kind: "accepted" });
-    expect(completeTelegramSignIn).toHaveBeenCalledWith(telegramToken);
+    expect(resumeTelegramSignIn).toHaveBeenCalledWith(telegramToken);
 
     const refused = vi.fn();
     await expect(
@@ -118,7 +118,7 @@ describe("first sign-in screen", () => {
               problem: { code: "document_changed" },
               response: Response.json({}, { status: 409 }),
             }),
-          completeTelegramSignIn: refused,
+          resumeTelegramSignIn: refused,
         },
       ),
     ).resolves.toEqual({ kind: "document_changed" });
