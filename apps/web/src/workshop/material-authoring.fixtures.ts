@@ -1,6 +1,11 @@
+import {
+  authoringMaterialPreviewHref,
+  authoringMaterialsRootHref,
+} from "@/shared/routing/authoring";
 import type {
   MaterialAuthoringPresentation,
   MaterialPreviewBlock,
+  MaterialPreviewRoutePresentation,
   MaterialPreviewText,
 } from "@/widgets/material-authoring";
 
@@ -458,3 +463,64 @@ export const emptyMaterialAuthoringPresentation = {
   },
   preview: null,
 } as const satisfies MaterialAuthoringPresentation;
+
+const previewRouteItem = (
+  id: string,
+  title: string,
+  publicationState: "draft" | "published" | "unpublished",
+  current = false,
+) => ({
+  current,
+  href: authoringMaterialPreviewHref(
+    `94000000-0000-4000-8000-0000000002${id}`,
+    authoringMaterialsRootHref,
+    "94000000-0000-4000-8000-000000000200",
+  ),
+  publicationState,
+  title,
+});
+const previousRouteItem = previewRouteItem(
+  "02",
+  "Подготовка окружения и первый запуск агента",
+  "draft",
+);
+const nextRouteItem = previewRouteItem("04", "Проверка результата", "draft");
+
+/** Материал в середине закрытой главы: черновики стоят в маршруте наравне с опубликованным. */
+export const materialPreviewRoute = {
+  guideName: "Inside AI Engineering",
+  kind: "ready",
+  next: nextRouteItem,
+  otherGuides: [],
+  position: 3,
+  previous: previousRouteItem,
+  sections: [
+    {
+      chapterId: "94000000-0000-4000-8000-000000000210",
+      items: [
+        previewRouteItem("01", "Как устроен курс", "published"),
+        previousRouteItem,
+      ],
+      name: "Глава 0. Старт",
+    },
+    {
+      chapterId: "94000000-0000-4000-8000-000000000211",
+      items: [
+        previewRouteItem("03", "Developer Pipeline без магии", "draft", true),
+        nextRouteItem,
+      ],
+      name: "Глава 1. Harness и первые уроки",
+    },
+    {
+      chapterId: "94000000-0000-4000-8000-000000000212",
+      items: [],
+      name: "Глава 2. Контекст",
+    },
+    {
+      chapterId: null,
+      items: [previewRouteItem("05", "Словарь курса", "unpublished")],
+      name: "Вне глав",
+    },
+  ],
+  total: 5,
+} as const satisfies MaterialPreviewRoutePresentation;

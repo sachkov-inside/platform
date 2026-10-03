@@ -19,7 +19,15 @@ const problemSchema = z
   .loose();
 
 export type CurrentMaterialPreviewState =
-  | { readonly kind: "ready"; readonly preview: MaterialPreviewPresentation }
+  | {
+      /** Руководства материала в порядке его memberships. */
+      readonly guides: readonly {
+        readonly id: string;
+        readonly name: string;
+      }[];
+      readonly kind: "ready";
+      readonly preview: MaterialPreviewPresentation;
+    }
   | { readonly kind: "not_found" }
   | { readonly kind: "unauthorized" }
   | { readonly kind: "unexpected_error"; readonly reference: string };
@@ -93,5 +101,14 @@ export async function getCurrentMaterialPreview(
       reference: "unexpected-preview-response",
     };
   }
-  return { kind: "ready", preview: mapped.data.preview };
+  return {
+    guides: mapped.data.seriesMemberships.map(({ seriesId }) => ({
+      id: seriesId,
+      name:
+        references.references.series.find(({ value }) => value === seriesId)
+          ?.label ?? "Руководство",
+    })),
+    kind: "ready",
+    preview: mapped.data.preview,
+  };
 }

@@ -1,4 +1,5 @@
 import type { JSONContent } from "@tiptap/core";
+import type { Route } from "next";
 
 import type {
   ContentCover,
@@ -70,7 +71,58 @@ export interface MaterialPreviewPresentation {
   readonly title: string;
   readonly topic: string;
   readonly publicationState: "draft" | "published" | "unpublished";
+  /**
+   * Основное видео материала. Плеер работает только у опубликованного урока, поэтому предпросмотр
+   * называет состояние видео словами. Без поля строка о видео не выводится.
+   */
+  readonly video?: MaterialPreviewVideo;
 }
+
+export type MaterialPreviewVideo =
+  | { readonly kind: "none" }
+  | {
+      readonly kind: "attached";
+      readonly ready: boolean;
+      readonly title: string;
+    }
+  | { readonly kind: "unavailable" };
+
+export interface MaterialPreviewRouteItem {
+  readonly current: boolean;
+  readonly href: Route;
+  readonly publicationState: MaterialPreviewPresentation["publicationState"];
+  readonly title: string;
+}
+
+export interface MaterialPreviewRouteSection {
+  /** Идентификатор главы; у материалов вне глав его нет. */
+  readonly chapterId: string | null;
+  readonly items: readonly MaterialPreviewRouteItem[];
+  /** Название главы либо «Вне глав»; у руководства без глав раздел один и безымянный. */
+  readonly name: string | null;
+}
+
+/**
+ * Место материала в руководстве глазами автора: черновики и снятые материалы входят в маршрут
+ * наравне с опубликованными.
+ */
+export type MaterialPreviewRoutePresentation =
+  | {
+      readonly guideName: string;
+      readonly kind: "ready";
+      readonly next: MaterialPreviewRouteItem | null;
+      /** Другие руководства этого материала: переход открывает его в их маршруте. */
+      readonly otherGuides: readonly {
+        readonly href: Route;
+        readonly name: string;
+      }[];
+      /** Номер материала в порядке показа, с единицы. */
+      readonly position: number;
+      readonly previous: MaterialPreviewRouteItem | null;
+      readonly sections: readonly MaterialPreviewRouteSection[];
+      readonly total: number;
+    }
+  | { readonly kind: "unavailable"; readonly reference: string };
 
 export interface MaterialValidationIssue {
   readonly message: string;
