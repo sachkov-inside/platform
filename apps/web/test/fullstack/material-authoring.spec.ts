@@ -1667,6 +1667,15 @@ test("trusted author walks a guide chapter through Previews that stay closed to 
       .getByRole("link", { name: "Предпросмотр" })
       .click();
 
+    await expect(page).toHaveURL(
+      (url) =>
+        url.pathname === `/authoring/materials/${inChapter.materialId}/preview`,
+    );
+    // Общий материал может открыть другое руководство: закрепляем то, в котором создали главу.
+    const previewUrl = new URL(page.url());
+    previewUrl.searchParams.set("guide", guideId);
+    await page.goto(previewUrl.href);
+
     const route = page.getByRole("navigation", {
       name: "Маршрут руководства «Создание Platform Inside»",
     });
