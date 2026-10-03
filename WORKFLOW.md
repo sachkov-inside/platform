@@ -90,10 +90,14 @@ final head with its real exit code. The agent then:
    not re-run; re-run only a failure that diagnosis attributes to the CI provider;
 3. reads `closingIssuesReferences` of the pull request and compares it with the task number:
    `gh pr view <pr> --json closingIssuesReferences --jq '.closingIssuesReferences[].number'`;
-4. cleans up with the skill `session-cleanup`;
-5. reports in chat in at most ten lines with links to the pull request and the task.
+4. writes the report by the skill `report` while the worktree still exists;
+5. cleans up with the skill `session-cleanup`, then gives in chat the report link and one line of
+   outcome.
 
-If a check cannot run, name what was not run.
+The report is written whenever work goes to the owner: a ready pull request, a stopped task or a
+result that waits for acceptance. Its automatic verification is the check command and the CI of
+the pull request. The report is delivered when `report.py finish` exits with 0; until then, do
+not call the work delivered. If a check cannot run, the report names what was not run.
 
 ## Rules from session reports
 

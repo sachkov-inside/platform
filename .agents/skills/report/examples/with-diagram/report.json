@@ -1,0 +1,39 @@
+{
+  "version": 1,
+  "project": "vertical-content",
+  "task": "Образец: перевести сборку шортса на один сценарий",
+  "status": "done",
+  "created_at": "2026-10-03T10:40:00+03:00",
+  "summary": [
+    "Агент свёл три скрипта сборки шортса в один сценарий make-short.",
+    "Субтитры теперь строятся до монтажа, а не после.",
+    "Сборка ролика заняла 4 минуты вместо 11."
+  ],
+  "needs_owner": [],
+  "verification": {
+    "auto": [
+      {"text": "Пробный ролик собран без ошибок за 4 минуты.", "command": "./make-short drafts/sample"}
+    ],
+    "manual": [
+      {"text": "Посмотри пробный ролик: субтитры совпадают с речью?", "command": "open drafts/sample/out.mp4"}
+    ],
+    "unverified": [
+      {"text": "Ролики длиннее 60 секунд не собирались."}
+    ]
+  },
+  "next": ["Собрать следующий ролик из входящих новым сценарием."],
+  "actions": [
+    {
+      "label": "Собрать следующий ролик",
+      "prompt": "Возьми первый черновик из входящих vertical-content и собери его сценарием make-short. Сдай отчёт со ссылкой на готовый ролик.",
+      "irreversible": false
+    }
+  ],
+  "session": {
+    "agent": "codex",
+    "id": "00000000-0000-4000-8000-00000000c0de",
+    "branch": "main",
+    "worktree": "/Users/dev/Work/Content/vertical-content",
+    "pr": null
+  }
+}
