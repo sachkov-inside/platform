@@ -33,12 +33,16 @@ export function assembleMembershipEntitlements(
 ): MembershipEntitlements {
   const clock = dependencies.clock ?? (() => new Date());
   const membershipEntitlements: MembershipEntitlements = {
-    async bindPrincipal(command): Promise<MembershipPrincipalBinding> {
+    async bindPrincipal(
+      command,
+      transaction,
+    ): Promise<MembershipPrincipalBinding> {
       try {
         return await bindMembershipPrincipal(
           dependencies.prisma,
           command,
           clock(),
+          transaction,
         );
       } catch (error) {
         return dependencyFailure(

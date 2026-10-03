@@ -1,14 +1,10 @@
-import { randomUUID } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 import { Module } from "@nestjs/common";
 import { APP_INTERCEPTOR, NestFactory } from "@nestjs/core";
 import {
   FastifyAdapter,
   type NestFastifyApplication,
 } from "@nestjs/platform-fastify";
-/** The first sign-in screen is already passed in these scenarios. */
-const acceptedTerms = {
-  checkTerms: () => Promise.resolve({ ok: true as const, accepted: true }),
-};
 import { afterAll, beforeAll, expect, test } from "vitest";
 import { assembleAccounts } from "../../src/modules/accounts/index.js";
 import { verifiedTelegramAccountSignIn } from "../../src/modules/accounts/facets/accounts/verified-logto-identity.js";
@@ -31,12 +27,41 @@ import {
 import { ResumeTelegramAccountSignInController } from "../../src/modules/telegram-membership/features/complete-telegram-sign-in/resume-telegram-account-sign-in.controller.js";
 import { declaredServer } from "../support/declared-api.js";
 import { HttpCachePolicyInterceptor } from "../../src/infrastructure/http/http-cache-policy.js";
+import { Prisma } from "../../src/infrastructure/prisma/index.js";
+import { withExhaustedPool } from "./setup/exhausted-pool.js";
 import { accountId } from "../../src/modules/accounts/index.js";
 import { assembleTelegramMembership } from "../../src/modules/telegram-membership/index.js";
 
 let database: TestDatabase;
+let terms: LegalAcceptances;
+const termsText = "Synthetic terms of use 883, not legal terms";
+const termsEdition = {
+  documentId: "terms" as const,
+  version: "test-883",
+  text: termsText,
+  digest: createHash("sha256").update(termsText).digest("hex"),
+  url: "https://inside.example.test/legal/terms/test-883",
+};
+function termsJournal(prisma: TestDatabase["prisma"]) {
+  return new LegalAcceptances({
+    prisma,
+    terms: termsEdition,
+    now: () => new Date(),
+  });
+}
+async function acceptTerms(journal: LegalAcceptances, accountId: string) {
+  await expect(
+    journal.acceptTerms(accountId, {
+      operationId: randomUUID(),
+      version: termsEdition.version,
+      digest: termsEdition.digest,
+      buttonLabel: "Принять условия и продолжить",
+    }),
+  ).resolves.toMatchObject({ ok: true });
+}
 beforeAll(async () => {
   database = await createMigratedTestDatabase();
+  terms = termsJournal(database.prisma);
 });
 afterAll(async () => database.dispose());
 const issuer = "https://identity.example.test/oidc";
@@ -110,13 +135,18 @@ test("a lost provider response retains one Account and principal, and a fresh pr
     }),
   });
   const signIn = new TelegramAccountSignIn({
-    terms: acceptedTerms,
+    terms,
     accounts,
     prisma: database.prisma,
     provider,
     membershipEntitlements,
   });
   const first = proof("telegram-timeout");
+  const established = await accounts.establishAccount({
+    identity: first.identity,
+  });
+  if (!established.ok) throw new Error(established.error.code);
+  await acceptTerms(terms, established.account.accountId);
   await expect(signIn.complete(first.identity)).resolves.toEqual({
     ok: false,
     error: { code: "unavailable" },
@@ -177,11 +207,9 @@ test("a Telegram sign-in completes the bot link only after the terms of use are 
       return Promise.resolve({ status: "linked", telegramIdentityRef });
     },
   };
-  let accepted = false;
+
   const signIn = new TelegramAccountSignIn({
-    terms: {
-      checkTerms: () => Promise.resolve({ ok: true as const, accepted }),
-    },
+    terms,
     accounts,
     prisma: database.prisma,
     provider,
@@ -222,12 +250,13 @@ test("a Telegram sign-in completes the bot link only after the terms of use are 
     ),
   ).resolves.toEqual({ issuer, subject: "telegram-before-terms" });
 
-  accepted = true;
+  await acceptTerms(terms, first.account.accountId);
   await database.prisma.telegramLinkTransaction.update({
     where: { linkRef: pending.linkRef },
     data: {
       createdAt: new Date(Date.now() - 301000),
       expiresAt: new Date(Date.now() - 1000),
+      status: "expired",
       // v10 left this field empty; the verified original request is still linkRef.
       providerTransactionRef: null,
     },
@@ -305,14 +334,12 @@ test.each(["identity", "correlation"] as const)(
       prisma: database.prisma,
       emailFingerprintKey: fingerprintKey,
     });
-    let accepted = false;
+
     let telegramIdentityRef = randomUUID();
     const signIn = new TelegramAccountSignIn({
       accounts,
       prisma: database.prisma,
-      terms: {
-        checkTerms: () => Promise.resolve({ ok: true as const, accepted }),
-      },
+      terms,
       provider: {
         bindAccount: () =>
           Promise.resolve({ status: "linked" as const, telegramIdentityRef }),
@@ -328,7 +355,7 @@ test.each(["identity", "correlation"] as const)(
       proof(`telegram-receipt-mismatch-${mismatch}`).identity,
     );
     if (!first.ok) throw new Error(first.error.code);
-    accepted = true;
+    await acceptTerms(terms, first.account.accountId);
     if (mismatch === "identity") telegramIdentityRef = randomUUID();
     else {
       await database.prisma.telegramLinkTransaction.updateMany({
@@ -376,10 +403,7 @@ test.each([
       accounts,
       prisma: database.prisma,
       membershipEntitlements,
-      terms: {
-        checkTerms: () =>
-          Promise.resolve({ ok: true as const, accepted: false }),
-      },
+      terms,
       provider: {
         bindAccount: () =>
           Promise.resolve({ status: "linked" as const, telegramIdentityRef }),
@@ -397,6 +421,7 @@ test.each([
       data: {
         createdAt: new Date(Date.now() - 301000),
         expiresAt: new Date(Date.now() - 1000),
+        status: "expired",
         providerTransactionRef: null,
       },
     });
@@ -439,6 +464,7 @@ test.each([
       accountId: accountId(first.account.accountId),
       linkRef: receipt.linkRef,
     };
+    await acceptTerms(terms, first.account.accountId);
     await expect(membership.confirmLink(command)).resolves.toMatchObject({
       ok: true,
       state: {
@@ -480,10 +506,7 @@ test("current-account resume uses normal identity authentication and refuses bef
     emailFingerprintKey: fingerprintKey,
   });
   const signedIn = proof("telegram-resume-http");
-  let accepted = false;
-  const terms = {
-    checkTerms: () => Promise.resolve({ ok: true as const, accepted }),
-  };
+
   const signIn = new TelegramAccountSignIn({
     accounts,
     prisma: database.prisma,
@@ -545,7 +568,7 @@ test("current-account resume uses normal identity authentication and refuses bef
       headers: { authorization: "Bearer refreshed-access-token" },
     };
     expect((await http.inject(authenticated)).statusCode).toBe(403);
-    accepted = true;
+    await acceptTerms(terms, first.account.accountId);
     const response = await http.inject({
       ...authenticated,
       payload: { accountId: randomUUID(), principalRef: randomUUID() },
@@ -557,3 +580,103 @@ test("current-account resume uses normal identity authentication and refuses bef
     await app.close();
   }
 });
+
+test.each(["resume", "confirm"] as const)(
+  "a failed %s finalize rolls back the principal binding and uses no second pooled connection",
+  async (operation) => {
+    const rollbackDatabase = await createMigratedTestDatabase();
+    try {
+      await withExhaustedPool(rollbackDatabase, async (prisma) => {
+        const journal = termsJournal(prisma);
+        const membershipEntitlements = assembleMembershipEntitlements({
+          prisma,
+          workshopEntitlements: assembleWorkshopEntitlements({ prisma }),
+        });
+        const signIn = new TelegramAccountSignIn({
+          prisma,
+          terms: journal,
+          accounts: assembleAccounts({
+            prisma,
+            emailFingerprintKey: fingerprintKey,
+          }),
+          membershipEntitlements,
+          provider: {
+            bindAccount: () =>
+              Promise.resolve({
+                status: "linked" as const,
+                telegramIdentityRef: "7a0c2c1e-2d4b-4a57-8a1e-0d9d6f3b8a11",
+              }),
+          },
+        });
+        const first = await signIn.complete(
+          proof("telegram-finalize-rollback").identity,
+        );
+        if (!first.ok) throw new Error(first.error.code);
+        const receipt = await prisma.telegramLinkTransaction.findFirstOrThrow({
+          where: { accountId: first.account.accountId },
+        });
+        const providerIdentityRef = receipt.providerIdentityRef;
+        const providerTransactionRef = receipt.providerTransactionRef;
+        if (providerIdentityRef === null || providerTransactionRef === null)
+          throw new Error("Missing confirmed provider receipt");
+        const membership = assembleTelegramMembership({
+          prisma,
+          membershipEntitlements,
+          botStartUrl: "https://t.me/inside_test_bot",
+          linkLifetimeMs: 300000,
+          provider: {
+            register: () => {
+              throw new Error("Must retain the confirmed principal");
+            },
+            confirm: () =>
+              Promise.resolve({
+                kind: "linked" as const,
+                telegramIdentityRef: providerIdentityRef,
+                linkTransactionRef: providerTransactionRef,
+                returnCorrelation: receipt.returnCorrelation,
+              }),
+          },
+        });
+        const finalize = () =>
+          operation === "resume"
+            ? signIn.resume(first.account)
+            : membership.confirmLink({
+                accountId: accountId(first.account.accountId),
+                linkRef: receipt.linkRef,
+              });
+        await acceptTerms(journal, first.account.accountId);
+        await prisma.$executeRaw(Prisma.sql`
+        create function telegram_membership.reject_test_finalize() returns trigger language plpgsql as $$
+        begin
+          if new.status = 'linked' then raise exception 'synthetic journal failure'; end if;
+          return new;
+        end $$
+      `);
+        await prisma.$executeRaw(Prisma.sql`
+        create trigger reject_test_finalize before update on telegram_membership.link_transactions
+        for each row execute function telegram_membership.reject_test_finalize()
+      `);
+        await expect(finalize()).resolves.toEqual({
+          ok: false,
+          error: { code: "unavailable" },
+        });
+        expect(
+          await prisma.membershipBinding.count({
+            where: { accountId: first.account.accountId },
+          }),
+        ).toBe(0);
+        await prisma.$executeRaw(
+          Prisma.sql`drop trigger reject_test_finalize on telegram_membership.link_transactions`,
+        );
+        await expect(finalize()).resolves.toMatchObject({ ok: true });
+        expect(
+          await prisma.membershipBinding.count({
+            where: { accountId: first.account.accountId },
+          }),
+        ).toBe(1);
+      });
+    } finally {
+      await rollbackDatabase.dispose();
+    }
+  },
+);

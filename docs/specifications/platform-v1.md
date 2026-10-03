@@ -755,7 +755,9 @@ platform#808). Сложность и результаты обучения ос�
    (`accounts/current/legal-acceptances`) доступны до принятия.
 3. Вход через Telegram создаёт или находит Account и получает подтверждение личности от бота, но
    membership principal и статус связки `linked` появляются только после принятия. BFF принятия
-   повторно завершает связку, пока жив токен входа; иначе человек подключает Telegram в кабинете.
+   возобновляет сохранённый подтверждённый receipt этой Account без нового sign-in claim. Исходный
+   principal сохраняется после TTL и состояния `expired`; binding и `linked` записываются одной
+   транзакцией. Ошибка локальной записи не выдаёт Membership и позволяет повторить завершение.
 4. Журнал принятия — append-only `accounts.legal_acceptances` (прежние billing consent evidence):
    Account, вид, ключ, версия, digest и текст документа, постоянный адрес `/legal/<ключ>/v<номер>`,
    экран (`first-sign-in`, `checkout`, `subscription-resume`), подпись нажатой кнопки, для подписки

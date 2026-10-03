@@ -12,7 +12,10 @@ import {
   type TelegramMembershipPrismaClient,
 } from "../../../../infrastructure/prisma/index.js";
 import { accountId, type AccountId } from "../../../accounts/index.js";
-import { readConfirmedTelegramLink } from "../../infrastructure/persistence/confirmed-telegram-link.js";
+import {
+  isDeferredTelegramSignInReceipt,
+  readConfirmedTelegramLink,
+} from "../../infrastructure/persistence/confirmed-telegram-link.js";
 import type {
   MembershipEntitlements,
   MembershipEvidenceAcceptance,
@@ -258,11 +261,7 @@ function accountLinkState(
 ): AccountTelegramLinkState {
   if (transaction === null) return { kind: "unlinked" };
   if (transaction.status === "linked") return { kind: "linked" };
-  if (
-    (transaction.status === "registering" ||
-      transaction.status === "unavailable") &&
-    transaction.providerIdentityRef !== null
-  ) {
+  if (isDeferredTelegramSignInReceipt(transaction)) {
     return {
       kind: "unavailable",
       retry: { kind: "confirm", linkRef: transaction.linkRef },
@@ -388,10 +387,7 @@ async function confirmLink(
   if (transaction === null) {
     return failure("link_not_found");
   }
-  const deferredSignIn =
-    (transaction.status === "registering" ||
-      transaction.status === "unavailable") &&
-    transaction.providerIdentityRef !== null;
+  const deferredSignIn = isDeferredTelegramSignInReceipt(transaction);
   if (
     transaction.expiresAt <= now &&
     !deferredSignIn &&
@@ -453,18 +449,25 @@ async function confirmLink(
   }
 
   if (confirmation.kind === "linked") {
-    const binding = await dependencies.membershipEntitlements.bindPrincipal({
-      accountId: accountId(transaction.accountId),
-      principalRef: transaction.principalRef,
-    });
-    if (!binding.ok) {
-      const state =
-        binding.error.code === "conflict" ? "conflict" : "unavailable";
-      await updateLinkState(dependencies, linkRef, state, now);
-      return success(linkState(linkRef, transaction.expiresAt, state));
-    }
-    try {
-      await dependencies.prisma.telegramLinkTransaction.update({
+    return dependencies.prisma.$transaction(async (prisma) => {
+      await lockTelegramMembershipLink(prisma, account);
+      const binding = await dependencies.membershipEntitlements.bindPrincipal(
+        {
+          accountId: accountId(transaction.accountId),
+          principalRef: transaction.principalRef,
+        },
+        prisma,
+      );
+      if (!binding.ok) {
+        const state =
+          binding.error.code === "conflict" ? "conflict" : "unavailable";
+        await prisma.telegramLinkTransaction.update({
+          where: { linkRef },
+          data: { status: state, updatedAt: now },
+        });
+        return success(linkState(linkRef, transaction.expiresAt, state));
+      }
+      await prisma.telegramLinkTransaction.update({
         where: { linkRef },
         data: {
           providerIdentityRef: confirmation.telegramIdentityRef,
@@ -474,14 +477,7 @@ async function confirmLink(
         },
       });
       return success(linkState(linkRef, transaction.expiresAt, "linked"));
-    } catch (error) {
-      reportDependencyFailure(
-        { module: "telegram-membership", operation: "confirmLink" },
-        error,
-      );
-      await updateLinkState(dependencies, linkRef, "conflict", now);
-      return success(linkState(linkRef, transaction.expiresAt, "conflict"));
-    }
+    });
   }
 
   const state = confirmationState(confirmation.kind);

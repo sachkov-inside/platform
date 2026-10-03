@@ -1,5 +1,8 @@
 import type { AccountId } from "../../../accounts/index.js";
-import type { MembershipAccessPrisma } from "../../infrastructure/prisma.js";
+import type {
+  MembershipAccessPrisma,
+  MembershipPrincipalBindingPrisma,
+} from "../../infrastructure/prisma.js";
 
 export type MembershipAccessState =
   | Readonly<{ kind: "active"; validUntil: string | null }>
@@ -79,10 +82,14 @@ export interface MembershipEntitlements {
     transaction: MembershipAccessPrisma,
     accountId: AccountId,
   ): Promise<MembershipAccessState>;
-  bindPrincipal(command: {
-    readonly accountId: AccountId;
-    readonly principalRef: string;
-  }): Promise<MembershipPrincipalBinding>;
+  /** The optional caller transaction keeps its receipt and the Membership binding atomic. */
+  bindPrincipal(
+    command: {
+      readonly accountId: AccountId;
+      readonly principalRef: string;
+    },
+    transaction?: MembershipPrincipalBindingPrisma,
+  ): Promise<MembershipPrincipalBinding>;
   /**
    * Applies normalized evidence monotonically. Only link-time observed evidence may establish a
    * missing Account binding; events and reconciliation wait for it, and mismatches fail closed.

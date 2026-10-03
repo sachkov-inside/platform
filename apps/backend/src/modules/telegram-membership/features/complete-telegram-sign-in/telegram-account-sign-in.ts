@@ -177,22 +177,28 @@ export class TelegramAccountSignIn {
     link: { readonly linkRef: string; readonly principalRef: string },
     requestRef: string,
   ) {
-    const principal =
-      await this.dependencies.membershipEntitlements.bindPrincipal({
-        accountId: accountId(account.accountId),
-        principalRef: link.principalRef,
+    return this.dependencies.prisma.$transaction(async (transaction) => {
+      await lockTelegramMembershipLink(transaction, account.accountId);
+      const principal =
+        await this.dependencies.membershipEntitlements.bindPrincipal(
+          {
+            accountId: accountId(account.accountId),
+            principalRef: link.principalRef,
+          },
+          transaction,
+        );
+      if (!principal.ok)
+        return { ok: false, error: { code: "unavailable" } } as const;
+      await transaction.telegramLinkTransaction.update({
+        where: { linkRef: link.linkRef },
+        data: {
+          status: "linked",
+          providerTransactionRef: requestRef,
+          updatedAt: new Date(),
+        },
       });
-    if (!principal.ok)
-      return { ok: false, error: { code: "unavailable" } } as const;
-    await this.dependencies.prisma.telegramLinkTransaction.update({
-      where: { linkRef: link.linkRef },
-      data: {
-        status: "linked",
-        providerTransactionRef: requestRef,
-        updatedAt: new Date(),
-      },
+      return { ok: true, account } as const;
     });
-    return { ok: true, account } as const;
   }
 
   async resolveLink(

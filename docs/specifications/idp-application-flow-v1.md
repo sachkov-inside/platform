@@ -70,8 +70,11 @@ acceptance. Before that gate, Platform stores the verified provider receipt and 
 principal. The acceptance BFF resumes that receipt for the authenticated current Account, even
 when an audience token refresh has removed the authorization_code-only sign-in claim. Resumption
 checks the original request, Telegram subject and provider identity; it establishes no new identity
-and registers no replacement principal. The receipt survives its bearer start-token expiry and a
-later failed link attempt. An email Account without such a receipt needs its explicit link flow.
+and registers no replacement principal. The receipt survives its bearer start-token expiry,
+including an already persisted `expired` state, and a later failed link attempt. Finalization
+writes the Membership binding and linked journal state in one transaction; a failed local write
+leaves the receipt retryable without granting Membership. An email Account without such a receipt
+needs its explicit link flow.
 
 The Logto sign-in screen links the privacy policy and states that the terms are accepted right after
 sign-in (`agreeToTermsPolicy: Automatic`, no terms URL, `ru` custom phrase); the Management API
