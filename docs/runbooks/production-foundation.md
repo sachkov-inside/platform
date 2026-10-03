@@ -102,6 +102,10 @@ Logto и контейнеры Telegram. Поэтому production Compose-фай
 2. В спокойное окно выполнить `sudo systemctl restart docker`. Сайт и вход недоступны, пока
    контейнеры останавливаются со своим `stop_grace_period` и поднимаются снова по
    `restart: unless-stopped`. Работающие контейнеры после этого сохраняют прежние параметры.
+   Сразу после перезапуска выполнить
+   [проверку контейнеров Telegram](https://github.com/sachkov-inside/inside-telegram/blob/main/docs/operations/production.md#проверка-после-перезапуска-docker-или-сервера):
+   01.10.2026 relay бота после такого перезапуска не поднялся, и бот остался без связи с Telegram
+   ([inside-telegram#126](https://github.com/sachkov-inside/inside-telegram/issues/126)).
 3. Пересоздать долгоживущие контейнеры foundation, по одному:
 
    ```bash

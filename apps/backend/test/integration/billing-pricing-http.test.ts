@@ -715,6 +715,100 @@ describe("Billing pricing HTTP", () => {
     expect((await quote(subscriber.headers)).statusCode).toBe(403);
   });
 
+  test("владелец переключает поток продукта в каталоге, страница читает его без входа", async () => {
+    const server = declaredServer(app.getHttpAdapter().getInstance());
+    const headers = {
+      authorization: `Bearer ${await signToken({ subject: "cohort-owner-001", email: "cohort@example.test" })}`,
+    };
+    expect(
+      (await server.inject({ method: "POST", url: "/accounts", headers }))
+        .statusCode,
+    ).toBe(201);
+    await acceptCurrentTerms(server, headers);
+    const owner = await database.prisma.account.findUniqueOrThrow({
+      where: {
+        logtoIssuer_logtoSubject: {
+          logtoIssuer: issuer,
+          logtoSubject: "cohort-owner-001",
+        },
+      },
+    });
+    const guideId = randomUUID();
+    const save = (value: Record<string, unknown>, expectedRevision?: number) =>
+      server.inject({
+        method: "POST",
+        url: "/billing/admin",
+        headers,
+        payload: {
+          operation: "cohorts.save",
+          operationId: randomUUID(),
+          ...(expectedRevision === undefined ? {} : { expectedRevision }),
+          value: { guideId, ...value },
+        },
+      });
+    const announcement = {
+      name: "Поток 1",
+      stage: "announcement",
+      startsOn: "2026-10-20",
+      nextEvent: "",
+    };
+    // Поток — часть каталога: без права billing:manage его не меняют.
+    expect((await save(announcement)).statusCode).toBe(403);
+    await database.prisma.accountPermission.create({
+      data: { accountId: owner.id, permission: "billing:manage" },
+    });
+    const created = await save(announcement);
+    expect(created.statusCode).toBe(200);
+    expect(created.json()).toMatchObject({
+      result: {
+        outcome: "catalog",
+        value: { id: guideId, revision: 1, archived: false },
+      },
+    });
+
+    const read = async () => {
+      const response = await server.inject({
+        method: "GET",
+        url: "/billing/cohorts",
+      });
+      expect(response.statusCode).toBe(200);
+      expect(response.headers["cache-control"]).toBe("private, no-store");
+      return response.json<{ items: { guideId: string }[] }>().items;
+    };
+    expect((await read()).find((item) => item.guideId === guideId)).toEqual({
+      guideId,
+      revision: 1,
+      ...announcement,
+    });
+
+    // Этапу, кроме «между потоками», нужна дата; между потоками нужно событие.
+    expect(
+      (await save({ ...announcement, stage: "preorder", startsOn: null }, 1))
+        .statusCode,
+    ).toBe(400);
+    expect(
+      (await save({ ...announcement, stage: "between", startsOn: null }, 1))
+        .statusCode,
+    ).toBe(400);
+    // Устаревшая редакция не перезаписывает чужое переключение.
+    expect(
+      (await save({ ...announcement, stage: "preorder" })).statusCode,
+    ).toBe(409);
+
+    const between = {
+      name: "Поток 2",
+      stage: "between",
+      startsOn: null,
+      nextEvent: "эфир 15 декабря",
+    };
+    expect((await save(between, 1)).statusCode).toBe(200);
+    expect((await read()).find((item) => item.guideId === guideId)).toEqual({
+      guideId,
+      revision: 2,
+      ...between,
+    });
+  });
+
   async function signToken(
     overrides: {
       readonly subject?: string;

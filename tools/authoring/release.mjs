@@ -4,7 +4,13 @@ import { join, resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 import { parseArgs } from "node:util";
 import { z } from "zod";
-import { loadPackage, canonical, checksum } from "./package.mjs";
+import {
+  loadPackage,
+  canonical,
+  checksum,
+  guideShellScope,
+  isGuideShell,
+} from "./package.mjs";
 import { writeAtomic } from "./journal.mjs";
 import {
   artifactReceiptSchema,
@@ -12,6 +18,7 @@ import {
   parseJournal,
   parseLocalResponse,
   parseReceipt,
+  publishSelectionSchema,
   sourceVideoReceiptSchema,
 } from "./local-boundaries.mjs";
 import {
@@ -22,18 +29,25 @@ import {
   guideChapters,
   guideDetails,
   guideDetailsMatch,
+  guideShellComposition,
   normalizeSourceIds,
+  pendingOperations,
+  publicationConflict,
+  publicationPolicy,
+  publishOption,
+  targetPublication,
   valueAt,
   sourceKey,
   syncLocal,
   validateGuidePages,
 } from "./local-sync.mjs";
 import {
-  loopbackOrigin,
-  localTargets,
-  localTransport,
-  resolveLocalTarget,
+  assertTargetEnvironment,
+  authoringTarget,
+  transportFor,
 } from "./target.mjs";
+import { keychainStore, ownerSession } from "./credentials.mjs";
+import { exportCommittedPackage } from "./git-local.mjs";
 
 /**
  * @typedef {import("./journal.mjs").Journal} Journal
@@ -48,6 +62,8 @@ import {
  * @property {"new" | "changed" | "restore" | "unchanged" | "conflict"} change
  * @property {boolean} [coverChange]
  * @property {boolean} [videoChange]
+ * @property {import("./local-sync.mjs").DesiredPublication} publication
+ * @property {{ from: import("./local-boundaries.mjs").PublicationState; to: import("./local-sync.mjs").DesiredPublication }} [publicationChange]
  * @property {string} [conflictReason]
  * @property {{ from: boolean; to: boolean }} [feedChange]
  * @property {{ from: string; to: string }} [accessChange]
@@ -68,21 +84,21 @@ import {
  * @property {number} [added]
  * @property {number} [removed]
  * @property {boolean} [reorderedOrRegrouped]
+ * @property {{ added: number; removed: number }} [chapterListChange]
  */
 
 /**
- * A release applies one reviewed package to one environment. Only local environments are enabled:
- * production needs an owner-approved credential path and an explicit approval of this command.
+ * A release applies one reviewed package to one environment: a local loopback target, or a trusted
+ * target named in target.mjs and reached with the owner's session (#805). Any other address is refused.
  *
  * @param {string} value
  */
 export function releaseTarget(value) {
-  if (Object.hasOwn(localTargets, value)) return resolveLocalTarget(value);
   try {
-    return loopbackOrigin(value);
+    return authoringTarget(value);
   } catch {
     throw new Error(
-      `Release to ${value} is not enabled: a non-local release needs a separate owner approval and credential path`,
+      `Release to ${value} is not enabled: only local loopback targets and the named trusted targets exist`,
     );
   }
 }
@@ -121,22 +137,37 @@ async function readJournal(stateDirectory, target) {
  *
  * @param {string} packagePath
  * @param {string} stateDirectory
- * @param {{ origin: string; request?: LocalTransport | undefined; defaultAccess?: DefaultAccess }} options
+ * @param {{
+ *   origin: string;
+ *   request?: LocalTransport | undefined;
+ *   defaultAccess?: DefaultAccess;
+ *   publish?: import("./local-boundaries.mjs").PublishSelection;
+ *   accessToken?: import("./target.mjs").AccessToken | undefined;
+ * }} options
  */
 export async function previewRelease(
   packagePath,
   stateDirectory,
-  { origin, request: transport, defaultAccess = "membership" },
+  {
+    origin,
+    request: transport,
+    defaultAccess = "membership",
+    publish = [],
+    accessToken,
+  },
 ) {
-  const target = loopbackOrigin(origin);
-  const send = transport ?? localTransport(target);
+  const target = releaseTarget(origin);
+  const send = transport ?? transportFor(target, accessToken);
   /** @type {<P extends string>(path: P) => Promise<import("./local-boundaries.mjs").LocalResponse<P>>} */
   const request = async (path) => parseLocalResponse(path, await send(path));
   const pkg = await loadPackage(packagePath);
   const { manifest } = pkg;
+  const shell = isGuideShell(manifest);
+  const publicationOfKey = publicationPolicy(manifest, publish);
   const environment = await request("/authoring/import/materials/environment");
+  assertTargetEnvironment(target, environment.mode);
   await validateGuidePages(manifest, send);
-  const journal = await readJournal(stateDirectory, target);
+  const journal = await readJournal(stateDirectory, target.id);
   const resources = journal.resources ?? {};
   const topics = await request("/authoring/collections?kind=topic");
   const topicIds = new Map(topics.map((item) => [item.slug, item.id]));
@@ -175,6 +206,7 @@ export async function previewRelease(
       access: row.access ?? defaultAccess,
       showInFeed: row.showInFeed,
       video: row.video?.kinescopeId ?? null,
+      publication: publicationOfKey(key),
     };
     if (!entry) {
       materials.push({
@@ -207,7 +239,18 @@ export async function previewRelease(
       guideIds,
       defaultAccess,
       primaryVideoId: attached,
+      publicationState: item.publication,
     });
+    const currentPublication = targetPublication(
+      current.publicationState,
+      entry,
+    );
+    const publicationConflictFound = publicationConflict(
+      row,
+      currentPublication,
+      item.publication,
+    );
+    const alreadyPublic = publicationConflictFound !== undefined;
     // A Video keeps the access it was attached with; changing a Material's access needs a new recording decision.
     const currentAccess = current.metadata.access ?? entry.access;
     const existingVideo =
@@ -217,7 +260,9 @@ export async function previewRelease(
       currentAccess !== undefined &&
       currentAccess !== item.access;
     const change =
-      current.contentVersion !== entry.contentVersion || videoAccessConflict
+      current.contentVersion !== entry.contentVersion ||
+      videoAccessConflict ||
+      alreadyPublic
         ? "conflict"
         : entry.archived
           ? "restore"
@@ -233,6 +278,17 @@ export async function previewRelease(
       change,
       ...(attached !== current.primaryVideoId ? { videoChange: true } : {}),
       ...(videoAccessConflict ? { conflictReason: "video_access_change" } : {}),
+      ...(publicationConflictFound
+        ? { conflictReason: publicationConflictFound.code }
+        : {}),
+      ...(!alreadyPublic && currentPublication !== item.publication
+        ? {
+            publicationChange: {
+              from: currentPublication,
+              to: item.publication,
+            },
+          }
+        : {}),
       ...(coverSha !== null && coverSha !== (entry.coverSha256 ?? null)
         ? { coverChange: true }
         : {}),
@@ -291,20 +347,32 @@ export async function previewRelease(
         slug: details.slug,
         presentation: details.presentation,
         page: details.page === null ? "none" : "new",
+        ...(shell
+          ? { chapterListChange: { added: guide.chapters.length, removed: 0 } }
+          : {}),
       });
       continue;
     }
     const order = await request(`/authoring/guides/${guideId}/order`);
     expected[`${sourceKey(manifest, guide.sourceId)}:order`] =
       order.orderVersion;
+    // A page edited on the target after the review is drift, not something apply may overwrite.
+    if (stored !== undefined)
+      expected[`${sourceKey(manifest, guide.sourceId)}:guide`] = stored.version;
     const ids = new Map(
       programme.map((id) => [
         id,
         journal.materials[sourceKey(manifest, id)]?.materialId,
       ]),
     );
-    const desiredOrder = programme.map((id) => ids.get(id) ?? `new:${id}`);
     const currentOrder = order.items.map((item) => item.materialId);
+    // A Guide shell keeps the Materials the target holds, in their order and chapters.
+    const shellComposition = shell
+      ? guideShellComposition(manifest, guide, order)
+      : undefined;
+    const desiredOrder =
+      shellComposition?.orderedMaterialIds ??
+      programme.map((id) => ids.get(id) ?? `new:${id}`);
     const chapterOf = new Map(
       guide.chapters.flatMap((chapter) =>
         chapter.materialIds.map((id) => [ids.get(id), chapter.title]),
@@ -319,7 +387,18 @@ export async function previewRelease(
         canonical({ name: chapter.name, summary: chapter.summary }),
       ]),
     );
-    const chapterTextChanges = guideChapters(manifest, guide).filter(
+    const desiredChapters = guideChapters(manifest, guide);
+    const desiredChapterIds = desiredChapters.map((chapter) => chapter.id);
+    const currentChapterIds = order.chapters.map((chapter) => chapter.id);
+    const chapterListChange = {
+      added: desiredChapterIds.filter((id) => !currentChapterIds.includes(id))
+        .length,
+      removed: currentChapterIds.filter((id) => !desiredChapterIds.includes(id))
+        .length,
+    };
+    const chaptersChanged =
+      canonical(desiredChapterIds) !== canonical(currentChapterIds);
+    const chapterTextChanges = desiredChapters.filter(
       (chapter) =>
         currentChapterText.has(chapter.id) &&
         currentChapterText.get(chapter.id) !==
@@ -341,13 +420,16 @@ export async function previewRelease(
         : undefined;
     const detailsChange =
       stored === undefined || !guideDetailsMatch(stored, details);
-    const moved = order.items.filter(
-      (item) =>
-        (chapterOf.get(item.materialId) ?? null) !==
-        (item.chapterId === null
-          ? null
-          : (currentChapters.get(item.chapterId) ?? null)),
-    ).length;
+    // A shell that would move a placed Material is refused while composing it.
+    const moved = shellComposition
+      ? 0
+      : order.items.filter(
+          (item) =>
+            (chapterOf.get(item.materialId) ?? null) !==
+            (item.chapterId === null
+              ? null
+              : (currentChapters.get(item.chapterId) ?? null)),
+        ).length;
     guides.push({
       sourceId: guide.sourceId,
       title: guide.title,
@@ -356,6 +438,7 @@ export async function previewRelease(
       change:
         canonical(desiredOrder) === canonical(currentOrder) &&
         moved === 0 &&
+        !chaptersChanged &&
         chapterTextChanges === 0
           ? detailsChange
             ? "details"
@@ -366,6 +449,7 @@ export async function previewRelease(
       pageChange,
       ...(slugChange ? { slugChange } : {}),
       ...(presentationChange ? { presentationChange } : {}),
+      ...(chaptersChanged ? { chapterListChange } : {}),
       added: desiredOrder.filter((id) => !currentOrder.includes(id)).length,
       removed: currentOrder.filter((id) => !desiredOrder.includes(id)).length,
       reorderedOrRegrouped:
@@ -375,13 +459,27 @@ export async function previewRelease(
     });
   }
   const archiveProposals = archiveProposalKeys(journal, manifest);
+  // The owner's publication approval is part of what apply must match.
+  /** @type {{ publish?: import("./local-boundaries.mjs").PublishSelection }} */
+  const approval =
+    publish === "all"
+      ? { publish }
+      : publish.length
+        ? { publish: normalizeSourceIds(manifest, publish).sort() }
+        : {};
   const plan = {
     schemaVersion: 1,
-    target,
+    target: target.id,
     environment: environment.mode,
     packageId: pkg.id,
     packagePath: resolve(packagePath),
     namespace: manifest.sourceNamespace,
+    ...approval,
+    ...(shell ? { scope: guideShellScope.value } : {}),
+    // A shell leaves these writes for their own package; the reviewer sees them before apply.
+    ...(shell && pendingOperations(journal)
+      ? { pendingMaterialWrites: pendingOperations(journal) }
+      : {}),
     expected,
     materials,
     guides,
@@ -409,6 +507,9 @@ const previewSchema = z
     packageId: z.hash("sha256"),
     packagePath: z.string(),
     namespace: z.string(),
+    scope: guideShellScope.optional(),
+    publish: publishSelectionSchema.optional(),
+    pendingMaterialWrites: z.number().int().positive().optional(),
     expected: z.record(z.string(), z.union([z.number().int(), z.string()])),
     materials: z.array(z.object({ change: z.string() }).passthrough()),
     guides: z.array(z.json()),
@@ -418,16 +519,21 @@ const previewSchema = z
   .strict();
 
 /**
- * Applies exactly the reviewed preview; any drift since the preview stops before the first write.
+ * Applies exactly the reviewed preview. Unfinished writes this journal already started are first
+ * completed with their original keys; any other drift since the preview stops before a new write.
  *
  * @param {string} previewPath
  * @param {string} stateDirectory
- * @param {{ archive?: string[]; request?: LocalTransport }} [options]
+ * @param {{
+ *   archive?: string[];
+ *   request?: LocalTransport | undefined;
+ *   accessToken?: import("./target.mjs").AccessToken | undefined;
+ * }} [options]
  */
 export async function applyRelease(
   previewPath,
   stateDirectory,
-  { archive = [], request: transport } = {},
+  { archive = [], request: transport, accessToken } = {},
 ) {
   const preview = previewSchema.parse(
     JSON.parse(await readFile(previewPath, "utf8")),
@@ -436,9 +542,9 @@ export async function applyRelease(
   if (checksum(canonical(plan)) !== fingerprint)
     throw new Error("Preview file was changed after review");
   const target = releaseTarget(preview.target);
-  if (preview.environment !== "development")
+  if (preview.environment !== target.environment)
     throw new Error(
-      "Only a development environment can be released to by this command",
+      `The preview was made against a ${preview.environment} runtime; ${target.id} is ${target.environment}`,
     );
   if (preview.materials.some((item) => item.change === "conflict"))
     throw new Error(
@@ -455,19 +561,34 @@ export async function applyRelease(
   const pkg = await loadPackage(preview.packagePath);
   if (pkg.id !== preview.packageId)
     throw new Error("Package differs from the reviewed preview");
+  const publish = preview.publish ?? [];
+  // A write whose outcome was lost is completed with its original key first; if it changed the
+  // target, the reviewed plan no longer matches and a new preview is required.
+  await syncLocal(preview.packagePath, stateDirectory, {
+    origin: target.id,
+    request: transport,
+    publish,
+    accessToken,
+    reconcileOnly: true,
+  });
   // The recomputed plan must be the reviewed one: versions, local receipts and every listed change.
   const current = await previewRelease(preview.packagePath, stateDirectory, {
-    origin: target,
+    origin: target.id,
     request: transport,
+    publish,
+    accessToken,
   });
   if (current.preview.fingerprint !== fingerprint)
     throw new Error(
       "The environment changed after the preview; preview again before releasing",
     );
   return syncLocal(preview.packagePath, stateDirectory, {
-    origin: target,
+    origin: target.id,
     request: transport,
     archive,
+    publish,
+    accessToken,
+    reviewed: true,
   });
 }
 
@@ -479,37 +600,70 @@ if (
     allowPositionals: true,
     options: {
       package: { type: "string" },
+      content: { type: "string" },
+      guide: { type: "string" },
+      ref: { type: "string", default: "HEAD" },
       target: { type: "string" },
       state: { type: "string" },
       preview: { type: "string" },
       archive: { type: "string", multiple: true, default: [] },
+      publish: { type: "string", multiple: true, default: [] },
+      "publish-all": { type: "boolean", default: false },
     },
   });
   const [command] = positionals;
+  /** @param {string} value */
+  const sessionFor = (value) => {
+    const target = releaseTarget(value);
+    return target.kind === "trusted"
+      ? ownerSession(target, { store: keychainStore() })
+      : undefined;
+  };
   if (
     command === "preview" &&
-    values.package &&
+    (values.package || (values.content && values.guide)) &&
     values.target &&
     values.state
   ) {
+    // A Content checkout is exported at one committed revision; a ready package is used as given.
+    const exported =
+      values.package === undefined && values.content && values.guide
+        ? await exportCommittedPackage(
+            values.content,
+            values.guide,
+            values.state,
+            values.ref,
+          )
+        : undefined;
+    const packagePath = exported?.packagePath ?? values.package;
+    if (packagePath === undefined) throw new Error("Name a package or Content");
     const { path, summary, preview } = await previewRelease(
-      values.package,
+      packagePath,
       values.state,
-      { origin: releaseTarget(values.target) },
+      {
+        origin: values.target,
+        publish: publishOption(values),
+        accessToken: sessionFor(values.target),
+      },
     );
     process.stdout.write(
-      `${JSON.stringify({ preview: path, summary, guides: preview.guides, archiveProposals: preview.archiveProposals, changes: preview.materials.filter((item) => item.change !== "unchanged") }, null, 2)}\n`,
+      `${JSON.stringify({ preview: path, ...(exported ? { commit: exported.commit } : {}), scope: preview.scope ?? "materials", publish: preview.publish ?? [], summary, guides: preview.guides, archiveProposals: preview.archiveProposals, changes: preview.materials.filter((item) => item.change !== "unchanged") }, null, 2)}\n`,
     );
   } else if (command === "apply" && values.preview && values.state) {
+    const reviewed = z
+      .object({ target: z.string() })
+      .passthrough()
+      .parse(JSON.parse(await readFile(values.preview, "utf8")));
     const report = await applyRelease(values.preview, values.state, {
       archive: values.archive,
+      accessToken: sessionFor(reviewed.target),
     });
     process.stdout.write(
       `${JSON.stringify({ applied: report.applied, unchanged: report.unchanged, archived: report.archived, guides: report.guides }, null, 2)}\n`,
     );
   } else {
     throw new Error(
-      "Usage: pnpm authoring:release preview --package PACKAGE_JSON --target editor|stand --state STATE_DIRECTORY\n       pnpm authoring:release apply --preview PREVIEW_JSON --state STATE_DIRECTORY [--archive SOURCE_ID]...",
+      "Usage: pnpm authoring:release preview (--package PACKAGE_JSON | --content CONTENT_REPOSITORY --guide GUIDE_ID [--ref REF]) --target editor|stand|production --state STATE_DIRECTORY [--publish SOURCE_ID]... [--publish-all]\n       pnpm authoring:release apply --preview PREVIEW_JSON --state STATE_DIRECTORY [--archive SOURCE_ID]...",
     );
   }
 }

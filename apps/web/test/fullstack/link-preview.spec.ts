@@ -31,13 +31,13 @@ test("ссылка на продукт и на материал показыва
   page,
   request,
 }) => {
-  await page.goto("/guides/platform-inside");
+  await page.goto("/products/platform-inside");
 
   const title = await metaContent(page, "og:title");
   expect(title).toContain("продукт");
   expect(await metaContent(page, "og:description")).not.toBe("");
   const image = await metaContent(page, "og:image");
-  expect(image).toBe(`${String(baseURL)}/guides/platform-inside/social-card`);
+  expect(image).toBe(`${String(baseURL)}/products/platform-inside/social-card`);
 
   const card = await request.get(String(image));
   expect(card.status()).toBe(200);
@@ -52,10 +52,10 @@ test("совместимый адрес `/series/` указывает на ка�
 
   await expect(page.locator('link[rel="canonical"]')).toHaveAttribute(
     "href",
-    `${String(baseURL)}/guides/platform-inside`,
+    `${String(baseURL)}/products/platform-inside`,
   );
   expect(await metaContent(page, "og:url")).toBe(
-    `${String(baseURL)}/guides/platform-inside`,
+    `${String(baseURL)}/products/platform-inside`,
   );
 });
 
@@ -92,7 +92,7 @@ test("карта сайта перечисляет опубликованные 
   expect(response.status()).toBe(200);
   const body = await response.text();
   expect(body).toContain(
-    `<loc>${String(baseURL)}/guides/platform-inside</loc>`,
+    `<loc>${String(baseURL)}/products/platform-inside</loc>`,
   );
   expect(body).toContain(`<loc>${String(baseURL)}/topics/platform</loc>`);
   expect(body).toContain(

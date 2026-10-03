@@ -9,13 +9,17 @@ import {
 import type { Route } from "next";
 import type { ReactNode } from "react";
 
-import type {
-  GuidePage,
-  GuidePageBlock,
-  GuidePresentation,
+import {
+  fillGuidePage,
+  type GuidePage,
+  type GuidePageBlock,
+  type GuidePresentation,
 } from "@/entities/guide-page";
 import { ContentCoverImage } from "@/entities/material";
-import { fillOneTimeTerms as fillTerms } from "@/features/billing-checkout.terms";
+import {
+  fillOneTimeTerms,
+  type OneTimeOfferTerms,
+} from "@/features/billing-checkout.terms";
 import type { ReaderGuideArtifactsResult } from "@/features/guide-artifacts.reader";
 import {
   formatMaterialCount,
@@ -27,6 +31,8 @@ import type { MaterialReaderReturnTarget } from "@/shared/routing/material-reade
 import { Button } from "@/shared/ui/button";
 import { IntentPrefetchLink } from "@/shared/ui/intent-prefetch-link.client";
 
+import { countFreeLessons } from "../model/free-lessons";
+import { AiEngineeringCourseView } from "./ai-engineering-course-view";
 import { AiFirstGuideView } from "./ai-first-guide-view";
 import { formatArtifactCount, formatChapterCount } from "./guide-counts";
 
@@ -41,6 +47,7 @@ interface ProductViewProps {
   readonly returnTarget: MaterialReaderReturnTarget;
   readonly freeEntryHref: Route | undefined;
   readonly page: GuidePage | null;
+  readonly heroCall: ReactNode;
 }
 
 /**
@@ -66,6 +73,21 @@ const productViews: Record<
         returnTarget={props.returnTarget}
       />
     ),
+  "ai-engineering-course": ({ page, freeEntryHref, ...props }) =>
+    page === null ? (
+      <DefaultGuideProductView
+        {...props}
+        freeEntryHref={freeEntryHref}
+        page={null}
+      />
+    ) : (
+      <AiEngineeringCourseView
+        heroCall={props.heroCall}
+        page={page}
+        result={props.result}
+        returnTarget={props.returnTarget}
+      />
+    ),
 };
 
 /**
@@ -76,6 +98,8 @@ const productViews: Record<
  */
 export function GuideProductView({
   artifacts = { kind: "ready", artifacts: [] },
+  heroCall,
+  offerTerms = null,
   result,
   freeEntryHref,
   returnTarget,
@@ -86,14 +110,26 @@ export function GuideProductView({
   readonly returnTarget: MaterialReaderReturnTarget;
   /** Бесплатный вход из обложки. Он ведёт в программу: там читатель сразу видит открытые уроки. */
   readonly freeEntryHref?: Route;
+  /** Плашка потока и кнопка по этапу: её рисует оформление курса, остальные её не показывают. */
+  readonly heroCall?: ReactNode;
+  /** Сроки предложения этого продукта для подстановок в описании; `null` — продажи нет. */
+  readonly offerTerms?: OneTimeOfferTerms | null;
 }) {
   const productPage = result.reference.productPage ?? null;
   const View = productViews[productPage?.presentation ?? "default"];
+  const page = productPage?.page ?? null;
   return (
     <View
       artifacts={artifacts}
       freeEntryHref={freeEntryHref}
-      page={productPage?.page ?? null}
+      heroCall={heroCall}
+      // Сроки предложения подставляются один раз, до выбора оформления: каждое оформление получает
+      // готовый текст и не пропускает ни одного поля (ADR 0026).
+      page={
+        page === null
+          ? null
+          : fillGuidePage(page, (text) => fillOneTimeTerms(text, offerTerms))
+      }
       result={result}
       returnTarget={returnTarget}
     />
@@ -111,9 +147,7 @@ function DefaultGuideProductView({
   const { reference } = result;
   const introduction = page === null ? (reference.introduction ?? null) : null;
   const items = result.kind === "ready" ? result.items : [];
-  const freeCount = items.filter(
-    (item) => item.access === "free" && item.availability === "available",
-  ).length;
+  const freeCount = countFreeLessons(items);
   // Бесплатный вход обещает открытые уроки, поэтому он показывается там же, где они есть.
   const freeEntry = freeCount === 0 ? undefined : freeEntryHref;
   const chapters = result.chapters;
@@ -351,7 +385,12 @@ function DefaultBlock({
     case "hero":
       return (
         <div className="mt-6">
-          <Prose value={fillTerms(block.lead)} />
+          {block.badge === "" ? null : (
+            <p className="mb-3 inline-flex rounded-full bg-accent px-3 py-1 text-xs font-bold text-accent-foreground">
+              {block.badge}
+            </p>
+          )}
+          <Prose value={block.lead} />
           {block.highlights.length === 0 ? null : (
             <ul className="mt-3 flex flex-wrap gap-2 text-sm">
               {block.highlights.map((highlight, index) => (
@@ -359,7 +398,7 @@ function DefaultBlock({
                   className="rounded-full bg-secondary px-3 py-1"
                   key={`${String(index)}-${highlight}`}
                 >
-                  {fillTerms(highlight)}
+                  {highlight}
                 </li>
               ))}
             </ul>
@@ -369,12 +408,10 @@ function DefaultBlock({
     case "cards":
       return (
         <Section
-          title={fillTerms(block.title)}
-          {...(block.eyebrow === ""
-            ? {}
-            : { eyebrow: fillTerms(block.eyebrow) })}
+          title={block.title}
+          {...(block.eyebrow === "" ? {} : { eyebrow: block.eyebrow })}
         >
-          {block.lead === "" ? null : <Prose value={fillTerms(block.lead)} />}
+          {block.lead === "" ? null : <Prose value={block.lead} />}
           <ul className="mt-4 grid gap-3">
             {block.items.map((item, index) => (
               <li
@@ -382,19 +419,19 @@ function DefaultBlock({
                 key={`${String(index)}-${item.title}`}
               >
                 <p className="break-words font-semibold leading-6">
-                  {fillTerms(item.title)}
+                  {item.title}
                 </p>
                 <p className="mt-1 whitespace-pre-line break-words text-sm leading-6 text-muted-foreground">
-                  {fillTerms(item.text)}
+                  {item.text}
                 </p>
                 {item.detail === "" ? null : (
                   <p className="mt-2 text-sm">
                     {item.detailLabel === "" ? null : (
                       <span className="text-muted-foreground">
-                        {fillTerms(item.detailLabel)}:{" "}
+                        {item.detailLabel}:{" "}
                       </span>
                     )}
-                    {fillTerms(item.detail)}
+                    {item.detail}
                   </p>
                 )}
               </li>
@@ -402,28 +439,25 @@ function DefaultBlock({
           </ul>
           {block.note === "" ? null : (
             <p className="mt-3 text-sm leading-6 text-muted-foreground">
-              {fillTerms(block.note)}
+              {block.note}
             </p>
           )}
         </Section>
       );
     case "text":
       return (
-        <Section title={fillTerms(block.title)}>
+        <Section title={block.title}>
           <div className="grid gap-3">
             {block.paragraphs.map((paragraph, index) => (
-              <Prose
-                key={`${String(index)}-${paragraph}`}
-                value={fillTerms(paragraph)}
-              />
+              <Prose key={`${String(index)}-${paragraph}`} value={paragraph} />
             ))}
           </div>
         </Section>
       );
     case "steps":
       return (
-        <Section title={fillTerms(block.title)}>
-          {block.lead === "" ? null : <Prose value={fillTerms(block.lead)} />}
+        <Section title={block.title}>
+          {block.lead === "" ? null : <Prose value={block.lead} />}
           <ol className="mt-4 grid gap-4">
             {block.items.map((step, index) => (
               <li
@@ -441,31 +475,31 @@ function DefaultBlock({
                 </span>
                 <div className="min-w-0">
                   <p className="break-words font-semibold leading-6">
-                    {fillTerms(step.title)}
+                    {step.title}
                   </p>
                   <p className="mt-1 whitespace-pre-line break-words text-sm leading-6 text-muted-foreground">
-                    {fillTerms(step.text)}
+                    {step.text}
                   </p>
                 </div>
               </li>
             ))}
           </ol>
           {block.link === "" ? null : (
-            <TextLink href={programme} label={fillTerms(block.link)} />
+            <TextLink href={programme} label={block.link} />
           )}
         </Section>
       );
     case "list":
       return (
-        <Section title={fillTerms(block.title)}>
-          {block.text === "" ? null : <Prose value={fillTerms(block.text)} />}
+        <Section title={block.title}>
+          {block.text === "" ? null : <Prose value={block.text} />}
           <ul className="mt-3 flex flex-wrap gap-2 text-sm">
             {block.items.map((item, index) => (
               <li
                 className="rounded-full bg-secondary px-3 py-1"
                 key={`${String(index)}-${item}`}
               >
-                {fillTerms(item)}
+                {item}
               </li>
             ))}
           </ul>
@@ -473,10 +507,10 @@ function DefaultBlock({
       );
     case "trial":
       return freeCount === 0 ? null : (
-        <Section title={fillTerms(block.title)}>
-          <Prose value={fillTerms(block.text)} />
+        <Section title={block.title}>
+          <Prose value={block.text} />
           {block.link === "" ? null : (
-            <TextLink href={programme} label={fillTerms(block.link)} />
+            <TextLink href={programme} label={block.link} />
           )}
         </Section>
       );

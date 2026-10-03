@@ -71,7 +71,7 @@ test("адрес редакции остаётся рабочим и не спо
   ).toBeVisible();
 });
 
-test("оферта разовой покупки действует в редакции 4, а прежние остаются по своим адресам", async ({
+test("оферта разовой покупки действует в редакции 5, а прежние остаются по своим адресам", async ({
   page,
 }) => {
   const response = await page.goto("/legal/purchase");
@@ -81,7 +81,7 @@ test("оферта разовой покупки действует в реда�
     "Оферта разовой покупки продукта Inside",
   );
   await expect(
-    page.getByText(/^Версия 4\. Действует с /u).first(),
+    page.getByText(/^Версия 5\. Действует с /u).first(),
   ).toBeVisible();
   // Списки и подразделы оферты отрисованы как разметка, а не как текст с маркерами.
   await expect(
@@ -92,6 +92,12 @@ test("оферта разовой покупки действует в реда�
   ).toBeVisible();
   await expect(
     page.getByRole("listitem").filter({ hasText: "Личные встречи и созвоны." }),
+  ).toBeVisible();
+
+  const fourth = await page.goto("/legal/purchase/v4");
+  expect(fourth?.status()).toBe(200);
+  await expect(
+    page.getByText(/^Версия 4\. Действует с /u).first(),
   ).toBeVisible();
 
   const third = await page.goto("/legal/purchase/v3");
@@ -155,7 +161,7 @@ test("неизвестный документ и неизвестная реда
 });
 
 /** `proxy` пропускает опубликованные адреса к предсобранным страницам: общий кеш может их хранить. */
-for (const path of ["/legal/terms", "/legal/terms/v1", "/legal/purchase/v4"]) {
+for (const path of ["/legal/terms", "/legal/terms/v1", "/legal/purchase/v5"]) {
   test(`${path} остаётся статической страницей`, async ({ request }) => {
     const response = await request.get(path, { maxRedirects: 0 });
 

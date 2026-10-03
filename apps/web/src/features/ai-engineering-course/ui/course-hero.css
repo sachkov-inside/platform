@@ -1,0 +1,191 @@
+.aie-hero {
+  display: grid;
+  grid-template-columns: minmax(0, 1.05fr) minmax(0, 1fr);
+  align-items: center;
+  gap: 2.5rem;
+  min-width: 0;
+}
+.aie-hero-copy {
+  min-width: 0;
+}
+.aie-hero-title {
+  margin: 0;
+  font-size: clamp(2.3rem, 4vw, 3.6rem);
+  font-weight: 700;
+  line-height: 1.08;
+  letter-spacing: -0.035em;
+  text-wrap: wrap;
+  overflow-wrap: anywhere;
+}
+/* Название не рвётся посередине: при нехватке места на новую строку уходит только метка. */
+.aie-hero-name {
+  white-space: nowrap;
+}
+.aie-hero-badge {
+  display: inline-block;
+  margin-left: 0.1em;
+  padding: 0.2em 0.6em 0.24em;
+  border-radius: 999px;
+  background: var(--accent);
+  color: var(--accent-foreground);
+  font-size: 0.4em;
+  font-weight: 700;
+  line-height: 1.2;
+  letter-spacing: 0;
+  vertical-align: 0.5em;
+  white-space: nowrap;
+  transform: rotate(-4deg);
+}
+.aie-hero-lead {
+  margin: 1rem 0 0;
+  font-size: 1rem;
+  line-height: 1.7;
+  color: var(--muted-foreground);
+}
+/* Пункты — короткий столбец со значками: на любой ширине колонки они не рвутся на неровные ряды. */
+.aie-hero-points {
+  display: grid;
+  gap: 0.6rem;
+  margin: 1.4rem 0 0;
+  padding: 0;
+  list-style: none;
+}
+.aie-hero-points li {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+  font-size: 0.95rem;
+  font-weight: 600;
+  line-height: 1.4;
+}
+.aie-hero-points .aie-icon {
+  --aie-icon-size: 2.25rem;
+}
+.aie-hero-action {
+  display: inline-flex;
+  align-items: center;
+  gap: 1rem;
+  min-height: 3rem;
+  margin-top: 1.75rem;
+  padding: 0 1.25rem;
+  border-radius: 0.75rem;
+  background: var(--primary);
+  color: var(--primary-foreground);
+  font-weight: 650;
+  text-decoration: none;
+}
+.aie-hero-action:hover {
+  background: var(--accent-hover);
+}
+.aie-hero-action:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+}
+.aie-hero-action svg {
+  width: 1rem;
+  height: 1rem;
+}
+.aie-hero-film {
+  min-width: 0;
+}
+
+@media (max-width: 47.999rem) {
+  .aie-hero {
+    grid-template-columns: 1fr;
+    gap: 1.5rem;
+  }
+  .aie-hero-film {
+    order: -1;
+  }
+  .aie-hero-title {
+    font-size: 2.2rem;
+  }
+  .aie-hero-lead {
+    line-height: 1.5;
+  }
+  /* Пункты на телефоне — одна карточка во всю ширину с разделителями. */
+  .aie-hero-points {
+    display: grid;
+    gap: 0;
+    padding: 0.25rem 1rem;
+    border-radius: 1rem;
+    background: var(--secondary);
+  }
+  .aie-hero-points li {
+    gap: 0.7rem;
+    padding: 0.8rem 0;
+    border-radius: 0;
+    background: transparent;
+    font-size: 0.9rem;
+    font-weight: 600;
+  }
+  .aie-hero-points li + li {
+    border-top: 1px solid var(--border);
+  }
+  /* В серой карточке пунктов плитка значка белая. */
+  .aie-hero-points .aie-icon {
+    --aie-icon-size: 2rem;
+    --aie-icon-tile: var(--background);
+  }
+  .aie-hero-action[data-compact-on-phone="true"] {
+    display: none;
+  }
+}
+
+/*
+ * Первый экран собирается при загрузке: текст поднимается по очереди, метка «приклеивается» с
+ * небольшим перелётом поворота. Без анимации всё сразу стоит на месте.
+ */
+@media (prefers-reduced-motion: no-preference) {
+  .aie-hero-name,
+  .aie-hero-lead,
+  .aie-hero-points li,
+  .aie-hero-action,
+  .aie-hero-film {
+    animation: aie-hero-rise 700ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+  }
+  .aie-hero-name {
+    display: inline-block;
+  }
+  .aie-hero-lead {
+    animation-delay: 120ms;
+  }
+  .aie-hero-points li:nth-child(1) {
+    animation-delay: 200ms;
+  }
+  .aie-hero-points li:nth-child(2) {
+    animation-delay: 260ms;
+  }
+  .aie-hero-points li:nth-child(3) {
+    animation-delay: 320ms;
+  }
+  .aie-hero-action {
+    animation-delay: 400ms;
+  }
+  .aie-hero-film {
+    animation-name: aie-hero-film-in;
+    animation-duration: 900ms;
+    animation-delay: 80ms;
+  }
+  .aie-hero-badge {
+    animation: aie-hero-badge-in 650ms cubic-bezier(0.3, 1.5, 0.5, 1) 380ms both;
+  }
+}
+@keyframes aie-hero-rise {
+  from {
+    opacity: 0;
+    translate: 0 0.9rem;
+  }
+}
+@keyframes aie-hero-film-in {
+  from {
+    opacity: 0;
+    scale: 0.97;
+  }
+}
+@keyframes aie-hero-badge-in {
+  from {
+    opacity: 0;
+    transform: scale(0.6) rotate(-16deg);
+  }
+}

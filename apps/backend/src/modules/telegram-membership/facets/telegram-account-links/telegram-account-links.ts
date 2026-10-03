@@ -8,6 +8,16 @@ export type ConfirmedTelegramAccountLink = Readonly<{
   accountRef: string;
   telegramIdentityRef: string;
 }>;
+const IDENTITY_CHUNK = 5_000;
+
+export type CurrentAccountsResult =
+  | { readonly ok: true; readonly accounts: ReadonlyMap<string, string> }
+  | {
+      readonly ok: false;
+      readonly error: {
+        readonly code: "invalid_request" | "dependency_unavailable";
+      };
+    };
 export type TelegramAccountLinkResult =
   | { readonly ok: true; readonly link: ConfirmedTelegramAccountLink | null }
   | { readonly ok: false };
@@ -47,6 +57,51 @@ export class TelegramAccountLinks {
         { module: "telegram-membership", operation: "findCurrentByIdentity" },
         error,
         { ok: false as const },
+      );
+    }
+  }
+
+  /**
+   * Current Account of each verified identity, by the same rule as `findCurrentByIdentity`:
+   * an identity linked to several Accounts is ambiguous and resolves to none.
+   */
+  async findCurrentAccounts(
+    identityRefs: readonly string[],
+  ): Promise<CurrentAccountsResult> {
+    const parsed = z
+      .array(z.string().trim().min(1).max(256))
+      .safeParse(identityRefs);
+    if (!parsed.success)
+      return { ok: false, error: { code: "invalid_request" } };
+    const accounts = new Map<string, string>();
+    if (parsed.data.length === 0) return { ok: true, accounts };
+    try {
+      const unique = [...new Set(parsed.data)];
+      const rows = [];
+      // One bounded query per chunk keeps each parameter list small however large the set grows.
+      for (let start = 0; start < unique.length; start += IDENTITY_CHUNK)
+        rows.push(
+          ...(await this.prisma.telegramAccountLinkState.findMany({
+            where: {
+              identityRef: { in: unique.slice(start, start + IDENTITY_CHUNK) },
+              principalRef: { not: null },
+            },
+            select: { accountId: true, identityRef: true },
+          })),
+        );
+      const ambiguous = new Set<string>();
+      for (const row of rows) {
+        if (row.identityRef === null) continue;
+        if (accounts.has(row.identityRef)) ambiguous.add(row.identityRef);
+        accounts.set(row.identityRef, row.accountId);
+      }
+      for (const identityRef of ambiguous) accounts.delete(identityRef);
+      return { ok: true, accounts };
+    } catch (error) {
+      return dependencyFailure(
+        { module: "telegram-membership", operation: "findCurrentAccounts" },
+        error,
+        { ok: false, error: { code: "dependency_unavailable" } } as const,
       );
     }
   }

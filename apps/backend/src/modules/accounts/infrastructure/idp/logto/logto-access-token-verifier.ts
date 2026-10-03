@@ -40,7 +40,10 @@ export interface LogtoAccessTokenVerifier {
     | ({ readonly ok: true } & ReturnType<typeof verifiedAccountSignIn>)
     | ProofFailure
   >;
-  verifyAccount(token: unknown): Promise<
+  verifyAccount(
+    token: unknown,
+    additionalAudience?: string,
+  ): Promise<
     | {
         readonly ok: true;
         readonly identity: VerifiedAccountIdentity;
@@ -98,8 +101,20 @@ export function createLogtoAccessTokenVerifier(
         }),
       };
     },
-    async verifyAccount(token) {
-      const verified = await verifyToken(token, config, keyResolver);
+    async verifyAccount(token, additionalAudience) {
+      let verified = await verifyToken(token, config, keyResolver);
+      // A transport may accept its own advertised resource, without widening API sign-in.
+      if (
+        !verified.ok &&
+        verified.error.code === "invalid_proof" &&
+        additionalAudience !== undefined
+      ) {
+        verified = await verifyToken(
+          token,
+          { ...config, audience: additionalAudience },
+          keyResolver,
+        );
+      }
       if (!verified.ok || isMachineToken(verified.payload)) {
         return verified.ok ? invalidProof() : verified;
       }

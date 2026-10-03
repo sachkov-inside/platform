@@ -275,6 +275,10 @@ const platformConfigSchema = z
     objectStorage: objectStorageSchema,
     kinescope: kinescopeSchema,
     telegramMembership: telegramMembershipSchema,
+    /** Вход событий воронки продаж от бота; без секрета вход закрыт. */
+    salesFunnelIngressSecret: telegramSecretSchema(
+      "TELEGRAM_SALES_FUNNEL_INGRESS_SECRET",
+    ).optional(),
     communicationsTrackingOrigin: z
       .url()
       .refine((value) => {
@@ -495,6 +499,10 @@ export function parsePlatformConfig(
           providerSecret: environment["TELEGRAM_COMMUNITY_ENTITLEMENT_SECRET"],
           dispatchSecret: environment["TELEGRAM_COMMUNITY_DISPATCH_SECRET"],
         },
+    salesFunnelIngressSecret: readOptionalRuntimeValue(
+      environment,
+      "TELEGRAM_SALES_FUNNEL_INGRESS_SECRET",
+    ),
     communicationsTrackingOrigin: environment["TELEGRAM_TRACKING_ORIGIN"],
     communications: [
       environment["TELEGRAM_COMMUNICATIONS_ENDPOINT"],
@@ -869,6 +877,25 @@ export function parsePlatformConfig(
     );
   }
 
+  // Вход воронки принимает только события бота; чужой секрет дал бы его владельцу право писать их.
+  const salesFunnelSecret = config.data.salesFunnelIngressSecret;
+  if (
+    salesFunnelSecret !== undefined &&
+    [
+      config.data.telegramMembership.linkingSecret,
+      config.data.telegramMembership.evidenceIngressSecret,
+      config.data.telegramMembership.activationIngressSecret,
+      config.data.identity.telegramSignInIntegrationSecret,
+      config.data.communityEntitlements?.dispatchSecret,
+      config.data.communityEntitlements?.providerSecret,
+      config.data.communications?.secret,
+      config.data.communications?.authorizationSecret,
+      config.data.notificationDelivery?.telegramSecret,
+    ].includes(salesFunnelSecret)
+  ) {
+    throw new Error("Sales funnel ingress requires a separate Telegram secret");
+  }
+
   if (config.data.identity.telegramSignInEnabled) {
     if (
       !hasText(config.data.identity.telegramSignInIntegrationSecret) ||
@@ -920,7 +947,7 @@ export function parsePlatformMode(value: string | undefined): PlatformMode {
 
 function readOptionalRuntimeValue(
   environment: NodeJS.ProcessEnv,
-  name: "MEMBERSHIP_SUPPORT_URL",
+  name: "MEMBERSHIP_SUPPORT_URL" | "TELEGRAM_SALES_FUNNEL_INGRESS_SECRET",
 ): string | undefined {
   const value = environment[name]?.trim();
   return value === undefined || value.length === 0 ? undefined : value;

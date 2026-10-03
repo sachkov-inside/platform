@@ -1,7 +1,7 @@
 import AxeBuilder from "@axe-core/playwright";
 import { expect, test } from "@playwright/test";
 
-const product = "/guides/platform-inside";
+const product = "/products/platform-inside";
 const programme = `${product}/programme`;
 
 test("страница продукта отвечает и не продаёт", async ({ page }) => {

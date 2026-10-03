@@ -7,6 +7,10 @@ import {
   type CatalogSectionProps,
 } from "./catalog-section.client";
 import {
+  CohortSection,
+  type CohortSectionProps,
+} from "./cohort-section.client";
+import {
   ClassificationSection,
   type ClassificationSectionProps,
 } from "./classification-section.client";
@@ -22,11 +26,14 @@ import {
 export interface BillingAdminViewProps
   extends
     Omit<CatalogSectionProps, "offers" | "pending">,
+    Omit<CohortSectionProps, "content" | "pending">,
     Omit<PaymentsSectionProps, "pending">,
     Omit<GrantsSectionProps, "pending">,
     Omit<ClassificationSectionProps, "pending"> {
   readonly offers: readonly PriceSnapshot[];
   readonly enrollmentControls?: ReactNode;
+  /** Скидка респондентам анкеты живёт рядом с каталогом: она выдаёт личные скидки по его шаблону. */
+  readonly respondentControls?: ReactNode;
   readonly pending?: boolean;
   readonly error?: string | undefined;
   readonly notice?: string | undefined;
@@ -41,7 +48,10 @@ export function BillingAdminView({
   tiers,
   catalogLoading,
   catalogError,
+  cohorts,
+  onSaveCohort,
   enrollmentControls,
+  respondentControls,
   offers,
   payments,
   paymentsCursor,
@@ -123,6 +133,13 @@ export function BillingAdminView({
         onSavePromotion={onSavePromotion}
         pending={pending}
       />
+      <CohortSection
+        cohorts={cohorts}
+        content={content}
+        onSaveCohort={onSaveCohort}
+        pending={pending}
+      />
+      {respondentControls}
       <PaymentsSection
         onCancelSubscription={onCancelSubscription}
         onDecideRefund={onDecideRefund}

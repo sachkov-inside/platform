@@ -4,7 +4,7 @@ import assert from "node:assert/strict";
 import { mkdtemp, mkdir, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
-import { canonical, checksum } from "./package.mjs";
+import { canonical, checksum, materialRevision } from "./package.mjs";
 import { syncLocal } from "./local-sync.mjs";
 import { loopbackOrigin, resolveLocalTarget } from "./target.mjs";
 import { applyRelease, previewRelease } from "./release.mjs";
@@ -352,6 +352,12 @@ function applicationApi() {
         const current = valueAt(materials, command.source.id);
         if (command.expectedContentVersion !== current.contentVersion)
           throw new Error("stale_content_version");
+        // Platform never moves a published or unpublished Material back to draft.
+        if (
+          command.publicationState === "draft" &&
+          current.publicationState !== "draft"
+        )
+          throw new Error("invalid_publication_transition");
         if (command.primaryVideoId !== null)
           assert.equal(valueAt(videos, command.primaryVideoId).state, "ready");
         Object.assign(current, {
@@ -462,6 +468,7 @@ function applicationApi() {
 const run = (setup, api, options = {}) =>
   syncLocal(setup.packagePath, setup.state, {
     request: api.request,
+    publish: "all",
     sleep: async () => {},
     ...options,
   });
@@ -514,6 +521,7 @@ test("the product page travels with the Guide: unknown looks stop early, edits w
   await assert.rejects(run(setup, api), /presentation 'neon'/u);
   await assert.rejects(
     previewRelease(setup.packagePath, setup.state, {
+      publish: "all",
       origin: "http://127.0.0.1:4396",
       request: api.request,
     }),
@@ -579,7 +587,7 @@ test("the product page travels with the Guide: unknown looks stop early, edits w
     { id: api.guide.id, slug: api.guide.slug, page: api.guide.page },
     { id: guideId, slug: "product-moved", page: edited },
   );
-  assert.match(itemAt(report.guides, 0).url, /\/guides\/product-moved$/u);
+  assert.match(itemAt(report.guides, 0).url, /\/products\/product-moved$/u);
 });
 
 test("Platform checks the whole description before the first write, and an older package keeps the address", async (t) => {
@@ -888,6 +896,7 @@ test("release preview reports video, composition and artifact changes that the s
   await run(setup, api);
   const origin = "http://127.0.0.1:4396";
   const clean = await previewRelease(setup.packagePath, setup.state, {
+    publish: "all",
     origin,
     request: api.request,
   });
@@ -964,6 +973,7 @@ test("release preview reports video, composition and artifact changes that the s
   itemAt(itemAt(setup.manifest.materials, 0).artifacts, 0).title = "Чек-лист 2";
   await setup.write();
   const next = await previewRelease(setup.packagePath, setup.state, {
+    publish: "all",
     origin,
     request: api.request,
   });
@@ -993,6 +1003,7 @@ test("release preview reports video, composition and artifact changes that the s
   itemAt(setup.manifest.guides, 0).title = "Новое имя";
   await setup.write();
   const renamed = await previewRelease(setup.packagePath, setup.state, {
+    publish: "all",
     origin,
     request: api.request,
   });
@@ -1005,6 +1016,7 @@ test("release preview reports video, composition and artifact changes that the s
   };
   await setup.write();
   const redesigned = await previewRelease(setup.packagePath, setup.state, {
+    publish: "all",
     origin,
     request: api.request,
   });
@@ -1032,6 +1044,7 @@ test("release preview reports video, composition and artifact changes that the s
   ];
   await writeFile(journalPath, canonical(journal));
   const named = await previewRelease(setup.packagePath, setup.state, {
+    publish: "all",
     origin,
     request: api.request,
   });
@@ -1042,6 +1055,7 @@ test("release preview reports video, composition and artifact changes that the s
   itemAt(setup.manifest.materials, 1).access = "free";
   await setup.write();
   const accessChanged = await previewRelease(setup.packagePath, setup.state, {
+    publish: "all",
     origin,
     request: api.request,
   });
@@ -1059,6 +1073,7 @@ test("release preview reports video, composition and artifact changes that the s
   itemAt(setup.manifest.materials, 1).video = { kinescopeId: uuid(778) };
   await setup.write();
   const newRecording = await previewRelease(setup.packagePath, setup.state, {
+    publish: "all",
     origin,
     request: api.request,
   });
@@ -1079,6 +1094,7 @@ test("release preview separates Video access conflicts from plain access changes
   itemAt(setup.manifest.materials, 0).access = "free";
   await setup.write();
   const preview = await previewRelease(setup.packagePath, setup.state, {
+    publish: "all",
     origin,
     request: api.request,
   });
@@ -1102,6 +1118,7 @@ test("release preview separates Video access conflicts from plain access changes
   delete entryAt(journal.materials, "inside-content:video")["access"];
   await writeFile(journalPath, canonical(journal));
   const legacy = await previewRelease(setup.packagePath, setup.state, {
+    publish: "all",
     origin,
     request: api.request,
   });
@@ -1115,6 +1132,7 @@ test("release preview separates Video access conflicts from plain access changes
   await setup.write();
   const replaced = (
     await previewRelease(setup.packagePath, setup.state, {
+      publish: "all",
       origin,
       request: api.request,
     })
@@ -1132,4 +1150,259 @@ test("the local product view pins the transferred product on Home once", async (
   assert.deepEqual(api.pin, { seriesId: guideId, version: 4 });
   await run(setup, api, { pinHome: true });
   assert.equal(api.pin.version, 4);
+});
+
+/** @param {ReturnType<typeof applicationApi>} api */
+const applies = (api) =>
+  api.calls.filter((call) => call.path === "/authoring/import/materials/apply");
+
+test("an import keeps every original a private draft unless its publication is approved", async (t) => {
+  const setup = await fixture(t);
+  const lesson = itemAt(setup.manifest.materials, 0);
+  lesson.markdown = "Смотрите [старый урок](old.md).";
+  lesson.links = { "old.md": "old" };
+  await setup.write();
+  const api = applicationApi();
+
+  const report = await run(setup, api, { publish: [] });
+  for (const material of api.materials.values())
+    assert.equal(material.publicationState, "draft");
+  assert.ok(
+    report.materials.every((item) => item.publicationState === "draft"),
+  );
+  // The checklist would be public by its Guide placement, so it waits for a published owner.
+  assert.equal(api.artifacts.size, 0);
+  assert.ok(
+    report.notices.some(
+      (notice) => notice.code === "artifact_waits_publication",
+    ),
+  );
+
+  // A repeated private import publishes nothing and writes nothing.
+  const before = applies(api).length;
+  const repeated = await run(setup, api, { publish: [] });
+  assert.equal(applies(api).length, before);
+  assert.equal(repeated.unchanged, 3);
+
+  // An explicit approval publishes exactly the named original and brings its artifact along.
+  const published = await run(setup, api, { publish: ["lesson"] });
+  assert.equal(
+    valueAt(api.materials, "inside-content:lesson").publicationState,
+    "published",
+  );
+  assert.equal(
+    valueAt(api.materials, "inside-content:old").publicationState,
+    "draft",
+  );
+  assert.equal(
+    valueAt(api.materials, "inside-content:video").publicationState,
+    "draft",
+  );
+  assert.equal(api.artifacts.size, 1);
+  assert.ok(
+    published.notices.some(
+      (notice) =>
+        notice.code === "link_to_draft" && notice.path === "lesson.md",
+    ),
+  );
+  // A private draft that leaves the package was never public, so nothing is proposed to archive.
+  setup.manifest.materials = setup.manifest.materials.filter(
+    (row) => row.sourceId !== "old",
+  );
+  setup.manifest.selection.materialIds = ["lesson", "video"];
+  itemAt(setup.manifest.guides, 0).materialIds = ["lesson", "video"];
+  lesson.markdown = "Текст";
+  lesson.links = {};
+  await setup.write();
+  const after = await run(setup, api, { publish: ["lesson"] });
+  assert.deepEqual(after.archiveProposals, []);
+});
+
+test("a private import stops before any Material write when the target is already public", async (t) => {
+  const setup = await fixture(t);
+  const api = applicationApi();
+  await run(setup, api);
+  itemAt(setup.manifest.materials, 0).markdown = "Новая редакция";
+  await setup.write();
+  // The product page changes too, so a late check would already have rewritten it.
+  itemAt(setup.manifest.guides, 0).title = "Новое имя продукта";
+  await setup.write();
+  const calls = api.calls.length;
+  await assert.rejects(
+    run(setup, api, { publish: ["video"] }),
+    /lesson\.md: the Material is already published in Platform/u,
+  );
+  assert.deepEqual(
+    api.calls
+      .slice(calls)
+      .filter((call) => call.method !== "GET")
+      .map((call) => call.path)
+      .filter((path) => !path.endsWith("/validate")),
+    [],
+  );
+  assert.equal(
+    valueAt(api.materials, "inside-content:lesson").publicationState,
+    "published",
+  );
+  await assert.rejects(
+    run(setup, api, { publish: ["missing"] }),
+    /outside this package: inside-content:missing/u,
+  );
+});
+
+test("a private lesson imports its practice unpublished", async (t) => {
+  const setup = await fixture(t);
+  const lesson = itemAt(setup.manifest.materials, 0);
+  setup.manifest.practiceDefinitions = [
+    {
+      practiceId: "inside-content:lesson-brief",
+      definition: { schemaVersion: 1, title: "Brief" },
+      sourceReference: {
+        materialSourceId: "inside-content:lesson",
+        materialSourceRevision: materialRevision(setup.manifest, lesson),
+      },
+      provenance: {
+        repository: "sachkov-inside/inside-content",
+        commit: "b".repeat(40),
+        path: "lesson-brief.json",
+      },
+      publicationState: "published",
+    },
+  ];
+  await setup.write();
+  const api = applicationApi();
+  /** @type {unknown[]} */
+  const practiceBodies = [];
+  /** @type {LocalTransport} */
+  const request = async (path, body, key, options) => {
+    if (path === "/authoring/import/practices/validate") {
+      practiceBodies.push(body);
+      return { valid: true, current: null };
+    }
+    if (path === "/authoring/import/practices/apply") {
+      practiceBodies.push(body);
+      const command = z
+        .object({
+          materialId: z.string(),
+          expectedContentVersion: z.number(),
+          publicationState: z.enum(["published", "unpublished"]),
+        })
+        .passthrough()
+        .parse(body);
+      return {
+        practiceId: "inside-content:lesson-brief",
+        practiceVersion: 1,
+        definitionDigest: "c".repeat(64),
+        materialId: command.materialId,
+        boundContentVersion: command.expectedContentVersion,
+        publicationState: command.publicationState,
+      };
+    }
+    return api.request(path, body, key, options);
+  };
+  await run(setup, { request }, { publish: [] });
+  // Preflight validation, the validation before the write and the write itself.
+  assert.equal(practiceBodies.length, 3);
+  for (const body of practiceBodies)
+    assert.equal(
+      z.object({ publicationState: z.string() }).passthrough().parse(body)
+        .publicationState,
+      "unpublished",
+    );
+});
+
+test("preview shows each publication and apply follows only the reviewed approval", async (t) => {
+  const setup = await fixture(t);
+  const api = applicationApi();
+  const origin = resolveLocalTarget("editor");
+  await run(setup, api, { publish: [] });
+
+  const reviewed = await previewRelease(setup.packagePath, setup.state, {
+    origin,
+    request: api.request,
+    publish: ["video"],
+  });
+  assert.deepEqual(reviewed.preview.publish, ["inside-content:video"]);
+  const video = reviewed.preview.materials.find(
+    (item) => item.sourceId === "video",
+  );
+  assert.deepEqual(video?.["publicationChange"], {
+    from: "draft",
+    to: "published",
+  });
+  assert.equal(video?.change, "changed");
+  const lessonRow = reviewed.preview.materials.find(
+    (item) => item.sourceId === "lesson",
+  );
+  assert.equal(lessonRow?.change, "unchanged");
+
+  await applyRelease(reviewed.path, setup.state, { request: api.request });
+  assert.equal(
+    valueAt(api.materials, "inside-content:video").publicationState,
+    "published",
+  );
+  assert.equal(
+    valueAt(api.materials, "inside-content:lesson").publicationState,
+    "draft",
+  );
+
+  // Once public, a private preview names the conflict and apply refuses it.
+  const privatePreview = await previewRelease(setup.packagePath, setup.state, {
+    origin,
+    request: api.request,
+  });
+  const conflict = privatePreview.preview.materials.find(
+    (item) => item.sourceId === "video",
+  );
+  assert.equal(conflict?.change, "conflict");
+  assert.equal(conflict?.["conflictReason"], "target_not_draft");
+  await assert.rejects(
+    applyRelease(privatePreview.path, setup.state, { request: api.request }),
+    /contains conflicts/u,
+  );
+});
+
+test("a journal that missed a publication still stops a private import", async (t) => {
+  const setup = await fixture(t);
+  const api = applicationApi();
+  await run(setup, api, { publish: [] });
+  // Another state directory published the lesson; this journal still records a draft.
+  valueAt(api.materials, "inside-content:lesson").publicationState =
+    "published";
+  await assert.rejects(
+    run(setup, api, { publish: [] }),
+    /lesson\.md: the Material is already published/u,
+  );
+});
+
+test("an interrupted publication resumes only with the same approval", async (t) => {
+  const setup = await fixture(t);
+  const api = applicationApi();
+  await run(setup, api, { publish: [] });
+  itemAt(setup.manifest.materials, 2).markdown = "Новая редакция";
+  await setup.write();
+  const request = api.request;
+  let failed = false;
+  /** @type {LocalTransport} */
+  const lossy = async (path, body, key, options) => {
+    if (path === "/authoring/import/materials/apply" && !failed) {
+      failed = true;
+      throw Object.assign(new Error("connection lost"), { status: 503 });
+    }
+    return request(path, body, key, options);
+  };
+  await assert.rejects(run(setup, { request: lossy }, { publish: ["old"] }));
+  await assert.rejects(
+    run(setup, api, { publish: [] }),
+    /old\.md: an interrupted transfer was publishing this Material/u,
+  );
+  assert.equal(
+    valueAt(api.materials, "inside-content:old").publicationState,
+    "draft",
+  );
+  await run(setup, api, { publish: ["old"] });
+  assert.equal(
+    valueAt(api.materials, "inside-content:old").publicationState,
+    "published",
+  );
 });

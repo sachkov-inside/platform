@@ -88,3 +88,11 @@ adapter tests validate responses against generated OpenAPI. A separate full-stac
 practice read to exercise coherent Reader readiness, checks private access, copying, responsive
 layout and accessibility. Native trials additionally inspect actual client tools, every context
 part, local evidence discovery, reports, discussion/recheck and unchanged project fingerprints.
+
+## Local course acceptance
+
+The [local course stand](local-development.md#ai-engineering-course-acceptance-stand) imports the
+first authored chapter and provides a stand-only public Native OAuth client. The learner endpoint
+accepts a single audience equal to its advertised protected-resource URL, in addition to the
+existing API audience. This exception is scoped to learner MCP authentication: API sign-in and
+authoring MCP still reject learner-resource tokens. Unrelated and multiple audiences remain invalid.

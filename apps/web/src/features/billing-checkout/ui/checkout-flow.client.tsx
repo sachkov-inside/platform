@@ -23,7 +23,6 @@ import {
   startBillingPurchase,
 } from "../api/billing-checkout.browser";
 import { acceptedPurchaseDocuments, rememberPurchase } from "../model/checkout";
-import type { CheckoutInclusion } from "../model/one-time-terms";
 import { CheckoutPanel } from "./checkout-panel.client";
 import { OneTimeCheckoutPanel } from "./one-time-checkout-panel.client";
 
@@ -34,13 +33,15 @@ export interface CheckoutFlowProps {
   readonly contactHref: Route;
   readonly onPurchase?: (purchase: PurchaseStatus) => void;
   readonly onNavigate?: (paymentUrl: string) => void;
-  /** Состав покупки для компактной страницы оплаты: что именно получает покупатель. */
-  readonly inclusions?: readonly CheckoutInclusion[];
+  /** Показывать ли состав разовой покупки: его строит сама панель из снимка условий. */
+  readonly showInclusions?: boolean;
   /**
    * Сервер не принял согласие, потому что действует другая редакция. Владелец документов
    * перечитывает их, чтобы покупатель увидел и принял действующую.
    */
   readonly onDocumentsChanged?: () => void;
+  /** Промокод персональной ссылки владельца: расчёт применяет его, если код действует. */
+  readonly promoCode?: string;
 }
 
 /**
@@ -54,8 +55,9 @@ export function CheckoutFlow({
   contactHref,
   onPurchase,
   onNavigate,
-  inclusions = [],
+  showInclusions = false,
   onDocumentsChanged,
+  promoCode,
 }: CheckoutFlowProps) {
   const [quote, setQuote] = useState<BillingQuote | null>(null);
   const [acknowledge, setAcknowledge] = useState(false);
@@ -166,13 +168,14 @@ export function CheckoutFlow({
 
   const requestQuote = () => {
     setError(undefined);
-    quoteMutation.mutate({
-      operationId: operationId("quote", {
-        paymentOptionId: snapshot.paymentOption.id,
-        optionRevision: snapshot.paymentOption.revision,
-      }),
+    const input = {
       paymentOptionId: snapshot.paymentOption.id,
       optionRevision: snapshot.paymentOption.revision,
+      ...(promoCode === undefined ? {} : { promoCode }),
+    };
+    quoteMutation.mutate({
+      operationId: operationId("quote", input),
+      ...input,
     });
   };
   // Разовая покупка показывает цену сразу: отдельный шаг «рассчитать» здесь только мешал бы.
@@ -220,11 +223,17 @@ export function CheckoutFlow({
     snapshot,
   } as const;
 
+  // Сервер не говорит, почему код не подошёл: истёк, израсходован или не относится к этому
+  // варианту. Покупатель узнаёт главное — цена без скидки по ссылке.
+  const promoRejected =
+    promoCode !== undefined && quote?.snapshot.promotion === null;
+
   return oneTime ? (
     <OneTimeCheckoutPanel
       {...shared}
-      inclusions={inclusions}
+      showInclusions={showInclusions}
       onRetryQuote={requestQuote}
+      promoRejected={promoRejected}
     />
   ) : (
     <CheckoutPanel {...shared} onQuote={requestQuote} />

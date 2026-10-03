@@ -1,5 +1,7 @@
 // @ts-check
+import { imageUpload } from "./image-upload.mjs";
 import {
+  practicesFollowLessons,
   validateSourcePractices,
   replayPracticeImports,
   syncSourcePractices,
@@ -14,6 +16,8 @@ import {
   canonical,
   checksum,
   materialRevision,
+  guideShellScope,
+  isGuideShell,
 } from "./package.mjs";
 import { convertMarkdown, sourceUuid } from "./markdown.mjs";
 import { withJournal, applyJournaled } from "./journal.mjs";
@@ -30,10 +34,11 @@ import {
   sourceVideoReceiptSchema,
 } from "./local-boundaries.mjs";
 import {
+  assertTargetEnvironment,
+  authoringTarget,
   localTransport,
-  loopbackOrigin,
-  readerOriginFor,
   resolveLocalTarget,
+  transportFor,
   failureBodyField,
   failureStatus,
 } from "./target.mjs";
@@ -58,7 +63,7 @@ export const localRequest = localTransport(reviewOrigin);
  * @property {string} packageId
  * @property {number} applied
  * @property {number} unchanged
- * @property {{ sourceId: string; title: string; url: string }[]} materials
+ * @property {{ sourceId: string; title: string; url: string; publicationState: DesiredPublication }[]} materials
  * @property {{
  *   title: string;
  *   url: string;
@@ -70,6 +75,7 @@ export const localRequest = localTransport(reviewOrigin);
  * @property {{ sourceId: string; url: string | null }[]} archiveProposals
  * @property {SyncNotice[]} notices
  * @property {string} [homePinned]
+ * @property {"guide-shell"} [scope]
  * @typedef {object} SyncOptions
  * @property {string} [origin]
  * @property {import("./target.mjs").LocalTransport | undefined} [request]
@@ -78,7 +84,27 @@ export const localRequest = localTransport(reviewOrigin);
  * @property {(milliseconds: number) => Promise<unknown>} [sleep]
  * @property {number} [videoAttempts]
  * @property {boolean} [pinHome]
+ * @property {PublishSelection} [publish]
+ * @property {import("./target.mjs").AccessToken | undefined} [accessToken] The owner's session for a trusted target.
+ * @property {boolean} [reviewed] Set only by an exact release apply; a trusted target requires it.
+ * @property {boolean} [reconcileOnly] Complete the journal's unfinished writes with their original
+ *   idempotency keys and stop; allowed on a trusted target because it sends nothing new.
+ * @typedef {import("./local-boundaries.mjs").PublishSelection} PublishSelection
+ * @typedef {import("./local-boundaries.mjs").PublicationState} PublicationState
+ * @typedef {"draft" | "published"} DesiredPublication The only states an import asks for.
  */
+
+/** @param {unknown} value */
+function stringOrNull(value) {
+  return typeof value === "string" ? value : null;
+}
+
+/** Обложка, уже назначенная в Platform: её id ожидает следующая замена. @param {unknown} cover */
+function storedCoverId(cover) {
+  return typeof cover === "object" && cover !== null && "coverId" in cover
+    ? stringOrNull(cover.coverId)
+    : null;
+}
 
 /**
  * The value a map holds for a key the synchronization put there earlier.
@@ -124,21 +150,92 @@ export function productsOf(manifest, row) {
 }
 
 /**
+ * A published state keeps the digest older journals recorded; any other state changes it.
+ *
  * @param {{
  *   revision: string;
  *   metadata: unknown;
  *   primaryVideoId: string | null;
  *   videoChapters: unknown;
+ *   publicationState: PublicationState;
  * }} material
  */
-function materialDigest({ revision, metadata, primaryVideoId, videoChapters }) {
+function materialDigest({
+  revision,
+  metadata,
+  primaryVideoId,
+  videoChapters,
+  publicationState,
+}) {
   return checksum(
     canonical({
       revision,
       metadata,
       ...(primaryVideoId ? { primaryVideoId, videoChapters } : {}),
+      ...(publicationState === "published" ? {} : { publicationState }),
     }),
   );
+}
+
+/**
+ * The publication an original asks for (#804): only an explicit owner selection publishes it; an
+ * editorial stage or missing access never does.
+ *
+ * @param {Pick<Manifest, "sourceNamespace" | "materials">} manifest
+ * @param {PublishSelection} publish
+ * @returns {(sourceKey: string) => DesiredPublication}
+ */
+export function publicationPolicy(manifest, publish) {
+  if (publish === "all") return () => "published";
+  const selected = new Set(normalizeSourceIds(manifest, publish));
+  const present = new Set(
+    manifest.materials.map((row) => sourceKey(manifest, row.sourceId)),
+  );
+  const unknown = [...selected].filter((id) => !present.has(id));
+  if (unknown.length)
+    throw new Error(
+      `Publication names originals outside this package: ${unknown.join(", ")}`,
+    );
+  return (key) => (selected.has(key) ? "published" : "draft");
+}
+
+/**
+ * The state the target holds; journals written before #804 recorded only archival.
+ *
+ * @param {{ publicationState?: PublicationState | undefined; archived?: boolean | undefined }} entry
+ * @returns {PublicationState}
+ */
+export function recordedPublication(entry) {
+  return (
+    entry.publicationState ?? (entry.archived ? "unpublished" : "published")
+  );
+}
+
+/**
+ * What the target holds: its own answer when read, otherwise the journal.
+ *
+ * @param {PublicationState | undefined} reported
+ * @param {Parameters<typeof recordedPublication>[0] | undefined} entry
+ */
+export const targetPublication = (reported, entry) =>
+  reported ?? recordedPublication(entry ?? {});
+
+/**
+ * A private import never takes back or replaces what readers already see. Platform itself never
+ * moves a published or unpublished Material back to draft.
+ *
+ * @param {ManifestMaterial} row
+ * @param {PublicationState} current
+ * @param {DesiredPublication} desired
+ * @returns {{ code: "target_not_draft"; message: string } | undefined}
+ */
+export function publicationConflict(row, current, desired) {
+  return desired === "draft" && current !== "draft"
+    ? {
+        code: "target_not_draft",
+        message: `${row.sourcePath}: the Material is already ${current} in Platform; a private import neither unpublishes it nor replaces its public body. Approve its publication explicitly or leave it out of this import`,
+      }
+    : undefined;
 }
 
 /**
@@ -151,12 +248,13 @@ function materialDigest({ revision, metadata, primaryVideoId, videoChapters }) {
  *   guideIds: Map<string, string>;
  *   defaultAccess: DefaultAccess;
  *   primaryVideoId: string | null;
+ *   publicationState: DesiredPublication;
  * }} targets
  */
 export function desiredMaterial(
   manifest,
   row,
-  { topicIds, guideIds, defaultAccess, primaryVideoId },
+  { topicIds, guideIds, defaultAccess, primaryVideoId, publicationState },
 ) {
   const metadata = {
     title: row.title,
@@ -180,6 +278,7 @@ export function desiredMaterial(
       metadata,
       primaryVideoId,
       videoChapters,
+      publicationState,
     }),
   };
 }
@@ -304,6 +403,41 @@ export function guideChapters(manifest, guide) {
 }
 
 /**
+ * The composition a Guide shell release sends: the package's chapter list over the Materials the
+ * target already holds, in their current order and chapters. A placed Material whose chapter the
+ * package drops would lose its placement, so that shell is refused before any write.
+ *
+ * @param {Manifest} manifest
+ * @param {ManifestGuide} guide
+ * @param {{ items: { materialId: string; chapterId: string | null }[] }} order
+ */
+export function guideShellComposition(manifest, guide, order) {
+  const chapters = guideChapters(manifest, guide);
+  const ids = new Set(chapters.map((chapter) => chapter.id));
+  const ungrouped = order.items.filter(
+    (item) => item.chapterId !== null && !ids.has(item.chapterId),
+  ).length;
+  if (ungrouped > 0)
+    throw new Error(
+      `Product ${guide.sourceId}: the Guide shell drops chapters that hold ${String(ungrouped)} Materials; move them in Platform or keep those chapters`,
+    );
+  return {
+    chapters,
+    orderedMaterialIds: order.items.map((item) => item.materialId),
+  };
+}
+
+/**
+ * Journaled writes whose outcome is still unknown; only a sync of their own package resumes them.
+ *
+ * @param {Pick<Journal, "operations">} journal
+ */
+export const pendingOperations = (journal) =>
+  Object.values(journal.operations).filter(
+    (entry) => isJournalOperation(entry) && entry.status === "pending",
+  ).length;
+
+/**
  * @param {ManifestAsset} asset
  * @param {ManifestArtifact} artifact
  * @param {DefaultAccess} access
@@ -380,6 +514,8 @@ export function normalizeSourceIds(manifest, ids) {
  * @param {Manifest} manifest
  */
 export function archiveProposalKeys(journal, manifest) {
+  // A Guide shell names no Material, so its absent Materials say nothing about removal.
+  if (isGuideShell(manifest)) return [];
   const present = new Set(
     manifest.materials.map((row) => sourceKey(manifest, row.sourceId)),
   );
@@ -392,6 +528,8 @@ export function archiveProposalKeys(journal, manifest) {
         key.startsWith(`${manifest.sourceNamespace}:`) &&
         !present.has(key) &&
         !entry.archived &&
+        // A private draft was never public, so a missing original has nothing to withdraw.
+        entry.publicationState !== "draft" &&
         // Entries recorded before products were tracked belong to any product selection.
         (entry.guideSourceIds
           ? entry.guideSourceIds.some((id) => selected.has(id))
@@ -416,23 +554,41 @@ export async function syncLocal(
     sleep = delay,
     videoAttempts = 20,
     pinHome = false,
+    publish = [],
+    accessToken,
+    reviewed = false,
+    reconcileOnly = false,
   } = {},
 ) {
-  const target = loopbackOrigin(origin);
-  const reader = readerOriginFor(target);
-  const send = transport ?? localTransport(target);
+  const target = authoringTarget(origin);
+  // A trusted remote target changes only through an exactly reviewed preview (#805).
+  if (target.kind === "trusted" && !reviewed && !reconcileOnly)
+    throw new Error(
+      `Target ${target.name} is released only through pnpm authoring:release preview and apply`,
+    );
+  const reader = target.reader;
+  const send = transport ?? transportFor(target, accessToken);
   /** @type {LocalRequest} */
   const request = async (path, body, key, options) =>
     parseLocalResponse(path, await send(path, body, key, options));
   if (!["free", "membership"].includes(defaultAccess))
     throw new Error("Explicit local access must be free or membership");
   const pkg = await loadPackage(packagePath);
+  const shell = isGuideShell(pkg.manifest);
+  if (shell && archive.length)
+    throw new Error("A Guide shell release never archives Materials");
   const environment = await request("/authoring/import/materials/environment");
-  if (environment.mode !== "development")
-    throw new Error("Local synchronization requires a development runtime");
-  await validateGuidePages(pkg.manifest, send);
-  await validateSourcePractices(pkg.manifest, request);
-  return withJournal(stateDirectory, target, async (context) => {
+  assertTargetEnvironment(target, environment.mode);
+  const publicationOfKey = publicationPolicy(pkg.manifest, publish);
+  /** @param {Pick<ManifestMaterial, "sourceId">} row */
+  const publicationOf = (row) =>
+    publicationOfKey(sourceKey(pkg.manifest, row.sourceId));
+  const manifest = practicesFollowLessons(pkg.manifest, publicationOfKey);
+  if (!reconcileOnly) {
+    await validateGuidePages(pkg.manifest, send);
+    await validateSourcePractices(manifest, request);
+  }
+  return withJournal(stateDirectory, target.id, async (context) => {
     const { journal, persist } = context;
     const resources = (journal.resources ??= {});
     /** @type {SyncReport} */
@@ -445,6 +601,7 @@ export async function syncLocal(
       archived: [],
       archiveProposals: [],
       notices: [...pkg.manifest.diagnostics],
+      ...(shell ? { scope: guideShellScope.value } : {}),
     };
     const rows = new Map(
       pkg.manifest.materials.map((row) => [row.sourceId, row]),
@@ -487,7 +644,8 @@ export async function syncLocal(
     };
 
     // Reconcile receipts before reading versions, including a crash between receipt and material cache.
-    for (const entry of Object.values(journal.operations)) {
+    // A Guide shell writes no Material; an interrupted Material sync resumes with its own package.
+    for (const entry of shell ? [] : Object.values(journal.operations)) {
       const operation = isJournalOperation(entry)
         ? materialApplyRequest(entry.request)
         : undefined;
@@ -499,6 +657,14 @@ export async function syncLocal(
         continue;
       const body = operation.body;
       const previous = journal.materials[body.source.id];
+      if (
+        entry.status === "pending" &&
+        body.publicationState === "published" &&
+        publicationOfKey(body.source.id) !== "published"
+      )
+        throw new Error(
+          `${body.source.path}: an interrupted transfer was publishing this Material; repeat it with the same publication approval`,
+        );
       if (
         entry.status === "applied" &&
         previous !== undefined &&
@@ -520,13 +686,79 @@ export async function syncLocal(
           metadata: body.metadata,
           primaryVideoId: body.primaryVideoId,
           videoChapters: body.videoChapters,
+          publicationState: body.publicationState,
         }),
+        publicationState: body.publicationState,
         archived: body.publicationState === "unpublished",
       };
       await persist();
     }
 
-    await replayPracticeImports(context, request);
+    if (!shell) await replayPracticeImports(context, request, publicationOfKey);
+    // Only the writes this journal already started are completed; nothing new is sent.
+    if (reconcileOnly) return report;
+
+    // Reservations only create empty private drafts, so every publication conflict is found before
+    // the first topic, Guide or Material write.
+    /**
+     * @type {Map<
+     *   string,
+     *   {
+     *     materialId: string;
+     *     contentVersion: number;
+     *     primaryVideoId: string | null;
+     *     cover?: { coverId: string } | null | undefined;
+     *     metadata: { slug?: string | undefined };
+     *     publicationState?: PublicationState | undefined;
+     *   }
+     * >}
+     */
+    const currentMaterials = new Map();
+    /** @type {Map<string, string>} */
+    const links = new Map();
+    for (const row of rows.values()) {
+      const previous = journal.materials[sourceId(row.sourceId)];
+      const reserved =
+        previous ??
+        (await request("/authoring/import/materials/reserve", {
+          source: source(row),
+        }));
+      const current =
+        previous?.revision === source(row).revision &&
+        previous.url !== undefined &&
+        previous.url !== "" &&
+        previous.primaryVideoId !== undefined &&
+        previous.coverId !== undefined &&
+        previous.archived !== true &&
+        // A private import reads the target's own state: another journal may have published it.
+        publicationOf(row) === "published"
+          ? {
+              materialId: previous.materialId,
+              contentVersion: previous.contentVersion,
+              primaryVideoId: previous.primaryVideoId,
+              cover:
+                previous.coverId === null
+                  ? null
+                  : { coverId: previous.coverId },
+              metadata: { slug: previous.url.split("/").at(-1) },
+            }
+          : await request(`/authoring/materials/${reserved.materialId}`);
+      if (!current.metadata.slug)
+        throw new Error(
+          "Source reservation did not allocate a stable local URL",
+        );
+      const conflict = publicationConflict(
+        row,
+        targetPublication(
+          "publicationState" in current ? current.publicationState : undefined,
+          previous,
+        ),
+        publicationOf(row),
+      );
+      if (conflict) throw new Error(conflict.message);
+      currentMaterials.set(row.sourceId, current);
+      links.set(row.sourceId, `/materials/${current.metadata.slug}`);
+    }
 
     const teasers = new Map(
       pkg.manifest.guides.map((guide) => [guide.sourceId, guideTeaser(guide)]),
@@ -603,6 +835,100 @@ export async function syncLocal(
       pkg.manifest.guides.length === 0
         ? []
         : await request("/authoring/collections?kind=guide");
+    /**
+     * Ставит обложку урока или продукта через source-scoped маршрут. У маршрута нет ключа
+     * идемпотентности, поэтому перед запросом пишется пометка: повтор после потерянного ответа
+     * принимает конфликт 409 с тем же файлом как ту самую загрузку.
+     * @param {{ route: `/authoring/import/content-covers/${"material" | "series"}/${string}`, pendingKey: string, sourceKey: string, expectedCoverId: string | null, asset: Parameters<typeof readAsset>[0] & { sha256: string } }} upload
+     * @returns {Promise<string | null>}
+     */
+    async function uploadCover({
+      route,
+      pendingKey,
+      sourceKey,
+      expectedCoverId,
+      asset,
+    }) {
+      const pending = parseReceipt(
+        pendingCoverReceiptSchema,
+        resources[pendingKey],
+      );
+      resources[pendingKey] = { sha256: asset.sha256, expectedCoverId };
+      await persist();
+      const form = fileForm(
+        { sourceId: sourceKey, expectedCoverId: expectedCoverId ?? "null" },
+        await readAsset(asset),
+        asset,
+      );
+      let coverId;
+      try {
+        coverId =
+          (await request(route, form, undefined, { method: "PUT" })).cover
+            ?.coverId ?? null;
+      } catch (error) {
+        // Imported covers change only through this source, so a conflict after an unfinished upload is that upload.
+        const currentCoverId = failureBodyField(error, "currentCoverId");
+        if (
+          failureStatus(error) !== 409 ||
+          pending?.sha256 !== asset.sha256 ||
+          typeof currentCoverId !== "string"
+        )
+          throw error;
+        coverId = currentCoverId;
+      }
+      delete resources[pendingKey];
+      return coverId;
+    }
+
+    /**
+     * Обложка продукта — файл Content, как обложка урока: перенос ставит её тем же source-scoped
+     * маршрутом и помнит хеш, поэтому повтор без изменений ничего не загружает.
+     * @param {import("./package.mjs").Manifest["guides"][number]} guide
+     * @param {StoredGuide} current
+     * @param {string} key
+     */
+    async function syncGuideCover(guide, current, key) {
+      const entry = journal.guides[key];
+      const coverAssetId = guide.coverAssetId ?? null;
+      if (entry === undefined) return;
+      const knownCoverId = entry.coverId ?? storedCoverId(current["cover"]);
+      if (coverAssetId === null) {
+        if (entry.coverSha256 !== undefined && entry.coverSha256 !== null)
+          report.notices.push({
+            code: "cover_removal_pending",
+            message: `Обложка продукта ${guide.sourceId} убрана из оригинала; снимите её в Platform вручную`,
+          });
+        return;
+      }
+      const asset = valueAt(assets, coverAssetId);
+      if (entry.coverSha256 === asset.sha256) return;
+      const coverId = await uploadCover({
+        route: `/authoring/import/content-covers/series/${current.id}`,
+        pendingKey: `cover-pending:guide:${current.id}`,
+        sourceKey: key,
+        expectedCoverId: knownCoverId,
+        asset,
+      });
+      journal.guides[key] = {
+        ...entry,
+        coverId,
+        coverSha256: asset.sha256,
+      };
+      await persist();
+    }
+
+    // The shell's chapter check runs before its first write.
+    if (shell)
+      for (const guide of pkg.manifest.guides) {
+        const stored = storedGuides.find(
+          (item) =>
+            item.sourceId === sourceId(guide.sourceId) &&
+            item.archived !== true,
+        );
+        if (stored === undefined) continue;
+        const order = await request(`/authoring/guides/${stored.id}/order`);
+        guideShellComposition(pkg.manifest, guide, order);
+      }
     for (const guide of pkg.manifest.guides) {
       if (!guide.complete)
         throw new Error(
@@ -656,11 +982,42 @@ export async function syncLocal(
         }
         guides.set(guide.sourceId, current);
         await persist();
+        await syncGuideCover(guide, current, key);
       } catch (error) {
         throw new Error(`Product ${guide.sourceId}: ${errorMessage(error)}`, {
           cause: error,
         });
       }
+    }
+
+    if (shell) {
+      for (const guide of pkg.manifest.guides) {
+        const current = valueAt(guides, guide.sourceId);
+        const order = await request(`/authoring/guides/${current.id}/order`);
+        const composition = guideShellComposition(pkg.manifest, guide, order);
+        // Omitted assignments keep every retained Material in its chapter; an unchanged shell writes nothing.
+        await request("/authoring/import/guides/composition", {
+          sourceId: sourceId(guide.sourceId),
+          seriesId: current.id,
+          expectedOrderVersion: order.orderVersion,
+          orderedMaterialIds: composition.orderedMaterialIds,
+          chapters: composition.chapters,
+        });
+        report.guides.push({
+          title: guide.title,
+          url: `${reader}/products/${current.slug}`,
+          programmeUrl: `${reader}/products/${current.slug}/programme`,
+          mainMaterials: order.items.length,
+          supplementaryMaterials: [],
+        });
+      }
+      const pending = pendingOperations(journal);
+      if (pending)
+        report.notices.push({
+          code: "journal_pending",
+          message: `Оболочка не продолжает ${String(pending)} незавершённых записей материалов; повторите перенос их пакета`,
+        });
+      return finish();
     }
 
     // Paid Materials must belong to a product, so validation uses the reserved Guides' real identities.
@@ -676,8 +1033,10 @@ export async function syncLocal(
         guideIds,
         defaultAccess,
         primaryVideoId,
+        publicationState: publicationOf(row),
       });
-    // Validate every document before changing any previously correct Material; only empty Guide shells exist so far.
+    // Validate every document before changing any previously correct Material; only empty Guide shells
+    // and private reservations exist so far.
     for (const row of rows.values()) {
       if (
         journal.materials[sourceId(row.sourceId)]?.revision ===
@@ -689,7 +1048,7 @@ export async function syncLocal(
       try {
         await request("/authoring/import/materials/validate", {
           source: source(row),
-          publicationState: "published",
+          publicationState: publicationOf(row),
           metadata: desired(row, null).metadata,
           body: convert(row, placeholderLinks, placeholderImages),
           videoChapters: [],
@@ -701,52 +1060,19 @@ export async function syncLocal(
       }
     }
 
-    /**
-     * @type {Map<
-     *   string,
-     *   {
-     *     materialId: string;
-     *     contentVersion: number;
-     *     primaryVideoId: string | null;
-     *     cover?: { coverId: string } | null | undefined;
-     *     metadata: { slug?: string | undefined };
-     *   }
-     * >}
-     */
-    const currentMaterials = new Map();
-    /** @type {Map<string, string>} */
-    const links = new Map();
+    // A public body may link a private draft; readers reach that link only once it is published.
     for (const row of rows.values()) {
-      const previous = journal.materials[sourceId(row.sourceId)];
-      const reserved =
-        previous ??
-        (await request("/authoring/import/materials/reserve", {
-          source: source(row),
-        }));
-      const current =
-        previous?.revision === source(row).revision &&
-        previous.url !== undefined &&
-        previous.url !== "" &&
-        previous.primaryVideoId !== undefined &&
-        previous.coverId !== undefined &&
-        previous.archived !== true
-          ? {
-              materialId: previous.materialId,
-              contentVersion: previous.contentVersion,
-              primaryVideoId: previous.primaryVideoId,
-              cover:
-                previous.coverId === null
-                  ? null
-                  : { coverId: previous.coverId },
-              metadata: { slug: previous.url.split("/").at(-1) },
-            }
-          : await request(`/authoring/materials/${reserved.materialId}`);
-      if (!current.metadata.slug)
-        throw new Error(
-          "Source reservation did not allocate a stable local URL",
-        );
-      currentMaterials.set(row.sourceId, current);
-      links.set(row.sourceId, `/materials/${current.metadata.slug}`);
+      if (publicationOf(row) !== "published") continue;
+      const drafts = [...new Set(Object.values(row.links))].filter((id) => {
+        const linked = rows.get(id);
+        return linked !== undefined && publicationOf(linked) === "draft";
+      });
+      if (drafts.length)
+        report.notices.push({
+          code: "link_to_draft",
+          path: row.sourcePath,
+          message: `Опубликованный материал ссылается на приватные черновики (${drafts.join(", ")}); читатели откроют ссылку только после их публикации`,
+        });
     }
 
     /**
@@ -835,16 +1161,16 @@ export async function syncLocal(
         const images = new Map();
         for (const assetId of new Set(Object.values(row.images))) {
           const asset = valueAt(assets, assetId);
-          const imageKey = `image:${current.materialId}:${asset.sha256}`;
+          const upload = await imageUpload(await readAsset(asset), asset);
+          const imageKey = `image:${current.materialId}:${upload.asset.sha256}`;
           let uploaded = parseReceipt(
             assetReceiptSchema,
             journal.operations[imageKey],
           );
           if (!uploaded) {
-            const bytes = await readAsset(asset);
             uploaded = await request(
               `/authoring/materials/${current.materialId}/assets`,
-              fileForm({ kind: "image" }, bytes, asset),
+              fileForm({ kind: "image" }, upload.bytes, upload.asset),
               imageKey,
             );
             journal.operations[imageKey] = uploaded;
@@ -856,7 +1182,7 @@ export async function syncLocal(
           source: source(row),
           materialId: current.materialId,
           expectedContentVersion: current.contentVersion,
-          publicationState: "published",
+          publicationState: publicationOf(row),
           metadata: desiredMetadata,
           body: convert(row, links, images),
           primaryVideoId,
@@ -876,6 +1202,7 @@ export async function syncLocal(
           contentVersion: saved.contentVersion,
           digest,
           url: valueAt(links, row.sourceId),
+          publicationState: publicationOf(row),
           archived: false,
         };
         current = { ...current, contentVersion: saved.contentVersion };
@@ -902,6 +1229,7 @@ export async function syncLocal(
         sourceId: row.sourceId,
         title: row.title,
         url: `${reader}${links.get(row.sourceId)}`,
+        publicationState: publicationOf(row),
       });
       if (row.kind === "video" && primaryVideoId === null)
         report.notices.push({
@@ -933,49 +1261,13 @@ export async function syncLocal(
       }
       const asset = valueAt(assets, row.coverAssetId);
       if (known.coverSha256 === asset.sha256) return known;
-      const bytes = await readAsset(asset);
-      // The cover route has no idempotency key: a pending marker lets a retry adopt a change the lost response hid.
-      const pendingKey = `cover-pending:${current.materialId}`;
-      const pending = parseReceipt(
-        pendingCoverReceiptSchema,
-        resources[pendingKey],
-      );
-      resources[pendingKey] = {
-        sha256: asset.sha256,
+      const coverId = await uploadCover({
+        route: `/authoring/import/content-covers/material/${current.materialId}`,
+        pendingKey: `cover-pending:${current.materialId}`,
+        sourceKey: sourceId(row.sourceId),
         expectedCoverId: known.coverId,
-      };
-      await persist();
-      const form = fileForm(
-        {
-          sourceId: sourceId(row.sourceId),
-          expectedCoverId: known.coverId ?? "null",
-        },
-        bytes,
         asset,
-      );
-      let coverId;
-      try {
-        coverId =
-          (
-            await request(
-              `/authoring/import/content-covers/material/${current.materialId}`,
-              form,
-              undefined,
-              { method: "PUT" },
-            )
-          ).cover?.coverId ?? null;
-      } catch (error) {
-        // Imported covers change only through this source, so a conflict after an unfinished upload is that upload.
-        const currentCoverId = failureBodyField(error, "currentCoverId");
-        if (
-          failureStatus(error) !== 409 ||
-          pending?.sha256 !== asset.sha256 ||
-          typeof currentCoverId !== "string"
-        )
-          throw error;
-        coverId = currentCoverId;
-      }
-      delete resources[pendingKey];
+      });
       return { coverId, coverSha256: asset.sha256 };
     }
 
@@ -1011,8 +1303,8 @@ export async function syncLocal(
         await syncArtifacts(guide, current);
         report.guides.push({
           title: guide.title,
-          url: `${reader}/guides/${current.slug}`,
-          programmeUrl: `${reader}/guides/${current.slug}/programme`,
+          url: `${reader}/products/${current.slug}`,
+          programmeUrl: `${reader}/products/${current.slug}/programme`,
           mainMaterials: guide.materialIds.length,
           supplementaryMaterials: guide.supplementaryMaterialIds.map((id) => ({
             sourceId: id,
@@ -1036,7 +1328,20 @@ export async function syncLocal(
     async function syncArtifacts(guide, current) {
       const guideSource = sourceId(guide.sourceId);
       const declared = artifactDeclarations(pkg.manifest, guide, defaultAccess);
-      for (const [artifactSourceId, { artifact, owners, access }] of declared) {
+      for (const [artifactSourceId, declaration] of declared) {
+        const { artifact, access } = declaration;
+        // Guide artifacts are public by placement, so one declared only by private drafts waits for publication.
+        const owners = declaration.owners.filter(
+          (row) => publicationOf(row) === "published",
+        );
+        if (owners.length === 0) {
+          report.notices.push({
+            code: "artifact_waits_publication",
+            path: declaration.owners[0]?.sourcePath ?? artifact.sourceId,
+            message: `Артефакт «${artifact.title}» перенесётся вместе с публикацией материала`,
+          });
+          continue;
+        }
         const asset = valueAt(assets, artifact.assetId);
         const receiptKey = `artifact:${current.id}:${sourceId(artifactSourceId)}`;
         const fingerprint = artifactFingerprint(asset, artifact, access);
@@ -1116,7 +1421,7 @@ export async function syncLocal(
         });
     }
 
-    await syncSourcePractices(pkg.manifest, context, request);
+    await syncSourcePractices(manifest, context, request);
 
     // Proposed Materials are unpublished only when named explicitly.
     const requested = new Set(normalizeSourceIds(pkg.manifest, archive));
@@ -1185,8 +1490,17 @@ export async function syncLocal(
         code: "archive_proposed",
         message: `Оригиналы пропали для ${report.archiveProposals.length} материалов; повторите синхронизацию с --archive, если их нужно снять`,
       });
-    // The local product view features the transferred product on Home, like production will.
-    if (pinHome) {
+    return finish();
+
+    async function finish() {
+      // The local product view features the transferred product on Home, like production will.
+      if (pinHome) await pinProduct();
+      journal.lastReport = report;
+      await persist();
+      return report;
+    }
+
+    async function pinProduct() {
       const [product] = pkg.manifest.guides;
       if (pkg.manifest.guides.length !== 1 || product === undefined)
         throw new Error(
@@ -1203,10 +1517,20 @@ export async function syncLocal(
         );
       report.homePinned = guideId;
     }
-    journal.lastReport = report;
-    await persist();
-    return report;
   });
+}
+
+/**
+ * The command-line approval: named originals, or every original of the package.
+ *
+ * @param {{ publish?: string[] | undefined; "publish-all"?: boolean | undefined }} values
+ * @returns {PublishSelection}
+ */
+export function publishOption(values) {
+  const named = values.publish ?? [];
+  if (values["publish-all"] && named.length)
+    throw new Error("Use either --publish-all or --publish, not both");
+  return values["publish-all"] ? "all" : named;
 }
 
 if (
@@ -1218,6 +1542,8 @@ if (
     options: {
       target: { type: "string", default: "editor" },
       archive: { type: "string", multiple: true, default: [] },
+      publish: { type: "string", multiple: true, default: [] },
+      "publish-all": { type: "boolean", default: false },
     },
   });
   const [packagePath, stateDirectory] = positionals;
@@ -1227,13 +1553,14 @@ if (
     stateDirectory === undefined
   )
     throw new Error(
-      "Usage: pnpm authoring:sync-local PACKAGE_JSON STATE_DIRECTORY [--target editor|stand] [--archive SOURCE_ID]...",
+      "Usage: pnpm authoring:sync-local PACKAGE_JSON STATE_DIRECTORY [--target editor|stand] [--publish SOURCE_ID]... [--publish-all] [--archive SOURCE_ID]...",
     );
   const report = await syncLocal(packagePath, stateDirectory, {
     origin: resolveLocalTarget(values.target),
     archive: values.archive,
+    publish: publishOption(values),
   });
   process.stdout.write(
-    `${JSON.stringify({ packageId: report.packageId, applied: report.applied, unchanged: report.unchanged, guides: report.guides, archived: report.archived, archiveProposals: report.archiveProposals, notices: report.notices }, null, 2)}\n`,
+    `${JSON.stringify({ packageId: report.packageId, scope: report.scope ?? "materials", applied: report.applied, unchanged: report.unchanged, guides: report.guides, archived: report.archived, archiveProposals: report.archiveProposals, notices: report.notices }, null, 2)}\n`,
   );
 }

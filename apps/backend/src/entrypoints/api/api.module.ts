@@ -2,6 +2,7 @@ import { NotificationsModule } from "../../modules/notifications/index.js";
 import { BillingModule } from "../../modules/billing/index.js";
 import { ReadingActivityModule } from "../../modules/reading-activity/index.js";
 import { BookmarksModule } from "../../modules/bookmarks/index.js";
+import { SalesFunnelModule } from "../../modules/sales-funnel/index.js";
 import {
   CommunicationsModule,
   CommunicationsTrackingDeliveryModule,
@@ -20,6 +21,7 @@ import {
   DiscoverPublishedMaterialsController,
   ListPublishedMaterialsController,
   ListLearningPracticesController,
+  ReadGuideAccessController,
   ReadHomeContentController,
 } from "../../modules/content-library/index.js";
 import { AccountsModule } from "../../modules/accounts/index.js";
@@ -49,6 +51,7 @@ import { HealthController } from "./health.controller.js";
     ListLearningPracticesController,
     DiscoverPublishedMaterialsController,
     ReadHomeContentController,
+    ReadGuideAccessController,
     VideoAuthoringController,
     KinescopeWebhookController,
   ],
@@ -71,6 +74,7 @@ export class ApiModule {
         BillingModule,
         ReadingActivityModule,
         BookmarksModule,
+        SalesFunnelModule,
         CommunicationsModule,
         CommunicationsTrackingDeliveryModule,
         MemberProfilesModule,

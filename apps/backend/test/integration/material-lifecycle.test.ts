@@ -421,6 +421,9 @@ describe("Material lifecycle", () => {
       checkAvailabilityMany: base.contentAccess.checkAvailabilityMany.bind(
         base.contentAccess,
       ),
+      checkGuideAccess: base.contentAccess.checkGuideAccess.bind(
+        base.contentAccess,
+      ),
       authorize: async (
         input: Parameters<typeof base.contentAccess.authorize>[0],
       ) => {

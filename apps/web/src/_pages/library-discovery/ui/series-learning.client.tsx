@@ -9,6 +9,8 @@ import {
   seriesContinuationQueryKey,
 } from "@/features/reading-progress";
 
+import { programmePurchaseRowClass } from "./programme-purchase-row";
+
 export type SeriesLearningView =
   | { readonly kind: "guest" }
   | { readonly kind: "loading" }
@@ -168,10 +170,7 @@ export function PendingPurchaseRow({
     rememberedPurchaseRow.get(purchaseRowKey(reading.accountId, slug)) ??
     (reading.accountId === null && lockedForGuest);
   return expected ? (
-    <div
-      className="mt-4 flex min-h-11 justify-end"
-      data-programme-purchase-row
-    />
+    <div className={programmePurchaseRowClass} data-programme-purchase-row />
   ) : null;
 }
 

@@ -45,6 +45,7 @@ import type {
 import {
   GUIDE_CHAPTER_NAME_MAX,
   GUIDE_CHAPTER_SUMMARY_MAX,
+  publicationStateLabel,
 } from "../model/presentation";
 import { dragLeftElement } from "@/shared/lib/drag-left-element";
 import { presentText } from "@/shared/lib/text";
@@ -118,6 +119,12 @@ export function SeriesOrderManager({
       if (next.kind === "removal_confirmation_required") {
         attempted.current = null;
         setRemovalConfirmation(next.guides);
+        return "invalid";
+      }
+      // Отказанный материал автор убирает сам: следующая правка уходит новым составом, а не
+      // повтором отклонённого.
+      if (next.kind === "source_mismatch") {
+        attempted.current = null;
         return "invalid";
       }
       if (next.kind !== "saved") return "failed";
@@ -409,6 +416,7 @@ export function SeriesOrderManager({
           onRefresh={onRefresh}
           result={result}
           seriesId={presentation.seriesId}
+          titles={new Map(items.map((item) => [item.materialId, item.title]))}
         />
         {removalConfirmation === null ? null : (
           <GuideRemovalConfirmationDialog
@@ -530,13 +538,15 @@ function OrderFeedback({
   onRefresh,
   result,
   seriesId,
+  titles,
 }: {
   readonly dirty: boolean;
   readonly onRefresh: () => void;
   readonly result: ReorderSeriesResult | null;
   readonly seriesId: string;
+  readonly titles: ReadonlyMap<string, string>;
 }) {
-  const message = actionMessage(result, dirty);
+  const message = actionMessage(result, dirty, titles);
   if (message === null) return null;
   return (
     <div className="mt-3 flex flex-wrap items-center justify-between gap-3 text-sm">
@@ -706,7 +716,7 @@ function MaterialPickerDialog({
                       {material.title}
                     </span>
                     <span className="mt-1 block font-mono text-[0.6875rem] text-muted-foreground">
-                      {stateLabel(material.publicationState)}
+                      {publicationStateLabel(material.publicationState)}
                     </span>
                   </span>
                   <Button
@@ -771,6 +781,7 @@ function MaterialPickerDialog({
 function actionMessage(
   result: ReorderSeriesResult | null,
   dirty: boolean,
+  titles: ReadonlyMap<string, string>,
 ): string | null {
   if (result?.kind === "conflict") {
     return "Состав или порядок изменился в другой вкладке.";
@@ -781,20 +792,21 @@ function actionMessage(
   if (result?.kind === "error") {
     return `Не удалось сохранить. Код обращения: ${result.reference}`;
   }
+  if (result?.kind === "forbidden") {
+    return "Состав не сохранён: этот продукт нельзя менять в редакторе. Продукт, перенесённый из источника, меняется только переносом; иначе у вас нет прав автора.";
+  }
+  if (result?.kind === "source_mismatch") {
+    const names = result.materialIds
+      .map((materialId) => `«${titles.get(materialId) ?? "Без названия"}»`)
+      .join(", ");
+    return `Состав не сохранён: ${names} нельзя добавить в этот продукт. Материалы, перенесённые из источника, и материалы, созданные в редакторе, не смешиваются. Уберите материал из состава, и изменения сохранятся.`;
+  }
   if (result?.kind === "removal_confirmation_required") {
     return "Снятие материала из купленного продукта ждёт подтверждения.";
   }
   if (dirty) return "Есть несохранённые изменения.";
   if (result?.kind === "saved") return "Порядок сохранён.";
   return null;
-}
-
-function stateLabel(
-  state: SeriesOrderItemPresentation["publicationState"],
-): string {
-  if (state === "published") return "Опубликован";
-  if (state === "unpublished") return "Снят с публикации";
-  return "Черновик";
 }
 
 interface DragState {
@@ -1112,7 +1124,7 @@ function MaterialRow({
                 : "font-medium text-action",
             )}
           >
-            {stateLabel(item.publicationState)}
+            {publicationStateLabel(item.publicationState)}
           </span>
           <details className="col-span-2 col-start-2 row-start-3 min-w-0 text-sm sm:col-span-1 sm:col-start-3">
             <summary className="flex min-h-9 w-fit max-w-full cursor-pointer list-none items-center gap-1.5 rounded-md text-muted-foreground hover:text-foreground focus-visible:outline-2 focus-visible:outline-ring [&::-webkit-details-marker]:hidden">

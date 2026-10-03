@@ -112,6 +112,14 @@ export function createApiOpenApiDocument(
       },
       "telegram-community",
     )
+    .addBearerAuth(
+      {
+        type: "http",
+        scheme: "bearer",
+        description: "Dedicated Telegram sales funnel event credential.",
+      },
+      "telegram-sales-funnel",
+    )
     .addBasicAuth(
       {
         type: "http",

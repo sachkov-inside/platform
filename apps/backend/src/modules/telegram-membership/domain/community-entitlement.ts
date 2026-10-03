@@ -252,3 +252,19 @@ export const ownAdmissionSchema = z.strictObject({
   admissionRestriction: admissionRestrictionSchema.nullable(),
   state: z.enum(["checking", "no_access", "moderation_blocked", "ready"]),
 });
+export type OwnAdmission = z.infer<typeof ownAdmissionSchema>;
+
+/**
+ * Какой переход в сообщество показать самому Account рядом с покупкой. Вступление идёт через
+ * бота: только он выдаёт личную ссылку в группу по `/community`, поэтому `join` несёт адрес бота
+ * без параметра `/start`. Адреса самой группы Platform не знает, и участнику кнопка не нужна.
+ */
+export const ownCommunityEntrySchema = z.discriminatedUnion("kind", [
+  z.strictObject({ kind: z.literal("none") }),
+  z.strictObject({ kind: z.literal("link_telegram") }),
+  z.strictObject({ kind: z.literal("preparing") }),
+  z.strictObject({ kind: z.literal("join"), botUrl: z.url() }),
+  z.strictObject({ kind: z.literal("member") }),
+  z.strictObject({ kind: z.literal("restricted") }),
+]);
+export type OwnCommunityEntry = z.infer<typeof ownCommunityEntrySchema>;

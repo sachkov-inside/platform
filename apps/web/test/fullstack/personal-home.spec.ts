@@ -122,7 +122,7 @@ test("profile continuation opens the real series, persists marks and reconciles 
   await expect(resumeSeries).toContainText("Прочитано 1 из 3");
   await expect(resumeSeries).toHaveAttribute(
     "href",
-    `/guides/${seriesSlug}/programme`,
+    `/products/${seriesSlug}/programme`,
   );
   await expect(
     page.getByRole("region", { name: "Продолжить изучение" }),
@@ -132,7 +132,7 @@ test("profile continuation opens the real series, persists marks and reconciles 
   ).toEqual([]);
   await screenshot(page, testInfo.project.name, "home");
   await resumeSeries.click();
-  await expect(page).toHaveURL(new RegExp(`/guides/${seriesSlug}/programme`));
+  await expect(page).toHaveURL(new RegExp(`/products/${seriesSlug}/programme`));
   // Сводки прогресса над маршрутом нет: изученное видно галочкой на строке материала.
   await expect(
     page.getByRole("main").locator('[data-series-marker-read="true"]'),
@@ -173,7 +173,7 @@ test("profile continuation opens the real series, persists marks and reconciles 
   const videoMark = await unmark(page, "Просмотрено");
   await videoMark.click();
   await expect(videoMark).toHaveAttribute("aria-pressed", "true");
-  await page.goto(`/guides/${seriesSlug}/programme`);
+  await page.goto(`/products/${seriesSlug}/programme`);
   await expect(current).toContainText("Гайд для проверки прогресса");
   await page.reload();
   await expect(
@@ -185,7 +185,7 @@ test("profile continuation opens the real series, persists marks and reconciles 
   const guideMark = await unmark(page, "Изучено");
   await guideMark.click();
   await expect(guideMark).toHaveAttribute("aria-pressed", "true");
-  await page.goto(`/guides/${seriesSlug}/programme`);
+  await page.goto(`/products/${seriesSlug}/programme`);
   await expect(current).toHaveCount(0);
   await expect(
     page.getByRole("main").locator('[data-series-marker-read="true"]'),

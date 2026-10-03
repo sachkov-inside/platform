@@ -20,6 +20,7 @@ export {
   handleSaveOffer,
   handleSavePaymentOption,
   handleSavePromotion,
+  handleSaveCohort,
   handleUnpublishOffer,
   loadBillingOffersForOwner,
 } from "./billing-admin/api/billing-admin.server";
@@ -52,3 +53,8 @@ export { handleTributeReconcile } from "./billing-admin/api/tribute.server";
 export { handleTributeRetryEvent } from "./billing-admin/api/tribute.server";
 
 export { handleTributeDismissImport } from "./billing-admin/api/tribute.server";
+export {
+  handleImportRespondents,
+  handleIssueRespondentLink,
+  handleRespondentsStatus,
+} from "./billing-admin/api/respondents.server";

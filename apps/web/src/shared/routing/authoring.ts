@@ -35,3 +35,20 @@ export function withAuthoringReturnHref(
     `${pathname}?${new URLSearchParams({ from: returnHref }).toString()}`,
   );
 }
+
+/**
+ * Предпросмотр материала. `guideId` выбирает руководство, по маршруту которого автор листает
+ * черновики; без него предпросмотр берёт первое руководство материала.
+ */
+export function authoringMaterialPreviewHref(
+  materialId: string,
+  returnHref: Route,
+  guideId?: string,
+): Route {
+  return internalRoute(
+    `/authoring/materials/${materialId}/preview?${new URLSearchParams({
+      from: returnHref,
+      ...(guideId === undefined ? {} : { guide: guideId }),
+    }).toString()}`,
+  );
+}

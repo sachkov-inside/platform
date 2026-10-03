@@ -95,7 +95,8 @@ these are the rules a change follows.
   inside the function, never for the whole module, and every cached function calls the policy
   itself: a second read in the same file would otherwise have neither a tag nor a lifetime. A read made with a token, a
   closed Material body, per-viewer availability, progress, the guide mode and offers are never
-  cached and so never enter link prefetch. `"use cache: private"` and `unstable_cache` are not
+  cached and so never enter link prefetch. The one exception is the guest read of a product's
+  offer terms for its description placeholders (ADR 0027): month counts only, no price. `"use cache: private"` and `unstable_cache` are not
   used. `check-web-architecture` enforces the module name, the policy call in each cached
   function, the absence of the session and the directive variant and placement, with the negative
   fixture `public-cache`. It sees a direct breach only: a
@@ -217,6 +218,13 @@ these are the rules a change follows.
   Design a card or hero animation for its real slot, draw its icons with `lucide-react` and change
   scenes without morphing objects into each other; the owner's decisions of
   2026-09-13 and their reasons are in `docs/evidence/issue-614/ai-first-animation/README.md`.
+  The AI Engineering course film (#808) is the owner-approved exception of 2026-09-30, confirmed
+  by the owner in the #808 session before merge: a canvas
+  drawn by a pure function of time, whose dark card moves between the states of one episode, with
+  no pause button and the final frame under reduced motion; its brief and critique are in
+  `docs/evidence/issue-808/animation/README.md`. Its course page and Home card draw list icons with
+  duotone Phosphor geometry (`features/ai-engineering-course/ui/course-icons.tsx`) instead of
+  `lucide-react`, by the owner's decision of 2026-09-30 to avoid the standard icon set there.
 - Keep Web guardrails and negative fixtures aligned with environment ownership, browser bypass,
   slice direction, mutation boundaries, and bundle limits. Use focused mapping/query tests,
   Storybook for meaningful UI states, and Playwright for route behaviour and accessibility.

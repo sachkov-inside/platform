@@ -127,6 +127,28 @@ export const guideWithSupportOffer: PriceSnapshot = {
   renewalPriceKopecks: 490_000,
 };
 
+/**
+ * То же руководство с названными сроками: материалы и чат на 2 года, сопровождение на год. По
+ * нему видно, что оплата называет сроки предложения, а не одни и те же числа.
+ */
+export const fixedTermGuideOffer: PriceSnapshot = {
+  ...guideWithSupportOffer,
+  offer: {
+    ...guideWithSupportOffer.offer,
+    id: uuid("105"),
+    name: "Руководство «Создание Platform Inside» на два года",
+    benefitPeriods: [
+      { capability: guideCapability(uuid("f01")), months: 24 },
+      { capability: "support", months: 12 },
+    ],
+  },
+  paymentOption: {
+    ...guideWithSupportOffer.paymentOption,
+    id: uuid("205"),
+    offerId: uuid("105"),
+  },
+};
+
 export const billingOffers: readonly PriceSnapshot[] = [
   materialsOffer,
   supportOffer,
@@ -152,9 +174,9 @@ export const legalDocuments: readonly LegalDocument[] = [
     kind: "terms",
     appliesTo: ["one_time"],
     documentId: "purchase",
-    version: "4",
+    version: "5",
     digest: "d".repeat(64),
-    url: "https://inside.example.test/legal/purchase/v4",
+    url: "https://inside.example.test/legal/purchase/v5",
     text: "",
   },
   {
@@ -190,6 +212,19 @@ export const guideQuote: BillingQuote = {
   createdAt: "2026-09-10T10:00:00.000Z",
   expiresAt: "2026-09-10T10:15:00.000Z",
   snapshot: guideOnlyOffer,
+};
+
+/** Расчёт покупки с сопровождением: сводка условий читает сроки из его снимка. */
+export const guideWithSupportQuote: BillingQuote = {
+  ...guideQuote,
+  quoteRef: uuid("403"),
+  snapshot: guideWithSupportOffer,
+};
+
+export const fixedTermGuideQuote: BillingQuote = {
+  ...guideQuote,
+  quoteRef: uuid("404"),
+  snapshot: fixedTermGuideOffer,
 };
 
 export const activeSubscription: SubscriptionView = {

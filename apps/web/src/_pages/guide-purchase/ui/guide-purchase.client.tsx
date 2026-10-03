@@ -8,10 +8,7 @@ import {
   type PriceSnapshot,
 } from "@/entities/subscription";
 import { useBillingContact } from "@/features/billing-contact";
-import {
-  CheckoutFlow,
-  oneTimePurchaseInclusions,
-} from "@/features/billing-checkout";
+import { CheckoutFlow } from "@/features/billing-checkout";
 import { useCurrentBilling } from "@/features/billing-subscription";
 import { internalRoute } from "@/shared/routing/internal-route";
 import { cn } from "@/shared/lib/utils";
@@ -26,6 +23,8 @@ export interface GuidePurchaseProps {
   readonly offers: readonly PriceSnapshot[];
   readonly slug: string;
   readonly unavailable?: boolean;
+  /** Промокод персональной ссылки владельца: переживает вход и уходит в расчёт цены. */
+  readonly promoCode?: string;
 }
 
 /** Собственные покупки читает браузер: страница рендерится сервером и без них. */
@@ -34,6 +33,7 @@ export function GuidePurchase({
   offers,
   slug,
   unavailable = false,
+  promoCode,
 }: GuidePurchaseProps) {
   const [selectedId, setSelectedId] = useState<string | null>(
     offers[0]?.paymentOption.id ?? null,
@@ -60,6 +60,7 @@ export function GuidePurchase({
       slug={slug}
       unavailable={unavailable}
       viewer={viewer}
+      {...(promoCode === undefined ? {} : { promoCode })}
       {...(failure === undefined
         ? {}
         : { notice: billingErrorMessage(failure) })}
@@ -115,11 +116,12 @@ export function GuidePurchase({
             contact={contactState?.contact ?? null}
             contactHref={contactHref}
             documents={contactState?.documents ?? []}
-            inclusions={oneTimePurchaseInclusions(selected)}
+            showInclusions
             onDocumentsChanged={() => {
               void contact.refetch();
             }}
             snapshot={selected}
+            {...(promoCode === undefined ? {} : { promoCode })}
           />
         </>
       )}

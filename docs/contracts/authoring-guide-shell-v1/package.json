@@ -1,0 +1,89 @@
+{
+  "schemaVersion": 1,
+  "sourceNamespace": "inside-content",
+  "selection": {
+    "guideId": "inside-ai-engineering",
+    "chapterIds": [],
+    "materialIds": [],
+    "complete": true,
+    "scope": "guide-shell"
+  },
+  "materials": [],
+  "guides": [
+    {
+      "sourceId": "inside-ai-engineering",
+      "slug": "ai-engineering",
+      "presentation": "default",
+      "page": {
+        "card": {
+          "caption": "Курс"
+        },
+        "blocks": [
+          {
+            "id": "hero",
+            "kind": "hero",
+            "lead": "Лид курса.",
+            "highlights": []
+          }
+        ]
+      },
+      "title": "Inside AI Engineering",
+      "summary": "Пример публичного анонса курса.",
+      "complete": true,
+      "chapters": [
+        {
+          "sourceId": "chapter-0",
+          "title": "Глава 0. Подготовка",
+          "summary": "Пример описания главы 0.",
+          "materialIds": []
+        },
+        {
+          "sourceId": "chapter-1",
+          "title": "Глава 1. Первый агентный проект",
+          "summary": "Пример описания главы 1.",
+          "materialIds": []
+        },
+        {
+          "sourceId": "chapter-2",
+          "title": "Глава 2. Контекст",
+          "summary": "Пример описания главы 2.",
+          "materialIds": []
+        },
+        {
+          "sourceId": "chapter-3",
+          "title": "Глава 3. Инструменты и MCP",
+          "summary": "Пример описания главы 3.",
+          "materialIds": []
+        },
+        {
+          "sourceId": "chapter-4",
+          "title": "Глава 4. Оценка качества",
+          "summary": "Пример описания главы 4.",
+          "materialIds": []
+        },
+        {
+          "sourceId": "chapter-5",
+          "title": "Глава 5. Несколько агентов",
+          "summary": "Пример описания главы 5.",
+          "materialIds": []
+        },
+        {
+          "sourceId": "chapter-6",
+          "title": "Глава 6. Эксплуатация",
+          "summary": "Пример описания главы 6.",
+          "materialIds": []
+        },
+        {
+          "sourceId": "chapter-7",
+          "title": "Глава 7. Итоговый проект",
+          "summary": "Пример описания главы 7.",
+          "materialIds": []
+        }
+      ],
+      "materialIds": [],
+      "supplementaryMaterialIds": []
+    }
+  ],
+  "assets": [],
+  "diagnostics": []
+}

@@ -4,7 +4,10 @@ import {
   MaterialAuthoringUnexpectedPreviewState,
 } from "@/widgets/material-authoring/route-states";
 import { MaterialCurrentPreview } from "@/widgets/material-authoring/preview";
-import { withAuthoringReturnHref } from "@/shared/routing/authoring";
+import {
+  authoringMaterialPreviewHref,
+  withAuthoringReturnHref,
+} from "@/shared/routing/authoring";
 import type { Route } from "next";
 import {
   getPlatformAccessTokenRsc,
@@ -13,10 +16,16 @@ import {
 } from "@/shared/auth/index.server";
 
 import { getCurrentMaterialPreview } from "../api/get-current-material-preview";
+import {
+  getMaterialPreviewRoute,
+  getMaterialPreviewVideo,
+} from "../api/get-material-preview-context";
 export async function MaterialCurrentPreviewPage({
+  guideId,
   materialId,
   returnHref,
 }: {
+  readonly guideId?: string | undefined;
   readonly materialId: string;
   readonly returnHref: Route;
 }) {
@@ -36,9 +45,10 @@ export async function MaterialCurrentPreviewPage({
           returnHref,
         )}
         reference="identity-session"
-        retryHref={withAuthoringReturnHref(
-          `/authoring/materials/${materialId}/preview`,
+        retryHref={authoringMaterialPreviewHref(
+          materialId,
           returnHref,
+          guideId,
         )}
         returnHref={returnHref}
       />
@@ -70,12 +80,28 @@ export async function MaterialCurrentPreviewPage({
           returnHref,
         )}
         reference={state.reference}
-        retryHref={withAuthoringReturnHref(
-          `/authoring/materials/${materialId}/preview`,
+        retryHref={authoringMaterialPreviewHref(
+          materialId,
           returnHref,
+          guideId,
         )}
         returnHref={returnHref}
       />
+    );
+  }
+  const [route, video] = await Promise.all([
+    getMaterialPreviewRoute({
+      accessToken,
+      guideId,
+      guides: state.guides,
+      materialId: state.preview.materialId,
+      returnHref,
+    }),
+    getMaterialPreviewVideo(state.preview.materialId, accessToken),
+  ]);
+  if (route === "unauthorized") {
+    return (
+      <MaterialAuthoringPreviewUnauthorizedState returnHref={returnHref} />
     );
   }
   return (
@@ -85,7 +111,8 @@ export async function MaterialCurrentPreviewPage({
         returnHref,
       )}
       materialsHref={returnHref}
-      preview={state.preview}
+      preview={{ ...state.preview, video }}
+      route={route}
     />
   );
 }

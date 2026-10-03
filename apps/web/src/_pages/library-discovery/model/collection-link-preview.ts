@@ -33,8 +33,8 @@ const TOPIC: CollectionKind = {
 };
 
 /**
- * Карточка ссылки на руководство. Канонический адрес всегда `/guides/<slug>`: `/series/<slug>`
- * остался совместимым адресом той же страницы и не должен спорить с ним в поиске.
+ * Карточка ссылки на продукт. Канонический адрес всегда `/products/<slug>`: прежние `/guides/<slug>`
+ * и `/series/<slug>` перенаправляются туда и не спорят с ним в поиске.
  */
 export function guideLinkPreview(
   reference: LibraryDiscoveryReference,

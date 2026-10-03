@@ -1,6 +1,7 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { expect, fn, userEvent, waitFor, within } from "storybook/test";
 
+import type { BillingQuote } from "@/entities/subscription";
 import {
   guideOnlyOffer,
   guideQuote,
@@ -10,10 +11,9 @@ import {
 import { fetchBeforeRender } from "@/workshop/mutation-mock";
 import { publicPageEnvironment } from "@/workshop/story-environment";
 
-import { oneTimePurchaseInclusions } from "../model/one-time-terms";
 import { CheckoutFlow } from "./checkout-flow.client";
 
-const environment = publicPageEnvironment("/guides/platform-inside/buy");
+const environment = publicPageEnvironment("/products/platform-inside/buy");
 
 /** Какие маршруты собственного BFF вызвал поток: по ним видно, что оплата не начиналась. */
 const requestPath = fn();
@@ -41,7 +41,7 @@ const meta = {
     contact: verifiedContact,
     documents: legalDocuments,
     contactHref: "/account/email",
-    inclusions: oneTimePurchaseInclusions(guideOnlyOffer),
+    showInclusions: true,
     onDocumentsChanged: fn(),
     onNavigate: fn(),
   },
@@ -81,5 +81,77 @@ export const EditionChangedBeforePayment: Story = {
     await expect(
       canvas.getByRole("button", { name: /^Оплатить /u }),
     ).toBeEnabled();
+  },
+};
+
+/** Тело последнего запроса расчёта: по нему видно, что код ссылки ушёл на сервер. */
+const quoteBody = fn();
+
+function personalLinkQuote(promotion: BillingQuote["snapshot"]["promotion"]) {
+  return fetchBeforeRender((input, init) => {
+    const target = input instanceof Request ? input.url : String(input);
+    const path = new URL(target, window.location.origin).pathname;
+    requestPath(path);
+    if (path === "/api/account/billing/quote") {
+      // Клиент шлёт команду полем `input` формы, как настоящий маршрут BFF.
+      const form = init?.body;
+      const command = form instanceof FormData ? form.get("input") : null;
+      if (typeof command === "string") quoteBody(JSON.parse(command));
+      return Promise.resolve(
+        Response.json({
+          ok: true,
+          value: {
+            ...guideQuote,
+            snapshot: {
+              ...guideQuote.snapshot,
+              promotion,
+              firstPriceKopecks:
+                promotion === null
+                  ? guideQuote.snapshot.firstPriceKopecks
+                  : guideQuote.snapshot.firstPriceKopecks / 2,
+            },
+          },
+        }),
+      );
+    }
+    return Promise.resolve(Response.json({ ok: false, code: "unavailable" }));
+  });
+}
+
+/** Персональная ссылка владельца: код уходит в расчёт, и покупатель видит цену со скидкой (#815). */
+export const PersonalLinkDiscount: Story = {
+  args: { promoCode: "survey-7f3a" },
+  beforeEach: personalLinkQuote({
+    id: "00000000-0000-4000-8000-000000000701",
+    revision: 1,
+    name: "Скидка респонденту",
+    percent: 50,
+  }),
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await expect(
+      await canvas.findByText("Скидка респонденту · −50%"),
+    ).toBeInTheDocument();
+    await expect(quoteBody).toHaveBeenLastCalledWith(
+      expect.objectContaining({ promoCode: "survey-7f3a" }),
+    );
+    await expect(
+      canvas.queryByText(/Скидка по ссылке не применилась/u),
+    ).not.toBeInTheDocument();
+  },
+};
+
+/** Код израсходован или истёк: цена обычная, и покупатель знает почему. */
+export const PersonalLinkRejected: Story = {
+  args: { promoCode: "survey-used" },
+  beforeEach: personalLinkQuote(null),
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await expect(
+      await canvas.findByText(/Скидка по ссылке не применилась/u),
+    ).toBeInTheDocument();
+    await expect(quoteBody).toHaveBeenLastCalledWith(
+      expect.objectContaining({ promoCode: "survey-used" }),
+    );
   },
 };

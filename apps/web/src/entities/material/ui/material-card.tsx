@@ -474,35 +474,45 @@ function SeriesMaterialRow({
       className="group/row relative flex min-h-24 min-w-0 items-center rounded-xl bg-muted/65 px-3 py-3 transition-colors hover:bg-muted focus-within:bg-muted sm:px-4"
       slug={material.slug}
     >
-      <div className="grid w-full min-w-0 grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-x-3 gap-y-2 @max-[16rem]/series-entry:grid-cols-[minmax(0,1fr)_auto]">
-        <span className="flex items-baseline gap-1.5 whitespace-nowrap text-xs text-muted-foreground @max-[16rem]/series-entry:col-span-2">
-          <strong className="text-base font-medium tabular-nums text-foreground">
-            {ordinal}
-          </strong>
-          <span className="sr-only @min-[30rem]/series-entry:not-sr-only">
-            урок
-          </span>
-        </span>
-        <div className="flex min-w-0 items-center gap-3">
+      <div className="grid w-full min-w-0 grid-cols-[minmax(0,1fr)_auto] items-center gap-x-3 gap-y-2">
+        <div className="flex min-w-0 items-center gap-3 sm:gap-4">
+          {/* Номер урока стоит в плитке: без обложки он и есть её рисунок, с обложкой — метка в углу. */}
           <span
             data-series-preview
-            className="w-16 shrink-0 overflow-hidden rounded-lg @max-[22rem]/series-entry:hidden"
+            className="relative w-14 shrink-0 overflow-hidden rounded-xl @min-[30rem]/series-entry:w-16 @max-[16rem]/series-entry:hidden"
           >
             <ContentCoverImage
               alt=""
               className={cn(
-                "aspect-square min-h-0 w-full rounded-lg",
-                locked && "scale-110 blur-[3px]",
+                "aspect-square min-h-0 w-full rounded-xl",
+                locked &&
+                  (material.cover ?? null) !== null &&
+                  "scale-110 blur-[3px]",
               )}
               cover={material.cover ?? null}
               fallbackKind={
                 materialPreviewHasVideo(material) ? "video" : "material"
               }
+              {...(ordinal === undefined || (material.cover ?? null) !== null
+                ? {}
+                : { fallbackLabel: String(ordinal).padStart(2, "0") })}
               fallbackSeed={material.slug}
               sizes="4rem"
             />
+            {(material.cover ?? null) === null ||
+            ordinal === undefined ? null : (
+              <span
+                aria-hidden="true"
+                className="absolute bottom-1 left-1 rounded-md bg-background/92 px-1 text-[0.625rem] font-semibold leading-4 tabular-nums text-foreground"
+              >
+                {String(ordinal).padStart(2, "0")}
+              </span>
+            )}
           </span>
           <div className="min-w-0">
+            {ordinal === undefined ? null : (
+              <span className="sr-only">Урок {ordinal}. </span>
+            )}
             <Heading className="min-w-0 text-sm font-medium leading-6 [overflow-wrap:anywhere] sm:text-base">
               <IntentPrefetchLink
                 className="no-underline after:absolute after:inset-0 after:rounded-xl focus-visible:outline-none focus-visible:after:outline-2 focus-visible:after:outline-ring"

@@ -121,7 +121,7 @@ test("author Home pin persists for guests and members, replaces and removes thro
       );
       await expect(
         viewer.getByRole("link", { name: "Открыть продукт", exact: true }),
-      ).toHaveAttribute("href", "/guides/demo-series-release?from=%2F");
+      ).toHaveAttribute("href", "/products/demo-series-release?from=%2F");
       await expect(
         viewer.locator(".home-guide-animation:visible"),
       ).toBeVisible();
@@ -186,7 +186,9 @@ test("author Home pin persists for guests and members, replaces and removes thro
     await guestPage
       .getByRole("link", { name: "Открыть продукт", exact: true })
       .click();
-    await expect(guestPage).toHaveURL(/\/guides\/demo-series-release-shared/u);
+    await expect(guestPage).toHaveURL(
+      /\/products\/demo-series-release-shared/u,
+    );
     await pin
       .getByRole("button", { name: `Снять закреп «${nextName}»` })
       .click();

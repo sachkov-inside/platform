@@ -2,7 +2,7 @@
 import type { Route } from "next";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useRef, useSyncExternalStore } from "react";
+import { useEffect, useRef, useSyncExternalStore, type ReactNode } from "react";
 import { useQuery } from "@tanstack/react-query";
 
 import {
@@ -34,6 +34,8 @@ export interface PurchaseReturnViewProps {
   readonly error?: string | undefined;
   readonly unknownReference?: boolean;
   readonly accountHref: Route;
+  /** Что открыла покупка сверх материалов: показывается, только когда доступ уже открыт. */
+  readonly accessSlot?: ReactNode;
   readonly onRefresh: () => void;
 }
 
@@ -47,6 +49,7 @@ export function PurchaseReturnView({
   error,
   unknownReference = false,
   accountHref,
+  accessSlot,
   onRefresh,
 }: PurchaseReturnViewProps) {
   return (
@@ -147,6 +150,8 @@ export function PurchaseReturnView({
         </div>
       )}
 
+      {purchase?.access === "ready" ? accessSlot : null}
+
       {error === undefined ? null : (
         <p
           className="rounded-xl border border-destructive/30 bg-destructive/6 p-4 text-sm"
@@ -161,9 +166,13 @@ export function PurchaseReturnView({
 
 export interface PurchaseReturnPanelProps {
   readonly accountHref: Route;
+  readonly accessSlot?: ReactNode;
 }
 
-export function PurchaseReturnPanel({ accountHref }: PurchaseReturnPanelProps) {
+export function PurchaseReturnPanel({
+  accountHref,
+  accessSlot,
+}: PurchaseReturnPanelProps) {
   // sessionStorage существует только в браузере: снимок сервера пуст, поэтому гидратация
   // не расходится, а ссылка на покупку появляется сразу после неё.
   const hydrated = useSyncExternalStore(subscribeToNothing, always, never);
@@ -199,6 +208,7 @@ export function PurchaseReturnPanel({ accountHref }: PurchaseReturnPanelProps) {
   }, [confirmed, router]);
   return (
     <PurchaseReturnView
+      accessSlot={accessSlot}
       accountHref={accountHref}
       error={
         result?.ok === false ? billingErrorMessage(result.code) : undefined

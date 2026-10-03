@@ -4,7 +4,6 @@ import { readdirSync, readFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, it } from "node:test";
-import { z } from "zod";
 
 import { readPackageManifest } from "./package-manifest.mjs";
 
@@ -130,9 +129,6 @@ describe("application CI workflow contract", () => {
     assert.doesNotMatch(workflow, /run: pnpm check$/mu);
     assert.match(jobBlock("ui"), /browsers: chromium webkit$/mu);
     assert.match(jobBlock("web-e2e"), /browsers: chromium$/mu);
-    // Harness проверяется той версией пакета, что установлена, а не текущим main Workspace.
-    assert.match(jobBlock("static"), /inside-engineering-v\$\{version\}/u);
-    assert.match(jobBlock("static"), /inside-harness" health \.$/mu);
   });
 
   it("installs frozen dependencies and cached browser engines in one place", () => {
@@ -228,13 +224,16 @@ describe("application CI workflow contract", () => {
   it("uploads only bounded failure diagnostics for seven days", () => {
     assert.equal(
       workflow.match(/uses: actions\/upload-artifact@/gu)?.length,
-      3,
-    );
-    assert.equal(workflow.match(/^\s+retention-days: 7$/gmu)?.length, 3);
-    assert.equal(
-      workflow.match(/^\s+if: \$\{\{ failure\(\) \}\}$/gmu)?.length,
       4,
     );
+    assert.equal(workflow.match(/^\s+retention-days: 7$/gmu)?.length, 4);
+    assert.equal(
+      workflow.match(/^\s+if: \$\{\{ failure\(\) \}\}$/gmu)?.length,
+      5,
+    );
+    // A failed smoke keeps the Playwright results and the dev-server log (#863).
+    assert.match(jobBlock("integration"), /apps\/web\/test-results/u);
+    assert.match(jobBlock("integration"), /apps\/web\/\.next\/dev\/logs/u);
     assert.match(workflow, /docker compose logs --no-color --tail 500/u);
     assert.doesNotMatch(workflow, /\.ci-artifacts/u);
     assert.match(
@@ -381,20 +380,6 @@ function escapeRegExp(value) {
 }
 
 describe("repository-owned workflow supply chain", () => {
-  // Управляемые файлы harness закрепляются в пакете Workspace (workspace#211) и приходят раскаткой.
-  const managedFiles = new Set(
-    z
-      .object({ managedFiles: z.array(z.string()) })
-      .passthrough()
-      .parse(
-        JSON.parse(
-          readFileSync(
-            resolve(repositoryRoot, ".inside-harness/product-harness.json"),
-            "utf8",
-          ),
-        ),
-      ).managedFiles,
-  );
   const ownedSources = [
     ...readdirSync(resolve(repositoryRoot, ".github/workflows")).map(
       (name) => `.github/workflows/${name}`,
@@ -402,7 +387,7 @@ describe("repository-owned workflow supply chain", () => {
     ...readdirSync(resolve(repositoryRoot, ".github/actions")).map(
       (name) => `.github/actions/${name}/action.yml`,
     ),
-  ].filter((path) => !managedFiles.has(path));
+  ];
 
   it("pins every third-party action in every owned workflow to a release commit", () => {
     assert.ok(ownedSources.includes(".github/workflows/release.yml"));

@@ -30,20 +30,18 @@ names its seam and the stages run in parallel:
 
 | Job | Repository command or proof |
 |---|---|
-| `static` | `inside-harness health` at the installed harness version, then `pnpm check:static`: documentation contract, Prettier formatting, workspace packages and Prisma client, OpenAPI drift, lint, typecheck, guardrails |
+| `static` | `pnpm check:static`: documentation contract, Prettier formatting, workspace packages and Prisma client, OpenAPI drift, lint, typecheck, guardrails |
 | `unit` | `pnpm check:unit`: tooling and authoring `node --test`, Workshop contracts and `go test -race`, backend and package Vitest, web module tests |
 | `ui` | `pnpm check:ui`: browser-engine checks (Chromium and WebKit), Storybook tests and the Storybook build |
 | `web-e2e` | `pnpm check:web-e2e`: one production build, prerendered and standalone checks, then Playwright e2e and page transitions on `next start` of that build |
-| `integration` | `pnpm test:integration:parallel` (PostgreSQL and RustFS via Testcontainers, a migrated template database copied per test database), then `pnpm smoke:enrollments` and `pnpm smoke:buyer-journey` |
+| `integration` | `pnpm test:integration:parallel` (PostgreSQL and RustFS via Testcontainers, a migrated template database copied per test database), then `pnpm smoke:enrollments` and `pnpm smoke:buyer-journey`; a failed job uploads the Playwright results and the `next dev` log |
 | `integration-serial` | `pnpm test:integration:serial`: RabbitMQ, SIGKILL crash and worker-process files, one file at a time |
 | `compose-development` | profile config/build, live smoke, restart persistence and clean shutdown |
 | `compose-production` | isolated nine-process digest-selected runtime proof with the environment broker; pull requests also run clean `pnpm release:images:smoke` |
 
 `.github/actions/setup-platform` owns the shared setup: pinned pnpm and Node.js, the frozen
 install and, on request, Playwright browser engines restored from a cache keyed by the exact
-Playwright version. The harness check reads the version from `.inside-harness/product-harness.json`
-and clones the matching `inside-engineering-v<version>` tag of the public Workspace repository, so a
-newer Workspace release cannot fail an unchanged Platform branch.
+Playwright version.
 
 `CI Gate` depends on every job and succeeds only when every result is `success`. The repository
 ruleset requires this exact check name; individual job names may evolve without changing the
@@ -67,8 +65,8 @@ for a clean pull request. The ruleset changes only by owner decision; an agent n
 a merge through.
 
 `compose-production` can time out waiting for a `pg-boss` job to become active on a change that does
-not touch workers, queues or Compose; #728 tracks the wait budget, and a re-run follows the rule for
-known defects in `WORKFLOW.md` while it is open.
+not touch workers, queues or Compose; #728 tracks the wait budget, and a re-run of that check is
+allowed while #728 is open.
 
 ## Integration suites
 

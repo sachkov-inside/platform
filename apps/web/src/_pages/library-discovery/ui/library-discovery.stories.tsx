@@ -158,7 +158,7 @@ export const TopicDesktop: Story = {
       canvasElement.querySelector("[data-playlist-card]"),
     ).toHaveAttribute(
       "href",
-      "/guides/platform-inside?from=%2Ftopics%2Fplatform%3Ffrom%3D%252F",
+      "/products/platform-inside?from=%2Ftopics%2Fplatform%3Ffrom%3D%252F",
     );
     for (const coverId of [
       "02000000-0000-4000-8000-000000000061",
@@ -494,7 +494,7 @@ export const ConnectedStepsDesktop: Story = {
       canvasElement.querySelectorAll("[data-series-rail]"),
     ).toHaveLength(0);
     for (const [index, row] of [...rows].entries()) {
-      await expect(row).toHaveTextContent(`${String(index + 1)}урок`);
+      await expect(row).toHaveTextContent(`Урок ${String(index + 1)}.`);
     }
     const guide = canvas
       .getByRole("heading", { name: "Подготовка приложения" })

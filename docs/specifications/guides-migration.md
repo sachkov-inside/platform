@@ -3,7 +3,7 @@
 Контракт [#448](https://github.com/sachkov-inside/platform/issues/448) реализует принятую
 [модель Workspace](https://github.com/sachkov-inside/workspace/pull/160).
 После [Workspace #181](https://github.com/sachkov-inside/workspace/issues/181) общая пользовательская
-категория Guide называется «Продукт»; определения находятся в [CONTEXT](../../CONTEXT.md).
+категория Guide называется «Продукт»; определения находятся в [GLOSSARY](../../GLOSSARY.md).
 Этот документ сохраняет технический контракт перехода Series → Guide. Material остаётся самостоятельным и переиспользуемым;
 его формат `guide` означает «Гайд». Глава руководства и video chapter с таймкодом — разные понятия.
 Новые главы, артефакты и расширенный импорт относятся к #449.
@@ -36,11 +36,13 @@ Videos продолжает владеть Video identity и resume. Повто�
 
 ## HTTP, MCP и ссылки
 
-Новые страницы: `/guides/:slug`, `/authoring/guides`, `/authoring/guides/:seriesId`.
-Старые `/series/:slug` и `/authoring/playlists/...` остаются рабочими страницами той же реализации.
+Публичная страница продукта — `/products/:slug` (решение владельца 30.09.2026,
+[#808](https://github.com/sachkov-inside/platform/issues/808)); `/guides/:slug` и `/series/:slug`
+постоянно перенаправляются туда. Страницы автора — `/authoring/guides`, `/authoring/guides/:seriesId`;
+старые `/authoring/playlists/...` остаются рабочими страницами той же реализации.
 Параметры `from`, `page`, `at` сохраняются. Reader принимает оба вида адресов руководства,
 сохраняет явно выбранный состав и не выбирает руководство при прямом входе в Material.
-Новые ссылки каталога ведут в `/guides/`.
+Ссылки каталога ведут в `/products/`.
 
 Новые операции HTTP используют существующие авторизацию, ошибки, cache policy и application calls:
 

@@ -56,7 +56,7 @@ test("покупатель курса проходит путь от стран�
   const email = `buyer-${telegramUserId}@inside.test`;
 
   // Страница курса открыта гостю.
-  await page.goto(`/guides/${slug}`);
+  await page.goto(`/products/${slug}`);
   await expect(
     page.getByRole("heading", { level: 1, name: "Создание Platform Inside" }),
   ).toBeVisible();
@@ -79,7 +79,7 @@ test("покупатель курса проходит путь от стран�
   await expect(page.getByText(paidBody)).toHaveCount(0);
 
   // Покупка на тестовом терминале: чек уходит на подтверждённый email.
-  await page.goto(`/guides/${slug}/buy`);
+  await page.goto(`/products/${slug}/buy`);
   await page.getByRole("link", { name: "Подтвердить его в кабинете" }).click();
   await page.getByLabel("Email", { exact: true }).fill(email);
   await page.getByRole("button", { name: "Получить код", exact: true }).click();
@@ -98,7 +98,7 @@ test("покупатель курса проходит путь от стран�
   await expect(
     page.getByText("Email подтверждён.", { exact: true }),
   ).toBeVisible();
-  await page.goto(`/guides/${slug}/buy`);
+  await page.goto(`/products/${slug}/buy`);
   await page.getByRole("button", { name: /^Оплатить/u }).click();
   await page.getByRole("button", { name: "Оплата прошла" }).click();
 

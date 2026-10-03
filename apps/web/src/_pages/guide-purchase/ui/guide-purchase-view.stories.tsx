@@ -31,7 +31,7 @@ const guide = {
   summary: "Как устроен продукт: архитектура, границы и порядок поставки.",
 };
 
-const environment = publicPageEnvironment("/guides/platform-inside/buy");
+const environment = publicPageEnvironment("/products/platform-inside/buy");
 
 const meta = {
   ...environment,
@@ -115,6 +115,21 @@ export const SignedOut: Story = {
         },
       ),
     ).toBeInTheDocument();
+  },
+};
+
+/** Персональная ссылка владельца: код переживает вход, а цену со скидкой назовёт расчёт (#815). */
+export const SignedOutWithPersonalLink: Story = {
+  args: { viewer: "guest", promoCode: "Syn7hetic-Code" },
+  play: async ({ canvasElement }) => {
+    const canvas = routeContent(canvasElement);
+    await expect(
+      canvas.getByText(/скидка по ссылке применится/u),
+    ).toBeInTheDocument();
+    const returnTo = canvasElement.querySelector<HTMLInputElement>(
+      'input[name="returnTo"]',
+    );
+    await expect(returnTo?.value).toMatch(/\/buy\?promo=Syn7hetic-Code$/u);
   },
 };
 

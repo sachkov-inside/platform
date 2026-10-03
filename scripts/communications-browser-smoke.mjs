@@ -1,12 +1,12 @@
 // @ts-check
 import { spawn } from "node:child_process";
 import { mkdtemp, readFile, rm } from "node:fs/promises";
-import { createServer } from "node:net";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { wrapSession } from "@logto/node";
 import { z } from "zod";
 import { signalProcessGroup } from "./process-group-signal.mjs";
+import { reservePort } from "./smoke-stand.mjs";
 // The backend fixture writes its stand environment as strings; the smoke reads three of them.
 const fixtureStateSchema = z
   .object({
@@ -61,18 +61,6 @@ async function waitFor(operation, child) {
   }
   throw new Error("Communications smoke startup timed out");
 }
-async function freePort() {
-  const server = createServer();
-  /** @type {Promise<void>} */
-  const listening = new Promise((resolve) =>
-    server.listen(0, "127.0.0.1", resolve),
-  );
-  await listening;
-  const address = server.address();
-  if (!address || typeof address === "string") throw new Error("No test port");
-  await new Promise((resolve) => server.close(resolve));
-  return address.port;
-}
 try {
   const fixture = start(
     [
@@ -89,7 +77,7 @@ try {
       fixtureStateSchema.parse(JSON.parse(await readFile(fixturePath, "utf8"))),
     fixture,
   );
-  const port = await freePort();
+  const port = await reservePort();
   const webUrl = `http://127.0.0.1:${String(port)}`;
   const cookieSecret = "synthetic-communications-cookie-key";
   const session = await wrapSession(

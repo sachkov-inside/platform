@@ -1381,6 +1381,17 @@ export class BillingService {
       operation: 'promotions.archive';
       operationId: string;
     } | {
+      expectedRevision?: number;
+      operation: 'cohorts.save';
+      operationId: string;
+      value: {
+        guideId: string;
+        name: string;
+        nextEvent: string;
+        stage: 'announcement' | 'preorder' | 'running' | 'between';
+        startsOn: string | null;
+      };
+    } | {
       operation: 'content.list';
       operationId: string;
     } | {
@@ -1578,6 +1589,18 @@ export class BillingService {
       operation: 'grants.revoke';
       operationId: string;
       reason: string;
+    } | {
+      list: string;
+      operation: 'respondents.import';
+      operationId: string;
+    } | {
+      operation: 'respondents.issue';
+      operationId: string;
+      templatePromotionId: string;
+      username: string;
+    } | {
+      operation: 'respondents.status';
+      operationId: string;
     }),
   }): CancelablePromise<{
     operationRef: string;
@@ -2530,6 +2553,34 @@ export class BillingService {
       grantRef: string;
       outcome: 'grant';
       revision: number;
+    } | {
+      outcome: 'respondentImport';
+      value: {
+        added: number;
+        recognized: number;
+        total: number;
+        unrecognized: number;
+      };
+    } | {
+      outcome: 'respondentLink';
+      value: {
+        alreadyIssued: boolean;
+        code: string;
+        guideSlug: string | null;
+        promotionId: string;
+      };
+    } | {
+      outcome: 'respondents';
+      value: {
+        issued: number;
+        purchased: number;
+        respondents: Array<{
+          issuedAt: string | null;
+          purchased: boolean;
+          username: string;
+        }>;
+        total: number;
+      };
     });
   }> {
     return this.httpRequest.request({
@@ -2537,6 +2588,26 @@ export class BillingService {
       url: '/billing/admin',
       body: requestBody,
       mediaType: 'application/json',
+    });
+  }
+  /**
+   * Read the current cohort of every product: name, sales stage, start date and next event
+   * @returns any
+   * @throws ApiError
+   */
+  public billingGuideCohorts(): CancelablePromise<{
+    items: Array<{
+      guideId: string;
+      name: string;
+      nextEvent: string;
+      revision: number;
+      stage: 'announcement' | 'preorder' | 'running' | 'between';
+      startsOn: string | null;
+    }>;
+  }> {
+    return this.httpRequest.request({
+      method: 'GET',
+      url: '/billing/cohorts',
     });
   }
   /**

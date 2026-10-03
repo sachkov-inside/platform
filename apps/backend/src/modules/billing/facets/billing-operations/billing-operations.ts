@@ -38,6 +38,11 @@ import {
   refundDecisionViews,
 } from "../../features/read-payments/read-payments.js";
 import { commandFingerprint } from "../../shared/command-fingerprint.js";
+import {
+  importRespondents,
+  issueRespondentLink,
+  readRespondents,
+} from "../../features/survey-respondents/survey-respondents.js";
 import { refundTotals } from "../../shared/refund-amounts.js";
 import {
   offerGrantsWithheld,
@@ -573,7 +578,8 @@ export class BillingOperations {
       case "paymentOptions.save":
       case "paymentOptions.archive":
       case "promotions.save":
-      case "promotions.archive": {
+      case "promotions.archive":
+      case "cohorts.save": {
         const result = await this.dependencies.pricing.manage(actorId, command);
         return result.ok
           ? {
@@ -774,6 +780,40 @@ export class BillingOperations {
             }
           : ownerAccessFailure(result.error.code);
       }
+      case "respondents.import": {
+        const result = await importRespondents(prisma, command, this.clock());
+        return result.ok
+          ? {
+              ok: true,
+              operationRef,
+              result: { outcome: "respondentImport", value: result.value },
+            }
+          : ownerFailure(result.error.code);
+      }
+      case "respondents.issue": {
+        const result = await issueRespondentLink(
+          { prisma, grants },
+          actorId,
+          command,
+          this.clock(),
+        );
+        return result.ok
+          ? {
+              ok: true,
+              operationRef,
+              result: { outcome: "respondentLink", value: result.value },
+            }
+          : ownerFailure(result.error.code);
+      }
+      case "respondents.status":
+        return {
+          ok: true,
+          operationRef,
+          result: {
+            outcome: "respondents",
+            value: await readRespondents(prisma),
+          },
+        };
       default: {
         const exhaustive: never = command;
         throw new Error(
@@ -847,6 +887,9 @@ function targetOf(command: OwnerOperation, outcome: OwnerOutcome): string {
     case "paymentOptions.save":
     case "promotions.save":
       return command.value.id;
+    // Поток адресуется своим продуктом.
+    case "cohorts.save":
+      return command.value.guideId;
     case "offers.archive":
     case "offers.publish":
     case "offers.unpublish":
@@ -896,6 +939,14 @@ function targetOf(command: OwnerOperation, outcome: OwnerOutcome): string {
     case "grants.extend":
     case "grants.revoke":
       return command.grantRef;
+    // Журнал не называет ник: импорт ведёт к своей операции, выдача — к личной акции.
+    case "respondents.import":
+    case "respondents.status":
+      return command.operationId;
+    case "respondents.issue":
+      return outcome.outcome === "respondentLink"
+        ? outcome.value.promotionId
+        : command.operationId;
     default: {
       const exhaustive: never = command;
       throw new Error(

@@ -378,6 +378,17 @@ checks the free and the closed chapter, buys on the bank double and checks the o
 the community right, on desktop and mobile. It needs Docker and the Chromium of Playwright only.
 `pnpm check:full` runs all three smokes, and CI Integration runs the enrollment and buyer journey smokes
 after PostgreSQL integration tests.
+
+`pnpm smoke:enrollments` and `pnpm smoke:buyer-journey` start the web with `next dev` and open every address of their scenario before the
+browser suite runs. The Turbopack dev server of Next.js 16 sometimes reports `Ready` without a part
+of its routes, and a missing route answers 404 until the process ends
+([vercel/next.js#98985](https://github.com/vercel/next.js/issues/98985)); the smoke then restarts
+the server, at most three times, and prints `Dev server start … answers 404 for …`. In CI the line
+is a warning annotation on the run. A 404 that survives three starts fails the smoke: the address
+or its seed data is gone, or the route list in the smoke script is stale. When a scenario starts to
+reach a new page or route handler, add its address to the list in the smoke script. The smokes take
+their ports from 20000–29999, below the range the operating system and Docker hand out, so a
+reserved port stays free until its server binds it (`scripts/smoke-stand.mjs`, #863).
 The legacy full-stack fixture freezes the seeded material corpus. Materials created afterward do not become
 accessible to that cohort without an explicit scoped basis; video checks distinguish this denial from owner access.
 
@@ -573,6 +584,10 @@ append-only SQL migrations remain the database authority. Their explicit positio
 must form an exact registry prefix, rejecting drift, gaps, reordering, and newer unknown migrations;
 generated client files are not committed or edited. A pre-Prisma local volume must be recreated
 with the destructive reset below rather than supported by application compatibility code.
+
+A new migration also changes the applied-migration lists that integration tests pin: find them with
+`grep -rl '"<previous migration name>"' apps/backend/test` (on 30.09.2026 `migrations.test.ts` and
+`home-series-pin.test.ts`) and add the new name after the previous one.
 
 ## Owner Account release bootstrap
 
@@ -834,7 +849,9 @@ shared `inside-platform_*` volumes, so every branch and worktree sees the same c
   one set of sign-in keys whatever branch starts it.
 - `pnpm local:product [--owner-email EMAIL]` transfers the committed AI-first originals from the
   sibling `inside-content` checkout and features that product on Home. It starts the authoring
-  gateway for the run when none is running and repeats safely at any time.
+  gateway for the run when none is running and repeats safely at any time. This local reader view
+  approves the publication of every transferred original, as `--publish-all` does; see the publication
+  policy below.
 - Host checks that migrate, seed or bootstrap owners (`pnpm smoke:fullstack`, the identity proof,
   the Telegram sign-in launcher) use the `inside_checks` database, never the stand's `inside`,
   unless `DATABASE_URL` is exported explicitly. `pnpm smoke:fullstack` drops and recreates that
@@ -856,6 +873,50 @@ the stand is stopped, Docker lists its `inside-platform_*` volumes as dangling, 
 `docker volume prune`, `docker system prune --volumes` or removing every dangling volume erases the
 owner's product data. Remove only volumes whose `com.docker.compose.project` label names your own
 Compose project.
+
+
+### AI Engineering course acceptance stand
+
+`pnpm local:stand --production-web` starts the full local environment. Use the production web build
+for manual reading and navigation checks; the development server compiles routes on demand.
+Then run `pnpm local:course` (optionally `--owner-email EMAIL` on first use). It uses the same
+owner sign-in/bootstrap and persistent journal as `local:product`, but selects `inside-ai-engineering`
+and an explicit **local preview**. The source repository can be selected with `--content PATH`;
+`--ref COMMIT` pins the chosen content revision.
+
+The local preview leaves the original package and Content files unchanged. It creates a separately
+hashed package with preparation lessons, the first two chapter-one lessons and supplementary
+materials free; the remaining lessons require the product. Practice definitions are published only
+in this local copy, while lesson editorial stages stay drafts. The receipt records both package
+paths and `coursePreview: true`. Repeat the same command after committing edits in Obsidian/Content;
+refresh the browser. It is a one-shot committed sync, not a watcher for unsaved edits.
+
+Open `/products/ai-engineering` and `/products/ai-engineering/programme`. The programme
+includes closed lessons. Use a fresh test email to see the unpaid view; sign-in codes and receipt
+confirmation messages stay in Mailpit. The local test offer created for #796 costs 30 RUB and uses
+the bank double. Its saved product grant is perpetual and support is six months. Existing checkout
+and legal wording still needs the separately tracked offer review; this is no approval of public
+course terms or price. The offer and account progress persist in the stand volume.
+
+The stand bootstrap also provisions a public Native Logto client for learner Codex, with PKCE and a
+loopback callback. A stand-only default User role carries `learning:read` for that resource;
+bootstrap adds it to existing local users without replacing their roles. This transport scope
+prevents an empty-scope native refresh request; it grants no product access. Both Codex commands
+request the same scopes and learner resource. `/practice-review-setup.txt` on the stand contains its public settings and the
+restricted review procedure. It is generated from the existing instruction and mounted only in the
+local stand; production instructions are unchanged. The local profile currently targets Codex.
+The login command uses `--no-browser`; append `&prompt=consent` to its authorization URL before
+opening it. Logto requires this consent parameter to retain `offline_access` and issue a refresh
+token ([provider contract](https://docs.logto.io/end-user-flows/sign-out)). Without it, initial
+login succeeds but another login is needed after the five-minute access token expires.
+Log in with the same test account as the website. The copied lesson request calls only the learner
+endpoint `/mcp/learning`, and access still follows that account's product rights.
+
+Local TLS uses a CA and a separate server leaf (the old pair is preserved when upgraded), bundled in
+`.identity-proof/tls/certificate.pem`. MCP also mounts that CA for its outgoing Logto verification.
+The generated instruction sets native CA variables and bypasses proxies only for local addresses;
+it does not disable TLS checks. The browser may require accepting the local certificate once.
+This local OAuth setup does not configure production or certify other native clients.
 
 ### Former MinIO objects
 
@@ -908,24 +969,28 @@ Run the stand from a worktree only as [Local product view](#local-product-view) 
 bootstrap there would generate new sign-in keys for the owner's stand accounts.
 
 ```bash
-pnpm authoring:sync-git-local CONTENT_REPOSITORY GUIDE_ID STATE_DIRECTORY [REF] [--target editor|stand] [--archive SOURCE_ID]...
+pnpm authoring:sync-git-local CONTENT_REPOSITORY GUIDE_ID STATE_DIRECTORY [REF] [--target editor|stand] [--publish SOURCE_ID]... [--publish-all] [--archive SOURCE_ID]...
 ```
 
-`REF` defaults to `HEAD` and is resolved to one commit SHA before export. The command archives
-that commit into a temporary directory, runs its exporter with frozen dependencies, and applies
-the resulting package. Staged, unstaged and untracked files are excluded; no checkout, commit,
-push, Git hook or file watcher is involved. Immutable packages remain under
+`REF` defaults to `HEAD` and is resolved to one commit SHA before export. The command checks out
+that commit in a temporary private clone with its own index and Git provenance, runs its exporter with frozen dependencies, and applies
+the resulting package. Staged, unstaged and untracked files are excluded. The owner’s checkout is
+not modified; no commit, push, Git hook or file watcher is involved. Immutable packages remain under
 `STATE_DIRECTORY/packages`; `last-git-sync.json` records the last successful commit, package and
 report. After an error, rerun the same commit: the journal resumes partial application.
 Refresh the browser after a transfer; report links point at the reader origin of the target.
 
 What the transfer applies:
 
-- Material text, images, links, access, topic, feed choice and product membership. Paid Materials
+- Material text, images, links, access, topic, feed choice and product membership. Editorial SVG
+  diagrams are rasterized to PNG for the image upload boundary; the source package keeps its SVG. Paid Materials
   validate inside their product; `supplementary_materials` join the product after the programme
   without a chapter, which is its "Additional Materials" part.
-- Material covers through `PUT /authoring/import/content-covers/material/:id`, and Material
-  artifacts as authoring-owned Guide artifacts linked to every declaring Material.
+- Material covers through `PUT /authoring/import/content-covers/material/:id`, and the product
+  cover (`guide.yaml` keys `cover` and `cover_alt`) through
+  `PUT /authoring/import/content-covers/series/:id`; a cover removed from the original is reported
+  as the `cover_removal_pending` notice and taken down in Platform by hand. Material
+  artifacts as authoring-owned Guide artifacts linked to every declaring Material that is published.
 - An existing provider record named by `platform_video.kinescope_id`: attached, reconciled until
   ready and saved with the original's video chapters.
 - The Guide name, first-paragraph teaser, page address (`slug`), page presentation and the typed
@@ -933,6 +998,21 @@ What the transfer applies:
   [ADR 0026](../adr/0026-guide-page-from-source-data.md)). Platform checks the presentation and the whole
   page description before the transfer's first write, and its refusal names the product. The editor-owned Guide introduction fields are not
   imported; editing the page text is a commit in Inside Content plus a transfer, with no web rebuild.
+
+Publication is an explicit owner decision (#804). By default every original is transferred as a
+private draft: its author previews it through the authoring preview, while guests, other accounts,
+search, the feed, the product programme, assets, practice and the learning MCP do not see it. An
+editorial `stage` or a missing `access` never publishes or protects anything by itself.
+`--publish SOURCE_ID` (repeatable) or `--publish-all` approves publication for that transfer; a
+repeated transfer without the approval keeps drafts private; an approval is not remembered, so a
+later transfer names a published Material again to update it. A private transfer checks every
+Material's own state on the target before its first topic, Guide or Material write and stops when
+one is already published or unpublished: it neither takes a public Material back nor replaces its
+public body (Platform itself never returns a Material to draft). An interrupted transfer that was
+publishing a Material resumes only when the next run carries the same approval. A Guide artifact declared only by private drafts
+waits for a published owner, a practice of a private lesson is imported unpublished, and a published
+body that links a private draft is reported as `link_to_draft`. A private draft that leaves the
+package is never proposed for archive.
 
 Imported Materials and Guides change only through these source-scoped routes; ordinary editor,
 API and MCP writes are refused. A missing original appears in `archiveProposals`. It is unpublished
@@ -951,11 +1031,26 @@ Only the test Kinescope adapter, whose upload endpoint ends in `.invalid`, is ac
 provider transfer is refused without a separate owner approval. The next transfer saves the
 recording with the original's chapters; the returned `providerVideoId` belongs in the original.
 
-`pnpm authoring:release preview --package PACKAGE_JSON --target editor|stand --state STATE_DIRECTORY`
-compares a package with the target without writing and saves a fingerprinted preview.
-`pnpm authoring:release apply --preview PREVIEW_JSON --state STATE_DIRECTORY` applies exactly that
-preview and stops on drift, an edited preview or an unreviewed archive request. Non-local targets
-are refused; production publication needs an owner-approved credential path first.
+A package with `selection.scope: "guide-shell"` releases only a product's page, card, summary and
+complete chapter list, without any Material (#803). It keeps the Materials the target already holds
+in their order and chapters, proposes no archive and refuses `--archive`; an empty selection without
+that scope is refused. The [Guide shell contract](../contracts/authoring-guide-shell-v1/README.md)
+describes the package the Content exporter writes.
+
+`pnpm authoring:release preview --package PACKAGE_JSON --target editor|stand --state STATE_DIRECTORY [--publish SOURCE_ID]... [--publish-all]`
+compares a package with the target without writing and saves a fingerprinted preview. Each Material
+shows its `publication`, a `publicationChange` from draft to published, or the conflict
+`target_not_draft` for a private import of a published or unpublished Material; the approval is part of the preview,
+so `apply` publishes exactly what was reviewed. A Material missing from this state directory's
+journal appears as `new`, because Platform offers no read-only lookup by source key; `apply` still
+checks its real state before any write.
+`pnpm authoring:release apply --preview PREVIEW_JSON --state STATE_DIRECTORY` first completes any
+write the journal left unfinished, with its original idempotency key, then applies exactly that
+preview and stops on drift, an edited preview or an unreviewed archive request. Drift covers
+Material versions, each Guide's version and its programme order, so a page edited on the target
+after the review is not overwritten; a preview also lists added and removed chapters. The only
+non-local target is the trusted `production` target, reached with the owner's one-time sign-in; see
+[Content production delivery](content-production-delivery.md). Every other address is refused.
 
 ```bash
 pnpm authoring:products [--target stand|editor] [--owner-email EMAIL] [--json]

@@ -51,6 +51,7 @@ sudo env \
 | `NOTIFICATIONS_PLATFORM_ORIGIN`, `NOTIFICATIONS_TELEGRAM_SECRET` | `api.env`, `notifications-worker.env` | `NOTIFICATION_AUTHORIZE_SECRET` |
 | `TELEGRAM_COMMUNITY_CONTRACT_VERSION=inside.community-entitlement.v2`, `TELEGRAM_COMMUNITY_ENTITLEMENT_*`, `TELEGRAM_COMMUNITY_DISPATCH_SECRET` | `api.env`, `billing-worker.env` | `PLATFORM_COMMUNITY_INTEGRATION_SECRET`, `PLATFORM_COMMUNITY_DISPATCH_SECRET` |
 | `TELEGRAM_ACTIVATION_INGRESS_SECRET` | `api.env` | `PLATFORM_ACTIVATION_SECRET` |
+| `TELEGRAM_SALES_FUNNEL_INGRESS_SECRET` — необязателен; без него вход событий воронки закрыт | `api.env` | секрет воронки на стороне бота ([inside-telegram#118](https://github.com/sachkov-inside/inside-telegram/issues/118)) |
 | `TELEGRAM_LINKING_SECRET` | `api.env` | `PLATFORM_INTEGRATION_SECRET` |
 | `TELEGRAM_COMMUNICATIONS_SECRET` — своё значение, не равное `TELEGRAM_LINKING_SECRET` | `api.env`, `mcp.env` | `PLATFORM_COMMUNICATIONS_SECRET` |
 | `TELEGRAM_COMMUNICATIONS_ENDPOINT`, `TELEGRAM_COMMUNICATIONS_BOT_IDENTITY`, `TELEGRAM_AUTHOR_AUTHORIZATION_SECRET`, `TELEGRAM_TRACKING_ORIGIN` | `api.env`, `mcp.env` | `PLATFORM_AUTHOR_AUTHORIZATION_SECRET` |
@@ -206,6 +207,8 @@ AMQPS на `5671`. Топологию он читает из определен�
 | POST | `/internal/notifications/dispatch/authorize` | Telegram | bearer `NOTIFICATIONS_TELEGRAM_SECRET` | `401 unauthorized` |
 | POST | `/integrations/telegram/v1/communications/authorize` | авторское меню бота | bearer `TELEGRAM_AUTHOR_AUTHORIZATION_SECRET` | `401 unauthorized` |
 | POST | `/integrations/telegram/v1/communications/validate-content` | авторское меню бота | bearer `TELEGRAM_AUTHOR_AUTHORIZATION_SECRET` | `401 unauthorized` |
+| POST | `/integrations/telegram/v1/sales-funnel/events` | бот Telegram | bearer `TELEGRAM_SALES_FUNNEL_INGRESS_SECRET` | `401 unauthorized` (без настройки — тоже `401`) |
+| любой | `/authoring-api/authoring/*` | перенос из Content (`pnpm authoring:release`) | bearer Logto автора с аудиторией API и право `materials:manage`; префикс снимается до API | `401`, без права — `403` |
 | любой | `/mcp` | MCP-клиенты | bearer Logto с аудиторией MCP | `401` |
 | любой | `/.well-known/oauth-protected-resource/mcp` | MCP-клиенты | нет: публичные метаданные | `200` |
 

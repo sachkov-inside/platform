@@ -7,6 +7,26 @@ import type { BaseHttpRequest } from '../core/BaseHttpRequest';
 export class ContentLibraryService {
   constructor(public readonly httpRequest: BaseHttpRequest) {}
   /**
+   * Read whether the current Account's grounds open a Guide
+   * @returns any
+   * @throws ApiError
+   */
+  public readCurrentAccountGuideAccess({
+    guideId,
+  }: {
+    guideId: string,
+  }): CancelablePromise<{
+    access: 'open' | 'closed';
+  }> {
+    return this.httpRequest.request({
+      method: 'GET',
+      url: '/accounts/current/guides/{guideId}/access',
+      path: {
+        'guideId': guideId,
+      },
+    });
+  }
+  /**
    * Read a generated ordered Guide view
    * @returns any Published Materials in author-defined Guide order
    * @throws ApiError
@@ -93,6 +113,7 @@ export class ContentLibraryService {
       productPage: {
         page: {
           blocks: Array<({
+            badge: string;
             highlights: Array<string>;
             id: string;
             kind: 'hero';
@@ -318,6 +339,11 @@ export class ContentLibraryService {
           height: number;
           width: number;
         }>;
+      } | null;
+      hero: {
+        badge: string;
+        highlights: Array<string>;
+        lead: string;
       } | null;
       id: string;
       name: string;
@@ -963,6 +989,7 @@ export class ContentLibraryService {
       productPage: {
         page: {
           blocks: Array<({
+            badge: string;
             highlights: Array<string>;
             id: string;
             kind: 'hero';
@@ -1150,6 +1177,7 @@ export class ContentLibraryService {
       productPage: {
         page: {
           blocks: Array<({
+            badge: string;
             highlights: Array<string>;
             id: string;
             kind: 'hero';
@@ -1336,6 +1364,7 @@ export class ContentLibraryService {
       productPage: {
         page: {
           blocks: Array<({
+            badge: string;
             highlights: Array<string>;
             id: string;
             kind: 'hero';

@@ -106,6 +106,7 @@ export function MaterialAssetNodeView({
                 contentVersion={contentVersion}
                 materialId={materialId}
                 preview
+                zoomable={false}
               />
             ) : (
               <p className="p-6 text-sm text-muted-foreground">

@@ -4,12 +4,16 @@ import { Button } from "@/shared/ui/button";
 import { seriesOrderQueryOptions } from "../api/read-series-order.browser";
 import { seriesOrderMaterialSearchQueryOptions } from "../model/series-order-material-search-query";
 import { SeriesOrderManager } from "./series-order-manager.client";
+import { SeriesOrderReadOnly } from "./series-order-read-only";
 export function SeriesOrderPanel({
   seriesId,
   archived,
+  readOnly = false,
 }: {
   readonly seriesId: string;
   readonly archived: boolean;
+  /** Состав, запись которого backend отклоняет: продукт перенесён из источника. */
+  readonly readOnly?: boolean;
 }) {
   const query = useQuery(seriesOrderQueryOptions(seriesId));
   if (query.isPending)
@@ -33,6 +37,10 @@ export function SeriesOrderPanel({
       </div>
     );
   const order = query.data.order;
+  if (readOnly)
+    return (
+      <SeriesOrderReadOnly chapters={order.chapters} items={order.items} />
+    );
   return (
     <SeriesOrderManager
       key={order.orderVersion}

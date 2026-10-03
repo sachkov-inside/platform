@@ -193,6 +193,22 @@ test("каждый раздел решает одну задачу", async ({ pa
   await expect(page.getByRole("button", { name: "Сохранить" })).toBeDisabled();
 });
 
+test("«Покупки» ведут в сообщество, открытое покупкой", async ({ page }) => {
+  await stubAccount(page, { grounds: [paidGround] });
+  await page.route("**/api/account/community-entry", (route) =>
+    route.fulfill({ json: { ok: true, value: { kind: "link_telegram" } } }),
+  );
+
+  await page.goto("/account/purchases");
+
+  // Без подключённого Telegram бот не узнает покупателя: сначала подключение.
+  await expect(
+    page
+      .getByRole("region", { name: "Сообщество Inside" })
+      .getByRole("link", { name: "Подключить Telegram" }),
+  ).toHaveAttribute("href", "/account/access");
+});
+
 test("кабинет полезен без подписки и не предлагает её раздел", async ({
   page,
 }, testInfo) => {
@@ -235,7 +251,10 @@ test("раздел «Подписка» появляется, когда под�
   await subscription.click();
 
   await expect(page).toHaveURL(/\/account\/subscription$/u);
-  await expect(page.getByRole("heading", { level: 1 })).toHaveText("Подписка");
+  // Сразу после смены адреса прежний раздел может ещё стоять на экране: ждём заголовок нового.
+  await expect(
+    page.getByRole("heading", { level: 1, name: "Подписка" }),
+  ).toBeVisible();
 });
 
 test("завершённая подписка не возвращает раздел «Подписка»", async ({
@@ -533,7 +552,7 @@ test("подтверждение перечитывает контакт на в
   await stubAccount(cabinet, { contact: state.read });
 
   // Витрина руководства читает контакт для оформления, раздел подписки — редакции документов.
-  await listening("buy", "/guides/platform-inside/buy");
+  await listening("buy", "/products/platform-inside/buy");
   await listening("subscription", "/account/subscription");
 
   await confirmContactOn(cabinet, state);

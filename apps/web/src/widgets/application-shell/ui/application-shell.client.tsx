@@ -6,7 +6,6 @@ import {
   LibraryBig,
   Map,
   PenLine,
-  Search,
   UserRound,
   type LucideIcon,
 } from "lucide-react";
@@ -87,15 +86,8 @@ export function ApplicationShell({
               />
             ))}
           </nav>
-          <Link
-            aria-label="Найти материал"
-            href="/#materials"
-            className="ml-auto inline-flex size-11 shrink-0 items-center justify-center gap-2 rounded-full text-sm text-muted-foreground no-underline hover:text-action focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring xl:w-auto"
-          >
-            <Search aria-hidden="true" className="size-5" />
-            <span className="hidden xl:inline">Найти материал</span>
-          </Link>
-          <div className="shrink-0">
+          {/* Поиска в шапке нет: материалы ищут полем на Главной (решение владельца 30.09.2026). */}
+          <div className="ml-auto shrink-0">
             {accountSlot ?? (
               <Link
                 href="/account"
@@ -233,7 +225,7 @@ function isCurrentPath(pathname: string, route: Route): boolean {
   if (href === "/" && pathname === "/") return true;
   if (
     href === "/" &&
-    ["/materials/", "/guides/", "/series/", "/topics/"].some((prefix) =>
+    ["/materials/", "/products/", "/topics/"].some((prefix) =>
       pathname.startsWith(prefix),
     )
   )

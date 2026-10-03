@@ -16,8 +16,10 @@ export type {
 } from "./facets/material-authoring/content-collection.contract.js";
 export {
   guidePageCardSchema,
+  guidePageHeroSchema,
   guidePageSchema,
   type GuidePageCard,
+  type GuidePageHero,
 } from "./domain/guide-page.js";
 export type { CreateDraftError } from "./features/create-draft/create-draft.contract.js";
 export {
@@ -67,3 +69,4 @@ export {
 export { PublishedMaterialSelection } from "./features/select-published-materials/select-published-materials.js";
 export { assembleMaterialsNotificationOutbox } from "./facets/notification-outbox/notification-outbox.js";
 export { MaterialAnnouncements } from "./facets/material-announcements/material-announcements.js";
+export { GuideOutlines } from "./features/list-guide-outlines/list-guide-outlines.js";

@@ -5,13 +5,23 @@ import Link from "next/link";
 import { Button } from "@/shared/ui/button";
 import { authoringMaterialsRootHref } from "@/shared/routing/authoring";
 
-import type { MaterialPreviewPresentation } from "../model/presentation";
+import type {
+  MaterialPreviewPresentation,
+  MaterialPreviewRoutePresentation,
+} from "../model/presentation";
 import { MaterialPreview } from "./material-preview";
+import {
+  MaterialPreviewRoute,
+  MaterialPreviewRouteNeighbours,
+} from "./material-preview-route";
+import { publicationStateLabel } from "./publication-state-label";
 
 interface MaterialCurrentPreviewProps {
   readonly editorHref: string;
   readonly materialsHref?: Route;
   readonly preview: MaterialPreviewPresentation;
+  /** Место материала в руководстве; без руководства навигации нет. */
+  readonly route?: MaterialPreviewRoutePresentation | null;
 }
 
 /** Server-renderable shell for the current saved Material preview. */
@@ -19,6 +29,7 @@ export function MaterialCurrentPreview({
   editorHref,
   materialsHref = authoringMaterialsRootHref,
   preview,
+  route = null,
 }: MaterialCurrentPreviewProps) {
   const editorLink = linkTarget(editorHref);
   return (
@@ -43,7 +54,8 @@ export function MaterialCurrentPreview({
                 Предпросмотр материала
               </h1>
               <p className="truncate text-xs text-muted-foreground">
-                {publicationStateLabel(preview.publicationState)}
+                {publicationStateLabel(preview.publicationState)} · версия{" "}
+                {preview.contentVersion}
               </p>
             </div>
           </div>
@@ -63,7 +75,11 @@ export function MaterialCurrentPreview({
       >
         {previewBanner(preview)}
       </div>
+      {route === null ? null : <MaterialPreviewRoute route={route} />}
       <MaterialPreview preview={preview} />
+      {route?.kind === "ready" ? (
+        <MaterialPreviewRouteNeighbours route={route} />
+      ) : null}
     </main>
   );
 }
@@ -74,19 +90,6 @@ function linkTarget(href: string) {
     pathname: url.pathname,
     query: Object.fromEntries(url.searchParams),
   };
-}
-
-function publicationStateLabel(
-  state: MaterialPreviewPresentation["publicationState"],
-): string {
-  switch (state) {
-    case "draft":
-      return "черновик";
-    case "published":
-      return "опубликовано";
-    case "unpublished":
-      return "снято с публикации";
-  }
 }
 
 function previewBanner(preview: MaterialPreviewPresentation): string {

@@ -111,6 +111,7 @@ async function changeCatalog(
   command: ManageCatalogCommand,
   sale: SaleCapability,
 ): Promise<ManageCatalogResult> {
+  if (command.operation === "cohorts.save") return saveCohort(tx, command);
   const id = "value" in command ? command.value.id : command.id;
   const current = command.operation.startsWith("offers.")
     ? await tx.billingOffer.findUnique({ where: { id } })
@@ -310,4 +311,34 @@ async function changeCatalog(
       break;
   }
   return { ok: true, value: { id, revision, archived } };
+}
+
+/**
+ * Поток продукта меняется на месте: страница и бот читают текущую запись, а купленные права от неё
+ * не зависят. Смена цены после старта — это архив предложения потока и публикация следующего.
+ */
+async function saveCohort(
+  tx: BillingPrisma,
+  command: Extract<ManageCatalogCommand, { operation: "cohorts.save" }>,
+): Promise<ManageCatalogResult> {
+  const { guideId, startsOn, ...value } = command.value;
+  const current = await tx.billingGuideCohort.findUnique({
+    where: { guideId },
+    select: { revision: true },
+  });
+  if (current?.revision !== command.expectedRevision)
+    return failure("revision_conflict");
+  const revision = (current?.revision ?? 0) + 1;
+  const data = {
+    ...value,
+    startsOn: startsOn === null ? null : new Date(`${startsOn}T00:00:00Z`),
+    revision,
+    updatedAt: new Date(),
+  };
+  await tx.billingGuideCohort.upsert({
+    where: { guideId },
+    create: { guideId, ...data },
+    update: data,
+  });
+  return { ok: true, value: { id: guideId, revision, archived: false } };
 }

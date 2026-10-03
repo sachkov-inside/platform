@@ -25,7 +25,12 @@ const home = {
   pinnedSeries:
     pinnedPlaylist === undefined
       ? null
-      : { ...pinnedPlaylist, presentation: "default" as const, card: null },
+      : {
+          ...pinnedPlaylist,
+          presentation: "default" as const,
+          card: null,
+          hero: null,
+        },
 };
 const query = {
   after: null,
@@ -128,6 +133,7 @@ const aiFirstPin = {
   count: 6,
   presentation: "ai-first-process" as const,
   card: aiFirstProductPage.card,
+  hero: null,
 };
 
 export const RealDataReady: Story = {

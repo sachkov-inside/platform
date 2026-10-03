@@ -34,6 +34,11 @@ function localImageSources(): string {
   }
   return ` ${origin}`;
 }
+/**
+ * Панель замечаний Agentation шлёт отметки владельца на локальный сервер 127.0.0.1:4747
+ * (docs/agents/frontend-delivery.md). Панель есть только в разработке, поэтому и адрес тоже.
+ */
+const feedbackConnectSources = isDevelopment ? " http://127.0.0.1:4747" : "";
 const contentSecurityPolicy = [
   "default-src 'self'",
   "base-uri 'self'",
@@ -45,7 +50,7 @@ const contentSecurityPolicy = [
   scriptSources,
   "style-src 'self' 'unsafe-inline'",
   "font-src 'self' data:",
-  "connect-src 'self' https://kinescope.io https://*.kinescope.io https://*.kinescopecdn.net",
+  `connect-src 'self'${feedbackConnectSources} https://kinescope.io https://*.kinescope.io https://*.kinescopecdn.net`,
   "frame-src https://kinescope.io https://*.kinescope.io",
 ].join("; ");
 
@@ -115,6 +120,17 @@ const nextConfig: NextConfig = {
       {
         source: "/account/email",
         destination: "/account/purchases",
+        permanent: true,
+      },
+      // Продукт переехал на `/products` (platform#808): старые ссылки и закладки не теряются.
+      {
+        source: "/guides/:path*",
+        destination: "/products/:path*",
+        permanent: true,
+      },
+      {
+        source: "/series/:path*",
+        destination: "/products/:path*",
         permanent: true,
       },
     ]),

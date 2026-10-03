@@ -85,7 +85,10 @@ async function fixture(t) {
     write,
     stateDirectory,
     sync: (/** @type {{ request: LocalTransport }} */ api) =>
-      syncLocal(packagePath, stateDirectory, { request: api.request }),
+      syncLocal(packagePath, stateDirectory, {
+        request: api.request,
+        publish: "all",
+      }),
   };
 }
 

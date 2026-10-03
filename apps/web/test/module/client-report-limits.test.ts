@@ -19,7 +19,7 @@ function stubPage() {
   const beacons: { readonly route: string; readonly body: Blob }[] = [];
   vi.stubGlobal(
     "window",
-    Object.assign(page, { location: { pathname: "/guides/ai" } }),
+    Object.assign(page, { location: { pathname: "/products/ai" } }),
   );
   vi.stubGlobal("document", tab);
   vi.stubGlobal("navigator", {
@@ -116,7 +116,10 @@ it("загруженная минута обычных посещений со �
     name,
     value: 1,
   }));
-  const vitals = JSON.stringify({ metrics: loadMetrics, route: "/guides/ai" });
+  const vitals = JSON.stringify({
+    metrics: loadMetrics,
+    route: "/products/ai",
+  });
   const renderError = JSON.stringify({
     boundary: "public",
     message: "Сбой",

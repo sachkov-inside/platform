@@ -4,6 +4,7 @@ import { contentScopeSchema } from "@inside/access-capabilities";
 import {
   accessCapabilitySchema,
   attemptStateSchema,
+  cohortStageSchema,
   paymentModeSchema,
   priceSnapshotSchema,
   subscriptionViewSchema,
@@ -59,6 +60,18 @@ export const savePromotionInputSchema = z.strictObject({
     offerIds: z.array(z.uuid()).max(100),
     paymentOptionIds: z.array(z.uuid()).max(100),
     usageLimit: revision.nullable(),
+  }),
+});
+/** Поток продукта задаётся целиком: этап, название, дата старта и событие между потоками. */
+export const saveCohortInputSchema = z.strictObject({
+  operationId,
+  expectedRevision: revision.optional(),
+  value: z.strictObject({
+    guideId: z.uuid(),
+    name: z.string().trim().min(1).max(120),
+    stage: cohortStageSchema,
+    startsOn: z.iso.date().nullable(),
+    nextEvent: z.string().trim().max(200),
   }),
 });
 export const archiveInputSchema = z.strictObject({
@@ -382,6 +395,7 @@ export type SavePaymentOptionInput = z.infer<
   typeof savePaymentOptionInputSchema
 >;
 export type SavePromotionInput = z.infer<typeof savePromotionInputSchema>;
+export type SaveCohortInput = z.infer<typeof saveCohortInputSchema>;
 export type ArchiveInput = z.infer<typeof archiveInputSchema>;
 export type ListPaymentsInput = z.infer<typeof listPaymentsInputSchema>;
 export type PurchaseCommandInput = z.infer<typeof purchaseInputSchema>;

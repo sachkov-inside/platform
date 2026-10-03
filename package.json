@@ -23,6 +23,7 @@
     "local:setup": "node scripts/setup-local.mjs",
     "local:stand": "node scripts/local-stand.mjs",
     "local:product": "node scripts/local-product.mjs",
+    "local:course": "node scripts/local-product.mjs --guide inside-ai-engineering --course-preview",
     "build": "pnpm --recursive --if-present build",
     "api:generate": "pnpm --filter @inside/backend openapi:generate && pnpm --filter @inside/web openapi:generate",
     "api:check": "pnpm --filter @inside/backend openapi:check && pnpm --filter @inside/web openapi:check",
@@ -82,6 +83,7 @@
     "authoring:stand-gateway": "NODE_EXTRA_CA_CERTS=.identity-proof/tls/certificate.pem node scripts/authoring-stand-gateway.mjs",
     "authoring:video": "node tools/authoring/video.mjs",
     "authoring:release": "node tools/authoring/release.mjs",
+    "authoring:login": "node tools/authoring/login.mjs",
     "authoring:sync-git-local": "node tools/authoring/git-local.mjs",
     "authoring:products": "node scripts/authoring-products.mjs",
     "test:practice-review": "node --test tools/practice-review/*.test.mjs && node apps/backend/node_modules/tsx/dist/cli.mjs --tsconfig apps/backend/tsconfig.json --test tools/practice-review/native/*.test.mts"
@@ -101,6 +103,7 @@
     "oxlint-tsgolint": "7.0.2003",
     "prettier": "3.9.9",
     "proper-lockfile": "4.1.2",
+    "sharp": "0.35.4",
     "typescript": "7.0.2"
   }
 }

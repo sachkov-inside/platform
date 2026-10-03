@@ -100,7 +100,11 @@ describe("Material asset delivery", () => {
         object: { protectedKey: "protected/file", publicKey: "public/file" },
         size: 3,
       }),
-      contentAccess: { authorize, checkAvailabilityMany: vi.fn() },
+      contentAccess: {
+        authorize,
+        checkAvailabilityMany: vi.fn(),
+        checkGuideAccess: vi.fn(),
+      },
       materialContent: currentReference(),
       objectStorage: storage({ signGet }),
       signedGetTtlSeconds: 60,
@@ -358,6 +362,7 @@ function accessDecision(
   return {
     authorize: () => Promise.resolve(decision),
     checkAvailabilityMany: vi.fn(),
+    checkGuideAccess: vi.fn(),
   };
 }
 

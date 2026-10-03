@@ -39,10 +39,31 @@ const items = [
   publicationState: index === 3 ? "draft" : "published",
   stepGroup: index < 2 ? "Первый релиз" : null,
 }));
+const chapters = [
+  {
+    id: "97000000-0000-4000-8000-000000000021",
+    name: "Сборка",
+    summary: "Готовим приложение и собираем образ.",
+  },
+  { id: "97000000-0000-4000-8000-000000000022", name: "Релиз", summary: "" },
+  {
+    id: "97000000-0000-4000-8000-000000000023",
+    name: "Эксплуатация",
+    summary: "",
+  },
+];
+/** Две главы с материалами, глава без материалов и материал вне глав. */
+const chapteredItems = items.map((item, index) => ({
+  ...item,
+  chapterId: index < 2 ? chapters[0]?.id : index === 2 ? chapters[1]?.id : null,
+}));
 function Fixture({
+  chaptered = false,
   children,
   empty = false,
 }: {
+  /** Состав разбит на главы, как у продукта из источника. */
+  readonly chaptered?: boolean;
   readonly children: ReactNode;
   readonly empty?: boolean;
 }) {
@@ -56,8 +77,8 @@ function Fixture({
         ...collection,
         seriesId: collection.id,
         orderVersion: "a".repeat(64),
-        chapters: [],
-        items: empty ? [] : items,
+        chapters: chaptered ? chapters : [],
+        items: empty ? [] : chaptered ? chapteredItems : items,
       },
     });
     queryClient.setQueryData(["guide-artifacts", collection.id], {
@@ -128,6 +149,112 @@ export const Empty: Story = {
 };
 export const Archived: Story = {
   args: { initialCollection: { ...collection, archived: true } },
+};
+const importedCollection = {
+  ...collection,
+  name: "Demo · Продукт из источника",
+  slug: "demo-imported-product",
+  sourceId: "inside-content:demo-imported-product",
+} as const;
+const importedDecorators = [
+  (Story: () => ReactNode) => (
+    <Fixture chaptered>
+      <Story />
+    </Fixture>
+  ),
+];
+
+/** Продукт, перенесённый из источника, показан для чтения: править и отклонять нечего (#844). */
+export const Imported: Story = {
+  name: "Продукт из источника",
+  args: { initialCollection: importedCollection },
+  decorators: importedDecorators,
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await expect(canvas.getByRole("note")).toHaveTextContent(
+      "Продукт перенесён из источника.",
+    );
+    await expect(canvas.getByText(importedCollection.name)).toBeVisible();
+    await expect(
+      canvas.getByRole("list", { name: "Материалы главы «Сборка»" }),
+    ).toHaveTextContent("Подготовка приложения");
+    await expect(
+      canvas.getByRole("heading", { name: "Глава 3: Эксплуатация" }),
+    ).toBeVisible();
+    await expect(
+      canvas.getByRole("list", { name: "Материалы вне глав" }),
+    ).toHaveTextContent("Проверка релиза");
+    await expect(canvas.getAllByRole("heading", { level: 1 })).toHaveLength(1);
+    // Ни одного поля и действия, запись которых backend отклонит.
+    await expect(
+      canvas.queryByRole("textbox", { name: "Название продукта" }),
+    ).toBeNull();
+    await expect(canvas.queryByRole("textbox", { name: /глав/u })).toBeNull();
+    // «В архив» есть и у артефактов, поэтому архив продукта ищется в его навигации.
+    await expect(
+      within(
+        canvas.getByRole("navigation", { name: "Навигация продукта" }),
+      ).queryByRole("button", { name: "В архив" }),
+    ).toBeNull();
+    for (const name of [
+      "Добавить главу",
+      "Добавить материал",
+      "Убрать «Подготовка приложения»",
+      "Переместить «Подготовка приложения»",
+      "Повторить сохранение",
+    ])
+      await expect(canvas.queryByRole("button", { name })).toBeNull();
+    await expect(
+      canvas.getByRole("button", { name: "Все продукты" }),
+    ).toBeEnabled();
+  },
+};
+export const ImportedMobile: Story = {
+  ...Imported,
+  name: "Продукт из источника, телефон",
+  globals: { viewport: { isRotated: false, value: "mobile390" } },
+};
+export const ImportedArchived: Story = {
+  name: "Продукт из источника в архиве",
+  args: { initialCollection: { ...importedCollection, archived: true } },
+  decorators: importedDecorators,
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    const navigation = within(
+      canvas.getByRole("navigation", { name: "Навигация продукта" }),
+    );
+    await expect(navigation.getByText("В архиве")).toBeVisible();
+    await expect(
+      navigation.queryByRole("button", { name: "Вернуть из архива" }),
+    ).toBeNull();
+  },
+};
+/** Источник не дал описаний и материалов: страница не показывает пустых подписей. */
+export const ImportedBare: Story = {
+  name: "Продукт из источника без описаний и материалов",
+  args: {
+    initialCollection: {
+      ...importedCollection,
+      introduction: null,
+      materialCount: 0,
+      summary: "",
+    },
+  },
+  decorators: [
+    (Story) => (
+      <Fixture empty>
+        <Story />
+      </Fixture>
+    ),
+  ],
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await expect(
+      canvas.getByText("В продукте пока нет материалов."),
+    ).toBeVisible();
+    await expect(canvas.queryByText("Краткое описание")).toBeNull();
+    await expect(canvas.queryByText("О продукте для читателя")).toBeNull();
+  },
 };
 export const KeyboardReorder: Story = {
   play: async ({ canvasElement }) => {

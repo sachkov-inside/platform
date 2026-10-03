@@ -6,8 +6,8 @@ import type { ReactNode } from "react";
 
 import { useMaterialReading } from "@/entities/material";
 import type { GuidePresentation } from "@/entities/guide-page";
+import { CourseHero } from "@/features/ai-engineering-course";
 import { AiFirstProcessArtwork } from "@/features/ai-first-guide";
-import { fillOneTimeTerms } from "@/features/billing-checkout.terms";
 import { formatMaterialCount } from "@/features/library-discovery";
 import {
   loadSeriesContinuation,
@@ -29,6 +29,7 @@ const featuredCards: Record<
 > = {
   default: DefaultFeaturedGuide,
   "ai-first-process": AiFirstFeaturedGuide,
+  "ai-engineering-course": AiEngineeringFeaturedGuide,
 };
 
 export function FeaturedGuide({
@@ -40,6 +41,44 @@ export function FeaturedGuide({
   return <Card series={series} />;
 }
 
+/**
+ * Карточка курса AI Engineering повторяет первый экран страницы курса: тот же модуль, те же тексты
+ * из описания продукта и та же анимация. Без первого экрана в описании — общий вид карточки.
+ */
+function AiEngineeringFeaturedGuide({
+  series,
+}: {
+  readonly series: HomePinnedCollection;
+}) {
+  if (series.hero === null) return <DefaultFeaturedGuide series={series} />;
+  // Сроки предложения в текстах уже подставлены сервером Главной.
+  const hero = series.hero;
+  const open =
+    series.card === null || series.card.action === ""
+      ? "Открыть курс"
+      : series.card.action;
+  return (
+    <section
+      aria-labelledby="featured-title"
+      className="home-guide-course"
+      data-guide-presentation="ai-engineering-course"
+    >
+      <CourseHero
+        action={{
+          href: collectionDiscoveryHref("series", series.slug, "/"),
+          label: open,
+        }}
+        badge={hero.badge}
+        heading="h2"
+        headingId="featured-title"
+        highlights={hero.highlights}
+        lead={hero.lead}
+        name={series.name}
+      />
+    </section>
+  );
+}
+
 function AiFirstFeaturedGuide({
   series,
 }: {
@@ -48,9 +87,7 @@ function AiFirstFeaturedGuide({
   // Подписи карточки приходят из описания продукта; без них остаются название и краткое описание.
   const card = series.card;
   const open =
-    card === null || card.action === ""
-      ? "Открыть продукт"
-      : fillOneTimeTerms(card.action);
+    card === null || card.action === "" ? "Открыть продукт" : card.action;
   return (
     <section
       className="home-guide home-guide-featured-ai"
@@ -59,13 +96,11 @@ function AiFirstFeaturedGuide({
     >
       <div className="home-guide-copy">
         {card === null || card.eyebrow === "" ? null : (
-          <p className="home-guide-eyebrow">{fillOneTimeTerms(card.eyebrow)}</p>
+          <p className="home-guide-eyebrow">{card.eyebrow}</p>
         )}
         <h2 id="featured-title">{series.name}</h2>
         {card === null || card.subtitle === "" ? null : (
-          <p className="home-guide-subtitle">
-            {fillOneTimeTerms(card.subtitle)}
-          </p>
+          <p className="home-guide-subtitle">{card.subtitle}</p>
         )}
         {hasText(series.summary) ? (
           <p className="home-guide-summary">{series.summary}</p>
@@ -108,7 +143,7 @@ function DefaultFeaturedGuide({
   const open =
     series.card === null || series.card.action === ""
       ? "Открыть продукт"
-      : fillOneTimeTerms(series.card.action);
+      : series.card.action;
   return (
     <section className="home-guide" aria-labelledby="featured-title">
       <div className="home-guide-copy">

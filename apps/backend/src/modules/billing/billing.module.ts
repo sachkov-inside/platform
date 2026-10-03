@@ -1,3 +1,5 @@
+import { BillingGuideSales } from "./features/list-guide-sales/list-guide-sales.js";
+import { BillingSurveyRespondentSales } from "./features/read-survey-respondent-sales/read-survey-respondent-sales.js";
 import { ReceiveTributeController } from "./features/receive-tribute/receive-tribute.controller.js";
 import { TributeConvergence } from "./facets/tribute-convergence/tribute-convergence.js";
 import {
@@ -32,6 +34,7 @@ import { ManageBillingController } from "./adapters/nest/manage-billing.controll
 import { BillingOperations } from "./facets/billing-operations/billing-operations.js";
 import { QuotePurchaseController } from "./features/quote-purchase/quote-purchase.controller.js";
 import { ListOffersController } from "./features/list-offers/list-offers.controller.js";
+import { ListGuideCohortsController } from "./features/list-guide-cohorts/list-guide-cohorts.controller.js";
 
 // Один банковский adapter на модуль: у привязки один владелец. Права выдаёт общий провайдер
 // модуля прав, поэтому у оплаты нет собственной копии facet.
@@ -48,8 +51,21 @@ const BILLING_BANK = Symbol("BillingBank");
     ManageBillingController,
     QuotePurchaseController,
     ListOffersController,
+    ListGuideCohortsController,
   ],
   providers: [
+    {
+      provide: BillingGuideSales,
+      inject: [PrismaClientProvider],
+      useFactory: (prisma: PrismaClientProvider) =>
+        new BillingGuideSales(prisma),
+    },
+    {
+      provide: BillingSurveyRespondentSales,
+      inject: [PrismaClientProvider],
+      useFactory: (prisma: PrismaClientProvider) =>
+        new BillingSurveyRespondentSales(prisma),
+    },
     {
       provide: TributeConvergence,
       inject: [PrismaClientProvider, TributeSources],
@@ -166,6 +182,8 @@ const BILLING_BANK = Symbol("BillingBank");
     },
   ],
   exports: [
+    BillingGuideSales,
+    BillingSurveyRespondentSales,
     TributeConvergence,
     BillingPayments,
     BillingSubscriptions,

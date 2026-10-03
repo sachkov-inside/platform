@@ -18,7 +18,6 @@
   "ignorePatterns": [
     ".agents/**",
     ".claude/**",
-    ".inside-harness/**",
     "**/.next/**",
     "**/coverage/**",
     "**/dist/**",

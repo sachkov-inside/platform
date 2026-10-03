@@ -22,7 +22,10 @@ import {
   useAutosave,
 } from "@/shared/lib/autosave/use-autosave";
 import type { GuideRemoval } from "@/shared/lib/guide-removal";
-import { withAuthoringReturnHref } from "@/shared/routing/authoring";
+import {
+  authoringMaterialPreviewHref,
+  withAuthoringReturnHref,
+} from "@/shared/routing/authoring";
 
 import { withMaterialNodeIds } from "@/widgets/material-authoring/model";
 import { createMaterialDraft } from "../api/create-material-draft.browser";
@@ -293,10 +296,7 @@ export function MaterialAuthoringPageClient({
       }
       if (action === "compare") {
         window.open(
-          withAuthoringReturnHref(
-            `/authoring/materials/${materialId}/preview`,
-            returnHref,
-          ),
+          authoringMaterialPreviewHref(materialId, returnHref),
           "_blank",
           "noopener,noreferrer",
         );
@@ -336,12 +336,7 @@ export function MaterialAuthoringPageClient({
       void flushPendingEdits().then((ok) => {
         const id = draftRef.current.materialId;
         if (ok && id !== null)
-          router.push(
-            withAuthoringReturnHref(
-              `/authoring/materials/${id}/preview`,
-              returnHref,
-            ),
-          );
+          router.push(authoringMaterialPreviewHref(id, returnHref));
       });
     },
     onPrimaryVideoChange: (primaryVideo, deleteVideoId, detachedVideoId) => {

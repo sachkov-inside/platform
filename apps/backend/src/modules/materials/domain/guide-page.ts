@@ -6,7 +6,11 @@ import { z } from "zod";
  */
 
 /** Реестр оформлений. Web держит компоненты для каждого значения; новое значение добавляется в оба. */
-export const guidePresentations = ["default", "ai-first-process"] as const;
+export const guidePresentations = [
+  "default",
+  "ai-first-process",
+  "ai-engineering-course",
+] as const;
 export const guidePresentationSchema = z.enum(guidePresentations);
 export type GuidePresentation = z.infer<typeof guidePresentationSchema>;
 
@@ -46,8 +50,15 @@ const blockId = z.string().regex(/^[a-z][a-z0-9-]{0,63}$/u);
 const block = <K extends string, S extends z.ZodRawShape>(kind: K, shape: S) =>
   z.object({ id: blockId, kind: z.literal(kind), ...shape }).strict();
 
+const heroBlock = block("hero", {
+  // Короткая метка рядом с названием; описания, перенесённые до её появления, читаются без неё.
+  badge: short.default(""),
+  lead: requiredLong,
+  highlights: list(requiredShort, 0),
+});
+
 export const guidePageBlockSchema = z.discriminatedUnion("kind", [
-  block("hero", { lead: requiredLong, highlights: list(requiredShort, 0) }),
+  heroBlock,
   block("cards", {
     eyebrow: short,
     title: requiredShort,
@@ -85,6 +96,18 @@ export const guidePageBlockSchema = z.discriminatedUnion("kind", [
   }),
   block("trial", { title: requiredShort, text: requiredLong, link: short }),
 ]);
+
+/** Первый экран продукта для карточки Главной: поля блока `hero` без его `id` и вида. */
+export const guidePageHeroSchema = heroBlock.omit({ id: true, kind: true });
+export type GuidePageHero = z.infer<typeof guidePageHeroSchema>;
+
+/** Вводный блок описания, если он есть: одна запись, без второй копии текста. */
+export function guidePageHero(page: GuidePage | null): GuidePageHero | null {
+  const hero = page?.blocks.find((block) => block.kind === "hero");
+  return hero?.kind === "hero"
+    ? { badge: hero.badge, lead: hero.lead, highlights: hero.highlights }
+    : null;
+}
 
 export const guidePageCardSchema = z
   .object({ eyebrow: short, subtitle: short, action: short })

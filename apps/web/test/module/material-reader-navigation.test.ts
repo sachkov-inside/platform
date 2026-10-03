@@ -39,13 +39,13 @@ describe("Material Reader navigation", () => {
     const topicHref = materialReaderOriginHref("topic", "platform");
     expect(
       collectionDiscoveryHref("series", "platform-inside", topicHref),
-    ).toBe("/guides/platform-inside?from=%2Ftopics%2Fplatform");
+    ).toBe("/products/platform-inside?from=%2Ftopics%2Fplatform");
     const seriesHref = materialReaderOriginHref("series", "platform-inside");
     expect(materialReaderHref("inside-platform-overview", seriesHref)).toBe(
-      "/materials/inside-platform-overview?from=%2Fguides%2Fplatform-inside",
+      "/materials/inside-platform-overview?from=%2Fproducts%2Fplatform-inside",
     );
     expect(parseMaterialReaderReturnTarget(seriesHref)).toEqual({
-      href: "/guides/platform-inside",
+      href: "/products/platform-inside",
       kind: "series",
       label: "Назад к продукту",
       seriesSlug: "platform-inside",
@@ -84,7 +84,7 @@ describe("Material Reader navigation", () => {
     expect(
       collectionDiscoveryHref("series", "platform-inside", nestedTopic),
     ).toBe(
-      "/guides/platform-inside?from=%2Ftopics%2Fplatform%3Ffrom%3D%252F%253Fq%253Dplatform%2526format%253Dvideo%2526sort%253Dtitle",
+      "/products/platform-inside?from=%2Ftopics%2Fplatform%3Ffrom%3D%252F%253Fq%253Dplatform%2526format%253Dvideo%2526sort%253Dtitle",
     );
   });
 

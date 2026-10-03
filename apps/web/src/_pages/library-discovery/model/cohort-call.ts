@@ -1,0 +1,129 @@
+import {
+  formatKopecks,
+  type GuideCohort,
+  type PriceSnapshot,
+} from "@/entities/subscription";
+import {
+  oneTimeOfferTerms,
+  oneTimeTermLabels,
+} from "@/features/billing-checkout.terms";
+import type { CohortCall } from "@/features/ai-engineering-course";
+import type { GuideAccess } from "@/features/library-discovery";
+import {
+  guideProgrammeHref,
+  guidePurchaseHref,
+} from "@/shared/routing/subscription-route";
+
+const cohortDate = new Intl.DateTimeFormat("ru-RU", {
+  day: "numeric",
+  month: "long",
+  timeZone: "UTC",
+});
+
+/** Дата старта — календарный день из каталога: часовой пояс читателя её не сдвигает. */
+export function formatCohortDate(startsOn: string): string {
+  return cohortDate.format(new Date(`${startsOn}T00:00:00Z`));
+}
+
+/**
+ * Плашка и кнопка первого экрана по этапу продаж потока. Этап задаёт обещание, но деньги
+ * принимает только предложение, включённое в продажу и видимое этому человеку: без него кнопка
+ * ведёт в программу. На анонсе оплаты нет никогда. Тексты — черновик запуска потока 1 из Inside
+ * Content, их примет владелец (#814).
+ */
+export function cohortCall({
+  cohort,
+  offer,
+  productAccess,
+  signedIn,
+  slug,
+}: {
+  readonly cohort: GuideCohort | null;
+  /** Самый дешёвый вариант продукта, который видит этот человек, или `null`, если продажи нет. */
+  readonly offer: PriceSnapshot | null;
+  /** Открыт ли продукт этому человеку по его основаниям; тому, у кого он есть, оплата не нужна. */
+  readonly productAccess: GuideAccess;
+  readonly signedIn: boolean;
+  readonly slug: string;
+}): CohortCall {
+  const programme = guideProgrammeHref(slug);
+  const openProgramme = {
+    kind: "programme",
+    href: programme,
+    label: "Открыть программу",
+  } as const;
+  if (cohort === null)
+    return { banner: null, action: openProgramme, compactOnPhone: true };
+
+  const date =
+    cohort.startsOn === null ? "" : formatCohortDate(cohort.startsOn);
+  const payable = offer !== null && productAccess !== "open";
+  const pay = (label: string) =>
+    payable
+      ? ({ kind: "purchase", href: guidePurchaseHref(slug), label } as const)
+      : openProgramme;
+  const price = offer === null ? "" : formatKopecks(offer.firstPriceKopecks);
+  const label = cohort.name;
+
+  switch (cohort.stage) {
+    case "announcement":
+      return {
+        banner: {
+          label,
+          text: `Старт ${date}. Предзаказ откроется скоро`,
+          detail: signedIn
+            ? "Читай первую главу бесплатно, пока ждёшь старта"
+            : "Войди через Telegram и читай первую главу бесплатно, пока ждёшь старта",
+        },
+        action: signedIn
+          ? {
+              kind: "programme",
+              href: programme,
+              label: "Читать главу 1 бесплатно",
+            }
+          : {
+              kind: "sign-in",
+              returnTo: programme,
+              label: "Читать главу 1 бесплатно",
+            },
+        compactOnPhone: false,
+      };
+    case "preorder":
+      return {
+        banner: {
+          label,
+          text: `Предзаказ открыт до ${date}`,
+          detail:
+            "Сообщество и все опубликованные главы сразу после оплаты. Следующие главы выходят по порядку программы, без фиксированных дат. После старта цена вырастет",
+        },
+        action: pay(`Оплатить ${price}`),
+        compactOnPhone: false,
+      };
+    case "running":
+      return {
+        banner: {
+          label,
+          text: `Стартовал ${date}. Присоединиться можно в любой момент`,
+          detail:
+            "Все вышедшие главы откроются сразу, следующие выходят по порядку программы",
+        },
+        action: pay(`Оплатить ${price}`),
+        compactOnPhone: false,
+      };
+    case "between":
+      return {
+        banner: {
+          label,
+          text: `Курс открыт. Следующий поток: ${cohort.nextEvent}`,
+          // Срок сопровождения называет предложение; без него в продаже срок назвать нечем.
+          detail:
+            offer !== null &&
+            oneTimeOfferTerms(offer).supportMonths !== undefined
+              ? `Проходи в своём темпе, автор сопровождает тебя ${oneTimeTermLabels(oneTimeOfferTerms(offer)).support} после покупки`
+              : "Проходи в своём темпе",
+        },
+        action: pay("Оплатить"),
+        compactOnPhone: false,
+      };
+  }
+}

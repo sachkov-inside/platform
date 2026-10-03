@@ -28,7 +28,7 @@ Canonical implementation decisions принадлежат application specificat
 - [Platform v1 application specification](../specifications/platform-v1.md) уже выбирает
   production baseline и задаёт capability names, logical invariants, process responsibilities, NFR и
   порядок foundations. #27 не переоткрывает technology comparison.
-- [`CONTEXT.md`](../../CONTEXT.md) владеет терминами `Material`, `MaterialRevision`, `Topic`,
+- [`CONTEXT.md`](../../GLOSSARY.md) владеет терминами `Material`, `MaterialRevision`, `Topic`,
   `Format`, `Tag`, `Series`, `Principal`, `MembershipEvidence`, `MembershipEntitlement` и
   `ReadingState`.
 - [ADR 0001](../adr/0001-one-backend-multiple-entrypoints.md) уже принят: один NestJS backend

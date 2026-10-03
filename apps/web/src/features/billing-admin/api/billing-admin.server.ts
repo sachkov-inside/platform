@@ -43,11 +43,12 @@ import {
   savePaymentOptionInputSchema,
   saveOfferInputSchema,
   savePromotionInputSchema,
+  saveCohortInputSchema,
   subscriptionOutcomeSchema,
 } from "../model/admin-operations";
 
 /** Одна владельческая операция за маршрут: дискриминатор не становится общим прокси браузера. */
-function ownerCommand<Input extends z.ZodType>(
+export function ownerCommand<Input extends z.ZodType>(
   request: Request,
   inputSchema: Input,
   valueSchema: z.ZodType,
@@ -166,6 +167,23 @@ export function handleSavePromotion(request: Request): Promise<Response> {
         offerIds: [...input.value.offerIds],
         paymentOptionIds: [...input.value.paymentOptionIds],
       },
+    }),
+  );
+}
+
+/** Поток продукта: запись каталога, которую страница курса читает без кеша. */
+export function handleSaveCohort(request: Request): Promise<Response> {
+  return ownerCommand(
+    request,
+    saveCohortInputSchema,
+    catalogOutcomeSchema,
+    (input) => ({
+      operation: "cohorts.save",
+      operationId: input.operationId,
+      ...(input.expectedRevision === undefined
+        ? {}
+        : { expectedRevision: input.expectedRevision }),
+      value: input.value,
     }),
   );
 }

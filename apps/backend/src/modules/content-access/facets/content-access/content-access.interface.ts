@@ -118,9 +118,23 @@ export type AccessDecision = DecisionMetadata &
     | Readonly<{ effect: "deny"; reason: DenyReason }>
   );
 
+export interface GuideAccessRequest {
+  readonly subject: Subject;
+  readonly guideId: string;
+}
+
+/**
+ * Открыт ли Guide целиком этому Subject: то же решение по основаниям, что открывает его платные
+ * материалы, но без перечисления материалов. `unavailable` — ответа нет, основание не прочитано.
+ */
+export type GuideAccess = Readonly<{
+  kind: "open" | "closed" | "unavailable";
+}>;
+
 export interface ContentAccess {
   checkAvailabilityMany(
     input: AccessBatchRequest,
   ): Promise<AvailabilityBatchResult>;
   authorize(input: AccessRequest): Promise<AccessDecision>;
+  checkGuideAccess(input: GuideAccessRequest): Promise<GuideAccess>;
 }

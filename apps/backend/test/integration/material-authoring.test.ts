@@ -107,6 +107,9 @@ describe("MaterialAuthoring", () => {
           ownerMaterials.contentAccess.checkAvailabilityMany.bind(
             ownerMaterials.contentAccess,
           ),
+        checkGuideAccess: ownerMaterials.contentAccess.checkGuideAccess.bind(
+          ownerMaterials.contentAccess,
+        ),
         authorize: async (input) => {
           previewAuthorizations += 1;
           expect(input).toMatchObject({

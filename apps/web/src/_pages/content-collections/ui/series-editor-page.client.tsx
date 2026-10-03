@@ -1,55 +1,44 @@
 "use client";
-import { ArrowLeft, Archive, RotateCcw } from "lucide-react";
+import { Archive, RotateCcw } from "lucide-react";
 import { useState } from "react";
-import { useRouter } from "next/navigation";
 import { GuideArtifactsPanel } from "@/features/guide-artifacts";
 import { SeriesEditorPageFrame } from "./series-editor-page-frame";
 import { HomeSeriesPin, SeriesOrderPanel } from "@/features/series-order";
 import { ContentCoverEditor } from "@/features/content-covers";
 import { Button } from "@/shared/ui/button";
-import { flushPendingEdits } from "@/shared/lib/autosave/use-autosave";
+import { hasText } from "@/shared/lib/text";
 import {
   GUIDE_INTRODUCTION_FIELD_MAX,
   type ContentCollection,
-  type GuideIntroductionDraft,
 } from "../model/content-collections";
+import { GUIDE_INTRODUCTION_FIELDS } from "../model/guide-introduction-fields";
 import { useCollectionDraft } from "../model/use-collection-draft.client";
 import { MutationNotice } from "./collection-mutation-notice";
+import { ImportedProductPage } from "./imported-product-page";
+import { ProductPageNavigation } from "./product-page-navigation.client";
 
-/** Reader-facing wording; the field names follow the Inside Content `guide.yaml`. */
-const INTRODUCTION_FIELDS: readonly {
-  readonly field: keyof GuideIntroductionDraft;
-  readonly label: string;
-  readonly placeholder: string;
-}[] = [
-  {
-    field: "outcome",
-    label: "Что читатель сможет",
-    placeholder: "Какую задачу читатель решит после прохождения продукта?",
-  },
-  {
-    field: "audience",
-    label: "Для кого",
-    placeholder: "Кому этот продукт полезен?",
-  },
-  {
-    field: "prerequisites",
-    label: "Что нужно знать заранее",
-    placeholder: "Какие знания и опыт нужны до начала?",
-  },
-  {
-    field: "scope",
-    label: "Что разбираем и что остаётся за границами",
-    placeholder: "Что входит в продукт, а что нет и что ещё готовится?",
-  },
-];
-
+/**
+ * Продукт, перенесённый из источника, backend из редактора не меняет: ни настройки, ни состав, ни
+ * архив. Такой продукт открывается страницей для чтения, без автосохранения, поэтому отказ и тупик
+ * после него не возникают (#844).
+ */
 export function SeriesEditorPageClient({
   initialCollection,
 }: {
   readonly initialCollection: ContentCollection;
 }) {
-  const router = useRouter();
+  return hasText(initialCollection.sourceId) ? (
+    <ImportedProductPage collection={initialCollection} />
+  ) : (
+    <AuthoredProductEditor initialCollection={initialCollection} />
+  );
+}
+
+function AuthoredProductEditor({
+  initialCollection,
+}: {
+  readonly initialCollection: ContentCollection;
+}) {
   const [collection, setCollection] = useState(initialCollection);
   const {
     name,
@@ -71,21 +60,9 @@ export function SeriesEditorPageClient({
     },
     { editsIntroduction: true },
   );
-  const back = () => {
-    void flushPendingEdits().then((ok) => {
-      if (ok) router.push("/authoring/guides");
-    });
-  };
   return (
     <SeriesEditorPageFrame>
-      <nav
-        aria-label="Навигация продукта"
-        className="flex flex-wrap items-center justify-between gap-3 border-b border-border py-4"
-      >
-        <Button onClick={back} type="button" variant="ghost">
-          <ArrowLeft aria-hidden="true" />
-          Все продукты
-        </Button>
+      <ProductPageNavigation>
         <div className="flex items-center gap-3">
           <span
             className="max-w-36 text-xs text-muted-foreground"
@@ -113,7 +90,7 @@ export function SeriesEditorPageClient({
             {collection.archived ? "Вернуть из архива" : "В архив"}
           </Button>
         </div>
-      </nav>
+      </ProductPageNavigation>
       <header className="py-8 sm:py-10">
         <h1 className="sr-only">Редактирование продукта: {name}</h1>
         <h2 className="sr-only">Настройки продукта</h2>
@@ -157,7 +134,7 @@ export function SeriesEditorPageClient({
                 }}
               />
               <span className="mt-2 block break-all text-xs text-muted-foreground">
-                Адрес: /guides/{collection.slug}
+                Адрес: /products/{collection.slug}
               </span>
             </label>
             <ContentCoverEditor
@@ -172,7 +149,7 @@ export function SeriesEditorPageClient({
             <legend className="mb-4 block text-sm font-semibold">
               О продукте для читателя
             </legend>
-            {INTRODUCTION_FIELDS.map(({ field, label, placeholder }) => (
+            {GUIDE_INTRODUCTION_FIELDS.map(({ field, label, placeholder }) => (
               <label className="block" key={field}>
                 <span className="text-sm text-muted-foreground">{label}</span>
                 <textarea

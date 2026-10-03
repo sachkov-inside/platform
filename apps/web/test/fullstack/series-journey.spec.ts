@@ -29,7 +29,7 @@ test("guide product leads to the programme and the programme keeps the Reader re
   );
 
   // Страница продукта рассказывает о руководстве и ведёт в программу одним действием.
-  await page.goto("/guides/demo-series-harness");
+  await page.goto("/products/demo-series-harness");
   await expect(
     page.locator('[data-guide-product="demo-series-harness"]:visible'),
   ).toBeVisible();
@@ -37,7 +37,7 @@ test("guide product leads to the programme and the programme keeps the Reader re
   await page
     .getByRole("link", { name: "Открыть программу", exact: true })
     .click();
-  await expect(page).toHaveURL(/\/guides\/demo-series-harness\/programme/u);
+  await expect(page).toHaveURL(/\/products\/demo-series-harness\/programme/u);
 
   // Личный прогресс находится в шапке, продолжение — на карточке материала.
   await expect(
@@ -89,7 +89,7 @@ test("guide product leads to the programme and the programme keeps the Reader re
 
   // Гость видит состав и замки, но не получает ни прогресса, ни обещания чужого продолжения.
   await context.clearCookies();
-  await page.goto("/guides/platform-inside/programme");
+  await page.goto("/products/platform-inside/programme");
   await expect(
     page.getByRole("main").getByText("Нужен доступ", { exact: true }).first(),
   ).toBeVisible();
@@ -130,7 +130,7 @@ test("guide programme marks the last opened material as the place to continue", 
     }
   }
 
-  await page.goto("/guides/demo-series-harness/programme");
+  await page.goto("/products/demo-series-harness/programme");
   const current = page.locator('[aria-current="step"]:visible');
   // Место возврата обозначено выделением строки, а не словами: подпись убрал #441 вместе с
   // прочими лишними статусами маршрута, и это решение о внешнем виде остаётся в силе.
@@ -172,6 +172,13 @@ test("guide programme appends a real composition and restores Reader return posi
     })
     .parse(await created.json());
   try {
+    // Материалы практики прогона перенесены из источника, а в руководство, созданное в редакторе,
+    // backend такие не принимает и отвечает 403. Список источник не показывает, поэтому их
+    // идентификаторы называет сам прогон.
+    const practiceIds = process.env["FULLSTACK_PRACTICE_MATERIAL_IDS"];
+    if (practiceIds === undefined)
+      throw new Error("Missing isolated practice fixture");
+    const importedPracticeIds = new Set(practiceIds.split(","));
     const ids: string[] = [];
     for (let number = 1; number <= 3 && ids.length < 13; number++) {
       const response = await fullStackBrowserRequest(
@@ -188,7 +195,11 @@ test("guide programme appends a real composition and restores Reader return posi
         .parse(await response.json());
       ids.push(
         ...data.items
-          .filter((item) => item.publicationState === "published")
+          .filter(
+            (item) =>
+              item.publicationState === "published" &&
+              !importedPracticeIds.has(item.materialId),
+          )
           .map((item) => item.materialId),
       );
     }
@@ -203,6 +214,23 @@ test("guide programme appends a real composition and restores Reader return posi
         order: z.object({ orderVersion: z.string() }),
       })
       .parse(await orderResponse.json());
+    // Материал практики перенесён из источника: продукт из редактора его не принимает, и отказ
+    // называет именно его, а не завершившуюся сессию (#841).
+    const [importedPracticeId] = importedPracticeIds;
+    const refused = await fullStackBrowserRequest(
+      page,
+      "/api/authoring/series/order",
+      "PUT",
+      {
+        seriesId: collection.id,
+        expectedOrderVersion: order.orderVersion,
+        orderedMaterialIds: JSON.stringify([ids[0], importedPracticeId]),
+      },
+    );
+    expect(await refused.json()).toEqual({
+      kind: "source_mismatch",
+      materialIds: [importedPracticeId],
+    });
     const saved = await fullStackBrowserRequest(
       page,
       "/api/authoring/series/order",
@@ -214,7 +242,7 @@ test("guide programme appends a real composition and restores Reader return posi
       },
     );
     expect(await saved.json()).toMatchObject({ kind: "saved" });
-    await page.goto(`/guides/${slug}/programme?page=1`);
+    await page.goto(`/products/${slug}/programme?page=1`);
     await expect(page.locator("[data-series-ordinal]:visible")).toHaveCount(12);
     await page
       .getByRole("button", { name: "Показать ещё уроки" })

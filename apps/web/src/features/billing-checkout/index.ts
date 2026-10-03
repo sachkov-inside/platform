@@ -4,11 +4,13 @@ export {
 } from "./ui/checkout-flow.client";
 export {
   fillOneTimeTerms,
+  oneTimeOfferTerms,
   oneTimePriceSharesLine,
   oneTimePurchaseInclusions,
   oneTimeTermLabels,
   oneTimeTermsSummary,
   type CheckoutInclusion,
+  type OneTimeOfferTerms,
 } from "./model/one-time-terms";
 export {
   CheckoutPanel,
@@ -20,4 +22,8 @@ export {
   type PurchaseReturnPanelProps,
   type PurchaseReturnViewProps,
 } from "./ui/purchase-return.client";
-export { forgetPurchase, recallPurchase } from "./model/checkout";
+export {
+  forgetPurchase,
+  promoCodeFromQuery,
+  recallPurchase,
+} from "./model/checkout";

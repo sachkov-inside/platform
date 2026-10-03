@@ -14,8 +14,8 @@ import { evidenceDirectory } from "../../../../scripts/evidence-path.mjs";
 import { z } from "zod";
 
 const backend = `http://127.0.0.1:${process.env["FAKE_BACKEND_PORT"] ?? "3190"}`;
-const programme = "/guides/navigation-proof/programme";
-const product = "/guides/navigation-proof";
+const programme = "/products/navigation-proof/programme";
+const product = "/products/navigation-proof";
 const freeLesson = "navigation-lesson-1";
 const paidLesson = "navigation-lesson-3";
 /** Этим текстом подставной backend помечает тело платного урока, отданное по токену. */
@@ -1049,7 +1049,7 @@ test("Главная ↔ продукт: свой скелет продукта,
 test("смена режима прохождения сбрасывает страницы, которые браузер помнит в прежнем режиме", async ({
   page,
 }) => {
-  const modesProgramme = "/guides/navigation-modes/programme";
+  const modesProgramme = "/products/navigation-modes/programme";
   // Соседний урок остаётся в документе скрытым, поэтому шаг ищется среди видимого.
   const step = (mode: "example" | "own") =>
     page
@@ -1086,7 +1086,7 @@ const productCover = "#content [data-product-part='hero'] img";
 test("обложка первого экрана продукта грузится сразу и даёт LCP в пределах «хорошо»", async ({
   page,
 }) => {
-  await page.goto("/guides/navigation-cover");
+  await page.goto("/products/navigation-cover");
 
   // Если ответ `/auth/status` меняет context над ещё не показанной частью, React рисует её на клиенте,
   // а копия с сервера до показа лежит в скрытом контейнере вне `#content` (#740, #747).
@@ -1170,7 +1170,7 @@ test("ответ о входе не заставляет рисовать зан
   const authStatus = page.waitForResponse((response) =>
     response.url().endsWith("/auth/status"),
   );
-  await page.goto("/guides/navigation-cover");
+  await page.goto("/products/navigation-cover");
   expect(await (await authStatus).json()).toMatchObject({ state: "guest" });
   await expect(page.locator(productCover)).toBeVisible();
   // Без этого тест прошёл бы и там, где ответ опоздал и пришёл после всей страницы.
@@ -1207,7 +1207,7 @@ test("первый ответ о входе не пересоздаёт уже �
   const accountPresentation = page.waitForRequest(
     (request) => new URL(request.url()).pathname === "/api/account",
   );
-  await page.goto("/guides/navigation-cover");
+  await page.goto("/products/navigation-cover");
   await accountPresentation;
 
   expect(

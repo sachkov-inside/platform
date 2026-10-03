@@ -103,6 +103,16 @@ export function useAutosave<T>({
   }, []);
 
   useEffect(() => {
+    // Отклонённую правку автор отменил сам: значение снова равно сохранённому, чинить нечего.
+    if (
+      key === baseline.current &&
+      !running.current &&
+      failed.current?.result === "invalid"
+    ) {
+      failed.current = null;
+      setError(false);
+      return;
+    }
     if (!enabled || key === baseline.current || running.current) return;
     if (
       failed.current &&

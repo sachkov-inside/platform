@@ -14,12 +14,14 @@ import { publicPageEnvironment } from "@/workshop/story-environment";
 
 import { GuideProductView } from "./guide-product-view";
 
-const environment = publicPageEnvironment("/guides/working-with-agents");
+const environment = publicPageEnvironment("/products/working-with-agents");
 const meta = {
   ...environment,
   component: GuideProductView,
   title: "Pages/Guide/AI-first",
   args: {
+    // Сроки предложения практикума: описание подставляет их вместо `{access_term}` и `{support_term}`.
+    offerTerms: { materialsMonths: 24, chatMonths: 24, supportMonths: 6 },
     returnTarget: homeMaterialReaderReturnTarget,
     result: {
       kind: "empty",
@@ -53,7 +55,7 @@ export const Desktop: Story = {
     })) {
       await expect(link).toHaveAttribute(
         "href",
-        "/guides/working-with-agents/programme",
+        "/products/working-with-agents/programme",
       );
     }
   },
@@ -92,6 +94,38 @@ export const DefaultTemplateShowsTheSameDescription: Story = {
   },
 };
 
+/** Общий шаблон тоже показывает каждое написанное поле, включая метку у названия (ADR 0026). */
+export const DefaultTemplateShowsEveryField: Story = {
+  args: {
+    result: {
+      kind: "empty",
+      discoveryKind: "series",
+      chapters: [],
+      relatedSeries: [],
+      topics: [],
+      reference: {
+        name: "AI-first разработка",
+        slug: "working-with-agents",
+        summary: aiFirstProductSummary,
+        productPage: {
+          presentation: "default",
+          page: aiFirstProductPageWithEveryField,
+        },
+      },
+    },
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await expect(canvas.getByText("Метка продукта")).toBeVisible();
+    await expect(canvas.getAllByText("Раздел продукта").length).toBeGreaterThan(
+      0,
+    );
+    await expect(
+      canvas.getAllByText("Заметка раздела.").length,
+    ).toBeGreaterThan(0);
+  },
+};
+
 /** Каждое написанное поле блока видно: надзаголовок, подпись пункта и заметка раздела. */
 export const EveryBlockFieldIsShown: Story = {
   args: {
@@ -123,6 +157,7 @@ export const EveryBlockFieldIsShown: Story = {
     await expect(
       canvas.getAllByText("Заметка раздела.").length,
     ).toBeGreaterThan(0);
+    await expect(canvas.getByText("Метка продукта")).toBeVisible();
   },
 };
 
@@ -169,6 +204,6 @@ export const FreeEntryOpensWholeProgramme: Story = {
       within(canvasElement).getByRole("link", {
         name: "Посмотреть бесплатные уроки",
       }),
-    ).toHaveAttribute("href", "/guides/working-with-agents/programme");
+    ).toHaveAttribute("href", "/products/working-with-agents/programme");
   },
 };

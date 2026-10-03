@@ -59,6 +59,7 @@ export function SeriesJourney({
     readonly id: "programme" | "supplementary";
     readonly items: readonly MaterialPreview[];
     readonly label: string;
+    readonly shortLabel?: string;
   }[] = [
     {
       id: "programme",
@@ -72,6 +73,7 @@ export function SeriesJourney({
     {
       id: "supplementary",
       label: "Дополнительные материалы",
+      shortLabel: "Дополнительно",
       chapters: [],
       items:
         result.chapters.length === 0
@@ -80,15 +82,18 @@ export function SeriesJourney({
     },
   ];
   const parts: readonly JourneyPart[] = [
-    ...materialParts.map(({ chapters, id, items: partItems, label }) => ({
-      chapterCount: chapters.length,
-      id,
-      kind: "materials" as const,
-      label,
-      runs: guideChapterRuns(partItems, chapters, chapterOf).map((run) =>
-        journeyRun(run, { accessPending, currentHref, result }),
-      ),
-    })),
+    ...materialParts.map(
+      ({ chapters, id, items: partItems, label, shortLabel }) => ({
+        chapterCount: chapters.length,
+        id,
+        kind: "materials" as const,
+        label,
+        ...(shortLabel === undefined ? {} : { shortLabel }),
+        runs: guideChapterRuns(partItems, chapters, chapterOf).map((run) =>
+          journeyRun(run, { accessPending, currentHref, result }),
+        ),
+      }),
+    ),
     {
       count: guideArtifacts.length,
       id: "artifacts",
@@ -156,24 +161,34 @@ function journeyRun(
         ? null
         : {
             header: (
-              <header>
+              <header className="programme-chapter-head">
                 <div className="flex flex-wrap items-baseline gap-x-4 gap-y-1">
                   <h3
-                    className="min-w-0 flex-1 text-base font-semibold tracking-[-0.02em] [overflow-wrap:anywhere] sm:basis-auto sm:text-lg"
+                    className="min-w-0 flex-1 text-lg font-semibold leading-snug tracking-[-0.02em] [overflow-wrap:anywhere] sm:basis-auto sm:text-xl"
                     id={`chapter-${run.chapter.id}`}
                   >
                     {run.chapter.name}
                   </h3>
                   {run.chapter.materialIds.length > 0 ? (
-                    <span className="text-xs text-muted-foreground">
+                    <span className="text-xs tabular-nums text-muted-foreground">
                       {formatMaterialCount(run.chapter.materialIds.length)}
                     </span>
                   ) : null}
                 </div>
+                {/* Глава без уроков остаётся частью программы: описание объясняет, что в ней
+                    будет, а пометка — что уроки ещё не вышли. С первым уроком глава становится
+                    обычной и её можно проходить. */}
                 {run.items.length === 0 ? (
-                  <p className="mt-1 text-xs text-muted-foreground">
-                    Материалы готовятся
-                  </p>
+                  <div className="programme-chapter-preview">
+                    {run.chapter.summary === "" ? null : (
+                      <p className="whitespace-pre-line text-sm leading-6 text-muted-foreground [overflow-wrap:anywhere]">
+                        {run.chapter.summary}
+                      </p>
+                    )}
+                    <p className="programme-chapter-soon">
+                      Материалы готовятся
+                    </p>
+                  </div>
                 ) : null}
               </header>
             ),

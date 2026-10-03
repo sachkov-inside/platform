@@ -3,9 +3,9 @@
 Issues and specs for this repository live in `sachkov-inside/platform` GitHub Issues. Run `gh`
 inside this clone so repository identity comes from `git remote`.
 
-Product decisions and cross-repository work belong in Workspace; link the Workspace parent
-rather than moving the Platform deliverable there. Tracked pull requests use `Closes #<number>`;
-trivial docs/chore may use `N/A` instead.
+State of a task is the issue, its labels and its linked pull request; there are no Project boards.
+A specification is an issue and its tasks are its sub-issues. Tracked pull requests use
+`Closes #<number>`.
 
 Pull requests are not an external request surface for triage. A bare `#<number>` can still be an
 issue or PR because GitHub shares their number space; resolve it before acting.
@@ -21,7 +21,7 @@ issue or PR because GitHub shares their number space; resolve it before acting.
   `gh api --method POST repos/{owner}/{repo}/issues/{child}/dependencies/blocked_by -F issue_id={blocker-db-id}`.
   If either endpoint is unavailable, record `Part of #<map>` or `Blocked by: #<issue>` in the child
   body instead.
-- Follow `docs/agents/tracker-automation.md` for session claims. Assignee records the responsible human.
-- A candidate becomes writable only after a successful start receipt; preserve legacy assigned work.
+- A ticket is taken when the remote has its branch or a linked open pull request; `WORKFLOW.md`
+  names the check. Assignee records the responsible human.
 - Resolve a decision with a comment, close its issue, then add a one-line linked pointer to the
   map's `Decisions so far` section.

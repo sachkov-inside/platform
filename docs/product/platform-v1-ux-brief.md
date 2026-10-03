@@ -910,7 +910,7 @@ Workspace provenance is pinned to exact commits. GitHub issues remain the primar
 [platform-brief-actors]: platform-mvp-brief.md#пользователи-и-доступ
 [platform-brief-author]: platform-mvp-brief.md#автор
 [platform-brief-navigation]: platform-mvp-brief.md#поиск-и-навигация
-[platform-context]: ../../CONTEXT.md
+[platform-context]: ../../GLOSSARY.md
 [platform-spec-authority]: ../specifications/platform-v1.md#результат-и-authority
 [platform-spec-boundaries]: ../specifications/platform-v1.md#application-boundaries
 [platform-spec-logical-model]: ../specifications/platform-v1.md#logical-model-и-cardinalities

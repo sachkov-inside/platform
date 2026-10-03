@@ -84,7 +84,10 @@ export function createMcpHttpServer(dependencies: {
   );
   const learningMetadataUrl = getOAuthProtectedResourceMetadataUrl(learningUrl);
   const authenticateLearning = requireBearerAuth({
-    verifier,
+    verifier: assembleDelegatedAccountTokenVerifier({
+      ...dependencies,
+      additionalAudience: resourceUrlFromServerUrl(learningUrl).href,
+    }),
     resourceMetadataUrl: learningMetadataUrl,
   });
   const learningHandler = createMcpHandler(

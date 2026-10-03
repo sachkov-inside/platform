@@ -1,16 +1,24 @@
 import { expect, it } from "vitest";
 
 import {
+  guidePurchaseHref,
   purchaseInvitation,
   subscriptionHrefFrom,
   subscriptionRouteTarget,
 } from "@/shared/routing/subscription-route";
 
 it("сохраняет контекст страницы продукта и отбрасывает внешние адреса", () => {
-  expect(subscriptionRouteTarget("/guides/platform-inside")).toEqual({
-    returnTo: "/subscription?from=%2Fguides%2Fplatform-inside",
-    originHref: "/guides/platform-inside",
+  expect(subscriptionRouteTarget("/products/platform-inside")).toEqual({
+    returnTo: "/subscription?from=%2Fproducts%2Fplatform-inside",
+    originHref: "/products/platform-inside",
   });
+  // Прежние адреса продукта перенаправляются на `/products/`, поэтому возврат на них остаётся.
+  expect(subscriptionRouteTarget("/guides/platform-inside").originHref).toBe(
+    "/guides/platform-inside",
+  );
+  expect(subscriptionRouteTarget("/series/platform-inside").originHref).toBe(
+    "/series/platform-inside",
+  );
   expect(subscriptionRouteTarget(["/topics/platform"]).originHref).toBe(
     "/topics/platform",
   );
@@ -29,8 +37,8 @@ it("сохраняет контекст страницы продукта и о�
 });
 
 it("строит ссылку витрины со страницы продукта", () => {
-  expect(subscriptionHrefFrom("/guides/platform-inside")).toBe(
-    "/subscription?from=%2Fguides%2Fplatform-inside",
+  expect(subscriptionHrefFrom("/products/platform-inside")).toBe(
+    "/subscription?from=%2Fproducts%2Fplatform-inside",
   );
   expect(subscriptionHrefFrom("https://example.test")).toBe("/subscription");
 });
@@ -43,7 +51,7 @@ it("ведёт призыв к покупке внутрь платформы и
       subscriptionOffered: true,
       from: "/materials/developer-pipeline",
     }),
-  ).toEqual({ kind: "guide", href: "/guides/platform-inside/buy" });
+  ).toEqual({ kind: "guide", href: "/products/platform-inside/buy" });
   // Без своей цены остаётся витрина, и она помнит, откуда пришёл человек.
   expect(
     purchaseInvitation({
@@ -64,8 +72,17 @@ it("ведёт призыв к покупке внутрь платформы и
     purchaseInvitation({
       guide: { slug: "platform-inside", sold: false },
       subscriptionOffered: false,
-      from: "/guides/platform-inside/programme",
+      from: "/products/platform-inside/programme",
     }),
   ).toBeNull();
   expect(purchaseInvitation({ subscriptionOffered: false })).toBeNull();
+});
+
+it("персональная ссылка оплаты несёт промокод и переживает вход", () => {
+  expect(guidePurchaseHref("platform-inside")).toBe(
+    "/products/platform-inside/buy",
+  );
+  expect(guidePurchaseHref("platform-inside", "Survey 7&x")).toBe(
+    "/products/platform-inside/buy?promo=Survey+7%26x",
+  );
 });

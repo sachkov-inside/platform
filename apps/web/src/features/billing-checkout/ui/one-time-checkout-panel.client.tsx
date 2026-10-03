@@ -1,5 +1,5 @@
 "use client";
-import { CalendarClock, MessagesSquare, Play } from "lucide-react";
+import { CalendarClock, MessagesSquare, Play, Users } from "lucide-react";
 import type { Route } from "next";
 import Link from "next/link";
 import { useId } from "react";
@@ -28,7 +28,9 @@ import {
 import { Button } from "@/shared/ui/button";
 
 import {
+  oneTimeOfferTerms,
   oneTimePriceSharesLine,
+  oneTimePurchaseInclusions,
   oneTimeTermsSummary,
   type CheckoutInclusion,
 } from "../model/one-time-terms";
@@ -45,11 +47,14 @@ export interface OneTimeCheckoutPanelProps {
   readonly pending?: boolean;
   readonly error?: string | undefined;
   readonly purchase: PurchaseStatus | null;
-  readonly inclusions?: readonly CheckoutInclusion[];
+  /** Показывать ли состав покупки: панель строит его из того же снимка, что и сводку условий. */
+  readonly showInclusions?: boolean;
   readonly onToggleAcknowledge: () => void;
   readonly onPay: () => void;
   readonly onRefreshStatus: () => void;
   readonly onRetryQuote: () => void;
+  /** Покупатель пришёл по ссылке с промокодом, а расчёт скидку по нему не дал. */
+  readonly promoRejected?: boolean;
 }
 
 /**
@@ -73,6 +78,7 @@ function documentLabel(document: LegalDocument): string {
 const inclusionIcons = {
   composition: Play,
   materials: CalendarClock,
+  chat: Users,
   support: MessagesSquare,
 } as const satisfies Record<CheckoutInclusion["kind"], unknown>;
 
@@ -88,17 +94,28 @@ export function OneTimeCheckoutPanel({
   pending = false,
   error,
   purchase,
-  inclusions = [],
+  showInclusions = false,
   onToggleAcknowledge,
   onPay,
   onRefreshStatus,
   onRetryQuote,
+  promoRejected = false,
 }: OneTimeCheckoutPanelProps) {
   const headingId = useId();
   const termsId = useId();
   const acknowledgeId = useId();
   const conditions = quote?.snapshot ?? snapshot;
   const promotion = promotionLabel(conditions);
+  const terms = oneTimeOfferTerms(conditions);
+  // Состав называет те же сроки, что сводка условий: оба читают снимок сохранённого расчёта, как
+  // только он есть. Иначе смена сроков между загрузкой страницы и расчётом развела бы их.
+  const shownInclusions = showInclusions
+    ? oneTimePurchaseInclusions(conditions)
+    : [];
+  const priceShares = oneTimePriceSharesLine(
+    conditions.firstPriceKopecks,
+    terms,
+  );
   const { required, applicable } = purchaseConsentPolicy(
     documents,
     paymentMode(conditions),
@@ -119,9 +136,9 @@ export function OneTimeCheckoutPanel({
         Оплата продукта
       </h2>
 
-      {inclusions.length === 0 ? null : (
+      {shownInclusions.length === 0 ? null : (
         <ul className="grid gap-3 sm:grid-cols-2">
-          {inclusions.map((inclusion) => {
+          {shownInclusions.map((inclusion) => {
             const Icon = inclusionIcons[inclusion.kind];
             return (
               <li
@@ -161,12 +178,16 @@ export function OneTimeCheckoutPanel({
           </span>
           <span className="text-sm text-white/70">разово</span>
         </p>
-        <p className="mt-2 text-sm leading-6 text-white/85">
-          {oneTimePriceSharesLine(conditions.firstPriceKopecks)}
-        </p>
+        <p className="mt-2 text-sm leading-6 text-white/85">{priceShares}</p>
         {promotion === undefined ? null : (
           <p className="mt-2 font-mono text-xs text-white/70">{promotion}</p>
         )}
+        {promoRejected ? (
+          <p className="mt-2 text-sm leading-6 text-white/85" role="status">
+            Скидка по ссылке не применилась: ссылка уже использована или больше
+            не действует. Если это ошибка, напишите тому, кто прислал ссылку.
+          </p>
+        ) : null}
         {quote === null ? (
           <p className="mt-3 text-sm leading-6 text-white/70" role="status">
             {pending
@@ -211,7 +232,7 @@ export function OneTimeCheckoutPanel({
           Условия покупки
         </h3>
         <ul className="mt-2 grid list-disc gap-1.5 pl-5 text-muted-foreground">
-          {oneTimeTermsSummary.map((line) => (
+          {oneTimeTermsSummary(terms).map((line) => (
             <li key={line}>{line}</li>
           ))}
         </ul>

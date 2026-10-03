@@ -1196,13 +1196,13 @@ function repositoryScripts() {
 }
 
 /**
- * Managed harness copies, recorded evidence and test fixtures are not repository scripts.
+ * Upstream skill copies, recorded evidence and test fixtures are not repository scripts.
  *
  * @param {string} path
  */
 function outsideScriptCheck(path) {
   return (
-    path.startsWith(".inside-harness/") ||
+    path.startsWith(".agents/") ||
     path.startsWith("docs/evidence/") ||
     path.includes("/fixtures/")
   );

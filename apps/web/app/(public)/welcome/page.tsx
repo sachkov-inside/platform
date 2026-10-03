@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 
-import { getHome, HomePage } from "@/_pages/home.server";
+import { fillPinnedOfferTerms, getHome, HomePage } from "@/_pages/home.server";
 import { WelcomePage } from "@/_pages/welcome.server";
 import { getOptionalPlatformAccessToken } from "@/shared/auth/optional-platform-access-token.server";
 
@@ -33,9 +33,10 @@ export default async function WelcomeRoute({
  * Это декорация: её сбой не должен мешать принять условия.
  */
 async function WelcomeBackdrop() {
-  const home = await getHome(await getOptionalPlatformAccessToken()).catch(
-    () => undefined,
-  );
+  // Карточка закреплённого продукта рисует тексты как есть: сроки подставляются здесь же.
+  const home = await getHome(await getOptionalPlatformAccessToken())
+    .then(fillPinnedOfferTerms)
+    .catch(() => undefined);
   if (home === undefined) return null;
   return <HomePage feed={<div className="min-h-[60vh]" />} result={home} />;
 }

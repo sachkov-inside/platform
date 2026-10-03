@@ -37,6 +37,7 @@ import {
   authoringMaterialsRootHref,
 } from "../model/authoring-materials-query";
 import { AuthoringMaterialActions } from "./authoring-material-actions.client";
+import { authoringMaterialPreviewHref } from "@/shared/routing/authoring";
 
 export function AuthoringMaterialsView({
   isRefreshing = false,
@@ -386,7 +387,7 @@ function AuthoringMaterialRow({
         </Button>
         <Button asChild className="min-h-11" variant="ghost">
           <Link
-            href={authoringDestinationHref(`${editorPath}/preview`, returnHref)}
+            href={authoringMaterialPreviewHref(material.materialId, returnHref)}
           >
             <Eye aria-hidden="true" data-icon="inline-start" />
             Предпросмотр

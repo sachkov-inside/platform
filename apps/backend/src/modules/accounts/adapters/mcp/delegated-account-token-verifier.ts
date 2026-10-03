@@ -10,10 +10,14 @@ import type { LogtoAccessTokenVerifier } from "../../infrastructure/idp/logto/lo
 export function assembleDelegatedAccountTokenVerifier(dependencies: {
   readonly accounts: Pick<Accounts, "resolveAccount">;
   readonly tokenVerifier: Pick<LogtoAccessTokenVerifier, "verifyAccount">;
+  readonly additionalAudience?: string;
 }): OAuthTokenVerifier {
   const verifier: OAuthTokenVerifier = {
     async verifyAccessToken(token: string) {
-      const proof = await dependencies.tokenVerifier.verifyAccount(token);
+      const proof = await dependencies.tokenVerifier.verifyAccount(
+        token,
+        dependencies.additionalAudience,
+      );
       if (!proof.ok) {
         throw proof.error.code === "invalid_proof"
           ? invalidToken("The delegated Account proof is invalid or expired")

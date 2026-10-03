@@ -4,6 +4,7 @@ import {
   CreditCard,
   Eye,
   Files,
+  Funnel,
   Globe2,
   LibraryBig,
   ListOrdered,
@@ -24,16 +25,18 @@ export function AuthoringShell({ children }: { readonly children: ReactNode }) {
   const pathname = usePathname();
   const current = pathname.startsWith("/authoring/billing")
     ? "billing"
-    : pathname.startsWith("/authoring/topics")
-      ? "topics"
-      : pathname.startsWith("/authoring/guides") ||
-          pathname.startsWith("/authoring/playlists")
-        ? "playlists"
-        : pathname.endsWith("/preview")
-          ? "preview"
-          : pathname.startsWith(materialsHref)
-            ? "materials"
-            : undefined;
+    : pathname.startsWith("/authoring/sales-funnel")
+      ? "sales-funnel"
+      : pathname.startsWith("/authoring/topics")
+        ? "topics"
+        : pathname.startsWith("/authoring/guides") ||
+            pathname.startsWith("/authoring/playlists")
+          ? "playlists"
+          : pathname.endsWith("/preview")
+            ? "preview"
+            : pathname.startsWith(materialsHref)
+              ? "materials"
+              : undefined;
 
   return (
     <div
@@ -103,6 +106,12 @@ export function AuthoringShell({ children }: { readonly children: ReactNode }) {
               href="/authoring/billing"
               icon={<CreditCard aria-hidden="true" />}
               label="Оплата и права"
+            />
+            <AuthoringLink
+              current={current === "sales-funnel"}
+              href="/authoring/sales-funnel"
+              icon={<Funnel aria-hidden="true" />}
+              label="Воронка продаж"
             />
             <AuthoringLink
               href="/"
