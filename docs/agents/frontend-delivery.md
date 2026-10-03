@@ -13,6 +13,16 @@ history, not an alternative product model.
 
 ## Review surface
 
+Before frontend implementation or interactive UI review, start `pnpm storybook` from the task's
+worktree. Use the project-local `platform-storybook` MCP server at `http://localhost:6006/mcp`
+to inspect the component catalog with `docs-list` and component documentation with `docs-show`
+before choosing an implementation. Fetch `get-storybook-story-instructions` before editing stories.
+Codex reads `.codex/config.toml`; Claude Code reads `.mcp.json`. Start the agent session in the
+trusted project or worktree so its project configuration loads. Keep Storybook running while using
+MCP, and start a new agent session after changing its MCP configuration. Stop the process you
+started during session cleanup. If port `6006` belongs to another session, wait for its handoff
+before starting Storybook for this worktree.
+
 Use Agentation as the owner-feedback overlay during interactive browser and Storybook review. Keep
 it enabled while the owner reviews the UI; automated tests disable it only when the overlay would
 interfere with assertions. Review is complete when every annotation is resolved or represented by
