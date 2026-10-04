@@ -64,6 +64,35 @@ childEnvironment["OBJECT_STORAGE_ENDPOINT"] =
 // Разрешение делегированных Account стенда принадлежит прогону, а не личному `.env`: иначе
 // `release:bootstrap-owner` возьмёт оттуда чужое значение и прогон начнёт зависеть от машины.
 const stackAuthorPermission = "materials:manage";
+// Отдельные identities проверок доступа (#904). У каждой ровно одно основание: одно разрешение или
+// ничего. Доступ к одному Guide ученик получает в самом сценарии, без bridge и `allGuides`.
+const separateAccessIdentities = [
+  {
+    subject: "fullstack-materials-only",
+    permission: stackAuthorPermission,
+    sessionVariable: "FULLSTACK_LOGTO_MATERIALS_ONLY_SESSION",
+  },
+  {
+    subject: "fullstack-billing-only",
+    permission: "billing:manage",
+    sessionVariable: "FULLSTACK_LOGTO_BILLING_ONLY_SESSION",
+  },
+  {
+    subject: "fullstack-guide-a-learner",
+    permission: undefined,
+    sessionVariable: "FULLSTACK_LOGTO_GUIDE_A_LEARNER_SESSION",
+  },
+  {
+    subject: "fullstack-reader-a",
+    permission: undefined,
+    sessionVariable: "FULLSTACK_LOGTO_READER_A_SESSION",
+  },
+  {
+    subject: "fullstack-reader-b",
+    permission: undefined,
+    sessionVariable: "FULLSTACK_LOGTO_READER_B_SESSION",
+  },
+];
 Object.assign(childEnvironment, {
   // The smoke reads the published demonstration catalogue in its own check database.
   LOCAL_SEED_DEMO: "published",
@@ -193,11 +222,7 @@ try {
   const mcpMaterialsOnlyAccessToken = await fullStackIdentity.createAccessToken(
     mcpMaterialsOnlySubject,
   );
-  await runPnpm(["--filter", "@inside/backend", "release:bootstrap-owner"], {
-    ...childEnvironment,
-    OWNER_LOGTO_SUBJECT: mcpMaterialsOnlySubject,
-    OWNER_PERMISSION: stackAuthorPermission,
-  });
+  await grantAccountPermission(mcpMaterialsOnlySubject, stackAuthorPermission);
   await runPnpm(["--filter", "@inside/backend", "smoke:mcp-authoring"], {
     ...childEnvironment,
     MCP_SMOKE_ACCESS_TOKEN: mcpAccessToken.token,
@@ -229,6 +254,19 @@ try {
       FULLSTACK_STALE_MEMBER_LOGTO_SUBJECT: "fullstack-stale-member",
     },
   );
+  /** @type {Record<string, string>} */
+  const separateAccessSessions = {};
+  for (const identity of separateAccessIdentities) {
+    const accessToken = await fullStackIdentity.createAccessToken(
+      identity.subject,
+    );
+    await establishFullStackAccount(accessToken.token);
+    if (identity.permission !== undefined) {
+      await grantAccountPermission(identity.subject, identity.permission);
+    }
+    separateAccessSessions[identity.sessionVariable] =
+      await fullStackIdentity.createSession(accessToken);
+  }
   const browserAccessToken = await fullStackIdentity.createAccessToken();
   const practiceFixture = await seedFullStackPractice(
     apiBaseUrl,
@@ -262,6 +300,7 @@ try {
       staleMemberAccessToken,
     ),
     FULLSTACK_LOGTO_SESSION: fullStackSession,
+    ...separateAccessSessions,
     // Сессии для проверки самого срока: у первой доступ уже истёк и продлевается, у второй
     // продлить его нечем. Ожидание пяти минут для этого не нужно.
     FULLSTACK_LOGTO_SESSION_PAST_EXPIRY:
@@ -355,6 +394,20 @@ async function runPnpm(arguments_, environment = childEnvironment) {
 async function waitForJson(url, entries) {
   const response = await waitForHttp(url, entries);
   return response.json();
+}
+
+/**
+ * Выдаёт Account одно разрешение через trusted owner bootstrap. Выдача только добавляет, поэтому
+ * у subject, который больше нигде не получает прав, остаётся ровно это разрешение.
+ * @param {string} subject
+ * @param {string} permission
+ */
+async function grantAccountPermission(subject, permission) {
+  await runPnpm(["--filter", "@inside/backend", "release:bootstrap-owner"], {
+    ...childEnvironment,
+    OWNER_LOGTO_SUBJECT: subject,
+    OWNER_PERMISSION: permission,
+  });
 }
 
 /** @param {string} accessToken */

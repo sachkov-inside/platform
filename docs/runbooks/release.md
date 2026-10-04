@@ -29,6 +29,22 @@ git log --oneline "$current"..origin/main
 Номер следующего выпуска — `current` + 1. Выпускается ровно текущий `main`; CI выпуска повторяет
 проверки PR.
 
+CI выпуска не запускает full-stack smoke. Именно в нём права проверяются через настоящий Web/BFF
+отдельными identities (#904). Поэтому перед выпуском нужен зелёный
+[nightly full-stack smoke](continuous-integration.md#nightly-full-stack-smoke) ровно на коммите
+выпуска:
+
+```bash
+release_sha=$(git rev-parse origin/main)
+gh run list --repo sachkov-inside/platform -w nightly-fullstack.yml --branch main --limit 100 \
+  --json headSha,conclusion,url \
+  -q ".[] | select(.headSha == \"$release_sha\" and .conclusion == \"success\")"
+```
+
+Если зелёного запуска на этом коммите нет, запустите его и дождитесь успеха:
+`gh workflow run nightly-fullstack.yml --repo sachkov-inside/platform --ref main`. Красный прогон
+останавливает выпуск до исправления.
+
 ## 2. Нужен ли разовый шаг на сервере
 
 Обычный выпуск меняет только образы, миграции, Compose и маршруты Caddy Platform: всё это

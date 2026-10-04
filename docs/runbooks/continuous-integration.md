@@ -123,6 +123,12 @@ install, Chromium, `cp .env.example .env`, `pnpm infra:up` for Compose PostgreSQ
 Storage, then the smoke with its own `inside_checks` database. The workflow is read-only, reads no
 secrets, and a new run waits for the previous one on the same ref instead of overlapping it.
 
+The smoke includes `apps/web/test/fullstack/access-identities.spec.ts` (#904). It signs in separate
+identities through the real Web/BFF: a Materials-only Account, a Billing-only Account, a learner
+whose only access is a tier scoped to one Guide, and two ordinary Accounts. No pull-request job
+runs these browser-path checks, so a release needs a green run of this workflow on the release
+commit ([release](release.md#1-что-выпускаем)).
+
 Where to look:
 
 - Results: the Actions tab, workflow **Nightly full-stack smoke**, or
