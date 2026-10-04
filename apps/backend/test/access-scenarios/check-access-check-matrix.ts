@@ -117,14 +117,15 @@ function evidenceProblem(
 }
 
 /**
- * Файл объявляет исполняемый тест с этим названием: `test(` или `it(` (с `.only` или `.concurrent`)
- * и сразу литерал названия в кавычках или обратных кавычках. Комментарий, `describe`, `test.skip`
- * и константа с тем же текстом объявлением не считаются.
+ * В файле стоит вызов `test(` или `it(` (с `.only` или `.concurrent`), за которым сразу идёт
+ * литерал названия в кавычках или обратных кавычках. `describe`, `test.skip`, `test.each`, вызов
+ * метода с тем же именем и константа с тем же текстом не проходят. Комментарии и `describe.skip`
+ * проверка не разбирает: закомментированный вызов тоже пройдёт.
  */
 function declaresTest(source: string, name: string): boolean {
   const escaped = name.replace(/[.*+?^${}()|[\]\\]/gu, "\\$&");
   return new RegExp(
-    `\\b(?:test|it)(?:\\.(?:only|concurrent))?\\(\\s*(["'\`])${escaped}\\1`,
+    `(?<![.\\w])(?:test|it)(?:\\.(?:only|concurrent))?\\(\\s*(["'\`])${escaped}\\1`,
     "u",
   ).test(source);
 }
