@@ -7,6 +7,142 @@ import type { BaseHttpRequest } from '../core/BaseHttpRequest';
 export class SubscriptionActivationIntegrationService {
   constructor(public readonly httpRequest: BaseHttpRequest) {}
   /**
+   * Claim a personal invitation for a verified Telegram identity and admit or gift its Offer
+   * @returns any
+   * @throws ApiError
+   */
+  public redeemTelegramInvitation({
+    requestBody,
+  }: {
+    requestBody: {
+      code: string;
+      contractVersion: 'inside.subscription-activation.v1';
+      identityRef: string;
+    },
+  }): CancelablePromise<({
+    ok: boolean;
+    value: ({
+      contractVersion: 'inside.subscription-activation.v1';
+      state: 'needs_account' | 'claimed_by_other' | 'expired' | 'revoked' | 'unavailable';
+    } | {
+      checkoutUrl: string;
+      contractVersion: 'inside.subscription-activation.v1';
+      mode: 'purchase';
+      offerName: string;
+      state: 'purchase_ready';
+    } | {
+      contractVersion: 'inside.subscription-activation.v1';
+      enrollment: {
+        accountId: string;
+        benefitTerms?: Array<{
+          capability: string;
+          endsAt: string | null;
+          revoked: boolean;
+          startsAt: string;
+        }>;
+        content?: Array<{
+          available: boolean;
+          id: string;
+          kind: 'guide' | 'material';
+          slug: string | null;
+          title: string;
+        }>;
+        endPolicy: 'fixed' | 'confirmed_external' | 'temporary_membership';
+        endsAt: string | null;
+        history?: Array<{
+          kind: string;
+          reason: string;
+          recordedAt: string;
+        }>;
+        id: string;
+        nextChargeAt?: string | null;
+        origin: 'course' | 'tribute' | 'manual' | 'platform_payment' | 'invitation';
+        renewal: 'not_applicable' | 'billing_agreement';
+        revision: number;
+        startsAt: string;
+        state: 'scheduled' | 'active' | 'expired' | 'revoked' | 'pending_verification' | 'suspended_source';
+        tier: {
+          benefits: Array<('materials' | 'community' | 'reviews' | 'support' | string)>;
+          contentScope: {
+            allGuides?: boolean;
+            guideIds: Array<string>;
+            materialIds: Array<string>;
+          };
+          id: string;
+          name: string;
+          revision: number;
+        };
+      };
+      mode: 'gift';
+      offerName: string;
+      state: 'gift_granted';
+    } | {
+      checkoutUrl: string;
+      contractVersion: 'inside.subscription-activation.v1';
+      mode: 'purchase';
+      offerName: string;
+      state: 'already_redeemed';
+    } | {
+      contractVersion: 'inside.subscription-activation.v1';
+      enrollment: {
+        accountId: string;
+        benefitTerms?: Array<{
+          capability: string;
+          endsAt: string | null;
+          revoked: boolean;
+          startsAt: string;
+        }>;
+        content?: Array<{
+          available: boolean;
+          id: string;
+          kind: 'guide' | 'material';
+          slug: string | null;
+          title: string;
+        }>;
+        endPolicy: 'fixed' | 'confirmed_external' | 'temporary_membership';
+        endsAt: string | null;
+        history?: Array<{
+          kind: string;
+          reason: string;
+          recordedAt: string;
+        }>;
+        id: string;
+        nextChargeAt?: string | null;
+        origin: 'course' | 'tribute' | 'manual' | 'platform_payment' | 'invitation';
+        renewal: 'not_applicable' | 'billing_agreement';
+        revision: number;
+        startsAt: string;
+        state: 'scheduled' | 'active' | 'expired' | 'revoked' | 'pending_verification' | 'suspended_source';
+        tier: {
+          benefits: Array<('materials' | 'community' | 'reviews' | 'support' | string)>;
+          contentScope: {
+            allGuides?: boolean;
+            guideIds: Array<string>;
+            materialIds: Array<string>;
+          };
+          id: string;
+          name: string;
+          revision: number;
+        };
+      };
+      mode: 'gift';
+      offerName: string;
+      state: 'already_redeemed';
+    });
+  } | {
+    error: {
+      code: 'invalid_input' | 'identity_conflict' | 'unavailable';
+    };
+    ok: boolean;
+  })> {
+    return this.httpRequest.request({
+      method: 'POST',
+      url: '/integrations/telegram/v1/invitations/redeem',
+      body: requestBody,
+      mediaType: 'application/json',
+    });
+  }
+  /**
    * Persist an activation attempt for a verified private bot identity
    * @returns any
    * @throws ApiError
@@ -49,7 +185,7 @@ export class SubscriptionActivationIntegrationService {
         }>;
         id: string;
         nextChargeAt?: string | null;
-        origin: 'course' | 'tribute' | 'manual' | 'platform_payment';
+        origin: 'course' | 'tribute' | 'manual' | 'platform_payment' | 'invitation';
         renewal: 'not_applicable' | 'billing_agreement';
         revision: number;
         startsAt: string;
@@ -180,7 +316,7 @@ export class SubscriptionActivationIntegrationService {
         }>;
         id: string;
         nextChargeAt?: string | null;
-        origin: 'course' | 'tribute' | 'manual' | 'platform_payment';
+        origin: 'course' | 'tribute' | 'manual' | 'platform_payment' | 'invitation';
         renewal: 'not_applicable' | 'billing_agreement';
         revision: number;
         startsAt: string;
@@ -265,7 +401,7 @@ export class SubscriptionActivationIntegrationService {
         }>;
         id: string;
         nextChargeAt?: string | null;
-        origin: 'course' | 'tribute' | 'manual' | 'platform_payment';
+        origin: 'course' | 'tribute' | 'manual' | 'platform_payment' | 'invitation';
         renewal: 'not_applicable' | 'billing_agreement';
         revision: number;
         startsAt: string;

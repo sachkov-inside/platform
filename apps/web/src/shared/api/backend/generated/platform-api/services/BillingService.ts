@@ -71,7 +71,7 @@ export class BillingService {
               guideIds: Array<string>;
               materialIds: Array<string>;
             } | null;
-            eligibility?: 'everyone' | 'former_tribute_subscribers';
+            eligibility?: 'everyone' | 'former_tribute_subscribers' | 'invitation_only';
             id: string;
             name: string;
             published?: boolean;
@@ -119,7 +119,7 @@ export class BillingService {
             guideIds: Array<string>;
             materialIds: Array<string>;
           } | null;
-          eligibility?: 'everyone' | 'former_tribute_subscribers';
+          eligibility?: 'everyone' | 'former_tribute_subscribers' | 'invitation_only';
           id: string;
           name: string;
           published?: boolean;
@@ -180,7 +180,7 @@ export class BillingService {
       }>;
       id: string;
       nextChargeAt?: string | null;
-      origin: 'course' | 'tribute' | 'manual' | 'platform_payment';
+      origin: 'course' | 'tribute' | 'manual' | 'platform_payment' | 'invitation';
       renewal: 'not_applicable' | 'billing_agreement';
       revision: number;
       startsAt: string;
@@ -279,7 +279,7 @@ export class BillingService {
             guideIds: Array<string>;
             materialIds: Array<string>;
           } | null;
-          eligibility?: 'everyone' | 'former_tribute_subscribers';
+          eligibility?: 'everyone' | 'former_tribute_subscribers' | 'invitation_only';
           id: string;
           name: string;
           published?: boolean;
@@ -327,7 +327,7 @@ export class BillingService {
           guideIds: Array<string>;
           materialIds: Array<string>;
         } | null;
-        eligibility?: 'everyone' | 'former_tribute_subscribers';
+        eligibility?: 'everyone' | 'former_tribute_subscribers' | 'invitation_only';
         id: string;
         name: string;
         published?: boolean;
@@ -397,7 +397,7 @@ export class BillingService {
           guideIds: Array<string>;
           materialIds: Array<string>;
         } | null;
-        eligibility?: 'everyone' | 'former_tribute_subscribers';
+        eligibility?: 'everyone' | 'former_tribute_subscribers' | 'invitation_only';
         id: string;
         name: string;
         published?: boolean;
@@ -466,7 +466,7 @@ export class BillingService {
           guideIds: Array<string>;
           materialIds: Array<string>;
         } | null;
-        eligibility?: 'everyone' | 'former_tribute_subscribers';
+        eligibility?: 'everyone' | 'former_tribute_subscribers' | 'invitation_only';
         id: string;
         name: string;
         published?: boolean;
@@ -538,7 +538,7 @@ export class BillingService {
           guideIds: Array<string>;
           materialIds: Array<string>;
         } | null;
-        eligibility?: 'everyone' | 'former_tribute_subscribers';
+        eligibility?: 'everyone' | 'former_tribute_subscribers' | 'invitation_only';
         id: string;
         name: string;
         published?: boolean;
@@ -616,7 +616,7 @@ export class BillingService {
             guideIds: Array<string>;
             materialIds: Array<string>;
           } | null;
-          eligibility?: 'everyone' | 'former_tribute_subscribers';
+          eligibility?: 'everyone' | 'former_tribute_subscribers' | 'invitation_only';
           id: string;
           name: string;
           published?: boolean;
@@ -664,7 +664,7 @@ export class BillingService {
           guideIds: Array<string>;
           materialIds: Array<string>;
         } | null;
-        eligibility?: 'everyone' | 'former_tribute_subscribers';
+        eligibility?: 'everyone' | 'former_tribute_subscribers' | 'invitation_only';
         id: string;
         name: string;
         published?: boolean;
@@ -733,7 +733,7 @@ export class BillingService {
             guideIds: Array<string>;
             materialIds: Array<string>;
           } | null;
-          eligibility?: 'everyone' | 'former_tribute_subscribers';
+          eligibility?: 'everyone' | 'former_tribute_subscribers' | 'invitation_only';
           id: string;
           name: string;
           published?: boolean;
@@ -789,7 +789,7 @@ export class BillingService {
               guideIds: Array<string>;
               materialIds: Array<string>;
             } | null;
-            eligibility?: 'everyone' | 'former_tribute_subscribers';
+            eligibility?: 'everyone' | 'former_tribute_subscribers' | 'invitation_only';
             id: string;
             name: string;
             published?: boolean;
@@ -837,7 +837,7 @@ export class BillingService {
             guideIds: Array<string>;
             materialIds: Array<string>;
           } | null;
-          eligibility?: 'everyone' | 'former_tribute_subscribers';
+          eligibility?: 'everyone' | 'former_tribute_subscribers' | 'invitation_only';
           id: string;
           name: string;
           published?: boolean;
@@ -912,7 +912,7 @@ export class BillingService {
             guideIds: Array<string>;
             materialIds: Array<string>;
           } | null;
-          eligibility?: 'everyone' | 'former_tribute_subscribers';
+          eligibility?: 'everyone' | 'former_tribute_subscribers' | 'invitation_only';
           id: string;
           name: string;
           published?: boolean;
@@ -960,7 +960,7 @@ export class BillingService {
           guideIds: Array<string>;
           materialIds: Array<string>;
         } | null;
-        eligibility?: 'everyone' | 'former_tribute_subscribers';
+        eligibility?: 'everyone' | 'former_tribute_subscribers' | 'invitation_only';
         id: string;
         name: string;
         published?: boolean;
@@ -1028,7 +1028,7 @@ export class BillingService {
             guideIds: Array<string>;
             materialIds: Array<string>;
           } | null;
-          eligibility?: 'everyone' | 'former_tribute_subscribers';
+          eligibility?: 'everyone' | 'former_tribute_subscribers' | 'invitation_only';
           id: string;
           name: string;
           published?: boolean;
@@ -1073,7 +1073,7 @@ export class BillingService {
             guideIds: Array<string>;
             materialIds: Array<string>;
           } | null;
-          eligibility?: 'everyone' | 'former_tribute_subscribers';
+          eligibility?: 'everyone' | 'former_tribute_subscribers' | 'invitation_only';
           id: string;
           name: string;
           published?: boolean;
@@ -1153,7 +1153,7 @@ export class BillingService {
             guideIds: Array<string>;
             materialIds: Array<string>;
           } | null;
-          eligibility?: 'everyone' | 'former_tribute_subscribers';
+          eligibility?: 'everyone' | 'former_tribute_subscribers' | 'invitation_only';
           id: string;
           name: string;
           published?: boolean;
@@ -1201,7 +1201,7 @@ export class BillingService {
           guideIds: Array<string>;
           materialIds: Array<string>;
         } | null;
-        eligibility?: 'everyone' | 'former_tribute_subscribers';
+        eligibility?: 'everyone' | 'former_tribute_subscribers' | 'invitation_only';
         id: string;
         name: string;
         published?: boolean;
@@ -1325,7 +1325,7 @@ export class BillingService {
           guideIds: Array<string>;
           materialIds: Array<string>;
         } | null;
-        eligibility?: 'everyone' | 'former_tribute_subscribers';
+        eligibility?: 'everyone' | 'former_tribute_subscribers' | 'invitation_only';
         id: string;
         name: string;
       };
@@ -1448,7 +1448,7 @@ export class BillingService {
       };
       operation: 'enrollments.assign';
       operationId: string;
-      origin: 'course' | 'tribute' | 'manual' | 'platform_payment';
+      origin: 'course' | 'tribute' | 'manual' | 'platform_payment' | 'invitation';
       reason: string;
       sourceRef: string;
       terms: {
@@ -1601,6 +1601,25 @@ export class BillingService {
     } | {
       operation: 'respondents.status';
       operationId: string;
+    } | {
+      giftMonths: number | null;
+      mode: 'purchase' | 'gift';
+      note: string | null;
+      offerId: string;
+      operation: 'invitations.issue';
+      operationId: string;
+    } | {
+      expectedRevision: number;
+      invitationId: string;
+      operation: 'invitations.revoke';
+      operationId: string;
+    } | {
+      cursor?: string;
+      limit: number;
+      offerId?: string;
+      operation: 'invitations.list';
+      operationId: string;
+      state?: 'issued' | 'claimed' | 'redeemed' | 'expired' | 'revoked';
     }),
   }): CancelablePromise<{
     operationRef: string;
@@ -1950,7 +1969,7 @@ export class BillingService {
         }>;
         id: string;
         nextChargeAt?: string | null;
-        origin: 'course' | 'tribute' | 'manual' | 'platform_payment';
+        origin: 'course' | 'tribute' | 'manual' | 'platform_payment' | 'invitation';
         renewal: 'not_applicable' | 'billing_agreement';
         revision: number;
         startsAt: string;
@@ -1992,7 +2011,7 @@ export class BillingService {
         }>;
         id: string;
         nextChargeAt?: string | null;
-        origin: 'course' | 'tribute' | 'manual' | 'platform_payment';
+        origin: 'course' | 'tribute' | 'manual' | 'platform_payment' | 'invitation';
         renewal: 'not_applicable' | 'billing_agreement';
         revision: number;
         startsAt: string;
@@ -2083,7 +2102,7 @@ export class BillingService {
             guideIds: Array<string>;
             materialIds: Array<string>;
           } | null;
-          eligibility?: 'everyone' | 'former_tribute_subscribers';
+          eligibility?: 'everyone' | 'former_tribute_subscribers' | 'invitation_only';
           id: string;
           name: string;
           published?: boolean;
@@ -2141,7 +2160,7 @@ export class BillingService {
               guideIds: Array<string>;
               materialIds: Array<string>;
             } | null;
-            eligibility?: 'everyone' | 'former_tribute_subscribers';
+            eligibility?: 'everyone' | 'former_tribute_subscribers' | 'invitation_only';
             id: string;
             name: string;
             published?: boolean;
@@ -2240,7 +2259,7 @@ export class BillingService {
               guideIds: Array<string>;
               materialIds: Array<string>;
             } | null;
-            eligibility?: 'everyone' | 'former_tribute_subscribers';
+            eligibility?: 'everyone' | 'former_tribute_subscribers' | 'invitation_only';
             id: string;
             name: string;
             published?: boolean;
@@ -2302,7 +2321,7 @@ export class BillingService {
               guideIds: Array<string>;
               materialIds: Array<string>;
             } | null;
-            eligibility?: 'everyone' | 'former_tribute_subscribers';
+            eligibility?: 'everyone' | 'former_tribute_subscribers' | 'invitation_only';
             id: string;
             name: string;
             published?: boolean;
@@ -2363,7 +2382,7 @@ export class BillingService {
                 guideIds: Array<string>;
                 materialIds: Array<string>;
               } | null;
-              eligibility?: 'everyone' | 'former_tribute_subscribers';
+              eligibility?: 'everyone' | 'former_tribute_subscribers' | 'invitation_only';
               id: string;
               name: string;
               published?: boolean;
@@ -2411,7 +2430,7 @@ export class BillingService {
               guideIds: Array<string>;
               materialIds: Array<string>;
             } | null;
-            eligibility?: 'everyone' | 'former_tribute_subscribers';
+            eligibility?: 'everyone' | 'former_tribute_subscribers' | 'invitation_only';
             id: string;
             name: string;
             published?: boolean;
@@ -2581,6 +2600,48 @@ export class BillingService {
         }>;
         total: number;
       };
+    } | {
+      outcome: 'invitation';
+      value: {
+        accountId: string | null;
+        claimedAt: string | null;
+        code: string;
+        expiresAt: string;
+        giftMonths: number | null;
+        id: string;
+        issuedAt: string;
+        link: string | null;
+        mode: 'purchase' | 'gift';
+        offerId: string;
+        offerRevision: number;
+        redeemedAt: string | null;
+        revision: number;
+        revokedAt: string | null;
+        startParameter: string;
+        state: 'issued' | 'claimed' | 'redeemed' | 'expired' | 'revoked';
+      };
+    } | {
+      items: Array<{
+        accountId: string | null;
+        claimedAt: string | null;
+        code: string;
+        expiresAt: string;
+        giftMonths: number | null;
+        id: string;
+        issuedAt: string;
+        link: string | null;
+        mode: 'purchase' | 'gift';
+        note: string | null;
+        offerId: string;
+        offerRevision: number;
+        redeemedAt: string | null;
+        revision: number;
+        revokedAt: string | null;
+        startParameter: string;
+        state: 'issued' | 'claimed' | 'redeemed' | 'expired' | 'revoked';
+      }>;
+      nextCursor: string | null;
+      outcome: 'invitations';
     });
   }> {
     return this.httpRequest.request({
@@ -2642,7 +2703,7 @@ export class BillingService {
           guideIds: Array<string>;
           materialIds: Array<string>;
         } | null;
-        eligibility?: 'everyone' | 'former_tribute_subscribers';
+        eligibility?: 'everyone' | 'former_tribute_subscribers' | 'invitation_only';
         id: string;
         name: string;
         published?: boolean;

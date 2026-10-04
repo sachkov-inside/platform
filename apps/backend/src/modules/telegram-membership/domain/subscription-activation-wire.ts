@@ -5,6 +5,7 @@ import {
   ACTIVATION_CONTRACT_VERSION,
   enrollmentViewSchema,
   ownAccessGroundSchema,
+  invitationRedemptionOutcomeSchema,
 } from "../../membership-entitlements/index.js";
 import { ownAdmissionSchema } from "./community-entitlement.js";
 export const activationFailureSchema = z.strictObject({
@@ -60,4 +61,16 @@ export const ownSubscriptionAccessResponseSchema = z.union([
     }),
   }),
   activationFailureSchema,
+]);
+export const invitationRedeemResponseSchema = z.union([
+  z.strictObject({
+    ok: z.literal(true),
+    value: invitationRedemptionOutcomeSchema,
+  }),
+  z.strictObject({
+    ok: z.literal(false),
+    error: z.strictObject({
+      code: z.enum(["invalid_input", "identity_conflict", "unavailable"]),
+    }),
+  }),
 ]);

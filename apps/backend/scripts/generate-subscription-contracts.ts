@@ -6,11 +6,13 @@ import {
   beginActivationSchema,
   activationEvidenceSchema,
   ownSubscriptionAccessQuerySchema,
+  redeemInvitationSchema,
 } from "../src/modules/membership-entitlements/index.js";
 import {
   bindingLookupResponseSchema,
   activationResponseSchema,
   ownSubscriptionAccessResponseSchema,
+  invitationRedeemResponseSchema,
 } from "../src/modules/telegram-membership/domain/subscription-activation-wire.js";
 const directory = fileURLToPath(
   new URL(
@@ -27,6 +29,8 @@ const definitions = Object.fromEntries(
     ownAccessResponse: ownSubscriptionAccessResponseSchema,
     bindingQuery: bindingLookupQuerySchema,
     bindingResponse: bindingLookupResponseSchema,
+    invitationRedeem: redeemInvitationSchema,
+    invitationRedeemResponse: invitationRedeemResponseSchema,
   }).map(([name, codec]) => [
     name,
     z.toJSONSchema(codec, { target: "draft-7", io: "input" }),

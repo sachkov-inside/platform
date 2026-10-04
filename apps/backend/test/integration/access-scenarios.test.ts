@@ -19,6 +19,7 @@ import {
   BillingPayments,
   BillingPricing,
   BillingSubscriptions,
+  SubscriptionActivation,
   TributeConvergence,
 } from "../../src/modules/billing/index.js";
 import type {
@@ -144,6 +145,7 @@ describe("таблица сценариев доступа (реальный Pos
   let pricing: BillingPricing;
   let contact: BillingContact;
   let operations: BillingOperations;
+  let activation: SubscriptionActivation;
   let payments: BillingPayments;
   let convergence: TributeConvergence;
   let community: CommunityEntitlements;
@@ -320,6 +322,14 @@ describe("таблица сценариев доступа (реальный Pos
       bank: client,
       clock: () => now,
     });
+    activation = new SubscriptionActivation({
+      prisma: db.prisma,
+      grants,
+      bindings: links,
+      readAdmission: () =>
+        Promise.resolve({ state: "checking", admissionRestriction: null }),
+      siteOrigin: "https://inside.example.test",
+    });
     materials = assembleMaterials({
       prisma: db.prisma,
       authorPolicy: { canManage: (id) => id === owner },
@@ -412,6 +422,7 @@ describe("таблица сценариев доступа (реальный Pos
       (await tributeMember(groundEndsAt)).account,
     ]);
     grounds.set("manual-assignment", [await assigned("manual", groundEndsAt)]);
+    grounds.set("tier-via-invitation-gift", [await invitedGift(1)]);
     // Скрытый тариф даёт сопровождение; после назначения его закрывают для назначений и архивируют.
     const hiddenTier = await tier(
       [guideA],
@@ -916,6 +927,44 @@ describe("таблица сценариев доступа (реальный Pos
     await assignEnrollment(origin, recipient, endsAt, tier);
     return recipient;
   }
+  /** Владелец выдаёт приглашение, бот погашает его для новой Telegram-привязки Account. */
+  async function redeemInvitation(
+    recipient: string,
+    offerId: string,
+    mode: "purchase" | "gift",
+    giftMonths: number | null = null,
+  ): Promise<void> {
+    const identityRef = await linkChat(recipient);
+    const issued = owned(
+      await operations.execute(owner, {
+        operation: "invitations.issue",
+        operationId: randomUUID(),
+        offerId,
+        mode,
+        giftMonths,
+      }),
+    );
+    if (issued.outcome !== "invitation") throw new Error(issued.outcome);
+    expect(
+      await activation.redeemInvitation({
+        contractVersion: "inside.subscription-activation.v1",
+        code: issued.value.code,
+        identityRef,
+      }),
+    ).toMatchObject({
+      ok: true,
+      value: { state: mode === "gift" ? "gift_granted" : "purchase_ready" },
+    });
+  }
+  /** Тариф в подарок по приглашению на `giftMonths` календарных месяцев с погашения. */
+  async function invitedGift(
+    giftMonths: number | null,
+    tier = tierId,
+  ): Promise<string> {
+    const recipient = await account();
+    await redeemInvitation(recipient, tier, "gift", giftMonths);
+    return recipient;
+  }
   /** Прямое право без тарифа: продукт A без даты окончания и отдельное сопровождение до срока. */
   async function directHolder(): Promise<string> {
     const holder = await account();
@@ -1383,6 +1432,18 @@ describe("таблица сценариев доступа (реальный Pos
     await atMoment(groundEndsAt, async () => {
       expect(await transitionVerdicts("expiry", member.account)).toEqual([]);
     });
+    // Подарок по приглашению кончается так же: в момент окончания закрыты материалы и вход в чат.
+    const gifted = await invitedGift(1);
+    await project(gifted);
+    expect(await observe("community-chat", gifted)).toEqual(
+      open("ground-term"),
+    );
+    await atMoment(
+      subscriptionPeriodEnd(new Date(startedAt), 1).toISOString(),
+      async () => {
+        expect(await transitionVerdicts("expiry", gifted)).toEqual([]);
+      },
+    );
   });
 
   test("revocation", async () => {
@@ -1942,8 +2003,10 @@ describe("таблица сценариев доступа (реальный Pos
     ]).toEqual([]);
   });
 
-  /** Offer подписки со стартовым составом, который продаётся только прежним подписчикам Tribute. */
-  async function tributeSubscriptionOffer() {
+  /** Offer подписки со стартовым составом с ограничением допуска. */
+  async function restrictedSubscriptionOffer(
+    eligibility: "former_tribute_subscribers" | "invitation_only",
+  ) {
     const offerId = randomUUID(),
       optionId = randomUUID();
     value(
@@ -1952,10 +2015,15 @@ describe("таблица сценариев доступа (реальный Pos
         operation: "offers.save",
         value: {
           id: offerId,
-          name: "Подписка прежних подписчиков Tribute",
+          name:
+            eligibility === "invitation_only"
+              ? "Подписка по приглашению"
+              : "Подписка прежних подписчиков Tribute",
           benefits: ["community", "materials", "support"],
           contentScope: { guideIds: [], materialIds: [], allGuides: true },
-          eligibility: "former_tribute_subscribers",
+          eligibility,
+          // Подарок по приглашению назначает этот же Offer.
+          availableForAssignment: eligibility === "invitation_only",
         },
       }),
     );
@@ -1985,14 +2053,32 @@ describe("таблица сценариев доступа (реальный Pos
   let subscriptionOffer:
     { readonly offerId: string; readonly optionId: string } | undefined;
   async function restrictedSubscription() {
-    subscriptionOffer ??= await tributeSubscriptionOffer();
+    subscriptionOffer ??= await restrictedSubscriptionOffer(
+      "former_tribute_subscribers",
+    );
     return subscriptionOffer;
   }
-  /** Видит ли Account Offer на витрине подписки и предлагается ли ему подписка вообще. */
-  async function listed(account: string, offerId: string): Promise<boolean> {
+  let invitationOffer:
+    { readonly offerId: string; readonly optionId: string } | undefined;
+  async function invitationSubscription() {
+    invitationOffer ??= await restrictedSubscriptionOffer("invitation_only");
+    return invitationOffer;
+  }
+  /**
+   * Видит ли Account Offer на витрине подписки и предлагается ли ему подписка вообще. Account,
+   * допущенный к другому Offer по приглашению, подписку видит, поэтому `alsoAdmitted` снимает
+   * сверку с общим признаком продажи.
+   */
+  async function listed(
+    account: string,
+    offerId: string,
+    alsoAdmitted = false,
+  ): Promise<boolean> {
     const page = value(await pricing.offers({ mode: "subscription" }, account));
     const inCatalog = page.items.some((item) => item.offer.id === offerId);
-    expect(await pricing.hasOffersForSale(account)).toBe(inCatalog);
+    expect(await pricing.hasOffersForSale(account)).toBe(
+      inCatalog || alsoAdmitted,
+    );
     return inCatalog;
   }
   /** Покупка подписки: расчёт, оферта и согласие на списания, ответ банка и выдача прав. */
@@ -2094,5 +2180,65 @@ describe("таблица сценариев доступа (реальный Pos
     expect(await buySubscription(member.account, optionId)).toBe(
       scenario.rejectedWith,
     );
+  });
+
+  test("invitation-offer-after-purchase-invitation", async () => {
+    now = new Date(startedAt);
+    const scenario =
+      accessScenarioTable.purchases[
+        "invitation-offer-after-purchase-invitation"
+      ];
+    const { offerId, optionId } = await invitationSubscription();
+    const invited = await account();
+    await redeemInvitation(invited, offerId, "purchase");
+    expect(await listed(invited, offerId)).toBe(scenario.listed);
+    expect(await buySubscription(invited, optionId)).toBe(
+      scenario.rejectedWith,
+    );
+    // Допуск постоянный: после оплаченного срока тот же Offer рассчитывается без новой ссылки.
+    now = new Date(
+      subscriptionPeriodEnd(new Date(startedAt), 1).getTime() + 86_400_000,
+    );
+    expect(await listed(invited, offerId)).toBe(scenario.listed);
+    expect(
+      await pricing.quote(invited, {
+        operationId: randomUUID(),
+        paymentOptionId: optionId,
+        optionRevision: 1,
+      }),
+    ).toMatchObject({ ok: true });
+  });
+
+  test("invitation-offer-without-invitation", async () => {
+    now = new Date(startedAt);
+    const scenario =
+      accessScenarioTable.purchases["invitation-offer-without-invitation"];
+    const { offerId, optionId } = await invitationSubscription();
+    const other = await restrictedSubscriptionOffer("invitation_only");
+    const invitedElsewhere = await account();
+    await redeemInvitation(invitedElsewhere, other.offerId, "purchase");
+    for (const buyer of [
+      await account(),
+      invitedElsewhere,
+      await invitedGift(1),
+      await assigned("course", null),
+    ]) {
+      expect(await listed(buyer, offerId, buyer === invitedElsewhere)).toBe(
+        scenario.listed,
+      );
+      expect(await buySubscription(buyer, optionId)).toBe(
+        scenario.rejectedWith,
+      );
+    }
+  });
+
+  test("invitation-offer-after-gift-invitation", async () => {
+    now = new Date(startedAt);
+    const scenario =
+      accessScenarioTable.purchases["invitation-offer-after-gift-invitation"];
+    const { offerId, optionId } = await invitationSubscription();
+    const gifted = await invitedGift(1, offerId);
+    expect(await listed(gifted, offerId)).toBe(scenario.listed);
+    expect(await buySubscription(gifted, optionId)).toBe(scenario.rejectedWith);
   });
 });

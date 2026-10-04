@@ -24,6 +24,7 @@ export const enrollmentOriginSchema = z.enum([
   "tribute",
   "manual",
   "platform_payment",
+  "invitation",
 ]);
 export const enrollmentTermsSchema = z
   .strictObject({

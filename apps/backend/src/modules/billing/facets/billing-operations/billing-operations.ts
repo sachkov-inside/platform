@@ -22,6 +22,7 @@ import {
   ownerOperationSchema,
   ownerPaymentFailure,
   ownerSuccessSchema,
+  type AccessFailureCode,
   type OwnerOperation,
   type OwnerOutcome,
   type OwnerResult,
@@ -46,7 +47,9 @@ import {
 import { refundTotals } from "../../shared/refund-amounts.js";
 import {
   offerGrantsWithheld,
+  sellsSubscription,
   tierLacksComposition,
+  tierOpenForAssignment,
 } from "../../shared/tier-composition.js";
 import type { Tbank } from "../../infrastructure/tbank/tbank.js";
 import type { BillingPayments } from "../billing-payments/billing-payments.js";
@@ -79,8 +82,13 @@ interface Dependencies {
     | "assignEnrollment"
     | "changeEnrollment"
     | "listEnrollments"
+    | "issueInvitation"
+    | "revokeInvitation"
+    | "listInvitations"
   >;
   readonly bank: Tbank | undefined;
+  /** База deep link бота `t.me/<бот>`; без неё приглашение отдаёт только start-параметр. */
+  readonly botStartUrl?: string | undefined;
   readonly clock?: () => Date;
 }
 /**
@@ -814,6 +822,56 @@ export class BillingOperations {
             value: await readRespondents(prisma),
           },
         };
+      case "invitations.issue": {
+        const row = await prisma.billingOffer.findUnique({
+          where: { id: command.offerId },
+        });
+        if (row === null || row.archived) return ownerFailure("not_found");
+        // Оплата ведёт на страницу оформления подписки, подарок назначает тариф без оплаты.
+        if (
+          command.mode === "purchase"
+            ? !sellsSubscription(row) || offerGrantsWithheld(row)
+            : !tierOpenForAssignment(row)
+        )
+          return ownerFailure("state_conflict");
+        const { operation: _operation, ...requested } = command;
+        const result = await grants.issueInvitation(actorId, requested, {
+          id: row.id,
+          revision: row.revision,
+        });
+        if (!result.ok) return invitationFailure(result.error.code);
+        const { note: _note, ...value } = this.ownerInvitation(result.value);
+        return {
+          ok: true,
+          operationRef,
+          result: { outcome: "invitation", value },
+        };
+      }
+      case "invitations.revoke": {
+        const { operation: _operation, ...requested } = command;
+        const result = await grants.revokeInvitation(actorId, requested);
+        if (!result.ok) return invitationFailure(result.error.code);
+        const { note: _note, ...value } = this.ownerInvitation(result.value);
+        return {
+          ok: true,
+          operationRef,
+          result: { outcome: "invitation", value },
+        };
+      }
+      case "invitations.list": {
+        const { operation: _operation, ...requested } = command;
+        const result = await grants.listInvitations(actorId, requested);
+        if (!result.ok) return invitationFailure(result.error.code);
+        return {
+          ok: true,
+          operationRef,
+          result: {
+            outcome: "invitations",
+            items: result.value.items.map((item) => this.ownerInvitation(item)),
+            nextCursor: result.value.nextCursor,
+          },
+        };
+      }
       default: {
         const exhaustive: never = command;
         throw new Error(
@@ -822,6 +880,26 @@ export class BillingOperations {
       }
     }
   }
+
+  /** Приглашение с готовой ссылкой в бота, если процессу известен адрес бота. */
+  private ownerInvitation<View extends { readonly startParameter: string }>(
+    view: View,
+  ): View & { readonly link: string | null } {
+    const base = this.dependencies.botStartUrl;
+    if (base === undefined) return { ...view, link: null };
+    const url = new URL(base);
+    url.searchParams.set("start", view.startParameter);
+    return { ...view, link: url.toString() };
+  }
+}
+
+/** Отказ приглашения: отзыв погашённого или сгоревшего — конфликт состояния, остальное — как у прав. */
+function invitationFailure(
+  code: AccessFailureCode | "state_conflict",
+): Extract<OwnerResult, { ok: false }> {
+  return code === "state_conflict"
+    ? ownerFailure("state_conflict")
+    : ownerAccessFailure(code);
 }
 
 /**
@@ -947,6 +1025,12 @@ function targetOf(command: OwnerOperation, outcome: OwnerOutcome): string {
       return outcome.outcome === "respondentLink"
         ? outcome.value.promotionId
         : command.operationId;
+    // Выдача адресуется своим приглашением: его id и есть operationId команды.
+    case "invitations.issue":
+    case "invitations.list":
+      return command.operationId;
+    case "invitations.revoke":
+      return command.invitationId;
     default: {
       const exhaustive: never = command;
       throw new Error(

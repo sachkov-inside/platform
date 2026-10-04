@@ -78,7 +78,7 @@ export async function listOffers(
       if (
         price.ok &&
         (options.grounds === undefined ||
-          offerAdmits(price.value.offer.eligibility, options.grounds))
+          offerAdmits(price.value.offer, options.grounds))
       )
         items.push(price.value);
     }

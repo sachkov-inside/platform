@@ -10,11 +10,13 @@ import {
   beginActivationSchema,
   activationEvidenceSchema,
   ownSubscriptionAccessQuerySchema,
+  redeemInvitationSchema,
 } from "../../src/modules/membership-entitlements/index.js";
 import {
   bindingLookupResponseSchema,
   activationResponseSchema,
   ownSubscriptionAccessResponseSchema,
+  invitationRedeemResponseSchema,
 } from "../../src/modules/telegram-membership/domain/subscription-activation-wire.js";
 import {
   communitySetSchema,
@@ -34,6 +36,8 @@ const activationCodecs: Record<string, z.ZodType> = {
   ownAccessResponse: ownSubscriptionAccessResponseSchema,
   bindingQuery: bindingLookupQuerySchema,
   bindingResponse: bindingLookupResponseSchema,
+  invitationRedeem: redeemInvitationSchema,
+  invitationRedeemResponse: invitationRedeemResponseSchema,
 };
 const communityCodecs: Record<string, z.ZodType> = {
   communityRequest: z.union([communitySetSchema, communityStatusQuerySchema]),

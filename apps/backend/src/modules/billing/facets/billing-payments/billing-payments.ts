@@ -243,7 +243,7 @@ export class BillingPayments {
                 : reservation.error.code,
             );
           // Расчёт мог быть сохранён, пока основание ещё действовало: допуск проверяется и здесь.
-          if (!offerAdmits(reservation.value.offer.eligibility, grounds)) {
+          if (!offerAdmits(reservation.value.offer, grounds)) {
             await tx.billingPromoReservation.delete({ where: { purchaseRef } });
             return paymentFailure("not_eligible");
           }
