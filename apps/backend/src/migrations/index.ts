@@ -11,6 +11,10 @@ import {
   statement as guideCohortsStatement,
 } from "../modules/billing/infrastructure/postgres/migrations/0076-guide-cohorts.js";
 import {
+  name as accessEndingNoticesName,
+  statement as accessEndingNoticesStatement,
+} from "../modules/billing/infrastructure/postgres/migrations/0077-access-ending-notices.js";
+import {
   name as practiceDefinitionsName,
   statement as practiceDefinitionsStatement,
 } from "../modules/materials/infrastructure/postgres/migrations/0072-practice-definitions.js";
@@ -507,6 +511,10 @@ export const platformMigrations = [
   { name: surveyRespondentsName, statement: surveyRespondentsStatement },
   { name: salesFunnelName, statement: salesFunnelStatement },
   { name: guideCohortsName, statement: guideCohortsStatement },
+  {
+    name: accessEndingNoticesName,
+    statement: accessEndingNoticesStatement,
+  },
 ] as const;
 
 export function migrateToLatest(
