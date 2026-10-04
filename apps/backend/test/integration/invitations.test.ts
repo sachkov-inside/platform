@@ -54,10 +54,14 @@ function failure(result: OwnerResult): string {
   if (result.ok) throw new Error(`Unexpected success ${result.result.outcome}`);
   return result.error.code;
 }
+/** Итог выдачи или отзыва в ответе: код и ссылка в нём есть, их не хранит только журнал. */
 function invitation(result: OwnerResult) {
   const outcome = success(result);
   if (outcome.outcome !== "invitation") throw new Error(outcome.outcome);
-  return outcome.value;
+  const { code, startParameter, link } = outcome.value;
+  if (code === undefined || startParameter === undefined || link === undefined)
+    throw new Error("Invitation answer lost its code");
+  return { ...outcome.value, code, startParameter, link };
 }
 function invitations(result: OwnerResult) {
   const outcome = success(result);
