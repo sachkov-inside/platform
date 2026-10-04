@@ -217,9 +217,8 @@ async function openClosedBody(page: Page, slug: string, body: string) {
 
 /**
  * Отказ на закрытый материал без его bytes: ни в разметке страницы, ни в повторном запросе из
- * браузера через его HTTP-кэш. После отзыва сервер этот материал уже отдавал с телом, поэтому
- * отказ показывает, что прежний ответ не вернулся из кэшей запроса. Клиентский кэш маршрутов
- * открытой вкладки (60 секунд, ADR 0027) запроса не делает и здесь не проверяется.
+ * браузера через его HTTP-кэш. Клиентский кэш маршрутов открытой вкладки (60 секунд, ADR 0027)
+ * запроса не делает и здесь не проверяется.
  */
 async function openDeniedBody(page: Page, slug: string, body: string) {
   await openMaterial(page, slug, "access-required");
@@ -331,6 +330,24 @@ test("a learner scoped to Guide A reads Guide A, is denied Guide B and loses Gui
     throw new Error("Missing Guide B fixture (FULLSTACK_PRACTICE_SLUG)");
   const learner = await openAs(browser, "GUIDE_A_LEARNER");
   const billingManager = await openAs(browser, "BILLING_ONLY");
+  const terms = {
+    startsAt: new Date().toISOString(),
+    endsAt: null,
+    endPolicy: "fixed",
+  };
+  const revoke = async (enrollment: { id: string; revision: number }) =>
+    billingRecordSchema.parse(
+      await billing(billingManager.page, "enrollments/change", {
+        enrollmentId: enrollment.id,
+        expectedRevision: enrollment.revision,
+        action: "revoke",
+        terms,
+        reason: "Scoped learner access check revoked",
+      }),
+    ).value.result.value;
+  // Назначение, которое ещё не отозвано: упавший прогон не оставляет ученику доступ к Guide A
+  // для следующего прогона того же набора.
+  let activeEnrollment: { id: string; revision: number } | undefined;
   try {
     // Без назначения Guide A закрыт, а бесплатный материал открыт: доступ к A даст только
     // назначение ниже, и отказ здесь не следствие сломанной сессии.
@@ -343,11 +360,6 @@ test("a learner scoped to Guide A reads Guide A, is denied Guide B and loses Gui
         value: guideAOffer(tierId, `Только Guide A ${tierId}`),
       }),
     ).value.result.value;
-    const terms = {
-      startsAt: new Date().toISOString(),
-      endsAt: null,
-      endPolicy: "fixed",
-    };
     const assigned = billingRecordSchema.parse(
       await billing(billingManager.page, "enrollments/assign", {
         accountId: await accountIdOf(learner.page),
@@ -360,26 +372,23 @@ test("a learner scoped to Guide A reads Guide A, is denied Guide B and loses Gui
         reason: "Scoped learner access check",
       }),
     ).value.result.value;
+    activeEnrollment = assigned;
     expect(assigned.state).toBe("active");
 
     await openClosedBody(learner.page, guideA.closedSlug, guideA.closedBody);
     await openDeniedBody(learner.page, guideBSlug, guideB.closedBody);
 
-    const revoked = billingRecordSchema.parse(
-      await billing(billingManager.page, "enrollments/change", {
-        enrollmentId: assigned.id,
-        expectedRevision: assigned.revision,
-        action: "revoke",
-        terms,
-        reason: "Scoped learner access check revoked",
-      }),
-    ).value.result.value;
+    const revoked = await revoke(assigned);
+    activeEnrollment = undefined;
     expect(revoked.state).toBe("revoked");
 
-    // Тело Guide A этот браузер и сервер уже отдавали; следующий запрос получает отказ.
+    // Тело Guide A этот браузер и сервер уже отдавали. Следующий запрос получает отказ: прежний
+    // ответ с телом не вернулся ни из HTTP-кэша браузера, ни из кэшей сервера.
     await openDeniedBody(learner.page, guideA.closedSlug, guideA.closedBody);
     await openMaterial(learner.page, publishedMaterial.slug, "available");
   } finally {
+    if (activeEnrollment !== undefined)
+      await revoke(activeEnrollment).catch(() => undefined);
     await learner.context.close();
     await billingManager.context.close();
   }
