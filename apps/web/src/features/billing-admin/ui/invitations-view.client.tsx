@@ -17,6 +17,7 @@ import {
   invitationStateFilters,
   invitationStateLabel,
   invitationTermLabel,
+  invitationUsableUntil,
   type Invitation,
   type InvitationMode,
   type InvitationState,
@@ -389,6 +390,7 @@ function InvitationRow({
   readonly onRevoke: (invitation: Invitation) => void;
 }) {
   const term = invitationTermLabel(invitation);
+  const usableUntil = invitationUsableUntil(invitation);
   const title = offerName ?? "Предложение не найдено в каталоге";
   return (
     <li
@@ -418,12 +420,12 @@ function InvitationRow({
           <dt>Выдано:</dt>
           <dd className="text-foreground">{formatDate(invitation.issuedAt)}</dd>
         </div>
-        <div className="flex gap-2">
-          <dt>Действует до:</dt>
-          <dd className="text-foreground">
-            {formatDate(invitation.expiresAt)}
-          </dd>
-        </div>
+        {usableUntil === null ? null : (
+          <div className="flex gap-2">
+            <dt>Действует до:</dt>
+            <dd className="text-foreground">{formatDate(usableUntil)}</dd>
+          </div>
+        )}
         {hasText(invitation.note) ? (
           <div className="flex min-w-0 gap-2 sm:col-span-2">
             <dt>Заметка:</dt>

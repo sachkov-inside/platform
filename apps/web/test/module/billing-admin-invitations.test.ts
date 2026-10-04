@@ -25,6 +25,7 @@ import {
   invitationShareText,
   invitationStateLabel,
   invitationTermLabel,
+  invitationUsableUntil,
   type Invitation,
 } from "@/features/billing-admin/model/invitation-operations";
 import { materialsOffer, supportOffer } from "@/workshop/billing.fixtures";
@@ -71,6 +72,24 @@ const problem = (code: string, status: number) => ({
 });
 
 describe("подписи приглашения", () => {
+  it("называет срок только у живого приглашения: закреплённое ждёт 30 дней с открытия", () => {
+    const expiresAt = "2030-01-15T00:00:00.000Z";
+    expect(
+      invitationUsableUntil({ state: "issued", expiresAt, claimedAt: null }),
+    ).toBe(expiresAt);
+    expect(
+      invitationUsableUntil({
+        state: "claimed",
+        expiresAt,
+        claimedAt: "2030-01-10T00:00:00.000Z",
+      }),
+    ).toBe("2030-02-09T00:00:00.000Z");
+    for (const state of ["redeemed", "expired", "revoked"] as const)
+      expect(
+        invitationUsableUntil({ state, expiresAt, claimedAt: null }),
+      ).toBeNull();
+  });
+
   it("называет использованное приглашение по его результату", () => {
     expect(invitationStateLabel("issued", "purchase")).toBe("Выдано");
     expect(invitationStateLabel("claimed", "gift")).toBe("Открыто");

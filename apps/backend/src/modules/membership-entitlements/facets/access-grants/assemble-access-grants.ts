@@ -79,6 +79,7 @@ import { readOwnAccess } from "../../features/read-own-access/read-own-access.js
 import {
   issueInvitation,
   listInvitations,
+  readInvitation,
   revokeInvitation,
 } from "../../features/manage-invitations/manage-invitations.js";
 import {
@@ -320,6 +321,10 @@ export function assembleAccessGrants(dependencies: AccessGrantsDependencies) {
     revokeInvitation: (actorId: string, input: unknown) =>
       manage(actorId, "billing:manage", () =>
         revokeInvitation(prisma, input, clock()),
+      ),
+    readInvitation: (actorId: string, invitationId: string) =>
+      manage(actorId, "billing:manage", () =>
+        readInvitation(prisma, invitationId, clock()),
       ),
     listInvitations: (actorId: string, input: unknown) =>
       manage(actorId, "billing:manage", () =>

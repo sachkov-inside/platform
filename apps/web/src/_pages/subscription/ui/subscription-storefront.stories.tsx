@@ -121,6 +121,35 @@ export const NotOfferedWithSubscription: Story = {
   },
 };
 
+/**
+ * Гость открыл ссылку «Оплатить» из бота: Offer «только по приглашению» ему не виден, поэтому
+ * витрина зовёт войти и возвращает на тот же адрес с `?offer=`, а не объявляет продажу выключенной.
+ */
+export const InvitedGuest: Story = {
+  args: {
+    offers: [],
+    initialOfferId: supportOffer.offer.id,
+    returnTo: `/subscription?offer=${supportOffer.offer.id}`,
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await expect(
+      canvas.getByRole("heading", {
+        level: 1,
+        name: "Подписка по приглашению",
+      }),
+    ).toBeVisible();
+    const signIn = await canvas.findByRole("button", { name: "Войти" });
+    await expect(signIn).toBeVisible();
+    await expect(
+      canvasElement.querySelector('input[name="returnTo"]'),
+    ).toHaveValue(`/subscription?offer=${supportOffer.offer.id}`);
+    await expect(
+      canvas.queryByText("Подписка сейчас не продаётся"),
+    ).not.toBeInTheDocument();
+  },
+};
+
 /** Каталог не прочитался: это сбой, и он честно предлагает зайти позже. */
 export const Unavailable: Story = {
   args: { offers: [], unavailable: true },

@@ -28,7 +28,7 @@ export const issueInvitationInputSchema = z.strictObject({
 export const revokeInvitationInputSchema = z.strictObject({
   operationId: z.uuid(),
   invitationId: z.uuid(),
-  expectedRevision: z.int().nonnegative(),
+  expectedRevision: z.int().positive(),
 });
 export const listInvitationsInputSchema = z.strictObject({
   operationId: z.uuid(),
@@ -192,4 +192,22 @@ export function invitationOfferChoices(
     choices.set(offer.id, { id: offer.id, name: offer.name });
   }
   return [...choices.values()];
+}
+
+/** Закреплённое приглашение ждёт входа 30 дней с первого открытия, как попытка активации. */
+const claimLifetimeMs = 30 * 24 * 60 * 60 * 1000;
+
+/**
+ * До какого момента приглашение ещё можно использовать: неоткрытое — до конца 14 дней с выдачи,
+ * закреплённое — 30 дней с первого открытия. У погашённого, сгоревшего и отозванного срока нет.
+ */
+export function invitationUsableUntil(
+  invitation: Pick<Invitation, "state" | "expiresAt" | "claimedAt">,
+): string | null {
+  if (invitation.state === "issued") return invitation.expiresAt;
+  if (invitation.state === "claimed" && invitation.claimedAt !== null)
+    return new Date(
+      new Date(invitation.claimedAt).getTime() + claimLifetimeMs,
+    ).toISOString();
+  return null;
 }

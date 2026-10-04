@@ -67,7 +67,10 @@ export function AccessSection({
             const selected = tab.id === current.id;
             return (
               <button
-                aria-controls={`${baseId}-panel-${tab.id}`}
+                // Показана только панель выбранной вкладки: ссылка на панель есть только у неё.
+                aria-controls={
+                  selected ? `${baseId}-panel-${tab.id}` : undefined
+                }
                 aria-selected={selected}
                 className={cn(
                   "-mb-px min-h-11 border-b-2 px-3 text-sm font-medium transition-colors motion-reduce:transition-none",

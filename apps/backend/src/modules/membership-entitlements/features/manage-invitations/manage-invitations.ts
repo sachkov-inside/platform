@@ -1,4 +1,5 @@
 import { randomBytes } from "node:crypto";
+import { z } from "zod";
 import { lockAccountAccess } from "../../../../infrastructure/prisma/index.js";
 import { accessFailure } from "../../domain/access-grant.js";
 import {
@@ -162,4 +163,20 @@ function stateCondition(state: InvitationState, now: Date): InvitationWhere {
         ],
       };
   }
+}
+
+/** Одно приглашение по id: повтор выдачи отдаёт его без новой проверки Offer. */
+export async function readInvitation(
+  prisma: MembershipEntitlementsPrismaClient,
+  invitationId: string,
+  now: Date,
+) {
+  if (!z.uuid().safeParse(invitationId).success)
+    return accessFailure("invalid_input");
+  const row = await prisma.invitation.findUnique({
+    where: { id: invitationId },
+  });
+  return row === null
+    ? accessFailure("not_found")
+    : { ok: true as const, value: invitationView(row, now) };
 }

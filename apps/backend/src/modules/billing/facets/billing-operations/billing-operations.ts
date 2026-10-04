@@ -87,6 +87,7 @@ interface Dependencies {
     | "issueInvitation"
     | "revokeInvitation"
     | "listInvitations"
+    | "readInvitation"
   >;
   readonly bank: Tbank | undefined;
   /** База deep link бота `t.me/<бот>`; без неё приглашение отдаёт только start-параметр. */
@@ -128,9 +129,23 @@ export class BillingOperations {
       if (receipt !== null) {
         if (receipt.fingerprint !== digest)
           return ownerFailure("operation_conflict");
-        // Журнал не хранит код приглашения; выдача идемпотентна по id и отдаёт его заново.
-        if (command.operation === "invitations.issue")
-          return await this.dispatch(actorId, command);
+        // Журнал не хранит код приглашения: повтор выдачи читает выданное по id, а Offer, который
+        // могли архивировать после выдачи, заново не проверяет.
+        if (command.operation === "invitations.issue") {
+          const issued = await this.dependencies.grants.readInvitation(
+            actorId,
+            command.operationId,
+          );
+          if (!issued.ok) return invitationFailure(issued.error.code);
+          return {
+            ok: true,
+            operationRef: command.operationId,
+            result: {
+              outcome: "invitation",
+              value: withoutNote(this.ownerInvitation(issued.value)),
+            },
+          };
+        }
         return storedResult(command.operationId, receipt.result);
       }
       const result = await this.dispatch(actorId, command);

@@ -281,6 +281,14 @@ describe("приглашения: выдача владельцем и пога�
     expect(
       invitation(await issue({ offerId, mode: "purchase", note }, operationId)),
     ).toEqual(issued);
+    // Повтор после потерянного ответа отдаёт выданное, даже если Offer тем временем ушёл в архив.
+    await db.prisma.billingOffer.update({
+      where: { id: offerId },
+      data: { archived: true },
+    });
+    expect(
+      invitation(await issue({ offerId, mode: "purchase", note }, operationId)),
+    ).toEqual(issued);
     const audit = await db.prisma.billingOwnerCommand.findMany({
       where: { operationId },
     });
