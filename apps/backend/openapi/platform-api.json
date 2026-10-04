@@ -75711,8 +75711,6 @@
                               },
                               "required": [
                                 "id",
-                                "code",
-                                "startParameter",
                                 "offerId",
                                 "offerRevision",
                                 "mode",
@@ -75724,8 +75722,7 @@
                                 "redeemedAt",
                                 "revokedAt",
                                 "accountId",
-                                "revision",
-                                "link"
+                                "revision"
                               ],
                               "type": "object"
                             }

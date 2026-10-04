@@ -14,6 +14,7 @@ import type { Accounts } from "../../../accounts/index.js";
 import {
   recurringAllowedFor,
   type AccessGrants,
+  type invitationViewSchema,
 } from "../../../membership-entitlements/index.js";
 import {
   isOwnerReadOperation,
@@ -21,6 +22,7 @@ import {
   ownerFailure,
   ownerOperationSchema,
   ownerPaymentFailure,
+  ownerInvitationSchema,
   ownerSuccessSchema,
   type AccessFailureCode,
   type OwnerOperation,
@@ -47,7 +49,7 @@ import {
 import { refundTotals } from "../../shared/refund-amounts.js";
 import {
   offerGrantsWithheld,
-  sellsSubscription,
+  subscriptionOfferForInvitation,
   tierLacksComposition,
   tierOpenForAssignment,
 } from "../../shared/tier-composition.js";
@@ -126,6 +128,9 @@ export class BillingOperations {
       if (receipt !== null) {
         if (receipt.fingerprint !== digest)
           return ownerFailure("operation_conflict");
+        // Журнал не хранит код приглашения; выдача идемпотентна по id и отдаёт его заново.
+        if (command.operation === "invitations.issue")
+          return await this.dispatch(actorId, command);
         return storedResult(command.operationId, receipt.result);
       }
       const result = await this.dispatch(actorId, command);
@@ -157,7 +162,7 @@ export class BillingOperations {
       fingerprint: digest,
       targetRef: targetOf(command, result.result),
       reason: reasonOf(command, result.result),
-      result: result.result,
+      result: auditedOutcome(result.result),
       createdAt: this.clock(),
     };
     try {
@@ -830,7 +835,7 @@ export class BillingOperations {
         // Оплата ведёт на страницу оформления подписки, подарок назначает тариф без оплаты.
         if (
           command.mode === "purchase"
-            ? !sellsSubscription(row) || offerGrantsWithheld(row)
+            ? !subscriptionOfferForInvitation(row)
             : !tierOpenForAssignment(row)
         )
           return ownerFailure("state_conflict");
@@ -840,22 +845,26 @@ export class BillingOperations {
           revision: row.revision,
         });
         if (!result.ok) return invitationFailure(result.error.code);
-        const { note: _note, ...value } = this.ownerInvitation(result.value);
         return {
           ok: true,
           operationRef,
-          result: { outcome: "invitation", value },
+          result: {
+            outcome: "invitation",
+            value: withoutNote(this.ownerInvitation(result.value)),
+          },
         };
       }
       case "invitations.revoke": {
         const { operation: _operation, ...requested } = command;
         const result = await grants.revokeInvitation(actorId, requested);
         if (!result.ok) return invitationFailure(result.error.code);
-        const { note: _note, ...value } = this.ownerInvitation(result.value);
         return {
           ok: true,
           operationRef,
-          result: { outcome: "invitation", value },
+          result: {
+            outcome: "invitation",
+            value: withoutNote(this.ownerInvitation(result.value)),
+          },
         };
       }
       case "invitations.list": {
@@ -882,15 +891,86 @@ export class BillingOperations {
   }
 
   /** Приглашение с готовой ссылкой в бота, если процессу известен адрес бота. */
-  private ownerInvitation<View extends { readonly startParameter: string }>(
-    view: View,
-  ): View & { readonly link: string | null } {
+  private ownerInvitation(view: InvitationView): OwnerInvitation {
     const base = this.dependencies.botStartUrl;
-    if (base === undefined) return { ...view, link: null };
-    const url = new URL(base);
-    url.searchParams.set("start", view.startParameter);
-    return { ...view, link: url.toString() };
+    let link: string | null = null;
+    if (base !== undefined) {
+      const url = new URL(base);
+      url.searchParams.set("start", view.startParameter);
+      link = url.toString();
+    }
+    return {
+      id: view.id,
+      code: view.code,
+      startParameter: view.startParameter,
+      offerId: view.offerId,
+      offerRevision: view.offerRevision,
+      mode: view.mode,
+      giftMonths: view.giftMonths,
+      note: view.note,
+      state: view.state,
+      issuedAt: view.issuedAt,
+      expiresAt: view.expiresAt,
+      claimedAt: view.claimedAt,
+      redeemedAt: view.redeemedAt,
+      revokedAt: view.revokedAt,
+      accountId: view.accountId,
+      revision: view.revision,
+      link,
+    };
   }
+}
+
+type InvitationView = z.infer<typeof invitationViewSchema>;
+type OwnerInvitation = z.infer<typeof ownerInvitationSchema>;
+
+/** Итог выдачи и отзыва без заметки владельца о человеке. */
+function withoutNote(invitation: OwnerInvitation) {
+  return {
+    id: invitation.id,
+    code: invitation.code,
+    startParameter: invitation.startParameter,
+    offerId: invitation.offerId,
+    offerRevision: invitation.offerRevision,
+    mode: invitation.mode,
+    giftMonths: invitation.giftMonths,
+    state: invitation.state,
+    issuedAt: invitation.issuedAt,
+    expiresAt: invitation.expiresAt,
+    claimedAt: invitation.claimedAt,
+    redeemedAt: invitation.redeemedAt,
+    revokedAt: invitation.revokedAt,
+    accountId: invitation.accountId,
+    revision: invitation.revision,
+    link: invitation.link,
+  };
+}
+
+/**
+ * Итог команды для журнала. Код и ссылка приглашения погашают его, поэтому журнал их не хранит;
+ * остальные итоги записываются как есть.
+ */
+function auditedOutcome(outcome: OwnerOutcome): OwnerOutcome {
+  if (outcome.outcome !== "invitation") return outcome;
+  const { value } = outcome;
+  return {
+    outcome: "invitation",
+    value: {
+      id: value.id,
+      offerId: value.offerId,
+      offerRevision: value.offerRevision,
+      mode: value.mode,
+      giftMonths: value.giftMonths,
+      state: value.state,
+      issuedAt: value.issuedAt,
+      expiresAt: value.expiresAt,
+      claimedAt: value.claimedAt,
+      redeemedAt: value.redeemedAt,
+      revokedAt: value.revokedAt,
+      accountId: value.accountId,
+      revision: value.revision,
+    },
+  };
 }
 
 /** Отказ приглашения: отзыв погашённого или сгоревшего — конфликт состояния, остальное — как у прав. */

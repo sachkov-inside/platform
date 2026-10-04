@@ -21,8 +21,7 @@ import {
 } from "../../../membership-entitlements/index.js";
 import { subscriptionPeriodEnd } from "../../domain/subscription-period.js";
 import {
-  offerGrantsWithheld,
-  sellsSubscription,
+  subscriptionOfferForInvitation,
   tierOpenForAssignment,
 } from "../../shared/tier-composition.js";
 import {
@@ -195,8 +194,7 @@ export class SubscriptionActivation {
                 !row.archived &&
                 row.published &&
                 row.options.length > 0 &&
-                sellsSubscription(row) &&
-                !offerGrantsWithheld(row),
+                subscriptionOfferForInvitation(row),
               tier: tierOpenForAssignment(row)
                 ? tierSnapshotSchema.parse({
                     id: row.id,
@@ -212,23 +210,25 @@ export class SubscriptionActivation {
         offer,
         periodEnd: subscriptionPeriodEnd,
       });
-      if (!result.ok)
-        return result.error.code === "identity_conflict"
-          ? {
-              ok: false as const,
-              error: { code: "identity_conflict" as const },
-            }
-          : result.error.code === "invalid_input"
-            ? {
-                ok: false as const,
-                error: { code: "invalid_input" as const },
-              }
-            : unavailable;
+      if (!result.ok) {
+        // Запрос уже прошёл схему, а идентичность — проверку выше: другой отказ назначения —
+        // нарушенный инвариант прав, и его причина записывается как сбой зависимости.
+        if (result.error.code === "identity_conflict")
+          return {
+            ok: false as const,
+            error: { code: "identity_conflict" as const },
+          };
+        throw new Error(
+          `Invitation redemption refused with ${result.error.code}`,
+        );
+      }
       const redemption = result.value;
       const contractVersion = ACTIVATION_CONTRACT_VERSION;
       let value: InvitationRedemptionOutcome;
-      if (!("mode" in redemption)) value = { contractVersion, ...redemption };
-      else if (row === null) return unavailable;
+      if (!("mode" in redemption))
+        value = { contractVersion, state: redemption.state };
+      else if (row === null)
+        throw new Error("Redeemed invitation lost its Offer");
       else if (redemption.mode === "gift")
         value = {
           contractVersion,
@@ -238,7 +238,8 @@ export class SubscriptionActivation {
           enrollment: redemption.enrollment,
         };
       else {
-        if (siteOrigin === undefined) return unavailable;
+        if (siteOrigin === undefined)
+          throw new Error("Invitation checkout needs the public site origin");
         const checkoutUrl = new URL("/subscription", siteOrigin);
         checkoutUrl.searchParams.set("offer", row.id);
         value = {

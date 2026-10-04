@@ -9,6 +9,7 @@ import type { MembershipEntitlementsPrismaClient } from "../../infrastructure/pr
 import { accessFailure } from "../../domain/access-grant.js";
 import { tierSnapshotSchema } from "../../domain/subscription-enrollment.js";
 import {
+  ACTIVATION_ATTEMPT_LIFETIME_MS,
   ACTIVATION_CONTRACT_VERSION,
   beginActivationSchema,
   activationEvidenceSchema,
@@ -21,7 +22,6 @@ import {
   accessFingerprint,
   readAccessReceipt,
 } from "../../shared/access-receipts.js";
-const activationAttemptLifetimeMilliseconds = 30 * 24 * 60 * 60 * 1000;
 const sourceProofLifetimeMilliseconds = 5 * 60 * 1000;
 export async function beginActivation(
   prisma: MembershipEntitlementsPrismaClient,
@@ -78,9 +78,7 @@ export async function beginActivation(
         ruleId: rule.id,
         ruleRevision: rule.revision,
         result: value,
-        expiresAt: new Date(
-          now.getTime() + activationAttemptLifetimeMilliseconds,
-        ),
+        expiresAt: new Date(now.getTime() + ACTIVATION_ATTEMPT_LIFETIME_MS),
       },
     });
     return { ok: true as const, value };

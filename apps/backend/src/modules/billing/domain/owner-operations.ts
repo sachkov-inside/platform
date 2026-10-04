@@ -543,10 +543,14 @@ export const ownerSuccessSchema = z.union([
     outcome: z.literal("respondents"),
     value: respondentsViewSchema,
   }),
-  // Запись выдачи и отзыва хранит итог в журнале: заметка владельца о человеке туда не попадает.
+  // Заметки владельца о человеке в итоге выдачи и отзыва нет. Код и ссылка погашают неоткрытое
+  // приглашение, поэтому журнал хранит итог без них (`auditedOutcome`), а повтор выдачи читает их
+  // заново.
   z.strictObject({
     outcome: z.literal("invitation"),
-    value: ownerInvitationSchema.omit({ note: true }),
+    value: ownerInvitationSchema
+      .omit({ note: true })
+      .partial({ code: true, startParameter: true, link: true }),
   }),
   z.strictObject({
     outcome: z.literal("invitations"),

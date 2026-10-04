@@ -2605,19 +2605,19 @@ export class BillingService {
       value: {
         accountId: string | null;
         claimedAt: string | null;
-        code: string;
+        code?: string;
         expiresAt: string;
         giftMonths: number | null;
         id: string;
         issuedAt: string;
-        link: string | null;
+        link?: string | null;
         mode: 'purchase' | 'gift';
         offerId: string;
         offerRevision: number;
         redeemedAt: string | null;
         revision: number;
         revokedAt: string | null;
-        startParameter: string;
+        startParameter?: string;
         state: 'issued' | 'claimed' | 'redeemed' | 'expired' | 'revoked';
       };
     } | {

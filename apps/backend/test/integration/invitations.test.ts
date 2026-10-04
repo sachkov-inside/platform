@@ -286,6 +286,10 @@ describe("приглашения: выдача владельцем и пога�
     expect(
       JSON.stringify(audit.map((row) => [row.reason, row.result])),
     ).not.toContain("invited_reader");
+    // Код погашает неоткрытое приглашение: журнал его не хранит.
+    expect(JSON.stringify(audit.map((row) => row.result))).not.toContain(
+      issued.code,
+    );
     const listed = invitations(
       await operations.execute(owner, {
         operation: "invitations.list",

@@ -1,6 +1,9 @@
 import { z } from "zod";
 import { sourceRefSchema } from "./access-grant.js";
-import { ACTIVATION_CONTRACT_VERSION } from "./subscription-activation.js";
+import {
+  ACTIVATION_ATTEMPT_LIFETIME_MS,
+  ACTIVATION_CONTRACT_VERSION,
+} from "./subscription-activation.js";
 import {
   enrollmentViewSchema,
   type TierSnapshot,
@@ -9,7 +12,7 @@ import {
 /** Неоткрытое приглашение сгорает через 14 дней после выдачи. */
 export const INVITATION_OPEN_LIFETIME_MS = 14 * 24 * 60 * 60 * 1000;
 /** Закреплённое приглашение ждёт привязки Account столько же, сколько попытка активации. */
-export const INVITATION_CLAIM_LIFETIME_MS = 30 * 24 * 60 * 60 * 1000;
+export const INVITATION_CLAIM_LIFETIME_MS = ACTIVATION_ATTEMPT_LIFETIME_MS;
 /** 16 случайных байт — 22 символа base64url: deep link `i_<code>` короче 43 символов. */
 export const INVITATION_CODE_BYTES = 16;
 /** Префикс start-параметра бота, по которому бот узнаёт приглашение. */

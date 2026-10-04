@@ -62,13 +62,13 @@ HTTP 200 returns `{"ok":true,"value":...}` with one `state`:
 - `needs_account` — the identity has no Account yet. The first open claims the invitation for this identity; the bot offers sign-in and repeats the same request after linking.
 - `purchase_ready` — mode `purchase`: the Account may now buy the Offer. `offerName` and the absolute `checkoutUrl` of the Offer's checkout page are returned; the bot answers with a payment button.
 - `gift_granted` — mode `gift`: the Offer is assigned as an Enrollment with origin `invitation`; `offerName` and the Enrollment view are returned; the bot leads to the community.
-- `already_redeemed` — a repeat after redemption; it carries the same `mode` and payload as the first answer.
+- `already_redeemed` — a repeat after redemption. It carries the same `mode` and the same kind of payload as the first answer, read again: the current Offer name, the same `checkoutUrl`, or the current view of the same Enrollment.
 - `claimed_by_other` — another identity opened the invitation first.
 - `expired` — not opened within 14 days of issue, or claimed and not redeemed within 30 days of the first open.
 - `revoked` — the owner revoked it before redemption.
 - `unavailable` — unknown code, or the Offer is not on sale (`purchase`) or not open for assignment (`gift`). The claim stays; a later repeat may succeed.
 
-Refusal states carry only `contractVersion` and `state`. `{"ok":false,"error":{"code":...}}` returns `invalid_input`, `identity_conflict` (the identity is linked to several Accounts) or `unavailable` (a dependency failed).
+Refusal states carry only `contractVersion` and `state`. `{"ok":false,"error":{"code":...}}` returns `invalid_input`, `identity_conflict` or `unavailable` (a dependency failed or an internal rule was broken). `identity_conflict` means that the identity is linked to several Accounts, or that the gift Enrollment of this invitation already belongs to another Account.
 
 The operation is idempotent by `(code, identityRef)`: a lost answer is retried with the same request. Claim, redemption and the gift Enrollment commit in one transaction. Redemption in either mode admits the Account to buy that Offer for good, including an Offer with eligibility `invitation_only`.
 
