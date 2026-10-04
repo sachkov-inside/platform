@@ -309,7 +309,11 @@ describe("таблица сценариев доступа (реальный Pos
       contact,
       grants,
       payments,
-      notices: new BillingNotices({ prisma: db.prisma, clock: () => now }),
+      notices: new BillingNotices({
+        prisma: db.prisma,
+        enrollments: grants,
+        clock: () => now,
+      }),
       clock: () => now,
     });
     operations = new BillingOperations({
@@ -1444,6 +1448,34 @@ describe("таблица сценариев доступа (реальный Pos
         expect(await transitionVerdicts("expiry", gifted)).toEqual([]);
       },
     );
+  });
+
+  test("expiry: ручной и подарочный доступ закрываются на границе, сообщество получает denied в тот же момент", async () => {
+    now = new Date(startedAt);
+    const recipient = await account();
+    await linkChat(recipient);
+    await assignEnrollment("manual", recipient, groundEndsAt, tierId);
+    await project(recipient);
+    expect(await observe("product-material", recipient)).toEqual(
+      open("ground-term"),
+    );
+    const before = value(await community.readDelivery(owner, recipient));
+    expect(before.desired?.access).toEqual({
+      kind: "finite",
+      validUntil: groundEndsAt,
+    });
+    expect(before.desired?.nextBoundary).toBe(groundEndsAt);
+    await atMoment(groundEndsAt, async () => {
+      // Граница сама приводит к пересчёту: запаса после окончания нет.
+      await community.sweep(100);
+      const after = value(await community.readDelivery(owner, recipient));
+      expect(after.desired?.access).toEqual({ kind: "denied" });
+      expect(after.operations[0]).toMatchObject({
+        access: { kind: "denied" },
+        issuedAt: groundEndsAt,
+      });
+      expect(await transitionVerdicts("expiry", recipient)).toEqual([]);
+    });
   });
 
   test("revocation", async () => {

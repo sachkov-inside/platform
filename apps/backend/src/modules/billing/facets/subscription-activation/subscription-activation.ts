@@ -19,6 +19,7 @@ import {
   type InvitationOffer,
   type InvitationRedemptionOutcome,
 } from "../../../membership-entitlements/index.js";
+import { offerCheckoutPath } from "../../domain/offer-checkout.js";
 import { subscriptionPeriodEnd } from "../../domain/subscription-period.js";
 import {
   subscriptionOfferForInvitation,
@@ -240,8 +241,7 @@ export class SubscriptionActivation {
       else {
         if (siteOrigin === undefined)
           throw new Error("Invitation checkout needs the public site origin");
-        const checkoutUrl = new URL("/subscription", siteOrigin);
-        checkoutUrl.searchParams.set("offer", row.id);
+        const checkoutUrl = new URL(offerCheckoutPath(row.id), siteOrigin);
         value = {
           contractVersion,
           state: redemption.state,

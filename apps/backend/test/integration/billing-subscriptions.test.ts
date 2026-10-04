@@ -203,7 +203,11 @@ describe("подписка: продление, отмена, смена вар�
       grants,
       clock: () => now,
     });
-    const notices = new BillingNotices({ prisma: db.prisma, clock: () => now });
+    const notices = new BillingNotices({
+      prisma: db.prisma,
+      enrollments: grants,
+      clock: () => now,
+    });
     const subscriptions = new BillingSubscriptions({
       prisma: db.prisma,
       bank: client,
@@ -613,7 +617,11 @@ describe("подписка: продление, отмена, смена вар�
           clock: () => now,
         }),
         payments: s.payments,
-        notices: new BillingNotices({ prisma: pool, clock: () => now }),
+        notices: new BillingNotices({
+          prisma: pool,
+          enrollments: grants,
+          clock: () => now,
+        }),
         clock: () => now,
       });
       expect(

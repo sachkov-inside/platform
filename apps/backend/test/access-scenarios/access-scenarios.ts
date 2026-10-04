@@ -310,7 +310,7 @@ export const accessScenarioTable = {
   } satisfies Record<AccessSurface, ByGround>,
   transitions: {
     expiry: {
-      rule: "На границе срока перестаёт действовать только это основание; новый вход в чат закрыт.",
+      rule: "На границе срока перестаёт действовать только это основание: материалы закрываются, сообщество получает denied в тот же момент, без запаса; новый вход в чат закрыт.",
       after: {
         "product-material": locked,
         video: closed,

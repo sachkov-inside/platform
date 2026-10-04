@@ -137,6 +137,17 @@ export async function lockBillingSubscription(
   );
 }
 
+/** Notices about one Enrollment ending serialize: one reminder cycle and one boundary notice. */
+export async function lockBillingEnrollmentNotices(
+  transaction: AdvisoryLockTransaction,
+  enrollmentId: string,
+): Promise<void> {
+  await lockTransactionKey(
+    transaction,
+    `billing:enrollment-notices:${enrollmentId}`,
+  );
+}
+
 /** Refund decisions and their execution serialize on one confirmed payment; no provider I/O under it. */
 export async function lockBillingPurchase(
   transaction: AdvisoryLockTransaction,

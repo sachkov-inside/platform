@@ -87,6 +87,12 @@ import {
   redeemInvitation,
   type RedeemInvitationContext,
 } from "../../features/redeem-invitation/redeem-invitation.js";
+import {
+  enrollmentEndingsQuerySchema,
+  listEnrollmentEndings,
+  readEnrollmentEnding,
+  type EnrollmentEndingsQuery,
+} from "../../features/read-enrollment-endings/read-enrollment-endings.js";
 
 export interface AccessGrantsDependencies {
   readonly prisma: MembershipEntitlementsPrismaClient;
@@ -625,6 +631,48 @@ export function assembleAccessGrants(dependencies: AccessGrantsDependencies) {
           {
             module: "membership-entitlements",
             operation: "readChangedAccounts",
+          },
+          error,
+          accessFailure("unavailable"),
+        );
+      }
+    },
+    /**
+     * Внутреннее чтение billing без полномочия владельца: календарь служебных сообщений находит
+     * границы конечного неоплаченного доступа и перед отправкой сверяет, что граница не сдвинулась.
+     */
+    async listEnrollmentEndings(query: EnrollmentEndingsQuery) {
+      const parsed = enrollmentEndingsQuerySchema.safeParse(query);
+      if (!parsed.success) return accessFailure("invalid_input");
+      try {
+        return {
+          ok: true as const,
+          value: await listEnrollmentEndings(prisma, parsed.data),
+        };
+      } catch (error) {
+        return dependencyFailure(
+          {
+            module: "membership-entitlements",
+            operation: "listEnrollmentEndings",
+          },
+          error,
+          accessFailure("unavailable"),
+        );
+      }
+    },
+    async readEnrollmentEnding(enrollmentId: string) {
+      if (!z.uuid().safeParse(enrollmentId).success)
+        return accessFailure("invalid_input");
+      try {
+        return {
+          ok: true as const,
+          value: (await readEnrollmentEnding(prisma, enrollmentId)) ?? null,
+        };
+      } catch (error) {
+        return dependencyFailure(
+          {
+            module: "membership-entitlements",
+            operation: "readEnrollmentEnding",
           },
           error,
           accessFailure("unavailable"),

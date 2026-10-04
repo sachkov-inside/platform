@@ -247,7 +247,8 @@ describe("Platform migrations", () => {
         "0073_survey_respondents",
         "0074_sales_funnel",
         "0076_guide_cohorts",
-        "0077_invitations",
+        "0077_access_ending_notices",
+        "0078_invitations",
       ],
     });
     expect(second).toEqual({ appliedMigrations: [] });
@@ -911,7 +912,8 @@ describe("Platform migrations", () => {
           "0073_survey_respondents",
           "0074_sales_funnel",
           "0076_guide_cohorts",
-          "0077_invitations",
+          "0077_access_ending_notices",
+          "0078_invitations",
         ],
       });
 

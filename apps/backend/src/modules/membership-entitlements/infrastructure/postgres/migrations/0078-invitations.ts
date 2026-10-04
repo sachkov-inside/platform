@@ -1,4 +1,4 @@
-export const name = "0077_invitations";
+export const name = "0078_invitations";
 export const statement = `
 ALTER TABLE billing.offers DROP CONSTRAINT offers_eligibility_check;
 ALTER TABLE billing.offers ADD CONSTRAINT offers_eligibility_check

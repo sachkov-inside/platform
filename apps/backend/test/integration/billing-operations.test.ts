@@ -432,7 +432,11 @@ describe("владельческие операции billing: платежи, �
       grants,
       clock: () => now,
     });
-    const notices = new BillingNotices({ prisma: db.prisma, clock: () => now });
+    const notices = new BillingNotices({
+      prisma: db.prisma,
+      enrollments: grants,
+      clock: () => now,
+    });
     const subscriptions = new BillingSubscriptions({
       prisma: db.prisma,
       bank: client,

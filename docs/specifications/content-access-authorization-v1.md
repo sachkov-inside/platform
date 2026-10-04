@@ -318,6 +318,11 @@ video locators и иные связанные с body ресурсы в projecti
 руководства, `AccessGrants` и авторинг на PostgreSQL (`test/integration/access-scenarios.test.ts`).
 Изменение правила доступа начинается с ожидания в таблице.
 
+Переход `expiry` проверяется для двух оснований с концом: периода Tribute и ручного назначения
+(#909), которое ведёт себя так же, как подарок по приглашению. На самой границе материалы
+закрываются, а CommunityEntitlement в тот же момент получает `denied` без запаса: пересчёт
+запускает сама граница (`nextBoundary`), а не следующее изменение прав.
+
 ## MembershipEntitlements
 
 `ContentAccess` зависит от узкого access-oriented interface:

@@ -73,6 +73,7 @@ export const notificationSchema = {
       "type": "string",
       "enum": [
         "renewal_reminder",
+        "access_ending",
         "payment_succeeded",
         "payment_failed",
         "renewal_cancelled",

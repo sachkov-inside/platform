@@ -234,7 +234,10 @@ describe("приёмка обоих источников Notifications (реал
       contact,
       grants,
     });
-    const notices = new BillingNotices({ prisma: platform.prisma });
+    const notices = new BillingNotices({
+      prisma: platform.prisma,
+      enrollments: grants,
+    });
     subscriptions = new BillingSubscriptions({
       prisma: platform.prisma,
       bank: client,
