@@ -69,7 +69,7 @@ const stackAuthorPermission = "materials:manage";
 const separateAccessIdentities = [
   {
     subject: "fullstack-materials-only",
-    permission: "materials:manage",
+    permission: stackAuthorPermission,
     sessionVariable: "FULLSTACK_LOGTO_MATERIALS_ONLY_SESSION",
   },
   {
@@ -222,11 +222,7 @@ try {
   const mcpMaterialsOnlyAccessToken = await fullStackIdentity.createAccessToken(
     mcpMaterialsOnlySubject,
   );
-  await runPnpm(["--filter", "@inside/backend", "release:bootstrap-owner"], {
-    ...childEnvironment,
-    OWNER_LOGTO_SUBJECT: mcpMaterialsOnlySubject,
-    OWNER_PERMISSION: stackAuthorPermission,
-  });
+  await grantAccountPermission(mcpMaterialsOnlySubject, stackAuthorPermission);
   await runPnpm(["--filter", "@inside/backend", "smoke:mcp-authoring"], {
     ...childEnvironment,
     MCP_SMOKE_ACCESS_TOKEN: mcpAccessToken.token,
@@ -266,14 +262,7 @@ try {
     );
     await establishFullStackAccount(accessToken.token);
     if (identity.permission !== undefined) {
-      await runPnpm(
-        ["--filter", "@inside/backend", "release:bootstrap-owner"],
-        {
-          ...childEnvironment,
-          OWNER_LOGTO_SUBJECT: identity.subject,
-          OWNER_PERMISSION: identity.permission,
-        },
-      );
+      await grantAccountPermission(identity.subject, identity.permission);
     }
     separateAccessSessions[identity.sessionVariable] =
       await fullStackIdentity.createSession(accessToken);
@@ -405,6 +394,20 @@ async function runPnpm(arguments_, environment = childEnvironment) {
 async function waitForJson(url, entries) {
   const response = await waitForHttp(url, entries);
   return response.json();
+}
+
+/**
+ * Выдаёт Account одно разрешение через trusted owner bootstrap. Выдача только добавляет, поэтому
+ * у subject, который больше нигде не получает прав, остаётся ровно это разрешение.
+ * @param {string} subject
+ * @param {string} permission
+ */
+async function grantAccountPermission(subject, permission) {
+  await runPnpm(["--filter", "@inside/backend", "release:bootstrap-owner"], {
+    ...childEnvironment,
+    OWNER_LOGTO_SUBJECT: subject,
+    OWNER_PERMISSION: permission,
+  });
 }
 
 /** @param {string} accessToken */

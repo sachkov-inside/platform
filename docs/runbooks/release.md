@@ -36,8 +36,9 @@ CI выпуска не запускает full-stack smoke. Именно в нё
 
 ```bash
 release_sha=$(git rev-parse origin/main)
-gh run list --repo sachkov-inside/platform -w nightly-fullstack.yml --branch main \
-  --json headSha,conclusion,url -q ".[] | select(.headSha == \"$release_sha\")"
+gh run list --repo sachkov-inside/platform -w nightly-fullstack.yml --branch main --limit 100 \
+  --json headSha,conclusion,url \
+  -q ".[] | select(.headSha == \"$release_sha\" and .conclusion == \"success\")"
 ```
 
 Если зелёного запуска на этом коммите нет, запустите его и дождитесь успеха:

@@ -69,15 +69,14 @@ const authoringMaterialsSchema = z.object({
     }),
   ),
 });
-const enrollmentSchema = z.object({
+/** Успешная Billing-команда над одной записью: тариф или назначение с его ревизией. */
+const billingRecordSchema = z.object({
   ok: z.literal(true),
   value: z.object({
     result: z.object({
-      value: z.object({
-        id: z.string(),
-        revision: z.number(),
-        state: z.string(),
-      }),
+      value: z
+        .object({ id: z.string(), revision: z.number() })
+        .and(z.object({ state: z.string().optional() })),
     }),
   }),
 });
@@ -96,6 +95,9 @@ const readingStatesSchema = z.object({
       version: z.number(),
     }),
   ),
+});
+const bookmarkListSchema = z.object({
+  items: z.array(z.object({ materialId: z.string() })),
 });
 
 interface SignedIn {
@@ -133,6 +135,17 @@ async function billing(
   return response.json();
 }
 
+/** Значение тарифа «материалы только Guide A»: так устроено и сидовое предложение «Материалы». */
+function guideAOffer(id: string, name: string) {
+  return {
+    id,
+    name,
+    benefits: ["materials"],
+    availableForAssignment: true,
+    contentScope: { guideIds: [guideA.id], materialIds: [] },
+  };
+}
+
 async function seededOffer(observer: Page) {
   const listed = tierItemsSchema.parse(
     await billing(observer, "tiers/list", { limit: 100 }),
@@ -148,13 +161,7 @@ async function seededOffer(observer: Page) {
 function renameSeededOffer(page: Page, offer: { readonly revision: number }) {
   return billing(page, "offers/save", {
     expectedRevision: offer.revision,
-    value: {
-      id: seededOfferId,
-      name: "Переименовано без права",
-      benefits: ["materials"],
-      availableForAssignment: true,
-      contentScope: { guideIds: [guideA.id], materialIds: [] },
-    },
+    value: guideAOffer(seededOfferId, "Переименовано без права"),
   });
 }
 
@@ -191,26 +198,37 @@ async function unpublishMaterial(
   return response.json();
 }
 
-async function closedBodyIsAbsent(page: Page, slug: string, body: string) {
+/** Открывает материал Reader-ом и ждёт, пока он покажет `available` или `access-required`. */
+async function openMaterial(
+  page: Page,
+  slug: string,
+  state: "available" | "access-required",
+) {
   await page.goto(`/materials/${slug}`);
   await expect(
-    page.locator('[data-material-reader-state="access-required"]'),
+    page.locator(`[data-material-reader-state="${state}"]`),
   ).toBeVisible();
+}
+
+async function openClosedBody(page: Page, slug: string, body: string) {
+  await openMaterial(page, slug, "available");
+  await expect(page.getByText(body, { exact: true })).toBeVisible();
+}
+
+/**
+ * Отказ на закрытый материал без его bytes: ни в разметке страницы, ни в повторном запросе из
+ * браузера через его HTTP-кэш. После отзыва сервер этот материал уже отдавал с телом, поэтому
+ * отказ показывает, что прежний ответ не вернулся из кэшей запроса. Клиентский кэш маршрутов
+ * открытой вкладки (60 секунд, ADR 0027) запроса не делает и здесь не проверяется.
+ */
+async function openDeniedBody(page: Page, slug: string, body: string) {
+  await openMaterial(page, slug, "access-required");
   expect(await page.content()).not.toContain(body);
-  // Повторный запрос из браузера идёт через его HTTP-кэш: прежний ответ не должен вернуть тело.
   const html = await page.evaluate(
     async (path) => (await fetch(path)).text(),
     `/materials/${slug}`,
   );
   expect(html).not.toContain(body);
-}
-
-async function closedBodyIsShown(page: Page, slug: string, body: string) {
-  await page.goto(`/materials/${slug}`);
-  await expect(
-    page.locator('[data-material-reader-state="available"]'),
-  ).toBeVisible();
-  await expect(page.getByText(body, { exact: true })).toBeVisible();
 }
 
 test("Materials-only opens material tools and is denied a Billing mutation without a durable effect", async ({
@@ -259,10 +277,12 @@ test("Billing-only opens billing tools and is denied a Materials mutation withou
     expect(await unpublishMaterial(billingManager.page, before)).toEqual(
       materialsDenial,
     );
+    // Кроме mutation закрыто и чтение списка инструментов материалов.
     const listed = await fullStackBrowserRequest(
       billingManager.page,
       "/api/authoring/materials",
     );
+    expect(listed.status()).toBe(200);
     expect(await listed.json()).toEqual(materialsDenial);
     expect(await authoringMaterial(observer.page)).toMatchObject({
       contentVersion: before.contentVersion,
@@ -282,10 +302,7 @@ test("an ordinary Account is denied Materials and Billing mutations on existing 
   const billingObserver = await openAs(browser, "BILLING_ONLY");
   try {
     // Соседняя разрешённая возможность того же Account: открыть опубликованный материал.
-    await reader.page.goto(`/materials/${publishedMaterial.slug}`);
-    await expect(
-      reader.page.locator('[data-material-reader-state="available"]'),
-    ).toBeVisible();
+    await openMaterial(reader.page, publishedMaterial.slug, "available");
 
     const material = await authoringMaterial(materialsObserver.page);
     expect(await unpublishMaterial(reader.page, material)).toEqual(
@@ -315,37 +332,29 @@ test("a learner scoped to Guide A reads Guide A, is denied Guide B and loses Gui
   const learner = await openAs(browser, "GUIDE_A_LEARNER");
   const billingManager = await openAs(browser, "BILLING_ONLY");
   try {
-    // Без назначения закрыты оба Guide: дальнейший доступ к A даёт только это назначение.
-    await closedBodyIsAbsent(
-      learner.page,
-      guideA.closedSlug,
-      guideA.closedBody,
-    );
+    // Без назначения Guide A закрыт, а бесплатный материал открыт: доступ к A даст только
+    // назначение ниже, и отказ здесь не следствие сломанной сессии.
+    await openMaterial(learner.page, publishedMaterial.slug, "available");
+    await openDeniedBody(learner.page, guideA.closedSlug, guideA.closedBody);
 
     const tierId = crypto.randomUUID();
-    expect(
+    const tier = billingRecordSchema.parse(
       await billing(billingManager.page, "offers/save", {
-        value: {
-          id: tierId,
-          name: `Только Guide A ${tierId}`,
-          benefits: ["materials"],
-          availableForAssignment: true,
-          contentScope: { guideIds: [guideA.id], materialIds: [] },
-        },
+        value: guideAOffer(tierId, `Только Guide A ${tierId}`),
       }),
-    ).toMatchObject({ ok: true });
+    ).value.result.value;
     const terms = {
       startsAt: new Date().toISOString(),
       endsAt: null,
       endPolicy: "fixed",
     };
-    const assigned = enrollmentSchema.parse(
+    const assigned = billingRecordSchema.parse(
       await billing(billingManager.page, "enrollments/assign", {
         accountId: await accountIdOf(learner.page),
         origin: "manual",
         sourceRef: `access-identities-${tierId}`,
         tierId,
-        tierRevision: 1,
+        tierRevision: tier.revision,
         terms,
         billingRef: null,
         reason: "Scoped learner access check",
@@ -353,10 +362,10 @@ test("a learner scoped to Guide A reads Guide A, is denied Guide B and loses Gui
     ).value.result.value;
     expect(assigned.state).toBe("active");
 
-    await closedBodyIsShown(learner.page, guideA.closedSlug, guideA.closedBody);
-    await closedBodyIsAbsent(learner.page, guideBSlug, guideB.closedBody);
+    await openClosedBody(learner.page, guideA.closedSlug, guideA.closedBody);
+    await openDeniedBody(learner.page, guideBSlug, guideB.closedBody);
 
-    const revoked = enrollmentSchema.parse(
+    const revoked = billingRecordSchema.parse(
       await billing(billingManager.page, "enrollments/change", {
         enrollmentId: assigned.id,
         expectedRevision: assigned.revision,
@@ -367,17 +376,9 @@ test("a learner scoped to Guide A reads Guide A, is denied Guide B and loses Gui
     ).value.result.value;
     expect(revoked.state).toBe("revoked");
 
-    // Страница с телом уже была открыта этим браузером; следующий запрос получает отказ.
-    await closedBodyIsAbsent(
-      learner.page,
-      guideA.closedSlug,
-      guideA.closedBody,
-    );
-    // Бесплатный материал остаётся открытым: отказ выше не следствие сломанной сессии.
-    await learner.page.goto(`/materials/${publishedMaterial.slug}`);
-    await expect(
-      learner.page.locator('[data-material-reader-state="available"]'),
-    ).toBeVisible();
+    // Тело Guide A этот браузер и сервер уже отдавали; следующий запрос получает отказ.
+    await openDeniedBody(learner.page, guideA.closedSlug, guideA.closedBody);
+    await openMaterial(learner.page, publishedMaterial.slug, "available");
   } finally {
     await learner.context.close();
     await billingManager.context.close();
@@ -393,57 +394,71 @@ test("two separate Accounts cannot read or change each other's progress and book
     const ownerAccountId = await accountIdOf(owner.page);
     expect(await accountIdOf(stranger.page)).not.toBe(ownerAccountId);
 
-    await owner.page.goto(`/materials/${publishedMaterial.slug}`);
+    await openMaterial(owner.page, publishedMaterial.slug, "available");
     const materialId = await owner.page
       .locator('[data-material-reader-state="available"]')
       .getAttribute("data-material-id");
     if (materialId === null) throw new Error("Reader has no Material ID");
 
-    const bookmarks = (page: Page) =>
-      fullStackBrowserRequest(page, "/api/bookmarks/states", "POST", {
+    /** Состояния одного материала: закладка и прогресс приходят одинаковым POST со списком ID. */
+    const statesOf = async (page: Page, path: string): Promise<unknown> => {
+      const response = await fullStackBrowserRequest(page, path, "POST", {
         materialId,
-      }).then(
-        async (response) =>
-          bookmarkStatesSchema.parse(await response.json()).states,
+      });
+      expect(response.status()).toBe(200);
+      return response.json();
+    };
+    const bookmarks = async (page: Page) =>
+      bookmarkStatesSchema.parse(await statesOf(page, "/api/bookmarks/states"))
+        .states;
+    const reading = async (page: Page) =>
+      readingStatesSchema.parse(
+        await statesOf(page, "/api/reading-progress/states"),
+      ).states;
+    const setBookmark = async (page: Page, bookmarked: boolean) => {
+      const response = await fullStackBrowserRequest(
+        page,
+        "/api/bookmarks/state",
+        "PUT",
+        { materialId, bookmarked: String(bookmarked) },
       );
-    const reading = (page: Page) =>
-      fullStackBrowserRequest(page, "/api/reading-progress/states", "POST", {
-        materialId,
-      }).then(
-        async (response) =>
-          readingStatesSchema.parse(await response.json()).states,
+      expect(response.status()).toBe(200);
+      expect(await response.json()).toMatchObject({
+        kind: "ready",
+        state: { materialId, bookmarked },
+      });
+    };
+    const setRead = async (page: Page, isRead: boolean) => {
+      const version = (await reading(page))[0]?.version ?? 0;
+      const response = await fullStackBrowserRequest(
+        page,
+        "/api/reading-progress/state",
+        "PUT",
+        {
+          materialId,
+          commandId: crypto.randomUUID(),
+          expectedVersion: String(version),
+          isRead: String(isRead),
+        },
       );
+      expect(response.status()).toBe(200);
+      expect(await response.json()).toMatchObject({
+        kind: "saved",
+        state: { materialId, isRead },
+      });
+    };
+    const bookmarkList = async (page: Page) => {
+      const response = await fullStackBrowserRequest(page, "/api/bookmarks");
+      expect(response.status()).toBe(200);
+      return bookmarkListSchema
+        .parse(await response.json())
+        .items.map((item) => item.materialId);
+    };
 
-    expect(
-      await (
-        await fullStackBrowserRequest(
-          owner.page,
-          "/api/bookmarks/state",
-          "PUT",
-          {
-            materialId,
-            bookmarked: "true",
-          },
-        )
-      ).json(),
-    ).toMatchObject({ kind: "ready", state: { bookmarked: true } });
-    const ownerVersion = (await reading(owner.page))[0]?.version ?? 0;
-    expect(
-      await (
-        await fullStackBrowserRequest(
-          owner.page,
-          "/api/reading-progress/state",
-          "PUT",
-          {
-            materialId,
-            commandId: crypto.randomUUID(),
-            expectedVersion: String(ownerVersion),
-            isRead: "true",
-          },
-        )
-      ).json(),
-    ).toMatchObject({ kind: "saved", state: { isRead: true } });
+    await setBookmark(owner.page, true);
+    await setRead(owner.page, true);
     const ownerReading = await reading(owner.page);
+    expect(await bookmarkList(owner.page)).toContain(materialId);
 
     // Чужой Account не видит отметок владельца ни в состояниях, ни в списке закладок.
     expect(await bookmarks(stranger.page)).toEqual([
@@ -452,42 +467,16 @@ test("two separate Accounts cannot read or change each other's progress and book
     expect(await reading(stranger.page)).toEqual([
       expect.objectContaining({ materialId, isRead: false }),
     ]);
-    const strangerList = await fullStackBrowserRequest(
-      stranger.page,
-      "/api/bookmarks",
-    );
-    expect(strangerList.status()).toBe(200);
-    expect(
-      z
-        .object({ items: z.array(z.object({ id: z.string() }).loose()) })
-        .parse(await strangerList.json())
-        .items.map(({ id }) => id),
-    ).not.toContain(materialId);
+    expect(await bookmarkList(stranger.page)).not.toContain(materialId);
 
-    // Подставленный ID владельца и его версия не меняют чужие отметки: команда относится к
-    // Account сессии, а не к полю запроса.
-    await fullStackBrowserRequest(
-      stranger.page,
-      "/api/bookmarks/state",
-      "PUT",
-      {
-        materialId,
-        bookmarked: "false",
-        accountId: ownerAccountId,
-      },
-    );
-    await fullStackBrowserRequest(
-      stranger.page,
-      "/api/reading-progress/state",
-      "PUT",
-      {
-        materialId,
-        commandId: crypto.randomUUID(),
-        expectedVersion: String(ownerReading[0]?.version ?? 0),
-        isRead: "false",
-        accountId: ownerAccountId,
-      },
-    );
+    // У BFF закладок и прогресса нет поля Account: его задаёт сессия. Поэтому подставить можно
+    // только ID того же материала. Команды чужого Account проходят и меняют его собственные
+    // отметки, а отметки владельца остаются прежними.
+    await setBookmark(stranger.page, true);
+    await setBookmark(stranger.page, false);
+    await setRead(stranger.page, true);
+    await setRead(stranger.page, false);
+    // Account ID принимают только маршруты Billing, и они требуют `billing:manage`.
     expect(
       await billing(stranger.page, "grants/read", {
         accountId: ownerAccountId,
