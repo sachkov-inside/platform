@@ -77,6 +77,7 @@ import {
 } from "../../features/list-access-grants/list-access-grants.js";
 import { readOwnAccess } from "../../features/read-own-access/read-own-access.js";
 import {
+  enrollmentEndingsQuerySchema,
   listEnrollmentEndings,
   readEnrollmentEnding,
   type EnrollmentEndingsQuery,
@@ -593,10 +594,12 @@ export function assembleAccessGrants(dependencies: AccessGrantsDependencies) {
      * границы конечного неоплаченного доступа и перед отправкой сверяет, что граница не сдвинулась.
      */
     async listEnrollmentEndings(query: EnrollmentEndingsQuery) {
+      const parsed = enrollmentEndingsQuerySchema.safeParse(query);
+      if (!parsed.success) return accessFailure("invalid_input");
       try {
         return {
           ok: true as const,
-          value: await listEnrollmentEndings(prisma, query),
+          value: await listEnrollmentEndings(prisma, parsed.data),
         };
       } catch (error) {
         return dependencyFailure(

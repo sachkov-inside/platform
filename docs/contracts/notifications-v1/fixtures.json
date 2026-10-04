@@ -77,7 +77,7 @@
       },
       "templateRef": "inside.access_ending",
       "templateRevision": 1,
-      "text": "Доступ Inside скоро закончится\n\nМатериалы\nДата: 2026-09-11T12:00:00.000Z.\n\nhttps://inside.example/subscription",
+      "text": "Доступ Inside скоро закончится\n\nМатериалы\nДата: 2026-09-11T12:00:00.000Z.\n\nhttps://inside.example/subscription?offer=00000000-0000-4000-8000-000000000047",
       "issuedAt": "2026-09-08T12:00:00Z",
       "notAfter": "2026-09-08T12:10:00Z",
       "binding": {

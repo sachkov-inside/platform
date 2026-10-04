@@ -493,9 +493,9 @@ _Avoid_: Saved card, current chat membership, completed payment
 
 **BillingNotice**:
 One occurrence in a Subscription's paid life that is worth a service message: an upcoming charge, a
-confirmed or declined payment, a cancelled renewal, an ended access term or a resolved refund. An
-unpaid Enrollment with a fixed end, such as a gift or a manual assignment, adds an access ending in
-three days and its end. It is a Billing fact with its own revisions, not the message, the channel or
+confirmed or declined payment, a cancelled renewal, an ended access term or a resolved refund. Any
+access term that will not renew, paid or unpaid, adds an access ending in three days; an unpaid
+Enrollment with a fixed end, such as a gift or a manual assignment, also adds its end. It is a Billing fact with its own revisions, not the message, the channel or
 the delivery.
 _Avoid_: Notification, Delivery, email, reminder job
 

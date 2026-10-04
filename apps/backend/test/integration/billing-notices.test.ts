@@ -860,8 +860,8 @@ describe("служебные сообщения подписки (реальны
     accountId: string,
     startsAt: string,
     endsAt: string | null,
+    tierId: string = randomUUID(),
   ) {
-    const tierId = randomUUID();
     const assigned = await grants.assignEnrollment(
       owner,
       {
@@ -931,7 +931,9 @@ describe("служебные сообщения подписки (реальны
     const reminders = () =>
       s.sent.filter((message) => message.subject === endingSubject);
     expect(reminders()).toHaveLength(1);
-    expect(reminders()[0]?.text).toContain(`${origin}/subscription`);
+    // Ссылка ведёт на оформление того же Offer, который выдан назначением.
+    const checkout = `${origin}/subscription?offer=${enrollment.tier.id}`;
+    expect(reminders()[0]?.text).toContain(checkout);
     expect(reminders()[0]?.text).toContain("Дата: 2031-03-10T00:00:00.000Z.");
     expect(s.telegramCommands).toHaveLength(1);
     const telegram = deliverySchema.parse(s.telegramCommands[0]);
@@ -939,7 +941,7 @@ describe("служебные сообщения подписки (реальны
       category: "subscription",
       kind: "access_ending",
     });
-    expect(telegram.text).toContain(`${origin}/subscription`);
+    expect(telegram.text).toContain(checkout);
 
     // Повтор календаря и перенос срока внутри окна остаются тем же поводом: второго сообщения нет.
     value(await s.notices.scheduleReminders());
@@ -983,7 +985,7 @@ describe("служебные сообщения подписки (реальны
     await s.pump(s.deliverEmail);
     const ended = s.sent.filter((message) => message.subject === endedSubject);
     expect(ended).toHaveLength(1);
-    expect(ended[0]?.text).toContain(`${origin}/subscription`);
+    expect(ended[0]?.text).toContain(checkout);
     expect(await s.noticesOf("access_expired")).toHaveLength(1);
     // История покупок о подарках и ручном доступе не рассказывает.
     expect((await s.cabinet()).notices).toEqual([]);
@@ -1027,20 +1029,74 @@ describe("служебные сообщения подписки (реальны
     expect(cycles[1]?.sourceRef).not.toBe(first.sourceRef);
   });
 
-  test("доступ, который продолжает другое основание, не заканчивается и сообщений не даёт", async () => {
+  test("доступ, который продолжает основание на тот же тариф, не заканчивается; другой тариф окончания не отменяет", async () => {
     const s = await scenario();
     s.at("2031-01-01T00:00:00Z");
-    await assignManual(
+    const gift = await assignManual(
       s.buyer,
       "2031-01-01T00:00:00.000Z",
       "2031-03-10T00:00:00.000Z",
     );
-    await assignManual(s.buyer, "2031-01-01T00:00:00.000Z", null);
+    await assignManual(s.buyer, "2031-01-01T00:00:00.000Z", null, gift.tier.id);
     for (const instant of ["2031-03-07T00:00:00Z", "2031-03-10T00:00:00Z"]) {
       s.at(instant);
       value(await s.notices.scheduleReminders());
     }
     expect(await s.noticesOf("access_ending")).toEqual([]);
     expect(await s.noticesOf("access_expired")).toEqual([]);
+
+    const other = await scenario();
+    other.at("2031-01-01T00:00:00Z");
+    await assignManual(
+      other.buyer,
+      "2031-01-01T00:00:00.000Z",
+      "2031-03-10T00:00:00.000Z",
+    );
+    await assignManual(other.buyer, "2031-01-01T00:00:00.000Z", null);
+    other.at("2031-03-07T00:00:00Z");
+    value(await other.notices.scheduleReminders());
+    expect(await other.noticesOf("access_ending")).toHaveLength(1);
+  });
+
+  test("оплаченный срок без продления заканчивается так же: напоминание за три дня ведёт на оформление Offer", async () => {
+    const s = await scenario();
+    await s.buy();
+    const active = (await s.cabinet()).subscription;
+    value(
+      await s.subscriptions.cancel(s.buyer, {
+        operationId: randomUUID(),
+        expectedRevision: active?.revision,
+      }),
+    );
+    s.at("2030-02-25T09:59:59Z");
+    value(await s.notices.scheduleReminders());
+    expect(await s.noticesOf("access_ending")).toEqual([]);
+    s.at("2030-02-25T10:00:00Z");
+    value(await s.notices.scheduleReminders());
+    value(await s.notices.scheduleReminders());
+    expect(await s.noticesOf("access_ending")).toMatchObject([
+      {
+        state: "current",
+        title: "Материалы",
+        dueAt: new Date("2030-02-28T10:00:00Z"),
+      },
+    ]);
+    expect(await s.noticesOf("renewal_reminder")).toEqual([]);
+    await s.pump(s.deliverEmail);
+    const reminder = s.sent.find(
+      (message) => message.subject === endingSubject,
+    );
+    const offerId = subscriptionSnapshotSchema.parse(
+      (
+        await db.prisma.billingSubscription.findFirstOrThrow({
+          where: { accountId: s.buyer },
+        })
+      ).snapshot,
+    ).offer.id;
+    expect(reminder?.text).toContain(`${origin}/subscription?offer=${offerId}`);
+    // История покупок о напоминании окончания не рассказывает.
+    expect(
+      (await s.cabinet()).notices.map((notice) => notice.kind),
+    ).not.toContain("access_ending");
   });
 });

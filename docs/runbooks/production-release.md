@@ -258,8 +258,8 @@ Telegram ([Telegram #45](https://github.com/sachkov-inside/inside-telegram/issue
    запрет удалений больше не действует. Platform для этого ничего не меняет: CommunityEntitlement без
    действующего основания уже даёт `denied` в момент границы, без запаса, и бот исполняет удаление.
    Это касается любого доступа с концом: оплаченного, подарочного и ручного. За три дня до границы
-   неоплаченного доступа человек получает `access_ending` со ссылкой на продление, в момент границы —
-   `access_expired`. Проверка после включения: список `GET community-entitlements/members-without-right`
+   доступа без продления человек получает `access_ending` со ссылкой на оформление Offer, в момент
+   границы — `access_expired`. Проверка после включения: список `GET community-entitlements/members-without-right`
    (`platform:admin`) со временем пустеет. У Account с закончившимся доступом
    `GET community-entitlements/<accountId>` показывает последнюю операцию с `access.kind = denied`
    и её `appliedState`. Если список растёт или бот отклоняет операции, Telegram выключает удаления

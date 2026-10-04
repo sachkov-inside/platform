@@ -10,10 +10,15 @@ import { tierSnapshotSchema } from "../../domain/subscription-enrollment.js";
 export interface EnrollmentEnding {
   readonly enrollmentId: string;
   readonly accountId: string;
+  /** Тариф назначения — Offer каталога Billing, на оформление которого ведёт продление. */
+  readonly offerId: string;
   /** Название тарифа в принятой ревизии назначения. */
   readonly title: string;
   readonly endsAt: Date;
-  /** Другое Enrollment того же Account действует после границы: доступ на ней не заканчивается. */
+  /**
+   * Другое Enrollment того же Account на тот же тариф действует после границы: доступ на ней не
+   * заканчивается. Основание на другой тариф открывает другое и окончания не отменяет.
+   */
   readonly continued: boolean;
 }
 
@@ -38,6 +43,7 @@ const endingRow = {
 type EndingRow = {
   readonly id: string;
   readonly accountId: string;
+  readonly tierId: string;
   readonly snapshot: unknown;
   readonly endsAt: Date | null;
 };
@@ -51,6 +57,7 @@ async function ending(
   const following = await prisma.subscriptionEnrollment.count({
     where: {
       accountId: row.accountId,
+      tierId: row.tierId,
       id: { not: row.id },
       revokedAt: null,
       startsAt: { lte: boundary },
@@ -60,6 +67,7 @@ async function ending(
   return {
     enrollmentId: row.id,
     accountId: row.accountId,
+    offerId: row.tierId,
     title: tierSnapshotSchema.parse(row.snapshot).name,
     endsAt: boundary,
     continued: following > 0,
@@ -71,7 +79,7 @@ export async function listEnrollmentEndings(
   prisma: MembershipEntitlementsPrismaClient,
   query: EnrollmentEndingsQuery,
 ): Promise<EnrollmentEnding[]> {
-  const { from, to, after, limit } = enrollmentEndingsQuerySchema.parse(query);
+  const { from, to, after, limit } = query;
   const rows = await prisma.subscriptionEnrollment.findMany({
     where: {
       ...endingRow,
