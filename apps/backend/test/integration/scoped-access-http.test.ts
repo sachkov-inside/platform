@@ -3,7 +3,10 @@ import { randomUUID } from "node:crypto";
 import type { NestFastifyApplication } from "@nestjs/platform-fastify";
 import { afterAll, beforeAll, describe, expect, test } from "vitest";
 
-import { parsePlatformConfig } from "../../src/config/platform-config.js";
+import {
+  parsePlatformConfig,
+  type PlatformConfig,
+} from "../../src/config/platform-config.js";
 import { createApiApplication } from "../../src/entrypoints/api/create-api-application.js";
 import { acceptCurrentTerms } from "../support/accept-terms.js";
 import {
@@ -12,11 +15,13 @@ import {
 } from "../support/declared-api.js";
 import {
   createScopedGuidesWorld,
-  startTestIdentityIssuer,
   type ScopedGuide,
   type ScopedGuidesWorld,
-  type TestIdentityIssuer,
 } from "./setup/scoped-guides.js";
+import {
+  startTestIdentityIssuer,
+  type TestIdentityIssuer,
+} from "./setup/test-identity-issuer.js";
 import {
   createMigratedTestDatabase,
   type TestDatabase,
@@ -41,9 +46,11 @@ const allClosed: Exposure = {
 
 /**
  * Scoped Account через настоящий Nest HTTP (#903, пробел 7 из #902): API поднят целиком, Account
- * входит подписанным токеном, право — настоящий AccessGrant одного Guide. Каждая клетка доказана
- * bytes ответа: открытая — секретом Guide в ответе, закрытая — статусом отказа по контракту
- * маршрута и отсутствием секрета. Ответ access-state и mock authorize доказательством не служат.
+ * входит подписанным токеном, право — настоящий AccessGrant одного Guide. Тело и список заданий
+ * открыты, когда ответ несёт секрет Guide. Файл открыт, когда ответ — подписанная ссылка на его
+ * объект; видео — когда выдан DRM-токен воспроизведения. Bytes файла и видео лежат у хранилища и
+ * Kinescope, и тест их не читает. Закрытая клетка — статус отказа по контракту маршрута без секрета,
+ * ссылки и токена. Ответ access-state и mock authorize доказательством не служат.
  * Строки матрицы проверок доступа: `test/access-scenarios/access-check-matrix.ts`.
  */
 describe("scoped Account access over Nest HTTP", () => {
@@ -52,6 +59,7 @@ describe("scoped Account access over Nest HTTP", () => {
   let database: TestDatabase;
   let identity: TestIdentityIssuer;
   let world: ScopedGuidesWorld;
+  let config: PlatformConfig;
 
   beforeAll(async () => {
     identity = await startTestIdentityIssuer({
@@ -60,17 +68,15 @@ describe("scoped Account access over Nest HTTP", () => {
     });
     database = await createMigratedTestDatabase();
     world = await createScopedGuidesWorld(database);
-    app = await createApiApplication(
-      parsePlatformConfig({
-        NODE_ENV: "test",
-        DATABASE_URL: database.url,
-        LOGTO_ISSUER: identity.issuer,
-        LOGTO_AUDIENCE: identity.audience,
-        LOGTO_JWKS_URL: identity.jwksUrl,
-        IDENTITY_EMAIL_FINGERPRINT_KEY: "scoped-http-email-fingerprint-key",
-      }),
-      { logger: false },
-    );
+    config = parsePlatformConfig({
+      NODE_ENV: "test",
+      DATABASE_URL: database.url,
+      LOGTO_ISSUER: identity.issuer,
+      LOGTO_AUDIENCE: identity.audience,
+      LOGTO_JWKS_URL: identity.jwksUrl,
+      IDENTITY_EMAIL_FINGERPRINT_KEY: "scoped-http-email-fingerprint-key",
+    });
+    app = await createApiApplication(config, { logger: false });
     await app.init();
     server = declaredServer(app.getHttpAdapter().getInstance());
     await server.ready();
@@ -283,9 +289,9 @@ describe("scoped Account access over Nest HTTP", () => {
     guide: ScopedGuide,
     token: string,
   ): Promise<number> {
-    // Учётные данные callback по умолчанию для NODE_ENV=test из `platform-config.ts`.
+    const { callbackUsername, callbackPassword } = config.kinescope;
     const basic = Buffer.from(
-      "inside-local-callback:inside-local-callback-password",
+      `${callbackUsername}:${callbackPassword}`,
     ).toString("base64");
     const response = await server.inject({
       method: "POST",

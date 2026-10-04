@@ -88,9 +88,10 @@ level runs:
 
 | When | Checks | Job or command |
 |---|---|---|
-| Pull request, required | Matrix completeness: every cited test file and test name exists, planned checks name #904 or #906 (`apps/backend/test/unit/access-check-matrix.test.ts`) | `unit` |
-| Pull request, required | Facade on PostgreSQL: `access-scenarios.test.ts`, `payment-access-matrix.test.ts`, `guide-access.test.ts`; real Nest HTTP: `scoped-access-http.test.ts`; real learner MCP transport: `scoped-learner-access-mcp.test.ts` | `integration` |
-| Nightly | Web/BFF access scenarios of `apps/web/test/fullstack` | Nightly full-stack smoke |
+| Pull request, required | Matrix completeness: every cited file exists and declares `test(` or `it(` with the cited name, planned checks name #904 or #906 (`apps/backend/test/unit/access-check-matrix.test.ts`) | `unit` |
+| Pull request, required | Facade on PostgreSQL in `apps/backend/test/integration`: `access-scenarios`, `payment-access-matrix`, `guide-access`, `learning-practice`, `billing-operations`, `reading-activity`, `bookmarks`; real Nest HTTP: `scoped-access-http`, `billing-pricing-http`, `accounts-api`, `reading-activity-http`; real learner MCP transport: `scoped-learner-access-mcp` | `integration` |
+| Pull request, required | Web/BFF owner billing scenario `apps/web/test/fullstack/enrollment.spec.ts` through `pnpm smoke:enrollments` | `integration` |
+| Nightly | The other Web/BFF access scenarios the matrix cites: `material-reader`, `material-authoring` and `learning-practice` in `apps/web/test/fullstack` | Nightly full-stack smoke |
 | Before a release | `pnpm check:full`, which includes the full-stack smoke and the integration suite, on the release commit | local, see `AGENTS.md` |
 
 A matrix cell at the `production` level is not proved by any of these: until the post-deploy

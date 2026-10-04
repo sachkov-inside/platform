@@ -37,7 +37,7 @@ describe("матрица проверок доступа", () => {
       checkAccessCheckMatrix(brokenAccessCheckMatrix, readRepositoryFile),
     ).toEqual([
       "learner-guide-a/read-guide-a/body@facade-postgresql cites unknown scenario cell product-material/gift-certificate",
-      "learner-guide-a/read-guide-a/body@nest-http cites a missing test: apps/backend/test/integration/scoped-access-http.test.ts › learner of Guide A reads a Guide that does not exist",
+      "learner-guide-a/read-guide-a/body@nest-http cites a missing test: apps/backend/test/integration/scoped-access-http.test.ts › scoped Account access over Nest HTTP",
       "learner-guide-a/read-guide-a/body@learner-mcp cites a missing file: apps/backend/test/integration/no-such-file.test.ts",
       "learner-guide-a/read-guide-a/body@web-bff marks a new check of #906, expected #904",
       "learner-guide-a/read-guide-a/body@production cites a local test as production evidence",

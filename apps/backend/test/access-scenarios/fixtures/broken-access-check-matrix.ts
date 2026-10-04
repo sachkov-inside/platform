@@ -5,7 +5,7 @@ import {
 
 /**
  * Негативная фикстура матрицы проверок доступа. Она доказывает, что контроль ловит ссылку на
- * несуществующий тест и файл, неизвестную клетку таблицы сценариев, новую проверку не той задачи,
+ * несуществующий тест (в том числе на название `describe`) и файл, неизвестную клетку таблицы сценариев, новую проверку не той задачи,
  * локальный тест на уровне production, опору на уровень без теста, неприменимость без причины,
  * пропущенный уровень, дубликат строки, неизвестное состояние и состояние без строк.
  */
@@ -41,7 +41,8 @@ export const brokenAccessCheckMatrix: readonly AccessCheckRowShape[] = [
       "nest-http": {
         kind: "test",
         file: "apps/backend/test/integration/scoped-access-http.test.ts",
-        name: "learner of Guide A reads a Guide that does not exist",
+        // Название `describe`, а не теста: литерал есть в файле, объявления теста нет.
+        name: "scoped Account access over Nest HTTP",
       },
       "learner-mcp": {
         kind: "test",

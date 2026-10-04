@@ -80,7 +80,7 @@ export type AccessCheckAction = (typeof accessCheckActions)[number];
 
 /**
  * Поверхности: защищённые чтения Guide (`practice` — список заданий в HTTP и Web, все части
- * контекста задания в learner MCP), записи Materials и Billing, progress и закладки Account.
+ * контекста задания в learner MCP), записи Materials и Billing, progress чтения и закладки Account.
  */
 export const accessCheckSurfaces = [
   "body",
@@ -89,7 +89,8 @@ export const accessCheckSurfaces = [
   "practice",
   "materials-authoring",
   "billing-operations",
-  "progress-and-bookmarks",
+  "reading-progress",
+  "bookmarks",
 ] as const;
 export type AccessCheckSurface = (typeof accessCheckSurfaces)[number];
 
@@ -203,7 +204,7 @@ const httpTests = {
 } as const;
 const mcpTests = {
   anonymous:
-    "request without an Account token is rejected before any tool runs",
+    "material and practice calls without an Account token get 401 and no protected bytes",
   withoutEntitlement:
     "Account without entitlement reads the public Material and no protected Material or practice part",
   learnerA:
@@ -242,6 +243,8 @@ const noRevocationInProduction =
   "Отзыв доступа в production не выполняется (#902): переход проверяется только локально";
 const noAdministratorInProduction =
   "Тестового Platform Administrator в production нет (#902): platform:admin проверяется только локально";
+const productionWritesOnlyLocally =
+  "Production-проход только читает (#902): записи проверяются локально; административные read surfaces Materials-only и Billing-only проверяет #906";
 const productionReadsOnly =
   "Production-проход только читает (#902): записи и чужие данные Account проверяются локально";
 
@@ -483,7 +486,7 @@ export const accessCheckMatrix: readonly AccessCheckRow[] = [
       "nest-http": test(http, httpTests.ownerSurfaces),
       "learner-mcp": notApplicable(mcpReadOnly),
       "web-bff": fullstack,
-      production: productionPass,
+      production: notApplicable(productionWritesOnlyLocally),
     },
   },
   {
@@ -499,7 +502,7 @@ export const accessCheckMatrix: readonly AccessCheckRow[] = [
       "nest-http": test(http, httpTests.ownerSurfaces),
       "learner-mcp": notApplicable(mcpReadOnly),
       "web-bff": fullstack,
-      production: productionPass,
+      production: notApplicable(productionWritesOnlyLocally),
     },
   },
   {
@@ -518,7 +521,7 @@ export const accessCheckMatrix: readonly AccessCheckRow[] = [
       ),
       "learner-mcp": notApplicable(mcpReadOnly),
       "web-bff": fullstack,
-      production: productionPass,
+      production: notApplicable(productionWritesOnlyLocally),
     },
   },
   {
@@ -533,7 +536,7 @@ export const accessCheckMatrix: readonly AccessCheckRow[] = [
       "nest-http": test(http, httpTests.ownerSurfaces),
       "learner-mcp": notApplicable(mcpReadOnly),
       "web-bff": fullstack,
-      production: productionPass,
+      production: notApplicable(productionWritesOnlyLocally),
     },
   },
   {
@@ -609,7 +612,7 @@ export const accessCheckMatrix: readonly AccessCheckRow[] = [
         "public catalog, trusted quote identity, owner authorization and wire conflicts",
       ),
       "learner-mcp": notApplicable(mcpReadOnly),
-      // Сценарий идёт в прогоне `smoke:enrollments`, а не в nightly fullstack.
+      // Сценарий идёт в `pnpm smoke:enrollments` обязательного CI job `integration`, а не в nightly.
       "web-bff": test(
         webFullstack("enrollment.spec.ts"),
         "owner assigns scoped course and the open cabinet converges through real BFF and PostgreSQL",
@@ -620,7 +623,7 @@ export const accessCheckMatrix: readonly AccessCheckRow[] = [
   {
     state: "account-without-entitlement",
     action: "use-other-account-data",
-    surface: "progress-and-bookmarks",
+    surface: "reading-progress",
     expected: "denied",
     levels: {
       "facade-postgresql": test(
@@ -630,6 +633,25 @@ export const accessCheckMatrix: readonly AccessCheckRow[] = [
       "nest-http": test(
         integration("reading-activity-http.test.ts"),
         "trusted identity, personal no-store responses, conflict state, replay and bounded input",
+      ),
+      "learner-mcp": notApplicable(mcpReadOnly),
+      "web-bff": fullstack,
+      production: notApplicable(productionReadsOnly),
+    },
+  },
+  {
+    state: "account-without-entitlement",
+    action: "use-other-account-data",
+    surface: "bookmarks",
+    expected: "denied",
+    levels: {
+      "facade-postgresql": test(
+        integration("bookmarks.test.ts"),
+        "add and remove are idempotent and isolated per Account",
+      ),
+      "nest-http": reliesOn(
+        "facade-postgresql",
+        "HTTP-теста закладок нет; изоляцию по Account доказывает facade на PostgreSQL",
       ),
       "learner-mcp": notApplicable(mcpReadOnly),
       "web-bff": fullstack,

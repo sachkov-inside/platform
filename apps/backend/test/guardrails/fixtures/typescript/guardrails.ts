@@ -57,9 +57,8 @@ declare const resolveBillingNotice: () => Promise<NotificationSource>;
 // извлечения не знает: такое расхождение обязано ломать сборку, а не уезжать в описание API.
 import { z } from "zod";
 import type { MaterialBodyResourceSummary } from "@inside/material-blocks";
-const driftedResourceSchema: z.ZodType<MaterialBodyResourceSummary> = z.discriminatedUnion(
-  "kind",
-  [
+const driftedResourceSchema: z.ZodType<MaterialBodyResourceSummary> =
+  z.discriminatedUnion("kind", [
     z.object({
       alt: z.string(),
       assetId: z.uuid(),
@@ -68,6 +67,5 @@ const driftedResourceSchema: z.ZodType<MaterialBodyResourceSummary> = z.discrimi
     }),
     z.object({ assetId: z.uuid(), kind: z.literal("file"), label: z.string() }),
     z.object({ caption: z.string().optional(), kind: z.literal("video") }),
-  ],
-);
+  ]);
 describe("drifted material resource", () => driftedResourceSchema);

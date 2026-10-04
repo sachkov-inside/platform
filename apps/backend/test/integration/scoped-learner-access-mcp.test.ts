@@ -38,11 +38,13 @@ import {
 import { VIDEOS, type Videos } from "../../src/modules/videos/index.js";
 import {
   createScopedGuidesWorld,
-  startTestIdentityIssuer,
   type ScopedGuide,
   type ScopedGuidesWorld,
-  type TestIdentityIssuer,
 } from "./setup/scoped-guides.js";
+import {
+  startTestIdentityIssuer,
+  type TestIdentityIssuer,
+} from "./setup/test-identity-issuer.js";
 import {
   createMigratedTestDatabase,
   type TestDatabase,
@@ -141,27 +143,30 @@ describe("scoped learner access over the learner MCP transport", () => {
     await identity.close();
   });
 
-  test("request without an Account token is rejected before any tool runs", async () => {
-    const response = await fetch(endpoint, {
-      method: "POST",
-      headers: {
-        "content-type": "application/json",
-        accept: "application/json, text/event-stream",
-      },
-      body: JSON.stringify({
-        jsonrpc: "2.0",
-        id: 1,
-        method: "tools/call",
-        params: {
-          name: "learning_material_read",
-          arguments: { slug: world.guideA.slug },
+  test("material and practice calls without an Account token get 401 and no protected bytes", async () => {
+    for (const [name, arguments_] of [
+      ["learning_material_read", { slug: world.guideA.slug }],
+      ["learning_practice_read", { practiceId: world.guideA.practiceId }],
+    ] as const) {
+      const response = await fetch(endpoint, {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          accept: "application/json, text/event-stream",
         },
-      }),
-    });
-    const body = await response.text();
-    expect(response.status).toBe(401);
-    expect(response.headers.get("www-authenticate")).toContain("Bearer");
-    expect(body).not.toContain(world.guideA.bodySecret);
+        body: JSON.stringify({
+          jsonrpc: "2.0",
+          id: 1,
+          method: "tools/call",
+          params: { name, arguments: arguments_ },
+        }),
+      });
+      const body = await response.text();
+      expect(response.status).toBe(401);
+      expect(response.headers.get("www-authenticate")).toContain("Bearer");
+      expect(body).not.toContain(world.guideA.bodySecret);
+      expect(body).not.toContain(world.guideA.practiceSecret);
+    }
   });
 
   test("Account without entitlement reads the public Material and no protected Material or practice part", async () => {
