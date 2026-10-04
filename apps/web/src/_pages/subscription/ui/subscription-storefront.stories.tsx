@@ -133,16 +133,24 @@ export const InvitedGuest: Story = {
   },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
+    // Гостя отличает ответ сессии: заголовок меняется, когда он пришёл.
     await expect(
-      canvas.getByRole("heading", {
+      await canvas.findByRole("heading", {
         level: 1,
         name: "Подписка по приглашению",
       }),
     ).toBeVisible();
-    const signIn = await canvas.findByRole("button", { name: "Войти" });
-    await expect(signIn).toBeVisible();
+    // Шапка страницы тоже зовёт войти: проверяется форма витрины с возвратом на `?offer=`.
     await expect(
-      canvasElement.querySelector('input[name="returnTo"]'),
+      canvas.getByRole("heading", {
+        level: 2,
+        name: "Войдите, чтобы оформить",
+      }),
+    ).toBeVisible();
+    await expect(
+      canvasElement.querySelector(
+        'form[action="/auth/sign-in"] input[name="returnTo"]',
+      ),
     ).toHaveValue(`/subscription?offer=${supportOffer.offer.id}`);
     await expect(
       canvas.queryByText("Подписка сейчас не продаётся"),
