@@ -76,6 +76,11 @@ import {
   type ListAccessGrantsCommand,
 } from "../../features/list-access-grants/list-access-grants.js";
 import { readOwnAccess } from "../../features/read-own-access/read-own-access.js";
+import {
+  listEnrollmentEndings,
+  readEnrollmentEnding,
+  type EnrollmentEndingsQuery,
+} from "../../features/read-enrollment-endings/read-enrollment-endings.js";
 
 export interface AccessGrantsDependencies {
   readonly prisma: MembershipEntitlementsPrismaClient;
@@ -577,6 +582,46 @@ export function assembleAccessGrants(dependencies: AccessGrantsDependencies) {
           {
             module: "membership-entitlements",
             operation: "readChangedAccounts",
+          },
+          error,
+          accessFailure("unavailable"),
+        );
+      }
+    },
+    /**
+     * Внутреннее чтение billing без полномочия владельца: календарь служебных сообщений находит
+     * границы конечного неоплаченного доступа и перед отправкой сверяет, что граница не сдвинулась.
+     */
+    async listEnrollmentEndings(query: EnrollmentEndingsQuery) {
+      try {
+        return {
+          ok: true as const,
+          value: await listEnrollmentEndings(prisma, query),
+        };
+      } catch (error) {
+        return dependencyFailure(
+          {
+            module: "membership-entitlements",
+            operation: "listEnrollmentEndings",
+          },
+          error,
+          accessFailure("unavailable"),
+        );
+      }
+    },
+    async readEnrollmentEnding(enrollmentId: string) {
+      if (!z.uuid().safeParse(enrollmentId).success)
+        return accessFailure("invalid_input");
+      try {
+        return {
+          ok: true as const,
+          value: (await readEnrollmentEnding(prisma, enrollmentId)) ?? null,
+        };
+      } catch (error) {
+        return dependencyFailure(
+          {
+            module: "membership-entitlements",
+            operation: "readEnrollmentEnding",
           },
           error,
           accessFailure("unavailable"),

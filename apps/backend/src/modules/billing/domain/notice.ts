@@ -9,6 +9,7 @@ import { renewalPriceSnapshot } from "./subscription-change.js";
  */
 export const noticeKinds = [
   "renewal_reminder",
+  "access_ending",
   "payment_succeeded",
   "payment_failed",
   "renewal_cancelled",
@@ -17,12 +18,23 @@ export const noticeKinds = [
 ] as const;
 export const noticeKindSchema = z.enum(noticeKinds);
 export type NoticeKind = z.infer<typeof noticeKindSchema>;
+/** История покупок показывает поводы оплаты и подписки; окончание подарка к ним не относится. */
+export const cabinetNoticeKindSchema = noticeKindSchema.exclude([
+  "access_ending",
+]);
 export const noticeStateSchema = z.enum(["current", "superseded"]);
 
 /** Страница кабинета, на которую ведёт служебное сообщение; origin принадлежит Notifications. */
 export const BILLING_CABINET_PATH = "/account/purchases";
+/**
+ * Продление неоплаченного доступа: витрина показывает Account те Offer, которые ему продаются, в
+ * том числе Offer «только по приглашению» после погашённого приглашения.
+ */
+export const ACCESS_RENEWAL_PATH = "/subscription";
 /** Напоминание о списании создаётся за три дня до даты списания. */
 export const RENEWAL_REMINDER_LEAD_MS = 3 * 24 * 60 * 60 * 1_000;
+/** Напоминание об окончании неоплаченного доступа приходит с тем же упреждением, что и о списании. */
+export const ACCESS_ENDING_LEAD_MS = RENEWAL_REMINDER_LEAD_MS;
 /** Через сутки после самого события служебное сообщение перестаёт быть актуальным. */
 export const NOTICE_LIFETIME_MS = 24 * 60 * 60 * 1_000;
 
@@ -47,7 +59,7 @@ export type NoticeEvent = z.infer<typeof noticeEventSchema>;
 /** Кабинетное представление повода: без текста сообщения, получателей и данных провайдера. */
 export const noticeViewSchema = z.strictObject({
   noticeRef: idSchema,
-  kind: noticeKindSchema,
+  kind: cabinetNoticeKindSchema,
   state: noticeStateSchema,
   occurredAt: z.iso.datetime(),
   amountKopecks: moneySchema.nullable(),
@@ -118,6 +130,38 @@ export function renewalCancelledSourceRef(
   revision: number,
 ): string {
   return `subscription:${idSchema.parse(subscriptionRef)}:canceled:${revisionSchema.parse(revision)}`;
+}
+
+/**
+ * Поводы окончания Enrollment: напоминание считает свои циклы, потому что перенос срока внутри окна
+ * продолжает то же напоминание, а окончание привязано к самой границе.
+ */
+export function accessEndingCyclesPrefix(enrollmentId: string): string {
+  return `enrollment:${idSchema.parse(enrollmentId)}:ending:`;
+}
+export function accessEndingSourceRef(
+  enrollmentId: string,
+  cycle: number,
+): string {
+  return `${accessEndingCyclesPrefix(enrollmentId)}${String(revisionSchema.parse(cycle))}`;
+}
+export function accessEndedSourceRef(
+  enrollmentId: string,
+  endsAt: Date,
+): string {
+  return `enrollment:${idSchema.parse(enrollmentId)}:ended:${String(endsAt.getTime())}`;
+}
+const enrollmentNoticePattern =
+  /^enrollment:([0-9a-f-]{36}):(?:ending|ended):\d+$/u;
+/** Enrollment, о котором повод, или `undefined` для поводов оплаты и подписки. */
+export function enrollmentOfNotice(sourceRef: string): string | undefined {
+  return enrollmentNoticePattern.exec(sourceRef)?.[1];
+}
+/** Повод об Enrollment ведёт на продление, остальные поводы — в кабинет покупок. */
+export function noticeReaderPath(kind: NoticeKind, sourceRef: string): string {
+  return kind === "access_ending" || enrollmentOfNotice(sourceRef) !== undefined
+    ? ACCESS_RENEWAL_PATH
+    : BILLING_CABINET_PATH;
 }
 
 /** Событие описывает конкретную revision повода: повтор той же revision сохраняет messageId. */
@@ -200,4 +244,78 @@ export function planRenewalReminder(
     notAfter: subject.paidUntil,
     dueAt: subject.paidUntil,
   };
+}
+
+/**
+ * Конечный неоплаченный доступ в доменных значениях: подарок, ручное назначение и любое другое
+ * Enrollment с фиксированным концом. Строка Enrollment остаётся у Membership Entitlements.
+ */
+export interface AccessEndingSubject {
+  readonly enrollmentId: string;
+  readonly accountId: string;
+  readonly title: string;
+  readonly endsAt: Date;
+  /** Другое основание Account действует после границы: доступ на ней не заканчивается. */
+  readonly continued: boolean;
+}
+
+/**
+ * Напоминание за три дня до границы. Повод живёт до самой границы: позже напоминать уже не о чем,
+ * а об окончании сообщает отдельный повод.
+ */
+export function planAccessEnding(
+  subject: AccessEndingSubject,
+  sourceRef: string,
+  now: Date,
+): NoticeOccurrence | undefined {
+  if (
+    subject.continued ||
+    subject.endsAt <= now ||
+    subject.endsAt.getTime() - now.getTime() > ACCESS_ENDING_LEAD_MS
+  )
+    return undefined;
+  return {
+    kind: "access_ending",
+    accountId: subject.accountId,
+    sourceRef,
+    title: subject.title,
+    occurredAt: now,
+    notAfter: subject.endsAt,
+    dueAt: subject.endsAt,
+  };
+}
+
+/**
+ * Окончание сообщается с момента самой границы. Граница, замеченная позже срока жизни повода,
+ * новостью уже не является; продление до границы повода не оставляет вовсе.
+ */
+export function planAccessEnded(
+  subject: AccessEndingSubject,
+  now: Date,
+): NoticeOccurrence | undefined {
+  if (
+    subject.continued ||
+    subject.endsAt > now ||
+    now.getTime() - subject.endsAt.getTime() >= NOTICE_LIFETIME_MS
+  )
+    return undefined;
+  return {
+    kind: "access_expired",
+    accountId: subject.accountId,
+    sourceRef: accessEndedSourceRef(subject.enrollmentId, subject.endsAt),
+    title: subject.title,
+    dueAt: subject.endsAt,
+    ...lifecycleWindow(subject.endsAt),
+  };
+}
+
+/**
+ * Перенос срока не повторяет напоминание: новая граница в пределах окна прежней остаётся тем же
+ * поводом. Продление дальше окна начинает следующий цикл, и о новой границе напомнят снова.
+ */
+export function continuesAccessEndingReminder(
+  previousDueAt: Date,
+  endsAt: Date,
+): boolean {
+  return endsAt.getTime() - previousDueAt.getTime() <= ACCESS_ENDING_LEAD_MS;
 }

@@ -1,9 +1,18 @@
 import { randomUUID } from "node:crypto";
 import { describe, expect, test } from "vitest";
 import {
+  ACCESS_RENEWAL_PATH,
+  BILLING_CABINET_PATH,
   NOTICE_LIFETIME_MS,
   RENEWAL_REMINDER_LEAD_MS,
+  accessEndingSourceRef,
   attemptSourceRef,
+  continuesAccessEndingReminder,
+  enrollmentOfNotice,
+  noticeReaderPath,
+  planAccessEnded,
+  planAccessEnding,
+  type AccessEndingSubject,
   lifecycleWindow,
   noticeEvent,
   planRenewalReminder,
@@ -183,5 +192,107 @@ describe("событие повода", () => {
         },
       }),
     ).toThrow();
+  });
+});
+
+describe("окончание неоплаченного доступа", () => {
+  const enrollmentId = randomUUID();
+  const endsAt = new Date("2030-03-10T00:00:00Z");
+  const gift: AccessEndingSubject = {
+    enrollmentId,
+    accountId,
+    title: "Материалы",
+    endsAt,
+    continued: false,
+  };
+  const reminderRef = accessEndingSourceRef(enrollmentId, 1);
+
+  test("напоминание появляется за три дня до границы и ведёт на продление", () => {
+    const now = new Date(endsAt.getTime() - RENEWAL_REMINDER_LEAD_MS);
+    expect(planAccessEnding(gift, reminderRef, now)).toEqual({
+      kind: "access_ending",
+      accountId,
+      sourceRef: reminderRef,
+      title: "Материалы",
+      dueAt: endsAt,
+      occurredAt: now,
+      notAfter: endsAt,
+    });
+    expect(
+      planAccessEnding(gift, reminderRef, new Date(now.getTime() - 1)),
+    ).toBeUndefined();
+    expect(planAccessEnding(gift, reminderRef, endsAt)).toBeUndefined();
+    expect(noticeReaderPath("access_ending", reminderRef)).toBe(
+      ACCESS_RENEWAL_PATH,
+    );
+  });
+
+  test("доступ, который продолжает другое основание, не заканчивается и повода не даёт", () => {
+    const continued = { ...gift, continued: true };
+    expect(
+      planAccessEnding(
+        continued,
+        reminderRef,
+        new Date("2030-03-08T00:00:00Z"),
+      ),
+    ).toBeUndefined();
+    expect(planAccessEnded(continued, endsAt)).toBeUndefined();
+  });
+
+  test("окончание сообщается с самой границы и только в пределах срока жизни повода", () => {
+    const ended = planAccessEnded(gift, endsAt);
+    expect(ended).toMatchObject({
+      kind: "access_expired",
+      accountId,
+      title: "Материалы",
+      dueAt: endsAt,
+      occurredAt: endsAt,
+      notAfter: new Date(endsAt.getTime() + NOTICE_LIFETIME_MS),
+    });
+    // Позже замеченная граница даёт тот же повод: ключ — сам срок, а не момент наблюдения.
+    expect(
+      planAccessEnded(gift, new Date(endsAt.getTime() + 60_000))?.sourceRef,
+    ).toBe(ended?.sourceRef);
+    expect(
+      planAccessEnded(gift, new Date(endsAt.getTime() - 1)),
+    ).toBeUndefined();
+    expect(
+      planAccessEnded(gift, new Date(endsAt.getTime() + NOTICE_LIFETIME_MS)),
+    ).toBeUndefined();
+    // Новый срок после восстановления — новая граница и новый повод.
+    expect(
+      planAccessEnded(
+        { ...gift, endsAt: new Date("2030-04-10T00:00:00Z") },
+        new Date("2030-04-10T00:00:00Z"),
+      )?.sourceRef,
+    ).not.toBe(ended?.sourceRef);
+    if (ended === undefined) throw new Error("Ожидался повод окончания");
+    expect(noticeReaderPath("access_expired", ended.sourceRef)).toBe(
+      ACCESS_RENEWAL_PATH,
+    );
+    expect(enrollmentOfNotice(ended.sourceRef)).toBe(enrollmentId);
+    expect(enrollmentOfNotice(reminderRef)).toBe(enrollmentId);
+  });
+
+  test("перенос срока внутри окна продолжает прежнее напоминание, а продление дальше окна начинает следующее", () => {
+    expect(
+      continuesAccessEndingReminder(endsAt, new Date("2030-03-11T00:00:00Z")),
+    ).toBe(true);
+    expect(
+      continuesAccessEndingReminder(endsAt, new Date("2030-03-09T00:00:00Z")),
+    ).toBe(true);
+    expect(
+      continuesAccessEndingReminder(endsAt, new Date("2030-04-10T00:00:00Z")),
+    ).toBe(false);
+    expect(accessEndingSourceRef(enrollmentId, 2)).not.toBe(reminderRef);
+  });
+
+  test("поводы оплаченной подписки по-прежнему ведут в кабинет покупок", () => {
+    expect(
+      noticeReaderPath("access_expired", `subscription:${randomUUID()}:ended`),
+    ).toBe(BILLING_CABINET_PATH);
+    expect(enrollmentOfNotice(`subscription:${randomUUID()}:ended`)).toBe(
+      undefined,
+    );
   });
 });

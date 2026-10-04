@@ -217,7 +217,11 @@ describe("служебные сообщения подписки (реальны
       grants,
       clock: () => now,
     });
-    const notices = new BillingNotices({ prisma: db.prisma, clock: () => now });
+    const notices = new BillingNotices({
+      prisma: db.prisma,
+      enrollments: grants,
+      clock: () => now,
+    });
     const subscriptions = new BillingSubscriptions({
       prisma: db.prisma,
       bank: client,
@@ -847,5 +851,196 @@ describe("служебные сообщения подписки (реальны
     // Чужой повод закрывается как конфликт источника и не остаётся ждать до самого срока.
     expect(accepted.completedAt).not.toBeNull();
     expect(accepted.checkpoint).toEqual({ reason: "source_conflict" });
+  });
+
+  // ------------------------------------------------------------- неоплаченный доступ (#909)
+
+  /** Ручное назначение тарифа: тот же путь, что у подарка по приглашению, — Enrollment с концом. */
+  async function assignManual(
+    accountId: string,
+    startsAt: string,
+    endsAt: string | null,
+  ) {
+    const tierId = randomUUID();
+    const assigned = await grants.assignEnrollment(
+      owner,
+      {
+        operationId: randomUUID(),
+        accountId,
+        origin: "manual",
+        sourceRef: `manual-${randomUUID()}`,
+        tierId,
+        tierRevision: 1,
+        terms: { startsAt, endsAt, endPolicy: "fixed" },
+        billingRef: null,
+        reason: "Ручное назначение для проверки окончания",
+      },
+      {
+        id: tierId,
+        revision: 1,
+        name: "Подарок: материалы",
+        benefits: ["materials", "community"],
+        contentScope: { guideIds: [randomUUID()], materialIds: [] },
+      },
+    );
+    if (!assigned.ok) throw new Error(assigned.error.code);
+    return assigned.value;
+  }
+  async function moveEnd(
+    enrollment: { id: string; revision: number; startsAt: string },
+    endsAt: string,
+  ) {
+    const changed = await grants.changeEnrollment(owner, {
+      operationId: randomUUID(),
+      enrollmentId: enrollment.id,
+      expectedRevision: enrollment.revision,
+      action: "change_term",
+      terms: { startsAt: enrollment.startsAt, endsAt, endPolicy: "fixed" },
+      reason: "Перенос срока",
+    });
+    if (!changed.ok) throw new Error(changed.error.code);
+    return changed.value;
+  }
+  const endingSubject = "Доступ Inside скоро закончится";
+  const endedSubject = "Доступ Inside закончился";
+
+  test("ручной доступ: напоминание за три дня со ссылкой на продление и окончание в момент границы без повторов", async () => {
+    const s = await scenario({ telegram: true });
+    s.at("2031-01-01T00:00:00Z");
+    const enrollment = await assignManual(
+      s.buyer,
+      "2031-01-01T00:00:00.000Z",
+      "2031-03-10T00:00:00.000Z",
+    );
+
+    s.at("2031-03-06T23:59:59Z");
+    value(await s.notices.scheduleReminders());
+    expect(await s.noticesOf("access_ending")).toEqual([]);
+
+    s.at("2031-03-07T00:00:00Z");
+    value(await s.notices.scheduleReminders());
+    expect(await s.noticesOf("access_ending")).toMatchObject([
+      {
+        state: "current",
+        title: "Подарок: материалы",
+        dueAt: new Date("2031-03-10T00:00:00Z"),
+        subscriptionRef: null,
+      },
+    ]);
+    await s.pump(s.deliverEmail);
+    const reminders = () =>
+      s.sent.filter((message) => message.subject === endingSubject);
+    expect(reminders()).toHaveLength(1);
+    expect(reminders()[0]?.text).toContain(`${origin}/subscription`);
+    expect(reminders()[0]?.text).toContain("Дата: 2031-03-10T00:00:00.000Z.");
+    expect(s.telegramCommands).toHaveLength(1);
+    const telegram = deliverySchema.parse(s.telegramCommands[0]);
+    expect(telegram.content).toEqual({
+      category: "subscription",
+      kind: "access_ending",
+    });
+    expect(telegram.text).toContain(`${origin}/subscription`);
+
+    // Повтор календаря и перенос срока внутри окна остаются тем же поводом: второго сообщения нет.
+    value(await s.notices.scheduleReminders());
+    s.at("2031-03-08T00:00:00Z");
+    await moveEnd(enrollment, "2031-03-11T00:00:00.000Z");
+    value(await s.notices.scheduleReminders());
+    const [moved] = await s.noticesOf("access_ending");
+    expect(await s.noticesOf("access_ending")).toHaveLength(1);
+    expect(moved).toMatchObject({
+      state: "current",
+      revision: 2,
+      dueAt: new Date("2031-03-11T00:00:00Z"),
+    });
+    await s.pump(s.deliverEmail);
+    expect(reminders()).toHaveLength(1);
+    expect(s.telegramCommands).toHaveLength(1);
+
+    // Материалы закрываются на самой границе, и о ней сообщают в тот же момент.
+    s.at("2031-03-10T23:59:59Z");
+    value(await s.notices.scheduleReminders());
+    expect(await s.noticesOf("access_expired")).toEqual([]);
+    s.at("2031-03-11T00:00:00Z");
+    expect(await grants.resolveCapabilities(s.buyer)).toMatchObject({
+      ok: true,
+      capabilities: [],
+    });
+    value(await s.notices.scheduleReminders());
+    expect(await s.noticesOf("access_expired")).toMatchObject([
+      {
+        state: "current",
+        occurredAt: new Date("2031-03-11T00:00:00Z"),
+        dueAt: new Date("2031-03-11T00:00:00Z"),
+      },
+    ]);
+    // Напоминание о прошедшей границе закрыто: его время вышло.
+    expect(await s.noticesOf("access_ending")).toMatchObject([
+      { state: "superseded" },
+    ]);
+    s.at("2031-03-11T00:05:00Z");
+    value(await s.notices.scheduleReminders());
+    await s.pump(s.deliverEmail);
+    const ended = s.sent.filter((message) => message.subject === endedSubject);
+    expect(ended).toHaveLength(1);
+    expect(ended[0]?.text).toContain(`${origin}/subscription`);
+    expect(await s.noticesOf("access_expired")).toHaveLength(1);
+    // История покупок о подарках и ручном доступе не рассказывает.
+    expect((await s.cabinet()).notices).toEqual([]);
+  });
+
+  test("продление до границы отменяет окончание, а продление дальше окна напоминает о новой границе", async () => {
+    const s = await scenario();
+    s.at("2031-01-01T00:00:00Z");
+    const enrollment = await assignManual(
+      s.buyer,
+      "2031-01-01T00:00:00.000Z",
+      "2031-03-10T00:00:00.000Z",
+    );
+    s.at("2031-03-07T00:00:00Z");
+    value(await s.notices.scheduleReminders());
+    const [first] = await s.noticesOf("access_ending");
+    if (first === undefined) throw new Error("Ожидалось напоминание");
+    const revision = await db.prisma.billingNoticeRevision.findFirstOrThrow({
+      where: { noticeRef: first.id },
+    });
+
+    s.at("2031-03-08T00:00:00Z");
+    await moveEnd(enrollment, "2031-04-10T00:00:00.000Z");
+    expect(await s.notices.resolveNotice(revision.payload)).toEqual({
+      status: "superseded",
+    });
+    value(await s.notices.scheduleReminders());
+    expect(await s.noticesOf("access_ending")).toMatchObject([
+      { state: "superseded" },
+    ]);
+
+    s.at("2031-03-10T00:00:00Z");
+    value(await s.notices.scheduleReminders());
+    expect(await s.noticesOf("access_expired")).toEqual([]);
+
+    s.at("2031-04-07T00:00:00Z");
+    value(await s.notices.scheduleReminders());
+    const cycles = await s.noticesOf("access_ending");
+    expect(cycles.map((row) => row.state)).toEqual(["superseded", "current"]);
+    expect(cycles[1]?.dueAt).toEqual(new Date("2031-04-10T00:00:00Z"));
+    expect(cycles[1]?.sourceRef).not.toBe(first.sourceRef);
+  });
+
+  test("доступ, который продолжает другое основание, не заканчивается и сообщений не даёт", async () => {
+    const s = await scenario();
+    s.at("2031-01-01T00:00:00Z");
+    await assignManual(
+      s.buyer,
+      "2031-01-01T00:00:00.000Z",
+      "2031-03-10T00:00:00.000Z",
+    );
+    await assignManual(s.buyer, "2031-01-01T00:00:00.000Z", null);
+    for (const instant of ["2031-03-07T00:00:00Z", "2031-03-10T00:00:00Z"]) {
+      s.at(instant);
+      value(await s.notices.scheduleReminders());
+    }
+    expect(await s.noticesOf("access_ending")).toEqual([]);
+    expect(await s.noticesOf("access_expired")).toEqual([]);
   });
 });

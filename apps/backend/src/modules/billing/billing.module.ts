@@ -97,9 +97,9 @@ const BILLING_BANK = Symbol("BillingBank");
     },
     {
       provide: BillingNotices,
-      inject: [PrismaClientProvider],
-      useFactory: (prisma: PrismaClientProvider) =>
-        new BillingNotices({ prisma }),
+      inject: [PrismaClientProvider, ACCESS_GRANTS],
+      useFactory: (prisma: PrismaClientProvider, grants: AccessGrants) =>
+        new BillingNotices({ prisma, enrollments: grants }),
     },
     {
       provide: BillingSubscriptions,

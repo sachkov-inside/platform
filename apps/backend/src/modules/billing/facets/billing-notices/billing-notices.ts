@@ -1,20 +1,36 @@
 import { z } from "zod";
 import { dependencyFailure } from "../../../../infrastructure/observability/index.js";
 import {
+  lockBillingEnrollmentNotices,
   lockBillingSubscription,
+  type BillingPrisma,
   type BillingPrismaClient,
 } from "../../../../infrastructure/prisma/index.js";
+import type {
+  AccessGrants,
+  EnrollmentEnding,
+} from "../../../membership-entitlements/index.js";
 import {
-  BILLING_CABINET_PATH,
+  ACCESS_ENDING_LEAD_MS,
+  accessEndingCyclesPrefix,
+  accessEndingSourceRef,
+  cabinetNoticeKindSchema,
+  continuesAccessEndingReminder,
+  enrollmentOfNotice,
+  NOTICE_LIFETIME_MS,
   noticeConditions,
   noticeEventSchema,
   noticeKindSchema,
   noticeViewSchema,
+  noticeReaderPath,
+  planAccessEnded,
+  planAccessEnding,
   planRenewalReminder,
   RENEWAL_REMINDER_LEAD_MS,
   sameNoticeConditions,
   type NoticeEvent,
   type NoticeKind,
+  type NoticeOccurrence,
   type NoticeView,
   type RenewalReminderSubject,
 } from "../../domain/notice.js";
@@ -34,6 +50,16 @@ type SubscriptionRow = Awaited<
 
 /** Кабинет показывает последние поводы; полная история операций остаётся за #409. */
 const CABINET_NOTICE_LIMIT = 20;
+/** Страница границ Enrollment за один запрос календаря; пробег читает все страницы окна. */
+const ENDING_PAGE_SIZE = 100;
+/** Поводы окончания Enrollment: о них сообщают, но в истории покупок их нет. */
+const ENROLLMENT_NOTICE_PREFIX = "enrollment:";
+
+/** Чтение границ неоплаченного доступа: строки Enrollment остаются у Membership Entitlements. */
+export type EnrollmentEndings = Pick<
+  AccessGrants,
+  "listEnrollmentEndings" | "readEnrollmentEnding"
+>;
 
 /** Строка подписки в доменные значения: привязка и её отзыв не покидают своего владельца. */
 function chargeableSubscription(row: SubscriptionRow): RenewalReminderSubject {
@@ -73,6 +99,7 @@ export type BillingNoticeSource =
 
 interface Dependencies {
   readonly prisma: BillingPrismaClient;
+  readonly enrollments: EnrollmentEndings;
   readonly clock?: () => Date;
 }
 
@@ -124,6 +151,11 @@ export class BillingNotices {
         !(await this.reminderStillDue(notice, now))
       )
         return { status: "superseded" };
+      if (
+        enrollmentOfNotice(notice.sourceRef) !== undefined &&
+        !(await this.accessEndingStillDue(notice, now))
+      )
+        return { status: "superseded" };
       return {
         status: "current",
         event: stored.data,
@@ -133,7 +165,10 @@ export class BillingNotices {
         },
         accountId: notice.accountId,
         title: notice.title,
-        readerPath: BILLING_CABINET_PATH,
+        readerPath: noticeReaderPath(
+          noticeKindSchema.parse(notice.kind),
+          notice.sourceRef,
+        ),
         ...(notice.amountKopecks === null
           ? {}
           : { amountMinor: Number(notice.amountKopecks) }),
@@ -151,7 +186,8 @@ export class BillingNotices {
   /**
    * Календарь напоминаний: за три дня до списания появляется повод с принятыми условиями,
    * изменение даты, суммы или состава выпускает следующую revision, а отмена расписания и
-   * отзыв привязки закрывают его.
+   * отзыв привязки закрывают его. Тот же пробег ведёт границы конечного неоплаченного доступа:
+   * напоминание за три дня и сообщение об окончании в момент границы.
    */
   async scheduleReminders(
     limit = 20,
@@ -212,7 +248,15 @@ export class BillingNotices {
         });
         superseded += count;
       }
-      return { ok: true, value: { created, refreshed, superseded } };
+      const endings = await this.scheduleAccessEndings(now, limit);
+      return {
+        ok: true,
+        value: {
+          created: created + endings.created,
+          refreshed: refreshed + endings.refreshed,
+          superseded: superseded + endings.superseded,
+        },
+      };
     } catch (error) {
       return dependencyFailure(
         { module: "billing", operation: "scheduleReminders" },
@@ -225,14 +269,17 @@ export class BillingNotices {
   /** История служебных поводов собственного Account для кабинета. */
   async readNotices(accountId: string): Promise<NoticeView[]> {
     const rows = await this.dependencies.prisma.billingNotice.findMany({
-      where: { accountId: z.uuid().parse(accountId) },
+      where: {
+        accountId: z.uuid().parse(accountId),
+        NOT: { sourceRef: { startsWith: ENROLLMENT_NOTICE_PREFIX } },
+      },
       orderBy: [{ occurredAt: "desc" }, { id: "desc" }],
       take: CABINET_NOTICE_LIMIT,
     });
     return rows.map((row) =>
       noticeViewSchema.parse({
         noticeRef: row.id,
-        kind: row.kind,
+        kind: cabinetNoticeKindSchema.parse(row.kind),
         state: row.state,
         occurredAt: row.occurredAt.toISOString(),
         amountKopecks:
@@ -263,4 +310,121 @@ export class BillingNotices {
       sameNoticeConditions(planned, noticeConditions(notice))
     );
   }
+
+  /**
+   * Границы Enrollment в окне от сроку жизни сообщения об окончании до упреждения напоминания.
+   * Пробег читает окно целиком: уже записанный повод не меняется, а следующая граница не ждёт,
+   * пока очередь перебирает готовые.
+   */
+  private async scheduleAccessEndings(
+    now: Date,
+    limit: number,
+  ): Promise<{ created: number; refreshed: number; superseded: number }> {
+    const { prisma, enrollments } = this.dependencies;
+    let created = 0,
+      refreshed = 0;
+    let after: { endsAt: Date; enrollmentId: string } | undefined;
+    for (;;) {
+      const page = await enrollments.listEnrollmentEndings({
+        from: new Date(now.getTime() - NOTICE_LIFETIME_MS),
+        to: new Date(now.getTime() + ACCESS_ENDING_LEAD_MS),
+        ...(after === undefined ? {} : { after }),
+        limit: ENDING_PAGE_SIZE,
+      });
+      if (!page.ok) throw new Error(page.error.code);
+      for (const ending of page.value) {
+        const outcome = await prisma.$transaction(async (tx) => {
+          await lockBillingEnrollmentNotices(tx, ending.enrollmentId);
+          const planned =
+            ending.endsAt > now
+              ? await plannedAccessEnding(tx, ending, now)
+              : planAccessEnded(ending, now);
+          return planned
+            ? await recordBillingNotice(tx, planned, now)
+            : "unchanged";
+        });
+        if (outcome === "created") created += 1;
+        if (outcome === "refreshed") refreshed += 1;
+      }
+      const last = page.value.at(-1);
+      if (page.value.length < ENDING_PAGE_SIZE || last === undefined) break;
+      after = { endsAt: last.endsAt, enrollmentId: last.enrollmentId };
+    }
+    const open = await prisma.billingNotice.findMany({
+      where: {
+        kind: { in: ["access_ending", "access_expired"] },
+        state: "current",
+        sourceRef: { startsWith: ENROLLMENT_NOTICE_PREFIX },
+      },
+      orderBy: [{ dueAt: "asc" }, { id: "asc" }],
+      take: limit,
+    });
+    let superseded = 0;
+    for (const notice of open) {
+      if (await this.accessEndingStillDue(notice, now)) continue;
+      const { count } = await prisma.billingNotice.updateMany({
+        where: { id: notice.id, revision: notice.revision, state: "current" },
+        data: { state: "superseded", updatedAt: now },
+      });
+      superseded += count;
+    }
+    return { created, refreshed, superseded };
+  }
+
+  /**
+   * Повод об Enrollment жив, пока его граница та же: перенос, отзыв, бессрочный срок или новое
+   * основание после границы закрывают его.
+   */
+  private async accessEndingStillDue(
+    notice: NoticeRow,
+    now: Date,
+  ): Promise<boolean> {
+    const enrollmentId = enrollmentOfNotice(notice.sourceRef);
+    if (enrollmentId === undefined) return false;
+    const read =
+      await this.dependencies.enrollments.readEnrollmentEnding(enrollmentId);
+    if (!read.ok) throw new Error(read.error.code);
+    const ending = read.value;
+    if (ending === null || ending.accountId !== notice.accountId) return false;
+    const planned =
+      notice.kind === "access_ending"
+        ? planAccessEnding(ending, notice.sourceRef, now)
+        : planAccessEnded(ending, now);
+    return (
+      planned !== undefined &&
+      planned.kind === notice.kind &&
+      planned.sourceRef === notice.sourceRef &&
+      sameNoticeConditions(planned, noticeConditions(notice))
+    );
+  }
+}
+
+/**
+ * Напоминание о границе продолжает прежний цикл, если граница сдвинулась в пределах окна, иначе
+ * начинает следующий: так перенос срока не повторяет сообщение, а продление на месяц не гасит
+ * напоминание о новой границе.
+ */
+async function plannedAccessEnding(
+  tx: BillingPrisma,
+  ending: EnrollmentEnding,
+  now: Date,
+): Promise<NoticeOccurrence | undefined> {
+  const where = {
+    kind: "access_ending",
+    sourceRef: { startsWith: accessEndingCyclesPrefix(ending.enrollmentId) },
+  };
+  const previous = await tx.billingNotice.findFirst({
+    where,
+    orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+  });
+  const sourceRef =
+    previous !== null &&
+    previous.dueAt !== null &&
+    continuesAccessEndingReminder(previous.dueAt, ending.endsAt)
+      ? previous.sourceRef
+      : accessEndingSourceRef(
+          ending.enrollmentId,
+          (await tx.billingNotice.count({ where })) + 1,
+        );
+  return planAccessEnding(ending, sourceRef, now);
 }

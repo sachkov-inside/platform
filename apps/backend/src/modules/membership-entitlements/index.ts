@@ -28,6 +28,7 @@ export { applyGrantBatchCommandSchema } from "./features/apply-grant-batch/apply
 export { changeAccessGrantCommandSchema } from "./features/change-access-grant/change-access-grant.js";
 export { accessGrantsViewSchema } from "./features/list-access-grants/list-access-grants.js";
 export { ownAccessGroundSchema } from "./features/read-own-access/read-own-access.js";
+export type { EnrollmentEnding } from "./features/read-enrollment-endings/read-enrollment-endings.js";
 export { classifyLegacyAccountCommandSchema } from "./features/classify-legacy-account/classify-legacy-account.js";
 
 export {
