@@ -131,10 +131,10 @@ export function renewalCancelledSourceRef(
 }
 
 /**
- * Поводы окончания Enrollment: напоминание считает свои циклы, потому что перенос срока внутри окна
- * продолжает то же напоминание, а окончание привязано к самой границе.
+ * Поводы окончания Enrollment: ключ начинается с него, у поводов оплаты и подписки — нет.
+ * Напоминание считает свои циклы, потому что перенос срока внутри окна продолжает то же
+ * напоминание, а окончание привязано к самой границе.
  */
-/** Поводы об Enrollment: ключ начинается с него, поводы оплаты и подписки — нет. */
 export const ENROLLMENT_NOTICE_PREFIX = "enrollment:";
 export function accessEndingCyclesPrefix(enrollmentId: string): string {
   return `${ENROLLMENT_NOTICE_PREFIX}${idSchema.parse(enrollmentId)}:ending:`;
