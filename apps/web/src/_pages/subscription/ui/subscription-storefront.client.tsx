@@ -20,12 +20,16 @@ import { CheckoutFlow } from "@/features/billing-checkout";
 import { useCurrentBilling } from "@/features/billing-subscription";
 import { Button } from "@/shared/ui/button";
 
+import { initialPaymentOptionId } from "../model/initial-selection";
+
 export interface SubscriptionStorefrontProps {
   readonly offers: readonly PriceSnapshot[];
   readonly unavailable?: boolean;
   /** Куда вернуть покупателя после входа: контекст страницы руководства сохраняется. */
   readonly returnTo: string;
   readonly originHref?: Route;
+  /** Предложение из адреса `?offer=`: витрина выбирает его первый вариант оплаты. */
+  readonly initialOfferId?: string;
   readonly cabinetHref?: Route;
   readonly contactHref?: Route;
 }
@@ -35,12 +39,13 @@ export function SubscriptionStorefront({
   unavailable = false,
   returnTo,
   originHref,
+  initialOfferId,
   cabinetHref = "/account/subscription",
   contactHref = "/account/purchases",
 }: SubscriptionStorefrontProps) {
   const offers = publicSubscriptionOffers(catalog);
-  const [selectedId, setSelectedId] = useState<string | null>(
-    offers[0]?.paymentOption.id ?? null,
+  const [selectedId, setSelectedId] = useState<string | null>(() =>
+    initialPaymentOptionId(offers, initialOfferId),
   );
   const [contactState, setContactState] = useState<BillingContactState | null>(
     null,

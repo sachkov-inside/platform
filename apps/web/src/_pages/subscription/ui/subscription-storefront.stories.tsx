@@ -5,6 +5,7 @@ import {
   activeSubscription,
   billingOffers,
   currentBillingResponse,
+  supportOffer,
 } from "@/workshop/billing.fixtures";
 import { fetchBeforeRender } from "@/workshop/mutation-mock";
 
@@ -58,6 +59,21 @@ export const Catalog: Story = {
       }),
     ).toBeVisible();
     await expect(canvas.getByText("Выберите тариф")).toBeVisible();
+  },
+};
+
+/** Кнопка «Оплатить» в боте открывает витрину с `?offer=`: тариф этого предложения уже выбран. */
+export const PreselectedOffer: Story = {
+  args: {
+    initialOfferId: supportOffer.offer.id,
+    returnTo: `/subscription?offer=${supportOffer.offer.id}`,
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    const options = canvas.getAllByRole("radio");
+    await expect(options).toHaveLength(2);
+    await expect(options[1]).toBeChecked();
+    await expect(options[0]).not.toBeChecked();
   },
 };
 
