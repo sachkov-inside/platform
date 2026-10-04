@@ -616,8 +616,8 @@ unavailable — временный сбой, а не решение, и не с�
 правило #524 — это открытое решение владельца. Уже выданные права не меняются: покупка хранит
 снимок предложения, и новая редакция сроков действует только на следующие покупки.
 
-**Допуск к предложению.** `Offer.eligibility` — `everyone` (по умолчанию и в прежних снимках) или
-`former_tribute_subscribers`. Основание «прежний подписчик Tribute» — привязанный к Account и не
+**Допуск к предложению.** `Offer.eligibility` — `everyone` (по умолчанию и в прежних снимках),
+`former_tribute_subscribers` или `invitation_only` (раздел «Текущая поставка #908»). Основание «прежний подписчик Tribute» — привязанный к Account и не
 отозванный источник Tribute с подтверждённым периодом (`mode: confirmed_period`); окончание периода
 основание не снимает, иначе продлить было бы нечем, а временный источник участника группы период не
 подтверждает. Основания читает `AccessGrants.readPurchaseGrounds`; billing решает по ним сам:
@@ -691,6 +691,82 @@ username при входе (раздел «Telegram sign-in» в
 Правила исполняются наборами `survey-respondents` (PostgreSQL), `survey-respondent-usernames`,
 `billing-checkout-promo`, `billing-admin-bff` и историями Storybook `Survey respondents` и
 `Guide/Payment/Flow`.
+
+## Текущая поставка #908
+
+Спецификация [#907](https://github.com/sachkov-inside/platform/issues/907): владелец выдаёт доступ
+личной ссылкой в бота. Подписчиков Tribute больше нет, поэтому Offer продаётся либо всем, либо по
+приглашению.
+
+**Invitation.** Личное одноразовое приглашение на один Offer в режиме `purchase` («оплата») или
+`gift` («подарок»). Ссылка — `t.me/<бот>?start=i_<code>`: `code` — 16 случайных байт в base64url,
+start-параметр короче 43 символов. Приглашение хранит Offer и его revision на момент выдачи, режим,
+`giftMonths` (целое от 1 до 1200 или `null` — бессрочно; только у подарка) и заметку владельца до
+200 символов. Состояния:
+
+| Состояние | Когда |
+|---|---|
+| `issued` | выдано и ещё не открыто, прошло меньше 14 дней с выдачи |
+| `claimed` | открыто ботом и закреплено за Telegram identity, Account ещё не получил итог; ждёт входа 30 дней с первого открытия, как попытка активации |
+| `redeemed` | Account получил допуск к покупке или подарок; окончательно |
+| `expired` | не открыто за 14 дней или закреплено и не погашено за 30 дней |
+| `revoked` | владелец отозвал до погашения; окончательно |
+
+Погашённое приглашение не отзывается: доступ меняется операциями назначения. Приглашения хранит
+`membership_entitlements.invitations` рядом с ActivationRule, потому что подарок и закрепление
+пишутся в одной транзакции прав.
+
+**Допуск `invitation_only`.** Основания покупки (`AccessGrants.readPurchaseGrounds`) получают
+`invitedOfferIds` — Offer погашённых приглашений Account любого режима. Подарок тоже допускает к
+покупке своего Offer, чтобы человек продлил его оплатой. Допуск привязан к id Offer и не зависит от
+последующих правок Offer. Листинг, `hasOffersForSale`, расчёт, покупка и смена варианта проверяют
+его тем же `offerAdmits`, что и остальные значения; недопущенный Account получает `not_eligible`.
+Чтобы перейти на другой Offer, нужно новое приглашение.
+
+**Регулярные списания.** Новый Account без записанной классификации покупателя (`unknown`) получал
+бы `legacy_review_required` и не мог бы купить подписку по приглашению. Решение #908: погашённое
+приглашение — личное решение владельца о человеке, поэтому `recurringAllowed` у такого Account
+истинно, если списания Tribute по нему остановлены. Подтверждённого прежнего подписчика
+(`confirmed_legacy`) без остановки списаний Tribute приглашение не открывает. Правило действует для
+покупки, возобновления, смены варианта и продления.
+
+**Подарок.** Погашение `gift` назначает SubscriptionEnrollment origin `invitation`: `sourceRef` — id
+приглашения, `endPolicy: fixed`, начало — момент погашения, конец — через `giftMonths` календарных
+месяцев по московскому календарю, как период подписки, или без конца. Offer должен быть открыт для
+назначения: не в архиве, `availableForAssignment`, с составом и без невыдаваемых прав. Снимок тарифа
+— текущая revision Offer в момент погашения; revision при выдаче остаётся в приглашении для истории.
+
+**Владельческие операции.** `invitations.issue`, `invitations.revoke` и `invitations.list` идут через
+`POST /billing/admin` и MCP `billing_invitations_*` под `billing:manage`:
+
+- `issue` принимает `offerId`, `mode`, `giftMonths` и `note`. Оплата требует Offer подписки с
+  составом, подарок — Offer, открытый для назначения; иначе `state_conflict`. Offer в архиве или
+  неизвестный — `not_found`. Id приглашения равен `operationId`: повтор возвращает то же
+  приглашение. Публикация Offer при выдаче не нужна, её проверяет погашение.
+- `revoke` принимает `invitationId` и `expectedRevision`; отзыв погашённого или сгоревшего —
+  `state_conflict`.
+- `list` отдаёт новые сначала, с фильтрами `state` и `offerId`, `cursor` и `limit` от 1 до 100.
+
+Ответ выдачи и списка содержит готовую ссылку `link`, собранную из `TELEGRAM_BOT_START_URL`. Процесс
+без адреса бота отдаёт `link: null` и `startParameter`; поэтому `mcp.env` получает тот же
+`TELEGRAM_BOT_START_URL`, что `api.env`. Выдача и отзыв пишут `billing.owner_commands` с объектом
+«приглашение»; заметка владельца о человеке в журнал не попадает, её показывает только список.
+
+**Погашение ботом.** `POST /integrations/telegram/v1/invitations/redeem` — операция контракта
+[subscription-activation-v1](../contracts/subscription-activation-v1/protocol.md) с полномочием
+`TELEGRAM_ACTIVATION_INGRESS_SECRET`. Platform сама находит Account по текущей привязке identity.
+Ответ `purchase_ready` содержит `checkoutUrl` — `PUBLIC_SITE_ORIGIN/subscription?offer=<offerId>`;
+витрина выбирает первый вариант этого Offer. Offer, снятый с продажи или из назначения, даёт
+`unavailable`, и приглашение остаётся закреплённым до повторной попытки.
+
+Кабинет владельца — страница `/authoring/access`, вкладка «Приглашения»: выдача, копирование
+ссылки, отзыв и список со статусом и фильтром. Остальные вкладки раздела «Доступ» добавляет
+[#910](https://github.com/sachkov-inside/platform/issues/910).
+
+Правила исполняются набором `invitations` (PostgreSQL и HTTP бота), сценариями таблицы доступа
+`invitation-offer-after-purchase-invitation`, `invitation-offer-without-invitation`,
+`invitation-offer-after-gift-invitation`, столбцом `tier-via-invitation-gift` и переходом `expiry`,
+а также корпусом `subscription-contract-corpus`.
 
 ## Возможности и модули
 

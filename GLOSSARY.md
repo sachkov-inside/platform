@@ -377,8 +377,8 @@ A versioned description of a chosen access composition, independent of a Guide a
 It can be available for assignment without being published for sale. Its payment option specifies the price, period and sale mode: a subscription charged on a schedule,
 or a one-time purchase that is paid once and creates no schedule. Each right it grants carries its own
 term in months or none; rights already granted keep the terms of their purchase. An Offer may be
-sold only to Accounts with a proven ground, such as a confirmed Tribute period; others neither see
-nor buy it. It carries a reversible `published`
+sold only to Accounts with a proven ground, such as a confirmed Tribute period or a redeemed
+Invitation to this Offer; others neither see nor buy it. It carries a reversible `published`
 (for-sale) state, separate from permanent archival; while no offer is published, neither the
 subscription nor a separately sold Guide is offered anywhere. Archival is final: it withdraws the
 offer from sale and assignment for good, while existing enrollments keep their snapshot.
@@ -394,7 +394,7 @@ _Avoid_: Offer, Subscription period, a separate copy of the Product, funnel peri
 
 **SubscriptionEnrollment**:
 An Account's assignment to a promised version of an Inside tier, with its own origin and term.
-Course, Tribute, owner assignment and Platform payment are independent origins; an assignment is not a payment or consent to renewal.
+Course, Tribute, owner assignment, an Invitation gift and Platform payment are independent origins; an assignment is not a payment or consent to renewal.
 _Avoid_: BillingSubscription, Payment, Telegram membership
 
 **ContentScope**:
@@ -417,6 +417,15 @@ A published or paused path from a verified course source or a confirmed Tribute 
 Its verification mode distinguishes source membership from registry lookup; only the registry defines an external paid period.
 Its code selects the path; possession of the code does not prove entitlement.
 _Avoid_: Invite link, payment proof, grant
+
+**Invitation**:
+The owner's personal one-time admission of one person to one Offer, sent as a link to the bot.
+The first Telegram account that opens it owns it; an unopened Invitation expires after 14 days and
+the owner can revoke it before it is used. Redeemed in purchase mode, it admits the Account to buy
+that Offer for good; in gift mode, it assigns the Offer for a term or for life and also admits its
+purchase. It is not an ActivationRule, which anyone may open, and not a Promotion, which gives a
+discount. In Russian product language: «приглашение».
+_Avoid_: ActivationRule, promo code, Invite link to the chat
 
 **SourceEntitlement**:
 A verified external basis identified by its source policy and person, which can exist before an Account is linked.
@@ -499,8 +508,8 @@ _Avoid_: Notification, Delivery, email, reminder job
 
 **BuyerClassification**:
 The owner's recorded decision about who an Account is for billing: a confirmed new buyer, a
-confirmed prior buyer, or still undecided. Only a recorded decision allows recurring charges, and
-only a confirmed prior buyer carries the Tribute transition facts.
+confirmed prior buyer, or still undecided. Only a recorded decision or a redeemed Invitation allows
+recurring charges, and only a confirmed prior buyer carries the Tribute transition facts.
 _Avoid_: AccessGrant, MembershipEvidence, guessed status
 
 **LegacyCohort**:

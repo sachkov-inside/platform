@@ -300,15 +300,17 @@ video locators и иные связанные с body ресурсы в projecti
 Строки: `public-material`, `product-material`, `programme`, `artifacts`, `video`, `community-chat`,
 `support`, `cabinet`, `author`, `mcp`. Столбцы: `guest`, `account-without-rights`,
 `one-time-purchase`, `tier-via-course`, `tier-via-tribute`, `manual-assignment`,
-`hidden-active-tier`, `direct`, `expired-or-revoked`, `multiple-grounds`, `withdrawal-refund`,
+`tier-via-invitation-gift` (#908), `hidden-active-tier`, `direct`, `expired-or-revoked`, `multiple-grounds`, `withdrawal-refund`,
 `moderation`. Переходы: `expiry`, `revocation`, `bridge-replaced-by-tribute`,
 `tribute-temporary-source-lost`, `refund`, `refund-without-withdrawal`,
 `support-kept-by-other-ground`, `material-added-to-product`,
 `material-removed-from-product`, `guide-archived`, `tier-composition-change`,
 `tier-archived-with-assignments`. Публикация: `standalone-membership-publication-rejected`.
 Покупки (#775): `course-offer-terms`, `offer-own-terms`, `offer-terms-change-keeps-earlier-purchase`,
-`subscription-offer-without-tribute-ground`, `subscription-offer-with-tribute-ground` — какие права
-и на какой срок выдаёт покупка предложения и кому предложение продаётся.
+`subscription-offer-without-tribute-ground`, `subscription-offer-with-tribute-ground`; приглашения
+(#908): `invitation-offer-after-purchase-invitation`, `invitation-offer-without-invitation`,
+`invitation-offer-after-gift-invitation` — какие права и на какой срок выдаёт покупка предложения и
+кому предложение продаётся. Переход `expiry` проверяет и подарок по приглашению.
 У каждой клетки стабильное имя `<строка>/<столбец>`.
 
 `pnpm check` проверяет полноту таблицы и негативную фикстуру (`test/unit/access-scenario-table.test.ts`);
