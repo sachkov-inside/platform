@@ -53,6 +53,8 @@ const structureWords = new Set(["for", "done", "fi", "esac", "else"]);
 /** Whether one simple command only reads. `find -exec`, `rg --pre` and `sed -i` execute or write. */
 export function readsOnly(command: string): boolean {
   // `do cat a` and `then cat a` run what follows the keyword.
+  // A command substitution runs whatever it names, inside any word.
+  if (/\$\(|`/u.test(command)) return false;
   const body = command.replace(/^(?:do|then|else)\s+/u, "");
   const [program = "", subcommand = ""] = body.split(" ");
   if (structureWords.has(program)) return true;

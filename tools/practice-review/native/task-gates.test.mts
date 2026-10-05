@@ -38,6 +38,8 @@ void test("reading commands pass, project execution needs consent to that exact 
     [],
   );
   assert.equal(readsOnly("do node check.mjs"), false);
+  assert.equal(readsOnly("for f in $(node x.mjs)"), false);
+  assert.equal(readsOnly("echo `node x.mjs`"), false);
   assert.deepEqual(judgeConsent(["cat requests.mjs"], null), {
     executions: [],
     unconsented: [],
