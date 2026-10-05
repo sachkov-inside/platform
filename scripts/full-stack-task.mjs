@@ -128,5 +128,6 @@ export async function seedFullStackTask(origin, accessToken) {
     },
     expectedRevision: null,
   });
-  return { guideSlug: guide.slug, code };
+  // The lesson comes from a source package: tests that compose Guides in the editor skip it.
+  return { guideSlug: guide.slug, code, materialId: lesson.materialId };
 }

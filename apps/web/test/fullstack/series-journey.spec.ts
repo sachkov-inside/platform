@@ -172,7 +172,7 @@ test("guide programme appends a real composition and restores Reader return posi
     })
     .parse(await created.json());
   try {
-    // Материалы практики прогона перенесены из источника, а в руководство, созданное в редакторе,
+    // Материалы практик и задания прогона перенесены из источника, а в руководство из редактора
     // backend такие не принимает и отвечает 403. Список источник не показывает, поэтому их
     // идентификаторы называет сам прогон.
     const practiceIds = process.env["FULLSTACK_PRACTICE_MATERIAL_IDS"];

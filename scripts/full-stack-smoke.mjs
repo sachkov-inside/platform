@@ -296,6 +296,7 @@ try {
     FULLSTACK_PRACTICE_MATERIAL_IDS: [
       practiceFixture.materialId,
       freePracticeFixture.materialId,
+      taskFixture.materialId,
     ].join(","),
     FULLSTACK_LOGTO_COOKIE_NAME: fullStackIdentity.cookieName,
     FULLSTACK_LOGTO_MEMBER_SESSION: fullStackMemberSession,
