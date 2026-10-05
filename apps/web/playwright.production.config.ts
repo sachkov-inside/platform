@@ -3,8 +3,9 @@ import { defineConfig } from "@playwright/test";
 import { productionTarget } from "./test/production/pass-config";
 
 /**
- * Production-проход доступа (#905) против настоящего production: данные Platform не меняет. Запускается вручную
- * через workflow `Production access pass`; это не проверка pull request.
+ * Production-проход доступа (#905, #906) против настоящего production: каждый запрос проходит
+ * allowlist, данные Platform проход не меняет. Запускает его workflow `Production access pass` после
+ * deploy и вручную; это не проверка pull request.
  * `PRODUCTION_ACCESS_BROWSER_PROXY` нужен только локально, когда сеть идёт через proxy.
  */
 const browserProxy = process.env["PRODUCTION_ACCESS_BROWSER_PROXY"];

@@ -8,20 +8,15 @@ import {
   type AccessCheckEvidence,
   type AccessCheckLevel,
   type AccessCheckRowShape,
-  type plannedCheckIssues,
+  productionPassConfigFile,
 } from "./access-check-matrix.js";
-
-/** Новая проверка какой задачи допустима на уровне: fullstack делает #904, production-проход — #906. */
-const plannedIssueOfLevel: Readonly<
-  Partial<Record<AccessCheckLevel, (typeof plannedCheckIssues)[number]>>
-> = { "web-bff": 904, production: 906 };
 
 /**
  * Контроль полноты матрицы проверок доступа. Каждая строка покрывает все уровни; каждая клетка
  * ссылается на существующий тест (файл есть и объявляет `test(` или `it(` с этим названием),
- * на клетку таблицы сценариев доступа, на новую проверку своей задачи или на тест другого уровня
- * той же строки; неприменимость и опора на другой уровень объясняют причину. Production-клетка
- * не принимает локальный тест. `readFile` получает путь от корня репозитория и возвращает `null`,
+ * на клетку таблицы сценариев доступа, на клетки production-прохода или на тест другого уровня той
+ * же строки; неприменимость и опора на другой уровень объясняют причину. Production-клетка не
+ * принимает локальный тест, а ссылка на проход требует его клетку `<строка>@<транспорт>`. `readFile` получает путь от корня репозитория и возвращает `null`,
  * если файла нет. Возвращает список нарушений; пустой список — матрица цела.
  */
 export function checkAccessCheckMatrix(
@@ -89,15 +84,15 @@ function evidenceProblem(
         ? null
         : `cites unknown scenario cell ${evidence.cell}`;
     }
-    case "new-check": {
-      const expected = plannedIssueOfLevel[level];
-      return expected === evidence.issue
+    case "production-pass": {
+      if (level !== "production")
+        return `cites the production pass outside production`;
+      const config = readFile(productionPassConfigFile);
+      if (config === null)
+        return `cites a missing file: ${productionPassConfigFile}`;
+      return config.includes(`"${accessCheckRowId(row)}@`)
         ? null
-        : `marks a new check of #${String(evidence.issue)}, expected ${
-            expected === undefined
-              ? "an existing test at this level"
-              : `#${String(expected)}`
-          }`;
+        : "has no cell in the production pass";
     }
     case "relies-on": {
       if (evidence.because.trim().length === 0)

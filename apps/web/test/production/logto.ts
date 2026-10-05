@@ -3,12 +3,14 @@ import { Buffer } from "node:buffer";
 import { z } from "zod";
 
 import { productionTarget } from "./pass-config";
+import { passFetch, passPatPrefix } from "./pass-requests";
 
 /**
  * Вход тестовых identities без владельца (#905). Единственный долгоживущий секрет — ключ
  * M2M-приложения Logto из окружения GitHub `Production`. Он даёт токен Management API, через который
  * проход выпускает one-time token для браузерного входа и PAT для API на время прогона. Тот же
- * M2M-клиент обменивает PAT на короткий токен Platform API (token exchange).
+ * M2M-клиент обменивает PAT на короткий токен Platform API (token exchange). Каждый запрос проходит
+ * allowlist прохода (`pass-requests.ts`).
  */
 const credentialsSchema = z.object({
   PRODUCTION_ACCESS_LOGTO_APP_ID: z.string().min(1),
@@ -29,7 +31,6 @@ const requestTimeoutMs = 20_000;
 const patLifetimeMs = 30 * 60_000;
 const oneTimeTokenLifetimeSeconds = 600;
 /** Имя PAT прохода; хвост — номер прогона. */
-const passPatPrefix = "inside-production-access-";
 const passPatName = (runId: string) => `${passPatPrefix}${runId}`;
 
 export interface LogtoCredentials {
@@ -51,13 +52,22 @@ export interface LogtoPassClient {
 
 /**
  * Регистрирует значение как секрет лога GitHub Actions и возвращает его без изменений: Playwright
- * печатает URL входа с one-time token и email identity, когда шаг падает.
+ * печатает URL входа с one-time token и email identity, когда шаг падает. Отчёт прохода скрывает
+ * те же значения.
  */
+const logSecrets = new Set<string>();
+
 export function registerLogSecret(value: string): string {
+  logSecrets.add(value);
   if (process.env["GITHUB_ACTIONS"] === "true") {
     process.stdout.write(`::add-mask::${value}\n`);
   }
   return value;
+}
+
+/** Значения, которые процесс прохода скрыл в логе; отчёт скрывает их тоже. */
+export function registeredLogSecrets(): readonly string[] {
+  return [...logSecrets];
 }
 
 export function readLogtoCredentials(): LogtoCredentials | undefined {
@@ -75,13 +85,13 @@ export async function createLogtoPassClient(
 ): Promise<LogtoPassClient> {
   const basic = `Basic ${Buffer.from(`${credentials.appId}:${credentials.appSecret}`).toString("base64")}`;
   const token = async (body: Record<string, string>) => {
-    const response = await fetch(`${productionTarget.logto}/oidc/token`, {
+    const response = await passFetch(`${productionTarget.logto}/oidc/token`, {
       method: "POST",
       headers: {
         authorization: basic,
         "content-type": "application/x-www-form-urlencoded",
       },
-      body: new URLSearchParams(body),
+      body: new URLSearchParams(body).toString(),
       signal: AbortSignal.timeout(requestTimeoutMs),
     });
     if (!response.ok) {
@@ -104,7 +114,7 @@ export async function createLogtoPassClient(
     init: { readonly method?: string; readonly body?: unknown } = {},
   ): Promise<unknown> => {
     const method = init.method ?? "GET";
-    const response = await fetch(`${productionTarget.logto}/api${path}`, {
+    const response = await passFetch(`${productionTarget.logto}/api${path}`, {
       method,
       headers: {
         authorization: `Bearer ${management}`,

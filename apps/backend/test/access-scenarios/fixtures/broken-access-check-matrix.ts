@@ -5,8 +5,9 @@ import {
 
 /**
  * Негативная фикстура матрицы проверок доступа. Она доказывает, что контроль ловит ссылку на
- * несуществующий тест (в том числе на название `describe`) и файл, неизвестную клетку таблицы сценариев, новую проверку не той задачи,
- * локальный тест на уровне production, опору на уровень без теста, неприменимость без причины,
+ * несуществующий тест (в том числе на название `describe`) и файл, неизвестную клетку таблицы
+ * сценариев, production-проход вне уровня production и строку без клетки прохода, локальный тест на
+ * уровне production, опору на уровень без теста, неприменимость без причины,
  * пропущенный уровень, дубликат строки, неизвестное состояние и состояние без строк.
  */
 const learnerReadsA = accessCheckMatrix.find(
@@ -49,7 +50,7 @@ export const brokenAccessCheckMatrix: readonly AccessCheckRowShape[] = [
         file: "apps/backend/test/integration/no-such-file.test.ts",
         name: "learner reads Guide A",
       },
-      "web-bff": { kind: "new-check", issue: 906 },
+      "web-bff": { kind: "production-pass" },
       production: {
         kind: "test",
         file: "apps/backend/test/integration/scoped-access-http.test.ts",

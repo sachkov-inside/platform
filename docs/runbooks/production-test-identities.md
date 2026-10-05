@@ -7,7 +7,8 @@ identities, объясняет вход, секреты и порядок их �
 ## Перечень
 
 Email каждой identity — алиас ящика владельца: `<ящик>+inside-access-<identity>@<домен>`. Сам ящик
-задаёт переменная `PRODUCTION_ACCESS_MAILBOX` окружения GitHub `Production`, а в репозитории его нет.
+задаёт secret `PRODUCTION_ACCESS_MAILBOX` окружения GitHub `Production`, а в репозитории его нет.
+Secret, а не variable: GitHub маскирует secret в логе run, а репозиторий публичный (#929).
 Telegram у тестовых Accounts не используется. Тестового Platform Administrator нет: `platform:admin`
 проверяется только локально.
 
@@ -20,15 +21,18 @@ Telegram у тестовых Accounts не используется. Тесто�
 | `materials-only` | право `materials:manage` | trusted owner bootstrap |
 | `billing-only` | право `billing:manage` | trusted owner bootstrap |
 
-Guide A — «AI Engineering» (`ai-engineering`); id и закрытый материал прохода названы в
-`apps/web/test/production/pass-config.ts`. Второго опубликованного Guide в production нет. По решению
-владельца клетки Guide B помечены «отложено до второго Guide»: отчёт показывает их отдельным статусом,
-и они не делают job красным. Любая другая клетка «не проверено» делает job красным.
+Guide A — «AI Engineering» (`ai-engineering`). Его id и закрытые уроки прохода названы в
+`apps/web/test/production/pass-config.ts`: урок для тела и урок практики с картинкой и заданием.
+Второго опубликованного Guide и опубликованного видео Guide A в production нет. По решениям
+владельца в #905 и #906 клетки Guide B помечены «отложено до второго Guide», а клетки video —
+«отложено до первого видео Guide A». Отчёт показывает их отдельным статусом, и они не делают job
+красным. Любая другая клетка «не проверено» делает job красным.
 
 Все identities однажды приняли условия использования на первом экране входа. Проход данные Platform
-не меняет: он открывает страницы и вызывает read-only tool учебного MCP. Записи прохода есть только в
-Logto и в сессиях: one-time token на вход, PAT на прогон (после прогона удаляется), сессии Logto и
-BFF тестовых identities. Если identity снова видит экран условий, проход падает: условия принимают
+не меняет: каждый его запрос проходит allowlist до отправки, а запрос вне allowlist раннер не
+отправляет ([проход доступа после выпуска](production-release.md#проход-доступа-после-выпуска)).
+Записи прохода есть только в Logto и в сессиях: one-time token на вход, PAT на прогон (после прогона
+удаляется), сессии Logto и BFF тестовых identities. Если identity снова видит экран условий, проход падает: условия принимают
 вручную, повторив вход из раздела «Одноразовая настройка».
 
 ## Вход прохода
@@ -43,7 +47,8 @@ BFF тестовых identities. Если identity снова видит экр�
   выпуском нового. Публичный API ученика в production — learner MCP `/mcp/learning`: других
   публичных маршрутов к API для ученика нет
   ([таблица маршрутов](production-release.md#public-api-routes)). Поэтому клетки «через API»
-  проверяются через learner MCP.
+  проверяются через learner MCP. Тот же токен принимает владельческий MCP `/mcp`: через него
+  Billing-only и Materials-only читают каталог тарифов, потому что GET-чтения Billing в Web нет.
 - **Первое установление Account.** Platform создаёт Account только по подтверждённому email
   (`inside_verified_email`). Вход по one-time token этот claim не даёт, поэтому Account без прав и
   учеников однажды входят по коду из письма. Accounts с правами создаёт owner bootstrap. Дальше хватает
@@ -55,7 +60,7 @@ BFF тестовых identities. Если identity снова видит экр�
 |---|---|---|
 | `PRODUCTION_ACCESS_LOGTO_APP_SECRET` | secret | ключ M2M-приложения Logto `Inside Production Access Pass` |
 | `PRODUCTION_ACCESS_LOGTO_APP_ID` | variable | id того же приложения, не секрет |
-| `PRODUCTION_ACCESS_MAILBOX` | variable | ящик владельца для алиасов |
+| `PRODUCTION_ACCESS_MAILBOX` | secret | ящик владельца для алиасов |
 
 Ключ M2M — единственный долгоживущий секрет прохода. У приложения роль
 `Logto Management API access` и включён `allowTokenExchange`. Владелец принял риск: этот ключ
@@ -95,14 +100,23 @@ BFF тестовых identities. Если identity снова видит экр�
 ## Когда выйдет второй Guide
 
 1. Выдать `learner-guide-b` доступ `guide:<Guide B>` тем же ручным AccessGrant.
-2. Записать Guide B и его закрытый материал в `pass-config.ts` и снять пометку «отложено до второго
-   Guide» с клеток Guide B.
+2. Записать Guide B и его закрытый материал в `pass-config.ts`, снять пометку «отложено до второго
+   Guide» с клеток Guide B и добавить их наблюдение в `access.spec.ts`.
+
+## Когда выйдет первое видео Guide A
+
+1. Записать в `pass-config.ts` закрытый урок с основным видео.
+2. Снять пометку «отложено до первого видео Guide A» с клеток video и добавить их наблюдение в
+   `access.spec.ts`. Видео проверяется выдачей playback session
+   (`POST /api/material-video-playback-sessions`): она проверяет право `play` и подписывает короткий
+   JWT без записи в базу, и allowlist уже называет её операцией чтения.
 
 ## Запуск
 
-Проход запускается вручную: GitHub Actions → `Production access pass` → `Run workflow` на `main`.
+`deploy.yml` запускает проход после каждого deploy и rollback и передаёт SHA выпуска; без SHA
+такой проход красный. Вручную: GitHub Actions → `Production access pass` → `Run workflow` на `main`.
 Вход `deployed-sha` — SHA выпуска, который сейчас в production. Снаружи production его не показывает
-(`/_health/*` закрыт на edge), поэтому без входа отчёт пишет «не передан». Job загружает artifact
+(`/_health/*` закрыт на edge), поэтому без входа ручной отчёт пишет «не передан». Job загружает artifact
 `production-access-report-<попытка>` с `report.json` и `report.md`. В отчёте для каждой клетки есть
 deployed SHA, ожидание, факт и уровень. Cookies, токены и email в отчёт не попадают. Локально тот же
 набор запускает `pnpm --filter @inside/web test:production-access` с теми же переменными.

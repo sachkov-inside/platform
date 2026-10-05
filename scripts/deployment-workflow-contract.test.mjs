@@ -119,6 +119,7 @@ esac
             FIXTURE_DIR: directory,
             RUNNER_TEMP: directory,
             GITHUB_ENV: resolve(directory, "github.env"),
+            GITHUB_OUTPUT: resolve(directory, "github.output"),
             GITHUB_REPOSITORY: "sachkov-inside/platform",
             RELEASE_DIR: resolve(directory, "production-release"),
             OPERATION: "deploy",
@@ -133,6 +134,11 @@ esac
           "utf8",
         ),
         JSON.stringify(manifest),
+      );
+      // Проход доступа после выпуска получает SHA развёрнутого выпуска (#906).
+      assert.equal(
+        readFileSync(resolve(directory, "github.output"), "utf8"),
+        `source-sha=${sourceSha}\n`,
       );
     } finally {
       rmSync(directory, { recursive: true, force: true });
@@ -176,6 +182,25 @@ esac
     assert.doesNotMatch(
       workflow,
       /ssh root@|StrictHostKeyChecking=accept-new/u,
+    );
+  });
+
+  it("runs the production access pass after the release with its SHA", () => {
+    const job = workflow.split("\n  access-pass:\n")[1];
+    assert.ok(job, "missing job access-pass");
+    assert.match(job, /^ {4}needs: deploy$/mu);
+    assert.match(
+      job,
+      /^ {4}uses: \.\/\.github\/workflows\/production-access\.yml$/mu,
+    );
+    assert.match(
+      job,
+      /^ {6}deployed-sha: \$\{\{ needs\.deploy\.outputs\.source-sha \}\}$/mu,
+    );
+    assert.match(job, /^ {6}require-deployed-sha: true$/mu);
+    assert.match(
+      workflow,
+      /^ {6}source-sha: \$\{\{ steps\.release\.outputs\.source-sha \}\}$/mu,
     );
   });
 
