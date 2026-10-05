@@ -249,6 +249,14 @@ curl -fsS https://inside.sachkov.dev/.well-known/oauth-protected-resource/mcp/le
 curl -si https://inside.sachkov.dev/mcp/learning -X POST | grep -i '^www-authenticate'
 ```
 
+Known production limit (05.10.2026): Logto fetches a CIMD document from the VPS, and the documents
+of Codex (`chatgpt.com` answers `403`) and Claude Code (`claude.ai` redirects to
+`app-unavailable-in-region`) are closed to its region. Their CIMD login therefore ends with
+`client_id metadata document fetch failed`, and both connect with the fallback client ID. Codex
+0.160 also requests the authorization server scopes instead of `learning:read` and adds a random
+suffix to its callback path; it needs `oauth.callback_url` on `127.0.0.1` with path `/callback` and
+`--scopes learning:read,offline_access`. OpenCode 1.18 has no CIMD and needs the client ID.
+
 A client acceptance uses a production test account without entitlement
 ([test identities](production-test-identities.md)). For each client record its version, the
 registration path (CIMD, public client ID), login, refresh after the five-minute access token,
