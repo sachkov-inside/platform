@@ -1,0 +1,51 @@
+[
+  {
+    "case": "without-consent",
+    "consent": null,
+    "passed": true,
+    "failures": [],
+    "executions": [],
+    "consentedRan": false,
+    "statuses": {
+      "request": "confirmed",
+      "deduplication": "confirmed",
+      "ownership": "confirmed",
+      "status-history": "violation"
+    },
+    "submissions": 0
+  },
+  {
+    "case": "with-consent",
+    "consent": "node check.mjs",
+    "passed": true,
+    "failures": [],
+    "executions": [
+      "node check.mjs"
+    ],
+    "consentedRan": true,
+    "statuses": {
+      "request": "confirmed",
+      "deduplication": "confirmed",
+      "ownership": "confirmed",
+      "status-history": "violation"
+    },
+    "submissions": 0
+  },
+  {
+    "case": "bad-project",
+    "consent": "node check.mjs",
+    "passed": true,
+    "failures": [],
+    "executions": [
+      "node check.mjs"
+    ],
+    "consentedRan": true,
+    "statuses": {
+      "request": "confirmed",
+      "deduplication": "violation",
+      "ownership": "violation",
+      "status-history": "violation"
+    },
+    "submissions": 0
+  }
+]

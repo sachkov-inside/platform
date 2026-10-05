@@ -23,6 +23,7 @@ import type {
 import type {
   ContentAccessDependencies,
   GuideArtifactResourceFacts,
+  GuideTaskResourceFacts,
   MaterialResourceFacts,
   MembershipAccessState,
 } from "./content-access.dependencies.js";
@@ -43,7 +44,12 @@ interface ResolvedResourceFacts {
   readonly publicationState: MaterialResourceFacts["publicationState"];
   readonly resourceKey: string;
   readonly resourceKind:
-    "file_asset" | "guide_artifact" | "image_asset" | "material" | "video";
+    | "file_asset"
+    | "guide_artifact"
+    | "guide_task"
+    | "image_asset"
+    | "material"
+    | "video";
 }
 
 export function assembleContentAccess(
@@ -410,8 +416,13 @@ function projectAvailability(
   subjectFacts: SubjectFacts | undefined,
   workshopAccess: WorkshopMaterialAccessState | undefined,
 ): AccessAvailability["availability"] {
-  if (facts?.publicationState !== "published") {
-    return "unavailable";
+  if (facts === undefined) return "unavailable";
+  if (facts.publicationState !== "published") {
+    // Only its author still opens an unpublished Guide Task; for everyone else it does not exist.
+    return facts.resourceKind === "guide_task" &&
+      evaluate(facts, action, subject, subjectFacts) === "materials_manager"
+      ? "available"
+      : "unavailable";
   }
   const reason = evaluate(facts, action, subject, subjectFacts, workshopAccess);
   if (
@@ -471,6 +482,10 @@ function evaluate(
   }
   if (action === "preview") {
     return "permission_required";
+  }
+  // A read of an unpublished resource reaches here only for a Guide Task, past its author.
+  if (facts.publicationState !== "published") {
+    return "resource_unpublished";
   }
   switch (subjectFacts.membership?.kind) {
     case "active":
@@ -543,6 +558,7 @@ function resourceReason(
     (facts.resourceKind === "image_asset" && action === "read") ||
     (facts.resourceKind === "file_asset" && action === "download") ||
     (facts.resourceKind === "guide_artifact" && action === "download") ||
+    (facts.resourceKind === "guide_task" && action === "read") ||
     (facts.resourceKind === "video" && action === "play");
   if (!validPair) {
     return "resource_action_invalid";
@@ -551,7 +567,10 @@ function resourceReason(
     (action === "read" || action === "download" || action === "play") &&
     facts.publicationState !== "published"
   ) {
-    return "resource_unpublished";
+    // The author of an unpublished Guide Task still reads it, so the subject decides.
+    return facts.resourceKind === "guide_task"
+      ? undefined
+      : "resource_unpublished";
   }
   if (
     (action === "read" || action === "download" || action === "play") &&
@@ -603,6 +622,12 @@ async function resolveOneResourceFacts(
       )) ?? null;
     return artifact === null ? null : resolveGuideArtifactFacts(artifact);
   }
+  if (resource.kind === "guideTask") {
+    const task =
+      (await dependencies.guideTaskResourceFacts?.findOne(resource.taskId)) ??
+      null;
+    return task === null ? null : resolveGuideTaskFacts(task);
+  }
   const asset =
     (await dependencies.assetResourceFacts?.findOne(resource.assetId)) ?? null;
   if (asset === null) return null;
@@ -648,6 +673,18 @@ async function resolveManyResourceFacts(
   const artifactsById = new Map(
     artifacts.map((facts) => [facts.artifactId, facts]),
   );
+  const taskIds = [
+    ...new Set(
+      resources.flatMap((resource) =>
+        resource.kind === "guideTask" ? [resource.taskId] : [],
+      ),
+    ),
+  ];
+  const tasks =
+    taskIds.length === 0
+      ? []
+      : ((await dependencies.guideTaskResourceFacts?.findMany(taskIds)) ?? []);
+  const tasksById = new Map(tasks.map((facts) => [facts.taskId, facts]));
   const videoIds = [
     ...new Set(
       resources.flatMap((resource) =>
@@ -724,6 +761,12 @@ async function resolveManyResourceFacts(
             ? []
             : [[resourceKey(resource), resolveGuideArtifactFacts(artifact)]];
         }
+        if (resource.kind === "guideTask") {
+          const task = tasksById.get(resource.taskId);
+          return task === undefined
+            ? []
+            : [[resourceKey(resource), resolveGuideTaskFacts(task)]];
+        }
         const asset = assetsById.get(resource.assetId);
         const material =
           asset === undefined ? undefined : materialsById.get(asset.materialId);
@@ -765,11 +808,25 @@ function resolveGuideArtifactFacts(
   };
 }
 
+function resolveGuideTaskFacts(
+  task: GuideTaskResourceFacts,
+): ResolvedResourceFacts {
+  return {
+    access: task.access,
+    contentVersion: task.version,
+    guideIds: [task.guideId],
+    publicationState: task.published ? "published" : "unpublished",
+    resourceKey: `guide-task:${task.taskId}`,
+    resourceKind: "guide_task",
+  };
+}
+
 function resourceKey(resource: Resource): string {
   if (resource.kind === "material") return `material:${resource.materialId}`;
   if (resource.kind === "video") return `video:${resource.videoId}`;
   if (resource.kind === "guideArtifact") {
     return `guide-artifact:${resource.artifactId}`;
   }
+  if (resource.kind === "guideTask") return `guide-task:${resource.taskId}`;
   return `asset:${resource.assetId}`;
 }

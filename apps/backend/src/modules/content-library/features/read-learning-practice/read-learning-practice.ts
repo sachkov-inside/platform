@@ -3,7 +3,10 @@ import {
   canonicalJson,
   contractDigest,
 } from "../../../../infrastructure/contracts/canonical-digest.js";
-import { createHash } from "node:crypto";
+import {
+  contentSha256,
+  contextPart,
+} from "../../../../infrastructure/contracts/context-parts.js";
 import type { ContentAccess, Subject } from "../../../content-access/index.js";
 import type { PublishedMaterialReader } from "../../../materials/index.js";
 import { readLearningMaterial } from "../read-learning-material/read-learning-material.js";
@@ -102,42 +105,26 @@ export async function readLearningPractice(
     },
     terminalMarker: `END_CONTEXT:${contextVersion}`,
   });
-  const contentSha256 = createHash("sha256").update(serialized).digest("hex");
+  const parts = contextPart(serialized, request.part);
   // Asset availability/presentation can change without a Material Save. Never splice two
   // rendered snapshots under the same logical context version.
   if (
     request.expectedContentSha256 !== undefined &&
-    request.expectedContentSha256 !== contentSha256
+    request.expectedContentSha256 !== contentSha256(serialized)
   )
     return { ok: false as const, error: { code: "practice_content_changed" } };
-  // Small bounded tool responses avoid native client output truncation. Splitting by Unicode
-  // code point preserves every character; clients must consume all parts, not only the last.
-  const characters = Array.from(serialized);
-  const partSize = 6_000;
-  const partCount = Math.ceil(characters.length / partSize);
-  if (request.part >= partCount)
+  if (!parts.ok)
     return {
       ok: false as const,
-      error: { code: "invalid_context_part", partCount },
+      error: { code: "invalid_context_part", partCount: parts.partCount },
     };
-  const data = characters
-    .slice(request.part * partSize, (request.part + 1) * partSize)
-    .join("");
   return {
     ok: true as const,
     value: {
       practiceId: practice.practiceId,
       contextVersion,
       format: "canonical-json-parts" as const,
-      contentSha256,
-      contentBytes: Buffer.byteLength(serialized, "utf8"),
-      part: request.part,
-      partCount,
-      data,
-      partSha256: createHash("sha256").update(data).digest("hex"),
-      complete: partCount === 1,
-      endOfContext: request.part === partCount - 1,
-      nextPart: request.part === partCount - 1 ? null : request.part + 1,
+      ...parts.value,
     },
   };
 }

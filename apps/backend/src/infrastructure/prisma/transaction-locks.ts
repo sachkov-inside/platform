@@ -56,6 +56,22 @@ export async function lockPracticeImport(
   await lockTransactionKey(transaction, `practice-import:${practiceId}`);
 }
 
+/** Serializes creation and every import of one Guide Task code. */
+export async function lockGuideTaskImport(
+  transaction: AdvisoryLockTransaction,
+  code: string,
+): Promise<void> {
+  await lockTransactionKey(transaction, `guide-task-import:${code}`);
+}
+
+/** Serializes the submissions of one Account, so its rate limit counts committed rows. */
+export async function lockGuideTaskSubmissions(
+  transaction: AdvisoryLockTransaction,
+  accountId: string,
+): Promise<void> {
+  await lockTransactionKey(transaction, `guide-task-submissions:${accountId}`);
+}
+
 /** Serializes slug allocation, so two first publications cannot take the same slug. */
 export async function lockMaterialSlugAllocation(
   transaction: AdvisoryLockTransaction,

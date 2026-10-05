@@ -27,8 +27,18 @@ export type GuideArtifactResource = Readonly<{
   kind: "guideArtifact";
 }>;
 
+/** A Guide Task (#946): its own access class on its Guide; unpublished, only its author reads it. */
+export type GuideTaskResource = Readonly<{
+  kind: "guideTask";
+  taskId: string;
+}>;
+
 export type Resource =
-  MaterialResource | AssetResource | GuideArtifactResource | VideoResource;
+  | MaterialResource
+  | AssetResource
+  | GuideArtifactResource
+  | GuideTaskResource
+  | VideoResource;
 
 export type AccessAction = "read" | "preview" | "download" | "play";
 
@@ -44,6 +54,8 @@ export type EnforcementPoint =
   | "download_delivery"
   | "guide_artifact_read"
   | "guide_artifact_delivery"
+  | "guide_task_read"
+  | "guide_task_submit"
   | "playback_token_issue"
   | "video_authorization_callback";
 

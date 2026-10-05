@@ -175,6 +175,7 @@ if (
         guides: report.guides,
         archived: report.archived,
         archiveProposals: report.archiveProposals,
+        tasks: report.tasks ?? [],
         notices: report.notices,
       },
       null,

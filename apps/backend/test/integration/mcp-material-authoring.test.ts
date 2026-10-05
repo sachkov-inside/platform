@@ -1,3 +1,7 @@
+import {
+  LEARNING_TASKS,
+  type LearningTasks,
+} from "../../src/modules/guide-tasks/index.js";
 import { verifiedAccountSignIn } from "../../src/modules/accounts/facets/accounts/verified-logto-identity.js";
 import {
   CONTENT_ACCESS,
@@ -122,6 +126,7 @@ describe("delegated Material authoring over MCP", () => {
         ),
         contentAccess: application.get<ContentAccess>(CONTENT_ACCESS),
         videos: application.get<Videos>(VIDEOS),
+        tasks: application.get<LearningTasks>(LEARNING_TASKS),
       },
       authoring: application.get<MaterialAuthoring>(MATERIAL_AUTHORING),
       videos: application.get<Videos>(VIDEOS),

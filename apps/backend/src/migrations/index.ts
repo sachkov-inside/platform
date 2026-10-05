@@ -15,6 +15,10 @@ import {
   statement as accessEndingNoticesStatement,
 } from "../modules/billing/infrastructure/postgres/migrations/0077-access-ending-notices.js";
 import {
+  name as guideTasksName,
+  statement as guideTasksStatement,
+} from "../modules/guide-tasks/infrastructure/postgres/migrations/0079-guide-tasks.js";
+import {
   name as invitationsName,
   statement as invitationsStatement,
 } from "../modules/membership-entitlements/infrastructure/postgres/migrations/0078-invitations.js";
@@ -520,6 +524,7 @@ export const platformMigrations = [
     statement: accessEndingNoticesStatement,
   },
   { name: invitationsName, statement: invitationsStatement },
+  { name: guideTasksName, statement: guideTasksStatement },
 ] as const;
 
 export function migrateToLatest(

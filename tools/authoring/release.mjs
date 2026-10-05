@@ -48,6 +48,7 @@ import {
 } from "./target.mjs";
 import { keychainStore, ownerSession } from "./credentials.mjs";
 import { exportCommittedPackage } from "./git-local.mjs";
+import { previewTasks } from "./task-import.mjs";
 
 /**
  * @typedef {import("./journal.mjs").Journal} Journal
@@ -458,6 +459,14 @@ export async function previewRelease(
         moved > 0,
     });
   }
+  // Guide Tasks follow the Guide; validation reads their target revision without a write.
+  const taskPreview = await previewTasks(
+    manifest,
+    journal,
+    async (path, body) => parseLocalResponse(path, await send(path, body)),
+    (key) => publicationOfKey(key) === "published",
+  );
+  Object.assign(expected, taskPreview.expected);
   const archiveProposals = archiveProposalKeys(journal, manifest);
   // The owner's publication approval is part of what apply must match.
   /** @type {{ publish?: import("./local-boundaries.mjs").PublishSelection }} */
@@ -483,6 +492,7 @@ export async function previewRelease(
     expected,
     materials,
     guides,
+    ...(taskPreview.tasks.length ? { tasks: taskPreview.tasks } : {}),
     archiveProposals,
   };
   const preview = { ...plan, fingerprint: checksum(canonical(plan)) };
@@ -513,6 +523,7 @@ const previewSchema = z
     expected: z.record(z.string(), z.union([z.number().int(), z.string()])),
     materials: z.array(z.object({ change: z.string() }).passthrough()),
     guides: z.array(z.json()),
+    tasks: z.array(z.object({ change: z.string() }).passthrough()).optional(),
     archiveProposals: z.array(z.string()),
     fingerprint: z.hash("sha256"),
   })
@@ -546,7 +557,10 @@ export async function applyRelease(
     throw new Error(
       `The preview was made against a ${preview.environment} runtime; ${target.id} is ${target.environment}`,
     );
-  if (preview.materials.some((item) => item.change === "conflict"))
+  if (
+    preview.materials.some((item) => item.change === "conflict") ||
+    (preview.tasks ?? []).some((item) => item.change === "conflict")
+  )
     throw new Error(
       "The preview contains conflicts; reconcile them and preview again",
     );
@@ -647,7 +661,7 @@ if (
       },
     );
     process.stdout.write(
-      `${JSON.stringify({ preview: path, ...(exported ? { commit: exported.commit } : {}), scope: preview.scope ?? "materials", publish: preview.publish ?? [], summary, guides: preview.guides, archiveProposals: preview.archiveProposals, changes: preview.materials.filter((item) => item.change !== "unchanged") }, null, 2)}\n`,
+      `${JSON.stringify({ preview: path, ...(exported ? { commit: exported.commit } : {}), scope: preview.scope ?? "materials", publish: preview.publish ?? [], summary, guides: preview.guides, tasks: preview.tasks ?? [], archiveProposals: preview.archiveProposals, changes: preview.materials.filter((item) => item.change !== "unchanged") }, null, 2)}\n`,
     );
   } else if (command === "apply" && values.preview && values.state) {
     const reviewed = z
@@ -659,7 +673,7 @@ if (
       accessToken: sessionFor(reviewed.target),
     });
     process.stdout.write(
-      `${JSON.stringify({ applied: report.applied, unchanged: report.unchanged, archived: report.archived, guides: report.guides }, null, 2)}\n`,
+      `${JSON.stringify({ applied: report.applied, unchanged: report.unchanged, archived: report.archived, guides: report.guides, tasks: report.tasks ?? [] }, null, 2)}\n`,
     );
   } else {
     throw new Error(

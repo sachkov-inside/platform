@@ -68,6 +68,36 @@ export const sourcePracticeSchema = z
   })
   .strict();
 
+/**
+ * A Guide Task of the package (#946). Its source ID is the task code; Guide, chapter and related
+ * Materials are named by their source IDs in this namespace. The order of a chapter's tasks in
+ * `tasks` is their order in the chapter. `publicationState` is Content's intent: `unpublished`
+ * withdraws the task, `published` publishes it only when the owner selects it for publication.
+ */
+export const sourceTaskSchema = z
+  .object({
+    sourceId: identifier.max(120),
+    guideId: identifier,
+    chapterId: identifier,
+    title: z.string().trim().min(1).max(200),
+    access: z.enum(["free", "membership"]),
+    // The owning backend validates the complete authored definition during preflight.
+    definition: z.record(z.string(), z.json()),
+    relatedMaterialIds: z.array(identifier).max(50),
+    publicationState: z.enum(["published", "unpublished"]),
+    provenance: z
+      .object({
+        repository: z
+          .string()
+          .regex(/^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/u)
+          .max(256),
+        commit: z.hash("sha1"),
+        path: relativePath,
+      })
+      .strict(),
+  })
+  .strict();
+
 /** The only explicit selection scope; a package without it selects Materials. */
 export const guideShellScope = z.literal("guide-shell");
 
@@ -76,6 +106,7 @@ export const manifestSchema = z
     schemaVersion: z.literal(1),
     sourceNamespace: identifier,
     practiceDefinitions: z.array(sourcePracticeSchema).max(100).optional(),
+    tasks: z.array(sourceTaskSchema).max(200).optional(),
     selection: z
       .object({
         guideId: identifier.nullable(),
@@ -270,10 +301,11 @@ function checkSelectionScope(manifest) {
     manifest.selection.materialIds.length ||
     manifest.materials.length ||
     manifest.assets.length ||
-    (manifest.practiceDefinitions ?? []).length
+    (manifest.practiceDefinitions ?? []).length ||
+    (manifest.tasks ?? []).length
   )
     throw new Error(
-      "A Guide shell release carries no chapter subset, Material, asset or practice",
+      "A Guide shell release carries no chapter subset, Material, asset, practice or task",
     );
   if (
     !guide.complete ||
@@ -287,10 +319,63 @@ function checkSelectionScope(manifest) {
 }
 
 /**
+ * Every task names a Guide and chapter of this package; related Materials need not travel in it.
+ *
+ * @param {Manifest} manifest
+ */
+function checkTasks(manifest) {
+  const tasks = manifest.tasks ?? [];
+  unique(
+    tasks.map((task) => task.sourceId),
+    "task identity",
+  );
+  // `--publish` names a task by its code, so a code must not also name a Material.
+  const materials = new Set(manifest.materials.map((row) => row.sourceId));
+  for (const task of tasks)
+    if (materials.has(task.sourceId))
+      throw new Error(
+        `${task.sourceId}: a task code repeats a Material identity`,
+      );
+  for (const task of tasks) {
+    const guide = manifest.guides.find((row) => row.sourceId === task.guideId);
+    if (guide === undefined)
+      throw new Error(
+        `${task.sourceId}: the task's Guide is not in the package`,
+      );
+    if (!guide.chapters.some((chapter) => chapter.sourceId === task.chapterId))
+      throw new Error(
+        `${task.sourceId}: the task's chapter is not in its Guide`,
+      );
+    unique(task.relatedMaterialIds, `${task.sourceId} related Material`);
+  }
+}
+
+/**
+ * The order of each task inside its chapter, from 1, as the package lists them.
+ *
+ * @param {Pick<Manifest, "tasks">} manifest
+ * @returns {Map<string, number>}
+ */
+export function taskPositions(manifest) {
+  /** @type {Map<string, number>} */
+  const counts = new Map();
+  /** @type {Map<string, number>} */
+  const positions = new Map();
+  for (const task of manifest.tasks ?? []) {
+    const chapter = `${task.guideId}\n${task.chapterId}`;
+    const position = (counts.get(chapter) ?? 0) + 1;
+    counts.set(chapter, position);
+    positions.set(task.sourceId, position);
+  }
+  return positions;
+}
+
+/**
  * @typedef {z.infer<typeof manifestSchema>} Manifest
  * @typedef {Manifest["materials"][number]} ManifestMaterial
  * @typedef {Manifest["guides"][number]} ManifestGuide
  * @typedef {Manifest["assets"][number]} ManifestAsset
+ * @typedef {NonNullable<Manifest["tasks"]>[number]} ManifestTask
  * @typedef {{ id: string; manifest: Manifest; directory: string }} AuthoringPackage
  */
 
@@ -392,6 +477,7 @@ export async function loadPackage(path) {
         "Practice reference does not match a complete selected Material revision",
       );
   }
+  checkTasks(manifest);
   const directory = dirname(manifestPath);
   for (const asset of assets.values()) {
     const absolute = await realpath(resolve(directory, asset.path));

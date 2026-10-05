@@ -70,3 +70,7 @@ export { PublishedMaterialSelection } from "./features/select-published-material
 export { assembleMaterialsNotificationOutbox } from "./facets/notification-outbox/notification-outbox.js";
 export { MaterialAnnouncements } from "./facets/material-announcements/material-announcements.js";
 export { GuideOutlines } from "./features/list-guide-outlines/list-guide-outlines.js";
+export {
+  GuideDirectory,
+  type DirectoryGuide,
+} from "./features/read-guide-directory/read-guide-directory.js";

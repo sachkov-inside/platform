@@ -31,6 +31,7 @@ describe("process configuration", () => {
 
     expect(config).toEqual({
       mode: "test",
+      guideTasks: { submissionsEnabled: true },
       database: { url: "postgresql://database.example/inside" },
       api: { host: "api.example", port: 4100 },
       identity: {
@@ -84,6 +85,7 @@ describe("process configuration", () => {
   it("uses local defaults only in explicit development or test mode", () => {
     expect(parsePlatformConfig({ NODE_ENV: "development" })).toEqual({
       mode: "development",
+      guideTasks: { submissionsEnabled: true },
       database: {
         url: "postgresql://inside:inside@127.0.0.1:5432/inside",
       },
@@ -127,6 +129,18 @@ describe("process configuration", () => {
     expect(() => parsePlatformConfig({})).toThrow(
       "DATABASE_URL is required in production mode",
     );
+  });
+
+  it("keeps Guide Task submissions closed in production until they are enabled explicitly", () => {
+    const local = { NODE_ENV: "test" };
+    expect(parsePlatformConfig(local).guideTasks.submissionsEnabled).toBe(true);
+    expect(
+      parsePlatformConfig({ ...local, GUIDE_TASK_SUBMISSIONS_ENABLED: "false" })
+        .guideTasks.submissionsEnabled,
+    ).toBe(false);
+    expect(() =>
+      parsePlatformConfig({ ...local, GUIDE_TASK_SUBMISSIONS_ENABLED: "yes" }),
+    ).toThrow();
   });
 
   it("requires production values instead of local defaults", () => {
@@ -217,24 +231,25 @@ describe("process configuration", () => {
         "video-deletions-worker",
       ),
     ).toThrow("KINESCOPE_API_TOKEN is required in production mode");
-    expect(
-      parsePlatformProcessConfig(
-        {
-          ...database,
-          OBJECT_STORAGE_ACCESS_KEY_ID: "worker-access-key",
-          OBJECT_STORAGE_ENDPOINT: "https://storage.example.test",
-          OBJECT_STORAGE_PROTECTED_BUCKET: "worker-protected",
-          OBJECT_STORAGE_PUBLIC_BUCKET: "worker-public",
-          OBJECT_STORAGE_QUARANTINE_BUCKET: "worker-quarantine",
-          OBJECT_STORAGE_REGION: "test-region",
-          OBJECT_STORAGE_SECRET_ACCESS_KEY: "worker-secret-key",
-          OBJECT_STORAGE_SIGNED_GET_TTL_SECONDS: "60",
-          MATERIAL_ASSET_ORPHAN_GRACE_SECONDS: "86400",
-          PROFILE_AVATAR_ORPHAN_GRACE_SECONDS: "86400",
-        },
-        "material-assets-worker",
-      ).database,
-    ).toEqual({ url: database.DATABASE_URL });
+    const worker = parsePlatformProcessConfig(
+      {
+        ...database,
+        OBJECT_STORAGE_ACCESS_KEY_ID: "worker-access-key",
+        OBJECT_STORAGE_ENDPOINT: "https://storage.example.test",
+        OBJECT_STORAGE_PROTECTED_BUCKET: "worker-protected",
+        OBJECT_STORAGE_PUBLIC_BUCKET: "worker-public",
+        OBJECT_STORAGE_QUARANTINE_BUCKET: "worker-quarantine",
+        OBJECT_STORAGE_REGION: "test-region",
+        OBJECT_STORAGE_SECRET_ACCESS_KEY: "worker-secret-key",
+        OBJECT_STORAGE_SIGNED_GET_TTL_SECONDS: "60",
+        MATERIAL_ASSET_ORPHAN_GRACE_SECONDS: "86400",
+        PROFILE_AVATAR_ORPHAN_GRACE_SECONDS: "86400",
+      },
+      "material-assets-worker",
+    );
+    expect(worker.database).toEqual({ url: database.DATABASE_URL });
+    // Production accepts no Guide Task submission until data policy v4 is published (#946).
+    expect(worker.guideTasks.submissionsEnabled).toBe(false);
   });
 
   it("rejects invalid database and listen values", () => {

@@ -1,4 +1,8 @@
 import {
+  LEARNING_TASKS,
+  type LearningTasks,
+} from "../src/modules/guide-tasks/index.js";
+import {
   CONTENT_ACCESS,
   type ContentAccess,
 } from "../src/modules/content-access/index.js";
@@ -134,6 +138,7 @@ const mcp = createMcpHttpServer({
     reader: app.get<PublishedMaterialReader>(PUBLISHED_MATERIAL_READER),
     contentAccess: app.get<ContentAccess>(CONTENT_ACCESS),
     videos: app.get<Videos>(VIDEOS),
+    tasks: app.get<LearningTasks>(LEARNING_TASKS),
   },
   authoring: app.get<MaterialAuthoring>(MATERIAL_AUTHORING),
   videos: app.get<Videos>(VIDEOS),

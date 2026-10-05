@@ -18,7 +18,9 @@ import {
   assembleContentAccess,
   assembleCurrentAccountPermissions,
   CONTENT_ACCESS,
+  GUIDE_TASK_RESOURCE_FACTS,
   type ContentAccess,
+  type GuideTaskResourceFactsAdapter,
 } from "../content-access/index.js";
 import {
   ACCESS_GRANTS,
@@ -254,6 +256,7 @@ import {
         ACCOUNTS,
         MEMBERSHIP_ENTITLEMENTS,
         WORKSHOP_MATERIAL_ACCESS,
+        GUIDE_TASK_RESOURCE_FACTS,
       ],
       useFactory: (
         materialContent: MaterialContent,
@@ -263,11 +266,13 @@ import {
         accounts: Accounts,
         membershipEntitlements: MembershipEntitlements,
         workshopMaterialAccess: WorkshopMaterialAccess,
+        guideTaskResourceFacts: GuideTaskResourceFactsAdapter,
       ): ContentAccess =>
         assembleContentAccess({
           assetResourceFacts: assembleAssetResourceFacts(materialAssets),
           guideArtifactResourceFacts:
             assembleGuideArtifactResourceFacts(guideArtifacts),
+          guideTaskResourceFacts,
           videoResourceFacts: assembleVideoResourceFacts(videos),
           materialResourceFacts: assembleMaterialResourceFacts(materialContent),
           accountPermissions: assembleCurrentAccountPermissions(accounts),

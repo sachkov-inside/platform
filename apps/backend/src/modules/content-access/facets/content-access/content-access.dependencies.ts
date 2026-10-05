@@ -43,6 +43,23 @@ export interface GuideArtifactResourceFactsAdapter {
   findOne(artifactId: string): Promise<GuideArtifactResourceFacts | null>;
 }
 
+/** What Content Access needs to decide on a Guide Task; Guide Tasks implement this port. */
+export interface GuideTaskResourceFacts {
+  readonly taskId: string;
+  readonly access: "free" | "membership";
+  readonly guideId: string;
+  readonly published: boolean;
+  /** The current Task Version number. */
+  readonly version: number;
+}
+
+export interface GuideTaskResourceFactsAdapter {
+  findMany(
+    taskIds: readonly string[],
+  ): Promise<readonly GuideTaskResourceFacts[]>;
+  findOne(taskId: string): Promise<GuideTaskResourceFacts | null>;
+}
+
 export interface VideoResourceFacts {
   readonly videoId: string;
   readonly materialId: MaterialId;
@@ -95,6 +112,7 @@ export interface MembershipEntitlements {
 export interface ContentAccessDependencies {
   readonly assetResourceFacts?: AssetResourceFactsAdapter;
   readonly guideArtifactResourceFacts?: GuideArtifactResourceFactsAdapter;
+  readonly guideTaskResourceFacts?: GuideTaskResourceFactsAdapter;
   readonly videoResourceFacts?: VideoResourceFactsAdapter;
   readonly materialResourceFacts: MaterialResourceFactsAdapter;
   readonly accountPermissions: AccountPermissions;

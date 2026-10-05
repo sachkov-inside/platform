@@ -1,11 +1,16 @@
 export { assembleContentAccess } from "./facets/content-access/assemble-content-access.js";
-export { CONTENT_ACCESS } from "./content-access.token.js";
+export {
+  CONTENT_ACCESS,
+  GUIDE_TASK_RESOURCE_FACTS,
+} from "./content-access.token.js";
 export { assembleCurrentAccountPermissions } from "./adapters/accounts/current-account-permissions.js";
 export { assembleDeterministicMembershipEntitlements } from "./adapters/membership/deterministic-membership-entitlements.js";
 export type {
   AssetResourceFactsAdapter,
   GuideArtifactResourceFacts,
   GuideArtifactResourceFactsAdapter,
+  GuideTaskResourceFacts,
+  GuideTaskResourceFactsAdapter,
   MaterialResourceFacts,
   MaterialResourceFactsAdapter,
   MembershipAccessState,

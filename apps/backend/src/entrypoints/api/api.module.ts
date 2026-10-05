@@ -42,6 +42,10 @@ import {
   VideoAuthoringController,
   VideosModule,
 } from "../../modules/videos/index.js";
+import {
+  GuideTaskResourceFactsModule,
+  GuideTasksHttpModule,
+} from "../../modules/guide-tasks/index.js";
 import { HealthController } from "./health.controller.js";
 
 @Module({
@@ -83,9 +87,11 @@ export class ApiModule {
         MembershipEntitlementsModule,
         MaterialsModule,
         MaterialsHttpModule,
+        GuideTasksHttpModule,
         VideosModule,
         ContentScopeCatalogModule,
         RecipientLinksModule,
+        GuideTaskResourceFactsModule,
       ],
     };
   }

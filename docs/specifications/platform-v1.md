@@ -1242,3 +1242,43 @@ allowed freedom are accepted. Discussion is optional after the report. Fixes hap
 recheck rereads current evidence and covers the full rubric. No learner progress or project upload
 is stored by this feature. The tested client profiles and evidence limits belong to the practice
 review runbook; synthetic success is not proof of learning or production onboarding.
+
+#### Guide Tasks on the participant surface
+
+Source: [Platform #946](https://github.com/sachkov-inside/platform/issues/946), specification
+[#939](https://github.com/sachkov-inside/platform/issues/939), [ADR 0030](../adr/0030-guide-task-module.md).
+The `guide-tasks` Module registers four tools and one prompt on the same `/learning` surface; the
+surface stays without author permissions. `learning_task_submit` is its only write, and it records
+only the calling Account's own submission.
+
+- `learning_tasks_list` (`guideSlug` optional): published tasks the Account can open, in Guide,
+  chapter and in-chapter order, with code, Guide, chapter, title, current Task Version and the
+  Account's latest submission time.
+- `learning_task_read` (`code`, `part`, pins): the current Task Version definition (`situation`,
+  `result`, `freedom`, `criteria[]` with `level: required | additional`), review procedure v3 and the
+  published related Materials with availability, as canonical JSON parts. `contextVersion` pins the
+  task, version, definition digest and protocol version; `contentSha256` pins the whole payload.
+  Later parts require both; a mismatch answers `task_context_version_mismatch` or
+  `task_content_changed`. A task without access answers `task_not_available`.
+- `learning_task_submit` (`code`, `taskVersion`, `submissionKey`, `reviewReport`, `note`,
+  `serviceMark`): annotations `readOnlyHint: false`, `destructiveHint: false`,
+  `idempotentHint: true`. The report covers every criterion of the submitted version exactly once;
+  a version that is no longer current answers `task_version_changed`. The same key with the same
+  content returns the first receipt; with other content, `idempotency_conflict`.
+- `learning_task_submissions` (`code`): the Account's own submissions, newest first, with version,
+  report, note, service mark and Author Feedback.
+- Prompt `review_task` (`code`): procedure v3 word for word, the same text `learning_task_read`
+  returns.
+
+Access is decided by ContentAccess on the `guideTask` resource at every read, list and submission.
+`GUIDE_TASK_SUBMISSIONS_ENABLED` gates submission; with it off, `learning_task_submit` answers
+`submissions_disabled`. Platform stores no model output of its own, grades nothing and never fetches
+the repository URL a submission names.
+
+`POST /authoring/import/tasks/validate` checks an authored task without its placement and returns
+the current revision; `/apply` is author-only (`materials:manage`), idempotent by key, serialized
+per code and compare-and-set on `expectedRevision` (`null` only for creation). It refuses an unknown
+or archived Guide, a chapter outside it and an unknown related Material. A changed definition digest
+creates Task Version N+1; title, access, chapter, order, related Materials and publication advance
+only the revision; an unchanged state writes nothing. The code is immutable and unique, and its
+source ID must name it.
