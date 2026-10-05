@@ -73,7 +73,7 @@ export class GuideTaskAuthoringService {
   }: {
     requestBody: {
       access: 'free' | 'membership';
-      chapterId: string;
+      chapterId?: string;
       code: string;
       definition: {
         criteria: Array<{
@@ -87,8 +87,8 @@ export class GuideTaskAuthoringService {
         schemaVersion: 1;
         situation: string;
       };
-      guideId: string;
-      position: number;
+      guideId?: string;
+      position?: number;
       provenance: {
         commit: string;
         path: string;

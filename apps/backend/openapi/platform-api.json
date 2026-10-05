@@ -53903,9 +53903,6 @@
                 "required": [
                   "sourceId",
                   "code",
-                  "guideId",
-                  "chapterId",
-                  "position",
                   "title",
                   "access",
                   "definition",
