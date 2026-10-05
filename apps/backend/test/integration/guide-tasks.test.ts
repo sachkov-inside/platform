@@ -259,7 +259,11 @@ describe("Guide Tasks: import, versions, access and submissions (#946)", () => {
       where: { id: applied.value.materialId },
     });
     if (row.slug === null) throw new Error("Published Material has no slug");
-    return { sourceId: sourceDescriptor.id, slug: row.slug };
+    return {
+      sourceId: sourceDescriptor.id,
+      slug: row.slug,
+      materialId: row.id,
+    };
   }
 
   async function learner(): Promise<Subject & { kind: "account" }> {
@@ -326,6 +330,7 @@ describe("Guide Tasks: import, versions, access and submissions (#946)", () => {
       chapterId: string;
       guideId: string;
       position: number;
+      afterMaterialSourceId: string | null;
     }> = {},
   ) {
     const code = overrides.code ?? `task-${randomUUID()}`;
@@ -339,6 +344,7 @@ describe("Guide Tasks: import, versions, access and submissions (#946)", () => {
       access: overrides.access ?? "free",
       definition: overrides.definition ?? definition,
       relatedMaterialSourceIds: overrides.relatedMaterialSourceIds ?? [],
+      afterMaterialSourceId: overrides.afterMaterialSourceId ?? null,
       publicationState: overrides.publicationState ?? "published",
       provenance: {
         repository: "sachkov-inside/inside-content",
@@ -1074,6 +1080,284 @@ describe("Guide Tasks: import, versions, access and submissions (#946)", () => {
     } finally {
       await client.close();
     }
+  });
+
+  /** A published Material placed in a chapter of the test Guide at the given ordinal. */
+  async function chapterMaterial(chapter: string, ordinal: number) {
+    const material = await publishedMaterial("free");
+    await db.prisma.guideMembership.create({
+      data: {
+        seriesId: guideId,
+        materialId: material.materialId,
+        chapterId: chapter,
+        ordinal,
+      },
+    });
+    return material;
+  }
+
+  test("a task stands after a Material of its chapter; another chapter's Material is refused; moving it is a revision (#947)", async () => {
+    const apply = assembleApplySourceTask(importDependencies());
+    const anchor = await chapterMaterial(chapterId, 101);
+    const elsewhere = await publishedMaterial("free");
+    expect(
+      await apply(
+        {
+          ...source({ afterMaterialSourceId: elsewhere.sourceId }),
+          expectedRevision: null,
+        },
+        { actor: owner, idempotencyKey: randomUUID() },
+      ),
+    ).toEqual({
+      ok: false,
+      error: {
+        code: "after_material_not_in_chapter",
+        sourceId: elsewhere.sourceId,
+      },
+    });
+    const task = await imported({ afterMaterialSourceId: anchor.sourceId });
+    const moved = await apply(
+      { ...task.body, afterMaterialSourceId: null, expectedRevision: 1 },
+      { actor: owner, idempotencyKey: randomUUID() },
+    );
+    expect(moved).toMatchObject({
+      ok: true,
+      value: { revision: 2, currentVersion: 1 },
+    });
+    expect(
+      await db.prisma.guideTask.findUniqueOrThrow({
+        where: { code: task.code },
+      }),
+    ).toMatchObject({ afterMaterialSourceId: null });
+  });
+
+  test("the task page shows an open task in full, a closed paid task by title and chapter, and hides an unpublished or foreign task (#947)", async () => {
+    const tasks = learning();
+    const open = await imported({
+      relatedMaterialSourceIds: [relatedSourceId],
+    });
+    const paid = await imported({ access: "membership", position: 2 });
+    const hidden = await imported({
+      publicationState: "unpublished",
+      position: 3,
+    });
+    const subject = await learner();
+    expect(
+      await tasks.page({ subject, guideSlug, code: open.code }),
+    ).toMatchObject({
+      ok: true,
+      value: {
+        access: "open",
+        task: {
+          code: open.code,
+          title: "Онбординг заявки",
+          guide: { slug: guideSlug, name: "AI Engineering" },
+          chapter: { name: "Глава 1", ordinal: 1 },
+          version: 1,
+          definition,
+        },
+        reviewProtocol: taskReviewProtocol,
+        relatedMaterials: [{ slug: relatedSlug, availability: "available" }],
+        submission: { accepting: true },
+      },
+    });
+    const closed = await tasks.page({ subject, guideSlug, code: paid.code });
+    expect(closed).toEqual({
+      ok: true,
+      value: {
+        access: "closed",
+        task: {
+          code: paid.code,
+          title: "Онбординг заявки",
+          guide: { slug: guideSlug, name: "AI Engineering" },
+          chapter: { name: "Глава 1", ordinal: 1 },
+        },
+      },
+    });
+    await grant(subject, [`guide:${guideId}`]);
+    expect(
+      await tasks.page({ subject, guideSlug, code: paid.code }),
+    ).toMatchObject({ ok: true, value: { access: "open" } });
+    for (const query of [
+      { guideSlug, code: hidden.code },
+      { guideSlug: `other-${randomUUID()}`, code: open.code },
+      { guideSlug, code: "absent-task" },
+    ])
+      expect(await tasks.page({ subject, ...query })).toEqual({
+        ok: false,
+        error: { code: "task_not_found" },
+      });
+    expect(
+      await tasks.page({
+        subject: { kind: "account", accountId: accountId(owner) },
+        guideSlug,
+        code: hidden.code,
+      }),
+    ).toMatchObject({ ok: true, value: { access: "open" } });
+  });
+
+  test("chapter tasks come in chapter order with their anchor, the viewer's availability and own last submission (#947)", async () => {
+    const chapter = randomUUID();
+    await db.prisma.guideChapter.create({
+      data: { id: chapter, guideId, name: "Глава 9", ordinal: 9 },
+    });
+    const anchor = await chapterMaterial(chapter, 901);
+    const tasks = learning();
+    const first = await imported({ chapterId: chapter, position: 1 });
+    const second = await imported({
+      chapterId: chapter,
+      position: 2,
+      access: "membership",
+      afterMaterialSourceId: anchor.sourceId,
+    });
+    await imported({
+      chapterId: chapter,
+      position: 3,
+      publicationState: "unpublished",
+    });
+    const subject = await learner();
+    const submitted = await tasks.submit({
+      subject,
+      source: "form",
+      submission: {
+        code: first.code,
+        taskVersion: 1,
+        submissionKey: randomUUID(),
+        note: "Сделал заявку и проверку владельца.",
+      },
+    });
+    if (!submitted.ok) throw new Error(submitted.error.code);
+    const listed = await tasks.chapterTasks({ subject, guideId });
+    if (!listed.ok) throw new Error(listed.error.code);
+    expect(
+      listed.value.tasks.filter((task) => task.chapterId === chapter),
+    ).toEqual([
+      {
+        code: first.code,
+        title: "Онбординг заявки",
+        access: "free",
+        chapterId: chapter,
+        afterMaterialId: null,
+        availability: "available",
+        lastSubmittedAt: submitted.value.submittedAt,
+      },
+      {
+        code: second.code,
+        title: "Онбординг заявки",
+        access: "membership",
+        chapterId: chapter,
+        afterMaterialId: anchor.materialId,
+        availability: "locked",
+        lastSubmittedAt: null,
+      },
+    ]);
+    const anonymous = await tasks.chapterTasks({
+      subject: { kind: "anonymous" },
+      guideId,
+    });
+    expect(
+      anonymous.ok &&
+        anonymous.value.tasks.find((task) => task.code === first.code),
+    ).toMatchObject({ availability: "available", lastSubmittedAt: null });
+    // A closed task shows no mark of the subject's submission; it returns with access.
+    const member = await learner();
+    const access = await grant(member, [`guide:${guideId}`]);
+    const paid = await tasks.submit({
+      subject: member,
+      source: "form",
+      submission: {
+        code: second.code,
+        taskVersion: 1,
+        submissionKey: randomUUID(),
+        note: "Сдал платное задание.",
+      },
+    });
+    if (!paid.ok) throw new Error(paid.error.code);
+    await revoke(access);
+    const revoked = await tasks.chapterTasks({ subject: member, guideId });
+    expect(
+      revoked.ok &&
+        revoked.value.tasks.find((task) => task.code === second.code),
+    ).toMatchObject({ availability: "locked", lastSubmittedAt: null });
+  });
+
+  test("a form submission needs no agent report, keeps its text report, obeys the setting and lists with its version criteria (#947)", async () => {
+    const task = await imported();
+    const subject = await learner();
+    const form = (overrides: Record<string, unknown> = {}) => ({
+      code: task.code,
+      taskVersion: 1,
+      submissionKey: randomUUID(),
+      note: "Сделал заявку.\nНе уверен в дедупликации.",
+      repositoryUrl: "https://github.com/learner/requests",
+      reportText: "Проверял сам: заявка создаётся, чужая не видна.",
+      ...overrides,
+    });
+    expect(
+      await learning(false).submit({
+        subject,
+        source: "form",
+        submission: form(),
+      }),
+    ).toEqual({ ok: false, error: { code: "submissions_disabled" } });
+    const tasks = learning();
+    for (const invalid of [
+      form({ note: "   " }),
+      form({ reviewReport: report(definition) }),
+      form({ branch: "main" }),
+      form({ repositoryUrl: "javascript:alert(1)" }),
+      form({ reportText: "x".repeat(20_001) }),
+    ])
+      expect(
+        await tasks.submit({ subject, source: "form", submission: invalid }),
+      ).toEqual({ ok: false, error: { code: "invalid_request_shape" } });
+    expect(
+      await tasks.submit({
+        subject,
+        source: "form",
+        submission: form({ taskVersion: 2 }),
+      }),
+    ).toMatchObject({ ok: false, error: { code: "task_version_changed" } });
+    const minimal = await tasks.submit({
+      subject,
+      source: "form",
+      submission: {
+        code: task.code,
+        taskVersion: 1,
+        submissionKey: randomUUID(),
+        note: "Только заметка.",
+      },
+    });
+    expect(minimal).toMatchObject({ ok: true, value: { source: "form" } });
+    const full = await tasks.submit({
+      subject,
+      source: "form",
+      submission: form(),
+    });
+    expect(full).toMatchObject({ ok: true });
+    expect(await tasks.submissions({ subject, code: task.code })).toMatchObject(
+      {
+        ok: true,
+        value: {
+          currentVersion: 1,
+          versions: [{ version: 1, criteria: definition.criteria }],
+          submissions: [
+            {
+              source: "form",
+              taskVersion: 1,
+              reviewReport: null,
+              reportText: "Проверял сам: заявка создаётся, чужая не видна.",
+              serviceMark: {
+                repositoryUrl: "https://github.com/learner/requests",
+                branch: null,
+                commit: null,
+              },
+            },
+            { source: "form", reportText: null, note: "Только заметка." },
+          ],
+        },
+      },
+    );
   });
 
   test("import and submission finish on a one-connection pool: no transaction waits for another connection", async () => {

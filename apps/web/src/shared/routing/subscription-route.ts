@@ -82,6 +82,13 @@ export function guideProgrammeHref(slug: string): Route {
   return internalRoute(`/products/${encodeURIComponent(slug)}/programme`);
 }
 
+/** Страница задания внутри своего руководства (#947): код задания постоянный, адрес тоже. */
+export function guideTaskHref(slug: string, code: string): Route {
+  return internalRoute(
+    `/products/${encodeURIComponent(slug)}/tasks/${encodeURIComponent(code)}`,
+  );
+}
+
 /**
  * Страница оплаты одного руководства: цена и оформление живут отдельным адресом, потому что
  * покупают здесь именно руководство, а не тариф подписки, и программа до неё только приглашает.

@@ -112,6 +112,7 @@ const applySchema = z
     access: z.enum(["free", "membership"]),
     definition: z.record(z.string(), z.json()),
     relatedMaterialSourceIds: z.array(z.string()),
+    afterMaterialSourceId: z.string().optional(),
     publicationState: z.enum(["published", "unpublished"]),
     provenance: z.object({}).passthrough(),
     expectedRevision: z.number().int().positive().nullable(),
@@ -326,6 +327,46 @@ test("a release preview lists new, unchanged and conflicting tasks without a wri
     );
     assert.equal(preview.tasks[0]?.change, "conflict");
   });
+});
+
+test("a task names the Material of its chapter it follows; another chapter's Material is refused (#947)", async (t) => {
+  const root = await mkdtemp(join(tmpdir(), "task-after-"));
+  t.after(() => rm(root, { recursive: true, force: true }));
+  /** @param {import('./package.mjs').Manifest} manifest */
+  const load = async (manifest) => {
+    const path = join(root, `${checksum(canonical(manifest))}.json`);
+    await writeFile(path, canonical(manifest));
+    return loadPackage(path);
+  };
+  await assert.rejects(
+    load(
+      manifestOf([
+        task("misplaced", {
+          chapterId: "chapter-two",
+          afterMaterialId: "review",
+        }),
+      ]),
+    ),
+    /follows a Material outside its chapter/u,
+  );
+  const f = await fixture(t);
+  const placed = manifestOf([task("placed", { afterMaterialId: "review" })]);
+  await validateSourceTasks(placed, f.request);
+  await f.journal((c) =>
+    syncSourceTasks(placed, c, f.request, selection(true)),
+  );
+  assert.equal(f.applied[0]?.afterMaterialSourceId, "synthetic:review");
+  // Back to the start of the chapter: the field disappears and the task is applied again.
+  await f.journal((c) =>
+    syncSourceTasks(
+      manifestOf([task("placed")]),
+      c,
+      f.request,
+      selection(true),
+    ),
+  );
+  assert.equal(f.applied.length, 2);
+  assert.equal(f.applied[1]?.afterMaterialSourceId, undefined);
 });
 
 test("a package names each task's Guide and chapter, keeps codes apart from Materials, and --publish accepts a code", async (t) => {

@@ -18,6 +18,7 @@ export class GuideTaskAuthoringService {
     idempotencyKey: string,
     requestBody: {
       access: 'free' | 'membership';
+      afterMaterialSourceId: string | null;
       chapterId: string;
       code: string;
       definition: {
@@ -73,6 +74,7 @@ export class GuideTaskAuthoringService {
   }: {
     requestBody: {
       access: 'free' | 'membership';
+      afterMaterialSourceId: string | null;
       chapterId?: string;
       code: string;
       definition: {

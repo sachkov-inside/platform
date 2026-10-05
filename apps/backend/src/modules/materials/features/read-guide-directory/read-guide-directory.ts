@@ -31,7 +31,25 @@ const materialRowsSchema = z.array(
   }),
 );
 
+const placementRowsSchema = z.array(
+  z.object({
+    source_id: z.string(),
+    material_id: z.uuid(),
+    chapter_id: z.uuid().nullable(),
+    published: z.boolean(),
+  }),
+);
+
 export type DirectoryGuide = z.infer<typeof guideRowsSchema>[number];
+
+/** Where a Material named by its source stands in one Guide: its chapter, if the author set one. */
+export interface DirectoryPlacement {
+  readonly sourceId: string;
+  readonly materialId: string;
+  readonly chapterId: string | null;
+  /** Whether readers can open it; a draft's identity never reaches a reader. */
+  readonly published: boolean;
+}
 
 /** A Material named by its source; `published` is absent while readers cannot open it. */
 export interface DirectoryMaterial {
@@ -84,6 +102,39 @@ export class GuideDirectory {
         order by series.id
       `),
     );
+  }
+
+  /**
+   * Materials of one Guide by their authoring source ID with their chapter; a source that is not
+   * in that Guide is absent from the answer.
+   */
+  async placements(
+    guideId: string,
+    sourceIds: readonly string[],
+  ): Promise<readonly DirectoryPlacement[]> {
+    if (sourceIds.length === 0) return [];
+    if (sourceIds.length > MAX_LOOKUP)
+      throw new RangeError("Material lookup exceeds its bound");
+    const rows = placementRowsSchema.parse(
+      await this.prisma.$queryRaw(Prisma.sql`
+        select
+          material.source_id,
+          material.id as material_id,
+          membership.chapter_id,
+          material.publication_state = 'published' as published
+        from materials.materials as material
+        join materials.series_memberships as membership
+          on membership.material_id = material.id
+         and membership.series_id = ${guideId}::uuid
+        where material.source_id = any(${[...sourceIds]}::text[])
+      `),
+    );
+    return rows.map((row) => ({
+      sourceId: row.source_id,
+      materialId: row.material_id,
+      chapterId: row.chapter_id,
+      published: row.published,
+    }));
   }
 
   /** Materials by their authoring source ID; an unknown source is absent from the answer. */

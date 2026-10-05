@@ -1,6 +1,6 @@
 /**
  * Счётные подписи руководства для страницы продукта и программы. Обе страницы называют одно и то
- * же — главы и артефакты, — поэтому склонение живёт здесь, а не повторяется в каждой.
+ * же — главы, артефакты и задания, — поэтому склонение живёт здесь, а не повторяется в каждой.
  */
 function plural(count: number, one: string, few: string, many: string): string {
   const tail = count % 100;
@@ -22,4 +22,8 @@ export function formatChapterCount(count: number): string {
 
 export function formatArtifactCount(count: number): string {
   return plural(count, "артефакт", "артефакта", "артефактов");
+}
+
+export function formatTaskCount(count: number): string {
+  return plural(count, "задание", "задания", "заданий");
 }

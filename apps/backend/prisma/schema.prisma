@@ -1896,6 +1896,7 @@ model GuideTask {
   title                    String
   access                   String
   relatedMaterialSourceIds String[] @map("related_material_source_ids")
+  afterMaterialSourceId    String?  @map("after_material_source_id")
   publicationState         String   @map("publication_state")
   currentVersion           Int      @map("current_version")
   revision                 Int
@@ -1948,6 +1949,7 @@ model GuideTaskSubmission {
   requestFingerprint String   @map("request_fingerprint") @db.Char(64)
   source             String
   reviewReport       Json?    @map("review_report")
+  reportText         String?  @map("report_text")
   note               String
   repositoryUrl      String?  @map("repository_url")
   branch             String?
