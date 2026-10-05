@@ -595,10 +595,23 @@ migration pipeline в Platform нет.
 - анонимно доступный или индексируемый internet-public profile, social graph, follows, direct
   messages и broad member directory;
 - редакционные команды и материалы участников;
-- сложный learning progress, задания, achievements и gamification;
+- сложный learning progress, оценки и статусы приёмки заданий, прогресс по заданиям, achievements
+  и gamification;
 - внутренний notification center и email-кампании; служебные сообщения и анонсы материалов
   входят в [Notifications v1](../specifications/notifications-v1.md);
 - AI-поиск и отдельный autonomous content generation workflow вне user-delegated MCP Save.
+
+Задания и сдачи входят в продукт
+([#939](https://github.com/sachkov-inside/platform/issues/939)). Задание (Guide Task) принадлежит
+одной главе Guide: у него «Ситуация», «Результат», обязательные и дополнительные критерии,
+«Свобода», свой класс доступа и неизменяемые версии требований. Автор пишет задание в Inside
+Content и публикует его тем же переносом, что материалы. Сверх основы чтения учебный MCP отдаёт
+открытые ученику задания, процедуру проверки v3 и принимает сдачу: отчёт агента ученика по
+критериям, заметку и служебную пометку о репозитории. Platform не оценивает работу, не обращается к
+репозиторию и не ставит статус приёмки; автор отвечает необязательным комментарием. Приём сдач в
+production включается после публикации политики данных v4. Страница задания в Reader и раздел
+«Сдачи» у автора — задачи [#947](https://github.com/sachkov-inside/platform/issues/947) и
+[#948](https://github.com/sachkov-inside/platform/issues/948).
 
 Текущий фокус — самостоятельные Materials, связанные смешанные Guide и подписка на опубликованный
 контент. Отдельная Мастерская с Tracks, Laboratories и Production Cases снята с плана 16.09.2026. Сохранённые

@@ -124,6 +124,40 @@ authoring base owns the record. Replacement opens a new version and keeps the id
 placements; delivery goes through ContentAccess. In Russian product language: «Артефакт».
 _Avoid_: MaterialAsset, supplementary Material, inline attachment, Content Cover
 
+**Guide Task**:
+A large part of a Guide Chapter's result that the learner builds and submits: a situation, the
+result a customer should see, required and additional criteria, and the freedom the learner keeps.
+It belongs to exactly one chapter of one Guide, has its own order inside that chapter, its own
+access class and a short permanent code. It is not a Material and not a step of the Guide's main
+path, so Guide Progress does not count it. In Russian product language: «Задание».
+_Avoid_: Assignment, Production Case, stage, точка сдачи, task callout, tracker task
+
+**Task Version**:
+An immutable snapshot of a Guide Task's requirements: situation, result, freedom and criteria. A
+change of the requirements creates the next version; title, access, related Materials and
+publication do not. In Russian product language: «Версия требований».
+_Avoid_: Revision, content version, edition
+
+**Task Submission**:
+A learner's record of work on one Task Version, with an optional Review Report, the learner's
+note and an optional service mark of the reviewed repository, branch and commit. Submissions are
+only added; a new submission never replaces an earlier one. It is not a grade or an acceptance
+status. In Russian product language: «Сдача».
+_Avoid_: Attempt, grade, acceptance, solution upload
+
+**Review Report**:
+The learner's own agent's report inside a Task Submission: exactly one status per criterion of its
+Task Version — confirmed, violation or not verified — with the evidence, the remaining gap and
+whether the evidence came from running a command. It is the agent's statement, untrusted text for
+the author, never a Platform verdict. In Russian product language: «Отчёт проверки».
+_Avoid_: Grade, verdict, test result, Platform check
+
+**Author Feedback**:
+The author's optional comment and «посмотрел автор» mark on one Task Submission, kept apart from
+the submission and changed only by the author. It is not a grade. In Russian product language:
+«Комментарий автора».
+_Avoid_: Grade, acceptance, review status
+
 **Guide Mode**:
 One of the two ways a reader goes through a Guide: on the worked example the author prepared, or
 on the reader's own project. It belongs to the reader, not to a Material: one stored choice covers

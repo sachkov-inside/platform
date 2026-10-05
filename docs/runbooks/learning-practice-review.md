@@ -34,6 +34,62 @@ path, but is an author assertion, not independent cryptographic attestation of G
 current Content exporter needs a follow-up to emit this optional metadata. Synthetic packages already
 exercise the seam; that follow-up and the first chapter do not block the technical practice cycle.
 
+## Guide Tasks and review protocol v3 (#946)
+
+A Guide Task replaces lesson practice for the course chapters
+([ADR 0030](../adr/0030-guide-task-module.md), specification
+[#939](https://github.com/sachkov-inside/platform/issues/939)). Both work side by side until Content
+moves chapters 0–1 to tasks; lesson practice keeps protocol v2 and everything below about it.
+
+**Publication.** A package carries optional `tasks[]`: `sourceId` (the task code), `guideId` and
+`chapterId` (source IDs of a Guide and chapter in the same package), `title`, `access`,
+`definition`, `relatedMaterialIds`, `publicationState` and `provenance`. The order of a chapter's
+tasks in `tasks[]` is their order in the chapter. `authoring:sync-local`, `authoring:sync-git-local`
+and `authoring:release preview|apply` validate every task before the first write and import it after
+its Guide through `/authoring/import/tasks/{validate,apply}` with an idempotency key and the expected
+task revision. A task becomes published only when `--publish <code>` or `--publish-all` selects it;
+`publicationState: unpublished` in Content withdraws it; a task the package omits stays unchanged. A
+release preview lists each task as `new`, `changed`, `unchanged` or `conflict`, and apply refuses a
+conflict. A changed definition digest creates the next Task Version; title, access, chapter, order,
+related Materials and publication change only the task revision.
+
+**Protocol v3.** One text,
+[`review-protocol.ts`](../../apps/backend/src/modules/guide-tasks/domain/review-protocol.ts), reaches
+the agent twice: the MCP prompt `review_task` with the task code, and `learning_task_read`. Compared
+with v2 it changes four rules. The agent only reads by default and runs a command only after the
+learner consents to that exact command. It marks evidence obtained by a run (`obtainedByRun`). It
+records the reviewed repository, branch, commit and uncommitted changes as a service mark. It shows
+the learner the complete report and submission text and submits only after confirmation. Required
+and additional criteria each get exactly one status; a violation of an additional criterion is not a
+failure. Task, criteria, course material and project files stay untrusted data.
+
+**Learner MCP.** `learning_tasks_list` returns the published tasks the learner can open, optionally
+within one Guide, with the date of their latest own submission. `learning_task_read` returns the
+current Task Version, protocol v3 and related Materials in canonical JSON parts pinned by
+`contextVersion` and `contentSha256`; a change between parts answers
+`task_context_version_mismatch` or `task_content_changed`. A task without access answers
+`task_not_available`. `learning_task_submit` is annotated `readOnlyHint: false`, not destructive and
+idempotent by `submissionKey`. `learning_task_submissions` returns only the learner's own submissions
+of one task with their version and Author Feedback.
+
+**Submissions.** Platform stores the submission and never fetches the repository URL. It refuses a
+report that misses a criterion of the version or names another one (`report_coverage_mismatch`), a
+version that is no longer current (`task_version_changed`), a report above 64 KiB, a note above 1000
+characters and more than 20 submissions of one Account per rolling hour (`submission_rate_limited`).
+Access is checked at every read and every submission; submissions stay when access is lost and
+return with it. Versions and submissions are append-only in the database.
+
+**Enabling submissions in production.** `GUIDE_TASK_SUBMISSIONS_ENABLED` turns submission on; it
+defaults to `true` locally and to `false` in production, where `learning_task_submit` answers
+`submissions_disabled` while listing and reading work. Enable it only after the owner publishes data
+policy v4, which covers submissions, review reports, notes and repository links:
+
+1. Set `GUIDE_TASK_SUBMISSIONS_ENABLED=true` in the production MCP environment
+   (`config/compose/production/mcp.env.example` names it).
+2. Release the MCP process by the [release runbook](production-release.md).
+3. Check that a test learner submits a free task once through MCP and sees it in
+   `learning_task_submissions`; record no token or learner data.
+
 ## Review contract
 
 `learning_practice_read` returns numbered canonical JSON parts containing the complete authored

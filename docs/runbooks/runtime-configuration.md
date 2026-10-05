@@ -243,9 +243,10 @@ community dispatch. See [Tribute operations](tribute-access-convergence.md) for 
 
 ## Participant learning MCP
 
-The existing MCP process serves the author endpoint at `MCP_SERVER_URL` and a separate read-only
-participant endpoint at `<MCP_SERVER_URL>/learning`; no additional process or credential is created
-(#782). Each endpoint publishes its own OAuth protected-resource metadata. The learning route uses
+The existing MCP process serves the author endpoint at `MCP_SERVER_URL` and a separate participant
+endpoint at `<MCP_SERVER_URL>/learning`; no additional process or credential is created (#782). The
+participant endpoint reads, and since #946 its only write is the learner's own Guide Task
+submission. Each endpoint publishes its own OAuth protected-resource metadata. The learning route uses
 the existing Logto token verifier and Account resolution; published content authorization still
 belongs to ContentAccess. Accepted learner token audiences and the local Codex profile are described
 in [Learner practice review](learning-practice-review.md#local-course-acceptance). Local checks do
@@ -264,5 +265,12 @@ provider model key or learner progress storage. A local package can include `pra
 with commit provenance; its source references must match the selected Material revisions. New
 migration `0072-practice-definitions` creates the current delivery projection and scoped import
 receipts. Author MCP permissions and tool inventory remain separate from the learner surface.
+
+Guide Tasks (#946) add four tools and the `review_task` prompt to that endpoint and two
+`materials:manage` import API operations under `/authoring/import/tasks`. Migration `0079-guide-tasks`
+creates the `guide_tasks` schema. `GUIDE_TASK_SUBMISSIONS_ENABLED` (`true` or `false`) turns
+submission on: it defaults to `true` in development and test and to `false` in production, where only
+the owner's published data policy v4 allows enabling it. The procedure is in
+[learner practice review](learning-practice-review.md#guide-tasks-and-review-protocol-v3-946).
 
 The participant setup and bounded native verification live in [learner practice review](learning-practice-review.md).

@@ -162,9 +162,17 @@ Valid pairs:
 - Material body: `read | preview`;
 - inline Asset: `read | preview`;
 - downloadable Asset: `download | preview`;
-- Video: `play | preview`.
+- Video: `play | preview`;
+- Guide Task: `read` ([#946](https://github.com/sachkov-inside/platform/issues/946)).
 
-Normal `read | download | play` никогда не открывают `draft` или `unpublished`. `preview` выбирает
+Normal `read | download | play` никогда не открывают `draft` или `unpublished`, кроме одного
+исключения: снятое с публикации задание (Guide Task) по `read` открыто автору с `materials:manage`
+(`materials_manager`) и закрыто всем остальным (`resource_unpublished`). Факты задания отдаёт port
+`GuideTaskResourceFactsAdapter`, который реализует Module `guide-tasks`: класс доступа
+`free | membership`, Guide задания, публикация и номер текущей версии требований. `free` открыт
+всем; `membership` решает MembershipEntitlements по Guide задания тем же путём, что Guide Artifact:
+право `guide:<id>` или `materials`, чей ContentScope покрывает этот Guide. Точки применения —
+`guide_task_read` (список, чтение, история сдач) и `guide_task_submit` (каждая сдача). `preview` выбирает
 текущее сохранённое состояние Material и требует `materials:manage`. Эта permission также покрывает
 полный authoring workflow, включая publish, unpublish и смену access class; validation и lifecycle
 invariants остаются в Materials и не становятся частью `ContentAccess`.
