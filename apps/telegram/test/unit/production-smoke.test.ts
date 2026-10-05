@@ -20,71 +20,90 @@ const sourceSha = "a".repeat(40);
 // External tools are the seam: execute the entire public smoke script, including its cleanup.
 // The real Docker runtime proof remains separate; these adapters make corrupt observations deterministic.
 const dockerAdapter = String.raw`
-const fs = require("node:fs");
-const path = require("node:path");
-const args = process.argv.slice(2);
-const fixture = process.env.FIXTURES;
-const stateFile = path.join(fixture, "state.json");
-const state = fs.existsSync(stateFile) ? JSON.parse(fs.readFileSync(stateFile, "utf8")) : {};
-fs.appendFileSync(path.join(fixture, "docker.log"), args.join(" ") + "\n");
-const candidate = image => image === state.candidate;
-if (args[0] === "build") {
-  state.candidate = args[args.indexOf("--tag") + 1];
-  fs.writeFileSync(stateFile, JSON.stringify(state));
-} else if (args[0] === "image" && args[1] === "inspect") {
-  const revision = candidate(args[2]) ? process.env.SOURCE_SHA : process.env.LEGACY_SHA;
-  const result = args.includes("--format") && args.at(-1).includes("revision")
-    ? (process.env.SCENARIO === "image" && candidate(args[2]) ? "0".repeat(40) : revision)
-    : (candidate(args[2]) ? "candidate-image-id" : "legacy-image-id");
-  console.log(result);
-} else if (args[0] === "inspect") {
-  console.log(candidate(state.active) ? "candidate-image-id" : "legacy-image-id");
-} else if (args[0] === "compose") {
-  if (args.includes("up")) {
-    state.active = process.env.TELEGRAM_IMAGE;
-    fs.writeFileSync(stateFile, JSON.stringify(state));
-  } else if (args.includes("port")) console.log("127.0.0.1:45678");
-  else if (args.includes("ps")) console.log("fixture-app");
-} else if (args[0] === "exec" && args.includes("psql")) {
-  const query = args.at(-1);
-  if (query === "select count(*) from kysely_migration") console.log("31");
-  else if (query === "select name from kysely_migration order by name") {
-    const ledger = Array.from({length:31}, (_,i) => "migration-" + (i+1)).join("\n");
-    console.log(ledger + (process.env.SCENARIO === "ledger" && candidate(state.active) ? "\nunexpected-migration" : ""));
-  } else if (query === "select value from delivery_smoke_sentinel") {
-    console.log(process.env.SCENARIO === "sentinel" && candidate(state.active) ? "corrupted" : "preserved");
-  } else if (!query.startsWith("create table delivery_smoke_sentinel")) process.exit(1);
-} else if (!["pull", "network", "run", "exec", "container", "image"].includes(args[0])) process.exit(1);
+set -euo pipefail
+printf '%s\n' "$*" >>"$FIXTURES/docker.log"
+case "$1" in
+  build)
+    while [[ "$#" -gt 0 ]]; do
+      if [[ "$1" == --tag ]]; then printf '%s\n' "$2" >"$FIXTURES/candidate"; break; fi
+      shift
+    done ;;
+  image)
+    if [[ "$2" == inspect ]]; then
+      read -r candidate <"$FIXTURES/candidate"
+      for format in "$@"; do :; done
+      if [[ "$format" == *revision* ]]; then
+        if [[ "$3" == "$candidate" ]]; then
+          if [[ "$SCENARIO" == image ]]; then printf '%040d\n' 0; else printf '%s\n' "$SOURCE_SHA"; fi
+        else printf '%s\n' "$LEGACY_SHA"; fi
+      elif [[ "$3" == "$candidate" ]]; then echo candidate-image-id
+      else echo legacy-image-id; fi
+    fi ;;
+  inspect)
+    read -r candidate <"$FIXTURES/candidate"
+    read -r active <"$FIXTURES/active"
+    if [[ "$active" == "$candidate" ]]; then echo candidate-image-id; else echo legacy-image-id; fi ;;
+  compose)
+    for argument in "$@"; do
+      case "$argument" in
+        up) printf '%s\n' "$TELEGRAM_IMAGE" >"$FIXTURES/active" ;;
+        port) echo 127.0.0.1:45678 ;;
+        ps) echo fixture-app ;;
+      esac
+    done ;;
+  exec)
+    if [[ "$3" == psql ]]; then
+      read -r candidate <"$FIXTURES/candidate"
+      read -r active <"$FIXTURES/active"
+      for query in "$@"; do :; done
+      case "$query" in
+        'select count(*) from kysely_migration') echo 31 ;;
+        'select name from kysely_migration order by name')
+          for ((i=1; i<=31; i+=1)); do printf 'migration-%s\n' "$i"; done
+          if [[ "$SCENARIO" == ledger && "$active" == "$candidate" ]]; then echo unexpected-migration; fi ;;
+        'select value from delivery_smoke_sentinel')
+          if [[ "$SCENARIO" == sentinel && "$active" == "$candidate" ]]; then echo corrupted; else echo preserved; fi ;;
+        'create table delivery_smoke_sentinel'*) ;;
+        *) exit 1 ;;
+      esac
+    fi ;;
+  pull|network|run|container) ;;
+  *) exit 1 ;;
+esac
 `;
 
 const ghAdapter = String.raw`
-const fs = require("node:fs");
-const path = require("node:path");
-const args = process.argv.slice(2);
-if (args.slice(0,3).join(" ") !== "release download v5") process.exit(1);
-fs.writeFileSync(path.join(args[args.indexOf("--dir")+1], "release-manifest.json"), JSON.stringify({
-  schemaVersion: "inside.telegram.release-manifest.v1",
-  version: "v5",
-  source: {repository: "sachkov-inside/inside-telegram", sha: process.env.LEGACY_SHA},
-  migrations: {identity: "sha256:f91e56479cfcae72f9596dc508c776c5c06e156f16d747e4e91d956931ca533d", count:31},
-  image: "ghcr.io/sachkov-inside/inside-telegram@sha256:1159e5f27ed6f12528ae383f1f379bfdc41780a1b37dafb72d9b35ff34d1b748"
-}));
+set -euo pipefail
+[[ "$1 $2 $3" == 'release download v5' ]] || exit 1
+while [[ "$#" -gt 0 ]]; do
+  if [[ "$1" == --dir ]]; then destination="$2"; break; fi
+  shift
+done
+cat >"$destination/release-manifest.json" <<JSON
+{"schemaVersion":"inside.telegram.release-manifest.v1","version":"v5","source":{"repository":"sachkov-inside/inside-telegram","sha":"$LEGACY_SHA"},"migrations":{"identity":"sha256:f91e56479cfcae72f9596dc508c776c5c06e156f16d747e4e91d956931ca533d","count":31},"image":"ghcr.io/sachkov-inside/inside-telegram@sha256:1159e5f27ed6f12528ae383f1f379bfdc41780a1b37dafb72d9b35ff34d1b748"}
+JSON
 `;
 
 const curlAdapter = String.raw`
-const fs = require("node:fs");
-const args = process.argv.slice(2);
-const outputIndex = args.findIndex(arg => arg === "--output" || arg === "-o");
-const auth = args.includes("--request");
-const body = JSON.stringify(auth ? {statusCode:401, message:"Unauthorized"} : {status:"ready"});
-if (outputIndex < 0) process.stdout.write(body);
-else fs.writeFileSync(args[outputIndex+1], body);
-if (auth) process.stdout.write("401");
+set -euo pipefail
+output=''
+auth=false
+while [[ "$#" -gt 0 ]]; do
+  case "$1" in
+    --output|-o) output="$2"; shift ;;
+    --request) auth=true ;;
+  esac
+  shift
+done
+if [[ "$auth" == true ]]; then
+  printf '%s' '{"statusCode":401,"message":"Unauthorized"}' >"$output"
+  printf 401
+else printf '%s' '{"status":"ready"}'; fi
 `;
 
 const gitAdapter = String.raw`
-if (process.argv.slice(2).join(" ") !== "rev-parse HEAD") process.exit(1);
-console.log(process.env.SOURCE_SHA);
+[[ "$*" == 'rev-parse HEAD' ]] || exit 1
+printf '%s\n' "$SOURCE_SHA"
 `;
 
 function runSmoke(scenario: string) {
@@ -101,7 +120,7 @@ function runSmoke(scenario: string) {
       ["git", gitAdapter],
     ] as const) {
       const executable = path.join(bin, name);
-      writeFileSync(executable, `#!${process.execPath}\n${body}`);
+      writeFileSync(executable, `#!/bin/bash\n${body}`);
       chmodSync(executable, 0o755);
     }
     const result = spawnSync("/bin/bash", [smoke], {
