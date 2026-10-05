@@ -287,6 +287,10 @@ Workspace #184.
 Команды читают состояние и ничего не меняют. Имена контейнеров следуют `PLATFORM_COMPOSE_PROJECT`
 (`inside-platform-production`).
 
+**Доступ глазами тестовых Accounts.** Workflow `Production access pass` входит тестовыми identities
+и не меняет данные Platform; перечень, вход и секреты описаны в
+[тестовых identities production](production-test-identities.md).
+
 **Процессы.** `migrations` завершился, девять процессов и `rabbitmq` — `running` и `healthy`, у
 воркеров в логе `"status":"ready"`:
 
