@@ -19,6 +19,12 @@ export function refusingLearnerMcpDependencies(): LearnerMcpDependencies {
       readHomePinnedSeries: refuse,
     },
     videos: { loadReadyDurations: refuse },
+    tasks: {
+      list: refuse,
+      read: refuse,
+      submit: refuse,
+      submissions: refuse,
+    },
     contentAccess: {
       checkAvailabilityMany: () => Promise.resolve({ ok: true, items: [] }),
       authorize: () =>

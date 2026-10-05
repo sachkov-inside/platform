@@ -1,6 +1,7 @@
 import { NotificationsModule } from "../../modules/notifications/index.js";
 import { ContentScopeCatalogModule } from "../../modules/materials/index.js";
 import { RecipientLinksModule } from "../../modules/telegram-membership/index.js";
+import { GuideTaskResourceFactsModule } from "../../modules/guide-tasks/index.js";
 import { Module } from "@nestjs/common";
 import { PlatformConfigModule } from "../../config/platform-config.module.js";
 import { OperationalReadiness } from "../../infrastructure/operational-readiness.js";
@@ -15,6 +16,7 @@ import { RuntimeIdentityModule } from "../../infrastructure/runtime-identity.js"
     NotificationsModule,
     ContentScopeCatalogModule,
     RecipientLinksModule,
+    GuideTaskResourceFactsModule,
   ],
   providers: [OperationalReadiness],
 })

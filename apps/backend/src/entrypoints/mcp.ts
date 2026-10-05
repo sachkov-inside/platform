@@ -31,6 +31,10 @@ import {
   CONTENT_ACCESS,
   type ContentAccess,
 } from "../modules/content-access/index.js";
+import {
+  LEARNING_TASKS,
+  type LearningTasks,
+} from "../modules/guide-tasks/index.js";
 import { createMcpApplication } from "./create-mcp-application.js";
 import { createMcpHttpServer } from "./mcp/mcp-http-server.js";
 
@@ -49,6 +53,7 @@ async function bootstrap(): Promise<void> {
       ),
       contentAccess: application.get<ContentAccess>(CONTENT_ACCESS),
       videos: application.get<Videos>(VIDEOS),
+      tasks: application.get<LearningTasks>(LEARNING_TASKS),
     },
     authoring: application.get<MaterialAuthoring>(MATERIAL_AUTHORING),
     videos: application.get<Videos>(VIDEOS),

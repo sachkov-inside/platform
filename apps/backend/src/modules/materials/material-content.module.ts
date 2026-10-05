@@ -1,4 +1,5 @@
 import { GuideOutlines } from "./features/list-guide-outlines/list-guide-outlines.js";
+import { GuideDirectory } from "./features/read-guide-directory/read-guide-directory.js";
 import { ContentScopeCatalog } from "./facets/content-scope-catalog/content-scope-catalog.js";
 import { PublishedMaterialSelection } from "./features/select-published-materials/select-published-materials.js";
 import { PublishedSeriesComposition } from "./features/read-published-series-composition/read-published-series-composition.js";
@@ -43,6 +44,11 @@ import { materialBodyOperations } from "./infrastructure/tiptap/index.js";
       useFactory: (prisma: PrismaClientProvider) => new GuideOutlines(prisma),
     },
     {
+      provide: GuideDirectory,
+      inject: [PrismaClientProvider],
+      useFactory: (prisma: PrismaClientProvider) => new GuideDirectory(prisma),
+    },
+    {
       provide: PublicContentTargets,
       inject: [PrismaClientProvider],
       useFactory: (prisma: PrismaClientProvider) =>
@@ -57,6 +63,7 @@ import { materialBodyOperations } from "./infrastructure/tiptap/index.js";
   ],
   exports: [
     ContentScopeCatalog,
+    GuideDirectory,
     GuideOutlines,
     MATERIAL_CONTENT,
     PublicContentTargets,

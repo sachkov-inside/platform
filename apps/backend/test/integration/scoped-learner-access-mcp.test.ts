@@ -1,3 +1,7 @@
+import {
+  LEARNING_TASKS,
+  type LearningTasks,
+} from "../../src/modules/guide-tasks/index.js";
 import { randomUUID } from "node:crypto";
 
 import type { INestApplicationContext } from "@nestjs/common";
@@ -115,6 +119,7 @@ describe("scoped learner access over the learner MCP transport", () => {
         ),
         contentAccess: application.get<ContentAccess>(CONTENT_ACCESS),
         videos: application.get<Videos>(VIDEOS),
+        tasks: application.get<LearningTasks>(LEARNING_TASKS),
       },
       authoring: application.get<MaterialAuthoring>(MATERIAL_AUTHORING),
       videos: application.get<Videos>(VIDEOS),

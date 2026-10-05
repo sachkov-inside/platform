@@ -13,6 +13,10 @@ import {
   MaterialsModule,
 } from "../modules/materials/index.js";
 import { RecipientLinksModule } from "../modules/telegram-membership/index.js";
+import {
+  GuideTaskResourceFactsModule,
+  GuideTasksModule,
+} from "../modules/guide-tasks/index.js";
 
 @Module({ providers: [OperationalReadiness] })
 export class McpModule {
@@ -27,8 +31,10 @@ export class McpModule {
         CommunicationsModule,
         MaterialsModule,
         BillingModule,
+        GuideTasksModule,
         ContentScopeCatalogModule,
         RecipientLinksModule,
+        GuideTaskResourceFactsModule,
       ],
     };
   }

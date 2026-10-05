@@ -108,6 +108,19 @@ export type TelegramMembershipPrisma = Pick<
 export type TelegramMembershipPrismaClient = TelegramMembershipPrisma &
   TransactionClient<TelegramMembershipPrisma>;
 
+export type GuideTasksPrisma = Pick<
+  PlatformPrisma,
+  | "$executeRaw"
+  | "$queryRaw"
+  | "guideTask"
+  | "guideTaskVersion"
+  | "guideTaskImportReceipt"
+  | "guideTaskSubmission"
+  | "guideTaskAuthorFeedback"
+>;
+export type GuideTasksPrismaClient = GuideTasksPrisma &
+  TransactionClient<GuideTasksPrisma>;
+
 export interface TransactionClient<Transaction> {
   $transaction<Result>(
     operation: (transaction: Transaction) => Promise<Result>,

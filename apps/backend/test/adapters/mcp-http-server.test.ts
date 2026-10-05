@@ -121,6 +121,10 @@ describe("MCP Streamable HTTP adapter", () => {
         "learning_material_read",
         "learning_materials_list",
         "learning_practice_read",
+        "learning_task_read",
+        "learning_task_submissions",
+        "learning_task_submit",
+        "learning_tasks_list",
       ]);
       await expect(
         client.callTool({ name: "material_create_draft", arguments: {} }),
