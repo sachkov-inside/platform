@@ -1,0 +1,21 @@
+{
+  "$schema": "https://json.schemastore.org/tsconfig",
+  "extends": "../../tsconfig.nest-app.json",
+  "compilerOptions": {
+    "target": "ES2023",
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "experimentalDecorators": true,
+    "emitDecoratorMetadata": true,
+    "types": ["node"],
+    "allowSyntheticDefaultImports": true,
+    "declaration": true,
+    "outDir": "dist",
+    "resolveJsonModule": true,
+    "rootDir": ".",
+    "useDefineForClassFields": true,
+    "lib": ["ES2023", "DOM"]
+  },
+  "include": ["src/**/*.ts", "test/**/*.ts", "vitest*.ts", "scripts/**/*.ts"],
+  "exclude": ["dist", "node_modules", "test/architecture/fixtures"]
+}

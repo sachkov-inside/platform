@@ -18,6 +18,7 @@ COPY --chown=node:node apps/backend/package.json ./apps/backend/package.json
 COPY --chown=node:node apps/backend/prisma.config.ts ./apps/backend/prisma.config.ts
 COPY --chown=node:node apps/backend/prisma ./apps/backend/prisma
 COPY --chown=node:node apps/web/package.json ./apps/web/package.json
+COPY --chown=node:node apps/telegram/package.json ./apps/telegram/package.json
 COPY --chown=node:node packages/runtime-identity/package.json ./packages/runtime-identity/package.json
 # The block registry compiles during install, so its sources join the dependency stage.
 COPY --chown=node:node packages/material-blocks ./packages/material-blocks

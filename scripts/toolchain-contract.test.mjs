@@ -52,11 +52,13 @@ const readManifest = (path) =>
 const rootPackage = readManifest("package.json");
 const backendPackage = readManifest("apps/backend/package.json");
 const webPackage = readManifest("apps/web/package.json");
+const telegramPackage = readManifest("apps/telegram/package.json");
 const nodeVersion = read(".node-version").trim();
 const pnpmVersion = (rootPackage.packageManager ?? "").replace(/^pnpm@/u, "");
 const applicationDockerfiles = [
   "apps/backend/Dockerfile",
   "apps/web/Dockerfile",
+  "apps/telegram/infra/production/Dockerfile",
 ];
 
 describe("supported toolchain contract", () => {
@@ -67,7 +69,7 @@ describe("supported toolchain contract", () => {
       assert.match(
         dockerfile,
         new RegExp(
-          `^FROM node:${escapeRegExp(nodeVersion)}-alpine\\d+\\.\\d+@sha256:[a-f0-9]{64} AS toolchain$`,
+          `^FROM node:${escapeRegExp(nodeVersion)}-(?:alpine\\d+\\.\\d+|bookworm-slim)@sha256:[a-f0-9]{64} AS toolchain$`,
           "mu",
         ),
       );
@@ -109,7 +111,7 @@ describe("supported toolchain contract", () => {
 
   it("keeps TypeScript exact and Node declarations on the runtime major", () => {
     const nodeMajor = nodeVersion.split(".")[0];
-    const packages = [rootPackage, backendPackage, webPackage];
+    const packages = [rootPackage, backendPackage, webPackage, telegramPackage];
     const typeScriptPins = packages.map(
       (manifest) => manifest.devDependencies["typescript"],
     );
@@ -121,7 +123,12 @@ describe("supported toolchain contract", () => {
         (version) => version !== undefined && /^\d+\.\d+\.\d+$/u.test(version),
       ),
     );
-    for (const manifest of [rootPackage, backendPackage, webPackage]) {
+    for (const manifest of [
+      rootPackage,
+      backendPackage,
+      webPackage,
+      telegramPackage,
+    ]) {
       assert.equal(
         manifest.devDependencies["@types/node"]?.split(".")[0],
         nodeMajor,
@@ -997,6 +1004,7 @@ const typeAwareLintFiles = [
   "apps/backend/**/*.{ts,mts,cts}",
   "packages/**/*.{ts,mts,cts}",
   "apps/web/**/*.{ts,tsx,mts,cts}",
+  "apps/telegram/**/*.{ts,mts,cts}",
 ];
 /** Rules #694 enables everywhere; only generated code and generated migrations may relax them. */
 const strictLintRules = [

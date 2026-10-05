@@ -1,0 +1,17 @@
+import { hasText } from "../shared/text.js";
+import "../config/load-environment.js";
+
+import { createDatabase } from "./create-database.js";
+import { migrateToLatest } from "./migrator.js";
+
+const databaseUrl = process.env["DATABASE_URL"];
+if (!hasText(databaseUrl)) {
+  throw new Error("DATABASE_URL is required");
+}
+
+const database = createDatabase(databaseUrl);
+try {
+  await migrateToLatest(database);
+} finally {
+  await database.destroy();
+}

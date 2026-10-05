@@ -2,8 +2,10 @@
 
 This file routes repository-wide rules. Apply the standard nearest to the code being changed:
 
-- backend modules, Nest, Prisma, REST, migrations, and backend tests:
+- Platform backend modules, Nest, Prisma, REST, migrations, and backend tests:
   [`apps/backend/CODING_STANDARDS.md`](apps/backend/CODING_STANDARDS.md);
+- Telegram bot modules, Kysely persistence and provider contracts: the repository-wide rules below,
+  [application boundaries](apps/telegram/AGENTS.md) and its executable `guardrails` contract;
 - Next.js, feature slices, transport adapters, server state, mutations, UI, and browser tests:
   [`apps/web/CODING_STANDARDS.md`](apps/web/CODING_STANDARDS.md);
 - shared workspace packages under `packages/`: these repository-wide rules plus the backend

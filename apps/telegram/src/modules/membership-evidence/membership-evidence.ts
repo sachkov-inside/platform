@@ -1,0 +1,81 @@
+export const MEMBERSHIP_EVIDENCE_CONTRACT_VERSION =
+  "inside.membership-evidence.v1" as const;
+
+export type MembershipEvidenceSource =
+  "link_time" | "member_status_event" | "reconciliation";
+
+export type MembershipEvidence =
+  | {
+      readonly checkedAt: string;
+      readonly contractVersion: typeof MEMBERSHIP_EVIDENCE_CONTRACT_VERSION;
+      readonly decision: "member" | "not_member";
+      readonly evidenceRef: string;
+      readonly evidenceVersion: number;
+      readonly principalRef: string;
+      readonly reasonCode: "chat_member" | "chat_not_member";
+      readonly telegramIdentityRef: string;
+      readonly validUntil: string;
+    }
+  | {
+      readonly contractVersion: typeof MEMBERSHIP_EVIDENCE_CONTRACT_VERSION;
+      readonly decision: "unavailable";
+      readonly principalRef: string;
+      readonly reasonCode: "provider_unavailable";
+    };
+
+export function readStoredMembershipEvidence(
+  value: unknown,
+): MembershipEvidence {
+  if (
+    typeof value !== "object" ||
+    value === null ||
+    !("contractVersion" in value) ||
+    value.contractVersion !== MEMBERSHIP_EVIDENCE_CONTRACT_VERSION ||
+    !("principalRef" in value) ||
+    typeof value.principalRef !== "string" ||
+    !("decision" in value)
+  ) {
+    throw new Error("Stored Membership Evidence envelope is invalid");
+  }
+  if (
+    value.decision === "unavailable" &&
+    "reasonCode" in value &&
+    value.reasonCode === "provider_unavailable"
+  ) {
+    return {
+      contractVersion: MEMBERSHIP_EVIDENCE_CONTRACT_VERSION,
+      decision: "unavailable",
+      principalRef: value.principalRef,
+      reasonCode: "provider_unavailable",
+    };
+  }
+  if (
+    (value.decision === "member" || value.decision === "not_member") &&
+    "checkedAt" in value &&
+    typeof value.checkedAt === "string" &&
+    "validUntil" in value &&
+    typeof value.validUntil === "string" &&
+    "telegramIdentityRef" in value &&
+    typeof value.telegramIdentityRef === "string" &&
+    "evidenceRef" in value &&
+    typeof value.evidenceRef === "string" &&
+    "evidenceVersion" in value &&
+    typeof value.evidenceVersion === "number" &&
+    "reasonCode" in value &&
+    (value.reasonCode === "chat_member" ||
+      value.reasonCode === "chat_not_member")
+  ) {
+    return {
+      checkedAt: value.checkedAt,
+      contractVersion: MEMBERSHIP_EVIDENCE_CONTRACT_VERSION,
+      decision: value.decision,
+      evidenceRef: value.evidenceRef,
+      evidenceVersion: value.evidenceVersion,
+      principalRef: value.principalRef,
+      reasonCode: value.reasonCode,
+      telegramIdentityRef: value.telegramIdentityRef,
+      validUntil: value.validUntil,
+    };
+  }
+  throw new Error("Stored Membership Evidence envelope is invalid");
+}

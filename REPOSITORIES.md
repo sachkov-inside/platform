@@ -1,13 +1,13 @@
-# Репозитории Inside: переходный этап документов
+# Репозитории Inside: этап импорта Telegram
 
-Карта отражает этап [platform#958](https://github.com/sachkov-inside/platform/issues/958)
+Карта отражает этап [platform#959](https://github.com/sachkov-inside/platform/issues/959)
 согласованного переезда [platform#957](https://github.com/sachkov-inside/platform/issues/957).
 Решение и границы перехода записаны в [ADR 0031](docs/adr/0031-inside-product-monorepo.md).
 
 | Репозиторий | Владелец на этом этапе | Дальнейшее изменение по #957 |
 |---|---|---|
-| [platform](https://github.com/sachkov-inside/platform) | Код Platform, общие продуктовые и юридические документы, словарь, контракты и процесс разработки Inside | Telegram будет импортирован в `apps/telegram` с полной историей |
-| [inside-telegram](https://github.com/sachkov-inside/inside-telegram) | Пока действующие код, CI, выпуск и задачи приложения Telegram | После проверки импорта, выпуска и отката задачи переносятся, репозиторий архивируется |
+| [platform](https://github.com/sachkov-inside/platform) | Код Platform и Telegram в `apps/telegram`, общие документы, словарь, контракты, процесс и CI Inside | Новый выпуск Telegram подключается в #960 |
+| [inside-telegram](https://github.com/sachkov-inside/inside-telegram) | История источника, действующий production выпуск и прежние задачи Telegram | После проверки импорта, выпуска и отката задачи переносятся, репозиторий архивируется |
 | [workspace](https://github.com/sachkov-inside/workspace) | Исходные документы и история решений остаются доступными для проверки и отката | Архивируется после проверки всего перехода; текущие документы уже принадлежат Platform |
 | [inside-content](https://github.com/sachkov-inside/inside-content) | Закрытые редакционные оригиналы, метаданные и процесс подготовки материалов | Остаётся отдельным репозиторием |
 | [workshop-cases](https://github.com/sachkov-inside/workshop-cases) | Закрытые Tracks, Laboratories, CaseSpec и авторские решения | Остаётся отдельным источником; не становится runtime Platform |
@@ -22,7 +22,9 @@
 - [Юридический комплект](docs/legal/README.md) владеет редакциями и статусами юридических текстов.
 - [Карта учёта 97 исходных файлов](docs/migrations/958-shared-documents.md) даёт исходные commits и соответствия.
 
-До импорта Telegram ссылки на его application brief, ADR и runbooks остаются ссылками на `inside-telegram`.
-Процесс разработки Inside принадлежит `WORKFLOW.md` и `.agents/skills` Platform; Telegram пока получает его копию.
+[Brief Telegram](apps/telegram/docs/product/telegram-application-brief.md), ADR и runbooks теперь доступны внутри приложения.
+Процесс разработки Inside принадлежит корневым `WORKFLOW.md` и `.agents/skills`; копии в Telegram удалены.
+Корневой CI Gate проверяет Telegram на PR, merge_group и точном SHA reusable CI.
+Исторические workflows внутри `apps/telegram/.github` остаются fixtures до #960.
 Приложения сохраняют самостоятельные процессы и выпуск. Соседний checkout не является build или runtime-зависимостью.
 Архивирование источников и изменение локальных каталогов ещё не выполнены.

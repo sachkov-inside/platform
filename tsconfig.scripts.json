@@ -19,7 +19,9 @@
     "apps/web/*.mjs",
     "apps/web/test/**/*.mjs",
     "packages/runtime-identity/*.mjs",
-    "infra/production/logto/*.mjs"
+    "infra/production/logto/*.mjs",
+    "apps/telegram/scripts/**/*.mjs",
+    "apps/telegram/test/**/*.mjs"
   ],
   "exclude": ["**/node_modules/**", "**/fixtures/**"]
 }

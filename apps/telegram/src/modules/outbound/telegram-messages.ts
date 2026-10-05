@@ -1,0 +1,34 @@
+export type TelegramButton = { readonly text: string } & (
+  | { readonly callbackData: string; readonly url?: never }
+  | { readonly url: string; readonly callbackData?: never }
+);
+export interface TelegramTextMessage {
+  readonly chatId: string;
+  readonly text: string;
+  readonly buttons?: readonly TelegramButton[];
+}
+
+export type TelegramDeliveryResult =
+  | { readonly kind: "api_rejected"; readonly providerErrorCode: number }
+  | {
+      readonly kind: "api_retryable";
+      readonly providerErrorCode: number;
+      readonly retryAfterSeconds?: number;
+    }
+  | { readonly kind: "delivered"; readonly providerMessageId: string }
+  | { readonly kind: "transport_unknown" };
+
+export interface TelegramMessageEdit {
+  readonly chatId: string;
+  readonly messageId: string;
+  readonly text: string;
+  /** Replaces the earlier keyboard; absent removes all controls. */
+  readonly buttons?: readonly TelegramButton[];
+}
+
+export interface TelegramMessages {
+  editText(message: TelegramMessageEdit): Promise<TelegramDeliveryResult>;
+  sendText(message: TelegramTextMessage): Promise<TelegramDeliveryResult>;
+}
+
+export const TELEGRAM_MESSAGES = Symbol("TELEGRAM_MESSAGES");

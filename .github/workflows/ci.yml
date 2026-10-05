@@ -240,6 +240,48 @@ jobs:
           if-no-files-found: ignore
           retention-days: 7
 
+  telegram:
+    name: Telegram full checks
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    services:
+      postgres:
+        image: postgres:18.4-alpine
+        env:
+          POSTGRES_DB: inside_telegram
+          POSTGRES_USER: inside
+          POSTGRES_PASSWORD: inside
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U inside -d inside_telegram"
+          --health-interval 2s --health-timeout 3s --health-retries 30
+      rabbitmq:
+        image: rabbitmq:4.3-management-alpine
+        env:
+          RABBITMQ_DEFAULT_USER: telegram_checks
+          RABBITMQ_DEFAULT_PASS: telegram_checks
+        ports:
+          - 5672:5672
+          - 15672:15672
+        options: >-
+          --health-cmd "rabbitmq-diagnostics -q ping"
+          --health-interval 2s --health-timeout 5s --health-retries 30
+    env:
+      DATABASE_URL: postgresql://inside:inside@127.0.0.1:5432/inside_telegram
+      NOTIFICATION_TEST_AMQP_URL: amqp://telegram_checks:telegram_checks@127.0.0.1:5672
+      NOTIFICATION_TEST_MANAGEMENT_URL: http://127.0.0.1:15672
+    steps:
+      - name: Check out source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ inputs.source_sha || github.sha }}
+          persist-credentials: false
+      - name: Set up Platform
+        uses: ./.github/actions/setup-platform
+      - name: Check Telegram with isolated data services
+        run: pnpm --filter @inside/telegram check:full
+
   ci-gate:
     name: CI Gate
     runs-on: ubuntu-24.04
@@ -254,6 +296,7 @@ jobs:
       - integration-serial
       - compose-development
       - compose-production
+      - telegram
     steps:
       - name: Require every CI job
         env:
@@ -265,6 +308,7 @@ jobs:
           INTEGRATION_SERIAL_RESULT: ${{ needs.integration-serial.result }}
           COMPOSE_DEVELOPMENT_RESULT: ${{ needs.compose-development.result }}
           COMPOSE_PRODUCTION_RESULT: ${{ needs.compose-production.result }}
+          TELEGRAM_RESULT: ${{ needs.telegram.result }}
         run: |
           for result in \
             "$STATIC_RESULT" \
@@ -274,7 +318,8 @@ jobs:
             "$INTEGRATION_RESULT" \
             "$INTEGRATION_SERIAL_RESULT" \
             "$COMPOSE_DEVELOPMENT_RESULT" \
-            "$COMPOSE_PRODUCTION_RESULT"
+            "$COMPOSE_PRODUCTION_RESULT" \
+            "$TELEGRAM_RESULT"
           do
             if [[ "$result" != "success" ]]; then
               echo "A required CI job finished with result: $result" >&2

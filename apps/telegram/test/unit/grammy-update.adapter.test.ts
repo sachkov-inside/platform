@@ -1,0 +1,291 @@
+import { describe, expect, it } from "vitest";
+
+import {
+  GrammyUpdateAdapter,
+  prepareTelegramUpdateForInbox,
+} from "../../src/adapters/telegram/grammy-update.adapter.js";
+import { TELEGRAM_WEBHOOK_ALLOWED_UPDATES } from "../../src/modules/webhook/telegram-webhook.js";
+import {
+  canonicalJoinRequestUpdate,
+  canonicalMembershipUpdate,
+  canonicalProviderMembershipUpdate,
+  privateContactabilityUpdate,
+  privateStartUpdate,
+} from "../support/synthetic-telegram-updates.js";
+
+const observedAt = new Date("2026-08-30T12:00:00.000Z");
+
+describe("GrammyUpdateAdapter", () => {
+  const adapter = new GrammyUpdateAdapter();
+
+  it("pins the explicit webhook update registration", () => {
+    expect(TELEGRAM_WEBHOOK_ALLOWED_UPDATES).toEqual([
+      "message",
+      "chat_member",
+      "my_chat_member",
+      "chat_join_request",
+      "callback_query",
+    ]);
+  });
+
+  it("translates an ordinary private non-bot start to verified IDs", () => {
+    const largestDocumentedSafeId = 4_503_599_627_370_495;
+    const command = adapter.translate(
+      "inside",
+      "7",
+      privateStartUpdate(7, largestDocumentedSafeId),
+      observedAt,
+    );
+
+    expect(command).toEqual({
+      kind: "start",
+      value: {
+        contact: {
+          botIdentity: "inside",
+          observedAt,
+          privateChatId: String(largestDocumentedSafeId),
+          telegramUserId: String(largestDocumentedSafeId),
+          updateId: "7",
+        },
+      },
+    });
+  });
+
+  it("replaces a valid link bearer with its digest before durable storage", () => {
+    const rawToken = "abcdefghijklmnopqrstuvwxyzABCDEFGH012345678";
+    const prepared = prepareTelegramUpdateForInbox(
+      privateStartUpdate(8, 42, { text: `/start ${rawToken}` }),
+    );
+
+    expect(JSON.stringify(prepared)).not.toContain(rawToken);
+    expect(adapter.translate("inside", "8", prepared, observedAt)).toEqual({
+      kind: "start",
+      value: {
+        contact: {
+          botIdentity: "inside",
+          observedAt,
+          privateChatId: "42",
+          telegramUserId: "42",
+          updateId: "8",
+        },
+        linkToken: {
+          digest: "jKKh9RnjKMdeJyPGrUz3N7LTyO3qlo7dUNRlIji0Qk8",
+          kind: "digest",
+        },
+      },
+    });
+  });
+
+  it.each([
+    ["42 characters", "A".repeat(42), "malformed"],
+    ["43 characters", "A".repeat(43), "digest"],
+    ["64 characters", "A".repeat(64), "digest"],
+    ["65 characters", "A".repeat(65), "malformed"],
+    ["outside base64url", `${"A".repeat(42)}+`, "malformed"],
+  ])("classifies a %s link bearer", (_name, token, expectedKind) => {
+    const prepared = prepareTelegramUpdateForInbox(
+      privateStartUpdate(9, 42, { text: `/start ${token}` }),
+    );
+    const command = adapter.translate("inside", "9", prepared, observedAt);
+
+    expect(command).toMatchObject({
+      kind: "start",
+      value: { linkToken: { kind: expectedKind } },
+    });
+    expect(JSON.stringify(prepared)).not.toContain(token);
+  });
+
+  it("trusts only link metadata derived at Telegram ingress", () => {
+    const update = privateStartUpdate(10, 42);
+    const prepared = prepareTelegramUpdateForInbox({
+      ...update,
+      message: {
+        ...update.message,
+        _inside_link_token: {
+          digest: "jKKh9RnjKMdeJyPGrUz3N7LTyO3qlo7dUNRlIji0Qk8",
+          kind: "digest",
+        },
+      },
+    });
+
+    expect(adapter.translate("inside", "10", prepared, observedAt)).toEqual({
+      kind: "start",
+      value: {
+        contact: {
+          botIdentity: "inside",
+          observedAt,
+          privateChatId: "42",
+          telegramUserId: "42",
+          updateId: "10",
+        },
+      },
+    });
+  });
+
+  it.each([
+    ["group start", privateStartUpdate(1, 42, { chatType: "group" })],
+    ["bot sender", privateStartUpdate(2, 42, { isBot: true })],
+    ["missing sender", privateStartUpdate(3, 42, { omitSender: true })],
+    ["malformed message", { update_id: 5, message: {} }],
+    ["old configured update variant", { update_id: 6, poll_answer: {} }],
+  ])("ignores %s", (_name, update) => {
+    expect(adapter.translate("inside", "1", update, observedAt)).toEqual({
+      kind: "ignored",
+    });
+  });
+
+  it("leaves a tokenized start to the author dialog instead of treating it as /start", () => {
+    expect(
+      adapter.translate(
+        "inside",
+        "4",
+        privateStartUpdate(4, 42, { text: "/start token" }),
+        observedAt,
+      ).kind,
+    ).toBe("author-input");
+  });
+
+  it("translates private block observations without creating a contact", () => {
+    expect(
+      adapter.translate(
+        "inside",
+        "8",
+        privateContactabilityUpdate(8, 42, "kicked"),
+        observedAt,
+      ),
+    ).toEqual({
+      kind: "contactability",
+      value: {
+        botIdentity: "inside",
+        contactability: "blocked",
+        observedAt,
+        telegramUserId: "42",
+        updateId: "8",
+      },
+    });
+  });
+
+  it("uses new_chat_member subject instead of the event actor", () => {
+    expect(
+      adapter.translate(
+        "inside",
+        "9001",
+        canonicalMembershipUpdate(9001, -1_000_000_000_000, 42, "left", {
+          actorUserId: 777,
+          date: 1_893_456_060,
+        }),
+        observedAt,
+      ),
+    ).toEqual({
+      kind: "membership",
+      value: {
+        actorIsSubject: false,
+        actorTelegramUserId: "777",
+        actorIsBot: false,
+        botIdentity: "inside",
+        canonicalChatId: "-1000000000000",
+        chatMember: { status: "left" },
+        eventAt: new Date("2030-01-01T00:01:00.000Z"),
+        kind: "subject",
+        subjectTelegramUserId: "42",
+        updateId: "9001",
+      },
+    });
+  });
+
+  it("translates canonical bot demotion as a provider event", () => {
+    expect(
+      adapter.translate(
+        "inside",
+        "9002",
+        canonicalProviderMembershipUpdate(
+          9002,
+          -1_000_000_000_000,
+          99,
+          "member",
+          { date: 1_893_456_120 },
+        ),
+        observedAt,
+      ),
+    ).toEqual({
+      kind: "membership",
+      value: {
+        botIdentity: "inside",
+        canonicalChatId: "-1000000000000",
+        chatMember: { status: "member" },
+        eventAt: new Date("2030-01-01T00:02:00.000Z"),
+        kind: "provider",
+        updateId: "9002",
+      },
+    });
+  });
+
+  it("translates a canonical-chat join request to its verified requester", () => {
+    const command = adapter.translate(
+      "inside",
+      "91",
+      canonicalJoinRequestUpdate(91, -1_000_000_000_000, 10_001),
+      observedAt,
+    );
+
+    expect(command).toEqual({
+      kind: "join-request",
+      value: {
+        botIdentity: "inside",
+        canonicalChatId: "-1000000000000",
+        telegramUserId: "10001",
+        requestedAt: new Date(1_893_456_060 * 1000),
+        updateId: "91",
+      },
+    });
+  });
+
+  it.each([
+    ["a bot requester", { isBot: true }],
+    ["a private chat", { chatType: "private" }],
+    ["a negative date", { date: -1 }],
+  ])("ignores a join request with %s", (_name, options) => {
+    expect(
+      adapter.translate(
+        "inside",
+        "92",
+        canonicalJoinRequestUpdate(92, -1_000_000_000_000, 10_001, options),
+        observedAt,
+      ),
+    ).toEqual({ kind: "ignored" });
+  });
+
+  it("translates the contact's own admission request", () => {
+    const command = adapter.translate(
+      "inside",
+      "93",
+      privateStartUpdate(93, 10_001, { text: "/community" }),
+      observedAt,
+    );
+
+    expect(command).toEqual({
+      kind: "community-request",
+      value: {
+        botIdentity: "inside",
+        observedAt,
+        privateChatId: "10001",
+        telegramUserId: "10001",
+        updateId: "93",
+      },
+    });
+  });
+
+  it.each([
+    ["a group chat", { chatType: "supergroup" }],
+    ["a bot sender", { isBot: true }],
+  ])("ignores an admission request from %s", (_name, options) => {
+    expect(
+      adapter.translate(
+        "inside",
+        "94",
+        privateStartUpdate(94, 10_001, { ...options, text: "/community" }),
+        observedAt,
+      ),
+    ).toEqual({ kind: "ignored" });
+  });
+});

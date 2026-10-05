@@ -1,0 +1,726 @@
+import { hasText } from "../../shared/text.js";
+import { MARKETING_CONSENT_CALLBACK } from "../../modules/communications/marketing-entry.js";
+import type { AccessAction } from "../../modules/subscription-activation/subscription-activation.js";
+import { createHash } from "node:crypto";
+
+import type { Update } from "grammy/types";
+
+import type {
+  VerifiedPrivateContactability,
+  VerifiedPrivateStart,
+} from "../../shared/telegram-contact.js";
+import type { CommunityJoinRequest } from "../../modules/community/community-provider.js";
+import type { DurableMembershipEnvelope } from "../../modules/membership-evidence/membership-evidence-provider.js";
+import type { VerifiedSignInDecision } from "../../modules/bot-sign-in/bot-sign-in.js";
+import type {
+  TelegramUpdateCommand,
+  TelegramUpdateTranslator,
+} from "../../modules/update-inbox/telegram-update-command.js";
+import { translateAuthorInput } from "./grammy-author-admin.adapter.js";
+import { translateTemplateIntake } from "./grammy-template-intake.adapter.js";
+import { toTelegramChatMember } from "./grammy-membership.adapter.js";
+
+const LINK_TOKEN_FIELD = "_inside_link_token";
+const SIGN_IN_TOKEN_FIELD = "_inside_sign_in_token";
+
+export function prepareTelegramUpdateForInbox(payload: unknown): unknown {
+  if (!isRecord(payload) || !isRecord(payload["message"])) {
+    return payload;
+  }
+
+  const message = { ...payload["message"] };
+  Reflect.deleteProperty(message, LINK_TOKEN_FIELD);
+  Reflect.deleteProperty(message, SIGN_IN_TOKEN_FIELD);
+  delete message["_inside_marketing_source"];
+  delete message["_inside_activation"];
+  delete message["_inside_invitation"];
+  const text = message["text"];
+  if (typeof text !== "string") {
+    return { ...payload, message };
+  }
+
+  const start = parseStart(text);
+  if (start?.argument === undefined) {
+    return { ...payload, message };
+  }
+
+  if (start.argument.startsWith("a_") && start.argument.length < 43) {
+    return {
+      ...payload,
+      message: {
+        ...message,
+        text: start.command,
+        _inside_activation: {
+          code: /^a_[A-Za-z0-9_-]{1,40}$/.test(start.argument)
+            ? start.argument.slice(2)
+            : null,
+        },
+      },
+    };
+  }
+  if (start.argument.startsWith("i_") && start.argument.length < 43) {
+    return {
+      ...payload,
+      message: {
+        ...message,
+        text: start.command,
+        _inside_invitation: {
+          code: /^i_[A-Za-z0-9_-]{1,40}$/.test(start.argument)
+            ? start.argument.slice(2)
+            : null,
+        },
+      },
+    };
+  }
+  // Never reinterpret any legacy auth token, including ones starting with m_.
+  if (start.argument.startsWith("m_") && start.argument.length < 43) {
+    return {
+      ...payload,
+      message: {
+        ...message,
+        text: start.command,
+        _inside_marketing_source: start.argument,
+      },
+    };
+  }
+  // Legacy linking accepts every base64url payload of 43–64 characters, including this prefix.
+  // Reserve a shorter namespace so existing valid link tokens keep their exact meaning.
+  const signIn =
+    start.argument.startsWith("signin_") && start.argument.length < 43;
+  const argument = signIn ? start.argument.slice(7) : start.argument;
+  const valid = signIn
+    ? /^[A-Za-z0-9_-]{35}$/.test(argument)
+    : /^[A-Za-z0-9_-]{43,64}$/.test(argument);
+  const linkToken = valid
+    ? {
+        digest: createHash("sha256").update(argument).digest("base64url"),
+        kind: "digest" as const,
+      }
+    : { kind: "malformed" as const };
+
+  return {
+    ...payload,
+    message: {
+      ...message,
+      [signIn ? SIGN_IN_TOKEN_FIELD : LINK_TOKEN_FIELD]: linkToken,
+      text: start.command,
+    },
+  };
+}
+
+export class GrammyUpdateAdapter implements TelegramUpdateTranslator {
+  prepareForInbox(payload: unknown): unknown {
+    return prepareTelegramUpdateForInbox(payload);
+  }
+
+  translate(
+    botIdentity: string,
+    updateId: string,
+    payload: unknown,
+    observedAt: Date,
+  ): TelegramUpdateCommand {
+    const command = this.translateRouted(
+      botIdentity,
+      updateId,
+      payload,
+      observedAt,
+    );
+    if (command.kind !== "ignored") return command;
+    // A private message no route claims belongs to the author dialog or the template intake.
+    const author = translateAuthorInput(botIdentity, updateId, payload);
+    const intake = translateTemplateIntake(botIdentity, updateId, payload);
+    if (author)
+      return { kind: "author-input", value: author, ...(intake && { intake }) };
+    if (intake) return { kind: "template-intake", value: intake };
+    return command;
+  }
+
+  private translateRouted(
+    botIdentity: string,
+    updateId: string,
+    payload: unknown,
+    observedAt: Date,
+  ): TelegramUpdateCommand {
+    if (!isRecord(payload)) {
+      return { kind: "ignored" };
+    }
+
+    const update = payload as Partial<Update>;
+    const decision = privateSignInDecision(botIdentity, update.callback_query);
+    if (
+      decision &&
+      typeof update.callback_query?.id === "string" &&
+      update.callback_query.id.length <= 128
+    )
+      return {
+        kind: "sign-in-decision",
+        value: decision,
+        callbackQueryId: update.callback_query.id,
+      };
+    const access = this.privateCommand(
+      /^(\/access|Мои доступы|\/platform|Открыть платформу|\/retry|Повторить проверку|\/help|Нужна помощь|Вступить в сообщество)$/,
+      botIdentity,
+      updateId,
+      update,
+      observedAt,
+    );
+    if (access) {
+      // The pattern is anchored around one group, so the whole match is that group.
+      const [text] = access.match;
+      const action: AccessAction = ["/access", "Мои доступы"].includes(text)
+        ? "own"
+        : ["/platform", "Открыть платформу"].includes(text)
+          ? "platform"
+          : ["/retry", "Повторить проверку"].includes(text)
+            ? "retry"
+            : text === "Вступить в сообщество"
+              ? "community"
+              : "help";
+      return { kind: "access-action", value: access.contact, action };
+    }
+    const callback = update.callback_query;
+    const callbackAction =
+      callback && "data" in callback && typeof callback.data === "string"
+        ? accessCallbackAction(callback.data)
+        : undefined;
+    if (
+      callback &&
+      hasText(callbackAction) &&
+      !callback.from.is_bot &&
+      callback.message?.chat.type === "private" &&
+      callback.from.id === callback.message.chat.id &&
+      callback.id.length <= 128
+    ) {
+      const user = telegramId(callback.from.id);
+      if (hasText(user))
+        return {
+          kind: "access-action",
+          value: {
+            botIdentity,
+            updateId,
+            observedAt,
+            telegramUserId: user,
+            privateChatId: user,
+          },
+          action: callbackAction,
+          callbackQueryId: callback.id,
+        };
+    }
+    // The contact asks for their own admission; nobody else selects a recipient.
+    const admission = this.privateCommand(
+      /^\/community(?:@[A-Za-z0-9_]+)?$/,
+      botIdentity,
+      updateId,
+      update,
+      observedAt,
+    );
+    if (admission) {
+      return { kind: "community-request", value: admission.contact };
+    }
+    const preference = this.privateCommand(
+      /^(\/stop|\/resume)(?:@[A-Za-z0-9_]+)?$/,
+      botIdentity,
+      updateId,
+      update,
+      observedAt,
+    );
+    if (preference) {
+      return {
+        kind: "marketing_preference",
+        value: {
+          contact: preference.contact,
+          enabled: preference.match[1] === "/resume",
+          via: "command",
+        },
+      };
+    }
+    const consent = privateCallback(
+      botIdentity,
+      updateId,
+      update,
+      observedAt,
+      MARKETING_CONSENT_CALLBACK,
+    );
+    if (consent) {
+      return {
+        kind: "marketing_preference",
+        value: { contact: consent.contact, enabled: true, via: "consent" },
+        callbackQueryId: consent.callbackQueryId,
+      };
+    }
+    const start = this.privateStart(botIdentity, updateId, update, observedAt);
+    if (start) {
+      return { kind: "start", value: start };
+    }
+
+    const joinRequest = this.joinRequest(botIdentity, updateId, update);
+    if (joinRequest) {
+      return { kind: "join-request", value: joinRequest };
+    }
+
+    const subjectMembership = this.subjectMembershipEvent(
+      botIdentity,
+      updateId,
+      update,
+    );
+    if (subjectMembership) {
+      return { kind: "membership", value: subjectMembership };
+    }
+
+    const providerMembership = this.providerMembershipEvent(
+      botIdentity,
+      updateId,
+      update,
+    );
+    if (providerMembership) {
+      return { kind: "membership", value: providerMembership };
+    }
+
+    const contactability = this.privateContactability(
+      botIdentity,
+      updateId,
+      update,
+      observedAt,
+    );
+    if (contactability) {
+      return { kind: "contactability", value: contactability };
+    }
+
+    return { kind: "ignored" };
+  }
+
+  /**
+   * Any private non-bot slash command is verified the same way `/start` is, so a
+   * new command never invents its own idea of a trusted sender.
+   */
+  private privateCommand(
+    pattern: RegExp,
+    botIdentity: string,
+    updateId: string,
+    update: Partial<Update>,
+    observedAt: Date,
+  ):
+    | {
+        readonly contact: VerifiedPrivateStart;
+        readonly match: RegExpExecArray;
+      }
+    | undefined {
+    const message = update.message;
+    const text = typeof message?.text === "string" ? message.text.trim() : "";
+    const match = pattern.exec(text);
+    if (!match || !message) {
+      return undefined;
+    }
+    const verified = this.privateStart(
+      botIdentity,
+      updateId,
+      { ...update, message: { ...message, text: "/start" } },
+      observedAt,
+    );
+    return verified ? { contact: verified.contact, match } : undefined;
+  }
+
+  /** A join request identifies its own chat and requester; nothing else selects a recipient. */
+  private joinRequest(
+    botIdentity: string,
+    updateId: string,
+    update: Partial<Update>,
+  ): CommunityJoinRequest | undefined {
+    const request: unknown = update.chat_join_request;
+    if (!isRecord(request)) {
+      return undefined;
+    }
+    const chat = request["chat"];
+    const from = request["from"];
+    if (
+      !isRecord(chat) ||
+      chat["type"] === "private" ||
+      !isRecord(from) ||
+      from["is_bot"] !== false ||
+      typeof request["date"] !== "number" ||
+      !Number.isSafeInteger(request["date"]) ||
+      request["date"] < 0
+    ) {
+      return undefined;
+    }
+    const canonicalChatId = signedTelegramId(chat["id"]);
+    const telegramUserId = telegramId(from["id"]);
+    if (!hasText(canonicalChatId) || !hasText(telegramUserId)) {
+      return undefined;
+    }
+    return {
+      botIdentity,
+      canonicalChatId,
+      telegramUserId,
+      ...(isRecord(request["invite_link"]) &&
+      typeof request["invite_link"]["invite_link"] === "string"
+        ? { inviteLink: request["invite_link"]["invite_link"] }
+        : {}),
+      requestedAt: new Date(request["date"] * 1000),
+      updateId,
+    };
+  }
+
+  private subjectMembershipEvent(
+    botIdentity: string,
+    updateId: string,
+    update: Partial<Update>,
+  ): DurableMembershipEnvelope | undefined {
+    const parsed = parseChatMemberUpdated(update.chat_member);
+    if (!parsed) {
+      return undefined;
+    }
+    const actor = parsed.update["from"];
+    if (!isRecord(actor)) {
+      return undefined;
+    }
+
+    const actorTelegramUserId = telegramId(actor["id"]);
+    const subjectTelegramUserId = telegramId(parsed.member.user["id"]);
+    if (!hasText(actorTelegramUserId) || !hasText(subjectTelegramUserId)) {
+      return undefined;
+    }
+
+    return {
+      actorIsSubject: actorTelegramUserId === subjectTelegramUserId,
+      actorTelegramUserId,
+      ...(typeof actor["is_bot"] === "boolean"
+        ? { actorIsBot: actor["is_bot"] }
+        : {}),
+      botIdentity,
+      canonicalChatId: parsed.chatId,
+      chatMember: parsed.chatMember,
+      eventAt: parsed.eventAt,
+      kind: "subject",
+      subjectTelegramUserId,
+      updateId,
+    };
+  }
+
+  private providerMembershipEvent(
+    botIdentity: string,
+    updateId: string,
+    update: Partial<Update>,
+  ): Extract<DurableMembershipEnvelope, { kind: "provider" }> | undefined {
+    const parsed = parseChatMemberUpdated(update.my_chat_member);
+    if (!parsed) {
+      return undefined;
+    }
+    if (
+      parsed.chat["type"] === "private" ||
+      parsed.member.user["is_bot"] !== true
+    ) {
+      return undefined;
+    }
+    return {
+      botIdentity,
+      canonicalChatId: parsed.chatId,
+      chatMember: parsed.chatMember,
+      eventAt: parsed.eventAt,
+      kind: "provider",
+      updateId,
+    };
+  }
+
+  private privateStart(
+    botIdentity: string,
+    updateId: string,
+    update: Partial<Update>,
+    observedAt: Date,
+  ): Extract<TelegramUpdateCommand, { kind: "start" }>["value"] | undefined {
+    const message: unknown = update.message;
+    if (!isRecord(message)) {
+      return undefined;
+    }
+    const chat = message["chat"];
+    const from = message["from"];
+    if (
+      !isRecord(chat) ||
+      chat["type"] !== "private" ||
+      !isRecord(from) ||
+      from["is_bot"] !== false ||
+      typeof message["text"] !== "string"
+    ) {
+      return undefined;
+    }
+    const start = parseStart(message["text"]);
+    if (!start || start.argument !== undefined) {
+      return undefined;
+    }
+
+    const telegramUserId = telegramId(from["id"]);
+    const privateChatId = telegramId(chat["id"]);
+    if (
+      !hasText(telegramUserId) ||
+      !hasText(privateChatId) ||
+      telegramUserId !== privateChatId
+    ) {
+      return undefined;
+    }
+
+    const linkToken = readLinkToken(message);
+    const signInToken = readLinkToken(message, SIGN_IN_TOKEN_FIELD);
+    return {
+      contact: {
+        botIdentity,
+        observedAt,
+        privateChatId,
+        telegramUserId,
+        updateId,
+      },
+      ...(isRecord(message["_inside_activation"]) &&
+      (message["_inside_activation"]["code"] === null ||
+        typeof message["_inside_activation"]["code"] === "string")
+        ? { activationCode: message["_inside_activation"]["code"] }
+        : {}),
+      ...(isRecord(message["_inside_invitation"]) &&
+      (message["_inside_invitation"]["code"] === null ||
+        typeof message["_inside_invitation"]["code"] === "string")
+        ? { invitationCode: message["_inside_invitation"]["code"] }
+        : {}),
+      ...(linkToken ? { linkToken } : {}),
+      ...(signInToken ? { signInToken } : {}),
+      ...(typeof message["_inside_marketing_source"] === "string"
+        ? { marketingSource: message["_inside_marketing_source"] }
+        : {}),
+    };
+  }
+
+  private privateContactability(
+    botIdentity: string,
+    updateId: string,
+    update: Partial<Update>,
+    observedAt: Date,
+  ): VerifiedPrivateContactability | undefined {
+    const contactabilityUpdate: unknown = update.my_chat_member;
+    if (!isRecord(contactabilityUpdate)) {
+      return undefined;
+    }
+    const chat = contactabilityUpdate["chat"];
+    const from = contactabilityUpdate["from"];
+    const newChatMember = contactabilityUpdate["new_chat_member"];
+    if (
+      !isRecord(chat) ||
+      chat["type"] !== "private" ||
+      !isRecord(from) ||
+      from["is_bot"] !== false ||
+      !isRecord(newChatMember)
+    ) {
+      return undefined;
+    }
+
+    const telegramUserId = telegramId(from["id"]);
+    if (!hasText(telegramUserId)) {
+      return undefined;
+    }
+
+    const status = newChatMember["status"];
+    if (status !== "kicked" && status !== "member") {
+      return undefined;
+    }
+
+    return {
+      botIdentity,
+      contactability: status === "kicked" ? "blocked" : "reachable",
+      observedAt,
+      telegramUserId,
+      updateId,
+    };
+  }
+}
+
+function parseStart(
+  text: string,
+): { readonly argument?: string; readonly command: string } | undefined {
+  const match = /^(\/start(?:@[A-Za-z0-9_]+)?)(?:\s+([\s\S]+))?$/.exec(
+    text.trim(),
+  );
+  if (!hasText(match?.[1])) {
+    return undefined;
+  }
+  return {
+    command: match[1],
+    ...(match[2] !== undefined ? { argument: match[2] } : {}),
+  };
+}
+
+function readLinkToken(
+  message: Record<string, unknown>,
+  field = LINK_TOKEN_FIELD,
+): Extract<TelegramUpdateCommand, { kind: "start" }>["value"]["linkToken"] {
+  const value = message[field];
+  if (!isRecord(value)) {
+    return undefined;
+  }
+  if (value["kind"] === "malformed") {
+    return { kind: "malformed" };
+  }
+  if (
+    value["kind"] === "digest" &&
+    typeof value["digest"] === "string" &&
+    /^[A-Za-z0-9_-]{43}$/.test(value["digest"])
+  ) {
+    return { digest: value["digest"], kind: "digest" };
+  }
+  return { kind: "malformed" };
+}
+
+/** A press of the given button by the person in their own private chat with the bot. */
+function privateCallback(
+  botIdentity: string,
+  updateId: string,
+  update: Partial<Update>,
+  observedAt: Date,
+  data: string,
+):
+  | {
+      readonly contact: VerifiedPrivateStart;
+      readonly callbackQueryId: string;
+    }
+  | undefined {
+  const callback = update.callback_query;
+  if (
+    !callback ||
+    !("data" in callback) ||
+    callback.data !== data ||
+    callback.from.is_bot ||
+    callback.message?.chat.type !== "private" ||
+    callback.from.id !== callback.message.chat.id ||
+    callback.id.length > 128
+  )
+    return undefined;
+  const user = telegramId(callback.from.id);
+  if (!hasText(user)) return undefined;
+  return {
+    contact: {
+      botIdentity,
+      updateId,
+      observedAt,
+      telegramUserId: user,
+      privateChatId: user,
+    },
+    callbackQueryId: callback.id,
+  };
+}
+
+function privateSignInDecision(
+  botIdentity: string,
+  value: unknown,
+): VerifiedSignInDecision | undefined {
+  if (
+    !isRecord(value) ||
+    !isRecord(value["from"]) ||
+    value["from"]["is_bot"] !== false ||
+    !isRecord(value["message"]) ||
+    !isRecord(value["message"]["chat"]) ||
+    value["message"]["chat"]["type"] !== "private" ||
+    typeof value["data"] !== "string"
+  )
+    return undefined;
+  const match =
+    /^signin:(approve|deny):([0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12})$/.exec(
+      value["data"],
+    );
+  const telegramUserId = telegramId(value["from"]["id"]);
+  const privateChatId = telegramId(value["message"]["chat"]["id"]);
+  const messageId = telegramId(value["message"]["message_id"]);
+  const requestRef = match?.[2];
+  if (
+    !hasText(requestRef) ||
+    !hasText(telegramUserId) ||
+    !hasText(privateChatId) ||
+    !hasText(messageId) ||
+    telegramUserId !== privateChatId
+  )
+    return undefined;
+  return {
+    botIdentity,
+    telegramUserId,
+    privateChatId,
+    messageId,
+    requestRef,
+    decision: match?.[1] === "approve" ? "approve" : "deny",
+  };
+}
+
+const ACCESS_ACTIONS: readonly AccessAction[] = [
+  "own",
+  "community",
+  "retry",
+  "help",
+  "platform",
+];
+function accessCallbackAction(data: string): AccessAction | undefined {
+  return ACCESS_ACTIONS.find((action) => data === `access:${action}`);
+}
+
+function telegramId(value: unknown): string | undefined {
+  if (typeof value !== "number" || !Number.isSafeInteger(value) || value <= 0) {
+    return undefined;
+  }
+  return String(value);
+}
+
+function signedTelegramId(value: unknown): string | undefined {
+  if (
+    typeof value !== "number" ||
+    !Number.isSafeInteger(value) ||
+    value === 0
+  ) {
+    return undefined;
+  }
+  return String(value);
+}
+
+interface ParsedChatMemberUpdated {
+  readonly chat: Record<string, unknown>;
+  readonly chatId: string;
+  readonly chatMember: ReturnType<typeof toTelegramChatMember>;
+  readonly eventAt: Date;
+  readonly member: Record<string, unknown> & {
+    readonly user: Record<string, unknown>;
+  };
+  readonly update: Record<string, unknown>;
+}
+
+function parseChatMemberUpdated(
+  value: unknown,
+): ParsedChatMemberUpdated | undefined {
+  if (!isRecord(value)) {
+    return undefined;
+  }
+  const chat = value["chat"];
+  const member = value["new_chat_member"];
+  if (
+    !isRecord(chat) ||
+    !isRecord(member) ||
+    !isRecord(member["user"]) ||
+    typeof member["status"] !== "string" ||
+    typeof value["date"] !== "number" ||
+    !Number.isSafeInteger(value["date"]) ||
+    value["date"] < 0
+  ) {
+    return undefined;
+  }
+  const chatId = signedTelegramId(chat["id"]);
+  if (!hasText(chatId)) {
+    return undefined;
+  }
+  return {
+    chat,
+    chatId,
+    chatMember: toTelegramChatMember({
+      ...(typeof member["is_member"] === "boolean"
+        ? { is_member: member["is_member"] }
+        : {}),
+      status: member["status"],
+    }),
+    eventAt: new Date(value["date"] * 1000),
+    member: { ...member, user: member["user"] },
+    update: value,
+  };
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}

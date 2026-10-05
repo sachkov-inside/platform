@@ -1,0 +1,116 @@
+import { isTruthy } from "../../shared/truthiness.js";
+import type { TemplateContent } from "../../modules/communications/communications-contract.js";
+import type { TemplateIntake } from "../../modules/communications/author-input.js";
+
+// Called only after the existing update router returns ignored. No callback, edit or /start handling.
+export function translateTemplateIntake(
+  botIdentity: string,
+  updateId: string,
+  payload: unknown,
+): TemplateIntake | undefined {
+  if (!record(payload) || !record(payload["message"])) return undefined;
+  const message = payload["message"];
+  if (
+    !record(message["from"]) ||
+    message["from"]["is_bot"] !== false ||
+    !record(message["chat"]) ||
+    message["chat"]["type"] !== "private" ||
+    !Number.isSafeInteger(message["from"]["id"]) ||
+    Number(message["from"]["id"]) <= 0 ||
+    message["chat"]["id"] !== message["from"]["id"] ||
+    isTruthy(message["sender_chat"])
+  )
+    return undefined;
+  const text =
+    typeof message["text"] === "string" ? message["text"].trim() : "";
+  const action = /^\/template(?:@[A-Za-z0-9_]+)?$/.test(text)
+    ? "open"
+    : /^\/cancel(?:@[A-Za-z0-9_]+)?$/.test(text)
+      ? "close"
+      : "capture";
+  if (action === "capture" && text.startsWith("/")) return undefined;
+  return {
+    botIdentity,
+    updateId,
+    telegramUserId: String(message["from"]["id"]),
+    privateChatId: String(message["chat"]["id"]),
+    action,
+    content: snapshot(message),
+  };
+}
+export function snapshot(message: Record<string, unknown>): unknown {
+  if (
+    isTruthy(message["media_group_id"]) ||
+    isTruthy(message["poll"]) ||
+    isTruthy(message["animation"]) ||
+    isTruthy(message["audio"]) ||
+    isTruthy(message["sticker"]) ||
+    isTruthy(message["rich_message"]) ||
+    isTruthy(message["paid_media"]) ||
+    isTruthy(message["live_photo"])
+  )
+    return null;
+  const kinds = [
+    "text",
+    "photo",
+    "video",
+    "video_note",
+    "voice",
+    "document",
+  ] as const;
+  const present = kinds.filter((kind) => message[kind] !== undefined);
+  const [type] = present;
+  if (present.length !== 1 || type === undefined) return null;
+  let fileId: unknown;
+  if (type !== "text") {
+    const media: unknown =
+      type === "photo" && Array.isArray(message["photo"])
+        ? message["photo"].at(-1)
+        : message[type];
+    if (!record(media)) return null;
+    fileId = media["file_id"];
+  }
+  let buttons: unknown[] = [];
+  if (message["reply_markup"] !== undefined) {
+    if (
+      !record(message["reply_markup"]) ||
+      !Array.isArray(message["reply_markup"]["inline_keyboard"])
+    )
+      return null;
+    // Do not silently discard callback/pay/login buttons or other unsupported markup.
+    buttons = message["reply_markup"]["inline_keyboard"].flat();
+    if (
+      buttons.some(
+        (button) =>
+          !record(button) ||
+          Object.keys(button).some((key) => key !== "text" && key !== "url"),
+      )
+    )
+      return null;
+    buttons = message["reply_markup"]["inline_keyboard"].flatMap(
+      (row: unknown, index: number) =>
+        Array.isArray(row)
+          ? row.map((button: Record<string, unknown>) => ({
+              ...button,
+              row: index,
+            }))
+          : [null],
+    );
+  }
+  return {
+    type,
+    text: type === "text" ? message["text"] : (message["caption"] ?? ""),
+    entities:
+      (type === "text" ? message["entities"] : message["caption_entities"]) ??
+      [],
+    buttons,
+    ...(type !== "text" ? { fileId } : {}),
+  } satisfies Omit<
+    TemplateContent,
+    "text" | "entities" | "buttons" | "fileId"
+  > &
+    Record<string, unknown>;
+}
+function record(value: unknown): value is Record<string, unknown> {
+  return value !== null && typeof value === "object" && !Array.isArray(value);
+}

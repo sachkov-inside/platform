@@ -3,6 +3,7 @@
 Platform publishes Inside Materials and Guides for visitors and Membership participants. The
 [current product brief](docs/product/platform-mvp-brief.md) owns delivery scope and the boundary
 between editorial originals and published application state. This glossary owns the shared Inside terms and their Platform refinements.
+[Telegram application terms](apps/telegram/GLOSSARY.md) owns only the bot-specific language.
 [The shared brief](docs/product/README.md) owns overall product scope;
 [the access model](docs/product/access-model.md) owns commercial composition and independent right terms.
 
@@ -623,7 +624,8 @@ In Russian product language: «Прямое право».
 _Avoid_: Manual tier assignment, gift subscription, purchase
 
 **TelegramIdentity**:
-The provider-verified Telegram identity linked to an Account through the Telegram application.
+The provider-verified Telegram identity from which bot updates originate; it may be linked to an
+Account through the Telegram application. It is independent of an Account, BotContact and username.
 _Avoid_: Username, BotContact, Account
 
 **Membership Signal**:
