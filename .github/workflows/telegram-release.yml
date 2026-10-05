@@ -41,7 +41,7 @@ jobs:
           SOURCE_SHA: ${{ github.sha }}
         run: |
           set -euo pipefail
-          [[ "$GITHUB_REPOSITORY" == sachkov-inside/platform && "$GITHUB_REF" == refs/heads/main ]]
+          [[ "$GITHUB_REPOSITORY" == sachkov-inside/platform && "$GITHUB_REF" == refs/heads/main ]] || { echo 'Telegram publication requires platform main' >&2; exit 1; }
           bash apps/telegram/scripts/plan-release.sh >"$RUNNER_TEMP/release-plan.json"
           unset RELEASE_SETTINGS_READ_TOKEN
           tag="$(jq --exit-status --raw-output .tag "$RUNNER_TEMP/release-plan.json")"
@@ -111,7 +111,7 @@ jobs:
           fi
           revision="$(docker image inspect "$IMAGE" \
             --format '{{index .Config.Labels "org.opencontainers.image.revision"}}')"
-          [[ "$revision" == "$SOURCE_SHA" ]]
+          [[ "$revision" == "$SOURCE_SHA" ]] || { echo 'Telegram image source SHA mismatch' >&2; exit 1; }
 
   publish:
     needs: [plan, ci, image]

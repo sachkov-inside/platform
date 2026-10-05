@@ -37,9 +37,9 @@ jobs:
           VERSION: ${{ inputs.version }}
         run: |
           set -euo pipefail
-          [[ "$OPERATION" == deploy || "$OPERATION" == rollback ]]
-          [[ "$VERSION" =~ ^v[1-9][0-9]*$ ]]
-          [[ "$GITHUB_REPOSITORY" == sachkov-inside/platform && "$GITHUB_REF" == refs/heads/main ]]
+          [[ "$OPERATION" == deploy || "$OPERATION" == rollback ]] || { echo 'Unsupported Telegram operation' >&2; exit 1; }
+          [[ "$VERSION" =~ ^v[1-9][0-9]*$ ]] || { echo 'Invalid Telegram version' >&2; exit 1; }
+          [[ "$GITHUB_REPOSITORY" == sachkov-inside/platform && "$GITHUB_REF" == refs/heads/main ]] || { echo 'Telegram deployment requires platform main' >&2; exit 1; }
           if [[ "${VERSION#v}" -le 5 ]]; then
             source_repository=sachkov-inside/inside-telegram
             tag="$VERSION"
@@ -90,14 +90,14 @@ jobs:
             ' "$release_dir/release-manifest.json" >/dev/null
           expected_compose_sha="$(jq --raw-output .compose.sha256 "$release_dir/release-manifest.json")"
           actual_compose_sha="sha256:$(sha256sum "$release_dir/compose.yaml" | cut -d' ' -f1)"
-          [[ "$actual_compose_sha" == "$expected_compose_sha" ]]
+          [[ "$actual_compose_sha" == "$expected_compose_sha" ]] || { echo 'Telegram Compose asset hash mismatch' >&2; exit 1; }
           expected_caddy_sha="$(jq --raw-output .caddy.sha256 "$release_dir/release-manifest.json")"
           actual_caddy_sha="sha256:$(sha256sum "$release_dir/telegram.caddy" | cut -d' ' -f1)"
-          [[ "$actual_caddy_sha" == "$expected_caddy_sha" ]]
+          [[ "$actual_caddy_sha" == "$expected_caddy_sha" ]] || { echo 'Telegram Caddy asset hash mismatch' >&2; exit 1; }
           source_sha="$(jq --raw-output .source.sha "$release_dir/release-manifest.json")"
-          [[ "$(jq --raw-output .targetCommitish "$release_dir/release.json")" == "$source_sha" ]]
+          [[ "$(jq --raw-output .targetCommitish "$release_dir/release.json")" == "$source_sha" ]] || { echo 'Telegram release target SHA mismatch' >&2; exit 1; }
           tag_sha="$(gh api "repos/$source_repository/commits/$tag" --jq .sha)"
-          [[ "$tag_sha" == "$source_sha" ]]
+          [[ "$tag_sha" == "$source_sha" ]] || { echo 'Telegram tag SHA mismatch' >&2; exit 1; }
           publish_run_id="$(jq --raw-output .publication.workflowRunId "$release_dir/release-manifest.json")"
           gh api "repos/$source_repository/actions/runs/$publish_run_id" \
             >"$release_dir/publication-run.json"

@@ -279,6 +279,10 @@ describe("deploy workflow", () => {
         writeFileSync(path.join(fixtures, "compose.yaml"), compose);
         writeFileSync(path.join(fixtures, "telegram.caddy"), caddy);
         writeFileSync(
+          path.join(fixtures, "commit.json"),
+          JSON.stringify({ sha: sourceSha }),
+        );
+        writeFileSync(
           path.join(fixtures, "release.json"),
           JSON.stringify({
             assets: [
@@ -319,7 +323,12 @@ case "$1 $2" in
   'release download')
     while [[ "$1" != --dir ]]; do shift; done
     cp "$FIXTURES/release-manifest.json" "$FIXTURES/compose.yaml" "$FIXTURES/telegram.caddy" "$2/" ;;
-  'api repos/${sourceRepository}/commits/${tag}') printf '{"sha":"${sourceSha}"}' ;;
+  'api repos/${sourceRepository}/commits/${tag}')
+    if [[ "\${3:-}" == --jq && "\${4:-}" == .sha ]]; then
+      jq --raw-output .sha "$FIXTURES/commit.json"
+    else
+      cat "$FIXTURES/commit.json"
+    fi ;;
   'api repos/${sourceRepository}/actions/runs/91') cat "$FIXTURES/run.json" ;;
   *) exit 1 ;;
 esac
@@ -333,11 +342,8 @@ esac
         );
         chmodSync(shaShim, 0o755);
 
-        for (const name of [
-          "Verify and download the selected release",
-          "Recheck the selected release after waiting in the queue",
-        ]) {
-          const result = spawnSync("bash", ["-c", stepScript(deploy, name)], {
+        const runStep = (name: string, env: Record<string, string> = {}) =>
+          spawnSync("bash", ["-c", stepScript(deploy, name)], {
             cwd: directory,
             encoding: "utf8",
             env: {
@@ -353,8 +359,14 @@ esac
               GITHUB_REF: "refs/heads/main",
               SOURCE_REPOSITORY: sourceRepository,
               RELEASE_TAG: tag,
+              ...env,
             },
           });
+        for (const name of [
+          "Verify and download the selected release",
+          "Recheck the selected release after waiting in the queue",
+        ]) {
+          const result = runStep(name);
           expect(result.status, `${name}: ${result.stderr}`).toBe(0);
         }
         const originalRun = jsonRecord(
@@ -373,31 +385,75 @@ esac
           rmSync(path.join(directory, "production-release"), {
             recursive: true,
           });
-          const rejected = spawnSync(
-            "bash",
-            [
-              "-c",
-              stepScript(deploy, "Verify and download the selected release"),
-            ],
-            {
-              encoding: "utf8",
-              cwd: directory,
-              env: {
-                ...process.env,
-                PATH: `${directory}:${process.env["PATH"] ?? ""}`,
-                FIXTURES: fixtures,
-                RUNNER_TEMP: directory,
-                GITHUB_ENV: path.join(directory, "github.env"),
-                GITHUB_REPOSITORY: "sachkov-inside/platform",
-                GITHUB_REF: "refs/heads/main",
-                OPERATION: "deploy",
-                VERSION: version,
-              },
-            },
-          );
+          const rejected = runStep("Verify and download the selected release");
           // The fixture removes the prior download so validation reaches the changed run.
           expect(rejected.status).not.toBe(0);
         }
+        writeFileSync(
+          path.join(fixtures, "run.json"),
+          JSON.stringify(originalRun),
+        );
+        const originalRelease = jsonRecord(
+          readFileSync(path.join(fixtures, "release.json"), "utf8"),
+        );
+        for (const [asset, invalid, message] of [
+          [
+            "commit.json",
+            JSON.stringify({ sha: "f".repeat(40) }),
+            "Telegram tag SHA mismatch",
+          ],
+          [
+            "release.json",
+            JSON.stringify({
+              ...originalRelease,
+              targetCommitish: "f".repeat(40),
+            }),
+            "Telegram release target SHA mismatch",
+          ],
+          [
+            "compose.yaml",
+            "untrusted compose\n",
+            "Telegram Compose asset hash mismatch",
+          ],
+          [
+            "telegram.caddy",
+            "untrusted caddy\n",
+            "Telegram Caddy asset hash mismatch",
+          ],
+        ] as const) {
+          const file = path.join(fixtures, asset);
+          const original = readFileSync(file, "utf8");
+          writeFileSync(file, invalid);
+          rmSync(path.join(directory, "production-release"), {
+            recursive: true,
+          });
+          const rejected = runStep("Verify and download the selected release");
+          expect(rejected.status, `${asset}: ${rejected.stderr}`).toBe(1);
+          expect(rejected.stderr).toContain(message);
+          writeFileSync(file, original);
+        }
+        const invalidEnvironments: Record<string, string>[] = [
+          { OPERATION: "untrusted" },
+          { VERSION: "v0" },
+          { GITHUB_REPOSITORY: "untrusted/repository" },
+          { GITHUB_REF: "refs/heads/untrusted" },
+        ];
+        for (const env of invalidEnvironments) {
+          rmSync(path.join(directory, "production-release"), {
+            recursive: true,
+            force: true,
+          });
+          expect(
+            runStep("Verify and download the selected release", env).status,
+          ).not.toBe(0);
+        }
+        rmSync(path.join(directory, "production-release"), {
+          recursive: true,
+          force: true,
+        });
+        expect(runStep("Verify and download the selected release").status).toBe(
+          0,
+        );
         expect(
           readFileSync(
             path.join(directory, "production-release/compose.yaml"),
