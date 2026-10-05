@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { z } from "zod";
 
 import {
   evaluatePass,
@@ -14,6 +15,7 @@ import {
   videoDeferred,
 } from "../production/pass-config";
 import { redactPassText } from "../production/pass-redaction";
+import { problemLine } from "../production/pass-report";
 
 const readsGuideA: PassCell = {
   id: "learner-guide-a/read-guide-a/body@browser",
@@ -309,6 +311,20 @@ describe("production access pass report", () => {
     expect(() => JSON.parse(json) as unknown).not.toThrow();
     expect(json).not.toContain("logto_session");
     expect(json).not.toContain("user@example.test");
+  });
+});
+
+describe("production access pass problem line", () => {
+  it("names the fields of a response of the wrong shape", () => {
+    const parsed = z
+      .object({ ok: z.literal(true), value: z.object({ data: z.string() }) })
+      .safeParse({ ok: true, result: {} });
+
+    expect(parsed.success).toBe(false);
+    expect(problemLine(parsed.error)).toBe(
+      "ответ не той формы: value — Invalid input: expected object, received undefined",
+    );
+    expect(problemLine(new Error("first line\nstack"))).toBe("first line");
   });
 });
 

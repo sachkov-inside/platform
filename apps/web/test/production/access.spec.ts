@@ -15,7 +15,12 @@ import {
   readLogtoCredentials,
   type LogtoPassClient,
 } from "./logto";
-import { callMcpTool, distinctiveText, type McpToolCall } from "./mcp-client";
+import {
+  callMcpTool,
+  distinctiveText,
+  jsonStringLiterals,
+  type McpToolCall,
+} from "./mcp-client";
 import {
   passCellParts,
   type BlockedPassRequest,
@@ -434,8 +439,11 @@ async function observePracticeThroughMcp(actor: Actor): Promise<Observation> {
     "learning_practice_read",
     { practiceId },
   );
-  if (actor === "learner-guide-a" && call.payload?.ok === true)
-    learnerA.practiceSnippet = distinctiveText(call.payload.value);
+  if (actor === "learner-guide-a" && call.payload?.ok === true) {
+    // Часть 0 — кусок canonical JSON строкой `data`: отличительный текст ищется среди её строк.
+    const { data } = z.object({ data: z.string() }).parse(call.payload.value);
+    learnerA.practiceSnippet = distinctiveText(jsonStringLiterals(data));
+  }
   const observation = mcpObservation(
     call,
     required(learnerA.practiceSnippet, "Practice snippet"),

@@ -9,11 +9,19 @@ const rpcResultSchema = z.object({
     content: z.array(z.object({ type: z.string(), text: z.string() })),
   }),
 });
+/**
+ * Результат tool: учебный MCP отвечает `{ ok, value }`, владельческий — `{ ok, operationRef, result }`
+ * без `value`.
+ */
 const toolPayloadSchema = z.union([
-  z.object({ ok: z.literal(true), value: z.unknown() }),
+  z.object({ ok: z.literal(true), value: z.unknown().optional() }).loose(),
   z.object({ ok: z.literal(false), error: z.object({ code: z.string() }) }),
 ]);
 export type McpToolPayload = z.infer<typeof toolPayloadSchema>;
+
+export function parseToolPayload(value: unknown): McpToolPayload {
+  return toolPayloadSchema.parse(value);
+}
 
 export interface McpToolCall {
   /** Статус HTTP ответа: без токена MCP отвечает 401 до вызова tool. */
@@ -53,7 +61,7 @@ export async function callMcpTool(
   if (content === undefined) throw new Error(`MCP ${name} returned no content`);
   return {
     ...called,
-    payload: toolPayloadSchema.parse(JSON.parse(content.text) as unknown),
+    payload: parseToolPayload(JSON.parse(content.text) as unknown),
   };
 }
 
@@ -84,6 +92,16 @@ function rpcMessage(raw: string): unknown {
     .filter((line) => line.startsWith("data:"))
     .map((line) => line.slice("data:".length).trim());
   return JSON.parse(data.length > 0 ? data.join("") : raw) as unknown;
+}
+
+/**
+ * Строки JSON из текста, который может обрываться посреди JSON: так `learning_practice_read` отдаёт
+ * часть контекста (`canonical-json-parts`). Незакрытая строка в конце части не берётся.
+ */
+export function jsonStringLiterals(text: string): string[] {
+  return [...text.matchAll(/"(?:[^"\\]|\\.)*"/gu)].map(([literal]) =>
+    z.string().parse(JSON.parse(literal)),
+  );
 }
 
 /**
