@@ -73,4 +73,5 @@ export { GuideOutlines } from "./features/list-guide-outlines/list-guide-outline
 export {
   GuideDirectory,
   type DirectoryGuide,
+  type DirectoryPlacement,
 } from "./features/read-guide-directory/read-guide-directory.js";

@@ -71,7 +71,9 @@ export const sourcePracticeSchema = z
 /**
  * A Guide Task of the package (#946). Its source ID is the task code; Guide, chapter and related
  * Materials are named by their source IDs in this namespace. The order of a chapter's tasks in
- * `tasks` is their order in the chapter. `publicationState` is Content's intent: `unpublished`
+ * `tasks` is their order in the chapter. `afterMaterialId` names the Material of the same chapter
+ * right after which the programme shows the task (#947); without it the task stands at the start
+ * of its chapter. `publicationState` is Content's intent: `unpublished`
  * withdraws the task, `published` publishes it only when the owner selects it for publication.
  */
 export const sourceTaskSchema = z
@@ -84,6 +86,7 @@ export const sourceTaskSchema = z
     // The owning backend validates the complete authored definition during preflight.
     definition: z.record(z.string(), z.json()),
     relatedMaterialIds: z.array(identifier).max(50),
+    afterMaterialId: identifier.optional(),
     publicationState: z.enum(["published", "unpublished"]),
     provenance: z
       .object({
@@ -342,9 +345,19 @@ function checkTasks(manifest) {
       throw new Error(
         `${task.sourceId}: the task's Guide is not in the package`,
       );
-    if (!guide.chapters.some((chapter) => chapter.sourceId === task.chapterId))
+    const chapter = guide.chapters.find(
+      (row) => row.sourceId === task.chapterId,
+    );
+    if (chapter === undefined)
       throw new Error(
         `${task.sourceId}: the task's chapter is not in its Guide`,
+      );
+    if (
+      task.afterMaterialId !== undefined &&
+      !chapter.materialIds.includes(task.afterMaterialId)
+    )
+      throw new Error(
+        `${task.sourceId}: the task follows a Material outside its chapter`,
       );
     unique(task.relatedMaterialIds, `${task.sourceId} related Material`);
   }

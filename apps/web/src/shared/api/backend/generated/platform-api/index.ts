@@ -20,6 +20,7 @@ export { ContentCoversService } from './services/ContentCoversService';
 export { ContentLibraryService } from './services/ContentLibraryService';
 export { GuideArtifactsService } from './services/GuideArtifactsService';
 export { GuideTaskAuthoringService } from './services/GuideTaskAuthoringService';
+export { GuideTasksService } from './services/GuideTasksService';
 export { KinescopeIntegrationService } from './services/KinescopeIntegrationService';
 export { MaterialAssetsService } from './services/MaterialAssetsService';
 export { MaterialAuthoringService } from './services/MaterialAuthoringService';

@@ -35,6 +35,10 @@ import {
   type PublishedMaterialReader,
 } from "../../../materials/index.js";
 import { VIDEOS, type Videos } from "../../../videos/index.js";
+import {
+  LEARNING_TASKS,
+  type LearningTasks,
+} from "../../../guide-tasks/index.js";
 import { throwContentLibraryError } from "../../adapters/nest/content-library-http-errors.js";
 import {
   publishedSeriesPageHttpSchema,
@@ -70,6 +74,8 @@ export class DiscoverPublishedMaterialsController {
     >,
     @Inject(VIDEOS)
     private readonly videos: Pick<Videos, "loadReadyDurations">,
+    @Inject(LEARNING_TASKS)
+    private readonly tasks: Pick<LearningTasks, "chapterTasks">,
   ) {}
 
   @Get("topics/:slug")
@@ -167,6 +173,7 @@ export class DiscoverPublishedMaterialsController {
                 accountId: checkedAccountId(account.accountId),
               },
       },
+      this.tasks,
     );
     if (!result.ok) {
       throwContentLibraryError(result.error);

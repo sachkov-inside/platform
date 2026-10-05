@@ -26,6 +26,11 @@ const sourceTaskFields = z
     access: taskAccessSchema,
     definition: taskDefinitionSchema,
     relatedMaterialSourceIds: z.array(z.string().min(1).max(200)).max(50),
+    /**
+     * The Material of the same chapter right after which the programme shows the task; `null` puts
+     * it at the start of the chapter. An older tool that omits it means `null`.
+     */
+    afterMaterialSourceId: z.string().min(1).max(200).nullable().default(null),
     publicationState: taskPublicationSchema,
     provenance: taskProvenanceSchema,
   })
@@ -104,6 +109,10 @@ export type TaskImportError =
   | {
       readonly code: "related_material_not_found";
       readonly sourceIds: readonly string[];
+    }
+  | {
+      readonly code: "after_material_not_in_chapter";
+      readonly sourceId: string;
     }
   | { readonly code: "source_mismatch" }
   | { readonly code: "task_revision_conflict" }

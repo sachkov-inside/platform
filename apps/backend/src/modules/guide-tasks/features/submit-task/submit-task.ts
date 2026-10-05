@@ -15,9 +15,12 @@ import {
 import type { Subject } from "../../../content-access/index.js";
 import {
   checkReportCoverage,
+  FORM_REPORT_MAX_CHARACTERS,
   reviewReportSchema,
   serviceMarkSchema,
   SUBMISSION_NOTE_MAX_CHARACTERS,
+  type ReviewReport,
+  type ServiceMark,
 } from "../../domain/review-report.js";
 import {
   decideTaskAccess,
@@ -47,7 +50,72 @@ export const taskSubmissionSchema = z
   })
   .strict();
 
-export type TaskSubmissionInput = z.infer<typeof taskSubmissionSchema>;
+/**
+ * A submission through the task page form (#947): the learner's note, an optional repository and
+ * an optional report as plain text. No agent reviewed it, so it carries no criteria statuses, and
+ * the learner never types a branch or a commit.
+ */
+export const formSubmissionSchema = z
+  .object({
+    code: z.string().trim().min(1).max(120),
+    taskVersion: z.number().int().positive().max(Number.MAX_SAFE_INTEGER),
+    submissionKey: z.string().trim().min(1).max(200),
+    note: z.string().trim().min(1).max(SUBMISSION_NOTE_MAX_CHARACTERS),
+    repositoryUrl: serviceMarkSchema.shape.repositoryUrl,
+    reportText: z
+      .string()
+      .trim()
+      .min(1)
+      .max(FORM_REPORT_MAX_CHARACTERS)
+      .optional(),
+  })
+  .strict();
+
+/** One submission whichever way it came: an agent over MCP or the learner through the form. */
+interface SubmissionCommand {
+  readonly code: string;
+  readonly taskVersion: number;
+  readonly submissionKey: string;
+  readonly note: string;
+  readonly reviewReport: ReviewReport | null;
+  readonly reportText: string | null;
+  readonly serviceMark: ServiceMark;
+}
+
+function parseSubmission(
+  source: SubmissionSource,
+  submission: unknown,
+): SubmissionCommand | null {
+  if (source === "mcp") {
+    const parsed = taskSubmissionSchema.safeParse(submission);
+    return parsed.success
+      ? {
+          code: parsed.data.code,
+          taskVersion: parsed.data.taskVersion,
+          submissionKey: parsed.data.submissionKey,
+          note: parsed.data.note,
+          reviewReport: parsed.data.reviewReport,
+          reportText: null,
+          serviceMark: parsed.data.serviceMark ?? {},
+        }
+      : null;
+  }
+  const parsed = formSubmissionSchema.safeParse(submission);
+  return parsed.success
+    ? {
+        code: parsed.data.code,
+        taskVersion: parsed.data.taskVersion,
+        submissionKey: parsed.data.submissionKey,
+        note: parsed.data.note,
+        reviewReport: null,
+        reportText: parsed.data.reportText ?? null,
+        serviceMark:
+          parsed.data.repositoryUrl === undefined
+            ? {}
+            : { repositoryUrl: parsed.data.repositoryUrl },
+      }
+    : null;
+}
 
 export interface TaskSubmissionReceipt {
   readonly submissionId: string;
@@ -77,9 +145,9 @@ export type SubmitTaskError =
   | SystemError;
 
 /**
- * Appends one submission of the subject against the task version its agent reviewed. Access is
- * decided at every submission; a report must cover every criterion of that version and only them;
- * a version that is no longer current is refused. The same submission key with the same content
+ * Appends one submission of the subject against the task version its agent reviewed, or the version
+ * the page form showed. Access is decided at every submission; an agent's report must cover every
+ * criterion of that version and only them; a version that is no longer current is refused. The same submission key with the same content
  * answers with the first receipt; Platform never fetches the repository URL it stores.
  */
 export async function submitTask(
@@ -92,10 +160,9 @@ export async function submitTask(
 ): Promise<Result<TaskSubmissionReceipt, SubmitTaskError>> {
   if (!dependencies.submissionsEnabled)
     return { ok: false, error: { code: "submissions_disabled" } };
-  const parsed = taskSubmissionSchema.safeParse(input.submission);
-  if (!parsed.success || input.subject.kind !== "account")
+  const command = parseSubmission(input.source, input.submission);
+  if (command === null || input.subject.kind !== "account")
     return { ok: false, error: { code: "invalid_request_shape" } };
-  const command = parsed.data;
   const accountId = input.subject.accountId;
   const fingerprint = commandDigest({ source: input.source, ...command });
   const clock = dependencies.clock ?? (() => new Date());
@@ -151,10 +218,10 @@ export async function submitTask(
             submittedVersion: command.taskVersion,
             currentVersion: task.version,
           });
-        const coverage = checkReportCoverage(
-          command.reviewReport,
-          task.definition,
-        );
+        const coverage =
+          command.reviewReport === null
+            ? ({ covered: true } as const)
+            : checkReportCoverage(command.reviewReport, task.definition);
         if (!coverage.covered)
           throw new Rollback({
             code: "report_coverage_mismatch",
@@ -183,12 +250,15 @@ export async function submitTask(
             submissionKey: command.submissionKey,
             requestFingerprint: fingerprint,
             source: input.source,
-            reviewReport: command.reviewReport,
+            ...(command.reviewReport === null
+              ? {}
+              : { reviewReport: command.reviewReport }),
+            reportText: command.reportText,
             note: command.note,
-            repositoryUrl: command.serviceMark?.repositoryUrl ?? null,
-            branch: command.serviceMark?.branch ?? null,
-            commitSha: command.serviceMark?.commit ?? null,
-            uncommittedChanges: command.serviceMark?.uncommittedChanges ?? null,
+            repositoryUrl: command.serviceMark.repositoryUrl ?? null,
+            branch: command.serviceMark.branch ?? null,
+            commitSha: command.serviceMark.commit ?? null,
+            uncommittedChanges: command.serviceMark.uncommittedChanges ?? null,
             submittedAt: now,
           },
         });
@@ -213,7 +283,7 @@ export async function submitTask(
 async function replay(
   prisma: Pick<GuideTasksPrisma, "guideTaskSubmission" | "guideTask">,
   accountId: string,
-  command: TaskSubmissionInput,
+  command: SubmissionCommand,
   fingerprint: string,
 ): Promise<Result<TaskSubmissionReceipt, SubmitTaskError> | undefined> {
   const previous = await prisma.guideTaskSubmission.findUnique({

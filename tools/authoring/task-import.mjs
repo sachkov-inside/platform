@@ -72,6 +72,10 @@ function authoredBody(manifest, task, publicationState) {
     relatedMaterialSourceIds: task.relatedMaterialIds.map((id) =>
       sourceKey(manifest, id),
     ),
+    // Absent means the start of the chapter; a task without a place keeps its earlier digest.
+    ...(task.afterMaterialId === undefined
+      ? {}
+      : { afterMaterialSourceId: sourceKey(manifest, task.afterMaterialId) }),
     publicationState,
     provenance: task.provenance,
   };
