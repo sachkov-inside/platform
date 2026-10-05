@@ -23,6 +23,9 @@ import {
 const issuer = "https://identity.example.test/oidc";
 const audience = "https://api.example.test";
 
+// An asymmetric matcher is `any`; held as `unknown` it stays out of the typed fixtures.
+const anyTimestamp: unknown = expect.any(String);
+
 const definition = {
   schemaVersion: 1 as const,
   situation: "Новичок неделю ждёт доступов.",
@@ -55,6 +58,7 @@ describe("Guide Task page, programme tasks and the page form over HTTP (#947)", 
   let anchorId: string;
   const freeCode = `free-${guideId.slice(0, 8)}`;
   const paidCode = `paid-${guideId.slice(0, 8)}`;
+  const owner = randomUUID();
 
   beforeAll(async () => {
     const pair = await generateKeyPair("ES384");
@@ -90,7 +94,6 @@ describe("Guide Task page, programme tasks and the page form over HTTP (#947)", 
     await app.init();
     await declaredServer(app.getHttpAdapter().getInstance()).ready();
 
-    const owner = randomUUID();
     await database.prisma.account.create({
       data: { id: owner, logtoIssuer: issuer, logtoSubject: owner },
     });
@@ -390,13 +393,141 @@ describe("Guide Task page, programme tasks and the page form over HTTP (#947)", 
     ).toBe(404);
   });
 
-  async function signToken(): Promise<string> {
+  test("the author lists submissions and writes feedback the learner reads; without materials:manage both answer 403 (#948)", async () => {
+    const server = declaredServer(app.getHttpAdapter().getInstance());
+    const learner = { authorization: `Bearer ${await signToken()}` };
+    const author = {
+      authorization: `Bearer ${await signToken(owner, "owner@example.test")}`,
+    };
+    const listUrl = `/authoring/guide-tasks/submissions?guideId=${guideId}&taskCode=${freeCode}`;
+    expect(
+      (await server.inject({ method: "GET", url: listUrl })).statusCode,
+    ).toBe(401);
+    const denied = await server.inject({
+      method: "GET",
+      url: listUrl,
+      headers: learner,
+    });
+    expect(denied.statusCode).toBe(403);
+    expect(denied.json()).toMatchObject({ code: "forbidden" });
+
+    const listed = await server.inject({
+      method: "GET",
+      url: listUrl,
+      headers: author,
+    });
+    expect(listed.statusCode).toBe(200);
+    expect(listed.headers["cache-control"]).toContain("no-store");
+    const submissionId = z
+      .object({
+        submissions: z.array(z.object({ submissionId: z.uuid() }).loose()),
+      })
+      .loose()
+      .parse(listed.json()).submissions[0]?.submissionId;
+    expect(listed.json()).toMatchObject({
+      guides: [
+        {
+          id: guideId,
+          chapters: [
+            {
+              id: chapterId,
+              tasks: [{ code: freeCode }, { code: paidCode }],
+            },
+          ],
+        },
+      ],
+      submissions: [
+        {
+          source: "form",
+          task: { code: freeCode, chapterName: "Глава 1" },
+          reportText: "Проверил сам: доступ выдаётся.",
+          reviewReport: null,
+          serviceMark: {
+            repositoryUrl: "https://github.com/learner/devportal",
+          },
+          authorFeedback: null,
+        },
+      ],
+      versions: [{ code: freeCode, version: 1 }],
+      nextCursor: null,
+    });
+
+    const feedbackUrl = `/authoring/guide-tasks/submissions/${String(submissionId)}/feedback`;
+    const payload = { comment: "Выдача доступа понятна.", reviewed: true };
+    expect(
+      (
+        await server.inject({
+          method: "PUT",
+          url: feedbackUrl,
+          headers: learner,
+          payload,
+        })
+      ).statusCode,
+    ).toBe(403);
+    expect(
+      (
+        await server.inject({
+          method: "PUT",
+          url: feedbackUrl,
+          headers: author,
+          payload: { comment: 1, reviewed: true },
+        })
+      ).statusCode,
+    ).toBe(400);
+    expect(
+      (
+        await server.inject({
+          method: "PUT",
+          url: `/authoring/guide-tasks/submissions/${randomUUID()}/feedback`,
+          headers: author,
+          payload,
+        })
+      ).statusCode,
+    ).toBe(404);
+    const saved = await server.inject({
+      method: "PUT",
+      url: feedbackUrl,
+      headers: author,
+      payload,
+    });
+    expect(saved.statusCode).toBe(200);
+    expect(saved.json()).toMatchObject({
+      authorFeedback: {
+        comment: "Выдача доступа понятна.",
+        reviewedAt: anyTimestamp,
+      },
+    });
+    expect(
+      (
+        await server.inject({
+          method: "GET",
+          url: `/accounts/current/guide-tasks/${freeCode}/submissions`,
+          headers: learner,
+        })
+      ).json(),
+    ).toMatchObject({
+      submissions: [
+        {
+          submissionId,
+          authorFeedback: {
+            comment: "Выдача доступа понятна.",
+            reviewedAt: anyTimestamp,
+          },
+        },
+      ],
+    });
+  });
+
+  async function signToken(
+    subject = "guide-task-learner",
+    email = "learner@example.test",
+  ): Promise<string> {
     const now = Math.floor(Date.now() / 1_000);
-    return new SignJWT({ inside_verified_email: "learner@example.test" })
+    return new SignJWT({ inside_verified_email: email })
       .setProtectedHeader({ alg: "ES384", kid: "api-key-1" })
       .setIssuer(issuer)
       .setAudience(audience)
-      .setSubject("guide-task-learner")
+      .setSubject(subject)
       .setIssuedAt(now)
       .setExpirationTime(now + 300)
       .sign(privateKey);
