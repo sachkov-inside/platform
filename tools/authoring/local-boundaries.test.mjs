@@ -80,6 +80,10 @@ const typedKind = (path, kind) => [path, kind];
 test("each local path selects the schema its response type names", () => {
   for (const [path, kind] of [
     typedKind("/authoring/import/materials/environment", "environment"),
+    typedKind("/authoring/import/practices/validate", "practiceValidation"),
+    typedKind("/authoring/import/practices/apply", "practiceReceipt"),
+    typedKind("/authoring/import/tasks/validate", "taskValidation"),
+    typedKind("/authoring/import/tasks/apply", "taskReceipt"),
     typedKind("/authoring/collections?kind=topic", "topics"),
     typedKind("/authoring/collections?kind=guide", "guides"),
     typedKind("/authoring/collections", "topic"),

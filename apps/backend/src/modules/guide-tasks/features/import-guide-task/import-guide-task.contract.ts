@@ -30,7 +30,10 @@ const sourceTaskFields = z
   .strict();
 
 function checkSourceTask(
-  value: z.infer<typeof sourceTaskFields>,
+  value: Pick<
+    z.infer<typeof sourceTaskFields>,
+    "sourceId" | "code" | "relatedMaterialSourceIds"
+  >,
   context: z.RefinementCtx,
 ): void {
   if (!value.sourceId.endsWith(`:${value.code}`))
@@ -50,7 +53,13 @@ function checkSourceTask(
     });
 }
 
-export const sourceTaskSchema = sourceTaskFields.superRefine(checkSourceTask);
+/**
+ * What validation reads: the authored task without its placement, which a preflight may not know
+ * yet for a Guide that the same transfer creates.
+ */
+export const sourceTaskSchema = sourceTaskFields
+  .partial({ guideId: true, chapterId: true, position: true })
+  .superRefine(checkSourceTask);
 
 export const applySourceTaskBodySchema = sourceTaskFields
   .extend({
@@ -78,7 +87,11 @@ export const validateSourceTaskResultSchema = z
   })
   .strict();
 
-export type SourceTask = z.infer<typeof sourceTaskSchema>;
+/** One placed task as apply imports it. */
+export type SourceTask = Omit<
+  z.infer<typeof applySourceTaskBodySchema>,
+  "expectedRevision"
+>;
 export type TaskImportReceipt = z.infer<typeof taskImportReceiptSchema>;
 
 export type TaskImportError =

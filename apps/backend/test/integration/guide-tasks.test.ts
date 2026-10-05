@@ -690,7 +690,7 @@ describe("Guide Tasks: import, versions, access and submissions (#946)", () => {
     expect(parsed.payload.relatedMaterials).toEqual([
       {
         slug: relatedSlug,
-        title: expect.any(String),
+        title: expect.any(String) as unknown,
         availability: "available",
       },
     ]);

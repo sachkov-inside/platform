@@ -292,7 +292,7 @@ const refusals = [
         },
       ];
     },
-    /carries no chapter subset, Material, asset or practice/u,
+    /carries no chapter subset, Material, asset, practice or task/u,
   ],
   [
     "a shell that places a Material in a chapter",

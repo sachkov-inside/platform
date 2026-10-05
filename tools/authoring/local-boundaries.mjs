@@ -167,9 +167,25 @@ const practiceValidationSchema = z
   .object({ valid: z.literal(true), current: practiceReceiptSchema.nullable() })
   .strict();
 
+export const taskReceiptSchema = z
+  .object({
+    taskId: z.uuid(),
+    code: text,
+    revision: version,
+    currentVersion: version,
+    definitionDigest: hash,
+    publicationState: z.enum(["published", "unpublished"]),
+  })
+  .strict();
+const taskValidationSchema = z
+  .object({ valid: z.literal(true), current: taskReceiptSchema.nullable() })
+  .strict();
+
 const localResponseSchemas = {
   practiceReceipt: practiceReceiptSchema,
   practiceValidation: practiceValidationSchema,
+  taskReceipt: taskReceiptSchema,
+  taskValidation: taskValidationSchema,
   environment: environmentSchema,
   topics: z.array(topicSchema),
   guides: z.array(guideSchema),
@@ -205,6 +221,10 @@ const localResponseSchemas = {
  *   ? "practiceValidation"
  *   : P extends "/authoring/import/practices/apply"
  *   ? "practiceReceipt"
+ *   : P extends "/authoring/import/tasks/validate"
+ *   ? "taskValidation"
+ *   : P extends "/authoring/import/tasks/apply"
+ *   ? "taskReceipt"
  *   : P extends "/authoring/collections?kind=topic"
  *   ? "topics"
  *   : P extends "/authoring/collections?kind=guide"
@@ -276,6 +296,10 @@ export function localResponseKind(path) {
       return "practiceValidation";
     case "/authoring/import/practices/apply":
       return "practiceReceipt";
+    case "/authoring/import/tasks/validate":
+      return "taskValidation";
+    case "/authoring/import/tasks/apply":
+      return "taskReceipt";
     case "/authoring/import/materials/environment":
       return "environment";
     case "/authoring/collections?kind=topic":

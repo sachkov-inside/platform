@@ -6,6 +6,11 @@ import {
   replayPracticeImports,
   syncSourcePractices,
 } from "./practice-import.mjs";
+import {
+  replayTaskImports,
+  syncSourceTasks,
+  validateSourceTasks,
+} from "./task-import.mjs";
 import { readFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import { setTimeout as delay } from "node:timers/promises";
@@ -76,6 +81,7 @@ export const localRequest = localTransport(reviewOrigin);
  * @property {SyncNotice[]} notices
  * @property {string} [homePinned]
  * @property {"guide-shell"} [scope]
+ * @property {import("./task-import.mjs").TaskChange[]} [tasks]
  * @typedef {object} SyncOptions
  * @property {string} [origin]
  * @property {import("./target.mjs").LocalTransport | undefined} [request]
@@ -181,15 +187,19 @@ function materialDigest({
  * The publication an original asks for (#804): only an explicit owner selection publishes it; an
  * editorial stage or missing access never does.
  *
- * @param {Pick<Manifest, "sourceNamespace" | "materials">} manifest
+ * @param {Pick<Manifest, "sourceNamespace" | "materials" | "tasks">} manifest
  * @param {PublishSelection} publish
  * @returns {(sourceKey: string) => DesiredPublication}
  */
 export function publicationPolicy(manifest, publish) {
   if (publish === "all") return () => "published";
   const selected = new Set(normalizeSourceIds(manifest, publish));
+  // A Guide Task is selected for publication by its code, like a Material by its source (#946).
   const present = new Set(
-    manifest.materials.map((row) => sourceKey(manifest, row.sourceId)),
+    [
+      ...manifest.materials.map((row) => row.sourceId),
+      ...(manifest.tasks ?? []).map((task) => task.sourceId),
+    ].map((id) => sourceKey(manifest, id)),
   );
   const unknown = [...selected].filter((id) => !present.has(id));
   if (unknown.length)
@@ -587,6 +597,7 @@ export async function syncLocal(
   if (!reconcileOnly) {
     await validateGuidePages(pkg.manifest, send);
     await validateSourcePractices(manifest, request);
+    await validateSourceTasks(pkg.manifest, request);
   }
   return withJournal(stateDirectory, target.id, async (context) => {
     const { journal, persist } = context;
@@ -694,7 +705,14 @@ export async function syncLocal(
       await persist();
     }
 
-    if (!shell) await replayPracticeImports(context, request, publicationOfKey);
+    if (!shell) {
+      await replayPracticeImports(context, request, publicationOfKey);
+      await replayTaskImports(
+        context,
+        request,
+        (key) => publicationOfKey(key) === "published",
+      );
+    }
     // Only the writes this journal already started are completed; nothing new is sent.
     if (reconcileOnly) return report;
 
@@ -1422,6 +1440,11 @@ export async function syncLocal(
     }
 
     await syncSourcePractices(manifest, context, request);
+    if ((pkg.manifest.tasks ?? []).length)
+      report.tasks = await syncSourceTasks(pkg.manifest, context, request, {
+        guideIdOf: (id) => valueAt(guides, id).id,
+        selected: (key) => publicationOfKey(key) === "published",
+      });
 
     // Proposed Materials are unpublished only when named explicitly.
     const requested = new Set(normalizeSourceIds(pkg.manifest, archive));
@@ -1561,6 +1584,6 @@ if (
     publish: publishOption(values),
   });
   process.stdout.write(
-    `${JSON.stringify({ packageId: report.packageId, scope: report.scope ?? "materials", applied: report.applied, unchanged: report.unchanged, guides: report.guides, archived: report.archived, archiveProposals: report.archiveProposals, notices: report.notices }, null, 2)}\n`,
+    `${JSON.stringify({ packageId: report.packageId, scope: report.scope ?? "materials", applied: report.applied, unchanged: report.unchanged, guides: report.guides, archived: report.archived, archiveProposals: report.archiveProposals, tasks: report.tasks ?? [], notices: report.notices }, null, 2)}\n`,
   );
 }

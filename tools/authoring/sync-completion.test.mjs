@@ -1406,3 +1406,117 @@ test("an interrupted publication resumes only with the same approval", async (t)
     "published",
   );
 });
+
+test("Guide Tasks travel after their Guide in sync and in an exact release, published only by approval", async (t) => {
+  const setup = await fixture(t);
+  const guide = itemAt(setup.manifest.guides, 0);
+  guide.chapters = [
+    {
+      sourceId: "chapter-one",
+      title: "Глава 1",
+      summary: "",
+      materialIds: [...guide.materialIds],
+    },
+  ];
+  /** @param {string} sourceId */
+  const task = (sourceId) => ({
+    sourceId,
+    guideId: "product",
+    chapterId: "chapter-one",
+    title: `Задание ${sourceId}`,
+    access: /** @type {const} */ ("free"),
+    definition: { schemaVersion: 1, situation: sourceId },
+    relatedMaterialIds: ["lesson"],
+    publicationState: /** @type {const} */ ("published"),
+    provenance: {
+      repository: "sachkov-inside/inside-content",
+      commit: "b".repeat(40),
+      path: `tasks/${sourceId}.yaml`,
+    },
+  });
+  setup.manifest.tasks = [task("task-one"), task("task-two")];
+  await setup.write();
+  const api = applicationApi();
+  /** @type {Map<string, { taskId: string; code: string; revision: number; currentVersion: number; definitionDigest: string; publicationState: "published" | "unpublished" }>} */
+  const tasks = new Map();
+  /** @type {Record<string, unknown>[]} */
+  const applied = [];
+  /** @type {LocalTransport} */
+  const request = async (path, body, key, options) => {
+    if (path === "/authoring/import/tasks/validate") {
+      const { code } = z.object({ code: z.string() }).passthrough().parse(body);
+      return { valid: true, current: tasks.get(code) ?? null };
+    }
+    if (path === "/authoring/import/tasks/apply") {
+      const command = z
+        .object({
+          code: z.string(),
+          guideId: z.string(),
+          position: z.number(),
+          publicationState: z.enum(["published", "unpublished"]),
+          expectedRevision: z.number().nullable(),
+        })
+        .passthrough()
+        .parse(body);
+      applied.push(command);
+      const previous = tasks.get(command.code);
+      assert.equal(command.expectedRevision, previous?.revision ?? null);
+      const receipt = {
+        taskId: "dddddddd-dddd-4ddd-8ddd-dddddddddddd",
+        code: command.code,
+        revision: (previous?.revision ?? 0) + 1,
+        currentVersion: 1,
+        definitionDigest: "c".repeat(64),
+        publicationState: command.publicationState,
+      };
+      tasks.set(command.code, receipt);
+      return receipt;
+    }
+    return api.request(path, body, key, options);
+  };
+  const report = await run(setup, { request }, { publish: [] });
+  assert.deepEqual(
+    applied.map((body) => [
+      body["code"],
+      body["position"],
+      body["publicationState"],
+    ]),
+    [
+      ["task-one", 1, "unpublished"],
+      ["task-two", 2, "unpublished"],
+    ],
+  );
+  assert.equal(applied[0]?.["guideId"], api.guide.id);
+  assert.deepEqual(
+    report.tasks?.map((item) => item.change),
+    ["new", "new"],
+  );
+
+  // A release publishes exactly the reviewed selection: one task by its code.
+  const origin = resolveLocalTarget("editor");
+  const reviewed = await previewRelease(setup.packagePath, setup.state, {
+    origin,
+    request,
+    publish: ["task-one"],
+  });
+  const previewTasks = z
+    .array(z.object({ sourceId: z.string(), change: z.string() }).passthrough())
+    .parse(reviewed.preview["tasks"]);
+  assert.deepEqual(
+    previewTasks.map((item) => [
+      item.sourceId,
+      item.change,
+      item["publication"],
+    ]),
+    [
+      ["task-one", "changed", "published"],
+      ["task-two", "unchanged", "unpublished"],
+    ],
+  );
+  const writes = applied.length;
+  assert.equal(writes, 2, "preview writes nothing");
+  await applyRelease(reviewed.path, setup.state, { request });
+  assert.equal(tasks.get("task-one")?.publicationState, "published");
+  assert.equal(tasks.get("task-two")?.publicationState, "unpublished");
+  assert.equal(applied.length, writes + 1);
+});

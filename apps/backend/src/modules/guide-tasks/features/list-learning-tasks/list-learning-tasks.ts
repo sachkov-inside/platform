@@ -123,14 +123,16 @@ export async function listLearningTasks(
         },
       ];
     });
-    tasks.sort(
-      (left, right) =>
-        left.guide.name.localeCompare(right.guide.name) ||
-        left.guide.slug.localeCompare(right.guide.slug) ||
-        left.chapter.ordinal - right.chapter.ordinal ||
-        left.position - right.position ||
+    tasks.sort((left, right) => {
+      const order = [
+        left.guide.name.localeCompare(right.guide.name),
+        left.guide.slug.localeCompare(right.guide.slug),
+        left.chapter.ordinal - right.chapter.ordinal,
+        left.position - right.position,
         left.code.localeCompare(right.code),
-    );
+      ];
+      return order.find((difference) => difference !== 0) ?? 0;
+    });
     return { ok: true, value: { tasks } };
   } catch (error) {
     return dependencyFailure(
