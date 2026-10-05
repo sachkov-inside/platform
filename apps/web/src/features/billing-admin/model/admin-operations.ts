@@ -5,6 +5,7 @@ import {
   accessCapabilitySchema,
   attemptStateSchema,
   cohortStageSchema,
+  offerEligibilitySchema,
   paymentModeSchema,
   priceSnapshotSchema,
   subscriptionViewSchema,
@@ -25,6 +26,8 @@ export const saveOfferInputSchema = z.strictObject({
     benefits: z.array(accessCapabilitySchema).min(1).max(100),
     availableForAssignment: z.boolean().optional(),
     contentScope: contentScopeSchema.nullable().optional(),
+    /** Без поля сервер сохраняет прежний допуск: форма каталога его не называет. */
+    eligibility: offerEligibilitySchema.optional(),
     benefitPeriods: z
       .array(
         z.strictObject({

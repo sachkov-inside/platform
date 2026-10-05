@@ -16,6 +16,16 @@ import {
 } from "@inside/access-capabilities";
 
 /**
+ * Кому Offer продаётся: всем, прежним подписчикам Tribute или только по приглашению. В прежних
+ * снимках поля нет, и тогда Offer продаётся всем.
+ */
+export const offerEligibilitySchema = z.enum([
+  "everyone",
+  "former_tribute_subscribers",
+  "invitation_only",
+]);
+export type OfferEligibility = z.infer<typeof offerEligibilitySchema>;
+/**
  * Форма провода billing, которую читает браузер. Генерируемые типы остаются подсказкой
  * компилятора: адаптеры принимают тело как `unknown` и проверяют его этими схемами.
  */
@@ -37,6 +47,7 @@ export const offerSchema = z.object({
   published: z.boolean().optional(),
   availableForAssignment: z.boolean().optional(),
   contentScope: contentScopeSchema.nullable().optional(),
+  eligibility: offerEligibilitySchema.optional(),
 });
 /** Как продаётся вариант: по расписанию или один раз. Старый снимок без режима — подписка. */
 export const paymentModeSchema = z.enum(["subscription", "one_time"]);

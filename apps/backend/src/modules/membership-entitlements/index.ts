@@ -108,3 +108,12 @@ export {
   revokeInvitationSchema,
   type InvitationOffer,
 } from "./domain/invitation.js";
+export {
+  accessHolderSchema,
+  accessSourceSchema,
+  invitationFunnelSchema,
+  listAccessHoldersSchema,
+  ENDING_SOON_WINDOW_MS,
+  type AccessGround,
+  type AccessSource,
+} from "./domain/access-roster.js";
