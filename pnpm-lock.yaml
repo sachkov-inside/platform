@@ -20,8 +20,8 @@ importers:
         specifier: workspace:*
         version: link:packages/material-blocks
       '@logto/node':
-        specifier: 3.1.11
-        version: 3.1.11
+        specifier: 4.0.0
+        version: 4.0.0
       '@types/node':
         specifier: 24.13.6
         version: 24.13.6
@@ -262,8 +262,8 @@ importers:
         specifier: 4.13.0
         version: 4.13.0(playwright-core@1.63.0)
       '@logto/node':
-        specifier: 3.1.11
-        version: 3.1.11
+        specifier: 4.0.0
+        version: 4.0.0
       '@playwright/test':
         specifier: 1.63.0
         version: 1.63.0
@@ -1125,6 +1125,9 @@ packages:
   '@logto/client@3.1.9':
     resolution: {integrity: sha512-L8blDiB7z+D5nRVl8myrCHFTFtMgeWL46paKF0WKgbZHElYkt3NiqdWqZamlkzhoXTz+9cMjkRPBgcAmAP1JLw==}
 
+  '@logto/client@3.2.0':
+    resolution: {integrity: sha512-z9WzXHXAifqrWq3co512nfsNHBCskuwVeQ3CER4HUFqTjt7dvjCXDpSJSy1AmjeevdRGv1D0OTv4zPcff0yfCw==}
+
   '@logto/js@6.1.2':
     resolution: {integrity: sha512-YB/TfixPGI0Spbs8LXiKuASOKFUE9VmlTkXiPfgg3UXQsIPTU71KjKxEXZRePu3xdPNhsZ6WtnRfRvvcpP+KGQ==}
 
@@ -1135,6 +1138,10 @@ packages:
 
   '@logto/node@3.1.11':
     resolution: {integrity: sha512-oKkq/xIThbUc1rThuMh5N2aMohuSR1DR+O8FbUV5dvOeN2sYBOn6xUiJ5qTzGrkFPIKdV0HG+5POLcUf1HtKoQ==}
+
+  '@logto/node@4.0.0':
+    resolution: {integrity: sha512-0C1SQ+H5yR96Jm/i3QeEU02Dp3WRNjagfxjIy0RSx6EXgdiJLBu+rDZnE7iU+1gusCebdmKZzA7tntzB56Mq7g==}
+    engines: {node: '>=22.0.0'}
 
   '@lukeed/csprng@1.1.0':
     resolution: {integrity: sha512-Z7C/xXCiGWsg0KuKsHTKJxbWhpI3Vs5GwLfOean7MGyVFGqdRgBbAjOCh6u4bbjPc/8MJ2pZmK/0DLdCbivLDA==}
@@ -7388,6 +7395,13 @@ snapshots:
       camelcase-keys: 9.1.3
       jose: 5.10.0
 
+  '@logto/client@3.2.0':
+    dependencies:
+      '@logto/js': 6.1.2
+      '@silverhand/essentials': 2.9.3
+      camelcase-keys: 9.1.3
+      jose: 5.10.0
+
   '@logto/js@6.1.2':
     dependencies:
       '@silverhand/essentials': 2.9.3
@@ -7403,6 +7417,12 @@ snapshots:
   '@logto/node@3.1.11':
     dependencies:
       '@logto/client': 3.1.9
+      '@silverhand/essentials': 2.9.3
+      js-base64: 3.9.3
+
+  '@logto/node@4.0.0':
+    dependencies:
+      '@logto/client': 3.2.0
       '@silverhand/essentials': 2.9.3
       js-base64: 3.9.3
 
