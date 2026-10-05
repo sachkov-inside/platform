@@ -1,3 +1,5 @@
+import { isTruthy } from "../../shared/truthiness.js";
+import { hasText } from "../../shared/text.js";
 import type { TelegramButton } from "./telegram-messages.js";
 import { Optional } from "@nestjs/common";
 import {
@@ -263,7 +265,7 @@ export class StartResponseDeliveryQueue {
               : []),
           ]),
         prepare: async (tx, row) =>
-          (this.config?.marketingEnabled ||
+          (isTruthy(this.config?.marketingEnabled) ||
             this.config?.deliveryMode === "live") &&
           !(await reserveTelegramSlot(
             tx,
@@ -285,8 +287,10 @@ export class StartResponseDeliveryQueue {
         lease: delivery,
         messageText: row.message_text,
         privateChatId: row.private_chat_id,
-        ...(row.edit_message_id ? { editMessageId: row.edit_message_id } : {}),
-        ...(row.sign_in_request_ref
+        ...(hasText(row.edit_message_id)
+          ? { editMessageId: row.edit_message_id }
+          : {}),
+        ...(hasText(row.sign_in_request_ref)
           ? { signInRequestRef: row.sign_in_request_ref }
           : {}),
       };
@@ -305,7 +309,7 @@ export class StartResponseDeliveryQueue {
     );
     return this.database.transaction().execute(async (transaction) => {
       if (
-        (this.config?.marketingEnabled ||
+        (isTruthy(this.config?.marketingEnabled) ||
           this.config?.deliveryMode === "live") &&
         result.kind === "api_retryable" &&
         result.providerErrorCode === 429

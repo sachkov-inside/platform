@@ -1,3 +1,4 @@
+import { hasText } from "../shared/text.js";
 import {
   assertServiceEndpoint,
   assertServiceSecret,
@@ -23,7 +24,7 @@ export interface SalesFunnelConfig {
 export function loadSalesFunnelConfig(
   env: NodeJS.ProcessEnv,
 ): SalesFunnelConfig {
-  const mode = env.PLATFORM_SALES_FUNNEL_DELIVERY_MODE ?? "disabled";
+  const mode = env["PLATFORM_SALES_FUNNEL_DELIVERY_MODE"] ?? "disabled";
   if (mode !== "disabled" && mode !== "live")
     throw new Error(
       "PLATFORM_SALES_FUNNEL_DELIVERY_MODE must be disabled or live",
@@ -37,12 +38,15 @@ export function loadSalesFunnelConfig(
     delivery = { url, secret };
   }
   const texts = [
-    env.TELEGRAM_MARKETING_CONSENT_TEXT?.trim(),
-    env.TELEGRAM_MARKETING_CONSENT_BUTTON?.trim(),
-    env.TELEGRAM_MARKETING_CONSENT_CONFIRMATION?.trim(),
+    env["TELEGRAM_MARKETING_CONSENT_TEXT"]?.trim(),
+    env["TELEGRAM_MARKETING_CONSENT_BUTTON"]?.trim(),
+    env["TELEGRAM_MARKETING_CONSENT_CONFIRMATION"]?.trim(),
   ];
   const [prompt, button, confirmation] = texts;
-  if (texts.some(Boolean) && !(prompt && button && confirmation))
+  if (
+    texts.some(Boolean) &&
+    !(hasText(prompt) && hasText(button) && hasText(confirmation))
+  )
     throw new Error(
       "TELEGRAM_MARKETING_CONSENT_TEXT, TELEGRAM_MARKETING_CONSENT_BUTTON and TELEGRAM_MARKETING_CONSENT_CONFIRMATION are set together",
     );
@@ -51,7 +55,7 @@ export function loadSalesFunnelConfig(
     throw new Error("Marketing consent texts are longer than 4096 characters");
   return {
     ...(delivery ? { delivery } : {}),
-    ...(prompt && button && confirmation
+    ...(hasText(prompt) && hasText(button) && hasText(confirmation)
       ? { consent: { prompt, button, confirmation } }
       : {}),
   };
@@ -59,6 +63,6 @@ export function loadSalesFunnelConfig(
 
 function required(env: NodeJS.ProcessEnv, name: string): string {
   const value = env[name]?.trim();
-  if (!value) throw new Error(`${name} is required`);
+  if (!hasText(value)) throw new Error(`${name} is required`);
   return value;
 }

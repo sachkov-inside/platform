@@ -3,12 +3,12 @@ import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { jsonRecord, record } from "../support/json.js";
 
-// The shared base mirrors Platform's tsconfig.base.json; a project config may add its runtime
-// options but never weakens this strictness.
+// Telegram inherits the root strict base and the root lint contract.
 const SHARED_STRICTNESS = [
   "strict",
   "exactOptionalPropertyTypes",
   "noUncheckedIndexedAccess",
+  "noPropertyAccessFromIndexSignature",
   "noImplicitOverride",
   "noImplicitReturns",
   "noFallthroughCasesInSwitch",
@@ -39,9 +39,9 @@ function json(path: string): Record<string, unknown> {
 }
 
 function compilerOptions(config: Record<string, unknown>) {
-  return config.compilerOptions === undefined
+  return config["compilerOptions"] === undefined
     ? {}
-    : record(config.compilerOptions);
+    : record(config["compilerOptions"]);
 }
 
 /** Why a project tsconfig breaks the shared base contract. */
@@ -51,7 +51,9 @@ function baseViolations(
 ): string[] {
   const own = compilerOptions(config);
   return [
-    ...(config.extends === extendsPath ? [] : [`must extend ${extendsPath}`]),
+    ...(config["extends"] === extendsPath
+      ? []
+      : [`must extend ${extendsPath}`]),
     ...SHARED_STRICTNESS.filter((flag) => flag in own).map(
       (flag) => `must not override ${flag}`,
     ),
@@ -82,7 +84,7 @@ function missingProductionRules(
 
 /** Ignore patterns that exclude `file` from linting altogether. */
 function ignoredBy(config: Record<string, unknown>, file: string): string[] {
-  const patterns: unknown = config.ignorePatterns;
+  const patterns: unknown = config["ignorePatterns"];
   if (!Array.isArray(patterns)) return [];
   const list: readonly unknown[] = patterns;
   return list.filter(
@@ -107,7 +109,7 @@ function rulesDifferingFromApplication(
   overrides: readonly Override[],
   file: string,
 ): string[] {
-  const application = appliedRules(overrides, "src/main.ts");
+  const application = appliedRules(overrides, "apps/telegram/src/main.ts");
   const applied = appliedRules(overrides, file);
   return [...new Set([...application.keys(), ...applied.keys()])].filter(
     (rule) =>
@@ -135,7 +137,7 @@ function matches(pattern: string, file: string): boolean {
 }
 
 function overridesOf(config: Record<string, unknown>): Override[] {
-  const overrides = config.overrides;
+  const overrides = config["overrides"];
   if (!Array.isArray(overrides)) return [];
   const list: readonly unknown[] = overrides;
   return list.flatMap((entry) => {
@@ -155,12 +157,12 @@ function overridesOf(config: Record<string, unknown>): Override[] {
 describe("toolchain contract", () => {
   it("builds every project config on the shared strict base", () => {
     expect(
-      baseViolations(json("tsconfig.json"), "./tsconfig.base.json"),
+      baseViolations(json("tsconfig.json"), "../../tsconfig.nest-app.json"),
     ).toEqual([]);
     expect(
       baseViolations(json("tsconfig.build.json"), "./tsconfig.json"),
     ).toEqual([]);
-    const base = compilerOptions(json("tsconfig.base.json"));
+    const base = compilerOptions(json("../../tsconfig.base.json"));
     for (const flag of SHARED_STRICTNESS)
       expect(base[flag], flag).toBe(
         !["allowUnreachableCode", "allowUnusedLabels"].includes(flag),
@@ -170,33 +172,36 @@ describe("toolchain contract", () => {
   it("rejects a project config that weakens the base", () => {
     expect(
       baseViolations(
-        { extends: "./tsconfig.base.json", compilerOptions: { strict: false } },
-        "./tsconfig.base.json",
+        {
+          extends: "../../tsconfig.nest-app.json",
+          compilerOptions: { strict: false },
+        },
+        "../../tsconfig.nest-app.json",
       ),
     ).toEqual(["must not override strict"]);
     expect(
-      baseViolations({ compilerOptions: {} }, "./tsconfig.base.json"),
-    ).toEqual(["must extend ./tsconfig.base.json"]);
+      baseViolations({ compilerOptions: {} }, "../../tsconfig.nest-app.json"),
+    ).toEqual(["must extend ../../tsconfig.nest-app.json"]);
   });
 
   it("applies the type-aware production rules to application code", () => {
-    const overrides = overridesOf(json(".oxlintrc.json"));
+    const overrides = overridesOf(json("../../.oxlintrc.json"));
     for (const file of [
-      "src/main.ts",
-      "src/modules/communications/funnels.ts",
-      "scripts/platform-conformance-provider.ts",
+      "apps/telegram/src/main.ts",
+      "apps/telegram/src/modules/communications/funnels.ts",
+      "apps/telegram/scripts/platform-conformance-provider.ts",
     ])
       expect(missingProductionRules(overrides, file), file).toEqual([]);
   });
 
   it("lints tests with the same rules as application code", () => {
-    const config = json(".oxlintrc.json");
+    const config = json("../../.oxlintrc.json");
     const overrides = overridesOf(config);
     for (const file of [
-      "test/unit/toolchain-contract.test.ts",
-      "test/integration/funnels.integration.test.ts",
-      "test/support/community-chat.ts",
-      "test/local/course-activation-provider.ts",
+      "apps/telegram/test/unit/toolchain-contract.test.ts",
+      "apps/telegram/test/integration/funnels.integration.test.ts",
+      "apps/telegram/test/support/community-chat.ts",
+      "apps/telegram/test/local/course-activation-provider.ts",
     ]) {
       expect(rulesDifferingFromApplication(overrides, file), file).toEqual([]);
       expect(ignoredBy(config, file), file).toEqual([]);
@@ -205,14 +210,17 @@ describe("toolchain contract", () => {
 
   it("detects a rule turned off for tests", () => {
     const overrides = [
-      ...overridesOf(json(".oxlintrc.json")),
+      ...overridesOf(json("../../.oxlintrc.json")),
       {
-        files: ["test/**/*.ts"],
+        files: ["apps/telegram/test/**/*.ts"],
         rules: { "typescript/require-await": "off" },
       },
     ];
     expect(
-      rulesDifferingFromApplication(overrides, "test/unit/example.test.ts"),
+      rulesDifferingFromApplication(
+        overrides,
+        "apps/telegram/test/unit/example.test.ts",
+      ),
     ).toEqual(["typescript/require-await"]);
   });
 
@@ -222,43 +230,48 @@ describe("toolchain contract", () => {
         {
           ignorePatterns: [
             "dist/**",
-            "test/architecture/fixtures/**",
-            "test/**",
+            "apps/telegram/test/architecture/fixtures/**",
+            "apps/telegram/test/**",
             "test",
-            "test/",
+            "apps/telegram/test/",
             "unit",
             "*.test.ts",
             "**/unit/**",
           ],
         },
-        "test/unit/example.test.ts",
+        "apps/telegram/test/unit/example.test.ts",
       ),
-    ).toEqual(["test/**", "test", "test/", "unit", "*.test.ts", "**/unit/**"]);
+    ).toEqual([
+      "apps/telegram/test/**",
+      "test",
+      "apps/telegram/test/",
+      "unit",
+      "*.test.ts",
+      "**/unit/**",
+    ]);
   });
 
   it("detects a production rule turned off for application code", () => {
     const overrides = [
-      ...overridesOf(json(".oxlintrc.json")),
+      ...overridesOf(json("../../.oxlintrc.json")),
       {
-        files: ["src/**/*.ts"],
+        files: ["apps/telegram/src/**/*.ts"],
         rules: { "typescript/no-floating-promises": "off" },
       },
     ];
-    expect(missingProductionRules(overrides, "src/main.ts")).toEqual([
-      "typescript/no-floating-promises",
-    ]);
+    expect(
+      missingProductionRules(overrides, "apps/telegram/src/main.ts"),
+    ).toEqual(["typescript/no-floating-promises"]);
   });
 
   it("lints with oxlint alone", () => {
     const manifest = json("package.json");
-    const scripts = new Map(Object.entries(record(manifest.scripts)));
+    const scripts = new Map(Object.entries(record(manifest["scripts"])));
     const dependencies = Object.keys({
-      ...record(manifest.dependencies),
-      ...record(manifest.devDependencies),
+      ...record(manifest["dependencies"]),
+      ...record(manifest["devDependencies"]),
     });
-    expect(scripts.get("lint")).toBe(
-      "oxlint --deny-warnings --report-unused-disable-directives .",
-    );
+    expect(scripts.get("lint")).toBe("pnpm --dir ../.. lint");
     expect(dependencies).toEqual(
       expect.arrayContaining(["oxlint", "oxlint-tsgolint"]),
     );

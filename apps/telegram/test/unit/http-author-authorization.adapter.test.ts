@@ -21,7 +21,7 @@ describe("Platform author authorization seam", () => {
       return Promise.resolve(
         Response.json({
           contractVersion: "inside-communications-v1",
-          requestId: request.requestId,
+          requestId: request["requestId"],
           status: "allowed",
           accountRef: subject.accountRef,
         }),
@@ -57,7 +57,7 @@ describe("Platform author authorization seam", () => {
             requestId:
               mode === "stale"
                 ? "11111111-1111-4111-8111-111111111111"
-                : request.requestId,
+                : request["requestId"],
             status: mode === "denied" ? "denied" : "allowed",
             ...(mode !== "denied"
               ? { accountRef: mode === "forged" ? "other" : subject.accountRef }

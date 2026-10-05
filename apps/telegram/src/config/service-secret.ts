@@ -1,3 +1,4 @@
+import { hasText } from "../shared/text.js";
 /**
  * Every service secret: 32-256 base64url characters. The same alphabet is Telegram's
  * webhook secret-token alphabet.
@@ -14,10 +15,10 @@ export function assertServiceEndpoint(value: string, name: string): void {
   assertHttpUrl(value, name);
   const url = new URL(value);
   if (
-    url.username ||
-    url.password ||
-    url.search ||
-    url.hash ||
+    hasText(url.username) ||
+    hasText(url.password) ||
+    hasText(url.search) ||
+    hasText(url.hash) ||
     (url.protocol !== "https:" &&
       !["localhost", "127.0.0.1", "[::1]"].includes(url.hostname))
   )

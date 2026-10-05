@@ -1,3 +1,5 @@
+import { isTruthy } from "../../shared/truthiness.js";
+import { hasText } from "../../shared/text.js";
 import { sql, type Kysely, type Transaction } from "kysely";
 import type { DatabaseSchema } from "../../database/database.js";
 
@@ -70,7 +72,7 @@ export async function admitTelegramSlot(
   for (let n = 0; n < turns.length; n++) {
     selected = (fairness.cursor + n) % turns.length;
     const turn = turns[selected];
-    if (turn && active.has(turn)) break;
+    if (hasText(turn) && active.has(turn)) break;
   }
   if (turns[selected] !== purpose) return "bot_busy";
   const lanes = [
@@ -89,7 +91,7 @@ export async function admitTelegramSlot(
     .execute();
   const busy = existing.filter((r) => r.available_at > now);
   if (busy.some((r) => r.lane === "global")) return "bot_busy";
-  if (busy.length) return "chat_busy";
+  if (isTruthy(busy.length)) return "chat_busy";
   for (const lane of lanes)
     await tx
       .insertInto("telegram_transport_slots")

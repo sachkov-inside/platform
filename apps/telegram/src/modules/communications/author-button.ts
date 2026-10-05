@@ -1,3 +1,4 @@
+import { isTruthy } from "../../shared/truthiness.js";
 import {
   validateContent,
   type TemplateContent,
@@ -30,7 +31,7 @@ export function appendAuthorButton(
 }
 
 export function nextAuthorButtonRow(content: TemplateContent): number {
-  return content.buttons.length
+  return isTruthy(content.buttons.length)
     ? Math.max(...content.buttons.map((b, index) => b.row ?? index)) + 1
     : 0;
 }

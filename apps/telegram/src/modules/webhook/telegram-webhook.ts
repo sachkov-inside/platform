@@ -1,3 +1,4 @@
+import { hasText } from "../../shared/text.js";
 import {
   BadRequestException,
   Inject,
@@ -48,7 +49,7 @@ export class TelegramWebhook {
     }
 
     const updateId = readUpdateId(payload);
-    if (!updateId) {
+    if (!hasText(updateId)) {
       throw new BadRequestException("Body must be a Telegram Update");
     }
 
@@ -68,7 +69,7 @@ function readUpdateId(payload: unknown): string | undefined {
   if (!isRecord(payload)) {
     return undefined;
   }
-  const updateId = payload.update_id;
+  const updateId = payload["update_id"];
   if (!Number.isSafeInteger(updateId) || Number(updateId) < 0) {
     return undefined;
   }

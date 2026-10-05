@@ -1,3 +1,5 @@
+import { isTruthy } from "../../shared/truthiness.js";
+import { hasText } from "../../shared/text.js";
 import { createHash, randomUUID } from "node:crypto";
 import { Inject, Injectable } from "@nestjs/common";
 import { sql, type Selectable, type Transaction } from "kysely";
@@ -70,7 +72,7 @@ export class SubscriptionActivation {
     contact: VerifiedPrivateStart,
     code: string | null,
   ): Promise<void> {
-    if (!this.config.activation?.enabled || !code) {
+    if (!isTruthy(this.config.activation?.enabled) || !hasText(code)) {
       await this.reply(
         contact,
         "Активация по этой ссылке сейчас недоступна. Обратитесь к владельцу.",
@@ -122,7 +124,7 @@ export class SubscriptionActivation {
     onlyCode?: string,
   ): Promise<void> {
     const config = this.config.activation;
-    if (!config?.enabled) {
+    if (!isTruthy(config?.enabled)) {
       await this.reply(
         contact,
         "Проверка доступов пока недоступна. Обратитесь к владельцу.",
@@ -157,7 +159,7 @@ export class SubscriptionActivation {
     if (!lookup || !lookup.ok) {
       await this.reply(
         contact,
-        lookup && !lookup.ok && lookup.error.code === "identity_conflict"
+        lookup?.error.code === "identity_conflict"
           ? "Связь аккаунта требует помощи владельца. Проверка остановлена; аккаунты не объединяются."
           : "Платформа временно не отвечает. Повторите проверку позже.",
       );
@@ -194,7 +196,7 @@ export class SubscriptionActivation {
       return;
     }
     const access = await this.platform.own(lookup.value.binding);
-    if (!access?.ok) {
+    if (!isTruthy(access?.ok)) {
       await this.reply(
         contact,
         access && !access.ok && access.error.code === "identity_conflict"
@@ -241,7 +243,7 @@ export class SubscriptionActivation {
   }
 
   async processAvailable(limit = 10): Promise<number> {
-    if (!this.config.activation?.enabled) return 0;
+    if (!isTruthy(this.config.activation?.enabled)) return 0;
     let processed = 0;
     for (; processed < limit; processed++) {
       const now = this.clock.now();
@@ -421,7 +423,7 @@ export class SubscriptionActivation {
     }
     const lookup = await this.platform.binding(attempt.identity_ref);
     if (!lookup || !lookup.ok) {
-      if (lookup && !lookup.ok && lookup.error.code === "identity_conflict")
+      if (lookup?.error.code === "identity_conflict")
         await this.finish(attempt, lookup);
       else await this.defer(attempt, "binding_unavailable");
       return;

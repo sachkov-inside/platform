@@ -1,3 +1,5 @@
+import { isTruthy } from "../shared/truthiness.js";
+import { hasText } from "../shared/text.js";
 import { assertServiceSecret } from "./service-secret.js";
 export interface ActivationSource {
   readonly sourceRef: string;
@@ -17,19 +19,19 @@ export function loadActivationConfig(
   canonicalChatId: string,
 ): ActivationConfig | undefined {
   if (
-    env.TELEGRAM_ACTIVATION_ENABLED === undefined ||
-    env.TELEGRAM_ACTIVATION_ENABLED === "false"
+    env["TELEGRAM_ACTIVATION_ENABLED"] === undefined ||
+    env["TELEGRAM_ACTIVATION_ENABLED"] === "false"
   )
     return;
-  if (env.TELEGRAM_ACTIVATION_ENABLED !== "true")
+  if (env["TELEGRAM_ACTIVATION_ENABLED"] !== "true")
     throw new Error("TELEGRAM_ACTIVATION_ENABLED must be true or false");
-  const secret = env.PLATFORM_ACTIVATION_SECRET ?? "";
+  const secret = env["PLATFORM_ACTIVATION_SECRET"] ?? "";
   assertServiceSecret(secret, "PLATFORM_ACTIVATION_SECRET");
-  const endpoint = safeUrl(env.PLATFORM_ACTIVATION_URL);
-  const accountUrl = safeUrl(env.PLATFORM_ACCOUNT_URL);
+  const endpoint = safeUrl(env["PLATFORM_ACTIVATION_URL"]);
+  const accountUrl = safeUrl(env["PLATFORM_ACCOUNT_URL"]);
   let sources: unknown;
   try {
-    sources = JSON.parse(env.TELEGRAM_ACTIVATION_SOURCES ?? "[]");
+    sources = JSON.parse(env["TELEGRAM_ACTIVATION_SOURCES"] ?? "[]");
   } catch {
     throw new Error("Invalid TELEGRAM_ACTIVATION_SOURCES");
   }
@@ -40,7 +42,7 @@ export function loadActivationConfig(
   const entries: ActivationSource[] = [];
   for (const source of registry) {
     const fields =
-      source && typeof source === "object"
+      isTruthy(source) && typeof source === "object"
         ? new Map<string, unknown>(Object.entries(source))
         : undefined;
     const sourceRef = fields?.get("sourceRef");
@@ -76,7 +78,8 @@ export function loadActivationConfig(
       const confirmedIdentityRefs: readonly unknown[] | undefined =
         Array.isArray(confirmed) ? confirmed : undefined;
       if (
-        !confirmedIdentityRefs?.every(
+        confirmedIdentityRefs === undefined ||
+        !confirmedIdentityRefs.every(
           (v): v is string =>
             typeof v === "string" && v.length >= 1 && v.length <= 256,
         )
@@ -98,10 +101,10 @@ function safeUrl(value: string | undefined): string {
     throw new Error("Activation integration requires valid Platform URLs");
   }
   if (
-    url.username ||
-    url.password ||
-    url.search ||
-    url.hash ||
+    hasText(url.username) ||
+    hasText(url.password) ||
+    hasText(url.search) ||
+    hasText(url.hash) ||
     (url.protocol !== "https:" &&
       !(
         url.protocol === "http:" &&

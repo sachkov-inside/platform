@@ -297,7 +297,7 @@ export function pageAuthorMenu(menu: AuthorMenu, page: number): AuthorButton[] {
  */
 export function parseAuthorState(stored: unknown): AuthorState | undefined {
   if (!isRecord(stored)) return undefined;
-  const state = stored.version === undefined ? upgradeV0(stored) : stored;
+  const state = stored["version"] === undefined ? upgradeV0(stored) : stored;
   return isAuthorState(state) ? state : undefined;
 }
 
@@ -318,13 +318,13 @@ export function parseBroadcastDraft(
 function upgradeV0(stored: Record<string, unknown>): Record<string, unknown> {
   // Version 0 kept the awaited button title beside a string prompt.
   const { prompt, buttonTitle, ...rest } = stored;
-  delete rest.buttonUrl;
+  delete rest["buttonUrl"];
   const upgraded: Record<string, unknown> = {
     ...rest,
     version: AUTHOR_STATE_VERSION,
   };
   if (prompt !== undefined)
-    upgraded.prompt =
+    upgraded["prompt"] =
       prompt === "button-url"
         ? { kind: prompt, buttonTitle }
         : { kind: prompt };
@@ -343,23 +343,23 @@ const validTemplate = contractValidator("template");
 function isAuthorState(value: unknown): value is AuthorState {
   return (
     isRecord(value) &&
-    value.version === AUTHOR_STATE_VERSION &&
-    isString(value.token) &&
-    Array.isArray(value.actions) &&
-    value.actions.every(isAuthorAction) &&
-    optional(value.freshMenu, isBoolean) &&
-    optional(value.batch, (v) => v === "broadcast" || v === "funnel") &&
-    optional(value.menu, isAuthorMenu) &&
-    optional(value.composing, isComposerState) &&
-    optional(value.broadcastName, isString) &&
-    optional(value.libraryQuery, isString) &&
-    optional(value.funnelAuthor, isFunnelState) &&
-    optional(value.template, (v) => validTemplate(v)) &&
-    optional(value.broadcast, isBroadcast) &&
-    optional(value.prompt, isAuthorPrompt) &&
+    value["version"] === AUTHOR_STATE_VERSION &&
+    isString(value["token"]) &&
+    Array.isArray(value["actions"]) &&
+    value["actions"].every(isAuthorAction) &&
+    optional(value["freshMenu"], isBoolean) &&
+    optional(value["batch"], (v) => v === "broadcast" || v === "funnel") &&
+    optional(value["menu"], isAuthorMenu) &&
+    optional(value["composing"], isComposerState) &&
+    optional(value["broadcastName"], isString) &&
+    optional(value["libraryQuery"], isString) &&
+    optional(value["funnelAuthor"], isFunnelState) &&
+    optional(value["template"], (v) => validTemplate(v)) &&
+    optional(value["broadcast"], isBroadcast) &&
+    optional(value["prompt"], isAuthorPrompt) &&
     optional(
-      value.replacePart,
-      (v) => isRecord(v) && isString(v.broadcastId) && isString(v.partId),
+      value["replacePart"],
+      (v) => isRecord(v) && isString(v["broadcastId"]) && isString(v["partId"]),
     )
   );
 }
@@ -371,16 +371,16 @@ function isAuthorActionKind(kind: string): kind is AuthorActionKind {
 function isAuthorAction(value: unknown): value is AuthorAction {
   if (
     !isRecord(value) ||
-    !isString(value.kind) ||
-    !isAuthorActionKind(value.kind)
+    !isString(value["kind"]) ||
+    !isAuthorActionKind(value["kind"])
   )
     return false;
-  const spec: PayloadSpec = AUTHOR_ACTIONS[value.kind];
+  const spec: PayloadSpec = AUTHOR_ACTIONS[value["kind"]];
   return (
-    matchesField(value.id, spec.id) &&
+    matchesField(value["id"], spec.id) &&
     (isChoice(spec.value)
-      ? includes(spec.value, value.value)
-      : matchesField(value.value, spec.value))
+      ? includes(spec.value, value["value"])
+      : matchesField(value["value"], spec.value))
   );
 }
 
@@ -395,9 +395,9 @@ function matchesField(value: unknown, field: Field | undefined): boolean {
 function isAuthorMenu(value: unknown): value is AuthorMenu {
   return (
     isRecord(value) &&
-    isString(value.text) &&
-    Array.isArray(value.buttons) &&
-    value.buttons.every(
+    isString(value["text"]) &&
+    Array.isArray(value["buttons"]) &&
+    value["buttons"].every(
       (button) =>
         Array.isArray(button) &&
         button.length === 2 &&
@@ -409,84 +409,86 @@ function isAuthorMenu(value: unknown): value is AuthorMenu {
 
 function isAuthorPrompt(value: unknown): value is AuthorPrompt {
   if (!isRecord(value)) return false;
-  if (value.kind === "button-url") return isString(value.buttonTitle);
-  return includes(AUTHOR_PROMPT_KINDS, value.kind);
+  if (value["kind"] === "button-url") return isString(value["buttonTitle"]);
+  return includes(AUTHOR_PROMPT_KINDS, value["kind"]);
 }
 
 function isComposerState(value: unknown): value is ComposerState {
   return (
     isRecord(value) &&
-    isDestination(value.destination) &&
+    isDestination(value["destination"]) &&
     optional(
-      value.sequence,
-      (v) => isRecord(v) && isNumber(v.lastOffset) && isBoolean(v.firstEntry),
+      value["sequence"],
+      (v) =>
+        isRecord(v) && isNumber(v["lastOffset"]) && isBoolean(v["firstEntry"]),
     ) &&
-    optional(value.content, (v) => validContent(v)) &&
-    optional(value.prompt, (v) => includes(COMPOSER_PROMPTS, v)) &&
-    optional(value.buttonTitle, isString) &&
-    optional(value.buttonUrl, isString) &&
-    optional(value.query, isString) &&
-    optional(value.libraryCursor, isString)
+    optional(value["content"], (v) => validContent(v)) &&
+    optional(value["prompt"], (v) => includes(COMPOSER_PROMPTS, v)) &&
+    optional(value["buttonTitle"], isString) &&
+    optional(value["buttonUrl"], isString) &&
+    optional(value["query"], isString) &&
+    optional(value["libraryCursor"], isString)
   );
 }
 
 function isDestination(value: unknown): value is MessageDestination {
   return (
     isRecord(value) &&
-    (value.kind === "broadcast" ||
-      (value.kind === "funnel" && isString(value.target))) &&
-    isString(value.id) &&
-    isNumber(value.expectedRevision) &&
-    optional(value.partId, isString)
+    (value["kind"] === "broadcast" ||
+      (value["kind"] === "funnel" && isString(value["target"]))) &&
+    isString(value["id"]) &&
+    isNumber(value["expectedRevision"]) &&
+    optional(value["partId"], isString)
   );
 }
 
 function isFunnelState(value: unknown): value is AuthorFunnelState {
   return (
     isRecord(value) &&
-    optional(value.funnel, isFunnel) &&
-    optional(value.intro, isIntro) &&
-    optional(value.dirty, isBoolean) &&
-    optional(value.target, isString) &&
-    optional(value.replacePartId, isString) &&
-    optional(value.prompt, (v) => includes(FUNNEL_PROMPTS, v)) &&
-    optional(value.sourceName, isString) &&
-    optional(value.timingPartId, isString)
+    optional(value["funnel"], isFunnel) &&
+    optional(value["intro"], isIntro) &&
+    optional(value["dirty"], isBoolean) &&
+    optional(value["target"], isString) &&
+    optional(value["replacePartId"], isString) &&
+    optional(value["prompt"], (v) => includes(FUNNEL_PROMPTS, v)) &&
+    optional(value["sourceName"], isString) &&
+    optional(value["timingPartId"], isString)
   );
 }
 
 function isFunnel(value: unknown): value is FunnelSnapshot {
   return (
     isRecord(value) &&
-    isString(value.funnelId) &&
-    isString(value.name) &&
-    isBoolean(value.isDefault) &&
-    Array.isArray(value.sources) &&
-    value.sources.every((source) => validSource(source)) &&
-    isRecord(value.entryResponse) &&
-    isString(value.entryResponse.stepId) &&
-    isParts(value.entryResponse.parts) &&
-    Array.isArray(value.steps) &&
-    value.steps.every(
+    isString(value["funnelId"]) &&
+    isString(value["name"]) &&
+    isBoolean(value["isDefault"]) &&
+    Array.isArray(value["sources"]) &&
+    value["sources"].every((source) => validSource(source)) &&
+    isRecord(value["entryResponse"]) &&
+    isString(value["entryResponse"]["stepId"]) &&
+    isParts(value["entryResponse"]["parts"]) &&
+    Array.isArray(value["steps"]) &&
+    value["steps"].every(
       (step) =>
         isRecord(step) &&
-        isString(step.stepId) &&
-        isNumber(step.delaySeconds) &&
-        optional(step.delayAnchor, (v) => v === "entry") &&
-        isParts(step.parts),
+        isString(step["stepId"]) &&
+        isNumber(step["delaySeconds"]) &&
+        optional(step["delayAnchor"], (v) => v === "entry") &&
+        isParts(step["parts"]),
     ) &&
-    isNumber(value.revision) &&
-    (value.publishedRevision === null || isNumber(value.publishedRevision)) &&
-    includes(["draft", "published", "paused", "archived"], value.lifecycle)
+    isNumber(value["revision"]) &&
+    (value["publishedRevision"] === null ||
+      isNumber(value["publishedRevision"])) &&
+    includes(["draft", "published", "paused", "archived"], value["lifecycle"])
   );
 }
 
 function isIntro(value: unknown): value is IntroSnapshot {
   return (
     isRecord(value) &&
-    isString(value.introId) &&
-    isNumber(value.revision) &&
-    isParts(value.parts)
+    isString(value["introId"]) &&
+    isNumber(value["revision"]) &&
+    isParts(value["parts"])
   );
 }
 
@@ -497,18 +499,19 @@ function isParts(value: unknown): boolean {
 function isBroadcast(value: unknown): value is AuthorBroadcast {
   return (
     isRecord(value) &&
-    isString(value.broadcastId) &&
-    isNumber(value.revision) &&
+    isString(value["broadcastId"]) &&
+    isNumber(value["revision"]) &&
     includes(
       ["draft", "scheduled", "running", "paused", "cancelled", "completed"],
-      value.state,
+      value["state"],
     ) &&
-    Array.isArray(value.parts) &&
-    value.parts.every((part) => validBroadcastPart(part)) &&
-    validAudience(value.audience) &&
-    (value.scheduledAt === null || isString(value.scheduledAt)) &&
-    (value.audienceSnapshotId === null || isString(value.audienceSnapshotId)) &&
-    isNumber(value.snapshotSize)
+    Array.isArray(value["parts"]) &&
+    value["parts"].every((part) => validBroadcastPart(part)) &&
+    validAudience(value["audience"]) &&
+    (value["scheduledAt"] === null || isString(value["scheduledAt"])) &&
+    (value["audienceSnapshotId"] === null ||
+      isString(value["audienceSnapshotId"])) &&
+    isNumber(value["snapshotSize"])
   );
 }
 

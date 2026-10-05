@@ -1,3 +1,4 @@
+import { hasText } from "../../shared/text.js";
 import { MARKETING_CONSENT_CALLBACK } from "../../modules/communications/marketing-entry.js";
 import type { AccessAction } from "../../modules/subscription-activation/subscription-activation.js";
 import { createHash } from "node:crypto";
@@ -23,23 +24,23 @@ const LINK_TOKEN_FIELD = "_inside_link_token";
 const SIGN_IN_TOKEN_FIELD = "_inside_sign_in_token";
 
 export function prepareTelegramUpdateForInbox(payload: unknown): unknown {
-  if (!isRecord(payload) || !isRecord(payload.message)) {
+  if (!isRecord(payload) || !isRecord(payload["message"])) {
     return payload;
   }
 
-  const message = { ...payload.message };
+  const message = { ...payload["message"] };
   Reflect.deleteProperty(message, LINK_TOKEN_FIELD);
   Reflect.deleteProperty(message, SIGN_IN_TOKEN_FIELD);
-  delete message._inside_marketing_source;
-  delete message._inside_activation;
-  delete message._inside_invitation;
-  const text = message.text;
+  delete message["_inside_marketing_source"];
+  delete message["_inside_activation"];
+  delete message["_inside_invitation"];
+  const text = message["text"];
   if (typeof text !== "string") {
     return { ...payload, message };
   }
 
   const start = parseStart(text);
-  if (!start || start.argument === undefined) {
+  if (start?.argument === undefined) {
     return { ...payload, message };
   }
 
@@ -184,14 +185,14 @@ export class GrammyUpdateAdapter implements TelegramUpdateTranslator {
         : undefined;
     if (
       callback &&
-      callbackAction &&
+      hasText(callbackAction) &&
       !callback.from.is_bot &&
       callback.message?.chat.type === "private" &&
       callback.from.id === callback.message.chat.id &&
       callback.id.length <= 128
     ) {
       const user = telegramId(callback.from.id);
-      if (user)
+      if (hasText(user))
         return {
           kind: "access-action",
           value: {
@@ -329,33 +330,33 @@ export class GrammyUpdateAdapter implements TelegramUpdateTranslator {
     if (!isRecord(request)) {
       return undefined;
     }
-    const chat = request.chat;
-    const from = request.from;
+    const chat = request["chat"];
+    const from = request["from"];
     if (
       !isRecord(chat) ||
-      chat.type === "private" ||
+      chat["type"] === "private" ||
       !isRecord(from) ||
-      from.is_bot !== false ||
-      typeof request.date !== "number" ||
-      !Number.isSafeInteger(request.date) ||
-      request.date < 0
+      from["is_bot"] !== false ||
+      typeof request["date"] !== "number" ||
+      !Number.isSafeInteger(request["date"]) ||
+      request["date"] < 0
     ) {
       return undefined;
     }
-    const canonicalChatId = signedTelegramId(chat.id);
-    const telegramUserId = telegramId(from.id);
-    if (!canonicalChatId || !telegramUserId) {
+    const canonicalChatId = signedTelegramId(chat["id"]);
+    const telegramUserId = telegramId(from["id"]);
+    if (!hasText(canonicalChatId) || !hasText(telegramUserId)) {
       return undefined;
     }
     return {
       botIdentity,
       canonicalChatId,
       telegramUserId,
-      ...(isRecord(request.invite_link) &&
-      typeof request.invite_link.invite_link === "string"
-        ? { inviteLink: request.invite_link.invite_link }
+      ...(isRecord(request["invite_link"]) &&
+      typeof request["invite_link"]["invite_link"] === "string"
+        ? { inviteLink: request["invite_link"]["invite_link"] }
         : {}),
-      requestedAt: new Date(request.date * 1000),
+      requestedAt: new Date(request["date"] * 1000),
       updateId,
     };
   }
@@ -369,22 +370,22 @@ export class GrammyUpdateAdapter implements TelegramUpdateTranslator {
     if (!parsed) {
       return undefined;
     }
-    const actor = parsed.update.from;
+    const actor = parsed.update["from"];
     if (!isRecord(actor)) {
       return undefined;
     }
 
-    const actorTelegramUserId = telegramId(actor.id);
-    const subjectTelegramUserId = telegramId(parsed.member.user.id);
-    if (!actorTelegramUserId || !subjectTelegramUserId) {
+    const actorTelegramUserId = telegramId(actor["id"]);
+    const subjectTelegramUserId = telegramId(parsed.member.user["id"]);
+    if (!hasText(actorTelegramUserId) || !hasText(subjectTelegramUserId)) {
       return undefined;
     }
 
     return {
       actorIsSubject: actorTelegramUserId === subjectTelegramUserId,
       actorTelegramUserId,
-      ...(typeof actor.is_bot === "boolean"
-        ? { actorIsBot: actor.is_bot }
+      ...(typeof actor["is_bot"] === "boolean"
+        ? { actorIsBot: actor["is_bot"] }
         : {}),
       botIdentity,
       canonicalChatId: parsed.chatId,
@@ -405,7 +406,10 @@ export class GrammyUpdateAdapter implements TelegramUpdateTranslator {
     if (!parsed) {
       return undefined;
     }
-    if (parsed.chat.type === "private" || parsed.member.user.is_bot !== true) {
+    if (
+      parsed.chat["type"] === "private" ||
+      parsed.member.user["is_bot"] !== true
+    ) {
       return undefined;
     }
     return {
@@ -428,25 +432,29 @@ export class GrammyUpdateAdapter implements TelegramUpdateTranslator {
     if (!isRecord(message)) {
       return undefined;
     }
-    const chat = message.chat;
-    const from = message.from;
+    const chat = message["chat"];
+    const from = message["from"];
     if (
       !isRecord(chat) ||
-      chat.type !== "private" ||
+      chat["type"] !== "private" ||
       !isRecord(from) ||
-      from.is_bot !== false ||
-      typeof message.text !== "string"
+      from["is_bot"] !== false ||
+      typeof message["text"] !== "string"
     ) {
       return undefined;
     }
-    const start = parseStart(message.text);
+    const start = parseStart(message["text"]);
     if (!start || start.argument !== undefined) {
       return undefined;
     }
 
-    const telegramUserId = telegramId(from.id);
-    const privateChatId = telegramId(chat.id);
-    if (!telegramUserId || !privateChatId || telegramUserId !== privateChatId) {
+    const telegramUserId = telegramId(from["id"]);
+    const privateChatId = telegramId(chat["id"]);
+    if (
+      !hasText(telegramUserId) ||
+      !hasText(privateChatId) ||
+      telegramUserId !== privateChatId
+    ) {
       return undefined;
     }
 
@@ -460,20 +468,20 @@ export class GrammyUpdateAdapter implements TelegramUpdateTranslator {
         telegramUserId,
         updateId,
       },
-      ...(isRecord(message._inside_activation) &&
-      (message._inside_activation.code === null ||
-        typeof message._inside_activation.code === "string")
-        ? { activationCode: message._inside_activation.code }
+      ...(isRecord(message["_inside_activation"]) &&
+      (message["_inside_activation"]["code"] === null ||
+        typeof message["_inside_activation"]["code"] === "string")
+        ? { activationCode: message["_inside_activation"]["code"] }
         : {}),
-      ...(isRecord(message._inside_invitation) &&
-      (message._inside_invitation.code === null ||
-        typeof message._inside_invitation.code === "string")
-        ? { invitationCode: message._inside_invitation.code }
+      ...(isRecord(message["_inside_invitation"]) &&
+      (message["_inside_invitation"]["code"] === null ||
+        typeof message["_inside_invitation"]["code"] === "string")
+        ? { invitationCode: message["_inside_invitation"]["code"] }
         : {}),
       ...(linkToken ? { linkToken } : {}),
       ...(signInToken ? { signInToken } : {}),
-      ...(typeof message._inside_marketing_source === "string"
-        ? { marketingSource: message._inside_marketing_source }
+      ...(typeof message["_inside_marketing_source"] === "string"
+        ? { marketingSource: message["_inside_marketing_source"] }
         : {}),
     };
   }
@@ -488,25 +496,25 @@ export class GrammyUpdateAdapter implements TelegramUpdateTranslator {
     if (!isRecord(contactabilityUpdate)) {
       return undefined;
     }
-    const chat = contactabilityUpdate.chat;
-    const from = contactabilityUpdate.from;
-    const newChatMember = contactabilityUpdate.new_chat_member;
+    const chat = contactabilityUpdate["chat"];
+    const from = contactabilityUpdate["from"];
+    const newChatMember = contactabilityUpdate["new_chat_member"];
     if (
       !isRecord(chat) ||
-      chat.type !== "private" ||
+      chat["type"] !== "private" ||
       !isRecord(from) ||
-      from.is_bot !== false ||
+      from["is_bot"] !== false ||
       !isRecord(newChatMember)
     ) {
       return undefined;
     }
 
-    const telegramUserId = telegramId(from.id);
-    if (!telegramUserId) {
+    const telegramUserId = telegramId(from["id"]);
+    if (!hasText(telegramUserId)) {
       return undefined;
     }
 
-    const status = newChatMember.status;
+    const status = newChatMember["status"];
     if (status !== "kicked" && status !== "member") {
       return undefined;
     }
@@ -527,7 +535,7 @@ function parseStart(
   const match = /^(\/start(?:@[A-Za-z0-9_]+)?)(?:\s+([\s\S]+))?$/.exec(
     text.trim(),
   );
-  if (!match?.[1]) {
+  if (!hasText(match?.[1])) {
     return undefined;
   }
   return {
@@ -544,15 +552,15 @@ function readLinkToken(
   if (!isRecord(value)) {
     return undefined;
   }
-  if (value.kind === "malformed") {
+  if (value["kind"] === "malformed") {
     return { kind: "malformed" };
   }
   if (
-    value.kind === "digest" &&
-    typeof value.digest === "string" &&
-    /^[A-Za-z0-9_-]{43}$/.test(value.digest)
+    value["kind"] === "digest" &&
+    typeof value["digest"] === "string" &&
+    /^[A-Za-z0-9_-]{43}$/.test(value["digest"])
   ) {
-    return { digest: value.digest, kind: "digest" };
+    return { digest: value["digest"], kind: "digest" };
   }
   return { kind: "malformed" };
 }
@@ -582,7 +590,7 @@ function privateCallback(
   )
     return undefined;
   const user = telegramId(callback.from.id);
-  if (!user) return undefined;
+  if (!hasText(user)) return undefined;
   return {
     contact: {
       botIdentity,
@@ -601,27 +609,27 @@ function privateSignInDecision(
 ): VerifiedSignInDecision | undefined {
   if (
     !isRecord(value) ||
-    !isRecord(value.from) ||
-    value.from.is_bot !== false ||
-    !isRecord(value.message) ||
-    !isRecord(value.message.chat) ||
-    value.message.chat.type !== "private" ||
-    typeof value.data !== "string"
+    !isRecord(value["from"]) ||
+    value["from"]["is_bot"] !== false ||
+    !isRecord(value["message"]) ||
+    !isRecord(value["message"]["chat"]) ||
+    value["message"]["chat"]["type"] !== "private" ||
+    typeof value["data"] !== "string"
   )
     return undefined;
   const match =
     /^signin:(approve|deny):([0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12})$/.exec(
-      value.data,
+      value["data"],
     );
-  const telegramUserId = telegramId(value.from.id);
-  const privateChatId = telegramId(value.message.chat.id);
-  const messageId = telegramId(value.message.message_id);
+  const telegramUserId = telegramId(value["from"]["id"]);
+  const privateChatId = telegramId(value["message"]["chat"]["id"]);
+  const messageId = telegramId(value["message"]["message_id"]);
   const requestRef = match?.[2];
   if (
-    !requestRef ||
-    !telegramUserId ||
-    !privateChatId ||
-    !messageId ||
+    !hasText(requestRef) ||
+    !hasText(telegramUserId) ||
+    !hasText(privateChatId) ||
+    !hasText(messageId) ||
     telegramUserId !== privateChatId
   )
     return undefined;
@@ -681,34 +689,34 @@ function parseChatMemberUpdated(
   if (!isRecord(value)) {
     return undefined;
   }
-  const chat = value.chat;
-  const member = value.new_chat_member;
+  const chat = value["chat"];
+  const member = value["new_chat_member"];
   if (
     !isRecord(chat) ||
     !isRecord(member) ||
-    !isRecord(member.user) ||
-    typeof member.status !== "string" ||
-    typeof value.date !== "number" ||
-    !Number.isSafeInteger(value.date) ||
-    value.date < 0
+    !isRecord(member["user"]) ||
+    typeof member["status"] !== "string" ||
+    typeof value["date"] !== "number" ||
+    !Number.isSafeInteger(value["date"]) ||
+    value["date"] < 0
   ) {
     return undefined;
   }
-  const chatId = signedTelegramId(chat.id);
-  if (!chatId) {
+  const chatId = signedTelegramId(chat["id"]);
+  if (!hasText(chatId)) {
     return undefined;
   }
   return {
     chat,
     chatId,
     chatMember: toTelegramChatMember({
-      ...(typeof member.is_member === "boolean"
-        ? { is_member: member.is_member }
+      ...(typeof member["is_member"] === "boolean"
+        ? { is_member: member["is_member"] }
         : {}),
-      status: member.status,
+      status: member["status"],
     }),
-    eventAt: new Date(value.date * 1000),
-    member: { ...member, user: member.user },
+    eventAt: new Date(value["date"] * 1000),
+    member: { ...member, user: member["user"] },
     update: value,
   };
 }

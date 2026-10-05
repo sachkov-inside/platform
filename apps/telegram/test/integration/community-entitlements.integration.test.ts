@@ -35,8 +35,8 @@ import { required } from "../support/required.js";
 import { conforming } from "../support/json.js";
 
 const CHAT = "-1000000000000";
-const db = createDatabase(required(process.env.DATABASE_URL));
-const other = createDatabase(required(process.env.DATABASE_URL));
+const db = createDatabase(required(process.env["DATABASE_URL"]));
+const other = createDatabase(required(process.env["DATABASE_URL"]));
 const clock = {
   value: new Date("2026-09-08T09:00:00Z"),
   now() {
@@ -1185,7 +1185,7 @@ describe("handing the link over in the private chat", () => {
     marketingEnabled: false,
     botIdentity,
     canonicalChatId: CHAT,
-    databaseUrl: required(process.env.DATABASE_URL),
+    databaseUrl: required(process.env["DATABASE_URL"]),
     deliveryMode: "disabled",
     evidenceDeliveryMode: "disabled",
     host: "127.0.0.1",

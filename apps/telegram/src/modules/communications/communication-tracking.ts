@@ -1,3 +1,4 @@
+import { hasText } from "../../shared/text.js";
 import { isDeepStrictEqual } from "node:util";
 import { randomBytes } from "node:crypto";
 import { Inject, Injectable } from "@nestjs/common";
@@ -32,10 +33,10 @@ export function isTrackingDestination(
   }
   if (
     url.protocol !== "https:" ||
-    url.username ||
-    url.password ||
-    url.search ||
-    url.hash ||
+    hasText(url.username) ||
+    hasText(url.password) ||
+    hasText(url.search) ||
+    hasText(url.hash) ||
     url.hostname.replace(/\.$/, "") === "api.telegram.org"
   )
     return false;
@@ -58,7 +59,7 @@ export async function trackedContent(
   now: Date,
 ): Promise<TemplateContent> {
   const redirectUrl = config.platformTrackingRedirectUrl;
-  if (!redirectUrl) return content;
+  if (!hasText(redirectUrl)) return content;
   // A hoisted function declaration does not keep the narrowing above.
   const target = redirectUrl;
   async function link(value: string): Promise<string> {
@@ -92,7 +93,7 @@ export async function trackedContent(
     buttons.push({ ...button, url: await link(button.url) });
   const entities = [];
   for (const entity of content.entities) {
-    if (entity.type === "text_link" && entity.url)
+    if (entity.type === "text_link" && hasText(entity.url))
       entities.push({ ...entity, url: await link(entity.url) });
     else if (entity.type === "url") {
       const original = content.text.slice(
@@ -119,7 +120,7 @@ export class CommunicationTracking {
   async execute(request: CommunicationsRequest) {
     if (
       !("serviceRef" in request.actor) ||
-      request.actor.serviceRef !== "platform-tracking"
+      !["platform-tracking"].includes(request.actor.serviceRef)
     )
       throw new CommunicationsError("forbidden");
     if (!["tracking.resolve", "tracking.recordHit"].includes(request.operation))

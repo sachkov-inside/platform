@@ -1,3 +1,5 @@
+import { isTruthy } from "../../shared/truthiness.js";
+import { hasText } from "../../shared/text.js";
 import { findPlatformLink } from "../identity-linking/platform-links.js";
 import { enqueueReply } from "../outbound/start-response-delivery-queue.js";
 import { lockTelegramIdentity } from "../identity-linking/identity-link-account-lock.js";
@@ -70,7 +72,7 @@ export class BotSignIn {
   ) {}
 
   async register(request: RegisterSignIn): Promise<SignInResult> {
-    if (!this.config.signInEnabled) return { status: "disabled" };
+    if (!isTruthy(this.config.signInEnabled)) return { status: "disabled" };
     const now = this.clock.now();
     if (
       !isRequestRef(request.requestRef) ||
@@ -127,7 +129,7 @@ export class BotSignIn {
     tokenDigest: string,
   ): Promise<void> {
     if (
-      !this.config.signInEnabled ||
+      !isTruthy(this.config.signInEnabled) ||
       contact.botIdentity !== this.config.botIdentity ||
       !isDigest(tokenDigest)
     )
@@ -141,8 +143,7 @@ export class BotSignIn {
         .forUpdate()
         .executeTakeFirst();
       const now = this.clock.now();
-      if (!request || request.state !== "pending" || request.expires_at <= now)
-        return;
+      if (request?.state !== "pending" || request.expires_at <= now) return;
       await transaction
         .updateTable("sign_in_requests")
         .set({
@@ -169,7 +170,7 @@ export class BotSignIn {
 
   async decide(decision: VerifiedSignInDecision): Promise<void> {
     if (
-      !this.config.signInEnabled ||
+      !isTruthy(this.config.signInEnabled) ||
       !isRequestRef(decision.requestRef) ||
       decision.botIdentity !== this.config.botIdentity
     )
@@ -216,7 +217,7 @@ export class BotSignIn {
     browserSecret: string,
     consume = false,
   ): Promise<SignInResult> {
-    if (!this.config.signInEnabled) return { status: "disabled" };
+    if (!isTruthy(this.config.signInEnabled)) return { status: "disabled" };
     if (!isRequestRef(requestRef) || !isDigest(browserSecret))
       return { status: "unavailable" };
     return this.database
@@ -246,7 +247,7 @@ export class BotSignIn {
           return { status: "pending" };
         if (request.state !== "approved") return { status: request.state };
         if (!consume) return { status: "approved" };
-        if (!request.telegram_user_id || !request.approved_at)
+        if (!hasText(request.telegram_user_id) || !request.approved_at)
           return { status: "unavailable" };
         await lockTelegramIdentity(
           transaction,

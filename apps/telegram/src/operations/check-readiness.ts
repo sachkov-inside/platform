@@ -1,18 +1,19 @@
+import { hasText } from "../shared/text.js";
 import { Client } from "pg";
 
 const database = new Client({
-  connectionString: process.env.DATABASE_URL,
+  connectionString: process.env["DATABASE_URL"],
   connectionTimeoutMillis: 2000,
   query_timeout: 2000,
   statement_timeout: 2000,
 });
 
 try {
-  if (!process.env.DATABASE_URL) {
+  if (!hasText(process.env["DATABASE_URL"])) {
     throw new Error("Missing database configuration");
   }
   const response = await fetch(
-    `http://127.0.0.1:${process.env.PORT ?? "3002"}/integrations/platform/v1/identity-links`,
+    `http://127.0.0.1:${process.env["PORT"] ?? "3002"}/integrations/platform/v1/identity-links`,
     { method: "POST", signal: AbortSignal.timeout(2000) },
   );
   if (response.status !== 401) {

@@ -1,3 +1,6 @@
+import { closeIfStarted } from "../support/close-if-started.js";
+import { isTruthy } from "../../src/shared/truthiness.js";
+import { hasText } from "../../src/shared/text.js";
 import { randomUUID } from "node:crypto";
 import Fastify from "fastify";
 import { Test } from "@nestjs/testing";
@@ -81,9 +84,9 @@ function outcome(name: string, attemptId: unknown) {
   return {
     ...fixture,
     value: {
-      ...record(fixture.value),
+      ...record(fixture["value"]),
       attemptId,
-      ...(outcomeState ? { state: outcomeState } : {}),
+      ...(hasText(outcomeState) ? { state: outcomeState } : {}),
     },
   };
 }
@@ -96,7 +99,7 @@ provider.post<{ Params: { operation: string }; Body: Record<string, unknown> }>(
     const path = request.params.operation;
     requests.push({ path, body: structuredClone(body) });
     if (path === "binding") {
-      const binding = bindings.get(String(body.identityRef));
+      const binding = bindings.get(String(body["identityRef"]));
       return Promise.resolve({
         ok: true,
         value: {
@@ -108,13 +111,13 @@ provider.post<{ Params: { operation: string }; Body: Record<string, unknown> }>(
     if (path === "attempts") {
       if (beginPending)
         return Promise.resolve(
-          outcome("tribute-nonpaid-pending-review", body.attemptId),
+          outcome("tribute-nonpaid-pending-review", body["attemptId"]),
         );
       return Promise.resolve({
         ok: true,
         value: {
           contractVersion: ACTIVATION_VERSION,
-          attemptId: body.attemptId,
+          attemptId: body["attemptId"],
           state: "checking",
           enrollment: null,
           rule: {
@@ -130,10 +133,10 @@ provider.post<{ Params: { operation: string }; Body: Record<string, unknown> }>(
       });
     }
     if (path === "evidence") {
-      const key = String(body.evidenceRef);
+      const key = String(body["evidenceRef"]);
       let result = receipts.get(key);
-      if (!result) {
-        result = outcome(replyFixture, body.attemptId);
+      if (!isTruthy(result)) {
+        result = outcome(replyFixture, body["attemptId"]);
         receipts.set(key, result);
       }
       if (loseResponse) {
@@ -148,7 +151,7 @@ provider.post<{ Params: { operation: string }; Body: Record<string, unknown> }>(
 beforeAll(async () => {
   const address = await provider.listen({ host: "127.0.0.1", port: 0 });
   const config = loadApplicationConfig({
-    DATABASE_URL: process.env.DATABASE_URL,
+    DATABASE_URL: process.env["DATABASE_URL"],
     TELEGRAM_BOT_IDENTITY: bot,
     TELEGRAM_CANONICAL_CHAT_ID: "-1000000000000",
     TELEGRAM_WEBHOOK_SECRET: "synthetic-tribute-webhook-secret-for-tests",
@@ -219,7 +222,7 @@ beforeEach(async () => {
   clock.value = new Date();
 });
 afterAll(async () => {
-  await app?.close();
+  await closeIfStarted(app);
   await provider.close();
 });
 async function start(recipient: number) {
@@ -269,7 +272,7 @@ function messages(recipient: number) {
 }
 function advance(days = 0) {
   clock.value = new Date(
-    clock.now().getTime() + (days ? days * 86400_000 : 61_000),
+    clock.now().getTime() + (isTruthy(days) ? days * 86400_000 : 61_000),
   );
 }
 
@@ -321,7 +324,7 @@ describe("Tribute registry consumer with real HTTP and PostgreSQL", () => {
       const second = await linked();
       await worker.processAvailable();
       expect(first.binding.identityRef).not.toBe(second.binding.identityRef);
-      expect(evidenceBodies.map((s) => jsonRecord(s).identityRef)).toEqual([
+      expect(evidenceBodies.map((s) => jsonRecord(s)["identityRef"])).toEqual([
         first.binding.identityRef,
         second.binding.identityRef,
       ]);

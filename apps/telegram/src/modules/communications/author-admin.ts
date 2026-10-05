@@ -1,3 +1,5 @@
+import { isTruthy } from "../../shared/truthiness.js";
+import { hasText } from "../../shared/text.js";
 import { randomUUID } from "node:crypto";
 import { Inject, Injectable } from "@nestjs/common";
 import { sql, type Transaction } from "kysely";
@@ -126,7 +128,7 @@ export class AuthorAdmin {
       const close = /^\/cancel(?:@[A-Za-z0-9_]+)?$/.test(input.text);
       if (
         !open &&
-        !input.callbackData &&
+        !hasText(input.callbackData) &&
         (!session || (!close && input.text.startsWith("/")))
       )
         return false;
@@ -183,7 +185,7 @@ export class AuthorAdmin {
             ? { kind: "open" }
             : close
               ? { kind: "close" }
-              : input.callbackData
+              : hasText(input.callbackData)
                 ? { kind: "callback", data: input.callbackData }
                 : { kind: "text", text: input.text, content: input.content },
         );
@@ -298,7 +300,7 @@ export class AuthorAdmin {
             buttons: [],
           },
           authorMenu: true,
-          editMenu: Boolean(c.input.callbackData) && !effect.fresh,
+          editMenu: isTruthy(c.input.callbackData) && !effect.fresh,
           authorButtons: effect.buttons,
         });
         return;
@@ -341,7 +343,9 @@ export class AuthorAdmin {
           this.request(
             c,
             "statistics.read",
-            effect.broadcastId ? { broadcastId: effect.broadcastId } : {},
+            hasText(effect.broadcastId)
+              ? { broadcastId: effect.broadcastId }
+              : {},
           ),
           c.tx,
         );
@@ -357,7 +361,7 @@ export class AuthorAdmin {
           this.request(
             c,
             "templates.list",
-            effect.cursor ? { cursor: effect.cursor } : {},
+            hasText(effect.cursor) ? { cursor: effect.cursor } : {},
           ),
           c.tx,
           { search: effect.search, limit: 10 },

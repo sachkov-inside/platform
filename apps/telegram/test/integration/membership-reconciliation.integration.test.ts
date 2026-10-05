@@ -1,3 +1,4 @@
+import { hasText } from "../../src/shared/text.js";
 import { sql } from "kysely";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 
@@ -13,8 +14,8 @@ import type {
 } from "../../src/modules/membership-evidence/telegram-membership.js";
 import { RuntimeMetrics } from "../../src/operations/runtime-metrics.js";
 
-const databaseUrl = process.env.DATABASE_URL;
-if (!databaseUrl) {
+const databaseUrl = process.env["DATABASE_URL"];
+if (!hasText(databaseUrl)) {
   throw new Error("DATABASE_URL is required for integration tests");
 }
 

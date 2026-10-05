@@ -1,3 +1,4 @@
+import { hasText } from "../../shared/text.js";
 import { Ajv } from "ajv";
 import addFormats from "ajv-formats";
 
@@ -185,36 +186,38 @@ export function parseCommunityRequest(
 ): ParsedCommunityRequest {
   const record = isRecord(body) ? body : undefined;
   const operationId =
-    typeof record?.operationId === "string" && UUID.test(record.operationId)
-      ? record.operationId.toLowerCase()
+    typeof record?.["operationId"] === "string" &&
+    UUID.test(record["operationId"])
+      ? record["operationId"].toLowerCase()
       : undefined;
   const rejected = (error: CommunityErrorCode): ParsedCommunityRequest =>
-    operationId
+    hasText(operationId)
       ? { kind: "rejected", error, operationId }
       : { kind: "rejected", error };
   if (!record) return rejected("malformed");
   if (
-    record.contractVersion !== version &&
+    record["contractVersion"] !== version &&
     !(
-      record.operation === "entitlement.status" &&
-      record.contractVersion === COMMUNITY_CONTRACT_VERSION
+      record["operation"] === "entitlement.status" &&
+      record["contractVersion"] === COMMUNITY_CONTRACT_VERSION
     )
   )
     return rejected("unsupported_contract");
   if (canonicalBytes(record) > 16384) return rejected("malformed");
 
-  if (record.operation === "entitlement.status") {
+  if (record["operation"] === "entitlement.status") {
     if (
-      !(record.contractVersion === COMMUNITY_V2
+      !(record["contractVersion"] === COMMUNITY_V2
         ? validV2Status(record)
         : validStatusQuery(record)) ||
-      !operationId
+      !hasText(operationId)
     )
       return rejected("malformed");
     return { kind: "status", operationId };
   }
   const validCommand = version === COMMUNITY_V2 ? validV2Set : validSet;
-  if (!validCommand(record) || !operationId) return rejected("malformed");
+  if (!validCommand(record) || !hasText(operationId))
+    return rejected("malformed");
   const command = normalize(record, operationId);
   return {
     kind: "set",
@@ -239,7 +242,11 @@ function normalize(
 }
 
 function canonicalBytes(value: unknown): number {
-  return Buffer.byteLength(JSON.stringify(value) ?? "", "utf8");
+  const serialized: unknown = JSON.stringify(value);
+  return Buffer.byteLength(
+    typeof serialized === "string" ? serialized : "",
+    "utf8",
+  );
 }
 
 export function assertCommunityResult(

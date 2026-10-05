@@ -1,3 +1,4 @@
+import { hasText } from "../shared/text.js";
 import { createHash } from "node:crypto";
 
 import type {
@@ -40,8 +41,8 @@ export function parseRecoveryArguments(
       execute = true;
       continue;
     }
-    if (!argument) {
-      throw new Error(`Unknown owner recovery argument: ${argument ?? ""}`);
+    if (!hasText(argument)) {
+      throw new Error(`Unknown owner recovery argument: ${argument}`);
     }
     throw new Error(`Unknown owner recovery argument: ${argument}`);
   }
@@ -98,7 +99,7 @@ function parseInputDocument(inputDocument: string): Map<string, string> {
     if (values.has(key)) {
       throw new Error(`Duplicate owner recovery input: ${key}`);
     }
-    if (!value) {
+    if (!hasText(value)) {
       throw new Error(`${key} is required`);
     }
     values.set(key, value);
@@ -137,7 +138,7 @@ function fingerprint(value: string): string {
 
 function required(values: ReadonlyMap<string, string>, name: string): string {
   const value = values.get(name);
-  if (!value) {
+  if (!hasText(value)) {
     throw new Error(`${name} is required`);
   }
   return value;

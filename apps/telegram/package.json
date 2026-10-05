@@ -6,7 +6,6 @@
   "engines": {
     "node": "24.x"
   },
-  "packageManager": "pnpm@11.27.1",
   "scripts": {
     "build": "tsc -p tsconfig.build.json",
     "check": "pnpm format:check && pnpm lint && pnpm typecheck && pnpm guardrails && pnpm test && pnpm build",
@@ -18,13 +17,13 @@
     "credentialed-proof:wizard": "bash scripts/credentialed-proof-wizard.sh",
     "db:migrate": "tsx src/database/migrate.ts",
     "dev": "tsx watch src/main.ts",
-    "format": "prettier --write .",
-    "format:check": "prettier --check .",
+    "format": "pnpm --dir ../.. format",
+    "format:check": "pnpm --dir ../.. format:check",
     "guardrails": "node scripts/check-architecture.mjs",
     "infra:down": "docker compose down",
     "infra:up": "docker compose up -d --wait postgres rabbitmq",
     "owner:recover-identity": "tsx src/operations/recover-identity-link.ts",
-    "lint": "oxlint --deny-warnings --report-unused-disable-directives .",
+    "lint": "pnpm --dir ../.. lint",
     "start": "node dist/main.js",
     "test": "vitest run --config vitest.config.ts",
     "test:integration": "vitest run --config vitest.integration.config.ts",
@@ -37,6 +36,7 @@
     "proof:course:existing": "node test/local/course-existing-browser.mjs"
   },
   "dependencies": {
+    "@inside/access-capabilities": "workspace:*",
     "@nestjs/common": "12.1.0",
     "@nestjs/core": "12.1.0",
     "@nestjs/platform-fastify": "12.1.0",
@@ -61,6 +61,7 @@
     "prettier": "3.9.9",
     "tsx": "4.23.15",
     "typescript": "7.0.2",
-    "vitest": "4.1.11"
+    "vitest": "4.1.11",
+    "zod": "4.6.5"
   }
 }

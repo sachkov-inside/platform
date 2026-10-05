@@ -1,3 +1,4 @@
+import { isTruthy } from "../../src/shared/truthiness.js";
 import { randomUUID } from "node:crypto";
 import { Test } from "@nestjs/testing";
 import {
@@ -42,7 +43,7 @@ const clock = {
   },
 };
 const config = loadApplicationConfig({
-  DATABASE_URL: process.env.DATABASE_URL,
+  DATABASE_URL: process.env["DATABASE_URL"],
   TELEGRAM_BOT_IDENTITY: bot,
   TELEGRAM_CANONICAL_CHAT_ID: canonicalChatId,
   TELEGRAM_WEBHOOK_SECRET: "synthetic-owner-link-webhook-secret",
@@ -105,7 +106,7 @@ const platform: ActivationPlatform = {
     const code = Object.keys(rules).find(
       (key): key is Code => key === input.code,
     );
-    if (!code)
+    if (code === undefined)
       return Promise.resolve({ ok: false, error: { code: "not_found" } });
     if (paused.has(code))
       return Promise.resolve({ ok: false, error: { code: "policy_paused" } });
@@ -138,7 +139,7 @@ const platform: ActivationPlatform = {
         contractVersion: ACTIVATION_VERSION,
         attemptId: input.attemptId,
         state: confirmed
-          ? prior
+          ? isTruthy(prior)
             ? "already_active"
             : "active"
           : input.decision === "registry_lookup"

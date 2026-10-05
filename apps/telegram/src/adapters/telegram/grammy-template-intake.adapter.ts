@@ -1,3 +1,4 @@
+import { isTruthy } from "../../shared/truthiness.js";
 import type { TemplateContent } from "../../modules/communications/communications-contract.js";
 import type { TemplateIntake } from "../../modules/communications/author-input.js";
 
@@ -7,20 +8,21 @@ export function translateTemplateIntake(
   updateId: string,
   payload: unknown,
 ): TemplateIntake | undefined {
-  if (!record(payload) || !record(payload.message)) return undefined;
-  const message = payload.message;
+  if (!record(payload) || !record(payload["message"])) return undefined;
+  const message = payload["message"];
   if (
-    !record(message.from) ||
-    message.from.is_bot !== false ||
-    !record(message.chat) ||
-    message.chat.type !== "private" ||
-    !Number.isSafeInteger(message.from.id) ||
-    Number(message.from.id) <= 0 ||
-    message.chat.id !== message.from.id ||
-    message.sender_chat
+    !record(message["from"]) ||
+    message["from"]["is_bot"] !== false ||
+    !record(message["chat"]) ||
+    message["chat"]["type"] !== "private" ||
+    !Number.isSafeInteger(message["from"]["id"]) ||
+    Number(message["from"]["id"]) <= 0 ||
+    message["chat"]["id"] !== message["from"]["id"] ||
+    isTruthy(message["sender_chat"])
   )
     return undefined;
-  const text = typeof message.text === "string" ? message.text.trim() : "";
+  const text =
+    typeof message["text"] === "string" ? message["text"].trim() : "";
   const action = /^\/template(?:@[A-Za-z0-9_]+)?$/.test(text)
     ? "open"
     : /^\/cancel(?:@[A-Za-z0-9_]+)?$/.test(text)
@@ -30,22 +32,22 @@ export function translateTemplateIntake(
   return {
     botIdentity,
     updateId,
-    telegramUserId: String(message.from.id),
-    privateChatId: String(message.chat.id),
+    telegramUserId: String(message["from"]["id"]),
+    privateChatId: String(message["chat"]["id"]),
     action,
     content: snapshot(message),
   };
 }
 export function snapshot(message: Record<string, unknown>): unknown {
   if (
-    message.media_group_id ||
-    message.poll ||
-    message.animation ||
-    message.audio ||
-    message.sticker ||
-    message.rich_message ||
-    message.paid_media ||
-    message.live_photo
+    isTruthy(message["media_group_id"]) ||
+    isTruthy(message["poll"]) ||
+    isTruthy(message["animation"]) ||
+    isTruthy(message["audio"]) ||
+    isTruthy(message["sticker"]) ||
+    isTruthy(message["rich_message"]) ||
+    isTruthy(message["paid_media"]) ||
+    isTruthy(message["live_photo"])
   )
     return null;
   const kinds = [
@@ -62,21 +64,21 @@ export function snapshot(message: Record<string, unknown>): unknown {
   let fileId: unknown;
   if (type !== "text") {
     const media: unknown =
-      type === "photo" && Array.isArray(message.photo)
-        ? message.photo.at(-1)
+      type === "photo" && Array.isArray(message["photo"])
+        ? message["photo"].at(-1)
         : message[type];
     if (!record(media)) return null;
-    fileId = media.file_id;
+    fileId = media["file_id"];
   }
   let buttons: unknown[] = [];
-  if (message.reply_markup !== undefined) {
+  if (message["reply_markup"] !== undefined) {
     if (
-      !record(message.reply_markup) ||
-      !Array.isArray(message.reply_markup.inline_keyboard)
+      !record(message["reply_markup"]) ||
+      !Array.isArray(message["reply_markup"]["inline_keyboard"])
     )
       return null;
     // Do not silently discard callback/pay/login buttons or other unsupported markup.
-    buttons = message.reply_markup.inline_keyboard.flat();
+    buttons = message["reply_markup"]["inline_keyboard"].flat();
     if (
       buttons.some(
         (button) =>
@@ -85,7 +87,7 @@ export function snapshot(message: Record<string, unknown>): unknown {
       )
     )
       return null;
-    buttons = message.reply_markup.inline_keyboard.flatMap(
+    buttons = message["reply_markup"]["inline_keyboard"].flatMap(
       (row: unknown, index: number) =>
         Array.isArray(row)
           ? row.map((button: Record<string, unknown>) => ({
@@ -97,9 +99,10 @@ export function snapshot(message: Record<string, unknown>): unknown {
   }
   return {
     type,
-    text: type === "text" ? message.text : (message.caption ?? ""),
+    text: type === "text" ? message["text"] : (message["caption"] ?? ""),
     entities:
-      (type === "text" ? message.entities : message.caption_entities) ?? [],
+      (type === "text" ? message["entities"] : message["caption_entities"]) ??
+      [],
     buttons,
     ...(type !== "text" ? { fileId } : {}),
   } satisfies Omit<

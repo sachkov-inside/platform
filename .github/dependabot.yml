@@ -46,6 +46,7 @@ updates:
     directories:
       - /apps/backend
       - /apps/web
+      - /apps/telegram/infra/production
     schedule:
       interval: weekly
       day: monday

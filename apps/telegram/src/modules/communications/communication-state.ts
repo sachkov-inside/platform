@@ -1,3 +1,4 @@
+import { isTruthy } from "../../shared/truthiness.js";
 import { randomUUID } from "node:crypto";
 import { sql, type Transaction } from "kysely";
 import type { DatabaseSchema } from "../../database/database.js";
@@ -66,7 +67,7 @@ export async function lockContactRows(
   tx: Transaction<DatabaseSchema>,
   contactIds: readonly string[],
 ): Promise<void> {
-  if (!contactIds.length) return;
+  if (!isTruthy(contactIds.length)) return;
   await tx
     .selectFrom("communication_contacts")
     .select("contact_id")

@@ -1,3 +1,4 @@
+import { hasText } from "../../src/shared/text.js";
 import { createHash } from "node:crypto";
 
 import { sql } from "kysely";
@@ -13,8 +14,8 @@ import {
 import { InMemoryIdentityLinkingAdapter } from "../../src/modules/identity-linking/in-memory-identity-linking.adapter.js";
 import { anyString } from "../support/matchers.js";
 
-const databaseUrl = process.env.DATABASE_URL;
-if (!databaseUrl) {
+const databaseUrl = process.env["DATABASE_URL"];
+if (!hasText(databaseUrl)) {
   throw new Error("DATABASE_URL is required for integration tests");
 }
 

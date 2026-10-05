@@ -1,3 +1,4 @@
+import { hasText } from "../../shared/text.js";
 /** Stream facts that Platform owns and that the welcome may show. */
 export interface CommunityWelcomeDetails {
   /** Calendar date of the stream start as `YYYY-MM-DD`. */
@@ -25,7 +26,7 @@ export function communityWelcomeMessage(
   inviteLink: string,
   details: CommunityWelcomeDetails = {},
 ): string {
-  const start = details.streamStartsOn
+  const start = hasText(details.streamStartsOn)
     ? `\nСтарт потока: ${STREAM_START.format(new Date(`${details.streamStartsOn}T00:00:00Z`))}`
     : "";
   return `${text}${start}\n${inviteLink}`;

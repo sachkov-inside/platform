@@ -577,7 +577,7 @@ describe("inside-telegram-deploy gateway", { timeout: 30_000 }, () => {
   it("rejects a self-consistent manifest that is not the GitHub release asset", () => {
     const v1 = publishRelease("v1", identityA);
     const forged = jsonRecord(v1.manifest);
-    forged.image = `ghcr.io/${repository}@sha256:${"9".repeat(64)}`;
+    forged["image"] = `ghcr.io/${repository}@sha256:${"9".repeat(64)}`;
 
     const result = run("deploy v1 803", {
       ...v1,
@@ -835,7 +835,7 @@ function runWithInput(
     encoding: "utf8",
     env: {
       ...process.env,
-      PATH: `${bin}:${process.env.PATH ?? ""}`,
+      PATH: `${bin}:${process.env["PATH"] ?? ""}`,
       SSH_ORIGINAL_COMMAND: command,
       INSIDE_TELEGRAM_DEPLOY_TEST_ROOT: `${root}/host`,
       FAKE_ROOT: root,
@@ -859,8 +859,8 @@ function readState(): {
 } {
   const state = jsonRecord(readFileSync(stateFile(), "utf8"));
   return {
-    current: record(state.current),
-    previous: state.previous === null ? null : record(state.previous),
+    current: record(state["current"]),
+    previous: state["previous"] === null ? null : record(state["previous"]),
   };
 }
 

@@ -1,3 +1,6 @@
+import { closeIfStarted } from "../support/close-if-started.js";
+import { isTruthy } from "../../src/shared/truthiness.js";
+import { hasText } from "../../src/shared/text.js";
 import { randomUUID } from "node:crypto";
 import { setTimeout as delay } from "node:timers/promises";
 import {
@@ -43,8 +46,8 @@ const START_PROCESSING_LIMIT_MS = 1000;
 const START_REPLY_LIMIT_MS = 3000;
 const MEASUREMENT_CAP_MS = 60_000;
 
-const databaseUrl = process.env.DATABASE_URL;
-if (!databaseUrl) throw new Error("DATABASE_URL required");
+const databaseUrl = process.env["DATABASE_URL"];
+if (!hasText(databaseUrl)) throw new Error("DATABASE_URL required");
 const database = createDatabase(databaseUrl);
 const config = loadApplicationConfig({
   DATABASE_URL: databaseUrl,
@@ -110,7 +113,7 @@ beforeEach(async () => {
   sent.length = 0;
 });
 afterAll(async () => {
-  await app?.close();
+  await closeIfStarted(app);
   await database.destroy();
 });
 
@@ -306,9 +309,9 @@ async function elapsed(
 it(`answers /start within bounds while a funnel dispatches to ${AUDIENCE} contacts`, async () => {
   await seedDueAudience();
   const scheduler = app.get(FunnelScheduler);
-  let dispatching = true;
+  const workerState = { dispatching: true };
   const worker = (async () => {
-    while (dispatching) {
+    while (workerState.dispatching) {
       await scheduler.processAvailable();
       await delay(20);
     }
@@ -356,7 +359,7 @@ it(`answers /start within bounds while a funnel dispatches to ${AUDIENCE} contac
     expect(replyMs).toBeLessThan(START_REPLY_LIMIT_MS);
     expect(required(reply).message.content.text).toBe("intro");
   } finally {
-    dispatching = false;
+    workerState.dispatching = false;
     await Promise.race([worker, delay(MEASUREMENT_CAP_MS)]);
   }
   const backlog = sent.filter((s) => s.message.chatId !== "777");
@@ -564,7 +567,7 @@ it("never holds a BotContact whose chat lane is busy while the claim continues",
   const pausing = database.withPlugin({
     transformQuery(args) {
       if (
-        !intercepted.size &&
+        !isTruthy(intercepted.size) &&
         args.node.kind === "InsertQueryNode" &&
         JSON.stringify(args.node).includes("telegram_transport_fairness")
       )

@@ -159,14 +159,14 @@ function laneOf(payload: unknown): string | null {
   const update = record(payload);
   const chat = record(
     record(
-      update?.chat_member ??
-        update?.my_chat_member ??
-        update?.chat_join_request,
-    )?.chat,
+      update?.["chat_member"] ??
+        update?.["my_chat_member"] ??
+        update?.["chat_join_request"],
+    )?.["chat"],
   );
   const id =
-    chat?.id != null && chat.type !== "private"
-      ? chat.id
+    chat?.["id"] != null && chat["type"] !== "private"
+      ? chat["id"]
       : [
           "message",
           "edited_message",
@@ -174,7 +174,7 @@ function laneOf(payload: unknown): string | null {
           "chat_join_request",
           "my_chat_member",
         ]
-          .map((kind) => record(record(update?.[kind])?.from)?.id)
+          .map((kind) => record(record(update?.[kind])?.["from"])?.["id"])
           .find((value) => value != null);
   return typeof id === "number" || typeof id === "string" ? String(id) : null;
 }

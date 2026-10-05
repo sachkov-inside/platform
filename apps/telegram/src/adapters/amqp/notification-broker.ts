@@ -1,3 +1,4 @@
+import { isTruthy } from "../../shared/truthiness.js";
 import {
   connect,
   type ChannelModel,
@@ -122,7 +123,7 @@ export class NotificationBroker {
         },
         (error: unknown) => {
           clearTimeout(timeout);
-          if (error || this.returned)
+          if (isTruthy(error) || this.returned)
             reject(new Error("Notification result not confirmed/routed"));
           else resolve();
         },

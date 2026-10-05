@@ -1,3 +1,5 @@
+import { isGuideCapability } from "@inside/access-capabilities";
+import { isTruthy } from "../../shared/truthiness.js";
 import type {
   OwnAccess,
   ActivationResult,
@@ -108,7 +110,7 @@ export function ownAccessText(access: OwnAccess): string {
     rows.push(
       `Действующее основание: ${ground.source === "paid" ? "покупка" : ground.source === "manual" ? "назначение владельца" : "прежний доступ"}. ${term(ground.validUntil)}. Состав: ${ground.capabilities.map(capability).join(", ")}.`,
     );
-  if (!rows.length)
+  if (!isTruthy(rows.length))
     rows.push(
       "Действующие права не найдены. Кабинет и история доступны; это не мешает обратиться за подтверждением прежней покупки.",
     );
@@ -151,6 +153,6 @@ function capability(value: string): string {
         reviews: "ревью",
       } as Record<string, string>
     )[value] ??
-    (value.startsWith("guide:") ? "купленный продукт" : "состав в кабинете")
+    (isGuideCapability(value) ? "купленный продукт" : "состав в кабинете")
   );
 }

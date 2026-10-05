@@ -1,3 +1,4 @@
+import { hasText } from "../../src/shared/text.js";
 import { communicationFunnelsMigration } from "../../src/database/migrations/011-communication-funnels.js";
 import { randomUUID } from "node:crypto";
 import { sql } from "kysely";
@@ -25,8 +26,8 @@ import {
   privateStartUpdate,
 } from "../support/synthetic-telegram-updates.js";
 
-const databaseUrl = process.env.DATABASE_URL;
-if (!databaseUrl)
+const databaseUrl = process.env["DATABASE_URL"];
+if (!hasText(databaseUrl))
   throw new Error("DATABASE_URL is required for integration tests");
 const database = createDatabase(databaseUrl);
 beforeAll(() => migrateToLatest(database));

@@ -1,3 +1,4 @@
+import { hasText } from "../../src/shared/text.js";
 import { spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import {
@@ -26,9 +27,9 @@ function stepScript(workflow: string, name: string): string {
   const step = workflow
     .split("      - name: ")
     .find((part) => part.startsWith(`${name}\n`));
-  if (!step) throw new Error(`missing workflow step: ${name}`);
+  if (!hasText(step)) throw new Error(`missing workflow step: ${name}`);
   const body = step.split("        run: |\n")[1];
-  if (!body) throw new Error(`missing shell body: ${name}`);
+  if (!hasText(body)) throw new Error(`missing shell body: ${name}`);
   return body.replace(/^ {10}/gm, "");
 }
 
@@ -37,7 +38,7 @@ function job(workflow: string, name: string): string {
   const match = new RegExp(`^  ${name}:\\n((?: {4}.*\\n|\\n)*)`, "m").exec(
     workflow,
   );
-  if (!match?.[1]) throw new Error(`missing job: ${name}`);
+  if (!hasText(match?.[1])) throw new Error(`missing job: ${name}`);
   return match[1];
 }
 
@@ -156,7 +157,7 @@ esac
             encoding: "utf8",
             env: {
               ...process.env,
-              PATH: `${directory}:${process.env.PATH ?? ""}`,
+              PATH: `${directory}:${process.env["PATH"] ?? ""}`,
               FIXTURES: directory,
               RUNNER_TEMP: directory,
               GITHUB_REPOSITORY: "sachkov-inside/inside-telegram",
@@ -321,7 +322,7 @@ esac
           encoding: "utf8",
           env: {
             ...process.env,
-            PATH: `${directory}:${process.env.PATH ?? ""}`,
+            PATH: `${directory}:${process.env["PATH"] ?? ""}`,
             FIXTURES: fixtures,
             RUNNER_TEMP: directory,
             GITHUB_ENV: path.join(directory, "github.env"),
@@ -426,7 +427,7 @@ describe("release contract", () => {
       expect(identity()).toEqual(first);
       writeFileSync(path.join(directory, "001-first.ts"), "changed\n");
       const changed = identity();
-      expect(changed.identity).not.toBe(first.identity);
+      expect(changed["identity"]).not.toBe(first["identity"]);
       writeFileSync(path.join(directory, "002-second.ts"), "two\n");
       expect(identity()).toMatchObject({ count: 2, latest: "002-second.ts" });
     } finally {

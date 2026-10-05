@@ -1,3 +1,5 @@
+import { isTruthy } from "../../shared/truthiness.js";
+import { hasText } from "../../shared/text.js";
 import { unhandled } from "../../shared/unhandled.js";
 import { SubscriptionActivation } from "../subscription-activation/subscription-activation.js";
 import { InvitationRedemption } from "../subscription-activation/invitation-redemption.js";
@@ -98,7 +100,7 @@ export class TelegramUpdateProcessor {
     signal?: AbortSignal,
   ): Promise<number> {
     let processed = 0;
-    for (; processed < limit && !signal?.aborted; processed += 1) {
+    for (; processed < limit && !isTruthy(signal?.aborted); processed += 1) {
       const update = await this.inbox.claimNext(now ?? new Date());
       if (!update) {
         break;
@@ -158,7 +160,7 @@ export class TelegramUpdateProcessor {
     request: UserRequest,
     admission: Exclude<SenderAdmission, "admitted">,
   ): Promise<void> {
-    if (request.callbackQueryId)
+    if (hasText(request.callbackQueryId))
       await this.callbackAnswers.answer(request.callbackQueryId);
     if (admission === "notify")
       await this.replies.enqueue({
@@ -180,7 +182,7 @@ export class TelegramUpdateProcessor {
         if (command.action === "retry")
           await this.invitations.retry(command.value);
         await this.activation.action(command.value, command.action);
-        if (command.callbackQueryId)
+        if (hasText(command.callbackQueryId))
           await this.callbackAnswers.answer(command.callbackQueryId);
         return;
       case "marketing_preference":
@@ -190,7 +192,7 @@ export class TelegramUpdateProcessor {
           command.value.enabled,
           command.value.via,
         );
-        if (command.callbackQueryId)
+        if (hasText(command.callbackQueryId))
           await this.callbackAnswers.answer(command.callbackQueryId);
         return;
       case "start":
@@ -211,14 +213,14 @@ export class TelegramUpdateProcessor {
         return;
       case "community-request":
         // The command exists only while community effects are enabled.
-        if (this.config.activation?.enabled)
+        if (isTruthy(this.config.activation?.enabled))
           await this.activation.action(command.value, "community");
         else if (this.config.communityMode === "live")
           await this.answerAdmission(command.value);
         return;
       case "author-input": {
         const handled = await this.authorAdmin.handle(command.value);
-        if (handled && command.value.callbackQueryId)
+        if (handled && hasText(command.value.callbackQueryId))
           await this.callbackAnswers.answer(command.value.callbackQueryId);
         if (!handled && command.intake)
           await this.communications.intake(command.intake);

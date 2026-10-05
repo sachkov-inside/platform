@@ -1,3 +1,4 @@
+import { hasText } from "../../shared/text.js";
 import { enqueueReply } from "../outbound/start-response-delivery-queue.js";
 import { cancelDelivery } from "./funnel-timeline.js";
 import { updateMarketingAvailability } from "./marketing-preferences.js";
@@ -135,7 +136,7 @@ export class MarketingEntry {
         .where("bot_identity", "=", start.botIdentity)
         .where("telegram_user_id", "=", start.telegramUserId)
         .executeTakeFirstOrThrow();
-      const sourceRow = source
+      const sourceRow = hasText(source)
         ? await tx
             .selectFrom("communication_sources")
             .selectAll()
@@ -148,7 +149,7 @@ export class MarketingEntry {
         .selectAll()
         .where("bot_identity", "=", start.botIdentity)
         .where("lifecycle", "=", "published");
-      query = source
+      query = hasText(source)
         ? query.where(
             "funnel_id",
             "=",
@@ -159,7 +160,8 @@ export class MarketingEntry {
       const funnel =
         row?.published &&
         row.published_revision !== null &&
-        (!source || row.published.sources.some((s) => s.code === source))
+        (!hasText(source) ||
+          row.published.sources.some((s) => s.code === source))
           ? {
               funnelId: row.funnel_id,
               draft: row.published,

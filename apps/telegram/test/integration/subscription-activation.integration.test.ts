@@ -36,7 +36,7 @@ const clock = {
   },
 };
 const config = loadApplicationConfig({
-  DATABASE_URL: process.env.DATABASE_URL,
+  DATABASE_URL: process.env["DATABASE_URL"],
   TELEGRAM_BOT_IDENTITY: bot,
   TELEGRAM_CANONICAL_CHAT_ID: "-1000000000000",
   TELEGRAM_WEBHOOK_SECRET: "synthetic-webhook-secret-for-tests-only",
@@ -288,8 +288,9 @@ describe("durable activation ingress, identity and continuation", () => {
       .where("source_key", "like", "activation:%")
       .execute();
     expect(
-      prompt.some((row) =>
-        row.buttons?.some((button) => button.text === "Мои доступы"),
+      prompt.some(
+        (row) =>
+          row.buttons?.some((button) => button.text === "Мои доступы") === true,
       ),
     ).toBe(true);
     expect(

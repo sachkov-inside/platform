@@ -1,3 +1,4 @@
+import { isTruthy } from "../../src/shared/truthiness.js";
 import { GrammyError } from "grammy";
 import { describe, expect, it } from "vitest";
 
@@ -153,7 +154,7 @@ function grammyError(errorCode: number, retryAfter?: number): GrammyError {
     description: "Synthetic API rejection",
     error_code: errorCode,
     ok: false,
-    parameters: retryAfter ? { retry_after: retryAfter } : {},
+    parameters: isTruthy(retryAfter) ? { retry_after: retryAfter } : {},
   };
   return new GrammyError("Synthetic API rejection", error, "sendMessage", {});
 }

@@ -1,3 +1,5 @@
+import { closeIfStarted } from "../support/close-if-started.js";
+import { hasText } from "../../src/shared/text.js";
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 
@@ -14,8 +16,8 @@ import { loadApplicationConfig } from "../../src/config/application-config.js";
 import { createDatabase } from "../../src/database/create-database.js";
 import { migrateToLatest } from "../../src/database/migrator.js";
 
-const databaseUrl = process.env.DATABASE_URL;
-if (!databaseUrl) throw new Error("DATABASE_URL is required");
+const databaseUrl = process.env["DATABASE_URL"];
+if (!hasText(databaseUrl)) throw new Error("DATABASE_URL is required");
 const database = createDatabase(databaseUrl);
 const execute = promisify(execFile);
 let application: NestFastifyApplication;
@@ -47,7 +49,7 @@ beforeAll(async () => {
 });
 
 afterAll(async () => {
-  await application?.close();
+  await closeIfStarted(application);
   await sql`drop schema if exists readiness_empty`.execute(database);
   await database.destroy();
 });

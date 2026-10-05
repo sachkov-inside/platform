@@ -29,7 +29,8 @@
     "apps/backend/test/guardrails/fixtures/typescript/**",
     "apps/web/test/guardrails/fixtures/**",
     "apps/backend/src/infrastructure/prisma/generated/**",
-    "apps/web/src/shared/api/backend/generated/**"
+    "apps/web/src/shared/api/backend/generated/**",
+    "apps/telegram/test/architecture/fixtures/**"
   ],
   "rules": {
     "constructor-super": "error",
@@ -143,7 +144,8 @@
         "apps/backend/**/*.{ts,mts,cts}",
         "packages/**/*.{ts,mts,cts}",
         "apps/web/**/*.{ts,tsx,mts,cts}",
-        "tools/practice-review/native/**/*.{ts,mts,cts}"
+        "tools/practice-review/native/**/*.{ts,mts,cts}",
+        "apps/telegram/**/*.{ts,mts,cts}"
       ],
       "rules": {
         "no-implied-eval": "off",
@@ -267,7 +269,9 @@
         "apps/web/*.mjs",
         "apps/web/test/**/*.mjs",
         "packages/runtime-identity/*.mjs",
-        "infra/production/logto/*.mjs"
+        "infra/production/logto/*.mjs",
+        "apps/telegram/scripts/**/*.mjs",
+        "apps/telegram/test/**/*.mjs"
       ],
       "rules": {
         "typescript/no-unsafe-argument": "error",
@@ -294,7 +298,11 @@
       }
     },
     {
-      "files": ["apps/backend/**/*.{ts,mts,cts}", "packages/**/*.{ts,mts,cts}"],
+      "files": [
+        "apps/backend/**/*.{ts,mts,cts}",
+        "packages/**/*.{ts,mts,cts}",
+        "apps/telegram/**/*.{ts,mts,cts}"
+      ],
       "rules": {
         "typescript/no-confusing-void-expression": "off",
         "typescript/no-misused-spread": "off",
@@ -310,7 +318,10 @@
       }
     },
     {
-      "files": ["apps/backend/src/**/*.module.ts"],
+      "files": [
+        "apps/backend/src/**/*.module.ts",
+        "apps/telegram/src/**/*.module.ts"
+      ],
       "rules": {
         "typescript/no-extraneous-class": "off"
       }

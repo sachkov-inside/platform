@@ -1,11 +1,14 @@
-name: inside-telegram
+name: ${COMPOSE_PROJECT_NAME:?Set a unique Telegram Compose project name}
 
 services:
   rabbitmq:
     image: rabbitmq:4.3-management-alpine
+    environment:
+      RABBITMQ_DEFAULT_USER: telegram_checks
+      RABBITMQ_DEFAULT_PASS: telegram_checks
     ports:
-      - "127.0.0.1:5673:5672"
-      - "127.0.0.1:15673:15672"
+      - "127.0.0.1:${TELEGRAM_AMQP_PORT:?Set a free Telegram AMQP port}:5672"
+      - "127.0.0.1:${TELEGRAM_MANAGEMENT_PORT:?Set a free Telegram management port}:15672"
     healthcheck:
       test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
       interval: 2s
@@ -19,7 +22,7 @@ services:
       POSTGRES_PASSWORD: inside
       POSTGRES_USER: inside
     ports:
-      - "127.0.0.1:5433:5432"
+      - "127.0.0.1:${TELEGRAM_POSTGRES_PORT:?Set a free Telegram PostgreSQL port}:5432"
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U inside -d inside_telegram"]
       interval: 2s

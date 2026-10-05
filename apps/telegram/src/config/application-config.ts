@@ -1,3 +1,5 @@
+import { isTruthy } from "../shared/truthiness.js";
+import { hasText, presentText } from "../shared/text.js";
 import {
   loadActivationConfig,
   type ActivationConfig,
@@ -135,35 +137,39 @@ export function loadApplicationConfig(
   assertServiceSecret(platformIntegrationSecret, "PLATFORM_INTEGRATION_SECRET");
 
   const communicationsSecret =
-    environment.PLATFORM_COMMUNICATIONS_SECRET?.trim() || undefined;
-  if (communicationsSecret)
+    presentText(environment["PLATFORM_COMMUNICATIONS_SECRET"]?.trim()) ??
+    undefined;
+  if (hasText(communicationsSecret))
     assertServiceSecret(communicationsSecret, "PLATFORM_COMMUNICATIONS_SECRET");
 
-  const deliveryMode = environment.TELEGRAM_DELIVERY_MODE ?? "disabled";
+  const deliveryMode = environment["TELEGRAM_DELIVERY_MODE"] ?? "disabled";
   assertExternalMode(deliveryMode, "TELEGRAM_DELIVERY_MODE");
 
-  const signInFlag = environment.TELEGRAM_SIGN_IN_ENABLED ?? "false";
+  const signInFlag = environment["TELEGRAM_SIGN_IN_ENABLED"] ?? "false";
   if (signInFlag !== "true" && signInFlag !== "false") {
     throw new Error("TELEGRAM_SIGN_IN_ENABLED must be true or false");
   }
   const signInEnabled = signInFlag === "true";
   const signInIntegrationSecret = signInEnabled
     ? required(environment, "TELEGRAM_SIGN_IN_INTEGRATION_SECRET")
-    : environment.TELEGRAM_SIGN_IN_INTEGRATION_SECRET?.trim() || undefined;
-  if (signInIntegrationSecret)
+    : (presentText(
+        environment["TELEGRAM_SIGN_IN_INTEGRATION_SECRET"]?.trim(),
+      ) ?? undefined);
+  if (hasText(signInIntegrationSecret))
     assertServiceSecret(
       signInIntegrationSecret,
       "TELEGRAM_SIGN_IN_INTEGRATION_SECRET",
     );
   const signInReturnUrl =
-    environment.TELEGRAM_SIGN_IN_RETURN_URL?.trim() || undefined;
-  if (signInReturnUrl)
+    presentText(environment["TELEGRAM_SIGN_IN_RETURN_URL"]?.trim()) ??
+    undefined;
+  if (hasText(signInReturnUrl))
     assertServiceEndpoint(signInReturnUrl, "TELEGRAM_SIGN_IN_RETURN_URL");
 
-  const membershipMode = environment.TELEGRAM_MEMBERSHIP_MODE ?? "disabled";
+  const membershipMode = environment["TELEGRAM_MEMBERSHIP_MODE"] ?? "disabled";
   assertExternalMode(membershipMode, "TELEGRAM_MEMBERSHIP_MODE");
   const membershipReconciliationCadenceMilliseconds = parseBoundedInteger(
-    environment.TELEGRAM_MEMBERSHIP_RECONCILIATION_CADENCE_MS,
+    environment["TELEGRAM_MEMBERSHIP_RECONCILIATION_CADENCE_MS"],
     240_000,
     30_000,
     240_000,
@@ -172,7 +178,7 @@ export function loadApplicationConfig(
   // The owner's period. The floor equals how long stored update keys stop a replay, so an
   // event old enough to lose its result is deduplicated before it could need it.
   const membershipCheckRetentionDays = parseBoundedInteger(
-    environment.TELEGRAM_MEMBERSHIP_CHECK_RETENTION_DAYS,
+    environment["TELEGRAM_MEMBERSHIP_CHECK_RETENTION_DAYS"],
     90,
     30,
     3650,
@@ -180,11 +186,14 @@ export function loadApplicationConfig(
   );
 
   const evidenceDeliveryMode =
-    environment.PLATFORM_EVIDENCE_DELIVERY_MODE ?? "disabled";
+    environment["PLATFORM_EVIDENCE_DELIVERY_MODE"] ?? "disabled";
   assertExternalMode(evidenceDeliveryMode, "PLATFORM_EVIDENCE_DELIVERY_MODE");
 
-  const botToken = environment.TELEGRAM_BOT_TOKEN;
-  if ((deliveryMode === "live" || membershipMode === "live") && !botToken) {
+  const botToken = environment["TELEGRAM_BOT_TOKEN"];
+  if (
+    (deliveryMode === "live" || membershipMode === "live") &&
+    !hasText(botToken)
+  ) {
     throw new Error("TELEGRAM_BOT_TOKEN is required for live delivery");
   }
 
@@ -197,7 +206,8 @@ export function loadApplicationConfig(
 
   // Startup accepts only v2: an absent or older version never silently selects v1 semantics.
   const communityContractVersion =
-    environment.TELEGRAM_COMMUNITY_CONTRACT_VERSION?.trim() || undefined;
+    presentText(environment["TELEGRAM_COMMUNITY_CONTRACT_VERSION"]?.trim()) ??
+    undefined;
   if (
     communityContractVersion !== undefined &&
     communityContractVersion !== COMMUNITY_V2
@@ -206,12 +216,13 @@ export function loadApplicationConfig(
       `TELEGRAM_COMMUNITY_CONTRACT_VERSION must be ${COMMUNITY_V2}`,
     );
   const communityRemovalsEnabled = parseBoolean(
-    environment.TELEGRAM_COMMUNITY_REMOVALS_ENABLED,
+    environment["TELEGRAM_COMMUNITY_REMOVALS_ENABLED"],
     false,
     "TELEGRAM_COMMUNITY_REMOVALS_ENABLED",
   );
   const communityTributeBotTelegramUserId =
-    environment.TELEGRAM_COMMUNITY_TRIBUTE_BOT_ID?.trim() || undefined;
+    presentText(environment["TELEGRAM_COMMUNITY_TRIBUTE_BOT_ID"]?.trim()) ??
+    undefined;
   if (
     communityTributeBotTelegramUserId !== undefined &&
     (!isSafeTelegramId(communityTributeBotTelegramUserId) ||
@@ -222,10 +233,10 @@ export function loadApplicationConfig(
     throw new Error(
       "TELEGRAM_COMMUNITY_TRIBUTE_BOT_ID must be the positive Telegram user id of another bot",
     );
-  const communityMode = environment.TELEGRAM_COMMUNITY_MODE ?? "disabled";
+  const communityMode = environment["TELEGRAM_COMMUNITY_MODE"] ?? "disabled";
   assertExternalMode(communityMode, "TELEGRAM_COMMUNITY_MODE");
   const communityReconciliationCadenceMilliseconds = parseBoundedInteger(
-    environment.TELEGRAM_COMMUNITY_RECONCILIATION_CADENCE_MS,
+    environment["TELEGRAM_COMMUNITY_RECONCILIATION_CADENCE_MS"],
     60_000,
     15_000,
     60_000,
@@ -233,37 +244,40 @@ export function loadApplicationConfig(
   );
   const communityTexts: CommunityTexts = Object.freeze({
     invite:
-      environment.TELEGRAM_COMMUNITY_INVITE_TEXT?.trim() ||
+      presentText(environment["TELEGRAM_COMMUNITY_INVITE_TEXT"]?.trim()) ??
       "Ссылка на вход в сообщество. Она действует несколько минут и только для вас.",
     preparing:
-      environment.TELEGRAM_COMMUNITY_PREPARING_TEXT?.trim() ||
+      presentText(environment["TELEGRAM_COMMUNITY_PREPARING_TEXT"]?.trim()) ??
       "Готовим вход в сообщество. Напишите /community ещё раз через минуту.",
     member:
-      environment.TELEGRAM_COMMUNITY_MEMBER_TEXT?.trim() ||
+      presentText(environment["TELEGRAM_COMMUNITY_MEMBER_TEXT"]?.trim()) ??
       "Вы уже участник сообщества.",
     unavailable:
-      environment.TELEGRAM_COMMUNITY_UNAVAILABLE_TEXT?.trim() ||
+      presentText(environment["TELEGRAM_COMMUNITY_UNAVAILABLE_TEXT"]?.trim()) ??
       "Сейчас у вас нет действующего права на участие в сообществе.",
     readmission:
-      environment.TELEGRAM_COMMUNITY_READMISSION_TEXT?.trim() ||
+      presentText(environment["TELEGRAM_COMMUNITY_READMISSION_TEXT"]?.trim()) ??
       "Ваше участие в сообществе Inside продолжается. Вернуться можно по личной ссылке, она действует несколько минут. Если не успеете, отправьте /community.",
     welcome:
-      environment.TELEGRAM_COMMUNITY_WELCOME_TEXT?.trim() ||
+      presentText(environment["TELEGRAM_COMMUNITY_WELCOME_TEXT"]?.trim()) ??
       "Добро пожаловать в Sachkov Inside, доступ открыт.\n\nВступите в группу сообщества по личной ссылке ниже. Она действует несколько минут; если не успеете, отправьте /community.\n\nМатериалы открываются в личном кабинете Inside. Вопросы задавайте @sachkova_mng.",
   });
   const communityIntegrationSecret =
-    environment.PLATFORM_COMMUNITY_INTEGRATION_SECRET?.trim() || undefined;
+    presentText(environment["PLATFORM_COMMUNITY_INTEGRATION_SECRET"]?.trim()) ??
+    undefined;
   const communityDispatchUrl =
-    environment.PLATFORM_COMMUNITY_DISPATCH_URL?.trim() || undefined;
+    presentText(environment["PLATFORM_COMMUNITY_DISPATCH_URL"]?.trim()) ??
+    undefined;
   const communityDispatchSecret =
-    environment.PLATFORM_COMMUNITY_DISPATCH_SECRET?.trim() || undefined;
+    presentText(environment["PLATFORM_COMMUNITY_DISPATCH_SECRET"]?.trim()) ??
+    undefined;
   for (const [name, value] of [
     ["PLATFORM_COMMUNITY_INTEGRATION_SECRET", communityIntegrationSecret],
     ["PLATFORM_COMMUNITY_DISPATCH_SECRET", communityDispatchSecret],
   ] as const) {
-    if (value) assertServiceSecret(value, name);
+    if (hasText(value)) assertServiceSecret(value, name);
   }
-  if (communityDispatchUrl) {
+  if (hasText(communityDispatchUrl)) {
     assertServiceEndpoint(
       communityDispatchUrl,
       "PLATFORM_COMMUNITY_DISPATCH_URL",
@@ -271,15 +285,15 @@ export function loadApplicationConfig(
   }
   const communityWelcomeCohort = loadCommunityWelcomeCohort(environment);
   if (communityMode === "live") {
-    if (!botToken) {
+    if (!hasText(botToken)) {
       throw new Error(
         "TELEGRAM_BOT_TOKEN is required for live community effects",
       );
     }
     if (
-      !communityIntegrationSecret ||
-      !communityDispatchUrl ||
-      !communityDispatchSecret
+      !hasText(communityIntegrationSecret) ||
+      !hasText(communityDispatchUrl) ||
+      !hasText(communityDispatchSecret)
     ) {
       throw new Error(
         "Live community mode requires PLATFORM_COMMUNITY_INTEGRATION_SECRET, PLATFORM_COMMUNITY_DISPATCH_URL and PLATFORM_COMMUNITY_DISPATCH_SECRET",
@@ -288,9 +302,9 @@ export function loadApplicationConfig(
   }
   if (
     (communityMode === "live" ||
-      communityIntegrationSecret ||
-      communityDispatchUrl ||
-      communityDispatchSecret) &&
+      hasText(communityIntegrationSecret) ||
+      hasText(communityDispatchUrl) ||
+      hasText(communityDispatchSecret)) &&
     communityContractVersion === undefined
   ) {
     throw new Error(
@@ -320,11 +334,17 @@ export function loadApplicationConfig(
   }
 
   const platformAuthorAuthorizationUrl =
-    environment.PLATFORM_AUTHOR_AUTHORIZATION_URL;
+    environment["PLATFORM_AUTHOR_AUTHORIZATION_URL"];
   const platformAuthorAuthorizationSecret =
-    environment.PLATFORM_AUTHOR_AUTHORIZATION_SECRET;
-  if (platformAuthorAuthorizationUrl || platformAuthorAuthorizationSecret) {
-    if (!platformAuthorAuthorizationUrl || !platformAuthorAuthorizationSecret)
+    environment["PLATFORM_AUTHOR_AUTHORIZATION_SECRET"];
+  if (
+    hasText(platformAuthorAuthorizationUrl) ||
+    hasText(platformAuthorAuthorizationSecret)
+  ) {
+    if (
+      !hasText(platformAuthorAuthorizationUrl) ||
+      !hasText(platformAuthorAuthorizationSecret)
+    )
       throw new Error(
         "Both PLATFORM_AUTHOR_AUTHORIZATION_URL and PLATFORM_AUTHOR_AUTHORIZATION_SECRET are required",
       );
@@ -339,9 +359,12 @@ export function loadApplicationConfig(
   }
 
   const platformAuthorContentValidationUrl =
-    environment.PLATFORM_AUTHOR_CONTENT_VALIDATION_URL;
-  if (platformAuthorContentValidationUrl) {
-    if (!platformAuthorAuthorizationUrl || !platformAuthorAuthorizationSecret)
+    environment["PLATFORM_AUTHOR_CONTENT_VALIDATION_URL"];
+  if (hasText(platformAuthorContentValidationUrl)) {
+    if (
+      !hasText(platformAuthorAuthorizationUrl) ||
+      !hasText(platformAuthorAuthorizationSecret)
+    )
       throw new Error(
         "PLATFORM_AUTHOR_CONTENT_VALIDATION_URL requires author authorization configuration",
       );
@@ -351,25 +374,26 @@ export function loadApplicationConfig(
     );
   }
 
-  let platformTrackingRedirectUrl = environment.PLATFORM_TRACKING_REDIRECT_URL;
+  let platformTrackingRedirectUrl =
+    environment["PLATFORM_TRACKING_REDIRECT_URL"];
   let platformTrackingTargetPrefixes: string[] | undefined;
   if (
-    platformTrackingRedirectUrl ||
-    environment.PLATFORM_TRACKING_TARGET_PREFIXES
+    hasText(platformTrackingRedirectUrl) ||
+    hasText(environment["PLATFORM_TRACKING_TARGET_PREFIXES"])
   ) {
     if (
-      !platformTrackingRedirectUrl ||
-      !environment.PLATFORM_TRACKING_TARGET_PREFIXES
+      !hasText(platformTrackingRedirectUrl) ||
+      !hasText(environment["PLATFORM_TRACKING_TARGET_PREFIXES"])
     )
       throw new Error(
         "Both tracking redirect URL and target prefixes are required",
       );
     const prefixes: unknown = JSON.parse(
-      environment.PLATFORM_TRACKING_TARGET_PREFIXES,
+      environment["PLATFORM_TRACKING_TARGET_PREFIXES"],
     );
     if (
       !Array.isArray(prefixes) ||
-      !prefixes.length ||
+      !isTruthy(prefixes.length) ||
       prefixes.length > 20 ||
       !prefixes.every((p): p is string => typeof p === "string")
     )
@@ -382,10 +406,10 @@ export function loadApplicationConfig(
       const url = new URL(value);
       if (
         url.protocol !== "https:" ||
-        url.username ||
-        url.password ||
-        url.search ||
-        url.hash ||
+        hasText(url.username) ||
+        hasText(url.password) ||
+        hasText(url.search) ||
+        hasText(url.hash) ||
         url.hostname.replace(/\.$/, "") === "api.telegram.org"
       )
         throw new Error(
@@ -428,40 +452,43 @@ export function loadApplicationConfig(
   return Object.freeze({
     ...(activation ? { activation } : {}),
     notifications,
-    ...(platformTrackingRedirectUrl
+    ...(hasText(platformTrackingRedirectUrl)
       ? { platformTrackingRedirectUrl, platformTrackingTargetPrefixes }
       : {}),
-    ...(platformAuthorContentValidationUrl
+    ...(hasText(platformAuthorContentValidationUrl)
       ? { platformAuthorContentValidationUrl }
       : {}),
-    ...(platformAuthorAuthorizationUrl
+    ...(hasText(platformAuthorAuthorizationUrl)
       ? { platformAuthorAuthorizationUrl, platformAuthorAuthorizationSecret }
       : {}),
     botIdentity,
-    ...(botToken ? { botToken } : {}),
+    ...(hasText(botToken) ? { botToken } : {}),
     canonicalChatId,
     communityMode,
-    communityContractVersion,
+    communityContractVersion:
+      communityContractVersion === undefined ? undefined : COMMUNITY_V2,
     communityRemovalsEnabled,
-    ...(communityTributeBotTelegramUserId
+    ...(hasText(communityTributeBotTelegramUserId)
       ? { communityTributeBotTelegramUserId }
       : {}),
-    ...(communityIntegrationSecret ? { communityIntegrationSecret } : {}),
-    ...(communityDispatchUrl ? { communityDispatchUrl } : {}),
-    ...(communityDispatchSecret ? { communityDispatchSecret } : {}),
+    ...(hasText(communityIntegrationSecret)
+      ? { communityIntegrationSecret }
+      : {}),
+    ...(hasText(communityDispatchUrl) ? { communityDispatchUrl } : {}),
+    ...(hasText(communityDispatchSecret) ? { communityDispatchSecret } : {}),
     communityReconciliationCadenceMilliseconds,
     communityTexts,
     ...(communityWelcomeCohort ? { communityWelcomeCohort } : {}),
-    ...(communicationsSecret ? { communicationsSecret } : {}),
+    ...(hasText(communicationsSecret) ? { communicationsSecret } : {}),
     databaseUrl,
     deliveryMode,
     marketingEnabled: parseBoolean(
-      environment.TELEGRAM_MARKETING_ENABLED,
+      environment["TELEGRAM_MARKETING_ENABLED"],
       false,
       "TELEGRAM_MARKETING_ENABLED",
     ),
     evidenceDeliveryMode,
-    host: environment.HOST ?? "127.0.0.1",
+    host: environment["HOST"] ?? "127.0.0.1",
     linkReceiptText: required(environment, "TELEGRAM_LINK_RECEIPT_TEXT"),
     linkedMemberText: required(environment, "TELEGRAM_LINKED_MEMBER_TEXT"),
     linkedNonMemberText: required(
@@ -475,20 +502,22 @@ export function loadApplicationConfig(
     membershipCheckRetentionDays,
     membershipMode,
     membershipReconciliationCadenceMilliseconds,
-    ...(platformEvidenceDeliverySecret
+    ...(hasText(platformEvidenceDeliverySecret)
       ? { platformEvidenceDeliverySecret }
       : {}),
-    ...(platformEvidenceDeliveryUrl ? { platformEvidenceDeliveryUrl } : {}),
+    ...(hasText(platformEvidenceDeliveryUrl)
+      ? { platformEvidenceDeliveryUrl }
+      : {}),
     platformIntegrationSecret,
-    port: parsePort(environment.PORT),
+    port: parsePort(environment["PORT"]),
     salesFunnel,
     signInEnabled,
-    ...(signInIntegrationSecret ? { signInIntegrationSecret } : {}),
-    ...(signInReturnUrl ? { signInReturnUrl } : {}),
+    ...(hasText(signInIntegrationSecret) ? { signInIntegrationSecret } : {}),
+    ...(hasText(signInReturnUrl) ? { signInReturnUrl } : {}),
     webhookSecret,
     welcomeText: required(environment, "TELEGRAM_WELCOME_TEXT"),
     workersEnabled: parseBoolean(
-      environment.WORKERS_ENABLED,
+      environment["WORKERS_ENABLED"],
       true,
       "WORKERS_ENABLED",
     ),
@@ -499,7 +528,7 @@ export function loadApplicationConfig(
 export function botTelegramUserIdFromToken(
   token: string | undefined,
 ): string | undefined {
-  return token?.split(":")[0] || undefined;
+  return presentText(token?.split(":")[0]) ?? undefined;
 }
 
 function assertExternalMode(
@@ -523,9 +552,9 @@ function assertSeparateServiceSecrets(
 ): void {
   const owners = new Map<string, string>();
   for (const [name, value] of Object.entries(secrets)) {
-    if (!value) continue;
+    if (!hasText(value)) continue;
     const owner = owners.get(value);
-    if (owner)
+    if (hasText(owner))
       throw new Error(`${owner} and ${name} must be separate service secrets`);
     owners.set(value, name);
   }
@@ -533,7 +562,7 @@ function assertSeparateServiceSecrets(
 
 function required(environment: NodeJS.ProcessEnv, name: string): string {
   const value = environment[name]?.trim();
-  if (!value) {
+  if (!hasText(value)) {
     throw new Error(`${name} is required`);
   }
   return value;
@@ -594,10 +623,12 @@ function parseBoundedInteger(
 function loadCommunityWelcomeCohort(
   environment: NodeJS.ProcessEnv,
 ): CommunityWelcomeCohort | undefined {
-  const url = environment.PLATFORM_COHORTS_URL?.trim() || undefined;
-  const guideId = environment.PLATFORM_COHORT_GUIDE_ID?.trim() || undefined;
-  if (!url && !guideId) return undefined;
-  if (!url || !guideId)
+  const url =
+    presentText(environment["PLATFORM_COHORTS_URL"]?.trim()) ?? undefined;
+  const guideId =
+    presentText(environment["PLATFORM_COHORT_GUIDE_ID"]?.trim()) ?? undefined;
+  if (!hasText(url) && !hasText(guideId)) return undefined;
+  if (!hasText(url) || !hasText(guideId))
     throw new Error(
       "PLATFORM_COHORTS_URL and PLATFORM_COHORT_GUIDE_ID are set together",
     );

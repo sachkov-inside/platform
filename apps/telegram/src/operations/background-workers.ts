@@ -1,3 +1,4 @@
+import { isTruthy } from "../shared/truthiness.js";
 import { SubscriptionActivation } from "../modules/subscription-activation/subscription-activation.js";
 import { InvitationRedemption } from "../modules/subscription-activation/invitation-redemption.js";
 import { AuthorDelivery } from "../modules/communications/author-delivery.js";
@@ -104,7 +105,7 @@ export class BackgroundWorkers
       return loop;
     };
 
-    if (this.config.activation?.enabled) {
+    if (isTruthy(this.config.activation?.enabled)) {
       add("activation", BACKGROUND, async () => {
         const processed = await this.activation.processAvailable();
         this.metrics.recordActivation(await this.activation.snapshot());

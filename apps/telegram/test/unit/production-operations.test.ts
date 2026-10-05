@@ -1,3 +1,4 @@
+import { hasText } from "../../src/shared/text.js";
 import { existsSync, readFileSync } from "node:fs";
 
 import { describe, expect, it } from "vitest";
@@ -9,7 +10,8 @@ function service(name: string): string {
   const match = new RegExp(`^  ${name}:\\n((?:    .*\\n|\\n)*)`, "m").exec(
     compose,
   );
-  if (!match?.[1]) throw new Error(`Compose service ${name} is missing`);
+  if (!hasText(match?.[1]))
+    throw new Error(`Compose service ${name} is missing`);
   return match[1];
 }
 

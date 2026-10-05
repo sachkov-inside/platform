@@ -1,3 +1,4 @@
+import { presentText } from "./text.js";
 /**
  * Names why an operation failed without exposing what it carried.
  *
@@ -83,10 +84,12 @@ export function reportCondition(
 
 function normalized(name: string): string {
   return (
-    name
-      .replace(/([a-z0-9])([A-Z])/g, "$1_$2")
-      .toLowerCase()
-      .replace(/[^a-z0-9_]+/g, "_")
-      .slice(0, 48) || "unnamed"
+    presentText(
+      name
+        .replace(/([a-z0-9])([A-Z])/g, "$1_$2")
+        .toLowerCase()
+        .replace(/[^a-z0-9_]+/g, "_")
+        .slice(0, 48),
+    ) ?? "unnamed"
   );
 }

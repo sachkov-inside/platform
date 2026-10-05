@@ -1,3 +1,4 @@
+import { hasText } from "../../src/shared/text.js";
 import { randomUUID } from "node:crypto";
 import { Test } from "@nestjs/testing";
 import {
@@ -26,7 +27,7 @@ for (const value of [
   config.activation?.endpoint,
   config.communityDispatchUrl,
 ]) {
-  if (!value || new URL(value).hostname !== "127.0.0.1")
+  if (!hasText(value) || new URL(value).hostname !== "127.0.0.1")
     throw new Error(
       "Local proof requires explicit loopback authorities and database",
     );
@@ -156,8 +157,8 @@ fastify.post<{
       !["member", "not_member", "banned"].includes(input.community))
   )
     return Promise.resolve(reply.code(400).send());
-  if (input.source) sources.set(input.user, input.source);
-  if (input.community) members.set(input.user, input.community);
+  if (hasText(input.source)) sources.set(input.user, input.source);
+  if (hasText(input.community)) members.set(input.user, input.community);
   return Promise.resolve({ ok: true });
 });
 await app.listen(config.port, "127.0.0.1");

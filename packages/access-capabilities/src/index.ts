@@ -27,8 +27,8 @@ export const accessCapabilitySchema: z.ZodUnion<
 
 export type AccessCapability = z.infer<typeof accessCapabilitySchema>;
 
-/** Право на одно конкретное руководство, независимое от состава тарифа подписки. */
-export function isGuideCapability(capability: AccessCapability): boolean {
+/** Право на одно конкретное руководство; принимает и сырую строку прежней записи. */
+export function isGuideCapability(capability: string): boolean {
   return capability.startsWith("guide:");
 }
 

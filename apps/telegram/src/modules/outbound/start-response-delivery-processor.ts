@@ -1,3 +1,5 @@
+import { isTruthy } from "../../shared/truthiness.js";
+import { hasText } from "../../shared/text.js";
 import { Inject, Injectable } from "@nestjs/common";
 
 import { reportCondition } from "../../shared/failure-diagnostics.js";
@@ -32,7 +34,7 @@ export class StartResponseDeliveryProcessor {
     signal?: AbortSignal,
   ): Promise<number> {
     let processed = 0;
-    for (; processed < limit && !signal?.aborted; processed += 1) {
+    for (; processed < limit && !isTruthy(signal?.aborted); processed += 1) {
       const attemptedAt = now ?? new Date();
       const delivery = await this.queue.claimNext(
         attemptedAt,
@@ -42,7 +44,7 @@ export class StartResponseDeliveryProcessor {
         break;
       }
 
-      const result = delivery.editMessageId
+      const result = hasText(delivery.editMessageId)
         ? await this.messages.editText({
             chatId: delivery.privateChatId,
             messageId: delivery.editMessageId,
@@ -53,7 +55,7 @@ export class StartResponseDeliveryProcessor {
             chatId: delivery.privateChatId,
             text: delivery.messageText,
             ...(delivery.buttons ? { buttons: delivery.buttons } : {}),
-            ...(delivery.signInRequestRef
+            ...(hasText(delivery.signInRequestRef)
               ? {
                   buttons: [
                     {

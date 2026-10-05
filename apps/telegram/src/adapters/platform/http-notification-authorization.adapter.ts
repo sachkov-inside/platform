@@ -36,7 +36,7 @@ export class HttpNotificationAuthorization implements NotificationAuthorization 
       const chunks: Uint8Array[] = [];
       let size = 0;
       try {
-        while (true) {
+        for (;;) {
           const item = await reader.read();
           if (item.done) break;
           size += item.value.byteLength;

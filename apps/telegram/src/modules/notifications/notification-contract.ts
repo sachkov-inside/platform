@@ -1,3 +1,4 @@
+import { isTruthy } from "../../shared/truthiness.js";
 import { Ajv } from "ajv";
 import addFormats from "ajv-formats";
 import schema from "./contracts/schema.json" with { type: "json" };
@@ -116,7 +117,7 @@ export function parseNotification(
     envelope.routingKey !== category ||
     envelope.contentType !== "application/json" ||
     envelope.type !== "inside.notification-delivery.v1" ||
-    !envelope.persistent
+    !isTruthy(envelope.persistent)
   )
     return;
   try {

@@ -205,38 +205,64 @@ and remaining Platform integration gates are in
 
 ## Delivery
 
-State of a task is the issue, its labels and its linked pull request. Read
-[`AGENTS.md`](AGENTS.md) first, then [`WORKFLOW.md`](WORKFLOW.md) for branch, pull-request,
-verification and merge rules. The active delivery chain is rooted at
-[#1: Telegram Membership bridge v1](https://github.com/sachkov-inside/inside-telegram/issues/1).
+Telegram lives in `apps/telegram` of `sachkov-inside/platform`.
+Read [application AGENTS](AGENTS.md), then [root WORKFLOW](../../WORKFLOW.md).
+New tasks use the Platform tracker. Source issue links remain historical until task transfer in #961.
+
+The root CI Gate includes isolated Telegram `check:full` on pull requests, merge groups and
+reusable exact-SHA calls. Nested `.github/workflows` are historical test fixtures until #960;
+production delivery still belongs to the source repository during this stage.
 
 ## Local development
 
-Use Node from `.node-version`, then:
+Install once from the repository root, using its `.node-version` and pnpm pin:
 
 ```bash
 pnpm install --frozen-lockfile
-cp .env.example .env
+cp apps/telegram/.env.example apps/telegram/.env
+```
+
+Choose a unique Compose project and three unused loopback ports before starting application
+infrastructure. The example below uses 25433/25673/35673; change them if they are occupied.
+Commands below run from `apps/telegram`:
+
+```bash
+export COMPOSE_PROJECT_NAME=telegram-my-task
+export TELEGRAM_POSTGRES_PORT=25433 TELEGRAM_AMQP_PORT=25673 TELEGRAM_MANAGEMENT_PORT=35673
+export DATABASE_URL=postgresql://inside:inside@127.0.0.1:$TELEGRAM_POSTGRES_PORT/inside_telegram
+export NOTIFICATION_TEST_AMQP_URL=amqp://telegram_checks:telegram_checks@127.0.0.1:$TELEGRAM_AMQP_PORT
+export NOTIFICATION_TEST_MANAGEMENT_URL=http://127.0.0.1:$TELEGRAM_MANAGEMENT_PORT
 pnpm infra:up
 pnpm db:migrate
 pnpm dev
 ```
 
-The example configuration binds locally, uses PostgreSQL on port `5433`, and keeps Telegram
-delivery disabled.
+The Compose contract requires an explicit project and ports. It uses a non-guest synthetic RabbitMQ
+user. The example `.env` keeps real Telegram delivery disabled. Stop only your owned project with
+`pnpm infra:down`; disposable checks may remove their own volumes with `docker compose down --volumes`.
 
 Every entry point loads `.env`, or the file named by `ENV_FILE`, with Node's
-`process.loadEnvFile()`. Variables already in the environment win unless `ENV_FILE_OVERRIDE=true`;
-production reads its environment from Compose and has no such file.
+`process.loadEnvFile()`. Exported variables win unless `ENV_FILE_OVERRIDE=true`;
+production reads its environment from Compose.
 
 ## Current verification
 
-The full repository check uses a real PostgreSQL database:
+From the root, with the owned infrastructure URLs exported above:
 
 ```bash
-pnpm infra:up
-DATABASE_URL=postgresql://inside:inside@127.0.0.1:5433/inside_telegram pnpm check:full
+pnpm --filter @inside/telegram check:full
+pnpm check
 ```
+
+Build the Telegram production image from the **root** context:
+
+```bash
+docker build --file apps/telegram/infra/production/Dockerfile --build-arg SOURCE_COMMIT=$(git rev-parse HEAD) --tag telegram-local-check .
+```
+
+The Dockerfile uses root frozen workspace installation and filtered production deployment.
+The historical nested release workflow still describes the old source context; #960 replaces it
+with an active root release workflow. It is not an executable monorepo release path.
 
 Migration keys are retained across the independently deployed communications and sign-in branches.
 Only the independently deployed `010-communications-templates` → `011-communication-funnels`
@@ -246,17 +272,8 @@ lock for up, down and targeted commands. Rollback follows actual application ord
 regressions cover both historical deployment orders, preserve existing data during backfill and
 reject a missing dependent sign-in migration. Do not rename applied keys or edit the ledger.
 
-The application CI runs the same command on Node 24 with PostgreSQL 18.
+## Application boundary
 
-The developer process (`WORKFLOW.md`, `.agents/skills`, `docs/agents/triage-labels.md`) is a
-byte-for-byte copy from `platform`. Check it from a `platform` checkout:
-
-```bash
-bash scripts/copy-process.sh --check <path to this repository>
-```
-
-## Repository boundary
-
-This repository owns Telegram bot identity handling, bot contacts, linking, member-status
+This application owns Telegram bot identity handling, bot contacts, linking, member-status
 updates, reconciliation, normalized Membership Evidence and author communication templates. Platform remains the authority for
 Platform Accounts, permissions, entitlements, profiles, and every content-access decision.

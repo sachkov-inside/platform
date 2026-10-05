@@ -1,3 +1,5 @@
+import { isTruthy } from "../../shared/truthiness.js";
+import { hasText } from "../../shared/text.js";
 import type { ActivationConfig } from "../../config/activation-config.js";
 import type {
   TelegramButton,
@@ -55,7 +57,7 @@ export async function announceActivation(
   input: ActivationAnnouncementInput,
   telegram: ActivationAnnouncementTelegram,
 ): Promise<ActivationAnnouncementResult> {
-  if (!input.activation?.enabled)
+  if (!isTruthy(input.activation?.enabled))
     return { status: "refused", reason: "activation_disabled" };
   if (!ACTIVATION_CODE.test(input.code))
     return { status: "refused", reason: "invalid_code" };
@@ -66,7 +68,7 @@ export async function announceActivation(
   if (source.policy !== "whole_group")
     return { status: "refused", reason: "not_whole_group" };
   const username = await telegram.botUsername();
-  if (!username || !BOT_USERNAME.test(username))
+  if (!hasText(username) || !BOT_USERNAME.test(username))
     return { status: "refused", reason: "no_bot_username" };
   const button: TelegramButton = {
     text: ACTIVATION_ANNOUNCEMENT_BUTTON,

@@ -1,3 +1,4 @@
+import { isTruthy } from "../../src/shared/truthiness.js";
 import { createHash, randomUUID } from "node:crypto";
 import { existsSync, readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
@@ -138,7 +139,7 @@ describe("HTTP notification dispatch authorization", () => {
           );
         },
       );
-      expect(Boolean(await client.authorize(request))).toBe(valid);
+      expect(isTruthy(await client.authorize(request))).toBe(valid);
     },
   );
 });

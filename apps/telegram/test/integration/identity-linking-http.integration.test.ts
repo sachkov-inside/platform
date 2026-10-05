@@ -1,3 +1,4 @@
+import { hasText } from "../../src/shared/text.js";
 import { NestFactory } from "@nestjs/core";
 import type { NestFastifyApplication } from "@nestjs/platform-fastify";
 import { FastifyAdapter } from "@nestjs/platform-fastify";
@@ -14,8 +15,8 @@ import { TelegramUpdateProcessor } from "../../src/modules/update-inbox/telegram
 import { privateStartUpdate } from "../support/synthetic-telegram-updates.js";
 import { anyString } from "../support/matchers.js";
 
-const databaseUrl = process.env.DATABASE_URL;
-if (!databaseUrl) {
+const databaseUrl = process.env["DATABASE_URL"];
+if (!hasText(databaseUrl)) {
   throw new Error("DATABASE_URL is required for integration tests");
 }
 

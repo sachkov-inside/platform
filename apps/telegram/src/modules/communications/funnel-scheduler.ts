@@ -1,3 +1,5 @@
+import { isTruthy } from "../../shared/truthiness.js";
+import { hasText } from "../../shared/text.js";
 import { hasDueReply } from "../outbound/start-response-delivery-queue.js";
 import { enqueueBroadcastAuthorMenu } from "./author-delivery-menu.js";
 import { completeBroadcasts, launchDueBroadcasts } from "./broadcasts.js";
@@ -416,9 +418,9 @@ export class FunnelScheduler {
     const part = delivery.parts.find(
       (p) => !["sent", "skipped", "cancelled", "suppressed"].includes(p.state),
     );
-    if (!part || part.state !== "pending" || part.attempts.length >= 90)
+    if (part?.state !== "pending" || part.attempts.length >= 90)
       return undefined;
-    if (delivery.broadcast_id) {
+    if (hasText(delivery.broadcast_id)) {
       const broadcast = await tx
         .selectFrom("communication_broadcasts")
         .select(["state", "launched_at"])
@@ -433,7 +435,7 @@ export class FunnelScheduler {
       )
         return undefined;
     }
-    if (delivery.funnel_id) {
+    if (hasText(delivery.funnel_id)) {
       const funnel = await tx
         .selectFrom("communication_funnels")
         .selectAll()
@@ -457,9 +459,13 @@ export class FunnelScheduler {
           return undefined;
         const next = draft.steps.find(
           (s) =>
-            !history.some(
-              (d) =>
-                d.kind === "step" && d.step_id === s.stepId && d.completed_at,
+            !isTruthy(
+              history.some(
+                (d) =>
+                  d.kind === "step" &&
+                  d.step_id === s.stepId &&
+                  d.completed_at !== null,
+              ),
             ),
         );
         if (next?.stepId !== delivery.step_id) return undefined;
@@ -545,7 +551,7 @@ export class FunnelScheduler {
               now.getTime() + Math.max(result.retryAfterSeconds ?? 5, 1) * 1000,
             )
           : now;
-      if (delivery.broadcast_id && result.kind === "delivered") {
+      if (hasText(delivery.broadcast_id) && result.kind === "delivered") {
         const next = parts.find(
           (p) =>
             !["sent", "skipped", "cancelled", "suppressed"].includes(p.state),
@@ -595,7 +601,7 @@ export class FunnelScheduler {
           .where("telegram_user_id", "=", contact.telegram_user_id)
           .execute();
       }
-      if (delivery.broadcast_id)
+      if (hasText(delivery.broadcast_id))
         await completeBroadcasts(
           tx,
           this.config.botIdentity,
@@ -609,7 +615,7 @@ export class FunnelScheduler {
       if (
         result.kind === "delivered" &&
         (terminal(parts) || +due > +now) &&
-        delivery.broadcast_id
+        hasText(delivery.broadcast_id)
       )
         await enqueueBroadcastAuthorMenu(
           tx,

@@ -1,3 +1,5 @@
+import { isTruthy } from "../../shared/truthiness.js";
+import { hasText } from "../../shared/text.js";
 import { createHash, randomUUID } from "node:crypto";
 import { Inject, Injectable } from "@nestjs/common";
 import type { Selectable } from "kysely";
@@ -54,7 +56,7 @@ export class InvitationRedemption {
     contact: VerifiedPrivateStart,
     code: string | null,
   ): Promise<void> {
-    if (!this.config.activation?.enabled || code === null) {
+    if (!isTruthy(this.config.activation?.enabled) || code === null) {
       await this.replies.enqueue({
         botIdentity: contact.botIdentity,
         telegramUserId: contact.telegramUserId,
@@ -111,7 +113,7 @@ export class InvitationRedemption {
 
   /** The person says the Account is linked: waiting redemptions run now. */
   async retry(contact: VerifiedPrivateStart): Promise<void> {
-    if (!this.config.activation?.enabled) return;
+    if (!isTruthy(this.config.activation?.enabled)) return;
     const now = this.clock.now();
     await this.db
       .updateTable("invitation_redemptions")
@@ -126,7 +128,7 @@ export class InvitationRedemption {
   }
 
   async processAvailable(limit = 10): Promise<number> {
-    if (!this.config.activation?.enabled) return 0;
+    if (!isTruthy(this.config.activation?.enabled)) return 0;
     let processed = 0;
     for (; processed < limit; processed++) {
       const now = this.clock.now();
@@ -204,7 +206,7 @@ export class InvitationRedemption {
         redemption,
         "needs_account",
         "needs_account",
-        accountUrl ? invitationNeedsAccount(accountUrl) : undefined,
+        hasText(accountUrl) ? invitationNeedsAccount(accountUrl) : undefined,
       );
       return;
     }

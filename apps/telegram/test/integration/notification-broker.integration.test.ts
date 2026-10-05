@@ -1,3 +1,5 @@
+import { isTruthy } from "../../src/shared/truthiness.js";
+import { hasText } from "../../src/shared/text.js";
 import { reserveTelegramSlot } from "../../src/modules/outbound/telegram-transport-slots.js";
 import {
   createServer,
@@ -34,7 +36,7 @@ import topology from "../../docs/operations/notification-topology.json" with { t
 import fixtures from "../../docs/contracts/notifications-v1/fixtures.json" with { type: "json" };
 import { required } from "../support/required.js";
 import { conforming, jsonRecord, record } from "../support/json.js";
-const db = createDatabase(required(process.env.DATABASE_URL));
+const db = createDatabase(required(process.env["DATABASE_URL"]));
 const vhost = `notification-test-${randomUUID()}`;
 const users = {
   provider: `${vhost}-provider`,
@@ -45,9 +47,10 @@ const password = randomUUID();
 const connections: ChannelModel[] = [];
 let brokers: NotificationBroker[] = [];
 const root =
-  process.env.NOTIFICATION_TEST_AMQP_URL ?? "amqp://guest:guest@127.0.0.1:5673";
+  process.env["NOTIFICATION_TEST_AMQP_URL"] ??
+  "amqp://guest:guest@127.0.0.1:5673";
 const management =
-  process.env.NOTIFICATION_TEST_MANAGEMENT_URL ?? "http://127.0.0.1:15673";
+  process.env["NOTIFICATION_TEST_MANAGEMENT_URL"] ?? "http://127.0.0.1:15673";
 for (const url of [root, management])
   if (!["127.0.0.1", "localhost"].includes(new URL(url).hostname))
     throw new Error("Broker tests require isolated loopback infrastructure");
@@ -68,7 +71,7 @@ async function api(path: string, method = "PUT", value?: unknown) {
 function url(user?: string) {
   const u = new URL(root);
   u.pathname = `/${encodeURIComponent(vhost)}`;
-  if (user) {
+  if (hasText(user)) {
     u.username = user;
     u.password = password;
   }
@@ -239,10 +242,10 @@ describe("real RabbitMQ consumer, confirms, permissions and limits", () => {
       server.listen(0, "127.0.0.1", resolve),
     );
     const address = server.address();
-    if (!address || typeof address === "string")
+    if (!isTruthy(address) || typeof address === "string")
       throw new Error("No HTTP test endpoint");
     const config = loadApplicationConfig({
-      DATABASE_URL: required(process.env.DATABASE_URL),
+      DATABASE_URL: required(process.env["DATABASE_URL"]),
       TELEGRAM_BOT_IDENTITY: "inside",
       TELEGRAM_CANONICAL_CHAT_ID: "-1000000000000",
       TELEGRAM_WEBHOOK_SECRET: "synthetic_webhook_secret_for_tests_only",
@@ -372,7 +375,7 @@ describe("real RabbitMQ consumer, confirms, permissions and limits", () => {
       await publish(ch, material);
       await expect
         .poll(async () =>
-          Boolean(
+          isTruthy(
             await db
               .selectFrom("notification_commands")
               .select("operation_id")
@@ -549,8 +552,8 @@ describe("real RabbitMQ consumer, confirms, permissions and limits", () => {
     await provider.publishResults((r) => b.publish(r));
     const result = await ch.get(queue);
     expect(result).toBeTruthy();
-    if (result) {
-      expect(jsonRecord(result.content.toString()).state).toBe("accepted");
+    if (isTruthy(result)) {
+      expect(jsonRecord(result.content.toString())["state"]).toBe("accepted");
       ch.ack(result);
     }
     expect(
@@ -611,13 +614,13 @@ describe("real RabbitMQ consumer, confirms, permissions and limits", () => {
     }
     expect(rejected).toBe(true);
     const first = await ch.get(q);
-    expect(first && first.content.toString()).toBe("0");
-    if (first) ch.ack(first);
+    expect(isTruthy(first) && first.content.toString()).toBe("0");
+    if (isTruthy(first)) ch.ack(first);
     for (const queue of topology.queues) {
       const info = record(
         await (await api(`queues/${vhost}/${queue.name}`, "GET")).json(),
       );
-      const queueArguments = record(info.arguments);
+      const queueArguments = record(info["arguments"]);
       expect(queueArguments["x-delivery-limit"]).toBe(-1);
       expect(queueArguments["x-overflow"]).toBe("reject-publish");
       expect(queueArguments).not.toHaveProperty("x-message-ttl");

@@ -1,3 +1,4 @@
+import { hasText } from "../shared/text.js";
 import "../config/load-environment.js";
 import { createDatabase } from "../database/create-database.js";
 import { ActivationReviews } from "../modules/subscription-activation/activation-reviews.js";
@@ -6,7 +7,7 @@ import { systemClock } from "../shared/clock.js";
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
 const [mode, reviewId, ...rest] = process.argv.slice(2);
 if (
-  !process.env.DATABASE_URL ||
+  !hasText(process.env["DATABASE_URL"]) ||
   rest.length > 0 ||
   !(
     (mode === "--list" && reviewId === undefined) ||
@@ -18,7 +19,7 @@ if (
   );
   process.exitCode = 1;
 } else {
-  const db = createDatabase(process.env.DATABASE_URL);
+  const db = createDatabase(process.env["DATABASE_URL"]);
   try {
     const reviews = new ActivationReviews(db, systemClock);
     if (mode === "--list")

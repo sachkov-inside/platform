@@ -1,3 +1,4 @@
+import { hasText } from "../../shared/text.js";
 import {
   aggregateRow,
   deliveryOwnerPredicate,
@@ -58,7 +59,7 @@ async function assertScope(
   bot: string,
   actor: string,
 ) {
-  if (request.payload.funnelId) {
+  if (hasText(request.payload.funnelId)) {
     const row = await tx
       .selectFrom("communication_funnels")
       .select("funnel_id")
@@ -68,7 +69,7 @@ async function assertScope(
       .executeTakeFirst();
     if (!row) throw new CommunicationsError("not_found");
   }
-  if (request.payload.broadcastId) {
+  if (hasText(request.payload.broadcastId)) {
     const row = await tx
       .selectFrom("communication_broadcasts")
       .select("broadcast_id")
@@ -120,7 +121,7 @@ export async function readEntries(
     actor,
     requiredField(request.payload.contactId),
   );
-  if (request.payload.cursor) {
+  if (hasText(request.payload.cursor)) {
     let value: unknown;
     try {
       value = JSON.parse(
@@ -233,7 +234,7 @@ export async function readStatistics(
     )
     .select(["c.contact_id", "c.marketing_enabled", "b.contactability"])
     .where("c.bot_identity", "=", bot);
-  if (funnel)
+  if (hasText(funnel))
     contacts = contacts.where((eb) =>
       eb.exists(
         eb
@@ -243,7 +244,7 @@ export async function readStatistics(
           .where("e.funnel_id", "=", funnel),
       ),
     );
-  if (broadcast)
+  if (hasText(broadcast))
     contacts = contacts.where((eb) =>
       eb.exists(
         eb
@@ -253,7 +254,7 @@ export async function readStatistics(
           .where("d.broadcast_id", "=", broadcast),
       ),
     );
-  if (request.payload.cursor)
+  if (hasText(request.payload.cursor))
     contacts = contacts.where(
       "c.contact_id",
       ">",

@@ -1,3 +1,4 @@
+import { isTruthy } from "../../shared/truthiness.js";
 import { Api, GrammyError } from "grammy";
 
 import type {
@@ -71,7 +72,7 @@ function deliveryFailure(error: unknown): TelegramDeliveryResult {
       return {
         kind: "api_retryable",
         providerErrorCode: error.error_code,
-        ...(retryAfterSeconds ? { retryAfterSeconds } : {}),
+        ...(isTruthy(retryAfterSeconds) ? { retryAfterSeconds } : {}),
       };
     }
     return { kind: "api_rejected", providerErrorCode: error.error_code };

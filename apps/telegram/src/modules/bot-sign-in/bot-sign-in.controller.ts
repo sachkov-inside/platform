@@ -1,3 +1,4 @@
+import { isTruthy } from "../../shared/truthiness.js";
 import {
   BadRequestException,
   Body,
@@ -38,7 +39,7 @@ export class BotSignInController {
     @Body() body: unknown,
   ) {
     this.authenticate(authorization);
-    if (!this.config.signInEnabled)
+    if (!isTruthy(this.config.signInEnabled))
       return { contractVersion: CONTRACT_VERSION, status: "disabled" };
     const envelope = readEnvelope(body, [
       "requestRef",

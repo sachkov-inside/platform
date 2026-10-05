@@ -1,3 +1,4 @@
+import { hasText } from "../../src/shared/text.js";
 import type { NestFastifyApplication } from "@nestjs/platform-fastify";
 import { FastifyAdapter } from "@nestjs/platform-fastify";
 import { NestFactory } from "@nestjs/core";
@@ -46,8 +47,8 @@ import {
   privateStartUpdate,
 } from "../support/synthetic-telegram-updates.js";
 
-const databaseUrl = process.env.DATABASE_URL;
-if (!databaseUrl) {
+const databaseUrl = process.env["DATABASE_URL"];
+if (!hasText(databaseUrl)) {
   throw new Error("DATABASE_URL is required for integration tests");
 }
 
@@ -704,7 +705,7 @@ async function injectWebhook(payload: unknown, secret?: string) {
   return await fastify.inject({
     headers: {
       "content-type": "application/json",
-      ...(secret ? { "x-telegram-bot-api-secret-token": secret } : {}),
+      ...(hasText(secret) ? { "x-telegram-bot-api-secret-token": secret } : {}),
     },
     method: "POST",
     payload: JSON.stringify(payload),

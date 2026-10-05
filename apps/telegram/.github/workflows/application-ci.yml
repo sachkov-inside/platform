@@ -1,3 +1,4 @@
+# Historical fixture from inside-telegram; active root delivery is wired in #960.
 name: Application CI
 
 on:

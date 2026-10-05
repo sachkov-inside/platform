@@ -1,3 +1,4 @@
+import { isTruthy } from "../../shared/truthiness.js";
 import type { ActivationSource } from "../../config/activation-config.js";
 import {
   botHasMembershipPrerequisite,
@@ -23,7 +24,7 @@ export class SourceGroupProof {
     if (!source) return { decision: "unavailable" };
     if (
       source.policy === "confirmed_list" &&
-      !source.confirmedIdentityRefs?.includes(identityRef)
+      !isTruthy(source.confirmedIdentityRefs?.includes(identityRef))
     )
       return { decision: "not_member" };
     try {

@@ -1,3 +1,4 @@
+import { isTruthy } from "../../src/shared/truthiness.js";
 import { GrammyError } from "grammy";
 import { describe, expect, it } from "vitest";
 
@@ -13,7 +14,9 @@ function grammyError(code: number, retryAfter?: number): GrammyError {
       ok: false,
       error_code: code,
       description: "synthetic",
-      ...(retryAfter ? { parameters: { retry_after: retryAfter } } : {}),
+      ...(isTruthy(retryAfter)
+        ? { parameters: { retry_after: retryAfter } }
+        : {}),
     },
     "banChatMember",
     {},

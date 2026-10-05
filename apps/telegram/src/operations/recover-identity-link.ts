@@ -1,3 +1,4 @@
+import { hasText } from "../shared/text.js";
 import "../config/load-environment.js";
 
 import { readFileSync } from "node:fs";
@@ -10,8 +11,8 @@ import {
   redactRecoveryResult,
 } from "./identity-link-recovery-cli.js";
 
-const databaseUrl = process.env.DATABASE_URL;
-if (!databaseUrl) {
+const databaseUrl = process.env["DATABASE_URL"];
+if (!hasText(databaseUrl)) {
   process.stderr.write("DATABASE_URL is required\n");
   process.exitCode = 1;
 } else {

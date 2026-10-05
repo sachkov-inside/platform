@@ -1,3 +1,4 @@
+import { isTruthy } from "../shared/truthiness.js";
 import {
   expressionBuilder,
   sql,
@@ -221,7 +222,7 @@ export function held<T extends Table>(
 function laneFree<T extends Table>(
   queue: DurableQueue<T>,
 ): RawBuilder<SqlBool> {
-  if (!queue.lane?.length) return sql<SqlBool>`true`;
+  if (!isTruthy(queue.lane?.length)) return sql<SqlBool>`true`;
   const own = (column: string) => sql.ref(`${queue.table}.${column}`);
   const other = (column: string) => sql.ref(`other.${column}`);
   return sql<SqlBool>`not exists (

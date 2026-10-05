@@ -1,3 +1,4 @@
+import { hasText } from "../../shared/text.js";
 import { findPlatformLink } from "../identity-linking/platform-links.js";
 import { randomUUID } from "node:crypto";
 
@@ -326,7 +327,7 @@ export function nextAction(
   if (effect.effect === "community.ensure_absence") {
     if (observed === "member") return "ban";
     // An invite whose URL was never observed has no address to revoke; it expires.
-    return desired.invite_state === "created" && desired.invite_link
+    return desired.invite_state === "created" && hasText(desired.invite_link)
       ? "revoke_link"
       : "done";
   }

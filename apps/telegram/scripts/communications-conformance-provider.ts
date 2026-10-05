@@ -1,3 +1,4 @@
+import { hasText } from "../src/shared/text.js";
 import "reflect-metadata";
 import { execFileSync } from "node:child_process";
 import Fastify from "fastify";
@@ -37,11 +38,11 @@ const dirty =
     encoding: "utf8",
   }).trim().length > 0;
 const databaseUrl = localProofDatabaseUrl(
-  process.env.DATABASE_URL ?? "",
+  process.env["DATABASE_URL"] ?? "",
   "DATABASE_URL",
 );
 const platform = loopbackHttpUrl(
-  process.env.CONFORMANCE_PLATFORM_URL ?? "http://127.0.0.1:44111",
+  process.env["CONFORMANCE_PLATFORM_URL"] ?? "http://127.0.0.1:44111",
   "CONFORMANCE_PLATFORM_URL",
 );
 const config = {
@@ -167,7 +168,7 @@ control.post<{
   },
   async (request) => {
     now = new Date(+now + (request.body.advanceSeconds ?? 0) * 1000);
-    if (request.body.outcome) outcome = request.body.outcome;
+    if (hasText(request.body.outcome)) outcome = request.body.outcome;
     if (request.body.marketingEnabled !== undefined)
       Object.assign(config, {
         marketingEnabled: request.body.marketingEnabled,

@@ -1,3 +1,4 @@
+import { hasText } from "../../shared/text.js";
 import type { Database } from "../../database/database.js";
 import { digest } from "../../security/payload-digest.js";
 import type { Clock } from "../../shared/clock.js";
@@ -31,9 +32,9 @@ export class CommunityRestrictions {
       !Number.isSafeInteger(input.expectedRevision) ||
       input.expectedRevision < 0 ||
       !["hold", "restore"].includes(input.action) ||
-      !input.reason.trim() ||
+      !hasText(input.reason.trim()) ||
       input.reason.length > 1000 ||
-      !input.actorRef ||
+      !hasText(input.actorRef) ||
       input.actorRef.length > 256
     )
       throw new Error("Invalid owner decision");

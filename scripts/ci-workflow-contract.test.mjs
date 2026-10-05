@@ -1,5 +1,6 @@
 // @ts-check
 import assert from "node:assert/strict";
+import { spawnSync } from "node:child_process";
 import { readdirSync, readFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -52,9 +53,65 @@ const requiredJobs = [
   "integration-serial",
   "compose-development",
   "compose-production",
+  "telegram",
 ];
 
 describe("application CI workflow contract", () => {
+  it("checks Telegram on isolated PostgreSQL and non-guest RabbitMQ at the captured source SHA", () => {
+    const telegram = jobBlock("telegram");
+    assert.match(
+      telegram,
+      /ref: \$\{\{ inputs\.source_sha \|\| github\.sha \}\}/u,
+    );
+    assert.match(telegram, /uses: \.\/\.github\/actions\/setup-platform$/mu);
+    assert.match(
+      telegram,
+      /run: pnpm --filter @inside\/telegram check:full$/mu,
+    );
+    assert.match(telegram, /image: postgres:18\.4-alpine/u);
+    assert.match(telegram, /image: rabbitmq:4\.3-management-alpine/u);
+    assert.match(telegram, /RABBITMQ_DEFAULT_USER: telegram_checks/u);
+    assert.match(
+      telegram,
+      /DATABASE_URL: postgresql:\/\/inside:inside@127\.0\.0\.1:5432\/inside_telegram/u,
+    );
+    assert.match(
+      telegram,
+      /NOTIFICATION_TEST_AMQP_URL: amqp:\/\/telegram_checks:telegram_checks@127\.0\.0\.1:5672/u,
+    );
+    assert.match(
+      telegram,
+      /NOTIFICATION_TEST_MANAGEMENT_URL: http:\/\/127\.0\.0\.1:15672/u,
+    );
+    assert.doesNotMatch(telegram, /environment:|secrets\.|docker compose/u);
+  });
+
+  it("rejects unsuccessful or missing Telegram results through the executable CI Gate", () => {
+    const gate = jobBlock("ci-gate");
+    const command = gate.split("        run: |\n")[1];
+    assert.ok(command);
+    const shell = command.replace(/^ {10}/gmu, "");
+    const resultNames = [...gate.matchAll(/^ {10}([A-Z0-9_]+_RESULT):/gmu)].map(
+      ([, name = ""]) => name,
+    );
+    for (const result of ["success", "failure", "cancelled", "skipped", ""]) {
+      const env = Object.fromEntries(
+        resultNames.map((name) => [name, "success"]),
+      );
+      env["TELEGRAM_RESULT"] = result;
+      const run = spawnSync(
+        "/bin/bash",
+        ["--noprofile", "--norc", "-eu", "-c", shell],
+        { env, encoding: "utf8" },
+      );
+      assert.equal(
+        run.status,
+        result === "success" ? 0 : 1,
+        `Telegram result ${JSON.stringify(result)}: ${run.stderr}`,
+      );
+    }
+  });
+
   it("runs for main pull requests, the merge queue and reusable workflow calls", () => {
     const triggers = topLevelBlock("on");
 

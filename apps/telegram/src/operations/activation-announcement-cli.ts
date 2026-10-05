@@ -1,3 +1,4 @@
+import { hasText } from "../shared/text.js";
 import "../config/load-environment.js";
 import { Api } from "grammy";
 import { GrammyMessagesAdapter } from "../adapters/telegram/grammy-messages.adapter.js";
@@ -21,7 +22,7 @@ if (
 } else {
   try {
     const config = loadApplicationConfig(process.env);
-    if (config.botToken)
+    if (hasText(config.botToken))
       await announce(config.botToken, {
         activation: config.activation,
         sourceRef,

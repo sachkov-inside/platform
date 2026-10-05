@@ -1,3 +1,5 @@
+import { closeIfStarted } from "../support/close-if-started.js";
+import { hasText } from "../../src/shared/text.js";
 import { createHash, randomUUID } from "node:crypto";
 
 import {
@@ -42,8 +44,8 @@ import {
 } from "../support/sales-funnel-platform.js";
 import { privateStartUpdate } from "../support/synthetic-telegram-updates.js";
 
-const databaseUrl = process.env.DATABASE_URL;
-if (!databaseUrl) throw new Error("DATABASE_URL required");
+const databaseUrl = process.env["DATABASE_URL"];
+if (!hasText(databaseUrl)) throw new Error("DATABASE_URL required");
 const database = createDatabase(databaseUrl);
 const config = {
   ...loadApplicationConfig({
@@ -127,8 +129,8 @@ beforeEach(async () => {
 });
 
 afterAll(async () => {
-  await app?.close();
-  await platform?.close();
+  await closeIfStarted(app);
+  await closeIfStarted(platform);
   await database.destroy();
 });
 
@@ -276,11 +278,7 @@ describe("sales funnel events", () => {
     const consents = (await queued()).filter(
       (event) => event.kind === "marketing_consent",
     );
-    expect(
-      consents.map(
-        (event) => event.kind === "marketing_consent" && event.granted,
-      ),
-    ).toEqual([false, true, true]);
+    expect(consents.map((event) => event.granted)).toEqual([false, true, true]);
     expect(answered).toHaveLength(1);
   });
 

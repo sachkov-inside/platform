@@ -1,3 +1,4 @@
+import { hasText } from "../../shared/text.js";
 import type {
   CommunityWelcomeDetails,
   CommunityWelcomeDetailsSource,
@@ -51,7 +52,7 @@ export class HttpPlatformCohortAdapter implements CommunityWelcomeDetailsSource 
     // A body outside the contract is noticed, not shown: the welcome still goes without a date.
     if (startsOn === undefined)
       reportCondition("platform.cohort-read", "platform_response_invalid");
-    return startsOn ? { streamStartsOn: startsOn } : {};
+    return hasText(startsOn) ? { streamStartsOn: startsOn } : {};
   }
 
   /** The course's start date, `null` without a stream or date, `undefined` for a foreign body. */

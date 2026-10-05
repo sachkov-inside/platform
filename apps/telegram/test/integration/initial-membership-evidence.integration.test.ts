@@ -1,3 +1,4 @@
+import { hasText } from "../../src/shared/text.js";
 import Ajv2020 from "ajv/dist/2020.js";
 import addFormats from "ajv-formats";
 import { sql } from "kysely";
@@ -35,8 +36,8 @@ import type {
 } from "../../src/modules/membership-evidence/telegram-membership.js";
 import { anyString } from "../support/matchers.js";
 
-const databaseUrl = process.env.DATABASE_URL;
-if (!databaseUrl) {
+const databaseUrl = process.env["DATABASE_URL"];
+if (!hasText(databaseUrl)) {
   throw new Error("DATABASE_URL is required for integration tests");
 }
 

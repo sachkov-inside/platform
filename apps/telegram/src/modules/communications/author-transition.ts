@@ -1,3 +1,5 @@
+import { isTruthy } from "../../shared/truthiness.js";
+import { hasText, presentText } from "../../shared/text.js";
 import { unhandled } from "../../shared/unhandled.js";
 import {
   appendAuthorButton,
@@ -165,7 +167,7 @@ function step(t: Turn, event: AuthorEvent): void {
       if (event.purpose === "library") return showLibrary(t, event);
       t.state.prompt = undefined;
       return t.reply(
-        t.state.libraryQuery
+        hasText(t.state.libraryQuery)
           ? `Поиск: ${t.state.libraryQuery}`
           : "Сохранённые посты",
         [
@@ -173,7 +175,7 @@ function step(t: Turn, event: AuthorEvent): void {
             messageLabel(p.content),
             { kind: "read-post", id: p.templateId },
           ]),
-          ...(event.nextCursor
+          ...(hasText(event.nextCursor)
             ? [
                 [
                   "Следующие",
@@ -212,7 +214,7 @@ function step(t: Turn, event: AuthorEvent): void {
           `${name.slice(0, 35)} · ${broadcastNames[broadcast.state]}`,
           { kind: "read-broadcast", id: broadcast.broadcastId },
         ]),
-        ...(event.nextCursor
+        ...(hasText(event.nextCursor)
           ? [
               [
                 "Следующие",
@@ -258,7 +260,7 @@ function step(t: Turn, event: AuthorEvent): void {
 
 function close(t: Turn) {
   const s = t.state;
-  if (s.batch) {
+  if (s.batch !== undefined) {
     const kind = s.batch;
     s.batch = undefined;
     if (kind === "broadcast") return broadcastCard(t);
@@ -397,7 +399,8 @@ function perform(t: Turn, a: AuthorAction): void {
     case "create-broadcast":
       if (!template) return unavailable();
       s.broadcast = newBroadcast(t, [{ content: template.content }]);
-      s.broadcastName = template.content.text.slice(0, 128) || "Рассылка";
+      s.broadcastName =
+        presentText(template.content.text.slice(0, 128)) ?? "Рассылка";
       return saveBroadcast(t, { kind: "card" });
     case "broadcasts":
       s.batch = undefined;
@@ -545,7 +548,7 @@ function performOnBroadcast(
       }
       return t.reply(
         a.kind === "confirm-launch"
-          ? `Запустить «${t.state.broadcastName ?? "Рассылка"}»?\n${b.parts.length} сообщений, версия ${b.revision}.\nКому: ${b.audience.kind === "all" ? "все доступные контакты" : `выбранные воронки: ${b.audience.funnelIds.length}, без дублей`}.\nКогда: ${b.scheduledAt ? moscowTime(b.scheduledAt) : "сразу после подтверждения"}.`
+          ? `Запустить «${t.state.broadcastName ?? "Рассылка"}»?\n${b.parts.length} сообщений, версия ${b.revision}.\nКому: ${b.audience.kind === "all" ? "все доступные контакты" : `выбранные воронки: ${b.audience.funnelIds.length}, без дублей`}.\nКогда: ${hasText(b.scheduledAt) ? moscowTime(b.scheduledAt) : "сразу после подтверждения"}.`
           : "Отменить рассылку? Уже отправленные сообщения останутся у получателей.",
         [
           [
@@ -611,12 +614,13 @@ function newBroadcast(
 /** `broadcasts.save` accepts a broadcast's messages only until launch takes its audience. */
 function editable(b: AuthorBroadcast): boolean {
   return (
-    !b.audienceSnapshotId && ["draft", "scheduled", "paused"].includes(b.state)
+    !hasText(b.audienceSnapshotId) &&
+    ["draft", "scheduled", "paused"].includes(b.state)
   );
 }
 
 function partTime(part: BroadcastPart): string {
-  return part.sendAfterSeconds
+  return isTruthy(part.sendAfterSeconds)
     ? `Через ${formatFunnelDelay(part.sendAfterSeconds)}`
     : "Сразу";
 }
@@ -642,7 +646,7 @@ function showPost(t: Turn) {
   if (!template) throw new CommunicationsError("not_found");
   t.state.prompt = undefined;
   t.reply(
-    `Пост · версия ${template.revision}\n${template.content.type} · ${template.content.buttons.length} кнопок\n${template.content.text.slice(0, 500) || "Медиа без подписи"}`,
+    `Пост · версия ${template.revision}\n${template.content.type} · ${template.content.buttons.length} кнопок\n${presentText(template.content.text.slice(0, 500)) ?? "Медиа без подписи"}`,
     [
       ["Образец себе", { kind: "sample" }],
       ["Заменить сообщение", { kind: "replace" }],
@@ -664,7 +668,7 @@ function batchMenu(t: Turn) {
       ? selectedBroadcast(t).parts.length
       : selectedFunnel(t).entryResponse.parts.length;
   t.reply(
-    count
+    isTruthy(count)
       ? `Сохранено сообщений: ${count}.\nПришлите ещё или нажмите «Готово».`
       : `Подготовка сообщений\nПришлите несколько сообщений подряд: текст, фото, видео, кружки, голосовые или документы. Каждый отдельный пост сохраняется сразу в черновик. Когда закончите, нажмите «Готово».`,
     [
@@ -680,7 +684,7 @@ function beginBatch(t: Turn, kind: "broadcast" | "funnel") {
       ? selectedBroadcast(t).broadcastId
       : selectedFunnel(t).funnelId;
   const pending = t.compositionButtons(id);
-  if (pending.length)
+  if (isTruthy(pending.length))
     return t.reply(
       "Сначала завершите или отмените незавершённую правку сообщения.",
       pending,
@@ -714,7 +718,7 @@ function broadcastCard(t: Turn) {
       )}${b.parts.length > 5 ? `\nЕщё сообщений: ${b.parts.length - 5}` : ""}\nКому: всем доступным подписчикам.${b.state === "draft" ? " Время сообщений отсчитывается от запуска." : ""}`,
     [
       ...pending,
-      ...(b.state === "draft" && !pending.length
+      ...(b.state === "draft" && !isTruthy(pending.length)
         ? [
             [
               "Добавить сообщение",
@@ -722,7 +726,9 @@ function broadcastCard(t: Turn) {
             ] as AuthorButton,
           ]
         : []),
-      ...(b.state === "draft" && b.parts.length && !pending.length
+      ...(b.state === "draft" &&
+      isTruthy(b.parts.length) &&
+      !isTruthy(pending.length)
         ? [["Запустить", { kind: "confirm-launch" }] as AuthorButton]
         : []),
       ...(["scheduled", "running"].includes(b.state)
@@ -734,7 +740,7 @@ function broadcastCard(t: Turn) {
       ...(!["completed", "cancelled"].includes(b.state)
         ? [["Отменить рассылку", { kind: "confirm-cancel" }] as AuthorButton]
         : []),
-      ...(b.parts.length
+      ...(isTruthy(b.parts.length)
         ? [
             [
               "Посмотреть сообщения",
@@ -746,7 +752,7 @@ function broadcastCard(t: Turn) {
         ? [["Изменить сообщения", { kind: "parts" }] as AuthorButton]
         : []),
       ...(["running", "paused", "completed", "cancelled"].includes(b.state) &&
-      b.revision
+      isTruthy(b.revision)
         ? [["Результаты отправки", { kind: "statistics" }] as AuthorButton]
         : []),
       ["Все рассылки", { kind: "broadcasts" }],
@@ -760,14 +766,14 @@ function beginSequence(t: Turn, kind: "broadcast" | "funnel"): void {
       ? selectedBroadcast(t).broadcastId
       : selectedFunnel(t).funnelId;
   const pending = t.compositionButtons(id);
-  if (pending.length)
+  if (isTruthy(pending.length))
     return t.reply(
       "Есть незавершённое сообщение. Продолжите его или отмените добавление.",
       pending,
     );
   if (kind === "broadcast") {
     const b = selectedBroadcast(t);
-    if (b.state !== "draft" || b.audienceSnapshotId)
+    if (b.state !== "draft" || hasText(b.audienceSnapshotId))
       throw new CommunicationsError("revision_conflict");
     if (b.parts.length >= MAX_BROADCAST_PARTS) return broadcastCard(t);
     return beginSequenceComposer(
@@ -816,9 +822,10 @@ function sequenceResult(t: Turn, result: SequenceResult): void {
         b.parts.length >= MAX_BROADCAST_PARTS
       )
         throw new CommunicationsError("revision_conflict");
-      if (!b.parts.length && !t.state.broadcastName)
+      if (!isTruthy(b.parts.length) && !hasText(t.state.broadcastName))
         t.state.broadcastName =
-          result.content.text.slice(0, 80) || messageLabel(result.content);
+          presentText(result.content.text.slice(0, 80)) ??
+          messageLabel(result.content);
       b.parts.push({
         partId: t.newId(),
         content: result.content,
@@ -840,7 +847,7 @@ function sequenceResult(t: Turn, result: SequenceResult): void {
 /** Saves the selected broadcast; an empty unsaved one stays only a local draft. */
 function saveBroadcast(t: Turn, then: AfterSave) {
   const b = selectedBroadcast(t);
-  if (!b.parts.length && b.revision === 0) {
+  if (!isTruthy(b.parts.length) && b.revision === 0) {
     t.retainBroadcast();
     return afterBroadcastSave(t, then);
   }
@@ -897,7 +904,8 @@ function beginComposition(t: Turn, a: CompositionEntry): void {
       f?.target === "intro"
         ? f.intro && { id: f.intro.introId, revision: f.intro.revision }
         : f?.funnel && { id: f.funnel.funnelId, revision: f.funnel.revision };
-    if (!block || !f?.target) throw new CommunicationsError("not_found");
+    if (!block || !hasText(f?.target))
+      throw new CommunicationsError("not_found");
     destination = {
       kind: "funnel",
       id: block.id,
@@ -924,7 +932,7 @@ function beginComposition(t: Turn, a: CompositionEntry): void {
     };
   }
   const pending = t.compositionButtons(destination.id);
-  if (pending.length)
+  if (isTruthy(pending.length))
     return t.reply(
       "Для этого объекта уже есть незавершённое сообщение. Продолжите его или явно отмените добавление.",
       pending,
@@ -953,7 +961,7 @@ function composeResult(t: Turn, result: ComposerResult): void {
     if (result.kind === "accepted") {
       if (b.revision !== d.expectedRevision || !editable(b))
         throw new CommunicationsError("revision_conflict");
-      if (d.partId) {
+      if (hasText(d.partId)) {
         if (!b.parts.some((p) => p.partId === d.partId))
           throw new CommunicationsError("revision_conflict");
         b.parts = b.parts.map((p) =>
@@ -1000,7 +1008,7 @@ function restoreComposition(t: Turn, composer: ComposerState) {
 function answer(t: Turn, input: { text: string; content: unknown }): void {
   const s = t.state;
   if (s.composing?.sequence) return sequenceResult(t, answerSequence(t, input));
-  if (s.batch) {
+  if (s.batch !== undefined) {
     const content = input.content;
     try {
       validateContent(content);
@@ -1023,20 +1031,21 @@ function answer(t: Turn, input: { text: string; content: unknown }): void {
         `В одной рассылке не больше ${MAX_BROADCAST_PARTS} сообщений.`,
         [["Готово", { kind: "batch:done" }]],
       );
-    if (!b.parts.length && !s.broadcastName)
-      s.broadcastName = content.text.slice(0, 80) || messageLabel(content);
+    if (!isTruthy(b.parts.length) && !hasText(s.broadcastName))
+      s.broadcastName =
+        presentText(content.text.slice(0, 80)) ?? messageLabel(content);
     appendPart(t, b, structuredClone(content));
     return saveBroadcast(t, { kind: "batch" });
   }
   if (s.composing) return answerComposer(t, input);
   const text = input.text;
   if (s.prompt?.kind === "post-search") {
-    if (!text || text.length > 128)
+    if (!hasText(text) || text.length > 128)
       return t.reply("Введите от 1 до 128 символов.");
     s.libraryQuery = text;
     return perform(t, { kind: "posts" });
   }
-  if (s.funnelAuthor?.prompt) return answerFunnel(t, input);
+  if (hasText(s.funnelAuthor?.prompt)) return answerFunnel(t, input);
   const prompt = s.prompt;
   switch (prompt?.kind) {
     case "replace": {
@@ -1059,7 +1068,7 @@ function answer(t: Turn, input: { text: string; content: unknown }): void {
       });
     }
     case "button-title":
-      if (!text || text.length > 64)
+      if (!hasText(text) || text.length > 64)
         return t.reply("Название должно содержать от 1 до 64 символов.");
       s.prompt = { kind: "button-url", buttonTitle: text };
       return t.reply("Пришлите HTTPS-ссылку для кнопки.");

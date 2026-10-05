@@ -30,3 +30,13 @@ infra/identity/logto/
 # Check fixtures: guardrails assert diagnostics at exact lines of these sources.
 **/guardrails/fixtures/
 scripts/fixtures/
+
+# Telegram's pinned protocol corpora and architecture diagnostic fixtures retain source bytes.
+apps/telegram/docs/contracts/
+apps/telegram/src/modules/community/contracts/
+apps/telegram/src/modules/notifications/contracts/
+apps/telegram/src/modules/subscription-activation/contracts/
+apps/telegram/test/architecture/fixtures/
+
+# Applied Telegram migration identities are immutable across the repository move.
+apps/telegram/src/database/migrations/

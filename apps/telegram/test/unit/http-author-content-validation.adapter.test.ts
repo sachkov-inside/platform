@@ -40,12 +40,12 @@ describe("Platform content snapshot validation seam", () => {
       expect(init?.redirect).toBe("error");
       const request = jsonRecord(requestBody(init));
       expect(contractValidator("contentValidationRequest")(request)).toBe(true);
-      expect(request.subject).toEqual(subject);
-      expect(request.parts).toEqual(parts);
+      expect(request["subject"]).toEqual(subject);
+      expect(request["parts"]).toEqual(parts);
       return Promise.resolve(
         Response.json({
           contractVersion: "inside-communications-v1",
-          requestId: request.requestId,
+          requestId: request["requestId"],
           status: "ok",
           accountRef: subject.accountRef,
           targetErrors,
@@ -83,7 +83,7 @@ describe("Platform content snapshot validation seam", () => {
             requestId:
               mode === "stale"
                 ? "33333333-3333-4333-8333-333333333333"
-                : request.requestId,
+                : request["requestId"],
             status: mode === "denied" ? "denied" : "ok",
             ...(mode === "denied"
               ? {}

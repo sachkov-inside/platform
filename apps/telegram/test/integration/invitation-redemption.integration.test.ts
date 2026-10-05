@@ -1,3 +1,4 @@
+import { hasText } from "../../src/shared/text.js";
 import { randomUUID } from "node:crypto";
 import { Test } from "@nestjs/testing";
 import {
@@ -31,7 +32,7 @@ const clock = {
   },
 };
 const config = loadApplicationConfig({
-  DATABASE_URL: process.env.DATABASE_URL,
+  DATABASE_URL: process.env["DATABASE_URL"],
   TELEGRAM_BOT_IDENTITY: bot,
   TELEGRAM_CANONICAL_CHAT_ID: "-1000000000000",
   TELEGRAM_WEBHOOK_SECRET: "synthetic-webhook-secret-for-tests-only",
@@ -91,7 +92,7 @@ function redeem(input: InvitationRedeem): InvitationRedeemResponse | undefined {
     value: { contractVersion: ACTIVATION_VERSION, state },
   });
   if (!invitation) return refusal("unavailable");
-  if (invitation.refusal) return refusal(invitation.refusal);
+  if (hasText(invitation.refusal)) return refusal(invitation.refusal);
   invitation.claimedBy ??= input.identityRef;
   if (invitation.claimedBy !== input.identityRef)
     return refusal("claimed_by_other");

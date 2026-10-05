@@ -1,3 +1,5 @@
+import { isTruthy } from "../../shared/truthiness.js";
+import { hasText } from "../../shared/text.js";
 import { buttonRows } from "../../modules/communications/button-rows.js";
 import { type Api, GrammyError } from "grammy";
 import type { MessageEntity } from "grammy/types";
@@ -22,7 +24,7 @@ export class GrammyCommunicationsAdapter implements CommunicationTransport {
   ) {}
   async send(message: CommunicationMessage): Promise<TelegramDeliveryResult> {
     const c = message.content;
-    const reply_markup = message.offerStart
+    const reply_markup = isTruthy(message.offerStart)
       ? {
           keyboard: [[{ text: "/start" }]],
           resize_keyboard: true,
@@ -50,8 +52,8 @@ export class GrammyCommunicationsAdapter implements CommunicationTransport {
       switch (c.type) {
         case "text":
           if (
-            message.authorMenu &&
-            message.editMessageId &&
+            isTruthy(message.authorMenu) &&
+            hasText(message.editMessageId) &&
             this.api.editMessageText
           ) {
             try {

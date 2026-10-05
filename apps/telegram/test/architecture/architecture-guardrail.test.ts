@@ -1,3 +1,4 @@
+import { hasText } from "../../src/shared/text.js";
 import { spawnSync } from "node:child_process";
 
 import { describe, expect, it } from "vitest";
@@ -64,7 +65,7 @@ it("lets the pure author dialog import types from anywhere", () => {
 function runGuardrail(root?: string) {
   return spawnSync(
     process.execPath,
-    ["scripts/check-architecture.mjs", ...(root ? [root] : [])],
+    ["scripts/check-architecture.mjs", ...(hasText(root) ? [root] : [])],
     { encoding: "utf8" },
   );
 }

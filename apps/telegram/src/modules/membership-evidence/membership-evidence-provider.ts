@@ -1,3 +1,4 @@
+import { hasText } from "../../shared/text.js";
 import {
   findPlatformLink,
   lockPlatformLink,
@@ -1004,7 +1005,7 @@ async function nextReadyProviderObservation(
     .where("bot_identity", "=", record.botIdentity)
     .where("state", "=", "ready");
   const sourceUpdateId = record.sourceUpdateId;
-  recovery = sourceUpdateId
+  recovery = hasText(sourceUpdateId)
     ? recovery.where((expression) =>
         expression.or([
           expression("observed_at", ">", record.observedAt),
@@ -1045,7 +1046,7 @@ async function rejectUnsafePositiveEvidence(
     .selectFrom("membership_check_results")
     .select("result_ref")
     .where("normalized_state", "=", "member");
-  unsafeResults = providerLost.updateId
+  unsafeResults = hasText(providerLost.updateId)
     ? unsafeResults.where(sql<boolean>`(
         observed_at > ${providerLost.observedAt}
         or (
@@ -1055,7 +1056,7 @@ async function rejectUnsafePositiveEvidence(
       )`)
     : unsafeResults.where("observed_at", ">=", providerLost.observedAt);
   if (providerRecovered) {
-    unsafeResults = providerRecovered.updateId
+    unsafeResults = hasText(providerRecovered.updateId)
       ? unsafeResults.where(sql<boolean>`(
           observed_at < ${providerRecovered.observedAt}
           or (

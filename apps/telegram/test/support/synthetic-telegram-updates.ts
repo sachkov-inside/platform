@@ -1,3 +1,4 @@
+import { isTruthy } from "../../src/shared/truthiness.js";
 export interface StartOptions {
   chatType?: string;
   isBot?: boolean;
@@ -14,7 +15,7 @@ export function privateStartUpdate(
     update_id: updateId,
     message: {
       chat: { id: userId, type: options.chatType ?? "private" },
-      ...(!options.omitSender
+      ...(!isTruthy(options.omitSender)
         ? { from: { id: userId, is_bot: options.isBot ?? false } }
         : {}),
       message_id: updateId,

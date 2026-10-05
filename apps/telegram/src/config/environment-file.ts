@@ -8,9 +8,9 @@ import { parseEnv } from "node:util";
  * decides the settings.
  */
 export function loadEnvironmentFile(): void {
-  const path = process.env.ENV_FILE ?? ".env";
+  const path = process.env["ENV_FILE"] ?? ".env";
   if (!existsSync(path)) return;
-  if (process.env.ENV_FILE_OVERRIDE === "true")
+  if (process.env["ENV_FILE_OVERRIDE"] === "true")
     Object.assign(process.env, parseEnv(readFileSync(path, "utf8")));
   else process.loadEnvFile(path);
 }

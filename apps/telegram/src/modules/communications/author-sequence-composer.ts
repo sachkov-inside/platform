@@ -1,3 +1,4 @@
+import { isTruthy } from "../../shared/truthiness.js";
 import { unhandled } from "../../shared/unhandled.js";
 import type {
   AuthorButton,
@@ -60,14 +61,14 @@ export function showSequence(t: Turn) {
   t.reply(
     sequence.firstEntry
       ? "Первое сообщение воронки приходит сразу при входе. Подтвердите добавление."
-      : `Когда отправить это сообщение? Время отсчитывается от ${origin}.\nНапишите «сразу», «1 час», «2 часа» или другое время.${sequence.lastOffset ? ` Не раньше ${formatFunnelDelay(sequence.lastOffset)} — сохраняем порядок сообщений.` : ""}`,
+      : `Когда отправить это сообщение? Время отсчитывается от ${origin}.\nНапишите «сразу», «1 час», «2 часа» или другое время.${isTruthy(sequence.lastOffset) ? ` Не раньше ${formatFunnelDelay(sequence.lastOffset)} — сохраняем порядок сообщений.` : ""}`,
     [
       ...[0, 3600, 7200]
         .filter(
           (n) => n >= sequence.lastOffset && (!sequence.firstEntry || n === 0),
         )
         .map((n): AuthorButton => [
-          n ? `Через ${formatFunnelDelay(n)}` : "Сразу",
+          isTruthy(n) ? `Через ${formatFunnelDelay(n)}` : "Сразу",
           { kind: "sequence:time", value: String(n) },
         ]),
       ["Не добавлять это сообщение", { kind: "sequence:discard" }],

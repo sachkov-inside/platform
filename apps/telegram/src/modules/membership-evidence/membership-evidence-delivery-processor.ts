@@ -1,3 +1,4 @@
+import { hasText } from "../../shared/text.js";
 import { Inject, Injectable } from "@nestjs/common";
 
 import { MembershipEvidenceOutbox } from "./membership-evidence-outbox.js";
@@ -53,7 +54,7 @@ export class MembershipEvidenceDeliveryProcessor {
     let processed = 0;
     for (; processed < limit; processed += 1) {
       const outcome = await this.processNext(now);
-      if (!outcome) {
+      if (!hasText(outcome)) {
         break;
       }
     }

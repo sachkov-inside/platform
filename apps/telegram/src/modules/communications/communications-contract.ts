@@ -1,3 +1,4 @@
+import { hasText } from "../../shared/text.js";
 import type {
   FunnelStep,
   FunnelSource,
@@ -118,8 +119,8 @@ export function validateContent(
   const content = value;
   if (
     content.type === "text"
-      ? !content.text || content.fileId !== undefined
-      : !content.fileId
+      ? !hasText(content.text) || content.fileId !== undefined
+      : !hasText(content.fileId)
   )
     throw new CommunicationsError("unsupported_content");
   if (
@@ -149,7 +150,7 @@ export function validateContent(
       (entity.language !== undefined && entity.type !== "pre")
     )
       throw new CommunicationsError("unsupported_content");
-    if (entity.url) assertSafeUrl(entity.url);
+    if (hasText(entity.url)) assertSafeUrl(entity.url);
     if (entity.type === "url")
       assertSafeUrl(content.text.slice(entity.offset, end), true);
     for (const other of content.entities) {
@@ -211,8 +212,8 @@ function assertSafeUrl(value: string, allowBareDomain = false): void {
   }
   if (
     url.protocol !== "https:" ||
-    url.username ||
-    url.password ||
+    hasText(url.username) ||
+    hasText(url.password) ||
     isTelegramEndpoint(url)
   )
     throw new CommunicationsError("unsupported_content");

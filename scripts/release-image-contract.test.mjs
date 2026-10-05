@@ -14,6 +14,58 @@ const repositoryRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const read = (path) => readFileSync(resolve(repositoryRoot, path), "utf8");
 
 describe("release image contract", () => {
+  it("supplies every workspace importer before frozen install in all application Docker contexts", () => {
+    for (const path of [
+      "apps/backend/Dockerfile",
+      "apps/web/Dockerfile",
+      "apps/telegram/infra/production/Dockerfile",
+    ]) {
+      const dockerfile = read(path);
+      const dependencyStage = dockerfile.slice(
+        0,
+        dockerfile.indexOf("pnpm install --frozen-lockfile"),
+      );
+      for (const importer of [
+        "apps/backend/package.json",
+        "apps/web/package.json",
+        "apps/telegram/package.json",
+        "packages/runtime-identity/package.json",
+        "packages/material-blocks",
+        "packages/legal",
+        "packages/access-capabilities",
+      ]) {
+        assert.ok(
+          dependencyStage.includes(` ${importer} `),
+          `${path} must supply root workspace importer ${importer} before frozen install`,
+        );
+      }
+    }
+  });
+
+  it("builds and deploys only Telegram from the root context while legacy publication remains a fixture", () => {
+    const dockerfile = read("apps/telegram/infra/production/Dockerfile");
+    assert.match(dockerfile, /COPY.*tsconfig\.nest-app\.json/u);
+    assert.match(dockerfile, /COPY.*apps\/telegram\/src/u);
+    assert.match(dockerfile, /pnpm --filter @inside\/telegram build/u);
+    assert.match(
+      dockerfile,
+      /--filter @inside\/telegram deploy --prod --ignore-scripts/u,
+    );
+    assert.match(dockerfile, /pnpm --config\.inject-workspace-packages=true/u);
+    assert.match(dockerfile, /deploy.*--offline --frozen-lockfile/u);
+    assert.match(
+      dockerfile,
+      /COPY --from=build.*\/workspace\/apps\/telegram\/dist \.\/dist/u,
+    );
+    assert.doesNotMatch(dockerfile, /pnpm prune/u);
+    // #959 changes the Docker build interface; #960 owns the active root release path.
+    const legacy = read("apps/telegram/.github/workflows/release.yml");
+    assert.match(legacy, /Historical fixture.*#960/u);
+    assert.match(legacy, /context: \.$/mu);
+    assert.match(legacy, /file: infra\/production\/Dockerfile/u);
+    assert.doesNotMatch(read(".github/workflows/release.yml"), /telegram-v/u);
+  });
+
   it("ships backend and web production targets without a runtime source checkout", () => {
     const rootPackage = readPackageManifest(
       resolve(repositoryRoot, "package.json"),

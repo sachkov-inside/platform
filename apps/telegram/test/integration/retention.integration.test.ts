@@ -1,3 +1,4 @@
+import { hasText } from "../../src/shared/text.js";
 import { sql } from "kysely";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 
@@ -7,8 +8,8 @@ import { migrateToLatest } from "../../src/database/migrator.js";
 import { purgeExpiredRecords } from "../../src/database/retention.js";
 import { seedCommunityBinding } from "../support/community-binding.js";
 
-const databaseUrl = process.env.DATABASE_URL;
-if (!databaseUrl) {
+const databaseUrl = process.env["DATABASE_URL"];
+if (!hasText(databaseUrl)) {
   throw new Error("DATABASE_URL is required for integration tests");
 }
 

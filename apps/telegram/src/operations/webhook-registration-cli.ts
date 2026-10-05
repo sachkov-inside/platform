@@ -1,3 +1,4 @@
+import { hasText } from "../shared/text.js";
 import "../config/load-environment.js";
 
 import {
@@ -6,15 +7,15 @@ import {
 } from "./webhook-registration.js";
 
 const mode = process.argv[2];
-const token = process.env.TELEGRAM_BOT_TOKEN?.trim();
-const secret = process.env.TELEGRAM_WEBHOOK_SECRET?.trim();
-const expectedUrl = process.env.TELEGRAM_WEBHOOK_URL?.trim();
+const token = process.env["TELEGRAM_BOT_TOKEN"]?.trim();
+const secret = process.env["TELEGRAM_WEBHOOK_SECRET"]?.trim();
+const expectedUrl = process.env["TELEGRAM_WEBHOOK_URL"]?.trim();
 
 if (
   !["--preview", "--apply"].includes(mode ?? "") ||
-  !token ||
-  !secret ||
-  !expectedUrl
+  !hasText(token) ||
+  !hasText(secret) ||
+  !hasText(expectedUrl)
 ) {
   process.stderr.write(
     "Use --preview or --apply with TELEGRAM_BOT_TOKEN, TELEGRAM_WEBHOOK_SECRET and TELEGRAM_WEBHOOK_URL in the environment.\n",

@@ -21,9 +21,9 @@ describe("environment file", () => {
     saved = new Map(KEYS.map((key) => [key, process.env[key]]));
     for (const key of KEYS) Reflect.deleteProperty(process.env, key);
     directory = mkdtempSync(join(tmpdir(), "inside-telegram-env-"));
-    process.env.ENV_FILE = join(directory, "proof.env");
+    process.env["ENV_FILE"] = join(directory, "proof.env");
     writeFileSync(
-      process.env.ENV_FILE,
+      process.env["ENV_FILE"],
       "SYNTHETIC_INHERITED=from-file\nSYNTHETIC_FILE_ONLY=from-file\n",
     );
   });
@@ -36,28 +36,28 @@ describe("environment file", () => {
   });
 
   it("adds missing values and keeps inherited ones", () => {
-    process.env.SYNTHETIC_INHERITED = "inherited";
+    process.env["SYNTHETIC_INHERITED"] = "inherited";
 
     loadEnvironmentFile();
 
-    expect(process.env.SYNTHETIC_INHERITED).toBe("inherited");
-    expect(process.env.SYNTHETIC_FILE_ONLY).toBe("from-file");
+    expect(process.env["SYNTHETIC_INHERITED"]).toBe("inherited");
+    expect(process.env["SYNTHETIC_FILE_ONLY"]).toBe("from-file");
   });
 
   it("lets the file win when the override is requested", () => {
-    process.env.SYNTHETIC_INHERITED = "inherited";
-    process.env.ENV_FILE_OVERRIDE = "true";
+    process.env["SYNTHETIC_INHERITED"] = "inherited";
+    process.env["ENV_FILE_OVERRIDE"] = "true";
 
     loadEnvironmentFile();
 
-    expect(process.env.SYNTHETIC_INHERITED).toBe("from-file");
+    expect(process.env["SYNTHETIC_INHERITED"]).toBe("from-file");
   });
 
   it("leaves the environment unchanged without the file", () => {
-    process.env.ENV_FILE = join(directory, "missing.env");
+    process.env["ENV_FILE"] = join(directory, "missing.env");
 
     loadEnvironmentFile();
 
-    expect(process.env.SYNTHETIC_FILE_ONLY).toBeUndefined();
+    expect(process.env["SYNTHETIC_FILE_ONLY"]).toBeUndefined();
   });
 });

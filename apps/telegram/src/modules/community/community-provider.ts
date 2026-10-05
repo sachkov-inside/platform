@@ -1,3 +1,5 @@
+import { isTruthy } from "../../shared/truthiness.js";
+import { hasText } from "../../shared/text.js";
 import { findPlatformLink } from "../identity-linking/platform-links.js";
 import type { DurableMembershipEnvelope } from "../membership-evidence/membership-evidence-provider.js";
 import { randomUUID } from "node:crypto";
@@ -151,7 +153,7 @@ export class CommunityProvider {
     const parsed = parseCommunityRequest(body, this.version);
     if (parsed.kind === "rejected") {
       // Without a parseable operationId there is no correlation to invent.
-      if (!parsed.operationId)
+      if (!hasText(parsed.operationId))
         return { status: communityErrorStatus[parsed.error] };
       return {
         status: communityErrorStatus[parsed.error],
@@ -464,7 +466,7 @@ export class CommunityProvider {
       (this.version === COMMUNITY_V2 &&
         (intended.admission_restriction !== "none" ||
           !reusableInvite(intended, now) ||
-          !request.inviteLink ||
+          !hasText(request.inviteLink) ||
           request.inviteLink !== intended.invite_link ||
           request.requestedAt > now ||
           request.requestedAt <
@@ -539,7 +541,7 @@ export class CommunityProvider {
     if (desired.admission_restriction !== "none")
       return { kind: "moderation_blocked" };
     if (desired.observed_membership === "member") return { kind: "member" };
-    if (reusableInvite(desired, now) && desired.invite_link)
+    if (reusableInvite(desired, now) && hasText(desired.invite_link))
       return { kind: "link", inviteLink: desired.invite_link };
     return { kind: "preparing" };
   }
@@ -787,7 +789,8 @@ export class CommunityProvider {
       };
     }
     const blocked = this.capability.diagnosticCode;
-    if (blocked) return { kind: "unavailable", diagnosticCode: blocked };
+    if (hasText(blocked))
+      return { kind: "unavailable", diagnosticCode: blocked };
     return this.chat.observeMember(this.canonicalChatId, telegramUserId);
   }
 
@@ -870,7 +873,7 @@ export class CommunityProvider {
         effect.telegram_identity_ref,
         effect.effect === "community.ensure_absence",
       );
-      if (!telegramUserId) {
+      if (!hasText(telegramUserId)) {
         await closeEffect(
           tx,
           this.clock,
@@ -1042,7 +1045,7 @@ export class CommunityProvider {
       }
       if (
         !response ||
-        response.contractVersion !== DISPATCH_CONTRACT_VERSION ||
+        ![DISPATCH_CONTRACT_VERSION].includes(response.contractVersion) ||
         response.operation !== "dispatch.result" ||
         response.operationId !== request.operationId ||
         response.dispatchId !== request.dispatchId ||
@@ -1165,7 +1168,7 @@ export class CommunityProvider {
         case "ban":
           return await this.chat.banMember(chat, telegramUserId);
         case "revoke_link":
-          return inviteLink
+          return hasText(inviteLink)
             ? await this.chat.revokeInviteLink(chat, inviteLink)
             : { kind: "succeeded" };
         case "create_invite": {
@@ -1188,7 +1191,7 @@ export class CommunityProvider {
   private inviteExpiry(desired: DesiredRow): Date {
     const bound = this.clock.now().getTime() + INVITE_WINDOW_MILLISECONDS;
     const validUntil = desired.valid_until?.getTime();
-    return new Date(validUntil ? Math.min(bound, validUntil) : bound);
+    return new Date(isTruthy(validUntil) ? Math.min(bound, validUntil) : bound);
   }
 
   private async settle(
@@ -1393,7 +1396,7 @@ export class CommunityProvider {
         this.clock,
         current,
         `${action}_${outcome.kind}`,
-        "retryAfterSeconds" in outcome && outcome.retryAfterSeconds
+        "retryAfterSeconds" in outcome && isTruthy(outcome.retryAfterSeconds)
           ? outcome.retryAfterSeconds * 1000
           : 0,
       );
@@ -1483,7 +1486,7 @@ export class CommunityProvider {
       desired.telegram_identity_ref,
       false,
     );
-    if (!telegramUserId) return;
+    if (!hasText(telegramUserId)) return;
     const contact = await tx
       .selectFrom("bot_contacts")
       .select("private_chat_id")
@@ -1519,7 +1522,7 @@ export class CommunityProvider {
           privateChatId: contact.privateChatId,
           messageText: `${readmission.text}\n${inviteLink}`,
           sourceKey: `community-readmission:${this.bot}:${effectRef}`,
-          ...(desired.last_membership_update_id
+          ...(hasText(desired.last_membership_update_id)
             ? { triggerUpdateId: desired.last_membership_update_id }
             : {}),
           now,
@@ -1747,7 +1750,7 @@ export class CommunityProvider {
         desired.telegram_identity_ref,
         true,
       );
-      return telegramUserId ? { desired, telegramUserId } : undefined;
+      return hasText(telegramUserId) ? { desired, telegramUserId } : undefined;
     });
     if (!claimed) return;
 

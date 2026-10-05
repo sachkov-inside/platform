@@ -1,3 +1,4 @@
+import { hasText } from "../../shared/text.js";
 import { Inject, Injectable } from "@nestjs/common";
 
 import { DATABASE, type Database } from "../../database/database.js";
@@ -87,7 +88,7 @@ export class SalesFunnelDeliveryProcessor {
   async processAvailable(limit = 50, now = new Date()): Promise<number> {
     let processed = 0;
     for (; processed < limit; processed += 1) {
-      if (!(await this.processNext(now))) break;
+      if (!hasText(await this.processNext(now))) break;
     }
     return processed;
   }

@@ -1,3 +1,5 @@
+import { isTruthy } from "../shared/truthiness.js";
+import { hasText, presentText } from "../shared/text.js";
 import {
   TELEGRAM_WEBHOOK_ALLOWED_UPDATES,
   TELEGRAM_WEBHOOK_PATH,
@@ -52,34 +54,37 @@ export function planWebhookRegistration(
   assertWebhookUrl(expectedUrl);
   assertServiceSecret(secretToken, "TELEGRAM_WEBHOOK_SECRET");
   const current = isRecord(info) ? info : {};
-  const url = typeof current.url === "string" ? current.url : "";
-  if (!url) return { kind: "refused", reason: "not_registered" };
+  const url = typeof current["url"] === "string" ? current["url"] : "";
+  if (!hasText(url)) return { kind: "refused", reason: "not_registered" };
   if (url !== expectedUrl) return { kind: "refused", reason: "url_mismatch" };
-  if (current.has_custom_certificate === true)
+  if (current["has_custom_certificate"] === true)
     return { kind: "refused", reason: "custom_certificate" };
 
-  const subscribed = updateNames(current.allowed_updates);
+  const subscribed = updateNames(current["allowed_updates"]);
   const required: readonly string[] = TELEGRAM_WEBHOOK_ALLOWED_UPDATES;
   const ipAddress =
-    typeof current.ip_address === "string" && current.ip_address
-      ? current.ip_address
+    typeof current["ip_address"] === "string" && hasText(current["ip_address"])
+      ? current["ip_address"]
       : undefined;
-  const maxConnections = safeInteger(current.max_connections);
+  const maxConnections = safeInteger(current["max_connections"]);
   const summary: WebhookRegistrationSummary = {
-    port: new URL(url).port || "443",
+    port: presentText(new URL(url).port) ?? "443",
     ipAddressPreserved: ipAddress !== undefined,
     maxConnections: maxConnections ?? null,
     addedUpdates: required.filter((name) => !subscribed.includes(name)),
     removedUpdates: subscribed.filter((name) => !required.includes(name)),
-    pendingUpdateCount: safeInteger(current.pending_update_count) ?? null,
+    pendingUpdateCount: safeInteger(current["pending_update_count"]) ?? null,
   };
-  if (!summary.addedUpdates.length && !summary.removedUpdates.length)
+  if (
+    !isTruthy(summary.addedUpdates.length) &&
+    !isTruthy(summary.removedUpdates.length)
+  )
     return { kind: "current", summary };
   return {
     kind: "update",
     request: {
       url,
-      ...(ipAddress ? { ip_address: ipAddress } : {}),
+      ...(hasText(ipAddress) ? { ip_address: ipAddress } : {}),
       ...(maxConnections !== undefined
         ? { max_connections: maxConnections }
         : {}),
@@ -96,18 +101,18 @@ export function webhookRegistrationApplied(
   request: WebhookRegistrationRequest,
   info: unknown,
 ): boolean {
-  if (!isRecord(info) || info.url !== request.url) return false;
+  if (!isRecord(info) || info["url"] !== request.url) return false;
   if (
     request.ip_address !== undefined &&
-    info.ip_address !== request.ip_address
+    info["ip_address"] !== request.ip_address
   )
     return false;
   if (
     request.max_connections !== undefined &&
-    info.max_connections !== request.max_connections
+    info["max_connections"] !== request.max_connections
   )
     return false;
-  const subscribed = updateNames(info.allowed_updates);
+  const subscribed = updateNames(info["allowed_updates"]);
   return (
     subscribed.length === request.allowed_updates.length &&
     request.allowed_updates.every((name) => subscribed.includes(name))
@@ -124,10 +129,10 @@ function assertWebhookUrl(value: string): void {
   if (
     url.protocol !== "https:" ||
     url.pathname !== WEBHOOK_PATH ||
-    url.search ||
-    url.hash ||
-    url.username ||
-    url.password ||
+    hasText(url.search) ||
+    hasText(url.hash) ||
+    hasText(url.username) ||
+    hasText(url.password) ||
     !WEBHOOK_PORTS.has(url.port)
   )
     throw new Error(

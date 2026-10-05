@@ -1,3 +1,4 @@
+import { hasText } from "../../shared/text.js";
 import { enqueueReply } from "../outbound/start-response-delivery-queue.js";
 import type { Database } from "../../database/database.js";
 
@@ -20,9 +21,9 @@ export async function queueSignInResult(
     .where("request_ref", "=", requestRef)
     .executeTakeFirstOrThrow();
   if (
-    !request.confirmation_message_id ||
-    !request.telegram_user_id ||
-    !request.private_chat_id
+    !hasText(request.confirmation_message_id) ||
+    !hasText(request.telegram_user_id) ||
+    !hasText(request.private_chat_id)
   )
     return;
   await enqueueReply(database, {
@@ -30,7 +31,7 @@ export async function queueSignInResult(
     telegramUserId: request.telegram_user_id,
     privateChatId: request.private_chat_id,
     messageText: text,
-    ...(returnUrl
+    ...(hasText(returnUrl)
       ? { buttons: [{ text: "Открыть Inside", url: returnUrl }] }
       : {}),
     sourceKey: `sign-in-result:${requestRef}`,

@@ -1,3 +1,4 @@
+import { hasText } from "../src/shared/text.js";
 import "reflect-metadata";
 
 import {
@@ -13,7 +14,7 @@ import {
 import { Test } from "@nestjs/testing";
 
 import { AppModule } from "../src/app.module.js";
-import type { ApplicationConfig } from "../src/config/application-config.js";
+import { loadApplicationConfig } from "../src/config/application-config.js";
 import { createDatabase } from "../src/database/create-database.js";
 import { migrateToLatest } from "../src/database/migrator.js";
 import {
@@ -54,28 +55,28 @@ class ControlledTelegramMembership implements TelegramMembership {
   }
 }
 
-const config: ApplicationConfig = {
-  botIdentity: "inside-proof",
-  botToken: "synthetic-proof-token",
-  canonicalChatId: "-1000000000000",
-  databaseUrl,
-  deliveryMode: "disabled",
-  evidenceDeliveryMode: "live",
-  host: "127.0.0.1",
-  linkReceiptText: "Synthetic link receipt",
-  linkedMemberText: "Synthetic member",
-  linkedNonMemberText: "Synthetic non-member",
-  linkedUnavailableText: "Synthetic unavailable",
-  membershipMode: "live",
-  membershipReconciliationCadenceMilliseconds: 30_000,
-  platformEvidenceDeliverySecret: required("CONFORMANCE_EVIDENCE_SECRET"),
-  platformEvidenceDeliveryUrl: evidenceUrl,
-  platformIntegrationSecret: required("CONFORMANCE_LINK_SECRET"),
-  port: appPort,
-  webhookSecret: required("CONFORMANCE_WEBHOOK_SECRET"),
-  welcomeText: "Synthetic welcome",
-  workersEnabled: true,
-};
+const config = loadApplicationConfig({
+  DATABASE_URL: databaseUrl,
+  TELEGRAM_BOT_IDENTITY: "inside-proof",
+  TELEGRAM_BOT_TOKEN: "synthetic-proof-token",
+  TELEGRAM_CANONICAL_CHAT_ID: "-1000000000000",
+  TELEGRAM_DELIVERY_MODE: "disabled",
+  PLATFORM_EVIDENCE_DELIVERY_MODE: "live",
+  HOST: "127.0.0.1",
+  TELEGRAM_LINK_RECEIPT_TEXT: "Synthetic link receipt",
+  TELEGRAM_LINKED_MEMBER_TEXT: "Synthetic member",
+  TELEGRAM_LINKED_NON_MEMBER_TEXT: "Synthetic non-member",
+  TELEGRAM_LINKED_UNAVAILABLE_TEXT: "Synthetic unavailable",
+  TELEGRAM_MEMBERSHIP_MODE: "live",
+  TELEGRAM_MEMBERSHIP_RECONCILIATION_CADENCE_MS: "30000",
+  PLATFORM_EVIDENCE_DELIVERY_SECRET: required("CONFORMANCE_EVIDENCE_SECRET"),
+  PLATFORM_EVIDENCE_DELIVERY_URL: evidenceUrl,
+  PLATFORM_INTEGRATION_SECRET: required("CONFORMANCE_LINK_SECRET"),
+  PORT: String(appPort),
+  TELEGRAM_WEBHOOK_SECRET: required("CONFORMANCE_WEBHOOK_SECRET"),
+  TELEGRAM_WELCOME_TEXT: "Synthetic welcome",
+  WORKERS_ENABLED: "true",
+});
 
 const migrationDatabase = createDatabase(databaseUrl);
 await migrateToLatest(migrationDatabase);
@@ -120,11 +121,11 @@ async function handleControl(
   }
   if (request.method === "POST" && request.url === "/state") {
     const body = await readBody(request);
-    if (isBotState(body.botState)) {
-      membership.botState = body.botState;
+    if (isBotState(body["botState"])) {
+      membership.botState = body["botState"];
     }
-    if (isSubjectState(body.subjectState)) {
-      membership.subjectState = body.subjectState;
+    if (isSubjectState(body["subjectState"])) {
+      membership.subjectState = body["subjectState"];
     }
     response.end(JSON.stringify({ ok: true }));
     return;
@@ -193,7 +194,7 @@ function port(name: string, fallback: number): number {
 
 function required(name: string): string {
   const value = process.env[name];
-  if (!value) {
+  if (!hasText(value)) {
     throw new Error(`${name} is required`);
   }
   return value;

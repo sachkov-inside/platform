@@ -1,3 +1,5 @@
+import { isTruthy } from "../../shared/truthiness.js";
+import { hasText } from "../../shared/text.js";
 import { findPlatformLink } from "../identity-linking/platform-links.js";
 import { randomUUID } from "node:crypto";
 import { isDeepStrictEqual } from "node:util";
@@ -265,9 +267,9 @@ export class AuthorDelivery {
             const message = row.message;
             outgoing = message;
             if (
-              message.authorMenu &&
-              message.editMenu &&
-              !message.editMessageId
+              isTruthy(message.authorMenu) &&
+              isTruthy(message.editMenu) &&
+              !hasText(message.editMessageId)
             ) {
               const previous = await tx
                 .selectFrom("communication_author_outbox")
@@ -281,8 +283,8 @@ export class AuthorDelivery {
                 .executeTakeFirst();
               if (
                 previous?.state === "delivered" &&
-                previous.message?.authorMenu &&
-                previous?.provider_message_id
+                isTruthy(previous.message.authorMenu) &&
+                hasText(previous.provider_message_id)
               ) {
                 outgoing = {
                   ...message,
@@ -312,7 +314,7 @@ export class AuthorDelivery {
       now.getTime() +
         (result.kind !== "api_retryable"
           ? 0
-          : result.retryAfterSeconds
+          : isTruthy(result.retryAfterSeconds)
             ? result.retryAfterSeconds * 1000
             : retryDelay(authorOutbox, item.attempt)),
     );

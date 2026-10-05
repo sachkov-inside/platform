@@ -279,7 +279,7 @@ export class NotificationProvider {
         .where("telegram_user_id", "=", link.telegramUserId)
         .forUpdate()
         .executeTakeFirst();
-      if (!contact || contact.contactability !== "reachable") {
+      if (contact?.contactability !== "reachable") {
         await this.record(tx, current, {
           state: "failed",
           reason: "recipient_unreachable",

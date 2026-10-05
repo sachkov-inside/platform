@@ -1,3 +1,5 @@
+import { closeIfStarted } from "../support/close-if-started.js";
+import { hasText } from "../../src/shared/text.js";
 import { randomUUID } from "node:crypto";
 import {
   FastifyAdapter,
@@ -50,8 +52,8 @@ import {
 } from "../../src/modules/outbound/telegram-messages.js";
 import type { CommunicationsBody } from "../support/communications-body.js";
 import { required } from "../support/required.js";
-const databaseUrl = process.env.DATABASE_URL;
-if (!databaseUrl) throw new Error("DATABASE_URL required");
+const databaseUrl = process.env["DATABASE_URL"];
+if (!hasText(databaseUrl)) throw new Error("DATABASE_URL required");
 const database = createDatabase(databaseUrl);
 const config = loadApplicationConfig({
   DATABASE_URL: databaseUrl,
@@ -143,7 +145,7 @@ beforeEach(async () => {
     .mockResolvedValue({ status: "ok", targetErrors: [] });
 });
 afterAll(async () => {
-  await app?.close();
+  await closeIfStarted(app);
   await database.destroy();
 });
 function part(text: string): MessagePart {
@@ -1435,7 +1437,7 @@ describe("publication preview #34", () => {
     for (let i = 0; i < 30; i++) await tick(1);
     const oldHistory = await deliveries();
     expect(
-      oldHistory.filter((d) => d.kind === "step" && d.completed_at),
+      oldHistory.filter((d) => d.kind === "step" && d.completed_at !== null),
     ).toHaveLength(2);
     const added = {
       stepId: randomUUID(),
@@ -1626,9 +1628,7 @@ describe("entry-anchored funnel schedule", () => {
         .selectAll()
         .execute(),
     ).toHaveLength(0);
-    expect(sent.some((m) => m.content.text?.startsWith("general:"))).toBe(
-      false,
-    );
+    expect(sent.some((m) => m.content.text.startsWith("general:"))).toBe(false);
   });
 });
 

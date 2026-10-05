@@ -1,3 +1,5 @@
+import { isTruthy } from "../../src/shared/truthiness.js";
+import { hasText } from "../../src/shared/text.js";
 import { randomUUID } from "node:crypto";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { createDatabase } from "../../src/database/create-database.js";
@@ -16,7 +18,7 @@ import { digest } from "../../src/security/payload-digest.js";
 import { seedCommunityBinding } from "../support/community-binding.js";
 import { FakeCommunityChat } from "../support/community-chat.js";
 import { required } from "../support/required.js";
-const db = createDatabase(required(process.env.DATABASE_URL));
+const db = createDatabase(required(process.env["DATABASE_URL"]));
 beforeAll(async () => {
   await migrateToLatest(db);
 });
@@ -80,7 +82,7 @@ async function stand(
       contractVersion: COMMUNITY_V2,
       removalsEnabled: options.removalsEnabled ?? true,
       botTelegramUserId: "1234",
-      ...(options.tributeBotTelegramUserId
+      ...(hasText(options.tributeBotTelegramUserId)
         ? {
             tributeBotTelegramUserId: options.tributeBotTelegramUserId,
             readmission: {
@@ -89,7 +91,7 @@ async function stand(
             },
           }
         : {}),
-      ...(options.welcome
+      ...(isTruthy(options.welcome)
         ? {
             welcome: {
               replies: new StartResponseDeliveryQueue(db),

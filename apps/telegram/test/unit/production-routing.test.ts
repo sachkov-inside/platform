@@ -1,10 +1,12 @@
+import { hasText } from "../../src/shared/text.js";
 import { readFileSync } from "node:fs";
 
 import { describe, expect, it } from "vitest";
 
 const template = readFileSync("infra/production/telegram.caddy", "utf8");
 const pattern = /^\s*path_regexp provider (\S+)$/m.exec(template)?.[1];
-if (!pattern) throw new Error("Production provider route matcher is missing");
+if (!hasText(pattern))
+  throw new Error("Production provider route matcher is missing");
 const paths = new RegExp(pattern);
 
 describe("production provider routes", () => {

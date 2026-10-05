@@ -1,3 +1,4 @@
+import { hasText } from "../shared/text.js";
 import { readFile } from "node:fs/promises";
 import { parseEnv } from "node:util";
 
@@ -8,13 +9,13 @@ if (argumentsList[0] === "--") {
   argumentsList.shift();
 }
 const environmentPath = argumentsList[0];
-if (!environmentPath) {
+if (!hasText(environmentPath)) {
   process.stderr.write("Credentialed proof ENV_FILE path is required.\n");
   process.exitCode = 1;
 } else {
   try {
     const environment = parseEnv(await readFile(environmentPath, "utf8"));
-    validateCredentialedProofDatabaseUrl(environment.DATABASE_URL);
+    validateCredentialedProofDatabaseUrl(environment["DATABASE_URL"]);
     process.stdout.write('{"ok":true,"stage":"proof-preflight"}\n');
   } catch {
     process.stderr.write(

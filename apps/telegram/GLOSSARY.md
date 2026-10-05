@@ -1,24 +1,16 @@
-# Inside Telegram
+# Telegram application terms
 
-Inside Telegram owns the Telegram-side contact, identity-linking, and Membership-observation
-language used by the Sachkov Inside bot application.
+[Root GLOSSARY](../../GLOSSARY.md) owns all shared Inside meanings, including Product,
+TelegramIdentity, Invitation, MembershipObservation, Canonical Membership Chat,
+Notification Delivery, CommunityEntitlement and AdmissionRestriction.
+This glossary owns only the Telegram application's local terms.
 
 ## Language
-
-**Product**:
-A separate structured programme of Materials, called «продукт» in generic bot text; its author may
-name it a course, practicum or guide, while the existing technical Guide and `guide:<id>` scope remain unchanged.
-_Avoid_: Subscription, «руководство» as the generic name for every product
 
 **BotContact**:
 A Telegram person who has started the Sachkov Inside bot and can receive bot messages while
 Telegram permits delivery. A BotContact may be unlinked and may have no Membership.
 _Avoid_: Subscriber, member, lead
-
-**TelegramIdentity**:
-The provider-verified Telegram identity from which bot updates originate. It is not an Account,
-Membership, username, or profile snapshot.
-_Avoid_: Telegram account, username, BotContact
 
 **PlatformLink**:
 The historical association between one TelegramIdentity and one opaque Account reference.
@@ -30,27 +22,12 @@ A short-lived, single-use invitation from an authenticated Account flow to prove
 one PlatformLink through the bot.
 _Avoid_: Referral, auth session, permanent link token
 
-**Invitation**:
-Platform's personal single-use admission to one Offer, opened in the bot as `/start i_<code>`.
-Platform owns its claim, redemption and grant; the bot only continues the request until Platform
-answers. It is not a LinkTransaction or a course activation link `a_<code>`.
-_Avoid_: Referral, promo code, activation link
-
-**MembershipObservation**:
-Telegram's authoritative observation that a linked identity is or is not present in the canonical
-closed chat at a specific time.
-_Avoid_: Subscription, entitlement, permanent member flag
-
 **MembershipEvidence**:
 A finite, normalized statement derived from a MembershipObservation and delivered to Platform.
 It contains opaque references rather than Telegram provider data. A delivered or rejected
 MembershipEvidence and its check result are kept for the configured period, 90 days by default;
 the latest one of each linked identity is kept. Membership event audit is kept without a deadline.
 _Avoid_: MembershipEntitlement, ChatMember, access token
-
-**Canonical Membership Chat**:
-The single closed Telegram chat whose actual roster is the Membership Signal for Inside v1.
-_Avoid_: Community directory, Tribute roster, audience segment
 
 **Contactability**:
 The current ability to deliver bot messages to a BotContact through Telegram. Blocking the bot
@@ -63,7 +40,6 @@ it and turns marketing on, `/stop` withdraws it and turns marketing off. Marketi
 default is not Marketing consent. Each choice is reported to Platform's sales funnel.
 _Avoid_: Contactability, opt-in by `/start`
 
-
 **CommunicationTemplate**:
 An author's saved message snapshot that can be reused in communication steps and broadcasts.
 Editing a template does not change an already published communication.
@@ -73,25 +49,6 @@ _Avoid_: Published post, delivered message, Material
 An explicit request by an authorized, linked Telegram person to save the next supported message
 as a CommunicationTemplate.
 _Avoid_: Marketing subscription, publication, Account permission
-
-## Broadcasts and communication analytics
-
-The communication runtime also owns one-time broadcasts, launch-time audience snapshots, source
-entry history, delivery statistics and opaque tracking token/hit ledgers. Physical operations,
-paging semantics and safe redirect configuration live in
-[communications v1](docs/integrations/communications-v1.md#broadcast-operations-and-analytics).
-Platform owns the UI/MCP and redirect consumer; hits identify a delivery link, never the viewer.
-
-**Notification Delivery**:
-Адресная доставка определённого Platform Notification по Telegram подтверждённому получателю.
-Она имеет собственный результат и не определяет оплату, право доступа или результат другого канала.
-_Avoid_: Broadcast, Funnel Step, MembershipEntitlement, прочтение
-
-**CommunityEntitlement**:
-Platform's statement that one Account may take part in the Canonical Membership Chat, carried as a
-monotonic revision with denied, finite or lifetime access. It is Platform's decision, not our
-observation, and it is not a MembershipEvidence.
-_Avoid_: MembershipEntitlement, subscription, tariff
 
 **CommunityDesiredState**:
 The one CommunityEntitlement per Account this application is currently trying to make true in the
@@ -132,9 +89,3 @@ _Avoid_: Support ticket, rejection, pending_review
 An owner-configured course group and participant policy, addressed by an opaque sourceRef. Its
 bounded proof is separate from the Canonical Membership Chat and MembershipEvidence.
 _Avoid_: Canonical Membership Chat, entitlement
-
-**Admission Restriction**:
-A moderation or unknown-origin hold on joining the canonical community. It never revokes a
-Platform content right. A removal by the configured Tribute bot is a known subscription end, not a
-restriction: with a current Platform right the bot readmits the person with a private invite.
-_Avoid_: Revoked entitlement, expired subscription

@@ -1,10 +1,12 @@
+import { isTruthy } from "../shared/truthiness.js";
+import { hasText } from "../shared/text.js";
 import { timingSafeEqual } from "node:crypto";
 
 export function credentialsMatch(
   candidate: string | undefined,
   expected: string,
 ): boolean {
-  if (!candidate) {
+  if (!hasText(candidate)) {
     return false;
   }
   const candidateBytes = Buffer.from(candidate);
@@ -24,7 +26,7 @@ export function bearerMatches(
   expected: string | undefined,
 ): boolean {
   const prefix = "Bearer ";
-  if (!expected || !authorization?.startsWith(prefix)) {
+  if (!hasText(expected) || !isTruthy(authorization?.startsWith(prefix))) {
     return false;
   }
   return credentialsMatch(authorization.slice(prefix.length), expected);

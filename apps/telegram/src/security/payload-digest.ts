@@ -1,3 +1,4 @@
+import { isTruthy } from "../shared/truthiness.js";
 import { createHash } from "node:crypto";
 
 /**
@@ -7,7 +8,7 @@ import { createHash } from "node:crypto";
  */
 export function canonicalJson(value: unknown): string {
   if (Array.isArray(value)) return `[${value.map(canonicalJson).join(",")}]`;
-  if (value && typeof value === "object")
+  if (isTruthy(value) && typeof value === "object")
     return `{${Object.entries(value)
       .sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0))
       .map(([k, v]) => `${JSON.stringify(k)}:${canonicalJson(v)}`)

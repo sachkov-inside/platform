@@ -22,8 +22,8 @@ import { reserveTelegramSlot } from "../../src/modules/outbound/telegram-transpo
 import fixtures from "../../docs/contracts/notifications-v1/fixtures.json" with { type: "json" };
 import { required } from "../support/required.js";
 import { conforming } from "../support/json.js";
-const db = createDatabase(required(process.env.DATABASE_URL));
-const db2 = createDatabase(required(process.env.DATABASE_URL));
+const db = createDatabase(required(process.env["DATABASE_URL"]));
+const db2 = createDatabase(required(process.env["DATABASE_URL"]));
 const clock = {
   value: new Date("2026-09-08T12:00:00Z"),
   now() {
@@ -360,7 +360,7 @@ describe("Notification provider with real PostgreSQL and synthetic external face
     finish({ kind: "transport_unknown" });
     await running;
     const unknownResult = await result(c);
-    if (unknownResult?.state !== "unknown")
+    if (unknownResult.state !== "unknown")
       throw new Error("Expected an unknown delivery result");
     const attempt = unknownResult.attemptRef;
     await expect(

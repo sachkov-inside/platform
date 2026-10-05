@@ -1,3 +1,4 @@
+import { hasText } from "../../shared/text.js";
 import { randomUUID } from "node:crypto";
 import type { Context } from "./author-admin.js";
 import { parseFunnelDraft, type AuthorFunnelState } from "./author-dialog.js";
@@ -30,7 +31,7 @@ export class AuthorFunnelDrafts {
       .where("bot_identity", "=", c.input.botIdentity)
       .where("owner_account_ref", "=", c.accountRef)
       .where("kind", "=", "funnel");
-    if (cursor) {
+    if (hasText(cursor)) {
       saved = saved.where("funnel_id", ">", cursor);
       scratch = scratch.where("draft_id", ">", cursor);
     }

@@ -1,3 +1,4 @@
+import { hasText } from "../../src/shared/text.js";
 import { GrammyUpdateAdapter } from "../../src/adapters/telegram/grammy-update.adapter.js";
 import { MarketingEntry } from "../../src/modules/communications/marketing-entry.js";
 import { Communications } from "../../src/modules/communications/communications.js";
@@ -37,8 +38,8 @@ import {
 import { RuntimeMetrics } from "../../src/operations/runtime-metrics.js";
 import { canonicalMembershipUpdate } from "../support/synthetic-telegram-updates.js";
 
-const databaseUrl = process.env.DATABASE_URL;
-if (!databaseUrl) {
+const databaseUrl = process.env["DATABASE_URL"];
+if (!hasText(databaseUrl)) {
   throw new Error("DATABASE_URL is required for integration tests");
 }
 

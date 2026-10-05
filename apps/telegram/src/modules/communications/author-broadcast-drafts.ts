@@ -1,3 +1,4 @@
+import { hasText } from "../../shared/text.js";
 import type { Context } from "./author-admin.js";
 import { parseBroadcastDraft, type AuthorBroadcast } from "./author-dialog.js";
 import { authorRequest } from "./author-request.js";
@@ -56,7 +57,7 @@ export class AuthorBroadcastDrafts {
       .where("owner_account_ref", "=", c.accountRef)
       .where("kind", "=", "broadcast")
       .where("snapshot", "is not", null);
-    if (cursor) {
+    if (hasText(cursor)) {
       published = published.where("broadcast_id", ">", cursor);
       empty = empty.where("draft_id", ">", cursor);
     }

@@ -1,3 +1,4 @@
+import { hasText } from "../../src/shared/text.js";
 import { GrammyUpdateAdapter } from "../../src/adapters/telegram/grammy-update.adapter.js";
 import { MarketingEntry } from "../../src/modules/communications/marketing-entry.js";
 import { Communications } from "../../src/modules/communications/communications.js";
@@ -48,8 +49,8 @@ import { privateStartUpdate } from "../support/synthetic-telegram-updates.js";
 import { anyString } from "../support/matchers.js";
 import { required } from "../support/required.js";
 
-const databaseUrl = process.env.DATABASE_URL;
-if (!databaseUrl)
+const databaseUrl = process.env["DATABASE_URL"];
+if (!hasText(databaseUrl))
   throw new Error("DATABASE_URL is required for integration tests");
 const config = {
   ...loadApplicationConfig({
@@ -747,7 +748,7 @@ describe("bot sign-in provider", () => {
         method: "POST",
         url: "/integrations/identity/v1/sign-in",
         payload: challenge.envelope,
-        ...(authorization ? { headers: { authorization } } : {}),
+        ...(hasText(authorization) ? { headers: { authorization } } : {}),
       });
       expect(result.statusCode).toBe(401);
     }

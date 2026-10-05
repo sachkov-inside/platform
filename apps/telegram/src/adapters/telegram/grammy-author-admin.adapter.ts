@@ -1,3 +1,4 @@
+import { isTruthy } from "../../shared/truthiness.js";
 import type { AuthorInput } from "../../modules/communications/author-input.js";
 import { snapshot } from "./grammy-template-intake.adapter.js";
 
@@ -7,21 +8,21 @@ export function translateAuthorInput(
   payload: unknown,
 ): AuthorInput | undefined {
   if (!record(payload)) return;
-  const callback = record(payload.callback_query)
-    ? payload.callback_query
+  const callback = record(payload["callback_query"])
+    ? payload["callback_query"]
     : undefined;
-  const message = callback ? callback.message : payload.message;
+  const message = callback ? callback["message"] : payload["message"];
   if (!record(message)) return;
-  const from = callback ? callback.from : message.from;
+  const from = callback ? callback["from"] : message["from"];
   if (
     !record(from) ||
-    from.is_bot !== false ||
-    !Number.isSafeInteger(from.id) ||
-    Number(from.id) <= 0 ||
-    !record(message.chat) ||
-    message.chat.type !== "private" ||
-    message.chat.id !== from.id ||
-    message.sender_chat
+    from["is_bot"] !== false ||
+    !Number.isSafeInteger(from["id"]) ||
+    Number(from["id"]) <= 0 ||
+    !record(message["chat"]) ||
+    message["chat"]["type"] !== "private" ||
+    message["chat"]["id"] !== from["id"] ||
+    isTruthy(message["sender_chat"])
   )
     return;
   let pressed: { callbackData: string; callbackQueryId: string } | undefined;
@@ -38,10 +39,12 @@ export function translateAuthorInput(
   return {
     botIdentity,
     updateId,
-    telegramUserId: String(from.id),
-    privateChatId: String(message.chat.id),
+    telegramUserId: String(from["id"]),
+    privateChatId: String(message["chat"]["id"]),
     text:
-      typeof message.text === "string" && !callback ? message.text.trim() : "",
+      typeof message["text"] === "string" && !callback
+        ? message["text"].trim()
+        : "",
     content: callback ? null : snapshot(message),
     ...pressed,
   };

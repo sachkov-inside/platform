@@ -1,3 +1,5 @@
+import { isTruthy } from "../../shared/truthiness.js";
+import { hasText, presentText } from "../../shared/text.js";
 import { unhandled } from "../../shared/unhandled.js";
 import type {
   AuthorAction,
@@ -127,8 +129,8 @@ export function appendPrepared(t: Turn, content: TemplateContent) {
   s.funnel = {
     ...f,
     name:
-      !f.entryResponse.parts.length && f.name === "Новая воронка"
-        ? content.text.slice(0, 80) || messageLabel(content)
+      !isTruthy(f.entryResponse.parts.length) && f.name === "Новая воронка"
+        ? (presentText(content.text.slice(0, 80)) ?? messageLabel(content))
         : f.name,
     entryResponse: {
       ...f.entryResponse,
@@ -142,9 +144,13 @@ export function appendPrepared(t: Turn, content: TemplateContent) {
 export function appendTimed(t: Turn, content: TemplateContent, offset: number) {
   const s = funnelState(t);
   const f = openFunnel(s);
-  if (offset === 0 && !f.steps.length && f.entryResponse.parts.length < 20)
+  if (
+    offset === 0 &&
+    !isTruthy(f.steps.length) &&
+    f.entryResponse.parts.length < 20
+  )
     return appendPrepared(t, content);
-  if (f.lifecycle === "archived" || !f.entryResponse.parts.length)
+  if (f.lifecycle === "archived" || !isTruthy(f.entryResponse.parts.length))
     throw new CommunicationsError("revision_conflict");
   s.funnel = {
     ...f,
@@ -169,21 +175,21 @@ export function showFunnel(t: Turn): void {
   if (!f) return performFunnel(t, { kind: "f:list" });
   const pending = t.compositionButtons(f.funnelId);
   t.reply(
-    `${f.name}\n${names[f.lifecycle]}${s.dirty ? " · есть правки" : ""}\nСообщений: ${f.entryResponse.parts.length + f.steps.reduce((n, step) => n + step.parts.length, 0)}. Основная воронка: ${f.isDefault ? "да" : "нет"}.\n${f.steps
+    `${f.name}\n${names[f.lifecycle]}${isTruthy(s.dirty) ? " · есть правки" : ""}\nСообщений: ${f.entryResponse.parts.length + f.steps.reduce((n, step) => n + step.parts.length, 0)}. Основная воронка: ${f.isDefault ? "да" : "нет"}.\n${f.steps
       .map((step, i) => `${i + 1}. Через ${stepTime(step)}`)
       .slice(0, 5)
       .join("\n")}`,
     [
       ...pending,
-      ...(f.lifecycle !== "archived" && !pending.length
+      ...(f.lifecycle !== "archived" && !isTruthy(pending.length)
         ? [["Добавить сообщение", { kind: "sequence:funnel" }] as AuthorButton]
         : []),
-      ...(s.dirty
+      ...(isTruthy(s.dirty)
         ? [["Сохранить черновик", { kind: "f:save" }] as AuthorButton]
         : []),
-      ...(!s.dirty &&
+      ...(!isTruthy(s.dirty) &&
       f.lifecycle !== "archived" &&
-      f.revision &&
+      isTruthy(f.revision) &&
       f.revision !== f.publishedRevision
         ? [
             [
@@ -216,7 +222,9 @@ export function showFunnel(t: Turn): void {
         ? [
             [
               "Отменить воронку",
-              { kind: f.revision ? "f:confirm-archive" : "f:discard" },
+              {
+                kind: isTruthy(f.revision) ? "f:confirm-archive" : "f:discard",
+              },
             ] as AuthorButton,
           ]
         : []),
@@ -252,7 +260,7 @@ function settings(t: Turn) {
           ] as AuthorButton,
         ]),
     ["Общий вводный блок", { kind: "f:intro" }],
-    ...(s.dirty
+    ...(isTruthy(s.dirty)
       ? [["Отказаться от правок", { kind: "f:discard" }] as AuthorButton]
       : []),
     ...back,
@@ -300,7 +308,7 @@ export function composeInFunnel(
   const missingStep =
     s.target !== "intro" &&
     s.target !== "entry" &&
-    !s.funnel?.steps.some((step) => step.stepId === s.target);
+    !isTruthy(s.funnel?.steps.some((step) => step.stepId === s.target));
   if (content) {
     const revision =
       s.target === "intro" ? s.intro?.revision : s.funnel?.revision;
@@ -312,19 +320,19 @@ export function composeInFunnel(
       throw new CommunicationsError("revision_conflict");
     const current = parts(s);
     if (
-      destination.partId &&
+      hasText(destination.partId) &&
       !current.some((p) => p.partId === destination.partId)
     )
       throw new CommunicationsError("revision_conflict");
     if (
-      !destination.partId &&
+      !hasText(destination.partId) &&
       current.length >=
         (s.target === "intro" || s.target === "entry" ? 100 : 20)
     )
       throw new CommunicationsError("unsupported_content");
     replaceParts(
       s,
-      destination.partId
+      hasText(destination.partId)
         ? current.map((p) =>
             p.partId === destination.partId ? { ...p, content } : p,
           )
@@ -348,13 +356,15 @@ function partsMenu(t: Turn, offset = 0) {
         : "Сообщения шага";
   t.reply(
     `${title}\n${
-      current
-        .slice(offset, offset + 10)
-        .map((p, i) => `${offset + i + 1}. ${messageLabel(p.content, 100)}`)
-        .join("\n") || "Добавьте сохранённый пост."
+      presentText(
+        current
+          .slice(offset, offset + 10)
+          .map((p, i) => `${offset + i + 1}. ${messageLabel(p.content, 100)}`)
+          .join("\n"),
+      ) ?? "Добавьте сохранённый пост."
     }\nВыбранное содержимое сохраняется отдельно от исходного поста.${s.target === "intro" ? " После сохранения новые получатели увидят этот блок; прежним он повторно не придёт." : ""}`,
     [
-      ...(id ? t.compositionButtons(id) : []),
+      ...(hasText(id) ? t.compositionButtons(id) : []),
       ...current
         .slice(offset, offset + 10)
         .map((part, i): AuthorButton => [
@@ -379,7 +389,7 @@ function partsMenu(t: Turn, offset = 0) {
         : []),
       ["Создать сообщение", { kind: "compose:funnel" }],
       ["Добавить сохранённый пост", { kind: "f:posts" }],
-      ...(current.length
+      ...(isTruthy(current.length)
         ? ([["Образцы себе", { kind: "f:sample" }]] as Buttons)
         : []),
       ...(s.target === "intro"
@@ -438,7 +448,7 @@ function performSelection(
   switch (a.kind) {
     case "f:discard": {
       const id = s.target === "intro" ? s.intro?.introId : s.funnel?.funnelId;
-      if (id) {
+      if (hasText(id)) {
         t.emit({ kind: "remove-draft", id });
         t.discardComposition(id);
       }
@@ -520,7 +530,7 @@ function performSelection(
       );
     case "f:save-intro":
       if (!s.intro) return performEdit(t, s, a);
-      if (!s.intro.parts.length)
+      if (!isTruthy(s.intro.parts.length))
         return t.reply("Добавьте хотя бы один сохранённый пост.", [
           ["К сообщениям", { kind: "f:parts-page", value: "0" }],
         ]);
@@ -720,7 +730,7 @@ function performEdit(t: Turn, s: AuthorFunnelState, a: FunnelEdit): void {
       return t.ask({ kind: "save-funnel", funnel: f, then: { kind: "card" } });
     case "f:preview":
     case "f:publish":
-      if (s.dirty || !f.revision)
+      if (isTruthy(s.dirty) || !isTruthy(f.revision))
         return t.reply(
           "Сначала сохраните черновик. Проверка и публикация относятся к сохранённой версии.",
           back,
@@ -738,7 +748,7 @@ function performEdit(t: Turn, s: AuthorFunnelState, a: FunnelEdit): void {
         [["Да, отменить", { kind: "f:life", value: "archive" }], ...back],
       );
     case "f:life":
-      if (s.dirty && a.value !== "archive") return showFunnel(t);
+      if (isTruthy(s.dirty) && a.value !== "archive") return showFunnel(t);
       return t.ask({
         kind: "change-funnel",
         funnelId: f.funnelId,
@@ -862,7 +872,7 @@ function moveTimedPart(
           ...step,
           parts: step.parts.filter((p) => p.partId !== partId),
         }))
-        .filter((step) => step.parts.length);
+        .filter((step) => step.parts.length > 0);
       s.funnel = {
         ...f,
         entryResponse: {
@@ -914,7 +924,7 @@ export function answerFunnel(t: Turn, input: { text: string }) {
     }
     case "name":
     case "source-name":
-      if (!text || text.length > 128)
+      if (!hasText(text) || text.length > 128)
         return t.reply("Нужно от 1 до 128 символов.", back);
       if (s.prompt === "source-name") {
         s.sourceName = text;
@@ -963,7 +973,7 @@ export function answerFunnel(t: Turn, input: { text: string }) {
         ),
       };
       s.dirty = true;
-      if (!s.target) throw new CommunicationsError("not_found");
+      if (!hasText(s.target)) throw new CommunicationsError("not_found");
       return performFunnel(t, { kind: "f:step", id: s.target });
     }
     case undefined:
@@ -1002,7 +1012,7 @@ export function answerFunnelQuery(
           `${name.slice(0, 40)} · ${status === "edited" ? "есть правки" : names[status]}`,
           { kind: "f:read", id },
         ]),
-        ...(event.nextCursor
+        ...(hasText(event.nextCursor)
           ? [
               [
                 "Следующие воронки",
@@ -1022,7 +1032,7 @@ export function answerFunnelQuery(
       const s = funnelState(t);
       const result = event.result;
       if (event.purpose === "intro") {
-        if (result.status !== "ok" || result.targetErrors.length)
+        if (result.status !== "ok" || isTruthy(result.targetErrors.length))
           return t.reply(
             "Общий блок не сохранён: проверка материалов недоступна или ссылки ведут на недоступные материалы.",
             [["К сообщениям", { kind: "f:parts-page", value: "0" }]],
@@ -1037,7 +1047,7 @@ export function answerFunnelQuery(
             : "Не удалось проверить материалы в Platform. Попробуйте проверку позже; публикации не было.",
           back,
         );
-      if (result.targetErrors.length)
+      if (isTruthy(result.targetErrors.length))
         return t.reply(
           `Публикация недоступна. Исправьте ссылки в выбранных постах:\n${result.targetErrors
             .slice(0, 10)
@@ -1144,11 +1154,11 @@ export function parseFunnelDelay(value: string): number | undefined {
   const seconds =
     Number(match[1]) *
     (factors[match[2]?.toLowerCase() ?? "с"] ??
-      (match[2]?.startsWith("мин")
+      (isTruthy(match[2]?.startsWith("мин"))
         ? 60
-        : match[2]?.startsWith("час")
+        : isTruthy(match[2]?.startsWith("час"))
           ? 3600
-          : match[2]?.startsWith("д")
+          : isTruthy(match[2]?.startsWith("д"))
             ? 86400
             : 1));
   return Number.isSafeInteger(seconds) && seconds <= MAX_DELAY

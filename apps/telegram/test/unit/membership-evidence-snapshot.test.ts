@@ -56,14 +56,14 @@ describe("Workspace Membership Evidence snapshot", () => {
     const schemaValid = validate(fixture.evidence);
     const evidence = fixture.evidence as Record<string, unknown>;
     const validityMilliseconds =
-      typeof evidence.checkedAt === "string" &&
-      typeof evidence.validUntil === "string"
-        ? new Date(evidence.validUntil).getTime() -
-          new Date(evidence.checkedAt).getTime()
+      typeof evidence["checkedAt"] === "string" &&
+      typeof evidence["validUntil"] === "string"
+        ? new Date(evidence["validUntil"]).getTime() -
+          new Date(evidence["checkedAt"]).getTime()
         : undefined;
     const producerValid =
       schemaValid &&
-      (evidence.decision === "unavailable" ||
+      (evidence["decision"] === "unavailable" ||
         (validityMilliseconds !== undefined &&
           validityMilliseconds > 0 &&
           validityMilliseconds <= 5 * 60_000));

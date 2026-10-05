@@ -1,3 +1,5 @@
+import { isTruthy } from "./shared/truthiness.js";
+import { hasText } from "./shared/text.js";
 import { InvitationRedemption } from "./modules/subscription-activation/invitation-redemption.js";
 import { SubscriptionActivation } from "./modules/subscription-activation/subscription-activation.js";
 import { SourceGroupProof } from "./modules/subscription-activation/source-group-proof.js";
@@ -149,7 +151,7 @@ export class AppModule {
           useFactory: () =>
             new SourceGroupProof(
               config.activation?.sources ?? [],
-              config.activation?.enabled && config.botToken
+              isTruthy(config.activation?.enabled) && hasText(config.botToken)
                 ? new GrammyMembershipAdapter(config.botToken)
                 : new DisabledTelegramMembership(),
             ),
@@ -158,7 +160,7 @@ export class AppModule {
         {
           provide: TELEGRAM_CALLBACK_ANSWERS,
           useFactory: () =>
-            config.deliveryMode === "live" && config.botToken
+            config.deliveryMode === "live" && hasText(config.botToken)
               ? new GrammyCallbackAnswersAdapter(config.botToken)
               : new DisabledTelegramCallbackAnswers(),
         },
@@ -178,7 +180,7 @@ export class AppModule {
           ): TelegramMessages => {
             if (
               applicationConfig.deliveryMode === "live" &&
-              applicationConfig.botToken
+              hasText(applicationConfig.botToken)
             ) {
               return new GrammyMessagesAdapter(applicationConfig.botToken);
             }
@@ -193,7 +195,7 @@ export class AppModule {
           ): TelegramMembership => {
             if (
               applicationConfig.membershipMode === "live" &&
-              applicationConfig.botToken
+              hasText(applicationConfig.botToken)
             ) {
               return new GrammyMembershipAdapter(applicationConfig.botToken);
             }
@@ -207,7 +209,7 @@ export class AppModule {
             applicationConfig: ApplicationConfig,
           ): TelegramCommunityChat =>
             applicationConfig.communityMode === "live" &&
-            applicationConfig.botToken
+            hasText(applicationConfig.botToken)
               ? new GrammyCommunityChatAdapter(applicationConfig.botToken)
               : new DisabledTelegramCommunityChat(),
         },
@@ -217,8 +219,8 @@ export class AppModule {
           useFactory: (
             applicationConfig: ApplicationConfig,
           ): CommunityDispatchAuthorization =>
-            applicationConfig.communityDispatchUrl &&
-            applicationConfig.communityDispatchSecret
+            hasText(applicationConfig.communityDispatchUrl) &&
+            hasText(applicationConfig.communityDispatchSecret)
               ? new HttpCommunityAuthorization(
                   applicationConfig.communityDispatchUrl,
                   applicationConfig.communityDispatchSecret,
@@ -251,14 +253,14 @@ export class AppModule {
               authorization,
               chat,
               {
-                ...(applicationConfig.botToken
+                ...(hasText(applicationConfig.botToken)
                   ? {
                       botTelegramUserId: botTelegramUserIdFromToken(
                         applicationConfig.botToken,
                       ),
                     }
                   : {}),
-                ...(applicationConfig.communityContractVersion
+                ...(hasText(applicationConfig.communityContractVersion)
                   ? {
                       contractVersion:
                         applicationConfig.communityContractVersion,
@@ -270,7 +272,7 @@ export class AppModule {
                         applicationConfig.communityRemovalsEnabled,
                     }
                   : {}),
-                ...(applicationConfig.communityTributeBotTelegramUserId
+                ...(hasText(applicationConfig.communityTributeBotTelegramUserId)
                   ? {
                       tributeBotTelegramUserId:
                         applicationConfig.communityTributeBotTelegramUserId,
@@ -305,8 +307,8 @@ export class AppModule {
           ): PlatformEvidenceDelivery => {
             if (
               applicationConfig.evidenceDeliveryMode === "live" &&
-              applicationConfig.platformEvidenceDeliveryUrl &&
-              applicationConfig.platformEvidenceDeliverySecret
+              hasText(applicationConfig.platformEvidenceDeliveryUrl) &&
+              hasText(applicationConfig.platformEvidenceDeliverySecret)
             ) {
               return new HttpPlatformEvidenceAdapter(
                 applicationConfig.platformEvidenceDeliveryUrl,
@@ -341,7 +343,7 @@ export class AppModule {
         {
           provide: AUTHOR_TRANSPORT,
           useFactory: () =>
-            config.deliveryMode === "live" && config.botToken
+            config.deliveryMode === "live" && hasText(config.botToken)
               ? new GrammyCommunicationsAdapter(
                   new Api(config.botToken, { timeoutSeconds: 10 }),
                 )
@@ -357,7 +359,7 @@ export class AppModule {
           useFactory: () =>
             config.marketingEnabled &&
             config.deliveryMode === "live" &&
-            config.botToken
+            hasText(config.botToken)
               ? new GrammyCommunicationsAdapter(
                   new Api(config.botToken, { timeoutSeconds: 10 }),
                 )
@@ -366,8 +368,8 @@ export class AppModule {
         {
           provide: AUTHOR_AUTHORIZATION,
           useFactory: () =>
-            config.platformAuthorAuthorizationUrl &&
-            config.platformAuthorAuthorizationSecret
+            hasText(config.platformAuthorAuthorizationUrl) &&
+            hasText(config.platformAuthorAuthorizationSecret)
               ? new HttpAuthorAuthorizationAdapter(
                   config.platformAuthorAuthorizationUrl,
                   config.platformAuthorAuthorizationSecret,
@@ -377,8 +379,8 @@ export class AppModule {
         {
           provide: AUTHOR_CONTENT_VALIDATION,
           useFactory: () =>
-            config.platformAuthorContentValidationUrl &&
-            config.platformAuthorAuthorizationSecret
+            hasText(config.platformAuthorContentValidationUrl) &&
+            hasText(config.platformAuthorAuthorizationSecret)
               ? new HttpAuthorContentValidationAdapter(
                   config.platformAuthorContentValidationUrl,
                   config.platformAuthorAuthorizationSecret,

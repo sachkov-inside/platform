@@ -1,3 +1,4 @@
+import { hasText } from "../../shared/text.js";
 import { unhandled } from "../../shared/unhandled.js";
 import {
   validateAuthorButtonUrl,
@@ -81,7 +82,7 @@ export function resumeComposer(t: Turn) {
     "button-url": "Пришлите HTTPS-ссылку для кнопки.",
     "button-row": "Введите номер ряда от 1 до 20.",
   };
-  if (s.prompt) return t.reply(prompts[s.prompt], cancel);
+  if (s.prompt !== undefined) return t.reply(prompts[s.prompt], cancel);
   if (!s.content) return openLibrary(t, s.libraryCursor);
   show(t, true);
 }
@@ -92,10 +93,10 @@ function show(t: Turn, native = false) {
   s.prompt = undefined;
   if (native) t.preview(s.content);
   t.reply(
-    `${messageLabel(s.content, 400)}\nКнопок: ${s.content.buttons.length}\n${s.destination.partId ? "Изменения ещё не применены." : "Сообщение ещё не добавлено."}`,
+    `${messageLabel(s.content, 400)}\nКнопок: ${s.content.buttons.length}\n${hasText(s.destination.partId) ? "Изменения ещё не применены." : "Сообщение ещё не добавлено."}`,
     [
       [
-        s.destination.partId
+        hasText(s.destination.partId)
           ? "Заменить сообщение"
           : s.destination.kind === "broadcast"
             ? "Добавить в рассылку"
@@ -128,7 +129,7 @@ export function showLibrary(
 ) {
   const s = composing(t);
   t.reply(
-    s.query
+    hasText(s.query)
       ? `Поиск: ${s.query}\nВыберите пост для просмотра.`
       : "Сохранённые посты. Выберите сообщение, чтобы посмотреть его перед добавлением.",
     [
@@ -136,7 +137,7 @@ export function showLibrary(
         messageLabel(p.content),
         { kind: "compose:choose", id: p.templateId },
       ]),
-      ...(list.nextCursor
+      ...(hasText(list.nextCursor)
         ? [
             [
               "Следующие посты",
@@ -145,7 +146,7 @@ export function showLibrary(
           ]
         : []),
       ["Найти пост", { kind: "compose:search" }],
-      ...(s.query || list.cursor
+      ...(hasText(s.query) || hasText(list.cursor)
         ? [["Все посты", { kind: "compose:all" }] as AuthorButton]
         : []),
       ["Создать сообщение", { kind: "compose:replace" }],
@@ -238,12 +239,12 @@ export function answerComposer(
       s.content = structuredClone(input.content);
       return show(t, true);
     case "search":
-      if (!text || text.length > 128)
+      if (!hasText(text) || text.length > 128)
         return t.reply("Введите от 1 до 128 символов.", cancel);
       s.query = text;
       return openLibrary(t);
     case "button-title":
-      if (!text || text.length > 64)
+      if (!hasText(text) || text.length > 64)
         return t.reply("Введите от 1 до 64 символов.", cancel);
       s.buttonTitle = text;
       s.prompt = "button-url";

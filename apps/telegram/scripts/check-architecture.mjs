@@ -1,3 +1,4 @@
+// @ts-check
 import { readFile, readdir } from "node:fs/promises";
 import path from "node:path";
 import process from "node:process";
@@ -55,11 +56,15 @@ const pureDialogImports = [
   ...pureDialogFiles,
   "modules/communications/communications-contract.ts",
   "shared/unhandled.ts",
+  "shared/text.ts",
+  "shared/truthiness.ts",
 ];
 
 const root = process.argv[2] ?? "src";
 const files = await sourceFiles(root);
+/** @type {string[]} */
 const violations = [];
+/** @type {Map<string, Set<string>>} */
 const moduleEdges = new Map();
 
 for (const file of files) {
@@ -121,6 +126,7 @@ if (violations.length > 0) {
   process.exitCode = 1;
 }
 
+/** @param {string} module */
 function edgesFrom(module) {
   let targets = moduleEdges.get(module);
   if (!targets) {
@@ -130,15 +136,17 @@ function edgesFrom(module) {
   return targets;
 }
 
+/** @param {string} source */
 function importSpecifiers(source) {
   return [
     ...source.matchAll(
       /(?:\bfrom\s+|\bimport\s*\(\s*|^\s*import\s+)["']([^"']+)["']/gm,
     ),
-  ].map((match) => match[1]);
+  ].map((match) => match[1] ?? "");
 }
 
 /** Modules loaded at runtime; `import type` and all-type import lists are erased. */
+/** @param {string} source */
 function valueImportSpecifiers(source) {
   const statements = source.matchAll(
     /^\s*(import|export)\s+(?!type\b)(?:([^"';]*?)\bfrom\s+)?["']([^"']+)["']/gm,
@@ -150,12 +158,13 @@ function valueImportSpecifiers(source) {
         ([, keyword, clause]) =>
           !onlyTypes(clause) && (keyword === "import" || clause !== undefined),
       )
-      .map((match) => match[3]),
-    ...[...dynamic].map((match) => match[1]),
+      .map((match) => match[3] ?? ""),
+    ...[...dynamic].map((match) => match[1] ?? ""),
   ];
 }
 
 /** `{ type A, type B }`: an import clause that names only types. */
+/** @param {string | undefined} clause */
 function onlyTypes(clause) {
   const names = /^\{([^}]*)\}\s*$/.exec(clause?.trim() ?? "")?.[1];
   return (
@@ -169,6 +178,8 @@ function onlyTypes(clause) {
 }
 
 /** The imported file relative to the root, or undefined for a package import. */
+/** @param {string} file
+ * @param {string} specifier */
 function resolveImport(file, specifier) {
   if (!specifier.startsWith(".")) return undefined;
   return path.posix
@@ -176,6 +187,7 @@ function resolveImport(file, specifier) {
     .replace(/\.js$/, ".ts");
 }
 
+/** @param {string} source */
 function withoutComments(source) {
   return source
     .replace(/\/\*[\s\S]*?\*\//g, "")
@@ -183,9 +195,13 @@ function withoutComments(source) {
 }
 
 /** Every elementary cycle once, starting from its alphabetically first module. */
+/** @param {Map<string, Set<string>>} graph */
 function moduleCycles(graph) {
+  /** @type {string[][]} */
   const cycles = [];
   for (const start of [...graph.keys()].sort()) {
+    /** @param {string} module
+     * @param {string[]} trail */
     const walk = (module, trail) => {
       for (const next of [...(graph.get(module) ?? [])].sort()) {
         if (next === start) cycles.push([...trail, start]);
@@ -198,6 +214,9 @@ function moduleCycles(graph) {
   return cycles;
 }
 
+/** @param {string} directory
+ * @param {string} [prefix]
+ * @returns {Promise<string[]>} */
 async function sourceFiles(directory, prefix = "") {
   const entries = await readdir(path.join(directory, prefix), {
     withFileTypes: true,

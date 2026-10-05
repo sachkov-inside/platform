@@ -1,3 +1,6 @@
+import { closeIfStarted } from "../support/close-if-started.js";
+import { isTruthy } from "../../src/shared/truthiness.js";
+import { hasText } from "../../src/shared/text.js";
 import { FunnelScheduler } from "../../src/modules/communications/funnel-scheduler.js";
 import { BotContacts } from "../../src/modules/bot-contacts/bot-contacts.js";
 import type { CommunicationMessage } from "../../src/modules/communications/communication-delivery.js";
@@ -50,8 +53,8 @@ import { TELEGRAM_MESSAGES } from "../../src/modules/outbound/telegram-messages.
 import scenarios from "../../src/modules/communications/contracts/inside-communications-v1/scenarios.json" with { type: "json" };
 import type { CommunicationsBody } from "../support/communications-body.js";
 import { required } from "../support/required.js";
-const databaseUrl = process.env.DATABASE_URL;
-if (!databaseUrl) throw new Error("DATABASE_URL is required");
+const databaseUrl = process.env["DATABASE_URL"];
+if (!hasText(databaseUrl)) throw new Error("DATABASE_URL is required");
 const database = createDatabase(databaseUrl);
 const config = {
   ...loadApplicationConfig({
@@ -150,7 +153,7 @@ afterAll(async () => {
   await sql`truncate communication_author_compositions, communication_author_drafts, communication_broadcasts cascade`.execute(
     database,
   );
-  await app?.close();
+  await closeIfStarted(app);
   await database.destroy();
 });
 const content = {
@@ -179,7 +182,7 @@ function http(
     payload: JSON.stringify(body),
     headers: {
       "content-type": "application/json",
-      ...(secret ? { authorization: `Bearer ${secret}` } : {}),
+      ...(hasText(secret) ? { authorization: `Bearer ${secret}` } : {}),
     },
   });
 }
@@ -646,14 +649,14 @@ async function authorClick(id: number, label: string, depth = 0) {
     )
     .find((m) => m.authorButtons);
   const data = menu?.authorButtons?.find((b) => b.text === label)?.callbackData;
-  if (!data && depth < 8) {
+  if (!hasText(data) && depth < 8) {
     const state = await sessionState();
-    const next = state.menu?.buttons.some(([text]) => text === label)
+    const next = isTruthy(state.menu?.buttons.some(([text]) => text === label))
       ? "Ещё →"
-      : menu?.authorButtons?.some((b) => b.text === "Настройки")
+      : isTruthy(menu?.authorButtons?.some((b) => b.text === "Настройки"))
         ? "Настройки"
         : "Ещё →";
-    if (menu?.authorButtons?.some((b) => b.text === next)) {
+    if (isTruthy(menu?.authorButtons?.some((b) => b.text === next))) {
       await authorClick(++navigationId, next);
       return authorClick(id / 10, label, depth + 1);
     }
@@ -728,7 +731,7 @@ describe("author transport and API", () => {
       ...request(),
       operation: "templates.testSend",
       expectedRevision: 1,
-      payload: own.payload.templateId
+      payload: hasText(own.payload.templateId)
         ? { templateId: own.payload.templateId }
         : {},
     };
@@ -1150,10 +1153,9 @@ it("restores the author menu below the delivered broadcast messages and never ex
   for (let i = 0; i < 5; i++)
     await author.processAvailable(new Date((now += 2000)));
   const own = observed.filter((m) => m.chatId === "42");
-  expect(own.filter((m) => !m.authorMenu).map((m) => m.content.text)).toEqual([
-    "First delivered post",
-    "Second delivered post",
-  ]);
+  expect(
+    own.filter((m) => !isTruthy(m.authorMenu)).map((m) => m.content.text),
+  ).toEqual(["First delivered post", "Second delivered post"]);
   expect(required(own.at(-1)).authorMenu).toBe(true);
   expect(required(own.at(-1)).editMessageId).toBeUndefined();
   expect(

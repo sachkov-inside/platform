@@ -1,3 +1,5 @@
+import { isTruthy } from "../../src/shared/truthiness.js";
+import { hasText } from "../../src/shared/text.js";
 import { AxeBuilder } from "@axe-core/playwright";
 import { mkdir, writeFile } from "node:fs/promises";
 import { resolve } from "node:path";
@@ -15,13 +17,15 @@ const expect = baseExpect.configure({ timeout: 30_000 });
 const web = "http://127.0.0.1:3600";
 const provider = "http://127.0.0.1:3606";
 const identity = "https://identity.inside.localhost:3631";
-const user = Number(process.env.COURSE_PROOF_USER);
+const user = Number(process.env["COURSE_PROOF_USER"]);
 if (!/^64[0-9]{5}$/.test(String(user)))
   throw new Error("Use a fresh synthetic COURSE_PROOF_USER (64xxxxx)");
-const output = process.env.COURSE_PROOF_OUTPUT;
-if (!output) throw new Error("COURSE_PROOF_OUTPUT is required outside Git");
-const source = process.env.COURSE_PROOF_SOURCE === "left" ? "left" : "member";
-const mobile = process.env.COURSE_PROOF_MOBILE === "true";
+const output = process.env["COURSE_PROOF_OUTPUT"];
+if (!hasText(output))
+  throw new Error("COURSE_PROOF_OUTPUT is required outside Git");
+const source =
+  process.env["COURSE_PROOF_SOURCE"] === "left" ? "left" : "member";
+const mobile = process.env["COURSE_PROOF_MOBILE"] === "true";
 await mkdir(output, { recursive: true });
 const browser = await chromium.launch({ headless: true });
 const context = await browser.newContext({
@@ -65,11 +69,11 @@ async function jsonObject(response: APIResponse) {
   return record(await response.json());
 }
 function message(value: Record<string, unknown>): Message {
-  const buttons = value.buttons;
+  const buttons = value["buttons"];
   return {
-    chatId: text(value.chatId),
-    id: text(value.id),
-    text: text(value.text),
+    chatId: text(value["chatId"]),
+    id: text(value["id"]),
+    text: text(value["text"]),
     ...(buttons === undefined
       ? {}
       : {
@@ -86,7 +90,7 @@ async function messages(): Promise<Message[]> {
   const state = await jsonObject(
     await context.request.get(`${provider}/proof/state`),
   );
-  return list(state.messages)
+  return list(state["messages"])
     .map(message)
     .filter((m) => m.chatId === String(user));
 }
@@ -96,8 +100,8 @@ async function enrollments() {
   );
   expect(response.status()).toBe(200);
   const state = await jsonObject(response);
-  expect(state.ok).toBe(true);
-  return list(record(state.value).items);
+  expect(state["ok"]).toBe(true);
+  return list(record(state["value"])["items"]);
 }
 try {
   await context.request.post(`${provider}/proof/source`, {
@@ -107,19 +111,21 @@ try {
   await expect
     .poll(
       async () =>
-        (await messages()).some((m) =>
-          m.buttons?.some((b) => b.url === `${web}/account`),
+        (await messages()).some(
+          (m) => m.buttons?.some((b) => b.url === `${web}/account`) === true,
         ),
       { timeout: 30_000 },
     )
     .toBe(true);
   const prompt = required(
-    (await messages()).find((m) =>
-      m.buttons?.some((b) => b.url === `${web}/account`),
+    (await messages()).find(
+      (m) => m.buttons?.some((b) => b.url === `${web}/account`) === true,
     ),
   );
   await page.goto(
-    required(required(required(prompt.buttons).find((b) => b.url)).url),
+    required(
+      required(required(prompt.buttons).find((b) => hasText(b.url))).url,
+    ),
   );
   const signIn = page
     .locator("#content")
@@ -141,8 +147,8 @@ try {
   const state = await jsonObject(
     await page.request.get(`${identity}/api/inside-telegram/status`),
   );
-  expect(state.status).toBe("pending");
-  const requestRef = text(state.requestRef);
+  expect(state["status"]).toBe("pending");
+  const requestRef = text(state["requestRef"]);
   await page.screenshot({
     path: resolve(output, "browser-login.png"),
     fullPage: true,
@@ -151,17 +157,21 @@ try {
   await expect
     .poll(
       async () =>
-        (await messages()).some((m) =>
-          m.buttons?.some(
-            (b) => b.callbackData === `signin:approve:${requestRef}`,
-          ),
+        (await messages()).some(
+          (m) =>
+            m.buttons?.some(
+              (b) => b.callbackData === `signin:approve:${requestRef}`,
+            ) === true,
         ),
       { timeout: 30_000 },
     )
     .toBe(true);
   const approval = required(
-    (await messages()).find((m) =>
-      m.buttons?.some((b) => b.callbackData === `signin:approve:${requestRef}`),
+    (await messages()).find(
+      (m) =>
+        m.buttons?.some(
+          (b) => b.callbackData === `signin:approve:${requestRef}`,
+        ) === true,
     ),
   );
   await webhook({
@@ -180,7 +190,9 @@ try {
   await expect
     .poll(
       async () =>
-        (await jsonObject(await page.request.get(`${web}/auth/status`))).state,
+        (await jsonObject(await page.request.get(`${web}/auth/status`)))[
+          "state"
+        ],
       { timeout: 60_000 },
     )
     .toBe("authenticated");
@@ -198,7 +210,7 @@ try {
     )
     .toBe(true);
   const before = await enrollments();
-  expect(before.filter((e) => e.origin === "course")).toHaveLength(
+  expect(before.filter((e) => e["origin"] === "course")).toHaveLength(
     source === "member" ? 1 : 0,
   );
   transcript.push(
@@ -273,7 +285,7 @@ try {
           invite = (await messages())
             .map((m) => /https:\/\/t\.me\/\+\S+/u.exec(m.text)?.[0])
             .find(Boolean);
-          return Boolean(invite);
+          return isTruthy(invite);
         },
         { timeout: 150_000, intervals: [5000] },
       )
@@ -301,7 +313,7 @@ try {
               await jsonObject(
                 await context.request.get(`${provider}/proof/state`),
               )
-            ).members,
+            )["members"],
           )[String(user)],
         { timeout: 30_000 },
       )
@@ -328,10 +340,12 @@ try {
     );
     const unbans = async () =>
       list(
-        (await jsonObject(await context.request.get(`${provider}/proof/state`)))
-          .effects,
+        (
+          await jsonObject(await context.request.get(`${provider}/proof/state`))
+        )["effects"],
       ).filter(
-        (effect) => effect.method === "unban" && effect.user === String(user),
+        (effect) =>
+          effect["method"] === "unban" && effect["user"] === String(user),
       ).length;
     const beforeUnbans = await unbans();
     await context.request.post(`${provider}/proof/source`, {

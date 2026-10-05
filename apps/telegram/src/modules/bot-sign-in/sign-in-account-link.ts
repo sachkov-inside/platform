@@ -1,3 +1,5 @@
+import { isTruthy } from "../../shared/truthiness.js";
+import { hasText } from "../../shared/text.js";
 import { Inject, Injectable } from "@nestjs/common";
 import {
   APPLICATION_CONFIG,
@@ -21,7 +23,8 @@ export class SignInAccountLink {
   ) {}
 
   async bind(requestRef: string, subjectRef: string, accountRef: string) {
-    if (!this.config.signInEnabled) return { status: "disabled" } as const;
+    if (!isTruthy(this.config.signInEnabled))
+      return { status: "disabled" } as const;
     if (![requestRef, subjectRef, accountRef].every(isRequestRef))
       return { status: "unavailable" } as const;
     const accepted = await this.database
@@ -34,11 +37,7 @@ export class SignInAccountLink {
           .where("bot_identity", "=", this.config.botIdentity)
           .forUpdate()
           .executeTakeFirst();
-        if (
-          !request ||
-          request.state !== "consumed" ||
-          !request.telegram_user_id
-        )
+        if (request?.state !== "consumed" || !hasText(request.telegram_user_id))
           return false;
         const subject = await transaction
           .selectFrom("sign_in_subjects")

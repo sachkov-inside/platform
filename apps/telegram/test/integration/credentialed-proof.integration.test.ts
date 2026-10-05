@@ -1,3 +1,4 @@
+import { hasText } from "../../src/shared/text.js";
 import { sql } from "kysely";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 
@@ -9,8 +10,8 @@ import {
   validateReconciliationRepair,
 } from "../../src/operations/credentialed-proof.js";
 
-const databaseUrl = process.env.DATABASE_URL;
-if (!databaseUrl) {
+const databaseUrl = process.env["DATABASE_URL"];
+if (!hasText(databaseUrl)) {
   throw new Error("DATABASE_URL is required for integration tests");
 }
 
@@ -53,7 +54,7 @@ describe("credentialed proof evidence", () => {
     await seedMembershipTransitions();
 
     const snapshot = await redactedDatabaseSnapshot(database);
-    const transitions = snapshot.membershipTransitions;
+    const transitions = snapshot["membershipTransitions"];
     if (!Array.isArray(transitions)) {
       throw new Error("Membership transitions were not captured");
     }

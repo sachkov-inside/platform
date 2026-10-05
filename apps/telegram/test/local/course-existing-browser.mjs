@@ -1,3 +1,4 @@
+// @ts-check
 import process from "node:process";
 import { URL } from "node:url";
 import console from "node:console";
@@ -5,13 +6,41 @@ import { chromium, expect } from "@playwright/test";
 import { randomUUID } from "node:crypto";
 import { mkdir, writeFile } from "node:fs/promises";
 import { resolve } from "node:path";
+import { z } from "zod";
+const mailSchema = z.object({
+  messages: z.array(
+    z.object({
+      To: z.array(z.object({ Address: z.string() })),
+      Snippet: z.string(),
+      From: z.object({ Address: z.string() }),
+    }),
+  ),
+});
+const contactSchema = z.object({ contact: z.unknown() });
+const challengeSchema = z.object({ ok: z.boolean(), challengeRef: z.string() });
+const okSchema = z.object({ ok: z.boolean() });
+const authSchema = z.object({ state: z.string() });
+const beginSchema = z.object({
+  kind: z.string(),
+  state: z.object({ deepLink: z.string(), linkRef: z.string() }),
+});
+const linkSchema = z.object({
+  state: z.object({ status: z.string() }).optional(),
+});
+const enrollmentsSchema = z.object({
+  value: z
+    .object({ items: z.array(z.object({ origin: z.string() })) })
+    .optional(),
+});
+
 const origin = "http://127.0.0.1:3600";
-const user = Number(process.env.COURSE_PROOF_USER);
-const output = process.env.COURSE_PROOF_OUTPUT;
+const user = Number(process.env["COURSE_PROOF_USER"]);
+const output = process.env["COURSE_PROOF_OUTPUT"];
 if (!/^64[0-9]{5}$/.test(String(user)) || !output)
   throw new Error(
     "Fresh synthetic COURSE_PROOF_USER and COURSE_PROOF_OUTPUT required",
   );
+const requiredOutput = output;
 const email = `course64-${String(user)}@example.test`;
 await mkdir(output, { recursive: true });
 const browser = await chromium.launch({ headless: true });
@@ -21,6 +50,7 @@ const context = await browser.newContext({
 });
 const page = await context.newPage();
 let update = Date.now() % 1_000_000_000;
+/** @param {string} text */
 async function send(text) {
   const response = await context.request.post(
     "http://127.0.0.1:3606/webhooks/telegram",
@@ -51,9 +81,11 @@ async function emailLogin() {
   await expect
     .poll(
       async () => {
-        const state = await (
-          await context.request.get("http://127.0.0.1:3625/api/v1/messages")
-        ).json();
+        const state = mailSchema.parse(
+          await (
+            await context.request.get("http://127.0.0.1:3625/api/v1/messages")
+          ).json(),
+        );
         const msg = state.messages.find((m) =>
           m.To.some((r) => r.Address === email),
         );
@@ -68,16 +100,16 @@ async function emailLogin() {
   );
   await expect(inputs.first()).toBeVisible();
   if ((await inputs.count()) === 1) await inputs.fill(code);
-  else for (let i = 0; i < 6; i++) await inputs.nth(i).fill(code[i]);
+  else for (let i = 0; i < 6; i++) await inputs.nth(i).fill(code.charAt(i));
   if (await page.locator('button[type="submit"]').isVisible())
     await page.locator('button[type="submit"]').click();
   await expect
     .poll(
       async () =>
-        (
+        authSchema.parse(
           await (
             await page.request.get("http://127.0.0.1:3600/auth/status")
-          ).json()
+          ).json(),
         ).state,
       { timeout: 30000 },
     )
@@ -85,24 +117,30 @@ async function emailLogin() {
 }
 async function purchase() {
   await page.goto(origin + "/account");
-  const contact = await (
-    await page.request.get(origin + "/api/account/billing/contact")
-  ).json();
+  const contact = contactSchema.parse(
+    await (
+      await page.request.get(origin + "/api/account/billing/contact")
+    ).json(),
+  );
   if (!contact.contact) {
-    const challenge = await (
-      await page.request.post(origin + "/api/account/billing/contact/start", {
-        headers: { origin },
-        form: { operationId: randomUUID(), expectedRevision: "0", email },
-      })
-    ).json();
+    const challenge = challengeSchema.parse(
+      await (
+        await page.request.post(origin + "/api/account/billing/contact/start", {
+          headers: { origin },
+          form: { operationId: randomUUID(), expectedRevision: "0", email },
+        })
+      ).json(),
+    );
     expect(challenge.ok).toBe(true);
     let code = "";
     await expect
       .poll(
         async () => {
-          const state = await (
-            await context.request.get("http://127.0.0.1:3625/api/v1/messages")
-          ).json();
+          const state = mailSchema.parse(
+            await (
+              await context.request.get("http://127.0.0.1:3625/api/v1/messages")
+            ).json(),
+          );
           const msg = state.messages.find(
             (m) =>
               m.To.some((r) => r.Address === email) &&
@@ -114,16 +152,21 @@ async function purchase() {
         { timeout: 20000 },
       )
       .toBe(6);
-    const result = await (
-      await page.request.post(origin + "/api/account/billing/contact/confirm", {
-        headers: { origin },
-        form: {
-          operationId: randomUUID(),
-          challengeRef: challenge.challengeRef,
-          code,
-        },
-      })
-    ).json();
+    const result = okSchema.parse(
+      await (
+        await page.request.post(
+          origin + "/api/account/billing/contact/confirm",
+          {
+            headers: { origin },
+            form: {
+              operationId: randomUUID(),
+              challengeRef: challenge.challengeRef,
+              code,
+            },
+          },
+        )
+      ).json(),
+    );
     expect(result.ok).toBe(true);
   }
   await page.goto(origin + "/guides/platform-inside/buy");
@@ -145,6 +188,7 @@ async function activateExisting() {
   await expect
     .poll(
       async () => {
+        /** @type {unknown} */
         const value = await (
           await page.request.get(origin + "/api/account/billing")
         ).json();
@@ -168,6 +212,7 @@ async function activateExisting() {
   if ((await button.getAttribute("aria-pressed")) !== "true")
     await button.click();
   await expect(button).toHaveAttribute("aria-pressed", "true");
+  /** @type {unknown} */
   const before = await (
     await page.request.get(origin + "/api/account/billing")
   ).json();
@@ -176,6 +221,7 @@ async function activateExisting() {
     form: { displayName: "Synthetic existing course buyer", bio: "" },
   });
   expect(profile.ok()).toBe(true);
+  /** @type {unknown} */
   const beforeProfile = await (
     await page.request.get(origin + "/api/account/profile")
   ).json();
@@ -183,12 +229,14 @@ async function activateExisting() {
     data: { user: String(user), source: "member" },
   });
   await send("/start a_course64");
-  const begin = await (
-    await page.request.post(origin + "/api/account/telegram-link/begin", {
-      headers: { origin },
-      form: {},
-    })
-  ).json();
+  const begin = beginSchema.parse(
+    await (
+      await page.request.post(origin + "/api/account/telegram-link/begin", {
+        headers: { origin },
+        form: {},
+      })
+    ).json(),
+  );
   expect(begin.kind).toBe("received");
   await send(
     "/start " + new URL(begin.state.deepLink).searchParams.get("start"),
@@ -196,12 +244,14 @@ async function activateExisting() {
   await expect
     .poll(
       async () => {
-        const r = await (
-          await page.request.post(
-            origin + "/api/account/telegram-link/confirm",
-            { headers: { origin }, form: { linkRef: begin.state.linkRef } },
-          )
-        ).json();
+        const r = linkSchema.parse(
+          await (
+            await page.request.post(
+              origin + "/api/account/telegram-link/confirm",
+              { headers: { origin }, form: { linkRef: begin.state.linkRef } },
+            )
+          ).json(),
+        );
         return r.state?.status;
       },
       { timeout: 30000 },
@@ -211,24 +261,35 @@ async function activateExisting() {
   await expect
     .poll(
       async () => {
-        const r = await (
-          await page.request.get(origin + "/api/account/billing/enrollments")
-        ).json();
+        const r = enrollmentsSchema.parse(
+          await (
+            await page.request.get(origin + "/api/account/billing/enrollments")
+          ).json(),
+        );
         return r.value?.items?.filter((e) => e.origin === "course").length;
       },
       { timeout: 90000 },
     )
     .toBe(1);
+  /** @type {unknown} */
   const after = await (
     await page.request.get(origin + "/api/account/billing")
   ).json();
+  /** @param {unknown} value
+   * @returns {unknown} */
   const paidSnapshot = (value) =>
     JSON.parse(
-      JSON.stringify(value, (key, entry) =>
-        key === "grounds" ? entry.filter((g) => g.source === "paid") : entry,
+      JSON.stringify(value, (key, /** @type {unknown} */ entry) =>
+        key === "grounds"
+          ? z
+              .array(z.object({ source: z.string() }).passthrough())
+              .parse(entry)
+              .filter((g) => g.source === "paid")
+          : entry,
       ),
     );
   expect(paidSnapshot(after)).toEqual(paidSnapshot(before));
+  /** @type {unknown} */
   const afterProfile = await (
     await page.request.get(origin + "/api/account/profile")
   ).json();
@@ -236,12 +297,12 @@ async function activateExisting() {
   await page.reload();
   await expect(button).toHaveAttribute("aria-pressed", "true");
   await page.screenshot({
-    path: resolve(output, "telegram64-existing-reader-mobile.png"),
+    path: resolve(requiredOutput, "telegram64-existing-reader-mobile.png"),
     fullPage: true,
   });
   await page.setViewportSize({ width: 1440, height: 1024 });
   await page.screenshot({
-    path: resolve(output, "telegram64-existing-reader-desktop.png"),
+    path: resolve(requiredOutput, "telegram64-existing-reader-desktop.png"),
     fullPage: true,
   });
 
@@ -254,7 +315,7 @@ try {
   await purchase();
   await activateExisting();
   await writeFile(
-    resolve(output, "result.json"),
+    resolve(requiredOutput, "result.json"),
     JSON.stringify(
       {
         checks: [

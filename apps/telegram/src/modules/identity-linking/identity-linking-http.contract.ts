@@ -21,28 +21,28 @@ export function readBeginLinkEnvelope(body: unknown): BeginLink | undefined {
       "returnCorrelation",
       "tokenDigest",
     ]) ||
-    body.contractVersion !== IDENTITY_LINKING_CONTRACT_VERSION ||
-    typeof body.accountRef !== "string" ||
-    !isOpaqueRef(body.accountRef) ||
-    typeof body.expiresAt !== "string" ||
-    !isIsoDateTime(body.expiresAt) ||
-    typeof body.returnCorrelation !== "string" ||
-    !isOpaqueRef(body.returnCorrelation) ||
-    typeof body.tokenDigest !== "string" ||
-    !/^[A-Za-z0-9_-]{43}$/.test(body.tokenDigest)
+    body["contractVersion"] !== IDENTITY_LINKING_CONTRACT_VERSION ||
+    typeof body["accountRef"] !== "string" ||
+    !isOpaqueRef(body["accountRef"]) ||
+    typeof body["expiresAt"] !== "string" ||
+    !isIsoDateTime(body["expiresAt"]) ||
+    typeof body["returnCorrelation"] !== "string" ||
+    !isOpaqueRef(body["returnCorrelation"]) ||
+    typeof body["tokenDigest"] !== "string" ||
+    !/^[A-Za-z0-9_-]{43}$/.test(body["tokenDigest"])
   ) {
     return undefined;
   }
 
-  const expiresAt = new Date(body.expiresAt);
+  const expiresAt = new Date(body["expiresAt"]);
   if (!Number.isFinite(expiresAt.getTime())) {
     return undefined;
   }
   return {
-    accountRef: body.accountRef,
+    accountRef: body["accountRef"],
     expiresAt,
-    returnCorrelation: body.returnCorrelation,
-    tokenDigest: body.tokenDigest,
+    returnCorrelation: body["returnCorrelation"],
+    tokenDigest: body["tokenDigest"],
   };
 }
 
@@ -57,19 +57,19 @@ export function readConfirmationEnvelope(
       "contractVersion",
       "returnCorrelation",
     ]) ||
-    body.contractVersion !== IDENTITY_LINKING_CONTRACT_VERSION ||
-    typeof body.accountRef !== "string" ||
-    !isOpaqueRef(body.accountRef) ||
-    typeof body.returnCorrelation !== "string" ||
-    !isOpaqueRef(body.returnCorrelation) ||
+    body["contractVersion"] !== IDENTITY_LINKING_CONTRACT_VERSION ||
+    typeof body["accountRef"] !== "string" ||
+    !isOpaqueRef(body["accountRef"]) ||
+    typeof body["returnCorrelation"] !== "string" ||
+    !isOpaqueRef(body["returnCorrelation"]) ||
     !isOpaqueRef(linkTransactionRef)
   ) {
     return undefined;
   }
   return {
-    accountRef: body.accountRef,
+    accountRef: body["accountRef"],
     linkTransactionRef,
-    returnCorrelation: body.returnCorrelation,
+    returnCorrelation: body["returnCorrelation"],
   };
 }
 
@@ -78,22 +78,22 @@ export function readTokenReceiptEnvelope(
 ): TokenReceipt | undefined {
   if (
     !isRecord(body) ||
-    body.contractVersion !== IDENTITY_LINKING_CONTRACT_VERSION ||
-    body.operation !== "accept-start" ||
-    typeof body.botIdentity !== "string" ||
-    !/^[a-z][a-z0-9_-]{0,63}$/.test(body.botIdentity) ||
-    typeof body.observedAt !== "string" ||
-    !isIsoDateTime(body.observedAt) ||
-    typeof body.telegramUserId !== "string" ||
-    !/^[1-9][0-9]{0,15}$/.test(body.telegramUserId)
+    body["contractVersion"] !== IDENTITY_LINKING_CONTRACT_VERSION ||
+    body["operation"] !== "accept-start" ||
+    typeof body["botIdentity"] !== "string" ||
+    !/^[a-z][a-z0-9_-]{0,63}$/.test(body["botIdentity"]) ||
+    typeof body["observedAt"] !== "string" ||
+    !isIsoDateTime(body["observedAt"]) ||
+    typeof body["telegramUserId"] !== "string" ||
+    !/^[1-9][0-9]{0,15}$/.test(body["telegramUserId"])
   ) {
     return undefined;
   }
 
   const common = {
-    botIdentity: body.botIdentity,
-    observedAt: new Date(body.observedAt),
-    telegramUserId: body.telegramUserId,
+    botIdentity: body["botIdentity"],
+    observedAt: new Date(body["observedAt"]),
+    telegramUserId: body["telegramUserId"],
   };
   if (
     hasOnlyKeys(body, [
@@ -104,12 +104,12 @@ export function readTokenReceiptEnvelope(
       "telegramUserId",
       "tokenDigest",
     ]) &&
-    typeof body.tokenDigest === "string" &&
-    /^[A-Za-z0-9_-]{43}$/.test(body.tokenDigest)
+    typeof body["tokenDigest"] === "string" &&
+    /^[A-Za-z0-9_-]{43}$/.test(body["tokenDigest"])
   ) {
     return {
       ...common,
-      linkToken: { digest: body.tokenDigest, kind: "digest" },
+      linkToken: { digest: body["tokenDigest"], kind: "digest" },
     };
   }
   if (
@@ -121,7 +121,7 @@ export function readTokenReceiptEnvelope(
       "telegramUserId",
       "tokenStatus",
     ]) &&
-    body.tokenStatus === "malformed"
+    body["tokenStatus"] === "malformed"
   ) {
     return { ...common, linkToken: { kind: "malformed" } };
   }

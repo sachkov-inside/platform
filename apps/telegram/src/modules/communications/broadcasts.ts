@@ -1,3 +1,5 @@
+import { isTruthy } from "../../shared/truthiness.js";
+import { hasText } from "../../shared/text.js";
 import { randomUUID } from "node:crypto";
 import { sql, type Transaction, type Selectable } from "kysely";
 import type { DatabaseSchema } from "../../database/database.js";
@@ -48,7 +50,7 @@ export async function applyBroadcast(
       .selectAll()
       .where("bot_identity", "=", bot)
       .where("owner_account_ref", "=", actor);
-    if (payload.cursor)
+    if (hasText(payload.cursor))
       query = query.where("broadcast_id", ">", uuidCursor(payload.cursor));
     const rows = await query.orderBy("broadcast_id").limit(101).execute();
     return {
@@ -72,7 +74,7 @@ export async function applyBroadcast(
   if (operation === "broadcasts.save") {
     if (
       row &&
-      (row.audience_snapshot_id ||
+      (hasText(row.audience_snapshot_id) ||
         !["draft", "scheduled", "paused"].includes(row.state))
     )
       throw new CommunicationsError("revision_conflict");
@@ -113,7 +115,7 @@ export async function applyBroadcast(
         state: "draft",
         parts: JSON.stringify(parts),
         audience: JSON.stringify(audience),
-        scheduled_at: payload.scheduledAt
+        scheduled_at: hasText(payload.scheduledAt)
           ? new Date(payload.scheduledAt)
           : null,
         audience_snapshot_id: null,
@@ -127,7 +129,7 @@ export async function applyBroadcast(
           revision: expectedRevision + 1,
           parts: JSON.stringify(parts),
           audience: JSON.stringify(audience),
-          scheduled_at: payload.scheduledAt
+          scheduled_at: hasText(payload.scheduledAt)
             ? new Date(payload.scheduledAt)
             : null,
         }),
@@ -139,7 +141,7 @@ export async function applyBroadcast(
     if (["cancelled", "completed"].includes(row.state))
       throw new CommunicationsError("revision_conflict");
     if (operation === "broadcasts.launch") {
-      if (row.state !== "draft" || row.audience_snapshot_id)
+      if (row.state !== "draft" || hasText(row.audience_snapshot_id))
         throw new CommunicationsError("revision_conflict");
       row = await tx
         .updateTable("communication_broadcasts")
@@ -162,7 +164,7 @@ export async function applyBroadcast(
       )
         state = "paused";
       else if (payload.action === "resume" && row.state === "paused")
-        state = row.audience_snapshot_id ? "running" : "scheduled";
+        state = hasText(row.audience_snapshot_id) ? "running" : "scheduled";
       else throw new CommunicationsError("revision_conflict");
       if (state === "cancelled") {
         const unfinished = tx
@@ -202,7 +204,7 @@ async function launchBroadcast(
   row: Broadcast,
   now: Date,
 ): Promise<Broadcast> {
-  if (row.audience_snapshot_id) return row;
+  if (hasText(row.audience_snapshot_id)) return row;
   // All includes legacy contacts who never entered a marketing funnel. No enrollment is created.
   await sql`insert into communication_contacts(contact_id,bot_identity,telegram_user_id)
     select gen_random_uuid(),bot_identity,telegram_user_id from bot_contacts where bot_identity=${row.bot_identity}
@@ -254,7 +256,7 @@ async function launchBroadcast(
   return tx
     .updateTable("communication_broadcasts")
     .set({
-      state: contacts.length ? "running" : "completed",
+      state: isTruthy(contacts.length) ? "running" : "completed",
       audience_snapshot_id: randomUUID(),
       snapshot_size: contacts.length,
       launched_at: now,
@@ -309,6 +311,7 @@ export async function completeBroadcasts(
         ),
       ),
     );
-  if (broadcastId) query = query.where("broadcast_id", "=", broadcastId);
+  if (hasText(broadcastId))
+    query = query.where("broadcast_id", "=", broadcastId);
   await query.execute();
 }

@@ -1,3 +1,4 @@
+import { hasText } from "../shared/text.js";
 import { assertServiceSecret } from "./service-secret.js";
 export interface NotificationConfig {
   brokerUrl: string;
@@ -11,11 +12,11 @@ export function loadNotificationConfig(
   env: NodeJS.ProcessEnv,
 ): NotificationConfig | undefined {
   if (
-    env.TELEGRAM_NOTIFICATIONS_ENABLED === undefined ||
-    env.TELEGRAM_NOTIFICATIONS_ENABLED === "false"
+    env["TELEGRAM_NOTIFICATIONS_ENABLED"] === undefined ||
+    env["TELEGRAM_NOTIFICATIONS_ENABLED"] === "false"
   )
     return;
-  if (env.TELEGRAM_NOTIFICATIONS_ENABLED !== "true")
+  if (env["TELEGRAM_NOTIFICATIONS_ENABLED"] !== "true")
     throw new Error("TELEGRAM_NOTIFICATIONS_ENABLED must be true or false");
   const brokerUrl = required(env, "NOTIFICATION_AMQP_URL"),
     authorizeUrl = required(env, "NOTIFICATION_AUTHORIZE_URL");
@@ -35,10 +36,10 @@ export function loadNotificationConfig(
   }
   const endpoint = new URL(authorizeUrl);
   if (
-    endpoint.username ||
-    endpoint.password ||
-    endpoint.search ||
-    endpoint.hash ||
+    hasText(endpoint.username) ||
+    hasText(endpoint.password) ||
+    hasText(endpoint.search) ||
+    hasText(endpoint.hash) ||
     endpoint.pathname !== "/internal/notifications/dispatch/authorize"
   )
     throw new Error("Invalid Notification authorization endpoint");
@@ -54,13 +55,13 @@ export function loadNotificationConfig(
     authorizeUrl,
     authorizeSecret,
     quarantineKey,
-    prefetch: bounded(env.NOTIFICATION_PREFETCH, 10, 1, 100),
-    batchSize: bounded(env.NOTIFICATION_BATCH_SIZE, 5, 1, 100),
+    prefetch: bounded(env["NOTIFICATION_PREFETCH"], 10, 1, 100),
+    batchSize: bounded(env["NOTIFICATION_BATCH_SIZE"], 5, 1, 100),
   };
 }
 function required(env: NodeJS.ProcessEnv, key: string) {
   const value = env[key]?.trim();
-  if (!value) throw new Error(`${key} is required`);
+  if (!hasText(value)) throw new Error(`${key} is required`);
   return value;
 }
 function bounded(

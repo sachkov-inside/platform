@@ -1,3 +1,4 @@
+import { isTruthy } from "../../shared/truthiness.js";
 import { Api, GrammyError } from "grammy";
 
 import type {
@@ -209,7 +210,7 @@ function callFailure(
       return {
         kind: "retryable",
         providerErrorCode: error.error_code,
-        ...(retryAfterSeconds ? { retryAfterSeconds } : {}),
+        ...(isTruthy(retryAfterSeconds) ? { retryAfterSeconds } : {}),
       };
     }
     return { kind: "rejected", providerErrorCode: error.error_code };

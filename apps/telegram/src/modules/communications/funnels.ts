@@ -1,3 +1,5 @@
+import { isTruthy } from "../../shared/truthiness.js";
+import { hasText } from "../../shared/text.js";
 import {
   AUTHOR_CONTENT_VALIDATION,
   type AuthorContentValidation,
@@ -214,7 +216,7 @@ export class Funnels {
         .selectAll()
         .where("bot_identity", "=", bot)
         .where("owner_account_ref", "=", actor);
-      if (payload.cursor)
+      if (hasText(payload.cursor))
         query = query.where("funnel_id", ">", requireCursor(payload.cursor));
       const rows = await query.orderBy("funnel_id").limit(101).execute();
       return {
@@ -239,13 +241,13 @@ export class Funnels {
         .selectAll("d")
         .where("d.bot_identity", "=", bot)
         .where(deliveryOwnerPredicate(actor));
-      if (payload.funnelId)
+      if (hasText(payload.funnelId))
         query = query.where("d.funnel_id", "=", payload.funnelId);
-      if (payload.deliveryId)
+      if (hasText(payload.deliveryId))
         query = query.where("d.delivery_id", "=", payload.deliveryId);
-      if (payload.broadcastId)
+      if (hasText(payload.broadcastId))
         query = query.where("d.broadcast_id", "=", payload.broadcastId);
-      if (payload.cursor)
+      if (hasText(payload.cursor))
         query = query.where(
           "d.delivery_id",
           ">",
@@ -289,11 +291,11 @@ export class Funnels {
         if (
           row.cancel_requested ||
           part.attempts.length >= 90 ||
-          (part.state === "unknown" && !payload.duplicateRiskAccepted)
+          (part.state === "unknown" && !isTruthy(payload.duplicateRiskAccepted))
         )
           throw new CommunicationsError("revision_conflict");
         part.state = "pending";
-        part.diagnosticCode = payload.duplicateRiskAccepted
+        part.diagnosticCode = isTruthy(payload.duplicateRiskAccepted)
           ? "explicit_retry_duplicate_risk"
           : "explicit_retry";
       } else {
@@ -493,7 +495,7 @@ export class Funnels {
             ? "forbidden"
             : "authorization_unavailable",
         );
-      if (validation.targetErrors.length)
+      if (isTruthy(validation.targetErrors.length))
         throw new CommunicationsError("unsupported_content");
     }
     const previous = existing.published;

@@ -1,3 +1,4 @@
+import { isTruthy } from "../shared/truthiness.js";
 import { invitationRedemptionsMigration } from "./migrations/030-invitation-redemptions.js";
 import { salesFunnelEventsMigration } from "./migrations/029-sales-funnel-events.js";
 import { communityWelcomeMigration } from "./migrations/028-community-welcome.js";
@@ -115,7 +116,7 @@ function createMigrator(db: Database): Migrator {
 export async function migrateToLatest(db: Database): Promise<void> {
   const { error, results } = await createMigrator(db).migrateToLatest();
 
-  if (error) {
+  if (isTruthy(error)) {
     throw new Error("Database migration failed", { cause: error });
   }
 
@@ -127,7 +128,7 @@ export async function migrateToLatest(db: Database): Promise<void> {
 
 export async function migrateDown(db: Database): Promise<void> {
   const { error } = await createMigrator(db).migrateDown();
-  if (error) {
+  if (isTruthy(error)) {
     throw new Error("Database rollback failed", { cause: error });
   }
 }
@@ -137,7 +138,7 @@ export async function migrateTo(
   migrationName: string,
 ): Promise<void> {
   const { error, results } = await createMigrator(db).migrateTo(migrationName);
-  if (error) {
+  if (isTruthy(error)) {
     throw new Error(`Database migration to ${migrationName} failed`, {
       cause: error,
     });

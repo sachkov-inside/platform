@@ -1,3 +1,4 @@
+import { isTruthy } from "../../shared/truthiness.js";
 import { CommunicationsError } from "./communications-contract.js";
 import type { Context } from "./author-admin.js";
 import {
@@ -66,7 +67,8 @@ export async function retainFunnelDraft(
           name: s.funnel.name,
         };
   if (!s || !draft) return;
-  if (s.dirty) await saveAuthorDraft(c, draft.id, draft.kind, draft.name, s);
+  if (isTruthy(s.dirty))
+    await saveAuthorDraft(c, draft.id, draft.kind, draft.name, s);
   else await removeAuthorDraft(c, draft.id);
 }
 

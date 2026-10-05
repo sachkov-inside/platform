@@ -1,3 +1,4 @@
+import { hasText } from "../../src/shared/text.js";
 import {
   FastifyAdapter,
   type NestFastifyApplication,
@@ -36,8 +37,8 @@ import {
   type TelegramTextMessage,
 } from "../../src/modules/outbound/telegram-messages.js";
 
-const databaseUrl = process.env.DATABASE_URL;
-if (!databaseUrl) {
+const databaseUrl = process.env["DATABASE_URL"];
+if (!hasText(databaseUrl)) {
   throw new Error("DATABASE_URL is required for integration tests");
 }
 
@@ -135,7 +136,7 @@ describe("background worker lifecycle", () => {
       editText: () =>
         Promise.resolve({ kind: "delivered", providerMessageId: "1" }),
     });
-    let closed = false;
+    const lifecycle = { closed: false };
     try {
       await app.get(StartResponseDeliveryQueue).enqueue({
         botIdentity: "inside",
@@ -154,15 +155,15 @@ describe("background worker lifecycle", () => {
       );
 
       const closing = app.close().then(() => {
-        closed = true;
+        lifecycle.closed = true;
       });
       await new Promise((resolve) => setTimeout(resolve, 200));
-      expect(closed).toBe(false);
+      expect(lifecycle.closed).toBe(false);
 
       release({ kind: "delivered", providerMessageId: "7" });
       await closing;
     } finally {
-      if (!closed) await app.close();
+      if (!lifecycle.closed) await app.close();
     }
 
     const delivery = await database
@@ -234,7 +235,7 @@ describe("background worker lifecycle", () => {
         { timeout: 5000 },
       );
     } finally {
-      answer?.();
+      answer();
       await app.close();
     }
   });

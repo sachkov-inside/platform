@@ -1,3 +1,4 @@
+import { isTruthy } from "../../src/shared/truthiness.js";
 import { createServer, type Server } from "node:http";
 import { isDeepStrictEqual } from "node:util";
 
@@ -43,7 +44,7 @@ export async function startSalesFunnelPlatform(): Promise<SalesFunnelPlatform> {
         response.writeHead(status, { "content-type": "application/json" });
         response.end(JSON.stringify(body));
       };
-      if (state.failWith) return answer(state.failWith, {});
+      if (isTruthy(state.failWith)) return answer(state.failWith, {});
       if (
         request.headers.authorization !== `Bearer ${SALES_FUNNEL_TEST_SECRET}`
       )
@@ -55,16 +56,16 @@ export async function startSalesFunnelPlatform(): Promise<SalesFunnelPlatform> {
         return answer(400, { code: "invalid_request" });
       }
       if (!validRequest(body)) return answer(400, { code: "invalid_request" });
-      const delivered = list(record(body).events);
+      const delivered = list(record(body)["events"]);
       for (const event of delivered) {
-        const stored = events.get(String(event.eventId));
+        const stored = events.get(String(event["eventId"]));
         if (stored && !isDeepStrictEqual(stored, event))
           return answer(409, { code: "event_conflict" });
       }
       let accepted = 0;
       for (const event of delivered)
-        if (!events.has(String(event.eventId))) {
-          events.set(String(event.eventId), event);
+        if (!events.has(String(event["eventId"]))) {
+          events.set(String(event["eventId"]), event);
           accepted += 1;
         }
       return answer(200, {
@@ -76,7 +77,7 @@ export async function startSalesFunnelPlatform(): Promise<SalesFunnelPlatform> {
   });
   await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
   const address = server.address();
-  if (!address || typeof address === "string")
+  if (!isTruthy(address) || typeof address === "string")
     throw new Error("Fake Platform has no port");
   return Object.assign(state, {
     url: `http://127.0.0.1:${address.port}/integrations/telegram/v1/sales-funnel/events`,

@@ -1,3 +1,5 @@
+import { closeIfStarted } from "../support/close-if-started.js";
+import { hasText } from "../../src/shared/text.js";
 import { randomUUID } from "node:crypto";
 import {
   FastifyAdapter,
@@ -50,8 +52,8 @@ import {
 } from "../../src/modules/outbound/telegram-messages.js";
 import type { CommunicationsBody } from "../support/communications-body.js";
 import { required } from "../support/required.js";
-const databaseUrl = process.env.DATABASE_URL;
-if (!databaseUrl) throw new Error("DATABASE_URL required");
+const databaseUrl = process.env["DATABASE_URL"];
+if (!hasText(databaseUrl)) throw new Error("DATABASE_URL required");
 const database = createDatabase(databaseUrl);
 const config = loadApplicationConfig({
   DATABASE_URL: databaseUrl,
@@ -135,7 +137,7 @@ beforeEach(async () => {
 });
 afterAll(async () => {
   await sql`truncate communication_broadcasts cascade`.execute(database);
-  await app?.close();
+  await closeIfStarted(app);
   await database.destroy();
 });
 function part(text: string): MessagePart {

@@ -1,3 +1,4 @@
+import { hasText } from "../shared/text.js";
 import { createHash, randomInt } from "node:crypto";
 import { chmod, mkdir, readFile, rename, writeFile } from "node:fs/promises";
 import { dirname } from "node:path";
@@ -176,8 +177,8 @@ export async function runCredentialedProofCommand(
     const info = providerRecord(
       await telegramResult(environment.botToken, "getWebhookInfo", {}),
     );
-    const observed = Array.isArray(info.allowed_updates)
-      ? info.allowed_updates.filter(
+    const observed = Array.isArray(info["allowed_updates"])
+      ? info["allowed_updates"].filter(
           (update): update is string => typeof update === "string",
         )
       : [];
@@ -330,10 +331,10 @@ export async function runCredentialedProofCommand(
         "removal-event-suppressed",
       );
       validateReconciliationRepair(
-        snapshot.membershipTransitions,
-        removedSnapshot.membershipTransitions,
-        rejoinedSnapshot.membershipTransitions,
-        suppressedSnapshot.membershipTransitions,
+        snapshot["membershipTransitions"],
+        removedSnapshot["membershipTransitions"],
+        rejoinedSnapshot["membershipTransitions"],
+        suppressedSnapshot["membershipTransitions"],
       );
     }
     const observation = { label: snapshotLabel, ...snapshot };
@@ -351,7 +352,7 @@ export async function runCredentialedProofCommand(
     const info = providerRecord(
       await telegramResult(environment.botToken, "getWebhookInfo", {}),
     );
-    if (info.url !== "") {
+    if (info["url"] !== "") {
       throw new Error("Telegram webhook is still configured");
     }
     await recordObservation(environment.evidencePath, "webhookDisposed", {
@@ -393,10 +394,10 @@ export function validateBotIdentity(
   const username = normalizeUsername(expectedUsername);
   if (
     !username.endsWith("bot") ||
-    String(bot.id) !== expectedId ||
-    bot.is_bot !== true ||
-    typeof bot.username !== "string" ||
-    normalizeUsername(bot.username) !== username
+    String(bot["id"]) !== expectedId ||
+    bot["is_bot"] !== true ||
+    typeof bot["username"] !== "string" ||
+    normalizeUsername(bot["username"]) !== username
   ) {
     throw new Error("getMe did not match the configured dedicated bot");
   }
@@ -419,17 +420,17 @@ export function validateChatAdministration(
 } {
   const chat = providerRecord(chatValue);
   const member = providerRecord(memberValue);
-  if (chat.type !== "group" && chat.type !== "supergroup") {
+  if (chat["type"] !== "group" && chat["type"] !== "supergroup") {
     throw new Error("Canonical proof chat must be a group or supergroup");
   }
-  if (member.status !== "administrator") {
+  if (member["status"] !== "administrator") {
     throw new Error("Dedicated bot must be an administrator in the proof chat");
   }
   const chatPermissions =
-    typeof chat.permissions === "object" &&
-    chat.permissions !== null &&
-    !Array.isArray(chat.permissions)
-      ? providerRecord(chat.permissions)
+    typeof chat["permissions"] === "object" &&
+    chat["permissions"] !== null &&
+    !Array.isArray(chat["permissions"])
+      ? providerRecord(chat["permissions"])
       : {};
   const inheritedMemberRights = Object.fromEntries(
     INHERITABLE_MEMBER_RIGHTS.map((right) => [
@@ -443,7 +444,10 @@ export function validateChatAdministration(
       member[right] === true && inheritedMemberRights[right] !== true,
     ]),
   );
-  if (member.can_manage_chat !== true || !minimumClientConfigurationConfirmed) {
+  if (
+    member["can_manage_chat"] !== true ||
+    !minimumClientConfigurationConfirmed
+  ) {
     throw new Error(
       "Minimum client-assignable administrator configuration is not confirmed",
     );
@@ -456,8 +460,8 @@ export function validateChatAdministration(
   }
   return {
     assignableRights,
-    botStatus: member.status,
-    chatType: chat.type,
+    botStatus: member["status"],
+    chatType: chat["type"],
     inheritedMemberRights,
     impliedManageChat: true,
     minimumClientConfigurationConfirmed: true,
@@ -472,10 +476,10 @@ export function validateChatDemotion(memberValue: unknown): {
   botStatus: "kicked" | "left" | "member" | "restricted";
 } {
   const member = providerRecord(memberValue);
-  if (!isNonAdministratorStatus(member.status)) {
+  if (!isNonAdministratorStatus(member["status"])) {
     throw new Error("Dedicated bot has not been demoted");
   }
-  return { botIsAdministrator: false, botStatus: member.status };
+  return { botIsAdministrator: false, botStatus: member["status"] };
 }
 
 function isNonAdministratorStatus(
@@ -501,15 +505,17 @@ export function validateWebhookInfo(
   urlMatches: true;
 } {
   const info = providerRecord(value);
-  const allowedUpdates = Array.isArray(info.allowed_updates)
-    ? info.allowed_updates.filter(
+  const allowedUpdates = Array.isArray(info["allowed_updates"])
+    ? info["allowed_updates"].filter(
         (update): update is string => typeof update === "string",
       )
     : [];
   const lastErrorMessage =
-    typeof info.last_error_message === "string" ? info.last_error_message : "";
+    typeof info["last_error_message"] === "string"
+      ? info["last_error_message"]
+      : "";
   if (
-    info.url !== expectedUrl ||
+    info["url"] !== expectedUrl ||
     [...allowedUpdates].sort().join(",") !==
       [...TELEGRAM_WEBHOOK_ALLOWED_UPDATES].sort().join(",")
   ) {
@@ -519,14 +525,14 @@ export function validateWebhookInfo(
   }
   return {
     allowedUpdatesMatch: true,
-    hasCustomCertificate: info.has_custom_certificate === true,
+    hasCustomCertificate: info["has_custom_certificate"] === true,
     hasLastError:
-      typeof info.last_error_date === "number" ||
-      typeof info.last_error_message === "string",
+      typeof info["last_error_date"] === "number" ||
+      typeof info["last_error_message"] === "string",
     lastErrorIsHttp503: /(?:^|\D)503(?:\D|$)/u.test(lastErrorMessage),
     pendingUpdates:
-      typeof info.pending_update_count === "number"
-        ? info.pending_update_count
+      typeof info["pending_update_count"] === "number"
+        ? info["pending_update_count"]
         : 0,
     urlMatches: true,
   };
@@ -882,14 +888,14 @@ async function findApplicationSnapshot(
   label: string,
 ): Promise<Record<string, unknown>> {
   const observations = await readObservations(path);
-  const snapshots = observations.applicationSnapshots;
+  const snapshots = observations["applicationSnapshots"];
   if (!Array.isArray(snapshots)) {
     throw new Error("Credentialed proof application snapshots are unavailable");
   }
   const recorded: readonly unknown[] = snapshots;
   for (const value of [...recorded].reverse()) {
     const snapshot = providerRecord(value);
-    if (snapshot.label === label) {
+    if (snapshot["label"] === label) {
       return snapshot;
     }
   }
@@ -959,10 +965,10 @@ async function telegramResult(
     },
   );
   const payload = providerRecord(await response.json());
-  if (!response.ok || payload.ok !== true) {
+  if (!response.ok || payload["ok"] !== true) {
     throw new Error("Telegram Bot API rejected the proof request");
   }
-  return payload.result;
+  return payload["result"];
 }
 
 async function telegramCredentialRejected(token: string): Promise<boolean> {
@@ -974,7 +980,7 @@ async function telegramCredentialRejected(token: string): Promise<boolean> {
       return true;
     }
     const payload = providerRecord(await response.json());
-    return payload.ok !== true;
+    return payload["ok"] !== true;
   } catch {
     return false;
   }
@@ -988,7 +994,7 @@ async function postSyntheticWebhook(
   const response = await fetch(webhookUrl, {
     body: JSON.stringify({ update_id: Number(updateId) }),
     headers: {
-      ...(secret ? { "x-telegram-bot-api-secret-token": secret } : {}),
+      ...(hasText(secret) ? { "x-telegram-bot-api-secret-token": secret } : {}),
       "content-type": "application/json",
     },
     method: "POST",
@@ -1008,12 +1014,12 @@ function latestGroupChatId(value: unknown): string {
         continue;
       }
       const envelope = providerRecord(record[field]);
-      const chat = providerRecord(envelope.chat);
+      const chat = providerRecord(envelope["chat"]);
       if (
-        (chat.type === "group" || chat.type === "supergroup") &&
-        (typeof chat.id === "number" || typeof chat.id === "string")
+        (chat["type"] === "group" || chat["type"] === "supergroup") &&
+        (typeof chat["id"] === "number" || typeof chat["id"] === "string")
       ) {
-        return String(chat.id);
+        return String(chat["id"]);
       }
     }
   }
@@ -1065,14 +1071,14 @@ async function readObservations(
     throw error;
   }
   if (
-    current.proofVersion !== "inside.telegram-credentialed-proof.v1" ||
-    typeof current.observations !== "object" ||
-    current.observations === null ||
-    Array.isArray(current.observations)
+    current["proofVersion"] !== "inside.telegram-credentialed-proof.v1" ||
+    typeof current["observations"] !== "object" ||
+    current["observations"] === null ||
+    Array.isArray(current["observations"])
   ) {
     throw new Error("Credentialed proof evidence has an unexpected shape");
   }
-  return providerRecord(current.observations);
+  return providerRecord(current["observations"]);
 }
 
 async function writeEvidence(
@@ -1129,7 +1135,7 @@ function isMissingFile(error: unknown): boolean {
 }
 
 function required(value: string | undefined, name: string): string {
-  if (!value) {
+  if (!hasText(value)) {
     throw new Error(`${name} is required`);
   }
   return value;
@@ -1142,9 +1148,9 @@ export function validateWebhookUrl(value: string | undefined): string {
   if (
     url.protocol !== "https:" ||
     !new Set(["80", "88", "443", "8443"]).has(webhookPort) ||
-    url.username ||
-    url.password ||
-    url.hash
+    hasText(url.username) ||
+    hasText(url.password) ||
+    hasText(url.hash)
   ) {
     throw new Error(
       "TELEGRAM_PROOF_WEBHOOK_URL must be a direct HTTPS URL on a Telegram-supported port",

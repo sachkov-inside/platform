@@ -1,3 +1,5 @@
+import { isTruthy } from "../../shared/truthiness.js";
+import { hasText } from "../../shared/text.js";
 import { recordAccountLinked } from "../sales-funnel/sales-funnel-events.js";
 import { findPlatformLink } from "./platform-links.js";
 import { reserveTelegramIdentity } from "./stable-telegram-identity.js";
@@ -238,8 +240,8 @@ export class IdentityLinking {
       };
       if (linkTransaction.state === "linked") {
         if (
-          !linkTransaction.bot_identity ||
-          !linkTransaction.candidate_telegram_user_id
+          !hasText(linkTransaction.bot_identity) ||
+          !hasText(linkTransaction.candidate_telegram_user_id)
         ) {
           throw new Error("Linked transaction has no Telegram candidate");
         }
@@ -292,8 +294,8 @@ export class IdentityLinking {
         return { ...base, status: "pending" };
       }
       if (
-        !linkTransaction.bot_identity ||
-        !linkTransaction.candidate_telegram_user_id
+        !hasText(linkTransaction.bot_identity) ||
+        !hasText(linkTransaction.candidate_telegram_user_id)
       ) {
         throw new Error("Received transaction has no Telegram candidate");
       }
@@ -326,7 +328,7 @@ export class IdentityLinking {
         )
         .where("state", "=", "consumed")
         .executeTakeFirst();
-      if (reservation?.reserved_for_sign_in && !signInProof) {
+      if (isTruthy(reservation?.reserved_for_sign_in) && !signInProof) {
         await transaction
           .updateTable("link_transactions")
           .set({ state: "conflict" })

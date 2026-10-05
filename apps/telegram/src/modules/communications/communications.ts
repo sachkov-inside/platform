@@ -1,3 +1,5 @@
+import { isTruthy } from "../../shared/truthiness.js";
+import { hasText } from "../../shared/text.js";
 import { findPlatformLink } from "../identity-linking/platform-links.js";
 import { enqueueReply } from "../outbound/start-response-delivery-queue.js";
 import { randomUUID } from "node:crypto";
@@ -53,7 +55,7 @@ export class Communications {
       .selectAll()
       .where("bot_identity", "=", this.config.botIdentity)
       .where("owner_account_ref", "=", request.actor.accountRef);
-    if (request.payload.cursor) {
+    if (hasText(request.payload.cursor)) {
       if (
         !/^[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}$/i.test(
           request.payload.cursor,
@@ -62,7 +64,7 @@ export class Communications {
         throw new CommunicationsError("malformed");
       query = query.where("template_id", ">", request.payload.cursor);
     }
-    if (options.search) {
+    if (hasText(options.search)) {
       const types: Record<string, string> = {
         текст: "text",
         фото: "photo",
@@ -218,7 +220,7 @@ export class Communications {
         .executeTakeFirst();
       if (
         input.action === "capture" &&
-        (!mode?.enabled ||
+        (!isTruthy(mode?.enabled) ||
           BigInt(input.updateId) <= BigInt(mode.last_update_id))
       ) {
         await receipt(tx, input, "outside_author_mode");

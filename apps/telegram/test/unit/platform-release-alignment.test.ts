@@ -1,3 +1,4 @@
+import { hasText } from "../../src/shared/text.js";
 import { readFileSync } from "node:fs";
 
 import { describe, expect, it } from "vitest";
@@ -34,7 +35,8 @@ function exampleValue(name: string): string {
   const match = new RegExp(`^# ${name}=(.+)$`, "m").exec(
     readFileSync(".env.example", "utf8"),
   );
-  if (!match?.[1]) throw new Error(`${name} is missing from .env.example`);
+  if (!hasText(match?.[1]))
+    throw new Error(`${name} is missing from .env.example`);
   return match[1];
 }
 

@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+// @ts-check
 // Release contract of the Telegram application: ordinal plan, migration identity and manifest.
 // The release workflow and tests call it; the host gateway re-validates the manifest with jq.
 import { createHash } from "node:crypto";
@@ -6,6 +7,7 @@ import { readFile, readdir } from "node:fs/promises";
 import path from "node:path";
 import process from "node:process";
 import { pathToFileURL } from "node:url";
+import { z } from "zod";
 
 export const repository = "sachkov-inside/inside-telegram";
 export const imageName = "ghcr.io/sachkov-inside/inside-telegram";
@@ -20,6 +22,19 @@ export const migrationsDirectory = "src/database/migrations";
 const ordinalPattern = /^v[1-9][0-9]*$/;
 const shaPattern = /^[0-9a-f]{40}$/;
 const digestPattern = /^sha256:[0-9a-f]{64}$/;
+const planInputSchema = z.object({
+  requestedVersion: z.string(),
+  sourceSha: z.string(),
+  currentMainSha: z.string(),
+  existingTags: z.array(z.string()),
+  existingReleases: z.array(
+    z.object({
+      version: z.string(),
+      immutable: z.boolean(),
+      assets: z.array(z.string()),
+    }),
+  ),
+});
 
 /**
  * Accepts only the next contiguous ordinal on the current main commit.
@@ -134,6 +149,7 @@ export async function createManifest(input) {
   };
 }
 
+/** @param {unknown} version */
 function parseOrdinal(version) {
   if (typeof version !== "string" || !ordinalPattern.test(version)) {
     throw new Error(`release version must be vN, got ${String(version)}`);
@@ -141,6 +157,7 @@ function parseOrdinal(version) {
   return Number(version.slice(1));
 }
 
+/** @param {string | Uint8Array} value */
 function sha256Hex(value) {
   return createHash("sha256").update(value).digest("hex");
 }
@@ -148,10 +165,16 @@ function sha256Hex(value) {
 async function readStandardInput() {
   let text = "";
   process.stdin.setEncoding("utf8");
-  for await (const chunk of process.stdin) text += chunk;
+  for await (const chunk of process.stdin) {
+    if (typeof chunk !== "string")
+      throw new Error("expected UTF-8 standard input");
+    text += chunk;
+  }
   return text;
 }
 
+/** @param {string[]} arguments_
+ * @param {string} name */
 function option(arguments_, name) {
   const index = arguments_.indexOf(`--${name}`);
   const value = index === -1 ? undefined : arguments_[index + 1];
@@ -159,10 +182,13 @@ function option(arguments_, name) {
   return value;
 }
 
+/** @param {string[]} arguments_ */
 async function main(arguments_) {
   const [command, ...rest] = arguments_;
   if (command === "plan") {
-    return planRelease(JSON.parse(await readStandardInput()));
+    return planRelease(
+      planInputSchema.parse(JSON.parse(await readStandardInput())),
+    );
   }
   if (command === "migrations-identity") {
     return migrationsIdentity(rest[0]);

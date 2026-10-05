@@ -1,3 +1,4 @@
+import { hasText } from "../../shared/text.js";
 import {
   communityErrorStatus,
   validDispatchResponse,
@@ -39,7 +40,7 @@ export class HttpCommunityAuthorization implements CommunityDispatchAuthorizatio
       )
         return;
       const body = await readBounded(response.body);
-      if (!body) return;
+      if (!hasText(body)) return;
       const value: unknown = JSON.parse(body);
       if (!validDispatchResponse(value)) return;
       const result = value;
