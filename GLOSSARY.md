@@ -128,8 +128,10 @@ _Avoid_: MaterialAsset, supplementary Material, inline attachment, Content Cover
 A large part of a Guide Chapter's result that the learner builds and submits: a situation, the
 result a customer should see, required and additional criteria, and the freedom the learner keeps.
 It belongs to exactly one chapter of one Guide, has its own order inside that chapter, its own
-access class and a short permanent code. It is not a Material and not a step of the Guide's main
-path, so Guide Progress does not count it. In Russian product language: «Задание».
+access class and a short permanent code. The programme shows it right after the Material of its
+chapter the author names, or at the start of the chapter. It is not a Material and not a step of
+the Guide's main path, so it carries no lesson number and Guide Progress does not count it. In
+Russian product language: «Задание».
 _Avoid_: Assignment, Production Case, stage, точка сдачи, task callout, tracker task
 
 **Task Version**:
@@ -140,7 +142,9 @@ _Avoid_: Revision, content version, edition
 
 **Task Submission**:
 A learner's record of work on one Task Version, with an optional Review Report, the learner's
-note and an optional service mark of the reviewed repository, branch and commit. Submissions are
+note and an optional service mark of the reviewed repository, branch and commit. It comes from the
+learner's agent over the learning MCP or from the task page form; a form submission carries no
+Review Report, only an optional report as plain text. Submissions are
 only added; a new submission never replaces an earlier one. It is not a grade or an acceptance
 status. In Russian product language: «Сдача».
 _Avoid_: Attempt, grade, acceptance, solution upload

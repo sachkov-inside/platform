@@ -44,16 +44,18 @@ moves chapters 0–1 to tasks; lesson practice keeps protocol v2 and everything 
 
 **Publication.** A package carries optional `tasks[]`: `sourceId` (the task code), `guideId` and
 `chapterId` (source IDs of a Guide and chapter in the same package), `title`, `access`,
-`definition`, `relatedMaterialIds`, `publicationState` and `provenance`. The order of a chapter's
-tasks in `tasks[]` is their order in the chapter, so a package carries a chapter's complete task
-list; Content exports a whole Guide. `authoring:sync-local`, `authoring:sync-git-local`
+`definition`, `relatedMaterialIds`, optional `afterMaterialId`, `publicationState` and
+`provenance`. The order of a chapter's tasks in `tasks[]` is their order in the chapter, so a package
+carries a chapter's complete task list; Content exports a whole Guide. `afterMaterialId` (#947) names
+a Material of the same chapter: the programme shows the task right after it, and without it at the
+start of the chapter; a Material outside the chapter fails the package before any write. `authoring:sync-local`, `authoring:sync-git-local`
 and `authoring:release preview|apply` validate every task before the first write and import it after
 its Guide through `/authoring/import/tasks/{validate,apply}` with an idempotency key and the expected
 task revision. A task becomes published only when `--publish <code>` or `--publish-all` selects it;
 `publicationState: unpublished` in Content withdraws it; a task the package omits stays unchanged. A
 release preview lists each task as `new`, `changed`, `unchanged` or `conflict`, and apply refuses a
 conflict. A changed definition digest creates the next Task Version; title, access, chapter, order,
-related Materials and publication change only the task revision.
+the Material it follows, related Materials and publication change only the task revision.
 
 **Protocol v3.** One text,
 [`review-protocol.ts`](../../apps/backend/src/modules/guide-tasks/domain/review-protocol.ts), reaches
@@ -82,16 +84,20 @@ Access is checked at every read and every submission; submissions stay when acce
 return with it. The database refuses any change to a written version or submission; deleting one
 is left to an explicit data-policy procedure.
 
-**Enabling submissions in production.** `GUIDE_TASK_SUBMISSIONS_ENABLED` turns submission on; it
-defaults to `true` locally and to `false` in production, where `learning_task_submit` answers
-`submissions_disabled` while listing and reading work. Enable it only after the owner publishes data
-policy v4, which covers submissions, review reports, notes and repository links:
+The task page (#947) offers the same submission without an agent: a form with the learner's note,
+an optional repository and an optional report as plain text. It creates a `form` submission through
+the API, which obeys the same setting and the same hourly bound.
 
-1. Set `GUIDE_TASK_SUBMISSIONS_ENABLED=true` in the production MCP environment
-   (`config/compose/production/mcp.env.example` names it).
-2. Release the MCP process by the [release runbook](production-release.md).
-3. Check that a test learner submits a free task once through MCP and sees it in
-   `learning_task_submissions`; record no token or learner data.
+**Enabling submissions in production.** `GUIDE_TASK_SUBMISSIONS_ENABLED` turns submission on; it
+defaults to `true` locally and to `false` in production, where `learning_task_submit` and the page
+form answer `submissions_disabled` while listing and reading work. Enable it only after the owner
+publishes data policy v4, which covers submissions, review reports, notes and repository links:
+
+1. Set `GUIDE_TASK_SUBMISSIONS_ENABLED=true` in the production MCP and API environments
+   (`config/compose/production/mcp.env.example` and `api.env.example` name it).
+2. Release the MCP and API processes by the [release runbook](production-release.md).
+3. Check that a test learner submits a free task once through MCP and once through the page form
+   and sees both in «Мои сдачи»; record no token or learner data.
 
 ## Review contract
 

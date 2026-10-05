@@ -269,8 +269,10 @@ receipts. Author MCP permissions and tool inventory remain separate from the lea
 Guide Tasks (#946) add four tools and the `review_task` prompt to that endpoint and two
 `materials:manage` import API operations under `/authoring/import/tasks`. Migration `0079-guide-tasks`
 creates the `guide_tasks` schema. `GUIDE_TASK_SUBMISSIONS_ENABLED` (`true` or `false`) turns
-submission on: it defaults to `true` in development and test and to `false` in production, where only
-the owner's published data policy v4 allows enabling it. The procedure is in
+submission on, for the MCP tool and for the task page form of the API (#947): it defaults to `true`
+in development and test and to `false` in production, where only the owner's published data policy
+v4 allows enabling it. Migration `0080-guide-task-placement-and-form` adds the task's place after a
+Material and the form's text report. The procedure is in
 [learner practice review](learning-practice-review.md#guide-tasks-and-review-protocol-v3-946).
 
 The participant setup and bounded native verification live in [learner practice review](learning-practice-review.md).
