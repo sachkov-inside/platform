@@ -18,7 +18,8 @@ unavailable, loading, pending, failure/retry, stale conflict, keyboard mark/unma
 и завершённую серию. Причина недоступности доступна через title и screen reader; ошибка сохраняет прежний статус,
 конфликт показывает актуальный. Серия использует «Изучено N из M» без процентов.
 
-Команды из корня репозитория:
+Команды из корня репозитория (исторические: истории `Pages/Reading progress` и стенд
+`playwright.reading-proof.config.ts` удалены в #952, каталог показывает только production):
 
 ```bash
 pnpm --filter @inside/web exec storybook dev -p 6006 --no-open --ci

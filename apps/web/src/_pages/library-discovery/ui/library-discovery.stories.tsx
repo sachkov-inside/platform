@@ -135,6 +135,15 @@ const topicCatalog = fetchBeforeRender((input) => {
 
 const meta = {
   ...environment,
+  // Каждая история темы получает свой список материалов из подменённого BFF, как на маршруте.
+  beforeEach: () => {
+    const restoreEnvironment = environment.beforeEach();
+    const restoreFetch = topicCatalog();
+    return () => {
+      restoreFetch();
+      restoreEnvironment?.();
+    };
+  },
   component: LibraryDiscoveryView,
   title: "Pages/Topic",
 } satisfies Meta<typeof LibraryDiscoveryView>;
@@ -144,7 +153,6 @@ type Story = StoryObj<typeof meta>;
 
 export const TopicDesktop: Story = {
   args: { result: topicResult },
-  beforeEach: topicCatalog,
   globals: { viewport: { isRotated: false, value: "desktop1440" } },
   name: "Topic · desktop",
   play: async ({ canvasElement }) => {
@@ -175,7 +183,6 @@ export const TopicDesktop: Story = {
 
 export const TopicMobile: Story = {
   args: { result: topicResult },
-  beforeEach: topicCatalog,
   globals: { viewport: { isRotated: false, value: "mobile390" } },
   name: "Topic · mobile",
   play: heroOpensAtTheSamePlace,
