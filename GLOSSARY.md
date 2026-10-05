@@ -1,9 +1,10 @@
-# Platform
+# Inside and Platform
 
 Platform publishes Inside Materials and Guides for visitors and Membership participants. The
 [current product brief](docs/product/platform-mvp-brief.md) owns delivery scope and the boundary
-between editorial originals and published application state. This glossary names the concepts
-shared by product and application work.
+between editorial originals and published application state. This glossary owns the shared Inside terms and their Platform refinements.
+[The shared brief](docs/product/README.md) owns overall product scope;
+[the access model](docs/product/access-model.md) owns commercial composition and independent right terms.
 
 ## Language
 
@@ -320,9 +321,9 @@ expand the current delivery scope. See the
 
 
 **Workshop**:
-Inside's practical learning area for active subscribers: thematic Workshop Tracks combine
-Materials, local Laboratories and Production Cases. Access remains a separate authority so a
-future standalone Workshop grant stays possible.
+Inside's deferred practical learning area in which an Account follows Workshop Tracks, experiments
+in Laboratories and solves Production Cases. Its historical offer links access to a distinct
+Workshop Entitlement; it is not part of the current subscription launch promise.
 _Avoid_: Separate current subscription, Material Series, coding puzzle catalog
 
 **Workshop Track**:
@@ -363,9 +364,8 @@ learning contract while using its own starter baseline and evaluation assets.
 _Avoid_: Separate Case, generated port, Platform stack
 
 **WorkshopEntitlement**:
-A time-bounded Platform grant for protected Workshop content. In the first Kafka slice it is
-projected from the same accepted MembershipEvidence that keeps MembershipEntitlement current, but
-remains a separate authority.
+A finite Platform grant for protected Workshop content, independent of MembershipEntitlement.
+It does not follow from a content or community right by itself.
 _Avoid_: MembershipEntitlement, route-local membership check, permanent purchase
 
 **WorkshopResource**:
@@ -518,20 +518,15 @@ Payment, an owner's manual decision and a confirmed prior entitlement are distin
 _Avoid_: Telegram presence, single global paid flag
 
 **CommunityEntitlement**:
-An Account's effective right to participate in the Inside community, distinct from its actual
-presence in the Telegram chat. A live AccessGrant covering the shared chat opens it, and so does
-one covering any Guide; it lasts as long as the longest such grant.
+An Account's effective right to participate in the single shared community chat, distinct from
+actual presence in Telegram. Live AccessGrants covering Support, the chat or any Product establish
+the right; its term follows the accepted grants independently of the payment period.
 _Avoid_: ChatMember, membership observation, tier name as the rule
 
 **CommunityDelivery**:
 One attempt to make a CommunityEntitlement real in Telegram. Its desired state, the provider's
 acceptance and the observed membership are separate facts.
 _Avoid_: Queue acknowledgement as membership, entitlement revision as proof of admission
-
-**BillingContact**:
-An Account's confirmed address for subscription communication and receipts.
-It is distinct from identity evidence used to sign in.
-_Avoid_: Email fingerprint, Telegram username, merchant email
 
 **RenewalConsent**:
 An Account's explicit agreement to future charges under identified terms and a confirmed payment
@@ -593,3 +588,88 @@ bot entry has none. It is an
 observation of the first entry, not a proven cause of a purchase. In Russian product language:
 «метка источника».
 _Avoid_: UTM, campaign, attribution model, referrer
+
+## Shared Inside terms
+
+**Offer Eligibility**:
+A restriction that makes an Offer visible and purchasable only to Accounts holding a named basis,
+such as the subscription Offer for former Tribute subscribers; in Russian, «Допуск к предложению».
+It does not change rights already granted.
+_Avoid_: Sale flag, assignability, hidden Offer
+
+**Subscription Tier**:
+An Offer with a ContentScope and benefits, assigned or sold independently of its payment option.
+It may cover named Products or all Products; the promised composition belongs to the accepted Offer.
+_Avoid_: Subscription Option, payment period, permission
+
+**Support**:
+The right to ask the author for help within a stated term; in Russian, «Сопровождение».
+_Avoid_: Personal mentoring, guaranteed answer, community participation
+
+**Subscription Option**:
+A purchasable combination of a Subscription Tier, a duration in calendar months and a full price
+for that duration.
+_Avoid_: Subscription Tier, monthly instalment, payment attempt
+
+**Lifetime Access Grant**:
+An AccessGrant without a scheduled end date, for a defined set of Inside benefits.
+It does not promise every future separate paid offer.
+_Avoid_: Never-expiring subscription, future all-access purchase, permanent Telegram membership
+
+**Direct Right**:
+A right an Account holds independently of a SubscriptionEnrollment or Product purchase:
+an owner-granted or carried-over AccessGrant, or the legacy member bridge.
+In Russian product language: «Прямое право».
+_Avoid_: Manual tier assignment, gift subscription, purchase
+
+**TelegramIdentity**:
+The provider-verified Telegram identity linked to an Account through the Telegram application.
+_Avoid_: Username, BotContact, Account
+
+**Membership Signal**:
+The current presence of a linked TelegramIdentity in the Canonical Membership Chat.
+_Avoid_: Tribute subscription, payment status
+
+**MembershipObservation**:
+A Telegram-owned observation of a Membership Signal at a specific time.
+_Avoid_: Permanent member flag, entitlement
+
+**Canonical Membership Chat**:
+The single closed Telegram chat whose current roster is the Membership Signal for Inside.
+_Avoid_: Community directory, Tribute roster, audience segment
+
+**Supplementary Material**:
+A Material associated with a Guide outside its main reading path, for reference or additional study.
+Its role is specific to that Guide and does not change the Material's Format.
+_Avoid_: Guide Chapter, copied Material, automatically free content
+
+**Subject**:
+The anonymous visitor or authenticated Account whose access is being decided.
+_Avoid_: Telegram user, authentication context
+
+**Resource**:
+A Platform material body, asset, download, or video governed by publication state and access class.
+_Avoid_: URL, provider object, storage key
+
+**AccessDecision**:
+The allow or deny outcome for one Subject, Action, and Resource, including its reason and validity.
+_Avoid_: Boolean Membership check, provider response
+
+## Compatibility names
+
+These names refer to the same concept; they do not introduce another right or product.
+
+| Compatibility name | Canonical term |
+|---|---|
+| Inside Subscription | Subscription |
+| Product Purchase | OneTimePurchase |
+| Access Scope | AccessScope |
+| Content Scope | ContentScope |
+| Subscription Enrollment | SubscriptionEnrollment |
+| Access Grant | AccessGrant |
+| Community Entitlement | CommunityEntitlement |
+| Admission Restriction | AdmissionRestriction |
+| Workshop Entitlement | WorkshopEntitlement |
+| Workshop Resource | WorkshopResource |
+| Guide Purchase | OneTimePurchase |
+| BillingContact | Billing Contact |

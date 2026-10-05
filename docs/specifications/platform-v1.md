@@ -795,7 +795,7 @@ platform#808). Сложность и результаты обучения ос�
 3. При linking Telegram application выполняет initial check, затем durably принимает member-status
    events и background-reconcile-ит due known linked identities через `getChatMember`.
 4. Platform асинхронно принимает normalized MembershipEvidence без raw Telegram model по принятому
-   [Workspace v1 contract](https://github.com/sachkov-inside/workspace/blob/main/docs/contracts/identity-membership-v1.md)
+   [Workspace v1 contract](../contracts/identity-membership-v1.md)
    и строит собственный entitlement не дольше `validUntil` этого evidence.
 5. Library/Material request читает только local PostgreSQL projection и никогда не вызывает
    Telegram или не ждёт reconciliation. Positive MembershipEvidence живёт не более пяти минут;
@@ -1188,14 +1188,14 @@ choice, неочевидный контекст и реальный trade-off. �
 - [Platform #48: Identity, Authorization и Member Profile root Specification](https://github.com/sachkov-inside/platform/issues/48)
 - [Workspace #65: cross-repository Identity/Membership Specification](https://github.com/sachkov-inside/workspace/issues/65)
 - [Workspace #66: accepted Identity/Membership contract sync](https://github.com/sachkov-inside/workspace/issues/66)
-- [Workspace Identity/Membership v1 contract](https://github.com/sachkov-inside/workspace/blob/main/docs/contracts/identity-membership-v1.md)
+- [Workspace Identity/Membership v1 contract](../contracts/identity-membership-v1.md)
 - [Platform #27 owner architecture decisions](https://github.com/sachkov-inside/platform/issues/27#issuecomment-5378336463)
 - [Platform #19 integrated frontend owner decision](https://github.com/sachkov-inside/platform/issues/19#issuecomment-5382270492)
 - [Platform #44: parallel UI laboratory owner correction](https://github.com/sachkov-inside/platform/issues/44)
 - [Platform #22: whole-screen concept gate canceled](https://github.com/sachkov-inside/platform/issues/22#issuecomment-5379019538)
 - [Platform #23: standalone component proof canceled](https://github.com/sachkov-inside/platform/issues/23#issuecomment-5379019592)
 - [Platform #40: separate design lane superseded](https://github.com/sachkov-inside/platform/issues/40#issuecomment-5382373045)
-- [Workspace Platform v1 specification](https://github.com/sachkov-inside/workspace/blob/main/docs/specifications/platform-v1.md)
+- [Workspace Platform v1 specification](../history/workspace/specifications/platform-v1.md)
 - [Workspace #39: current publishing audit decisions](https://github.com/sachkov-inside/workspace/issues/39)
 - [Workspace #41: Telegram Membership boundary](https://github.com/sachkov-inside/workspace/issues/41)
 - [Workspace #42: Kinescope lifecycle](https://github.com/sachkov-inside/workspace/issues/42)

@@ -5,7 +5,7 @@ status: accepted
 # One block registry package behind the MaterialBody seam
 
 Cross-repository
-[ADR 0004](https://github.com/sachkov-inside/workspace/blob/main/docs/adr/0004-typed-blocks-for-interactive-materials.md)
+[ADR 0004](workspace/0004-typed-blocks-for-interactive-materials.md)
 put interactive materials on typed blocks and named Platform the owner of the block registry. The
 owner confirmed on 2026-09-11 that the foundation lands as one change
 ([#501](https://github.com/sachkov-inside/platform/issues/501)).

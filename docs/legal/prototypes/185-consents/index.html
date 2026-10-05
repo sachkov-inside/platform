@@ -1,0 +1,727 @@
+<!doctype html>
+<!--
+  PROTOTYPE — throwaway. Workspace #185: путь согласий, принятый владельцем 15.09.2026 (вариант A).
+  Условия, оферта и автопродление принимаются кнопками со строкой рядом; галочек за весь путь нет.
+  Экраны (?screen=...): вход, первый вход, покупка руководства, подписка, первое посещение, Telegram,
+  профиль, кабинет. Профиль виден только владельцу; согласий на профиль и на новости нет.
+  Не встраивается в Platform; тексты и версии кандидатные.
+  Визуальный язык повторяет Platform apps/web (public shell, Manrope, карточки rounded-2xl).
+  Запуск: открыть файл в браузере. &bar=0 скрывает панель прототипа.
+-->
+<html lang="ru">
+  <head>
+    <meta charset="utf-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1, viewport-fit=cover"
+    />
+    <title>Прототип #185 — согласия Inside</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link
+      href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&family=Manrope:wght@400;500;600;700;800&display=swap"
+      rel="stylesheet"
+    />
+    <style>
+      /* Токены public shell из Platform apps/web/app/globals.css */
+      :root {
+        --background: #ffffff;
+        --foreground: #202124;
+        --card: #ffffff;
+        --primary: #202124;
+        --primary-foreground: #ffffff;
+        --secondary: #f3f1ed;
+        --muted-foreground: #5f5e59;
+        --accent: #c7461e;
+        --action: #b83a1d;
+        --action-hover: #8f2c16;
+        --border: rgb(32 33 36 / 8%);
+        --input: rgb(32 33 36 / 14%);
+        --good: oklch(0.46 0.11 150);
+        --shadow-card: 0 1rem 2.5rem -2rem rgb(20 21 24 / 35%);
+        --shadow-float: 0 1.5rem 4rem -1.25rem rgb(20 21 24 / 60%);
+        --font-body: "Manrope", ui-sans-serif, system-ui, sans-serif;
+        --font-mono: "JetBrains Mono", ui-monospace, monospace;
+        color-scheme: light;
+      }
+      * {
+        box-sizing: border-box;
+      }
+      html,
+      body {
+        margin: 0;
+        background: var(--background);
+        color: var(--foreground);
+        font-family: var(--font-body);
+        line-height: 1.5;
+        -webkit-font-smoothing: antialiased;
+      }
+      a {
+        color: var(--action);
+        text-underline-offset: 4px;
+      }
+      button {
+        font: inherit;
+      }
+
+      .site-header {
+        display: flex;
+        align-items: center;
+        gap: 32px;
+        height: 67px;
+        padding: 0 94px;
+        border-bottom: 1px solid var(--border);
+      }
+      .logo {
+        font-weight: 800;
+        font-size: 20px;
+        letter-spacing: -0.03em;
+        white-space: nowrap;
+      }
+      .logo span {
+        color: var(--accent);
+      }
+      .site-nav {
+        display: flex;
+        gap: 26px;
+        font-size: 14px;
+        font-weight: 600;
+      }
+      .spacer {
+        flex: 1;
+      }
+      .pill {
+        display: inline-flex;
+        align-items: center;
+        min-height: 36px;
+        padding: 0 14px;
+        border-radius: 999px;
+        background: var(--primary);
+        color: #fff;
+        font-size: 13px;
+        font-weight: 700;
+      }
+
+      .page {
+        max-width: 1012px;
+        margin: 0 auto;
+        padding: 28px 24px 170px;
+      }
+      .narrow {
+        max-width: 38rem;
+        margin: 0 auto;
+      }
+      h1 {
+        font-size: 40px;
+        font-weight: 800;
+        letter-spacing: -0.04em;
+        line-height: 1.1;
+        margin: 0;
+      }
+      h2 {
+        font-size: 20px;
+        font-weight: 700;
+        margin: 0;
+      }
+      h3 {
+        font-size: 14px;
+        font-weight: 700;
+        margin: 0;
+      }
+      .lead {
+        margin: 10px 0 0;
+        font-size: 15px;
+        color: var(--muted-foreground);
+      }
+      .note {
+        font-size: 13px;
+        color: var(--muted-foreground);
+      }
+      .eyebrow {
+        font-size: 11px;
+        font-weight: 700;
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+        color: var(--muted-foreground);
+      }
+      .card {
+        background: var(--card);
+        border: 1px solid var(--border);
+        border-radius: 1rem;
+        box-shadow: var(--shadow-card);
+        padding: 24px 28px;
+      }
+      .stack > * + * {
+        margin-top: 14px;
+      }
+      .divider {
+        border-top: 1px solid var(--border);
+        margin: 22px 0;
+      }
+      .row {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+        align-items: center;
+      }
+
+      .btn {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-height: 44px;
+        padding: 0 18px;
+        border-radius: 0.6rem;
+        border: 1px solid transparent;
+        background: var(--primary);
+        color: #fff;
+        font-size: 14px;
+        font-weight: 600;
+        cursor: pointer;
+      }
+      .btn:disabled {
+        opacity: 0.45;
+        cursor: not-allowed;
+      }
+      .btn.outline {
+        background: #fff;
+        color: var(--foreground);
+        border-color: var(--input);
+      }
+      .btn.sm {
+        min-height: 34px;
+        padding: 0 12px;
+        font-size: 13px;
+      }
+      .btn.wide {
+        width: 100%;
+      }
+
+      .terms-line {
+        font-size: 13px;
+        color: var(--muted-foreground);
+        margin: 12px 0 0;
+      }
+      .price {
+        font-size: 32px;
+        font-weight: 800;
+        letter-spacing: -0.03em;
+      }
+      .kv {
+        display: grid;
+        grid-template-columns: 1fr auto;
+        gap: 6px 16px;
+        font-size: 14px;
+      }
+      .kv span:nth-child(even) {
+        text-align: right;
+        font-weight: 600;
+      }
+      .status-on {
+        color: var(--good);
+        font-weight: 600;
+      }
+
+      .cabinet {
+        display: grid;
+        grid-template-columns: 200px 1fr;
+        gap: 34px;
+      }
+      .cabinet-nav .eyebrow {
+        padding: 6px 12px 12px;
+      }
+      .cabinet-nav a {
+        display: block;
+        padding: 9px 12px;
+        border-radius: 0.7rem;
+        color: var(--foreground);
+        text-decoration: none;
+        font-size: 14px;
+        font-weight: 600;
+      }
+      .cabinet-nav a.active {
+        background: var(--secondary);
+        color: var(--accent);
+      }
+      .section-header {
+        border-bottom: 1px solid var(--border);
+        padding-bottom: 26px;
+        margin-bottom: 28px;
+      }
+      .section-header h1 {
+        font-size: 44px;
+      }
+      .doc-row {
+        display: grid;
+        grid-template-columns: 1fr auto;
+        gap: 4px 20px;
+        padding: 14px 0;
+        border-top: 1px solid var(--border);
+        font-size: 14px;
+      }
+      .doc-row:first-child {
+        border-top: 0;
+      }
+
+      .cookie-bar {
+        position: fixed;
+        left: 50%;
+        transform: translateX(-50%);
+        bottom: 96px;
+        width: min(560px, calc(100% - 32px));
+        background: #fff;
+        border: 1px solid var(--border);
+        border-radius: 1rem;
+        box-shadow: var(--shadow-float);
+        padding: 16px 18px;
+        z-index: 30;
+      }
+      .fake-feed {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 18px;
+        margin-top: 24px;
+      }
+      .fake-cover {
+        aspect-ratio: 4/3;
+        border-radius: 1rem;
+      }
+
+      .tg-wrap {
+        display: grid;
+        grid-template-columns: 360px 1fr;
+        gap: 32px;
+        align-items: start;
+      }
+      .tg {
+        background: #dfe7ee;
+        border-radius: 1.4rem;
+        padding: 14px;
+        font-size: 14px;
+      }
+      .tg-head {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 4px 6px 12px;
+        font-weight: 700;
+      }
+      .tg-ava {
+        width: 34px;
+        height: 34px;
+        border-radius: 50%;
+        background: var(--primary);
+        color: #fff;
+        display: grid;
+        place-items: center;
+        font-size: 13px;
+      }
+      .bubble {
+        background: #fff;
+        border-radius: 14px 14px 14px 4px;
+        padding: 10px 12px;
+        margin: 8px 30px 4px 0;
+      }
+      .bubble.me {
+        background: #e1f6cf;
+        border-radius: 14px 14px 4px 14px;
+        margin: 8px 0 4px auto;
+        width: fit-content;
+      }
+      .tg-btns {
+        display: grid;
+        gap: 6px;
+        margin: 6px 30px 8px 0;
+      }
+      .tg-btns button {
+        background: rgb(255 255 255 / 70%);
+        border: 0;
+        border-radius: 10px;
+        padding: 9px;
+        font-weight: 600;
+        color: #2a6fb0;
+      }
+
+      /* Панель прототипа: нарочно не похожа на продукт */
+      .tally {
+        margin-top: 24px;
+        border: 2px dashed #7c3aed;
+        border-radius: 0.8rem;
+        padding: 12px 14px;
+        background: #faf5ff;
+        color: #3b0764;
+        font-size: 13px;
+      }
+      .tally b {
+        font-size: 15px;
+      }
+      .tally table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-top: 8px;
+        font-family: var(--font-mono);
+        font-size: 12px;
+      }
+      .tally td {
+        padding: 3px 0;
+        border-top: 1px dashed #d8b4fe;
+        vertical-align: top;
+      }
+      .tally td:last-child {
+        text-align: right;
+        padding-left: 12px;
+      }
+      .tally td {
+        overflow-wrap: anywhere;
+      }
+      .proto-bar {
+        position: fixed;
+        left: 50%;
+        bottom: 16px;
+        transform: translateX(-50%);
+        z-index: 50;
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: center;
+        align-items: center;
+        gap: 4px;
+        max-width: calc(100% - 16px);
+        background: #2e1065;
+        color: #fff;
+        padding: 6px;
+        border-radius: 1rem;
+        box-shadow: 0 10px 30px rgb(46 16 101 / 45%);
+        font-size: 12px;
+        font-weight: 600;
+      }
+      .proto-bar button {
+        background: transparent;
+        color: #fff;
+        border: 0;
+        border-radius: 999px;
+        padding: 6px 9px;
+        cursor: pointer;
+        font-size: 12px;
+      }
+      .proto-bar button.on {
+        background: #fff;
+        color: #2e1065;
+      }
+      .proto-bar .sep {
+        width: 1px;
+        height: 18px;
+        background: rgb(255 255 255 / 30%);
+      }
+      .proto-label {
+        padding: 0 6px;
+        white-space: nowrap;
+      }
+      .hide-bar .proto-bar {
+        display: none;
+      }
+
+      @media (width < 48rem) {
+        .site-header {
+          padding: 0 20px;
+          height: 58px;
+        }
+        .site-nav,
+        .search {
+          display: none;
+        }
+        .page {
+          padding: 20px 16px 200px;
+        }
+        h1 {
+          font-size: 30px;
+        }
+        .section-header h1 {
+          font-size: 34px;
+        }
+        .card {
+          padding: 20px 18px;
+        }
+        .cabinet {
+          grid-template-columns: 1fr;
+          gap: 12px;
+        }
+        .cabinet-nav {
+          display: flex;
+          overflow-x: auto;
+          gap: 4px;
+        }
+        .cabinet-nav .eyebrow {
+          display: none;
+        }
+        .cabinet-nav a {
+          white-space: nowrap;
+        }
+        .doc-row {
+          grid-template-columns: 1fr;
+        }
+        .fake-feed {
+          grid-template-columns: 1fr;
+        }
+        .tg-wrap {
+          grid-template-columns: 1fr;
+        }
+        .cookie-bar {
+          bottom: 130px;
+        }
+        .hide-bar .cookie-bar {
+          bottom: 20px;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <header class="site-header">
+      <div class="logo">Sachkov <span>Inside</span></div>
+      <nav class="site-nav">
+        <span>Главная</span><span>База знаний</span><span>Закладки</span>
+      </nav>
+      <div class="spacer"></div>
+      <span class="search note" style="font-size: 14px">Найти материал</span>
+      <span class="pill">Аккаунт</span>
+    </header>
+    <main class="page" id="app"></main>
+    <div
+      class="proto-bar"
+      id="proto-bar"
+      role="toolbar"
+      aria-label="Панель прототипа"
+    ></div>
+
+    <script>
+      const DOCS = {
+        terms: { title: "условия использования", v: 1, href: "/legal/terms" },
+        privacy: {
+          title: "политика персональных данных",
+          v: 3,
+          href: "/legal/privacy",
+        },
+        cookies: {
+          title: "cookies и локальное хранение",
+          v: 2,
+          href: "/legal/cookies",
+        },
+        purchase: {
+          title: "оферту покупки руководства",
+          v: 1,
+          href: "/legal/purchase",
+        },
+        subscription: {
+          title: "оферту подписки",
+          v: 1,
+          href: "/legal/subscription",
+        },
+        recurring: {
+          title: "условия автопродления",
+          v: 1,
+          href: "/legal/recurring-consent",
+        },
+      };
+      const doc = (k, label) =>
+        `<a href="${DOCS[k].href}" target="_blank" rel="noreferrer">${label ?? DOCS[k].title}</a>`;
+
+      // Принятый вариант A: все документы принимаются кнопками. Панель «Итого» показывает, что галочек нет.
+      const SCREENS = [
+        ["signin", "Вход"],
+        ["welcome", "Первый вход"],
+        ["guide", "Покупка руководства"],
+        ["subscription", "Подписка"],
+        ["cookies", "Первое посещение"],
+        ["telegram", "Telegram"],
+        ["profile", "Профиль"],
+        ["account", "Кабинет"],
+      ];
+
+      const params = new URLSearchParams(location.search);
+      let screen = params.get("screen") ?? "welcome";
+      if (params.get("bar") === "0") document.body.classList.add("hide-bar");
+      const state = { cookieSeen: false };
+
+      function tally() {
+        return `<div class="tally"><b>Прототип — итого галочек за весь путь: 0</b>
+    <table>
+      <tr><td>Первый вход: условия использования (возраст — пункт условий)</td><td>кнопка → 0</td></tr>
+      <tr><td>Покупка руководства: оферта</td><td>кнопка «Оплатить» → 0</td></tr>
+      <tr><td>Подписка: оферта и автопродление</td><td>кнопка со строкой об автопродлении → 0</td></tr>
+    </table>
+    <p style="margin:8px 0 0">В журнал пишется: документ, версия, контрольная сумма, подпись кнопки, экран и время.</p></div>`;
+      }
+
+      function setUrl() {
+        const p = new URLSearchParams(location.search);
+        p.set("screen", screen);
+        history.replaceState(null, "", `?${p.toString()}`);
+      }
+      function renderBar() {
+        document.getElementById("proto-bar").innerHTML =
+          `<span class="proto-label">ПРОТОТИП #185 · вариант A</span><span class="sep"></span>` +
+          SCREENS.map(
+            ([id, l]) =>
+              `<button data-screen="${id}" class="${id === screen ? "on" : ""}">${l}</button>`,
+          ).join("");
+      }
+      document.addEventListener("click", (e) => {
+        const t = e.target.closest("[data-screen],[data-act]");
+        if (!t) return;
+        if (t.dataset.screen) {
+          screen = t.dataset.screen;
+          render();
+        }
+        if (t.dataset.act === "cookie-ok") {
+          state.cookieSeen = true;
+          render();
+        }
+      });
+
+      // ---------------------------------------------------------------- экраны
+      function signinScreen() {
+        return `<div class="narrow" style="max-width:26rem"><div class="card" style="margin-top:24px;text-align:center">
+    <div class="logo">Sachkov <span>Inside</span></div>
+    <h2 style="margin-top:18px">Войти или создать аккаунт</h2>
+    <input placeholder="Почта" style="margin-top:18px;width:100%;min-height:48px;border-radius:.7rem;border:1px solid var(--input);padding:0 14px;font:500 15px var(--font-body)">
+    <button class="btn wide" style="margin-top:10px">Получить код</button>
+    <div class="divider"></div>
+    <button class="btn outline wide" data-screen="telegram">Войти через Telegram</button>
+    <p class="note" style="margin:16px 0 0">Как мы используем данные — ${doc("privacy", "политика")}. Условия использования
+      вы примете сразу после входа.</p></div>${tally()}</div>`;
+      }
+
+      function welcomeScreen() {
+        return `<div class="narrow" style="max-width:30rem">
+    <p class="eyebrow">Аккаунт создан</p>
+    <h1 style="margin-top:6px">Добро пожаловать в Inside</h1>
+    <p class="lead">Вы вошли как anna@example.com. Осталось одно действие.</p>
+    <div class="card" style="margin-top:24px">
+      <button class="btn wide" style="margin-top:4px">Принять условия и продолжить</button>
+      <p class="terms-line">Нажимая кнопку, вы принимаете ${doc("terms")}; пользоваться Inside можно с 14 лет.
+        Данные аккаунта обрабатываются по ${doc("privacy", "политике персональных данных")}.</p>
+    </div>
+    ${tally()}</div>`;
+      }
+
+      function guideScreen() {
+        return `<div class="narrow">
+    <h1>Создание Platform Inside</h1>
+    <p class="lead">Руководство: материалы, практика и общий чат.</p>
+    <section class="card" style="margin-top:24px">
+      <div class="kv"><span>Доступ</span><span>6 месяцев</span><span>Автопродление</span><span>нет</span><span>Чек придёт на</span><span>anna@example.com ✓</span></div>
+      <div class="divider"></div>
+      <p class="price" style="margin:0 0 16px">2 500 ₽</p>
+      <button class="btn wide">Оплатить 2 500 ₽</button>
+      <p class="terms-line">Нажимая «Оплатить», вы принимаете ${doc("purchase")}. Доступ на 6 месяцев, без автопродления.</p>
+      <p class="terms-line">До 18 лет покупку оформляйте с согласия законного представителя.</p>
+    </section>${tally()}</div>`;
+      }
+
+      function subscriptionScreen() {
+        return `<div class="narrow">
+    <h1>Подписка Inside</h1>
+    <p class="lead">Все материалы и руководства, пока действует подписка.</p>
+    <section class="card" style="margin-top:24px">
+      <div class="kv"><span>Первый платёж сегодня</span><span>2 000 ₽</span><span>Следующее списание</span><span>15 октября 2026 · 3 500 ₽</span>
+        <span>Период</span><span>1 месяц</span><span>Чек придёт на</span><span>anna@example.com ✓</span></div>
+      <div class="divider"></div>
+      <button class="btn wide">Оформить подписку и оплатить 2 000 ₽</button>
+      <p class="terms-line">Нажимая кнопку, вы принимаете ${doc("subscription")} и разрешаете автопродление:
+        3 500 ₽ каждый месяц, начиная с 15 октября 2026, пока вы его не отключите — ${doc("recurring", "условия автопродления")}.
+        Отключить можно в любой момент в кабинете, раздел «Подписка».</p>
+      <p class="terms-line">До 18 лет подписку оформляйте с согласия законного представителя.</p>
+    </section>${tally()}</div>`;
+      }
+
+      function cookiesScreen() {
+        const covers = ["#dce9ff", "#ffdcd2", "#dcefe5"]
+          .map(
+            (c) => `<div><div class="fake-cover" style="background:${c}"></div>
+    <p style="margin:10px 0 0;font-weight:700">Руководство</p><p class="note" style="margin:0">Материалы и практика</p></div>`,
+          )
+          .join("");
+        const bar = state.cookieSeen
+          ? ""
+          : `<div class="cookie-bar" role="region" aria-label="Cookies">
+    <p style="margin:0;font-size:14px">Inside хранит в браузере только то, без чего не работают вход и сохранение прогресса.
+    Рекламы и сторонней аналитики нет. ${doc("cookies", "Подробнее")}</p>
+    <div class="row" style="margin-top:10px"><button class="btn sm" data-act="cookie-ok">Понятно</button></div></div>`;
+        return `<h1>Главная</h1><p class="lead">Первое посещение без аккаунта. Галочек нет: это уведомление, а не согласие.</p>
+    <div class="fake-feed">${covers}</div>${bar}`;
+      }
+
+      function telegramScreen() {
+        return `<h1>Вход через Telegram</h1>
+    <p class="lead">Бот подтверждает Telegram, но не создаёт аккаунт: дальше тот же экран первого входа.</p>
+    <div class="tg-wrap" style="margin-top:24px">
+      <div class="tg"><div class="tg-head"><div class="tg-ava">SI</div>Sachkov Inside</div>
+        <div class="bubble me">Войти в Inside</div>
+        <div class="bubble">Вы входите в Sachkov Inside?</div>
+        <div class="tg-btns"><button data-screen="welcome">Да, это я</button><button>Нет</button></div></div>
+      <div class="card"><h2>Что происходит</h2>
+        <ol class="stack" style="margin:12px 0 0;padding-left:18px;font-size:14px">
+          <li>Сайт получает подтверждение от бота и создаёт или находит аккаунт.</li>
+          <li>Новый аккаунт открывает экран «Добро пожаловать» — как при входе по почте.</li>
+          <li>Пока условия не приняты, кабинет, покупки и привязка бота не открываются.</li>
+          <li>Сообщения бота, включая новости, приходят тем, кто сам нажал /start; отключаются командой /stop.</li>
+        </ol></div></div>${tally()}`;
+      }
+
+      function cabinetNav(active) {
+        return `<nav class="cabinet-nav"><p class="eyebrow">Личный кабинет</p>
+    ${[
+      ["profile", "Профиль"],
+      ["account", "Аккаунт"],
+      ["p", "Покупки"],
+      ["n", "Уведомления"],
+    ]
+      .map(
+        ([id, l]) =>
+          `<a class="${id === active ? "active" : ""}" ${["profile", "account"].includes(id) ? `data-screen="${id}"` : ""} href="javascript:void 0">${l}</a>`,
+      )
+      .join("")}</nav>`;
+      }
+
+      function profileScreen() {
+        return `<div class="cabinet">${cabinetNav("profile")}<div>
+    <header class="section-header"><h1>Профиль</h1><p class="lead" style="margin-top:6px">Аватар, имя и о себе — видите только вы</p></header>
+    <section class="card">
+      <p class="note" style="margin:0 0 18px">Профиль заполняется по желанию и виден только вам. Другим участникам он не показывается.</p>
+      <label style="font-size:14px;font-weight:700" for="n">Имя</label>
+      <input id="n" value="Анна" style="margin-top:8px;width:100%;min-height:52px;border-radius:.75rem;border:1px solid var(--input);padding:0 14px;font:700 22px var(--font-body)">
+      <div class="row" style="margin-top:18px"><button class="btn">Сохранить</button><span class="note">Без галочек: профиль — функция вашего аккаунта.</span></div>
+    </section>${tally()}</div></div>`;
+      }
+
+      function accountScreen() {
+        return `<div class="cabinet">${cabinetNav("account")}<div>
+    <header class="section-header"><h1>Аккаунт</h1><p class="lead" style="margin-top:6px">Связь с Telegram, принятые документы и выход</p></header>
+    <section class="card"><h2>Принятые документы</h2><div style="margin-top:10px">
+      <div class="doc-row"><div><h3>Условия использования</h3><p class="note" style="margin:2px 0 0">15 сентября 2026, 12:04 · кнопка «Принять условия и продолжить» · ${doc("terms", "редакция 1")}</p></div></div>
+      <div class="doc-row"><div><h3>Оферта покупки руководства</h3><p class="note" style="margin:2px 0 0">«Создание Platform Inside» · 20 сентября 2026 · кнопка «Оплатить» · редакция 1</p></div></div>
+      <div class="doc-row"><div><h3>Оферта подписки и автопродление</h3><p class="note" style="margin:2px 0 0"><span class="status-on">Действует</span> · 1 октября 2026 · кнопка «Оформить подписку и оплатить» · управление — раздел «Подписка»</p></div></div>
+    </div><p class="note" style="margin:14px 0 0">Как обрабатываются данные: ${doc("privacy", "политика, редакция 3")} · ${doc("cookies", "cookies, редакция 2")}</p></section>
+    <section class="card" style="margin-top:18px"><h2>Telegram</h2><p class="note" style="margin:8px 0 0">Бот привязан. Сообщения бота отключаются командой /stop.</p></section>
+    ${tally()}</div></div>`;
+      }
+
+      function render() {
+        setUrl();
+        renderBar();
+        const views = {
+          signin: signinScreen,
+          welcome: welcomeScreen,
+          guide: guideScreen,
+          subscription: subscriptionScreen,
+          cookies: cookiesScreen,
+          telegram: telegramScreen,
+          profile: profileScreen,
+          account: accountScreen,
+        };
+        document.getElementById("app").innerHTML = (
+          views[screen] ?? welcomeScreen
+        )();
+      }
+      render();
+    </script>
+  </body>
+</html>

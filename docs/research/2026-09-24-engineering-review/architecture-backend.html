@@ -1,0 +1,815 @@
+<!doctype html>
+<html lang="ru">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Architecture review — platform backend</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script type="module">
+      import mermaid from "https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs";
+      mermaid.initialize({
+        startOnLoad: true,
+        theme: "neutral",
+        securityLevel: "loose",
+      });
+    </script>
+    <style>
+      .seam {
+        stroke-dasharray: 4 4;
+      }
+      .leak {
+        stroke: #dc2626;
+      }
+      .deep {
+        background: linear-gradient(135deg, #0f172a, #1e293b);
+        color: #f8fafc;
+      }
+      .lbl {
+        font-size: 0.68rem;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+      }
+      .diagram {
+        min-height: 300px;
+      }
+      .band {
+        border-left-width: 4px;
+      }
+    </style>
+  </head>
+  <body class="bg-stone-50 text-slate-900 font-sans">
+    <main class="max-w-5xl mx-auto px-4 sm:px-6 py-12 space-y-12">
+      <header class="space-y-4">
+        <p class="lbl text-slate-500">
+          Architecture review · 2026-09-24 · HEAD 6ce6b22f
+        </p>
+        <h1 class="font-serif text-4xl">
+          platform — apps/backend и packages/*
+        </h1>
+        <p class="text-sm text-slate-600">
+          Горячие точки из 300 коммитов (19.08–24.09): materials — 826 касаний,
+          billing — 171, membership-entitlements — 127, migrations/index.ts —
+          59, worker entrypoints — 64. ADR 0001/0003/0004/0005/0009/0021 не
+          пересматриваются.
+        </p>
+        <div class="flex flex-wrap gap-4 text-xs text-slate-600">
+          <span class="flex items-center gap-2"
+            ><span
+              class="inline-block w-5 h-4 border-2 border-slate-500 bg-white"
+            ></span>
+            module</span
+          >
+          <span class="flex items-center gap-2"
+            ><svg width="32" height="8">
+              <line
+                x1="0"
+                y1="4"
+                x2="32"
+                y2="4"
+                stroke="#475569"
+                stroke-width="2"
+                class="seam"
+              />
+            </svg>
+            seam</span
+          >
+          <span class="flex items-center gap-2"
+            ><svg width="32" height="8">
+              <line
+                x1="0"
+                y1="4"
+                x2="32"
+                y2="4"
+                stroke-width="2"
+                class="leak"
+              />
+            </svg>
+            leakage</span
+          >
+          <span class="flex items-center gap-2"
+            ><span class="inline-block w-5 h-4 deep"></span> deep module</span
+          >
+        </div>
+        <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 text-center">
+          <div class="rounded-lg border bg-white p-3">
+            <div class="text-2xl font-serif">55 981</div>
+            <div class="lbl text-slate-500">
+              LOC backend src (без generated)
+            </div>
+          </div>
+          <div class="rounded-lg border bg-white p-3">
+            <div class="text-2xl font-serif">0 / 0 / 0</div>
+            <div class="lbl text-slate-500">any / ! / ts-ignore</div>
+          </div>
+          <div class="rounded-lg border bg-white p-3">
+            <div class="text-2xl font-serif text-red-700">176</div>
+            <div class="lbl text-slate-500">catch без записи причины</div>
+          </div>
+          <div class="rounded-lg border bg-white p-3">
+            <div class="text-2xl font-serif text-red-700">106 / 188</div>
+            <div class="lbl text-slate-500">
+              экспорты materials без внешнего потребителя
+            </div>
+          </div>
+        </div>
+      </header>
+
+      <section id="candidates" class="space-y-10">
+        <!-- 1 -->
+        <article
+          id="c1"
+          class="rounded-xl border border-slate-200 bg-white p-6 space-y-5"
+        >
+          <h2 class="font-serif text-2xl">
+            1. Отказ зависимости как один module с записью причины
+          </h2>
+          <div class="flex flex-wrap gap-2 text-xs">
+            <span
+              class="px-2 py-1 rounded bg-emerald-100 text-emerald-800 font-semibold"
+              >Strong</span
+            >
+            <span class="px-2 py-1 rounded bg-slate-100 text-slate-700"
+              >in-process</span
+            >
+          </div>
+          <pre class="font-mono text-sm text-slate-700 whitespace-pre-wrap">
+modules/**  — 176 × `catch { return dependencyUnavailable(); }`
+  videos/facets/videos/assemble-videos.ts (20), materials/facets/guide-artifacts/assemble-guide-artifacts.ts (18) …
+entrypoints/billing-worker.ts:21,42 · entrypoints/notifications-worker.ts:13
+infrastructure/http/problem-details.filter.ts (только HttpException)</pre>
+          <div class="grid md:grid-cols-2 gap-4">
+            <div class="diagram rounded-lg border border-slate-200 p-4">
+              <p class="lbl text-slate-500 mb-2">Before</p>
+              <pre class="mermaid">
+flowchart TB
+  A[facet operation] -->|Prisma / S3 / provider| X((error))
+  X -.catch {}.-> R["{ok:false, dependency_unavailable}"]
+  X -.cause lost.-> V[(nowhere)]
+  B[worker bootstrap] -.catch(() =>).-> M["'Billing worker failed'"]
+  classDef leak stroke:#dc2626,stroke-width:2px,color:#991b1b;
+  class V,M leak
+      </pre>
+            </div>
+            <div class="diagram rounded-lg border border-slate-200 p-4">
+              <p class="lbl text-slate-500 mb-2">After</p>
+              <pre class="mermaid">
+flowchart TB
+  A[facet operation] -->|error| D
+  D["DependencyFailure module<br/>(classify · report · map)"]
+  D --> R["{ok:false, dependency_unavailable}"]
+  D --> L[(structured log<br/>module · op · cause · requestId)]
+  classDef deep fill:#0f172a,color:#f8fafc,stroke:#0f172a;
+  class D deep
+      </pre>
+            </div>
+          </div>
+          <p>
+            <b>Problem.</b> Ошибки Prisma, хранилища и провайдеров превращаются
+            в <code>dependency_unavailable</code> без записи причины. Nest
+            Logger используется 0 раз, логгер Fastify выключен, request id нет.
+          </p>
+          <p>
+            <b>Solution.</b> Один module
+            <code>reportDependencyFailure(scope, error)</code> за seam логгера.
+            Он классифицирует ошибку, пишет структурную строку и возвращает
+            вариант union. Сто семьдесят шесть <code>catch {}</code> заменяются
+            вызовом этого module.
+          </p>
+          <ul class="list-disc pl-5 text-sm space-y-1">
+            <li>leverage: одно interface на 176 мест вызова</li>
+            <li>locality: классификация ошибок в одном месте</li>
+            <li>тест: адаптер логгера в памяти проверяет причину</li>
+            <li>Сбой worker при старте сохраняет stack</li>
+          </ul>
+        </article>
+
+        <!-- 2 -->
+        <article
+          id="c2"
+          class="rounded-xl border border-slate-200 bg-white p-6 space-y-5"
+        >
+          <h2 class="font-serif text-2xl">
+            2. Изменение ссылок Material: блокировка и пометка в одном interface
+          </h2>
+          <div class="flex flex-wrap gap-2 text-xs">
+            <span
+              class="px-2 py-1 rounded bg-emerald-100 text-emerald-800 font-semibold"
+              >Strong</span
+            >
+            <span class="px-2 py-1 rounded bg-slate-100 text-slate-700"
+              >local-substitutable (PostgreSQL)</span
+            >
+          </div>
+          <pre class="font-mono text-sm text-slate-700 whitespace-pre-wrap">
+infrastructure/prisma/transaction-locks.ts:17-27     hashtextextended(${materialId})
+modules/assets/facets/material-assets/assemble-material-assets.ts:520   тот же ключ, написан вручную
+modules/videos/features/process-video-deletions/process-video-deletions.ts:157   тот же ключ
+modules/materials/features/save-material/save-material.ts:414-420 → assets markUnreferenced → own $transaction (:351)
+24 места advisory lock в 18 файлах; 5 ключей без пространства имён</pre>
+          <div class="grid md:grid-cols-2 gap-4">
+            <div
+              class="diagram rounded-lg border border-slate-200 p-4 relative"
+            >
+              <p class="lbl text-slate-500 mb-3">Before</p>
+              <div class="grid grid-cols-3 gap-2 text-center text-xs">
+                <div class="border-2 border-slate-500 p-2 rounded">
+                  <span class="lbl">materials</span><br />save tx
+                </div>
+                <div class="border-2 border-slate-500 p-2 rounded">
+                  <span class="lbl">assets</span><br />cleanup tx
+                </div>
+                <div class="border-2 border-slate-500 p-2 rounded">
+                  <span class="lbl">videos</span><br />deletion tx
+                </div>
+              </div>
+              <svg viewBox="0 0 300 70" class="w-full h-16">
+                <line
+                  x1="50"
+                  y1="0"
+                  x2="150"
+                  y2="55"
+                  class="leak"
+                  stroke-width="2"
+                />
+                <line
+                  x1="150"
+                  y1="0"
+                  x2="150"
+                  y2="55"
+                  class="leak"
+                  stroke-width="2"
+                />
+                <line
+                  x1="250"
+                  y1="0"
+                  x2="150"
+                  y2="55"
+                  class="leak"
+                  stroke-width="2"
+                />
+              </svg>
+              <div
+                class="text-center text-xs border border-red-300 bg-red-50 rounded p-2"
+              >
+                строка <code>hashtextextended(uuid, 0)</code> — договорённость
+                без interface
+              </div>
+              <div
+                class="mt-3 text-xs border border-red-300 bg-red-50 rounded p-2"
+              >
+                markUnreferenced коммитится отдельно; откат save на :423/:435
+                его не отменяет; второе соединение из пула на 10
+              </div>
+            </div>
+            <div class="diagram rounded-lg border border-slate-200 p-4">
+              <p class="lbl text-slate-500 mb-3">After</p>
+              <div class="deep rounded-lg p-4 text-center">
+                <div class="lbl opacity-70">deep module</div>
+                <div class="font-serif text-lg">MaterialReferenceChange</div>
+                <div class="text-xs opacity-80 mt-2">
+                  lock(materialId) · markUnreferenced(tx) · isReferenced(tx)
+                </div>
+                <div class="mt-3 grid grid-cols-3 gap-1 text-[10px] opacity-60">
+                  <div class="border border-slate-500 rounded p-1">
+                    key namespace
+                  </div>
+                  <div class="border border-slate-500 rounded p-1">
+                    lock order
+                  </div>
+                  <div class="border border-slate-500 rounded p-1">
+                    caller tx
+                  </div>
+                </div>
+              </div>
+              <div class="grid grid-cols-3 gap-2 text-center text-xs mt-4">
+                <div class="border-2 border-slate-400 p-2 rounded">
+                  materials
+                </div>
+                <div class="border-2 border-slate-400 p-2 rounded">assets</div>
+                <div class="border-2 border-slate-400 p-2 rounded">videos</div>
+              </div>
+              <p class="text-xs text-slate-500 mt-2">
+                все три вызывают одно interface в одной транзакции вызывающего
+              </p>
+            </div>
+          </div>
+          <p>
+            <b>Problem.</b> Три module согласуют взаимное исключение через
+            одинаковую строку ключа. Запись assets уходит из транзакции save.
+          </p>
+          <p>
+            <b>Solution.</b> Один interface изменения ссылок: блокировка с
+            именованным ключом и пометка в транзакции вызывающего. ADR 0003
+            допускает одну транзакцию на общем пуле.
+          </p>
+          <ul class="list-disc pl-5 text-sm space-y-1">
+            <li>locality: протокол блокировки в одном файле</li>
+            <li>Откат save откатывает пометку</li>
+            <li>Одно соединение на операцию</li>
+            <li>Интеграционный тест конкуренции на seam</li>
+          </ul>
+        </article>
+
+        <!-- 3 -->
+        <article
+          id="c3"
+          class="rounded-xl border border-slate-200 bg-white p-6 space-y-5"
+        >
+          <h2 class="font-serif text-2xl">
+            3. Периодический обход (sweep) внутри worker runtime
+          </h2>
+          <div class="flex flex-wrap gap-2 text-xs">
+            <span
+              class="px-2 py-1 rounded bg-emerald-100 text-emerald-800 font-semibold"
+              >Strong</span
+            >
+            <span class="px-2 py-1 rounded bg-slate-100 text-slate-700"
+              >in-process</span
+            >
+          </div>
+          <pre class="font-mono text-sm text-slate-700 whitespace-pre-wrap">
+entrypoints/billing-worker.ts:45-93 (5 очередей)
+entrypoints/material-assets-worker.ts · profile-avatars-worker.ts · video-deletions-worker.ts
+infrastructure/worker-runtime.ts:116 runWorker</pre>
+          <div class="grid md:grid-cols-2 gap-4">
+            <div
+              class="diagram rounded-lg border border-slate-200 p-4 space-y-2"
+            >
+              <p class="lbl text-slate-500">Before — 8 копий одной церемонии</p>
+              <div
+                class="band border-slate-400 bg-slate-50 px-3 py-2 text-xs font-mono"
+              >
+                new PgBoss({schema:"pgboss",…}) ×4
+              </div>
+              <div
+                class="band border-slate-400 bg-slate-50 px-3 py-2 text-xs font-mono"
+              >
+                createQueue(retry…) ×8
+              </div>
+              <div
+                class="band border-slate-400 bg-slate-50 px-3 py-2 text-xs font-mono"
+              >
+                schedule(cron) ×8
+              </div>
+              <div
+                class="band border-slate-400 bg-slate-50 px-3 py-2 text-xs font-mono"
+              >
+                send(singletonSeconds) ×8
+              </div>
+              <div
+                class="band border-slate-400 bg-slate-50 px-3 py-2 text-xs font-mono"
+              >
+                work → if(!ok) throw new Error(code) ×8
+              </div>
+              <div class="band border-red-500 bg-red-50 px-3 py-2 text-xs">
+                jobs.on("error") — 3 разных формы записи
+              </div>
+            </div>
+            <div
+              class="diagram rounded-lg border border-slate-200 p-4 space-y-2"
+            >
+              <p class="lbl text-slate-500">After</p>
+              <div
+                class="deep rounded-lg p-5 h-48 flex flex-col justify-center"
+              >
+                <div class="lbl opacity-70">worker runtime</div>
+                <div class="font-mono text-sm mt-2">
+                  runWorker({ process, sweeps: [{ queue, cron, retry, run }] })
+                </div>
+                <div class="text-xs opacity-70 mt-3">
+                  lease · readiness · PgBoss · retry policy · operator_attention
+                  report
+                </div>
+              </div>
+              <div
+                class="band border-emerald-500 bg-emerald-50 px-3 py-2 text-xs"
+              >
+                entrypoint = список sweep
+              </div>
+            </div>
+          </div>
+          <p>
+            <b>Problem.</b> Каждый entrypoint повторяет четыре вызова pg-boss.
+            Политика повторов разная без имени: billing — 0 повторов, очистка —
+            5 с backoff.
+          </p>
+          <p>
+            <b>Solution.</b> <code>runWorker</code> принимает описание sweep и
+            сам создаёт очередь, расписание, запуск и запись результата.
+          </p>
+          <ul class="list-disc pl-5 text-sm space-y-1">
+            <li>interface сужается до описания sweep</li>
+            <li>Политика повторов получает имя</li>
+            <li>Минус ~150 строк в entrypoints</li>
+            <li>тест: sweep проверяется без pg-boss</li>
+          </ul>
+        </article>
+
+        <!-- 4 -->
+        <article
+          id="c4"
+          class="rounded-xl border border-slate-200 bg-white p-6 space-y-5"
+        >
+          <h2 class="font-serif text-2xl">
+            4. Guide Artifact и Video Playback — отдельные module; сузить
+            interface Materials
+          </h2>
+          <div class="flex flex-wrap gap-2 text-xs">
+            <span
+              class="px-2 py-1 rounded bg-amber-100 text-amber-800 font-semibold"
+              >Worth exploring</span
+            >
+            <span class="px-2 py-1 rounded bg-slate-100 text-slate-700"
+              >in-process</span
+            >
+          </div>
+          <pre class="font-mono text-sm text-slate-700 whitespace-pre-wrap">
+modules/materials/index.ts — 188 символов, 106 без внешнего потребителя, 30 controllers
+modules/materials/facets/guide-artifacts/* (~2.4k LOC, 4 Prisma models)
+modules/materials/facets/video-playback/video-playback.ts
+entrypoints/api/api.module.ts:29-60</pre>
+          <div class="grid md:grid-cols-2 gap-4">
+            <div class="diagram rounded-lg border border-slate-200 p-4">
+              <p class="lbl text-slate-500 mb-2">Before — mass diagram</p>
+              <div class="flex items-end gap-6 h-60">
+                <div class="flex flex-col items-center gap-1 w-1/2">
+                  <div
+                    class="w-full bg-red-200 border border-red-400"
+                    style="height: 150px"
+                  ></div>
+                  <span class="lbl">interface · 188</span>
+                </div>
+                <div class="flex flex-col items-center gap-1 w-1/2">
+                  <div
+                    class="w-full bg-slate-300 border border-slate-500"
+                    style="height: 220px"
+                  ></div>
+                  <span class="lbl">implementation · 17k LOC</span>
+                </div>
+              </div>
+            </div>
+            <div class="diagram rounded-lg border border-slate-200 p-4">
+              <p class="lbl text-slate-500 mb-2">After</p>
+              <div class="flex items-end gap-3 h-60">
+                <div class="flex flex-col items-center gap-1 w-1/3">
+                  <div
+                    class="w-full bg-emerald-200 border border-emerald-500"
+                    style="height: 60px"
+                  ></div>
+                  <div class="w-full deep" style="height: 130px"></div>
+                  <span class="lbl">Materials</span>
+                </div>
+                <div class="flex flex-col items-center gap-1 w-1/3">
+                  <div
+                    class="w-full bg-emerald-200 border border-emerald-500"
+                    style="height: 20px"
+                  ></div>
+                  <div class="w-full deep" style="height: 60px"></div>
+                  <span class="lbl">GuideArtifacts</span>
+                </div>
+                <div class="flex flex-col items-center gap-1 w-1/3">
+                  <div
+                    class="w-full bg-emerald-200 border border-emerald-500"
+                    style="height: 12px"
+                  ></div>
+                  <div class="w-full deep" style="height: 30px"></div>
+                  <span class="lbl">Videos +playback</span>
+                </div>
+              </div>
+            </div>
+          </div>
+          <p>
+            <b>Problem.</b> Interface Materials почти равен сумме его частей.
+            Guide Artifact и Video Playback не используют domain Materials, а
+            тест удаления показывает: без них Materials теряет только проводку.
+          </p>
+          <p>
+            <b>Solution.</b> Вынести Guide Artifact в свой module со своей
+            схемой, Video Playback — в Videos. Materials регистрирует свои
+            controllers и экспортирует около 82 используемых символов.
+          </p>
+          <ul class="list-disc pl-5 text-sm space-y-1">
+            <li>interface Materials: 188 → ~82 символа</li>
+            <li>locality: схемы controller и facet в одном месте</li>
+            <li>Guides/Series остаются внутри — транзакция save</li>
+          </ul>
+          <div class="rounded border border-amber-300 bg-amber-50 p-3 text-sm">
+            ADR 0003: новая схема для Guide Artifact требует миграции переноса
+            таблиц. ADR 0009 не затронут — Material остаётся одним mutable
+            module.
+          </div>
+        </article>
+
+        <!-- 5 -->
+        <article
+          id="c5"
+          class="rounded-xl border border-slate-200 bg-white p-6 space-y-5"
+        >
+          <h2 class="font-serif text-2xl">
+            5. Развернуть замыкания assemble-* в features за тем же facet
+            interface
+          </h2>
+          <div class="flex flex-wrap gap-2 text-xs">
+            <span
+              class="px-2 py-1 rounded bg-amber-100 text-amber-800 font-semibold"
+              >Worth exploring</span
+            >
+            <span class="px-2 py-1 rounded bg-slate-100 text-slate-700"
+              >in-process</span
+            >
+          </div>
+          <pre class="font-mono text-sm text-slate-700 whitespace-pre-wrap">
+materials/facets/guide-artifacts/assemble-guide-artifacts.ts — одна функция 847 строк (165–1014)
+videos/facets/videos/assemble-videos.ts — 647 строк, 16 методов, 33 обращения к БД, 0 импортов features/
+assets/facets/material-assets/assemble-material-assets.ts — 564 строки
+billing/facets/billing-payments.ts (472 строки, 37 KB), billing-subscriptions.ts, billing-operations.ts</pre>
+          <div class="grid md:grid-cols-2 gap-4">
+            <div class="diagram rounded-lg border border-slate-200 p-4">
+              <p class="lbl text-slate-500 mb-2">Before — call-graph</p>
+              <div
+                class="border-2 border-slate-500 rounded p-3 text-xs space-y-1"
+              >
+                <div class="lbl">assembleVideos(deps) {</div>
+                <div class="ml-3 border border-slate-300 rounded p-1">
+                  initUpload ~136 строк
+                </div>
+                <div class="ml-3 border border-slate-300 rounded p-1">
+                  saveProgress ~165 строк
+                </div>
+                <div class="ml-3 border border-slate-300 rounded p-1">
+                  14 операций, 20 catch {}
+                </div>
+                <div class="ml-3 border border-slate-300 rounded p-1">
+                  zod-схемы, SQL, provider
+                </div>
+                <div class="lbl">}</div>
+              </div>
+            </div>
+            <div class="diagram rounded-lg border border-slate-200 p-4">
+              <p class="lbl text-slate-500 mb-2">After</p>
+              <div class="deep rounded p-3 text-xs space-y-1">
+                <div class="lbl opacity-70">
+                  Videos facet interface (не меняется)
+                </div>
+                <div class="grid grid-cols-2 gap-1 opacity-70">
+                  <div class="border border-slate-500 rounded p-1">
+                    features/init-upload
+                  </div>
+                  <div class="border border-slate-500 rounded p-1">
+                    features/save-progress
+                  </div>
+                  <div class="border border-slate-500 rounded p-1">
+                    features/…
+                  </div>
+                  <div class="border border-slate-500 rounded p-1">
+                    assemble = проводка
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <p>
+            <b>Problem.</b> ADR 0004 называет assemble проводкой, а три файла
+            держат всю логику внутри одного замыкания. Навигация по операции
+            требует чтения 600–850 строк.
+          </p>
+          <p>
+            <b>Solution.</b> Перенести операции в
+            <code>features/&lt;action&gt;</code> как функции; facet interface и
+            тесты через него остаются прежними.
+          </p>
+          <ul class="list-disc pl-5 text-sm space-y-1">
+            <li>locality: одна операция — одна папка</li>
+            <li>Тесты через facet не меняются</li>
+            <li>Внутренние seam для точечных тестов</li>
+          </ul>
+        </article>
+
+        <!-- 6 -->
+        <article
+          id="c6"
+          class="rounded-xl border border-slate-200 bg-white p-6 space-y-5"
+        >
+          <h2 class="font-serif text-2xl">
+            6. Одно отображение результата в problem+json на union
+          </h2>
+          <div class="flex flex-wrap gap-2 text-xs">
+            <span
+              class="px-2 py-1 rounded bg-amber-100 text-amber-800 font-semibold"
+              >Worth exploring</span
+            >
+            <span class="px-2 py-1 rounded bg-slate-100 text-slate-700"
+              >in-process</span
+            >
+          </div>
+          <pre class="font-mono text-sm text-slate-700 whitespace-pre-wrap">
+≥20 ручных throw*Error (bookmarks, videos, reading, avatar …); 6 копий в materials
+infrastructure/http/problem-details.filter.ts ≈ accounts/adapters/nest/account-problem-details.filter.ts
+billing/shared/payment-http.filter.ts, pricing-http.filter.ts, owner-http.filter.ts — не filters, а помощники throw
+guide-artifacts.controller.ts:50 vs assemble-guide-artifacts.ts:36 — схема title уже расходится (.trim())</pre>
+          <div class="grid md:grid-cols-2 gap-4">
+            <div class="diagram rounded-lg border border-slate-200 p-4">
+              <p class="lbl text-slate-500 mb-2">Before</p>
+              <pre class="mermaid">
+flowchart LR
+  U1[VideoError] --> T1[throwVideoError]
+  U2[BookmarkError] --> T2[throwBookmarkError]
+  U3[GuideArtifactError] --> T3[controller:590-635]
+  T1 --> F1[global filter]
+  T2 --> F1
+  T3 --> F2[accounts filter copy]
+  O[non-Http error] -.-> N[Nest default 500]
+  classDef leak stroke:#dc2626,stroke-width:2px;
+  class F2,N leak
+      </pre>
+            </div>
+            <div class="diagram rounded-lg border border-slate-200 p-4">
+              <p class="lbl text-slate-500 mb-2">After</p>
+              <pre class="mermaid">
+flowchart LR
+  U1[VideoError] --> P
+  U2[BookmarkError] --> P
+  U3[GuideArtifactError] --> P
+  P["problemFor(table, error)<br/>exhaustive by code"] --> F[one problem+json filter]
+  classDef deep fill:#0f172a,color:#f8fafc;
+  class P deep
+      </pre>
+            </div>
+          </div>
+          <p>
+            <b>Problem.</b> Каждый module пишет свою таблицу код → статус, два
+            filter почти совпадают, ошибки не HttpException уходят в тело Nest
+            по умолчанию.
+          </p>
+          <p>
+            <b>Solution.</b> Таблица на union с проверкой полноты компилятором и
+            один filter для problem+json.
+          </p>
+          <ul class="list-disc pl-5 text-sm space-y-1">
+            <li>leverage: одна функция, ~26 мест</li>
+            <li>Полнота проверяется типом</li>
+            <li>Удалить 1 filter и 3 ложных filter</li>
+          </ul>
+        </article>
+
+        <!-- 7 -->
+        <article
+          id="c7"
+          class="rounded-xl border border-slate-200 bg-white p-6 space-y-5"
+        >
+          <h2 class="font-serif text-2xl">
+            7. Путь чтения опубликованного Material: убрать проходные hops
+          </h2>
+          <div class="flex flex-wrap gap-2 text-xs">
+            <span
+              class="px-2 py-1 rounded bg-amber-100 text-amber-800 font-semibold"
+              >Worth exploring</span
+            >
+            <span class="px-2 py-1 rounded bg-slate-100 text-slate-700"
+              >local-substitutable (PostgreSQL)</span
+            >
+          </div>
+          <pre class="font-mono text-sm text-slate-700 whitespace-pre-wrap">
+read-published-material.controller.ts:57 → published-material-reader.ts → materials.module.ts:269
+→ assemble-published-material-reader.ts:31 (pass-through) → read-published-material.ts:39,108,121,132,144
+→ published-material-projection.ts:193 → 1026 → 1125</pre>
+          <div class="grid md:grid-cols-2 gap-4">
+            <div
+              class="diagram rounded-lg border border-slate-200 p-4 space-y-1"
+            >
+              <p class="lbl text-slate-500">
+                Before — 6 hops, ~6 запросов, одна строка читается 3 раза
+              </p>
+              <div class="band border-slate-400 bg-slate-50 px-3 py-1 text-xs">
+                controller
+              </div>
+              <div class="band border-slate-400 bg-slate-50 px-3 py-1 text-xs">
+                PublishedMaterialReader interface (13 LOC)
+              </div>
+              <div class="band border-slate-400 bg-slate-50 px-3 py-1 text-xs">
+                Nest provider
+              </div>
+              <div class="band border-red-400 bg-red-50 px-3 py-1 text-xs">
+                assemble-published-material-reader — pass-through
+              </div>
+              <div class="band border-slate-400 bg-slate-50 px-3 py-1 text-xs">
+                read-published-material: projection · authorize · body ·
+                chapters · assets · videos
+              </div>
+              <div class="band border-slate-400 bg-slate-50 px-3 py-1 text-xs">
+                projection SQL
+              </div>
+            </div>
+            <div
+              class="diagram rounded-lg border border-slate-200 p-4 space-y-1"
+            >
+              <p class="lbl text-slate-500">After</p>
+              <div class="band border-slate-400 bg-slate-50 px-3 py-1 text-xs">
+                controller
+              </div>
+              <div class="deep rounded px-3 py-6 text-sm">
+                PublishedMaterialReader: одна проекция (row + body + chapters) →
+                authorize → assets/videos пакетом
+              </div>
+            </div>
+          </div>
+          <p>
+            <b>Problem.</b> Проходной assemble не проходит тест удаления; строка
+            Material читается трижды за запрос.
+          </p>
+          <p>
+            <b>Solution.</b> Удалить проходной module; проекция возвращает главы
+            и тело сразу.
+          </p>
+          <ul class="list-disc pl-5 text-sm space-y-1">
+            <li>Минус один hop и два запроса</li>
+            <li>тест: одно interface чтения</li>
+          </ul>
+        </article>
+
+        <!-- 8 -->
+        <article
+          id="c8"
+          class="rounded-xl border border-slate-200 bg-white p-6 space-y-5"
+        >
+          <h2 class="font-serif text-2xl">
+            8. Реестр миграций, собранный из module
+          </h2>
+          <div class="flex flex-wrap gap-2 text-xs">
+            <span
+              class="px-2 py-1 rounded bg-slate-200 text-slate-700 font-semibold"
+              >Speculative</span
+            >
+            <span class="px-2 py-1 rounded bg-slate-100 text-slate-700"
+              >in-process</span
+            >
+          </div>
+          <pre class="font-mono text-sm text-slate-700 whitespace-pre-wrap">
+src/migrations/index.ts — 72 записи вручную, 365 строк, 59 касаний за 300 коммитов
+номера-дубли: 0038 (materials, membership-entitlements), 0039, 0065 (videos, materials)
+порядок в реестре ≠ номерам: …0067, 0065, 0069, 0066, 0068, 0065, 0070</pre>
+          <div class="grid md:grid-cols-2 gap-4">
+            <div class="diagram rounded-lg border border-slate-200 p-4">
+              <p class="lbl text-slate-500 mb-2">Before</p>
+              <pre class="mermaid">
+flowchart LR
+  M1[materials/migrations/0065] --> R[index.ts: 144 import-строки + список]
+  M2[videos/migrations/0065] --> R
+  M3[... 70 файлов] --> R
+  R --> L[(ledger по позиции)]
+  classDef leak stroke:#dc2626,stroke-width:2px;
+  class R leak
+      </pre>
+            </div>
+            <div class="diagram rounded-lg border border-slate-200 p-4">
+              <p class="lbl text-slate-500 mb-2">After</p>
+              <pre class="mermaid">
+flowchart LR
+  O["ordinal в имени = позиция<br/>(проверка уникальности и возрастания)"] --> R2[registry]
+  R2 --> L2[(ledger по позиции)]
+  classDef deep fill:#0f172a,color:#f8fafc;
+  class R2 deep
+      </pre>
+            </div>
+          </div>
+          <p>
+            <b>Problem.</b> Параллельные ветки выбирают один номер; порядок
+            задаёт место в списке, а не номер.
+          </p>
+          <p>
+            <b>Solution.</b> Проверка: номер уникален и равен позиции. Ledger и
+            контрольные суммы ADR 0005 не меняются.
+          </p>
+          <ul class="list-disc pl-5 text-sm space-y-1">
+            <li>Номер снова говорит правду</li>
+            <li>Конфликт ловится проверкой, а не ревью</li>
+          </ul>
+          <div class="rounded border border-amber-300 bg-amber-50 p-3 text-sm">
+            Уже применённые имена менять нельзя (контрольные суммы): правило
+            действует с 0071.
+          </div>
+        </article>
+      </section>
+
+      <section
+        id="top-recommendation"
+        class="rounded-2xl border-2 border-emerald-600 bg-white p-8 space-y-3"
+      >
+        <p class="lbl text-emerald-700">Top recommendation</p>
+        <h2 class="font-serif text-3xl">
+          <a href="#c1" class="underline decoration-emerald-500"
+            >1. Отказ зависимости как один module с записью причины</a
+          >
+        </h2>
+        <p>
+          176 мест теряют причину сбоя, а Platform уходит в платёжный запуск:
+          без этого module каждый инцидент billing, notifications или хранилища
+          расследуется вслепую. Изменение не трогает ни одно ADR, даёт
+          наибольший leverage и готовит почву для кандидатов 3 и 6. Следом —
+          <a href="#c2" class="underline">кандидат 2</a>: он закрывает реальный
+          риск целостности в самом горячем месте, save-material.
+        </p>
+      </section>
+    </main>
+  </body>
+</html>
