@@ -1,59 +1,117 @@
-/** Адрес и запасной client ID учебного MCP из конфигурации web. */
+/** Адрес и публичный client ID учебного MCP из конфигурации web. */
 export interface LearnerMcpConnection {
   readonly url: string;
   readonly publicClientId?: string | undefined;
 }
 
 /**
- * Пути возврата, которые запасной публичный клиент Logto принимает на 127.0.0.1 и localhost с
- * любым портом. Тот же список регистрирует `infra/production/logto/learner-access.mjs`.
+ * Пути возврата, которые публичный клиент Logto принимает на 127.0.0.1 и localhost с любым портом.
+ * Тот же список регистрирует `infra/production/logto/learner-access.mjs`.
  */
 export const learnerMcpCallbackPaths = ["/callback", "/mcp/oauth/callback"];
 
-/** Одна инструкция подключения для любого агента: `/practice-review-setup.txt` (#938). */
+/** Подключение в Reader: адрес и client ID плюс абсолютный адрес инструкции для агента. */
+export interface ReaderLearnerMcp extends LearnerMcpConnection {
+  readonly setupUrl: string;
+}
+
+/** Имя сервера в настройках агента; одинаковое во всех командах инструкции. */
+const serverName = "inside_learning";
+
+/**
+ * Запрос, который ученик копирует в своего агента: агент сам добавляет сервер по инструкции, а
+ * вход в браузере подтверждает человек (#938).
+ */
+export function learnerMcpConnectPrompt(setupUrl: string): string {
+  return [
+    "Подключи учебный MCP Sachkov Inside.",
+    `Прочитай инструкцию ${setupUrl} и добавь сервер в свои настройки по разделу для твоего агента.`,
+    "Если можешь, запусти команду входа; если нет, назови мне её одной строкой.",
+    "Пароли, коды и токены у меня не спрашивай: вход в браузере я подтвержу сам.",
+    "В конце скажи, нужно ли открыть новую сессию.",
+  ].join("\n");
+}
+
+/** Одна инструкция подключения: `/practice-review-setup.txt`, адрес и client ID из конфигурации. */
 export function practiceReviewSetupText(
   connection: LearnerMcpConnection,
 ): string {
-  const fallback =
-    connection.publicClientId === undefined
-      ? []
-      : [
-          "   Если агент не поддерживает CIMD и просит client ID, укажите запасной",
-          "   публичный client ID:",
-          "",
-          `   ${connection.publicClientId}`,
-          "",
-          "   Секрет клиента не нужен. Адрес возврата агент выбирает сам: подходит",
-          "   127.0.0.1 или localhost с любым портом и путём",
-          `   ${learnerMcpCallbackPaths.join(" или ")}.`,
-          "",
-        ];
+  const { url } = connection;
+  const clientId = connection.publicClientId ?? "CLIENT_ID_ОТ_АВТОРА_КУРСА";
   return [
     "Учебный MCP Sachkov Inside: подключение агента",
     "",
-    "Адрес учебного MCP:",
+    "Подключение делается один раз. Дальше агент сам продлевает доступ.",
     "",
-    connection.url,
+    `Адрес учебного MCP: ${url}`,
+    `Client ID:          ${clientId}`,
     "",
-    "Учебный MCP работает в любом агенте с поддержкой MCP по HTTP и входом",
-    "OAuth: Codex, Claude Code, OpenCode и других. Отдельной настройки под",
-    "конкретный агент нет.",
+    "Быстрый способ: на странице урока откройте «Настройка проверки»,",
+    "скопируйте запрос «Подключить агента» и отправьте его своему агенту.",
+    "Агент добавит сервер сам. Вам останется подтвердить вход в браузере",
+    "и открыть новую сессию агента.",
     "",
-    "1. Добавьте сервер. В настройках MCP своего агента добавьте сервер типа",
-    "   HTTP (Streamable HTTP) с адресом выше. Имя выберите любое, например",
-    "   inside_learning. Токен и заголовки вручную не указывайте.",
+    "Вход: агент откроет страницу входа Sachkov Inside. Войдите тем же",
+    "аккаунтом, что и на сайте, и нажмите «Разрешить». Пароль, код и токен",
+    "агенту не передавайте.",
     "",
-    "2. Войдите. Запустите вход в этот сервер командой или кнопкой своего",
-    "   агента. Агент откроет в браузере страницу входа Sachkov Inside.",
-    "   Войдите тем же аккаунтом, что и на сайте, и разрешите доступ.",
-    "   Дальше агент продлевает доступ сам, повторный вход не нужен.",
+    "--- Claude Code ---",
     "",
-    "3. Если агент спрашивает способ регистрации клиента, выберите CIMD",
-    "   (Client ID Metadata Document) или автоматический выбор.",
+    "1. В терминале:",
     "",
-    ...fallback,
-    "4. Проверьте подключение: попросите агента вызвать инструмент",
-    "   learning_materials_list. Агент покажет материалы вашего аккаунта.",
+    `   claude mcp add --transport http --scope user --client-id ${clientId} ${serverName} ${url}`,
+    `   claude mcp login ${serverName}`,
+    "",
+    "2. Подтвердите вход в браузере и откройте новую сессию Claude Code.",
+    "",
+    "--- Codex ---",
+    "",
+    "1. Добавьте в файл ~/.codex/config.toml:",
+    "",
+    `   [mcp_servers.${serverName}]`,
+    `   url = "${url}"`,
+    '   scopes = ["learning:read", "offline_access"]',
+    "",
+    `   [mcp_servers.${serverName}.oauth]`,
+    `   client_id = "${clientId}"`,
+    '   callback_url = "http://127.0.0.1:4387/callback"',
+    "   callback_port = 4387",
+    "",
+    "2. В терминале:",
+    "",
+    `   codex mcp login ${serverName}`,
+    "",
+    "3. Подтвердите вход в браузере и откройте новую сессию Codex.",
+    "",
+    "--- OpenCode ---",
+    "",
+    '1. Добавьте запись в раздел "mcp" файла ~/.config/opencode/opencode.json.',
+    '   Если файла или раздела нет, оберните запись в { "mcp": { ... } };',
+    "   между соседними записями раздела нужна запятая:",
+    "",
+    `   "${serverName}": {`,
+    '     "type": "remote",',
+    `     "url": "${url}",`,
+    `     "oauth": { "clientId": "${clientId}" }`,
+    "   }",
+    "",
+    "2. В терминале:",
+    "",
+    `   opencode mcp auth ${serverName}`,
+    "",
+    "3. Подтвердите вход в браузере и откройте новую сессию OpenCode.",
+    "",
+    "--- Другой агент ---",
+    "",
+    "Добавьте MCP-сервер типа HTTP (Streamable HTTP) с адресом выше.",
+    "Когда агент спросит client ID, укажите client ID выше; секрет не нужен.",
+    "Scopes: learning:read offline_access. Адрес возврата: 127.0.0.1 или localhost",
+    `с любым портом и путём ${learnerMcpCallbackPaths.join(" или ")}.`,
+    "",
+    "--- Проверка ---",
+    "",
+    "Попросите агента вызвать инструмент learning_materials_list. Агент",
+    "покажет материалы вашего аккаунта.",
     "",
     "Что доступно через учебный MCP",
     "",

@@ -425,7 +425,11 @@ async function observePracticePage(
   try {
     const region = page.getByRole("region", { name: "Проверка практики" });
     if (actor === "learner-guide-a") {
-      const prompt = region.first().locator("pre code").first();
+      // Первым в блоке стоит запрос подключения агента; id задания есть только в запросе практики.
+      const prompt = region
+        .first()
+        .locator("pre code", { hasText: '"practiceId"' })
+        .first();
       await expect(prompt).toBeVisible();
       learnerA.practiceId = practiceIdPattern.exec(
         await prompt.innerText(),

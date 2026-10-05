@@ -7,9 +7,11 @@ Owning delivery: [#785](https://github.com/sachkov-inside/platform/issues/785), 
 The learner-facing setup has one source:
 [practice-review-setup.ts](../../apps/web/src/_pages/material-reader/model/practice-review-setup.ts).
 Web serves it at `/practice-review-setup.txt`, and Reader links it before any MCP call. The text is
-one instruction for every MCP client: the configured address, the standard login, CIMD and the
-fallback public client ID. Web reads the address from `LEARNER_MCP_URL`; without it production uses
-`WEB_BASE_URL` plus `/mcp/learning`. `LEARNER_MCP_CLIENT_ID` adds the fallback client step. A module
+one instruction for every MCP client: the configured address, the public client ID, the browser
+login and a ready command for Codex, Claude Code and OpenCode. Reader adds a copyable request that
+asks the learner's own agent to follow this instruction. Web reads the address from
+`LEARNER_MCP_URL`; without it production uses `WEB_BASE_URL` plus `/mcp/learning`.
+`LEARNER_MCP_CLIENT_ID` fills the client ID into every command. A module
 test fails if the former address placeholder returns. The edge routes are described in
 [Production course acceptance](#production-course-acceptance-876), the login in
 [Universal learner access](#universal-learner-access-938).
@@ -206,14 +208,18 @@ three settings, all applied by one script,
 |---|---|
 | API resource | the learner MCP URL, access token TTL 300 seconds, scope `learning:read` |
 | Default role `Inside learner connection` | only `learning:read`; new accounts get it by default, existing accounts once; other roles stay |
-| Dynamic apps (CIMD) | enabled, `addConsentPromptForOfflineAccess`, CIMD ceiling exactly `learning:read` |
+| Dynamic apps (CIMD) | disabled; the CIMD ceiling holds no API scope |
 | Public client `Inside Learner MCP Client` | Native, PKCE, no secret, loopback `/callback` and `/mcp/oauth/callback` on any port, rotating refresh tokens, `customData.addConsentPromptForOfflineAccess` |
 
-CIMD needs Logto 1.43 or later with outbound SSRF protection on: `SSRF_ALLOWED_ADDRESSES` and
-`SSRF_PROTECTION_DISABLED` stay unset, and the tooling test rejects them in the repository. Logto adds
-`prompt=consent` to a CIMD request for `offline_access`, so the client receives a refresh token. The
-fork patch `issue-938-offline-access-consent.patch` gives the public client the same behaviour
-through its `customData` flag. The script adopts the earlier author-pass role and Native client of
+Every agent signs in through the public client (owner decision of 05.10.2026). CIMD stays off: Logto
+fetches a CIMD document from the VPS, and the documents of Codex (`chatgpt.com` answers `403`) and
+Claude Code (`claude.ai` redirects to `app-unavailable-in-region`) are closed to its region; OpenCode
+1.18 has no CIMD. Dynamic Client Registration is deprecated in MCP and Logto has none. Logto gives a
+registered client a refresh token only for `prompt=consent`; the fork patch
+`issue-938-offline-access-consent.patch` adds it for the public client through its `customData`
+flag, because Codex does not send it. Codex 0.160 also requests the authorization server scopes and
+adds a random suffix to its callback path, so its block in the setup sets `scopes` and
+`oauth.callback_url`. The script adopts the earlier author-pass role and Native client of
 #876 by name, so their ids and the owner's stored login stay valid. It stops on a learner role with
 foreign permissions or on duplicates instead of guessing: move the foreign permission to its own
 role, or delete the duplicate, in the Management API, then run it again. The endpoint accepts only
@@ -235,31 +241,21 @@ secret | docker exec -i inside-production-logto-logto-1 \
   node /foundation/learner-access.mjs --resource "$learner" --check
 ```
 
-The first command prints `publicClientId`. Logto enables CIMD only while outbound SSRF protection is
-on without an allowlist, so `client_id_metadata_document_supported: true` in the discovery below
-also proves that protection. Put it into `/etc/inside/runtime/web.env` as
+The first command prints `publicClientId`. Put it into `/etc/inside/runtime/web.env` as
 `LEARNER_MCP_CLIENT_ID` before the web release that reads it. The `--check` run lists every
 deviation and exits non-zero when one exists; repeat it after any Console change. Then confirm the
 public contract:
 
 ```bash
 curl -fsS https://auth.sachkov.dev/oidc/.well-known/openid-configuration \
-  | grep -o '"client_id_metadata_document_supported":true'
+  | grep -q client_id_metadata_document_supported && echo "CIMD on" || echo "CIMD off"
 curl -fsS https://inside.sachkov.dev/.well-known/oauth-protected-resource/mcp/learning
 curl -si https://inside.sachkov.dev/mcp/learning -X POST | grep -i '^www-authenticate'
 ```
 
-Known production limit (05.10.2026): Logto fetches a CIMD document from the VPS, and the documents
-of Codex (`chatgpt.com` answers `403`) and Claude Code (`claude.ai` redirects to
-`app-unavailable-in-region`) are closed to its region. Their CIMD login therefore ends with
-`client_id metadata document fetch failed`, and both connect with the fallback client ID. Codex
-0.160 also requests the authorization server scopes instead of `learning:read` and adds a random
-suffix to its callback path; it needs `oauth.callback_url` on `127.0.0.1` with path `/callback` and
-`--scopes learning:read,offline_access`. OpenCode 1.18 has no CIMD and needs the client ID.
-
 A client acceptance uses a production test account without entitlement
 ([test identities](production-test-identities.md)). For each client record its version, the
-registration path (CIMD, public client ID), login, refresh after the five-minute access token,
+connection path (agent request or manual command), login, refresh after the five-minute access token,
 `learning_materials_list`, the complete read of a free practice and `practice_not_available` on a
 paid one. A client that cannot sign in is recorded with the reason. Never record tokens, callback
 URLs or local learner data.
