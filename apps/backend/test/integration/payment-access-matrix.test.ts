@@ -923,6 +923,8 @@ describe("оплата, выдача прав и доступ к материа�
         materialIds: [guideMaterial, sharedMaterial],
         name: "Первая глава",
         summary: "",
+        // Заданий в этом руководстве нет (#947).
+        tasks: [],
       },
     ];
     const before = await guideProgramme(reader(account));
