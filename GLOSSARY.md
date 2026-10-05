@@ -436,10 +436,9 @@ Course, Tribute, owner assignment, an Invitation gift and Platform payment are i
 _Avoid_: BillingSubscription, Payment, Telegram membership
 
 **ContentScope**:
-The set of Guides promised by a tier: named Guides, or every Guide of the platform including later ones (allGuides).
-It includes the evolving published program of an included Guide; a scope of named Guides does not include new products automatically.
-The starter tier promises every Guide.
-A new ContentScope names no individual Materials; older snapshots may still name them.
+The set of Products promised by a Subscription Tier. A named Product includes its evolving published
+Materials; a separate new Product joins the tier only by the owner's explicit decision.
+It names no individual Materials. Historical grants retain the terms already promised to their holders.
 A tier with an empty ContentScope is neither assigned nor sold.
 _Avoid_: Global materials access, catalogue, price
 
@@ -476,8 +475,9 @@ A moderation or externally reported restriction on admission to the community, i
 _Avoid_: Expired tariff, revoked materials, failed payment
 
 **OneTimePurchase**:
-A single payment for one Offer that creates no Subscription, no renewal schedule and no recurring
-consent. Its AccessGrants carry their own terms and outlive any Subscription.
+A one-time purchase of a specified Product under the accepted Offer, independent of the payment
+and the resulting AccessGrants. It creates no Subscription, renewal schedule or recurring consent.
+Its AccessGrants carry their own terms and outlive any Subscription.
 _Avoid_: Subscription, paid period, renewal
 
 **AccessScope**:

@@ -82,8 +82,9 @@ UGC, achievements/gamification, Telegram import/migration и bot messaging/admin
 
 ### Порядок authority
 
-1. Platform repository владеет product/application contract и glossary, а Workspace — shared
-   product и cross-repository решения. Более позднее явное owner decision имеет приоритет, после
+1. Platform repository теперь владеет общими и прикладными продуктово-техническими документами
+   и GLOSSARY по [ADR 0031](../adr/0031-inside-product-monorepo.md). Ссылки Workspace ниже сохраняют историю.
+   Более позднее явное owner decision имеет приоритет, после
    чего owning document должен быть синхронизирован. ([Platform brief authority][platform-brief-authority],
    [Platform specification authority][platform-spec-authority],
    [Workspace authority rule][workspace-v1-authority])

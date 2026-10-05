@@ -2,7 +2,7 @@
 
 Этап документов входит в [platform#957](https://github.com/sachkov-inside/platform/issues/957)
 по [workspace#253](https://github.com/sachkov-inside/workspace/issues/253).
-Источник — публичный репозиторий `sachkov-inside/workspace`, commit `125cbde1631a0c9c314a29c829961ab8aa785a06`.
+Документы взяты из публичного репозитория `sachkov-inside/workspace` на commit `125cbde1631a0c9c314a29c829961ab8aa785a06`.
 Исходный `origin/main` Platform перед работой: `cdd8e4c604fc5dd80106768fa1a79a2f9035f8c0`.
 
 ## Граница этапа и обратимость
@@ -14,7 +14,7 @@ Platform получает общие документы, сохраняя отд
 Прежние пути юридических источников остаются в истории Workspace; номера, статусы и тексты редакций не переутверждаются.
 Публичные страницы и пакет `@inside/legal` этот этап не меняет.
 
-Источники пока доступны. Откат этого PR возвращает прежнее распределение документов;
+Источники пока доступны. Откат PR возвращает прежнее распределение документов;
 исходный commit позволяет восстановить каждый файл.
 Telegram ещё не импортирован. CI и выпуск Telegram, перенос задач, архивирование источников
 и локальная топология здесь не выполняются.
@@ -39,10 +39,19 @@ Telegram ещё не импортирован. CI и выпуск Telegram, пе
 Исходный `CONTEXT.md` содержит 50 определений. Каждое соответствует одному определению GLOSSARY или совместимому имени.
 Product и Guide обозначают одну программу; Format «Гайд» остаётся форматом Material.
 Имена со пробелом и camelCase не создают разные права.
-Состав Subscription Tier/ContentScope уточняет более поздняя модель доступа по Workspace #183/#238:
-явный набор продуктов или все продукты, с независимыми сроками прав. Ранняя формулировка «все продукты» не ограничивает новые Offers.
+Владелец подтвердил состав конкретного тарифа 2026-10-05 в
+[Platform #958](https://github.com/sachkov-inside/platform/issues/958), часть
+[#957](https://github.com/sachkov-inside/platform/issues/957).
+Новые продукты включаются отдельным решением владельца. Вариант «все будущие продукты» не выбран.
+Решение записано в модели доступа и согласовано с общим brief и GLOSSARY.
+Допуск к подписке отдельно уточняют уже принятые Platform #907/#908/#910: все или личное приглашение;
+прежний Tribute-путь сохраняется для исторических условий.
+Product Purchase и Guide Purchase соответствуют OneTimePurchase как покупке по принятому Offer,
+отдельной от платежа и выданных прав. Определение OneTimePurchase исправлено без изменения wire-имён.
 Workshop отмечен как отложенное направление. MembershipEvidence остаётся основанием прежнего пути,
 а платежи и назначения не выводятся из присутствия в Telegram.
+Member Profile виден только владельцу по Workspace #185/Platform #658; прежняя member-visible модель CONTEXT заменена.
+При переносе Identity/Membership-контракта это изменение отмечено отдельно от неизменных wire schemas.
 Два прежних определения `Billing Contact` и `BillingContact` сведены к одному; второе имя сохранено как совместимое.
 
 | Термин исходного CONTEXT | Термин GLOSSARY |
@@ -100,16 +109,16 @@ Workshop отмечен как отложенное направление. Memb
 
 ## Учёт всех 97 tracked-файлов
 
-Список получен из дерева исходного commit. Каждая ссылка «Источник» закрепляет commit и путь.
+Список получен из дерева исходного commit. Каждая ссылка на исходный путь закрепляет commit и путь.
 «Остаётся в истории» означает явное сохранение исходника без добавления второго активного владельца.
 Исполняемый Kinescope-прототип и локальная конфигурация Workspace не импортируются в runtime Platform.
 
 | № | Исходный путь и provenance | Новый путь или причина сохранения |
 |---|---|---|
-| 1 | [`.gitignore`](https://github.com/sachkov-inside/workspace/blob/125cbde1631a0c9c314a29c829961ab8aa785a06/.gitignore) | История Workspace. Остаётся в истории Workspace: локальная конфигурация или исследовательский исполняемый прототип; не часть runtime Platform |
+| 1 | [`.gitignore`](https://github.com/sachkov-inside/workspace/blob/125cbde1631a0c9c314a29c829961ab8aa785a06/.gitignore) | История Workspace. Остаётся в истории Workspace. Локальная конфигурация или исследовательский исполняемый прототип; не часть runtime Platform |
 | 2 | [`AGENTS.md`](https://github.com/sachkov-inside/workspace/blob/125cbde1631a0c9c314a29c829961ab8aa785a06/AGENTS.md) | [AGENTS.md](../../AGENTS.md). Роутер объединён с правилами Platform; исходник остаётся в истории Workspace |
 | 3 | [`CLAUDE.md`](https://github.com/sachkov-inside/workspace/blob/125cbde1631a0c9c314a29c829961ab8aa785a06/CLAUDE.md) | [AGENTS.md](../../AGENTS.md). Роутер объединён с правилами Platform; исходник остаётся в истории Workspace |
-| 4 | [`CONTEXT.md`](https://github.com/sachkov-inside/workspace/blob/125cbde1631a0c9c314a29c829961ab8aa785a06/CONTEXT.md) | [GLOSSARY.md](../../GLOSSARY.md). Термины объединены; карта соответствий ниже |
+| 4 | [`CONTEXT.md`](https://github.com/sachkov-inside/workspace/blob/125cbde1631a0c9c314a29c829961ab8aa785a06/CONTEXT.md) | [GLOSSARY.md](../../GLOSSARY.md). Термины объединены; [карта соответствий](#сопоставление-терминов) |
 | 5 | [`README.md`](https://github.com/sachkov-inside/workspace/blob/125cbde1631a0c9c314a29c829961ab8aa785a06/README.md) | [README.md](../../README.md). Роутер объединён с правилами Platform; исходник остаётся в истории Workspace |
 | 6 | [`REPOSITORIES.md`](https://github.com/sachkov-inside/workspace/blob/125cbde1631a0c9c314a29c829961ab8aa785a06/REPOSITORIES.md) | [REPOSITORIES.md](../../REPOSITORIES.md). Карта переписана для переходного этапа |
 | 7 | [`docs/adr/0001-platform-owns-product-brief.md`](https://github.com/sachkov-inside/workspace/blob/125cbde1631a0c9c314a29c829961ab8aa785a06/docs/adr/0001-platform-owns-product-brief.md) | [docs/adr/workspace/0001-platform-owns-product-brief.md](../adr/workspace/0001-platform-owns-product-brief.md). Историческое решение; текущий статус в индексе |
@@ -146,12 +155,12 @@ Workshop отмечен как отложенное направление. Memb
 | 38 | [`docs/research/platform-postgresql-data-access.md`](https://github.com/sachkov-inside/workspace/blob/125cbde1631a0c9c314a29c829961ab8aa785a06/docs/research/platform-postgresql-data-access.md) | [docs/research/platform-postgresql-data-access.md](../research/platform-postgresql-data-access.md). Исследование на исходную дату; не действующее правило |
 | 39 | [`docs/research/platform-telegram-tribute-membership.md`](https://github.com/sachkov-inside/workspace/blob/125cbde1631a0c9c314a29c829961ab8aa785a06/docs/research/platform-telegram-tribute-membership.md) | [docs/research/platform-telegram-tribute-membership.md](../research/platform-telegram-tribute-membership.md). Исследование на исходную дату; не действующее правило |
 | 40 | [`docs/specifications/notifications-delivery-v1.md`](https://github.com/sachkov-inside/workspace/blob/125cbde1631a0c9c314a29c829961ab8aa785a06/docs/specifications/notifications-delivery-v1.md) | [docs/specifications/notifications-delivery-v1.md](../specifications/notifications-delivery-v1.md). Общий контракт или исторический план; исходный статус сохранён |
-| 41 | [`docs/specifications/notifications-v1.md`](https://github.com/sachkov-inside/workspace/blob/125cbde1631a0c9c314a29c829961ab8aa785a06/docs/specifications/notifications-v1.md) | [docs/history/workspace/specifications/notifications-v1.md](../history/workspace/specifications/notifications-v1.md). Историческая общая спецификация; текущий владелец сопоставлен ниже |
-| 42 | [`docs/specifications/platform-v1.md`](https://github.com/sachkov-inside/workspace/blob/125cbde1631a0c9c314a29c829961ab8aa785a06/docs/specifications/platform-v1.md) | [docs/history/workspace/specifications/platform-v1.md](../history/workspace/specifications/platform-v1.md). Историческая общая спецификация; текущий владелец сопоставлен ниже |
-| 43 | [`docs/specifications/production-workshop-v1.md`](https://github.com/sachkov-inside/workspace/blob/125cbde1631a0c9c314a29c829961ab8aa785a06/docs/specifications/production-workshop-v1.md) | [docs/history/workspace/specifications/production-workshop-v1.md](../history/workspace/specifications/production-workshop-v1.md). Историческая общая спецификация; текущий владелец сопоставлен ниже |
+| 41 | [`docs/specifications/notifications-v1.md`](https://github.com/sachkov-inside/workspace/blob/125cbde1631a0c9c314a29c829961ab8aa785a06/docs/specifications/notifications-v1.md) | [docs/history/workspace/specifications/notifications-v1.md](../history/workspace/specifications/notifications-v1.md). Историческая общая спецификация; текущий владелец указан в [сопоставлении](#сопоставление-пересекающихся-спецификаций) |
+| 42 | [`docs/specifications/platform-v1.md`](https://github.com/sachkov-inside/workspace/blob/125cbde1631a0c9c314a29c829961ab8aa785a06/docs/specifications/platform-v1.md) | [docs/history/workspace/specifications/platform-v1.md](../history/workspace/specifications/platform-v1.md). Историческая общая спецификация; текущий владелец указан в [сопоставлении](#сопоставление-пересекающихся-спецификаций) |
+| 43 | [`docs/specifications/production-workshop-v1.md`](https://github.com/sachkov-inside/workspace/blob/125cbde1631a0c9c314a29c829961ab8aa785a06/docs/specifications/production-workshop-v1.md) | [docs/history/workspace/specifications/production-workshop-v1.md](../history/workspace/specifications/production-workshop-v1.md). Историческая общая спецификация; текущий владелец указан в [сопоставлении](#сопоставление-пересекающихся-спецификаций) |
 | 44 | [`docs/specifications/subscription-billing-delivery-v1.md`](https://github.com/sachkov-inside/workspace/blob/125cbde1631a0c9c314a29c829961ab8aa785a06/docs/specifications/subscription-billing-delivery-v1.md) | [docs/specifications/subscription-billing-delivery-v1.md](../specifications/subscription-billing-delivery-v1.md). Общий контракт или исторический план; исходный статус сохранён |
 | 45 | [`docs/specifications/telegram-communications-v1.md`](https://github.com/sachkov-inside/workspace/blob/125cbde1631a0c9c314a29c829961ab8aa785a06/docs/specifications/telegram-communications-v1.md) | [docs/specifications/telegram-communications-v1.md](../specifications/telegram-communications-v1.md). Общий контракт или исторический план; исходный статус сохранён |
-| 46 | [`inside.code-workspace`](https://github.com/sachkov-inside/workspace/blob/125cbde1631a0c9c314a29c829961ab8aa785a06/inside.code-workspace) | История Workspace. Остаётся в истории Workspace: локальная конфигурация или исследовательский исполняемый прототип; не часть runtime Platform |
+| 46 | [`inside.code-workspace`](https://github.com/sachkov-inside/workspace/blob/125cbde1631a0c9c314a29c829961ab8aa785a06/inside.code-workspace) | История Workspace. Остаётся в истории Workspace. Локальная конфигурация или исследовательский исполняемый прототип; не часть runtime Platform |
 | 47 | [`product/README.md`](https://github.com/sachkov-inside/workspace/blob/125cbde1631a0c9c314a29c829961ab8aa785a06/product/README.md) | [docs/product/README.md](../product/README.md). Общий продуктовый документ |
 | 48 | [`product/access-model.md`](https://github.com/sachkov-inside/workspace/blob/125cbde1631a0c9c314a29c829961ab8aa785a06/product/access-model.md) | [docs/product/access-model.md](../product/access-model.md). Общий продуктовый документ |
 | 49 | [`product/content-series-authoring-brief.md`](https://github.com/sachkov-inside/workspace/blob/125cbde1631a0c9c314a29c829961ab8aa785a06/product/content-series-authoring-brief.md) | [docs/product/content-series-authoring-brief.md](../product/content-series-authoring-brief.md). Общий продуктовый документ |
@@ -202,4 +211,4 @@ Workshop отмечен как отложенное направление. Memb
 | 94 | [`product/legal/tribute-v1.md`](https://github.com/sachkov-inside/workspace/blob/125cbde1631a0c9c314a29c829961ab8aa785a06/product/legal/tribute-v1.md) | [docs/legal/tribute-v1.md](../legal/tribute-v1.md). Юридический источник; прежний статус сохранён |
 | 95 | [`product/series-planning-handoff.md`](https://github.com/sachkov-inside/workspace/blob/125cbde1631a0c9c314a29c829961ab8aa785a06/product/series-planning-handoff.md) | [docs/product/series-planning-handoff.md](../product/series-planning-handoff.md). Общий продуктовый документ |
 | 96 | [`product/subscription-billing-v1.md`](https://github.com/sachkov-inside/workspace/blob/125cbde1631a0c9c314a29c829961ab8aa785a06/product/subscription-billing-v1.md) | [docs/product/subscription-billing-v1.md](../product/subscription-billing-v1.md). Общий продуктовый документ |
-| 97 | [`prototypes/kinescope-auth-backend/check.mjs`](https://github.com/sachkov-inside/workspace/blob/125cbde1631a0c9c314a29c829961ab8aa785a06/prototypes/kinescope-auth-backend/check.mjs) | История Workspace. Остаётся в истории Workspace: локальная конфигурация или исследовательский исполняемый прототип; не часть runtime Platform |
+| 97 | [`prototypes/kinescope-auth-backend/check.mjs`](https://github.com/sachkov-inside/workspace/blob/125cbde1631a0c9c314a29c829961ab8aa785a06/prototypes/kinescope-auth-backend/check.mjs) | История Workspace. Остаётся в истории Workspace. Локальная конфигурация или исследовательский исполняемый прототип; не часть runtime Platform |

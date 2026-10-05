@@ -1,5 +1,7 @@
 # platform
 
+Режим агентов: worktree
+
 ## Repository role
 
 Platform owns its product brief, Membership application, issues, application-specific ADRs and

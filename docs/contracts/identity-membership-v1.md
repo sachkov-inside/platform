@@ -18,9 +18,11 @@ deployment или secret distribution. Каждый repository хранит со
 | Канонический закрытый Telegram chat | Membership Signal через фактическое присутствие linked identity | Platform identity или permanent entitlement |
 | Tribute/payment provider | Может менять roster через отдельный operational lifecycle | Identity, evidence или entitlement напрямую |
 
-Member Profile является member-visible presentation и не участвует ни в одной authority chain.
-Email, Platform/Telegram internal identifiers, linking/evidence/security history и provider claims
-не входят в profile projection. Anonymous visitor, non-member и crawler не получают этот profile.
+Первоначальный контракт описывал Member Profile как представление для участников.
+Это отменено решением [Workspace #185](https://github.com/sachkov-inside/workspace/issues/185)
+и [Platform #658](https://github.com/sachkov-inside/platform/issues/658): профиль виден только владельцу Account.
+Текущая граница описана в [brief Platform](../product/platform-mvp-brief.md#участник-membership).
+Profile не предоставляет identity, Membership или доступ к контенту. Wire envelope и corpus ниже сохраняются.
 
 ## Contract identity and evolution
 
@@ -30,9 +32,9 @@ Contract identifier v1 — `inside.membership-evidence.v1`. Consumer прини�
 meaning/required field или reason code требует нового major contract и одновременного bounded
 migration plan в обоих owning repositories.
 
-Workspace хранит normative contract и scenarios. Platform и Telegram repositories vendor-ят
-versioned snapshot/schema/fixtures в свою test authority; они не читают Workspace во время build,
-test или runtime.
+Platform хранит нормативный контракт и сценарии в этом каталоге.
+До импорта Telegram его репозиторий сохраняет совместимый versioned snapshot/schema/fixtures
+в собственной test authority. Build, test и runtime не читают соседний checkout Workspace.
 
 Normative machine-readable artifacts:
 

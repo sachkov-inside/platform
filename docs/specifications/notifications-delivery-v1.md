@@ -1,5 +1,8 @@
 # Поставка уведомлений v1
 
+> Исторический план поставки от 2026-09-08. Текущие результаты принадлежат задачам приложений
+> и [runbook Notifications](../runbooks/notifications.md); этот список не является текущим backlog.
+
 Основание: [общий контракт](../history/workspace/specifications/notifications-v1.md), решение владельца от 2026-09-08.
 Контрактная поставка — [Workspace #152](https://github.com/sachkov-inside/workspace/issues/152),
 [Platform #434](https://github.com/sachkov-inside/platform/issues/434) и

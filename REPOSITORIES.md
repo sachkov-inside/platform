@@ -20,7 +20,7 @@
 - [Brief Platform](docs/product/platform-mvp-brief.md) определяет объём приложения.
 - [GLOSSARY](GLOSSARY.md) владеет общими и прикладными терминами.
 - [Юридический комплект](docs/legal/README.md) владеет редакциями и статусами юридических текстов.
-- [Карта переноса 97 файлов](docs/migrations/958-shared-documents.md) даёт исходные commits и соответствия.
+- [Карта учёта 97 исходных файлов](docs/migrations/958-shared-documents.md) даёт исходные commits и соответствия.
 
 До импорта Telegram ссылки на его application brief, ADR и runbooks остаются ссылками на `inside-telegram`.
 Процесс разработки Inside принадлежит `WORKFLOW.md` и `.agents/skills` Platform; Telegram пока получает его копию.
