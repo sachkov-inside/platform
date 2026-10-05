@@ -2,7 +2,8 @@
 
 The process is the upstream skills in `.agents/skills` (sources in `.agents/skills/UPSTREAM.md`)
 plus this contract. The contract covers what upstream leaves open and the owner's overrides of it.
-Do not edit the copied skills; standing behaviour lives here and in `AGENTS.md`.
+Do not edit the copied skills; standing behaviour lives here and in `AGENTS.md`. The skill `report`
+is the one process skill outside `.agents/skills`: shared from `workspace`, installed on the device.
 
 ## Flows and stages
 
@@ -115,14 +116,15 @@ final head with its real exit code. The agent then:
 3. reads `closingIssuesReferences` of the pull request and compares it with the task number:
    `gh pr view <pr> --json closingIssuesReferences --jq '.closingIssuesReferences[].number'`;
 4. cleans up with the skill `session-cleanup`; when the cleanup removes the worktree, it runs
-   `report.py new` first;
+   `report.py new` from the skill `report` first;
 5. writes the report by the skill `report` and names in it each leftover of the cleanup;
 6. gives in chat the path to the report file and one line of outcome.
 
 Steps 4 to 6 apply to any hand-off to the owner: a ready pull request, a stopped task or a result
-that waits for acceptance. The report is one Markdown file in `.reports/` (HTML when it needs a
-diagram). Its subsection `Проверено командой` names the check command and the pull request CI that
-ran; a check that did not run goes to `Не проверено`. The report is delivered when `report.py finish` exits with 0.
+that waits for acceptance. The `SKILL.md` of the skill `report` sets the format: one HTML page. The
+report's subsection `Проверено командой` names the check command and the pull request CI that ran;
+a check that did not run goes to `Не проверено`. The report is delivered when `report.py finish`
+exits 0.
 
 ## Rules from session reports
 
