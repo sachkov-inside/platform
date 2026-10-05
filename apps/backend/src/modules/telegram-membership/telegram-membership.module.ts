@@ -1,6 +1,7 @@
 import { CommunityEntitlementsModule } from "./community-entitlements.module.js";
 import { CommunityEntitlements } from "./facets/community-entitlements/community-entitlements.js";
 import { SubscriptionActivationController } from "./features/activate-subscription/subscription-activation.controller.js";
+import { InvitationRedemptionController } from "./features/redeem-invitation/invitation-redemption.controller.js";
 import { TelegramAccountLinks } from "./facets/telegram-account-links/telegram-account-links.js";
 import { TelegramAccountLinksModule } from "./telegram-account-links.module.js";
 import { TelegramAccountSignIn } from "./features/complete-telegram-sign-in/telegram-account-sign-in.js";
@@ -58,6 +59,7 @@ import {
   ],
   controllers: [
     SubscriptionActivationController,
+    InvitationRedemptionController,
     TelegramAccountSignInController,
     ResumeTelegramAccountSignInController,
     AccountTelegramMembershipController,
@@ -72,18 +74,21 @@ import {
         ACCESS_GRANTS,
         TelegramAccountLinks,
         CommunityEntitlements,
+        PLATFORM_CONFIG,
       ],
       useFactory: (
         prisma: PrismaClientProvider,
         grants: AccessGrants,
         bindings: TelegramAccountLinks,
         community: CommunityEntitlements,
+        config: PlatformConfig,
       ) =>
         new SubscriptionActivation({
           prisma,
           grants,
           bindings,
           readAdmission: (accountId) => community.readOwnAdmission(accountId),
+          siteOrigin: config.publicSite.origin,
         }),
     },
     {

@@ -11,6 +11,7 @@ export type MembershipEntitlementsPrisma = Pick<
   | "subscriptionEnrollment"
   | "activationRule"
   | "activationAttempt"
+  | "invitation"
   | "sourceEntitlement"
   | "tributePolicy"
   | "tributeInbox"

@@ -870,7 +870,7 @@ export class BillingSubscriptions {
       return paymentFailure("not_found");
     // Смена варианта — тоже покупка Offer: ограничение допуска действует и здесь.
     const eligibility = offerEligibilitySchema.parse(target.offer.eligibility);
-    if (!offerAdmits(eligibility, grounds))
+    if (!offerAdmits({ id: target.offer.id, eligibility }, grounds))
       return paymentFailure("not_eligible");
     const current = subscriptionSnapshotSchema.parse(row.snapshot);
     if (

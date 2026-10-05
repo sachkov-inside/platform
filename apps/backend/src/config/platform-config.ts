@@ -410,6 +410,20 @@ const requiredGroupsByProcess = {
   "billing-worker": new Set<string>(),
 } satisfies Record<BackendProcess, ReadonlySet<string>>;
 
+/**
+ * Адрес бота, если процессу он задан. Процесс без группы Telegram получает в production
+ * заглушку, и ссылка на неё никуда бы не вела.
+ */
+export function configuredTelegramBotStartUrl(
+  config: PlatformConfig,
+): string | undefined {
+  const url = config.telegramMembership.botStartUrl;
+  return url ===
+    unusedProductionGroups.telegramMembership.TELEGRAM_BOT_START_URL
+    ? undefined
+    : url;
+}
+
 export function parsePlatformProcessConfig(
   environment: NodeJS.ProcessEnv,
   process: BackendProcess,

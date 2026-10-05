@@ -23,6 +23,20 @@ export interface SubscriptionRouteTarget {
   readonly returnTo: string;
   /** Исходная страница, если она известна и внутренняя. */
   readonly originHref?: Route;
+  /** Предложение, которое витрина выбирает сразу: его открывает кнопка «Оплатить» в боте (#908). */
+  readonly offerId?: string;
+}
+
+const uuidPattern =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/iu;
+
+/** Параметр `offer` принимается одной строкой вида uuid; всё остальное витрина не замечает. */
+export function subscriptionOfferParam(
+  value: string | readonly string[] | undefined,
+): string | undefined {
+  return typeof value === "string" && uuidPattern.test(value)
+    ? value.toLowerCase()
+    : undefined;
 }
 
 function publicOrigin(value: string | undefined): Route | undefined {
@@ -38,11 +52,20 @@ function publicOrigin(value: string | undefined): Route | undefined {
 
 export function subscriptionRouteTarget(
   from: string | readonly string[] | undefined,
+  offer?: string | readonly string[],
 ): SubscriptionRouteTarget {
   const origin = publicOrigin(typeof from === "string" ? from : from?.[0]);
-  return origin === undefined
-    ? { returnTo: "/subscription" }
-    : { returnTo: subscriptionHrefFrom(origin), originHref: origin };
+  const offerId = subscriptionOfferParam(offer);
+  // Выбранное предложение переживает вход так же, как исходная страница.
+  const query = new URLSearchParams();
+  if (origin !== undefined) query.set("from", origin);
+  if (offerId !== undefined) query.set("offer", offerId);
+  const search = query.toString();
+  return {
+    returnTo: search === "" ? "/subscription" : `/subscription?${search}`,
+    ...(origin === undefined ? {} : { originHref: origin }),
+    ...(offerId === undefined ? {} : { offerId }),
+  };
 }
 
 /**

@@ -6,6 +6,7 @@ import {
   Files,
   Funnel,
   Globe2,
+  KeyRound,
   LibraryBig,
   ListOrdered,
   PenLine,
@@ -25,18 +26,20 @@ export function AuthoringShell({ children }: { readonly children: ReactNode }) {
   const pathname = usePathname();
   const current = pathname.startsWith("/authoring/billing")
     ? "billing"
-    : pathname.startsWith("/authoring/sales-funnel")
-      ? "sales-funnel"
-      : pathname.startsWith("/authoring/topics")
-        ? "topics"
-        : pathname.startsWith("/authoring/guides") ||
-            pathname.startsWith("/authoring/playlists")
-          ? "playlists"
-          : pathname.endsWith("/preview")
-            ? "preview"
-            : pathname.startsWith(materialsHref)
-              ? "materials"
-              : undefined;
+    : pathname.startsWith("/authoring/access")
+      ? "access"
+      : pathname.startsWith("/authoring/sales-funnel")
+        ? "sales-funnel"
+        : pathname.startsWith("/authoring/topics")
+          ? "topics"
+          : pathname.startsWith("/authoring/guides") ||
+              pathname.startsWith("/authoring/playlists")
+            ? "playlists"
+            : pathname.endsWith("/preview")
+              ? "preview"
+              : pathname.startsWith(materialsHref)
+                ? "materials"
+                : undefined;
 
   return (
     <div
@@ -106,6 +109,12 @@ export function AuthoringShell({ children }: { readonly children: ReactNode }) {
               href="/authoring/billing"
               icon={<CreditCard aria-hidden="true" />}
               label="Оплата и права"
+            />
+            <AuthoringLink
+              current={current === "access"}
+              href="/authoring/access"
+              icon={<KeyRound aria-hidden="true" />}
+              label="Доступ"
             />
             <AuthoringLink
               current={current === "sales-funnel"}

@@ -18,12 +18,14 @@ export const benefitPeriodsSchema = z
   )
   .max(100);
 /**
- * Кому Offer продаётся: всем или только Account с основанием «прежний подписчик Tribute» —
- * подтверждённым периодом Tribute. Отсутствующее поле в прежнем снимке читается как `everyone`.
+ * Кому Offer продаётся: всем, только Account с основанием «прежний подписчик Tribute» —
+ * подтверждённым периодом Tribute, или только Account с погашённым приглашением на этот Offer.
+ * Отсутствующее поле в прежнем снимке читается как `everyone`.
  */
 export const offerEligibilitySchema = z.enum([
   "everyone",
   "former_tribute_subscribers",
+  "invitation_only",
 ]);
 export type OfferEligibility = z.infer<typeof offerEligibilitySchema>;
 export const offerSchema = z.strictObject({

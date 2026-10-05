@@ -7,6 +7,8 @@ import {
 import { enrollmentViewSchema } from "./subscription-enrollment.js";
 export const ACTIVATION_CONTRACT_VERSION =
   "inside.subscription-activation.v1" as const;
+/** Попытка активации без Account ждёт привязки 30 дней; столько же ждёт закреплённое приглашение. */
+export const ACTIVATION_ATTEMPT_LIFETIME_MS = 30 * 24 * 60 * 60 * 1000;
 export const bindingLookupQuerySchema = z.strictObject({
   contractVersion: z.literal(ACTIVATION_CONTRACT_VERSION),
   identityRef: sourceRefSchema,

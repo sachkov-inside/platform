@@ -1,11 +1,18 @@
 import { expect, it } from "vitest";
 
+import { initialPaymentOptionId } from "@/_pages/subscription/model/initial-selection";
 import {
   guidePurchaseHref,
   purchaseInvitation,
   subscriptionHrefFrom,
+  subscriptionOfferParam,
   subscriptionRouteTarget,
 } from "@/shared/routing/subscription-route";
+import {
+  billingOffers,
+  materialsOffer,
+  supportOffer,
+} from "@/workshop/billing.fixtures";
 
 it("сохраняет контекст страницы продукта и отбрасывает внешние адреса", () => {
   expect(subscriptionRouteTarget("/products/platform-inside")).toEqual({
@@ -85,4 +92,43 @@ it("персональная ссылка оплаты несёт промоко
   expect(guidePurchaseHref("platform-inside", "Survey 7&x")).toBe(
     "/products/platform-inside/buy?promo=Survey+7%26x",
   );
+});
+
+it("принимает предложение из адреса бота одной строкой uuid и сохраняет его после входа", () => {
+  const offerId = "00000000-0000-4000-8000-000000000102";
+  expect(subscriptionRouteTarget(undefined, offerId)).toEqual({
+    returnTo: `/subscription?offer=${offerId}`,
+    offerId,
+  });
+  expect(
+    subscriptionRouteTarget("/products/platform-inside", offerId.toUpperCase()),
+  ).toEqual({
+    returnTo: `/subscription?from=%2Fproducts%2Fplatform-inside&offer=${offerId}`,
+    originHref: "/products/platform-inside",
+    offerId,
+  });
+  // Не uuid и повтор параметра витрина не замечает.
+  expect(subscriptionOfferParam("materials")).toBeUndefined();
+  expect(subscriptionOfferParam([offerId])).toBeUndefined();
+  expect(subscriptionOfferParam(`${offerId}x`)).toBeUndefined();
+  expect(subscriptionRouteTarget(undefined, "<script>")).toEqual({
+    returnTo: "/subscription",
+  });
+});
+
+it("выбирает первый вариант оплаты предложения из адреса, а без него — первый тариф", () => {
+  expect(initialPaymentOptionId(billingOffers, supportOffer.offer.id)).toBe(
+    supportOffer.paymentOption.id,
+  );
+  expect(initialPaymentOptionId(billingOffers, undefined)).toBe(
+    materialsOffer.paymentOption.id,
+  );
+  // Предложения нет на витрине: остаётся обычный выбор.
+  expect(
+    initialPaymentOptionId(
+      billingOffers,
+      "00000000-0000-4000-8000-000000000999",
+    ),
+  ).toBe(materialsOffer.paymentOption.id);
+  expect(initialPaymentOptionId([], supportOffer.offer.id)).toBeNull();
 });

@@ -51,6 +51,7 @@ sudo env \
 | `NOTIFICATIONS_PLATFORM_ORIGIN`, `NOTIFICATIONS_TELEGRAM_SECRET` | `api.env`, `notifications-worker.env` | `NOTIFICATION_AUTHORIZE_SECRET` |
 | `TELEGRAM_COMMUNITY_CONTRACT_VERSION=inside.community-entitlement.v2`, `TELEGRAM_COMMUNITY_ENTITLEMENT_*`, `TELEGRAM_COMMUNITY_DISPATCH_SECRET` | `api.env`, `billing-worker.env` | `PLATFORM_COMMUNITY_INTEGRATION_SECRET`, `PLATFORM_COMMUNITY_DISPATCH_SECRET` |
 | `TELEGRAM_ACTIVATION_INGRESS_SECRET` | `api.env` | `PLATFORM_ACTIVATION_SECRET` |
+| `TELEGRAM_BOT_START_URL` — без него в `mcp.env` инструменты приглашений отдают только start-параметр (#908) | `api.env`, `mcp.env` | — |
 | `TELEGRAM_SALES_FUNNEL_INGRESS_SECRET` — необязателен; без него вход событий воронки закрыт | `api.env` | секрет воронки на стороне бота ([inside-telegram#118](https://github.com/sachkov-inside/inside-telegram/issues/118)) |
 | `TELEGRAM_LINKING_SECRET` | `api.env` | `PLATFORM_INTEGRATION_SECRET` |
 | `TELEGRAM_COMMUNICATIONS_SECRET` — своё значение, не равное `TELEGRAM_LINKING_SECRET` | `api.env`, `mcp.env` | `PLATFORM_COMMUNICATIONS_SECRET` |

@@ -18,11 +18,16 @@ export default async function SubscriptionRoute({
 }: {
   readonly searchParams: Promise<{
     readonly from?: string | readonly string[];
+    readonly offer?: string | readonly string[];
   }>;
 }) {
   // Витрина читает каталог от имени читателя: какие предложения ему продаются, решает его сессия.
   // `connection()` оставляет эту работу запросу, как у остальных разделов, зависящих от сессии.
   await connection();
   const query = await searchParams;
-  return <SubscriptionPage target={subscriptionRouteTarget(query.from)} />;
+  return (
+    <SubscriptionPage
+      target={subscriptionRouteTarget(query.from, query.offer)}
+    />
+  );
 }

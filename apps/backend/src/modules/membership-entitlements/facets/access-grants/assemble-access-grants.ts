@@ -77,6 +77,17 @@ import {
 } from "../../features/list-access-grants/list-access-grants.js";
 import { readOwnAccess } from "../../features/read-own-access/read-own-access.js";
 import {
+  issueInvitation,
+  listInvitations,
+  readInvitation,
+  revokeInvitation,
+} from "../../features/manage-invitations/manage-invitations.js";
+import {
+  readInvitationTarget,
+  redeemInvitation,
+  type RedeemInvitationContext,
+} from "../../features/redeem-invitation/redeem-invitation.js";
+import {
   enrollmentEndingsQuerySchema,
   listEnrollmentEndings,
   readEnrollmentEnding,
@@ -98,7 +109,9 @@ export function assembleAccessGrants(dependencies: AccessGrantsDependencies) {
   const clock = dependencies.clock ?? (() => new Date());
   /**
    * Классификация Account: состояние, его revision и вывод о допустимости автосписаний.
-   * Отсутствующая запись — это «неизвестно», а не ошибка чтения.
+   * Отсутствующая запись — это «неизвестно», а не ошибка чтения. Погашённое приглашение — личное
+   * решение владельца о человеке: оно допускает автосписания у неизвестного Account так же, как
+   * подтверждённый новый покупатель. Подтверждённого прежнего подписчика оно не меняет.
    */
   async function readClassificationOf(targetAccountId: string) {
     if (!z.uuid().safeParse(targetAccountId).success)
@@ -110,10 +123,18 @@ export function assembleAccessGrants(dependencies: AccessGrantsDependencies) {
       const classification = classificationSchema.parse(
         row?.classification ?? "unknown",
       );
-      const externalSources = await prisma.sourceEntitlement.findMany({
-        where: { origin: "tribute", accountId: targetAccountId },
-        take: 1001,
-      });
+      const [externalSources, invitations] = await Promise.all([
+        prisma.sourceEntitlement.findMany({
+          where: { origin: "tribute", accountId: targetAccountId },
+          take: 1001,
+        }),
+        prisma.invitation.count({
+          where: {
+            claimedAccountId: targetAccountId,
+            redeemedAt: { not: null },
+          },
+        }),
+      ]);
       const oldChargingStopped =
         externalSources.length <= 1000 &&
         externalSources.every((source) => {
@@ -126,10 +147,11 @@ export function assembleAccessGrants(dependencies: AccessGrantsDependencies) {
         revision: row?.revision ?? 0,
         recurringAllowed:
           oldChargingStopped &&
-          recurringAllowedFor({
-            classification,
-            tributeStopped: row?.tributeStopped === true,
-          }),
+          ((classification === "unknown" && invitations > 0) ||
+            recurringAllowedFor({
+              classification,
+              tributeStopped: row?.tributeStopped === true,
+            })),
       };
     } catch (error) {
       return dependencyFailure(
@@ -293,6 +315,32 @@ export function assembleAccessGrants(dependencies: AccessGrantsDependencies) {
     },
     beginActivation: (input: unknown) =>
       beginActivation(prisma, input, clock()),
+    /** Billing проверил Offer и режим; выдача пишет приглашение с ревизией этого Offer. */
+    issueInvitation: (
+      actorId: string,
+      input: unknown,
+      offer: { readonly id: string; readonly revision: number },
+    ) =>
+      manage(actorId, "billing:manage", () =>
+        issueInvitation(prisma, actorId, input, offer, clock()),
+      ),
+    revokeInvitation: (actorId: string, input: unknown) =>
+      manage(actorId, "billing:manage", () =>
+        revokeInvitation(prisma, input, clock()),
+      ),
+    readInvitation: (actorId: string, invitationId: string) =>
+      manage(actorId, "billing:manage", () =>
+        readInvitation(prisma, invitationId, clock()),
+      ),
+    listInvitations: (actorId: string, input: unknown) =>
+      manage(actorId, "billing:manage", () =>
+        listInvitations(prisma, input, clock()),
+      ),
+    /** Чтение для полномочия бота: какой Offer и режим за кодом, без изменения состояния. */
+    readInvitationTarget: (code: string) => readInvitationTarget(prisma, code),
+    /** Погашение по полномочию бота; Account и каталог billing читает до транзакции. */
+    redeemInvitation: (input: unknown, context: RedeemInvitationContext) =>
+      redeemInvitation(prisma, input, context, clock()),
     activateSubscription: (
       bindings: ActivationBindings,
       input: unknown,
@@ -641,26 +689,39 @@ export function assembleAccessGrants(dependencies: AccessGrantsDependencies) {
      * Основания Account, по которым billing допускает к Offer. Прежний подписчик Tribute — Account
      * с привязанным и не отозванным подтверждённым периодом Tribute; окончание периода основание
      * не снимает, иначе продлить было бы нечем. Временный источник участника группы периода не
-     * подтверждает и основанием не является.
+     * подтверждает и основанием не является. Погашённое приглашение любого режима навсегда
+     * допускает Account к своему Offer.
      */
     async readPurchaseGrounds(targetAccountId: string) {
       if (!z.uuid().safeParse(targetAccountId).success)
         return accessFailure("invalid_input");
       try {
-        const sources = await prisma.sourceEntitlement.findMany({
-          where: {
-            origin: "tribute",
-            accountId: targetAccountId,
-            revokedAt: null,
-          },
-          select: { tributeState: true },
-        });
+        const [sources, invitations] = await Promise.all([
+          prisma.sourceEntitlement.findMany({
+            where: {
+              origin: "tribute",
+              accountId: targetAccountId,
+              revokedAt: null,
+            },
+            select: { tributeState: true },
+          }),
+          prisma.invitation.findMany({
+            where: {
+              claimedAccountId: targetAccountId,
+              redeemedAt: { not: null },
+            },
+            select: { offerId: true },
+          }),
+        ]);
         return {
           ok: true as const,
           formerTributeSubscriber: sources.some((source) => {
             const state = tributeStateSchema.safeParse(source.tributeState);
             return state.success && state.data.mode === "confirmed_period";
           }),
+          invitedOfferIds: [
+            ...new Set(invitations.map((invitation) => invitation.offerId)),
+          ],
         };
       } catch (error) {
         return dependencyFailure(

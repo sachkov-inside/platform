@@ -5,6 +5,7 @@ import {
   activeSubscription,
   billingOffers,
   currentBillingResponse,
+  supportOffer,
 } from "@/workshop/billing.fixtures";
 import { fetchBeforeRender } from "@/workshop/mutation-mock";
 
@@ -61,6 +62,21 @@ export const Catalog: Story = {
   },
 };
 
+/** Кнопка «Оплатить» в боте открывает витрину с `?offer=`: тариф этого предложения уже выбран. */
+export const PreselectedOffer: Story = {
+  args: {
+    initialOfferId: supportOffer.offer.id,
+    returnTo: `/subscription?offer=${supportOffer.offer.id}`,
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    const options = canvas.getAllByRole("radio");
+    await expect(options).toHaveLength(2);
+    await expect(options[1]).toBeChecked();
+    await expect(options[0]).not.toBeChecked();
+  },
+};
+
 /** Одна проверка выключенной продажи: её повторяют mobile и desktop. */
 const expectNoSale: NonNullable<Story["play"]> = async ({ canvasElement }) => {
   const canvas = within(canvasElement);
@@ -102,6 +118,43 @@ export const NotOfferedWithSubscription: Story = {
       }),
     ).toBeVisible();
     await expect(canvas.queryByText("Выберите тариф")).not.toBeInTheDocument();
+  },
+};
+
+/**
+ * Гость открыл ссылку «Оплатить» из бота: Offer «только по приглашению» ему не виден, поэтому
+ * витрина зовёт войти и возвращает на тот же адрес с `?offer=`, а не объявляет продажу выключенной.
+ */
+export const InvitedGuest: Story = {
+  args: {
+    offers: [],
+    initialOfferId: supportOffer.offer.id,
+    returnTo: `/subscription?offer=${supportOffer.offer.id}`,
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    // Гостя отличает ответ сессии: заголовок меняется, когда он пришёл.
+    await expect(
+      await canvas.findByRole("heading", {
+        level: 1,
+        name: "Подписка по приглашению",
+      }),
+    ).toBeVisible();
+    // Шапка страницы тоже зовёт войти: проверяется форма витрины с возвратом на `?offer=`.
+    await expect(
+      canvas.getByRole("heading", {
+        level: 2,
+        name: "Войдите, чтобы оформить",
+      }),
+    ).toBeVisible();
+    await expect(
+      canvasElement.querySelector(
+        'form[action="/auth/sign-in"] input[name="returnTo"]',
+      ),
+    ).toHaveValue(`/subscription?offer=${supportOffer.offer.id}`);
+    await expect(
+      canvas.queryByText("Подписка сейчас не продаётся"),
+    ).not.toBeInTheDocument();
   },
 };
 
