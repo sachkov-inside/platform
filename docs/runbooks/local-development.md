@@ -902,11 +902,10 @@ course terms or price. The offer and account progress persist in the stand volum
 The stand bootstrap also runs the production
 [learner access provisioning](learning-practice-review.md#universal-learner-access-938) for the stand
 learner MCP `http://127.0.0.1:3002/mcp/learning`. Every local account gets the default role with
-`learning:read`, dynamic apps (CIMD) are on, and the public Native client serves agents without
-CIMD. The bootstrap writes the address and that client ID into `.identity-proof/stand.env`, so
-Reader and `/practice-review-setup.txt` on the stand show them. Connect any MCP client and log in
-with the same test account as the website; codes arrive in Mailpit. A CIMD client needs the stand
-Logto to fetch its public metadata document from the internet. The copied lesson request calls only
+`learning:read`, dynamic apps (CIMD) are off, and every agent uses the public Native client. The
+bootstrap writes the address and that client ID into `.identity-proof/stand.env`, so Reader and
+`/practice-review-setup.txt` on the stand show them. Connect any MCP client and log in with the same
+test account as the website; codes arrive in Mailpit. The copied lesson request calls only
 the learner endpoint `/mcp/learning`, and access still follows that account's product rights.
 
 Local TLS uses a CA and a separate server leaf (the old pair is preserved when upgraded), bundled in

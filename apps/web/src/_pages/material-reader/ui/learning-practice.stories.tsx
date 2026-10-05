@@ -8,7 +8,11 @@ import {
   LearningPracticePrompts,
 } from "./learning-practice-prompts";
 
-const connection = { url: "https://inside.example.test/mcp/learning" };
+const connection = {
+  url: "https://inside.example.test/mcp/learning",
+  publicClientId: "o92nmcpzb2te8z4loi82d",
+  setupUrl: "https://inside.example.test/practice-review-setup.txt",
+};
 const descriptor = {
   practiceId: "synthetic:brief",
   title: "Разобрать обращение бизнеса",

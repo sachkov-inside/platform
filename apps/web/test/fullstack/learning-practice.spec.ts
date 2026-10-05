@@ -81,11 +81,18 @@ test("practice Reader offers pinned requests only to an authorized participant",
   expect(copied).not.toContain("FULLSTACK_PRIVATE_PRACTICE_BODY");
   await region.getByText("Настройка проверки", { exact: true }).click();
   await expect(
-    region.getByRole("link", { name: "Открыть инструкцию подключения" }),
+    region.getByRole("link", {
+      name: "Открыть инструкцию для ручного подключения",
+    }),
   ).toHaveAttribute("href", "/practice-review-setup.txt");
   const setup = await page.request.get("/practice-review-setup.txt");
   expect(setup.status()).toBe(200);
   expect(await setup.text()).toContain("/mcp/learning");
+  // Запрос подключения агента виден после раскрытия настройки и ведёт на ту же инструкцию.
+  await expect(
+    region.getByText("Подключить агента", { exact: true }),
+  ).toBeVisible();
+  await expect(region).toContainText("/practice-review-setup.txt");
   await region.getByText("Настройка проверки", { exact: true }).click();
   const violations = (
     await new AxeBuilder({ page })

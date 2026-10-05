@@ -4,7 +4,10 @@ import {
   practiceReviewPrompt,
   type LearningPracticesView,
 } from "../model/learning-practice";
-import type { LearnerMcpConnection } from "../model/practice-review-setup";
+import {
+  learnerMcpConnectPrompt,
+  type ReaderLearnerMcp,
+} from "../model/practice-review-setup";
 
 /**
  * Public lessons retain their prefetched body; only an explicit disclosure expands this row. The
@@ -14,7 +17,7 @@ export function LearningPracticeDisclosure(
   props:
     | { readonly result: null }
     | {
-        readonly connection: LearnerMcpConnection;
+        readonly connection: ReaderLearnerMcp;
         readonly result: LearningPracticesView;
       },
 ) {
@@ -48,7 +51,7 @@ export function LearningPracticePrompts({
   connection,
   result,
 }: {
-  readonly connection: LearnerMcpConnection;
+  readonly connection: ReaderLearnerMcp;
   readonly result: LearningPracticesView;
 }) {
   if (result.kind === "unavailable")
@@ -76,11 +79,16 @@ export function LearningPracticePrompts({
           <code className="break-all">{connection.url}</code>
         </p>
         <p className="mt-3 text-muted-foreground">
-          Добавьте этот адрес в своём агенте как MCP-сервер по HTTP: подойдёт
-          Codex, Claude Code, OpenCode или другой агент с поддержкой MCP. Агент
-          откроет страницу входа: войдите тем же аккаунтом, что и на сайте.
-          Токен вручную вводить не нужно.
+          Подключение делается один раз. Скопируйте запрос ниже и отправьте его
+          своему агенту: Codex, Claude Code, OpenCode или другому агенту с
+          поддержкой MCP. Агент добавит сервер сам. Вам останется войти в
+          браузере тем же аккаунтом, что и на сайте, нажать «Разрешить» и
+          открыть новую сессию агента.
         </p>
+        <MaterialAgentPrompt
+          title="Подключить агента"
+          text={learnerMcpConnectPrompt(connection.setupUrl)}
+        />
         <p className="mt-3">
           <a
             className="underline underline-offset-4"
@@ -88,7 +96,7 @@ export function LearningPracticePrompts({
             target="_blank"
             rel="noreferrer"
           >
-            Открыть инструкцию подключения
+            Открыть инструкцию для ручного подключения
           </a>
         </p>
         <p className="mt-3 text-muted-foreground">
