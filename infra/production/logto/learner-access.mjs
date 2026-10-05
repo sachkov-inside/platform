@@ -52,7 +52,13 @@ export async function provisionLearnerAccess(api, { resource }) {
     method: "PATCH",
     body: { enabled: true, addConsentPromptForOfflineAccess: true },
   });
-  if (!(await cimdResourceScopeIds(api)).includes(scopeId))
+  // The ceiling of every dynamic app is exactly the learning scope.
+  const cimdScopeIds = await cimdResourceScopeIds(api);
+  for (const extra of cimdScopeIds.filter((scope) => scope !== scopeId))
+    await api(`/cimd/user-consent-scopes/resource-scopes/${extra}`, {
+      method: "DELETE",
+    });
+  if (!cimdScopeIds.includes(scopeId))
     await api("/cimd/user-consent-scopes", {
       method: "POST",
       body: { resourceScopes: [scopeId] },
@@ -78,7 +84,7 @@ export async function checkLearnerAccess(api, { resource }) {
   const settings = learnerAccessSettings;
   /** @type {string[]} */
   const problems = [];
-  const found = records(await api("/resources")).filter(
+  const found = (await list(api, "/resources")).filter(
     (row) => row["indicator"] === resource,
   );
   const [row] = found;
@@ -88,26 +94,24 @@ export async function checkLearnerAccess(api, { resource }) {
     problems.push(
       `resource access token TTL is ${String(row["accessTokenTtl"])}`,
     );
-  const scope = records(await api(`/resources/${id(row)}/scopes`)).find(
+  const scope = (await list(api, `/resources/${id(row)}/scopes`)).find(
     (candidate) => candidate["name"] === settings.scope,
   );
   if (scope === undefined)
     return [...problems, `scope ${settings.scope} is missing`];
-  const role = records(await api("/roles")).find(
+  const role = (await list(api, "/roles")).find(
     (candidate) => candidate["name"] === settings.roleName,
   );
   if (role === undefined) problems.push(`role ${settings.roleName} is missing`);
   else {
     if (role["isDefault"] !== true)
       problems.push("learner role is not a default role");
-    const roleScopes = records(await api(`/roles/${id(role)}/scopes`)).map(id);
+    const roleScopes = (await list(api, `/roles/${id(role)}/scopes`)).map(id);
     if (roleScopes.length !== 1 || roleScopes[0] !== id(scope))
       problems.push("learner role must carry exactly the learning scope");
     let missing = 0;
-    for await (const user of everyUser(api)) {
-      const roles = records(await api(`/users/${id(user)}/roles`)).map(id);
-      if (!roles.includes(id(role))) missing += 1;
-    }
+    for (const user of await list(api, "/users"))
+      if (!(await userRoleIds(api, user)).includes(id(role))) missing += 1;
     if (missing > 0) problems.push(`${missing} users have no learner role`);
   }
   const cimd = record(await api("/configs/cimd"));
@@ -115,10 +119,10 @@ export async function checkLearnerAccess(api, { resource }) {
     problems.push("dynamic apps (CIMD) are disabled");
   if (cimd["addConsentPromptForOfflineAccess"] !== true)
     problems.push("CIMD refresh token compatibility is off");
-  const ceiling = await cimdResourceScopeIds(api);
-  if (ceiling.length !== 1 || ceiling[0] !== id(scope))
+  const cimdScopeIds = await cimdResourceScopeIds(api);
+  if (cimdScopeIds.length !== 1 || cimdScopeIds[0] !== id(scope))
     problems.push(`CIMD resource scopes must be exactly ${settings.scope}`);
-  const client = records(await api("/applications")).find(
+  const client = (await list(api, "/applications")).find(
     (candidate) => candidate["name"] === settings.clientName,
   );
   if (client === undefined)
@@ -147,7 +151,7 @@ export async function checkLearnerAccess(api, { resource }) {
 /** @param {ManagementApi} api @param {string} indicator */
 async function ensureResource(api, indicator) {
   const settings = learnerAccessSettings;
-  const found = records(await api("/resources")).filter(
+  const found = (await list(api, "/resources")).filter(
     (row) => row["indicator"] === indicator,
   );
   if (found.length > 1)
@@ -175,7 +179,7 @@ async function ensureResource(api, indicator) {
 async function ensureScope(api, resourceId) {
   const settings = learnerAccessSettings;
   const path = `/resources/${resourceId}/scopes`;
-  const current = records(await api(path)).find(
+  const current = (await list(api, path)).find(
     (row) => row["name"] === settings.scope,
   );
   return id(
@@ -191,7 +195,7 @@ async function ensureScope(api, resourceId) {
 async function ensureDefaultRole(api, scopeId) {
   const settings = learnerAccessSettings;
   const names = [settings.roleName, ...settings.legacyRoleNames];
-  const found = records(await api("/roles")).filter((row) =>
+  const found = (await list(api, "/roles")).filter((row) =>
     names.includes(String(row["name"])),
   );
   if (found.length > 1)
@@ -212,7 +216,7 @@ async function ensureDefaultRole(api, scopeId) {
         },
       }),
     );
-  const assigned = records(await api(`/roles/${id(current)}/scopes`)).map(id);
+  const assigned = (await list(api, `/roles/${id(current)}/scopes`)).map(id);
   if (current["type"] !== "User" || assigned.some((scope) => scope !== scopeId))
     throw new Error(
       "The learner role has an unexpected type or permissions; reconcile it before retrying",
@@ -236,10 +240,9 @@ async function ensureDefaultRole(api, scopeId) {
 async function assignRoleToEveryUser(api, roleId) {
   let total = 0;
   let assigned = 0;
-  for await (const user of everyUser(api)) {
+  for (const user of await list(api, "/users")) {
     total += 1;
-    const roles = records(await api(`/users/${id(user)}/roles`)).map(id);
-    if (roles.includes(roleId)) continue;
+    if ((await userRoleIds(api, user)).includes(roleId)) continue;
     await api(`/users/${id(user)}/roles`, {
       method: "POST",
       body: { roleIds: [roleId] },
@@ -249,13 +252,25 @@ async function assignRoleToEveryUser(api, roleId) {
   return { total, assigned };
 }
 
-/** @param {ManagementApi} api */
-async function* everyUser(api) {
+/** The largest page Logto serves; every list is read page by page to its end. */
+const pageSize = 100;
+
+/** @param {ManagementApi} api @param {string} path */
+async function list(api, path) {
+  /** @type {Record<string, unknown>[]} */
+  const rows = [];
   for (let page = 1; ; page += 1) {
-    const users = records(await api(`/users?page=${page}&page_size=100`));
-    yield* users;
-    if (users.length < 100) return;
+    const batch = records(
+      await api(`${path}?page=${String(page)}&page_size=${String(pageSize)}`),
+    );
+    rows.push(...batch);
+    if (batch.length < pageSize) return rows;
   }
+}
+
+/** @param {ManagementApi} api @param {Record<string, unknown>} user */
+async function userRoleIds(api, user) {
+  return (await list(api, `/users/${id(user)}/roles`)).map(id);
 }
 
 /** @param {ManagementApi} api */
@@ -272,7 +287,7 @@ async function cimdResourceScopeIds(api) {
 async function ensurePublicClient(api) {
   const settings = learnerAccessSettings;
   const names = [settings.clientName, ...settings.legacyClientNames];
-  const found = records(await api("/applications")).filter((row) =>
+  const found = (await list(api, "/applications")).filter((row) =>
     names.includes(String(row["name"])),
   );
   if (found.length > 1)
@@ -359,7 +374,9 @@ async function main() {
   });
   if (!response.ok)
     throw new Error(`Management API token request failed: ${response.status}`);
-  const accessToken = String(record(await response.json())["access_token"]);
+  const accessToken = record(await response.json())["access_token"];
+  if (typeof accessToken !== "string" || accessToken.length === 0)
+    throw new Error("Management API token response has no access token");
   /** @type {ManagementApi} */
   const api = async (path, { method = "GET", body } = {}) => {
     const reply = await fetch(`${endpoint}/api${path}`, {
@@ -376,9 +393,15 @@ async function main() {
         `${method} ${path.split("?")[0]} failed: ${reply.status}`,
       );
     const payload = await reply.text();
-    /** @type {unknown} */
-    const parsed = payload.length === 0 ? null : JSON.parse(payload);
-    return parsed;
+    if (payload.length === 0) return null;
+    try {
+      /** @type {unknown} */
+      const parsed = JSON.parse(payload);
+      return parsed;
+    } catch {
+      // A parse error quotes the body, and user lists carry personal data.
+      throw new Error(`${method} ${path.split("?")[0]} returned invalid JSON`);
+    }
   };
   if (argv.includes("--check")) {
     const problems = await checkLearnerAccess(api, { resource });
@@ -392,6 +415,9 @@ async function main() {
   process.stdout.write(`${JSON.stringify(summary, null, 2)}\n`);
 }
 
-if (import.meta.url === `file://${process.argv[1]}`) {
+if (
+  process.argv[1] !== undefined &&
+  import.meta.url === new URL(process.argv[1], "file:").href
+) {
   await main();
 }

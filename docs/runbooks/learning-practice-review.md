@@ -157,7 +157,9 @@ CIMD needs Logto 1.43 or later with outbound SSRF protection on: `SSRF_ALLOWED_A
 fork patch `issue-938-offline-access-consent.patch` gives the public client the same behaviour
 through its `customData` flag. The script adopts the earlier author-pass role and Native client of
 #876 by name, so their ids and the owner's stored login stay valid. It stops on a learner role with
-foreign permissions or on duplicates instead of guessing.
+foreign permissions or on duplicates instead of guessing: move the foreign permission to its own
+role, or delete the duplicate, in the Management API, then run it again. The endpoint accepts only
+learner-resource tokens; a client still holding an API-audience token gets `401` and signs in again.
 
 The stand bootstrap runs the script on every start. In production run it on the server after the
 Logto foundation update, from the delivered foundation files. The seeded admin Management API secret
@@ -175,7 +177,9 @@ secret | docker exec -i inside-production-logto-logto-1 \
   node /foundation/learner-access.mjs --resource "$learner" --check
 ```
 
-The first command prints `publicClientId`. Put it into `/etc/inside/runtime/web.env` as
+The first command prints `publicClientId`. Logto enables CIMD only while outbound SSRF protection is
+on without an allowlist, so `client_id_metadata_document_supported: true` in the discovery below
+also proves that protection. Put it into `/etc/inside/runtime/web.env` as
 `LEARNER_MCP_CLIENT_ID` before the web release that reads it. The `--check` run lists every
 deviation and exits non-zero when one exists; repeat it after any Console change. Then confirm the
 public contract:

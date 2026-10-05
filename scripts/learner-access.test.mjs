@@ -34,9 +34,9 @@ function fakeLogto(seed = {}) {
   /** @type {string[]} */
   const writes = [];
   /** @type {import("../infra/production/logto/learner-access.mjs").ManagementApi} */
-  const api = async (path, { method = "GET", body } = {}) => {
+  const handle = async (path, { method = "GET", body } = {}) => {
     const input = asRow(body ?? {});
-    const [route = "", query = ""] = path.split("?");
+    const [route = ""] = path.split("?");
     if (method !== "GET") writes.push(`${method} ${route}`);
     const parts = route.split("/").filter(Boolean);
     const literal =
@@ -81,12 +81,8 @@ function fakeLogto(seed = {}) {
         for (const scopeId of strings(input["scopeIds"]))
           state.roleScopes.push([String(parts[1]), scopeId]);
         return null;
-      case "GET /users": {
-        const params = new URLSearchParams(query);
-        const size = Number(params.get("page_size"));
-        const page = Number(params.get("page"));
-        return state.users.slice((page - 1) * size, page * size);
-      }
+      case "GET /users":
+        return state.users;
       case "GET /users/:id/roles":
         return state.userRoles
           .filter(([userId]) => userId === parts[1])
@@ -124,8 +120,29 @@ function fakeLogto(seed = {}) {
       case "PATCH /applications/:id":
         return Object.assign(findById(state.applications, parts[1]), input);
       default:
+        if (
+          method === "DELETE" &&
+          route.startsWith("/cimd/user-consent-scopes/resource-scopes/")
+        ) {
+          state.cimdResourceScopes = state.cimdResourceScopes.filter(
+            (scopeId) => scopeId !== parts.at(-1),
+          );
+          return null;
+        }
         throw new Error(`Unexpected Management API call ${key}`);
     }
+  };
+  /** Logto lists answer one page; the fake slices every list the same way. */
+  /** @type {import("../infra/production/logto/learner-access.mjs").ManagementApi} */
+  const api = async (path, init) => {
+    const result = await handle(path, init);
+    const params = new URLSearchParams(path.split("?")[1] ?? "");
+    if (!Array.isArray(result) || !params.has("page")) return result;
+    const size = Number(params.get("page_size"));
+    const page = Number(params.get("page"));
+    /** @type {unknown[]} */
+    const rows = result;
+    return rows.slice((page - 1) * size, page * size);
   };
   return { api, state, writes };
 }
@@ -233,6 +250,7 @@ test("production adopts the author-pass role and client and repeats without writ
     roleScopes: [["author", "read"]],
     users: [{ id: "owner" }, { id: "learner" }],
     userRoles: [["owner", "author"]],
+    cimdResourceScopes: ["foreign-scope"],
     applications: [
       {
         id: "o92nmcpzb2te8z4loi82d",

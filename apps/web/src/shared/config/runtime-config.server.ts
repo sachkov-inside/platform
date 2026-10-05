@@ -15,8 +15,9 @@ const localDefaults = {
   LOGTO_COOKIE_SECRET: "inside-local-logto-cookie-secret-key",
   WEB_BASE_URL: "http://127.0.0.1:3000",
 } as const;
-/** Local MCP process; production publishes the learner MCP next to the site (`/mcp/learning`). */
-const localLearnerMcpUrl = "http://127.0.0.1:3002/mcp/learning";
+/** Path of the learner MCP: on the local MCP process and next to the production site. */
+const learnerMcpPath = "/mcp/learning";
+const localMcpOrigin = "http://127.0.0.1:3002";
 
 const runtimeModeSchema = z.enum(["development", "test", "production"]);
 const identitySchema = z
@@ -165,10 +166,12 @@ function learnerMcpUrl(
 ): string | undefined {
   const value = environment["LEARNER_MCP_URL"]?.trim();
   if (value !== undefined && value.length > 0) return value;
-  if (mode !== "production") return localLearnerMcpUrl;
-  const baseUrl = environment["WEB_BASE_URL"]?.trim();
-  return URL.canParse(baseUrl ?? "")
-    ? new URL("/mcp/learning", baseUrl).href
+  const origin =
+    mode === "production"
+      ? environment["WEB_BASE_URL"]?.trim()
+      : localMcpOrigin;
+  return URL.canParse(origin ?? "")
+    ? new URL(learnerMcpPath, origin).href
     : undefined;
 }
 
