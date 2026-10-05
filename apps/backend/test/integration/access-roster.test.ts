@@ -128,6 +128,8 @@ describe("раздел «Доступ»: люди и сводка на PostgreSQ
       endsAt: at("2030-03-17T00:00:00.000Z"),
     });
     await renewingSubscription(renewing);
+    // У оплатившего карта отвязана: подписка активна, но не продлится, и доступ кончится.
+    await renewingSubscription(paying, { bindingRevoked: true });
     // Подарок по приглашению без срока.
     const gift = await enrollment(gifted, subscription, "invitation", {
       startsAt: at("2030-03-01T00:00:00.000Z"),
@@ -248,12 +250,22 @@ describe("раздел «Доступ»: люди и сводка на PostgreSQ
     });
     return id;
   }
-  async function renewingSubscription(accountId: string) {
+  async function renewingSubscription(
+    accountId: string,
+    options: { bindingRevoked?: boolean } = {},
+  ) {
+    const id = randomUUID();
     await db.prisma.billingSubscription.create({
       data: {
-        id: randomUUID(),
+        id,
         accountId,
         state: "active",
+        bindingRef: id,
+        bindingCiphertext: "synthetic-binding",
+        bindingRevokedAt:
+          options.bindingRevoked === true
+            ? at("2030-03-01T00:00:00.000Z")
+            : null,
         snapshot: snapshot(subscription, 99_000),
         consent: {},
         anchorAt: at("2030-02-17T00:00:00.000Z"),

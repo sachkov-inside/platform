@@ -41,8 +41,9 @@ export const listAccessHoldersSchema = z.strictObject({
 export type ListAccessHoldersCommand = z.infer<typeof listAccessHoldersSchema>;
 
 /**
- * Одно основание доступа человека. `enrollment` меняется через `enrollments.change`, ручное право —
- * через `grants.extend` и `grants.revoke`; оплаченное разовое право меняет только возврат.
+ * Одно основание доступа человека. `enrollment` меняется через `enrollments.change`, кроме
+ * назначения из платежа: его меняют отмена продления и возврат. Ручное право меняется через
+ * `grants.extend` и `grants.revoke`; оплаченное разовое право меняет только возврат.
  * `offer` у разовой покупки называет Billing по платежу, у ручного права его нет.
  */
 export const accessGroundSchema = z.strictObject({

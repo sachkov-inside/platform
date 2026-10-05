@@ -154,8 +154,9 @@ export async function readAccessSummary(
 }
 
 /**
- * Account с действующей подпиской: конец оплаченного периода у них — дата следующего списания, а не
- * окончание доступа. Отменённая подписка (`canceled`) больше не продлевается и в набор не входит.
+ * Account, чья подписка продлится: `active` с привязанной и не отозванной картой — то же условие,
+ * по которому `endLapsedSubscriptions` её не завершает. Конец периода у них — дата следующего списания.
+ * Отменённая подписка и подписка с отвязанной картой кончаются в `paidUntil` и в набор не входят.
  */
 async function renewingAccounts(
   prisma: BillingPrisma,
@@ -169,7 +170,12 @@ async function renewingAccounts(
     .map((entry) => entry.accountId);
   if (accounts.length === 0) return new Set();
   const rows = await prisma.billingSubscription.findMany({
-    where: { state: "active", accountId: { in: [...new Set(accounts)] } },
+    where: {
+      state: "active",
+      bindingCiphertext: { not: null },
+      bindingRevokedAt: null,
+      accountId: { in: [...new Set(accounts)] },
+    },
     select: { accountId: true },
   });
   return new Set(rows.map((row) => row.accountId));
