@@ -5,11 +5,10 @@ import type { AccessGround } from "./access-scenarios.js";
  * проверки. Таблица сценариев доступа рядом (`access-scenarios.ts`) говорит, что открывается и на
  * каком основании; эта матрица говорит, каким тестом и на каком уровне это доказано.
  *
- * Каждая клетка ссылается на существующий тест, на клетку таблицы сценариев, на новую проверку
- * задачи #904 (Web/BFF) или #906 (production) либо объясняет, почему уровень неприменим или
- * опирается на тест другого уровня той же строки. Тест policy- или module-уровня никогда не
- * обозначает production. Полноту и существование тестов держит `pnpm check`
- * (`test/unit/access-check-matrix.test.ts`).
+ * Каждая клетка ссылается на существующий тест, на клетку таблицы сценариев, на клетки
+ * production-прохода (#906) либо объясняет, почему уровень неприменим или опирается на тест другого
+ * уровня той же строки. Тест policy- или module-уровня никогда не обозначает production. Полноту
+ * и существование тестов держит `pnpm check` (`test/unit/access-check-matrix.test.ts`).
  */
 
 /** Состояния Account. Каждое сводится к основаниям таблицы сценариев доступа. */
@@ -103,18 +102,20 @@ export const accessCheckLevels = [
 ] as const;
 export type AccessCheckLevel = (typeof accessCheckLevels)[number];
 
-/** Задачи #902, чьи проверки ещё не на `main`: fullstack (#904) и production-проход (#906). */
-export const plannedCheckIssues = [904, 906] as const;
+/**
+ * Конфигурация production-прохода (#906). Клетка прохода называется `<строка матрицы>@<транспорт>`,
+ * например `learner-guide-a/read-guide-a/body@learner-mcp`.
+ */
+export const productionPassConfigFile =
+  "apps/web/test/production/pass-config.ts";
 
 export type AccessCheckEvidence =
   /** Тест по пути от корня репозитория и его названию, как оно стоит в исходнике. */
   | { readonly kind: "test"; readonly file: string; readonly name: string }
   /** Клетка таблицы сценариев: её исполняет `test/integration/access-scenarios.test.ts`. */
   | { readonly kind: "scenario-cell"; readonly cell: string }
-  | {
-      readonly kind: "new-check";
-      readonly issue: (typeof plannedCheckIssues)[number];
-    }
+  /** Клетки production-прохода этой строки: проход после deploy (#906), `productionPassConfigFile`. */
+  | { readonly kind: "production-pass" }
   /** Отдельного теста этого уровня нет; клетку доказывает тест другого уровня той же строки. */
   | {
       readonly kind: "relies-on";
@@ -162,8 +163,7 @@ const cell = (id: string): AccessCheckEvidence => ({
   kind: "scenario-cell",
   cell: id,
 });
-const fullstack: AccessCheckEvidence = { kind: "new-check", issue: 904 };
-const productionPass: AccessCheckEvidence = { kind: "new-check", issue: 906 };
+const productionPass: AccessCheckEvidence = { kind: "production-pass" };
 const reliesOn = (
   level: AccessCheckLevel,
   because: string,
@@ -185,6 +185,7 @@ const billingOperations = integration("billing-operations.test.ts");
 const billingHttp = integration("billing-pricing-http.test.ts");
 const accountsApi = integration("accounts-api.test.ts");
 const materialAuthoringWeb = webFullstack("material-authoring.spec.ts");
+const accessIdentitiesWeb = webFullstack("access-identities.spec.ts");
 
 const httpTests = {
   anonymous:
@@ -234,6 +235,21 @@ const webTests = {
   practiceDenied:
     "practice Reader keeps assignment metadata and protected body out of guest and denied views",
 } as const;
+/** Сценарии отдельных identities через Web/BFF (#904). */
+const identityTests = {
+  materialsOnly:
+    "Materials-only opens material tools and is denied a Billing mutation without a durable effect",
+  billingOnly:
+    "Billing-only opens billing tools and is denied a Materials mutation without a durable effect",
+  ordinaryAccount:
+    "an ordinary Account is denied Materials and Billing mutations on existing resources without a durable effect",
+  scopedLearner:
+    "a learner scoped to Guide A reads Guide A, is denied Guide B and loses Guide A on revocation",
+  separateAccounts:
+    "two separate Accounts cannot read or change each other's progress and bookmarks",
+} as const;
+const identityTest = (name: keyof typeof identityTests) =>
+  test(accessIdentitiesWeb, identityTests[name]);
 
 const mcpMediaReference =
   "learner MCP не отдаёт bytes файла и видео: тело несёт только ссылку на asset и видео с признаком доступности";
@@ -243,12 +259,12 @@ const noRevocationInProduction =
   "Отзыв доступа в production не выполняется (#902): переход проверяется только локально";
 const noAdministratorInProduction =
   "Тестового Platform Administrator в production нет (#902): platform:admin проверяется только локально";
-const productionWritesOnlyLocally =
-  "Production-проход только читает (#902): записи проверяются локально; административные read surfaces Materials-only и Billing-only проверяет #906";
 const productionReadsOnly =
   "Production-проход только читает (#902): записи и чужие данные Account проверяются локально";
 
 const viaHttp = (because: string) => reliesOn("nest-http", because);
+const scopedLearnerBodyOnly =
+  "Fullstack-сценарий ученика Guide A (#904) открывает только тело материала; файлы, видео и задания идут тем же ContentAccess, их различие доказывает Nest HTTP";
 const facadeHasOneLearner =
   "Facade-тесты держат одного ученика Guide A; ученик Guide B проходит тот же facade на PostgreSQL в Nest HTTP";
 const noFacadePracticeAccess =
@@ -308,16 +324,19 @@ function learnerReads(
     if (surface === "practice") return viaHttp(noFacadePracticeAccess);
     return test(guideAccess, guideAccessTests.media);
   };
-  const web: AccessCheckEvidence =
-    state === "learner-guide-a"
-      ? fullstack
-      : viaHttp(
-          "#904 проверяет в браузере ученика Guide A; ученик Guide B — зеркальный случай того же BFF, его различие A/B доказывает Nest HTTP",
-        );
+  const web = (surface: GuideSurface): AccessCheckEvidence => {
+    if (state === "learner-guide-b")
+      return viaHttp(
+        "#904 проверяет в браузере ученика Guide A; ученик Guide B — зеркальный случай того же BFF, его различие A/B доказывает Nest HTTP",
+      );
+    return surface === "body"
+      ? identityTest("scopedLearner")
+      : viaHttp(scopedLearnerBodyOnly);
+  };
   const row = (surface: GuideSurface): GuideRow => ({
     "facade-postgresql": facade(surface),
     ...transportLevels(surface, httpName, mcpName),
-    "web-bff": web,
+    "web-bff": web(surface),
     production: productionPass,
   });
   return guideReads(state, action, expected, {
@@ -452,25 +471,25 @@ export const accessCheckMatrix: readonly AccessCheckRow[] = [
     body: {
       "facade-postgresql": cell("product-material/expired-or-revoked"),
       ...transportLevels("body", httpTests.revoked, mcpTests.revoked),
-      "web-bff": fullstack,
+      "web-bff": identityTest("scopedLearner"),
       production: notApplicable(noRevocationInProduction),
     },
     assets: {
       "facade-postgresql": test(guideAccess, guideAccessTests.media),
       ...transportLevels("assets", httpTests.revoked, mcpTests.revoked),
-      "web-bff": fullstack,
+      "web-bff": viaHttp(scopedLearnerBodyOnly),
       production: notApplicable(noRevocationInProduction),
     },
     video: {
       "facade-postgresql": test(guideAccess, guideAccessTests.media),
       ...transportLevels("video", httpTests.revoked, mcpTests.revoked),
-      "web-bff": fullstack,
+      "web-bff": viaHttp(scopedLearnerBodyOnly),
       production: notApplicable(noRevocationInProduction),
     },
     practice: {
       "facade-postgresql": viaHttp(noFacadePracticeAccess),
       ...transportLevels("practice", httpTests.revoked, mcpTests.revoked),
-      "web-bff": fullstack,
+      "web-bff": viaHttp(scopedLearnerBodyOnly),
       production: notApplicable(noRevocationInProduction),
     },
   }),
@@ -485,8 +504,8 @@ export const accessCheckMatrix: readonly AccessCheckRow[] = [
       ),
       "nest-http": test(http, httpTests.ownerSurfaces),
       "learner-mcp": notApplicable(mcpReadOnly),
-      "web-bff": fullstack,
-      production: notApplicable(productionWritesOnlyLocally),
+      "web-bff": identityTest("materialsOnly"),
+      production: productionPass,
     },
   },
   {
@@ -501,8 +520,8 @@ export const accessCheckMatrix: readonly AccessCheckRow[] = [
       ),
       "nest-http": test(http, httpTests.ownerSurfaces),
       "learner-mcp": notApplicable(mcpReadOnly),
-      "web-bff": fullstack,
-      production: notApplicable(productionWritesOnlyLocally),
+      "web-bff": identityTest("materialsOnly"),
+      production: productionPass,
     },
   },
   {
@@ -520,8 +539,8 @@ export const accessCheckMatrix: readonly AccessCheckRow[] = [
         "scoped billing permission opens the owner surface and maps its result codes",
       ),
       "learner-mcp": notApplicable(mcpReadOnly),
-      "web-bff": fullstack,
-      production: notApplicable(productionWritesOnlyLocally),
+      "web-bff": identityTest("billingOnly"),
+      production: productionPass,
     },
   },
   {
@@ -535,8 +554,8 @@ export const accessCheckMatrix: readonly AccessCheckRow[] = [
       ),
       "nest-http": test(http, httpTests.ownerSurfaces),
       "learner-mcp": notApplicable(mcpReadOnly),
-      "web-bff": fullstack,
-      production: notApplicable(productionWritesOnlyLocally),
+      "web-bff": identityTest("billingOnly"),
+      production: productionPass,
     },
   },
   {
@@ -553,7 +572,7 @@ export const accessCheckMatrix: readonly AccessCheckRow[] = [
         "protects and executes the complete Material authoring HTTP lifecycle",
       ),
       "learner-mcp": notApplicable(mcpReadOnly),
-      "web-bff": fullstack,
+      "web-bff": identityTest("ordinaryAccount"),
       production: notApplicable(productionReadsOnly),
     },
   },
@@ -571,7 +590,7 @@ export const accessCheckMatrix: readonly AccessCheckRow[] = [
         "public catalog, trusted quote identity, owner authorization and wire conflicts",
       ),
       "learner-mcp": notApplicable(mcpReadOnly),
-      "web-bff": fullstack,
+      "web-bff": identityTest("ordinaryAccount"),
       production: notApplicable(productionReadsOnly),
     },
   },
@@ -635,7 +654,7 @@ export const accessCheckMatrix: readonly AccessCheckRow[] = [
         "trusted identity, personal no-store responses, conflict state, replay and bounded input",
       ),
       "learner-mcp": notApplicable(mcpReadOnly),
-      "web-bff": fullstack,
+      "web-bff": identityTest("separateAccounts"),
       production: notApplicable(productionReadsOnly),
     },
   },
@@ -654,7 +673,7 @@ export const accessCheckMatrix: readonly AccessCheckRow[] = [
         "HTTP-теста закладок нет; изоляцию по Account доказывает facade на PostgreSQL",
       ),
       "learner-mcp": notApplicable(mcpReadOnly),
-      "web-bff": fullstack,
+      "web-bff": identityTest("separateAccounts"),
       production: notApplicable(productionReadsOnly),
     },
   },

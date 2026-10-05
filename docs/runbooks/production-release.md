@@ -287,9 +287,9 @@ Workspace #184.
 Команды читают состояние и ничего не меняют. Имена контейнеров следуют `PLATFORM_COMPOSE_PROJECT`
 (`inside-platform-production`).
 
-**Доступ глазами тестовых Accounts.** Workflow `Production access pass` входит тестовыми identities
-и не меняет данные Platform; перечень, вход и секреты описаны в
-[тестовых identities production](production-test-identities.md).
+**Доступ глазами тестовых Accounts.** Job `Production access pass` идёт в `deploy.yml` сам; его
+итог и разбор красного результата описаны в разделе
+[Проход доступа после выпуска](#проход-доступа-после-выпуска).
 
 **Процессы.** `migrations` завершился, девять процессов и `rabbitmq` — `running` и `healthy`, у
 воркеров в логе `"status":"ready"`:
@@ -360,6 +360,61 @@ docker ps --filter label=com.docker.compose.project=inside-platform-production \
   ```
 
 - Запуск воронки и доставка людям проверяются на стороне Telegram в #184.
+
+## Проход доступа после выпуска
+
+Job `Production access pass` (#906) входит в production тестовыми identities и сверяет, что каждая
+видит и чего не видит. Перечень identities, вход и секреты описаны в
+[тестовых identities production](production-test-identities.md).
+
+**Когда идёт.** `deploy.yml` запускает job после job `deploy` при `deploy` и при `rollback`.
+Серверная операция `deploy-release` завершается после проверки готовности `api` и `web`
+(`infra/production/deploy/deploy-release`). Исключение — deploy уже активной версии: операция
+сразу выходит без изменений и без проверки готовности, а проход идёт против работающего выпуска. Job получает `deployed-sha` — `source.sha` из
+`release-manifest.json` выпуска. Без SHA проход после deploy красный. Ручной запуск: GitHub
+Actions → `Production access pass` → `Run workflow` на `main`, вход `deployed-sha` по желанию.
+
+**Что проверяет.** Клетки прохода перечислены в `apps/web/test/production/pass-config.ts`; каждая
+называется строкой матрицы проверок доступа и транспортом: `browser` (Web/BFF под настоящей
+сессией), `learner-mcp`, `owner-mcp`. Ученик A читает тело, картинку и задание Guide A. Account без
+entitlement, ученик B, expired и anonymous не получают их закрытых bytes. Materials-only и
+Billing-only открывают свои административные чтения и получают отказ на чужих. Клетки Guide B и
+video отложены решениями владельца в #905 и #906.
+
+**Только чтение.** Раннер проверяет каждый запрос до отправки (`pass-requests.ts`): GET и HEAD, MCP
+POST к названным read-only tools, выдача playback session видео и закрытый перечень операций входа
+Logto и BFF. Другой запрос раннер отклоняет и не отправляет. Страница сама шлёт записи, например
+прогресс чтения; отчёт перечисляет их в разделе запросов вне allowlist, и итог от них не краснеет.
+Шаг redirect в браузере Playwright перехватить не даёт: раннер проверяет его после отправки, и шаг
+вне allowlist помечен в отчёте «отправлен» и делает итог красным. Запросы Node и context по redirect
+не идут.
+
+**Итог.** Artifact `production-access-report-<попытка>` содержит `report.json` и `report.md`: deployed
+SHA, ожидание, факт, уровень и статус каждой клетки. Все живые клетки совпали — job зелёный.
+Расхождение, «не проверено» или отсутствие SHA после deploy — job красный. Автоматического отката
+нет: выпуск остаётся в production.
+
+### Разбор красного прохода
+
+1. Откройте `report.md` из artifact run. Cookies, токены и email отчёт не содержит.
+2. **«не проверено» с причиной.** Причина — первая строка ошибки теста. Сеть до production
+   иногда обрывается: при сетевой причине перезапустите job один раз (`Re-run failed jobs`).
+   Identity видит экран условий или не находится в Logto — повторите шаг одноразовой настройки
+   из [тестовых identities](production-test-identities.md). Иначе откройте issue с меткой
+   `needs-triage` и исправьте проход.
+3. **«расхождение», ожидался доступ.** Ученик A потерял доступ к своему Guide. Откройте issue с
+   меткой `needs-triage` и сообщите владельцу: выпуск закрыл материал оплаченному ученику.
+4. **«расхождение», ожидался отказ.** Identity прочитала закрытый материал без права: это утечка.
+   Сразу сообщите владельцу в канале, из которого шёл deploy: клетку, ссылку на run и deployed
+   SHA. Откройте issue с меткой `needs-triage` и той же информацией. Репозиторий публичный, поэтому
+   текст закрытого материала в issue не копируйте. Решение об откате принимает владелец; откат
+   описан в [production delivery](production-delivery.md#run-deployment-or-rollback).
+
+```bash
+gh issue create --label needs-triage \
+  --title "Production access pass: <клетка> — <статус>" \
+  --body "Run: <ссылка>. Deployed SHA: <sha>. Клетка, ожидание и факт — из report.md."
+```
 
 ## VPS resources
 

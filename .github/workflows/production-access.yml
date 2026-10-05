@@ -1,8 +1,8 @@
 name: Production access pass
 
-# Проход доступа против production тестовыми identities (#905). Данные Platform он не меняет; в Logto
-# выпускает one-time token и PAT на прогон. Не проверка pull request: запускается вручную, а #906
-# вызывает его из deploy.yml после health-проверки.
+# Проход доступа против production тестовыми identities (#905, #906). Данные Platform он не меняет:
+# каждый запрос проходит allowlist до отправки. В Logto проход выпускает one-time token и PAT на
+# прогон. Не проверка pull request: запускается вручную и из deploy.yml после выпуска.
 on:
   workflow_dispatch:
     inputs:
@@ -15,6 +15,11 @@ on:
       deployed-sha:
         required: false
         type: string
+      # deploy.yml передаёт true: проход после выпуска без SHA красный.
+      require-deployed-sha:
+        required: false
+        type: boolean
+        default: false
 
 permissions: {}
 
@@ -54,6 +59,7 @@ jobs:
           # Secret, не variable: GitHub печатает env шага в публичном логе и маскирует только secrets.
           PRODUCTION_ACCESS_MAILBOX: ${{ secrets.PRODUCTION_ACCESS_MAILBOX }}
           PRODUCTION_ACCESS_DEPLOYED_SHA: ${{ inputs.deployed-sha }}
+          PRODUCTION_ACCESS_REQUIRE_DEPLOYED_SHA: ${{ inputs.require-deployed-sha }}
           PRODUCTION_ACCESS_REPORT_DIR: ${{ github.workspace }}/ci-artifacts/production-access
         run: pnpm --filter @inside/web test:production-access
       - name: Upload the pass report

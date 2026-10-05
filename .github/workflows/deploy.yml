@@ -29,8 +29,11 @@ jobs:
     permissions:
       actions: read
       contents: read
+    outputs:
+      source-sha: ${{ steps.release.outputs.source-sha }}
     steps:
       - name: Verify and download the selected release
+        id: release
         env:
           GH_TOKEN: ${{ github.token }}
           OPERATION: ${{ inputs.operation }}
@@ -87,6 +90,7 @@ jobs:
             .path == ".github/workflows/release.yml"
           ' "$release_dir/publication-run.json" >/dev/null
           echo "RELEASE_DIR=$release_dir" >>"$GITHUB_ENV"
+          echo "source-sha=$source_sha" >>"$GITHUB_OUTPUT"
 
       - name: Install the restricted SSH identity
         env:
@@ -145,3 +149,17 @@ jobs:
               -o "UserKnownHostsFile=$RUNNER_TEMP/inside-known-hosts" \
               "inside-deploy@${{ secrets.PRODUCTION_SSH_HOST }}" \
               "$OPERATION $VERSION $GITHUB_RUN_ID"
+
+  # Проход доступа тестовыми identities после выпуска (#906). Серверная операция выше завершается
+  # после проверки готовности api и web (deploy уже активной версии выходит раньше, без изменений),
+  # поэтому job идёт следом. Красный проход не откатывает выпуск: разбор — в
+  # docs/runbooks/production-release.md.
+  access-pass:
+    name: Production access pass
+    needs: deploy
+    permissions:
+      contents: read
+    uses: ./.github/workflows/production-access.yml
+    with:
+      deployed-sha: ${{ needs.deploy.outputs.source-sha }}
+      require-deployed-sha: true
