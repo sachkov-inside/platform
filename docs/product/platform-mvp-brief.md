@@ -5,8 +5,10 @@
 discovery и delivery, но не выбирает stack, архитектуру или repository layout.
 
 Authority этого brief находится в этом Platform repository. Обычные Git commits и pull requests
-дают versioning, provenance и review. Общий Membership-контекст и cross-repository решения остаются
-в [`sachkov-inside/workspace`](https://github.com/sachkov-inside/workspace).
+дают versioning, provenance и review. Общий продуктовый контекст теперь хранит
+[brief Inside](README.md), термины определяет [GLOSSARY](../../GLOSSARY.md).
+[Карта репозиториев](../../REPOSITORIES.md) описывает переход по #958/#957.
+История общих решений остаётся доступной в Workspace.
 
 ## Продукты и подписки
 

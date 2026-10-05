@@ -20,7 +20,7 @@ deployment или secret distribution. Каждый repository хранит со
 
 Первоначальный контракт описывал Member Profile как представление для участников.
 Это отменено решением [Workspace #185](https://github.com/sachkov-inside/workspace/issues/185)
-и [Platform #658](https://github.com/sachkov-inside/platform/issues/658): профиль виден только владельцу Account.
+и [Platform #658](https://github.com/sachkov-inside/platform/issues/658). Профиль виден только владельцу Account.
 Текущая граница описана в [brief Platform](../product/platform-mvp-brief.md#участник-membership).
 Profile не предоставляет identity, Membership или доступ к контенту. Wire envelope и corpus ниже сохраняются.
 
