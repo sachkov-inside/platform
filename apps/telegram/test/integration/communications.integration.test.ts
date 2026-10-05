@@ -1,0 +1,1525 @@
+import { FunnelScheduler } from "../../src/modules/communications/funnel-scheduler.js";
+import { BotContacts } from "../../src/modules/bot-contacts/bot-contacts.js";
+import type { CommunicationMessage } from "../../src/modules/communications/communication-delivery.js";
+import {
+  AUTHOR_CONTENT_VALIDATION,
+  type AuthorContentValidationResult,
+} from "../../src/modules/communications/author-content-validation.js";
+import type { MessagePart } from "../../src/modules/communications/funnel-types.js";
+import { AuthorAdmin } from "../../src/modules/communications/author-admin.js";
+import { parseAuthorState } from "../../src/modules/communications/author-dialog.js";
+import { AuthorDelivery } from "../../src/modules/communications/author-delivery.js";
+import { translateAuthorInput } from "../../src/adapters/telegram/grammy-author-admin.adapter.js";
+import { randomUUID } from "node:crypto";
+import {
+  FastifyAdapter,
+  type NestFastifyApplication,
+} from "@nestjs/platform-fastify";
+import { Test } from "@nestjs/testing";
+import { sql } from "kysely";
+import {
+  afterAll,
+  afterEach,
+  beforeAll,
+  beforeEach,
+  describe,
+  expect,
+  it,
+  vi,
+} from "vitest";
+import { AppModule } from "../../src/app.module.js";
+import { loadApplicationConfig } from "../../src/config/application-config.js";
+import { createDatabase } from "../../src/database/create-database.js";
+import { migrateToLatest } from "../../src/database/migrator.js";
+import {
+  AUTHOR_AUTHORIZATION,
+  type AuthorAuthorization,
+  type AuthorSubject,
+} from "../../src/modules/communications/author-authorization.js";
+import { Communications } from "../../src/modules/communications/communications.js";
+import {
+  COMMUNICATIONS_VERSION,
+  contractValidator,
+  type CommunicationsRequest,
+} from "../../src/modules/communications/communications-contract.js";
+import { translateTemplateIntake } from "../../src/adapters/telegram/grammy-template-intake.adapter.js";
+import { TelegramUpdateInbox } from "../../src/modules/update-inbox/telegram-update-inbox.js";
+import { TelegramUpdateProcessor } from "../../src/modules/update-inbox/telegram-update-processor.js";
+import { StartResponseDeliveryProcessor } from "../../src/modules/outbound/start-response-delivery-processor.js";
+import { TELEGRAM_MESSAGES } from "../../src/modules/outbound/telegram-messages.js";
+import scenarios from "../../src/modules/communications/contracts/inside-communications-v1/scenarios.json" with { type: "json" };
+import type { CommunicationsBody } from "../support/communications-body.js";
+import { required } from "../support/required.js";
+const databaseUrl = process.env.DATABASE_URL;
+if (!databaseUrl) throw new Error("DATABASE_URL is required");
+const database = createDatabase(databaseUrl);
+const config = {
+  ...loadApplicationConfig({
+    DATABASE_URL: databaseUrl,
+    TELEGRAM_BOT_IDENTITY: "inside",
+    TELEGRAM_CANONICAL_CHAT_ID: "-1000000000000",
+    TELEGRAM_WEBHOOK_SECRET: "synthetic_webhook_secret_for_tests_only",
+    PLATFORM_INTEGRATION_SECRET: "synthetic_platform_secret_for_tests_only",
+    PLATFORM_COMMUNICATIONS_SECRET: "synthetic_communications_secret_for_tests",
+    TELEGRAM_WELCOME_TEXT: "Synthetic welcome",
+    TELEGRAM_LINK_RECEIPT_TEXT: "Synthetic receipt",
+    TELEGRAM_LINKED_MEMBER_TEXT: "Synthetic member",
+    TELEGRAM_LINKED_NON_MEMBER_TEXT: "Synthetic non-member",
+    TELEGRAM_LINKED_UNAVAILABLE_TEXT: "Synthetic unavailable",
+    WORKERS_ENABLED: "false",
+  }),
+  // Scripted conversations exceed the per-user limit, which ordinary-start covers.
+  senderRate: { requests: 10_000, windowMs: 10_000 },
+};
+function scenarioDecision(value: string): "allowed" | "denied" {
+  if (value === "allowed" || value === "denied") return value;
+  throw new Error(`Unknown scenario authorization: ${value}`);
+}
+
+class FakeAuthorization implements AuthorAuthorization {
+  result: "allowed" | "denied" | "unavailable" = "allowed";
+  subjects: AuthorSubject[] = [];
+  openTransactions: number[] = [];
+  /** While set, every answer waits for it: a slow Platform. */
+  slow?: Promise<void> | undefined;
+  async authorize(subject: AuthorSubject) {
+    this.subjects.push(subject);
+    this.openTransactions.push(await openTransactions());
+    await this.slow;
+    return this.result;
+  }
+}
+// Connections of this database that wait inside a transaction while the caller does other I/O.
+async function openTransactions(): Promise<number> {
+  const result = await sql<{ open: string }>`
+    select count(*)::text as open from pg_stat_activity
+    where datname = current_database() and state = 'idle in transaction'
+  `.execute(database);
+  return Number(result.rows[0]?.open ?? 0);
+}
+const authorization = new FakeAuthorization();
+const contentValidation = {
+  result: { status: "ok", targetErrors: [] } as AuthorContentValidationResult,
+  snapshots: [] as (readonly MessagePart[])[],
+  validate(_subject: AuthorSubject, parts: readonly MessagePart[]) {
+    this.snapshots.push(structuredClone(parts));
+    return Promise.resolve(this.result);
+  },
+};
+const sent: unknown[] = [];
+let app: NestFastifyApplication;
+let communications: Communications;
+beforeAll(async () => {
+  await migrateToLatest(database);
+  const module = await Test.createTestingModule({
+    imports: [AppModule.register(config)],
+  })
+    .overrideProvider(AUTHOR_AUTHORIZATION)
+    .useValue(authorization)
+    .overrideProvider(AUTHOR_CONTENT_VALIDATION)
+    .useValue(contentValidation)
+    .overrideProvider(TELEGRAM_MESSAGES)
+    .useValue({
+      sendText: (message: unknown) => {
+        sent.push(message);
+        return Promise.resolve({ kind: "delivered", providerMessageId: "123" });
+      },
+    })
+    .compile();
+  app = module.createNestApplication<NestFastifyApplication>(
+    new FastifyAdapter(),
+    { logger: false },
+  );
+  await app.init();
+  await app.getHttpAdapter().getInstance().ready();
+  communications = app.get(Communications);
+});
+beforeEach(async () => {
+  await sql`truncate communication_author_compositions, communication_author_drafts, communication_funnels, communication_intro, communication_sources, communication_author_sessions, communication_author_receipts, communication_author_outbox, communication_broadcasts, telegram_transport_slots, communication_intake_receipts, communication_operations, communication_templates, communication_author_modes,
+    link_transactions, platform_links, telegram_updates, bot_contacts, bot_contact_events, start_response_deliveries restart identity cascade`.execute(
+    database,
+  );
+  contentValidation.result = { status: "ok", targetErrors: [] };
+  contentValidation.snapshots = [];
+  authorization.result = "allowed";
+  authorization.subjects = [];
+  authorization.slow = undefined;
+  sent.length = 0;
+});
+afterAll(async () => {
+  await sql`truncate communication_author_compositions, communication_author_drafts, communication_broadcasts cascade`.execute(
+    database,
+  );
+  await app?.close();
+  await database.destroy();
+});
+const content = {
+  type: "text" as const,
+  text: "Synthetic snapshot",
+  entities: [],
+  buttons: [],
+};
+function request(): CommunicationsRequest {
+  return {
+    contractVersion: COMMUNICATIONS_VERSION,
+    operation: "templates.save",
+    operationId: randomUUID(),
+    expectedRevision: 0,
+    actor: { accountRef: "synthetic-author" },
+    payload: { templateId: randomUUID(), content },
+  };
+}
+function http(
+  body: unknown,
+  secret: string | undefined = config.communicationsSecret,
+) {
+  return app.inject({
+    method: "POST",
+    url: "/integrations/platform/v1/communications",
+    payload: JSON.stringify(body),
+    headers: {
+      "content-type": "application/json",
+      ...(secret ? { authorization: `Bearer ${secret}` } : {}),
+    },
+  });
+}
+async function seedLink() {
+  const now = new Date();
+  await database
+    .insertInto("link_transactions")
+    .values({
+      account_ref: "synthetic-author",
+      bot_identity: "inside",
+      candidate_telegram_user_id: "42",
+      confirmed_at: now,
+      expires_at: now,
+      link_transaction_ref: "synthetic-link",
+      received_at: now,
+      registered_at: now,
+      return_correlation: "synthetic-return",
+      state: "linked",
+      token_digest: "a".repeat(43),
+    })
+    .execute();
+  await database
+    .insertInto("platform_links")
+    .values({
+      account_ref: "synthetic-author",
+      bot_identity: "inside",
+      evidence_version: 0,
+      last_membership_observation_at: null,
+      last_membership_observation_update_id: null,
+      link_transaction_ref: "synthetic-link",
+      linked_at: now,
+      telegram_identity_ref: "synthetic-identity",
+      telegram_user_id: "42",
+    })
+    .execute();
+}
+function update(id: number, body: Record<string, unknown>) {
+  return {
+    update_id: id,
+    message: {
+      message_id: id,
+      date: 1788696000,
+      chat: { id: 42, type: "private" },
+      from: { id: 42, is_bot: false },
+      ...body,
+    },
+  };
+}
+async function intake(id: number, body: Record<string, unknown>) {
+  await communications.intake(
+    required(translateTemplateIntake("inside", String(id), update(id, body))),
+  );
+}
+function slowPlatform() {
+  let answer!: () => void;
+  authorization.slow = new Promise((resolve) => (answer = resolve));
+  return { answer };
+}
+async function updateState(updateId: string) {
+  const row = await database
+    .selectFrom("telegram_updates")
+    .select("state")
+    .where("update_id", "=", updateId)
+    .executeTakeFirst();
+  return row?.state;
+}
+function rows() {
+  return database.selectFrom("communication_templates").selectAll().execute();
+}
+
+describe("versioned HTTP scenarios shared with consumer", () => {
+  for (const scenario of scenarios)
+    it(scenario.name, async () => {
+      for (const step of scenario.steps) {
+        authorization.result = scenarioDecision(step.authorization);
+        const response = await http(step.request);
+        expect(response.statusCode).toBe(step.status);
+        expect(
+          contractValidator("response")(response.json<CommunicationsBody>()),
+        ).toBe(true);
+        if ("revision" in step)
+          expect(response.json<CommunicationsBody>().template.revision).toBe(
+            step.revision,
+          );
+      }
+    });
+  it("rejects untrusted service callers and forged actor properties before permission lookup", async () => {
+    expect((await http(request(), "wrong")).statusCode).toBe(401);
+    expect(
+      (await http(request(), config.platformIntegrationSecret)).statusCode,
+    ).toBe(401);
+    expect(
+      (
+        await http({
+          ...request(),
+          actor: {
+            accountRef: "synthetic-author",
+            permissions: ["communications:manage"],
+          },
+        })
+      ).statusCode,
+    ).toBe(400);
+    expect(authorization.subjects).toHaveLength(0);
+    expect(await rows()).toHaveLength(0);
+  });
+  it("serializes duplicate operation IDs and competing revisions on independent connections", async () => {
+    const command = request();
+    const independent = new Communications(database, config, authorization);
+    const results = await Promise.all([
+      communications.execute(command),
+      independent.execute(command),
+    ]);
+    expect(results[0]).toEqual(results[1]);
+    expect(await rows()).toHaveLength(1);
+    const edits = await Promise.allSettled([
+      communications.execute({
+        ...command,
+        operationId: randomUUID(),
+        expectedRevision: 1,
+      }),
+      independent.execute({
+        ...command,
+        operationId: randomUUID(),
+        expectedRevision: 1,
+      }),
+    ]);
+    expect(edits.filter((r) => r.status === "fulfilled")).toHaveLength(1);
+    expect(edits.filter((r) => r.status === "rejected")).toHaveLength(1);
+    expect((await rows())[0]?.revision).toBe(2);
+    expect(
+      (
+        await http({
+          ...command,
+          payload: {
+            ...command.payload,
+            content: { ...content, text: "changed" },
+          },
+        })
+      ).statusCode,
+    ).toBe(409);
+  });
+  it("keeps a saved operation result through lost commit acknowledgement and later edits", async () => {
+    const command = request();
+    await communications.execute(command); // caller loses this committed response
+    await communications.execute({
+      ...command,
+      operationId: randomUUID(),
+      expectedRevision: 1,
+      payload: { ...command.payload, content: { ...content, text: "edited" } },
+    });
+    const recovered = await new Communications(
+      database,
+      config,
+      authorization,
+    ).execute(command);
+    expect(recovered.revision).toBe(1);
+    expect(recovered.content.text).toBe(content.text);
+    expect((await rows())[0]?.revision).toBe(2);
+  });
+  it("fails closed on unavailable authorization and hides missing rollback targets", async () => {
+    authorization.result = "unavailable";
+    expect((await http(request())).statusCode).toBe(503);
+    expect(await rows()).toHaveLength(0);
+    authorization.result = "allowed";
+    expect(
+      (
+        await http({
+          ...request(),
+          operation: "funnels.rollback",
+          payload: { funnelId: randomUUID(), publishedRevision: 1 },
+        })
+      ).statusCode,
+    ).toBe(404);
+  });
+});
+describe("durable author intake", () => {
+  it("asks Platform for permission with no transaction open", async () => {
+    await seedLink();
+    authorization.openTransactions = [];
+    await intake(1, { text: "/template" });
+    await authorMessage(2, "/admin");
+
+    expect(authorization.subjects.length).toBeGreaterThanOrEqual(2);
+    expect(authorization.openTransactions).toEqual(
+      authorization.subjects.map(() => 0),
+    );
+  });
+
+  it("requires explicit mode, a real link and fresh permission; username and forward origin do not authorize", async () => {
+    await intake(1, { text: "Ordinary message" });
+    await intake(2, {
+      text: "/template",
+      forward_origin: { type: "user", sender_user: { id: 42 } },
+      username: "owner",
+    });
+    expect(await rows()).toHaveLength(0);
+    expect(authorization.subjects).toHaveLength(0);
+    await seedLink();
+    await intake(3, { text: "/template" });
+    authorization.result = "denied";
+    await intake(4, { text: "Not allowed after revocation" });
+    expect(await rows()).toHaveLength(0);
+    expect(authorization.subjects.at(-1)).toEqual({
+      kind: "telegram",
+      accountRef: "synthetic-author",
+      telegramIdentityRef: "synthetic-identity",
+      botIdentity: "inside",
+    });
+  });
+  for (const type of [
+    "text",
+    "photo",
+    "video",
+    "video_note",
+    "voice",
+    "document",
+  ])
+    it(`snapshots ${type} independently of source edits/deletion`, async () => {
+      await seedLink();
+      await intake(1, { text: "/template" });
+      const message =
+        type === "text"
+          ? {
+              text: "Synthetic formatted text",
+              entities: [{ type: "bold", offset: 0, length: 9 }],
+            }
+          : {
+              [type]:
+                type === "photo"
+                  ? [
+                      { file_id: "synthetic_small" },
+                      { file_id: "synthetic_large" },
+                    ]
+                  : { file_id: "synthetic_file" },
+              ...(type !== "video_note"
+                ? {
+                    caption: "Synthetic caption",
+                    caption_entities: [
+                      { type: "italic", offset: 0, length: 9 },
+                    ],
+                  }
+                : {}),
+            };
+      await Promise.all([intake(2, message), intake(2, message)]);
+      const saved = await rows();
+      expect(saved).toHaveLength(1);
+      const inbox = app.get(TelegramUpdateInbox);
+      await inbox.accept(
+        "inside",
+        "3",
+        {
+          update_id: 3,
+          edited_message: { ...update(2, message).message, text: "changed" },
+        },
+        new Date(),
+      );
+      await app.get(TelegramUpdateProcessor).processAvailable();
+      expect(await rows()).toEqual(saved);
+      const read = await http({
+        ...request(),
+        operation: "templates.read",
+        payload: { templateId: required(saved[0]).template_id },
+      });
+      expect(read.statusCode).toBe(200);
+      expect(read.json<CommunicationsBody>().template.content.type).toBe(type);
+      if (type === "photo")
+        expect(read.json<CommunicationsBody>().template.content.fileId).toBe(
+          "synthetic_large",
+        );
+      expect(read.body).not.toContain("api.telegram.org");
+    });
+  it("rolls back template + reply + receipt together on a database fault, then recovers once", async () => {
+    await seedLink();
+    await intake(1, { text: "/template" });
+    await sql`create function synthetic_reject_intake_receipt() returns trigger language plpgsql as $$ begin raise exception 'synthetic crash'; end; $$;
+      create trigger synthetic_intake_crash before insert on communication_intake_receipts for each row execute function synthetic_reject_intake_receipt()`.execute(
+      database,
+    );
+    try {
+      await expect(
+        intake(2, { text: "Synthetic atomic snapshot" }),
+      ).rejects.toThrow();
+      expect(await rows()).toHaveLength(0);
+    } finally {
+      await sql`drop trigger synthetic_intake_crash on communication_intake_receipts; drop function synthetic_reject_intake_receipt()`.execute(
+        database,
+      );
+    }
+    await intake(2, { text: "Synthetic atomic snapshot" });
+    await intake(2, { text: "Synthetic atomic snapshot" });
+    expect(await rows()).toHaveLength(1);
+    const replies = await database
+      .selectFrom("start_response_deliveries")
+      .selectAll()
+      .execute();
+    expect(replies).toHaveLength(2);
+  });
+  it("runs authenticated webhook dedup through inbox and fake Telegram replies", async () => {
+    await seedLink();
+    for (const [id, text] of [
+      [1, "/template"],
+      [2, "Synthetic webhook snapshot"],
+    ] as const) {
+      for (let attempt = 0; attempt < 2; attempt++)
+        expect(
+          (
+            await app.inject({
+              method: "POST",
+              url: "/webhooks/telegram",
+              headers: {
+                "x-telegram-bot-api-secret-token": config.webhookSecret,
+              },
+              payload: update(id, { text }),
+            })
+          ).statusCode,
+        ).toBe(202);
+      await app.get(TelegramUpdateProcessor).processAvailable();
+    }
+    expect(await rows()).toHaveLength(1);
+    await app.get(StartResponseDeliveryProcessor).processAvailable();
+    expect(sent).toHaveLength(2);
+    expect(JSON.stringify(sent)).toContain(
+      required((await rows())[0]).template_id,
+    );
+    const inbox = await database
+      .selectFrom("telegram_updates")
+      .selectAll()
+      .execute();
+    expect(
+      inbox.every((r) => r.payload === null && r.state === "processed"),
+    ).toBe(true);
+  });
+  it("keeps one sender's updates in order across parallel workers", async () => {
+    await seedLink();
+    const platform = slowPlatform();
+    const inbox = app.get(TelegramUpdateInbox);
+    const processor = app.get(TelegramUpdateProcessor);
+    await inbox.accept(
+      "inside",
+      "1",
+      update(1, { text: "/template" }),
+      new Date(),
+    );
+    await inbox.accept(
+      "inside",
+      "2",
+      update(2, { text: "Synthetic ordered capture" }),
+      new Date(),
+    );
+
+    const first = processor.processAvailable();
+    await vi.waitFor(() => expect(authorization.subjects).toHaveLength(1), {
+      timeout: 5000,
+    });
+    await processor.processAvailable();
+    expect(await updateState("2")).toBe("pending");
+
+    platform.answer();
+    await first;
+    expect(await updateState("1")).toBe("processed");
+    expect(await updateState("2")).toBe("processed");
+    expect(await rows()).toHaveLength(1);
+  });
+  it("does not let a slow Platform answer for one sender delay another sender's later /start", async () => {
+    await seedLink();
+    const platform = slowPlatform();
+    const inbox = app.get(TelegramUpdateInbox);
+    const processor = app.get(TelegramUpdateProcessor);
+    await inbox.accept(
+      "inside",
+      "1",
+      update(1, { text: "/template" }),
+      new Date(),
+    );
+    const slow = processor.processAvailable();
+    await vi.waitFor(() => expect(authorization.subjects).toHaveLength(1), {
+      timeout: 5000,
+    });
+
+    await inbox.accept(
+      "inside",
+      "2",
+      {
+        update_id: 2,
+        message: {
+          message_id: 2,
+          date: 1788696000,
+          chat: { id: 43, type: "private" },
+          from: { id: 43, is_bot: false },
+          text: "/start",
+        },
+      },
+      new Date(),
+    );
+    await expect(processor.processAvailable()).resolves.toBe(1);
+    expect(await updateState("2")).toBe("processed");
+    expect(await updateState("1")).toBe("processing");
+
+    platform.answer();
+    await slow;
+    expect(await updateState("1")).toBe("processed");
+  });
+  it("rejects unsupported content explicitly, permits correction, and closes mode after one capture", async () => {
+    await seedLink();
+    await intake(1, { text: "/template" });
+    await intake(2, { poll: {} });
+    expect(await rows()).toHaveLength(0);
+    await intake(3, { text: "Corrected" });
+    await intake(4, { text: "Outside mode" });
+    expect(await rows()).toHaveLength(1);
+    const result = await database
+      .selectFrom("communication_intake_receipts")
+      .selectAll()
+      .where("update_id", "=", "2")
+      .executeTakeFirstOrThrow();
+    expect(result.outcome).toBe("unsupported_content");
+  });
+});
+
+afterEach(async () => {
+  await sql`truncate communication_author_sessions, communication_author_receipts, communication_author_outbox`.execute(
+    database,
+  );
+});
+async function authorMessage(
+  id: number,
+  text: string,
+  extra: Record<string, unknown> = {},
+) {
+  id = Math.round(id * 10);
+  const payload = update(id, { text, ...extra });
+  await app
+    .get(TelegramUpdateInbox)
+    .accept("inside", String(id), payload, new Date());
+  await app.get(TelegramUpdateProcessor).processAvailable();
+  expect(
+    (
+      await database
+        .selectFrom("telegram_updates")
+        .select("state")
+        .where("update_id", "=", String(id))
+        .executeTakeFirst()
+    )?.state,
+  ).toBe("processed");
+}
+let navigationId = 1000000;
+/**
+ * Clicks a button of the latest menu. A button that is not on screen is reached through «Ещё →» or
+ * «Настройки», so paging never fails a test: assert on-screen labels in the unit tests instead.
+ */
+async function authorClick(id: number, label: string, depth = 0) {
+  id = Math.round(id * 10);
+  const messages = await database
+    .selectFrom("communication_author_outbox")
+    .select("message")
+    .orderBy("sequence_id", "desc")
+    .execute();
+  const menu = messages
+    .map(
+      (r) =>
+        r.message as {
+          authorButtons?: readonly { text: string; callbackData: string }[];
+        },
+    )
+    .find((m) => m.authorButtons);
+  const data = menu?.authorButtons?.find((b) => b.text === label)?.callbackData;
+  if (!data && depth < 8) {
+    const state = await sessionState();
+    const next = state.menu?.buttons.some(([text]) => text === label)
+      ? "Ещё →"
+      : menu?.authorButtons?.some((b) => b.text === "Настройки")
+        ? "Настройки"
+        : "Ещё →";
+    if (menu?.authorButtons?.some((b) => b.text === next)) {
+      await authorClick(++navigationId, next);
+      return authorClick(id / 10, label, depth + 1);
+    }
+  }
+  expect(
+    data,
+    `${label}: ${menu?.authorButtons?.map((b) => b.text).join(", ")}`,
+  ).toBeDefined();
+  const payload = {
+    update_id: id,
+    callback_query: {
+      id: String(id),
+      from: { id: 42, is_bot: false },
+      message: { chat: { id: 42, type: "private" } },
+      data,
+    },
+  };
+  const input = required(translateAuthorInput("inside", String(id), payload));
+  await Promise.all([
+    app.get(AuthorAdmin).handle(input),
+    app.get(AuthorAdmin).handle(input),
+  ]);
+  return input;
+}
+async function lastAuthorText() {
+  const row = await database
+    .selectFrom("communication_author_outbox")
+    .select("message")
+    .orderBy("sequence_id", "desc")
+    .executeTakeFirstOrThrow();
+  return (row.message as { content: { text: string } }).content.text;
+}
+
+async function sessionState() {
+  const row = await database
+    .selectFrom("communication_author_sessions")
+    .select("state")
+    .where("telegram_user_id", "=", "42")
+    .executeTakeFirstOrThrow();
+  // Every stored session must be one the current version accepts.
+  const state = parseAuthorState(row.state);
+  if (!state) throw new Error("Stored author session is not trusted");
+  return state;
+}
+
+function broadcastRows() {
+  return database.selectFrom("communication_broadcasts").selectAll().execute();
+}
+
+describe("author transport and API", () => {
+  it("lists only the current bot owner and checks current authorization before replay", async () => {
+    const own = request();
+    await communications.execute(own);
+    await communications.execute({
+      ...request(),
+      actor: { accountRef: "another-author" },
+    });
+    const response = await http({
+      ...request(),
+      operation: "templates.list",
+      payload: {},
+    });
+    expect(response.statusCode).toBe(200);
+    expect(
+      response.json<CommunicationsBody>().templates.map((t) => t.templateId),
+    ).toEqual([own.payload.templateId]);
+    expect(
+      contractValidator("response")(response.json<CommunicationsBody>()),
+    ).toBe(true);
+    await seedLink();
+    const sample = {
+      ...request(),
+      operation: "templates.testSend",
+      expectedRevision: 1,
+      payload: own.payload.templateId
+        ? { templateId: own.payload.templateId }
+        : {},
+    };
+    expect((await http(sample)).statusCode).toBe(200);
+    authorization.result = "denied";
+    expect((await http(sample)).statusCode).toBe(403);
+  });
+  it("does not resend unknown author samples after worker restart and rejects revoked recipients", async () => {
+    await seedLink();
+    const post = request();
+    await communications.execute(post);
+    const sample = {
+      ...request(),
+      operation: "templates.testSend",
+      expectedRevision: 1,
+      payload: { templateId: required(post.payload.templateId) },
+    };
+    await http(sample);
+    let calls = 0;
+    const worker = () =>
+      new AuthorDelivery(
+        database,
+        { ...config, deliveryMode: "live" },
+        authorization,
+        {
+          send: () => {
+            calls++;
+            return Promise.resolve({ kind: "transport_unknown" });
+          },
+        },
+      );
+    await worker().processAvailable();
+    await worker().processAvailable(new Date(Date.now() + 120_000));
+    expect(calls).toBe(1);
+    expect(
+      (
+        await database
+          .selectFrom("communication_author_outbox")
+          .select("state")
+          .executeTakeFirstOrThrow()
+      ).state,
+    ).toBe("unknown");
+    await http({ ...sample, operationId: randomUUID() });
+    authorization.result = "denied";
+    await worker().processAvailable(new Date(Date.now() + 240_000));
+    expect(calls).toBe(1);
+    expect(
+      await database
+        .selectFrom("communication_author_outbox")
+        .select("state")
+        .where("state", "=", "rejected")
+        .execute(),
+    ).toHaveLength(1);
+  });
+  it("honors known retry_after and keeps samples for one chat ordered across workers", async () => {
+    await seedLink();
+    const post = request();
+    await communications.execute(post);
+    const sample = {
+      ...request(),
+      operation: "templates.testSend",
+      expectedRevision: 1,
+      payload: { templateId: required(post.payload.templateId) },
+    };
+    await http(sample);
+    await http({ ...sample, operationId: randomUUID() });
+    const time = new Date(Date.now() + 1000);
+    let calls = 0;
+    const worker = new AuthorDelivery(
+      database,
+      { ...config, deliveryMode: "live" },
+      authorization,
+      {
+        send: () => {
+          calls++;
+          return Promise.resolve(
+            calls === 1
+              ? {
+                  kind: "api_retryable",
+                  providerErrorCode: 429,
+                  retryAfterSeconds: 20,
+                }
+              : { kind: "delivered", providerMessageId: String(calls) },
+          );
+        },
+      },
+    );
+    await Promise.all([
+      worker.processAvailable(time),
+      worker.processAvailable(time),
+    ]);
+    expect(calls).toBe(1);
+    await worker.processAvailable(new Date(time.getTime() + 19_000));
+    expect(calls).toBe(1);
+    await worker.processAvailable(new Date(time.getTime() + 20_000));
+    expect(calls).toBe(2);
+    await worker.processAvailable(new Date(time.getTime() + 21_000));
+    expect(calls).toBe(3);
+    const states = await database
+      .selectFrom("communication_author_outbox")
+      .select(["state", "attempt_count"])
+      .orderBy("sequence_id")
+      .execute();
+    expect(states).toEqual([
+      { state: "delivered", attempt_count: 2 },
+      { state: "delivered", attempt_count: 1 },
+    ]);
+  });
+  it("starts a new menu after an unknown edit so a late completion cannot overwrite it", async () => {
+    await seedLink();
+    const sent: CommunicationMessage[] = [];
+    const worker = new AuthorDelivery(
+      database,
+      { ...config, deliveryMode: "live" },
+      authorization,
+      {
+        send: (message) => {
+          sent.push(message);
+          return Promise.resolve(
+            sent.length === 2
+              ? { kind: "transport_unknown" }
+              : { kind: "delivered", providerMessageId: String(sent.length) },
+          );
+        },
+      },
+    );
+    const time = Date.now() + 1000;
+    await authorMessage(100, "/admin");
+    await worker.processAvailable(new Date(time));
+    const stale = await authorClick(101, "Рассылки");
+    await worker.processAvailable(new Date(time + 2000));
+    expect(required(sent[1]).editMessageId).toBe("1");
+    // The author retries an old visible button after the edit response was lost.
+    await app.get(AuthorAdmin).handle({ ...stale, updateId: "1020" });
+    await worker.processAvailable(new Date(time + 4000));
+    expect(required(sent[2]).editMessageId).toBeUndefined();
+    // A late edit of message 1 cannot modify the newly sent message 3.
+    expect(required(sent[2]).authorMenu).toBe(true);
+    expect(
+      await database
+        .selectFrom("communication_author_outbox")
+        .selectAll()
+        .where("state", "=", "unknown")
+        .execute(),
+    ).toHaveLength(1);
+  });
+});
+
+async function beginSequence(kind: "Рассылки" | "Воронки") {
+  await seedLink();
+  await authorMessage(100, "/admin");
+  await authorClick(101, kind);
+  await authorClick(
+    102,
+    kind === "Рассылки" ? "Создать рассылку" : "Создать воронку",
+  );
+}
+async function acceptPost(
+  id: number,
+  text: string,
+  time: string,
+  extra: Record<string, unknown> = {},
+) {
+  await authorMessage(id, text, extra);
+  await authorMessage(id + 0.1, time);
+}
+describe("simple sequential authoring", () => {
+  it("takes one native message and its offset at a time, preserving order and exposing the saved draft to a terminal agent", async () => {
+    await beginSequence("Рассылки");
+    await authorMessage(103, "Первое", {
+      entities: [{ type: "bold", offset: 0, length: 6 }],
+    });
+    await authorMessage(103, "Первое", {
+      entities: [{ type: "bold", offset: 0, length: 6 }],
+    });
+    expect(await broadcastRows()).toHaveLength(0);
+    await authorClick(104, "Сразу");
+    await acceptPost(105, "", "1 ЧАС", {
+      text: undefined,
+      voice: { file_id: "prepared-voice" },
+    });
+    await acceptPost(106, "Третье", "через 2 часа");
+    await authorClick(107, "Готово");
+    const b = required((await sessionState()).broadcast);
+    expect(b.parts.map((p) => p.sendAfterSeconds)).toEqual([0, 3600, 7200]);
+    expect(required(b.parts[0]).content.entities).toEqual([
+      { type: "bold", offset: 0, length: 6 },
+    ]);
+    expect(required(b.parts[1]).content).toMatchObject({
+      type: "voice",
+      fileId: "prepared-voice",
+    });
+    expect(b.audience).toEqual({ kind: "all" });
+    const labels = required((await sessionState()).menu).buttons.map(
+      ([label]) => label,
+    );
+    expect(labels).toEqual([
+      "Добавить сообщение",
+      "Запустить",
+      "Отменить рассылку",
+      "Посмотреть сообщения",
+      "Изменить сообщения",
+      "Все рассылки",
+    ]);
+    const response = await http({
+      ...request(),
+      operation: "broadcasts.read",
+      payload: { broadcastId: b.broadcastId },
+    });
+    expect(response.statusCode).toBe(200);
+    expect(
+      contractValidator("response")(response.json<CommunicationsBody>()),
+    ).toBe(true);
+    expect(response.json<CommunicationsBody>().broadcast.parts).toEqual(
+      b.parts,
+    );
+    await authorClick(108, "Запустить");
+    expect(required((await broadcastRows())[0]).state).toBe("draft");
+    expect(
+      await database
+        .selectFrom("communication_deliveries")
+        .selectAll()
+        .execute(),
+    ).toHaveLength(0);
+    expect(await lastAuthorText()).toContain("Запустить");
+  });
+  it.each([
+    ["text", {}],
+    [
+      "photo",
+      { text: undefined, photo: [{ file_id: "photo", width: 10, height: 10 }] },
+    ],
+    ["video", { text: undefined, video: { file_id: "video" } }],
+    ["video_note", { text: undefined, video_note: { file_id: "circle" } }],
+    ["voice", { text: undefined, voice: { file_id: "voice" } }],
+    ["document", { text: undefined, document: { file_id: "document" } }],
+  ])(
+    "saves %s and resumes its pending time after leaving the menu",
+    async (type, media) => {
+      await beginSequence("Рассылки");
+      await acceptPost(103, "Начало", "сразу");
+      await authorMessage(104, "Текст", media);
+      await authorMessage(105, "/admin");
+      await authorClick(106, "Рассылки");
+      await authorClick(107, "Начало · Черновик");
+      await authorClick(108, "Продолжить сообщение");
+      await authorMessage(109, "1 день");
+      await authorClick(110, "Готово");
+      expect(required((await broadcastRows())[0]).parts).toMatchObject([
+        { content: { text: "Начало" } },
+        { sendAfterSeconds: 86400, content: { type } },
+      ]);
+      expect(
+        await database
+          .selectFrom("communication_author_compositions")
+          .selectAll()
+          .execute(),
+      ).toHaveLength(0);
+    },
+  );
+  it("rejects unsupported media and decreasing times without losing the pending message; cancellation drops only that message", async () => {
+    await beginSequence("Рассылки");
+    await authorMessage(103, "", { sticker: { file_id: "unsupported" } });
+    expect(await broadcastRows()).toHaveLength(0);
+    await acceptPost(104, "Первый", "2 часа");
+    await acceptPost(105, "Второй", "1 час");
+    expect(required((await broadcastRows())[0]).parts).toHaveLength(1);
+    expect(
+      required(required((await sessionState()).composing).content).text,
+    ).toBe("Второй");
+    await authorMessage(106, "/cancel");
+    expect(required((await broadcastRows())[0]).parts).toHaveLength(1);
+    await authorClick(107, "Добавить сообщение");
+    await authorMessage(108, "Без доступа");
+    authorization.result = "denied";
+    await authorMessage(109, "3 часа");
+    expect(required((await broadcastRows())[0]).parts).toHaveLength(1);
+  });
+  it("keeps a pending message on concurrent terminal edits and reopens current provider content", async () => {
+    await beginSequence("Рассылки");
+    await acceptPost(103, "Начало", "сразу");
+    await authorMessage(104, "Не потерять");
+    const b = required((await sessionState()).broadcast);
+    const parts = b.parts.map((p) => ({
+      ...p,
+      content: { ...p.content, text: "Правка агента" },
+    }));
+    expect(
+      (
+        await http({
+          ...request(),
+          operation: "broadcasts.save",
+          expectedRevision: b.revision,
+          payload: {
+            broadcastId: b.broadcastId,
+            parts,
+            audience: b.audience,
+            scheduledAt: null,
+          },
+        })
+      ).statusCode,
+    ).toBe(200);
+    await authorMessage(105, "1 час");
+    expect(await lastAuthorText()).toContain("изменились");
+    expect(required((await broadcastRows())[0]).parts).toEqual(parts);
+    await authorClick(106, "Рассылки");
+    await authorClick(107, "Начало · Черновик");
+    await authorClick(108, "Продолжить сообщение");
+    expect(
+      required(required((await sessionState()).composing).content).text,
+    ).toBe("Не потерять");
+    await authorMessage(109, "/cancel");
+    expect(required((await sessionState()).broadcast).parts).toEqual(parts);
+  });
+  it("saves a funnel as entry plus offsets from enrollment and allows a terminal agent to configure the same draft", async () => {
+    await beginSequence("Воронки");
+    await authorMessage(103, "Вход");
+    await authorMessage(104, "1 час");
+    expect(
+      required(required((await sessionState()).funnelAuthor).funnel).revision,
+    ).toBe(0);
+    await authorClick(105, "Сразу");
+    await acceptPost(106, "Урок", "1 час");
+    await acceptPost(107, "Предложение", "2 часа");
+    await authorClick(108, "Готово");
+    const f = required(required((await sessionState()).funnelAuthor).funnel);
+    expect(f.entryResponse.parts).toHaveLength(1);
+    expect(f.steps.map((s) => [s.delayAnchor, s.delaySeconds])).toEqual([
+      ["entry", 3600],
+      ["entry", 7200],
+    ]);
+    expect(f.publishedRevision).toBeNull();
+    const r = await http({
+      ...request(),
+      operation: "funnels.read",
+      payload: { funnelId: f.funnelId },
+    });
+    expect(r.statusCode).toBe(200);
+    expect(contractValidator("response")(r.json<CommunicationsBody>())).toBe(
+      true,
+    );
+    const saved = await http({
+      ...request(),
+      operation: "funnels.save",
+      expectedRevision: f.revision,
+      payload: {
+        funnelId: f.funnelId,
+        name: f.name,
+        sources: f.sources,
+        isDefault: f.isDefault,
+        entryResponse: f.entryResponse,
+        steps: f.steps.map((s) => ({ ...s, delaySeconds: 7200 })),
+      },
+    });
+    expect(saved.statusCode).toBe(200);
+    await authorMessage(109, "/admin");
+    await authorClick(110, "Воронки");
+    await authorClick(111, "Вход · Черновик");
+    expect(
+      required(required((await sessionState()).funnelAuthor).funnel).steps.map(
+        (s) => s.delaySeconds,
+      ),
+    ).toEqual([7200, 7200]);
+    await authorClick(112, "Отменить воронку");
+    await authorClick(113, "Да, отменить");
+    expect(
+      required(required((await sessionState()).funnelAuthor).funnel).lifecycle,
+    ).toBe("archived");
+  });
+});
+
+it("restores the author menu below the delivered broadcast messages and never exposes it to subscribers", async () => {
+  await beginSequence("Рассылки");
+  for (const user of ["42", "43"])
+    await app.get(BotContacts).observeStart(
+      {
+        botIdentity: "inside",
+        telegramUserId: user,
+        privateChatId: user,
+        updateId: "99",
+        observedAt: new Date(),
+      },
+      "none",
+    );
+  await acceptPost(103, "First delivered post", "сразу");
+  await acceptPost(104, "Second delivered post", "сразу");
+  await authorClick(105, "Готово");
+  await authorClick(106, "Запустить");
+  await authorClick(108, "Запустить рассылку");
+  let now = Date.now() + 1000;
+  const observed: CommunicationMessage[] = [];
+  const transport = {
+    send: (message: CommunicationMessage) => {
+      observed.push(message);
+      return Promise.resolve({
+        kind: "delivered" as const,
+        providerMessageId: String(observed.length),
+      });
+    },
+  };
+  const author = new AuthorDelivery(
+    database,
+    { ...config, deliveryMode: "live" },
+    authorization,
+    transport,
+  );
+  const marketing = new FunnelScheduler(
+    database,
+    { ...config, marketingEnabled: true },
+    { now: () => new Date(now) },
+    transport,
+  );
+  for (let i = 0; i < 20; i++)
+    await author.processAvailable(new Date((now += 2000)));
+  for (let i = 0; i < 4; i++) {
+    now += 2000;
+    await marketing.processAvailable(1);
+  }
+  for (let i = 0; i < 5; i++)
+    await author.processAvailable(new Date((now += 2000)));
+  const own = observed.filter((m) => m.chatId === "42");
+  expect(own.filter((m) => !m.authorMenu).map((m) => m.content.text)).toEqual([
+    "First delivered post",
+    "Second delivered post",
+  ]);
+  expect(required(own.at(-1)).authorMenu).toBe(true);
+  expect(required(own.at(-1)).editMessageId).toBeUndefined();
+  expect(
+    observed.filter((m) => m.chatId === "43").map((m) => m.authorMenu),
+  ).toEqual([undefined, undefined]);
+  const input = required(
+    translateAuthorInput("inside", "9999", {
+      callback_query: {
+        id: "footer",
+        from: { id: 42, is_bot: false },
+        message: { chat: { id: 42, type: "private" } },
+        data: required(required(required(own.at(-1)).authorButtons)[0])
+          .callbackData,
+      },
+    }),
+  );
+  await app.get(AuthorAdmin).handle(input);
+  expect(required((await sessionState()).broadcast).state).toBe("completed");
+});
+
+it.each(["/cancel", "discard"])(
+  "sequence cancellation %s keeps the simple funnel card",
+  async (mode) => {
+    await beginSequence("Воронки");
+    await acceptPost(103, "Keep this entry", "сразу");
+    await authorMessage(104, "Pending message");
+    if (mode === "/cancel") await authorMessage(105, "/cancel");
+    else {
+      await authorMessage(105, "/admin");
+      await authorClick(106, "Воронки");
+      await authorClick(107, "Keep this entry · Черновик");
+      await authorClick(108, "Отменить добавление");
+    }
+    const state = await sessionState();
+    expect(state.composing).toBeUndefined();
+    expect(
+      required(required(state.funnelAuthor).funnel).entryResponse.parts,
+    ).toHaveLength(1);
+    expect(required(state.menu).buttons.map(([label]) => label)).toContain(
+      "Все воронки",
+    );
+    expect(
+      required(state.menu)
+        .buttons.map(([label]) => label)
+        .join(" "),
+    ).not.toMatch(/сохранённый|порядок|Создать сообщение/);
+  },
+);
+
+describe("funnel settings in the bot", () => {
+  /** A saved bot funnel: «Вход» at entry, «Урок» one hour and «Задание» two hours after entry. */
+  async function savedFunnel() {
+    await beginSequence("Воронки");
+    await acceptPost(103, "Вход", "сразу");
+    await acceptPost(104, "Урок", "1 час");
+    await acceptPost(105, "Задание", "2 часа");
+    await authorClick(106, "Готово");
+    return required(required((await sessionState()).funnelAuthor).funnel)
+      .funnelId;
+  }
+  /** The funnel as the API and MCP read it. */
+  async function apiFunnel(funnelId: string) {
+    const response = await http({
+      ...request(),
+      operation: "funnels.read",
+      payload: { funnelId },
+    });
+    expect(response.statusCode).toBe(200);
+    return response.json<CommunicationsBody>().funnel;
+  }
+  const texts = (parts: readonly MessagePart[]) =>
+    parts.map((p) => p.content.text);
+  /** Writes one message in the composer and adds it to the open block. */
+  async function composeMessage(id: number, value: string) {
+    await authorClick(id, "Создать сообщение");
+    await authorMessage(id + 0.1, value);
+    await authorClick(id + 0.2, "Добавить в блок");
+  }
+
+  it("saves the name, the main funnel and sources", async () => {
+    const funnelId = await savedFunnel();
+    await authorClick(110, "Настройки");
+    await authorClick(111, "Название");
+    await authorMessage(112, "Весна");
+    await authorClick(113, "Настройки");
+    await authorClick(114, "Сделать основной");
+    await authorClick(115, "Настройки");
+    await authorClick(116, "Источники");
+    for (const [id, name, code] of [
+      [117, "Канал", "m_channel"],
+      [120, "Видео", "m_video"],
+    ] as const) {
+      await authorClick(id, "Добавить источник");
+      await authorMessage(id + 1, name);
+      await authorMessage(id + 2, code);
+    }
+    await authorClick(123, "Видео");
+    await authorClick(124, "Убрать источник");
+    await authorClick(125, "К воронке");
+    await authorClick(126, "Сохранить черновик");
+
+    expect(await apiFunnel(funnelId)).toMatchObject({
+      name: "Весна",
+      isDefault: true,
+      sources: [{ name: "Канал", code: "m_channel" }],
+    });
+
+    await authorClick(127, "Настройки");
+    await authorClick(128, "Убрать из основных");
+    await authorClick(129, "Сохранить черновик");
+    expect((await apiFunnel(funnelId)).isDefault).toBe(false);
+  });
+
+  it("saves added, retimed, moved and removed steps", async () => {
+    const funnelId = await savedFunnel();
+    await authorClick(110, "Настройки");
+    await authorClick(111, "Шаги и задержки");
+    await authorClick(112, "Добавить шаг");
+    await authorClick(113, "Сообщения шага");
+    await composeMessage(114, "Бонус");
+    await authorClick(115, "К воронке");
+    await authorClick(116, "Настройки");
+    await authorClick(117, "Шаги и задержки");
+    await authorClick(118, "Шаг 3 · 26 ч от входа");
+    await authorClick(119, "Задержка");
+    await authorMessage(120, "30 мин");
+    await authorClick(121, "Все шаги");
+    await authorClick(122, "Шаг 3 · 2 ч от входа");
+    await authorClick(123, "Поднять шаг");
+    await authorClick(124, "Шаг 3 · 2 ч от входа");
+    await authorClick(125, "Убрать шаг");
+    await authorClick(126, "К воронке");
+    await authorClick(127, "Сохранить черновик");
+
+    const f = await apiFunnel(funnelId);
+    expect(
+      f.steps.map((s) => [texts(s.parts), s.delaySeconds, s.delayAnchor]),
+    ).toEqual([
+      [["Бонус"], 1800, "entry"],
+      [["Задание"], 3600, "entry"],
+    ]);
+  });
+
+  it("saves the first response", async () => {
+    const funnelId = await savedFunnel();
+    await authorClick(110, "Настройки");
+    await authorClick(111, "Первый ответ");
+    await composeMessage(112, "Приветствие");
+    await authorClick(113, "К воронке");
+    await authorClick(114, "Сохранить черновик");
+
+    expect(texts((await apiFunnel(funnelId)).entryResponse.parts)).toEqual([
+      "Вход",
+      "Приветствие",
+    ]);
+  });
+
+  it("saves the time of a message", async () => {
+    const funnelId = await savedFunnel();
+    await authorClick(110, "Сообщения");
+    await authorClick(111, "2. Через 1 ч · 📝 Текст · Урок");
+    await authorClick(112, "Когда отправить");
+    await authorMessage(113, "3 часа");
+    await authorClick(114, "К воронке");
+    await authorClick(115, "Сохранить черновик");
+
+    const f = await apiFunnel(funnelId);
+    expect(f.steps.map((s) => [texts(s.parts), s.delaySeconds])).toEqual([
+      [["Задание"], 7200],
+      [["Урок"], 10800],
+    ]);
+  });
+
+  it("saves the shared intro", async () => {
+    await savedFunnel();
+    await authorClick(110, "Настройки");
+    await authorClick(111, "Общий вводный блок");
+    await composeMessage(112, "Добро пожаловать");
+    await authorClick(113, "Сохранить общий блок");
+    expect(await lastAuthorText()).toContain("Общий вводный блок сохранён");
+
+    const response = await http({
+      ...request(),
+      operation: "intro.read",
+      payload: {},
+    });
+    expect(response.statusCode).toBe(200);
+    expect(texts(response.json<CommunicationsBody>().intro.parts)).toEqual([
+      "Добро пожаловать",
+    ]);
+  });
+});
+
+describe("broadcast authoring in the bot", () => {
+  const buy = { text: "Купить", url: "https://example.com/buy", row: 0 };
+  /** The messages of the open broadcast as the API and MCP read them. */
+  async function apiParts() {
+    const { broadcastId } = required((await sessionState()).broadcast);
+    const response = await http({
+      ...request(),
+      operation: "broadcasts.read",
+      payload: { broadcastId },
+    });
+    expect(response.statusCode).toBe(200);
+    return response.json<CommunicationsBody>().broadcast.parts;
+  }
+  /** Each message's text and send time. */
+  async function apiBroadcast() {
+    return (await apiParts()).map((p) => [
+      p.content.text,
+      p.sendAfterSeconds ?? 0,
+    ]);
+  }
+  async function savePost(text: string) {
+    const templateId = randomUUID();
+    const response = await http({
+      ...request(),
+      payload: { templateId, content: { ...content, text } },
+    });
+    expect(response.statusCode).toBe(200);
+    return templateId;
+  }
+  /** A saved bot broadcast: «Первое» at launch and «Второе» one hour later. */
+  async function savedBroadcast() {
+    await beginSequence("Рассылки");
+    await acceptPost(103, "Первое", "сразу");
+    await acceptPost(104, "Второе", "1 час");
+    await authorClick(105, "Готово");
+    await authorClick(106, "Изменить сообщения");
+  }
+
+  it("edits a saved post, sends its sample and creates a broadcast from it", async () => {
+    await seedLink();
+    const templateId = await savePost("Урок");
+    await authorMessage(100, "/admin");
+    await authorClick(101, "Рассылки");
+    await authorClick(102, "Сохранённые посты");
+    await authorClick(103, "📝 Текст · Урок");
+    await authorClick(104, "Добавить кнопку");
+    await authorMessage(105, "Купить");
+    await authorMessage(106, buy.url);
+    await authorClick(107, "Заменить сообщение");
+    await authorMessage(108, "Новый урок");
+
+    const read = await http({
+      ...request(),
+      operation: "templates.read",
+      payload: { templateId },
+    });
+    expect(read.json<CommunicationsBody>().template).toMatchObject({
+      revision: 3,
+      content: { text: "Новый урок", buttons: [buy] },
+    });
+
+    await authorClick(109, "Образец себе");
+    const outbox = await database
+      .selectFrom("communication_author_outbox")
+      .select("message")
+      .execute();
+    expect(
+      outbox.filter(
+        ({ message }) =>
+          (message as { content: { text: string } }).content.text ===
+          "Новый урок",
+      ),
+    ).toHaveLength(1);
+
+    await authorClick(110, "Вернуться к посту");
+    await authorClick(110.1, "Удалить: Купить");
+    const withoutButton = await http({
+      ...request(),
+      operation: "templates.read",
+      payload: { templateId },
+    });
+    expect(withoutButton.json<CommunicationsBody>().template).toMatchObject({
+      revision: 4,
+      content: { text: "Новый урок", buttons: [] },
+    });
+    await authorClick(111, "Создать рассылку");
+    expect(await apiParts()).toMatchObject([
+      { content: { text: "Новый урок", buttons: [] } },
+    ]);
+    expect(await lastAuthorText()).toContain(
+      "Новый урок\nЧерновик · сообщений: 1",
+    );
+  });
+
+  it("saves a moved, rewritten and removed message", async () => {
+    await savedBroadcast();
+    await authorClick(110, "2. Через 1 ч · 📝 Текст · Второе");
+    await authorClick(111, "Поднять выше");
+    expect(await apiBroadcast()).toEqual([
+      ["Второе", 0],
+      ["Первое", 3600],
+    ]);
+
+    await authorClick(112, "Изменить сообщения");
+    await authorClick(113, "1. Сразу · 📝 Текст · Второе");
+    await authorClick(114, "Изменить сообщение и кнопки");
+    await authorClick(115, "Прислать другое");
+    await authorMessage(116, "Главное");
+    await authorClick(117, "Заменить сообщение");
+    expect(await apiBroadcast()).toEqual([
+      ["Главное", 0],
+      ["Первое", 3600],
+    ]);
+
+    await authorClick(118, "Изменить сообщения");
+    await authorClick(119, "2. Через 1 ч · 📝 Текст · Первое");
+    await authorClick(120, "Удалить сообщение");
+    expect(await apiBroadcast()).toEqual([["Главное", 0]]);
+  });
+
+  it("replaces a message with a saved post and adds another saved post", async () => {
+    await savePost("Урок");
+    await savedBroadcast();
+    await authorClick(110, "1. Сразу · 📝 Текст · Первое");
+    await authorClick(111, "Заменить из сохранённых");
+    await authorClick(112, "📝 Текст · Урок");
+    await authorClick(113, "Заменить сообщение");
+    expect(await apiBroadcast()).toEqual([
+      ["Урок", 0],
+      ["Второе", 3600],
+    ]);
+
+    await authorClick(114, "Изменить сообщения");
+    await authorClick(115, "Добавить сохранённый пост");
+    await authorClick(116, "📝 Текст · Урок");
+    await authorClick(117, "Добавить в рассылку");
+    expect(await apiBroadcast()).toEqual([
+      ["Урок", 0],
+      ["Второе", 3600],
+      ["Урок", 3600],
+    ]);
+  });
+
+  it("creates a message with a button after the last one", async () => {
+    await savedBroadcast();
+    await authorClick(110, "Создать сообщение");
+    await authorMessage(111, "Третье");
+    await authorClick(112, "Добавить кнопку");
+    await authorMessage(113, "Купить");
+    await authorMessage(114, buy.url);
+    await authorClick(115, "Добавить в рассылку");
+
+    expect(await apiBroadcast()).toEqual([
+      ["Первое", 0],
+      ["Второе", 3600],
+      ["Третье", 3600],
+    ]);
+    expect(required((await apiParts())[2]).content.buttons).toEqual([buy]);
+  });
+
+  it("adds several messages in a row", async () => {
+    await savedBroadcast();
+    await authorClick(110, "Добавить сообщения");
+    await authorMessage(111, "Третье");
+    await authorMessage(112, "Четвёртое");
+    await authorClick(113, "Готово");
+
+    expect(await apiBroadcast()).toEqual([
+      ["Первое", 0],
+      ["Второе", 3600],
+      ["Третье", 3600],
+      ["Четвёртое", 3600],
+    ]);
+    expect(await lastAuthorText()).toContain("Черновик · сообщений: 4");
+  });
+});

@@ -1,0 +1,328 @@
+import { describe, expect, it } from "vitest";
+import {
+  AUTHOR_STATE_VERSION,
+  emptyAuthorState,
+  pageAuthorMenu,
+  parseAuthorState,
+  resolveAuthorCallback,
+  type AuthorAction,
+  type AuthorState,
+} from "../../src/modules/communications/author-dialog.js";
+import type { TemplateContent } from "../../src/modules/communications/communications-contract.js";
+import { required } from "../support/required.js";
+import { jsonRecord } from "../support/json.js";
+
+const broadcastId = "4f7c1d2e-9a8b-4c3d-8e7f-6a5b4c3d2e1f";
+
+/** The JSON a session store keeps for `state`, as an object a test may rewrite. */
+function storedCopy(state: AuthorState): Record<string, unknown> {
+  return jsonRecord(JSON.stringify(state));
+}
+
+function isRecord(value: unknown): value is Record<string | number, unknown> {
+  return typeof value === "object" && value !== null;
+}
+
+type Path = readonly [...(string | number)[], string | number];
+
+/** A copy of `stored` and the object that holds the last key of `path` in that copy. */
+function holderOf(stored: unknown, path: Path) {
+  const copy: unknown = structuredClone(stored);
+  const holder = path
+    .slice(0, -1)
+    .reduce<unknown>(
+      (node, key) => (isRecord(node) ? node[key] : undefined),
+      copy,
+    );
+  if (!isRecord(holder)) throw new Error(`No object holds ${path.join(".")}`);
+  return { copy, holder, key: required(path.at(-1)) };
+}
+
+/** A copy of `stored` with the value at `path` replaced. */
+function replaced(stored: unknown, path: Path, value: unknown): unknown {
+  const { copy, holder, key } = holderOf(stored, path);
+  holder[key] = value;
+  return copy;
+}
+
+/** A copy of `stored` without the value at `path`. */
+function removed(stored: unknown, path: Path): unknown {
+  const { copy, holder, key } = holderOf(stored, path);
+  Reflect.deleteProperty(holder, key);
+  return copy;
+}
+
+function stateWith(actions: AuthorAction[]): AuthorState {
+  return { ...emptyAuthorState("menu-token"), actions };
+}
+
+describe("author callback navigation", () => {
+  const state = stateWith([
+    { kind: "broadcasts" },
+    { kind: "read-broadcast", id: broadcastId },
+  ]);
+
+  it("opens the action the author saw in the current menu", () => {
+    expect(resolveAuthorCallback(state, "author:menu-token:1")).toEqual({
+      kind: "read-broadcast",
+      id: broadcastId,
+    });
+  });
+
+  it("rejects a button from an older menu or outside the menu", () => {
+    expect(resolveAuthorCallback(state, "author:old-token:0")).toBeUndefined();
+    expect(resolveAuthorCallback(state, "author:menu-token:2")).toBeUndefined();
+    expect(
+      resolveAuthorCallback(state, "author:menu-token:first"),
+    ).toBeUndefined();
+  });
+
+  it("keeps the permanent home, broadcast list and broadcast links working", () => {
+    const stale = stateWith([]);
+    expect(resolveAuthorCallback(stale, "author:home:0")).toEqual({
+      kind: "home",
+    });
+    expect(resolveAuthorCallback(stale, "author:broadcasts:0")).toEqual({
+      kind: "broadcasts",
+    });
+    expect(
+      resolveAuthorCallback(stale, `author:open-broadcast:${broadcastId}`),
+    ).toEqual({ kind: "read-broadcast", id: broadcastId });
+    expect(
+      resolveAuthorCallback(stale, "author:open-broadcast:not-a-broadcast"),
+    ).toBeUndefined();
+    expect(resolveAuthorCallback(stale, "author:home:1")).toBeUndefined();
+  });
+});
+
+describe("author menu pages", () => {
+  const options = Array.from(
+    { length: 9 },
+    (_, index): [string, AuthorAction] => [
+      `Пост ${index + 1}`,
+      { kind: "remove-button", value: String(index) },
+    ],
+  );
+  const back: [string, AuthorAction] = ["В меню", { kind: "home" }];
+
+  it("shows a short menu whole", () => {
+    const buttons = [...options.slice(0, 5), back];
+    expect(pageAuthorMenu({ text: "Меню", buttons }, 0)).toEqual(buttons);
+  });
+
+  it("splits a long menu into pages of four and keeps the way back", () => {
+    const menu = { text: "Меню", buttons: [...options, back] };
+
+    expect(pageAuthorMenu(menu, 0).map(([label]) => label)).toEqual([
+      "Пост 1",
+      "Пост 2",
+      "Пост 3",
+      "Пост 4",
+      "Ещё →",
+      "В меню",
+    ]);
+    expect(pageAuthorMenu(menu, 2).map(([label]) => label)).toEqual([
+      "Пост 9",
+      "← Предыдущие действия",
+      "В меню",
+    ]);
+    expect(pageAuthorMenu(menu, 1)).toContainEqual([
+      "Ещё →",
+      { kind: "menu:page", value: "2" },
+    ]);
+  });
+
+  it("never pages a list of choices", () => {
+    const buttons = [
+      ...options.map(([label], index): [string, AuthorAction] => [
+        label,
+        { kind: "read-post", id: `post-${index}` },
+      ]),
+      back,
+    ];
+    expect(pageAuthorMenu({ text: "Посты", buttons }, 0)).toEqual(buttons);
+  });
+});
+
+describe("stored author session", () => {
+  it("restores a session saved by the current version", () => {
+    const state: AuthorState = {
+      ...stateWith([{ kind: "f:list" }, { kind: "home" }]),
+      menu: { text: "Воронки", buttons: [["В меню", { kind: "home" }]] },
+      prompt: { kind: "button-url", buttonTitle: "Купить" },
+      batch: "broadcast",
+    };
+
+    expect(parseAuthorState(JSON.parse(JSON.stringify(state)))).toEqual(state);
+  });
+
+  it("resets a session whose shape the current version cannot trust", () => {
+    const current = storedCopy(stateWith([{ kind: "home" }]));
+    for (const stored of [
+      null,
+      "state",
+      { ...current, version: AUTHOR_STATE_VERSION + 1 },
+      { ...current, actions: [{ kind: "drop-database" }] },
+      { ...current, actions: [{ kind: "read-post", id: 7 }] },
+      { ...current, menu: { text: "Меню", buttons: [["В меню"]] } },
+      { ...current, prompt: { kind: "button-url" } },
+      { ...current, batch: "funnels" },
+      { ...current, token: undefined },
+      { ...current, composing: { destination: { kind: "post", id: "p" } } },
+    ])
+      expect(parseAuthorState(stored), JSON.stringify(stored)).toBeUndefined();
+  });
+
+  it("resets a session saved with a button or prompt no screen shows any more", () => {
+    const current = storedCopy(stateWith([{ kind: "home" }]));
+    for (const kind of [
+      "new",
+      "copy-broadcast",
+      "rename-broadcast",
+      "send-options",
+      "send-now",
+      "schedule",
+      "apply-schedule",
+    ]) {
+      const button = [kind, { kind }];
+      for (const stored of [
+        { ...current, actions: [{ kind }] },
+        { ...current, menu: { text: "Рассылка", buttons: [button] } },
+      ])
+        expect(parseAuthorState(stored), kind).toBeUndefined();
+    }
+    for (const kind of ["capture", "broadcast-name", "schedule"])
+      expect(
+        parseAuthorState({ ...current, prompt: { kind } }),
+        kind,
+      ).toBeUndefined();
+  });
+
+  it("trusts only buttons that carry the data their kind needs", () => {
+    const current = storedCopy(stateWith([]));
+    for (const actions of [
+      [{ kind: "read-post" }],
+      [{ kind: "f:message", id: "part" }],
+      [{ kind: "f:life", value: "delete" }],
+      [{ kind: "menu:page", value: 1 }],
+      [{ kind: "posts", id: 7 }],
+    ])
+      expect(
+        parseAuthorState({ ...current, actions }),
+        JSON.stringify(actions),
+      ).toBeUndefined();
+    const valid: AuthorAction[] = [
+      { kind: "posts" },
+      { kind: "posts", id: "cursor" },
+      { kind: "f:message", id: "part", value: "entry" },
+      { kind: "f:life", value: "archive" },
+    ];
+    expect(parseAuthorState({ ...current, actions: valid })?.actions).toEqual(
+      valid,
+    );
+    const typed: AuthorAction[] = [
+      // @ts-expect-error A post link names its post.
+      { kind: "read-post" },
+      // @ts-expect-error Home carries no selection.
+      { kind: "home", id: "post" },
+      // @ts-expect-error A lifecycle button names one of the known changes.
+      { kind: "f:life", value: "delete" },
+    ];
+    expect(typed).toHaveLength(3);
+  });
+
+  it("checks the nested snapshots of a stored session", () => {
+    const content: TemplateContent = {
+      type: "text",
+      text: "Пост",
+      entities: [],
+      buttons: [],
+    };
+    const part = { partId: broadcastId, content };
+    const nested: AuthorState = {
+      ...stateWith([]),
+      composing: {
+        destination: {
+          kind: "funnel",
+          id: broadcastId,
+          target: "entry",
+          expectedRevision: 1,
+        },
+        sequence: { lastOffset: 0, firstEntry: true },
+        content,
+      },
+      funnelAuthor: {
+        funnel: {
+          funnelId: broadcastId,
+          name: "Новая воронка",
+          isDefault: false,
+          entryResponse: { stepId: broadcastId, parts: [part] },
+          steps: [{ stepId: broadcastId, delaySeconds: 60, parts: [] }],
+          sources: [],
+          revision: 0,
+          publishedRevision: null,
+          lifecycle: "draft",
+        },
+        dirty: true,
+        target: "entry",
+      },
+      broadcast: {
+        broadcastId,
+        revision: 0,
+        state: "draft",
+        parts: [{ ...part, sendAfterSeconds: 60 }],
+        audience: { kind: "all" },
+        scheduledAt: null,
+        audienceSnapshotId: null,
+        snapshotSize: 0,
+      },
+      template: {
+        templateId: broadcastId,
+        revision: 1,
+        botIdentity: "inside",
+        content,
+      },
+    };
+    const stored = storedCopy(nested);
+    expect(parseAuthorState(stored)).toEqual(nested);
+
+    for (const untrusted of [
+      replaced(stored, ["composing", "content"], { type: "sticker" }),
+      replaced(stored, ["composing", "sequence"], { lastOffset: "0" }),
+      replaced(stored, ["composing", "destination", "expectedRevision"], "1"),
+      replaced(
+        stored,
+        ["funnelAuthor", "funnel", "steps", 0, "parts"],
+        [{ partId: 1 }],
+      ),
+      replaced(stored, ["funnelAuthor", "funnel", "lifecycle"], "deleted"),
+      replaced(stored, ["funnelAuthor", "funnel", "sources"], [{ code: "x" }]),
+      replaced(stored, ["funnelAuthor", "prompt"], "title"),
+      replaced(stored, ["broadcast", "parts", 0, "partId"], "not-an-id"),
+      replaced(stored, ["broadcast", "audience"], { kind: "funnels" }),
+      removed(stored, ["template", "botIdentity"]),
+    ])
+      expect(parseAuthorState(untrusted)).toBeUndefined();
+  });
+
+  it("upgrades a session saved before states were versioned", () => {
+    expect(
+      parseAuthorState({
+        token: "menu-token",
+        actions: [{ kind: "home" }],
+        prompt: "button-url",
+        buttonTitle: "Купить",
+      }),
+    ).toEqual({
+      ...stateWith([{ kind: "home" }]),
+      prompt: { kind: "button-url", buttonTitle: "Купить" },
+    });
+    expect(
+      parseAuthorState({
+        token: "menu-token",
+        actions: [],
+        prompt: "post-search",
+      }),
+    ).toEqual({ ...stateWith([]), prompt: { kind: "post-search" } });
+  });
+});

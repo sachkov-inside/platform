@@ -1,0 +1,12 @@
+*
+!package.json
+!pnpm-lock.yaml
+!pnpm-workspace.yaml
+!tsconfig.base.json
+!tsconfig.json
+!tsconfig.build.json
+!src/
+!src/**
+!infra/
+!infra/production/
+!infra/production/Dockerfile

@@ -1,0 +1,86 @@
+import { Injectable } from "@nestjs/common";
+
+import type { CommunitySnapshot } from "../modules/community/community-provider.js";
+import type { ReconciliationBatchOutcome } from "../modules/membership-evidence/membership-reconciliation.js";
+import {
+  RUNTIME_COUNTER_NAMES,
+  type RuntimeCounter,
+  type RuntimeCounters,
+} from "../shared/runtime-counters.js";
+
+type Gauge =
+  | "activation_pending"
+  | "activation_oldest_pending_seconds"
+  | "community_due"
+  | "community_effect_backlog"
+  | "community_effects_unknown"
+  | "community_admission_restricted"
+  | "community_oldest_due_seconds"
+  | "evidence_delivery_backlog"
+  | "reconciliation_due"
+  | "reconciliation_oldest_due_seconds";
+
+const gaugeNames: readonly Gauge[] = [
+  "activation_pending",
+  "activation_oldest_pending_seconds",
+  "reconciliation_due",
+  "reconciliation_oldest_due_seconds",
+  "evidence_delivery_backlog",
+  "community_due",
+  "community_oldest_due_seconds",
+  "community_effect_backlog",
+  "community_effects_unknown",
+  "community_admission_restricted",
+];
+
+@Injectable()
+export class RuntimeMetrics implements RuntimeCounters {
+  private readonly counters = new Map<RuntimeCounter, number>();
+  private readonly gauges = new Map<Gauge, number>();
+
+  increment(counter: RuntimeCounter, amount = 1): void {
+    this.counters.set(counter, (this.counters.get(counter) ?? 0) + amount);
+  }
+
+  recordReconciliation(outcome: ReconciliationBatchOutcome): void {
+    this.increment("reconciliation_success", outcome.succeeded);
+    this.increment("reconciliation_failure", outcome.failed);
+    this.increment("reconciliation_degraded", outcome.degraded);
+    this.gauges.set("reconciliation_due", outcome.dueRemaining);
+    this.gauges.set(
+      "reconciliation_oldest_due_seconds",
+      outcome.oldestDueAgeMs / 1000,
+    );
+    this.gauges.set("evidence_delivery_backlog", outcome.evidenceBacklog);
+  }
+
+  /** Community apply/reconcile lag is what makes an overdue right visible to an operator. */
+  recordCommunity(snapshot: CommunitySnapshot): void {
+    this.gauges.set("community_due", snapshot.dueStates);
+    this.gauges.set(
+      "community_oldest_due_seconds",
+      snapshot.oldestDueAgeMs / 1000,
+    );
+    this.gauges.set("community_effect_backlog", snapshot.effectBacklog);
+    this.gauges.set("community_effects_unknown", snapshot.unknownEffects);
+    this.gauges.set("community_admission_restricted", snapshot.restricted);
+  }
+
+  recordActivation(snapshot: { pending: number; oldestSeconds: number }): void {
+    this.gauges.set("activation_pending", snapshot.pending);
+    this.gauges.set(
+      "activation_oldest_pending_seconds",
+      snapshot.oldestSeconds,
+    );
+  }
+
+  render(): string {
+    const counters = RUNTIME_COUNTER_NAMES.map(
+      (name) => `inside_telegram_${name}_total ${this.counters.get(name) ?? 0}`,
+    ).join("\n");
+    const gauges = gaugeNames
+      .map((name) => `inside_telegram_${name} ${this.gauges.get(name) ?? 0}`)
+      .join("\n");
+    return `${counters}\n${gauges}\n`;
+  }
+}

@@ -1,0 +1,187 @@
+# Sachkov Inside Telegram application brief
+
+Статус: подтверждённый seed brief от 2026-08-30.
+
+## Продукты и подписки
+
+[Workspace #181](https://github.com/sachkov-inside/workspace/issues/181) закрепляет «продукт»
+как общее название отдельной программы материалов. Курс, практикум и руководство могут быть
+авторскими названиями конкретного продукта. Бот использует общий термин в составе доступа;
+технические Guide, `guide:<id>` и переносимые контракты сохраняются.
+
+Подписка предоставляет доступ к определённому Platform составу продуктов и материалов по условиям
+тарифа. Разовая покупка продукта сохраняет согласованный бессрочный доступ к его материалам и общему
+чату без автосписаний; сопровождение регулируется отдельно. Platform остаётся источником этих прав,
+а членство в общем чате само по себе не доказывает подписку. Текущие сценарии описаны в
+[интеграции активации](../integrations/subscription-activation-v1.md); исторический bridge ниже
+не меняет их условия. Прежние покупатели курса и подписчики Tribute подтверждают статус
+только по ссылке владельца, в том числе по кнопке, которую владелец публикует в группе курса; обычный
+`/start` ничего не проверяет. Кого ссылка не подтвердила, попадает в очередь разбора владельца
+([подтверждение статуса](../operations/course-activation.md#подтверждение-статуса-прежних-участников)).
+
+## Расширение communications от 2026-09-06
+
+Исторические ограничения Membership bridge ниже относятся к первому релизу. Коммуникации теперь
+определены [принятым общим контрактом](https://github.com/sachkov-inside/workspace/blob/1553211220c44882dbacce7519dd50e35493090e/docs/specifications/telegram-communications-v1.md):
+он задаёт авторские заготовки и отдельное разрешение `communications:manage`, а для
+маркетинга — общий stop/resume. Техническая поставка заготовок и versioned API описана в
+[локальном контракте интеграции](../integrations/communications-v1.md). Теперь реализация включает механизм сохранения и публикации воронок, общий intro и durable
+расписание multipart-доставки (#28). Текущая авторская цель — одна общая воронка; её тексты и
+конкретные тематические сценарии создаёт лично владелец. В поставке нет авторского контента или
+автоматически опубликованных сценариев, несколько сценариев используются только в тестах.
+[#29](https://github.com/sachkov-inside/inside-telegram/issues/29) добавляет досылку новых шагов прежним
+участникам, обновление ожидающих сообщений, rollback и явное разрешение неопределённой доставки.
+`/stop` выключает весь маркетинг, `/resume` включает будущие сообщения без накопленной очереди.
+`/start`, вход и разблокировка бота сохраняют явный отказ. Вход в воронку с меткой источника, `/stop`, `/resume`,
+технический шаг согласия и привязка аккаунта передаются в отчёт воронки продаж Platform
+([события воронки](../integrations/sales-funnel-events-v1.md), #118). Редактор и сквозная приёмка остаются
+отдельной поставкой. [#30](https://github.com/sachkov-inside/inside-telegram/issues/30) добавляет разовые рассылки через
+общий отправитель, снимок аудитории при запуске, аналитику контактов/источников/доставки и токены
+переходов для Platform. UI и redirect consumer поставляются отдельно; это ещё не сквозная готовность.
+Marketing по умолчанию выключен.
+
+## Результат продукта
+
+Sachkov Inside получает отдельное Telegram application с dedicated bot `Sachkov Inside`. Оно
+начинается как надёжный Membership bridge, а позднее тем же bot identity доставляет участникам и
+заинтересованным пользователям коммуникации и маркетинговые сообщения.
+
+Первый релиз позволяет человеку:
+
+1. открыть bot обычным `/start` или через short-lived deep link из Platform;
+2. стать `BotContact` независимо от наличия Account и Membership;
+3. безопасно связать Telegram identity с уже authenticated Account;
+4. получить точный transactional ответ о linking и Membership state;
+5. получить доступ к закрытым Platform Materials только после принятия Platform свежего
+   Membership Evidence.
+
+Telegram application не принимает финальное решение о доступе к контенту. Оно доказывает Telegram
+identity, наблюдает Membership Signal и передаёт normalized bounded evidence. Platform строит
+собственный entitlement и остаётся единственной authorization authority.
+
+## Три независимых состояния
+
+### BotContact
+
+Любой обычный `/start` создаёт или реактивирует BotContact. Контакт существует независимо от
+Account, link и Membership и в будущем входит в общую messaging/marketing audience.
+
+Telegram block прекращает техническую доставку сообщений, но не удаляет контакт или историю.
+В исходном bridge отдельной команды `/stop` не было. Расширение communications выше добавляет
+общий отказ от маркетинга отдельно от Contactability. Разблокировка возвращает техническую
+доступность, сохраняя явный отказ; просроченный маркетинг не догоняется. Category consent и
+автоматический retention/deletion пользовательской истории не входят в v1. По сроку очищаются только
+технические записи; их список и сроки задаёт `src/database/retention.ts`.
+
+### Telegram identity link
+
+Platform создаёт high-entropy short-lived single-use token и deep link на bot. `/start` связывает
+token с Telegram identity, но не завершает перенос доступа самостоятельно. Пользователь завершает
+подтверждение в authenticated Account flow Platform.
+
+Одна Telegram identity исторически принадлежит одному Account. Повторное связывание той
+же пары идемпотентно; conflict не делает silent merge или transfer. Exceptional transfer выполняет
+только владелец через отдельную audited CLI/runbook процедуру.
+
+### Membership observation
+
+Канонический закрытый Telegram chat является единственным Membership Signal. Tribute или другой
+payment/roster operator может менять состав chat, но не входит в identity или access contract.
+
+Bot принимает member-status updates, durable сохраняет их до обработки и выполняет фоновую
+`getChatMember` reconciliation для известных linked identities. События и reconciliation создают
+один versioned normalized Membership Evidence contract. Platform принимает evidence асинхронно;
+обычный Library или Material request никогда не обращается к Telegram.
+
+Positive evidence живёт не более пяти минут. Более новое removal evidence прекращает новые
+protected operations после принятия Platform; stale или unavailable state fail closed. Rejoin
+может восстановить доступ без нового Account или повторного link.
+
+## Частота запросов одного пользователя
+
+Решение владельца от 2026-09-25 ([#87](https://github.com/sachkov-inside/inside-telegram/issues/87)):
+один человек делает в личном чате с bot не больше 10 запросов за 10 секунд — команд, нажатий кнопок
+и сообщений. Запрос сверх лимита не выполняется: нажатие кнопки тихо подтверждается, а один раз за
+окно bot отвечает «Слишком много запросов подряд. Подождите несколько секунд и повторите.».
+Membership events, заявки на вступление и блокировка bot не ограничиваются.
+
+## Первый релиз: Membership bridge v1
+
+### Входит
+
+- dedicated Telegram bot и private application repository;
+- обычный `/start`, создание/реактивация BotContact и transactional welcome;
+- Platform-issued deep-link transaction и финальное подтверждение в Platform;
+- identity uniqueness, conflict state и owner-operated exceptional recovery boundary;
+- один configured canonical closed chat;
+- durable member-status update ingestion с deduplication и ordering protection;
+- background reconciliation известных linked identities через `getChatMember`;
+- versioned normalized Membership Evidence и provider-side conformance corpus;
+- authenticated integration seam с Platform;
+- PostgreSQL migrations, redacted audit facts, retry/failure states и focused metrics;
+- local/CI verification и credentialed smoke с настоящим dedicated bot и test/temporary chat;
+- только transactional сообщения о `/start`, linking, status и safe errors.
+
+### Не входит
+
+- broadcasts, campaigns, scheduling, marketing analytics или segmentation UI;
+- отдельные notification preferences, category consent и `/stop`;
+- billing, Tribute API/webhooks или payment state;
+- content posting, community moderation или admin dashboard;
+- production domains, permanent credentials, release, monitoring, backup/recovery и production GO;
+- Account/Profile UI и финальная Platform authorization implementation.
+
+## Долгосрочная роль
+
+После Membership bridge тот же bot может получить onboarding, announcements, content
+communications и marketing. Эти возможности поставляются отдельными Specifications и не расширяют
+v1 скрытым образом.
+
+Принятая product policy считает любой `/start` достаточным основанием для будущей технической
+contactability: messaging может обращаться ко всем BotContacts, пока Telegram позволяет доставку.
+Перед фактическим marketing release требуется отдельный platform-policy/legal review; текущий brief
+не утверждает соответствие конкретной юрисдикции и не заменяет privacy policy.
+
+## Готовность v1
+
+V1 считается application-ready, когда independently tested provider проходит общий evidence
+corpus, sequence corpus для duplicate/out-of-order/missed events и credentialed temporary smoke:
+обычный start, tokenized link, member, non-member, removal, rejoin, conflict, replay, block/unblock и
+provider outage.
+
+Это не production release. Production topology, secrets operations, observability, capacity,
+backup/recovery и enablement получают отдельную owner-approved specification.
+
+## Создание воронок через Telegram
+
+Автор собирает воронку из сообщений Telegram и сохранённых постов: общий вводный блок, первый
+ответ и последовательность шагов. На карточке воронки в боте есть «Сообщения» и «Настройки»: там
+задаются название, первый ответ, шаги, их порядок и время, источники входа, основная воронка для
+обычного входа и общий вводный блок. С карточки автор сохраняет черновик, проверяет изменения
+перед публикацией и управляет паузой или архивом; воронку из архива восстанавливают в настройках.
+Бот и API/MCP с проверкой прав автора — равноправные входы в те же настройки: владелец может
+работать с воронкой и в боте, и с агентом. Оформление постов готовится средствами Telegram.
+Выбранное содержимое сохраняется отдельно; изменение исходного поста требует явной замены в
+воронке. Platform остаётся источником прав автора и проверки доступности материалов. Точный
+транспорт и ограничения описаны в
+[интеграции коммуникаций](../integrations/communications-v1.md#funnel-settings-in-the-bot-38-100).
+
+## Рассылки и сохранённые посты через Telegram
+
+Автор собирает разовую рассылку в боте: присылает сообщения по одному и выбирает время каждого
+от запуска. В списке рассылок есть «Сохранённые посты»: пост можно найти, заменить, добавить к
+нему кнопку-ссылку, получить образец себе и создать из него рассылку. На карточке рассылки до
+запуска есть «Изменить сообщения»: там сообщение меняют вместе с кнопками, заменяют сохранённым постом,
+поднимают выше или удаляют, а новые сообщения добавляют по одному с кнопками, из сохранённых
+постов или пачкой. Бот и API/MCP с проверкой прав автора — равноправные входы в те же посты и
+рассылки. Запуск остаётся отдельным подтверждением автора. Точный транспорт и ограничения описаны
+в [интеграции коммуникаций](../integrations/communications-v1.md#broadcast-messages-and-saved-posts-in-the-bot-37-101).
+
+## Общие уведомления и community entitlement
+
+[Provider specification](../specifications/community-and-notifications-v1.md) добавляет адресные
+сообщения подписки и новых материалов через RabbitMQ/Platform Notifications. Настройки категории
+материалов и аудитория принадлежат Platform; техническая contactability по `/start` не включает
+эту категорию. Telegram хранит результат отправки и проверяет получателя. Общие bot limits
+используются вместе с существующими воронками/рассылками. Community grant/revoke остаются
+отдельными действиями. Это target contract #54, runtime реализуется #55/#56.

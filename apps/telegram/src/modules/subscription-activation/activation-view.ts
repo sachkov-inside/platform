@@ -1,0 +1,156 @@
+import type {
+  OwnAccess,
+  ActivationResult,
+  ActivationResponse,
+} from "./activation-contract.js";
+import type { TelegramButton } from "../outbound/telegram-messages.js";
+const enrollmentStates = {
+  active: "Действует",
+  scheduled: "Начнётся позже",
+  expired: "Срок завершён",
+  revoked: "Отозвано",
+  pending_verification:
+    "Ожидает подтверждения Tribute. Временный доступ по этому основанию не подтверждён. Повторите проверку позже или нажмите «Нужна помощь»",
+  suspended_source:
+    "Источник Tribute завершён, доступ по нему приостановлен. Обратитесь к владельцу для подтверждения нового периода. Повторная проверка и вступление в группу не восстанавливают это основание",
+};
+/** A course student outside the course group gets access through the author's personal invitation. */
+const OUTSIDE_COURSE_GROUP =
+  "Если вы купили курс, но вас нет в его группе, напишите автору: он пришлёт личное приглашение.";
+/** Tells the person that an unconfirmed ground is now in the owner's review queue. */
+export const OWNER_REVIEW =
+  "Запрос передан владельцу: он проверит его вручную.";
+export function activationMenu(accountUrl: string): readonly TelegramButton[] {
+  return [
+    { text: "Открыть платформу", url: accountUrl },
+    { text: "Мои доступы", callbackData: "access:own" },
+    { text: "Вступить в сообщество", callbackData: "access:community" },
+    { text: "Повторить проверку", callbackData: "access:retry" },
+    { text: "Нужна помощь", callbackData: "access:help" },
+  ];
+}
+export function accountPrompt(accountUrl: string): {
+  text: string;
+  buttons: readonly TelegramButton[];
+} {
+  return {
+    text: "Для активации войдите в Inside или создайте аккаунт на платформе, затем свяжите Telegram в кабинете. После подтверждения мы продолжим проверку. Истёкший вход можно начать заново. Действующие права сохраняются на своих условиях.",
+    buttons: [
+      { text: "Создать аккаунт / войти через Telegram", url: accountUrl },
+      { text: "У меня уже есть аккаунт", url: accountUrl },
+      { text: "Я связал Telegram — проверить", callbackData: "access:retry" },
+    ],
+  };
+}
+/** The answer already sends a course student outside the group to the author; no second instruction. */
+export function asksToWriteAuthor(
+  result: ActivationResult<ActivationResponse>,
+): boolean {
+  return result.ok
+    ? result.value.state === "rejected"
+    : result.error.code === "source_not_confirmed";
+}
+export function activationMessage(
+  result: ActivationResult<ActivationResponse>,
+): string {
+  if (!result.ok) {
+    const messages: Partial<Record<string, string>> = {
+      policy_paused:
+        "Новые активации по этой ссылке приостановлены. Уже выданные права сохраняются.",
+      identity_conflict:
+        "Связь Telegram требует проверки владельца. Мы не переносим и не объединяем аккаунты автоматически.",
+      source_not_confirmed: `Покупка пока не подтверждена. ${OUTSIDE_COURSE_GROUP}`,
+      not_found: "Правило активации не найдено. Проверьте ссылку у владельца.",
+      revision_conflict:
+        "Условия проверки изменились. Повторите проверку по исходной ссылке.",
+    };
+    return (
+      messages[result.error.code] ??
+      "Проверка пока недоступна. Повторите её позже; независимые покупки и права сохраняются."
+    );
+  }
+  switch (result.value.state) {
+    case "active":
+    case "already_active":
+      return "Назначение тарифа подтверждено. Чтобы вступить в общий чат Inside, нажмите «Вступить в сообщество» — бот пришлёт личную ссылку. Текущий состав, источник и срок — в «Мои доступы».";
+    case "pending_review":
+      if (
+        result.value.enrollment &&
+        result.value.enrollment.state !== "active"
+      ) {
+        const enrollment = result.value.enrollment;
+        return `Активация не подтверждена. ${enrollment.tier.name}: ${enrollmentStates[enrollment.state]}. Независимые права и сроки назначения — в «Мои доступы».`;
+      }
+      return "Автоматическая проверка не подтвердила покупку. Обратитесь к владельцу; это не отменяет уже выданные права.";
+    case "rejected":
+      return `Автоматическая проверка не подтвердила покупку. ${OUTSIDE_COURSE_GROUP} Это не отменяет уже выданные права.`;
+    case "checking":
+    case "needs_account":
+    case "unavailable":
+      return "Проверка продолжается. Если аккаунт ещё не связан, завершите вход и связывание на платформе.";
+  }
+}
+export function ownAccessText(access: OwnAccess): string {
+  const origin = {
+    course: "Предоставлено за курс",
+    tribute: "Оплачено через Tribute",
+    manual: "Назначено владельцем",
+    platform_payment: "Оформлено на Platform",
+  };
+
+  const rows = access.enrollments
+    .slice(0, 8)
+    .map(
+      (e) =>
+        `${e.tier.name}\n${origin[e.origin]}. ${enrollmentStates[e.state]}.\nСостав: ${e.tier.benefits.map(capability).join(", ")}.\nНачало: ${date(e.startsAt)}. ${term(e.endsAt)} — срок назначения. ${(e.benefitTerms ?? []).map((t) => `${capability(t.capability)}: ${t.revoked ? "отозвано" : term(t.endsAt)}`).join("; ")}.${e.renewal === "not_applicable" ? " Списаний Inside нет." : " Продление — по вашему платёжному соглашению."}`,
+    );
+  for (const ground of access.grounds.filter((g) => g.active).slice(0, 8))
+    rows.push(
+      `Действующее основание: ${ground.source === "paid" ? "покупка" : ground.source === "manual" ? "назначение владельца" : "прежний доступ"}. ${term(ground.validUntil)}. Состав: ${ground.capabilities.map(capability).join(", ")}.`,
+    );
+  if (!rows.length)
+    rows.push(
+      "Действующие права не найдены. Кабинет и история доступны; это не мешает обратиться за подтверждением прежней покупки.",
+    );
+  const admission =
+    access.admission.admissionRestriction === "moderation" ||
+    access.admission.admissionRestriction === "external_unknown" ||
+    access.admission.state === "moderation_blocked"
+      ? "Вступление ограничено. Обратитесь к владельцу; доступ к материалам не снимается этим запретом."
+      : access.admission.state === "ready"
+        ? "Право на сообщество действует. Запросите вступление отдельной кнопкой."
+        : access.admission.state === "checking"
+          ? "Состояние сообщества уточняется."
+          : "Сейчас нет действующего права на сообщество.";
+  const footer =
+    "Срок каждого отдельного права, полный состав и история — в кабинете.";
+  const heading = `Мои доступы\n\n${admission}\n\n`;
+  const details = rows.join("\n\n");
+  const room = 3900 - heading.length - footer.length - 3;
+  return `${heading}${details.length > room ? details.slice(0, room - 1) + "…" : details}\n\n${footer}`;
+}
+function date(value: string): string {
+  return (
+    new Intl.DateTimeFormat("ru-RU", {
+      timeZone: "Europe/Moscow",
+      dateStyle: "short",
+      timeStyle: "short",
+    }).format(new Date(value)) + " МСК"
+  );
+}
+function term(value: string | null): string {
+  return value === null ? "Без даты окончания" : `До ${date(value)}`;
+}
+function capability(value: string): string {
+  return (
+    (
+      {
+        materials: "материалы",
+        community: "сообщество",
+        support: "поддержка",
+        reviews: "ревью",
+      } as Record<string, string>
+    )[value] ??
+    (value.startsWith("guide:") ? "купленный продукт" : "состав в кабинете")
+  );
+}

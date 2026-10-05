@@ -1,0 +1,19 @@
+# Skills are a byte-for-byte copy from platform.
+.agents/
+.claude/
+*.md
+coverage/
+dist/
+node_modules/
+pnpm-lock.yaml
+
+# Pinned protocol corpora are byte-identical to their source manifests.
+docs/contracts/billing-v1/
+docs/contracts/notifications-v1/
+src/modules/community/contracts/
+src/modules/notifications/contracts/
+
+# Immutable Platform-owned versioned corpora.
+docs/contracts/community-v2/
+docs/contracts/subscription-activation-v1/
+src/modules/subscription-activation/contracts/

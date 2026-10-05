@@ -1,0 +1,62 @@
+import { Inject, Injectable } from "@nestjs/common";
+
+import { MembershipEvidenceOutbox } from "./membership-evidence-outbox.js";
+import {
+  PLATFORM_EVIDENCE_DELIVERY,
+  type PlatformEvidenceDelivery,
+  type PlatformEvidenceDeliveryResult,
+} from "./platform-evidence-delivery.js";
+import { reportFailure } from "../../shared/failure-diagnostics.js";
+
+@Injectable()
+export class MembershipEvidenceDeliveryProcessor {
+  constructor(
+    @Inject(MembershipEvidenceOutbox)
+    private readonly outbox: MembershipEvidenceOutbox,
+    @Inject(PLATFORM_EVIDENCE_DELIVERY)
+    private readonly platform: PlatformEvidenceDelivery,
+  ) {}
+
+  async processNext(
+    now = new Date(),
+  ): Promise<PlatformEvidenceDeliveryResult["kind"] | undefined> {
+    const delivery = await this.outbox.claimNext(now);
+    if (!delivery) {
+      return undefined;
+    }
+    const result = await this.outbox.deliverIfClaimActive(
+      delivery,
+      async (): Promise<PlatformEvidenceDeliveryResult> => {
+        try {
+          return await this.platform.deliver({
+            evidence: delivery.evidence,
+            idempotencyKey: delivery.idempotencyKey,
+            source: delivery.source,
+          });
+        } catch (error) {
+          reportFailure("membership.evidence-delivery", error);
+          return {
+            diagnosticCode: "platform_transport_unavailable",
+            kind: "retryable",
+          };
+        }
+      },
+    );
+    if (!result) {
+      return "rejected";
+    }
+    await this.outbox.recordResult(delivery, result, now);
+    return result.kind;
+  }
+
+  async processAvailable(limit = 50, now = new Date()): Promise<number> {
+    let processed = 0;
+    for (; processed < limit; processed += 1) {
+      const outcome = await this.processNext(now);
+      if (!outcome) {
+        break;
+      }
+    }
+    return processed;
+  }
+}
