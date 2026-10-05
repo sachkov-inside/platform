@@ -52,7 +52,7 @@ function readObservations(): PassObservation[] {
  * запускает проход: вход `deployed-sha` workflow, а из `deploy.yml` — выпуск, который он развернул
  * (#906). Без входа отчёт пишет «не передан».
  */
-function readDeployedSha(): string | null {
+export function readDeployedSha(): string | null {
   const value = process.env["PRODUCTION_ACCESS_DEPLOYED_SHA"];
   if (value === undefined || value === "") return null;
   return z

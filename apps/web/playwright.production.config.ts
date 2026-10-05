@@ -3,7 +3,7 @@ import { defineConfig } from "@playwright/test";
 import { productionTarget } from "./test/production/pass-config";
 
 /**
- * Production-проход доступа (#905): read-only, против настоящего production. Запускается вручную
+ * Production-проход доступа (#905) против настоящего production: данные Platform не меняет. Запускается вручную
  * через workflow `Production access pass`; это не проверка pull request.
  * `PRODUCTION_ACCESS_BROWSER_PROXY` нужен только локально, когда сеть идёт через proxy.
  */

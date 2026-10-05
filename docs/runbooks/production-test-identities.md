@@ -1,6 +1,6 @@
 # Тестовые identities production
 
-Тестовые Accounts в production нужны read-only проходу доступа (#905, полный проход — #906). Проход
+Тестовые Accounts в production нужны проходу доступа (#905, полный проход — #906). Проход
 входит ими без владельца и сверяет, что каждый видит и чего не видит. Этот документ перечисляет
 identities, объясняет вход, секреты и порядок их замены. Значений секретов здесь нет.
 
@@ -102,7 +102,7 @@ BFF тестовых identities. Если identity снова видит экр�
 
 Проход запускается вручную: GitHub Actions → `Production access pass` → `Run workflow` на `main`.
 Вход `deployed-sha` — SHA выпуска, который сейчас в production. Снаружи production его не показывает
-(`/_health/*` закрыт на edge), поэтому без входа отчёт пишет «не передан». Job загружает artifact `production-access-report-<попытка>` с `report.json` и `report.md`. В отчёте для
-каждой клетки есть deployed SHA, ожидание, факт и уровень. Cookies, токены и email в отчёт не
-попадают. Локально тот же набор запускает `pnpm --filter @inside/web test:production-access` с теми
-же переменными.
+(`/_health/*` закрыт на edge), поэтому без входа отчёт пишет «не передан». Job загружает artifact
+`production-access-report-<попытка>` с `report.json` и `report.md`. В отчёте для каждой клетки есть
+deployed SHA, ожидание, факт и уровень. Cookies, токены и email в отчёт не попадают. Локально тот же
+набор запускает `pnpm --filter @inside/web test:production-access` с теми же переменными.

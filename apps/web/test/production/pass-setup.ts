@@ -1,8 +1,12 @@
 import { rmSync } from "node:fs";
 
-import { passReportDirectory } from "./pass-report";
+import { passReportDirectory, readDeployedSha } from "./pass-report";
 
-/** Global setup: прошлый отчёт не должен подменить наблюдения этого прогона. */
-export default function clearPassReport(): void {
+/**
+ * Global setup: неверный вход `deployed-sha` останавливает прогон до первой клетки, а прошлый отчёт
+ * не подменяет наблюдения этого прогона.
+ */
+export default function preparePassReport(): void {
+  readDeployedSha();
   rmSync(passReportDirectory, { recursive: true, force: true });
 }
