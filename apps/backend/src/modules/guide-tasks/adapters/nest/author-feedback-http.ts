@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-import type { AuthorFeedback } from "../../shared/submission-review-dependencies.js";
+import type { AuthorFeedback } from "../../shared/author-feedback.js";
 
 /** Author Feedback as the author's «Сдачи» section reads it (#948). */
 export const authorFeedbackHttpSchema = z

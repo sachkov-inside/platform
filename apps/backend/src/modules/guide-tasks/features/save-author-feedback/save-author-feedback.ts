@@ -7,10 +7,11 @@ import {
   type Result,
   type SystemError,
 } from "../../shared/result.js";
-import type {
-  AuthorFeedback,
-  SubmissionReviewDependencies,
-} from "../../shared/submission-review-dependencies.js";
+import {
+  authorFeedbackOf,
+  type AuthorFeedback,
+} from "../../shared/author-feedback.js";
+import type { SubmissionReviewDependencies } from "../../shared/submission-review-dependencies.js";
 
 export const AUTHOR_COMMENT_MAX_CHARACTERS = 4_000;
 
@@ -55,15 +56,15 @@ export async function saveAuthorFeedback(
     );
     if (submission === null)
       return { ok: false, error: { code: "submission_not_found" } };
-    if (comment === null && !reviewed) {
-      await dependencies.prisma.guideTaskAuthorFeedback.deleteMany({
-        where: { submissionId },
-      });
-      return { ok: true, value: null };
-    }
     const now = (dependencies.clock ?? (() => new Date()))();
     const stored = await dependencies.prisma.$transaction(
       async (transaction) => {
+        if (comment === null && !reviewed) {
+          await transaction.guideTaskAuthorFeedback.deleteMany({
+            where: { submissionId },
+          });
+          return null;
+        }
         await transaction.guideTaskAuthorFeedback.upsert({
           where: { submissionId },
           create: {
@@ -94,11 +95,7 @@ export async function saveAuthorFeedback(
     );
     return {
       ok: true,
-      value: {
-        comment: stored.comment,
-        reviewedAt: stored.reviewedAt?.toISOString() ?? null,
-        updatedAt: stored.updatedAt.toISOString(),
-      },
+      value: stored === null ? null : authorFeedbackOf(stored),
     };
   } catch (error) {
     return dependencyFailure(

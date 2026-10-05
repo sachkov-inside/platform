@@ -18,23 +18,27 @@ import {
   type Result,
   type SystemError,
 } from "../../shared/result.js";
-import type {
-  AuthorFeedback,
-  SubmissionReviewDependencies,
-} from "../../shared/submission-review-dependencies.js";
+import {
+  authorFeedbackOf,
+  type AuthorFeedback,
+} from "../../shared/author-feedback.js";
+import type { SubmissionReviewDependencies } from "../../shared/submission-review-dependencies.js";
 
-export const AUTHOR_SUBMISSIONS_PAGE = 25;
-const MAX_PAGE = 100;
+const AUTHOR_SUBMISSIONS_PAGE = 25;
 
 const cursorSchema = z.object({ at: z.iso.datetime(), id: z.uuid() }).strict();
+
+/** The page cursor and size; the controller publishes these same schemas in OpenAPI. */
+export const submissionsCursorSchema = z.string().min(1).max(200);
+export const submissionsLimitSchema = z.number().int().min(1).max(100);
 
 export const authorSubmissionsQuerySchema = z
   .object({
     guideId: z.uuid().optional(),
     chapterId: z.uuid().optional(),
     taskCode: taskCodeSchema.optional(),
-    cursor: z.string().min(1).max(200).nullable().optional(),
-    limit: z.coerce.number().int().min(1).max(MAX_PAGE).optional(),
+    cursor: submissionsCursorSchema.nullable().optional(),
+    limit: z.coerce.number().pipe(submissionsLimitSchema).optional(),
   })
   .strict();
 
@@ -70,7 +74,7 @@ export interface AuthorSubmission {
   readonly authorFeedback: AuthorFeedback | null;
 }
 
-/** A Guide in the section filter: its chapters with tasks, in author order. */
+/** A Guide in the section filter: its chapters with tasks, chapters in author order. */
 export interface SubmissionFilterGuide {
   readonly id: string;
   readonly name: string;
@@ -236,6 +240,9 @@ export async function listAuthorSubmissions(
           if (task === undefined)
             throw new Error("A submission refers to an unknown task");
           const placed = chapterOf.get(task.chapterId);
+          // Import refuses a task outside an existing chapter; a miss here is broken data.
+          if (placed === undefined)
+            throw new Error("A task refers to an unknown chapter");
           return {
             submissionId: row.id,
             submittedAt: row.submittedAt.toISOString(),
@@ -244,9 +251,9 @@ export async function listAuthorSubmissions(
               code: task.code,
               title: task.title,
               guideId: task.guideId,
-              guideName: placed?.guide.name ?? "",
+              guideName: placed.guide.name,
               chapterId: task.chapterId,
-              chapterName: placed?.chapter.name ?? "",
+              chapterName: placed.chapter.name,
               currentVersion: task.currentVersion,
             },
             taskVersion: row.taskVersion,
@@ -267,17 +274,11 @@ export async function listAuthorSubmissions(
               uncommittedChanges: row.uncommittedChanges,
             },
             authorFeedback:
-              row.feedback === null
-                ? null
-                : {
-                    comment: row.feedback.comment,
-                    reviewedAt: row.feedback.reviewedAt?.toISOString() ?? null,
-                    updatedAt: row.feedback.updatedAt.toISOString(),
-                  },
+              row.feedback === null ? null : authorFeedbackOf(row.feedback),
           };
         }),
         versions: versions.map((version) => ({
-          code: taskOf.get(version.taskId)?.code ?? "",
+          code: codeOf(taskOf, version.taskId),
           version: version.version,
           criteria: taskDefinitionSchema.parse(version.definition).criteria,
         })),
@@ -296,7 +297,20 @@ export async function listAuthorSubmissions(
   }
 }
 
-/** Guides and chapters that have tasks, in author order, each with its tasks in chapter order. */
+function codeOf(
+  tasks: ReadonlyMap<string, { readonly code: string }>,
+  taskId: string,
+): string {
+  const task = tasks.get(taskId);
+  if (task === undefined)
+    throw new Error("A version refers to an unknown task");
+  return task.code;
+}
+
+/**
+ * Guides that have tasks, by name, with their chapters in author order and the tasks of each
+ * chapter in chapter order.
+ */
 function filterGuides(
   guides: Awaited<
     ReturnType<SubmissionReviewDependencies["directory"]["guides"]>

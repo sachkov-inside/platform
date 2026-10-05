@@ -12,10 +12,3 @@ export interface SubmissionReviewDependencies {
   readonly identities: Pick<TelegramAccountLinks, "readBinding">;
   readonly clock?: () => Date;
 }
-
-/** A stored Author Feedback as the author and the learner read it. */
-export interface AuthorFeedback {
-  readonly comment: string | null;
-  readonly reviewedAt: string | null;
-  readonly updatedAt: string;
-}

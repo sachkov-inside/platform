@@ -29,14 +29,11 @@ export function handleSaveAuthorFeedback(request: Request): Promise<Response> {
         reviewed: form.get("reviewed"),
       });
       if (!parsed.success) return { kind: "invalid_input" };
-      const comment = parsed.data.comment.trim();
       try {
         const result = await requestSaveAuthorTaskFeedback(
           parsed.data.submissionId,
-          {
-            comment: comment === "" ? null : comment,
-            reviewed: parsed.data.reviewed,
-          },
+          // The backend owns the trimming: a blank comment is no comment.
+          { comment: parsed.data.comment, reviewed: parsed.data.reviewed },
           token,
         );
         if (result.ok) {

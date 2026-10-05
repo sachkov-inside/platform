@@ -10,8 +10,8 @@ import { SubmitTaskFormController } from "./features/submit-task/submit-task-for
 import { GuideTasksModule } from "./guide-tasks.module.js";
 
 /**
- * The HTTP surface of Guide Tasks: the authoring import and the author's «Сдачи» section (#948),
- * and the task page, own submissions and the page form for learners (#947). The API process imports it; it re-exports the module so the Guide
+ * The HTTP surface of Guide Tasks: the authoring import and the author's «Сдачи» section
+ * (#948), and the task page, own submissions and the page form for learners (#947). The API process imports it; it re-exports the module so the Guide
  * programme read reaches the chapter tasks.
  */
 @Module({

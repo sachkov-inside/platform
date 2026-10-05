@@ -64,7 +64,7 @@ describe("author feedback BFF (#948)", () => {
     expect(fakes.save).not.toHaveBeenCalled();
   });
 
-  it("forwards the trimmed comment and the mark with the trusted token; an empty comment is none", async () => {
+  it("forwards the comment as typed and the mark with the trusted token; the backend owns trimming", async () => {
     const stored = {
       comment: "Хорошее разделение.",
       reviewedAt: "2026-10-05T16:40:00.000Z",
@@ -84,7 +84,7 @@ describe("author feedback BFF (#948)", () => {
     );
     expect(fakes.save).toHaveBeenCalledWith(
       submissionId,
-      { comment: "Хорошее разделение.", reviewed: true },
+      { comment: "  Хорошее разделение.  ", reviewed: true },
       "trusted-token",
     );
     expect(response.headers.get("cache-control")).toBe("no-store, private");
@@ -103,7 +103,7 @@ describe("author feedback BFF (#948)", () => {
     );
     expect(fakes.save).toHaveBeenLastCalledWith(
       submissionId,
-      { comment: null, reviewed: false },
+      { comment: "   ", reviewed: false },
       "trusted-token",
     );
   });

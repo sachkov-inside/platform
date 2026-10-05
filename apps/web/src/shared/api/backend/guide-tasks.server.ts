@@ -100,7 +100,7 @@ export function requestAuthorTaskSubmissions(
 /** The author's comment and «посмотрел автор» on one submission (#948). */
 export function requestSaveAuthorTaskFeedback(
   submissionId: string,
-  feedback: { readonly comment: string | null; readonly reviewed: boolean },
+  feedback: { readonly comment: string; readonly reviewed: boolean },
   accessToken: string,
 ): Promise<BackendTransportResult> {
   return executeGeneratedRequest(

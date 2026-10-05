@@ -9,8 +9,11 @@ import { TaskSubmissionsFrame } from "./task-submissions-view";
 
 export function TaskSubmissionsState({
   kind,
+  returnTo = submissionsHref,
 }: {
   readonly kind: "unauthorized" | "forbidden" | "unavailable";
+  /** The filtered address to come back to after sign-in. */
+  readonly returnTo?: string;
 }) {
   return (
     <TaskSubmissionsFrame>
@@ -18,7 +21,7 @@ export function TaskSubmissionsState({
         <StatusPanel
           action={
             <form action="/auth/sign-in" method="post">
-              <input name="returnTo" type="hidden" value={submissionsHref} />
+              <input name="returnTo" type="hidden" value={returnTo} />
               <Button type="submit">
                 <LogIn aria-hidden="true" data-icon="inline-start" />
                 Войти

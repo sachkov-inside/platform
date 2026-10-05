@@ -46,7 +46,11 @@ import {
   SUBMISSION_REVIEW,
   type SubmissionReview,
 } from "../../facets/submission-review/submission-review.js";
-import { authorSubmissionsQuerySchema } from "./list-author-submissions.js";
+import {
+  authorSubmissionsQuerySchema,
+  submissionsCursorSchema,
+  submissionsLimitSchema,
+} from "./list-author-submissions.js";
 
 const reportCriterionHttpSchema = z
   .object({
@@ -172,12 +176,12 @@ export class ListAuthorSubmissionsController {
   @ApiQuery({
     name: "cursor",
     required: false,
-    schema: toOpenApiSchema(z.string().min(1).max(200)),
+    schema: toOpenApiSchema(submissionsCursorSchema),
   })
   @ApiQuery({
     name: "limit",
     required: false,
-    schema: toOpenApiSchema(z.number().int().min(1).max(100)),
+    schema: toOpenApiSchema(submissionsLimitSchema),
   })
   @ApiOkResponse({ schema: toOpenApiSchema(authorSubmissionsHttpSchema) })
   @ApiResponse({

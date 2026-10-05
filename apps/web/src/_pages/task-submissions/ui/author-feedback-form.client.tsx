@@ -18,7 +18,7 @@ const failures: Record<
   Exclude<SaveAuthorFeedbackResult["kind"], "saved">,
   string
 > = {
-  invalid_input: `Комментарий длиннее ${String(AUTHOR_COMMENT_MAX_CHARACTERS)} символов.`,
+  invalid_input: `Отзыв не принят. Комментарий — до ${String(AUTHOR_COMMENT_MAX_CHARACTERS)} символов; если он короче, обнови страницу.`,
   forbidden: "Отзыв оставляет автор с правом materials:manage.",
   submission_not_found: "Сдача не найдена. Обнови страницу.",
   unauthorized: "Сессия закончилась. Войди снова, текст останется в форме.",
