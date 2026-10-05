@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
-# One-time (repeatable) installation of the restricted Telegram deployment access on the VPS.
+# First installation of the restricted Telegram deployment access on the VPS.
 # Usage, as root from a checkout of the merged commit:
-#   bash infra/production/deploy/install-deploy-access.sh <ed25519-public-key-file>
+#   bash apps/telegram/infra/production/deploy/install-deploy-access.sh <ed25519-public-key-file>
 set -euo pipefail
 
 if [[ $# -ne 1 || ! -r "$1" ]]; then

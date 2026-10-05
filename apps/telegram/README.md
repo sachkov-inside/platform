@@ -210,8 +210,8 @@ Read [application AGENTS](AGENTS.md), then [root WORKFLOW](../../WORKFLOW.md).
 New tasks use the Platform tracker. Source issue links remain historical until task transfer in #961.
 
 The root CI Gate includes isolated Telegram `check:full` on pull requests, merge groups and
-reusable exact-SHA calls. Nested `.github/workflows` are historical test fixtures until #960;
-production delivery still belongs to the source repository during this stage.
+reusable exact-SHA calls. Root workflows implement independent Telegram delivery.
+The [production runbook](docs/operations/production.md) owns the transition and live proof.
 
 ## Local development
 
@@ -261,8 +261,8 @@ docker build --file apps/telegram/infra/production/Dockerfile --build-arg SOURCE
 ```
 
 The Dockerfile uses root frozen workspace installation and filtered production deployment.
-The historical nested release workflow still describes the old source context; #960 replaces it
-with an active root release workflow. It is not an executable monorepo release path.
+Root `telegram-release.yml` and `telegram-deploy.yml` implement independent delivery.
+The [production runbook](docs/operations/production.md) owns source trust, publication and rollback.
 
 Migration keys are retained across the independently deployed communications and sign-in branches.
 Only the independently deployed `010-communications-templates` → `011-communication-funnels`

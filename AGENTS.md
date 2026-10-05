@@ -7,7 +7,8 @@
 Platform owns the Membership application, the Telegram application under `apps/telegram`,
 shared product/legal documents and the developer process of Inside. Applications keep separate
 processes, databases, migrations and runtime contracts. `REPOSITORIES.md` describes the transition;
-Telegram production delivery remains in its source repository until #960. Work uses only
+Telegram has independent root release/deploy workflows; its delivery authority is
+`apps/telegram/docs/operations/production.md`. Work uses only
 repository-local canonical documents.
 
 ## Working agreements
