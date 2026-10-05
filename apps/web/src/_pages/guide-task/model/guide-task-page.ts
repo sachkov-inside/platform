@@ -98,7 +98,8 @@ export type OpenGuideTask = Extract<
   z.infer<typeof guideTaskPageSchema>,
   { access: "open" }
 >;
-export type ClosedGuideTask = Extract<
+/** Where a task stands: its code, title, Guide and chapter; a closed task shows only this. */
+export type GuideTaskPlace = Extract<
   z.infer<typeof guideTaskPageSchema>,
   { access: "closed" }
 >["task"];
@@ -107,7 +108,7 @@ export type OwnTaskSubmissions = z.infer<typeof ownTaskSubmissionsSchema>;
 /** What the task route renders: the page, a closed task by its place, 404 or a dependency pause. */
 export type GuideTaskPageResult =
   | { readonly kind: "open"; readonly page: OpenGuideTask }
-  | { readonly kind: "closed"; readonly task: ClosedGuideTask }
+  | { readonly kind: "closed"; readonly task: GuideTaskPlace }
   | { readonly kind: "not-found" }
   | { readonly kind: "unavailable" };
 

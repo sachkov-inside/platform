@@ -37,7 +37,10 @@ export function GuideTaskForm({
   code,
   taskVersion,
 }: {
-  /** The submission setting: closed until data policy v4 is published (#946). */
+  /**
+   * The submission setting: closed until data policy v4 is published (#946). The page explains
+   * it above; the form only keeps its button disabled.
+   */
   readonly accepting: boolean;
   readonly code: string;
   readonly taskVersion: number;
@@ -95,14 +98,6 @@ export function GuideTaskForm({
         Без агента отчёт проверки можно не прикладывать. Ветку и commit
         указывать не нужно.
       </p>
-      {accepting ? null : (
-        <p
-          className="rounded-xl border border-[color-mix(in_srgb,var(--callout-warning)_40%,transparent)] bg-[color-mix(in_srgb,var(--callout-warning)_10%,transparent)] px-4 py-3 text-sm leading-6"
-          role="status"
-        >
-          Приём сдач скоро откроется. Отправить сдачу пока нельзя.
-        </p>
-      )}
       <label
         className="grid gap-1.5 text-sm font-medium"
         htmlFor={`${id}-repo`}

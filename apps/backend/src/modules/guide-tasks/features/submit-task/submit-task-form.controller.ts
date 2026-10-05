@@ -38,9 +38,9 @@ import {
   learnerSubject,
   learnerTaskFailureProblemSchema,
   learnerTaskUnavailableProblemSchema,
-  taskCodeParamSchema,
   throwSystemError,
 } from "../../adapters/nest/learner-task-http.js";
+import { taskCodeSchema } from "../../domain/task-definition.js";
 import {
   LEARNING_TASKS,
   type LearningTasks,
@@ -81,7 +81,7 @@ export class SubmitTaskFormController {
     summary:
       "Submit a Guide Task through the page form against the version the page showed",
   })
-  @ApiParam({ name: "code", schema: toOpenApiSchema(taskCodeParamSchema) })
+  @ApiParam({ name: "code", schema: toOpenApiSchema(taskCodeSchema) })
   @ApiBody({ schema: toOpenApiSchema(formSubmissionBodySchema) })
   @ApiOkResponse({ schema: toOpenApiSchema(taskSubmissionReceiptHttpSchema) })
   @ApiResponse({

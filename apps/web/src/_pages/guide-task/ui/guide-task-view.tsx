@@ -15,6 +15,7 @@ import type { ReactNode } from "react";
 
 import {
   formatSubmissionDay,
+  formatSubmissionMoment,
   guideTaskAgentPhrase,
 } from "@/entities/guide-task";
 import { GuideTaskForm } from "@/features/guide-task-submission";
@@ -24,7 +25,7 @@ import { materialPath } from "@/shared/routing/public-page-path";
 import { guideProgrammeHref } from "@/shared/routing/subscription-route";
 
 import type {
-  ClosedGuideTask,
+  GuideTaskPlace,
   OpenGuideTask,
   OwnSubmissionsView,
   TaskCriterion,
@@ -213,8 +214,8 @@ export function GuideTaskView({
               className="mt-3 grid list-decimal gap-2 pl-5 font-mono text-[0.75rem] leading-5 text-body-muted"
               lang="en"
             >
-              {page.reviewProtocol.instructions.map((line) => (
-                <li key={line}>{line}</li>
+              {page.reviewProtocol.instructions.map((line, index) => (
+                <li key={String(index)}>{line}</li>
               ))}
             </ol>
           </Disclosure>
@@ -293,7 +294,7 @@ export function GuideTaskView({
  * A task the reader cannot open: only its title and chapter, like a closed Material (owner,
  * 05.10.2026). The sale lives in the programme, so the one action leads there.
  */
-export function GuideTaskClosed({ task }: { readonly task: ClosedGuideTask }) {
+export function GuideTaskClosed({ task }: { readonly task: GuideTaskPlace }) {
   return (
     <div
       className="mx-auto min-w-0 max-w-[43rem] pb-16"
@@ -353,7 +354,7 @@ export function GuideTaskClosed({ task }: { readonly task: ClosedGuideTask }) {
   );
 }
 
-function TaskBackLink({ task }: { readonly task: ClosedGuideTask }) {
+function TaskBackLink({ task }: { readonly task: GuideTaskPlace }) {
   return (
     <nav aria-label="Путь навигации" className="pt-4" data-task-return>
       <IntentPrefetchLink
@@ -367,7 +368,7 @@ function TaskBackLink({ task }: { readonly task: ClosedGuideTask }) {
   );
 }
 
-function TaskEyebrow({ task }: { readonly task: ClosedGuideTask }) {
+function TaskEyebrow({ task }: { readonly task: GuideTaskPlace }) {
   return (
     <p className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-muted-foreground">
       <span className="inline-flex items-center gap-1.5 font-semibold text-[color:var(--callout-task)]">
@@ -426,16 +427,12 @@ function CriteriaList({
             <p className="[overflow-wrap:anywhere]">{criterion.requirement}</p>
             {compact ? null : (
               <details className="group mt-1.5">
-                <summary className="inline-flex min-h-8 cursor-pointer list-none items-center gap-1 text-sm text-muted-foreground hover:text-foreground [&::-webkit-details-marker]:hidden">
+                <InlineSummary className="min-h-8 font-normal">
                   Чем подтвердить
-                  <ChevronDown
-                    aria-hidden="true"
-                    className="size-4 transition-transform group-open:rotate-180 motion-reduce:transition-none"
-                  />
-                </summary>
+                </InlineSummary>
                 <ul className="mt-1 grid gap-1 border-l-2 border-border pl-3 text-sm leading-6 text-body-muted">
-                  {criterion.acceptableEvidence.map((evidence) => (
-                    <li key={evidence}>{evidence}</li>
+                  {criterion.acceptableEvidence.map((evidence, index) => (
+                    <li key={String(index)}>{evidence}</li>
                   ))}
                 </ul>
               </details>
@@ -489,13 +486,37 @@ function Disclosure({
     >
       <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between gap-3 px-4 text-sm font-medium [&::-webkit-details-marker]:hidden">
         {title}
-        <ChevronDown
-          aria-hidden="true"
-          className="size-4 shrink-0 transition-transform group-open:rotate-180 motion-reduce:transition-none"
-        />
+        <Chevron />
       </summary>
       <div className="px-4 pb-4 text-base">{children}</div>
     </details>
+  );
+}
+
+/** The summary of a small inline disclosure: muted text and a chevron that turns when open. */
+function InlineSummary({
+  children,
+  className = "min-h-9 font-medium",
+}: {
+  readonly children: ReactNode;
+  readonly className?: string;
+}) {
+  return (
+    <summary
+      className={`inline-flex cursor-pointer list-none items-center gap-1 text-sm text-muted-foreground hover:text-foreground [&::-webkit-details-marker]:hidden ${className}`}
+    >
+      {children}
+      <Chevron />
+    </summary>
+  );
+}
+
+function Chevron() {
+  return (
+    <ChevronDown
+      aria-hidden="true"
+      className="size-4 shrink-0 transition-transform group-open:rotate-180 motion-reduce:transition-none"
+    />
   );
 }
 
@@ -568,7 +589,7 @@ function OwnSubmissions({
             />
             <h3 className="font-semibold">
               <time dateTime={submission.submittedAt}>
-                {formatSubmissionTime(submission.submittedAt)}
+                {formatSubmissionMoment(submission.submittedAt)}
               </time>
             </h3>
             <p className="mt-1 flex flex-wrap gap-x-3 gap-y-1 text-xs text-muted-foreground">
@@ -627,13 +648,7 @@ function OwnSubmissions({
             </div>
             {submission.reportText === null ? null : (
               <details className="group mt-2">
-                <summary className="inline-flex min-h-9 cursor-pointer list-none items-center gap-1 text-sm font-medium text-muted-foreground hover:text-foreground [&::-webkit-details-marker]:hidden">
-                  Мой отчёт
-                  <ChevronDown
-                    aria-hidden="true"
-                    className="size-4 transition-transform group-open:rotate-180 motion-reduce:transition-none"
-                  />
-                </summary>
+                <InlineSummary>Мой отчёт</InlineSummary>
                 <p className="mt-2 whitespace-pre-line text-sm leading-6 text-body-muted [overflow-wrap:anywhere]">
                   {submission.reportText}
                 </p>
@@ -641,16 +656,12 @@ function OwnSubmissions({
             )}
             {criteria.length === 0 ? null : (
               <details className="group mt-1">
-                <summary className="inline-flex min-h-9 cursor-pointer list-none items-center gap-1 text-sm font-medium text-muted-foreground hover:text-foreground [&::-webkit-details-marker]:hidden">
+                <InlineSummary>
                   Критерии версии {submission.taskVersion}
                   {submission.taskVersion === currentVersion
                     ? " (текущей)"
                     : ""}
-                  <ChevronDown
-                    aria-hidden="true"
-                    className="size-4 transition-transform group-open:rotate-180 motion-reduce:transition-none"
-                  />
-                </summary>
+                </InlineSummary>
                 <div className="mt-2 grid gap-3 text-sm leading-6">
                   <p className="font-semibold">Обязательно</p>
                   <CriteriaList compact criteria={criteria} level="required" />
@@ -672,15 +683,4 @@ function OwnSubmissions({
       })}
     </ol>
   );
-}
-
-/** «5 октября, 16:40»: the moment of a submission in Moscow time, stable across renders. */
-function formatSubmissionTime(iso: string): string {
-  return new Intl.DateTimeFormat("ru-RU", {
-    day: "numeric",
-    month: "long",
-    hour: "2-digit",
-    minute: "2-digit",
-    timeZone: "Europe/Moscow",
-  }).format(new Date(iso));
 }

@@ -10,11 +10,8 @@ import {
   anonymousSubject,
   type Subject,
 } from "../../../content-access/index.js";
-import { taskCodeSchema } from "../../domain/task-definition.js";
+import type { TaskDefinition } from "../../domain/task-definition.js";
 import type { SystemError } from "../../shared/result.js";
-
-/** The task code in a learner address; the same rule the import applies. */
-export const taskCodeParamSchema = taskCodeSchema;
 
 export const learnerTaskUnavailableProblemSchema = problemDetailsSchema(503, [
   "dependency_unavailable",
@@ -56,3 +53,13 @@ export const criterionHttpSchema = z
     acceptableEvidence: z.array(z.string()),
   })
   .strict();
+
+/** One criterion as a learner response names it, field by field. */
+export function criterionHttp(criterion: TaskDefinition["criteria"][number]) {
+  return {
+    id: criterion.id,
+    level: criterion.level,
+    requirement: criterion.requirement,
+    acceptableEvidence: [...criterion.acceptableEvidence],
+  };
+}

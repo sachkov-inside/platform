@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import { z } from "zod";
 
 import type { ContentAccess } from "../../../content-access/index.js";
@@ -72,9 +73,15 @@ export async function discoverPublishedMaterials(
       return {
         ok: false,
         error:
-          listed.error.code === "internal_error"
+          listed.error.code === "dependency_unavailable"
             ? listed.error
-            : { code: "dependency_unavailable", retryable: true },
+            : {
+                code: "internal_error",
+                correlationId:
+                  listed.error.code === "internal_error"
+                    ? listed.error.correlationId
+                    : randomUUID(),
+              },
       };
     for (const task of listed.value.tasks) {
       const chapterTasks = tasksByChapter.get(task.chapterId) ?? [];

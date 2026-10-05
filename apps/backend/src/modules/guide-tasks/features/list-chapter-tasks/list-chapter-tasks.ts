@@ -25,12 +25,15 @@ export interface ChapterTask {
   readonly access: "free" | "membership";
   readonly chapterId: string;
   /**
-   * The Material of the same chapter the task follows; `null` puts it at the start of the chapter,
-   * also when that Material has left the chapter since the import.
+   * The published Material of the same chapter the task follows; `null` puts it at the start of
+   * the chapter, also when that Material has left the chapter or is not published.
    */
   readonly afterMaterialId: string | null;
   readonly availability: "available" | "locked" | "unavailable";
-  /** The subject's own latest submission; always `null` for an anonymous subject. */
+  /**
+   * The subject's own latest submission; `null` for an anonymous subject and while the task is
+   * closed to the subject.
+   */
   readonly lastSubmittedAt: string | null;
 }
 
@@ -72,7 +75,11 @@ export async function listChapterTasks(
     ];
     const placements = new Map<
       string,
-      { readonly materialId: string; readonly chapterId: string | null }
+      {
+        readonly materialId: string;
+        readonly chapterId: string | null;
+        readonly published: boolean;
+      }
     >();
     for (let start = 0; start < rows.length; start += LOOKUP_BATCH) {
       const batch = rows.slice(start, start + LOOKUP_BATCH);
@@ -115,6 +122,7 @@ export async function listChapterTasks(
       ok: true,
       value: {
         tasks: rows.map((row) => {
+          const availability = availabilityById.get(row.id) ?? "unavailable";
           const anchor =
             row.afterMaterialSourceId === null
               ? undefined
@@ -125,9 +133,15 @@ export async function listChapterTasks(
             access: taskAccessSchema.parse(row.access),
             chapterId: row.chapterId,
             afterMaterialId:
-              anchor?.chapterId === row.chapterId ? anchor.materialId : null,
-            availability: availabilityById.get(row.id) ?? "unavailable",
-            lastSubmittedAt: lastByTask.get(row.id)?.toISOString() ?? null,
+              anchor?.chapterId === row.chapterId && anchor.published
+                ? anchor.materialId
+                : null,
+            availability,
+            // Submissions return with access (#939): a closed task shows no mark of them.
+            lastSubmittedAt:
+              availability === "available"
+                ? (lastByTask.get(row.id)?.toISOString() ?? null)
+                : null,
           };
         }),
       },

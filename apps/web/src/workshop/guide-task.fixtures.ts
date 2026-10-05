@@ -1,5 +1,5 @@
 import type {
-  ClosedGuideTask,
+  GuideTaskPlace,
   OpenGuideTask,
   OwnSubmissionsView,
 } from "@/_pages/guide-task/model/guide-task-page";
@@ -110,7 +110,7 @@ export const openGuideTask: OpenGuideTask = {
   submission: { accepting: true },
 };
 
-export const closedGuideTask: ClosedGuideTask = place;
+export const closedGuideTask: GuideTaskPlace = place;
 
 const versions = [
   { version: 2, criteria: openGuideTask.task.definition.criteria },

@@ -23,13 +23,14 @@ import {
   type AuthenticatedAccount,
 } from "../../../accounts/index.js";
 import {
+  criterionHttp,
   criterionHttpSchema,
   learnerSubject,
   learnerTaskFailureProblemSchema,
   learnerTaskUnavailableProblemSchema,
-  taskCodeParamSchema,
   throwSystemError,
 } from "../../adapters/nest/learner-task-http.js";
+import { taskCodeSchema } from "../../domain/task-definition.js";
 import {
   LEARNING_TASKS,
   type LearningTasks,
@@ -105,7 +106,7 @@ export class ReadTaskPageController {
     name: "slug",
     schema: toOpenApiSchema(taskPageQuerySchema.shape.guideSlug),
   })
-  @ApiParam({ name: "code", schema: toOpenApiSchema(taskCodeParamSchema) })
+  @ApiParam({ name: "code", schema: toOpenApiSchema(taskCodeSchema) })
   @ApiOkResponse({ schema: toOpenApiSchema(taskPageHttpSchema) })
   @ApiResponse({
     status: 400,
@@ -180,12 +181,7 @@ export class ReadTaskPageController {
           situation: definition.situation,
           result: [...definition.result],
           freedom: definition.freedom,
-          criteria: definition.criteria.map((criterion) => ({
-            id: criterion.id,
-            level: criterion.level,
-            requirement: criterion.requirement,
-            acceptableEvidence: [...criterion.acceptableEvidence],
-          })),
+          criteria: definition.criteria.map(criterionHttp),
         },
       },
       reviewProtocol: {

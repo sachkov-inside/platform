@@ -61,6 +61,16 @@ describe("Library discovery server adapter", () => {
       materialIds: ["72000000-0000-4000-8000-000000000020"],
       name: "Проект и CI",
       summary: "Собираем проект и первые проверки.",
+      tasks: [
+        {
+          code: "ci-first-check",
+          title: "Первая проверка в CI",
+          access: "free",
+          afterMaterialId: "72000000-0000-4000-8000-000000000020",
+          availability: "available",
+          lastSubmittedAt: "2026-10-05T13:40:00.000Z",
+        },
+      ],
     };
     const empty = {
       id: "72000000-0000-4000-8000-000000000031",
@@ -90,9 +100,10 @@ describe("Library discovery server adapter", () => {
     );
 
     const result = await getPublishedSeries("platform");
+    // An answer without tasks is a chapter without tasks (#947).
     expect(result.kind === "ready" ? result.chapters : []).toEqual([
       chapter,
-      empty,
+      { ...empty, tasks: [] },
     ]);
   });
 

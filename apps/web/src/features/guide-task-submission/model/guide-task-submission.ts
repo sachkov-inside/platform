@@ -1,6 +1,9 @@
 import { z } from "zod";
 
-/** The page form's limits; the backend owns the same ones and stays the authority. */
+/**
+ * The page form's limits for input hints only; the backend owns them and refuses anything longer,
+ * so a drift shows as `invalid_input`, never as a stored oversize value.
+ */
 export const SUBMISSION_NOTE_MAX_CHARACTERS = 1_000;
 export const SUBMISSION_REPORT_MAX_CHARACTERS = 20_000;
 export const SUBMISSION_REPOSITORY_MAX_CHARACTERS = 500;
@@ -20,9 +23,8 @@ export const submitGuideTaskInputSchema = z
     taskVersion: z.coerce.number().int().positive(),
     submissionKey: z.string().trim().min(1).max(200),
     note: z.string().trim().min(1).max(SUBMISSION_NOTE_MAX_CHARACTERS),
-    repositoryUrl: optionalText(SUBMISSION_REPOSITORY_MAX_CHARACTERS).refine(
-      (value) => value === undefined || /^https?:\/\/\S+$/u.test(value),
-      "Expected a repository address",
+    repositoryUrl: optionalText(SUBMISSION_REPOSITORY_MAX_CHARACTERS).pipe(
+      z.url({ protocol: /^https?$/u }).optional(),
     ),
     reportText: optionalText(SUBMISSION_REPORT_MAX_CHARACTERS),
   })

@@ -32,13 +32,14 @@ import {
   type AuthenticatedAccount,
 } from "../../../accounts/index.js";
 import {
+  criterionHttp,
   criterionHttpSchema,
   learnerSubject,
   learnerTaskFailureProblemSchema,
   learnerTaskUnavailableProblemSchema,
-  taskCodeParamSchema,
   throwSystemError,
 } from "../../adapters/nest/learner-task-http.js";
+import { taskCodeSchema } from "../../domain/task-definition.js";
 import {
   LEARNING_TASKS,
   type LearningTasks,
@@ -97,7 +98,7 @@ export class ListOwnTaskSubmissionsController {
     summary:
       "List the current Account's submissions of a Guide Task with the criteria of their versions and author feedback",
   })
-  @ApiParam({ name: "code", schema: toOpenApiSchema(taskCodeParamSchema) })
+  @ApiParam({ name: "code", schema: toOpenApiSchema(taskCodeSchema) })
   @ApiOkResponse({ schema: toOpenApiSchema(ownTaskSubmissionsHttpSchema) })
   @ApiResponse({
     status: 400,
@@ -155,12 +156,7 @@ export class ListOwnTaskSubmissionsController {
       currentVersion: value.currentVersion,
       versions: value.versions.map((version) => ({
         version: version.version,
-        criteria: version.criteria.map((criterion) => ({
-          id: criterion.id,
-          level: criterion.level,
-          requirement: criterion.requirement,
-          acceptableEvidence: [...criterion.acceptableEvidence],
-        })),
+        criteria: version.criteria.map(criterionHttp),
       })),
       submissions: value.submissions.map((submission) => ({
         submissionId: submission.submissionId,

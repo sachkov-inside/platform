@@ -22,13 +22,13 @@ async function dismissNotices(page: Page) {
   await page.getByRole("button", { name: "Понятно", exact: true }).click();
 }
 
-test("a learner reads a free task from the programme, submits it through the form and finds it in «Мои сдачи» (#947)", async ({
+test("a learner without Membership reads a free task from the programme, submits it through the form and finds it in «Мои сдачи» (#947)", async ({
   context,
   page,
 }, testInfo) => {
   const { guideSlug, code } = taskFixture();
   const note = `Сдача ${testInfo.project.name}: заявка создаётся.`;
-  await signInFullStack(context, "MEMBER");
+  await signInFullStack(context, "NON_MEMBER");
   await page.goto(`/products/${guideSlug}/programme`);
   await dismissNotices(page);
   const afterLesson = page.getByRole("list", {

@@ -53,3 +53,14 @@ export function formatSubmissionDay(iso: string): string {
     timeZone: "Europe/Moscow",
   }).format(new Date(iso));
 }
+
+/** «5 октября, 16:40»: the moment of a submission in Moscow time, stable across renders. */
+export function formatSubmissionMoment(iso: string): string {
+  return new Intl.DateTimeFormat("ru-RU", {
+    day: "numeric",
+    month: "long",
+    hour: "2-digit",
+    minute: "2-digit",
+    timeZone: "Europe/Moscow",
+  }).format(new Date(iso));
+}

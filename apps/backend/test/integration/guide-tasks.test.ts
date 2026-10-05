@@ -1259,6 +1259,26 @@ describe("Guide Tasks: import, versions, access and submissions (#946)", () => {
       anonymous.ok &&
         anonymous.value.tasks.find((task) => task.code === first.code),
     ).toMatchObject({ availability: "available", lastSubmittedAt: null });
+    // A closed task shows no mark of the subject's submission; it returns with access.
+    const member = await learner();
+    const access = await grant(member, [`guide:${guideId}`]);
+    const paid = await tasks.submit({
+      subject: member,
+      source: "form",
+      submission: {
+        code: second.code,
+        taskVersion: 1,
+        submissionKey: randomUUID(),
+        note: "Сдал платное задание.",
+      },
+    });
+    if (!paid.ok) throw new Error(paid.error.code);
+    await revoke(access);
+    const revoked = await tasks.chapterTasks({ subject: member, guideId });
+    expect(
+      revoked.ok &&
+        revoked.value.tasks.find((task) => task.code === second.code),
+    ).toMatchObject({ availability: "locked", lastSubmittedAt: null });
   });
 
   test("a form submission needs no agent report, keeps its text report, obeys the setting and lists with its version criteria (#947)", async () => {
@@ -1285,6 +1305,7 @@ describe("Guide Tasks: import, versions, access and submissions (#946)", () => {
       form({ note: "   " }),
       form({ reviewReport: report(definition) }),
       form({ branch: "main" }),
+      form({ repositoryUrl: "javascript:alert(1)" }),
       form({ reportText: "x".repeat(20_001) }),
     ])
       expect(

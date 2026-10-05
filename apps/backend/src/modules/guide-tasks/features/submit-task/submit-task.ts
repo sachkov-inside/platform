@@ -3,6 +3,7 @@ import { z } from "zod";
 
 import {
   submissionSourceSchema,
+  taskCodeSchema,
   type SubmissionSource,
 } from "../../domain/task-definition.js";
 
@@ -57,11 +58,15 @@ export const taskSubmissionSchema = z
  */
 export const formSubmissionSchema = z
   .object({
-    code: z.string().trim().min(1).max(120),
+    code: taskCodeSchema,
     taskVersion: z.number().int().positive().max(Number.MAX_SAFE_INTEGER),
     submissionKey: z.string().trim().min(1).max(200),
     note: z.string().trim().min(1).max(SUBMISSION_NOTE_MAX_CHARACTERS),
-    repositoryUrl: serviceMarkSchema.shape.repositoryUrl,
+    // The learner types this address, so the form accepts only a web address.
+    repositoryUrl: z
+      .url({ protocol: /^https?$/u })
+      .max(500)
+      .optional(),
     reportText: z
       .string()
       .trim()
@@ -80,6 +85,8 @@ interface SubmissionCommand {
   readonly reviewReport: ReviewReport | null;
   readonly reportText: string | null;
   readonly serviceMark: ServiceMark;
+  /** What the replay fingerprint covers: the parsed body as the caller sent it. */
+  readonly fingerprint: Readonly<Record<string, unknown>>;
 }
 
 function parseSubmission(
@@ -97,6 +104,7 @@ function parseSubmission(
           reviewReport: parsed.data.reviewReport,
           reportText: null,
           serviceMark: parsed.data.serviceMark ?? {},
+          fingerprint: parsed.data,
         }
       : null;
   }
@@ -113,6 +121,7 @@ function parseSubmission(
           parsed.data.repositoryUrl === undefined
             ? {}
             : { repositoryUrl: parsed.data.repositoryUrl },
+        fingerprint: parsed.data,
       }
     : null;
 }
@@ -164,7 +173,10 @@ export async function submitTask(
   if (command === null || input.subject.kind !== "account")
     return { ok: false, error: { code: "invalid_request_shape" } };
   const accountId = input.subject.accountId;
-  const fingerprint = commandDigest({ source: input.source, ...command });
+  const fingerprint = commandDigest({
+    source: input.source,
+    ...command.fingerprint,
+  });
   const clock = dependencies.clock ?? (() => new Date());
   class Rollback extends Error {
     constructor(readonly submitError: SubmitTaskError) {

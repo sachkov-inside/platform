@@ -36,6 +36,7 @@ const placementRowsSchema = z.array(
     source_id: z.string(),
     material_id: z.uuid(),
     chapter_id: z.uuid().nullable(),
+    published: z.boolean(),
   }),
 );
 
@@ -46,6 +47,8 @@ export interface DirectoryPlacement {
   readonly sourceId: string;
   readonly materialId: string;
   readonly chapterId: string | null;
+  /** Whether readers can open it; a draft's identity never reaches a reader. */
+  readonly published: boolean;
 }
 
 /** A Material named by its source; `published` is absent while readers cannot open it. */
@@ -114,7 +117,11 @@ export class GuideDirectory {
       throw new RangeError("Material lookup exceeds its bound");
     const rows = placementRowsSchema.parse(
       await this.prisma.$queryRaw(Prisma.sql`
-        select material.source_id, material.id as material_id, membership.chapter_id
+        select
+          material.source_id,
+          material.id as material_id,
+          membership.chapter_id,
+          material.publication_state = 'published' as published
         from materials.materials as material
         join materials.series_memberships as membership
           on membership.material_id = material.id
@@ -126,6 +133,7 @@ export class GuideDirectory {
       sourceId: row.source_id,
       materialId: row.material_id,
       chapterId: row.chapter_id,
+      published: row.published,
     }));
   }
 

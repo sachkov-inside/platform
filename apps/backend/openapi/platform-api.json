@@ -20538,8 +20538,8 @@
                     "type": "string"
                   },
                   "repositoryUrl": {
+                    "format": "uri",
                     "maxLength": 500,
-                    "minLength": 1,
                     "type": "string"
                   },
                   "submissionKey": {
