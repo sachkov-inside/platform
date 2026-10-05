@@ -1,12 +1,12 @@
 import { z } from "zod";
 
+import { taskAccessSchema } from "../../domain/task-definition.js";
+
 import type { GuideTasksPrismaClient } from "../../../../infrastructure/prisma/index.js";
 import type {
   GuideTaskResourceFacts,
   GuideTaskResourceFactsAdapter,
 } from "../../../content-access/index.js";
-
-const accessSchema = z.enum(["free", "membership"]);
 
 /** Guide Tasks answer the Content Access port with their access class, Guide and publication. */
 export function assembleGuideTaskResourceFacts(
@@ -29,7 +29,7 @@ export function assembleGuideTaskResourceFacts(
     });
     return rows.map((row) => ({
       taskId: row.id,
-      access: accessSchema.parse(row.access),
+      access: taskAccessSchema.parse(row.access),
       guideId: row.guideId,
       published: row.publicationState === "published",
       version: row.currentVersion,

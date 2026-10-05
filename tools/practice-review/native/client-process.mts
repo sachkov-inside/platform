@@ -1,6 +1,7 @@
 import { processDeadline } from "./process-deadline.mjs";
 import { spawn } from "node:child_process";
 import { writeFile } from "node:fs/promises";
+import { dirname } from "node:path";
 
 export type NativeClient = "codex" | "claude";
 export interface NativeReviewInput {
@@ -109,7 +110,13 @@ export async function runNativeReview({
     "-c",
     'shell_environment_policy.inherit="none"',
     "-c",
-    'shell_environment_policy.set={PATH="/usr/bin:/bin:/usr/sbin:/sbin:/opt/homebrew/bin",ZDOTDIR="/dev/null",BASH_ENV="/dev/null"}',
+    // A v3 learner may consent to a Node command, so that profile's shell finds this Node.
+    `shell_environment_policy.set={PATH=${JSON.stringify(
+      [
+        ...(shell ? [dirname(process.execPath)] : []),
+        "/usr/bin:/bin:/usr/sbin:/sbin:/opt/homebrew/bin",
+      ].join(":"),
+    )},ZDOTDIR="/dev/null",BASH_ENV="/dev/null"}`,
     "-c",
     `projects.${JSON.stringify(projectDir)}.trust_level="untrusted"`,
     "-c",

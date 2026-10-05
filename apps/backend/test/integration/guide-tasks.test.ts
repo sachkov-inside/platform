@@ -38,6 +38,7 @@ import { assembleWorkshopEntitlements } from "../../src/modules/workshop/index.j
 import { assembleLearnerMcpServer } from "../../src/modules/content-library/index.js";
 import { refusingLearnerMcpDependencies } from "../fixtures/learner-mcp.js";
 import { representativeDocument } from "../fixtures/material-body/representative.js";
+import { withExhaustedPool } from "./setup/exhausted-pool.js";
 import {
   createMigratedTestDatabase,
   type TestDatabase,
@@ -1073,5 +1074,55 @@ describe("Guide Tasks: import, versions, access and submissions (#946)", () => {
     } finally {
       await client.close();
     }
+  });
+
+  test("import and submission finish on a one-connection pool: no transaction waits for another connection", async () => {
+    const subject = await learner();
+    await withExhaustedPool(db, async (prisma) => {
+      const poolDirectory = new GuideDirectory(prisma);
+      const body = source();
+      expect(
+        await assembleApplySourceTask({
+          prisma,
+          directory: poolDirectory,
+          authorPolicy,
+        })(
+          { ...body, expectedRevision: null },
+          { actor: owner, idempotencyKey: randomUUID() },
+        ),
+      ).toMatchObject({ ok: true, value: { revision: 1 } });
+      const poolAccess = assembleContentAccess({
+        materialResourceFacts: assembleMaterialResourceFacts(
+          assembleMaterials({ prisma, authorPolicy }).materialContent,
+        ),
+        guideTaskResourceFacts: assembleGuideTaskResourceFacts(prisma),
+        accountPermissions: {
+          hasMaterialsManage: (id) => Promise.resolve(id === owner),
+        },
+        membershipEntitlements: assembleMembershipEntitlements({
+          prisma,
+          workshopEntitlements: assembleWorkshopEntitlements({ prisma }),
+        }),
+      });
+      const tasks = assembleLearningTasks({
+        prisma,
+        directory: poolDirectory,
+        contentAccess: poolAccess,
+        submissionsEnabled: true,
+      });
+      expect(
+        await tasks.submit({
+          subject,
+          source: "mcp",
+          submission: {
+            code: body.code,
+            taskVersion: 1,
+            submissionKey: randomUUID(),
+            reviewReport: report(definition),
+            note: "",
+          },
+        }),
+      ).toMatchObject({ ok: true });
+    });
   });
 });

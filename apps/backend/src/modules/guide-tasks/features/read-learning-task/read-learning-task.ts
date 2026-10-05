@@ -1,10 +1,14 @@
-import { createHash } from "node:crypto";
+import { randomUUID } from "node:crypto";
 import { z } from "zod";
 
 import {
   canonicalJson,
   contractDigest,
 } from "../../../../infrastructure/contracts/canonical-digest.js";
+import {
+  contentSha256,
+  contextPart,
+} from "../../../../infrastructure/contracts/context-parts.js";
 import { materialId } from "../../../../infrastructure/contracts/material-id.js";
 import { dependencyFailure } from "../../../../infrastructure/observability/index.js";
 import type { Subject } from "../../../content-access/index.js";
@@ -16,9 +20,6 @@ import {
   type LearningTaskDependencies,
 } from "../../shared/learning-task-dependencies.js";
 import { scope, systemFailure, type SystemError } from "../../shared/result.js";
-
-// Small bounded tool responses avoid client output truncation; the client reads every part.
-const PART_CHARACTERS = 6_000;
 
 export const learningTaskQuerySchema = z
   .object({
@@ -56,6 +57,47 @@ export function learningTaskContextVersion(task: CurrentTask): string {
     version: task.version,
     definitionDigest: task.definitionDigest,
     reviewProtocolVersion: taskReviewProtocol.version,
+  });
+}
+
+/**
+ * The context one task read serializes: the task with its current Task Version, procedure v3,
+ * related Materials and whether submission is open, closed by its end marker.
+ */
+export function serializeLearningTaskContext(input: {
+  readonly task: CurrentTask;
+  readonly guide: { readonly slug: string; readonly name: string };
+  readonly chapter: { readonly name: string };
+  readonly relatedMaterials: readonly {
+    readonly slug: string;
+    readonly title: string;
+    readonly availability: string;
+  }[];
+  readonly submissionsEnabled: boolean;
+}): string {
+  const { task } = input;
+  const contextVersion = learningTaskContextVersion(task);
+  return canonicalJson({
+    contextVersion,
+    payload: {
+      task: {
+        code: task.code,
+        title: task.title,
+        access: task.access,
+        guide: input.guide,
+        chapter: input.chapter,
+        version: task.version,
+        definition: task.definition,
+      },
+      reviewProtocol: taskReviewProtocol,
+      relatedMaterials: input.relatedMaterials,
+      submission: {
+        tool: "learning_task_submit",
+        taskVersion: task.version,
+        accepting: input.submissionsEnabled,
+      },
+    },
+    terminalMarker: `END_CONTEXT:${contextVersion}`,
   });
 }
 
@@ -106,61 +148,33 @@ export async function readLearningTask(
       subject,
       task.relatedMaterialSourceIds,
     );
-    const serialized = canonicalJson({
-      contextVersion,
-      payload: {
-        task: {
-          code: task.code,
-          title: task.title,
-          access: task.access,
-          guide: { slug: guide.slug, name: guide.name },
-          chapter: { name: chapter.name },
-          version: task.version,
-          definition: task.definition,
-        },
-        reviewProtocol: taskReviewProtocol,
-        relatedMaterials,
-        submission: {
-          tool: "learning_task_submit",
-          taskVersion: task.version,
-          accepting: dependencies.submissionsEnabled,
-        },
-      },
-      terminalMarker: `END_CONTEXT:${contextVersion}`,
+    const serialized = serializeLearningTaskContext({
+      task,
+      guide: { slug: guide.slug, name: guide.name },
+      chapter: { name: chapter.name },
+      relatedMaterials,
+      submissionsEnabled: dependencies.submissionsEnabled,
     });
-    const contentSha256 = sha256(serialized);
     // Title, related Materials or their availability can change without a new Task Version.
     // Never splice two snapshots under one context version.
     if (
       request.expectedContentSha256 !== undefined &&
-      request.expectedContentSha256 !== contentSha256
+      request.expectedContentSha256 !== contentSha256(serialized)
     )
       return failure({ code: "task_content_changed" });
-    const characters = Array.from(serialized);
-    const partCount = Math.ceil(characters.length / PART_CHARACTERS);
-    if (request.part >= partCount)
-      return failure({ code: "invalid_context_part", partCount });
-    const data = characters
-      .slice(
-        request.part * PART_CHARACTERS,
-        (request.part + 1) * PART_CHARACTERS,
-      )
-      .join("");
+    const parts = contextPart(serialized, request.part);
+    if (!parts.ok)
+      return failure({
+        code: "invalid_context_part",
+        partCount: parts.partCount,
+      });
     return {
       ok: true as const,
       value: {
         code: task.code,
         contextVersion,
         format: "canonical-json-parts" as const,
-        contentSha256,
-        contentBytes: Buffer.byteLength(serialized, "utf8"),
-        part: request.part,
-        partCount,
-        data,
-        partSha256: sha256(data),
-        complete: partCount === 1,
-        endOfContext: request.part === partCount - 1,
-        nextPart: request.part === partCount - 1 ? null : request.part + 1,
+        ...parts.value,
       },
     };
   } catch (error) {
@@ -202,7 +216,7 @@ async function readRelatedMaterials(
       action: "read" as const,
     })),
     enforcementPoint: "guide_task_read",
-    correlationId: published[0]?.materialId ?? "",
+    correlationId: randomUUID(),
   });
   if (!availability.ok) throw new Error(availability.error.code);
   const byId = new Map(
@@ -217,8 +231,4 @@ async function readRelatedMaterials(
 
 function failure<Error extends ReadLearningTaskError>(error: Error) {
   return { ok: false as const, error };
-}
-
-function sha256(value: string): string {
-  return createHash("sha256").update(value).digest("hex");
 }

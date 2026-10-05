@@ -1,63 +1,49 @@
-import { createHash } from "node:crypto";
-
 import {
-  canonicalJson,
-  contractDigest,
-} from "../../../apps/backend/src/infrastructure/contracts/canonical-digest.js";
-import { taskReviewProtocol } from "../../../apps/backend/src/modules/guide-tasks/domain/review-protocol.js";
+  contentSha256,
+  contextPart,
+} from "../../../apps/backend/src/infrastructure/contracts/context-parts.js";
 import {
   taskDefinitionDigest,
   taskDefinitionSchema,
 } from "../../../apps/backend/src/modules/guide-tasks/domain/task-definition.js";
+import {
+  learningTaskContextVersion,
+  serializeLearningTaskContext,
+} from "../../../apps/backend/src/modules/guide-tasks/features/read-learning-task/read-learning-task.js";
 import type { LearningTasks } from "../../../apps/backend/src/modules/guide-tasks/index.js";
-
-const PART_CHARACTERS = 6_000;
-const sha256 = (value: string) =>
-  createHash("sha256").update(value).digest("hex");
+import type { CurrentTask } from "../../../apps/backend/src/modules/guide-tasks/shared/learning-task-dependencies.js";
 
 /**
- * One synthetic open task served in the same canonical JSON parts and with the same procedure v3
- * text as the real `learning_task_read`. It stores submissions in memory, so a trial can prove that
- * none was sent without the learner's confirmation.
+ * One synthetic open task served by the same context serializer, parts and procedure v3 text as
+ * the real `learning_task_read`. Submissions stay in memory, so a trial can prove that none was
+ * sent without the learner's confirmation.
  */
 export function syntheticLearningTasks(input: {
   readonly code: string;
   readonly definition: unknown;
 }) {
   const definition = taskDefinitionSchema.parse(input.definition);
-  const definitionDigest = taskDefinitionDigest(definition);
-  const contextVersion = contractDigest({
-    taskId: "synthetic",
+  const task: CurrentTask = {
+    id: "00000000-0000-4000-8000-000000000946",
     code: input.code,
+    title: "Заявки на консультацию",
+    access: "free",
+    guideId: "00000000-0000-4000-8000-000000000001",
+    chapterId: "00000000-0000-4000-8000-000000000002",
+    position: 1,
+    relatedMaterialSourceIds: [],
     version: 1,
-    definitionDigest,
-    reviewProtocolVersion: taskReviewProtocol.version,
+    definition,
+    definitionDigest: taskDefinitionDigest(definition),
+  };
+  const contextVersion = learningTaskContextVersion(task);
+  const serialized = serializeLearningTaskContext({
+    task,
+    guide: { slug: "synthetic-course", name: "Синтетический курс" },
+    chapter: { name: "Глава 1" },
+    relatedMaterials: [],
+    submissionsEnabled: true,
   });
-  const serialized = canonicalJson({
-    contextVersion,
-    payload: {
-      task: {
-        code: input.code,
-        title: "Заявки на консультацию",
-        access: "free",
-        guide: { slug: "synthetic-course", name: "Синтетический курс" },
-        chapter: { name: "Глава 1" },
-        version: 1,
-        definition,
-      },
-      reviewProtocol: taskReviewProtocol,
-      relatedMaterials: [],
-      submission: {
-        tool: "learning_task_submit",
-        taskVersion: 1,
-        accepting: true,
-      },
-    },
-    terminalMarker: `END_CONTEXT:${contextVersion}`,
-  });
-  const contentSha256 = sha256(serialized);
-  const characters = Array.from(serialized);
-  const partCount = Math.ceil(characters.length / PART_CHARACTERS);
   const submissions: unknown[] = [];
   const unavailable = {
     ok: false as const,
@@ -70,8 +56,8 @@ export function syntheticLearningTasks(input: {
         value: {
           tasks: [
             {
-              code: input.code,
-              title: "Заявки на консультацию",
+              code: task.code,
+              title: task.title,
               guide: { slug: "synthetic-course", name: "Синтетический курс" },
               chapter: { name: "Глава 1", ordinal: 1 },
               position: 1,
@@ -82,50 +68,45 @@ export function syntheticLearningTasks(input: {
         },
       }),
     read: (query) => {
-      if (query["code"] !== input.code) return Promise.resolve(unavailable);
+      if (query["code"] !== task.code) return Promise.resolve(unavailable);
       const part = typeof query["part"] === "number" ? query["part"] : 0;
       if (
         part > 0 &&
         (query["expectedContextVersion"] !== contextVersion ||
-          query["expectedContentSha256"] !== contentSha256)
+          query["expectedContentSha256"] !== contentSha256(serialized))
       )
         return Promise.resolve({
           ok: false as const,
           error: { code: "task_content_changed" as const },
         });
-      if (!Number.isInteger(part) || part < 0 || part >= partCount)
-        return Promise.resolve({
-          ok: false as const,
-          error: { code: "invalid_context_part" as const, partCount },
-        });
-      const data = characters
-        .slice(part * PART_CHARACTERS, (part + 1) * PART_CHARACTERS)
-        .join("");
-      return Promise.resolve({
-        ok: true as const,
-        value: {
-          code: input.code,
-          contextVersion,
-          format: "canonical-json-parts" as const,
-          contentSha256,
-          contentBytes: Buffer.byteLength(serialized, "utf8"),
-          part,
-          partCount,
-          data,
-          partSha256: sha256(data),
-          complete: partCount === 1,
-          endOfContext: part === partCount - 1,
-          nextPart: part === partCount - 1 ? null : part + 1,
-        },
-      });
+      const parts = contextPart(serialized, part);
+      return Promise.resolve(
+        parts.ok
+          ? {
+              ok: true as const,
+              value: {
+                code: task.code,
+                contextVersion,
+                format: "canonical-json-parts" as const,
+                ...parts.value,
+              },
+            }
+          : {
+              ok: false as const,
+              error: {
+                code: "invalid_context_part" as const,
+                partCount: parts.partCount,
+              },
+            },
+      );
     },
     submit: ({ submission }) => {
       submissions.push(submission);
       return Promise.resolve({
         ok: true,
         value: {
-          submissionId: "00000000-0000-4000-8000-000000000001",
-          code: input.code,
+          submissionId: "00000000-0000-4000-8000-000000000003",
+          code: task.code,
           taskVersion: 1,
           source: "mcp",
           submittedAt: new Date().toISOString(),
@@ -135,7 +116,7 @@ export function syntheticLearningTasks(input: {
     submissions: () =>
       Promise.resolve({
         ok: true,
-        value: { code: input.code, currentVersion: 1, submissions: [] },
+        value: { code: task.code, currentVersion: 1, submissions: [] },
       }),
   };
   return { tasks, submissions, contextVersion };

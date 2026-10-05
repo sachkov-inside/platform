@@ -1,10 +1,10 @@
 import { randomUUID } from "node:crypto";
-import { z } from "zod";
 
 import type { GuideTasksPrismaClient } from "../../../infrastructure/prisma/index.js";
 import type { ContentAccess, Subject } from "../../content-access/index.js";
 import type { GuideDirectory } from "../../materials/index.js";
 import {
+  taskAccessSchema,
   taskDefinitionSchema,
   type TaskDefinition,
 } from "../domain/task-definition.js";
@@ -35,8 +35,6 @@ export interface CurrentTask {
   readonly definitionDigest: string;
 }
 
-const accessSchema = z.enum(["free", "membership"]);
-
 /** The task by code with its current Task Version; `null` when no such task exists. */
 export async function findCurrentTask(
   prisma: Pick<GuideTasksPrismaClient, "guideTask" | "guideTaskVersion">,
@@ -53,7 +51,7 @@ export async function findCurrentTask(
     id: task.id,
     code: task.code,
     title: task.title,
-    access: accessSchema.parse(task.access),
+    access: taskAccessSchema.parse(task.access),
     guideId: task.guideId,
     chapterId: task.chapterId,
     position: task.position,

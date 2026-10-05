@@ -22,6 +22,11 @@ const criterionIdSchema = z
   .max(100);
 
 export const criterionLevelSchema = z.enum(["required", "additional"]);
+export const taskAccessSchema = z.enum(["free", "membership"]);
+export const taskPublicationSchema = z.enum(["published", "unpublished"]);
+/** Where a submission came from: the learner's agent over MCP or the page form (#947). */
+export const submissionSourceSchema = z.enum(["mcp", "form"]);
+export type SubmissionSource = z.infer<typeof submissionSourceSchema>;
 
 /**
  * The requirements of one Task Version (`schemaVersion: 1`). Authored data for the learner and

@@ -1,6 +1,11 @@
 import { randomUUID } from "node:crypto";
 import { z } from "zod";
 
+import {
+  submissionSourceSchema,
+  type SubmissionSource,
+} from "../../domain/task-definition.js";
+
 import { commandDigest } from "../../../../infrastructure/contracts/canonical-digest.js";
 import { dependencyFailure } from "../../../../infrastructure/observability/index.js";
 import {
@@ -48,7 +53,7 @@ export interface TaskSubmissionReceipt {
   readonly submissionId: string;
   readonly code: string;
   readonly taskVersion: number;
-  readonly source: "mcp" | "form";
+  readonly source: SubmissionSource;
   readonly submittedAt: string;
 }
 
@@ -81,7 +86,7 @@ export async function submitTask(
   dependencies: LearningTaskDependencies,
   input: {
     readonly subject: Subject;
-    readonly source: "mcp" | "form";
+    readonly source: SubmissionSource;
     readonly submission: unknown;
   },
 ): Promise<Result<TaskSubmissionReceipt, SubmitTaskError>> {
@@ -228,7 +233,7 @@ async function replay(
       submissionId: previous.id,
       code: command.code,
       taskVersion: previous.taskVersion,
-      source: z.enum(["mcp", "form"]).parse(previous.source),
+      source: submissionSourceSchema.parse(previous.source),
       submittedAt: previous.submittedAt.toISOString(),
     },
   };

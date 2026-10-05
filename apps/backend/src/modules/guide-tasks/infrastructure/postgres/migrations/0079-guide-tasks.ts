@@ -2,8 +2,9 @@ export const name = "0079_guide_tasks";
 
 // Guide Task (#946): an assignment in one Guide chapter with immutable requirement versions,
 // learner submissions and author feedback. Guide and chapter live in Materials, so they are
-// referenced by ID without a cross-schema foreign key (ADR 0003). Versions and submissions only
-// grow; author feedback is the one record an author changes.
+// referenced by ID without a cross-schema foreign key (ADR 0003). A version or a submission never
+// changes once written; author feedback is the one record an author changes. Deletion stays
+// possible for a data-policy request, which the triggers leave to an explicit procedure.
 export const statement = `
 CREATE SCHEMA guide_tasks;
 
@@ -90,10 +91,10 @@ CREATE TABLE guide_tasks.author_feedback (
 );
 
 CREATE FUNCTION guide_tasks.reject_rewrite() RETURNS trigger LANGUAGE plpgsql AS $$
-BEGIN RAISE EXCEPTION '% rows are append-only', TG_TABLE_NAME; END;
+BEGIN RAISE EXCEPTION '% rows are immutable', TG_TABLE_NAME; END;
 $$;
-CREATE TRIGGER task_versions_append_only BEFORE UPDATE OR DELETE ON guide_tasks.task_versions
+CREATE TRIGGER task_versions_immutable BEFORE UPDATE ON guide_tasks.task_versions
   FOR EACH ROW EXECUTE FUNCTION guide_tasks.reject_rewrite();
-CREATE TRIGGER submissions_append_only BEFORE UPDATE OR DELETE ON guide_tasks.submissions
+CREATE TRIGGER submissions_immutable BEFORE UPDATE ON guide_tasks.submissions
   FOR EACH ROW EXECUTE FUNCTION guide_tasks.reject_rewrite();
 `;

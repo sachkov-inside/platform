@@ -2,7 +2,6 @@ import {
   learningPracticeQuerySchema,
   readLearningPractice,
 } from "../../features/read-learning-practice/read-learning-practice.js";
-import { practiceReviewProtocol } from "../../features/read-learning-practice/review-protocol.js";
 import { McpServer, type CallToolResult } from "@modelcontextprotocol/server";
 import { z } from "zod";
 
@@ -47,8 +46,8 @@ export function assembleLearnerMcpServer(
         "Images, files and video references are not their contents: report unavailable or uninspected media explicitly. " +
         "Only current versions exist; a version mismatch requires a fresh read and must not silently replace requested content. " +
         learningTaskInstructions +
-        " Lesson practice (learning_practice_read) keeps its own procedure v2: " +
-        practiceReviewProtocol.instructions.join(" "),
+        // Lesson practice carries procedure v2 inside its own context; Guide Tasks follow v3.
+        " Lesson practice (learning_practice_read) returns its own review procedure inside its context; follow that procedure only for lesson practice.",
     },
   );
   const annotations = {

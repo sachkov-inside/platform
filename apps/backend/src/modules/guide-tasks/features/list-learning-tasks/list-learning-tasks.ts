@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import { z } from "zod";
 
 import { dependencyFailure } from "../../../../infrastructure/observability/index.js";
@@ -78,7 +79,7 @@ export async function listLearningTasks(
             action: "read" as const,
           })),
           enforcementPoint: "guide_task_read",
-          correlationId: batch[0]?.id ?? "",
+          correlationId: randomUUID(),
         });
       if (!availability.ok) throw new Error(availability.error.code);
       for (const item of availability.items)

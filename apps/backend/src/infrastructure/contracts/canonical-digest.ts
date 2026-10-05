@@ -29,7 +29,9 @@ export function contractDigest(value: unknown): string {
  * digests follow the Inside Content protocol and keep their own form.
  */
 export function commandDigest(envelope: unknown): string {
-  return createHash("sha256").update(JSON.stringify(commandForm(envelope))).digest("hex");
+  return createHash("sha256")
+    .update(JSON.stringify(commandForm(envelope)))
+    .digest("hex");
 }
 
 /**
@@ -43,9 +45,15 @@ export interface ReplayFingerprint {
   recognizes(stored: string): boolean;
 }
 
-export function replayFingerprint(envelope: unknown, legacy: string): ReplayFingerprint {
+export function replayFingerprint(
+  envelope: unknown,
+  legacy: string,
+): ReplayFingerprint {
   const digest = commandDigest(envelope);
-  return { digest, recognizes: (stored) => stored === digest || stored === legacy };
+  return {
+    digest,
+    recognizes: (stored) => stored === digest || stored === legacy,
+  };
 }
 
 function commandForm(value: unknown): unknown {

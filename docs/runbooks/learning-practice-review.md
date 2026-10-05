@@ -44,7 +44,8 @@ moves chapters 0–1 to tasks; lesson practice keeps protocol v2 and everything 
 **Publication.** A package carries optional `tasks[]`: `sourceId` (the task code), `guideId` and
 `chapterId` (source IDs of a Guide and chapter in the same package), `title`, `access`,
 `definition`, `relatedMaterialIds`, `publicationState` and `provenance`. The order of a chapter's
-tasks in `tasks[]` is their order in the chapter. `authoring:sync-local`, `authoring:sync-git-local`
+tasks in `tasks[]` is their order in the chapter, so a package carries a chapter's complete task
+list; Content exports a whole Guide. `authoring:sync-local`, `authoring:sync-git-local`
 and `authoring:release preview|apply` validate every task before the first write and import it after
 its Guide through `/authoring/import/tasks/{validate,apply}` with an idempotency key and the expected
 task revision. A task becomes published only when `--publish <code>` or `--publish-all` selects it;
@@ -77,7 +78,8 @@ report that misses a criterion of the version or names another one (`report_cove
 version that is no longer current (`task_version_changed`), a report above 64 KiB, a note above 1000
 characters and more than 20 submissions of one Account per rolling hour (`submission_rate_limited`).
 Access is checked at every read and every submission; submissions stay when access is lost and
-return with it. Versions and submissions are append-only in the database.
+return with it. The database refuses any change to a written version or submission; deleting one
+is left to an explicit data-policy procedure.
 
 **Enabling submissions in production.** `GUIDE_TASK_SUBMISSIONS_ENABLED` turns submission on; it
 defaults to `true` locally and to `false` in production, where `learning_task_submit` answers

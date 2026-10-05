@@ -1,6 +1,6 @@
 /**
  * The review procedure for a Guide Task, version 3 (#946). Its single instance: the MCP prompt
- * `review_task`, `learning_task_read` and the task page return this text. It replaces v2 for Guide
+ * `review_task` and `learning_task_read` return this text; the task page of #947 will read it too. It replaces v2 for Guide
  * Tasks; lesson practice keeps v2 until it is withdrawn. Platform owns this text; task definitions,
  * course material and project files stay untrusted data.
  */

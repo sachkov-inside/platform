@@ -12,7 +12,10 @@ import {
   type GuideTasksPrismaClient,
 } from "../../../../infrastructure/prisma/index.js";
 import type { GuideDirectory } from "../../../materials/index.js";
-import { taskDefinitionDigest } from "../../domain/task-definition.js";
+import {
+  taskDefinitionDigest,
+  taskPublicationSchema,
+} from "../../domain/task-definition.js";
 import type { AuthorPolicy } from "../../ports/author-policy.js";
 import { scope, systemFailure, type Result } from "../../shared/result.js";
 import {
@@ -23,6 +26,7 @@ import {
   type SourceTask,
   type TaskImportError,
   type TaskImportReceipt,
+  type TaskValidationError,
   type ValidateSourceTaskOperation,
 } from "./import-guide-task.contract.js";
 
@@ -47,7 +51,11 @@ export function assembleValidateSourceTask(
     const parsed = sourceTaskSchema.safeParse(input);
     if (!parsed.success)
       return { ok: false, error: { code: "invalid_request_shape" } };
-    const authorized = await authorize(dependencies.authorPolicy, actor);
+    const authorized = await authorize(
+      dependencies.authorPolicy,
+      actor,
+      "validateSourceTask",
+    );
     if (!authorized.ok) return authorized;
     try {
       const current = await dependencies.prisma.guideTask.findUnique({
@@ -94,6 +102,7 @@ export function assembleApplySourceTask(
     const authorized = await authorize(
       dependencies.authorPolicy,
       context.actor,
+      "applySourceTask",
     );
     if (!authorized.ok) return authorized;
     const placement = await checkPlacement(dependencies.directory, command);
@@ -200,7 +209,14 @@ async function saveTask(
     await transaction.guideTaskVersion.create({
       data: { taskId, version: 1, ...version },
     });
-    return receipt(command.code, taskId, 1, 1, digest, state.publicationState);
+    return {
+      taskId,
+      code: command.code,
+      revision: 1,
+      currentVersion: 1,
+      definitionDigest: digest,
+      publicationState: state.publicationState,
+    };
   }
   const currentVersion = await transaction.guideTaskVersion.findUniqueOrThrow({
     where: {
@@ -217,14 +233,14 @@ async function saveTask(
     current.relatedMaterialSourceIds.join("\n") !==
       state.relatedMaterialSourceIds.join("\n");
   if (!newVersion && !stateChanged)
-    return receipt(
-      current.code,
-      current.id,
-      current.revision,
-      current.currentVersion,
-      currentVersion.definitionDigest,
-      publication(current.publicationState),
-    );
+    return {
+      taskId: current.id,
+      code: current.code,
+      revision: current.revision,
+      currentVersion: current.currentVersion,
+      definitionDigest: currentVersion.definitionDigest,
+      publicationState: taskPublicationSchema.parse(current.publicationState),
+    };
   const versionNumber = current.currentVersion + (newVersion ? 1 : 0);
   if (newVersion)
     await transaction.guideTaskVersion.create({
@@ -239,14 +255,14 @@ async function saveTask(
       updatedAt: now,
     },
   });
-  return receipt(
-    current.code,
-    current.id,
-    current.revision + 1,
-    versionNumber,
-    digest,
-    state.publicationState,
-  );
+  return {
+    taskId: current.id,
+    code: current.code,
+    revision: current.revision + 1,
+    currentVersion: versionNumber,
+    definitionDigest: digest,
+    publicationState: state.publicationState,
+  };
 }
 
 /** Guide, chapter and related Materials are judged before the import transaction opens. */
@@ -286,13 +302,14 @@ async function checkPlacement(
 async function authorize(
   policy: AuthorPolicy,
   actor: string,
-): Promise<Result<undefined, TaskImportError>> {
+  operationName: "validateSourceTask" | "applySourceTask",
+): Promise<Result<undefined, TaskValidationError>> {
   try {
     return (await policy.canManage(actor))
       ? { ok: true, value: undefined }
       : { ok: false, error: { code: "forbidden" } };
   } catch (error) {
-    reportDependencyFailure(scope("authorizeAuthor"), error);
+    reportDependencyFailure(scope(operationName), error);
     return {
       ok: false,
       error: { code: "dependency_unavailable", retryable: true },
@@ -309,34 +326,12 @@ async function receiptOf(
       taskId_version: { taskId: task.id, version: task.currentVersion },
     },
   });
-  return receipt(
-    task.code,
-    task.id,
-    task.revision,
-    task.currentVersion,
-    version.definitionDigest,
-    publication(task.publicationState),
-  );
-}
-
-function receipt(
-  code: string,
-  taskId: string,
-  revision: number,
-  currentVersion: number,
-  definitionDigest: string,
-  publicationState: "published" | "unpublished",
-): TaskImportReceipt {
   return {
-    taskId,
-    code,
-    revision,
-    currentVersion,
-    definitionDigest,
-    publicationState,
+    taskId: task.id,
+    code: task.code,
+    revision: task.revision,
+    currentVersion: task.currentVersion,
+    definitionDigest: version.definitionDigest,
+    publicationState: taskPublicationSchema.parse(task.publicationState),
   };
-}
-
-function publication(value: string): "published" | "unpublished" {
-  return z.enum(["published", "unpublished"]).parse(value);
 }

@@ -30,6 +30,14 @@ void test("reading commands pass, project execution needs consent to that exact 
     "git commit -m x",
   ])
     assert.equal(readsOnly(command), false, command);
+  assert.deepEqual(
+    judgeConsent(
+      ['for f in a.md b.mjs; do echo "=== $f"; cat -n "$f"; done'],
+      null,
+    ).executions,
+    [],
+  );
+  assert.equal(readsOnly("do node check.mjs"), false);
   assert.deepEqual(judgeConsent(["cat requests.mjs"], null), {
     executions: [],
     unconsented: [],
@@ -46,6 +54,11 @@ void test("reading commands pass, project execution needs consent to that exact 
   assert.deepEqual(
     judgeConsent(["node check.mjs", "npm test"], "node check.mjs").unconsented,
     ["npm test"],
+  );
+  assert.deepEqual(
+    judgeConsent(["node check.mjs", "node check.mjs"], "node check.mjs")
+      .unconsented,
+    ["node check.mjs"],
   );
 });
 

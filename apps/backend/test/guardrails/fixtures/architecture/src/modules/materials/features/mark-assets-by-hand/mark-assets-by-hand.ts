@@ -2,5 +2,7 @@
 export async function markAssetsByHand(transaction: {
   materialAsset: { updateMany(input: unknown): Promise<unknown> };
 }): Promise<void> {
-  await transaction.materialAsset.updateMany({ data: { currentlyReferenced: false } });
+  await transaction.materialAsset.updateMany({
+    data: { currentlyReferenced: false },
+  });
 }

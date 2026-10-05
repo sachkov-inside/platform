@@ -1,5 +1,7 @@
 import { z } from "zod";
 import {
+  taskAccessSchema,
+  taskPublicationSchema,
   taskCodeSchema,
   taskDefinitionSchema,
   taskProvenanceSchema,
@@ -21,10 +23,10 @@ const sourceTaskFields = z
     chapterId: z.uuid(),
     position: z.number().int().min(1).max(1_000),
     title: z.string().trim().min(1).max(200),
-    access: z.enum(["free", "membership"]),
+    access: taskAccessSchema,
     definition: taskDefinitionSchema,
     relatedMaterialSourceIds: z.array(z.string().min(1).max(200)).max(50),
-    publicationState: z.enum(["published", "unpublished"]),
+    publicationState: taskPublicationSchema,
     provenance: taskProvenanceSchema,
   })
   .strict();
@@ -76,7 +78,7 @@ export const taskImportReceiptSchema = z
     revision: revisionSchema,
     currentVersion: revisionSchema,
     definitionDigest: z.hash("sha256"),
-    publicationState: z.enum(["published", "unpublished"]),
+    publicationState: taskPublicationSchema,
   })
   .strict();
 
@@ -113,9 +115,22 @@ export type ApplySourceTaskOperation = (
   context: { readonly actor: string; readonly idempotencyKey: string },
 ) => Promise<Result<TaskImportReceipt, TaskImportError>>;
 
+/** Validation writes nothing and judges no placement, so it has fewer outcomes than apply. */
+export type TaskValidationError = Extract<
+  TaskImportError,
+  {
+    readonly code:
+      | "invalid_request_shape"
+      | "forbidden"
+      | "source_mismatch"
+      | "dependency_unavailable"
+      | "internal_error";
+  }
+>;
+
 export type ValidateSourceTaskOperation = (
   input: unknown,
   context: { readonly actor: string },
 ) => Promise<
-  Result<z.infer<typeof validateSourceTaskResultSchema>, TaskImportError>
+  Result<z.infer<typeof validateSourceTaskResultSchema>, TaskValidationError>
 >;

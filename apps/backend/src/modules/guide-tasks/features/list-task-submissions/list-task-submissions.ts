@@ -1,5 +1,10 @@
 import { z } from "zod";
 
+import {
+  submissionSourceSchema,
+  type SubmissionSource,
+} from "../../domain/task-definition.js";
+
 import { dependencyFailure } from "../../../../infrastructure/observability/index.js";
 import type { Subject } from "../../../content-access/index.js";
 import {
@@ -27,7 +32,7 @@ export const taskSubmissionsQuerySchema = z
 export interface OwnTaskSubmission {
   readonly submissionId: string;
   readonly taskVersion: number;
-  readonly source: "mcp" | "form";
+  readonly source: SubmissionSource;
   readonly submittedAt: string;
   readonly reviewReport: ReviewReport | null;
   readonly note: string;
@@ -101,7 +106,7 @@ export async function listTaskSubmissions(
         submissions: rows.map((row) => ({
           submissionId: row.id,
           taskVersion: row.taskVersion,
-          source: z.enum(["mcp", "form"]).parse(row.source),
+          source: submissionSourceSchema.parse(row.source),
           submittedAt: row.submittedAt.toISOString(),
           reviewReport:
             row.reviewReport === null

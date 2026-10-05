@@ -20,7 +20,7 @@ const readAnnotations = {
  * Submission writes, so clients ask the learner before the call; it never removes or replaces
  * anything, and one submission key answers once.
  */
-export const taskSubmitAnnotations = {
+const taskSubmitAnnotations = {
   readOnlyHint: false,
   destructiveHint: false,
   idempotentHint: true,
@@ -33,7 +33,7 @@ export const learningTaskInstructions =
   "This endpoint reads materials and tasks and accepts submissions. It does not grade work, change projects or grant access. Follow the review procedure that learning_task_read and the review_task prompt return.";
 
 /** The `review_task` prompt: the same procedure `learning_task_read` returns, for one task code. */
-export function reviewTaskPromptText(code: string): string {
+function reviewTaskPromptText(code: string): string {
   return [
     `Review my work on the Guide Task with code ${code} by the procedure below, then help me submit it.`,
     `Start with learning_task_read for code ${code}, part 0, and read every part.`,
