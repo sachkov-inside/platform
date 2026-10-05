@@ -786,8 +786,12 @@ function assertExternalRoutesPublished(files) {
         .map((method) => `${method.toUpperCase()} ${path}`),
   );
   const published = new Set(caddyProxiedRoutes(files.caddy));
-  // Caddy runs the route block in order: a matcher after the fail-closed 404 never reaches the API.
+  // Caddy runs the route block in order: after the fail-closed 404 no /integrations/* matcher reaches
+  // the API, so every API and MCP matcher stays above it.
   const failClosed = files.caddy.indexOf("respond @unknown_integration 404");
+  if (failClosed === -1) {
+    throw new Error("unknown integration routes must fail closed");
+  }
   const late = [...files.caddy.matchAll(/reverse_proxy @([a-z_]+) /gu)].filter(
     ({ index }) => index > failClosed,
   );
