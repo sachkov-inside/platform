@@ -1,6 +1,9 @@
 import "server-only";
 
-import { GuideTasksService } from "./generated/platform-api";
+import {
+  GuideTaskAuthoringService,
+  GuideTasksService,
+} from "./generated/platform-api";
 import {
   executeGeneratedRequest,
   type BackendTransportResult,
@@ -63,6 +66,48 @@ export function requestSubmitGuideTaskForm(
             ? {}
             : { reportText: submission.reportText }),
         },
+      }),
+    200,
+    { accessToken },
+  );
+}
+
+/** The author's «Сдачи» section: submissions by Guide, chapter and task, newest first (#948). */
+export function requestAuthorTaskSubmissions(
+  query: {
+    readonly guideId?: string;
+    readonly chapterId?: string;
+    readonly taskCode?: string;
+    readonly cursor?: string;
+  },
+  accessToken: string,
+): Promise<BackendTransportResult> {
+  return executeGeneratedRequest(
+    (request) =>
+      new GuideTaskAuthoringService(request).listAuthorTaskSubmissions({
+        ...(query.guideId === undefined ? {} : { guideId: query.guideId }),
+        ...(query.chapterId === undefined
+          ? {}
+          : { chapterId: query.chapterId }),
+        ...(query.taskCode === undefined ? {} : { taskCode: query.taskCode }),
+        ...(query.cursor === undefined ? {} : { cursor: query.cursor }),
+      }),
+    200,
+    { accessToken },
+  );
+}
+
+/** The author's comment and «посмотрел автор» on one submission (#948). */
+export function requestSaveAuthorTaskFeedback(
+  submissionId: string,
+  feedback: { readonly comment: string; readonly reviewed: boolean },
+  accessToken: string,
+): Promise<BackendTransportResult> {
+  return executeGeneratedRequest(
+    (request) =>
+      new GuideTaskAuthoringService(request).saveAuthorTaskFeedback({
+        submissionId,
+        requestBody: { comment: feedback.comment, reviewed: feedback.reviewed },
       }),
     200,
     { accessToken },

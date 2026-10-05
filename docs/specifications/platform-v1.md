@@ -1323,3 +1323,30 @@ in author order (variant 2).
   access, `afterMaterialId`, the viewer's availability and the viewer's latest submission time.
   The programme draws each task after its Material or at the start of its chapter with
   «Сдано <дата>»; Material ordinals, batching and Guide Progress stay Materials only.
+
+#### Author submissions section (#948)
+
+Source: [Platform #948](https://github.com/sachkov-inside/platform/issues/948). The section has no
+accepted look yet: it is temporary semantic UI until
+[#967](https://github.com/sachkov-inside/platform/issues/967).
+
+- `/authoring/submissions` («Сдачи», next to «Доступ» in the authoring navigation) reads the
+  session before rendering. It lists submissions newest first, filtered by Guide, chapter and task
+  through `guideId`, `chapterId` and `task` in the address; a filter the Guides on offer cannot show
+  is dropped. Each submission shows the person as «Люди и доступ» does (Account ID and the current
+  Telegram identity), the note, the service mark, the source, the Task Version with the current one,
+  the criteria of that version and the report. The report is plain text labelled «отчёт агента
+  ученика»: no markup it carries runs in the browser, and a repository becomes a link only for an
+  `http(s)` address. Published and unpublished tasks alike keep their submissions here, and so
+  does a task whose chapter the author later removed: it is shown with «глава удалена».
+- `GET /authoring/guide-tasks/submissions` (`listAuthorTaskSubmissions`, `materials:manage`) takes
+  optional `guideId`, `chapterId`, `taskCode`, `cursor` and `limit` (1–100, 25 by default). It
+  answers the Guides with chapters and tasks for the filter, the submissions, the criteria of every
+  Task Version they refer to and `nextCursor`; without the permission it answers 403 `forbidden`.
+- `PUT /authoring/guide-tasks/submissions/{submissionId}/feedback` (`saveAuthorTaskFeedback`,
+  `materials:manage`) takes `comment` (up to 4000 characters or `null`) and `reviewed`. It keeps one
+  Author Feedback per submission: the «посмотрел автор» time is set once and kept while the mark
+  stays; removing the mark clears it. An empty comment without the mark removes the feedback, so
+  the learner reads «Автор ещё не смотрел». The learner reads the feedback on the task page and
+  through `learning_task_submissions`. The browser reaches it through
+  `PUT /api/authoring/guide-tasks/feedback`.

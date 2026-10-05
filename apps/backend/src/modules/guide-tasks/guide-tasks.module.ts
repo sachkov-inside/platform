@@ -25,10 +25,19 @@ import {
   MaterialsModule,
 } from "../materials/index.js";
 import {
+  TelegramAccountLinks,
+  TelegramAccountLinksModule,
+} from "../telegram-membership/index.js";
+import {
   assembleLearningTasks,
   LEARNING_TASKS,
   type LearningTasks,
 } from "./facets/learning-tasks/learning-tasks.js";
+import {
+  assembleSubmissionReview,
+  SUBMISSION_REVIEW,
+  type SubmissionReview,
+} from "./facets/submission-review/submission-review.js";
 import {
   GUIDE_TASK_IMPORT,
   type GuideTaskImport,
@@ -44,6 +53,7 @@ import {
     AccountsModule,
     MaterialContentModule,
     MaterialsModule,
+    TelegramAccountLinksModule,
   ],
   providers: [
     {
@@ -90,7 +100,33 @@ import {
         };
       },
     },
+    {
+      provide: SUBMISSION_REVIEW,
+      inject: [
+        PrismaClientProvider,
+        GuideDirectory,
+        ACCOUNTS,
+        TelegramAccountLinks,
+      ],
+      useFactory: (
+        prisma: PrismaClientProvider,
+        directory: GuideDirectory,
+        accounts: Accounts,
+        identities: TelegramAccountLinks,
+      ): SubmissionReview => {
+        const permissions = assembleCurrentAccountPermissions(accounts);
+        return assembleSubmissionReview({
+          prisma,
+          directory,
+          authorPolicy: {
+            canManage: (accountId: string) =>
+              permissions.hasMaterialsManage(checkedAccountId(accountId)),
+          },
+          identities,
+        });
+      },
+    },
   ],
-  exports: [LEARNING_TASKS, GUIDE_TASK_IMPORT],
+  exports: [LEARNING_TASKS, GUIDE_TASK_IMPORT, SUBMISSION_REVIEW],
 })
 export class GuideTasksModule {}
