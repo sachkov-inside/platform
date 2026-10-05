@@ -64,11 +64,10 @@ export function recordObservation(observation: PassObservation): void {
 
 /** Причина, по которой тест не наблюдал клетку; без неё «не проверено» пришлось бы искать в логе. */
 export function recordProblem(cellId: string, error: unknown): void {
-  const message = error instanceof Error ? error.message : String(error);
   const problem: PassProblem = {
     cellId,
     problem: redactPassText(
-      (message.split("\n")[0] ?? "").slice(0, problemLength),
+      problemLine(error).slice(0, problemLength),
       registeredLogSecrets(),
     ),
   };
@@ -77,6 +76,35 @@ export function recordProblem(cellId: string, error: unknown): void {
     join(problemsDirectory, `${encodeURIComponent(cellId)}.json`),
     `${JSON.stringify(problemSchema.parse(problem))}\n`,
   );
+}
+
+/**
+ * Одна строка о причине. Сообщение ZodError — многострочный JSON, его первая строка «[» ничего не
+ * говорит; вместо него идут пути полей и их ошибки, без значений.
+ */
+export function problemLine(error: unknown): string {
+  if (error instanceof z.ZodError)
+    return `ответ не той формы: ${zodIssueLines(error.issues, []).join("; ")}`;
+  const message = error instanceof Error ? error.message : String(error);
+  return message.split("\n")[0] ?? "";
+}
+
+/** Ошибка union разворачивается в ошибки каждого варианта: иначе осталось бы одно «Invalid input». */
+function zodIssueLines(
+  issues: readonly z.core.$ZodIssue[],
+  prefix: readonly PropertyKey[],
+): string[] {
+  return issues.flatMap((issue) => {
+    const path = [...prefix, ...issue.path];
+    if (issue.code === "invalid_union" && issue.errors.length > 0)
+      return issue.errors.flatMap((variant, index) =>
+        zodIssueLines(variant, path).map(
+          (line) => `вариант ${String(index + 1)}: ${line}`,
+        ),
+      );
+    const where = path.length === 0 ? "(корень)" : path.map(String).join(".");
+    return [`${where} — ${issue.message}`];
+  });
 }
 
 /** Запросы, которые allowlist отклонил в браузере; пишет их тест после своих страниц. */

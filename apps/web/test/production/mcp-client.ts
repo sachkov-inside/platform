@@ -9,11 +9,23 @@ const rpcResultSchema = z.object({
     content: z.array(z.object({ type: z.string(), text: z.string() })),
   }),
 });
+/**
+ * Результат tool: учебный MCP отвечает `{ ok, value }`, владельческий — `{ ok, operationRef, result }`
+ * без `value`.
+ */
 const toolPayloadSchema = z.union([
-  z.object({ ok: z.literal(true), value: z.unknown() }),
-  z.object({ ok: z.literal(false), error: z.object({ code: z.string() }) }),
+  z.object({ ok: z.literal(true), value: z.unknown().optional() }),
+  // Отказ без лишних полей: отказ, который всё же несёт данные, получает «не проверено».
+  z.strictObject({
+    ok: z.literal(false),
+    error: z.object({ code: z.string() }),
+  }),
 ]);
 export type McpToolPayload = z.infer<typeof toolPayloadSchema>;
+
+export function parseToolPayload(value: unknown): McpToolPayload {
+  return toolPayloadSchema.parse(value);
+}
 
 export interface McpToolCall {
   /** Статус HTTP ответа: без токена MCP отвечает 401 до вызова tool. */
@@ -53,7 +65,7 @@ export async function callMcpTool(
   if (content === undefined) throw new Error(`MCP ${name} returned no content`);
   return {
     ...called,
-    payload: toolPayloadSchema.parse(JSON.parse(content.text) as unknown),
+    payload: parseToolPayload(JSON.parse(content.text) as unknown),
   };
 }
 
@@ -87,11 +99,22 @@ function rpcMessage(raw: string): unknown {
 }
 
 /**
+ * Строки JSON из текста, который начинается с начала JSON и может обрываться посреди него: так
+ * `learning_practice_read` отдаёт часть 0 контекста (`canonical-json-parts`). Незакрытая строка в
+ * конце части не берётся. Часть, которая начинается посреди строки, этой функции не подходит.
+ */
+export function jsonStringLiterals(text: string): string[] {
+  return [...text.matchAll(/"(?:[^"\\]|\\.)*"/gu)].map(([literal]) =>
+    z.string().parse(JSON.parse(literal)),
+  );
+}
+
+/**
  * Отличительный текст закрытого ответа: самая поздняя строка не короче 40 символов из нескольких
  * слов. Тизер показывает только начало и описание, поэтому поздний абзац есть лишь в полном ответе.
  * `field` ограничивает поиск полями с этим именем: у тела урока это `text`, то есть то, что
- * страница показывает. Строки с символами, которые HTML или JSON экранируют, не берутся:
- * экранированная утечка иначе прошла бы поиск.
+ * страница показывает. Строки с символами, которые HTML или JSON экранируют (кавычки, `&`, `<`,
+ * `>`, `\\` и управляющие символы), не берутся: экранированная утечка иначе прошла бы поиск.
  */
 export function distinctiveText(value: unknown, field?: string): string {
   const texts: string[] = [];
@@ -114,7 +137,8 @@ export function distinctiveText(value: unknown, field?: string): string {
       (text) =>
         text.length >= 40 &&
         text.split(" ").length >= 5 &&
-        !/["'&<>\\]/u.test(text),
+        // oxlint-disable-next-line no-control-regex -- управляющие символы JSON экранирует
+        !/["'&<>\\\u0000-\u001f]/u.test(text),
     )
     .at(-1);
   if (snippet === undefined) {
