@@ -25,7 +25,7 @@ const serverName = "inside_learning";
 export function learnerMcpConnectPrompt(setupUrl: string): string {
   return [
     "Подключи учебный MCP Sachkov Inside.",
-    `Прочитай инструкцию ${setupUrl} и добавь сервер в свои настройки по разделу для себя.`,
+    `Прочитай инструкцию ${setupUrl} и добавь сервер в свои настройки по разделу для твоего агента.`,
     "Если можешь, запусти команду входа; если нет, назови мне её одной строкой.",
     "Пароли, коды и токены у меня не спрашивай: вход в браузере я подтвержу сам.",
     "В конце скажи, нужно ли открыть новую сессию.",
@@ -37,7 +37,7 @@ export function practiceReviewSetupText(
   connection: LearnerMcpConnection,
 ): string {
   const { url } = connection;
-  const clientId = connection.publicClientId ?? "<client ID от автора курса>";
+  const clientId = connection.publicClientId ?? "CLIENT_ID_ОТ_АВТОРА_КУРСА";
   return [
     "Учебный MCP Sachkov Inside: подключение агента",
     "",
@@ -85,7 +85,9 @@ export function practiceReviewSetupText(
     "",
     "--- OpenCode ---",
     "",
-    '1. Добавьте в раздел "mcp" файла ~/.config/opencode/opencode.json:',
+    '1. Добавьте запись в раздел "mcp" файла ~/.config/opencode/opencode.json.',
+    '   Если файла или раздела нет, оберните запись в { "mcp": { ... } };',
+    "   между соседними записями раздела нужна запятая:",
     "",
     `   "${serverName}": {`,
     '     "type": "remote",',
@@ -103,7 +105,7 @@ export function practiceReviewSetupText(
     "",
     "Добавьте MCP-сервер типа HTTP (Streamable HTTP) с адресом выше.",
     "Когда агент спросит client ID, укажите client ID выше; секрет не нужен.",
-    "Scope: learning:read. Адрес возврата: 127.0.0.1 или localhost",
+    "Scopes: learning:read offline_access. Адрес возврата: 127.0.0.1 или localhost",
     `с любым портом и путём ${learnerMcpCallbackPaths.join(" или ")}.`,
     "",
     "--- Проверка ---",
@@ -123,6 +125,13 @@ export function practiceReviewSetupText(
     "На странице урока откройте «Проверка практики» и скопируйте запрос.",
     "Передайте его агенту в отдельной сессии в каталоге своего проекта.",
     "Агент читает проект и не меняет файлы. Исправления делайте отдельно.",
+    "",
+    "Безопасность",
+    "",
+    "- Код входа вводите только на странице входа в браузере.",
+    "- Не передавайте агенту и в чат токены, адрес возврата после входа и",
+    "  файлы авторизации.",
+    "- Учебный MCP не даёт прав автора и не заменяет авторский MCP.",
     "",
     "Если не получается",
     "",

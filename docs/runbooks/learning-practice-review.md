@@ -248,7 +248,7 @@ public contract:
 
 ```bash
 curl -fsS https://auth.sachkov.dev/oidc/.well-known/openid-configuration \
-  | grep -c client_id_metadata_document_supported   # 0: CIMD is off
+  | grep -q client_id_metadata_document_supported && echo "CIMD on" || echo "CIMD off"
 curl -fsS https://inside.sachkov.dev/.well-known/oauth-protected-resource/mcp/learning
 curl -si https://inside.sachkov.dev/mcp/learning -X POST | grep -i '^www-authenticate'
 ```

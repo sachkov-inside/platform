@@ -60,7 +60,7 @@ describe("learner MCP setup", () => {
 
   it("marks the missing client id instead of printing an empty command", () => {
     expect(practiceReviewSetupText({ url })).toContain(
-      "--client-id <client ID от автора курса>",
+      "--client-id CLIENT_ID_ОТ_АВТОРА_КУРСА",
     );
   });
 

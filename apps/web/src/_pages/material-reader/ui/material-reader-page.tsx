@@ -25,6 +25,10 @@ import {
 } from "@/features/library-discovery.server";
 import { getOptionalPlatformAccessToken } from "@/shared/auth/optional-platform-access-token.server";
 import { readWebRuntimeConfig } from "@/shared/config/index.server";
+import {
+  publicPageUrl,
+  readPublicSiteOrigin,
+} from "@/shared/link-preview/index.server";
 import type { ReaderLearnerMcp } from "../model/practice-review-setup";
 import {
   GuideModeProvider,
@@ -157,7 +161,7 @@ async function PublicMaterialPractice({ slug }: { readonly slug: string }) {
       : await loadLearningPractices(slug, accessToken);
   return (
     <LearningPracticeDisclosure
-      connection={readerLearnerMcp()}
+      connection={await readerLearnerMcp()}
       result={result}
     />
   );
@@ -233,7 +237,7 @@ async function PersonalMaterialReader({
       guideMode={guideMode}
       practiceActions={
         <LearningPracticePrompts
-          connection={readerLearnerMcp()}
+          connection={await readerLearnerMcp()}
           result={practices}
         />
       }
@@ -451,11 +455,12 @@ async function guideIsSold(
 }
 
 /** Учебный MCP из конфигурации и абсолютный адрес инструкции, которую читает агент ученика. */
-function readerLearnerMcp(): ReaderLearnerMcp {
-  const config = readWebRuntimeConfig();
+async function readerLearnerMcp(): Promise<ReaderLearnerMcp> {
   return {
-    ...config.learnerMcp,
-    setupUrl: new URL("/practice-review-setup.txt", config.identity.baseUrl)
-      .href,
+    ...readWebRuntimeConfig().learnerMcp,
+    setupUrl: publicPageUrl(
+      await readPublicSiteOrigin(),
+      "/practice-review-setup.txt",
+    ),
   };
 }

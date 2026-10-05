@@ -42,7 +42,7 @@ const identitySchema = z
     baseUrl: httpUrlSchema("WEB_BASE_URL"),
   })
   .readonly();
-/** Адрес учебного MCP и запасной публичный client ID для агентов без CIMD (#938). */
+/** Адрес учебного MCP и публичный client ID, которым входит любой агент (#938). */
 const learnerMcpSchema = z
   .object({
     url: httpUrlSchema("LEARNER_MCP_URL"),

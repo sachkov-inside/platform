@@ -92,7 +92,16 @@ test("practice Reader offers pinned requests only to an authorized participant",
   await expect(
     region.getByText("Подключить агента", { exact: true }),
   ).toBeVisible();
-  await expect(region).toContainText("/practice-review-setup.txt");
+  // Агент ученика скачивает инструкцию сам, поэтому адрес в запросе абсолютный.
+  await expect(region).toContainText(
+    new URL("/practice-review-setup.txt", page.url()).href,
+  );
+  const openSetupViolations = (
+    await new AxeBuilder({ page })
+      .include('[aria-label="Проверка практики"]')
+      .analyze()
+  ).violations.filter((v) => v.impact === "serious" || v.impact === "critical");
+  expect(openSetupViolations).toEqual([]);
   await region.getByText("Настройка проверки", { exact: true }).click();
   const violations = (
     await new AxeBuilder({ page })
