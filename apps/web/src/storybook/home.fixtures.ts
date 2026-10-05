@@ -1,5 +1,5 @@
 import type { ContentCover, MaterialPreview } from "@/entities/material";
-import type { HomeView } from "../model/home-view";
+import type { HomeView } from "@/_pages/home";
 
 // Stable presentation data for the generated cover study; live content uses authoring uploads.
 function cover(index: number, wide = false): ContentCover {
@@ -174,4 +174,20 @@ export const illustratedHome: HomeView = {
         "Как разделить ответственность и сохранить простоту системы по мере её роста.",
     },
   ],
+};
+
+const pinnedPlaylist = illustratedHome.playlists[1];
+
+/** Главная с закреплённым продуктом в обычном оформлении. */
+export const illustratedPinnedHome: HomeView = {
+  ...illustratedHome,
+  pinnedSeries:
+    pinnedPlaylist === undefined
+      ? null
+      : {
+          ...pinnedPlaylist,
+          presentation: "default",
+          card: null,
+          hero: null,
+        },
 };

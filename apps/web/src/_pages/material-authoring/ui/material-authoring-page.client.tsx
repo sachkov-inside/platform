@@ -250,9 +250,7 @@ export function MaterialAuthoringPageClient({
         ? null
         : { guides: removalConfirmation, pending },
     draft: effectiveDraft,
-    mode: "editor",
     noticeRevision,
-    preview: null,
     save: pending
       ? { kind: "submitting" }
       : autosave.dirty || autosave.error

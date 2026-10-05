@@ -1,4 +1,5 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
+import type { ComponentProps } from "react";
 import { expect, userEvent, waitFor, within } from "storybook/test";
 import {
   MaterialReadingScope,
@@ -12,6 +13,7 @@ import { GuideProgrammeView } from "./guide-programme-view";
 import {
   SeriesLearningProvider,
   SeriesLearningSource,
+  type SeriesLearningView,
 } from "./series-learning.client";
 import { publicPageEnvironment } from "@/storybook/story-environment";
 
@@ -103,6 +105,10 @@ const refresh = () => Promise.resolve();
 const environment = publicPageEnvironment(
   "/products/platform-inside/programme",
 );
+/** Прогресс читателя: история передаёт его программе контекстом, а не свойством. */
+type ProgrammeStoryArgs = ComponentProps<typeof GuideProgrammeView> & {
+  readonly learning?: SeriesLearningView;
+};
 const meta = {
   ...environment,
   component: GuideProgrammeView,
@@ -152,7 +158,7 @@ const meta = {
     },
     ...environment.decorators,
   ],
-} satisfies Meta<typeof GuideProgrammeView>;
+} satisfies Meta<ProgrammeStoryArgs>;
 export default meta;
 type Story = StoryObj<typeof meta>;
 

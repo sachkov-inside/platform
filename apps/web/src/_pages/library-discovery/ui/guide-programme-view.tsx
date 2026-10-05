@@ -28,8 +28,6 @@ import {
   PendingPurchaseRow,
   PendingSeriesLearning,
   ProgrammeProgress,
-  SeriesLearningProvider,
-  type SeriesLearningView,
 } from "./series-learning.client";
 
 type ResolvedSeriesResult = Extract<
@@ -40,20 +38,17 @@ type ResolvedSeriesResult = Extract<
 /**
  * Программа руководства: главы, материалы и состояния доступа. Продажа живёт здесь одним
  * приглашением: страница продукта продаёт смыслом, цену и оформление показывает страница оплаты.
- * Программу рисует сервер; прогресс читателя приходит в браузере через `SeriesLearningProvider`,
- * а `learning` задаёт его явно, когда прогресс уже известен.
+ * Программу рисует сервер; прогресс читателя приходит в браузере через `SeriesLearningProvider`.
  */
 export function GuideProgrammeView({
   artifacts,
   result,
-  learning,
   guideOffer = null,
   pending: accessPending = false,
   subscriptionOffered = false,
 }: {
   readonly artifacts?: ReaderGuideArtifactsResult;
   readonly result: ResolvedSeriesResult;
-  readonly learning?: SeriesLearningView;
   readonly guideOffer?: PriceSnapshot | null;
   /**
    * Программа нарисована из общих данных, личная часть ещё идёт (ADR 0027): состав и названия
@@ -84,7 +79,7 @@ export function GuideProgrammeView({
         : `открыто: ${String(availableCount)}`,
   ].filter((value): value is string => value !== undefined);
 
-  const programme = (
+  return (
     <div
       className="@container/programme mx-auto min-w-0 w-full max-w-[46rem]"
       data-guide-programme={slug}
@@ -153,13 +148,6 @@ export function GuideProgrammeView({
         result={{ ...result, discoveryKind: "series" }}
       />
     </div>
-  );
-  return learning === undefined ? (
-    programme
-  ) : (
-    <SeriesLearningProvider learning={learning}>
-      {programme}
-    </SeriesLearningProvider>
   );
 }
 

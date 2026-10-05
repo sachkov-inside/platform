@@ -114,9 +114,10 @@ adapters from a production route, and do not create a parallel token or navigati
 ## Catalog stays in sync
 
 The Storybook catalog on `main` shows the product as it is: every production route has a page
-story, and every shared module that a page uses has a component story. `src/storybook` holds only
-story support: the route environments, fetch mocks and fixtures. A story imports the production
-module it shows; it never copies page markup.
+story, and every shared module that a page uses has a component story. `src/storybook` holds story
+support (the route environments, fetch mocks and fixtures) and the stories of modules that live
+outside `apps/web`, such as the Telegram sign-in page of the identity service. A story imports the
+production module it shows; it never copies page markup.
 
 - A pull request that adds or changes a surface updates its stories in the same pull request: a
   new route gets a page story, a new state gets a story, and a removed surface or state takes its

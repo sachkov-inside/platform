@@ -16,21 +16,12 @@ import {
   aiFirstProductPage,
   aiFirstProductSummary,
 } from "@/storybook/guide-page.fixtures";
-import { illustratedHome } from "./illustrated-home.fixture";
+import {
+  illustratedHome,
+  illustratedPinnedHome,
+} from "@/storybook/home.fixtures";
 
-const pinnedPlaylist = illustratedHome.playlists[1];
-const home = {
-  ...illustratedHome,
-  pinnedSeries:
-    pinnedPlaylist === undefined
-      ? null
-      : {
-          ...pinnedPlaylist,
-          presentation: "default" as const,
-          card: null,
-          hero: null,
-        },
-};
+const home = illustratedPinnedHome;
 const query = {
   after: null,
   q: "",

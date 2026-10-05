@@ -148,17 +148,15 @@ function PersonalPart({
       seriesContext={seriesContext}
     />
   ) : (
-    <div className="@container/material-reader">
-      <MaterialReaderAccess
-        invitation={{
-          href: guidePurchaseHref("platform-inside"),
-          kind: "guide",
-        }}
-        material={material}
-        returnTarget={returnTarget}
-        seriesContext={seriesContext}
-      />
-    </div>
+    <MaterialReaderAccess
+      invitation={{
+        href: guidePurchaseHref("platform-inside"),
+        kind: "guide",
+      }}
+      material={material}
+      returnTarget={returnTarget}
+      seriesContext={seriesContext}
+    />
   );
 }
 

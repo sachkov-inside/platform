@@ -2,8 +2,8 @@ import { currentLegalEdition } from "@inside/legal";
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { expect, fn, userEvent, waitFor, within } from "storybook/test";
 
-import { HomePage } from "@/_pages/home";
-import { illustratedHome } from "@/_pages/home/ui/illustrated-home.fixture";
+import { HomeBackdrop } from "@/_pages/home";
+import { illustratedPinnedHome } from "@/storybook/home.fixtures";
 import { WelcomeBackdrop } from "@/_pages/welcome";
 import { WelcomeScreen, WelcomeView } from "@/features/terms-acceptance";
 import {
@@ -42,30 +42,14 @@ function acceptResponse(status: number, body?: unknown): Promise<Response> {
   );
 }
 
-const pinnedPlaylist = illustratedHome.playlists[1];
-/** Как `WelcomeBackdrop` маршрута: главная с закреплённым продуктом, лента заменена пустым местом. */
-const backdropHome = {
-  ...illustratedHome,
-  pinnedSeries:
-    pinnedPlaylist === undefined
-      ? null
-      : {
-          ...pinnedPlaylist,
-          presentation: "default" as const,
-          card: null,
-          hero: null,
-        },
-};
-
 const meta = {
   ...environment,
   decorators: [
     (Story) => (
       <>
         <WelcomeBackdrop>
-          <HomePage
-            feed={<div className="min-h-[60vh]" />}
-            result={{ kind: "ready", value: backdropHome }}
+          <HomeBackdrop
+            result={{ kind: "ready", value: illustratedPinnedHome }}
           />
         </WelcomeBackdrop>
         <Story />

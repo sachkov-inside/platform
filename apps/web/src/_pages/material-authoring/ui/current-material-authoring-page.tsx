@@ -80,9 +80,7 @@ export async function CurrentMaterialAuthoringPage({
       assetPreviewBlocks:
         assetPreview.kind === "ready" ? assetPreview.preview.blocks : [],
     },
-    mode: "editor",
     noticeRevision: 0,
-    preview: null,
     save: { kind: "clean" },
     submissionId: randomUUID(),
     validation: { kind: "idle" },

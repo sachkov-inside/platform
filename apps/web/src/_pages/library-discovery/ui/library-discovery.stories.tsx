@@ -22,6 +22,8 @@ import {
   type StagedLoading,
   type StoryViewport,
 } from "@/storybook/loads-in-place";
+import { illustratedHome } from "@/storybook/home.fixtures";
+import { fetchBeforeRender } from "@/storybook/mutation-mock";
 import { publicPageEnvironment } from "@/storybook/story-environment";
 
 const materials = [
@@ -89,6 +91,48 @@ const topicResult = {
 
 const environment = publicPageEnvironment("/topics/platform");
 
+const topicMaterials = [...illustratedHome.guides, ...illustratedHome.videos];
+const formatNames: Record<string, string> = { guide: "Гайды", video: "Видео" };
+/**
+ * Ответ BFF `/api/library/topics/<slug>/materials`: список материалов темы приходит в браузере
+ * после общей части страницы, как на маршруте.
+ */
+const topicCatalog = fetchBeforeRender((input) => {
+  const url = new URL(
+    String(input instanceof Request ? input.url : input),
+    "http://story",
+  );
+  if (!url.pathname.startsWith("/api/library/topics/"))
+    return Promise.resolve(new Response(null, { status: 404 }));
+  const formats = [
+    ...new Set(
+      topicMaterials.flatMap((item) =>
+        item.formatSlug === undefined ? [] : [item.formatSlug],
+      ),
+    ),
+  ];
+  return Promise.resolve(
+    Response.json({
+      kind: "ready",
+      items: topicMaterials,
+      facets: {
+        formats: formats.map((slug) => ({
+          count: topicMaterials.filter((item) => item.formatSlug === slug)
+            .length,
+          id: `format-${slug}`,
+          name: formatNames[slug] ?? slug,
+          slug,
+          summary: null,
+        })),
+        series: [],
+        topics: [],
+      },
+      nextCursor: null,
+      totalCount: topicMaterials.length,
+    }),
+  );
+});
+
 const meta = {
   ...environment,
   component: LibraryDiscoveryView,
@@ -100,6 +144,7 @@ type Story = StoryObj<typeof meta>;
 
 export const TopicDesktop: Story = {
   args: { result: topicResult },
+  beforeEach: topicCatalog,
   globals: { viewport: { isRotated: false, value: "desktop1440" } },
   name: "Topic · desktop",
   play: async ({ canvasElement }) => {
@@ -122,11 +167,15 @@ export const TopicDesktop: Story = {
       ).toBeInTheDocument();
     }
     await heroOpensAtTheSamePlace({ canvasElement });
+    await expect(
+      await canvas.findByRole("heading", { name: "Материалы" }),
+    ).toBeVisible();
   },
 };
 
 export const TopicMobile: Story = {
   args: { result: topicResult },
+  beforeEach: topicCatalog,
   globals: { viewport: { isRotated: false, value: "mobile390" } },
   name: "Topic · mobile",
   play: heroOpensAtTheSamePlace,

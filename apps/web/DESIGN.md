@@ -237,7 +237,7 @@ Soft rounding is a grouping grammar, not decoration. Compact actions and navigat
 
 ### Material Card
 
-The production `MaterialCard` owns its grid, row and note-feed variants; reuse the variant used by
+The production `MaterialCard` owns its row, Series and note-feed variants; reuse the variant used by
 the owning surface. Current Series card relationships, annotations and video descriptions follow
 the [Series contract](../../docs/specifications/platform-v1.md#series-step-sequences), with
 representative states in the production Library discovery stories. Earlier card experiments do
