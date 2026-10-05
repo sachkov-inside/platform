@@ -69,11 +69,11 @@ export class GuideTaskAuthoringService {
       submittedAt: string;
       task: {
         chapterId: string;
-        chapterName: string;
+        chapterName: string | null;
         code: string;
         currentVersion: number;
         guideId: string;
-        guideName: string;
+        guideName: string | null;
         title: string;
       };
       taskVersion: number;

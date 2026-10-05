@@ -52,9 +52,9 @@ export const taskSubmissionsSchema = z
               code: z.string(),
               title: z.string(),
               guideId: z.string(),
-              guideName: z.string(),
+              guideName: z.string().nullable(),
               chapterId: z.string(),
-              chapterName: z.string(),
+              chapterName: z.string().nullable(),
               currentVersion: z.number().int().positive(),
             })
             .strict(),

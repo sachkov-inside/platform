@@ -37593,6 +37593,7 @@
                                 "type": "string"
                               },
                               "chapterName": {
+                                "nullable": true,
                                 "type": "string"
                               },
                               "code": {
@@ -37610,6 +37611,7 @@
                                 "type": "string"
                               },
                               "guideName": {
+                                "nullable": true,
                                 "type": "string"
                               },
                               "title": {

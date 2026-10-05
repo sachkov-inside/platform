@@ -246,7 +246,8 @@ function SubmissionCard({
     >
       <header className="grid gap-1.5">
         <p className="text-xs text-muted-foreground">
-          {submission.task.guideName} · {submission.task.chapterName}
+          {submission.task.guideName ?? "Продукт не найден"} ·{" "}
+          {submission.task.chapterName ?? "глава удалена"}
         </p>
         <h2
           className="text-lg font-semibold tracking-[-0.01em] [overflow-wrap:anywhere]"

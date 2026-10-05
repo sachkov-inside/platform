@@ -50,9 +50,14 @@ export interface AuthorSubmission {
     readonly code: string;
     readonly title: string;
     readonly guideId: string;
-    readonly guideName: string;
+    /** `null` when the Guide is no longer in the catalog. */
+    readonly guideName: string | null;
     readonly chapterId: string;
-    readonly chapterName: string;
+    /**
+     * `null` when the author removed the chapter after import: the task keeps its submissions,
+     * which stay readable here.
+     */
+    readonly chapterName: string | null;
     readonly currentVersion: number;
   };
   readonly taskVersion: number;
@@ -163,9 +168,10 @@ export async function listAuthorSubmissions(
     const guides = await dependencies.directory.guides({
       ids: [...new Set(tasks.map((task) => task.guideId))],
     });
+    const guideOf = new Map(guides.map((guide) => [guide.id, guide]));
     const chapterOf = new Map(
       guides.flatMap((guide) =>
-        guide.chapters.map((chapter) => [chapter.id, { guide, chapter }]),
+        guide.chapters.map((chapter) => [chapter.id, chapter]),
       ),
     );
     const selected = tasks.filter(
@@ -239,10 +245,6 @@ export async function listAuthorSubmissions(
           const task = taskOf.get(row.taskId);
           if (task === undefined)
             throw new Error("A submission refers to an unknown task");
-          const placed = chapterOf.get(task.chapterId);
-          // Import refuses a task outside an existing chapter; a miss here is broken data.
-          if (placed === undefined)
-            throw new Error("A task refers to an unknown chapter");
           return {
             submissionId: row.id,
             submittedAt: row.submittedAt.toISOString(),
@@ -251,9 +253,9 @@ export async function listAuthorSubmissions(
               code: task.code,
               title: task.title,
               guideId: task.guideId,
-              guideName: placed.guide.name,
+              guideName: guideOf.get(task.guideId)?.name ?? null,
               chapterId: task.chapterId,
-              chapterName: placed.chapter.name,
+              chapterName: chapterOf.get(task.chapterId)?.name ?? null,
               currentVersion: task.currentVersion,
             },
             taskVersion: row.taskVersion,

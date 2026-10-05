@@ -94,9 +94,9 @@ export const authorSubmissionsHttpSchema = z
               code: z.string(),
               title: z.string(),
               guideId: z.uuid(),
-              guideName: z.string(),
+              guideName: z.string().nullable(),
               chapterId: z.uuid(),
-              chapterName: z.string(),
+              chapterName: z.string().nullable(),
               currentVersion: z.number().int().positive(),
             })
             .strict(),

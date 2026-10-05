@@ -509,6 +509,33 @@ describe("Author submissions: list, filters and Author Feedback (#948)", () => {
     );
   });
 
+  test("a submission of a task whose chapter the author removed stays listed (#948)", async () => {
+    const chapter = randomUUID();
+    await db.prisma.guideChapter.create({
+      data: { id: chapter, guideId, name: "Глава на удаление", ordinal: 9 },
+    });
+    const task = await imported({
+      guideId,
+      chapterId: chapter,
+      title: "Без главы",
+    });
+    const submissionId = await submitted(
+      await learner(),
+      task.code,
+      "Глава потом исчезла.",
+    );
+    // The Guide order replaces chapters without asking Guide Tasks (`replaceGuideChapters`).
+    await db.prisma.guideChapter.delete({ where: { id: chapter } });
+    const listed = await review().list(owner, { guideId });
+    expect(listed).toMatchObject({ ok: true });
+    expect(
+      listed.ok &&
+        listed.value.submissions.find(
+          (item) => item.submissionId === submissionId,
+        )?.task,
+    ).toMatchObject({ guideName: "AI Engineering", chapterName: null });
+  });
+
   test("feedback on an unknown submission or with a malformed body is refused", async () => {
     expect(
       await review().saveFeedback(owner, {

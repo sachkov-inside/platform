@@ -1337,7 +1337,8 @@ accepted look yet: it is temporary semantic UI until
   Telegram identity), the note, the service mark, the source, the Task Version with the current one,
   the criteria of that version and the report. The report is plain text labelled «отчёт агента
   ученика»: no markup it carries runs in the browser, and a repository becomes a link only for an
-  `http(s)` address. Published and unpublished tasks alike keep their submissions here.
+  `http(s)` address. Published and unpublished tasks alike keep their submissions here, and so
+  does a task whose chapter the author later removed: it is shown with «глава удалена».
 - `GET /authoring/guide-tasks/submissions` (`listAuthorTaskSubmissions`, `materials:manage`) takes
   optional `guideId`, `chapterId`, `taskCode`, `cursor` and `limit` (1–100, 25 by default). It
   answers the Guides with chapters and tasks for the filter, the submissions, the criteria of every

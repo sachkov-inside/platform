@@ -108,6 +108,27 @@ describe("author feedback BFF (#948)", () => {
     );
   });
 
+  it("counts a CRLF line break of the form as one character", async () => {
+    fakes.save.mockResolvedValue({
+      ok: true,
+      body: { authorFeedback: null },
+      response: new Response(),
+    });
+    const comment = `${"x".repeat(3_990)}${"\r\n".repeat(10)}`;
+    const response = await handleSaveAuthorFeedback(
+      feedback({ submissionId, comment, reviewed: "true" }),
+    );
+    expect(await response.json()).toEqual({
+      kind: "saved",
+      authorFeedback: null,
+    });
+    expect(fakes.save).toHaveBeenCalledWith(
+      submissionId,
+      { comment: `${"x".repeat(3_990)}${"\n".repeat(10)}`, reviewed: true },
+      "trusted-token",
+    );
+  });
+
   it("refuses a malformed save without calling the backend", async () => {
     for (const values of [
       { submissionId: "not-a-uuid", comment: "", reviewed: "true" },

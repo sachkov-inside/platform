@@ -9,7 +9,11 @@ export const AUTHOR_COMMENT_MAX_CHARACTERS = 4_000;
 export const saveAuthorFeedbackInputSchema = z
   .object({
     submissionId: z.uuid(),
-    comment: z.string().max(AUTHOR_COMMENT_MAX_CHARACTERS),
+    // A multipart form sends a line break as CRLF; the textarea and the backend count one character.
+    comment: z
+      .string()
+      .transform((value) => value.replace(/\r\n?/gu, "\n"))
+      .pipe(z.string().max(AUTHOR_COMMENT_MAX_CHARACTERS)),
     reviewed: z.enum(["true", "false"]).transform((value) => value === "true"),
   })
   .strict();
