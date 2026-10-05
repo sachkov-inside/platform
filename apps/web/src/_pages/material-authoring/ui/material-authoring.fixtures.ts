@@ -1,3 +1,5 @@
+import { fn } from "storybook/test";
+
 import {
   authoringMaterialPreviewHref,
   authoringMaterialsRootHref,
@@ -5,9 +7,20 @@ import {
 import type {
   MaterialAuthoringPresentation,
   MaterialPreviewBlock,
+  MaterialPreviewPresentation,
   MaterialPreviewRoutePresentation,
   MaterialPreviewText,
 } from "@/widgets/material-authoring";
+import { fetchBeforeRender } from "@/storybook/mutation-mock";
+
+/**
+ * Данные редактора и предпросмотра материала для Storybook. Представления совпадают с тем, что
+ * собирают серверные страницы маршрутов `/authoring/materials/*`: режим редактора, пустой
+ * предпросмотр и чистое сохранение; остальное состояние страница получает из ответов BFF.
+ */
+
+/** Материал историй: его адрес стоит в маршруте редактора и предпросмотра. */
+export const materialId = "94000000-0000-4000-8000-000000000203";
 
 const text = (value: string): MaterialPreviewText => ({
   kind: "text",
@@ -73,7 +86,143 @@ export const emptyLessonBlocks: readonly MaterialPreviewBlock[] = [
 ];
 
 const contentVersion = 3;
-export const savedContentVersion = 4;
+
+/** Сохранённая версия материала: её показывает страница предпросмотра. */
+export const materialPreview = {
+  accessLabel: "Для участников",
+  contentVersion: 7,
+  materialId,
+  blocks: [
+    paragraph(
+      "Developer Pipeline превращает issue в проверяемый результат и сохраняет owner gates видимыми на всём пути.",
+    ),
+    {
+      content: [text("Сначала зафиксируйте outcome")],
+      kind: "heading",
+      level: 2,
+    },
+    paragraph(
+      "У задачи должен быть один observable result, точный stopping condition и evidence, которое можно повторить.",
+    ),
+    {
+      items: [
+        [paragraph("Issue хранит intent")],
+        [paragraph("PR хранит implementation evidence")],
+      ],
+      kind: "bullet_list",
+    },
+    {
+      content: [
+        paragraph(
+          "Preview показывает текущую версию содержимого и не меняет опубликованный Material.",
+        ),
+      ],
+      kind: "callout",
+      tone: "note",
+    },
+    {
+      content: [paragraph("Один authority на каждый факт.")],
+      kind: "callout",
+      title: "Правило одного источника",
+      tone: "definition",
+    },
+    {
+      content: [text("Issue хранит intent, PR хранит evidence.")],
+      kind: "key_point",
+    },
+    {
+      kind: "variant",
+      options: [
+        {
+          content: [
+            paragraph(
+              "Учебный проект: пройдите шаг на подготовленном репозитории.",
+            ),
+          ],
+          mode: "example",
+        },
+        {
+          content: [
+            paragraph("Свой проект: примените шаг к своему репозиторию."),
+          ],
+          mode: "own",
+        },
+      ],
+    },
+    {
+      content: [paragraph("Review закрыт"), paragraph("Owner дал merge GO")],
+      kind: "takeaways",
+      title: "Итоги урока",
+    },
+    {
+      kind: "labeled_list",
+      rows: [
+        {
+          description: "Фиксирует необратимый выбор",
+          label: "ADR",
+          name: "Решение",
+        },
+        { label: "Gate", name: "Проверка" },
+      ],
+    },
+    {
+      description: "Что обещает контракт доставки",
+      kind: "resource_card",
+      title: "Спецификация Platform",
+      url: "https://example.com/spec",
+    },
+    {
+      kind: "agent_prompt",
+      text: "Разбери материал и предложи три правки.",
+      title: "Промпт для разбора",
+    },
+    {
+      kind: "code_block",
+      text: "issue -> branch -> evidence -> review -> owner GO",
+    },
+    {
+      kind: "table",
+      rows: [
+        {
+          cells: [
+            { content: [paragraph("Этап")], header: true },
+            { content: [paragraph("Evidence")], header: true },
+          ],
+        },
+        {
+          cells: [
+            { content: [paragraph("Review")], header: false },
+            { content: [paragraph("Проверки зелёные")], header: false },
+          ],
+        },
+      ],
+    },
+    {
+      alt: "Схема Developer Pipeline",
+      assetId: "94000000-0000-4000-8000-000000000051",
+      caption: "Путь от issue до owner GO",
+      height: 900,
+      kind: "image",
+      variants: [
+        { height: 450, width: 480 },
+        { height: 900, width: 960 },
+      ],
+      width: 960,
+    },
+    {
+      assetId: "94000000-0000-4000-8000-000000000052",
+      kind: "file",
+      label: "Checklist проверки",
+    },
+  ],
+  format: "Гайд",
+  summary:
+    "Практический разбор delivery-потока: от готовой задачи до owner-controlled merge.",
+  tags: ["developer pipeline", "agents", "delivery"],
+  title: "Developer Pipeline без магии",
+  topic: "AI для разработчиков",
+  publicationState: "draft",
+} as const satisfies MaterialPreviewPresentation;
 
 export const materialAuthoringPresentation = {
   availableFormats: [
@@ -181,7 +330,7 @@ export const materialAuthoringPresentation = {
       ],
     },
     formatId: "guide",
-    materialId: "94000000-0000-4000-8000-000000000009",
+    materialId,
     contentVersion,
     readOnly: false,
     seriesIds: ["94000000-0000-4000-8000-000000000041"],
@@ -198,141 +347,7 @@ export const materialAuthoringPresentation = {
   },
   mode: "editor",
   noticeRevision: 0,
-  preview: {
-    accessLabel: "Для участников",
-    contentVersion: 7,
-    materialId: "94000000-0000-4000-8000-000000000101",
-    blocks: [
-      paragraph(
-        "Developer Pipeline превращает issue в проверяемый результат и сохраняет owner gates видимыми на всём пути.",
-      ),
-      {
-        content: [text("Сначала зафиксируйте outcome")],
-        kind: "heading",
-        level: 2,
-      },
-      paragraph(
-        "У задачи должен быть один observable result, точный stopping condition и evidence, которое можно повторить.",
-      ),
-      {
-        items: [
-          [paragraph("Issue хранит intent")],
-          [paragraph("PR хранит implementation evidence")],
-        ],
-        kind: "bullet_list",
-      },
-      {
-        content: [
-          paragraph(
-            "Preview показывает текущую версию содержимого и не меняет опубликованный Material.",
-          ),
-        ],
-        kind: "callout",
-        tone: "note",
-      },
-      {
-        content: [paragraph("Один authority на каждый факт.")],
-        kind: "callout",
-        title: "Правило одного источника",
-        tone: "definition",
-      },
-      {
-        content: [text("Issue хранит intent, PR хранит evidence.")],
-        kind: "key_point",
-      },
-      {
-        kind: "variant",
-        options: [
-          {
-            content: [
-              paragraph(
-                "Учебный проект: пройдите шаг на подготовленном репозитории.",
-              ),
-            ],
-            mode: "example",
-          },
-          {
-            content: [
-              paragraph("Свой проект: примените шаг к своему репозиторию."),
-            ],
-            mode: "own",
-          },
-        ],
-      },
-      {
-        content: [paragraph("Review закрыт"), paragraph("Owner дал merge GO")],
-        kind: "takeaways",
-        title: "Итоги урока",
-      },
-      {
-        kind: "labeled_list",
-        rows: [
-          {
-            description: "Фиксирует необратимый выбор",
-            label: "ADR",
-            name: "Решение",
-          },
-          { label: "Gate", name: "Проверка" },
-        ],
-      },
-      {
-        description: "Что обещает контракт доставки",
-        kind: "resource_card",
-        title: "Спецификация Platform",
-        url: "https://example.com/spec",
-      },
-      {
-        kind: "agent_prompt",
-        text: "Разбери материал и предложи три правки.",
-        title: "Промпт для разбора",
-      },
-      {
-        kind: "code_block",
-        text: "issue -> branch -> evidence -> review -> owner GO",
-      },
-      {
-        kind: "table",
-        rows: [
-          {
-            cells: [
-              { content: [paragraph("Этап")], header: true },
-              { content: [paragraph("Evidence")], header: true },
-            ],
-          },
-          {
-            cells: [
-              { content: [paragraph("Review")], header: false },
-              { content: [paragraph("Проверки зелёные")], header: false },
-            ],
-          },
-        ],
-      },
-      {
-        alt: "Схема Developer Pipeline",
-        assetId: "94000000-0000-4000-8000-000000000051",
-        caption: "Путь от issue до owner GO",
-        height: 900,
-        kind: "image",
-        variants: [
-          { height: 450, width: 480 },
-          { height: 900, width: 960 },
-        ],
-        width: 960,
-      },
-      {
-        assetId: "94000000-0000-4000-8000-000000000052",
-        kind: "file",
-        label: "Checklist проверки",
-      },
-    ],
-    format: "Гайд",
-    summary:
-      "Практический разбор delivery-потока: от готовой задачи до owner-controlled merge.",
-    tags: ["developer pipeline", "agents", "delivery"],
-    title: "Developer Pipeline без магии",
-    topic: "AI для разработчиков",
-    publicationState: "draft",
-  },
+  preview: null,
   save: { kind: "clean" },
   submissionId: "94000000-0000-4000-8000-000000000001",
   validation: { kind: "idle" },
@@ -400,21 +415,6 @@ export const variantStepAuthoringPresentation = {
   },
 } as const satisfies MaterialAuthoringPresentation;
 
-export const savedAfterEditingPresentation = {
-  ...materialAuthoringPresentation,
-  draft: {
-    ...materialAuthoringPresentation.draft,
-    contentVersion: savedContentVersion,
-    title: "Новая версия Developer Pipeline",
-  },
-  preview: {
-    ...materialAuthoringPresentation.preview,
-    title: "Новая версия Developer Pipeline",
-  },
-  save: { kind: "saved", savedAtLabel: "12:41" },
-  validation: { headingCount: 1, kind: "valid", plainTextLength: 214 },
-} as const satisfies MaterialAuthoringPresentation;
-
 /**
  * The same article with its image attachment in the editor. The catalog cannot deliver protected
  * bytes, so the block shows its saved-without-preview state; the form around it is the production
@@ -461,7 +461,6 @@ export const emptyMaterialAuthoringPresentation = {
     title: "",
     topicId: "unassigned",
   },
-  preview: null,
 } as const satisfies MaterialAuthoringPresentation;
 
 const previewRouteItem = (
@@ -524,3 +523,95 @@ export const materialPreviewRoute = {
   ],
   total: 5,
 } as const satisfies MaterialPreviewRoutePresentation;
+
+/** Ответ BFF материала: тело, сбой транспорта с кодом HTTP или запрос без ответа. */
+export type MaterialReply =
+  | Readonly<Record<string, unknown>>
+  | { readonly httpStatus: number }
+  | "pending";
+
+/** Ответы по методу: создание, сохранение и удаление идут на один адрес BFF. */
+export interface MaterialReplies {
+  readonly DELETE?: MaterialReply | readonly MaterialReply[];
+  readonly POST?: MaterialReply | readonly MaterialReply[];
+  readonly PUT?: MaterialReply | readonly MaterialReply[];
+}
+
+/** Каждый запрос страницы к `/api/authoring/materials`: метод и отправленная форма. */
+export const materialRequests = fn(
+  (_method: string, _form: FormData | undefined): void => undefined,
+);
+
+export function savedReply(
+  publicationState: "draft" | "published" | "unpublished" = "draft",
+  contentVersion = 4,
+) {
+  return {
+    contentVersion,
+    kind: "saved",
+    nextSubmissionId: "94000000-0000-4000-8000-000000000002",
+    publicationState,
+  } as const;
+}
+
+export const createdReply = {
+  draft: { contentVersion: 1, materialId },
+  kind: "created",
+} as const;
+
+/** Ответ на очередной запрос метода: последовательность повторяет свой последний ответ. */
+function replyAt(
+  configured: MaterialReply | readonly MaterialReply[] | undefined,
+  index: number,
+): MaterialReply | undefined {
+  if (!isReplySequence(configured)) return configured;
+  return configured[Math.min(index, configured.length - 1)];
+}
+
+function isReplySequence(
+  value: MaterialReply | readonly MaterialReply[] | undefined,
+): value is readonly MaterialReply[] {
+  return Array.isArray(value);
+}
+
+function materialFetch(replies: MaterialReplies) {
+  const served = new Map<string, number>();
+  return (input: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
+    const url = new URL(
+      input instanceof Request ? input.url : input,
+      window.location.origin,
+    );
+    const method = (init?.method ?? "GET").toUpperCase();
+    if (
+      url.pathname !== "/api/authoring/materials" ||
+      (method !== "PUT" && method !== "POST" && method !== "DELETE")
+    ) {
+      return Promise.reject(
+        new Error(`Story has no material reply for ${method} ${url.pathname}`),
+      );
+    }
+    materialRequests(
+      method,
+      init?.body instanceof FormData ? init.body : undefined,
+    );
+    const configured = replies[method];
+    const index = served.get(method) ?? 0;
+    served.set(method, index + 1);
+    const reply = replyAt(configured, index);
+    if (reply === undefined || reply === "pending") {
+      return new Promise<Response>(() => undefined);
+    }
+    if ("httpStatus" in reply && typeof reply.httpStatus === "number") {
+      return Promise.resolve(new Response(null, { status: reply.httpStatus }));
+    }
+    return Promise.resolve(Response.json(reply));
+  };
+}
+
+/** `beforeEach` истории: ставит ответы BFF материала до первого рендера страницы. */
+export function materialBeforeRender(replies: MaterialReplies = {}) {
+  return () => {
+    materialRequests.mockClear();
+    return fetchBeforeRender(materialFetch(replies))();
+  };
+}

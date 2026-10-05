@@ -2,21 +2,10 @@
 
 import { usePathname } from "next/navigation";
 import { Suspense, useState, type ReactNode } from "react";
-import { useQuery } from "@tanstack/react-query";
 
-import {
-  ApplicationShell,
-  navigationItemsFor,
-  publicMobileNavigationItems,
-} from "@/widgets/application-shell";
-import { HeaderAuthControl, TelegramReminder } from "@/widgets/auth-control";
-import {
-  accountPresentationBrowserQueryOptions,
-  AccountTelegramOnboarding,
-  openTelegramOnboarding,
-} from "@/features/account-access";
 import { ReadingProgressProvider } from "@/features/reading-progress";
 import { useAuthStatus } from "./auth-status-control.client";
+import { PublicApplicationFrame } from "./public-application-frame.client";
 import { PublicNavigationPending } from "./public-navigation-pending";
 import { MobileNavigationLocation } from "./mobile-navigation-location.client";
 import { NavigationTiming } from "./navigation-timing.client";
@@ -43,37 +32,14 @@ export function AppShell({ children }: AppShellProps) {
     authStatus.accountId,
     authStatus.resolved,
   );
-  const navigationItems = navigationItemsFor({
-    canManageMaterials: authStatus.canManageMaterials,
-  });
-  const presentation = useQuery({
-    ...accountPresentationBrowserQueryOptions(),
-    enabled: authStatus.resolved && authStatus.state === "authenticated",
-  });
-  // Пока Telegram не подключён, напоминание висит в оболочке, а не только в кабинете.
-  const telegramPending =
-    presentation.data?.kind === "ready" &&
-    presentation.data.presentation.telegramMembership.link.kind !== "linked";
 
   return (
-    <ApplicationShell
+    <PublicApplicationFrame
+      authResolved={authStatus.resolved}
+      authState={authStatus.state}
+      canManageMaterials={authStatus.canManageMaterials}
       currentPath={mobileNavigation.pendingHref?.split("?")[0] ?? pathname}
-      accountSlot={
-        <div className="flex items-center gap-1">
-          {telegramPending ? (
-            <TelegramReminder onOpen={openTelegramOnboarding} />
-          ) : null}
-          <HeaderAuthControl state={authStatus.state} />
-        </div>
-      }
-      navigationItems={navigationItems}
-      mobileNavigationItems={publicMobileNavigationItems.map((item) =>
-        item.href === "/"
-          ? { ...item, href: mobileNavigation.homeHref }
-          : item.href === "/account" && telegramPending
-            ? { ...item, badge: true }
-            : item,
-      )}
+      homeHref={mobileNavigation.homeHref}
       onMobileNavigate={mobileNavigation.onNavigate}
     >
       <Suspense fallback={null}>
@@ -98,11 +64,7 @@ export function AppShell({ children }: AppShellProps) {
           <PublicNavigationPending href={mobileNavigation.pendingHref} />
         ) : null}
       </ReadingProgressProvider>
-      <AccountTelegramOnboarding
-        authenticated={authStatus.state === "authenticated"}
-        authResolved={authStatus.resolved}
-      />
-    </ApplicationShell>
+    </PublicApplicationFrame>
   );
 }
 

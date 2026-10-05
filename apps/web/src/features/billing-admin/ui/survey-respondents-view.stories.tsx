@@ -3,9 +3,12 @@ import { expect, fn, userEvent, within } from "storybook/test";
 
 import { authoringPageEnvironment } from "@/storybook/story-environment";
 
+import { BillingAdminFrame } from "./billing-admin-frame";
 import { SurveyRespondentsView } from "./survey-respondents-view.client";
 
-const environment = authoringPageEnvironment("/authoring/billing");
+const environment = authoringPageEnvironment("/authoring/billing", {
+  frame: BillingAdminFrame,
+});
 const templateId = "00000000-0000-4000-8000-000000000901";
 /** Только выдуманные ники: настоящий список живёт в production БД. */
 const data = {
@@ -35,7 +38,7 @@ const link = {
 
 const meta = {
   ...environment,
-  title: "Pages/Authoring/Survey respondents",
+  title: "Features/Billing/Survey respondents",
   component: SurveyRespondentsView,
   args: {
     data,

@@ -4,33 +4,53 @@ import { Meta } from "@storybook/addon-docs/blocks";
 
 # Design tokens
 
-Tokens name product roles instead of individual screens. Light and dark values live in
+Tokens name product roles instead of individual screens. Their values live in
 `apps/web/app/globals.css`, which both the application and Storybook import, and reach components
-through Tailwind theme aliases.
+through Tailwind theme aliases. The product has one light theme in two palettes:
+
+- `:root` is the authoring palette: the warm olive canvas of `/authoring`.
+- `[data-public-shell]` overrides it on every public page: white canvas, charcoal text and a
+  terracotta accent. The public shell and its portalled menus carry this attribute.
 
 ## Color roles
 
-<div className="not-prose grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-  {[
-    ["Background", "--background", "bg-background text-foreground"],
-    ["Card", "--card", "bg-card text-card-foreground"],
-    ["Primary", "--primary", "bg-primary text-primary-foreground"],
-    ["Secondary", "--secondary", "bg-secondary text-secondary-foreground"],
-    ["Accent", "--accent", "bg-accent text-accent-foreground"],
-    ["Destructive", "--destructive", "bg-destructive text-white"],
-  ].map(([label, token, classes]) => (
-    <div
-      className={`rounded-xl border border-border p-4 ${classes}`}
-      key={token}
-    >
-      <div className="font-semibold">{label}</div>
-      <code className="mt-2 block font-mono text-xs opacity-75">{token}</code>
-    </div>
-  ))}
+export const roles = [
+  ["Background", "--background", "bg-background text-foreground"],
+  ["Card", "--card", "bg-card text-card-foreground"],
+  ["Primary", "--primary", "bg-primary text-primary-foreground"],
+  ["Secondary", "--secondary", "bg-secondary text-secondary-foreground"],
+  ["Accent", "--accent", "bg-accent text-accent-foreground"],
+  ["Destructive", "--destructive", "bg-destructive text-white"],
+];
+
+export const Swatches = () => (
+  <div className="not-prose grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+    {roles.map(([label, token, classes]) => (
+      <div
+        className={`rounded-xl border border-border p-4 ${classes}`}
+        key={token}
+      >
+        <div className="font-semibold">{label}</div>
+        <code className="mt-2 block font-mono text-xs opacity-75">{token}</code>
+      </div>
+    ))}
+  </div>
+);
+
+### Public pages
+
+<div data-public-shell className="not-prose rounded-2xl bg-background p-4">
+  <Swatches />
+</div>
+
+### Authoring
+
+<div className="not-prose rounded-2xl bg-background p-4">
+  <Swatches />
 </div>
 
 Orange is a scarce signal for current state, focus, and important product accents. It is not a
-default decoration. Foreground/background pairs must remain readable in both themes.
+default decoration. Foreground/background pairs must remain readable in both palettes.
 
 ## Typography
 

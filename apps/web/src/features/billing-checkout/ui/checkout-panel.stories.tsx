@@ -3,14 +3,14 @@ import { expect, fn, userEvent, within } from "storybook/test";
 
 import {
   confirmedPurchase,
-  guideOnlyOffer,
-  guideQuote,
   legalDocuments,
   pendingPurchase,
   savedQuote,
   supportOffer,
   verifiedContact,
 } from "@/storybook/billing.fixtures";
+
+import { billingErrorMessage } from "@/entities/subscription";
 
 import { CheckoutPanel } from "./checkout-panel.client";
 import { publicPageEnvironment } from "@/storybook/story-environment";
@@ -39,7 +39,7 @@ const meta = {
     docs: {
       description: {
         component:
-          "Условия сервера показываются до оплаты. Оферта и автопродление принимаются нажатием кнопки со строкой условий под ней, отметок нет; возврат из банка не считается успехом.",
+          "Оформление подписки на витрине (`CheckoutFlow` выбирает эту панель для варианта с автопродлением; разовую покупку руководства показывает `OneTimeCheckoutPanel`). Условия сервера показываются до оплаты. Оферта и автопродление принимаются нажатием кнопки со строкой условий под ней, отметок нет; возврат из банка не считается успехом.",
       },
     },
   },
@@ -99,11 +99,23 @@ export const ContactRequired: Story = {
   },
 };
 
+/** Сервер ответил `existing_access`: оплата ждёт явного согласия, а текст ошибки — тот же, что даёт поток. */
 export const ExistingAccess: Story = {
   args: {
     quote: savedQuote,
     existingAccess: true,
-    error: "У вас уже есть доступ к части этого состава.",
+    error: billingErrorMessage("existing_access"),
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await expect(
+      canvas.getByText(
+        /Новая подписка не отменяет и не заменяет действующие права/u,
+      ),
+    ).toBeInTheDocument();
+    await expect(
+      canvas.getByRole("button", { name: /оплатить/iu }),
+    ).toBeDisabled();
   },
 };
 
@@ -146,58 +158,6 @@ export const Confirmed: Story = {
 
 export const Pending: Story = {
   args: { quote: savedQuote, pending: true },
-};
-
-/** Разовая покупка руководства: без согласия на списания, без периода и следующей цены. */
-export const OneTimeGuide: Story = {
-  args: {
-    snapshot: guideOnlyOffer,
-    quote: guideQuote,
-  },
-  play: async ({ canvasElement }) => {
-    const canvas = within(canvasElement);
-    await expect(canvas.getByText("Оформление покупки")).toBeInTheDocument();
-    await expect(
-      canvas.queryByText("Согласие на регулярные списания"),
-    ).not.toBeInTheDocument();
-    await expect(
-      canvas.queryByText("Дальше каждый период"),
-    ).not.toBeInTheDocument();
-    await expect(canvas.queryByText("Период")).not.toBeInTheDocument();
-    await expect(canvas.getByText(/Это разовый платёж/u)).toBeInTheDocument();
-    await expect(
-      canvas.getByRole("button", { name: /оплатить/iu }),
-    ).toBeEnabled();
-  },
-};
-
-/** Повторная покупка того же руководства: честное предупреждение вместо тихого второго права. */
-export const OneTimeExistingAccess: Story = {
-  args: {
-    snapshot: guideOnlyOffer,
-    quote: guideQuote,
-    existingAccess: true,
-    error: "У вас уже есть доступ к части этого состава.",
-  },
-  play: async ({ canvasElement }) => {
-    const canvas = within(canvasElement);
-    await expect(
-      canvas.getByText(/Повторная покупка не удваивает право/u),
-    ).toBeInTheDocument();
-    await expect(
-      canvas.getByRole("button", { name: /оплатить/iu }),
-    ).toBeDisabled();
-  },
-};
-
-export const OneTimeMobile: Story = {
-  args: { snapshot: guideOnlyOffer, quote: guideQuote },
-  globals: { viewport: { isRotated: false, value: "mobile390" } },
-};
-
-export const OneTimeDesktop: Story = {
-  args: { snapshot: guideOnlyOffer, quote: guideQuote },
-  globals: { viewport: { isRotated: false, value: "desktop1440" } },
 };
 
 export const Mobile: Story = {

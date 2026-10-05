@@ -1,10 +1,13 @@
 import { guideCapability } from "@inside/access-capabilities";
 
+import type { CommunityEntry } from "@/features/community-entry";
 import type {
   AccessGround,
+  BillingFailureCode,
   BillingQuote,
   ChangeQuote,
   CurrentBilling,
+  Enrollment,
   LegalDocument,
   NoticeView,
   OwnPayment,
@@ -251,14 +254,87 @@ export const activeSubscription: SubscriptionView = {
 /** Ответ собственного BFF о состоянии billing: конверт принадлежит фикстурам, а не сторис. */
 export function currentBillingResponse(
   subscription: SubscriptionView | null,
+  {
+    grounds = [],
+    notices = [],
+    payments = [],
+  }: {
+    readonly grounds?: readonly AccessGround[];
+    readonly notices?: readonly NoticeView[];
+    readonly payments?: readonly OwnPayment[];
+  } = {},
 ): Response {
   const value: CurrentBilling = {
     subscription,
-    notices: [],
-    grounds: [],
-    payments: [],
+    notices: [...notices],
+    grounds: [...grounds],
+    payments: [...payments],
   };
   return Response.json({ ok: true, value });
+}
+
+/** Отказ собственного billing BFF тем же конвертом, что и успех. */
+export function billingFailureResponse(code: BillingFailureCode): Response {
+  return Response.json(
+    { ok: false, code },
+    { status: code === "unauthorized" ? 401 : 503 },
+  );
+}
+
+/** Назначение тарифа за курс: раздел «Подписка» показывает его в «Ваших тарифах». */
+export const courseEnrollment: Enrollment = {
+  id: uuid("c01"),
+  accountId: uuid("c02"),
+  origin: "course",
+  startsAt: "2026-09-14T10:00:00.000Z",
+  endsAt: null,
+  endPolicy: "fixed",
+  revision: 1,
+  state: "active",
+  renewal: "not_applicable",
+  nextChargeAt: null,
+  tier: {
+    id: uuid("c03"),
+    revision: 1,
+    name: "Подписка Inside",
+    benefits: ["materials", "community"],
+    contentScope: { guideIds: [uuid("f01")], materialIds: [] },
+  },
+  content: [
+    {
+      kind: "guide",
+      id: uuid("f01"),
+      title: "Создание Platform Inside",
+      slug: "platform-inside",
+      available: true,
+    },
+  ],
+};
+
+export function enrollmentsResponse(items: readonly Enrollment[]): Response {
+  return Response.json({ ok: true, value: { items } });
+}
+
+/** Проверка права на сообщество, которую раздел «Подписка» показывает над тарифами. */
+export function communityAdmissionResponse(
+  state: "checking" | "no_access" | "moderation_blocked" | "ready",
+): Response {
+  return Response.json({
+    ok: true,
+    value: { admissionRestriction: null, state },
+  });
+}
+
+/** Переход в сообщество рядом с покупками: состояние выбирает сервер. */
+export function communityEntryResponse(entry: CommunityEntry): Response {
+  return Response.json({ ok: true, value: entry });
+}
+
+/** Подтверждённый контакт для чеков и действующие редакции документов покупки. */
+export function billingContactResponse(
+  contact: VerifiedContact | null = verifiedContact,
+): Response {
+  return Response.json({ ok: true, contact, documents: legalDocuments });
 }
 
 export const canceledSubscription: SubscriptionView = {

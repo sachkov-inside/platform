@@ -50,7 +50,7 @@ git ls-files 'apps/**/*.ts' 'apps/**/*.tsx' 'apps/**/*.css' | xargs wc -l
   `index.ts`, запрещает raw persistence imports и задаёт точную verification command;
 - [`docs/agents/frontend-delivery.md`](../agents/frontend-delivery.md) задаёт production/Storybook
   ownership, presentation interface и запрет параллельного fake data path;
-- [`apps/web/src/workshop/foundations-overview.mdx`](../../apps/web/src/workshop/foundations-overview.mdx)
+- [`apps/web/src/storybook/overview.mdx`](../../apps/web/src/storybook/overview.mdx)
   делает Storybook manifest и локальный `/mcp` catalog executable UI interface для людей и агентов;
 - [`apps/backend/scripts/check-backend-architecture.mjs`](../../apps/backend/scripts/check-backend-architecture.mjs)
   и negative fixtures проверяют dependency direction, а не только объясняют её prose;

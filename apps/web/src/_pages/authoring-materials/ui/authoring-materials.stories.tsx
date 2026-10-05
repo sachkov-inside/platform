@@ -11,7 +11,10 @@ import {
 } from "@/_pages/authoring-materials/ui/authoring-materials-view";
 import { withMutationFetch } from "@/storybook/mutation-mock";
 import { authoringMaterialsRootHref } from "@/shared/routing/authoring";
-import { authoringPageEnvironment, routeContent } from "@/storybook/story-environment";
+import {
+  authoringPageEnvironment,
+  routeContent,
+} from "@/storybook/story-environment";
 
 const lifecycleMutationSpy = fn(
   (_input: RequestInfo | URL, init?: RequestInit) => {
@@ -96,7 +99,7 @@ const meta = {
       },
     },
   },
-  title: "Страницы/Редактор/Материалы",
+  title: "Pages/Authoring/Материалы",
 } satisfies Meta<typeof AuthoringMaterialsView>;
 
 export default meta;

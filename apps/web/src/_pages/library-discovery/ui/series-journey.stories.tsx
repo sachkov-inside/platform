@@ -1,4 +1,3 @@
-import { useState } from "react";
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { expect, userEvent, waitFor, within } from "storybook/test";
 import {
@@ -6,8 +5,14 @@ import {
   type MaterialPreview,
 } from "@/entities/material";
 import type { PublishedSeriesResult } from "@/features/library-discovery";
+import { getQueryClient } from "@/shared/api/query-client";
 import { guideOnlyOffer } from "@/storybook/billing.fixtures";
+import { fetchBeforeRender } from "@/storybook/mutation-mock";
 import { GuideProgrammeView } from "./guide-programme-view";
+import {
+  SeriesLearningProvider,
+  SeriesLearningSource,
+} from "./series-learning.client";
 import { publicPageEnvironment } from "@/storybook/story-environment";
 
 const titles = [
@@ -115,6 +120,12 @@ const meta = {
     result,
     learning: { kind: "ready", read: 8, total: 24, continuation: resume },
   },
+  // Прогресс приходит в программу контекстом, как от `SeriesLearningSource` на маршруте.
+  render: ({ learning, ...args }) => (
+    <SeriesLearningProvider learning={learning ?? { kind: "guest" }}>
+      <GuideProgrammeView {...args} />
+    </SeriesLearningProvider>
+  ),
   decorators: [
     (Story, context) => {
       const view = context.args.learning;
@@ -474,18 +485,39 @@ export const ShortSeries: Story = {
 
 const progressResume = { ...resume, materialSlug: "series-material-2" };
 
+/** Ответ прогресса ждёт, пока проверка не измерит программу без него. */
+let deliverProgress: () => void = () => undefined;
+
+/**
+ * Прогресс вошедшего читателя, как в `PersonalSeries`: программу рисует сервер, прогресс
+ * спрашивает браузер. Ответ BFF держится открытым, пока проверка его не отпустит.
+ */
+function heldProgress() {
+  const delivered = new Promise<void>((resolve) => {
+    deliverProgress = resolve;
+  });
+  getQueryClient().removeQueries({ queryKey: ["reading-progress"] });
+  return fetchBeforeRender(async () => {
+    await delivered;
+    return new Response(
+      JSON.stringify({
+        kind: "ready",
+        read: 8,
+        total: 24,
+        continuation: progressResume,
+      }),
+      { headers: { "content-type": "application/json" }, status: 200 },
+    );
+  })();
+}
+
 function ProgressResolution({ longTitle = false }: { longTitle?: boolean }) {
-  const [ready, setReady] = useState(false);
   return (
-    <>
-      <button
-        onClick={() => {
-          setReady(true);
-        }}
-        type="button"
-      >
-        Получить прогресс (проверка)
-      </button>
+    <SeriesLearningSource
+      initialAccountId="story-account"
+      purchaseRowShown={false}
+      slug={result.reference.slug}
+    >
       <GuideProgrammeView
         result={
           longTitle
@@ -502,21 +534,12 @@ function ProgressResolution({ longTitle = false }: { longTitle?: boolean }) {
               }
             : result
         }
-        learning={
-          ready
-            ? {
-                kind: "ready",
-                read: 8,
-                total: 24,
-                continuation: progressResume,
-              }
-            : { kind: "loading" }
-        }
       />
-    </>
+    </SeriesLearningSource>
   );
 }
 export const LoadingPreservesRoutePosition: Story = {
+  beforeEach: heldProgress,
   render: () => <ProgressResolution />,
   globals: { viewport: { value: "mobile390", isRotated: false } },
   play: async ({ canvasElement }) => {
@@ -535,8 +558,11 @@ export const LoadingPreservesRoutePosition: Story = {
       .getByRole("list", { name: "Материалы продукта" })
       .getBoundingClientRect().top;
     // Шапка резервирует место для прогресса, чтобы маршрут не прыгал после загрузки.
-    await userEvent.click(
-      canvas.getByRole("button", { name: "Получить прогресс (проверка)" }),
+    deliverProgress();
+    await waitFor(() =>
+      expect(
+        within(currentCard).getByText("Продолжить", { exact: true }),
+      ).toBeVisible(),
     );
     await expect(
       Math.abs(
@@ -964,5 +990,141 @@ export const PartSwitchClearsContinuationPosition: Story = {
     await expect(
       canvasElement.querySelector('[data-series-ordinal="1"]'),
     ).toBeVisible();
+  },
+};
+
+/** Продукт из видео, заметок и связанных шагов: программа не рисует номера шагов и сводки видео. */
+const connectedStepsResult = {
+  ...result,
+  reference: {
+    cover: null,
+    name: "Релиз своего проекта",
+    slug: "release",
+    summary: "Видео, заметки и последовательные инструкции в одном продукте.",
+  },
+  items: [
+    {
+      title: "Как устроен релиз моего проекта",
+      format: "Видео",
+      formatSlug: "video",
+      summary:
+        "От коммита до работающего сервиса: сборка, конфигурация, публикация и откат релиза.",
+    },
+    {
+      title: "Подготовка приложения",
+      format: "Гайд",
+      formatSlug: "guide",
+      stepGroup: "От проекта до релиза",
+    },
+    {
+      title: "Разбираем Docker на реальном примере",
+      format: "Видео",
+      formatSlug: "video",
+      summary:
+        "Собираем образ приложения, настраиваем сеть и тома Docker Compose, читаем логи при неудачном запуске.",
+    },
+    { title: "Памятка по секретам", format: "Заметка", formatSlug: "note" },
+    {
+      title: "Настройка окружения",
+      format: "Гайд",
+      formatSlug: "guide",
+      stepGroup: "От проекта до релиза",
+    },
+    {
+      title: "Первый деплой",
+      format: "Гайд",
+      formatSlug: "guide",
+      stepGroup: "От проекта до релиза",
+    },
+  ].map((definition, index) => ({
+    access: "free" as const,
+    availability: "available" as const,
+    tags: [],
+    topic: "Platform",
+    topicSlug: "platform",
+    ...definition,
+    slug: `release-${String(index)}`,
+    summary:
+      definition.summary ??
+      "Материал общего продукта: изучайте в предложенном порядке или возвращайтесь к нужному шагу.",
+    seriesMemberships: [
+      {
+        name: "Релиз своего проекта",
+        slug: "release",
+        ordinal: index + 1,
+        stepGroup: definition.stepGroup ?? null,
+      },
+    ],
+  })),
+} satisfies PublishedSeriesResult;
+
+const overviewVideo = connectedStepsResult.items[0];
+const dockerVideo = connectedStepsResult.items[2];
+if (overviewVideo === undefined || dockerVideo === undefined)
+  throw new Error("Missing release video fixtures");
+
+export const ConnectedStepsDesktop: Story = {
+  args: { result: connectedStepsResult, learning: { kind: "guest" } },
+  globals: { viewport: { isRotated: false, value: "desktop1440" } },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await expect(canvas.queryByText("Шаг 1 из 3")).not.toBeInTheDocument();
+    await expect(canvas.queryByText("Шаг 2 из 3")).not.toBeInTheDocument();
+    await expect(canvas.queryByText("Шаг 3 из 3")).not.toBeInTheDocument();
+    await expect(
+      canvasElement.querySelectorAll("[data-series-ordinal]"),
+    ).toHaveLength(6);
+    await expect(
+      canvasElement.querySelectorAll("[data-series-step]"),
+    ).toHaveLength(0);
+    const rows = canvasElement.querySelectorAll("[data-series-ordinal]");
+    await expect(
+      canvasElement.querySelectorAll("[data-series-marker]"),
+    ).toHaveLength(0);
+    await expect(
+      canvasElement.querySelectorAll("[data-series-rail]"),
+    ).toHaveLength(0);
+    for (const [index, row] of [...rows].entries()) {
+      await expect(row).toHaveTextContent(`Урок ${String(index + 1)}.`);
+    }
+    const guide = canvas
+      .getByRole("heading", { name: "Подготовка приложения" })
+      .closest("article");
+    if (guide === null) throw new Error("Missing guide card");
+    await expect(
+      within(guide).queryByText("Шаг 1 из 3"),
+    ).not.toBeInTheDocument();
+    for (const summary of [overviewVideo.summary, dockerVideo.summary]) {
+      await expect(canvas.queryByText(summary)).not.toBeInTheDocument();
+    }
+    const root = canvasElement.ownerDocument.documentElement;
+    await expect(root.scrollWidth).toBeLessThanOrEqual(root.clientWidth);
+  },
+};
+export const ConnectedStepsMobile: Story = {
+  ...ConnectedStepsDesktop,
+  globals: { viewport: { isRotated: false, value: "mobile390" } },
+};
+
+const literalSummary =
+  '<img src=x onerror="alert(1)"> Команда остаётся текстом.';
+export const VideoSummaryIsNotShown: Story = {
+  args: {
+    result: {
+      ...connectedStepsResult,
+      items: [{ ...overviewVideo, summary: literalSummary }],
+    },
+    learning: { kind: "guest" },
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await expect(canvas.queryByText(literalSummary)).not.toBeInTheDocument();
+    await expect(canvasElement.querySelector("img[onerror]")).toBeNull();
+    await expect(
+      canvasElement.querySelectorAll("[data-series-rail]"),
+    ).toHaveLength(0);
+    await expect(
+      canvasElement.querySelectorAll("[data-series-step]"),
+    ).toHaveLength(0);
   },
 };

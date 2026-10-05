@@ -1,12 +1,7 @@
 import type { ReactNode } from "react";
-import { Suspense } from "react";
 
-import { currentLegalEdition } from "@inside/legal";
-
-import { StorageNotice } from "@/features/storage-notice";
-import { legalDocumentPath } from "@/shared/routing/public-page-path";
-import { AuthenticationFeedback } from "@/widgets/auth-control";
 import { AppShell } from "./app-shell";
+import { PublicShellContent } from "./public-shell-content";
 import { QueryProvider } from "./query-provider.client";
 
 /**
@@ -17,14 +12,7 @@ export function PublicShell({ children }: { readonly children: ReactNode }) {
   return (
     <QueryProvider>
       <AppShell>
-        <Suspense fallback={null}>
-          <AuthenticationFeedback />
-        </Suspense>
-        {children}
-        <StorageNotice
-          edition={currentLegalEdition("cookies").version}
-          policyHref={legalDocumentPath("cookies")}
-        />
+        <PublicShellContent>{children}</PublicShellContent>
       </AppShell>
     </QueryProvider>
   );

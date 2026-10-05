@@ -1,18 +1,13 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { expect, fn, within } from "storybook/test";
 
-import { authoringMaterialsRootHref } from "@/shared/routing/authoring";
-import { authoringPageEnvironment } from "@/storybook/story-environment";
-
-import { MaterialAuthoringRouteError } from "@/widgets/material-authoring/route-states";
-
 import { StandalonePageError } from "./route-states";
 
 /** Сбой раскладки раздела или корня: оболочки уже нет, как в `app/error.tsx` и `global-error.tsx`. */
 const meta = {
   component: StandalonePageError,
   parameters: { layout: "fullscreen", nextjs: { appDirectory: true } },
-  title: "Pages/Mobile-first Platform/Route states/Without shell",
+  title: "Pages/Route states/Without shell",
   args: { onRetry: fn() },
 } satisfies Meta<typeof StandalonePageError>;
 
@@ -45,39 +40,5 @@ export const LayoutErrorMobile: Story = {
     const page = within(canvasElement);
     page.getByRole("button", { name: "Повторить" }).click();
     await expect(args.onRetry).toHaveBeenCalledOnce();
-  },
-};
-
-const authoring = authoringPageEnvironment(authoringMaterialsRootHref);
-
-export const AuthoringErrorDesktop: Story = {
-  ...authoring,
-  globals: desktop,
-  name: "Authoring error · desktop",
-  render: ({ onRetry }) => (
-    <MaterialAuthoringRouteError digest="2195732781" onRetry={onRetry} />
-  ),
-  play: async ({ canvasElement }) => {
-    const page = within(canvasElement);
-    await expect(
-      page.getByRole("heading", { level: 1, name: "Редактор остановлен" }),
-    ).toBeVisible();
-    await expect(
-      page.getByRole("link", { name: "Вернуться к материалам" }),
-    ).toBeVisible();
-  },
-};
-
-export const AuthoringErrorMobile: Story = {
-  ...authoring,
-  globals: mobile,
-  name: "Authoring error · mobile",
-  render: ({ onRetry }) => (
-    <MaterialAuthoringRouteError digest={undefined} onRetry={onRetry} />
-  ),
-  play: async ({ canvasElement }) => {
-    await expect(
-      within(canvasElement).getByText("Код обращения: authoring-boundary"),
-    ).toBeVisible();
   },
 };

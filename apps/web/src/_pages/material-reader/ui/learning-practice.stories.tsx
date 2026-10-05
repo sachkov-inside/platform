@@ -1,5 +1,7 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { expect, spyOn, userEvent, within } from "storybook/test";
+import { SavedBookmarkAction } from "@/features/bookmarks";
+import { SavedReadingAction } from "@/features/reading-progress";
 import { publicPageEnvironment } from "@/storybook/story-environment";
 import type { LearningPracticesView } from "../model/learning-practice";
 import { MaterialReaderView } from "./material-reader-view";
@@ -53,6 +55,15 @@ function PracticeReader({
         },
       ]}
       primaryVideo={null}
+      readingAction={
+        <SavedReadingAction
+          format="guide"
+          materialId="02000000-0000-4000-8000-000000000010"
+        />
+      }
+      bookmarkAction={
+        <SavedBookmarkAction materialId="02000000-0000-4000-8000-000000000010" />
+      }
       practiceActions={
         disclosure ? (
           <LearningPracticeDisclosure connection={connection} result={result} />
@@ -68,7 +79,7 @@ const environment = publicPageEnvironment("/materials/consultations", {
 });
 const meta = {
   ...environment,
-  title: "Pages/Mobile-first Platform/Practice Review",
+  title: "Pages/Material Reader/Practice Review",
   component: PracticeReader,
   parameters: {
     ...environment.parameters,

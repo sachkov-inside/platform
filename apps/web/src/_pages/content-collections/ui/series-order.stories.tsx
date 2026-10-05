@@ -52,7 +52,7 @@ const failedOrderSpy = fn((_input: RequestInfo | URL, _init?: RequestInit) =>
 );
 
 const environment = authoringPageEnvironment(
-  "/authoring/playlists/95000000-0000-4000-8000-000000000010",
+  "/authoring/guides/95000000-0000-4000-8000-000000000010",
   { frame: SeriesEditorPageFrame },
 );
 
@@ -97,7 +97,7 @@ const meta = {
     },
   },
   component: SeriesOrderManager,
-  title: "Pages/Authoring/Продукты",
+  title: "Pages/Authoring/Состав продукта",
 } satisfies Meta<typeof SeriesOrderManager>;
 
 export default meta;

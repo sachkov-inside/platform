@@ -25,6 +25,7 @@ import { publicPageEnvironment } from "@/storybook/story-environment";
 import { GuideProgrammeView } from "./guide-programme-view";
 import { GuideProgrammeLoading } from "./library-discovery-loading";
 import { PendingSeries } from "./guide-programme-view";
+import { SeriesLearningProvider } from "./series-learning.client";
 
 const titles = [
   "От идеи к первой версии",
@@ -134,23 +135,20 @@ function PersonalPart({
   readonly signedIn: boolean;
 }) {
   use(sequence.personalPart);
+  // Прогресс приходит контекстом, как от `SeriesLearningSource` в `PersonalSeries`.
   return signedIn ? (
-    <GuideProgrammeView
-      guideOffer={guideOnlyOffer}
+    <SeriesLearningProvider
       learning={{
         kind: "ready",
         read: 1,
         total: materials.length,
         continuation: null,
       }}
-      result={memberResult}
-    />
+    >
+      <GuideProgrammeView guideOffer={guideOnlyOffer} result={memberResult} />
+    </SeriesLearningProvider>
   ) : (
-    <GuideProgrammeView
-      guideOffer={guideOnlyOffer}
-      learning={{ kind: "guest" }}
-      result={result}
-    />
+    <GuideProgrammeView guideOffer={guideOnlyOffer} result={result} />
   );
 }
 

@@ -1,33 +1,32 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { expect, userEvent, waitFor, within } from "storybook/test";
 
-import { legalDocumentPath } from "@/shared/routing/public-page-path";
+import { currentLegalEdition } from "@inside/legal";
+
 import { publicPageEnvironment } from "@/storybook/story-environment";
 
 import { storageNoticeKey } from "../model/storage-notice";
-import { StorageNotice } from "./storage-notice.client";
 
-const environment = publicPageEnvironment("/");
+/** Уведомление ставит сама публичная оболочка; story открывает её как при первом посещении. */
+const environment = publicPageEnvironment("/", {
+  storageNotice: "first-visit",
+});
+const edition = currentLegalEdition("cookies").version;
 
 const meta = {
   ...environment,
   title: "Patterns/Storage notice",
-  component: StorageNotice,
-  args: { edition: 2, policyHref: legalDocumentPath("cookies") },
-  beforeEach: () => {
-    environment.beforeEach();
-    window.localStorage.removeItem(storageNoticeKey);
-  },
+  render: () => <></>,
   parameters: {
     ...environment.parameters,
     docs: {
       description: {
         component:
-          "Уведомление о хранении в браузере по cookies v2: при первом посещении, без выбора, со ссылкой на документ. «Понятно» запоминает номер редакции; новая редакция показывает уведомление снова.",
+          "Уведомление о хранении в браузере по cookies v2: при первом посещении, без выбора, со ссылкой на документ. Его показывает публичная оболочка на любой странице. «Понятно» запоминает номер редакции; новая редакция показывает уведомление снова.",
       },
     },
   },
-} satisfies Meta<typeof StorageNotice>;
+} satisfies Meta;
 export default meta;
 type Story = StoryObj<typeof meta>;
 
@@ -51,13 +50,15 @@ export const FirstVisit: Story = {
         canvas.queryByRole("region", { name: "Хранение в браузере" }),
       ).not.toBeInTheDocument(),
     );
-    await expect(window.localStorage.getItem(storageNoticeKey)).toBe("2");
+    await expect(window.localStorage.getItem(storageNoticeKey)).toBe(
+      String(edition),
+    );
   },
 };
 
 export const NewEdition: Story = {
   beforeEach: () => {
-    window.localStorage.setItem(storageNoticeKey, "1");
+    window.localStorage.setItem(storageNoticeKey, String(edition - 1));
   },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);

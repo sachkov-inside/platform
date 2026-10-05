@@ -27,6 +27,8 @@ import {
   MaterialReaderLoading,
   MaterialReaderPending,
 } from "./material-reader-states";
+import { SavedBookmarkAction } from "@/features/bookmarks";
+import { SavedReadingAction } from "@/features/reading-progress";
 import { MaterialReaderView } from "./material-reader-view";
 
 const material = {
@@ -133,8 +135,15 @@ function PersonalPart({
   return outcome === "opened" ? (
     <MaterialReaderView
       body={body}
+      bookmarkAction={<SavedBookmarkAction materialId={material.materialId} />}
       material={material}
       primaryVideo={null}
+      readingAction={
+        <SavedReadingAction
+          format={material.format.slug}
+          materialId={material.materialId}
+        />
+      }
       returnTarget={returnTarget}
       seriesContext={seriesContext}
     />

@@ -3,9 +3,14 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { useState, type ReactNode } from "react";
 import { expect, userEvent, within } from "storybook/test";
 
+import {
+  GuideArtifactsPanel,
+  type GuideArtifact,
+} from "@/features/guide-artifacts";
 import { withMutationFetch } from "@/storybook/mutation-mock";
-import type { GuideArtifact } from "../model/guide-artifacts";
-import { GuideArtifactsPanel } from "./guide-artifacts-panel.client";
+import { authoringPageEnvironment } from "@/storybook/story-environment";
+
+import { SeriesEditorPageFrame } from "./series-editor-page-frame";
 
 const guideId = "97000000-0000-4000-8000-000000000003";
 const otherGuideId = "97000000-0000-4000-8000-000000000004";
@@ -88,7 +93,13 @@ function Fixture({
   return <QueryClientProvider client={client}>{children}</QueryClientProvider>;
 }
 
+/** Панель стоит в рамке редактора продукта, последней после состава: так её рендерит маршрут. */
+const environment = authoringPageEnvironment(`/authoring/guides/${guideId}`, {
+  frame: SeriesEditorPageFrame,
+});
+
 const meta = {
+  ...environment,
   args: { archived: false, guideId },
   component: GuideArtifactsPanel,
   decorators: [
@@ -97,9 +108,9 @@ const meta = {
         <Story />
       </Fixture>
     ),
+    ...environment.decorators,
   ],
-  parameters: { layout: "padded" },
-  title: "Components/Guide artifacts",
+  title: "Features/Series/Guide artifacts",
 } satisfies Meta<typeof GuideArtifactsPanel>;
 
 export default meta;

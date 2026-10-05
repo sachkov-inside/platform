@@ -2,6 +2,7 @@
 import type { ReactNode } from "react";
 import type { PriceSnapshot } from "@/entities/subscription";
 
+import { BillingAdminFrame } from "./billing-admin-frame";
 import {
   CatalogSection,
   type CatalogSectionProps,
@@ -88,7 +89,7 @@ export function BillingAdminView({
   onApplyBatch,
 }: BillingAdminViewProps) {
   return (
-    <div className="mx-auto grid max-w-4xl gap-6 pb-16">
+    <BillingAdminFrame>
       <header className="grid gap-2">
         <h1 className="text-balance text-3xl font-bold tracking-[-0.04em]">
           Оплата и права
@@ -171,6 +172,6 @@ export function BillingAdminView({
         pending={pending}
         preview={preview}
       />
-    </div>
+    </BillingAdminFrame>
   );
 }

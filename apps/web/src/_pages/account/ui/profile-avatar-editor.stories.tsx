@@ -44,7 +44,7 @@ const meta = {
       },
     },
   },
-  title: "Pages/Account/Profile avatar",
+  title: "Components/Account/Profile avatar",
 } satisfies Meta<typeof ProfileAvatarEditor>;
 
 export default meta;

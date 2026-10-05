@@ -1,5 +1,4 @@
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { useState } from "react";
+import type { ComponentProps, ReactNode } from "react";
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { expect, userEvent, waitFor, within } from "storybook/test";
 
@@ -8,7 +7,12 @@ import type {
   ReaderBlock,
 } from "@/_pages/material-reader/model/material-reader-view";
 import { calloutTones } from "@/entities/material";
+import { SavedBookmarkAction } from "@/features/bookmarks";
 import { GuideModeHint, GuideModeSwitch } from "@/features/guide-modes";
+import {
+  ReadingProgressProvider,
+  SavedReadingAction,
+} from "@/features/reading-progress";
 import { GuideModeProvider, type GuideMode } from "@/shared/guide-mode";
 import {
   materialReaderHref,
@@ -25,6 +29,7 @@ import {
   MaterialReaderUnexpectedError,
   MaterialReaderUnavailable,
 } from "./material-reader-states";
+import { LearningPracticePrompts } from "./learning-practice-prompts";
 import { MaterialReaderView } from "./material-reader-view";
 import { publicPageEnvironment } from "@/storybook/story-environment";
 
@@ -440,6 +445,48 @@ const guideModeReturnTarget = parseMaterialReaderReturnTarget(
   "/products/platform-inside",
 );
 
+/** Ни одного задания у урока: так выглядит большинство уроков, блок практики не рисуется. */
+const noPractices = { kind: "available", practices: [] } as const;
+const learnerMcp = { url: "https://inside.example.test/mcp/learning" };
+
+/**
+ * Действия под уроком, которые маршрут передаёт всегда: отметка о прочтении, закладка и проверка
+ * практики. Гостю отметка и закладка предлагают войти; запросов они не делают.
+ */
+function readerActions(
+  materialId: string,
+  format: string,
+): Pick<
+  ComponentProps<typeof MaterialReaderView>,
+  "bookmarkAction" | "practiceActions" | "readingAction"
+> {
+  return {
+    readingAction: (
+      <SavedReadingAction
+        format={format}
+        key={materialId}
+        materialId={materialId}
+      />
+    ),
+    bookmarkAction: <SavedBookmarkAction materialId={materialId} />,
+    practiceActions: (
+      <LearningPracticePrompts connection={learnerMcp} result={noPractices} />
+    ),
+  };
+}
+
+/** Закрытый материал: маршрут показывает отметку без права её поставить. */
+function accessReadingAction(): ReactNode {
+  return (
+    <SavedReadingAction
+      canMark={false}
+      format={material.format.slug}
+      key={material.materialId}
+      materialId={material.materialId}
+    />
+  );
+}
+
 function GuideModeReader({
   initialMode,
   withModes = true,
@@ -447,236 +494,67 @@ function GuideModeReader({
   readonly initialMode: GuideMode;
   readonly withModes?: boolean;
 }) {
-  const [client] = useState(
-    () => new QueryClient({ defaultOptions: { queries: { retry: false } } }),
-  );
   return (
-    <QueryClientProvider client={client}>
-      <GuideModeProvider initialMode={initialMode}>
-        <MaterialReaderView
-          body={guideModeBody}
-          material={{ ...material, title: "Подготовка к первому прогону" }}
-          {...(withModes
-            ? {
-                // Подсказка встаёт у первого шага, написанного для активного способа.
-                modeHint: { at: 1, node: <GuideModeHint /> },
-                modeSwitch: <GuideModeSwitch signedIn={false} />,
-              }
-            : {})}
-          primaryVideo={null}
-          returnTarget={guideModeReturnTarget}
-          seriesContext={{
-            currentPosition: 2,
-            next: null,
-            previous: null,
-            series: {
-              hasModeVariants: withModes,
-              href: guideModeReturnTarget.href,
-              name: "Создание Platform Inside",
-            },
-            totalMaterials: 4,
-          }}
-        />
-      </GuideModeProvider>
-    </QueryClientProvider>
+    <GuideModeProvider initialMode={initialMode}>
+      <MaterialReaderView
+        {...readerActions(material.materialId, material.format.slug)}
+        body={guideModeBody}
+        material={{ ...material, title: "Подготовка к первому прогону" }}
+        {...(withModes
+          ? {
+              // Подсказка встаёт у первого шага, написанного для активного способа.
+              modeHint: { at: 1, node: <GuideModeHint /> },
+              modeSwitch: <GuideModeSwitch signedIn={false} />,
+            }
+          : {})}
+        primaryVideo={null}
+        returnTarget={guideModeReturnTarget}
+        seriesContext={{
+          currentPosition: 2,
+          next: null,
+          previous: null,
+          series: {
+            hasModeVariants: withModes,
+            href: guideModeReturnTarget.href,
+            name: "Создание Platform Inside",
+          },
+          totalMaterials: 4,
+        }}
+      />
+    </GuideModeProvider>
   );
 }
 
-type ReaderStoryMode =
-  | "access-guide"
-  | "access-not-offered"
-  | "access-required"
-  | "access-unavailable"
-  | "desktop"
-  | "error"
-  | "guide-modes"
-  | "guide-modes-own"
-  | "guide-without-modes"
-  | "lesson-blocks"
-  | "lesson-blocks-empty"
-  | "lesson-blocks-long"
-  | "loading"
-  | "mobile"
-  | "short"
-  | "not-found"
-  | "playlist-return"
-  | "unavailable"
-  | "video-failed"
-  | "video-processing";
+const readyVideo = {
+  durationSeconds: 754,
+  state: "ready",
+  title: "Разбор проверки skill contract",
+  videoId: "03000000-0000-4000-8000-000000000001",
+} as const;
 
-function MaterialReaderBoard({ mode }: { readonly mode: ReaderStoryMode }) {
-  return <MaterialReaderState mode={mode} />;
-}
-
-function MaterialReaderState({ mode }: { readonly mode: ReaderStoryMode }) {
-  switch (mode) {
-    case "short":
-      // Короткая заметка ничего не обещает и не объявляет сложность: это не урок руководства.
-      return (
-        <MaterialReaderView
-          body={[]}
-          material={{
-            ...material,
-            title: "Короткая заметка",
-            summary: "Одна небольшая мысль.",
-            difficulty: null,
-            outcomes: [],
-            tags: [],
-            seriesMemberships: [],
-          }}
-          primaryVideo={null}
-        />
-      );
-    case "mobile":
-      return (
-        <MaterialReaderView
-          body={body}
-          material={material}
-          primaryVideo={null}
-        />
-      );
-    case "desktop":
-      return (
-        <MaterialReaderView
-          body={body}
-          material={material}
-          primaryVideo={{
-            durationSeconds: 754,
-            state: "ready",
-            title: "Разбор проверки skill contract",
-            videoId: "03000000-0000-4000-8000-000000000001",
-          }}
-        />
-      );
-    case "playlist-return": {
-      const returnTarget = parseMaterialReaderReturnTarget(
-        "/products/platform-inside",
-      );
-      return (
-        <MaterialReaderView
-          body={body}
-          material={material}
-          primaryVideo={null}
-          returnTarget={returnTarget}
-          seriesContext={{
-            currentPosition: 2,
-            next: {
-              href: materialReaderHref("review-video", returnTarget.href),
-              title: "Видео-разбор проверки",
-            },
-            previous: {
-              href: materialReaderHref("first-guide", returnTarget.href),
-              title: "Сначала границы",
-            },
-            series: {
-              hasModeVariants: false,
-              href: returnTarget.href,
-              name: "Создание Platform Inside",
-            },
-            totalMaterials: 3,
-          }}
-        />
-      );
-    }
-    case "lesson-blocks":
-      return (
-        <MaterialReaderView
-          body={lessonBody}
-          material={{ ...material, title: "Урок из готовых блоков" }}
-          primaryVideo={null}
-        />
-      );
-    case "lesson-blocks-long":
-      return (
-        <MaterialReaderView
-          body={longLessonBody}
-          material={{ ...material, title: "Урок с длинным содержимым" }}
-          primaryVideo={null}
-        />
-      );
-    case "lesson-blocks-empty":
-      return (
-        <MaterialReaderView
-          body={emptyLessonBody}
-          material={{ ...material, title: "Урок с незаполненными блоками" }}
-          primaryVideo={null}
-        />
-      );
-    case "loading":
-      return <MaterialReaderLoading />;
-    case "video-processing":
-      return (
-        <MaterialReaderView
-          body={body}
-          material={material}
-          primaryVideo={{
-            state: "processing",
-            title: "Разбор проверки skill contract",
-            videoId: "03000000-0000-4000-8000-000000000001",
-          }}
-        />
-      );
-    case "video-failed":
-      return (
-        <MaterialReaderView
-          body={body}
-          material={material}
-          primaryVideo={{
-            failureCode: "provider_error",
-            state: "failed",
-            title: "Разбор проверки skill contract",
-            videoId: "03000000-0000-4000-8000-000000000001",
-          }}
-        />
-      );
-    case "guide-modes":
-      return <GuideModeReader initialMode="example" />;
-    case "guide-modes-own":
-      return <GuideModeReader initialMode="own" />;
-    case "guide-without-modes":
-      return <GuideModeReader initialMode="example" withModes={false} />;
-    case "not-found":
-      return <MaterialReaderNotFound />;
-    case "access-required":
-      return (
-        <MaterialReaderAccess
-          invitation={{
-            kind: "subscription",
-            href: subscriptionHrefFrom(materialReaderHref(material.slug)),
-          }}
-          material={{ ...material, access: "membership" }}
-        />
-      );
-    case "access-guide":
-      return (
-        <MaterialReaderAccess
-          invitation={{
-            kind: "guide",
-            href: guidePurchaseHref(material.seriesMemberships[0].series.slug),
-          }}
-          material={{ ...material, access: "membership" }}
-        />
-      );
-    case "access-not-offered":
-      return (
-        <MaterialReaderAccess
-          invitation={null}
-          material={{ ...material, access: "membership" }}
-        />
-      );
-    case "access-unavailable":
-      return <MaterialReaderUnavailable />;
-    case "error":
-      return <MaterialReaderUnexpectedError onRetry={() => undefined} />;
-    case "unavailable":
-      return <MaterialReaderUnavailable />;
-  }
-}
+const playlistReturnTarget = parseMaterialReaderReturnTarget(
+  "/products/platform-inside",
+);
 
 const environment = publicPageEnvironment(`/materials/${material.slug}`);
 const meta = {
   ...environment,
-  component: MaterialReaderBoard,
+  component: MaterialReaderView,
+  args: {
+    ...readerActions(material.materialId, material.format.slug),
+    body,
+    material,
+    primaryVideo: null,
+  },
+  decorators: [
+    // Гость: оболочка приложения уже знает, что аккаунта нет, и отдаёт это прогрессу чтения.
+    (Story) => (
+      <ReadingProgressProvider accountId={null} resolved>
+        <Story />
+      </ReadingProgressProvider>
+    ),
+    ...environment.decorators,
+  ],
   parameters: {
     ...environment.parameters,
     docs: {
@@ -686,14 +564,14 @@ const meta = {
       },
     },
   },
-  title: "Pages/Mobile-first Platform/Reader",
-} satisfies Meta<typeof MaterialReaderBoard>;
+  title: "Pages/Material Reader",
+} satisfies Meta<typeof MaterialReaderView>;
 
 export default meta;
 type Story = StoryObj<typeof meta>;
 
 export const Mobile: Story = {
-  args: { mode: "mobile" },
+  args: {},
   globals: { viewport: { isRotated: false, value: "mobile320" } },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
@@ -794,7 +672,7 @@ export const Mobile: Story = {
 };
 
 export const Desktop: Story = {
-  args: { mode: "desktop" },
+  args: { primaryVideo: readyVideo },
   globals: { viewport: { isRotated: false, value: "desktop1440" } },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
@@ -829,9 +707,10 @@ export const Desktop: Story = {
     await expect(
       canvas.queryByRole("button", { name: "Загрузить видео" }),
     ).not.toBeInTheDocument();
+    // Отметку о прочтении маршрут ставит под уроком, поэтому у видео своей кнопки нет.
     await expect(
-      canvas.getByRole("button", { name: "Просмотрено" }),
-    ).toBeEnabled();
+      canvas.queryByRole("button", { name: "Просмотрено" }),
+    ).not.toBeInTheDocument();
     await expect(canvasElement.querySelector("iframe")).toBeNull();
     const title = canvas.getByRole("heading", {
       name: "Публичные skills для agent-first setup",
@@ -866,7 +745,7 @@ const readerImageAlt = "Маршрут от project rules через skill к ev
 
 /** Картинка урока открывается на весь экран, приближается и возвращает фокус после закрытия. */
 export const ImageViewer: Story = {
-  args: { mode: "desktop" },
+  args: { primaryVideo: readyVideo },
   globals: { viewport: { isRotated: false, value: "desktop1440" } },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
@@ -912,7 +791,7 @@ export const ImageViewer: Story = {
 
 /** Если крупная картинка не загрузилась, окно предлагает загрузить её снова, а не тупик. */
 export const ImageViewerFailed: Story = {
-  args: { mode: "desktop" },
+  args: { primaryVideo: readyVideo },
   globals: { viewport: { isRotated: false, value: "desktop1440" } },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
@@ -945,7 +824,7 @@ export const ImageViewerFailed: Story = {
 
 /** Нажатие на фон окна без приближения закрывает просмотр. */
 export const ImageViewerBackdropClose: Story = {
-  args: { mode: "desktop" },
+  args: { primaryVideo: readyVideo },
   globals: {
     viewport: { isRotated: false, value: "desktop1440" },
   },
@@ -974,7 +853,7 @@ export const ImageViewerBackdropClose: Story = {
 
 /** На телефоне просмотр занимает весь экран; история оставляет его открытым и приближенным. */
 export const ImageViewerMobile: Story = {
-  args: { mode: "desktop" },
+  args: { primaryVideo: readyVideo },
   globals: { viewport: { isRotated: false, value: "mobile390" } },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
@@ -997,7 +876,13 @@ export const ImageViewerMobile: Story = {
 };
 
 export const VideoProcessing: Story = {
-  args: { mode: "video-processing" },
+  args: {
+    primaryVideo: {
+      state: "processing",
+      title: "Разбор проверки skill contract",
+      videoId: "03000000-0000-4000-8000-000000000001",
+    },
+  },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
     await expect(
@@ -1010,7 +895,14 @@ export const VideoProcessing: Story = {
 };
 
 export const VideoFailed: Story = {
-  args: { mode: "video-failed" },
+  args: {
+    primaryVideo: {
+      failureCode: "provider_error",
+      state: "failed",
+      title: "Разбор проверки skill contract",
+      videoId: "03000000-0000-4000-8000-000000000001",
+    },
+  },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
     await expect(
@@ -1023,7 +915,7 @@ export const VideoFailed: Story = {
 };
 
 export const Loading: Story = {
-  args: { mode: "loading" },
+  render: () => <MaterialReaderLoading />,
   play: async ({ canvasElement }) => {
     await expect(
       within(canvasElement).getByLabelText("Материал загружается"),
@@ -1032,7 +924,26 @@ export const Loading: Story = {
 };
 
 export const PlaylistReturn: Story = {
-  args: { mode: "playlist-return" },
+  args: {
+    returnTarget: playlistReturnTarget,
+    seriesContext: {
+      currentPosition: 2,
+      next: {
+        href: materialReaderHref("review-video", playlistReturnTarget.href),
+        title: "Видео-разбор проверки",
+      },
+      previous: {
+        href: materialReaderHref("first-guide", playlistReturnTarget.href),
+        title: "Сначала границы",
+      },
+      series: {
+        hasModeVariants: false,
+        href: playlistReturnTarget.href,
+        name: "Создание Platform Inside",
+      },
+      totalMaterials: 3,
+    },
+  },
   play: async ({ canvasElement }) => {
     const links = within(canvasElement).getAllByRole("link", {
       name: "Все материалы продукта",
@@ -1074,7 +985,7 @@ export const PlaylistReturn: Story = {
 };
 
 export const NotFound: Story = {
-  args: { mode: "not-found" },
+  render: () => <MaterialReaderNotFound />,
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
     await expect(
@@ -1087,7 +998,16 @@ export const NotFound: Story = {
 };
 
 export const AccessRequired: Story = {
-  args: { mode: "access-required" },
+  render: () => (
+    <MaterialReaderAccess
+      invitation={{
+        kind: "subscription",
+        href: subscriptionHrefFrom(materialReaderHref(material.slug)),
+      }}
+      material={{ ...material, access: "membership" }}
+      readingAction={accessReadingAction()}
+    />
+  ),
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
     await expect(
@@ -1127,7 +1047,16 @@ export const AccessRequiredMobile: Story = {
 
 /** Закрытый материал руководства со своей ценой: дальше идёт оплата именно этого руководства. */
 export const AccessGuidePurchase: Story = {
-  args: { mode: "access-guide" },
+  render: () => (
+    <MaterialReaderAccess
+      invitation={{
+        kind: "guide",
+        href: guidePurchaseHref(material.seriesMemberships[0].series.slug),
+      }}
+      material={{ ...material, access: "membership" }}
+      readingAction={accessReadingAction()}
+    />
+  ),
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
     await expect(
@@ -1141,7 +1070,13 @@ export const AccessGuidePurchase: Story = {
 
 /** Продажа выключена: обещания купить нет, материал честно остаётся на месте. */
 export const AccessNotOffered: Story = {
-  args: { mode: "access-not-offered" },
+  render: () => (
+    <MaterialReaderAccess
+      invitation={null}
+      material={{ ...material, access: "membership" }}
+      readingAction={accessReadingAction()}
+    />
+  ),
   globals: { viewport: { isRotated: false, value: "mobile390" } },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
@@ -1159,22 +1094,8 @@ export const AccessNotOffered: Story = {
   },
 };
 
-export const AccessUnavailable: Story = {
-  args: { mode: "access-unavailable" },
-  play: async ({ canvasElement }) => {
-    const canvas = within(canvasElement);
-    await expect(
-      canvas.getByRole("heading", { name: "Материал временно недоступен" }),
-    ).toBeInTheDocument();
-    // Повтор — кнопка, а не ссылка на тот же адрес: ссылку браузер обслужил бы из кеша маршрутов.
-    await expect(
-      canvas.getByRole("button", { name: "Повторить" }),
-    ).toBeInTheDocument();
-  },
-};
-
 export const Unavailable: Story = {
-  args: { mode: "unavailable" },
+  render: () => <MaterialReaderUnavailable />,
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
     await expect(
@@ -1188,7 +1109,7 @@ export const Unavailable: Story = {
 };
 
 export const UnexpectedError: Story = {
-  args: { mode: "error" },
+  render: () => <MaterialReaderUnexpectedError onRetry={() => undefined} />,
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
     await expect(
@@ -1201,7 +1122,18 @@ export const UnexpectedError: Story = {
 };
 
 export const ShortMaterial: Story = {
-  args: { mode: "short" },
+  args: {
+    body: [],
+    material: {
+      ...material,
+      title: "Короткая заметка",
+      summary: "Одна небольшая мысль.",
+      difficulty: null,
+      outcomes: [],
+      tags: [],
+      seriesMemberships: [],
+    },
+  },
   globals: { viewport: { isRotated: false, value: "mobile320" } },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
@@ -1220,7 +1152,10 @@ export const ShortMaterial: Story = {
 };
 
 export const LessonBlocks: Story = {
-  args: { mode: "lesson-blocks" },
+  args: {
+    body: lessonBody,
+    material: { ...material, title: "Урок из готовых блоков" },
+  },
   globals: { viewport: { isRotated: false, value: "desktop1440" } },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
@@ -1259,7 +1194,10 @@ export const LessonBlocks: Story = {
 };
 
 export const LessonBlocksMobile: Story = {
-  args: { mode: "lesson-blocks" },
+  args: {
+    body: lessonBody,
+    material: { ...material, title: "Урок из готовых блоков" },
+  },
   globals: { viewport: { isRotated: false, value: "mobile390" } },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
@@ -1272,7 +1210,10 @@ export const LessonBlocksMobile: Story = {
 };
 
 export const LessonBlocksLong: Story = {
-  args: { mode: "lesson-blocks-long" },
+  args: {
+    body: longLessonBody,
+    material: { ...material, title: "Урок с длинным содержимым" },
+  },
   globals: { viewport: { isRotated: false, value: "mobile320" } },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
@@ -1285,7 +1226,10 @@ export const LessonBlocksLong: Story = {
 };
 
 export const LessonBlocksEmpty: Story = {
-  args: { mode: "lesson-blocks-empty" },
+  args: {
+    body: emptyLessonBody,
+    material: { ...material, title: "Урок с незаполненными блоками" },
+  },
   globals: { viewport: { isRotated: false, value: "mobile390" } },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
@@ -1301,7 +1245,7 @@ export const LessonBlocksEmpty: Story = {
 };
 
 export const GuideModes: Story = {
-  args: { mode: "guide-modes" },
+  render: () => <GuideModeReader initialMode="example" />,
   globals: { viewport: { isRotated: false, value: "desktop1440" } },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
@@ -1349,7 +1293,7 @@ export const GuideModes: Story = {
 };
 
 export const GuideModesSwitched: Story = {
-  args: { mode: "guide-modes" },
+  render: () => <GuideModeReader initialMode="example" />,
   globals: { viewport: { isRotated: false, value: "desktop1440" } },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
@@ -1368,7 +1312,7 @@ export const GuideModesSwitched: Story = {
 };
 
 export const GuideModesOtherBranch: Story = {
-  args: { mode: "guide-modes" },
+  render: () => <GuideModeReader initialMode="example" />,
   globals: { viewport: { isRotated: false, value: "desktop1440" } },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
@@ -1391,7 +1335,7 @@ export const GuideModesOtherBranch: Story = {
 };
 
 export const GuideModesMobile: Story = {
-  args: { mode: "guide-modes-own" },
+  render: () => <GuideModeReader initialMode="own" />,
   globals: { viewport: { isRotated: false, value: "mobile390" } },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
@@ -1403,7 +1347,7 @@ export const GuideModesMobile: Story = {
 };
 
 export const GuideWithoutModes: Story = {
-  args: { mode: "guide-without-modes" },
+  render: () => <GuideModeReader initialMode="example" withModes={false} />,
   globals: { viewport: { isRotated: false, value: "desktop1440" } },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);

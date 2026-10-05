@@ -17,7 +17,7 @@ const environment = accountSectionEnvironment("/account/purchases");
 
 const meta = {
   ...environment,
-  title: "Pages/Account/Purchases",
+  title: "Components/Account/Purchases view",
   component: PurchasesSectionView,
   args: {
     grounds: accessGrounds,
@@ -32,7 +32,7 @@ const meta = {
     docs: {
       description: {
         component:
-          "Раздел «Покупки»: что доступно и по какому основанию, история списаний и чеков, способ оплаты. Условия подписки и управление ею живут в своём разделе.",
+          "Вид раздела «Покупки» без соседних блоков: основания доступа, способ оплаты и история списаний на разных данных. Раздел целиком, с сообществом и email, его загрузку, пустое состояние и ошибки показывает «Pages/Account/Purchases».",
       },
     },
   },
@@ -90,43 +90,6 @@ export const NoSubscription: Story = {
   },
 };
 
-const withoutGrounds = {
-  grounds: [],
-  notices: [],
-  payments: [],
-  subscription: null,
-} as const;
-
-export const NoGrounds: Story = {
-  args: { ...withoutGrounds, storefrontHref: "/subscription" },
-  play: async ({ canvasElement }) => {
-    const canvas = within(canvasElement);
-    await expect(
-      canvas.getByText("Действующих оснований доступа нет."),
-    ).toBeInTheDocument();
-    await expect(
-      canvas.getByRole("link", { name: "Посмотреть тарифы" }),
-    ).toBeInTheDocument();
-  },
-};
-
-/**
- * Подписку не продают: кабинет объясняет, что открытого доступа нет, но не зовёт на витрину,
- * с которой нечего купить.
- */
-export const NoGroundsNotOffered: Story = {
-  args: withoutGrounds,
-  play: async ({ canvasElement }) => {
-    const canvas = within(canvasElement);
-    await expect(
-      canvas.getByText("Действующих оснований доступа нет."),
-    ).toBeInTheDocument();
-    await expect(
-      canvas.queryByRole("link", { name: "Посмотреть тарифы" }),
-    ).not.toBeInTheDocument();
-  },
-};
-
 export const RevokedMethod: Story = {
   args: {
     subscription: {
@@ -146,24 +109,4 @@ export const RevokedMethod: Story = {
       canvas.queryByRole("button", { name: "Запретить использование" }),
     ).not.toBeInTheDocument();
   },
-};
-
-export const SessionExpired: Story = { args: { sessionExpired: true } };
-export const Loading: Story = {
-  args: {
-    grounds: [],
-    loading: true,
-    notices: [],
-    payments: [],
-    subscription: null,
-  },
-};
-export const Unavailable: Story = {
-  args: { error: "Данные оплаты сейчас недоступны. Повторите позже." },
-};
-export const Mobile: Story = {
-  globals: { viewport: { isRotated: false, value: "mobile390" } },
-};
-export const Desktop: Story = {
-  globals: { viewport: { isRotated: false, value: "desktop1440" } },
 };

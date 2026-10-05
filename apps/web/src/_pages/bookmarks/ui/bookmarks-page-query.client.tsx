@@ -44,7 +44,7 @@ export function BookmarksPageQuery() {
       >
         {items.map((material) => (
           <li className="h-full min-w-0" key={material.slug}>
-            <MaterialCard headingLevel="h3" material={material} variant="row" />
+            <MaterialCard headingLevel="h2" material={material} variant="row" />
           </li>
         ))}
       </ul>

@@ -35,7 +35,7 @@ const environment = accountSectionEnvironment("/account/purchases");
 
 const meta = {
   ...environment,
-  title: "Pages/Account/Billing contact",
+  title: "Components/Account/Billing contact",
   component: BillingContactForm,
   args: {
     contact: null,

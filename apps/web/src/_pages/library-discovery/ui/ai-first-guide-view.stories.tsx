@@ -1,10 +1,7 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { expect, within } from "storybook/test";
 
-import {
-  homeMaterialReaderReturnTarget,
-  materialReaderHref,
-} from "@/shared/routing/material-reader";
+import { homeMaterialReaderReturnTarget } from "@/shared/routing/material-reader";
 import {
   aiFirstProductPage,
   aiFirstProductPageWithEveryField,
@@ -176,10 +173,12 @@ const freeLesson = {
   topicSlug: "development",
 };
 
-/** Приглашение к бесплатным урокам показывается там, где такие уроки есть. */
+/**
+ * Приглашение к бесплатным урокам показывается там, где такие уроки есть, и ведёт в программу:
+ * оформление практикума выводит его из состава продукта.
+ */
 export const FreeEntryOpensWholeProgramme: Story = {
   args: {
-    freeEntryHref: materialReaderHref("first-lesson"),
     result: {
       kind: "ready",
       discoveryKind: "series",

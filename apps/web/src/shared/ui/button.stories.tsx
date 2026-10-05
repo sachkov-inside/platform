@@ -14,16 +14,9 @@ const meta = {
   argTypes: {
     size: {
       control: "select",
-      options: [
-        "xs",
-        "sm",
-        "default",
-        "lg",
-        "icon",
-        "icon-xs",
-        "icon-sm",
-        "icon-lg",
-      ],
+      // Только размеры, которые продукт использует; `xs`, `icon-xs` и `icon-sm` остались в
+      // примитиве из генератора, но ни одна поверхность их не ставит.
+      options: ["sm", "default", "lg", "icon", "icon-lg"],
     },
     variant: {
       control: "select",
