@@ -13,7 +13,24 @@ export interface NativeReviewInput {
   readonly outputPath: string;
   readonly timeoutMs?: number;
   readonly outputMode?: "json" | "text";
+  /**
+   * The tested profile. `practice-v2` reads only and exposes one practice tool. `task-v3` (#946)
+   * exposes the four Guide Task tools and a shell, because procedure v3 lets the learner consent to
+   * one named command; writes to the project stay outside the profile.
+   */
+  readonly profile?: "practice-v2" | "task-v3";
 }
+
+/** The learner MCP tools each profile exposes. */
+export const profileTools = {
+  "practice-v2": ["learning_practice_read"],
+  "task-v3": [
+    "learning_tasks_list",
+    "learning_task_read",
+    "learning_task_submit",
+    "learning_task_submissions",
+  ],
+} as const;
 export interface NativeProcessResult {
   readonly code: number | null;
   readonly signal: NodeJS.Signals | null;
@@ -37,7 +54,10 @@ export async function runNativeReview({
   outputPath,
   timeoutMs = 240000,
   outputMode = "json",
+  profile = "practice-v2",
 }: NativeReviewInput): Promise<NativeProcessResult> {
+  const tools = profileTools[profile];
+  const shell = profile === "task-v3";
   const settings = {
     disableAllHooks: true,
     disableClaudeAiConnectors: true,
@@ -97,7 +117,7 @@ export async function runNativeReview({
     "-c",
     `mcp_servers.${serverName}.required=true`,
     "-c",
-    `mcp_servers.${serverName}.enabled_tools=["learning_practice_read"]`,
+    `mcp_servers.${serverName}.enabled_tools=${JSON.stringify(tools)}`,
     "-c",
     'mcp_oauth_credentials_store="keyring"',
     "-",
@@ -115,11 +135,19 @@ export async function runNativeReview({
     mcpConfigPath,
     "--strict-mcp-config",
     "--tools",
-    "Read,Glob,Grep",
+    shell ? "Read,Glob,Grep,Bash" : "Read,Glob,Grep",
     "--allowedTools",
-    `Read,Glob,Grep,mcp__${serverName}__learning_practice_read`,
+    [
+      "Read",
+      "Glob",
+      "Grep",
+      ...(shell ? ["Bash"] : []),
+      ...tools.map((tool) => `mcp__${serverName}__${tool}`),
+    ].join(","),
     "--disallowedTools",
-    "Bash,PowerShell,Edit,Write,NotebookEdit,Agent,Task,WebFetch,WebSearch",
+    shell
+      ? "PowerShell,Edit,Write,NotebookEdit,Agent,Task,WebFetch,WebSearch"
+      : "Bash,PowerShell,Edit,Write,NotebookEdit,Agent,Task,WebFetch,WebSearch",
     "--permission-mode",
     "dontAsk",
     "--permission-prompts",
