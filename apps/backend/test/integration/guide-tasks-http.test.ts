@@ -4,6 +4,7 @@ import { createServer, type Server } from "node:http";
 import type { NestFastifyApplication } from "@nestjs/platform-fastify";
 import { exportJWK, generateKeyPair, SignJWT, type CryptoKey } from "jose";
 import { afterAll, beforeAll, describe, expect, test } from "vitest";
+import { z } from "zod";
 
 import { parsePlatformConfig } from "../../src/config/platform-config.js";
 import { createApiApplication } from "../../src/entrypoints/api/create-api-application.js";
@@ -350,16 +351,34 @@ describe("Guide Task page, programme tasks and the page form over HTTP (#947)", 
       url: `/library/guides/${guideSlug}`,
       headers,
     });
-    expect(programme.json()).toMatchObject({
-      chapters: [
-        {
-          tasks: [
-            { code: freeCode, lastSubmittedAt: expect.any(String) },
-            { code: paidCode, lastSubmittedAt: null },
-          ],
-        },
-      ],
-    });
+    const marks = z
+      .object({
+        chapters: z.array(
+          z
+            .object({
+              tasks: z.array(
+                z
+                  .object({
+                    code: z.string(),
+                    lastSubmittedAt: z.string().nullable(),
+                  })
+                  .loose(),
+              ),
+            })
+            .loose(),
+        ),
+      })
+      .loose()
+      .parse(programme.json());
+    expect(
+      marks.chapters[0]?.tasks.map((task) => [
+        task.code,
+        task.lastSubmittedAt !== null,
+      ]),
+    ).toEqual([
+      [freeCode, true],
+      [paidCode, false],
+    ]);
     expect(
       (
         await server.inject({

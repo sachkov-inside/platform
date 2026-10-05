@@ -1,3 +1,4 @@
+import type { GuideChapterTask } from "@/entities/guide-task.model";
 import type { GuideProductPage } from "@/entities/guide-page";
 import type { ContentCover, MaterialPreview } from "@/entities/material";
 
@@ -47,6 +48,11 @@ export interface GuideChapter {
   readonly name: string;
   /** Авторское описание главы: на странице продукта оно объясняет, что внутри. */
   readonly summary: string;
+  /**
+   * Задания главы в авторском порядке (#947): каждое стоит после названного материала или в
+   * начале главы. Глава без заданий может поле опустить.
+   */
+  readonly tasks?: readonly GuideChapterTask[];
 }
 
 export interface DiscoveryTopic {

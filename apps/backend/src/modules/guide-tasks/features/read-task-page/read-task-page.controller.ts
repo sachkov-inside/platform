@@ -150,7 +150,8 @@ export class ReadTaskPageController {
           throw problemException(400, error.code, "Task address is malformed");
         case "task_not_found":
           throw problemException(404, error.code, "Task is not found");
-        default:
+        case "dependency_unavailable":
+        case "internal_error":
           throwSystemError(error, "Task page read");
       }
     }

@@ -366,6 +366,78 @@ export const ChaptersMobile: Story = {
   args: { result: chapteredResult },
   globals: { viewport: { value: "mobile390", isRotated: false } },
 };
+/**
+ * Задания глав стоят в авторском порядке среди материалов (#947, вариант 2 от 05.10.2026): без
+ * привязки — в начале главы, с привязкой — сразу после своего урока. Номера уроков не сдвигаются.
+ */
+const taskedChapters = chapters.map((chapter, index) =>
+  index === 0
+    ? {
+        ...chapter,
+        tasks: [
+          {
+            code: "platform-spec",
+            title: "Спецификация первой версии",
+            access: "free" as const,
+            afterMaterialId: null,
+            availability: "available" as const,
+            lastSubmittedAt: "2026-10-03T08:15:00.000Z",
+          },
+          {
+            code: "vertical-slice",
+            title: "Первый вертикальный срез",
+            access: "membership" as const,
+            afterMaterialId: chapter.materialIds[2] ?? null,
+            availability: "available" as const,
+            lastSubmittedAt: null,
+          },
+        ],
+      }
+    : index === 1
+      ? {
+          ...chapter,
+          tasks: [
+            {
+              code: "access-model",
+              title: "Модель доступа",
+              access: "membership" as const,
+              afterMaterialId: chapter.materialIds[5] ?? null,
+              availability: "locked" as const,
+              lastSubmittedAt: null,
+            },
+          ],
+        }
+      : chapter,
+);
+export const ChapterTasks: Story = {
+  args: { result: { ...result, chapters: taskedChapters } },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await expect(
+      canvasElement.querySelectorAll("[data-series-ordinal]"),
+    ).toHaveLength(24);
+    const opening = canvas.getByRole("list", {
+      name: "Задания главы «Основа продукта»",
+    });
+    await expect(within(opening).getByText("Сдано 3 октября")).toBeVisible();
+    const afterThird = canvas.getByRole("list", {
+      name: "Задания после урока «Сценарии пользователя»",
+    });
+    await expect(
+      within(afterThird).getByRole("link", {
+        name: "Первый вертикальный срез",
+      }),
+    ).toHaveAttribute("href", "/products/platform-inside/tasks/vertical-slice");
+    await expect(
+      canvasElement.querySelector('[data-programme-task="access-model"]'),
+    ).toHaveAttribute("data-task-availability", "locked");
+    await expect(canvas.getByText("6 материалов · 2 задания")).toBeVisible();
+  },
+};
+export const ChapterTasksMobile: Story = {
+  args: { result: { ...result, chapters: taskedChapters } },
+  globals: { viewport: { value: "mobile390", isRotated: false } },
+};
 export const PartiallyGrouped: Story = {
   args: {
     learning: { kind: "guest" },

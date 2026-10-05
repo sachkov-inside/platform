@@ -192,7 +192,8 @@ export class SubmitTaskFormController {
             error.code,
             "Too many submissions in the last hour",
           );
-        default:
+        case "dependency_unavailable":
+        case "internal_error":
           throwSystemError(error, "Task submission");
       }
     }

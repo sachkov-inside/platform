@@ -144,7 +144,8 @@ export class ListOwnTaskSubmissionsController {
           throw problemException(400, error.code, "Task code is malformed");
         case "task_not_available":
           throw problemException(404, error.code, "Task is not available");
-        default:
+        case "dependency_unavailable":
+        case "internal_error":
           throwSystemError(error, "Task submissions read");
       }
     }

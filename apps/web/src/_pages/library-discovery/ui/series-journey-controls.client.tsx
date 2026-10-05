@@ -16,6 +16,8 @@ import { useSeriesLearning } from "./series-learning.client";
 
 /** Строка программы: её карточку нарисовал сервер, здесь только место в списке и возврат к ней. */
 export interface JourneyRow {
+  /** Задания, которые автор поставил сразу после этого урока (#947); номера уроков они не меняют. */
+  readonly after?: ReactNode;
   readonly available: boolean;
   readonly card: ReactNode;
   readonly ordinal: number;
@@ -30,6 +32,8 @@ export interface JourneyRun {
     readonly id: string;
     readonly name: string;
   } | null;
+  /** Задания в начале главы, перед её первым уроком (#947). */
+  readonly leading?: ReactNode;
   readonly offset: number;
   readonly rows: readonly JourneyRow[];
 }
@@ -325,6 +329,7 @@ export function SeriesJourneyControls({
                     key={run.chapter?.id ?? `open-${String(run.offset)}`}
                   >
                     {run.chapter?.header ?? null}
+                    {run.leading ?? null}
                     {run.rows.length === 0 ? null : (
                       <ol
                         aria-label={
@@ -373,6 +378,7 @@ export function SeriesJourneyControls({
                             tabIndex={-1}
                           >
                             {row.card}
+                            {row.after ?? null}
                           </li>
                         ))}
                       </ol>
