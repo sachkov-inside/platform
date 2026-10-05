@@ -43,7 +43,7 @@ export interface PassCellResult {
   readonly surface: PassSurface;
   readonly action: string;
   readonly level: "production";
-  readonly deployedSha: string;
+  readonly deployedSha: string | null;
   readonly expected: PassOutcome;
   readonly observed: PassOutcome | null;
   readonly status: PassCellStatus;
@@ -51,7 +51,7 @@ export interface PassCellResult {
 }
 
 export interface PassReport {
-  readonly deployedSha: string;
+  readonly deployedSha: string | null;
   readonly verdict: "green" | "red";
   readonly cells: readonly PassCellResult[];
 }
@@ -59,7 +59,7 @@ export interface PassReport {
 export function evaluatePass(input: {
   readonly cells: readonly PassCell[];
   readonly observations: readonly PassObservation[];
-  readonly deployedSha: string;
+  readonly deployedSha: string | null;
 }): PassReport {
   const known = new Set(input.cells.map((cell) => cell.id));
   const unknown = input.observations.find(({ cellId }) => !known.has(cellId));
@@ -125,7 +125,7 @@ export function renderPassMarkdown(report: PassReport): string {
   return [
     "# Production-проход доступа",
     "",
-    `Deployed SHA: \`${report.deployedSha}\``,
+    `Deployed SHA: ${report.deployedSha === null ? "не передан" : `\`${report.deployedSha}\``}`,
     "",
     `Итог: **${report.verdict === "green" ? "зелёный" : "красный"}**`,
     "",

@@ -9,7 +9,7 @@ import {
   type PassObservation,
   type PassReport,
 } from "./pass-cells";
-import { passCells, productionTarget } from "./pass-config";
+import { passCells } from "./pass-config";
 
 /** Каталог отчёта прохода; job загружает его в artifact. */
 export const passReportDirectory = resolve(
@@ -47,25 +47,29 @@ function readObservations(): PassObservation[] {
   );
 }
 
-async function readDeployedSha(): Promise<string> {
-  try {
-    const response = await fetch(`${productionTarget.web}/_health/live`, {
-      signal: AbortSignal.timeout(20_000),
-    });
-    return z
-      .object({ release: z.object({ sourceSha: z.string() }) })
-      .parse(await response.json()).release.sourceSha;
-  } catch {
-    return "unknown";
-  }
+/**
+ * Снаружи production свой SHA не показывает: `/_health/*` закрыт на edge. SHA передаёт тот, кто
+ * запускает проход: вход `deployed-sha` workflow, а из `deploy.yml` — выпуск, который он развернул
+ * (#906). Без входа отчёт пишет «не передан».
+ */
+function readDeployedSha(): string | null {
+  const value = process.env["PRODUCTION_ACCESS_DEPLOYED_SHA"];
+  if (value === undefined || value === "") return null;
+  return z
+    .string()
+    .regex(
+      /^[0-9a-f]{40}$/u,
+      "PRODUCTION_ACCESS_DEPLOYED_SHA must be a commit SHA",
+    )
+    .parse(value);
 }
 
 /** Global teardown: собирает отчёт и роняет прогон, если итог красный. */
-export default async function writePassReport(): Promise<void> {
+export default function writePassReport(): void {
   const report: PassReport = evaluatePass({
     cells: passCells,
     observations: readObservations(),
-    deployedSha: await readDeployedSha(),
+    deployedSha: readDeployedSha(),
   });
   mkdirSync(passReportDirectory, { recursive: true });
   writeFileSync(

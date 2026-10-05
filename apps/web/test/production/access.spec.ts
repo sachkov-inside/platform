@@ -1,10 +1,11 @@
 import { randomUUID } from "node:crypto";
 
 import { expect, test, type Page } from "@playwright/test";
+import { z } from "zod";
 
 import {
   createLogtoPassClient,
-  masked,
+  registerLogSecret,
   readLogtoCredentials,
   type LogtoPassClient,
 } from "./logto";
@@ -19,10 +20,11 @@ import {
 import { recordObservation } from "./pass-report";
 
 /**
- * Минимальный read-only production-проход (#905). Каждый тест наблюдает одну клетку `passCells` и
- * записывает факт до проверки ожидания. Тест, упавший до записи, оставляет клетку «не проверено»:
- * отчёт в global teardown делает тогда job красным. Проход только читает: вход идёт настоящим
- * Logto, а запросы — GET страниц и вызовы read-only tool учебного MCP.
+ * Минимальный production-проход (#905). Каждый тест наблюдает одну клетку `passCells` и записывает
+ * факт до проверки ожидания. Тест, упавший до записи, оставляет клетку «не проверено»: отчёт в global
+ * teardown делает тогда job красным. Данные Platform проход не меняет: он открывает GET-страницы и
+ * вызывает read-only tool учебного MCP. Записи есть только в Logto и в сессиях: one-time token на
+ * вход, PAT на прогон (после прогона удаляется), сессии Logto и BFF тестовых identities.
  */
 type LiveCellId = Exclude<
   (typeof passCells)[number],
@@ -46,16 +48,37 @@ test.beforeAll(async () => {
       "PRODUCTION_ACCESS_LOGTO_APP_ID, PRODUCTION_ACCESS_LOGTO_APP_SECRET and PRODUCTION_ACCESS_MAILBOX are required",
     );
   }
-  mailbox = masked(configuredMailbox);
+  mailbox = registerLogSecret(configuredMailbox);
   logto = await createLogtoPassClient(credentials);
 });
 
 test.afterAll(async () => {
-  // PAT живут только прогон; ошибка удаления видна в логе и в красном прогоне.
+  // PAT живут только прогон. Сбой удаления у одной identity не оставляет PAT остальных; ошибки
+  // поднимаются в конце, и прогон краснеет.
+  const failures: unknown[] = [];
   for (const userId of usedIdentities.values()) {
-    await logto?.deletePassTokens(userId);
+    await logto?.deletePassTokens(userId, runId).catch((error: unknown) => {
+      failures.push(error);
+    });
+  }
+  if (failures.length > 0) {
+    throw new AggregateError(failures, "Pass PAT cleanup failed");
   }
 });
+
+/** Email identity скрыт в логе в обеих формах: как есть и в URL входа (`login_hint`). */
+function emailOf(identity: PassIdentity): string {
+  const email = registerLogSecret(identityEmail(mailbox, identity));
+  registerLogSecret(encodeURIComponent(email));
+  return email;
+}
+
+function requireProtectedSnippet(): string {
+  if (protectedSnippet === undefined) {
+    throw new Error("No protected snippet: the allowed learner read failed");
+  }
+  return protectedSnippet;
+}
 
 function client(): LogtoPassClient {
   if (logto === undefined) throw new Error("Logto client is not ready");
@@ -65,15 +88,15 @@ function client(): LogtoPassClient {
 async function userIdOf(identity: PassIdentity): Promise<string> {
   const known = usedIdentities.get(identity);
   if (known !== undefined) return known;
-  const userId = await client().findUserId(identityEmail(mailbox, identity));
+  const userId = await client().findUserId(emailOf(identity));
   usedIdentities.set(identity, userId);
   return userId;
 }
 
 async function readThroughLearnerMcp(identity: PassIdentity) {
   const userId = await userIdOf(identity);
-  // Остатки прошлого прогона не копятся: перед выпуском PAT проход удаляет свои старые.
-  await client().deletePassTokens(userId);
+  // Истёкшие PAT прошлых прогонов не копятся: проход удаляет их перед выпуском нового.
+  await client().deletePassTokens(userId, runId);
   const token = await client().platformAccessToken(userId, runId);
   return readLearnerMaterial(token, guideA.protectedMaterialSlug);
 }
@@ -83,7 +106,7 @@ async function readThroughLearnerMcp(identity: PassIdentity) {
  * добавляет `one_time_token` и `login_hint` к запросу авторизации, который выпустил BFF.
  */
 async function signIn(page: Page, identity: PassIdentity): Promise<void> {
-  const email = identityEmail(mailbox, identity);
+  const email = emailOf(identity);
   const oneTimeToken = await client().issueOneTimeToken(email);
   await page.route(
     (url) =>
@@ -115,30 +138,28 @@ async function signIn(page: Page, identity: PassIdentity): Promise<void> {
       url.pathname !== "/callback",
   );
   const landing = new URL(page.url());
-  // Условия принимает одноразовая настройка; проход сам ничего не пишет.
+  // Условия принимает одноразовая настройка: проход не пишет согласия сам.
   expect(
     landing.pathname,
     "test identity must have accepted the terms during setup",
   ).not.toBe("/welcome");
   expect(landing.searchParams.get("authentication")).toBeNull();
-  const status = await page.evaluate(async () => {
-    const response = await fetch("/auth/status");
-    return (await response.json()) as { state: string };
-  });
+  // Запрос контекста несёт cookies сессии браузера.
+  const response = await page.request.get("/auth/status");
+  expect(response.ok()).toBe(true);
+  const status = z.object({ state: z.string() }).parse(await response.json());
   expect(status.state).toBe("authenticated");
 }
 
 async function observeMaterialPage(page: Page): Promise<PassOutcome> {
-  if (protectedSnippet === undefined) {
-    throw new Error("No protected snippet: the allowed learner read failed");
-  }
+  const snippet = requireProtectedSnippet();
   await page.goto(`/materials/${guideA.protectedMaterialSlug}`);
   const state = page.locator(
     "#content [data-material-reader-state='available'], #content [data-material-reader-state='access-required']",
   );
   await expect(state.first()).toBeVisible();
   // Закрытые bytes ищутся во всём документе, включая данные RSC, а не только в видимом тексте.
-  if ((await page.content()).includes(protectedSnippet)) return "allowed";
+  if ((await page.content()).includes(snippet)) return "allowed";
   if (
     (await state.first().getAttribute("data-material-reader-state")) ===
     "access-required"
@@ -171,11 +192,9 @@ test("learner-guide-a/browser/guide-a-body", async ({ page }) => {
 });
 
 test("no-entitlement/learner-mcp/guide-a-body", async () => {
-  if (protectedSnippet === undefined) {
-    throw new Error("No protected snippet: the allowed learner read failed");
-  }
+  const snippet = requireProtectedSnippet();
   const read = await readThroughLearnerMcp("no-entitlement");
-  const leaked = read.raw.includes(protectedSnippet);
+  const leaked = read.raw.includes(snippet);
   if (!leaked && !read.ok) {
     expect(read.error.code).toBe("material_not_available");
   }

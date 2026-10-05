@@ -21,38 +21,47 @@ const tokenSchema = z.object({
 const usersSchema = z.array(
   z.object({ id: z.string(), primaryEmail: z.string().nullable() }),
 );
-const patsSchema = z.array(z.object({ name: z.string() }));
+const patsSchema = z.array(
+  z.object({ name: z.string(), expiresAt: z.number().nullable() }),
+);
 const requestTimeoutMs = 20_000;
 /** PAT живёт не дольше прогона, даже если удаление после прогона не дошло. */
 const patLifetimeMs = 30 * 60_000;
 const oneTimeTokenLifetimeSeconds = 600;
-/** Имя PAT прохода; хвост — номер прогона. По префиксу проход удаляет остатки прошлых прогонов. */
-export const passPatPrefix = "inside-production-access-";
+/** Имя PAT прохода; хвост — номер прогона. */
+const passPatPrefix = "inside-production-access-";
+const passPatName = (runId: string) => `${passPatPrefix}${runId}`;
+
+export interface LogtoCredentials {
+  readonly appId: string;
+  readonly appSecret: string;
+}
 
 export interface LogtoPassClient {
   findUserId(email: string): Promise<string>;
   issueOneTimeToken(email: string): Promise<string>;
   /** Выпускает PAT на прогон, обменивает его и возвращает короткий токен Platform API. */
   platformAccessToken(userId: string, runId: string): Promise<string>;
-  /** Удаляет PAT прохода у identity; возвращает число удалённых. */
-  deletePassTokens(userId: string): Promise<number>;
+  /**
+   * Удаляет PAT этого прогона и истёкшие PAT прошлых. Действующий PAT другого прогона остаётся:
+   * параллельный прогон не теряет свой вход.
+   */
+  deletePassTokens(userId: string, runId: string): Promise<void>;
 }
 
 /**
- * В GitHub Actions значение скрывается во всех следующих строках лога: Playwright печатает URL входа
- * с one-time token и email identity, когда шаг падает.
+ * Регистрирует значение как секрет лога GitHub Actions и возвращает его без изменений: Playwright
+ * печатает URL входа с one-time token и email identity, когда шаг падает.
  */
-export function masked(value: string): string {
+export function registerLogSecret(value: string): string {
   if (process.env["GITHUB_ACTIONS"] === "true") {
     process.stdout.write(`::add-mask::${value}\n`);
   }
   return value;
 }
 
-export function readLogtoCredentials(
-  environment: NodeJS.ProcessEnv = process.env,
-): { readonly appId: string; readonly appSecret: string } | undefined {
-  const parsed = credentialsSchema.safeParse(environment);
+export function readLogtoCredentials(): LogtoCredentials | undefined {
+  const parsed = credentialsSchema.safeParse(process.env);
   return parsed.success
     ? {
         appId: parsed.data.PRODUCTION_ACCESS_LOGTO_APP_ID,
@@ -61,10 +70,9 @@ export function readLogtoCredentials(
     : undefined;
 }
 
-export async function createLogtoPassClient(credentials: {
-  readonly appId: string;
-  readonly appSecret: string;
-}): Promise<LogtoPassClient> {
+export async function createLogtoPassClient(
+  credentials: LogtoCredentials,
+): Promise<LogtoPassClient> {
   const basic = `Basic ${Buffer.from(`${credentials.appId}:${credentials.appSecret}`).toString("base64")}`;
   const token = async (body: Record<string, string>) => {
     const response = await fetch(`${productionTarget.logto}/oidc/token`, {
@@ -82,7 +90,9 @@ export async function createLogtoPassClient(credentials: {
         `Logto token request ${body["grant_type"] ?? ""} failed: ${String(response.status)}`,
       );
     }
-    return masked(tokenSchema.parse(await response.json()).access_token);
+    return registerLogSecret(
+      tokenSchema.parse(await response.json()).access_token,
+    );
   };
   const management = await token({
     grant_type: "client_credentials",
@@ -130,9 +140,7 @@ export async function createLogtoPassClient(credentials: {
       return user.id;
     },
     async issueOneTimeToken(email) {
-      masked(email);
-      masked(encodeURIComponent(email));
-      return masked(
+      return registerLogSecret(
         z.object({ token: z.string().min(1) }).parse(
           await api("/one-time-tokens", {
             method: "POST",
@@ -142,7 +150,7 @@ export async function createLogtoPassClient(credentials: {
       );
     },
     async platformAccessToken(userId, runId) {
-      const name = `${passPatPrefix}${runId}`;
+      const name = passPatName(runId);
       const pat = z.object({ value: z.string().min(1) }).parse(
         await api(tokensPath(userId), {
           method: "POST",
@@ -151,22 +159,28 @@ export async function createLogtoPassClient(credentials: {
       );
       return token({
         grant_type: "urn:ietf:params:oauth:grant-type:token-exchange",
-        subject_token: masked(pat.value),
+        subject_token: registerLogSecret(pat.value),
         subject_token_type: "urn:logto:token-type:personal_access_token",
         resource: productionTarget.apiResource,
       });
     },
-    async deletePassTokens(userId) {
+    async deletePassTokens(userId, runId) {
+      const own = passPatName(runId);
       const names = patsSchema
         .parse(await api(tokensPath(userId)))
-        .map(({ name }) => name)
-        .filter((name) => name.startsWith(passPatPrefix));
+        .filter(
+          ({ name, expiresAt }) =>
+            name === own ||
+            (name.startsWith(passPatPrefix) &&
+              expiresAt !== null &&
+              expiresAt <= Date.now()),
+        )
+        .map(({ name }) => name);
       for (const name of names) {
         await api(`${tokensPath(userId)}/${encodeURIComponent(name)}`, {
           method: "DELETE",
         });
       }
-      return names.length;
     },
   };
 }

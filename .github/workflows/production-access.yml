@@ -1,10 +1,20 @@
 name: Production access pass
 
-# Read-only проход доступа против production тестовыми identities (#905). Не проверка pull request:
-# запускается вручную, а #906 вызывает его из deploy.yml после health-проверки.
+# Проход доступа против production тестовыми identities (#905). Данные Platform он не меняет; в Logto
+# выпускает one-time token и PAT на прогон. Не проверка pull request: запускается вручную, а #906
+# вызывает его из deploy.yml после health-проверки.
 on:
   workflow_dispatch:
+    inputs:
+      deployed-sha:
+        description: SHA выпуска, который сейчас в production (для отчёта)
+        required: false
+        type: string
   workflow_call:
+    inputs:
+      deployed-sha:
+        required: false
+        type: string
 
 permissions: {}
 
@@ -42,6 +52,7 @@ jobs:
           PRODUCTION_ACCESS_LOGTO_APP_ID: ${{ vars.PRODUCTION_ACCESS_LOGTO_APP_ID }}
           PRODUCTION_ACCESS_LOGTO_APP_SECRET: ${{ secrets.PRODUCTION_ACCESS_LOGTO_APP_SECRET }}
           PRODUCTION_ACCESS_MAILBOX: ${{ vars.PRODUCTION_ACCESS_MAILBOX }}
+          PRODUCTION_ACCESS_DEPLOYED_SHA: ${{ inputs.deployed-sha }}
           PRODUCTION_ACCESS_REPORT_DIR: ${{ github.workspace }}/ci-artifacts/production-access
         run: pnpm --filter @inside/web test:production-access
       - name: Upload the pass report

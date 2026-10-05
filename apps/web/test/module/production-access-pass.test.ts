@@ -146,6 +146,20 @@ describe("production access pass verdict", () => {
   });
 });
 
+describe("production access pass report", () => {
+  it("says when the deployed SHA was not passed", () => {
+    const markdown = renderPassMarkdown(
+      evaluatePass({
+        cells: [readsGuideA],
+        observations: [],
+        deployedSha: null,
+      }),
+    );
+
+    expect(markdown).toContain("Deployed SHA: не передан");
+  });
+});
+
 describe("test identity email", () => {
   it("is an alias of the configured mailbox", () => {
     expect(identityEmail("owner@example.test", "learner-guide-a")).toBe(

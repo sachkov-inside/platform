@@ -273,7 +273,7 @@ Workspace #184.
 (`inside-platform-production`).
 
 **Доступ глазами тестовых Accounts.** Workflow `Production access pass` входит тестовыми identities
-и только читает; перечень, вход и секреты описаны в
+и не меняет данные Platform; перечень, вход и секреты описаны в
 [тестовых identities production](production-test-identities.md).
 
 **Процессы.** `migrations` завершился, девять процессов и `rabbitmq` — `running` и `healthy`, у

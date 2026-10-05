@@ -25,9 +25,11 @@ Guide A — «AI Engineering» (`ai-engineering`); id и закрытый мат
 владельца клетки Guide B помечены «отложено до второго Guide»: отчёт показывает их отдельным статусом,
 и они не делают job красным. Любая другая клетка «не проверено» делает job красным.
 
-Все identities однажды приняли условия использования на первом экране входа. Проход сам ничего не
-пишет. Если identity снова видит экран условий, проход падает: условия принимают вручную, повторив
-вход из раздела «Одноразовая настройка».
+Все identities однажды приняли условия использования на первом экране входа. Проход данные Platform
+не меняет: он открывает страницы и вызывает read-only tool учебного MCP. Записи прохода есть только в
+Logto и в сессиях: one-time token на вход, PAT на прогон (после прогона удаляется), сессии Logto и
+BFF тестовых identities. Если identity снова видит экран условий, проход падает: условия принимают
+вручную, повторив вход из раздела «Одноразовая настройка».
 
 ## Вход прохода
 
@@ -37,8 +39,11 @@ Guide A — «AI Engineering» (`ai-engineering`); id и закрытый мат
   получает настоящую сессию `@logto/next`. Страница входа для людей не меняется.
 - **API и learner MCP.** Проход выпускает Personal Access Token identity на время прогона и
   обменивает его на короткий токен Platform API (token exchange). После прогона PAT удаляется. Имя PAT
-  начинается с `inside-production-access-`; остатки прошлых прогонов проход удаляет перед выпуском
-  нового.
+  начинается с `inside-production-access-`; истёкшие PAT прошлых прогонов проход удаляет перед
+  выпуском нового. Публичный API ученика в production — learner MCP `/mcp/learning`: других
+  публичных маршрутов к API для ученика нет
+  ([таблица маршрутов](production-release.md#public-api-routes)). Поэтому клетки «через API»
+  проверяются через learner MCP.
 - **Первое установление Account.** Platform создаёт Account только по подтверждённому email
   (`inside_verified_email`). Вход по one-time token этот claim не даёт, поэтому Account без прав и
   учеников однажды входят по коду из письма. Accounts с правами создаёт owner bootstrap. Дальше хватает
@@ -95,8 +100,9 @@ Guide A — «AI Engineering» (`ai-engineering`); id и закрытый мат
 
 ## Запуск
 
-Проход запускается вручную: GitHub Actions → `Production access pass` → `Run workflow` на `main`. Job
-загружает artifact `production-access-report-<попытка>` с `report.json` и `report.md`. В отчёте для
+Проход запускается вручную: GitHub Actions → `Production access pass` → `Run workflow` на `main`.
+Вход `deployed-sha` — SHA выпуска, который сейчас в production. Снаружи production его не показывает
+(`/_health/*` закрыт на edge), поэтому без входа отчёт пишет «не передан». Job загружает artifact `production-access-report-<попытка>` с `report.json` и `report.md`. В отчёте для
 каждой клетки есть deployed SHA, ожидание, факт и уровень. Cookies, токены и email в отчёт не
 попадают. Локально тот же набор запускает `pnpm --filter @inside/web test:production-access` с теми
 же переменными.
