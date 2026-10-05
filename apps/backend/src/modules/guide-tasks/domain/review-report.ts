@@ -30,7 +30,9 @@ export const reviewReportSchema = z
   })
   .strict()
   .superRefine((value, context) => {
-    if (Buffer.byteLength(JSON.stringify(value), "utf8") > REVIEW_REPORT_MAX_BYTES)
+    if (
+      Buffer.byteLength(JSON.stringify(value), "utf8") > REVIEW_REPORT_MAX_BYTES
+    )
       context.addIssue({
         code: "custom",
         message: "Review report exceeds 64 KiB",
@@ -77,7 +79,9 @@ export function checkReportCoverage(
   report: ReviewReport,
   definition: TaskDefinition,
 ): ReportCoverage {
-  const expected = new Set(definition.criteria.map((criterion) => criterion.id));
+  const expected = new Set(
+    definition.criteria.map((criterion) => criterion.id),
+  );
   const seen = new Set<string>();
   const duplicated = new Set<string>();
   for (const { criterionId } of report.criteria) {

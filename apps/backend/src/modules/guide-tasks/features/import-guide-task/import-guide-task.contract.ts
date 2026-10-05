@@ -7,11 +7,7 @@ import {
 } from "../../domain/task-definition.js";
 import type { Result, SystemError } from "../../shared/result.js";
 
-const revisionSchema = z
-  .number()
-  .int()
-  .positive()
-  .max(Number.MAX_SAFE_INTEGER);
+const revisionSchema = z.number().int().positive().max(Number.MAX_SAFE_INTEGER);
 
 /**
  * One Guide Task of a publication package, its Guide and chapter already resolved to Platform IDs

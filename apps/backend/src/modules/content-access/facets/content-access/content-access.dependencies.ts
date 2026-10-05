@@ -54,7 +54,9 @@ export interface GuideTaskResourceFacts {
 }
 
 export interface GuideTaskResourceFactsAdapter {
-  findMany(taskIds: readonly string[]): Promise<readonly GuideTaskResourceFacts[]>;
+  findMany(
+    taskIds: readonly string[],
+  ): Promise<readonly GuideTaskResourceFacts[]>;
   findOne(taskId: string): Promise<GuideTaskResourceFacts | null>;
 }
 

@@ -32,15 +32,17 @@ export interface LearningTaskSummary {
 }
 
 export type ListLearningTasksError =
-  | { readonly code: "invalid_request_shape" }
-  | SystemError;
+  { readonly code: "invalid_request_shape" } | SystemError;
 
 /** Published tasks the subject can open, in programme order: Guide, chapter, order in chapter. */
 export async function listLearningTasks(
   dependencies: LearningTaskDependencies,
   input: { readonly subject: Subject; readonly guideSlug?: string | undefined },
 ): Promise<
-  Result<{ readonly tasks: readonly LearningTaskSummary[] }, ListLearningTasksError>
+  Result<
+    { readonly tasks: readonly LearningTaskSummary[] },
+    ListLearningTasksError
+  >
 > {
   const { subject, ...query } = input;
   const parsed = learningTasksQuerySchema.safeParse(query);
@@ -67,8 +69,8 @@ export async function listLearningTasks(
     const open = new Set<string>();
     for (let start = 0; start < rows.length; start += ACCESS_BATCH) {
       const batch = rows.slice(start, start + ACCESS_BATCH);
-      const availability = await dependencies.contentAccess.checkAvailabilityMany(
-        {
+      const availability =
+        await dependencies.contentAccess.checkAvailabilityMany({
           subject,
           operations: batch.map((row) => ({
             itemId: row.id,
@@ -77,8 +79,7 @@ export async function listLearningTasks(
           })),
           enforcementPoint: "guide_task_read",
           correlationId: batch[0]?.id ?? "",
-        },
-      );
+        });
       if (!availability.ok) throw new Error(availability.error.code);
       for (const item of availability.items)
         if (item.availability === "available") open.add(item.itemId);
@@ -132,6 +133,10 @@ export async function listLearningTasks(
     );
     return { ok: true, value: { tasks } };
   } catch (error) {
-    return dependencyFailure(scope("listLearningTasks"), error, systemFailure(error));
+    return dependencyFailure(
+      scope("listLearningTasks"),
+      error,
+      systemFailure(error),
+    );
   }
 }

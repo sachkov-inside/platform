@@ -127,7 +127,12 @@ export async function submitTask(
     const receipt = await dependencies.prisma.$transaction(
       async (transaction): Promise<TaskSubmissionReceipt> => {
         await lockGuideTaskSubmissions(transaction, accountId);
-        const raced = await replay(transaction, accountId, command, fingerprint);
+        const raced = await replay(
+          transaction,
+          accountId,
+          command,
+          fingerprint,
+        );
         if (raced !== undefined) {
           if (raced.ok) return raced.value;
           throw new Rollback(raced.error);

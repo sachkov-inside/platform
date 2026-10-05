@@ -2,7 +2,10 @@ import { z } from "zod";
 
 import { dependencyFailure } from "../../../../infrastructure/observability/index.js";
 import type { Subject } from "../../../content-access/index.js";
-import { reviewReportSchema, type ReviewReport } from "../../domain/review-report.js";
+import {
+  reviewReportSchema,
+  type ReviewReport,
+} from "../../domain/review-report.js";
 import {
   decideTaskAccess,
   findCurrentTask,

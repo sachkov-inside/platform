@@ -66,7 +66,11 @@ export function assembleValidateSourceTask(
         },
       };
     } catch (error) {
-      return dependencyFailure(scope("validateSourceTask"), error, systemFailure(error));
+      return dependencyFailure(
+        scope("validateSourceTask"),
+        error,
+        systemFailure(error),
+      );
     }
   };
 }
@@ -87,7 +91,10 @@ export function assembleApplySourceTask(
     if (!parsed.success || !key.success)
       return { ok: false, error: { code: "invalid_request_shape" } };
     const command = parsed.data;
-    const authorized = await authorize(dependencies.authorPolicy, context.actor);
+    const authorized = await authorize(
+      dependencies.authorPolicy,
+      context.actor,
+    );
     if (!authorized.ok) return authorized;
     const placement = await checkPlacement(dependencies.directory, command);
     if (!placement.ok) return placement;
@@ -143,7 +150,11 @@ export function assembleApplySourceTask(
     } catch (error) {
       if (error instanceof Rollback)
         return { ok: false, error: error.importError };
-      return dependencyFailure(scope("applySourceTask"), error, systemFailure(error));
+      return dependencyFailure(
+        scope("applySourceTask"),
+        error,
+        systemFailure(error),
+      );
     }
   };
 }
@@ -264,7 +275,11 @@ async function checkPlacement(
           error: { code: "related_material_not_found", sourceIds: missing },
         };
   } catch (error) {
-    return dependencyFailure(scope("applySourceTask"), error, systemFailure(error));
+    return dependencyFailure(
+      scope("applySourceTask"),
+      error,
+      systemFailure(error),
+    );
   }
 }
 

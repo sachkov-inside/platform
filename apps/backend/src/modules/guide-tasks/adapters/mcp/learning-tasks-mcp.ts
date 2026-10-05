@@ -90,8 +90,7 @@ export function registerLearningTaskTools(
       inputSchema: taskSubmissionsQuerySchema,
       annotations: readAnnotations,
     },
-    async (query) =>
-      toolResult(await tasks.submissions({ subject, ...query })),
+    async (query) => toolResult(await tasks.submissions({ subject, ...query })),
   );
   server.registerPrompt(
     "review_task",

@@ -22,7 +22,9 @@ import { assembleGuideTaskResourceFacts } from "./adapters/content-access/guide-
     {
       provide: GUIDE_TASK_RESOURCE_FACTS,
       inject: [PrismaClientProvider],
-      useFactory: (prisma: PrismaClientProvider): GuideTaskResourceFactsAdapter =>
+      useFactory: (
+        prisma: PrismaClientProvider,
+      ): GuideTaskResourceFactsAdapter =>
         assembleGuideTaskResourceFacts(prisma),
     },
   ],

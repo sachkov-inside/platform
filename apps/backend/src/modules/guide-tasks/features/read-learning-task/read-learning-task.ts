@@ -71,8 +71,7 @@ export async function readLearningTask(
 ) {
   const { subject, ...query } = input;
   const parsed = learningTaskQuerySchema.safeParse(query);
-  if (!parsed.success)
-    return failure({ code: "invalid_request_shape" });
+  if (!parsed.success) return failure({ code: "invalid_request_shape" });
   const request = parsed.data;
   try {
     const task = await findCurrentTask(dependencies.prisma, request.code);
@@ -142,7 +141,10 @@ export async function readLearningTask(
     if (request.part >= partCount)
       return failure({ code: "invalid_context_part", partCount });
     const data = characters
-      .slice(request.part * PART_CHARACTERS, (request.part + 1) * PART_CHARACTERS)
+      .slice(
+        request.part * PART_CHARACTERS,
+        (request.part + 1) * PART_CHARACTERS,
+      )
       .join("");
     return {
       ok: true as const,
@@ -162,7 +164,11 @@ export async function readLearningTask(
       },
     };
   } catch (error) {
-    return dependencyFailure(scope("readLearningTask"), error, systemFailure(error));
+    return dependencyFailure(
+      scope("readLearningTask"),
+      error,
+      systemFailure(error),
+    );
   }
 }
 

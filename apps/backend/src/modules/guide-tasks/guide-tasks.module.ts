@@ -39,11 +39,21 @@ import {
 } from "./features/import-guide-task/import-guide-task.js";
 
 @Module({
-  imports: [PrismaModule, AccountsModule, MaterialContentModule, MaterialsModule],
+  imports: [
+    PrismaModule,
+    AccountsModule,
+    MaterialContentModule,
+    MaterialsModule,
+  ],
   providers: [
     {
       provide: LEARNING_TASKS,
-      inject: [PrismaClientProvider, GuideDirectory, CONTENT_ACCESS, PLATFORM_CONFIG],
+      inject: [
+        PrismaClientProvider,
+        GuideDirectory,
+        CONTENT_ACCESS,
+        PLATFORM_CONFIG,
+      ],
       useFactory: (
         prisma: PrismaClientProvider,
         directory: GuideDirectory,

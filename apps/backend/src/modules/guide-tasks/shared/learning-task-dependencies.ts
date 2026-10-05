@@ -2,12 +2,12 @@ import { randomUUID } from "node:crypto";
 import { z } from "zod";
 
 import type { GuideTasksPrismaClient } from "../../../infrastructure/prisma/index.js";
-import type {
-  ContentAccess,
-  Subject,
-} from "../../content-access/index.js";
+import type { ContentAccess, Subject } from "../../content-access/index.js";
 import type { GuideDirectory } from "../../materials/index.js";
-import { taskDefinitionSchema, type TaskDefinition } from "../domain/task-definition.js";
+import {
+  taskDefinitionSchema,
+  type TaskDefinition,
+} from "../domain/task-definition.js";
 
 export interface LearningTaskDependencies {
   readonly prisma: GuideTasksPrismaClient;
@@ -81,5 +81,7 @@ export async function decideTaskAccess(
     correlationId: randomUUID(),
   });
   if (decision.effect === "allow") return "open";
-  return decision.reason === "dependency_unavailable" ? "unavailable" : "closed";
+  return decision.reason === "dependency_unavailable"
+    ? "unavailable"
+    : "closed";
 }
