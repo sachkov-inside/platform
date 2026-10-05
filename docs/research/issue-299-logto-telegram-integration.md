@@ -6,6 +6,8 @@ inside-telegram #24 / Draft PR #25.
 Статус: исследование и предлагаемое направление, не принятое архитектурное решение
 и не реализованная сквозная интеграция. Поведение закреплённой версии проверено по
 исходникам; эксперимент с реальным Logto для Telegram-входа ещё не выполнен.
+Текущее решение задают [ADR 0006](../adr/0006-logto-session-and-local-account.md) и
+[identity specification](../specifications/identity-principals-session-v1.md#telegram-sign-in--platform-299).
 
 ## Вывод
 

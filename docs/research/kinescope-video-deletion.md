@@ -1,5 +1,8 @@
 # Kinescope video deletion semantics and safe Platform policy
 
+Status: research note, 2026-09-02. The current contract is set by `Video` and `VideoDeletion` in
+[GLOSSARY](../../GLOSSARY.md) and by the [Platform MVP brief](../product/platform-mvp-brief.md).
+
 ## Scope
 
 This note records what Kinescope's first-party documentation and published OpenAPI contract say
