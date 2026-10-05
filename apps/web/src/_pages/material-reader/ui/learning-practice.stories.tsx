@@ -8,6 +8,7 @@ import {
   LearningPracticePrompts,
 } from "./learning-practice-prompts";
 
+const connection = { url: "https://inside.example.test/mcp/learning" };
 const descriptor = {
   practiceId: "synthetic:brief",
   title: "Разобрать обращение бизнеса",
@@ -54,9 +55,9 @@ function PracticeReader({
       primaryVideo={null}
       practiceActions={
         disclosure ? (
-          <LearningPracticeDisclosure result={result} />
+          <LearningPracticeDisclosure connection={connection} result={result} />
         ) : (
-          <LearningPracticePrompts result={result} />
+          <LearningPracticePrompts connection={connection} result={result} />
         )
       }
     />
@@ -98,13 +99,13 @@ export const Ready: Story = {
       canvas.getByRole("region", { name: "Проверка практики" }),
     ).toBeInTheDocument();
     await expect(
-      canvas.getByText(/обращение бизнеса · Codex/u),
+      canvas.getByText("Разобрать обращение бизнеса"),
     ).toBeInTheDocument();
-    await expect(
-      canvas.getByText(/обращение бизнеса · Claude Code/u),
-    ).toBeInTheDocument();
+    // Одна инструкция и один запрос для любого агента: адрес приходит из конфигурации.
+    await expect(canvas.queryByText(/Codex$/u)).not.toBeInTheDocument();
+    await expect(canvas.getByText(connection.url)).toBeInTheDocument();
     const buttons = canvas.getAllByRole("button", { name: "Копировать" });
-    await expect(buttons).toHaveLength(2);
+    await expect(buttons).toHaveLength(1);
     const first = buttons[0];
     if (first === undefined) throw new Error("Expected copy action");
     await userEvent.click(first);

@@ -62,7 +62,8 @@ git diff --stat "$current" origin/main -- \
 |---|---|
 | `config/compose/production/*.env.example` | Добавить новые ключи в `/etc/inside/runtime/*.env` ([конфигурация](production-release.md#server-owned-configuration)). Deploy отказывает, пока где-то остаётся `replace-with-`; группа, которую не включают, удаляется целиком |
 | `infra/production/host/*` | Применить изменённый файл по [подготовке VPS](production-foundation.md); provisioning повторно не запускать |
-| `infra/production/database/*`, `infra/production/logto/*`, `infra/identity/logto/*` | Обновить foundation по [подготовке VPS](production-foundation.md#порядок-применения-в-244): свежий checkout в `/opt/inside/foundation`, `docker compose ... up --detach --build --wait`. Если Dockerfile Logto меняет только непроизводственные файлы (README, proof), пересборка не нужна |
+| `infra/production/database/*` | Обновить foundation по [подготовке VPS](production-foundation.md#порядок-применения-в-244): свежие файлы в `/opt/inside/foundation`, `docker compose ... up --detach --wait` |
+| `infra/production/logto/*`, `infra/identity/logto/*` | [Обновить Logto](production-foundation.md#обновление-logto): образ собирается вне VPS и загружается на сервер. Если изменились только непроизводственные файлы (README, proof), пересборка не нужна |
 | Состав principals, очередей или vhost брокера | Заново выпустить `definitions.json` образом нового выпуска ([Broker](production-release.md#broker), шаг 3) — сразу после шага 3 этого runbook и до шага 4 |
 
 

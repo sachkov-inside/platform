@@ -8,7 +8,6 @@ import { z } from "zod";
 
 import {
   ensureApplication,
-  ensureLearnerStandApplication,
   ensureEmailConnector,
   ensureResource,
   ensureSignInExperience,
@@ -131,10 +130,10 @@ test("identity proof dependencies and fork lineage are immutable", async () => {
   const versions = proofVersionsSchema.parse(JSON.parse(versionsSource));
   const webPackage = packageManifestSchema.parse(JSON.parse(packageSource));
 
-  assert.equal(versions.logto.version, "1.41.0");
+  assert.equal(versions.logto.version, "1.44.0");
   assert.match(versions.logto.digest, /^sha256:[0-9a-f]{64}$/u);
   assert.equal(versions.logto.upstreamRevision.length, 40);
-  assert.equal(versions.logto.forkRevision, "inside.6");
+  assert.equal(versions.logto.forkRevision, "inside.7");
   assert.match(dockerfile, new RegExp(versions.logto.digest, "u"));
   assert.match(dockerfile, new RegExp(versions.logto.upstreamRevision, "u"));
   assert.match(dockerfile, new RegExp(versions.logto.forkRevision, "u"));
@@ -152,6 +151,28 @@ test("identity proof dependencies and fork lineage are immutable", async () => {
   assert.match(standCompose, new RegExp(versions.mailpit.digest, "u"));
   assert.equal(webPackage.dependencies["@logto/next"], versions.logtoNext);
   assert.doesNotMatch(`${dockerfile}\n${compose}`, /(?:latest|npx\s)/u);
+  // Logto 1.42+ refuses to start on a database without the alterations of its version.
+  const [productionCompose, productionLogtoEnv] = await Promise.all([
+    readFile(new URL("infra/production/logto/compose.yaml", root), "utf8"),
+    readFile(
+      new URL("config/production/foundation/logto.env.example", root),
+      "utf8",
+    ),
+  ]);
+  for (const source of [compose, standCompose, productionCompose]) {
+    assert.match(
+      source,
+      new RegExp(
+        `npm run alteration deploy ${versions.logto.version.replaceAll(".", "\\.")}`,
+        "u",
+      ),
+    );
+  }
+  // Dynamic apps (CIMD) stay on only with full outbound SSRF protection.
+  assert.doesNotMatch(
+    `${compose}\n${standCompose}\n${productionCompose}\n${productionLogtoEnv}`,
+    /SSRF_(?:ALLOWED_ADDRESSES|PROTECTION_DISABLED)/u,
+  );
   assert.match(dockerfile, /issue-116-logto-proof\.patch/u);
   assert.match(dockerfile, /patch --fuzz=0/u);
   assert.match(dockerfile, /connectors\/connector-smtp[\s\S]+npm run build/u);
@@ -159,6 +180,12 @@ test("identity proof dependencies and fork lineage are immutable", async () => {
   assert.match(
     dockerfile,
     /jest --runInBand build\/sentinel\/message-rate-guard\.test\.js/u,
+  );
+  // A registered public MCP client gets the same offline-access consent as a dynamic app (#938).
+  assert.match(dockerfile, /issue-938-offline-access-consent\.patch/u);
+  assert.match(
+    dockerfile,
+    /build\/middleware\/koa-cimd-offline-access-consent-prompt\.test\.js/u,
   );
   assert.match(hardeningPatch, /pg_advisory_xact_lock/u);
   assert.match(
@@ -664,22 +691,6 @@ test("Management API bootstrap converges after partial state and a repeated run"
     state.connectors[0]?.["connectorId"],
     "simple-mail-transfer-protocol",
   );
-});
-
-test("local learner bootstrap repeats without secrets or duplicate Native clients", async () => {
-  /** @type {FakeManagementState} */
-  const state = { resources: [], applications: [], connectors: [] };
-  const api = managementApiFake(state);
-  const first = await ensureLearnerStandApplication(api);
-  const second = await ensureLearnerStandApplication(api);
-  assert.equal(first.id, second.id);
-  assert.equal(state.applications.length, 1);
-  assert.equal(at(state.applications[0], "type"), "Native");
-  assert.deepEqual(
-    at(state.applications[0], "oidcClientMetadata", "redirectUris"),
-    ["http://127.0.0.1:4387/callback"],
-  );
-  assert.equal(state.applications[0]?.["customClientMetadata"], undefined);
 });
 
 test("Management API bootstrap rejects malformed resource and application payloads", async () => {

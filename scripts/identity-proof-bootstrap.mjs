@@ -19,12 +19,8 @@ import { fileURLToPath, URLSearchParams } from "node:url";
 import { z } from "zod";
 
 import { checkDatabaseUrl } from "./check-database.mjs";
-import { ensureLearnerStandPermission } from "./learner-stand-permission.mjs";
+import { provisionLearnerAccess } from "../infra/production/logto/learner-access.mjs";
 import { readAccessTokenTtl } from "./identity-proof-access-token.mjs";
-import {
-  learnerStandProfile,
-  writeLearnerStandSetup,
-} from "./learner-stand-setup.mjs";
 import {
   readIdentityProofEndpoints,
   readIdentityProofPort,
@@ -50,7 +46,8 @@ const managementResource = "https://default.logto.app/api";
 const applicationName = "Inside Web";
 // Stand-only client for the loopback authoring gateway; production and proof tenants never get it.
 export const authoringStandApplicationName = "Inside Authoring Stand";
-export const learnerStandApplicationName = "Inside Learner Codex Stand";
+/** Учебный MCP стенда: тот же процесс MCP, что и в production, на локальном порту. */
+export const standLearnerMcpUrl = "http://127.0.0.1:3002/mcp/learning";
 const smtpConnectorId = "simple-mail-transfer-protocol";
 const platformAccessTokenTtlSeconds = readAccessTokenTtl();
 const mailpitPort = readIdentityProofPort(
@@ -127,28 +124,20 @@ async function main() {
   await ensureSignInPhrases(api);
   await ensureJwtCustomizer(api, telegramConnectorId);
   const applicationSecret = await readApplicationSecret(api, application.id);
-  await writeRuntimeEnvironment(application.id, applicationSecret);
+  // Учебный доступ стенда настраивает тот же модуль, что и production (#938).
+  const learner = onStand
+    ? await provisionLearnerAccess(api, { resource: standLearnerMcpUrl })
+    : undefined;
+  await writeRuntimeEnvironment(
+    application.id,
+    applicationSecret,
+    learner?.publicClientId,
+  );
   if (onStand) {
-    await ensureResource(api, learnerStandProfile.url);
-    await ensureLearnerStandPermission(api);
     const authoring = await ensureAuthoringStandApplication(api);
     await writeAuthoringStandEnvironment(
       authoring.id,
       await readApplicationSecret(api, authoring.id),
-    );
-    const learner = await ensureLearnerStandApplication(api);
-    await writeLearnerStandSetup(root, learner.id, learnerStandProfile.url);
-    await writeFile(
-      resolve(root, ".identity-proof/learner-stand.json"),
-      JSON.stringify(
-        {
-          clientId: learner.id,
-          resource: learnerStandProfile.url,
-          ...learnerStandProfile,
-        },
-        null,
-        2,
-      ),
     );
   }
   if (process.argv.includes("--email-smoke")) {
@@ -337,37 +326,6 @@ export async function ensureAuthoringStandApplication(api) {
         })
       : await api(`/applications/${current.id}`, { method: "PATCH", body }),
     "Logto authoring stand application response",
-  );
-}
-
-/** Public PKCE client: no client secret, author permission or token exchange.
- * @param {ManagementApi} api */
-export async function ensureLearnerStandApplication(api) {
-  const applications = parseManagementPayload(
-    z.array(applicationSchema),
-    await api("/applications"),
-    "Logto applications response",
-  );
-  const current = findSingle(
-    applications,
-    ({ name }) => name === learnerStandApplicationName,
-  );
-  const body = {
-    name: learnerStandApplicationName,
-    oidcClientMetadata: {
-      redirectUris: [learnerStandProfile.callbackUrl],
-      postLogoutRedirectUris: [],
-    },
-  };
-  return parseManagementPayload(
-    applicationSchema,
-    current === undefined
-      ? await api("/applications", {
-          method: "POST",
-          body: { ...body, type: "Native" },
-        })
-      : await api(`/applications/${current.id}`, { method: "PATCH", body }),
-    "Logto learner stand application response",
   );
 }
 
@@ -593,8 +551,13 @@ async function testEmailConnector(api) {
 /**
  * @param {string} applicationId
  * @param {string} applicationSecret
+ * @param {string | undefined} learnerClientId
  */
-async function writeRuntimeEnvironment(applicationId, applicationSecret) {
+async function writeRuntimeEnvironment(
+  applicationId,
+  applicationSecret,
+  learnerClientId,
+) {
   const envPath = resolve(root, ".identity-proof/platform.env");
   const current = await readFile(envPath, "utf8").catch(() => "");
   const existing = parseEnv(current);
@@ -633,6 +596,11 @@ async function writeRuntimeEnvironment(applicationId, applicationSecret) {
       ),
       // Корень стенда подписывает сертификат Logto; доверие ограничено этим файлом.
       NODE_EXTRA_CA_CERTS: "/identity-tls/certificate.pem",
+      // Reader и `/practice-review-setup.txt` показывают учебный MCP стенда и его клиента.
+      LEARNER_MCP_URL: standLearnerMcpUrl,
+      ...(learnerClientId === undefined
+        ? {}
+        : { LEARNER_MCP_CLIENT_ID: learnerClientId }),
     }),
   );
 }

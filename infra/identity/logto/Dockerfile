@@ -1,8 +1,8 @@
-FROM ghcr.io/logto-io/logto:1.41.0@sha256:7f79547e3d1fe569a3ecae757968a7cfc579687aa8164eec35113c0adc983c5b
+FROM ghcr.io/logto-io/logto:1.44.0@sha256:847cdd2759ad60f61b9733af0ea352183c805681dff5c9f8140a80f52d8e1340
 
 LABEL org.opencontainers.image.source="https://github.com/sachkov-inside/platform"
-LABEL org.opencontainers.image.version="1.41.0-inside.6"
-LABEL inside.logto.upstream-revision="91e55698a42f99438cd41ec2b16a1fc51dbdab8a"
+LABEL org.opencontainers.image.version="1.44.0-inside.7"
+LABEL inside.logto.upstream-revision="79e9e3b0d9f505260d09c80d8a015e56fbc0ec01"
 
 COPY fork/packages/experience/src/Layout/AppLayout/index.tsx packages/experience/src/Layout/AppLayout/index.tsx
 COPY fork/packages/experience/src/Layout/AppLayout/index.module.scss packages/experience/src/Layout/AppLayout/index.module.scss
@@ -10,10 +10,12 @@ COPY fork/packages/experience/src/containers/VerificationCode/use-sign-in-flow-c
 COPY fork/packages/experience/src/utils/sign-in-experience.ts packages/experience/src/utils/sign-in-experience.ts
 COPY patches/issue-116-logto-proof.patch /tmp/issue-116-logto-proof.patch
 COPY patches/issue-299-unified-sign-in.patch /tmp/issue-299-unified-sign-in.patch
+COPY patches/issue-938-offline-access-consent.patch /tmp/issue-938-offline-access-consent.patch
 
 RUN apk add --no-cache --virtual .inside-patch-tools patch \
   && patch --fuzz=0 -p1 < /tmp/issue-116-logto-proof.patch \
   && patch --fuzz=0 -p1 < /tmp/issue-299-unified-sign-in.patch \
+  && patch --fuzz=0 -p1 < /tmp/issue-938-offline-access-consent.patch \
   && apk del .inside-patch-tools \
   && cd packages/connectors/connector-smtp \
   && npm run check \
@@ -25,7 +27,7 @@ RUN apk add --no-cache --virtual .inside-patch-tools patch \
   && npm run check \
   && rm -rf build \
   && ./node_modules/.bin/tsc -p tsconfig.test.json \
-  && NODE_OPTIONS="--experimental-vm-modules --max_old_space_size=4096" ./node_modules/.bin/jest --runInBand build/sentinel/message-rate-guard.test.js \
+  && NODE_OPTIONS="--experimental-vm-modules --max_old_space_size=4096" ./node_modules/.bin/jest --runInBand build/sentinel/message-rate-guard.test.js build/middleware/koa-cimd-offline-access-consent-prompt.test.js \
   && sed -i '/onSuccess:/d' tsup.config.ts \
   && ./node_modules/.bin/tsup \
   && cd ../experience \

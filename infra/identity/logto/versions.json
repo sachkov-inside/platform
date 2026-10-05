@@ -1,10 +1,10 @@
 {
   "logto": {
-    "version": "1.41.0",
-    "image": "ghcr.io/logto-io/logto:1.41.0",
-    "digest": "sha256:7f79547e3d1fe569a3ecae757968a7cfc579687aa8164eec35113c0adc983c5b",
-    "upstreamRevision": "91e55698a42f99438cd41ec2b16a1fc51dbdab8a",
-    "forkRevision": "inside.6"
+    "version": "1.44.0",
+    "image": "ghcr.io/logto-io/logto:1.44.0",
+    "digest": "sha256:847cdd2759ad60f61b9733af0ea352183c805681dff5c9f8140a80f52d8e1340",
+    "upstreamRevision": "79e9e3b0d9f505260d09c80d8a015e56fbc0ec01",
+    "forkRevision": "inside.7"
   },
   "logtoNext": "4.2.11",
   "jose": "6.2.12",

@@ -38,15 +38,18 @@ Guide A — «AI Engineering» (`ai-engineering`). Его id и закрытые
 
 - **Браузер.** Проход выпускает Logto one-time token через Management API и запускает обычный вход
   Platform. К запросу авторизации, который выпустил BFF, он добавляет `one_time_token` и
-  `login_hint`. Logto `1.41.0-inside.6` проверяет токен своей страницей `/one-time-token`, и BFF
+  `login_hint`. Logto `1.44.0-inside.7` проверяет токен своей страницей `/one-time-token`, и BFF
   получает настоящую сессию `@logto/next`. Страница входа для людей не меняется.
 - **API и learner MCP.** Проход выпускает Personal Access Token identity на время прогона и
-  обменивает его на короткий токен Platform API (token exchange). После прогона PAT удаляется. Имя PAT
+  обменивает его на два коротких токена (token exchange): Platform API и учебного MCP со scope
+  `learning:read`. Scope даёт роль по умолчанию `Inside learner connection`, она есть у каждой
+  identity ([учебный доступ](learning-practice-review.md#universal-learner-access-938)). После
+  прогона PAT удаляется. Имя PAT
   начинается с `inside-production-access-`; истёкшие PAT прошлых прогонов проход удаляет перед
   выпуском нового. Публичный API ученика в production — learner MCP `/mcp/learning`: других
   публичных маршрутов к API для ученика нет
   ([таблица маршрутов](production-release.md#public-api-routes)). Поэтому клетки «через API»
-  проверяются через learner MCP. Тот же токен принимает владельческий MCP `/mcp`: через него
+  проверяются через learner MCP. Токен Platform API принимает владельческий MCP `/mcp`: через него
   Billing-only и Materials-only читают каталог тарифов. В BFF нет GET-маршрута Billing: страница
   `/authoring/billing` читает каталог на сервере и любой отказ показывает пустым списком, поэтому
   отказ на ней не отличить от пустого каталога.

@@ -40,14 +40,16 @@ export interface LogtoAccessTokenVerifier {
     | ({ readonly ok: true } & ReturnType<typeof verifiedAccountSignIn>)
     | ProofFailure
   >;
+  /** `resourceAudience` replaces the API audience for a transport that is its own resource. */
   verifyAccount(
     token: unknown,
-    additionalAudience?: string,
+    resourceAudience?: string,
   ): Promise<
     | {
         readonly ok: true;
         readonly identity: VerifiedAccountIdentity;
         readonly expiresAt: number;
+        readonly scopes: readonly string[];
       }
     | ProofFailure
   >;
@@ -101,20 +103,14 @@ export function createLogtoAccessTokenVerifier(
         }),
       };
     },
-    async verifyAccount(token, additionalAudience) {
-      let verified = await verifyToken(token, config, keyResolver);
-      // A transport may accept its own advertised resource, without widening API sign-in.
-      if (
-        !verified.ok &&
-        verified.error.code === "invalid_proof" &&
-        additionalAudience !== undefined
-      ) {
-        verified = await verifyToken(
-          token,
-          { ...config, audience: additionalAudience },
-          keyResolver,
-        );
-      }
+    async verifyAccount(token, resourceAudience) {
+      const verified = await verifyToken(
+        token,
+        resourceAudience === undefined
+          ? config
+          : { ...config, audience: resourceAudience },
+        keyResolver,
+      );
       if (!verified.ok || isMachineToken(verified.payload)) {
         return verified.ok ? invalidProof() : verified;
       }
@@ -125,6 +121,7 @@ export function createLogtoAccessTokenVerifier(
           subject: verified.payload.sub,
         }),
         expiresAt: verified.payload.exp,
+        scopes: tokenScopes(verified.payload),
       };
     },
   };
@@ -209,6 +206,13 @@ function createKeyResolver(config: LogtoVerifierConfig): JWTVerifyGetKey {
     cooldownDuration: REMOTE_JWKS_COOLDOWN_MS,
     cacheMaxAge: REMOTE_JWKS_CACHE_LIFETIME_MS,
   });
+}
+
+function tokenScopes(payload: ValidatedPayload): readonly string[] {
+  const scope = payload["scope"];
+  return typeof scope === "string"
+    ? scope.split(" ").filter((value) => value.length > 0)
+    : [];
 }
 
 function isMachineToken(payload: ValidatedPayload): boolean {

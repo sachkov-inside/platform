@@ -15,6 +15,8 @@ const localDefaults = {
   LOGTO_COOKIE_SECRET: "inside-local-logto-cookie-secret-key",
   WEB_BASE_URL: "http://127.0.0.1:3000",
 } as const;
+/** Local MCP process; production publishes the learner MCP next to the site (`/mcp/learning`). */
+const localLearnerMcpUrl = "http://127.0.0.1:3002/mcp/learning";
 
 const runtimeModeSchema = z.enum(["development", "test", "production"]);
 const identitySchema = z
@@ -39,6 +41,18 @@ const identitySchema = z
     baseUrl: httpUrlSchema("WEB_BASE_URL"),
   })
   .readonly();
+/** Адрес учебного MCP и запасной публичный client ID для агентов без CIMD (#938). */
+const learnerMcpSchema = z
+  .object({
+    url: httpUrlSchema("LEARNER_MCP_URL"),
+    publicClientId: z
+      .string()
+      .regex(/^[A-Za-z0-9_-]{1,64}$/u, {
+        message: "LEARNER_MCP_CLIENT_ID must be a Logto application id",
+      })
+      .optional(),
+  })
+  .readonly();
 const webRuntimeConfigSchema = z
   .object({
     mode: runtimeModeSchema,
@@ -46,6 +60,7 @@ const webRuntimeConfigSchema = z
       value.replace(/\/$/u, ""),
     ),
     identity: identitySchema,
+    learnerMcp: learnerMcpSchema,
     runtime: runtimeIdentitySchema,
   })
   .readonly();
@@ -58,6 +73,7 @@ export function parseWebRuntimeConfig(
   embeddedIdentity?: WebRuntimeConfig["runtime"],
 ): WebRuntimeConfig {
   const mode = parseMode(environment.NODE_ENV);
+  const learnerClientId = environment["LEARNER_MCP_CLIENT_ID"]?.trim();
   const config = webRuntimeConfigSchema.safeParse({
     mode,
     backendBaseUrl: readValue(environment, "BACKEND_BASE_URL", mode),
@@ -68,6 +84,12 @@ export function parseWebRuntimeConfig(
       appSecret: readValue(environment, "LOGTO_APP_SECRET", mode),
       cookieSecret: readValue(environment, "LOGTO_COOKIE_SECRET", mode),
       baseUrl: readValue(environment, "WEB_BASE_URL", mode),
+    },
+    learnerMcp: {
+      url: learnerMcpUrl(environment, mode),
+      ...(learnerClientId === undefined || learnerClientId.length === 0
+        ? {}
+        : { publicClientId: learnerClientId }),
     },
     runtime: resolveRuntimeIdentity({
       ...(embeddedIdentity === undefined ? {} : { embeddedIdentity }),
@@ -135,6 +157,19 @@ function readValue(
     return localDefaults[name];
   }
   throw new Error(`${name} is required in production mode`);
+}
+
+function learnerMcpUrl(
+  environment: NodeJS.ProcessEnv,
+  mode: WebRuntimeMode,
+): string | undefined {
+  const value = environment["LEARNER_MCP_URL"]?.trim();
+  if (value !== undefined && value.length > 0) return value;
+  if (mode !== "production") return localLearnerMcpUrl;
+  const baseUrl = environment["WEB_BASE_URL"]?.trim();
+  return URL.canParse(baseUrl ?? "")
+    ? new URL("/mcp/learning", baseUrl).href
+    : undefined;
 }
 
 function httpUrlSchema(name: string) {

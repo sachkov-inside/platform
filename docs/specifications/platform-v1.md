@@ -960,6 +960,17 @@ not transport or system instructions. This capability delivers materials, not as
 progress or a server-side model. Protocol/local token verification is separate from an actual
 Codex/Claude client onboarding or production release.
 
+The learning surface follows MCP Authorization for a resource server
+([#938](https://github.com/sachkov-inside/platform/issues/938)). It accepts only an access token
+whose single audience is its own advertised resource and whose `scope` contains `learning:read`;
+an API-audience token is rejected. Its protected resource metadata lists
+`scopes_supported: ["learning:read"]`. A request without credentials receives `401` with
+`resource_metadata` and `scope` and no error code; an invalid token receives `error="invalid_token"`
+and a token without the scope `403 insufficient_scope`. Every Account holds `learning:read` through
+the default Logto role, so the scope grants transport only: ContentAccess still decides each read.
+A client registers through a Client ID Metadata Document (CIMD) or uses the public fallback client;
+Reader and `/practice-review-setup.txt` show the configured address and that client ID.
+
 The following bullets describe the **authoring** surface:
 
 - MCP аутентифицируется user-delegated OAuth token существующего Account. Materials operations

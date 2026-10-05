@@ -1,6 +1,7 @@
 --- a/packages/experience/src/pages/SignIn/index.tsx
 +++ b/packages/experience/src/pages/SignIn/index.tsx
-@@ -31,8 +31,6 @@
+@@ -30,9 +30,7 @@ const SignInFooters = () => {
+ 
    const {
      signInMethods,
 -    signUpMethods,
@@ -9,12 +10,10 @@
      singleSignOnEnabled,
      passkeySignIn,
    } = useSieMethods();
-@@ -76,15 +74,6 @@
-                 )
-             }
+@@ -78,15 +76,6 @@ const SignInFooters = () => {
            </>
--        )
--      }
+         )
+       }
 -      {
 -        // Create Account footer
 -        signInMode === SignInMode.SignInAndRegister && signUpMethods.length > 0 && (
@@ -22,6 +21,8 @@
 -            {t('description.no_account')}{' '}
 -            <TextLink replace to="/register" text="action.create_account" />
 -          </div>
-         )
-       }
+-        )
+-      }
        {
+         // Social sign-in methods
+         signInMethods.length > 0 && socialConnectors.length > 0 && (

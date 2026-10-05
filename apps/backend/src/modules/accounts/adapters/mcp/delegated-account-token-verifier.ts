@@ -10,13 +10,13 @@ import type { LogtoAccessTokenVerifier } from "../../infrastructure/idp/logto/lo
 export function assembleDelegatedAccountTokenVerifier(dependencies: {
   readonly accounts: Pick<Accounts, "resolveAccount">;
   readonly tokenVerifier: Pick<LogtoAccessTokenVerifier, "verifyAccount">;
-  readonly additionalAudience?: string;
+  readonly resourceAudience?: string;
 }): OAuthTokenVerifier {
   const verifier: OAuthTokenVerifier = {
     async verifyAccessToken(token: string) {
       const proof = await dependencies.tokenVerifier.verifyAccount(
         token,
-        dependencies.additionalAudience,
+        dependencies.resourceAudience,
       );
       if (!proof.ok) {
         throw proof.error.code === "invalid_proof"
@@ -36,7 +36,7 @@ export function assembleDelegatedAccountTokenVerifier(dependencies: {
       return {
         token,
         clientId: "inside-platform-user-delegation",
-        scopes: [],
+        scopes: [...proof.scopes],
         expiresAt: proof.expiresAt,
         extra: { accountId: account.account.accountId },
       };

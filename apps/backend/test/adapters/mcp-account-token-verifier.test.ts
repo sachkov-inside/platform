@@ -10,11 +10,16 @@ const identity = verifiedAccountIdentity({
 });
 
 describe("MCP delegated Account token verifier", () => {
-  test("keeps provider scopes out and carries only the resolved Account context", async () => {
+  test("carries the token scopes for the resource check and only the resolved Account context", async () => {
     const verifier = assembleDelegatedAccountTokenVerifier({
       tokenVerifier: {
         verifyAccount: () =>
-          Promise.resolve({ ok: true, identity, expiresAt: 2_000_000_000 }),
+          Promise.resolve({
+            ok: true,
+            identity,
+            expiresAt: 2_000_000_000,
+            scopes: ["learning:read"],
+          }),
       },
       accounts: {
         resolveAccount: () =>
@@ -30,7 +35,7 @@ describe("MCP delegated Account token verifier", () => {
     ).resolves.toEqual({
       token: "delegated-token",
       clientId: "inside-platform-user-delegation",
-      scopes: [],
+      scopes: ["learning:read"],
       expiresAt: 2_000_000_000,
       extra: { accountId: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa" },
     });
@@ -73,7 +78,12 @@ describe("MCP delegated Account token verifier", () => {
     const verifier = assembleDelegatedAccountTokenVerifier({
       tokenVerifier: {
         verifyAccount: () =>
-          Promise.resolve({ ok: true, identity, expiresAt: 2_000_000_000 }),
+          Promise.resolve({
+            ok: true,
+            identity,
+            expiresAt: 2_000_000_000,
+            scopes: [],
+          }),
       },
       accounts: {
         resolveAccount: () =>

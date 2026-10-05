@@ -16,6 +16,7 @@ const config: WebRuntimeConfig = {
     cookieSecret: "test-cookie-secret-at-least-32-characters",
     endpoint: "https://identity.example.test",
   },
+  learnerMcp: { url: "https://inside.example.test/mcp/learning" },
   mode: "test",
   runtime: { release: "v7", sourceSha: "7".repeat(40) },
 };

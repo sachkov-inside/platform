@@ -236,7 +236,12 @@ describe("scoped learner access over the learner MCP transport", () => {
         }).identity,
       });
     if (!established.ok) throw new Error("Learner Account fixture failed");
-    const token = await identity.sign(subject);
+    const token = await identity.sign(
+      subject,
+      { scope: "openid offline_access learning:read" },
+      // Учебный MCP принимает только токен своего ресурса, адрес из конфигурации сервера.
+      "http://127.0.0.1:0/mcp/learning",
+    );
     const learner = new Client({ name: "scoped-learner", version: "1" });
     clients.push(learner);
     await learner.connect(

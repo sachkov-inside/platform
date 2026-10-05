@@ -36,6 +36,9 @@ import {
   type LearnerMcpDependencies,
 } from "../../modules/content-library/index.js";
 
+/** Every Inside account holds these through the default Logto role. */
+const LEARNING_SCOPES = ["learning:read"];
+
 export interface McpHttpServer {
   listen(): Promise<URL>;
   close(): Promise<void>;
@@ -86,8 +89,9 @@ export function createMcpHttpServer(dependencies: {
   const authenticateLearning = requireBearerAuth({
     verifier: assembleDelegatedAccountTokenVerifier({
       ...dependencies,
-      additionalAudience: resourceUrlFromServerUrl(learningUrl).href,
+      resourceAudience: resourceUrlFromServerUrl(learningUrl).href,
     }),
+    requiredScopes: LEARNING_SCOPES,
     resourceMetadataUrl: learningMetadataUrl,
   });
   const learningHandler = createMcpHandler(
@@ -102,6 +106,7 @@ export function createMcpHttpServer(dependencies: {
     resource: resourceUrlFromServerUrl(learningUrl).href,
     authorization_servers: [dependencies.identityIssuer],
     bearer_methods_supported: ["header"],
+    scopes_supported: LEARNING_SCOPES,
     resource_name: "Sachkov Inside learning materials",
   };
   const fetchHandler = {
@@ -124,7 +129,9 @@ export function createMcpHttpServer(dependencies: {
         return resourceMetadataResponse(request, learningMetadata);
       }
       if (url.pathname === learningUrl.pathname) {
-        const auth = await authenticateLearning(request);
+        const auth = request.headers.has("authorization")
+          ? await authenticateLearning(request)
+          : signInChallenge(learningMetadataUrl, LEARNING_SCOPES);
         const response =
           auth instanceof Response
             ? auth
@@ -215,6 +222,22 @@ async function healthResponse(
       },
     );
   }
+}
+
+/**
+ * A request without credentials is not an error (RFC 6750, section 3.1): the challenge only names
+ * where to sign in and with which scope (MCP Authorization, scope selection).
+ */
+function signInChallenge(
+  resourceMetadataUrl: string,
+  scopes: readonly string[],
+): Response {
+  return new Response(null, {
+    status: 401,
+    headers: {
+      "www-authenticate": `Bearer resource_metadata="${resourceMetadataUrl}", scope="${scopes.join(" ")}"`,
+    },
+  });
 }
 
 function authenticatedAccountId(

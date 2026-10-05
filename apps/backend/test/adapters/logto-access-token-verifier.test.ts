@@ -242,11 +242,18 @@ describe("Logto access token verifier", () => {
 
   test("learner resource tokens do not become API sign-in or accept arbitrary audiences", async () => {
     const learner = "https://api.inside.example.test/mcp/learning";
-    const token = await signToken({}, { audience: learner });
+    const token = await signToken(
+      { scope: "openid offline_access learning:read" },
+      { audience: learner },
+    );
     const verifier = localVerifier(publicJwk);
     await expect(verifier.verifyAccount(token, learner)).resolves.toMatchObject(
-      { ok: true },
+      { ok: true, scopes: ["openid", "offline_access", "learning:read"] },
     );
+    // A resource verifies only its own audience: an API token is not a learner token.
+    await expect(
+      verifier.verifyAccount(await signToken(), learner),
+    ).resolves.toMatchObject({ ok: false, error: { code: "invalid_proof" } });
     await expect(verifier.verifyAccount(token)).resolves.toMatchObject({
       ok: false,
     });
