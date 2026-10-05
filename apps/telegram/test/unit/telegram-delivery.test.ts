@@ -28,6 +28,21 @@ function plan(input: unknown) {
 }
 
 describe("Telegram delivery across the repository transition", () => {
+  it("preserves the exact legacy v5 migration identity and 31 files", () => {
+    const result = spawnSync(
+      process.execPath,
+      ["scripts/release-contract.mjs", "migrations-identity"],
+      { encoding: "utf8" },
+    );
+    expect(result.status, result.stderr).toBe(0);
+    expect(JSON.parse(result.stdout)).toEqual({
+      identity:
+        "sha256:f91e56479cfcae72f9596dc508c776c5c06e156f16d747e4e91d956931ca533d",
+      count: 31,
+      latest: "030-invitation-redemptions.ts",
+    });
+  });
+
   it("continues legacy v1..v5 as telegram-v6 while ignoring platform vN", () => {
     const result = plan(planInput);
     expect(result.status, result.stderr).toBe(0);

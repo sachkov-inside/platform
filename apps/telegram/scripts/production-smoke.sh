@@ -12,6 +12,9 @@ candidate="$project:candidate"
 fixture="$(mktemp -d "${TMPDIR:-/tmp}/telegram-runtime-smoke.XXXXXX")"
 compose_file="$repository_root/apps/telegram/infra/production/compose.yaml"
 source_sha="$(git rev-parse HEAD)"
+image_built=false
+network_created=false
+database_created=false
 cleanup() {
   local status=$? cleanup_status=0
   trap - EXIT
@@ -19,10 +22,16 @@ cleanup() {
     TELEGRAM_IMAGE="$candidate" docker compose --project-name "$project" \
       --env-file "$fixture/compose.env" -f "$compose_file" down --volumes --remove-orphans || cleanup_status=1
   fi
-  docker container rm --force --volumes "$database" >/dev/null 2>&1 || true
-  docker network rm "$network" >/dev/null 2>&1 || true
-  docker image rm "$candidate" >/dev/null 2>&1 || true
-  rm -r "$fixture"
+  if [[ "$database_created" == true ]]; then
+    docker container rm --force --volumes "$database" >/dev/null || cleanup_status=1
+  fi
+  if [[ "$network_created" == true ]]; then
+    docker network rm "$network" >/dev/null || cleanup_status=1
+  fi
+  if [[ "$image_built" == true ]]; then
+    docker image rm "$candidate" >/dev/null || cleanup_status=1
+  fi
+  rm -r "$fixture" || cleanup_status=1
   if [[ "$status" -ne 0 ]]; then exit "$status"; fi
   exit "$cleanup_status"
 }
@@ -44,7 +53,9 @@ identity="$(node apps/telegram/scripts/release-contract.mjs migrations-identity 
 [[ "$identity" == "$(jq --raw-output .migrations.identity "$fixture/release-manifest.json")" ]]
 docker build --file apps/telegram/infra/production/Dockerfile \
   --build-arg SOURCE_COMMIT="$source_sha" --tag "$candidate" .
+image_built=true
 docker pull "$legacy_image"
+[[ "$(docker image inspect "$legacy_image" --format '{{index .Config.Labels "org.opencontainers.image.revision"}}')" == "$(jq --raw-output .source.sha "$fixture/release-manifest.json")" ]]
 [[ "$(docker image inspect "$candidate" --format '{{index .Config.Labels "org.opencontainers.image.revision"}}')" == "$source_sha" ]]
 
 # The app has no live provider configuration and no workers; only loopback readiness/auth are called.
@@ -79,9 +90,11 @@ TELEGRAM_DATABASE_NETWORK=$network
 TELEGRAM_LOOPBACK_PORT=0
 ENV
 docker network create "$network" >/dev/null
+network_created=true
 docker run --detach --name "$database" --network "$network" --network-alias postgres \
   --env POSTGRES_DB=inside_telegram --env POSTGRES_USER=telegram_checks \
   --env POSTGRES_PASSWORD=telegram_checks postgres:18.4-alpine >/dev/null
+database_created=true
 ready=false
 for ((attempt=1; attempt<=40; attempt+=1)); do
   if docker exec "$database" pg_isready -U telegram_checks -d inside_telegram >/dev/null 2>&1; then ready=true; break; fi
@@ -103,8 +116,12 @@ assert_ready() {
   [[ "${binding%:*}" == 127.0.0.1 ]]
   port="${binding##*:}"
   curl --fail --silent --show-error "http://127.0.0.1:$port/ready" >"$fixture/readiness.json"
-  [[ "$(curl --silent --output /dev/null --write-out '%{http_code}' --request POST \
-    "http://127.0.0.1:$port/integrations/platform/v1/identity-links")" == 401 ]]
+  jq --exit-status '. == {status: "ready"}' "$fixture/readiness.json" >/dev/null
+  local auth_status
+  auth_status="$(curl --silent --show-error --output "$fixture/auth.json" --write-out '%{http_code}' --request POST \
+    "http://127.0.0.1:$port/integrations/platform/v1/identity-links")"
+  [[ "$auth_status" == 401 ]]
+  jq --exit-status '.statusCode == 401 and .message == "Unauthorized"' "$fixture/auth.json" >/dev/null
   local container actual_id expected_id
   container="$(compose ps --quiet app)"
   actual_id="$(docker inspect "$container" --format '{{.Image}}')"

@@ -1,6 +1,6 @@
 # Репозитории Inside: этап независимого выпуска Telegram
 
-Карта отражает этап [platform#960](https://github.com/sachkov-inside/platform/issues/959)
+Карта отражает этап [platform#960](https://github.com/sachkov-inside/platform/issues/960)
 согласованного переезда [platform#957](https://github.com/sachkov-inside/platform/issues/957).
 Решение и границы перехода записаны в [ADR 0031](docs/adr/0031-inside-product-monorepo.md).
 
