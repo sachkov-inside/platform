@@ -41,6 +41,14 @@ export class ContentLibraryService {
       materialIds: Array<string>;
       name: string;
       summary: string;
+      tasks: Array<{
+        access: 'free' | 'membership';
+        afterMaterialId: string | null;
+        availability: 'available' | 'locked' | 'unavailable';
+        code: string;
+        lastSubmittedAt: string | null;
+        title: string;
+      }>;
     }>;
     hasNext: boolean;
     items: Array<{
@@ -917,6 +925,14 @@ export class ContentLibraryService {
       materialIds: Array<string>;
       name: string;
       summary: string;
+      tasks: Array<{
+        access: 'free' | 'membership';
+        afterMaterialId: string | null;
+        availability: 'available' | 'locked' | 'unavailable';
+        code: string;
+        lastSubmittedAt: string | null;
+        title: string;
+      }>;
     }>;
     hasNext: boolean;
     items: Array<{
@@ -1105,6 +1121,14 @@ export class ContentLibraryService {
       materialIds: Array<string>;
       name: string;
       summary: string;
+      tasks: Array<{
+        access: 'free' | 'membership';
+        afterMaterialId: string | null;
+        availability: 'available' | 'locked' | 'unavailable';
+        code: string;
+        lastSubmittedAt: string | null;
+        title: string;
+      }>;
     }>;
     hasNext: boolean;
     items: Array<{
@@ -1292,6 +1316,14 @@ export class ContentLibraryService {
       materialIds: Array<string>;
       name: string;
       summary: string;
+      tasks: Array<{
+        access: 'free' | 'membership';
+        afterMaterialId: string | null;
+        availability: 'available' | 'locked' | 'unavailable';
+        code: string;
+        lastSubmittedAt: string | null;
+        title: string;
+      }>;
     }>;
     hasNext: boolean;
     items: Array<{

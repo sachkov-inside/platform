@@ -202,10 +202,7 @@ test("a fresh tenant gives every account the learning scope through any MCP clie
   const [created] = logto.state.resources;
   assert.equal(created?.["indicator"], resource);
   assert.equal(created?.["accessTokenTtl"], 300);
-  assert.deepEqual(logto.state.cimd, {
-    enabled: true,
-    addConsentPromptForOfflineAccess: true,
-  });
+  assert.equal(logto.state.cimd["enabled"], false);
   const role = logto.state.roles.find(
     ({ name }) => name === learnerAccessSettings.roleName,
   );
@@ -251,7 +248,9 @@ test("production adopts the author-pass role and client and repeats without writ
     roleScopes: [["author", "read"]],
     users: [{ id: "owner" }, { id: "learner" }],
     userRoles: [["owner", "author"]],
-    cimdResourceScopes: ["foreign-scope"],
+    // Production after the first release: CIMD on with the learning scope and a stray one.
+    cimd: { enabled: true, addConsentPromptForOfflineAccess: true },
+    cimdResourceScopes: ["read", "foreign-scope"],
     applications: [
       {
         id: "o92nmcpzb2te8z4loi82d",

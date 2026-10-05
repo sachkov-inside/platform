@@ -24,6 +24,8 @@ export function refusingLearnerMcpDependencies(): LearnerMcpDependencies {
       read: refuse,
       submit: refuse,
       submissions: refuse,
+      page: refuse,
+      chapterTasks: refuse,
     },
     contentAccess: {
       checkAvailabilityMany: () => Promise.resolve({ ok: true, items: [] }),

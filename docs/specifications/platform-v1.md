@@ -434,6 +434,10 @@ importer, not an implemented automatic import or publication flow.
 получает независимые главы. Плоский Guide без глав остаётся допустимым, как и материалы без главы
 внутри Guide с главами. Пустая глава допустима и остаётся видимой.
 
+В главе могут стоять задания (Guide Task). Они не входят в основной маршрут: программа показывает
+каждое после названного автором материала той же главы или в начале главы, без номера урока
+([Guide Task page and programme](#guide-task-page-and-programme-947)).
+
 Материалы одной главы занимают один непрерывный участок основного маршрута, а главы, в которых
 есть материалы, следуют объявленному порядку глав. Нарушение возвращает `invalid_reference` с
 кодами `guide_chapter_not_continuous` или `guide_chapter_out_of_order`; ссылка на неизвестную главу
@@ -968,10 +972,13 @@ an API-audience token is rejected. Its protected resource metadata lists
 `resource_metadata` and `scope` and no error code; an invalid token receives `error="invalid_token"`
 and a token without the scope `403 insufficient_scope`. Every Account holds `learning:read` through
 the default Logto role, so the scope grants transport only: ContentAccess still decides each read.
-Any URL can act as a CIMD client, so the Platform API, sign-in and authoring MCP reject a token whose
-`client_id` is a URL; only the learning surface accepts it.
-A client registers through a Client ID Metadata Document (CIMD) or uses the public fallback client;
-Reader and `/practice-review-setup.txt` show the configured address and that client ID.
+Every agent uses one pre-registered public client (MCP Authorization pre-registration). Dynamic apps
+(Client ID Metadata Documents) stay off: Logto would fetch each agent's document from its maker's
+site, and those sites are closed to the server's region (owner decision of 05.10.2026); Dynamic
+Client Registration is deprecated in MCP and not offered. The Platform API, sign-in and authoring
+MCP also reject a token whose `client_id` is a URL. Reader gives the learner one copyable request
+that lets the agent add the server itself; `/practice-review-setup.txt` holds the configured address,
+the client ID and a ready command for Codex, Claude Code and OpenCode.
 
 The following bullets describe the **authoring** surface:
 
@@ -1281,4 +1288,38 @@ per code and compare-and-set on `expectedRevision` (`null` only for creation). I
 or archived Guide, a chapter outside it and an unknown related Material. A changed definition digest
 creates Task Version N+1; title, access, chapter, order, related Materials and publication advance
 only the revision; an unchanged state writes nothing. The code is immutable and unique, and its
-source ID must name it.
+source ID must name it. The optional `afterMaterialSourceId` (#947) names the Material of the same
+chapter right after which the programme shows the task; `null` or its absence puts the task at the
+start of the chapter, and a Material outside the chapter answers `after_material_not_in_chapter`.
+Moving the task advances only the revision.
+
+#### Guide Task page and programme (#947)
+
+Source: [Platform #947](https://github.com/sachkov-inside/platform/issues/947); the owner accepted
+the look by prototype on 05.10.2026: the page is variant A «Документ», the programme places tasks
+in author order (variant 2).
+
+- `/products/<guide-slug>/tasks/<code>` reads the session before rendering and is never cached. An
+  open task shows «Ситуация», «Результат», «Обязательно» and «Дополнительно» as separate lists,
+  «Свобода», «Сдача» and «Мои сдачи», then the related Materials. «Сдача» shows the learning MCP
+  address, the phrase with the task code and procedure v3, the same text MCP returns, with the
+  fallback form folded below. A task the reader cannot open shows only its title and chapter and
+  leads to the programme; an unknown code, a code of another Guide and a withdrawn task answer 404.
+- `GET /library/guides/{slug}/tasks/{code}` (`readGuideTaskPage`, optional Account) answers
+  `access: open` with the current Task Version, procedure, related Materials and
+  `submission.accepting`, or `access: closed` with the code, title, Guide and chapter only; it
+  answers `task_not_found` for the 404 cases.
+- `GET /accounts/current/guide-tasks/{code}/submissions` (`listOwnTaskSubmissions`) lists the
+  Account's own submissions with source, version, note, text report, repository and Author
+  Feedback, and the criteria of every version they refer to.
+- `POST /accounts/current/guide-tasks/{code}/submissions` (`submitGuideTaskForm`) takes
+  `taskVersion`, `submissionKey`, `note` (1–1000 characters), optional `repositoryUrl` and
+  optional `reportText` (up to 20 000 characters) and records a `form` submission. The learner never
+  sends a branch or a commit. It obeys the same `GUIDE_TASK_SUBMISSIONS_ENABLED` setting and
+  answers `submissions_disabled`, `task_version_changed`, `submission_rate_limited` and
+  `idempotency_conflict` like the MCP tool. The browser reaches it through
+  `POST /api/guide-tasks/submissions`.
+- The Guide programme read (`readPublishedGuide`) carries `chapters[].tasks[]`: code, title,
+  access, `afterMaterialId`, the viewer's availability and the viewer's latest submission time.
+  The programme draws each task after its Material or at the start of its chapter with
+  «Сдано <дата>»; Material ordinals, batching and Guide Progress stay Materials only.

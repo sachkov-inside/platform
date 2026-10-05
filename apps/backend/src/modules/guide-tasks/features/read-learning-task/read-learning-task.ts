@@ -1,4 +1,3 @@
-import { randomUUID } from "node:crypto";
 import { z } from "zod";
 
 import {
@@ -9,13 +8,13 @@ import {
   contentSha256,
   contextPart,
 } from "../../../../infrastructure/contracts/context-parts.js";
-import { materialId } from "../../../../infrastructure/contracts/material-id.js";
 import { dependencyFailure } from "../../../../infrastructure/observability/index.js";
 import type { Subject } from "../../../content-access/index.js";
 import { taskReviewProtocol } from "../../domain/review-protocol.js";
 import {
   decideTaskAccess,
   findCurrentTask,
+  readRelatedMaterials,
   type CurrentTask,
   type LearningTaskDependencies,
 } from "../../shared/learning-task-dependencies.js";
@@ -184,49 +183,6 @@ export async function readLearningTask(
       systemFailure(error),
     );
   }
-}
-
-/** Published related Materials in authored order with the subject's availability. */
-async function readRelatedMaterials(
-  dependencies: LearningTaskDependencies,
-  subject: Subject,
-  sourceIds: readonly string[],
-) {
-  const found = new Map(
-    (await dependencies.directory.materialsBySource(sourceIds)).map((item) => [
-      item.sourceId,
-      item,
-    ]),
-  );
-  const published = sourceIds.flatMap((sourceId) => {
-    const material = found.get(sourceId);
-    return material?.published === null || material === undefined
-      ? []
-      : [{ materialId: material.materialId, ...material.published }];
-  });
-  if (published.length === 0) return [];
-  const availability = await dependencies.contentAccess.checkAvailabilityMany({
-    subject,
-    operations: published.map((material) => ({
-      itemId: material.materialId,
-      resource: {
-        kind: "material" as const,
-        materialId: materialId(material.materialId),
-      },
-      action: "read" as const,
-    })),
-    enforcementPoint: "guide_task_read",
-    correlationId: randomUUID(),
-  });
-  if (!availability.ok) throw new Error(availability.error.code);
-  const byId = new Map(
-    availability.items.map((item) => [item.itemId, item.availability]),
-  );
-  return published.map((material) => ({
-    slug: material.slug,
-    title: material.title,
-    availability: byId.get(material.materialId) ?? "unavailable",
-  }));
 }
 
 function failure<Error extends ReadLearningTaskError>(error: Error) {

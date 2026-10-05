@@ -1,5 +1,10 @@
 import type { Route } from "next";
 
+import {
+  GuideTaskRow,
+  placeChapterTasks,
+  type GuideChapterTask,
+} from "@/entities/guide-task";
 import { MaterialCard, type MaterialPreview } from "@/entities/material";
 import {
   ReaderGuideArtifacts,
@@ -13,7 +18,9 @@ import {
 import { SeriesMaterialMarker } from "@/features/reading-progress";
 import { guideChapterRuns } from "@/shared/lib/guide-chapter-runs";
 import { seriesReaderReturnHref } from "@/shared/routing/material-reader";
+import { guideTaskHref } from "@/shared/routing/subscription-route";
 
+import { formatTaskCount } from "./guide-counts";
 import { SERIES_BATCH_SIZE } from "./series-batch";
 import {
   SeriesJourneyControls,
@@ -45,6 +52,8 @@ export function SeriesJourney({
 }) {
   const items = result.kind === "ready" ? result.items : [];
   const chapterOf = chapterLookup(result.chapters);
+  // A chapter split into several runs shows its opening tasks once, before its first run.
+  const ledChapters = new Set<string>();
   // An artifact part exists only for a Guide the catalog resolved by id, so the
   // download address it builds is never a guess.
   const guideId = result.reference.id;
@@ -90,7 +99,7 @@ export function SeriesJourney({
         label,
         ...(shortLabel === undefined ? {} : { shortLabel }),
         runs: guideChapterRuns(partItems, chapters, chapterOf).map((run) =>
-          journeyRun(run, { accessPending, currentHref, result }),
+          journeyRun(run, { accessPending, currentHref, ledChapters, result }),
         ),
       }),
     ),
@@ -148,13 +157,36 @@ function journeyRun(
   {
     accessPending,
     currentHref,
+    ledChapters,
     result,
   }: {
     readonly accessPending: boolean;
     readonly currentHref: Route;
+    readonly ledChapters: Set<string>;
     readonly result: SeriesResult;
   },
 ): JourneyRun {
+  const tasks = run.chapter?.tasks ?? [];
+  const placed = placeChapterTasks(tasks, run.chapter?.materialIds ?? []);
+  const taskList = (items: readonly GuideChapterTask[], label: string) =>
+    items.length === 0 ? undefined : (
+      <ul aria-label={label} className="mt-2 grid gap-2" data-programme-tasks>
+        {items.map((task) => (
+          <li className="@container/series-entry min-w-0" key={task.code}>
+            <GuideTaskRow
+              accessPending={accessPending}
+              href={guideTaskHref(result.reference.slug, task.code)}
+              task={task}
+            />
+          </li>
+        ))}
+      </ul>
+    );
+  const leading =
+    run.chapter === null || ledChapters.has(run.chapter.id)
+      ? undefined
+      : taskList(placed.leading, `Задания главы «${run.chapter.name}»`);
+  if (run.chapter !== null) ledChapters.add(run.chapter.id);
   return {
     chapter:
       run.chapter === null
@@ -169,16 +201,25 @@ function journeyRun(
                   >
                     {run.chapter.name}
                   </h3>
-                  {run.chapter.materialIds.length > 0 ? (
+                  {run.chapter.materialIds.length > 0 || tasks.length > 0 ? (
                     <span className="text-xs tabular-nums text-muted-foreground">
-                      {formatMaterialCount(run.chapter.materialIds.length)}
+                      {[
+                        run.chapter.materialIds.length > 0
+                          ? formatMaterialCount(run.chapter.materialIds.length)
+                          : undefined,
+                        tasks.length > 0
+                          ? formatTaskCount(tasks.length)
+                          : undefined,
+                      ]
+                        .filter((part) => part !== undefined)
+                        .join(" · ")}
                     </span>
                   ) : null}
                 </div>
                 {/* Глава без уроков остаётся частью программы: описание объясняет, что в ней
                     будет, а пометка — что уроки ещё не вышли. С первым уроком глава становится
                     обычной и её можно проходить. */}
-                {run.items.length === 0 ? (
+                {run.items.length === 0 && tasks.length === 0 ? (
                   <div className="programme-chapter-preview">
                     {run.chapter.summary === "" ? null : (
                       <p className="whitespace-pre-line text-sm leading-6 text-muted-foreground [overflow-wrap:anywhere]">
@@ -195,6 +236,7 @@ function journeyRun(
             id: run.chapter.id,
             name: run.chapter.name,
           },
+    ...(leading === undefined ? {} : { leading }),
     offset: run.offset,
     rows: run.items.map((material, index) => {
       // Splitting the route into parts renumbers each part; a flat Guide keeps its stored order.
@@ -209,7 +251,15 @@ function journeyRun(
         Math.floor((run.offset + index) / SERIES_BATCH_SIZE) + 1,
         material.slug,
       );
+      const after =
+        material.materialId === undefined
+          ? undefined
+          : taskList(
+              placed.after.get(material.materialId) ?? [],
+              `Задания после урока «${material.title}»`,
+            );
       return {
+        ...(after === undefined ? {} : { after }),
         available: material.availability === "available",
         card: (
           <MaterialCard

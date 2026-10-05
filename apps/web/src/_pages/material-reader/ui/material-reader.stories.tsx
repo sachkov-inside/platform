@@ -447,7 +447,11 @@ const guideModeReturnTarget = parseMaterialReaderReturnTarget(
 
 /** Ни одного задания у урока: так выглядит большинство уроков, блок практики не рисуется. */
 const noPractices = { kind: "available", practices: [] } as const;
-const learnerMcp = { url: "https://inside.example.test/mcp/learning" };
+const learnerMcp = {
+  url: "https://inside.example.test/mcp/learning",
+  publicClientId: "o92nmcpzb2te8z4loi82d",
+  setupUrl: "https://inside.example.test/practice-review-setup.txt",
+};
 
 /**
  * Действия под уроком, которые маршрут передаёт всегда: отметка о прочтении, закладка и проверка

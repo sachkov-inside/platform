@@ -13,6 +13,16 @@ export interface DiscoverPublishedMaterialsQuery {
   readonly subject: Subject;
 }
 
+export interface GuideChapterTaskDto {
+  readonly code: string;
+  readonly title: string;
+  readonly access: "free" | "membership";
+  readonly afterMaterialId: string | null;
+  readonly availability: "available" | "locked" | "unavailable";
+  /** The viewer's own latest submission; `null` for a guest. */
+  readonly lastSubmittedAt: string | null;
+}
+
 export interface PublishedMaterialDiscoveryDto {
   /** Chapters of a Guide's main path, in author order; empty for every other discovery kind. */
   readonly chapters: readonly {
@@ -21,6 +31,11 @@ export interface PublishedMaterialDiscoveryDto {
     readonly name: string;
     /** Авторское описание главы: на странице продукта оно объясняет, что внутри. */
     readonly summary: string;
+    /**
+     * Published Guide Tasks of the chapter in author order (#947). Each stands after the Material
+     * it names, or at the start of the chapter; the main path and its ordinals stay Materials only.
+     */
+    readonly tasks: readonly GuideChapterTaskDto[];
   }[];
   readonly hasNext: boolean;
   readonly items: readonly PublishedMaterialCatalogItemDto[];

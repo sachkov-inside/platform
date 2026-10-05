@@ -2,8 +2,10 @@
 // Learner MCP access in Logto (#938): one owner for the local stand and production.
 //
 // Every Inside account reads learning materials through any MCP client: a default role carries
-// `learning:read`, dynamic apps (CIMD) may request it, and a public Native client serves clients
-// without CIMD. ContentAccess still decides which lessons an account may read.
+// `learning:read`, and one pre-registered public Native client serves every agent. Dynamic apps
+// (CIMD) stay off: Logto would fetch each agent's document from its maker's site, and those sites
+// are closed to the region of the server (owner decision of 05.10.2026). ContentAccess still decides
+// which lessons an account may read.
 //
 // Production runs this file inside the Logto container, so it has no dependencies. The secret of
 // the seeded admin Management API client arrives on stdin and stays in memory:
@@ -49,26 +51,18 @@ export async function provisionLearnerAccess(api, { resource }) {
   const scopeId = await ensureScope(api, resourceId);
   const roleId = await ensureDefaultRole(api, scopeId);
   const users = await assignRoleToEveryUser(api, roleId);
-  await api("/configs/cimd", {
-    method: "PATCH",
-    body: { enabled: true, addConsentPromptForOfflineAccess: true },
-  });
-  // The ceiling of every dynamic app is exactly the learning scope.
+  // No dynamic app may request an API scope, even if someone turns CIMD on again.
+  await api("/configs/cimd", { method: "PATCH", body: { enabled: false } });
   const ceiling = await cimdApiScopeIds(api);
-  for (const extra of ceiling.resource.filter((scope) => scope !== scopeId))
-    await api(`/cimd/user-consent-scopes/resource-scopes/${extra}`, {
+  for (const scope of ceiling.resource)
+    await api(`/cimd/user-consent-scopes/resource-scopes/${scope}`, {
       method: "DELETE",
     });
-  for (const extra of ceiling.organizationResource)
+  for (const scope of ceiling.organizationResource)
     await api(
-      `/cimd/user-consent-scopes/organization-resource-scopes/${extra}`,
+      `/cimd/user-consent-scopes/organization-resource-scopes/${scope}`,
       { method: "DELETE" },
     );
-  if (!ceiling.resource.includes(scopeId))
-    await api("/cimd/user-consent-scopes", {
-      method: "POST",
-      body: { resourceScopes: [scopeId] },
-    });
   const clientId = await ensurePublicClient(api);
   return {
     resource,
@@ -120,18 +114,11 @@ export async function checkLearnerAccess(api, { resource }) {
       if (!(await userRoleIds(api, user)).includes(id(role))) missing += 1;
     if (missing > 0) problems.push(`${missing} users have no learner role`);
   }
-  const cimd = record(await api("/configs/cimd"));
-  if (cimd["enabled"] !== true)
-    problems.push("dynamic apps (CIMD) are disabled");
-  if (cimd["addConsentPromptForOfflineAccess"] !== true)
-    problems.push("CIMD refresh token compatibility is off");
+  if (record(await api("/configs/cimd"))["enabled"] !== false)
+    problems.push("dynamic apps (CIMD) are enabled");
   const ceiling = await cimdApiScopeIds(api);
-  if (
-    ceiling.resource.length !== 1 ||
-    ceiling.resource[0] !== id(scope) ||
-    ceiling.organizationResource.length > 0
-  )
-    problems.push(`CIMD API scopes must be exactly ${settings.scope}`);
+  if (ceiling.resource.length > 0 || ceiling.organizationResource.length > 0)
+    problems.push("dynamic apps (CIMD) may request API scopes");
   const client = (await list(api, "/applications")).find(
     (candidate) => candidate["name"] === settings.clientName,
   );
@@ -299,7 +286,7 @@ async function cimdApiScopeIds(api) {
   };
 }
 
-/** Public PKCE client for MCP clients without CIMD; no secret and no token exchange.
+/** The public PKCE client every agent uses; no secret and no token exchange.
  * @param {ManagementApi} api */
 async function ensurePublicClient(api) {
   const settings = learnerAccessSettings;

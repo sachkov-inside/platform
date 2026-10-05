@@ -35,7 +35,10 @@ const idempotencyKeySchema = z.string().trim().min(1).max(200);
 
 export interface TaskImportDependencies {
   readonly prisma: GuideTasksPrismaClient;
-  readonly directory: Pick<GuideDirectory, "guides" | "materialsBySource">;
+  readonly directory: Pick<
+    GuideDirectory,
+    "guides" | "materialsBySource" | "placements"
+  >;
   readonly authorPolicy: AuthorPolicy;
   readonly clock?: () => Date;
 }
@@ -85,7 +88,8 @@ export function assembleValidateSourceTask(
 
 /**
  * Imports one task as its current state: a changed definition digest creates Task Version N+1;
- * title, access, chapter, order, related Materials and publication change only the task revision.
+ * title, access, chapter, order, the Material it follows, related Materials and publication change
+ * only the task revision.
  * An unchanged task writes nothing. The idempotency key, a per-code advisory lock and the expected
  * revision keep a retried or concurrent import from writing twice.
  */
@@ -181,6 +185,7 @@ async function saveTask(
     title: command.title,
     access: command.access,
     relatedMaterialSourceIds: [...command.relatedMaterialSourceIds],
+    afterMaterialSourceId: command.afterMaterialSourceId,
     publicationState: command.publicationState,
   };
   const version = {
@@ -229,6 +234,7 @@ async function saveTask(
     current.position !== state.position ||
     current.title !== state.title ||
     current.access !== state.access ||
+    current.afterMaterialSourceId !== state.afterMaterialSourceId ||
     current.publicationState !== state.publicationState ||
     current.relatedMaterialSourceIds.join("\n") !==
       state.relatedMaterialSourceIds.join("\n");
@@ -276,6 +282,15 @@ async function checkPlacement(
       return { ok: false, error: { code: "guide_not_found" } };
     if (!guide.chapters.some((chapter) => chapter.id === command.chapterId))
       return { ok: false, error: { code: "chapter_not_found" } };
+    const after = command.afterMaterialSourceId;
+    if (after !== null) {
+      const [placement] = await directory.placements(guide.id, [after]);
+      if (placement?.chapterId !== command.chapterId)
+        return {
+          ok: false,
+          error: { code: "after_material_not_in_chapter", sourceId: after },
+        };
+    }
     const known = new Set(
       (await directory.materialsBySource(command.relatedMaterialSourceIds)).map(
         (material) => material.sourceId,

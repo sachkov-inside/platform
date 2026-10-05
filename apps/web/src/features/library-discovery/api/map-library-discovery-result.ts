@@ -1,6 +1,7 @@
 import "server-only";
 
 import { z } from "zod";
+import { guideChapterTaskSchema } from "@/entities/guide-task.model";
 
 import {
   contentCoverSchema,
@@ -70,6 +71,8 @@ const guideChapterSchema = z
     name: z.string(),
     // Прежние ответы без описания читаются: страница просто не показывает его.
     summary: z.string().default(""),
+    // Задания главы (#947); ответ без них — глава без заданий.
+    tasks: z.array(guideChapterTaskSchema).default([]),
   })
   .strict();
 const discoveryNotFoundSchema = z

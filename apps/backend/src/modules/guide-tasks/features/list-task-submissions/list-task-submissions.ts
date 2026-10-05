@@ -2,7 +2,9 @@ import { z } from "zod";
 
 import {
   submissionSourceSchema,
+  taskDefinitionSchema,
   type SubmissionSource,
+  type TaskDefinition,
 } from "../../domain/task-definition.js";
 
 import { dependencyFailure } from "../../../../infrastructure/observability/index.js";
@@ -35,6 +37,8 @@ export interface OwnTaskSubmission {
   readonly source: SubmissionSource;
   readonly submittedAt: string;
   readonly reviewReport: ReviewReport | null;
+  /** The learner's own report typed into the page form; `null` for an agent's submission. */
+  readonly reportText: string | null;
   readonly note: string;
   readonly serviceMark: {
     readonly repositoryUrl: string | null;
@@ -53,9 +57,15 @@ export type ListTaskSubmissionsError =
   | { readonly code: "task_not_available" }
   | SystemError;
 
+/** The criteria of one Task Version that a listed submission refers to. */
+export interface SubmittedVersion {
+  readonly version: number;
+  readonly criteria: TaskDefinition["criteria"];
+}
+
 /**
  * The subject's own submissions of one task, newest first, with the author's feedback when it
- * exists. Another Account's submissions never appear. Submissions outlive a lost access: they
+ * exists and the criteria of every version they refer to. Another Account's submissions never appear. Submissions outlive a lost access: they
  * return once the task opens to the subject again.
  */
 export async function listTaskSubmissions(
@@ -66,6 +76,7 @@ export async function listTaskSubmissions(
     {
       readonly code: string;
       readonly currentVersion: number;
+      readonly versions: readonly SubmittedVersion[];
       readonly submissions: readonly OwnTaskSubmission[];
     },
     ListTaskSubmissionsError
@@ -98,11 +109,23 @@ export async function listTaskSubmissions(
       take: MAX_SUBMISSIONS,
       include: { feedback: true },
     });
+    const versionNumbers = [...new Set(rows.map((row) => row.taskVersion))];
+    const versions =
+      versionNumbers.length === 0
+        ? []
+        : await dependencies.prisma.guideTaskVersion.findMany({
+            where: { taskId: task.id, version: { in: versionNumbers } },
+            orderBy: { version: "desc" },
+          });
     return {
       ok: true,
       value: {
         code: task.code,
         currentVersion: task.version,
+        versions: versions.map((version) => ({
+          version: version.version,
+          criteria: taskDefinitionSchema.parse(version.definition).criteria,
+        })),
         submissions: rows.map((row) => ({
           submissionId: row.id,
           taskVersion: row.taskVersion,
@@ -112,6 +135,7 @@ export async function listTaskSubmissions(
             row.reviewReport === null
               ? null
               : reviewReportSchema.parse(row.reviewReport),
+          reportText: row.reportText,
           note: row.note,
           serviceMark: {
             repositoryUrl: row.repositoryUrl,

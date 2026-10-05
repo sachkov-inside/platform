@@ -96,12 +96,24 @@ const discoveryTopicHttpSchema = z
   })
   .strict();
 
+const guideChapterTaskHttpSchema = z
+  .object({
+    code: z.string(),
+    title: z.string(),
+    access: z.enum(["free", "membership"]),
+    afterMaterialId: z.uuid().nullable(),
+    availability: z.enum(["available", "locked", "unavailable"]),
+    lastSubmittedAt: z.iso.datetime().nullable(),
+  })
+  .strict();
+
 const guideChapterHttpSchema = z
   .object({
     id: z.uuid(),
     materialIds: z.array(z.uuid()),
     name: z.string(),
     summary: z.string(),
+    tasks: z.array(guideChapterTaskHttpSchema),
   })
   .strict();
 

@@ -10,6 +10,7 @@ import {
   seedFullStackPractice,
   startPracticeReadProxy,
 } from "./full-stack-practice.mjs";
+import { seedFullStackTask } from "./full-stack-task.mjs";
 
 import { signalProcessGroup } from "./process-group-signal.mjs";
 import { z } from "zod";
@@ -277,6 +278,10 @@ try {
     browserAccessToken.token,
     "free",
   );
+  const taskFixture = await seedFullStackTask(
+    apiBaseUrl,
+    browserAccessToken.token,
+  );
   const fullStackSession =
     await fullStackIdentity.createSession(browserAccessToken);
   const fullStackMemberSession =
@@ -286,6 +291,8 @@ try {
     FULLSTACK_API_BASE_URL: apiBaseUrl,
     FULLSTACK_PRACTICE_SLUG: practiceFixture.slug,
     FULLSTACK_FREE_PRACTICE_SLUG: freePracticeFixture.slug,
+    FULLSTACK_TASK_GUIDE_SLUG: taskFixture.guideSlug,
+    FULLSTACK_TASK_CODE: taskFixture.code,
     FULLSTACK_PRACTICE_MATERIAL_IDS: [
       practiceFixture.materialId,
       freePracticeFixture.materialId,

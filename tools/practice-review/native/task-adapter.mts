@@ -32,6 +32,7 @@ export function syntheticLearningTasks(input: {
     chapterId: "00000000-0000-4000-8000-000000000002",
     position: 1,
     relatedMaterialSourceIds: [],
+    publicationState: "published",
     version: 1,
     definition,
     definitionDigest: taskDefinitionDigest(definition),
@@ -113,10 +114,19 @@ export function syntheticLearningTasks(input: {
         },
       });
     },
+    // The trial drives the learning MCP only; the task page and the programme are web surfaces.
+    page: () =>
+      Promise.resolve({ ok: false, error: { code: "task_not_found" } }),
+    chapterTasks: () => Promise.resolve({ ok: true, value: { tasks: [] } }),
     submissions: () =>
       Promise.resolve({
         ok: true,
-        value: { code: task.code, currentVersion: 1, submissions: [] },
+        value: {
+          code: task.code,
+          currentVersion: 1,
+          versions: [],
+          submissions: [],
+        },
       }),
   };
   return { tasks, submissions, contextVersion };

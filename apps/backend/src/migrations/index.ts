@@ -19,6 +19,10 @@ import {
   statement as guideTasksStatement,
 } from "../modules/guide-tasks/infrastructure/postgres/migrations/0079-guide-tasks.js";
 import {
+  name as guideTaskPlacementAndFormName,
+  statement as guideTaskPlacementAndFormStatement,
+} from "../modules/guide-tasks/infrastructure/postgres/migrations/0080-guide-task-placement-and-form.js";
+import {
   name as invitationsName,
   statement as invitationsStatement,
 } from "../modules/membership-entitlements/infrastructure/postgres/migrations/0078-invitations.js";
@@ -525,6 +529,10 @@ export const platformMigrations = [
   },
   { name: invitationsName, statement: invitationsStatement },
   { name: guideTasksName, statement: guideTasksStatement },
+  {
+    name: guideTaskPlacementAndFormName,
+    statement: guideTaskPlacementAndFormStatement,
+  },
 ] as const;
 
 export function migrateToLatest(

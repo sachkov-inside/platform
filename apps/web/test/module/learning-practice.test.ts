@@ -6,7 +6,10 @@ import {
   learningPracticesSchema,
   practiceReviewPrompt,
 } from "@/_pages/material-reader/model/learning-practice";
-import { practiceReviewSetupText } from "@/_pages/material-reader/model/practice-review-setup";
+import {
+  learnerMcpConnectPrompt,
+  practiceReviewSetupText,
+} from "@/_pages/material-reader/model/practice-review-setup";
 
 describe("learner review request", () => {
   it("pins stable identity and context without executing authored titles", () => {
@@ -40,23 +43,35 @@ describe("learner review request", () => {
 describe("learner MCP setup", () => {
   const url = "https://inside.example.test/mcp/learning";
 
-  it("gives every agent the configured address and the fallback client", () => {
-    const setup = practiceReviewSetupText({
-      url,
-      publicClientId: "o92nmcpzb2te8z4loi82d",
-    });
-    expect(setup).toContain(`\n${url}\n`);
-    expect(setup).toContain("CIMD");
-    expect(setup).toContain("o92nmcpzb2te8z4loi82d");
+  it("gives each agent a ready command with the configured address and client", () => {
+    const clientId = "o92nmcpzb2te8z4loi82d";
+    const setup = practiceReviewSetupText({ url, publicClientId: clientId });
+    expect(setup).toContain(`Адрес учебного MCP: ${url}`);
+    expect(setup).toContain(
+      `claude mcp add --transport http --scope user --client-id ${clientId} inside_learning ${url}`,
+    );
+    expect(setup).toContain(`client_id = "${clientId}"`);
+    expect(setup).toContain('scopes = ["learning:read", "offline_access"]');
+    expect(setup).toContain(`"oauth": { "clientId": "${clientId}" }`);
     expect(setup).toContain("learning_materials_list");
-    // Разделов под отдельные клиенты нет: шаги одни для любого агента.
-    expect(setup).not.toMatch(
-      /^\s*\d+[АБ]\.|codex |claude |--strict-mcp-config/mu,
+    // Визитки CIMD сервер входа не скачивает: решение владельца 05.10.2026.
+    expect(setup).not.toContain("CIMD");
+  });
+
+  it("marks the missing client id instead of printing an empty command", () => {
+    expect(practiceReviewSetupText({ url })).toContain(
+      "--client-id CLIENT_ID_ОТ_АВТОРА_КУРСА",
     );
   });
 
-  it("omits the fallback client step without a configured client id", () => {
-    expect(practiceReviewSetupText({ url })).not.toContain("client ID:");
+  it("asks the learner's agent to connect itself from the absolute instruction", () => {
+    const prompt = learnerMcpConnectPrompt(
+      "https://inside.example.test/practice-review-setup.txt",
+    );
+    expect(prompt).toContain(
+      "https://inside.example.test/practice-review-setup.txt",
+    );
+    expect(prompt).toContain("вход в браузере я подтвержу сам");
   });
 
   it("never ships the old address placeholder again", () => {

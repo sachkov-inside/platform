@@ -4,6 +4,8 @@ import type { TaskDefinition } from "./task-definition.js";
 /** Storage protection, not a limit on the learner: a full report of 50 criteria fits easily. */
 export const REVIEW_REPORT_MAX_BYTES = 64 * 1024;
 export const SUBMISSION_NOTE_MAX_CHARACTERS = 1_000;
+/** The learner's own report typed into the page form; plain text, never a Platform verdict. */
+export const FORM_REPORT_MAX_CHARACTERS = 20_000;
 
 const reportText = z.string().trim().max(4_000);
 

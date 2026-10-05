@@ -58,6 +58,7 @@ const taskImportProblemSchema = z.looseObject({
   correlationId: z.string().optional(),
   retryable: z.boolean().optional(),
   sourceIds: z.array(z.string()).optional(),
+  sourceId: z.string().optional(),
 });
 
 function ApiTaskImportErrors(...statuses: readonly number[]) {
@@ -151,6 +152,13 @@ function throwImportError(error: TaskImportError): never {
         error.code,
         "A related Material does not exist",
         { sourceIds: [...error.sourceIds] },
+      );
+    case "after_material_not_in_chapter":
+      throw problemException(
+        404,
+        error.code,
+        "The Material the task follows is not in the task's chapter",
+        { sourceId: error.sourceId },
       );
     case "source_mismatch":
     case "task_revision_conflict":

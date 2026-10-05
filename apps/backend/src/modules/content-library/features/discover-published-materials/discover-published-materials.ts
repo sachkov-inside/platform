@@ -1,11 +1,14 @@
+import { randomUUID } from "node:crypto";
 import { z } from "zod";
 
 import type { ContentAccess } from "../../../content-access/index.js";
+import type { LearningTasks } from "../../../guide-tasks/index.js";
 import type { PublishedMaterialReader } from "../../../materials/index.js";
 import type { Videos } from "../../../videos/index.js";
 import { projectPublishedCatalogItems } from "../../shared/project-published-catalog-items.js";
 import type {
   DiscoverPublishedMaterialsQuery,
+  GuideChapterTaskDto,
   PublishedMaterialDiscoveryResult,
 } from "./discover-published-materials.contract.js";
 
@@ -32,11 +35,17 @@ const querySchema = z
     },
   );
 
+/**
+ * A generated catalog view. A Guide programme also places its published tasks in chapters when the
+ * caller passes `tasks`; a caller that only needs the main path, such as the series continuation,
+ * leaves it out and every chapter then lists no tasks.
+ */
 export async function discoverPublishedMaterials(
   publishedMaterialReader: Pick<PublishedMaterialReader, "discoverProjections">,
   contentAccess: Pick<ContentAccess, "checkAvailabilityMany">,
   videos: Pick<Videos, "loadReadyDurations">,
   query: DiscoverPublishedMaterialsQuery,
+  tasks?: Pick<LearningTasks, "chapterTasks">,
 ): Promise<PublishedMaterialDiscoveryResult> {
   const parsed = querySchema.safeParse(query);
   if (!parsed.success) {
@@ -50,6 +59,43 @@ export async function discoverPublishedMaterials(
   if (!page.ok) {
     return page;
   }
+  const tasksByChapter = new Map<string, GuideChapterTaskDto[]>();
+  if (
+    tasks !== undefined &&
+    parsed.data.kind === "series" &&
+    page.value.chapters.length > 0
+  ) {
+    const listed = await tasks.chapterTasks({
+      subject: query.subject,
+      guideId: page.value.reference.id,
+    });
+    if (!listed.ok)
+      return {
+        ok: false,
+        error:
+          listed.error.code === "dependency_unavailable"
+            ? listed.error
+            : {
+                code: "internal_error",
+                correlationId:
+                  listed.error.code === "internal_error"
+                    ? listed.error.correlationId
+                    : randomUUID(),
+              },
+      };
+    for (const task of listed.value.tasks) {
+      const chapterTasks = tasksByChapter.get(task.chapterId) ?? [];
+      chapterTasks.push({
+        code: task.code,
+        title: task.title,
+        access: task.access,
+        afterMaterialId: task.afterMaterialId,
+        availability: task.availability,
+        lastSubmittedAt: task.lastSubmittedAt,
+      });
+      tasksByChapter.set(task.chapterId, chapterTasks);
+    }
+  }
   const projected = await projectPublishedCatalogItems(
     contentAccess,
     videos,
@@ -60,7 +106,13 @@ export async function discoverPublishedMaterials(
     ? {
         ok: true,
         value: {
-          chapters: page.value.chapters,
+          chapters: page.value.chapters.map((chapter) => ({
+            id: chapter.id,
+            materialIds: chapter.materialIds,
+            name: chapter.name,
+            summary: chapter.summary,
+            tasks: tasksByChapter.get(chapter.id) ?? [],
+          })),
           hasNext: page.value.hasNext,
           items: projected.items,
           kind: page.value.kind,

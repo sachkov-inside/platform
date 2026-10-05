@@ -81,7 +81,8 @@ redacts sensitive audit/webhook fields, removes raw SMTP provider errors and pro
 Russian rate-limit copy. Platform does not add a mail relay, quota table, attempt cookie, CAPTCHA,
 reauthentication protocol or second authentication session.
 
-Fork revision `inside.7` moves the fork to upstream `1.44.0` for dynamic apps (CIMD, #938). The
+Fork revision `inside.7` moves the fork to upstream `1.44.0` (#938); the learner access script keeps
+its dynamic apps (CIMD) off. The
 four Experience files and the issue #299 patches carry over unchanged in substance. Upstream 1.42
 moved audit redaction from `koa-audit-log.ts` to `utils/sensitive-data.ts`; the issue #116 patch now
 adds the same word-based key list there. Upstream masks with `******` instead of `[redacted]`, and
@@ -89,7 +90,7 @@ its redaction already runs on the final insert. The new
 [`patches/issue-938-offline-access-consent.patch`](./patches/issue-938-offline-access-consent.patch)
 lets a registered application opt into the dynamic-app compatibility that adds `prompt=consent` to an
 `offline_access` request, through `customData.addConsentPromptForOfflineAccess: true`. The learner
-public client uses it, so MCP clients without CIMD receive a refresh token. The image build runs the
+public client uses it, so every MCP agent receives a refresh token. The image build runs the
 patch's Jest test with the issue #116 test.
 
 Fork revision `inside.6` keeps the Telegram action slot centered with Flexbox. Safari can paint only fragments of a newly inserted button in the former Grid slot; the native-browser reproduction and before/after evidence are in [#391 verification](../../../docs/verification/telegram-button-391.md). The button dimensions, loading animation and interaction stay unchanged.
