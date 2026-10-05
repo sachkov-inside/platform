@@ -101,9 +101,11 @@ Object.assign(childEnvironment, {
   PLATFORM_RELEASE_VERSION: "v1",
   PLATFORM_SOURCE_SHA: "1".repeat(40),
 });
+const learningMcpUrl = `${mcpServerUrl}/learning`;
 const fullStackIdentity = await startFullStackIdentity({
   apiBaseUrl,
   webBaseUrl,
+  learningResource: learningMcpUrl,
 });
 Object.assign(childEnvironment, fullStackIdentity.environment);
 const practiceDelayMs = Number(
@@ -293,6 +295,13 @@ try {
     FULLSTACK_FREE_PRACTICE_SLUG: freePracticeFixture.slug,
     FULLSTACK_TASK_GUIDE_SLUG: taskFixture.guideSlug,
     FULLSTACK_TASK_CODE: taskFixture.code,
+    // The learner's agent (#948): a refresh token it exchanges for a learner MCP token when it
+    // needs one, so the token is fresh however late in the run the scenario starts.
+    FULLSTACK_LEARNING_MCP_URL: learningMcpUrl,
+    FULLSTACK_IDENTITY_TOKEN_URL: `${fullStackIdentity.environment.LOGTO_ENDPOINT}/oidc/token`,
+    FULLSTACK_NON_MEMBER_REFRESH_TOKEN: fullStackIdentity.createRefreshToken(
+      "fullstack-non-member",
+    ),
     FULLSTACK_PRACTICE_MATERIAL_IDS: [
       practiceFixture.materialId,
       freePracticeFixture.materialId,

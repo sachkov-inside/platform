@@ -11,15 +11,23 @@ import { exportJWK, generateKeyPair, SignJWT } from "jose";
  * Without that grant a run longer than five minutes silently loses every signed-in session and
  * reports it as broken pages instead of an expired token.
  *
- * @param {{ apiBaseUrl: string; webBaseUrl: string }} endpoints
+ * `learningResource` is the learner MCP resource (#948). A refresh grant that names it receives a
+ * token for that audience with the `learning:read` scope, as Logto issues it to a learner's agent.
+ *
+ * @param {{ apiBaseUrl: string; webBaseUrl: string; learningResource?: string }} endpoints
  */
-export async function startFullStackIdentity({ apiBaseUrl, webBaseUrl }) {
+export async function startFullStackIdentity({
+  apiBaseUrl,
+  webBaseUrl,
+  learningResource,
+}) {
   const fullStackAccessTokenTtlSeconds = 300;
   const issuer = "https://identity.fullstack.test/oidc";
   const subject = "fullstack-owner";
   const memberSubject = "fullstack-member";
   const audience = apiBaseUrl;
   const appId = "inside-web-fullstack";
+  const learningScope = "learning:read";
   const cookieSecret = "inside-fullstack-cookie-secret-key";
   const keyPair = await generateKeyPair("ES384");
   const publicJwk = {
@@ -33,14 +41,20 @@ export async function startFullStackIdentity({ apiBaseUrl, webBaseUrl }) {
   /**
    * @param {string} tokenSubject
    * @param {number} issuedAt
+   * @param {{ audience: string; scope?: string }} [target]
    */
-  const mintAccessToken = async (tokenSubject, issuedAt) => {
+  const mintAccessToken = async (
+    tokenSubject,
+    issuedAt,
+    target = { audience },
+  ) => {
     const token = await new SignJWT({
       inside_verified_email: `${tokenSubject}@inside.test`,
+      ...(target.scope === undefined ? {} : { scope: target.scope }),
     })
       .setProtectedHeader({ alg: "ES384", kid: "fullstack-key-1" })
       .setIssuer(issuer)
-      .setAudience(audience)
+      .setAudience(target.audience)
       .setSubject(tokenSubject)
       .setIssuedAt(issuedAt)
       .setExpirationTime(issuedAt + fullStackAccessTokenTtlSeconds)
@@ -167,7 +181,9 @@ export async function startFullStackIdentity({ apiBaseUrl, webBaseUrl }) {
     // Токен выпускается ровно на свою аудиторию. Без этой проверки чужой resource молча получил
     // бы рабочий токен, и ошибка в настройке аудитории проходила бы в наборе, но не в продакшене.
     const resource = parameters.get("resource");
-    if (resource !== null && resource !== audience) {
+    const learning =
+      learningResource !== undefined && resource === learningResource;
+    if (resource !== null && resource !== audience && !learning) {
       sendJson(
         response,
         400,
@@ -178,12 +194,17 @@ export async function startFullStackIdentity({ apiBaseUrl, webBaseUrl }) {
       );
       return;
     }
-    const renewed = await createAccessToken(tokenSubject);
+    const renewed = learning
+      ? await mintAccessToken(tokenSubject, Math.floor(Date.now() / 1_000), {
+          audience: learningResource,
+          scope: learningScope,
+        })
+      : await createAccessToken(tokenSubject);
     sendJson(response, 200, {
       access_token: renewed.token,
       refresh_token: presented,
       expires_in: fullStackAccessTokenTtlSeconds,
-      scope: "",
+      scope: learning ? learningScope : "",
       token_type: "Bearer",
     });
   }
@@ -206,6 +227,11 @@ export async function startFullStackIdentity({ apiBaseUrl, webBaseUrl }) {
         expiresAt,
         refreshToken: issueRefreshToken(tokenSubject),
       }),
+    /**
+     * Refresh-токен без cookie: им агент ученика получает доступ к учебному MCP на время сценария,
+     * а не на пять минут от старта набора.
+     */
+    createRefreshToken: issueRefreshToken,
     /** Истёкшая сессия, которую есть чем продлить. */
     createSessionPastExpiry: (tokenSubject = subject) =>
       sessionCookiePastExpiry(tokenSubject, issueRefreshToken(tokenSubject)),

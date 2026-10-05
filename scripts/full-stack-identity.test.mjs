@@ -34,6 +34,7 @@ const grantFailureSchema = z
  */
 describe("full-stack identity", () => {
   const apiBaseUrl = "http://127.0.0.1:65001";
+  const learningResource = "http://127.0.0.1:65003/mcp/learning";
   /** @type {Awaited<ReturnType<typeof startFullStackIdentity>>} */
   let identity;
   /** @type {string} */
@@ -53,6 +54,7 @@ describe("full-stack identity", () => {
     identity = await startFullStackIdentity({
       apiBaseUrl,
       webBaseUrl: "http://127.0.0.1:65002",
+      learningResource,
     });
     const discovery = await fetch(
       `${identity.environment.LOGTO_ENDPOINT}/oidc/.well-known/openid-configuration`,
@@ -145,6 +147,26 @@ describe("full-stack identity", () => {
       code: "invalid_target",
       message: "Requested resource is not this audience",
     });
+  });
+
+  it("issues a learner agent a learning:read token for the learner MCP resource (#948)", async () => {
+    const renewed = await grant({
+      grant_type: "refresh_token",
+      refresh_token: identity.createRefreshToken("fullstack-learner"),
+      resource: learningResource,
+      client_id: clientId,
+    });
+
+    assert.equal(renewed.status, 200);
+    const body = grantSchema.parse(await renewed.json());
+    assert.equal(body["scope"], "learning:read");
+    const claims = claimsOf(body.access_token);
+    assert.equal(claims.sub, "fullstack-learner");
+    assert.equal(claims.aud, learningResource);
+    assert.equal(
+      z.object({ scope: z.string() }).passthrough().parse(claims).scope,
+      "learning:read",
+    );
   });
 
   /** @param {Record<string, string>} parameters */

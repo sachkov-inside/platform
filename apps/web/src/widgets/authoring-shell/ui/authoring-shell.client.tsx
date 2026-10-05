@@ -6,6 +6,7 @@ import {
   Files,
   Funnel,
   Globe2,
+  Inbox,
   KeyRound,
   LibraryBig,
   ListOrdered,
@@ -28,18 +29,20 @@ export function AuthoringShell({ children }: { readonly children: ReactNode }) {
     ? "billing"
     : pathname.startsWith("/authoring/access")
       ? "access"
-      : pathname.startsWith("/authoring/sales-funnel")
-        ? "sales-funnel"
-        : pathname.startsWith("/authoring/topics")
-          ? "topics"
-          : pathname.startsWith("/authoring/guides") ||
-              pathname.startsWith("/authoring/playlists")
-            ? "playlists"
-            : pathname.endsWith("/preview")
-              ? "preview"
-              : pathname.startsWith(materialsHref)
-                ? "materials"
-                : undefined;
+      : pathname.startsWith("/authoring/submissions")
+        ? "submissions"
+        : pathname.startsWith("/authoring/sales-funnel")
+          ? "sales-funnel"
+          : pathname.startsWith("/authoring/topics")
+            ? "topics"
+            : pathname.startsWith("/authoring/guides") ||
+                pathname.startsWith("/authoring/playlists")
+              ? "playlists"
+              : pathname.endsWith("/preview")
+                ? "preview"
+                : pathname.startsWith(materialsHref)
+                  ? "materials"
+                  : undefined;
 
   return (
     <div
@@ -115,6 +118,12 @@ export function AuthoringShell({ children }: { readonly children: ReactNode }) {
               href="/authoring/access"
               icon={<KeyRound aria-hidden="true" />}
               label="Доступ"
+            />
+            <AuthoringLink
+              current={current === "submissions"}
+              href="/authoring/submissions"
+              icon={<Inbox aria-hidden="true" />}
+              label="Сдачи"
             />
             <AuthoringLink
               current={current === "sales-funnel"}
