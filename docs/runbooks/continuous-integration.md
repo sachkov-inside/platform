@@ -80,6 +80,23 @@ file that starts a RabbitMQ broker, forks a crash process or runs a worker is mi
 The default test and hook budgets in the same config only stop a stuck run: a test that needs more
 names its own budget, and a flaky test is fixed by its cause, never by raising a budget or re-running.
 
+## Access checks
+
+The access-check matrix `apps/backend/test/access-scenarios/access-check-matrix.ts` names, for each
+Account state, action, surface and level, the test that proves it (#902). This table says where each
+level runs:
+
+| When | Checks | Job or command |
+|---|---|---|
+| Pull request, required | Matrix completeness: every cited file exists and declares `test(` or `it(` with the cited name, planned checks name #904 or #906 (`apps/backend/test/unit/access-check-matrix.test.ts`) | `unit` |
+| Pull request, required | Facade on PostgreSQL in `apps/backend/test/integration`: `access-scenarios`, `payment-access-matrix`, `guide-access`, `learning-practice`, `billing-operations`, `reading-activity`, `bookmarks`; real Nest HTTP: `scoped-access-http`, `billing-pricing-http`, `accounts-api`, `reading-activity-http`; real learner MCP transport: `scoped-learner-access-mcp` | `integration` |
+| Pull request, required | Web/BFF owner billing scenario `apps/web/test/fullstack/enrollment.spec.ts` through `pnpm smoke:enrollments` | `integration` |
+| Nightly | The other Web/BFF access scenarios the matrix cites: `material-reader`, `material-authoring` and `learning-practice` in `apps/web/test/fullstack` | Nightly full-stack smoke |
+| Before a release | `pnpm check:full`, which includes the full-stack smoke and the integration suite, on the release commit | local, see `AGENTS.md` |
+
+A matrix cell at the `production` level is not proved by any of these: until the post-deploy
+production pass of #906 exists, it is marked as a new check of #906.
+
 ## Suites outside CI
 
 These Playwright suites are deliberate manual proofs and do not run in CI:
@@ -105,6 +122,12 @@ merge. The job mirrors the documented host fallback on a clean `ubuntu-24.04` ru
 install, Chromium, `cp .env.example .env`, `pnpm infra:up` for Compose PostgreSQL and Object
 Storage, then the smoke with its own `inside_checks` database. The workflow is read-only, reads no
 secrets, and a new run waits for the previous one on the same ref instead of overlapping it.
+
+The smoke includes `apps/web/test/fullstack/access-identities.spec.ts` (#904). It signs in separate
+identities through the real Web/BFF: a Materials-only Account, a Billing-only Account, a learner
+whose only access is a tier scoped to one Guide, and two ordinary Accounts. No pull-request job
+runs these browser-path checks, so a release needs a green run of this workflow on the release
+commit ([release](release.md#1-что-выпускаем)).
 
 Where to look:
 

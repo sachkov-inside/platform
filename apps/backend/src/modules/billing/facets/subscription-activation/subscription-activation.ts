@@ -11,7 +11,20 @@ import {
   type ActivationBindings,
   type RecipientLinks,
 } from "../../../membership-entitlements/index.js";
-import { tierOpenForAssignment } from "../../shared/tier-composition.js";
+import {
+  ACTIVATION_CONTRACT_VERSION,
+  invitationRedemptionOutcomeSchema,
+  redeemInvitationSchema,
+  tierSnapshotSchema,
+  type InvitationOffer,
+  type InvitationRedemptionOutcome,
+} from "../../../membership-entitlements/index.js";
+import { offerCheckoutPath } from "../../domain/offer-checkout.js";
+import { subscriptionPeriodEnd } from "../../domain/subscription-period.js";
+import {
+  subscriptionOfferForInvitation,
+  tierOpenForAssignment,
+} from "../../shared/tier-composition.js";
 import {
   bindingLookupQuerySchema,
   bindingSnapshotSchema,
@@ -27,6 +40,8 @@ export class SubscriptionActivation {
         admissionRestriction: "none" | "moderation" | "external_unknown" | null;
         state: "checking" | "no_access" | "moderation_blocked" | "ready";
       }>;
+      /** Origin сайта: страница оформления Offer по приглашению лежит на нём. */
+      siteOrigin?: string;
     },
   ) {}
   /** An observation, not a reservation: evidence and own-access still validate the exact binding. */
@@ -134,6 +149,118 @@ export class SubscriptionActivation {
         },
       };
     });
+  }
+  /**
+   * Погашение приглашения ботом. Platform сама находит Account по текущей привязке identity и
+   * читает Offer до транзакции прав; права закрепляют, допускают или дарят в одной транзакции.
+   */
+  async redeemInvitation(input: unknown) {
+    const unavailable = {
+      ok: false as const,
+      error: { code: "unavailable" as const },
+    };
+    const parsed = redeemInvitationSchema.safeParse(input);
+    if (!parsed.success)
+      return { ok: false as const, error: { code: "invalid_input" as const } };
+    const { siteOrigin, grants, bindings } = this.dependencies;
+    try {
+      const linked = await bindings.findCurrentByIdentity(
+        parsed.data.identityRef,
+      );
+      if (!linked.ok) return unavailable;
+      if (linked.state === "ambiguous")
+        return {
+          ok: false as const,
+          error: { code: "identity_conflict" as const },
+        };
+      const target = await grants.readInvitationTarget(parsed.data.code);
+      const row =
+        target === null
+          ? null
+          : await this.dependencies.prisma.billingOffer.findUnique({
+              where: { id: target.offerId },
+              include: {
+                options: {
+                  where: { archived: false, mode: "subscription" },
+                  select: { id: true },
+                },
+              },
+            });
+      const offer: InvitationOffer | null =
+        row === null
+          ? null
+          : {
+              id: row.id,
+              purchasable:
+                !row.archived &&
+                row.published &&
+                row.options.length > 0 &&
+                subscriptionOfferForInvitation(row),
+              tier: tierOpenForAssignment(row)
+                ? tierSnapshotSchema.parse({
+                    id: row.id,
+                    revision: row.revision,
+                    name: row.name,
+                    benefits: row.benefits,
+                    contentScope: row.contentScope,
+                  })
+                : null,
+            };
+      const result = await grants.redeemInvitation(parsed.data, {
+        accountId: linked.state === "found" ? linked.recipient.accountId : null,
+        offer,
+        periodEnd: subscriptionPeriodEnd,
+      });
+      if (!result.ok) {
+        // Запрос уже прошёл схему, а идентичность — проверку выше: другой отказ назначения —
+        // нарушенный инвариант прав, и его причина записывается как сбой зависимости.
+        if (result.error.code === "identity_conflict")
+          return {
+            ok: false as const,
+            error: { code: "identity_conflict" as const },
+          };
+        throw new Error(
+          `Invitation redemption refused with ${result.error.code}`,
+        );
+      }
+      const redemption = result.value;
+      const contractVersion = ACTIVATION_CONTRACT_VERSION;
+      let value: InvitationRedemptionOutcome;
+      if (!("mode" in redemption))
+        value = { contractVersion, state: redemption.state };
+      else if (row === null)
+        throw new Error("Redeemed invitation lost its Offer");
+      else if (redemption.mode === "gift")
+        value = {
+          contractVersion,
+          state: redemption.state,
+          mode: "gift",
+          offerName: row.name,
+          enrollment: redemption.enrollment,
+        };
+      else {
+        if (siteOrigin === undefined)
+          throw new Error("Invitation checkout needs the public site origin");
+        const checkoutUrl = new URL(offerCheckoutPath(row.id), siteOrigin);
+        value = {
+          contractVersion,
+          state: redemption.state,
+          mode: "purchase",
+          offerName: row.name,
+          checkoutUrl: checkoutUrl.toString(),
+        };
+      }
+      return {
+        ok: true as const,
+        value: invitationRedemptionOutcomeSchema.parse(value),
+      };
+    } catch (error) {
+      return dependencyFailure(
+        { module: "billing", operation: "redeemInvitation" },
+        error,
+        unavailable,
+      );
+    }
   }
   async begin(input: unknown) {
     try {

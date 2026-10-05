@@ -14,6 +14,9 @@ export async function SubscriptionPage({
       {...(target.originHref === undefined
         ? {}
         : { originHref: target.originHref })}
+      {...(target.offerId === undefined
+        ? {}
+        : { initialOfferId: target.offerId })}
       returnTo={target.returnTo}
       unavailable={result.kind === "unavailable"}
     />

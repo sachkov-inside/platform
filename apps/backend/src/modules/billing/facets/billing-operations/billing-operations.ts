@@ -14,6 +14,7 @@ import type { Accounts } from "../../../accounts/index.js";
 import {
   recurringAllowedFor,
   type AccessGrants,
+  type invitationViewSchema,
 } from "../../../membership-entitlements/index.js";
 import {
   isOwnerReadOperation,
@@ -22,6 +23,8 @@ import {
   ownerOperationSchema,
   ownerPaymentFailure,
   ownerSuccessSchema,
+  type ownerInvitationSchema,
+  type AccessFailureCode,
   type OwnerOperation,
   type OwnerOutcome,
   type OwnerResult,
@@ -46,7 +49,9 @@ import {
 import { refundTotals } from "../../shared/refund-amounts.js";
 import {
   offerGrantsWithheld,
+  subscriptionOfferForInvitation,
   tierLacksComposition,
+  tierOpenForAssignment,
 } from "../../shared/tier-composition.js";
 import type { Tbank } from "../../infrastructure/tbank/tbank.js";
 import type { BillingPayments } from "../billing-payments/billing-payments.js";
@@ -79,8 +84,14 @@ interface Dependencies {
     | "assignEnrollment"
     | "changeEnrollment"
     | "listEnrollments"
+    | "issueInvitation"
+    | "revokeInvitation"
+    | "listInvitations"
+    | "readInvitation"
   >;
   readonly bank: Tbank | undefined;
+  /** База deep link бота `t.me/<бот>`; без неё приглашение отдаёт только start-параметр. */
+  readonly botStartUrl?: string | undefined;
   readonly clock?: () => Date;
 }
 /**
@@ -118,6 +129,23 @@ export class BillingOperations {
       if (receipt !== null) {
         if (receipt.fingerprint !== digest)
           return ownerFailure("operation_conflict");
+        // Журнал не хранит код приглашения: повтор выдачи читает выданное по id, а Offer, который
+        // могли архивировать после выдачи, заново не проверяет.
+        if (command.operation === "invitations.issue") {
+          const issued = await this.dependencies.grants.readInvitation(
+            actorId,
+            command.operationId,
+          );
+          if (!issued.ok) return invitationFailure(issued.error.code);
+          return {
+            ok: true,
+            operationRef: command.operationId,
+            result: {
+              outcome: "invitation",
+              value: withoutNote(this.ownerInvitation(issued.value)),
+            },
+          };
+        }
         return storedResult(command.operationId, receipt.result);
       }
       const result = await this.dispatch(actorId, command);
@@ -149,7 +177,7 @@ export class BillingOperations {
       fingerprint: digest,
       targetRef: targetOf(command, result.result),
       reason: reasonOf(command, result.result),
-      result: result.result,
+      result: auditedOutcome(result.result),
       createdAt: this.clock(),
     };
     try {
@@ -814,6 +842,60 @@ export class BillingOperations {
             value: await readRespondents(prisma),
           },
         };
+      case "invitations.issue": {
+        const row = await prisma.billingOffer.findUnique({
+          where: { id: command.offerId },
+        });
+        if (row === null || row.archived) return ownerFailure("not_found");
+        // Оплата ведёт на страницу оформления подписки, подарок назначает тариф без оплаты.
+        if (
+          command.mode === "purchase"
+            ? !subscriptionOfferForInvitation(row)
+            : !tierOpenForAssignment(row)
+        )
+          return ownerFailure("state_conflict");
+        const { operation: _operation, ...requested } = command;
+        const result = await grants.issueInvitation(actorId, requested, {
+          id: row.id,
+          revision: row.revision,
+        });
+        if (!result.ok) return invitationFailure(result.error.code);
+        return {
+          ok: true,
+          operationRef,
+          result: {
+            outcome: "invitation",
+            value: withoutNote(this.ownerInvitation(result.value)),
+          },
+        };
+      }
+      case "invitations.revoke": {
+        const { operation: _operation, ...requested } = command;
+        const result = await grants.revokeInvitation(actorId, requested);
+        if (!result.ok) return invitationFailure(result.error.code);
+        return {
+          ok: true,
+          operationRef,
+          result: {
+            outcome: "invitation",
+            value: withoutNote(this.ownerInvitation(result.value)),
+          },
+        };
+      }
+      case "invitations.list": {
+        const { operation: _operation, ...requested } = command;
+        const result = await grants.listInvitations(actorId, requested);
+        if (!result.ok) return invitationFailure(result.error.code);
+        return {
+          ok: true,
+          operationRef,
+          result: {
+            outcome: "invitations",
+            items: result.value.items.map((item) => this.ownerInvitation(item)),
+            nextCursor: result.value.nextCursor,
+          },
+        };
+      }
       default: {
         const exhaustive: never = command;
         throw new Error(
@@ -822,6 +904,97 @@ export class BillingOperations {
       }
     }
   }
+
+  /** Приглашение с готовой ссылкой в бота, если процессу известен адрес бота. */
+  private ownerInvitation(view: InvitationView): OwnerInvitation {
+    const base = this.dependencies.botStartUrl;
+    let link: string | null = null;
+    if (base !== undefined) {
+      const url = new URL(base);
+      url.searchParams.set("start", view.startParameter);
+      link = url.toString();
+    }
+    return {
+      id: view.id,
+      code: view.code,
+      startParameter: view.startParameter,
+      offerId: view.offerId,
+      offerRevision: view.offerRevision,
+      mode: view.mode,
+      giftMonths: view.giftMonths,
+      note: view.note,
+      state: view.state,
+      issuedAt: view.issuedAt,
+      expiresAt: view.expiresAt,
+      claimedAt: view.claimedAt,
+      redeemedAt: view.redeemedAt,
+      revokedAt: view.revokedAt,
+      accountId: view.accountId,
+      revision: view.revision,
+      link,
+    };
+  }
+}
+
+type InvitationView = z.infer<typeof invitationViewSchema>;
+type OwnerInvitation = z.infer<typeof ownerInvitationSchema>;
+
+/** Итог выдачи и отзыва без заметки владельца о человеке. */
+function withoutNote(invitation: OwnerInvitation) {
+  return {
+    id: invitation.id,
+    code: invitation.code,
+    startParameter: invitation.startParameter,
+    offerId: invitation.offerId,
+    offerRevision: invitation.offerRevision,
+    mode: invitation.mode,
+    giftMonths: invitation.giftMonths,
+    state: invitation.state,
+    issuedAt: invitation.issuedAt,
+    expiresAt: invitation.expiresAt,
+    claimedAt: invitation.claimedAt,
+    redeemedAt: invitation.redeemedAt,
+    revokedAt: invitation.revokedAt,
+    accountId: invitation.accountId,
+    revision: invitation.revision,
+    link: invitation.link,
+  };
+}
+
+/**
+ * Итог команды для журнала. Код и ссылка приглашения погашают его, поэтому журнал их не хранит;
+ * остальные итоги записываются как есть.
+ */
+function auditedOutcome(outcome: OwnerOutcome): OwnerOutcome {
+  if (outcome.outcome !== "invitation") return outcome;
+  const { value } = outcome;
+  return {
+    outcome: "invitation",
+    value: {
+      id: value.id,
+      offerId: value.offerId,
+      offerRevision: value.offerRevision,
+      mode: value.mode,
+      giftMonths: value.giftMonths,
+      state: value.state,
+      issuedAt: value.issuedAt,
+      expiresAt: value.expiresAt,
+      claimedAt: value.claimedAt,
+      redeemedAt: value.redeemedAt,
+      revokedAt: value.revokedAt,
+      accountId: value.accountId,
+      revision: value.revision,
+    },
+  };
+}
+
+/** Отказ приглашения: отзыв погашённого или сгоревшего — конфликт состояния, остальное — как у прав. */
+function invitationFailure(
+  code: AccessFailureCode | "state_conflict",
+): Extract<OwnerResult, { ok: false }> {
+  return code === "state_conflict"
+    ? ownerFailure("state_conflict")
+    : ownerAccessFailure(code);
 }
 
 /**
@@ -947,6 +1120,12 @@ function targetOf(command: OwnerOperation, outcome: OwnerOutcome): string {
       return outcome.outcome === "respondentLink"
         ? outcome.value.promotionId
         : command.operationId;
+    // Выдача адресуется своим приглашением: его id и есть operationId команды.
+    case "invitations.issue":
+    case "invitations.list":
+      return command.operationId;
+    case "invitations.revoke":
+      return command.invitationId;
     default: {
       const exhaustive: never = command;
       throw new Error(

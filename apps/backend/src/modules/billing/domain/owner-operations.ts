@@ -33,6 +33,10 @@ import {
   accessGrantsViewSchema,
   classifyLegacyAccountCommandSchema,
   legacyClassificationViewSchema,
+  invitationViewSchema,
+  issueInvitationSchema,
+  listInvitationsSchema,
+  revokeInvitationSchema,
 } from "../../membership-entitlements/index.js";
 import {
   manageCatalogSchema,
@@ -242,6 +246,18 @@ export const ownerOperationSchema = z.discriminatedUnion("operation", [
     operation: z.literal("respondents.issue"),
   }),
   z.strictObject({ ...command, operation: z.literal("respondents.status") }),
+  z.strictObject({
+    ...issueInvitationSchema.shape,
+    operation: z.literal("invitations.issue"),
+  }),
+  z.strictObject({
+    ...revokeInvitationSchema.shape,
+    operation: z.literal("invitations.revoke"),
+  }),
+  z.strictObject({
+    ...listInvitationsSchema.shape,
+    operation: z.literal("invitations.list"),
+  }),
 ]);
 export type OwnerOperation = z.infer<typeof ownerOperationSchema>;
 /** Чтение не меняет состояние: такие операции не пишут receipt и повторяются свободно. */
@@ -259,6 +275,7 @@ export const ownerReadOperations = [
   "grants.read",
   "grants.readClassification",
   "respondents.status",
+  "invitations.list",
 ] as const;
 const readOperations: readonly string[] = ownerReadOperations;
 export function isOwnerReadOperation(operation: string): boolean {
@@ -326,6 +343,13 @@ export const auditEntryViewSchema = z.strictObject({
   createdAt: z.iso.datetime(),
 });
 
+/**
+ * Приглашение для владельца: готовая ссылка в бота. `link` — `null`, когда процессу не задан
+ * адрес бота; тогда ссылку собирают из `startParameter`.
+ */
+export const ownerInvitationSchema = invitationViewSchema.extend({
+  link: z.url().nullable(),
+});
 export const ownerSuccessSchema = z.union([
   z.strictObject({
     outcome: z.literal("tributeImportReview"),
@@ -518,6 +542,20 @@ export const ownerSuccessSchema = z.union([
   z.strictObject({
     outcome: z.literal("respondents"),
     value: respondentsViewSchema,
+  }),
+  // Заметки владельца о человеке в итоге выдачи и отзыва нет. Код и ссылка погашают неоткрытое
+  // приглашение, поэтому журнал хранит итог без них (`auditedOutcome`), а повтор выдачи читает их
+  // заново.
+  z.strictObject({
+    outcome: z.literal("invitation"),
+    value: ownerInvitationSchema
+      .omit({ note: true })
+      .partial({ code: true, startParameter: true, link: true }),
+  }),
+  z.strictObject({
+    outcome: z.literal("invitations"),
+    items: z.array(ownerInvitationSchema),
+    nextCursor: idSchema.nullable(),
   }),
 ]);
 export type OwnerOutcome = z.infer<typeof ownerSuccessSchema>;

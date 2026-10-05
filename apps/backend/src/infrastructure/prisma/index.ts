@@ -37,6 +37,7 @@ export {
   lockBillingPricing,
   lockBillingPurchase,
   lockBillingSubscription,
+  lockBillingEnrollmentNotices,
   lockContentCoverOwner,
   lockMaterialReferenceChanges,
   lockMaterialSlugAllocation,

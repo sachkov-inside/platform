@@ -81,21 +81,26 @@ export class BillingPricing {
           published: true,
           options: { some: { archived: false, mode: "subscription" } },
         },
-        select: { benefits: true, contentScope: true, eligibility: true },
+        select: {
+          id: true,
+          benefits: true,
+          contentScope: true,
+          eligibility: true,
+        },
       })
     ).filter(sellsSubscription);
-    const eligibilities = rows.map((row) =>
-      offerEligibilitySchema.parse(row.eligibility),
-    );
-    if (eligibilities.includes("everyone")) return true;
-    if (eligibilities.length === 0) return false;
+    const offers = rows.map((row) => ({
+      id: row.id,
+      eligibility: offerEligibilitySchema.parse(row.eligibility),
+    }));
+    if (offers.some((offer) => offer.eligibility === "everyone")) return true;
+    if (offers.length === 0) return false;
     const grounds = await readPurchaseGrounds(
       this.dependencies.grants,
       accountId,
     );
     return (
-      grounds !== null &&
-      eligibilities.some((eligibility) => offerAdmits(eligibility, grounds))
+      grounds !== null && offers.some((offer) => offerAdmits(offer, grounds))
     );
   }
   /** Отказ при запуске, если каталог продаёт, а у процесса нет настроек оплаты для этой продажи. */

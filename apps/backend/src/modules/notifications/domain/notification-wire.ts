@@ -50,6 +50,7 @@ export const contentSchema = z.discriminatedUnion("category", [
     category: z.literal("subscription"),
     kind: z.enum([
       "renewal_reminder",
+      "access_ending",
       "payment_succeeded",
       "payment_failed",
       "renewal_cancelled",

@@ -91,7 +91,7 @@ export async function quotePurchase(
         if (price.value.paymentOption.revision !== command.optionRevision)
           return failure("quote_changed");
         // Offer с ограничением допуска не рассчитывается для Account без основания.
-        if (!offerAdmits(price.value.offer.eligibility, grounds))
+        if (!offerAdmits(price.value.offer, grounds))
           return failure("not_eligible");
         const expiresAt = new Date(
           now.getTime() + quoteValidityMinutes * 60_000,

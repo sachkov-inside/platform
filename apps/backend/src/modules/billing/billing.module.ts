@@ -3,6 +3,7 @@ import { BillingSurveyRespondentSales } from "./features/read-survey-respondent-
 import { ReceiveTributeController } from "./features/receive-tribute/receive-tribute.controller.js";
 import { TributeConvergence } from "./facets/tribute-convergence/tribute-convergence.js";
 import {
+  configuredTelegramBotStartUrl,
   PLATFORM_CONFIG,
   type PlatformConfig,
 } from "../../config/platform-config.js";
@@ -97,9 +98,9 @@ const BILLING_BANK = Symbol("BillingBank");
     },
     {
       provide: BillingNotices,
-      inject: [PrismaClientProvider],
-      useFactory: (prisma: PrismaClientProvider) =>
-        new BillingNotices({ prisma }),
+      inject: [PrismaClientProvider, ACCESS_GRANTS],
+      useFactory: (prisma: PrismaClientProvider, grants: AccessGrants) =>
+        new BillingNotices({ prisma, enrollments: grants }),
     },
     {
       provide: BillingSubscriptions,
@@ -158,6 +159,7 @@ const BILLING_BANK = Symbol("BillingBank");
         ACCESS_GRANTS,
         BILLING_BANK,
         TributeConvergence,
+        PLATFORM_CONFIG,
       ],
       useFactory: (
         prisma: PrismaClientProvider,
@@ -168,6 +170,7 @@ const BILLING_BANK = Symbol("BillingBank");
         grants: AccessGrants,
         bank: Tbank | undefined,
         tribute: TributeConvergence,
+        config: PlatformConfig,
       ) =>
         new BillingOperations({
           prisma,
@@ -178,6 +181,7 @@ const BILLING_BANK = Symbol("BillingBank");
           grants,
           bank,
           tribute,
+          botStartUrl: configuredTelegramBotStartUrl(config),
         }),
     },
   ],

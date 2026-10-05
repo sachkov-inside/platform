@@ -2,6 +2,7 @@ import type { NotificationSource } from "../ports/notification-sources.js";
 const subjects = {
   material_published: "Новый материал в Inside",
   renewal_reminder: "Скоро продление подписки Inside",
+  access_ending: "Доступ Inside скоро закончится",
   payment_succeeded: "Оплата Inside подтверждена",
   payment_failed: "Оплата Inside не прошла",
   renewal_cancelled: "Продление Inside отменено",

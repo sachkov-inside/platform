@@ -24,6 +24,12 @@ SourceEntitlement может оставаться без Account и без пр�
 транзакцией изменения прав. Текущая Telegram binding защищена тем же advisory lock, который
 использует владеющий ею trigger. Все owner mutations требуют billing:manage и operationId.
 
+Подарок по приглашению (#908) — назначение origin `invitation` со `sourceRef` = id приглашения,
+`endPolicy: fixed` и сроком от момента погашения: `giftMonths` календарных месяцев или без конца.
+Его пишет погашение приглашения в одной транзакции с закреплением; повтор погашения возвращает то
+же назначение. Правила приглашения — раздел «Текущая поставка #908» в
+[subscription-billing-v1](subscription-billing-v1.md).
+
 Состав — Guide UUID либо признак `allGuides`: все продукты платформы, включая опубликованные позже.
 Capability guide:* относится к отдельной покупке и не принимается как состав назначаемого тарифа. Новый состав не принимает отдельные Material UUID; прежние снимки
 их ещё хранят и открывают по ним материал. materials не открывает community и support; support
@@ -128,6 +134,8 @@ Enrollment changes объявляются соседним вкладкам то
   Repair #627 добавляет read-only `/binding` по verified identityRef: точная текущая
   Platform binding либо unlinked/identity_conflict/unavailable. Browser transaction linkRef
   не заменяет current binding; lookup не ослабляет проверку последующей перепривязки.
+  #908 добавляет `POST /integrations/telegram/v1/invitations/redeem`: погашение личного
+  приглашения с тем же credential.
 - [community-v2](../contracts/community-v2/protocol.md): обязательный admissionRestriction,
   v2-only новые effects и dispatch target/digest внутри envelope billing-dispatch.v1.
 - Исторический billing-v1 corpus неизменяем; v1 receipts остаются читаемыми.

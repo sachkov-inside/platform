@@ -96,6 +96,12 @@ function description(operation: string): string {
       return "Issue one survey respondent a personal one-time promo code copied from an archived, unexpired template promotion. A username gets at most one code; a repeat returns the issued one. Returns the product slug when the template sells one product; the payment page is /products/<slug>/buy?promo=<code>. Grants no access and sends nothing.";
     case "respondents.status":
       return "Read the survey respondent list: its size, issued personal links and purchases confirmed by them. Sends nothing.";
+    case "invitations.issue":
+      return "Issue one personal one-time invitation to an Offer: mode purchase lets the person buy that Offer, mode gift assigns it for giftMonths or without end. Returns the bot link t.me/<bot>?start=i_<code> (link is null when this process has no bot address; build it from startParameter). The first Telegram account that opens it owns it; an unopened link expires in 14 days. The note stays out of the owner audit. Sends nothing. Reuse operationId on retry.";
+    case "invitations.revoke":
+      return "Revoke one issued or opened invitation with expectedRevision so its link stops working. A redeemed invitation cannot be revoked: change that access through enrollments. Sends nothing.";
+    case "invitations.list":
+      return "Read invitations newest first with state issued, claimed, redeemed, expired or revoked, optional state and Offer filters, cursor and limit. Sends nothing.";
     default:
       return `Change the billing catalog through ${operation} with expectedRevision. Purchased conditions, existing subscriptions and issued grants are never rewritten. Reuse operationId on retry.`;
   }

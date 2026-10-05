@@ -740,7 +740,11 @@ describe("оплата, выдача прав и доступ к материа�
       contact,
       grants,
       payments,
-      notices: new BillingNotices({ prisma: db.prisma, clock: () => now }),
+      notices: new BillingNotices({
+        prisma: db.prisma,
+        enrollments: grants,
+        clock: () => now,
+      }),
       clock: () => now,
     });
     const operations = new BillingOperations({

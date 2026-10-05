@@ -51,6 +51,7 @@ sudo env \
 | `NOTIFICATIONS_PLATFORM_ORIGIN`, `NOTIFICATIONS_TELEGRAM_SECRET` | `api.env`, `notifications-worker.env` | `NOTIFICATION_AUTHORIZE_SECRET` |
 | `TELEGRAM_COMMUNITY_CONTRACT_VERSION=inside.community-entitlement.v2`, `TELEGRAM_COMMUNITY_ENTITLEMENT_*`, `TELEGRAM_COMMUNITY_DISPATCH_SECRET` | `api.env`, `billing-worker.env` | `PLATFORM_COMMUNITY_INTEGRATION_SECRET`, `PLATFORM_COMMUNITY_DISPATCH_SECRET` |
 | `TELEGRAM_ACTIVATION_INGRESS_SECRET` | `api.env` | `PLATFORM_ACTIVATION_SECRET` |
+| `TELEGRAM_BOT_START_URL` — без него в `mcp.env` инструменты приглашений отдают только start-параметр (#908) | `api.env`, `mcp.env` | — |
 | `TELEGRAM_SALES_FUNNEL_INGRESS_SECRET` — необязателен; без него вход событий воронки закрыт | `api.env` | секрет воронки на стороне бота ([inside-telegram#118](https://github.com/sachkov-inside/inside-telegram/issues/118)) |
 | `TELEGRAM_LINKING_SECRET` | `api.env` | `PLATFORM_INTEGRATION_SECRET` |
 | `TELEGRAM_COMMUNICATIONS_SECRET` — своё значение, не равное `TELEGRAM_LINKING_SECRET` | `api.env`, `mcp.env` | `PLATFORM_COMMUNICATIONS_SECRET` |
@@ -240,6 +241,8 @@ Telegram ([Telegram #45](https://github.com/sachkov-inside/inside-telegram/issue
    заполненная до своей [ёмкости](notification-transport.md#local-operation) очередь отклоняет
    публикацию, и команды ждут в outbox PostgreSQL без потерь.
 6. **Telegram.** Миграции и запуск приложения Telegram с сетью брокера. Platform ничего не меняет.
+   Выпуск Telegram принимает вид `access_ending` в `inside.notification-delivery.v1` (#909): с шага 5
+   Platform ставит его в очередь подписки, и прежний бот отклонил бы такую команду.
 7. **Webhook.** Сторона Telegram.
 8. **Привязка и Evidence.** Владелец привязывает Telegram из сессии Platform; маршрут
    `membership-evidence` уже опубликован.
@@ -250,6 +253,18 @@ Telegram ([Telegram #45](https://github.com/sachkov-inside/inside-telegram/issue
    `operator_attention`. Проверочная покупка владельца на этом шаге Telegram — реальный платёж на
    рабочем терминале (Workspace #184): перед ней владелец включает продажу разового продукта в
    `/authoring/billing`, после — при необходимости выключает её до шага 12.
+
+   **Удаления из группы включены** по решению владельца 04.10.2026 (спецификация #907). Telegram
+   включает `TELEGRAM_COMMUNITY_MODE=live` вместе с `TELEGRAM_COMMUNITY_REMOVALS_ENABLED=true`; прежний
+   запрет удалений больше не действует. Platform для этого ничего не меняет: CommunityEntitlement без
+   действующего основания уже даёт `denied` в момент границы, без запаса, и бот исполняет удаление.
+   Это касается любого доступа с концом: оплаченного, подарочного и ручного. За три дня до границы
+   доступа без продления человек получает `access_ending` со ссылкой на оформление Offer, в момент
+   границы — `access_expired`. Проверка после включения: список `GET community-entitlements/members-without-right`
+   (`platform:admin`) со временем пустеет. У Account с закончившимся доступом
+   `GET community-entitlements/<accountId>` показывает последнюю операцию с `access.kind = denied`
+   и её `appliedState`. Если список растёт или бот отклоняет операции, Telegram выключает удаления
+   (`TELEGRAM_COMMUNITY_REMOVALS_ENABLED=false`), затем операцию разбирают по этому же маршруту.
 10. **Активация.** Добавьте `TELEGRAM_ACTIVATION_INGRESS_SECRET` в `api.env` и пересоздайте `api`; затем
     Telegram включает `TELEGRAM_ACTIVATION_ENABLED=true`.
 11. **Уведомления.** `notifications-worker` уже подключён к брокеру с шага 5. После включения

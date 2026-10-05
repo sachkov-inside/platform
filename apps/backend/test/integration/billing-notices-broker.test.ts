@@ -207,7 +207,10 @@ test("подтверждённая оплата доходит до обоих �
     contact,
     grants,
   });
-  const notices = new BillingNotices({ prisma: database.prisma });
+  const notices = new BillingNotices({
+    prisma: database.prisma,
+    enrollments: grants,
+  });
   const contacts = new NotificationAccounts(database.prisma, protection);
   const links = new TelegramAccountLinks(database.prisma);
   // Команда доставки, собранная из двух чтений часов, живёт дольше, чем принимает её потребитель.

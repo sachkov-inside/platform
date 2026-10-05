@@ -78,6 +78,7 @@ const membershipEntitlementTables = [
   "content_scope_baseline",
   "current_projections",
   "evidence_receipts",
+  "invitations",
   "legacy_classifications",
   "source_entitlements",
   "subscription_enrollments",
@@ -246,6 +247,8 @@ describe("Platform migrations", () => {
         "0073_survey_respondents",
         "0074_sales_funnel",
         "0076_guide_cohorts",
+        "0077_access_ending_notices",
+        "0078_invitations",
       ],
     });
     expect(second).toEqual({ appliedMigrations: [] });
@@ -909,6 +912,8 @@ describe("Platform migrations", () => {
           "0073_survey_respondents",
           "0074_sales_funnel",
           "0076_guide_cohorts",
+          "0077_access_ending_notices",
+          "0078_invitations",
         ],
       });
 

@@ -95,3 +95,13 @@ export function sellsSubscription(
 ): boolean {
   return !isProductOffer(offer) && !tierLacksComposition(offer);
 }
+
+/**
+ * Offer, на который выдаётся приглашение «оплата»: подписка с составом и без невыдаваемых прав.
+ * Продажу и вариант оплаты проверяет погашение: владелец может выдать ссылку до публикации.
+ */
+export function subscriptionOfferForInvitation(
+  offer: CatalogOffer & { readonly contentScope: unknown },
+): boolean {
+  return sellsSubscription(offer) && !offerGrantsWithheld(offer);
+}

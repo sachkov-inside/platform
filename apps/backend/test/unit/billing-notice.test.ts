@@ -1,9 +1,18 @@
 import { randomUUID } from "node:crypto";
 import { describe, expect, test } from "vitest";
+import { offerCheckoutPath } from "../../src/modules/billing/domain/offer-checkout.js";
 import {
   NOTICE_LIFETIME_MS,
   RENEWAL_REMINDER_LEAD_MS,
+  accessEndingSourceRef,
   attemptSourceRef,
+  continuesAccessEndingReminder,
+  enrollmentOfNotice,
+  planAccessEnded,
+  planAccessEnding,
+  planSubscriptionEnding,
+  subscriptionEndingSourceRef,
+  type AccessEndingSubject,
   lifecycleWindow,
   noticeEvent,
   planRenewalReminder,
@@ -39,6 +48,7 @@ const snapshot = {
 const active: RenewalReminderSubject = {
   subscriptionRef,
   accountId,
+  ended: false,
   scheduled: true,
   snapshot,
   pendingChange: {},
@@ -183,5 +193,138 @@ describe("событие повода", () => {
         },
       }),
     ).toThrow();
+  });
+});
+
+describe("окончание неоплаченного доступа", () => {
+  const enrollmentId = randomUUID();
+  const endsAt = new Date("2030-03-10T00:00:00Z");
+  const gift: AccessEndingSubject = {
+    enrollmentId,
+    accountId,
+    offerId: randomUUID(),
+    title: "Материалы",
+    endsAt,
+    continued: false,
+  };
+  const reminderRef = accessEndingSourceRef(enrollmentId, 1);
+
+  test("напоминание появляется за три дня до границы и ведёт на продление", () => {
+    const now = new Date(endsAt.getTime() - RENEWAL_REMINDER_LEAD_MS);
+    expect(planAccessEnding(gift, reminderRef, now)).toEqual({
+      kind: "access_ending",
+      accountId,
+      sourceRef: reminderRef,
+      title: "Материалы",
+      dueAt: endsAt,
+      occurredAt: now,
+      notAfter: endsAt,
+    });
+    expect(
+      planAccessEnding(gift, reminderRef, new Date(now.getTime() - 1)),
+    ).toBeUndefined();
+    expect(planAccessEnding(gift, reminderRef, endsAt)).toBeUndefined();
+  });
+
+  test("доступ, который продолжает другое основание, не заканчивается и повода не даёт", () => {
+    const continued = { ...gift, continued: true };
+    expect(
+      planAccessEnding(
+        continued,
+        reminderRef,
+        new Date("2030-03-08T00:00:00Z"),
+      ),
+    ).toBeUndefined();
+    expect(planAccessEnded(continued, endsAt)).toBeUndefined();
+  });
+
+  test("окончание сообщается с самой границы и только в пределах срока жизни повода", () => {
+    const ended = planAccessEnded(gift, endsAt);
+    expect(ended).toMatchObject({
+      kind: "access_expired",
+      accountId,
+      title: "Материалы",
+      dueAt: endsAt,
+      occurredAt: endsAt,
+      notAfter: new Date(endsAt.getTime() + NOTICE_LIFETIME_MS),
+    });
+    // Позже замеченная граница даёт тот же повод: ключ — сам срок, а не момент наблюдения.
+    expect(
+      planAccessEnded(gift, new Date(endsAt.getTime() + 60_000))?.sourceRef,
+    ).toBe(ended?.sourceRef);
+    expect(
+      planAccessEnded(gift, new Date(endsAt.getTime() - 1)),
+    ).toBeUndefined();
+    expect(
+      planAccessEnded(gift, new Date(endsAt.getTime() + NOTICE_LIFETIME_MS)),
+    ).toBeUndefined();
+    // Новый срок после восстановления — новая граница и новый повод.
+    expect(
+      planAccessEnded(
+        { ...gift, endsAt: new Date("2030-04-10T00:00:00Z") },
+        new Date("2030-04-10T00:00:00Z"),
+      )?.sourceRef,
+    ).not.toBe(ended?.sourceRef);
+    if (ended === undefined) throw new Error("Ожидался повод окончания");
+    expect(enrollmentOfNotice(ended.sourceRef)).toBe(enrollmentId);
+    expect(enrollmentOfNotice(reminderRef)).toBe(enrollmentId);
+  });
+
+  test("перенос срока внутри окна продолжает прежнее напоминание, а продление дальше окна начинает следующее", () => {
+    expect(
+      continuesAccessEndingReminder(endsAt, new Date("2030-03-11T00:00:00Z")),
+    ).toBe(true);
+    expect(
+      continuesAccessEndingReminder(endsAt, new Date("2030-03-09T00:00:00Z")),
+    ).toBe(true);
+    expect(
+      continuesAccessEndingReminder(endsAt, new Date("2030-04-10T00:00:00Z")),
+    ).toBe(false);
+    expect(accessEndingSourceRef(enrollmentId, 2)).not.toBe(reminderRef);
+  });
+
+  test("ключ повода чужой формы не называет Enrollment", () => {
+    expect(enrollmentOfNotice(`subscription:${randomUUID()}:ended`)).toBe(
+      undefined,
+    );
+    expect(enrollmentOfNotice(`enrollment:${"-".repeat(36)}:ended:1`)).toBe(
+      undefined,
+    );
+    expect(enrollmentOfNotice(`${reminderRef}:extra`)).toBe(undefined);
+  });
+});
+
+describe("окончание оплаченного срока без продления", () => {
+  const canceled = { ...active, scheduled: false };
+  const now = new Date(paidUntil.getTime() - RENEWAL_REMINDER_LEAD_MS);
+
+  test("без расписания за три дня приходит напоминание об окончании, а не о списании", () => {
+    expect(planRenewalReminder(canceled, now)).toBeUndefined();
+    expect(planSubscriptionEnding(canceled, now)).toEqual({
+      kind: "access_ending",
+      accountId,
+      sourceRef: subscriptionEndingSourceRef(subscriptionRef, 1),
+      subscriptionRef,
+      title: "Материалы",
+      occurredAt: now,
+      notAfter: paidUntil,
+      dueAt: paidUntil,
+    });
+  });
+
+  test("действующее расписание, завершённая подписка и время вне окна повода не дают", () => {
+    expect(planSubscriptionEnding(active, now)).toBeUndefined();
+    expect(
+      planSubscriptionEnding({ ...canceled, ended: true }, now),
+    ).toBeUndefined();
+    expect(
+      planSubscriptionEnding(canceled, new Date(now.getTime() - 1)),
+    ).toBeUndefined();
+    expect(planSubscriptionEnding(canceled, paidUntil)).toBeUndefined();
+  });
+
+  test("продление ведёт на оформление того же Offer через один адрес", () => {
+    expect(offerCheckoutPath(offer.id)).toBe(`/subscription?offer=${offer.id}`);
+    expect(() => offerCheckoutPath("not-an-offer")).toThrow();
   });
 });

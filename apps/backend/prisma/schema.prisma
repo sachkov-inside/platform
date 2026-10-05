@@ -1727,6 +1727,29 @@ model SubscriptionEnrollment {
   @@schema("membership_entitlements")
 }
 
+model Invitation {
+  id String @id @db.Uuid
+  code String @unique @db.VarChar(40)
+  offerId String @map("offer_id") @db.Uuid
+  offerRevision Int @map("offer_revision")
+  mode String
+  giftMonths Int? @map("gift_months")
+  note String? @db.VarChar(200)
+  issuedBy String @map("issued_by") @db.Uuid
+  issuedAt DateTime @map("issued_at") @db.Timestamptz
+  expiresAt DateTime @map("expires_at") @db.Timestamptz
+  claimedAt DateTime? @map("claimed_at") @db.Timestamptz
+  claimedIdentityRef String? @map("claimed_identity_ref") @db.VarChar(256)
+  claimedAccountId String? @map("claimed_account_id") @db.Uuid
+  redeemedAt DateTime? @map("redeemed_at") @db.Timestamptz
+  enrollmentId String? @map("enrollment_id") @db.Uuid
+  revokedAt DateTime? @map("revoked_at") @db.Timestamptz
+  revision Int
+  @@index([issuedAt(sort: Desc), id], map: "invitations_issued_idx")
+  @@map("invitations")
+  @@schema("membership_entitlements")
+}
+
 model ActivationRule {
  verificationMode String @default("course_membership") @map("verification_mode")
  id String @id @db.Uuid

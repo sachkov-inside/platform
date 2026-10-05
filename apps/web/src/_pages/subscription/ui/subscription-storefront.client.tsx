@@ -20,12 +20,16 @@ import { CheckoutFlow } from "@/features/billing-checkout";
 import { useCurrentBilling } from "@/features/billing-subscription";
 import { Button } from "@/shared/ui/button";
 
+import { initialPaymentOptionId } from "../model/initial-selection";
+
 export interface SubscriptionStorefrontProps {
   readonly offers: readonly PriceSnapshot[];
   readonly unavailable?: boolean;
   /** Куда вернуть покупателя после входа: контекст страницы руководства сохраняется. */
   readonly returnTo: string;
   readonly originHref?: Route;
+  /** Предложение из адреса `?offer=`: витрина выбирает его первый вариант оплаты. */
+  readonly initialOfferId?: string;
   readonly cabinetHref?: Route;
   readonly contactHref?: Route;
 }
@@ -35,12 +39,13 @@ export function SubscriptionStorefront({
   unavailable = false,
   returnTo,
   originHref,
+  initialOfferId,
   cabinetHref = "/account/subscription",
   contactHref = "/account/purchases",
 }: SubscriptionStorefrontProps) {
   const offers = publicSubscriptionOffers(catalog);
-  const [selectedId, setSelectedId] = useState<string | null>(
-    offers[0]?.paymentOption.id ?? null,
+  const [selectedId, setSelectedId] = useState<string | null>(() =>
+    initialPaymentOptionId(offers, initialOfferId),
   );
   const [contactState, setContactState] = useState<BillingContactState | null>(
     null,
@@ -58,19 +63,26 @@ export function SubscriptionStorefront({
   // страница ничего не обещает: рекламировать то, чего нельзя купить, и звать зайти позже за
   // тем, что не появится, одинаково неверно.
   const notOffered = !unavailable && offers.length === 0;
+  // Приглашение ведёт на витрину с `?offer=`: гостю Offer «только по приглашению» не виден, и
+  // пустая витрина у него значит «сначала войдите», а не «продажа выключена».
+  const invitedGuest = notOffered && signedOut && initialOfferId !== undefined;
 
   return (
     <div className="mx-auto grid max-w-5xl gap-8">
       <header className="grid gap-3">
         <h1 className="text-balance text-4xl font-bold tracking-[-0.04em] sm:text-5xl">
-          {notOffered
-            ? "Подписка сейчас не продаётся"
-            : "Подписка Sachkov Inside"}
+          {invitedGuest
+            ? "Подписка по приглашению"
+            : notOffered
+              ? "Подписка сейчас не продаётся"
+              : "Подписка Sachkov Inside"}
         </h1>
         <p className="max-w-2xl text-base leading-7 text-muted-foreground">
-          {notOffered
-            ? "Оформить её пока нельзя. Уже оформленная подписка продолжает работать, и доступ по ней сохраняется."
-            : "Оба тарифа открывают все опубликованные материалы и продукты. Старший добавляет вопросы автору, эфиры и общий чат."}
+          {invitedGuest
+            ? "Тариф по приглашению виден после входа тем же аккаунтом, который вы связали с ботом."
+            : notOffered
+              ? "Оформить её пока нельзя. Уже оформленная подписка продолжает работать, и доступ по ней сохраняется."
+              : "Оба тарифа открывают все опубликованные материалы и продукты. Старший добавляет вопросы автору, эфиры и общий чат."}
         </p>
         <StorefrontOriginLink originHref={originHref} />
       </header>
@@ -81,6 +93,8 @@ export function SubscriptionStorefront({
         cabinetHref={cabinetHref}
         offerName={subscription?.snapshot.offer.name ?? null}
       />
+
+      {invitedGuest ? <SignInToSubscribe returnTo={returnTo} /> : null}
 
       {notOffered ? null : unavailable ? (
         <p
@@ -130,18 +144,7 @@ export function SubscriptionStorefront({
               Проверяем вашу подписку…
             </p>
           ) : signedOut ? (
-            <section className="rounded-2xl border border-border bg-card p-6 shadow-card">
-              <h2 className="text-xl font-semibold">Войдите, чтобы оформить</h2>
-              <p className="mt-2 text-sm leading-6 text-muted-foreground">
-                После входа вы вернётесь сюда и продолжите с выбранного тарифа.
-              </p>
-              <form action="/auth/sign-in" className="mt-4" method="post">
-                <input name="returnTo" type="hidden" value={returnTo} />
-                <Button className={billingActionClass} type="submit">
-                  Войти
-                </Button>
-              </form>
-            </section>
+            <SignInToSubscribe returnTo={returnTo} />
           ) : selected === null ? null : (
             <div className="grid gap-6 lg:grid-cols-2">
               <CheckoutFlow
@@ -207,5 +210,23 @@ function CurrentSubscriptionNote({
       </Link>
       .
     </p>
+  );
+}
+
+/** Вход перед оформлением: после него покупатель возвращается к выбранному тарифу. */
+function SignInToSubscribe({ returnTo }: { readonly returnTo: string }) {
+  return (
+    <section className="rounded-2xl border border-border bg-card p-6 shadow-card">
+      <h2 className="text-xl font-semibold">Войдите, чтобы оформить</h2>
+      <p className="mt-2 text-sm leading-6 text-muted-foreground">
+        После входа вы вернётесь сюда и продолжите с выбранного тарифа.
+      </p>
+      <form action="/auth/sign-in" className="mt-4" method="post">
+        <input name="returnTo" type="hidden" value={returnTo} />
+        <Button className={billingActionClass} type="submit">
+          Войти
+        </Button>
+      </form>
+    </section>
   );
 }
