@@ -105,14 +105,15 @@ export const Ready: Story = {
     await expect(
       canvas.getByText("Разобрать обращение бизнеса"),
     ).toBeInTheDocument();
-    // Одна инструкция и один запрос для любого агента: адрес приходит из конфигурации.
+    // Запрос подключения агента в «Настройке проверки» и один запрос на задание для любого агента.
     await expect(canvas.queryByText(/Codex$/u)).not.toBeInTheDocument();
     await expect(canvas.getByText(connection.url)).toBeInTheDocument();
+    await expect(canvas.getByText("Подключить агента")).toBeInTheDocument();
     const buttons = canvas.getAllByRole("button", { name: "Копировать" });
-    await expect(buttons).toHaveLength(1);
-    const first = buttons[0];
-    if (first === undefined) throw new Error("Expected copy action");
-    await userEvent.click(first);
+    await expect(buttons).toHaveLength(2);
+    const practice = buttons.at(-1);
+    if (practice === undefined) throw new Error("Expected copy action");
+    await userEvent.click(practice);
     await expect(
       await canvas.findByRole("button", { name: "Скопировано" }),
     ).toBeInTheDocument();
