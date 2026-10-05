@@ -4,7 +4,7 @@
 Delivery: [#337](https://github.com/sachkov-inside/platform/issues/337),
 human outcome [Workspace #124](https://github.com/sachkov-inside/workspace/issues/124).
 Продуктовый план — [аналитика автора](../product/author-analytics-plan.md); коммерческие правила —
-[модель подписки](https://github.com/sachkov-inside/workspace/blob/main/product/subscription-billing-v1.md);
+[модель подписки](../product/subscription-billing-v1.md);
 реализация оплаты — [локальная спецификация billing](subscription-billing-v1.md);
 упаковка и воронки руководств — [Workspace #159](https://github.com/sachkov-inside/workspace/issues/159).
 
@@ -42,7 +42,7 @@ human outcome [Workspace #124](https://github.com/sachkov-inside/workspace/issue
 ## Следствия уже принятых правил
 
 Это не развилки. Владелец уже выбрал их в
-[модели подписки](https://github.com/sachkov-inside/workspace/blob/main/product/subscription-billing-v1.md)
+[модели подписки](../product/subscription-billing-v1.md)
 и в [Workspace #156](https://github.com/sachkov-inside/workspace/issues/156); здесь они записаны
 только потому, что задают формулы показателей.
 

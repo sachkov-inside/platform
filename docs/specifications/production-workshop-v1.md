@@ -39,7 +39,7 @@ Cases. Первый Track посвящён Kafka, а evaluation выбирает
 
 ## Authority сохранённого Workshop направления
 
-- Shared product contract: Workspace
-  [`production-workshop-v1.md`](https://github.com/sachkov-inside/workspace/blob/main/docs/specifications/production-workshop-v1.md).
+- Historical shared product contract, now preserved in Platform:
+  [`production-workshop-v1.md`](../history/workspace/specifications/production-workshop-v1.md).
 - Platform application contract: [`workshop-tracks.md`](./workshop-tracks.md).
 - Delivery graph и evaluation decision: задачи удалены 16.09.2026 вместе со снятием Workshop с плана.

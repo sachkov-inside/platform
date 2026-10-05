@@ -19,7 +19,7 @@ Workshop Tracks соединяют Materials, Laboratories и Production Cases �
 
 Этот документ владеет Platform-specific model, authoring/publication boundary, access semantics,
 learner progress и requirements первого Kafka-среза. Shared product promise и cross-repository
-термины принадлежат Workspace. Physical schema, API shapes и component composition появляются в
+термины теперь принадлежат [общему brief](../product/README.md) и [GLOSSARY](../../GLOSSARY.md). Physical schema, API shapes и component composition появляются в
 implementation tickets и не угадываются здесь заранее.
 
 Прежняя [case-first application specification](./production-workshop-v1.md) больше не является

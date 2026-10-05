@@ -8,7 +8,9 @@ source of truth for every durable fact, not a prose copy of every implementation
 
 | Changed fact | Update |
 |---|---|
-| Product scope or user-visible behaviour | `docs/product/platform-mvp-brief.md` and the owning specification when its contract changes |
+| Shared Inside product scope or commercial/access rules | `docs/product/README.md`, `docs/product/subscription-billing-v1.md` or `docs/product/access-model.md`, whichever owns the changed fact |
+| Platform scope or user-visible application behaviour | `docs/product/platform-mvp-brief.md` and the owning specification when its contract changes |
+| Legal text or edition status | `docs/legal/README.md` and the owning versioned document; a move does not change accepted status |
 | Domain term, meaning, or relationship | `GLOSSARY.md`; keep implementation and history out of the glossary |
 | Hard-to-reverse or surprising trade-off | Add an ADR, or let the replacement ADR supersede the old decision explicitly; do not rewrite accepted history as if it never happened |
 | Repository-wide coding rule | Root `CODING_STANDARDS.md`; keep it a short router and shared contract |

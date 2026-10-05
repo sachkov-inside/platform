@@ -1,11 +1,14 @@
 # platform
 
+Режим агентов: worktree
+
 ## Repository role
 
 Platform owns its product brief, Membership application, issues, application-specific ADRs and
 the developer process of Inside: `inside-telegram` receives a copy of it. Shared product and legal
-documents live in Workspace; Platform work uses repository-local canonical documents, never a
-machine-local dependency.
+documents now live in `docs/product` and `docs/legal`. `REPOSITORIES.md` describes the transition:
+Telegram remains in its source repository until the history import. Platform work uses
+repository-local canonical documents, never a machine-local dependency.
 
 ## Working agreements
 

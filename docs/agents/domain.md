@@ -6,8 +6,11 @@ relevant `docs/adr/` entries when they exist. Their absence is not a setup failu
 `domain-modeling` creates them lazily when durable terminology or a hard-to-reverse trade-off is
 actually resolved.
 
-Shared product and legal documents live in the Workspace repository; it holds no issues. Record
-each Platform-specific consequence of a shared decision once:
+For shared Inside product scope, read [the Inside brief](../product/README.md); for legal editions
+and their status, read [the legal index](../legal/README.md). `GLOSSARY.md` owns shared and application
+terms. [The repository map](../../REPOSITORIES.md) names the current transition boundaries;
+[the migration map](../migrations/958-shared-documents.md) preserves source provenance and history.
+Record each Platform-specific consequence of a shared decision once:
 
 - product scope in `docs/product/platform-mvp-brief.md`;
 - an implementation contract in the technical specification;

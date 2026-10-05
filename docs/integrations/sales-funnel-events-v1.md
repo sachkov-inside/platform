@@ -3,7 +3,7 @@
 Platform #816 owns the owner's Sales Funnel report and the bot-to-Platform contract
 `inside.sales-funnel-events.v1` that feeds its first two steps. The Telegram side of the contract is
 [inside-telegram#118](https://github.com/sachkov-inside/inside-telegram/issues/118). The
-[Workspace communications contract](https://github.com/sachkov-inside/workspace/blob/main/docs/specifications/telegram-communications-v1.md)
+[Workspace communications contract](../specifications/telegram-communications-v1.md)
 keeps the bot the owner of sources, participation and marketing preferences; this contract only
 reports those facts to Platform through an authenticated, versioned API.
 
