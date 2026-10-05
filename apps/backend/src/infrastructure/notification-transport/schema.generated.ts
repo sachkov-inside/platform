@@ -1,137 +1,142 @@
 // Generated from docs/contracts/notifications-v1/schema.json. Do not edit.
 export const notificationSchema = {
-  $schema: "http://json-schema.org/draft-07/schema#",
-  $id: "https://inside.example/contracts/notifications-v1/schema.json",
-  oneOf: [
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://inside.example/contracts/notifications-v1/schema.json",
+  "oneOf": [
     {
-      $ref: "#/definitions/billingEvent",
+      "$ref": "#/definitions/billingEvent"
     },
     {
-      $ref: "#/definitions/materialEvent",
+      "$ref": "#/definitions/materialEvent"
     },
     {
-      $ref: "#/definitions/telegramDelivery",
+      "$ref": "#/definitions/telegramDelivery"
     },
     {
-      $ref: "#/definitions/emailDelivery",
+      "$ref": "#/definitions/emailDelivery"
     },
     {
-      $ref: "#/definitions/acceptedResult",
+      "$ref": "#/definitions/acceptedResult"
     },
     {
-      $ref: "#/definitions/retryResult",
+      "$ref": "#/definitions/retryResult"
     },
     {
-      $ref: "#/definitions/sentResult",
+      "$ref": "#/definitions/sentResult"
     },
     {
-      $ref: "#/definitions/unknownResult",
+      "$ref": "#/definitions/unknownResult"
     },
     {
-      $ref: "#/definitions/failedResult",
+      "$ref": "#/definitions/failedResult"
     },
     {
-      $ref: "#/definitions/suppressedResult",
+      "$ref": "#/definitions/suppressedResult"
     },
     {
-      $ref: "#/definitions/authorizeRequest",
+      "$ref": "#/definitions/authorizeRequest"
     },
     {
-      $ref: "#/definitions/allowed",
+      "$ref": "#/definitions/allowed"
     },
     {
-      $ref: "#/definitions/denied",
+      "$ref": "#/definitions/denied"
     },
     {
-      $ref: "#/definitions/dispatchError",
-    },
+      "$ref": "#/definitions/dispatchError"
+    }
   ],
-  definitions: {
-    id: {
-      type: "string",
-      format: "uuid",
+  "definitions": {
+    "id": {
+      "type": "string",
+      "format": "uuid"
     },
-    ref: {
-      type: "string",
-      minLength: 1,
-      maxLength: 128,
+    "ref": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128
     },
-    revision: {
-      type: "integer",
-      minimum: 1,
-      maximum: 9007199254740991,
+    "revision": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 9007199254740991
     },
-    instant: {
-      type: "string",
-      format: "date-time",
+    "instant": {
+      "type": "string",
+      "format": "date-time"
     },
-    digest: {
-      type: "string",
-      pattern: "^[a-f0-9]{64}$",
+    "digest": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
     },
-    kind: {
-      type: "string",
-      enum: [
+    "kind": {
+      "type": "string",
+      "enum": [
         "renewal_reminder",
         "access_ending",
         "payment_succeeded",
         "payment_failed",
         "renewal_cancelled",
         "access_expired",
-        "refund_resolved",
-      ],
+        "refund_resolved"
+      ]
     },
-    bindingTelegram: {
-      type: "object",
-      additionalProperties: false,
-      required: [
+    "bindingTelegram": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
         "channel",
         "accountRef",
         "telegramIdentityRef",
         "linkRef",
-        "linkRevision",
+        "linkRevision"
       ],
-      properties: {
-        channel: {
-          const: "telegram",
+      "properties": {
+        "channel": {
+          "const": "telegram"
         },
-        accountRef: {
-          $ref: "#/definitions/ref",
+        "accountRef": {
+          "$ref": "#/definitions/ref"
         },
-        telegramIdentityRef: {
-          $ref: "#/definitions/ref",
+        "telegramIdentityRef": {
+          "$ref": "#/definitions/ref"
         },
-        linkRef: {
-          $ref: "#/definitions/id",
+        "linkRef": {
+          "$ref": "#/definitions/id"
         },
-        linkRevision: {
-          $ref: "#/definitions/revision",
-        },
-      },
+        "linkRevision": {
+          "$ref": "#/definitions/revision"
+        }
+      }
     },
-    bindingEmail: {
-      type: "object",
-      additionalProperties: false,
-      required: ["channel", "accountRef", "contactRef", "contactRevision"],
-      properties: {
-        channel: {
-          const: "email",
+    "bindingEmail": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "channel",
+        "accountRef",
+        "contactRef",
+        "contactRevision"
+      ],
+      "properties": {
+        "channel": {
+          "const": "email"
         },
-        accountRef: {
-          $ref: "#/definitions/ref",
+        "accountRef": {
+          "$ref": "#/definitions/ref"
         },
-        contactRef: {
-          $ref: "#/definitions/id",
+        "contactRef": {
+          "$ref": "#/definitions/id"
         },
-        contactRevision: {
-          $ref: "#/definitions/revision",
-        },
-      },
+        "contactRevision": {
+          "$ref": "#/definitions/revision"
+        }
+      }
     },
-    billingEvent: {
-      type: "object",
-      additionalProperties: false,
-      required: [
+    "billingEvent": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
         "contractVersion",
         "messageId",
         "sourceRef",
@@ -141,45 +146,45 @@ export const notificationSchema = {
         "notAfter",
         "eventType",
         "accountRef",
-        "kind",
+        "kind"
       ],
-      properties: {
-        contractVersion: {
-          const: "inside.notification-event.v1",
+      "properties": {
+        "contractVersion": {
+          "const": "inside.notification-event.v1"
         },
-        messageId: {
-          $ref: "#/definitions/id",
+        "messageId": {
+          "$ref": "#/definitions/id"
         },
-        sourceRef: {
-          $ref: "#/definitions/ref",
+        "sourceRef": {
+          "$ref": "#/definitions/ref"
         },
-        occurrenceRef: {
-          $ref: "#/definitions/id",
+        "occurrenceRef": {
+          "$ref": "#/definitions/id"
         },
-        sourceRevision: {
-          $ref: "#/definitions/revision",
+        "sourceRevision": {
+          "$ref": "#/definitions/revision"
         },
-        occurredAt: {
-          $ref: "#/definitions/instant",
+        "occurredAt": {
+          "$ref": "#/definitions/instant"
         },
-        notAfter: {
-          $ref: "#/definitions/instant",
+        "notAfter": {
+          "$ref": "#/definitions/instant"
         },
-        eventType: {
-          const: "billing.notice-ready",
+        "eventType": {
+          "const": "billing.notice-ready"
         },
-        accountRef: {
-          $ref: "#/definitions/ref",
+        "accountRef": {
+          "$ref": "#/definitions/ref"
         },
-        kind: {
-          $ref: "#/definitions/kind",
-        },
-      },
+        "kind": {
+          "$ref": "#/definitions/kind"
+        }
+      }
     },
-    materialEvent: {
-      type: "object",
-      additionalProperties: false,
-      required: [
+    "materialEvent": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
         "contractVersion",
         "messageId",
         "sourceRef",
@@ -187,65 +192,140 @@ export const notificationSchema = {
         "sourceRevision",
         "occurredAt",
         "notAfter",
-        "eventType",
+        "eventType"
       ],
-      properties: {
-        contractVersion: {
-          const: "inside.notification-event.v1",
+      "properties": {
+        "contractVersion": {
+          "const": "inside.notification-event.v1"
         },
-        messageId: {
-          $ref: "#/definitions/id",
+        "messageId": {
+          "$ref": "#/definitions/id"
         },
-        sourceRef: {
-          $ref: "#/definitions/ref",
+        "sourceRef": {
+          "$ref": "#/definitions/ref"
         },
-        occurrenceRef: {
-          $ref: "#/definitions/id",
+        "occurrenceRef": {
+          "$ref": "#/definitions/id"
         },
-        sourceRevision: {
-          $ref: "#/definitions/revision",
+        "sourceRevision": {
+          "$ref": "#/definitions/revision"
         },
-        occurredAt: {
-          $ref: "#/definitions/instant",
+        "occurredAt": {
+          "$ref": "#/definitions/instant"
         },
-        notAfter: {
-          $ref: "#/definitions/instant",
+        "notAfter": {
+          "$ref": "#/definitions/instant"
         },
-        eventType: {
-          const: "material.published",
-        },
-      },
+        "eventType": {
+          "const": "material.published"
+        }
+      }
     },
-    subscriptionContent: {
-      type: "object",
-      additionalProperties: false,
-      required: ["category", "kind"],
-      properties: {
-        category: {
-          const: "subscription",
+    "subscriptionContent": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "category",
+        "kind"
+      ],
+      "properties": {
+        "category": {
+          "const": "subscription"
         },
-        kind: {
-          $ref: "#/definitions/kind",
-        },
-      },
+        "kind": {
+          "$ref": "#/definitions/kind"
+        }
+      }
     },
-    materialContent: {
-      type: "object",
-      additionalProperties: false,
-      required: ["category", "kind"],
-      properties: {
-        category: {
-          const: "material",
+    "materialContent": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "category",
+        "kind"
+      ],
+      "properties": {
+        "category": {
+          "const": "material"
         },
-        kind: {
-          const: "material_published",
-        },
-      },
+        "kind": {
+          "const": "material_published"
+        }
+      }
     },
-    telegramDelivery: {
-      type: "object",
-      additionalProperties: false,
-      required: [
+    "telegramDelivery": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "contractVersion",
+        "operationId",
+        "notificationRef",
+        "deliveryRef",
+        "commandRevision",
+        "sourceEventId",
+        "content",
+        "templateRef",
+        "templateRevision",
+        "text",
+        "issuedAt",
+        "notAfter",
+        "binding"
+      ],
+      "properties": {
+        "contractVersion": {
+          "const": "inside.notification-delivery.v1"
+        },
+        "operationId": {
+          "$ref": "#/definitions/id"
+        },
+        "notificationRef": {
+          "$ref": "#/definitions/id"
+        },
+        "deliveryRef": {
+          "$ref": "#/definitions/id"
+        },
+        "commandRevision": {
+          "$ref": "#/definitions/revision"
+        },
+        "sourceEventId": {
+          "$ref": "#/definitions/id"
+        },
+        "content": {
+          "oneOf": [
+            {
+              "$ref": "#/definitions/subscriptionContent"
+            },
+            {
+              "$ref": "#/definitions/materialContent"
+            }
+          ]
+        },
+        "templateRef": {
+          "$ref": "#/definitions/ref"
+        },
+        "templateRevision": {
+          "$ref": "#/definitions/revision"
+        },
+        "text": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 3000
+        },
+        "issuedAt": {
+          "$ref": "#/definitions/instant"
+        },
+        "notAfter": {
+          "$ref": "#/definitions/instant"
+        },
+        "binding": {
+          "$ref": "#/definitions/bindingTelegram"
+        }
+      }
+    },
+    "emailDelivery": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
         "contractVersion",
         "operationId",
         "notificationRef",
@@ -259,138 +339,69 @@ export const notificationSchema = {
         "issuedAt",
         "notAfter",
         "binding",
+        "subject"
       ],
-      properties: {
-        contractVersion: {
-          const: "inside.notification-delivery.v1",
+      "properties": {
+        "contractVersion": {
+          "const": "inside.notification-delivery.v1"
         },
-        operationId: {
-          $ref: "#/definitions/id",
+        "operationId": {
+          "$ref": "#/definitions/id"
         },
-        notificationRef: {
-          $ref: "#/definitions/id",
+        "notificationRef": {
+          "$ref": "#/definitions/id"
         },
-        deliveryRef: {
-          $ref: "#/definitions/id",
+        "deliveryRef": {
+          "$ref": "#/definitions/id"
         },
-        commandRevision: {
-          $ref: "#/definitions/revision",
+        "commandRevision": {
+          "$ref": "#/definitions/revision"
         },
-        sourceEventId: {
-          $ref: "#/definitions/id",
+        "sourceEventId": {
+          "$ref": "#/definitions/id"
         },
-        content: {
-          oneOf: [
+        "content": {
+          "oneOf": [
             {
-              $ref: "#/definitions/subscriptionContent",
+              "$ref": "#/definitions/subscriptionContent"
             },
             {
-              $ref: "#/definitions/materialContent",
-            },
-          ],
+              "$ref": "#/definitions/materialContent"
+            }
+          ]
         },
-        templateRef: {
-          $ref: "#/definitions/ref",
+        "templateRef": {
+          "$ref": "#/definitions/ref"
         },
-        templateRevision: {
-          $ref: "#/definitions/revision",
+        "templateRevision": {
+          "$ref": "#/definitions/revision"
         },
-        text: {
-          type: "string",
-          minLength: 1,
-          maxLength: 3000,
+        "text": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 3000
         },
-        issuedAt: {
-          $ref: "#/definitions/instant",
+        "issuedAt": {
+          "$ref": "#/definitions/instant"
         },
-        notAfter: {
-          $ref: "#/definitions/instant",
+        "notAfter": {
+          "$ref": "#/definitions/instant"
         },
-        binding: {
-          $ref: "#/definitions/bindingTelegram",
+        "binding": {
+          "$ref": "#/definitions/bindingEmail"
         },
-      },
+        "subject": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200,
+          "pattern": "^[^\\r\\n]*$"
+        }
+      }
     },
-    emailDelivery: {
-      type: "object",
-      additionalProperties: false,
-      required: [
-        "contractVersion",
-        "operationId",
-        "notificationRef",
-        "deliveryRef",
-        "commandRevision",
-        "sourceEventId",
-        "content",
-        "templateRef",
-        "templateRevision",
-        "text",
-        "issuedAt",
-        "notAfter",
-        "binding",
-        "subject",
-      ],
-      properties: {
-        contractVersion: {
-          const: "inside.notification-delivery.v1",
-        },
-        operationId: {
-          $ref: "#/definitions/id",
-        },
-        notificationRef: {
-          $ref: "#/definitions/id",
-        },
-        deliveryRef: {
-          $ref: "#/definitions/id",
-        },
-        commandRevision: {
-          $ref: "#/definitions/revision",
-        },
-        sourceEventId: {
-          $ref: "#/definitions/id",
-        },
-        content: {
-          oneOf: [
-            {
-              $ref: "#/definitions/subscriptionContent",
-            },
-            {
-              $ref: "#/definitions/materialContent",
-            },
-          ],
-        },
-        templateRef: {
-          $ref: "#/definitions/ref",
-        },
-        templateRevision: {
-          $ref: "#/definitions/revision",
-        },
-        text: {
-          type: "string",
-          minLength: 1,
-          maxLength: 3000,
-        },
-        issuedAt: {
-          $ref: "#/definitions/instant",
-        },
-        notAfter: {
-          $ref: "#/definitions/instant",
-        },
-        binding: {
-          $ref: "#/definitions/bindingEmail",
-        },
-        subject: {
-          type: "string",
-          minLength: 1,
-          maxLength: 200,
-          pattern: "^[^\\r\\n]*$",
-        },
-      },
-    },
-    acceptedResult: {
-      type: "object",
-      additionalProperties: false,
-      required: [
+    "acceptedResult": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
         "contractVersion",
         "messageId",
         "operationId",
@@ -400,46 +411,49 @@ export const notificationSchema = {
         "resultRevision",
         "channel",
         "recordedAt",
-        "state",
+        "state"
       ],
-      properties: {
-        contractVersion: {
-          const: "inside.notification-result.v1",
+      "properties": {
+        "contractVersion": {
+          "const": "inside.notification-result.v1"
         },
-        messageId: {
-          $ref: "#/definitions/id",
+        "messageId": {
+          "$ref": "#/definitions/id"
         },
-        operationId: {
-          $ref: "#/definitions/id",
+        "operationId": {
+          "$ref": "#/definitions/id"
         },
-        deliveryRef: {
-          $ref: "#/definitions/id",
+        "deliveryRef": {
+          "$ref": "#/definitions/id"
         },
-        commandRevision: {
-          $ref: "#/definitions/revision",
+        "commandRevision": {
+          "$ref": "#/definitions/revision"
         },
-        payloadDigest: {
-          $ref: "#/definitions/digest",
+        "payloadDigest": {
+          "$ref": "#/definitions/digest"
         },
-        resultRevision: {
-          $ref: "#/definitions/revision",
+        "resultRevision": {
+          "$ref": "#/definitions/revision"
         },
-        channel: {
-          type: "string",
-          enum: ["telegram", "email"],
+        "channel": {
+          "type": "string",
+          "enum": [
+            "telegram",
+            "email"
+          ]
         },
-        recordedAt: {
-          $ref: "#/definitions/instant",
+        "recordedAt": {
+          "$ref": "#/definitions/instant"
         },
-        state: {
-          const: "accepted",
-        },
-      },
+        "state": {
+          "const": "accepted"
+        }
+      }
     },
-    retryResult: {
-      type: "object",
-      additionalProperties: false,
-      required: [
+    "retryResult": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
         "contractVersion",
         "messageId",
         "operationId",
@@ -452,63 +466,70 @@ export const notificationSchema = {
         "state",
         "reason",
         "nextAttemptAt",
-        "attemptRef",
+        "attemptRef"
       ],
-      properties: {
-        contractVersion: {
-          const: "inside.notification-result.v1",
+      "properties": {
+        "contractVersion": {
+          "const": "inside.notification-result.v1"
         },
-        messageId: {
-          $ref: "#/definitions/id",
+        "messageId": {
+          "$ref": "#/definitions/id"
         },
-        operationId: {
-          $ref: "#/definitions/id",
+        "operationId": {
+          "$ref": "#/definitions/id"
         },
-        deliveryRef: {
-          $ref: "#/definitions/id",
+        "deliveryRef": {
+          "$ref": "#/definitions/id"
         },
-        commandRevision: {
-          $ref: "#/definitions/revision",
+        "commandRevision": {
+          "$ref": "#/definitions/revision"
         },
-        payloadDigest: {
-          $ref: "#/definitions/digest",
+        "payloadDigest": {
+          "$ref": "#/definitions/digest"
         },
-        resultRevision: {
-          $ref: "#/definitions/revision",
+        "resultRevision": {
+          "$ref": "#/definitions/revision"
         },
-        channel: {
-          type: "string",
-          enum: ["telegram", "email"],
+        "channel": {
+          "type": "string",
+          "enum": [
+            "telegram",
+            "email"
+          ]
         },
-        recordedAt: {
-          $ref: "#/definitions/instant",
+        "recordedAt": {
+          "$ref": "#/definitions/instant"
         },
-        state: {
-          const: "retrying",
+        "state": {
+          "const": "retrying"
         },
-        reason: {
-          type: "string",
-          enum: ["source_unavailable", "rate_limited", "provider_unavailable"],
+        "reason": {
+          "type": "string",
+          "enum": [
+            "source_unavailable",
+            "rate_limited",
+            "provider_unavailable"
+          ]
         },
-        nextAttemptAt: {
-          $ref: "#/definitions/instant",
+        "nextAttemptAt": {
+          "$ref": "#/definitions/instant"
         },
-        attemptRef: {
-          anyOf: [
+        "attemptRef": {
+          "anyOf": [
             {
-              $ref: "#/definitions/id",
+              "$ref": "#/definitions/id"
             },
             {
-              type: "null",
-            },
-          ],
-        },
-      },
+              "type": "null"
+            }
+          ]
+        }
+      }
     },
-    sentResult: {
-      type: "object",
-      additionalProperties: false,
-      required: [
+    "sentResult": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
         "contractVersion",
         "messageId",
         "operationId",
@@ -520,52 +541,55 @@ export const notificationSchema = {
         "recordedAt",
         "state",
         "attemptRef",
-        "receiptRef",
+        "receiptRef"
       ],
-      properties: {
-        contractVersion: {
-          const: "inside.notification-result.v1",
+      "properties": {
+        "contractVersion": {
+          "const": "inside.notification-result.v1"
         },
-        messageId: {
-          $ref: "#/definitions/id",
+        "messageId": {
+          "$ref": "#/definitions/id"
         },
-        operationId: {
-          $ref: "#/definitions/id",
+        "operationId": {
+          "$ref": "#/definitions/id"
         },
-        deliveryRef: {
-          $ref: "#/definitions/id",
+        "deliveryRef": {
+          "$ref": "#/definitions/id"
         },
-        commandRevision: {
-          $ref: "#/definitions/revision",
+        "commandRevision": {
+          "$ref": "#/definitions/revision"
         },
-        payloadDigest: {
-          $ref: "#/definitions/digest",
+        "payloadDigest": {
+          "$ref": "#/definitions/digest"
         },
-        resultRevision: {
-          $ref: "#/definitions/revision",
+        "resultRevision": {
+          "$ref": "#/definitions/revision"
         },
-        channel: {
-          type: "string",
-          enum: ["telegram", "email"],
+        "channel": {
+          "type": "string",
+          "enum": [
+            "telegram",
+            "email"
+          ]
         },
-        recordedAt: {
-          $ref: "#/definitions/instant",
+        "recordedAt": {
+          "$ref": "#/definitions/instant"
         },
-        state: {
-          const: "sent",
+        "state": {
+          "const": "sent"
         },
-        attemptRef: {
-          $ref: "#/definitions/id",
+        "attemptRef": {
+          "$ref": "#/definitions/id"
         },
-        receiptRef: {
-          $ref: "#/definitions/id",
-        },
-      },
+        "receiptRef": {
+          "$ref": "#/definitions/id"
+        }
+      }
     },
-    unknownResult: {
-      type: "object",
-      additionalProperties: false,
-      required: [
+    "unknownResult": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
         "contractVersion",
         "messageId",
         "operationId",
@@ -577,122 +601,131 @@ export const notificationSchema = {
         "recordedAt",
         "state",
         "attemptRef",
+        "reason"
+      ],
+      "properties": {
+        "contractVersion": {
+          "const": "inside.notification-result.v1"
+        },
+        "messageId": {
+          "$ref": "#/definitions/id"
+        },
+        "operationId": {
+          "$ref": "#/definitions/id"
+        },
+        "deliveryRef": {
+          "$ref": "#/definitions/id"
+        },
+        "commandRevision": {
+          "$ref": "#/definitions/revision"
+        },
+        "payloadDigest": {
+          "$ref": "#/definitions/digest"
+        },
+        "resultRevision": {
+          "$ref": "#/definitions/revision"
+        },
+        "channel": {
+          "type": "string",
+          "enum": [
+            "telegram",
+            "email"
+          ]
+        },
+        "recordedAt": {
+          "$ref": "#/definitions/instant"
+        },
+        "state": {
+          "const": "unknown"
+        },
+        "attemptRef": {
+          "$ref": "#/definitions/id"
+        },
+        "reason": {
+          "type": "string",
+          "enum": [
+            "lost_response",
+            "interrupted_attempt"
+          ]
+        }
+      }
+    },
+    "failedResult": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "contractVersion",
+        "messageId",
+        "operationId",
+        "deliveryRef",
+        "commandRevision",
+        "payloadDigest",
+        "resultRevision",
+        "channel",
+        "recordedAt",
+        "state",
         "reason",
+        "attemptRef"
       ],
-      properties: {
-        contractVersion: {
-          const: "inside.notification-result.v1",
+      "properties": {
+        "contractVersion": {
+          "const": "inside.notification-result.v1"
         },
-        messageId: {
-          $ref: "#/definitions/id",
+        "messageId": {
+          "$ref": "#/definitions/id"
         },
-        operationId: {
-          $ref: "#/definitions/id",
+        "operationId": {
+          "$ref": "#/definitions/id"
         },
-        deliveryRef: {
-          $ref: "#/definitions/id",
+        "deliveryRef": {
+          "$ref": "#/definitions/id"
         },
-        commandRevision: {
-          $ref: "#/definitions/revision",
+        "commandRevision": {
+          "$ref": "#/definitions/revision"
         },
-        payloadDigest: {
-          $ref: "#/definitions/digest",
+        "payloadDigest": {
+          "$ref": "#/definitions/digest"
         },
-        resultRevision: {
-          $ref: "#/definitions/revision",
+        "resultRevision": {
+          "$ref": "#/definitions/revision"
         },
-        channel: {
-          type: "string",
-          enum: ["telegram", "email"],
+        "channel": {
+          "type": "string",
+          "enum": [
+            "telegram",
+            "email"
+          ]
         },
-        recordedAt: {
-          $ref: "#/definitions/instant",
+        "recordedAt": {
+          "$ref": "#/definitions/instant"
         },
-        state: {
-          const: "unknown",
+        "state": {
+          "const": "failed"
         },
-        attemptRef: {
-          $ref: "#/definitions/id",
-        },
-        reason: {
-          type: "string",
-          enum: ["lost_response", "interrupted_attempt"],
-        },
-      },
-    },
-    failedResult: {
-      type: "object",
-      additionalProperties: false,
-      required: [
-        "contractVersion",
-        "messageId",
-        "operationId",
-        "deliveryRef",
-        "commandRevision",
-        "payloadDigest",
-        "resultRevision",
-        "channel",
-        "recordedAt",
-        "state",
-        "reason",
-        "attemptRef",
-      ],
-      properties: {
-        contractVersion: {
-          const: "inside.notification-result.v1",
-        },
-        messageId: {
-          $ref: "#/definitions/id",
-        },
-        operationId: {
-          $ref: "#/definitions/id",
-        },
-        deliveryRef: {
-          $ref: "#/definitions/id",
-        },
-        commandRevision: {
-          $ref: "#/definitions/revision",
-        },
-        payloadDigest: {
-          $ref: "#/definitions/digest",
-        },
-        resultRevision: {
-          $ref: "#/definitions/revision",
-        },
-        channel: {
-          type: "string",
-          enum: ["telegram", "email"],
-        },
-        recordedAt: {
-          $ref: "#/definitions/instant",
-        },
-        state: {
-          const: "failed",
-        },
-        reason: {
-          type: "string",
-          enum: [
+        "reason": {
+          "type": "string",
+          "enum": [
             "recipient_unreachable",
             "provider_rejected",
-            "retry_exhausted",
-          ],
+            "retry_exhausted"
+          ]
         },
-        attemptRef: {
-          anyOf: [
+        "attemptRef": {
+          "anyOf": [
             {
-              $ref: "#/definitions/id",
+              "$ref": "#/definitions/id"
             },
             {
-              type: "null",
-            },
-          ],
-        },
-      },
+              "type": "null"
+            }
+          ]
+        }
+      }
     },
-    suppressedResult: {
-      type: "object",
-      additionalProperties: false,
-      required: [
+    "suppressedResult": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
         "contractVersion",
         "messageId",
         "operationId",
@@ -703,93 +736,96 @@ export const notificationSchema = {
         "channel",
         "recordedAt",
         "state",
-        "reason",
+        "reason"
       ],
-      properties: {
-        contractVersion: {
-          const: "inside.notification-result.v1",
+      "properties": {
+        "contractVersion": {
+          "const": "inside.notification-result.v1"
         },
-        messageId: {
-          $ref: "#/definitions/id",
+        "messageId": {
+          "$ref": "#/definitions/id"
         },
-        operationId: {
-          $ref: "#/definitions/id",
+        "operationId": {
+          "$ref": "#/definitions/id"
         },
-        deliveryRef: {
-          $ref: "#/definitions/id",
+        "deliveryRef": {
+          "$ref": "#/definitions/id"
         },
-        commandRevision: {
-          $ref: "#/definitions/revision",
+        "commandRevision": {
+          "$ref": "#/definitions/revision"
         },
-        payloadDigest: {
-          $ref: "#/definitions/digest",
+        "payloadDigest": {
+          "$ref": "#/definitions/digest"
         },
-        resultRevision: {
-          $ref: "#/definitions/revision",
+        "resultRevision": {
+          "$ref": "#/definitions/revision"
         },
-        channel: {
-          type: "string",
-          enum: ["telegram", "email"],
+        "channel": {
+          "type": "string",
+          "enum": [
+            "telegram",
+            "email"
+          ]
         },
-        recordedAt: {
-          $ref: "#/definitions/instant",
+        "recordedAt": {
+          "$ref": "#/definitions/instant"
         },
-        state: {
-          const: "suppressed",
+        "state": {
+          "const": "suppressed"
         },
-        reason: {
-          type: "string",
-          enum: [
+        "reason": {
+          "type": "string",
+          "enum": [
             "expired",
             "superseded",
             "preference_disabled",
             "source_unavailable",
             "access_denied",
-            "binding_conflict",
-          ],
-        },
-      },
+            "binding_conflict"
+          ]
+        }
+      }
     },
-    authorizeRequest: {
-      type: "object",
-      additionalProperties: false,
-      required: [
+    "authorizeRequest": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
         "contractVersion",
         "operationId",
         "deliveryOperationId",
         "deliveryRef",
         "commandRevision",
         "payloadDigest",
-        "attemptRef",
+        "attemptRef"
       ],
-      properties: {
-        contractVersion: {
-          const: "inside.notification-dispatch.v1",
+      "properties": {
+        "contractVersion": {
+          "const": "inside.notification-dispatch.v1"
         },
-        operationId: {
-          $ref: "#/definitions/id",
+        "operationId": {
+          "$ref": "#/definitions/id"
         },
-        deliveryOperationId: {
-          $ref: "#/definitions/id",
+        "deliveryOperationId": {
+          "$ref": "#/definitions/id"
         },
-        deliveryRef: {
-          $ref: "#/definitions/id",
+        "deliveryRef": {
+          "$ref": "#/definitions/id"
         },
-        commandRevision: {
-          $ref: "#/definitions/revision",
+        "commandRevision": {
+          "$ref": "#/definitions/revision"
         },
-        payloadDigest: {
-          $ref: "#/definitions/digest",
+        "payloadDigest": {
+          "$ref": "#/definitions/digest"
         },
-        attemptRef: {
-          $ref: "#/definitions/id",
-        },
-      },
+        "attemptRef": {
+          "$ref": "#/definitions/id"
+        }
+      }
     },
-    allowed: {
-      type: "object",
-      additionalProperties: false,
-      required: [
+    "allowed": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
         "contractVersion",
         "operationId",
         "deliveryOperationId",
@@ -799,45 +835,45 @@ export const notificationSchema = {
         "attemptRef",
         "status",
         "permitRef",
-        "validUntil",
+        "validUntil"
       ],
-      properties: {
-        contractVersion: {
-          const: "inside.notification-dispatch.v1",
+      "properties": {
+        "contractVersion": {
+          "const": "inside.notification-dispatch.v1"
         },
-        operationId: {
-          $ref: "#/definitions/id",
+        "operationId": {
+          "$ref": "#/definitions/id"
         },
-        deliveryOperationId: {
-          $ref: "#/definitions/id",
+        "deliveryOperationId": {
+          "$ref": "#/definitions/id"
         },
-        deliveryRef: {
-          $ref: "#/definitions/id",
+        "deliveryRef": {
+          "$ref": "#/definitions/id"
         },
-        commandRevision: {
-          $ref: "#/definitions/revision",
+        "commandRevision": {
+          "$ref": "#/definitions/revision"
         },
-        payloadDigest: {
-          $ref: "#/definitions/digest",
+        "payloadDigest": {
+          "$ref": "#/definitions/digest"
         },
-        attemptRef: {
-          $ref: "#/definitions/id",
+        "attemptRef": {
+          "$ref": "#/definitions/id"
         },
-        status: {
-          const: "allowed",
+        "status": {
+          "const": "allowed"
         },
-        permitRef: {
-          $ref: "#/definitions/id",
+        "permitRef": {
+          "$ref": "#/definitions/id"
         },
-        validUntil: {
-          $ref: "#/definitions/instant",
-        },
-      },
+        "validUntil": {
+          "$ref": "#/definitions/instant"
+        }
+      }
     },
-    denied: {
-      type: "object",
-      additionalProperties: false,
-      required: [
+    "denied": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
         "contractVersion",
         "operationId",
         "deliveryOperationId",
@@ -846,51 +882,51 @@ export const notificationSchema = {
         "payloadDigest",
         "attemptRef",
         "status",
-        "reason",
+        "reason"
       ],
-      properties: {
-        contractVersion: {
-          const: "inside.notification-dispatch.v1",
+      "properties": {
+        "contractVersion": {
+          "const": "inside.notification-dispatch.v1"
         },
-        operationId: {
-          $ref: "#/definitions/id",
+        "operationId": {
+          "$ref": "#/definitions/id"
         },
-        deliveryOperationId: {
-          $ref: "#/definitions/id",
+        "deliveryOperationId": {
+          "$ref": "#/definitions/id"
         },
-        deliveryRef: {
-          $ref: "#/definitions/id",
+        "deliveryRef": {
+          "$ref": "#/definitions/id"
         },
-        commandRevision: {
-          $ref: "#/definitions/revision",
+        "commandRevision": {
+          "$ref": "#/definitions/revision"
         },
-        payloadDigest: {
-          $ref: "#/definitions/digest",
+        "payloadDigest": {
+          "$ref": "#/definitions/digest"
         },
-        attemptRef: {
-          $ref: "#/definitions/id",
+        "attemptRef": {
+          "$ref": "#/definitions/id"
         },
-        status: {
-          const: "denied",
+        "status": {
+          "const": "denied"
         },
-        reason: {
-          type: "string",
-          enum: [
+        "reason": {
+          "type": "string",
+          "enum": [
             "expired",
             "superseded",
             "preference_disabled",
             "access_denied",
             "binding_conflict",
             "not_found",
-            "payload_conflict",
-          ],
-        },
-      },
+            "payload_conflict"
+          ]
+        }
+      }
     },
-    dispatchError: {
-      type: "object",
-      additionalProperties: false,
-      required: [
+    "dispatchError": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
         "contractVersion",
         "operationId",
         "deliveryOperationId",
@@ -899,44 +935,44 @@ export const notificationSchema = {
         "payloadDigest",
         "attemptRef",
         "status",
-        "code",
+        "code"
       ],
-      properties: {
-        contractVersion: {
-          const: "inside.notification-dispatch.v1",
+      "properties": {
+        "contractVersion": {
+          "const": "inside.notification-dispatch.v1"
         },
-        operationId: {
-          $ref: "#/definitions/id",
+        "operationId": {
+          "$ref": "#/definitions/id"
         },
-        deliveryOperationId: {
-          $ref: "#/definitions/id",
+        "deliveryOperationId": {
+          "$ref": "#/definitions/id"
         },
-        deliveryRef: {
-          $ref: "#/definitions/id",
+        "deliveryRef": {
+          "$ref": "#/definitions/id"
         },
-        commandRevision: {
-          $ref: "#/definitions/revision",
+        "commandRevision": {
+          "$ref": "#/definitions/revision"
         },
-        payloadDigest: {
-          $ref: "#/definitions/digest",
+        "payloadDigest": {
+          "$ref": "#/definitions/digest"
         },
-        attemptRef: {
-          $ref: "#/definitions/id",
+        "attemptRef": {
+          "$ref": "#/definitions/id"
         },
-        status: {
-          const: "error",
+        "status": {
+          "const": "error"
         },
-        code: {
-          type: "string",
-          enum: [
+        "code": {
+          "type": "string",
+          "enum": [
             "malformed",
             "unauthorized",
             "unsupported_contract",
             "operation_conflict",
-            "unavailable",
-          ],
-        },
-      },
-    },
-  },
+            "unavailable"
+          ]
+        }
+      }
+    }
+  }
 };
