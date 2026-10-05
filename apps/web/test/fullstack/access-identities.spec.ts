@@ -267,9 +267,16 @@ test("Billing-only opens billing tools and is denied a Materials mutation withou
   try {
     await billingManager.page.goto("/authoring/billing");
     await expect(
-      billingManager.page
-        .getByText("Материалы + сопровождение", { exact: true })
-        .first(),
+      billingManager.page.getByRole("heading", {
+        name: "Тарифы и назначения",
+        exact: true,
+      }),
+    ).toBeVisible();
+    await expect(
+      billingManager.page.getByRole("heading", {
+        name: "Назначить тариф",
+        exact: true,
+      }),
     ).toBeVisible();
     expect((await seededOffer(billingManager.page)).name).toBe("Материалы");
 
