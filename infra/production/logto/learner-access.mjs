@@ -410,7 +410,11 @@ async function main() {
         `${method} ${path.split("?")[0]} failed: ${reply.status}`,
       );
     const payload = await reply.text();
-    if (payload.length === 0) return null;
+    // A write without a response entity answers with the status text, e.g. `201 Created`.
+    const json = reply.headers
+      .get("content-type")
+      ?.includes("application/json");
+    if (payload.length === 0 || json !== true) return null;
     try {
       /** @type {unknown} */
       const parsed = JSON.parse(payload);
