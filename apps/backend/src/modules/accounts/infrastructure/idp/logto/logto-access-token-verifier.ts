@@ -71,7 +71,11 @@ export function createLogtoAccessTokenVerifier(
     async verifyAccountSignIn(token) {
       const verified = await verifyToken(token, config, keyResolver);
       if (!verified.ok) return verified;
-      if (isMachineToken(verified.payload)) return invalidProof();
+      if (
+        isMachineToken(verified.payload) ||
+        isDynamicClientToken(verified.payload)
+      )
+        return invalidProof();
       if (verified.payload["inside_telegram_sign_in"] !== undefined) {
         const telegram = z
           .object({ subjectRef: z.uuid(), requestRef: z.uuid() })
@@ -111,9 +115,14 @@ export function createLogtoAccessTokenVerifier(
           : { ...config, audience: resourceAudience },
         keyResolver,
       );
-      if (!verified.ok || isMachineToken(verified.payload)) {
-        return verified.ok ? invalidProof() : verified;
-      }
+      if (!verified.ok) return verified;
+      // Any URL can be a dynamic app (CIMD); only an own resource such as the learner MCP takes it.
+      if (
+        isMachineToken(verified.payload) ||
+        (resourceAudience === undefined &&
+          isDynamicClientToken(verified.payload))
+      )
+        return invalidProof();
       return {
         ok: true,
         identity: verifiedAccountIdentity({
@@ -213,6 +222,12 @@ function tokenScopes(payload: ValidatedPayload): readonly string[] {
   return typeof scope === "string"
     ? scope.split(" ").filter((value) => value.length > 0)
     : [];
+}
+
+/** A Client ID Metadata Document client is identified by the URL of its document. */
+function isDynamicClientToken(payload: ValidatedPayload): boolean {
+  const clientId = payload["client_id"];
+  return typeof clientId === "string" && URL.canParse(clientId);
 }
 
 function isMachineToken(payload: ValidatedPayload): boolean {

@@ -968,6 +968,8 @@ an API-audience token is rejected. Its protected resource metadata lists
 `resource_metadata` and `scope` and no error code; an invalid token receives `error="invalid_token"`
 and a token without the scope `403 insufficient_scope`. Every Account holds `learning:read` through
 the default Logto role, so the scope grants transport only: ContentAccess still decides each read.
+Any URL can act as a CIMD client, so the Platform API, sign-in and authoring MCP reject a token whose
+`client_id` is a URL; only the learning surface accepts it.
 A client registers through a Client ID Metadata Document (CIMD) or uses the public fallback client;
 Reader and `/practice-review-setup.txt` show the configured address and that client ID.
 

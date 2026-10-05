@@ -11,6 +11,7 @@
 //   psql ... | docker exec -i <logto> node /foundation/learner-access.mjs --resource <url> [--check]
 
 import { text } from "node:stream/consumers";
+import { pathToFileURL } from "node:url";
 
 /**
  * @typedef {(path: string, init?: { method?: string; body?: unknown }) => Promise<unknown>} ManagementApi
@@ -53,12 +54,17 @@ export async function provisionLearnerAccess(api, { resource }) {
     body: { enabled: true, addConsentPromptForOfflineAccess: true },
   });
   // The ceiling of every dynamic app is exactly the learning scope.
-  const cimdScopeIds = await cimdResourceScopeIds(api);
-  for (const extra of cimdScopeIds.filter((scope) => scope !== scopeId))
+  const ceiling = await cimdApiScopeIds(api);
+  for (const extra of ceiling.resource.filter((scope) => scope !== scopeId))
     await api(`/cimd/user-consent-scopes/resource-scopes/${extra}`, {
       method: "DELETE",
     });
-  if (!cimdScopeIds.includes(scopeId))
+  for (const extra of ceiling.organizationResource)
+    await api(
+      `/cimd/user-consent-scopes/organization-resource-scopes/${extra}`,
+      { method: "DELETE" },
+    );
+  if (!ceiling.resource.includes(scopeId))
     await api("/cimd/user-consent-scopes", {
       method: "POST",
       body: { resourceScopes: [scopeId] },
@@ -119,9 +125,13 @@ export async function checkLearnerAccess(api, { resource }) {
     problems.push("dynamic apps (CIMD) are disabled");
   if (cimd["addConsentPromptForOfflineAccess"] !== true)
     problems.push("CIMD refresh token compatibility is off");
-  const cimdScopeIds = await cimdResourceScopeIds(api);
-  if (cimdScopeIds.length !== 1 || cimdScopeIds[0] !== id(scope))
-    problems.push(`CIMD resource scopes must be exactly ${settings.scope}`);
+  const ceiling = await cimdApiScopeIds(api);
+  if (
+    ceiling.resource.length !== 1 ||
+    ceiling.resource[0] !== id(scope) ||
+    ceiling.organizationResource.length > 0
+  )
+    problems.push(`CIMD API scopes must be exactly ${settings.scope}`);
   const client = (await list(api, "/applications")).find(
     (candidate) => candidate["name"] === settings.clientName,
   );
@@ -273,13 +283,20 @@ async function userRoleIds(api, user) {
   return (await list(api, `/users/${id(user)}/roles`)).map(id);
 }
 
-/** @param {ManagementApi} api */
-async function cimdResourceScopeIds(api) {
+/** API scope ids in the tenant-wide ceiling of dynamic apps, plain and organization ones.
+ * @param {ManagementApi} api */
+async function cimdApiScopeIds(api) {
   const ceiling = record(await api("/cimd/user-consent-scopes"));
-  const groups = Array.isArray(ceiling["resourceScopes"])
-    ? ceiling["resourceScopes"]
-    : [];
-  return groups.flatMap((group) => records(record(group)["scopes"]).map(id));
+  /** @param {string} name */
+  const scopeIds = (name) =>
+    (Array.isArray(ceiling[name]) ? ceiling[name] : []).flatMap(
+      (/** @type {unknown} */ group) =>
+        records(record(group)["scopes"]).map(id),
+    );
+  return {
+    resource: scopeIds("resourceScopes"),
+    organizationResource: scopeIds("organizationResourceScopes"),
+  };
 }
 
 /** Public PKCE client for MCP clients without CIMD; no secret and no token exchange.
@@ -417,7 +434,7 @@ async function main() {
 
 if (
   process.argv[1] !== undefined &&
-  import.meta.url === new URL(process.argv[1], "file:").href
+  import.meta.url === pathToFileURL(process.argv[1]).href
 ) {
   await main();
 }

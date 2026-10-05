@@ -137,9 +137,10 @@ function fakeLogto(seed = {}) {
   const api = async (path, init) => {
     const result = await handle(path, init);
     const params = new URLSearchParams(path.split("?")[1] ?? "");
-    if (!Array.isArray(result) || !params.has("page")) return result;
-    const size = Number(params.get("page_size"));
-    const page = Number(params.get("page"));
+    if (!Array.isArray(result)) return result;
+    // Без параметров Logto отдаёт первую страницу из 20 строк.
+    const size = Number(params.get("page_size") ?? "20");
+    const page = Number(params.get("page") ?? "1");
     /** @type {unknown[]} */
     const rows = result;
     return rows.slice((page - 1) * size, page * size);
