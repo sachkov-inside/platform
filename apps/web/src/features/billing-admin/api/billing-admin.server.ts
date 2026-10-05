@@ -83,6 +83,9 @@ export function handleSaveOffer(request: Request): Promise<Response> {
         ...(input.value.contentScope === undefined
           ? {}
           : { contentScope: input.value.contentScope }),
+        ...(input.value.eligibility === undefined
+          ? {}
+          : { eligibility: input.value.eligibility }),
         ...(input.value.benefitPeriods === undefined
           ? {}
           : { benefitPeriods: [...input.value.benefitPeriods] }),

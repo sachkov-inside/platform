@@ -1,4 +1,5 @@
 [
+  "billing_access_summary",
   "billing_activationRules_list",
   "billing_activationRules_save",
   "billing_cohorts_save",
@@ -28,6 +29,7 @@
   "billing_payments_list",
   "billing_payments_read",
   "billing_payments_reconcile",
+  "billing_people_list",
   "billing_promotions_archive",
   "billing_promotions_save",
   "billing_recipients_lookup",

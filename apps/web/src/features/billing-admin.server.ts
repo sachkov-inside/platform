@@ -63,3 +63,7 @@ export {
   handleListInvitations,
   handleRevokeInvitation,
 } from "./billing-admin/api/invitations.server";
+export {
+  handleAccessSummary,
+  handleListPeople,
+} from "./billing-admin/api/access.server";

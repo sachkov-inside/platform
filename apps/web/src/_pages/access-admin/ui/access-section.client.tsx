@@ -13,7 +13,9 @@ export interface AccessTab {
 
 /**
  * Раздел «Доступ» владельца: вкладки над одним каталогом. Вкладка появляется в списке, только
- * когда у неё есть рабочая панель, поэтому пустых заглушек раздел не показывает.
+ * когда у неё есть рабочая панель, поэтому пустых заглушек раздел не показывает. Невыбранные
+ * панели скрыты, но остаются смонтированными: ревизии каталога, начатые команды и их повторы
+ * переживают переключение вкладок.
  */
 export function AccessSection({
   tabs,
@@ -54,7 +56,8 @@ export function AccessSection({
             Доступ
           </h1>
           <p className="text-sm leading-6 text-muted-foreground">
-            Кто и как получает доступ к Inside: личные приглашения через бота.
+            Кто и как получает доступ к Inside: тарифы, личные приглашения через
+            бота, люди с их основаниями и сводка.
           </p>
         </header>
         <div
@@ -67,10 +70,7 @@ export function AccessSection({
             const selected = tab.id === current.id;
             return (
               <button
-                // Показана только панель выбранной вкладки: ссылка на панель есть только у неё.
-                aria-controls={
-                  selected ? `${baseId}-panel-${tab.id}` : undefined
-                }
+                aria-controls={`${baseId}-panel-${tab.id}`}
                 aria-selected={selected}
                 className={cn(
                   "-mb-px min-h-11 border-b-2 px-3 text-sm font-medium transition-colors motion-reduce:transition-none",
@@ -97,13 +97,17 @@ export function AccessSection({
             );
           })}
         </div>
-        <div
-          aria-labelledby={`${baseId}-tab-${current.id}`}
-          id={`${baseId}-panel-${current.id}`}
-          role="tabpanel"
-        >
-          {current.panel}
-        </div>
+        {tabs.map((tab) => (
+          <div
+            aria-labelledby={`${baseId}-tab-${tab.id}`}
+            hidden={tab.id !== current.id}
+            id={`${baseId}-panel-${tab.id}`}
+            key={tab.id}
+            role="tabpanel"
+          >
+            {tab.panel}
+          </div>
+        ))}
       </div>
     </main>
   );

@@ -409,3 +409,25 @@ describe("repository-owned workflow supply chain", () => {
     );
   });
 });
+
+describe("production access pass workflow", () => {
+  const productionAccess = readFileSync(
+    resolve(repositoryRoot, ".github/workflows/production-access.yml"),
+    "utf8",
+  );
+
+  /**
+   * Репозиторий публичный, а GitHub печатает env шага в логе и маскирует только secrets (#929).
+   * Из variables проход берёт лишь id приложения Logto: он не секрет и не персональные данные.
+   */
+  it("takes only the Logto application id from variables", () => {
+    const variables = [
+      ...productionAccess.matchAll(/\$\{\{\s*vars\.([A-Z0-9_]+)\s*\}\}/gu),
+    ].map(([, name]) => name);
+    assert.deepEqual(variables, ["PRODUCTION_ACCESS_LOGTO_APP_ID"]);
+    assert.match(
+      productionAccess,
+      /PRODUCTION_ACCESS_MAILBOX:\s*\$\{\{\s*secrets\.PRODUCTION_ACCESS_MAILBOX\s*\}\}/u,
+    );
+  });
+});

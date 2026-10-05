@@ -37,6 +37,10 @@ import {
   issueInvitationSchema,
   listInvitationsSchema,
   revokeInvitationSchema,
+  accessHolderSchema,
+  accessSourceSchema,
+  invitationFunnelSchema,
+  listAccessHoldersSchema,
 } from "../../membership-entitlements/index.js";
 import {
   manageCatalogSchema,
@@ -258,6 +262,11 @@ export const ownerOperationSchema = z.discriminatedUnion("operation", [
     ...listInvitationsSchema.shape,
     operation: z.literal("invitations.list"),
   }),
+  z.strictObject({
+    ...listAccessHoldersSchema.shape,
+    operation: z.literal("people.list"),
+  }),
+  z.strictObject({ ...command, operation: z.literal("access.summary") }),
 ]);
 export type OwnerOperation = z.infer<typeof ownerOperationSchema>;
 /** Чтение не меняет состояние: такие операции не пишут receipt и повторяются свободно. */
@@ -276,6 +285,8 @@ export const ownerReadOperations = [
   "grants.readClassification",
   "respondents.status",
   "invitations.list",
+  "people.list",
+  "access.summary",
 ] as const;
 const readOperations: readonly string[] = ownerReadOperations;
 export function isOwnerReadOperation(operation: string): boolean {
@@ -350,6 +361,48 @@ export const auditEntryViewSchema = z.strictObject({
 export const ownerInvitationSchema = invitationViewSchema.extend({
   link: z.url().nullable(),
 });
+/**
+ * Сводка раздела «Доступ» на момент `asOf`. `active` — люди с действующим основанием по Offer:
+ * платные (оплата, Tribute, разовая покупка), подарочные (приглашение, решение владельца) и курс;
+ * человек с двумя основаниями одной группы считается один раз. `attention` — основания, которые
+ * кончаются за 7 дней, и сбои списания за 7 дней. `revenue` — подтверждённые оплаты и возвраты
+ * по месяцам Москвы и Offer за 12 месяцев.
+ */
+export const accessSummarySchema = z.strictObject({
+  asOf: z.iso.datetime(),
+  active: z.array(
+    z.strictObject({
+      offerId: idSchema,
+      name: z.string(),
+      paid: z.int().nonnegative(),
+      gift: z.int().nonnegative(),
+      course: z.int().nonnegative(),
+    }),
+  ),
+  invitations: invitationFunnelSchema,
+  attention: z.array(
+    z.strictObject({
+      accountId: idSchema,
+      reason: z.enum(["ending", "payment_failed"]),
+      source: accessSourceSchema.nullable(),
+      offerId: idSchema.nullable(),
+      title: z.string(),
+      at: z.iso.datetime(),
+    }),
+  ),
+  revenue: z.array(
+    z.strictObject({
+      month: z.string().regex(/^\d{4}-\d{2}$/),
+      offerId: idSchema,
+      name: z.string(),
+      payments: z.int().nonnegative(),
+      revenueKopecks: z.int().nonnegative(),
+      refunds: z.int().nonnegative(),
+      refundedKopecks: z.int().nonnegative(),
+    }),
+  ),
+});
+export type AccessSummary = z.infer<typeof accessSummarySchema>;
 export const ownerSuccessSchema = z.union([
   z.strictObject({
     outcome: z.literal("tributeImportReview"),
@@ -556,6 +609,15 @@ export const ownerSuccessSchema = z.union([
     outcome: z.literal("invitations"),
     items: z.array(ownerInvitationSchema),
     nextCursor: idSchema.nullable(),
+  }),
+  z.strictObject({
+    outcome: z.literal("people"),
+    items: z.array(accessHolderSchema),
+    nextCursor: idSchema.nullable(),
+  }),
+  z.strictObject({
+    outcome: z.literal("accessSummary"),
+    value: accessSummarySchema,
   }),
 ]);
 export type OwnerOutcome = z.infer<typeof ownerSuccessSchema>;

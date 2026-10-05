@@ -48,6 +48,10 @@ import {
 } from "../../features/survey-respondents/survey-respondents.js";
 import { refundTotals } from "../../shared/refund-amounts.js";
 import {
+  listPeople,
+  readAccessSummary,
+} from "../../features/read-access-roster/read-access-roster.js";
+import {
   offerGrantsWithheld,
   subscriptionOfferForInvitation,
   tierLacksComposition,
@@ -88,6 +92,8 @@ interface Dependencies {
     | "revokeInvitation"
     | "listInvitations"
     | "readInvitation"
+    | "listAccessHolders"
+    | "readAccessSummary"
   >;
   readonly bank: Tbank | undefined;
   /** База deep link бота `t.me/<бот>`; без неё приглашение отдаёт только start-параметр. */
@@ -896,6 +902,15 @@ export class BillingOperations {
           },
         };
       }
+      case "people.list":
+        return await listPeople({ prisma, grants }, actorId, command);
+      case "access.summary":
+        return await readAccessSummary(
+          { prisma, grants },
+          actorId,
+          operationRef,
+          this.clock(),
+        );
       default: {
         const exhaustive: never = command;
         throw new Error(
@@ -1123,6 +1138,10 @@ function targetOf(command: OwnerOperation, outcome: OwnerOutcome): string {
     // Выдача адресуется своим приглашением: его id и есть operationId команды.
     case "invitations.issue":
     case "invitations.list":
+      return command.operationId;
+    // Чтения журнал не пишет (`isOwnerReadOperation`); ветка нужна полноте выбора.
+    case "people.list":
+    case "access.summary":
       return command.operationId;
     case "invitations.revoke":
       return command.invitationId;
