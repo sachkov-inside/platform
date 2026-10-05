@@ -1,5 +1,10 @@
 import { loadBillingOffersForOwner } from "@/features/billing-admin.server";
-import { InvitationsPanel } from "@/features/billing-admin";
+import {
+  AccessSummaryPanel,
+  InvitationsPanel,
+  PeoplePanel,
+  TariffsPanel,
+} from "@/features/billing-admin";
 
 import { AccessSection } from "./access-section.client";
 
@@ -10,9 +15,24 @@ export async function AccessAdminPage() {
     <AccessSection
       tabs={[
         {
+          id: "tariffs",
+          label: "Тарифы",
+          panel: <TariffsPanel offers={offers} />,
+        },
+        {
           id: "invitations",
           label: "Приглашения",
           panel: <InvitationsPanel offers={offers} />,
+        },
+        {
+          id: "people",
+          label: "Люди и доступ",
+          panel: <PeoplePanel offers={offers} />,
+        },
+        {
+          id: "summary",
+          label: "Сводка",
+          panel: <AccessSummaryPanel />,
         },
       ]}
     />
