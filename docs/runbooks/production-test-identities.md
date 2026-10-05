@@ -1,0 +1,102 @@
+# Тестовые identities production
+
+Тестовые Accounts в production нужны read-only проходу доступа (#905, полный проход — #906). Проход
+входит ими без владельца и сверяет, что каждый видит и чего не видит. Этот документ перечисляет
+identities, объясняет вход, секреты и порядок их замены. Значений секретов здесь нет.
+
+## Перечень
+
+Email каждой identity — алиас ящика владельца: `<ящик>+inside-access-<identity>@<домен>`. Сам ящик
+задаёт переменная `PRODUCTION_ACCESS_MAILBOX` окружения GitHub `Production`, а в репозитории его нет.
+Telegram у тестовых Accounts не используется. Тестового Platform Administrator нет: `platform:admin`
+проверяется только локально.
+
+| Identity | Состояние Account | Как выдано |
+|---|---|---|
+| `no-entitlement` | без прав и доступа | первый вход по коду из письма |
+| `learner-guide-a` | ученик Guide A: `guide:<Guide A>` без срока | ручной AccessGrant, `sourceRef` `inside-production-access:learner-guide-a` |
+| `learner-guide-b` | ученик Guide B: пока без доступа | доступ ждёт второго Guide (ниже) |
+| `expired` | `guide:<Guide A>` со сроком в один час, истёк | ручной AccessGrant, `sourceRef` `inside-production-access:expired` |
+| `materials-only` | право `materials:manage` | trusted owner bootstrap |
+| `billing-only` | право `billing:manage` | trusted owner bootstrap |
+
+Guide A — «AI Engineering» (`ai-engineering`); id и закрытый материал прохода названы в
+`apps/web/test/production/pass-config.ts`. Второго опубликованного Guide в production нет. По решению
+владельца клетки Guide B помечены «отложено до второго Guide»: отчёт показывает их отдельным статусом,
+и они не делают job красным. Любая другая клетка «не проверено» делает job красным.
+
+Все identities однажды приняли условия использования на первом экране входа. Проход сам ничего не
+пишет. Если identity снова видит экран условий, проход падает: условия принимают вручную, повторив
+вход из раздела «Одноразовая настройка».
+
+## Вход прохода
+
+- **Браузер.** Проход выпускает Logto one-time token через Management API и запускает обычный вход
+  Platform. К запросу авторизации, который выпустил BFF, он добавляет `one_time_token` и
+  `login_hint`. Logto `1.41.0-inside.6` проверяет токен своей страницей `/one-time-token`, и BFF
+  получает настоящую сессию `@logto/next`. Страница входа для людей не меняется.
+- **API и learner MCP.** Проход выпускает Personal Access Token identity на время прогона и
+  обменивает его на короткий токен Platform API (token exchange). После прогона PAT удаляется. Имя PAT
+  начинается с `inside-production-access-`; остатки прошлых прогонов проход удаляет перед выпуском
+  нового.
+- **Первое установление Account.** Platform создаёт Account только по подтверждённому email
+  (`inside_verified_email`). Вход по one-time token этот claim не даёт, поэтому Account без прав и
+  учеников однажды входят по коду из письма. Accounts с правами создаёт owner bootstrap. Дальше хватает
+  one-time token: Account уже существует.
+
+## Секреты
+
+| Имя в окружении GitHub `Production` | Вид | Что это |
+|---|---|---|
+| `PRODUCTION_ACCESS_LOGTO_APP_SECRET` | secret | ключ M2M-приложения Logto `Inside Production Access Pass` |
+| `PRODUCTION_ACCESS_LOGTO_APP_ID` | variable | id того же приложения, не секрет |
+| `PRODUCTION_ACCESS_MAILBOX` | variable | ящик владельца для алиасов |
+
+Ключ M2M — единственный долгоживущий секрет прохода. У приложения роль
+`Logto Management API access` и включён `allowTokenExchange`. Владелец принял риск: этот ключ
+позволяет войти за любого пользователя Logto. Окружение `Production` доступно только workflow с
+ветки `main`.
+
+## Одноразовая настройка
+
+Настройку выполняют один раз. Каждое её изменение production перечисляет отчёт задачи #905.
+
+1. Создать в production Logto M2M-приложение `Inside Production Access Pass`: роль
+   `Logto Management API access`, `customClientMetadata.allowTokenExchange: true`. Консоли Logto
+   снаружи нет: приложение создаётся через Management API admin tenant внутри сервера
+   (`http://localhost:3002`, seed-приложение `m-default`).
+2. Записать ключ и id в окружение `Production` (таблица выше).
+3. Создать через Management API пользователей Logto с `primaryEmail` из перечня.
+4. Для `materials-only` и `billing-only` выполнить
+   [owner bootstrap](production-delivery.md) с их Logto subject и правом.
+5. Для остальных identities однажды войти в Platform по коду из письма в ящик владельца.
+6. Каждой identity однажды пройти вход и принять условия использования.
+7. Выдать доступ учеников от имени `billing-only` существующими операциями `grants.previewBatch` и
+   `grants.applyBatch` (MCP `/mcp` или `/authoring/billing`): `guide:<Guide A>` для
+   `learner-guide-a` без срока и для `expired` со сроком в один час.
+
+Новых публичных путей записи настройка не добавляет.
+
+## Замена ключа M2M
+
+1. Через Management API добавить приложению новый secret.
+2. Записать его в `PRODUCTION_ACCESS_LOGTO_APP_SECRET` окружения `Production`.
+3. Запустить workflow `Production access pass` и убедиться, что он зелёный.
+4. Удалить у приложения старый secret.
+
+Если ключ утёк, сначала удалите старый secret, затем выполните шаги 1–3: до этого ключ даёт вход за
+любого пользователя.
+
+## Когда выйдет второй Guide
+
+1. Выдать `learner-guide-b` доступ `guide:<Guide B>` тем же ручным AccessGrant.
+2. Записать Guide B и его закрытый материал в `pass-config.ts` и снять пометку «отложено до второго
+   Guide» с клеток Guide B.
+
+## Запуск
+
+Проход запускается вручную: GitHub Actions → `Production access pass` → `Run workflow` на `main`. Job
+загружает artifact `production-access-report-<попытка>` с `report.json` и `report.md`. В отчёте для
+каждой клетки есть deployed SHA, ожидание, факт и уровень. Cookies, токены и email в отчёт не
+попадают. Локально тот же набор запускает `pnpm --filter @inside/web test:production-access` с теми
+же переменными.
