@@ -30,6 +30,13 @@ inside.sachkov.dev {
 		}
 		reverse_proxy @tbank_notification {$PLATFORM_API_UPSTREAM:127.0.0.1:13001}
 
+		# Текущие потоки продуктов: публичный факт без входа; бот берёт из него дату старта потока.
+		@billing_cohorts {
+			method GET
+			path /billing/cohorts
+		}
+		reverse_proxy @billing_cohorts {$PLATFORM_API_UPSTREAM:127.0.0.1:13001}
+
 		# Событие Tribute; подлинность проверяет HMAC исходного тела.
 		@tribute_webhook {
 			method POST
@@ -37,10 +44,11 @@ inside.sachkov.dev {
 		}
 		reverse_proxy @tribute_webhook {$PLATFORM_API_UPSTREAM:127.0.0.1:13001}
 
-		# Активация подписки ботом Telegram: ровно четыре операции протокола; отдельный bearer активации.
+		# Активация подписки ботом Telegram: ровно пять операций протокола, включая погашение личного
+		# приглашения; отдельный bearer активации.
 		@telegram_activation {
 			method POST
-			path /integrations/telegram/v1/subscription-activation/binding /integrations/telegram/v1/subscription-activation/own-access /integrations/telegram/v1/subscription-activation/attempts /integrations/telegram/v1/subscription-activation/evidence
+			path /integrations/telegram/v1/subscription-activation/binding /integrations/telegram/v1/subscription-activation/own-access /integrations/telegram/v1/subscription-activation/attempts /integrations/telegram/v1/subscription-activation/evidence /integrations/telegram/v1/invitations/redeem
 		}
 		reverse_proxy @telegram_activation {$PLATFORM_API_UPSTREAM:127.0.0.1:13001}
 

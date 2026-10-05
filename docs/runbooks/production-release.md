@@ -186,11 +186,14 @@ AMQPS на `5671`. Топологию он читает из определен�
 ## Public API routes
 
 `infra/production/runtime/platform.caddy` проксирует в API и MCP ровно эти адреса, по строке на путь.
-Метод «любой» значит, что Caddy метод не ограничивает. На POST-адресе любой другой метод уходит на web
-и получает обычную страницу 404. Остальное поведение edge описано в
+Метод «любой» значит, что Caddy метод не ограничивает. На POST- или GET-адресе любой другой метод уходит
+на web и получает обычную страницу 404. Остальное поведение edge описано в
 [production delivery](production-delivery.md#проверки-готовности-и-маршрутизация).
 Подлинность проверяет API или MCP, у каждого направления свой credential. Таблицу сверяет с Caddy
-`scripts/production-runtime-contract.test.mjs`: расхождение метода или пути роняет проверку.
+`scripts/production-runtime-contract.test.mjs`: расхождение метода или пути роняет проверку. Тот же тест
+сверяет Caddy с `apps/backend/openapi/platform-api.json`: каждая операция API под `/integrations/` и
+`/internal/` и каждый публичный адрес из списка внешних вызовов в тесте должны быть опубликованы.
+Адрес, который намеренно не публикуется, тест перечисляет с причиной.
 
 | Метод | Путь | Кто вызывает | Credential | Без него |
 |---|---|---|---|---|
@@ -204,6 +207,8 @@ AMQPS на `5671`. Топологию он читает из определен�
 | POST | `/integrations/telegram/v1/subscription-activation/own-access` | бот Telegram | bearer `TELEGRAM_ACTIVATION_INGRESS_SECRET` | `401 unauthorized` |
 | POST | `/integrations/telegram/v1/subscription-activation/attempts` | бот Telegram | bearer `TELEGRAM_ACTIVATION_INGRESS_SECRET` | `401 unauthorized` |
 | POST | `/integrations/telegram/v1/subscription-activation/evidence` | бот Telegram | bearer `TELEGRAM_ACTIVATION_INGRESS_SECRET` | `401 unauthorized` |
+| POST | `/integrations/telegram/v1/invitations/redeem` | бот Telegram | bearer `TELEGRAM_ACTIVATION_INGRESS_SECRET` | `401 unauthorized` |
+| GET | `/billing/cohorts` | бот Telegram: дата старта потока | нет: публичный факт | `200` |
 | POST | `/internal/billing-dispatch/authorize` | Telegram | bearer `TELEGRAM_COMMUNITY_DISPATCH_SECRET` | `401 unauthorized` |
 | POST | `/internal/notifications/dispatch/authorize` | Telegram | bearer `NOTIFICATIONS_TELEGRAM_SECRET` | `401 unauthorized` |
 | POST | `/integrations/telegram/v1/communications/authorize` | авторское меню бота | bearer `TELEGRAM_AUTHOR_AUTHORIZATION_SECRET` | `401 unauthorized` |
@@ -297,6 +302,17 @@ Workspace #184.
 ```bash
 docker ps --filter label=com.docker.compose.project=inside-platform-production \
   --format '{{.Names}} {{.Status}}'
+```
+
+**Бот достаёт до Platform.** Неподписанные запросы доходят до API, а не до web. Страница web с `404`
+значила бы, что маршрута в Caddy нет. Обе команды печатают тело и код одного ответа:
+
+```bash
+curl --silent --request POST --write-out '\n%{http_code}\n' \
+  https://inside.sachkov.dev/integrations/telegram/v1/invitations/redeem
+# тело с "code":"unauthorized", затем 401
+curl --silent --write-out '\n%{http_code}\n' https://inside.sachkov.dev/billing/cohorts
+# JSON с "items", затем 200
 ```
 
 **Оплата жива.**

@@ -691,6 +691,7 @@ assert_public_status GET /health/ready 404
 assert_public_status POST /billing/tbank/notification 400
 assert_public_status POST /integrations/tribute/v1/webhook 401
 assert_public_status POST /integrations/telegram/v1/subscription-activation/binding 401
+assert_public_status POST /integrations/telegram/v1/invitations/redeem 401
 assert_public_status POST /internal/billing-dispatch/authorize 401
 assert_public_status POST /internal/notifications/dispatch/authorize 401
 assert_public_status POST /integrations/telegram/v1/communications/authorize 401
@@ -698,6 +699,9 @@ assert_public_status POST /integrations/telegram/v1/communications/validate-cont
 assert_public_status GET /integrations/telegram/v1/communications/authorize 404
 assert_public_status GET /integrations/tribute/v1/webhook 404
 assert_public_status GET /integrations/telegram/v1/subscription-activation/binding 404
+assert_public_status GET /integrations/telegram/v1/invitations/redeem 404
+# The bot reads the cohort start date without a credential.
+assert_public_status GET /billing/cohorts 200
 for internal_path in /internal/billing-dispatch/authorize /internal/notifications/dispatch/authorize /internal/billing-dispatch/unknown; do
   internal_response="$(curl --cacert "$runtime_config_dir/caddy-root.crt" --noproxy '*' \
     --resolve "inside.sachkov.dev:${PRODUCTION_SMOKE_HTTPS_PORT}:127.0.0.1" --silent \
