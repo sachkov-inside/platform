@@ -3,7 +3,6 @@ import { z } from "zod";
 import { passFetch } from "./pass-requests";
 
 const protocolVersion = "2025-06-18";
-const requestTimeoutMs = 30_000;
 
 const rpcResultSchema = z.object({
   result: z.object({
@@ -74,7 +73,6 @@ async function call(
       "mcp-protocol-version": protocolVersion,
     },
     body: JSON.stringify({ jsonrpc: "2.0", id: 1, ...message }),
-    signal: AbortSignal.timeout(requestTimeoutMs),
   });
   return { status: response.status, raw: await response.text() };
 }
@@ -91,9 +89,9 @@ function rpcMessage(raw: string): unknown {
 /**
  * Отличительный текст закрытого ответа: самая поздняя строка не короче 40 символов из нескольких
  * слов. Тизер показывает только начало и описание, поэтому поздний абзац есть лишь в полном ответе.
- * `field` ограничивает поиск полями с этим именем: у тела урока это `text`, то есть то, что страница
- * показывает. Строки с символами, которые HTML или JSON экранируют, не берутся: экранированная
- * утечка иначе прошла бы поиск.
+ * `field` ограничивает поиск полями с этим именем: у тела урока это `text`, то есть то, что
+ * страница показывает. Строки с символами, которые HTML или JSON экранируют, не берутся:
+ * экранированная утечка иначе прошла бы поиск.
  */
 export function distinctiveText(value: unknown, field?: string): string {
   const texts: string[] = [];

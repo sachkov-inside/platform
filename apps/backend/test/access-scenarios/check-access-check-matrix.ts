@@ -13,11 +13,12 @@ import {
 
 /**
  * Контроль полноты матрицы проверок доступа. Каждая строка покрывает все уровни; каждая клетка
- * ссылается на существующий тест (файл есть и объявляет `test(` или `it(` с этим названием),
- * на клетку таблицы сценариев доступа, на клетки production-прохода или на тест другого уровня той
- * же строки; неприменимость и опора на другой уровень объясняют причину. Production-клетка не
- * принимает локальный тест, а ссылка на проход требует его клетку `<строка>@<транспорт>`. `readFile` получает путь от корня репозитория и возвращает `null`,
- * если файла нет. Возвращает список нарушений; пустой список — матрица цела.
+ * ссылается на существующий тест (файл есть и объявляет `test(` или `it(` с этим названием), на
+ * клетку таблицы сценариев доступа, на клетки production-прохода или на тест другого уровня той же
+ * строки; неприменимость и опора на другой уровень объясняют причину. Production-клетка не
+ * принимает локальный тест, а ссылка на проход требует его клетку `<строка>@<транспорт>`.
+ * `readFile` получает путь от корня репозитория и возвращает `null`, если файла нет. Возвращает
+ * список нарушений; пустой список — матрица цела.
  */
 export function checkAccessCheckMatrix(
   rows: readonly AccessCheckRowShape[],
@@ -90,7 +91,7 @@ function evidenceProblem(
       const config = readFile(productionPassConfigFile);
       if (config === null)
         return `cites a missing file: ${productionPassConfigFile}`;
-      return config.includes(`"${accessCheckRowId(row)}@`)
+      return passCellPattern(accessCheckRowId(row)).test(config)
         ? null
         : "has no cell in the production pass";
     }
@@ -109,6 +110,15 @@ function evidenceProblem(
         ? "is not applicable without a reason"
         : null;
   }
+}
+
+/**
+ * В конфигурации прохода строка начинается вызовом `cell(` с литералом `"<строка матрицы>@`:
+ * закомментированная клетка не проходит.
+ */
+function passCellPattern(rowId: string): RegExp {
+  const escaped = rowId.replace(/[.*+?^${}()|[\]\\]/gu, "\\$&");
+  return new RegExp(`^\\s*cell\\(\\s*"${escaped}@`, "mu");
 }
 
 /**

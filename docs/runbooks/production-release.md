@@ -368,8 +368,9 @@ Job `Production access pass` (#906) входит в production тестовым�
 [тестовых identities production](production-test-identities.md).
 
 **Когда идёт.** `deploy.yml` запускает job после job `deploy` при `deploy` и при `rollback`.
-Серверная операция `deploy-release` завершается только после проверки готовности `api` и `web`
-(`infra/production/deploy/deploy-release`). Job получает `deployed-sha` — `source.sha` из
+Серверная операция `deploy-release` завершается после проверки готовности `api` и `web`
+(`infra/production/deploy/deploy-release`). Исключение — deploy уже активной версии: операция
+сразу выходит без изменений и без проверки готовности, а проход идёт против работающего выпуска. Job получает `deployed-sha` — `source.sha` из
 `release-manifest.json` выпуска. Без SHA проход после deploy красный. Ручной запуск: GitHub
 Actions → `Production access pass` → `Run workflow` на `main`, вход `deployed-sha` по желанию.
 
@@ -383,7 +384,10 @@ video отложены решениями владельца в #905 и #906.
 **Только чтение.** Раннер проверяет каждый запрос до отправки (`pass-requests.ts`): GET и HEAD, MCP
 POST к названным read-only tools, выдача playback session видео и закрытый перечень операций входа
 Logto и BFF. Другой запрос раннер отклоняет и не отправляет. Страница сама шлёт записи, например
-прогресс чтения; отчёт перечисляет их в разделе отклонённых запросов, и итог от них не краснеет.
+прогресс чтения; отчёт перечисляет их в разделе запросов вне allowlist, и итог от них не краснеет.
+Шаг redirect в браузере Playwright перехватить не даёт: раннер проверяет его после отправки, и шаг
+вне allowlist помечен в отчёте «отправлен» и делает итог красным. Запросы Node и context по redirect
+не идут.
 
 **Итог.** Artifact `production-access-report-<попытка>` содержит `report.json` и `report.md`: deployed
 SHA, ожидание, факт, уровень и статус каждой клетки. Все живые клетки совпали — job зелёный.

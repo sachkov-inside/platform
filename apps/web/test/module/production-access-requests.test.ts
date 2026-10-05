@@ -51,13 +51,17 @@ describe("production access pass request allowlist", () => {
     });
   });
 
-  it("rejects a Platform GET that records a visit", () => {
-    expect(
-      checkPassRequest({
-        method: "GET",
-        url: `${web}/communications/visit?token=x`,
-      }),
-    ).toMatchObject({ allowed: false });
+  it.each([
+    ["GET", `${web}/communications/visit?token=x`],
+    ["HEAD", `${web}/communications/visit?token=x`],
+    ["GET", `${web}/communications/visit/?token=x`],
+    ["GET", `${web}//communications//visit`],
+    ["GET", `${web}/communications/%76isit?token=x`],
+    ["GET", `${web}/%E0%A4%A`],
+  ])("rejects %s %s that records a visit or hides its path", (method, url) => {
+    expect(checkPassRequest({ method, url })).toMatchObject({
+      allowed: false,
+    });
   });
 
   it("allows learner MCP POST only to named read-only tools", () => {
@@ -154,7 +158,6 @@ describe("production access pass request allowlist", () => {
     for (const [method, url] of [
       ["POST", `${web}/auth/sign-in`],
       ["GET", `${web}/callback?code=x&state=y`],
-      ["PUT", `${logto}/api/experience`],
       ["POST", `${logto}/api/experience/verification/one-time-token/verify`],
       ["POST", `${logto}/api/experience/identification`],
       ["POST", `${logto}/api/experience/submit`],
@@ -163,6 +166,25 @@ describe("production access pass request allowlist", () => {
         checkPassRequest({ method, url }),
         `${method} ${url}`,
       ).toMatchObject({ allowed: true });
+    expect(
+      checkPassRequest({
+        method: "PUT",
+        url: `${logto}/api/experience`,
+        body: JSON.stringify({ interactionEvent: "SignIn" }),
+      }),
+    ).toMatchObject({ allowed: true, operation: "logto-sign-in" });
+    for (const body of [
+      JSON.stringify({ interactionEvent: "Register" }),
+      JSON.stringify({ interactionEvent: "ForgotPassword" }),
+      undefined,
+    ])
+      expect(
+        checkPassRequest({
+          method: "PUT",
+          url: `${logto}/api/experience`,
+          body,
+        }),
+      ).toMatchObject({ allowed: false });
 
     for (const [method, url] of [
       ["POST", `${logto}/api/experience/profile`],
@@ -230,7 +252,7 @@ describe("production access pass fetch", () => {
     expect(send).not.toHaveBeenCalled();
   });
 
-  it("sends an allowed request and forbids redirects of a write", async () => {
+  it("sends an allowed request without redirects, each attempt with its own timeout", async () => {
     const send = vi.fn<typeof fetch>(() => Promise.resolve(new Response("ok")));
     const passFetch = createPassFetch(send);
 
@@ -241,9 +263,12 @@ describe("production access pass fetch", () => {
     await passFetch(`${web}/materials/closed`);
 
     expect(send.mock.calls.map(([, init]) => init?.redirect)).toEqual([
-      "error",
-      undefined,
+      "manual",
+      "manual",
     ]);
+    const [first, second] = send.mock.calls.map(([, init]) => init?.signal);
+    expect(first).toBeInstanceOf(AbortSignal);
+    expect(second).not.toBe(first);
   });
 });
 

@@ -186,6 +186,21 @@ describe("production access pass configuration", () => {
     expect(cells.filter((cell) => cell.deferred === undefined).length).toBe(29);
   });
 
+  it("reads every Guide surface in the browser and body and practice through learner MCP too", () => {
+    const ids = new Set<string>(passCells.map(({ id }) => id));
+    const rows = new Set(
+      passCells
+        .map(({ id }) => id.split("@")[0] ?? "")
+        .filter((row) => row.includes("/read-guide-")),
+    );
+
+    for (const row of rows) {
+      expect(ids, row).toContain(`${row}@browser`);
+      if (row.endsWith("/body") || row.endsWith("/practice"))
+        expect(ids, row).toContain(`${row}@learner-mcp`);
+    }
+  });
+
   it("names every cell after a matrix row and a transport, once", () => {
     const ids = passCells.map(({ id }) => id);
 
@@ -226,6 +241,25 @@ describe("production access pass report", () => {
     );
   });
 
+  it("turns red when the browser sent a redirect step outside the allowlist", () => {
+    const report = evaluatePass({
+      cells: [readsGuideA],
+      observations: [{ cellId: readsGuideA.id, observed: "allowed" }],
+      deployedSha,
+      blockedRequests: [
+        {
+          method: "GET",
+          target: "https://inside.sachkov.dev/communications/visit",
+          reason: "redirect step: /communications/visit records a visit",
+          sent: true,
+        },
+      ],
+    });
+
+    expect(report.verdict).toBe("red");
+    expect(renderPassMarkdown(report)).toContain("— **отправлен**");
+  });
+
   it("removes cookies, tokens and email from the report text", () => {
     const mailbox = "owner.name@example.test";
     const secret = "m2m-application-secret-value";
@@ -264,7 +298,7 @@ describe("production access pass report", () => {
         {
           cellId: readsGuideA.id,
           observed: "allowed",
-          note: "cookie: logto_session=abc user@example.test",
+          note: 'cookie: logto_session=abc" user@example.test token=x"',
         },
       ],
       deployedSha,

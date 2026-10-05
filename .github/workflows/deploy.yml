@@ -151,8 +151,9 @@ jobs:
               "$OPERATION $VERSION $GITHUB_RUN_ID"
 
   # Проход доступа тестовыми identities после выпуска (#906). Серверная операция выше завершается
-  # только после health-проверки процессов, поэтому job идёт следом. Красный проход не откатывает
-  # выпуск: разбор — в docs/runbooks/production-release.md.
+  # после проверки готовности api и web (deploy уже активной версии выходит раньше, без изменений),
+  # поэтому job идёт следом. Красный проход не откатывает выпуск: разбор — в
+  # docs/runbooks/production-release.md.
   access-pass:
     name: Production access pass
     needs: deploy

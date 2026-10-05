@@ -7,10 +7,10 @@ import { passFetch, passPatPrefix } from "./pass-requests";
 
 /**
  * Вход тестовых identities без владельца (#905). Единственный долгоживущий секрет — ключ
- * M2M-приложения Logto из окружения GitHub `Production`. Он даёт токен Management API, через который
- * проход выпускает one-time token для браузерного входа и PAT для API на время прогона. Тот же
- * M2M-клиент обменивает PAT на короткий токен Platform API (token exchange). Каждый запрос проходит
- * allowlist прохода (`pass-requests.ts`).
+ * M2M-приложения Logto из окружения GitHub `Production`. Он даёт токен Management API, через
+ * который проход выпускает one-time token для браузерного входа и PAT для API на время прогона. Тот
+ * же M2M-клиент обменивает PAT на короткий токен Platform API (token exchange). Каждый запрос
+ * проходит allowlist прохода (`pass-requests.ts`).
  */
 const credentialsSchema = z.object({
   PRODUCTION_ACCESS_LOGTO_APP_ID: z.string().min(1),
@@ -26,7 +26,6 @@ const usersSchema = z.array(
 const patsSchema = z.array(
   z.object({ name: z.string(), expiresAt: z.number().nullable() }),
 );
-const requestTimeoutMs = 20_000;
 /** PAT живёт не дольше прогона, даже если удаление после прогона не дошло. */
 const patLifetimeMs = 30 * 60_000;
 const oneTimeTokenLifetimeSeconds = 600;
@@ -92,7 +91,6 @@ export async function createLogtoPassClient(
         "content-type": "application/x-www-form-urlencoded",
       },
       body: new URLSearchParams(body).toString(),
-      signal: AbortSignal.timeout(requestTimeoutMs),
     });
     if (!response.ok) {
       // Тело ответа Logto не попадает в лог: в нём может оказаться отражённый ввод.
@@ -123,7 +121,6 @@ export async function createLogtoPassClient(
           : { "content-type": "application/json" }),
       },
       ...(init.body === undefined ? {} : { body: JSON.stringify(init.body) }),
-      signal: AbortSignal.timeout(requestTimeoutMs),
     });
     if (!response.ok) {
       throw new Error(

@@ -32,7 +32,12 @@ const observationSchema = z.object({
   note: z.string().optional(),
 });
 const blockedSchema = z.array(
-  z.object({ method: z.string(), target: z.string(), reason: z.string() }),
+  z.object({
+    method: z.string(),
+    target: z.string(),
+    reason: z.string(),
+    sent: z.literal(true).optional(),
+  }),
 );
 
 /**
@@ -104,7 +109,10 @@ function readBlockedRequests(): BlockedPassRequest[] {
     blockedSchema.parse(JSON.parse(text)),
   ))
     for (const request of requests)
-      unique.set(`${request.method} ${request.target}`, request);
+      unique.set(
+        `${request.method} ${request.target} ${String(request.sent)}`,
+        request,
+      );
   return [...unique.values()].sort((a, b) =>
     `${a.target} ${a.method}`.localeCompare(`${b.target} ${b.method}`),
   );
@@ -112,17 +120,16 @@ function readBlockedRequests(): BlockedPassRequest[] {
 
 /**
  * Снаружи production свой SHA не показывает: `/_health/*` закрыт на edge. SHA передаёт тот, кто
- * запускает проход: вход `deployed-sha` workflow, а `deploy.yml` — SHA выпуска, который он развернул.
+ * запускает проход: вход `deployed-sha` workflow, а `deploy.yml` — SHA выпуска, который он
+ * развернул.
  */
 export function readDeployedSha(): string | null {
   const value = process.env["PRODUCTION_ACCESS_DEPLOYED_SHA"];
   if (value === undefined || value === "") return null;
   return z
-    .string()
-    .regex(
-      /^[0-9a-f]{40}$/u,
-      "PRODUCTION_ACCESS_DEPLOYED_SHA must be a commit SHA",
-    )
+    .hash("sha1", {
+      error: "PRODUCTION_ACCESS_DEPLOYED_SHA must be a commit SHA",
+    })
     .parse(value);
 }
 
@@ -141,8 +148,8 @@ export default function writePassReport(): void {
       process.env["PRODUCTION_ACCESS_REQUIRE_DEPLOYED_SHA"] === "true",
     blockedRequests: readBlockedRequests(),
   });
-  // Teardown идёт в своём процессе: токены прогона он не знает, поэтому скрывает секреты окружения и
-  // всё, что похоже на токен, cookie или email.
+  // Teardown идёт в своём процессе: токены прогона он не знает, поэтому скрывает секреты окружения
+  // и всё, что похоже на токен, cookie или email.
   const secrets = [
     process.env["PRODUCTION_ACCESS_MAILBOX"],
     process.env["PRODUCTION_ACCESS_LOGTO_APP_SECRET"],

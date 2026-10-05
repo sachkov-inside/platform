@@ -47,7 +47,9 @@ Guide A — «AI Engineering» (`ai-engineering`). Его id и закрытые
   публичных маршрутов к API для ученика нет
   ([таблица маршрутов](production-release.md#public-api-routes)). Поэтому клетки «через API»
   проверяются через learner MCP. Тот же токен принимает владельческий MCP `/mcp`: через него
-  Billing-only и Materials-only читают каталог тарифов, потому что GET-чтения Billing в Web нет.
+  Billing-only и Materials-only читают каталог тарифов. В BFF нет GET-маршрута Billing: страница
+  `/authoring/billing` читает каталог на сервере и любой отказ показывает пустым списком, поэтому
+  отказ на ней не отличить от пустого каталога.
 - **Первое установление Account.** Platform создаёт Account только по подтверждённому email
   (`inside_verified_email`). Вход по one-time token этот claim не даёт, поэтому Account без прав и
   учеников однажды входят по коду из письма. Accounts с правами создаёт owner bootstrap. Дальше хватает

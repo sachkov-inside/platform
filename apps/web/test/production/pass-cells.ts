@@ -2,9 +2,9 @@
  * Клетки production-прохода и итог job (#905, #906). Логика чистая: она не ходит в сеть, поэтому её
  * доказывает module-тест `test/module/production-access-pass.test.ts`.
  *
- * Клетка с пометкой `deferred` пока не на чем проверить (решения владельца в #905 и #906). Она видна в
- * отчёте своим статусом и не делает job красным. Любая другая клетка без наблюдения получает «не
- * проверено» и делает job красным.
+ * Клетка с пометкой `deferred` пока не на чем проверить (решения владельца в #905 и #906). Она
+ * видна в отчёте своим статусом и не делает job красным. Любая другая клетка без наблюдения
+ * получает «не проверено» и делает job красным.
  */
 
 export const passIdentities = [
@@ -113,12 +113,16 @@ export interface PassProblem {
   readonly problem: string;
 }
 
-/** Запрос, который allowlist отклонил и не отправил. */
+/**
+ * Запрос вне allowlist. Обычно раннер его не отправил. `sent: true` — шаг redirect в браузере,
+ * который Playwright не даёт перехватить: он ушёл, и итог прохода красный.
+ */
 export interface BlockedPassRequest {
   readonly method: string;
   /** Origin и путь без query: в query бывают токены. */
   readonly target: string;
   readonly reason: string;
+  readonly sent?: true | undefined;
 }
 
 export type PassCellStatus = "passed" | "failed" | "not_checked" | "deferred";
@@ -198,18 +202,17 @@ export function evaluatePass(input: {
     };
   });
   const deployedShaRequired = input.deployedShaRequired ?? false;
-  const cellsGreen = cells.every(
-    ({ status }) => status === "passed" || status === "deferred",
-  );
+  const blockedRequests = input.blockedRequests ?? [];
+  const green =
+    cells.every(({ status }) => status === "passed" || status === "deferred") &&
+    (input.deployedSha !== null || !deployedShaRequired) &&
+    blockedRequests.every(({ sent }) => sent !== true);
   return {
     deployedSha: input.deployedSha,
     deployedShaRequired,
-    verdict:
-      cellsGreen && (input.deployedSha !== null || !deployedShaRequired)
-        ? "green"
-        : "red",
+    verdict: green ? "green" : "red",
     cells,
-    blockedRequests: input.blockedRequests ?? [],
+    blockedRequests,
   };
 }
 
@@ -232,7 +235,8 @@ export function renderPassMarkdown(report: PassReport): string {
     ].join(" | "),
   );
   const blocked = report.blockedRequests.map(
-    ({ method, target, reason }) => `- \`${method} ${target}\`: ${reason}`,
+    ({ method, target, reason, sent }) =>
+      `- \`${method} ${target}\`: ${reason}${sent === true ? " — **отправлен**" : ""}`,
   );
   return [
     "# Production-проход доступа",
@@ -245,7 +249,7 @@ export function renderPassMarkdown(report: PassReport): string {
     "|---|---|---|---|---|---|",
     ...rows.map((row) => `| ${row} |`),
     "",
-    "## Запросы, которые allowlist отклонил и не отправил",
+    "## Запросы вне allowlist",
     "",
     ...(blocked.length === 0 ? ["Нет."] : blocked),
     "",

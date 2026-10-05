@@ -13,7 +13,9 @@ import {
  * `fetch` через `createPassFetch`, запрос browser context через `passContextGet`, страницу через
  * `guardPassContext`. Разрешены чтения (GET и HEAD), MCP POST к названным read-only tools, выдача
  * playback session и закрытый перечень операций входа. Любой другой запрос раннер отклоняет и сам
- * не отправляет. Логику доказывает module-тест
+ * не отправляет. Node и запросы context не идут по redirect. Шаг redirect в браузере Playwright не
+ * даёт перехватить: `guardPassContext` проверяет его после отправки, и такой шаг вне allowlist
+ * делает итог красным. Логику доказывает module-тест
  * `test/module/production-access-requests.test.ts`.
  */
 export type PassOperation =
@@ -45,8 +47,11 @@ export type PassRequestDecision =
   | { readonly allowed: true; readonly operation: PassOperation }
   | { readonly allowed: false; readonly reason: string };
 
-/** GET Platform, который пишет: засчитывает переход по ссылке рассылки. */
-const platformRecordingReads = ["/communications/visit"];
+/**
+ * Пути Platform, которые пишут даже на GET: засчитывают переход по ссылке рассылки. Next.js
+ * отвечает на HEAD обработчиком GET, поэтому путь закрыт для любого метода.
+ */
+const platformRecordingPaths = ["/communications/visit"];
 /** PAT прохода; другие PAT пользователя проход не удаляет. */
 export const passPatPrefix = "inside-production-access-";
 const videoPlaybackSessions = "/api/material-video-playback-sessions";
@@ -55,9 +60,12 @@ const platformSignIn = [
   ["POST", "/auth/sign-in"],
   ["GET", "/callback"],
 ] as const;
-/** `packages/experience/src/apis/experience` Logto 1.41: вход существующего пользователя. */
+/**
+ * `packages/experience/src/apis/experience` Logto 1.41: вход существующего пользователя. Начало
+ * взаимодействия (`PUT /api/experience`) проверяется отдельно: только `interactionEvent: SignIn`,
+ * регистрация нового пользователя не проходит.
+ */
 const logtoSignIn = [
-  ["PUT", "/api/experience"],
   ["POST", "/api/experience/verification/one-time-token/verify"],
   ["POST", "/api/experience/identification"],
   ["POST", "/api/experience/submit"],
@@ -69,6 +77,10 @@ const passTokenGrants = [
 const personalAccessTokens = /^\/api\/users\/[^/]+\/personal-access-tokens$/u;
 const passPersonalAccessToken =
   /^\/api\/users\/[^/]+\/personal-access-tokens\/([^/]+)$/u;
+
+const signInInteractionSchema = z.object({
+  interactionEvent: z.literal("SignIn"),
+});
 
 const jsonRpcSchema = z.object({
   jsonrpc: z.literal("2.0"),
@@ -86,11 +98,12 @@ export function checkPassRequest(request: PassRequest): PassRequestDecision {
   }
   if (url.protocol !== "https:") return reject("only HTTPS is allowed");
   const origin = url.origin;
-  const path = url.pathname;
+  const path = normalizedPath(url.pathname);
+  if (path === null) return reject("the path is malformed");
 
   if (origin === productionTarget.web) {
-    if (method === "GET" && platformRecordingReads.includes(path))
-      return reject(`GET ${path} records a visit`);
+    if (platformRecordingPaths.includes(path))
+      return reject(`${path} records a visit`);
     if (named(platformSignIn, method, path)) return allow("platform-sign-in");
     if (method === "GET" || method === "HEAD") return allow("read");
     if (method === "POST" && url.href === productionTarget.learnerMcp)
@@ -102,6 +115,10 @@ export function checkPassRequest(request: PassRequest): PassRequestDecision {
     return reject(`${method} ${path} is not a read`);
   }
   if (origin === productionTarget.logto) {
+    if (method === "PUT" && path === "/api/experience")
+      return signInInteractionSchema.safeParse(parseJson(request.body)).success
+        ? allow("logto-sign-in")
+        : reject("the Logto interaction is not a sign-in");
     if (named(logtoSignIn, method, path)) return allow("logto-sign-in");
     if (method === "POST" && path === "/oidc/token")
       return passTokenGrants.includes(
@@ -132,18 +149,35 @@ export function checkPassRequest(request: PassRequest): PassRequestDecision {
   return reject(`${method} to ${origin} is not a read`);
 }
 
+/**
+ * Путь без кодирования, повторных и конечных `/`: `/communications/visit/` и закодированная форма —
+ * тот же маршрут. `null` — путь не декодируется.
+ */
+function normalizedPath(pathname: string): string | null {
+  let decoded: string;
+  try {
+    decoded = decodeURIComponent(pathname);
+  } catch {
+    return null;
+  }
+  const collapsed = decoded.replace(/\/{2,}/gu, "/");
+  return collapsed.length > 1 ? collapsed.replace(/\/+$/u, "") : collapsed;
+}
+
+function parseJson(body: string | null | undefined): unknown {
+  try {
+    return JSON.parse(body ?? "") as unknown;
+  } catch {
+    return undefined;
+  }
+}
+
 function mcpCall(
   body: string | null | undefined,
   tools: readonly string[],
   operation: "learner-mcp-read" | "owner-mcp-read",
 ): PassRequestDecision {
-  let message: unknown;
-  try {
-    message = JSON.parse(body ?? "") as unknown;
-  } catch {
-    return reject("the MCP body is not JSON");
-  }
-  const parsed = jsonRpcSchema.safeParse(message);
+  const parsed = jsonRpcSchema.safeParse(parseJson(body));
   if (!parsed.success)
     return reject("the MCP body is not one JSON-RPC message");
   const { method, params } = parsed.data;
@@ -225,18 +259,27 @@ async function withTransportRetries<T>(
   }
 }
 
+/** Граница одной попытки запроса прохода; повтор получает новую. */
+const requestTimeoutMs = 30_000;
+
 /**
- * `fetch` прохода: запрос вне allowlist отклоняется до отправки. Запись не идёт по redirect: иначе
- * она ушла бы по адресу, который allowlist не видел.
+ * `fetch` прохода: запрос вне allowlist отклоняется до отправки. Redirect не исполняется: иначе
+ * запрос ушёл бы по адресу, который allowlist не видел. Ответ 3xx возвращается как есть.
  */
 export function createPassFetch(send: typeof fetch = fetch) {
   return async (
     url: string,
-    init: RequestInit & { readonly body?: string } = {},
+    init: Omit<RequestInit, "signal" | "redirect"> & {
+      readonly body?: string;
+    } = {},
   ): Promise<Response> => {
     const operation = permit(init.method ?? "GET", url, init.body);
     return withTransportRetries(operation, () =>
-      send(url, operation === "read" ? init : { ...init, redirect: "error" }),
+      send(url, {
+        ...init,
+        redirect: "manual",
+        signal: AbortSignal.timeout(requestTimeoutMs),
+      }),
     );
   };
 }
@@ -244,8 +287,8 @@ export function createPassFetch(send: typeof fetch = fetch) {
 export const passFetch = createPassFetch();
 
 /**
- * GET под cookies browser context без перехода по redirect: проход видит сам ответ Platform, например
- * redirect закрытого файла на хранилище.
+ * GET под cookies browser context без перехода по redirect: проход видит сам ответ Platform,
+ * например redirect закрытого файла на хранилище.
  */
 export async function passContextGet(
   context: BrowserContext,
@@ -260,13 +303,31 @@ export async function passContextGet(
 
 /**
  * Browser context прохода: каждый запрос страницы проходит allowlist, отклонённый прерывается и не
- * уходит. Страница может сама слать записи, например прогресс чтения; их перечень `blocked` попадает
- * в отчёт.
+ * уходит. Страница может сама слать записи, например прогресс чтения; их перечень `blocked`
+ * попадает в отчёт. Шаг redirect route не видит: он проверяется после отправки и при отказе
+ * попадает в
+ * `blocked` с `sent: true`, а отчёт тогда красный.
  */
 export async function guardPassContext(
   context: BrowserContext,
   blocked: BlockedPassRequest[],
 ): Promise<void> {
+  context.on("request", (request) => {
+    if (request.redirectedFrom() === null) return;
+    const decision = checkPassRequest({
+      method: request.method(),
+      url: request.url(),
+      body: request.postData(),
+    });
+    if (decision.allowed) return;
+    const url = new URL(request.url());
+    blocked.push({
+      method: request.method(),
+      target: `${url.origin}${url.pathname}`,
+      reason: `redirect step: ${decision.reason}`,
+      sent: true,
+    });
+  });
   await context.route("**/*", async (route) => {
     const request = route.request();
     const decision = checkPassRequest({

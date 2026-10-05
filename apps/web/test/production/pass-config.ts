@@ -3,8 +3,8 @@ import type { PassCell, PassIdentity, PassOutcome } from "./pass-cells";
 /**
  * Конфигурация production-прохода (#905, #906). Клетка называется `<строка матрицы>@<транспорт>`:
  * строка — `состояние/действие/поверхность` из матрицы проверок доступа
- * (`apps/backend/test/access-scenarios/access-check-matrix.ts`), и `pnpm check` требует здесь клетку
- * для каждой её production-строки. Перечень identities, вход и порядок замены секретов —
+ * (`apps/backend/test/access-scenarios/access-check-matrix.ts`), и `pnpm check` требует здесь
+ * клетку для каждой её production-строки. Перечень identities, вход и порядок замены секретов —
  * `docs/runbooks/production-test-identities.md`.
  */
 export const productionTarget = {
@@ -68,7 +68,8 @@ function cell<const Id extends string>(
 }
 
 /**
- * Клетки прохода. Транспорты: `browser` — Web/BFF под настоящей сессией, `learner-mcp` — учебный MCP,
+ * Клетки прохода. Транспорты: `browser` — Web/BFF под настоящей сессией, `learner-mcp` — учебный
+ * MCP,
  * `owner-mcp` — владельческий MCP. Файл и видео learner MCP не отдаёт, поэтому их клетки только
  * браузерные. Пометка `deferred` — только решение владельца, не обход сбоя.
  */

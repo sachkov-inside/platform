@@ -38,14 +38,14 @@ import { guardPassContext, passContextGet } from "./pass-requests";
 
 /**
  * Production-проход по ролям (#905, #906). Каждый тест наблюдает одну живую клетку `passCells` и
- * записывает факт; сравнение с ожиданием и итог делает отчёт в global teardown. Каждый запрос проходит allowlist до отправки
- * (`pass-requests.ts`), поэтому данные Platform проход не меняет. Записи есть только в Logto и в
- * сессиях: one-time token на вход, PAT на прогон (после прогона удаляется), сессии Logto и BFF
- * тестовых identities.
+ * записывает факт; сравнение с ожиданием и итог делает отчёт в global teardown. Каждый запрос
+ * проходит allowlist до отправки (`pass-requests.ts`), поэтому данные Platform проход не меняет.
+ * Записи есть только в Logto и в сессиях: one-time token на вход, PAT на прогон (после прогона
+ * удаляется), сессии Logto и BFF тестовых identities.
  *
  * Отказ ищет закрытые bytes, а не только сообщение об отказе: разрешённые чтения ученика A дают
- * отличительный текст тела и задания, id задания и адрес закрытой картинки, и проход ищет их в ответах
- * остальных identities.
+ * отличительный текст тела и задания, id задания и адрес закрытой картинки, и проход ищет их в
+ * ответах остальных identities.
  */
 type Cell = (typeof passCells)[number];
 interface Observation {
@@ -60,6 +60,8 @@ const platformTokenReuseMs = 3 * 60_000;
 
 const usedIdentities = new Map<PassIdentity, string>();
 const sessions = new Map<Actor, BrowserContext>();
+/** Неудачный вход: остальные клетки identity получают ту же причину, а не context без сессии. */
+const failedSignIns = new Map<Actor, unknown>();
 const platformTokens = new Map<
   PassIdentity,
   { readonly token: string; readonly issuedAt: number }
@@ -150,7 +152,7 @@ async function observeCell(id: string, browser: Browser) {
   }
   switch (`${surface}@${transport}`) {
     case "body@browser":
-      return observeBodyPage(await sessionOf(browser, identity));
+      return observeBodyPage(await sessionOf(browser, identity), identity);
     case "body@learner-mcp":
       return observeBodyThroughMcp(identity);
     case "assets@browser":
@@ -160,7 +162,10 @@ async function observeCell(id: string, browser: Browser) {
     case "practice@learner-mcp":
       return observePracticeThroughMcp(identity);
     case "materials-authoring@browser":
-      return observeMaterialsAuthoring(await sessionOf(browser, identity));
+      return observeMaterialsAuthoring(
+        await sessionOf(browser, identity),
+        identity,
+      );
     case "billing-operations@owner-mcp":
       return observeBillingThroughOwnerMcp(identity);
     default:
@@ -214,17 +219,22 @@ async function sessionOf(
 ): Promise<BrowserContext> {
   const known = sessions.get(actor);
   if (known !== undefined) return known;
+  if (failedSignIns.has(actor)) throw failedSignIns.get(actor);
   const context = await browser.newContext({ baseURL: productionTarget.web });
   await guardPassContext(context, blocked);
-  sessions.set(actor, context);
   if (actor !== "anonymous") {
     const page = await context.newPage();
     try {
       await signIn(page, actor);
+    } catch (error) {
+      failedSignIns.set(actor, error);
+      await context.close();
+      throw error;
     } finally {
-      await page.close();
+      if (!page.isClosed()) await page.close();
     }
   }
+  sessions.set(actor, context);
   return context;
 }
 
@@ -234,6 +244,8 @@ async function sessionOf(
  */
 async function signIn(page: Page, identity: PassIdentity): Promise<void> {
   const email = emailOf(identity);
+  // Identity должна уже быть в Logto: вход по one-time token не регистрирует новых пользователей.
+  await userIdOf(identity);
   const oneTimeToken = await client().issueOneTimeToken(email);
   await page.route(
     (url) =>
@@ -272,10 +284,32 @@ async function signIn(page: Page, identity: PassIdentity): Promise<void> {
     "test identity must have accepted the terms during setup",
   ).not.toBe("/welcome");
   expect(landing.searchParams.get("authentication")).toBeNull();
-  const response = await passContextGet(page.context(), "/auth/status");
+  await expectSignedIn(page.context(), identity);
+}
+
+/**
+ * Соседняя разрешённая возможность того же Account: сессия жива. Отказ без неё мог бы оказаться
+ * следствием выпавшей сессии, а не границы права.
+ */
+async function expectSignedIn(
+  context: BrowserContext,
+  actor: Actor,
+): Promise<void> {
+  if (actor === "anonymous") return;
+  const response = await passContextGet(context, "/auth/status");
   expect(response.ok()).toBe(true);
   const status = z.object({ state: z.string() }).parse(await response.json());
   expect(status.state).toBe("authenticated");
+}
+
+/** Отказ в браузере засчитывается, только если сессия identity в этот момент жива. */
+async function browserDenial(
+  context: BrowserContext,
+  actor: Actor,
+  note: string,
+): Promise<Observation> {
+  await expectSignedIn(context, actor);
+  return { observed: "denied", note };
 }
 
 // --------------------------------------------------------------------------- observers
@@ -300,7 +334,10 @@ async function openMaterial(context: BrowserContext, slug: string) {
   return { page, available: readerState === "available" };
 }
 
-async function observeBodyPage(context: BrowserContext): Promise<Observation> {
+async function observeBodyPage(
+  context: BrowserContext,
+  actor: Actor,
+): Promise<Observation> {
   const snippet = required(learnerA.bodySnippet, "Protected body snippet");
   const { page, available } = await openMaterial(
     context,
@@ -310,7 +347,8 @@ async function observeBodyPage(context: BrowserContext): Promise<Observation> {
     // Закрытые bytes ищутся во всём документе, включая данные RSC, а не только в видимом тексте.
     if ((await page.content()).includes(snippet))
       return { observed: "allowed" };
-    if (!available) return { observed: "denied", note: "access-required" };
+    if (!available)
+      return await browserDenial(context, actor, "access-required");
     throw new Error("Material page shows neither the body nor a denial");
   } finally {
     await page.close();
@@ -382,7 +420,7 @@ async function observePracticePage(
       (await region.count()) > 0
     )
       return { observed: "allowed" };
-    return { observed: "denied", note: "нет блока практики" };
+    return await browserDenial(context, actor, "нет блока практики");
   } finally {
     await page.close();
   }
@@ -440,7 +478,7 @@ async function observeAsset(
     expect(new URL(location).origin).not.toBe(productionTarget.web);
     return { observed: "allowed", note: "HTTP 302" };
   }
-  if (status === 404) return { observed: "denied", note: "HTTP 404" };
+  if (status === 404) return browserDenial(context, actor, "HTTP 404");
   if (status === 200 && actor === "learner-guide-a")
     throw new Error("The image is public: it proves no protected delivery");
   if (status === 200) return { observed: "allowed", note: "HTTP 200" };
@@ -449,6 +487,7 @@ async function observeAsset(
 
 async function observeMaterialsAuthoring(
   context: BrowserContext,
+  actor: Actor,
 ): Promise<Observation> {
   const response = await passContextGet(context, "/api/authoring/materials");
   expect(response.status()).toBe(200);
@@ -457,7 +496,7 @@ async function observeMaterialsAuthoring(
     .parse(await response.json());
   return kind === "ready"
     ? { observed: "allowed" }
-    : { observed: "denied", note: "forbidden" };
+    : browserDenial(context, actor, "forbidden");
 }
 
 async function observeBillingThroughOwnerMcp(
