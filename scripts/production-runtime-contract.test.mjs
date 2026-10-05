@@ -4,6 +4,7 @@ import { readFileSync, readdirSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, it } from "node:test";
+import { z } from "zod";
 
 const repositoryRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 /** @param {string} path */
@@ -15,26 +16,34 @@ const productionTemplates = readdirSync(
   .join("\n");
 
 // The activation protocol has exactly these operations; a prefix would expose any future sub-route.
-const activationPaths = ["binding", "own-access", "attempts", "evidence"]
-  .map(
+const activationPaths = [
+  ...["binding", "own-access", "attempts", "evidence"].map(
     (operation) =>
       `/integrations/telegram/v1/subscription-activation/${operation}`,
-  )
-  .join(" ");
-// The bank, Tribute and Telegram call exactly these API callbacks; each Caddy matcher is POST-only.
-/** @type {[string, string][]} */
+  ),
+  "/integrations/telegram/v1/invitations/redeem",
+].join(" ");
+// The bank, Tribute and Telegram call exactly these API routes; each Caddy matcher allows one method.
+/** @type {[string, string, string][]} */
 const callbackRoutes = [
-  ["tbank_notification", "/billing/tbank/notification"],
-  ["tribute_webhook", "/integrations/tribute/v1/webhook"],
-  ["telegram_activation", activationPaths],
-  ["community_dispatch", "/internal/billing-dispatch/authorize"],
-  ["notification_dispatch", "/internal/notifications/dispatch/authorize"],
+  ["tbank_notification", "POST", "/billing/tbank/notification"],
+  ["billing_cohorts", "GET", "/billing/cohorts"],
+  ["tribute_webhook", "POST", "/integrations/tribute/v1/webhook"],
+  ["telegram_activation", "POST", activationPaths],
+  ["community_dispatch", "POST", "/internal/billing-dispatch/authorize"],
+  [
+    "notification_dispatch",
+    "POST",
+    "/internal/notifications/dispatch/authorize",
+  ],
   [
     "communications_authorize",
+    "POST",
     "/integrations/telegram/v1/communications/authorize",
   ],
   [
     "communications_validate",
+    "POST",
     "/integrations/telegram/v1/communications/validate-content",
   ],
 ];
@@ -51,8 +60,25 @@ const mcpRoutes = [
   ],
 ];
 
+// Every API operation under these prefixes is called from outside the host, so Caddy must publish it.
+const externalPrefix = /^\/(?:integrations|internal)\//u;
+const httpMethods = new Set(["get", "put", "post", "delete", "head", "patch"]);
+// External callers also use these API operations outside the integration prefixes.
+const externalPublicRoutes = new Map([
+  ["POST /billing/tbank/notification", "the bank's payment notification"],
+  ["GET /billing/cohorts", "the Telegram bot reads the cohort start date"],
+]);
+// Integration operations that stay unpublished on purpose; the production smoke expects 404 for them.
+const unpublishedIntegrationRoutes = new Map([
+  [
+    "POST /integrations/telegram/v1/sign-in/complete",
+    "only the web BFF calls it over the loopback upstream",
+  ],
+]);
+
 const runtime = {
   releaseRunbook: read("docs/runbooks/production-release.md"),
+  openApi: read("apps/backend/openapi/platform-api.json"),
   caddy: read("infra/production/runtime/platform.caddy"),
   maintenanceCaddy: read("infra/production/deploy/maintenance.caddy"),
   hostCaddy: read("infra/production/host/Caddyfile"),
@@ -125,8 +151,8 @@ describe("production runtime architecture contract", () => {
     );
   });
 
-  it("publishes each payment and Telegram callback as one exact POST route", () => {
-    for (const [name, path] of callbackRoutes) {
+  it("publishes each payment and Telegram route as one exact single-method route", () => {
+    for (const [name, method, path] of callbackRoutes) {
       assert.throws(
         () =>
           assertRuntimeContract({
@@ -136,7 +162,7 @@ describe("production runtime architecture contract", () => {
               "path /internal/*\n",
             ),
           }),
-        /must publish only exact POST callbacks/u,
+        /must publish only its exact method and path/u,
         `${name} must not widen to a prefix`,
       );
       assert.throws(
@@ -144,14 +170,98 @@ describe("production runtime architecture contract", () => {
           assertRuntimeContract({
             ...runtime,
             caddy: runtime.caddy.replace(
-              new RegExp(`(@${name} \\{\\s+)method POST`, "u"),
+              new RegExp(`(@${name} \\{\\s+)method ${method}`, "u"),
               "$1method GET POST",
             ),
           }),
-        /must publish only exact POST callbacks/u,
-        `${name} must stay POST-only`,
+        /must publish only its exact method and path/u,
+        `${name} must stay ${method}-only`,
       );
     }
+  });
+
+  it("publishes every API route that external callers use", () => {
+    const unpublished = /platform\.caddy does not publish external API route/u;
+    for (const route of [
+      " /integrations/telegram/v1/invitations/redeem",
+      " /integrations/telegram/v1/subscription-activation/binding",
+    ]) {
+      assert.throws(
+        () =>
+          assertExternalRoutesPublished({
+            ...runtime,
+            caddy: runtime.caddy.replace(route, ""),
+          }),
+        unpublished,
+        route,
+      );
+    }
+    assert.throws(
+      () =>
+        assertExternalRoutesPublished({
+          ...runtime,
+          caddy: runtime.caddy.replace(
+            /\t\t@billing_cohorts \{[^}]+\}\n\t\treverse_proxy @billing_cohorts [^\n]+\n/u,
+            "",
+          ),
+        }),
+      unpublished,
+      "a public route that the bot calls",
+    );
+    assert.throws(
+      () =>
+        assertExternalRoutesPublished({
+          ...runtime,
+          openApi: withPaths(runtime.openApi, (paths) => {
+            paths["/integrations/example/v1/callback"] = { post: {} };
+          }),
+        }),
+      unpublished,
+      "a new integration controller",
+    );
+  });
+
+  it("rejects an API route that Caddy declares after the fail-closed integration 404", () => {
+    const redeem = " /integrations/telegram/v1/invitations/redeem";
+    assert.throws(
+      () =>
+        assertExternalRoutesPublished({
+          ...runtime,
+          caddy: runtime.caddy
+            .replace(redeem, "")
+            .replace(
+              "\t\trespond @unknown_integration 404\n",
+              `\t\trespond @unknown_integration 404\n\n\t\t@late_redeem {\n\t\t\tmethod POST\n\t\t\tpath${redeem}\n\t\t}\n\t\treverse_proxy @late_redeem {$PLATFORM_API_UPSTREAM:127.0.0.1:13001}\n`,
+            ),
+        }),
+      /late_redeem must come before the fail-closed integration 404/u,
+    );
+  });
+
+  it("rejects an external route exception that no longer matches the API or Caddy", () => {
+    assert.throws(
+      () =>
+        assertExternalRoutesPublished({
+          ...runtime,
+          caddy: runtime.caddy.replace(
+            "path /integrations/telegram/v1/sign-in/linked-identity\n",
+            "path /integrations/telegram/v1/sign-in/linked-identity /integrations/telegram/v1/sign-in/complete\n",
+          ),
+        }),
+      /listed as unpublished, but platform\.caddy publishes it/u,
+      "a published exception",
+    );
+    assert.throws(
+      () =>
+        assertExternalRoutesPublished({
+          ...runtime,
+          openApi: withPaths(runtime.openApi, (paths) => {
+            delete paths["/integrations/telegram/v1/sign-in/complete"];
+          }),
+        }),
+      /the API no longer declares/u,
+      "a stale exception",
+    );
   });
 
   it("publishes the authoring transfer only for backend /authoring/* behind its prefix", () => {
@@ -615,13 +725,13 @@ function assertRuntimeContract(files) {
     "Logto linked-identity callback must allow only POST",
   );
   // Банк, Tribute и Telegram вызывают ровно эти адреса; каждый адрес защищён своим credential в API.
-  for (const [name, path] of callbackRoutes) {
+  for (const [name, method, path] of callbackRoutes) {
     const route = new RegExp(
-      `@${name} \\{\\n\\t\\t\\tmethod POST\\n\\t\\t\\tpath ${escapeRegExp(path)}\\n\\t\\t\\}\\n\\t\\treverse_proxy @${name} \\{\\$PLATFORM_API_UPSTREAM:127\\.0\\.0\\.1:13001\\}`,
+      `@${name} \\{\\n\\t\\t\\tmethod ${method}\\n\\t\\t\\tpath ${escapeRegExp(path)}\\n\\t\\t\\}\\n\\t\\treverse_proxy @${name} \\{\\$PLATFORM_API_UPSTREAM:127\\.0\\.0\\.1:13001\\}`,
       "u",
     );
     if (!route.test(files.caddy))
-      throw new Error(`${name} must publish only exact POST callbacks`);
+      throw new Error(`${name} must publish only its exact method and path`);
   }
   if (
     /path \/internal\/\*|path \/billing\/\*|subscription-activation\/\*/u.test(
@@ -629,7 +739,7 @@ function assertRuntimeContract(files) {
     )
   ) {
     throw new Error(
-      "payment and Telegram routes must publish only exact POST callbacks",
+      "payment and Telegram routes: each must publish only its exact method and path",
     );
   }
   if (
@@ -653,12 +763,94 @@ function assertRuntimeContract(files) {
       "the authoring API must publish only backend /authoring/* behind its removed prefix",
     );
   }
-  // The operator table is checked last, so a broken Caddy rule above reports its own reason first.
+  // Published routes and the operator table are checked last, so a broken Caddy rule above reports
+  // its own reason first.
+  assertExternalRoutesPublished(files);
   assert.deepEqual(
     runbookRoutes(files.releaseRunbook),
     caddyProxiedRoutes(files.caddy),
     "docs/runbooks/production-release.md must list exactly the Caddy API and MCP routes",
   );
+}
+
+/**
+ * Every operation that the API declares under the integration prefixes, and every listed public
+ * operation, reaches the API through Caddy. An exception names its reason and must stay accurate.
+ */
+/** @param {Pick<typeof runtime, "caddy" | "openApi">} files */
+function assertExternalRoutesPublished(files) {
+  const declared = Object.entries(openApiPaths(files.openApi)).flatMap(
+    ([path, operations]) =>
+      Object.keys(operations)
+        .filter((method) => httpMethods.has(method))
+        .map((method) => `${method.toUpperCase()} ${path}`),
+  );
+  const published = new Set(caddyProxiedRoutes(files.caddy));
+  // Caddy runs the route block in order: after the fail-closed 404 no /integrations/* matcher reaches
+  // the API, so every API and MCP matcher stays above it.
+  const failClosed = files.caddy.indexOf("respond @unknown_integration 404");
+  if (failClosed === -1) {
+    throw new Error("unknown integration routes must fail closed");
+  }
+  const late = [...files.caddy.matchAll(/reverse_proxy @([a-z_]+) /gu)].filter(
+    ({ index }) => index > failClosed,
+  );
+  if (late.length > 0) {
+    throw new Error(
+      `${late.map(([, name]) => name).join(", ")} must come before the fail-closed integration 404 in platform.caddy`,
+    );
+  }
+  /** @param {string} route */
+  const isPublished = (route) =>
+    published.has(route) || published.has(`ANY ${route.split(" ")[1]}`);
+  for (const route of [
+    ...externalPublicRoutes.keys(),
+    ...unpublishedIntegrationRoutes.keys(),
+  ]) {
+    if (!declared.includes(route)) {
+      throw new Error(
+        `${route} is listed as an external route exception, but the API no longer declares it`,
+      );
+    }
+  }
+  for (const [route, reason] of unpublishedIntegrationRoutes) {
+    if (isPublished(route)) {
+      throw new Error(
+        `${route} is listed as unpublished, but platform.caddy publishes it (${reason})`,
+      );
+    }
+  }
+  const external = declared.filter(
+    (route) =>
+      externalPublicRoutes.has(route) ||
+      (externalPrefix.test(route.split(" ")[1] ?? "") &&
+        !unpublishedIntegrationRoutes.has(route)),
+  );
+  const missing = external.filter((route) => !isPublished(route));
+  if (missing.length > 0) {
+    throw new Error(
+      `platform.caddy does not publish external API route ${missing.join(", ")}; publish it or list it as unpublished with a reason`,
+    );
+  }
+}
+
+const openApiDocumentSchema = z.object({
+  paths: z.record(z.string(), z.record(z.string(), z.unknown())),
+});
+/** @typedef {z.infer<typeof openApiDocumentSchema>["paths"]} OpenApiPaths */
+
+/** Operations of the committed OpenAPI document, which `pnpm api:check` keeps equal to the controllers. */
+/** @param {string} openApi @returns {OpenApiPaths} */
+function openApiPaths(openApi) {
+  return openApiDocumentSchema.parse(JSON.parse(openApi)).paths;
+}
+
+/** OpenAPI document after `change`, as a changed set of controllers would declare it. */
+/** @param {string} openApi @param {(paths: OpenApiPaths) => void} change */
+function withPaths(openApi, change) {
+  const paths = openApiPaths(openApi);
+  change(paths);
+  return JSON.stringify({ paths });
 }
 
 /**
@@ -708,7 +900,7 @@ function caddyProxiedRoutes(caddy) {
 function runbookRoutes(runbook) {
   const section =
     runbook.split("\n## Public API routes\n")[1]?.split("\n## ")[0] ?? "";
-  return [...section.matchAll(/^\| (POST|любой) \| `([^`]+)` \|/gmu)]
+  return [...section.matchAll(/^\| (GET|POST|любой) \| `([^`]+)` \|/gmu)]
     .map(([, method, path]) => `${method === "любой" ? "ANY" : method} ${path}`)
     .sort();
 }
