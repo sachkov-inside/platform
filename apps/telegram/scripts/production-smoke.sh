@@ -15,25 +15,29 @@ source_sha="$(git rev-parse HEAD)"
 image_built=false
 network_created=false
 database_created=false
+refuse() {
+  echo "$1" >&2
+  exit 1
+}
 cleanup() {
-  local status=$? cleanup_status=0
+  local smoke_exit=$? cleanup_exit=0
   trap - EXIT
   if [[ -f "$fixture/compose.env" ]]; then
     TELEGRAM_IMAGE="$candidate" docker compose --project-name "$project" \
-      --env-file "$fixture/compose.env" -f "$compose_file" down --volumes --remove-orphans || cleanup_status=1
+      --env-file "$fixture/compose.env" -f "$compose_file" down --volumes --remove-orphans || cleanup_exit=1
   fi
   if [[ "$database_created" == true ]]; then
-    docker container rm --force --volumes "$database" >/dev/null || cleanup_status=1
+    docker container rm --force --volumes "$database" >/dev/null || cleanup_exit=1
   fi
   if [[ "$network_created" == true ]]; then
-    docker network rm "$network" >/dev/null || cleanup_status=1
+    docker network rm "$network" >/dev/null || cleanup_exit=1
   fi
   if [[ "$image_built" == true ]]; then
-    docker image rm "$candidate" >/dev/null || cleanup_status=1
+    docker image rm "$candidate" >/dev/null || cleanup_exit=1
   fi
-  rm -r "$fixture" || cleanup_status=1
-  if [[ "$status" -ne 0 ]]; then exit "$status"; fi
-  exit "$cleanup_status"
+  rm -r "$fixture" || cleanup_exit=1
+  if [[ "$smoke_exit" -ne 0 ]]; then exit "$smoke_exit"; fi
+  exit "$cleanup_exit"
 }
 trap cleanup EXIT
 
@@ -50,13 +54,13 @@ jq --exit-status '
 ' "$fixture/release-manifest.json" >/dev/null
 legacy_image="$(jq --raw-output .image "$fixture/release-manifest.json")"
 identity="$(node apps/telegram/scripts/release-contract.mjs migrations-identity | jq --raw-output .identity)"
-[[ "$identity" == "$(jq --raw-output .migrations.identity "$fixture/release-manifest.json")" ]]
+[[ "$identity" == "$(jq --raw-output .migrations.identity "$fixture/release-manifest.json")" ]] || refuse 'Migration identity mismatch'
 docker build --file apps/telegram/infra/production/Dockerfile \
   --build-arg SOURCE_COMMIT="$source_sha" --tag "$candidate" .
 image_built=true
 docker pull "$legacy_image"
-[[ "$(docker image inspect "$legacy_image" --format '{{index .Config.Labels "org.opencontainers.image.revision"}}')" == "$(jq --raw-output .source.sha "$fixture/release-manifest.json")" ]]
-[[ "$(docker image inspect "$candidate" --format '{{index .Config.Labels "org.opencontainers.image.revision"}}')" == "$source_sha" ]]
+[[ "$(docker image inspect "$legacy_image" --format '{{index .Config.Labels "org.opencontainers.image.revision"}}')" == "$(jq --raw-output .source.sha "$fixture/release-manifest.json")" ]] || refuse 'Legacy image source SHA mismatch'
+[[ "$(docker image inspect "$candidate" --format '{{index .Config.Labels "org.opencontainers.image.revision"}}')" == "$source_sha" ]] || refuse 'Candidate image source SHA mismatch'
 
 # The app has no live provider configuration and no workers; only loopback readiness/auth are called.
 cat >"$fixture/application.env" <<'ENV'
@@ -100,7 +104,7 @@ for ((attempt=1; attempt<=40; attempt+=1)); do
   if docker exec "$database" pg_isready -U telegram_checks -d inside_telegram >/dev/null 2>&1; then ready=true; break; fi
   sleep 1
 done
-[[ "$ready" == true ]]
+[[ "$ready" == true ]] || refuse 'Smoke database did not become ready'
 
 compose() {
   TELEGRAM_IMAGE="$active_image" docker compose --project-name "$project" \
@@ -113,27 +117,27 @@ query() {
 assert_ready() {
   local binding port
   binding="$(compose port app 3002)"
-  [[ "${binding%:*}" == 127.0.0.1 ]]
+  [[ "${binding%:*}" == 127.0.0.1 ]] || refuse 'Smoke app binding is not loopback'
   port="${binding##*:}"
   curl --fail --silent --show-error "http://127.0.0.1:$port/ready" >"$fixture/readiness.json"
   jq --exit-status '. == {status: "ready"}' "$fixture/readiness.json" >/dev/null
   local auth_status
   auth_status="$(curl --silent --show-error --output "$fixture/auth.json" --write-out '%{http_code}' --request POST \
     "http://127.0.0.1:$port/integrations/platform/v1/identity-links")"
-  [[ "$auth_status" == 401 ]]
+  [[ "$auth_status" == 401 ]] || refuse 'Smoke app authentication status mismatch'
   jq --exit-status '.statusCode == 401 and .message == "Unauthorized"' "$fixture/auth.json" >/dev/null
   local container actual_id expected_id
   container="$(compose ps --quiet app)"
   actual_id="$(docker inspect "$container" --format '{{.Image}}')"
   expected_id="$(docker image inspect "$active_image" --format '{{.Id}}')"
-  [[ "$actual_id" == "$expected_id" ]]
+  [[ "$actual_id" == "$expected_id" ]] || refuse 'Running image ID mismatch'
 }
 
 active_image="$legacy_image"
 compose --profile operations run --rm --interactive=false migrate
 compose up --detach --no-build --wait app
 assert_ready
-[[ "$(query 'select count(*) from kysely_migration')" == 31 ]]
+[[ "$(query 'select count(*) from kysely_migration')" == 31 ]] || refuse 'Legacy migration count mismatch'
 query 'create table delivery_smoke_sentinel (value text primary key); insert into delivery_smoke_sentinel values ($$preserved$$)' >/dev/null
 ledger_before="$(query 'select name from kysely_migration order by name')"
 
@@ -143,8 +147,8 @@ active_image="$candidate"
 compose --profile operations run --rm --interactive=false migrate
 compose up --detach --no-build --wait app
 assert_ready
-[[ "$(query 'select name from kysely_migration order by name')" == "$ledger_before" ]]
-[[ "$(query 'select value from delivery_smoke_sentinel')" == preserved ]]
+[[ "$(query 'select name from kysely_migration order by name')" == "$ledger_before" ]] || refuse 'Candidate migration ledger changed'
+[[ "$(query 'select value from delivery_smoke_sentinel')" == preserved ]] || refuse 'Candidate sentinel changed'
 echo "Candidate restart/readiness: $(( $(date +%s) - started )) seconds"
 # Repeated start and rollback never execute the migration command.
 compose up --detach --no-build --wait app
@@ -154,7 +158,7 @@ compose stop app
 active_image="$legacy_image"
 compose up --detach --no-build --wait app
 assert_ready
-[[ "$(query 'select name from kysely_migration order by name')" == "$ledger_before" ]]
-[[ "$(query 'select value from delivery_smoke_sentinel')" == preserved ]]
+[[ "$(query 'select name from kysely_migration order by name')" == "$ledger_before" ]] || refuse 'Rollback migration ledger changed'
+[[ "$(query 'select value from delivery_smoke_sentinel')" == preserved ]] || refuse 'Rollback sentinel changed'
 echo "Legacy rollback/readiness: $(( $(date +%s) - started )) seconds"
 echo "Telegram runtime transition and rollback passed: 31 migrations, sentinel preserved, exact image IDs and loopback readiness/auth verified."

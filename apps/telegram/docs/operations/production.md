@@ -286,6 +286,9 @@ Override обязателен: в нём transport до `api.telegram.org` че�
 проверяет реальный переход на candidate и обратно на digest `v5` в отдельной базе и Compose project.
 Проверяются 31 миграция, неизменный ledger, сохранённая synthetic строка, readiness,
 неавторизованный POST и фактические image IDs. Повтор и rollback не выполняют migration command.
+Если image identity, ledger или synthetic строка не совпадают, smoke явно завершает работу с exit 1.
+Unit regression запускает весь shell script с повреждёнными внешними наблюдениями на Bash 3.2 и Linux;
+реальный Docker proof отдельно проверяет переход на production images.
 Команда печатает длительность restart/readiness и убирает только свои контейнеры, network, volume и image tag.
 Workers и все provider modes выключены; real messages, webhook registration и role writes не выполняются.
 
