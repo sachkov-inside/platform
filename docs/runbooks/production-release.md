@@ -186,8 +186,9 @@ AMQPS на `5671`. Топологию он читает из определен�
 ## Public API routes
 
 `infra/production/runtime/platform.caddy` проксирует в API и MCP ровно эти адреса, по строке на путь.
-Метод «любой» значит, что Caddy метод не ограничивает. На POST- или GET-адресе любой другой метод уходит
-на web и получает обычную страницу 404. Остальное поведение edge описано в
+Метод «любой» значит, что Caddy метод не ограничивает. На POST- или GET-адресе другой метод получает
+`404`: под `/integrations/` пустой ответ Caddy, на остальных путях страницу web. Остальное поведение
+edge описано в
 [production delivery](production-delivery.md#проверки-готовности-и-маршрутизация).
 Подлинность проверяет API или MCP, у каждого направления свой credential. Таблицу сверяет с Caddy
 `scripts/production-runtime-contract.test.mjs`: расхождение метода или пути роняет проверку. Тот же тест
@@ -304,8 +305,9 @@ docker ps --filter label=com.docker.compose.project=inside-platform-production \
   --format '{{.Names}} {{.Status}}'
 ```
 
-**Бот достаёт до Platform.** Неподписанные запросы доходят до API, а не до web. Страница web с `404`
-значила бы, что маршрута в Caddy нет. Обе команды печатают тело и код одного ответа:
+**Бот достаёт до Platform.** Неподписанные запросы доходят до API. Если маршрута в Caddy нет,
+`invitations/redeem` отвечает пустым `404`, а `billing/cohorts` — страницей web с `404`. Обе команды
+печатают тело и код одного ответа:
 
 ```bash
 curl --silent --request POST --write-out '\n%{http_code}\n' \

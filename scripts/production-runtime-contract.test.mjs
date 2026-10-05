@@ -23,20 +23,27 @@ const activationPaths = [
   ),
   "/integrations/telegram/v1/invitations/redeem",
 ].join(" ");
-// The bank, Tribute and Telegram call exactly these API callbacks; each Caddy matcher is POST-only.
-/** @type {[string, string][]} */
+// The bank, Tribute and Telegram call exactly these API routes; each Caddy matcher allows one method.
+/** @type {[string, string, string][]} */
 const callbackRoutes = [
-  ["tbank_notification", "/billing/tbank/notification"],
-  ["tribute_webhook", "/integrations/tribute/v1/webhook"],
-  ["telegram_activation", activationPaths],
-  ["community_dispatch", "/internal/billing-dispatch/authorize"],
-  ["notification_dispatch", "/internal/notifications/dispatch/authorize"],
+  ["tbank_notification", "POST", "/billing/tbank/notification"],
+  ["billing_cohorts", "GET", "/billing/cohorts"],
+  ["tribute_webhook", "POST", "/integrations/tribute/v1/webhook"],
+  ["telegram_activation", "POST", activationPaths],
+  ["community_dispatch", "POST", "/internal/billing-dispatch/authorize"],
+  [
+    "notification_dispatch",
+    "POST",
+    "/internal/notifications/dispatch/authorize",
+  ],
   [
     "communications_authorize",
+    "POST",
     "/integrations/telegram/v1/communications/authorize",
   ],
   [
     "communications_validate",
+    "POST",
     "/integrations/telegram/v1/communications/validate-content",
   ],
 ];
@@ -144,8 +151,8 @@ describe("production runtime architecture contract", () => {
     );
   });
 
-  it("publishes each payment and Telegram callback as one exact POST route", () => {
-    for (const [name, path] of callbackRoutes) {
+  it("publishes each payment and Telegram route as one exact single-method route", () => {
+    for (const [name, method, path] of callbackRoutes) {
       assert.throws(
         () =>
           assertRuntimeContract({
@@ -155,7 +162,7 @@ describe("production runtime architecture contract", () => {
               "path /internal/*\n",
             ),
           }),
-        /must publish only exact POST callbacks/u,
+        /must publish only its exact method and path/u,
         `${name} must not widen to a prefix`,
       );
       assert.throws(
@@ -163,12 +170,12 @@ describe("production runtime architecture contract", () => {
           assertRuntimeContract({
             ...runtime,
             caddy: runtime.caddy.replace(
-              new RegExp(`(@${name} \\{\\s+)method POST`, "u"),
+              new RegExp(`(@${name} \\{\\s+)method ${method}`, "u"),
               "$1method GET POST",
             ),
           }),
-        /must publish only exact POST callbacks/u,
-        `${name} must stay POST-only`,
+        /must publish only its exact method and path/u,
+        `${name} must stay ${method}-only`,
       );
     }
   });
@@ -214,6 +221,23 @@ describe("production runtime architecture contract", () => {
     );
   });
 
+  it("rejects an API route that Caddy declares after the fail-closed integration 404", () => {
+    const redeem = " /integrations/telegram/v1/invitations/redeem";
+    assert.throws(
+      () =>
+        assertExternalRoutesPublished({
+          ...runtime,
+          caddy: runtime.caddy
+            .replace(redeem, "")
+            .replace(
+              "\t\trespond @unknown_integration 404\n",
+              `\t\trespond @unknown_integration 404\n\n\t\t@late_redeem {\n\t\t\tmethod POST\n\t\t\tpath${redeem}\n\t\t}\n\t\treverse_proxy @late_redeem {$PLATFORM_API_UPSTREAM:127.0.0.1:13001}\n`,
+            ),
+        }),
+      /late_redeem must come before the fail-closed integration 404/u,
+    );
+  });
+
   it("rejects an external route exception that no longer matches the API or Caddy", () => {
     assert.throws(
       () =>
@@ -238,25 +262,6 @@ describe("production runtime architecture contract", () => {
       /the API no longer declares/u,
       "a stale exception",
     );
-  });
-
-  it("publishes the public cohort read as one exact GET route", () => {
-    /** @type {[string, string, string][]} */
-    const variants = [
-      ["a prefix", "path /billing/cohorts\n", "path /billing/cohorts/*\n"],
-      ["another method", "method GET\n", "method GET POST\n"],
-    ];
-    for (const [shape, original, replacement] of variants) {
-      assert.throws(
-        () =>
-          assertRuntimeContract({
-            ...runtime,
-            caddy: runtime.caddy.replace(original, replacement),
-          }),
-        /cohort read must publish only exact GET \/billing\/cohorts/u,
-        shape,
-      );
-    }
   });
 
   it("publishes the authoring transfer only for backend /authoring/* behind its prefix", () => {
@@ -720,23 +725,13 @@ function assertRuntimeContract(files) {
     "Logto linked-identity callback must allow only POST",
   );
   // Банк, Tribute и Telegram вызывают ровно эти адреса; каждый адрес защищён своим credential в API.
-  for (const [name, path] of callbackRoutes) {
+  for (const [name, method, path] of callbackRoutes) {
     const route = new RegExp(
-      `@${name} \\{\\n\\t\\t\\tmethod POST\\n\\t\\t\\tpath ${escapeRegExp(path)}\\n\\t\\t\\}\\n\\t\\treverse_proxy @${name} \\{\\$PLATFORM_API_UPSTREAM:127\\.0\\.0\\.1:13001\\}`,
+      `@${name} \\{\\n\\t\\t\\tmethod ${method}\\n\\t\\t\\tpath ${escapeRegExp(path)}\\n\\t\\t\\}\\n\\t\\treverse_proxy @${name} \\{\\$PLATFORM_API_UPSTREAM:127\\.0\\.0\\.1:13001\\}`,
       "u",
     );
     if (!route.test(files.caddy))
-      throw new Error(`${name} must publish only exact POST callbacks`);
-  }
-  // Потоки — единственное публичное чтение API без входа: ровно один адрес и только GET.
-  if (
-    !/@billing_cohorts \{\n\t\t\tmethod GET\n\t\t\tpath \/billing\/cohorts\n\t\t\}\n\t\treverse_proxy @billing_cohorts \{\$PLATFORM_API_UPSTREAM:127\.0\.0\.1:13001\}/u.test(
-      files.caddy,
-    )
-  ) {
-    throw new Error(
-      "the cohort read must publish only exact GET /billing/cohorts",
-    );
+      throw new Error(`${name} must publish only its exact method and path`);
   }
   if (
     /path \/internal\/\*|path \/billing\/\*|subscription-activation\/\*/u.test(
@@ -744,7 +739,7 @@ function assertRuntimeContract(files) {
     )
   ) {
     throw new Error(
-      "payment and Telegram routes must publish only exact POST callbacks",
+      "payment and Telegram routes: each must publish only its exact method and path",
     );
   }
   if (
@@ -791,6 +786,16 @@ function assertExternalRoutesPublished(files) {
         .map((method) => `${method.toUpperCase()} ${path}`),
   );
   const published = new Set(caddyProxiedRoutes(files.caddy));
+  // Caddy runs the route block in order: a matcher after the fail-closed 404 never reaches the API.
+  const failClosed = files.caddy.indexOf("respond @unknown_integration 404");
+  const late = [...files.caddy.matchAll(/reverse_proxy @([a-z_]+) /gu)].filter(
+    ({ index }) => index > failClosed,
+  );
+  if (late.length > 0) {
+    throw new Error(
+      `${late.map(([, name]) => name).join(", ")} must come before the fail-closed integration 404 in platform.caddy`,
+    );
+  }
   /** @param {string} route */
   const isPublished = (route) =>
     published.has(route) || published.has(`ANY ${route.split(" ")[1]}`);
