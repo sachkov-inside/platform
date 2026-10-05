@@ -1,5 +1,5 @@
 # Root repository build context; #960 wires the active Telegram release workflow.
-FROM node:24.21.0-bookworm-slim@sha256:0e0ff40c39bc087845bfb27465a0df4ea419520094bc35842ff83dd8cbe6f9b6 AS toolchain
+FROM node:26.10.0-bookworm-slim@sha256:662933cf47f013bc8e4beb31a6116448427a82057ba7c42c97e4c5ba766504c2 AS toolchain
 RUN corepack enable && corepack install --global pnpm@11.27.1
 
 FROM toolchain AS build
@@ -21,7 +21,7 @@ RUN pnpm --filter @inside/telegram build \
     && pnpm --config.inject-workspace-packages=true \
       --filter @inside/telegram deploy --prod --ignore-scripts --offline --frozen-lockfile /workspace/.production/telegram
 
-FROM node:24.21.0-bookworm-slim@sha256:0e0ff40c39bc087845bfb27465a0df4ea419520094bc35842ff83dd8cbe6f9b6
+FROM node:26.10.0-bookworm-slim@sha256:662933cf47f013bc8e4beb31a6116448427a82057ba7c42c97e4c5ba766504c2
 ARG SOURCE_COMMIT
 LABEL org.opencontainers.image.revision=$SOURCE_COMMIT
 ENV NODE_ENV=production
