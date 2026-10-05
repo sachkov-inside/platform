@@ -21,9 +21,8 @@
   `modern-web-guidance`, `playwright-cli`.
 - `karpathy-guidelines`: остаётся до переноса его правил в профиль устройства.
 - Свои skills проекта: `session-cleanup`.
-- `report` в проекте не копируется. Это общий skill из <https://github.com/KirillSachkov/workspace>,
-  путь `skills/report`, подключённый на устройстве глобально: `~/.claude/skills/report` и
-  `~/.agents/skills/report`. Правка идёт в `workspace`.
+- `report`: общий skill из <https://github.com/KirillSachkov/workspace> (`skills/report`), подключён
+  на устройстве глобально; копии в проекте нет.
 
 ## Проверка и обновление
 
