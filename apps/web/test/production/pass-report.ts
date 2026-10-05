@@ -84,14 +84,27 @@ export function recordProblem(cellId: string, error: unknown): void {
  */
 export function problemLine(error: unknown): string {
   if (error instanceof z.ZodError)
-    return `ответ не той формы: ${error.issues
-      .map(
-        ({ path, message }) =>
-          `${path.length === 0 ? "(корень)" : path.join(".")} — ${message}`,
-      )
-      .join("; ")}`;
+    return `ответ не той формы: ${zodIssueLines(error.issues, []).join("; ")}`;
   const message = error instanceof Error ? error.message : String(error);
   return message.split("\n")[0] ?? "";
+}
+
+/** Ошибка union разворачивается в ошибки каждого варианта: иначе осталось бы одно «Invalid input». */
+function zodIssueLines(
+  issues: readonly z.core.$ZodIssue[],
+  prefix: readonly PropertyKey[],
+): string[] {
+  return issues.flatMap((issue) => {
+    const path = [...prefix, ...issue.path];
+    if (issue.code === "invalid_union" && issue.errors.length > 0)
+      return issue.errors.flatMap((variant, index) =>
+        zodIssueLines(variant, path).map(
+          (line) => `вариант ${String(index + 1)}: ${line}`,
+        ),
+      );
+    const where = path.length === 0 ? "(корень)" : path.map(String).join(".");
+    return [`${where} — ${issue.message}`];
+  });
 }
 
 /** Запросы, которые allowlist отклонил в браузере; пишет их тест после своих страниц. */

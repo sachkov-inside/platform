@@ -5,6 +5,7 @@ import {
   jsonStringLiterals,
   parseToolPayload,
 } from "../production/mcp-client";
+import { problemLine } from "../production/pass-report";
 
 describe("production access pass MCP answers", () => {
   it("reads the owner MCP result, which has no value field", () => {
@@ -18,6 +19,37 @@ describe("production access pass MCP answers", () => {
     expect(
       parseToolPayload({ ok: false, error: { code: "forbidden" } }),
     ).toEqual({ ok: false, error: { code: "forbidden" } });
+  });
+
+  it("does not accept a denial that carries data", () => {
+    expect(() =>
+      parseToolPayload({
+        ok: false,
+        error: { code: "practice_not_available" },
+        value: { data: "{}" },
+      }),
+    ).toThrow();
+  });
+
+  it("names the fields of every variant when an answer fits none", () => {
+    let error: unknown;
+    try {
+      parseToolPayload({ ok: "yes" });
+    } catch (caught) {
+      error = caught;
+    }
+
+    expect(problemLine(error)).toMatch(/вариант 1: ok — /u);
+    expect(problemLine(error)).toMatch(/вариант 2: ok — /u);
+  });
+
+  it("skips strings with control characters, which JSON escapes", () => {
+    expect(
+      distinctiveText([
+        "Первая строка достаточно длинная для отличительного текста ответа",
+        "Вторая строка тоже длинная,\nно в ней есть перевод строки внутри текста",
+      ]),
+    ).toBe("Первая строка достаточно длинная для отличительного текста ответа");
   });
 
   it("reads the learner MCP result with its value", () => {

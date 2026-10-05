@@ -14,8 +14,12 @@ const rpcResultSchema = z.object({
  * без `value`.
  */
 const toolPayloadSchema = z.union([
-  z.object({ ok: z.literal(true), value: z.unknown().optional() }).loose(),
-  z.object({ ok: z.literal(false), error: z.object({ code: z.string() }) }),
+  z.object({ ok: z.literal(true), value: z.unknown().optional() }),
+  // Отказ без лишних полей: отказ, который всё же несёт данные, получает «не проверено».
+  z.strictObject({
+    ok: z.literal(false),
+    error: z.object({ code: z.string() }),
+  }),
 ]);
 export type McpToolPayload = z.infer<typeof toolPayloadSchema>;
 
@@ -95,8 +99,9 @@ function rpcMessage(raw: string): unknown {
 }
 
 /**
- * Строки JSON из текста, который может обрываться посреди JSON: так `learning_practice_read` отдаёт
- * часть контекста (`canonical-json-parts`). Незакрытая строка в конце части не берётся.
+ * Строки JSON из текста, который начинается с начала JSON и может обрываться посреди него: так
+ * `learning_practice_read` отдаёт часть 0 контекста (`canonical-json-parts`). Незакрытая строка в
+ * конце части не берётся. Часть, которая начинается посреди строки, этой функции не подходит.
  */
 export function jsonStringLiterals(text: string): string[] {
   return [...text.matchAll(/"(?:[^"\\]|\\.)*"/gu)].map(([literal]) =>
@@ -108,8 +113,8 @@ export function jsonStringLiterals(text: string): string[] {
  * Отличительный текст закрытого ответа: самая поздняя строка не короче 40 символов из нескольких
  * слов. Тизер показывает только начало и описание, поэтому поздний абзац есть лишь в полном ответе.
  * `field` ограничивает поиск полями с этим именем: у тела урока это `text`, то есть то, что
- * страница показывает. Строки с символами, которые HTML или JSON экранируют, не берутся:
- * экранированная утечка иначе прошла бы поиск.
+ * страница показывает. Строки с символами, которые HTML или JSON экранируют (кавычки, `&`, `<`,
+ * `>`, `\\` и управляющие символы), не берутся: экранированная утечка иначе прошла бы поиск.
  */
 export function distinctiveText(value: unknown, field?: string): string {
   const texts: string[] = [];
@@ -132,7 +137,8 @@ export function distinctiveText(value: unknown, field?: string): string {
       (text) =>
         text.length >= 40 &&
         text.split(" ").length >= 5 &&
-        !/["'&<>\\]/u.test(text),
+        // oxlint-disable-next-line no-control-regex -- управляющие символы JSON экранирует
+        !/["'&<>\\\u0000-\u001f]/u.test(text),
     )
     .at(-1);
   if (snippet === undefined) {

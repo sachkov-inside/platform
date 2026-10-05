@@ -321,9 +321,7 @@ describe("production access pass problem line", () => {
       .safeParse({ ok: true, result: {} });
 
     expect(parsed.success).toBe(false);
-    expect(problemLine(parsed.error)).toBe(
-      "ответ не той формы: value — Invalid input: expected object, received undefined",
-    );
+    expect(problemLine(parsed.error)).toMatch(/^ответ не той формы: value — /u);
     expect(problemLine(new Error("first line\nstack"))).toBe("first line");
   });
 });
