@@ -136,11 +136,7 @@ export function checkPassRequest(request: PassRequest): PassRequestDecision {
     )
       return allow("logto-pass-identity");
     const token = passPersonalAccessToken.exec(path)?.[1];
-    if (
-      method === "DELETE" &&
-      token !== undefined &&
-      decodeURIComponent(token).startsWith(passPatPrefix)
-    )
+    if (method === "DELETE" && token?.startsWith(passPatPrefix) === true)
       return allow("logto-pass-identity");
     if (method === "GET" || method === "HEAD") return allow("read");
     return reject(`${method} ${path} is not a pass operation`);
@@ -305,8 +301,7 @@ export async function passContextGet(
  * Browser context прохода: каждый запрос страницы проходит allowlist, отклонённый прерывается и не
  * уходит. Страница может сама слать записи, например прогресс чтения; их перечень `blocked`
  * попадает в отчёт. Шаг redirect route не видит: он проверяется после отправки и при отказе
- * попадает в
- * `blocked` с `sent: true`, а отчёт тогда красный.
+ * попадает в `blocked` с `sent: true`, а отчёт тогда красный.
  */
 export async function guardPassContext(
   context: BrowserContext,

@@ -69,8 +69,7 @@ function cell<const Id extends string>(
 
 /**
  * Клетки прохода. Транспорты: `browser` — Web/BFF под настоящей сессией, `learner-mcp` — учебный
- * MCP,
- * `owner-mcp` — владельческий MCP. Файл и видео learner MCP не отдаёт, поэтому их клетки только
+ * MCP, `owner-mcp` — владельческий MCP. Файл и видео learner MCP не отдаёт, поэтому их клетки только
  * браузерные. Пометка `deferred` — только решение владельца, не обход сбоя.
  */
 export const passCells = [

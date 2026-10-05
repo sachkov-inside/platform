@@ -252,7 +252,7 @@ describe("production access pass fetch", () => {
     expect(send).not.toHaveBeenCalled();
   });
 
-  it("sends an allowed request without redirects, each attempt with its own timeout", async () => {
+  it("sends an allowed request without following redirects", async () => {
     const send = vi.fn<typeof fetch>(() => Promise.resolve(new Response("ok")));
     const passFetch = createPassFetch(send);
 
@@ -266,9 +266,42 @@ describe("production access pass fetch", () => {
       "manual",
       "manual",
     ]);
-    const [first, second] = send.mock.calls.map(([, init]) => init?.signal);
-    expect(first).toBeInstanceOf(AbortSignal);
-    expect(second).not.toBe(first);
+  });
+
+  it("retries a dropped read with a fresh timeout after a pause", async () => {
+    vi.useFakeTimers();
+    try {
+      const send = vi
+        .fn<typeof fetch>()
+        .mockRejectedValueOnce(new TypeError("fetch failed"))
+        .mockResolvedValueOnce(new Response("ok"));
+      const read = createPassFetch(send)(`${web}/materials/closed`);
+
+      await vi.advanceTimersByTimeAsync(3_000);
+      await read;
+
+      const [first, second] = send.mock.calls.map(([, init]) => init?.signal);
+      expect(send).toHaveBeenCalledTimes(2);
+      expect(first).toBeInstanceOf(AbortSignal);
+      expect(second).toBeInstanceOf(AbortSignal);
+      expect(second).not.toBe(first);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("does not retry a dropped write", async () => {
+    const send = vi
+      .fn<typeof fetch>()
+      .mockRejectedValue(new TypeError("fetch failed"));
+
+    await expect(
+      createPassFetch(send)(`${logto}/api/one-time-tokens`, {
+        method: "POST",
+        body: "{}",
+      }),
+    ).rejects.toThrow("fetch failed");
+    expect(send).toHaveBeenCalledTimes(1);
   });
 });
 

@@ -251,9 +251,9 @@ async function signIn(page: Page, identity: PassIdentity): Promise<void> {
     (url) =>
       url.origin === productionTarget.logto && url.pathname === "/oidc/auth",
     async (route) => {
+      // Запрос с токеном — шаг redirect после ответа ниже: route его не видит, а проверяет
+      // `guardPassContext` после отправки.
       const url = new URL(route.request().url());
-      // Запрос с токеном идёт дальше через allowlist context.
-      if (url.searchParams.has("one_time_token")) return route.fallback();
       url.searchParams.set("one_time_token", oneTimeToken);
       url.searchParams.set("login_hint", email);
       return route.fulfill({
