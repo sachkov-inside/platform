@@ -1620,6 +1620,17 @@ export class BillingService {
       operation: 'invitations.list';
       operationId: string;
       state?: 'issued' | 'claimed' | 'redeemed' | 'expired' | 'revoked';
+    } | {
+      cursor?: string;
+      limit: number;
+      offerId?: string;
+      operation: 'people.list';
+      operationId: string;
+      source?: 'platform_payment' | 'invitation' | 'course' | 'manual' | 'tribute' | 'one_time_purchase';
+      state?: 'active' | 'expiring' | 'ended';
+    } | {
+      operation: 'access.summary';
+      operationId: string;
     }),
   }): CancelablePromise<{
     operationRef: string;
@@ -2642,6 +2653,68 @@ export class BillingService {
       }>;
       nextCursor: string | null;
       outcome: 'invitations';
+    } | {
+      items: Array<{
+        accountId: string;
+        grounds: Array<{
+          capabilities: Array<('materials' | 'community' | 'reviews' | 'support' | string)>;
+          endPolicy: 'fixed' | 'confirmed_external' | 'temporary_membership' | null;
+          endsAt: string | null;
+          id: string;
+          kind: 'enrollment' | 'grant';
+          offer: {
+            id: string;
+            name: string;
+          } | null;
+          purchaseRef: string | null;
+          revision: number;
+          revokedAt: string | null;
+          source: 'platform_payment' | 'invitation' | 'course' | 'manual' | 'tribute' | 'one_time_purchase';
+          startsAt: string;
+          state: 'scheduled' | 'active' | 'ended' | 'revoked';
+        }>;
+        telegramIdentityRef: string | null;
+      }>;
+      nextCursor: string | null;
+      outcome: 'people';
+    } | {
+      outcome: 'accessSummary';
+      value: {
+        active: Array<{
+          course: number;
+          gift: number;
+          name: string;
+          offerId: string;
+          paid: number;
+        }>;
+        asOf: string;
+        attention: Array<{
+          accountId: string;
+          at: string;
+          offerId: string | null;
+          reason: 'ending' | 'payment_failed';
+          source: 'platform_payment' | 'invitation' | 'course' | 'manual' | 'tribute' | 'one_time_purchase' | null;
+          title: string;
+        }>;
+        invitations: {
+          expired: number;
+          gifted: number;
+          issued: number;
+          opened: number;
+          paid: number;
+          purchaseOpened: number;
+          revoked: number;
+        };
+        revenue: Array<{
+          month: string;
+          name: string;
+          offerId: string;
+          payments: number;
+          refundedKopecks: number;
+          refunds: number;
+          revenueKopecks: number;
+        }>;
+      };
     });
   }> {
     return this.httpRequest.request({

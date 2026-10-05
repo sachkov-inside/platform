@@ -69198,6 +69198,84 @@
                       "operation"
                     ],
                     "type": "object"
+                  },
+                  {
+                    "additionalProperties": false,
+                    "properties": {
+                      "cursor": {
+                        "format": "uuid",
+                        "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                        "type": "string"
+                      },
+                      "limit": {
+                        "default": 50,
+                        "maximum": 100,
+                        "minimum": 1,
+                        "type": "integer"
+                      },
+                      "offerId": {
+                        "format": "uuid",
+                        "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                        "type": "string"
+                      },
+                      "operation": {
+                        "enum": [
+                          "people.list"
+                        ],
+                        "type": "string"
+                      },
+                      "operationId": {
+                        "format": "uuid",
+                        "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                        "type": "string"
+                      },
+                      "source": {
+                        "enum": [
+                          "platform_payment",
+                          "invitation",
+                          "course",
+                          "manual",
+                          "tribute",
+                          "one_time_purchase"
+                        ],
+                        "type": "string"
+                      },
+                      "state": {
+                        "enum": [
+                          "active",
+                          "expiring",
+                          "ended"
+                        ],
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "operationId",
+                      "limit",
+                      "operation"
+                    ],
+                    "type": "object"
+                  },
+                  {
+                    "additionalProperties": false,
+                    "properties": {
+                      "operation": {
+                        "enum": [
+                          "access.summary"
+                        ],
+                        "type": "string"
+                      },
+                      "operationId": {
+                        "format": "uuid",
+                        "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "operationId",
+                      "operation"
+                    ],
+                    "type": "object"
                   }
                 ]
               }
@@ -75881,6 +75959,412 @@
                             "outcome",
                             "items",
                             "nextCursor"
+                          ],
+                          "type": "object"
+                        },
+                        {
+                          "additionalProperties": false,
+                          "properties": {
+                            "items": {
+                              "items": {
+                                "additionalProperties": false,
+                                "properties": {
+                                  "accountId": {
+                                    "format": "uuid",
+                                    "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                                    "type": "string"
+                                  },
+                                  "grounds": {
+                                    "items": {
+                                      "additionalProperties": false,
+                                      "properties": {
+                                        "capabilities": {
+                                          "items": {
+                                            "anyOf": [
+                                              {
+                                                "enum": [
+                                                  "materials",
+                                                  "community",
+                                                  "reviews",
+                                                  "support"
+                                                ],
+                                                "type": "string"
+                                              },
+                                              {
+                                                "pattern": "^guide:([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                                                "type": "string"
+                                              }
+                                            ]
+                                          },
+                                          "type": "array"
+                                        },
+                                        "endPolicy": {
+                                          "enum": [
+                                            "fixed",
+                                            "confirmed_external",
+                                            "temporary_membership"
+                                          ],
+                                          "nullable": true,
+                                          "type": "string"
+                                        },
+                                        "endsAt": {
+                                          "format": "date-time",
+                                          "nullable": true,
+                                          "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$",
+                                          "type": "string"
+                                        },
+                                        "id": {
+                                          "format": "uuid",
+                                          "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                                          "type": "string"
+                                        },
+                                        "kind": {
+                                          "enum": [
+                                            "enrollment",
+                                            "grant"
+                                          ],
+                                          "type": "string"
+                                        },
+                                        "offer": {
+                                          "additionalProperties": false,
+                                          "nullable": true,
+                                          "properties": {
+                                            "id": {
+                                              "format": "uuid",
+                                              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                                              "type": "string"
+                                            },
+                                            "name": {
+                                              "type": "string"
+                                            }
+                                          },
+                                          "required": [
+                                            "id",
+                                            "name"
+                                          ],
+                                          "type": "object"
+                                        },
+                                        "purchaseRef": {
+                                          "format": "uuid",
+                                          "nullable": true,
+                                          "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                                          "type": "string"
+                                        },
+                                        "revision": {
+                                          "exclusiveMinimum": true,
+                                          "maximum": 9007199254740991,
+                                          "minimum": 0,
+                                          "type": "integer"
+                                        },
+                                        "revokedAt": {
+                                          "format": "date-time",
+                                          "nullable": true,
+                                          "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$",
+                                          "type": "string"
+                                        },
+                                        "source": {
+                                          "enum": [
+                                            "platform_payment",
+                                            "invitation",
+                                            "course",
+                                            "manual",
+                                            "tribute",
+                                            "one_time_purchase"
+                                          ],
+                                          "type": "string"
+                                        },
+                                        "startsAt": {
+                                          "format": "date-time",
+                                          "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$",
+                                          "type": "string"
+                                        },
+                                        "state": {
+                                          "enum": [
+                                            "scheduled",
+                                            "active",
+                                            "ended",
+                                            "revoked"
+                                          ],
+                                          "type": "string"
+                                        }
+                                      },
+                                      "required": [
+                                        "kind",
+                                        "id",
+                                        "revision",
+                                        "source",
+                                        "offer",
+                                        "capabilities",
+                                        "purchaseRef",
+                                        "startsAt",
+                                        "endsAt",
+                                        "revokedAt",
+                                        "endPolicy",
+                                        "state"
+                                      ],
+                                      "type": "object"
+                                    },
+                                    "type": "array"
+                                  },
+                                  "telegramIdentityRef": {
+                                    "nullable": true,
+                                    "type": "string"
+                                  }
+                                },
+                                "required": [
+                                  "accountId",
+                                  "telegramIdentityRef",
+                                  "grounds"
+                                ],
+                                "type": "object"
+                              },
+                              "type": "array"
+                            },
+                            "nextCursor": {
+                              "format": "uuid",
+                              "nullable": true,
+                              "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                              "type": "string"
+                            },
+                            "outcome": {
+                              "enum": [
+                                "people"
+                              ],
+                              "type": "string"
+                            }
+                          },
+                          "required": [
+                            "outcome",
+                            "items",
+                            "nextCursor"
+                          ],
+                          "type": "object"
+                        },
+                        {
+                          "additionalProperties": false,
+                          "properties": {
+                            "outcome": {
+                              "enum": [
+                                "accessSummary"
+                              ],
+                              "type": "string"
+                            },
+                            "value": {
+                              "additionalProperties": false,
+                              "properties": {
+                                "active": {
+                                  "items": {
+                                    "additionalProperties": false,
+                                    "properties": {
+                                      "course": {
+                                        "maximum": 9007199254740991,
+                                        "minimum": 0,
+                                        "type": "integer"
+                                      },
+                                      "gift": {
+                                        "maximum": 9007199254740991,
+                                        "minimum": 0,
+                                        "type": "integer"
+                                      },
+                                      "name": {
+                                        "type": "string"
+                                      },
+                                      "offerId": {
+                                        "format": "uuid",
+                                        "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                                        "type": "string"
+                                      },
+                                      "paid": {
+                                        "maximum": 9007199254740991,
+                                        "minimum": 0,
+                                        "type": "integer"
+                                      }
+                                    },
+                                    "required": [
+                                      "offerId",
+                                      "name",
+                                      "paid",
+                                      "gift",
+                                      "course"
+                                    ],
+                                    "type": "object"
+                                  },
+                                  "type": "array"
+                                },
+                                "asOf": {
+                                  "format": "date-time",
+                                  "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$",
+                                  "type": "string"
+                                },
+                                "attention": {
+                                  "items": {
+                                    "additionalProperties": false,
+                                    "properties": {
+                                      "accountId": {
+                                        "format": "uuid",
+                                        "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                                        "type": "string"
+                                      },
+                                      "at": {
+                                        "format": "date-time",
+                                        "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$",
+                                        "type": "string"
+                                      },
+                                      "offerId": {
+                                        "format": "uuid",
+                                        "nullable": true,
+                                        "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                                        "type": "string"
+                                      },
+                                      "reason": {
+                                        "enum": [
+                                          "ending",
+                                          "payment_failed"
+                                        ],
+                                        "type": "string"
+                                      },
+                                      "source": {
+                                        "enum": [
+                                          "platform_payment",
+                                          "invitation",
+                                          "course",
+                                          "manual",
+                                          "tribute",
+                                          "one_time_purchase"
+                                        ],
+                                        "nullable": true,
+                                        "type": "string"
+                                      },
+                                      "title": {
+                                        "type": "string"
+                                      }
+                                    },
+                                    "required": [
+                                      "accountId",
+                                      "reason",
+                                      "source",
+                                      "offerId",
+                                      "title",
+                                      "at"
+                                    ],
+                                    "type": "object"
+                                  },
+                                  "type": "array"
+                                },
+                                "invitations": {
+                                  "additionalProperties": false,
+                                  "properties": {
+                                    "expired": {
+                                      "maximum": 9007199254740991,
+                                      "minimum": 0,
+                                      "type": "integer"
+                                    },
+                                    "gifted": {
+                                      "maximum": 9007199254740991,
+                                      "minimum": 0,
+                                      "type": "integer"
+                                    },
+                                    "issued": {
+                                      "maximum": 9007199254740991,
+                                      "minimum": 0,
+                                      "type": "integer"
+                                    },
+                                    "opened": {
+                                      "maximum": 9007199254740991,
+                                      "minimum": 0,
+                                      "type": "integer"
+                                    },
+                                    "paid": {
+                                      "maximum": 9007199254740991,
+                                      "minimum": 0,
+                                      "type": "integer"
+                                    },
+                                    "purchaseOpened": {
+                                      "maximum": 9007199254740991,
+                                      "minimum": 0,
+                                      "type": "integer"
+                                    },
+                                    "revoked": {
+                                      "maximum": 9007199254740991,
+                                      "minimum": 0,
+                                      "type": "integer"
+                                    }
+                                  },
+                                  "required": [
+                                    "issued",
+                                    "opened",
+                                    "purchaseOpened",
+                                    "paid",
+                                    "gifted",
+                                    "expired",
+                                    "revoked"
+                                  ],
+                                  "type": "object"
+                                },
+                                "revenue": {
+                                  "items": {
+                                    "additionalProperties": false,
+                                    "properties": {
+                                      "month": {
+                                        "pattern": "^\\d{4}-\\d{2}$",
+                                        "type": "string"
+                                      },
+                                      "name": {
+                                        "type": "string"
+                                      },
+                                      "offerId": {
+                                        "format": "uuid",
+                                        "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                                        "type": "string"
+                                      },
+                                      "payments": {
+                                        "maximum": 9007199254740991,
+                                        "minimum": 0,
+                                        "type": "integer"
+                                      },
+                                      "refundedKopecks": {
+                                        "maximum": 9007199254740991,
+                                        "minimum": 0,
+                                        "type": "integer"
+                                      },
+                                      "refunds": {
+                                        "maximum": 9007199254740991,
+                                        "minimum": 0,
+                                        "type": "integer"
+                                      },
+                                      "revenueKopecks": {
+                                        "maximum": 9007199254740991,
+                                        "minimum": 0,
+                                        "type": "integer"
+                                      }
+                                    },
+                                    "required": [
+                                      "month",
+                                      "offerId",
+                                      "name",
+                                      "payments",
+                                      "revenueKopecks",
+                                      "refunds",
+                                      "refundedKopecks"
+                                    ],
+                                    "type": "object"
+                                  },
+                                  "type": "array"
+                                }
+                              },
+                              "required": [
+                                "asOf",
+                                "active",
+                                "invitations",
+                                "attention",
+                                "revenue"
+                              ],
+                              "type": "object"
+                            }
+                          },
+                          "required": [
+                            "outcome",
+                            "value"
                           ],
                           "type": "object"
                         }

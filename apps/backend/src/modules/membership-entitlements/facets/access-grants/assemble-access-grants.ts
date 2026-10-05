@@ -88,6 +88,11 @@ import {
   type RedeemInvitationContext,
 } from "../../features/redeem-invitation/redeem-invitation.js";
 import {
+  listAccessHolders,
+  type AccessHoldersContext,
+} from "../../features/list-access-holders/list-access-holders.js";
+import { readAccessSummary } from "../../features/read-access-summary/read-access-summary.js";
+import {
   enrollmentEndingsQuerySchema,
   listEnrollmentEndings,
   readEnrollmentEnding,
@@ -336,6 +341,26 @@ export function assembleAccessGrants(dependencies: AccessGrantsDependencies) {
       manage(actorId, "billing:manage", () =>
         listInvitations(prisma, input, clock()),
       ),
+    /** Люди и основания для владельца; Offer разовых покупок Billing называет платежами. */
+    listAccessHolders: (
+      actorId: string,
+      input: unknown,
+      context: AccessHoldersContext,
+    ) =>
+      manage(actorId, "billing:manage", () =>
+        listAccessHolders(
+          prisma,
+          dependencies.recipientLinks,
+          input,
+          context,
+          clock(),
+        ),
+      ),
+    readAccessSummary: (actorId: string, now: Date) =>
+      manage(actorId, "billing:manage", async () => ({
+        ok: true as const,
+        value: await readAccessSummary(prisma, now),
+      })),
     /** Чтение для полномочия бота: какой Offer и режим за кодом, без изменения состояния. */
     readInvitationTarget: (code: string) => readInvitationTarget(prisma, code),
     /** Погашение по полномочию бота; Account и каталог billing читает до транзакции. */
