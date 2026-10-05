@@ -16,6 +16,9 @@ const root = path.resolve("../..");
 const smoke = path.join(root, "apps/telegram/scripts/production-smoke.sh");
 const legacySha = "10dfbee3c9dd39d2dacdc39f8c7926ecd4498820";
 const sourceSha = "a".repeat(40);
+// The complete external-command cycle measured 6.69s under full-suite/Docker load.
+// This deadline bounds a stuck script; individual corruption cases keep Vitest's default budget.
+const runtimeProofBudgetMs = 30_000;
 
 // External tools are the seam: execute the entire public smoke script, including its cleanup.
 // The real Docker runtime proof remains separate; these adapters make corrupt observations deterministic.
@@ -135,7 +138,7 @@ function runSmoke(scenario: string) {
         SOURCE_SHA: sourceSha,
         LEGACY_SHA: legacySha,
       },
-      timeout: 30_000,
+      timeout: runtimeProofBudgetMs,
     });
     return {
       result,
@@ -147,18 +150,24 @@ function runSmoke(scenario: string) {
 }
 
 describe("Telegram production runtime smoke", () => {
-  it("accepts the complete transition and rollback, with no rollback migration", () => {
-    const { result, calls } = runSmoke("valid");
-    expect(result.status, result.stderr).toBe(0);
-    expect(result.stdout).toContain(
-      "Telegram runtime transition and rollback passed",
-    );
-    expect(
-      calls.split("\n").filter((call) => call.endsWith("migrate")),
-    ).toHaveLength(2);
-    expect(calls.slice(calls.lastIndexOf("stop app"))).not.toContain("migrate");
-    expect(calls).toContain("container rm --force --volumes");
-  });
+  it(
+    "accepts the complete transition and rollback, with no rollback migration",
+    () => {
+      const { result, calls } = runSmoke("valid");
+      expect(result.status, result.stderr).toBe(0);
+      expect(result.stdout).toContain(
+        "Telegram runtime transition and rollback passed",
+      );
+      expect(
+        calls.split("\n").filter((call) => call.endsWith("migrate")),
+      ).toHaveLength(2);
+      expect(calls.slice(calls.lastIndexOf("stop app"))).not.toContain(
+        "migrate",
+      );
+      expect(calls).toContain("container rm --force --volumes");
+    },
+    runtimeProofBudgetMs,
+  );
 
   it.each([
     ["image", "Candidate image source SHA mismatch"],
