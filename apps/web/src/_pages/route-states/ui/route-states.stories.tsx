@@ -4,7 +4,7 @@ import { expect, fn } from "storybook/test";
 import {
   publicPageEnvironment,
   routeContent,
-} from "@/workshop/story-environment";
+} from "@/storybook/story-environment";
 
 import { PageNotFound, PageUnexpectedError } from "./route-states";
 
@@ -13,7 +13,7 @@ const environment = publicPageEnvironment("/does-not-exist");
 const meta = {
   ...environment,
   component: PageUnexpectedError,
-  title: "Pages/Mobile-first Platform/Route states",
+  title: "Pages/Route states",
   args: { onRetry: fn() },
 } satisfies Meta<typeof PageUnexpectedError>;
 

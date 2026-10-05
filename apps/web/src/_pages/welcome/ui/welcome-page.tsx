@@ -1,7 +1,5 @@
 import { redirect } from "next/navigation";
-import { Suspense, type ReactNode } from "react";
-
-import "./welcome-page.css";
+import type { ReactNode } from "react";
 
 import {
   safeReturnPath,
@@ -12,6 +10,8 @@ import { readTermsGate } from "@/features/terms-acceptance.server";
 import { getOptionalPlatformAccessToken } from "@/shared/auth/optional-platform-access-token.server";
 import { legalDocumentPath } from "@/shared/routing/public-page-path";
 import { internalRoute } from "@/shared/routing/internal-route";
+
+import { WelcomeBackdrop } from "./welcome-backdrop";
 
 /**
  * Окно «Добро пожаловать»: открывается поверх сайта, пока у аккаунта нет принятия действующей
@@ -29,12 +29,9 @@ export async function WelcomePage({
   if (gate.kind === "guest" || gate.kind === "accepted")
     redirect(internalRoute(target));
   const privacyHref = legalDocumentPath("privacy");
-  // The site stays visible behind the decision but cannot be used or read by assistive technology.
   const behind =
     backdrop === undefined ? null : (
-      <div aria-hidden="true" className="welcome-backdrop" inert>
-        <Suspense fallback={null}>{backdrop}</Suspense>
-      </div>
+      <WelcomeBackdrop>{backdrop}</WelcomeBackdrop>
     );
   if (gate.kind === "unavailable")
     return (

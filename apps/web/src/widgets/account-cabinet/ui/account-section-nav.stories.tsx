@@ -6,7 +6,7 @@ import {
   visibleAccountSections,
 } from "../model/account-sections";
 import { AccountSectionNav } from "./account-section-nav.client";
-import { publicPageEnvironment } from "@/workshop/story-environment";
+import { publicPageEnvironment } from "@/storybook/story-environment";
 
 const environment = publicPageEnvironment("/account");
 
@@ -20,7 +20,7 @@ const meta = {
     docs: {
       description: {
         component:
-          "Разделы кабинета: постоянная боковая навигация на десктопе и раскрывающийся список на телефоне. «Подписка» появляется, когда её продают или когда она уже есть.",
+          "Разделы кабинета: постоянная боковая навигация на десктопе и раскрывающийся список на телефоне. «Подписка» появляется, когда подписка или назначенный тариф уже есть.",
       },
     },
     nextjs: { appDirectory: true },

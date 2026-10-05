@@ -461,8 +461,7 @@ body:has([data-public-shell]) {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .reader-status-halo,
-  [data-slot="tooltip-content"] {
+  .reader-status-halo {
     animation-duration: 0s !important;
     transition-duration: 0s !important;
   }

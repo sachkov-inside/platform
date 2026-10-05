@@ -7,16 +7,16 @@ import "@fontsource-variable/jetbrains-mono/wght.css";
 import "@fontsource-variable/manrope/wght.css";
 
 import { assertDeclaredViewport } from "./viewport-guard";
-import "./workshop.css";
+import "./story-frame.css";
 
-const withWorkshop: Decorator = (Story, context) => {
-  const theme = context.globals["theme"] === "dark" ? "dark" : "light";
+// Тема одна, как в продукте: production не включает `.dark` ни на одной странице.
+const withStoryFrame: Decorator = (Story) => {
   const isTestRun = import.meta.env.MODE === "test";
 
   return (
     <QueryProvider>
-      <div className={theme} data-workshop-theme={theme}>
-        <div className="contents" data-workshop-story>
+      <div data-story-frame>
+        <div className="contents" data-story-content>
           <Story />
         </div>
         {!isTestRun ? (
@@ -33,23 +33,8 @@ const preview: Preview = {
   beforeEach: (context) => {
     assertDeclaredViewport(context);
   },
-  decorators: [withWorkshop],
+  decorators: [withStoryFrame],
   tags: ["autodocs"],
-  globalTypes: {
-    theme: {
-      description: "Workshop color theme",
-      toolbar: {
-        icon: "paintbrush",
-        items: [
-          { title: "Light", value: "light" },
-          { title: "Dark", value: "dark" },
-        ],
-      },
-    },
-  },
-  initialGlobals: {
-    theme: "light",
-  },
   parameters: {
     layout: "fullscreen",
     docs: {
@@ -63,7 +48,7 @@ const preview: Preview = {
       },
     },
     a11y: {
-      context: "[data-workshop-story]",
+      context: "[data-story-content]",
       test: "error",
     },
     options: {

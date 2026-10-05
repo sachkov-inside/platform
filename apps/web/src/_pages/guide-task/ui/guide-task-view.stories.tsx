@@ -8,7 +8,7 @@ import {
   notSubmittedYet,
   openGuideTask,
   submittedTwice,
-} from "@/workshop/guide-task.fixtures";
+} from "@/storybook/guide-task.fixtures";
 import {
   boxOf,
   desktop,
@@ -19,13 +19,13 @@ import {
   stagedLoadingOf,
   type StagedLoading,
   type StoryViewport,
-} from "@/workshop/loads-in-place";
-import { withMutationFetch } from "@/workshop/mutation-mock";
+} from "@/storybook/loads-in-place";
+import { withMutationFetch } from "@/storybook/mutation-mock";
 import {
   publicPageEnvironment,
   PublicShellFrame,
   routeContent,
-} from "@/workshop/story-environment";
+} from "@/storybook/story-environment";
 
 import {
   GuideTaskLoading,

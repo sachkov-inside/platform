@@ -4,7 +4,7 @@ import { expect } from "storybook/test";
 import {
   authoringPageEnvironment,
   routeContent,
-} from "@/workshop/story-environment";
+} from "@/storybook/story-environment";
 
 import {
   presentSalesFunnelReport,

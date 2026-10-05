@@ -1,7 +1,7 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { expect, userEvent, waitFor, within } from "storybook/test";
 
-import { withMutationFetch } from "@/workshop/mutation-mock";
+import { withMutationFetch } from "@/storybook/mutation-mock";
 import { ContentCoverEditor } from "./content-cover-editor.client";
 
 const ownerId = "72000000-0000-4000-8000-000000000002";

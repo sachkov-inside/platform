@@ -1,6 +1,7 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { expect, fn, within } from "storybook/test";
-import { authoringPageEnvironment } from "@/workshop/story-environment";
+import { authoringPageEnvironment } from "@/storybook/story-environment";
+import { BillingAdminFrame } from "./billing-admin-frame";
 import { TributeOperationsView } from "./tribute-operations-view.client";
 const tier = {
   id: "62500000-0000-4000-8000-000000000001",
@@ -9,10 +10,12 @@ const tier = {
   benefits: ["materials" as const, "community" as const],
   contentScope: { guideIds: [], materialIds: [] },
 };
-const environment = authoringPageEnvironment("/authoring/billing");
+const environment = authoringPageEnvironment("/authoring/billing", {
+  frame: BillingAdminFrame,
+});
 const meta = {
   ...environment,
-  title: "Pages/Authoring/Tribute import",
+  title: "Features/Billing/Tribute import",
   component: TributeOperationsView,
   args: {
     data: {

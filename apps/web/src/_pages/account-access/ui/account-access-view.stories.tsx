@@ -5,7 +5,7 @@ import type { AcceptedDocumentsPanelProps } from "@/features/accepted-documents"
 import { legalEditionPath } from "@/shared/routing/public-page-path";
 
 import { AccountAccessView } from "./account-access-view.client";
-import { accountSectionEnvironment } from "@/workshop/story-environment";
+import { accountSectionEnvironment } from "@/storybook/story-environment";
 
 const environment = accountSectionEnvironment("/account/access");
 
@@ -122,6 +122,19 @@ export const Unlinked: Story = {
 };
 
 export const Loading: Story = { args: { link: null, loading: true } };
+
+/** Состояние аккаунта пришло раньше журнала принятия: журнал показывает свою загрузку. */
+export const AcceptedDocumentsLoading: Story = {
+  args: { acceptedDocuments: { policies, state: { kind: "loading" } } },
+  play: async ({ canvasElement }) => {
+    const accepted = within(
+      within(canvasElement).getByRole("region", { name: "Принятые документы" }),
+    );
+    await expect(accepted.getByRole("status")).toHaveTextContent(
+      "Загружаем принятые документы…",
+    );
+  },
+};
 
 export const AcceptedDocumentsUnavailable: Story = {
   args: { acceptedDocuments: { policies, state: { kind: "unavailable" } } },

@@ -136,11 +136,6 @@ export type MaterialValidationState =
       readonly issues: readonly MaterialValidationIssue[];
       readonly kind: "invalid";
       readonly scope: "input" | "publication";
-    }
-  | {
-      readonly headingCount: number;
-      readonly kind: "valid";
-      readonly plainTextLength: number;
     };
 
 export type MaterialWorkspaceBlockingState =
@@ -169,9 +164,7 @@ export interface MaterialAuthoringPresentation {
     readonly result: DeleteMaterialDraftResult | null;
   };
   readonly draft: MaterialDraftPresentation;
-  readonly mode: "editor" | "preview";
   readonly noticeRevision: number;
-  readonly preview: MaterialPreviewPresentation | null;
   /** Снятие опубликованного материала из купленных продуктов ждёт подтверждения автора. */
   readonly removalConfirmation?: {
     readonly guides: readonly GuideRemoval[];

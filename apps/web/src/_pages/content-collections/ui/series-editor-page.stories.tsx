@@ -2,10 +2,9 @@ import type { Meta, StoryObj } from "@storybook/react-vite";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { useState, type ReactNode } from "react";
 import { expect, userEvent, within } from "storybook/test";
-import { withMutationFetch } from "@/workshop/mutation-mock";
-import { ContentCollectionsPageClient } from "./content-collections-page.client";
+import { withMutationFetch } from "@/storybook/mutation-mock";
 import { SeriesEditorPageClient } from "./series-editor-page.client";
-import { authoringPageEnvironment } from "@/workshop/story-environment";
+import { authoringPageEnvironment } from "@/storybook/story-environment";
 
 const collection = {
   archived: false,
@@ -98,8 +97,9 @@ function Fixture({
   return <QueryClientProvider client={client}>{children}</QueryClientProvider>;
 }
 
+/** Адрес редактора, на который ведёт список продуктов: идентификатор совпадает с продуктом. */
 const environment = authoringPageEnvironment(
-  "/authoring/playlists/95000000-0000-4000-8000-000000000010",
+  `/authoring/guides/${collection.id}`,
 );
 
 const meta = {
@@ -271,36 +271,4 @@ export const KeyboardReorder: Story = {
     ).toHaveTextContent("Сборка контейнера");
     await expect(await canvas.findByText("Порядок сохранён.")).toBeVisible();
   },
-};
-export const List: Story = {
-  render: () => (
-    <ContentCollectionsPageClient
-      kind="series"
-      initialCollections={[
-        collection,
-        {
-          ...collection,
-          id: "97000000-0000-4000-8000-000000000008",
-          name: "Demo · Архитектура приложения",
-          materialCount: 8,
-        },
-        {
-          ...collection,
-          id: "97000000-0000-4000-8000-000000000009",
-          name: "Demo · Работа с базой данных",
-          materialCount: 12,
-        },
-        {
-          ...collection,
-          id: "97000000-0000-4000-8000-000000000010",
-          name: "Demo · Архивное руководство",
-          archived: true,
-        },
-      ]}
-    />
-  ),
-};
-export const ListMobile: Story = {
-  ...List,
-  globals: { viewport: { isRotated: false, value: "mobile390" } },
 };

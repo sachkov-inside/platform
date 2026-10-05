@@ -31,7 +31,7 @@ import {
   guideOnlyOffer,
   materialsOffer,
   supportOffer,
-} from "@/workshop/billing.fixtures";
+} from "@/storybook/billing.fixtures";
 
 const origin = "https://inside.example.test";
 const operationId = "20000000-0000-4000-8000-000000000001";

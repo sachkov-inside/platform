@@ -23,6 +23,8 @@ const meta = {
       1,
     );
   },
+  // Иллюстрация заполняет блок, который ей даёт страница (`height: 100%`); сами блоки Главной и
+  // страницы практикума видны в их историях. Здесь — только размер такого блока.
   render: (args) => (
     <div
       style={{
@@ -40,40 +42,6 @@ export default meta;
 type Story = StoryObj<typeof meta>;
 
 export const Home: Story = {};
-export const Context: Story = { args: { mode: "static", scene: 1 } };
-export const Harness: Story = { args: { mode: "static", scene: 2 } };
-export const Architecture: Story = { args: { mode: "static", scene: 3 } };
-export const Review: Story = { args: { mode: "static", scene: 4 } };
-export const Release: Story = { args: { mode: "static", scene: 5 } };
-export const Mobile: Story = {
-  render: (args) => (
-    <div
-      style={{ width: 358, height: 230, overflow: "hidden", borderRadius: 16 }}
-    >
-      <AiFirstProcessArtwork {...args} />
-    </div>
-  ),
-};
-export const MobileContext: Story = {
-  ...Mobile,
-  args: { mode: "static", scene: 1 },
-};
-export const MobileHarness: Story = {
-  ...Mobile,
-  args: { mode: "static", scene: 2 },
-};
-export const MobileArchitecture: Story = {
-  ...Mobile,
-  args: { mode: "static", scene: 3 },
-};
-export const MobileReview: Story = {
-  ...Mobile,
-  args: { mode: "static", scene: 4 },
-};
-export const MobileRelease: Story = {
-  ...Mobile,
-  args: { mode: "static", scene: 5 },
-};
 export const ReducedMotion: Story = {
   parameters: {
     docs: {

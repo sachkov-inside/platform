@@ -1,10 +1,18 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { expect, within } from "storybook/test";
 
-import { withMutationFetch } from "@/workshop/mutation-mock";
+import {
+  MaterialAuthoringSignInActions,
+  MaterialAuthoringUnauthorizedState,
+} from "@/widgets/material-authoring/route-states";
+import { withMutationFetch } from "@/storybook/mutation-mock";
+import {
+  authoringPageEnvironment,
+  routeContent,
+} from "@/storybook/story-environment";
 
 import { ContentCollectionsPageClient } from "./content-collections-page.client";
-import { authoringPageEnvironment } from "@/workshop/story-environment";
+import { ContentCollectionsUnavailable } from "./content-collections-unavailable";
 
 const collections = [
   {
@@ -45,13 +53,14 @@ const meta = {
     ),
     ...environment.decorators,
   ],
-  title: "Pages/Authoring/Коллекции",
+  title: "Pages/Authoring/Темы",
 } satisfies Meta<typeof ContentCollectionsPageClient>;
 
 export default meta;
 type Story = StoryObj<typeof meta>;
 
 export const TopicsDesktop: Story = {
+  globals: { viewport: { isRotated: false, value: "desktop1440" } },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
     await expect(
@@ -62,6 +71,10 @@ export const TopicsDesktop: Story = {
       canvas.queryByRole("button", { name: "Сохранить" }),
     ).not.toBeInTheDocument();
   },
+};
+
+export const TopicsMobile: Story = {
+  globals: { viewport: { isRotated: false, value: "mobile390" } },
 };
 
 export const EmptyMobile: Story = {
@@ -79,24 +92,30 @@ export const EmptyMobile: Story = {
   },
 };
 
-export const GuidesMobile: Story = {
-  args: {
-    initialCollections: collections.map((collection) => ({
-      ...collection,
-      kind: "series",
-    })),
-    kind: "series",
-  },
-  globals: { viewport: { isRotated: false, value: "mobile390" } },
+/** Сессия не подтверждена: страница маршрута показывает экран входа с возвратом к темам. */
+export const SignedOut: Story = {
+  render: () => (
+    <MaterialAuthoringUnauthorizedState
+      action={<MaterialAuthoringSignInActions returnHref="/authoring/topics" />}
+      context="editor"
+    />
+  ),
   play: async ({ canvasElement }) => {
-    const button = within(canvasElement).getByRole("button", {
-      name: "Создать продукт",
-    });
-    await expect(button).toBeVisible();
-    const bounds = button.getBoundingClientRect();
-    await expect(bounds.left).toBeGreaterThanOrEqual(0);
-    await expect(bounds.right).toBeLessThanOrEqual(
-      canvasElement.ownerDocument.documentElement.clientWidth,
-    );
+    await expect(
+      routeContent(canvasElement).getByRole("heading", {
+        name: "Нет доступа к редактору",
+      }),
+    ).toBeVisible();
+  },
+};
+
+export const Unavailable: Story = {
+  render: () => <ContentCollectionsUnavailable reference="collections-read" />,
+  play: async ({ canvasElement }) => {
+    const page = routeContent(canvasElement);
+    await expect(
+      page.getByRole("heading", { name: "Структура временно недоступна" }),
+    ).toBeVisible();
+    await expect(page.getByText(/Код: collections-read/u)).toBeVisible();
   },
 };

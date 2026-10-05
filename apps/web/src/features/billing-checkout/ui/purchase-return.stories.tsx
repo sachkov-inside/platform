@@ -1,20 +1,17 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { expect, fn, within } from "storybook/test";
 
-import {
-  confirmedPurchase,
-  failedPurchase,
-  unknownPurchase,
-} from "@/workshop/billing.fixtures";
+import { billingErrorMessage } from "@/entities/subscription";
+import { pendingPurchase, unknownPurchase } from "@/storybook/billing.fixtures";
 
 import { PurchaseReturnView } from "./purchase-return.client";
-import { publicPageEnvironment } from "@/workshop/story-environment";
+import { publicPageEnvironment } from "@/storybook/story-environment";
 
 const environment = publicPageEnvironment("/subscription/return");
 
 const meta = {
   ...environment,
-  title: "Pages/Subscription/Return",
+  title: "Components/Billing/Purchase return",
   component: PurchaseReturnView,
   args: {
     purchase: null,
@@ -26,7 +23,7 @@ const meta = {
     docs: {
       description: {
         component:
-          "Возврат из банка ничего не подтверждает: страница показывает состояние, сохранённое сервером.",
+          "Возврат из банка ничего не подтверждает: страница показывает состояние, сохранённое сервером. Здесь — состояния до открытия доступа; подтверждённая оплата со слотом сообщества показана в «Pages/Subscription/Return».",
       },
     },
   },
@@ -41,17 +38,35 @@ export const Checking: Story = {
     await expect(
       canvas.getByText(/Переход обратно не подтверждает оплату/u),
     ).toBeInTheDocument();
+    await expect(canvas.getByRole("status")).toHaveTextContent(
+      "Проверяем состояние оплаты…",
+    );
   },
 };
-export const Confirmed: Story = { args: { purchase: confirmedPurchase } };
-export const Failed: Story = { args: { purchase: failedPurchase } };
-export const Unknown: Story = { args: { purchase: unknownPurchase } };
-export const UnknownReference: Story = { args: { unknownReference: true } };
-export const Mobile: Story = {
-  args: { purchase: confirmedPurchase },
-  globals: { viewport: { isRotated: false, value: "mobile390" } },
+export const AwaitingBank: Story = {
+  args: { purchase: pendingPurchase },
+  play: async ({ canvasElement }) => {
+    await expect(
+      within(canvasElement).getByText("Ждёт подтверждения оплаты"),
+    ).toBeInTheDocument();
+  },
 };
-export const Desktop: Story = {
-  args: { purchase: confirmedPurchase },
-  globals: { viewport: { isRotated: false, value: "desktop1440" } },
+export const Unknown: Story = { args: { purchase: unknownPurchase } };
+export const UnknownReference: Story = {
+  args: { unknownReference: true },
+  play: async ({ canvasElement }) => {
+    await expect(
+      within(canvasElement).getByText(
+        "Не нашли начатую оплату в этом браузере.",
+      ),
+    ).toBeInTheDocument();
+  },
+};
+export const Unavailable: Story = {
+  args: { error: billingErrorMessage("unavailable") },
+  play: async ({ canvasElement }) => {
+    await expect(within(canvasElement).getByRole("alert")).toHaveTextContent(
+      billingErrorMessage("unavailable"),
+    );
+  },
 };

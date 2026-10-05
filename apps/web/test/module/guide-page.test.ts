@@ -5,7 +5,7 @@ import {
   readGuideProductPage,
   resolveGuidePresentation,
 } from "@/entities/guide-page";
-import { aiFirstProductPage } from "@/workshop/guide-page.fixtures";
+import { aiFirstProductPage } from "@/storybook/guide-page.fixtures";
 
 describe("Guide product page", () => {
   test("keeps a description this site can draw", () => {

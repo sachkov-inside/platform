@@ -1,59 +1,86 @@
-import { currentLegalEdition, parseLegalText } from "@inside/legal";
+import {
+  currentLegalEdition,
+  findLegalEdition,
+  parseLegalText,
+  supersededLegalEditions,
+  type LegalDocumentKey,
+} from "@inside/legal";
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { expect, within } from "storybook/test";
 
-import { publicPageEnvironment } from "@/workshop/story-environment";
+import {
+  legalDocumentPath,
+  legalEditionPath,
+} from "@/shared/routing/public-page-path";
+import { publicPageEnvironment } from "@/storybook/story-environment";
 
 import { LegalDocumentPage } from "./legal-document-page";
 
-const environment = publicPageEnvironment("/legal/terms");
+/**
+ * Состав страницы из настоящего комплекта `@inside/legal`, как его собирает `legalDocumentView`:
+ * запрошенная редакция, действующая и прежние. Адрес story — адрес маршрута этой редакции.
+ */
+function legalRoute(
+  key: LegalDocumentKey,
+  version?: number,
+): Pick<Story, "args" | "beforeEach" | "decorators" | "parameters"> {
+  const current = currentLegalEdition(key);
+  const edition =
+    version === undefined ? current : findLegalEdition(key, version);
+  if (edition === undefined)
+    throw new Error(`В комплекте нет редакции ${key} v${String(version)}`);
+  const { beforeEach, decorators, parameters } = publicPageEnvironment(
+    version === undefined
+      ? legalDocumentPath(key)
+      : legalEditionPath(key, version),
+  );
+  return {
+    args: {
+      blocks: parseLegalText(edition.text),
+      current,
+      edition,
+      superseded: supersededLegalEditions(key),
+    },
+    beforeEach,
+    decorators,
+    parameters,
+  };
+}
+
 const terms = currentLegalEdition("terms");
-const blocks = parseLegalText(terms.text);
-/** Прежней редакции в комплекте пока нет; story показывает её состояние на прошлой версии. */
-const earlier = {
-  ...terms,
-  version: terms.version - 1,
-  effectiveFrom: "2026-09-01",
-};
 
 const meta = {
-  ...environment,
   component: LegalDocumentPage,
   title: "Pages/Legal/Документ",
-  args: { blocks, current: terms, edition: terms, superseded: [] },
+  args: {
+    blocks: parseLegalText(terms.text),
+    current: terms,
+    edition: terms,
+    superseded: [],
+  },
   tags: ["autodocs"],
 } satisfies Meta<typeof LegalDocumentPage>;
 export default meta;
 type Story = StoryObj<typeof meta>;
 
-/** Действующая редакция: так документ выглядит по своему постоянному адресу. */
-export const Current: Story = {};
-
-/** У документа есть прежние редакции: их адреса остаются рабочими. */
-export const WithEarlierEdition: Story = {
-  args: { current: terms, edition: terms, superseded: [earlier] },
+/** Действующая редакция условий использования: прежних редакций у документа пока нет. */
+export const Current: Story = {
+  ...legalRoute("terms"),
+  globals: { viewport: { value: "desktop1440", isRotated: false } },
 };
 
-/** Открыта прежняя редакция: отметка и ссылка на действующий текст. */
-export const EarlierEdition: Story = {
-  args: {
-    blocks: parseLegalText(earlier.text),
-    current: terms,
-    edition: earlier,
-    superseded: [earlier],
-  },
+export const Mobile: Story = {
+  ...Current,
+  globals: { viewport: { value: "mobile390", isRotated: false } },
 };
 
-const purchase = currentLegalEdition("purchase");
-
-/** Оферта разовой покупки: подразделы третьего уровня и списки действующей редакции. */
+/**
+ * Оферта разовой покупки: подразделы третьего уровня, списки и прежние редакции, адреса которых
+ * остаются рабочими.
+ */
 export const PurchaseOffer: Story = {
-  args: {
-    blocks: parseLegalText(purchase.text),
-    current: purchase,
-    edition: purchase,
-    superseded: [],
-  },
+  ...legalRoute("purchase"),
+  globals: { viewport: { value: "desktop1440", isRotated: false } },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
     await expect(
@@ -65,14 +92,39 @@ export const PurchaseOffer: Story = {
     await expect(canvas.getAllByRole("list").length).toBeGreaterThan(0);
     // Маркер пункта рисует список, поэтому в тексте его нет.
     await expect(canvas.queryByText(/^- /u)).not.toBeInTheDocument();
+    for (const earlier of supersededLegalEditions("purchase"))
+      await expect(
+        canvas.getByRole("link", {
+          name: new RegExp(`^Редакция ${String(earlier.version)} ·`, "u"),
+        }),
+      ).toHaveAttribute("href", legalEditionPath("purchase", earlier.version));
   },
-};
-
-export const Mobile: Story = {
-  globals: { viewport: { value: "mobile390", isRotated: false } },
 };
 
 export const PurchaseOfferMobile: Story = {
   ...PurchaseOffer,
   globals: { viewport: { value: "mobile390", isRotated: false } },
+};
+
+const earlierPurchase = supersededLegalEditions("purchase")[0];
+if (earlierPurchase === undefined)
+  throw new Error("У оферты нет прежней редакции");
+
+/** `/legal/purchase/v<N>`: прежняя редакция с отметкой и ссылкой на действующий текст. */
+export const EarlierEdition: Story = {
+  ...legalRoute("purchase", earlierPurchase.version),
+  globals: { viewport: { value: "mobile390", isRotated: false } },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await expect(
+      canvas.getByText(
+        new RegExp(`Это редакция ${String(earlierPurchase.version)}`, "u"),
+      ),
+    ).toBeVisible();
+    await expect(
+      canvas.getByRole("link", {
+        name: `редакция ${String(currentLegalEdition("purchase").version)}`,
+      }),
+    ).toHaveAttribute("href", legalDocumentPath("purchase"));
+  },
 };

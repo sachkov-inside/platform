@@ -362,7 +362,7 @@ rendered visual/component GO остаётся отдельным от PR и merg
 - Reader использует одну колонку около `43rem`: title `28/32px`, foreground body `17–18px` с
   line-height около `1.7`, различимые h2/h3/h4 и локальный overflow для code/table. Series
   previous/next идёт сразу после body; tags и все Series memberships — ниже в тихом metadata footer;
-- accepted component foundation состоит из реально используемых `Button`, `Select`, `Tooltip` и
+- accepted component foundation состоит из реально используемых `Button`, `Select` и
   surface patterns `ApplicationShell`, `MaterialCard`, `LibraryFilters`; story-only `Sheet`,
   неподтверждённая header topology и внешний avatar dependency в baseline не сохраняются;
 - Agentation остаётся обязательным feedback overlay каждой frontend-итерации, а Storybook stories

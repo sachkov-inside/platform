@@ -4,22 +4,39 @@ import { expect, within } from "storybook/test";
 import type { GuideCohort } from "@/entities/subscription";
 import { CohortCallView } from "@/features/ai-engineering-course";
 import { homeMaterialReaderReturnTarget } from "@/shared/routing/material-reader";
-import { guideWithSupportOffer } from "@/workshop/billing.fixtures";
+import { guideWithSupportOffer } from "@/storybook/billing.fixtures";
 import {
   aiEngineeringCourseChapters,
   aiEngineeringCoursePage,
-} from "@/workshop/ai-engineering-course.fixtures";
-import { publicPageEnvironment } from "@/workshop/story-environment";
+} from "@/storybook/ai-engineering-course.fixtures";
+import { publicPageEnvironment } from "@/storybook/story-environment";
 
 import { cohortCall } from "../model/cohort-call";
 import { GuideProductView } from "./guide-product-view";
 
 const environment = publicPageEnvironment("/products/ai-engineering");
+
+/**
+ * Первый экран курса без потока: тот же вызов, что рисует `PendingCohortCall` маршрута, пока
+ * личная часть идёт или когда поток не читается.
+ */
+const heroCallWithoutCohort = (
+  <CohortCallView
+    call={cohortCall({
+      cohort: null,
+      offer: null,
+      productAccess: "unknown",
+      signedIn: false,
+      slug: "ai-engineering",
+    })}
+  />
+);
 const meta = {
   ...environment,
   component: GuideProductView,
   title: "Pages/Guide/AI Engineering",
   args: {
+    heroCall: heroCallWithoutCohort,
     returnTarget: homeMaterialReaderReturnTarget,
     result: {
       kind: "empty",
@@ -165,6 +182,7 @@ const cohort: GuideCohort = {
 
 /** Предзаказ: плашка потока над кнопкой, цена — из предложения, которое видит этот человек. */
 export const CohortPreorder: Story = {
+  parameters: { account: "authenticated" },
   args: {
     heroCall: (
       <CohortCallView
@@ -222,6 +240,7 @@ export const CohortAnnouncement: Story = {
 
 /** Между потоками: курс открыт, плашка называет событие следующего потока. */
 export const CohortBetween: Story = {
+  parameters: { account: "authenticated" },
   args: {
     heroCall: (
       <CohortCallView

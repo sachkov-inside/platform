@@ -6,7 +6,6 @@ import {
   MaterialAuthoringHeader,
   MaterialAuthoringNotice,
 } from "./material-authoring-chrome.client";
-import { MaterialCurrentPreview } from "./material-current-preview";
 import { MaterialMetadataPanel } from "./material-metadata-panel.client";
 import { MaterialVideoAuthoring } from "@/features/material-video";
 import { ContentCoverEditor } from "@/features/content-covers";
@@ -35,19 +34,6 @@ export function MaterialAuthoringWorkspace({
       <MaterialAuthoringUnauthorizedState
         action={<MaterialAuthoringSignInActions onBack={actions.onBack} />}
         context="editor"
-      />
-    );
-  }
-
-  if (presentation.mode === "preview" && presentation.preview !== null) {
-    return (
-      <MaterialCurrentPreview
-        editorHref={
-          presentation.draft.materialId === null
-            ? "/authoring/materials/new"
-            : `/authoring/materials/${presentation.draft.materialId}`
-        }
-        preview={presentation.preview}
       />
     );
   }

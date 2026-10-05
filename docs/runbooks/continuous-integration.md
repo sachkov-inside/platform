@@ -107,7 +107,6 @@ These Playwright suites are deliberate manual proofs and do not run in CI:
 | Suite | Why it is manual | How to run |
 |---|---|---|
 | `playwright.editor.config.ts` | needs the real editor, API and isolated PostgreSQL from `pnpm editor:local` | [local development](local-development.md) |
-| `playwright.reading-proof.config.ts` | issue #328 screenshot evidence against a running Storybook; its stories and accessibility run in `ui` | `docs/evidence/issue-328/README.md` |
 | `playwright.identity.config.ts` | needs the Logto identity stand; `pnpm identity:proof:hardening` runs `identity-proof.spec.ts`, and `telegram-sign-in.spec.ts` needs its own stand with the `inside-telegram` provider | [local development](local-development.md), [Telegram sign-in](../verification/telegram-sign-in-local.md) |
 
 `scripts/playwright-specs-load.test.mjs` still loads every suite in `unit`, so a broken spec file

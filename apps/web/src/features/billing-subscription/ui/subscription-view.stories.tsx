@@ -10,16 +10,16 @@ import {
   scheduledChangeQuote,
   subscriptionWithPendingChange,
   upgradeChangeQuote,
-} from "@/workshop/billing.fixtures";
+} from "@/storybook/billing.fixtures";
 
 import { SubscriptionSectionView } from "./subscription-view.client";
-import { accountSectionEnvironment } from "@/workshop/story-environment";
+import { accountSectionEnvironment } from "@/storybook/story-environment";
 
 const environment = accountSectionEnvironment("/account/subscription");
 
 const meta = {
   ...environment,
-  title: "Pages/Account/Subscription",
+  title: "Components/Account/Subscription view",
   component: SubscriptionSectionView,
   args: {
     subscription: activeSubscription,
@@ -39,25 +39,13 @@ const meta = {
     docs: {
       description: {
         component:
-          "Раздел «Подписка»: тариф, оплаченный срок, следующее списание и управление продлением. Способ оплаты и история денег принадлежат разделу «Покупки».",
+          "Вид раздела «Подписка» без назначенных тарифов и документов: состояния подписки и расчёты смены тарифа. Раздел целиком, его загрузку, отсутствие подписки, ошибки и отмену продления показывает «Pages/Account/Subscription».",
       },
     },
   },
 } satisfies Meta<typeof SubscriptionSectionView>;
 export default meta;
 type Story = StoryObj<typeof meta>;
-
-export const Active: Story = {
-  play: async ({ canvasElement }) => {
-    const canvas = within(canvasElement);
-    await expect(canvas.getByText("Действует")).toBeInTheDocument();
-    await expect(
-      canvas.getByRole("button", { name: "Отменить продление" }),
-    ).toBeEnabled();
-    // Способ оплаты — задача раздела «Покупки».
-    await expect(canvas.queryByText("Способ оплаты")).not.toBeInTheDocument();
-  },
-};
 
 export const Canceled: Story = {
   args: { subscription: canceledSubscription },
@@ -102,36 +90,6 @@ export const ScheduledChangeQuote: Story = {
   },
 };
 
-export const NoSubscription: Story = {
-  args: { subscription: null, storefrontHref: "/subscription" },
-  play: async ({ canvasElement }) => {
-    const canvas = within(canvasElement);
-    await expect(
-      canvas.getByText("Автопродление Inside не подключено"),
-    ).toBeInTheDocument();
-    await expect(
-      canvas.getByRole("link", { name: "Посмотреть тарифы" }),
-    ).toBeInTheDocument();
-  },
-};
-
-/**
- * Раздел открыт по прямому адресу, а подписку не продают: он объясняет, что подписки нет, но
- * не зовёт на витрину, с которой нечего купить.
- */
-export const NoSubscriptionNotOffered: Story = {
-  args: { subscription: null },
-  play: async ({ canvasElement }) => {
-    const canvas = within(canvasElement);
-    await expect(
-      canvas.getByText("Автопродление Inside не подключено"),
-    ).toBeInTheDocument();
-    await expect(
-      canvas.queryByRole("link", { name: "Посмотреть тарифы" }),
-    ).not.toBeInTheDocument();
-  },
-};
-
 export const MaterialsWithoutTelegram: Story = {
   args: {
     subscription: {
@@ -152,16 +110,4 @@ export const MaterialsWithoutTelegram: Story = {
     ).toBeGreaterThan(0);
     await expect(canvas.queryByText("Общий чат")).not.toBeInTheDocument();
   },
-};
-
-export const SessionExpired: Story = { args: { sessionExpired: true } };
-export const Loading: Story = { args: { subscription: null, loading: true } };
-export const Unavailable: Story = {
-  args: { error: "Данные оплаты сейчас недоступны. Повторите позже." },
-};
-export const Mobile: Story = {
-  globals: { viewport: { isRotated: false, value: "mobile390" } },
-};
-export const Desktop: Story = {
-  globals: { viewport: { isRotated: false, value: "desktop1440" } },
 };

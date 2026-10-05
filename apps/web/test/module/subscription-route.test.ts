@@ -12,7 +12,7 @@ import {
   billingOffers,
   materialsOffer,
   supportOffer,
-} from "@/workshop/billing.fixtures";
+} from "@/storybook/billing.fixtures";
 
 it("сохраняет контекст страницы продукта и отбрасывает внешние адреса", () => {
   expect(subscriptionRouteTarget("/products/platform-inside")).toEqual({

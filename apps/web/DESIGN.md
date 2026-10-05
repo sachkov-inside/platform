@@ -229,11 +229,6 @@ Soft rounding is a grouping grammar, not decoration. Compact actions and navigat
 - **State:** muted hover/open fill, semantic focus ring, checked item with secondary fill and orange check indicator, disabled value preserved.
 - **Overlay:** rounded popover with restrained card elevation and reduced-motion-safe entry/exit.
 
-### Tooltip
-
-- **Style:** compact charcoal explanation with inverse text and a small pointer.
-- **Behavior:** non-essential help only, available from pointer hover and keyboard focus; motion is removed under reduced-motion preferences.
-
 ### Application Shell and Navigation
 
 - **Desktop:** accepted inset full-height charcoal sidebar, collapsed by default, expanded by hover/focus or explicit pin; current location uses a restrained orange signal.
@@ -242,7 +237,7 @@ Soft rounding is a grouping grammar, not decoration. Compact actions and navigat
 
 ### Material Card
 
-The production `MaterialCard` owns its grid, row and note-feed variants; reuse the variant used by
+The production `MaterialCard` owns its row, Series and note-feed variants; reuse the variant used by
 the owning surface. Current Series card relationships, annotations and video descriptions follow
 the [Series contract](../../docs/specifications/platform-v1.md#series-step-sequences), with
 representative states in the production Library discovery stories. Earlier card experiments do

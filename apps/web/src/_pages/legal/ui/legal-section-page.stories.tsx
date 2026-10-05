@@ -1,7 +1,7 @@
 import { currentLegalEditions } from "@inside/legal";
 import type { Meta, StoryObj } from "@storybook/react-vite";
 
-import { publicPageEnvironment } from "@/workshop/story-environment";
+import { publicPageEnvironment } from "@/storybook/story-environment";
 
 import { LegalSectionPage } from "./legal-section-page";
 

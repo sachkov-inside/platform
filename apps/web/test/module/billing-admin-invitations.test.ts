@@ -28,7 +28,7 @@ import {
   invitationUsableUntil,
   type Invitation,
 } from "@/features/billing-admin/model/invitation-operations";
-import { materialsOffer, supportOffer } from "@/workshop/billing.fixtures";
+import { materialsOffer, supportOffer } from "@/storybook/billing.fixtures";
 
 const origin = "https://inside.example.test";
 const operationId = "20000000-0000-4000-8000-000000000001";

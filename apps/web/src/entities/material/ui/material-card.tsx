@@ -30,15 +30,13 @@ export interface MaterialCardProps {
   readonly rowAnnotation?: React.ReactNode;
   readonly seriesOrdinal?: number;
   readonly readingStatus?: React.ReactElement;
-  /** Existing video card with a short continuation caption supplied by its page. */
-  readonly resumeLabel?: string;
   readonly showAccessDetails?: boolean;
   /**
    * Доступность читателя ещё уточняется: строка программы нарисована из общих данных, а замок или
    * отметка чтения встанут на своё место, когда придёт личная часть (ADR 0027).
    */
   readonly accessPending?: boolean;
-  readonly variant?: "compact" | "default" | "feed" | "row" | "series";
+  readonly variant: "feed" | "row" | "series";
 }
 
 /** Safe published Material summary rendered in the accepted public visual language. */
@@ -54,10 +52,9 @@ export function MaterialCard({
       format={material.format}
     />
   ),
-  resumeLabel,
   showAccessDetails = false,
   accessPending = false,
-  variant = "default",
+  variant,
 }: MaterialCardProps) {
   const Heading = headingLevel;
   const readerHref = materialReaderHref(material.slug, returnHref);
@@ -82,7 +79,6 @@ export function MaterialCard({
         showAccessDetails={showAccessDetails}
         material={material}
         readerHref={readerHref}
-        resumeLabel={resumeLabel}
         rowAnnotation={rowAnnotation}
         readingStatus={readingStatus}
         {...(returnHref === undefined ? {} : { returnHref })}
@@ -90,218 +86,128 @@ export function MaterialCard({
     );
   }
 
-  if (variant === "feed") {
-    const excerpt =
-      material.access === "free" &&
-      material.availability === "available" &&
-      material.formatSlug === "note"
-        ? material.noteExcerpt
-        : undefined;
-    const video = materialPreviewHasVideo(material);
-    const duration = materialDuration(material);
-    const link = video
-      ? undefined
-      : feedLink(excerpt?.text ?? material.summary, excerpt?.linkUrl);
-    const cover = (
-      <AccessCover material={material}>
-        <ContentCoverImage
-          alt=""
-          className="aspect-video min-h-0 w-full rounded-xl"
-          cover={material.cover ?? null}
-          fallbackKind={
-            video
-              ? "video"
-              : material.formatSlug === "note"
-                ? "note"
-                : "material"
-          }
-          fallbackSeed={material.slug}
-          sizes="(min-width: 768px) 28rem, 100vw"
-        />
-      </AccessCover>
-    );
-    return (
-      <article
-        className="home-feed-post min-w-0"
-        data-material-id={material.slug}
-        data-material-slug={material.slug}
-        data-material-variant="feed"
-      >
-        <div className="flex items-center gap-3">
-          <span
-            aria-hidden="true"
-            className="grid size-10 shrink-0 place-items-center rounded-full bg-primary text-xs font-bold text-primary-foreground"
-          >
-            S
-          </span>
-          <div className="min-w-0 text-sm">
-            <strong>Sachkov Inside</strong>
-            <p className="text-xs text-muted-foreground">
-              {material.format}
-              {material.publishedAt === undefined ? null : (
-                <>
-                  {" "}
-                  ·{" "}
-                  <time dateTime={material.publishedAt}>
-                    {new Intl.DateTimeFormat("ru-RU", {
-                      day: "numeric",
-                      month: "short",
-                      year: "numeric",
-                      timeZone: "Europe/Moscow",
-                    }).format(new Date(material.publishedAt))}
-                  </time>
-                </>
-              )}
-            </p>
-          </div>
-        </div>
-        <Heading className="mt-4 text-lg font-semibold leading-snug tracking-[-0.025em]">
-          <IntentPrefetchLink
-            className="no-underline hover:text-action"
-            href={readerHref}
-          >
-            {material.title}
-          </IntentPrefetchLink>
-        </Heading>
-        <p className="home-feed-post-copy mt-3 text-base text-body-muted">
-          {excerpt?.text ?? material.summary}
-        </p>
-        {link === undefined ? (
-          <IntentPrefetchLink
-            className="home-feed-artwork"
-            href={readerHref}
-            aria-label={
-              video
-                ? `Смотреть: ${material.title}`
-                : `Открыть: ${material.title}`
-            }
-          >
-            {cover}
-            {video && material.availability === "available" ? (
-              <span className="absolute inset-0 grid place-items-center">
-                <span className="grid size-11 place-items-center rounded-full bg-primary text-primary-foreground">
-                  <Play aria-hidden="true" className="size-5 fill-current" />
-                </span>
-              </span>
-            ) : null}
-            {duration === undefined ? null : (
-              <span className="absolute bottom-3 right-3 rounded-md bg-primary px-2 py-1 text-xs tabular-nums text-primary-foreground">
-                {duration}
-              </span>
-            )}
-          </IntentPrefetchLink>
-        ) : (
-          <a
-            className="home-feed-artwork home-feed-link-preview"
-            href={link.href}
-            target="_blank"
-            rel="noopener noreferrer"
-            aria-label={`Открыть ${link.label} в новой вкладке`}
-          >
-            {cover}
-            <span className="home-feed-link-domain">
-              <Link2 aria-hidden="true" className="size-4 shrink-0" />
-              {link.label}
-            </span>
-          </a>
-        )}
-        <div className="mt-4 flex min-h-11 flex-wrap items-center justify-between gap-3">
-          <IntentPrefetchLink
-            className="inline-flex min-h-11 items-center gap-1 text-sm font-semibold no-underline"
-            href={readerHref}
-          >
-            {video
-              ? "Смотреть видео"
-              : excerpt === undefined || excerpt.truncated
-                ? "Читать дальше"
-                : "Открыть заметку"}
-            <ChevronRight aria-hidden="true" className="size-4" />
-          </IntentPrefetchLink>
-          {readingStatus}
-        </div>
-      </article>
-    );
-  }
-
-  const isCompact = variant === "compact";
+  const excerpt =
+    material.access === "free" &&
+    material.availability === "available" &&
+    material.formatSlug === "note"
+      ? material.noteExcerpt
+      : undefined;
+  const video = materialPreviewHasVideo(material);
   const duration = materialDuration(material);
-
+  const link = video
+    ? undefined
+    : feedLink(excerpt?.text ?? material.summary, excerpt?.linkUrl);
+  const cover = (
+    <AccessCover material={material}>
+      <ContentCoverImage
+        alt=""
+        className="aspect-video min-h-0 w-full rounded-xl"
+        cover={material.cover ?? null}
+        fallbackKind={
+          video ? "video" : material.formatSlug === "note" ? "note" : "material"
+        }
+        fallbackSeed={material.slug}
+        sizes="(min-width: 768px) 28rem, 100vw"
+      />
+    </AccessCover>
+  );
   return (
     <article
-      className="group/card relative h-full min-w-0 w-full"
+      className="home-feed-post min-w-0"
       data-material-id={material.slug}
       data-material-slug={material.slug}
-      data-material-variant={variant}
+      data-material-variant="feed"
     >
-      <AccessCover compact={isCompact} material={material}>
-        <ContentCoverImage
-          alt=""
-          className={cn(
-            "min-h-0 w-full transition-transform duration-200 group-hover/card:-translate-y-1 motion-reduce:transform-none motion-reduce:transition-none",
-            isCompact
-              ? "aspect-video rounded-[1.25rem]"
-              : "aspect-square rounded-[1.5rem]",
-          )}
-          cover={material.cover ?? null}
-          fallbackKind={isCompact ? "video" : "material"}
-          fallbackSeed={material.slug}
-          sizes="(min-width: 768px) 20rem, 50vw"
-        />
-        {isCompact && duration !== undefined ? (
-          <span className="absolute bottom-3 right-3 rounded-full bg-black/70 px-2.5 py-1 text-[0.6875rem] font-semibold text-white">
-            {duration}
-          </span>
-        ) : null}
-        {isCompact && resumeLabel !== undefined ? (
-          <span className="absolute left-2 top-2 inline-flex max-w-[calc(100%-1rem)] items-center gap-1 rounded-full bg-accent px-2 py-1 text-[0.625rem] font-semibold leading-4 text-accent-foreground shadow-sm sm:left-3 sm:top-3 sm:gap-1.5 sm:px-2.5 sm:text-[0.6875rem]">
-            <Play aria-hidden="true" className="size-3 shrink-0 fill-current" />
-            Продолжить просмотр
-          </span>
-        ) : null}
-      </AccessCover>
-      {isCompact ? null : (
-        <span className="mt-3 block text-[0.6875rem] font-bold uppercase tracking-[0.1em] text-eyebrow">
-          {material.topic}
+      <div className="flex items-center gap-3">
+        <span
+          aria-hidden="true"
+          className="grid size-10 shrink-0 place-items-center rounded-full bg-primary text-xs font-bold text-primary-foreground"
+        >
+          S
         </span>
-      )}
-      <Heading
-        className={cn(
-          "line-clamp-2 font-semibold tracking-[-0.025em]",
-          isCompact
-            ? "mt-3 text-[0.9375rem] leading-5 md:text-lg md:leading-6"
-            : "mt-1 text-[0.9375rem] leading-5 tracking-[-0.02em] md:text-lg md:leading-6",
-        )}
-      >
+        <div className="min-w-0 text-sm">
+          <strong>Sachkov Inside</strong>
+          <p className="text-xs text-muted-foreground">
+            {material.format}
+            {material.publishedAt === undefined ? null : (
+              <>
+                {" "}
+                ·{" "}
+                <time dateTime={material.publishedAt}>
+                  {new Intl.DateTimeFormat("ru-RU", {
+                    day: "numeric",
+                    month: "short",
+                    year: "numeric",
+                    timeZone: "Europe/Moscow",
+                  }).format(new Date(material.publishedAt))}
+                </time>
+              </>
+            )}
+          </p>
+        </div>
+      </div>
+      <Heading className="mt-4 text-lg font-semibold leading-snug tracking-[-0.025em]">
         <IntentPrefetchLink
-          aria-label={
-            isCompact && resumeLabel !== undefined
-              ? `${material.title}. ${resumeLabel}`
-              : undefined
-          }
-          className="no-underline after:absolute after:inset-0 after:rounded-[1.5rem] focus-visible:outline-none focus-visible:after:outline-2 focus-visible:after:outline-ring"
+          className="no-underline hover:text-action"
           href={readerHref}
         >
           {material.title}
         </IntentPrefetchLink>
       </Heading>
-      {readingStatus !== undefined ? (
-        <span className="mt-2 block">{readingStatus}</span>
-      ) : null}
-      {isCompact ? (
-        <span
-          className={cn(
-            "mt-1 block text-xs font-medium md:text-sm",
-            resumeLabel === undefined ? "text-muted-foreground" : "text-action",
-          )}
+      <p className="home-feed-post-copy mt-3 text-base text-body-muted">
+        {excerpt?.text ?? material.summary}
+      </p>
+      {link === undefined ? (
+        <IntentPrefetchLink
+          className="home-feed-artwork"
+          href={readerHref}
+          aria-label={
+            video ? `Смотреть: ${material.title}` : `Открыть: ${material.title}`
+          }
         >
-          {resumeLabel ?? material.topic}
-        </span>
-      ) : duration === undefined ? null : (
-        <span className="mt-2 flex items-center gap-1.5 text-xs font-semibold text-muted-foreground">
-          <Clock3 aria-hidden="true" className="size-3.5" />
-          {duration}
-        </span>
+          {cover}
+          {video && material.availability === "available" ? (
+            <span className="absolute inset-0 grid place-items-center">
+              <span className="grid size-11 place-items-center rounded-full bg-primary text-primary-foreground">
+                <Play aria-hidden="true" className="size-5 fill-current" />
+              </span>
+            </span>
+          ) : null}
+          {duration === undefined ? null : (
+            <span className="absolute bottom-3 right-3 rounded-md bg-primary px-2 py-1 text-xs tabular-nums text-primary-foreground">
+              {duration}
+            </span>
+          )}
+        </IntentPrefetchLink>
+      ) : (
+        <a
+          className="home-feed-artwork home-feed-link-preview"
+          href={link.href}
+          target="_blank"
+          rel="noopener noreferrer"
+          aria-label={`Открыть ${link.label} в новой вкладке`}
+        >
+          {cover}
+          <span className="home-feed-link-domain">
+            <Link2 aria-hidden="true" className="size-4 shrink-0" />
+            {link.label}
+          </span>
+        </a>
       )}
+      <div className="mt-4 flex min-h-11 flex-wrap items-center justify-between gap-3">
+        <IntentPrefetchLink
+          className="inline-flex min-h-11 items-center gap-1 text-sm font-semibold no-underline"
+          href={readerHref}
+        >
+          {video
+            ? "Смотреть видео"
+            : excerpt === undefined || excerpt.truncated
+              ? "Читать дальше"
+              : "Открыть заметку"}
+          <ChevronRight aria-hidden="true" className="size-4" />
+        </IntentPrefetchLink>
+        {readingStatus}
+      </div>
     </article>
   );
 }
@@ -312,7 +218,6 @@ function MaterialRow({
   readerHref,
   returnHref,
   rowAnnotation,
-  resumeLabel,
   readingStatus,
   showAccessDetails,
 }: {
@@ -320,7 +225,6 @@ function MaterialRow({
   readonly headingLevel: "h2" | "h3" | "h4";
   readonly material: MaterialPreview;
   readonly readerHref: Route;
-  readonly resumeLabel: string | undefined;
   readonly returnHref?: Route;
   readonly rowAnnotation?: React.ReactNode;
   readonly readingStatus?: React.ReactElement | undefined;
@@ -331,7 +235,6 @@ function MaterialRow({
     <article
       className={cn(
         "group/row relative grid min-w-0 grid-cols-[3.5rem_minmax(0,1fr)_auto] items-center gap-2 sm:grid-cols-[5.5rem_minmax(0,1fr)_auto] sm:gap-3 rounded-2xl border border-black/8 bg-muted/55 p-3 shadow-card transition-[box-shadow,transform,background-color] duration-200 hover:-translate-y-0.5 hover:bg-white hover:shadow-card-hover motion-reduce:transform-none motion-reduce:transition-none",
-        resumeLabel !== undefined && "ring-2 ring-accent/70",
         showAccessDetails && "@max-[13rem]/series-entry:grid-cols-1",
       )}
       data-material-id={material.slug}
@@ -392,19 +295,9 @@ function MaterialRow({
             {material.summary}
           </span>
         ) : null}
-        {readingStatus !== undefined || resumeLabel !== undefined ? (
+        {readingStatus !== undefined ? (
           <span className="mt-2 flex min-h-6 items-center">
-            {resumeLabel === undefined ? (
-              readingStatus
-            ) : (
-              <span className="inline-flex items-center gap-1.5 text-sm font-semibold text-action">
-                <Play
-                  aria-hidden="true"
-                  className="size-3.5 shrink-0 fill-current"
-                />
-                {resumeLabel}
-              </span>
-            )}
+            {readingStatus}
           </span>
         ) : null}
         {showAccessDetails ? (

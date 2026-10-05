@@ -10,4 +10,5 @@ export { AccountTelegramLinkPanel } from "./ui/account-telegram-link-panel.clien
 export {
   AccountTelegramOnboarding,
   openTelegramOnboarding,
+  telegramOnboardingDismissalKey,
 } from "./ui/account-telegram-onboarding.client";

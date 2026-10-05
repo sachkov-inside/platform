@@ -8,30 +8,20 @@ import {
   type LibrarySearchQuery,
 } from "@/features/library-catalog";
 import { getQueryClient } from "@/shared/api/query-client";
-import { NavigationPendingFrame } from "@/widgets/application-shell";
-import { publicPageEnvironment } from "@/workshop/story-environment";
+import { publicPageEnvironment } from "@/storybook/story-environment";
 import { HomePage } from "./home-page";
 import { HomeFeedView } from "./home-feed.client";
-import { HomeLoading } from "./home-loading";
+import { aiEngineeringCoursePage } from "@/storybook/ai-engineering-course.fixtures";
 import {
   aiFirstProductPage,
   aiFirstProductSummary,
-} from "@/workshop/guide-page.fixtures";
-import { illustratedHome } from "./illustrated-home.fixture";
+} from "@/storybook/guide-page.fixtures";
+import {
+  illustratedHome,
+  illustratedPinnedHome,
+} from "@/storybook/home.fixtures";
 
-const pinnedPlaylist = illustratedHome.playlists[1];
-const home = {
-  ...illustratedHome,
-  pinnedSeries:
-    pinnedPlaylist === undefined
-      ? null
-      : {
-          ...pinnedPlaylist,
-          presentation: "default" as const,
-          card: null,
-          hero: null,
-        },
-};
+const home = illustratedPinnedHome;
 const query = {
   after: null,
   q: "",
@@ -104,7 +94,7 @@ const meta = {
   ...publicPageEnvironment("/"),
   component: HomePage,
   tags: ["autodocs"],
-  title: "Pages/Mobile-first Platform/Home",
+  title: "Pages/Home",
 } satisfies Meta<typeof HomePage>;
 export default meta;
 type Story = StoryObj<typeof meta>;
@@ -134,6 +124,29 @@ const aiFirstPin = {
   presentation: "ai-first-process" as const,
   card: aiFirstProductPage.card,
   hero: null,
+};
+
+/** Первый экран курса из его описания: карточка Главной повторяет его тем же модулем. */
+const courseHero = aiEngineeringCoursePage.blocks.find(
+  (block) => block.kind === "hero",
+);
+if (courseHero === undefined)
+  throw new Error("Описание курса без первого экрана");
+const aiEngineeringPin = {
+  id: "ai-engineering-course",
+  cover: null,
+  previewItems: [],
+  slug: "ai-engineering",
+  name: "AI Engineering",
+  summary: null,
+  count: 24,
+  presentation: "ai-engineering-course" as const,
+  card: aiEngineeringCoursePage.card,
+  hero: {
+    badge: courseHero.badge,
+    lead: courseHero.lead,
+    highlights: courseHero.highlights,
+  },
 };
 
 export const RealDataReady: Story = {
@@ -260,6 +273,39 @@ export const AiFirstGuide: Story = {
 };
 export const AiFirstGuideMobile: Story = {
   ...AiFirstGuide,
+  globals: mobile.globals,
+};
+
+export const AiEngineeringCourse: Story = {
+  args: {
+    result: {
+      kind: "ready",
+      value: { ...home, pinnedSeries: aiEngineeringPin },
+    },
+    feed: feed(),
+  },
+  globals: desktop.globals,
+  play: async ({ canvasElement }) => {
+    const card = canvasElement.querySelector<HTMLElement>(
+      '[data-guide-presentation="ai-engineering-course"]',
+    );
+    if (card === null) throw new Error("Карточка курса не отрисована");
+    await expect(
+      within(card).getByRole("heading", {
+        level: 2,
+        name: /^AI Engineering/u,
+      }),
+    ).toBeVisible();
+    await expect(
+      within(card).getByRole("link", { name: /Открыть курс/u }),
+    ).toHaveAttribute(
+      "href",
+      expect.stringContaining("/products/ai-engineering"),
+    );
+  },
+};
+export const AiEngineeringCourseMobile: Story = {
+  ...AiEngineeringCourse,
   globals: mobile.globals,
 };
 
@@ -406,45 +452,4 @@ export const AiFirstGuideLoadsInPlace: Story = {
 export const AiFirstGuideLoadsInPlaceMobile: Story = {
   args: AiFirstGuide.args,
   ...loadsInPlace(mobile),
-};
-
-/**
- * Скелет перехода из мобильной навигации ещё не знает закрепа и места под продукт не держит:
- * лента открывает каркас главной вплотную к его верху. История рисует его в рамке перехода, как
- * `PublicNavigationPending`; `args` нужны только типу `meta`.
- */
-async function navigationSkeletonReservesNoProduct({
-  canvasElement,
-}: {
-  readonly canvasElement: HTMLElement;
-}) {
-  const frame = canvasElement.querySelector(".home-page");
-  if (frame === null) throw new Error("Каркас главной не отрисован");
-  const materials = within(canvasElement).getByRole("region", {
-    name: "Материалы",
-  });
-  await expect(materials).toHaveAttribute("aria-busy", "true");
-  await expect(materials.parentElement).toBe(frame);
-  await expect(frame.querySelector(":scope > :not(h1, .home-feed)")).toBeNull();
-  await expect(
-    materials.getBoundingClientRect().top - frame.getBoundingClientRect().top,
-  ).toBe(Number.parseFloat(getComputedStyle(materials).marginTop));
-}
-
-export const NavigationPending: Story = {
-  args: NoPinnedGuide.args,
-  globals: desktop.globals,
-  decorators: [
-    (Story) => (
-      <NavigationPendingFrame>
-        <Story />
-      </NavigationPendingFrame>
-    ),
-  ],
-  render: () => <HomeLoading />,
-  play: navigationSkeletonReservesNoProduct,
-};
-export const NavigationPendingMobile: Story = {
-  ...NavigationPending,
-  globals: mobile.globals,
 };

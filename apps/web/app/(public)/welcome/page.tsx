@@ -1,6 +1,10 @@
 import type { Metadata } from "next";
 
-import { fillPinnedOfferTerms, getHome, HomePage } from "@/_pages/home.server";
+import {
+  fillPinnedOfferTerms,
+  getHome,
+  HomeBackdrop,
+} from "@/_pages/home.server";
 import { WelcomePage } from "@/_pages/welcome.server";
 import { getOptionalPlatformAccessToken } from "@/shared/auth/optional-platform-access-token.server";
 
@@ -22,7 +26,7 @@ export default async function WelcomeRoute({
   const { returnTo } = await searchParams;
   return (
     <WelcomePage
-      backdrop={<WelcomeBackdrop />}
+      backdrop={<WelcomeHome />}
       returnTo={typeof returnTo === "string" ? returnTo : "/"}
     />
   );
@@ -32,11 +36,11 @@ export default async function WelcomeRoute({
  * Главная за окном: только закреплённый продукт, без ленты, которая меняла бы адрес страницы.
  * Это декорация: её сбой не должен мешать принять условия.
  */
-async function WelcomeBackdrop() {
+async function WelcomeHome() {
   // Карточка закреплённого продукта рисует тексты как есть: сроки подставляются здесь же.
   const home = await getHome(await getOptionalPlatformAccessToken())
     .then(fillPinnedOfferTerms)
     .catch(() => undefined);
   if (home === undefined) return null;
-  return <HomePage feed={<div className="min-h-[60vh]" />} result={home} />;
+  return <HomeBackdrop result={home} />;
 }

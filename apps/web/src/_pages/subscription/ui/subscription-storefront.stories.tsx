@@ -6,37 +6,54 @@ import {
   billingOffers,
   currentBillingResponse,
   supportOffer,
-} from "@/workshop/billing.fixtures";
-import { fetchBeforeRender } from "@/workshop/mutation-mock";
+} from "@/storybook/billing.fixtures";
+import {
+  fetchBeforeRender,
+  type MutationFetch,
+} from "@/storybook/mutation-mock";
+import { publicPageEnvironment } from "@/storybook/story-environment";
 
 import { SubscriptionStorefront } from "./subscription-storefront.client";
-import { publicPageEnvironment } from "@/workshop/story-environment";
 
-const signedOut = fetchBeforeRender(() =>
+/**
+ * Маршрут `/subscription` для этого посетителя: шапка показывает тот же аккаунт, что и ответ
+ * billing о подписке. Ответ ставится до первого рендера.
+ */
+function storefrontRoute(
+  account: "authenticated" | "guest",
+  respond: MutationFetch,
+): Pick<Story, "beforeEach" | "decorators" | "parameters"> {
+  const { beforeEach, decorators, parameters } = publicPageEnvironment(
+    "/subscription",
+    { account },
+  );
+  return {
+    beforeEach: () => {
+      beforeEach();
+      return fetchBeforeRender(respond)();
+    },
+    decorators,
+    parameters,
+  };
+}
+
+const signedOut = storefrontRoute("guest", () =>
   Promise.resolve(new Response(null, { status: 401 })),
 );
 
-const subscribed = fetchBeforeRender(() =>
+const subscribed = storefrontRoute("authenticated", () =>
   Promise.resolve(currentBillingResponse(activeSubscription)),
 );
 
 const desktop = { viewport: { isRotated: false, value: "desktop1440" } };
 const mobile = { viewport: { isRotated: false, value: "mobile390" } };
 
-const environment = publicPageEnvironment("/subscription");
-
 const meta = {
-  ...environment,
   title: "Pages/Subscription/Storefront",
   component: SubscriptionStorefront,
   args: { offers: billingOffers, returnTo: "/subscription" },
-  beforeEach: () => {
-    environment.beforeEach();
-    return signedOut();
-  },
   globals: desktop,
   parameters: {
-    ...environment.parameters,
     docs: {
       description: {
         component:
@@ -50,6 +67,7 @@ export default meta;
 type Story = StoryObj<typeof meta>;
 
 export const Catalog: Story = {
+  ...signedOut,
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
     await expect(
@@ -64,6 +82,7 @@ export const Catalog: Story = {
 
 /** Кнопка «Оплатить» в боте открывает витрину с `?offer=`: тариф этого предложения уже выбран. */
 export const PreselectedOffer: Story = {
+  ...signedOut,
   args: {
     initialOfferId: supportOffer.offer.id,
     returnTo: `/subscription?offer=${supportOffer.offer.id}`,
@@ -100,6 +119,7 @@ const expectNoSale: NonNullable<Story["play"]> = async ({ canvasElement }) => {
  * выбор и не обещает, что позже что-то появится.
  */
 export const NotOffered: Story = {
+  ...signedOut,
   args: { offers: [] },
   play: expectNoSale,
 };
@@ -108,8 +128,8 @@ export const NotOfferedMobile: Story = { ...NotOffered, globals: mobile };
 
 /** Выключенная продажа не трогает действующую подписку: вход в кабинет остаётся на месте. */
 export const NotOfferedWithSubscription: Story = {
+  ...subscribed,
   args: { offers: [] },
-  beforeEach: subscribed,
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
     await expect(
@@ -126,6 +146,7 @@ export const NotOfferedWithSubscription: Story = {
  * витрина зовёт войти и возвращает на тот же адрес с `?offer=`, а не объявляет продажу выключенной.
  */
 export const InvitedGuest: Story = {
+  ...signedOut,
   args: {
     offers: [],
     initialOfferId: supportOffer.offer.id,
@@ -160,6 +181,7 @@ export const InvitedGuest: Story = {
 
 /** Каталог не прочитался: это сбой, и он честно предлагает зайти позже. */
 export const Unavailable: Story = {
+  ...signedOut,
   args: { offers: [], unavailable: true },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
@@ -175,8 +197,8 @@ export const Unavailable: Story = {
 
 /** Сбой чтения каталога тоже не прячет вход в кабинет у того, у кого подписка есть. */
 export const UnavailableWithSubscription: Story = {
+  ...subscribed,
   args: { offers: [], unavailable: true },
-  beforeEach: subscribed,
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
     await expect(

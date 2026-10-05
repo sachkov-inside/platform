@@ -20,7 +20,7 @@ import {
   guideWithSupportOffer,
   materialsOffer,
   supportOffer,
-} from "@/workshop/billing.fixtures";
+} from "@/storybook/billing.fixtures";
 
 describe("суммы и сроки", () => {
   it("показывает копейки только когда они есть", () => {

@@ -1,61 +1,58 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
-import { useState } from "react";
-import { expect, userEvent, waitFor, within } from "storybook/test";
+import { expect, fn, userEvent, within } from "storybook/test";
 
 import { BookmarkAction } from "./bookmark-action.client";
-import type { BookmarkActionView } from "../model/bookmark-action-view";
-
-function BookmarkProof({
-  initial = { kind: "ready", bookmarked: false },
-}: {
-  readonly initial?: BookmarkActionView;
-}) {
-  const [view, setView] = useState<BookmarkActionView>(initial);
-  const bookmarked = "bookmarked" in view && view.bookmarked;
-  const onToggle = (desired: boolean) => {
-    setView({ kind: "pending", bookmarked, desired });
-    // Fixture response only: production supplies the same presentation interface.
-    setTimeout(() => {
-      setView({ kind: "ready", bookmarked: desired });
-    }, 300);
-  };
-  return (
-    <div className="flex min-h-40 items-start justify-end p-8">
-      <BookmarkAction onToggle={onToggle} view={view} />
-    </div>
-  );
-}
 
 const meta = {
   title: "Features/Bookmarks",
-  component: BookmarkProof,
+  component: BookmarkAction,
+  args: { onToggle: fn(), view: { kind: "ready", bookmarked: false } },
   parameters: {
+    layout: "padded",
     docs: {
       description: {
         component:
-          "Личная закладка на материал: сохранение, снятие и честные состояния. Реальную запись и доступ поставляет production adapter.",
+          "Личная закладка на материал: сохранение, снятие и честные состояния. Состояние и запись поставляет production adapter `SavedBookmarkAction`; его путь с сервером показан в «Features/Bookmarks adapter».",
       },
     },
   },
-} satisfies Meta<typeof BookmarkProof>;
+} satisfies Meta<typeof BookmarkAction>;
 export default meta;
 type Story = StoryObj<typeof meta>;
 
 export const Save: Story = {
-  args: { initial: { kind: "ready", bookmarked: false } },
+  play: async ({ args, canvasElement }) => {
+    const canvas = within(canvasElement);
+    const button = canvas.getByRole("button", { name: "В закладки" });
+    await expect(button).toHaveAttribute("aria-pressed", "false");
+    button.focus();
+    await userEvent.keyboard("{Enter}");
+    await expect(args.onToggle).toHaveBeenCalledWith(true);
+  },
 };
 export const Saved: Story = {
-  args: { initial: { kind: "ready", bookmarked: true } },
+  args: { view: { kind: "ready", bookmarked: true } },
+  play: async ({ args, canvasElement }) => {
+    const canvas = within(canvasElement);
+    const button = canvas.getByRole("button", { name: "В закладках" });
+    await expect(button).toHaveAttribute("aria-pressed", "true");
+    await userEvent.click(button);
+    await expect(args.onToggle).toHaveBeenCalledWith(false);
+  },
 };
 export const Anonymous: Story = {
-  args: { initial: { kind: "anonymous", loginHref: "/account" } },
+  args: { view: { kind: "anonymous", loginHref: "/account" } },
 };
-export const Loading: Story = { args: { initial: { kind: "loading" } } };
+export const Loading: Story = { args: { view: { kind: "loading" } } };
 export const Pending: Story = {
-  args: { initial: { kind: "pending", bookmarked: false, desired: true } },
+  args: { view: { kind: "pending", bookmarked: false, desired: true } },
+  play: async ({ args, canvasElement }) => {
+    await userEvent.click(within(canvasElement).getByRole("button"));
+    await expect(args.onToggle).not.toHaveBeenCalled();
+  },
 };
 export const SaveFailed: Story = {
-  args: { initial: { kind: "error", bookmarked: false, desired: true } },
+  args: { view: { kind: "error", bookmarked: false, desired: true } },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
     await expect(canvas.getByRole("alert")).toHaveTextContent("Не сохранено");
@@ -65,28 +62,5 @@ export const SaveFailed: Story = {
   },
 };
 export const Denied: Story = {
-  args: { initial: { kind: "denied", bookmarked: false } },
-};
-export const Toggle: Story = {
-  play: async ({ canvasElement }) => {
-    const canvas = within(canvasElement);
-    const button = canvas.getByRole("button", { name: "В закладки" });
-    await expect(button).toHaveAttribute("aria-pressed", "false");
-    button.focus();
-    await userEvent.keyboard("{Enter}");
-    await waitFor(() =>
-      expect(
-        canvas.getByRole("button", { name: "В закладках" }),
-      ).toHaveAttribute("aria-pressed", "true"),
-    );
-    await expect(
-      canvas.getByRole("button", { name: "В закладках" }),
-    ).toHaveFocus();
-    await userEvent.click(canvas.getByRole("button", { name: "В закладках" }));
-    await waitFor(() =>
-      expect(
-        canvas.getByRole("button", { name: "В закладки" }),
-      ).toHaveAttribute("aria-pressed", "false"),
-    );
-  },
+  args: { view: { kind: "denied", bookmarked: false } },
 };

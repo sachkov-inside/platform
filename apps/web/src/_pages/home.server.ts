@@ -1,6 +1,7 @@
 import "server-only";
 export {
   getHome,
+  HomeBackdrop,
   HomePage,
   readPublicHome,
   fillPinnedOfferTerms,

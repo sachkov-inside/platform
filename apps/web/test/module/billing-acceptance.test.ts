@@ -13,7 +13,7 @@ import {
   canceledSubscription,
   guideQuote,
   savedQuote,
-} from "@/workshop/billing.fixtures";
+} from "@/storybook/billing.fixtures";
 
 describe("acceptance by the payment button", () => {
   it("names the button the journal records for each sale", () => {

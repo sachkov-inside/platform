@@ -6,7 +6,9 @@ import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { accountPresentationBrowserQueryOptions } from "../api/account-presentation-query.browser";
 import { AccountTelegramLinkPanel } from "./account-telegram-link-panel.client";
 
-const dismissalStorageKey = "inside.telegram-onboarding.dismissed";
+/** Окно, закрытое в этой сессии вкладки, не открывается само до следующего входа. */
+export const telegramOnboardingDismissalKey =
+  "inside.telegram-onboarding.dismissed";
 const dismissalListeners = new Set<() => void>();
 
 /**
@@ -89,12 +91,12 @@ export function AccountTelegramOnboarding({
 }
 
 function readDismissal(): boolean {
-  return sessionStorage.getItem(dismissalStorageKey) === "true";
+  return sessionStorage.getItem(telegramOnboardingDismissalKey) === "true";
 }
 
 function subscribeToDismissal(listener: () => void): () => void {
   const handleStorage = (event: StorageEvent) => {
-    if (event.key === dismissalStorageKey) listener();
+    if (event.key === telegramOnboardingDismissalKey) listener();
   };
   dismissalListeners.add(listener);
   window.addEventListener("storage", handleStorage);
@@ -106,9 +108,9 @@ function subscribeToDismissal(listener: () => void): () => void {
 
 function writeDismissal(dismissed: boolean): void {
   if (dismissed) {
-    sessionStorage.setItem(dismissalStorageKey, "true");
+    sessionStorage.setItem(telegramOnboardingDismissalKey, "true");
   } else {
-    sessionStorage.removeItem(dismissalStorageKey);
+    sessionStorage.removeItem(telegramOnboardingDismissalKey);
   }
   for (const listener of dismissalListeners) listener();
 }

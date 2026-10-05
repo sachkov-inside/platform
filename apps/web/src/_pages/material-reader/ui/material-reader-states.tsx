@@ -191,66 +191,68 @@ export function MaterialReaderAccess({
 }) {
   const copy = accessCopy[invitation?.kind ?? "none"];
   return (
-    <div data-material-reader-state="access-required">
-      <ReaderReturnNavigation
-        repeatAtBottom={seriesContext === null}
-        target={returnTarget}
-      >
-        <div className="mx-auto max-w-[43rem]">
-          <MaterialReaderHeader material={material} />
-          <section
-            className="relative mt-10 overflow-hidden rounded-[2rem] border border-black/6 bg-muted p-6 md:mt-12 md:p-9"
-            aria-labelledby="access-heading"
-          >
-            <div
-              aria-hidden="true"
-              className="select-none space-y-5 blur-[7px] opacity-45"
+    <div className="@container/material-reader">
+      <div data-material-reader-state="access-required">
+        <ReaderReturnNavigation
+          repeatAtBottom={seriesContext === null}
+          target={returnTarget}
+        >
+          <div className="mx-auto max-w-[43rem]">
+            <MaterialReaderHeader material={material} />
+            <section
+              className="relative mt-10 overflow-hidden rounded-[2rem] border border-black/6 bg-muted p-6 md:mt-12 md:p-9"
+              aria-labelledby="access-heading"
             >
-              <div className="h-7 w-2/3 rounded-full bg-placeholder-strong" />
-              <div className="space-y-3">
-                <div className="h-4 rounded-full bg-placeholder" />
-                <div className="h-4 w-11/12 rounded-full bg-placeholder" />
-                <div className="h-4 w-4/5 rounded-full bg-placeholder" />
-              </div>
-              <div className="h-36 rounded-[1.5rem] bg-white" />
-            </div>
-            <div className="absolute inset-0 flex flex-col items-center justify-center bg-gradient-to-b from-white/20 via-white/70 to-white/95 px-6 text-center">
-              <span className="grid size-12 place-items-center rounded-full bg-white text-accent shadow-lg">
-                <LockKeyhole aria-hidden="true" className="size-5" />
-              </span>
-              <h2
-                className="mt-4 text-balance text-2xl font-semibold tracking-[-0.04em]"
-                id="access-heading"
+              <div
+                aria-hidden="true"
+                className="select-none space-y-5 blur-[7px] opacity-45"
               >
-                {copy.title}
-              </h2>
-              <p className="mt-2 max-w-sm text-pretty text-sm leading-6 text-muted-foreground">
-                {copy.explanation}
-              </p>
-              {invitation === null ? null : (
-                <div className="mt-5 flex flex-wrap justify-center gap-3">
-                  <Button
-                    asChild
-                    className="h-auto min-h-11 max-w-full whitespace-normal rounded-xl bg-accent px-4 text-white hover:bg-accent-hover"
-                    size="lg"
-                  >
-                    <Link href={invitation.href}>
-                      {accessAction[invitation.kind]}
-                      <ArrowRight
-                        aria-hidden="true"
-                        className="shrink-0 text-sidebar-primary transition-transform duration-[var(--motion-duration-fast)] ease-[var(--motion-ease-out)] group-hover/button:translate-x-0.5 motion-reduce:transition-none"
-                        data-icon="inline-end"
-                      />
-                    </Link>
-                  </Button>
+                <div className="h-7 w-2/3 rounded-full bg-placeholder-strong" />
+                <div className="space-y-3">
+                  <div className="h-4 rounded-full bg-placeholder" />
+                  <div className="h-4 w-11/12 rounded-full bg-placeholder" />
+                  <div className="h-4 w-4/5 rounded-full bg-placeholder" />
                 </div>
-              )}
-            </div>
-          </section>
-          {readingAction}
-          <MaterialReaderFooter seriesContext={seriesContext} />
-        </div>
-      </ReaderReturnNavigation>
+                <div className="h-36 rounded-[1.5rem] bg-white" />
+              </div>
+              <div className="absolute inset-0 flex flex-col items-center justify-center bg-gradient-to-b from-white/20 via-white/70 to-white/95 px-6 text-center">
+                <span className="grid size-12 place-items-center rounded-full bg-white text-accent shadow-lg">
+                  <LockKeyhole aria-hidden="true" className="size-5" />
+                </span>
+                <h2
+                  className="mt-4 text-balance text-2xl font-semibold tracking-[-0.04em]"
+                  id="access-heading"
+                >
+                  {copy.title}
+                </h2>
+                <p className="mt-2 max-w-sm text-pretty text-sm leading-6 text-muted-foreground">
+                  {copy.explanation}
+                </p>
+                {invitation === null ? null : (
+                  <div className="mt-5 flex flex-wrap justify-center gap-3">
+                    <Button
+                      asChild
+                      className="h-auto min-h-11 max-w-full whitespace-normal rounded-xl bg-accent px-4 text-white hover:bg-accent-hover"
+                      size="lg"
+                    >
+                      <Link href={invitation.href}>
+                        {accessAction[invitation.kind]}
+                        <ArrowRight
+                          aria-hidden="true"
+                          className="shrink-0 text-sidebar-primary transition-transform duration-[var(--motion-duration-fast)] ease-[var(--motion-ease-out)] group-hover/button:translate-x-0.5 motion-reduce:transition-none"
+                          data-icon="inline-end"
+                        />
+                      </Link>
+                    </Button>
+                  </div>
+                )}
+              </div>
+            </section>
+            {readingAction}
+            <MaterialReaderFooter seriesContext={seriesContext} />
+          </div>
+        </ReaderReturnNavigation>
+      </div>
     </div>
   );
 }

@@ -5,7 +5,6 @@ import { authoringMaterialsRootHref } from "@/shared/routing/authoring";
 import { Button } from "@/shared/ui/button";
 
 type RouteState =
-  | { readonly kind: "empty" }
   | { readonly kind: "not_found" }
   | { readonly kind: "error"; readonly reference: string };
 
@@ -38,15 +37,13 @@ export function SeriesOrderRouteState({
             </p>
           ) : null}
           <div className="mt-6 flex flex-wrap justify-center gap-2">
-            {state.kind === "empty" ? null : (
-              <Button asChild>
-                <Link href={{ pathname: retryHref }}>
-                  {state.kind === "not_found"
-                    ? "Выбрать другой продукт"
-                    : "Повторить"}
-                </Link>
-              </Button>
-            )}
+            <Button asChild>
+              <Link href={{ pathname: retryHref }}>
+                {state.kind === "not_found"
+                  ? "Выбрать другой продукт"
+                  : "Повторить"}
+              </Link>
+            </Button>
             <Button asChild variant="outline">
               <Link href={authoringMaterialsRootHref}>
                 <ArrowLeft aria-hidden="true" data-icon="inline-start" />К
@@ -64,12 +61,6 @@ function routeStateContent(state: RouteState): {
   readonly text: string;
   readonly title: string;
 } {
-  if (state.kind === "empty") {
-    return {
-      text: "Добавьте продукт в справочные данные, чтобы управлять порядком материалов.",
-      title: "Продуктов пока нет",
-    };
-  }
   if (state.kind === "not_found") {
     return {
       text: "Возможно, продукт был удалён. Выберите другой продукт и продолжите работу.",

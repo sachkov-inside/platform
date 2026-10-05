@@ -281,22 +281,20 @@ async function ResolvedMaterialReader({
       subscriptionOffered: result.subscriptionOffered,
     });
     return (
-      <div className="@container/material-reader">
-        <MaterialReaderAccess
-          readingAction={
-            <SavedReadingAction
-              key={result.material.materialId}
-              materialId={result.material.materialId}
-              format={result.material.format.slug}
-              canMark={false}
-            />
-          }
-          invitation={invitation}
-          material={result.material}
-          returnTarget={returnTarget}
-          seriesContext={seriesContext}
-        />
-      </div>
+      <MaterialReaderAccess
+        readingAction={
+          <SavedReadingAction
+            key={result.material.materialId}
+            materialId={result.material.materialId}
+            format={result.material.format.slug}
+            canMark={false}
+          />
+        }
+        invitation={invitation}
+        material={result.material}
+        returnTarget={returnTarget}
+        seriesContext={seriesContext}
+      />
     );
   }
   const showsModes = seriesContext?.series.hasModeVariants === true;

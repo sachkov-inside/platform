@@ -2,7 +2,7 @@ import type { Meta, StoryObj } from "@storybook/react-vite";
 import { expect, within } from "storybook/test";
 
 import { CommunityEntryView } from "./community-entry-view";
-import { accountSectionEnvironment } from "@/workshop/story-environment";
+import { accountSectionEnvironment } from "@/storybook/story-environment";
 
 const environment = accountSectionEnvironment("/account/purchases");
 const botUrl = "https://t.me/inside_storybook_bot";
