@@ -203,20 +203,29 @@ export interface GroundActions {
 }
 /**
  * Какие существующие команды применимы к основанию. Назначение меняет `enrollments.change`: у
- * курса нет срока, поэтому его только отзывают. Ручное право меняют `grants.extend` и
- * `grants.revoke`. Разовую покупку меняет только возврат, поэтому действий у неё нет.
+ * курса нет срока, поэтому его только отзывают, а назначение из платежа принадлежит Billing и
+ * меняется отменой продления и возвратом. Ручное право меняют `grants.extend` и `grants.revoke`.
+ * Разовую покупку меняет только возврат, поэтому действий у неё нет.
  */
 export function groundActions(ground: PersonGround): GroundActions {
   const live = ground.state === "active" || ground.state === "scheduled";
+  if (
+    ground.source === "platform_payment" ||
+    ground.source === "one_time_purchase"
+  )
+    return { extend: false, revoke: false, restore: false };
   if (ground.kind === "enrollment")
     return {
       extend: ground.source !== "course" && ground.state !== "revoked",
       revoke: live,
       restore: ground.state === "revoked",
     };
-  if (ground.source === "one_time_purchase")
-    return { extend: false, revoke: false, restore: false };
   return { extend: ground.state !== "revoked", revoke: live, restore: false };
+}
+
+/** Назначение Tribute держит конечный срок: продлить его «бессрочно» сервер не даёт. */
+export function groundNeedsEnd(ground: PersonGround): boolean {
+  return ground.source === "tribute";
 }
 
 const dayMs = 24 * 60 * 60 * 1000;

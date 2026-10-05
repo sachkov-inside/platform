@@ -231,11 +231,17 @@ export const CardActions: Story = {
   play: async ({ args, canvasElement }) => {
     const paying = person(canvasElement, "c01");
     await userEvent.click(paying.getByText(uuid("c01")));
+    await expect(
+      paying.getByText(/Оплаченную подписку меняют отмена продления/u),
+    ).toBeVisible();
+    const giftee = person(canvasElement, "c02");
+    await userEvent.click(giftee.getByText(uuid("c02")));
     const form = within(
-      paying.getByRole("group", { name: "Подписка Inside · Оплата подписки" }),
+      giftee.getByRole("group", {
+        name: "Подписка Inside · Подарок по приглашению",
+      }),
     );
-    await expect(form.getByLabelText("Доступ до")).toHaveValue("2030-04-01");
-    await userEvent.clear(form.getByLabelText("Доступ до"));
+    await expect(form.getByLabelText("Доступ до")).toHaveValue("");
     await userEvent.type(form.getByLabelText("Доступ до"), "2030-05-31");
     await userEvent.type(
       form.getByLabelText("Причина"),
@@ -243,7 +249,7 @@ export const CardActions: Story = {
     );
     await userEvent.click(form.getByRole("button", { name: "Изменить срок" }));
     await expect(args.onChangeGround).toHaveBeenCalledWith({
-      ground: people[0]?.grounds[0],
+      ground: people[1]?.grounds[0],
       action: "extend",
       until: "2030-05-31",
       reason: "Продление по просьбе",

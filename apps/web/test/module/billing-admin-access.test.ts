@@ -65,7 +65,14 @@ const ok = (body: unknown) => ({ ok: true, body, response: new Response() });
 
 describe("действия карточки человека", () => {
   it("назначение продлевают, отзывают и восстанавливают, курс только отзывают", () => {
+    // Назначение из платежа принадлежит Billing: его меняют отмена продления и возврат.
     expect(groundActions(ground)).toEqual({
+      extend: false,
+      revoke: false,
+      restore: false,
+    });
+    const manual: PersonGround = { ...ground, source: "manual" };
+    expect(groundActions(manual)).toEqual({
       extend: true,
       revoke: true,
       restore: false,
@@ -77,12 +84,12 @@ describe("действия карточки человека", () => {
     });
     expect(
       groundActions({
-        ...ground,
+        ...manual,
         state: "revoked",
         revokedAt: ground.startsAt,
       }),
     ).toEqual({ extend: false, revoke: false, restore: true });
-    expect(groundActions({ ...ground, state: "ended" })).toEqual({
+    expect(groundActions({ ...manual, state: "ended" })).toEqual({
       extend: true,
       revoke: false,
       restore: false,

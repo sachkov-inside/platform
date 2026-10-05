@@ -34,6 +34,11 @@ import {
   type PeopleFilters,
 } from "../model/access-operations";
 import {
+  accessSummaryQueryKey,
+  invitationsQueryKey,
+  peopleQueryKey,
+} from "../model/access-query-keys";
+import {
   invitationOfferNames,
   type Invitation,
 } from "../model/invitation-operations";
@@ -43,10 +48,6 @@ import {
   type GiftRequest,
   type GroundChangeRequest,
 } from "./people-view.client";
-
-export const peopleQueryKey = ["access-people"] as const;
-/** Сводка считает тех же людей: любое изменение доступа делает её устаревшей. */
-export const accessSummaryQueryKey = ["access-summary"] as const;
 
 const changeMessages: Partial<Record<BillingFailureCode, string>> = {
   revision_conflict:
@@ -140,6 +141,7 @@ export function PeoplePanel({
         return;
       }
       completeOperation(task.slot);
+      assignmentStarts.current.clear();
       announceEnrollmentChange();
       setFailure(null);
       setMessage(task.message);
@@ -166,11 +168,11 @@ export function PeoplePanel({
         );
         return;
       }
-      completeOperation("gift");
+      completeOperation(`gift:${accountId}`);
       setFailure(null);
       setMessage("Подарочное приглашение готово.");
       setGift({ accountId, invitation: result.value.result.value });
-      void cache.invalidateQueries({ queryKey: ["access-invitations"] });
+      void cache.invalidateQueries({ queryKey: invitationsQueryKey });
       void cache.invalidateQueries({ queryKey: accessSummaryQueryKey });
     },
   });
@@ -291,7 +293,14 @@ export function PeoplePanel({
     };
     giving.mutate({
       accountId: request.accountId,
-      input: { operationId: operationId("gift", input), ...input },
+      // Слот и нагрузка называют человека: потерянный ответ для одного не отдаётся другому.
+      input: {
+        operationId: operationId(`gift:${request.accountId}`, {
+          ...input,
+          accountId: request.accountId,
+        }),
+        ...input,
+      },
     });
   }
 

@@ -10,6 +10,7 @@ import {
   accessSourceLabel,
   accessSources,
   groundActions,
+  groundNeedsEnd,
   groundStateLabel,
   groundTitle,
   holderStateLabel,
@@ -388,7 +389,9 @@ function GroundForm({
         <p className="text-muted-foreground">
           {ground.source === "one_time_purchase"
             ? "Разовую покупку меняет только возврат в разделе «Оплата и права»."
-            : "Право отозвано: выдайте доступ заново формой ниже."}
+            : ground.source === "platform_payment"
+              ? "Оплаченную подписку меняют отмена продления и возврат в разделе «Оплата и права»."
+              : "Право отозвано: выдайте доступ заново формой ниже."}
         </p>
       </div>
     );
@@ -416,9 +419,14 @@ function GroundForm({
             defaultValue={
               ground.endsAt === null ? "" : lastMoscowDay(ground.endsAt)
             }
-            hint="Последний день доступа по Москве. Пусто — бессрочно."
+            hint={
+              groundNeedsEnd(ground)
+                ? "Последний день доступа по Москве."
+                : "Последний день доступа по Москве. Пусто — бессрочно."
+            }
             label="Доступ до"
             name="until"
+            required={groundNeedsEnd(ground)}
             type="date"
           />
         ) : null}

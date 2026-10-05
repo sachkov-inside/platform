@@ -16,10 +16,6 @@ import {
 } from "@inside/access-capabilities";
 
 /**
- * Форма провода billing, которую читает браузер. Генерируемые типы остаются подсказкой
- * компилятора: адаптеры принимают тело как `unknown` и проверяют его этими схемами.
- */
-/**
  * Кому Offer продаётся: всем, прежним подписчикам Tribute или только по приглашению. В прежних
  * снимках поля нет, и тогда Offer продаётся всем.
  */
@@ -29,6 +25,10 @@ export const offerEligibilitySchema = z.enum([
   "invitation_only",
 ]);
 export type OfferEligibility = z.infer<typeof offerEligibilitySchema>;
+/**
+ * Форма провода billing, которую читает браузер. Генерируемые типы остаются подсказкой
+ * компилятора: адаптеры принимают тело как `unknown` и проверяют его этими схемами.
+ */
 export const offerSchema = z.object({
   id: z.uuid(),
   revision: z.number().int().positive(),

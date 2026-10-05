@@ -19,6 +19,10 @@ import {
   revokeInvitation,
 } from "../api/invitations.browser";
 import {
+  accessSummaryQueryKey,
+  invitationsQueryKey,
+} from "../model/access-query-keys";
+import {
   invitationsPageSize,
   type Invitation,
   type InvitationStateFilter,
@@ -27,8 +31,6 @@ import {
   InvitationsView,
   type IssueInvitationRequest,
 } from "./invitations-view.client";
-
-const queryKey = ["access-invitations"] as const;
 
 /** Отказы выдачи и отзыва объясняются словами владельца, а не кодами billing. */
 const issueMessages: Partial<Record<BillingFailureCode, string>> = {
@@ -58,7 +60,7 @@ export function InvitationsPanel({
   const [failure, setFailure] = useState<string | null>(null);
   const [issued, setIssued] = useState<Invitation | null>(null);
   const list = useInfiniteQuery({
-    queryKey: [...queryKey, filter],
+    queryKey: [...invitationsQueryKey, filter],
     initialPageParam: null as string | null,
     queryFn: async ({ pageParam }) => {
       // Чтение ничего не меняет: каждой странице своя ссылка на операцию.
@@ -74,7 +76,8 @@ export function InvitationsPanel({
     getNextPageParam: (page) => page.nextCursor,
   });
   function refresh() {
-    void cache.invalidateQueries({ queryKey });
+    void cache.invalidateQueries({ queryKey: invitationsQueryKey });
+    void cache.invalidateQueries({ queryKey: accessSummaryQueryKey });
   }
   function lost() {
     setFailure(

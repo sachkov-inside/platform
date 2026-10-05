@@ -5,7 +5,10 @@ import {
   type AccessSource,
 } from "../domain/access-roster.js";
 import { accessCapabilitySchema } from "../domain/access-grant.js";
-import { enrollmentTermsSchema } from "../domain/subscription-enrollment.js";
+import {
+  enrollmentOriginSchema,
+  enrollmentTermsSchema,
+} from "../domain/subscription-enrollment.js";
 
 /** Права без назначения, которые список людей показывает основаниями. */
 export const standaloneGrantSources = ["paid", "manual", "legacy"] as const;
@@ -49,9 +52,8 @@ export function enrollmentGround(
     kind: "enrollment",
     id: row.id,
     revision: row.revision,
-    source: z
-      .enum(["platform_payment", "invitation", "course", "manual", "tribute"])
-      .parse(row.origin),
+    // Origin ограничен CHECK таблицы: новое значение приходит только с миграцией и этой схемой.
+    source: enrollmentOriginSchema.parse(row.origin),
     offer: {
       id: row.tierId,
       name: snapshot.success ? snapshot.data.name : row.tierId,

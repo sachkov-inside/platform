@@ -1626,7 +1626,7 @@ export class BillingService {
       offerId?: string;
       operation: 'people.list';
       operationId: string;
-      source?: 'platform_payment' | 'invitation' | 'course' | 'manual' | 'tribute' | 'one_time_purchase';
+      source?: 'course' | 'tribute' | 'manual' | 'platform_payment' | 'invitation' | 'one_time_purchase';
       state?: 'active' | 'expiring' | 'ended';
     } | {
       operation: 'access.summary';
@@ -2669,7 +2669,7 @@ export class BillingService {
           purchaseRef: string | null;
           revision: number;
           revokedAt: string | null;
-          source: 'platform_payment' | 'invitation' | 'course' | 'manual' | 'tribute' | 'one_time_purchase';
+          source: 'course' | 'tribute' | 'manual' | 'platform_payment' | 'invitation' | 'one_time_purchase';
           startsAt: string;
           state: 'scheduled' | 'active' | 'ended' | 'revoked';
         }>;
@@ -2693,7 +2693,7 @@ export class BillingService {
           at: string;
           offerId: string | null;
           reason: 'ending' | 'payment_failed';
-          source: 'platform_payment' | 'invitation' | 'course' | 'manual' | 'tribute' | 'one_time_purchase' | null;
+          source: 'course' | 'tribute' | 'manual' | 'platform_payment' | 'invitation' | 'one_time_purchase' | null;
           title: string;
         }>;
         invitations: {

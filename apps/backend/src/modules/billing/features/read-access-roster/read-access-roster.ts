@@ -12,6 +12,7 @@ import {
   type OwnerResult,
 } from "../../domain/owner-operations.js";
 import { priceSnapshotSchema } from "../../domain/pricing.js";
+import { MOSCOW_OFFSET_MS } from "../../domain/subscription-period.js";
 
 interface Dependencies {
   readonly prisma: BillingPrisma;
@@ -23,8 +24,8 @@ interface Dependencies {
 type PeopleCommand = Extract<OwnerOperation, { operation: "people.list" }>;
 type OfferName = { readonly id: string; readonly name: string };
 
-/** Москва живёт без перехода на летнее время: месяц выручки — календарный месяц UTC+3. */
-const MOSCOW_OFFSET_MS = 3 * 60 * 60 * 1000;
+/** Сбои списания в сводке — за столько последних дней. */
+const PAYMENT_FAILURE_WINDOW_MS = 7 * 24 * 60 * 60 * 1000;
 /** Выручка и возвраты в сводке — за столько последних месяцев, включая текущий. */
 const REVENUE_MONTHS = 12;
 
@@ -45,6 +46,7 @@ export async function listPeople(
           await prisma.billingPurchase.findMany({
             where: {
               kind: "one_time",
+              state: "confirmed",
               snapshot: { path: ["offer", "id"], equals: command.offerId },
             },
             select: { id: true },
@@ -94,6 +96,7 @@ export async function readAccessSummary(
   >();
   const soon = new Date(now.getTime() + ENDING_SOON_WINDOW_MS);
   const attention: AccessSummary["attention"][number][] = [];
+  const renewing = await renewingAccounts(prisma, facts.value.active);
   for (const { accountId, ground } of facts.value.active) {
     const withOffer = named(ground, offers);
     if (withOffer.offer !== null) {
@@ -106,7 +109,11 @@ export async function readAccessSummary(
       row[groupOf(ground.source)].add(accountId);
       active.set(withOffer.offer.id, row);
     }
-    if (ground.endsAt !== null && new Date(ground.endsAt) <= soon)
+    if (
+      ground.endsAt !== null &&
+      new Date(ground.endsAt) <= soon &&
+      !(ground.source === "platform_payment" && renewing.has(accountId))
+    )
       attention.push({
         accountId,
         reason: "ending",
@@ -144,6 +151,28 @@ export async function readAccessSummary(
       },
     },
   };
+}
+
+/**
+ * Account с действующей подпиской: конец оплаченного периода у них — дата следующего списания, а не
+ * окончание доступа. Отменённая подписка (`canceled`) больше не продлевается и в набор не входит.
+ */
+async function renewingAccounts(
+  prisma: BillingPrisma,
+  active: readonly {
+    readonly accountId: string;
+    readonly ground: AccessGround;
+  }[],
+): Promise<ReadonlySet<string>> {
+  const accounts = active
+    .filter(({ ground }) => ground.source === "platform_payment")
+    .map((entry) => entry.accountId);
+  if (accounts.length === 0) return new Set();
+  const rows = await prisma.billingSubscription.findMany({
+    where: { state: "active", accountId: { in: [...new Set(accounts)] } },
+    select: { accountId: true },
+  });
+  return new Set(rows.map((row) => row.accountId));
 }
 
 function groupOf(source: AccessSource): "paid" | "gift" | "course" {
@@ -224,7 +253,7 @@ async function paymentFailures(
   const notices = await prisma.billingNotice.findMany({
     where: {
       kind: "payment_failed",
-      occurredAt: { gt: new Date(now.getTime() - ENDING_SOON_WINDOW_MS) },
+      occurredAt: { gt: new Date(now.getTime() - PAYMENT_FAILURE_WINDOW_MS) },
     },
     orderBy: [{ occurredAt: "asc" }, { id: "asc" }],
   });
@@ -262,6 +291,8 @@ function moscowMonth(moment: Date): string {
 /**
  * Подтверждённые оплаты по месяцу подтверждения и подтверждённые возвраты по месяцу, когда банк
  * их подтвердил, по Offer из снимка платежа. Новые месяцы сверху, внутри месяца — по названию.
+ * Подтверждённая попытка возврата окончательна: `executeRefund` больше её не обновляет, поэтому
+ * её `updatedAt` — момент подтверждения.
  */
 async function revenueByMonth(
   prisma: BillingPrisma,

@@ -5,7 +5,7 @@ import { billingErrorMessage } from "@/entities/subscription";
 
 import { readAccessSummary } from "../api/access.browser";
 import { AccessSummaryView } from "./access-summary-view.client";
-import { accessSummaryQueryKey } from "./people-panel.client";
+import { accessSummaryQueryKey } from "../model/access-query-keys";
 
 export function AccessSummaryPanel() {
   const summary = useQuery({

@@ -39,16 +39,15 @@ describe("раздел «Доступ»: люди и сводка на PostgreSQ
   const course = { id: randomUUID(), name: "Курс" };
   const guide = { id: randomUUID(), name: "Руководство" };
   // Account по возрастанию id: список людей идёт в этом порядке.
-  const [paying, gifted, student, manual, buyer, former, failed] = Array.from(
-    { length: 7 },
-    () => randomUUID(),
-  ).sort();
+  const [paying, gifted, student, manual, buyer, renewing, former, failed] =
+    Array.from({ length: 8 }, () => randomUUID()).sort();
   if (
     paying === undefined ||
     gifted === undefined ||
     student === undefined ||
     manual === undefined ||
     buyer === undefined ||
+    renewing === undefined ||
     former === undefined ||
     failed === undefined
   )
@@ -64,6 +63,7 @@ describe("раздел «Доступ»: люди и сводка на PostgreSQ
       student,
       manual,
       buyer,
+      renewing,
       former,
       failed,
     ])
@@ -122,6 +122,12 @@ describe("раздел «Доступ»: люди и сводка на PostgreSQ
       claimedAccountId: paying,
       redeemedAt: at("2030-02-09T00:00:00.000Z"),
     });
+    // Подписка с автопродлением: конец периода — дата списания, а не окончание доступа.
+    await enrollment(renewing, subscription, "platform_payment", {
+      startsAt: at("2030-02-17T00:00:00.000Z"),
+      endsAt: at("2030-03-17T00:00:00.000Z"),
+    });
+    await renewingSubscription(renewing);
     // Подарок по приглашению без срока.
     const gift = await enrollment(gifted, subscription, "invitation", {
       startsAt: at("2030-03-01T00:00:00.000Z"),
@@ -241,6 +247,26 @@ describe("раздел «Доступ»: люди и сводка на PostgreSQ
       },
     });
     return id;
+  }
+  async function renewingSubscription(accountId: string) {
+    await db.prisma.billingSubscription.create({
+      data: {
+        id: randomUUID(),
+        accountId,
+        state: "active",
+        snapshot: snapshot(subscription, 99_000),
+        consent: {},
+        anchorAt: at("2030-02-17T00:00:00.000Z"),
+        anchorMonths: 1,
+        periodIndex: 1,
+        periodStartsAt: at("2030-02-17T00:00:00.000Z"),
+        paidUntil: at("2030-03-17T00:00:00.000Z"),
+        periodAmountKopecks: 99_000n,
+        revision: 1,
+        createdAt: at("2030-02-17T00:00:00.000Z"),
+        updatedAt: at("2030-02-17T00:00:00.000Z"),
+      },
+    });
   }
   async function grant(
     accountId: string,
@@ -447,6 +473,7 @@ describe("раздел «Доступ»: люди и сводка на PostgreSQ
       student,
       manual,
       buyer,
+      renewing,
     ]);
     const byAccount = new Map(page.items.map((item) => [item.accountId, item]));
     expect(byAccount.get(paying)).toMatchObject({
@@ -494,17 +521,18 @@ describe("раздел «Доступ»: люди и сводка на PostgreSQ
     expect(await accountsOf({ source: "one_time_purchase" })).toEqual([buyer]);
     expect(await accountsOf({ source: "manual" })).toEqual([manual]);
     expect(await accountsOf({ source: "tribute" })).toEqual([]);
-    expect(await accountsOf({ state: "expiring" })).toEqual([paying]);
+    expect(await accountsOf({ state: "expiring" })).toEqual([paying, renewing]);
     expect(await accountsOf({ state: "ended" })).toEqual([manual]);
     expect(await accountsOf({ offerId: guide.id })).toEqual([buyer]);
     expect(await accountsOf({ offerId: subscription.id })).toEqual([
       paying,
       gifted,
       manual,
+      renewing,
     ]);
     expect(
       await accountsOf({ offerId: subscription.id, state: "active" }),
-    ).toEqual([paying, gifted]);
+    ).toEqual([paying, gifted, renewing]);
     // Все основания человека остаются в ответе, даже если фильтр прошло одно.
     const [manualOnly] = (await people({ state: "active", source: "manual" }))
       .items;
@@ -525,7 +553,7 @@ describe("раздел «Доступ»: люди и сводка на PostgreSQ
       pages += 1;
     } while (cursor !== null && pages < 10);
     expect(pages).toBe(3);
-    expect(seen).toEqual([paying, gifted, student, manual, buyer]);
+    expect(seen).toEqual([paying, gifted, student, manual, buyer, renewing]);
   });
 
   test("чтение требует billing:manage и границ страницы", async () => {
@@ -582,7 +610,7 @@ describe("раздел «Доступ»: люди и сводка на PostgreSQ
         {
           offerId: subscription.id,
           name: subscription.name,
-          paid: 1,
+          paid: 2,
           gift: 1,
           course: 0,
         },

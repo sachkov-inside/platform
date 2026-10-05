@@ -1,6 +1,9 @@
 import { z } from "zod";
 import { accessCapabilitySchema } from "./access-grant.js";
-import { enrollmentTermsSchema } from "./subscription-enrollment.js";
+import {
+  enrollmentOriginSchema,
+  enrollmentTermsSchema,
+} from "./subscription-enrollment.js";
 
 /** Закончившееся основание остаётся в списке людей столько после своего конца. */
 export const RECENTLY_ENDED_WINDOW_MS = 30 * 24 * 60 * 60 * 1000;
@@ -12,11 +15,7 @@ export const ENDING_SOON_WINDOW_MS = 7 * 24 * 60 * 60 * 1000;
  * право без назначения показываются как `manual`.
  */
 export const accessSourceSchema = z.enum([
-  "platform_payment",
-  "invitation",
-  "course",
-  "manual",
-  "tribute",
+  ...enrollmentOriginSchema.options,
   "one_time_purchase",
 ]);
 export type AccessSource = z.infer<typeof accessSourceSchema>;

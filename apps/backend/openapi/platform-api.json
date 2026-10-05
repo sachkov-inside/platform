@@ -69231,11 +69231,11 @@
                       },
                       "source": {
                         "enum": [
+                          "course",
+                          "tribute",
+                          "manual",
                           "platform_payment",
                           "invitation",
-                          "course",
-                          "manual",
-                          "tribute",
                           "one_time_purchase"
                         ],
                         "type": "string"
@@ -76064,11 +76064,11 @@
                                         },
                                         "source": {
                                           "enum": [
+                                            "course",
+                                            "tribute",
+                                            "manual",
                                             "platform_payment",
                                             "invitation",
-                                            "course",
-                                            "manual",
-                                            "tribute",
                                             "one_time_purchase"
                                           ],
                                           "type": "string"
@@ -76225,11 +76225,11 @@
                                       },
                                       "source": {
                                         "enum": [
+                                          "course",
+                                          "tribute",
+                                          "manual",
                                           "platform_payment",
                                           "invitation",
-                                          "course",
-                                          "manual",
-                                          "tribute",
                                           "one_time_purchase"
                                         ],
                                         "nullable": true,

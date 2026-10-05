@@ -1138,6 +1138,8 @@ function targetOf(command: OwnerOperation, outcome: OwnerOutcome): string {
     // Выдача адресуется своим приглашением: его id и есть operationId команды.
     case "invitations.issue":
     case "invitations.list":
+      return command.operationId;
+    // Чтения журнал не пишет (`isOwnerReadOperation`); ветка нужна полноте выбора.
     case "people.list":
     case "access.summary":
       return command.operationId;
