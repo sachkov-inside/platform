@@ -7,7 +7,7 @@ identities, объясняет вход, секреты и порядок их �
 ## Перечень
 
 Email каждой identity — алиас ящика владельца: `<ящик>+inside-access-<identity>@<домен>`. Сам ящик
-задаёт переменная `PRODUCTION_ACCESS_MAILBOX` окружения GitHub `Production`, а в репозитории его нет.
+задаёт secret `PRODUCTION_ACCESS_MAILBOX` окружения GitHub `Production`, а в репозитории его нет.
 Telegram у тестовых Accounts не используется. Тестового Platform Administrator нет: `platform:admin`
 проверяется только локально.
 
@@ -55,7 +55,7 @@ BFF тестовых identities. Если identity снова видит экр�
 |---|---|---|
 | `PRODUCTION_ACCESS_LOGTO_APP_SECRET` | secret | ключ M2M-приложения Logto `Inside Production Access Pass` |
 | `PRODUCTION_ACCESS_LOGTO_APP_ID` | variable | id того же приложения, не секрет |
-| `PRODUCTION_ACCESS_MAILBOX` | variable | ящик владельца для алиасов |
+| `PRODUCTION_ACCESS_MAILBOX` | secret | ящик владельца для алиасов; не variable: GitHub печатает env шага в публичном логе и маскирует только secrets |
 
 Ключ M2M — единственный долгоживущий секрет прохода. У приложения роль
 `Logto Management API access` и включён `allowTokenExchange`. Владелец принял риск: этот ключ
