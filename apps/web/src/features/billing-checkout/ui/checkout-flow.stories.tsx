@@ -7,9 +7,9 @@ import {
   guideQuote,
   legalDocuments,
   verifiedContact,
-} from "@/workshop/billing.fixtures";
-import { fetchBeforeRender } from "@/workshop/mutation-mock";
-import { publicPageEnvironment } from "@/workshop/story-environment";
+} from "@/storybook/billing.fixtures";
+import { fetchBeforeRender } from "@/storybook/mutation-mock";
+import { publicPageEnvironment } from "@/storybook/story-environment";
 
 import { CheckoutFlow } from "./checkout-flow.client";
 

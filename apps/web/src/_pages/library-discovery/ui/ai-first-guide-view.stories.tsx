@@ -9,8 +9,8 @@ import {
   aiFirstProductPage,
   aiFirstProductPageWithEveryField,
   aiFirstProductSummary,
-} from "@/workshop/guide-page.fixtures";
-import { publicPageEnvironment } from "@/workshop/story-environment";
+} from "@/storybook/guide-page.fixtures";
+import { publicPageEnvironment } from "@/storybook/story-environment";
 
 import { GuideProductView } from "./guide-product-view";
 

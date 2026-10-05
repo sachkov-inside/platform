@@ -9,9 +9,9 @@ import {
   AuthoringMaterialsLoading,
   AuthoringMaterialsView,
 } from "@/_pages/authoring-materials/ui/authoring-materials-view";
-import { withMutationFetch } from "./mutation-mock";
+import { withMutationFetch } from "@/storybook/mutation-mock";
 import { authoringMaterialsRootHref } from "@/shared/routing/authoring";
-import { authoringPageEnvironment, routeContent } from "./story-environment";
+import { authoringPageEnvironment, routeContent } from "@/storybook/story-environment";
 
 const lifecycleMutationSpy = fn(
   (_input: RequestInfo | URL, init?: RequestInit) => {

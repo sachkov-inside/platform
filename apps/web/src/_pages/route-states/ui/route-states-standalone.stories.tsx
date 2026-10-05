@@ -2,7 +2,7 @@ import type { Meta, StoryObj } from "@storybook/react-vite";
 import { expect, fn, within } from "storybook/test";
 
 import { authoringMaterialsRootHref } from "@/shared/routing/authoring";
-import { authoringPageEnvironment } from "@/workshop/story-environment";
+import { authoringPageEnvironment } from "@/storybook/story-environment";
 
 import { MaterialAuthoringRouteError } from "@/widgets/material-authoring/route-states";
 

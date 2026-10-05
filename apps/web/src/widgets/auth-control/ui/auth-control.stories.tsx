@@ -1,6 +1,6 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { expect, userEvent, within } from "storybook/test";
-import { publicHeaderEnvironment } from "@/workshop/story-environment";
+import { publicHeaderEnvironment } from "@/storybook/story-environment";
 
 import { HeaderAuthControl } from "./auth-control.client";
 

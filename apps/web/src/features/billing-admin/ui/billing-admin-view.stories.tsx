@@ -5,10 +5,10 @@ import {
   billingOffers,
   materialsOffer,
   supportOffer,
-} from "@/workshop/billing.fixtures";
+} from "@/storybook/billing.fixtures";
 
 import { BillingAdminView } from "./billing-admin-view.client";
-import { authoringPageEnvironment } from "@/workshop/story-environment";
+import { authoringPageEnvironment } from "@/storybook/story-environment";
 
 const purchaseRef = "00000000-0000-4000-8000-0000000000b1";
 const accountId = "00000000-0000-4000-8000-0000000000c1";

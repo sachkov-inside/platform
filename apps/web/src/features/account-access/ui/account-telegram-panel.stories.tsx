@@ -2,11 +2,11 @@ import type { Meta, StoryObj } from "@storybook/react-vite";
 import { expect, fn, userEvent, within } from "storybook/test";
 import { useState } from "react";
 
-import { withMutationFetch } from "@/workshop/mutation-mock";
+import { withMutationFetch } from "@/storybook/mutation-mock";
 
 import type { AccountTelegramMembership } from "../model/account-telegram-membership";
 import { AccountTelegramPanel } from "./account-telegram-panel.client";
-import { accountSectionEnvironment } from "@/workshop/story-environment";
+import { accountSectionEnvironment } from "@/storybook/story-environment";
 
 const journeyLinkRef = "62000000-0000-4000-8000-000000000001";
 

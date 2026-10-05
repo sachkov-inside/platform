@@ -2,7 +2,7 @@ import { currentLegalEdition, parseLegalText } from "@inside/legal";
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { expect, within } from "storybook/test";
 
-import { publicPageEnvironment } from "@/workshop/story-environment";
+import { publicPageEnvironment } from "@/storybook/story-environment";
 
 import { LegalDocumentPage } from "./legal-document-page";
 

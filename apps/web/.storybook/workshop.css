@@ -1,7 +1,7 @@
 @import "../app/globals.css";
 
 #storybook-root,
-[data-workshop-theme] {
+[data-story-frame] {
   min-block-size: 100%;
 }
 

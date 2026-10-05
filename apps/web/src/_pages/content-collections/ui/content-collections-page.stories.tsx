@@ -1,10 +1,10 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { expect, within } from "storybook/test";
 
-import { withMutationFetch } from "@/workshop/mutation-mock";
+import { withMutationFetch } from "@/storybook/mutation-mock";
 
 import { ContentCollectionsPageClient } from "./content-collections-page.client";
-import { authoringPageEnvironment } from "@/workshop/story-environment";
+import { authoringPageEnvironment } from "@/storybook/story-environment";
 
 const collections = [
   {

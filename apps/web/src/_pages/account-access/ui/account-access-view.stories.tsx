@@ -5,7 +5,7 @@ import type { AcceptedDocumentsPanelProps } from "@/features/accepted-documents"
 import { legalEditionPath } from "@/shared/routing/public-page-path";
 
 import { AccountAccessView } from "./account-access-view.client";
-import { accountSectionEnvironment } from "@/workshop/story-environment";
+import { accountSectionEnvironment } from "@/storybook/story-environment";
 
 const environment = accountSectionEnvironment("/account/access");
 

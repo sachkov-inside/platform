@@ -35,7 +35,7 @@ mutations and ADR 0027 owns navigation and caching.
 - A story renders the production module in its production environment. A page-level story wraps the
   module in the shell its route uses; a component story uses the containers its real page gives it.
   A story never re-creates page markup, a shell, or navigation of its own.
-- `src/workshop/story-environment` owns those wrappers and `@/widgets/application-shell` owns the
+- `src/storybook/story-environment` owns those wrappers and `@/widgets/application-shell` owns the
   navigation items. A story that copies navigation or rebuilds a header drifts from the application
   as soon as either changes; extract the real frame into a module both sides import instead.
 - Scrolling in a story matches the product: the document scrolls below 48rem, and above it the
@@ -88,7 +88,7 @@ these are the rules a change follows.
   header — and is at least a screen tall, so the footer waits below the fold instead of jumping
   when the page arrives. A page with a different layout gets its own skeleton instead of borrowing
   one. Every such page has `LoadsInPlace` stories for 1440 and 390 that compare the geometry of
-  the skeleton, the shared part and the ready page; `src/workshop/loads-in-place.ts` owns their
+  the skeleton, the shared part and the ready page; `src/storybook/loads-in-place.ts` owns their
   shared helpers.
 - `"use cache"` lives only in a `*.public-cache.server.ts` module, reads the backend without a
   token, and sets its tag and lifetime through `applyCatalogCachePolicy`. The directive is declared

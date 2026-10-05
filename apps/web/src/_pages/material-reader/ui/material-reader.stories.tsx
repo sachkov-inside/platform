@@ -26,7 +26,7 @@ import {
   MaterialReaderUnavailable,
 } from "./material-reader-states";
 import { MaterialReaderView } from "./material-reader-view";
-import { publicPageEnvironment } from "@/workshop/story-environment";
+import { publicPageEnvironment } from "@/storybook/story-environment";
 
 const material = {
   materialId: "02000000-0000-4000-8000-000000000010",
@@ -943,11 +943,10 @@ export const ImageViewerFailed: Story = {
   },
 };
 
-/** Тёмная тема: окно на токенах `sidebar`, нажатие на фон без приближения закрывает его. */
-export const ImageViewerDark: Story = {
+/** Нажатие на фон окна без приближения закрывает просмотр. */
+export const ImageViewerBackdropClose: Story = {
   args: { mode: "desktop" },
   globals: {
-    theme: "dark",
     viewport: { isRotated: false, value: "desktop1440" },
   },
   play: async ({ canvasElement }) => {

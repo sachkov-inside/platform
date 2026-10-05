@@ -2,11 +2,11 @@ import type { Meta, StoryObj } from "@storybook/react-vite";
 import { expect, userEvent, within } from "storybook/test";
 
 import type { PrivateMemberProfile } from "@/entities/member-profile";
-import { withMutationFetch } from "@/workshop/mutation-mock";
+import { withMutationFetch } from "@/storybook/mutation-mock";
 
 import { AccountLoading, AccountUnavailable } from "./account-page";
 import { AccountPageClient } from "./account-page.client";
-import { accountSectionEnvironment } from "@/workshop/story-environment";
+import { accountSectionEnvironment } from "@/storybook/story-environment";
 
 const activeProfile = {
   avatar: null,

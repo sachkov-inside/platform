@@ -6,7 +6,7 @@ import {
   ProfileAvatarEditor,
   type ProfileAvatarMutation,
 } from "./profile-avatar-editor.client";
-import { accountSectionEnvironment } from "@/workshop/story-environment";
+import { accountSectionEnvironment } from "@/storybook/story-environment";
 
 const profile = {
   avatar: null,

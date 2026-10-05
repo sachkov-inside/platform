@@ -4,7 +4,7 @@ import { useState, type ReactNode } from "react";
 import { expect, fn, waitFor, within } from "storybook/test";
 
 import { MaterialReadingScope } from "@/entities/material";
-import { fetchBeforeRender } from "@/workshop/mutation-mock";
+import { fetchBeforeRender } from "@/storybook/mutation-mock";
 
 import { SavedBookmarkAction } from "./saved-bookmark-action.client";
 

@@ -6,7 +6,7 @@ import type { AccessSummary } from "@/features/billing-admin/model/access-operat
 import {
   authoringPageEnvironment,
   routeContent,
-} from "@/workshop/story-environment";
+} from "@/storybook/story-environment";
 
 import { AccessSection } from "./access-section.client";
 

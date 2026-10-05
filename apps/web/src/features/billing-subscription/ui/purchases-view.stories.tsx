@@ -8,10 +8,10 @@ import {
   ownPayments,
   refundedOwnPayments,
   refundNotices,
-} from "@/workshop/billing.fixtures";
+} from "@/storybook/billing.fixtures";
 
 import { PurchasesSectionView } from "./purchases-view.client";
-import { accountSectionEnvironment } from "@/workshop/story-environment";
+import { accountSectionEnvironment } from "@/storybook/story-environment";
 
 const environment = accountSectionEnvironment("/account/purchases");
 

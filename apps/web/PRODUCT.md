@@ -39,8 +39,9 @@ web
   Правила переноса и обратных правок задаёт
   [content boundary](../../docs/product/platform-mvp-brief.md#контент). Telegram остаётся местом
   community и анонсов. Автоматический импорт и двусторонняя синхронизация пока не реализованы.
-- Storybook является исполнимой design/review-системой. Production-owned UI modules имеют stories;
-  fixtures и workshop composition не входят в production dependency graph.
+- Storybook является исполнимой design/review-системой и показывает продукт таким, какой он есть:
+  у каждого production-маршрута есть история страницы, у его модулей — истории компонентов.
+  Fixtures и `src/storybook` не входят в production dependency graph.
 
 ## Capabilities and Constraints
 
@@ -70,8 +71,8 @@ web
 - Owner-taste constraints and accepted UI-laboratory direction:
   `docs/product/platform-v1-visual-brief.md`.
 - Application vocabulary: `GLOSSARY.md`.
-- Storybook contains accepted shell, Library and Material reader proofs plus representative
-  sanitized content fixtures. No testimonials, customer logos, commercial benchmarks or other
+- Storybook contains page stories of every production route and representative sanitized content
+  fixtures; proofs stay on their `prototype/*` branches. No testimonials, customer logos, commercial benchmarks or other
   marketing proof may be invented.
 - Accepted production evidence для Account и Member Profile: `docs/evidence/issue-189/README.md` с
   desktop и 390 × 844 mobile captures из Storybook и full-stack smoke.

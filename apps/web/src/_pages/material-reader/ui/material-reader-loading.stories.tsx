@@ -19,8 +19,8 @@ import {
   stagedLoadingOf,
   type StagedLoading,
   type StoryViewport,
-} from "@/workshop/loads-in-place";
-import { publicPageEnvironment } from "@/workshop/story-environment";
+} from "@/storybook/loads-in-place";
+import { publicPageEnvironment } from "@/storybook/story-environment";
 
 import {
   MaterialReaderAccess,

@@ -6,11 +6,11 @@ import {
   billingOffers,
   currentBillingResponse,
   supportOffer,
-} from "@/workshop/billing.fixtures";
-import { fetchBeforeRender } from "@/workshop/mutation-mock";
+} from "@/storybook/billing.fixtures";
+import { fetchBeforeRender } from "@/storybook/mutation-mock";
 
 import { SubscriptionStorefront } from "./subscription-storefront.client";
-import { publicPageEnvironment } from "@/workshop/story-environment";
+import { publicPageEnvironment } from "@/storybook/story-environment";
 
 const signedOut = fetchBeforeRender(() =>
   Promise.resolve(new Response(null, { status: 401 })),

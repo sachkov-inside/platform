@@ -3,7 +3,7 @@ import { expect, fn, userEvent, within } from "storybook/test";
 import { HomeSeriesPinView } from "@/features/series-order";
 import { SeriesEditorPageFrame } from "@/_pages/content-collections";
 
-import { authoringPageEnvironment } from "./story-environment";
+import { authoringPageEnvironment } from "@/storybook/story-environment";
 
 const seriesId = "72000000-0000-4000-8000-000000000298";
 const environment = authoringPageEnvironment(

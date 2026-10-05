@@ -4,12 +4,12 @@ import { expect, within } from "storybook/test";
 import type { GuideCohort } from "@/entities/subscription";
 import { CohortCallView } from "@/features/ai-engineering-course";
 import { homeMaterialReaderReturnTarget } from "@/shared/routing/material-reader";
-import { guideWithSupportOffer } from "@/workshop/billing.fixtures";
+import { guideWithSupportOffer } from "@/storybook/billing.fixtures";
 import {
   aiEngineeringCourseChapters,
   aiEngineeringCoursePage,
-} from "@/workshop/ai-engineering-course.fixtures";
-import { publicPageEnvironment } from "@/workshop/story-environment";
+} from "@/storybook/ai-engineering-course.fixtures";
+import { publicPageEnvironment } from "@/storybook/story-environment";
 
 import { cohortCall } from "../model/cohort-call";
 import { GuideProductView } from "./guide-product-view";

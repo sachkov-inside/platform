@@ -10,10 +10,10 @@ import {
   scheduledChangeQuote,
   subscriptionWithPendingChange,
   upgradeChangeQuote,
-} from "@/workshop/billing.fixtures";
+} from "@/storybook/billing.fixtures";
 
 import { SubscriptionSectionView } from "./subscription-view.client";
-import { accountSectionEnvironment } from "@/workshop/story-environment";
+import { accountSectionEnvironment } from "@/storybook/story-environment";
 
 const environment = accountSectionEnvironment("/account/subscription");
 

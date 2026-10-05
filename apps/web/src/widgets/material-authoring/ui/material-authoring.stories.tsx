@@ -31,7 +31,7 @@ import {
   savedContentVersion,
   variantStepAuthoringPresentation,
 } from "./material-authoring.fixtures";
-import { authoringPageEnvironment, routeContent } from "./story-environment";
+import { authoringPageEnvironment, routeContent } from "@/storybook/story-environment";
 
 const noopActions = {
   onBack: fn(),

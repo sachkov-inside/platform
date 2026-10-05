@@ -51,7 +51,7 @@ Before implementing a surface, inspect the Storybook catalog and its rendered Do
    issue. The same vertical ticket may then move the presentation
    implementation into a normal feature or shared module, connect the real production adapter,
    and make both the production route and stories import that module. Storybook fixtures stay in
-   the Storybook graph; production does not import `src/workshop`, stories, or fixtures.
+   the Storybook graph; production does not import `src/storybook`, stories, or fixtures.
 
    The ticket may add missing loading, empty, access, not-found, pagination, or error states to the
    production-owned module when they preserve the accepted core composition and interface. Add
@@ -70,7 +70,7 @@ Before implementing a surface, inspect the Storybook catalog and its rendered Do
 3. Otherwise, when a required UI module or state is missing, unaccepted, or still changing,
    deliver the real functional path with the smallest accessible, feature-local semantic
    implementation behind the presentation interface. It may use accepted primitives, but it does
-   not create a speculative reusable visual system, import `src/workshop` or Storybook fixtures,
+   not create a speculative reusable visual system, import `src/storybook` or Storybook fixtures,
    or introduce a fake client/data path.
 4. Before the functional ticket merges, create or link a native child integration ticket under the
    owning Specification. It names the missing Storybook proof, is blocked by the functional ticket
@@ -106,11 +106,23 @@ feature-owned Material Authoring shell accepted in #94: it reuses the same token
 public navigation instead of nesting beside it, and always exposes explicit routes back to the
 public Library and site. Do not introduce another shell variant without a new owner decision.
 
-For production surface tickets such as #89, #90 and #94, move an accepted surface implementation
-out of `src/workshop` into its owning FSD slice before connecting real data. Its story and
-production route then import the same client-safe public interface. Never import `.storybook`,
-`src/workshop`, stories or fixture adapters from a production route, and do not create a parallel
-token or navigation system.
+A proof stays on its `prototype/*` branch. The production ticket moves the accepted surface into
+its owning FSD slice before connecting real data; its story and production route then import the
+same client-safe public interface. Never import `.storybook`, `src/storybook`, stories or fixture
+adapters from a production route, and do not create a parallel token or navigation system.
+
+## Catalog stays in sync
+
+The Storybook catalog on `main` shows the product as it is: every production route has a page
+story, and every shared module that a page uses has a component story. `src/storybook` holds only
+story support: the route environments, fetch mocks and fixtures. A story imports the production
+module it shows; it never copies page markup.
+
+- A pull request that adds or changes a surface updates its stories in the same pull request: a
+  new route gets a page story, a new state gets a story, and a removed surface or state takes its
+  stories and fixtures with it.
+- A route with no page story is listed with its reason on the catalog page `Foundations/Overview`
+  (`apps/web/src/storybook/overview.mdx`); the same pull request updates that list.
 
 ## Interface evidence
 
@@ -137,7 +149,7 @@ Two recurring traps affect what a snapshot shows:
   tests pass; final visual acceptance is not a dependency for proving the feature path.
 - The owning Specification becomes `Done` only after every linked Storybook/integration ticket is
   closed and every temporary UI marker is removed.
-- Import checks and the production build confirm that `.storybook`, `src/workshop`, stories, and
+- Import checks and the production build confirm that `.storybook`, `src/storybook`, stories, and
   fixture modules stay outside the production dependency graph.
 - `pnpm test:storybook` and `pnpm build:storybook` confirm that stories remain executable and the
   review catalog can be built without a separate Storybook automation protocol.

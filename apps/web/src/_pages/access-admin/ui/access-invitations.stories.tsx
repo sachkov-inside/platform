@@ -7,11 +7,11 @@ import {
   billingOffers,
   materialsOffer,
   supportOffer,
-} from "@/workshop/billing.fixtures";
+} from "@/storybook/billing.fixtures";
 import {
   authoringPageEnvironment,
   routeContent,
-} from "@/workshop/story-environment";
+} from "@/storybook/story-environment";
 
 import { AccessSection } from "./access-section.client";
 

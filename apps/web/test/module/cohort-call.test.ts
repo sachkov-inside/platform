@@ -6,7 +6,7 @@ import {
   cohortCall,
   formatCohortDate,
 } from "@/_pages/library-discovery/model/cohort-call";
-import { guideWithSupportOffer } from "@/workshop/billing.fixtures";
+import { guideWithSupportOffer } from "@/storybook/billing.fixtures";
 
 const cohort: GuideCohort = {
   guideId: "00000000-0000-4000-8000-000000000814",

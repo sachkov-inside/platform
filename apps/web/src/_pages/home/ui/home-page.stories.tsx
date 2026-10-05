@@ -9,14 +9,14 @@ import {
 } from "@/features/library-catalog";
 import { getQueryClient } from "@/shared/api/query-client";
 import { NavigationPendingFrame } from "@/widgets/application-shell";
-import { publicPageEnvironment } from "@/workshop/story-environment";
+import { publicPageEnvironment } from "@/storybook/story-environment";
 import { HomePage } from "./home-page";
 import { HomeFeedView } from "./home-feed.client";
 import { HomeLoading } from "./home-loading";
 import {
   aiFirstProductPage,
   aiFirstProductSummary,
-} from "@/workshop/guide-page.fixtures";
+} from "@/storybook/guide-page.fixtures";
 import { illustratedHome } from "./illustrated-home.fixture";
 
 const pinnedPlaylist = illustratedHome.playlists[1];

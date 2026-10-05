@@ -9,10 +9,10 @@ import {
   guideWithSupportQuote,
   legalDocuments,
   verifiedContact,
-} from "@/workshop/billing.fixtures";
+} from "@/storybook/billing.fixtures";
 
 import { OneTimeCheckoutPanel } from "./one-time-checkout-panel.client";
-import { publicPageEnvironment } from "@/workshop/story-environment";
+import { publicPageEnvironment } from "@/storybook/story-environment";
 
 const environment = publicPageEnvironment("/products/platform-inside/buy");
 

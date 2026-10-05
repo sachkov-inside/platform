@@ -10,10 +10,10 @@ import {
   savedQuote,
   supportOffer,
   verifiedContact,
-} from "@/workshop/billing.fixtures";
+} from "@/storybook/billing.fixtures";
 
 import { CheckoutPanel } from "./checkout-panel.client";
-import { publicPageEnvironment } from "@/workshop/story-environment";
+import { publicPageEnvironment } from "@/storybook/story-environment";
 
 const environment = publicPageEnvironment("/subscription");
 

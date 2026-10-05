@@ -3,7 +3,7 @@ import { expect, fn, userEvent, within } from "storybook/test";
 
 import type { LegalDocument } from "@/entities/subscription";
 import { BillingContactForm } from "./billing-contact-form.client";
-import { accountSectionEnvironment } from "@/workshop/story-environment";
+import { accountSectionEnvironment } from "@/storybook/story-environment";
 
 const contact = {
   email: "buyer@example.test",

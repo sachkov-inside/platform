@@ -5,7 +5,7 @@ import {
   legalDocumentPath,
   legalEditionPath,
 } from "@/shared/routing/public-page-path";
-import { publicPageEnvironment } from "@/workshop/story-environment";
+import { publicPageEnvironment } from "@/storybook/story-environment";
 
 import { WelcomeView } from "./welcome-view";
 

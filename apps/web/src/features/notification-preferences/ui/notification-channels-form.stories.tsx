@@ -3,7 +3,7 @@ import { expect, fn, within } from "storybook/test";
 
 import { notificationErrorMessage } from "../model/notification-preferences";
 import { NotificationChannelsForm } from "./notification-channels-form.client";
-import { accountSectionEnvironment } from "@/workshop/story-environment";
+import { accountSectionEnvironment } from "@/storybook/story-environment";
 
 const environment = accountSectionEnvironment("/account/notifications");
 

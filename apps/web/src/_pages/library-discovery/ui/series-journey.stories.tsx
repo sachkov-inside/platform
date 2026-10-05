@@ -6,9 +6,9 @@ import {
   type MaterialPreview,
 } from "@/entities/material";
 import type { PublishedSeriesResult } from "@/features/library-discovery";
-import { guideOnlyOffer } from "@/workshop/billing.fixtures";
+import { guideOnlyOffer } from "@/storybook/billing.fixtures";
 import { GuideProgrammeView } from "./guide-programme-view";
-import { publicPageEnvironment } from "@/workshop/story-environment";
+import { publicPageEnvironment } from "@/storybook/story-environment";
 
 const titles = [
   "От идеи к первой версии",

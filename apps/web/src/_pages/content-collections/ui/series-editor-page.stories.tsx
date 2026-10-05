@@ -2,10 +2,10 @@ import type { Meta, StoryObj } from "@storybook/react-vite";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { useState, type ReactNode } from "react";
 import { expect, userEvent, within } from "storybook/test";
-import { withMutationFetch } from "@/workshop/mutation-mock";
+import { withMutationFetch } from "@/storybook/mutation-mock";
 import { ContentCollectionsPageClient } from "./content-collections-page.client";
 import { SeriesEditorPageClient } from "./series-editor-page.client";
-import { authoringPageEnvironment } from "@/workshop/story-environment";
+import { authoringPageEnvironment } from "@/storybook/story-environment";
 
 const collection = {
   archived: false,

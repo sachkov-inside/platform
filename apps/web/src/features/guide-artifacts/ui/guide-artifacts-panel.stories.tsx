@@ -3,7 +3,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { useState, type ReactNode } from "react";
 import { expect, userEvent, within } from "storybook/test";
 
-import { withMutationFetch } from "@/workshop/mutation-mock";
+import { withMutationFetch } from "@/storybook/mutation-mock";
 import type { GuideArtifact } from "../model/guide-artifacts";
 import { GuideArtifactsPanel } from "./guide-artifacts-panel.client";
 

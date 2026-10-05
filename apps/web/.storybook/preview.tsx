@@ -9,13 +9,13 @@ import "@fontsource-variable/manrope/wght.css";
 import { assertDeclaredViewport } from "./viewport-guard";
 import "./workshop.css";
 
-const withWorkshop: Decorator = (Story, context) => {
-  const theme = context.globals["theme"] === "dark" ? "dark" : "light";
+// Тема одна, как в продукте: production не включает `.dark` ни на одной странице.
+const withWorkshop: Decorator = (Story) => {
   const isTestRun = import.meta.env.MODE === "test";
 
   return (
     <QueryProvider>
-      <div className={theme} data-workshop-theme={theme}>
+      <div data-story-frame>
         <div className="contents" data-workshop-story>
           <Story />
         </div>
@@ -35,21 +35,6 @@ const preview: Preview = {
   },
   decorators: [withWorkshop],
   tags: ["autodocs"],
-  globalTypes: {
-    theme: {
-      description: "Workshop color theme",
-      toolbar: {
-        icon: "paintbrush",
-        items: [
-          { title: "Light", value: "light" },
-          { title: "Dark", value: "dark" },
-        ],
-      },
-    },
-  },
-  initialGlobals: {
-    theme: "light",
-  },
   parameters: {
     layout: "fullscreen",
     docs: {

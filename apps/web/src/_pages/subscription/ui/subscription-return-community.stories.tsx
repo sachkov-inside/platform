@@ -6,8 +6,8 @@ import { CommunityEntryView } from "@/features/community-entry";
 import {
   confirmedGuidePurchase,
   failedPurchase,
-} from "@/workshop/billing.fixtures";
-import { publicPageEnvironment } from "@/workshop/story-environment";
+} from "@/storybook/billing.fixtures";
+import { publicPageEnvironment } from "@/storybook/story-environment";
 
 const environment = publicPageEnvironment("/subscription/return");
 const botUrl = "https://t.me/inside_storybook_bot";

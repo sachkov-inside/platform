@@ -8,10 +8,10 @@ import {
   type CreateSeriesOrderMaterialSearchQueryOptions,
   type SeriesOrderMaterialSearchResult,
 } from "@/features/series-order";
-import { withMutationFetch } from "./mutation-mock";
+import { withMutationFetch } from "@/storybook/mutation-mock";
 import { SeriesEditorPageFrame } from "@/_pages/content-collections";
 
-import { authoringPageEnvironment } from "./story-environment";
+import { authoringPageEnvironment } from "@/storybook/story-environment";
 
 const loadMaterialsSpy = fn(
   (_input: {

@@ -2,7 +2,7 @@ import type { Meta, StoryObj } from "@storybook/react-vite";
 import { expect, userEvent, waitFor, within } from "storybook/test";
 
 import { legalDocumentPath } from "@/shared/routing/public-page-path";
-import { publicPageEnvironment } from "@/workshop/story-environment";
+import { publicPageEnvironment } from "@/storybook/story-environment";
 
 import { storageNoticeKey } from "../model/storage-notice";
 import { StorageNotice } from "./storage-notice.client";

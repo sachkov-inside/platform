@@ -4,7 +4,7 @@ import { expect, fn } from "storybook/test";
 import {
   publicPageEnvironment,
   routeContent,
-} from "@/workshop/story-environment";
+} from "@/storybook/story-environment";
 
 import { PageNotFound, PageUnexpectedError } from "./route-states";
 

@@ -5,7 +5,7 @@ import {
   guideOnlyOffer,
   materialsOffer,
   supportOffer,
-} from "@/workshop/billing.fixtures";
+} from "@/storybook/billing.fixtures";
 
 import { OfferCard } from "./offer-card";
 

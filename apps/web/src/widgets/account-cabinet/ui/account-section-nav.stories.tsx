@@ -6,7 +6,7 @@ import {
   visibleAccountSections,
 } from "../model/account-sections";
 import { AccountSectionNav } from "./account-section-nav.client";
-import { publicPageEnvironment } from "@/workshop/story-environment";
+import { publicPageEnvironment } from "@/storybook/story-environment";
 
 const environment = publicPageEnvironment("/account");
 

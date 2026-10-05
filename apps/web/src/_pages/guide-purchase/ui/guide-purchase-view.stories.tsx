@@ -2,7 +2,7 @@ import type { Meta, StoryObj } from "@storybook/react-vite";
 import { Suspense, use } from "react";
 import { expect, within } from "storybook/test";
 
-import { guideOnlyOffer } from "@/workshop/billing.fixtures";
+import { guideOnlyOffer } from "@/storybook/billing.fixtures";
 import {
   boxOf,
   desktop,
@@ -13,7 +13,7 @@ import {
   stagedLoadingOf,
   type StagedLoading,
   type StoryViewport,
-} from "@/workshop/loads-in-place";
+} from "@/storybook/loads-in-place";
 
 import { GuidePurchaseLoading } from "./guide-purchase-loading";
 import {
@@ -24,7 +24,7 @@ import {
 import {
   publicPageEnvironment,
   routeContent,
-} from "@/workshop/story-environment";
+} from "@/storybook/story-environment";
 
 const guide = {
   name: "Создание Platform Inside",

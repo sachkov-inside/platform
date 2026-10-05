@@ -122,8 +122,9 @@ and transport parity, not actual publication, audience selection or Telegram del
 ## Broadcasts and analytics UI
 
 Since #419 this page answers 404 like the rest of `/authoring/communications` (see
-[Editor ownership](#editor-ownership)). The UI below stays in `apps/web/src/_pages/communications` and
-its Storybook stories; no browser test exercises it against the BFF.
+[Editor ownership](#editor-ownership)). The UI below stays in `apps/web/src/_pages/communications`;
+its Storybook stories left the catalog in #952, which shows only what production renders. Reopening
+the page brings its stories back. No browser test exercises it against the BFF.
 
 `/authoring/communications/broadcasts` uses the same Account-authorized facade as MCP through named same-origin
 BFF operations. Browser TanStack Query owns lists and statistics; writes have distinct literal routes.
@@ -186,8 +187,8 @@ provider scheduling, Telegram sends and the combined live content route remain #
 ## Funnel management UI
 
 Since #419 this page is not reachable: the `/authoring/communications` layout answers 404. The UI
-described below stays in `apps/web/src/_pages/communications` and its
-Storybook stories; no browser test exercises it against the BFF.
+described below stays in `apps/web/src/_pages/communications`; its Storybook stories left the
+catalog in #952. No browser test exercises it against the BFF.
 
 `/authoring/communications` uses the production AuthoringShell and a feature-local presentation
 interface shared with Storybook. Browser-owned named mutations call capability BFF routes under
