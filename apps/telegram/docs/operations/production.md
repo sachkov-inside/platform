@@ -8,6 +8,11 @@
 [Workspace #184](https://github.com/sachkov-inside/workspace/issues/184) по отдельному
 разрешению владельца. Наличие этого документа ничего не включает.
 
+До [platform#960](https://github.com/sachkov-inside/platform/issues/960) команды выпуска и ручной
+выкладки ниже относятся к прежнему checkout `inside-telegram`. Их Docker context и allowlist
+описывают исходный репозиторий. В монорепозитории #959 образ собирается из корня workspace;
+актуальная команда проверки находится в [README приложения](../../README.md#current-verification).
+
 ## Состав
 
 - `app` — HTTP, webhook inbox и все workers; порт только на `127.0.0.1`.
