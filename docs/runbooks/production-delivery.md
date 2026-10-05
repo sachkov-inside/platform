@@ -76,7 +76,7 @@ delivered only to their named processes:
 | `video-deletions-worker.env` | database and Kinescope |
 | `billing-worker.env` | database, payment terminal, billing contact and community v2 |
 | `notifications-worker.env` | database, four broker principals and CA path, reader origin, dispatch secret and billing contact |
-| `web.env` | internal API URL and Logto BFF |
+| `web.env` | internal API URL, Logto BFF and the learner MCP fallback client ID (`LEARNER_MCP_CLIENT_ID`) |
 | `rabbitmq/` | broker TLS (`tls/ca.pem`, `tls/server.pem`, `tls/server-key.pem`) and `definitions.json`, owned `root:101` |
 
 Each process validates only the groups it owns. Missing owned values stop startup. Provider

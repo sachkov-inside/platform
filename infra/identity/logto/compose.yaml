@@ -5,7 +5,7 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-    image: inside/logto-proof:1.41.0-inside.6
+    image: inside/logto-proof:1.44.0-inside.7
     depends_on:
       logto-postgres:
         condition: service_healthy
@@ -13,7 +13,7 @@ services:
       [
         "sh",
         "-c",
-        "npm run cli db seed -- --swe --disable-admin-pwned-password-check && npm start",
+        "npm run cli db seed -- --swe --disable-admin-pwned-password-check && npm run alteration deploy 1.44.0 && npm start",
       ]
     environment:
       ADMIN_ENDPOINT: https://identity.inside.localhost:${IDENTITY_PROOF_LOGTO_ADMIN_PORT:-3302}

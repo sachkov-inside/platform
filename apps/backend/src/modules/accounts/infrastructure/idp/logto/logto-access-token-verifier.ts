@@ -40,14 +40,16 @@ export interface LogtoAccessTokenVerifier {
     | ({ readonly ok: true } & ReturnType<typeof verifiedAccountSignIn>)
     | ProofFailure
   >;
+  /** `resourceAudience` replaces the API audience for a transport that is its own resource. */
   verifyAccount(
     token: unknown,
-    additionalAudience?: string,
+    resourceAudience?: string,
   ): Promise<
     | {
         readonly ok: true;
         readonly identity: VerifiedAccountIdentity;
         readonly expiresAt: number;
+        readonly scopes: readonly string[];
       }
     | ProofFailure
   >;
@@ -69,7 +71,11 @@ export function createLogtoAccessTokenVerifier(
     async verifyAccountSignIn(token) {
       const verified = await verifyToken(token, config, keyResolver);
       if (!verified.ok) return verified;
-      if (isMachineToken(verified.payload)) return invalidProof();
+      if (
+        isMachineToken(verified.payload) ||
+        isDynamicClientToken(verified.payload)
+      )
+        return invalidProof();
       if (verified.payload["inside_telegram_sign_in"] !== undefined) {
         const telegram = z
           .object({ subjectRef: z.uuid(), requestRef: z.uuid() })
@@ -101,23 +107,22 @@ export function createLogtoAccessTokenVerifier(
         }),
       };
     },
-    async verifyAccount(token, additionalAudience) {
-      let verified = await verifyToken(token, config, keyResolver);
-      // A transport may accept its own advertised resource, without widening API sign-in.
+    async verifyAccount(token, resourceAudience) {
+      const verified = await verifyToken(
+        token,
+        resourceAudience === undefined
+          ? config
+          : { ...config, audience: resourceAudience },
+        keyResolver,
+      );
+      if (!verified.ok) return verified;
+      // Any URL can be a dynamic app (CIMD); only an own resource such as the learner MCP takes it.
       if (
-        !verified.ok &&
-        verified.error.code === "invalid_proof" &&
-        additionalAudience !== undefined
-      ) {
-        verified = await verifyToken(
-          token,
-          { ...config, audience: additionalAudience },
-          keyResolver,
-        );
-      }
-      if (!verified.ok || isMachineToken(verified.payload)) {
-        return verified.ok ? invalidProof() : verified;
-      }
+        isMachineToken(verified.payload) ||
+        (resourceAudience === undefined &&
+          isDynamicClientToken(verified.payload))
+      )
+        return invalidProof();
       return {
         ok: true,
         identity: verifiedAccountIdentity({
@@ -125,6 +130,7 @@ export function createLogtoAccessTokenVerifier(
           subject: verified.payload.sub,
         }),
         expiresAt: verified.payload.exp,
+        scopes: tokenScopes(verified.payload),
       };
     },
   };
@@ -209,6 +215,19 @@ function createKeyResolver(config: LogtoVerifierConfig): JWTVerifyGetKey {
     cooldownDuration: REMOTE_JWKS_COOLDOWN_MS,
     cacheMaxAge: REMOTE_JWKS_CACHE_LIFETIME_MS,
   });
+}
+
+function tokenScopes(payload: ValidatedPayload): readonly string[] {
+  const scope = payload["scope"];
+  return typeof scope === "string"
+    ? scope.split(" ").filter((value) => value.length > 0)
+    : [];
+}
+
+/** A Client ID Metadata Document client is identified by the URL of its document. */
+function isDynamicClientToken(payload: ValidatedPayload): boolean {
+  const clientId = payload["client_id"];
+  return typeof clientId === "string" && URL.canParse(clientId);
 }
 
 function isMachineToken(payload: ValidatedPayload): boolean {

@@ -279,12 +279,12 @@ services:
     build:
       context: ./infra/identity/logto
       dockerfile: Dockerfile
-    image: inside/logto-proof:1.41.0-inside.6
+    image: inside/logto-proof:1.44.0-inside.7
     entrypoint:
       [
         "sh",
         "-c",
-        "npm run cli db seed -- --swe --disable-admin-pwned-password-check && npm start",
+        "npm run cli db seed -- --swe --disable-admin-pwned-password-check && npm run alteration deploy 1.44.0 && npm start",
       ]
     env_file:
       - ./config/compose/local/logto.env

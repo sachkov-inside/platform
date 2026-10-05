@@ -4,7 +4,7 @@ x-logto-runtime: &logto-runtime
   build:
     context: ../../identity/logto
     dockerfile: Dockerfile
-  image: inside/logto-production:1.41.0-inside.6
+  image: inside/logto-production:1.44.0-inside.7
   entrypoint: ["/foundation/entrypoint.sh"]
   env_file:
     - ${FOUNDATION_CONFIG_DIR:?FOUNDATION_CONFIG_DIR is required}/logto.env
@@ -12,19 +12,17 @@ x-logto-runtime: &logto-runtime
   networks: [database, edge, identity]
   volumes:
     - ./entrypoint.sh:/foundation/entrypoint.sh:ro
+    # Learner MCP access (#938); docs/runbooks/learning-practice-review.md runs it in this container.
+    - ./learner-access.mjs:/foundation/learner-access.mjs:ro
 
 services:
   logto-migrations:
     <<: *logto-runtime
+    # Seed creates an empty database; alteration brings an existing one to the pinned version.
     command:
-      - npm
-      - run
-      - cli
-      - db
-      - seed
-      - --
-      - --swe
-      - --disable-admin-pwned-password-check
+      - sh
+      - -c
+      - npm run cli db seed -- --swe --disable-admin-pwned-password-check && npm run alteration deploy 1.44.0
     restart: "no"
 
   logto:

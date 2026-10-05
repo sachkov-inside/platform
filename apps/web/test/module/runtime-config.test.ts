@@ -21,6 +21,7 @@ describe("Web runtime configuration", () => {
         cookieSecret: "inside-local-logto-cookie-secret-key",
         baseUrl: "http://127.0.0.1:3000",
       },
+      learnerMcp: { url: "http://127.0.0.1:3002/mcp/learning" },
       runtime: {
         release: "development",
         sourceSha: "0".repeat(40),
@@ -43,6 +44,32 @@ describe("Web runtime configuration", () => {
     });
     expect(Object.isFrozen(config)).toBe(true);
     expect(Object.isFrozen(config.identity)).toBe(true);
+  });
+
+  it("publishes the learner MCP next to the site unless configured", () => {
+    const release = { release: "v7", sourceSha: "7".repeat(40) };
+    expect(
+      parseWebRuntimeConfig(productionEnvironment(), release).learnerMcp,
+    ).toEqual({ url: "https://inside.example.test/mcp/learning" });
+    expect(
+      parseWebRuntimeConfig(
+        {
+          ...productionEnvironment(),
+          LEARNER_MCP_URL: "https://learn.example.test/mcp/learning",
+          LEARNER_MCP_CLIENT_ID: "o92nmcpzb2te8z4loi82d",
+        },
+        release,
+      ).learnerMcp,
+    ).toEqual({
+      url: "https://learn.example.test/mcp/learning",
+      publicClientId: "o92nmcpzb2te8z4loi82d",
+    });
+    expect(() =>
+      parseWebRuntimeConfig(
+        { ...productionEnvironment(), LEARNER_MCP_CLIENT_ID: "a b" },
+        release,
+      ),
+    ).toThrow("LEARNER_MCP_CLIENT_ID must be a Logto application id");
   });
 
   it("fails production closed and names the missing value", () => {

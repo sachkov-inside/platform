@@ -1,30 +1,12 @@
---- a/packages/core/src/routes/init.ts
-+++ b/packages/core/src/routes/init.ts
-@@ -37,6 +37,7 @@
- import experienceApiRoutes from './experience/index.js';
- import hookRoutes from './hook.js';
- import interactionRoutes from './interaction/index.js';
-+import insideTelegramRoutes from './inside-telegram.js';
- import logRoutes from './log.js';
- import logtoConfigRoutes from './logto-config/index.js';
- import oneTimeTokenRoutes from './one-time-tokens.js';
-@@ -132,6 +133,7 @@
-   // General anonymous APIs - publicly accessible
-   wellKnownRoutes(anonymousRouter, tenant);
-   statusRoutes(anonymousRouter, tenant);
-+  insideTelegramRoutes(anonymousRouter, tenant);
-   authnRoutes(anonymousRouter, tenant);
-   samlApplicationAnonymousRoutes(anonymousRouter, tenant);
- 
 --- a/packages/core/src/queries/user.ts
 +++ b/packages/core/src/queries/user.ts
 @@ -1,4 +1,5 @@
  /* eslint-disable max-lines */
 +
  import type { User, CreateUser } from '@logto/schemas';
- import { MfaFactor, Users } from '@logto/schemas';
+ import { MfaFactor, Users, UserSsoIdentities } from '@logto/schemas';
  import { PhoneNumberParser } from '@logto/shared';
-@@ -503,7 +504,20 @@
+@@ -536,7 +537,20 @@ export const createUserQueries = (pool: CommonQueryMethods) => {
        group by date(${fields.createdAt})
      `);
  
@@ -45,7 +27,7 @@
      findUserByUsername,
      findUserByEmail,
      findUserByPhone,
-@@ -531,4 +545,4 @@
+@@ -564,4 +578,4 @@ export const createUserQueries = (pool: CommonQueryMethods) => {
      getDailyNewUserCountsByTimeInterval,
    };
  };
@@ -60,7 +42,7 @@
  import {
    type ConnectorSession,
    type SocialUserInfo,
-@@ -334,6 +336,24 @@
+@@ -334,6 +336,24 @@ export class SocialVerification implements IdentifierVerificationRecord<Verifica
  
      const user = await findUserByIdentity(target, this.socialUserInfo.id);
  
@@ -85,9 +67,27 @@
      return user ?? undefined;
    }
  
-@@ -466,4 +486,4 @@
+@@ -466,4 +486,4 @@ export class SocialVerification implements IdentifierVerificationRecord<Verifica
      );
    }
  }
 -/* eslint-enable max-lines */
 +
+--- a/packages/core/src/routes/init.ts
++++ b/packages/core/src/routes/init.ts
+@@ -31,6 +31,7 @@ import emailTemplateRoutes from './email-template/index.js';
+ import experienceApiRoutes from './experience/index.js';
+ import hookRoutes from './hook.js';
+ import interactionRoutes from './interaction/index.js';
++import insideTelegramRoutes from './inside-telegram.js';
+ import logRoutes from './log.js';
+ import logtoConfigRoutes from './logto-config/index.js';
+ import oneTimeTokenRoutes from './one-time-tokens.js';
+@@ -116,6 +117,7 @@ const createRouters = (tenant: TenantContext) => {
+   // General anonymous APIs - publicly accessible
+   wellKnownRoutes(anonymousRouter, tenant);
+   statusRoutes(anonymousRouter, tenant);
++  insideTelegramRoutes(anonymousRouter, tenant);
+   authnRoutes(anonymousRouter, tenant);
+   samlApplicationAnonymousRoutes(anonymousRouter, tenant);
+ 

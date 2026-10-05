@@ -4,29 +4,39 @@ import {
   practiceReviewPrompt,
   type LearningPracticesView,
 } from "../model/learning-practice";
+import type { LearnerMcpConnection } from "../model/practice-review-setup";
 
-/** Public lessons retain their prefetched body; only an explicit disclosure expands this row. */
-export function LearningPracticeDisclosure({
-  result,
-}: {
-  readonly result: LearningPracticesView | null;
-}) {
+/**
+ * Public lessons retain their prefetched body; only an explicit disclosure expands this row. The
+ * prefetched fallback has no result and no connection: configuration is read per request.
+ */
+export function LearningPracticeDisclosure(
+  props:
+    | { readonly result: null }
+    | {
+        readonly connection: LearnerMcpConnection;
+        readonly result: LearningPracticesView;
+      },
+) {
   return (
     <div className="mt-8 min-h-11" data-practice-slot>
-      {result === null ? (
+      {props.result === null ? (
         <p
           className="flex h-11 items-center text-sm text-muted-foreground"
           role="status"
         >
           Проверяем доступность заданий…
         </p>
-      ) : result.kind === "available" &&
-        result.practices.length === 0 ? null : (
+      ) : props.result.kind === "available" &&
+        props.result.practices.length === 0 ? null : (
         <details>
           <summary className="flex h-11 cursor-pointer items-center font-semibold underline underline-offset-4">
             Открыть проверку практики
           </summary>
-          <LearningPracticePrompts result={result} />
+          <LearningPracticePrompts
+            connection={props.connection}
+            result={props.result}
+          />
         </details>
       )}
     </div>
@@ -35,8 +45,10 @@ export function LearningPracticeDisclosure({
 
 /** Reuses the production Reader prompt block; there is no second grading interface. */
 export function LearningPracticePrompts({
+  connection,
   result,
 }: {
+  readonly connection: LearnerMcpConnection;
   readonly result: LearningPracticesView;
 }) {
   if (result.kind === "unavailable")
@@ -59,11 +71,15 @@ export function LearningPracticePrompts({
         <summary className="cursor-pointer font-semibold">
           Настройка проверки
         </summary>
+        <p className="mt-3">
+          Адрес учебного MCP:{" "}
+          <code className="break-all">{connection.url}</code>
+        </p>
         <p className="mt-3 text-muted-foreground">
-          Для первого подключения нужен адрес учебного MCP от автора курса. Если
-          адрес ещё не выдан или вход не проходит, обратитесь к автору; после
-          подключения вернитесь к запросу ниже. Входите своим аккаунтом
-          участника. Авторский MCP для проверки не нужен.
+          Добавьте этот адрес в своём агенте как MCP-сервер по HTTP: подойдёт
+          Codex, Claude Code, OpenCode или другой агент с поддержкой MCP. Агент
+          откроет страницу входа: войдите тем же аккаунтом, что и на сайте.
+          Токен вручную вводить не нужно.
         </p>
         <p className="mt-3">
           <a
@@ -72,48 +88,20 @@ export function LearningPracticePrompts({
             target="_blank"
             rel="noreferrer"
           >
-            Открыть команды подключения и запуска
+            Открыть инструкцию подключения
           </a>
         </p>
-        <h3 className="mt-5 font-semibold" id="practice-review-codex">
-          Codex
-        </h3>
-        <p className="mt-2">
-          Подключите учебный сервер через настройки MCP и выполните OAuth-вход.
-          Откройте отдельную сессию в каталоге своего проекта: sandbox{" "}
-          <code>read-only</code>, подтверждения <code>never</code>. Используйте
-          профиль без project rules, hooks, plugins, других MCP и дополнительных
-          агентов. Для команд чтения не запускайте код, тесты или скрипты
-          проекта.
-        </p>
-        <h3 className="mt-5 font-semibold" id="practice-review-claude-code">
-          Claude Code
-        </h3>
-        <p className="mt-2">
-          Подключите учебный сервер как HTTP MCP и выполните OAuth-вход. Для
-          отдельной проверяющей сессии оставьте файловые инструменты{" "}
-          <code>Read, Glob, Grep</code> и только учебный MCP; отключите Bash,
-          Write, Edit, Agent, hooks и дополнительные подключения. Сам по себе
-          Plan mode не задаёт эти ограничения.
-        </p>
         <p className="mt-3 text-muted-foreground">
-          Перед проверкой убедитесь, что доступны только чтение проекта и
-          учебные инструменты. Исправления делайте в другой сессии. Если
-          используемый клиент или настройки отличаются от проверенного профиля,
-          сначала уточните настройку у автора курса.
+          Проверку запускайте в отдельной сессии агента: ему нужны чтение
+          проекта и учебный MCP. Исправления делайте в другой сессии.
         </p>
       </details>
       {result.practices.map((practice) => (
-        <div key={practice.practiceId}>
-          <MaterialAgentPrompt
-            title={`${practice.title} · Codex`}
-            text={practiceReviewPrompt(practice, "Codex")}
-          />
-          <MaterialAgentPrompt
-            title={`${practice.title} · Claude Code`}
-            text={practiceReviewPrompt(practice, "Claude Code")}
-          />
-        </div>
+        <MaterialAgentPrompt
+          key={practice.practiceId}
+          title={practice.title}
+          text={practiceReviewPrompt(practice)}
+        />
       ))}
     </section>
   );

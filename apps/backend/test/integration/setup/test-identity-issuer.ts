@@ -7,9 +7,11 @@ export interface TestIdentityIssuer {
   readonly issuer: string;
   readonly audience: string;
   readonly jwksUrl: string;
+  /** `audience` replaces the API audience for a token of another resource. */
   sign(
     subject: string,
     claims?: Readonly<Record<string, unknown>>,
+    audience?: string,
   ): Promise<string>;
   close(): Promise<void>;
 }
@@ -38,12 +40,12 @@ export async function startTestIdentityIssuer(input: {
   return {
     ...input,
     jwksUrl: `http://127.0.0.1:${String(address.port)}/jwks`,
-    sign(subject, claims = {}) {
+    sign(subject, claims = {}, audience = input.audience) {
       const now = Math.floor(Date.now() / 1_000);
       return new SignJWT({ ...claims })
         .setProtectedHeader({ alg: "ES384", kid })
         .setIssuer(input.issuer)
-        .setAudience(input.audience)
+        .setAudience(audience)
         .setSubject(subject)
         .setIssuedAt(now)
         .setExpirationTime(now + 300)

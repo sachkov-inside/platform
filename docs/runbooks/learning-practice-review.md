@@ -5,13 +5,14 @@ Owning delivery: [#785](https://github.com/sachkov-inside/platform/issues/785), 
 [AI Engineering #105](https://github.com/sachkov-inside/ai-engineering/issues/105).
 
 The learner-facing setup has one source:
-[practice-review-setup.txt](../../apps/web/public/practice-review-setup.txt). Reader links the static
-`/practice-review-setup.txt` before any MCP call. It explains the separate OAuth login, the tested
-client profile, copying the lesson request, discussion and recheck. The deployment endpoint remains
-an explicit placeholder until an approved release provides it. Practice review (#785) does not
-deploy a route, register a production OAuth client, publish a course or certify a live IdP
-onboarding flow. The edge routes come later, in
-[Production course acceptance](#production-course-acceptance-876).
+[practice-review-setup.ts](../../apps/web/src/_pages/material-reader/model/practice-review-setup.ts).
+Web serves it at `/practice-review-setup.txt`, and Reader links it before any MCP call. The text is
+one instruction for every MCP client: the configured address, the standard login, CIMD and the
+fallback public client ID. Web reads the address from `LEARNER_MCP_URL`; without it production uses
+`WEB_BASE_URL` plus `/mcp/learning`. `LEARNER_MCP_CLIENT_ID` adds the fallback client step. A module
+test fails if the former address placeholder returns. The edge routes are described in
+[Production course acceptance](#production-course-acceptance-876), the login in
+[Universal learner access](#universal-learner-access-938).
 
 ## Delivery and ownership
 
@@ -50,6 +51,10 @@ time. Fixes occur elsewhere; recheck obtains the pinned context and rereads ever
 The API does not run a model, inspect learner repositories, store progress or upload learner evidence.
 
 ## Bounded native profiles
+
+Until #938 the setup carried these client profiles; the universal instruction replaced them, and the
+review request now asks any agent for a read-only session in plain words. The native trials under
+`tools/practice-review/native` keep exercising the profiles below as evidence of #785.
 
 Profiles target the recorded macOS and client versions in delivery evidence. Codex has a read-only
 sandbox and no escalation, isolated configuration/rules/hooks/integrations, one learner MCP and
@@ -94,10 +99,11 @@ part, local evidence discovery, reports, discussion/recheck and unchanged projec
 ## Local course acceptance
 
 The [local course stand](local-development.md#ai-engineering-course-acceptance-stand) imports the
-first authored chapter and provides a stand-only public Native OAuth client. The learner endpoint
-accepts a single audience equal to its advertised protected-resource URL, in addition to the
-existing API audience. This exception is scoped to learner MCP authentication: API sign-in and
-authoring MCP still reject learner-resource tokens. Unrelated and multiple audiences remain invalid.
+first authored chapter. Its Logto bootstrap runs the same
+[learner access provisioning](#universal-learner-access-938) as production for the stand resource
+`http://127.0.0.1:3002/mcp/learning`. The learner endpoint accepts only a token whose single audience
+is its advertised protected-resource URL; API sign-in and authoring MCP reject learner-resource
+tokens, and the learner endpoint rejects API tokens. Unrelated and multiple audiences remain invalid.
 
 ## Production course acceptance (#876)
 
@@ -113,9 +119,9 @@ Before giving participants an endpoint, verify the released configuration and li
    `https://inside.sachkov.dev/mcp/learning`. An HTML response or the authoring resource is a blocker.
 2. Without a token, the learner endpoint returns `401` and a challenge pointing at its learner
    discovery document. An authoring credential is not a substitute for a participant login.
-3. The production IdP supports the selected client's normal OAuth onboarding. Verify its public
-   discovery, allowed client registration or pre-registered Native client, callback, learner
-   resource, short token lifetime and refresh. The local stand client is not a production client.
+3. The production IdP supports normal OAuth onboarding of any MCP client: verify
+   [Universal learner access](#universal-learner-access-938). The local stand client is not a
+   production client.
 4. Import the exact committed Content snapshot. Publish only the approved lessons and their practice
    definitions; a private lesson's definition remains unpublished. For draft originals, definition
    publication must be explicitly selected in the reviewed package; publishing the lesson alone
@@ -129,4 +135,65 @@ The first chapter's four practice IDs are `inside-content:aie-project-setup`,
 `inside-content:aie-github-app`. `aie-first-service` belongs to chapter three and is not part of
 this acceptance. An unavailable MCP blocks self-review, not the independent text transfer or
 author's Reader pass. State its precise blocker in the course rather than reporting the checkpoint
-as working. Update the participant setup's endpoint and tested profile only after this client pass.
+as working.
+
+## Universal learner access (#938)
+
+Every Inside account connects the learner MCP to its own agent with standard MCP Authorization; the
+contract is in the [MCP specification](../specifications/platform-v1.md#mcp). Logto provides it with
+three settings, all applied by one script,
+[`learner-access.mjs`](../../infra/production/logto/learner-access.mjs):
+
+| Setting | Value |
+|---|---|
+| API resource | the learner MCP URL, access token TTL 300 seconds, scope `learning:read` |
+| Default role `Inside learner connection` | only `learning:read`; new accounts get it by default, existing accounts once; other roles stay |
+| Dynamic apps (CIMD) | enabled, `addConsentPromptForOfflineAccess`, CIMD ceiling exactly `learning:read` |
+| Public client `Inside Learner MCP Client` | Native, PKCE, no secret, loopback `/callback` and `/mcp/oauth/callback` on any port, rotating refresh tokens, `customData.addConsentPromptForOfflineAccess` |
+
+CIMD needs Logto 1.43 or later with outbound SSRF protection on: `SSRF_ALLOWED_ADDRESSES` and
+`SSRF_PROTECTION_DISABLED` stay unset, and the tooling test rejects them in the repository. Logto adds
+`prompt=consent` to a CIMD request for `offline_access`, so the client receives a refresh token. The
+fork patch `issue-938-offline-access-consent.patch` gives the public client the same behaviour
+through its `customData` flag. The script adopts the earlier author-pass role and Native client of
+#876 by name, so their ids and the owner's stored login stay valid. It stops on a learner role with
+foreign permissions or on duplicates instead of guessing: move the foreign permission to its own
+role, or delete the duplicate, in the Management API, then run it again. The endpoint accepts only
+learner-resource tokens; a client still holding an API-audience token gets `401` and signs in again.
+
+The stand bootstrap runs the script on every start. In production run it on the server after the
+Logto foundation update, from the delivered foundation files. The seeded admin Management API secret
+goes through stdin and stays in memory; the output contains ids and counts only:
+
+```bash
+secret() {
+  docker exec -i inside-production-database-postgres-1 psql -U postgres -d logto -Atc \
+    "select secret from applications where tenant_id = 'admin' and id = 'm-default'"
+}
+learner=https://inside.sachkov.dev/mcp/learning
+secret | docker exec -i inside-production-logto-logto-1 \
+  node /foundation/learner-access.mjs --resource "$learner"
+secret | docker exec -i inside-production-logto-logto-1 \
+  node /foundation/learner-access.mjs --resource "$learner" --check
+```
+
+The first command prints `publicClientId`. Logto enables CIMD only while outbound SSRF protection is
+on without an allowlist, so `client_id_metadata_document_supported: true` in the discovery below
+also proves that protection. Put it into `/etc/inside/runtime/web.env` as
+`LEARNER_MCP_CLIENT_ID` before the web release that reads it. The `--check` run lists every
+deviation and exits non-zero when one exists; repeat it after any Console change. Then confirm the
+public contract:
+
+```bash
+curl -fsS https://auth.sachkov.dev/oidc/.well-known/openid-configuration \
+  | grep -o '"client_id_metadata_document_supported":true'
+curl -fsS https://inside.sachkov.dev/.well-known/oauth-protected-resource/mcp/learning
+curl -si https://inside.sachkov.dev/mcp/learning -X POST | grep -i '^www-authenticate'
+```
+
+A client acceptance uses a production test account without entitlement
+([test identities](production-test-identities.md)). For each client record its version, the
+registration path (CIMD, public client ID), login, refresh after the five-minute access token,
+`learning_materials_list`, the complete read of a free practice and `practice_not_available` on a
+paid one. A client that cannot sign in is recorded with the reason. Never record tokens, callback
+URLs or local learner data.

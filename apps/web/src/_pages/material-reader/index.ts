@@ -18,3 +18,7 @@ export {
   MaterialReaderUnavailable,
 } from "./ui/material-reader-states";
 export { MaterialReaderView } from "./ui/material-reader-view";
+export {
+  practiceReviewSetupText,
+  type LearnerMcpConnection,
+} from "./model/practice-review-setup";

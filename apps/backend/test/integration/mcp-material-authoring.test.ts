@@ -677,7 +677,7 @@ describe("delegated Material authoring over MCP", () => {
       }),
     ).toMatchObject({ ok: true, allowed: false });
     const learner = new Client({ name: "ordinary-learner", version: "1" });
-    const token = await signOwnerToken("learner-782");
+    const token = await signLearnerToken("learner-782");
     try {
       await learner.connect(
         new StreamableHTTPClientTransport(
@@ -755,6 +755,19 @@ describe("delegated Material authoring over MCP", () => {
     arguments_: Record<string, unknown>,
   ): Promise<CallToolResult> {
     return client.callTool({ name, arguments: arguments_ });
+  }
+
+  /** Учебный MCP принимает только токен своего ресурса со scope `learning:read` (#938). */
+  function signLearnerToken(subject: string): Promise<string> {
+    const now = Math.floor(Date.now() / 1_000);
+    return new SignJWT({ scope: "openid offline_access learning:read" })
+      .setProtectedHeader({ alg: "ES384", kid: "mcp-integration-key" })
+      .setIssuer(issuer)
+      .setAudience("http://127.0.0.1:0/mcp/learning")
+      .setSubject(subject)
+      .setIssuedAt(now)
+      .setExpirationTime(now + 300)
+      .sign(privateKey);
   }
 
   function signOwnerToken(subject: string = ownerSubject): Promise<string> {

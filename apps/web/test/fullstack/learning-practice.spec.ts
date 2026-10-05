@@ -44,7 +44,7 @@ test("practice Reader preserves the ready public body and closed practice geomet
   await expect(
     page.getByRole("region", { name: "Проверка практики" }),
   ).toBeVisible();
-  await expect(slot.getByRole("button", { name: "Копировать" })).toHaveCount(2);
+  await expect(slot.getByRole("button", { name: "Копировать" })).toHaveCount(1);
 });
 
 test("practice Reader offers pinned requests only to an authorized participant", async ({
@@ -66,7 +66,7 @@ test("practice Reader offers pinned requests only to an authorized participant",
   const region = page.getByRole("region", { name: "Проверка практики" });
   await expect(region).toBeVisible();
   await expect(region.getByRole("button", { name: "Копировать" })).toHaveCount(
-    2,
+    1,
   );
   await expect(region).toContainText(
     '"practiceId": "synthetic:fullstack-practice"',
@@ -77,15 +77,15 @@ test("practice Reader offers pinned requests only to an authorized participant",
   const copied = await page.evaluate(() => navigator.clipboard.readText());
   expect(copied).toContain("synthetic:fullstack-practice");
   expect(copied).toMatch(/"expectedContextVersion": "[a-f0-9]{64}"/u);
-  expect(copied).toContain("Codex");
+  expect(copied).toContain("учебным MCP");
   expect(copied).not.toContain("FULLSTACK_PRIVATE_PRACTICE_BODY");
   await region.getByText("Настройка проверки", { exact: true }).click();
   await expect(
-    region.getByRole("link", { name: "Открыть команды подключения и запуска" }),
+    region.getByRole("link", { name: "Открыть инструкцию подключения" }),
   ).toHaveAttribute("href", "/practice-review-setup.txt");
   const setup = await page.request.get("/practice-review-setup.txt");
   expect(setup.status()).toBe(200);
-  expect(await setup.text()).toContain("--strict-mcp-config");
+  expect(await setup.text()).toContain("/mcp/learning");
   await region.getByText("Настройка проверки", { exact: true }).click();
   const violations = (
     await new AxeBuilder({ page })

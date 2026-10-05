@@ -1,0 +1,97 @@
+--- a/packages/core/src/middleware/koa-cimd-offline-access-consent-prompt.test.ts
++++ b/packages/core/src/middleware/koa-cimd-offline-access-consent-prompt.test.ts
+@@ -3,6 +3,7 @@ import Sinon from 'sinon';
+ 
+ import { EnvSet } from '#src/env-set/index.js';
+ import createMockContext from '#src/test-utils/jest-koa-mocks/create-mock-context.js';
++import type Queries from '#src/tenants/Queries.js';
+ import { MockQueries } from '#src/test-utils/tenant.js';
+ 
+ import koaCimdOfflineAccessConsentPrompt from './koa-cimd-offline-access-consent-prompt.js';
+@@ -18,7 +19,17 @@ const offlineAccessRequest = Object.freeze({
+ const getCimdConfig = jest.fn(
+   async (): Promise<CimdConfig> => ({ enabled: true, addConsentPromptForOfflineAccess: true })
+ );
+-const queries = new MockQueries({ logtoConfigs: { getCimdConfig } });
++const findApplicationById = jest.fn(async (id: string) => {
++  if (id !== 'inside-public-client') {
++    throw new Error('not found');
++  }
++
++  return { id, customData: { addConsentPromptForOfflineAccess: true } };
++}) as unknown as Queries['applications']['findApplicationById'];
++const queries = new MockQueries({
++  logtoConfigs: { getCimdConfig },
++  applications: { findApplicationById },
++});
+ 
+ const runMiddleware = async (params: Record<string, string>, { cimdEnabled = true } = {}) => {
+   const ctx = createMockContext({ url: `/auth?${new URLSearchParams(params).toString()}` });
+@@ -92,6 +103,13 @@ describe('koaCimdOfflineAccessConsentPrompt()', () => {
+     expect(getCimdConfig).not.toHaveBeenCalled();
+   });
+ 
++  it('adds the consent prompt for a registered application that opts in', async () => {
++    const request = { ...offlineAccessRequest, client_id: 'inside-public-client' };
++
++    await expect(runMiddleware(request)).resolves.toEqual({ ...request, prompt: 'consent' });
++    expect(getCimdConfig).not.toHaveBeenCalled();
++  });
++
+   it('leaves the request unchanged while CIMD is disabled for the tenant', async () => {
+     await expect(runMiddleware(offlineAccessRequest, { cimdEnabled: false })).resolves.toEqual(
+       offlineAccessRequest
+--- a/packages/core/src/middleware/koa-cimd-offline-access-consent-prompt.ts
++++ b/packages/core/src/middleware/koa-cimd-offline-access-consent-prompt.ts
+@@ -1,5 +1,6 @@
+ import { ReservedScope } from '@logto/core-kit';
+ import { Prompt } from '@logto/js';
++import { trySafe } from '@silverhand/essentials';
+ import type { MiddlewareType } from 'koa';
+ 
+ import type { EnvSet } from '#src/env-set/index.js';
+@@ -10,11 +11,24 @@ import type Queries from '#src/tenants/Queries.js';
+  * The provider drops `offline_access` unless `prompt` contains `consent` (OpenID Connect Core
+  * §11), but the MCP authorization spec only asks clients to request the scope, so they never get
+  * a refresh token.
++ *
++ * Inside: a registered public client opts into the same compatibility with
++ * `customData.addConsentPromptForOfflineAccess: true`, for MCP clients without CIMD.
+  */
+ export default function koaCimdOfflineAccessConsentPrompt<StateT, ContextT, ResponseBodyT>(
+   envSet: EnvSet,
+-  { logtoConfigs: { getCimdConfig } }: Queries
++  { logtoConfigs: { getCimdConfig }, applications: { findApplicationById } }: Queries
+ ): MiddlewareType<StateT, ContextT, ResponseBodyT> {
++  const addsConsentPrompt = async (clientId: string) => {
++    if (shouldTreatAsCimdClient(envSet, clientId)) {
++      const { addConsentPromptForOfflineAccess } = await getCimdConfig();
++      return addConsentPromptForOfflineAccess === true;
++    }
++
++    const application = await trySafe(async () => findApplicationById(clientId));
++    return application?.customData.addConsentPromptForOfflineAccess === true;
++  };
++
+   return async (ctx, next) => {
+     const { query } = ctx.request;
+     const { client_id: clientId, scope, prompt = '' } = query;
+@@ -25,7 +39,6 @@ export default function koaCimdOfflineAccessConsentPrompt<StateT, ContextT, Resp
+       typeof clientId !== 'string' ||
+       typeof scope !== 'string' ||
+       typeof prompt !== 'string' ||
+-      !shouldTreatAsCimdClient(envSet, clientId) ||
+       !scope.split(' ').includes(ReservedScope.OfflineAccess)
+     ) {
+       return next();
+@@ -38,9 +51,7 @@ export default function koaCimdOfflineAccessConsentPrompt<StateT, ContextT, Resp
+       return next();
+     }
+ 
+-    const { addConsentPromptForOfflineAccess } = await getCimdConfig();
+-
+-    if (!addConsentPromptForOfflineAccess) {
++    if (!(await addsConsentPrompt(clientId))) {
+       return next();
+     }
+ 

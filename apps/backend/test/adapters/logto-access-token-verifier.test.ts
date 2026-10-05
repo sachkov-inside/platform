@@ -242,11 +242,18 @@ describe("Logto access token verifier", () => {
 
   test("learner resource tokens do not become API sign-in or accept arbitrary audiences", async () => {
     const learner = "https://api.inside.example.test/mcp/learning";
-    const token = await signToken({}, { audience: learner });
+    const token = await signToken(
+      { scope: "openid offline_access learning:read" },
+      { audience: learner },
+    );
     const verifier = localVerifier(publicJwk);
     await expect(verifier.verifyAccount(token, learner)).resolves.toMatchObject(
-      { ok: true },
+      { ok: true, scopes: ["openid", "offline_access", "learning:read"] },
     );
+    // A resource verifies only its own audience: an API token is not a learner token.
+    await expect(
+      verifier.verifyAccount(await signToken(), learner),
+    ).resolves.toMatchObject({ ok: false, error: { code: "invalid_proof" } });
     await expect(verifier.verifyAccount(token)).resolves.toMatchObject({
       ok: false,
     });
@@ -264,6 +271,34 @@ describe("Logto access token verifier", () => {
     await expect(
       verifier.verifyAccount(multiple, learner),
     ).resolves.toMatchObject({ ok: false });
+  });
+
+  test("a dynamic app token (CIMD) never reaches the Platform API or authoring", async () => {
+    // Любой URL может стать клиентом CIMD; ему открыт только учебный ресурс.
+    const dynamicClient = "https://phishing.example.test/oauth/client.json";
+    const verifier = localVerifier(publicJwk);
+    const apiToken = await signToken({ client_id: dynamicClient });
+    await expect(verifier.verifyAccount(apiToken)).resolves.toMatchObject({
+      ok: false,
+      error: { code: "invalid_proof" },
+    });
+    await expect(verifier.verifyAccountSignIn(apiToken)).resolves.toMatchObject(
+      { ok: false },
+    );
+    const learner = "https://api.inside.example.test/mcp/learning";
+    const learnerToken = await signToken(
+      { client_id: dynamicClient, scope: "learning:read" },
+      { audience: learner },
+    );
+    await expect(
+      verifier.verifyAccount(learnerToken, learner),
+    ).resolves.toMatchObject({ ok: true, scopes: ["learning:read"] });
+    // Зарегистрированный клиент Platform по-прежнему входит в API.
+    await expect(
+      verifier.verifyAccount(
+        await signToken({ client_id: "gzs7ska0yc0m0lbjr28l7" }),
+      ),
+    ).resolves.toMatchObject({ ok: true });
   });
 
   function localVerifier(jwk: JWK) {

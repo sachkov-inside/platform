@@ -108,12 +108,7 @@ describe("MCP Streamable HTTP adapter", () => {
     try {
       await client.connect(
         new StreamableHTTPClientTransport(learning, {
-          authProvider: {
-            token: () =>
-              signToken("owner-001", {
-                audience: "http://127.0.0.1:0/mcp/learning",
-              }),
-          },
+          authProvider: { token: () => signLearningToken("owner-001") },
         }),
       );
       const listed = await client.listTools();
@@ -125,28 +120,21 @@ describe("MCP Streamable HTTP adapter", () => {
       await expect(
         client.callTool({ name: "material_create_draft", arguments: {} }),
       ).rejects.toThrow("not found");
-      const rejected = await fetch(learning, {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: "{}",
-      });
-      expect(rejected.status).toBe(401);
-      expect(rejected.headers.get("cache-control")).toBe("private, no-store");
-      expect(rejected.headers.get("www-authenticate")).toContain(
-        "/.well-known/oauth-protected-resource/mcp/learning",
-      );
       const metadata = await fetch(
         new URL("/.well-known/oauth-protected-resource/mcp/learning", endpoint),
       );
-      await expect(metadata.json()).resolves.toMatchObject({
+      await expect(metadata.json()).resolves.toEqual({
         resource: "http://127.0.0.1:0/mcp/learning",
+        authorization_servers: [issuer],
+        bearer_methods_supported: ["header"],
+        scopes_supported: ["learning:read"],
         resource_name: "Sachkov Inside learning materials",
       });
       const authoring = await fetch(endpoint, {
         method: "POST",
         headers: {
           "content-type": "application/json",
-          authorization: `Bearer ${await signToken("owner-001", { audience: "http://127.0.0.1:0/mcp/learning" })}`,
+          authorization: `Bearer ${await signLearningToken("owner-001")}`,
         },
         body: "{}",
       });
@@ -154,6 +142,53 @@ describe("MCP Streamable HTTP adapter", () => {
     } finally {
       await client.close();
     }
+  });
+
+  test("asks a learner client without a token to sign in, without an error code", async () => {
+    const rejected = await postLearning(undefined);
+
+    expect(rejected.status).toBe(401);
+    expect(rejected.headers.get("cache-control")).toBe("private, no-store");
+    const challenge = rejected.headers.get("www-authenticate") ?? "";
+    expect(challenge).toBe(
+      'Bearer resource_metadata="http://127.0.0.1:0/.well-known/oauth-protected-resource/mcp/learning", scope="learning:read"',
+    );
+  });
+
+  test("rejects a learner token that is invalid or issued for another resource", async () => {
+    const cases = [
+      "not-a-jwt",
+      await signToken("owner-001", { scope: "learning:read" }),
+      await signToken("owner-001", {
+        audience: "https://other.example.test/mcp/learning",
+        scope: "learning:read",
+      }),
+      await signLearningToken("owner-001", { expiresAt: currentTime() - 60 }),
+      await signLearningToken("unknown-account"),
+    ];
+
+    for (const token of cases) {
+      const response = await postLearning(token);
+      expect(response.status).toBe(401);
+      const challenge = response.headers.get("www-authenticate") ?? "";
+      expect(challenge).toContain('error="invalid_token"');
+      expect(challenge).toContain('resource_metadata="http://127.0.0.1:');
+      expect(challenge).toContain('scope="learning:read"');
+    }
+  });
+
+  test("refuses a learner token without the learning scope", async () => {
+    const response = await postLearning(
+      await signLearningToken("owner-001", { scope: "openid" }),
+    );
+
+    expect(response.status).toBe(403);
+    expect(response.headers.get("www-authenticate")).toContain(
+      'error="insufficient_scope"',
+    );
+    expect(response.headers.get("www-authenticate")).toContain(
+      'scope="learning:read"',
+    );
   });
 
   test("challenges missing, invalid, expired, and unknown-Account proofs", async () => {
@@ -221,12 +256,40 @@ describe("MCP Streamable HTTP adapter", () => {
     expect(response.status).toBe(403);
   });
 
+  function postLearning(token: string | undefined): Promise<Response> {
+    return fetch(new URL(`${endpoint.pathname}/learning`, endpoint), {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        ...(token === undefined ? {} : { authorization: `Bearer ${token}` }),
+      },
+      body: "{}",
+    });
+  }
+
+  function signLearningToken(
+    subject: string,
+    overrides: { readonly expiresAt?: number; readonly scope?: string } = {},
+  ): Promise<string> {
+    return signToken(subject, {
+      audience: "http://127.0.0.1:0/mcp/learning",
+      scope: "openid offline_access learning:read",
+      ...overrides,
+    });
+  }
+
   function signToken(
     subject: string,
-    overrides: { readonly expiresAt?: number; readonly audience?: string } = {},
+    overrides: {
+      readonly expiresAt?: number;
+      readonly audience?: string;
+      readonly scope?: string;
+    } = {},
   ): Promise<string> {
     const issuedAt = currentTime();
-    return new SignJWT({})
+    return new SignJWT(
+      overrides.scope === undefined ? {} : { scope: overrides.scope },
+    )
       .setProtectedHeader({ alg: "ES384", kid: "mcp-http-test-key" })
       .setIssuer(issuer)
       .setAudience(overrides.audience ?? audience)

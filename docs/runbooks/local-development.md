@@ -899,24 +899,20 @@ the bank double. Its saved product grant is perpetual and support is six months.
 and legal wording still needs the separately tracked offer review; this is no approval of public
 course terms or price. The offer and account progress persist in the stand volume.
 
-The stand bootstrap also provisions a public Native Logto client for learner Codex, with PKCE and a
-loopback callback. A stand-only default User role carries `learning:read` for that resource;
-bootstrap adds it to existing local users without replacing their roles. This transport scope
-prevents an empty-scope native refresh request; it grants no product access. Both Codex commands
-request the same scopes and learner resource. `/practice-review-setup.txt` on the stand contains its public settings and the
-restricted review procedure. It is generated from the existing instruction and mounted only in the
-local stand; production instructions are unchanged. The local profile currently targets Codex.
-The login command uses `--no-browser`; append `&prompt=consent` to its authorization URL before
-opening it. Logto requires this consent parameter to retain `offline_access` and issue a refresh
-token ([provider contract](https://docs.logto.io/end-user-flows/sign-out)). Without it, initial
-login succeeds but another login is needed after the five-minute access token expires.
-Log in with the same test account as the website. The copied lesson request calls only the learner
-endpoint `/mcp/learning`, and access still follows that account's product rights.
+The stand bootstrap also runs the production
+[learner access provisioning](learning-practice-review.md#universal-learner-access-938) for the stand
+learner MCP `http://127.0.0.1:3002/mcp/learning`. Every local account gets the default role with
+`learning:read`, dynamic apps (CIMD) are on, and the public Native client serves agents without
+CIMD. The bootstrap writes the address and that client ID into `.identity-proof/stand.env`, so
+Reader and `/practice-review-setup.txt` on the stand show them. Connect any MCP client and log in
+with the same test account as the website; codes arrive in Mailpit. A CIMD client needs the stand
+Logto to fetch its public metadata document from the internet. The copied lesson request calls only
+the learner endpoint `/mcp/learning`, and access still follows that account's product rights.
 
 Local TLS uses a CA and a separate server leaf (the old pair is preserved when upgraded), bundled in
 `.identity-proof/tls/certificate.pem`. MCP also mounts that CA for its outgoing Logto verification.
-The generated instruction sets native CA variables and bypasses proxies only for local addresses;
-it does not disable TLS checks. The browser may require accepting the local certificate once.
+An agent on the host trusts the stand Logto through this file, for example with
+`NODE_EXTRA_CA_CERTS` or `SSL_CERT_FILE`; do not disable TLS checks. The browser may require accepting the local certificate once.
 This local OAuth setup does not configure production or certify other native clients.
 
 ### Former MinIO objects

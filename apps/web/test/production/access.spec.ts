@@ -69,7 +69,10 @@ const sessions = new Map<Actor, BrowserContext>();
 const failedSignIns = new Map<Actor, unknown>();
 const platformTokens = new Map<
   PassIdentity,
-  { readonly token: string; readonly issuedAt: number }
+  {
+    readonly tokens: { readonly api: string; readonly learner: string };
+    readonly issuedAt: number;
+  }
 >();
 const blocked: BlockedPassRequest[] = [];
 let logto: LogtoPassClient | undefined;
@@ -200,18 +203,29 @@ async function userIdOf(identity: PassIdentity): Promise<string> {
   return userId;
 }
 
-/** Токен Platform API identity; без Account (`anonymous`) запрос идёт без токена. */
-async function platformTokenOf(actor: Actor): Promise<string | null> {
-  if (actor === "anonymous") return null;
+/** Токены identity: Platform API и учебного MCP. Без Account (`anonymous`) их нет. */
+async function tokensOf(
+  actor: PassIdentity,
+): Promise<{ readonly api: string; readonly learner: string }> {
   const known = platformTokens.get(actor);
   if (known !== undefined && Date.now() - known.issuedAt < platformTokenReuseMs)
-    return known.token;
+    return known.tokens;
   const userId = await userIdOf(actor);
   // PAT прогона и истёкшие PAT прошлых прогонов удаляются перед выпуском нового.
   await client().deletePassTokens(userId, runId);
-  const token = await client().platformAccessToken(userId, runId);
-  platformTokens.set(actor, { token, issuedAt: Date.now() });
-  return token;
+  const tokens = await client().accessTokens(userId, runId);
+  platformTokens.set(actor, { tokens, issuedAt: Date.now() });
+  return tokens;
+}
+
+/** Токен Platform API identity; без Account (`anonymous`) запрос идёт без токена. */
+async function platformTokenOf(actor: Actor): Promise<string | null> {
+  return actor === "anonymous" ? null : (await tokensOf(actor)).api;
+}
+
+/** Токен учебного MCP identity; без Account (`anonymous`) запрос идёт без токена. */
+async function learnerTokenOf(actor: Actor): Promise<string | null> {
+  return actor === "anonymous" ? null : (await tokensOf(actor)).learner;
 }
 
 /**
@@ -386,7 +400,7 @@ function expectDenial(actor: Actor, call: McpToolCall, code: string): void {
 async function observeBodyThroughMcp(actor: Actor): Promise<Observation> {
   const call = await callMcpTool(
     productionTarget.learnerMcp,
-    await platformTokenOf(actor),
+    await learnerTokenOf(actor),
     "learning_material_read",
     { slug: guideA.bodyMaterialSlug },
   );
@@ -435,7 +449,7 @@ async function observePracticeThroughMcp(actor: Actor): Promise<Observation> {
   const practiceId = required(learnerA.practiceId, "Practice id");
   const call = await callMcpTool(
     productionTarget.learnerMcp,
-    await platformTokenOf(actor),
+    await learnerTokenOf(actor),
     "learning_practice_read",
     { practiceId },
   );

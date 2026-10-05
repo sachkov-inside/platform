@@ -56,9 +56,14 @@ pnpm identity:proof:down
 ## Frozen artifacts
 
 [`versions.json`](./versions.json) is the machine-readable ledger. The custom Logto image starts
-from the official `1.41.0` multi-platform image by exact digest. That image corresponds to upstream
-revision `91e55698a42f99438cd41ec2b16a1fc51dbdab8a`. PostgreSQL, Mailpit, `@logto/next` and `jose` are
+from the official `1.44.0` multi-platform image by exact digest. That image corresponds to upstream
+revision `79e9e3b0d9f505260d09c80d8a015e56fbc0ec01`. PostgreSQL, Mailpit, `@logto/next` and `jose` are
 also exact-versioned; the tooling test rejects floating image references.
+
+Logto 1.42 and later refuse to start on a database without the alterations of their version. Every
+Compose start therefore runs `npm run alteration deploy <version>` after the seed: on an empty
+database the seed is already current, on an existing one the alterations bring it to the pinned
+version. The tooling test keeps the target equal to `versions.json`.
 
 Fork revision `inside.2` replaces exactly four upstream Experience files and applies the reviewed
 [`patches/issue-116-logto-proof.patch`](./patches/issue-116-logto-proof.patch):
@@ -75,6 +80,17 @@ The issue #116 patch keeps recipient throttling inside Logto. It makes the exist
 redacts sensitive audit/webhook fields, removes raw SMTP provider errors and provides generic
 Russian rate-limit copy. Platform does not add a mail relay, quota table, attempt cookie, CAPTCHA,
 reauthentication protocol or second authentication session.
+
+Fork revision `inside.7` moves the fork to upstream `1.44.0` for dynamic apps (CIMD, #938). The
+four Experience files and the issue #299 patches carry over unchanged in substance. Upstream 1.42
+moved audit redaction from `koa-audit-log.ts` to `utils/sensitive-data.ts`; the issue #116 patch now
+adds the same word-based key list there. Upstream masks with `******` instead of `[redacted]`, and
+its redaction already runs on the final insert. The new
+[`patches/issue-938-offline-access-consent.patch`](./patches/issue-938-offline-access-consent.patch)
+lets a registered application opt into the dynamic-app compatibility that adds `prompt=consent` to an
+`offline_access` request, through `customData.addConsentPromptForOfflineAccess: true`. The learner
+public client uses it, so MCP clients without CIMD receive a refresh token. The image build runs the
+patch's Jest test with the issue #116 test.
 
 Fork revision `inside.6` keeps the Telegram action slot centered with Flexbox. Safari can paint only fragments of a newly inserted button in the former Grid slot; the native-browser reproduction and before/after evidence are in [#391 verification](../../../docs/verification/telegram-button-391.md). The button dimensions, loading animation and interaction stay unchanged.
 
@@ -106,7 +122,8 @@ applies the same settings through its own Management API step.
 2. Compare the four files above against `fork/`, reapply only the documented delta and copy the
    resulting complete files into this directory. Rebase the issue patch without fuzz and inspect
    every changed upstream source file.
-3. Update `versions.json`, the `Dockerfile` base digest/labels and Compose image digests together.
+3. Update `versions.json`, the `Dockerfile` base digest/labels, Compose image tags and the
+   `alteration deploy` target together.
 4. Run `node --test scripts/identity-proof-artifacts.test.mjs` and
    `pnpm identity:proof:build`. The image build runs upstream Experience typecheck and build.
 5. Run `pnpm identity:proof:hardening`; it uses fresh disposable volumes and executes the

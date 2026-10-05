@@ -40,8 +40,14 @@ export interface LogtoCredentials {
 export interface LogtoPassClient {
   findUserId(email: string): Promise<string>;
   issueOneTimeToken(email: string): Promise<string>;
-  /** Выпускает PAT на прогон, обменивает его и возвращает короткий токен Platform API. */
-  platformAccessToken(userId: string, runId: string): Promise<string>;
+  /**
+   * Выпускает PAT на прогон и обменивает его на два коротких токена: Platform API и учебного MCP.
+   * Учебный MCP принимает только токен своего ресурса со scope `learning:read`.
+   */
+  accessTokens(
+    userId: string,
+    runId: string,
+  ): Promise<{ readonly api: string; readonly learner: string }>;
   /**
    * Удаляет PAT этого прогона и истёкшие PAT прошлых. Действующий PAT другого прогона остаётся:
    * параллельный прогон не теряет свой вход.
@@ -156,7 +162,7 @@ export async function createLogtoPassClient(
         ).token,
       );
     },
-    async platformAccessToken(userId, runId) {
+    async accessTokens(userId, runId) {
       const name = passPatName(runId);
       const pat = z.object({ value: z.string().min(1) }).parse(
         await api(tokensPath(userId), {
@@ -164,12 +170,18 @@ export async function createLogtoPassClient(
           body: { name, expiresAt: Date.now() + patLifetimeMs },
         }),
       );
-      return token({
-        grant_type: "urn:ietf:params:oauth:grant-type:token-exchange",
-        subject_token: registerLogSecret(pat.value),
-        subject_token_type: "urn:logto:token-type:personal_access_token",
-        resource: productionTarget.apiResource,
-      });
+      const exchange = (resource: string, scope?: string) =>
+        token({
+          grant_type: "urn:ietf:params:oauth:grant-type:token-exchange",
+          subject_token: registerLogSecret(pat.value),
+          subject_token_type: "urn:logto:token-type:personal_access_token",
+          resource,
+          ...(scope === undefined ? {} : { scope }),
+        });
+      return {
+        api: await exchange(productionTarget.apiResource),
+        learner: await exchange(productionTarget.learnerMcp, "learning:read"),
+      };
     },
     async deletePassTokens(userId, runId) {
       const own = passPatName(runId);

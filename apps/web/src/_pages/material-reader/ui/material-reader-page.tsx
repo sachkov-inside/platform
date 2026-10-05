@@ -24,6 +24,7 @@ import {
   readPublicSeries,
 } from "@/features/library-discovery.server";
 import { getOptionalPlatformAccessToken } from "@/shared/auth/optional-platform-access-token.server";
+import { readWebRuntimeConfig } from "@/shared/config/index.server";
 import {
   GuideModeProvider,
   defaultGuideMode,
@@ -153,7 +154,12 @@ async function PublicMaterialPractice({ slug }: { readonly slug: string }) {
     accessToken === undefined
       ? { kind: "available" as const, practices: [] }
       : await loadLearningPractices(slug, accessToken);
-  return <LearningPracticeDisclosure result={result} />;
+  return (
+    <LearningPracticeDisclosure
+      connection={readWebRuntimeConfig().learnerMcp}
+      result={result}
+    />
+  );
 }
 
 /**
@@ -224,7 +230,12 @@ async function PersonalMaterialReader({
         ? {}
         : { purchaseGuide: guestPurchaseGuide })}
       guideMode={guideMode}
-      practiceActions={<LearningPracticePrompts result={practices} />}
+      practiceActions={
+        <LearningPracticePrompts
+          connection={readWebRuntimeConfig().learnerMcp}
+          result={practices}
+        />
+      }
       hintSeen={hintSeen}
       result={result}
       returnTarget={effectiveReturnTargetOf(returnTarget, seriesContext)}

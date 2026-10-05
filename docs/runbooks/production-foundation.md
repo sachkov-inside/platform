@@ -329,6 +329,43 @@ PostgreSQL service использует `init: true`: Docker init собирае
 `pgbackrest --stanza=production check`, затем верните Logto и application traffic. Volume не
 удаляйте; одного `restart` недостаточно для изменения init-настройки контейнера.
 
+## Обновление Logto
+
+Новая версия или ревизия форка Logto меняет `infra/identity/logto/*` и тег образа в
+`infra/production/logto/compose.yaml`. Обновление занимает около двух минут простоя входа: от
+пересоздания контейнера Logto до его healthcheck. Сайт и учебный MCP остаются доступны, но новый
+вход и обновление токенов в это время не проходят.
+
+1. Соберите образ вне сервера. У VPS 4 ГБ памяти без swap, а сборка выполняет typecheck upstream и
+   собирает Experience. Рядом с работающими процессами Platform это грозит OOM. Сборка на рабочей
+   машине с той же Dockerfile даёт тот же образ:
+
+   ```bash
+   tag=inside/logto-production:<version>-<fork-revision>
+   docker buildx build --platform linux/amd64 -t "$tag" --load infra/identity/logto
+   docker save "$tag" | gzip | ssh root@201.24.126.23 'gunzip | docker load'
+   ```
+
+2. Доставьте файлы foundation из проверенного commit `main`: каталоги `infra/identity/logto`,
+   `infra/production/logto` и `infra/production/database` в `/opt/inside/foundation/infra/`.
+3. Сделайте свежий backup: `systemctl start inside-pgbackrest-backup@incr.service`. Alteration
+   меняет схему базы `logto`, и путь назад без backup требует `npm run alteration rollback`.
+4. Примените стек без сборки на сервере:
+
+   ```bash
+   sudo docker compose \
+     --env-file /etc/inside/foundation/compose.env \
+     --file /opt/inside/foundation/infra/production/logto/compose.yaml \
+     up --detach --no-build --wait
+   ```
+
+   Сервис `logto-migrations` выполняет seed и `alteration deploy` закреплённой версии, затем
+   Compose пересоздаёт `logto`. Прежний образ остаётся на сервере для отката.
+5. Проверьте discovery `https://auth.sachkov.dev/oidc/.well-known/openid-configuration`: issuer
+   `https://auth.sachkov.dev/oidc`. Затем войдите на `https://inside.sachkov.dev`. Учебный доступ
+   после обновления настраивает и проверяет
+   [learner access](learning-practice-review.md#universal-learner-access-938).
+
 ## Права подключения Logto
 
 Logto использует не только `logto_owner`, но и созданные seed роли
