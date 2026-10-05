@@ -51,7 +51,8 @@ jobs:
         env:
           PRODUCTION_ACCESS_LOGTO_APP_ID: ${{ vars.PRODUCTION_ACCESS_LOGTO_APP_ID }}
           PRODUCTION_ACCESS_LOGTO_APP_SECRET: ${{ secrets.PRODUCTION_ACCESS_LOGTO_APP_SECRET }}
-          PRODUCTION_ACCESS_MAILBOX: ${{ vars.PRODUCTION_ACCESS_MAILBOX }}
+          # Secret, не variable: GitHub печатает env шага в публичном логе и маскирует только secrets.
+          PRODUCTION_ACCESS_MAILBOX: ${{ secrets.PRODUCTION_ACCESS_MAILBOX }}
           PRODUCTION_ACCESS_DEPLOYED_SHA: ${{ inputs.deployed-sha }}
           PRODUCTION_ACCESS_REPORT_DIR: ${{ github.workspace }}/ci-artifacts/production-access
         run: pnpm --filter @inside/web test:production-access

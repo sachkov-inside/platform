@@ -26,7 +26,7 @@ export const guideBDeferred = "отложено до второго Guide";
 
 /**
  * Email тестовой identity — алиас ящика владельца: `<ящик>+inside-access-<identity>@<домен>`.
- * Сам ящик не хранится в репозитории: его даёт переменная `PRODUCTION_ACCESS_MAILBOX`.
+ * Сам ящик не хранится в репозитории: его даёт secret `PRODUCTION_ACCESS_MAILBOX`.
  */
 export function identityEmail(mailbox: string, identity: PassIdentity): string {
   const at = mailbox.lastIndexOf("@");
