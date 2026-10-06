@@ -296,7 +296,29 @@ test.describe.serial("issue 116 pinned Logto proof", () => {
     expect(typeof session.idToken).toBe("string");
     expect(typeof session.refreshToken).toBe("string");
     delete session.accessToken;
-    session[PersistKey.RefreshToken] = "invalid-refresh-grant-992";
+    const refreshToken = session[PersistKey.RefreshToken];
+    if (refreshToken === undefined) throw new Error("Expected a refresh token");
+    const invalidRefreshToken =
+      (refreshToken.startsWith("A") ? "B" : "A") + refreshToken.slice(1);
+    session[PersistKey.RefreshToken] = invalidRefreshToken;
+    const rejectedGrant = await recovery.request.post(
+      `${logtoEndpoint}/oidc/token`,
+      {
+        headers: {
+          authorization: `Basic ${Buffer.from(
+            `${requiredEnvironment("LOGTO_APP_ID")}:${requiredEnvironment("LOGTO_APP_SECRET")}`,
+          ).toString("base64")}`,
+        },
+        form: {
+          grant_type: "refresh_token",
+          refresh_token: invalidRefreshToken,
+        },
+      },
+    );
+    expect(rejectedGrant.status()).toBe(400);
+    await expect(rejectedGrant.json()).resolves.toMatchObject({
+      error: "invalid_grant",
+    });
     await invalidSession.addCookies([
       {
         ...currentSession,
@@ -307,33 +329,48 @@ test.describe.serial("issue 116 pinned Logto proof", () => {
       `${webBaseUrl}/api/account`,
     );
     expect(closedAccount.status()).toBe(503);
+    expect(await closedAccount.text()).toBe("");
     const invalidRefresh = await invalidSession.request.get(
       `${webBaseUrl}/auth/status`,
     );
     await expect(invalidRefresh.json()).resolves.toMatchObject({
-      state: "guest",
+      state: "unavailable",
       accountId: null,
+      canManageMaterials: false,
     });
-    expect(
-      (await invalidSession.cookies()).some(({ name }) =>
-        name.startsWith("logto_"),
-      ),
-    ).toBe(false);
     expect(
       (await invalidSession.request.get(`${webBaseUrl}/api/account`)).status(),
-    ).toBe(401);
+    ).toBe(503);
     await invalidSession.close();
 
-    const signOut = await recovery.request.post(`${webBaseUrl}/auth/sign-out`, {
-      headers: { origin: webBaseUrl },
-      maxRedirects: 0,
+    await recovery.goto(webBaseUrl);
+    await recovery
+      .getByRole("button", {
+        name: "Закрыть подключение Telegram",
+        exact: true,
+      })
+      .click();
+    await recovery
+      .getByRole("button", { name: "Аккаунт", exact: true })
+      .click();
+    const providerLogout = recovery.waitForRequest((request) => {
+      const url = new URL(request.url());
+      return (
+        url.origin === logtoEndpoint && url.pathname === "/oidc/session/end"
+      );
     });
-    expect(signOut.status()).toBe(303);
-    const logoutUrl = signOut.headers()["location"];
-    if (logoutUrl === undefined)
-      throw new Error("Expected the Logto sign-out URL");
-    expect(new URL(logoutUrl).origin).toBe(logtoEndpoint);
-    await recovery.goto(logoutUrl);
+    const signOutResponse = recovery.waitForResponse(
+      (response) =>
+        response.request().method() === "POST" &&
+        response.url() === `${webBaseUrl}/auth/sign-out`,
+    );
+    await recovery
+      .getByRole("menuitem", { name: "Выйти", exact: true })
+      .click();
+    const signOut = await signOutResponse;
+    expect(signOut.status()).toBe(200);
+    expect(await signOut.headerValue("clear-site-data")).toBe('"storage"');
+    expect((await providerLogout).method()).toBe("GET");
     await expect(recovery).toHaveURL(`${webBaseUrl}/`);
     const signedOut = await recovery.request.get("/auth/status");
     await expect(signedOut.json()).resolves.toMatchObject({

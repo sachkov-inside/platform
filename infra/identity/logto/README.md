@@ -144,8 +144,11 @@ generic Russian responses for unknown and existing Accounts, SMTP recovery, nega
 callbacks, Logto refresh outage recovery, one
 local `Account`, no Platform session table and redacted audit/runtime output. The SDK compatibility
 checks (#992) also prove sign-out, denied Account access with an invalid refresh grant, and a public
-learner MCP client's `offline_access` grant and refresh against this fork. The proof starts MCP on
-port 3502 and provisions its public client through the production learner-access module. The source findings,
+learner MCP client's `offline_access` grant and refresh against this fork. An invalid refresh grant
+currently yields `unavailable` and an empty 503
+Account response; it never opens Account access. Recognizing the provider's real `invalid_grant`
+error as a guest session is tracked separately in [#1005](https://github.com/sachkov-inside/platform/issues/1005).
+The proof starts MCP on port 3502 and provisions its public client through the production learner-access module. The source findings,
 proof matrix and known limits are recorded in
 [`docs/research/issue-116-logto-throttling-proof.md`](../../../docs/research/issue-116-logto-throttling-proof.md).
 
