@@ -11,6 +11,7 @@ import {
   evidenceDirectory,
   prepareEvidenceDirectory,
 } from "../../../../scripts/evidence-path.mjs";
+import { screenshotWholePage } from "../support/whole-page-screenshot.mjs";
 
 // Руководство разделено на продукт, программу и оплату (#509). Место чтения возвращает карточка
 // материала в программе и `at=` в адресе; шапка показывает личный прогресс.
@@ -82,9 +83,8 @@ test("guide product leads to the programme and the programme keeps the Reader re
   await page.evaluate(() => {
     window.scrollTo(0, 0);
   });
-  await page.screenshot({
+  await screenshotWholePage(page, {
     path: resolve(snapshots, `programme-${testInfo.project.name}.png`),
-    fullPage: true,
   });
 
   // Гость видит состав и замки, но не получает ни прогресса, ни обещания чужого продолжения.
@@ -95,9 +95,8 @@ test("guide product leads to the programme and the programme keeps the Reader re
   ).toBeVisible();
   await expect(page.getByRole("progressbar")).toHaveCount(0);
   await expect(page.locator('[aria-current="step"]')).toHaveCount(0);
-  await page.screenshot({
+  await screenshotWholePage(page, {
     path: resolve(snapshots, `programme-guest-${testInfo.project.name}.png`),
-    fullPage: true,
   });
 });
 
@@ -289,12 +288,11 @@ test("guide programme appends a real composition and restores Reader return posi
     await page.getByRole("tab", { name: /^Программа/u }).click();
     await expect(page.locator("[data-series-ordinal]:visible")).toHaveCount(12);
     await prepareEvidenceDirectory("issue-529");
-    await page.screenshot({
+    await screenshotWholePage(page, {
       path: resolve(
         snapshots,
         `programme-continuous-${testInfo.project.name}.png`,
       ),
-      fullPage: true,
     });
   } finally {
     const archived = await fullStackBrowserRequest(

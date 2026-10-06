@@ -132,9 +132,13 @@ Two recurring traps affect what a snapshot shows:
 
 - From the `lg` breakpoint the application shell fixes the page height and scrolls `#content`; the
   authoring shell does the same from `md` with `#authoring-content`. A Playwright `fullPage` capture
-  above those widths stops at one screen. Use a tall viewport, such as 1440×2600, instead; below
-  them the page scrolls normally and `fullPage` works. Look at the image before attaching it. A
-  shared helper that replaces this workaround is tracked in #729.
+  above those widths stops at one screen. Capture a whole page with `screenshotWholePage(page,
+  options)` from
+  [`apps/web/test/support/whole-page-screenshot.mjs`](../../apps/web/test/support/whole-page-screenshot.mjs)
+  instead of `page.screenshot({ fullPage: true })`: it stretches the viewport by the hidden height
+  of the scroll container and restores it after the capture; below those widths it is an ordinary
+  `fullPage` capture. Proof scripts in `scripts/` import it too. Look at the image before attaching
+  it.
 - A single component state needs no live stack: build Storybook with `pnpm build:storybook`, serve
   `apps/web/storybook-static`, and capture
   `iframe.html?id=<kebab-title>--<kebab-export>&viewMode=story` at 390 and 1440 wide. Put the

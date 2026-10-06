@@ -11,6 +11,7 @@ import {
 } from "../../../../scripts/evidence-path.mjs";
 import { waitPastAccessTokenExpiry } from "./access-token-expiry";
 import { requiredEnvironment } from "./environment";
+import { screenshotWholePage } from "../support/whole-page-screenshot.mjs";
 
 let webBaseUrl: string;
 let logtoEndpoint: string;
@@ -136,17 +137,15 @@ test("Telegram sign-in, logout and fresh repeat use the real Logto session", asy
 }) => {
   const challenge = await start(page);
   await prepareEvidenceDirectory("issue-299");
-  await page.screenshot({
+  await screenshotWholePage(page, {
     path: evidencePath("issue-299", "telegram-waiting-desktop.png"),
-    fullPage: true,
   });
   await page.setViewportSize({ width: 390, height: 844 });
   await expect
     .poll(() => page.evaluate(() => document.documentElement.scrollWidth))
     .toBeLessThanOrEqual(390);
-  await page.screenshot({
+  await screenshotWholePage(page, {
     path: evidencePath("issue-299", "telegram-waiting-mobile.png"),
-    fullPage: true,
   });
   await page.setViewportSize({ width: 1440, height: 1024 });
   const foreign = await browser.newContext({ ignoreHTTPSErrors: true });
@@ -421,9 +420,8 @@ for (const [status, copy] of [
     await expect(page.getByRole("status")).toContainText(copy);
     await expect(page.locator("#bot")).toBeHidden();
     await expect(page.getByRole("link", { name: "Через почту" })).toBeVisible();
-    await page.screenshot({
+    await screenshotWholePage(page, {
       path: evidencePath("issue-299", `telegram-${status}-mobile.png`),
-      fullPage: true,
     });
   });
 }

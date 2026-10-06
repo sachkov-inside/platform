@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import AxeBuilder from "@axe-core/playwright";
 import { expect, test } from "@playwright/test";
 import { signInFullStack } from "../support/full-stack-session";
+import { screenshotWholePage } from "../support/whole-page-screenshot.mjs";
 test("owner assigns scoped course and the open cabinet converges through real BFF and PostgreSQL", async ({
   page,
   context,
@@ -171,9 +172,8 @@ test("owner assigns scoped course and the open cabinet converges through real BF
   await expect(
     composition.getByRole("link", { name: "Инженерная практика" }),
   ).toHaveAttribute("href", "/products/engineering-practice");
-  await cabinet.screenshot({
+  await screenshotWholePage(cabinet, {
     path: info.outputPath("cabinet-enrollment.png"),
-    fullPage: true,
   });
   const changes = page
     .getByRole("heading", { name: `Изменить «${tierName}»` })
@@ -266,9 +266,8 @@ test("owner assigns scoped course and the open cabinet converges through real BF
   await expect(
     cabinet.getByRole("heading", { name: `${tierName} обновлён`, exact: true }),
   ).toBeVisible();
-  await cabinet.screenshot({
+  await screenshotWholePage(cabinet, {
     path: info.outputPath("cabinet-enrollment.png"),
-    fullPage: true,
   });
   const savedRule = rules
     .getByText(`Правило ${info.project.name} · Опубликовано`, { exact: true })

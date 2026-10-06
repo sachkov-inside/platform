@@ -13,6 +13,7 @@ import {
   prepareEvidenceDirectory,
 } from "../../../../scripts/evidence-path.mjs";
 import { hasText } from "../../src/shared/lib/text";
+import { screenshotWholePage } from "../support/whole-page-screenshot.mjs";
 
 let browser: Browser;
 let server: Server;
@@ -162,9 +163,8 @@ it("renders every production state without overflow or accessibility violations 
       }
       if (process.env["CAPTURE_TELEGRAM_EVIDENCE"] === "1") {
         await prepareEvidenceDirectory("issue-303");
-        await page.screenshot({
+        await screenshotWholePage(page, {
           path: `${evidence}/${hasText(process.env["TELEGRAM_UI_ORIGIN"]) ? "logto-" : ""}${status}-${String(width)}.png`,
-          fullPage: true,
         });
       }
     }
@@ -292,9 +292,8 @@ it.runIf(Boolean(process.env["STORYBOOK_UI_ORIGIN"]))(
         ).violations,
       ).toEqual([]);
       await prepareEvidenceDirectory("issue-303");
-      await page.screenshot({
+      await screenshotWholePage(page, {
         path: `${evidence}/storybook-pending-${String(width)}.png`,
-        fullPage: true,
       });
       await context.close();
     }
