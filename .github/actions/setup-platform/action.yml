@@ -1,7 +1,8 @@
 name: Set up Platform
 description: >-
   Installs the pinned pnpm and Node.js, the frozen workspace dependencies and, on request,
-  Playwright browser engines from a cache keyed by the exact Playwright version.
+  Playwright browser engines and their system packages from caches keyed by the exact Playwright
+  version.
 
 inputs:
   browsers:
@@ -30,17 +31,41 @@ runs:
       id: playwright
       if: ${{ inputs.browsers != '' }}
       shell: bash
-      run: echo "version=$(pnpm --filter @inside/web exec playwright --version | awk '{print $2}')" >>"$GITHUB_OUTPUT"
+      run: |
+        echo "version=$(pnpm --filter @inside/web exec playwright --version | awk '{print $2}')" >>"$GITHUB_OUTPUT"
+        echo "image=$ImageOS-$ImageVersion" >>"$GITHUB_OUTPUT"
     - name: Restore Playwright browser engines
       if: ${{ inputs.browsers != '' }}
       uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
       with:
         path: ~/.cache/ms-playwright
         key: playwright-${{ runner.os }}-${{ steps.playwright.outputs.version }}-${{ inputs.browsers }}
+    # The Ubuntu mirror sometimes stalls on single packages for minutes (#827). Cached .deb files
+    # keep apt off the mirror; after a runner image update apt downloads only the changed packages.
+    # Only main saves the cache: pull requests and the merge queue read it from there.
+    - name: Restore Playwright system packages
+      id: system-packages
+      if: ${{ inputs.browsers != '' }}
+      uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+      with:
+        path: ~/.cache/playwright-apt/*.deb
+        key: playwright-apt-${{ runner.os }}-${{ inputs.browsers }}-${{ steps.playwright.outputs.version }}-${{ steps.playwright.outputs.image }}
+        restore-keys: playwright-apt-${{ runner.os }}-${{ inputs.browsers }}-
     - name: Install browser engines and system dependencies
       if: ${{ inputs.browsers != '' }}
       shell: bash
       env:
         BROWSERS: ${{ inputs.browsers }}
-      # A restored cache skips the download; system packages still come from the runner image.
-      run: pnpm --filter @inside/web exec playwright install --with-deps $BROWSERS
+      run: |
+        apt_archives="$HOME/.cache/playwright-apt"
+        mkdir -p "$apt_archives/partial"
+        echo "Dir::Cache::Archives \"$apt_archives/\";" | sudo tee /etc/apt/apt.conf.d/99playwright-archives >/dev/null
+        pnpm --filter @inside/web exec playwright install --with-deps $BROWSERS
+        # Drop packages the mirror no longer serves, so the saved cache does not grow.
+        sudo apt-get autoclean
+    - name: Save Playwright system packages
+      if: ${{ inputs.browsers != '' && github.ref == 'refs/heads/main' && steps.system-packages.outputs.cache-hit != 'true' }}
+      uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+      with:
+        path: ~/.cache/playwright-apt/*.deb
+        key: ${{ steps.system-packages.outputs.cache-primary-key }}

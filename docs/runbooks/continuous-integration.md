@@ -42,7 +42,11 @@ names its seam and the stages run in parallel:
 
 `.github/actions/setup-platform` owns the shared setup: pinned pnpm and Node.js, the frozen
 install and, on request, Playwright browser engines restored from a cache keyed by the exact
-Playwright version.
+Playwright version. The system packages for those engines come from a second cache of `.deb`
+files keyed by browsers, Playwright version and runner image, because the Ubuntu mirror can stall
+long enough to cancel the job (#827). Only runs on `main` (the release workflow) save that cache;
+pull requests and the merge queue restore it, and after a runner image update apt downloads only
+the changed packages.
 
 `CI Gate` depends on every job and succeeds only when every result is `success`. The repository
 ruleset requires this exact check name; individual job names may evolve without changing the
