@@ -348,13 +348,33 @@ describe("nightly full-stack workflow contract", () => {
       topLevelBlock("permissions", nightlyWorkflow).trim(),
       "contents: read",
     );
-    assert.doesNotMatch(nightlyWorkflow, /^ {2,}permissions:/mu);
+    assert.doesNotMatch(
+      jobBlock("full-stack", nightlyWorkflow),
+      /permissions:/u,
+    );
     assert.doesNotMatch(nightlyWorkflow, /secrets\./u);
     const actionReferences = actionReferenceLines(nightlyWorkflow);
     assert.ok(actionReferences.length > 0);
     for (const reference of actionReferences) {
       assert.match(reference, commitPinnedAction);
     }
+  });
+
+  it("reports main failures in an assigned issue through a separate write-permission job", () => {
+    const reporter = jobBlock("report-failure", nightlyWorkflow);
+    assert.match(reporter, /^ {4}needs: full-stack$/mu);
+    assert.match(
+      reporter,
+      /always\(\) && needs\.full-stack\.result == 'failure' && github\.ref == 'refs\/heads\/main'/u,
+    );
+    assert.match(reporter, /^ {6}issues: write$/mu);
+    assert.match(reporter, /^ {6}contents: read$/mu);
+    assert.match(reporter, /GH_TOKEN: \$\{\{ github\.token \}\}/u);
+    assert.match(
+      reporter,
+      /run: bash scripts\/report-nightly-fullstack-failure\.sh$/mu,
+    );
+    assert.match(jobBlock("full-stack", nightlyWorkflow), /runner-load\.txt/u);
   });
 
   it("starts Compose infrastructure before the smoke and always removes it", () => {
@@ -367,7 +387,7 @@ describe("nightly full-stack workflow contract", () => {
       "playwright install --with-deps chromium",
       "cp .env.example .env",
       "run: pnpm infra:up",
-      "run: pnpm smoke:fullstack",
+      "pnpm smoke:fullstack",
     ].map((command) => {
       const index = job.indexOf(command);
       assert.notEqual(index, -1, `nightly job must run ${command}`);

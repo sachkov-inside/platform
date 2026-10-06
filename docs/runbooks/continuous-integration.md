@@ -144,8 +144,9 @@ affect the browser-to-host application path, or before a release candidate is se
 01:17 UTC and on demand through `workflow_dispatch`. It is not a required check and never blocks a
 merge. The job mirrors the documented host fallback on a clean `ubuntu-24.04` runner: frozen
 install, Chromium, `cp .env.example .env`, `pnpm infra:up` for Compose PostgreSQL and Object
-Storage, then the smoke with its own `inside_checks` database. The workflow is read-only, reads no
-secrets, and a new run waits for the previous one on the same ref instead of overlapping it.
+Storage, then the smoke with its own `inside_checks` database. The smoke job is read-only and reads
+no repository or environment secrets. A separate failure-report job has `issues: write`; it uses
+only `github.token`. A new run waits for the previous one on the same ref instead of overlapping it.
 
 The smoke includes `apps/web/test/fullstack/access-identities.spec.ts` (#904). It signs in separate
 identities through the real Web/BFF: a Materials-only Account, a Billing-only Account, a learner
@@ -156,15 +157,29 @@ commit ([release](release.md#1-что-выпускаем)).
 Where to look:
 
 - Results: the Actions tab, workflow **Nightly full-stack smoke**, or
-  `gh run list --workflow nightly-fullstack.yml`. GitHub e-mails a failed scheduled run to the
-  person who last changed its `cron`.
+  `gh run list --workflow nightly-fullstack.yml`.
+- A failed smoke job on `main` creates an Issue titled **Nightly full-stack smoke: падение на main**,
+  labelled `needs-triage` and assigned to `KirillSachkov`. Further failures update its body with
+  the latest run and source SHA. After fixing the cause, confirm a green run on `main` and close
+  the Issue. Failed branch experiments do not create tracker notifications. A failed report job
+  leaves the workflow red; it does not hide a denied GitHub write.
 - On failure the run keeps Playwright traces and screenshots (`apps/web/test-results`,
   `apps/web/playwright-report`), the smoke's evidence snapshots, Compose service state and the
-  latest 500 infrastructure log lines for seven days. The job log contains the retained output of
-  the API, MCP and web processes.
+  latest 500 infrastructure log lines for seven days. `runner-load.txt` samples memory, runnable
+  processes and CPU usage through `vmstat` every five seconds during the smoke. The job log
+  contains the retained output of the API, MCP and web processes.
 - Run it by hand for a branch: `gh workflow run nightly-fullstack.yml --ref <branch>`.
 
-A red nightly run is a product or smoke defect: open or reopen a Platform issue with the run link.
+A red nightly run requires diagnosis. An MCP validation error names the rejected tool and nested
+field; check the probe against that tool's contract. An unavailable page alone does not prove a
+contract mismatch: inspect the Playwright trace, API/Web output and load samples. Locate the
+source of a `TimeoutError` in its stack: server-side fetch and Playwright actions have different
+budgets. Load samples help investigate its cause, but do not prove it.
+Do not increase budgets or retry tests to get a green run. For a branch failure, open or reopen a
+Platform issue when diagnosis finds a defect.
+
+The [#589 evidence](../evidence/issue-589/README.md) records measured CI cost, the mechanism choice
+and the inventory of probes outside the pull-request gate.
 
 ## Diagnostics and cleanup
 
