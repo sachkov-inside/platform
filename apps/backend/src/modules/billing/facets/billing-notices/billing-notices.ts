@@ -479,7 +479,11 @@ export class BillingNotices {
       return stillPlanned(notice, planRenewalReminder(subject, now))
         ? BILLING_CABINET_PATH
         : undefined;
-    const continued = await this.subscriptionContinued(subscription);
+    // Без продления и до конца срока продолжение решает; иначе повод уже не планируется.
+    const continued =
+      !subject.scheduled &&
+      !subject.ended &&
+      (await this.subscriptionContinued(subscription));
     return stillPlanned(
       notice,
       planSubscriptionEnding({ ...subject, continued }, now),

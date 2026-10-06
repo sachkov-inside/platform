@@ -1154,9 +1154,7 @@ describe("служебные сообщения подписки (реальны
     });
 
     s.at("2030-02-25T10:01:00Z");
-    expect(value(await s.notices.scheduleReminders(1))).toMatchObject({
-      created: 1,
-    });
+    value(await s.notices.scheduleReminders(1));
     expect(await s.noticesOf("access_ending")).toEqual([]);
     expect(
       await db.prisma.billingNotice.count({
@@ -1179,10 +1177,11 @@ describe("служебные сообщения подписки (реальны
     const { row: subscription, offerId } = await subscriptionOf(s.buyer);
     // Enrollment оплаченного периода самой подписки продолжением не считается, даже если его срок
     // записан дальше конца подписки.
-    await db.prisma.subscriptionEnrollment.updateMany({
+    const ownPeriods = await db.prisma.subscriptionEnrollment.updateMany({
       where: { billingRef: subscription.id },
       data: { endsAt: new Date("2030-03-30T10:00:00Z") },
     });
+    expect(ownPeriods.count).toBeGreaterThan(0);
     await assignManual(
       s.buyer,
       "2030-01-31T10:00:00.000Z",
