@@ -25,6 +25,7 @@ explains legacy issue references during the transition.
 
 Run root `pnpm check` and `pnpm --filter @inside/telegram check:full` on the final head.
 The full Telegram check needs an owned PostgreSQL database and non-guest RabbitMQ.
+Set that user's credentials only in `NOTIFICATION_TEST_AMQP_URL`; keep `NOTIFICATION_TEST_MANAGEMENT_URL` credential-free, for example `http://127.0.0.1:<port>`.
 [Local development](README.md#local-development) describes the isolated project, free loopback
 ports and `DATABASE_URL`, `NOTIFICATION_TEST_AMQP_URL`, `NOTIFICATION_TEST_MANAGEMENT_URL`.
 Leave another session's worktree, infrastructure and database alone.

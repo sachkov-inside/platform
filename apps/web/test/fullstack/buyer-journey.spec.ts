@@ -1,6 +1,8 @@
 import { expect, test, type Page } from "@playwright/test";
 import { z } from "zod";
 
+import { fullStackBrowserRequest } from "../support/full-stack-session";
+
 /**
  * Путь покупателя курса целиком (Workspace #238, Platform #775): страница продукта, вход через
  * Telegram у тестового провайдера, бесплатная глава открыта, закрытая — нет, покупка на двойнике
@@ -41,7 +43,7 @@ async function signInWithTelegram(page: Page, telegramUserId: string) {
   await accept.click({ timeout: 30_000 });
   await page.waitForURL((url) => url.pathname !== "/welcome");
   // Вход завершён: вместо «Войти» у человека его аккаунт.
-  const response = await page.request.get("/auth/status");
+  const response = await fullStackBrowserRequest(page, "/auth/status");
   expect(response.ok()).toBe(true);
   const status = z.object({ state: z.string() }).parse(await response.json());
   expect(status.state).toBe("authenticated");
@@ -50,6 +52,8 @@ async function signInWithTelegram(page: Page, telegramUserId: string) {
 test("покупатель курса проходит путь от страницы продукта до материалов и общего чата", async ({
   page,
 }, info) => {
+  const browserErrors: string[] = [];
+  page.on("pageerror", (error) => browserErrors.push(error.message));
   const { controlUrl, slug } = stand();
   const telegramUserId =
     info.project.name === "mobile-chromium" ? "775000002" : "775000001";
@@ -117,7 +121,10 @@ test("покупатель курса проходит путь от стран�
   // Выдано право на общий чат: покупка видна в кабинете, а её права — с условиями курса.
   await page.goto("/account/purchases");
   await expect(page.getByText("Общий чат").first()).toBeVisible();
-  const billingResponse = await page.request.get("/api/account/billing");
+  const billingResponse = await fullStackBrowserRequest(
+    page,
+    "/api/account/billing",
+  );
   expect(billingResponse.ok()).toBe(true);
   const billing = z
     .object({
@@ -148,4 +155,5 @@ test("покупатель курса проходит путь от стран�
     ),
   ).toBe(true);
   expect(termOf("support")).toEqual(expect.any(String));
+  expect(browserErrors).toEqual([]);
 });
