@@ -28,6 +28,9 @@ export const guideA = {
   practiceMaterialSlug: "inside-content-aie-project-setup",
 } as const;
 
+/** Бесплатная опубликованная практика: решение владельца 06.10.2026 в #938. */
+export const freePracticeId = "inside-content:aie-github-app";
+
 /**
  * Срок ручного AccessGrant identity `expired` (отчёт #905). До него клетки `expired` получают «не
  * проверено»: доступ ещё действует.
@@ -92,6 +95,11 @@ export const passCells = [
   cell(
     "account-without-entitlement/read-guide-a/practice@learner-mcp",
     "denied",
+  ),
+
+  cell(
+    "account-without-entitlement/read-free-practice/practice@learner-mcp",
+    "allowed",
   ),
 
   cell("learner-guide-a/read-guide-a/body@browser", "allowed"),

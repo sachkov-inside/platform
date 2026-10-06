@@ -1,4 +1,4 @@
-import { randomUUID } from "node:crypto";
+import { createHash, randomUUID } from "node:crypto";
 
 import {
   expect,
@@ -30,6 +30,7 @@ import {
 import {
   expiredGrantEndsAt,
   guideA,
+  freePracticeId,
   identityEmail,
   passCells,
   productionTarget,
@@ -154,7 +155,7 @@ for (const cell of liveCells) {
 }
 
 async function observeCell(id: string, browser: Browser) {
-  const { identity, surface, transport } = passCellParts(id);
+  const { identity, action, surface, transport } = passCellParts(id);
   if (identity === "expired" && Date.now() < Date.parse(expiredGrantEndsAt)) {
     throw new Error("The expired identity grant has not expired yet");
   }
@@ -168,7 +169,9 @@ async function observeCell(id: string, browser: Browser) {
     case "practice@browser":
       return observePracticePage(await sessionOf(browser, identity), identity);
     case "practice@learner-mcp":
-      return observePracticeThroughMcp(identity);
+      return action === "read-free-practice"
+        ? observeFreePracticeThroughMcp(identity)
+        : observePracticeThroughMcp(identity);
     case "materials-authoring@browser":
       return observeMaterialsAuthoring(
         await sessionOf(browser, identity),
@@ -469,6 +472,76 @@ async function observePracticeThroughMcp(actor: Actor): Promise<Observation> {
   if (observation.observed === "denied")
     expectDenial(actor, call, "practice_not_available");
   return observation;
+}
+
+/** Бесплатный Account читает все части одной версии, включая завершающий маркер. */
+async function observeFreePracticeThroughMcp(
+  actor: Actor,
+): Promise<Observation> {
+  const token = await learnerTokenOf(actor);
+  const partSchema = z.object({
+    practiceId: z.literal(freePracticeId),
+    contextVersion: z.string().min(1),
+    contentSha256: z.string().regex(/^[a-f0-9]{64}$/u),
+    part: z.number().int().nonnegative(),
+    partCount: z.number().int().positive(),
+    nextPart: z.number().int().nullable(),
+    data: z.string().min(1),
+  });
+  const read = async (part: number, pin?: z.infer<typeof partSchema>) => {
+    const call = await callMcpTool(
+      productionTarget.learnerMcp,
+      token,
+      "learning_practice_read",
+      {
+        practiceId: freePracticeId,
+        part,
+        ...(pin === undefined
+          ? {}
+          : {
+              expectedContextVersion: pin.contextVersion,
+              expectedContentSha256: pin.contentSha256,
+            }),
+      },
+    );
+    expect(call.status).toBe(200);
+    expect(call.payload?.ok).toBe(true);
+    return partSchema.parse(
+      call.payload?.ok === true ? call.payload.value : null,
+    );
+  };
+  const first = await read(0);
+  let context = "";
+  for (let part = 0; part < first.partCount; part += 1) {
+    const current = part === 0 ? first : await read(part, first);
+    expect(current).toMatchObject({
+      part,
+      partCount: first.partCount,
+      contextVersion: first.contextVersion,
+      contentSha256: first.contentSha256,
+      nextPart: part + 1 < first.partCount ? part + 1 : null,
+    });
+    context += current.data;
+  }
+  expect(createHash("sha256").update(context).digest("hex")).toBe(
+    first.contentSha256,
+  );
+  expect(
+    z
+      .object({
+        contextVersion: z.literal(first.contextVersion),
+        terminalMarker: z.literal(`END_CONTEXT:${first.contextVersion}`),
+        payload: z.object({
+          practice: z.unknown(),
+          referenceLesson: z.unknown(),
+        }),
+      })
+      .safeParse(JSON.parse(context) as unknown).success,
+  ).toBe(true);
+  return {
+    observed: "allowed",
+    note: `прочитаны все ${String(first.partCount)} частей; SHA-256 и END_CONTEXT совпали`,
+  };
 }
 
 /**

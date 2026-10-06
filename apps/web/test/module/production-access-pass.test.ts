@@ -185,7 +185,7 @@ describe("production access pass configuration", () => {
     });
 
     for (const [actual, expected] of reasons) expect(actual).toBe(expected);
-    expect(cells.filter((cell) => cell.deferred === undefined).length).toBe(29);
+    expect(cells.filter((cell) => cell.deferred === undefined).length).toBe(30);
   });
 
   it("reads every Guide surface in the browser and body and practice through learner MCP too", () => {
