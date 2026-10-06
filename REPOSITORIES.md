@@ -1,18 +1,41 @@
 # Репозитории Inside
 
-Карта определяет владельцев кода, документов, текущих задач и выпуска после перехода Telegram в platform.
-Согласованный переезд ведётся в [platform#957](https://github.com/sachkov-inside/platform/issues/957).
+Карта определяет текущих владельцев кода, документов, задач и выпуска Inside, а также исторические источники.
+Согласованный переезд ведётся в [platform#957](https://github.com/sachkov-inside/platform/issues/957)
+по [workspace#253](https://github.com/sachkov-inside/workspace/issues/253).
 Решение и границы перехода записаны в [ADR 0031](docs/adr/0031-inside-product-monorepo.md).
 
-| Репозиторий | Текущая роль | Статус перехода |
+| Репозиторий | Текущая роль | Состояние |
 |---|---|---|
 | [platform](https://github.com/sachkov-inside/platform) | Код Platform, приложение Telegram в `apps/telegram`, общие документы, словарь, контракты, процесс, CI и текущие задачи Inside | Независимые Telegram workflows обслуживают production; выпуск и откат подтверждены в #960 |
-| [inside-telegram](https://github.com/sachkov-inside/inside-telegram) | Исторический код, закрытые задачи и неизменяемые legacy Releases `v1`–`v5` | Пять открытых задач перенесены в platform; статус README источника и архивации ведётся в #961 |
-| [workspace](https://github.com/sachkov-inside/workspace) | Исходные документы и история решений для проверки происхождения и отката | Текущие документы принадлежат Platform; оставшийся переход ведётся в #957 |
+| [inside-telegram](https://github.com/sachkov-inside/inside-telegram) | Исторический код, закрытые задачи и неизменяемые legacy Releases `v1`–`v5` | Архивирован; README направляет в platform, пять открытых задач перенесены; #961 завершён |
+| [workspace](https://github.com/sachkov-inside/workspace) | Исторический источник документов и решений для проверки происхождения и отката | Актуальная работа в platform; окончательная архивация ведётся в #962 |
 | [inside-content](https://github.com/sachkov-inside/inside-content) | Закрытые редакционные оригиналы, метаданные и процесс подготовки материалов | Остаётся отдельным репозиторием |
 | [workshop-cases](https://github.com/sachkov-inside/workshop-cases) | Закрытые Tracks, Laboratories, CaseSpec и авторские решения | Остаётся отдельным источником; не становится runtime Platform |
 | [ai-engineering](https://github.com/sachkov-inside/ai-engineering) | Архивированное направление курса | Не возобновляется этим переездом |
 | [inside-landing](https://github.com/sachkov-inside/inside-landing) | Исторический landing, deprecated с 2026-09-15 | Этот этап его не меняет |
+
+## Локальное устройство
+
+`inside/` — обычная папка-контейнер без Git. Независимые репозитории стоят рядом:
+
+```text
+inside/
+├── platform/
+├── inside-content/
+├── workshop-cases/
+└── platform.worktrees/
+    └── <task>/
+```
+
+Контейнер не владеет общими правилами или процессом разработки.
+Агент начинает сессию в репозитории или его worktree и читает локальный `AGENTS.md`.
+Размещение и жизненный цикл worktree Platform задаёт [WORKFLOW.md](WORKFLOW.md).
+Соседние репозитории сохраняют собственные правила; закрытые авторские материалы остаются у своих владельцев.
+
+Локальную топологию и окончательную архивацию workspace завершает
+[platform#962](https://github.com/sachkov-inside/platform/issues/962).
+Исторические источники и Releases сохраняются; ссылки на прошлые решения не меняют владельца актуальной работы.
 
 ## Текущие документы
 
@@ -35,8 +58,6 @@
 [#980](https://github.com/sachkov-inside/platform/issues/980),
 [#981](https://github.com/sachkov-inside/platform/issues/981) и
 [#982](https://github.com/sachkov-inside/platform/issues/982).
-Проверенная карта старых и новых номеров и статус архивации источника ведутся в
+Проверенная карта старых и новых номеров и подтверждение архивации источника записаны в
 [platform#961](https://github.com/sachkov-inside/platform/issues/961).
 Ссылки на закрытые исходные задачи сохраняются как исторические.
-Состояние локальных каталогов и окружений ведётся отдельно в
-[platform#962](https://github.com/sachkov-inside/platform/issues/962).

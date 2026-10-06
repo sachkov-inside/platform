@@ -72,9 +72,8 @@ Nothing protects the gap between the start and the first push.
   `.reports/`, which the skill `report` writes. After the merge, fast-forward it with
   `git merge --ff-only` only when it is on `main` and its tracked files have no changes. Untracked
   files stay; the command stops by itself before it overwrites one.
-- Worktree place: `worktrees/<repo>-<task>` at the Workspace root for a checkout under
-  `repositories/`; `<parent>/<repo>.worktrees/<task>` for a standalone checkout. `<task>` is the
-  branch without its type prefix.
+- Worktree place: `<parent>/<repo>.worktrees/<task>`, beside the repository checkout.
+  `<task>` is the branch without its type prefix. The current Inside layout is in `REPOSITORIES.md`.
 - One task has one branch, one writing worktree and one open pull request. Another session's worktree,
   branch, containers, volumes and stash entries are live state: leave them alone.
 - One agent session works in one worktree: the one it starts in, or the one it creates for its task.
