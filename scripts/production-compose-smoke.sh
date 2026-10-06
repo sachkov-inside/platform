@@ -32,6 +32,7 @@ container_log_poll_attempts=30
 worker_health_poll_attempts=20
 database_lock_poll_attempts=20
 foundation_sql_poll_attempts=30
+# pg-boss workers poll every 2 s; a claimed drain job showed up after 1-3 checks locally and in CI (#728).
 pgboss_job_poll_attempts=20
 production_smoke_poll_interval_seconds=1
 readiness_http_retry_attempts=10
