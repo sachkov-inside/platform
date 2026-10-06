@@ -176,7 +176,7 @@ function metadata(access: "free" | "membership") {
     title: "MCP full-stack authoring smoke",
     summary: "A stable Material used to verify delegated MCP authoring.",
     access,
-    difficulty: "589-intentional-contract-drift",
+    difficulty: "basic",
     // Публикация принимает либо пустой список обещаний, либо настоящий: одна строка её не пройдёт.
     outcomes: [
       "Собрать материал через делегированный MCP.",
