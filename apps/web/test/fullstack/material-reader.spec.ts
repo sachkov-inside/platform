@@ -279,6 +279,12 @@ test("server-renders the representative PostgreSQL Material through Nest", async
     "PostgreSQL хранит current Material",
   );
   await expect(page.locator("[data-reader-body]")).toHaveCount(1);
+  // Ввод до конца гидрации React обрабатывает, гидрируя страницу синхронно внутри события, и INP
+  // мерил бы скорость runner, а не ответ читалки (#933). Отметку гостя рисует только браузер,
+  // когда читалка уже гидрирована.
+  await expect(
+    page.getByRole("main").locator("[data-reading-action-state]"),
+  ).toHaveAttribute("data-reading-action-state", "anonymous");
 
   await page.keyboard.press("Tab");
   await expect(
