@@ -39,6 +39,8 @@ export interface PublicMaterial {
 export interface ScopedGuidesWorld {
   readonly guideA: ScopedGuide;
   readonly guideB: ScopedGuide;
+  /** Guide с бесплатным уроком и опубликованным заданием: его читает любой Account (#938). */
+  readonly freeGuide: ScopedGuide;
   readonly publicMaterial: PublicMaterial;
   /** Бессрочное право на один Guide; возвращает ссылку для отзыва. */
   grantGuide(accountId: string, guideId: string): Promise<string>;
@@ -133,7 +135,10 @@ export async function createScopedGuidesWorld(
     };
   }
 
-  async function scopedGuide(label: string): Promise<ScopedGuide> {
+  async function scopedGuide(
+    label: string,
+    access: "free" | "membership" = "membership",
+  ): Promise<ScopedGuide> {
     const guideId = randomUUID();
     await database.prisma.guide.create({
       // Материал из источника входит только в Guide из источника.
@@ -152,7 +157,7 @@ export async function createScopedGuidesWorld(
     let protectedObjectKey = "";
     const created = await sourceMaterial({
       key: `guide-${label}-${guideId}`,
-      access: "membership",
+      access,
       guideIds: [guideId],
       body: async (materialId) => {
         protectedObjectKey = `materials/${materialId}/assets/${assetId}/original`;
@@ -279,6 +284,7 @@ export async function createScopedGuidesWorld(
 
   const guideA = await scopedGuide("A");
   const guideB = await scopedGuide("B");
+  const freeGuide = await scopedGuide("FREE", "free");
   const bodyText = `PUBLIC-BODY-${randomUUID()}`;
   const publicCreated = await sourceMaterial({
     key: `public-${randomUUID()}`,
@@ -337,6 +343,7 @@ export async function createScopedGuidesWorld(
   return {
     guideA,
     guideB,
+    freeGuide,
     publicMaterial: { slug: publicCreated.slug, bodyText },
     grantGuide: (accountId, guideId) =>
       grant(accountId, guideId, null, new Date().toISOString()),

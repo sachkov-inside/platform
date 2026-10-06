@@ -71,6 +71,7 @@ export const accessCheckStateGrounds: Readonly<
 export const accessCheckActions = [
   "read-guide-a",
   "read-guide-b",
+  "read-free-practice",
   "manage-materials",
   "manage-billing",
   "use-other-account-data",
@@ -433,6 +434,29 @@ export const accessCheckMatrix: readonly AccessCheckRow[] = [
       production: productionPass,
     },
   }),
+  {
+    state: "account-without-entitlement",
+    action: "read-free-practice",
+    surface: "practice",
+    expected: "allowed",
+    levels: {
+      "facade-postgresql": reliesOn(
+        "learner-mcp",
+        "Отдельного facade-теста бесплатной практики нет; learner MCP проходит настоящий ContentAccess на PostgreSQL",
+      ),
+      "nest-http": notApplicable(
+        "Полный контекст практики отдаёт learner MCP; HTTP отдаёт только список заданий",
+      ),
+      "learner-mcp": test(
+        mcp,
+        "Account without entitlement reads every pinned part of a free practice while paid Guides stay closed",
+      ),
+      "web-bff": notApplicable(
+        "Полный контекст практики читает агент через learner MCP; Reader показывает запрос проверки",
+      ),
+      production: productionPass,
+    },
+  },
   ...learnerReads("learner-guide-a", "read-guide-a", "allowed"),
   ...learnerReads("learner-guide-a", "read-guide-b", "denied"),
   ...learnerReads("learner-guide-b", "read-guide-b", "allowed"),

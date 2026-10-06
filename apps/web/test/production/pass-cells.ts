@@ -88,6 +88,7 @@ const surfaceChecks: Readonly<Record<string, string>> = {
 const actionLabels: Readonly<Record<string, string>> = {
   "read-guide-a": "Guide A",
   "read-guide-b": "Guide B",
+  "read-free-practice": "Бесплатная практика",
   "manage-materials": "Materials",
   "manage-billing": "Billing",
 };
@@ -95,7 +96,12 @@ const actionLabels: Readonly<Record<string, string>> = {
 /** Что проверяет клетка, словами отчёта. */
 export function passCellCheck(id: string): string {
   const { action, surface, transport } = passCellParts(id);
-  const check = surfaceChecks[`${surface}@${transport}`];
+  const check =
+    action === "read-free-practice" &&
+    surface === "practice" &&
+    transport === "learner-mcp"
+      ? "все закреплённые части через learning_practice_read, SHA-256 и END_CONTEXT"
+      : surfaceChecks[`${surface}@${transport}`];
   if (check === undefined) throw new Error(`No check for pass cell ${id}`);
   return `${actionLabels[action] ?? action}: ${check}`;
 }

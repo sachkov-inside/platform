@@ -181,6 +181,13 @@ describe("scoped learner access over the learner MCP transport", () => {
       await expectClosed(learner, guide);
   });
 
+  test("Account without entitlement reads every pinned part of a free practice while paid Guides stay closed", async () => {
+    const { learner } = await connectedLearner();
+    await expectOpen(learner, world.freeGuide);
+    for (const guide of [world.guideA, world.guideB])
+      await expectClosed(learner, guide);
+  });
+
   test("learner of Guide A reads its Material and every pinned practice part while Guide B stays closed", async () => {
     const { learner, accountId } = await connectedLearner();
     await world.grantGuide(accountId, world.guideA.guideId);
