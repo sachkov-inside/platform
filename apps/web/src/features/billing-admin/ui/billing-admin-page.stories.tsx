@@ -261,6 +261,24 @@ export const CatalogLoading: Story = {
   },
 };
 
+export const PermissionDenied: Story = {
+  args: { offers: [], cohorts: null },
+  beforeEach: withReplies({
+    "content/list": billingRefused("forbidden"),
+    "tiers/list": billingRefused("forbidden"),
+  }),
+  play: async ({ canvasElement }) => {
+    const page = within(canvasElement);
+    const notices = await page.findAllByText(
+      "У вас нет права на это действие.",
+    );
+    for (const notice of notices) await expect(notice).toBeVisible();
+    await expect(
+      page.queryByText("Сессия завершилась. Войдите снова."),
+    ).not.toBeInTheDocument();
+  },
+};
+
 export const CatalogUnavailable: Story = {
   beforeEach: withReplies({ "content/list": billingRefused("unavailable") }),
   play: async ({ canvasElement }) => {

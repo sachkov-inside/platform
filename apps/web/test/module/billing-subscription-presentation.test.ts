@@ -196,6 +196,15 @@ describe("что можно продать публично", () => {
 });
 
 describe("состояния и ошибки", () => {
+  it("отделяет отказ в праве от завершённой сессии", () => {
+    expect(billingErrorMessage("forbidden")).toBe(
+      "У вас нет права на это действие.",
+    );
+    expect(billingErrorMessage("unauthorized")).toBe(
+      "Сессия завершилась. Войдите снова.",
+    );
+  });
+
   it("отделяет банковское состояние попытки от состояния подписки", () => {
     expect(attemptStateLabel("unknown")).toBe("Результат ещё неизвестен");
     expect(attemptStateLabel("confirmed")).toBe("Оплата подтверждена");
