@@ -16,11 +16,12 @@ import {
 import { z } from "zod";
 
 import { waitPastAccessTokenExpiry } from "./access-token-expiry";
+import { requiredEnvironment } from "./environment";
 
-const webBaseUrl = requiredEnvironment("WEB_BASE_URL");
-const backendBaseUrl = requiredEnvironment("BACKEND_BASE_URL");
-const logtoEndpoint = requiredEnvironment("LOGTO_ENDPOINT");
-const mailpitEndpoint = `http://127.0.0.1:${requiredEnvironment("IDENTITY_PROOF_MAILPIT_PORT")}`;
+let webBaseUrl: string;
+let backendBaseUrl: string;
+let logtoEndpoint: string;
+let mailpitEndpoint: string;
 const composeFile = resolve("../../infra/identity/logto/compose.yaml");
 const execFileAsync = promisify(execFile);
 /** Потолок писем с кодом на одного получателя за окно Logto (#116). */
@@ -35,6 +36,13 @@ const messagesSchema = z.object({
       To: z.array(z.object({ Address: z.string() })),
     }),
   ),
+});
+
+test.beforeAll(() => {
+  webBaseUrl = requiredEnvironment("WEB_BASE_URL");
+  backendBaseUrl = requiredEnvironment("BACKEND_BASE_URL");
+  logtoEndpoint = requiredEnvironment("LOGTO_ENDPOINT");
+  mailpitEndpoint = `http://127.0.0.1:${requiredEnvironment("IDENTITY_PROOF_MAILPIT_PORT")}`;
 });
 
 test.describe.serial("issue 116 pinned Logto proof", () => {
@@ -695,11 +703,4 @@ async function waitForEndpoint(endpoint: string): Promise<void> {
 
 async function closeAttempts(attempts: SendAttempt[]): Promise<void> {
   await Promise.all(attempts.map(({ context }) => context.close()));
-}
-
-function requiredEnvironment(name: string): string {
-  const value = process.env[name];
-  if (value === undefined || value.length === 0)
-    throw new Error(`${name} is required`);
-  return value;
 }

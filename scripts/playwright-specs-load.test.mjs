@@ -19,6 +19,15 @@ const playwrightCli = path.join(
   webRoot,
   "node_modules/@playwright/test/cli.js",
 );
+const unconfiguredEnvironment = { ...process.env };
+for (const name of [
+  "WEB_BASE_URL",
+  "BACKEND_BASE_URL",
+  "LOGTO_ENDPOINT",
+  "IDENTITY_PROOF_MAILPIT_PORT",
+]) {
+  delete unconfiguredEnvironment[name];
+}
 
 /**
  * Набор, который нельзя загрузить, не проверяет ничего, а сказать об этом некому: сквозные наборы
@@ -33,14 +42,18 @@ const configurations = readdirSync(webRoot)
   .sort();
 
 /**
- * Список тестов конфигурации без запуска. Playwright вызывается напрямую, без pnpm: служебные строки
+ * Playwright вызывается напрямую, без pnpm: служебные строки
  * pnpm в stdout ломают JSON-отчёт.
  *
  * @param {string} configuration
  * @param {readonly string[]} options
  * @param {NodeJS.ProcessEnv} [environment]
  */
-function listTests(configuration, options, environment = process.env) {
+function runPlaywright(
+  configuration,
+  options,
+  environment = unconfiguredEnvironment,
+) {
   return spawnSync(
     process.execPath,
     [
@@ -48,7 +61,6 @@ function listTests(configuration, options, environment = process.env) {
       "test",
       "--config",
       path.join(webRoot, configuration),
-      "--list",
       ...options,
     ],
     { cwd: webRoot, encoding: "utf8", env: environment },
@@ -58,11 +70,8 @@ function listTests(configuration, options, environment = process.env) {
 test("every Playwright configuration names at least one spec it can load", () => {
   assert.ok(configurations.length > 0, "no Playwright configuration found");
   for (const configuration of configurations) {
-    const result = listTests(configuration, []);
+    const result = runPlaywright(configuration, ["--list"]);
     const output = `${result.stdout ?? ""}${result.stderr ?? ""}`;
-    // Набор, который сам объявил недостающее окружение, загрузился: он разобран, импортирован и
-    // отказался осознанно. Это его собственный контракт, а не поломка загрузки, которую мы ловим.
-    if (/Error: [A-Z_]+ is required/u.test(output)) continue;
     assert.equal(
       result.status,
       0,
@@ -87,11 +96,15 @@ test("every Playwright configuration names at least one spec it can load", () =>
  */
 test("no Playwright configuration retries a failed test, in CI either", () => {
   for (const configuration of configurations) {
-    const result = listTests(configuration, ["--reporter=json"], {
-      ...process.env,
+    const result = runPlaywright(configuration, ["--list", "--reporter=json"], {
+      ...unconfiguredEnvironment,
       CI: "1",
     });
-    // Набор, отказавшийся от недостающего окружения, всё равно печатает отчёт с конфигурацией.
+    assert.equal(
+      result.status,
+      0,
+      `${configuration} could not list its tests:\n${result.stdout}${result.stderr}`,
+    );
     /** @type {unknown} */
     let output;
     try {
@@ -108,6 +121,51 @@ test("no Playwright configuration retries a failed test, in CI either", () => {
         0,
         `${configuration} retries project ${project.name}`,
       );
+    }
+  }
+});
+
+test("identity scenarios name each missing setting at execution, before using the stand", () => {
+  /** @type {readonly [string, string, readonly string[]][]} */
+  const scenarios = [
+    [
+      "identity-proof.spec.ts",
+      "prints immutable runtime lineage without credentials",
+      [
+        "WEB_BASE_URL",
+        "BACKEND_BASE_URL",
+        "LOGTO_ENDPOINT",
+        "IDENTITY_PROOF_MAILPIT_PORT",
+      ],
+    ],
+    [
+      "telegram-sign-in.spec.ts",
+      "Telegram sign-in, logout and fresh repeat use the real Logto session",
+      ["WEB_BASE_URL", "LOGTO_ENDPOINT"],
+    ],
+  ];
+  for (const [spec, title, names] of scenarios) {
+    for (const name of names) {
+      for (const missing of [undefined, ""]) {
+        const result = runPlaywright(
+          "playwright.identity.config.ts",
+          [spec, "--grep", title, "--reporter=list"],
+          {
+            ...unconfiguredEnvironment,
+            WEB_BASE_URL: "http://127.0.0.1:1",
+            BACKEND_BASE_URL: "http://127.0.0.1:1",
+            LOGTO_ENDPOINT: "http://127.0.0.1:1",
+            IDENTITY_PROOF_MAILPIT_PORT: "1",
+            [name]: missing,
+          },
+        );
+        const output = `${result.stdout ?? ""}${result.stderr ?? ""}`;
+        const context = `${spec}, ${name}=${String(missing)}:\n${output}`;
+        assert.equal(result.status, 1, context);
+        assert.match(output, /Running 1 test/u, context);
+        assert.ok(output.includes(`Error: ${name} is required`), context);
+        assert.match(output, /1 failed/u, context);
+      }
     }
   }
 });

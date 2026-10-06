@@ -132,7 +132,10 @@ These Playwright suites are deliberate manual proofs and do not run in CI:
 | `playwright.identity.config.ts` | needs the Logto identity stand; `pnpm identity:proof:hardening` runs `identity-proof.spec.ts`, and `telegram-sign-in.spec.ts` needs its own stand with the `inside-telegram` provider | [local development](local-development.md), [Telegram sign-in](../verification/telegram-sign-in-local.md) |
 
 `scripts/playwright-specs-load.test.mjs` still loads every suite in `unit`, so a broken spec file
-fails CI even when the suite itself is manual.
+fails CI even when the suite itself is manual. Listing runs without `WEB_BASE_URL`,
+`BACKEND_BASE_URL`, `LOGTO_ENDPOINT` and `IDENTITY_PROOF_MAILPIT_PORT`; missing settings never exempt
+a configuration. The identity specs require their settings in `beforeAll`, at execution, and the
+same tooling test checks that an absent or empty required setting fails with its name.
 
 The host-process `pnpm smoke:fullstack` is intentionally not a per-pull-request job and not part of
 `CI Gate`; it runs nightly instead (see below). Run `pnpm check:full` locally when a change can

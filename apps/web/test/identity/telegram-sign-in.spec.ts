@@ -10,24 +10,18 @@ import {
   prepareEvidenceDirectory,
 } from "../../../../scripts/evidence-path.mjs";
 import { waitPastAccessTokenExpiry } from "./access-token-expiry";
+import { requiredEnvironment } from "./environment";
 
-if (
-  process.env["WEB_BASE_URL"] === undefined ||
-  process.env["WEB_BASE_URL"] === "" ||
-  process.env["LOGTO_ENDPOINT"] === undefined ||
-  process.env["LOGTO_ENDPOINT"] === ""
-)
-  throw new Error(
-    "Explicit isolated WEB_BASE_URL and LOGTO_ENDPOINT are required",
-  );
-
-const webBaseUrl = process.env["WEB_BASE_URL"];
+let webBaseUrl: string;
+let logtoEndpoint: string;
+test.beforeAll(() => {
+  webBaseUrl = requiredEnvironment("WEB_BASE_URL");
+  logtoEndpoint = requiredEnvironment("LOGTO_ENDPOINT");
+});
 const statusSchema = z.object({
   status: z.string(),
   requestRef: z.uuid().optional(),
 });
-// The guard above already requires an explicit endpoint.
-const logtoEndpoint = process.env["LOGTO_ENDPOINT"];
 const webhookEndpoint =
   process.env["TELEGRAM_PROOF_WEBHOOK_URL"] ??
   "http://127.0.0.1:3606/webhooks/telegram";
