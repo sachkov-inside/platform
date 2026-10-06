@@ -48,29 +48,61 @@ type EndingRow = {
   readonly endsAt: Date | null;
 };
 
+/**
+ * Доступ продолжается за границей, если Enrollment того же Account на тот же тариф действует в
+ * момент границы и после неё. Основание, которое на границе кончается, продолжением не считается:
+ * само Enrollment или оплаченные периоды подписки Billing.
+ */
+async function continuedAfter(
+  prisma: MembershipEntitlementsPrismaClient,
+  boundary: {
+    readonly accountId: string;
+    readonly tierId: string;
+    readonly endsAt: Date;
+  },
+  ended:
+    { readonly enrollmentId: string } | { readonly subscriptionRef: string },
+): Promise<boolean> {
+  const following = await prisma.subscriptionEnrollment.count({
+    where: {
+      accountId: boundary.accountId,
+      tierId: boundary.tierId,
+      revokedAt: null,
+      startsAt: { lte: boundary.endsAt },
+      AND: [
+        { OR: [{ endsAt: null }, { endsAt: { gt: boundary.endsAt } }] },
+        "enrollmentId" in ended
+          ? { id: { not: ended.enrollmentId } }
+          : // `billingRef` пуст у ручного назначения и подарка; `not` без `null` их бы потерял.
+            {
+              OR: [
+                { billingRef: null },
+                { billingRef: { not: ended.subscriptionRef } },
+              ],
+            },
+      ],
+    },
+  });
+  return following > 0;
+}
+
 async function ending(
   prisma: MembershipEntitlementsPrismaClient,
   row: EndingRow,
 ): Promise<EnrollmentEnding | undefined> {
   if (row.endsAt === null) return undefined;
   const boundary = row.endsAt;
-  const following = await prisma.subscriptionEnrollment.count({
-    where: {
-      accountId: row.accountId,
-      tierId: row.tierId,
-      id: { not: row.id },
-      revokedAt: null,
-      startsAt: { lte: boundary },
-      OR: [{ endsAt: null }, { endsAt: { gt: boundary } }],
-    },
-  });
   return {
     enrollmentId: row.id,
     accountId: row.accountId,
     offerId: row.tierId,
     title: tierSnapshotSchema.parse(row.snapshot).name,
     endsAt: boundary,
-    continued: following > 0,
+    continued: await continuedAfter(
+      prisma,
+      { accountId: row.accountId, tierId: row.tierId, endsAt: boundary },
+      { enrollmentId: row.id },
+    ),
   };
 }
 
@@ -113,4 +145,34 @@ export async function readEnrollmentEnding(
     where: { ...endingRow, id: z.uuid().parse(enrollmentId) },
   });
   return row === null ? undefined : ending(prisma, row);
+}
+
+/** Конец оплаченного срока подписки Billing; тариф подписки — её Offer. */
+export const subscriptionContinuationQuerySchema = z.strictObject({
+  accountId: z.uuid(),
+  offerId: z.uuid(),
+  subscriptionRef: z.uuid(),
+  paidUntil: z.date(),
+});
+export type SubscriptionContinuationQuery = z.infer<
+  typeof subscriptionContinuationQuerySchema
+>;
+
+/**
+ * Продолжает ли другое основание доступ за концом оплаченного срока подписки. Enrollment самой
+ * подписки — её оплаченные периоды — продолжением не считаются: о них знает сама подписка.
+ */
+export async function readSubscriptionContinuation(
+  prisma: MembershipEntitlementsPrismaClient,
+  query: SubscriptionContinuationQuery,
+): Promise<boolean> {
+  return continuedAfter(
+    prisma,
+    {
+      accountId: query.accountId,
+      tierId: query.offerId,
+      endsAt: query.paidUntil,
+    },
+    { subscriptionRef: query.subscriptionRef },
+  );
 }

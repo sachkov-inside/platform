@@ -295,7 +295,7 @@ describe("окончание неоплаченного доступа", () => {
 });
 
 describe("окончание оплаченного срока без продления", () => {
-  const canceled = { ...active, scheduled: false };
+  const canceled = { ...active, scheduled: false, continued: false };
   const now = new Date(paidUntil.getTime() - RENEWAL_REMINDER_LEAD_MS);
 
   test("без расписания за три дня приходит напоминание об окончании, а не о списании", () => {
@@ -313,7 +313,9 @@ describe("окончание оплаченного срока без продл
   });
 
   test("действующее расписание, завершённая подписка и время вне окна повода не дают", () => {
-    expect(planSubscriptionEnding(active, now)).toBeUndefined();
+    expect(
+      planSubscriptionEnding({ ...active, continued: false }, now),
+    ).toBeUndefined();
     expect(
       planSubscriptionEnding({ ...canceled, ended: true }, now),
     ).toBeUndefined();
@@ -321,6 +323,12 @@ describe("окончание оплаченного срока без продл
       planSubscriptionEnding(canceled, new Date(now.getTime() - 1)),
     ).toBeUndefined();
     expect(planSubscriptionEnding(canceled, paidUntil)).toBeUndefined();
+  });
+
+  test("доступ, который продолжает Enrollment на тот же тариф, на границе не заканчивается", () => {
+    expect(
+      planSubscriptionEnding({ ...canceled, continued: true }, now),
+    ).toBeUndefined();
   });
 
   test("продление ведёт на оформление того же Offer через один адрес", () => {

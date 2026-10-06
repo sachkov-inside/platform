@@ -63,7 +63,9 @@ const CALENDAR_PAGE_SIZE = 100;
 /** Чтение границ неоплаченного доступа: строки Enrollment остаются у Membership Entitlements. */
 export type EnrollmentEndings = Pick<
   AccessGrants,
-  "listEnrollmentEndings" | "readEnrollmentEnding"
+  | "listEnrollmentEndings"
+  | "readEnrollmentEnding"
+  | "readSubscriptionContinuation"
 >;
 
 /** Итог одного пробега календаря. */
@@ -253,55 +255,115 @@ export class BillingNotices {
     now: Date,
     limit: number,
   ): Promise<NoticeOutcome[]> {
-    const { prisma } = this.dependencies;
-    const window = {
+    const scheduled =
+      await this.dependencies.prisma.billingSubscription.findMany({
+        where: {
+          state: "active",
+          paidUntil: this.subscriptionWindow(now),
+          bindingCiphertext: { not: null },
+          bindingRevokedAt: null,
+          notices: { none: { kind: "renewal_reminder", state: "current" } },
+        },
+        orderBy: { paidUntil: "asc" },
+        take: limit,
+      });
+    const outcomes: NoticeOutcome[] = [];
+    // Расписание, отменённое после выборки, получит повод окончания в выборке без продления ниже:
+    // там читается, продолжает ли доступ Enrollment.
+    for (const subscription of scheduled)
+      outcomes.push(
+        await this.recordSubscriptionNotice(subscription.id, now, (subject) =>
+          planRenewalReminder(subject, now),
+        ),
+      );
+    return [...outcomes, ...(await this.scheduleEndingNotices(now, limit))];
+  }
+
+  /**
+   * Сроки без продления по возрастанию. Продолжение читается до транзакции: замок подписки
+   * Enrollment не охраняет, а перед каждой отправкой `resolveNotice` сверяет его заново.
+   * Продолженный срок повода не даёт и ёмкость пробега не занимает: выборка листает дальше.
+   */
+  private async scheduleEndingNotices(
+    now: Date,
+    limit: number,
+  ): Promise<NoticeOutcome[]> {
+    const outcomes: NoticeOutcome[] = [];
+    let after: { paidUntil: Date; id: string } | undefined;
+    for (;;) {
+      const page = await this.dependencies.prisma.billingSubscription.findMany({
+        where: {
+          state: { in: ["active", "canceled"] },
+          paidUntil: this.subscriptionWindow(now),
+          notices: { none: { kind: "access_ending", state: "current" } },
+          AND: [
+            {
+              OR: [
+                { state: "canceled" },
+                { bindingCiphertext: null },
+                { bindingRevokedAt: { not: null } },
+              ],
+            },
+            ...(after === undefined
+              ? []
+              : [
+                  {
+                    OR: [
+                      { paidUntil: { gt: after.paidUntil } },
+                      { paidUntil: after.paidUntil, id: { gt: after.id } },
+                    ],
+                  },
+                ]),
+          ],
+        },
+        orderBy: [{ paidUntil: "asc" }, { id: "asc" }],
+        take: limit,
+      });
+      for (const subscription of page) {
+        if (await this.continuedAfter(subscription)) continue;
+        outcomes.push(
+          await this.recordSubscriptionNotice(
+            subscription.id,
+            now,
+            (subject) =>
+              planRenewalReminder(subject, now) ??
+              planSubscriptionEnding({ ...subject, continued: false }, now),
+          ),
+        );
+        if (outcomes.length === limit) return outcomes;
+      }
+      const last = page.at(-1);
+      if (page.length < limit || last === undefined) return outcomes;
+      after = { paidUntil: last.paidUntil, id: last.id };
+    }
+  }
+
+  private subscriptionWindow(now: Date): { gt: Date; lte: Date } {
+    return {
       gt: now,
       lte: new Date(now.getTime() + RENEWAL_REMINDER_LEAD_MS),
     };
-    const scheduled = await prisma.billingSubscription.findMany({
-      where: {
-        state: "active",
-        paidUntil: window,
-        bindingCiphertext: { not: null },
-        bindingRevokedAt: null,
-        notices: { none: { kind: "renewal_reminder", state: "current" } },
-      },
-      orderBy: { paidUntil: "asc" },
-      take: limit,
-    });
-    const unscheduled = await prisma.billingSubscription.findMany({
-      where: {
-        state: { in: ["active", "canceled"] },
-        paidUntil: window,
-        OR: [
-          { state: "canceled" },
-          { bindingCiphertext: null },
-          { bindingRevokedAt: { not: null } },
-        ],
-        notices: { none: { kind: "access_ending", state: "current" } },
-      },
-      orderBy: { paidUntil: "asc" },
-      take: limit,
-    });
-    const outcomes: NoticeOutcome[] = [];
-    for (const subscription of [...scheduled, ...unscheduled])
-      outcomes.push(
-        await prisma.$transaction(async (tx) => {
-          await lockBillingSubscription(tx, subscription.id);
-          const subject = chargeableSubscription(
-            await tx.billingSubscription.findUniqueOrThrow({
-              where: { id: subscription.id },
-            }),
-          );
-          const planned =
-            planRenewalReminder(subject, now) ??
-            planSubscriptionEnding(subject, now);
-          return planned
-            ? await recordBillingNotice(tx, planned, now)
-            : "unchanged";
-        }),
+  }
+
+  /** Повод подписки под её замком: план читает строку заново, а не выборку до замка. */
+  private recordSubscriptionNotice(
+    subscriptionRef: string,
+    now: Date,
+    plan: (subject: RenewalReminderSubject) => NoticeOccurrence | undefined,
+  ): Promise<NoticeOutcome> {
+    return this.dependencies.prisma.$transaction(async (tx) => {
+      await lockBillingSubscription(tx, subscriptionRef);
+      const planned = plan(
+        chargeableSubscription(
+          await tx.billingSubscription.findUniqueOrThrow({
+            where: { id: subscriptionRef },
+          }),
+        ),
       );
-    return outcomes;
+      return planned
+        ? await recordBillingNotice(tx, planned, now)
+        : "unchanged";
+    });
   }
 
   /**
@@ -414,11 +476,28 @@ export class BillingNotices {
       return stillPlanned(notice, planRenewalReminder(subject, now))
         ? BILLING_CABINET_PATH
         : undefined;
-    return stillPlanned(notice, planSubscriptionEnding(subject, now))
+    const continued = await this.continuedAfter(subscription);
+    return stillPlanned(
+      notice,
+      planSubscriptionEnding({ ...subject, continued }, now),
+    )
       ? offerCheckoutPath(
           subscriptionSnapshotSchema.parse(subscription.snapshot).offer.id,
         )
       : undefined;
+  }
+
+  /** Продолжает ли Enrollment на тот же Offer доступ за концом оплаченного срока подписки. */
+  private async continuedAfter(row: SubscriptionRow): Promise<boolean> {
+    const read =
+      await this.dependencies.enrollments.readSubscriptionContinuation({
+        accountId: row.accountId,
+        offerId: subscriptionSnapshotSchema.parse(row.snapshot).offer.id,
+        subscriptionRef: row.id,
+        paidUntil: row.paidUntil,
+      });
+    if (!read.ok) throw new Error(read.error.code);
+    return read.value;
   }
 
   private async readEnding(
