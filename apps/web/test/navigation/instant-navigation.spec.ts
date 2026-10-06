@@ -1094,9 +1094,56 @@ test("смена режима прохождения сбрасывает стр
 /** Обложка продукта в видимой странице, а не её копия в скрытом контейнере потока. */
 const productCover = "#content [data-product-part='hero'] img";
 
+/**
+ * Записывает каждого кандидата LCP с начала загрузки. Запись об обложке приходит после её отрисовки,
+ * а не после загрузки: когда `image.complete` уже верно, последним кандидатом бывает ещё текст
+ * первого экрана (#1007).
+ */
+async function recordLargestContentfulPaint(page: Page) {
+  await page.addInitScript(() => {
+    const candidates: unknown[] = [];
+    Object.assign(window, { __largestContentfulPaint: candidates });
+    new PerformanceObserver((list) => {
+      for (const entry of list.getEntries()) {
+        const element =
+          "element" in entry && entry.element instanceof Element
+            ? entry.element
+            : null;
+        candidates.push({
+          // Текст кандидата показывает в отказе, что было крупнейшим на первом экране.
+          element:
+            element === null
+              ? "узел уже убран из документа"
+              : `${element.tagName} ${element.textContent.trim().slice(0, 80)}`.trim(),
+          heroCover:
+            element?.tagName === "IMG" &&
+            element.closest("[data-product-part='hero']") !== null,
+          startTime: entry.startTime,
+        });
+      }
+    }).observe({ buffered: true, type: "largest-contentful-paint" });
+  });
+}
+
+const largestContentfulPaint = z.object({
+  element: z.string(),
+  heroCover: z.boolean(),
+  startTime: z.number(),
+});
+
+function lastLargestContentfulPaint(page: Page) {
+  return page.evaluate((): unknown => {
+    const candidates: unknown = Reflect.get(window, "__largestContentfulPaint");
+    return Array.isArray(candidates)
+      ? (candidates.at(-1) ?? "кандидатов LCP ещё нет")
+      : "кандидаты LCP не записываются";
+  });
+}
+
 test("обложка первого экрана продукта грузится сразу и даёт LCP в пределах «хорошо»", async ({
   page,
 }) => {
+  await recordLargestContentfulPaint(page);
   await page.goto("/products/navigation-cover");
 
   // Если ответ `/auth/status` меняет context над ещё не показанной частью, React рисует её на клиенте,
@@ -1104,41 +1151,17 @@ test("обложка первого экрана продукта грузитс
   const cover = page.locator(productCover);
   await expect(cover).toHaveAttribute("fetchpriority", "high");
   await expect(cover).toHaveAttribute("loading", "eager");
-  // Факт, которого ждёт проверка, — картинка обложки действительно отрисована.
+  // Факт, которого ждёт проверка, — запись LCP об отрисованной обложке. Загруженная картинка ещё не
+  // отрисована, и последним кандидатом в этот момент бывает текст первого экрана (#1007).
   await expect
-    .poll(() =>
-      cover.evaluate(
-        (image: HTMLImageElement) => image.complete && image.naturalWidth > 0,
-      ),
-    )
-    .toBe(true);
+    .poll(() => lastLargestContentfulPaint(page), {
+      message: "крупнейший элемент первого экрана — обложка продукта",
+    })
+    .toEqual(expect.objectContaining({ heroCover: true }));
 
-  const lcp = await page.evaluate(
-    () =>
-      new Promise<{ readonly heroCover: boolean; readonly startTime: number }>(
-        (resolve) => {
-          new PerformanceObserver((list, observer) => {
-            const entry = list.getEntries().at(-1);
-            if (entry === undefined) return;
-            observer.disconnect();
-            const element =
-              "element" in entry && entry.element instanceof Element
-                ? entry.element
-                : null;
-            resolve({
-              heroCover:
-                element?.tagName === "IMG" &&
-                element.closest("[data-product-part='hero']") !== null,
-              startTime: entry.startTime,
-            });
-          }).observe({ buffered: true, type: "largest-contentful-paint" });
-        },
-      ),
+  const lcp = largestContentfulPaint.parse(
+    await lastLargestContentfulPaint(page),
   );
-  expect(
-    lcp.heroCover,
-    "крупнейший элемент первого экрана — обложка продукта",
-  ).toBe(true);
   // Порог «хорошо» у LCP — 2,5 секунды.
   expect(lcp.startTime).toBeLessThan(2_500);
 });
