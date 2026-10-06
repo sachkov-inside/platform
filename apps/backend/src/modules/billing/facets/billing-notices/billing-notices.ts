@@ -320,14 +320,17 @@ export class BillingNotices {
         take: limit,
       });
       for (const subscription of page) {
-        if (await this.continuedAfter(subscription)) continue;
+        if (await this.subscriptionContinued(subscription)) continue;
         outcomes.push(
           await this.recordSubscriptionNotice(
             subscription.id,
             now,
             (subject) =>
               planRenewalReminder(subject, now) ??
-              planSubscriptionEnding({ ...subject, continued: false }, now),
+              // Продолжение прочитано для границы и Offer выборки; сдвинутый срок ждёт пробега.
+              (sameTerm(subject, subscription)
+                ? planSubscriptionEnding({ ...subject, continued: false }, now)
+                : undefined),
           ),
         );
         if (outcomes.length === limit) return outcomes;
@@ -476,7 +479,7 @@ export class BillingNotices {
       return stillPlanned(notice, planRenewalReminder(subject, now))
         ? BILLING_CABINET_PATH
         : undefined;
-    const continued = await this.continuedAfter(subscription);
+    const continued = await this.subscriptionContinued(subscription);
     return stillPlanned(
       notice,
       planSubscriptionEnding({ ...subject, continued }, now),
@@ -488,7 +491,7 @@ export class BillingNotices {
   }
 
   /** Продолжает ли Enrollment на тот же Offer доступ за концом оплаченного срока подписки. */
-  private async continuedAfter(row: SubscriptionRow): Promise<boolean> {
+  private async subscriptionContinued(row: SubscriptionRow): Promise<boolean> {
     const read =
       await this.dependencies.enrollments.readSubscriptionContinuation({
         accountId: row.accountId,
@@ -508,6 +511,15 @@ export class BillingNotices {
     if (!read.ok) throw new Error(read.error.code);
     return read.value;
   }
+}
+
+/** Срок под замком тот же, что в выборке: та же граница и тот же Offer. */
+function sameTerm(subject: RenewalReminderSubject, listed: SubscriptionRow) {
+  return (
+    subject.paidUntil.getTime() === listed.paidUntil.getTime() &&
+    subscriptionSnapshotSchema.parse(subject.snapshot).offer.id ===
+      subscriptionSnapshotSchema.parse(listed.snapshot).offer.id
+  );
 }
 
 /** Повод жив, пока источник планирует тот же повод с теми же условиями. */

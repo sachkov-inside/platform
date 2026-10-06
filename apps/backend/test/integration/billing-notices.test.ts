@@ -1172,11 +1172,17 @@ describe("служебные сообщения подписки (реальны
     );
   });
 
-  test("Enrollment на тот же тариф после напоминания закрывает его; другой тариф окончания не отменяет (#918)", async () => {
+  test("Enrollment на тот же тариф после напоминания закрывает его, отзыв возвращает; свой период и другой тариф окончания не отменяют (#918)", async () => {
     const s = await scenario();
     await s.buy();
     await cancelRenewal(s);
-    const { offerId } = await subscriptionOf(s.buyer);
+    const { row: subscription, offerId } = await subscriptionOf(s.buyer);
+    // Enrollment оплаченного периода самой подписки продолжением не считается, даже если его срок
+    // записан дальше конца подписки.
+    await db.prisma.subscriptionEnrollment.updateMany({
+      where: { billingRef: subscription.id },
+      data: { endsAt: new Date("2030-03-30T10:00:00Z") },
+    });
     await assignManual(
       s.buyer,
       "2030-01-31T10:00:00.000Z",
@@ -1192,7 +1198,7 @@ describe("служебные сообщения подписки (реальны
     });
 
     s.at("2030-02-26T10:00:00Z");
-    await assignManual(
+    const continuation = await assignManual(
       s.buyer,
       "2030-02-26T10:00:00.000Z",
       "2030-03-30T10:00:00.000Z",
@@ -1204,6 +1210,26 @@ describe("служебные сообщения подписки (реальны
     value(await s.notices.scheduleReminders());
     expect(await s.noticesOf("access_ending")).toMatchObject([
       { state: "superseded" },
+    ]);
+
+    // Отозванное основание доступ не продолжает: напоминание о той же границе возвращается.
+    const revoked = await grants.changeEnrollment(owner, {
+      operationId: randomUUID(),
+      enrollmentId: continuation.id,
+      expectedRevision: continuation.revision,
+      action: "revoke",
+      terms: {
+        startsAt: continuation.startsAt,
+        endsAt: continuation.endsAt,
+        endPolicy: "fixed",
+      },
+      reason: "Отзыв для проверки окончания",
+    });
+    if (!revoked.ok) throw new Error(revoked.error.code);
+    s.at("2030-02-26T11:00:00Z");
+    value(await s.notices.scheduleReminders());
+    expect(await s.noticesOf("access_ending")).toMatchObject([
+      { state: "current", dueAt: new Date("2030-02-28T10:00:00Z") },
     ]);
   });
 });
