@@ -276,23 +276,6 @@ describe("Logto BFF route orchestration", () => {
     });
   });
 
-  it("clears the Logto cookie when its refresh grant is invalid", async () => {
-    const invalidGrant = Object.assign(new Error("refresh rejected"), {
-      name: "LogtoRequestError",
-      code: "invalid_grant",
-    });
-    fakes.getAccessToken.mockRejectedValueOnce(invalidGrant);
-
-    const response = await authStatus();
-
-    await expect(response.json()).resolves.toEqual({
-      accountId: null,
-      canManageMaterials: false,
-      state: "guest",
-    });
-    expect(fakes.clearLogtoSessionCookie).toHaveBeenCalledWith(fakes.config);
-  });
-
   it("holds the status answer out of the build before it can be mistaken for a failure", async () => {
     // Отказ от предсборки приходит исключением; внутри `try` он превратился бы в «unavailable».
     fakes.connection.mockRejectedValueOnce(new Error("prerender bailout"));

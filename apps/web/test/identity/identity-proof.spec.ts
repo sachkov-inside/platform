@@ -333,22 +333,47 @@ test.describe.serial("issue 116 pinned Logto proof", () => {
         value: encodeURIComponent(await wrapSession(session, secret)),
       },
     ]);
+    // Отвергнутый refresh grant кончает сессию: Account закрыт как для гостя, cookie BFF снята (#1005).
     const closedAccount = await invalidSession.request.get(
       `${webBaseUrl}/api/account`,
     );
-    expect(closedAccount.status()).toBe(503);
+    expect(closedAccount.status()).toBe(401);
     expect(await closedAccount.text()).toBe("");
+    const expiredSession = closedAccount
+      .headersArray()
+      .find(
+        ({ name, value }) =>
+          name.toLowerCase() === "set-cookie" &&
+          value.startsWith(`${appSession.name}=;`),
+      );
+    expect(expiredSession?.value).toMatch(/max-age=0/i);
+    expect(
+      (await invalidSession.cookies(webBaseUrl)).some(
+        ({ name }) => name === appSession.name,
+      ),
+    ).toBe(false);
+    await invalidSession.addCookies([
+      {
+        ...currentSession,
+        value: encodeURIComponent(await wrapSession(session, secret)),
+      },
+    ]);
     const invalidRefresh = await invalidSession.request.get(
       `${webBaseUrl}/auth/status`,
     );
     await expect(invalidRefresh.json()).resolves.toMatchObject({
-      state: "unavailable",
+      state: "guest",
       accountId: null,
       canManageMaterials: false,
     });
     expect(
+      (await invalidSession.cookies(webBaseUrl)).some(
+        ({ name }) => name === appSession.name,
+      ),
+    ).toBe(false);
+    expect(
       (await invalidSession.request.get(`${webBaseUrl}/api/account`)).status(),
-    ).toBe(503);
+    ).toBe(401);
     await invalidSession.close();
 
     await recovery.goto(webBaseUrl);
