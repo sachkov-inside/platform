@@ -1,8 +1,8 @@
 name: Set up Platform
 description: >-
   Installs the pinned pnpm and Node.js, the frozen workspace dependencies and, on request,
-  Playwright browser engines and their system packages from caches keyed by the exact Playwright
-  version.
+  Playwright browser engines from a cache keyed by the exact Playwright version and their system
+  packages from a cache that main saves.
 
 inputs:
   browsers:

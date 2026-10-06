@@ -236,8 +236,10 @@ describe("application CI workflow contract", () => {
     );
     assert.match(install, /apt-get autoclean$/mu);
     assert.match(save, /uses: actions\/cache\/save@/u);
-    assert.match(save, /github\.ref == 'refs\/heads\/main'/u);
-    assert.match(save, /steps\.system-packages\.outputs\.cache-hit != 'true'/u);
+    assert.match(
+      save,
+      /^ {6}if: \$\{\{ inputs\.browsers != '' && github\.ref == 'refs\/heads\/main' && steps\.system-packages\.outputs\.cache-hit != 'true' \}\}$/mu,
+    );
     assert.match(
       save,
       /key: \$\{\{ steps\.system-packages\.outputs\.cache-primary-key \}\}$/mu,
