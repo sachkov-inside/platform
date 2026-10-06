@@ -1,7 +1,11 @@
 import AxeBuilder from "@axe-core/playwright";
 import { expect, test, type Page, type Response } from "@playwright/test";
 import { resolve } from "node:path";
-import { signInFullStack } from "../support/full-stack-session";
+import {
+  fullStackBrowserRequest,
+  signInFullStack,
+} from "../support/full-stack-session";
+import { readingStatesResultSchema } from "../../src/features/reading-progress/model/reading-contract";
 import { prepareEvidenceDirectory } from "../../../../scripts/evidence-path.mjs";
 
 /**
@@ -240,26 +244,78 @@ test("reading progress appears on Home and Topic for video and other formats", a
     if ((await button.getAttribute("aria-pressed")) !== "true")
       await button.click();
     await expect(button).toHaveAttribute("aria-pressed", "true");
-    await page.goto(`/?q=${encodeURIComponent(material.title)}`);
-    const card = page.getByRole("article").filter({
-      has: page.getByRole("link", { name: material.title, exact: true }),
+    const materialId = await page
+      .locator("[data-material-id]")
+      .getAttribute("data-material-id");
+    expect(materialId).not.toBeNull();
+    const saved = await fullStackBrowserRequest(
+      page,
+      "/api/reading-progress/states",
+      "POST",
+      { materialId: materialId ?? "" },
+    );
+    expect(saved.ok()).toBe(true);
+    expect(readingStatesResultSchema.parse(await saved.json())).toMatchObject({
+      kind: "ready",
+      states: [{ materialId, isRead: true, readAt: expect.any(String) }],
     });
+    await page.goto(`/?q=${encodeURIComponent(material.title)}`);
+    const cardOn = (surface: Page) =>
+      surface.getByRole("article").filter({
+        has: surface.getByRole("link", { name: material.title, exact: true }),
+      });
+    const card = cardOn(page);
     await expect(card.locator("[data-material-reading-status]")).toHaveText(
       material.label,
     );
-    // Поиск принадлежит браузеру: каталог темы читает материалы, только когда уже смонтирован. Текст,
-    // введённый до гидрации, React заменяет состоянием поля.
-    const catalogRead = page.waitForRequest(
-      (request) =>
-        new URL(request.url()).pathname ===
-        "/api/library/topics/platform/materials",
-    );
-    await page.goto("/topics/platform");
-    await catalogRead;
-    await page.getByRole("searchbox").fill(material.title);
-    await expect(card.locator("[data-material-reading-status]")).toHaveText(
-      material.label,
-    );
+    // Новая вкладка ещё не закрывала Telegram. Каталог монтируется раньше настоящего ответа о входе.
+    const topic = await context.newPage();
+    const dismiss = topic.getByRole("button", {
+      name: "Закрыть подключение Telegram",
+    });
+    let releaseAuth = (): void => undefined;
+    const authReleased = new Promise<void>((resolve) => {
+      releaseAuth = resolve;
+    });
+    await topic.route("**/auth/status", async (route) => {
+      const response = await route.fetch();
+      await authReleased;
+      await route.fulfill({ response });
+    });
+    try {
+      const catalogRead = topic.waitForResponse(
+        (response) =>
+          new URL(response.url()).pathname ===
+            "/api/library/topics/platform/materials" && response.ok(),
+      );
+      await topic.goto("/topics/platform");
+      await catalogRead;
+      releaseAuth();
+      const modal = topic.locator("dialog:modal").filter({ has: dismiss });
+      await expect(modal).toBeVisible();
+      const search = topic.getByRole("searchbox");
+      await dismiss.click();
+      await expect(modal).toHaveCount(0);
+      const filteredCatalog = topic.waitForResponse((response) => {
+        const url = new URL(response.url());
+        return (
+          url.pathname === "/api/library/topics/platform/materials" &&
+          url.searchParams.get("q") === material.title &&
+          response.ok()
+        );
+      });
+      await search.click();
+      await search.fill(material.title);
+      await expect(search).toHaveValue(material.title);
+      await filteredCatalog;
+      await expect(cardOn(topic)).toHaveCount(1);
+      await expect(
+        cardOn(topic).locator("[data-material-reading-status]"),
+      ).toHaveText(material.label);
+    } finally {
+      releaseAuth();
+      await topic.close();
+    }
   }
 });
 
