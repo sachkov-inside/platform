@@ -1099,4 +1099,136 @@ describe("служебные сообщения подписки (реальны
       (await s.cabinet()).notices.map((notice) => notice.kind),
     ).not.toContain("access_ending");
   });
+
+  /** Тариф подписки: Offer её принятых условий, на который выдаётся и Enrollment. */
+  async function subscriptionOf(accountId: string) {
+    const row = await db.prisma.billingSubscription.findFirstOrThrow({
+      where: { accountId, state: { not: "ended" } },
+    });
+    return {
+      row,
+      offerId: subscriptionSnapshotSchema.parse(row.snapshot).offer.id,
+    };
+  }
+  async function cancelRenewal(s: Awaited<ReturnType<typeof scenario>>) {
+    const active = (await s.cabinet()).subscription;
+    value(
+      await s.subscriptions.cancel(s.buyer, {
+        operationId: randomUUID(),
+        expectedRevision: active?.revision,
+      }),
+    );
+  }
+
+  test("оплаченный срок, который продолжает Enrollment на тот же тариф, не заканчивается, и очередь его обходит (#918)", async () => {
+    const s = await scenario();
+    await s.buy();
+    await cancelRenewal(s);
+    const { row: original, offerId } = await subscriptionOf(s.buyer);
+    await assignManual(
+      s.buyer,
+      "2030-01-31T10:00:00.000Z",
+      "2030-03-30T10:00:00.000Z",
+      offerId,
+    );
+    // Соседняя подписка без продления кончается позже: ёмкость пробега в одну подписку должна
+    // дойти до неё, а не останавливаться на продолженной.
+    const neighbour = randomUUID();
+    await db.prisma.account.create({
+      data: {
+        id: neighbour,
+        logtoIssuer: "https://identity.example.test",
+        logtoSubject: neighbour,
+      },
+    });
+    await db.prisma.billingSubscription.create({
+      data: {
+        ...original,
+        id: randomUUID(),
+        accountId: neighbour,
+        snapshot: subscriptionSnapshotSchema.parse(original.snapshot),
+        consent: subscriptionConsentSchema.parse(original.consent),
+        pendingChange: {},
+        paidUntil: new Date(original.paidUntil.getTime() + 60_000),
+      },
+    });
+
+    s.at("2030-02-25T10:01:00Z");
+    value(await s.notices.scheduleReminders(1));
+    expect(await s.noticesOf("access_ending")).toEqual([]);
+    expect(
+      await db.prisma.billingNotice.count({
+        where: { accountId: neighbour, kind: "access_ending" },
+      }),
+    ).toBe(1);
+    s.at("2030-02-28T09:59:59Z");
+    value(await s.notices.scheduleReminders());
+    expect(await s.noticesOf("access_ending")).toEqual([]);
+    await s.pump(s.deliverEmail);
+    expect(s.sent.map((message) => message.subject)).not.toContain(
+      endingSubject,
+    );
+  });
+
+  test("Enrollment на тот же тариф после напоминания закрывает его, отзыв возвращает; свой период и другой тариф окончания не отменяют (#918)", async () => {
+    const s = await scenario();
+    await s.buy();
+    await cancelRenewal(s);
+    const { row: subscription, offerId } = await subscriptionOf(s.buyer);
+    // Enrollment оплаченного периода самой подписки продолжением не считается, даже если его срок
+    // записан дальше конца подписки.
+    const ownPeriods = await db.prisma.subscriptionEnrollment.updateMany({
+      where: { billingRef: subscription.id },
+      data: { endsAt: new Date("2030-03-30T10:00:00Z") },
+    });
+    expect(ownPeriods.count).toBeGreaterThan(0);
+    await assignManual(
+      s.buyer,
+      "2030-01-31T10:00:00.000Z",
+      "2030-03-30T10:00:00.000Z",
+    );
+    s.at("2030-02-25T10:00:00Z");
+    value(await s.notices.scheduleReminders());
+    const [reminder] = await s.noticesOf("access_ending");
+    if (reminder === undefined) throw new Error("Ожидалось напоминание");
+    expect(reminder).toMatchObject({ state: "current" });
+    const revision = await db.prisma.billingNoticeRevision.findFirstOrThrow({
+      where: { noticeRef: reminder.id },
+    });
+
+    s.at("2030-02-26T10:00:00Z");
+    const continuation = await assignManual(
+      s.buyer,
+      "2030-02-26T10:00:00.000Z",
+      "2030-03-30T10:00:00.000Z",
+      offerId,
+    );
+    expect(await s.notices.resolveNotice(revision.payload)).toEqual({
+      status: "superseded",
+    });
+    value(await s.notices.scheduleReminders());
+    expect(await s.noticesOf("access_ending")).toMatchObject([
+      { state: "superseded" },
+    ]);
+
+    // Отозванное основание доступ не продолжает: напоминание о той же границе возвращается.
+    const revoked = await grants.changeEnrollment(owner, {
+      operationId: randomUUID(),
+      enrollmentId: continuation.id,
+      expectedRevision: continuation.revision,
+      action: "revoke",
+      terms: {
+        startsAt: continuation.startsAt,
+        endsAt: continuation.endsAt,
+        endPolicy: "fixed",
+      },
+      reason: "Отзыв для проверки окончания",
+    });
+    if (!revoked.ok) throw new Error(revoked.error.code);
+    s.at("2030-02-26T11:00:00Z");
+    value(await s.notices.scheduleReminders());
+    expect(await s.noticesOf("access_ending")).toMatchObject([
+      { state: "current", dueAt: new Date("2030-02-28T10:00:00Z") },
+    ]);
+  });
 });

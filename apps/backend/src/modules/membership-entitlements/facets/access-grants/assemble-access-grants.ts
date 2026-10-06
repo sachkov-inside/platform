@@ -96,7 +96,10 @@ import {
   enrollmentEndingsQuerySchema,
   listEnrollmentEndings,
   readEnrollmentEnding,
+  readSubscriptionContinuation,
+  subscriptionContinuationQuerySchema,
   type EnrollmentEndingsQuery,
+  type SubscriptionContinuationQuery,
 } from "../../features/read-enrollment-endings/read-enrollment-endings.js";
 
 export interface AccessGrantsDependencies {
@@ -698,6 +701,29 @@ export function assembleAccessGrants(dependencies: AccessGrantsDependencies) {
           {
             module: "membership-entitlements",
             operation: "readEnrollmentEnding",
+          },
+          error,
+          accessFailure("unavailable"),
+        );
+      }
+    },
+    /**
+     * Внутреннее чтение billing без полномочия владельца: напоминание об окончании оплаченного
+     * срока не приходит, если доступ продолжает Enrollment на тот же тариф.
+     */
+    async readSubscriptionContinuation(query: SubscriptionContinuationQuery) {
+      const parsed = subscriptionContinuationQuerySchema.safeParse(query);
+      if (!parsed.success) return accessFailure("invalid_input");
+      try {
+        return {
+          ok: true as const,
+          value: await readSubscriptionContinuation(prisma, parsed.data),
+        };
+      } catch (error) {
+        return dependencyFailure(
+          {
+            module: "membership-entitlements",
+            operation: "readSubscriptionContinuation",
           },
           error,
           accessFailure("unavailable"),
