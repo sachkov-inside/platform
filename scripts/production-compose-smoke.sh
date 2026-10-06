@@ -31,6 +31,7 @@ container_exit_poll_attempts=20
 container_log_poll_attempts=30
 worker_health_poll_attempts=20
 database_lock_poll_attempts=20
+foundation_sql_poll_attempts=30
 pgboss_job_poll_attempts=20
 production_smoke_poll_interval_seconds=1
 readiness_http_retry_attempts=10
@@ -289,6 +290,25 @@ wait_for_container_exit() {
   exit 1
 }
 
+wait_for_foundation_sql() {
+  local attempt
+  local result
+  for ((attempt = 1; attempt <= foundation_sql_poll_attempts; attempt += 1)); do
+    # The temporary init-server listens on Unix sockets only; require the main server over TCP.
+    if result="$("${foundation_compose[@]}" exec -T postgres sh -c '
+      PGPASSWORD="$POSTGRES_PASSWORD" PGCONNECT_TIMEOUT=1 PGOPTIONS="-c statement_timeout=1000" \
+        psql --no-psqlrc --host 127.0.0.1 --username postgres --dbname postgres \
+          --set ON_ERROR_STOP=1 --tuples-only --no-align --command "select 1;"
+    ' 2>/dev/null)" && [[ "$result" == "1" ]]; then
+      return
+    fi
+    sleep "$production_smoke_poll_interval_seconds"
+  done
+  echo "Foundation PostgreSQL did not answer TCP SQL within $foundation_sql_poll_attempts attempts" >&2
+  "${foundation_compose[@]}" logs --no-color --tail 100 postgres >&2 || true
+  exit 1
+}
+
 wait_for_container_log() {
   local container_name=$1
   local expected=$2
@@ -461,6 +481,7 @@ write_broker_configuration
 
 "${foundation_compose[@]}" config --quiet
 "${foundation_compose[@]}" up --detach --build --wait postgres
+wait_for_foundation_sql
 
 "${foundation_compose[@]}" exec -T postgres createdb \
   --username postgres \
