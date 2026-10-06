@@ -92,6 +92,65 @@ const fixtures = [
       "callout.ts: material document blocks belong to the shared block registry; add the block there instead of declaring a node here",
     ],
   },
+  {
+    root: "test/guardrails/fixtures/architecture/route-props",
+    diagnostics: [
+      "products/[slug]/page.tsx: a route declares its own params and searchParams types; generated PageProps and LayoutProps do not exist before next typegen",
+      "account/layout.tsx: a route declares its own params and searchParams types; generated PageProps and LayoutProps do not exist before next typegen",
+    ],
+  },
+  {
+    root: "test/guardrails/fixtures/architecture/route-assertion",
+    diagnostics: [
+      "topic-link.ts: build a Route from computed text with internalRoute; an assertion holds only before or after next typegen",
+    ],
+    accepted: ["known.ts"],
+  },
+  {
+    root: "test/guardrails/fixtures/architecture/storybook-graph",
+    diagnostics: [
+      "reading-panel.tsx: Storybook proofs and fixtures stay outside the production graph",
+    ],
+    accepted: ["reading-panel.stories.tsx", "reading.fixtures.ts"],
+  },
+  {
+    root: "test/guardrails/fixtures/architecture/server-interface",
+    diagnostics: [
+      "notes-panel.client.tsx: browser code cannot import a server-only interface",
+      "notes-guard.client.tsx: browser code cannot import a server-only interface",
+    ],
+    accepted: ["note-title.client.tsx", "read-notes.server.ts"],
+  },
+  {
+    root: "test/guardrails/fixtures/architecture/dynamic-stale-time",
+    diagnostics: [
+      "topics/[slug]/page.tsx: declare unstable_dynamicStaleTime as a number literal in the route file",
+      "account/page.tsx: only a catalog page keeps itself in browser memory with unstable_dynamicStaleTime",
+    ],
+  },
+  {
+    root: "test/guardrails/fixtures/architecture/error-boundary",
+    diagnostics: [
+      "topics/[slug]/error.tsx: an error boundary reports the error through useRenderErrorReport",
+      "topics/[slug]/error.tsx: an error boundary recovers with retry; reset re-renders the same failure without a request",
+    ],
+    accepted: ["authoring/error.tsx"],
+  },
+  {
+    root: "test/guardrails/fixtures/architecture/session-reader",
+    diagnostics: [
+      "read-account.ts: a server render reads the session only through @/shared/auth, whose connection() stops a prefetch before it starts a token refresh",
+    ],
+    accepted: ["sign-out/route.ts"],
+  },
+  {
+    root: "test/guardrails/fixtures/architecture/site-animation",
+    diagnostics: [
+      "hero-motion.tsx: site animation is a CSS component beside its page; Remotion and framer-motion are not site assets",
+      "hero-film.tsx: site animation is a CSS component beside its page; Remotion and framer-motion are not site assets",
+      "hero-icons.tsx: icons come from lucide-react",
+    ],
+  },
 ];
 
 for (const fixture of fixtures) {
@@ -110,6 +169,14 @@ for (const fixture of fixtures) {
     if (!output.includes(diagnostic)) {
       throw new Error(
         `Web architecture failed ${fixture.root} without ${diagnostic}\n${output}`,
+      );
+    }
+  }
+  // Файл, который правило должно пропустить, не появляется в выводе.
+  for (const accepted of fixture.accepted ?? []) {
+    if (output.includes(`/${accepted}:`)) {
+      throw new Error(
+        `Web architecture rejected the allowed ${accepted} in ${fixture.root}\n${output}`,
       );
     }
   }
