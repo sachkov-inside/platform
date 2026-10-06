@@ -200,6 +200,56 @@ describe("application CI workflow contract", () => {
     assert.doesNotMatch(workflow, /pnpm install/u);
   });
 
+  // Зеркало Ubuntu отдавало пакеты WebKit с паузами по 30 с, и установка не успевала за таймаут
+  // задачи (#827).
+  it("installs Playwright system packages from a cache that only main saves", () => {
+    const step = (/** @type {string} */ name) => {
+      const start = setupAction.indexOf(`- name: ${name}\n`);
+      assert.notEqual(start, -1, `setup action must have step ${name}`);
+      const next = setupAction.indexOf("\n    - name: ", start + 1);
+      return setupAction.slice(start, next === -1 ? undefined : next);
+    };
+    const restore = step("Restore Playwright system packages");
+    const install = step("Install browser engines and system dependencies");
+    const save = step("Save Playwright system packages");
+
+    assert.ok(
+      setupAction.indexOf(restore) < setupAction.indexOf(install) &&
+        setupAction.indexOf(install) < setupAction.indexOf(save),
+      "system packages must be restored before the install and saved after it",
+    );
+    for (const block of [restore, save]) {
+      assert.match(block, /path: ~\/\.cache\/playwright-apt\/\*\.deb$/mu);
+    }
+    assert.match(restore, /uses: actions\/cache\/restore@/u);
+    assert.match(
+      restore,
+      /key: playwright-apt-.*inputs\.browsers.*steps\.playwright\.outputs\.version.*steps\.playwright\.outputs\.image/u,
+    );
+    assert.match(
+      restore,
+      /restore-keys: playwright-apt-\$\{\{ runner\.os \}\}-\$\{\{ inputs\.browsers \}\}-$/mu,
+    );
+    const archivesConfig = install.search(
+      /^ {8}echo "Dir::Cache::Archives \\"\$apt_archives\/\\";" \| sudo tee \/etc\/apt\/apt\.conf\.d\/99playwright-archives >\/dev\/null$/mu,
+    );
+    assert.notEqual(archivesConfig, -1, "apt must read the cached archives");
+    assert.ok(
+      archivesConfig < install.indexOf("playwright install --with-deps"),
+      "apt must read the cached archives before Playwright installs system packages",
+    );
+    assert.match(install, /apt-get autoclean$/mu);
+    assert.match(save, /uses: actions\/cache\/save@/u);
+    assert.match(
+      save,
+      /^ {6}if: \$\{\{ inputs\.browsers != '' && github\.ref == 'refs\/heads\/main' && steps\.system-packages\.outputs\.cache-hit != 'true' \}\}$/mu,
+    );
+    assert.match(
+      save,
+      /key: \$\{\{ steps\.system-packages\.outputs\.cache-primary-key \}\}$/mu,
+    );
+  });
+
   it("runs every required job on pinned GitHub-hosted runners", () => {
     for (const job of requiredJobs) {
       const body = jobBlock(job);
