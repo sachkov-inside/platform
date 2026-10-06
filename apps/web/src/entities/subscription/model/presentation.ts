@@ -354,8 +354,9 @@ export function billingErrorMessage(code: BillingFailureCode): string {
     case "unavailable":
       return "Данные оплаты сейчас недоступны. Повторите позже.";
     case "unauthorized":
-    case "forbidden":
       return "Сессия завершилась. Войдите снова.";
+    case "forbidden":
+      return "У вас нет права на это действие.";
     case "not_found":
       return "Мы не нашли эту операцию.";
     case "invalid_request":
