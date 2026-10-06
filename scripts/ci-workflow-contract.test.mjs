@@ -216,6 +216,7 @@ describe("application CI workflow contract", () => {
     assert.ok(
       setupAction.indexOf(restore) < setupAction.indexOf(install) &&
         setupAction.indexOf(install) < setupAction.indexOf(save),
+      "system packages must be restored before the install and saved after it",
     );
     for (const block of [restore, save]) {
       assert.match(block, /path: ~\/\.cache\/playwright-apt\/\*\.deb$/mu);
@@ -229,9 +230,12 @@ describe("application CI workflow contract", () => {
       restore,
       /restore-keys: playwright-apt-\$\{\{ runner\.os \}\}-\$\{\{ inputs\.browsers \}\}-$/mu,
     );
+    const archivesConfig = install.search(
+      /^ {8}echo "Dir::Cache::Archives \\"\$apt_archives\/\\";" \| sudo tee \/etc\/apt\/apt\.conf\.d\/99playwright-archives >\/dev\/null$/mu,
+    );
+    assert.notEqual(archivesConfig, -1, "apt must read the cached archives");
     assert.ok(
-      install.indexOf("Dir::Cache::Archives") <
-        install.indexOf("playwright install --with-deps"),
+      archivesConfig < install.indexOf("playwright install --with-deps"),
       "apt must read the cached archives before Playwright installs system packages",
     );
     assert.match(install, /apt-get autoclean$/mu);
