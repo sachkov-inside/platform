@@ -72,12 +72,30 @@ allowed while #728 is open.
 ## Integration suites
 
 Integration tests are split into two Vitest projects in `apps/backend/vitest.integration.config.mts`.
-`integration` runs files in parallel against one PostgreSQL container; `createMigratedTestDatabase`
+`integration` runs files in parallel against one PostgreSQL container shared by both projects; `createMigratedTestDatabase`
 copies a template migrated once per run, while migration tests start from an empty database with
 `createTestDatabase`. `integration-serial` holds the files that also own a RabbitMQ broker, kill
 worker processes or write the machine-wide worker readiness file; they run one at a time, so they
 measure behaviour rather than runner load. `scripts/integration-serial-files.test.mjs` fails when a
 file that starts a RabbitMQ broker, forks a crash process or runs a worker is missing from that list.
+The root alone runs PostgreSQL global setup; each project clears inherited `globalSetup` and
+receives the root's provided database context. The full command and either `--project` selection
+therefore start one PostgreSQL container, plus at most one RustFS or RabbitMQ container at a time,
+and the Testcontainers Ryuk cleanup container. This bound describes one invocation; other sessions
+own their own containers.
+
+The root config caps file workers using `test/integration/setup/worker-budget.ts`: one worker per
+two available CPU slots and per 2 GiB of available host memory, rounded down, with a minimum of one.
+The smaller limit wins. The memory input is Node's `process.availableMemory()`, which respects the
+process memory constraint; host free pages alone omit reclaimable memory on macOS. The budget allows
+1 GiB per active file and retains half the available memory and CPU slots for the runner, Docker
+and another session. The #569 local samples on 06.10.2026 reached 402 MiB per fork; 1 GiB also allows
+room for PostgreSQL work. The existing shared-container topology bounds Docker VM usage independently
+of the number of files. This is a startup snapshot, not a reservation against later external load.
+A machine with four available CPU slots and at least 4 GiB of available memory runs two files at once.
+Explicit Vitest `--maxWorkers` overrides the automatic budget; `--no-file-parallelism` runs one file
+at a time for comparison. The separate serial project retains its one-file limit.
+
 The default test and hook budgets in the same config only stop a stuck run: a test that needs more
 names its own budget, and a flaky test is fixed by its cause, never by raising a budget or re-running.
 

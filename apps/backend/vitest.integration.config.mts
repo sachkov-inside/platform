@@ -1,4 +1,8 @@
+import { availableParallelism } from "node:os";
+
 import { defineConfig } from "vitest/config";
+
+import { integrationWorkerBudget } from "./test/integration/setup/worker-budget.js";
 
 /**
  * Файлы, которые делят с остальными не только PostgreSQL: собственный брокер RabbitMQ, аварийные
@@ -61,6 +65,10 @@ const stuckHookBudgetMs = 60_000;
 export default defineConfig({
   test: {
     globalSetup: ["test/integration/setup/postgres.global.ts"],
+    maxWorkers: integrationWorkerBudget({
+      availableCpuCount: availableParallelism(),
+      availableMemoryBytes: process.availableMemory(),
+    }),
     testTimeout: stuckTestBudgetMs,
     hookTimeout: stuckHookBudgetMs,
     projects: [
@@ -68,6 +76,8 @@ export default defineConfig({
         extends: true,
         test: {
           name: "integration",
+          // Root setup provides the same PostgreSQL context to both projects.
+          globalSetup: [],
           include: ["test/integration/**/*.test.ts"],
           exclude: serialFiles,
           fileParallelism: true,
@@ -78,6 +88,7 @@ export default defineConfig({
         extends: true,
         test: {
           name: "integration-serial",
+          globalSetup: [],
           include: serialFiles,
           fileParallelism: false,
           sequence: { groupOrder: 1 },
