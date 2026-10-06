@@ -225,6 +225,7 @@ test.describe.serial("issue 116 pinned Logto proof", () => {
       canManageMaterials: false,
       state: "unavailable",
     });
+    expect((await recovery.request.get("/api/account")).status()).toBe(503);
     await startService("logto");
     await waitForEndpoint(
       `${logtoEndpoint}/oidc/.well-known/openid-configuration`,
@@ -257,6 +258,7 @@ test.describe.serial("issue 116 pinned Logto proof", () => {
     expect(await signedInAccountId(recovery)).toBe(accountId);
 
     await proveLearnerRefresh(recovery);
+    expect(await signedInAccountId(recovery)).toBe(accountId);
 
     const wave = 9;
     const existingAccountAttempts = await Promise.all(
@@ -275,18 +277,21 @@ test.describe.serial("issue 116 pinned Logto proof", () => {
     await expectDeliveryCount(recipient, recipientCodesPerWindow);
     await closeAttempts(existingAccountAttempts);
 
-    // Истёкший access token с недействительным refresh grant больше не открывает Account.
+    // Сессия без кешированного access token и с недействительным refresh grant не открывает Account.
     const { PersistKey, unwrapSession, wrapSession } =
       await import("@logto/node");
     const invalidSession = await browser.newContext({
       ignoreHTTPSErrors: true,
     });
     const currentSession = (await recovery.context().cookies()).find(
-      ({ name }) => name.startsWith("logto_"),
+      ({ domain, name }) =>
+        domain === new URL(webBaseUrl).hostname && name === appSession.name,
     );
     if (currentSession === undefined) throw new Error("Expected a BFF session");
     const secret = requiredEnvironment("LOGTO_COOKIE_SECRET");
     const session = await unwrapSession(currentSession.value, secret);
+    expect(typeof session.idToken).toBe("string");
+    expect(typeof session.refreshToken).toBe("string");
     delete session.accessToken;
     session[PersistKey.RefreshToken] = "invalid-refresh-grant-992";
     await invalidSession.addCookies([
@@ -295,7 +300,7 @@ test.describe.serial("issue 116 pinned Logto proof", () => {
     const closedAccount = await invalidSession.request.get(
       `${webBaseUrl}/api/account`,
     );
-    expect(closedAccount.status()).toBe(401);
+    expect(closedAccount.status()).toBe(503);
     const invalidRefresh = await invalidSession.request.get(
       `${webBaseUrl}/auth/status`,
     );
@@ -308,6 +313,9 @@ test.describe.serial("issue 116 pinned Logto proof", () => {
         name.startsWith("logto_"),
       ),
     ).toBe(false);
+    expect(
+      (await invalidSession.request.get(`${webBaseUrl}/api/account`)).status(),
+    ).toBe(401);
     await invalidSession.close();
 
     const signOut = await recovery.request.post(`${webBaseUrl}/auth/sign-out`, {
@@ -343,6 +351,7 @@ async function proveLearnerRefresh(page: Page): Promise<void> {
     "IDENTITY_PROOF_LEARNER_CLIENT_ID",
   );
   const storage = new Map<string, string>();
+  const tokenGrants: (string | null)[] = [];
   let authorizationUrl = "";
   const client = new LogtoClient(
     {
@@ -352,6 +361,15 @@ async function proveLearnerRefresh(page: Page): Promise<void> {
       scopes: ["learning:read"],
     },
     {
+      fetch: async (input, init) => {
+        const request = new Request(input, init);
+        if (new URL(request.url).pathname === "/oidc/token") {
+          tokenGrants.push(
+            new URLSearchParams(await request.clone().text()).get("grant_type"),
+          );
+        }
+        return fetch(request);
+      },
       navigate: (url) => {
         authorizationUrl = url;
       },
@@ -388,9 +406,12 @@ async function proveLearnerRefresh(page: Page): Promise<void> {
       new URL(authorizationUrl).searchParams.get("scope")?.split(" "),
     ).toContain("offline_access");
     await page.goto(authorizationUrl);
-    await page
-      .getByRole("button", { name: "Авторизовать", exact: true })
-      .click();
+    // A first-party Native client can return directly; third-party consent renders a button.
+    if (new URL(page.url()).origin === logtoEndpoint) {
+      await page
+        .getByRole("button", { name: "Авторизовать", exact: true })
+        .click();
+    }
     await expect(page).toHaveURL(
       (url) =>
         url.origin === new URL(redirectUri).origin &&
@@ -401,11 +422,20 @@ async function proveLearnerRefresh(page: Page): Promise<void> {
     );
     expect(storage.has(PersistKey.RefreshToken)).toBe(true);
     const account = await client.getIdTokenClaims();
+    expect(
+      tokenGrants.filter((grant) => grant === "authorization_code"),
+    ).toHaveLength(1);
     const firstToken = await client.getAccessToken(resource);
     await expectLearnerInitialization(page, resource, firstToken);
     // Публичный метод SDK очищает кеш access token; следующее чтение требует refresh grant.
+    const refreshGrantsBefore = tokenGrants.filter(
+      (grant) => grant === "refresh_token",
+    ).length;
     await client.clearAccessToken();
     const refreshedToken = await client.getAccessToken(resource);
+    expect(
+      tokenGrants.filter((grant) => grant === "refresh_token"),
+    ).toHaveLength(refreshGrantsBefore + 1);
     expect((await client.getIdTokenClaims()).sub).toBe(account.sub);
     await expectLearnerInitialization(page, resource, refreshedToken);
   } finally {
