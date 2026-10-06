@@ -8,10 +8,7 @@ import {
   getPlatformAccessToken,
   LogtoSessionUnavailableError,
 } from "@/shared/auth/platform-access-token.server";
-import {
-  clearLogtoSessionCookie,
-  readLogtoBffConfig,
-} from "@/shared/auth/index.server";
+import { readLogtoBffConfig } from "@/shared/auth/index.server";
 
 export async function GET(): Promise<Response> {
   // Вне `try`: отказ от предсборки приходит исключением, и перехват выдал бы его за «unavailable».
@@ -32,23 +29,8 @@ export async function GET(): Promise<Response> {
     if (error instanceof LogtoSessionUnavailableError) {
       return statusResponse("guest");
     }
-    if (isInvalidGrant(error)) {
-      await clearLogtoSessionCookie(config);
-      return statusResponse("guest");
-    }
     return statusResponse("unavailable");
   }
-}
-
-function isInvalidGrant(error: unknown): error is Error & {
-  readonly code: "invalid_grant";
-} {
-  return (
-    error instanceof Error &&
-    error.name === "LogtoRequestError" &&
-    "code" in error &&
-    error.code === "invalid_grant"
-  );
 }
 
 function statusResponse(

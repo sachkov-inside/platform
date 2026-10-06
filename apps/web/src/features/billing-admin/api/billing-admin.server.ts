@@ -9,7 +9,7 @@ import {
   type ManageBillingCommand,
 } from "@/shared/api/backend/index.server";
 import {
-  getPlatformAccessToken,
+  getPlatformAccessTokenRsc,
   handleAuthenticatedMutation,
   readLogtoBffConfig,
 } from "@/shared/auth/index.server";
@@ -369,7 +369,8 @@ export async function loadBillingOffersForOwner(): Promise<
   readonly PriceSnapshot[]
 > {
   try {
-    const accessToken = await getPlatformAccessToken(readLogtoBffConfig());
+    // Рендер не пишет cookie: обновлённый или снятый токен сохранит обработчик маршрута (#1005).
+    const accessToken = await getPlatformAccessTokenRsc(readLogtoBffConfig());
     const result = await requestManageBilling(
       { operation: "offers.list", operationId: randomUUID(), limit: 100 },
       accessToken,

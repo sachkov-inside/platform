@@ -399,8 +399,9 @@ whole run. The five-minute lifetime itself is unchanged and the API still verifi
 renews the token through its ordinary path, the same one it uses in production. The fixture is a
 stand-in, not Logto: it authenticates no client on the token endpoint, never rotates a refresh
 token, and serves only the three endpoints it implements. What it does reproduce exactly is the
-renewal the application performs and the error shape the application reads, so a refusal is seen as
-a signed-out session rather than an unavailable service. A grant whose `resource` is the learner MCP
+renewal the application performs and the refusal body of the Logto fork (`error: "invalid_grant"`,
+`code: "oidc.invalid_grant"`, `message`), so a refusal is seen as a signed-out session rather than
+an unavailable service (#1005). A grant whose `resource` is the learner MCP
 endpoint (`<MCP_SERVER_URL>/learning`) answers a token for that audience with the `learning:read`
 scope (#948): `task-submissions.spec.ts` plays the learner's agent with a refresh token the launcher
 issues for the non-member Account, and any other resource is still refused.
