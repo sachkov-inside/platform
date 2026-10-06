@@ -8,6 +8,10 @@ export async function register(): Promise<void> {
   const { validateWebRuntimeConfigOrExit } =
     await import("./src/shared/config/index.server");
   validateWebRuntimeConfigOrExit();
+
+  // SDK Request bodies need HTTP/1.1 framing for Logto's token parser (ADR 0032).
+  const { Agent, setGlobalDispatcher } = await import("undici");
+  setGlobalDispatcher(new Agent({ allowH2: false }));
 }
 
 /** Серверный сбой отрисовки или обработчика — строкой в журнал площадки с кодом обращения. */

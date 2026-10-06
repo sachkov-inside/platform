@@ -94,7 +94,7 @@
   },
   "devDependencies": {
     "@inside/material-blocks": "workspace:*",
-    "@logto/node": "3.1.11",
+    "@logto/node": "4.0.0",
     "@types/node": "26.6.4",
     "@types/proper-lockfile": "4.1.4",
     "jose": "6.2.12",

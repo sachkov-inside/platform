@@ -49,6 +49,9 @@ mutations and ADR 0027 owns navigation and caching.
 
 ## Transport and validation
 
+- The Node web process configures Undici for HTTP/1.1 in `instrumentation.ts` before serving
+  requests. Logto rejects SDK streaming token bodies over HTTP/2 without Content-Length;
+  [ADR 0032](../../docs/adr/0032-web-http1-logto-sdk.md) owns this compatibility choice.
 - Nest owns the wire contract. Change controller schemas, regenerate deterministic OpenAPI and the
   Web client, and use `pnpm api:check` for drift. Do not hand-edit generated artifacts.
 - `@inside/material-blocks` owns the material block set. Take the rendered block type and its

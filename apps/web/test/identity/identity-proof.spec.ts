@@ -1,5 +1,7 @@
 import { execFile } from "node:child_process";
 import { createHash } from "node:crypto";
+import { once } from "node:events";
+import { createServer } from "node:http";
 import { readFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import { promisify } from "node:util";
@@ -223,6 +225,7 @@ test.describe.serial("issue 116 pinned Logto proof", () => {
       canManageMaterials: false,
       state: "unavailable",
     });
+    expect((await recovery.request.get("/api/account")).status()).toBe(503);
     await startService("logto");
     await waitForEndpoint(
       `${logtoEndpoint}/oidc/.well-known/openid-configuration`,
@@ -254,6 +257,9 @@ test.describe.serial("issue 116 pinned Logto proof", () => {
     ).toBeVisible();
     expect(await signedInAccountId(recovery)).toBe(accountId);
 
+    await proveLearnerRefresh(recovery);
+    expect(await signedInAccountId(recovery)).toBe(accountId);
+
     const wave = 9;
     const existingAccountAttempts = await Promise.all(
       Array.from({ length: wave }, () => sendFromFreshFlow(browser, recipient)),
@@ -270,9 +276,246 @@ test.describe.serial("issue 116 pinned Logto proof", () => {
       assertGenericRateLimit(limited);
     await expectDeliveryCount(recipient, recipientCodesPerWindow);
     await closeAttempts(existingAccountAttempts);
+
+    // Сессия без кешированного access token и с недействительным refresh grant не открывает Account.
+    const { PersistKey, unwrapSession, wrapSession } =
+      await import("@logto/node");
+    const invalidSession = await browser.newContext({
+      ignoreHTTPSErrors: true,
+    });
+    const currentSession = (await recovery.context().cookies()).find(
+      ({ domain, name }) =>
+        domain === new URL(webBaseUrl).hostname && name === appSession.name,
+    );
+    if (currentSession === undefined) throw new Error("Expected a BFF session");
+    const secret = requiredEnvironment("LOGTO_COOKIE_SECRET");
+    const session = await unwrapSession(
+      decodeURIComponent(currentSession.value),
+      secret,
+    );
+    expect(typeof session.idToken).toBe("string");
+    expect(typeof session.refreshToken).toBe("string");
+    delete session.accessToken;
+    const refreshToken = session[PersistKey.RefreshToken];
+    if (refreshToken === undefined) throw new Error("Expected a refresh token");
+    const invalidRefreshToken =
+      (refreshToken.startsWith("A") ? "B" : "A") + refreshToken.slice(1);
+    session[PersistKey.RefreshToken] = invalidRefreshToken;
+    const rejectedGrant = await recovery.request.post(
+      `${logtoEndpoint}/oidc/token`,
+      {
+        headers: {
+          authorization: `Basic ${Buffer.from(
+            `${requiredEnvironment("LOGTO_APP_ID")}:${requiredEnvironment("LOGTO_APP_SECRET")}`,
+          ).toString("base64")}`,
+        },
+        form: {
+          grant_type: "refresh_token",
+          refresh_token: invalidRefreshToken,
+        },
+      },
+    );
+    expect(rejectedGrant.status()).toBe(400);
+    await expect(rejectedGrant.json()).resolves.toMatchObject({
+      error: "invalid_grant",
+    });
+    await invalidSession.addCookies([
+      {
+        ...currentSession,
+        value: encodeURIComponent(await wrapSession(session, secret)),
+      },
+    ]);
+    const closedAccount = await invalidSession.request.get(
+      `${webBaseUrl}/api/account`,
+    );
+    expect(closedAccount.status()).toBe(503);
+    expect(await closedAccount.text()).toBe("");
+    const invalidRefresh = await invalidSession.request.get(
+      `${webBaseUrl}/auth/status`,
+    );
+    await expect(invalidRefresh.json()).resolves.toMatchObject({
+      state: "unavailable",
+      accountId: null,
+      canManageMaterials: false,
+    });
+    expect(
+      (await invalidSession.request.get(`${webBaseUrl}/api/account`)).status(),
+    ).toBe(503);
+    await invalidSession.close();
+
+    await recovery.goto(webBaseUrl);
+    await recovery
+      .getByRole("button", {
+        name: "Закрыть подключение Telegram",
+        exact: true,
+      })
+      .click();
+    await recovery
+      .getByRole("button", { name: "Аккаунт", exact: true })
+      .click();
+    const providerLogout = recovery.waitForRequest((request) => {
+      const url = new URL(request.url());
+      return (
+        url.origin === logtoEndpoint && url.pathname === "/oidc/session/end"
+      );
+    });
+    const signOutResponse = recovery.waitForResponse(
+      (response) =>
+        response.request().method() === "POST" &&
+        response.url() === `${webBaseUrl}/auth/sign-out`,
+    );
+    await recovery
+      .getByRole("menuitem", { name: "Выйти", exact: true })
+      .click();
+    const signOut = await signOutResponse;
+    expect(signOut.status()).toBe(200);
+    expect(await signOut.headerValue("clear-site-data")).toBe('"storage"');
+    expect((await providerLogout).method()).toBe("GET");
+    await expect(recovery).toHaveURL(`${webBaseUrl}/`);
+    const signedOut = await recovery.request.get("/auth/status");
+    await expect(signedOut.json()).resolves.toMatchObject({
+      state: "guest",
+      accountId: null,
+    });
+    expect((await recovery.request.get("/api/account")).status()).toBe(401);
     await recovery.close();
   });
 });
+
+/** Публичный MCP клиент получает offline_access и обновляет токен против настоящего server fork. */
+async function proveLearnerRefresh(page: Page): Promise<void> {
+  const {
+    default: LogtoClient,
+    PersistKey,
+    Prompt,
+  } = await import("@logto/node");
+  const resource = requiredEnvironment("IDENTITY_PROOF_LEARNER_MCP_URL");
+  const publicClientId = requiredEnvironment(
+    "IDENTITY_PROOF_LEARNER_CLIENT_ID",
+  );
+  const storage = new Map<string, string>();
+  const tokenGrants: (string | null)[] = [];
+  let authorizationUrl = "";
+  const client = new LogtoClient(
+    {
+      appId: publicClientId,
+      endpoint: logtoEndpoint,
+      resources: [resource],
+      scopes: ["learning:read"],
+    },
+    {
+      fetch: async (input, init) => {
+        const request = new Request(input, init);
+        if (new URL(request.url).pathname === "/oidc/token") {
+          tokenGrants.push(
+            new URLSearchParams(await request.clone().text()).get("grant_type"),
+          );
+        }
+        return fetch(request);
+      },
+      navigate: (url) => {
+        authorizationUrl = url;
+      },
+      storage: {
+        getItem: (key) => Promise.resolve(storage.get(key) ?? null),
+        setItem: (key, value) => {
+          storage.set(key, value);
+          return Promise.resolve();
+        },
+        removeItem: (key) => {
+          storage.delete(key);
+          return Promise.resolve();
+        },
+      },
+    },
+  );
+  // Native MCP clients receive OAuth callbacks on an actual loopback HTTP listener.
+  // Do not intercept Logto's navigation: the same browser just exercised provider restart.
+  const callback = Promise.withResolvers<string>();
+  const server = createServer((request, response) => {
+    response.end("MCP callback received");
+    callback.resolve(request.url ?? "");
+  });
+  server.listen(0, "127.0.0.1");
+  await once(server, "listening");
+  try {
+    const address = server.address();
+    if (address === null || typeof address === "string") {
+      throw new Error("Expected a loopback callback port");
+    }
+    const redirectUri = `http://127.0.0.1:${String(address.port)}/callback`;
+    await client.signIn({ redirectUri, prompt: [Prompt.Consent] });
+    expect(
+      new URL(authorizationUrl).searchParams.get("scope")?.split(" "),
+    ).toContain("offline_access");
+    await page.goto(authorizationUrl);
+    // A first-party Native client can return directly; third-party consent renders a button.
+    if (new URL(page.url()).origin === logtoEndpoint) {
+      await page
+        .getByRole("button", { name: "Авторизовать", exact: true })
+        .click();
+    }
+    await expect(page).toHaveURL(
+      (url) =>
+        url.origin === new URL(redirectUri).origin &&
+        url.pathname === "/callback",
+    );
+    await client.handleSignInCallback(
+      new URL(await callback.promise, redirectUri).href,
+    );
+    expect(storage.has(PersistKey.RefreshToken)).toBe(true);
+    const account = await client.getIdTokenClaims();
+    expect(
+      tokenGrants.filter((grant) => grant === "authorization_code"),
+    ).toHaveLength(1);
+    const firstToken = await client.getAccessToken(resource);
+    await expectLearnerInitialization(page, resource, firstToken);
+    // Публичный метод SDK очищает кеш access token; следующее чтение требует refresh grant.
+    const refreshGrantsBefore = tokenGrants.filter(
+      (grant) => grant === "refresh_token",
+    ).length;
+    await client.clearAccessToken();
+    const refreshedToken = await client.getAccessToken(resource);
+    expect(
+      tokenGrants.filter((grant) => grant === "refresh_token"),
+    ).toHaveLength(refreshGrantsBefore + 1);
+    expect((await client.getIdTokenClaims()).sub).toBe(account.sub);
+    await expectLearnerInitialization(page, resource, refreshedToken);
+  } finally {
+    await new Promise<void>((resolve, reject) =>
+      server.close((error) => {
+        if (error === undefined) resolve();
+        else reject(error);
+      }),
+    );
+  }
+  await page.goto(webBaseUrl);
+}
+
+async function expectLearnerInitialization(
+  page: Page,
+  resource: string,
+  token: string,
+): Promise<void> {
+  const response = await page.request.post(resource, {
+    headers: {
+      authorization: `Bearer ${token}`,
+      accept: "application/json, text/event-stream",
+    },
+    data: {
+      jsonrpc: "2.0",
+      id: 1,
+      method: "initialize",
+      params: {
+        protocolVersion: "2025-03-26",
+        capabilities: {},
+        clientInfo: { name: "sdk-proof-992", version: "1" },
+      },
+    },
+  });
+  expect(response.status()).toBe(200);
+  expect(await response.text()).toContain('"serverInfo"');
+}
 
 type SendOutcome = "delivered" | "limited" | "provider-failed";
 interface SendAttempt {
