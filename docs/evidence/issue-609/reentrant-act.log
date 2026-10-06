@@ -1,0 +1,72 @@
+$ vitest run --config vitest.config.mts --project=storybook src/_pages/material-authoring/ui/material-authoring-page.stories.tsx -t 'Редактор · блоки урока'
+(node:24531) [DEP0205] DeprecationWarning: `module.register()` is deprecated. Use `module.registerHooks()` instead.
+(Use `node --trace-deprecation ...` to show where the warning was created)
+
+ RUN  v4.1.11 /Users/dev/Work/Products/inside/platform.worktrees/609-act-warning-stories/apps/web
+
+6:16:19 PM [vite] (client) [console.error] A component suspended inside an `act` scope, but the `act` call was not awaited. When testing React components that depend on asynchronous data, you must await the result:
+
+await act(() => ...)
+stdout | src/_pages/material-authoring/ui/material-authoring-page.stories.tsx > Редактор · блоки урока
+[DEBUG-609] first open
+stdout | src/_pages/material-authoring/ui/material-authoring-page.stories.tsx > Редактор · блоки урока
+[DEBUG-609] second open
+stdout | src/_pages/material-authoring/ui/material-authoring-page.stories.tsx > Редактор · блоки урока
+[DEBUG-609] queue 2 promise false isFlushing true Error
+    at exports.act (http://localhost:63315/node_modules/.cache/storybook/10.6.1/d369a822a2fb954900120d1aba55ff5177d01eab08982126da6db4b4669f6acd/sb-vitest/deps/react.js?v=f54c0aa6:555:196)
+    at http://localhost:63315/@fs/Users/dev/Work/Products/inside/platform.worktrees/609-act-warning-stories/node_modules/.pnpm/@storybook+react@10.6.1_@types+react-dom@19.3.0_@types+react@19.3.0__@types+react@19.3._b8eb475cfc988da61a59538ab0556989/node_modules/@storybook/react/dist/_browser-chunks/chunk-7HUHAOMV.js?v=f54c0aa6:32:51
+    at Object.eventWrapper (http://localhost:63315/@fs/Users/dev/Work/Products/inside/platform.worktrees/609-act-warning-stories/node_modules/.pnpm/@storybook+react@10.6.1_@types+react-dom@19.3.0_@types+react@19.3.0__@types+react@19.3._b8eb475cfc988da61a59538ab0556989/node_modules/@storybook/react/dist/_browser-chunks/chunk-7HUHAOMV.js?v=f54c0aa6:158:12)
+    at wrapEvent (http://localhost:63315/node_modules/.cache/storybook/10.6.1/d369a822a2fb954900120d1aba55ff5177d01eab08982126da6db4b4669f6acd/sb-vitest/deps/test-DlK7ls57.js?v=f54c0aa6:26121:21)
+    at dispatchDOMEvent (http://localhost:63315/node_modules/.cache/storybook/10.6.1/d369a822a2fb954900120d1aba55ff5177d01eab08982126da6db4b4669f6acd/sb-vitest/deps/test-DlK7ls57.js?v=f54c0aa6:27063:2)
+    at document.<computed>.document.addEventListener.capture (http://localhost:63315/node_modules/.cache/storybook/10.6.1/d369a822a2fb954900120d1aba55ff5177d01eab08982126da6db4b4669f6acd/sb-vitest/deps/test-DlK7ls57.js?v=f54c0aa6:27181:60)
+    at HTMLInputElement.patchedFocus (http://localhost:63315/node_modules/.cache/storybook/10.6.1/d369a822a2fb954900120d1aba55ff5177d01eab08982126da6db4b4669f6acd/sb-vitest/deps/test-DlK7ls57.js?v=f54c0aa6:27090:69)
+    at http://localhost:63315/src/widgets/material-authoring/ui/material-document-editor.client.tsx:126:24
+    at Object.react_stack_bottom_frame (http://localhost:63315/node_modules/.cache/storybook/10.6.1/d369a822a2fb954900120d1aba55ff5177d01eab08982126da6db4b4669f6acd/sb-vitest/deps/client-BLAwiWrJ.js?v=f54c0aa6:14178:13)
+    at runWithFiberInDEV (http://localhost:63315/node_modules/.cache/storybook/10.6.1/d369a822a2fb954900120d1aba55ff5177d01eab08982126da6db4b4669f6acd/sb-vitest/deps/client-BLAwiWrJ.js?v=f54c0aa6:944:123)
+stderr | src/_pages/material-authoring/ui/material-authoring-page.stories.tsx > Редактор · блоки урока
+A component suspended inside an `act` scope, but the `act` call was not awaited. When testing React components that depend on asynchronous data, you must await the result:
+
+await act(() => ...)
+ ❯ |storybook (chromium)| src/_pages/material-authoring/ui/material-authoring-page.stories.tsx (27 tests | 1 failed | 26 skipped) 308ms
+   × Редактор · блоки урока 307ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  |storybook (chromium)| src/_pages/material-authoring/ui/material-authoring-page.stories.tsx > Редактор · блоки урока
+AssertionError: 
+[34mClick to debug the error directly in Storybook: http://localhost:6006/?path=/story/pages-authoring-material-editor--lesson-blocks-editing&addonPanel=storybook/interactions/panel[39m
+
+expected "spy" to not be called at all, but actually been called 1 times
+
+Received: 
+
+  1st spy call:
+
+    Array [
+      "A component suspended inside an `act` scope, but the `act` call was not awaited. When testing React components that depend on asynchronous data, you must await the result:
+    
+    await act(() => ...)",
+    ]
+
+
+Number of calls: 1
+
+ ❯ within src/_pages/material-authoring/ui/material-authoring-page.stories.tsx:548:35
+    546|       console.log("[DEBUG-609] first open");
+    547|       const menu = await openMenu();
+    548|       await userEvent.click(within(menu).getByRole("button", { name: "…
+       |                                   ^
+    549|       await waitFor(() => expect(canvas.getByRole("textbox", {name: "С…
+    550|       await userEvent.click(canvas.getByRole("button", { name: "Вид вр…
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed (1)
+      Tests  1 failed | 26 skipped (27)
+   Start at  18:16:18
+   Duration  1.89s (transform 0ms, setup 639ms, import 345ms, tests 308ms, environment 0ms)
+
+/Users/dev/Work/Products/inside/platform.worktrees/609-act-warning-stories/apps/web:
+[ERR_PNPM_RECURSIVE_RUN_FIRST_FAIL] @inside/web@0.0.0 test:storybook: `vitest run --config vitest.config.mts --project=storybook src/_pages/material-authoring/ui/material-authoring-page.stories.tsx -t 'Редактор · блоки урока'`
+Exit status 1

@@ -1,0 +1,429 @@
+{
+  "measurement": "Vitest JSON assertionResults.duration (whole task, not play only)",
+  "samples": [
+    {
+      "runId": 37483174033,
+      "head": "79d28c69",
+      "variant": "before",
+      "mode": "parallel",
+      "startedAt": "2026-10-06T15:00:36.320000+00:00",
+      "files": 73,
+      "tests": 585,
+      "maxOverlappingFiles": 3,
+      "fileMs": 25092.3,
+      "testMs": {
+        "Редактирование и автосохранение": 2877.4,
+        "Редактор · блоки урока": 1857,
+        "Вложенное изображение · форма вложения": 1173.9
+      },
+      "window": "2026-10-06T14:58–15:25Z"
+    },
+    {
+      "runId": 37483163930,
+      "head": "79d28c69",
+      "variant": "before",
+      "mode": "parallel",
+      "startedAt": "2026-10-06T14:58:59.211000+00:00",
+      "files": 73,
+      "tests": 585,
+      "maxOverlappingFiles": 3,
+      "fileMs": 22190.9,
+      "testMs": {
+        "Редактирование и автосохранение": 2415.7,
+        "Редактор · блоки урока": 1303.3,
+        "Вложенное изображение · форма вложения": 1101.4
+      },
+      "window": "2026-10-06T14:58–15:25Z"
+    },
+    {
+      "runId": 37485549965,
+      "jobId": 112344494152,
+      "head": "f00f7e1d",
+      "variant": "before",
+      "mode": "parallel",
+      "files": 73,
+      "tests": 585,
+      "cpus": 4,
+      "maxOverlappingFiles": 3,
+      "fileMs": 18799.800048828125,
+      "neighbours": [
+        "_pages/access-admin/ui/access-admin-page.stories.tsx",
+        "_pages/content-collections/ui/series-order.stories.tsx",
+        "_pages/home/ui/home-page.stories.tsx",
+        "_pages/material-reader/ui/material-reader.stories.tsx",
+        "_pages/library-discovery/ui/series-journey.stories.tsx",
+        "features/billing-admin/ui/billing-admin-page.stories.tsx"
+      ],
+      "testMs": {
+        "Редактирование и автосохранение": 2092,
+        "Редактор · блоки урока": 1283.8,
+        "Вложенное изображение · форма вложения": 581.8
+      },
+      "measurementCompletedAt": "2026-10-06T15:15:17.8549876Z",
+      "window": "2026-10-06T14:58–15:25Z"
+    },
+    {
+      "runId": 37485549965,
+      "jobId": 112344494741,
+      "head": "f00f7e1d",
+      "variant": "after",
+      "mode": "parallel",
+      "files": 73,
+      "tests": 585,
+      "cpus": 4,
+      "maxOverlappingFiles": 3,
+      "fileMs": 28181,
+      "neighbours": [
+        "_pages/access-admin/ui/access-admin-page.stories.tsx",
+        "_pages/content-collections/ui/series-order.stories.tsx",
+        "_pages/home/ui/home-page.stories.tsx",
+        "_pages/library-discovery/ui/series-journey.stories.tsx",
+        "_pages/material-reader/ui/material-reader.stories.tsx"
+      ],
+      "testMs": {
+        "Редактирование и автосохранение": 3780.6,
+        "Редактор · блоки урока": 1802.5,
+        "Вложенное изображение · форма вложения": 1326.9
+      },
+      "measurementCompletedAt": "2026-10-06T15:15:51.3542437Z",
+      "window": "2026-10-06T14:58–15:25Z"
+    },
+    {
+      "runId": 37486433751,
+      "jobId": 112347532502,
+      "head": "cb35c507",
+      "variant": "before",
+      "mode": "parallel",
+      "files": 73,
+      "tests": 585,
+      "cpus": 4,
+      "maxOverlappingFiles": 3,
+      "fileMs": 20455,
+      "neighbours": [
+        "_pages/access-admin/ui/access-admin-page.stories.tsx",
+        "_pages/content-collections/ui/series-order.stories.tsx",
+        "_pages/home/ui/home-page.stories.tsx",
+        "_pages/library-discovery/ui/series-journey.stories.tsx",
+        "_pages/material-reader/ui/material-reader.stories.tsx",
+        "features/billing-admin/ui/billing-admin-page.stories.tsx"
+      ],
+      "testMs": {
+        "Редактирование и автосохранение": 2201.9,
+        "Редактор · блоки урока": 1399.1,
+        "Вложенное изображение · форма вложения": 891.4
+      },
+      "measurementCompletedAt": "2026-10-06T15:23:37.3575385Z",
+      "window": "2026-10-06T14:58–15:25Z"
+    },
+    {
+      "runId": 37486433751,
+      "jobId": 112347532502,
+      "head": "cb35c507",
+      "variant": "before",
+      "mode": "serial",
+      "files": 73,
+      "tests": 585,
+      "cpus": 4,
+      "maxOverlappingFiles": 1,
+      "fileMs": 15697.1,
+      "neighbours": [],
+      "testMs": {
+        "Редактирование и автосохранение": 1742.9,
+        "Редактор · блоки урока": 954,
+        "Вложенное изображение · форма вложения": 567.5
+      },
+      "measurementCompletedAt": "2026-10-06T15:23:37.7630356Z",
+      "window": "2026-10-06T14:58–15:25Z"
+    },
+    {
+      "runId": 37486433751,
+      "jobId": 112347532593,
+      "head": "cb35c507",
+      "variant": "after",
+      "mode": "parallel",
+      "files": 73,
+      "tests": 585,
+      "cpus": 4,
+      "maxOverlappingFiles": 3,
+      "fileMs": 27619.5,
+      "neighbours": [
+        "_pages/access-admin/ui/access-admin-page.stories.tsx",
+        "_pages/content-collections/ui/series-order.stories.tsx",
+        "_pages/home/ui/home-page.stories.tsx",
+        "_pages/library-discovery/ui/series-journey.stories.tsx",
+        "_pages/material-reader/ui/material-reader.stories.tsx"
+      ],
+      "testMs": {
+        "Редактирование и автосохранение": 3398.3,
+        "Редактор · блоки урока": 1878,
+        "Вложенное изображение · форма вложения": 1066.5
+      },
+      "measurementCompletedAt": "2026-10-06T15:24:31.2847928Z",
+      "window": "2026-10-06T14:58–15:25Z"
+    },
+    {
+      "runId": 37486433751,
+      "jobId": 112347532593,
+      "head": "cb35c507",
+      "variant": "after",
+      "mode": "serial",
+      "files": 73,
+      "tests": 585,
+      "cpus": 4,
+      "maxOverlappingFiles": 1,
+      "fileMs": 18968,
+      "neighbours": [],
+      "testMs": {
+        "Редактирование и автосохранение": 2080.5,
+        "Редактор · блоки урока": 1092.1,
+        "Вложенное изображение · форма вложения": 919.5
+      },
+      "measurementCompletedAt": "2026-10-06T15:24:31.8927256Z",
+      "window": "2026-10-06T14:58–15:25Z"
+    },
+    {
+      "runId": 37489433034,
+      "jobId": 112358143436,
+      "head": "56450e24",
+      "variant": "before",
+      "mode": "serial",
+      "window": "2026-10-06T15:50Z onward",
+      "startedAt": "2026-10-06T15:50:08.677Z",
+      "files": 73,
+      "tests": 585,
+      "cpus": 4,
+      "maxOverlappingFiles": 1,
+      "fileMs": 18277,
+      "neighbours": [],
+      "testMs": {
+        "Редактирование и автосохранение": 1780.4,
+        "Редактор · блоки урока": 1210.9,
+        "Вложенное изображение · форма вложения": 669.5
+      },
+      "testStatuses": {
+        "Редактирование и автосохранение": "passed",
+        "Редактор · блоки урока": "passed",
+        "Вложенное изображение · форма вложения": "passed"
+      },
+      "measurementCompletedAt": "2026-10-06T15:52:55.9944529Z"
+    },
+    {
+      "runId": 37489433034,
+      "jobId": 112358143436,
+      "head": "56450e24",
+      "variant": "before",
+      "mode": "parallel",
+      "window": "2026-10-06T15:50Z onward",
+      "startedAt": "2026-10-06T15:53:05.414Z",
+      "files": 73,
+      "tests": 585,
+      "cpus": 4,
+      "maxOverlappingFiles": 3,
+      "fileMs": 25441.8,
+      "neighbours": [
+        "_pages/access-admin/ui/access-admin-page.stories.tsx",
+        "_pages/account-subscription/ui/account-subscription-page.stories.tsx",
+        "_pages/content-collections/ui/series-order.stories.tsx",
+        "_pages/home/ui/home-page.stories.tsx",
+        "_pages/library-discovery/ui/series-journey.stories.tsx"
+      ],
+      "testMs": {
+        "Редактирование и автосохранение": 2446.6,
+        "Редактор · блоки урока": 2288.1,
+        "Вложенное изображение · форма вложения": 1758.5
+      },
+      "testStatuses": {
+        "Редактирование и автосохранение": "passed",
+        "Редактор · блоки урока": "passed",
+        "Вложенное изображение · форма вложения": "passed"
+      },
+      "measurementCompletedAt": "2026-10-06T15:54:38.5397259Z"
+    },
+    {
+      "runId": 37489433034,
+      "jobId": 112358143436,
+      "head": "56450e24",
+      "variant": "before",
+      "mode": "typing12-loaded",
+      "window": "2026-10-06T15:50Z onward",
+      "startedAt": "2026-10-06T15:55:04.831Z",
+      "files": 1,
+      "tests": 27,
+      "cpus": 4,
+      "maxOverlappingFiles": 1,
+      "fileMs": 96178.6,
+      "neighbours": [],
+      "testMs": {
+        "Редактирование и автосохранение": 6316.2,
+        "Редактор · блоки урока": 51363,
+        "Вложенное изображение · форма вложения": 3562.7
+      },
+      "testStatuses": {
+        "Редактирование и автосохранение": "passed",
+        "Редактор · блоки урока": "passed",
+        "Вложенное изображение · форма вложения": "passed"
+      },
+      "measurementCompletedAt": "2026-10-06T15:56:41.8192409Z",
+      "cpuAffinity": [
+        0
+      ],
+      "addedCpuCompetitors": 2,
+      "typingRounds": 12,
+      "typedCharacters": 564
+    },
+    {
+      "runId": 37489433034,
+      "jobId": 112358143436,
+      "head": "56450e24",
+      "variant": "before",
+      "mode": "typing12-idle",
+      "window": "2026-10-06T15:50Z onward",
+      "startedAt": "2026-10-06T15:56:52.236Z",
+      "files": 1,
+      "tests": 27,
+      "cpus": 4,
+      "maxOverlappingFiles": 1,
+      "fileMs": 29020.4,
+      "neighbours": [],
+      "testMs": {
+        "Редактирование и автосохранение": 2594.5,
+        "Редактор · блоки урока": 8629.5,
+        "Вложенное изображение · форма вложения": 781
+      },
+      "testStatuses": {
+        "Редактирование и автосохранение": "passed",
+        "Редактор · блоки урока": "passed",
+        "Вложенное изображение · форма вложения": "passed"
+      },
+      "measurementCompletedAt": "2026-10-06T15:57:21.7768618Z",
+      "cpuAffinity": [
+        0
+      ],
+      "addedCpuCompetitors": 0,
+      "typingRounds": 12,
+      "typedCharacters": 564
+    },
+    {
+      "runId": 37489433034,
+      "jobId": 112358143405,
+      "head": "56450e24",
+      "variant": "after",
+      "mode": "serial",
+      "window": "2026-10-06T15:50Z onward",
+      "startedAt": "2026-10-06T15:50:07.972Z",
+      "files": 73,
+      "tests": 585,
+      "cpus": 4,
+      "maxOverlappingFiles": 1,
+      "fileMs": 15925.5,
+      "neighbours": [],
+      "testMs": {
+        "Редактирование и автосохранение": 1637.4,
+        "Редактор · блоки урока": 800.7,
+        "Вложенное изображение · форма вложения": 588.6
+      },
+      "testStatuses": {
+        "Редактирование и автосохранение": "passed",
+        "Редактор · блоки урока": "passed",
+        "Вложенное изображение · форма вложения": "passed"
+      },
+      "measurementCompletedAt": "2026-10-06T15:52:30.2696095Z"
+    },
+    {
+      "runId": 37489433034,
+      "jobId": 112358143405,
+      "head": "56450e24",
+      "variant": "after",
+      "mode": "parallel",
+      "window": "2026-10-06T15:50Z onward",
+      "startedAt": "2026-10-06T15:52:37.618Z",
+      "files": 73,
+      "tests": 585,
+      "cpus": 4,
+      "maxOverlappingFiles": 3,
+      "fileMs": 20751.4,
+      "neighbours": [
+        "_pages/access-admin/ui/access-admin-page.stories.tsx",
+        "_pages/account-subscription/ui/account-subscription-page.stories.tsx",
+        "_pages/content-collections/ui/series-order.stories.tsx",
+        "_pages/home/ui/home-page.stories.tsx",
+        "_pages/library-discovery/ui/series-journey.stories.tsx"
+      ],
+      "testMs": {
+        "Редактирование и автосохранение": 2074.2,
+        "Редактор · блоки урока": 1354.7,
+        "Вложенное изображение · форма вложения": 1364.3
+      },
+      "testStatuses": {
+        "Редактирование и автосохранение": "passed",
+        "Редактор · блоки урока": "passed",
+        "Вложенное изображение · форма вложения": "passed"
+      },
+      "measurementCompletedAt": "2026-10-06T15:53:51.2315278Z"
+    },
+    {
+      "runId": 37489433034,
+      "jobId": 112358143405,
+      "head": "56450e24",
+      "variant": "after",
+      "mode": "typing12-idle",
+      "window": "2026-10-06T15:50Z onward",
+      "startedAt": "2026-10-06T15:54:01.149Z",
+      "files": 1,
+      "tests": 27,
+      "cpus": 4,
+      "maxOverlappingFiles": 1,
+      "fileMs": 26523.6,
+      "neighbours": [],
+      "testMs": {
+        "Редактирование и автосохранение": 2309.3,
+        "Редактор · блоки урока": 7502.3,
+        "Вложенное изображение · форма вложения": 769.2
+      },
+      "testStatuses": {
+        "Редактирование и автосохранение": "passed",
+        "Редактор · блоки урока": "passed",
+        "Вложенное изображение · форма вложения": "passed"
+      },
+      "measurementCompletedAt": "2026-10-06T15:54:28.1697509Z",
+      "cpuAffinity": [
+        0
+      ],
+      "addedCpuCompetitors": 0,
+      "typingRounds": 12,
+      "typedCharacters": 564
+    },
+    {
+      "runId": 37489433034,
+      "jobId": 112358143405,
+      "head": "56450e24",
+      "variant": "after",
+      "mode": "typing12-loaded",
+      "window": "2026-10-06T15:50Z onward",
+      "startedAt": "2026-10-06T15:54:48.017Z",
+      "files": 1,
+      "tests": 27,
+      "cpus": 4,
+      "maxOverlappingFiles": 1,
+      "fileMs": 75533.9,
+      "neighbours": [],
+      "testMs": {
+        "Редактирование и автосохранение": 5231.4,
+        "Редактор · блоки урока": 37036.1,
+        "Вложенное изображение · форма вложения": 2608.7
+      },
+      "testStatuses": {
+        "Редактирование и автосохранение": "passed",
+        "Редактор · блоки урока": "passed",
+        "Вложенное изображение · форма вложения": "passed"
+      },
+      "measurementCompletedAt": "2026-10-06T15:56:04.4852985Z",
+      "cpuAffinity": [
+        0
+      ],
+      "addedCpuCompetitors": 2,
+      "typingRounds": 12,
+      "typedCharacters": 564
+    }
+  ]
+}
