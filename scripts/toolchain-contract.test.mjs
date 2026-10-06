@@ -76,6 +76,10 @@ describe("supported toolchain contract", () => {
       assertNodeBasesPinnedByDigest(path, dockerfile);
       assert.match(
         dockerfile,
+        /npm install --global corepack@\d+\.\d+\.\d+(?:\s|$)/u,
+      );
+      assert.match(
+        dockerfile,
         new RegExp(
           `corepack install --global pnpm@${escapeRegExp(pnpmVersion)}(?:\\s|$)`,
           "u",
@@ -643,6 +647,24 @@ describe("supported toolchain contract", () => {
     );
   });
 
+  it("rejects a production Node base that differs from the shared runtime", () => {
+    const dockerfile = read("apps/web/Dockerfile");
+    assert.throws(
+      () =>
+        assertNodeBasesPinnedByDigest(
+          "apps/web/Dockerfile",
+          dockerfile.replace(
+            new RegExp(
+              `FROM node:${escapeRegExp(nodeVersion)}-([^\\s]+) AS web-production`,
+              "u",
+            ),
+            "FROM node:22.0.0-$1 AS web-production",
+          ),
+        ),
+      /apps\/web\/Dockerfile: FROM node:/u,
+    );
+  });
+
   it("uses explicit container version tags", () => {
     const localImageLines = read("compose.yaml")
       .split("\n")
@@ -953,7 +975,10 @@ function assertNodeBasesPinnedByDigest(path, dockerfile) {
   for (const base of nodeBases) {
     assert.match(
       base,
-      /^FROM node:[^\s@]+@sha256:[a-f0-9]{64}$/u,
+      new RegExp(
+        `^FROM node:${escapeRegExp(nodeVersion)}-[^\\s@]+@sha256:[a-f0-9]{64}$`,
+        "u",
+      ),
       `${path}: ${base}`,
     );
   }

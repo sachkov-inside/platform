@@ -23,6 +23,9 @@ runs:
     - name: Install dependencies
       shell: bash
       run: pnpm install --frozen-lockfile
+    - name: Check peer dependencies
+      shell: bash
+      run: pnpm peers check
     - name: Resolve Playwright version
       id: playwright
       if: ${{ inputs.browsers != '' }}
