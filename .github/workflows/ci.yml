@@ -48,22 +48,26 @@ jobs:
       - name: Measure complete Storybook tasks
         run: |
           pnpm test:storybook --reporter=default --reporter=json --outputFile=storybook-609.json
+          pnpm test:storybook --no-file-parallelism --reporter=default --reporter=json --outputFile=storybook-609-serial.json
           node <<'JS'
           const fs = require("node:fs");
-          const report = JSON.parse(fs.readFileSync("apps/web/storybook-609.json", "utf8"));
+          for (const sample of ["parallel", "serial"]) {
+          const filename = sample === "parallel" ? "storybook-609.json" : "storybook-609-serial.json";
+          const report = JSON.parse(fs.readFileSync("apps/web/" + filename, "utf8"));
           const os = require("node:os");
           const events = report.testResults.flatMap(file => [[file.startTime, 1], [file.endTime, -1]]).sort((a, b) => a[0] - b[0] || a[1] - b[1]);
           let active = 0;
           let maxOverlappingFiles = 0;
           for (const [, delta] of events) maxOverlappingFiles = Math.max(maxOverlappingFiles, active += delta);
-          console.log("[MEASURE-609]", JSON.stringify({files: report.testResults.length, tests: report.numTotalTests, cpus: os.availableParallelism(), maxOverlappingFiles}));
+          console.log("[MEASURE-609]", JSON.stringify({sample, files: report.testResults.length, tests: report.numTotalTests, cpus: os.availableParallelism(), maxOverlappingFiles}));
           for (const file of report.testResults) {
             if (!file.name.endsWith("material-authoring-page.stories.tsx")) continue;
             const neighbours = report.testResults.filter(other => other !== file && other.startTime < file.endTime && other.endTime > file.startTime).map(other => other.name.split("/src/")[1]);
-            console.log("[MEASURE-609]", JSON.stringify({fileMs: file.endTime - file.startTime, neighbours}));
+            console.log("[MEASURE-609]", JSON.stringify({sample, fileMs: file.endTime - file.startTime, neighbours}));
             for (const test of file.assertionResults) {
-              console.log("[MEASURE-609]", JSON.stringify({name: test.title, ms: test.duration, status: test.status}));
+              console.log("[MEASURE-609]", JSON.stringify({sample, name: test.title, ms: test.duration, status: test.status}));
             }
+          }
           }
           JS
 
