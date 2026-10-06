@@ -1,18 +1,47 @@
 # Постоянный Telegram provider
 
 Один процесс HTTP с фоновыми обработчиками и operations-команды из того же образа. Platform остаётся
-единственным владельцем решений о доступе. Этот runbook описывает подготовку к совместной выкладке
-с Platform ([Telegram #45](https://github.com/sachkov-inside/inside-telegram/issues/45),
-[Platform #527](https://github.com/sachkov-inside/platform/issues/527)). Сама выкладка,
-регистрация webhook на production-боте, изменение прав ботов и живая приёмка выполняются в
-[Workspace #184](https://github.com/sachkov-inside/workspace/issues/184) по отдельному
-разрешению владельца. Наличие этого документа ничего не включает.
+единственным владельцем решений о доступе. Приложение находится в `apps/telegram` репозитория
+`sachkov-inside/platform` и сохраняет отдельные процесс, базу и миграции.
+Общий процесс задают [root AGENTS](../../../../AGENTS.md) и [root WORKFLOW](../../../../WORKFLOW.md).
+Текущие задачи ведутся в [Platform tracker](https://github.com/sachkov-inside/platform/issues).
 
 Telegram выпускается независимо из `sachkov-inside/platform`. Этот документ владеет выпуском,
-выкладкой, проверками и откатом Telegram. Код маршрута переносится в
-[platform#960](https://github.com/sachkov-inside/platform/issues/960); задача остаётся открытой до
-проверенного production-перехода и отката. История и неизменяемые Releases исходного
-`inside-telegram` сохраняются. Все пути checkout и команды сборки ниже отсчитываются от корня platform.
+выкладкой, проверками и откатом Telegram. Корневые
+[telegram-release.yml](../../../../.github/workflows/telegram-release.yml) и
+[telegram-deploy.yml](../../../../.github/workflows/telegram-deploy.yml) исполняют этот контракт.
+Production-переход и откат в [platform#960](https://github.com/sachkov-inside/platform/issues/960)
+завершены. История и неизменяемые Releases исходного `inside-telegram` сохраняются.
+Все пути checkout и команды сборки ниже отсчитываются от корня platform.
+
+## Проверенный переход в platform
+
+На 06.10.2026 завершена следующая последовательность операций из platform:
+
+| Операция | Доказательство |
+|---|---|
+| Применение прежнего `v5` новым workflow без перезапуска app | [Успешный запуск](https://github.com/sachkov-inside/platform/actions/runs/37402484631) |
+| Публикация первого platform-выпуска `v6` | [Запуск публикации](https://github.com/sachkov-inside/platform/actions/runs/37403092045), [immutable Release `telegram-v6`](https://github.com/sachkov-inside/platform/releases/tag/telegram-v6) |
+| Выкладка `v6` | [Успешный deploy](https://github.com/sachkov-inside/platform/actions/runs/37404652413) |
+| Фактический откат на прежний `v5` | [Успешный rollback](https://github.com/sachkov-inside/platform/actions/runs/37404793346) |
+| Возврат на `v6` | [Финальный deploy](https://github.com/sachkov-inside/platform/actions/runs/37404888023) |
+
+Финальная версия — `v6`; проверенный fallback — `v5`. После операций подтверждены точный образ,
+readiness, health и metrics. Успешно выполнены 23 HTTP-проверки маршрутизации, включая ожидаемые отказы.
+Работает один контейнер app;
+конфигурация и журнал 31 миграции не изменились. Финальный `v6` сохранял техническую готовность
+более 60 секунд без нового перезапуска; операционные счётчики ошибок оставались нулевыми.
+
+Это доказательство пути выпуска, выкладки и отката. Оно не подтверждает реальные сообщения
+Telegram, живой reconciliation, пользовательское связывание, вступление или восстановление
+резервной копии pgBackRest. Включение функций, регистрация webhook, изменение прав ботов
+и приёмка живых сценариев сохраняют отдельные разрешения владельца и проверки ниже.
+
+Первоначальный план совместного включения
+([Telegram #45](https://github.com/sachkov-inside/inside-telegram/issues/45),
+[Platform #527](https://github.com/sachkov-inside/platform/issues/527),
+[Workspace #184](https://github.com/sachkov-inside/workspace/issues/184)) сохранён ниже как
+исторический план. Он не описывает текущее состояние feature flags на production.
 
 ## Состав
 
@@ -233,10 +262,10 @@ guard и каталоги остаются `vN`. GHCR-пакет остаётс�
 На переходе #960 legacy последний номер проверен как `v5`:
 SHA `10dfbee3c9dd39d2dacdc39f8c7926ecd4498820`, digest
 `sha256:1159e5f27ed6f12528ae383f1f379bfdc41780a1b37dafb72d9b35ff34d1b748`.
-Идентичность миграций для `v5` и первого platform `v6` должна быть
+Идентичность миграций для `v5` и первого platform `v6` проверена как одинаковая:
 `sha256:f91e56479cfcae72f9596dc508c776c5c06e156f16d747e4e91d956931ca533d`:
 31 файл, последний `030-invitation-redemptions.ts`. `v4` имеет другую идентичность и не служит
-откатом для `v5`. Координатор повторно проверяет эти факты перед production.
+откатом для `v5`. Перед следующей выкладкой координатор проверяет идентичность выбранных версий.
 
 Ожидаемый простой первой выкладки — 1–2 минуты: graceful stop имеет предел 60 секунд,
 затем идут migration command и readiness нового процесса. Pull и проверка GitHub идут до stop.
@@ -638,8 +667,10 @@ Bot API клиентом: `url=https://<telegram-domain>/webhooks/telegram`,
 
 ## Совместная выкладка с Platform
 
-Порядок сверяется с runbook Platform #527. Production пуст, реальных участников Inside ещё нет;
-порядок всё равно исключает эффекты до готовности обеих сторон.
+Это исторический план первоначального совместного включения по Platform #527.
+Он предполагал пустой production до приёмки реальных участников Inside.
+При следующем включении функций сверьте фактическое состояние обеих сторон;
+порядок исключает эффекты до их готовности.
 
 1. **Подготовка.** Версии Telegram и Platform (`vN`, SHA и образ по digest из их release manifest),
    сгенерированные секреты для каждой пары из таблицы, id бота Tribute, реестр групп курса.

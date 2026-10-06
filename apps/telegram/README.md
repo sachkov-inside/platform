@@ -1,22 +1,28 @@
 # Sachkov Inside Telegram
 
-Private repository for the Telegram application of Sachkov Inside.
+Telegram application of Sachkov Inside, maintained in `apps/telegram` of
+[`sachkov-inside/platform`](https://github.com/sachkov-inside/platform).
 
-The application starts as a production-grade Membership bridge and later becomes the Telegram
-surface for Inside communications and marketing. Its first delivery connects a Telegram contact
-to a Platform Account, observes membership in the canonical closed chat, and supplies bounded
-evidence to Platform without making content requests wait for Telegram.
+The application implements the Membership bridge and the Telegram runtime for Inside
+communications and marketing. It connects a Telegram contact to a Platform Account, observes
+membership in the canonical closed chat, and supplies bounded evidence to Platform without making
+content requests wait for Telegram. Platform owns permissions and access decisions.
 
-Current stage: **controlled Platform convergence complete**. Final Platform confirmation schedules
-a canonical-chat check, authenticated `chat_member` updates produce ordered newer evidence, and
+Telegram keeps its own process, database, migrations and release sequence inside the repository.
+The [production runbook](docs/operations/production.md#проверенный-переход-в-platform) records the
+completed release/deploy transition, the verified rollback and the limits of that technical proof.
+Feature enablement and acceptance with real Telegram users follow their separate owner gates.
+
+## Historical Membership conformance milestone
+
+The **controlled Platform convergence** milestone verified the implemented Membership bridge.
+Final Platform confirmation schedules a canonical-chat check, authenticated `chat_member` updates
+produce ordered newer evidence, and
 durable reconciliation repairs missed events before positive evidence can outlive its five-minute
 bound. The production HTTP adapters have passed the two-application conformance journey recorded
-in [`docs/verification/platform-conformance.md`](docs/verification/platform-conformance.md). Bot
-registration, real credentials, deployment, and production enablement remain explicit later gates.
-
-The permanent deployment kit and its verification/recovery procedure are documented in
-[`docs/operations/production.md`](docs/operations/production.md). Its presence does not mean the
-production bot has been enabled.
+in [`docs/verification/platform-conformance.md`](docs/verification/platform-conformance.md).
+That historical conformance proof does not establish current production feature enablement or
+real Telegram messaging. Current deployment evidence belongs to the production runbook above.
 
 ## Author templates and communications contract
 
@@ -206,12 +212,18 @@ and remaining Platform integration gates are in
 ## Delivery
 
 Telegram lives in `apps/telegram` of `sachkov-inside/platform`.
-Read [application AGENTS](AGENTS.md), then [root WORKFLOW](../../WORKFLOW.md).
-New tasks use the Platform tracker. Source issue links remain historical until task transfer in #961.
+Read [application AGENTS](AGENTS.md), [root AGENTS](../../AGENTS.md) and
+[root WORKFLOW](../../WORKFLOW.md). New tasks use the
+[Platform tracker](https://github.com/sachkov-inside/platform/issues).
+The five open source issues were transferred to Platform; the verified old-to-new map is in
+[platform#961](https://github.com/sachkov-inside/platform/issues/961).
+Closed source issue URLs remain historical references.
 
 The root CI Gate includes isolated Telegram `check:full` on pull requests, merge groups and
-reusable exact-SHA calls. Root workflows implement independent Telegram delivery.
-The [production runbook](docs/operations/production.md) owns the transition and live proof.
+reusable exact-SHA calls. Root [telegram-release.yml](../../.github/workflows/telegram-release.yml)
+and [telegram-deploy.yml](../../.github/workflows/telegram-deploy.yml) implement independent
+Telegram delivery. The [production runbook](docs/operations/production.md) owns the production
+transition evidence and recovery procedure.
 
 ## Local development
 
