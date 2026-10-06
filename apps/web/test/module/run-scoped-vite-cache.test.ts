@@ -3,11 +3,17 @@ import { existsSync, mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { resolveConfig, type Plugin } from "vite";
 
 import { runScopedViteCache } from "../support/run-scoped-vite-cache.mjs";
 import vitestConfig from "../../vitest.config.mjs";
+
+// Без подмены import конфигурации запускает `storybookTest`: тот грузит presets Storybook и
+// меняет окружение процесса проверок.
+vi.mock("@storybook/addon-vitest/vitest-plugin", () => ({
+  storybookTest: () => [],
+}));
 
 const helper = new URL("../support/run-scoped-vite-cache.mjs", import.meta.url);
 const created: string[] = [];
