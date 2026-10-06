@@ -178,6 +178,27 @@ export const Catalog: Story = {
     await expect(
       page.getByRole("checkbox", { name: "Продукт: Инженерная практика" }),
     ).toBeInTheDocument();
+
+    const main = page.getByRole("main");
+    const skipLink = page.getByRole("link", { name: "Перейти к содержанию" });
+    await expect(skipLink).toHaveAttribute("href", `#${main.id}`);
+    main.focus();
+    await expect(main).toHaveFocus();
+
+    const lastSection = page.getByRole("heading", { name: "Права участника" });
+    await expect(lastSection.getBoundingClientRect().top).toBeGreaterThan(
+      main.getBoundingClientRect().bottom,
+    );
+    await expect(getComputedStyle(main).overflowY).toBe("auto");
+    lastSection.scrollIntoView({ block: "start" });
+    await expect(main.scrollTop).toBeGreaterThan(0);
+    await expect(
+      lastSection.getBoundingClientRect().top,
+    ).toBeGreaterThanOrEqual(main.getBoundingClientRect().top);
+    await expect(
+      lastSection.getBoundingClientRect().bottom,
+    ).toBeLessThanOrEqual(main.getBoundingClientRect().bottom);
+    main.scrollTop = 0;
   },
 };
 
