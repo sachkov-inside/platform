@@ -32,7 +32,8 @@ container_log_poll_attempts=30
 worker_health_poll_attempts=20
 database_lock_poll_attempts=20
 foundation_sql_poll_attempts=30
-# pg-boss workers poll every 2 s; a claimed drain job showed up after 1-3 checks locally and in CI (#728).
+# pg-boss workers poll every 2 s; the drain job waited for the table lock after 1-3 checks
+# locally and in CI (#728).
 pgboss_job_poll_attempts=20
 production_smoke_poll_interval_seconds=1
 readiness_http_retry_attempts=10
@@ -453,8 +454,9 @@ wait_for_pgboss_job_state() {
 }
 
 # The worker claims one job at a time, the oldest first, so the in-flight job is not always the
-# probe: the hourly schedule "17 * * * *" can enqueue a cleanup job just before it (#728). Any
-# cleanup job claimed while the table lock is held stays in flight until the lock goes.
+# probe: the hourly schedule "17 * * * *" can enqueue a cleanup job just before it (#728). The
+# drain job is the active cleanup job once a session waits for the table lock: that job stays in
+# flight until the lock goes.
 wait_for_active_cleanup_job() {
   local attempt
   local active_job_id
@@ -464,19 +466,19 @@ wait_for_active_cleanup_job() {
       --dbname inside \
       --tuples-only \
       --no-align \
-      --command "select id from pgboss.job where name = 'material-assets.cleanup' and state = 'active';")"
+      --command "select id from pgboss.job where name = 'material-assets.cleanup' and state = 'active' and exists (select 1 from pg_locks where relation = 'assets.material_assets'::regclass and not granted);")"
     if [[ "$active_job_id" =~ ^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$ ]]; then
       drain_job_id="$active_job_id"
-      echo "Worker drain job $drain_job_id became active after $attempt checks"
+      echo "Worker drain job $drain_job_id (probe $probe_job_id) waited for the table lock after $attempt checks"
       return
     fi
     sleep "$production_smoke_poll_interval_seconds"
   done
-  echo "No material-assets.cleanup job reached state active" >&2
+  echo "No active material-assets.cleanup job waited for the table lock" >&2
   "${foundation_compose[@]}" exec -T postgres psql \
     --username postgres \
     --dbname inside \
-    --command "select id, state, created_on, started_on from pgboss.job where name = 'material-assets.cleanup' order by created_on;" >&2
+    --command "select id, state, created_on, started_on from pgboss.job where name = 'material-assets.cleanup' order by created_on; select pid, mode, granted from pg_locks where relation = 'assets.material_assets'::regclass;" >&2
   exit 1
 }
 
