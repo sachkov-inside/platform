@@ -473,6 +473,16 @@ describe("production access pass workflow", () => {
     "utf8",
   );
 
+  it("binds the pass job to Production for environment secrets", () => {
+    const job = productionAccess.split("\n  pass:\n")[1];
+    assert.ok(job, "missing job pass");
+    assert.match(job, /^ {4}environment: Production$/mu);
+    assert.match(
+      job,
+      /PRODUCTION_ACCESS_LOGTO_APP_SECRET:\s*\$\{\{\s*secrets\.PRODUCTION_ACCESS_LOGTO_APP_SECRET\s*\}\}/u,
+    );
+  });
+
   /**
    * Репозиторий публичный, а GitHub печатает env шага в логе и маскирует только secrets (#929).
    * Из variables проход берёт лишь id приложения Logto: он не секрет и не персональные данные.
