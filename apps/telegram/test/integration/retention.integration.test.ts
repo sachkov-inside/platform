@@ -1,3 +1,5 @@
+import { randomUUID } from "node:crypto";
+
 import { hasText } from "../../src/shared/text.js";
 import { sql } from "kysely";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
@@ -44,6 +46,7 @@ beforeEach(async () => {
       start_response_delivery_attempts,
       start_response_deliveries,
       platform_links,
+      sales_funnel_event_outbox,
       telegram_updates
     restart identity cascade
   `.execute(database);
@@ -94,6 +97,16 @@ describe("retention", () => {
     await result("published-old", new Date(now.getTime() - 8 * 86_400_000));
     await result("published-recent", new Date(now.getTime() - 6 * 86_400_000));
     await result("unpublished", null);
+    for (const state of [
+      "pending",
+      "delivering",
+      "retry_scheduled",
+      "delivered",
+      "rejected",
+    ] as const) {
+      await funnelEvent(`${state}-old`, state, old);
+    }
+    await funnelEvent("delivered-recent", "delivered", recent);
 
     await expect(
       purgeExpiredRecords(database, now, periods),
@@ -120,6 +133,13 @@ describe("retention", () => {
     expect(await ids("notification_result_outbox", "result")).toEqual([
       "published-recent",
       "unpublished",
+    ]);
+    expect(await ids("sales_funnel_event_outbox", "diagnostic_code")).toEqual([
+      "delivered-recent",
+      "delivering-old",
+      "pending-old",
+      "rejected-old",
+      "retry_scheduled-old",
     ]);
   });
 
@@ -351,6 +371,29 @@ async function result(marker: string, publishedAt: Date | null): Promise<void> {
     insert into notification_result_outbox (message_id, result, published_at, created_at)
     values (gen_random_uuid(), ${JSON.stringify(marker)}::jsonb, ${publishedAt}, ${old})
   `.execute(database);
+}
+
+async function funnelEvent(
+  marker: string,
+  state:
+    "pending" | "delivering" | "retry_scheduled" | "delivered" | "rejected",
+  at: Date,
+): Promise<void> {
+  await database
+    .insertInto("sales_funnel_event_outbox")
+    .values({
+      available_at: at,
+      bot_identity: "inside",
+      created_at: at,
+      delivered_at: state === "delivered" ? at : null,
+      // The marker names the row; the column is free text the purge never reads.
+      diagnostic_code: marker,
+      event: JSON.stringify({ synthetic: marker }),
+      event_id: randomUUID(),
+      kind: "bot_entered",
+      state,
+    })
+    .execute();
 }
 
 async function ids(table: string, column: string): Promise<string[]> {

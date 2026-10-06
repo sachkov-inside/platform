@@ -64,6 +64,12 @@ export async function purgeExpiredRecords(
       select id from membership_provider_observations
       where observed_at < ${operational}
       limit ${BATCH})`,
+    // Platform holds a delivered sales funnel event and answers a re-sent one as a duplicate.
+    // A rejected event waits for a person.
+    sql`delete from sales_funnel_event_outbox where event_id in (
+      select event_id from sales_funnel_event_outbox
+      where state = 'delivered' and delivered_at < ${operational}
+      limit ${BATCH})`,
     sql`delete from notification_result_outbox where message_id in (
       select message_id from notification_result_outbox
       where published_at < ${published}
