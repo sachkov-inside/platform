@@ -1,3 +1,4 @@
+import { act } from "react";
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { expect, spyOn, userEvent, waitFor, within } from "storybook/test";
 
@@ -535,12 +536,44 @@ export const UnexpectedError: Story = {
 export const LessonBlocksEditing: Story = {
   globals: { viewport: { isRotated: false, value: "desktop1440" } },
   name: "Редактор · блоки урока",
+  beforeEach: () => {
+    const errors = spyOn(console, "error");
+    return async () => {
+      try {
+        await expect(errors).not.toHaveBeenCalled();
+      } finally {
+        errors.mockRestore();
+      }
+    };
+  },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
-    const openMenu = async () => {
-      await userEvent.click(
-        canvas.getByRole("button", { name: "Добавить блок" }),
+    const waitForEditorFocus = async () => {
+      await waitFor(() =>
+        expect(
+          canvas.getByRole("textbox", { name: "Содержимое материала" }),
+        ).toHaveFocus(),
       );
+    };
+    const openMenu = async () => {
+      const actEnvironment: unknown = Reflect.get(
+        globalThis,
+        "IS_REACT_ACT_ENVIRONMENT",
+      );
+      // Включаем проверки React, как обвязка Storybook, и восстанавливаем среду после act.
+      Reflect.set(globalThis, "IS_REACT_ACT_ENVIRONMENT", true);
+      try {
+        // Самостоятельный act владеет активацией кнопки и фокусом поиска (#609).
+        await act(() => {
+          canvas.getByRole("button", { name: "Добавить блок" }).click();
+          return Promise.resolve();
+        });
+      } finally {
+        Reflect.set(globalThis, "IS_REACT_ACT_ENVIRONMENT", actEnvironment);
+      }
+      await expect(
+        canvas.getByRole("textbox", { name: "Найти блок" }),
+      ).toHaveFocus();
       return canvas.getByRole("dialog", { name: "Добавить блок" });
     };
     /**
@@ -574,6 +607,7 @@ export const LessonBlocksEditing: Story = {
     }
 
     await userEvent.click(within(menu).getByRole("button", { name: "Совет" }));
+    await waitForEditorFocus();
     await expect(
       blockNode(
         'aside[data-callout="tip"]',
@@ -606,6 +640,7 @@ export const LessonBlocksEditing: Story = {
 
     menu = await openMenu();
     await userEvent.click(within(menu).getByRole("button", { name: "Итоги" }));
+    await waitForEditorFocus();
     await expect(
       blockNode(
         'section[data-material-block="takeaways"]',
@@ -618,6 +653,7 @@ export const LessonBlocksEditing: Story = {
 
     menu = await openMenu();
     await userEvent.click(within(menu).getByRole("button", { name: "Ресурс" }));
+    await waitForEditorFocus();
     await fillByPaste(
       inputField(canvasElement, "Название ресурса"),
       "Спецификация",

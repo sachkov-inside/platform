@@ -24,6 +24,49 @@ env:
   CI: "true"
 
 jobs:
+  # Temporary #609 experiment, outside CI Gate; removed before merge.
+  storybook-609:
+    name: Storybook timing 609 (${{ matrix.variant }})
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    strategy:
+      matrix:
+        variant: [before, after]
+    steps:
+      - name: Check out source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Set up Platform
+        uses: ./.github/actions/setup-platform
+        with:
+          browsers: chromium
+      - name: Restore the original story for the baseline
+        if: ${{ matrix.variant == 'before' }}
+        run: git show eb5656c57ff23c83bbc9cd85e0ef37645417df8f:apps/web/src/_pages/material-authoring/ui/material-authoring-page.stories.tsx > apps/web/src/_pages/material-authoring/ui/material-authoring-page.stories.tsx
+      - name: Measure complete Storybook tasks
+        run: |
+          pnpm test:storybook --reporter=default --reporter=json --outputFile=storybook-609.json
+          node <<'JS'
+          const fs = require("node:fs");
+          const report = JSON.parse(fs.readFileSync("apps/web/storybook-609.json", "utf8"));
+          const os = require("node:os");
+          const events = report.testResults.flatMap(file => [[file.startTime, 1], [file.endTime, -1]]).sort((a, b) => a[0] - b[0] || a[1] - b[1]);
+          let active = 0;
+          let maxOverlappingFiles = 0;
+          for (const [, delta] of events) maxOverlappingFiles = Math.max(maxOverlappingFiles, active += delta);
+          console.log("[MEASURE-609]", JSON.stringify({files: report.testResults.length, tests: report.numTotalTests, cpus: os.availableParallelism(), maxOverlappingFiles}));
+          for (const file of report.testResults) {
+            if (!file.name.endsWith("material-authoring-page.stories.tsx")) continue;
+            const neighbours = report.testResults.filter(other => other !== file && other.startTime < file.endTime && other.endTime > file.startTime).map(other => other.name.split("/src/")[1]);
+            console.log("[MEASURE-609]", JSON.stringify({fileMs: file.endTime - file.startTime, neighbours}));
+            for (const test of file.assertionResults) {
+              console.log("[MEASURE-609]", JSON.stringify({name: test.title, ms: test.duration, status: test.status}));
+            }
+          }
+          JS
+
   static:
     name: Static checks
     runs-on: ubuntu-24.04
@@ -69,18 +112,7 @@ jobs:
         with:
           browsers: chromium webkit
       - name: Run Storybook and browser-engine checks
-        # Temporary #609 timing capture; removed before this task merges.
-        run: |
-          pnpm --filter @inside/web test:browser-engines
-          pnpm test:storybook --reporter=default --reporter=json --outputFile=storybook-609.json
-          pnpm build:storybook
-      - name: Upload temporary Storybook timings for issue 609
-        if: ${{ always() }}
-        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
-        with:
-          name: storybook-609-${{ github.run_id }}-${{ github.run_attempt }}
-          path: apps/web/storybook-609.json
-          retention-days: 7
+        run: pnpm check:ui
 
   web-e2e:
     name: Web E2E
