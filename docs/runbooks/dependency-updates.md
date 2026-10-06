@@ -26,9 +26,10 @@ incompatibility in the pull request itself (for example regenerate a drifted con
 with the reason and `@dependabot ignore this minor version` or an `ignore` entry here.
 
 `@types/node` stays on the same major as `.node-version`. A Node major change updates the
-runtime, declarations, Docker base and CI as one reviewed migration. Actions and the Node base
-digest are advanced only by reviewed Dependabot pull requests, which update the SHA or digest
-together with its version comment or tag. Managed harness workflows are pinned in the Workspace
+runtime, declarations, Docker base and CI as one reviewed migration. Actions advance through
+reviewed Dependabot pull requests, which update the SHA together with its version comment. Node
+base tags and digests advance together through reviewed dependency pull requests, including
+owner-approved major migrations. Managed harness workflows are pinned in the Workspace
 package ([workspace#211](https://github.com/sachkov-inside/workspace/issues/211)).
 
 Repository dependency changes preserve:
