@@ -1,7 +1,6 @@
 name: Application CI
 
 on:
-  workflow_dispatch:
   pull_request:
     branches:
       - main
@@ -24,32 +23,6 @@ env:
   CI: "true"
 
 jobs:
-  # Temporary controlled #609 experiment; removed before merge.
-  storybook-609:
-    name: Storybook controlled 609 (${{ matrix.variant }})
-    runs-on: ubuntu-24.04
-    timeout-minutes: 25
-    strategy:
-      matrix:
-        variant: [before, after]
-    steps:
-      - name: Check out source
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
-        with:
-          fetch-depth: 0
-          persist-credentials: false
-      - name: Set up Platform
-        uses: ./.github/actions/setup-platform
-        with:
-          browsers: chromium
-      - name: Restore baseline story
-        if: ${{ matrix.variant == 'before' }}
-        run: git show eb5656c57ff23c83bbc9cd85e0ef37645417df8f:apps/web/src/_pages/material-authoring/ui/material-authoring-page.stories.tsx > apps/web/src/_pages/material-authoring/ui/material-authoring-page.stories.tsx
-      - name: Measure another window and controlled CPU contention
-        env:
-          VARIANT: ${{ matrix.variant }}
-        run: bash scripts/storybook-609-experiment.sh
-
   static:
     name: Static checks
     runs-on: ubuntu-24.04
