@@ -1094,9 +1094,61 @@ test("смена режима прохождения сбрасывает стр
 /** Обложка продукта в видимой странице, а не её копия в скрытом контейнере потока. */
 const productCover = "#content [data-product-part='hero'] img";
 
+/**
+ * Записывает каждого кандидата LCP с начала загрузки. Запись об обложке приходит после её отрисовки,
+ * а не после загрузки: когда `image.complete` уже верно, последним кандидатом бывает ещё текст
+ * первого экрана (#1007).
+ */
+async function recordLargestContentfulPaintCandidates(page: Page) {
+  await page.addInitScript(() => {
+    const candidates: unknown[] = [];
+    Object.assign(window, { __largestContentfulPaintCandidates: candidates });
+    new PerformanceObserver((list) => {
+      for (const entry of list.getEntries()) {
+        const element =
+          "element" in entry && entry.element instanceof Element
+            ? entry.element
+            : null;
+        candidates.push({
+          // Подпись показывает в отказе, что было крупнейшим на первом экране.
+          elementLabel:
+            element === null
+              ? "узел уже убран из документа"
+              : `${element.tagName} ${element.textContent.trim().slice(0, 80)}`.trim(),
+          heroCover:
+            element?.tagName === "IMG" &&
+            element.closest("[data-product-part='hero']") !== null,
+          startTime: entry.startTime,
+        });
+      }
+    }).observe({ buffered: true, type: "largest-contentful-paint" });
+  });
+}
+
+const largestContentfulPaintCandidates = z.array(
+  z.object({
+    elementLabel: z.string(),
+    heroCover: z.boolean(),
+    startTime: z.number(),
+  }),
+);
+
+function readLargestContentfulPaintCandidates(page: Page) {
+  return page.evaluate((): unknown => {
+    const candidates: unknown = Reflect.get(
+      window,
+      "__largestContentfulPaintCandidates",
+    );
+    return Array.isArray(candidates)
+      ? candidates
+      : "кандидаты LCP не записываются";
+  });
+}
+
 test("обложка первого экрана продукта грузится сразу и даёт LCP в пределах «хорошо»", async ({
   page,
-}) => {
+}, testInfo) => {
+  await recordLargestContentfulPaintCandidates(page);
   await page.goto("/products/navigation-cover");
 
   // Если ответ `/auth/status` меняет context над ещё не показанной частью, React рисует её на клиенте,
@@ -1104,43 +1156,28 @@ test("обложка первого экрана продукта грузитс
   const cover = page.locator(productCover);
   await expect(cover).toHaveAttribute("fetchpriority", "high");
   await expect(cover).toHaveAttribute("loading", "eager");
-  // Факт, которого ждёт проверка, — картинка обложки действительно отрисована.
+  // Факт, которого ждёт проверка, — запись LCP об отрисованной обложке. Загруженная картинка ещё не
+  // отрисована, и последним кандидатом в этот момент бывает текст первого экрана (#1007).
   await expect
-    .poll(() =>
-      cover.evaluate(
-        (image: HTMLImageElement) => image.complete && image.naturalWidth > 0,
-      ),
-    )
-    .toBe(true);
+    .poll(() => readLargestContentfulPaintCandidates(page), {
+      message: "LCP записал отрисованную обложку",
+    })
+    .toContainEqual(expect.objectContaining({ heroCover: true }));
 
-  const lcp = await page.evaluate(
-    () =>
-      new Promise<{ readonly heroCover: boolean; readonly startTime: number }>(
-        (resolve) => {
-          new PerformanceObserver((list, observer) => {
-            const entry = list.getEntries().at(-1);
-            if (entry === undefined) return;
-            observer.disconnect();
-            const element =
-              "element" in entry && entry.element instanceof Element
-                ? entry.element
-                : null;
-            resolve({
-              heroCover:
-                element?.tagName === "IMG" &&
-                element.closest("[data-product-part='hero']") !== null,
-              startTime: entry.startTime,
-            });
-          }).observe({ buffered: true, type: "largest-contentful-paint" });
-        },
-      ),
+  // Оба вывода — из одного чтения. Весь ответ PerformanceObserver лежит во вложении к результату.
+  const candidates = largestContentfulPaintCandidates.parse(
+    await readLargestContentfulPaintCandidates(page),
   );
-  expect(
-    lcp.heroCover,
-    "крупнейший элемент первого экрана — обложка продукта",
-  ).toBe(true);
+  await testInfo.attach("кандидаты LCP", {
+    body: JSON.stringify(candidates, null, 2),
+    contentType: "application/json",
+  });
+  const lcp = candidates.at(-1);
+  expect(lcp, "крупнейший элемент первого экрана — обложка продукта").toEqual(
+    expect.objectContaining({ heroCover: true }),
+  );
   // Порог «хорошо» у LCP — 2,5 секунды.
-  expect(lcp.startTime).toBeLessThan(2_500);
+  expect(lcp?.startTime).toBeLessThan(2_500);
 });
 
 /**
