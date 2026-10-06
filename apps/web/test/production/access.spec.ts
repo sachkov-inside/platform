@@ -482,7 +482,7 @@ async function observeFreePracticeThroughMcp(
   const partSchema = z.object({
     practiceId: z.literal(freePracticeId),
     contextVersion: z.string().min(1),
-    contentSha256: z.string().regex(/^[a-f0-9]{64}$/u),
+    contentSha256: z.hash("sha256"),
     part: z.number().int().nonnegative(),
     partCount: z.number().int().positive(),
     nextPart: z.number().int().nullable(),
