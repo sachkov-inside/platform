@@ -87,12 +87,14 @@ own their own containers.
 
 The root config caps file workers using `test/integration/setup/worker-budget.ts`: one worker per
 two available CPU slots and per 2 GiB of available host memory, rounded down, with a minimum of one.
-The smaller limit wins. The memory input is Node's `process.availableMemory()`, which respects the
-process memory constraint; host free pages alone omit reclaimable memory on macOS. The budget allows
+The smaller limit wins. The memory input is Node's `process.availableMemory()`: it accounts for Linux
+cgroup memory limits; on macOS, it includes free, inactive and purgeable pages without applying a
+process memory limit. The budget allows
 1 GiB per active file and retains half the available memory and CPU slots for the runner, Docker
-and another session. The #569 local samples on 06.10.2026 reached 402 MiB per fork; 1 GiB also allows
-room for PostgreSQL work. The existing shared-container topology bounds Docker VM usage independently
-of the number of files. This is a startup snapshot, not a reservation against later external load.
+and another session. The #569 local baseline samples on 06.10.2026 reached 402 MiB per fork; 1 GiB also
+allows room for PostgreSQL work. The topology bounds the number of containers; PostgreSQL CPU and
+memory usage still depend on the number of active files.
+This is a startup snapshot, not a reservation against later external load.
 A machine with four available CPU slots and at least 4 GiB of available memory runs two files at once.
 Explicit Vitest `--maxWorkers` overrides the automatic budget; `--no-file-parallelism` runs one file
 at a time for comparison. The separate serial project retains its one-file limit.

@@ -10,7 +10,7 @@ vi.mock("@testcontainers/postgresql", () => ({
   },
 }));
 
-test("child projects use the root database without starting a container", async () => {
+test("child projects do not start PostgreSQL", async () => {
   await expect(
     setup({ isRootProject: () => false, provide: vi.fn() }),
   ).resolves.toBeUndefined();
