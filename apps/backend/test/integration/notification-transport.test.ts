@@ -214,13 +214,10 @@ describe("Notifications real PostgreSQL / RabbitMQ transport", () => {
     return connection;
   }
   const admin = (args: string[]) => brokerAdmin(broker)(args);
-  let currentStep = "scenario action";
-  let failureEvidenceCaptured = false;
   async function transportFailure(error: unknown): Promise<Error> {
     const state = await brokerDiagnostics(broker, "inside-test");
-    failureEvidenceCaptured = true;
     return new Error(
-      `${error instanceof Error ? error.message : String(error)} | step: ${currentStep} | broker: ${state}`,
+      `${error instanceof Error ? error.message : String(error)} | broker: ${state}`,
       { cause: error },
     );
   }
@@ -229,7 +226,6 @@ describe("Notifications real PostgreSQL / RabbitMQ transport", () => {
     check: () => Promise<void>,
     budgetMs: number,
   ): Promise<void> {
-    currentStep = fact;
     try {
       await eventually(check, budgetMs);
     } catch (error) {
@@ -242,14 +238,11 @@ describe("Notifications real PostgreSQL / RabbitMQ transport", () => {
     }
   }
   beforeEach(({ onTestFailed, task }) => {
-    currentStep = "scenario action";
-    failureEvidenceCaptured = false;
     // Fallback outside the body budget: assertions, process failures and test timeouts also get evidence.
     onTestFailed(async () => {
-      if (!failureEvidenceCaptured)
-        console.error(
-          `Transport failure: ${task.name} | ${String(await transportFailure(new Error("scenario failed")))}`,
-        );
+      console.error(
+        `Transport failure after cleanup: ${task.name} | broker: ${await brokerDiagnostics(broker, "inside-test")}`,
+      );
     });
   });
   beforeAll(async () => {
@@ -462,20 +455,25 @@ describe("Notifications real PostgreSQL / RabbitMQ transport", () => {
           },
         );
         const worker = watchCrashWorker(child);
+        async function reaches(
+          signal: CrashWorkerSignal,
+          budgetMs: number,
+        ): Promise<void> {
+          try {
+            await worker.reaches(signal, budgetMs);
+          } catch (error) {
+            throw await transportFailure(error);
+          }
+        }
         let death: Awaited<ReturnType<typeof worker.kill>> | undefined;
         try {
           // Запуск и проверяемое поведение ждут раздельно: первое зависит от машины, второе — нет.
-          currentStep = "crash worker ready";
-          await worker.reaches(
-            crashWorkerSignals.ready,
-            crashWorkerStartBudgetMs,
-          );
-          currentStep = `crash worker boundary ${phase}`;
-          await worker.reaches(crashWorkerSignals.boundary, barrierBudgetMs);
+          await reaches(crashWorkerSignals.ready, crashWorkerStartBudgetMs);
+          await reaches(crashWorkerSignals.boundary, barrierBudgetMs);
           if (phase === "before-confirm") {
             // Broker persistence is observed while the application is still denied its confirm.
             // Проверка живёт вне ожидания воркера: её провал должен называться своим именем.
-            await Promise.all([
+            const observations = await Promise.allSettled([
               transportBarrier(
                 "before-confirm publish persisted in billing queue",
                 async () => {
@@ -487,15 +485,16 @@ describe("Notifications real PostgreSQL / RabbitMQ transport", () => {
               ),
               // #610: наблюдение очереди может пережить срок подтверждения публикации.
               // Воркер обязан оставаться на границе, не записывая неудачную попытку в outbox.
-              worker.reaches(
-                crashWorkerSignals.confirmExpired,
-                barrierBudgetMs,
-              ),
+              reaches(crashWorkerSignals.confirmExpired, barrierBudgetMs),
             ]);
+            // A rejected process wait must not leave a queue poll running in the next scenario.
+            for (const observation of observations) {
+              if (observation.status === "rejected") {
+                const failure: unknown = observation.reason;
+                throw failure;
+              }
+            }
           }
-        } catch (error) {
-          if (failureEvidenceCaptured) throw error;
-          throw await transportFailure(error);
         } finally {
           death = await worker.kill();
         }
@@ -744,7 +743,7 @@ describe("Notifications real PostgreSQL / RabbitMQ transport", () => {
     );
     await publishPoison("{broken:1");
     await transportBarrier(
-      "poison evidence committed before ack",
+      "poison evidence committed",
       async () => {
         expect(await database.prisma.notificationQuarantine.count()).toBe(1);
       },
