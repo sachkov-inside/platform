@@ -257,14 +257,14 @@ export function PeoplePanel({
     }
     const slot = `assign:${request.accountId}`;
     const id = operationId(slot, request);
-    const startsAt =
-      assignmentStarts.current.get(id) ?? new Date().toISOString();
-    assignmentStarts.current.set(id, startsAt);
     change.mutate({
       slot,
       message: "Тариф назначен. Платёж и списания не создавались.",
-      run: () =>
-        assignSubscriptionEnrollment({
+      run: () => {
+        const startsAt =
+          assignmentStarts.current.get(id) ?? new Date().toISOString();
+        assignmentStarts.current.set(id, startsAt);
+        return assignSubscriptionEnrollment({
           operationId: id,
           accountId: request.accountId,
           origin: "manual",
@@ -280,7 +280,8 @@ export function PeoplePanel({
           },
           billingRef: null,
           reason: request.reason,
-        }),
+        });
+      },
     });
   }
 
