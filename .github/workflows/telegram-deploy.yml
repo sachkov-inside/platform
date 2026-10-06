@@ -1,5 +1,4 @@
-# Historical fixture from inside-telegram; active root delivery is wired in #960.
-name: Deploy production release
+name: Deploy Telegram production release
 
 on:
   workflow_dispatch:
@@ -26,7 +25,7 @@ jobs:
   deploy:
     runs-on: ubuntu-24.04
     timeout-minutes: 30
-    environment: Production
+    environment: Production-Telegram
     permissions:
       actions: read
       contents: read
@@ -38,11 +37,23 @@ jobs:
           VERSION: ${{ inputs.version }}
         run: |
           set -euo pipefail
-          [[ "$OPERATION" == deploy || "$OPERATION" == rollback ]]
-          [[ "$VERSION" =~ ^v[1-9][0-9]*$ ]]
+          [[ "$OPERATION" == deploy || "$OPERATION" == rollback ]] || { echo 'Unsupported Telegram operation' >&2; exit 1; }
+          [[ "$VERSION" =~ ^v[1-9][0-9]*$ ]] || { echo 'Invalid Telegram version' >&2; exit 1; }
+          [[ "$GITHUB_REPOSITORY" == sachkov-inside/platform && "$GITHUB_REF" == refs/heads/main ]] || { echo 'Telegram deployment requires platform main' >&2; exit 1; }
+          if [[ "${VERSION#v}" -le 5 ]]; then
+            source_repository=sachkov-inside/inside-telegram
+            tag="$VERSION"
+            publication_workflow=.github/workflows/release.yml
+          else
+            source_repository=sachkov-inside/platform
+            tag="telegram-$VERSION"
+            publication_workflow=.github/workflows/telegram-release.yml
+          fi
+          echo "SOURCE_REPOSITORY=$source_repository" >>"$GITHUB_ENV"
+          echo "RELEASE_TAG=$tag" >>"$GITHUB_ENV"
           release_dir="$RUNNER_TEMP/production-release"
           mkdir -m 700 "$release_dir"
-          gh release view "$VERSION" --repo "$GITHUB_REPOSITORY" \
+          gh release view "$tag" --repo "$source_repository" \
             --json assets,isImmutable,tagName,targetCommitish \
             | jq '{
                 assets: [.assets[].name] | sort,
@@ -50,18 +61,18 @@ jobs:
                 tagName,
                 targetCommitish
               }' >"$release_dir/release.json"
-          jq --exit-status --arg version "$VERSION" '
+          jq --exit-status --arg tag "$tag" '
             .isImmutable == true and
-            .tagName == $version and
+            .tagName == $tag and
             .assets == ["compose.yaml", "release-manifest.json", "telegram.caddy"]
           ' "$release_dir/release.json" >/dev/null
-          gh release download "$VERSION" --repo "$GITHUB_REPOSITORY" \
+          gh release download "$tag" --repo "$source_repository" \
             --pattern release-manifest.json \
             --pattern compose.yaml \
             --pattern telegram.caddy \
             --dir "$release_dir"
           jq --exit-status \
-            --arg repository "$GITHUB_REPOSITORY" \
+            --arg repository "$source_repository" \
             --arg version "$VERSION" '
               .schemaVersion == "inside.telegram.release-manifest.v1" and
               .version == $version and
@@ -74,25 +85,34 @@ jobs:
               .caddy.asset == "telegram.caddy" and
               (.caddy.sha256 | test("^sha256:[0-9a-f]{64}$")) and
               (.publication.workflowRunId | type == "number") and
-              .publication.workflowRunId > 0
+              (.publication.workflowRunId | . > 0 and floor == .) and
+              .publication.workflowRunUrl == ("https://github.com/" + $repository + "/actions/runs/" + (.publication.workflowRunId | tostring))
             ' "$release_dir/release-manifest.json" >/dev/null
           expected_compose_sha="$(jq --raw-output .compose.sha256 "$release_dir/release-manifest.json")"
           actual_compose_sha="sha256:$(sha256sum "$release_dir/compose.yaml" | cut -d' ' -f1)"
-          [[ "$actual_compose_sha" == "$expected_compose_sha" ]]
+          [[ "$actual_compose_sha" == "$expected_compose_sha" ]] || { echo 'Telegram Compose asset hash mismatch' >&2; exit 1; }
           expected_caddy_sha="$(jq --raw-output .caddy.sha256 "$release_dir/release-manifest.json")"
           actual_caddy_sha="sha256:$(sha256sum "$release_dir/telegram.caddy" | cut -d' ' -f1)"
-          [[ "$actual_caddy_sha" == "$expected_caddy_sha" ]]
+          [[ "$actual_caddy_sha" == "$expected_caddy_sha" ]] || { echo 'Telegram Caddy asset hash mismatch' >&2; exit 1; }
           source_sha="$(jq --raw-output .source.sha "$release_dir/release-manifest.json")"
-          [[ "$(jq --raw-output .targetCommitish "$release_dir/release.json")" == "$source_sha" ]]
+          [[ "$(jq --raw-output .targetCommitish "$release_dir/release.json")" == "$source_sha" ]] || { echo 'Telegram release target SHA mismatch' >&2; exit 1; }
+          tag_sha="$(gh api "repos/$source_repository/commits/$tag" --jq .sha)"
+          [[ "$tag_sha" == "$source_sha" ]] || { echo 'Telegram tag SHA mismatch' >&2; exit 1; }
           publish_run_id="$(jq --raw-output .publication.workflowRunId "$release_dir/release-manifest.json")"
-          gh api "repos/$GITHUB_REPOSITORY/actions/runs/$publish_run_id" \
+          gh api "repos/$source_repository/actions/runs/$publish_run_id" \
             >"$release_dir/publication-run.json"
-          jq --exit-status --arg source_sha "$source_sha" '
+          jq --exit-status --arg source_sha "$source_sha" \
+            --arg repository "$source_repository" --arg workflow "$publication_workflow" \
+            --argjson runId "$publish_run_id" '
+            .id == $runId and
             .conclusion == "success" and
             .event == "workflow_dispatch" and
             .head_branch == "main" and
             .head_sha == $source_sha and
-            .path == ".github/workflows/release.yml"
+            .path == $workflow and
+            .repository.full_name == $repository and
+            .head_repository.full_name == $repository and
+            .html_url == ("https://github.com/" + $repository + "/actions/runs/" + ($runId | tostring))
           ' "$release_dir/publication-run.json" >/dev/null
           echo "RELEASE_DIR=$release_dir" >>"$GITHUB_ENV"
 
@@ -113,7 +133,7 @@ jobs:
           VERSION: ${{ inputs.version }}
         run: |
           set -euo pipefail
-          gh release view "$VERSION" --repo "$GITHUB_REPOSITORY" \
+          gh release view "$RELEASE_TAG" --repo "$SOURCE_REPOSITORY" \
             --json assets,isImmutable,tagName,targetCommitish \
             | jq '{
                 assets: [.assets[].name] | sort,

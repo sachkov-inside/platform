@@ -6,10 +6,13 @@ import { createHash } from "node:crypto";
 import { readFile, readdir } from "node:fs/promises";
 import path from "node:path";
 import process from "node:process";
-import { pathToFileURL } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 import { z } from "zod";
 
-export const repository = "sachkov-inside/inside-telegram";
+export const repository = "sachkov-inside/platform";
+export const legacyRepository = "sachkov-inside/inside-telegram";
+// Frozen source history verified at the #960 transition; newer legacy ordinals are refused.
+export const legacyLastOrdinal = 5;
 export const imageName = "ghcr.io/sachkov-inside/inside-telegram";
 export const manifestSchemaVersion = "inside.telegram.release-manifest.v1";
 export const releaseAssets = [
@@ -17,61 +20,54 @@ export const releaseAssets = [
   "release-manifest.json",
   "telegram.caddy",
 ];
-export const migrationsDirectory = "src/database/migrations";
+export const migrationsDirectory = fileURLToPath(
+  new URL("../src/database/migrations", import.meta.url),
+);
 
 const ordinalPattern = /^v[1-9][0-9]*$/;
 const shaPattern = /^[0-9a-f]{40}$/;
 const digestPattern = /^sha256:[0-9a-f]{64}$/;
+const retainedReleaseSchema = z.object({
+  version: z.string(),
+  immutable: z.boolean(),
+  assets: z.array(z.string()),
+  targetCommitish: z.string().optional(),
+});
 const planInputSchema = z.object({
   requestedVersion: z.string(),
   sourceSha: z.string(),
   currentMainSha: z.string(),
+  legacyTags: z.array(z.string()),
+  legacyReleases: z.array(retainedReleaseSchema),
   existingTags: z.array(z.string()),
-  existingReleases: z.array(
-    z.object({
-      version: z.string(),
-      immutable: z.boolean(),
-      assets: z.array(z.string()),
-    }),
-  ),
+  existingReleases: z.array(retainedReleaseSchema),
 });
 
-/**
- * Accepts only the next contiguous ordinal on the current main commit.
- * @param {{requestedVersion: string, sourceSha: string, currentMainSha: string,
- *   existingTags: string[], existingReleases: {version: string, immutable: boolean,
- *   assets: string[]}[]}} input
- */
+/** @param {z.infer<typeof planInputSchema>} input */
 export function planRelease(input) {
   const ordinal = parseOrdinal(input.requestedVersion);
   if (!shaPattern.test(input.sourceSha)) {
     throw new Error("source SHA must be a full commit SHA");
   }
-  const releases = input.existingReleases.filter(({ version }) =>
-    ordinalPattern.test(version),
+  const legacy = retainedOrdinals(
+    input.legacyTags,
+    input.legacyReleases,
+    /^v[1-9][0-9]*$/,
+    "",
   );
-  for (const release of releases) {
-    if (!release.immutable) {
-      throw new Error(`${release.version} is not an immutable release`);
-    }
-    const missing = releaseAssets.filter(
-      (asset) => !release.assets.includes(asset),
-    );
-    if (missing.length > 0) {
-      throw new Error(`${release.version} is missing ${missing.join(", ")}`);
-    }
+  if (Math.max(0, ...legacy) !== legacyLastOrdinal) {
+    throw new Error(`legacy history must end at v${legacyLastOrdinal}`);
   }
-  const releaseVersions = [...new Set(releases.map(({ version }) => version))];
-  const tags = [
-    ...new Set(input.existingTags.filter((tag) => ordinalPattern.test(tag))),
-  ];
-  if (
-    JSON.stringify([...tags].sort()) !==
-    JSON.stringify([...releaseVersions].sort())
-  ) {
-    throw new Error("ordinal Git tags must exactly match immutable releases");
+  const platform = retainedOrdinals(
+    input.existingTags,
+    input.existingReleases,
+    /^telegram-v[1-9][0-9]*$/,
+    "telegram-",
+  );
+  if (platform.some((value) => value <= legacyLastOrdinal)) {
+    throw new Error("platform Telegram history must start at telegram-v6");
   }
-  const ordinals = releaseVersions.map(parseOrdinal);
+  const ordinals = [...legacy, ...platform];
   const nextOrdinal = Math.max(0, ...ordinals) + 1;
   for (let expected = 1; expected < nextOrdinal; expected += 1) {
     if (!ordinals.includes(expected)) {
@@ -88,7 +84,47 @@ export function planRelease(input) {
       `requested ${input.requestedVersion}, but the next release is v${nextOrdinal}`,
     );
   }
-  return { version: input.requestedVersion, sourceSha: input.sourceSha };
+  return {
+    version: input.requestedVersion,
+    tag: `telegram-${input.requestedVersion}`,
+    sourceSha: input.sourceSha,
+  };
+}
+
+/** @param {string[]} existingTags
+ * @param {z.infer<typeof retainedReleaseSchema>[]} existingReleases
+ * @param {RegExp} pattern
+ * @param {string} prefix */
+function retainedOrdinals(existingTags, existingReleases, pattern, prefix) {
+  const releases = existingReleases.filter(({ version }) =>
+    pattern.test(version),
+  );
+  for (const release of releases) {
+    if (!release.immutable)
+      throw new Error(`${release.version} is not an immutable release`);
+    if (
+      JSON.stringify([...release.assets].sort()) !==
+      JSON.stringify([...releaseAssets].sort())
+    ) {
+      throw new Error(
+        `${release.version} must have exactly the Telegram release assets`,
+      );
+    }
+    if (
+      release.targetCommitish === undefined ||
+      !shaPattern.test(release.targetCommitish)
+    ) {
+      throw new Error(`${release.version} target must be a full commit SHA`);
+    }
+  }
+  const versions = releases.map(({ version }) => version);
+  const tags = [...new Set(existingTags.filter((tag) => pattern.test(tag)))];
+  if (
+    JSON.stringify([...tags].sort()) !== JSON.stringify([...versions].sort())
+  ) {
+    throw new Error("ordinal Git tags must exactly match immutable releases");
+  }
+  return versions.map((version) => parseOrdinal(version.slice(prefix.length)));
 }
 
 /**
@@ -122,7 +158,9 @@ export async function migrationsIdentity(directory = migrationsDirectory) {
  *   serverUrl: string}} input
  */
 export async function createManifest(input) {
-  parseOrdinal(input.version);
+  if (parseOrdinal(input.version) <= legacyLastOrdinal) {
+    throw new Error("new manifests must start at v6 in platform");
+  }
   if (!shaPattern.test(input.sourceSha)) {
     throw new Error("source SHA must be a full commit SHA");
   }
@@ -132,6 +170,8 @@ export async function createManifest(input) {
   if (!Number.isSafeInteger(input.workflowRunId) || input.workflowRunId < 1) {
     throw new Error("publication workflow run id must be a positive integer");
   }
+  if (input.serverUrl !== "https://github.com")
+    throw new Error("untrusted publication server");
   const compose = await readFile(input.composePath);
   const caddy = await readFile(input.caddyPath);
   return {
@@ -154,7 +194,10 @@ function parseOrdinal(version) {
   if (typeof version !== "string" || !ordinalPattern.test(version)) {
     throw new Error(`release version must be vN, got ${String(version)}`);
   }
-  return Number(version.slice(1));
+  const ordinal = Number(version.slice(1));
+  if (!Number.isSafeInteger(ordinal))
+    throw new Error("release ordinal is too large");
+  return ordinal;
 }
 
 /** @param {string | Uint8Array} value */

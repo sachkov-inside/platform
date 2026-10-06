@@ -107,13 +107,15 @@ printf '%s\\n' "$url" >>"$FAKE_ROOT/curl.log"
 case "$url" in
   http://127.0.0.1:3303/ready)
     printf '%s' "\${FAKE_READY_CODE:-200}" ;;
-  https://api.github.com/repos/${repository}/releases/tags/*)
+  https://api.github.com/repos/${repository}/releases/tags/*|https://api.github.com/repos/sachkov-inside/platform/releases/tags/*)
     cp "$FAKE_GITHUB/\${url##*/}/release.json" "$output" 2>/dev/null || exit 22 ;;
-  https://github.com/${repository}/releases/download/*/release-manifest.json)
+  https://github.com/${repository}/releases/download/*/release-manifest.json|https://github.com/sachkov-inside/platform/releases/download/*/release-manifest.json)
     version="\${url%/release-manifest.json}"; version="\${version##*/}"
     cp "$FAKE_GITHUB/$version/release-manifest.json" "$output" 2>/dev/null || exit 22 ;;
-  https://api.github.com/repos/${repository}/actions/runs/*)
+  https://api.github.com/repos/${repository}/actions/runs/*|https://api.github.com/repos/sachkov-inside/platform/actions/runs/*)
     cp "$FAKE_GITHUB/runs/\${url##*/}.json" "$output" 2>/dev/null || exit 22 ;;
+  https://api.github.com/repos/${repository}/commits/*|https://api.github.com/repos/sachkov-inside/platform/commits/*)
+    cp "$FAKE_GITHUB/\${url##*/}/commit.json" "$output" 2>/dev/null || exit 22 ;;
   *) exit 7 ;;
 esac
 `,
@@ -131,6 +133,157 @@ afterEach(() => {
 });
 
 describe("inside-telegram-deploy gateway", { timeout: 30_000 }, () => {
+  it("deploys legacy v5, platform v6 and restores the legacy digest without migrating on rollback or repeats", () => {
+    const identity =
+      "sha256:f91e56479cfcae72f9596dc508c776c5c06e156f16d747e4e91d956931ca533d";
+    const v5 = publishRelease("v5", identity);
+    const v6 = publishRelease("v6", identity);
+    expectSuccess(run("deploy v5 1101", v5));
+    expectSuccess(run("deploy v6 1102", v6));
+    expect(readState().previous).toMatchObject({
+      version: "v5",
+      image: v5.image,
+    });
+    clearDockerLog();
+    expectSuccess(run("deploy v6 1103", v6));
+    expectSuccess(run("rollback v5 1104", v5));
+    expectSuccess(run("rollback v5 1105", v5));
+    expect(readState().current).toMatchObject({
+      version: "v5",
+      image: v5.image,
+      migrationsIdentity: identity,
+    });
+    expect(dockerCommands()).not.toContainEqual(
+      expect.stringMatching(/ migrate$/),
+    );
+    expect(readOperation()).toMatchObject({
+      version: "v5",
+      status: "succeeded",
+    });
+    expect(readFileSync(path.join(root, "curl.log"), "utf8")).toContain(
+      "sachkov-inside/platform/releases/tags/telegram-v6",
+    );
+  });
+
+  it("can restore legacy v5 after interrupted platform v6 with the same migration identity", () => {
+    const v5 = publishRelease("v5", identityA);
+    const v6 = publishRelease("v6", identityA);
+    expectSuccess(run("deploy v5 1111", v5));
+    expect(
+      run("deploy v6 1112", v6, { FAKE_DOCKER_FAIL: "up --detach" }).status,
+    ).toBe(1);
+    expect(existsSync(migrationGuard())).toBe(true);
+    clearDockerLog();
+    expectSuccess(run("rollback v5 1113", v5));
+    expect(dockerCommands()).not.toContainEqual(
+      expect.stringMatching(/ migrate$/),
+    );
+    expect(readState().current).toMatchObject({
+      version: "v5",
+      image: v5.image,
+    });
+    expect(existsSync(migrationGuard())).toBe(false);
+  });
+
+  it("refuses legacy rollback after platform v6 changed migrations, including an interrupted operation", () => {
+    const v5 = publishRelease("v5", identityA);
+    const v6 = publishRelease("v6", identityB);
+    expectSuccess(run("deploy v5 1121", v5));
+    expect(
+      run("deploy v6 1122", v6, { FAKE_DOCKER_FAIL: "up --detach" }).status,
+    ).toBe(1);
+    expect(run("rollback v5 1123", v5).stderr).toContain(
+      "unfinished operation of v6",
+    );
+    expectSuccess(run("deploy v6 1124", v6));
+    clearDockerLog();
+    expect(run("rollback v5 1125", v5).stderr).toContain(
+      "migration sets differ",
+    );
+    expect(dockerCommands()).toEqual([]);
+  });
+
+  it.each(["v5", "v6"])(
+    "rejects an untrusted publication for %s before any Docker operation",
+    (version) => {
+      const release = publishRelease(version, identityA);
+      const ordinal = Number(version.slice(1));
+      const runPath = path.join(github, "runs", `${9000 + ordinal}.json`);
+      const original = jsonRecord(readFileSync(runPath, "utf8"));
+      for (const override of [
+        { path: ".github/workflows/arbitrary.yml" },
+        {
+          path:
+            ordinal === 5
+              ? ".github/workflows/telegram-release.yml"
+              : ".github/workflows/release.yml",
+        },
+        { head_sha: "e".repeat(40) },
+        { id: 99999 },
+        { repository: { full_name: "attacker/repository" } },
+        { head_repository: { full_name: "attacker/repository" } },
+        { html_url: "https://github.com/attacker/repository/actions/runs/1" },
+      ]) {
+        writeFileSync(runPath, JSON.stringify({ ...original, ...override }));
+        const result = run(`deploy ${version} 1131`, release);
+        expect(result.status).toBe(1);
+        expect(result.stderr).toContain(
+          "publication workflow run is not verified",
+        );
+        expect(dockerCommands()).toEqual([]);
+      }
+    },
+  );
+
+  it.each(["v5", "v6"])(
+    "rejects a wrong tag and target SHA for %s",
+    (version) => {
+      const release = publishRelease(version, identityA);
+      const tag = version === "v5" ? version : `telegram-${version}`;
+      const releasePath = path.join(github, tag, "release.json");
+      const original = jsonRecord(readFileSync(releasePath, "utf8"));
+      for (const override of [
+        { tag_name: version === "v5" ? "telegram-v5" : "v6" },
+        { target_commitish: "e".repeat(40) },
+      ]) {
+        writeFileSync(
+          releasePath,
+          JSON.stringify({ ...original, ...override }),
+        );
+        expect(run(`deploy ${version} 1141`, release).status).toBe(1);
+        expect(dockerCommands()).toEqual([]);
+      }
+      writeFileSync(releasePath, JSON.stringify(original));
+      writeFileSync(
+        path.join(github, tag, "commit.json"),
+        JSON.stringify({ sha: "e".repeat(40) }),
+      );
+      expect(run(`deploy ${version} 1142`, release).stderr).toContain(
+        "tag does not resolve",
+      );
+      expect(dockerCommands()).toEqual([]);
+    },
+  );
+
+  it("rejects an arbitrary manifest repository even with a self-consistent publication URL", () => {
+    const release = publishRelease("v6", identityA);
+    const manifest = jsonRecord(release.manifest);
+    manifest["source"] = {
+      repository: "attacker/repository",
+      sha: "6".repeat(40),
+    };
+    manifest["publication"] = {
+      workflowRunId: 9006,
+      workflowRunUrl:
+        "https://github.com/attacker/repository/actions/runs/9006",
+    };
+    expect(
+      run("deploy v6 1151", { ...release, manifest: JSON.stringify(manifest) })
+        .stderr,
+    ).toContain("Untrusted");
+    expect(dockerCommands()).toEqual([]);
+  });
+
   it("deploys, repeats idempotently and rolls back to the previous release", () => {
     const v1 = publishRelease("v1", identityA);
     const v2 = publishRelease("v2", identityA);
@@ -630,11 +783,9 @@ describe("inside-telegram-deploy gateway", { timeout: 30_000 }, () => {
 
   it("binds the production path to fixed HTTPS GitHub authorities and a system PATH", () => {
     expect(gateway).toContain(
-      "https://api.github.com/repos/$github_repository/releases/tags/$version",
+      "https://api.github.com/repos/$github_repository/releases/tags/$github_tag",
     );
-    expect(gateway).toContain(
-      "readonly github_repository=sachkov-inside/inside-telegram",
-    );
+    expect(gateway).toContain("sachkov-inside/inside-telegram)");
     expect(gateway).toContain("--proto-redir '=https'");
     expect(gateway).toContain(
       "PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
@@ -718,6 +869,9 @@ function publishRelease(
 ): Release {
   const ordinal = Number(version.slice(1));
   const sourceSha = String(ordinal).repeat(40).slice(0, 40);
+  const sourceRepository = ordinal > 5 ? "sachkov-inside/platform" : repository;
+  const tag = ordinal > 5 ? `telegram-${version}` : version;
+  const workflow = ordinal > 5 ? "telegram-release.yml" : "release.yml";
   const runId = 9000 + ordinal;
   const image = `ghcr.io/${repository}@sha256:${String(ordinal).repeat(64).slice(0, 64)}`;
   const compose = `name: inside-production-telegram\n# ${version}\n`;
@@ -726,7 +880,7 @@ function publishRelease(
     {
       schemaVersion: "inside.telegram.release-manifest.v1",
       version,
-      source: { repository, sha: sourceSha },
+      source: { repository: sourceRepository, sha: sourceSha },
       image,
       migrations: {
         identity: migrationsIdentity,
@@ -737,24 +891,28 @@ function publishRelease(
       caddy: { asset: "telegram.caddy", sha256: sha256(caddy) },
       publication: {
         workflowRunId: runId,
-        workflowRunUrl: `https://github.com/${repository}/actions/runs/${runId}`,
+        workflowRunUrl: `https://github.com/${sourceRepository}/actions/runs/${runId}`,
       },
     },
     null,
     2,
   )}\n`;
-  const directory = path.join(github, version);
+  const directory = path.join(github, tag);
   mkdirSync(directory, { recursive: true });
   mkdirSync(path.join(github, "runs"), { recursive: true });
   writeFileSync(path.join(directory, "release-manifest.json"), manifest);
-  const download = `https://github.com/${repository}/releases/download/${version}`;
+  writeFileSync(
+    path.join(directory, "commit.json"),
+    JSON.stringify({ sha: sourceSha }),
+  );
+  const download = `https://github.com/${sourceRepository}/releases/download/${tag}`;
   writeFileSync(
     path.join(directory, "release.json"),
     JSON.stringify({
       immutable: options.immutable ?? true,
       draft: false,
       prerelease: false,
-      tag_name: version,
+      tag_name: tag,
       target_commitish: sourceSha,
       assets: [
         {
@@ -780,7 +938,10 @@ function publishRelease(
       event: "workflow_dispatch",
       head_branch: options.branch ?? "main",
       head_sha: sourceSha,
-      path: ".github/workflows/release.yml",
+      path: `.github/workflows/${workflow}`,
+      repository: { full_name: sourceRepository },
+      head_repository: { full_name: sourceRepository },
+      html_url: `https://github.com/${sourceRepository}/actions/runs/${runId}`,
     }),
   );
   return { version, manifest, compose, caddy, image };

@@ -37,4 +37,5 @@ own Accounts, permissions, entitlements, profiles and content-access decisions.
 Use authenticated runtime interfaces and pinned versioned corpora across that boundary.
 Keep provider payloads, credentials and user data out of Git and redacted from evidence.
 BotFather writes, administrator changes, marketing enablement and external messages follow
-root `WORKFLOW.md` owner gates. Historical nested workflows are fixtures; #960 owns active delivery.
+root `WORKFLOW.md` owner gates. Independent delivery uses root `telegram-release.yml` and `telegram-deploy.yml`;
+[production runbook](docs/operations/production.md) owns publication, source trust and rollback.

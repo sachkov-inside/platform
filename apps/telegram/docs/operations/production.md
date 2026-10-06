@@ -8,10 +8,11 @@
 [Workspace #184](https://github.com/sachkov-inside/workspace/issues/184) по отдельному
 разрешению владельца. Наличие этого документа ничего не включает.
 
-До [platform#960](https://github.com/sachkov-inside/platform/issues/960) команды выпуска и ручной
-выкладки ниже относятся к прежнему checkout `inside-telegram`. Их Docker context и allowlist
-описывают исходный репозиторий. В монорепозитории #959 образ собирается из корня workspace;
-актуальная команда проверки находится в [README приложения](../../README.md#current-verification).
+Telegram выпускается независимо из `sachkov-inside/platform`. Этот документ владеет выпуском,
+выкладкой, проверками и откатом Telegram. Код маршрута переносится в
+[platform#960](https://github.com/sachkov-inside/platform/issues/960); задача остаётся открытой до
+проверенного production-перехода и отката. История и неизменяемые Releases исходного
+`inside-telegram` сохраняются. Все пути checkout и команды сборки ниже отсчитываются от корня platform.
 
 ## Состав
 
@@ -33,14 +34,14 @@ superuser, createdb и createrole. Роль владеет только свое
 передавайте через защищённый административный канал, без shell arguments/history и журналирования.
 Database входит в резервную копию кластера pgBackRest. App не читает таблицы Platform или Logto.
 
-Создайте root-owned `/etc/inside/telegram` с mode `0700`. `application.env` — копия корневого
-`.env.example`, заполненная реальными значениями, mode `0600`. `compose.env` берётся из
-`infra/production/compose.env.example` с теми же правами. Секреты, chat id и user id остаются вне
+Создайте root-owned `/etc/inside/telegram` с mode `0700`. `application.env` — копия прикладного
+`apps/telegram/.env.example`, заполненная реальными значениями, mode `0600`. `compose.env` берётся из
+`apps/telegram/infra/production/compose.env.example` с теми же правами. Секреты, chat id и user id остаются вне
 Git; зашифруйте файлы для host и отдельного recovery identity и проверьте обратную расшифровку.
 
 ## Конфигурация
 
-`.env.example` перечисляет каждую переменную, которую читает приложение. Каждый секрет — отдельное
+`apps/telegram/.env.example` перечисляет каждую переменную, которую читает приложение. Каждый секрет — отдельное
 случайное base64url значение длиной от 32 до 256 символов. Приложение отказывается стартовать с
 более коротким секретом и при повторе секрета между любыми двумя направлениями.
 
@@ -178,41 +179,69 @@ Inside после исключения, описано в [схеме двух �
 ## Выпуск и выкладка
 
 Обычный выпуск идёт без ручных команд на сервере: `main` → версия `vN` → production → проверки →
-при необходимости откат. Каждый запуск `release.yml` и `deploy.yml` — действие владельца или
+при необходимости откат. Каждый запуск `telegram-release.yml` и `telegram-deploy.yml` — действие владельца или
 координатора с его разрешением. Путь повторяет Platform; у Telegram один процесс `app` и одноразовый
 `migrate`.
 
 ### 1. Выпуск версии
 
-Actions → **Publish ordinal release** → `version` = следующий `vN` (первый — `v1`). Workflow:
+Actions → **Publish Telegram ordinal release** (`telegram-release.yml`) → `version` = следующий `vN` (первый из platform — `v6`). Workflow:
 
-- проверяет, что `vN` — следующий номер без пропусков, прежние версии неизменяемы, а запуск идёт
-  с текущего `main`;
+- проверяет enabled через общий `scripts/check-release-immutability.sh` с существующим
+  `RELEASE_SETTINGS_READ_TOKEN` (только Administration: read); token используется лишь для этого
+  endpoint и удаляется из окружения перед чтением истории;
+- проверяет следующий номер без пропусков из legacy `v1`–`v5` и platform `telegram-v6` и далее;
+  каждый tag имеет неизменяемый Release с точным target SHA и тремя assets;
+  обычные platform `vN` не входят в историю Telegram; новый legacy номер останавливает выпуск;
+- принимает только текущий `main`, сохраняет его точный SHA и повторно проверяет план перед публикацией;
 - прогоняет Application CI на этом SHA;
-- собирает `infra/production/Dockerfile` с `SOURCE_COMMIT`, публикует
+- собирает `apps/telegram/infra/production/Dockerfile` с `SOURCE_COMMIT`, публикует
   `ghcr.io/sachkov-inside/inside-telegram:vN` и проверяет анонимный pull по digest;
-- создаёт неизменяемый GitHub Release `vN` с target = SHA и тремя ассетами: `compose.yaml` (копия
-  `infra/production/compose.yaml`), `telegram.caddy` (копия `infra/production/telegram.caddy`) и
+- создаёт неизменяемый GitHub Release `telegram-vN` с `--latest=false` с target = SHA и тремя ассетами: `compose.yaml` (копия
+  `apps/telegram/infra/production/compose.yaml`), `telegram.caddy` (копия `apps/telegram/infra/production/telegram.caddy`) и
   `release-manifest.json`.
 
 Manifest (`inside.telegram.release-manifest.v1`) связывает версию, SHA, образ
 `ghcr.io/sachkov-inside/inside-telegram@sha256:…`, sha256 файлов `compose.yaml` и `telegram.caddy`,
 run публикации и
-идентичность миграций: sha256 от упорядоченного списка файлов `src/database/migrations` и их
-содержимого (`node scripts/release-contract.mjs migrations-identity`). Одинаковая идентичность у двух
+идентичность миграций: sha256 от упорядоченного списка файлов `apps/telegram/src/database/migrations` и их
+содержимого (`node apps/telegram/scripts/release-contract.mjs migrations-identity`). Одинаковая идентичность у двух
 версий значит одинаковую схему базы.
 
 ### 2. Выкладка
 
-Actions → **Deploy production release** → `operation` = `deploy`, `version` = `vN`. Job работает в
-environment `Production`, ещё раз сверяет Release, manifest, `compose.yaml`, `telegram.caddy` и run
+Actions → **Deploy Telegram production release** (`telegram-deploy.yml`) → `operation` = `deploy`, `version` = `vN`. Job работает в
+environment `Production-Telegram`, ещё раз сверяет Release, manifest, `compose.yaml`, `telegram.caddy` и run
 публикации и передаёт три файла по SSH пользователю `inside-telegram-deploy`. На сервере forced command запускает
 только gateway `/usr/local/libexec/inside/inside-telegram-deploy`. Выкладки встают в очередь; активная
 не отменяется.
 
 Gateway принимает только `deploy vN <run-id>` и `rollback vN <run-id>` и вход до 1 MiB. Он повторно
 читает Release с GitHub по HTTPS и принимает manifest, только если тот побайтно совпадает с ассетом
-неизменяемого Release, а run публикации — успешный `release.yml` с `main`. Вход читается целиком до
+неизменяемого Release, tag разрешается в SHA manifest, а run публикации подтверждает точные repository, workflow path,
+run id/URL, `workflow_dispatch`, `main`, SHA и `success`.
+
+| Версии manifest и сервера | Разрешённый source repository | GitHub tag | Publication workflow |
+|---|---|---|---|
+| `v1`–`v5` | `sachkov-inside/inside-telegram` | `vN` | `.github/workflows/release.yml` |
+| `v6` и далее | `sachkov-inside/platform` | `telegram-vN` | `.github/workflows/telegram-release.yml` |
+
+Gateway выводит tag и workflow только из этих источников. Другой repository, tag или workflow
+отклоняется. Manifest остаётся `inside.telegram.release-manifest.v1`; версия, SSH arguments, state,
+guard и каталоги остаются `vN`. GHCR-пакет остаётся `ghcr.io/sachkov-inside/inside-telegram`.
+
+На переходе #960 legacy последний номер проверен как `v5`:
+SHA `10dfbee3c9dd39d2dacdc39f8c7926ecd4498820`, digest
+`sha256:1159e5f27ed6f12528ae383f1f379bfdc41780a1b37dafb72d9b35ff34d1b748`.
+Идентичность миграций для `v5` и первого platform `v6` должна быть
+`sha256:f91e56479cfcae72f9596dc508c776c5c06e156f16d747e4e91d956931ca533d`:
+31 файл, последний `030-invitation-redemptions.ts`. `v4` имеет другую идентичность и не служит
+откатом для `v5`. Координатор повторно проверяет эти факты перед production.
+
+Ожидаемый простой первой выкладки — 1–2 минуты: graceful stop имеет предел 60 секунд,
+затем идут migration command и readiness нового процесса. Pull и проверка GitHub идут до stop.
+Изолированный smoke измеряет restart без нагрузки; это не обещание production-времени.
+Координатор называет ожидаемый простой перед live deploy. Вход читается целиком до
 блокировки; одновременно идёт одна операция (`flock`). Порядок `deploy`:
 
 1. preflight: `/etc/inside/telegram/compose.env`, `application.env`, `compose.override.yaml`,
@@ -250,9 +279,28 @@ Override обязателен: в нём transport до `api.telegram.org` че�
 поднимает app, проверяет readiness и маршруты, без остановки и миграций. Deploy версии не новее текущей
 отклоняется: для возврата есть только rollback.
 
+### Локальный proof перед выпуском
+
+Из корня platform выполните `bash apps/telegram/scripts/production-smoke.sh`.
+Команда строит production image из root context, читает сохранённый legacy `v5` manifest и
+проверяет реальный переход на candidate и обратно на digest `v5` в отдельной базе и Compose project.
+Проверяются 31 миграция, неизменный ledger, сохранённая synthetic строка, readiness,
+неавторизованный POST и фактические image IDs. Повтор и rollback не выполняют migration command.
+Если image identity, ledger или synthetic строка не совпадают, smoke явно завершает работу с exit 1.
+Unit regression запускает весь shell script с повреждёнными внешними наблюдениями на Bash 3.2 и Linux;
+реальный Docker proof отдельно проверяет переход на production images.
+Команда печатает длительность restart/readiness и убирает только свои контейнеры, network, volume и image tag.
+Workers и все provider modes выключены; real messages, webhook registration и role writes не выполняются.
+
+`pnpm --filter @inside/telegram exec vitest run test/unit/telegram-deploy-gateway.test.ts`
+отдельно запускает настоящий gateway с изолированным host fixture и синтетическими GitHub/Docker/Caddy boundaries.
+Он проверяет обе source families, rejected repository/workflow/tag/SHA, repeats, interrupted guard и отказ при разных миграциях.
+Эти proofs не заменяют publication-run и production-проверки координатора.
+
 ### 3. Проверки после выкладки
 
-- Job **Deploy production release** зелёный, в конце `deploy vN succeeded: <image@digest>`.
+- Job **Deploy Telegram production release** зелёный, в конце `deploy vN succeeded: <image@digest>`.
+- Readiness отвечает `200`; фактический image digest и revision label совпадают с manifest.
 - На сервере `jq . /var/lib/inside/telegram-deployments/state.json` показывает `current.version`
   = `vN`, `operation.json` — `status: succeeded`.
 - Маршруты: `401` без credentials на каждом POST из allowlist, `404` на GET, постороннем и вложенном
@@ -261,7 +309,7 @@ Override обязателен: в нём transport до `api.telegram.org` че�
 
 ### 4. Откат
 
-Actions → **Deploy production release** → `operation` = `rollback`, `version` = `previous.version`
+Actions → **Deploy Telegram production release** (`telegram-deploy.yml`) → `operation` = `rollback`, `version` = `previous.version`
 из `state.json`. Gateway возвращает только записанную предыдущую версию и только если идентичность
 её миграций совпадает с текущей: миграции вниз не выполняются, `migrate` при откате не запускается.
 Иначе откат отклоняется с ошибкой `migration sets differ`; путь — repair forward: исправление в
@@ -292,25 +340,21 @@ telegram_compose=(docker compose --env-file /etc/inside/telegram/compose.env
 
 ### Разовая установка
 
-Выполняется один раз до первого выпуска; повторный запуск установщика безопасен.
+Новый host устанавливается один раз. На существующем host не запускайте установщик повторно:
+он заменяет `authorized_keys`. При переходе #960 координатор сохраняет старый restricted key,
+добавляет отдельный Ed25519 key platform с тем же forced command и обновляет только gateway.
 
 **GitHub (координатор с правами администратора репозитория):**
 
-1. Settings → General → Releases → включить **immutable releases**.
-   Workflow не читает эту настройку заранее: `GITHUB_TOKEN` не может запросить нужное право
-   Administration: read, а отдельный токен владельца сделал бы выпуск зависимым от него. Вместо
-   этого `release.yml` проверяет результат: после `gh release create` он читает `isImmutable`
-   созданного Release. Если Release получился изменяемым, workflow удаляет его вместе с тегом и
-   падает с просьбой включить immutable releases; после включения тот же `vN` запускается снова.
-   Изменяемый Release в любом случае не выкладывается: его отклоняют и `deploy.yml`, и gateway.
-2. Environment `Production` с required reviewer владельца, deployment branches — только `main`, и
-   secrets:
-   - `PRODUCTION_SSH_HOST` — адрес VPS;
-   - `PRODUCTION_SSH_PRIVATE_KEY` — приватная часть отдельного ключа Ed25519 только для Telegram;
-   - `PRODUCTION_SSH_HOST_KEYS` — строки `known_hosts` VPS, сверенные с отпечатком из консоли
-     провайдера, а не с первым подключением.
-3. После первого push образа: Package `inside-telegram` → Package settings → Change visibility →
-   **Public**, затем Re-run failed jobs. До этого шаг «Prove anonymous pull by digest» падает.
+1. В platform включены **immutable releases**; существующий `RELEASE_SETTINGS_READ_TOKEN`
+   проверяет настройку перед публикацией. Workflow также проверяет созданный Release и удаляет
+   только новый mutable Release вместе с его tag при отказе. Mutable Release не проходит deploy.
+2. Environment `Production-Telegram`: branches только `main`; reviewer policy совпадает с принятой
+   policy Telegram. В нём находятся `PRODUCTION_SSH_HOST`, `PRODUCTION_SSH_PRIVATE_KEY` и
+   `PRODUCTION_SSH_HOST_KEYS`. Используйте отдельный restricted key Telegram и проверенные host keys.
+   Существующий platform `Production` и его secrets не меняются.
+3. Существующий публичный GHCR `inside-telegram` даёт Actions `platform` право **Write**.
+   Старый source linkage, visibility, право legacy и прежние digests сохраняются.
 
 **Ключ** создаётся на машине координатора и не попадает в Git, журналы или чат:
 
@@ -325,12 +369,12 @@ ssh-keygen -t ed25519 -N '' -C inside-telegram-deploy -f inside-telegram-deploy
 `curl`, `flock`, `sudo`, `openssh-server`, host Caddy с `import /srv/inside/runtime/caddy/*.caddy` в
 `/etc/caddy/Caddyfile` и `/etc/inside/telegram` с `compose.env`, `application.env` и
 `compose.override.yaml` из разделов выше. `TELEGRAM_LOOPBACK_PORT` в `compose.env` совпадает с портом
-в `infra/production/telegram.caddy` (`3303`), иначе deploy остановится в фазе `routes`.
+в `apps/telegram/infra/production/telegram.caddy` (`3303`), иначе deploy остановится в фазе `routes`.
 
 ```bash
-git clone https://github.com/sachkov-inside/inside-telegram.git /tmp/inside-telegram-install
+git clone https://github.com/sachkov-inside/platform.git /tmp/inside-telegram-install
 git -C /tmp/inside-telegram-install checkout --detach <merged-sha>
-bash /tmp/inside-telegram-install/infra/production/deploy/install-deploy-access.sh \
+bash /tmp/inside-telegram-install/apps/telegram/infra/production/deploy/install-deploy-access.sh \
   /root/inside-telegram-deploy.pub
 rm -rf /tmp/inside-telegram-install /root/inside-telegram-deploy.pub
 ```
@@ -339,7 +383,12 @@ rm -rf /tmp/inside-telegram-install /root/inside-telegram-deploy.pub
 `/usr/local/libexec/inside/inside-telegram-deploy` (root, `0755`), sudoers-правило
 `/etc/sudoers.d/inside-telegram-deploy` ровно на этот файл с сохранением `SSH_ORIGINAL_COMMAND` и
 `authorized_keys` с `restrict,command="sudo -n /usr/local/libexec/inside/inside-telegram-deploy"`.
-Обновление gateway — тот же запуск из checkout новой версии.
+Обновление gateway на существующем host выполняет координатор из точного merged SHA.
+Сначала сохраните root-owned копию установленного gateway и его SHA-256. Проверьте `bash -n`
+нового `apps/telegram/infra/production/deploy/inside-telegram-deploy`; установите только этот файл
+с root owner и mode `0755` через временный файл и атомарный rename. Сверьте установленный SHA-256.
+Вернуть прежний gateway можно из сохранённой копии. Обновление gateway не перезапускает app и не
+создаёт простой. Sudoers, state, guard, configs, releases и `authorized_keys` не заменяются.
 
 Проверка доступа без выкладки: `ssh -i inside-telegram-deploy inside-telegram-deploy@<host> status`
 отвечает `Rejected restricted command` и ничего не меняет.
@@ -354,7 +403,7 @@ rm -rf /tmp/inside-telegram-install /root/inside-telegram-deploy.pub
 
 > **Только при недоступности GitHub Actions или GHCR** и с отдельного разрешения владельца. После
 > него `state.json` не совпадает с сервером: следующая обычная выкладка — новой версией через
-> `deploy.yml`, откат gateway к ручному образу невозможен.
+> `telegram-deploy.yml`, откат gateway к ручному образу невозможен.
 
 Используйте чистый checkout точного merged commit. Обычный агент не изменяет основной checkout
 владельца.
@@ -363,21 +412,21 @@ rm -rf /tmp/inside-telegram-install /root/inside-telegram-deploy.pub
 git diff --exit-code
 git diff --cached --exit-code
 release_commit=$(git rev-parse HEAD)
-docker build --file infra/production/Dockerfile \
+docker build --file apps/telegram/infra/production/Dockerfile \
   --build-arg SOURCE_COMMIT="$release_commit" \
   --tag "inside/telegram:$release_commit" .
 docker image inspect "inside/telegram:$release_commit" \
   --format '{{.Id}} {{index .Config.Labels "org.opencontainers.image.revision"}}'
 ```
 
-Docker context использует allowlist: `.env`, credentials, Git, локальные зависимости и proof
+Root Docker context и точные COPY Dockerfile исключают секреты из image: `.env`, credentials, Git, локальные зависимости и proof
 payloads не входят в image. Запишите image id, commit и время в защищённый deployment record.
 Все команды включают host-owned override; его отсутствие — повод остановиться.
 
 ```bash
 export TELEGRAM_IMAGE=<sha256:image-id>
 telegram_compose=(docker compose --env-file /etc/inside/telegram/compose.env
-  -f infra/production/compose.yaml
+  -f apps/telegram/infra/production/compose.yaml
   -f /etc/inside/telegram/compose.override.yaml)
 (
 set -e
@@ -499,7 +548,7 @@ services:
 
 ## HTTPS и маршруты
 
-Маршруты задаёт `infra/production/telegram.caddy` (`telegram.sachkov.dev`, loopback port `3303`).
+Маршруты задаёт `apps/telegram/infra/production/telegram.caddy` (`telegram.sachkov.dev`, loopback port `3303`).
 Их ставит на сервер выкладка версии ([шаг 6](#2-выкладка)); ручная правка
 `/srv/inside/runtime/caddy/telegram.caddy` будет заменена следующей выкладкой.
 Наружу принимаются только POST из точного allowlist, секреты проверяет приложение:
@@ -613,7 +662,7 @@ Bot API клиентом: `url=https://<telegram-domain>/webhooks/telegram`,
    процессов Platform. С этого шага notifications-worker публикует в очереди Telegram; до шага 11
    их никто не читает: при 1000 сообщений очередь отклоняет публикацию, и команды ждут в outbox
    Platform без потерь.
-6. **Telegram.** `deploy.yml` `deploy vN`: gateway выполняет `migrate`, `up --wait app` и `/ready`
+6. **Telegram.** `telegram-deploy.yml` `deploy vN`: gateway выполняет `migrate`, `up --wait app` и `/ready`
    ([выкладка](#2-выкладка)). Проверка маршрутов: `401` без credentials на каждом POST
    из allowlist, `404` на GET, постороннем и вложенном пути, нет внешнего порта.
 7. **Webhook.** `webhook-registration --preview`, затем `--apply`, итог `applied`.

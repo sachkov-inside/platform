@@ -5,7 +5,7 @@ read-only repository access, does not read repository or environment secrets and
 GitHub-hosted `ubuntu-24.04` runners. A new commit cancels an older run for the same pull request.
 The same workflow runs for the `main` merge queue (`merge_group`).
 
-The workflow is also callable through `workflow_call`. The ordinal release workflow invokes this
+The workflow is also callable through `workflow_call`. Both ordinal release workflows (`release.yml` and `telegram-release.yml`) invoke this
 same contract with its captured, exact source SHA before it publishes images. Every checkout in the
 reusable path uses that SHA, so a moving branch cannot change the candidate during CI. Direct
 pushes do not start application CI; the protected `main` branch accepts changes only through the
@@ -182,3 +182,7 @@ next/duplicate/stale ordinals,
 bare/mutable/discontinuous retained history and mismatched image results. The workflow contract
 checks the least-privilege boundary against both the release workflow and one over-privileged
 negative fixture.
+
+Independent Telegram publication and deployment use root `telegram-release.yml` and
+`telegram-deploy.yml`. Their owning [production runbook](../../apps/telegram/docs/operations/production.md)
+defines the two trusted source families, environment and rollback contract.

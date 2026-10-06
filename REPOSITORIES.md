@@ -1,12 +1,12 @@
-# Репозитории Inside: этап импорта Telegram
+# Репозитории Inside: этап независимого выпуска Telegram
 
-Карта отражает этап [platform#959](https://github.com/sachkov-inside/platform/issues/959)
+Карта отражает этап [platform#960](https://github.com/sachkov-inside/platform/issues/960)
 согласованного переезда [platform#957](https://github.com/sachkov-inside/platform/issues/957).
 Решение и границы перехода записаны в [ADR 0031](docs/adr/0031-inside-product-monorepo.md).
 
 | Репозиторий | Владелец на этом этапе | Дальнейшее изменение по #957 |
 |---|---|---|
-| [platform](https://github.com/sachkov-inside/platform) | Код Platform и Telegram в `apps/telegram`, общие документы, словарь, контракты, процесс и CI Inside | Новый выпуск Telegram подключается в #960 |
+| [platform](https://github.com/sachkov-inside/platform) | Код Platform и Telegram в `apps/telegram`, общие документы, словарь, контракты, процесс и CI Inside | Независимые Telegram workflows; production-переход проверяется в #960 |
 | [inside-telegram](https://github.com/sachkov-inside/inside-telegram) | История источника, действующий production выпуск и прежние задачи Telegram | После проверки импорта, выпуска и отката задачи переносятся, репозиторий архивируется |
 | [workspace](https://github.com/sachkov-inside/workspace) | Исходные документы и история решений остаются доступными для проверки и отката | Архивируется после проверки всего перехода; текущие документы уже принадлежат Platform |
 | [inside-content](https://github.com/sachkov-inside/inside-content) | Закрытые редакционные оригиналы, метаданные и процесс подготовки материалов | Остаётся отдельным репозиторием |
@@ -25,6 +25,7 @@
 [Brief Telegram](apps/telegram/docs/product/telegram-application-brief.md), ADR и runbooks теперь доступны внутри приложения.
 Процесс разработки Inside принадлежит корневым `WORKFLOW.md` и `.agents/skills`; копии в Telegram удалены.
 Корневой CI Gate проверяет Telegram на PR, merge_group и точном SHA reusable CI.
-Исторические workflows внутри `apps/telegram/.github` остаются fixtures до #960.
+Выпуск и откат Telegram принадлежат [production runbook](apps/telegram/docs/operations/production.md).
+Исторические nested workflows удалены; legacy Releases сохраняются для отката.
 Приложения сохраняют самостоятельные процессы и выпуск. Соседний checkout не является build или runtime-зависимостью.
 Архивирование источников и изменение локальных каталогов ещё не выполнены.

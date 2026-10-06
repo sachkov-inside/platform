@@ -1,4 +1,4 @@
-# Root repository build context; #960 wires the active Telegram release workflow.
+# Root repository build context for independent telegram-release.yml.
 FROM node:24.21.0-bookworm-slim@sha256:0e0ff40c39bc087845bfb27465a0df4ea419520094bc35842ff83dd8cbe6f9b6 AS toolchain
 RUN corepack enable && corepack install --global pnpm@11.27.1
 

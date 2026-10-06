@@ -27,7 +27,6 @@ else
   export PATH
 fi
 
-readonly github_repository=sachkov-inside/inside-telegram
 readonly image_pattern='^ghcr\.io/sachkov-inside/inside-telegram@sha256:[0-9a-f]{64}$'
 readonly version_pattern='^v[1-9][0-9]*$'
 readonly digest_pattern='^sha256:[0-9a-f]{64}$'
@@ -137,6 +136,22 @@ if ! flock --exclusive --nonblock 9; then
   exit 1
 fi
 
+# The immutable manifest chooses one of two exact source families, never an arbitrary repository.
+github_repository="$(jq --raw-output .source.repository "$manifest")"
+case "$github_repository" in
+  sachkov-inside/inside-telegram)
+    [[ "${version#v}" -le 5 ]] || { echo "Legacy source is frozen at v5" >&2; exit 1; }
+    github_tag="$version"
+    publication_workflow=.github/workflows/release.yml
+    ;;
+  sachkov-inside/platform)
+    [[ "${version#v}" -ge 6 ]] || { echo "Platform Telegram starts at v6" >&2; exit 1; }
+    github_tag="telegram-$version"
+    publication_workflow=.github/workflows/telegram-release.yml
+    ;;
+  *) echo "Untrusted Telegram release repository" >&2; exit 1 ;;
+esac
+
 if ! jq --exit-status \
   --arg version "$version" \
   --arg repository "$github_repository" \
@@ -197,20 +212,20 @@ github_get() {
 
 # The payload is trusted only when it is byte-identical to the asset of the immutable release.
 source_sha="$(jq --raw-output .source.sha "$manifest")"
-download_base="https://github.com/$github_repository/releases/download/$version"
-github_get "https://api.github.com/repos/$github_repository/releases/tags/$version" \
+download_base="https://github.com/$github_repository/releases/download/$github_tag"
+github_get "https://api.github.com/repos/$github_repository/releases/tags/$github_tag" \
   "$incoming_dir/github-release.json"
 github_get "$download_base/release-manifest.json" \
   "$incoming_dir/github-release-manifest.json" application/octet-stream
 if ! jq --exit-status \
-  --arg version "$version" \
+  --arg tag "$github_tag" \
   --arg sourceSha "$source_sha" \
   --arg base "$download_base" '
     def url(name): [.assets[] | select(.name == name)][0].browser_download_url;
     .immutable == true and
     .draft == false and
     .prerelease == false and
-    .tag_name == $version and
+    .tag_name == $tag and
     .target_commitish == $sourceSha and
     ([.assets[].name] | sort) == ["compose.yaml", "release-manifest.json", "telegram.caddy"] and
     url("release-manifest.json") == ($base + "/release-manifest.json") and
@@ -221,18 +236,30 @@ if ! jq --exit-status \
   echo "Deployment payload does not match the immutable GitHub release $version" >&2
   exit 1
 fi
+github_get "https://api.github.com/repos/$github_repository/commits/$github_tag" \
+  "$incoming_dir/tag-commit.json"
+if ! jq --exit-status --arg sourceSha "$source_sha" '.sha == $sourceSha' \
+  "$incoming_dir/tag-commit.json" >/dev/null 2>&1; then
+  echo "Release tag does not resolve to the manifest source SHA" >&2
+  exit 1
+fi
 publication_run_id="$(jq --raw-output .publication.workflowRunId "$manifest")"
 github_get "https://api.github.com/repos/$github_repository/actions/runs/$publication_run_id" \
   "$incoming_dir/publication-run.json"
 if ! jq --exit-status \
   --arg sourceSha "$source_sha" \
-  --argjson runId "$publication_run_id" '
+  --argjson runId "$publication_run_id" \
+  --arg repository "$github_repository" \
+  --arg workflow "$publication_workflow" '
     .id == $runId and
     .conclusion == "success" and
     .event == "workflow_dispatch" and
     .head_branch == "main" and
     .head_sha == $sourceSha and
-    .path == ".github/workflows/release.yml"
+    .path == $workflow and
+    .repository.full_name == $repository and
+    .head_repository.full_name == $repository and
+    .html_url == ("https://github.com/" + $repository + "/actions/runs/" + ($runId | tostring))
   ' "$incoming_dir/publication-run.json" >/dev/null 2>&1; then
   echo "Release publication workflow run is not verified" >&2
   exit 1

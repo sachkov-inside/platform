@@ -42,7 +42,7 @@ describe("release image contract", () => {
     }
   });
 
-  it("builds and deploys only Telegram from the root context while legacy publication remains a fixture", () => {
+  it("builds and deploys only Telegram from the root context with an independent workflow", () => {
     const dockerfile = read("apps/telegram/infra/production/Dockerfile");
     assert.match(dockerfile, /COPY.*tsconfig\.nest-app\.json/u);
     assert.match(dockerfile, /COPY.*apps\/telegram\/src/u);
@@ -58,11 +58,13 @@ describe("release image contract", () => {
       /COPY --from=build.*\/workspace\/apps\/telegram\/dist \.\/dist/u,
     );
     assert.doesNotMatch(dockerfile, /pnpm prune/u);
-    // #959 changes the Docker build interface; #960 owns the active root release path.
-    const legacy = read("apps/telegram/.github/workflows/release.yml");
-    assert.match(legacy, /Historical fixture.*#960/u);
-    assert.match(legacy, /context: \.$/mu);
-    assert.match(legacy, /file: infra\/production\/Dockerfile/u);
+    const telegram = read(".github/workflows/telegram-release.yml");
+    assert.match(telegram, /context: \.$/mu);
+    assert.match(
+      telegram,
+      /file: apps\/telegram\/infra\/production\/Dockerfile/u,
+    );
+    assert.match(telegram, /uses: \.\/\.github\/workflows\/ci\.yml/u);
     assert.doesNotMatch(read(".github/workflows/release.yml"), /telegram-v/u);
   });
 

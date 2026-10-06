@@ -15,12 +15,15 @@ import path from "node:path";
 import { describe, expect, it } from "vitest";
 import { jsonRecord } from "../support/json.js";
 
-const release = readFileSync(".github/workflows/release.yml", "utf8");
-const deploy = readFileSync(".github/workflows/deploy.yml", "utf8");
-const applicationCi = readFileSync(
-  ".github/workflows/application-ci.yml",
+const release = readFileSync(
+  "../../.github/workflows/telegram-release.yml",
   "utf8",
 );
+const deploy = readFileSync(
+  "../../.github/workflows/telegram-deploy.yml",
+  "utf8",
+);
+const applicationCi = readFileSync("../../.github/workflows/ci.yml", "utf8");
 
 /** Returns the shell body of one named workflow step. */
 function stepScript(workflow: string, name: string): string {
@@ -44,7 +47,7 @@ function job(workflow: string, name: string): string {
 
 function assertDeploymentBoundary(workflow: string): void {
   expect(workflow).toMatch(/^permissions: \{\}$/m);
-  expect(workflow).toMatch(/^ {4}environment: Production$/m);
+  expect(workflow).toMatch(/^ {4}environment: Production-Telegram$/m);
   expect(workflow).toMatch(/^ {6}actions: read$/m);
   expect(workflow).toMatch(/^ {6}contents: read$/m);
   expect(workflow).not.toMatch(/^ {6}(?:actions|contents|packages): write$/m);
@@ -65,10 +68,8 @@ describe("release workflow", () => {
   it("publishes only after the plan, application CI and image jobs", () => {
     expect(release).toMatch(/^permissions: \{\}$/m);
     expect(release).toMatch(/^ {2}cancel-in-progress: false$/m);
-    expect(release).toContain("bash scripts/plan-release.sh");
-    expect(job(release, "ci")).toContain(
-      "uses: ./.github/workflows/application-ci.yml",
-    );
+    expect(release).toContain("bash apps/telegram/scripts/plan-release.sh");
+    expect(job(release, "ci")).toContain("uses: ./.github/workflows/ci.yml");
     expect(job(release, "ci")).toContain(
       "source_sha: ${{ needs.plan.outputs.source_sha }}",
     );
@@ -86,7 +87,7 @@ describe("release workflow", () => {
 
   it("builds the production Dockerfile from the captured SHA and proves an anonymous pull", () => {
     const image = job(release, "image");
-    expect(image).toContain("file: infra/production/Dockerfile");
+    expect(image).toContain("file: apps/telegram/infra/production/Dockerfile");
     expect(image).toContain(
       "SOURCE_COMMIT=${{ needs.plan.outputs.source_sha }}",
     );
@@ -107,12 +108,13 @@ describe("release workflow", () => {
     expect(publish).toContain("release-assets/compose.yaml");
     expect(publish).toContain("release-assets/telegram.caddy");
     expect(publish).toContain(".isImmutable == true");
-    expect(release).not.toContain("RELEASE_SETTINGS_READ_TOKEN");
-    expect(readFileSync("scripts/plan-release.sh", "utf8")).not.toMatch(
-      /RELEASE_SETTINGS_READ_TOKEN|immutable-releases/,
+    expect(release).toContain("RELEASE_SETTINGS_READ_TOKEN");
+    expect(readFileSync("scripts/plan-release.sh", "utf8")).toContain(
+      "bash scripts/check-release-immutability.sh",
     );
+    expect(publish).toContain("--latest=false");
     expect(stepScript(release, "Create the release manifest")).toContain(
-      "cp infra/production/compose.yaml release-assets/compose.yaml",
+      "cp apps/telegram/infra/production/compose.yaml release-assets/compose.yaml",
     );
   });
 
@@ -142,7 +144,7 @@ describe("release workflow", () => {
 printf '%s\\n' "$*" >>"$FIXTURES/gh.log"
 case "$1 $2" in
   'release create') ;;
-  'release view') printf '{"isImmutable":${String(immutable)},"tagName":"v2","targetCommitish":"${"a".repeat(40)}"}' ;;
+  'release view') printf '{"isImmutable":${String(immutable)},"tagName":"telegram-v6","targetCommitish":"${"a".repeat(40)}"}' ;;
   'release delete') ;;
   *) exit 1 ;;
 esac
@@ -160,8 +162,9 @@ esac
               PATH: `${directory}:${process.env["PATH"] ?? ""}`,
               FIXTURES: directory,
               RUNNER_TEMP: directory,
-              GITHUB_REPOSITORY: "sachkov-inside/inside-telegram",
-              VERSION: "v2",
+              GITHUB_REPOSITORY: "sachkov-inside/platform",
+              VERSION: "v6",
+              TAG: "telegram-v6",
               SOURCE_SHA: "a".repeat(40),
             },
           },
@@ -170,7 +173,7 @@ esac
         const calls = readFileSync(path.join(directory, "gh.log"), "utf8");
         expect(
           calls.includes(
-            "release delete v2 --repo sachkov-inside/inside-telegram --cleanup-tag --yes",
+            "release delete telegram-v6 --repo sachkov-inside/platform --cleanup-tag --yes",
           ),
         ).toBe(deleted);
         if (deleted) {
@@ -230,68 +233,88 @@ describe("deploy workflow", () => {
     expect(() => assertDeploymentBoundary(unsafe)).toThrow();
   });
 
-  it("verifies and rechecks the selected release outside a Git checkout", () => {
-    const directory = mkdtempSync(path.join(tmpdir(), "telegram-workflow-"));
-    try {
-      const sourceSha = "1".repeat(40);
-      const compose = "name: inside-production-telegram\n";
-      const caddy = "telegram.sachkov.dev {\n}\n";
-      const digest = (value: string) =>
-        `sha256:${createHash("sha256").update(value).digest("hex")}`;
-      const manifest = {
-        schemaVersion: "inside.telegram.release-manifest.v1",
-        version: "v1",
-        source: {
-          repository: "sachkov-inside/inside-telegram",
-          sha: sourceSha,
-        },
-        image: `ghcr.io/sachkov-inside/inside-telegram@sha256:${"2".repeat(64)}`,
-        migrations: {
-          identity: `sha256:${"3".repeat(64)}`,
-          count: 1,
-          latest: "001.ts",
-        },
-        compose: { asset: "compose.yaml", sha256: digest(compose) },
-        caddy: { asset: "telegram.caddy", sha256: digest(caddy) },
-        publication: { workflowRunId: 91, workflowRunUrl: "https://example" },
-      };
-      const fixtures = path.join(directory, "fixtures");
-      mkdirSync(fixtures);
-      writeFileSync(
-        path.join(fixtures, "release-manifest.json"),
-        JSON.stringify(manifest),
-      );
-      writeFileSync(path.join(fixtures, "compose.yaml"), compose);
-      writeFileSync(path.join(fixtures, "telegram.caddy"), caddy);
-      writeFileSync(
-        path.join(fixtures, "release.json"),
-        JSON.stringify({
-          assets: [
-            { name: "release-manifest.json" },
-            { name: "compose.yaml" },
-            { name: "telegram.caddy" },
-          ],
-          isImmutable: true,
-          tagName: "v1",
-          targetCommitish: sourceSha,
-        }),
-      );
-      writeFileSync(
-        path.join(fixtures, "run.json"),
-        JSON.stringify({
-          conclusion: "success",
-          event: "workflow_dispatch",
-          head_branch: "main",
-          head_sha: sourceSha,
-          path: ".github/workflows/release.yml",
-        }),
-      );
-      const gh = path.join(directory, "gh");
-      writeFileSync(
-        gh,
-        `#!/usr/bin/env bash
+  it.each(["v5", "v6"])(
+    "verifies both source families outside a Git checkout (%s)",
+    (version) => {
+      const sourceRepository =
+        version === "v5"
+          ? "sachkov-inside/inside-telegram"
+          : "sachkov-inside/platform";
+      const tag = version === "v5" ? version : `telegram-${version}`;
+      const workflow =
+        version === "v5" ? "release.yml" : "telegram-release.yml";
+      const directory = mkdtempSync(path.join(tmpdir(), "telegram-workflow-"));
+      try {
+        const sourceSha = "1".repeat(40);
+        const compose = "name: inside-production-telegram\n";
+        const caddy = "telegram.sachkov.dev {\n}\n";
+        const digest = (value: string) =>
+          `sha256:${createHash("sha256").update(value).digest("hex")}`;
+        const manifest = {
+          schemaVersion: "inside.telegram.release-manifest.v1",
+          version,
+          source: {
+            repository: sourceRepository,
+            sha: sourceSha,
+          },
+          image: `ghcr.io/sachkov-inside/inside-telegram@sha256:${"2".repeat(64)}`,
+          migrations: {
+            identity: `sha256:${"3".repeat(64)}`,
+            count: 1,
+            latest: "001.ts",
+          },
+          compose: { asset: "compose.yaml", sha256: digest(compose) },
+          caddy: { asset: "telegram.caddy", sha256: digest(caddy) },
+          publication: {
+            workflowRunId: 91,
+            workflowRunUrl: `https://github.com/${sourceRepository}/actions/runs/91`,
+          },
+        };
+        const fixtures = path.join(directory, "fixtures");
+        mkdirSync(fixtures);
+        writeFileSync(
+          path.join(fixtures, "release-manifest.json"),
+          JSON.stringify(manifest),
+        );
+        writeFileSync(path.join(fixtures, "compose.yaml"), compose);
+        writeFileSync(path.join(fixtures, "telegram.caddy"), caddy);
+        writeFileSync(
+          path.join(fixtures, "commit.json"),
+          JSON.stringify({ sha: sourceSha }),
+        );
+        writeFileSync(
+          path.join(fixtures, "release.json"),
+          JSON.stringify({
+            assets: [
+              { name: "release-manifest.json" },
+              { name: "compose.yaml" },
+              { name: "telegram.caddy" },
+            ],
+            isImmutable: true,
+            tagName: tag,
+            targetCommitish: sourceSha,
+          }),
+        );
+        writeFileSync(
+          path.join(fixtures, "run.json"),
+          JSON.stringify({
+            id: 91,
+            repository: { full_name: sourceRepository },
+            head_repository: { full_name: sourceRepository },
+            html_url: `https://github.com/${sourceRepository}/actions/runs/91`,
+            conclusion: "success",
+            event: "workflow_dispatch",
+            head_branch: "main",
+            head_sha: sourceSha,
+            path: `.github/workflows/${workflow}`,
+          }),
+        );
+        const gh = path.join(directory, "gh");
+        writeFileSync(
+          gh,
+          `#!/usr/bin/env bash
 set -euo pipefail
-if [[ "$1" == release && " $* " != *" --repo sachkov-inside/inside-telegram "* ]]; then
+if [[ "$1" == release && " $* " != *" --repo ${sourceRepository} "* ]]; then
   echo 'No repository selected outside a Git checkout' >&2
   exit 1
 fi
@@ -300,116 +323,151 @@ case "$1 $2" in
   'release download')
     while [[ "$1" != --dir ]]; do shift; done
     cp "$FIXTURES/release-manifest.json" "$FIXTURES/compose.yaml" "$FIXTURES/telegram.caddy" "$2/" ;;
-  'api repos/sachkov-inside/inside-telegram/actions/runs/91') cat "$FIXTURES/run.json" ;;
+  'api repos/${sourceRepository}/commits/${tag}')
+    if [[ "\${3:-}" == --jq && "\${4:-}" == .sha ]]; then
+      jq --raw-output .sha "$FIXTURES/commit.json"
+    else
+      cat "$FIXTURES/commit.json"
+    fi ;;
+  'api repos/${sourceRepository}/actions/runs/91') cat "$FIXTURES/run.json" ;;
   *) exit 1 ;;
 esac
 `,
-      );
-      chmodSync(gh, 0o755);
-      const shaShim = path.join(directory, "sha256sum");
-      writeFileSync(
-        shaShim,
-        '#!/usr/bin/env bash\nif command -v /usr/bin/sha256sum >/dev/null 2>&1; then exec /usr/bin/sha256sum "$@"; fi\nexec shasum -a 256 "$@"\n',
-      );
-      chmodSync(shaShim, 0o755);
+        );
+        chmodSync(gh, 0o755);
+        const shaShim = path.join(directory, "sha256sum");
+        writeFileSync(
+          shaShim,
+          '#!/usr/bin/env bash\nif command -v /usr/bin/sha256sum >/dev/null 2>&1; then exec /usr/bin/sha256sum "$@"; fi\nexec shasum -a 256 "$@"\n',
+        );
+        chmodSync(shaShim, 0o755);
 
-      for (const name of [
-        "Verify and download the selected release",
-        "Recheck the selected release after waiting in the queue",
-      ]) {
-        const result = spawnSync("bash", ["-c", stepScript(deploy, name)], {
-          cwd: directory,
-          encoding: "utf8",
-          env: {
-            ...process.env,
-            PATH: `${directory}:${process.env["PATH"] ?? ""}`,
-            FIXTURES: fixtures,
-            RUNNER_TEMP: directory,
-            GITHUB_ENV: path.join(directory, "github.env"),
-            GITHUB_REPOSITORY: "sachkov-inside/inside-telegram",
-            RELEASE_DIR: path.join(directory, "production-release"),
-            OPERATION: "deploy",
-            VERSION: "v1",
-          },
+        const runStep = (name: string, env: Record<string, string> = {}) =>
+          spawnSync("bash", ["-c", stepScript(deploy, name)], {
+            cwd: directory,
+            encoding: "utf8",
+            env: {
+              ...process.env,
+              PATH: `${directory}:${process.env["PATH"] ?? ""}`,
+              FIXTURES: fixtures,
+              RUNNER_TEMP: directory,
+              GITHUB_ENV: path.join(directory, "github.env"),
+              GITHUB_REPOSITORY: "sachkov-inside/platform",
+              RELEASE_DIR: path.join(directory, "production-release"),
+              OPERATION: "deploy",
+              VERSION: version,
+              GITHUB_REF: "refs/heads/main",
+              SOURCE_REPOSITORY: sourceRepository,
+              RELEASE_TAG: tag,
+              ...env,
+            },
+          });
+        for (const name of [
+          "Verify and download the selected release",
+          "Recheck the selected release after waiting in the queue",
+        ]) {
+          const result = runStep(name);
+          expect(result.status, `${name}: ${result.stderr}`).toBe(0);
+        }
+        const originalRun = jsonRecord(
+          readFileSync(path.join(fixtures, "run.json"), "utf8"),
+        );
+        for (const override of [
+          { path: ".github/workflows/untrusted.yml" },
+          { head_sha: "f".repeat(40) },
+          { repository: { full_name: "untrusted/repository" } },
+          { id: 92 },
+        ]) {
+          writeFileSync(
+            path.join(fixtures, "run.json"),
+            JSON.stringify({ ...originalRun, ...override }),
+          );
+          rmSync(path.join(directory, "production-release"), {
+            recursive: true,
+          });
+          const rejected = runStep("Verify and download the selected release");
+          // The fixture removes the prior download so validation reaches the changed run.
+          expect(rejected.status).not.toBe(0);
+        }
+        writeFileSync(
+          path.join(fixtures, "run.json"),
+          JSON.stringify(originalRun),
+        );
+        const originalRelease = jsonRecord(
+          readFileSync(path.join(fixtures, "release.json"), "utf8"),
+        );
+        for (const [asset, invalid, message] of [
+          [
+            "commit.json",
+            JSON.stringify({ sha: "f".repeat(40) }),
+            "Telegram tag SHA mismatch",
+          ],
+          [
+            "release.json",
+            JSON.stringify({
+              ...originalRelease,
+              targetCommitish: "f".repeat(40),
+            }),
+            "Telegram release target SHA mismatch",
+          ],
+          [
+            "compose.yaml",
+            "untrusted compose\n",
+            "Telegram Compose asset hash mismatch",
+          ],
+          [
+            "telegram.caddy",
+            "untrusted caddy\n",
+            "Telegram Caddy asset hash mismatch",
+          ],
+        ] as const) {
+          const file = path.join(fixtures, asset);
+          const original = readFileSync(file, "utf8");
+          writeFileSync(file, invalid);
+          rmSync(path.join(directory, "production-release"), {
+            recursive: true,
+          });
+          const rejected = runStep("Verify and download the selected release");
+          expect(rejected.status, `${asset}: ${rejected.stderr}`).toBe(1);
+          expect(rejected.stderr).toContain(message);
+          writeFileSync(file, original);
+        }
+        const invalidEnvironments: Record<string, string>[] = [
+          { OPERATION: "untrusted" },
+          { VERSION: "v0" },
+          { GITHUB_REPOSITORY: "untrusted/repository" },
+          { GITHUB_REF: "refs/heads/untrusted" },
+        ];
+        for (const env of invalidEnvironments) {
+          rmSync(path.join(directory, "production-release"), {
+            recursive: true,
+            force: true,
+          });
+          expect(
+            runStep("Verify and download the selected release", env).status,
+          ).not.toBe(0);
+        }
+        rmSync(path.join(directory, "production-release"), {
+          recursive: true,
+          force: true,
         });
-        expect(result.status, `${name}: ${result.stderr}`).toBe(0);
+        expect(runStep("Verify and download the selected release").status).toBe(
+          0,
+        );
+        expect(
+          readFileSync(
+            path.join(directory, "production-release/compose.yaml"),
+            "utf8",
+          ),
+        ).toBe(compose);
+      } finally {
+        rmSync(directory, { recursive: true, force: true });
       }
-      expect(
-        readFileSync(
-          path.join(directory, "production-release/compose.yaml"),
-          "utf8",
-        ),
-      ).toBe(compose);
-    } finally {
-      rmSync(directory, { recursive: true, force: true });
-    }
-  });
+    },
+  );
 });
 
 describe("release contract", () => {
-  const planInput = {
-    requestedVersion: "v2",
-    sourceSha: "a".repeat(40),
-    currentMainSha: "a".repeat(40),
-    existingTags: ["v1", "unrelated"],
-    existingReleases: [
-      {
-        version: "v1",
-        immutable: true,
-        assets: ["compose.yaml", "release-manifest.json", "telegram.caddy"],
-      },
-    ],
-  };
-
-  function plan(input: unknown) {
-    return spawnSync(
-      process.execPath,
-      ["scripts/release-contract.mjs", "plan"],
-      {
-        input: JSON.stringify(input),
-        encoding: "utf8",
-      },
-    );
-  }
-
-  it("plans the next ordinal on the current main", () => {
-    const result = plan(planInput);
-    expect(result.status, result.stderr).toBe(0);
-    expect(JSON.parse(result.stdout)).toEqual({
-      version: "v2",
-      sourceSha: "a".repeat(40),
-    });
-  });
-
-  it.each([
-    ["a skipped ordinal", { requestedVersion: "v3" }, /next release is v2/],
-    ["a repeated ordinal", { requestedVersion: "v1" }, /next release is v2/],
-    ["a stale SHA", { currentMainSha: "b".repeat(40) }, /not the current main/],
-    ["a malformed version", { requestedVersion: "2" }, /must be vN/],
-    [
-      "a mutable earlier release",
-      {
-        existingReleases: [
-          {
-            version: "v1",
-            immutable: false,
-            assets: ["compose.yaml", "release-manifest.json", "telegram.caddy"],
-          },
-        ],
-      },
-      /not an immutable release/,
-    ],
-    [
-      "a tag without a release",
-      { existingTags: ["v1", "v2"] },
-      /must exactly match/,
-    ],
-  ])("refuses %s", (_name, override, message) => {
-    const result = plan({ ...planInput, ...override });
-    expect(result.status).toBe(1);
-    expect(result.stderr).toMatch(message);
-  });
-
   it("changes the migration identity when a migration changes or is added", () => {
     const directory = mkdtempSync(path.join(tmpdir(), "telegram-migrations-"));
     try {
@@ -442,7 +500,7 @@ describe("release contract", () => {
         "scripts/release-contract.mjs",
         "manifest",
         "--version",
-        "v1",
+        "v6",
         "--source-sha",
         "c".repeat(40),
         "--image-digest",
@@ -472,7 +530,7 @@ describe("release contract", () => {
     ]);
     expect(manifest).toMatchObject({
       schemaVersion: "inside.telegram.release-manifest.v1",
-      source: { repository: "sachkov-inside/inside-telegram" },
+      source: { repository: "sachkov-inside/platform" },
       image: `ghcr.io/sachkov-inside/inside-telegram@sha256:${"d".repeat(64)}`,
       compose: {
         asset: "compose.yaml",
@@ -489,7 +547,7 @@ describe("release contract", () => {
       publication: {
         workflowRunId: 77,
         workflowRunUrl:
-          "https://github.com/sachkov-inside/inside-telegram/actions/runs/77",
+          "https://github.com/sachkov-inside/platform/actions/runs/77",
       },
     });
   });

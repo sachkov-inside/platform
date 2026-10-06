@@ -29,7 +29,11 @@ describe("ordinal release workflow contract", () => {
     assert.match(releaseWorkflow, /^ {2}cancel-in-progress: false$/mu);
     assert.match(plan, /bash scripts\/plan-release\.sh/u);
     assert.match(planScript, /git\/ref\/heads\/main/u);
-    assert.match(planScript, /immutable-releases/u);
+    assert.match(planScript, /bash scripts\/check-release-immutability\.sh/u);
+    assert.match(
+      read("scripts/check-release-immutability.sh"),
+      /immutable-releases/u,
+    );
     assert.ok(
       plan.indexOf("unset RELEASE_SETTINGS_READ_TOKEN") >
         plan.indexOf("bash scripts/plan-release.sh") &&

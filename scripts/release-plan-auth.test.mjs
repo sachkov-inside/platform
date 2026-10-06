@@ -7,48 +7,49 @@ import { resolve } from "node:path";
 import { describe, it } from "node:test";
 import { z } from "zod";
 
-describe("release settings authentication", () => {
-  it("uses settings access only for the administration endpoint", () => {
-    const result = runPlan();
-    assert.equal(result.status, 0, result.stderr);
-    assert.equal(
-      z
-        .object({ version: z.unknown() })
-        .passthrough()
-        .parse(JSON.parse(result.stdout)).version,
-      "v1",
-    );
-    assert.deepEqual(result.calls, [
-      "settings",
-      "standard",
-      "standard",
-      "standard",
-    ]);
-  });
+for (const telegram of [false, true]) {
+  describe(`release settings authentication (${telegram ? "Telegram" : "Platform"})`, () => {
+    it("uses settings access only for the administration endpoint", () => {
+      const result = runPlan(telegram);
+      assert.equal(result.status, 0, result.stderr);
+      assert.equal(
+        z
+          .object({ version: z.unknown() })
+          .passthrough()
+          .parse(JSON.parse(result.stdout)).version,
+        telegram ? "v6" : "v1",
+      );
+      assert.deepEqual(result.calls, [
+        "settings",
+        ...Array.from({ length: telegram ? 5 : 3 }, () => "standard"),
+      ]);
+    });
 
-  it("requires settings credentials before calling GitHub", () => {
-    const result = runPlan({ RELEASE_SETTINGS_READ_TOKEN: "" });
-    assert.notEqual(result.status, 0);
-    assert.match(result.stderr, /RELEASE_SETTINGS_READ_TOKEN is required/u);
-    assert.deepEqual(result.calls, []);
-  });
+    it("requires settings credentials before calling GitHub", () => {
+      const result = runPlan(telegram, { RELEASE_SETTINGS_READ_TOKEN: "" });
+      assert.notEqual(result.status, 0);
+      assert.match(result.stderr, /RELEASE_SETTINGS_READ_TOKEN is required/u);
+      assert.deepEqual(result.calls, []);
+    });
 
-  it("stops on denied settings access without falling back to the standard token", () => {
-    const result = runPlan({ SETTINGS_RESULT: "denied" });
-    assert.notEqual(result.status, 0);
-    assert.match(result.stderr, /Resource not accessible by integration/u);
-    assert.equal(result.calls.length, 1);
-  });
+    it("stops on denied settings access without falling back to the standard token", () => {
+      const result = runPlan(telegram, { SETTINGS_RESULT: "denied" });
+      assert.notEqual(result.status, 0);
+      assert.match(result.stderr, /Resource not accessible by integration/u);
+      assert.equal(result.calls.length, 1);
+    });
 
-  it("stops before reading release history when immutability is disabled", () => {
-    const result = runPlan({ SETTINGS_RESULT: "disabled" });
-    assert.notEqual(result.status, 0);
-    assert.match(result.stderr, /immutability must be enabled/u);
-    assert.deepEqual(result.calls, ["settings"]);
+    it("stops before reading release history when immutability is disabled", () => {
+      const result = runPlan(telegram, { SETTINGS_RESULT: "disabled" });
+      assert.notEqual(result.status, 0);
+      assert.match(result.stderr, /immutability must be enabled/u);
+      assert.deepEqual(result.calls, ["settings"]);
+    });
   });
-});
+}
 
-function runPlan(overrides = {}) {
+/** @param {boolean} telegram */
+function runPlan(telegram, overrides = {}) {
   const directory = mkdtempSync(resolve(tmpdir(), "inside-release-auth-"));
   const calls = resolve(directory, "calls");
   writeFileSync(calls, "");
@@ -70,27 +71,37 @@ if (settings) {
   console.log(process.env.SETTINGS_RESULT === "disabled" ? "false" : "true");
 } else {
   if (credential !== "standard") process.exit(2);
-  console.log(endpoint?.endsWith("/git/ref/heads/main") ? process.env.SOURCE_SHA : "[[]]");
+  if (endpoint?.includes("inside-telegram/tags")) console.log(JSON.stringify([[1,2,3,4,5].map(n => ({name: "v" + n}))]));
+  else if (endpoint?.includes("inside-telegram/releases")) console.log(JSON.stringify([[1,2,3,4,5].map(n => ({tag_name: "v" + n, draft: false, prerelease: false, immutable: true, target_commitish: "1".repeat(40), assets: ["compose.yaml", "release-manifest.json", "telegram.caddy"].map(name => ({name}))}))]));
+  else console.log(endpoint?.endsWith("/git/ref/heads/main") ? process.env.SOURCE_SHA : "[[]]");
 }
 `,
     { mode: 0o755 },
   );
   try {
-    const result = spawnSync("bash", ["scripts/plan-release.sh"], {
-      encoding: "utf8",
-      env: {
-        ...process.env,
-        PATH: `${directory}:${process.env["PATH"]}`,
-        GH_TOKEN: "workflow-token",
-        RELEASE_SETTINGS_READ_TOKEN: "settings-read",
-        GITHUB_REPOSITORY: "sachkov-inside/platform",
-        REQUESTED_VERSION: "v1",
-        SOURCE_SHA: "a".repeat(40),
-        AUTH_CALLS: calls,
-        SETTINGS_RESULT: "enabled",
-        ...overrides,
+    const result = spawnSync(
+      "bash",
+      [
+        telegram
+          ? "apps/telegram/scripts/plan-release.sh"
+          : "scripts/plan-release.sh",
+      ],
+      {
+        encoding: "utf8",
+        env: {
+          ...process.env,
+          PATH: `${directory}:${process.env["PATH"]}`,
+          GH_TOKEN: "workflow-token",
+          RELEASE_SETTINGS_READ_TOKEN: "settings-read",
+          GITHUB_REPOSITORY: "sachkov-inside/platform",
+          REQUESTED_VERSION: telegram ? "v6" : "v1",
+          SOURCE_SHA: "a".repeat(40),
+          AUTH_CALLS: calls,
+          SETTINGS_RESULT: "enabled",
+          ...overrides,
+        },
       },
-    });
+    );
     return {
       ...result,
       calls: readFileSync(calls, "utf8").split("\n").filter(Boolean),

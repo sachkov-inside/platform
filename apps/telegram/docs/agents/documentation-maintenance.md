@@ -13,5 +13,5 @@ for shared product/legal facts, terminology and developer process.
 | Agent routing and verification | [Application AGENTS](../../AGENTS.md) |
 | Delivery, review and skills | [Root WORKFLOW](../../../../WORKFLOW.md) and root `.agents/skills` |
 
-Historical nested workflows remain fixtures until #960. Their tests preserve the old delivery
-contract; the root Docker build interface already uses the monorepo context.
+The [production runbook](../operations/production.md) owns the independent Telegram release,
+deployment, exact source families and rollback. Root workflows execute that contract.

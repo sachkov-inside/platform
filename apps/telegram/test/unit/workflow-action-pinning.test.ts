@@ -14,8 +14,8 @@ function unpinnedActions(workflow: string): string[] {
     );
 }
 
-const workflows = readdirSync(".github/workflows")
-  .map((name) => `.github/workflows/${name}`)
+const workflows = readdirSync("../../.github/workflows")
+  .map((name) => `../../.github/workflows/${name}`)
   .filter((path) => /\.ya?ml$/.test(path));
 
 describe("workflow action pinning", () => {
@@ -31,7 +31,7 @@ describe("workflow action pinning", () => {
           "        uses: actions/upload-artifact@v4",
           "      - uses: docker/login-action@main",
           "      - uses: actions/setup-node@8207627",
-          "    uses: ./.github/workflows/application-ci.yml",
+          "    uses: ./.github/workflows/ci.yml",
         ].join("\n"),
       ),
     ).toEqual([

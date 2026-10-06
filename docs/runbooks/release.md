@@ -99,19 +99,10 @@ gh workflow run deploy.yml --repo sachkov-inside/platform --ref main --field ope
 
 ## 5. Выпустить и выложить Telegram
 
-Только если в `inside-telegram` есть изменения с прошлого выпуска. Путь тот же, номера у Telegram
-свои:
-
-```bash
-gh workflow run release.yml --repo sachkov-inside/inside-telegram --ref main --field version=vN
-gh workflow run deploy.yml --repo sachkov-inside/inside-telegram --ref main --field operation=deploy --field version=vN
-```
-
-Выкладка Telegram останавливает единственный `app`, применяет миграции, запускает его, ждёт
-`/ready` и ставит фрагмент Caddy выпуска. Откат — `operation=rollback` на предыдущую версию, только
-при том же наборе миграций. Подробности и разовая установка — `docs/operations/production.md`
-Telegram, раздел «Выпуск и выкладка». Platform выкладывается первым, если новый Telegram зависит
-от нового контракта Platform.
+Telegram выпускается независимо из `apps/telegram` в platform. Его
+[production runbook](../../apps/telegram/docs/operations/production.md#выпуск-и-выкладка)
+владеет командами корневых workflows, проверкой источника, выкладкой и откатом.
+Если Telegram зависит от нового контракта Platform, сначала выложите Platform.
 
 ## 6. Проверить
 
