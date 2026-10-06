@@ -268,13 +268,16 @@ export async function startFullStackIdentity({
   };
 }
 
-/** Отказ в выдаче токена: `error` — это OIDC, `code` и `message` — то, что читает клиент Logto. */
 /**
- * @param {string} code
+ * Отказ в выдаче токена в форме fork Logto (#1005): `error` — код OAuth, `code` — он же с
+ * префиксом `oidc.`, `message` — текст. Клиент Logto бросает по `code` и `message`
+ * `LogtoRequestError`, и web узнаёт отвергнутый grant по коду `oidc.invalid_grant`.
+ *
+ * @param {string} error
  * @param {string} message
  */
-function grantFailure(code, message) {
-  return { error: code, code, message };
+function grantFailure(error, message) {
+  return { error, code: `oidc.${error}`, message };
 }
 
 /**

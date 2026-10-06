@@ -57,8 +57,8 @@ async function getPlatformAccessTokenWith(
       startRefreshFlight(config, flightKey, readAccessToken));
   } catch (error) {
     // Общий полёт обновления выполняется в области первого запроса; cookie каждый запрос
-    // снимает в своей. Рендер Server Component писать cookie не может: его снимет следующий
-    // обработчик маршрута, например `/auth/status`.
+    // снимает в своей. Режим `rsc` cookie не пишет, потому что рендер Server Component её
+    // менять не может: её снимет следующий обработчик маршрута, например `/auth/status`.
     if (error instanceof RejectedRefreshGrantError && mode === "mutable") {
       await clearLogtoSessionCookie(config);
     }

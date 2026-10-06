@@ -1,11 +1,16 @@
 import { beforeEach, expect, it, vi } from "vitest";
 
-const fakes = vi.hoisted(() => ({ token: vi.fn(), manage: vi.fn() }));
+const fakes = vi.hoisted(() => ({
+  token: vi.fn(),
+  renderToken: vi.fn(),
+  manage: vi.fn(),
+}));
 vi.mock("@/shared/api/backend/index.server", () => ({
   requestManageBilling: fakes.manage,
 }));
 vi.mock("@/shared/auth/platform-access-token.server", () => ({
   getPlatformAccessToken: fakes.token,
+  getPlatformAccessTokenRsc: fakes.renderToken,
   LogtoSessionUnavailableError: class extends Error {},
 }));
 vi.mock("@/shared/auth/logto-bff-config.server", () => ({
@@ -55,6 +60,7 @@ const problem = (code: string, status: number) => ({
 beforeEach(() => {
   vi.clearAllMocks();
   fakes.token.mockResolvedValue("owner-token");
+  fakes.renderToken.mockResolvedValue("owner-render-token");
 });
 
 it("даёт каждой владельческой операции собственный маршрут и дискриминатор", async () => {
@@ -355,9 +361,11 @@ it("читает владельческий каталог, где остают�
     }),
   );
   await expect(loadBillingOffersForOwner()).resolves.toEqual([]);
+  // Каталог читает серверный рендер: токен он берёт без записи cookie.
+  expect(fakes.token).not.toHaveBeenCalled();
   expect(fakes.manage).toHaveBeenCalledWith(
     expect.objectContaining({ operation: "offers.list", limit: 100 }),
-    "owner-token",
+    "owner-render-token",
   );
 });
 

@@ -120,11 +120,11 @@ describe("full-stack identity", () => {
     });
 
     assert.equal(refused.status, 400);
-    // Клиент Logto считает ошибкой сервера только тело с code и message. Без них отказ станет
-    // «неожиданным ответом», и непродлеваемая сессия покажется приложению недоступностью.
+    // Форма отказа fork Logto (#1005): web узнаёт отвергнутый grant по коду `oidc.invalid_grant`.
+    // С другим кодом непродлеваемая сессия покажется приложению недоступностью.
     const body = grantFailureSchema.parse(await refused.json());
     assert.equal(body.error, "invalid_grant");
-    assert.equal(body.code, "invalid_grant");
+    assert.equal(body.code, "oidc.invalid_grant");
     assert.equal(typeof body.message, "string");
     assert.ok(body.message.length > 0);
   });
@@ -144,7 +144,7 @@ describe("full-stack identity", () => {
     assert.equal(refused.status, 400);
     assert.deepEqual(await refused.json(), {
       error: "invalid_target",
-      code: "invalid_target",
+      code: "oidc.invalid_target",
       message: "Requested resource is not this audience",
     });
   });
