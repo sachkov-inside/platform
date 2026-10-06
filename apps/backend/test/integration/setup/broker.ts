@@ -11,6 +11,48 @@ export function brokerAdmin(broker: StartedTestContainer) {
   };
 }
 
+/** Failure evidence, including a stopped/unreachable broker; never replaces the original failure. */
+export async function brokerDiagnostics(
+  broker: StartedTestContainer,
+  vhost: string,
+): Promise<string> {
+  const commands = [
+    [
+      "list_queues",
+      "name",
+      "messages_ready",
+      "messages_unacknowledged",
+      "consumers",
+      "state",
+    ],
+    ["list_consumers"],
+  ];
+  const results = await Promise.all(
+    commands.map(async ([command, ...columns]) => {
+      try {
+        // Bound CLI startup too: rabbitmqctl's own timeout starts after Erlang has loaded.
+        const result = await broker.exec([
+          "timeout",
+          "5",
+          "rabbitmqctl",
+          "--timeout",
+          "5",
+          command ?? "list_queues",
+          "-p",
+          vhost,
+          ...columns,
+          "--formatter",
+          "json",
+        ]);
+        return `${String(command)} (exit ${String(result.exitCode)}): ${result.output.replace(/\s+/gu, " ")}`;
+      } catch (error) {
+        return `${String(command)} unavailable: ${String(error)}`;
+      }
+    }),
+  );
+  return results.join(" | ");
+}
+
 const queues = z.array(z.object({ name: z.string(), messages: z.number() }));
 const queueConsumerCounts = z.array(
   z.object({ name: z.string(), consumers: z.number() }),

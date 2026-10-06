@@ -13,6 +13,7 @@ import type { ChannelModel } from "amqplib";
 import {
   afterAll,
   beforeAll,
+  beforeEach,
   describe,
   expect,
   onTestFinished,
@@ -22,6 +23,7 @@ import { z } from "zod";
 import fixtures from "../../../../docs/contracts/notifications-v1/fixtures.json" with { type: "json" };
 import {
   brokerAdmin,
+  brokerDiagnostics,
   queueConsumers,
   queueDepth,
   queueLimit,
@@ -212,6 +214,44 @@ describe("Notifications real PostgreSQL / RabbitMQ transport", () => {
     return connection;
   }
   const admin = (args: string[]) => brokerAdmin(broker)(args);
+  let currentStep = "scenario action";
+  let failureEvidenceCaptured = false;
+  async function transportFailure(error: unknown): Promise<Error> {
+    const state = await brokerDiagnostics(broker, "inside-test");
+    failureEvidenceCaptured = true;
+    return new Error(
+      `${error instanceof Error ? error.message : String(error)} | step: ${currentStep} | broker: ${state}`,
+      { cause: error },
+    );
+  }
+  async function transportBarrier(
+    fact: string,
+    check: () => Promise<void>,
+    budgetMs: number,
+  ): Promise<void> {
+    currentStep = fact;
+    try {
+      await eventually(check, budgetMs);
+    } catch (error) {
+      throw await transportFailure(
+        new Error(
+          `Transport barrier did not reach ${fact} within ${String(budgetMs)}ms`,
+          { cause: error },
+        ),
+      );
+    }
+  }
+  beforeEach(({ onTestFailed, task }) => {
+    currentStep = "scenario action";
+    failureEvidenceCaptured = false;
+    // Fallback outside the body budget: assertions, process failures and test timeouts also get evidence.
+    onTestFailed(async () => {
+      if (!failureEvidenceCaptured)
+        console.error(
+          `Transport failure: ${task.name} | ${String(await transportFailure(new Error("scenario failed")))}`,
+        );
+    });
+  });
   beforeAll(async () => {
     directory = await mkdtemp(join(tmpdir(), "platform-435-"));
     caFile = join(directory, "cert.pem");
@@ -425,41 +465,37 @@ describe("Notifications real PostgreSQL / RabbitMQ transport", () => {
         let death: Awaited<ReturnType<typeof worker.kill>> | undefined;
         try {
           // Запуск и проверяемое поведение ждут раздельно: первое зависит от машины, второе — нет.
+          currentStep = "crash worker ready";
           await worker.reaches(
             crashWorkerSignals.ready,
             crashWorkerStartBudgetMs,
           );
-          // Если воркер жив и молчит, важно знать, куда делось его сообщение: лежит ли оно в очереди,
-          // и есть ли на ней ещё чья-то подписка. Без этого падение сообщает лишь, что время вышло,
-          // и следующий разбор начинается с нуля. Локально этот бюджет расходуется на проценты
-          // (11–83 мс при 15 секундах), поэтому его истечение на раннере — само по себе находка.
-          try {
-            await worker.reaches(crashWorkerSignals.boundary, barrierBudgetMs);
-          } catch (error) {
-            const state = await admin([
-              "list_queues",
-              "-p",
-              "inside-test",
-              "name",
-              "messages",
-              "consumers",
-              "--formatter",
-              "json",
-            ]);
-            throw new Error(
-              `${error instanceof Error ? error.message : String(error)} | broker: ${state.replace(/\s+/gu, " ")}`,
-              { cause: error },
-            );
-          }
+          currentStep = `crash worker boundary ${phase}`;
+          await worker.reaches(crashWorkerSignals.boundary, barrierBudgetMs);
           if (phase === "before-confirm") {
             // Broker persistence is observed while the application is still denied its confirm.
             // Проверка живёт вне ожидания воркера: её провал должен называться своим именем.
-            await eventually(async () => {
-              expect(
-                await queueDepth(admin, "inside-test", lanes.billing.queue),
-              ).toBe(1);
-            }, barrierBudgetMs);
+            await Promise.all([
+              transportBarrier(
+                "before-confirm publish persisted in billing queue",
+                async () => {
+                  expect(
+                    await queueDepth(admin, "inside-test", lanes.billing.queue),
+                  ).toBe(1);
+                },
+                barrierBudgetMs,
+              ),
+              // #610: наблюдение очереди может пережить срок подтверждения публикации.
+              // Воркер обязан оставаться на границе, не записывая неудачную попытку в outbox.
+              worker.reaches(
+                crashWorkerSignals.confirmExpired,
+                barrierBudgetMs,
+              ),
+            ]);
           }
+        } catch (error) {
+          if (failureEvidenceCaptured) throw error;
+          throw await transportFailure(error);
         } finally {
           death = await worker.kill();
         }
@@ -470,12 +506,16 @@ describe("Notifications real PostgreSQL / RabbitMQ transport", () => {
         ).toBe("SIGKILL");
         // Смерть воркера — это шаг сценария, а снятие его подписки — факт, который этот шаг
         // производит. Пока брокер её держит, очередь отдаёт сообщения мёртвому потребителю.
-        await eventually(async () => {
-          expect(
-            await queueConsumers(admin, "inside-test", lanes.billing.queue),
-            "broker still holds the killed worker subscription",
-          ).toBe(0);
-        }, brokerReapBudgetMs);
+        await transportBarrier(
+          "killed worker subscription removed",
+          async () => {
+            expect(
+              await queueConsumers(admin, "inside-test", lanes.billing.queue),
+              "broker still holds the killed worker subscription",
+            ).toBe(0);
+          },
+          brokerReapBudgetMs,
+        );
         if (phase.includes("confirm")) {
           expect(
             await scenario.prisma.billingNotificationOutbox.findUniqueOrThrow({
@@ -504,39 +544,51 @@ describe("Notifications real PostgreSQL / RabbitMQ transport", () => {
         // Подписка восстановления снимается и при провале: оставшись, она разбирала бы очередь
         // следующего сценария, и одно падение превращалось бы в каскад чужих.
         try {
-          await eventually(async () => {
-            expect(
-              await scenario.prisma.notificationInbox.findUnique({
-                where: {
-                  scope_messageId: {
-                    scope: "billing",
-                    messageId: envelope.messageId,
+          await transportBarrier(
+            `inbox committed for ${envelope.messageId}`,
+            async () => {
+              expect(
+                await scenario.prisma.notificationInbox.findUnique({
+                  where: {
+                    scope_messageId: {
+                      scope: "billing",
+                      messageId: envelope.messageId,
+                    },
                   },
-                },
-              }),
-            ).toMatchObject({
-              payload: envelope.payload,
-              completedAt: null,
-              checkpoint: {},
-            });
-          }, barrierBudgetMs);
+                }),
+              ).toMatchObject({
+                payload: envelope.payload,
+                completedAt: null,
+                checkpoint: {},
+              });
+            },
+            barrierBudgetMs,
+          );
           // Wait for both confirm-window copies to be consumed before moving to the next crash phase.
-          await eventually(async () => {
-            expect(
-              await queueDepth(admin, "inside-test", lanes.billing.queue),
-            ).toBe(0);
-          }, barrierBudgetMs);
+          await transportBarrier(
+            "billing queue drained after recovery",
+            async () => {
+              expect(
+                await queueDepth(admin, "inside-test", lanes.billing.queue),
+              ).toBe(0);
+            },
+            barrierBudgetMs,
+          );
         } finally {
           await consumer.stop();
         }
         // Cancel acknowledgement precedes the quorum queue's observed consumer count on loaded runners.
         // Each crash scenario owns this cleanup barrier; the next scenario still requires zero consumers.
-        await eventually(async () => {
-          expect(
-            await queueConsumers(admin, "inside-test", lanes.billing.queue),
-            "broker still holds the stopped recovery consumer",
-          ).toBe(0);
-        }, brokerReapBudgetMs);
+        await transportBarrier(
+          "recovery consumer subscription removed",
+          async () => {
+            expect(
+              await queueConsumers(admin, "inside-test", lanes.billing.queue),
+              "broker still holds the stopped recovery consumer",
+            ).toBe(0);
+          },
+          brokerReapBudgetMs,
+        );
         expect(
           await scenario.prisma.notificationInbox.count({
             where: { messageId: envelope.messageId },
@@ -579,11 +631,15 @@ describe("Notifications real PostgreSQL / RabbitMQ transport", () => {
     // До этого момента брокер принимает всё, и прежний тест публиковал вслепую, утверждая то,
     // чего не контролировал: на медленной машине предел не успевал появиться, все публикации
     // проходили, и падало `expected false to be true`. Ждём факт — предел объявлен очередью.
-    await eventually(async () => {
-      expect(await queueLimit(admin, "inside-test", lanes.billing.queue)).toBe(
-        queueCapacity,
-      );
-    }, barrierBudgetMs);
+    await transportBarrier(
+      "billing queue capacity restored",
+      async () => {
+        expect(
+          await queueLimit(admin, "inside-test", lanes.billing.queue),
+        ).toBe(queueCapacity);
+      },
+      barrierBudgetMs,
+    );
     // Предел очереди брокер применяет не мгновенно: несколько публикаций сверх него он ещё
     // принимает. Поэтому публикуем до отказа, но ограничиваем это счётом, выведенным из предела,
     // а не временем: сколько бы ни занимало подтверждение, число попыток остаётся тем же, и тест
@@ -644,13 +700,17 @@ describe("Notifications real PostgreSQL / RabbitMQ transport", () => {
       transport,
       1,
     );
-    await eventually(async () => {
-      expect(
-        await database.prisma.notificationInbox.count({
-          where: { lane: "materials" },
-        }),
-      ).toBeGreaterThan(0);
-    }, barrierBudgetMs);
+    await transportBarrier(
+      "materials inbox committed despite billing saturation",
+      async () => {
+        expect(
+          await database.prisma.notificationInbox.count({
+            where: { lane: "materials" },
+          }),
+        ).toBeGreaterThan(0);
+      },
+      barrierBudgetMs,
+    );
     await consumer.stop();
   }, 45_000);
 
@@ -683,9 +743,13 @@ describe("Notifications real PostgreSQL / RabbitMQ transport", () => {
       1,
     );
     await publishPoison("{broken:1");
-    await eventually(async () => {
-      expect(await database.prisma.notificationQuarantine.count()).toBe(1);
-    }, barrierBudgetMs);
+    await transportBarrier(
+      "poison evidence committed before ack",
+      async () => {
+        expect(await database.prisma.notificationQuarantine.count()).toBe(1);
+      },
+      barrierBudgetMs,
+    );
     await publishPoison("{broken:2");
     await expect(consumer.failed).rejects.toThrow(
       "notification_receipt_unavailable",
@@ -704,9 +768,13 @@ describe("Notifications real PostgreSQL / RabbitMQ transport", () => {
       transport,
       1,
     );
-    await eventually(async () => {
-      expect(await database.prisma.notificationQuarantine.count()).toBe(2);
-    }, barrierBudgetMs);
+    await transportBarrier(
+      "second poison evidence committed after quarantine recovery",
+      async () => {
+        expect(await database.prisma.notificationQuarantine.count()).toBe(2);
+      },
+      barrierBudgetMs,
+    );
     await recovered.stop();
   }, 30_000);
 
@@ -744,13 +812,17 @@ describe("Notifications real PostgreSQL / RabbitMQ transport", () => {
     ) {
       /* bounded test fixture backlog */
     }
-    await eventually(async () => {
-      expect(
-        await database.prisma.notificationInbox.count({
-          where: { lane: "materials" },
-        }),
-      ).toBeGreaterThan(1);
-    }, barrierBudgetMs);
+    await transportBarrier(
+      "materials inbox committed after broker restart",
+      async () => {
+        expect(
+          await database.prisma.notificationInbox.count({
+            where: { lane: "materials" },
+          }),
+        ).toBeGreaterThan(1);
+      },
+      barrierBudgetMs,
+    );
     await receiver.stop();
     const billingReceiver = await consumeNotificationLane(
       await connect("notifications"),
@@ -758,14 +830,18 @@ describe("Notifications real PostgreSQL / RabbitMQ transport", () => {
       transport,
       1,
     );
-    await eventually(async () => {
-      for (const messageId of confirmedBeforeOutage)
-        expect(
-          await database.prisma.notificationInbox.findUnique({
-            where: { scope_messageId: { scope: "billing", messageId } },
-          }),
-        ).not.toBeNull();
-    }, barrierBudgetMs);
+    await transportBarrier(
+      "confirmed billing messages committed after broker restart",
+      async () => {
+        for (const messageId of confirmedBeforeOutage)
+          expect(
+            await database.prisma.notificationInbox.findUnique({
+              where: { scope_messageId: { scope: "billing", messageId } },
+            }),
+          ).not.toBeNull();
+      },
+      barrierBudgetMs,
+    );
     await billingReceiver.stop();
   }, 45_000);
   test("отказ разбора входящих не останавливает воркер и называет причину", async () => {
@@ -805,17 +881,21 @@ describe("Notifications real PostgreSQL / RabbitMQ transport", () => {
     void worker.failed.catch(() => undefined);
     await worker.start();
     try {
-      await eventually(async () => {
-        expect(sweeps).toBeGreaterThan(1);
-        expect(
-          observed.some(
-            (event) =>
-              event["reason"] === "inbox_sweep_failed" &&
-              String(event["error"]).includes("поддельный отказ разбора"),
-          ),
-        ).toBe(true);
-        return Promise.resolve();
-      }, barrierBudgetMs);
+      await transportBarrier(
+        "worker continues inbox sweeps after processing failure",
+        async () => {
+          expect(sweeps).toBeGreaterThan(1);
+          expect(
+            observed.some(
+              (event) =>
+                event["reason"] === "inbox_sweep_failed" &&
+                String(event["error"]).includes("поддельный отказ разбора"),
+            ),
+          ).toBe(true);
+          return Promise.resolve();
+        },
+        barrierBudgetMs,
+      );
       expect(
         await Promise.race([
           worker.failed.then(() => "stopped"),
@@ -899,26 +979,37 @@ describe("Notifications real PostgreSQL / RabbitMQ transport", () => {
     try {
       await Promise.race([
         running,
-        eventually(async () => {
-          expect(
-            JSON.parse(await readFile(WORKER_READINESS_PATH, "utf8")),
-          ).toMatchObject({ process: "notifications-worker", status: "ready" });
-        }, barrierBudgetMs),
+        transportBarrier(
+          "composed worker readiness persisted",
+          async () => {
+            expect(
+              JSON.parse(await readFile(WORKER_READINESS_PATH, "utf8")),
+            ).toMatchObject({
+              process: "notifications-worker",
+              status: "ready",
+            });
+          },
+          barrierBudgetMs,
+        ),
       ]);
-      await eventually(async () => {
-        for (const messageId of [
-          billing.messageId,
-          material.messageId,
-          email.operationId,
-          result.messageId,
-        ]) {
-          expect(
-            await database.prisma.notificationInbox.count({
-              where: { messageId, completedAt: null },
-            }),
-          ).toBe(1);
-        }
-      }, barrierBudgetMs);
+      await transportBarrier(
+        "composed worker inbox committed for all four lanes",
+        async () => {
+          for (const messageId of [
+            billing.messageId,
+            material.messageId,
+            email.operationId,
+            result.messageId,
+          ]) {
+            expect(
+              await database.prisma.notificationInbox.count({
+                where: { messageId, completedAt: null },
+              }),
+            ).toBe(1);
+          }
+        },
+        barrierBudgetMs,
+      );
       expect(
         observed.some(
           (event) =>
