@@ -172,8 +172,9 @@ Where to look:
 
 A red nightly run requires diagnosis. An MCP validation error names the rejected tool and nested
 field; check the probe against that tool's contract. An unavailable page alone does not prove a
-contract mismatch: inspect the Playwright trace, API/Web output and load samples. A `TimeoutError`
-proves an expired request budget; load samples help investigate its cause, but do not prove it.
+contract mismatch: inspect the Playwright trace, API/Web output and load samples. Locate the
+source of a `TimeoutError` in its stack: server-side fetch and Playwright actions have different
+budgets. Load samples help investigate its cause, but do not prove it.
 Do not increase budgets or retry tests to get a green run. For a branch failure, open or reopen a
 Platform issue when diagnosis finds a defect.
 

@@ -20,7 +20,7 @@
 | Весь набор в обязательном гейте | Дополнительный полный job на каждом PR и в merge queue; наблюдаемые jobs занимают 12:39–13:35 | Не добавлять: ежедневного обнаружения требует #589; обязательный полный прогон не требуется |
 | Валидатор входных JSON Schema | Новая зависимость или рекурсивный валидатор; верхний уровень не ловит `metadata.difficulty`; ответы, права и Web/BFF остаются вне проверки | Не добавлять отдельную копию валидации |
 | Ночной полный прогон с Issue о падении | Один прогон в сутки, существующий workflow #682; проверяет вложенные поля настоящим вызовом сервера | Сохранить; добавить назначенную Issue и диагностику нагрузки |
-| Загрузка всех Playwright suites в `unit` | `scripts/playwright-specs-load.test.mjs`, введённый #604, вызывает `--list` и требует непустой список | Сохранить существующий дешёвый сторож |
+| Загрузка конфигураций Playwright из `apps/web` в `unit` | `scripts/playwright-specs-load.test.mjs`, введённый #604, вызывает `--list` и требует непустой список; осознанный отказ `ENV is required` допускается | Сохранить существующий дешёвый сторож |
 
 Текущий порядок уведомления и разбора сбоя принадлежит
 [runbook CI](../../runbooks/continuous-integration.md#nightly-full-stack-smoke).
@@ -37,7 +37,7 @@
 ## Инвентаризация проб на 06.10.2026
 
 Источник инвентаризации — корневой и прикладные `package.json`, `.github/workflows/`,
-конфигурации Playwright/Vitest и скрипты запуска. Область — исполняемые пробы Platform,
+конфигурации Playwright/Vitest и скрипты запуска. Область — исполняемые пробы репозитория,
 которые самостоятельно задают запросы или ожидания к живому серверу.
 
 | Проба | Где проверяется | Остаток вне обязательного гейта |
@@ -50,6 +50,8 @@
 | `scripts/billing-contact-proof.mjs`, команда `smoke:billing-contact` | Ручная изолированная проба PostgreSQL/SMTP/BFF, [runbook](../../runbooks/billing-contact.md) | Полный browser/SMTP путь не запускается по расписанию; script проходит lint/typecheck, модульные и интеграционные тесты идут отдельно |
 | `playwright.editor.config.ts`, `playwright.identity.config.ts` и identity/Telegram sign-in launchers | Ручные реальные editor/Logto stands; перечень в [CI runbook](../../runbooks/continuous-integration.md#suites-outside-ci) | Загрузка suites проверяется в `unit`; живые ручные контуры не запускаются ночью |
 | `playwright.production.config.ts` | Production access pass после deploy и вручную; чистая логика проверяется в `unit` | Живой production-контур требует test identities; он не является условием merge |
+| `scripts/identity-hardening-proof.mjs` | Ручной `identity:proof:hardening`, [Logto runbook](../../../infra/identity/logto/README.md) | Изолированный live Logto, callback, отказ и восстановление зависимостей; launcher проходит lint/typecheck, но не запускается workflow |
+| `apps/telegram/test/local/course-activation-browser.ts`, `course-existing-browser.mjs` | Ручные `proof:course:browser` и `proof:course:existing` в `apps/telegram` | Собственные ожидания Web/BFF, identity, webhook и enrollments; standalone browser runners не входят в workflow или web `--list` |
 
 Дополнительные ручные пробы названы явно: их живые ожидания также могут устареть.
 #589 не переводит эти контуры в CI и не переписывает их. Полный ночной набор покрывает
