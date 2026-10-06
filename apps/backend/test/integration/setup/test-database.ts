@@ -40,8 +40,14 @@ async function createDatabase(template?: string): Promise<TestDatabase> {
     async dispose() {
       await prisma.$disconnect();
       const cleanupPool = new Pool({ connectionString: adminUrl, max: 1 });
-      await cleanupPool.query(`DROP DATABASE ${databaseName} WITH (FORCE)`);
-      await cleanupPool.end();
+      try {
+        // pg Pool.end() can resolve before idle clients finish disconnecting.
+        // DROP without FORCE lets PostgreSQL wait for them and reports leaked
+        // connections instead of sending 57P01 to a client still shutting down.
+        await cleanupPool.query(`DROP DATABASE ${databaseName}`);
+      } finally {
+        await cleanupPool.end();
+      }
     },
   };
 }
