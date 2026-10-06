@@ -243,6 +243,12 @@ test("guide programme appends a real composition and restores Reader return posi
     );
     expect(await saved.json()).toMatchObject({ kind: "saved" });
     await page.goto(`/products/${slug}/programme?page=1`);
+    // `load` наступает, пока на экране программа на общих данных; личная часть заменяет её дерево
+    // позже (ADR 0027). Прокрутка находит кнопку один раз и после замены держит оторванный узел
+    // (#993), поэтому сначала ждём личную часть: «всё открыто» пишет только она.
+    await expect(
+      page.getByText("13 материалов · всё открыто").filter({ visible: true }),
+    ).toBeVisible();
     await expect(page.locator("[data-series-ordinal]:visible")).toHaveCount(12);
     await page
       .getByRole("button", { name: "Показать ещё уроки" })
