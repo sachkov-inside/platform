@@ -160,6 +160,7 @@ jobs:
     permissions:
       contents: read
     uses: ./.github/workflows/production-access.yml
+    secrets: inherit
     with:
       deployed-sha: ${{ needs.deploy.outputs.source-sha }}
       require-deployed-sha: true

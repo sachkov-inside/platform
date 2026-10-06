@@ -392,6 +392,11 @@ Job `Production access pass` (#906) входит в production тестовым�
 `release-manifest.json` выпуска. Без SHA проход после deploy красный. Ручной запуск: GitHub
 Actions → `Production access pass` → `Run workflow` на `main`, вход `deployed-sha` по желанию.
 
+**Секреты вызова.** Job `access-pass` в `deploy.yml` задаёт `secrets: inherit` (#942).
+В `production-access.yml` job `pass` привязан к `environment: Production`, где хранятся секреты
+прохода. Привязка Environment остаётся в вызываемом job; переносить секреты в репозиторий не нужно.
+Проверки PR проверяют этот контракт конфигурации; выдачу секретов подтверждает проход после deploy.
+
 **Что проверяет.** Клетки прохода перечислены в `apps/web/test/production/pass-config.ts`; каждая
 называется строкой матрицы проверок доступа и транспортом: `browser` (Web/BFF под настоящей
 сессией), `learner-mcp`, `owner-mcp`. Ученик A читает тело, картинку и задание Guide A. Account без

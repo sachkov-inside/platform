@@ -193,6 +193,8 @@ esac
       job,
       /^ {4}uses: \.\/\.github\/workflows\/production-access\.yml$/mu,
     );
+    // Без наследования вызванный workflow получает пустые secrets (#942).
+    assert.match(job, /^ {4}secrets: inherit$/mu);
     assert.match(
       job,
       /^ {6}deployed-sha: \$\{\{ needs\.deploy\.outputs\.source-sha \}\}$/mu,
