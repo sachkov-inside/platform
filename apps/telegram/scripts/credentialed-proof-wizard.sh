@@ -190,18 +190,19 @@ RECOVERY_INPUT_FILE=".credentialed-proof/recovery-input.env"
 umask 077
 
 preflight() {
-  local cli repository_root expected_pnpm
+  local cli repository_root expected_node expected_pnpm
   for cli in git node pnpm; do
     if ! command -v "$cli" >/dev/null 2>&1; then
       warn "required CLI is unavailable: $cli"
       exit 1
     fi
   done
-  if [[ "$(node -p 'process.versions.node.split(".")[0]')" != "24" ]]; then
-    warn "Node 24 from .node-version is required"
+  repository_root="$(git rev-parse --show-toplevel 2>/dev/null || true)"
+  expected_node="$(cat "$repository_root/.node-version")"
+  if [[ "$(node -p 'process.versions.node')" != "$expected_node" ]]; then
+    warn "Node $expected_node from .node-version is required"
     exit 1
   fi
-  repository_root="$(git rev-parse --show-toplevel 2>/dev/null || true)"
   if [[ "$repository_root" != "$PWD" || ! -f scripts/credentialed-proof-wizard.sh ]]; then
     warn "run this wizard from the inside-telegram repository root"
     exit 1

@@ -105,7 +105,7 @@ throwaway prototype:
 
 | Concern | Application contract |
 |---|---|
-| Runtime/tooling | Node.js 24 LTS, strict TypeScript, pnpm и exact lockfile |
+| Runtime/tooling | Node.js из `.node-version` ([политика](../runbooks/dependency-updates.md)), strict TypeScript, pnpm и exact lockfile |
 | Web | Next.js App Router + React |
 | Backend | один NestJS + Fastify codebase с thin demand-driven process entrypoints; сейчас `api`, `mcp`, capability-specific `material-assets-worker`, `profile-avatars-worker` и `video-deletions-worker` |
 | Application contract | REST + OpenAPI; transports не владеют application rules |
