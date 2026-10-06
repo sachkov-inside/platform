@@ -48,6 +48,17 @@ test("denied GitHub access fails visibly without opening a duplicate incident", 
   assert.equal(result.calls.length, 1);
 });
 
+for (const operation of ["create", "edit"]) {
+  test(`a denied issue ${operation} leaves the reporter red`, () => {
+    const result = reportFailure({
+      GH_FAILURE_OPERATION: operation,
+      EXISTING_ISSUE: operation === "edit" ? "987" : "",
+    });
+    assert.notEqual(result.status, 0);
+    assert.equal(result.calls.at(-1)?.[1], operation);
+  });
+}
+
 /** @param {NodeJS.ProcessEnv} [overrides] */
 function reportFailure(overrides = {}) {
   const directory = mkdtempSync(resolve(tmpdir(), "inside-nightly-failure-"));
@@ -61,7 +72,7 @@ function reportFailure(overrides = {}) {
 const { appendFileSync, readFileSync, writeFileSync } = require("node:fs");
 const args = process.argv.slice(2);
 appendFileSync(process.env.CALLS_PATH, JSON.stringify(args) + "\\n");
-if (process.env.GH_FAILURE === "true") process.exit(1);
+if (process.env.GH_FAILURE === "true" || process.env.GH_FAILURE_OPERATION === args[1]) process.exit(1);
 if (args[1] === "list") console.log(process.env.EXISTING_ISSUE ?? "");
 const bodyIndex = args.indexOf("--body-file");
 if (bodyIndex !== -1) writeFileSync(process.env.BODY_PATH, readFileSync(args[bodyIndex + 1]));

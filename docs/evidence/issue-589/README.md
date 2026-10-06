@@ -34,6 +34,26 @@
 ненулевой код при отказе GitHub и подключение отдельного job с правом `issues: write`.
 Тест подменяет только внешний CLI GitHub; сам Bash-скрипт исполняется через macOS `/bin/bash` 3.2.
 
+Намеренное вложенное расхождение проверено тем же nightly workflow на ветке:
+[run 37477160931](https://github.com/sachkov-inside/platform/actions/runs/37477160931),
+коммит `c32c3b11daf4a00672fddbe5dbb1ed37c11b64d6`. В существующей MCP-пробе
+`metadata.difficulty` временно заменён с `basic` на `589-intentional-contract-drift`.
+Все верхние обязательные поля (`idempotencyKey`, `metadata`, `body`) остались на месте.
+
+Шаг `Run full-stack smoke` завершился кодом 1 через **57 секунд** (14:14:59–14:15:56 UTC).
+Сообщение из живого сервера назвало инструмент, вложенное поле и допустимые значения:
+
+```text
+Error: create draft failed: Input validation error: Invalid arguments for tool material_create_draft:
+metadata.difficulty: Invalid option: expected one of "basic"|"intermediate"|"advanced"
+```
+
+Workflow стал красным, загрузил диагностику и успешно удалил инфраструктуру.
+Report job был пропущен по правилу ветки: эксперимент не создавал Issue владельцу.
+Значение пробы восстановлено отдельным коммитом `4dac46ec`; финальный diff не меняет пробу.
+Доказательство записи Issue проверено на исполняемом скрипте с подменённым GitHub CLI;
+намеренный сбой на защищённом `main` для проверки уведомления не вносился.
+
 ## Инвентаризация проб на 06.10.2026
 
 Источник инвентаризации — корневой и прикладные `package.json`, `.github/workflows/`,
