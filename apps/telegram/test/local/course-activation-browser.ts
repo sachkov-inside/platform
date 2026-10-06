@@ -10,6 +10,7 @@ import {
 } from "@playwright/test";
 import { required } from "../support/required.js";
 import { list, record, text } from "../support/json.js";
+import { screenshotWholePage } from "../../../web/test/support/whole-page-screenshot.mjs";
 
 const expect = baseExpect.configure({ timeout: 30_000 });
 
@@ -149,9 +150,8 @@ try {
   );
   expect(state["status"]).toBe("pending");
   const requestRef = text(state["requestRef"]);
-  await page.screenshot({
+  await screenshotWholePage(page, {
     path: resolve(output, "browser-login.png"),
-    fullPage: true,
   });
   await send(`/start ${String(token)}`);
   await expect
@@ -248,9 +248,8 @@ try {
     ),
   ).toEqual([]);
   transcript.push("PASS cabinet accessibility and viewport checks");
-  await page.screenshot({
+  await screenshotWholePage(page, {
     path: resolve(output, "cabinet.png"),
-    fullPage: true,
   });
   expect(
     await page.evaluate(
@@ -273,9 +272,8 @@ try {
         .filter({ visible: true }),
     ).toBeVisible();
     transcript.push("PASS protected guide material body is readable");
-    await page.screenshot({
+    await screenshotWholePage(page, {
       path: resolve(output, "reader.png"),
-      fullPage: true,
     });
     let invite: string | undefined;
     await expect
@@ -388,9 +386,8 @@ try {
     await expect(
       page.getByText(/Вступление в сообщество ограничено модерацией/u),
     ).toBeVisible();
-    await page.screenshot({
+    await screenshotWholePage(page, {
       path: resolve(output, "moderation.png"),
-      fullPage: true,
     });
     await page.goto(`${web}/materials/developer-pipeline-bez-poteri-konteksta`);
     await expect(

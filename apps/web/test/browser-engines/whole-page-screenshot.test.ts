@@ -99,3 +99,23 @@ it("keeps one screen when the content fits", async () => {
 
   expect(result.height).toBe(1_024);
 });
+
+it("fails instead of cutting the page when the content grows with the viewport", async () => {
+  const viewport = { width: 1_440, height: 1_024 };
+  const context = await browser.newContext({ viewport });
+  try {
+    const page = await context.newPage();
+    await page.setContent(
+      shell(
+        `<body class="application"><header></header><main id="content"><div style="height: calc(100vh + 100px)"></div></main></body>`,
+      ),
+    );
+
+    await expect(screenshotWholePage(page)).rejects.toThrow(
+      /content grows with the viewport/u,
+    );
+    expect(page.viewportSize()).toEqual(viewport);
+  } finally {
+    await context.close();
+  }
+});
