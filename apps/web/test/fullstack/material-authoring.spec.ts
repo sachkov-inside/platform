@@ -10,6 +10,7 @@ import {
   signInFullStack,
 } from "../support/full-stack-session";
 import { prepareEvidenceDirectory } from "../../../../scripts/evidence-path.mjs";
+import { screenshotWholePage } from "../support/whole-page-screenshot.mjs";
 import { z } from "zod";
 
 const currentMaterialEditorUrl =
@@ -221,9 +222,8 @@ for (const access of ["public", "membership"] as const) {
     const snapshots = await prepareEvidenceDirectory("issue-186");
     const viewport =
       testInfo.project.name === "mobile-chromium" ? "mobile" : "desktop";
-    await page.screenshot({
+    await screenshotWholePage(page, {
       animations: "disabled",
-      fullPage: true,
       path: resolve(snapshots, `${access}-${viewport}.png`),
     });
 
@@ -285,9 +285,8 @@ for (const access of ["public", "membership"] as const) {
       await expect(page.locator("iframe")).toHaveCount(0);
       expect(protectedRequests).toEqual([]);
       expect(anonymousFile.headers()["cache-control"]).toContain("no-store");
-      await page.screenshot({
+      await screenshotWholePage(page, {
         animations: "disabled",
-        fullPage: true,
         path: resolve(snapshots, `denied-${viewport}.png`),
       });
       for (const role of [
@@ -1887,9 +1886,8 @@ async function captureLifecycleEvidence(
   const snapshots = await prepareEvidenceDirectory("issue-150");
   const viewport =
     testInfo.project.name === "mobile-chromium" ? "mobile" : "desktop";
-  await page.screenshot({
+  await screenshotWholePage(page, {
     animations: "disabled",
-    fullPage: true,
     path: resolve(snapshots, `${name}-${viewport}.png`),
   });
 }
@@ -1903,9 +1901,8 @@ async function captureAssetEvidence(
   const snapshots = await prepareEvidenceDirectory("issue-180");
   const viewport =
     testInfo.project.name === "mobile-chromium" ? "mobile" : "desktop";
-  await page.screenshot({
+  await screenshotWholePage(page, {
     animations: "disabled",
-    fullPage: true,
     path: resolve(snapshots, `${name}-${viewport}.png`),
   });
 }
@@ -1919,9 +1916,8 @@ async function captureVideoEvidence(
   const snapshots = await prepareEvidenceDirectory("issue-183");
   const viewport =
     testInfo.project.name === "mobile-chromium" ? "mobile" : "desktop";
-  await page.screenshot({
+  await screenshotWholePage(page, {
     animations: "disabled",
-    fullPage: true,
     path: resolve(snapshots, `${name}-${viewport}.png`),
   });
 }
@@ -1935,9 +1931,8 @@ async function captureVideoDeletionEvidence(
   const snapshots = await prepareEvidenceDirectory("issue-227");
   const viewport =
     testInfo.project.name === "mobile-chromium" ? "mobile" : "desktop";
-  await page.screenshot({
+  await screenshotWholePage(page, {
     animations: "disabled",
-    fullPage: true,
     path: resolve(snapshots, `${name}-${viewport}.png`),
   });
 }

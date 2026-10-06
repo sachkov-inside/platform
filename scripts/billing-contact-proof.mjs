@@ -18,6 +18,7 @@ import {
   stopProcessGroup,
   stopServerOnPort,
 } from "./smoke-stand.mjs";
+import { screenshotWholePage } from "../apps/web/test/support/whole-page-screenshot.mjs";
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const backendRequire = createRequire(
@@ -279,9 +280,8 @@ try {
     await page
       .getByRole("button", { name: "Закрыть подключение Telegram" })
       .click();
-    await page.screenshot({
+    await screenshotWholePage(page, {
       path: resolve(evidence, `contact-empty-${name}.png`),
-      fullPage: true,
     });
     await page
       .getByLabel("Email", { exact: true })
@@ -304,9 +304,8 @@ try {
       : raw.slice(split + 2);
     const code = /: ([0-9]{6})\./u.exec(text)?.[1];
     assert(code, "Synthetic SMTP must carry a verification code");
-    await page.screenshot({
+    await screenshotWholePage(page, {
       path: resolve(evidence, `contact-code-${name}.png`),
-      fullPage: true,
     });
     // Раздел находится по своему заголовку: связь `aria-labelledby` даёт `useId`, поэтому
     // постоянного идентификатора у него нет и вписать его сюда нельзя.
@@ -335,9 +334,8 @@ try {
       .click();
     await page.getByText("Email подтверждён.", { exact: true }).waitFor();
     await page.getByText(`${name}@example.test`, { exact: true }).waitFor();
-    await page.screenshot({
+    await screenshotWholePage(page, {
       path: resolve(evidence, `contact-verified-${name}.png`),
-      fullPage: true,
     });
     await page.reload();
     await page.getByText(`${name}@example.test`, { exact: true }).waitFor();

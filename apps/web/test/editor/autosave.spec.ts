@@ -1,4 +1,5 @@
 import { expect, test, type Locator, type Page } from "@playwright/test";
+import { screenshotWholePage } from "../support/whole-page-screenshot.mjs";
 const image = {
   name: "diagram.png",
   mimeType: "image/png",
@@ -129,9 +130,8 @@ test("images, files and ready video persist automatically; fullscreen preserves 
         ),
     )
     .toBeGreaterThan(0);
-  await page.screenshot({
+  await screenshotWholePage(page, {
     path: "/tmp/396-editor-desktop.png",
-    fullPage: true,
   });
   await page.setViewportSize({ width: 390, height: 844 });
   await expect
@@ -141,7 +141,7 @@ test("images, files and ready video persist automatically; fullscreen preserves 
         .evaluate((element) => element.scrollWidth <= element.clientWidth),
     )
     .toBe(true);
-  await page.screenshot({ path: "/tmp/396-editor-mobile.png", fullPage: true });
+  await screenshotWholePage(page, { path: "/tmp/396-editor-mobile.png" });
 });
 
 test("series picker shows materials before typing and saves composition on the same page", async ({

@@ -1,5 +1,6 @@
 import { expect, test } from "@playwright/test";
 import { evidencePath } from "../../../../scripts/evidence-path.mjs";
+import { screenshotWholePage } from "../support/whole-page-screenshot.mjs";
 
 const outputByProject: Readonly<Record<string, string>> = {
   "desktop-chromium": "desktop.png",
@@ -23,9 +24,8 @@ test("capture the issue 49 real authenticated-shell evidence", async ({
   await expect(
     page.getByRole("button", { name: "Аккаунт", exact: true }),
   ).toBeEnabled();
-  await page.screenshot({
+  await screenshotWholePage(page, {
     animations: "disabled",
-    fullPage: true,
     path: evidencePath("issue-49", outputName),
   });
 });

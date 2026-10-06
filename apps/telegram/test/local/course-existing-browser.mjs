@@ -7,6 +7,7 @@ import { randomUUID } from "node:crypto";
 import { mkdir, writeFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import { z } from "zod";
+import { screenshotWholePage } from "../../../web/test/support/whole-page-screenshot.mjs";
 const mailSchema = z.object({
   messages: z.array(
     z.object({
@@ -296,14 +297,12 @@ async function activateExisting() {
   expect(afterProfile).toEqual(beforeProfile);
   await page.reload();
   await expect(button).toHaveAttribute("aria-pressed", "true");
-  await page.screenshot({
+  await screenshotWholePage(page, {
     path: resolve(requiredOutput, "telegram64-existing-reader-mobile.png"),
-    fullPage: true,
   });
   await page.setViewportSize({ width: 1440, height: 1024 });
-  await page.screenshot({
+  await screenshotWholePage(page, {
     path: resolve(requiredOutput, "telegram64-existing-reader-desktop.png"),
-    fullPage: true,
   });
 
   console.log(

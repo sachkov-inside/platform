@@ -1,6 +1,7 @@
 import AxeBuilder from "@axe-core/playwright";
 import { expect, test } from "@playwright/test";
 import { signInFullStack } from "../support/full-stack-session";
+import { screenshotWholePage } from "../support/whole-page-screenshot.mjs";
 
 test("author Home pin persists for guests and members, replaces and removes through the real BFF", async ({
   page,
@@ -63,9 +64,8 @@ test("author Home pin persists for guests and members, replaces and removes thro
     await expect(
       pin.getByRole("button", { name: `Снять закреп «${releaseName}»` }),
     ).toBeVisible();
-    await page.screenshot({
+    await screenshotWholePage(page, {
       path: testInfo.outputPath("authoring-pin.png"),
-      fullPage: true,
     });
     const editorHref = await pin
       .getByRole("link", { name: new RegExp(releaseName, "u") })
@@ -94,17 +94,15 @@ test("author Home pin persists for guests and members, replaces and removes thro
     await expect(
       page.getByText("Продукт закреплён на главной.", { exact: true }),
     ).toBeVisible();
-    await page.screenshot({
+    await screenshotWholePage(page, {
       path: testInfo.outputPath("guide-editor.png"),
-      fullPage: true,
     });
     await page.addStyleTag({ content: "html { font-size: 200% !important; }" });
     expect(
       await page.evaluate(() => document.documentElement.scrollWidth),
     ).toBeLessThanOrEqual(page.viewportSize()?.width ?? 1440);
-    await page.screenshot({
+    await screenshotWholePage(page, {
       path: testInfo.outputPath("guide-editor-text-200.png"),
-      fullPage: true,
     });
     await page.reload();
     await page

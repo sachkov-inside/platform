@@ -7,6 +7,7 @@ import {
   signInFullStack,
 } from "../support/full-stack-session";
 import { prepareEvidenceDirectory } from "../../../../scripts/evidence-path.mjs";
+import { screenshotWholePage } from "../support/whole-page-screenshot.mjs";
 
 async function dismissOnboarding(page: Page) {
   const dismiss = page.getByRole("button", {
@@ -68,10 +69,9 @@ async function screenshot(page: Page, project: string, surface: string) {
     await page.evaluate(() => {
       window.scrollTo(0, document.documentElement.scrollHeight);
     });
-  await page.screenshot({
-    path: resolve(directory, `${project}-inline-${surface}.png`),
-    fullPage: !captureViewport,
-  });
+  const path = resolve(directory, `${project}-inline-${surface}.png`);
+  if (captureViewport) await page.screenshot({ path });
+  else await screenshotWholePage(page, { path });
 }
 test("profile continuation opens the real series, persists marks and reconciles a lost visible open", async ({
   page,

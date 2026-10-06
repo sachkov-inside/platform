@@ -4,6 +4,7 @@ import { randomUUID, createHmac } from "node:crypto";
 import { mkdir, writeFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import { z } from "zod";
+import { screenshotWholePage } from "../apps/web/test/support/whole-page-screenshot.mjs";
 const webRequire = createRequire(
   new URL("../apps/web/package.json", import.meta.url),
 );
@@ -554,9 +555,8 @@ try {
       )
       .toBe(true);
     await page.goto(`${web}/account/subscription`);
-    await page.screenshot({
+    await screenshotWholePage(page, {
       path: resolve(output, "tribute-pending.png"),
-      fullPage: true,
     });
     report.evidence.push("tribute-pending.png");
     report.scenarios.push(
@@ -1127,9 +1127,8 @@ try {
         (item) => item.impact === "serious" || item.impact === "critical",
       ),
     ).toEqual([]);
-    await page.screenshot({
+    await screenshotWholePage(page, {
       path: resolve(output, "tribute-account.png"),
-      fullPage: true,
     });
     report.evidence.push("tribute-account.png");
     await ownerPage.reload();
