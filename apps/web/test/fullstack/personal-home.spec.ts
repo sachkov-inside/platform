@@ -337,14 +337,46 @@ test("profile continuation preserves the account form through errors and exclude
   await page.goto("/materials/developer-pipeline-bez-poteri-konteksta");
   await expect(page.locator("[data-reader-body]:visible")).toHaveCount(0);
   expect(opens).toEqual([]);
+  // The account form can render while continuation is still loading. Hold that first read to
+  // exercise this order without relying on machine speed; a focus during it shares the request.
+  const initialReadGate = Promise.withResolvers<undefined>();
+  const initialReadStarted = Promise.withResolvers<undefined>();
+  await page.route(
+    "**/api/personal-home",
+    async (route) => {
+      initialReadStarted.resolve(undefined);
+      await initialReadGate.promise;
+      await route.continue();
+    },
+    { times: 1 },
+  );
   await page.goto("/account");
   const field = page.getByRole("textbox").first();
   await expect(field).toBeVisible();
   const before = await field.boundingBox();
+  await initialReadStarted.promise;
+  const continuation = page.getByRole("region", {
+    name: "Продолжить обучение",
+  });
+  await expect(continuation.getByRole("status")).toHaveText(
+    "Загружаем продолжение обучения…",
+  );
+  initialReadGate.resolve(undefined);
+  // The rendered successful read pins the start of its freshness window. Advancing the clock
+  // before it settles would leave fresh data after focus, without ever requesting the mock 503.
+  await expect(continuation).toContainText(
+    /Откройте материал|Продолжить обучение/u,
+  );
   await page.route("**/api/personal-home", async (route) => {
     await route.fulfill({ status: 503 });
   });
+  const failedContinuation = page.waitForResponse(
+    (response) =>
+      response.url().endsWith("/api/personal-home") &&
+      response.status() === 503,
+  );
   await returnToStaleTab(page);
+  await failedContinuation;
   await expect(
     page.getByText("Не удалось загрузить продолжение обучения."),
   ).toBeVisible();
