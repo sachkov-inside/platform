@@ -4,6 +4,8 @@ import { storybookTest } from "@storybook/addon-vitest/vitest-plugin";
 import { playwright } from "@vitest/browser-playwright";
 import { defineConfig } from "vitest/config";
 
+import { runScopedViteCache } from "./test/support/run-scoped-vite-cache.mjs";
+
 export default defineConfig({
   optimizeDeps: {
     include: ["@tanstack/react-query", "zod"],
@@ -56,6 +58,7 @@ export default defineConfig({
           storybookTest({
             configDir: fileURLToPath(new URL("./.storybook", import.meta.url)),
           }),
+          runScopedViteCache(),
         ],
         test: {
           name: "storybook",
