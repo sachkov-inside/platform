@@ -88,10 +88,12 @@ is left to an explicit data-policy procedure.
 
 **Deleting submissions on a data request.** Data policy v4 (§5–6) lets a learner ask the operator
 to delete one submission or all of them; the Author Feedback goes with it. The operator checks the
-requester as the policy says and finds the Account id. Then, in one transaction on the Platform
-database, delete the feedback first, because its foreign key has no cascade:
+requester as the policy says and finds the Account id. Then, in `psql` on the Platform database,
+delete the feedback first, because its foreign key has no cascade:
 
 ```sql
+\set ON_ERROR_STOP on
+\set account '<account uuid>'
 BEGIN;
 DELETE FROM guide_tasks.author_feedback
   WHERE submission_id IN (SELECT id FROM guide_tasks.submissions WHERE account_id = :'account');
@@ -99,8 +101,10 @@ DELETE FROM guide_tasks.submissions WHERE account_id = :'account';
 COMMIT;
 ```
 
-For one submission, filter both statements by its `id` instead. The triggers block only `UPDATE`.
-Record the date and the request in the reply to the learner, not the deleted content.
+For one submission, also `\set submission '<submission uuid>'` and add
+`AND id = :'submission'` to the inner `SELECT` and to the last `DELETE`: the Account filter stays,
+so a wrong id deletes nothing. The triggers block only `UPDATE`. Record the date and the request in
+the reply to the learner, not the deleted content.
 
 The task page (#947) offers the same submission without an agent: a form with the learner's note,
 an optional repository and an optional report as plain text. It creates a `form` submission through
