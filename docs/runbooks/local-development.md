@@ -442,6 +442,12 @@ A full run takes about ten minutes. `check:static` rebuilds the `packages/*/dist
 import, so leave the tree alone while it runs: an edit or package rebuild in the middle fails an
 unrelated test.
 
+Several Storybook test runs may overlap in one checkout: `pnpm test:storybook`, the Storybook stage
+of `pnpm check` and the test run that `pnpm storybook` starts from its panel or MCP. Each Vitest
+process keeps its own Vite dependency cache in the system temporary folder and deletes it on exit
+(`apps/web/test/support/run-scoped-vite-cache.mjs`). A shared cache let one run replace the files
+another run was still loading, and its stories failed with `(0 test)` (#1004).
+
 Page transitions are checked on a production build, because development mode has no link prefetch
 and no route cache:
 
