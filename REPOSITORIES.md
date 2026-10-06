@@ -1,14 +1,14 @@
-# Репозитории Inside: этап независимого выпуска Telegram
+# Репозитории Inside
 
-Карта отражает этап [platform#960](https://github.com/sachkov-inside/platform/issues/960)
-согласованного переезда [platform#957](https://github.com/sachkov-inside/platform/issues/957).
+Карта определяет владельцев кода, документов, текущих задач и выпуска после перехода Telegram в platform.
+Согласованный переезд ведётся в [platform#957](https://github.com/sachkov-inside/platform/issues/957).
 Решение и границы перехода записаны в [ADR 0031](docs/adr/0031-inside-product-monorepo.md).
 
-| Репозиторий | Владелец на этом этапе | Дальнейшее изменение по #957 |
+| Репозиторий | Текущая роль | Статус перехода |
 |---|---|---|
-| [platform](https://github.com/sachkov-inside/platform) | Код Platform и Telegram в `apps/telegram`, общие документы, словарь, контракты, процесс и CI Inside | Независимые Telegram workflows; production-переход проверяется в #960 |
-| [inside-telegram](https://github.com/sachkov-inside/inside-telegram) | История источника, действующий production выпуск и прежние задачи Telegram | После проверки импорта, выпуска и отката задачи переносятся, репозиторий архивируется |
-| [workspace](https://github.com/sachkov-inside/workspace) | Исходные документы и история решений остаются доступными для проверки и отката | Архивируется после проверки всего перехода; текущие документы уже принадлежат Platform |
+| [platform](https://github.com/sachkov-inside/platform) | Код Platform, приложение Telegram в `apps/telegram`, общие документы, словарь, контракты, процесс, CI и текущие задачи Inside | Независимые Telegram workflows обслуживают production; выпуск и откат подтверждены в #960 |
+| [inside-telegram](https://github.com/sachkov-inside/inside-telegram) | Исторический код, закрытые задачи и неизменяемые legacy Releases `v1`–`v5` | Пять открытых задач перенесены в platform; статус README источника и архивации ведётся в #961 |
+| [workspace](https://github.com/sachkov-inside/workspace) | Исходные документы и история решений для проверки происхождения и отката | Текущие документы принадлежат Platform; оставшийся переход ведётся в #957 |
 | [inside-content](https://github.com/sachkov-inside/inside-content) | Закрытые редакционные оригиналы, метаданные и процесс подготовки материалов | Остаётся отдельным репозиторием |
 | [workshop-cases](https://github.com/sachkov-inside/workshop-cases) | Закрытые Tracks, Laboratories, CaseSpec и авторские решения | Остаётся отдельным источником; не становится runtime Platform |
 | [ai-engineering](https://github.com/sachkov-inside/ai-engineering) | Архивированное направление курса | Не возобновляется этим переездом |
@@ -28,4 +28,15 @@
 Выпуск и откат Telegram принадлежат [production runbook](apps/telegram/docs/operations/production.md).
 Исторические nested workflows удалены; legacy Releases сохраняются для отката.
 Приложения сохраняют самостоятельные процессы и выпуск. Соседний checkout не является build или runtime-зависимостью.
-Архивирование источников и изменение локальных каталогов ещё не выполнены.
+
+Пять открытых задач Telegram штатно перенесены в platform:
+[#978](https://github.com/sachkov-inside/platform/issues/978),
+[#979](https://github.com/sachkov-inside/platform/issues/979),
+[#980](https://github.com/sachkov-inside/platform/issues/980),
+[#981](https://github.com/sachkov-inside/platform/issues/981) и
+[#982](https://github.com/sachkov-inside/platform/issues/982).
+Проверенная карта старых и новых номеров и статус архивации источника ведутся в
+[platform#961](https://github.com/sachkov-inside/platform/issues/961).
+Ссылки на закрытые исходные задачи сохраняются как исторические.
+Состояние локальных каталогов и окружений ведётся отдельно в
+[platform#962](https://github.com/sachkov-inside/platform/issues/962).
