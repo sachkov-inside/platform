@@ -57,7 +57,7 @@ pnpm identity:proof:down
 
 [`versions.json`](./versions.json) is the machine-readable ledger. The custom Logto image starts
 from the official `1.44.0` multi-platform image by exact digest. That image corresponds to upstream
-revision `79e9e3b0d9f505260d09c80d8a015e56fbc0ec01`. PostgreSQL, Mailpit, `@logto/next` and `jose` are
+revision `79e9e3b0d9f505260d09c80d8a015e56fbc0ec01`. PostgreSQL, Mailpit, `@logto/next`, `@logto/node` and `jose` are
 also exact-versioned; the tooling test rejects floating image references.
 
 Logto 1.42 and later refuse to start on a database without the alterations of their version. Every
@@ -142,7 +142,10 @@ The isolated proof builds the pinned fork and asserts the exact 10-delivery/600-
 cap under 12 parallel browser contexts, reload/back/new-browser bypass resistance, identical
 generic Russian responses for unknown and existing Accounts, SMTP recovery, negative and replayed
 callbacks, Logto refresh outage recovery, one
-local `Account`, no Platform session table and redacted audit/runtime output. The source findings,
+local `Account`, no Platform session table and redacted audit/runtime output. The SDK compatibility
+checks (#992) also prove sign-out, denied Account access with an invalid refresh grant, and a public
+learner MCP client's `offline_access` grant and refresh against this fork. The proof starts MCP on
+port 3502 and provisions its public client through the production learner-access module. The source findings,
 proof matrix and known limits are recorded in
 [`docs/research/issue-116-logto-throttling-proof.md`](../../../docs/research/issue-116-logto-throttling-proof.md).
 

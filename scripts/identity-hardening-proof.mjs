@@ -36,6 +36,7 @@ const identityEnvironment = {
   IDENTITY_PROOF_LOGTO_ADMIN_PORT: "3402",
   IDENTITY_PROOF_LOGTO_PORT: "3401",
   IDENTITY_PROOF_MAILPIT_PORT: "3405",
+  IDENTITY_PROOF_LEARNER_MCP_URL: "http://127.0.0.1:3502/mcp/learning",
   IDENTITY_PROOF_POSTGRES_PORT: "55433",
   IDENTITY_PROOF_SMTP_PORT: "3404",
   IDENTITY_PROOF_WEB_PORT: "3500",
@@ -92,6 +93,9 @@ try {
     ...generatedEnvironment,
     API_HOST: "127.0.0.1",
     API_PORT: identityEnvironment.IDENTITY_PROOF_API_PORT,
+    MCP_HOST: "127.0.0.1",
+    MCP_PORT: "3502",
+    MCP_SERVER_URL: "http://127.0.0.1:3502/mcp",
     NODE_EXTRA_CA_CERTS: resolve(root, ".identity-proof/tls/certificate.pem"),
   };
   ensureCheckDatabase({
@@ -110,6 +114,15 @@ try {
     `${requiredUrl(runtimeEnvironment, "BACKEND_BASE_URL")}/health`,
     (response) => response.ok,
   );
+  const mcp = spawnApplication(
+    ["--filter", "@inside/backend", "dev:mcp"],
+    runtimeEnvironment,
+  );
+  await waitForResponse(
+    mcp,
+    "http://127.0.0.1:3502/_health/ready",
+    (response) => response.ok,
+  );
   // Порт web фиксирован: bootstrap регистрирует в Logto redirect URI именно на нём.
   const webPort = Number(identityEnvironment.IDENTITY_PROOF_WEB_PORT);
   const webBaseUrl = requiredUrl(runtimeEnvironment, "WEB_BASE_URL");
@@ -122,6 +135,7 @@ try {
       "/welcome",
       "/callback",
       "/auth/sign-in",
+      "/auth/sign-out",
       "/auth/status",
       "/api/account",
       "/api/account/terms",
@@ -147,7 +161,7 @@ try {
     ready: (web) =>
       waitForResponse(web, webBaseUrl, (response) => response.status < 500),
   });
-  // Корпус #116. Telegram-вход проверяется на своём стенде с provider (docs/verification).
+  // Корпус #116 и совместимость SDK #992. Telegram-вход проверяется на своём стенде с provider (docs/verification).
   await runPnpm(
     ["--filter", "@inside/web", "test:identity", "identity-proof.spec.ts"],
     runtimeEnvironment,

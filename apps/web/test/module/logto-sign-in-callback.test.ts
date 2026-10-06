@@ -5,7 +5,7 @@ import { parseLogtoBffConfig } from "@/shared/auth/index.server";
 
 /**
  * Настоящий SDK Logto без подмены: регрессию #766 пропустила проверка, которая подменяла SDK и
- * видела только наш `createNodeClient`, а `@logto/next` 4.2.11 создаёт клиент обратного вызова в
+ * видела только наш `createNodeClient`, а `@logto/next` создаёт клиент обратного вызова в
  * обход него. Здесь подменены только граница cookie Next.js и сеть. Discovery SDK кеширует в памяти
  * модуля по адресу провайдера, поэтому другой ответ discovery требует другого `endpoint`.
  */
@@ -62,14 +62,14 @@ it("обмен кода на обратном вызове просит токе
   const tokenRequests: URLSearchParams[] = [];
   vi.stubGlobal(
     "fetch",
-    vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
-      const url = new URL(input instanceof Request ? input.url : input);
+    vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const request = new Request(input, init);
+      const url = new URL(request.url);
       if (url.pathname === "/oidc/.well-known/openid-configuration")
         return Promise.resolve(Response.json(discovery));
       if (url.pathname === "/oidc/token") {
-        tokenRequests.push(
-          new URLSearchParams(typeof init?.body === "string" ? init.body : ""),
-        );
+        expect(request.method).toBe("POST");
+        tokenRequests.push(new URLSearchParams(await request.text()));
         // Тело запроса уже записано; дальше обмен не нужен, и SDK получает отказ провайдера.
         return Promise.resolve(
           Response.json({ error: "invalid_grant" }, { status: 400 }),

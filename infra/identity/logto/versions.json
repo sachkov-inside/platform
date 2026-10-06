@@ -6,7 +6,8 @@
     "upstreamRevision": "79e9e3b0d9f505260d09c80d8a015e56fbc0ec01",
     "forkRevision": "inside.7"
   },
-  "logtoNext": "4.2.11",
+  "logtoNext": "5.0.0",
+  "logtoNode": "4.0.0",
   "jose": "6.2.12",
   "postgres": {
     "version": "17.6-alpine",
