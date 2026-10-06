@@ -289,13 +289,19 @@ test.describe.serial("issue 116 pinned Logto proof", () => {
     );
     if (currentSession === undefined) throw new Error("Expected a BFF session");
     const secret = requiredEnvironment("LOGTO_COOKIE_SECRET");
-    const session = await unwrapSession(currentSession.value, secret);
+    const session = await unwrapSession(
+      decodeURIComponent(currentSession.value),
+      secret,
+    );
     expect(typeof session.idToken).toBe("string");
     expect(typeof session.refreshToken).toBe("string");
     delete session.accessToken;
     session[PersistKey.RefreshToken] = "invalid-refresh-grant-992";
     await invalidSession.addCookies([
-      { ...currentSession, value: await wrapSession(session, secret) },
+      {
+        ...currentSession,
+        value: encodeURIComponent(await wrapSession(session, secret)),
+      },
     ]);
     const closedAccount = await invalidSession.request.get(
       `${webBaseUrl}/api/account`,
