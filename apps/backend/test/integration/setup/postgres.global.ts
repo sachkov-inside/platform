@@ -18,7 +18,12 @@ declare module "vitest" {
  */
 const MIGRATED_TEMPLATE = "inside_migrated_template";
 
-export default async function setup(project: TestProject) {
+export default async function setup(
+  project: Pick<TestProject, "isRootProject" | "provide">,
+) {
+  // Vitest inherits globalSetup in projects; the root provides their shared context.
+  if (!project.isRootProject()) return;
+
   const container = await new PostgreSqlContainer(
     "postgres:18.4-alpine",
   ).start();

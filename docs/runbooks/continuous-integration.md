@@ -78,8 +78,9 @@ copies a template migrated once per run, while migration tests start from an emp
 worker processes or write the machine-wide worker readiness file; they run one at a time, so they
 measure behaviour rather than runner load. `scripts/integration-serial-files.test.mjs` fails when a
 file that starts a RabbitMQ broker, forks a crash process or runs a worker is missing from that list.
-The root alone runs PostgreSQL global setup; each project clears inherited `globalSetup` and
-receives the root's provided database context. The full command and either `--project` selection
+PostgreSQL global setup starts its container only for the root project; child projects inherit
+the setup but receive the root's provided database context without starting another container.
+The full command and either `--project` selection
 therefore start one PostgreSQL container, plus at most one RustFS or RabbitMQ container at a time,
 and the Testcontainers Ryuk cleanup container. This bound describes one invocation; other sessions
 own their own containers.

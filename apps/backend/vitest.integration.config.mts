@@ -76,8 +76,6 @@ export default defineConfig({
         extends: true,
         test: {
           name: "integration",
-          // Root setup provides the same PostgreSQL context to both projects.
-          globalSetup: [],
           include: ["test/integration/**/*.test.ts"],
           exclude: serialFiles,
           fileParallelism: true,
@@ -88,7 +86,6 @@ export default defineConfig({
         extends: true,
         test: {
           name: "integration-serial",
-          globalSetup: [],
           include: serialFiles,
           fileParallelism: false,
           sequence: { groupOrder: 1 },
