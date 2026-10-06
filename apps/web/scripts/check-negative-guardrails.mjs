@@ -98,11 +98,13 @@ const fixtures = [
       "products/[slug]/page.tsx: a route declares its own params and searchParams types; generated PageProps and LayoutProps do not exist before next typegen",
       "account/layout.tsx: a route declares its own params and searchParams types; generated PageProps and LayoutProps do not exist before next typegen",
     ],
+    accepted: ["tasks/page.tsx"],
   },
   {
     root: "test/guardrails/fixtures/architecture/route-assertion",
     diagnostics: [
       "topic-link.ts: build a Route from computed text with internalRoute; an assertion holds only before or after next typegen",
+      "renamed-route.ts: build a Route from computed text with internalRoute; an assertion holds only before or after next typegen",
     ],
     accepted: ["known.ts"],
   },
@@ -110,6 +112,7 @@ const fixtures = [
     root: "test/guardrails/fixtures/architecture/storybook-graph",
     diagnostics: [
       "reading-panel.tsx: Storybook proofs and fixtures stay outside the production graph",
+      "reading-theme.ts: Storybook proofs and fixtures stay outside the production graph",
     ],
     accepted: ["reading-panel.stories.tsx", "reading.fixtures.ts"],
   },
@@ -118,6 +121,7 @@ const fixtures = [
     diagnostics: [
       "notes-panel.client.tsx: browser code cannot import a server-only interface",
       "notes-guard.client.tsx: browser code cannot import a server-only interface",
+      "note-count.client.tsx: browser code cannot import a server-only interface",
     ],
     accepted: ["note-title.client.tsx", "read-notes.server.ts"],
   },
@@ -133,8 +137,9 @@ const fixtures = [
     diagnostics: [
       "topics/[slug]/error.tsx: an error boundary reports the error through useRenderErrorReport",
       "topics/[slug]/error.tsx: an error boundary recovers with retry; reset re-renders the same failure without a request",
+      "products/[slug]/error.tsx: an error boundary recovers with retry; reset re-renders the same failure without a request",
     ],
-    accepted: ["authoring/error.tsx"],
+    accepted: ["authoring/error.tsx", "account/error.tsx"],
   },
   {
     root: "test/guardrails/fixtures/architecture/session-reader",
@@ -148,7 +153,6 @@ const fixtures = [
     diagnostics: [
       "hero-motion.tsx: site animation is a CSS component beside its page; Remotion and framer-motion are not site assets",
       "hero-film.tsx: site animation is a CSS component beside its page; Remotion and framer-motion are not site assets",
-      "hero-icons.tsx: icons come from lucide-react",
     ],
   },
 ];

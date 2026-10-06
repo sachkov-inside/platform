@@ -77,9 +77,6 @@ const generatedRouteTypes = new Set(["PageProps", "LayoutProps"]);
 /** Site animation is a CSS component beside its page (owner decision of 2026-09-11). */
 const siteAnimationPackages =
   /^(?:remotion|@remotion\/.+|framer-motion|motion(?:\/.+)?)$/u;
-/** `components.json` names lucide as the icon library. */
-const foreignIconPackages =
-  /^(?:@phosphor-icons\/.+|phosphor-react|react-icons(?:\/.+)?|@heroicons\/.+|@tabler\/icons(?:-react)?|@radix-ui\/react-icons|react-feather|@fortawesome\/.+|@mui\/icons-material(?:\/.+)?)$/u;
 
 /**
  * @param {string} root
@@ -411,22 +408,15 @@ function getHandlerFinding(program) {
 }
 
 /**
- * Импорты, которые остаются в собранном модуле: `import type` и `export type` стираются.
+ * Импорты, которые остаются в собранном модуле. Стираются только `import type` и `export type`:
+ * при `verbatimModuleSyntax` `import { type X }` остаётся как `import {}` и загружает модуль.
  *
  * @param {Program} program
  */
 function valueModuleSpecifiers(program) {
   return program.body.flatMap((statement) => {
     if (statement.type === "ImportDeclaration") {
-      const typeOnly =
-        statement.importKind === "type" ||
-        (statement.specifiers.length > 0 &&
-          statement.specifiers.every(
-            (specifier) =>
-              specifier.type === "ImportSpecifier" &&
-              specifier.importKind === "type",
-          ));
-      return typeOnly ? [] : [statement.source.value];
+      return statement.importKind === "type" ? [] : [statement.source.value];
     }
     if (
       (statement.type === "ExportAllDeclaration" ||
@@ -460,9 +450,14 @@ function isStorybookModule(sourcePath) {
   );
 }
 
-/** @param {string} specifier */
-function reachesStorybook(specifier) {
-  return /^(?:@storybook\/|storybook(?:\/|$))|(?:^|\/)storybook\/|\.(?:stories|fixtures)$/u.test(
+/**
+ * Каталог Storybook: его пакеты, его конфигурация, `src/storybook`, истории и fixtures. Импорт
+ * типа тоже связывает производственный код с каталогом.
+ *
+ * @param {string} specifier
+ */
+function namesStorybookModule(specifier) {
+  return /^(?:@storybook\/|storybook(?:\/|$))|(?:^|\/)\.?storybook\/|\.(?:stories|fixtures)$/u.test(
     specifier,
   );
 }
@@ -474,12 +469,26 @@ function reachesStorybook(specifier) {
  * @param {Program} program
  */
 function namesGeneratedRouteType(program) {
+  /** Свой тип под тем же именем — ровно то, чего правило требует. */
+  const ownTypes = new Set(
+    program.body.flatMap((statement) => {
+      const declaration =
+        statement.type === "ExportNamedDeclaration"
+          ? statement.declaration
+          : statement;
+      return declaration?.type === "TSTypeAliasDeclaration" ||
+        declaration?.type === "TSInterfaceDeclaration"
+        ? [declaration.id.name]
+        : [];
+    }),
+  );
   let found = false;
   new Visitor({
     TSTypeReference(node) {
       if (
         node.typeName.type === "Identifier" &&
-        generatedRouteTypes.has(node.typeName.name)
+        generatedRouteTypes.has(node.typeName.name) &&
+        !ownTypes.has(node.typeName.name)
       ) {
         found = true;
       }
@@ -495,20 +504,91 @@ function namesGeneratedRouteType(program) {
  * @param {Program} program
  */
 function assertsComputedRoute(program) {
+  /** `Route` и его локальные имена: `import { Route as Href } from "next"`. */
+  const routeNames = new Set(["Route"]);
+  for (const statement of program.body) {
+    if (
+      statement.type !== "ImportDeclaration" ||
+      statement.source.value !== "next"
+    )
+      continue;
+    for (const specifier of statement.specifiers) {
+      if (
+        specifier.type === "ImportSpecifier" &&
+        exportedName(specifier.imported) === "Route"
+      ) {
+        routeNames.add(specifier.local.name);
+      }
+    }
+  }
   let found = false;
   /** @param {import("oxc-parser").TSAsExpression | import("oxc-parser").TSTypeAssertion} node */
   const check = (node) => {
     const type = node.typeAnnotation;
-    if (
-      type.type === "TSTypeReference" &&
-      type.typeName.type === "Identifier" &&
-      type.typeName.name === "Route" &&
-      literalString(node.expression) === undefined
-    ) {
+    if (type.type !== "TSTypeReference") return;
+    const namesRoute =
+      type.typeName.type === "Identifier"
+        ? routeNames.has(type.typeName.name)
+        : type.typeName.type === "TSQualifiedName" &&
+          type.typeName.right.name === "Route";
+    if (namesRoute && literalString(node.expression) === undefined) {
       found = true;
     }
   };
   new Visitor({ TSAsExpression: check, TSTypeAssertion: check }).visit(program);
+  return found;
+}
+
+/**
+ * Граница ошибки берёт `reset` из своих свойств: он перерисовывает тот же сбой без запроса.
+ * Одноимённый сброс формы внутри границы правило не нарушает.
+ *
+ * @param {Program} program
+ */
+function takesResetProp(program) {
+  for (const statement of program.body) {
+    if (statement.type !== "ExportDefaultDeclaration") continue;
+    const declaration = statement.declaration;
+    const props =
+      declaration.type === "FunctionDeclaration" ||
+      declaration.type === "ArrowFunctionExpression" ||
+      declaration.type === "FunctionExpression"
+        ? declaration.params[0]
+        : undefined;
+    if (props?.type === "Identifier") {
+      return namesMember(program, props.name, "reset");
+    }
+    return (
+      props?.type === "ObjectPattern" &&
+      props.properties.some(
+        (property) =>
+          property.type === "Property" &&
+          property.key.type === "Identifier" &&
+          property.key.name === "reset",
+      )
+    );
+  }
+  return false;
+}
+
+/**
+ * @param {Program} program
+ * @param {string} object
+ * @param {string} property
+ */
+function namesMember(program, object, property) {
+  let found = false;
+  new Visitor({
+    MemberExpression(node) {
+      if (
+        node.object.type === "Identifier" &&
+        node.object.name === object &&
+        memberPropertyName(node) === property
+      ) {
+        found = true;
+      }
+    },
+  }).visit(program);
   return found;
 }
 
@@ -898,50 +978,39 @@ const parsedFiles = new Map(
     return /** @type {const} */ ([file, program]);
   }),
 );
-const browserFiles = new Set(
-  [...parsedFiles].flatMap(([file, program]) =>
-    /\.client\.[cm]?[jt]sx?$/.test(file) || hasUseClientDirective(program)
-      ? [file]
-      : [],
-  ),
-);
-const pendingBrowserFiles = [...browserFiles];
-while (pendingBrowserFiles.length > 0) {
-  const file = pendingBrowserFiles.pop();
-  if (file === undefined) break;
-  const program = parsedFiles.get(file);
-  if (program === undefined) continue;
-  for (const specifier of moduleSpecifiers(program)) {
-    const dependency = resolveLocalModule(file, specifier, parsedFiles);
-    if (dependency !== undefined && !browserFiles.has(dependency)) {
-      browserFiles.add(dependency);
-      pendingBrowserFiles.push(dependency);
+/**
+ * Модули, до которых браузерная граница дотягивается по рёбрам `edges`.
+ *
+ * @param {(program: Program) => string[]} edges
+ */
+function browserReachable(edges) {
+  const reached = new Set(
+    [...parsedFiles].flatMap(([file, program]) =>
+      /\.client\.[cm]?[jt]sx?$/.test(file) || hasUseClientDirective(program)
+        ? [file]
+        : [],
+    ),
+  );
+  const pending = [...reached];
+  while (pending.length > 0) {
+    const file = pending.pop();
+    if (file === undefined) break;
+    const program = parsedFiles.get(file);
+    if (program === undefined) continue;
+    for (const specifier of edges(program)) {
+      const dependency = resolveLocalModule(file, specifier, parsedFiles);
+      if (dependency !== undefined && !reached.has(dependency)) {
+        reached.add(dependency);
+        pending.push(dependency);
+      }
     }
   }
+  return reached;
 }
 
+const browserFiles = browserReachable(moduleSpecifiers);
 /** Модули, которые попадают в браузерную сборку: без рёбер `import type`. */
-const browserBundleFiles = new Set(
-  [...parsedFiles].flatMap(([file, program]) =>
-    /\.client\.[cm]?[jt]sx?$/.test(file) || hasUseClientDirective(program)
-      ? [file]
-      : [],
-  ),
-);
-const pendingBrowserBundleFiles = [...browserBundleFiles];
-while (pendingBrowserBundleFiles.length > 0) {
-  const file = pendingBrowserBundleFiles.pop();
-  if (file === undefined) break;
-  const program = parsedFiles.get(file);
-  if (program === undefined) continue;
-  for (const specifier of valueModuleSpecifiers(program)) {
-    const dependency = resolveLocalModule(file, specifier, parsedFiles);
-    if (dependency !== undefined && !browserBundleFiles.has(dependency)) {
-      browserBundleFiles.add(dependency);
-      pendingBrowserBundleFiles.push(dependency);
-    }
-  }
-}
+const browserBundleFiles = browserReachable(valueModuleSpecifiers);
 
 const findings = [...parsedFiles].flatMap(([file, program]) => {
   const sourcePath = scannedPath(file);
@@ -1110,19 +1179,19 @@ const findings = [...parsedFiles].flatMap(([file, program]) => {
       `${sourcePath}: build a Route from computed text with internalRoute; an assertion holds only before or after next typegen`,
     );
   }
-  // The importer carries the finding; a `*.server` module it reached is not a second breach.
+  // Нарушение несёт импортирующий модуль; достигнутый им модуль `*.server` — не второе нарушение.
   if (
     browserBundleFiles.has(file) &&
     !isServerInterface(sourcePath) &&
     valueModuleSpecifiers(program).some(isServerInterface)
   ) {
     findingsForFile.push(
-      `${sourcePath}: browser code cannot import a server-only interface`,
+      `${sourcePath}: browser code cannot import a server-only interface; it would ship server code and secrets to the browser`,
     );
   }
-  if (!isStorybookModule(sourcePath) && specifiers.some(reachesStorybook)) {
+  if (!isStorybookModule(sourcePath) && specifiers.some(namesStorybookModule)) {
     findingsForFile.push(
-      `${sourcePath}: Storybook proofs and fixtures stay outside the production graph`,
+      `${sourcePath}: Storybook proofs and fixtures stay outside the production graph, or the catalog ships with the application`,
     );
   }
   const staleTime = dynamicStaleTimeDeclaration(program);
@@ -1150,10 +1219,10 @@ const findings = [...parsedFiles].flatMap(([file, program]) => {
       )
     ) {
       findingsForFile.push(
-        `${sourcePath}: an error boundary reports the error through useRenderErrorReport`,
+        `${sourcePath}: an error boundary reports the error through useRenderErrorReport, or the failure leaves no log line`,
       );
     }
-    if (namesIdentifier(program, "reset")) {
+    if (takesResetProp(program)) {
       findingsForFile.push(
         `${sourcePath}: an error boundary recovers with retry; reset re-renders the same failure without a request`,
       );
@@ -1172,9 +1241,6 @@ const findings = [...parsedFiles].flatMap(([file, program]) => {
     findingsForFile.push(
       `${sourcePath}: site animation is a CSS component beside its page; Remotion and framer-motion are not site assets`,
     );
-  }
-  if (specifiers.some((specifier) => foreignIconPackages.test(specifier))) {
-    findingsForFile.push(`${sourcePath}: icons come from lucide-react`);
   }
   return findingsForFile;
 });

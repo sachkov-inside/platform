@@ -4,7 +4,7 @@ This file is normative for `apps/web` changes and reviews. The nearest `AGENTS.m
 verification; ADR 0011 owns the current Library/transport boundary, ADR 0012 owns browser
 mutations and ADR 0027 owns navigation and caching. A rule that a check can hold lives in that
 check, not here: `pnpm --filter @inside/web guardrails` runs `scripts/check-web-architecture.mjs`,
-whose diagnostic names the rule and its reason. This file keeps the judgement around those checks.
+whose diagnostic names the broken rule. This file keeps the judgement around those checks.
 
 ## Slices and runtime boundaries
 
@@ -60,8 +60,8 @@ whose diagnostic names the rule and its reason. This file keeps the judgement ar
   (Navigation and caching). A new sign-in, payment command, public link or guest browser-report
   route joins `entryRoutePaths` in `src/_app/entry-rate-limit.ts`; `entry-rate-limit.test.ts`
   holds the proxy `matcher` to it. A guest browser-report handler takes its log lines from the
-  shared ceiling in `client-report-ceiling.server.ts` before writing. Security headers live in `next.config.ts`,
-  HSTS in Caddy ([ADR 0028](../../docs/adr/0028-web-edge-hardening.md)).
+  shared ceiling in `client-report-ceiling.server.ts` before writing. Security headers live in
+  `next.config.ts`, HSTS in Caddy ([ADR 0028](../../docs/adr/0028-web-edge-hardening.md)).
 
 ## Navigation and caching
 
@@ -93,9 +93,8 @@ these are the rules a change follows.
   layers and declares `export const instant = false`, which exempts it from the instant-navigation
   validation; a redirect from a layout needs a real status code, which streaming cannot give. The
   declaration does not remove a parent's loading boundary: a page nested under another page's
-  address brings its own `loading.tsx`, or it shows that page's skeleton. This rule stays prose:
-  whether a segment depends on the session is a reading of its data, not a shape a guardrail can
-  match.
+  address brings its own `loading.tsx`, or it shows that page's skeleton. The rule stays prose:
+  session dependence is a reading of a segment's data, not a shape a guardrail can match.
 - On a catalog surface — cards, lists, lesson navigation, the product and programme pages — link to
   a lesson, product, programme or topic with `IntentPrefetchLink` from
   `@/shared/ui/intent-prefetch-link.client`: until touched it prefetches the shared route shell,
@@ -125,6 +124,9 @@ these are the rules a change follows.
 - A page the reader left is hidden, not unmounted, and keeps its client state. State that starts
   from a server value follows that value when it changes; `GuideModeProvider` is the worked
   example. A surface that must reset on return resets itself.
+- A server render reads the session only through `@/shared/auth`, whose `connection()` stops a
+  prefetch before it starts a token refresh. The guardrail holds the Logto SDK there; a session
+  cookie read through `next/headers` stays a review concern.
 - A hydrated or freshly read TanStack query keeps the client default `staleTime`. Freshness after a
   write comes from invalidating the owner's key and from fact announcements, not from
   `staleTime: 0`; `selfRefreshingRead` stays for surfaces where a person waits for someone else's
@@ -180,17 +182,19 @@ these are the rules a change follows.
   `returnToStaleTab` in `test/fullstack/personal-home.spec.ts` for a return to the tab and
   `signInAndRecheckOnFocus` in `test/fullstack/reading-progress.spec.ts` for a sign-in re-check.
 - Build site animation as a CSS component next to its page, with a `prefers-reduced-motion` guard
-  and platform tokens. The static cover is the same component with its loop stopped. An embedded
-  video is not a site asset either (owner decision of 2026-09-11). Design a card or hero animation
-  for its real slot and change scenes without morphing objects into each other; the owner's
-  decisions of 2026-09-13 and their reasons are in
+  and platform tokens. The static cover is the same component with its loop stopped. The guardrail
+  rejects Remotion and framer-motion; an embedded video is not a site asset either (owner decision
+  of 2026-09-11). Design a card or hero animation for its real slot, draw its icons with
+  `lucide-react` and change scenes without morphing objects into each other; the owner's decisions
+  of 2026-09-13 and their reasons are in
   `docs/evidence/issue-614/ai-first-animation/README.md`. The AI Engineering course film (#808) is
   the owner-approved exception of 2026-09-30, confirmed by the owner in the #808 session before
   merge: a canvas drawn by a pure function of time, whose dark card moves between the states of one
-  episode, with no pause button and the final frame under reduced motion; its brief and critique are in `docs/evidence/issue-808/animation/README.md`. Its
-  course page and Home card draw list icons with duotone Phosphor geometry
-  (`features/ai-engineering-course/ui/course-icons.tsx`) instead of `lucide-react`, by the owner's
-  decision of 2026-09-30 to avoid the standard icon set there.
+  episode, with no pause button and the final frame under reduced motion; its brief and critique
+  are in `docs/evidence/issue-808/animation/README.md`. Its course page and Home card draw list
+  icons with duotone Phosphor geometry (`features/ai-engineering-course/ui/course-icons.tsx`)
+  instead of `lucide-react`, by the owner's decision of 2026-09-30 to avoid the standard icon set
+  there.
 - Keep Web guardrails and negative fixtures aligned with environment ownership, browser bypass,
   slice direction, mutation boundaries, and bundle limits. Use focused mapping/query tests,
   Storybook for meaningful UI states, and Playwright for route behaviour and accessibility.
