@@ -65,9 +65,10 @@ A direct merge through the REST API answers `405 Changes must be made through th
 for a clean pull request. The ruleset changes only by owner decision; an agent never edits it to get
 a merge through.
 
-`compose-production` can time out waiting for a `pg-boss` job to become active on a change that does
-not touch workers, queues or Compose; #728 tracks the wait budget, and a re-run of that check is
-allowed while #728 is open.
+`compose-production` checks the worker drain on whichever `material-assets.cleanup` job the worker
+claims while the smoke holds the table lock. That job is not always the smoke's probe: the hourly
+schedule can enqueue a cleanup job ahead of it (#728). The smoke log names both job ids and the
+number of one-second checks the claim took; measured runs took 1–3 of the 20 allowed.
 
 ## Integration suites
 

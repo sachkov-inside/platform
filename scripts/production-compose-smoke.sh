@@ -32,6 +32,8 @@ container_log_poll_attempts=30
 worker_health_poll_attempts=20
 database_lock_poll_attempts=20
 foundation_sql_poll_attempts=30
+# pg-boss workers poll every 2 s; the drain job waited for the table lock after 1-3 checks
+# locally and in CI (#728).
 pgboss_job_poll_attempts=20
 production_smoke_poll_interval_seconds=1
 readiness_http_retry_attempts=10
@@ -39,6 +41,7 @@ readiness_http_retry_delay_seconds=1
 worker_drain_observation_seconds=1
 worker_drain_lock_safety_timeout_seconds=300
 worker_drain_lock_backend_pid=""
+drain_job_id=""
 worker_stop_timeout_seconds=20
 
 export PLATFORM_COMPOSE_PROJECT="$project_name"
@@ -447,6 +450,35 @@ wait_for_pgboss_job_state() {
     sleep "$production_smoke_poll_interval_seconds"
   done
   echo "PgBoss job $job_id did not reach state $expected_state" >&2
+  exit 1
+}
+
+# The worker claims one job at a time, the oldest first, so the in-flight job is not always the
+# probe: the hourly schedule "17 * * * *" can enqueue a cleanup job just before it (#728). The
+# drain job is the active cleanup job once a session waits for the table lock: that job stays in
+# flight until the lock goes.
+wait_for_active_cleanup_job() {
+  local attempt
+  local active_job_id
+  for ((attempt = 1; attempt <= pgboss_job_poll_attempts; attempt += 1)); do
+    active_job_id="$("${foundation_compose[@]}" exec -T postgres psql \
+      --username postgres \
+      --dbname inside \
+      --tuples-only \
+      --no-align \
+      --command "select id from pgboss.job where name = 'material-assets.cleanup' and state = 'active' and exists (select 1 from pg_locks where relation = 'assets.material_assets'::regclass and not granted);")"
+    if [[ "$active_job_id" =~ ^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$ ]]; then
+      drain_job_id="$active_job_id"
+      echo "Worker drain job $drain_job_id (probe $probe_job_id) waited for the table lock after $attempt checks"
+      return
+    fi
+    sleep "$production_smoke_poll_interval_seconds"
+  done
+  echo "No active material-assets.cleanup job waited for the table lock" >&2
+  "${foundation_compose[@]}" exec -T postgres psql \
+    --username postgres \
+    --dbname inside \
+    --command "select id, state, created_on, started_on from pgboss.job where name = 'material-assets.cleanup' order by created_on; select pid, mode, granted from pg_locks where relation = 'assets.material_assets'::regclass;" >&2
   exit 1
 }
 
@@ -864,7 +896,7 @@ docker create \
 docker start "$drain_lock_container" >/dev/null
 wait_for_material_asset_table_lock
 
-drain_job_id="$(docker run \
+probe_job_id="$(docker run \
   --rm \
   --network "$foundation_network" \
   --env-file "$runtime_config_dir/material-assets-worker.env" \
@@ -885,11 +917,11 @@ drain_job_id="$(docker run \
     if (jobId === null) throw new Error("Could not enqueue worker drain probe");
     process.stdout.write(jobId);
   ')"
-if [[ ! "$drain_job_id" =~ ^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$ ]]; then
-  echo "Worker drain probe returned an invalid PgBoss job id: $drain_job_id" >&2
+if [[ ! "$probe_job_id" =~ ^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$ ]]; then
+  echo "Worker drain probe returned an invalid PgBoss job id: $probe_job_id" >&2
   exit 1
 fi
-wait_for_pgboss_job_state "$drain_job_id" active
+wait_for_active_cleanup_job
 
 old_worker_container="$("${application_compose[@]}" ps --quiet material-assets-worker)"
 docker kill --signal TERM "$old_worker_container" >/dev/null
