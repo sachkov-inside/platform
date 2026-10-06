@@ -457,7 +457,7 @@ function isStorybookModule(sourcePath) {
  * @param {string} specifier
  */
 function namesStorybookModule(specifier) {
-  return /^(?:@storybook\/|storybook(?:\/|$))|(?:^|\/)\.?storybook\/|\.(?:stories|fixtures)$/u.test(
+  return /^(?:@storybook\/|storybook(?:\/|$))|(?:^|\/)\.?storybook(?:\/|$)|\.(?:stories|fixtures)$/u.test(
     specifier,
   );
 }
@@ -479,7 +479,9 @@ function namesGeneratedRouteType(program) {
       return declaration?.type === "TSTypeAliasDeclaration" ||
         declaration?.type === "TSInterfaceDeclaration"
         ? [declaration.id.name]
-        : [];
+        : statement.type === "ImportDeclaration"
+          ? statement.specifiers.map((specifier) => specifier.local.name)
+          : [];
     }),
   );
   let found = false;
@@ -509,7 +511,8 @@ function assertsComputedRoute(program) {
   for (const statement of program.body) {
     if (
       statement.type !== "ImportDeclaration" ||
-      statement.source.value !== "next"
+      (statement.source.value !== "next" &&
+        statement.source.value !== "next/types")
     )
       continue;
     for (const specifier of statement.specifiers) {
@@ -540,56 +543,108 @@ function assertsComputedRoute(program) {
 }
 
 /**
- * Граница ошибки берёт `reset` из своих свойств: он перерисовывает тот же сбой без запроса.
- * Одноимённый сброс формы внутри границы правило не нарушает.
- *
- * @param {Program} program
+ * @param {import("oxc-parser").ObjectPattern} pattern
+ * @param {string} key
  */
-function takesResetProp(program) {
-  for (const statement of program.body) {
-    if (statement.type !== "ExportDefaultDeclaration") continue;
-    const declaration = statement.declaration;
-    const props =
-      declaration.type === "FunctionDeclaration" ||
-      declaration.type === "ArrowFunctionExpression" ||
-      declaration.type === "FunctionExpression"
-        ? declaration.params[0]
-        : undefined;
-    if (props?.type === "Identifier") {
-      return namesMember(program, props.name, "reset");
-    }
-    return (
-      props?.type === "ObjectPattern" &&
-      props.properties.some(
-        (property) =>
-          property.type === "Property" &&
-          property.key.type === "Identifier" &&
-          property.key.name === "reset",
-      )
-    );
-  }
-  return false;
+function patternTakes(pattern, key) {
+  return pattern.properties.some(
+    (property) =>
+      property.type === "Property" &&
+      property.key.type === "Identifier" &&
+      property.key.name === key,
+  );
 }
 
 /**
+ * Свойства, которые граница получает под именем `name`: `name.reset` или `const { reset } = name`.
+ *
  * @param {Program} program
- * @param {string} object
- * @param {string} property
+ * @param {string} name
  */
-function namesMember(program, object, property) {
+function bindingTakesReset(program, name) {
   let found = false;
   new Visitor({
     MemberExpression(node) {
       if (
         node.object.type === "Identifier" &&
-        node.object.name === object &&
-        memberPropertyName(node) === property
+        node.object.name === name &&
+        memberPropertyName(node) === "reset"
+      ) {
+        found = true;
+      }
+    },
+    VariableDeclarator(node) {
+      if (
+        node.id.type === "ObjectPattern" &&
+        node.init?.type === "Identifier" &&
+        node.init.name === name &&
+        patternTakes(node.id, "reset")
       ) {
         found = true;
       }
     },
   }).visit(program);
   return found;
+}
+
+/**
+ * Функция, которую модуль экспортирует по умолчанию: объявленная в самом экспорте или по имени.
+ *
+ * @param {Program} program
+ */
+function defaultExportedFunction(program) {
+  for (const statement of program.body) {
+    if (statement.type !== "ExportDefaultDeclaration") continue;
+    const declaration = statement.declaration;
+    if (declaration.type !== "Identifier") return declaration;
+    for (const candidate of program.body) {
+      if (
+        candidate.type === "FunctionDeclaration" &&
+        candidate.id?.name === declaration.name
+      ) {
+        return candidate;
+      }
+      if (candidate.type !== "VariableDeclaration") continue;
+      for (const declarator of candidate.declarations) {
+        if (
+          declarator.id.type === "Identifier" &&
+          declarator.id.name === declaration.name
+        ) {
+          return declarator.init;
+        }
+      }
+    }
+  }
+  return undefined;
+}
+
+/**
+ * Граница ошибки берёт `reset` из своих свойств: он перерисовывает тот же сбой без запроса.
+ * Одноимённый сброс формы внутри границы правило не нарушает.
+ *
+ * @param {Program} program
+ */
+function takesResetProp(program) {
+  const boundary = defaultExportedFunction(program);
+  const props =
+    boundary?.type === "FunctionDeclaration" ||
+    boundary?.type === "ArrowFunctionExpression" ||
+    boundary?.type === "FunctionExpression"
+      ? boundary.params[0]
+      : undefined;
+  if (props?.type === "Identifier") {
+    return bindingTakesReset(program, props.name);
+  }
+  if (props?.type !== "ObjectPattern") return false;
+  if (patternTakes(props, "reset")) return true;
+  const rest = props.properties.find(
+    (property) => property.type === "RestElement",
+  );
+  return (
+    rest?.type === "RestElement" &&
+    rest.argument.type === "Identifier" &&
+    bindingTakesReset(program, rest.argument.name)
+  );
 }
 
 /**

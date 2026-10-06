@@ -98,13 +98,14 @@ const fixtures = [
       "products/[slug]/page.tsx: a route declares its own params and searchParams types; generated PageProps and LayoutProps do not exist before next typegen",
       "account/layout.tsx: a route declares its own params and searchParams types; generated PageProps and LayoutProps do not exist before next typegen",
     ],
-    accepted: ["tasks/page.tsx"],
+    accepted: ["tasks/page.tsx", "map/page.tsx", "map/route-types.ts"],
   },
   {
     root: "test/guardrails/fixtures/architecture/route-assertion",
     diagnostics: [
       "topic-link.ts: build a Route from computed text with internalRoute; an assertion holds only before or after next typegen",
       "renamed-route.ts: build a Route from computed text with internalRoute; an assertion holds only before or after next typegen",
+      "types-route.ts: build a Route from computed text with internalRoute; an assertion holds only before or after next typegen",
     ],
     accepted: ["known.ts"],
   },
@@ -113,6 +114,7 @@ const fixtures = [
     diagnostics: [
       "reading-panel.tsx: Storybook proofs and fixtures stay outside the production graph",
       "reading-theme.ts: Storybook proofs and fixtures stay outside the production graph",
+      "reading-preview.ts: Storybook proofs and fixtures stay outside the production graph",
     ],
     accepted: ["reading-panel.stories.tsx", "reading.fixtures.ts"],
   },
@@ -138,6 +140,9 @@ const fixtures = [
       "topics/[slug]/error.tsx: an error boundary reports the error through useRenderErrorReport",
       "topics/[slug]/error.tsx: an error boundary recovers with retry; reset re-renders the same failure without a request",
       "products/[slug]/error.tsx: an error boundary recovers with retry; reset re-renders the same failure without a request",
+      "map/error.tsx: an error boundary recovers with retry; reset re-renders the same failure without a request",
+      "bookmarks/error.tsx: an error boundary recovers with retry; reset re-renders the same failure without a request",
+      "welcome/error.tsx: an error boundary recovers with retry; reset re-renders the same failure without a request",
     ],
     accepted: ["authoring/error.tsx", "account/error.tsx"],
   },
