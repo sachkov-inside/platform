@@ -2,7 +2,7 @@ import { prepareInvitedQuote } from "./setup/purchase-invitation.js";
 import { assembleTestBillingPricing } from "./setup/billing-pricing.js";
 import { randomUUID } from "node:crypto";
 import { z } from "zod";
-import { afterAll, beforeAll, describe, expect, test } from "vitest";
+import { afterAll, beforeAll, describe, expect, test, vi } from "vitest";
 import {
   assembleAccounts,
   BillingContact,
@@ -1990,6 +1990,43 @@ describe("владельческие операции billing: платежи, �
         }),
       ),
     ).toBe("forbidden");
+    // A receipt failure follows the rule update; the caller's transaction must roll both back.
+    await db.prisma
+      .$executeRaw`ALTER TABLE membership_entitlements.access_receipts
+      ADD CONSTRAINT reject_receipt_for_rollback CHECK (FALSE) NOT VALID`;
+    const errors = vi
+      .spyOn(console, "error")
+      .mockImplementation(() => undefined);
+    try {
+      expect(
+        failure(
+          await s.operations.execute(owner, {
+            ...command,
+            operationId: randomUUID(),
+            expectedRevision: 2,
+            value: { ...command.value, name: "Изменение должно откатиться" },
+          }),
+        ),
+      ).toBe("dependency_unavailable");
+      const logRecord = z
+        .object({ module: z.string(), operation: z.string() })
+        .loose();
+      const failures = errors.mock.calls.flatMap(([line]: unknown[]) => {
+        if (typeof line !== "string") return [];
+        const record = logRecord.safeParse(JSON.parse(line));
+        return record.success ? [record.data] : [];
+      });
+      expect(
+        failures.find((record) => record.module === "membership-entitlements"),
+      ).toMatchObject({
+        operation: "manageActivationRule",
+      });
+    } finally {
+      errors.mockRestore();
+      await db.prisma
+        .$executeRaw`ALTER TABLE membership_entitlements.access_receipts
+        DROP CONSTRAINT reject_receipt_for_rollback`;
+    }
     const listed = success(
       await s.operations.execute(owner, {
         operation: "activationRules.list",

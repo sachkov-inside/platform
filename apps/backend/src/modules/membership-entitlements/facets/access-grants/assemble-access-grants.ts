@@ -5,7 +5,10 @@ import {
   contentScopeSchema,
   guideCapability,
 } from "@inside/access-capabilities";
-import { dependencyFailure } from "../../../../infrastructure/observability/index.js";
+import {
+  dependencyFailure,
+  reportDependencyFailure,
+} from "../../../../infrastructure/observability/index.js";
 import { Prisma } from "../../../../infrastructure/prisma/index.js";
 import type { ContentScopeCatalog } from "../../ports/content-scope-catalog.js";
 import {
@@ -255,8 +258,30 @@ export function assembleAccessGrants(dependencies: AccessGrantsDependencies) {
         () =>
           Promise.resolve({
             ok: true as const,
-            preview: (tx: MembershipEnrollmentPreviewPrisma, tier: unknown) =>
-              previewEnrollmentExpansion(tx, actorId, input, tier, clock()),
+            preview: async (
+              tx: MembershipEnrollmentPreviewPrisma,
+              tier: unknown,
+            ) => {
+              try {
+                return await previewEnrollmentExpansion(
+                  tx,
+                  actorId,
+                  input,
+                  tier,
+                  clock(),
+                );
+              } catch (error) {
+                reportDependencyFailure(
+                  {
+                    module: "membership-entitlements",
+                    operation: "previewEnrollmentExpansion",
+                  },
+                  error,
+                );
+                // The caller owns the transaction: rethrow to roll back partial writes.
+                throw error;
+              }
+            },
           }),
         "prepareEnrollmentExpansion",
       ),
@@ -303,8 +328,21 @@ export function assembleAccessGrants(dependencies: AccessGrantsDependencies) {
         () =>
           Promise.resolve({
             ok: true as const,
-            save: (tx: MembershipActivationRulePrisma) =>
-              manageActivationRule(tx, actorId, input, clock()),
+            save: async (tx: MembershipActivationRulePrisma) => {
+              try {
+                return await manageActivationRule(tx, actorId, input, clock());
+              } catch (error) {
+                reportDependencyFailure(
+                  {
+                    module: "membership-entitlements",
+                    operation: "manageActivationRule",
+                  },
+                  error,
+                );
+                // The caller owns the transaction: rethrow to roll back partial writes.
+                throw error;
+              }
+            },
           }),
         "prepareActivationRule",
       ),
