@@ -23,7 +23,8 @@ function files(directory) {
   return readdirSync(directory, { withFileTypes: true }).flatMap((entry) => {
     const file = path.join(directory, entry.name);
     if (entry.isDirectory())
-      return ignored.has(entry.name) ||
+      return entry.name.startsWith(".") ||
+        ignored.has(entry.name) ||
         file === path.join(root, "docs/history") ||
         file === path.join(root, "docs/research")
         ? []
@@ -183,8 +184,7 @@ const corpusNames = new Set(
 );
 const findings = duplicateSources.concat(
   providerDrift(),
-  ["apps", "packages", "docs"]
-    .flatMap((directory) => files(path.join(root, directory)))
+  files(root)
     .filter((file) => !file.startsWith(`${authority}${path.sep}`))
     .flatMap((file) => {
       const ids = identity(file);

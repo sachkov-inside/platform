@@ -12,7 +12,7 @@ function run(prepare) {
   const root = mkdtempSync(path.join(tmpdir(), "inside-contracts-"));
   try {
     put(root, "docs/contracts/notifications-v1/schema.json", {
-      $id: "https://inside.example/contracts/notifications-v1/schema.json",
+      $id: "https://fixture.test/contracts/test.schema.json",
       type: "object",
     });
     put(root, "docs/contracts/notifications-v1/fixtures.json", [
@@ -45,7 +45,7 @@ test("accepts consumers importing the canonical corpus", () => {
 test("rejects a changed schema with the canonical identity under another name", () => {
   const result = run((root) =>
     put(root, "apps/telegram/src/foreign.json", {
-      $id: "https://inside.example/contracts/notifications-v1/schema.json",
+      $id: "https://fixture.test/contracts/test.schema.json",
       type: "string",
     }),
   );
@@ -76,7 +76,7 @@ test("rejects modified fixtures in a second contract folder", () => {
 test("rejects a second canonical schema with the same identity", () => {
   const result = run((root) =>
     put(root, "docs/contracts/another/schema.json", {
-      $id: "https://inside.example/contracts/notifications-v1/schema.json",
+      $id: "https://fixture.test/contracts/test.schema.json",
       type: "string",
     }),
   );
@@ -93,7 +93,7 @@ test("rejects a TypeScript schema copy in application source", () => {
     mkdirSync(path.dirname(file), { recursive: true });
     writeFileSync(
       file,
-      'export const schema = { $id: "https://inside.example/contracts/notifications-v1/schema.json", type: "string" };',
+      'export const schema = { $id: "https://fixture.test/contracts/test.schema.json", type: "string" };',
     );
   });
   assert.equal(result.status, 1);
@@ -122,4 +122,22 @@ test("rejects provider corpus drift from its current OpenAPI operation", () => {
   });
   assert.equal(result.status, 1);
   assert.match(result.stderr, /platform-billing-cohorts.*OpenAPI/u);
+});
+
+test("rejects an executable schema copy in root tooling", () => {
+  for (const directory of ["scripts", "tools"]) {
+    const result = run((root) => {
+      const file = path.join(root, directory, "schema-copy.mjs");
+      mkdirSync(path.dirname(file), { recursive: true });
+      writeFileSync(
+        file,
+        'export const schema = { $id: "https://fixture.test/contracts/test.schema.json", type: "string" };',
+      );
+    });
+    assert.equal(result.status, 1, directory);
+    assert.match(
+      result.stderr,
+      new RegExp(`${directory}/schema-copy.mjs`, "u"),
+    );
+  }
 });
