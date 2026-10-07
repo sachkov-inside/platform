@@ -45,7 +45,7 @@ export function objectStorageConformance(
       const storage = await createStorage();
       await expect(
         storage.signGet({
-          contentDisposition: 'attachment; filename="guide.pdf"',
+          contentDisposition: 'attachment; filename="product.pdf"',
           contentType: "application/pdf",
           key: "assets/9fb8d4e2/file.pdf",
           namespace: "protected",

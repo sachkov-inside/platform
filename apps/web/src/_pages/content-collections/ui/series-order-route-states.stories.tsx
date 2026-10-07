@@ -12,7 +12,7 @@ import {
 } from "@/storybook/story-environment";
 
 const seriesId = "95000000-0000-4000-8000-000000000010";
-const editorPath = `/authoring/guides/${seriesId}`;
+const editorPath = `/authoring/products/${seriesId}`;
 const environment = authoringPageEnvironment(editorPath);
 
 /** Состояния маршрута редактора продукта, которые страница показывает вместо редактора. */

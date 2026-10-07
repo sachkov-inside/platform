@@ -40,7 +40,7 @@ export async function listSubscriptionTiers(
     tiersOutcomeSchema,
   );
 }
-export async function readSubscriptionEnrollments(
+export async function readTariffAssignments(
   input: z.infer<typeof readEnrollmentsInputSchema>,
 ) {
   return billingCommandResult(
@@ -52,7 +52,7 @@ export async function readSubscriptionEnrollments(
     enrollmentsOutcomeSchema,
   );
 }
-export async function assignSubscriptionEnrollment(
+export async function assignTariffAssignment(
   input: z.infer<typeof assignEnrollmentInputSchema>,
 ) {
   return billingCommandResult(
@@ -64,7 +64,7 @@ export async function assignSubscriptionEnrollment(
     enrollmentOutcomeSchema,
   );
 }
-export async function changeSubscriptionEnrollment(
+export async function changeTariffAssignment(
   input: z.infer<typeof changeEnrollmentInputSchema>,
 ) {
   return billingCommandResult(

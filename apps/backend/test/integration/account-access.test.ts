@@ -8,13 +8,13 @@ import {
   bootstrapOwnerAccount,
   type Accounts,
 } from "../../src/modules/accounts/index.js";
-import { paidPeriodCommandSchema } from "../../src/modules/membership-entitlements/features/apply-paid-period/apply-paid-period.js";
+import { paidPeriodCommandSchema } from "../../src/modules/account-rights/features/apply-paid-period/apply-paid-period.js";
 import { verifiedAccountSignIn } from "../../src/modules/accounts/facets/accounts/verified-logto-identity.js";
 import {
   assembleAccessGrants,
-  assembleMembershipEntitlements,
+  assembleAccountRights,
   type AccessGrants,
-} from "../../src/modules/membership-entitlements/index.js";
+} from "../../src/modules/account-rights/index.js";
 import { TelegramAccountLinks } from "../../src/modules/telegram-membership/index.js";
 import {
   createMigratedTestDatabase,
@@ -70,7 +70,7 @@ describe("independent Account access", () => {
     return result.account.accountId;
   }
   function membership() {
-    return assembleMembershipEntitlements({
+    return assembleAccountRights({
       prisma: db.prisma,
       clock: () => now,
     });
@@ -373,7 +373,7 @@ describe("independent Account access", () => {
       { capabilities: ["materials" as const] },
       {
         capabilities: ["support" as const],
-        contentScope: { guideIds: [], materialIds: [randomUUID()] },
+        coverage: { productIds: [], materialIds: [randomUUID()] },
       },
     ])
       expect(
@@ -568,7 +568,7 @@ describe("independent Account access", () => {
     const release = signal();
     const blocker = db.prisma.$transaction(async (transaction) => {
       await transaction.$executeRaw(
-        Prisma.sql`lock table membership_entitlements.legacy_classifications in access exclusive mode`,
+        Prisma.sql`lock table account_rights.legacy_classifications in access exclusive mode`,
       );
       locked.resolve();
       await release.promise;
@@ -582,7 +582,7 @@ describe("independent Account access", () => {
           async () =>
             z.array(z.object({ waiting: z.boolean() })).parse(
               await db.prisma.$queryRaw(Prisma.sql`
-        select exists(select 1 from pg_locks where relation = 'membership_entitlements.legacy_classifications'::regclass and not granted) as waiting
+        select exists(select 1 from pg_locks where relation = 'account_rights.legacy_classifications'::regclass and not granted) as waiting
       `),
             )[0]?.waiting,
         )
@@ -618,7 +618,7 @@ describe("independent Account access", () => {
     const release = signal();
     const blocker = db.prisma.$transaction(async (transaction) => {
       await transaction.$executeRaw(
-        Prisma.sql`lock table membership_entitlements.access_changes in access exclusive mode`,
+        Prisma.sql`lock table account_rights.access_changes in access exclusive mode`,
       );
       locked.resolve();
       await release.promise;
@@ -640,7 +640,7 @@ describe("independent Account access", () => {
           async () =>
             z.array(z.object({ waiting: z.boolean() })).parse(
               await db.prisma.$queryRaw(Prisma.sql`
-        select exists(select 1 from pg_locks where relation = 'membership_entitlements.access_changes'::regclass and not granted) as waiting
+        select exists(select 1 from pg_locks where relation = 'account_rights.access_changes'::regclass and not granted) as waiting
       `),
             )[0]?.waiting,
         )
@@ -700,10 +700,10 @@ describe("independent Account access", () => {
       terms: { ...terms, capabilities: [...terms.capabilities] },
     };
     await db.prisma.$executeRaw(
-      Prisma.sql`create function membership_entitlements.reject_test_receipt() returns trigger language plpgsql as $$ begin raise exception 'injected receipt failure'; end $$`,
+      Prisma.sql`create function account_rights.reject_test_receipt() returns trigger language plpgsql as $$ begin raise exception 'injected receipt failure'; end $$`,
     );
     await db.prisma.$executeRaw(
-      Prisma.sql`create trigger reject_test_receipt before insert on membership_entitlements.access_receipts for each row execute function membership_entitlements.reject_test_receipt()`,
+      Prisma.sql`create trigger reject_test_receipt before insert on account_rights.access_receipts for each row execute function account_rights.reject_test_receipt()`,
     );
     try {
       expect(await grants.applyPaidPeriod(command)).toEqual({
@@ -718,10 +718,10 @@ describe("independent Account access", () => {
       ).toBe(0);
     } finally {
       await db.prisma.$executeRaw(
-        Prisma.sql`drop trigger reject_test_receipt on membership_entitlements.access_receipts`,
+        Prisma.sql`drop trigger reject_test_receipt on account_rights.access_receipts`,
       );
       await db.prisma.$executeRaw(
-        Prisma.sql`drop function membership_entitlements.reject_test_receipt()`,
+        Prisma.sql`drop function account_rights.reject_test_receipt()`,
       );
     }
     expect((await grants.applyPaidPeriod(command)).ok).toBe(true);

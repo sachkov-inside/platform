@@ -343,13 +343,13 @@ export async function buildFixtures(root) {
     schemaVersion: 1,
     sourceNamespace: "synthetic",
     selection: {
-      guideId: null,
+      productId: null,
       chapterIds: [],
       materialIds: [...kinds],
       complete: true,
     },
     materials,
-    guides: [],
+    products: [],
     assets: [],
     diagnostics: [],
   };

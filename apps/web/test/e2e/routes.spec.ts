@@ -819,3 +819,43 @@ function linkedAccountPresentation() {
     },
   };
 }
+
+test("old bank return preserves every payment query parameter", async ({
+  request,
+}) => {
+  const query =
+    "OrderId=order-1065&PaymentId=bank-1065&Success=true&from=%2Fproducts%2Fcourse";
+  const response = await request.get(`/subscription/return?${query}`, {
+    maxRedirects: 0,
+  });
+  expect(response.status()).toBe(308);
+  const destination = new URL(
+    response.headers()["location"] ?? "",
+    response.url(),
+  );
+  expect(destination.pathname).toBe("/payment/return");
+  expect(Object.fromEntries(destination.searchParams)).toEqual({
+    OrderId: "order-1065",
+    PaymentId: "bank-1065",
+    Success: "true",
+    from: "/products/course",
+  });
+});
+
+test("old offer checkout preserves the selected tariff and original page", async ({
+  request,
+}) => {
+  const offerId = "10000000-0000-4000-8000-000000001065";
+  const response = await request.get(
+    `/subscription?offer=${offerId}&from=%2Fmaterials%2Flesson`,
+    { maxRedirects: 0 },
+  );
+  expect(response.status()).toBe(308);
+  const destination = new URL(
+    response.headers()["location"] ?? "",
+    response.url(),
+  );
+  expect(destination.pathname).toBe("/payment/checkout");
+  expect(destination.searchParams.get("offer")).toBe(offerId);
+  expect(destination.searchParams.get("from")).toBe("/materials/lesson");
+});

@@ -1,6 +1,6 @@
 /*
  * Дополнения оформления `ai-engineering-course` к композициям страницы AI-first
- * (`ai-first-guide-view.css`): метка у названия, обложка, менторинг, тона иллюстраций, статус.
+ * (`ai-first-product-view.css`): метка у названия, обложка, менторинг, тона иллюстраций, статус.
  */
 
 .aie-course-hero {
@@ -8,7 +8,7 @@
 }
 
 /* Текст раздела не прилипает к заголовку, как бы ни был собран раздел. */
-.ai-guide-page.aie-course h2 + p {
+.ai-product-page.aie-course h2 + p {
   margin-top: 1rem;
 }
 
@@ -69,7 +69,7 @@
 .aie-status h2 {
   color: var(--primary-foreground);
 }
-.ai-guide-page .aie-status p {
+.ai-product-page .aie-status p {
   margin-top: 0.75rem;
   color: color-mix(in srgb, var(--primary-foreground) 72%, var(--primary));
 }
@@ -120,7 +120,7 @@
   outline-offset: 2px;
 }
 
-.aie-course .ai-guide-sticky {
+.aie-course .ai-product-sticky {
   margin-top: 2rem;
 }
 /*
@@ -128,7 +128,7 @@
  * на планшете и телефоне — нижняя панель, поэтому кнопка в плашке там не повторяется.
  */
 @media (min-width: 64rem) {
-  .aie-course .ai-guide-sticky {
+  .aie-course .ai-product-sticky {
     display: none;
   }
 }
@@ -187,7 +187,7 @@
 .aie-bento-copy h3 {
   font-size: 1.05rem;
 }
-.ai-guide-page .aie-bento-copy p {
+.ai-product-page .aie-bento-copy p {
   margin-top: 0.35rem;
   font-size: 0.9rem;
   line-height: 1.55;
@@ -197,7 +197,7 @@
   background: var(--primary);
   color: var(--primary-foreground);
 }
-.ai-guide-page .aie-bento > li[data-tone="ink"] p {
+.ai-product-page .aie-bento > li[data-tone="ink"] p {
   color: color-mix(in srgb, var(--primary-foreground) 70%, var(--primary));
 }
 .aie-bento > li[data-tone="example"] {
@@ -567,7 +567,7 @@
 .aie-value h2 {
   color: var(--primary-foreground);
 }
-.ai-guide-page .aie-value-head p {
+.ai-product-page .aie-value-head p {
   margin-top: 0.75rem;
   font-size: 1.05rem;
   color: color-mix(in srgb, var(--primary-foreground) 72%, var(--primary));
@@ -625,7 +625,7 @@
   overflow-wrap: normal;
   hyphens: manual;
 }
-.ai-guide-page .aie-value li p {
+.ai-product-page .aie-value li p {
   margin: 0.4rem 0 0;
   font-size: 0.85rem;
   line-height: 1.5;
@@ -655,7 +655,7 @@
   display: grid;
   gap: 0.6rem;
 }
-.ai-guide-page .aie-faq .aie-faq-note {
+.ai-product-page .aie-faq .aie-faq-note {
   grid-column: 1;
   grid-row: 2;
 }
@@ -666,7 +666,7 @@
   }
   .aie-faq-head,
   .aie-faq-list,
-  .ai-guide-page .aie-faq .aie-faq-note {
+  .ai-product-page .aie-faq .aie-faq-note {
     grid-column: auto;
     grid-row: auto;
   }
@@ -707,12 +707,12 @@
 .aie-faq details[open] summary svg {
   transform: rotate(180deg);
 }
-.ai-guide-page .aie-faq details p {
+.ai-product-page .aie-faq details p {
   margin: 0;
   padding: 0 1.25rem 1.1rem;
   color: var(--muted-foreground);
 }
-.ai-guide-page .aie-faq-note {
+.ai-product-page .aie-faq-note {
   display: flex;
   align-items: center;
   gap: 0.75rem;
@@ -806,7 +806,7 @@
   .aie-faq summary {
     padding-inline: 1rem;
   }
-  .ai-guide-page .aie-faq details p {
+  .ai-product-page .aie-faq details p {
     padding-inline: 1rem;
   }
 }
@@ -822,12 +822,12 @@
   justify-content: space-between;
   gap: 0.5rem 2rem;
 }
-.aie-format-head .ai-guide-text-link {
+.aie-format-head .ai-product-text-link {
   flex: none;
 }
 @media (max-width: 63.999rem) {
   /* На планшете и телефоне в программу ведёт нижняя панель. */
-  .aie-format-head .ai-guide-text-link {
+  .aie-format-head .ai-product-text-link {
     display: none;
   }
 }
@@ -846,7 +846,7 @@
   margin-top: 1rem;
   font-size: 1.05rem;
 }
-.ai-guide-page .aie-format li p {
+.ai-product-page .aie-format li p {
   margin-top: 0.35rem;
   font-size: 0.9rem;
   line-height: 1.55;
@@ -984,7 +984,7 @@
   gap: 3rem;
   margin-block: 5rem;
 }
-.ai-guide-page .aie-practice p {
+.ai-product-page .aie-practice p {
   margin-top: 1rem;
   font-size: 1.05rem;
   color: var(--muted-foreground);
@@ -1055,7 +1055,7 @@
   gap: 3rem;
   margin-block: 5rem;
 }
-.ai-guide-page .aie-agents-copy p {
+.ai-product-page .aie-agents-copy p {
   margin-top: 1rem;
   color: var(--muted-foreground);
 }
@@ -1117,7 +1117,7 @@
 .aie-audience h3 {
   font-size: 1.05rem;
 }
-.ai-guide-page .aie-audience li p {
+.ai-product-page .aie-audience li p {
   margin: 0;
   font-size: 0.92rem;
   line-height: 1.55;
@@ -1271,21 +1271,21 @@
 
 /* ---------- Телефон: плотнее типографика, пункты первого экрана одной карточкой ---------- */
 @media (max-width: 47.999rem) {
-  .ai-guide-page.aie-course p {
+  .ai-product-page.aie-course p {
     font-size: 0.9375rem;
     line-height: 1.55;
   }
-  .ai-guide-page.aie-course .ai-guide-promise,
-  .ai-guide-page.aie-course .aie-practice p {
+  .ai-product-page.aie-course .ai-product-promise,
+  .ai-product-page.aie-course .aie-practice p {
     font-size: 0.97rem;
   }
-  .ai-guide-page.aie-course .aie-bento-copy p,
-  .ai-guide-page.aie-course .aie-format li p,
-  .ai-guide-page.aie-course .aie-value li p {
+  .ai-product-page.aie-course .aie-bento-copy p,
+  .ai-product-page.aie-course .aie-format li p,
+  .ai-product-page.aie-course .aie-value li p {
     font-size: 0.875rem;
     line-height: 1.5;
   }
-  .ai-guide-page.aie-course h2 {
+  .ai-product-page.aie-course h2 {
     font-size: 1.375rem;
   }
   .aie-bento-copy h3,
@@ -1322,7 +1322,7 @@
   @supports (animation-timeline: view()) {
     .aie-course > section > h2,
     .aie-course > section > div:first-child,
-    .aie-course > section > .ai-guide-section-intro,
+    .aie-course > section > .ai-product-section-intro,
     .aie-bento > li,
     .aie-mentoring-points li,
     .aie-format li,

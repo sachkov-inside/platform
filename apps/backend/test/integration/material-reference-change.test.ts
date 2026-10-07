@@ -172,7 +172,7 @@ describe("Reference reads on an exhausted pool", () => {
         videos: assembleVideos({
           canManage: () => Promise.resolve(true),
           prisma,
-          projects: { free: "public-project", membership: "member-project" },
+          projects: { free: "public-project", closed: "member-project" },
           provider: unusedVideoProvider,
         }),
       }).authoring.saveMaterial({

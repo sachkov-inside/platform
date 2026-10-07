@@ -18,9 +18,9 @@ import { useMutation, useQuery } from "@tanstack/react-query";
 import { useRef, useState } from "react";
 import type { RefObject } from "react";
 
-import { guideChapterRuns } from "@/shared/lib/guide-chapter-runs";
-import type { GuideRemoval } from "@/shared/lib/guide-removal";
-import { GuideRemovalConfirmationDialog } from "@/shared/ui/guide-removal-confirmation-dialog.client";
+import { productChapterRuns } from "@/shared/lib/product-chapter-runs";
+import type { ProductRemoval } from "@/shared/lib/product-removal";
+import { ProductRemovalConfirmationDialog } from "@/shared/ui/product-removal-confirmation-dialog.client";
 import { useAutosave } from "@/shared/lib/autosave/use-autosave";
 import { cn } from "@/shared/lib/utils";
 import { useLiveSearchValue } from "@/shared/lib/use-live-search-value.client";
@@ -36,15 +36,15 @@ import {
 import { reorderSeries } from "../api/series-order.browser";
 import type {
   CreateSeriesOrderMaterialSearchQueryOptions,
-  GuideChapterPresentation,
+  ProductChapterPresentation,
   ReorderSeriesResult,
   SeriesOrderItemPresentation,
   SeriesOrderPresentation,
 } from "../model/presentation";
 
 import {
-  GUIDE_CHAPTER_NAME_MAX,
-  GUIDE_CHAPTER_SUMMARY_MAX,
+  PRODUCT_CHAPTER_NAME_MAX,
+  PRODUCT_CHAPTER_SUMMARY_MAX,
   publicationStateLabel,
 } from "../model/presentation";
 import { dragLeftElement } from "@/shared/lib/drag-left-element";
@@ -77,7 +77,7 @@ export function SeriesOrderManager({
   const attempted = useRef<Parameters<typeof reorderSeries>[0] | null>(null);
   // Снятие опубликованных материалов из купленного продукта ждёт ответа автора в диалоге.
   const [removalConfirmation, setRemovalConfirmation] = useState<
-    readonly GuideRemoval[] | null
+    readonly ProductRemoval[] | null
   >(null);
   const confirmedRemovals = useRef<readonly string[]>([]);
   const autosave = useAutosave({
@@ -89,8 +89,8 @@ export function SeriesOrderManager({
       chapters.every(
         ({ name, summary }) =>
           name.trim().length > 0 &&
-          name.trim().length <= GUIDE_CHAPTER_NAME_MAX &&
-          summary.trim().length <= GUIDE_CHAPTER_SUMMARY_MAX,
+          name.trim().length <= PRODUCT_CHAPTER_NAME_MAX &&
+          summary.trim().length <= PRODUCT_CHAPTER_SUMMARY_MAX,
       ),
     save: async (snapshot) => {
       const input = attempted.current ?? {
@@ -112,13 +112,13 @@ export function SeriesOrderManager({
         seriesId: presentation.seriesId,
         ...(confirmedRemovals.current.length === 0
           ? {}
-          : { confirmedGuideRemovals: confirmedRemovals.current }),
+          : { confirmedProductRemovals: confirmedRemovals.current }),
       };
       attempted.current = input;
       const next = await mutation.mutateAsync(input);
       if (next.kind === "removal_confirmation_required") {
         attempted.current = null;
-        setRemovalConfirmation(next.guides);
+        setRemovalConfirmation(next.products);
         return "invalid";
       }
       // Отказанный материал автор убирает сам: следующая правка уходит новым составом, а не
@@ -211,7 +211,7 @@ export function SeriesOrderManager({
   };
   const editChapter = (
     id: string,
-    values: Partial<GuideChapterPresentation>,
+    values: Partial<ProductChapterPresentation>,
   ) => {
     mutation.reset();
     setChapters((current) =>
@@ -419,8 +419,8 @@ export function SeriesOrderManager({
           titles={new Map(items.map((item) => [item.materialId, item.title]))}
         />
         {removalConfirmation === null ? null : (
-          <GuideRemovalConfirmationDialog
-            guides={removalConfirmation}
+          <ProductRemovalConfirmationDialog
+            products={removalConfirmation}
             onCancel={() => {
               // Материалы остаются в продукте: состав перечитывается с сервера.
               setRemovalConfirmation(null);
@@ -429,7 +429,7 @@ export function SeriesOrderManager({
             }}
             onConfirm={() => {
               confirmedRemovals.current = removalConfirmation.map(
-                ({ guideId }) => guideId,
+                ({ productId }) => productId,
               );
               setRemovalConfirmation(null);
               void autosave.retry();
@@ -483,7 +483,7 @@ export function SeriesOrderManager({
             </div>
           ) : (
             <div className="grid gap-8">
-              {guideChapterRuns(
+              {productChapterRuns(
                 items,
                 chapters,
                 ({ chapterId }) => chapterId ?? null,
@@ -562,7 +562,7 @@ function OrderFeedback({
           <input
             name="returnTo"
             type="hidden"
-            value={`/authoring/guides/${seriesId}`}
+            value={`/authoring/products/${seriesId}`}
           />
           <Button size="sm" type="submit">
             Войти
@@ -820,7 +820,7 @@ interface CompositionActions {
   readonly assign: (materialId: string, chapterId: string | null) => void;
   readonly editChapter: (
     id: string,
-    values: Partial<GuideChapterPresentation>,
+    values: Partial<ProductChapterPresentation>,
   ) => void;
   readonly move: (position: number, offset: -1 | 1) => void;
   readonly moveChapter: (index: number, offset: -1 | 1) => void;
@@ -833,8 +833,8 @@ interface CompositionActions {
 interface ChapterSectionProps {
   readonly actions: CompositionActions;
   readonly archived: boolean;
-  readonly chapter: GuideChapterPresentation | null;
-  readonly chapters: readonly GuideChapterPresentation[];
+  readonly chapter: ProductChapterPresentation | null;
+  readonly chapters: readonly ProductChapterPresentation[];
   readonly dragState: DragState;
   readonly entries: readonly {
     readonly item: SeriesOrderItemPresentation;
@@ -894,7 +894,7 @@ function ChapterSection({
               <input
                 aria-label={`Название главы ${String(index + 1)}`}
                 className="block min-h-11 w-full rounded-md border border-transparent bg-transparent px-2 text-lg font-semibold outline-none hover:border-input focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/30"
-                maxLength={GUIDE_CHAPTER_NAME_MAX}
+                maxLength={PRODUCT_CHAPTER_NAME_MAX}
                 name={`chapter-name-${chapter.id}`}
                 onChange={(event) => {
                   actions.editChapter(chapter.id, {
@@ -961,7 +961,7 @@ function ChapterSection({
               результат
               <textarea
                 className="mt-1 block min-h-28 w-full resize-y rounded-md border border-input bg-background p-3 text-sm leading-6 text-foreground focus-visible:outline-ring"
-                maxLength={GUIDE_CHAPTER_SUMMARY_MAX}
+                maxLength={PRODUCT_CHAPTER_SUMMARY_MAX}
                 name={`chapter-summary-${chapter.id}`}
                 onChange={(event) => {
                   actions.editChapter(chapter.id, {
@@ -1009,7 +1009,7 @@ function MaterialList({
 }: {
   readonly actions: CompositionActions;
   readonly archived: boolean;
-  readonly chapters: readonly GuideChapterPresentation[];
+  readonly chapters: readonly ProductChapterPresentation[];
   readonly dragState: DragState;
   readonly entries: readonly {
     readonly item: SeriesOrderItemPresentation;
@@ -1051,7 +1051,7 @@ function MaterialRow({
 }: {
   readonly actions: CompositionActions;
   readonly archived: boolean;
-  readonly chapters: readonly GuideChapterPresentation[];
+  readonly chapters: readonly ProductChapterPresentation[];
   readonly dragState: DragState;
   readonly first: boolean;
   readonly item: SeriesOrderItemPresentation;
@@ -1233,7 +1233,7 @@ function MaterialRow({
  */
 function chapterRunEnd(
   items: readonly SeriesOrderItemPresentation[],
-  chapters: readonly GuideChapterPresentation[],
+  chapters: readonly ProductChapterPresentation[],
   chapterId: string | null,
 ): number {
   if (chapterId === null) return items.length;
@@ -1287,9 +1287,9 @@ function exchangeRuns(
 /** The saved shape of the whole composition; autosave compares it and sends it unchanged. */
 function composition(
   items: readonly SeriesOrderItemPresentation[],
-  chapters: readonly GuideChapterPresentation[],
+  chapters: readonly ProductChapterPresentation[],
 ): {
-  readonly chapters: readonly GuideChapterPresentation[];
+  readonly chapters: readonly ProductChapterPresentation[];
   readonly entries: readonly {
     readonly chapterId: string | null;
     readonly materialId: string;

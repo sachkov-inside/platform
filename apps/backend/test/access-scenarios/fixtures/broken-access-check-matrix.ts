@@ -12,14 +12,14 @@ import {
  */
 const learnerReadsA = accessCheckMatrix.find(
   (row) =>
-    row.state === "learner-guide-a" &&
-    row.action === "read-guide-a" &&
+    row.state === "learner-product-a" &&
+    row.action === "read-product-a" &&
     row.surface === "body",
 );
 const learnerReadsB = accessCheckMatrix.find(
   (row) =>
-    row.state === "learner-guide-a" &&
-    row.action === "read-guide-b" &&
+    row.state === "learner-product-a" &&
+    row.action === "read-product-b" &&
     row.surface === "body",
 );
 if (learnerReadsA === undefined || learnerReadsB === undefined)
@@ -48,13 +48,13 @@ export const brokenAccessCheckMatrix: readonly AccessCheckRowShape[] = [
       "learner-mcp": {
         kind: "test",
         file: "apps/backend/test/integration/no-such-file.test.ts",
-        name: "learner reads Guide A",
+        name: "learner reads Product A",
       },
       "web-bff": { kind: "production-pass" },
       production: {
         kind: "test",
         file: "apps/backend/test/integration/scoped-access-http.test.ts",
-        name: "anonymous reader gets no protected bytes of either Guide while the public Material stays open",
+        name: "anonymous reader gets no protected bytes of either Product while the public Material stays open",
       },
     },
   },

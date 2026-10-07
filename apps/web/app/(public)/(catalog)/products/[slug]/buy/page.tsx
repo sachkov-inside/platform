@@ -1,26 +1,30 @@
 import type { Metadata } from "next";
 
-import { GuidePurchasePage } from "@/_pages/guide-purchase.server";
+import { ProductPurchasePage } from "@/_pages/product-purchase.server";
 import { promoCodeFromQuery } from "@/features/billing-checkout";
 import { redirectUntilTermsAccepted } from "@/features/terms-acceptance.server";
 import { loadPublishedSeries } from "@/features/library-discovery.server";
 import { getOptionalPlatformAccessToken } from "@/shared/auth/optional-platform-access-token.server";
-import { guidePurchaseHref } from "@/shared/routing/subscription-route";
+import {
+  subscriptionOfferParam,
+  productPurchaseHref,
+} from "@/shared/routing/subscription-route";
 
 /** Раздел целиком зависит от сессии и на слои не разложен: проверка мгновенности с него снята (ADR 0027). */
 export const instant = false;
 
-interface GuidePurchaseRouteProps {
+interface ProductPurchaseRouteProps {
   readonly params: Promise<{ readonly slug: string }>;
   /** `promo` — промокод персональной ссылки владельца (#815). */
   readonly searchParams: Promise<{
     readonly promo?: string | readonly string[];
+    readonly offer?: string | readonly string[];
   }>;
 }
 
 export async function generateMetadata({
   params,
-}: GuidePurchaseRouteProps): Promise<Metadata> {
+}: ProductPurchaseRouteProps): Promise<Metadata> {
   const { slug } = await params;
   const result = await loadPublishedSeries(
     slug,
@@ -36,19 +40,24 @@ export async function generateMetadata({
   };
 }
 
-export default async function GuidePurchaseRoute({
+export default async function ProductPurchaseRoute({
   params,
   searchParams,
-}: GuidePurchaseRouteProps) {
+}: ProductPurchaseRouteProps) {
   const { slug } = await params;
-  const promoCode = promoCodeFromQuery((await searchParams).promo);
+  const query = await searchParams;
+  const promoCode = promoCodeFromQuery(query.promo);
+  const offerId = subscriptionOfferParam(query.offer);
   // Покупка открывается после принятия действующей редакции условий на экране первого входа.
-  await redirectUntilTermsAccepted(guidePurchaseHref(slug, promoCode));
+  await redirectUntilTermsAccepted(
+    productPurchaseHref(slug, promoCode, offerId),
+  );
   const accessToken = await getOptionalPlatformAccessToken();
   return (
-    <GuidePurchasePage
+    <ProductPurchasePage
       {...(accessToken === undefined ? {} : { accessToken })}
       {...(promoCode === undefined ? {} : { promoCode })}
+      {...(offerId === undefined ? {} : { offerId })}
       slug={slug}
     />
   );

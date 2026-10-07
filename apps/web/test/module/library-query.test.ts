@@ -71,7 +71,7 @@ describe("Library TanStack Query interface", () => {
   it("searches the full catalog from home and preserves locked paid results", async () => {
     const paid = {
       ...readyCatalog.items[0],
-      access: "membership",
+      access: "closed",
       availability: "locked",
       slug: "developer-pipeline",
       title: "Developer Pipeline",
@@ -90,7 +90,7 @@ describe("Library TanStack Query interface", () => {
       kind: "ready",
       items: [
         {
-          access: "membership",
+          access: "closed",
           availability: "locked",
           slug: "developer-pipeline",
         },

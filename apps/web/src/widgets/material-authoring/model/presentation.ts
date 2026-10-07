@@ -12,7 +12,7 @@ import type {
   DeleteMaterialDraftResult,
 } from "@/features/material-lifecycle";
 import type { MaterialAuthoringVideo } from "@/features/material-video";
-import type { GuideRemoval } from "@/shared/lib/guide-removal";
+import type { ProductRemoval } from "@/shared/lib/product-removal";
 
 export type MaterialSaveState =
   | { readonly kind: "clean" }
@@ -28,7 +28,7 @@ export interface MaterialSelectOption {
 
 export interface MaterialDraftPresentation {
   readonly sourcePath?: string;
-  readonly access: "free" | "membership";
+  readonly access: "free" | "closed";
   readonly canDelete: boolean;
   readonly cover?: ContentCover | null | undefined;
   readonly document: JSONContent;
@@ -108,11 +108,11 @@ export interface MaterialPreviewRouteSection {
  */
 export type MaterialPreviewRoutePresentation =
   | {
-      readonly guideName: string;
+      readonly productName: string;
       readonly kind: "ready";
       readonly next: MaterialPreviewRouteItem | null;
       /** Другие руководства этого материала: переход открывает его в их маршруте. */
-      readonly otherGuides: readonly {
+      readonly otherProducts: readonly {
         readonly href: Route;
         readonly name: string;
       }[];
@@ -167,7 +167,7 @@ export interface MaterialAuthoringPresentation {
   readonly noticeRevision: number;
   /** Снятие опубликованного материала из купленных продуктов ждёт подтверждения автора. */
   readonly removalConfirmation?: {
-    readonly guides: readonly GuideRemoval[];
+    readonly products: readonly ProductRemoval[];
     readonly pending: boolean;
   } | null;
   readonly save: MaterialSaveState;
@@ -181,9 +181,9 @@ export type MaterialDraftField =
 export interface MaterialAuthoringActions {
   readonly onBack: () => void;
   /** Автор оставляет материал в купленных продуктах: снятие отменяется. */
-  readonly onCancelGuideRemoval: () => void;
+  readonly onCancelProductRemoval: () => void;
   /** Автор подтверждает снятие материала из купленных продуктов. */
-  readonly onConfirmGuideRemoval: () => void;
+  readonly onConfirmProductRemoval: () => void;
   readonly onConflictAction: (
     action: "compare" | "copy" | "open_current",
   ) => void;

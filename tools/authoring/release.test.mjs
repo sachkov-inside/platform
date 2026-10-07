@@ -25,7 +25,7 @@ async function fixture(t) {
     schemaVersion: 1,
     sourceNamespace: "inside-content",
     selection: {
-      guideId: null,
+      productId: null,
       chapterIds: [],
       materialIds: ["one"],
       complete: true,
@@ -56,7 +56,7 @@ async function fixture(t) {
         artifacts: [],
       },
     ],
-    guides: [],
+    products: [],
     assets: [],
     diagnostics: [],
   };
@@ -92,7 +92,7 @@ function api(mode = "development") {
     async request(path, body, key) {
       if (path.endsWith("/environment")) return { mode };
       if (path === "/authoring/collections?kind=topic") return [];
-      if (path === "/authoring/collections?kind=guide") return [];
+      if (path === "/authoring/collections?kind=product") return [];
       if (path.endsWith("/validate")) return { valid: true };
       if (path === `/authoring/materials/${materialId}`)
         return structuredClone(material);

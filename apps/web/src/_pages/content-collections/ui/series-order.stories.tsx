@@ -52,7 +52,7 @@ const failedOrderSpy = fn((_input: RequestInfo | URL, _init?: RequestInit) =>
 );
 
 const environment = authoringPageEnvironment(
-  "/authoring/guides/95000000-0000-4000-8000-000000000010",
+  "/authoring/products/95000000-0000-4000-8000-000000000010",
   { frame: SeriesEditorPageFrame },
 );
 
@@ -353,9 +353,9 @@ export const RemovalConfirmation: Story = {
     withMutationFetch(() =>
       Promise.resolve(
         Response.json({
-          guides: [
+          products: [
             {
-              guideId: "95000000-0000-4000-8000-000000000010",
+              productId: "95000000-0000-4000-8000-000000000010",
               holders: 3,
               name: "Создание Platform Inside",
             },

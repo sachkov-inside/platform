@@ -54,7 +54,7 @@ export function MaterialVideoAuthoring({
   primaryVideo,
   unselectedUpload,
 }: {
-  readonly access: "free" | "membership";
+  readonly access: "free" | "closed";
   readonly deleteVideoId: string | null;
   readonly disabled: boolean;
   readonly latestVideoDeletion: MaterialAuthoringVideo | null;
@@ -372,7 +372,7 @@ export function MaterialVideoAuthoring({
 }
 
 export interface MaterialVideoAuthoringViewProps {
-  readonly access: "free" | "membership";
+  readonly access: "free" | "closed";
   readonly activeVideo: MaterialAuthoringVideo | null;
   readonly deletionPendingSave: boolean;
   readonly deletionVideo: MaterialAuthoringVideo | null;
@@ -545,7 +545,7 @@ export function MaterialVideoAuthoringView({
             htmlFor="provider-video-id"
           >
             ID видео · проект «
-            {access === "membership" ? "Для участников" : "Публичный"}»
+            {access === "closed" ? "Для участников" : "Публичный"}»
             <input
               className="h-10 min-w-0 rounded-xl border border-input bg-background px-3 font-mono text-xs outline-none focus-visible:ring-2 focus-visible:ring-ring"
               disabled={disabled}

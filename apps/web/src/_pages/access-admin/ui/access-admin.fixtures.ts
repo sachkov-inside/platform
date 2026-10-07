@@ -10,7 +10,7 @@ import {
   type BillingRoutes,
 } from "@/features/billing-admin/ui/billing-bff.fixtures";
 import {
-  guideOnlyOffer,
+  productOnlyOffer,
   materialsOffer,
   supportOffer,
 } from "@/storybook/billing.fixtures";
@@ -39,7 +39,7 @@ export const accessOffers: readonly PriceSnapshot[] = [
       priceKopecks: 1_000_000,
     },
   },
-  guideOnlyOffer,
+  productOnlyOffer,
 ];
 
 const subscription = {
@@ -50,7 +50,10 @@ const materials = {
   id: materialsOffer.offer.id,
   name: materialsOffer.offer.name,
 };
-const guide = { id: guideOnlyOffer.offer.id, name: guideOnlyOffer.offer.name };
+const product = {
+  id: productOnlyOffer.offer.id,
+  name: productOnlyOffer.offer.name,
+};
 
 export function invitation(
   id: string,
@@ -171,7 +174,7 @@ export const accessPeople: readonly AccessHolder[] = [
       ground("d06", {
         kind: "grant",
         source: "one_time_purchase",
-        offer: guide,
+        offer: product,
         capabilities: ["materials"],
         purchaseRef: uuid("e01"),
         endsAt: null,
@@ -200,7 +203,7 @@ const accessTiers = [supportOffer, materialsOffer].map(({ offer }) => ({
     revision: offer.revision,
     name: offer.name,
     benefits: offer.benefits,
-    contentScope: { guideIds: [], materialIds: [] },
+    coverage: { productIds: [], materialIds: [] },
   },
   availableForAssignment: true,
   published: true,

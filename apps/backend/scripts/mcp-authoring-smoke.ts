@@ -19,7 +19,7 @@ const materialsOnlyAccessToken = requireEnvironment(
 const topicId = "72000000-0000-4000-8000-000000000002";
 const formatId = "guide";
 // Закрытый материал публикуется только внутри продукта (#648): смоук берёт руководство из сида.
-const seededGuideId = "72000000-0000-4000-8000-000000000007";
+const seededProductId = "72000000-0000-4000-8000-000000000007";
 const body = {
   schemaVersion: 1,
   doc: {
@@ -114,7 +114,7 @@ try {
       materialId,
       expectedContentVersion: currentVersion,
       publicationState: "published",
-      metadata: metadata("membership"),
+      metadata: metadata("closed"),
       body,
     }),
     "publish Material",
@@ -135,7 +135,7 @@ try {
   const previewMetadata = z
     .record(z.string(), z.unknown())
     .parse(preview["metadata"]);
-  assertField(previewMetadata, "access", "membership", "preview Material");
+  assertField(previewMetadata, "access", "closed", "preview Material");
 
   const unpublished = successfulValue(
     await callTool("material_save", {
@@ -147,7 +147,7 @@ try {
       metadata: metadata("free"),
       body,
       // Руководство из сида уже куплено в проверочной базе: владелец подтверждает снятие (#648).
-      confirmedGuideRemovals: [seededGuideId],
+      confirmedProductRemovals: [seededProductId],
     }),
     "unpublish Material",
   );
@@ -171,7 +171,7 @@ function delegatedTransport(token: string): StreamableHTTPClientTransport {
   });
 }
 
-function metadata(access: "free" | "membership") {
+function metadata(access: "free" | "closed") {
   return {
     title: "MCP full-stack authoring smoke",
     summary: "A stable Material used to verify delegated MCP authoring.",
@@ -185,7 +185,7 @@ function metadata(access: "free" | "membership") {
     topicId,
     formatId,
     tagIds: [],
-    seriesIds: access === "membership" ? [seededGuideId] : [],
+    seriesIds: access === "closed" ? [seededProductId] : [],
   };
 }
 

@@ -99,8 +99,8 @@ const tiersSchema = z
               id: z.unknown().optional(),
               revision: z.unknown().optional(),
               benefits: z.array(z.unknown().optional()),
-              contentScope: z
-                .object({ guideIds: z.array(z.unknown().optional()) })
+              coverage: z
+                .object({ productIds: z.array(z.unknown().optional()) })
                 .passthrough()
                 .nullable()
                 .optional(),
@@ -304,7 +304,7 @@ try {
       id: tierId,
       name: `Tribute acceptance ${String(user)}`,
       benefits: tier.tier.benefits,
-      contentScope: tier.tier.contentScope,
+      coverage: tier.tier.coverage,
       availableForAssignment: true,
     },
   });
@@ -367,7 +367,7 @@ try {
         countRowSchema.parse(
           (
             await sql.query(
-              "SELECT count(*)::int AS count FROM membership_entitlements.activation_attempts WHERE rule_id=$1",
+              "SELECT count(*)::int AS count FROM account_rights.activation_attempts WHERE rule_id=$1",
               [ruleId],
             )
           ).rows[0],
@@ -376,7 +376,7 @@ try {
     )
     .toBe(1);
   const attempt = await sql.query(
-    "SELECT identity_ref, account_id FROM membership_entitlements.activation_attempts WHERE rule_id=$1",
+    "SELECT identity_ref, account_id FROM account_rights.activation_attempts WHERE rule_id=$1",
     [ruleId],
   );
   expect(attempt.rows).toHaveLength(1);
@@ -527,7 +527,7 @@ try {
           countRowSchema.parse(
             (
               await sql.query(
-                "SELECT count(*)::int AS count FROM membership_entitlements.access_receipts WHERE scope='source-evidence' AND payload->>'identityRef'=$1 AND payload->>'decision'='registry_lookup'",
+                "SELECT count(*)::int AS count FROM account_rights.access_receipts WHERE scope='source-evidence' AND payload->>'identityRef'=$1 AND payload->>'decision'='registry_lookup'",
                 [identityRef],
               )
             ).rows[0],
@@ -540,7 +540,7 @@ try {
       countRowSchema.parse(
         (
           await sql.query(
-            "SELECT count(*)::int AS count FROM billing.purchases WHERE account_id IN (SELECT account_id FROM membership_entitlements.activation_attempts WHERE identity_ref=$1)",
+            "SELECT count(*)::int AS count FROM billing.purchases WHERE account_id IN (SELECT account_id FROM account_rights.activation_attempts WHERE identity_ref=$1)",
             [identityRef],
           )
         ).rows[0],
@@ -583,7 +583,7 @@ try {
       .poll(
         async () => {
           const result = await sql.query(
-            "SELECT count(*)::int AS count FROM membership_entitlements.access_receipts WHERE scope='source-evidence' AND payload->>'identityRef'=$1 AND payload->>'decision'='registry_lookup'",
+            "SELECT count(*)::int AS count FROM account_rights.access_receipts WHERE scope='source-evidence' AND payload->>'identityRef'=$1 AND payload->>'decision'='registry_lookup'",
             [identityRef],
           );
           return countRowSchema.parse(result.rows[0]).count;
@@ -599,10 +599,10 @@ try {
     report.scenarios.push(
       "PASS Tribute registry grant opens the protected included material through real Reader/BFF/Platform",
     );
-    const contentScope = tier.tier.contentScope;
-    const includedGuide = contentScope?.guideIds[0];
-    if (!contentScope || !includedGuide)
-      throw new Error("Acceptance tier must name an included Guide");
+    const coverage = tier.tier.coverage;
+    const includedProduct = coverage?.productIds[0];
+    if (!coverage || !includedProduct)
+      throw new Error("Acceptance tier must name an included Product");
     const metadata = topicRowSchema.parse(
       (
         await sql.query(
@@ -612,13 +612,13 @@ try {
       ).rows[0],
     );
     const materialFields = {
-      access: "membership",
+      access: "closed",
       difficulty: "unassigned",
       formatId: "guide",
       topicId: metadata.topic_id,
       title: `Tribute625 new included material ${String(user)}`,
-      summary: "Synthetic new material in the already included Guide",
-      seriesIds: JSON.stringify([includedGuide]),
+      summary: "Synthetic new material in the already included Product",
+      seriesIds: JSON.stringify([includedProduct]),
       document: JSON.stringify({
         type: "doc",
         content: [
@@ -627,7 +627,7 @@ try {
             content: [
               {
                 type: "text",
-                text: "New Guide material after the original confirmed enrollment.",
+                text: "New Product material after the original confirmed enrollment.",
               },
             ],
           },
@@ -675,7 +675,7 @@ try {
       (await ownEnrollments()).find((item) => item.id === first.id),
     ).toEqual(first);
     report.scenarios.push(
-      "PASS newly published material inside the included Guide opens without replacing or extending the existing Enrollment",
+      "PASS newly published material inside the included Product opens without replacing or extending the existing Enrollment",
     );
     const secondHolder = authStatusSchema.parse(
       await (await owner.request.get(`${web}/auth/status`)).json(),
@@ -701,26 +701,26 @@ try {
         }),
       )
       .items.find((item) => item.id === unselected.value.id);
-    const guideResponse = await owner.request.post(
+    const productResponse = await owner.request.post(
       `${web}/api/authoring/collections`,
       {
         headers: { origin: web },
         multipart: {
           kind: "series",
-          name: `New Guide ${String(user)}`,
-          slug: `new-guide-${String(user)}`,
+          name: `New Product ${String(user)}`,
+          slug: `new-product-${String(user)}`,
           summary: "Synthetic catalog expansion acceptance",
         },
       },
     );
-    expect(guideResponse.status()).toBe(200);
-    const newGuide = createdCollectionSchema.parse(
-      await guideResponse.json(),
+    expect(productResponse.status()).toBe(200);
+    const newProduct = createdCollectionSchema.parse(
+      await productResponse.json(),
     ).collection;
     const newFields = {
       ...materialFields,
-      title: `New excluded Guide material ${String(user)}`,
-      seriesIds: JSON.stringify([newGuide.id]),
+      title: `New excluded Product material ${String(user)}`,
+      seriesIds: JSON.stringify([newProduct.id]),
     };
     const newDraftResponse = await owner.request.post(
       `${web}/api/authoring/materials`,
@@ -768,9 +768,9 @@ try {
         id: tierId,
         name: "Changed next cohort",
         benefits: tier.tier.benefits,
-        contentScope: {
-          ...contentScope,
-          guideIds: [...contentScope.guideIds, newGuide.id],
+        coverage: {
+          ...coverage,
+          productIds: [...coverage.productIds, newProduct.id],
         },
         availableForAssignment: true,
       },
@@ -821,7 +821,7 @@ try {
     await page.reload();
     await expect(page.locator("[data-reader-body]:visible")).toBeVisible();
     report.scenarios.push(
-      "PASS new Guide stays excluded after Offer edit; explicit selected-cohort expansion opens it without changing dates or the unselected holder",
+      "PASS new Product stays excluded after Offer edit; explicit selected-cohort expansion opens it without changing dates or the unselected holder",
     );
     await send("/access");
     await expect

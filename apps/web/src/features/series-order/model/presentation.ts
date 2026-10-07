@@ -1,22 +1,22 @@
 import type { UseQueryOptions } from "@tanstack/react-query";
 import { z } from "zod";
 
-import { guideRemovalSchema } from "@/shared/lib/guide-removal";
+import { productRemovalSchema } from "@/shared/lib/product-removal";
 
-export interface GuideChapterPresentation {
+export interface ProductChapterPresentation {
   readonly id: string;
   readonly name: string;
   readonly summary: string;
 }
 
 /** One Web-side owner for the chapter limits the Nest contract enforces. */
-export const GUIDE_CHAPTER_NAME_MAX = 120;
-export const GUIDE_CHAPTER_SUMMARY_MAX = 4000;
-export const guideChapterDraftSchema = z
+export const PRODUCT_CHAPTER_NAME_MAX = 120;
+export const PRODUCT_CHAPTER_SUMMARY_MAX = 4000;
+export const productChapterDraftSchema = z
   .object({
     id: z.uuid(),
-    name: z.string().trim().min(1).max(GUIDE_CHAPTER_NAME_MAX),
-    summary: z.string().trim().max(GUIDE_CHAPTER_SUMMARY_MAX),
+    name: z.string().trim().min(1).max(PRODUCT_CHAPTER_NAME_MAX),
+    summary: z.string().trim().max(PRODUCT_CHAPTER_SUMMARY_MAX),
   })
   .strict();
 
@@ -39,7 +39,7 @@ export function publicationStateLabel(
 
 export interface SeriesOrderPresentation {
   readonly archived: boolean;
-  readonly chapters: readonly GuideChapterPresentation[];
+  readonly chapters: readonly ProductChapterPresentation[];
   readonly items: readonly SeriesOrderItemPresentation[];
   readonly name: string;
   readonly options: readonly {
@@ -82,10 +82,10 @@ export type CreateSeriesOrderMaterialSearchQueryOptions = (input: {
 >;
 
 export interface ReorderSeriesInput {
-  readonly chapters?: readonly GuideChapterPresentation[];
+  readonly chapters?: readonly ProductChapterPresentation[];
   readonly chapterAssignments?: Readonly<Record<string, string>>;
   /** Купленный продукт, снятие материалов из которого автор подтвердил. */
-  readonly confirmedGuideRemovals?: readonly string[];
+  readonly confirmedProductRemovals?: readonly string[];
   readonly expectedOrderVersion: string;
   readonly orderedMaterialIds: readonly string[];
   readonly stepGroups?: Readonly<Record<string, string>>;
@@ -114,7 +114,7 @@ export const reorderSeriesResultSchema = z.discriminatedUnion("kind", [
     .strict(),
   z
     .object({
-      guides: z.array(guideRemovalSchema).min(1).readonly(),
+      products: z.array(productRemovalSchema).min(1).readonly(),
       kind: z.literal("removal_confirmation_required"),
     })
     .strict(),

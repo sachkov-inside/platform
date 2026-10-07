@@ -21,11 +21,11 @@ import {
   getMaterialPreviewVideo,
 } from "../api/get-material-preview-context";
 export async function MaterialCurrentPreviewPage({
-  guideId,
+  productId,
   materialId,
   returnHref,
 }: {
-  readonly guideId?: string | undefined;
+  readonly productId?: string | undefined;
   readonly materialId: string;
   readonly returnHref: Route;
 }) {
@@ -48,7 +48,7 @@ export async function MaterialCurrentPreviewPage({
         retryHref={authoringMaterialPreviewHref(
           materialId,
           returnHref,
-          guideId,
+          productId,
         )}
         returnHref={returnHref}
       />
@@ -83,7 +83,7 @@ export async function MaterialCurrentPreviewPage({
         retryHref={authoringMaterialPreviewHref(
           materialId,
           returnHref,
-          guideId,
+          productId,
         )}
         returnHref={returnHref}
       />
@@ -92,8 +92,8 @@ export async function MaterialCurrentPreviewPage({
   const [route, video] = await Promise.all([
     getMaterialPreviewRoute({
       accessToken,
-      guideId,
-      guides: state.guides,
+      productId,
+      products: state.products,
       materialId: state.preview.materialId,
       returnHref,
     }),

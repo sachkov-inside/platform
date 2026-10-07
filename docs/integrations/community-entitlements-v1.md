@@ -24,7 +24,7 @@ notification contract version sent here is denied `effect_conflict`.
 
 `CommunityEntitlements.project` reads two public facets and writes neither. Access comes from
 `assembleAccessGrants.resolveCapabilities`, which unions every live paid, manual and legacy reason,
-including a live `guide:<id>` right, which opens the shared chat on its own term; the verified link
+including a live `product:<id>` right, which opens the shared chat on its own term; the verified link
 comes from `TelegramAccountLinks.readBinding`. A missing community capability is `denied`, an
 unbounded one is `lifetime`, a bounded one is `finite` with its exact end. The tier name, the price,
 the presence of a payment and Telegram membership itself are never the rule.

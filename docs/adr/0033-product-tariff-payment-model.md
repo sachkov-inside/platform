@@ -57,7 +57,6 @@ status: accepted
 | Сейчас в коде | Цель | Значение |
 |---|---|---|
 | `Guide`, `guide:<id>` | `Product`, `product:<id>` | продукт |
-| `Offer`, Subscription Tier | `Tariff` | тариф |
 | `contentScope`, `allGuides` | `coverage`, `wholePlatform` | охват тарифа |
 | `PaymentOption` | без изменений | вариант оплаты |
 | `SubscriptionEnrollment` | `TariffAssignment` | назначение или оплаченная подписка тарифа |
@@ -67,8 +66,7 @@ status: accepted
 | `/subscription?offer=`, `/subscription/return` | `/products/<slug>/buy`, `/payment/return` | оформление и возврат после оплаты |
 
 Переименование выполняют отдельные срезы после `to-tickets`; старые адреса перенаправляются на
-новые, данные переносят миграции. До переименования `GLOSSARY.md` связывает прежние имена кода с
-доменными терминами.
+новые, данные переносят миграции. `Offer` остаётся английским именем тарифа по решению владельца 07.10.2026 (#1065).
 
 ## Последствия
 

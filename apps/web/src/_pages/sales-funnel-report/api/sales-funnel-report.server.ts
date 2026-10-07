@@ -28,7 +28,7 @@ export type SalesFunnelReportOutcome =
 export interface SalesFunnelReportParams {
   readonly from?: string;
   readonly to?: string;
-  readonly guideId?: string;
+  readonly productId?: string;
   readonly chapterId?: string;
 }
 
@@ -60,7 +60,7 @@ export async function loadSalesFunnelReport(
   }
   const period = readReportPeriod(params, new Date());
   const read = async (selection: {
-    readonly guideId?: string;
+    readonly productId?: string;
     readonly chapterId?: string;
   }): Promise<Attempt> => {
     let result;
@@ -86,26 +86,26 @@ export async function loadSalesFunnelReport(
       : { ok: false, status: 502, code: null };
   };
 
-  const guideId = idSchema.safeParse(params.guideId).data;
+  const productId = idSchema.safeParse(params.productId).data;
   const chapterId =
-    guideId === undefined
+    productId === undefined
       ? undefined
       : idSchema.safeParse(params.chapterId).data;
   let attempt = await read({
-    ...(guideId === undefined ? {} : { guideId }),
+    ...(productId === undefined ? {} : { productId }),
     ...(chapterId === undefined ? {} : { chapterId }),
   });
   if (
     !attempt.ok &&
     attempt.code === "chapter_not_found" &&
-    guideId !== undefined
+    productId !== undefined
   )
-    attempt = await read({ guideId });
-  if (!attempt.ok && attempt.code === "guide_not_found")
+    attempt = await read({ productId });
+  if (!attempt.ok && attempt.code === "product_not_found")
     attempt = await read({});
   if (attempt.ok && attempt.report.selection === null) {
-    const first = attempt.report.guides[0];
-    if (first !== undefined) attempt = await read({ guideId: first.id });
+    const first = attempt.report.products[0];
+    if (first !== undefined) attempt = await read({ productId: first.id });
   }
   if (!attempt.ok) {
     if (attempt.status === 401) return { kind: "unauthorized" };

@@ -29,7 +29,7 @@ import {
 } from "./pass-cells";
 import {
   expiredGrantEndsAt,
-  guideA,
+  productA,
   freePracticeId,
   identityEmail,
   passCells,
@@ -89,11 +89,11 @@ const learnerA: {
 
 /** Ученик A идёт первым: его разрешённые чтения дают то, что остальные не должны получить. */
 const learnerAFirst: readonly string[] = [
-  "learner-guide-a/read-guide-a/body@learner-mcp",
-  "learner-guide-a/read-guide-a/body@browser",
-  "learner-guide-a/read-guide-a/practice@browser",
-  "learner-guide-a/read-guide-a/practice@learner-mcp",
-  "learner-guide-a/read-guide-a/assets@browser",
+  "learner-product-a/read-product-a/body@learner-mcp",
+  "learner-product-a/read-product-a/body@browser",
+  "learner-product-a/read-product-a/practice@browser",
+  "learner-product-a/read-product-a/practice@learner-mcp",
+  "learner-product-a/read-product-a/assets@browser",
 ];
 const liveCells = passCells
   .filter((cell: Cell) => !("deferred" in cell))
@@ -363,7 +363,7 @@ async function observeBodyPage(
   const snippet = required(learnerA.bodySnippet, "Protected body snippet");
   const { page, available } = await openMaterial(
     context,
-    guideA.bodyMaterialSlug,
+    productA.bodyMaterialSlug,
   );
   try {
     // Закрытые bytes ищутся во всём документе, включая данные RSC, а не только в видимом тексте.
@@ -405,9 +405,9 @@ async function observeBodyThroughMcp(actor: Actor): Promise<Observation> {
     productionTarget.learnerMcp,
     await learnerTokenOf(actor),
     "learning_material_read",
-    { slug: guideA.bodyMaterialSlug },
+    { slug: productA.bodyMaterialSlug },
   );
-  if (actor === "learner-guide-a" && call.payload?.ok === true) {
+  if (actor === "learner-product-a" && call.payload?.ok === true) {
     const value = z.object({ body: z.unknown() }).parse(call.payload.value);
     learnerA.bodySnippet = distinctiveText(value.body, "text");
   }
@@ -424,10 +424,10 @@ async function observePracticePage(
   context: BrowserContext,
   actor: Actor,
 ): Promise<Observation> {
-  const { page } = await openMaterial(context, guideA.practiceMaterialSlug);
+  const { page } = await openMaterial(context, productA.practiceMaterialSlug);
   try {
     const region = page.getByRole("region", { name: "Проверка практики" });
-    if (actor === "learner-guide-a") {
+    if (actor === "learner-product-a") {
       // Первым в блоке стоит запрос подключения агента; id задания есть только в запросе практики.
       const prompt = region
         .first()
@@ -460,7 +460,7 @@ async function observePracticeThroughMcp(actor: Actor): Promise<Observation> {
     "learning_practice_read",
     { practiceId },
   );
-  if (actor === "learner-guide-a" && call.payload?.ok === true) {
+  if (actor === "learner-product-a" && call.payload?.ok === true) {
     // Часть 0 — кусок canonical JSON строкой `data`: отличительный текст ищется среди её строк.
     const { data } = z.object({ data: z.string() }).parse(call.payload.value);
     learnerA.practiceSnippet = distinctiveText(jsonStringLiterals(data));
@@ -553,8 +553,8 @@ async function observeAsset(
   actor: Actor,
 ): Promise<Observation> {
   const context = await sessionOf(browser, actor);
-  if (actor === "learner-guide-a") {
-    const { page } = await openMaterial(context, guideA.practiceMaterialSlug);
+  if (actor === "learner-product-a") {
+    const { page } = await openMaterial(context, productA.practiceMaterialSlug);
     try {
       const image = page.locator("[data-reader-block='image'] img").first();
       await expect(image).toBeVisible();
@@ -578,7 +578,7 @@ async function observeAsset(
     return { observed: "allowed", note: "HTTP 302" };
   }
   if (status === 404) return browserDenial(context, actor, "HTTP 404");
-  if (status === 200 && actor === "learner-guide-a")
+  if (status === 200 && actor === "learner-product-a")
     throw new Error("The image is public: it proves no protected delivery");
   if (status === 200) return { observed: "allowed", note: "HTTP 200" };
   throw new Error(`Unexpected asset response ${String(status)}`);

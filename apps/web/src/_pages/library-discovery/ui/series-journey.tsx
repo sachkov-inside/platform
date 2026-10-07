@@ -1,26 +1,26 @@
 import type { Route } from "next";
 
 import {
-  GuideTaskRow,
+  ProductTaskRow,
   placeChapterTasks,
-  type GuideChapterTask,
-} from "@/entities/guide-task";
+  type ProductChapterTask,
+} from "@/entities/product-task";
 import { MaterialCard, type MaterialPreview } from "@/entities/material";
 import {
-  ReaderGuideArtifacts,
-  type ReaderGuideArtifactsResult,
-} from "@/features/guide-artifacts.reader";
+  ReaderProductArtifacts,
+  type ReaderProductArtifactsResult,
+} from "@/features/product-artifacts.reader";
 import {
   formatMaterialCount,
-  type GuideChapter,
+  type ProductChapter,
   type PublishedSeriesResult,
 } from "@/features/library-discovery";
 import { SeriesMaterialMarker } from "@/features/reading-progress";
-import { guideChapterRuns } from "@/shared/lib/guide-chapter-runs";
+import { productChapterRuns } from "@/shared/lib/product-chapter-runs";
 import { seriesReaderReturnHref } from "@/shared/routing/material-reader";
-import { guideTaskHref } from "@/shared/routing/subscription-route";
+import { productTaskHref } from "@/shared/routing/subscription-route";
 
-import { formatTaskCount } from "./guide-counts";
+import { formatTaskCount } from "./product-counts";
 import { SERIES_BATCH_SIZE } from "./series-batch";
 import {
   SeriesJourneyControls,
@@ -46,7 +46,7 @@ export function SeriesJourney({
 }: {
   /** Личная часть ещё идёт: строки стоят на общих данных, отметки доступа уточняются. */
   readonly accessPending?: boolean;
-  readonly artifacts?: ReaderGuideArtifactsResult;
+  readonly artifacts?: ReaderProductArtifactsResult;
   readonly result: SeriesResult;
   readonly currentHref: Route;
 }) {
@@ -54,17 +54,17 @@ export function SeriesJourney({
   const chapterOf = chapterLookup(result.chapters);
   // A chapter split into several runs shows its opening tasks once, before its first run.
   const ledChapters = new Set<string>();
-  // An artifact part exists only for a Guide the catalog resolved by id, so the
+  // An artifact part exists only for a Product the catalog resolved by id, so the
   // download address it builds is never a guess.
-  const guideId = result.reference.id;
-  const guideArtifacts =
-    artifacts.kind === "ready" && guideId !== undefined
+  const productId = result.reference.id;
+  const productArtifacts =
+    artifacts.kind === "ready" && productId !== undefined
       ? artifacts.artifacts
       : [];
-  // Chapters are the Guide programme; anything the author has not placed in one is supplementary.
+  // Chapters are the Product programme; anything the author has not placed in one is supplementary.
   // Each part carries the chapters that apply to it, so no part identifier decides presentation.
   const materialParts: readonly {
-    readonly chapters: readonly GuideChapter[];
+    readonly chapters: readonly ProductChapter[];
     readonly id: "programme" | "supplementary";
     readonly items: readonly MaterialPreview[];
     readonly label: string;
@@ -98,13 +98,13 @@ export function SeriesJourney({
         kind: "materials" as const,
         label,
         ...(shortLabel === undefined ? {} : { shortLabel }),
-        runs: guideChapterRuns(partItems, chapters, chapterOf).map((run) =>
+        runs: productChapterRuns(partItems, chapters, chapterOf).map((run) =>
           journeyRun(run, { accessPending, currentHref, ledChapters, result }),
         ),
       }),
     ),
     {
-      count: guideArtifacts.length,
+      count: productArtifacts.length,
       id: "artifacts",
       kind: "artifacts",
       label: "Артефакты",
@@ -118,15 +118,15 @@ export function SeriesJourney({
               Артефакты сейчас не загрузились. Попробуй открыть этот раздел
               позже.
             </p>
-          ) : guideArtifacts.length === 0 || guideId === undefined ? (
+          ) : productArtifacts.length === 0 || productId === undefined ? (
             <p className="py-5 text-sm leading-6 text-muted-foreground">
               Здесь появятся файлы, шаблоны и инструменты для работы над
               проектом.
             </p>
           ) : (
-            <ReaderGuideArtifacts
-              artifacts={guideArtifacts}
-              guideId={guideId}
+            <ReaderProductArtifacts
+              artifacts={productArtifacts}
+              productId={productId}
             />
           )}
         </div>
@@ -150,7 +150,7 @@ export function SeriesJourney({
 /** Отрезок части с готовыми строками: порядковый номер и адрес возврата известны на сервере. */
 function journeyRun(
   run: {
-    readonly chapter: GuideChapter | null;
+    readonly chapter: ProductChapter | null;
     readonly items: readonly MaterialPreview[];
     readonly offset: number;
   },
@@ -168,14 +168,14 @@ function journeyRun(
 ): JourneyRun {
   const tasks = run.chapter?.tasks ?? [];
   const placed = placeChapterTasks(tasks, run.chapter?.materialIds ?? []);
-  const taskList = (items: readonly GuideChapterTask[], label: string) =>
+  const taskList = (items: readonly ProductChapterTask[], label: string) =>
     items.length === 0 ? undefined : (
       <ul aria-label={label} className="mt-2 grid gap-2" data-programme-tasks>
         {items.map((task) => (
           <li className="@container/series-entry min-w-0" key={task.code}>
-            <GuideTaskRow
+            <ProductTaskRow
               accessPending={accessPending}
-              href={guideTaskHref(result.reference.slug, task.code)}
+              href={productTaskHref(result.reference.slug, task.code)}
               task={task}
             />
           </li>
@@ -239,7 +239,7 @@ function journeyRun(
     ...(leading === undefined ? {} : { leading }),
     offset: run.offset,
     rows: run.items.map((material, index) => {
-      // Splitting the route into parts renumbers each part; a flat Guide keeps its stored order.
+      // Splitting the route into parts renumbers each part; a flat Product keeps its stored order.
       const ordinal =
         result.chapters.length > 0
           ? run.offset + index + 1
@@ -289,7 +289,7 @@ function journeyRun(
 }
 
 function chapterLookup(
-  chapters: readonly GuideChapter[],
+  chapters: readonly ProductChapter[],
 ): (material: MaterialPreview) => string | null {
   const byMaterial = new Map(
     chapters.flatMap((chapter) =>

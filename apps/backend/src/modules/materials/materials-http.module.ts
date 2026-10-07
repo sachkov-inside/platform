@@ -12,13 +12,13 @@ import {
   ContentCoverDeliveryController,
   ImportContentCoverController,
 } from "./facets/content-covers/content-covers.controller.js";
-import { GuideArtifactAuthoringController } from "./facets/guide-artifacts/guide-artifacts.controller.js";
+import { ProductArtifactAuthoringController } from "./facets/product-artifacts/product-artifacts.controller.js";
 import { CreateContentCollectionController } from "./features/create-content-collection/create-content-collection.controller.js";
 import { CreateDraftController } from "./features/create-draft/create-draft.controller.js";
 import { DeleteDraftController } from "./features/delete-draft/delete-draft.controller.js";
-import { GuideArtifactReadController } from "./features/deliver-guide-artifact/deliver-guide-artifact.controller.js";
+import { ProductArtifactReadController } from "./features/deliver-product-artifact/deliver-product-artifact.controller.js";
 import { DeliverMaterialAssetController } from "./features/deliver-material-asset/deliver-material-asset.controller.js";
-import { ImportSourceGuideController } from "./features/import-source-guide/import-source-guide.controller.js";
+import { ImportSourceProductController } from "./features/import-source-product/import-source-product.controller.js";
 import { ImportSourceMaterialController } from "./features/import-source-material/import-source-material.controller.js";
 import { ListAuthoringReferencesController } from "./features/list-authoring-references/list-authoring-references.controller.js";
 import { ListContentCollectionsController } from "./features/list-content-collections/list-content-collections.controller.js";
@@ -54,7 +54,7 @@ import { MaterialsModule } from "./materials.module.js";
     LoadSeriesOrderController,
     SaveMaterialController,
     ImportSourceMaterialController,
-    ImportSourceGuideController,
+    ImportSourceProductController,
     TransitionMaterialPublicationController,
     DeleteDraftController,
     ValidateMaterialController,
@@ -67,8 +67,8 @@ import { MaterialsModule } from "./materials.module.js";
     AuthoringContentCoverController,
     ImportContentCoverController,
     ContentCoverDeliveryController,
-    GuideArtifactAuthoringController,
-    GuideArtifactReadController,
+    ProductArtifactAuthoringController,
+    ProductArtifactReadController,
     ListContentCollectionsController,
     CreateContentCollectionController,
     UpdateContentCollectionController,

@@ -21,7 +21,7 @@ import { verifiedAccountSignIn } from "../../src/modules/accounts/facets/account
 import {
   assembleAccessGrants,
   type AccessGrants,
-} from "../../src/modules/membership-entitlements/index.js";
+} from "../../src/modules/account-rights/index.js";
 import {
   CommunityEntitlements,
   TelegramAccountLinks,
@@ -1123,8 +1123,8 @@ describe("community entitlement delivery (real PostgreSQL and real facets; synth
     });
   });
 
-  /** One bought Guide is a reason of its own: the chat right follows that right's own term. */
-  async function grantGuide(
+  /** One bought Product is a reason of its own: the chat right follows that right's own term. */
+  async function grantProduct(
     accountId: string,
     validUntil: string | null,
   ): Promise<{ grantRef: string; revision: number }> {
@@ -1132,13 +1132,13 @@ describe("community entitlement delivery (real PostgreSQL and real facets; synth
       operationId: randomUUID(),
       rows: [
         {
-          rowKey: "guide",
+          rowKey: "product",
           accountId,
           source: "manual",
           sourceRef: randomUUID(),
           terms: {
-            capabilities: [`guide:${randomUUID()}`],
-            reason: "Synthetic guide right",
+            capabilities: [`product:${randomUUID()}`],
+            reason: "Synthetic product right",
             startsAt: start,
             validUntil,
           },
@@ -1150,7 +1150,7 @@ describe("community entitlement delivery (real PostgreSQL and real facets; synth
       operationId: randomUUID(),
       previewRef: preview.previewRef,
       expectedRevision: preview.revision,
-      confirmedRows: ["guide"],
+      confirmedRows: ["product"],
     });
     const row = applied.ok ? applied.rows[0]?.result : undefined;
     if (row === undefined || !row.ok || !("grantRef" in row))
@@ -1158,11 +1158,11 @@ describe("community entitlement delivery (real PostgreSQL and real facets; synth
     return { grantRef: row.grantRef, revision: row.revision };
   }
 
-  test("a Guide right alone admits to the one shared chat, and its revocation closes it", async () => {
+  test("a Product right alone admits to the one shared chat, and its revocation closes it", async () => {
     now = new Date(start);
     const account = await member();
     await link(account, `identity-${account}`);
-    const guide = await grantGuide(account, null);
+    const product = await grantProduct(account, null);
     const app = community(new ProviderDouble());
 
     expect(await app.project(account)).toMatchObject({
@@ -1173,7 +1173,7 @@ describe("community entitlement delivery (real PostgreSQL and real facets; synth
       await database.prisma.telegramCommunityDesiredState.findUniqueOrThrow({
         where: { accountId: account },
       });
-    // The Guide right carries no end, so participation carries none either.
+    // The Product right carries no end, so participation carries none either.
     expect(desired.access).toEqual({ kind: "lifetime" });
     expect(desired.nextBoundary).toBeNull();
     const [admitted] = await operations(account);
@@ -1189,10 +1189,10 @@ describe("community entitlement delivery (real PostgreSQL and real facets; synth
     expect(
       await grants.changeGrant(owner, {
         action: "revoke",
-        grantRef: guide.grantRef,
-        expectedRevision: guide.revision,
+        grantRef: product.grantRef,
+        expectedRevision: product.revision,
         operationId: randomUUID(),
-        reason: "Owner revoked the guide right",
+        reason: "Owner revoked the product right",
       }),
     ).toMatchObject({ ok: true });
     await app.project(account);
@@ -1202,11 +1202,11 @@ describe("community entitlement delivery (real PostgreSQL and real facets; synth
     expect(denial?.access).toEqual({ kind: "denied" });
   });
 
-  test("a finite Guide right ends participation exactly at its own boundary", async () => {
+  test("a finite Product right ends participation exactly at its own boundary", async () => {
     now = new Date(start);
     const account = await member();
     await link(account, `identity-${account}`);
-    await grantGuide(account, finish);
+    await grantProduct(account, finish);
     const app = community(new ProviderDouble());
 
     await app.project(account);

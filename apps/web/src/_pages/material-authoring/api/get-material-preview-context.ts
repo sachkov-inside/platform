@@ -32,20 +32,24 @@ export async function getMaterialPreviewRoute(
   input: {
     readonly accessToken: string;
     /** Руководство, выбранное в адресе; чужое или неизвестное заменяется первым руководством. */
-    readonly guideId?: string | undefined;
-    readonly guides: readonly { readonly id: string; readonly name: string }[];
+    readonly productId?: string | undefined;
+    readonly products: readonly {
+      readonly id: string;
+      readonly name: string;
+    }[];
     readonly materialId: string;
     readonly returnHref: Route;
   },
   request: typeof requestSeriesOrder = requestSeriesOrder,
 ): Promise<MaterialPreviewRoutePresentation | "unauthorized" | null> {
-  const { guides, materialId, returnHref } = input;
-  const guide = guides.find(({ id }) => id === input.guideId) ?? guides[0];
-  if (guide === undefined) return null;
-  const order = await getSeriesOrder(guide.id, input.accessToken, request);
+  const { products, materialId, returnHref } = input;
+  const product =
+    products.find(({ id }) => id === input.productId) ?? products[0];
+  if (product === undefined) return null;
+  const order = await getSeriesOrder(product.id, input.accessToken, request);
   if (order.kind === "unauthorized") return "unauthorized";
   if (order.kind === "not_found") {
-    return { kind: "unavailable", reference: "guide-not-found" };
+    return { kind: "unavailable", reference: "product-not-found" };
   }
   if (order.kind === "error") {
     return { kind: "unavailable", reference: order.reference };
@@ -53,16 +57,16 @@ export async function getMaterialPreviewRoute(
   return (
     buildMaterialPreviewRoute({
       currentMaterialId: materialId,
-      hrefOf: (id) => authoringMaterialPreviewHref(id, returnHref, guide.id),
+      hrefOf: (id) => authoringMaterialPreviewHref(id, returnHref, product.id),
       order: order.order,
-      otherGuides: guides
-        .filter(({ id }) => id !== guide.id)
+      otherProducts: products
+        .filter(({ id }) => id !== product.id)
         .map(({ id, name }) => ({
           href: authoringMaterialPreviewHref(materialId, returnHref, id),
           name,
         })),
       // Состав изменился между двумя чтениями: материал уже не в этом руководстве.
-    }) ?? { kind: "unavailable", reference: "guide-order-changed" }
+    }) ?? { kind: "unavailable", reference: "product-order-changed" }
   );
 }
 

@@ -19,10 +19,10 @@ export const authorFeedbackSchema = z
 
 export type AuthorFeedback = z.infer<typeof authorFeedbackSchema>;
 
-/** `GET /authoring/guide-tasks/submissions` as this page reads it (#948). */
+/** `GET /authoring/product-tasks/submissions` as this page reads it (#948). */
 export const taskSubmissionsSchema = z
   .object({
-    guides: z.array(
+    products: z.array(
       z
         .object({
           id: z.string(),
@@ -51,8 +51,8 @@ export const taskSubmissionsSchema = z
             .object({
               code: z.string(),
               title: z.string(),
-              guideId: z.string(),
-              guideName: z.string().nullable(),
+              productId: z.string(),
+              productName: z.string().nullable(),
               chapterId: z.string(),
               chapterName: z.string().nullable(),
               currentVersion: z.number().int().positive(),
@@ -109,13 +109,13 @@ export const taskSubmissionsSchema = z
   .strict();
 
 export type TaskSubmissions = z.infer<typeof taskSubmissionsSchema>;
-export type FilterGuide = TaskSubmissions["guides"][number];
+export type FilterProduct = TaskSubmissions["products"][number];
 export type AuthorSubmission = TaskSubmissions["submissions"][number];
 export type TaskCriterion = z.infer<typeof criterionSchema>;
 
 /** The section filter as the address carries it; every part is optional. */
 export interface SubmissionSelection {
-  readonly guideId?: string;
+  readonly productId?: string;
   readonly chapterId?: string;
   readonly taskCode?: string;
 }
@@ -123,21 +123,21 @@ export interface SubmissionSelection {
 export const submissionsHref = "/authoring/submissions";
 
 /**
- * The selection that the Guides on offer can show: a chapter outside the chosen Guide and a task
- * outside the chosen Guide or chapter are dropped, so the selects never claim a filter the list
+ * The selection that the Products on offer can show: a chapter outside the chosen Product and a task
+ * outside the chosen Product or chapter are dropped, so the selects never claim a filter the list
  * does not apply.
  */
 export function consistentSelection(
   selection: SubmissionSelection,
-  guides: readonly FilterGuide[],
+  products: readonly FilterProduct[],
 ): SubmissionSelection {
-  const guide = guides.find((item) => item.id === selection.guideId);
+  const product = products.find((item) => item.id === selection.productId);
   const chapters =
-    guide === undefined
-      ? guides.flatMap((item) => item.chapters)
-      : guide.chapters;
+    product === undefined
+      ? products.flatMap((item) => item.chapters)
+      : product.chapters;
   const chapter =
-    guide === undefined
+    product === undefined
       ? undefined
       : chapters.find((item) => item.id === selection.chapterId);
   const tasks = (chapter === undefined ? chapters : [chapter]).flatMap(
@@ -145,7 +145,7 @@ export function consistentSelection(
   );
   const task = tasks.find((item) => item.code === selection.taskCode);
   return {
-    ...(guide === undefined ? {} : { guideId: guide.id }),
+    ...(product === undefined ? {} : { productId: product.id }),
     ...(chapter === undefined ? {} : { chapterId: chapter.id }),
     ...(task === undefined ? {} : { taskCode: task.code }),
   };
@@ -156,7 +156,7 @@ export function sameSelection(
   right: SubmissionSelection,
 ): boolean {
   return (
-    left.guideId === right.guideId &&
+    left.productId === right.productId &&
     left.chapterId === right.chapterId &&
     left.taskCode === right.taskCode
   );
@@ -168,7 +168,8 @@ export function selectionHref(
   cursor?: string,
 ): string {
   const query = new URLSearchParams();
-  if (selection.guideId !== undefined) query.set("guideId", selection.guideId);
+  if (selection.productId !== undefined)
+    query.set("productId", selection.productId);
   if (selection.chapterId !== undefined)
     query.set("chapterId", selection.chapterId);
   if (selection.taskCode !== undefined) query.set("task", selection.taskCode);

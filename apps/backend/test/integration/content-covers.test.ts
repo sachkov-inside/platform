@@ -466,7 +466,7 @@ describe("ContentCovers", () => {
       const id = randomUUID();
       const row = { id, name: "Disposable cover owner", slug: `cleanup-${id}` };
       if (kind === "topic") await database.prisma.topic.create({ data: row });
-      else await database.prisma.guide.create({ data: row });
+      else await database.prisma.product.create({ data: row });
       const covers = assembleContentCovers({
         prisma: database.prisma,
         objectStorage,
@@ -487,7 +487,7 @@ describe("ContentCovers", () => {
       });
       if (kind === "topic")
         await database.prisma.topic.delete({ where: { id } });
-      else await database.prisma.guide.delete({ where: { id } });
+      else await database.prisma.product.delete({ where: { id } });
       await expect(
         database.prisma.contentCoverRendition.findMany({ where: { coverId } }),
       ).resolves.toEqual(keys);

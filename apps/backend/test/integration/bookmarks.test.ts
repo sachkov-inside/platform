@@ -13,7 +13,7 @@ import {
 } from "../../src/modules/materials/index.js";
 import { Bookmarks } from "../../src/modules/bookmarks/index.js";
 import { representativeDocument } from "../fixtures/material-body/representative.js";
-import { assembleLegacyCohortFixture } from "./setup/legacy-cohort.js";
+import { assemblePriorParticipantsFixture } from "./setup/prior-participants.js";
 import {
   createMigratedTestDatabase,
   type TestDatabase,
@@ -29,8 +29,8 @@ describe("Bookmarks on PostgreSQL", () => {
   let second: PlatformPrisma;
   let bookmarks: Bookmarks;
   let materials: ReturnType<typeof assembleMaterials>;
-  let membership: ReturnType<typeof assembleLegacyCohortFixture>;
-  const closedGuideId = randomUUID();
+  let membership: ReturnType<typeof assemblePriorParticipantsFixture>;
+  const closedProductId = randomUUID();
 
   beforeAll(async () => {
     database = await createMigratedTestDatabase();
@@ -39,18 +39,18 @@ describe("Bookmarks on PostgreSQL", () => {
       data: { id: topicId, name: "Bookmarks", slug: "bookmarks" },
     });
     // Закрытый материал публикуется только внутри продукта; доступ здесь даёт явный состав моста.
-    await database.prisma.guide.create({
+    await database.prisma.product.create({
       data: {
-        id: closedGuideId,
-        slug: `bookmarks-${closedGuideId}`,
-        name: "Bookmarks closed guide",
+        id: closedProductId,
+        slug: `bookmarks-${closedProductId}`,
+        name: "Bookmarks closed product",
       },
     });
     materials = assembleMaterials({
       prisma: database.prisma,
       authorPolicy: { canManage: (id) => id === actor },
     });
-    membership = assembleLegacyCohortFixture({
+    membership = assemblePriorParticipantsFixture({
       prisma: database.prisma,
       clock: () => new Date(),
     });
@@ -71,7 +71,7 @@ describe("Bookmarks on PostgreSQL", () => {
         accountPermissions: {
           hasMaterialsManage: () => Promise.resolve(false),
         },
-        membershipEntitlements: membership,
+        accountRights: membership,
       }),
       selection: new PublishedMaterialSelection(prisma),
       videos: {
@@ -80,7 +80,7 @@ describe("Bookmarks on PostgreSQL", () => {
       },
     });
   }
-  async function material(access: "free" | "membership" = "free") {
+  async function material(access: "free" | "closed" = "free") {
     const created = await materials.authoring.createDraft({
       actor,
       idempotencyKey: randomUUID(),
@@ -93,7 +93,7 @@ describe("Bookmarks on PostgreSQL", () => {
         tagIds: [],
         difficulty: null,
         outcomes: [],
-        seriesIds: access === "membership" ? [closedGuideId] : [],
+        seriesIds: access === "closed" ? [closedProductId] : [],
       },
       body: representativeDocument("Bookmark me."),
     });
@@ -223,7 +223,7 @@ describe("Bookmarks on PostgreSQL", () => {
   });
 
   test("protected Materials require current access and stay removable after access loss", async () => {
-    const protectedId = await material("membership");
+    const protectedId = await material("closed");
     expect(
       await bookmarks.addBookmark({ accountId, materialId: protectedId }),
     ).toEqual({ ok: false, error: { code: "access_denied" } });
@@ -231,7 +231,7 @@ describe("Bookmarks on PostgreSQL", () => {
     await database.prisma.legacyClassification.update({
       where: { accountId: memberId },
       data: {
-        bridgeContentScope: { guideIds: [], materialIds: [protectedId] },
+        bridgeCoverage: { productIds: [], materialIds: [protectedId] },
       },
     });
     expect(

@@ -149,7 +149,7 @@ test("profile continuation opens the real series, persists marks and reconciles 
   const nextRow = page.getByRole("main").locator('[data-series-ordinal="3"]');
   const rowBefore = await nextRow.boundingBox();
   await page.route(
-    "**/api/reading-progress/guide-continuation",
+    "**/api/reading-progress/product-continuation",
     async (route) => {
       await route.fulfill({ status: 503 });
     },
@@ -158,7 +158,7 @@ test("profile continuation opens the real series, persists marks and reconciles 
   // Недоступное продолжение не выдумывает выделенную строку и не двигает маршрут.
   await expect(current).toHaveCount(0);
   expect(await nextRow.boundingBox()).toEqual(rowBefore);
-  await page.unroute("**/api/reading-progress/guide-continuation");
+  await page.unroute("**/api/reading-progress/product-continuation");
   await returnToStaleTab(page);
   await expect(current.locator("[data-material-slug]")).toHaveAttribute(
     "data-material-slug",
@@ -182,9 +182,9 @@ test("profile continuation opens the real series, persists marks and reconciles 
   await current
     .getByRole("link", { name: "Гайд для проверки прогресса", exact: true })
     .click();
-  const guideMark = await unmark(page, "Изучено");
-  await guideMark.click();
-  await expect(guideMark).toHaveAttribute("aria-pressed", "true");
+  const productMark = await unmark(page, "Изучено");
+  await productMark.click();
+  await expect(productMark).toHaveAttribute("aria-pressed", "true");
   await page.goto(`/products/${seriesSlug}/programme`);
   await expect(current).toHaveCount(0);
   await expect(

@@ -73,7 +73,7 @@ describe("sale configuration at process start (real PostgreSQL)", () => {
   ) {
     const offerId = randomUUID(),
       optionId = randomUUID(),
-      capability = `guide:${randomUUID()}`;
+      capability = `product:${randomUUID()}`;
     value(
       await pricing.manage(owner, {
         operation: "offers.save",
@@ -93,7 +93,7 @@ describe("sale configuration at process start (real PostgreSQL)", () => {
                 id: offerId,
                 name: "Материалы",
                 benefits: ["materials"],
-                contentScope: { guideIds: [randomUUID()], materialIds: [] },
+                coverage: { productIds: [randomUUID()], materialIds: [] },
               },
       }),
     );

@@ -45,7 +45,7 @@ const querySchema = z
 export async function discoverPublishedMaterialProjections(
   prisma: MaterialsPrisma,
   query: DiscoverPublishedMaterialProjectionsQuery,
-  contentAccess: Pick<ContentAccess, "checkGuideAccess">,
+  contentAccess: Pick<ContentAccess, "checkProductAccess">,
 ): Promise<PublishedMaterialDiscoveryResult> {
   const parsed = querySchema.safeParse(query);
   if (!parsed.success) {
@@ -89,7 +89,7 @@ function selectDiscovery(
   prisma: MaterialsPrisma,
   query: z.infer<typeof querySchema>,
   original: DiscoverPublishedMaterialProjectionsQuery,
-  contentAccess: Pick<ContentAccess, "checkGuideAccess">,
+  contentAccess: Pick<ContentAccess, "checkProductAccess">,
 ) {
   switch (query.kind) {
     case "topic":

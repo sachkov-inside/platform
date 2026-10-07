@@ -27,7 +27,7 @@ A finite, normalized statement derived from a MembershipObservation and delivere
 It contains opaque references rather than Telegram provider data. A delivered or rejected
 MembershipEvidence and its check result are kept for the configured period, 90 days by default;
 the latest one of each linked identity is kept. Membership event audit is kept without a deadline.
-_Avoid_: MembershipEntitlement, ChatMember, access token
+_Avoid_: AccountRights, ChatMember, access token
 
 **Contactability**:
 The current ability to deliver bot messages to a BotContact through Telegram. Blocking the bot

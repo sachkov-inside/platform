@@ -55,7 +55,7 @@ export async function selectPrice(
     archived: row.offer.archived,
     published: row.offer.published,
     availableForAssignment: row.offer.availableForAssignment,
-    contentScope: row.offer.contentScope,
+    coverage: row.offer.coverage,
     eligibility: row.offer.eligibility,
     ...(Array.isArray(row.offer.benefitPeriods) &&
     row.offer.benefitPeriods.length > 0

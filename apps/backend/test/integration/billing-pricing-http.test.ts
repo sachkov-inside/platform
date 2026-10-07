@@ -90,7 +90,7 @@ describe("Billing pricing HTTP", () => {
         id: offerId,
         name: "Inside",
         benefits: ["materials"],
-        contentScope: { guideIds: [randomUUID()], materialIds: [] },
+        coverage: { productIds: [randomUUID()], materialIds: [] },
       },
     };
     expect(
@@ -283,7 +283,7 @@ describe("Billing pricing HTTP", () => {
           id: secondOfferId,
           name: "Сопровождение",
           benefits: ["support"],
-          contentScope: { guideIds: [randomUUID()], materialIds: [] },
+          coverage: { productIds: [randomUUID()], materialIds: [] },
         },
       },
     });
@@ -654,7 +654,7 @@ describe("Billing pricing HTTP", () => {
             id: offerId,
             name: "Продление подписки Tribute",
             benefits: ["community", "materials", "support"],
-            contentScope: { guideIds: [], materialIds: [], allGuides: true },
+            coverage: { productIds: [], materialIds: [], wholePlatform: true },
             eligibility: "former_tribute_subscribers",
           },
         })
@@ -748,7 +748,7 @@ describe("Billing pricing HTTP", () => {
         },
       },
     });
-    const guideId = randomUUID();
+    const productId = randomUUID();
     const save = (value: Record<string, unknown>, expectedRevision?: number) =>
       server.inject({
         method: "POST",
@@ -758,7 +758,7 @@ describe("Billing pricing HTTP", () => {
           operation: "cohorts.save",
           operationId: randomUUID(),
           ...(expectedRevision === undefined ? {} : { expectedRevision }),
-          value: { guideId, ...value },
+          value: { productId, ...value },
         },
       });
     const announcement = {
@@ -777,7 +777,7 @@ describe("Billing pricing HTTP", () => {
     expect(created.json()).toMatchObject({
       result: {
         outcome: "catalog",
-        value: { id: guideId, revision: 1, archived: false },
+        value: { id: productId, revision: 1, archived: false },
       },
     });
 
@@ -788,13 +788,16 @@ describe("Billing pricing HTTP", () => {
       });
       expect(response.statusCode).toBe(200);
       expect(response.headers["cache-control"]).toBe("private, no-store");
-      return response.json<{ items: { guideId: string }[] }>().items;
+      return response.json<{ items: { productId: string }[] }>().items;
     };
-    expect((await read()).find((item) => item.guideId === guideId)).toEqual({
-      guideId,
-      revision: 1,
-      ...announcement,
-    });
+    expect((await read()).find((item) => item.productId === productId)).toEqual(
+      {
+        productId,
+        guideId: productId,
+        revision: 1,
+        ...announcement,
+      },
+    );
 
     // Этапу, кроме «между потоками», нужна дата; между потоками нужно событие.
     expect(
@@ -817,11 +820,14 @@ describe("Billing pricing HTTP", () => {
       nextEvent: "эфир 15 декабря",
     };
     expect((await save(between, 1)).statusCode).toBe(200);
-    expect((await read()).find((item) => item.guideId === guideId)).toEqual({
-      guideId,
-      revision: 2,
-      ...between,
-    });
+    expect((await read()).find((item) => item.productId === productId)).toEqual(
+      {
+        productId,
+        guideId: productId,
+        revision: 2,
+        ...between,
+      },
+    );
   });
 
   async function signToken(

@@ -35,10 +35,10 @@ async function fixture(t) {
         materialId,
         contentVersion: 2,
         digest: "a".repeat(64),
-        access: "membership",
+        access: "closed",
       },
     },
-    guides: {},
+    products: {},
     operations: {},
   };
   await writeFile(join(state, "journal.json"), canonical(journal));
@@ -69,7 +69,7 @@ function providerApi({
       if (path === `/authoring/materials/${materialId}/videos/uploads`) {
         assert.ok(key !== undefined && key.startsWith("video-upload:"));
         assert.deepEqual(body, {
-          access: "membership",
+          access: "closed",
           byteSize: 15,
           filename: "final.mp4",
           title: "Финальная запись",

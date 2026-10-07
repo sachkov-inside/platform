@@ -8,18 +8,18 @@ import type {
 } from "@/_pages/material-reader/model/material-reader-view";
 import { calloutTones } from "@/entities/material";
 import { SavedBookmarkAction } from "@/features/bookmarks";
-import { GuideModeHint, GuideModeSwitch } from "@/features/guide-modes";
+import { ProductModeHint, ProductModeSwitch } from "@/features/product-modes";
 import {
   ReadingProgressProvider,
   SavedReadingAction,
 } from "@/features/reading-progress";
-import { GuideModeProvider, type GuideMode } from "@/shared/guide-mode";
+import { ProductModeProvider, type ProductMode } from "@/shared/product-mode";
 import {
   materialReaderHref,
   parseMaterialReaderReturnTarget,
 } from "@/shared/routing/material-reader";
 import {
-  guidePurchaseHref,
+  productPurchaseHref,
   subscriptionHrefFrom,
 } from "@/shared/routing/subscription-route";
 import {
@@ -353,7 +353,7 @@ const emptyLessonBody = [
 ] as const satisfies readonly ReaderBlock[];
 
 /** Шаг руководства, написанный для обоих режимов, и шаг только для своего проекта. */
-const guideModeBody = [
+const productModeBody = [
   {
     kind: "paragraph",
     content: [
@@ -441,7 +441,7 @@ const guideModeBody = [
   },
 ] as const satisfies readonly ReaderBlock[];
 
-const guideModeReturnTarget = parseMaterialReaderReturnTarget(
+const productModeReturnTarget = parseMaterialReaderReturnTarget(
   "/products/platform-inside",
 );
 
@@ -491,41 +491,41 @@ function accessReadingAction(): ReactNode {
   );
 }
 
-function GuideModeReader({
+function ProductModeReader({
   initialMode,
   withModes = true,
 }: {
-  readonly initialMode: GuideMode;
+  readonly initialMode: ProductMode;
   readonly withModes?: boolean;
 }) {
   return (
-    <GuideModeProvider initialMode={initialMode}>
+    <ProductModeProvider initialMode={initialMode}>
       <MaterialReaderView
         {...readerActions(material.materialId, material.format.slug)}
-        body={guideModeBody}
+        body={productModeBody}
         material={{ ...material, title: "Подготовка к первому прогону" }}
         {...(withModes
           ? {
               // Подсказка встаёт у первого шага, написанного для активного способа.
-              modeHint: { at: 1, node: <GuideModeHint /> },
-              modeSwitch: <GuideModeSwitch signedIn={false} />,
+              modeHint: { at: 1, node: <ProductModeHint /> },
+              modeSwitch: <ProductModeSwitch signedIn={false} />,
             }
           : {})}
         primaryVideo={null}
-        returnTarget={guideModeReturnTarget}
+        returnTarget={productModeReturnTarget}
         seriesContext={{
           currentPosition: 2,
           next: null,
           previous: null,
           series: {
             hasModeVariants: withModes,
-            href: guideModeReturnTarget.href,
+            href: productModeReturnTarget.href,
             name: "Создание Platform Inside",
           },
           totalMaterials: 4,
         }}
       />
-    </GuideModeProvider>
+    </ProductModeProvider>
   );
 }
 
@@ -937,7 +937,7 @@ export const PlaylistReturn: Story = {
         title: "Видео-разбор проверки",
       },
       previous: {
-        href: materialReaderHref("first-guide", playlistReturnTarget.href),
+        href: materialReaderHref("first-product", playlistReturnTarget.href),
         title: "Сначала границы",
       },
       series: {
@@ -1008,7 +1008,7 @@ export const AccessRequired: Story = {
         kind: "subscription",
         href: subscriptionHrefFrom(materialReaderHref(material.slug)),
       }}
-      material={{ ...material, access: "membership" }}
+      material={{ ...material, access: "closed" }}
       readingAction={accessReadingAction()}
     />
   ),
@@ -1023,7 +1023,7 @@ export const AccessRequired: Story = {
     // Покупка начинается внутри платформы: внешнего адреса и новой вкладки здесь больше нет.
     await expect(membershipLink).toHaveAttribute(
       "href",
-      "/subscription?from=%2Fmaterials%2Fagent-first-skills",
+      "/payment/checkout?from=%2Fmaterials%2Fagent-first-skills",
     );
     await expect(membershipLink).not.toHaveAttribute("target");
     await expect(
@@ -1050,14 +1050,14 @@ export const AccessRequiredMobile: Story = {
 };
 
 /** Закрытый материал руководства со своей ценой: дальше идёт оплата именно этого руководства. */
-export const AccessGuidePurchase: Story = {
+export const AccessProductPurchase: Story = {
   render: () => (
     <MaterialReaderAccess
       invitation={{
-        kind: "guide",
-        href: guidePurchaseHref(material.seriesMemberships[0].series.slug),
+        kind: "product",
+        href: productPurchaseHref(material.seriesMemberships[0].series.slug),
       }}
-      material={{ ...material, access: "membership" }}
+      material={{ ...material, access: "closed" }}
       readingAction={accessReadingAction()}
     />
   ),
@@ -1077,7 +1077,7 @@ export const AccessNotOffered: Story = {
   render: () => (
     <MaterialReaderAccess
       invitation={null}
-      material={{ ...material, access: "membership" }}
+      material={{ ...material, access: "closed" }}
       readingAction={accessReadingAction()}
     />
   ),
@@ -1248,8 +1248,8 @@ export const LessonBlocksEmpty: Story = {
   },
 };
 
-export const GuideModes: Story = {
-  render: () => <GuideModeReader initialMode="example" />,
+export const ProductModes: Story = {
+  render: () => <ProductModeReader initialMode="example" />,
   globals: { viewport: { isRotated: false, value: "desktop1440" } },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
@@ -1296,8 +1296,8 @@ export const GuideModes: Story = {
   },
 };
 
-export const GuideModesSwitched: Story = {
-  render: () => <GuideModeReader initialMode="example" />,
+export const ProductModesSwitched: Story = {
+  render: () => <ProductModeReader initialMode="example" />,
   globals: { viewport: { isRotated: false, value: "desktop1440" } },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
@@ -1315,8 +1315,8 @@ export const GuideModesSwitched: Story = {
   },
 };
 
-export const GuideModesOtherBranch: Story = {
-  render: () => <GuideModeReader initialMode="example" />,
+export const ProductModesOtherBranch: Story = {
+  render: () => <ProductModeReader initialMode="example" />,
   globals: { viewport: { isRotated: false, value: "desktop1440" } },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
@@ -1338,8 +1338,8 @@ export const GuideModesOtherBranch: Story = {
   },
 };
 
-export const GuideModesMobile: Story = {
-  render: () => <GuideModeReader initialMode="own" />,
+export const ProductModesMobile: Story = {
+  render: () => <ProductModeReader initialMode="own" />,
   globals: { viewport: { isRotated: false, value: "mobile390" } },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
@@ -1350,8 +1350,8 @@ export const GuideModesMobile: Story = {
   },
 };
 
-export const GuideWithoutModes: Story = {
-  render: () => <GuideModeReader initialMode="example" withModes={false} />,
+export const ProductWithoutModes: Story = {
+  render: () => <ProductModeReader initialMode="example" withModes={false} />,
   globals: { viewport: { isRotated: false, value: "desktop1440" } },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);

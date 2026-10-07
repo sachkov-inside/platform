@@ -7,7 +7,7 @@ import { pendingPurchase, unknownPurchase } from "@/storybook/billing.fixtures";
 import { PurchaseReturnView } from "./purchase-return.client";
 import { publicPageEnvironment } from "@/storybook/story-environment";
 
-const environment = publicPageEnvironment("/subscription/return");
+const environment = publicPageEnvironment("/payment/return");
 
 const meta = {
   ...environment,

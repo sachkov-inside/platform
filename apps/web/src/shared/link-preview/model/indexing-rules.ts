@@ -12,7 +12,7 @@ export const CLOSED_SECTIONS = [
   "/bookmarks",
   "/callback",
   "/communications/visit",
-  "/subscription/return",
+  "/payment/return",
 ] as const;
 
 /**

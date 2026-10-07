@@ -1,4 +1,4 @@
-import { isGuideCapability } from "@inside/access-capabilities";
+import { isProductCapability } from "@inside/access-capabilities";
 import { randomUUID } from "node:crypto";
 import { setTimeout as delay } from "node:timers/promises";
 import { z } from "zod";
@@ -12,7 +12,7 @@ import {
   type BillingPrismaClient,
 } from "../../../../infrastructure/prisma/index.js";
 import type { BillingContact } from "../../../accounts/index.js";
-import type { AccessGrants } from "../../../membership-entitlements/index.js";
+import type { AccessGrants } from "../../../account-rights/index.js";
 import { saleCapability } from "../../domain/sale-capability.js";
 import { paymentMode, priceSnapshotSchema } from "../../domain/pricing.js";
 import { subscriptionPeriodEnd } from "../../domain/subscription-period.js";
@@ -35,7 +35,7 @@ import {
   ownPaymentSchema,
   type OwnPayment,
 } from "../../features/manage-subscription/manage-subscription.contract.js";
-import { paidPeriodCommandSchema } from "../../../membership-entitlements/index.js";
+import { paidPeriodCommandSchema } from "../../../account-rights/index.js";
 import {
   endLapsedSubscriptions,
   endSubscription,
@@ -76,7 +76,7 @@ interface Dependencies {
   readonly contact: Pick<BillingContact, "read" | "readConsent">;
   readonly grants: Pick<
     AccessGrants,
-    | "readCompatibilityContentScope"
+    | "readCompatibilityCoverage"
     | "readLegacyClassification"
     | "readPurchaseGrounds"
     | "resolveCapabilities"
@@ -1049,9 +1049,8 @@ export class BillingPayments {
                     ).toISOString();
             return {
               capabilities: [capability],
-              ...(capability === "materials" &&
-              snapshot.offer.contentScope != null
-                ? { contentScope: snapshot.offer.contentScope }
+              ...(capability === "materials" && snapshot.offer.coverage != null
+                ? { coverage: snapshot.offer.coverage }
                 : {}),
               startsAt: period.startsAt.toISOString(),
               validUntil,
@@ -1059,12 +1058,12 @@ export class BillingPayments {
             };
           });
           const scope =
-            snapshot.offer.contentScope ??
-            (await this.dependencies.grants.readCompatibilityContentScope(tx));
+            snapshot.offer.coverage ??
+            (await this.dependencies.grants.readCompatibilityCoverage(tx));
           const enrollment =
             period.subscriptionRef !== null &&
             paidUntil !== null &&
-            !snapshot.offer.benefits.some(isGuideCapability)
+            !snapshot.offer.benefits.some(isProductCapability)
               ? {
                   purchaseRef: row.id,
                   billingRef: period.subscriptionRef,
@@ -1073,7 +1072,7 @@ export class BillingPayments {
                     revision: snapshot.offer.revision,
                     name: snapshot.offer.name,
                     benefits: snapshot.offer.benefits,
-                    contentScope: scope,
+                    coverage: scope,
                   },
                   startsAt: period.startsAt.toISOString(),
                   endsAt: paidUntil.toISOString(),

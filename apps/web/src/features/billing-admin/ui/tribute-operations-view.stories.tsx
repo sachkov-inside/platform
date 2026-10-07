@@ -8,7 +8,7 @@ const tier = {
   revision: 1,
   name: "Подписка Inside",
   benefits: ["materials" as const, "community" as const],
-  contentScope: { guideIds: [], materialIds: [] },
+  coverage: { productIds: [], materialIds: [] },
 };
 const environment = authoringPageEnvironment("/authoring/billing", {
   frame: BillingAdminFrame,

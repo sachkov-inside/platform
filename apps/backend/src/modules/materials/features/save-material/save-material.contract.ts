@@ -3,7 +3,7 @@ import type { PublicationState } from "../../domain/material.js";
 import type { MaterialMetadataValidationError } from "../../domain/material-metadata.js";
 import type {
   ForbiddenError,
-  GuideRemovalConfirmationRequiredError,
+  ProductRemovalConfirmationRequiredError,
   IdempotencyError,
   InvalidPublicationTransitionError,
   InvalidReferenceError,
@@ -33,13 +33,13 @@ export interface SaveMaterialCommand {
   readonly body: unknown;
   readonly videoChapters?: readonly VideoChapter[];
   /** Руководства с держателями права, снятие опубликованного материала из которых подтверждено. */
-  readonly confirmedGuideRemovals?: readonly string[] | undefined;
+  readonly confirmedProductRemovals?: readonly string[] | undefined;
 }
 
 export type SaveMaterialError =
   | MaterialMetadataValidationError
   | ForbiddenError
-  | GuideRemovalConfirmationRequiredError
+  | ProductRemovalConfirmationRequiredError
   | MaterialNotFoundError
   | StaleContentVersionError
   | InvalidPublicationTransitionError

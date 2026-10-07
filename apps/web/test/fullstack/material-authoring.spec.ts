@@ -16,7 +16,7 @@ import { z } from "zod";
 const currentMaterialEditorUrl =
   /\/authoring\/materials\/[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?:\?.*)?$/u;
 
-for (const access of ["public", "membership"] as const) {
+for (const access of ["public", "closed"] as const) {
   test(`media convergence: ${access} Material composes image, file and primary Video across Subjects`, async ({
     browser,
     context,
@@ -24,7 +24,7 @@ for (const access of ["public", "membership"] as const) {
     request,
   }, testInfo) => {
     let recipientAccountId: string | undefined;
-    if (access === "membership") {
+    if (access === "closed") {
       const memberContext = await browser.newContext();
       try {
         await signInFullStack(memberContext, "MEMBER");
@@ -57,7 +57,7 @@ for (const access of ["public", "membership"] as const) {
     await page.goto("/authoring/materials/new");
     await completeProfileOnboardingIfPresent(page);
     await fillPublishableDraft(page, title);
-    if (access === "membership") {
+    if (access === "closed") {
       await page.getByRole("combobox", { name: "Доступ" }).click();
       await page.getByRole("option", { name: "Для участников" }).click();
       await placeInSeededProduct(page);
@@ -112,7 +112,7 @@ for (const access of ["public", "membership"] as const) {
         .filter({ hasText: "Сохранено" }),
     ).toBeVisible({ timeout: 15_000 });
 
-    if (access === "membership") {
+    if (access === "closed") {
       // The member's bridge already opens every product; this all-products tier keeps the scenario independent
       // of the short bridge evidence lifetime. It does not prove the tier path on its own.
       const tierId = crypto.randomUUID();
@@ -128,7 +128,11 @@ for (const access of ["public", "membership"] as const) {
               name: `Media acceptance ${suffix}`,
               benefits: ["materials"],
               availableForAssignment: true,
-              contentScope: { guideIds: [], materialIds: [], allGuides: true },
+              coverage: {
+                productIds: [],
+                materialIds: [],
+                wholePlatform: true,
+              },
             },
           }),
         },
@@ -193,7 +197,7 @@ for (const access of ["public", "membership"] as const) {
     // Platform не задаёт.
     const memberRequest = await fullStackPageRequest(page);
     const platformFile = await memberRequest.get(href, { maxRedirects: 0 });
-    expect(platformFile.status()).toBe(access === "membership" ? 302 : 200);
+    expect(platformFile.status()).toBe(access === "closed" ? 302 : 200);
     expect(platformFile.headers()["x-content-type-options"]).toBe("nosniff");
     const memberFile = await memberRequest.get(href);
     expect(memberFile.status()).toBe(200);
@@ -239,7 +243,7 @@ for (const access of ["public", "membership"] as const) {
     expect(anonymousPlayback.status()).toBe(access === "public" ? 200 : 403);
     const protectedImageSource = await image.getAttribute("src");
     if (protectedImageSource === null) throw new Error("Image URL is missing");
-    if (access === "membership") {
+    if (access === "closed") {
       // A separate unrouted context keeps the real HTTP cache enabled; player doubles disable it.
       const cacheContext = await browser.newContext({
         baseURL: new URL(page.url()).origin,
@@ -272,7 +276,7 @@ for (const access of ["public", "membership"] as const) {
       }
     });
     await page.reload();
-    if (access === "membership") {
+    if (access === "closed") {
       await expect(
         page
           .getByRole("main")
@@ -338,7 +342,7 @@ for (const access of ["public", "membership"] as const) {
       ).toBeVisible();
     }
     await signInFullStack(context, "OWNER");
-    if (access === "membership") {
+    if (access === "closed") {
       await unpublishFromPurchasedProduct(page, title);
     } else {
       await page.goto(
@@ -579,7 +583,7 @@ test("uploads, resumes and replaces one primary Video while keeping provider byt
   });
   await expect(playerFrame).toHaveAttribute("data-seek-seconds", "3");
   await captureVideoEvidence(page, testInfo, "reader-automatic-player");
-  // This fixture is a Guide containing Video: the saved completion belongs to the Material.
+  // This fixture is a Product containing Video: the saved completion belongs to the Material.
   await expect(
     page.locator("[data-reading-action-state]:visible"),
   ).toHaveAttribute("data-reading-action-state", "ready");
@@ -955,11 +959,11 @@ test("member Material hides bytes from anonymous access and issues only a protec
   await page.getByLabel("Выбрать файлы").setInputFiles({
     buffer: Buffer.from("Protected member attachment\n"),
     mimeType: "text/plain",
-    name: "member-guide.txt",
+    name: "member-product.txt",
   });
   const upload = page
     .locator("[data-node-view-wrapper]")
-    .filter({ has: page.locator('input[value="member-guide.txt"]') });
+    .filter({ has: page.locator('input[value="member-product.txt"]') });
   await expect(upload).toBeVisible({ timeout: 30_000 });
   await waitMaterialSaved(page);
   await expect(
@@ -978,7 +982,7 @@ test("member Material hides bytes from anonymous access and issues only a protec
   ).toBeVisible({ timeout: 15_000 });
 
   await page.goto(`/materials/${slug}`);
-  const fileLink = page.getByRole("link", { name: /member-guide.txt/u });
+  const fileLink = page.getByRole("link", { name: /member-product.txt/u });
   await expect(fileLink).toBeVisible();
   const href = await fileLink.getAttribute("href");
   if (href === null) throw new Error("member file link is missing");
@@ -1415,7 +1419,7 @@ test("author edits series metadata on a dedicated page and returns to the list a
 }) => {
   await signInFullStack(context, "OWNER");
   const title = `Full-stack series ${String(Date.now())}`;
-  await page.goto("/authoring/guides");
+  await page.goto("/authoring/products");
   await page.getByRole("button", { name: "Создать продукт" }).click();
   await page
     .getByRole("textbox", { name: "Название", exact: true })
@@ -1424,7 +1428,7 @@ test("author edits series metadata on a dedicated page and returns to the list a
     .getByRole("textbox", { name: "Адрес", exact: false })
     .fill(`series-${String(Date.now())}`);
   await page.getByRole("button", { name: "Создать", exact: true }).click();
-  await expect(page).toHaveURL(/\/authoring\/guides\/[^/]+$/u);
+  await expect(page).toHaveURL(/\/authoring\/products\/[^/]+$/u);
   await expect(
     page.getByRole("heading", { name: "Продукт пока пуст" }),
   ).toBeVisible();
@@ -1435,7 +1439,7 @@ test("author edits series metadata on a dedicated page and returns to the list a
     .getByRole("textbox", { name: "Краткое описание" })
     .fill("Описание сохраняется перед возвратом к списку.");
   await page.getByRole("button", { name: "Все продукты", exact: true }).click();
-  await expect(page).toHaveURL(/\/authoring\/guides$/u);
+  await expect(page).toHaveURL(/\/authoring\/products$/u);
   await page.getByRole("link", { name: new RegExp(title, "u") }).click();
   await expect(
     page.getByRole("textbox", { name: "Название продукта" }),
@@ -1447,7 +1451,7 @@ test("author edits series metadata on a dedicated page and returns to the list a
   let orderCompleted = false;
   let archivedBeforeOrder = false;
   await page.route(
-    "**/api/authoring/guides/order",
+    "**/api/authoring/products/order",
     async (route) => {
       await orderGate.promise;
       const response = await route.fetch();
@@ -1471,7 +1475,7 @@ test("author edits series metadata on a dedicated page and returns to the list a
     name: "Добавить материал",
     exact: true,
   });
-  const orderStarted = page.waitForRequest("**/api/authoring/guides/order");
+  const orderStarted = page.waitForRequest("**/api/authoring/products/order");
   await picker
     .getByRole("button", { name: /^Добавить «/u })
     .first()
@@ -1515,10 +1519,10 @@ test("trusted author reorders a PostgreSQL series with keyboard controls", async
 }) => {
   await signInFullStack(context, "OWNER");
 
-  const response = await page.goto("/authoring/guides");
+  const response = await page.goto("/authoring/products");
   expect(response?.status()).toBe(200);
   await page.getByRole("link", { name: /Создание Platform Inside/u }).click();
-  await expect(page).toHaveURL(/\/authoring\/guides\/[^/]+$/u);
+  await expect(page).toHaveURL(/\/authoring\/products\/[^/]+$/u);
 
   await page.getByRole("button", { name: "Добавить материал" }).click();
   const picker = page.getByRole("dialog", { name: "Добавить материал" });
@@ -1614,24 +1618,24 @@ test("trusted author reorders a PostgreSQL series with keyboard controls", async
   await expect(page.getByText("Порядок сохранён.")).toBeVisible();
 });
 
-test("trusted author walks a guide chapter through Previews that stay closed to a guest", async ({
+test("trusted author walks a product chapter through Previews that stay closed to a guest", async ({
   browser,
   context,
   page,
 }, testInfo) => {
   await signInFullStack(context, "OWNER");
 
-  await page.goto("/authoring/guides");
+  await page.goto("/authoring/products");
   await completeProfileOnboardingIfPresent(page);
   await page.getByRole("link", { name: /Создание Platform Inside/u }).click();
-  await expect(page).toHaveURL(/\/authoring\/guides\/[^/]+$/u);
-  const guideId = new URL(page.url()).pathname.split("/").at(-1) ?? "";
+  await expect(page).toHaveURL(/\/authoring\/products\/[^/]+$/u);
+  const productId = new URL(page.url()).pathname.split("/").at(-1) ?? "";
 
   // Состав читается у backend: порядок в нём меняют другие сценарии этого прогона.
-  const order = await readGuideOrder(page, guideId);
+  const order = await readProductOrder(page, productId);
   const [outside, inChapter] = order.items;
   if (outside === undefined || inChapter === undefined) {
-    throw new Error("The seeded guide must hold at least two Materials");
+    throw new Error("The seeded product must hold at least two Materials");
   }
   const total = order.items.length;
   const chapterId = crypto.randomUUID();
@@ -1640,7 +1644,7 @@ test("trusted author walks a guide chapter through Previews that stay closed to 
   // Второй материал уходит в главу, первый остаётся вне глав: предпросмотр обязан начать с главы.
   const placed = await fullStackBrowserRequest(
     page,
-    "/api/authoring/guides/order",
+    "/api/authoring/products/order",
     "PUT",
     {
       chapterAssignments: JSON.stringify({ [inChapter.materialId]: chapterId }),
@@ -1649,7 +1653,7 @@ test("trusted author walks a guide chapter through Previews that stay closed to 
       ]),
       expectedOrderVersion: order.orderVersion,
       orderedMaterialIds: JSON.stringify(orderedMaterialIds),
-      seriesId: guideId,
+      seriesId: productId,
     },
   );
   expect(await placed.json()).toMatchObject({ kind: "saved" });
@@ -1672,7 +1676,7 @@ test("trusted author walks a guide chapter through Previews that stay closed to 
     );
     // Общий материал может открыть другое руководство: закрепляем то, в котором создали главу.
     const previewUrl = new URL(page.url());
-    previewUrl.searchParams.set("guide", guideId);
+    previewUrl.searchParams.set("product", productId);
     await page.goto(previewUrl.href);
 
     const route = page.getByRole("navigation", {
@@ -1728,7 +1732,7 @@ test("trusted author walks a guide chapter through Previews that stay closed to 
     );
     // Выбранное руководство и возврат к тому же списку переживают переход.
     const secondUrl = new URL(page.url());
-    expect(secondUrl.searchParams.get("guide")).toBe(guideId);
+    expect(secondUrl.searchParams.get("product")).toBe(productId);
     expect(secondUrl.searchParams.get("from")).toContain(
       "/authoring/materials",
     );
@@ -1759,17 +1763,17 @@ test("trusted author walks a guide chapter through Previews that stay closed to 
     ).toBeVisible();
   } finally {
     // Руководство общее для прогона: глава снимается, чтобы остальные сценарии видели прежний состав.
-    const current = await readGuideOrder(page, guideId);
+    const current = await readProductOrder(page, productId);
     const restored = await fullStackBrowserRequest(
       page,
-      "/api/authoring/guides/order",
+      "/api/authoring/products/order",
       "PUT",
       {
         chapterAssignments: "{}",
         chapters: "[]",
         expectedOrderVersion: current.orderVersion,
         orderedMaterialIds: JSON.stringify(orderedMaterialIds),
-        seriesId: guideId,
+        seriesId: productId,
       },
     );
     expect(await restored.json()).toMatchObject({ kind: "saved" });
@@ -1789,7 +1793,7 @@ test("guest cannot reach the production Material editor", async ({ page }) => {
 });
 
 test("guest cannot reach the production playlist manager", async ({ page }) => {
-  const response = await page.goto("/authoring/guides");
+  const response = await page.goto("/authoring/products");
   expect(response?.status()).toBe(200);
   await expect(
     page.getByRole("heading", { name: "Нет доступа к редактору" }),
@@ -2030,7 +2034,7 @@ async function unpublishFromPurchasedProduct(page: Page, title: string) {
   });
 }
 
-const guideOrderSchema = z.object({
+const productOrderSchema = z.object({
   kind: z.literal("ready"),
   order: z.object({
     items: z.array(z.object({ materialId: z.uuid(), title: z.string() })),
@@ -2038,10 +2042,10 @@ const guideOrderSchema = z.object({
   }),
 });
 
-async function readGuideOrder(page: Page, guideId: string) {
+async function readProductOrder(page: Page, productId: string) {
   const response = await fullStackBrowserRequest(
     page,
-    `/api/authoring/guides/${guideId}/order`,
+    `/api/authoring/products/${productId}/order`,
   );
-  return guideOrderSchema.parse(await response.json()).order;
+  return productOrderSchema.parse(await response.json()).order;
 }

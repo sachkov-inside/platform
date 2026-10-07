@@ -5,7 +5,7 @@ import {
   BillingContact,
 } from "../../../src/modules/accounts/index.js";
 import { billingContactProtection } from "../../../src/modules/accounts/infrastructure/billing-contact-protection.js";
-import { assembleAccessGrants } from "../../../src/modules/membership-entitlements/index.js";
+import { assembleAccessGrants } from "../../../src/modules/account-rights/index.js";
 import { BillingPayments } from "../../../src/modules/billing/index.js";
 import { Tbank } from "../../../src/modules/billing/infrastructure/tbank/tbank.js";
 import { tbankRuntimeSchema } from "../../../src/config/tbank-config.js";

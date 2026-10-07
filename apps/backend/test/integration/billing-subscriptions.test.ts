@@ -9,7 +9,7 @@ import {
   BillingContact,
 } from "../../src/modules/accounts/index.js";
 import { billingContactProtection } from "../../src/modules/accounts/infrastructure/billing-contact-protection.js";
-import { assembleAccessGrants } from "../../src/modules/membership-entitlements/index.js";
+import { assembleAccessGrants } from "../../src/modules/account-rights/index.js";
 import {
   BillingNotices,
   BillingPayments,
@@ -47,7 +47,7 @@ const config = syntheticTbankConfig({
   cardBinding: { confirmed: true, checkType: "3DS" },
   minimumKopecks: 100,
   maximumKopecks: 10_000_000,
-  returnUrl: "https://inside.example.test/subscription/return",
+  returnUrl: "https://inside.example.test/payment/return",
   notificationUrl: "https://inside.example.test/billing/tbank/notification",
   receipt: { taxation: "usn_income", tax: "none" },
 });
@@ -174,7 +174,7 @@ describe("подписка: продление, отмена, смена вар�
           id: offerId,
           name: "Материалы",
           benefits: ["materials"],
-          contentScope: { guideIds: [randomUUID()], materialIds: [] },
+          coverage: { productIds: [randomUUID()], materialIds: [] },
         },
       }),
     );
@@ -301,7 +301,7 @@ describe("подписка: продление, отмена, смена вар�
             id: nextOfferId,
             name,
             benefits: [...benefits],
-            contentScope: { guideIds: [randomUUID()], materialIds: [] },
+            coverage: { productIds: [randomUUID()], materialIds: [] },
           },
         }),
       );
@@ -662,7 +662,7 @@ describe("подписка: продление, отмена, смена вар�
           id: restrictedOffer,
           name: "Продление подписки Tribute",
           benefits: ["materials", "support"],
-          contentScope: { guideIds: [randomUUID()], materialIds: [] },
+          coverage: { productIds: [randomUUID()], materialIds: [] },
           eligibility: "former_tribute_subscribers",
         },
       }),

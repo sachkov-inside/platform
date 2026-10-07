@@ -1,8 +1,8 @@
 import { z } from "zod";
-import { guideIdFromCapability } from "@inside/access-capabilities";
+import { productIdFromCapability } from "@inside/access-capabilities";
 import { dependencyFailure } from "../../../../infrastructure/observability/index.js";
 import type { BillingPrismaClient } from "../../../../infrastructure/prisma/index.js";
-import { accessCapabilitySchema } from "../../../membership-entitlements/index.js";
+import { accessCapabilitySchema } from "../../../account-rights/index.js";
 import {
   failure,
   idSchema,
@@ -54,8 +54,8 @@ export async function listOffers(
   if (!parsed.success) return failure("invalid_request");
   try {
     const { cursor, limit, mode, capability } = parsed.data;
-    const guideId =
-      capability === undefined ? null : guideIdFromCapability(capability);
+    const productId =
+      capability === undefined ? null : productIdFromCapability(capability);
     const rows = await prisma.billingPaymentOption.findMany({
       where: {
         archived: false,
@@ -64,7 +64,7 @@ export async function listOffers(
           ...(options.publishedOnly === true ? { published: true } : {}),
           ...(capability === undefined
             ? {}
-            : guideId !== null
+            : productId !== null
               ? {
                   OR: [
                     { benefits: { has: capability } },
@@ -72,12 +72,12 @@ export async function listOffers(
                       benefits: { has: "materials" },
                       OR: [
                         {
-                          contentScope: {
-                            path: ["guideIds"],
-                            array_contains: [guideId],
+                          coverage: {
+                            path: ["productIds"],
+                            array_contains: [productId],
                           },
                         },
-                        { contentScope: { path: ["allGuides"], equals: true } },
+                        { coverage: { path: ["wholePlatform"], equals: true } },
                       ],
                     },
                   ],

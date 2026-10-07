@@ -23,17 +23,17 @@ import {
 export interface VideoContext {
   readonly now: () => Date;
   readonly prisma: VideosPrismaClient;
-  readonly projects: Readonly<Record<"free" | "membership", string>>;
+  readonly projects: Readonly<Record<"free" | "closed", string>>;
   readonly provider: VideoProvider;
   /** False when the actor may not manage Videos, including when the answer is unavailable. */
   readonly managerAllowed: (actor: VideoAccountId) => Promise<boolean>;
 }
 
 export function projectForAccess(
-  projects: Readonly<Record<"free" | "membership", string>>,
+  projects: Readonly<Record<"free" | "closed", string>>,
   access: VideoAccess,
 ): string {
-  return access === "free" ? projects.free : projects.membership;
+  return access === "free" ? projects.free : projects.closed;
 }
 
 export function providerLifecycle(remote: ProviderVideo): {

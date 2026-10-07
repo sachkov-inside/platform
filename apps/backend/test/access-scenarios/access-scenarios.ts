@@ -58,7 +58,7 @@ export const accessTransitions = [
   "support-kept-by-other-ground",
   "material-added-to-product",
   "material-removed-from-product",
-  "guide-archived",
+  "product-archived",
   "tier-composition-change",
   "tier-archived-with-assignments",
 ] as const;
@@ -208,7 +208,7 @@ function everyGround(expectation: AccessExpectation): ByGround {
 }
 
 /**
- * Материал и артефакты продукта X. Прямое право в сценарии — `guide:X` без даты окончания и
+ * Материал и артефакты продукта X. Прямое право в сценарии — `product:X` без даты окончания и
  * отдельное `support` со сроком. Модерационный запрет стоит поверх разовой покупки и материалы не
  * закрывает.
  */
@@ -364,7 +364,7 @@ export const accessScenarioTable = {
       rule: "Материал уходит из купленного продукта только подтверждённым снятием с записью; после снятия право на продукт его не открывает.",
       after: { "product-material": locked },
     },
-    "guide-archived": {
+    "product-archived": {
       // #1050 закрывает архивную программу для гостей и Account без права; этот переход проверяет держателя.
       rule: "Архивный продукт уходит с витрины; те, кому он открыт, сохраняют программу, материалы и артефакты.",
       after: {

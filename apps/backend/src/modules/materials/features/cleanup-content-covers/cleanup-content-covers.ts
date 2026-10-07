@@ -64,7 +64,7 @@ export function assembleContentCoverMaintenance(dependencies: {
           const references = await Promise.all([
             transaction.material.count({ where: { coverId: cover.id } }),
             transaction.topic.count({ where: { coverId: cover.id } }),
-            transaction.guide.count({ where: { coverId: cover.id } }),
+            transaction.product.count({ where: { coverId: cover.id } }),
             transaction.publishedMaterial.count({
               where: { coverId: cover.id },
             }),

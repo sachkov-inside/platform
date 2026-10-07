@@ -186,24 +186,24 @@ describe("authoring source Material", () => {
       prisma: database.prisma,
       authorPolicy: { canManage: (id) => id === actor },
     });
-    const guide = await authoring.reserveSourceGuide({
+    const product = await authoring.reserveSourceProduct({
       actor,
-      sourceId: "paid-guide",
-      name: "Paid guide",
-      slug: "paid-guide",
+      sourceId: "paid-product",
+      name: "Paid product",
+      slug: "paid-product",
       summary: "Programme",
     });
-    if (!guide.ok) throw new Error(guide.error.code);
+    if (!product.ok) throw new Error(product.error.code);
     const ordinary = await authoring.createDraft({
       actor,
-      idempotencyKey: "ordinary-in-source-guide",
-      metadata: { ...metadata, seriesIds: [guide.value.id] },
+      idempotencyKey: "ordinary-in-source-product",
+      metadata: { ...metadata, seriesIds: [product.value.id] },
       body: representativeDocument("Ordinary"),
     });
     expect(ordinary).toMatchObject({ ok: false, error: { code: "forbidden" } });
     const plain = await authoring.createDraft({
       actor,
-      idempotencyKey: "ordinary-outside-guide",
+      idempotencyKey: "ordinary-outside-product",
       metadata,
       body: representativeDocument("Ordinary"),
     });
@@ -211,12 +211,12 @@ describe("authoring source Material", () => {
     expect(
       await authoring.saveMaterial({
         actor,
-        idempotencyKey: "attach-to-source-guide",
+        idempotencyKey: "attach-to-source-product",
         materialId: plain.value.materialId,
         expectedContentVersion: 1,
         publicationState: "draft",
         primaryVideoId: null,
-        metadata: { ...metadata, seriesIds: [guide.value.id] },
+        metadata: { ...metadata, seriesIds: [product.value.id] },
         body: representativeDocument("Ordinary"),
       }),
     ).toMatchObject({ ok: false, error: { code: "forbidden" } });
@@ -245,24 +245,24 @@ describe("authoring source Material", () => {
         primaryVideoId: null,
         metadata: {
           ...metadata,
-          access: "membership",
+          access: "closed",
           summary: "Paid lesson",
           topicId: topic.value.id,
-          seriesIds: [guide.value.id],
+          seriesIds: [product.value.id],
         },
         body: representativeDocument("Protected body"),
       }),
     ).toMatchObject({ ok: true });
     const order = await authoring.loadSeriesOrder({
       actor,
-      seriesId: guide.value.id,
+      seriesId: product.value.id,
     });
     if (!order.ok) throw new Error(order.error.code);
     expect(
-      await authoring.reorderSourceGuide({
+      await authoring.reorderSourceProduct({
         actor,
-        sourceId: "paid-guide",
-        seriesId: guide.value.id,
+        sourceId: "paid-product",
+        seriesId: product.value.id,
         expectedOrderVersion: order.value.orderVersion,
         orderedMaterialIds: [],
       }),
@@ -278,15 +278,15 @@ describe("authoring source Material", () => {
         where: { id: reserved.value.materialId },
         select: { access: true, showInFeed: true },
       }),
-    ).toEqual({ access: "membership", showInFeed: true });
+    ).toEqual({ access: "closed", showInFeed: true });
     expect(
-      await database.prisma.guideMembership.count({
+      await database.prisma.productMembership.count({
         where: { materialId: reserved.value.materialId },
       }),
     ).toBe(1);
   });
 
-  test("a composition names the Material whose source ownership differs from the Guide", async () => {
+  test("a composition names the Material whose source ownership differs from the Product", async () => {
     const { authoring } = assembleMaterials({
       prisma: database.prisma,
       authorPolicy: { canManage: (id) => id === actor },
@@ -304,23 +304,23 @@ describe("authoring source Material", () => {
     });
     if (!imported.ok) throw new Error(imported.error.code);
 
-    const editorGuide = await authoring.createContentCollection({
+    const editorProduct = await authoring.createContentCollection({
       actor,
       kind: "series",
-      name: "Editor guide",
-      slug: "mismatch-editor-guide",
+      name: "Editor product",
+      slug: "mismatch-editor-product",
       summary: "",
     });
-    if (!editorGuide.ok) throw new Error(editorGuide.error.code);
+    if (!editorProduct.ok) throw new Error(editorProduct.error.code);
     const editorOrder = await authoring.loadSeriesOrder({
       actor,
-      seriesId: editorGuide.value.id,
+      seriesId: editorProduct.value.id,
     });
     if (!editorOrder.ok) throw new Error(editorOrder.error.code);
     expect(
       await authoring.reorderSeries({
         actor,
-        seriesId: editorGuide.value.id,
+        seriesId: editorProduct.value.id,
         expectedOrderVersion: editorOrder.value.orderVersion,
         orderedMaterialIds: [plain.value.materialId, imported.value.materialId],
       }),
@@ -334,24 +334,24 @@ describe("authoring source Material", () => {
       },
     });
 
-    const sourceGuide = await authoring.reserveSourceGuide({
+    const sourceProduct = await authoring.reserveSourceProduct({
       actor,
-      sourceId: "mismatch-source-guide",
-      name: "Source guide",
-      slug: "mismatch-source-guide",
+      sourceId: "mismatch-source-product",
+      name: "Source product",
+      slug: "mismatch-source-product",
       summary: "",
     });
-    if (!sourceGuide.ok) throw new Error(sourceGuide.error.code);
+    if (!sourceProduct.ok) throw new Error(sourceProduct.error.code);
     const sourceOrder = await authoring.loadSeriesOrder({
       actor,
-      seriesId: sourceGuide.value.id,
+      seriesId: sourceProduct.value.id,
     });
     if (!sourceOrder.ok) throw new Error(sourceOrder.error.code);
     expect(
-      await authoring.reorderSourceGuide({
+      await authoring.reorderSourceProduct({
         actor,
-        sourceId: "mismatch-source-guide",
-        seriesId: sourceGuide.value.id,
+        sourceId: "mismatch-source-product",
+        seriesId: sourceProduct.value.id,
         expectedOrderVersion: sourceOrder.value.orderVersion,
         orderedMaterialIds: [plain.value.materialId, imported.value.materialId],
       }),

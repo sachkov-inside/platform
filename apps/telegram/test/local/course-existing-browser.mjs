@@ -170,7 +170,7 @@ async function purchase() {
     );
     expect(result.ok).toBe(true);
   }
-  await page.goto(origin + "/guides/platform-inside/buy");
+  await page.goto(origin + "/products/platform-inside/buy");
   await page.waitForTimeout(700);
   await page.keyboard.press("Escape");
   await page.locator('input[name="one-time-consent-terms"]').check();

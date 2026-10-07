@@ -47,7 +47,7 @@ const currentMaterialSchema = z
     latestVideoDeletion: authoringVideoSchema.nullable(),
     metadata: z
       .object({
-        access: z.enum(["free", "membership"]),
+        access: z.enum(["free", "closed"]),
         difficulty: materialDifficultySchema.nullable(),
         formatId: materialFormatSchema.nullable(),
         outcomes: z.array(z.string()),

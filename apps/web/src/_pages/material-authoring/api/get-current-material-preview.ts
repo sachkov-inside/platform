@@ -21,7 +21,7 @@ const problemSchema = z
 export type CurrentMaterialPreviewState =
   | {
       /** Руководства материала в порядке его memberships. */
-      readonly guides: readonly {
+      readonly products: readonly {
         readonly id: string;
         readonly name: string;
       }[];
@@ -102,7 +102,7 @@ export async function getCurrentMaterialPreview(
     };
   }
   return {
-    guides: mapped.data.seriesMemberships.map(({ seriesId }) => ({
+    products: mapped.data.seriesMemberships.map(({ seriesId }) => ({
       id: seriesId,
       name:
         references.references.series.find(({ value }) => value === seriesId)

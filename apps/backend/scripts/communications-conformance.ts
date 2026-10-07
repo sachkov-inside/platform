@@ -1,7 +1,7 @@
 import {
   LEARNING_TASKS,
   type LearningTasks,
-} from "../src/modules/guide-tasks/index.js";
+} from "../src/modules/product-tasks/index.js";
 import {
   CONTENT_ACCESS,
   type ContentAccess,
@@ -318,7 +318,7 @@ try {
     data: { id: topicId, slug: "proof-topic", name: "Synthetic proof" },
   });
 
-  await prisma.guide.create({
+  await prisma.product.create({
     data: { id: seriesId, slug: "telegram-proof", name: "Тестовая серия #310" },
   });
   const metadata = {
@@ -363,7 +363,7 @@ try {
   });
   let contentVersion = 1;
   async function saveTarget(
-    access: "free" | "membership",
+    access: "free" | "closed",
     publicationState: "published" | "unpublished",
   ) {
     const saved = await authoring.saveMaterial({
@@ -498,7 +498,7 @@ try {
   for (const transport of ["http", "mcp"] as const) {
     for (const unavailable of ["unpublished", "paid"] as const) {
       await saveTarget(
-        unavailable === "paid" ? "membership" : "free",
+        unavailable === "paid" ? "closed" : "free",
         unavailable === "paid" ? "published" : "unpublished",
       );
       const rejected = await execute(
@@ -523,7 +523,7 @@ try {
     4,
   );
   const restored = await ok(rollback, "mcp");
-  await saveTarget("membership", "published");
+  await saveTarget("closed", "published");
   assert.deepEqual(await ok(rollback), restored);
   const stale = await execute({ ...rollback, operationId: randomUUID() });
   assert(!stale.ok && stale.error.code === "revision_conflict");

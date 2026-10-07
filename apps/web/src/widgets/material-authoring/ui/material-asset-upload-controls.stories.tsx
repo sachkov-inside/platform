@@ -20,7 +20,7 @@ function upload(
   const { id, kind, status, ...overrides } = values;
   const file = new File(
     ["Inside asset"],
-    kind === "image" ? "scheme.png" : "guide.pdf",
+    kind === "image" ? "scheme.png" : "product.pdf",
     {
       type: kind === "image" ? "image/png" : "application/pdf",
     },

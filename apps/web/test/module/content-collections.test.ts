@@ -63,18 +63,18 @@ describe("Content collection web adapters", () => {
     expect(request).toHaveBeenCalledWith("topic", "token");
   });
 
-  it("reads the Guide page fields the backend sends with every collection", async () => {
+  it("reads the Product page fields the backend sends with every collection", async () => {
     // Since #672 each collection carries its page description, presentation and source key.
-    const guide = {
+    const product = {
       ...collection,
       kind: "series",
-      page: { heading: "Guide" },
+      page: { heading: "Product" },
       pageRejected: false,
       presentation: "default",
-      sourceId: "guides/platform",
+      sourceId: "products/platform",
     } as const;
     const list = vi.fn().mockResolvedValue({
-      body: [guide],
+      body: [product],
       ok: true,
       response: Response.json({}),
     });
@@ -90,7 +90,7 @@ describe("Content collection web adapters", () => {
     formData.set("slug", "platform");
     formData.set("summary", "Architecture and delivery.");
     const create = vi.fn().mockResolvedValue({
-      body: guide,
+      body: product,
       ok: true,
       response: Response.json({}),
     });
@@ -151,7 +151,7 @@ describe("Content collection web adapters", () => {
     ).resolves.toEqual({ kind: "conflict" });
   });
 
-  it("sends the Guide introduction only when its four fields travel together", async () => {
+  it("sends the Product introduction only when its four fields travel together", async () => {
     const withIntroduction = successfulRequest();
     const form = metadataForm();
     const introduction = {

@@ -100,7 +100,7 @@ close/error. A deterministic stubborn-child test covers this escalation. Native
 stdout/stderr chunk observation times are stored without adding authorization logs.
 A successful later trial does not remove an earlier timeout from the evidence.
 
-## Guide Task review procedure v3 (#946)
+## Product Task review procedure v3 (#946)
 
 `task-matrix.mts` runs procedure v3 against three synthetic projects from
 `../task-fixtures.mjs`: a correct project without the learner's consent to run anything, the same

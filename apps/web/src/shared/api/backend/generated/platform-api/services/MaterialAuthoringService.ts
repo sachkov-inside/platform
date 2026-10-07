@@ -8,14 +8,14 @@ import type { BaseHttpRequest } from '../core/BaseHttpRequest';
 export class MaterialAuthoringService {
   constructor(public readonly httpRequest: BaseHttpRequest) {}
   /**
-   * List Topics or Guides for authoring
+   * List Topics or Products for authoring
    * @returns any
    * @throws ApiError
    */
   public listAuthoringContentCollections({
     kind,
   }: {
-    kind: 'guide' | 'series' | 'topic',
+    kind: 'product' | 'series' | 'topic',
   }): CancelablePromise<Array<{
     archived: boolean;
     cover: {
@@ -32,7 +32,7 @@ export class MaterialAuthoringService {
       prerequisites: string;
       scope: string;
     } | null;
-    kind: 'guide' | 'series' | 'topic';
+    kind: 'product' | 'series' | 'topic';
     materialCount: number;
     name: string;
     page: {
@@ -105,7 +105,7 @@ export class MaterialAuthoringService {
     });
   }
   /**
-   * Create a Topic or Guide with an immutable slug
+   * Create a Topic or Product with an immutable slug
    * @returns any
    * @throws ApiError
    */
@@ -113,7 +113,7 @@ export class MaterialAuthoringService {
     requestBody,
   }: {
     requestBody: {
-      kind: 'guide' | 'series' | 'topic';
+      kind: 'product' | 'series' | 'topic';
       name: string;
       slug: string;
       summary: string;
@@ -134,7 +134,7 @@ export class MaterialAuthoringService {
       prerequisites: string;
       scope: string;
     } | null;
-    kind: 'guide' | 'series' | 'topic';
+    kind: 'product' | 'series' | 'topic';
     materialCount: number;
     name: string;
     page: {
@@ -206,7 +206,7 @@ export class MaterialAuthoringService {
     });
   }
   /**
-   * Update Topic or Guide metadata without changing its slug
+   * Update Topic or Product metadata without changing its slug
    * @returns any
    * @throws ApiError
    */
@@ -223,7 +223,7 @@ export class MaterialAuthoringService {
         prerequisites: string;
         scope: string;
       };
-      kind: 'guide' | 'series' | 'topic';
+      kind: 'product' | 'series' | 'topic';
       name: string;
       summary: string;
     },
@@ -243,7 +243,7 @@ export class MaterialAuthoringService {
       prerequisites: string;
       scope: string;
     } | null;
-    kind: 'guide' | 'series' | 'topic';
+    kind: 'product' | 'series' | 'topic';
     materialCount: number;
     name: string;
     page: {
@@ -318,7 +318,7 @@ export class MaterialAuthoringService {
     });
   }
   /**
-   * Archive or restore a Topic or Guide
+   * Archive or restore a Topic or Product
    * @returns any
    * @throws ApiError
    */
@@ -330,7 +330,7 @@ export class MaterialAuthoringService {
     requestBody: {
       archived: boolean;
       expectedVersion: number;
-      kind: 'guide' | 'series' | 'topic';
+      kind: 'product' | 'series' | 'topic';
     },
   }): CancelablePromise<{
     archived: boolean;
@@ -348,7 +348,7 @@ export class MaterialAuthoringService {
       prerequisites: string;
       scope: string;
     } | null;
-    kind: 'guide' | 'series' | 'topic';
+    kind: 'product' | 'series' | 'topic';
     materialCount: number;
     name: string;
     page: {
@@ -496,534 +496,6 @@ export class MaterialAuthoringService {
     });
   }
   /**
-   * List every active artifact an author may reuse in another Guide
-   * @returns any
-   * @throws ApiError
-   */
-  public listReusableGuideArtifacts(): CancelablePromise<{
-    artifacts: Array<{
-      access: 'free' | 'membership';
-      archived: boolean;
-      artifactId: string;
-      content: ({
-        contentType: string;
-        filename: string;
-        kind: 'file';
-        size: number;
-      } | {
-        externalUrl: string;
-        kind: 'link';
-      });
-      guideIds: Array<string>;
-      materialIds: Array<string>;
-      origin: 'authoring' | 'platform';
-      purpose: string;
-      sourceId: string | null;
-      title: string;
-      updatedAt: string;
-      version: number;
-    }>;
-  }> {
-    return this.httpRequest.request({
-      method: 'GET',
-      url: '/authoring/guide-artifacts',
-    });
-  }
-  /**
-   * Remove one Guide Artifact that no Guide or Material still references
-   * @returns any
-   * @throws ApiError
-   */
-  public removeGuideArtifact({
-    artifactId,
-  }: {
-    artifactId: string,
-  }): CancelablePromise<{
-    artifactId: string;
-  }> {
-    return this.httpRequest.request({
-      method: 'DELETE',
-      url: '/authoring/guide-artifacts/{artifactId}',
-      path: {
-        'artifactId': artifactId,
-      },
-    });
-  }
-  /**
-   * Change the name, purpose or access class of one Guide Artifact
-   * @returns any
-   * @throws ApiError
-   */
-  public updateGuideArtifact({
-    artifactId,
-    requestBody,
-  }: {
-    artifactId: string,
-    requestBody: {
-      access: 'free' | 'membership';
-      purpose: string;
-      title: string;
-    },
-  }): CancelablePromise<{
-    access: 'free' | 'membership';
-    archived: boolean;
-    artifactId: string;
-    content: ({
-      contentType: string;
-      filename: string;
-      kind: 'file';
-      size: number;
-    } | {
-      externalUrl: string;
-      kind: 'link';
-    });
-    guideIds: Array<string>;
-    materialIds: Array<string>;
-    origin: 'authoring' | 'platform';
-    purpose: string;
-    sourceId: string | null;
-    title: string;
-    updatedAt: string;
-    version: number;
-  }> {
-    return this.httpRequest.request({
-      method: 'PATCH',
-      url: '/authoring/guide-artifacts/{artifactId}',
-      path: {
-        'artifactId': artifactId,
-      },
-      body: requestBody,
-      mediaType: 'application/json',
-    });
-  }
-  /**
-   * Archive one Guide Artifact or return it from the archive
-   * @returns any
-   * @throws ApiError
-   */
-  public setGuideArtifactArchived({
-    artifactId,
-    requestBody,
-  }: {
-    artifactId: string,
-    requestBody: {
-      archived: boolean;
-    },
-  }): CancelablePromise<{
-    access: 'free' | 'membership';
-    archived: boolean;
-    artifactId: string;
-    content: ({
-      contentType: string;
-      filename: string;
-      kind: 'file';
-      size: number;
-    } | {
-      externalUrl: string;
-      kind: 'link';
-    });
-    guideIds: Array<string>;
-    materialIds: Array<string>;
-    origin: 'authoring' | 'platform';
-    purpose: string;
-    sourceId: string | null;
-    title: string;
-    updatedAt: string;
-    version: number;
-  }> {
-    return this.httpRequest.request({
-      method: 'PUT',
-      url: '/authoring/guide-artifacts/{artifactId}/archive',
-      path: {
-        'artifactId': artifactId,
-      },
-      body: requestBody,
-      mediaType: 'application/json',
-    });
-  }
-  /**
-   * Set the Guides that reuse one artifact without copying it
-   * @returns any
-   * @throws ApiError
-   */
-  public setGuideArtifactGuides({
-    artifactId,
-    requestBody,
-  }: {
-    artifactId: string,
-    requestBody: {
-      guideIds: Array<string>;
-    },
-  }): CancelablePromise<{
-    access: 'free' | 'membership';
-    archived: boolean;
-    artifactId: string;
-    content: ({
-      contentType: string;
-      filename: string;
-      kind: 'file';
-      size: number;
-    } | {
-      externalUrl: string;
-      kind: 'link';
-    });
-    guideIds: Array<string>;
-    materialIds: Array<string>;
-    origin: 'authoring' | 'platform';
-    purpose: string;
-    sourceId: string | null;
-    title: string;
-    updatedAt: string;
-    version: number;
-  }> {
-    return this.httpRequest.request({
-      method: 'PUT',
-      url: '/authoring/guide-artifacts/{artifactId}/guides',
-      path: {
-        'artifactId': artifactId,
-      },
-      body: requestBody,
-      mediaType: 'application/json',
-    });
-  }
-  /**
-   * Replace the artifact content with a new external address version
-   * @returns any
-   * @throws ApiError
-   */
-  public replaceGuideArtifactLink({
-    artifactId,
-    requestBody,
-  }: {
-    artifactId: string,
-    requestBody: {
-      externalUrl: string;
-    },
-  }): CancelablePromise<{
-    access: 'free' | 'membership';
-    archived: boolean;
-    artifactId: string;
-    content: ({
-      contentType: string;
-      filename: string;
-      kind: 'file';
-      size: number;
-    } | {
-      externalUrl: string;
-      kind: 'link';
-    });
-    guideIds: Array<string>;
-    materialIds: Array<string>;
-    origin: 'authoring' | 'platform';
-    purpose: string;
-    sourceId: string | null;
-    title: string;
-    updatedAt: string;
-    version: number;
-  }> {
-    return this.httpRequest.request({
-      method: 'PUT',
-      url: '/authoring/guide-artifacts/{artifactId}/link',
-      path: {
-        'artifactId': artifactId,
-      },
-      body: requestBody,
-      mediaType: 'application/json',
-    });
-  }
-  /**
-   * Set the Materials one artifact belongs with inside its Guides
-   * @returns any
-   * @throws ApiError
-   */
-  public setGuideArtifactMaterials({
-    artifactId,
-    requestBody,
-  }: {
-    artifactId: string,
-    requestBody: {
-      materialIds: Array<string>;
-    },
-  }): CancelablePromise<{
-    access: 'free' | 'membership';
-    archived: boolean;
-    artifactId: string;
-    content: ({
-      contentType: string;
-      filename: string;
-      kind: 'file';
-      size: number;
-    } | {
-      externalUrl: string;
-      kind: 'link';
-    });
-    guideIds: Array<string>;
-    materialIds: Array<string>;
-    origin: 'authoring' | 'platform';
-    purpose: string;
-    sourceId: string | null;
-    title: string;
-    updatedAt: string;
-    version: number;
-  }> {
-    return this.httpRequest.request({
-      method: 'PUT',
-      url: '/authoring/guide-artifacts/{artifactId}/materials',
-      path: {
-        'artifactId': artifactId,
-      },
-      body: requestBody,
-      mediaType: 'application/json',
-    });
-  }
-  /**
-   * Replace the artifact content with a new uploaded file version
-   * @returns any
-   * @throws ApiError
-   */
-  public replaceGuideArtifactFile({
-    formData,
-  }: {
-    formData: {
-      artifactId: string;
-      checksumSha256: string;
-      declaredSize: number;
-      file: Blob;
-    },
-  }): CancelablePromise<{
-    access: 'free' | 'membership';
-    archived: boolean;
-    artifactId: string;
-    content: ({
-      contentType: string;
-      filename: string;
-      kind: 'file';
-      size: number;
-    } | {
-      externalUrl: string;
-      kind: 'link';
-    });
-    guideIds: Array<string>;
-    materialIds: Array<string>;
-    origin: 'authoring' | 'platform';
-    purpose: string;
-    sourceId: string | null;
-    title: string;
-    updatedAt: string;
-    version: number;
-  }> {
-    return this.httpRequest.request({
-      method: 'PUT',
-      url: '/authoring/guide-artifacts/file',
-      formData: formData,
-      mediaType: 'multipart/form-data',
-    });
-  }
-  /**
-   * Create one Guide Artifact from an uploaded file
-   * @returns any
-   * @throws ApiError
-   */
-  public createGuideArtifactFromFile({
-    formData,
-  }: {
-    formData: {
-      access: 'free' | 'membership';
-      checksumSha256: string;
-      declaredSize: number;
-      file: Blob;
-      guideId: string;
-      purpose: string;
-      title: string;
-    },
-  }): CancelablePromise<{
-    access: 'free' | 'membership';
-    archived: boolean;
-    artifactId: string;
-    content: ({
-      contentType: string;
-      filename: string;
-      kind: 'file';
-      size: number;
-    } | {
-      externalUrl: string;
-      kind: 'link';
-    });
-    guideIds: Array<string>;
-    materialIds: Array<string>;
-    origin: 'authoring' | 'platform';
-    purpose: string;
-    sourceId: string | null;
-    title: string;
-    updatedAt: string;
-    version: number;
-  }> {
-    return this.httpRequest.request({
-      method: 'POST',
-      url: '/authoring/guide-artifacts/files',
-      formData: formData,
-      mediaType: 'multipart/form-data',
-    });
-  }
-  /**
-   * Create one Guide Artifact that points at an explicit external address
-   * @returns any
-   * @throws ApiError
-   */
-  public createGuideArtifactFromLink({
-    requestBody,
-  }: {
-    requestBody: {
-      access: 'free' | 'membership';
-      externalUrl: string;
-      guideId: string;
-      purpose: string;
-      title: string;
-    },
-  }): CancelablePromise<{
-    access: 'free' | 'membership';
-    archived: boolean;
-    artifactId: string;
-    content: ({
-      contentType: string;
-      filename: string;
-      kind: 'file';
-      size: number;
-    } | {
-      externalUrl: string;
-      kind: 'link';
-    });
-    guideIds: Array<string>;
-    materialIds: Array<string>;
-    origin: 'authoring' | 'platform';
-    purpose: string;
-    sourceId: string | null;
-    title: string;
-    updatedAt: string;
-    version: number;
-  }> {
-    return this.httpRequest.request({
-      method: 'POST',
-      url: '/authoring/guide-artifacts/links',
-      body: requestBody,
-      mediaType: 'application/json',
-    });
-  }
-  /**
-   * List the artifacts placed in one Guide
-   * @returns any
-   * @throws ApiError
-   */
-  public listAuthoringGuideArtifacts({
-    guideId,
-  }: {
-    guideId: string,
-  }): CancelablePromise<{
-    artifacts: Array<{
-      access: 'free' | 'membership';
-      archived: boolean;
-      artifactId: string;
-      content: ({
-        contentType: string;
-        filename: string;
-        kind: 'file';
-        size: number;
-      } | {
-        externalUrl: string;
-        kind: 'link';
-      });
-      guideIds: Array<string>;
-      materialIds: Array<string>;
-      origin: 'authoring' | 'platform';
-      purpose: string;
-      sourceId: string | null;
-      title: string;
-      updatedAt: string;
-      version: number;
-    }>;
-  }> {
-    return this.httpRequest.request({
-      method: 'GET',
-      url: '/authoring/guides/{guideId}/artifacts',
-      path: {
-        'guideId': guideId,
-      },
-    });
-  }
-  /**
-   * Load the current Material order for a Guide
-   * @returns any
-   * @throws ApiError
-   */
-  public loadAuthoringGuideOrder({
-    guideId,
-  }: {
-    guideId: string,
-  }): CancelablePromise<{
-    archived: boolean;
-    chapters: Array<{
-      id: string;
-      name: string;
-      ordinal: number;
-      summary: string;
-    }>;
-    items: Array<{
-      chapterId: string | null;
-      materialId: string;
-      ordinal: number;
-      publicationState: 'draft' | 'published' | 'unpublished';
-      stepGroup: string | null;
-      title: string | null;
-    }>;
-    name: string;
-    orderVersion: string;
-    seriesId: string;
-  }> {
-    return this.httpRequest.request({
-      method: 'GET',
-      url: '/authoring/guides/{guideId}/order',
-      path: {
-        'guideId': guideId,
-      },
-    });
-  }
-  /**
-   * Replace the Material order for a Guide
-   * @returns any
-   * @throws ApiError
-   */
-  public reorderAuthoringGuide({
-    guideId,
-    requestBody,
-  }: {
-    guideId: string,
-    requestBody: {
-      chapterAssignments?: Record<string, string>;
-      chapters?: Array<{
-        id: string;
-        name: string;
-        summary: string;
-      }>;
-      confirmedGuideRemovals?: Array<string>;
-      expectedOrderVersion: string;
-      orderedMaterialIds: Array<string>;
-      stepGroups?: Record<string, string>;
-    },
-  }): CancelablePromise<{
-    orderVersion: string;
-    seriesId: string;
-  }> {
-    return this.httpRequest.request({
-      method: 'PUT',
-      url: '/authoring/guides/{guideId}/order',
-      path: {
-        'guideId': guideId,
-      },
-      body: requestBody,
-      mediaType: 'application/json',
-    });
-  }
-  /**
    * Read the author's Home Series selection
    * @returns any
    * @throws ApiError
@@ -1061,7 +533,7 @@ export class MaterialAuthoringService {
     });
   }
   /**
-   * Upload or replace the cover of one Material or Guide owned by an authoring source
+   * Upload or replace the cover of one Material or Product owned by an authoring source
    * @returns any
    * @throws ApiError
    */
@@ -1100,415 +572,6 @@ export class MaterialAuthoringService {
     });
   }
   /**
-   * Create or update one authoring-owned artifact of a source Guide from its package file
-   * @returns any
-   * @throws ApiError
-   */
-  public importSourceGuideArtifact({
-    guideId,
-    formData,
-  }: {
-    guideId: string,
-    formData: {
-      access: 'free' | 'membership';
-      checksumSha256: string;
-      declaredSize: number;
-      file: Blob;
-      guideSourceId: string;
-      purpose: string;
-      sourceId: string;
-      title: string;
-    },
-  }): CancelablePromise<{
-    artifactId: string;
-    outcome: 'created' | 'diverged' | 'missing' | 'unchanged' | 'updated';
-    sourceId: string | null;
-    title: string;
-  }> {
-    return this.httpRequest.request({
-      method: 'POST',
-      url: '/authoring/import/guides/{guideId}/artifacts',
-      path: {
-        'guideId': guideId,
-      },
-      formData: formData,
-      mediaType: 'multipart/form-data',
-    });
-  }
-  /**
-   * reorderSourceGuide
-   * @returns any
-   * @throws ApiError
-   */
-  public reorderSourceGuide({
-    requestBody,
-  }: {
-    requestBody: {
-      chapterAssignments?: Record<string, string>;
-      chapters?: Array<{
-        id: string;
-        name: string;
-        summary: string;
-      }>;
-      confirmedGuideRemovals: Array<string>;
-      expectedOrderVersion: string;
-      orderedMaterialIds: Array<any>;
-      seriesId: any;
-      sourceId: string;
-      stepGroups?: Record<string, string>;
-    },
-  }): CancelablePromise<{
-    orderVersion: string;
-    seriesId: string;
-  }> {
-    return this.httpRequest.request({
-      method: 'POST',
-      url: '/authoring/import/guides/composition',
-      body: requestBody,
-      mediaType: 'application/json',
-    });
-  }
-  /**
-   * reserveSourceGuide
-   * @returns any
-   * @throws ApiError
-   */
-  public reserveSourceGuide({
-    requestBody,
-  }: {
-    requestBody: {
-      name: string;
-      slug: string;
-      sourceId: string;
-      summary: string;
-    },
-  }): CancelablePromise<{
-    archived: boolean;
-    cover: {
-      coverId: string;
-      renditions: Array<{
-        height: number;
-        width: number;
-      }>;
-    } | null;
-    id: string;
-    introduction: {
-      audience: string;
-      outcome: string;
-      prerequisites: string;
-      scope: string;
-    } | null;
-    kind: 'guide' | 'series' | 'topic';
-    materialCount: number;
-    name: string;
-    page: {
-      blocks: Array<({
-        badge: string;
-        highlights: Array<string>;
-        id: string;
-        kind: 'hero';
-        lead: string;
-      } | {
-        eyebrow: string;
-        id: string;
-        items: Array<{
-          detail: string;
-          detailLabel: string;
-          text: string;
-          title: string;
-        }>;
-        kind: 'cards';
-        lead: string;
-        note: string;
-        title: string;
-      } | {
-        id: string;
-        kind: 'text';
-        paragraphs: Array<string>;
-        title: string;
-      } | {
-        id: string;
-        items: Array<{
-          text: string;
-          title: string;
-        }>;
-        kind: 'steps';
-        lead: string;
-        link: string;
-        title: string;
-      } | {
-        id: string;
-        items: Array<string>;
-        kind: 'list';
-        text: string;
-        title: string;
-      } | {
-        id: string;
-        kind: 'trial';
-        link: string;
-        text: string;
-        title: string;
-      })>;
-      card: {
-        action: string;
-        eyebrow: string;
-        subtitle: string;
-      } | null;
-    } | null;
-    pageRejected: boolean;
-    presentation: string | null;
-    slug: string;
-    sourceId: string | null;
-    summary: string;
-    version: number;
-  }> {
-    return this.httpRequest.request({
-      method: 'POST',
-      url: '/authoring/import/guides/reserve',
-      body: requestBody,
-      mediaType: 'application/json',
-    });
-  }
-  /**
-   * updateSourceGuide
-   * @returns any
-   * @throws ApiError
-   */
-  public updateSourceGuide({
-    requestBody,
-  }: {
-    requestBody: {
-      collectionId: any;
-      expectedVersion: number;
-      name: string;
-      source: {
-        page: {
-          blocks: Array<({
-            badge: string;
-            highlights: Array<string>;
-            id: string;
-            kind: 'hero';
-            lead: string;
-          } | {
-            eyebrow: string;
-            id: string;
-            items: Array<{
-              detail: string;
-              detailLabel: string;
-              text: string;
-              title: string;
-            }>;
-            kind: 'cards';
-            lead: string;
-            note: string;
-            title: string;
-          } | {
-            id: string;
-            kind: 'text';
-            paragraphs: Array<string>;
-            title: string;
-          } | {
-            id: string;
-            items: Array<{
-              text: string;
-              title: string;
-            }>;
-            kind: 'steps';
-            lead: string;
-            link: string;
-            title: string;
-          } | {
-            id: string;
-            items: Array<string>;
-            kind: 'list';
-            text: string;
-            title: string;
-          } | {
-            id: string;
-            kind: 'trial';
-            link: string;
-            text: string;
-            title: string;
-          })>;
-          card: {
-            action: string;
-            eyebrow: string;
-            subtitle: string;
-          } | null;
-        } | null;
-        presentation: 'default' | 'ai-first-process' | 'ai-engineering-course';
-        slug: string;
-      };
-      sourceId: string;
-      summary: string;
-    },
-  }): CancelablePromise<{
-    archived: boolean;
-    cover: {
-      coverId: string;
-      renditions: Array<{
-        height: number;
-        width: number;
-      }>;
-    } | null;
-    id: string;
-    introduction: {
-      audience: string;
-      outcome: string;
-      prerequisites: string;
-      scope: string;
-    } | null;
-    kind: 'guide' | 'series' | 'topic';
-    materialCount: number;
-    name: string;
-    page: {
-      blocks: Array<({
-        badge: string;
-        highlights: Array<string>;
-        id: string;
-        kind: 'hero';
-        lead: string;
-      } | {
-        eyebrow: string;
-        id: string;
-        items: Array<{
-          detail: string;
-          detailLabel: string;
-          text: string;
-          title: string;
-        }>;
-        kind: 'cards';
-        lead: string;
-        note: string;
-        title: string;
-      } | {
-        id: string;
-        kind: 'text';
-        paragraphs: Array<string>;
-        title: string;
-      } | {
-        id: string;
-        items: Array<{
-          text: string;
-          title: string;
-        }>;
-        kind: 'steps';
-        lead: string;
-        link: string;
-        title: string;
-      } | {
-        id: string;
-        items: Array<string>;
-        kind: 'list';
-        text: string;
-        title: string;
-      } | {
-        id: string;
-        kind: 'trial';
-        link: string;
-        text: string;
-        title: string;
-      })>;
-      card: {
-        action: string;
-        eyebrow: string;
-        subtitle: string;
-      } | null;
-    } | null;
-    pageRejected: boolean;
-    presentation: string | null;
-    slug: string;
-    sourceId: string | null;
-    summary: string;
-    version: number;
-  }> {
-    return this.httpRequest.request({
-      method: 'POST',
-      url: '/authoring/import/guides/update',
-      body: requestBody,
-      mediaType: 'application/json',
-    });
-  }
-  /**
-   * validateSourceGuide
-   * @returns any
-   * @throws ApiError
-   */
-  public validateSourceGuide({
-    requestBody,
-  }: {
-    requestBody: {
-      source: {
-        page: {
-          blocks: Array<({
-            badge: string;
-            highlights: Array<string>;
-            id: string;
-            kind: 'hero';
-            lead: string;
-          } | {
-            eyebrow: string;
-            id: string;
-            items: Array<{
-              detail: string;
-              detailLabel: string;
-              text: string;
-              title: string;
-            }>;
-            kind: 'cards';
-            lead: string;
-            note: string;
-            title: string;
-          } | {
-            id: string;
-            kind: 'text';
-            paragraphs: Array<string>;
-            title: string;
-          } | {
-            id: string;
-            items: Array<{
-              text: string;
-              title: string;
-            }>;
-            kind: 'steps';
-            lead: string;
-            link: string;
-            title: string;
-          } | {
-            id: string;
-            items: Array<string>;
-            kind: 'list';
-            text: string;
-            title: string;
-          } | {
-            id: string;
-            kind: 'trial';
-            link: string;
-            text: string;
-            title: string;
-          })>;
-          card: {
-            action: string;
-            eyebrow: string;
-            subtitle: string;
-          } | null;
-        } | null;
-        presentation: 'default' | 'ai-first-process' | 'ai-engineering-course';
-        slug?: string;
-      };
-      sourceId: string;
-    },
-  }): CancelablePromise<{
-    valid: boolean;
-  }> {
-    return this.httpRequest.request({
-      method: 'POST',
-      url: '/authoring/import/guides/validate',
-      body: requestBody,
-      mediaType: 'application/json',
-    });
-  }
-  /**
    * Apply one selected source Material with optimistic version checking
    * @returns any
    * @throws ApiError
@@ -1526,7 +589,7 @@ export class MaterialAuthoringService {
       expectedContentVersion: number;
       materialId: string;
       metadata: {
-        access: 'free' | 'membership';
+        access: 'free' | 'closed';
         difficulty: 'basic' | 'intermediate' | 'advanced' | null;
         formatId: 'video' | 'guide' | 'note' | null;
         outcomes: Array<string>;
@@ -1621,7 +684,7 @@ export class MaterialAuthoringService {
         schemaVersion: 1;
       };
       metadata: {
-        access: 'free' | 'membership';
+        access: 'free' | 'closed';
         difficulty: 'basic' | 'intermediate' | 'advanced' | null;
         formatId: 'video' | 'guide' | 'note' | null;
         outcomes: Array<string>;
@@ -1761,6 +824,415 @@ export class MaterialAuthoringService {
     });
   }
   /**
+   * Create or update one authoring-owned artifact of a source Product from its package file
+   * @returns any
+   * @throws ApiError
+   */
+  public importSourceProductArtifact({
+    productId,
+    formData,
+  }: {
+    productId: string,
+    formData: {
+      access: 'free' | 'closed';
+      checksumSha256: string;
+      declaredSize: number;
+      file: Blob;
+      productSourceId: string;
+      purpose: string;
+      sourceId: string;
+      title: string;
+    },
+  }): CancelablePromise<{
+    artifactId: string;
+    outcome: 'created' | 'diverged' | 'missing' | 'unchanged' | 'updated';
+    sourceId: string | null;
+    title: string;
+  }> {
+    return this.httpRequest.request({
+      method: 'POST',
+      url: '/authoring/import/products/{productId}/artifacts',
+      path: {
+        'productId': productId,
+      },
+      formData: formData,
+      mediaType: 'multipart/form-data',
+    });
+  }
+  /**
+   * reorderSourceProduct
+   * @returns any
+   * @throws ApiError
+   */
+  public reorderSourceProduct({
+    requestBody,
+  }: {
+    requestBody: {
+      chapterAssignments?: Record<string, string>;
+      chapters?: Array<{
+        id: string;
+        name: string;
+        summary: string;
+      }>;
+      confirmedProductRemovals: Array<string>;
+      expectedOrderVersion: string;
+      orderedMaterialIds: Array<any>;
+      seriesId: any;
+      sourceId: string;
+      stepGroups?: Record<string, string>;
+    },
+  }): CancelablePromise<{
+    orderVersion: string;
+    seriesId: string;
+  }> {
+    return this.httpRequest.request({
+      method: 'POST',
+      url: '/authoring/import/products/composition',
+      body: requestBody,
+      mediaType: 'application/json',
+    });
+  }
+  /**
+   * reserveSourceProduct
+   * @returns any
+   * @throws ApiError
+   */
+  public reserveSourceProduct({
+    requestBody,
+  }: {
+    requestBody: {
+      name: string;
+      slug: string;
+      sourceId: string;
+      summary: string;
+    },
+  }): CancelablePromise<{
+    archived: boolean;
+    cover: {
+      coverId: string;
+      renditions: Array<{
+        height: number;
+        width: number;
+      }>;
+    } | null;
+    id: string;
+    introduction: {
+      audience: string;
+      outcome: string;
+      prerequisites: string;
+      scope: string;
+    } | null;
+    kind: 'product' | 'series' | 'topic';
+    materialCount: number;
+    name: string;
+    page: {
+      blocks: Array<({
+        badge: string;
+        highlights: Array<string>;
+        id: string;
+        kind: 'hero';
+        lead: string;
+      } | {
+        eyebrow: string;
+        id: string;
+        items: Array<{
+          detail: string;
+          detailLabel: string;
+          text: string;
+          title: string;
+        }>;
+        kind: 'cards';
+        lead: string;
+        note: string;
+        title: string;
+      } | {
+        id: string;
+        kind: 'text';
+        paragraphs: Array<string>;
+        title: string;
+      } | {
+        id: string;
+        items: Array<{
+          text: string;
+          title: string;
+        }>;
+        kind: 'steps';
+        lead: string;
+        link: string;
+        title: string;
+      } | {
+        id: string;
+        items: Array<string>;
+        kind: 'list';
+        text: string;
+        title: string;
+      } | {
+        id: string;
+        kind: 'trial';
+        link: string;
+        text: string;
+        title: string;
+      })>;
+      card: {
+        action: string;
+        eyebrow: string;
+        subtitle: string;
+      } | null;
+    } | null;
+    pageRejected: boolean;
+    presentation: string | null;
+    slug: string;
+    sourceId: string | null;
+    summary: string;
+    version: number;
+  }> {
+    return this.httpRequest.request({
+      method: 'POST',
+      url: '/authoring/import/products/reserve',
+      body: requestBody,
+      mediaType: 'application/json',
+    });
+  }
+  /**
+   * updateSourceProduct
+   * @returns any
+   * @throws ApiError
+   */
+  public updateSourceProduct({
+    requestBody,
+  }: {
+    requestBody: {
+      collectionId: any;
+      expectedVersion: number;
+      name: string;
+      source: {
+        page: {
+          blocks: Array<({
+            badge: string;
+            highlights: Array<string>;
+            id: string;
+            kind: 'hero';
+            lead: string;
+          } | {
+            eyebrow: string;
+            id: string;
+            items: Array<{
+              detail: string;
+              detailLabel: string;
+              text: string;
+              title: string;
+            }>;
+            kind: 'cards';
+            lead: string;
+            note: string;
+            title: string;
+          } | {
+            id: string;
+            kind: 'text';
+            paragraphs: Array<string>;
+            title: string;
+          } | {
+            id: string;
+            items: Array<{
+              text: string;
+              title: string;
+            }>;
+            kind: 'steps';
+            lead: string;
+            link: string;
+            title: string;
+          } | {
+            id: string;
+            items: Array<string>;
+            kind: 'list';
+            text: string;
+            title: string;
+          } | {
+            id: string;
+            kind: 'trial';
+            link: string;
+            text: string;
+            title: string;
+          })>;
+          card: {
+            action: string;
+            eyebrow: string;
+            subtitle: string;
+          } | null;
+        } | null;
+        presentation: 'default' | 'ai-first-process' | 'ai-engineering-course';
+        slug: string;
+      };
+      sourceId: string;
+      summary: string;
+    },
+  }): CancelablePromise<{
+    archived: boolean;
+    cover: {
+      coverId: string;
+      renditions: Array<{
+        height: number;
+        width: number;
+      }>;
+    } | null;
+    id: string;
+    introduction: {
+      audience: string;
+      outcome: string;
+      prerequisites: string;
+      scope: string;
+    } | null;
+    kind: 'product' | 'series' | 'topic';
+    materialCount: number;
+    name: string;
+    page: {
+      blocks: Array<({
+        badge: string;
+        highlights: Array<string>;
+        id: string;
+        kind: 'hero';
+        lead: string;
+      } | {
+        eyebrow: string;
+        id: string;
+        items: Array<{
+          detail: string;
+          detailLabel: string;
+          text: string;
+          title: string;
+        }>;
+        kind: 'cards';
+        lead: string;
+        note: string;
+        title: string;
+      } | {
+        id: string;
+        kind: 'text';
+        paragraphs: Array<string>;
+        title: string;
+      } | {
+        id: string;
+        items: Array<{
+          text: string;
+          title: string;
+        }>;
+        kind: 'steps';
+        lead: string;
+        link: string;
+        title: string;
+      } | {
+        id: string;
+        items: Array<string>;
+        kind: 'list';
+        text: string;
+        title: string;
+      } | {
+        id: string;
+        kind: 'trial';
+        link: string;
+        text: string;
+        title: string;
+      })>;
+      card: {
+        action: string;
+        eyebrow: string;
+        subtitle: string;
+      } | null;
+    } | null;
+    pageRejected: boolean;
+    presentation: string | null;
+    slug: string;
+    sourceId: string | null;
+    summary: string;
+    version: number;
+  }> {
+    return this.httpRequest.request({
+      method: 'POST',
+      url: '/authoring/import/products/update',
+      body: requestBody,
+      mediaType: 'application/json',
+    });
+  }
+  /**
+   * validateSourceProduct
+   * @returns any
+   * @throws ApiError
+   */
+  public validateSourceProduct({
+    requestBody,
+  }: {
+    requestBody: {
+      source: {
+        page: {
+          blocks: Array<({
+            badge: string;
+            highlights: Array<string>;
+            id: string;
+            kind: 'hero';
+            lead: string;
+          } | {
+            eyebrow: string;
+            id: string;
+            items: Array<{
+              detail: string;
+              detailLabel: string;
+              text: string;
+              title: string;
+            }>;
+            kind: 'cards';
+            lead: string;
+            note: string;
+            title: string;
+          } | {
+            id: string;
+            kind: 'text';
+            paragraphs: Array<string>;
+            title: string;
+          } | {
+            id: string;
+            items: Array<{
+              text: string;
+              title: string;
+            }>;
+            kind: 'steps';
+            lead: string;
+            link: string;
+            title: string;
+          } | {
+            id: string;
+            items: Array<string>;
+            kind: 'list';
+            text: string;
+            title: string;
+          } | {
+            id: string;
+            kind: 'trial';
+            link: string;
+            text: string;
+            title: string;
+          })>;
+          card: {
+            action: string;
+            eyebrow: string;
+            subtitle: string;
+          } | null;
+        } | null;
+        presentation: 'default' | 'ai-first-process' | 'ai-engineering-course';
+        slug?: string;
+      };
+      sourceId: string;
+    },
+  }): CancelablePromise<{
+    valid: boolean;
+  }> {
+    return this.httpRequest.request({
+      method: 'POST',
+      url: '/authoring/import/products/validate',
+      body: requestBody,
+      mediaType: 'application/json',
+    });
+  }
+  /**
    * List the complete Material authoring corpus
    * @returns any
    * @throws ApiError
@@ -1821,7 +1293,7 @@ export class MaterialAuthoringService {
         schemaVersion: 1;
       };
       metadata: {
-        access: 'free' | 'membership';
+        access: 'free' | 'closed';
         difficulty: 'basic' | 'intermediate' | 'advanced' | null;
         formatId: 'video' | 'guide' | 'note' | null;
         outcomes: Array<string>;
@@ -1913,7 +1385,7 @@ export class MaterialAuthoringService {
     } | null;
     materialId: string;
     metadata: {
-      access: 'free' | 'membership';
+      access: 'free' | 'closed';
       difficulty: 'basic' | 'intermediate' | 'advanced' | null;
       formatId: 'video' | 'guide' | 'note' | null;
       outcomes: Array<string>;
@@ -1978,12 +1450,12 @@ export class MaterialAuthoringService {
         doc: Record<string, any>;
         schemaVersion: 1;
       };
-      confirmedGuideRemovals?: Array<string>;
+      confirmedProductRemovals?: Array<string>;
       deleteVideoId: string | null;
       detachVideoIds: Array<string>;
       expectedContentVersion: number;
       metadata: {
-        access: 'free' | 'membership';
+        access: 'free' | 'closed';
         difficulty: 'basic' | 'intermediate' | 'advanced' | null;
         formatId: 'video' | 'guide' | 'note' | null;
         outcomes: Array<string>;
@@ -2078,7 +1550,7 @@ export class MaterialAuthoringService {
     contentVersion: number;
     materialId: string;
     metadata: {
-      access: 'free' | 'membership';
+      access: 'free' | 'closed';
       difficulty: 'basic' | 'intermediate' | 'advanced' | null;
       formatId: 'video' | 'guide' | 'note' | null;
       outcomes: Array<string>;
@@ -2215,6 +1687,534 @@ export class MaterialAuthoringService {
     });
   }
   /**
+   * List every active artifact an author may reuse in another Product
+   * @returns any
+   * @throws ApiError
+   */
+  public listReusableProductArtifacts(): CancelablePromise<{
+    artifacts: Array<{
+      access: 'free' | 'closed';
+      archived: boolean;
+      artifactId: string;
+      content: ({
+        contentType: string;
+        filename: string;
+        kind: 'file';
+        size: number;
+      } | {
+        externalUrl: string;
+        kind: 'link';
+      });
+      materialIds: Array<string>;
+      origin: 'authoring' | 'platform';
+      productIds: Array<string>;
+      purpose: string;
+      sourceId: string | null;
+      title: string;
+      updatedAt: string;
+      version: number;
+    }>;
+  }> {
+    return this.httpRequest.request({
+      method: 'GET',
+      url: '/authoring/product-artifacts',
+    });
+  }
+  /**
+   * Remove one Product Artifact that no Product or Material still references
+   * @returns any
+   * @throws ApiError
+   */
+  public removeProductArtifact({
+    artifactId,
+  }: {
+    artifactId: string,
+  }): CancelablePromise<{
+    artifactId: string;
+  }> {
+    return this.httpRequest.request({
+      method: 'DELETE',
+      url: '/authoring/product-artifacts/{artifactId}',
+      path: {
+        'artifactId': artifactId,
+      },
+    });
+  }
+  /**
+   * Change the name, purpose or access class of one Product Artifact
+   * @returns any
+   * @throws ApiError
+   */
+  public updateProductArtifact({
+    artifactId,
+    requestBody,
+  }: {
+    artifactId: string,
+    requestBody: {
+      access: 'free' | 'closed';
+      purpose: string;
+      title: string;
+    },
+  }): CancelablePromise<{
+    access: 'free' | 'closed';
+    archived: boolean;
+    artifactId: string;
+    content: ({
+      contentType: string;
+      filename: string;
+      kind: 'file';
+      size: number;
+    } | {
+      externalUrl: string;
+      kind: 'link';
+    });
+    materialIds: Array<string>;
+    origin: 'authoring' | 'platform';
+    productIds: Array<string>;
+    purpose: string;
+    sourceId: string | null;
+    title: string;
+    updatedAt: string;
+    version: number;
+  }> {
+    return this.httpRequest.request({
+      method: 'PATCH',
+      url: '/authoring/product-artifacts/{artifactId}',
+      path: {
+        'artifactId': artifactId,
+      },
+      body: requestBody,
+      mediaType: 'application/json',
+    });
+  }
+  /**
+   * Archive one Product Artifact or return it from the archive
+   * @returns any
+   * @throws ApiError
+   */
+  public setProductArtifactArchived({
+    artifactId,
+    requestBody,
+  }: {
+    artifactId: string,
+    requestBody: {
+      archived: boolean;
+    },
+  }): CancelablePromise<{
+    access: 'free' | 'closed';
+    archived: boolean;
+    artifactId: string;
+    content: ({
+      contentType: string;
+      filename: string;
+      kind: 'file';
+      size: number;
+    } | {
+      externalUrl: string;
+      kind: 'link';
+    });
+    materialIds: Array<string>;
+    origin: 'authoring' | 'platform';
+    productIds: Array<string>;
+    purpose: string;
+    sourceId: string | null;
+    title: string;
+    updatedAt: string;
+    version: number;
+  }> {
+    return this.httpRequest.request({
+      method: 'PUT',
+      url: '/authoring/product-artifacts/{artifactId}/archive',
+      path: {
+        'artifactId': artifactId,
+      },
+      body: requestBody,
+      mediaType: 'application/json',
+    });
+  }
+  /**
+   * Replace the artifact content with a new external address version
+   * @returns any
+   * @throws ApiError
+   */
+  public replaceProductArtifactLink({
+    artifactId,
+    requestBody,
+  }: {
+    artifactId: string,
+    requestBody: {
+      externalUrl: string;
+    },
+  }): CancelablePromise<{
+    access: 'free' | 'closed';
+    archived: boolean;
+    artifactId: string;
+    content: ({
+      contentType: string;
+      filename: string;
+      kind: 'file';
+      size: number;
+    } | {
+      externalUrl: string;
+      kind: 'link';
+    });
+    materialIds: Array<string>;
+    origin: 'authoring' | 'platform';
+    productIds: Array<string>;
+    purpose: string;
+    sourceId: string | null;
+    title: string;
+    updatedAt: string;
+    version: number;
+  }> {
+    return this.httpRequest.request({
+      method: 'PUT',
+      url: '/authoring/product-artifacts/{artifactId}/link',
+      path: {
+        'artifactId': artifactId,
+      },
+      body: requestBody,
+      mediaType: 'application/json',
+    });
+  }
+  /**
+   * Set the Materials one artifact belongs with inside its Products
+   * @returns any
+   * @throws ApiError
+   */
+  public setProductArtifactMaterials({
+    artifactId,
+    requestBody,
+  }: {
+    artifactId: string,
+    requestBody: {
+      materialIds: Array<string>;
+    },
+  }): CancelablePromise<{
+    access: 'free' | 'closed';
+    archived: boolean;
+    artifactId: string;
+    content: ({
+      contentType: string;
+      filename: string;
+      kind: 'file';
+      size: number;
+    } | {
+      externalUrl: string;
+      kind: 'link';
+    });
+    materialIds: Array<string>;
+    origin: 'authoring' | 'platform';
+    productIds: Array<string>;
+    purpose: string;
+    sourceId: string | null;
+    title: string;
+    updatedAt: string;
+    version: number;
+  }> {
+    return this.httpRequest.request({
+      method: 'PUT',
+      url: '/authoring/product-artifacts/{artifactId}/materials',
+      path: {
+        'artifactId': artifactId,
+      },
+      body: requestBody,
+      mediaType: 'application/json',
+    });
+  }
+  /**
+   * Set the Products that reuse one artifact without copying it
+   * @returns any
+   * @throws ApiError
+   */
+  public setProductArtifactProducts({
+    artifactId,
+    requestBody,
+  }: {
+    artifactId: string,
+    requestBody: {
+      productIds: Array<string>;
+    },
+  }): CancelablePromise<{
+    access: 'free' | 'closed';
+    archived: boolean;
+    artifactId: string;
+    content: ({
+      contentType: string;
+      filename: string;
+      kind: 'file';
+      size: number;
+    } | {
+      externalUrl: string;
+      kind: 'link';
+    });
+    materialIds: Array<string>;
+    origin: 'authoring' | 'platform';
+    productIds: Array<string>;
+    purpose: string;
+    sourceId: string | null;
+    title: string;
+    updatedAt: string;
+    version: number;
+  }> {
+    return this.httpRequest.request({
+      method: 'PUT',
+      url: '/authoring/product-artifacts/{artifactId}/products',
+      path: {
+        'artifactId': artifactId,
+      },
+      body: requestBody,
+      mediaType: 'application/json',
+    });
+  }
+  /**
+   * Replace the artifact content with a new uploaded file version
+   * @returns any
+   * @throws ApiError
+   */
+  public replaceProductArtifactFile({
+    formData,
+  }: {
+    formData: {
+      artifactId: string;
+      checksumSha256: string;
+      declaredSize: number;
+      file: Blob;
+    },
+  }): CancelablePromise<{
+    access: 'free' | 'closed';
+    archived: boolean;
+    artifactId: string;
+    content: ({
+      contentType: string;
+      filename: string;
+      kind: 'file';
+      size: number;
+    } | {
+      externalUrl: string;
+      kind: 'link';
+    });
+    materialIds: Array<string>;
+    origin: 'authoring' | 'platform';
+    productIds: Array<string>;
+    purpose: string;
+    sourceId: string | null;
+    title: string;
+    updatedAt: string;
+    version: number;
+  }> {
+    return this.httpRequest.request({
+      method: 'PUT',
+      url: '/authoring/product-artifacts/file',
+      formData: formData,
+      mediaType: 'multipart/form-data',
+    });
+  }
+  /**
+   * Create one Product Artifact from an uploaded file
+   * @returns any
+   * @throws ApiError
+   */
+  public createProductArtifactFromFile({
+    formData,
+  }: {
+    formData: {
+      access: 'free' | 'closed';
+      checksumSha256: string;
+      declaredSize: number;
+      file: Blob;
+      productId: string;
+      purpose: string;
+      title: string;
+    },
+  }): CancelablePromise<{
+    access: 'free' | 'closed';
+    archived: boolean;
+    artifactId: string;
+    content: ({
+      contentType: string;
+      filename: string;
+      kind: 'file';
+      size: number;
+    } | {
+      externalUrl: string;
+      kind: 'link';
+    });
+    materialIds: Array<string>;
+    origin: 'authoring' | 'platform';
+    productIds: Array<string>;
+    purpose: string;
+    sourceId: string | null;
+    title: string;
+    updatedAt: string;
+    version: number;
+  }> {
+    return this.httpRequest.request({
+      method: 'POST',
+      url: '/authoring/product-artifacts/files',
+      formData: formData,
+      mediaType: 'multipart/form-data',
+    });
+  }
+  /**
+   * Create one Product Artifact that points at an explicit external address
+   * @returns any
+   * @throws ApiError
+   */
+  public createProductArtifactFromLink({
+    requestBody,
+  }: {
+    requestBody: {
+      access: 'free' | 'closed';
+      externalUrl: string;
+      productId: string;
+      purpose: string;
+      title: string;
+    },
+  }): CancelablePromise<{
+    access: 'free' | 'closed';
+    archived: boolean;
+    artifactId: string;
+    content: ({
+      contentType: string;
+      filename: string;
+      kind: 'file';
+      size: number;
+    } | {
+      externalUrl: string;
+      kind: 'link';
+    });
+    materialIds: Array<string>;
+    origin: 'authoring' | 'platform';
+    productIds: Array<string>;
+    purpose: string;
+    sourceId: string | null;
+    title: string;
+    updatedAt: string;
+    version: number;
+  }> {
+    return this.httpRequest.request({
+      method: 'POST',
+      url: '/authoring/product-artifacts/links',
+      body: requestBody,
+      mediaType: 'application/json',
+    });
+  }
+  /**
+   * List the artifacts placed in one Product
+   * @returns any
+   * @throws ApiError
+   */
+  public listAuthoringProductArtifacts({
+    productId,
+  }: {
+    productId: string,
+  }): CancelablePromise<{
+    artifacts: Array<{
+      access: 'free' | 'closed';
+      archived: boolean;
+      artifactId: string;
+      content: ({
+        contentType: string;
+        filename: string;
+        kind: 'file';
+        size: number;
+      } | {
+        externalUrl: string;
+        kind: 'link';
+      });
+      materialIds: Array<string>;
+      origin: 'authoring' | 'platform';
+      productIds: Array<string>;
+      purpose: string;
+      sourceId: string | null;
+      title: string;
+      updatedAt: string;
+      version: number;
+    }>;
+  }> {
+    return this.httpRequest.request({
+      method: 'GET',
+      url: '/authoring/products/{productId}/artifacts',
+      path: {
+        'productId': productId,
+      },
+    });
+  }
+  /**
+   * Load the current Material order for a Product
+   * @returns any
+   * @throws ApiError
+   */
+  public loadAuthoringProductOrder({
+    productId,
+  }: {
+    productId: string,
+  }): CancelablePromise<{
+    archived: boolean;
+    chapters: Array<{
+      id: string;
+      name: string;
+      ordinal: number;
+      summary: string;
+    }>;
+    items: Array<{
+      chapterId: string | null;
+      materialId: string;
+      ordinal: number;
+      publicationState: 'draft' | 'published' | 'unpublished';
+      stepGroup: string | null;
+      title: string | null;
+    }>;
+    name: string;
+    orderVersion: string;
+    seriesId: string;
+  }> {
+    return this.httpRequest.request({
+      method: 'GET',
+      url: '/authoring/products/{productId}/order',
+      path: {
+        'productId': productId,
+      },
+    });
+  }
+  /**
+   * Replace the Material order for a Product
+   * @returns any
+   * @throws ApiError
+   */
+  public reorderAuthoringProduct({
+    productId,
+    requestBody,
+  }: {
+    productId: string,
+    requestBody: {
+      chapterAssignments?: Record<string, string>;
+      chapters?: Array<{
+        id: string;
+        name: string;
+        summary: string;
+      }>;
+      confirmedProductRemovals?: Array<string>;
+      expectedOrderVersion: string;
+      orderedMaterialIds: Array<string>;
+      stepGroups?: Record<string, string>;
+    },
+  }): CancelablePromise<{
+    orderVersion: string;
+    seriesId: string;
+  }> {
+    return this.httpRequest.request({
+      method: 'PUT',
+      url: '/authoring/products/{productId}/order',
+      path: {
+        'productId': productId,
+      },
+      body: requestBody,
+      mediaType: 'application/json',
+    });
+  }
+  /**
    * @deprecated
    * Load the current Material order for a Series
    * @returns any
@@ -2270,7 +2270,7 @@ export class MaterialAuthoringService {
         name: string;
         summary: string;
       }>;
-      confirmedGuideRemovals?: Array<string>;
+      confirmedProductRemovals?: Array<string>;
       expectedOrderVersion: string;
       orderedMaterialIds: Array<string>;
       stepGroups?: Record<string, string>;

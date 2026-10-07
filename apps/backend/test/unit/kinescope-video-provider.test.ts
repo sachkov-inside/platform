@@ -47,7 +47,7 @@ describe("Kinescope VideoProvider adapter", () => {
 
     await expect(
       provider.initUpload({
-        access: "membership",
+        access: "closed",
         byteSize: 42,
         filename: "lesson.mp4",
         projectId: "member-project",

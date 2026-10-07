@@ -1,6 +1,6 @@
 import type { TaskSubmissions } from "@/_pages/task-submissions/model/task-submissions";
 
-const guideId = "00000000-0000-4000-8000-000000000948";
+const productId = "00000000-0000-4000-8000-000000000948";
 const firstChapter = "00000000-0000-4000-8000-000000000949";
 const secondChapter = "00000000-0000-4000-8000-000000000950";
 
@@ -27,9 +27,9 @@ const criteria = [
 
 /** Two submissions of chapter 1 and one of chapter 2: an agent's report, a form, feedback. */
 export const reviewedSubmissions: TaskSubmissions = {
-  guides: [
+  products: [
     {
-      id: guideId,
+      id: productId,
       name: "AI Engineering",
       chapters: [
         {
@@ -53,8 +53,8 @@ export const reviewedSubmissions: TaskSubmissions = {
       task: {
         code: "aie-ch1-onboarding",
         title: "Онбординг команды",
-        guideId,
-        guideName: "AI Engineering",
+        productId,
+        productName: "AI Engineering",
         chapterId: firstChapter,
         chapterName: "Глава 1. Онбординг",
         currentVersion: 2,
@@ -108,8 +108,8 @@ export const reviewedSubmissions: TaskSubmissions = {
       task: {
         code: "aie-ch2-requests",
         title: "Заявки клиентов",
-        guideId,
-        guideName: "AI Engineering",
+        productId,
+        productName: "AI Engineering",
         chapterId: secondChapter,
         chapterName: "Глава 2. Заявки",
         currentVersion: 1,
@@ -141,8 +141,8 @@ export const reviewedSubmissions: TaskSubmissions = {
       task: {
         code: "aie-ch1-onboarding",
         title: "Онбординг команды",
-        guideId,
-        guideName: "AI Engineering",
+        productId,
+        productName: "AI Engineering",
         chapterId: firstChapter,
         chapterName: "Глава 1. Онбординг",
         currentVersion: 2,
@@ -204,5 +204,5 @@ export const reviewedSubmissions: TaskSubmissions = {
   nextCursor: null,
 };
 
-export const submissionsGuideId = guideId;
+export const submissionsProductId = productId;
 export const submissionsSecondChapter = secondChapter;

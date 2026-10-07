@@ -36,17 +36,17 @@ describe("матрица проверок доступа", () => {
     expect(
       checkAccessCheckMatrix(brokenAccessCheckMatrix, readRepositoryFile),
     ).toEqual([
-      "learner-guide-a/read-guide-a/body@facade-postgresql cites unknown scenario cell product-material/gift-certificate",
-      "learner-guide-a/read-guide-a/body@nest-http cites a missing test: apps/backend/test/integration/scoped-access-http.test.ts › scoped Account access over Nest HTTP",
-      "learner-guide-a/read-guide-a/body@learner-mcp cites a missing file: apps/backend/test/integration/no-such-file.test.ts",
-      "learner-guide-a/read-guide-a/body@web-bff cites the production pass outside production",
-      "learner-guide-a/read-guide-a/body@production cites a local test as production evidence",
-      "learner-guide-a/read-guide-b/body@facade-postgresql relies on web-bff, which has no test",
-      "learner-guide-a/read-guide-b/body@web-bff is not applicable without a reason",
-      "learner-guide-a/read-guide-b/body misses level production",
-      "duplicate row learner-guide-a/read-guide-b/body",
-      "row teacher/read-guide-a/body names unknown state teacher",
-      "teacher/read-guide-a/body@production has no cell in the production pass",
+      "learner-product-a/read-product-a/body@facade-postgresql cites unknown scenario cell product-material/gift-certificate",
+      "learner-product-a/read-product-a/body@nest-http cites a missing test: apps/backend/test/integration/scoped-access-http.test.ts › scoped Account access over Nest HTTP",
+      "learner-product-a/read-product-a/body@learner-mcp cites a missing file: apps/backend/test/integration/no-such-file.test.ts",
+      "learner-product-a/read-product-a/body@web-bff cites the production pass outside production",
+      "learner-product-a/read-product-a/body@production cites a local test as production evidence",
+      "learner-product-a/read-product-b/body@facade-postgresql relies on web-bff, which has no test",
+      "learner-product-a/read-product-b/body@web-bff is not applicable without a reason",
+      "learner-product-a/read-product-b/body misses level production",
+      "duplicate row learner-product-a/read-product-b/body",
+      "row teacher/read-product-a/body names unknown state teacher",
+      "teacher/read-product-a/body@production has no cell in the production pass",
       "state revoked has no row",
     ]);
   });

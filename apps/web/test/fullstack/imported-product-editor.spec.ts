@@ -17,9 +17,9 @@ test("imported product opens read-only in the editor and lets the author leave",
       writes.push(`${request.method()} ${pathname}`);
   });
 
-  await page.goto("/authoring/guides");
+  await page.goto("/authoring/products");
   await page.getByRole("link", { name: /^Synthetic practice/u }).click();
-  await expect(page).toHaveURL(/\/authoring\/guides\/[a-f0-9-]{36}$/u);
+  await expect(page).toHaveURL(/\/authoring\/products\/[a-f0-9-]{36}$/u);
 
   await expect(page.getByRole("note")).toContainText(
     "Продукт перенесён из источника.",
@@ -41,6 +41,6 @@ test("imported product opens read-only in the editor and lets the author leave",
     await expect(page.getByRole("button", { name })).toHaveCount(0);
 
   await page.getByRole("button", { name: "Все продукты" }).click();
-  await expect(page).toHaveURL(/\/authoring\/guides$/u);
+  await expect(page).toHaveURL(/\/authoring\/products$/u);
   expect(writes).toEqual([]);
 });

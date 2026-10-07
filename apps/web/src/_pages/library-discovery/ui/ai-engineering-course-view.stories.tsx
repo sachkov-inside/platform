@@ -1,10 +1,10 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { expect, within } from "storybook/test";
 
-import type { GuideCohort } from "@/entities/subscription";
+import type { ProductCohort } from "@/entities/subscription";
 import { CohortCallView } from "@/features/ai-engineering-course";
 import { homeMaterialReaderReturnTarget } from "@/shared/routing/material-reader";
-import { guideWithSupportOffer } from "@/storybook/billing.fixtures";
+import { productWithSupportOffer } from "@/storybook/billing.fixtures";
 import {
   aiEngineeringCourseChapters,
   aiEngineeringCoursePage,
@@ -12,7 +12,7 @@ import {
 import { publicPageEnvironment } from "@/storybook/story-environment";
 
 import { cohortCall } from "../model/cohort-call";
-import { GuideProductView } from "./guide-product-view";
+import { ProductLandingView } from "./product-landing-view";
 
 const environment = publicPageEnvironment("/products/ai-engineering");
 
@@ -33,8 +33,8 @@ const heroCallWithoutCohort = (
 );
 const meta = {
   ...environment,
-  component: GuideProductView,
-  title: "Pages/Guide/AI Engineering",
+  component: ProductLandingView,
+  title: "Pages/Product/AI Engineering",
   args: {
     heroCall: heroCallWithoutCohort,
     returnTarget: homeMaterialReaderReturnTarget,
@@ -55,7 +55,7 @@ const meta = {
       },
     },
   },
-} satisfies Meta<typeof GuideProductView>;
+} satisfies Meta<typeof ProductLandingView>;
 export default meta;
 type Story = StoryObj<typeof meta>;
 
@@ -171,8 +171,8 @@ export const Mobile: Story = {
   globals: { viewport: { value: "mobile390", isRotated: false } },
 };
 
-const cohort: GuideCohort = {
-  guideId: "00000000-0000-4000-8000-000000000814",
+const cohort: ProductCohort = {
+  productId: "00000000-0000-4000-8000-000000000814",
   revision: 1,
   name: "Поток 1",
   stage: "preorder",
@@ -188,7 +188,7 @@ export const CohortPreorder: Story = {
       <CohortCallView
         call={cohortCall({
           cohort,
-          offer: guideWithSupportOffer,
+          offer: productWithSupportOffer,
           productAccess: "closed",
           signedIn: true,
           slug: "ai-engineering",
@@ -220,7 +220,7 @@ export const CohortAnnouncement: Story = {
       <CohortCallView
         call={cohortCall({
           cohort: { ...cohort, stage: "announcement" },
-          offer: guideWithSupportOffer,
+          offer: productWithSupportOffer,
           productAccess: "closed",
           signedIn: false,
           slug: "ai-engineering",
@@ -252,7 +252,7 @@ export const CohortBetween: Story = {
             startsOn: null,
             nextEvent: "эфир 15 декабря",
           },
-          offer: guideWithSupportOffer,
+          offer: productWithSupportOffer,
           productAccess: "closed",
           signedIn: true,
           slug: "ai-engineering",

@@ -14,8 +14,8 @@ import { Button } from "@/shared/ui/button";
 import { useRepeatableOperations } from "@/shared/lib/repeatable-operations.client";
 import {
   lookupSubscriptionRecipient,
-  assignSubscriptionEnrollment,
-  changeSubscriptionEnrollment,
+  assignTariffAssignment,
+  changeTariffAssignment,
   listSubscriptionTiers,
 } from "../api/enrollments.browser";
 import {
@@ -52,7 +52,7 @@ export function EnrollmentAdminPanel() {
   });
   const assignments = useOwnerEnrollments(target);
   const assign = useMutation({
-    mutationFn: assignSubscriptionEnrollment,
+    mutationFn: assignTariffAssignment,
     onSuccess: (result) => {
       if (!result.ok) {
         setError(billingErrorMessage(result.code));
@@ -67,7 +67,7 @@ export function EnrollmentAdminPanel() {
     },
   });
   const change = useMutation({
-    mutationFn: changeSubscriptionEnrollment,
+    mutationFn: changeTariffAssignment,
     onSuccess: (result) => {
       if (!result.ok) {
         setError(billingErrorMessage(result.code));

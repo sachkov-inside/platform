@@ -23,13 +23,13 @@ describe("Content Library discovery", () => {
       where: { slug: "platform" },
       data: { summary: "Platform boundaries, delivery and operations." },
     });
-    await testDatabase.prisma.guide.update({
+    await testDatabase.prisma.product.update({
       where: { slug: "platform-inside" },
       data: {
         audience: "Engineers who own a product surface end to end.",
         outcome: "Ship a working slice of the platform in a deliberate order.",
         prerequisites: "Comfort with Git and a running local stack.",
-        scope: "One product surface; operations stay outside this Guide.",
+        scope: "One product surface; operations stay outside this Product.",
         summary: "Build the platform in a deliberate order.",
       },
     });
@@ -111,7 +111,7 @@ describe("Content Library discovery", () => {
       throw new Error("Expected a second published Topic Material");
     }
     const beyondPageSeriesId = "75000000-0000-4000-8000-000000000010";
-    await testDatabase.prisma.guide.create({
+    await testDatabase.prisma.product.create({
       data: {
         id: beyondPageSeriesId,
         name: "Beyond first page",
@@ -120,14 +120,14 @@ describe("Content Library discovery", () => {
       },
     });
     await Promise.all([
-      testDatabase.prisma.guideMembership.create({
+      testDatabase.prisma.productMembership.create({
         data: {
           materialId: target.materialId,
           ordinal: 1,
           seriesId: beyondPageSeriesId,
         },
       }),
-      testDatabase.prisma.publishedMaterialGuideMembership.create({
+      testDatabase.prisma.publishedMaterialProductMembership.create({
         data: {
           materialId: target.materialId,
           ordinal: 1,
@@ -193,7 +193,7 @@ describe("Content Library discovery", () => {
             outcome:
               "Ship a working slice of the platform in a deliberate order.",
             prerequisites: "Comfort with Git and a running local stack.",
-            scope: "One product surface; operations stay outside this Guide.",
+            scope: "One product surface; operations stay outside this Product.",
           },
           name: "Создание Platform Inside",
           slug: "platform-inside",
@@ -350,7 +350,7 @@ describe("Content Library discovery", () => {
     });
   });
 
-  test("hides archived Guides from guest discovery while canonical Topics remain readable", async () => {
+  test("hides archived Products from guest discovery while canonical Topics remain readable", async () => {
     const { contentAccess, publishedMaterialReader } = assembleMaterials({
       prisma: testDatabase.prisma,
       authorPolicy: { canManage: () => false },
@@ -360,7 +360,7 @@ describe("Content Library discovery", () => {
         where: { slug: "platform" },
         data: { archivedAt: new Date() },
       }),
-      testDatabase.prisma.guide.update({
+      testDatabase.prisma.product.update({
         where: { slug: "platform-inside" },
         data: { archivedAt: new Date() },
       }),
@@ -457,7 +457,7 @@ describe("Content Library discovery", () => {
           where: { slug: "platform" },
           data: { archivedAt: null },
         }),
-        testDatabase.prisma.guide.update({
+        testDatabase.prisma.product.update({
           where: { slug: "platform-inside" },
           data: { archivedAt: null },
         }),

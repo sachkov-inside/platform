@@ -1,12 +1,14 @@
+import {
+  botEnrollmentSchema,
+  botActivationOutcomeSchema,
+  botOwnAccessGroundSchema,
+} from "./bot-domain-names.js";
 import { z } from "zod";
 import {
   bindingSnapshotSchema,
-  activationOutcomeSchema,
   ACTIVATION_CONTRACT_VERSION,
-  enrollmentViewSchema,
-  ownAccessGroundSchema,
   invitationRedemptionOutcomeSchema,
-} from "../../membership-entitlements/index.js";
+} from "../../account-rights/index.js";
 import { ownAdmissionSchema } from "./community-entitlement.js";
 export const activationFailureSchema = z.strictObject({
   ok: z.literal(false),
@@ -25,7 +27,7 @@ export const activationFailureSchema = z.strictObject({
   }),
 });
 export const activationResponseSchema = z.union([
-  z.strictObject({ ok: z.literal(true), value: activationOutcomeSchema }),
+  z.strictObject({ ok: z.literal(true), value: botActivationOutcomeSchema }),
   activationFailureSchema,
 ]);
 export const bindingLookupResponseSchema = z.union([
@@ -55,8 +57,8 @@ export const ownSubscriptionAccessResponseSchema = z.union([
     ok: z.literal(true),
     value: z.strictObject({
       contractVersion: z.literal(ACTIVATION_CONTRACT_VERSION),
-      enrollments: z.array(enrollmentViewSchema),
-      grounds: z.array(ownAccessGroundSchema),
+      enrollments: z.array(botEnrollmentSchema),
+      grounds: z.array(botOwnAccessGroundSchema),
       admission: ownAdmissionSchema,
     }),
   }),

@@ -162,7 +162,7 @@ export const NoSubscription: Story = {
     ).toBeInTheDocument();
     await expect(
       page.getByRole("link", { name: "Посмотреть тарифы" }),
-    ).toHaveAttribute("href", "/subscription");
+    ).toHaveAttribute("href", "/payment/checkout");
     await expect(
       await page.findByText("Действующего права на сообщество нет."),
     ).toBeInTheDocument();

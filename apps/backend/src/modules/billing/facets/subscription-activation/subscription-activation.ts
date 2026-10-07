@@ -10,14 +10,14 @@ import {
   type AccessGrants,
   type ActivationBindings,
   type RecipientLinks,
-} from "../../../membership-entitlements/index.js";
+} from "../../../account-rights/index.js";
 import {
   ACTIVATION_CONTRACT_VERSION,
   invitationRedemptionOutcomeSchema,
   redeemInvitationSchema,
   type InvitationOffer,
   type InvitationRedemptionOutcome,
-} from "../../../membership-entitlements/index.js";
+} from "../../../account-rights/index.js";
 import { offerCheckoutPath } from "../../domain/offer-checkout.js";
 import {
   isProductOffer,
@@ -27,7 +27,7 @@ import {
 import {
   bindingLookupQuerySchema,
   bindingSnapshotSchema,
-} from "../../../membership-entitlements/index.js";
+} from "../../../account-rights/index.js";
 export class SubscriptionActivation {
   constructor(
     private readonly dependencies: {
@@ -301,7 +301,7 @@ export class SubscriptionActivation {
           name: row.name,
           benefits: row.benefits,
           benefitPeriods: row.benefitPeriods,
-          contentScope: row.contentScope ?? { guideIds: [], materialIds: [] },
+          coverage: row.coverage ?? { productIds: [], materialIds: [] },
         },
       );
     });

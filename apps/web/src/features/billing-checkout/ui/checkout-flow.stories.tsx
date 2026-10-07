@@ -3,8 +3,8 @@ import { expect, fn, userEvent, waitFor, within } from "storybook/test";
 
 import type { BillingQuote } from "@/entities/subscription";
 import {
-  guideOnlyOffer,
-  guideQuote,
+  productOnlyOffer,
+  productQuote,
   legalDocuments,
   verifiedContact,
 } from "@/storybook/billing.fixtures";
@@ -24,7 +24,7 @@ const editionReplaced = fetchBeforeRender((input) => {
   const path = new URL(target, window.location.origin).pathname;
   requestPath(path);
   if (path === "/api/account/billing/quote")
-    return Promise.resolve(Response.json({ ok: true, value: guideQuote }));
+    return Promise.resolve(Response.json({ ok: true, value: productQuote }));
   if (path === "/api/account/billing/consents")
     return Promise.resolve(
       Response.json({ ok: false, code: "document_changed" }),
@@ -34,10 +34,10 @@ const editionReplaced = fetchBeforeRender((input) => {
 
 const meta = {
   ...environment,
-  title: "Pages/Guide/Payment/Flow",
+  title: "Pages/Product/Payment/Flow",
   component: CheckoutFlow,
   args: {
-    snapshot: guideOnlyOffer,
+    snapshot: productOnlyOffer,
     contact: verifiedContact,
     documents: legalDocuments,
     contactHref: "/account/email",
@@ -101,14 +101,14 @@ function personalLinkQuote(promotion: BillingQuote["snapshot"]["promotion"]) {
         Response.json({
           ok: true,
           value: {
-            ...guideQuote,
+            ...productQuote,
             snapshot: {
-              ...guideQuote.snapshot,
+              ...productQuote.snapshot,
               promotion,
               firstPriceKopecks:
                 promotion === null
-                  ? guideQuote.snapshot.firstPriceKopecks
-                  : guideQuote.snapshot.firstPriceKopecks / 2,
+                  ? productQuote.snapshot.firstPriceKopecks
+                  : productQuote.snapshot.firstPriceKopecks / 2,
             },
           },
         }),

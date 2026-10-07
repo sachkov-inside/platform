@@ -35,7 +35,7 @@ runtime into application modules.
 - Resource indicator binds the token to Platform API
   ([RFC 8707](https://www.rfc-editor.org/rfc/rfc8707.html)).
 - Official Logto Nest guidance uses `jose`, JWKS, issuer and audience validation
-  ([Logto Nest guide](https://docs.logto.io/api-protection/nodejs/nestjs)).
+  ([Logto Nest product](https://docs.logto.io/api-protection/nodejs/nestjs)).
 
 The pinned Logto/JS client uses state and S256 PKCE and does not send nonce for this pure code flow.
 If a future pinned SDK starts sending nonce, matching validation becomes mandatory.

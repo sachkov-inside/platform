@@ -8,7 +8,7 @@ import {
   billingErrorMessage,
 } from "@/entities/subscription";
 
-const ownEnrollmentsKey = ["own-subscription-enrollments"] as const;
+const ownEnrollmentsKey = ["own-tariff-assignments"] as const;
 /** Cabinet navigation and contents share one read, including ended assignments. */
 export function useOwnEnrollments() {
   const cache = useQueryClient();

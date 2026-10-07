@@ -68,7 +68,7 @@ export function ContentCollectionsPageClient({
         setSummary("");
         setCreateOpen(false);
         if (kind === "series")
-          router.push(`/authoring/guides/${result.collection.id}`);
+          router.push(`/authoring/products/${result.collection.id}`);
       }
     },
   });
@@ -412,7 +412,7 @@ function SeriesList({
             >
               <Link
                 className="group flex min-w-0 flex-1 items-center gap-3 rounded-md outline-none focus-visible:ring-2 focus-visible:ring-ring sm:gap-5"
-                href={`/authoring/guides/${collection.id}`}
+                href={`/authoring/products/${collection.id}`}
               >
                 <ContentCoverImage
                   alt=""

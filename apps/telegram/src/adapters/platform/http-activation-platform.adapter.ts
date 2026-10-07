@@ -83,6 +83,7 @@ export class HttpActivationPlatform implements ActivationPlatform {
           headers: {
             authorization: `Bearer ${this.secret}`,
             "content-type": "application/json",
+            "x-inside-domain-names": "products.v1",
           },
           body: JSON.stringify(input),
         },

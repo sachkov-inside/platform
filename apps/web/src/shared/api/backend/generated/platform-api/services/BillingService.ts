@@ -66,10 +66,10 @@ export class BillingService {
               months: number | null;
             }>;
             benefits: Array<('materials' | 'community' | 'reviews' | 'support' | string)>;
-            contentScope?: {
-              allGuides?: boolean;
-              guideIds: Array<string>;
+            coverage?: {
               materialIds: Array<string>;
+              productIds: Array<string>;
+              wholePlatform?: boolean;
             } | null;
             eligibility?: 'everyone' | 'former_tribute_subscribers' | 'invitation_only';
             id: string;
@@ -114,10 +114,10 @@ export class BillingService {
             months: number | null;
           }>;
           benefits: Array<('materials' | 'community' | 'reviews' | 'support' | string)>;
-          contentScope?: {
-            allGuides?: boolean;
-            guideIds: Array<string>;
+          coverage?: {
             materialIds: Array<string>;
+            productIds: Array<string>;
+            wholePlatform?: boolean;
           } | null;
           eligibility?: 'everyone' | 'former_tribute_subscribers' | 'invitation_only';
           id: string;
@@ -167,7 +167,7 @@ export class BillingService {
       content?: Array<{
         available: boolean;
         id: string;
-        kind: 'guide' | 'material';
+        kind: 'product' | 'material';
         slug: string | null;
         title: string;
       }>;
@@ -191,10 +191,10 @@ export class BillingService {
           months: number | null;
         }>;
         benefits: Array<('materials' | 'community' | 'reviews' | 'support' | string)>;
-        contentScope: {
-          allGuides?: boolean;
-          guideIds: Array<string>;
+        coverage: {
           materialIds: Array<string>;
+          productIds: Array<string>;
+          wholePlatform?: boolean;
         };
         id: string;
         name: string;
@@ -278,10 +278,10 @@ export class BillingService {
             months: number | null;
           }>;
           benefits: Array<('materials' | 'community' | 'reviews' | 'support' | string)>;
-          contentScope?: {
-            allGuides?: boolean;
-            guideIds: Array<string>;
+          coverage?: {
             materialIds: Array<string>;
+            productIds: Array<string>;
+            wholePlatform?: boolean;
           } | null;
           eligibility?: 'everyone' | 'former_tribute_subscribers' | 'invitation_only';
           id: string;
@@ -326,10 +326,10 @@ export class BillingService {
           months: number | null;
         }>;
         benefits: Array<('materials' | 'community' | 'reviews' | 'support' | string)>;
-        contentScope?: {
-          allGuides?: boolean;
-          guideIds: Array<string>;
+        coverage?: {
           materialIds: Array<string>;
+          productIds: Array<string>;
+          wholePlatform?: boolean;
         } | null;
         eligibility?: 'everyone' | 'former_tribute_subscribers' | 'invitation_only';
         id: string;
@@ -396,10 +396,10 @@ export class BillingService {
           months: number | null;
         }>;
         benefits: Array<('materials' | 'community' | 'reviews' | 'support' | string)>;
-        contentScope?: {
-          allGuides?: boolean;
-          guideIds: Array<string>;
+        coverage?: {
           materialIds: Array<string>;
+          productIds: Array<string>;
+          wholePlatform?: boolean;
         } | null;
         eligibility?: 'everyone' | 'former_tribute_subscribers' | 'invitation_only';
         id: string;
@@ -465,10 +465,10 @@ export class BillingService {
           months: number | null;
         }>;
         benefits: Array<('materials' | 'community' | 'reviews' | 'support' | string)>;
-        contentScope?: {
-          allGuides?: boolean;
-          guideIds: Array<string>;
+        coverage?: {
           materialIds: Array<string>;
+          productIds: Array<string>;
+          wholePlatform?: boolean;
         } | null;
         eligibility?: 'everyone' | 'former_tribute_subscribers' | 'invitation_only';
         id: string;
@@ -537,10 +537,10 @@ export class BillingService {
           months: number | null;
         }>;
         benefits: Array<('materials' | 'community' | 'reviews' | 'support' | string)>;
-        contentScope?: {
-          allGuides?: boolean;
-          guideIds: Array<string>;
+        coverage?: {
           materialIds: Array<string>;
+          productIds: Array<string>;
+          wholePlatform?: boolean;
         } | null;
         eligibility?: 'everyone' | 'former_tribute_subscribers' | 'invitation_only';
         id: string;
@@ -615,10 +615,10 @@ export class BillingService {
             months: number | null;
           }>;
           benefits: Array<('materials' | 'community' | 'reviews' | 'support' | string)>;
-          contentScope?: {
-            allGuides?: boolean;
-            guideIds: Array<string>;
+          coverage?: {
             materialIds: Array<string>;
+            productIds: Array<string>;
+            wholePlatform?: boolean;
           } | null;
           eligibility?: 'everyone' | 'former_tribute_subscribers' | 'invitation_only';
           id: string;
@@ -663,10 +663,10 @@ export class BillingService {
           months: number | null;
         }>;
         benefits: Array<('materials' | 'community' | 'reviews' | 'support' | string)>;
-        contentScope?: {
-          allGuides?: boolean;
-          guideIds: Array<string>;
+        coverage?: {
           materialIds: Array<string>;
+          productIds: Array<string>;
+          wholePlatform?: boolean;
         } | null;
         eligibility?: 'everyone' | 'former_tribute_subscribers' | 'invitation_only';
         id: string;
@@ -732,10 +732,10 @@ export class BillingService {
             months: number | null;
           }>;
           benefits: Array<('materials' | 'community' | 'reviews' | 'support' | string)>;
-          contentScope?: {
-            allGuides?: boolean;
-            guideIds: Array<string>;
+          coverage?: {
             materialIds: Array<string>;
+            productIds: Array<string>;
+            wholePlatform?: boolean;
           } | null;
           eligibility?: 'everyone' | 'former_tribute_subscribers' | 'invitation_only';
           id: string;
@@ -788,10 +788,10 @@ export class BillingService {
               months: number | null;
             }>;
             benefits: Array<('materials' | 'community' | 'reviews' | 'support' | string)>;
-            contentScope?: {
-              allGuides?: boolean;
-              guideIds: Array<string>;
+            coverage?: {
               materialIds: Array<string>;
+              productIds: Array<string>;
+              wholePlatform?: boolean;
             } | null;
             eligibility?: 'everyone' | 'former_tribute_subscribers' | 'invitation_only';
             id: string;
@@ -836,10 +836,10 @@ export class BillingService {
             months: number | null;
           }>;
           benefits: Array<('materials' | 'community' | 'reviews' | 'support' | string)>;
-          contentScope?: {
-            allGuides?: boolean;
-            guideIds: Array<string>;
+          coverage?: {
             materialIds: Array<string>;
+            productIds: Array<string>;
+            wholePlatform?: boolean;
           } | null;
           eligibility?: 'everyone' | 'former_tribute_subscribers' | 'invitation_only';
           id: string;
@@ -911,10 +911,10 @@ export class BillingService {
             months: number | null;
           }>;
           benefits: Array<('materials' | 'community' | 'reviews' | 'support' | string)>;
-          contentScope?: {
-            allGuides?: boolean;
-            guideIds: Array<string>;
+          coverage?: {
             materialIds: Array<string>;
+            productIds: Array<string>;
+            wholePlatform?: boolean;
           } | null;
           eligibility?: 'everyone' | 'former_tribute_subscribers' | 'invitation_only';
           id: string;
@@ -959,10 +959,10 @@ export class BillingService {
           months: number | null;
         }>;
         benefits: Array<('materials' | 'community' | 'reviews' | 'support' | string)>;
-        contentScope?: {
-          allGuides?: boolean;
-          guideIds: Array<string>;
+        coverage?: {
           materialIds: Array<string>;
+          productIds: Array<string>;
+          wholePlatform?: boolean;
         } | null;
         eligibility?: 'everyone' | 'former_tribute_subscribers' | 'invitation_only';
         id: string;
@@ -1027,10 +1027,10 @@ export class BillingService {
             months: number | null;
           }>;
           benefits: Array<('materials' | 'community' | 'reviews' | 'support' | string)>;
-          contentScope?: {
-            allGuides?: boolean;
-            guideIds: Array<string>;
+          coverage?: {
             materialIds: Array<string>;
+            productIds: Array<string>;
+            wholePlatform?: boolean;
           } | null;
           eligibility?: 'everyone' | 'former_tribute_subscribers' | 'invitation_only';
           id: string;
@@ -1072,10 +1072,10 @@ export class BillingService {
             months: number | null;
           }>;
           benefits: Array<('materials' | 'community' | 'reviews' | 'support' | string)>;
-          contentScope?: {
-            allGuides?: boolean;
-            guideIds: Array<string>;
+          coverage?: {
             materialIds: Array<string>;
+            productIds: Array<string>;
+            wholePlatform?: boolean;
           } | null;
           eligibility?: 'everyone' | 'former_tribute_subscribers' | 'invitation_only';
           id: string;
@@ -1152,10 +1152,10 @@ export class BillingService {
             months: number | null;
           }>;
           benefits: Array<('materials' | 'community' | 'reviews' | 'support' | string)>;
-          contentScope?: {
-            allGuides?: boolean;
-            guideIds: Array<string>;
+          coverage?: {
             materialIds: Array<string>;
+            productIds: Array<string>;
+            wholePlatform?: boolean;
           } | null;
           eligibility?: 'everyone' | 'former_tribute_subscribers' | 'invitation_only';
           id: string;
@@ -1200,10 +1200,10 @@ export class BillingService {
           months: number | null;
         }>;
         benefits: Array<('materials' | 'community' | 'reviews' | 'support' | string)>;
-        contentScope?: {
-          allGuides?: boolean;
-          guideIds: Array<string>;
+        coverage?: {
           materialIds: Array<string>;
+          productIds: Array<string>;
+          wholePlatform?: boolean;
         } | null;
         eligibility?: 'everyone' | 'former_tribute_subscribers' | 'invitation_only';
         id: string;
@@ -1324,10 +1324,10 @@ export class BillingService {
           months: number | null;
         }>;
         benefits: Array<('materials' | 'community' | 'reviews' | 'support' | string)>;
-        contentScope?: {
-          allGuides?: boolean;
-          guideIds: Array<string>;
+        coverage?: {
           materialIds: Array<string>;
+          productIds: Array<string>;
+          wholePlatform?: boolean;
         } | null;
         eligibility?: 'everyone' | 'former_tribute_subscribers' | 'invitation_only';
         id: string;
@@ -1389,9 +1389,9 @@ export class BillingService {
       operation: 'cohorts.save';
       operationId: string;
       value: {
-        guideId: string;
         name: string;
         nextEvent: string;
+        productId: string;
         stage: 'announcement' | 'preorder' | 'running' | 'between';
         startsOn: string | null;
       };
@@ -1555,10 +1555,10 @@ export class BillingService {
         sourceRef: string;
         terms: {
           capabilities: Array<('materials' | 'community' | 'reviews' | 'support' | string)>;
-          contentScope?: {
-            allGuides?: boolean;
-            guideIds: Array<string>;
+          coverage?: {
             materialIds: Array<string>;
+            productIds: Array<string>;
+            wholePlatform?: boolean;
           };
           reason: string;
           startsAt: any;
@@ -1691,10 +1691,10 @@ export class BillingService {
               months: number | null;
             }>;
             benefits: Array<('materials' | 'community' | 'reviews' | 'support' | string)>;
-            contentScope: {
-              allGuides?: boolean;
-              guideIds: Array<string>;
+            coverage: {
               materialIds: Array<string>;
+              productIds: Array<string>;
+              wholePlatform?: boolean;
             };
             id: string;
             name: string;
@@ -1730,10 +1730,10 @@ export class BillingService {
                 months: number | null;
               }>;
               benefits: Array<('materials' | 'community' | 'reviews' | 'support' | string)>;
-              contentScope: {
-                allGuides?: boolean;
-                guideIds: Array<string>;
+              coverage: {
                 materialIds: Array<string>;
+                productIds: Array<string>;
+                wholePlatform?: boolean;
               };
               id: string;
               name: string;
@@ -1765,10 +1765,10 @@ export class BillingService {
             months: number | null;
           }>;
           benefits: Array<('materials' | 'community' | 'reviews' | 'support' | string)>;
-          contentScope: {
-            allGuides?: boolean;
-            guideIds: Array<string>;
+          coverage: {
             materialIds: Array<string>;
+            productIds: Array<string>;
+            wholePlatform?: boolean;
           };
           id: string;
           name: string;
@@ -1800,10 +1800,10 @@ export class BillingService {
               months: number | null;
             }>;
             benefits: Array<('materials' | 'community' | 'reviews' | 'support' | string)>;
-            contentScope: {
-              allGuides?: boolean;
-              guideIds: Array<string>;
+            coverage: {
               materialIds: Array<string>;
+              productIds: Array<string>;
+              wholePlatform?: boolean;
             };
             id: string;
             name: string;
@@ -1844,10 +1844,10 @@ export class BillingService {
                 months: number | null;
               }>;
               benefits: Array<('materials' | 'community' | 'reviews' | 'support' | string)>;
-              contentScope: {
-                allGuides?: boolean;
-                guideIds: Array<string>;
+              coverage: {
                 materialIds: Array<string>;
+                productIds: Array<string>;
+                wholePlatform?: boolean;
               };
               id: string;
               name: string;
@@ -1889,10 +1889,10 @@ export class BillingService {
               months: number | null;
             }>;
             benefits: Array<('materials' | 'community' | 'reviews' | 'support' | string)>;
-            contentScope: {
-              allGuides?: boolean;
-              guideIds: Array<string>;
+            coverage: {
               materialIds: Array<string>;
+              productIds: Array<string>;
+              wholePlatform?: boolean;
             };
             id: string;
             name: string;
@@ -1972,10 +1972,10 @@ export class BillingService {
             months: number | null;
           }>;
           benefits: Array<('materials' | 'community' | 'reviews' | 'support' | string)>;
-          contentScope: {
-            allGuides?: boolean;
-            guideIds: Array<string>;
+          coverage: {
             materialIds: Array<string>;
+            productIds: Array<string>;
+            wholePlatform?: boolean;
           };
           id: string;
           name: string;
@@ -1998,7 +1998,7 @@ export class BillingService {
         content?: Array<{
           available: boolean;
           id: string;
-          kind: 'guide' | 'material';
+          kind: 'product' | 'material';
           slug: string | null;
           title: string;
         }>;
@@ -2022,10 +2022,10 @@ export class BillingService {
             months: number | null;
           }>;
           benefits: Array<('materials' | 'community' | 'reviews' | 'support' | string)>;
-          contentScope: {
-            allGuides?: boolean;
-            guideIds: Array<string>;
+          coverage: {
             materialIds: Array<string>;
+            productIds: Array<string>;
+            wholePlatform?: boolean;
           };
           id: string;
           name: string;
@@ -2044,7 +2044,7 @@ export class BillingService {
         content?: Array<{
           available: boolean;
           id: string;
-          kind: 'guide' | 'material';
+          kind: 'product' | 'material';
           slug: string | null;
           title: string;
         }>;
@@ -2068,10 +2068,10 @@ export class BillingService {
             months: number | null;
           }>;
           benefits: Array<('materials' | 'community' | 'reviews' | 'support' | string)>;
-          contentScope: {
-            allGuides?: boolean;
-            guideIds: Array<string>;
+          coverage: {
             materialIds: Array<string>;
+            productIds: Array<string>;
+            wholePlatform?: boolean;
           };
           id: string;
           name: string;
@@ -2083,7 +2083,7 @@ export class BillingService {
       items: Array<{
         available: boolean;
         id: string;
-        kind: 'guide' | 'material';
+        kind: 'product' | 'material';
         slug: string | null;
         title: string;
       }>;
@@ -2119,10 +2119,10 @@ export class BillingService {
             months: number | null;
           }>;
           benefits: Array<('materials' | 'community' | 'reviews' | 'support' | string)>;
-          contentScope: {
-            allGuides?: boolean;
-            guideIds: Array<string>;
+          coverage: {
             materialIds: Array<string>;
+            productIds: Array<string>;
+            wholePlatform?: boolean;
           };
           id: string;
           name: string;
@@ -2151,10 +2151,10 @@ export class BillingService {
             months: number | null;
           }>;
           benefits: Array<('materials' | 'community' | 'reviews' | 'support' | string)>;
-          contentScope?: {
-            allGuides?: boolean;
-            guideIds: Array<string>;
+          coverage?: {
             materialIds: Array<string>;
+            productIds: Array<string>;
+            wholePlatform?: boolean;
           } | null;
           eligibility?: 'everyone' | 'former_tribute_subscribers' | 'invitation_only';
           id: string;
@@ -2209,10 +2209,10 @@ export class BillingService {
               months: number | null;
             }>;
             benefits: Array<('materials' | 'community' | 'reviews' | 'support' | string)>;
-            contentScope?: {
-              allGuides?: boolean;
-              guideIds: Array<string>;
+            coverage?: {
               materialIds: Array<string>;
+              productIds: Array<string>;
+              wholePlatform?: boolean;
             } | null;
             eligibility?: 'everyone' | 'former_tribute_subscribers' | 'invitation_only';
             id: string;
@@ -2308,10 +2308,10 @@ export class BillingService {
               months: number | null;
             }>;
             benefits: Array<('materials' | 'community' | 'reviews' | 'support' | string)>;
-            contentScope?: {
-              allGuides?: boolean;
-              guideIds: Array<string>;
+            coverage?: {
               materialIds: Array<string>;
+              productIds: Array<string>;
+              wholePlatform?: boolean;
             } | null;
             eligibility?: 'everyone' | 'former_tribute_subscribers' | 'invitation_only';
             id: string;
@@ -2370,10 +2370,10 @@ export class BillingService {
               months: number | null;
             }>;
             benefits: Array<('materials' | 'community' | 'reviews' | 'support' | string)>;
-            contentScope?: {
-              allGuides?: boolean;
-              guideIds: Array<string>;
+            coverage?: {
               materialIds: Array<string>;
+              productIds: Array<string>;
+              wholePlatform?: boolean;
             } | null;
             eligibility?: 'everyone' | 'former_tribute_subscribers' | 'invitation_only';
             id: string;
@@ -2431,10 +2431,10 @@ export class BillingService {
                 months: number | null;
               }>;
               benefits: Array<('materials' | 'community' | 'reviews' | 'support' | string)>;
-              contentScope?: {
-                allGuides?: boolean;
-                guideIds: Array<string>;
+              coverage?: {
                 materialIds: Array<string>;
+                productIds: Array<string>;
+                wholePlatform?: boolean;
               } | null;
               eligibility?: 'everyone' | 'former_tribute_subscribers' | 'invitation_only';
               id: string;
@@ -2479,10 +2479,10 @@ export class BillingService {
               months: number | null;
             }>;
             benefits: Array<('materials' | 'community' | 'reviews' | 'support' | string)>;
-            contentScope?: {
-              allGuides?: boolean;
-              guideIds: Array<string>;
+            coverage?: {
               materialIds: Array<string>;
+              productIds: Array<string>;
+              wholePlatform?: boolean;
             } | null;
             eligibility?: 'everyone' | 'former_tribute_subscribers' | 'invitation_only';
             id: string;
@@ -2639,7 +2639,7 @@ export class BillingService {
       value: {
         alreadyIssued: boolean;
         code: string;
-        guideSlug: string | null;
+        productSlug: string | null;
         promotionId: string;
       };
     } | {
@@ -2769,16 +2769,26 @@ export class BillingService {
    * @returns any
    * @throws ApiError
    */
-  public billingGuideCohorts(): CancelablePromise<{
+  public billingProductCohorts(): CancelablePromise<({
     items: Array<{
-      guideId: string;
       name: string;
       nextEvent: string;
+      productId: string;
       revision: number;
       stage: 'announcement' | 'preorder' | 'running' | 'between';
       startsOn: string | null;
     }>;
-  }> {
+  } | {
+    items: Array<{
+      guideId: string;
+      name: string;
+      nextEvent: string;
+      productId: string;
+      revision: number;
+      stage: 'announcement' | 'preorder' | 'running' | 'between';
+      startsOn: string | null;
+    }>;
+  })> {
     return this.httpRequest.request({
       method: 'GET',
       url: '/billing/cohorts',
@@ -2811,10 +2821,10 @@ export class BillingService {
           months: number | null;
         }>;
         benefits: Array<('materials' | 'community' | 'reviews' | 'support' | string)>;
-        contentScope?: {
-          allGuides?: boolean;
-          guideIds: Array<string>;
+        coverage?: {
           materialIds: Array<string>;
+          productIds: Array<string>;
+          wholePlatform?: boolean;
         } | null;
         eligibility?: 'everyone' | 'former_tribute_subscribers' | 'invitation_only';
         id: string;

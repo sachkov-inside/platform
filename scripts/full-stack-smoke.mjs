@@ -66,7 +66,7 @@ childEnvironment["OBJECT_STORAGE_ENDPOINT"] =
 // `release:bootstrap-owner` возьмёт оттуда чужое значение и прогон начнёт зависеть от машины.
 const stackAuthorPermission = "materials:manage";
 // Отдельные identities проверок доступа (#904). У каждой ровно одно основание: одно разрешение или
-// ничего. Доступ к одному Guide ученик получает в самом сценарии, без bridge и `allGuides`.
+// ничего. Доступ к одному Product ученик получает в самом сценарии, без bridge и `wholePlatform`.
 const separateAccessIdentities = [
   {
     subject: "fullstack-materials-only",
@@ -79,9 +79,9 @@ const separateAccessIdentities = [
     sessionVariable: "FULLSTACK_LOGTO_BILLING_ONLY_SESSION",
   },
   {
-    subject: "fullstack-guide-a-learner",
+    subject: "fullstack-product-a-learner",
     permission: undefined,
-    sessionVariable: "FULLSTACK_LOGTO_GUIDE_A_LEARNER_SESSION",
+    sessionVariable: "FULLSTACK_LOGTO_PRODUCT_A_LEARNER_SESSION",
   },
   {
     subject: "fullstack-reader-a",
@@ -293,7 +293,7 @@ try {
     FULLSTACK_API_BASE_URL: apiBaseUrl,
     FULLSTACK_PRACTICE_SLUG: practiceFixture.slug,
     FULLSTACK_FREE_PRACTICE_SLUG: freePracticeFixture.slug,
-    FULLSTACK_TASK_GUIDE_SLUG: taskFixture.guideSlug,
+    FULLSTACK_TASK_PRODUCT_SLUG: taskFixture.productSlug,
     FULLSTACK_TASK_CODE: taskFixture.code,
     // The learner's agent (#948): a refresh token it exchanges for a learner MCP token when it
     // needs one, so the token is fresh however late in the run the scenario starts.

@@ -68,7 +68,7 @@ let outage:
   | "unavailable"
   | "identity_conflict"
   | "invalid_input" = "none";
-const checkoutUrl = "https://inside.example/subscription?offer=offer-1";
+const checkoutUrl = "https://inside.example/payment/checkout?offer=offer-1";
 
 function redeem(input: InvitationRedeem): InvitationRedeemResponse | undefined {
   requests.push(structuredClone(input));

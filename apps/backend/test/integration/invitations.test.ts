@@ -25,7 +25,7 @@ import type {
   OwnerOutcome,
   OwnerResult,
 } from "../../src/modules/billing/domain/owner-operations.js";
-import { assembleAccessGrants } from "../../src/modules/membership-entitlements/index.js";
+import { assembleAccessGrants } from "../../src/modules/account-rights/index.js";
 import { TelegramAccountLinks } from "../../src/modules/telegram-membership/index.js";
 import { invitationRedeemResponseSchema } from "../../src/modules/telegram-membership/domain/subscription-activation-wire.js";
 import { InvitationRedemptionController } from "../../src/modules/telegram-membership/features/redeem-invitation/invitation-redemption.controller.js";
@@ -169,7 +169,7 @@ describe("приглашения: выдача владельцем и пога�
         id,
         name: "Подписка Inside",
         benefits: ["community", "materials"],
-        contentScope: { guideIds: [], materialIds: [], allGuides: true },
+        coverage: { productIds: [], materialIds: [], wholePlatform: true },
         availableForAssignment: overrides.availableForAssignment ?? true,
         published: overrides.published ?? true,
         eligibility: "invitation_only",
@@ -365,7 +365,7 @@ describe("приглашения: выдача владельцем и пога�
       state: "purchase_ready",
       mode: "purchase",
       offerName: "Подписка Inside",
-      checkoutUrl: `https://inside.example.test/subscription?offer=${offerId}`,
+      checkoutUrl: `https://inside.example.test/payment/checkout?offer=${offerId}`,
     };
     expect(await redeem(issued.code, identityRef)).toEqual(ready);
     expect(await redeem(issued.code, identityRef)).toEqual({
@@ -410,7 +410,7 @@ describe("приглашения: выдача владельцем и пога�
       state: "purchase_ready",
     });
     expect(
-      await db.prisma.subscriptionEnrollment.count({
+      await db.prisma.tariffAssignment.count({
         where: { accountId: member },
       }),
     ).toBe(0);

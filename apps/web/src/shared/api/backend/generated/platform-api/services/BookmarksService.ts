@@ -87,7 +87,7 @@ export class BookmarksService {
     },
   }): CancelablePromise<{
     items: Array<{
-      access: 'free' | 'membership';
+      access: 'free' | 'closed';
       availability: 'available' | 'locked' | 'unavailable';
       contentVersion: number;
       cover: {

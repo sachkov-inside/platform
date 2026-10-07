@@ -13,10 +13,10 @@ import {
 } from "@/shared/api/backend/index.server";
 import { dependencyUnavailableProblemSchema } from "@/shared/api/problem-details";
 import {
-  readGuidePageCard,
-  readGuidePageHero,
-  resolveGuidePresentation,
-} from "@/entities/guide-page";
+  readProductPageCard,
+  readProductPageHero,
+  resolveProductPresentation,
+} from "@/entities/product-page";
 import type { HomeResult } from "../model/home-view";
 
 const homeCollectionSchema = z
@@ -97,17 +97,17 @@ export async function getHome(accessToken?: string): Promise<HomeResult> {
           ? null
           : {
               ...mapCollection(parsed.data.pinnedSeries),
-              card: readGuidePageCard(
+              card: readProductPageCard(
                 parsed.data.pinnedSeries.card,
-                `Home pinned Guide ${parsed.data.pinnedSeries.slug}`,
+                `Home pinned Product ${parsed.data.pinnedSeries.slug}`,
               ),
-              hero: readGuidePageHero(
+              hero: readProductPageHero(
                 parsed.data.pinnedSeries.hero,
-                `Home pinned Guide ${parsed.data.pinnedSeries.slug}`,
+                `Home pinned Product ${parsed.data.pinnedSeries.slug}`,
               ),
-              presentation: resolveGuidePresentation(
+              presentation: resolveProductPresentation(
                 parsed.data.pinnedSeries.presentation,
-                `Home pinned Guide ${parsed.data.pinnedSeries.slug}`,
+                `Home pinned Product ${parsed.data.pinnedSeries.slug}`,
               ),
             },
       guides: parsed.data.guides.map(toMaterialPreview),

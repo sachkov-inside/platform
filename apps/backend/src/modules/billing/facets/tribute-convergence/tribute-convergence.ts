@@ -8,7 +8,7 @@ import {
   type TributeSources,
   tierSnapshotSchema,
   saveTributePolicySchema,
-} from "../../../membership-entitlements/index.js";
+} from "../../../account-rights/index.js";
 
 /** Catalog eligibility and source assignment share the existing pricing lock. */
 export class TributeConvergence {
@@ -57,7 +57,7 @@ export class TributeConvergence {
         revision: row.revision,
         name: row.name,
         benefits: row.benefits,
-        contentScope: row.contentScope,
+        coverage: row.coverage,
       });
       return prepared.value(tx, tier);
     });
@@ -96,7 +96,7 @@ export class TributeConvergence {
           select: {
             id: true,
             benefits: true,
-            contentScope: true,
+            coverage: true,
             archived: true,
             availableForAssignment: true,
           },

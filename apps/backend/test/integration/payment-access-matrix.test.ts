@@ -10,8 +10,8 @@ import {
 import { billingContactProtection } from "../../src/modules/accounts/infrastructure/billing-contact-protection.js";
 import {
   assembleAccessGrants,
-  assembleMembershipEntitlements,
-} from "../../src/modules/membership-entitlements/index.js";
+  assembleAccountRights,
+} from "../../src/modules/account-rights/index.js";
 import {
   BillingNotices,
   BillingOperations,
@@ -26,9 +26,9 @@ import type {
 import { syntheticTbankConfig } from "../support/bank-terminal.js";
 import { assembleContentAccess } from "../../src/modules/content-access/index.js";
 import {
-  assembleGuideArtifactDelivery,
-  assembleGuideArtifactResourceFacts,
-  assembleGuideArtifacts,
+  assembleProductArtifactDelivery,
+  assembleProductArtifactResourceFacts,
+  assembleProductArtifacts,
   assembleMaterials,
   assembleMaterialResourceFacts,
   materialId as checkedMaterialId,
@@ -114,13 +114,13 @@ const config = syntheticTbankConfig({
   receipt: { taxation: "usn_income", tax: "none" },
 });
 const documents = syntheticConsentDocuments;
-const guidePriceKopecks = 290_000;
+const productPriceKopecks = 290_000;
 const subscriptionPriceKopecks = 100_000;
 const startedAt = "2030-01-31T10:00:00Z";
 // Подписка куплена 31 января: её оплаченный срок заканчивается в последний день февраля.
 const subscriptionEndsAt = "2030-02-28T10:00:00.000Z";
 /** Сопровождение купленного продукта: шесть месяцев с подтверждения оплаты. */
-const guideSupportEndsAt = "2030-07-31T10:00:00.000Z";
+const productSupportEndsAt = "2030-07-31T10:00:00.000Z";
 
 /**
  * Одна проверяемая матрица трёх связанных слоёв: оплата, выдача прав и проверка доступа.
@@ -133,7 +133,7 @@ describe("оплата, выдача прав и доступ к материа�
   let owner: string;
   let pricing: BillingPricing;
   let grants: ReturnType<typeof assembleAccessGrants>;
-  let membership: ReturnType<typeof assembleMembershipEntitlements>;
+  let membership: ReturnType<typeof assembleAccountRights>;
   let materials: ReturnType<typeof assembleMaterials>;
   let contact: BillingContact;
   let accounts: ReturnType<typeof assembleAccounts>;
@@ -160,16 +160,16 @@ describe("оплата, выдача прав и доступ к материа�
         `https://storage.example.test/${input.key}?ttl=${String(input.ttlSeconds)}`,
       ),
   };
-  let guideA: string, guideB: string, guideSlug: string, topicId: string;
-  let libraryGuide: string;
+  let productA: string, productB: string, productSlug: string, topicId: string;
+  let libraryProduct: string;
   let freeMaterial: MaterialId,
     libraryMaterial: MaterialId,
-    guideMaterial: MaterialId,
+    productMaterial: MaterialId,
     sharedMaterial: MaterialId,
-    otherGuideMaterial: MaterialId;
+    otherProductMaterial: MaterialId;
   let chapterId: string;
   /** Один закрытый ресурс каждого вида: файл в теле, первичное видео и артефакт руководства. */
-  let guideResources: {
+  let productResources: {
     readonly assetId: string;
     readonly videoId: string;
     readonly providerVideoId: string;
@@ -177,7 +177,7 @@ describe("оплата, выдача прав и доступ к материа�
   };
   let access: ReturnType<typeof assembleContentAccess>;
   let delivery: ReturnType<typeof assembleMaterialAssetDelivery>;
-  let artifacts: ReturnType<typeof assembleGuideArtifactDelivery>;
+  let artifacts: ReturnType<typeof assembleProductArtifactDelivery>;
   let playback: ReturnType<typeof assembleVideoPlayback>;
   let videos: ReturnType<typeof assembleVideos>;
 
@@ -204,7 +204,7 @@ describe("оплата, выдача прав и доступ к материа�
       recipientLinks: new TelegramAccountLinks(db.prisma),
       clock: () => now,
     });
-    membership = assembleMembershipEntitlements({
+    membership = assembleAccountRights({
       prisma: db.prisma,
       clock: () => now,
     });
@@ -235,27 +235,27 @@ describe("оплата, выдача прав и доступ к материа�
       data: { id: topicId, slug: "matrix-topic", name: "Синтетическая тема" },
     });
 
-    guideSlug = `matrix-guide-${randomUUID()}`;
-    guideA = await guide(guideSlug);
-    guideB = await guide(`matrix-other-${randomUUID()}`);
+    productSlug = `matrix-product-${randomUUID()}`;
+    productA = await product(productSlug);
+    productB = await product(`matrix-other-${randomUUID()}`);
     // Закрытый материал публикуется только внутри продукта. Материал «библиотеки» живёт в своём
     // руководстве, которое не продаётся: открыть его может только состав тарифа. Отдельный
     // материал в состав не входит (#648).
-    libraryGuide = await guide(`matrix-library-${randomUUID()}`);
+    libraryProduct = await product(`matrix-library-${randomUUID()}`);
     [
       freeMaterial,
       libraryMaterial,
-      guideMaterial,
+      productMaterial,
       sharedMaterial,
-      otherGuideMaterial,
+      otherProductMaterial,
     ] = await Promise.all([
       material([], "free"),
-      material([libraryGuide]),
-      material([guideA]),
-      material([guideA, guideB]),
-      material([guideB]),
+      material([libraryProduct]),
+      material([productA]),
+      material([productA, productB]),
+      material([productB]),
     ]);
-    chapterId = await chapter(guideA, [guideMaterial, sharedMaterial]);
+    chapterId = await chapter(productA, [productMaterial, sharedMaterial]);
 
     const assets = assembleMaterialAssets({
       prisma: db.prisma,
@@ -264,19 +264,19 @@ describe("оплата, выдача прав и доступ к материа�
     videos = assembleVideos({
       prisma: db.prisma,
       provider: createTestVideoProvider(),
-      projects: { free: "free", membership: "members" },
+      projects: { free: "free", closed: "members" },
       canManage: () => Promise.resolve(false),
       clock: () => now,
     });
     const bytes = new TextEncoder().encode("Синтетический файл руководства");
     const uploaded = await assets.upload({
       actor: owner,
-      materialId: guideMaterial,
+      materialId: productMaterial,
       body: bytes,
       declaredContentType: "text/plain",
       declaredSize: bytes.length,
       expectedChecksumSha256: createHash("sha256").update(bytes).digest("hex"),
-      filename: "guide-file.txt",
+      filename: "product-file.txt",
       idempotencyKey: randomUUID(),
       kind: "file",
     });
@@ -286,9 +286,9 @@ describe("оплата, выдача прав и доступ к материа�
     await db.prisma.video.create({
       data: {
         id: videoId,
-        materialId: guideMaterial,
+        materialId: productMaterial,
         createdBy: owner,
-        access: "membership",
+        access: "closed",
         projectId: "members",
         providerVideoId,
         title: "Синтетическое видео руководства",
@@ -302,7 +302,7 @@ describe("оплата, выдача прав и доступ к материа�
       },
     });
     await db.prisma.material.update({
-      where: { id: guideMaterial },
+      where: { id: productMaterial },
       data: {
         primaryVideoId: videoId,
         body: {
@@ -321,18 +321,18 @@ describe("оплата, выдача прав и доступ к материа�
       },
     });
 
-    const guideArtifacts = assembleGuideArtifacts({
+    const productArtifacts = assembleProductArtifacts({
       prisma: db.prisma,
       objectStorage: storage,
       authorPolicy: { canManage: (id) => id === owner },
     });
     const artifactBody = new TextEncoder().encode("# Синтетический артефакт\n");
-    const created = await guideArtifacts.create({
+    const created = await productArtifacts.create({
       actor: owner,
-      guideId: guideA,
+      productId: productA,
       kind: "file",
       metadata: {
-        access: "membership",
+        access: "closed",
         purpose: "Проверка доступа матрицы",
         title: "Закрытый артефакт",
       },
@@ -347,7 +347,7 @@ describe("оплата, выдача прав и доступ к материа�
       },
     });
     if (!created.ok) throw new Error(created.error.code);
-    guideResources = {
+    productResources = {
       assetId: uploaded.value.assetId,
       videoId,
       providerVideoId,
@@ -360,15 +360,15 @@ describe("оплата, выдача прав и доступ к материа�
       ),
       assetResourceFacts: assembleAssetResourceFacts(assets),
       videoResourceFacts: assembleVideoResourceFacts(videos),
-      guideArtifactResourceFacts:
-        assembleGuideArtifactResourceFacts(guideArtifacts),
+      productArtifactResourceFacts:
+        assembleProductArtifactResourceFacts(productArtifacts),
       accountPermissions: {
         hasMaterialsManage: (id) => Promise.resolve(id === owner),
       },
-      membershipEntitlements: membership,
+      accountRights: membership,
     });
-    artifacts = assembleGuideArtifactDelivery({
-      artifacts: guideArtifacts,
+    artifacts = assembleProductArtifactDelivery({
+      artifacts: productArtifacts,
       contentAccess: access,
       objectStorage: storage,
       signedGetTtlSeconds: 60,
@@ -390,10 +390,10 @@ describe("оплата, выдача прав и доступ к материа�
   });
   afterAll(async () => db.dispose());
 
-  async function guide(slug: string): Promise<string> {
+  async function product(slug: string): Promise<string> {
     const created = await materials.authoring.createContentCollection({
       actor: owner,
-      kind: "guide",
+      kind: "product",
       name: slug,
       slug,
       summary: "",
@@ -403,8 +403,8 @@ describe("оплата, выдача прав и доступ к материа�
   }
   /** Опубликованный материал нужного состава: доступ к нему решает только матрица прав. */
   async function material(
-    guideIds: readonly string[],
-    accessClass: "free" | "membership" = "membership",
+    productIds: readonly string[],
+    accessClass: "free" | "closed" = "closed",
   ): Promise<MaterialId> {
     const title = `Материал ${randomUUID()}`;
     const metadata = {
@@ -416,7 +416,7 @@ describe("оплата, выдача прав и доступ к материа�
       tagIds: [],
       difficulty: null,
       outcomes: [],
-      seriesIds: [...guideIds],
+      seriesIds: [...productIds],
     };
     const created = await materials.authoring.createDraft({
       actor: owner,
@@ -439,18 +439,18 @@ describe("оплата, выдача прав и доступ к материа�
   }
   /** Одна глава руководства: она остаётся видимой и тогда, когда её материалы закрыты. */
   async function chapter(
-    guideId: string,
+    productId: string,
     ordered: readonly MaterialId[],
   ): Promise<string> {
     const loaded = await materials.authoring.loadSeriesOrder({
       actor: owner,
-      seriesId: guideId,
+      seriesId: productId,
     });
     if (!loaded.ok) throw new Error(loaded.error.code);
     const id = randomUUID();
     const saved = await materials.authoring.reorderSeries({
       actor: owner,
-      seriesId: guideId,
+      seriesId: productId,
       expectedOrderVersion: loaded.value.orderVersion,
       orderedMaterialIds: [...ordered],
       chapters: [{ id, name: "Первая глава", summary: "" }],
@@ -553,8 +553,8 @@ describe("оплата, выдача прав и доступ к материа�
           benefits: [...input.benefits],
           ...(input.benefits.includes("materials")
             ? {
-                contentScope: {
-                  guideIds: [guideA, guideB, libraryGuide],
+                coverage: {
+                  productIds: [productA, productB, libraryProduct],
                   materialIds: [],
                 },
               }
@@ -588,14 +588,14 @@ describe("оплата, выдача прав и доступ к материа�
     );
     return { offerId, optionId };
   }
-  function guideOffer() {
+  function productOffer() {
     return offer({
       name: "Руководство «Синтетика»",
-      benefits: [`guide:${guideA}`, "support"],
+      benefits: [`product:${productA}`, "support"],
       mode: "one_time",
-      priceKopecks: guidePriceKopecks,
+      priceKopecks: productPriceKopecks,
       benefitPeriods: [
-        { capability: `guide:${guideA}`, months: null },
+        { capability: `product:${productA}`, months: null },
         { capability: "support", months: 6 },
       ],
     });
@@ -653,10 +653,10 @@ describe("оплата, выдача прав и доступ к материа�
     ).toMatchObject({ ok: true });
   }
   /** Независимое бессрочное право на второе руководство, выданное владельцем, а не оплатой. */
-  async function manualGuideGrant(
+  async function manualProductGrant(
     operations: BillingOperations,
     account: string,
-    guideId: string,
+    productId: string,
   ) {
     const preview = asGrantPreview(
       await operations.execute(owner, {
@@ -664,12 +664,12 @@ describe("оплата, выдача прав и доступ к материа�
         operationId: randomUUID(),
         rows: [
           {
-            rowKey: "guide",
+            rowKey: "product",
             accountId: account,
             source: "manual",
             sourceRef: randomUUID(),
             terms: {
-              capabilities: [`guide:${guideId}`],
+              capabilities: [`product:${productId}`],
               startsAt: startedAt,
               validUntil: null,
               reason: "Синтетическая выдача руководства",
@@ -685,7 +685,7 @@ describe("оплата, выдача прав и доступ к материа�
           operationId: randomUUID(),
           previewRef: preview.previewRef,
           expectedRevision: preview.revision,
-          confirmedRows: ["guide"],
+          confirmedRows: ["product"],
         }),
       ).rows,
     ).toHaveLength(1);
@@ -864,7 +864,7 @@ describe("оплата, выдача прав и доступ к материа�
     });
   }
   /** Программа руководства глазами читателя: главы видны, а материалы — по праву. */
-  async function guideProgramme(
+  async function productProgramme(
     subject:
       | { kind: "anonymous" }
       | { kind: "account"; accountId: ReturnType<typeof checkedAccountId> },
@@ -873,7 +873,7 @@ describe("оплата, выдача прав и доступ к материа�
       materials.publishedMaterialReader,
       access,
       videos,
-      { first: null, kind: "series", slug: guideSlug, subject },
+      { first: null, kind: "series", slug: productSlug, subject },
     );
     return value(discovered);
   }
@@ -882,18 +882,18 @@ describe("оплата, выдача прав и доступ к материа�
     now = new Date(startedAt);
     await ownSweeps();
     const account = await buyer();
-    const { optionId } = await guideOffer();
+    const { optionId } = await productOffer();
     const { bank, payments } = billingStand();
 
     // До оплаты руководство закрыто, а его глава остаётся видимой витриной программы.
-    expect(await decide(reader(account), guideMaterial)).toMatchObject({
+    expect(await decide(reader(account), productMaterial)).toMatchObject({
       effect: "deny",
       reason: "membership_required",
     });
     expect(
       await delivery.deliver({
-        materialId: guideMaterial,
-        assetId: guideResources.assetId,
+        materialId: productMaterial,
+        assetId: productResources.assetId,
         contentVersion: 2,
         preview: false,
         subject: reader(account),
@@ -901,16 +901,16 @@ describe("оплата, выдача прав и доступ к материа�
     ).toMatchObject({ ok: false, error: { code: "asset_not_found" } });
     expect(
       await playback.createSession({
-        materialId: guideMaterial,
-        videoId: guideResources.videoId,
+        materialId: productMaterial,
+        videoId: productResources.videoId,
         subject: reader(account),
         correlationId: randomUUID(),
       }),
     ).toMatchObject({ ok: false, error: { code: "access_denied" } });
     expect(
       await artifacts.deliver({
-        artifactId: guideResources.artifactId,
-        guideId: guideA,
+        artifactId: productResources.artifactId,
+        productId: productA,
         preview: false,
         subject: reader(account),
         version: 1,
@@ -920,14 +920,14 @@ describe("оплата, выдача прав и доступ к материа�
     const chapters = [
       {
         id: chapterId,
-        materialIds: [guideMaterial, sharedMaterial],
+        materialIds: [productMaterial, sharedMaterial],
         name: "Первая глава",
         summary: "",
         // Заданий в этом руководстве нет (#947).
         tasks: [],
       },
     ];
-    const before = await guideProgramme(reader(account));
+    const before = await productProgramme(reader(account));
     expect(before.chapters).toEqual(chapters);
     expect(before.items.map((item) => item.availability)).toEqual([
       "locked",
@@ -953,12 +953,15 @@ describe("оплата, выдача прав и доступ к материа�
 
     // Одна оплата — одно бессрочное право ровно на купленное руководство.
     const granted = await db.prisma.accessGrant.findMany({
-      where: { accountId: account, capabilities: { has: `guide:${guideA}` } },
+      where: {
+        accountId: account,
+        capabilities: { has: `product:${productA}` },
+      },
     });
     expect(granted).toHaveLength(1);
     expect(granted[0]).toMatchObject({
       source: "paid",
-      capabilities: [`guide:${guideA}`],
+      capabilities: [`product:${productA}`],
       validUntil: null,
     });
     // Сопровождение продукта — отдельное право на шесть месяцев с оплаты.
@@ -967,18 +970,18 @@ describe("оплата, выдача прав и доступ к материа�
         where: { accountId: account, capabilities: { has: "support" } },
       }),
     ).toMatchObject([
-      { source: "paid", validUntil: new Date(guideSupportEndsAt) },
+      { source: "paid", validUntil: new Date(productSupportEndsAt) },
     ]);
     expect(bank.initCalls).toBe(1);
 
-    for (const id of [guideMaterial, sharedMaterial])
+    for (const id of [productMaterial, sharedMaterial])
       expect(await decide(reader(account), id)).toMatchObject({
         effect: "allow",
         reason: "active_membership",
         validUntil: null,
       });
     // Прямой адрес чужого руководства и библиотечного материала остаётся закрытым.
-    for (const id of [libraryMaterial, otherGuideMaterial])
+    for (const id of [libraryMaterial, otherProductMaterial])
       expect(await decide(reader(account), id)).toMatchObject({
         effect: "deny",
         reason: "membership_required",
@@ -991,16 +994,16 @@ describe("оплата, выдача прав и доступ к материа�
     const subject = reader(account);
     expect(
       await delivery.deliver({
-        materialId: guideMaterial,
-        assetId: guideResources.assetId,
+        materialId: productMaterial,
+        assetId: productResources.assetId,
         contentVersion: 2,
         preview: false,
         subject,
       }),
     ).toMatchObject({ ok: true, value: { kind: "redirect" } });
     const session = await playback.createSession({
-      materialId: guideMaterial,
-      videoId: guideResources.videoId,
+      materialId: productMaterial,
+      videoId: productResources.videoId,
       subject,
       correlationId: randomUUID(),
     });
@@ -1008,7 +1011,7 @@ describe("оплата, выдача прав и доступ к материа�
       throw new Error("Expected a protected playback token");
     expect(
       await playback.authorizeProvider({
-        providerVideoId: guideResources.providerVideoId,
+        providerVideoId: productResources.providerVideoId,
         token: session.value.drmAuthToken,
       }),
     ).toBe(true);
@@ -1016,8 +1019,8 @@ describe("оплата, выдача прав и доступ к материа�
     // Файлы, видео и артефакты руководства открываются тем же правом, что и его материалы.
     expect(
       await artifacts.deliver({
-        artifactId: guideResources.artifactId,
-        guideId: guideA,
+        artifactId: productResources.artifactId,
+        productId: productA,
         preview: false,
         subject,
         version: 1,
@@ -1026,7 +1029,7 @@ describe("оплата, выдача прав и доступ к материа�
       ok: true,
       value: { kind: "redirect", cacheScope: "private-no-store" },
     });
-    const after = await guideProgramme(reader(account));
+    const after = await productProgramme(reader(account));
     expect(after.chapters).toEqual(chapters);
     expect(after.items.map((item) => item.availability)).toEqual([
       "available",
@@ -1037,10 +1040,10 @@ describe("оплата, выдача прав и доступ к материа�
   test("гость, участник, покупатель руководства и истёкшие права видят ровно своё", async () => {
     now = new Date(startedAt);
     await ownSweeps();
-    const [memberAccount, guideBuyer, lapsedMember, lapsedGuideBuyer] =
+    const [memberAccount, productBuyer, lapsedMember, lapsedProductBuyer] =
       await Promise.all([buyer(), buyer(), buyer(), buyer()]);
     const subscription = await subscriptionOffer();
-    const bought = await guideOffer();
+    const bought = await productOffer();
     const { bank, payments } = billingStand();
     async function paid(
       account: string,
@@ -1066,46 +1069,46 @@ describe("оплата, выдача прав и доступ к материа�
       value(await payments.recover());
     }
     await paid(memberAccount, subscription.optionId, { recurring: true });
-    await paid(guideBuyer, bought.optionId);
+    await paid(productBuyer, bought.optionId);
     await paid(lapsedMember, subscription.optionId, { recurring: true });
-    await paid(lapsedGuideBuyer, subscription.optionId, { recurring: true });
-    await paid(lapsedGuideBuyer, bought.optionId);
+    await paid(lapsedProductBuyer, subscription.optionId, { recurring: true });
+    await paid(lapsedProductBuyer, bought.optionId);
 
     // Свободный материал открыт всем, включая гостя; закрытый требует доказанного основания.
     expect(await decide(guest, freeMaterial)).toMatchObject({
       effect: "allow",
       reason: "public_resource",
     });
-    for (const id of [libraryMaterial, guideMaterial, sharedMaterial])
+    for (const id of [libraryMaterial, productMaterial, sharedMaterial])
       expect(await decide(guest, id)).toMatchObject({
         effect: "deny",
         reason: "authentication_required",
       });
     for (const id of [
       libraryMaterial,
-      guideMaterial,
+      productMaterial,
       sharedMaterial,
-      otherGuideMaterial,
+      otherProductMaterial,
     ])
       expect(await decide(reader(memberAccount), id)).toMatchObject({
         effect: "allow",
         reason: "active_membership",
         validUntil: subscriptionEndsAt,
       });
-    expect(await decide(reader(guideBuyer), guideMaterial)).toMatchObject({
+    expect(await decide(reader(productBuyer), productMaterial)).toMatchObject({
       effect: "allow",
       reason: "active_membership",
       validUntil: null,
     });
-    for (const id of [libraryMaterial, otherGuideMaterial])
-      expect(await decide(reader(guideBuyer), id)).toMatchObject({
+    for (const id of [libraryMaterial, otherProductMaterial])
+      expect(await decide(reader(productBuyer), id)).toMatchObject({
         effect: "deny",
         reason: "membership_required",
       });
 
     // Оплаченный срок закончился: подписка закрывается, а купленное руководство остаётся.
     now = new Date("2030-03-01T10:00:00Z");
-    for (const id of [libraryMaterial, guideMaterial, otherGuideMaterial])
+    for (const id of [libraryMaterial, productMaterial, otherProductMaterial])
       expect(await decide(reader(lapsedMember), id)).toMatchObject({
         effect: "deny",
         reason: "membership_expired",
@@ -1114,18 +1117,18 @@ describe("оплата, выдача прав и доступ к материа�
       effect: "allow",
       reason: "public_resource",
     });
-    for (const id of [guideMaterial, sharedMaterial])
-      expect(await decide(reader(lapsedGuideBuyer), id)).toMatchObject({
+    for (const id of [productMaterial, sharedMaterial])
+      expect(await decide(reader(lapsedProductBuyer), id)).toMatchObject({
         effect: "allow",
         reason: "active_membership",
         validUntil: null,
       });
-    for (const id of [libraryMaterial, otherGuideMaterial])
-      expect(await decide(reader(lapsedGuideBuyer), id)).toMatchObject({
+    for (const id of [libraryMaterial, otherProductMaterial])
+      expect(await decide(reader(lapsedProductBuyer), id)).toMatchObject({
         effect: "deny",
         reason: "membership_expired",
       });
-    expect(await guideProgramme(reader(lapsedGuideBuyer))).toMatchObject({
+    expect(await productProgramme(reader(lapsedProductBuyer))).toMatchObject({
       items: [{ availability: "available" }, { availability: "available" }],
     });
   });
@@ -1134,7 +1137,7 @@ describe("оплата, выдача прав и доступ к материа�
     now = new Date(startedAt);
     await ownSweeps();
     const account = await buyer();
-    const { optionId } = await guideOffer();
+    const { optionId } = await productOffer();
     const { bank, payments } = billingStand();
     const purchaseCommand = await command(account, optionId);
     const bought = value(await payments.purchase(account, purchaseCommand));
@@ -1155,7 +1158,10 @@ describe("оплата, выдача прав и доступ к материа�
     ).toBe(1);
     value(await payments.recover());
     const granted = await db.prisma.accessGrant.findMany({
-      where: { accountId: account, capabilities: { has: `guide:${guideA}` } },
+      where: {
+        accountId: account,
+        capabilities: { has: `product:${productA}` },
+      },
     });
     expect(granted).toHaveLength(1);
     expect(granted[0]?.startsAt.toISOString()).toBe("2030-01-31T10:00:00.000Z");
@@ -1173,7 +1179,10 @@ describe("оплата, выдача прав и доступ к материа�
     ).toMatchObject({ state: "confirmed", access: "ready" });
     expect(
       await db.prisma.accessGrant.findMany({
-        where: { accountId: account, capabilities: { has: `guide:${guideA}` } },
+        where: {
+          accountId: account,
+          capabilities: { has: `product:${productA}` },
+        },
       }),
     ).toMatchObject([
       { startsAt: new Date("2030-01-31T10:00:00Z"), validUntil: null },
@@ -1182,7 +1191,7 @@ describe("оплата, выдача прав и доступ к материа�
       await db.prisma.billingPurchase.count({ where: { accountId: account } }),
     ).toBe(1);
     expect(bank.initCalls).toBe(1);
-    expect(await decide(reader(account), guideMaterial)).toMatchObject({
+    expect(await decide(reader(account), productMaterial)).toMatchObject({
       effect: "allow",
       reason: "active_membership",
       validUntil: null,
@@ -1193,7 +1202,7 @@ describe("оплата, выдача прав и доступ к материа�
     now = new Date(startedAt);
     await ownSweeps();
     const [refused, silent] = await Promise.all([buyer(), buyer()]);
-    const { optionId } = await guideOffer();
+    const { optionId } = await productOffer();
     const { bank, payments } = billingStand();
     const rejected = value(await purchase(payments, refused, optionId));
     expect(
@@ -1207,7 +1216,7 @@ describe("оплата, выдача прав и доступ к материа�
     expect(
       await db.prisma.accessGrant.count({ where: { accountId: refused } }),
     ).toBe(0);
-    expect(await decide(reader(refused), guideMaterial)).toMatchObject({
+    expect(await decide(reader(refused), productMaterial)).toMatchObject({
       effect: "deny",
       reason: "membership_required",
     });
@@ -1228,7 +1237,7 @@ describe("оплата, выдача прав и доступ к материа�
     expect(
       await db.prisma.accessGrant.count({ where: { accountId: silent } }),
     ).toBe(0);
-    expect(await decide(reader(silent), guideMaterial)).toMatchObject({
+    expect(await decide(reader(silent), productMaterial)).toMatchObject({
       effect: "deny",
       reason: "membership_required",
     });
@@ -1243,10 +1252,13 @@ describe("оплата, выдача прав и доступ к материа�
     expect(bank.initCalls).toBe(2);
     expect(
       await db.prisma.accessGrant.count({
-        where: { accountId: silent, capabilities: { has: `guide:${guideA}` } },
+        where: {
+          accountId: silent,
+          capabilities: { has: `product:${productA}` },
+        },
       }),
     ).toBe(1);
-    expect(await decide(reader(silent), guideMaterial)).toMatchObject({
+    expect(await decide(reader(silent), productMaterial)).toMatchObject({
       effect: "allow",
       reason: "active_membership",
       validUntil: null,
@@ -1454,7 +1466,7 @@ describe("оплата, выдача прав и доступ к материа�
             sourceRef: randomUUID(),
             terms: {
               capabilities: ["materials"],
-              contentScope: { guideIds: [libraryGuide], materialIds: [] },
+              coverage: { productIds: [libraryProduct], materialIds: [] },
               startsAt: startedAt,
               validUntil: null,
               reason: "Прямые материалы",
@@ -1474,7 +1486,7 @@ describe("оплата, выдача прав и доступ к материа�
             source: "manual",
             sourceRef,
             terms: {
-              capabilities: [`guide:${libraryGuide}`],
+              capabilities: [`product:${libraryProduct}`],
               startsAt: startedAt,
               validUntil: null,
               reason: "Синтетическая выдача через API",
@@ -1515,7 +1527,7 @@ describe("оплата, выдача прав и доступ к материа�
       grounds: [
         {
           source: "manual",
-          capabilities: [`guide:${libraryGuide}`],
+          capabilities: [`product:${libraryProduct}`],
           startsAt: "2030-01-31T10:00:00.000Z",
           validUntil: null,
           active: true,
@@ -1531,66 +1543,66 @@ describe("оплата, выдача прав и доступ к материа�
   test("купленное руководство открывает общий чат и держит его дольше истёкшей подписки", async () => {
     now = new Date(startedAt);
     await ownSweeps();
-    const [onlyGuide, withBoth] = await Promise.all([buyer(), buyer()]);
+    const [onlyProduct, withBoth] = await Promise.all([buyer(), buyer()]);
     const senior = await seniorOffer();
-    const bought = await guideOffer();
+    const bought = await productOffer();
     const { pay, subscriptions } = billingStand();
     // До покупки оснований нет: ни подписки, ни права на руководство, ни чата.
-    expect(await capabilities(onlyGuide)).toEqual([]);
-    await pay(onlyGuide, bought.optionId);
+    expect(await capabilities(onlyProduct)).toEqual([]);
+    await pay(onlyProduct, bought.optionId);
     // Одна разовая покупка: право бессрочное, и участие в чате живёт ровно его сроком.
-    expect(await capabilities(onlyGuide)).toEqual([
+    expect(await capabilities(onlyProduct)).toEqual([
       { capability: "community", validUntil: null },
-      { capability: `guide:${guideA}`, validUntil: null },
-      { capability: "support", validUntil: guideSupportEndsAt },
+      { capability: `product:${productA}`, validUntil: null },
+      { capability: "support", validUntil: productSupportEndsAt },
     ]);
     // Кабинет показывает ровно одно оплаченное основание: чат выводится из него, а не из тарифа.
-    const cabinet = value(await subscriptions.read(onlyGuide));
+    const cabinet = value(await subscriptions.read(onlyProduct));
     expect(cabinet.subscription).toBeNull();
     expect(cabinet.grounds).toHaveLength(2);
     expect(cabinet.grounds).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
           source: "paid",
-          capabilities: [`guide:${guideA}`],
+          capabilities: [`product:${productA}`],
           validUntil: null,
           active: true,
         }),
         expect.objectContaining({
           source: "paid",
           capabilities: ["support"],
-          validUntil: guideSupportEndsAt,
+          validUntil: productSupportEndsAt,
           active: true,
         }),
       ]),
     );
     // Проверка доступа к материалам не изменилась: чужая библиотека руководством не открывается.
-    expect(await decide(reader(onlyGuide), libraryMaterial)).toMatchObject({
+    expect(await decide(reader(onlyProduct), libraryMaterial)).toMatchObject({
       effect: "deny",
       reason: "membership_required",
     });
 
     // Появление доступа видно в проекции: та же покупка даёт боту команду впустить бессрочно.
     await linkTelegramAccount(db.prisma, {
-      accountId: onlyGuide,
-      identityRef: `identity-${onlyGuide}`,
+      accountId: onlyProduct,
+      identityRef: `identity-${onlyProduct}`,
       now,
     });
-    expect(await communityProjection().project(onlyGuide)).toMatchObject({
+    expect(await communityProjection().project(onlyProduct)).toMatchObject({
       ok: true,
       entitlementRevision: 1,
     });
     expect(
       await db.prisma.telegramCommunityDesiredState.findUniqueOrThrow({
-        where: { accountId: onlyGuide },
+        where: { accountId: onlyProduct },
       }),
     ).toMatchObject({
       access: { kind: "lifetime" },
-      nextBoundary: new Date(guideSupportEndsAt),
+      nextBoundary: new Date(productSupportEndsAt),
     });
     expect(
       await db.prisma.telegramCommunityOperation.findMany({
-        where: { accountId: onlyGuide },
+        where: { accountId: onlyProduct },
       }),
     ).toMatchObject([
       {
@@ -1606,17 +1618,17 @@ describe("оплата, выдача прав и доступ к материа�
     // Два основания сразу: бессрочное право на руководство перекрывает срок подписки.
     expect(await capabilities(withBoth)).toEqual([
       { capability: "community", validUntil: null },
-      { capability: `guide:${guideA}`, validUntil: null },
       { capability: "materials", validUntil: subscriptionEndsAt },
-      { capability: "support", validUntil: guideSupportEndsAt },
+      { capability: `product:${productA}`, validUntil: null },
+      { capability: "support", validUntil: productSupportEndsAt },
     ]);
 
     now = new Date("2030-03-01T10:00:00Z");
     // Оплаченный срок подписки закончился, а чат остался: его держит купленное руководство.
     expect(await capabilities(withBoth)).toEqual([
       { capability: "community", validUntil: null },
-      { capability: `guide:${guideA}`, validUntil: null },
-      { capability: "support", validUntil: guideSupportEndsAt },
+      { capability: `product:${productA}`, validUntil: null },
+      { capability: "support", validUntil: productSupportEndsAt },
     ]);
     expect(await decide(reader(withBoth), libraryMaterial)).toMatchObject({
       effect: "deny",
@@ -1633,14 +1645,14 @@ describe("оплата, выдача прав и доступ к материа�
       buyer(),
     ]);
     const senior = await seniorOffer();
-    const bought = await guideOffer();
+    const bought = await productOffer();
     const { operations, pay, payments } = billingStand();
     const subscribed = await pay(withBoth, senior.optionId, {
       recurring: true,
     });
-    const guidePurchase = await pay(withBoth, bought.optionId);
+    const productPurchase = await pay(withBoth, bought.optionId);
     // Снятие одного основания не забирает чат: его продолжает держать состав подписки.
-    await refundWithRevoke(operations, guidePurchase, guidePriceKopecks);
+    await refundWithRevoke(operations, productPurchase, productPriceKopecks);
     value(await payments.recover());
     expect(await capabilities(withBoth)).toEqual([
       { capability: "community", validUntil: subscriptionEndsAt },
@@ -1662,21 +1674,21 @@ describe("оплата, выдача прав и доступ к материа�
       capability: "community",
       validUntil: null,
     });
-    await refundWithRevoke(operations, refundedPurchase, guidePriceKopecks);
+    await refundWithRevoke(operations, refundedPurchase, productPriceKopecks);
     value(await payments.recover());
     expect(await capabilities(refunded)).toEqual([]);
 
     // Тот же возврат при независимом бессрочном праве оставляет чат открытым.
     const keptPurchase = await pay(kept, bought.optionId);
-    await manualGuideGrant(operations, kept, guideB);
-    await refundWithRevoke(operations, keptPurchase, guidePriceKopecks);
+    await manualProductGrant(operations, kept, productB);
+    await refundWithRevoke(operations, keptPurchase, productPriceKopecks);
     value(await payments.recover());
     expect(await capabilities(kept)).toEqual([
       { capability: "community", validUntil: null },
-      { capability: `guide:${guideB}`, validUntil: null },
+      { capability: `product:${productB}`, validUntil: null },
     ]);
     // Ручное основание снимает владелец, и с последним основанием чат закрывается.
-    await revokeGround(kept, `guide:${guideB}`);
+    await revokeGround(kept, `product:${productB}`);
     expect(await capabilities(kept)).toEqual([]);
   });
 
@@ -1689,7 +1701,7 @@ describe("оплата, выдача прав и доступ к материа�
     await ownSweeps();
     const account = await buyer();
     const senior = await seniorOffer();
-    const bought = await guideOffer();
+    const bought = await productOffer();
     const { bank, payments, pay } = billingStand();
     await pay(account, bought.optionId);
 
@@ -1721,9 +1733,9 @@ describe("оплата, выдача прав и доступ к материа�
     // Бессрочное право на руководство переживает срок подписки и оставляет чат бессрочным.
     expect(await capabilities(account)).toEqual([
       { capability: "community", validUntil: null },
-      { capability: `guide:${guideA}`, validUntil: null },
       { capability: "materials", validUntil: subscriptionEndsAt },
-      { capability: "support", validUntil: guideSupportEndsAt },
+      { capability: `product:${productA}`, validUntil: null },
+      { capability: "support", validUntil: productSupportEndsAt },
     ]);
   });
   test("назначение курса проходит body/file/video/artifact и не открывает исключённый продукт", async () => {
@@ -1740,7 +1752,7 @@ describe("оплата, выдача прав и доступ к материа�
           name: "Курс: выбранный гайд",
           benefits: ["materials", "community"],
           availableForAssignment: true,
-          contentScope: { guideIds: [guideA], materialIds: [] },
+          coverage: { productIds: [productA], materialIds: [] },
         },
       }),
     );
@@ -1782,14 +1794,14 @@ describe("оплата, выдача прав и доступ к материа�
     if (assigned.outcome !== "enrollment")
       throw new Error("Expected enrollment");
     const subject = reader(account);
-    for (const id of [guideMaterial, sharedMaterial])
+    for (const id of [productMaterial, sharedMaterial])
       expect(await decide(subject, id)).toMatchObject({ effect: "allow" });
-    for (const id of [libraryMaterial, otherGuideMaterial])
+    for (const id of [libraryMaterial, otherProductMaterial])
       expect(await decide(subject, id)).toMatchObject({ effect: "deny" });
     expect(
       await delivery.deliver({
-        materialId: guideMaterial,
-        assetId: guideResources.assetId,
+        materialId: productMaterial,
+        assetId: productResources.assetId,
         contentVersion: 2,
         preview: false,
         subject,
@@ -1797,16 +1809,16 @@ describe("оплата, выдача прав и доступ к материа�
     ).toMatchObject({ ok: true });
     expect(
       await playback.createSession({
-        materialId: guideMaterial,
-        videoId: guideResources.videoId,
+        materialId: productMaterial,
+        videoId: productResources.videoId,
         subject,
         correlationId: randomUUID(),
       }),
     ).toMatchObject({ ok: true });
     expect(
       await artifacts.deliver({
-        artifactId: guideResources.artifactId,
-        guideId: guideA,
+        artifactId: productResources.artifactId,
+        productId: productA,
         preview: false,
         subject,
         version: 1,
@@ -1814,15 +1826,15 @@ describe("оплата, выдача прав и доступ к материа�
     ).toMatchObject({ ok: true });
     expect(
       await artifacts.deliver({
-        artifactId: guideResources.artifactId,
-        guideId: guideB,
+        artifactId: productResources.artifactId,
+        productId: productB,
         preview: false,
         subject,
         version: 1,
       }),
     ).toMatchObject({ ok: false });
-    const futureStep = await material([guideA]);
-    const separate = await material([guideB]);
+    const futureStep = await material([productA]);
+    const separate = await material([productB]);
     expect(await decide(subject, futureStep)).toMatchObject({
       effect: "allow",
     });
@@ -1842,13 +1854,13 @@ describe("оплата, выдача прав и доступ к материа�
         reason: "Course revoked",
       }),
     );
-    expect(await decide(subject, guideMaterial)).toMatchObject({
+    expect(await decide(subject, productMaterial)).toMatchObject({
       effect: "deny",
     });
     expect(
       await delivery.deliver({
-        materialId: guideMaterial,
-        assetId: guideResources.assetId,
+        materialId: productMaterial,
+        assetId: productResources.assetId,
         contentVersion: 2,
         preview: false,
         subject,
@@ -1856,16 +1868,16 @@ describe("оплата, выдача прав и доступ к материа�
     ).toMatchObject({ ok: false });
     expect(
       await playback.createSession({
-        materialId: guideMaterial,
-        videoId: guideResources.videoId,
+        materialId: productMaterial,
+        videoId: productResources.videoId,
         subject,
         correlationId: randomUUID(),
       }),
     ).toMatchObject({ ok: false });
     expect(
       await artifacts.deliver({
-        artifactId: guideResources.artifactId,
-        guideId: guideA,
+        artifactId: productResources.artifactId,
+        productId: productA,
         preview: false,
         subject,
         version: 1,

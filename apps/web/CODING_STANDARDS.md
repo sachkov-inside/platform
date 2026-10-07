@@ -122,7 +122,7 @@ these are the rules a change follows.
 - A component that reads the clock, randomness or a request value during render breaks the
   production build under Cache Components. Read it in an event handler or an effect.
 - A page the reader left is hidden, not unmounted, and keeps its client state. State that starts
-  from a server value follows that value when it changes; `GuideModeProvider` is the worked
+  from a server value follows that value when it changes; `ProductModeProvider` is the worked
   example. A surface that must reset on return resets itself.
 - A server render reads the session only through `@/shared/auth`, whose `connection()` stops a
   prefetch before it starts a token refresh. The guardrail holds the Logto SDK there; a session

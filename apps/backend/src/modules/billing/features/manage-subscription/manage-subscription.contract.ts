@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { ownAccessGroundSchema } from "../../../membership-entitlements/index.js";
+import { ownAccessGroundSchema } from "../../../account-rights/index.js";
 import { idSchema, moneySchema, revisionSchema } from "../../domain/pricing.js";
 import {
   attemptKindSchema,

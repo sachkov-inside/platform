@@ -91,7 +91,7 @@ update без sender нельзя использовать для linking.
 Для grammY официальный command handler `bot.command("start", ...)` предоставляет trimmed argument
 в `ctx.match`, включая deep-link payload. Это удобно для parsing, но TTL, single-use, atomic consume
 и conflict rules остаются application code.
-([grammY: Deep Linking Support](https://grammy.dev/guide/commands#deep-linking-support))
+([grammY: Deep Linking Support](https://grammy.dev/product/commands#deep-linking-support))
 
 ## 2. Доставка updates, acknowledgement и webhook secret
 
@@ -271,7 +271,7 @@ inbound signal technical contactability, но документация не об
    после transport failure потенциально может дать duplicate transactional message. Specification
    должна зафиксировать bounded retry/duplicate policy вместо обещания exactly-once delivery.
    ([`sendMessage`](https://core.telegram.org/bots/api#sendmessage),
-   [grammY: Error Handling](https://grammy.dev/guide/errors))
+   [grammY: Error Handling](https://grammy.dev/product/errors))
 3. Не включать human-readable error description в domain invariant. До smoke exact code/text для
    blocked user остаётся diagnostic observation. Необъяснимый permanent API failure помечает
    delivery unavailable и требует bounded retry/inspection, но не меняет Membership.
@@ -283,22 +283,22 @@ inbound signal technical contactability, но документация не об
 В grammY Bot API `ok: false` становится `GrammyError`, а failure связи с Bot API — `HttpError`; при
 webhooks middleware error передаётся web framework. Эта классификация соответствует нужному
 разделению API rejection и unknown transport outcome.
-([grammY: Error Handling](https://grammy.dev/guide/errors))
+([grammY: Error Handling](https://grammy.dev/product/errors))
 
 ## 8. Релевантные integration facts grammY
 
 - `bot.command("start", handler)` выделяет argument/deep-link payload в `ctx.match`.
-  ([grammY: Commands](https://grammy.dev/guide/commands))
+  ([grammY: Commands](https://grammy.dev/product/commands))
 - `bot.on("my_chat_member")` и `bot.on("chat_member")` различают status самого bot и других members;
   `chat_member` всё равно требуется включить через `allowed_updates`.
-  ([grammY: Chat Member Updates](https://grammy.dev/guide/filter-queries#chat-member-updates))
+  ([grammY: Chat Member Updates](https://grammy.dev/product/filter-queries#chat-member-updates))
 - `webhookCallback` имеет `fastify` adapter и `secretToken` option; при webhook нельзя параллельно
-  вызывать `bot.start()`, потому что это long polling. ([grammY: How to Use Webhooks](https://grammy.dev/guide/deployment-types#how-to-use-webhooks),
+  вызывать `bot.start()`, потому что это long polling. ([grammY: How to Use Webhooks](https://grammy.dev/product/deployment-types#how-to-use-webhooks),
   [grammY: WebhookOptions](https://grammy.dev/ref/core/webhookoptions))
 - `webhookCallback` по умолчанию timeout через 10 секунд с strategy `throw`; strategy `return` может
-  завершить HTTP request, пока middleware ещё выполняется, и official grammY guide предупреждает о
+  завершить HTTP request, пока middleware ещё выполняется, и official grammY product предупреждает о
   concurrent processing/race/data loss. V1 не должен использовать early-success strategy как замену
-  durable queue. ([grammY: Ending Webhook Requests in Time](https://grammy.dev/guide/deployment-types#ending-webhook-requests-in-time))
+  durable queue. ([grammY: Ending Webhook Requests in Time](https://grammy.dev/product/deployment-types#ending-webhook-requests-in-time))
 - grammY transport adapter не создаёт durable inbox, unique constraint или reconciliation worker.
   Эти свойства остаются application responsibilities независимо от выбранной integration shape.
 

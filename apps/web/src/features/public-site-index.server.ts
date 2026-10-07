@@ -1,4 +1,4 @@
-/** Server-only public interface for the published Guide, Material and Topic site index. */
+/** Server-only public interface for the published Product, Material and Topic site index. */
 export {
   getPublicSiteIndex,
   type PublicSiteIndex,

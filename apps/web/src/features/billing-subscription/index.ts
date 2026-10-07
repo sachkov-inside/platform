@@ -13,3 +13,5 @@ export {
   SubscriptionPanel,
   type SubscriptionPanelProps,
 } from "./ui/subscription-panel.client";
+
+export { BillingSignIn } from "./ui/billing-sign-in";

@@ -43,7 +43,7 @@ async function fixture(t) {
     schemaVersion: 1,
     sourceNamespace: "inside-content",
     selection: {
-      guideId: null,
+      productId: null,
       chapterIds: [],
       materialIds: ["one"],
       complete: true,
@@ -60,7 +60,7 @@ async function fixture(t) {
         summary: "Summary",
         stage: "draft",
         topicId: null,
-        access: "membership",
+        access: "closed",
         showInFeed: false,
         difficulty: null,
         outcomes: [],
@@ -74,7 +74,7 @@ async function fixture(t) {
         artifacts: [],
       },
     ],
-    guides: [],
+    products: [],
     assets: [],
     diagnostics: [],
   };
@@ -216,7 +216,7 @@ test("editing and moving an original retains its material ID and URL and applies
   assert.equal(current.materialId, materialId);
   assert.equal(current.contentVersion, 3);
   assert.equal(current.metadata.title, "Renamed lesson");
-  assert.equal(current.metadata.access, "membership");
+  assert.equal(current.metadata.access, "closed");
   assert.equal(current.source["path"], "renamed/lesson.md");
   assert.match(JSON.stringify(current.body), /Updated original text/);
   assert.doesNotMatch(JSON.stringify(current.body), /Original text/);

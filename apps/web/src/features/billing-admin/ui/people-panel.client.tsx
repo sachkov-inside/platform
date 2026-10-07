@@ -22,8 +22,8 @@ import {
   revokeAccessGrant,
 } from "../api/billing-admin.browser";
 import {
-  assignSubscriptionEnrollment,
-  changeSubscriptionEnrollment,
+  assignTariffAssignment,
+  changeTariffAssignment,
   listSubscriptionTiers,
 } from "../api/enrollments.browser";
 import {
@@ -169,7 +169,7 @@ export function PeoplePanel({
         slot,
         message,
         run: () =>
-          changeSubscriptionEnrollment({
+          changeTariffAssignment({
             ...command,
             operationId: operationId(slot, command),
           }),
@@ -225,7 +225,7 @@ export function PeoplePanel({
         const startsAt =
           assignmentStarts.current.get(id) ?? new Date().toISOString();
         assignmentStarts.current.set(id, startsAt);
-        return assignSubscriptionEnrollment({
+        return assignTariffAssignment({
           operationId: id,
           accountId: request.accountId,
           origin: "manual",

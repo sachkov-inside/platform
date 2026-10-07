@@ -80,11 +80,11 @@ function Fixture({
         items: empty ? [] : chaptered ? chapteredItems : items,
       },
     });
-    queryClient.setQueryData(["guide-artifacts", collection.id], {
+    queryClient.setQueryData(["product-artifacts", collection.id], {
       artifacts: [],
       kind: "ready",
     });
-    queryClient.setQueryData(["guide-artifacts", "reusable"], {
+    queryClient.setQueryData(["product-artifacts", "reusable"], {
       artifacts: [],
       kind: "ready",
     });
@@ -99,7 +99,7 @@ function Fixture({
 
 /** Адрес редактора, на который ведёт список продуктов: идентификатор совпадает с продуктом. */
 const environment = authoringPageEnvironment(
-  `/authoring/guides/${collection.id}`,
+  `/authoring/products/${collection.id}`,
 );
 
 const meta = {

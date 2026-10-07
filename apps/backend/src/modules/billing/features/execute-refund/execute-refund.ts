@@ -7,7 +7,7 @@ import {
   type BillingPrisma,
   type BillingPrismaClient,
 } from "../../../../infrastructure/prisma/index.js";
-import { paidPeriodCommandSchema } from "../../../membership-entitlements/index.js";
+import { paidPeriodCommandSchema } from "../../../account-rights/index.js";
 import { lifecycleWindow, refundSourceRef } from "../../domain/notice.js";
 import {
   ownerFailure,

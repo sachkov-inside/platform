@@ -1,8 +1,8 @@
-import { GuideTaskPage } from "@/_pages/guide-task.server";
+import { ProductTaskPage } from "@/_pages/product-task.server";
 import { hiddenPageMetadata } from "@/shared/link-preview";
 
 // Явный тип, а не сгенерированный `PageProps`: проверка типами в lint идёт до `next typegen`.
-interface GuideTaskRouteProps {
+interface ProductTaskRouteProps {
   readonly params: Promise<{ readonly slug: string; readonly code: string }>;
 }
 
@@ -13,6 +13,6 @@ export const instant = false;
 export const metadata = hiddenPageMetadata("Задание");
 
 /** Скелет маршрута даёт `loading.tsx`; страница читает адрес уже под ним. */
-export default function GuideTaskRoute({ params }: GuideTaskRouteProps) {
-  return <GuideTaskPage params={params} />;
+export default function ProductTaskRoute({ params }: ProductTaskRouteProps) {
+  return <ProductTaskPage params={params} />;
 }

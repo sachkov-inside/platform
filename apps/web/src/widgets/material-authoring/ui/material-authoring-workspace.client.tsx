@@ -9,7 +9,7 @@ import {
 import { MaterialMetadataPanel } from "./material-metadata-panel.client";
 import { MaterialVideoAuthoring } from "@/features/material-video";
 import { ContentCoverEditor } from "@/features/content-covers";
-import { GuideRemovalConfirmationDialog } from "@/shared/ui/guide-removal-confirmation-dialog.client";
+import { ProductRemovalConfirmationDialog } from "@/shared/ui/product-removal-confirmation-dialog.client";
 import {
   MaterialAuthoringSignInActions,
   MaterialAuthoringUnauthorizedState,
@@ -71,10 +71,10 @@ export function MaterialAuthoringWorkspace({
       )}
       {presentation.removalConfirmation === undefined ||
       presentation.removalConfirmation === null ? null : (
-        <GuideRemovalConfirmationDialog
-          guides={presentation.removalConfirmation.guides}
-          onCancel={actions.onCancelGuideRemoval}
-          onConfirm={actions.onConfirmGuideRemoval}
+        <ProductRemovalConfirmationDialog
+          products={presentation.removalConfirmation.products}
+          onCancel={actions.onCancelProductRemoval}
+          onConfirm={actions.onConfirmProductRemoval}
           pending={presentation.removalConfirmation.pending}
         />
       )}

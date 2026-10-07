@@ -4,14 +4,14 @@ import { ChevronDown } from "lucide-react";
 import { useId, useState, type ReactNode } from "react";
 
 import {
-  guideModeLabels,
-  useGuideMode,
-  type GuideMode,
-} from "@/shared/guide-mode";
+  productModeLabels,
+  useProductMode,
+  type ProductMode,
+} from "@/shared/product-mode";
 
 export interface MaterialModeBranch {
   readonly content: ReactNode;
-  readonly mode: GuideMode;
+  readonly mode: ProductMode;
 }
 
 /**
@@ -24,7 +24,7 @@ export function MaterialModeVariant({
 }: {
   readonly branches: readonly MaterialModeBranch[];
 }) {
-  const { mode } = useGuideMode();
+  const { mode } = useProductMode();
   const [opened, setOpened] = useState(false);
   const panelId = useId();
   const active = branches.find((branch) => branch.mode === mode);
@@ -42,7 +42,7 @@ export function MaterialModeVariant({
     >
       {/* Тот же служебный заголовок, каким в маршруте подписана глава: это подпись, не врезка. */}
       <p className="font-mono text-[0.6875rem] uppercase tracking-[0.14em] text-muted-foreground">
-        {guideModeLabels[active.mode]}
+        {productModeLabels[active.mode]}
       </p>
       <div className="mt-2" data-variant-branch={active.mode}>
         {active.content}
@@ -63,8 +63,8 @@ export function MaterialModeVariant({
               className={`size-4 transition-transform motion-reduce:transition-none ${opened ? "rotate-180" : ""}`}
             />
             {opened
-              ? `Скрыть вариант «${guideModeLabels[other.mode]}»`
-              : `Показать вариант «${guideModeLabels[other.mode]}»`}
+              ? `Скрыть вариант «${productModeLabels[other.mode]}»`
+              : `Показать вариант «${productModeLabels[other.mode]}»`}
           </button>
           <div
             className="mt-2 border-l-2 border-border pl-4"

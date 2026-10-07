@@ -9,7 +9,7 @@ import {
   type PassCell,
 } from "../production/pass-cells";
 import {
-  guideBDeferred,
+  productBDeferred,
   identityEmail,
   passCells,
   videoDeferred,
@@ -17,23 +17,23 @@ import {
 import { redactPassText } from "../production/pass-redaction";
 import { problemLine } from "../production/pass-report";
 
-const readsGuideA: PassCell = {
-  id: "learner-guide-a/read-guide-a/body@browser",
+const readsProductA: PassCell = {
+  id: "learner-product-a/read-product-a/body@browser",
   expected: "allowed",
 };
-const deniedGuideB: PassCell = {
-  id: "learner-guide-a/read-guide-b/body@browser",
+const deniedProductB: PassCell = {
+  id: "learner-product-a/read-product-b/body@browser",
   expected: "denied",
-  deferred: guideBDeferred,
+  deferred: productBDeferred,
 };
 const deployedSha = "a".repeat(40);
 
 describe("production access pass verdict", () => {
   it("is green when every live cell was observed as expected", () => {
     const report = evaluatePass({
-      cells: [readsGuideA],
+      cells: [readsProductA],
       observations: [
-        { cellId: readsGuideA.id, observed: "allowed", note: "HTTP 302" },
+        { cellId: readsProductA.id, observed: "allowed", note: "HTTP 302" },
       ],
       deployedSha,
     });
@@ -41,10 +41,10 @@ describe("production access pass verdict", () => {
     expect(report.verdict).toBe("green");
     expect(report.cells).toEqual([
       {
-        id: readsGuideA.id,
-        identity: "learner-guide-a",
+        id: readsProductA.id,
+        identity: "learner-product-a",
         transport: "browser",
-        check: "Guide A: закрытое тело урока в HTML и данных RSC страницы",
+        check: "Product A: закрытое тело урока в HTML и данных RSC страницы",
         level: "production",
         deployedSha,
         expected: "allowed",
@@ -57,8 +57,8 @@ describe("production access pass verdict", () => {
 
   it("shows a deferred cell separately and keeps the job green", () => {
     const report = evaluatePass({
-      cells: [readsGuideA, deniedGuideB],
-      observations: [{ cellId: readsGuideA.id, observed: "allowed" }],
+      cells: [readsProductA, deniedProductB],
+      observations: [{ cellId: readsProductA.id, observed: "allowed" }],
       deployedSha,
     });
 
@@ -69,13 +69,13 @@ describe("production access pass verdict", () => {
     ]);
     expect(report.cells[1]).toMatchObject({
       observed: null,
-      reason: guideBDeferred,
+      reason: productBDeferred,
     });
   });
 
   it("turns red on a live cell that was not checked", () => {
     const report = evaluatePass({
-      cells: [readsGuideA, deniedGuideB],
+      cells: [readsProductA, deniedProductB],
       observations: [],
       deployedSha,
     });
@@ -89,11 +89,11 @@ describe("production access pass verdict", () => {
 
   it("names why a live cell was not checked", () => {
     const report = evaluatePass({
-      cells: [readsGuideA],
+      cells: [readsProductA],
       observations: [],
       problems: [
         {
-          cellId: readsGuideA.id,
+          cellId: readsProductA.id,
           problem: "Protected body snippet is missing",
         },
       ],
@@ -112,8 +112,8 @@ describe("production access pass verdict", () => {
 
   it("turns red on a mismatch", () => {
     const report = evaluatePass({
-      cells: [readsGuideA],
-      observations: [{ cellId: readsGuideA.id, observed: "denied" }],
+      cells: [readsProductA],
+      observations: [{ cellId: readsProductA.id, observed: "denied" }],
       deployedSha,
     });
 
@@ -123,8 +123,8 @@ describe("production access pass verdict", () => {
 
   it("does not let an observation of a deferred cell change its status", () => {
     const report = evaluatePass({
-      cells: [deniedGuideB],
-      observations: [{ cellId: deniedGuideB.id, observed: "allowed" }],
+      cells: [deniedProductB],
+      observations: [{ cellId: deniedProductB.id, observed: "allowed" }],
       deployedSha,
     });
 
@@ -135,9 +135,9 @@ describe("production access pass verdict", () => {
   it("refuses an observation for a cell outside the configuration", () => {
     expect(() =>
       evaluatePass({
-        cells: [readsGuideA],
+        cells: [readsProductA],
         observations: [
-          { cellId: readsGuideA.id, observed: "allowed" },
+          { cellId: readsProductA.id, observed: "allowed" },
           { cellId: "unknown", observed: "allowed" },
         ],
         deployedSha,
@@ -147,16 +147,16 @@ describe("production access pass verdict", () => {
 
   it("turns red after deploy when the deployed SHA is missing", () => {
     const observations = [
-      { cellId: readsGuideA.id, observed: "allowed" as const },
+      { cellId: readsProductA.id, observed: "allowed" as const },
     ];
     const afterDeploy = evaluatePass({
-      cells: [readsGuideA],
+      cells: [readsProductA],
       observations,
       deployedSha: null,
       deployedShaRequired: true,
     });
     const manual = evaluatePass({
-      cells: [readsGuideA],
+      cells: [readsProductA],
       observations,
       deployedSha: null,
     });
@@ -171,15 +171,15 @@ describe("production access pass verdict", () => {
 });
 
 describe("production access pass configuration", () => {
-  it("defers only Guide B and video cells, each with its owner decision", () => {
+  it("defers only Product B and video cells, each with its owner decision", () => {
     const cells: readonly PassCell[] = passCells;
     const reasons = cells.map((cell) => {
       const { action, state, surface } = passCellParts(cell.id);
       if (
-        action === "read-guide-b" ||
-        (state === "learner-guide-b" && action !== "read-guide-a")
+        action === "read-product-b" ||
+        (state === "learner-product-b" && action !== "read-product-a")
       )
-        return [cell.deferred, guideBDeferred];
+        return [cell.deferred, productBDeferred];
       if (surface === "video") return [cell.deferred, videoDeferred];
       return [cell.deferred, undefined];
     });
@@ -188,12 +188,12 @@ describe("production access pass configuration", () => {
     expect(cells.filter((cell) => cell.deferred === undefined).length).toBe(30);
   });
 
-  it("reads every Guide surface in the browser and body and practice through learner MCP too", () => {
+  it("reads every Product surface in the browser and body and practice through learner MCP too", () => {
     const ids = new Set<string>(passCells.map(({ id }) => id));
     const rows = new Set(
       passCells
         .map(({ id }) => id.split("@")[0] ?? "")
-        .filter((row) => row.includes("/read-guide-")),
+        .filter((row) => row.includes("/read-product-")),
     );
 
     for (const row of rows) {
@@ -208,12 +208,12 @@ describe("production access pass configuration", () => {
 
     expect(new Set(ids).size).toBe(ids.length);
     for (const id of ids) expect(passCellCheck(id)).not.toBe("");
-    expect(() => passCellParts("teacher/read-guide-a/body@browser")).toThrow(
+    expect(() => passCellParts("teacher/read-product-a/body@browser")).toThrow(
       "Malformed",
     );
-    expect(() => passCellParts("anonymous/read-guide-a/body@telegram")).toThrow(
-      "Malformed",
-    );
+    expect(() =>
+      passCellParts("anonymous/read-product-a/body@telegram"),
+    ).toThrow("Malformed");
   });
 });
 
@@ -221,7 +221,7 @@ describe("production access pass report", () => {
   it("renders the level of every cell, every status and the blocked requests", () => {
     const markdown = renderPassMarkdown(
       evaluatePass({
-        cells: [readsGuideA, deniedGuideB],
+        cells: [readsProductA, deniedProductB],
         observations: [],
         deployedSha,
         blockedRequests: [
@@ -237,7 +237,7 @@ describe("production access pass report", () => {
     expect(markdown).toContain(`Deployed SHA: \`${deployedSha}\``);
     expect(markdown).toContain("Итог: **красный**");
     expect(markdown).toContain("| production | не проверено |");
-    expect(markdown).toContain(`| production | ${guideBDeferred} |`);
+    expect(markdown).toContain(`| production | ${productBDeferred} |`);
     expect(markdown).toContain(
       "- `POST https://inside.sachkov.dev/api/reading-progress/states`",
     );
@@ -245,8 +245,8 @@ describe("production access pass report", () => {
 
   it("turns red when the browser sent a redirect step outside the allowlist", () => {
     const report = evaluatePass({
-      cells: [readsGuideA],
-      observations: [{ cellId: readsGuideA.id, observed: "allowed" }],
+      cells: [readsProductA],
+      observations: [{ cellId: readsProductA.id, observed: "allowed" }],
       deployedSha,
       blockedRequests: [
         {
@@ -295,10 +295,10 @@ describe("production access pass report", () => {
 
   it("keeps the report JSON valid after redaction", () => {
     const report = evaluatePass({
-      cells: [readsGuideA],
+      cells: [readsProductA],
       observations: [
         {
-          cellId: readsGuideA.id,
+          cellId: readsProductA.id,
           observed: "allowed",
           note: 'cookie: logto_session=abc" user@example.test token=x"',
         },
@@ -328,14 +328,14 @@ describe("production access pass problem line", () => {
 
 describe("test identity email", () => {
   it("is an alias of the configured mailbox", () => {
-    expect(identityEmail("owner@example.test", "learner-guide-a")).toBe(
-      "owner+inside-access-learner-guide-a@example.test",
+    expect(identityEmail("owner@example.test", "learner-product-a")).toBe(
+      "owner+inside-access-learner-product-a@example.test",
     );
   });
 
   it("rejects a mailbox that is already an alias", () => {
     expect(() =>
-      identityEmail("owner+x@example.test", "learner-guide-a"),
+      identityEmail("owner+x@example.test", "learner-product-a"),
     ).toThrow("plain address");
   });
 });

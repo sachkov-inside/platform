@@ -918,7 +918,7 @@ for (const [state, label] of [
                   revision: 1,
                   name: "История тарифа",
                   benefits: ["community"],
-                  contentScope: { guideIds: [], materialIds: [] },
+                  coverage: { productIds: [], materialIds: [] },
                 },
                 origin: "manual",
                 startsAt: "2030-01-01T00:00:00.000Z",

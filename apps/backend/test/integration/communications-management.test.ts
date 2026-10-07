@@ -1,7 +1,7 @@
 import {
   LEARNING_TASKS,
   type LearningTasks,
-} from "../../src/modules/guide-tasks/index.js";
+} from "../../src/modules/product-tasks/index.js";
 import {
   CONTENT_ACCESS,
   type ContentAccess,

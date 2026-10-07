@@ -55,7 +55,7 @@ export async function loadCurrentMaterial(
       select: { tagId: true },
       orderBy: { tagId: "asc" },
     }),
-    prisma.guideMembership.findMany({
+    prisma.productMembership.findMany({
       where: { materialId },
       select: { seriesId: true, ordinal: true },
       orderBy: { seriesId: "asc" },
@@ -191,20 +191,20 @@ export async function replaceCurrentRelations(
       data: metadata.tagIds.map((tagId) => ({ materialId, tagId })),
     });
   }
-  const previousMemberships = await transaction.guideMembership.findMany({
+  const previousMemberships = await transaction.productMembership.findMany({
     where: { materialId },
     select: { chapterId: true, seriesId: true, stepGroup: true },
   });
-  // A full Material Save keeps the Guide-owned placement of every retained membership.
+  // A full Material Save keeps the Product-owned placement of every retained membership.
   const placements = new Map(
     previousMemberships.map(({ chapterId, seriesId, stepGroup }) => [
       seriesId,
       { chapterId, stepGroup },
     ]),
   );
-  await transaction.guideMembership.deleteMany({ where: { materialId } });
+  await transaction.productMembership.deleteMany({ where: { materialId } });
   if (metadata.seriesMemberships.length > 0) {
-    await transaction.guideMembership.createMany({
+    await transaction.productMembership.createMany({
       data: metadata.seriesMemberships.map(({ seriesId, ordinal }) => ({
         materialId,
         seriesId,

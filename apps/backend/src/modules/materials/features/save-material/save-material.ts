@@ -35,7 +35,7 @@ import {
 } from "../../shared/command-validation.js";
 import { executeIdempotentMaterialMutation } from "../../shared/idempotent-operation.js";
 import { materializeMetadataSelection } from "../../shared/materialize-metadata-selection.js";
-import { canChangeGuideMemberships } from "../../infrastructure/postgres/source-guide-memberships.js";
+import { canChangeProductMemberships } from "../../infrastructure/postgres/source-product-memberships.js";
 import { mapPostgresError } from "../../shared/postgres-error-mapping.js";
 import { requireReferenceIntegrity } from "../../shared/reference-integrity.js";
 import { toDatabaseJson } from "../../infrastructure/postgres/database-json.js";
@@ -52,10 +52,10 @@ import { replaceCurrentRelations } from "../../infrastructure/postgres/current-m
 import { lockMaterialSeries } from "../../infrastructure/postgres/series-order.js";
 import { refreshPublishedMaterialSearchProjections } from "../../infrastructure/postgres/published-material-search.js";
 import {
-  heldGuideRemovals,
-  recordGuideRemovals,
-  unconfirmedGuideRemovals,
-} from "../../shared/guide-removal-confirmation.js";
+  heldProductRemovals,
+  recordProductRemovals,
+  unconfirmedProductRemovals,
+} from "../../shared/product-removal-confirmation.js";
 
 const saveMaterialCommand = z
   .object({
@@ -74,7 +74,7 @@ const saveMaterialCommand = z
     metadata: z.unknown(),
     body: z.unknown(),
     videoChapters: videoChaptersSchema.optional(),
-    confirmedGuideRemovals: z.array(z.uuid()).max(100).optional().default([]),
+    confirmedProductRemovals: z.array(z.uuid()).max(100).optional().default([]),
   })
   .strict();
 
@@ -130,7 +130,7 @@ export function assembleSaveMaterial(
       primaryVideoId: command.primaryVideoId,
       deleteVideoId: command.deleteVideoId,
       videoChapters: command.videoChapters ?? null,
-      confirmedGuideRemovals: [...command.confirmedGuideRemovals].sort(),
+      confirmedProductRemovals: [...command.confirmedProductRemovals].sort(),
       // Absent when empty, so a Save recorded before detachment existed replays with its own key.
       ...(command.detachVideoIds.length === 0
         ? {}
@@ -160,7 +160,7 @@ export function assembleSaveMaterial(
               selection.value.toValues().seriesIds,
             );
             if (
-              !(await canChangeGuideMemberships(
+              !(await canChangeProductMemberships(
                 transaction,
                 command.materialId,
                 selection.value.toValues().seriesIds,
@@ -358,38 +358,38 @@ export function assembleSaveMaterial(
 
             // Опубликованный материал уходит из руководства, где у кого-то есть право, только
             // подтверждённым снятием: иначе купившие молча потеряли бы часть продукта.
-            const previousGuideIds = (
-              await transaction.publishedMaterialGuideMembership.findMany({
+            const previousProductIds = (
+              await transaction.publishedMaterialProductMembership.findMany({
                 where: { materialId: command.materialId },
                 select: { seriesId: true },
               })
             ).map(({ seriesId }) => seriesId);
-            const nextGuideIds =
+            const nextProductIds =
               next.value.publicationState === "published"
                 ? selectedValues.seriesIds
                 : [];
-            const heldRemovals = await heldGuideRemovals(
+            const heldRemovals = await heldProductRemovals(
               transaction,
-              dependencies.guideAccessHolders,
-              previousGuideIds.filter(
-                (guideId) => !nextGuideIds.includes(guideId),
+              dependencies.productAccessHolders,
+              previousProductIds.filter(
+                (productId) => !nextProductIds.includes(productId),
               ),
             );
-            const unconfirmed = unconfirmedGuideRemovals(
+            const unconfirmed = unconfirmedProductRemovals(
               heldRemovals,
-              command.confirmedGuideRemovals,
+              command.confirmedProductRemovals,
             );
             if (unconfirmed.length > 0) {
               return rollback({
-                code: "guide_removal_confirmation_required",
-                guides: unconfirmed,
+                code: "product_removal_confirmation_required",
+                products: unconfirmed,
               });
             }
-            await recordGuideRemovals(transaction, {
+            await recordProductRemovals(transaction, {
               actor: command.actor,
               operation: "material_save",
-              removals: heldRemovals.map((guide) => ({
-                guide,
+              removals: heldRemovals.map((product) => ({
+                product,
                 materialId: command.materialId,
               })),
               removedAt: savedAt,
@@ -541,7 +541,7 @@ async function replacePublishedProjections(
     readonly contentVersion: number;
     readonly hasModeVariants: boolean;
     readonly metadata: {
-      readonly access: "free" | "membership";
+      readonly access: "free" | "closed";
       readonly difficulty: MaterialDifficulty | null;
       readonly formatId: string;
       readonly outcomes: readonly string[];
@@ -611,11 +611,11 @@ async function replacePublishedProjections(
       })),
     });
   }
-  await transaction.publishedMaterialGuideMembership.deleteMany({
+  await transaction.publishedMaterialProductMembership.deleteMany({
     where: { materialId: values.materialId },
   });
   if (values.metadata.seriesMemberships.length > 0) {
-    await transaction.publishedMaterialGuideMembership.createMany({
+    await transaction.publishedMaterialProductMembership.createMany({
       data: values.metadata.seriesMemberships.map(({ seriesId, ordinal }) => ({
         materialId: values.materialId,
         seriesId,

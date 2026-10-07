@@ -153,7 +153,7 @@ observable checkpoint. Optional поля `predictionPrompt`, `observationPrompt`
 `conclusionPrompt` поддерживают цикл «предположил → запустил → наблюдал → сделал вывод», но ни одно
 из них не является required gate.
 
-Step может содержать commands/config snippets, но guide должен объяснять назначение существенных
+Step может содержать commands/config snippets, но product должен объяснять назначение существенных
 частей. Простое копирование непрозрачного готового environment не удовлетворяет first-lab
 contract.
 
@@ -214,7 +214,7 @@ route-level fallback.
 
 Одна active Inside subscription поддерживает две отдельные Platform authorities:
 
-- `MembershipEntitlement` для Library/Materials;
+- `AccountRights` для Library/Materials;
 - `WorkshopEntitlement` для protected Workshop content.
 
 Одно accepted `MembershipEvidence` создаёт, продлевает и завершает оба bounded grants через их

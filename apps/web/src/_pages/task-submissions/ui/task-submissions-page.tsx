@@ -17,11 +17,11 @@ export async function TaskSubmissionsPage({
   readonly searchParams: Promise<Readonly<Record<string, SearchValue>>>;
 }) {
   const params = await searchParams;
-  const guideId = single(params["guideId"]);
+  const productId = single(params["productId"]);
   const chapterId = single(params["chapterId"]);
   const taskCode = single(params["task"]);
   const selection = {
-    ...(guideId === undefined ? {} : { guideId }),
+    ...(productId === undefined ? {} : { productId }),
     ...(chapterId === undefined ? {} : { chapterId }),
     ...(taskCode === undefined ? {} : { taskCode }),
   };

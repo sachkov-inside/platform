@@ -42,17 +42,17 @@ import {
 } from "../../domain/reading-state.js";
 import { ReadingActivity } from "../../facets/reading-activity/reading-activity.js";
 import {
-  readerGuideModeSchema,
-  type GetReaderGuideModeResult,
-} from "../../features/get-reader-guide-mode/get-reader-guide-mode.js";
+  readerProductModeSchema,
+  type GetReaderProductModeResult,
+} from "../../features/get-reader-product-mode/get-reader-product-mode.js";
 import {
   getReadingStatesSchema,
   type GetReadingStatesResult,
 } from "../../features/get-reading-states/get-reading-states.js";
 import {
-  setReaderGuideModeSchema,
-  type SetReaderGuideModeResult,
-} from "../../features/set-reader-guide-mode/set-reader-guide-mode.js";
+  setReaderProductModeSchema,
+  type SetReaderProductModeResult,
+} from "../../features/set-reader-product-mode/set-reader-product-mode.js";
 import {
   seriesProgressSchema,
   type GetSeriesProgressResult,
@@ -168,12 +168,12 @@ export class ReadingActivityController {
     return result.value;
   }
 
-  @Get("guides/:guideId")
+  @Get("products/:productId")
   @ApiOperation({
-    operationId: "getGuideReadingProgress",
-    summary: "Read progress over the current published Guide composition",
+    operationId: "getProductReadingProgress",
+    summary: "Read progress over the current published Product composition",
   })
-  @ApiParam({ name: "guideId", schema: toOpenApiSchema(z.uuid()) })
+  @ApiParam({ name: "productId", schema: toOpenApiSchema(z.uuid()) })
   @ApiOkResponse({ schema: toOpenApiSchema(seriesProgressSchema) })
   @ApiResponse({
     status: 404,
@@ -191,9 +191,9 @@ export class ReadingActivityController {
       problemDetailsSchema(422, ["series_too_large"]),
     ),
   })
-  async guide(
+  async product(
     @CurrentAccount() current: AuthenticatedAccount,
-    @Param("guideId") seriesId: string,
+    @Param("productId") seriesId: string,
   ) {
     const result = await this.reading.getSeriesProgress({
       seriesId,
@@ -203,36 +203,36 @@ export class ReadingActivityController {
     return result.value;
   }
 
-  @Get("guide-mode")
+  @Get("product-mode")
   @ApiOperation({
-    operationId: "getReaderGuideMode",
-    summary: "Read the mode the current Account goes through guides in",
+    operationId: "getReaderProductMode",
+    summary: "Read the mode the current Account goes through products in",
   })
-  @ApiOkResponse({ schema: toOpenApiSchema(readerGuideModeSchema) })
-  async guideMode(@CurrentAccount() current: AuthenticatedAccount) {
-    const result = await this.reading.getReaderGuideMode({
+  @ApiOkResponse({ schema: toOpenApiSchema(readerProductModeSchema) })
+  async productMode(@CurrentAccount() current: AuthenticatedAccount) {
+    const result = await this.reading.getReaderProductMode({
       accountId: current.accountId,
     });
     if (!result.ok) throwReadingError(result.error);
     return result.value;
   }
 
-  @Put("guide-mode")
+  @Put("product-mode")
   @HttpCode(200)
   @ApiOperation({
-    operationId: "setReaderGuideMode",
-    summary: "Set the mode the current Account goes through guides in",
+    operationId: "setReaderProductMode",
+    summary: "Set the mode the current Account goes through products in",
   })
-  @ApiBody({ schema: toOpenApiSchema(setReaderGuideModeSchema) })
-  @ApiOkResponse({ schema: toOpenApiSchema(readerGuideModeSchema) })
-  async setGuideMode(
+  @ApiBody({ schema: toOpenApiSchema(setReaderProductModeSchema) })
+  @ApiOkResponse({ schema: toOpenApiSchema(readerProductModeSchema) })
+  async setProductMode(
     @CurrentAccount() current: AuthenticatedAccount,
     @Body() input: unknown,
   ) {
-    const parsed = setReaderGuideModeSchema.safeParse(input);
+    const parsed = setReaderProductModeSchema.safeParse(input);
     if (!parsed.success)
       throw readingException(400, { code: "invalid_request" });
-    const result = await this.reading.setReaderGuideMode({
+    const result = await this.reading.setReaderProductMode({
       ...parsed.data,
       accountId: current.accountId,
     });
@@ -282,8 +282,8 @@ type ReadingError =
   | Extract<
       | GetReadingStatesResult
       | GetSeriesProgressResult
-      | GetReaderGuideModeResult
-      | SetReaderGuideModeResult,
+      | GetReaderProductModeResult
+      | SetReaderProductModeResult,
       { readonly ok: false }
     >["error"];
 

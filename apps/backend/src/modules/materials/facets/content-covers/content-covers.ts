@@ -89,7 +89,7 @@ export interface ContentCovers {
   readonly change: (
     command: ChangeContentCoverCommand,
   ) => Promise<ChangeContentCoverResult>;
-  /** Changes the cover of a Material or Guide owned by exactly this authoring source. */
+  /** Changes the cover of a Material or Product owned by exactly this authoring source. */
   readonly changeImported: (
     command: ChangeContentCoverCommand,
     sourceId: string,
@@ -387,7 +387,7 @@ async function readCurrentCoverId(
       )?.coverId;
     case "series":
       return (
-        await transaction.guide.findUnique({
+        await transaction.product.findUnique({
           where: { id: owner.id },
           select: { coverId: true },
         })
@@ -406,7 +406,7 @@ async function readOwnerSourceId(
       )?.sourceId;
     case "series":
       return (
-        await transaction.guide.findUnique({
+        await transaction.product.findUnique({
           where: { id: owner.id },
           select: { sourceId: true },
         })
@@ -444,7 +444,7 @@ async function writeCurrentCoverId(
       });
       return;
     case "series":
-      await transaction.guide.update({
+      await transaction.product.update({
         data: { coverId, updatedAt: new Date() },
         where: { id: owner.id },
       });

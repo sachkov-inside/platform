@@ -25,7 +25,7 @@ let database: TestDatabase;
 let now: Date;
 let outage = false;
 let loseAck = false;
-let target = `${origin}/materials/test-guide`;
+let target = `${origin}/materials/test-product`;
 const fetcher: typeof fetch = (_url, init) => {
   if (typeof init?.body !== "string")
     throw new Error("Expected serialized envelope");
@@ -79,7 +79,7 @@ beforeEach(async () => {
   now = new Date();
   outage = false;
   loseAck = false;
-  target = `${origin}/materials/test-guide`;
+  target = `${origin}/materials/test-product`;
 });
 
 test("safe target only, opaque tokens and invalid provider destinations never create events", async () => {
@@ -87,12 +87,12 @@ test("safe target only, opaque tokens and invalid provider destinations never cr
     kind: "invalid",
   });
   for (const value of [
-    "https://evil.test/materials/guide",
+    "https://evil.test/materials/product",
     `${origin}/api/authoring`,
-    `${origin}/materials/guide?redirect=evil`,
+    `${origin}/materials/product?redirect=evil`,
     `${origin}/materials/%2f%2fevil`,
-    `https://user@inside.test/materials/guide`,
-    `${origin}/materials/guide#fragment`,
+    `https://user@inside.test/materials/product`,
+    `${origin}/materials/product#fragment`,
   ]) {
     target = value;
     expect(isSafeTrackingTarget(value, origin)).toBe(false);

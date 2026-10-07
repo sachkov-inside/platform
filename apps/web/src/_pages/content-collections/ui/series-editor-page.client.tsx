@@ -1,17 +1,17 @@
 "use client";
 import { Archive, RotateCcw } from "lucide-react";
 import { useState } from "react";
-import { GuideArtifactsPanel } from "@/features/guide-artifacts";
+import { ProductArtifactsPanel } from "@/features/product-artifacts";
 import { SeriesEditorPageFrame } from "./series-editor-page-frame";
 import { HomeSeriesPin, SeriesOrderPanel } from "@/features/series-order";
 import { ContentCoverEditor } from "@/features/content-covers";
 import { Button } from "@/shared/ui/button";
 import { hasText } from "@/shared/lib/text";
 import {
-  GUIDE_INTRODUCTION_FIELD_MAX,
+  PRODUCT_INTRODUCTION_FIELD_MAX,
   type ContentCollection,
 } from "../model/content-collections";
-import { GUIDE_INTRODUCTION_FIELDS } from "../model/guide-introduction-fields";
+import { PRODUCT_INTRODUCTION_FIELDS } from "../model/product-introduction-fields";
 import { useCollectionDraft } from "../model/use-collection-draft.client";
 import { MutationNotice } from "./collection-mutation-notice";
 import { ImportedProductPage } from "./imported-product-page";
@@ -149,22 +149,24 @@ function AuthoredProductEditor({
             <legend className="mb-4 block text-sm font-semibold">
               О продукте для читателя
             </legend>
-            {GUIDE_INTRODUCTION_FIELDS.map(({ field, label, placeholder }) => (
-              <label className="block" key={field}>
-                <span className="text-sm text-muted-foreground">{label}</span>
-                <textarea
-                  className="mt-2 block min-h-28 w-full resize-y rounded-md border border-input bg-transparent px-3 py-2 text-sm leading-relaxed outline-none focus:border-ring focus:ring-2 focus:ring-ring/30"
-                  maxLength={GUIDE_INTRODUCTION_FIELD_MAX}
-                  name={field}
-                  onChange={(event) => {
-                    editIntroduction(field, event.currentTarget.value);
-                  }}
-                  placeholder={placeholder}
-                  rows={4}
-                  value={introduction[field]}
-                />
-              </label>
-            ))}
+            {PRODUCT_INTRODUCTION_FIELDS.map(
+              ({ field, label, placeholder }) => (
+                <label className="block" key={field}>
+                  <span className="text-sm text-muted-foreground">{label}</span>
+                  <textarea
+                    className="mt-2 block min-h-28 w-full resize-y rounded-md border border-input bg-transparent px-3 py-2 text-sm leading-relaxed outline-none focus:border-ring focus:ring-2 focus:ring-ring/30"
+                    maxLength={PRODUCT_INTRODUCTION_FIELD_MAX}
+                    name={field}
+                    onChange={(event) => {
+                      editIntroduction(field, event.currentTarget.value);
+                    }}
+                    placeholder={placeholder}
+                    rows={4}
+                    value={introduction[field]}
+                  />
+                </label>
+              ),
+            )}
           </fieldset>
           {autosave.error ? (
             <Button className="mt-4" type="submit" variant="outline">
@@ -190,9 +192,9 @@ function AuthoredProductEditor({
         seriesId={collection.id}
         archived={collection.archived}
       />
-      <GuideArtifactsPanel
+      <ProductArtifactsPanel
         archived={collection.archived}
-        guideId={collection.id}
+        productId={collection.id}
       />
     </SeriesEditorPageFrame>
   );
