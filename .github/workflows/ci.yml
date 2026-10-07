@@ -16,7 +16,9 @@ permissions:
   contents: read
 
 concurrency:
-  group: platform-ci-${{ github.workflow }}-${{ github.event.pull_request.number || github.event.merge_group.head_ref || github.run_id }}
+  # Reruns have their own group: recovery can race a new commit after its API
+  # freshness check, and must not cancel that commit's first attempt (#1085).
+  group: platform-ci-${{ github.workflow }}-${{ github.event.pull_request.number || github.event.merge_group.head_ref || github.run_id }}${{ github.run_attempt > 1 && format('-rerun-{0}', github.run_id) || '' }}
   cancel-in-progress: true
 
 env:

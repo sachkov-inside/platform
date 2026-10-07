@@ -57,7 +57,8 @@ jobs:
               return;
             }
 
-            // An old attempt must not cancel a newer run in ci.yml's PR group.
+            // Avoid wasting CI on a branch that already has a newer run.
+            // ci.yml also isolates reruns, closing the read-to-POST cancellation race.
             const { data: branchRuns } = await github.rest.actions.listWorkflowRuns({
               ...context.repo, workflow_id: run.workflow_id,
               event: run.event, branch: run.head_branch, per_page: 1,
