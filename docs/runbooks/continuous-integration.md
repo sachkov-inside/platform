@@ -241,6 +241,14 @@ Playwright traces, screenshots and HTML reports are uploaded only after a failur
 capture service state and at most the latest 500 log lines before cleanup. Diagnostic artifacts are
 retained for seven days; successful runs store none of them.
 
+The narrow WebKit Telegram geometry test also saves `failure.json` with its pending step, last
+completed step, viewport width and completed step durations (#1110). It exports a Playwright trace
+for each viewport reached before the failure, including test timeouts. A failure before the first
+trace starts has only the phase file. The UI job uploads these files as
+`browser-engines-playwright-<run_attempt>`; a successful test removes its diagnostic directory.
+The test keeps its 30-second budget and does not retry. Inspect the pending step before choosing
+a fix; #1110 remains open until a captured failure establishes the cause.
+
 Every Compose job owns an isolated project on its runner and removes containers, networks and
 volumes even after a failed command. The production smoke additionally removes locally built
 images. It embeds a synthetic release identity, supplies the exact local image IDs to production
