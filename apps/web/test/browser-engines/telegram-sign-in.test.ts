@@ -1,6 +1,14 @@
 import { createServer, type Server } from "node:http";
+import { mkdir, rm, writeFile } from "node:fs/promises";
+import { resolve } from "node:path";
 import AxeBuilder from "@axe-core/playwright";
-import { chromium, webkit, type Browser, type Page } from "@playwright/test";
+import {
+  chromium,
+  webkit,
+  type Browser,
+  type BrowserContext,
+  type Page,
+} from "@playwright/test";
 import { afterAll, beforeAll, expect, it } from "vitest";
 import {
   pollIntervalMilliseconds,
@@ -99,7 +107,16 @@ async function poll(page: Page) {
 const focusedId = (page: Page) =>
   page.evaluate(() => document.activeElement?.id);
 
-async function open(page: Page, status: InsideTelegramPresentation["status"]) {
+type BrowserStep = <Result>(
+  name: string,
+  operation: () => Result | Promise<Result>,
+) => Promise<Result>;
+
+async function open(
+  page: Page,
+  status: InsideTelegramPresentation["status"],
+  step: BrowserStep = (_name, operation) => Promise.resolve(operation()),
+) {
   offline = false;
   requests = 0;
   state = { status, deepLink: botLink };
@@ -110,17 +127,15 @@ async function open(page: Page, status: InsideTelegramPresentation["status"]) {
       await route.fulfill({ status: offline ? 503 : 200, json: state });
     });
   }
-  console.error("[DEBUG-1110] goto started");
-  await page.goto(`${origin}/api/inside-telegram`);
-  console.error("[DEBUG-1110] goto finished; waitForFunction started");
-  await page.waitForFunction(
-    () =>
-      document.querySelector('[role="status"]')?.textContent !==
-      "Готовим вход…",
+  await step("goto", () => page.goto(`${origin}/api/inside-telegram`));
+  await step("loaded-state", () =>
+    page.waitForFunction(
+      () =>
+        document.querySelector('[role="status"]')?.textContent !==
+        "Готовим вход…",
+    ),
   );
-  console.error("[DEBUG-1110] waitForFunction finished; fonts.ready started");
-  await page.evaluate(() => document.fonts.ready);
-  console.error("[DEBUG-1110] fonts.ready finished");
+  await step("fonts-ready", () => page.evaluate(() => document.fonts.ready));
 }
 
 it("renders every production state without overflow or accessibility violations on desktop and narrow mobile", async () => {
@@ -304,76 +319,143 @@ it.runIf(Boolean(process.env["STORYBOOK_UI_ORIGIN"]))(
   },
 );
 
-it.each(Array.from({ length: 20 }, (_, index) => index + 1))(
-  "keeps the complete Telegram button geometry on narrow WebKit after loading (diagnostic sample %i)",
-  async () => {
-    console.error("[DEBUG-1110] WebKit launch started");
-    const mobileBrowser = await webkit.launch();
-    console.error("[DEBUG-1110] WebKit launch finished");
+it("keeps the complete Telegram button geometry on narrow WebKit after loading", async ({
+  task,
+  onTestFinished,
+  signal,
+}) => {
+  const diagnostics = resolve(
+    import.meta.dirname,
+    "../..",
+    "test-results/browser-engines/telegram-webkit-geometry",
+  );
+  await rm(diagnostics, { recursive: true, force: true });
+  let mobileBrowser: Browser | undefined;
+  let launching: Promise<Browser> | undefined;
+  let context: BrowserContext | undefined;
+  let tracing = false;
+  let width: number | undefined;
+  let pendingStep = "launch";
+  let lastCompletedStep: string | undefined;
+  const steps: {
+    name: string;
+    width: number | undefined;
+    elapsedMilliseconds: number;
+  }[] = [];
+  const step: BrowserStep = async (name, operation) => {
+    signal.throwIfAborted();
+    pendingStep = name;
+    const started = performance.now();
+    const result = await operation();
+    signal.throwIfAborted();
+    lastCompletedStep = name;
+    steps.push({
+      name,
+      width,
+      elapsedMilliseconds: performance.now() - started,
+    });
+    return result;
+  };
+
+  // Vitest invokes this hook after a timeout too, while the test's await is still pending.
+  // Save the phase before attempting trace export, including failures before a context exists.
+  onTestFinished(async () => {
+    if (task.result?.state !== "fail") return;
+    await mkdir(diagnostics, { recursive: true });
+    await writeFile(
+      resolve(diagnostics, "failure.json"),
+      JSON.stringify({ pendingStep, lastCompletedStep, width, steps }, null, 2),
+    );
     try {
-      for (const width of [320, 390]) {
-        console.error(`[DEBUG-1110] ${String(width)} newPage started`);
-        const page = await mobileBrowser.newPage({
-          viewport: { width, height: 844 },
-          isMobile: true,
-          deviceScaleFactor: 3,
+      if (tracing && context !== undefined) {
+        await context.tracing.stop({
+          path: resolve(diagnostics, `trace-${String(width)}.zip`),
         });
-        console.error(`[DEBUG-1110] ${String(width)} newPage finished`);
-        page.on("console", (message) => {
-          console.error("[DEBUG-1110] page", message.text());
-        });
-        console.error(`[DEBUG-1110] ${String(width)} open started`);
-        await open(page, "pending");
-        console.error(`[DEBUG-1110] ${String(width)} open finished`);
-        const geometry = await page.locator("#bot").evaluate((element) => {
-          const button = element.getBoundingClientRect();
-          const range = document.createRange();
-          range.selectNodeContents(element);
-          const label = range.getBoundingClientRect();
-          return {
-            button: {
-              height: button.height,
-              left: button.left,
-              right: button.right,
-              bottom: button.bottom,
-            },
-            label: {
-              left: label.left,
-              right: label.right,
-              bottom: label.bottom,
-            },
-            display: getComputedStyle(element).display,
-            rects: element.getClientRects().length,
-          };
-        });
-        expect(geometry.display).toBe("flex");
-        expect(geometry.rects).toBe(1);
-        expect(geometry.button.height).toBeGreaterThanOrEqual(52);
-        expect(geometry.label.left).toBeGreaterThanOrEqual(
-          geometry.button.left,
-        );
-        expect(geometry.label.right).toBeLessThanOrEqual(geometry.button.right);
-        expect(geometry.label.bottom).toBeLessThanOrEqual(
-          geometry.button.bottom,
-        );
-        console.error(`[DEBUG-1110] ${String(width)} geometry finished`);
-        if (process.env["CAPTURE_TELEGRAM_EVIDENCE"] === "1") {
-          await prepareEvidenceDirectory("issue-303");
-          await page.screenshot({
-            path: `${evidence}/webkit-${String(width)}.png`,
-          });
-        }
-        await page.close();
-        console.error(`[DEBUG-1110] ${String(width)} page close finished`);
       }
     } finally {
-      console.error("[DEBUG-1110] WebKit close started");
-      await mobileBrowser.close();
-      console.error("[DEBUG-1110] WebKit close finished");
+      // A launch may settle just after Vitest's deadline; still close the browser it created.
+      const failedBrowser =
+        mobileBrowser ?? (await launching?.catch(() => undefined));
+      await failedBrowser?.close();
     }
-  },
-  30000,
-);
+  });
+
+  const currentBrowser = await step("launch", () => {
+    launching = webkit.launch();
+    return launching;
+  });
+  mobileBrowser = currentBrowser;
+  for (const currentWidth of [320, 390]) {
+    width = currentWidth;
+    const currentContext = await step("new-context", () =>
+      currentBrowser.newContext({
+        viewport: { width: currentWidth, height: 844 },
+        isMobile: true,
+        deviceScaleFactor: 3,
+      }),
+    );
+    context = currentContext;
+    await step("trace-start", () =>
+      currentContext.tracing.start({
+        screenshots: true,
+        snapshots: true,
+        sources: true,
+      }),
+    );
+    tracing = true;
+    const page = await step("new-page", () => currentContext.newPage());
+    await open(page, "pending", step);
+    const geometry = await step("geometry", () =>
+      page.locator("#bot").evaluate((element) => {
+        const button = element.getBoundingClientRect();
+        const range = document.createRange();
+        range.selectNodeContents(element);
+        const label = range.getBoundingClientRect();
+        return {
+          button: {
+            height: button.height,
+            left: button.left,
+            right: button.right,
+            bottom: button.bottom,
+          },
+          label: { left: label.left, right: label.right, bottom: label.bottom },
+          display: getComputedStyle(element).display,
+          rects: element.getClientRects().length,
+        };
+      }),
+    );
+    await step("geometry-assertions", () => {
+      expect(geometry.display).toBe("flex");
+      expect(geometry.rects).toBe(1);
+      expect(geometry.button.height).toBeGreaterThanOrEqual(52);
+      expect(geometry.label.left).toBeGreaterThanOrEqual(geometry.button.left);
+      expect(geometry.label.right).toBeLessThanOrEqual(geometry.button.right);
+      expect(geometry.label.bottom).toBeLessThanOrEqual(geometry.button.bottom);
+    });
+    if (process.env["CAPTURE_TELEGRAM_EVIDENCE"] === "1") {
+      await prepareEvidenceDirectory("issue-303");
+      await step("screenshot", () =>
+        page.screenshot({
+          path: `${evidence}/webkit-${String(width)}.png`,
+        }),
+      );
+    }
+    // Keep a completed trace if closing the page or context itself is what fails.
+    await mkdir(diagnostics, { recursive: true });
+    await step("trace-stop", () =>
+      currentContext.tracing.stop({
+        path: resolve(diagnostics, `trace-${String(currentWidth)}.zip`),
+      }),
+    );
+    tracing = false;
+    await step("page-close", () => page.close());
+    await step("context-close", () => currentContext.close());
+    context = undefined;
+  }
+  await step("browser-close", () => currentBrowser.close());
+  mobileBrowser = undefined;
+  await rm(diagnostics, { recursive: true, force: true });
+}, 30000);
 
 it.each(["headers", "body"] as const)(
   "leaves loading and retries when the first status response stalls at %s",
