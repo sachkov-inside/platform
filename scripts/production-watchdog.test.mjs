@@ -194,6 +194,96 @@ describe("production watchdog", () => {
     }
   });
 
+  it("signals again when the same failure grows and tolerates an empty state file", () => {
+    const fixture = createFixture();
+    try {
+      fixture.fake(
+        "sql",
+        healthySql.replace("email_effects|0", "email_effects|1"),
+      );
+      assert.match(
+        assertRun(fixture),
+        /Отказ: Писем без итога дольше 10 минут: 1/u,
+      );
+      fixture.fake("sql-telegram", "community_operations|2\n");
+      fixture.fake(
+        "sql",
+        healthySql.replace("email_effects|0", "email_effects|3"),
+      );
+      writeFileSync(
+        resolve(
+          fixture.root,
+          "var/lib/inside/watchdog/streak/db.email_effects",
+        ),
+        "",
+      );
+      const messages = assertRun(fixture, now + 60);
+      assert.match(messages, /Хуже: Писем без итога дольше 10 минут: 3/u);
+      assert.match(
+        messages,
+        /Операций вступления в группу failed или unknown за 10 минут: 2/u,
+      );
+      assert.equal(assertRun(fixture, now + 120), "");
+    } finally {
+      fixture.cleanup();
+    }
+  });
+
+  it("skips runs while a deploy is in progress", () => {
+    const fixture = createFixture();
+    try {
+      writeFileSync(
+        resolve(fixture.root, "var/lib/inside/deployments/operation.json"),
+        JSON.stringify({ status: "running" }),
+      );
+      fixture.fake(
+        "ps-inside-platform-production",
+        "inside-platform-production-api-1\texited\tExited (143) 5 seconds ago\n",
+      );
+      assert.equal(assertRun(fixture), "");
+      writeFileSync(
+        resolve(fixture.root, "var/lib/inside/deployments/operation.json"),
+        JSON.stringify({ status: "failed" }),
+      );
+      assert.match(
+        assertRun(fixture, now + 60),
+        /Отказ: Контейнер inside-platform-production-api-1: Exited \(143\)/u,
+      );
+    } finally {
+      fixture.cleanup();
+    }
+  });
+
+  it("keeps a container signal when Docker cannot inspect containers", () => {
+    const fixture = createFixture();
+    try {
+      fixture.fake("oom-inside-platform-production-api-1", "");
+      assert.match(assertRun(fixture), /OOMKilled/u);
+      fixture.fake("inspect-fail", "");
+      rmSync(
+        resolve(fixture.root, "fake/oom-inside-platform-production-api-1"),
+      );
+      assert.equal(assertRun(fixture, now + 60), "");
+    } finally {
+      fixture.cleanup();
+    }
+  });
+
+  it("rejects a threshold that is not a whole number", () => {
+    const fixture = createFixture();
+    try {
+      fixture.config("WATCHDOG_DISK_MAX_PERCENT=8$(id)\n");
+      const result = runWatchdog(fixture, now);
+      assert.equal(result.status, 1);
+      assert.match(
+        result.stderr,
+        /WATCHDOG_DISK_MAX_PERCENT must be a whole number/u,
+      );
+    } finally {
+      fixture.cleanup();
+    }
+  });
+
   it("ignores settings outside the watchdog namespace", () => {
     const fixture = createFixture();
     try {
@@ -313,6 +403,7 @@ case "$1" in
     fi
     ;;
   inspect)
+    [[ -f "$fakes/inspect-fail" ]] && exit 1
     shift 3
     for name in "$@"; do
       if [[ -f "$fakes/oom-$name" ]]; then echo "/$name true"; else echo "/$name false"; fi
@@ -321,6 +412,10 @@ case "$1" in
   exec)
     cat >/dev/null
     [[ -f "$fakes/sql-fail" ]] && exit 1
+    if [[ "$args" == *"--dbname inside_telegram"* ]]; then
+      [[ -f "$fakes/sql-telegram" ]] && cat "$fakes/sql-telegram"
+      exit 0
+    fi
     cat "$fakes/sql"
     ;;
   logs)
