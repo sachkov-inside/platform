@@ -2,6 +2,7 @@
 import type { Route } from "next";
 
 import { BillingContactPanel } from "@/features/billing-contact";
+import { TelegramLinkAction } from "@/features/account-access";
 import { CommunityEntryPanel } from "@/features/community-entry";
 import {
   PurchasesPanel,
@@ -33,7 +34,7 @@ export function AccountPurchasesPage() {
           ? {}
           : {
               communitySlot: (
-                <CommunityEntryPanel telegramHref="/account/access" />
+                <CommunityEntryPanel TelegramAction={TelegramLinkAction} />
               ),
               contactSlot: <BillingContactPanel />,
             })}

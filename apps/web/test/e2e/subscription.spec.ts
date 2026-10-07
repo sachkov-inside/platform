@@ -150,6 +150,55 @@ test("после оплаты курса с сообществом виден п
   expect(results.violations).toEqual([]);
 });
 
+test("покупатель без Telegram одной кнопкой открывает бота с кодом привязки", async ({
+  page,
+}) => {
+  await returnFromBank(page, "ready", { kind: "link_telegram" });
+  await page.addInitScript(() => {
+    Object.defineProperty(window, "open", {
+      configurable: true,
+      value: () => ({
+        close: () => undefined,
+        location: {
+          replace: (url: string) => {
+            sessionStorage.setItem("test.telegram-opened", url);
+          },
+        },
+        opener: null,
+      }),
+    });
+  });
+  await page.route("**/api/account/telegram-link/begin", (route) =>
+    route.fulfill({
+      json: {
+        kind: "received",
+        state: {
+          deepLink: "https://t.me/inside_e2e_bot?start=opaque",
+          expiresAt: "2030-01-01T00:05:00.000Z",
+          linkRef: "62000000-0000-4000-8000-000000000001",
+          status: "pending",
+        },
+      },
+    }),
+  );
+  await page.goto("/subscription/return");
+
+  const community = page.getByRole("region", { name: "Сообщество Inside" });
+  await community.getByRole("button", { name: "Подключить Telegram" }).click();
+  // Кнопка ведёт прямо в бота с кодом, а не в раздел кабинета.
+  await expect
+    .poll(() =>
+      page.evaluate(() => sessionStorage.getItem("test.telegram-opened")),
+    )
+    .toBe("https://t.me/inside_e2e_bot?start=opaque");
+  await expect(community.getByRole("status").first()).toContainText(
+    "сам пришлёт личную ссылку в группу",
+  );
+  await expect(
+    community.getByRole("link", { name: "Открыть Telegram" }),
+  ).toHaveAttribute("href", "https://t.me/inside_e2e_bot?start=opaque");
+});
+
 test("участник сообщества после оплаты не зовётся вступать повторно", async ({
   page,
 }) => {

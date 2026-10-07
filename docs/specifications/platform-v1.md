@@ -789,7 +789,10 @@ platform#808). Сложность и результаты обучения ос�
    action в onboarding не выводятся: они остаются в Account и на закрытых материалах. Закрытие
    сохраняется при navigation и reload текущей session, но logout или подтверждённый guest state
    сбрасывает его; тот же flow остаётся доступен позже из Account. Locked Material не создаёт
-   второй linking/recovery flow.
+   второй linking/recovery flow. Там, где настроено направление community, API сам подтверждает
+   ожидающие attempts: через 5 секунд после конца предыдущего прохода, до 20 за проход и только
+   до expiry. Поэтому покупатель из блока сообщества (#1037) не возвращается на сайт, и бот сам
+   присылает приветствие со ссылкой в группу.
 2. Отдельная Telegram application проверяет Telegram identity, uniqueness и Membership в
    каноническом закрытом chat.
 3. При linking Telegram application выполняет initial check, затем durably принимает member-status

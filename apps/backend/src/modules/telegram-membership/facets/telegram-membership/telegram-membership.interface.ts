@@ -85,4 +85,15 @@ export interface TelegramMembership {
   acceptEvidence(
     command: AcceptTelegramEvidenceCommand,
   ): Promise<MembershipEvidenceAcceptance>;
+  /**
+   * Фоновый проход: завершает привязки, которые человек начал в боте, без его возврата на сайт.
+   * Бросает исключение при сбое базы; сбой Telegram остаётся состоянием привязки.
+   */
+  confirmPendingLinks(limit: number): Promise<PendingLinkConfirmationReport>;
 }
+
+/** Итог одного фонового прохода: сколько привязок завершено и сколько ещё ждут `/start`. */
+export type PendingLinkConfirmationReport = Readonly<{
+  linked: number;
+  pending: number;
+}>;
