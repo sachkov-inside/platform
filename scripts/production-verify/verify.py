@@ -22,12 +22,12 @@ def verify_release(state, manifest):
                             'schema identity matches manifest'))
         previous = manifest['rollback']['previous']
         rollback = state.get('rollback')
-        matches = rollback is None if previous is None else (
+        matches = True if rollback is None else previous is not None and (
             isinstance(rollback, dict) and rollback.get('targetVersion') == previous['version'] and
             isinstance(previous['compatible'], bool) and rollback.get('compatible') is previous['compatible'] and
             all(rollback.get(key) == previous[key] for key in
                 ['sourceSha', 'manifestSha256', 'schemaIdentity', 'verifiedByWorkflowRunId'] if key in previous))
-        checks.append(check('rollback policy', matches, 'disabled rollback is valid when previous schema is incompatible'))
+        checks.append(check('rollback policy', matches, 'null means no rollback offered; recorded target must match manifest'))
     else:
         checks.append(check('deployed image', current['image'] == manifest['image'], 'image digest matches manifest'))
         checks.append(check('deployed migrations', current['migrationsIdentity'] == manifest['migrations']['identity'],
@@ -45,20 +45,16 @@ def verify_catalog(facts):
     ]
 
 
-def verify_bot_identity(identity, token, me):
-    # TELEGRAM_BOT_IDENTITY is an application name. Telegram numeric ID belongs to the token.
-    prefix = token.split(':', 1)[0]
-    return check('Telegram bot identity', isinstance(identity, str) and identity.strip() != '' and
-                 prefix.isdigit() and isinstance(me, dict) and me.get('is_bot') is True and
-                 str(me.get('id')) == prefix, 'getMe numeric ID matches token; logical identity is separate')
+def verify_bot_identity(facts):
+    return check('Telegram bot identity', facts['identityMatches'] is True,
+                 'getMe numeric ID matches token through application config; logical identity is separate')
 
 
-def verify_cohort_config(env):
-    url = env.get('PLATFORM_COHORTS_URL', '').strip()
-    product = env.get('PLATFORM_COHORT_PRODUCT_ID', '').strip() or env.get('PLATFORM_COHORT_GUIDE_ID', '').strip()
-    if not url and not product:
+def verify_cohort_config(facts):
+    if facts['configured'] is False:
         return {'name': 'cohort configuration', 'status': 'not_checked', 'reason': 'not configured; welcome without date is allowed'}
-    return check('cohort configuration', bool(url and product), 'both URL and product ID are required when configured')
+    return check('cohort read', facts['configured'] is True and facts['readPassed'] is True,
+                 'application config accepted URL/UUID; deployed adapter read products.v1 envelope')
 
 
 def verify_readiness(body, manifest, process):
@@ -192,7 +188,10 @@ def error_logs(logs):
 
 
 TELEGRAM_READ = r"""
+import {loadApplicationConfig,botTelegramUserIdFromToken} from '/app/dist/config/application-config.js';
+import {HttpPlatformCohortAdapter} from '/app/dist/adapters/platform/http-platform-cohort.adapter.js';
 const env=process.env;
+const config=loadApplicationConfig(env);
 async function api(method,body={}) {
  const res=await fetch(`https://api.telegram.org/bot${env.TELEGRAM_BOT_TOKEN}/${method}`,{
   method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(body),
@@ -203,7 +202,20 @@ const me=await api('getMe');
 const wh=await api('getWebhookInfo'); const url=new URL(wh.url);
 const chat=await api('getChat',{chat_id:env.TELEGRAM_CANONICAL_CHAT_ID});
 const member=await api('getChatMember',{chat_id:env.TELEGRAM_CANONICAL_CHAT_ID,user_id:me.id});
-console.log(JSON.stringify({me:{id:me.id,is_bot:me.is_bot},webhook:{host:url.hostname,port:url.port,
+let cohorts={configured:false};
+if(config.communityWelcomeCohort){
+ let validResponse=false;
+ const fetcher=async(input,init)=>{
+  const response=await fetch(input,init);
+  const body=await response.clone().json();
+  validResponse=response.status===200 && new Headers(init.headers).get('x-inside-domain-names')==='products.v1' &&
+   Array.isArray(body?.items) && body.items.every(item=>typeof item.productId==='string');
+  return response;
+ };
+ await new HttpPlatformCohortAdapter(config.communityWelcomeCohort.url,config.communityWelcomeCohort.productId,fetcher).read();
+ cohorts={configured:true,readPassed:validResponse};
+}
+console.log(JSON.stringify({identityMatches:me.is_bot===true && String(me.id)===botTelegramUserIdFromToken(config.botToken),cohorts,webhook:{host:url.hostname,port:url.port,
  path:url.pathname,hasPinnedIp:!!wh.ip_address,pending:wh.pending_update_count,
  allowedUpdates:wh.allowed_updates,lastError:!!wh.last_error_message},chat:{supergroup:chat.type==='supergroup',
  administrator:member.status==='administrator',invite:member.can_invite_users===true,restrict:member.can_restrict_members===true}}));
@@ -231,14 +243,6 @@ if(!env.PLATFORM_ACTIVATION_URL || !env.PLATFORM_ACTIVATION_SECRET){
 }
 """
 
-
-def load_env(path):
-    result = {}
-    for line in pathlib.Path(path).read_text().splitlines():
-        if '=' in line and not line.lstrip().startswith('#'):
-            key, value = line.split('=', 1)
-            result[key.strip()] = value.strip().strip('"').strip("'")
-    return result
 
 
 def verify_telegram(manifest, state, record):
@@ -271,11 +275,10 @@ def verify_telegram(manifest, state, record):
               'inside_telegram_delivery_transport_unknown_total', 'inside_telegram_community_effects_unknown',
               'inside_telegram_reconciliation_failure_total', 'inside_telegram_reconciliation_degraded_total']
     record.append(check('Telegram error counters', status == 200 and all(values.get(name) == 0 for name in errors),
-                        'six cumulative error counters are zero since app start'))
+                        'five counters are zero since start; community_effects_unknown gauge is currently zero'))
     record.append(check('Telegram startup logs', not error_logs(read_logs(app)), 'no contract/operator/delivery errors since app start'))
-    env = load_env('/etc/inside/telegram/application.env')
     telegram = json.loads(run(['docker', 'exec', '-i', app['Id'], 'node', '--input-type=module'], data=TELEGRAM_READ, timeout=60))
-    record.append(verify_bot_identity(env.get('TELEGRAM_BOT_IDENTITY'), env.get('TELEGRAM_BOT_TOKEN', ''), telegram['me']))
+    record.append(verify_bot_identity(telegram))
     webhook = telegram['webhook']
     allowed = ['message', 'chat_member', 'my_chat_member', 'chat_join_request', 'callback_query']
     record.append(check('Telegram webhook', webhook['host'] == 'telegram.sachkov.dev' and webhook['port'] == '88' and
@@ -283,7 +286,7 @@ def verify_telegram(manifest, state, record):
                         webhook['pending'] == 0 and webhook['lastError'] is False and sorted(webhook['allowedUpdates']) == sorted(allowed),
                         'existing relay registration, allowed updates, no pending/errors; never setWebhook'))
     record.append(check('Telegram bot administration', all(telegram['chat'].values()), 'supergroup administrator with invite/restrict rights'))
-    record.append(verify_cohort_config(env))
+    record.append(verify_cohort_config(telegram['cohorts']))
     activation = json.loads(run(['docker', 'exec', '-i', app['Id'], 'node', '--input-type=module'], data=ACTIVATION_READ))
     if activation['configured']:
         record.append(check('activation domain header', len(activation['observations']) == 2 and all(
@@ -310,7 +313,13 @@ class Checks(list):
             self.append(item)
 
 
-def verify_host(application, version, logto_app_id=None):
+def verify_logto_inventory(facts):
+    return check('Logto test application credentials', facts['applications'] == 1 and
+                 (facts['activeSecrets'] > 0 or facts['legacySecretPresent'] is True),
+                 'active timestamp-based secret or legacy secret exists; values never returned')
+
+
+def verify_host(application, version, logto_app_id=None, validated_context=None):
     import hashlib
     record = Checks()
     result = {'application': application, 'version': version, 'checks': record,
@@ -320,8 +329,14 @@ def verify_host(application, version, logto_app_id=None):
         directory = '/srv/inside/releases' if application == 'platform' else '/srv/inside/telegram/releases'
         state_dir = '/var/lib/inside/deployments' if application == 'platform' else '/var/lib/inside/telegram-deployments'
         raw = pathlib.Path(directory, version, 'release-manifest.json').read_bytes()
+        state_raw = pathlib.Path(state_dir, 'state.json').read_text()
+        context = {'application': application, 'version': version, 'manifestRaw': raw.decode(), 'stateRaw': state_raw}
+        if validated_context is None:
+            validate_context(context)
+        elif context != validated_context:
+            raise RuntimeError('validated journal changed during verification')
         manifest = json.loads(raw)
-        state = json.loads(pathlib.Path(state_dir, 'state.json').read_text())
+        state = json.loads(state_raw)
         record.append(check('selected version', manifest['version'] == version, 'manifest is the requested release'))
         digest = 'sha256:' + hashlib.sha256(raw).hexdigest()
         record.append(check('manifest digest', state['current']['manifestSha256'] == digest, 'manifest bytes match deployed state'))
@@ -333,9 +348,7 @@ def verify_host(application, version, logto_app_id=None):
         stage = 'Logto credential inventory'
         if logto_app_id is not None:
             facts = sql(logto_secret_inventory(logto_app_id), 'logto')
-            record.append(check('Logto test application credentials', facts['applications'] == 1 and
-                                (facts['activeSecrets'] > 0 or facts['legacySecretPresent'] is True),
-                                'active timestamp-based secret or legacy secret exists; values never returned'))
+            record.append(verify_logto_inventory(facts))
         else:
             record.append({'name': 'Logto test application credentials', 'status': 'not_checked', 'reason': 'no test app selected'})
         result['sourceSha'] = manifest['source']['sha']
@@ -346,6 +359,11 @@ def verify_host(application, version, logto_app_id=None):
         record.append({'name': stage, 'status': 'not_checked', 'reason': 'read or input shape failed; private stderr suppressed'})
         result['passed'] = False
     return result
+
+
+def validate_context(context):
+    validator = pathlib.Path(__file__).with_name('validate-context.mjs')
+    run(['node', str(validator)], data=json.dumps(context))
 
 
 def main():
@@ -364,9 +382,18 @@ def main():
     if args.host:
         if not re.fullmatch(r'[a-zA-Z0-9][a-zA-Z0-9_.@-]*', args.host):
             parser.error('invalid SSH alias')
+        context_source = "import sys,json,pathlib\na,v=sys.argv[1:]\nd='/srv/inside/releases' if a=='platform' else '/srv/inside/telegram/releases'\ns='/var/lib/inside/deployments' if a=='platform' else '/var/lib/inside/telegram-deployments'\nprint(json.dumps({'application':a,'version':v,'manifestRaw':pathlib.Path(d,v,'release-manifest.json').read_text(),'stateRaw':pathlib.Path(s,'state.json').read_text()}))\n"
+        try:
+            context = json.loads(run(['ssh', '-o', 'BatchMode=yes', '-o', 'ConnectTimeout=15', args.host,
+                                      shlex.join(['python3', '-', args.application, args.version])], data=context_source))
+            validate_context(context)
+        except Exception:
+            print(json.dumps({'passed': False, 'checks': [{'name': 'manifest/state schema', 'status': 'not_checked',
+                                                          'reason': 'journal read or canonical schema validation failed'}]}))
+            return 1
         source = pathlib.Path(__file__).read_text()
         queries = pathlib.Path(__file__).with_name('queries.py').read_text()
-        bootstrap = "import sys,types\nq=types.ModuleType('queries')\nsys.modules['queries']=q\nexec(" + repr(queries) + ",q.__dict__)\nexec(compile(" + repr(source) + ",'production-verify','exec'))\n"
+        bootstrap = "VALIDATED_CONTEXT=" + repr(context) + "\nimport sys,types\nq=types.ModuleType('queries')\nsys.modules['queries']=q\nexec(" + repr(queries) + ",q.__dict__)\nexec(compile(" + repr(source) + ",'production-verify','exec'))\n"
         remote = ['python3', '-', '--local', '--application', args.application, '--version', args.version]
         if args.logto_app_id is not None:
             remote += ['--logto-app-id', args.logto_app_id]
@@ -381,7 +408,7 @@ def main():
             result = {'passed': False, 'checks': [{'name': 'SSH verification', 'status': 'not_checked',
                                                   'reason': 'remote verification unavailable; private stderr suppressed'}]}
     else:
-        result = verify_host(args.application, args.version, args.logto_app_id)
+        result = verify_host(args.application, args.version, args.logto_app_id, globals().get('VALIDATED_CONTEXT'))
     print(json.dumps(result, ensure_ascii=False, indent=2))
     return 0 if result['passed'] else 1
 

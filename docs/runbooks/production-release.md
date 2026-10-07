@@ -301,7 +301,8 @@ MCP-инструментом `billing_offers_save` со значением `elig
 
 После deploy выполните инструмент из проверенного checkout. Он поддерживает текущую Platform schema
 после `0082_domain_names` и Telegram activation contract с `products.v1`.
-Локально нужен Python 3.9+ и SSH-доступ оператора. На сервере нужны Python 3.9+, Docker, curl,
+Локально нужны toolchain проекта, установленные pnpm dependencies, Python 3.9+ и SSH-доступ оператора.
+На сервере нужны Python 3.9+, Docker, curl,
 psql внутри PostgreSQL-контейнера и доступ к server-owned manifest/state/configuration.
 
 ```bash
@@ -312,8 +313,8 @@ pnpm production:verify --host inside-production --application platform --version
 ```
 
 Замените версии фактически выложенными. Version/SHA/digest/schema берутся из выбранного release
-manifest и сверяются со state, образом и живым readiness. Инструмент передаёт исходник через SSH
-в памяти; серверные файлы не устанавливает. Для запуска непосредственно на host используйте
+manifest, который проверяется канонической схемой до сравнения фактов. Они сверяются со state, образом и живым readiness. Инструмент передаёт исходник через SSH
+в памяти; серверные файлы не устанавливает. При наличии checkout с toolchain и pnpm dependencies на host используйте
 `python3 scripts/production-verify/verify.py --local --application platform --version v22`.
 
 JSON содержит `passed`, время и список `checks`: `passed`, `failed` или `not_checked` с основанием.
@@ -324,7 +325,8 @@ Exit `2` означает ошибку аргументов. При первом
 
 Platform проверяет процессы, readiness API/Web/MCP, изображения и ревизии, воркеры, маршруты Caddy,
 очереди, память, timer и текущий доменный каталог. Incompatible rollback запись допустима, когда
-она совпадает с manifest; наличие записи не означает разрешённый откат. Колонки индексов не
+она совпадает с manifest; наличие записи не означает разрешённый откат. `rollback=null` означает,
+что gateway не предлагает откат, и допустим после rollback или forward repair. Колонки индексов не
 считаются колонками таблиц. Формат материалов читается из `materials.materials.format_id`;
 историческая таблица `materials.formats` не используется. Опциональная проверка Logto сравнивает
 `expires_at` с `now()` PostgreSQL и выводит только количества.
@@ -333,14 +335,17 @@ Telegram проверяет app/state/operation, digest/revision/migrations iden
 metrics/logs, текущие webhook и права бота. Числовой Bot ID сверяется с токеном; логическое
 `TELEGRAM_BOT_IDENTITY` не считается числовым ID. Синтетические непривязанные чтения `binding` и
 `own-access` проверяют activation с заголовком `x-inside-domain-names: products.v1`.
-Отсутствие cohorts config даёт `not_checked`: приветствие без даты разрешено. Это само по себе
+Конфигурация читается через `loadApplicationConfig` из фактического окружения контейнера,
+поэтому пустые значения и комментарии в env-файле не разбираются повторно. Отсутствие cohorts config даёт `not_checked`: приветствие без даты разрешено. Это само по себе
 не доказывает отсутствие регрессии; при подозрении сравните прежнюю конфигурацию. Частичная пара
 настроек даёт отказ.
 
 SQL работает с `default_transaction_read_only=on` и `statement_timeout=15000`. Инструмент не
 создаёт sign-in tokens, binding, activation attempts, покупки или сообщения. Он не меняет webhook,
 настройки, права, процесс или базу. Секреты, персональные строки и stderr команд не включаются в JSON.
-Счётчики ошибок проверяются с момента старта app; ненулевой исторический счётчик требует разбора,
+Пять накопительных счётчиков проверяются с момента старта app; `community_effects_unknown`
+показывает текущее значение. Его ноль не доказывает отсутствие прежних неизвестных исходов.
+Ненулевой исторический счётчик требует разбора,
 а не рестарта ради зелёной проверки.
 
 Инструмент дополняет Production access pass и ручные шаги runbook. Он не подтверждает живой

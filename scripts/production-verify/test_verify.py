@@ -24,22 +24,22 @@ class CatalogTests(unittest.TestCase):
 class TelegramTests(unittest.TestCase):
     def test_logical_identity_is_not_a_numeric_telegram_id(self):
         from verify import verify_bot_identity
-        self.assertEqual(verify_bot_identity('inside', '12345:private', {'id': 12345, 'is_bot': True})['status'], 'passed')
+        self.assertEqual(verify_bot_identity({'identityMatches': True})['status'], 'passed')
 
     def test_wrong_token_identity_fails_without_leaking_token(self):
         from verify import verify_bot_identity
-        result = verify_bot_identity('inside', '12345:private', {'id': 999, 'is_bot': True})
+        result = verify_bot_identity({'identityMatches': False})
         self.assertEqual(result['status'], 'failed')
         self.assertNotIn('private', str(result))
 
     def test_optional_cohorts_are_not_claimed_as_passed(self):
         from verify import verify_cohort_config
-        result = verify_cohort_config({})
+        result = verify_cohort_config({'configured': False})
         self.assertEqual(result['status'], 'not_checked')
 
-    def test_partial_cohort_config_is_a_real_failure(self):
+    def test_configured_cohort_read_failure_is_a_real_failure(self):
         from verify import verify_cohort_config
-        self.assertEqual(verify_cohort_config({'PLATFORM_COHORTS_URL': 'https://example.invalid/billing/cohorts'})['status'], 'failed')
+        self.assertEqual(verify_cohort_config({'configured': True, 'readPassed': False})['status'], 'failed')
 
 class FailureTests(unittest.TestCase):
     def test_rollback_disagreement_is_not_hidden(self):
@@ -112,3 +112,81 @@ class HttpBoundaryTests(unittest.TestCase):
         from verify import http
         with patch('verify.subprocess.run', return_value=CompletedProcess(['curl'], 0, '\n404', '')):
             self.assertEqual(http('https://telegram.example.invalid/ready'), (404, ''))
+
+class CredentialInventoryTests(unittest.TestCase):
+    def test_expired_only_credentials_fail_without_returning_values(self):
+        from verify import verify_logto_inventory
+        result = verify_logto_inventory({'applications': 1, 'activeSecrets': 0, 'legacySecretPresent': False})
+        self.assertEqual(result['status'], 'failed')
+
+class RepairStateTests(unittest.TestCase):
+    def test_forward_repair_after_rollback_can_leave_rollback_disabled(self):
+        from verify import verify_release
+        result = verify_release({'current': {'version': 'v3', 'sourceSha': 'source', 'schemaIdentity': 'schema'},
+                                 'previous': {'version': 'v1'}, 'rollback': None},
+                                {'version': 'v3', 'source': {'sha': 'source'}, 'schema': {'identity': 'schema'},
+                                 'rollback': {'previous': {'version': 'v2', 'compatible': True}}})
+        self.assertEqual(result[-1]['status'], 'passed')
+
+
+class DeployedTelegramProbeTests(unittest.TestCase):
+    def probe(self, extra=None, bot_id=12345):
+        import json
+        import pathlib
+        import subprocess
+        from verify import TELEGRAM_READ
+        root = pathlib.Path(__file__).resolve().parents[2]
+        env = {'DATABASE_URL': 'postgresql://inside:inside@127.0.0.1:5432/inside',
+               'PLATFORM_INTEGRATION_SECRET': 'synthetic_platform_secret_for_tests_only',
+               'TELEGRAM_BOT_IDENTITY': 'inside', 'TELEGRAM_BOT_TOKEN': '12345:synthetic-token',
+               'TELEGRAM_CANONICAL_CHAT_ID': '-1000000000000', 'TELEGRAM_LINK_RECEIPT_TEXT': 'receipt',
+               'TELEGRAM_LINKED_MEMBER_TEXT': 'member', 'TELEGRAM_LINKED_NON_MEMBER_TEXT': 'nonmember',
+               'TELEGRAM_LINKED_UNAVAILABLE_TEXT': 'unavailable', 'TELEGRAM_WELCOME_TEXT': 'welcome',
+               'TELEGRAM_WEBHOOK_SECRET': 'synthetic_webhook_secret_for_tests_only'}
+        env.update(extra or {})
+        fixtures = {'getMe': {'id': bot_id, 'is_bot': True}, 'getWebhookInfo': {'url': 'https://telegram.sachkov.dev:88/webhooks/telegram',
+                    'ip_address': '127.0.0.1', 'pending_update_count': 0, 'allowed_updates': []},
+                    'getChat': {'type': 'supergroup'}, 'getChatMember': {'status': 'administrator', 'can_invite_users': True,
+                    'can_restrict_members': True}}
+        prelude = 'process.env=' + json.dumps(env) + ';\nconst fixtures=' + json.dumps(fixtures) + ';\n'
+        prelude += "globalThis.fetch=async(url)=>new Response(JSON.stringify(fixtures[String(url).split('/').at(-1)] || {items:[]}),{headers:{'content-type':'application/json'}});\n"
+        # Bot API wraps read results in an ok envelope. No test request reaches a network.
+        prelude = prelude.replace("JSON.stringify(fixtures[String(url).split('/').at(-1)] || {items:[]})",
+                                  "JSON.stringify(String(url).includes('api.telegram.org') ? {ok:true,result:fixtures[String(url).split('/').at(-1)]} : {items:[]})")
+        source = TELEGRAM_READ.replace('/app/dist/config/application-config.js', (root / 'apps/telegram/src/config/application-config.ts').as_uri())
+        source = source.replace('/app/dist/adapters/platform/http-platform-cohort.adapter.js', (root / 'apps/telegram/src/adapters/platform/http-platform-cohort.adapter.ts').as_uri())
+        return subprocess.run(['node', str(root / 'apps/telegram/node_modules/tsx/dist/cli.mjs'), '--input-type=module', '-'],
+                              input=prelude + source, text=True, capture_output=True, timeout=30)
+
+    def test_actual_config_and_probe_accept_logical_identity_with_empty_cohorts(self):
+        import json
+        from verify import verify_bot_identity, verify_cohort_config
+        result = self.probe({'PLATFORM_COHORTS_URL': '', 'PLATFORM_COHORT_PRODUCT_ID': ''})
+        self.assertEqual(result.returncode, 0, result.stderr)
+        facts = json.loads(result.stdout)
+        self.assertEqual(verify_bot_identity(facts)['status'], 'passed')
+        self.assertEqual(verify_cohort_config(facts['cohorts'])['status'], 'not_checked')
+        self.assertNotIn('synthetic-token', result.stdout)
+
+    def test_probe_rejects_numeric_id_that_does_not_match_token(self):
+        import json
+        from verify import verify_bot_identity
+        result = self.probe(bot_id=999)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(verify_bot_identity(json.loads(result.stdout))['status'], 'failed')
+
+    def test_owning_config_rejects_invalid_cohort_url_uuid_and_partial_pair(self):
+        for extra in [{'PLATFORM_COHORTS_URL': 'https://example.invalid/billing/cohorts'},
+                      {'PLATFORM_COHORTS_URL': 'https://user:secret@example.invalid/cohorts',
+                       'PLATFORM_COHORT_PRODUCT_ID': '00000000-0000-4000-8000-000000000001'},
+                      {'PLATFORM_COHORTS_URL': 'https://example.invalid/cohorts', 'PLATFORM_COHORT_PRODUCT_ID': 'invalid'}]:
+            with self.subTest(extra=extra):
+                self.assertNotEqual(self.probe(extra).returncode, 0)
+
+    def test_legacy_cohort_variable_uses_the_owning_config_and_new_header(self):
+        import json
+        from verify import verify_cohort_config
+        result = self.probe({'PLATFORM_COHORTS_URL': 'https://example.invalid/billing/cohorts',
+                             'PLATFORM_COHORT_GUIDE_ID': '00000000-0000-4000-8000-000000000001'})
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(verify_cohort_config(json.loads(result.stdout)['cohorts'])['status'], 'passed')
