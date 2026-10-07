@@ -1,8 +1,8 @@
 {
-  "providerCommit": "1a60a1dc1756d8bdcf526dd774035665b609c019",
-  "pullRequest": "https://github.com/sachkov-inside/platform/pull/832",
+  "providerCommit": "28b5e6d572854ee4afcffadd88ea9c90b0d0433e",
+  "pullRequest": "https://github.com/sachkov-inside/platform/pull/1111",
   "source": "apps/backend/openapi/platform-api.json, operation billingProductCohorts (GET /billing/cohorts): 200 response schema",
-  "status": "schema.json holds the provider response schema, including sequential-rollout compatibility; fixtures.json is written in Telegram. The #1065 implementation commit replaces providerCommit before PR readiness.",
+  "status": "schema.json holds the provider response schema unchanged under \"response\", including sequential-rollout compatibility; fixtures.json is written in Telegram. The directory is pinned by providerCommit instead of a version suffix.",
   "platformAccepted": true,
   "extraction": "gh api 'repos/sachkov-inside/platform/contents/apps/backend/openapi/platform-api.json?ref=<providerCommit>' -H 'Accept: application/vnd.github.raw' | jq '{response: .paths[\"/billing/cohorts\"].get.responses[\"200\"].content[\"application/json\"].schema}', then prettier --write",
   "files": {
