@@ -50,22 +50,24 @@ it("keeps a backend correlation reference even when its error body is empty", as
   });
 });
 
-it("lets billing retain a validated forbidden outcome from its read capability", async () => {
-  const { readBillingEndpoint } =
-    await import("@/entities/subscription/api/billing-result.browser");
-  const { z } = await import("zod");
-  vi.stubGlobal(
-    "fetch",
-    vi
-      .fn()
-      .mockResolvedValue(
-        Response.json({ ok: false, code: "forbidden" }, { status: 403 }),
-      ),
-  );
-  expect(
-    await readBillingEndpoint("/api/account/billing/current", z.unknown()),
-  ).toEqual({ ok: false, code: "forbidden" });
-});
+it.each([
+  [403, "forbidden"],
+  [404, "not_found"],
+] as const)(
+  "billing keeps a validated feature rejection at HTTP %s",
+  async (status, code) => {
+    const { readBillingEndpoint } =
+      await import("@/entities/subscription/api/billing-result.browser");
+    const { z } = await import("zod");
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue(Response.json({ ok: false, code }, { status })),
+    );
+    expect(
+      await readBillingEndpoint("/api/account/billing/current", z.unknown()),
+    ).toEqual({ ok: false, code });
+  },
+);
 
 it.each([
   [403, "forbidden"],
