@@ -10,10 +10,13 @@ import {
 import { expect } from "vitest";
 import { z } from "zod";
 import {
+  LOCAL_NOTIFICATION_BROKER_CREDENTIALS,
   NOTIFICATION_BROKER_IMAGE,
   type localNotificationTopology,
 } from "../../../src/infrastructure/notification-transport/topology.js";
 import type { NotificationPrincipal } from "../../../src/infrastructure/notification-transport/wire.js";
+
+const testBrokerHeartbeatSeconds = 5;
 
 /** Each call owns one disposable broker, its local principal URLs and any TLS files. */
 export async function startNotificationBroker(input: {
@@ -87,7 +90,7 @@ export async function startNotificationBroker(input: {
     throw error;
   }
   const url = (principal: NotificationPrincipal, environment = vhost) =>
-    `${tls ? "amqps" : "amqp"}://local-${principal}:inside-local-only@${broker.getHost()}:${broker.getMappedPort(port)}/${environment}${tls ? "?heartbeat=5" : ""}`;
+    `${tls ? "amqps" : "amqp"}://${LOCAL_NOTIFICATION_BROKER_CREDENTIALS.usernames[principal]}:${LOCAL_NOTIFICATION_BROKER_CREDENTIALS.password}@${broker.getHost()}:${broker.getMappedPort(port)}/${environment}${tls ? `?heartbeat=${String(testBrokerHeartbeatSeconds)}` : ""}`;
   return {
     urls: {
       billing: url("billing"),
