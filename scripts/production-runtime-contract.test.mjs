@@ -500,7 +500,7 @@ describe("production runtime architecture contract", () => {
     }
   });
 
-  it("probes each process at most every 30 s and marks a failure within 90 s", () => {
+  it("probes each process at most every 30 s and marks a failure within 90 s, or 100 s at start", () => {
     const probes = healthchecks(runtime.compose);
     assert.equal(probes.length, 5, "api, mcp, web, workers and broker");
     /** @type {[string, string, RegExp][]} */
@@ -511,9 +511,19 @@ describe("production runtime architecture contract", () => {
         /probes more often than every 30 s/u,
       ],
       [
-        "retries: 3\n      start_period: 90s",
-        "retries: 4\n      start_period: 90s",
+        "retries: 3\n      start_period: 40s\n      start_interval: 2s",
+        "retries: 4\n      start_period: 40s\n      start_interval: 2s",
         /marks a failure later than 90 s/u,
+      ],
+      [
+        "retries: 2\n  start_period: 40s",
+        "retries: 2\n  start_period: 90s",
+        /marks a process that never starts later than 100 s/u,
+      ],
+      [
+        "timeout: 10s",
+        "timeout: 30s",
+        /timeout must be shorter than its interval/u,
       ],
       [
         "start_interval: 2s\n\n",
@@ -557,6 +567,11 @@ function assertRuntimeContract(files) {
     if (probe.interval * probe.retries > 90) {
       throw new Error(
         `healthcheck marks a failure later than 90 s: ${probe.block}`,
+      );
+    }
+    if (probe.startPeriod + (probe.retries - 1) * probe.interval > 100) {
+      throw new Error(
+        `healthcheck marks a process that never starts later than 100 s: ${probe.block}`,
       );
     }
     if (probe.startInterval > 5) {
@@ -840,12 +855,14 @@ function healthchecks(compose) {
     ...compose.matchAll(
       /^( *)(?:healthcheck|x-worker-healthcheck): ?(?:&[a-z-]+)?\n((?:\1 {2}.*\n)+)/gmu,
     ),
-  ].map(([block, , body]) => {
+  ].map(([block, , body = ""]) => {
     /** @param {string} key */
     const seconds = (key) => {
       const value = new RegExp(`^ *${key}: (\\d+)s?$`, "mu").exec(body)?.[1];
       if (value === undefined)
-        throw new Error(`healthcheck must set ${key}: ${block}`);
+        throw new Error(
+          `healthcheck must set ${key} in whole seconds: ${block}`,
+        );
       return Number(value);
     };
     return {
@@ -853,6 +870,7 @@ function healthchecks(compose) {
       interval: seconds("interval"),
       retries: seconds("retries"),
       startInterval: seconds("start_interval"),
+      startPeriod: seconds("start_period"),
       timeout: seconds("timeout"),
     };
   });

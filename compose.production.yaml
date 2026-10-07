@@ -16,7 +16,8 @@ x-backend-runtime: &backend-runtime
 
 # Каждая проверка запускает Node, поэтому установившийся интервал задаёт её цену в CPU. Docker
 # отмечает отказ после `retries` неудачных проверок подряд: `interval × retries` не больше 90 с.
-# Пока процесс запускается, проверки идут через `start_interval`, и deploy быстро видит готовность
+# В `start_period` проверки идут через `start_interval`, и deploy быстро видит готовность; не готовый
+# к его концу процесс отмечен через `start_period + (retries − 1) × interval`, не больше 100 с
 # (docs/runbooks/production-delivery.md).
 x-worker-healthcheck: &worker-healthcheck
   test:
@@ -26,7 +27,7 @@ x-worker-healthcheck: &worker-healthcheck
   interval: 30s
   timeout: 3s
   retries: 2
-  start_period: 60s
+  start_period: 40s
   start_interval: 2s
 
 services:
@@ -48,7 +49,7 @@ services:
       interval: 30s
       timeout: 10s
       retries: 3
-      start_period: 180s
+      start_period: 40s
       start_interval: 5s
     mem_limit: 768m
     networks: [broker]
@@ -87,7 +88,7 @@ services:
       interval: 30s
       timeout: 5s
       retries: 2
-      start_period: 60s
+      start_period: 40s
       start_interval: 2s
     networks: [edge, application, database]
     ports:
@@ -113,7 +114,7 @@ services:
       interval: 30s
       timeout: 5s
       retries: 2
-      start_period: 60s
+      start_period: 40s
       start_interval: 2s
     networks: [edge, application, database]
     ports:
@@ -218,7 +219,7 @@ services:
       interval: 30s
       timeout: 5s
       retries: 3
-      start_period: 90s
+      start_period: 40s
       start_interval: 2s
     init: true
     cap_drop: [ALL]
