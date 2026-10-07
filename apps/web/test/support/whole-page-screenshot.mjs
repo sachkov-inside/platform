@@ -10,11 +10,12 @@
  * догрузка может показать больше, чем было на экране. После снимка окно прежнее, а прокрутка
  * контейнера остаётся в начале.
  *
- * Chromium изредка отказывает в снимке с «Unable to capture screenshot» (#1029). Этот ответ
+ * Chromium 153 из Playwright 1.63.0 изредка отказывает в снимке с «Unable to capture screenshot»
+ * (#1029). Этот ответ
  * `PageHandler::ScreenshotCaptured` (`content/browser/devtools/protocol/page_handler.cc`) даёт на
  * пустой кадр. Кадр пуст, когда `RenderWidgetHostImpl::OnSnapshotFromSurfaceReceived`
  * (`render_widget_host_impl.cc`) не получил копию поверхности за `kMaxRetries = 5` немедленных
- * повторов. Страница в этом не участвует, поэтому помощник делает до `captureAttempts` снимков
+ * повторов. Содержимое страницы на это не влияет, поэтому помощник делает до `captureAttempts` снимков
  * всего, а другие ошибки не повторяет. Каждый повтор пишет предупреждение в лог: отказ остаётся
  * виден, даже когда следующий снимок удался.
  *

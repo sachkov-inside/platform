@@ -75,6 +75,11 @@ async function withPage<Result>(
   }
 }
 
+/** Подменённый отказ не должен оставлять в логе CI предупреждение о настоящем повторе. */
+function silenceWarnings() {
+  return vi.spyOn(console, "warn").mockImplementation(() => undefined);
+}
+
 /** Отказ Chromium из CI run 37546921993 (#1029): копия кадра не пришла после его собственных повторов. */
 const chromiumCaptureFailure = new Error(
   "page.screenshot: Protocol error (Page.captureScreenshot): Unable to capture screenshot",
@@ -141,7 +146,7 @@ it("takes the capture again when Chromium cannot copy the frame", async () => {
     const screenshot = vi
       .spyOn(page, "screenshot")
       .mockRejectedValueOnce(chromiumCaptureFailure);
-    const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    const warn = silenceWarnings();
 
     const image = await screenshotWholePage(page);
 
@@ -159,6 +164,7 @@ it("restores the viewport when the stretched capture is taken again", async () =
     const screenshot = vi
       .spyOn(page, "screenshot")
       .mockRejectedValueOnce(chromiumCaptureFailure);
+    silenceWarnings();
 
     const image = await screenshotWholePage(page);
 
@@ -173,6 +179,7 @@ it("gives up after three refused captures", async () => {
     const screenshot = vi
       .spyOn(page, "screenshot")
       .mockRejectedValue(chromiumCaptureFailure);
+    silenceWarnings();
 
     await expect(screenshotWholePage(page)).rejects.toBe(
       chromiumCaptureFailure,
