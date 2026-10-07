@@ -10,7 +10,9 @@ Use the canonical roles from `mattpocock/skills` without renaming them.
 | `ready-for-human` | `ready-for-human` | Human implementation or judgment is required |
 | `wontfix` | `wontfix` | The work will not be actioned |
 
-Every triaged issue has exactly one role from this table. `ready-for-agent` marks only a ticket:
-after `to-tickets`, take it off the specification or version. `ready-for-human` is only for work a
-human does. The `wayfinder` skill adds its own `wayfinder:*` labels. There are no other labels for
-the kind of work.
+Every triaged issue has exactly one role from this table; a specification or version with tickets
+has none. `to-spec` labels a new specification `ready-for-agent`. Once `to-tickets` has published
+the tickets, the same session removes that label from their specification or version: this project
+rule overrides the skill's "do not modify any parent issue". `ready-for-human` is only for work a
+human does. The `wayfinder` skill adds its own `wayfinder:*` labels. There are no category labels
+(`bug`, `enhancement`): `triage` sets only the role from this table.

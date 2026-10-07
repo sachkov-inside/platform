@@ -9,7 +9,9 @@ this contract and `AGENTS.md` hold what they leave open and the owner's override
 - Work that fits one session: `issue → implement → review → pull request`. When the issue leaves an
   owner decision open, the owner grills it first (`grill-with-docs`).
 - Work for several sessions: `grilling → to-spec → to-tickets`, then one `implement` session per
-  ticket. A visual change gets a prototype (skill `prototype`) before `to-tickets`.
+  ticket.
+
+On either route, a visual change starts with a prototype (skill `prototype`).
 
 The owner starts grilling, `to-spec` and `to-tickets`, each with its own command. Finish such a
 stage with its outcome and the stage you recommend next, then wait. Every owner decision is made
@@ -48,7 +50,8 @@ git ls-remote --heads origin | grep -E "/[a-z]+/<issue>-"
 gh pr list --state open --search "<issue> in:body"
 ```
 
-Nothing protects the gap between the start and the first push.
+Nothing protects the gap between the start and the first push. A Wayfinder ticket is taken by its
+assignee instead (`docs/agents/issue-tracker.md`).
 
 ## Branch, worktree and pull request
 
@@ -58,7 +61,7 @@ Nothing protects the gap between the start and the first push.
 - Worktree place: `<parent>/<repo>.worktrees/<task>`, beside the repository checkout.
   `<task>` is the branch without its type prefix. The current Inside layout is in `REPOSITORIES.md`.
 - The primary checkout belongs to the owner: read it. Only `session-cleanup` fast-forwards it after
-  the merge.
+  the merge, through `git -C`.
 - One task has one branch, one writing worktree and one open pull request. Another session's
   worktree, branch, containers, volumes and stash entries are live state: leave them alone.
 - One agent session works in one worktree: the one it starts in, or the one it creates for its
@@ -95,8 +98,8 @@ code. The agent then:
 3. reads `closingIssuesReferences` of the pull request and compares it with the task number:
    `gh pr view <pr> --json closingIssuesReferences --jq '.closingIssuesReferences[].number'`;
 4. runs `session-cleanup`;
-5. hands off in chat: the pull request link, one line of outcome and each leftover the cleanup
-   kept.
+5. hands off in chat: the pull request link, one line of outcome, the checks that ran and those
+   that did not, and each leftover the cleanup kept.
 
 Steps 4 and 5 apply to any hand-off to the owner: a ready pull request, a stopped task or a result
 that waits for acceptance.
