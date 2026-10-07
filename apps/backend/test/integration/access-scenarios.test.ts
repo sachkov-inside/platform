@@ -1868,24 +1868,58 @@ describe("таблица сценариев доступа (реальный Pos
     expect(
       await observe("product-material", recipient, { material: added }),
     ).toEqual({ outcome: "locked" });
-    const expansion = owned(
+    const previewCommand = {
+      operation: "enrollments.previewExpansion",
+      operationId: randomUUID(),
+      tierId: changing,
+      tierRevision: saved.value.revision,
+      targets: [
+        {
+          enrollmentId: enrollment.enrollmentId,
+          expectedRevision: 1,
+          tierRevision: 1,
+        },
+      ],
+      reason: "Расширение состава",
+    };
+    expect(
+      await operations.execute(owner, { ...previewCommand, tierRevision: 1 }),
+    ).toMatchObject({ ok: false, error: { code: "revision_conflict" } });
+    expect(
       await operations.execute(owner, {
-        operation: "enrollments.previewExpansion",
-        operationId: randomUUID(),
-        tierId: changing,
-        tierRevision: saved.value.revision,
+        ...previewCommand,
         targets: [
           {
             enrollmentId: enrollment.enrollmentId,
-            expectedRevision: 1,
+            expectedRevision: 2,
             tierRevision: 1,
           },
         ],
-        reason: "Расширение состава",
       }),
-    );
+    ).toMatchObject({ ok: false, error: { code: "revision_conflict" } });
+    const expansion = owned(await operations.execute(owner, previewCommand));
     if (expansion.outcome !== "enrollmentExpansionPreview")
       throw new Error(`Unexpected outcome ${expansion.outcome}`);
+    expect(expansion.value).toMatchObject({
+      targets: [
+        {
+          enrollmentId: enrollment.enrollmentId,
+          expectedRevision: 1,
+          tierRevision: 1,
+        },
+      ],
+      tier: {
+        id: changing,
+        revision: 2,
+        contentScope: { guideIds: [guideA, guideC], materialIds: [] },
+      },
+    });
+    expect(owned(await operations.execute(owner, previewCommand))).toEqual(
+      expansion,
+    );
+    expect(
+      await observe("product-material", recipient, { material: added }),
+    ).toEqual({ outcome: "locked" });
     owned(
       await operations.execute(owner, {
         operation: "enrollments.applyExpansion",

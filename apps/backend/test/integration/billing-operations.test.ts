@@ -1912,6 +1912,100 @@ describe("владельческие операции billing: платежи, �
     });
   });
 
+  test("activationRules.save сохраняет правило, revision и повтор через BillingOperations", async () => {
+    const s = await scenario();
+    const tier = asCatalog(
+      await s.operations.execute(owner, {
+        operation: "offers.save",
+        operationId: randomUUID(),
+        value: {
+          id: randomUUID(),
+          name: "Курс для активации",
+          benefits: [`guide:${s.guideId}`, "support"],
+          benefitPeriods: [{ capability: "support", months: 3 }],
+          availableForAssignment: true,
+          contentScope: { guideIds: [s.guideId], materialIds: [] },
+        },
+      }),
+    ).value;
+    const command = {
+      operation: "activationRules.save",
+      operationId: randomUUID(),
+      reason: "Активация курса",
+      value: {
+        id: randomUUID(),
+        code: randomUUID(),
+        name: "Курс",
+        tierId: tier.id,
+        tierRevision: tier.revision,
+        sourceRef: `course:${randomUUID()}`,
+        published: true,
+        startsAt: now.toISOString(),
+        endsAt: null,
+      },
+    };
+    const saved = success(await s.operations.execute(owner, command));
+    expect(saved).toMatchObject({
+      outcome: "activationRule",
+      value: { ...command.value, revision: 1 },
+    });
+    expect(success(await s.operations.execute(owner, command))).toEqual(saved);
+    expect(
+      success(
+        await s.operations.execute(owner, {
+          ...command,
+          operationId: randomUUID(),
+          expectedRevision: 1,
+          value: { ...command.value, name: "Курс после изменения" },
+        }),
+      ),
+    ).toMatchObject({
+      outcome: "activationRule",
+      value: { revision: 2, name: "Курс после изменения" },
+    });
+    expect(
+      failure(
+        await s.operations.execute(owner, {
+          ...command,
+          operationId: randomUUID(),
+          expectedRevision: 1,
+        }),
+      ),
+    ).toBe("revision_conflict");
+    expect(
+      failure(
+        await s.operations.execute(owner, {
+          ...command,
+          operationId: randomUUID(),
+          expectedRevision: 2,
+          value: { ...command.value, tierRevision: tier.revision + 1 },
+        }),
+      ),
+    ).toBe("revision_conflict");
+    expect(
+      failure(
+        await s.operations.execute(outsider, {
+          ...command,
+          operationId: randomUUID(),
+        }),
+      ),
+    ).toBe("forbidden");
+    const listed = success(
+      await s.operations.execute(owner, {
+        operation: "activationRules.list",
+        operationId: randomUUID(),
+      }),
+    );
+    if (listed.outcome !== "activationRules") throw unexpected(listed);
+    expect(
+      listed.items.find((rule) => rule.id === command.value.id),
+    ).toMatchObject({
+      revision: 2,
+      tierRevision: 1,
+      name: "Курс после изменения",
+    });
+  });
+
   test("тариф без состава или с отдельным материалом не назначается, а стартовый тариф назначается сразу", async () => {
     const s = await scenario();
     const recipient = await account();

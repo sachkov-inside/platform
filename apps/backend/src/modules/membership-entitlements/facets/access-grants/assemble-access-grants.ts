@@ -45,6 +45,8 @@ import {
 import type {
   MembershipEntitlementsPrisma,
   MembershipEntitlementsPrismaClient,
+  MembershipEnrollmentPreviewPrisma,
+  MembershipActivationRulePrisma,
 } from "../../infrastructure/prisma.js";
 import {
   accessFailure,
@@ -177,6 +179,7 @@ export function assembleAccessGrants(dependencies: AccessGrantsDependencies) {
     actorId: string,
     permission: PlatformPermission,
     operation: () => Promise<Result>,
+    operationName = "manage",
   ) {
     try {
       if (!z.uuid().safeParse(actorId).success)
@@ -190,7 +193,7 @@ export function assembleAccessGrants(dependencies: AccessGrantsDependencies) {
       return await operation();
     } catch (error) {
       return dependencyFailure(
-        { module: "membership-entitlements", operation: "manage" },
+        { module: "membership-entitlements", operation: operationName },
         error,
         accessFailure("unavailable"),
       );
@@ -241,7 +244,21 @@ export function assembleAccessGrants(dependencies: AccessGrantsDependencies) {
       tier: unknown,
     ) =>
       manage(actorId, "billing:manage", () =>
-        previewEnrollmentExpansion(prisma, actorId, input, tier, clock()),
+        prisma.$transaction((tx) =>
+          previewEnrollmentExpansion(tx, actorId, input, tier, clock()),
+        ),
+      ),
+    prepareEnrollmentExpansion: (actorId: string, input: unknown) =>
+      manage(
+        actorId,
+        "billing:manage",
+        () =>
+          Promise.resolve({
+            ok: true as const,
+            preview: (tx: MembershipEnrollmentPreviewPrisma, tier: unknown) =>
+              previewEnrollmentExpansion(tx, actorId, input, tier, clock()),
+          }),
+        "prepareEnrollmentExpansion",
       ),
     applyEnrollmentExpansion: (actorId: string, input: unknown) =>
       manage(actorId, "billing:manage", () =>
@@ -275,7 +292,21 @@ export function assembleAccessGrants(dependencies: AccessGrantsDependencies) {
       ),
     manageActivationRule: (actorId: string, input: unknown) =>
       manage(actorId, "billing:manage", () =>
-        manageActivationRule(prisma, actorId, input, clock()),
+        prisma.$transaction((tx) =>
+          manageActivationRule(tx, actorId, input, clock()),
+        ),
+      ),
+    prepareActivationRule: (actorId: string, input: unknown) =>
+      manage(
+        actorId,
+        "billing:manage",
+        () =>
+          Promise.resolve({
+            ok: true as const,
+            save: (tx: MembershipActivationRulePrisma) =>
+              manageActivationRule(tx, actorId, input, clock()),
+          }),
+        "prepareActivationRule",
       ),
     listActivationRules: (actorId: string) =>
       manage(actorId, "billing:manage", async () => {

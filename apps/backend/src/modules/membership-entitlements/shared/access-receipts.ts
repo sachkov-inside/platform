@@ -17,7 +17,7 @@ export function accessFingerprint(value: unknown): ReplayFingerprint {
   );
 }
 export async function readAccessReceipt(
-  prisma: MembershipEntitlementsPrisma,
+  prisma: Pick<MembershipEntitlementsPrisma, "$executeRaw" | "accessReceipt">,
   scope: string,
   operationId: string,
 ) {

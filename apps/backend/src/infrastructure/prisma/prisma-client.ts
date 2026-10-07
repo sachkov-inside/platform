@@ -189,6 +189,11 @@ export type BillingPrisma = Pick<
   | "billingNoticeRevision"
   | "billingSurveyRespondent"
   | "billingGuideCohort"
+  // Only handed to Membership operations; Billing never queries these delegates.
+  | "accessReceipt"
+  | "subscriptionEnrollment"
+  | "accessBatchPreview"
+  | "activationRule"
 >;
 export type BillingPrismaClient = BillingPrisma &
   TransactionClient<BillingPrisma>;
