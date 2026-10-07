@@ -383,6 +383,7 @@ const handoffDelegates = new Map([
       "activationRule",
       "activationAttempt",
       "accessReceipt",
+      "accessBatchPreview",
       "subscriptionEnrollment",
       "sourceEntitlement",
       "accessGrant",

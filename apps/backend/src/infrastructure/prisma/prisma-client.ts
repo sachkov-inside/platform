@@ -193,6 +193,7 @@ export type BillingPrisma = Pick<
   | "activationRule"
   | "activationAttempt"
   | "accessReceipt"
+  | "accessBatchPreview"
   | "subscriptionEnrollment"
   | "sourceEntitlement"
   | "accessGrant"

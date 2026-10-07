@@ -136,8 +136,13 @@ expectFailure(
     "src/modules/billing/features/activate-by-hand/activate-by-hand.ts: activationAttempt belongs to another Module; pass the transaction to its owner's function (activationAttempt)",
     "src/modules/billing/features/activate-by-hand/activate-by-hand.ts: telegramAccountLinkState belongs to another Module; pass the transaction to its owner's function (telegramAccountLinkState)",
     "src/modules/telegram-membership/features/bind-by-hand/bind-by-hand.ts: membershipBinding belongs to another Module; pass the transaction to its owner's function (membershipBinding)",
+    "src/modules/billing/features/write-membership-by-hand/write-membership-by-hand.ts: accessReceipt belongs to another Module; pass the transaction to its owner's function (accessReceipt)",
+    "src/modules/billing/features/write-membership-by-hand/write-membership-by-hand.ts: subscriptionEnrollment belongs to another Module; pass the transaction to its owner's function (subscriptionEnrollment)",
+    "src/modules/billing/features/write-membership-by-hand/write-membership-by-hand.ts: accessBatchPreview belongs to another Module; pass the transaction to its owner's function (accessBatchPreview)",
+    "src/modules/billing/features/write-membership-by-hand/write-membership-by-hand.ts: activationRule belongs to another Module; pass the transaction to its owner's function (activationRule)",
     "src/modules/membership-entitlements/features/read-binding-by-hand/read-binding-by-hand.ts: telegramAccountLinkState belongs to another Module; pass the transaction to its owner's function (telegramAccountLinkState)",
     "src/modules/membership-entitlements/features/read-binding-by-hand/read-binding-by-hand.ts: telegramAccountLinkHistory belongs to another Module; pass the transaction to its owner's function (telegramAccountLinkHistory)",
+
     "src/modules/example/features/swallow-failure/swallow-failure.ts:4: catch swallows its failure",
     "src/modules/example/features/swallow-failure/swallow-failure.ts:12: catch drops error without reporting it",
     "src/modules/example/features/swallow-failure/swallow-failure.ts:29: catch swallows its failure",

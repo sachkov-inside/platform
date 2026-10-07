@@ -52,3 +52,18 @@ export type MembershipEntitlementsPrismaTransaction =
 
 export type MembershipEntitlementsPrismaClient = MembershipEntitlementsPrisma &
   TransactionClient<MembershipEntitlementsPrismaTransaction>;
+
+/** Billing hands its transaction to Membership for an enrollment expansion preview. */
+export type MembershipEnrollmentPreviewPrisma = Pick<
+  MembershipEntitlementsPrisma,
+  | "$executeRaw"
+  | "accessReceipt"
+  | "subscriptionEnrollment"
+  | "accessBatchPreview"
+>;
+
+/** Billing hands its transaction to Membership to save an activation rule. */
+export type MembershipActivationRulePrisma = Pick<
+  MembershipEntitlementsPrisma,
+  "$executeRaw" | "accessReceipt" | "activationRule"
+>;

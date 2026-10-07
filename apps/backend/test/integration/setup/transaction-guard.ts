@@ -129,8 +129,15 @@ function knownViolationIn(stack = ""): number | undefined {
   const callback = frames
     .slice(ownFrames, wrapper === -1 ? undefined : wrapper)
     .join("\n");
-  return knownTransactionViolations.find(({ through }) =>
-    callback.includes(`${backendRoot}${through}:`),
+  return knownTransactionViolations.find(({ through, callbackName }) =>
+    callback
+      .split("\n")
+      .some(
+        (frame) =>
+          frame.includes(`${backendRoot}${through}:`) &&
+          (callbackName === undefined ||
+            frame.includes(`at ${callbackName} (`)),
+      ),
   )?.issue;
 }
 

@@ -81,9 +81,9 @@ interface Dependencies {
     | "classifyLegacy"
     | "readClassification"
     | "registerSourceEntitlement"
-    | "manageActivationRule"
+    | "prepareActivationRule"
     | "listActivationRules"
-    | "previewEnrollmentExpansion"
+    | "prepareEnrollmentExpansion"
     | "applyEnrollmentExpansion"
     | "readEnrollmentAssignmentReceipt"
     | "assignEnrollment"
@@ -374,6 +374,9 @@ export class BillingOperations {
           : ownerAccessFailure(result.error.code);
       }
       case "activationRules.save": {
+        const { operation: _operation, ...input } = command;
+        const prepared = await grants.prepareActivationRule(actorId, input);
+        if (!prepared.ok) return ownerAccessFailure(prepared.error.code);
         return prisma.$transaction(async (tx) => {
           await lockBillingPricing(tx);
           const row = await tx.billingOffer.findUnique({
@@ -398,8 +401,7 @@ export class BillingOperations {
             row?.revision !== command.value.tierRevision
           )
             return ownerFailure("revision_conflict");
-          const { operation: _operation, ...input } = command;
-          const result = await grants.manageActivationRule(actorId, input);
+          const result = await prepared.save(tx);
           return result.ok
             ? {
                 ok: true,
@@ -410,6 +412,12 @@ export class BillingOperations {
         });
       }
       case "enrollments.previewExpansion": {
+        const { operation: _operation, ...input } = command;
+        const prepared = await grants.prepareEnrollmentExpansion(
+          actorId,
+          input,
+        );
+        if (!prepared.ok) return ownerAccessFailure(prepared.error.code);
         return prisma.$transaction(async (tx) => {
           await lockBillingPricing(tx);
           const row = await tx.billingOffer.findUnique({
@@ -419,22 +427,17 @@ export class BillingOperations {
           if (row.revision !== command.tierRevision)
             return ownerFailure("revision_conflict");
           if (offerGrantsWithheld(row)) return ownerFailure("state_conflict");
-          const { operation: _operation, ...input } = command;
-          const result = await grants.previewEnrollmentExpansion(
-            actorId,
-            input,
-            {
-              id: row.id,
-              revision: row.revision,
-              name: row.name,
-              benefits: row.benefits,
-              benefitPeriods: row.benefitPeriods,
-              contentScope: row.contentScope ?? {
-                guideIds: [],
-                materialIds: [],
-              },
+          const result = await prepared.preview(tx, {
+            id: row.id,
+            revision: row.revision,
+            name: row.name,
+            benefits: row.benefits,
+            benefitPeriods: row.benefitPeriods,
+            contentScope: row.contentScope ?? {
+              guideIds: [],
+              materialIds: [],
             },
-          );
+          });
           return result.ok
             ? {
                 ok: true,
@@ -543,7 +546,7 @@ export class BillingOperations {
                       ? "dependency_unavailable"
                       : receipt.error.code,
               );
-        return prisma.$transaction(async (tx) => {
+        return prisma.$transaction(async function assignEnrollmentWithTier(tx) {
           await lockBillingPricing(tx);
           const row = await tx.billingOffer.findUnique({
             where: { id: command.tierId },
