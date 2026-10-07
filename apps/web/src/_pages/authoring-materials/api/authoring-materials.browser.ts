@@ -1,3 +1,4 @@
+import { requestAuthenticatedRead } from "@/shared/api/authenticated-read.browser";
 import { z } from "zod";
 
 import type {
@@ -50,20 +51,16 @@ export async function requestAuthoringMaterials(
   signal: AbortSignal,
 ): Promise<AuthoringMaterialsState> {
   const search = serializeAuthoringMaterialsQuery(query);
-  const response = await fetch(
+  const result = await requestAuthenticatedRead(
     search === ""
       ? "/api/authoring/materials"
       : `/api/authoring/materials?${search}`,
-    {
-      cache: "no-store",
-      headers: { accept: "application/json" },
-      signal,
-    },
+    signal,
   );
-  if (!response.ok) {
-    throw new Error(`Authoring Materials returned ${String(response.status)}`);
-  }
-  const parsed = stateSchema.safeParse(await response.json());
+  if (result.kind === "authentication_required") return { kind: "signed_out" };
+  if (result.kind !== "ready")
+    return { kind: "unavailable", reference: "authoring-session" };
+  const parsed = stateSchema.safeParse(result.value);
   if (!parsed.success) {
     throw new Error("Authoring Materials response is malformed", {
       cause: parsed.error,

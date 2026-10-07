@@ -1,20 +1,20 @@
 import { beforeEach, expect, it, vi } from "vitest";
 
 const fakes = vi.hoisted(() => ({
-  token: vi.fn(),
-  renderToken: vi.fn(),
+  token: vi.fn<() => Promise<string>>(),
+  renderToken: vi.fn<() => Promise<string>>(),
   manage: vi.fn(),
 }));
 vi.mock("@/shared/api/backend/index.server", () => ({
   requestManageBilling: fakes.manage,
 }));
-vi.mock("@/shared/auth/platform-access-token.server", () => ({
-  getPlatformAccessToken: fakes.token,
-  getPlatformAccessTokenRsc: fakes.renderToken,
+vi.mock("@/shared/auth/session-adapter.server", () => ({
+  sessionAdapter: {
+    accessToken: (mode: "route" | "rsc"): Promise<string> =>
+      mode === "rsc" ? fakes.renderToken() : fakes.token(),
+    baseUrl: () => "https://inside.example.test",
+  },
   LogtoSessionUnavailableError: class extends Error {},
-}));
-vi.mock("@/shared/auth/logto-bff-config.server", () => ({
-  readLogtoBffConfig: () => ({ baseUrl: "https://inside.example.test" }),
 }));
 
 import {
@@ -373,7 +373,7 @@ it("поиск подтверждённого получателя закрыт 
   const { handleLookupSubscriptionRecipient } =
     await import("@/features/billing-admin.server");
   const { LogtoSessionUnavailableError } =
-    await import("@/shared/auth/platform-access-token.server");
+    await import("@/shared/auth/session-adapter.server");
   fakes.token.mockRejectedValue(new LogtoSessionUnavailableError());
   const response = await handleLookupSubscriptionRecipient(
     command("/api/authoring/billing/recipients/lookup", {

@@ -7,9 +7,9 @@ import {
 } from "@/shared/api/catalog-cache.server";
 import { MAX_BROWSER_MUTATION_BYTES } from "@/shared/api/mutation-limits";
 import {
-  getPlatformAccessToken,
+  sessionAdapter,
   LogtoSessionUnavailableError,
-} from "./platform-access-token.server";
+} from "./session-adapter.server";
 import { getOptionalPlatformAccessToken } from "./optional-platform-access-token.server";
 import { readLogtoBffConfig } from "./logto-bff-config.server";
 import { isSameOriginMutation } from "./same-origin-mutation.server";
@@ -58,8 +58,7 @@ export async function handleAuthenticatedMutation(
     | [execute: ExecuteMutation, options?: undefined]
     | [execute: ExecuteStreamingMutation, options: StreamingMutationOptions]
 ): Promise<Response> {
-  const config = readLogtoBffConfig();
-  if (!isSameOriginMutation(request, config.baseUrl)) {
+  if (!isSameOriginMutation(request, sessionAdapter.baseUrl())) {
     return options === undefined
       ? mutationResponse(null, 403)
       : privateMutationResponse(
@@ -76,7 +75,7 @@ export async function handleAuthenticatedMutation(
 
   let accessToken: string;
   try {
-    accessToken = await getPlatformAccessToken(config);
+    accessToken = await sessionAdapter.accessToken("route");
   } catch (error) {
     if (options !== undefined) {
       return privateMutationResponse(

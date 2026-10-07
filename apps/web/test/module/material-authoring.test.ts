@@ -6,15 +6,10 @@ const authMocks = vi.hoisted(() => ({
   getPlatformAccessTokenRsc: vi.fn(),
 }));
 
-vi.mock("@/shared/auth/index.server", () => {
-  class LogtoSessionUnavailableError extends Error {}
-  return {
-    getPlatformAccessToken: authMocks.getPlatformAccessToken,
-    getPlatformAccessTokenRsc: authMocks.getPlatformAccessTokenRsc,
-    LogtoSessionUnavailableError,
-    readLogtoBffConfig: vi.fn().mockReturnValue({}),
-  };
-});
+vi.mock("@/shared/auth/session-adapter.server", () => ({
+  sessionAdapter: { accessToken: authMocks.getPlatformAccessTokenRsc },
+  LogtoSessionUnavailableError: class extends Error {},
+}));
 
 import {
   executeCreateMaterialDraft,
@@ -63,6 +58,7 @@ describe("Material Authoring action workflow", () => {
     });
 
     expect(authMocks.getPlatformAccessTokenRsc).toHaveBeenCalledTimes(2);
+    expect(authMocks.getPlatformAccessTokenRsc).toHaveBeenCalledWith("rsc");
     expect(authMocks.getPlatformAccessToken).not.toHaveBeenCalled();
   });
 

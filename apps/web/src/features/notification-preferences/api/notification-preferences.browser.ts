@@ -1,3 +1,4 @@
+import { requestAuthenticatedRead } from "@/shared/api/authenticated-read.browser";
 import { requestSameOriginMutation } from "@/shared/api/same-origin-mutation";
 
 import {
@@ -13,19 +14,19 @@ function decode(body: unknown): NotificationPreferencesResult {
 
 /** Собственные настройки каналов: закрытый исход вместо строки в тексте ошибки. */
 export async function readNotificationPreferences(): Promise<NotificationPreferencesResult> {
-  let response: Response;
+  const result = await requestAuthenticatedRead(
+    "/api/account/notifications/preferences",
+  );
+  if (result.kind !== "ready")
+    return {
+      ok: false,
+      code:
+        result.kind === "authentication_required"
+          ? "unauthorized"
+          : "unavailable",
+    };
   try {
-    response = await fetch("/api/account/notifications/preferences", {
-      cache: "no-store",
-      credentials: "same-origin",
-      headers: { accept: "application/json" },
-    });
-  } catch {
-    return { ok: false, code: "unavailable" };
-  }
-  if (response.status === 401) return { ok: false, code: "unauthorized" };
-  try {
-    return decode(await response.json());
+    return decode(result.value);
   } catch {
     return { ok: false, code: "unavailable" };
   }

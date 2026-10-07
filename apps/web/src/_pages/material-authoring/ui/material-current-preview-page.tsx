@@ -9,11 +9,7 @@ import {
   withAuthoringReturnHref,
 } from "@/shared/routing/authoring";
 import type { Route } from "next";
-import {
-  getPlatformAccessTokenRsc,
-  LogtoSessionUnavailableError,
-  readLogtoBffConfig,
-} from "@/shared/auth/index.server";
+import { readAuthenticatedSession } from "@/shared/auth/index.server";
 
 import { getCurrentMaterialPreview } from "../api/get-current-material-preview";
 import {
@@ -29,11 +25,9 @@ export async function MaterialCurrentPreviewPage({
   readonly materialId: string;
   readonly returnHref: Route;
 }) {
-  let accessToken: string;
-  try {
-    accessToken = await getPlatformAccessTokenRsc(readLogtoBffConfig());
-  } catch (error) {
-    if (error instanceof LogtoSessionUnavailableError) {
+  const session = await readAuthenticatedSession("rsc");
+  if (session.kind !== "ready") {
+    if (session.kind === "authentication_required") {
       return (
         <MaterialAuthoringPreviewUnauthorizedState returnHref={returnHref} />
       );
@@ -54,6 +48,7 @@ export async function MaterialCurrentPreviewPage({
       />
     );
   }
+  const accessToken = session.value;
 
   const state = await getCurrentMaterialPreview(materialId, accessToken);
   if (state.kind === "unauthorized") {

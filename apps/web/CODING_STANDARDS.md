@@ -51,6 +51,13 @@ whose diagnostic names the broken rule. This file keeps the judgement around tho
 - `@inside/material-blocks` owns the material block set: take a block's rendered type and schema
   from its registry entry point and build the editor from its document-schema entry point. A page
   slice adds a block's appearance, never its node, block list or rendered shape.
+- Authenticated reads use `handleAuthenticatedRead` for GET adapters and
+  `readAuthenticatedSession("rsc")` for server renders. The session adapter owns the token mode;
+  the read module owns session failures (401/503) and private no-store with `Vary: cookie`.
+  Browser adapters use `requestAuthenticatedRead` and validate ready values with feature schemas.
+  The shared result distinguishes missing authentication, identity failure and dependency failure;
+  feature outcomes remain local. Replace the public `sessionAdapter` in read tests, rather than
+  token or Logto config internals. RSC prefetch interruption stays outside failure catches.
 - Treat generated response types as compile-time guidance. Feature adapters receive external bodies
   as `unknown`, validate focused Zod schemas, and map Problem Details and success bodies into known
   feature outcomes and presentation models.

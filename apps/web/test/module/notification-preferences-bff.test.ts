@@ -8,13 +8,14 @@ vi.mock("@/shared/api/backend/index.server", () => ({
   requestNotificationPreferences: fakes.read,
   requestChangeNotificationPreferences: fakes.change,
 }));
-vi.mock("@/shared/auth/platform-access-token.server", () => ({
-  getPlatformAccessToken: fakes.token,
+vi.mock("@/shared/auth/session-adapter.server", () => ({
+  sessionAdapter: {
+    accessToken: fakes.token,
+    baseUrl: () => "https://inside.example.test",
+  },
   LogtoSessionUnavailableError: class extends Error {},
 }));
-vi.mock("@/shared/auth/logto-bff-config.server", () => ({
-  readLogtoBffConfig: () => ({ baseUrl: "https://inside.example.test" }),
-}));
+
 import {
   handleChangeNotificationPreferences,
   handleReadNotificationPreferences,
@@ -53,7 +54,7 @@ it("отдаёт собственные настройки каналов и з�
     preferences: { revision: 3, email: true, telegram: false },
   });
   expect(fakes.read).toHaveBeenCalledWith("trusted-token");
-  expect(response.headers.get("cache-control")).toBe("private, no-store");
+  expect(response.headers.get("cache-control")).toBe("no-store, private");
 });
 
 it("сохраняет ожидаемую revision и ссылку на операцию", async () => {

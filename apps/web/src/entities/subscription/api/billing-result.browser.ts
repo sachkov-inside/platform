@@ -1,3 +1,4 @@
+import { requestAuthenticatedRead } from "@/shared/api/authenticated-read.browser";
 import { z } from "zod";
 
 import type { SameOriginMutationResult } from "@/shared/api/same-origin-mutation";
@@ -42,19 +43,6 @@ export function billingCommandResult<Schema extends z.ZodType>(
       };
 }
 
-/** Тот же разбор для собственного read: у него нет FormData, но исход такой же закрытый. */
-export async function billingReadResult<Schema extends z.ZodType>(
-  response: Response,
-  valueSchema: Schema,
-): Promise<BillingCommandResult<z.infer<Schema>>> {
-  if (response.status === 401) return { ok: false, code: "unauthorized" };
-  try {
-    return decode(await response.json(), valueSchema);
-  } catch {
-    return { ok: false, code: "unavailable" };
-  }
-}
-
 /** Одна форма команды billing: собственный BFF читает её как единственное поле `input`. */
 export function billingCommandPayload(input: unknown): FormData {
   const form = new FormData();
@@ -67,14 +55,14 @@ export async function readBillingEndpoint<Schema extends z.ZodType>(
   route: string,
   valueSchema: Schema,
 ): Promise<BillingCommandResult<z.infer<Schema>>> {
-  try {
-    const response = await fetch(route, {
-      cache: "no-store",
-      credentials: "same-origin",
-      headers: { accept: "application/json" },
-    });
-    return await billingReadResult(response, valueSchema);
-  } catch {
-    return { ok: false, code: "unavailable" };
-  }
+  const result = await requestAuthenticatedRead(route);
+  return result.kind === "ready"
+    ? decode(result.value, valueSchema)
+    : {
+        ok: false,
+        code:
+          result.kind === "authentication_required"
+            ? "unauthorized"
+            : "unavailable",
+      };
 }

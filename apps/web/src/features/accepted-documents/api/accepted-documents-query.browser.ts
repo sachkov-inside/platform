@@ -1,3 +1,4 @@
+import { requestAuthenticatedRead } from "@/shared/api/authenticated-read.browser";
 import { queryOptions } from "@tanstack/react-query";
 import { z } from "zod";
 
@@ -20,16 +21,16 @@ async function requestAcceptedDocuments(
   signal: AbortSignal,
 ): Promise<AcceptedDocumentsResult> {
   try {
-    const response = await fetch("/api/account/legal-acceptances", {
-      cache: "no-store",
-      headers: { accept: "application/json" },
+    const result = await requestAuthenticatedRead(
+      "/api/account/legal-acceptances",
       signal,
-    });
-    if (response.status === 401) return { kind: "unauthorized" };
-    if (!response.ok) return { kind: "unavailable" };
+    );
+    if (result.kind === "authentication_required")
+      return { kind: "unauthorized" };
+    if (result.kind !== "ready") return { kind: "unavailable" };
     const parsed = z
       .object({ documents: z.array(acceptedDocumentSchema) })
-      .safeParse(await response.json());
+      .safeParse(result.value);
     return parsed.success
       ? { kind: "ready", documents: parsed.data.documents }
       : { kind: "unavailable" };
