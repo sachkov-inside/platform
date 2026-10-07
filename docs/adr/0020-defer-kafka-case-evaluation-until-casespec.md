@@ -16,9 +16,9 @@ and operational evidence in C#/.NET or Python. Platform will not choose its subm
 source handoff, evaluator runtime or terminal result language until an accepted CaseSpec states
 which facts must be observed and which decisions require qualitative explanation.
 
-This supersedes ADR 0019 as current Workshop guidance. The pinned native Go CLI, device protocol,
-versioned schemas and local Compose runner remain implemented Partner Webhooks foundations. They
-are not removed, but neither their existence nor their successful earlier smokes makes them the
+Before ADR 0033, this superseded ADR 0019 as Workshop guidance. The pinned native Go CLI, device protocol,
+versioned schemas and local Compose runner remained implemented Partner Webhooks foundations until
+#1063 removed them. In that prior state, neither their existence nor their successful earlier smokes made them the
 default evaluator for Kafka. Evaluation research must explicitly accept, narrow or retire each reused
 piece.
 
