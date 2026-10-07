@@ -603,3 +603,29 @@ test("a legacy upload receipt changes only its structural access and keeps its u
   assert.deepEqual(parsed.resources?.["opaque:author"], opaque);
   assert.equal(upload.access, "membership");
 });
+
+test("a pending Product cover keeps the lost-response marker from its old Guide key", () => {
+  const pending = { sha256: "e".repeat(64), expectedCoverId: id };
+  const old = {
+    schemaVersion: 1,
+    target: reviewOrigin,
+    materials: {},
+    guides: {},
+    operations: {},
+    resources: { [`cover-pending:guide:${id}`]: pending },
+  };
+  const decoded = parseJournal(old);
+  assert.deepEqual(decoded.resources?.[`cover-pending:product:${id}`], pending);
+  assert.deepEqual(old.resources[`cover-pending:guide:${id}`], pending);
+  assert.throws(
+    () =>
+      parseJournal({
+        ...old,
+        resources: {
+          ...old.resources,
+          [`cover-pending:product:${id}`]: pending,
+        },
+      }),
+    /alias collision/u,
+  );
+});

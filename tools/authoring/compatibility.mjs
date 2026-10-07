@@ -75,15 +75,24 @@ export function decodeJournalV1(value) {
       return [key, material];
     }),
   );
-  if (journal["resources"] !== undefined)
+  if (journal["resources"] !== undefined) {
+    const resources = record.parse(journal["resources"]);
+    for (const key of Object.keys(resources))
+      if (key.startsWith("cover-pending:guide:"))
+        rename(
+          resources,
+          key,
+          key.replace("cover-pending:guide:", "cover-pending:product:"),
+        );
     journal["resources"] = Object.fromEntries(
-      Object.entries(record.parse(journal["resources"])).map(([key, value]) => {
+      Object.entries(resources).map(([key, value]) => {
         if (!key.startsWith("upload:")) return [key, value];
         const upload = record.parse(value);
         upload["access"] = access(upload["access"]);
         return [key, upload];
       }),
     );
+  }
   return journal;
 }
 
