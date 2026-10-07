@@ -8,7 +8,10 @@ import {
   lockAccountEntitlementChanges,
   lockAccountAccess,
 } from "../../../../infrastructure/prisma/index.js";
-import type { MembershipEnrollmentPrisma } from "../../infrastructure/prisma.js";
+import type {
+  MembershipEnrollmentPrisma,
+  MembershipEntitlementsPrisma,
+} from "../../infrastructure/prisma.js";
 import { accessFailure } from "../../domain/access-grant.js";
 import {
   assignEnrollmentSchema,
@@ -56,9 +59,10 @@ export async function assignEnrollment(
       : accessFailure("operation_conflict");
   if (command.origin === "course" && command.courseSource !== undefined) {
     await lockTelegramAccountBinding(tx, command.accountId);
-    const current = await bindings?.readBinding({
-      accountId: command.accountId,
-    });
+    const current = await bindings?.readBinding(
+      { accountId: command.accountId },
+      tx,
+    );
     if (current === undefined || !current.ok)
       return accessFailure("unavailable");
     if (
@@ -78,7 +82,15 @@ export async function assignEnrollment(
 }
 
 export async function assignEnrollmentInTransaction(
-  tx: MembershipEnrollmentPrisma,
+  tx: Pick<
+    MembershipEntitlementsPrisma,
+    | "$executeRaw"
+    | "accessReceipt"
+    | "subscriptionEnrollment"
+    | "sourceEntitlement"
+    | "accessGrant"
+    | "accessChange"
+  >,
   actorId: string | null,
   command: z.infer<typeof assignEnrollmentSchema>,
   tier: z.infer<typeof tierSnapshotSchema>,

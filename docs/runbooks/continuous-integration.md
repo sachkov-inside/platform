@@ -37,6 +37,15 @@ long enough to cancel the job (#827). Only runs on `main` save that cache: `rele
 After a runner image update they restore the previous entry and download only the changed packages
 until the next release saves a new one.
 
+The archive cache does not skip apt index updates. `scripts/install-playwright-ci.sh` bounds
+system-package installation to 180 seconds per attempt, then kills the whole process group as root.
+HTTP and HTTPS connection and data waits time out after 15 seconds and retry once; index errors fail
+the installation. After a failed first attempt the script replaces only the Azure Ubuntu mirror
+with `archive.ubuntu.com` and retries once. A failed second attempt fails the job before browser
+downloads. The replacement covers `.list`, deb822 `.sources` and the GitHub runner's
+`/etc/apt/apt-mirrors.txt`, preserving mirror priorities. The same script installs browsers for Production access pass and the nightly full-stack
+smoke; production deployment commands and access-pass requests keep their existing contracts.
+
 `CI Gate` depends on every job and succeeds only when every result is `success`. The repository
 ruleset requires this exact check name; individual job names may evolve without changing the
 branch-protection interface.

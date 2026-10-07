@@ -19,8 +19,10 @@ export function assembleAccounts({
     );
   }
   const accounts: Accounts = {
-    async readIdentityForLink(accountId) {
-      const row = await prisma.account.findUnique({ where: { id: accountId } });
+    async readIdentityForLink(accountId, transaction = prisma) {
+      const row = await transaction.account.findUnique({
+        where: { id: accountId },
+      });
       return row === null
         ? undefined
         : {

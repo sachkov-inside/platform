@@ -142,6 +142,7 @@ test("guide programme marks the last opened material as the place to continue", 
 test("guide programme appends a real composition and restores Reader return position", async ({
   page,
   context,
+  request,
 }, testInfo) => {
   await signInFullStack(context, "OWNER");
   await page.addLocatorHandler(
@@ -295,6 +296,30 @@ test("guide programme appends a real composition and restores Reader return posi
       ),
     });
   } finally {
+    // The route borrows published seed Materials. Detach them before archiving the temporary product,
+    // otherwise its archive can hide a standalone Material from the next viewport's guest Reader.
+    const orderResponse = await fullStackBrowserRequest(
+      page,
+      `/api/authoring/series/${collection.id}/order`,
+    );
+    const { order } = z
+      .object({
+        kind: z.literal("ready"),
+        order: z.object({ orderVersion: z.string() }),
+      })
+      .parse(await orderResponse.json());
+    const cleared = await fullStackBrowserRequest(
+      page,
+      "/api/authoring/series/order",
+      "PUT",
+      {
+        seriesId: collection.id,
+        expectedOrderVersion: order.orderVersion,
+        orderedMaterialIds: JSON.stringify([]),
+        confirmedGuideRemovals: JSON.stringify([collection.id]),
+      },
+    );
+    expect(await cleared.json()).toMatchObject({ kind: "saved" });
     const archived = await fullStackBrowserRequest(
       page,
       "/api/authoring/collections/archive",
@@ -308,4 +333,14 @@ test("guide programme appends a real composition and restores Reader return posi
     );
     expect(await archived.json()).toMatchObject({ kind: "saved" });
   }
+  const apiBaseUrl =
+    process.env["FULLSTACK_API_BASE_URL"] ?? "http://127.0.0.1:3001";
+  const standalone = await request.get(
+    `${apiBaseUrl}/materials/demo-295-samostoyatelnaya-zametka`,
+  );
+  expect(standalone.status()).toBe(200);
+  expect(await standalone.json()).toMatchObject({
+    kind: "available",
+    projection: { slug: "demo-295-samostoyatelnaya-zametka" },
+  });
 });

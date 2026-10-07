@@ -196,7 +196,10 @@ describe("application CI workflow contract", () => {
       setupAction,
       /key: playwright-.*steps\.playwright\.outputs\.version/u,
     );
-    assert.match(setupAction, /playwright install --with-deps \$BROWSERS$/mu);
+    assert.match(
+      setupAction,
+      /bash scripts\/install-playwright-ci\.sh \$BROWSERS$/mu,
+    );
     assert.doesNotMatch(workflow, /pnpm install/u);
   });
 
@@ -235,7 +238,7 @@ describe("application CI workflow contract", () => {
     );
     assert.notEqual(archivesConfig, -1, "apt must read the cached archives");
     assert.ok(
-      archivesConfig < install.indexOf("playwright install --with-deps"),
+      archivesConfig < install.indexOf("bash scripts/install-playwright-ci.sh"),
       "apt must read the cached archives before Playwright installs system packages",
     );
     assert.match(install, /apt-get autoclean$/mu);
@@ -434,7 +437,7 @@ describe("nightly full-stack workflow contract", () => {
     assert.match(job, /^ {4}timeout-minutes: \d+$/mu);
     const steps = [
       "pnpm install --frozen-lockfile",
-      "playwright install --with-deps chromium",
+      "bash scripts/install-playwright-ci.sh chromium",
       "cp .env.example .env",
       "run: pnpm infra:up",
       "pnpm smoke:fullstack",

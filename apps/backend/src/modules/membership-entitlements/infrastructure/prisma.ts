@@ -23,6 +23,11 @@ export type MembershipEntitlementsPrisma = Pick<
   | "membershipBinding"
   | "membershipEvidenceReceipt"
   | "membershipProjection"
+  // Accounts delegate: batch operations hand their transaction to Accounts for identity reads.
+  | "account"
+  // Telegram owns these reads; Membership hands over its transaction to readBinding.
+  | "telegramAccountLinkState"
+  | "telegramAccountLinkHistory"
 >;
 
 /** What Membership reads to decide access; a caller's transaction lists these to hand itself over. */
@@ -50,11 +55,28 @@ export type MembershipEntitlementsPrismaClient = MembershipEntitlementsPrisma &
 
 /** Billing hands these delegates to Membership to assign a tariff under the pricing lock. */
 export type MembershipEnrollmentPrisma = Pick<
-  PlatformPrisma,
+  MembershipEntitlementsPrisma,
   | "$executeRaw"
   | "accessReceipt"
   | "subscriptionEnrollment"
   | "sourceEntitlement"
   | "accessGrant"
   | "accessChange"
+  | "telegramAccountLinkState"
+  | "telegramAccountLinkHistory"
+>;
+
+/** Billing hands its transaction to Membership for an enrollment expansion preview. */
+export type MembershipEnrollmentPreviewPrisma = Pick<
+  MembershipEntitlementsPrisma,
+  | "$executeRaw"
+  | "accessReceipt"
+  | "subscriptionEnrollment"
+  | "accessBatchPreview"
+>;
+
+/** Billing hands its transaction to Membership to save an activation rule. */
+export type MembershipActivationRulePrisma = Pick<
+  MembershipEntitlementsPrisma,
+  "$executeRaw" | "accessReceipt" | "activationRule"
 >;

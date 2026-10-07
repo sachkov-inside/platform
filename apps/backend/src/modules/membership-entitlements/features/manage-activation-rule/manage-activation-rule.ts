@@ -4,13 +4,13 @@ import {
   activationRuleSchema,
   manageActivationRuleSchema,
 } from "../../domain/subscription-activation.js";
-import type { MembershipEntitlementsPrismaClient } from "../../infrastructure/prisma.js";
+import type { MembershipActivationRulePrisma } from "../../infrastructure/prisma.js";
 import {
   accessFingerprint,
   readAccessReceipt,
 } from "../../shared/access-receipts.js";
 export async function manageActivationRule(
-  prisma: MembershipEntitlementsPrismaClient,
+  tx: MembershipActivationRulePrisma,
   actorId: string,
   input: unknown,
   now: Date,
@@ -22,58 +22,56 @@ export async function manageActivationRule(
     action: "manageActivationRule",
     command,
   });
-  return prisma.$transaction(async (tx) => {
-    const receipt = await readAccessReceipt(tx, actorId, command.operationId);
-    if (receipt !== null)
-      return fingerprint.recognizes(receipt.fingerprint)
-        ? {
-            ok: true as const,
-            value: activationRuleSchema.parse(receipt.result),
-          }
-        : accessFailure("operation_conflict");
-    await lockAccountAccess(tx, `activation-rule:${command.value.id}`);
-    const current = await tx.activationRule.findUnique({
-      where: { id: command.value.id },
-    });
-    if (current?.revision !== command.expectedRevision)
-      return accessFailure("revision_conflict");
-    // Source identity is durable; editing a rule cannot reclassify a previously issued course.
-    if (
-      current !== null &&
-      (current.code !== command.value.code ||
-        current.sourceRef !== command.value.sourceRef ||
-        current.verificationMode !==
-          (command.value.verificationMode ?? "course_membership"))
-    )
-      return accessFailure("invalid_input");
-    const data = {
-      ...command.value,
-      verificationMode: command.value.verificationMode ?? "course_membership",
-      revision: (current?.revision ?? 0) + 1,
-      startsAt: new Date(command.value.startsAt),
-      endsAt:
-        command.value.endsAt === null ? null : new Date(command.value.endsAt),
-      reason: command.reason,
-    };
-    await tx.activationRule.upsert({
-      where: { id: command.value.id },
-      create: data,
-      update: data,
-    });
-    const value = activationRuleSchema.parse({
-      ...command.value,
-      revision: data.revision,
-    });
-    await tx.accessReceipt.create({
-      data: {
-        scope: actorId,
-        operationId: command.operationId,
-        fingerprint: fingerprint.digest,
-        payload: command,
-        result: value,
-        createdAt: now,
-      },
-    });
-    return { ok: true as const, value };
+  const receipt = await readAccessReceipt(tx, actorId, command.operationId);
+  if (receipt !== null)
+    return fingerprint.recognizes(receipt.fingerprint)
+      ? {
+          ok: true as const,
+          value: activationRuleSchema.parse(receipt.result),
+        }
+      : accessFailure("operation_conflict");
+  await lockAccountAccess(tx, `activation-rule:${command.value.id}`);
+  const current = await tx.activationRule.findUnique({
+    where: { id: command.value.id },
   });
+  if (current?.revision !== command.expectedRevision)
+    return accessFailure("revision_conflict");
+  // Source identity is durable; editing a rule cannot reclassify a previously issued course.
+  if (
+    current !== null &&
+    (current.code !== command.value.code ||
+      current.sourceRef !== command.value.sourceRef ||
+      current.verificationMode !==
+        (command.value.verificationMode ?? "course_membership"))
+  )
+    return accessFailure("invalid_input");
+  const data = {
+    ...command.value,
+    verificationMode: command.value.verificationMode ?? "course_membership",
+    revision: (current?.revision ?? 0) + 1,
+    startsAt: new Date(command.value.startsAt),
+    endsAt:
+      command.value.endsAt === null ? null : new Date(command.value.endsAt),
+    reason: command.reason,
+  };
+  await tx.activationRule.upsert({
+    where: { id: command.value.id },
+    create: data,
+    update: data,
+  });
+  const value = activationRuleSchema.parse({
+    ...command.value,
+    revision: data.revision,
+  });
+  await tx.accessReceipt.create({
+    data: {
+      scope: actorId,
+      operationId: command.operationId,
+      fingerprint: fingerprint.digest,
+      payload: command,
+      result: value,
+      createdAt: now,
+    },
+  });
+  return { ok: true as const, value };
 }

@@ -6,7 +6,10 @@ import { enrollmentView } from "../../shared/enrollment-view.js";
 import { randomUUID } from "node:crypto";
 import { z } from "zod";
 import { lockAccountEntitlementChanges } from "../../../../infrastructure/prisma/index.js";
-import type { MembershipEntitlementsPrismaClient } from "../../infrastructure/prisma.js";
+import type {
+  MembershipEntitlementsPrismaClient,
+  MembershipEnrollmentPreviewPrisma,
+} from "../../infrastructure/prisma.js";
 import { accessFailure } from "../../domain/access-grant.js";
 import {
   previewEnrollmentExpansionSchema,
@@ -45,7 +48,7 @@ function includesPrevious(
   );
 }
 export async function previewEnrollmentExpansion(
-  prisma: MembershipEntitlementsPrismaClient,
+  tx: MembershipEnrollmentPreviewPrisma,
   actorId: string,
   input: unknown,
   tierInput: unknown,
@@ -60,63 +63,61 @@ export async function previewEnrollmentExpansion(
     tier.data.revision !== command.tierRevision
   )
     return accessFailure("revision_conflict");
-  return prisma.$transaction(async (tx) => {
-    const fingerprint = accessFingerprint({ command, tier: tier.data });
-    const receipt = await readAccessReceipt(tx, actorId, command.operationId);
-    if (receipt !== null)
-      return fingerprint.recognizes(receipt.fingerprint)
-        ? {
-            ok: true as const,
-            value: expansionPreviewSchema.parse(receipt.result),
-          }
-        : accessFailure("operation_conflict");
-    for (const target of command.targets) {
-      const row = await tx.subscriptionEnrollment.findUnique({
-        where: { id: target.enrollmentId },
-      });
-      if (row === null) return accessFailure("not_found");
-      if (
-        row.revision !== target.expectedRevision ||
-        row.tierRevision !== target.tierRevision ||
-        row.tierId !== command.tierId
-      )
-        return accessFailure("revision_conflict");
-      if (!includesPrevious(tierSnapshotSchema.parse(row.snapshot), tier.data))
-        return accessFailure("invalid_input");
-    }
-    const id = randomUUID();
-    const expiresAt = new Date(
-      now.getTime() + expansionPreviewLifetimeMilliseconds,
-    );
-    await tx.accessBatchPreview.create({
-      data: {
-        id,
-        actorId,
-        operationId: command.operationId,
-        fingerprint: fingerprint.digest,
-        rows: { command, tier: tier.data },
-        revision: 1,
-        expiresAt,
-      },
+  const fingerprint = accessFingerprint({ command, tier: tier.data });
+  const receipt = await readAccessReceipt(tx, actorId, command.operationId);
+  if (receipt !== null)
+    return fingerprint.recognizes(receipt.fingerprint)
+      ? {
+          ok: true as const,
+          value: expansionPreviewSchema.parse(receipt.result),
+        }
+      : accessFailure("operation_conflict");
+  for (const target of command.targets) {
+    const row = await tx.subscriptionEnrollment.findUnique({
+      where: { id: target.enrollmentId },
     });
-    const value = {
-      previewRef: id,
-      expiresAt: expiresAt.toISOString(),
-      targets: command.targets,
-      tier: tier.data,
-    };
-    await tx.accessReceipt.create({
-      data: {
-        scope: actorId,
-        operationId: command.operationId,
-        fingerprint: fingerprint.digest,
-        payload: { command, tier: tier.data },
-        result: value,
-        createdAt: now,
-      },
-    });
-    return { ok: true as const, value };
+    if (row === null) return accessFailure("not_found");
+    if (
+      row.revision !== target.expectedRevision ||
+      row.tierRevision !== target.tierRevision ||
+      row.tierId !== command.tierId
+    )
+      return accessFailure("revision_conflict");
+    if (!includesPrevious(tierSnapshotSchema.parse(row.snapshot), tier.data))
+      return accessFailure("invalid_input");
+  }
+  const id = randomUUID();
+  const expiresAt = new Date(
+    now.getTime() + expansionPreviewLifetimeMilliseconds,
+  );
+  await tx.accessBatchPreview.create({
+    data: {
+      id,
+      actorId,
+      operationId: command.operationId,
+      fingerprint: fingerprint.digest,
+      rows: { command, tier: tier.data },
+      revision: 1,
+      expiresAt,
+    },
   });
+  const value = {
+    previewRef: id,
+    expiresAt: expiresAt.toISOString(),
+    targets: command.targets,
+    tier: tier.data,
+  };
+  await tx.accessReceipt.create({
+    data: {
+      scope: actorId,
+      operationId: command.operationId,
+      fingerprint: fingerprint.digest,
+      payload: { command, tier: tier.data },
+      result: value,
+      createdAt: now,
+    },
+  });
+  return { ok: true as const, value };
 }
 export async function applyEnrollmentExpansion(
   prisma: MembershipEntitlementsPrismaClient,

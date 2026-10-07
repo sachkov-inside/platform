@@ -380,15 +380,24 @@ const handoffDelegates = new Map([
   [
     "billing",
     [
+      "activationRule",
+      "activationAttempt",
       "accessReceipt",
+      "accessBatchPreview",
       "subscriptionEnrollment",
       "sourceEntitlement",
       "accessGrant",
       "accessChange",
+      "telegramAccountLinkState",
+      "telegramAccountLinkHistory",
     ],
   ],
   ["materials", ["materialAsset", "video", "videoDeletionOperation"]],
   ["reading-activity", ["material", "publishedMaterialGuideMembership"]],
+  [
+    "membership-entitlements",
+    ["account", "telegramAccountLinkState", "telegramAccountLinkHistory"],
+  ],
   ["telegram-membership", ["membershipBinding"]],
   ["videos", ["material", "publishedMaterial"]],
 ]);

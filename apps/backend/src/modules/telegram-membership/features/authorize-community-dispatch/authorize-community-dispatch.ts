@@ -85,6 +85,7 @@ export async function authorizeCommunityDispatch(
   }
 
   try {
+    const facts = await readAuthorizationFacts(dependencies, input);
     return await dependencies.prisma.$transaction(async (transaction) => {
       await lockTelegramCommunityWork(
         transaction,
@@ -105,7 +106,7 @@ export async function authorizeCommunityDispatch(
       }
 
       const decision = await decide(
-        dependencies,
+        facts,
         transaction,
         input,
         now,
@@ -143,7 +144,7 @@ export async function authorizeCommunityDispatch(
 }
 
 async function decide(
-  dependencies: CommunityAuthorizationDependencies,
+  facts: Awaited<ReturnType<typeof readAuthorizationFacts>>,
   transaction: TelegramMembershipPrisma,
   input: DispatchAuthorizeRequest,
   now: Date,
@@ -163,10 +164,10 @@ async function decide(
   ) {
     return denied("payload_conflict");
   }
-  const [capabilities, binding] = await Promise.all([
-    dependencies.grants.resolveCapabilities(operation.accountId),
-    dependencies.links.readBinding({ accountId: operation.accountId }),
-  ]);
+  // A command found only after the reads must retry rather than use another Account's facts.
+  if (facts?.accountId !== operation.accountId)
+    return decided({ status: "unavailable" });
+  const { capabilities, binding } = facts;
   if (!capabilities.ok || !binding.ok)
     return decided({ status: "unavailable" });
   const currentAccess = communityAccessFor(capabilities.capabilities);
@@ -227,6 +228,27 @@ async function decide(
       : now.getTime() + PERMIT_LIFETIME_MS;
   if (deadline <= now.getTime()) return denied("expired");
   return decided(permit(now, deadline));
+}
+
+/**
+ * The authorization lock guards the receipt, not access or linking. Read those facts on their own
+ * connections before opening the transaction, then judge them against its current command.
+ */
+async function readAuthorizationFacts(
+  dependencies: CommunityAuthorizationDependencies,
+  input: DispatchAuthorizeRequest,
+) {
+  const operation =
+    await dependencies.prisma.telegramCommunityOperation.findUnique({
+      where: { operationId: input.dispatchId },
+      select: { accountId: true },
+    });
+  if (operation === null) return undefined;
+  const [capabilities, binding] = await Promise.all([
+    dependencies.grants.resolveCapabilities(operation.accountId),
+    dependencies.links.readBinding({ accountId: operation.accountId }),
+  ]);
+  return { accountId: operation.accountId, capabilities, binding };
 }
 
 function permit(now: Date, deadline?: number): DispatchDecision {

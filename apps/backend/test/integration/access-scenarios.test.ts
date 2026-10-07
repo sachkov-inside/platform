@@ -1,6 +1,7 @@
+import { z } from "zod";
 import { sourceIdentityRef } from "../../src/modules/membership-entitlements/domain/source-identity.js";
 import { createHash, randomUUID } from "node:crypto";
-import { afterAll, beforeAll, describe, expect, test } from "vitest";
+import { afterAll, beforeAll, describe, expect, test, vi } from "vitest";
 
 import {
   accountId as checkedAccountId,
@@ -1868,24 +1869,89 @@ describe("таблица сценариев доступа (реальный Pos
     expect(
       await observe("product-material", recipient, { material: added }),
     ).toEqual({ outcome: "locked" });
-    const expansion = owned(
+    const previewCommand = {
+      operation: "enrollments.previewExpansion",
+      operationId: randomUUID(),
+      tierId: changing,
+      tierRevision: saved.value.revision,
+      targets: [
+        {
+          enrollmentId: enrollment.enrollmentId,
+          expectedRevision: 1,
+          tierRevision: 1,
+        },
+      ],
+      reason: "Расширение состава",
+    };
+    expect(
+      await operations.execute(owner, { ...previewCommand, tierRevision: 1 }),
+    ).toMatchObject({ ok: false, error: { code: "revision_conflict" } });
+    expect(
       await operations.execute(owner, {
-        operation: "enrollments.previewExpansion",
-        operationId: randomUUID(),
-        tierId: changing,
-        tierRevision: saved.value.revision,
+        ...previewCommand,
         targets: [
           {
             enrollmentId: enrollment.enrollmentId,
-            expectedRevision: 1,
+            expectedRevision: 2,
             tierRevision: 1,
           },
         ],
-        reason: "Расширение состава",
       }),
-    );
+    ).toMatchObject({ ok: false, error: { code: "revision_conflict" } });
+    // The preview insert must roll back if its receipt fails; retry uses the same operationId.
+    await db.prisma
+      .$executeRaw`ALTER TABLE membership_entitlements.access_receipts
+      ADD CONSTRAINT reject_preview_receipt CHECK (FALSE) NOT VALID`;
+    const errors = vi
+      .spyOn(console, "error")
+      .mockImplementation(() => undefined);
+    try {
+      expect(await operations.execute(owner, previewCommand)).toMatchObject({
+        ok: false,
+        error: { code: "dependency_unavailable" },
+      });
+      const logRecord = z
+        .object({ module: z.string(), operation: z.string() })
+        .loose();
+      const failures = errors.mock.calls.flatMap(([line]: unknown[]) => {
+        if (typeof line !== "string") return [];
+        const record = logRecord.safeParse(JSON.parse(line));
+        return record.success ? [record.data] : [];
+      });
+      expect(
+        failures.find((record) => record.module === "membership-entitlements"),
+      ).toMatchObject({
+        operation: "previewEnrollmentExpansion",
+      });
+    } finally {
+      errors.mockRestore();
+      await db.prisma
+        .$executeRaw`ALTER TABLE membership_entitlements.access_receipts
+        DROP CONSTRAINT reject_preview_receipt`;
+    }
+    const expansion = owned(await operations.execute(owner, previewCommand));
     if (expansion.outcome !== "enrollmentExpansionPreview")
       throw new Error(`Unexpected outcome ${expansion.outcome}`);
+    expect(expansion.value).toMatchObject({
+      targets: [
+        {
+          enrollmentId: enrollment.enrollmentId,
+          expectedRevision: 1,
+          tierRevision: 1,
+        },
+      ],
+      tier: {
+        id: changing,
+        revision: 2,
+        contentScope: { guideIds: [guideA, guideC], materialIds: [] },
+      },
+    });
+    expect(owned(await operations.execute(owner, previewCommand))).toEqual(
+      expansion,
+    );
+    expect(
+      await observe("product-material", recipient, { material: added }),
+    ).toEqual({ outcome: "locked" });
     owned(
       await operations.execute(owner, {
         operation: "enrollments.applyExpansion",

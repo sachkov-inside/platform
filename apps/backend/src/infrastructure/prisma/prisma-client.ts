@@ -189,12 +189,17 @@ export type BillingPrisma = Pick<
   | "billingNoticeRevision"
   | "billingSurveyRespondent"
   | "billingGuideCohort"
-  // Membership owns these writes; Billing hands over its transaction for tariff assignment.
+  // Membership and Telegram own these delegates; Billing only hands over its transaction.
+  | "activationRule"
+  | "activationAttempt"
   | "accessReceipt"
+  | "accessBatchPreview"
   | "subscriptionEnrollment"
   | "sourceEntitlement"
   | "accessGrant"
   | "accessChange"
+  | "telegramAccountLinkState"
+  | "telegramAccountLinkHistory"
 >;
 export type BillingPrismaClient = BillingPrisma &
   TransactionClient<BillingPrisma>;

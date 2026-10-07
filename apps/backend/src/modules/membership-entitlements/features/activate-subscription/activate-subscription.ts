@@ -4,7 +4,11 @@ import {
   lockTelegramAccountBinding,
   lockAccountAccess,
 } from "../../../../infrastructure/prisma/index.js";
-import type { MembershipEntitlementsPrismaClient } from "../../infrastructure/prisma.js";
+import type {
+  MembershipEntitlementsPrisma,
+  MembershipEntitlementsPrismaClient,
+} from "../../infrastructure/prisma.js";
+
 import { accessFailure } from "../../domain/access-grant.js";
 import { tierSnapshotSchema } from "../../domain/subscription-enrollment.js";
 import {
@@ -21,6 +25,20 @@ import {
   accessFingerprint,
   readAccessReceipt,
 } from "../../shared/access-receipts.js";
+/** Billing hands its transaction to Membership and Telegram; no pooled client is needed. */
+export type SubscriptionActivationTransaction = Pick<
+  MembershipEntitlementsPrisma,
+  | "$executeRaw"
+  | "activationRule"
+  | "activationAttempt"
+  | "accessReceipt"
+  | "subscriptionEnrollment"
+  | "sourceEntitlement"
+  | "accessGrant"
+  | "accessChange"
+  | "telegramAccountLinkState"
+  | "telegramAccountLinkHistory"
+>;
 const sourceProofLifetimeMilliseconds = 5 * 60 * 1000;
 export async function beginActivation(
   prisma: MembershipEntitlementsPrismaClient,
@@ -106,8 +124,9 @@ export async function readActivationReceipt(
 }
 /** The caller holds the matching catalog revision; proof is accepted only from the separate source authority. */
 export async function activateSubscription(
-  prisma: MembershipEntitlementsPrismaClient,
-  bindings: ActivationBindings,
+  tx: SubscriptionActivationTransaction,
+  bindings: Pick<ActivationBindings, "readBinding">,
+  linked: Awaited<ReturnType<ActivationBindings["find"]>>,
   input: unknown,
   tierInput: unknown,
   now: Date,
@@ -125,7 +144,6 @@ export async function activateSubscription(
     validUntil.getTime() - checkedAt.getTime() > sourceProofLifetimeMilliseconds
   )
     return accessFailure("source_not_confirmed");
-  const linked = await bindings.find({ accountRef: evidence.accountRef });
   if (!linked.ok) return accessFailure("unavailable");
   if (
     linked.link === null ||
@@ -133,148 +151,146 @@ export async function activateSubscription(
   )
     return accessFailure("identity_conflict");
   const accountId = linked.link.accountId;
-  return prisma.$transaction(async (tx) => {
-    const fingerprint = accessFingerprint(evidence);
-    const receipt = await readAccessReceipt(
+  const fingerprint = accessFingerprint(evidence);
+  const receipt = await readAccessReceipt(
+    tx,
+    "source-evidence",
+    evidence.evidenceRef,
+  );
+  if (receipt !== null)
+    return fingerprint.recognizes(receipt.fingerprint)
+      ? {
+          ok: true as const,
+          value: activationOutcomeSchema.parse(receipt.result),
+        }
+      : accessFailure("operation_conflict");
+  await lockAccountAccess(tx, `activation-rule:${evidence.ruleId}`);
+  await lockAccountAccess(tx, `activation-attempt:${evidence.attemptId}`);
+  const rule = await tx.activationRule.findUnique({
+    where: { id: evidence.ruleId },
+  });
+  if (
+    rule === null ||
+    !rule.published ||
+    rule.verificationMode !== "course_membership" ||
+    rule.startsAt > now ||
+    (rule.endsAt !== null && rule.endsAt <= now)
+  )
+    return accessFailure("policy_paused");
+  if (
+    rule.revision !== evidence.ruleRevision ||
+    rule.sourceRef !== evidence.sourceRef ||
+    rule.tierId !== tier.data.id ||
+    rule.tierRevision !== tier.data.revision
+  )
+    return accessFailure("revision_conflict");
+  const attempt = await tx.activationAttempt.findUnique({
+    where: { id: evidence.attemptId },
+  });
+  if (
+    attempt === null ||
+    attempt.expiresAt <= now ||
+    attempt.identityRef !== evidence.identityRef ||
+    attempt.ruleId !== rule.id ||
+    attempt.ruleRevision !== rule.revision
+  )
+    return accessFailure("revision_conflict");
+  await lockTelegramAccountBinding(tx, accountId);
+  const binding = await bindings.readBinding({ accountId }, tx);
+  if (!binding.ok) return accessFailure("unavailable");
+  if (
+    binding.binding === null ||
+    binding.binding.telegramIdentityRef !== evidence.identityRef ||
+    binding.binding.accountRef !== evidence.accountRef ||
+    binding.binding.linkRef !== evidence.linkRef ||
+    binding.binding.linkRevision !== evidence.linkRevision
+  )
+    return accessFailure("identity_conflict");
+  let value: ActivationOutcome = {
+    contractVersion: ACTIVATION_CONTRACT_VERSION,
+    attemptId: evidence.attemptId,
+    state: evidence.decision === "unavailable" ? "unavailable" : "rejected",
+    enrollment: null,
+  };
+  if (evidence.decision === "member") {
+    const sourceRef = courseSourceRef(rule.sourceRef, evidence.identityRef);
+    const result = await assignEnrollmentInTransaction(
       tx,
-      "source-evidence",
-      evidence.evidenceRef,
+      null,
+      {
+        operationId: evidence.evidenceRef,
+        accountId,
+        origin: "course",
+        sourceRef,
+        tierId: tier.data.id,
+        tierRevision: tier.data.revision,
+        terms: {
+          startsAt: now.toISOString(),
+          endsAt: null,
+          endPolicy: "fixed",
+        },
+        billingRef: null,
+        reason: "Verified course source activation",
+      },
+      tier.data,
+      now,
     );
-    if (receipt !== null)
-      return fingerprint.recognizes(receipt.fingerprint)
-        ? {
-            ok: true as const,
-            value: activationOutcomeSchema.parse(receipt.result),
-          }
-        : accessFailure("operation_conflict");
-    await lockAccountAccess(tx, `activation-rule:${evidence.ruleId}`);
-    await lockAccountAccess(tx, `activation-attempt:${evidence.attemptId}`);
-    const rule = await tx.activationRule.findUnique({
-      where: { id: evidence.ruleId },
-    });
-    if (
-      rule === null ||
-      !rule.published ||
-      rule.verificationMode !== "course_membership" ||
-      rule.startsAt > now ||
-      (rule.endsAt !== null && rule.endsAt <= now)
-    )
-      return accessFailure("policy_paused");
-    if (
-      rule.revision !== evidence.ruleRevision ||
-      rule.sourceRef !== evidence.sourceRef ||
-      rule.tierId !== tier.data.id ||
-      rule.tierRevision !== tier.data.revision
-    )
-      return accessFailure("revision_conflict");
-    const attempt = await tx.activationAttempt.findUnique({
-      where: { id: evidence.attemptId },
-    });
-    if (
-      attempt === null ||
-      attempt.expiresAt <= now ||
-      attempt.identityRef !== evidence.identityRef ||
-      attempt.ruleId !== rule.id ||
-      attempt.ruleRevision !== rule.revision
-    )
-      return accessFailure("revision_conflict");
-    await lockTelegramAccountBinding(tx, accountId);
-    const binding = await bindings.readBinding({ accountId });
-    if (!binding.ok) return accessFailure("unavailable");
-    if (
-      binding.binding === null ||
-      binding.binding.telegramIdentityRef !== evidence.identityRef ||
-      binding.binding.accountRef !== evidence.accountRef ||
-      binding.binding.linkRef !== evidence.linkRef ||
-      binding.binding.linkRevision !== evidence.linkRevision
-    )
-      return accessFailure("identity_conflict");
-    let value: ActivationOutcome = {
+    if (!result.ok) return result;
+    value = {
       contractVersion: ACTIVATION_CONTRACT_VERSION,
       attemptId: evidence.attemptId,
-      state: evidence.decision === "unavailable" ? "unavailable" : "rejected",
-      enrollment: null,
+      state:
+        result.value.state === "revoked"
+          ? "pending_review"
+          : result.value.revision > 1
+            ? "already_active"
+            : "active",
+      enrollment: result.value,
     };
-    if (evidence.decision === "member") {
-      const sourceRef = courseSourceRef(rule.sourceRef, evidence.identityRef);
-      const result = await assignEnrollmentInTransaction(
-        tx,
-        null,
-        {
-          operationId: evidence.evidenceRef,
-          accountId,
-          origin: "course",
-          sourceRef,
-          tierId: tier.data.id,
-          tierRevision: tier.data.revision,
-          terms: {
-            startsAt: now.toISOString(),
-            endsAt: null,
-            endPolicy: "fixed",
-          },
-          billingRef: null,
-          reason: "Verified course source activation",
-        },
-        tier.data,
-        now,
-      );
-      if (!result.ok) return result;
-      value = {
-        contractVersion: ACTIVATION_CONTRACT_VERSION,
-        attemptId: evidence.attemptId,
-        state:
-          result.value.state === "revoked"
-            ? "pending_review"
-            : result.value.revision > 1
-              ? "already_active"
-              : "active",
-        enrollment: result.value,
-      };
-      const source = await tx.sourceEntitlement.findUnique({
-        where: { origin_sourceRef: { origin: "course", sourceRef } },
-      });
-      if (
-        source !== null &&
-        source.accountId !== null &&
-        source.accountId !== accountId
-      )
-        throw new Error("Source identity changed during activation");
-      await tx.sourceEntitlement.upsert({
-        where: { origin_sourceRef: { origin: "course", sourceRef } },
-        create: {
-          id: randomUUID(),
-          origin: "course",
-          sourceRef,
-          sourcePolicyRef: rule.sourceRef,
-          identityRef: evidence.identityRef,
-          accountId,
-          enrollmentId: result.value.id,
-          revision: 1,
-          evidence,
-          checkedAt,
-        },
-        update: {
-          accountId,
-          enrollmentId: result.value.id,
-          evidence,
-          checkedAt,
-        },
-      });
-    }
-    await tx.activationAttempt.update({
-      where: { id: attempt.id },
-      data: { accountId, result: value },
+    const source = await tx.sourceEntitlement.findUnique({
+      where: { origin_sourceRef: { origin: "course", sourceRef } },
     });
-    await tx.accessReceipt.create({
-      data: {
-        scope: "source-evidence",
-        operationId: evidence.evidenceRef,
-        fingerprint: fingerprint.digest,
-        payload: evidence,
-        result: value,
-        createdAt: now,
+    if (
+      source !== null &&
+      source.accountId !== null &&
+      source.accountId !== accountId
+    )
+      throw new Error("Source identity changed during activation");
+    await tx.sourceEntitlement.upsert({
+      where: { origin_sourceRef: { origin: "course", sourceRef } },
+      create: {
+        id: randomUUID(),
+        origin: "course",
+        sourceRef,
+        sourcePolicyRef: rule.sourceRef,
+        identityRef: evidence.identityRef,
+        accountId,
+        enrollmentId: result.value.id,
+        revision: 1,
+        evidence,
+        checkedAt,
+      },
+      update: {
+        accountId,
+        enrollmentId: result.value.id,
+        evidence,
+        checkedAt,
       },
     });
-    return { ok: true as const, value };
+  }
+  await tx.activationAttempt.update({
+    where: { id: attempt.id },
+    data: { accountId, result: value },
   });
+  await tx.accessReceipt.create({
+    data: {
+      scope: "source-evidence",
+      operationId: evidence.evidenceRef,
+      fingerprint: fingerprint.digest,
+      payload: evidence,
+      result: value,
+      createdAt: now,
+    },
+  });
+  return { ok: true as const, value };
 }

@@ -116,11 +116,19 @@ export class SubscriptionActivation {
         error: { code: "identity_conflict" as const },
       };
     const accountId = linked.link.accountId;
+    const [enrollments, access, admission] = await Promise.all([
+      this.dependencies.grants.readOwnEnrollments(accountId),
+      this.dependencies.grants.readOwnAccess(accountId),
+      this.dependencies.readAdmission(accountId),
+    ]);
+    if (!enrollments.ok || !access.ok)
+      return { ok: false as const, error: { code: "unavailable" as const } };
     return this.dependencies.prisma.$transaction(async (tx) => {
       await lockTelegramAccountBinding(tx, accountId);
-      const current = await this.dependencies.bindings.readBinding({
-        accountId,
-      });
+      const current = await this.dependencies.bindings.readBinding(
+        { accountId },
+        tx,
+      );
       if (
         !current.ok ||
         current.binding === null ||
@@ -132,19 +140,13 @@ export class SubscriptionActivation {
           ok: false as const,
           error: { code: "identity_conflict" as const },
         };
-      const [enrollments, access] = await Promise.all([
-        this.dependencies.grants.readOwnEnrollments(accountId),
-        this.dependencies.grants.readOwnAccess(accountId),
-      ]);
-      if (!enrollments.ok || !access.ok)
-        return { ok: false as const, error: { code: "unavailable" as const } };
       return {
         ok: true as const,
         value: {
           contractVersion: query.contractVersion,
           enrollments: enrollments.value,
           grounds: access.value.grounds,
-          admission: await this.dependencies.readAdmission(accountId),
+          admission,
         },
       };
     });
@@ -273,6 +275,9 @@ export class SubscriptionActivation {
     );
     if (rule === null)
       return { ok: false as const, error: { code: "not_found" as const } };
+    const linked = await this.dependencies.bindings.find({
+      accountRef: parsed.data.accountRef,
+    });
     return this.dependencies.prisma.$transaction(async (tx) => {
       await lockBillingPricing(tx);
       const row = await tx.billingOffer.findUnique({
@@ -286,7 +291,9 @@ export class SubscriptionActivation {
           error: { code: "revision_conflict" as const },
         };
       return this.dependencies.grants.activateSubscription(
+        tx,
         this.dependencies.bindings,
+        linked,
         parsed.data,
         {
           id: row.id,

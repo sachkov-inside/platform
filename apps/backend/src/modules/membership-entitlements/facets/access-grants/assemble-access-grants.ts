@@ -22,6 +22,7 @@ import {
   beginActivation,
   activateSubscription,
   readActivationReceipt,
+  type SubscriptionActivationTransaction,
 } from "../../features/activate-subscription/activate-subscription.js";
 import {
   activationRuleSchema,
@@ -49,6 +50,8 @@ import type {
   MembershipEntitlementsPrisma,
   MembershipEntitlementsPrismaClient,
   MembershipEnrollmentPrisma,
+  MembershipEnrollmentPreviewPrisma,
+  MembershipActivationRulePrisma,
 } from "../../infrastructure/prisma.js";
 import {
   accessFailure,
@@ -267,7 +270,43 @@ export function assembleAccessGrants(dependencies: AccessGrantsDependencies) {
       tier: unknown,
     ) =>
       manage(actorId, "billing:manage", () =>
-        previewEnrollmentExpansion(prisma, actorId, input, tier, clock()),
+        prisma.$transaction((tx) =>
+          previewEnrollmentExpansion(tx, actorId, input, tier, clock()),
+        ),
+      ),
+    prepareEnrollmentExpansion: (actorId: string, input: unknown) =>
+      manage(
+        actorId,
+        "billing:manage",
+        () =>
+          Promise.resolve({
+            ok: true as const,
+            preview: async (
+              tx: MembershipEnrollmentPreviewPrisma,
+              tier: unknown,
+            ) => {
+              try {
+                return await previewEnrollmentExpansion(
+                  tx,
+                  actorId,
+                  input,
+                  tier,
+                  clock(),
+                );
+              } catch (error) {
+                reportDependencyFailure(
+                  {
+                    module: "membership-entitlements",
+                    operation: "previewEnrollmentExpansion",
+                  },
+                  error,
+                );
+                // The caller owns the transaction: rethrow to roll back partial writes.
+                throw error;
+              }
+            },
+          }),
+        "prepareEnrollmentExpansion",
       ),
     applyEnrollmentExpansion: (actorId: string, input: unknown) =>
       manage(actorId, "billing:manage", () =>
@@ -328,7 +367,34 @@ export function assembleAccessGrants(dependencies: AccessGrantsDependencies) {
       ),
     manageActivationRule: (actorId: string, input: unknown) =>
       manage(actorId, "billing:manage", () =>
-        manageActivationRule(prisma, actorId, input, clock()),
+        prisma.$transaction((tx) =>
+          manageActivationRule(tx, actorId, input, clock()),
+        ),
+      ),
+    prepareActivationRule: (actorId: string, input: unknown) =>
+      manage(
+        actorId,
+        "billing:manage",
+        () =>
+          Promise.resolve({
+            ok: true as const,
+            save: async (tx: MembershipActivationRulePrisma) => {
+              try {
+                return await manageActivationRule(tx, actorId, input, clock());
+              } catch (error) {
+                reportDependencyFailure(
+                  {
+                    module: "membership-entitlements",
+                    operation: "manageActivationRule",
+                  },
+                  error,
+                );
+                // The caller owns the transaction: rethrow to roll back partial writes.
+                throw error;
+              }
+            },
+          }),
+        "prepareActivationRule",
       ),
     listActivationRules: (actorId: string) =>
       manage(actorId, "billing:manage", async () => {
@@ -424,10 +490,12 @@ export function assembleAccessGrants(dependencies: AccessGrantsDependencies) {
     redeemInvitation: (input: unknown, context: RedeemInvitationContext) =>
       redeemInvitation(prisma, input, context, clock()),
     activateSubscription: (
-      bindings: ActivationBindings,
+      tx: SubscriptionActivationTransaction,
+      bindings: Pick<ActivationBindings, "readBinding">,
+      linked: Awaited<ReturnType<ActivationBindings["find"]>>,
       input: unknown,
       tier: unknown,
-    ) => activateSubscription(prisma, bindings, input, tier, clock()),
+    ) => activateSubscription(tx, bindings, linked, input, tier, clock()),
     async readOwnEnrollments(targetAccountId: string) {
       if (!z.uuid().safeParse(targetAccountId).success)
         return accessFailure("invalid_input");
