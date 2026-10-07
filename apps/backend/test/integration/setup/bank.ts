@@ -36,6 +36,8 @@ export class BankFixture {
   chargeOutcome = "CONFIRMED";
   failCharge = false;
   failInit = false;
+  failState = false;
+  failBindingState = false;
   binding: { status: string; success: boolean; rebillId: string | undefined } =
     { status: "COMPLETED", success: true, rebillId: "synthetic-new-card" };
 
@@ -64,8 +66,8 @@ export class BankFixture {
     if (!order) throw new Error("Unknown synthetic order");
     order.status = status;
   }
-  client(): Tbank {
-    return new Tbank(this.config, (url, init) =>
+  client(config: TbankConfig = this.config): Tbank {
+    return new Tbank(config, (url, init) =>
       Promise.resolve(this.respond(url, init)),
     );
   }
@@ -114,10 +116,12 @@ export class BankFixture {
         OriginalAmount: order.amount,
       });
     }
-    if (url.endsWith("/GetState"))
+    if (url.endsWith("/GetState")) {
+      if (this.failState) throw new Error("Synthetic GetState timeout");
       return Response.json(
         this.event(this.byPayment(z.string().parse(body.PaymentId))[0]),
       );
+    }
     if (url.endsWith("/CheckOrder")) {
       const orderId = z.string().parse(body.OrderId);
       const order = this.orders.get(orderId);
@@ -150,6 +154,8 @@ export class BankFixture {
       });
     }
     if (url.endsWith("/GetAddCardState")) {
+      if (this.failBindingState)
+        throw new Error("Synthetic GetAddCardState timeout");
       const requestKey = z.string().parse(body.RequestKey);
       if (!this.sessions.has(requestKey))
         throw new Error("Unknown synthetic binding session");

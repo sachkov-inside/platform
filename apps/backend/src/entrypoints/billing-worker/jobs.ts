@@ -15,6 +15,8 @@ export async function runRenewalJob(
   if (!renewed.ok) throw new Error(renewed.error.code);
   const bindings = await subscriptions.reconcileMethodFlows(limit);
   if (!bindings.ok) throw new Error(bindings.error.code);
+  if (renewed.value.failed > 0 || bindings.value.failed > 0)
+    throw new Error("provider_unavailable");
   return { ...renewed.value, bindings: bindings.value };
 }
 
@@ -27,6 +29,8 @@ export async function runRecoveryJob(
   if (!result.ok) throw new Error(result.error.code);
   // Сверка сохраняет ExternalRequestId и не создаёт новую попытку возврата.
   const refunds = await operations.reconcileRefunds(limit);
+  if (result.value.failed > 0 || refunds.failed > 0)
+    throw new Error("provider_unavailable");
   return { ...result.value, refunds };
 }
 

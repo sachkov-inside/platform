@@ -748,6 +748,7 @@ export class BillingSubscriptions {
       status: "ready" | "configuration_idle";
       inspected: number;
       applied: number;
+      failed: number;
     }>
   > {
     if (!Number.isInteger(limit) || limit < 1 || limit > 100)
@@ -756,7 +757,12 @@ export class BillingSubscriptions {
     if (!bank?.config.cardBinding)
       return {
         ok: true,
-        value: { status: "configuration_idle", inspected: 0, applied: 0 },
+        value: {
+          status: "configuration_idle",
+          inspected: 0,
+          applied: 0,
+          failed: 0,
+        },
       };
     try {
       const rows = await prisma.billingPaymentMethodFlow.findMany({
@@ -768,7 +774,8 @@ export class BillingSubscriptions {
         orderBy: { createdAt: "asc" },
         take: limit,
       });
-      let applied = 0;
+      let applied = 0,
+        failed = 0;
       for (const row of rows) {
         const now = this.clock();
         if (row.requestKey === row.id) {
@@ -791,6 +798,7 @@ export class BillingSubscriptions {
             { module: "billing", operation: "reconcileMethodFlows" },
             error,
           );
+          failed += 1;
           continue;
         }
         if (!observed.success || observed.errorCode !== "0") {
@@ -862,7 +870,7 @@ export class BillingSubscriptions {
       }
       return {
         ok: true,
-        value: { status: "ready", inspected: rows.length, applied },
+        value: { status: "ready", inspected: rows.length, applied, failed },
       };
     } catch (error) {
       return dependencyFailure(

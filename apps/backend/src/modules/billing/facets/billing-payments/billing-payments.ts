@@ -446,7 +446,10 @@ export class BillingPayments {
       )
         return paymentFailure("method_unavailable");
       if (row.state === "prepared") {
-        await this.dispatch(row.id);
+        const outcome = await this.dispatch(row.id);
+        if (outcome === "configuration_idle")
+          return paymentFailure("method_unavailable");
+        if (outcome === "failed") return paymentFailure("provider_unavailable");
         return { ok: true, value: true };
       }
       if (row.state === "confirmed" || row.state === "failed")
@@ -469,8 +472,12 @@ export class BillingPayments {
         !isQuotedPurchase(kind) &&
         !row.chargeCalled &&
         payment.Status === "NEW"
-      )
-        await this.chargeSaved(row.id, paymentId);
+      ) {
+        if (renewalTerminal(bank.config) !== "ready")
+          return paymentFailure("method_unavailable");
+        if (!(await this.chargeSaved(row.id, paymentId)))
+          return paymentFailure("provider_unavailable");
+      }
       return accepted;
     } catch (error) {
       return dependencyFailure(
@@ -486,11 +493,14 @@ export class BillingPayments {
       status: "ready" | "configuration_idle";
       inspected: number;
       applied: number;
+      failed: number;
     }>
   > {
     if (!Number.isInteger(limit) || limit < 1 || limit > 100)
       return paymentFailure("invalid_request");
     try {
+      let idle = this.dependencies.bank === undefined;
+      let failed = 0;
       const rows =
         this.dependencies.bank === undefined
           ? []
@@ -504,7 +514,11 @@ export class BillingPayments {
               take: limit,
             });
       for (const row of rows) {
-        await this.reconcile(row.id);
+        const reconciled = await this.reconcile(row.id);
+        if (!reconciled.ok) {
+          if (reconciled.error.code === "method_unavailable") idle = true;
+          else failed += 1;
+        }
         await this.dependencies.prisma.billingPurchase.update({
           where: { id: row.id },
           data: { updatedAt: this.clock() },
@@ -528,7 +542,10 @@ export class BillingPayments {
           },
         });
         const parsed = paidPeriodCommandSchema.safeParse(row.payload);
-        if (!parsed.success) continue;
+        if (!parsed.success) {
+          failed += 1;
+          continue;
+        }
         const command = parsed.data;
         const result = await this.dependencies.grants.applyPaidPeriod(command);
         if (result.ok) {
@@ -537,17 +554,15 @@ export class BillingPayments {
             data: { appliedAt: this.clock() },
           });
           applied += 1;
-        }
+        } else failed += 1;
       }
       return {
         ok: true,
         value: {
-          status:
-            this.dependencies.bank === undefined
-              ? "configuration_idle"
-              : "ready",
+          status: idle ? "configuration_idle" : "ready",
           inspected: rows.length,
           applied,
+          failed,
         },
       };
     } catch (error) {
@@ -568,6 +583,7 @@ export class BillingPayments {
       started: number;
       blocked: number;
       closed: number;
+      failed: number;
     }>
   > {
     if (!Number.isInteger(limit) || limit < 1 || limit > 100)
@@ -578,13 +594,15 @@ export class BillingPayments {
       const terminal = renewalTerminal(bank?.config);
       const due = await dueRenewals(prisma, now, limit);
       let started = 0,
-        blocked = 0;
+        blocked = 0,
+        failed = 0;
       if (terminal === "ready" && bank !== undefined)
         for (const subscription of due) {
           const prepared = await this.prepareRenewal(subscription.id, bank);
           if (hasText(prepared.attemptRef)) {
-            await this.dispatch(prepared.attemptRef);
-            started += 1;
+            const outcome = await this.dispatch(prepared.attemptRef);
+            if (outcome === "dispatched" || outcome === "failed") started += 1;
+            if (outcome === "failed") failed += 1;
           } else if (prepared.blocked === true) blocked += 1;
         }
       const closed = await closeLapsedSubscriptions(prisma, now, limit);
@@ -597,6 +615,7 @@ export class BillingPayments {
           started,
           blocked,
           closed,
+          failed,
         },
       };
     } catch (error) {
@@ -623,9 +642,11 @@ export class BillingPayments {
     }
   }
 
-  async dispatch(attemptRef: string): Promise<void> {
+  async dispatch(
+    attemptRef: string,
+  ): Promise<"dispatched" | "skipped" | "failed" | "configuration_idle"> {
     const { prisma, bank } = this.dependencies;
-    if (!bank) return;
+    if (!bank) return "configuration_idle";
     const prepared = await prisma.$transaction(async (tx) => {
       await lockBillingPricing(tx);
       const row = await tx.billingPurchase.findUnique({
@@ -662,6 +683,8 @@ export class BillingPayments {
           return undefined;
         }
       }
+      if (!isQuotedPurchase(kind) && renewalTerminal(bank.config) !== "ready")
+        return { status: "configuration_idle" } as const;
       await tx.billingPurchase.update({
         where: { id: attemptRef },
         data: { state: "sent", updatedAt: now },
@@ -671,9 +694,10 @@ export class BillingPayments {
           where: { purchaseRef: attemptRef },
           data: { state: "sent" },
         });
-      return { row, kind };
+      return { status: "prepared", row, kind } as const;
     });
-    if (!prepared) return;
+    if (prepared?.status === "configuration_idle") return "configuration_idle";
+    if (!prepared) return "skipped";
     const { row, kind } = prepared;
     try {
       const snapshot = priceSnapshotSchema.parse(row.snapshot);
@@ -701,6 +725,7 @@ export class BillingPayments {
         !(await this.chargeSaved(row.id, payment.PaymentId))
       )
         throw new Error("Saved method charge is unresolved");
+      return "dispatched";
     } catch (error) {
       reportDependencyFailure(
         { module: "billing", operation: "dispatch" },
@@ -718,6 +743,7 @@ export class BillingPayments {
             data: { state: "unknown" },
           });
       });
+      return "failed";
     }
   }
 
@@ -822,7 +848,7 @@ export class BillingPayments {
     paymentId: string,
   ): Promise<boolean> {
     const { prisma, bank } = this.dependencies;
-    if (!bank) return false;
+    if (!bank || renewalTerminal(bank.config) !== "ready") return false;
     const prepared = await prisma.$transaction(async (tx) => {
       const row = await tx.billingPurchase.findUnique({
         where: { id: attemptRef },

@@ -611,7 +611,13 @@ describe("подписка: продление, отмена, смена вар�
       status: "configuration_idle",
       inspected: 0,
       applied: 0,
-      refunds: { status: "configuration_idle", inspected: 0, settled: 0 },
+      failed: 0,
+      refunds: {
+        status: "configuration_idle",
+        inspected: 0,
+        settled: 0,
+        failed: 0,
+      },
     });
     expect(await s.view()).toBeNull();
   });
@@ -1222,7 +1228,9 @@ describe("подписка: продление, отмена, смена вар�
     await s.buy();
     now = new Date("2030-02-01T00:00:00Z");
     s.bank.failInit = true;
-    value(await s.payments.renew());
+    await expect(runRenewalJob(s.payments, s.subscriptions)).rejects.toThrow(
+      "provider_unavailable",
+    );
     const pending = await s.view();
     const attemptRef = pending?.inFlightPayment?.attemptRef;
     if (!hasText(attemptRef))
@@ -1240,6 +1248,23 @@ describe("подписка: продление, отмена, смена вар�
     ).toBe(false);
     expect(s.bank.chargeCalls).toBe(0);
     s.bank.failInit = false;
+    s.bank.failState = true;
+    const operations = new BillingOperations({
+      prisma: db.prisma,
+      bank: s.bank.client(),
+      accounts,
+      pricing,
+      payments: s.payments,
+      subscriptions: s.subscriptions,
+      grants,
+      clock: () => now,
+    });
+    await expect(runRecoveryJob(s.payments, operations)).rejects.toThrow(
+      "provider_unavailable",
+    );
+    expect((await s.view())?.inFlightPayment?.state).toBe("unknown");
+    expect(s.bank.chargeCalls).toBe(0);
+    s.bank.failState = false;
     expect(await s.payments.reconcile(attemptRef)).toMatchObject({ ok: true });
     expect(s.bank.initCalls).toBe(2);
     expect(s.bank.chargeCalls).toBe(1);
@@ -1249,6 +1274,51 @@ describe("подписка: продление, отмена, смена вар�
       paidUntil: "2030-03-01T00:00:00.000Z",
     });
   });
+
+  test.each(["prepared", "unknown"])(
+    "восстановление %s продления без recurring не отправляет Init или Charge",
+    async (state) => {
+      const s = await scenario({ startedAt: "2030-01-01T00:00:00Z" });
+      await s.buy();
+      now = new Date("2030-02-01T00:00:00Z");
+      s.bank.failInit = true;
+      value(await s.payments.renew());
+      const attemptRef = (await s.view())?.inFlightPayment?.attemptRef;
+      if (!hasText(attemptRef))
+        throw new Error("Missing synthetic renewal attempt");
+      await db.prisma.billingPurchase.update({
+        where: { id: attemptRef },
+        data: { state },
+      });
+      // Смена конфигурации процесса сохраняет тот же банк и уже принятое им NEW.
+      const unreadyBank = s.bank.client({
+        ...config,
+        recurringCardConfirmed: false,
+      });
+      const payments = new BillingPayments({
+        prisma: db.prisma,
+        bank: unreadyBank,
+        contact,
+        grants,
+        clock: () => now,
+      });
+      const initCalls = s.bank.initCalls;
+      expect(value(await payments.recover())).toMatchObject({
+        status: "configuration_idle",
+        failed: 0,
+      });
+      expect(s.bank.initCalls).toBe(initCalls);
+      expect(s.bank.chargeCalls).toBe(0);
+      expect((await s.view())?.inFlightPayment?.state).toBe(
+        state === "prepared" ? "prepared" : "pending",
+      );
+      s.bank.failInit = false;
+      expect(await s.payments.reconcile(attemptRef)).toMatchObject({
+        ok: true,
+      });
+      expect((await s.view())?.periodIndex).toBe(2);
+    },
+  );
 
   test("отправленное продление не даёт согласовать другое изменение того же периода", async () => {
     const s = await scenario({ startedAt: "2030-01-01T00:00:00Z" });
@@ -1362,6 +1432,14 @@ describe("подписка: продление, отмена, смена вар�
       state: "started",
       formUrl: "https://securepay.tinkoff.ru/binding",
     });
+    s.bank.failBindingState = true;
+    await expect(runRenewalJob(s.payments, s.subscriptions)).rejects.toThrow(
+      "provider_unavailable",
+    );
+    expect((await s.view())?.pendingMethodChange?.flowRef).toBe(
+      started.flowRef,
+    );
+    s.bank.failBindingState = false;
     s.bank.binding = {
       status: "3DS_CHECKING",
       success: true,

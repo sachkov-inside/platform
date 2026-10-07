@@ -147,9 +147,16 @@ export async function reconcileRefunds(
   readonly status: "ready" | "configuration_idle";
   readonly inspected: number;
   readonly settled: number;
+  readonly failed: number;
 }> {
   const { prisma, bank } = dependencies;
-  if (!bank) return { status: "configuration_idle", inspected: 0, settled: 0 };
+  if (!bank)
+    return {
+      status: "configuration_idle",
+      inspected: 0,
+      settled: 0,
+      failed: 0,
+    };
   // Падение процесса между сохранением попытки и ответом банка оставляет её `sent`: она тоже сверяется.
   const rows = await prisma.billingRefund.findMany({
     where: {
@@ -160,24 +167,28 @@ export async function reconcileRefunds(
     orderBy: { createdAt: "asc" },
     take: limit,
   });
-  let settled = 0;
-  for (const row of rows)
-    if (await sendRefund(dependencies, row.id)) settled += 1;
-  return { status: "ready", inspected: rows.length, settled };
+  let settled = 0,
+    failed = 0;
+  for (const row of rows) {
+    const outcome = await sendRefund(dependencies, row.id);
+    if (outcome === "settled") settled += 1;
+    if (outcome === "failed") failed += 1;
+  }
+  return { status: "ready", inspected: rows.length, settled, failed };
 }
 
 /** Одна отправка одной сохранённой попытки; результат применяется отдельной транзакцией. */
 async function sendRefund(
   dependencies: Dependencies,
   refundRef: string,
-): Promise<boolean> {
+): Promise<"settled" | "pending" | "failed"> {
   const { prisma, bank } = dependencies;
-  if (!bank) return false;
+  if (!bank) return "pending";
   const row = await prisma.billingRefund.findUnique({
     where: { id: refundRef },
     include: { decision: true },
   });
-  if (!row || !unsettledRefundStates.includes(row.state)) return false;
+  if (!row || !unsettledRefundStates.includes(row.state)) return "pending";
   const purchase = await prisma.billingPurchase.findUniqueOrThrow({
     where: { id: row.purchaseRef },
   });
@@ -210,7 +221,7 @@ async function sendRefund(
         updatedAt: dependencies.clock(),
       },
     });
-    return false;
+    return "failed";
   }
   // Только доказанный терминальный статус завершает возврат; успешный промежуточный ждёт сверки.
   const succeeded = observed.Success && observed.ErrorCode === "0";
@@ -277,7 +288,7 @@ async function sendRefund(
       },
     });
   });
-  return state === "confirmed" || state === "failed";
+  return state === "confirmed" || state === "failed" ? "settled" : "pending";
 }
 
 /** Отмена дальнейших списаний как следствие возврата: оплаченный срок при этом не сокращается. */

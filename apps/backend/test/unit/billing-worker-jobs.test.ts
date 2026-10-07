@@ -36,6 +36,7 @@ test("renewal job rejects a failed binding pass instead of hiding its error in a
               started: 0,
               blocked: 0,
               closed: 0,
+              failed: 0,
             },
           }),
       },
@@ -70,7 +71,7 @@ test("recovery job rejects a failed refund pass", async () => {
         recover: () =>
           Promise.resolve({
             ok: true,
-            value: { status: "ready", inspected: 0, applied: 0 },
+            value: { status: "ready", inspected: 0, applied: 0, failed: 0 },
           }),
       },
       {
