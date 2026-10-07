@@ -29,10 +29,6 @@ export const knownTransactionViolations: readonly {
       "src/modules/billing/facets/billing-operations/billing-operations.ts",
   },
   {
-    issue: 1071,
-    through: "src/modules/billing/facets/billing-payments/billing-payments.ts",
-  },
-  {
     issue: 1072,
     through:
       "src/modules/billing/facets/tribute-convergence/tribute-convergence.ts",

@@ -1060,7 +1060,7 @@ export class BillingPayments {
           });
           const scope =
             snapshot.offer.contentScope ??
-            (await this.dependencies.grants.readCompatibilityContentScope());
+            (await this.dependencies.grants.readCompatibilityContentScope(tx));
           const enrollment =
             period.subscriptionRef !== null &&
             paidUntil !== null &&
