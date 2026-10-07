@@ -17,7 +17,7 @@ x-backend-runtime: &backend-runtime
 # Каждая проверка запускает Node, поэтому установившийся интервал задаёт её цену в CPU. Docker
 # отмечает отказ после `retries` неудачных проверок подряд: `interval × retries` не больше 90 с.
 # В `start_period` проверки идут через `start_interval`, и deploy быстро видит готовность; не готовый
-# к его концу процесс отмечен через `start_period + (retries − 1) × interval`, не больше 100 с
+# к его концу процесс отмечен примерно через `start_period + (retries − 1) × interval`, до 100 с
 # (docs/runbooks/production-delivery.md).
 x-worker-healthcheck: &worker-healthcheck
   test:
