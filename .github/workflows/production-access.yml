@@ -2,8 +2,11 @@ name: Production access pass
 
 # Проход доступа против production тестовыми identities (#905, #906). Данные Platform он не меняет:
 # каждый запрос проходит allowlist до отправки. В Logto проход выпускает one-time token и PAT на
-# прогон. Не проверка pull request: запускается вручную и из deploy.yml после выпуска.
+# прогон. Не проверка pull request: запускается вручную, из deploy.yml после выпуска и раз в сутки по
+# расписанию (#245); красный проход по расписанию шлёт сигнал боту сигналов.
 on:
+  schedule:
+    - cron: "41 3 * * *"
   workflow_dispatch:
     inputs:
       deployed-sha:
@@ -62,6 +65,12 @@ jobs:
           PRODUCTION_ACCESS_REQUIRE_DEPLOYED_SHA: ${{ inputs.require-deployed-sha }}
           PRODUCTION_ACCESS_REPORT_DIR: ${{ github.workspace }}/ci-artifacts/production-access
         run: pnpm --filter @inside/web test:production-access
+      - name: Signal the owner about a failed scheduled pass
+        if: ${{ failure() && github.event_name == 'schedule' }}
+        env:
+          MONITOR_TELEGRAM_BOT_TOKEN: ${{ secrets.MONITOR_TELEGRAM_BOT_TOKEN }}
+          MONITOR_TELEGRAM_CHAT_ID: ${{ secrets.MONITOR_TELEGRAM_CHAT_ID }}
+        run: node scripts/production-monitor.mjs notify "суточный Production access pass красный, отчёт в artifact запуска"
       - name: Upload the pass report
         if: ${{ always() }}
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1

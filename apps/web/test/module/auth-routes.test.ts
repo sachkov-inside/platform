@@ -238,6 +238,9 @@ describe("Logto BFF route orchestration", () => {
     fakes.completePlatformSignIn.mockRejectedValueOnce(
       new Error("identity conflict"),
     );
+    const errorLog = vi
+      .spyOn(console, "error")
+      .mockImplementation(() => undefined);
 
     const response = await callback(
       new Request("http://localhost:3000/callback?code=invalid&state=invalid"),
@@ -247,6 +250,15 @@ describe("Logto BFF route orchestration", () => {
       "https://inside.example.test/?authentication=failed",
     );
     expect(fakes.clearLogtoSessionCookie).toHaveBeenCalledWith(fakes.config);
+    expect(errorLog).toHaveBeenCalledOnce();
+    const line = String(errorLog.mock.calls[0]?.[0]);
+    expect(JSON.parse(line)).toMatchObject({
+      event: "authentication_failed",
+      errorName: "Error",
+      level: "error",
+    });
+    expect(line).not.toContain("identity conflict");
+    errorLog.mockRestore();
   });
 
   it("resolves status from Logto token plus existing Account", async () => {

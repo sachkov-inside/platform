@@ -1,0 +1,435 @@
+#!/usr/bin/env bash
+# Сторож production (#245). systemd timer запускает его раз в минуту от root. Он только читает
+# состояние сервера и шлёт владельцу сигнал при отказе и одну строку при восстановлении.
+# Сигнал несёт версию выпуска и не несёт персональных данных: только счётчики и состояния.
+set -euo pipefail
+
+if [[ -n "${INSIDE_WATCHDOG_TEST_ROOT:-}" ]]; then
+  if [[ "$EUID" -eq 0 ]]; then
+    echo "Test root is forbidden for a root process" >&2
+    exit 1
+  fi
+  host_root="${INSIDE_WATCHDOG_TEST_ROOT%/}"
+else
+  if [[ "$EUID" -ne 0 ]]; then
+    echo "inside-watchdog must run as root" >&2
+    exit 1
+  fi
+  host_root=""
+  PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+  export PATH
+fi
+
+config_file="$host_root/etc/inside/watchdog/watchdog.env"
+telegram_config="$host_root/etc/inside/telegram/application.env"
+deployment_state="$host_root/var/lib/inside/deployments/state.json"
+state_dir="$host_root/var/lib/inside/watchdog"
+signals_log="$state_dir/signals.log"
+outbox="$state_dir/outbox"
+
+# Пороги из решения в #245. Значения в файле настройки сторожа их заменяют.
+WATCHDOG_PLATFORM_PROJECT=inside-platform-production
+WATCHDOG_PROJECTS="inside-platform-production inside-production-database inside-production-logto inside-production-telegram"
+WATCHDOG_MEMORY_MIN_MIB=300
+WATCHDOG_DISK_MAX_PERCENT=85
+WATCHDOG_BACKUP_MAX_AGE_HOURS=8
+WATCHDOG_TELEGRAM_APP_URL=http://127.0.0.1:3303
+WATCHDOG_TELEGRAM_RELAY_ADDRESS=172.30.244.2
+WATCHDOG_TELEGRAM_BOT_TOKEN=
+WATCHDOG_TELEGRAM_CHAT_ID=
+WATCHDOG_SMTP_URL=
+WATCHDOG_SMTP_USER=
+WATCHDOG_SMTP_PASSWORD=
+WATCHDOG_EMAIL_FROM=
+WATCHDOG_EMAIL_TO=
+
+# Файл настройки — строки KEY=value без shell-подстановок; принимаются только ключи WATCHDOG_*.
+if [[ -f "$config_file" ]]; then
+  while IFS= read -r line || [[ -n "$line" ]]; do
+    [[ -z "$line" || "$line" == \#* ]] && continue
+    key="${line%%=*}"
+    value="${line#*=}"
+    if [[ ! "$key" =~ ^WATCHDOG_[A-Z0-9_]+$ ]]; then
+      echo "Ignoring an unknown watchdog setting" >&2
+      continue
+    fi
+    printf -v "$key" '%s' "$value"
+  done <"$config_file"
+fi
+
+install -d -m 700 "$state_dir" "$state_dir/streak" "$state_dir/active" "$state_dir/counters"
+exec 9>>"$state_dir/watchdog.lock"
+if ! flock --exclusive --nonblock 9; then
+  echo "Another watchdog run is active" >&2
+  exit 0
+fi
+
+now_epoch() {
+  if [[ -n "${INSIDE_WATCHDOG_TEST_NOW_EPOCH:-}" ]]; then
+    printf '%s\n' "$INSIDE_WATCHDOG_TEST_NOW_EPOCH"
+  else
+    date -u +%s
+  fi
+}
+now="$(now_epoch)"
+
+run_dir="$(mktemp -d "$state_dir/run.XXXXXX")"
+trap 'rm -r "$run_dir"' EXIT
+observations="$run_dir/observations"
+mkdir "$observations"
+
+# observe KEY CONFIRM TEXT: условие отказа выполнено в этом запуске. Сигнал уходит, когда условие
+# держится CONFIRM запусков подряд.
+observe() {
+  printf '%s\n%s\n' "$2" "$3" >"$observations/$1"
+}
+
+# hold PREFIX: проверка не смогла прочитать источник. Сигналы с этим префиксом сохраняют прежнее
+# состояние: без данных нельзя ни поднять, ни снять тревогу.
+hold() {
+  : >"$run_dir/hold.$1"
+}
+
+held() {
+  local key="$1" marker prefix
+  for marker in "$run_dir"/hold.*; do
+    [[ -e "$marker" ]] || continue
+    prefix="${marker##*/hold.}"
+    [[ "$key" == "$prefix"* ]] && return 0
+  done
+  return 1
+}
+
+# Платформа и foundation: контейнер не работает, unhealthy или убит по памяти. Одноразовые службы,
+# завершившиеся с кодом 0 (например, migrations Logto), — норма.
+check_containers() {
+  local project listing name state status ids oom_listing oom_name oom
+  for project in $WATCHDOG_PROJECTS; do
+    if ! listing="$(docker ps --all --filter "label=com.docker.compose.project=$project" \
+      --format '{{.Names}}	{{.State}}	{{.Status}}' 2>/dev/null)"; then
+      hold container.
+      return
+    fi
+    while IFS=$'\t' read -r name state status; do
+      [[ -n "$name" ]] || continue
+      case "$state" in
+        running)
+          if [[ "$status" == *"(unhealthy)"* ]]; then
+            # Docker ставит unhealthy после двух сбоев проверки за 30 секунд (#654); короткий сбой
+            # базы даёт такую отметку на минуту, поэтому сигнал ждёт второго запуска подряд.
+            observe "container.$name.unhealthy" 2 "Контейнер $name: unhealthy"
+          fi
+          ;;
+        created) ;;
+        exited)
+          if [[ "$status" != "Exited (0)"* ]]; then
+            observe "container.$name.down" 1 "Контейнер $name: $status"
+          fi
+          ;;
+        *)
+          observe "container.$name.down" 1 "Контейнер $name: $state"
+          ;;
+      esac
+    done <<<"$listing"
+    ids="$(docker ps --all --quiet --filter "label=com.docker.compose.project=$project" 2>/dev/null || true)"
+    [[ -n "$ids" ]] || continue
+    # shellcheck disable=SC2086
+    oom_listing="$(docker inspect --format '{{.Name}} {{.State.OOMKilled}}' $ids 2>/dev/null || true)"
+    while read -r oom_name oom; do
+      if [[ "$oom" == true ]]; then
+        observe "container.${oom_name#/}.oom" 1 "Контейнер ${oom_name#/}: OOMKilled, память на пределе"
+      fi
+    done <<<"$oom_listing"
+  done
+}
+
+check_host() {
+  local available_kib used_percent
+  available_kib="$(awk '/^MemAvailable:/ { print $2 }' "$host_root/proc/meminfo" 2>/dev/null || true)"
+  if [[ "$available_kib" =~ ^[0-9]+$ ]]; then
+    if (( available_kib / 1024 < WATCHDOG_MEMORY_MIN_MIB )); then
+      observe host.memory 2 "Доступно $((available_kib / 1024)) MiB памяти, порог $WATCHDOG_MEMORY_MIN_MIB MiB"
+    fi
+  else
+    hold host.memory
+  fi
+  used_percent="$(df -P / 2>/dev/null | awk 'NR == 2 { sub(/%/, "", $5); print $5 }' || true)"
+  if [[ "$used_percent" =~ ^[0-9]+$ ]]; then
+    if (( used_percent > WATCHDOG_DISK_MAX_PERCENT )); then
+      observe host.disk 1 "Диск занят на $used_percent%, порог $WATCHDOG_DISK_MAX_PERCENT%"
+    fi
+  else
+    hold host.disk
+  fi
+}
+
+# Бэкап: последний запуск каждого вида завершился успехом, таймеры включены, а самый свежий успешный
+# бэкап моложе порога. После перезагрузки systemd не помнит прошлых запусков; тогда возраст неизвестен.
+check_backup() {
+  local kind properties result exited newest=0
+  for kind in incr diff full; do
+    if [[ "$(systemctl is-active "inside-pgbackrest-$kind.timer" 2>/dev/null || true)" != active ]]; then
+      observe "backup.timer.$kind" 1 "Таймер бэкапа $kind не включён"
+    fi
+    if ! properties="$(systemctl show "inside-pgbackrest-backup@$kind.service" \
+      --property=Result --property=ExecMainExitTimestamp --timestamp=unix 2>/dev/null)"; then
+      hold backup.
+      return
+    fi
+    result="$(sed -n 's/^Result=//p' <<<"$properties")"
+    exited="$(sed -n 's/^ExecMainExitTimestamp=@\{0,1\}//p' <<<"$properties")"
+    [[ "$exited" =~ ^[0-9]+$ ]] || continue
+    if [[ "$result" != success ]]; then
+      observe "backup.failed.$kind" 1 "Бэкап $kind завершился с результатом $result"
+    elif (( exited > newest )); then
+      newest="$exited"
+    fi
+  done
+  if (( newest == 0 )); then
+    hold backup.age
+  elif (( now - newest > WATCHDOG_BACKUP_MAX_AGE_HOURS * 3600 )); then
+    observe backup.age 1 "Последний успешный бэкап $(((now - newest) / 3600)) ч назад, порог $WATCHDOG_BACKUP_MAX_AGE_HOURS ч"
+  fi
+}
+
+# Путь покупателя в базе Platform. Запрос только читает: транзакция read-only и с ограничением времени.
+# «sent» — покупатель получил ссылку на оплату; брошенная оплата закрывается банком после истечения
+# ссылки, поэтому её порог — сутки и час, а не 15 минут.
+read -r -d '' platform_query <<'SQL' || true
+select 'purchases', count(*) from billing.purchases
+ where (state in ('unknown', 'pending', 'authorized') and created_at < now() - interval '15 minutes')
+    or (state = 'sent' and created_at < now() - interval '25 hours')
+union all
+select 'fulfillment', count(*) from billing.fulfillment_outbox f
+  left join billing.payment_events e on e.id = f.event_ref
+ where f.applied_at is null and coalesce(e.recorded_at, f.next_attempt_at) < now() - interval '5 minutes'
+union all
+select 'notification_outbox',
+  (select count(*) from billing.notification_outbox where published_at is null and created_at < now() - interval '10 minutes')
+  + (select count(*) from materials.notification_outbox where published_at is null and created_at < now() - interval '10 minutes')
+  + (select count(*) from notifications.notification_outbox where published_at is null and created_at < now() - interval '10 minutes')
+union all
+select 'email_effects', count(*) from notifications.email_effects
+ where state in ('accepted', 'retrying', 'unknown') and updated_at < now() - interval '10 minutes'
+union all
+select 'billing_queue_idle', case when exists (
+  select 1 from pgboss.job
+   where name = 'billing.payment-recovery' and state = 'completed'
+     and completed_on > now() - interval '5 minutes'
+) then 0 else 1 end;
+SQL
+
+check_database() {
+  local container rows name value
+  container="$(docker ps --quiet \
+    --filter label=com.docker.compose.project=inside-production-database \
+    --filter label=com.docker.compose.service=postgres 2>/dev/null | head -n 1 || true)"
+  if [[ -z "$container" ]] ||
+    ! rows="$(docker exec --interactive \
+      --env PGOPTIONS='-c default_transaction_read_only=on -c statement_timeout=10000' \
+      "$container" psql --no-psqlrc --quiet --no-align --tuples-only --field-separator='|' \
+      --username postgres --dbname inside --set ON_ERROR_STOP=1 <<<"$platform_query" 2>/dev/null)"; then
+    hold db.
+    observe watchdog.database 2 "Сторож не может прочитать базу Platform"
+    return
+  fi
+  while IFS='|' read -r name value; do
+    [[ "$value" =~ ^[0-9]+$ ]] || continue
+    (( value > 0 )) || continue
+    case "$name" in
+      purchases) observe db.purchases 1 "Покупок без итога дольше порога: $value" ;;
+      fulfillment) observe db.fulfillment 1 "Оплат без выдачи доступа дольше 5 минут: $value" ;;
+      notification_outbox) observe db.notification_outbox 1 "Уведомлений в outbox дольше 10 минут: $value" ;;
+      email_effects) observe db.email_effects 1 "Писем без итога дольше 10 минут: $value" ;;
+      billing_queue_idle) observe db.billing_queue 2 "Очередь billing.payment-recovery не завершала задачи 5 минут" ;;
+    esac
+  done <<<"$rows"
+}
+
+# Счётчик Prometheus вырос за последние 10 минут. Перезапуск процесса обнуляет счётчик: меньшее
+# значение начинает отсчёт заново.
+counter_rose() {
+  local name="$1" value="$2" file="$state_dir/counters/$1" previous=0 rose_at=0
+  if [[ -f "$file" ]]; then
+    read -r previous rose_at <"$file" || true
+  fi
+  if [[ "$value" =~ ^[0-9]+$ && "$previous" =~ ^[0-9]+$ ]] && (( value > previous )) && [[ -f "$file" ]]; then
+    rose_at="$now"
+  fi
+  printf '%s %s\n' "$value" "${rose_at:-0}" >"$file"
+  (( now - ${rose_at:-0} < 600 ))
+}
+
+check_telegram() {
+  local metrics value
+  if ! curl --fail --silent --max-time 5 --output /dev/null "$WATCHDOG_TELEGRAM_APP_URL/ready"; then
+    observe telegram.ready 2 "Telegram /ready не отвечает 200"
+  fi
+  if ! metrics="$(curl --fail --silent --max-time 5 "$WATCHDOG_TELEGRAM_APP_URL/metrics")"; then
+    hold telegram.metrics.
+    return
+  fi
+  value="$(awk '$1 == "inside_telegram_community_oldest_due_seconds" { printf "%d", $2 }' <<<"$metrics")"
+  if [[ "$value" =~ ^[0-9]+$ ]] && (( value > 600 )); then
+    observe telegram.metrics.community 1 "Вступление в группу ждёт $((value / 60)) мин"
+  fi
+  value="$(awk '$1 == "inside_telegram_activation_oldest_pending_seconds" { printf "%d", $2 }' <<<"$metrics")"
+  if [[ "$value" =~ ^[0-9]+$ ]] && (( value > 600 )); then
+    observe telegram.metrics.activation 1 "Активация подписки в боте ждёт $((value / 60)) мин"
+  fi
+  value="$(awk '$1 == "inside_telegram_update_failed_total" { printf "%d", $2 }' <<<"$metrics")"
+  if [[ -n "$value" ]] && counter_rose update_failed_total "$value"; then
+    observe telegram.metrics.update_failed 1 "Бот не обработал обновления Telegram за последние 10 минут"
+  fi
+  value="$(awk '$1 == "inside_telegram_delivery_api_rejected_total" { printf "%d", $2 }' <<<"$metrics")"
+  if [[ -n "$value" ]] && counter_rose delivery_api_rejected_total "$value"; then
+    observe telegram.metrics.delivery_rejected 1 "Telegram отклонил сообщения бота за последние 10 минут"
+  fi
+}
+
+# Bot API доступен серверу только через relay telegram-transport; запрос идёт тем же путём, что у бота.
+telegram_api() {
+  local token="$1" method="$2"
+  shift 2
+  printf 'url = "https://api.telegram.org/bot%s/%s"\n' "$token" "$method" |
+    curl --config - --fail --silent --max-time 10 \
+      --resolve "api.telegram.org:443:$WATCHDOG_TELEGRAM_RELAY_ADDRESS" "$@"
+}
+
+check_telegram_webhook() {
+  local token info pending last_error
+  token="$(sed -n 's/^TELEGRAM_BOT_TOKEN=//p' "$telegram_config" 2>/dev/null | head -n 1 || true)"
+  if [[ -z "$token" ]]; then
+    hold telegram.webhook
+    return
+  fi
+  if ! info="$(telegram_api "$token" getWebhookInfo)"; then
+    observe telegram.webhook 2 "Сторож не получил getWebhookInfo через relay"
+    return
+  fi
+  pending="$(jq --raw-output '.result.pending_update_count // 0' <<<"$info" 2>/dev/null || echo 0)"
+  last_error="$(jq --raw-output '.result.last_error_date // 0' <<<"$info" 2>/dev/null || echo 0)"
+  if [[ "$last_error" =~ ^[0-9]+$ ]] && (( last_error > 0 && now - last_error < 600 )); then
+    observe telegram.webhook 1 "Webhook бота: ошибка доставки за последние 10 минут, в очереди $pending"
+  fi
+}
+
+# Журналы процессов Platform за окно: тревога operator_attention, отказ webhook банка, отказы входа.
+check_logs() {
+  local containers name service logs count
+  if ! containers="$(docker ps --filter "label=com.docker.compose.project=$WATCHDOG_PLATFORM_PROJECT" \
+    --format '{{.Names}}	{{.Label "com.docker.compose.service"}}' 2>/dev/null)"; then
+    hold log.
+    return
+  fi
+  while IFS=$'\t' read -r name service; do
+    [[ -n "$name" ]] || continue
+    logs="$(docker logs --since 5m "$name" 2>&1 || true)"
+    count="$(grep -c '"status":"operator_attention"' <<<"$logs" || true)"
+    if (( count > 0 )); then
+      observe "log.attention.$service" 1 "$service: operator_attention в журнале, $count за 5 минут"
+    fi
+    case "$service" in
+      api)
+        count="$(grep '"event":"request_completed"' <<<"$logs" |
+          grep '"route":"/billing/tbank/notification"' |
+          grep -cE '"statusCode":[45][0-9][0-9]' || true)"
+        if (( count > 0 )); then
+          observe log.bank_webhook 1 "Webhook банка отклонён: $count за 5 минут"
+        fi
+        ;;
+      web)
+        count="$(docker logs --since 10m "$name" 2>&1 | grep -c '"event":"authentication_failed"' || true)"
+        if (( count >= 5 )); then
+          observe log.authentication 1 "Отказов входа за 10 минут: $count"
+        fi
+        ;;
+    esac
+  done <<<"$containers"
+}
+
+check_containers
+check_host
+check_backup
+check_database
+check_telegram
+check_telegram_webhook
+check_logs
+
+release="$(jq --raw-output '.current.version // "unknown"' "$deployment_state" 2>/dev/null || echo unknown)"
+messages="$run_dir/messages"
+: >"$messages"
+
+for observation in "$observations"/*; do
+  [[ -f "$observation" ]] || continue
+  key="${observation##*/}"
+  { read -r confirm; read -r text; } <"$observation"
+  streak=0
+  [[ -f "$state_dir/streak/$key" ]] && read -r streak <"$state_dir/streak/$key"
+  streak=$((streak + 1))
+  printf '%s\n' "$streak" >"$state_dir/streak/$key"
+  if (( streak >= confirm )) && [[ ! -f "$state_dir/active/$key" ]]; then
+    printf '%s\n' "$text" >"$state_dir/active/$key"
+    printf 'Отказ: %s\n' "$text" >>"$messages"
+  fi
+done
+
+for remembered in "$state_dir/streak"/* "$state_dir/active"/*; do
+  [[ -f "$remembered" ]] || continue
+  key="${remembered##*/}"
+  [[ -f "$observations/$key" ]] && continue
+  held "$key" && continue
+  if [[ "$remembered" == "$state_dir/active/$key" ]]; then
+    printf 'Восстановлено: %s\n' "$(cat "$remembered")" >>"$messages"
+  fi
+  rm -f "$remembered"
+done
+
+if [[ -s "$messages" ]]; then
+  stamp="$(date -u -d "@$now" +%Y-%m-%dT%H:%M:%SZ 2>/dev/null || date -u -r "$now" +%Y-%m-%dT%H:%M:%SZ)"
+  while IFS= read -r message; do
+    printf '%s release=%s %s\n' "$stamp" "$release" "$message" | tee -a "$signals_log"
+    printf '%s\n' "$message" >>"$outbox"
+  done <"$messages"
+  tail -n 1000 "$signals_log" >"$signals_log.tmp" && mv "$signals_log.tmp" "$signals_log"
+fi
+
+# Доставка. Пока канал не настроен, сигналы остаются в журнале systemd и signals.log. Недоставленные
+# сообщения ждут в outbox следующего запуска; outbox хранит не больше 50 строк.
+[[ -s "$outbox" ]] || exit 0
+configured=false
+delivered=false
+text="Inside production · $release"$'\n'"$(tail -n 50 "$outbox")"
+if [[ -n "$WATCHDOG_TELEGRAM_BOT_TOKEN" && -n "$WATCHDOG_TELEGRAM_CHAT_ID" ]]; then
+  configured=true
+  if telegram_api "$WATCHDOG_TELEGRAM_BOT_TOKEN" sendMessage --output /dev/null \
+    --data-urlencode "chat_id=$WATCHDOG_TELEGRAM_CHAT_ID" \
+    --data-urlencode "text=$text"; then
+    delivered=true
+  else
+    echo "Telegram delivery failed; the signal stays in the outbox" >&2
+  fi
+fi
+if [[ -n "$WATCHDOG_SMTP_URL" && -n "$WATCHDOG_EMAIL_FROM" && -n "$WATCHDOG_EMAIL_TO" ]]; then
+  configured=true
+  mail="$run_dir/mail"
+  {
+    printf 'From: %s\r\nTo: %s\r\nSubject: Inside production %s\r\n' \
+      "$WATCHDOG_EMAIL_FROM" "$WATCHDOG_EMAIL_TO" "$release"
+    printf 'Content-Type: text/plain; charset=utf-8\r\n\r\n%s\r\n' "$text"
+  } >"$mail"
+  if printf 'user = "%s:%s"\n' "$WATCHDOG_SMTP_USER" "$WATCHDOG_SMTP_PASSWORD" |
+    curl --config - --fail --silent --max-time 20 --ssl-reqd \
+      --url "$WATCHDOG_SMTP_URL" \
+      --mail-from "$WATCHDOG_EMAIL_FROM" --mail-rcpt "$WATCHDOG_EMAIL_TO" \
+      --upload-file "$mail"; then
+    delivered=true
+  else
+    echo "Email delivery failed; the signal stays in the outbox" >&2
+  fi
+fi
+if [[ "$configured" == false || "$delivered" == true ]]; then
+  rm -f "$outbox"
+else
+  tail -n 50 "$outbox" >"$outbox.tmp" && mv "$outbox.tmp" "$outbox"
+fi

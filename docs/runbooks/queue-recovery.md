@@ -2,8 +2,8 @@
 
 Runbook для оператора, когда фоновая работа оплаты или доставки права на сообщество встала или
 отстаёт. Он закрывает эксплуатационный пункт [Platform #527](https://github.com/sachkov-inside/platform/issues/527).
-Сигналов нет: отказ видно по логам и по запросам ниже, а мониторинг появится в
-[#245](https://github.com/sachkov-inside/platform/issues/245). Очереди уведомлений в RabbitMQ
+О зависших покупках, выдаче доступа и простое очереди `billing.payment-recovery` сообщает
+[сторож production](production-monitoring.md); причину ищут по логам и по запросам ниже. Очереди уведомлений в RabbitMQ
 восстанавливаются по [notification transport](notification-transport.md#observation-and-recovery).
 
 Главное правило: вся работа уже лежит в PostgreSQL и повторяется с теми же идентификаторами. Никогда
