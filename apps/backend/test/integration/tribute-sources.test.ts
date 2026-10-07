@@ -700,7 +700,7 @@ describe("Tribute source production facets and signed HTTP with PostgreSQL", () 
       });
     },
   );
-  test("preview flags every period reduction and confirmed-to-temporary downgrade before apply", async () => {
+  test("preview flags period reductions and rejects confirmed-to-temporary downgrade", async () => {
     const context = await setup();
     const customer = await link(context.row.identityRef);
     await apply(context.row);
@@ -735,7 +735,7 @@ describe("Tribute source production facets and signed HTTP with PostgreSQL", () 
         }),
       );
       expect(preview.rows[0]).toMatchObject({
-        status: "matched",
+        status: "mode" in patch ? "conflict" : "matched",
         shortens: true,
       });
       expect(

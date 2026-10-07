@@ -140,3 +140,6 @@ Tribute renewal/retries, новое согласие на Platform recurring, cu
 Preview предупреждает о сокращении при более позднем начале, более раннем окончании или переводе подтверждённого периода во временный режим. До явного выбора строки и apply прежние права не меняются.
 
 При конкурентной сверке порядок блокировок внутри source-транзакции: binding, отсортированные source guards, policy, все затронутые Account по порядку, затем изменения строк. Import и sweep берут Account locks до первого source UPDATE/UPSERT. Generic owner change сохраняет порядок Account → строки и не захватывает source guard после Account. Устаревший preview возвращает revision conflict; технический deadlock не скрывается повтором запроса.
+
+Оплаченный источник `confirmed_period` нельзя переводить в `temporary_membership`; наличие записи
+источника не разрешает новую выдачу временного доступа.

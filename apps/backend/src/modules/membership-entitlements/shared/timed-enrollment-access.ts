@@ -43,6 +43,7 @@ export async function readTimedEnrollmentAccess(
     return [
       {
         id: row.id,
+        endsAt: endsAt?.toISOString() ?? null,
         state,
         listed:
           (row.revokedAt === null || row.revokedAt > since) &&

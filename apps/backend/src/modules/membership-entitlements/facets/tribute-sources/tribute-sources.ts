@@ -268,7 +268,10 @@ export class TributeSources {
     ) {
       result.status = "conflict";
       result.detail = "Источник отсутствует, остановлен или не совпадает";
-    } else if (row.mode === "temporary_membership" && source === null) {
+    } else if (
+      row.mode === "temporary_membership" &&
+      prior?.mode !== "temporary_membership"
+    ) {
       result.status = "conflict";
       result.detail =
         "Новый временный доступ Tribute не выдаётся; нужен допуск к оплате Inside";

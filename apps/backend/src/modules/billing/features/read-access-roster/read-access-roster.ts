@@ -97,7 +97,8 @@ export async function readAccessSummary(
   const soon = new Date(now.getTime() + ENDING_SOON_WINDOW_MS);
   const attention: AccessSummary["attention"][number][] = [];
   const renewing = await renewingAccounts(prisma, facts.value.active);
-  for (const { accountId, ground } of facts.value.active) {
+  for (const { accountId, ground, accessEndsAt } of facts.value.active) {
+    const endsAt = accessEndsAt === undefined ? ground.endsAt : accessEndsAt;
     const withOffer = named(ground, offers);
     if (withOffer.offer !== null) {
       const row = active.get(withOffer.offer.id) ?? {
@@ -110,8 +111,8 @@ export async function readAccessSummary(
       active.set(withOffer.offer.id, row);
     }
     if (
-      ground.endsAt !== null &&
-      new Date(ground.endsAt) <= soon &&
+      endsAt !== null &&
+      new Date(endsAt) <= soon &&
       !(ground.source === "platform_payment" && renewing.has(accountId))
     )
       attention.push({
@@ -120,7 +121,7 @@ export async function readAccessSummary(
         source: ground.source,
         offerId: withOffer.offer?.id ?? null,
         title: withOffer.offer?.name ?? ground.capabilities.join(", "),
-        at: ground.endsAt,
+        at: endsAt,
       });
   }
   attention.push(...(await paymentFailures(prisma, now)));

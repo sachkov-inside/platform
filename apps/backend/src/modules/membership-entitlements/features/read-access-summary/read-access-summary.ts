@@ -15,6 +15,8 @@ import {
 export interface ActiveAccessGround {
   readonly accountId: string;
   readonly ground: AccessGround;
+  /** Actual end of all rights; the assignment itself can remain unlimited. */
+  readonly accessEndsAt?: string | null;
 }
 export interface AccessSummaryFacts {
   readonly active: readonly ActiveAccessGround[];
@@ -87,6 +89,7 @@ export async function readAccessSummary(
         .map((row) => ({
           accountId: row.accountId,
           ground: enrollmentGround(row, now),
+          accessEndsAt: timed.find((entry) => entry.id === row.id)?.endsAt,
         })),
       ...grants.map((row) => ({
         accountId: row.accountId,
