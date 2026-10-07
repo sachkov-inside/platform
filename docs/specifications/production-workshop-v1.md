@@ -1,7 +1,8 @@
 # Production Workshop v1 case-first foundation
 
 Статус: **superseded** для product/application delivery документом
-[Workshop Tracks and Laboratories](./workshop-tracks.md). Successor снят с плана 16.09.2026.
+[Workshop Tracks and Laboratories](./workshop-tracks.md). Successor снят с плана 16.09.2026, а
+Мастерская отменена [ADR 0033](../adr/0033-product-tariff-payment-model.md).
 
 Дата изменения статуса: 2026-09-04.
 

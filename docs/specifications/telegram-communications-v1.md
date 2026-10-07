@@ -17,7 +17,7 @@
 
 Platform остаётся единственной authority контента и доступа. Бесплатный материал доступен без
 обязательной регистрации; marketing entry не создаёт Account, browser session или Membership.
-Слово «мастерская» здесь означает нынешний Inside, а не отложенную отдельную Workshop surface.
+Слово «мастерская» здесь означает нынешний Inside, а не отдельную Workshop surface, которую отменило [ADR 0033](../adr/0033-product-tariff-payment-model.md).
 Актуальные Material/Series и порядок чтения описаны в
 [контексте серий](../product/series-planning-handoff.md).
 

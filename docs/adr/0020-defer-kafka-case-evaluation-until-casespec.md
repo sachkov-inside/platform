@@ -1,8 +1,11 @@
 ---
-status: accepted
+status: superseded by ADR-0033
 ---
 
 # Defer Kafka Case evaluation until the CaseSpec is accepted
+
+On 2026-10-07 [ADR 0033](0033-product-tariff-payment-model.md) cancelled Workshop: it is no longer
+deferred. This document is historical.
 
 On 2026-09-16 the owner removed Workshop and the Kafka Track from the plan and deleted their
 issues. The deferral stands; resuming the direction starts with a new issue.
