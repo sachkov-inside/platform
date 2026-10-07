@@ -26,9 +26,10 @@ nearest `AGENTS.md` owns task routing and verification commands.
 - Prefer a small deep interface at a proven seam. Do not add generic repositories, factories,
   services, or provider abstractions for hypothetical consumers.
 - Every TypeScript project extends `tsconfig.base.json` through its preset: `tsconfig.node-lib.json`
-  for `packages/`, `tsconfig.nest-app.json` for the backend, `tsconfig.next-app.json` for the web and
-  `tsconfig.scripts.json` for repository `.mjs` scripts. Shared strictness changes only in the base;
-  `scripts/toolchain-contract.test.mjs` fails a project that bypasses the base or overrides it.
+  for `packages/`, `tsconfig.nest-app.json` for the Nest applications, `tsconfig.next-app.json` for
+  the web and `tsconfig.scripts.json` for repository `.mjs` scripts. Shared strictness changes only
+  in the base; `scripts/toolchain-contract.test.mjs` fails a project that bypasses the base or
+  overrides it.
   Where `isolatedDeclarations` in packages asks for an exported Zod schema's type, write its exact
   Zod type, not a hand-written wire type.
 - Where `strict-boolean-expressions` (#694) rejects a text value, `hasText` and `presentText` keep

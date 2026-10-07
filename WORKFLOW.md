@@ -11,11 +11,10 @@ this contract and `AGENTS.md` hold what they leave open and the owner's override
 - Work for several sessions: `grilling → to-spec → to-tickets`, then one `implement` session per
   ticket.
 
-On either route, a visual change starts with a prototype (skill `prototype`).
-
 The owner starts grilling, `to-spec` and `to-tickets`, each with its own command. Finish such a
 stage with its outcome and the stage you recommend next, then wait. Every owner decision is made
-there, and the look of an interface in a prototype, before tickets exist.
+there before a task gets `ready-for-agent`. On either route, the owner accepts the look of a visual
+change in a prototype (skill `prototype`) before that label.
 
 A task labelled `ready-for-agent` runs from `implement` to a ready pull request without stopping.
 The owner starts it with `/implement #<issue>` in Claude Code or `$implement #<issue>` in Codex

@@ -4,7 +4,7 @@ pnpm-lock.yaml
 # Markdown keeps its hand-wrapped prose and tables, as in inside-telegram.
 *.md
 
-# Skills are copied byte for byte from the workspace pipeline; formatting here would drift from it.
+# Skills keep the bytes of their source (`.agents/skills/PIPELINE.md`); formatting would drift from it.
 .agents/
 .claude/
 
