@@ -270,11 +270,21 @@ test("recovers a pre-upgrade paid receipt committed before fulfillment appliedAt
     });
     expect(await payments.recover()).toEqual({
       ok: true,
-      value: { inspected: 0, applied: 1 },
+      value: {
+        status: "configuration_idle",
+        inspected: 0,
+        applied: 1,
+        failed: 0,
+      },
     });
     expect(await payments.recover()).toEqual({
       ok: true,
-      value: { inspected: 0, applied: 0 },
+      value: {
+        status: "configuration_idle",
+        inspected: 0,
+        applied: 0,
+        failed: 0,
+      },
     });
     const migrated = await database.prisma.billingFulfillment.findUniqueOrThrow(
       { where: { eventRef } },

@@ -1,3 +1,4 @@
+import { runRecoveryJob } from "../../src/entrypoints/billing-worker/jobs.js";
 import { prepareInvitedQuote } from "./setup/purchase-invitation.js";
 import { assembleTestBillingPricing } from "./setup/billing-pricing.js";
 import { randomUUID } from "node:crypto";
@@ -1140,8 +1141,10 @@ describe("владельческие операции billing: платежи, �
     expect(s.bank.cancels).toHaveLength(1);
     s.bank.failCancel = false;
     expect(await s.operations.reconcileRefunds()).toEqual({
+      status: "ready",
       inspected: 1,
       settled: 1,
+      failed: 0,
     });
     // Повтор с прежним ExternalRequestId банк считает тем же запросом: второй возврат не создаётся.
     expect(s.bank.cancels).toHaveLength(2);
@@ -1203,14 +1206,22 @@ describe("владельческие операции billing: платежи, �
         (payment) => payment.purchaseRef === purchaseRef,
       ),
     ).toMatchObject({ refundedKopecks: 0, refundedAt: null });
+    await expect(runRecoveryJob(s.payments, s.operations)).rejects.toThrow(
+      "provider_unavailable",
+    );
+    expect(await refundNotices()).toEqual([]);
     s.bank.failCancel = false;
     expect(await s.operations.reconcileRefunds()).toEqual({
+      status: "ready",
       inspected: 1,
       settled: 1,
+      failed: 0,
     });
     expect(await s.operations.reconcileRefunds()).toEqual({
+      status: "ready",
       inspected: 0,
       settled: 0,
+      failed: 0,
     });
     const notices = await refundNotices();
     expect(notices).toHaveLength(1);
@@ -1269,8 +1280,10 @@ describe("владельческие операции billing: платежи, �
     });
     s.bank.failCancel = false;
     expect(await s.operations.reconcileRefunds()).toEqual({
+      status: "ready",
       inspected: 1,
       settled: 1,
+      failed: 0,
     });
     expect(
       new Set(s.bank.cancels.map((cancel) => cancel.externalRequestId)),

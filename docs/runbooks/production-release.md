@@ -179,9 +179,12 @@ AMQPS на `5671`. Топологию он читает из определен�
   - `Sale is enabled in the billing catalog, but TBANK_CONFIG_JSON is not configured`;
   - `Sale is enabled in the billing catalog, but BILLING_CONTACT_* is not configured`;
   - `Subscription sale is enabled in the billing catalog, but the terminal does not confirm recurringCardConfirmed and cardOnlyHostedConfirmed`;
-- задание `billing.subscription-renewal` без терминала закрывает истёкшие сроки и завершается
-  штатно, если после закрытия не осталось подписки со сроком к продлению. Такая подписка без
-  терминала — сбой: `job_failed` с `method_unavailable`.
+- задание `billing.subscription-renewal` без терминала или подтверждённого recurring сообщает
+  успешный отчёт со статусом `configuration_idle`. Активное расписание с пригодной привязкой
+  сохраняется. Отменённые истёкшие сроки и сроки без пригодной привязки закрываются отдельной
+  выборкой, если нет незавершённой оплаты. Ошибки банка и базы дают `job_failed`; неизвестная
+  попытка оплаты остаётся для сверки. Правило расписания описано в
+  [механике подписки](../product/subscription-billing-v1.md#жизнь-подписки).
 
 Проверка выполняется только при запуске. Продажу включают после проверок выпуска, и снимают её
 («выключить из продажи») раньше, чем убирают настройки оплаты.

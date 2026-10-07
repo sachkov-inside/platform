@@ -37,7 +37,6 @@ import {
 } from "../../features/manage-subscription/manage-subscription.contract.js";
 import { paidPeriodCommandSchema } from "../../../account-rights/index.js";
 import {
-  endLapsedSubscriptions,
   endSubscription,
   inFlightStates,
   settleConfirmedAttempt,
@@ -48,13 +47,23 @@ import {
   type AttemptKind,
 } from "../../domain/payment-attempt.js";
 import { renewalPriceSnapshot } from "../../domain/subscription-change.js";
-import { verifyRecurringConsent } from "../../shared/recurring-consent.js";
+import { inspectRecurringConsent } from "../../shared/recurring-consent.js";
 import { attemptSourceRef, lifecycleWindow } from "../../domain/notice.js";
 import { recordBillingNotice } from "../../shared/record-notice.js";
 import { replayCommandFingerprint } from "../../shared/command-fingerprint.js";
 import { readPurchaseGrounds } from "../../shared/offer-eligibility.js";
 import { paymentAdmission } from "../../shared/payment-admission.js";
 import { hasText } from "../../../../infrastructure/contracts/text.js";
+
+import {
+  endLapsedSubscriptions,
+  closeLapsedSubscriptions,
+  dueRenewals,
+  renewalScheduled,
+  renewalTerminal,
+  usableRenewalBinding,
+  type RenewalTerminal,
+} from "../../shared/renewal-schedule.js";
 
 const fulfillmentRetryDelayMilliseconds = 60_000;
 // Кабинет показывает обозримую историю; полный журнал платежей остаётся владельческой операцией.
@@ -437,7 +446,10 @@ export class BillingPayments {
       )
         return paymentFailure("method_unavailable");
       if (row.state === "prepared") {
-        await this.dispatch(row.id);
+        const outcome = await this.dispatch(row.id);
+        if (outcome === "configuration_idle")
+          return paymentFailure("method_unavailable");
+        if (outcome === "failed") return paymentFailure("provider_unavailable");
         return { ok: true, value: true };
       }
       if (row.state === "confirmed" || row.state === "failed")
@@ -460,8 +472,14 @@ export class BillingPayments {
         !isQuotedPurchase(kind) &&
         !row.chargeCalled &&
         payment.Status === "NEW"
-      )
-        await this.chargeSaved(row.id, paymentId);
+      ) {
+        if (renewalTerminal(bank.config) !== "ready")
+          return paymentFailure("method_unavailable");
+        const charged = await this.chargeSaved(row.id, paymentId);
+        if (charged === "configuration_idle")
+          return paymentFailure("method_unavailable");
+        if (charged === "failed") return paymentFailure("provider_unavailable");
+      }
       return accepted;
     } catch (error) {
       return dependencyFailure(
@@ -472,23 +490,37 @@ export class BillingPayments {
     }
   }
 
-  async recover(
-    limit = 50,
-  ): Promise<PaymentResult<{ inspected: number; applied: number }>> {
+  async recover(limit = 50): Promise<
+    PaymentResult<{
+      status: "ready" | "configuration_idle";
+      inspected: number;
+      applied: number;
+      failed: number;
+    }>
+  > {
     if (!Number.isInteger(limit) || limit < 1 || limit > 100)
       return paymentFailure("invalid_request");
     try {
-      const rows = await this.dependencies.prisma.billingPurchase.findMany({
-        where: {
-          state: {
-            in: ["prepared", "sent", "unknown", "pending", "authorized"],
-          },
-        },
-        orderBy: { updatedAt: "asc" },
-        take: limit,
-      });
+      let idle = this.dependencies.bank === undefined;
+      let failed = 0;
+      const rows =
+        this.dependencies.bank === undefined
+          ? []
+          : await this.dependencies.prisma.billingPurchase.findMany({
+              where: {
+                state: {
+                  in: ["prepared", "sent", "unknown", "pending", "authorized"],
+                },
+              },
+              orderBy: { updatedAt: "asc" },
+              take: limit,
+            });
       for (const row of rows) {
-        await this.reconcile(row.id);
+        const reconciled = await this.reconcile(row.id);
+        if (!reconciled.ok) {
+          if (reconciled.error.code === "method_unavailable") idle = true;
+          else failed += 1;
+        }
         await this.dependencies.prisma.billingPurchase.update({
           where: { id: row.id },
           data: { updatedAt: this.clock() },
@@ -512,7 +544,10 @@ export class BillingPayments {
           },
         });
         const parsed = paidPeriodCommandSchema.safeParse(row.payload);
-        if (!parsed.success) continue;
+        if (!parsed.success) {
+          failed += 1;
+          continue;
+        }
         const command = parsed.data;
         const result = await this.dependencies.grants.applyPaidPeriod(command);
         if (result.ok) {
@@ -521,9 +556,17 @@ export class BillingPayments {
             data: { appliedAt: this.clock() },
           });
           applied += 1;
-        }
+        } else failed += 1;
       }
-      return { ok: true, value: { inspected: rows.length, applied } };
+      return {
+        ok: true,
+        value: {
+          status: idle ? "configuration_idle" : "ready",
+          inspected: rows.length,
+          applied,
+          failed,
+        },
+      };
     } catch (error) {
       return dependencyFailure(
         { module: "billing", operation: "recover" },
@@ -533,70 +576,50 @@ export class BillingPayments {
     }
   }
 
-  /**
-   * Due-продление: сериализованный gate и durable attempt до любого обращения к банку.
-   * Отсутствие пригодной привязки завершает расписание, операторская причина только блокирует.
-   * Без терминала проход только закрывает истёкшие сроки; оставшаяся должная подписка — сбой.
-   */
+  /** Закрытие сроков идёт отдельно от списаний, в том числе при простое терминала. */
   async renew(limit = 20): Promise<
     PaymentResult<{
+      status: "ready" | "configuration_idle";
+      terminal: RenewalTerminal;
       inspected: number;
       started: number;
       blocked: number;
       closed: number;
+      failed: number;
     }>
   > {
     if (!Number.isInteger(limit) || limit < 1 || limit > 100)
       return paymentFailure("invalid_request");
     const { prisma, bank } = this.dependencies;
     try {
-      const due = await prisma.billingSubscription.findMany({
-        where: { state: "active", paidUntil: { lte: this.clock() } },
-        orderBy: { paidUntil: "asc" },
-        take: limit,
-      });
+      const now = this.clock();
+      const terminal = renewalTerminal(bank?.config);
+      const due = await dueRenewals(prisma, now, limit);
       let started = 0,
-        blocked = 0;
-      if (bank)
+        blocked = 0,
+        failed = 0;
+      if (terminal === "ready" && bank !== undefined)
         for (const subscription of due) {
-          const prepared = await this.prepareRenewal(subscription.id);
+          const prepared = await this.prepareRenewal(subscription.id, bank);
           if (hasText(prepared.attemptRef)) {
-            await this.dispatch(prepared.attemptRef);
-            started += 1;
-          } else if (prepared.blocked === true) blocked += 1;
+            const outcome = await this.dispatch(prepared.attemptRef);
+            if (outcome === "dispatched" || outcome === "failed") started += 1;
+            if (outcome === "failed") failed += 1;
+          } else if (prepared.failed === true) failed += 1;
+          else if (prepared.blocked === true) blocked += 1;
         }
-      // Закончившийся оплаченный срок без продления освобождает Account для новой покупки.
-      const lapsed = await prisma.billingSubscription.findMany({
-        where: { state: { not: "ended" }, paidUntil: { lte: this.clock() } },
-        orderBy: { paidUntil: "asc" },
-        take: limit,
-      });
-      let closed = 0;
-      for (const subscription of lapsed)
-        closed += await prisma.$transaction(async (tx) => {
-          const now = this.clock();
-          await lockBillingSubscription(tx, subscription.id);
-          await endLapsedSubscriptions(tx, subscription.accountId, now);
-          return (
-            await tx.billingSubscription.findUniqueOrThrow({
-              where: { id: subscription.id },
-            })
-          ).state === "ended"
-            ? 1
-            : 0;
-        });
-      // Без терминала сбой — только подписка, которую закрытие сроков оставило к продлению.
-      if (
-        !bank &&
-        due.length > 0 &&
-        (await prisma.billingSubscription.count({
-          where: { state: "active", paidUntil: { lte: this.clock() } },
-        })) > 0
-      )
-        return paymentFailure("method_unavailable");
+      const closed = await closeLapsedSubscriptions(prisma, now, limit);
       return {
         ok: true,
-        value: { inspected: due.length, started, blocked, closed },
+        value: {
+          status: terminal === "ready" ? "ready" : "configuration_idle",
+          terminal,
+          inspected: due.length,
+          started,
+          blocked,
+          closed,
+          failed,
+        },
       };
     } catch (error) {
       return dependencyFailure(
@@ -622,9 +645,11 @@ export class BillingPayments {
     }
   }
 
-  async dispatch(attemptRef: string): Promise<void> {
+  async dispatch(
+    attemptRef: string,
+  ): Promise<"dispatched" | "skipped" | "failed" | "configuration_idle"> {
     const { prisma, bank } = this.dependencies;
-    if (!bank) return;
+    if (!bank) return "configuration_idle";
     const prepared = await prisma.$transaction(async (tx) => {
       await lockBillingPricing(tx);
       const row = await tx.billingPurchase.findUnique({
@@ -646,13 +671,12 @@ export class BillingPayments {
         // Отмена останавливает только продление; принятое повышение оплачивает действующий срок.
         const schedulable =
           kind === "renewal"
-            ? subscription?.state === "active"
+            ? subscription !== null && renewalScheduled(subscription)
             : subscription?.state !== "ended";
         if (
           !subscription ||
           !schedulable ||
-          !hasText(subscription.bindingCiphertext) ||
-          subscription.bindingRevokedAt !== null
+          !usableRenewalBinding(subscription)
         ) {
           // Отмена или отзыв привязки до отправки: внешнего эффекта нет, попытка закрывается.
           await tx.billingPurchase.update({
@@ -662,6 +686,8 @@ export class BillingPayments {
           return undefined;
         }
       }
+      if (!isQuotedPurchase(kind) && renewalTerminal(bank.config) !== "ready")
+        return { status: "configuration_idle" } as const;
       await tx.billingPurchase.update({
         where: { id: attemptRef },
         data: { state: "sent", updatedAt: now },
@@ -671,9 +697,10 @@ export class BillingPayments {
           where: { purchaseRef: attemptRef },
           data: { state: "sent" },
         });
-      return { row, kind };
+      return { status: "prepared", row, kind } as const;
     });
-    if (!prepared) return;
+    if (prepared?.status === "configuration_idle") return "configuration_idle";
+    if (!prepared) return "skipped";
     const { row, kind } = prepared;
     try {
       const snapshot = priceSnapshotSchema.parse(row.snapshot);
@@ -696,11 +723,13 @@ export class BillingPayments {
         isQuotedPurchase(kind) ? payment.PaymentURL : undefined,
       );
       if (!accepted.ok) throw new Error("Bank initialization fact rejected");
-      if (
-        !isQuotedPurchase(kind) &&
-        !(await this.chargeSaved(row.id, payment.PaymentId))
-      )
-        throw new Error("Saved method charge is unresolved");
+      if (!isQuotedPurchase(kind)) {
+        const charged = await this.chargeSaved(row.id, payment.PaymentId);
+        if (charged === "failed")
+          throw new Error("Saved method charge is unresolved");
+        if (charged === "configuration_idle") return "configuration_idle";
+      }
+      return "dispatched";
     } catch (error) {
       reportDependencyFailure(
         { module: "billing", operation: "dispatch" },
@@ -718,14 +747,15 @@ export class BillingPayments {
             data: { state: "unknown" },
           });
       });
+      return "failed";
     }
   }
 
   private async prepareRenewal(
     subscriptionRef: string,
-  ): Promise<{ attemptRef?: string; blocked?: boolean }> {
-    const { prisma, contact, grants, bank } = this.dependencies;
-    if (!bank) return { blocked: true };
+    bank: Tbank,
+  ): Promise<{ attemptRef?: string; blocked?: boolean; failed?: boolean }> {
+    const { prisma, contact, grants } = this.dependencies;
     const current = await prisma.billingSubscription.findUnique({
       where: { id: subscriptionRef },
     });
@@ -733,9 +763,10 @@ export class BillingPayments {
     const [legacy, verified, consented] = await Promise.all([
       grants.readLegacyClassification(current.accountId),
       contact.read(current.accountId),
-      verifyRecurringConsent(contact, current.accountId, current.consent),
+      inspectRecurringConsent(contact, current.accountId, current.consent),
     ]);
-    if (!legacy.ok || !verified.ok) return { blocked: true };
+    if (!legacy.ok || !verified.ok || consented === "unavailable")
+      return { failed: true };
     const verifiedContact = verified.contact;
     const snapshot = renewalPriceSnapshot(
       current.snapshot,
@@ -752,7 +783,13 @@ export class BillingPayments {
       chargeKopecks: amountKopecks,
     });
     return await prisma.$transaction(
-      async (tx): Promise<{ attemptRef?: string; blocked?: boolean }> => {
+      async (
+        tx,
+      ): Promise<{
+        attemptRef?: string;
+        blocked?: boolean;
+        failed?: boolean;
+      }> => {
         await lockBillingPricing(tx);
         await lockBillingSubscription(tx, subscriptionRef);
         const now = this.clock();
@@ -766,11 +803,7 @@ export class BillingPayments {
           })) > 0
         )
           return {};
-        if (
-          !hasText(row.bindingCiphertext) ||
-          !hasText(row.bindingRef) ||
-          row.bindingRevokedAt !== null
-        ) {
+        if (!renewalScheduled(row)) {
           // Отозванная или неполученная привязка закрывает расписание вместе с оплаченным сроком.
           await endSubscription(
             tx,
@@ -781,7 +814,7 @@ export class BillingPayments {
           return {};
         }
         // Классификация, согласие, контакт и границы терминала — операторский разбор, не отказ покупателя.
-        if (!admission.ok || !consented || !verifiedContact)
+        if (!admission.ok || consented !== "valid" || !verifiedContact)
           return { blocked: true };
         const attemptRef = randomUUID();
         await tx.billingPurchase.create({
@@ -824,10 +857,17 @@ export class BillingPayments {
   private async chargeSaved(
     attemptRef: string,
     paymentId: string,
-  ): Promise<boolean> {
+  ): Promise<"charged" | "skipped" | "configuration_idle" | "failed"> {
     const { prisma, bank } = this.dependencies;
-    if (!bank) return false;
+    if (!bank || renewalTerminal(bank.config) !== "ready")
+      return "configuration_idle";
     const prepared = await prisma.$transaction(async (tx) => {
+      await lockBillingPricing(tx);
+      const initial = await tx.billingPurchase.findUnique({
+        where: { id: attemptRef },
+      });
+      if (!hasText(initial?.subscriptionRef)) return undefined;
+      await lockBillingSubscription(tx, initial.subscriptionRef);
       const row = await tx.billingPurchase.findUnique({
         where: { id: attemptRef },
       });
@@ -845,10 +885,11 @@ export class BillingPayments {
       });
       return bank.openBinding(row.id, row.bindingCiphertext);
     });
-    if (!hasText(prepared)) return false;
-    return (
-      await this.accept(await bank.charge({ paymentId, rebillId: prepared }))
-    ).ok;
+    if (!hasText(prepared)) return "skipped";
+    const accepted = await this.accept(
+      await bank.charge({ paymentId, rebillId: prepared }),
+    );
+    return accepted.ok ? "charged" : "failed";
   }
 
   private async accept(

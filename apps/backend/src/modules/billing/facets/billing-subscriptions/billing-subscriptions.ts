@@ -1,3 +1,4 @@
+import { usableRenewalBinding } from "../../shared/renewal-schedule.js";
 import { randomUUID } from "node:crypto";
 import { z } from "zod";
 import {
@@ -235,8 +236,7 @@ export class BillingSubscriptions {
           grounds: { formerTributeSubscriber: false, invitedOfferIds: [] },
           recurringAllowed: legacy.recurringAllowed,
 
-          bindingAvailable:
-            hasText(row.bindingCiphertext) && row.bindingRevokedAt === null,
+          bindingAvailable: usableRenewalBinding(row),
         });
         if (!admission.ok) return paymentFailure(admission.error.code);
         await advanceSubscription(
@@ -474,11 +474,7 @@ export class BillingSubscriptions {
           return value;
         }
         if (!bank) throw new CommandFailure("method_unavailable");
-        if (
-          !hasText(row.bindingCiphertext) ||
-          !hasText(row.bindingRef) ||
-          row.bindingRevokedAt !== null
-        )
+        if (!usableRenewalBinding(row))
           throw new CommandFailure("method_unavailable");
         if (
           (await tx.billingPurchase.count({
@@ -747,13 +743,27 @@ export class BillingSubscriptions {
   }
 
   /** Серверная сверка сессий привязки: новый способ применяется только по доказанному token. */
-  async reconcileMethodFlows(
-    limit = 20,
-  ): Promise<PaymentResult<{ inspected: number; applied: number }>> {
+  async reconcileMethodFlows(limit = 20): Promise<
+    PaymentResult<{
+      status: "ready" | "configuration_idle";
+      inspected: number;
+      applied: number;
+      failed: number;
+    }>
+  > {
     if (!Number.isInteger(limit) || limit < 1 || limit > 100)
       return paymentFailure("invalid_request");
     const { prisma, bank } = this.dependencies;
-    if (!bank?.config.cardBinding) return paymentFailure("method_unavailable");
+    if (!bank?.config.cardBinding)
+      return {
+        ok: true,
+        value: {
+          status: "configuration_idle",
+          inspected: 0,
+          applied: 0,
+          failed: 0,
+        },
+      };
     try {
       const rows = await prisma.billingPaymentMethodFlow.findMany({
         where: {
@@ -764,7 +774,8 @@ export class BillingSubscriptions {
         orderBy: { createdAt: "asc" },
         take: limit,
       });
-      let applied = 0;
+      let applied = 0,
+        failed = 0;
       for (const row of rows) {
         const now = this.clock();
         if (row.requestKey === row.id) {
@@ -787,6 +798,7 @@ export class BillingSubscriptions {
             { module: "billing", operation: "reconcileMethodFlows" },
             error,
           );
+          failed += 1;
           continue;
         }
         if (!observed.success || observed.errorCode !== "0") {
@@ -856,7 +868,10 @@ export class BillingSubscriptions {
           return 1;
         });
       }
-      return { ok: true, value: { inspected: rows.length, applied } };
+      return {
+        ok: true,
+        value: { status: "ready", inspected: rows.length, applied, failed },
+      };
     } catch (error) {
       return dependencyFailure(
         { module: "billing", operation: "reconcileMethodFlows" },

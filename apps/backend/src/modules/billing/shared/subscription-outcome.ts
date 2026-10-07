@@ -1,9 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { z } from "zod";
-import {
-  lockBillingSubscription,
-  type BillingPrisma,
-} from "../../../infrastructure/prisma/index.js";
+import { type BillingPrisma } from "../../../infrastructure/prisma/index.js";
 import { priceSnapshotSchema, type PriceSnapshot } from "../domain/pricing.js";
 import { subscriptionPeriodEnd } from "../domain/subscription-period.js";
 import {
@@ -252,59 +249,6 @@ export async function endSubscription(
     },
     now,
   );
-}
-
-/**
- * Освобождает Account для новой покупки, когда оплаченный срок закончился и продлить его
- * нечем. Незавершённая попытка оплаты сохраняет подписку до сверки.
- */
-export async function endLapsedSubscriptions(
-  tx: BillingPrisma,
-  accountId: string,
-  now: Date,
-): Promise<void> {
-  // Покупка, подтверждённая до появления подписок, освобождает место по своему сохранённому концу.
-  await tx.billingPurchase.updateMany({
-    where: {
-      accountId,
-      kind: "initial",
-      state: "confirmed",
-      lifecycleActive: true,
-      subscriptionRef: null,
-      periodEndsAt: { lte: now },
-    },
-    data: { lifecycleActive: false },
-  });
-  const candidates = await tx.billingSubscription.findMany({
-    where: { accountId, state: { not: "ended" }, paidUntil: { lte: now } },
-  });
-  for (const candidate of candidates) {
-    await lockBillingSubscription(tx, candidate.id);
-    const row = await tx.billingSubscription.findUniqueOrThrow({
-      where: { id: candidate.id },
-    });
-    if (row.state === "ended" || row.paidUntil > now) continue;
-    if (
-      (await tx.billingPurchase.count({
-        where: { subscriptionRef: row.id, state: { in: inFlightStates } },
-      })) > 0
-    )
-      continue;
-    if (
-      row.state === "active" &&
-      row.bindingCiphertext !== null &&
-      row.bindingRevokedAt === null
-    )
-      continue;
-    await endSubscription(
-      tx,
-      row.id,
-      row.state === "canceled"
-        ? "canceled_period_ended"
-        : "no_usable_payment_method",
-      now,
-    );
-  }
 }
 
 export const inFlightStates = [
