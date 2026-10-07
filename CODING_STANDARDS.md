@@ -25,41 +25,31 @@ nearest `AGENTS.md` owns task routing and verification commands.
   duplicating environment parsing, transport paths, schemas, policy, or cache state.
 - Prefer a small deep interface at a proven seam. Do not add generic repositories, factories,
   services, or provider abstractions for hypothetical consumers.
-- Every TypeScript project extends `tsconfig.base.json` through its preset:
-  `tsconfig.node-lib.json` for `packages/`, `tsconfig.nest-app.json` for the backend,
-  `tsconfig.next-app.json` for the web and `tsconfig.scripts.json` for repository `.mjs` scripts.
-  Change shared strictness in the base, not per project; `scripts/toolchain-contract.test.mjs`
-  fails a project that bypasses it. Where `isolatedDeclarations`
-  in packages asks for an exported Zod schema's type, write its exact Zod type, not a hand-written
-  wire type.
-- `strict-boolean-expressions` (#694) rejects strings, numbers and nullable primitives in a boolean
-  context. `hasText` and `presentText` in `apps/backend/src/infrastructure/contracts/text.ts` and
-  `apps/web/src/shared/lib/text.ts` keep the former truthiness of text: `null`, `undefined` and `""`
-  are absent.
-- Repository `.mjs` scripts compile through `tsconfig.scripts.json` in `pnpm typecheck` (#694).
-  Every script starts with `// @ts-check` (#756); `scripts/toolchain-contract.test.mjs` fails for a
-  script without it, outside that project or with `@ts-nocheck`. A script that loads an
-  application's dependency through `createRequire` takes its types from the application's
-  `test/support/proof-dependencies`: a type import by a relative path into `node_modules` cannot
-  resolve the package's own imports.
-- `pnpm lint` applies every `typescript/no-unsafe-*` rule of the shared type-aware set to the files
-  `tsconfig.scripts.json` compiles (#763). The root `tsconfig.json` compiles nothing (`files: []`)
-  and only references that project, so type-aware lint resolves script types.
-  `scripts/toolchain-contract.test.mjs` fails when a script directory, a rule or the reference
-  drops out, or when another override or ignore pattern weakens lint for a script. Parse
-  `JSON.parse`, `Response.json()` and database rows with a schema, or keep them `unknown` until an
-  explicit check; `package.json` is parsed by the schema in `scripts/package-manifest.mjs`. The
-  `any` that `createRequire` returns is asserted to its `proof-dependencies` type inside an
-  `oxlint-disable`/`oxlint-enable` block for `typescript/no-unsafe-type-assertion`: a
+- Every TypeScript project extends `tsconfig.base.json` through its `tsconfig.*.json` preset and
+  changes shared strictness only in the base; `scripts/toolchain-contract.test.mjs` holds both.
+  Where `isolatedDeclarations` in packages asks for an exported Zod schema's type, write its exact
+  Zod type, not a hand-written wire type.
+- Where `strict-boolean-expressions` (#694) rejects a text value, `hasText` and `presentText` keep
+  its former truthiness (`null`, `undefined` and `""` are absent). They live in
+  `apps/backend/src/infrastructure/contracts/text.ts` and `apps/web/src/shared/lib/text.ts`.
+- Repository `.mjs` scripts start with `// @ts-check` (#756) and compile and lint through
+  `tsconfig.scripts.json` with every `typescript/no-unsafe-*` rule of the shared type-aware set
+  (#694, #763); `scripts/toolchain-contract.test.mjs` holds the comment, the project and the rules.
+  Parse `JSON.parse`, `Response.json()` and database rows with a schema, or keep them `unknown`
+  until an explicit check; `package.json` is parsed by the schema in `scripts/package-manifest.mjs`.
+- A script that loads an application's dependency through `createRequire` takes its types from the
+  application's `test/support/proof-dependencies`: a type import by a relative path into
+  `node_modules` cannot resolve the package's own imports. Assert the returned `any` to that type
+  inside an `oxlint-disable`/`oxlint-enable` block for `typescript/no-unsafe-type-assertion`: a
   `disable-next-line` comment inside a JSDoc cast does not suppress it.
-- Code that runs at a script's top level calls a module function only after every module `const`,
-  `let` and `class` that function reads is declared: a function is hoisted, its values are not, and
-  the script fails with `ReferenceError` only when it runs (#774).
-  `scripts/check-module-initialization-order.mjs` in `pnpm guardrails` fails a top-level statement
-  that calls or passes by name such a function, arrow function or class declaration; a callback the
-  statement runs at once, such as one given to `.map()`, is outside the check.
-- Keep checked-in generated contracts deterministic. Change their source and regenerate them; do
-  not hand-edit generated output.
+- Code at a script's top level calls a module function only after every module `const`, `let` and
+  `class` that function reads is declared: a function is hoisted, its values are not (#774).
+  `scripts/check-module-initialization-order.mjs` holds a call or a pass by name; a callback that
+  the statement runs at once, such as one given to `.map()`, is outside the check.
+- Scripts pass every failure on through their exit code and run under macOS bash 3.2: they use no
+  `wait -n` and expand no empty array under `set -u`.
+- Keep checked-in generated contracts deterministic: change one through its source and regenerate
+  it, never by hand.
 - Name protocol, token, cookie, retry, and polling durations in domain units at the owning boundary.
   Call sites express the policy name, not arithmetic.
 - Derive values that are validated together from one clock reading. A window, a deadline pair, or
@@ -70,9 +60,9 @@ nearest `AGENTS.md` owns task routing and verification commands.
 ## Waiting in tests
 
 A test that waits by duration measures the machine instead of the behaviour: it hides a defect on an
-idle machine and fails at random on a loaded one. No executable check owns this rule as a whole,
-because a pause is the right instrument for proving that nothing happens, and a mechanical ban on
-pauses would reject correct tests; the quiet-window exception below has its own check.
+idle machine and fails at random on a loaded one. Review holds the rules below as a whole: a pause
+is the right instrument for proving that nothing happens, so a mechanical ban would reject correct
+tests.
 
 - End every wait on a committed fact: a persisted row, a rendered state, a drained queue, a reported
   outcome. A pause and an advanced virtual clock start work; neither observes it.
@@ -88,8 +78,8 @@ pauses would reject correct tests; the quiet-window exception below has its own 
 One wait ends on a quiet window instead of a fact (owner decision of 2026-09-27, #758):
 `viewportPrefetchDrained` in `apps/web/test/navigation/instant-navigation.spec.ts` waits for
 `networkidle`. The Next.js prefetch queue is private module state, and optimistic routing skips
-requests for links whose route it predicts, so no page-visible fact marks the end of the queue (the
-analysis is in #758). Revisit it when Next.js exposes the queue or optimistic routing changes.
+requests for links whose route it predicts, so no page-visible fact marks the end of the queue.
+Revisit it when Next.js exposes the queue or optimistic routing changes.
 `scripts/quiet-window-waits.test.mjs` fails any other `networkidle` wait in the application tests
 and browser scripts.
 
