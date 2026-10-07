@@ -56,7 +56,8 @@ whose diagnostic names the broken rule. This file keeps the judgement around tho
   the read module owns session failures (401/503) and private no-store with `Vary: cookie`.
   Browser adapters use `requestAuthenticatedRead` and validate ready values with feature schemas.
   The shared result distinguishes missing authentication, identity failure and dependency failure;
-  feature outcomes remain local. Replace the public `sessionAdapter` in read tests, rather than
+  other HTTP rejections keep their status and `unknown` body for feature failure schemas.
+  Feature outcomes remain local. Replace the public `sessionAdapter` in read tests, rather than
   token or Logto config internals. RSC prefetch interruption stays outside failure catches.
 - Treat generated response types as compile-time guidance. Feature adapters receive external bodies
   as `unknown`, validate focused Zod schemas, and map Problem Details and success bodies into known

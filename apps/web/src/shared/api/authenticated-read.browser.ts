@@ -33,12 +33,9 @@ export async function requestAuthenticatedRead(
     } catch {
       return { kind: "dependency_unavailable", ...diagnostic };
     }
-    return {
-      ...(readFailureSchema.safeParse(body).data ?? {
-        kind: "dependency_unavailable",
-      }),
-      ...diagnostic,
-    };
+    const failure = readFailureSchema.safeParse(body);
+    if (failure.success) return { ...failure.data, ...diagnostic };
+    return { kind: "rejected", status: response.status, body, ...diagnostic };
   } catch {
     return { kind: "dependency_unavailable" };
   }

@@ -58,8 +58,20 @@ export async function requestAuthoringMaterials(
     signal,
   );
   if (result.kind === "authentication_required") return { kind: "signed_out" };
+  if (result.kind === "rejected") {
+    const parsed = stateSchema.safeParse(result.body);
+    return parsed.success && parsed.data.kind !== "ready"
+      ? parsed.data
+      : {
+          kind: "unavailable",
+          reference: result.reference ?? "authoring-session",
+        };
+  }
   if (result.kind !== "ready")
-    return { kind: "unavailable", reference: "authoring-session" };
+    return {
+      kind: "unavailable",
+      reference: result.reference ?? "authoring-session",
+    };
   const parsed = stateSchema.safeParse(result.value);
   if (!parsed.success) {
     throw new Error("Authoring Materials response is malformed", {

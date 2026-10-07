@@ -17,6 +17,12 @@ export async function readNotificationPreferences(): Promise<NotificationPrefere
   const result = await requestAuthenticatedRead(
     "/api/account/notifications/preferences",
   );
+  if (result.kind === "rejected") {
+    const parsed = notificationPreferencesResultSchema.safeParse(result.body);
+    return parsed.success && !parsed.data.ok
+      ? parsed.data
+      : { ok: false, code: "unavailable" };
+  }
   if (result.kind !== "ready")
     return {
       ok: false,

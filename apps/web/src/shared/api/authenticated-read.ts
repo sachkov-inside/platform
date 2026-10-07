@@ -5,5 +5,13 @@ export interface AuthenticatedReadFailure {
     | "dependency_unavailable";
   readonly reference?: string;
 }
+export interface AuthenticatedReadRejection {
+  readonly kind: "rejected";
+  readonly status: number;
+  readonly body: unknown;
+  readonly reference?: string;
+}
 export type AuthenticatedReadResult<T> =
-  { readonly kind: "ready"; readonly value: T } | AuthenticatedReadFailure;
+  | { readonly kind: "ready"; readonly value: T }
+  | AuthenticatedReadFailure
+  | AuthenticatedReadRejection;

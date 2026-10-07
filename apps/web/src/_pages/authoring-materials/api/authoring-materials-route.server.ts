@@ -12,6 +12,24 @@ export async function handleAuthoringMaterialsRequest(
     const query = parseAuthoringMaterialsUrlSearchParams(
       new URL(request.url).searchParams,
     );
-    return Response.json(await getAuthoringMaterials(query, accessToken));
+    const state = await getAuthoringMaterials(query, accessToken);
+    const status =
+      state.kind === "signed_out"
+        ? 401
+        : state.kind === "forbidden"
+          ? 403
+          : state.kind === "unavailable"
+            ? 503
+            : state.kind === "malformed_response"
+              ? 502
+              : state.kind === "unexpected_error"
+                ? 500
+                : 200;
+    return Response.json(state, {
+      status,
+      ...(state.kind === "unavailable" || state.kind === "unexpected_error"
+        ? { headers: { "x-correlation-id": state.reference } }
+        : {}),
+    });
   });
 }

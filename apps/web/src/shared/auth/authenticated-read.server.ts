@@ -1,4 +1,6 @@
 import "server-only";
+
+import { privateAuthenticatedResponse } from "./private-response.server";
 import { connection } from "next/server";
 import type {
   AuthenticatedReadFailure,
@@ -12,7 +14,7 @@ import {
 
 export async function readAuthenticatedSession(
   mode: SessionReadMode,
-): Promise<AuthenticatedReadResult<string>> {
+): Promise<Exclude<AuthenticatedReadResult<string>, { kind: "rejected" }>> {
   // Keep Next.js's prefetch interruption outside the dependency failure boundary (ADR 0027).
   if (mode === "rsc") await connection();
   try {
@@ -46,7 +48,7 @@ export async function handleAuthenticatedRead(
         response.headers,
       );
     }
-    return privateReadResponse(response);
+    return privateAuthenticatedResponse(response);
   } catch {
     return readFailureResponse({ kind: "dependency_unavailable" });
   }
@@ -60,30 +62,10 @@ function readFailureResponse(
   responseHeaders.delete("content-length");
   responseHeaders.delete("content-encoding");
   responseHeaders.set("content-type", "application/json");
-  return privateReadResponse(
+  return privateAuthenticatedResponse(
     Response.json(failure, {
       headers: responseHeaders,
       status: failure.kind === "authentication_required" ? 401 : 503,
     }),
   );
-}
-
-function privateReadResponse(response: Response): Response {
-  const headers = new Headers(response.headers);
-  headers.set("cache-control", "no-store, private");
-  const vary = headers.get("vary");
-  if (vary === null) headers.set("vary", "cookie");
-  else if (
-    !vary
-      .toLowerCase()
-      .split(",")
-      .some((value) => value.trim() === "cookie")
-  ) {
-    headers.set("vary", `${vary}, cookie`);
-  }
-  return new Response(response.body, {
-    headers,
-    status: response.status,
-    statusText: response.statusText,
-  });
 }

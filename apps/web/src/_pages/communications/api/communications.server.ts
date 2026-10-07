@@ -123,7 +123,11 @@ async function read(
         operation,
         payload: hasText(cursor) ? { cursor } : {},
       };
-    return Response.json(await execute(input, token, schema));
+    const response = await requestCommunications(input, token);
+    const result = mapResult(response, schema);
+    return Response.json(result, {
+      status: response.ok ? 200 : response.response.status,
+    });
   });
 }
 export const handleBroadcastList = (request: Request) =>

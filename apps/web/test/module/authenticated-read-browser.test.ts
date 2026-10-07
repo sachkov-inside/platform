@@ -14,7 +14,7 @@ it.each([
       vi.fn().mockResolvedValue(Response.json(body, { status })),
     );
     expect(await requestAuthenticatedRead("/api/account/presentation")).toEqual(
-      body ?? { kind: "dependency_unavailable" },
+      body ?? { kind: "rejected", status: 502, body: null },
     );
   },
 );
@@ -48,4 +48,21 @@ it("keeps a backend correlation reference even when its error body is empty", as
     kind: "dependency_unavailable",
     reference: "read-42",
   });
+});
+
+it("lets billing retain a validated forbidden outcome from its read capability", async () => {
+  const { readBillingEndpoint } =
+    await import("@/entities/subscription/api/billing-result.browser");
+  const { z } = await import("zod");
+  vi.stubGlobal(
+    "fetch",
+    vi
+      .fn()
+      .mockResolvedValue(
+        Response.json({ ok: false, code: "forbidden" }, { status: 403 }),
+      ),
+  );
+  expect(
+    await readBillingEndpoint("/api/account/billing/current", z.unknown()),
+  ).toEqual({ ok: false, code: "forbidden" });
 });

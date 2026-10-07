@@ -12,13 +12,16 @@ export type BillingCommandResult<Value> =
   | { readonly ok: true; readonly value: Value }
   | { readonly ok: false; readonly code: BillingFailureCode };
 
+const failureSchema = z.object({
+  ok: z.literal(false),
+  code: billingFailureCodeSchema,
+});
+
 function decode<Schema extends z.ZodType>(
   body: unknown,
   valueSchema: Schema,
 ): BillingCommandResult<z.infer<Schema>> {
-  const failure = z
-    .object({ ok: z.literal(false), code: billingFailureCodeSchema })
-    .safeParse(body);
+  const failure = failureSchema.safeParse(body);
   if (failure.success) return { ok: false, code: failure.data.code };
   const success = z
     .object({ ok: z.literal(true), value: z.unknown() })
@@ -56,13 +59,16 @@ export async function readBillingEndpoint<Schema extends z.ZodType>(
   valueSchema: Schema,
 ): Promise<BillingCommandResult<z.infer<Schema>>> {
   const result = await requestAuthenticatedRead(route);
-  return result.kind === "ready"
-    ? decode(result.value, valueSchema)
-    : {
-        ok: false,
-        code:
-          result.kind === "authentication_required"
-            ? "unauthorized"
-            : "unavailable",
-      };
+  if (result.kind === "ready") return decode(result.value, valueSchema);
+  if (result.kind === "rejected") {
+    const failure = failureSchema.safeParse(result.body);
+    return failure.success ? failure.data : { ok: false, code: "unavailable" };
+  }
+  return {
+    ok: false,
+    code:
+      result.kind === "authentication_required"
+        ? "unauthorized"
+        : "unavailable",
+  };
 }

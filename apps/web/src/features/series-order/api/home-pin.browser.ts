@@ -11,6 +11,12 @@ export async function loadHomePin(signal: AbortSignal): Promise<HomePinResult> {
     "/api/authoring/home-pin",
     signal,
   );
+  if (result.kind === "rejected") {
+    const parsed = homePinResultSchema.safeParse(result.body);
+    return parsed.success && parsed.data.kind !== "ready"
+      ? parsed.data
+      : { kind: "unavailable" };
+  }
   if (result.kind !== "ready")
     return {
       kind:
