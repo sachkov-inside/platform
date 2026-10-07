@@ -1,15 +1,11 @@
 import { randomUUID } from "node:crypto";
-import { GenericContainer, Wait } from "testcontainers";
 import { expect, test, onTestFinished } from "vitest";
-import { brokerAdmin, queueDepth } from "./setup/broker.js";
+import { startNotificationBroker, queueDepth } from "./setup/broker.js";
 import { distinctClock } from "./setup/distinct-clock.js";
 import { eventually } from "./setup/eventually.js";
 import { createMigratedTestDatabase } from "./setup/test-database.js";
-import {
-  localNotificationTopology,
-  NOTIFICATION_BROKER_IMAGE,
-} from "../../src/infrastructure/notification-transport/topology.js";
-import { assembleNotificationWorker } from "../../src/infrastructure/notification-transport/worker.js";
+import { localNotificationTopology } from "../../src/infrastructure/notification-transport/topology.js";
+import { assembleNotificationPipeline } from "../../src/entrypoints/notifications-worker/assemble-notification-pipeline.js";
 import {
   connectNotificationBroker,
   publishNotification,
@@ -27,9 +23,7 @@ import {
   NotificationAccounts,
 } from "../../src/modules/accounts/index.js";
 import { billingContactProtection } from "../../src/modules/accounts/infrastructure/billing-contact-protection.js";
-import { assembleBillingNotificationOutbox } from "../../src/modules/billing/index.js";
 import { stageBillingNotification } from "../../src/modules/billing/facets/notification-outbox/notification-outbox.js";
-import { assembleMaterialsNotificationOutbox } from "../../src/modules/materials/index.js";
 import { stageMaterialsNotification } from "../../src/modules/materials/facets/notification-outbox/notification-outbox.js";
 import type { NotificationEvent } from "../../src/modules/notifications/domain/notification-wire.js";
 
@@ -37,35 +31,14 @@ import type { NotificationEvent } from "../../src/modules/notifications/domain/n
 const barrierBudgetMs = 30_000;
 test("real RabbitMQ event → audience → email inbox/effect → result outage/recovery; both categories and ACL", async () => {
   const topology = localNotificationTopology("inside-test", 100);
-  const broker = await new GenericContainer(NOTIFICATION_BROKER_IMAGE)
-    .withExposedPorts(5672)
-    .withCopyContentToContainer([
-      {
-        content: JSON.stringify(topology),
-        target: "/etc/rabbitmq/definitions.json",
-      },
-      {
-        content:
-          "definitions.import_backend = local_filesystem\ndefinitions.local.path = /etc/rabbitmq/definitions.json\n",
-        target: "/etc/rabbitmq/rabbitmq.conf",
-      },
-    ])
-    .withWaitStrategy(Wait.forLogMessage(/Server startup complete/))
-    .start();
+  const broker = await startNotificationBroker({ topology });
   onTestFinished(async () => {
     await broker.stop();
   });
-  const admin = brokerAdmin(broker);
+  const admin = broker.admin;
   const database = await createMigratedTestDatabase();
   onTestFinished(() => database.dispose());
-  const url = (principal: string) =>
-    `amqp://local-${principal}:inside-local-only@${broker.getHost()}:${broker.getMappedPort(5672)}/inside-test`;
-  const urls = {
-    billing: url("billing"),
-    materials: url("materials"),
-    notifications: url("notifications"),
-    email: url("email"),
-  };
+  const { urls } = broker;
   const actor = randomUUID();
   const instant = new Date();
   const before = new Date(instant.getTime() - 60_000);
@@ -188,11 +161,10 @@ test("real RabbitMQ event → audience → email inbox/effect → result outage/
   ]);
   let sends = 0;
   const reports: Record<string, unknown>[] = [];
-  const worker = assembleNotificationWorker({
+  const worker = assembleNotificationPipeline({
     config: { urls, prefetch: 2, quarantineCapacity: 100 },
     transport: app.transport,
-    billing: assembleBillingNotificationOutbox(database.prisma),
-    materials: assembleMaterialsNotificationOutbox(database.prisma),
+    prisma: database.prisma,
     processInbox: () =>
       app.sweep(() => {
         sends += 1;

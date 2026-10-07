@@ -5,15 +5,12 @@ import {
 import { assembleTestBillingPricing } from "./setup/billing-pricing.js";
 import { randomUUID } from "node:crypto";
 import { Pool } from "pg";
-import { GenericContainer, Wait } from "testcontainers";
+import { startNotificationBroker } from "./setup/broker.js";
 import { afterAll, beforeAll, describe, expect, test } from "vitest";
 
 import { syntheticTbankConfig } from "../support/bank-terminal.js";
-import {
-  localNotificationTopology,
-  NOTIFICATION_BROKER_IMAGE,
-} from "../../src/infrastructure/notification-transport/topology.js";
-import { assembleNotificationWorker } from "../../src/infrastructure/notification-transport/worker.js";
+import { localNotificationTopology } from "../../src/infrastructure/notification-transport/topology.js";
+import { assembleNotificationPipeline } from "../../src/entrypoints/notifications-worker/assemble-notification-pipeline.js";
 import {
   accountId as checkedAccountId,
   assembleAccounts,
@@ -23,7 +20,6 @@ import {
 import { billingContactProtection } from "../../src/modules/accounts/infrastructure/billing-contact-protection.js";
 import { stageBillingNotification } from "../../src/modules/billing/facets/notification-outbox/notification-outbox.js";
 import {
-  assembleBillingNotificationOutbox,
   BillingNotices,
   BillingOperations,
   BillingPayments,
@@ -42,7 +38,6 @@ import {
 import {
   assembleMaterialResourceFacts,
   assembleMaterials,
-  assembleMaterialsNotificationOutbox,
   MaterialAnnouncements,
   materialId as checkedMaterialId,
   type MaterialId,
@@ -116,9 +111,9 @@ describe("приёмка обоих источников Notifications (реал
   let platform: TestDatabase;
   let providerDatabase: TestDatabase;
   let providerPool: Pool;
-  let broker: Awaited<ReturnType<GenericContainer["start"]>>;
+  let broker: Awaited<ReturnType<typeof startNotificationBroker>>;
   let stand: ProviderStand;
-  let worker: ReturnType<typeof assembleNotificationWorker>;
+  let worker: ReturnType<typeof assembleNotificationPipeline>;
   let application: Notifications;
   const sent: { subject: string; text: string; email: string }[] = [];
   let beforePublication: Notifications;
@@ -138,21 +133,7 @@ describe("приёмка обоих источников Notifications (реал
 
   beforeAll(async () => {
     const topology = localNotificationTopology("inside-test", 200);
-    broker = await new GenericContainer(NOTIFICATION_BROKER_IMAGE)
-      .withExposedPorts(5672)
-      .withCopyContentToContainer([
-        {
-          content: JSON.stringify(topology),
-          target: "/etc/rabbitmq/definitions.json",
-        },
-        {
-          content:
-            "definitions.import_backend = local_filesystem\ndefinitions.local.path = /etc/rabbitmq/definitions.json\n",
-          target: "/etc/rabbitmq/rabbitmq.conf",
-        },
-      ])
-      .withWaitStrategy(Wait.forLogMessage(/Server startup complete/))
-      .start();
+    broker = await startNotificationBroker({ topology });
     platform = await createMigratedTestDatabase();
     providerDatabase = await createTestDatabase();
     providerPool = new Pool({ connectionString: providerDatabase.url, max: 4 });
@@ -162,8 +143,6 @@ describe("приёмка обоих источников Notifications (реал
       recorded_at timestamptz not null,
       primary key (delivery_ref, attempt_ref), unique (delivery_ref, attempt))`);
 
-    const url = (principal: string) =>
-      `amqp://local-${principal}:inside-local-only@${broker.getHost()}:${broker.getMappedPort(5672)}/inside-test`;
     const protection = billingContactProtection(
       Buffer.alloc(32, 66).toString("base64"),
     );
@@ -323,20 +302,14 @@ describe("приёмка обоих источников Notifications (реал
     // Команда доставки, собранная из двух чтений часов, живёт дольше, чем принимает её потребитель.
     application = assemble(distinctClock());
 
-    worker = assembleNotificationWorker({
+    worker = assembleNotificationPipeline({
       config: {
-        urls: {
-          billing: url("billing"),
-          materials: url("materials"),
-          notifications: url("notifications"),
-          email: url("email"),
-        },
+        urls: broker.urls,
         prefetch: 4,
         quarantineCapacity: 200,
       },
       transport: application.transport,
-      billing: assembleBillingNotificationOutbox(platform.prisma),
-      materials: assembleMaterialsNotificationOutbox(platform.prisma),
+      prisma: platform.prisma,
       processInbox: () =>
         application.sweep((message) => {
           sent.push(message);
@@ -345,7 +318,7 @@ describe("приёмка обоих источников Notifications (реал
       report: () => undefined,
     });
     stand = await providerStand({
-      url: url("telegram"),
+      url: broker.url("telegram"),
       pool: providerPool,
       authorize: (request) =>
         application.authorizeDispatch("telegram", request),
