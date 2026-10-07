@@ -424,11 +424,14 @@ export function assembleAccessGrants(dependencies: AccessGrantsDependencies) {
         );
       }
     },
-    async readCompatibilityContentScope() {
+    async readCompatibilityContentScope(
+      tx?: Pick<MembershipEntitlementsPrisma, "$queryRaw">,
+    ) {
       const rows = z
         .array(z.object({ scope: contentScopeSchema }))
         .parse(
-          await prisma.$queryRaw`SELECT scope FROM membership_entitlements.content_scope_baseline WHERE id = 1`,
+          await (tx ?? prisma)
+            .$queryRaw`SELECT scope FROM membership_entitlements.content_scope_baseline WHERE id = 1`,
         );
       const row = rows[0];
       if (row === undefined)
