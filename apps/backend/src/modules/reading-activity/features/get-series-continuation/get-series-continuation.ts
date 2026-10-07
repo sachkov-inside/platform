@@ -28,7 +28,10 @@ export interface SeriesContinuationDependencies {
   readonly prisma: ReadingActivityPrismaClient;
   readonly composition: Pick<PublishedSeriesComposition, "read">;
   readonly reader: Pick<PublishedMaterialReader, "discoverProjections">;
-  readonly contentAccess: Pick<ContentAccess, "checkAvailabilityMany">;
+  readonly contentAccess: Pick<
+    ContentAccess,
+    "checkAvailabilityMany" | "checkGuideAccess"
+  >;
   readonly videos: Pick<Videos, "loadReadyDurations" | "loadProgressMany">;
 }
 export type SeriesContinuationResult =
@@ -87,6 +90,7 @@ export async function getSeriesContinuation(
       return { ok: false, error: { code: "dependency_unavailable" } };
     const composition = await dependencies.composition.read(
       series.value.reference.id,
+      { subject, contentAccess: dependencies.contentAccess },
     );
     if (!composition.ok)
       return {

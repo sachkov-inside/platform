@@ -1,3 +1,4 @@
+import type { ContentAccess } from "../../../content-access/index.js";
 import { z } from "zod";
 
 import { dependencyFailure } from "../../../../infrastructure/observability/index.js";
@@ -15,6 +16,12 @@ import type {
 
 const querySchema = z
   .object({
+    subject: z
+      .discriminatedUnion("kind", [
+        z.object({ kind: z.literal("anonymous") }).strict(),
+        z.object({ kind: z.literal("account"), accountId: z.uuid() }).strict(),
+      ])
+      .optional(),
     first: z.number().int().min(0).max(10_000).nullable(),
     kind: z.enum(["related", "series", "topic"]),
     slug: z
@@ -38,6 +45,7 @@ const querySchema = z
 export async function discoverPublishedMaterialProjections(
   prisma: MaterialsPrisma,
   query: DiscoverPublishedMaterialProjectionsQuery,
+  contentAccess: Pick<ContentAccess, "checkGuideAccess">,
 ): Promise<PublishedMaterialDiscoveryResult> {
   const parsed = querySchema.safeParse(query);
   if (!parsed.success) {
@@ -45,7 +53,12 @@ export async function discoverPublishedMaterialProjections(
   }
 
   try {
-    const page = await selectDiscovery(prisma, parsed.data);
+    const page = await selectDiscovery(
+      prisma,
+      parsed.data,
+      query,
+      contentAccess,
+    );
     return page === undefined
       ? { ok: false, error: { code: "discovery_not_found" } }
       : {
@@ -70,6 +83,8 @@ export async function discoverPublishedMaterialProjections(
 function selectDiscovery(
   prisma: MaterialsPrisma,
   query: z.infer<typeof querySchema>,
+  original: DiscoverPublishedMaterialProjectionsQuery,
+  contentAccess: Pick<ContentAccess, "checkGuideAccess">,
 ) {
   switch (query.kind) {
     case "topic":
@@ -86,6 +101,7 @@ function selectDiscovery(
         prisma,
         query.slug,
         query.first,
+        { subject: original.subject ?? { kind: "anonymous" }, contentAccess },
       );
     case "related":
       if (query.first === null) {

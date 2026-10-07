@@ -434,7 +434,7 @@ describe("ReadingActivity on PostgreSQL", () => {
     const lockedReading = new ReadingActivity({
       prisma: database.prisma,
       materialContent: materials.materialContent,
-      contentAccess: { authorize },
+      contentAccess: { ...access, authorize },
       composition,
     });
     const pending = lockedReading.setReadingState(command(id));
@@ -464,6 +464,7 @@ describe("ReadingActivity on PostgreSQL", () => {
         composition,
         materialContent: materials.materialContent,
         contentAccess: {
+          ...access,
           authorize: () =>
             Promise.resolve({
               effect: "allow",

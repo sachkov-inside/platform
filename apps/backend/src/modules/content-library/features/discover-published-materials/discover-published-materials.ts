@@ -55,6 +55,7 @@ export async function discoverPublishedMaterials(
     first: parsed.data.first,
     kind: parsed.data.kind,
     slug: parsed.data.slug,
+    subject: query.subject,
   });
   if (!page.ok) {
     return page;

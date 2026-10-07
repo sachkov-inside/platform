@@ -24,7 +24,13 @@ import { assembleContentAccess } from "../../src/modules/content-access/index.js
 import {
   assembleMaterials,
   assembleMaterialResourceFacts,
+  PublishedSeriesComposition,
 } from "../../src/modules/materials/index.js";
+import {
+  ReadingActivity,
+  PersonalHome,
+} from "../../src/modules/reading-activity/index.js";
+import { discoverPublishedMaterials } from "../../src/modules/content-library/index.js";
 import { materialId } from "../../src/modules/materials/domain/material-identifiers.js";
 import { representativeDocument } from "../fixtures/material-body/representative.js";
 import {
@@ -153,6 +159,103 @@ describe("independent guide, library, support and shared chat rights", () => {
     }
     return materialId(created.value.materialId);
   }
+  test("archived Guide programme, progress and continuation stay open only to its holder", async () => {
+    const guideId = randomUUID();
+    const slug = `archived-${guideId}`;
+    await db.prisma.guide.create({
+      data: { id: guideId, slug, name: "Archived programme" },
+    });
+    const lesson = await material([guideId]);
+    const lessonSlug = (
+      await db.prisma.material.findUniqueOrThrow({ where: { id: lesson } })
+    ).slug;
+    if (lessonSlug === null) throw new Error("Published lesson has no slug");
+    await grant([`guide:${guideId}`], null);
+    const contentAccess = assembleContentAccess({
+      materialResourceFacts: assembleMaterialResourceFacts(
+        materials.materialContent,
+      ),
+      accountPermissions: { hasMaterialsManage: () => Promise.resolve(false) },
+      membershipEntitlements: membership,
+    });
+    const reader = assembleMaterials({
+      prisma: db.prisma,
+      authorPolicy: { canManage: () => false },
+      contentAccess,
+    }).publishedMaterialReader;
+    const composition = new PublishedSeriesComposition(db.prisma);
+    const reading = new ReadingActivity({
+      prisma: db.prisma,
+      materialContent: materials.materialContent,
+      contentAccess,
+      composition,
+    });
+    const videos = {
+      loadReadyDurations: () =>
+        Promise.resolve({ ok: true as const, value: [] }),
+      loadProgressMany: () => Promise.resolve({ ok: true as const, value: [] }),
+    };
+    const subject = { kind: "account" as const, accountId: accountId(buyer) };
+    await db.prisma.guide.update({
+      where: { id: guideId },
+      data: { archivedAt: new Date() },
+    });
+    for (const denied of [
+      { kind: "anonymous" as const },
+      { kind: "account" as const, accountId: accountId(randomUUID()) },
+    ]) {
+      expect(
+        await discoverPublishedMaterials(reader, contentAccess, videos, {
+          kind: "series",
+          slug,
+          first: null,
+          subject: denied,
+        }),
+      ).toMatchObject({ ok: false, error: { code: "discovery_not_found" } });
+      expect(
+        await reader.read({ slug: lessonSlug, subject: denied }),
+      ).toMatchObject({ ok: false, error: { code: "material_not_found" } });
+    }
+    expect(await reader.read({ slug: lessonSlug, subject })).toMatchObject({
+      ok: true,
+      value: { kind: "available" },
+    });
+    const programme = await discoverPublishedMaterials(
+      reader,
+      contentAccess,
+      videos,
+      { kind: "series", slug, first: null, subject },
+    );
+    expect(programme).toMatchObject({
+      ok: true,
+      value: { items: [{ availability: "available" }] },
+    });
+    expect(
+      await reading.getSeriesProgress({ accountId: buyer, seriesId: guideId }),
+    ).toMatchObject({ ok: true, value: { total: 1, read: 0 } });
+    const home = new PersonalHome({
+      prisma: db.prisma,
+      materialContent: materials.materialContent,
+      contentAccess,
+      composition,
+      reader,
+      videos,
+      selection: {
+        read: () => Promise.resolve({ ok: true as const, value: [] }),
+      },
+    });
+    expect(await home.getSeries(buyer, slug)).toMatchObject({
+      ok: true,
+      value: { total: 1, read: 0 },
+    });
+    expect(
+      await reading.getSeriesProgress({
+        accountId: randomUUID(),
+        seriesId: guideId,
+      }),
+    ).toMatchObject({ ok: false, error: { code: "series_not_found" } });
+  });
+
   test("guide A allows its shared Material and direct resource only; B, draft and forged guide context stay denied", async () => {
     const [a, shared, b, draft] = await Promise.all([
       material([guideA]),

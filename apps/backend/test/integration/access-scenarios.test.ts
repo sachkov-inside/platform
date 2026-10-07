@@ -1222,8 +1222,13 @@ describe("таблица сценариев доступа (реальный Pos
     account: string | null,
     slug: string,
   ): Promise<AccessObservation> {
+    const programmeReader = assembleMaterials({
+      prisma: db.prisma,
+      authorPolicy: { canManage: () => false },
+      contentAccess: readerAccess,
+    }).publishedMaterialReader;
     const discovered = await discoverPublishedMaterials(
-      materials.publishedMaterialReader,
+      programmeReader,
       readerAccess,
       videos,
       { first: null, kind: "series", slug, subject: subjectOf(account) },

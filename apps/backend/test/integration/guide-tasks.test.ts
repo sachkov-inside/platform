@@ -1091,6 +1091,9 @@ describe("Guide Tasks: import, versions, access and submissions (#946)", () => {
         ordinal,
       },
     });
+    await db.prisma.publishedMaterialGuideMembership.create({
+      data: { seriesId: guideId, materialId: material.materialId, ordinal },
+    });
     return material;
   }
 

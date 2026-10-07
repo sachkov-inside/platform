@@ -2,7 +2,12 @@ import { randomUUID } from "node:crypto";
 
 import { afterAll, beforeAll, describe, expect, test } from "vitest";
 
-import { assembleMaterials } from "../../src/modules/materials/index.js";
+import {
+  GuideOutlines,
+  GuideDirectory,
+  PublishedSeriesComposition,
+  assembleMaterials,
+} from "../../src/modules/materials/index.js";
 import { guideChapterPlacementIssues } from "../../src/modules/materials/features/reorder-series/guide-chapter-placement.js";
 import { representativeDocument } from "../fixtures/material-body/representative.js";
 import {
@@ -649,6 +654,28 @@ describe("Guide chapters", () => {
     ]);
     expect(programme.value.items.map(({ materialId }) => materialId)).toEqual([
       published,
+    ]);
+    expect(
+      await new PublishedSeriesComposition(testDatabase.prisma).read(guideId),
+    ).toEqual({ ok: true, value: [published] });
+    const outlines = await new GuideOutlines(testDatabase.prisma).list();
+    if (!outlines.ok) throw new Error(outlines.error.code);
+    expect(
+      outlines.value.find((guide) => guide.id === guideId)?.chapters,
+    ).toEqual([
+      { id: visible, name: "Готовая глава", materialIds: [published] },
+      { id: empty, name: "Пустая глава", materialIds: [] },
+    ]);
+    expect(
+      await new GuideDirectory(testDatabase.prisma).guides({ ids: [guideId] }),
+    ).toMatchObject([
+      {
+        id: guideId,
+        chapters: [
+          { id: visible, ordinal: 1 },
+          { id: empty, ordinal: 2 },
+        ],
+      },
     ]);
   });
 

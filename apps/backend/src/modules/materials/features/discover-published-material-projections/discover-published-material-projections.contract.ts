@@ -1,3 +1,4 @@
+import type { Subject } from "../../../content-access/index.js";
 import type { PublishedMaterialProjectionDto } from "../../facets/published-material-reader/published-material.contract.js";
 import type { ContentCoverProjection } from "../../facets/content-covers/content-covers.js";
 import type {
@@ -9,6 +10,7 @@ import type { Result } from "../../result.js";
 export type PublishedMaterialDiscoveryKind = "related" | "series" | "topic";
 
 export interface DiscoverPublishedMaterialProjectionsQuery {
+  readonly subject?: Subject;
   readonly first: number | null;
   readonly kind: PublishedMaterialDiscoveryKind;
   readonly slug: string;

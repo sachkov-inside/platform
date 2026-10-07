@@ -1,3 +1,4 @@
+import { canReadGuideComposition } from "../../shared/guide-composition.js";
 import { videoChaptersSchema } from "../../domain/video-chapters.js";
 import { randomUUID } from "node:crypto";
 import { z } from "zod";
@@ -66,6 +67,35 @@ export async function readPublishedMaterial(
       );
       if (projection === undefined) {
         return { ok: false, error: { code: "material_not_found" } };
+      }
+      const guides = await dependencies.prisma.guide.findMany({
+        where: {
+          id: {
+            in: projection.seriesMemberships.map(
+              (membership) => membership.series.id,
+            ),
+          },
+        },
+        select: { id: true, archivedAt: true },
+      });
+      if (
+        guides.length > 0 &&
+        guides.every((guide) => guide.archivedAt !== null)
+      ) {
+        let accessible = false;
+        for (const guide of guides) {
+          if (
+            await canReadGuideComposition(
+              { id: guide.id, archived: true },
+              { subject, contentAccess: dependencies.contentAccess },
+            )
+          ) {
+            accessible = true;
+            break;
+          }
+        }
+        if (!accessible)
+          return { ok: false, error: { code: "material_not_found" } };
       }
       const resourceId = materialId(projection.materialId);
 
