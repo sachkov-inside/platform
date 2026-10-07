@@ -275,7 +275,7 @@ function route(method, url, entitled) {
   if (method !== "GET") return undefined;
   if (path === "/library/home") {
     return json({
-      products: lessonsOf(products[0]).map((lesson) =>
+      guides: lessonsOf(products[0]).map((lesson) =>
         projection(lesson, entitled),
       ),
       membership: { kind: entitled ? "active" : "unknown" },

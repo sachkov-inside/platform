@@ -56,7 +56,7 @@ export function assembleMaterialAuthoringMcpServer(dependencies: {
     { name: "inside-platform-material-authoring", version: "1.0.0" },
     {
       instructions:
-        "Product is the standalone product, distinct from the Material format product. Legacy series fields and playlist tools are compatibility aliases. Manage Topics, Products, Product composition, and the complete current Material through the same Platform application rules. " +
+        "Product is the standalone product, distinct from the Material format guide. Legacy series fields and playlist tools are compatibility aliases. Manage Topics, Products, Product composition, and the complete current Material through the same Platform application rules. " +
         "Save may publish, unpublish, replace live content, or change access immediately. " +
         "Always reload after stale content, collection, or Product order errors; successful Saves have no server-side Undo or history.",
     },

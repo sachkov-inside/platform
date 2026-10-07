@@ -73,7 +73,7 @@ _Avoid_: Category, section
 
 **Format**:
 The single primary way a Material is consumed. The Materials domain defines the closed values
-`video` (Видео), `product` (Гайд), and `note` (Заметка). A Material stores that value directly;
+`video` (Видео), `guide` (Гайд), and `note` (Заметка). A Material stores that value directly;
 there is no editable Format dictionary or separate database entity. Format is independent of
 Topic and is not the kind of an attached file. Drafts may leave it unassigned; publication requires it.
 The domain schema and material-format integration tests enforce this contract.

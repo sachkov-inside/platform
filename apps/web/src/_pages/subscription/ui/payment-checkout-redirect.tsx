@@ -5,7 +5,7 @@ import { loadBillingOffers } from "@/entities/subscription.server";
 import { requestPublishedMaterialCatalog } from "@/shared/api/backend/index.server";
 import { subscriptionOfferParam } from "@/shared/routing/subscription-route";
 import { getOptionalPlatformAccessToken } from "@/shared/auth/index.server";
-import { BillingSignIn } from "@/features/billing-subscription";
+import { PaymentCheckoutUnavailable } from "./payment-checkout-unavailable";
 import { checkoutProductSlug } from "../model/checkout-product";
 
 const catalogSchema = z.object({
@@ -48,16 +48,10 @@ export async function PaymentCheckoutRedirect({
     // An invitation-only tariff is absent from the guest catalog. Resolve it after sign-in,
     // rather than moving its link to an unrelated product before identity is known.
     return (
-      <main className="mx-auto w-full max-w-2xl px-4 py-12">
-        {accessToken === undefined ? (
-          <BillingSignIn
-            description="Войдите, чтобы проверить доступ к выбранному тарифу и продолжить оформление."
-            returnTo={internalRoute(`/payment/checkout?${search}`)}
-          />
-        ) : (
-          <p role="status">Выбранный тариф сейчас недоступен для покупки.</p>
-        )}
-      </main>
+      <PaymentCheckoutUnavailable
+        viewer={accessToken === undefined ? "guest" : "member"}
+        returnTo={internalRoute(`/payment/checkout?${search}`)}
+      />
     );
   }
   if (slug === undefined) redirect("/");

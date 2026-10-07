@@ -169,7 +169,7 @@ reused secret. Configure them only in the owning private runtime environment fil
 
 ## Domain Material formats
 
-Materials defines exactly `video` (Видео), `product` (Гайд), and `note` (Заметка).
+Materials defines exactly `video` (Видео), `guide` (Гайд), and `note` (Заметка).
 The authoring `formatId` field contains this domain code, not a UUID. A draft may store
 null; publishing requires a format. Authoring references are available on an empty
 production database without running the development seed.
