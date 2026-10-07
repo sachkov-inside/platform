@@ -148,7 +148,10 @@ these are the rules a change follows.
   the fact owns its query key, its named announcement from `src/shared/api/fact-announcement`, one
   announcement per write command, and the one read hook every surface calls. Worked examples: the
   verified billing contact (`useBillingContact`), the buyer's billing state (`useCurrentBilling`)
-  and notification channel preferences (`useNotificationPreferences`). The announcement reaches
+  and notification channel preferences (`useNotificationPreferences`). A write that lives in a slice
+which may not import the owner receives the owner's announce function from the page that composes
+both: the confirmed purchase in `_pages/subscription` announces the buyer's billing state. The
+announcement reaches
   tabs of one browser only; another device needs a server push. The closest executable check is a
   Playwright case per fact where a second already-open surface shows the written value without a
   reload, plus a negative one where the announcement is unavailable
