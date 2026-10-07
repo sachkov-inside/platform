@@ -2,7 +2,9 @@
 
 Platform pull requests into `main` are protected by `.github/workflows/ci.yml`. The workflow has
 read-only repository access, does not read repository or environment secrets and runs only on
-GitHub-hosted `ubuntu-24.04` runners. A new commit cancels an older run for the same pull request.
+GitHub-hosted `ubuntu-24.04` runners. A new commit cancels an older first attempt for the same pull
+request. Reruns use a separate concurrency group identified by their run ID: an old rerun cannot
+cancel a newer first attempt. A new commit also leaves an already running rerun in its own group.
 The same workflow runs for the `main` merge queue (`merge_group`).
 
 The workflow is also callable through `workflow_call`. Both ordinal release workflows (`release.yml` and `telegram-release.yml`) invoke this
@@ -71,6 +73,52 @@ a merge through.
 claims while the smoke holds the table lock. That job is not always the smoke's probe: the hourly
 schedule can enqueue a cleanup job ahead of it (#728). The smoke log names both job ids and the
 number of one-second checks the claim took; measured runs took 1–3 of the 20 allowed.
+
+## Missing CI Gate recovery
+
+On 07.10.2026, runs recorded in [#1085](https://github.com/sachkov-inside/platform/issues/1085)
+finished with `failure` despite nine successful jobs and no created `CI Gate`. The same symptom
+occurred on pull requests and `merge_group`; full reruns on unchanged SHAs created a successful
+gate. Run `37642003271` used the same `ci.yml` Git blob as the inspected baseline, including
+`always()` and all nine dependencies. These observations point to GitHub orchestration failure;
+they do not establish its internal cause or a global incident.
+
+`.github/workflows/ci-gate-recovery.yml` listens for completed **Application CI** runs through
+`workflow_run`. It executes from the default branch with only `actions: write`, without checking
+out candidate code, downloading artifacts or publishing checks. Recovery sends one full-rerun
+request only when all of these conditions hold:
+
+- The original workflow path is `.github/workflows/ci.yml`, the event is `pull_request` or
+  `merge_group`, and the latest attempt is the first attempt, completed with `failure`.
+- Its attempt-specific job list contains exactly the nine expected successful, completed jobs.
+  `CI Gate` is absent. A failed, cancelled, skipped, unfinished or missing prerequisite prevents
+  recovery; any created gate also prevents recovery.
+- The Static job is named **Static checks (isolated reruns)**. This marks the workflow revision
+  with separate rerun concurrency. Legacy workflows retain their original configuration on rerun
+  and require manual recovery.
+- No newer run was returned for the same workflow, event and branch, and a final read confirms
+  that the original is still on its failed first attempt. The concurrency separation protects the
+  newer first attempt even if it appears after these reads.
+
+Release workflow calls are outside recovery. Subsequent attempts are not automatically recovered.
+The rerun uses the original source revision and must produce the real required `CI Gate`; branch
+protection is unchanged. An isolated rerun can continue checking an older SHA after a new commit,
+so recovery can spend one additional full CI run without checking the latest candidate.
+
+Read requests allow three retries for transient API errors. The rerun POST has no request retries:
+an HTTP error can be ambiguous, and #1085 also records duplicate attempts after an accepted write.
+A rejected request leaves the recovery workflow red. Inspect the original run's latest attempt
+and active CI for that pull request before manually rerunning the recovery workflow. If the
+original already advanced, do not request another full rerun. For a legacy workflow, inspect
+active CI before using `gh run rerun <original-run-id>`; its old concurrency can cancel another run.
+Persistent GitHub failure still requires operator intervention: GitHub must deliver the event and
+accept the rerun request. Live automatic recovery of a provider incident was not exercised by
+#1085's pull request; its tests execute the actual inline script with a substituted API.
+
+`scripts/ci-gate-recovery.test.mjs` runs through `pnpm test:tooling` and `pnpm check`. It checks the
+eligible symptom, ineligible job results, created gates, legacy names, later attempts, newer runs,
+an original run changed before the write, and visible POST failure. The existing CI workflow
+contract protects the separate rerun concurrency expression.
 
 ## Integration suites
 

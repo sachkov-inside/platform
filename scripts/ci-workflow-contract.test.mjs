@@ -129,6 +129,13 @@ describe("application CI workflow contract", () => {
     assert.match(topLevelBlock("concurrency"), /cancel-in-progress: true/u);
   });
 
+  it("isolates reruns from first attempts so stale recovery cannot cancel a newer commit", () => {
+    assert.match(
+      topLevelBlock("concurrency"),
+      /\$\{\{ github\.run_attempt > 1 && format\('-rerun-\{0\}', github\.run_id\) \|\| '' \}\}/u,
+    );
+  });
+
   it("keeps the workflow read-only and independent of secrets", () => {
     assert.equal(topLevelBlock("permissions").trim(), "contents: read");
     assert.doesNotMatch(workflow, /^ {2,}permissions:/mu);
