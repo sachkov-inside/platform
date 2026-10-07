@@ -338,39 +338,42 @@ test("завершённая подписка не возвращает разд
   );
 });
 
-test("оболочка напоминает о неподключённом Telegram", async ({
-  page,
-}, testInfo) => {
-  const mode = navigationMode(testInfo.project.name);
-  await stubAccount(page, { telegram: "unlinked" });
+const telegramReminderTest = test.extend({ video: "retain-on-failure" });
 
-  await page.goto(mode === "desktop" ? "/account/purchases" : "/");
+telegramReminderTest(
+  "оболочка напоминает о неподключённом Telegram",
+  async ({ page }, testInfo) => {
+    const mode = navigationMode(testInfo.project.name);
+    await stubAccount(page, { telegram: "unlinked" });
 
-  if (mode === "desktop") {
-    const reminder = page.getByRole("button", {
-      name: "Telegram не подключён. Подключить",
-    });
-    await expect(reminder).toBeVisible();
+    await page.goto(mode === "desktop" ? "/account/purchases" : "/");
 
-    // Окно открывается поверх текущей страницы: маршрут не меняется.
-    await page
-      .getByRole("button", { name: "Закрыть подключение Telegram" })
-      .click();
-    await reminder.click();
+    if (mode === "desktop") {
+      const reminder = page.getByRole("button", {
+        name: "Telegram не подключён. Подключить",
+      });
+      await expect(reminder).toBeVisible();
 
-    await expect(
-      page.getByRole("heading", { name: "Подключите Telegram" }),
-    ).toBeVisible();
-    await expect(page).toHaveURL(/\/account\/purchases$/u);
-  } else {
-    await expect(
-      page
-        .getByRole("navigation", { name: "Мобильная навигация" })
-        .getByRole("link", { name: "Профиль" })
-        .locator("span[aria-hidden='true']"),
-    ).toHaveCount(1);
-  }
-});
+      // Окно открывается поверх текущей страницы: маршрут не меняется.
+      await page
+        .getByRole("button", { name: "Закрыть подключение Telegram" })
+        .click();
+      await reminder.click();
+
+      await expect(
+        page.getByRole("heading", { name: "Подключите Telegram" }),
+      ).toBeVisible();
+      await expect(page).toHaveURL(/\/account\/purchases$/u);
+    } else {
+      await expect(
+        page
+          .getByRole("navigation", { name: "Мобильная навигация" })
+          .getByRole("link", { name: "Профиль" })
+          .locator("span[aria-hidden='true']"),
+      ).toHaveCount(1);
+    }
+  },
+);
 
 test("подключённый Telegram не оставляет напоминания", async ({
   page,
