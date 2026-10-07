@@ -2,9 +2,8 @@
  * Production code that still awaits a second pooled connection inside its transaction. When the
  * first refused query of a transaction has the named source file in the frames of the transaction
  * callback, the guard of `transaction-guard.ts` excuses that transaction and the transactions opened
- * inside it. Each entry
- * waits for its issue; the fix removes the entry. Do not add an entry for new code: pass the
- * transaction or move the read before it instead.
+ * inside it. Each entry waits for its issue; the fix removes the entry. Do not add an entry for
+ * new code: pass the transaction or move the read before it instead.
  */
 export const knownTransactionViolations: readonly {
   readonly issue: number;
