@@ -248,6 +248,14 @@ Each CI attempt has its own artifact name, so a rerun does not replace the earli
 For a stuck reopen, inspect the reminder click after closing the dialog in the trace, its call
 log, and the video. Download the artifact before its seven-day retention expires.
 
+The narrow WebKit Telegram geometry test also saves `failure.json` with its pending step, last
+completed step, viewport width and completed step durations (#1110). It exports a Playwright trace
+for each viewport reached before the failure, including test timeouts. A failure before the first
+trace starts has only the phase file. The UI job uploads these files as
+`browser-engines-playwright-<run_attempt>`; a successful test removes its diagnostic directory.
+The test keeps its 30-second budget and does not retry. Inspect the pending step before choosing
+a fix; #1110 remains open until a captured failure establishes the cause.
+
 Every Compose job owns an isolated project on its runner and removes containers, networks and
 volumes even after a failed command. The production smoke additionally removes locally built
 images. It embeds a synthetic release identity, supplies the exact local image IDs to production
