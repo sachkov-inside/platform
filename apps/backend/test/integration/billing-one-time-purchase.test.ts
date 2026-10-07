@@ -157,9 +157,8 @@ describe("one-time guide purchase (real PostgreSQL and real facets; synthetic ba
     )
       throw new Error("contact");
     const guideId = randomUUID();
-    const capability = options.scopedMaterials
-      ? "materials"
-      : `guide:${guideId}`;
+    const capability =
+      options.scopedMaterials === true ? "materials" : `guide:${guideId}`;
     const offerId = randomUUID(),
       optionId = randomUUID();
     // Владелец заводит цену руководства там же, где варианты подписки. Бессрочное право — явный срок.
@@ -171,7 +170,7 @@ describe("one-time guide purchase (real PostgreSQL and real facets; synthetic ba
           // Предложение продукта продаётся только с сопровождением на названный в нём срок.
           id: offerId,
           name: "Руководство «Синтетика»",
-          ...(options.scopedMaterials
+          ...(options.scopedMaterials === true
             ? { contentScope: { guideIds: [guideId], materialIds: [] } }
             : {}),
           benefits:
