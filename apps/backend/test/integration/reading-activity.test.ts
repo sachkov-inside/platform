@@ -18,7 +18,6 @@ import {
 import { assembleMembershipEntitlements } from "../../src/modules/membership-entitlements/index.js";
 import { assembleContentAccess } from "../../src/modules/content-access/index.js";
 
-import { assembleWorkshopEntitlements } from "../../src/modules/workshop/index.js";
 import {
   PersonalHome,
   ReadingActivity,
@@ -58,9 +57,6 @@ describe("ReadingActivity on PostgreSQL", () => {
     membership = assembleLegacyCohortFixture({
       prisma: database.prisma,
       clock: () => membershipNow ?? new Date(),
-      workshopEntitlements: assembleWorkshopEntitlements({
-        prisma: database.prisma,
-      }),
     });
     composition = new PublishedSeriesComposition(database.prisma);
     reading = assembleReading(database.prisma);
@@ -709,7 +705,6 @@ describe("ReadingActivity on PostgreSQL", () => {
           },
           membershipEntitlements: assembleMembershipEntitlements({
             prisma,
-            workshopEntitlements: assembleWorkshopEntitlements({ prisma }),
           }),
         });
         const home = new PersonalHome({

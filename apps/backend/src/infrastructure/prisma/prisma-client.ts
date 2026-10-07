@@ -34,7 +34,6 @@ export type MaterialsPrisma = Pick<
   | "topic"
   | "video"
   | "videoDeletionOperation"
-  | "workshopCaseMaterial"
 >;
 export type MaterialsPrismaTransaction = MaterialsPrisma;
 export type MaterialsPrismaClient = MaterialsPrisma &

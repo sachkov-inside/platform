@@ -34,7 +34,6 @@ import {
   assembleMaterials,
   GuideDirectory,
 } from "../../src/modules/materials/index.js";
-import { assembleWorkshopEntitlements } from "../../src/modules/workshop/index.js";
 import { assembleLearnerMcpServer } from "../../src/modules/content-library/index.js";
 import { refusingLearnerMcpDependencies } from "../fixtures/learner-mcp.js";
 import { representativeDocument } from "../fixtures/material-body/representative.js";
@@ -175,7 +174,6 @@ describe("Guide Tasks: import, versions, access and submissions (#946)", () => {
     grants = assembleAccessGrants({ prisma: db.prisma, accounts });
     const membership = assembleMembershipEntitlements({
       prisma: db.prisma,
-      workshopEntitlements: assembleWorkshopEntitlements({ prisma: db.prisma }),
     });
     materials = assembleMaterials({ prisma: db.prisma, authorPolicy });
     directory = new GuideDirectory(db.prisma);
@@ -1385,7 +1383,6 @@ describe("Guide Tasks: import, versions, access and submissions (#946)", () => {
         },
         membershipEntitlements: assembleMembershipEntitlements({
           prisma,
-          workshopEntitlements: assembleWorkshopEntitlements({ prisma }),
         }),
       });
       const tasks = assembleLearningTasks({

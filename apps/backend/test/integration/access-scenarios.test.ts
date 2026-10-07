@@ -45,7 +45,6 @@ import { assembleVideoResourceFacts } from "../../src/modules/materials/adapters
 import { assembleVideoPlayback } from "../../src/modules/materials/facets/video-playback/video-playback.js";
 import { assembleVideos } from "../../src/modules/videos/index.js";
 import { createTestVideoProvider } from "../../src/modules/videos/adapters/kinescope/test-video-provider.js";
-import { assembleWorkshopEntitlements } from "../../src/modules/workshop/index.js";
 import {
   CommunityEntitlements,
   TelegramAccountLinks,
@@ -251,10 +250,6 @@ describe("таблица сценариев доступа (реальный Pos
       prisma: db.prisma,
       recipientLinks: links,
       clock: () => now,
-      workshopEntitlements: assembleWorkshopEntitlements({
-        prisma: db.prisma,
-        clock: () => now,
-      }),
     });
     // Tribute открывает тариф только через реестр источника: политика, строка реестра и сверка.
     convergence = new TributeConvergence(

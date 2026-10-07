@@ -2,7 +2,7 @@ import { z } from "zod";
 
 import type { VideosPrisma } from "../../../../infrastructure/prisma/index.js";
 
-export const videoAccessSchema = z.enum(["free", "membership", "workshop"]);
+export const videoAccessSchema = z.enum(["free", "membership"]);
 export const videoOriginSchema = z.enum([
   "external_attachment",
   "platform_upload",

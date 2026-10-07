@@ -339,7 +339,6 @@ application_data_digest() {
     --schema membership_entitlements \
     --schema telegram_membership \
     --schema videos \
-    --schema workshop \
     | sed '/^\\restrict /d; /^\\unrestrict /d' \
     | shasum -a 256 \
     | cut -d ' ' -f 1

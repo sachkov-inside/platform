@@ -111,15 +111,6 @@ const videoTables = [
   "videos",
   "webhook_inbox",
 ] as const;
-const workshopTables = [
-  "case_materials",
-  "case_versions",
-  "cases",
-  "entitlements",
-  "hint_reveals",
-  "membership_entitlement_projections",
-  "solution_reveals",
-] as const;
 
 const legacyMigrations = [
   { name: materialsMigrationName, statement: materialsMigrationStatement },
@@ -251,6 +242,7 @@ describe("Platform migrations", () => {
         "0078_invitations",
         "0079_guide_tasks",
         "0080_guide_task_placement_and_form",
+        "0081_remove_workshop",
       ],
     });
     expect(second).toEqual({ appliedMigrations: [] });
@@ -286,7 +278,7 @@ describe("Platform migrations", () => {
     ]);
     await expectTables(testDatabase, "assets", assetTables);
     await expectTables(testDatabase, "videos", videoTables);
-    await expectTables(testDatabase, "workshop", workshopTables);
+    await expectTables(testDatabase, "workshop", []);
 
     const functions = await testDatabase.prisma.$queryRaw<
       readonly { readonly schema: string }[]
@@ -494,17 +486,17 @@ describe("Platform migrations", () => {
         appliedMigrations: ["0024_workshop_membership_entitlement_projection"],
       });
       await expect(
-        database.prisma.workshopMembershipEntitlementProjection.findUniqueOrThrow(
-          {
-            where: { accountId: "8a000000-0000-4000-8000-000000000001" },
-          },
+        database.prisma.$queryRaw(
+          Prisma.sql`select principal_ref as "principalRef", decision, evidence_version as "evidenceVersion", valid_until as "validUntil" from workshop.membership_entitlement_projections where account_id = '8a000000-0000-4000-8000-000000000001'::uuid`,
         ),
-      ).resolves.toMatchObject({
-        principalRef: "workshop-migration-principal",
-        decision: "member",
-        evidenceVersion: 7n,
-        validUntil: new Date("2030-05-01T00:05:00Z"),
-      });
+      ).resolves.toMatchObject([
+        {
+          principalRef: "workshop-migration-principal",
+          decision: "member",
+          evidenceVersion: 7n,
+          validUntil: new Date("2030-05-01T00:05:00Z"),
+        },
+      ]);
     } finally {
       await database.dispose();
     }
@@ -926,6 +918,7 @@ describe("Platform migrations", () => {
           "0078_invitations",
           "0079_guide_tasks",
           "0080_guide_task_placement_and_form",
+          "0081_remove_workshop",
         ],
       });
 

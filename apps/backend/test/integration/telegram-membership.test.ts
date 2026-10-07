@@ -11,7 +11,6 @@ import {
 import { accountId } from "../../src/modules/accounts/index.js";
 
 import type { MembershipEntitlements } from "../../src/modules/membership-entitlements/index.js";
-import { assembleWorkshopEntitlements } from "../../src/modules/workshop/index.js";
 import {
   assembleTelegramMembership,
   type TelegramMembership,
@@ -640,10 +639,7 @@ function fixture(database: TestDatabase): {
   const clock = new MutableClock(new Date("2030-01-01T00:00:00.000Z"));
   const entitlements = assembleLegacyCohortFixture({
     prisma: database.prisma,
-    workshopEntitlements: assembleWorkshopEntitlements({
-      prisma: database.prisma,
-      clock: () => clock.now(),
-    }),
+
     clock: () => clock.now(),
   });
   const membership = assembleTelegramMembership({

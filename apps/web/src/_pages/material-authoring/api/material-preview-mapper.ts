@@ -22,7 +22,7 @@ const previewSchema = z
     materialId: z.uuid(),
     metadata: z
       .object({
-        access: z.enum(["free", "membership", "workshop"]),
+        access: z.enum(["free", "membership"]),
         difficulty: materialDifficultySchema.nullable(),
         outcomes: z.array(z.string()),
         formatId: materialFormatSchema.nullable(),
@@ -39,7 +39,7 @@ const previewSchema = z
   .strict();
 
 export interface MappedCurrentMaterialPreview {
-  readonly access: "free" | "membership" | "workshop";
+  readonly access: "free" | "membership";
   readonly contentVersion: number;
   readonly formatId: string | null;
   readonly materialId: string;
@@ -77,9 +77,7 @@ export function mapCurrentMaterialPreview(
         accessLabel:
           current.metadata.access === "membership"
             ? "Для участников"
-            : current.metadata.access === "workshop"
-              ? "Практикум"
-              : "Бесплатный",
+            : "Бесплатный",
         blocks: current.body.blocks,
         contentVersion: current.contentVersion,
         format: referenceLabel(

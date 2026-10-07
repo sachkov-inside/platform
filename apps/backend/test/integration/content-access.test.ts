@@ -13,7 +13,6 @@ import {
 } from "../../src/modules/content-access/index.js";
 import { materialId } from "../../src/modules/materials/domain/material-identifiers.js";
 
-import { assembleWorkshopEntitlements } from "../../src/modules/workshop/index.js";
 import {
   createMigratedTestDatabase,
   type TestDatabase,
@@ -124,10 +123,7 @@ describe("ContentAccess current Platform facts", () => {
     });
     const membershipEntitlements = assembleLegacyCohortFixture({
       prisma: testDatabase.prisma,
-      workshopEntitlements: assembleWorkshopEntitlements({
-        prisma: testDatabase.prisma,
-        clock: () => currentTime,
-      }),
+
       clock: () => currentTime,
     });
     const contentAccess = assembleContentAccess({

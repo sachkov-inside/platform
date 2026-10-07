@@ -52,7 +52,7 @@ export class ContentLibraryService {
     }>;
     hasNext: boolean;
     items: Array<{
-      access: 'free' | 'membership' | 'workshop';
+      access: 'free' | 'membership';
       availability: 'available' | 'locked' | 'unavailable';
       contentVersion: number;
       cover: {
@@ -228,7 +228,7 @@ export class ContentLibraryService {
    */
   public readHomeContent(): CancelablePromise<{
     guides: Array<{
-      access: 'free' | 'membership' | 'workshop';
+      access: 'free' | 'membership';
       availability: 'available' | 'locked' | 'unavailable';
       contentVersion: number;
       cover: {
@@ -286,7 +286,7 @@ export class ContentLibraryService {
       kind: 'unknown';
     });
     notes: Array<{
-      access: 'free' | 'membership' | 'workshop';
+      access: 'free' | 'membership';
       availability: 'available' | 'locked' | 'unavailable';
       contentVersion: number;
       cover: {
@@ -357,7 +357,7 @@ export class ContentLibraryService {
       name: string;
       presentation: string;
       previewItems: Array<{
-        access: 'free' | 'membership' | 'workshop';
+        access: 'free' | 'membership';
         availability: 'available' | 'locked' | 'unavailable';
         contentVersion: number;
         cover: {
@@ -420,7 +420,7 @@ export class ContentLibraryService {
       id: string;
       name: string;
       previewItems: Array<{
-        access: 'free' | 'membership' | 'workshop';
+        access: 'free' | 'membership';
         availability: 'available' | 'locked' | 'unavailable';
         contentVersion: number;
         cover: {
@@ -483,7 +483,7 @@ export class ContentLibraryService {
       id: string;
       name: string;
       previewItems: Array<{
-        access: 'free' | 'membership' | 'workshop';
+        access: 'free' | 'membership';
         availability: 'available' | 'locked' | 'unavailable';
         contentVersion: number;
         cover: {
@@ -535,7 +535,7 @@ export class ContentLibraryService {
       summary: string | null;
     }>;
     videos: Array<{
-      access: 'free' | 'membership' | 'workshop';
+      access: 'free' | 'membership';
       availability: 'available' | 'locked' | 'unavailable';
       contentVersion: number;
       cover: {
@@ -631,7 +631,7 @@ export class ContentLibraryService {
         id: 'video' | 'guide' | 'note';
         name: string;
         previewItems: Array<{
-          access: 'free' | 'membership' | 'workshop';
+          access: 'free' | 'membership';
           availability: 'available' | 'locked' | 'unavailable';
           contentVersion: number;
           cover: {
@@ -694,7 +694,7 @@ export class ContentLibraryService {
         id: string;
         name: string;
         previewItems: Array<{
-          access: 'free' | 'membership' | 'workshop';
+          access: 'free' | 'membership';
           availability: 'available' | 'locked' | 'unavailable';
           contentVersion: number;
           cover: {
@@ -757,7 +757,7 @@ export class ContentLibraryService {
         id: string;
         name: string;
         previewItems: Array<{
-          access: 'free' | 'membership' | 'workshop';
+          access: 'free' | 'membership';
           availability: 'available' | 'locked' | 'unavailable';
           contentVersion: number;
           cover: {
@@ -810,7 +810,7 @@ export class ContentLibraryService {
       }>;
     };
     items: Array<{
-      access: 'free' | 'membership' | 'workshop';
+      access: 'free' | 'membership';
       availability: 'available' | 'locked' | 'unavailable';
       contentVersion: number;
       cover: {
@@ -936,7 +936,7 @@ export class ContentLibraryService {
     }>;
     hasNext: boolean;
     items: Array<{
-      access: 'free' | 'membership' | 'workshop';
+      access: 'free' | 'membership';
       availability: 'available' | 'locked' | 'unavailable';
       contentVersion: number;
       cover: {
@@ -1132,7 +1132,7 @@ export class ContentLibraryService {
     }>;
     hasNext: boolean;
     items: Array<{
-      access: 'free' | 'membership' | 'workshop';
+      access: 'free' | 'membership';
       availability: 'available' | 'locked' | 'unavailable';
       contentVersion: number;
       cover: {
@@ -1327,7 +1327,7 @@ export class ContentLibraryService {
     }>;
     hasNext: boolean;
     items: Array<{
-      access: 'free' | 'membership' | 'workshop';
+      access: 'free' | 'membership';
       availability: 'available' | 'locked' | 'unavailable';
       contentVersion: number;
       cover: {

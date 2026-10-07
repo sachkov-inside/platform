@@ -14,7 +14,7 @@ export class PersonalHomeService {
   public getContinueMaterials(): CancelablePromise<Array<{
     lastOpenedAt: string;
     material: {
-      access: 'free' | 'membership' | 'workshop';
+      access: 'free' | 'membership';
       availability: 'available' | 'locked' | 'unavailable';
       contentVersion: number;
       cover: {
@@ -98,7 +98,7 @@ export class PersonalHomeService {
       id: string;
       name: string;
       previewItems: Array<{
-        access: 'free' | 'membership' | 'workshop';
+        access: 'free' | 'membership';
         availability: 'available' | 'locked' | 'unavailable';
         contentVersion: number;
         cover: {
@@ -190,7 +190,7 @@ export class PersonalHomeService {
         id: string;
         name: string;
         previewItems: Array<{
-          access: 'free' | 'membership' | 'workshop';
+          access: 'free' | 'membership';
           availability: 'available' | 'locked' | 'unavailable';
           contentVersion: number;
           cover: {
@@ -258,7 +258,7 @@ export class PersonalHomeService {
     video: {
       lastOpenedAt: string;
       material: {
-        access: 'free' | 'membership' | 'workshop';
+        access: 'free' | 'membership';
         availability: 'available' | 'locked' | 'unavailable';
         contentVersion: number;
         cover: {
@@ -368,7 +368,7 @@ export class PersonalHomeService {
       id: string;
       name: string;
       previewItems: Array<{
-        access: 'free' | 'membership' | 'workshop';
+        access: 'free' | 'membership';
         availability: 'available' | 'locked' | 'unavailable';
         contentVersion: number;
         cover: {

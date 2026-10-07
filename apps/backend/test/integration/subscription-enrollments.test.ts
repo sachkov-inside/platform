@@ -10,7 +10,6 @@ import {
   assembleAccessGrants,
   assembleMembershipEntitlements,
 } from "../../src/modules/membership-entitlements/index.js";
-import { assembleWorkshopEntitlements } from "../../src/modules/workshop/index.js";
 import {
   createMigratedTestDatabase,
   type TestDatabase,
@@ -53,10 +52,6 @@ describe("Subscription Enrollment with real PostgreSQL", () => {
     membership = assembleMembershipEntitlements({
       prisma: db.prisma,
       clock: () => now,
-      workshopEntitlements: assembleWorkshopEntitlements({
-        prisma: db.prisma,
-        clock: () => now,
-      }),
     });
   });
   afterAll(async () => db.dispose());
