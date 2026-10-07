@@ -218,6 +218,31 @@ activate_caddy() {
   caddy reload --config "$host_root/etc/caddy/Caddyfile" --adapter caddyfile
 }
 
+# Сторож production (#245) приходит в backend-образе выбранного выпуска: пакет выпуска на сервере
+# закрыт перечнем файлов шлюза, а образ уже проверен по digest манифеста. Сбой установки не отменяет
+# выпуск: прежняя версия сторожа продолжает работать, а предупреждение остаётся в журнале deploy.
+install_watchdog() {
+  local container source="$state_dir/watchdog-install.$$"
+  rm -rf "$source"
+  mkdir -m 700 "$source" || return 1
+  container="$(docker create "$backend_image")" || return 1
+  if ! docker cp "$container:/app/ops/watchdog/." "$source/"; then
+    docker rm "$container" >/dev/null || true
+    rm -rf "$source"
+    return 1
+  fi
+  docker rm "$container" >/dev/null || true
+  install -d -m 755 "$host_root/usr/local/libexec/inside" "$host_root/etc/systemd/system" &&
+    install -m 755 "$source/inside-watchdog" "$host_root/usr/local/libexec/inside/inside-watchdog" &&
+    install -m 644 "$source/inside-watchdog.service" "$host_root/etc/systemd/system/inside-watchdog.service" &&
+    install -m 644 "$source/inside-watchdog.timer" "$host_root/etc/systemd/system/inside-watchdog.timer" &&
+    systemctl daemon-reload &&
+    systemctl enable --now inside-watchdog.timer
+  local status=$?
+  rm -rf "$source"
+  return "$status"
+}
+
 assert_empty_initial_database() {
   local database_network postgres_container database_empty
   database_network="$(jq --exit-status --raw-output '.networks.database.name' <<<"$compose_config")"
@@ -967,4 +992,7 @@ phase=complete
 recovery_phase=
 write_operation succeeded "$phase"
 completed=true
+if ! install_watchdog; then
+  echo "Warning: the production watchdog from $version was not installed; the previous one stays active." >&2
+fi
 echo "$operation $version completed successfully."
