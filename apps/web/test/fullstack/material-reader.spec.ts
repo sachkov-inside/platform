@@ -6,16 +6,31 @@ import { signInFullStack } from "../support/full-stack-session";
 import { prepareEvidenceDirectory } from "../../../../scripts/evidence-path.mjs";
 import { z } from "zod";
 
-test("Home exposes one client-owned feed and preserves the reader return", async ({
+test("Home filters public guides and preserves the reader return", async ({
   page,
   request,
 }, testInfo) => {
   const document = await request.get("/");
   expect(document.status()).toBe(200);
   expect(await document.text()).toContain("Материалы");
-  await page.goto("/?format=guide");
+  await page.goto("/");
   const feed = page.getByRole("region", { name: "Материалы", exact: true });
   await expect(feed.getByRole("article").first()).toBeVisible();
+  const guideResponse = page.waitForResponse((response) => {
+    const url = new URL(response.url());
+    return (
+      url.pathname === "/api/home/materials" &&
+      url.searchParams.get("q") === null &&
+      url.searchParams.get("format") === "guide" &&
+      response.status() === 200
+    );
+  });
+  await page.getByRole("button", { name: "Гайды", exact: true }).click();
+  await guideResponse;
+  await expect(feed.getByRole("article").first()).toBeVisible();
+  await expect(
+    feed.getByRole("article").filter({ hasNot: page.getByText(/^Гайд ·/u) }),
+  ).toHaveCount(0);
   await expect(feed.getByRole("group", { name: "Тема материала" })).toHaveCount(
     0,
   );
@@ -102,7 +117,8 @@ test("preserves canonical RU/EN search across reload, history and sharing", asyn
   const documentsBeforeFilter = documentRequestCount;
   const filteredResponse = page.waitForResponse(
     (response) =>
-      response.url().includes("/api/home/materials?") &&
+      response.url().includes("/api/library/materials?") &&
+      response.url().includes("q=developer+pipeline") &&
       response.url().includes("format=guide") &&
       response.status() === 200,
   );
@@ -111,6 +127,20 @@ test("preserves canonical RU/EN search across reload, history and sharing", asyn
   await page.keyboard.press("Space");
   await expect(formatFilter).toHaveAttribute("aria-pressed", "true");
   await filteredResponse;
+  await expect(
+    page.getByRole("status").filter({ hasText: "Материалов: 1" }),
+  ).toHaveText("Материалов: 1");
+  const articles = page
+    .getByRole("region", { name: "Материалы", exact: true })
+    .getByRole("article");
+  await expect(articles).toHaveCount(1);
+  await expect(articles.first()).toContainText("Гайд ·");
+  await expect(
+    articles.first().getByRole("link", {
+      name: "Developer Pipeline без потери контекста",
+      exact: true,
+    }),
+  ).toBeVisible();
   expect(documentRequestCount).toBe(documentsBeforeFilter);
   expect(new URL(page.url()).searchParams.getAll("format")).toEqual(["guide"]);
   const sharedUrl = page.url();
