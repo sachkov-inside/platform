@@ -379,6 +379,10 @@ const handoffDelegates = new Map([
   ["assets", ["material"]],
   ["materials", ["materialAsset", "video", "videoDeletionOperation"]],
   ["reading-activity", ["material", "publishedMaterialGuideMembership"]],
+  [
+    "membership-entitlements",
+    ["telegramAccountLinkState", "telegramAccountLinkHistory"],
+  ],
   ["telegram-membership", ["membershipBinding"]],
   ["videos", ["material", "publishedMaterial"]],
 ]);
