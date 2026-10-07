@@ -4,7 +4,7 @@ const acceptedTerms = {
   checkTerms: () => Promise.resolve({ ok: true as const, accepted: true }),
 };
 import { verifiedTelegramAccountSignIn } from "../../src/modules/accounts/facets/accounts/verified-logto-identity.js";
-import { assembleMembershipEntitlements } from "../../src/modules/membership-entitlements/index.js";
+import { assembleAccountRights } from "../../src/modules/account-rights/index.js";
 import { PublicContentTargets } from "../../src/modules/materials/index.js";
 import { randomBytes, randomUUID } from "node:crypto";
 import type { NestFastifyApplication } from "@nestjs/platform-fastify";
@@ -318,14 +318,14 @@ describe("communications permission and confirmed author HTTP authorization", ()
       prisma: database.prisma,
       emailFingerprintKey: "synthetic-sign-in-fingerprint-key",
     });
-    const entitlements = assembleMembershipEntitlements({
+    const entitlements = assembleAccountRights({
       prisma: database.prisma,
     });
     const signIn = new TelegramAccountSignIn({
       terms: acceptedTerms,
       accounts,
       prisma: database.prisma,
-      membershipEntitlements: entitlements,
+      accountRights: entitlements,
       provider: {
         bindAccount: () =>
           Promise.resolve({

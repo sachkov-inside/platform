@@ -8,7 +8,7 @@ import {
 } from "../support/declared-api.js";
 
 // The personal home reaches its readers through strict schemas, so one key the projection never
-// declared costs an account the whole body: it sees a Guide it has started as if it had not.
+// declared costs an account the whole body: it sees a Product it has started as if it had not.
 // `reading-activity-http.test.ts` reads its live responses against the generated OpenAPI document,
 // and that check is only worth its place while an undeclared key still fails it. The document is
 // the one owner of the shape, so this proof takes it from there instead of restating a schema.
@@ -36,23 +36,23 @@ describe("declared response contract", () => {
     status: 200,
     body: () => ({ video: null, series }),
   });
-  const guideContinuation = (body: unknown) => ({
+  const productContinuation = (body: unknown) => ({
     method: "GET",
-    url: "/reading-activity/guide-continuation/demo-progress-series",
+    url: "/reading-activity/product-continuation/demo-progress-series",
     status: 200,
     body: () => body,
   });
 
-  test("accepts the Guide continuation the module publishes", () => {
+  test("accepts the Product continuation the module publishes", () => {
     expect(() => {
       assertDeclaredResponse(learningHome(continuation));
     }).not.toThrow();
     expect(() => {
-      assertDeclaredResponse(guideContinuation(continuation));
+      assertDeclaredResponse(productContinuation(continuation));
     }).not.toThrow();
   });
 
-  test("rejects a Guide field the collection does not declare", () => {
+  test("rejects a Product field the collection does not declare", () => {
     const leaked = {
       ...continuation,
       collection: { ...continuation.collection, introduction: null },
@@ -61,7 +61,7 @@ describe("declared response contract", () => {
       assertDeclaredResponse(learningHome(leaked));
     }).toThrow(/introduction/u);
     expect(() => {
-      assertDeclaredResponse(guideContinuation(leaked));
+      assertDeclaredResponse(productContinuation(leaked));
     }).toThrow(/introduction/u);
   });
 

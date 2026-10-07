@@ -12,7 +12,7 @@ import { handleAuthenticatedMutation } from "@/shared/auth/index.server";
 
 const materialSchema = z
   .object({
-    access: z.enum(["free", "membership"]),
+    access: z.enum(["free", "closed"]),
     materialId: z.uuid(),
   })
   .strict();

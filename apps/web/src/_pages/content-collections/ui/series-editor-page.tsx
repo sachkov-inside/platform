@@ -21,7 +21,7 @@ export async function SeriesEditorPage({
   } catch (error) {
     if (!(error instanceof LogtoSessionUnavailableError)) throw error;
   }
-  const returnHref = `/authoring/guides/${seriesId}`;
+  const returnHref = `/authoring/products/${seriesId}`;
   const unauthorized = (
     <MaterialAuthoringUnauthorizedState
       context="editor"

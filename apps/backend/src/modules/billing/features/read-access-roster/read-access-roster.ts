@@ -4,7 +4,7 @@ import {
   type AccessGrants,
   type AccessGround,
   type AccessSource,
-} from "../../../membership-entitlements/index.js";
+} from "../../../account-rights/index.js";
 import {
   ownerAccessFailure,
   type AccessSummary,

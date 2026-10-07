@@ -4,7 +4,7 @@ import type { ContentCover } from "./content-cover";
 
 export interface MaterialPreview {
   readonly materialId?: string | undefined;
-  readonly access: "free" | "membership";
+  readonly access: "free" | "closed";
   readonly availability: "available" | "locked" | "unavailable";
   readonly cover?: ContentCover | null | undefined;
   /** Сложность шага и что он обещает: их печатает и программа руководства, и сам урок. */

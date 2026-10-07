@@ -21,7 +21,7 @@ import {
   DiscoverPublishedMaterialsController,
   ListPublishedMaterialsController,
   ListLearningPracticesController,
-  ReadGuideAccessController,
+  ReadProductAccessController,
   ReadHomeContentController,
 } from "../../modules/content-library/index.js";
 import { AccountsModule } from "../../modules/accounts/index.js";
@@ -31,9 +31,9 @@ import {
   RecipientLinksModule,
   TelegramMembershipModule,
 } from "../../modules/telegram-membership/index.js";
-import { MembershipEntitlementsModule } from "../../modules/membership-entitlements/index.js";
+import { AccountRightsModule } from "../../modules/account-rights/index.js";
 import {
-  ContentScopeCatalogModule,
+  CoverageCatalogModule,
   MaterialsHttpModule,
   MaterialsModule,
 } from "../../modules/materials/index.js";
@@ -43,9 +43,9 @@ import {
   VideosModule,
 } from "../../modules/videos/index.js";
 import {
-  GuideTaskResourceFactsModule,
-  GuideTasksHttpModule,
-} from "../../modules/guide-tasks/index.js";
+  ProductTaskResourceFactsModule,
+  ProductTasksHttpModule,
+} from "../../modules/product-tasks/index.js";
 import { HealthController } from "./health.controller.js";
 
 @Module({
@@ -55,7 +55,7 @@ import { HealthController } from "./health.controller.js";
     ListLearningPracticesController,
     DiscoverPublishedMaterialsController,
     ReadHomeContentController,
-    ReadGuideAccessController,
+    ReadProductAccessController,
     VideoAuthoringController,
     KinescopeWebhookController,
   ],
@@ -84,14 +84,14 @@ export class ApiModule {
         MemberProfilesModule,
         TelegramMembershipModule,
         CommunityEntitlementsModule,
-        MembershipEntitlementsModule,
+        AccountRightsModule,
         MaterialsModule,
         MaterialsHttpModule,
-        GuideTasksHttpModule,
+        ProductTasksHttpModule,
         VideosModule,
-        ContentScopeCatalogModule,
+        CoverageCatalogModule,
         RecipientLinksModule,
-        GuideTaskResourceFactsModule,
+        ProductTaskResourceFactsModule,
       ],
     };
   }

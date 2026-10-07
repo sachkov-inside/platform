@@ -37,7 +37,7 @@ export interface ValidationIssue {
 
 export interface MaterialBodyExtraction {
   /**
-   * Whether the body carries a step written for both ways of going through a guide. A Guide shows
+   * Whether the body carries a step written for both ways of going through a product. A Product shows
    * its mode switch only when one of its lessons has such a step, and reading every published body
    * to answer that would cost a page load, so the fact is derived once here and stored with the
    * published projection.

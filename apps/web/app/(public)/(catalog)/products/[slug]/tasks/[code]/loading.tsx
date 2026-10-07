@@ -1,4 +1,4 @@
-import { GuideTaskLoading } from "@/_pages/guide-task";
+import { ProductTaskLoading } from "@/_pages/product-task";
 
 /** Скелет страницы задания: у неё своя раскладка, скелет программы ей чужой. */
-export default GuideTaskLoading;
+export default ProductTaskLoading;

@@ -332,7 +332,9 @@ describe("окончание оплаченного срока без продл
   });
 
   test("продление ведёт на оформление того же Offer через один адрес", () => {
-    expect(offerCheckoutPath(offer.id)).toBe(`/subscription?offer=${offer.id}`);
+    expect(offerCheckoutPath(offer.id)).toBe(
+      `/payment/checkout?offer=${offer.id}`,
+    );
     expect(() => offerCheckoutPath("not-an-offer")).toThrow();
   });
 });

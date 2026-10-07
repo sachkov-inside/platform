@@ -34,7 +34,7 @@ import {
 import {
   LEARNING_TASKS,
   type LearningTasks,
-} from "../modules/guide-tasks/index.js";
+} from "../modules/product-tasks/index.js";
 import { createMcpApplication } from "./create-mcp-application.js";
 import { createMcpHttpServer } from "./mcp/mcp-http-server.js";
 

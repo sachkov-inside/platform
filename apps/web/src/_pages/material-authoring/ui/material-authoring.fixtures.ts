@@ -226,7 +226,7 @@ export const materialPreview = {
 
 export const materialAuthoringPresentation = {
   availableFormats: [
-    { label: "Гайд", value: "guide" },
+    { label: "Гайд", value: "product" },
     { label: "Видео", value: "video" },
     { label: "Заметка", value: "note" },
   ],
@@ -263,7 +263,7 @@ export const materialAuthoringPresentation = {
   blocking: { kind: "none" },
   deletion: { pending: false, result: null },
   draft: {
-    access: "membership",
+    access: "closed",
     canDelete: true,
     deleteVideoId: null,
     detachVideoIds: [],
@@ -485,10 +485,10 @@ const nextRouteItem = previewRouteItem("04", "Проверка результа�
 
 /** Материал в середине закрытой главы: черновики стоят в маршруте наравне с опубликованным. */
 export const materialPreviewRoute = {
-  guideName: "Inside AI Engineering",
+  productName: "Inside AI Engineering",
   kind: "ready",
   next: nextRouteItem,
-  otherGuides: [],
+  otherProducts: [],
   position: 3,
   previous: previousRouteItem,
   sections: [

@@ -10,7 +10,7 @@ import type { ValidationIssue } from "../../domain/material-body/material-body.j
 import {
   loadSeriesOrderSnapshot,
   lockSeries,
-  replaceGuideComposition,
+  replaceProductComposition,
 } from "../../infrastructure/postgres/series-order.js";
 import { authorizeManager } from "../../ports/author-policy.js";
 import {
@@ -23,22 +23,22 @@ import {
   parseCommand,
 } from "../../shared/command-validation.js";
 import {
-  guideChapterAssignmentsSchema,
-  guideChapterDraftsSchema,
-  type GuideChapterDraft,
-} from "../../shared/guide-chapters.js";
+  productChapterAssignmentsSchema,
+  productChapterDraftsSchema,
+  type ProductChapterDraft,
+} from "../../shared/product-chapters.js";
 import {
-  guideOrderVersion,
-  type GuideChapterEntry,
-} from "../../shared/guide-order-version.js";
+  productOrderVersion,
+  type ProductChapterEntry,
+} from "../../shared/product-order-version.js";
 import { mapPostgresReadError } from "../../shared/postgres-error-mapping.js";
 import { seriesStepGroupsSchema } from "../../shared/series-step-groups.js";
 import {
-  heldGuideRemovals,
-  recordGuideRemovals,
-  unconfirmedGuideRemovals,
-} from "../../shared/guide-removal-confirmation.js";
-import { guideChapterPlacementIssues } from "./guide-chapter-placement.js";
+  heldProductRemovals,
+  recordProductRemovals,
+  unconfirmedProductRemovals,
+} from "../../shared/product-removal-confirmation.js";
+import { productChapterPlacementIssues } from "./product-chapter-placement.js";
 import type {
   ReorderSeriesError,
   ReorderSeriesOperation,
@@ -48,13 +48,13 @@ import type {
 export const reorderSeriesCommandSchema = z
   .object({
     actor: accountId,
-    chapters: guideChapterDraftsSchema.optional(),
-    chapterAssignments: guideChapterAssignmentsSchema.optional(),
+    chapters: productChapterDraftsSchema.optional(),
+    chapterAssignments: productChapterAssignmentsSchema.optional(),
     expectedOrderVersion: z.string().regex(/^[a-f0-9]{64}$/u),
     orderedMaterialIds: z.array(entityId),
     stepGroups: seriesStepGroupsSchema.optional(),
     seriesId: entityId,
-    confirmedGuideRemovals: z.array(z.uuid()).max(100).optional().default([]),
+    confirmedProductRemovals: z.array(z.uuid()).max(100).optional().default([]),
   })
   .strict()
   .refine(
@@ -108,7 +108,7 @@ export function assembleReorderSeries(
       dependencies.prisma,
       async (transaction, rollback) => {
         await lockSeries(transaction, [command.seriesId]);
-        const source = await transaction.guide.findUnique({
+        const source = await transaction.product.findUnique({
           where: { id: command.seriesId },
           select: { sourceId: true },
         });
@@ -125,7 +125,7 @@ export function assembleReorderSeries(
         await lockMaterialReferenceChanges(transaction, [
           ...new Set([...currentIds, ...command.orderedMaterialIds]),
         ]);
-        const nextChapters: readonly GuideChapterEntry[] =
+        const nextChapters: readonly ProductChapterEntry[] =
           command.chapters ?? snapshot.chapters;
         const chapterIds = new Set(nextChapters.map(({ id }) => id));
         const nextGroups =
@@ -150,11 +150,11 @@ export function assembleReorderSeries(
           materialId,
           stepGroup: nextGroups[materialId] ?? null,
         }));
-        const currentOrderVersion = guideOrderVersion(
+        const currentOrderVersion = productOrderVersion(
           snapshot.items,
           snapshot.chapters,
         );
-        const nextOrderVersion = guideOrderVersion(nextEntries, nextChapters);
+        const nextOrderVersion = productOrderVersion(nextEntries, nextChapters);
         if (currentOrderVersion === nextOrderVersion) {
           return {
             seriesId: command.seriesId,
@@ -231,7 +231,7 @@ export function assembleReorderSeries(
             select: { id: true },
           });
           for (const material of protectedMaterials) {
-            const other = await transaction.guideMembership.findFirst({
+            const other = await transaction.productMembership.findFirst({
               where: {
                 materialId: material.id,
                 seriesId: { not: command.seriesId },
@@ -272,7 +272,7 @@ export function assembleReorderSeries(
             command.chapters,
           )),
           ...unknownChapterIssues(command.chapterAssignments, chapterIds),
-          ...guideChapterPlacementIssues(
+          ...productChapterPlacementIssues(
             command.orderedMaterialIds,
             nextAssignments,
             nextChapters.map(({ id }) => id),
@@ -283,7 +283,7 @@ export function assembleReorderSeries(
         }
         // Опубликованный материал уходит из руководства с держателями права только подтверждением.
         const removedMaterialIds = (
-          await transaction.publishedMaterialGuideMembership.findMany({
+          await transaction.publishedMaterialProductMembership.findMany({
             where: { seriesId: command.seriesId },
             select: { materialId: true },
           })
@@ -295,33 +295,33 @@ export function assembleReorderSeries(
         const heldRemovals =
           removedMaterialIds.length === 0
             ? []
-            : await heldGuideRemovals(
+            : await heldProductRemovals(
                 transaction,
-                dependencies.guideAccessHolders,
+                dependencies.productAccessHolders,
                 [command.seriesId],
               );
-        const unconfirmed = unconfirmedGuideRemovals(
+        const unconfirmed = unconfirmedProductRemovals(
           heldRemovals,
-          command.confirmedGuideRemovals,
+          command.confirmedProductRemovals,
         );
         if (unconfirmed.length > 0) {
           return rollback({
-            code: "guide_removal_confirmation_required",
-            guides: unconfirmed,
+            code: "product_removal_confirmation_required",
+            products: unconfirmed,
           });
         }
-        await replaceGuideComposition(transaction, {
+        await replaceProductComposition(transaction, {
           chapterAssignments: nextAssignments,
           chapters: nextChapters,
-          guideId: command.seriesId,
+          productId: command.seriesId,
           orderedMaterialIds: command.orderedMaterialIds,
           stepGroups: nextGroups,
         });
-        await recordGuideRemovals(transaction, {
+        await recordProductRemovals(transaction, {
           actor: command.actor,
-          operation: "guide_composition",
-          removals: heldRemovals.flatMap((guide) =>
-            removedMaterialIds.map((materialId) => ({ guide, materialId })),
+          operation: "product_composition",
+          removals: heldRemovals.flatMap((product) =>
+            removedMaterialIds.map((materialId) => ({ product, materialId })),
           ),
           removedAt: new Date(),
         });
@@ -363,26 +363,26 @@ function unknownChapterIssues(
         ? []
         : [
             {
-              code: "guide_chapter_not_found",
+              code: "product_chapter_not_found",
               path: `/chapterAssignments/${materialId}`,
             },
           ],
   );
 }
 
-/** A chapter identifier already used by another Guide cannot be claimed by this one. */
+/** A chapter identifier already used by another Product cannot be claimed by this one. */
 async function claimedChapterIssues(
   transaction: MaterialsPrismaTransaction,
-  guideId: string,
-  chapters: readonly GuideChapterDraft[] | undefined,
+  productId: string,
+  chapters: readonly ProductChapterDraft[] | undefined,
 ): Promise<readonly ValidationIssue[]> {
   if (chapters === undefined || chapters.length === 0) {
     return [];
   }
-  const claimed = await transaction.guideChapter.findMany({
+  const claimed = await transaction.productChapter.findMany({
     where: {
       id: { in: chapters.map(({ id }) => id) },
-      guideId: { not: guideId },
+      productId: { not: productId },
     },
     select: { id: true },
   });
@@ -391,7 +391,7 @@ async function claimedChapterIssues(
     claimedIds.has(id)
       ? [
           {
-            code: "guide_chapter_claimed",
+            code: "product_chapter_claimed",
             path: `/chapters/${String(index)}/id`,
           },
         ]

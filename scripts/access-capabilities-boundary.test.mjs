@@ -39,6 +39,6 @@ test("a second copy of the vocabulary fails, wherever an application declares it
   );
   assert.match(
     result.output,
-    /a Guide capability is built by @inside\/access-capabilities/u,
+    /a Product capability is built by @inside\/access-capabilities/u,
   );
 });

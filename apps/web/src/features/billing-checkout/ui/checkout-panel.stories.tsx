@@ -15,11 +15,13 @@ import { billingErrorMessage } from "@/entities/subscription";
 import { CheckoutPanel } from "./checkout-panel.client";
 import { publicPageEnvironment } from "@/storybook/story-environment";
 
-const environment = publicPageEnvironment("/subscription");
+const environment = publicPageEnvironment("/products/platform-inside/buy", {
+  account: "authenticated",
+});
 
 const meta = {
   ...environment,
-  title: "Pages/Subscription/Checkout",
+  title: "Components/Billing/Checkout",
   component: CheckoutPanel,
   args: {
     snapshot: supportOffer,
@@ -39,7 +41,7 @@ const meta = {
     docs: {
       description: {
         component:
-          "Оформление подписки на витрине (`CheckoutFlow` выбирает эту панель для варианта с автопродлением; разовую покупку руководства показывает `OneTimeCheckoutPanel`). Условия сервера показываются до оплаты. Оферта и автопродление принимаются нажатием кнопки со строкой условий под ней, отметок нет; возврат из банка не считается успехом.",
+          "Оформление подписки на странице покупки продукта (`CheckoutFlow` выбирает эту панель для варианта с автопродлением; разовую покупку продукта показывает `OneTimeCheckoutPanel`). Условия сервера показываются до оплаты. Оферта и автопродление принимаются нажатием кнопки со строкой условий под ней, отметок нет; возврат из банка не считается успехом.",
       },
     },
   },

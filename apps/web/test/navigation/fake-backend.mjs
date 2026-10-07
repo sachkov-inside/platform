@@ -24,8 +24,8 @@ const homePinSchema = z
 
 // Порт задаёт `playwright.navigation.config.ts`; при отдельном запуске сервер берёт свободный.
 const [port] = browserTestPorts(["FAKE_BACKEND_PORT"]).map(Number);
-const guideId = "11111111-1111-4111-8111-111111111111";
-const guideSlug = "navigation-proof";
+const productId = "11111111-1111-4111-8111-111111111111";
+const productSlug = "navigation-proof";
 const topic = {
   id: "22222222-2222-4222-8222-222222222222",
   name: "Переходы",
@@ -35,14 +35,14 @@ const format = { id: "guide", name: "Гайд", slug: "guide" };
 export const protectedBodyMarker = "ЗАКРЫТОЕ-ТЕЛО-УРОКА";
 
 /** Второй продукт написан для двух режимов прохождения: у его уроков личная часть есть всегда. */
-const modesGuideId = "11111111-1111-4111-8111-111111111112";
-const modesGuideSlug = "navigation-modes";
+const modesProductId = "11111111-1111-4111-8111-111111111112";
+const modesProductSlug = "navigation-modes";
 /**
  * Третий продукт с обложкой — для проверки LCP первого экрана (#692). Его нет ни на Главной, ни в
  * других продуктах, поэтому обложка не добавляет запросов остальным проверкам.
  */
-const coverGuideId = "11111111-1111-4111-8111-111111111113";
-const coverGuideSlug = "navigation-cover";
+const coverProductId = "11111111-1111-4111-8111-111111111113";
+const coverProductSlug = "navigation-cover";
 const coverId = "77777777-7777-4777-8777-777777777701";
 const cover = {
   coverId,
@@ -58,69 +58,89 @@ const cover = {
  *   id: string;
  *   name: string;
  *   slug: string;
- * }} Guide
+ * }} Product
  * @typedef {(typeof lessons)[number]} Lesson
  * @typedef {{ status: number; value: unknown; contentType?: undefined }} JsonResult
  * @typedef {{ status: number; value: Buffer; contentType: string }} ImageResult
  */
 
-const archivedGuideSlug = "navigation-archive";
-/** @type {[Guide, Guide, Guide, Guide]} */
-const guides = [
+const archivedProductSlug = "navigation-archive";
+/** @type {[Product, Product, Product, Product]} */
+const products = [
   {
     cover: null,
     hasModeVariants: false,
-    id: guideId,
+    id: productId,
     name: "Проверочный продукт",
-    slug: guideSlug,
+    slug: productSlug,
   },
   {
     cover: null,
     hasModeVariants: true,
-    id: modesGuideId,
+    id: modesProductId,
     name: "Продукт с режимами",
-    slug: modesGuideSlug,
+    slug: modesProductSlug,
   },
   {
     cover,
     hasModeVariants: false,
-    id: coverGuideId,
+    id: coverProductId,
     name: "Продукт с обложкой",
-    slug: coverGuideSlug,
+    slug: coverProductSlug,
   },
   {
     cover: null,
     hasModeVariants: false,
     id: "11111111-1111-4111-8111-111111111114",
     name: "Архивный продукт",
-    slug: archivedGuideSlug,
+    slug: archivedProductSlug,
   },
 ];
 
 const lessons = [
-  { n: 1, access: "free", guide: guides[0], title: "Первый бесплатный урок" },
-  { n: 2, access: "free", guide: guides[0], title: "Второй бесплатный урок" },
+  {
+    n: 1,
+    access: "free",
+    product: products[0],
+    title: "Первый бесплатный урок",
+  },
+  {
+    n: 2,
+    access: "free",
+    product: products[0],
+    title: "Второй бесплатный урок",
+  },
   {
     n: 3,
-    access: "membership",
-    guide: guides[0],
+    access: "closed",
+    product: products[0],
     title: "Первый платный урок",
   },
   {
     n: 4,
-    access: "membership",
-    guide: guides[0],
+    access: "closed",
+    product: products[0],
     title: "Второй платный урок",
   },
-  { n: 5, access: "free", guide: guides[1], title: "Первый урок с режимами" },
-  { n: 6, access: "free", guide: guides[1], title: "Второй урок с режимами" },
+  {
+    n: 5,
+    access: "free",
+    product: products[1],
+    title: "Первый урок с режимами",
+  },
+  {
+    n: 6,
+    access: "free",
+    product: products[1],
+    title: "Второй урок с режимами",
+  },
   {
     n: 7,
-    access: "membership",
-    guide: guides[3],
+    access: "closed",
+    product: products[3],
     title: "Урок архивного продукта",
   },
-].map(({ n, access, guide, title }) => ({
+].map(({ n, access, product, title }) => ({
   access,
   contentVersion: 1,
   cover: null,
@@ -133,7 +153,7 @@ const lessons = [
   seriesMemberships: [
     {
       ordinal: n,
-      series: { id: guide.id, name: guide.name, slug: guide.slug },
+      series: { id: product.id, name: product.name, slug: product.slug },
       stepGroup: null,
     },
   ],
@@ -143,10 +163,10 @@ const lessons = [
   title,
   topic,
 }));
-/** @param {Guide} guide */
-const lessonsOf = (guide) =>
+/** @param {Product} product */
+const lessonsOf = (product) =>
   lessons.filter(
-    (lesson) => lesson.seriesMemberships[0]?.series.id === guide.id,
+    (lesson) => lesson.seriesMemberships[0]?.series.id === product.id,
   );
 
 /**
@@ -200,7 +220,7 @@ function body(lesson, entitled) {
     })),
   };
   const written =
-    lesson.seriesMemberships[0]?.series.id === modesGuideId ? [step] : [];
+    lesson.seriesMemberships[0]?.series.id === modesProductId ? [step] : [];
   return {
     schemaVersion: 1,
     blocks: [
@@ -230,16 +250,16 @@ function readerProjection(lesson) {
 
 /** @param {boolean} entitled */
 function collection(entitled) {
-  const [guide] = guides;
+  const [product] = products;
   return {
-    count: lessonsOf(guide).length,
+    count: lessonsOf(product).length,
     cover: null,
-    id: guide.id,
-    name: guide.name,
-    previewItems: lessonsOf(guide)
+    id: product.id,
+    name: product.name,
+    previewItems: lessonsOf(product)
       .slice(0, 3)
       .map((lesson) => projection(lesson, entitled)),
-    slug: guide.slug,
+    slug: product.slug,
     summary: "Синтетический продукт для проверки мгновенных переходов.",
   };
 }
@@ -255,7 +275,7 @@ function route(method, url, entitled) {
   if (method !== "GET") return undefined;
   if (path === "/library/home") {
     return json({
-      guides: lessonsOf(guides[0]).map((lesson) =>
+      guides: lessonsOf(products[0]).map((lesson) =>
         projection(lesson, entitled),
       ),
       membership: { kind: entitled ? "active" : "unknown" },
@@ -273,7 +293,7 @@ function route(method, url, entitled) {
       playlists: [collection(entitled)],
       topics: [
         {
-          count: lessonsOf(guides[0]).length,
+          count: lessonsOf(products[0]).length,
           cover: null,
           id: topic.id,
           name: topic.name,
@@ -287,13 +307,31 @@ function route(method, url, entitled) {
   }
   if (path === "/library/materials") {
     return json({
-      facets: { formats: [], series: [], topics: [] },
-      items: lessonsOf(guides[0]).map((lesson) => projection(lesson, entitled)),
+      facets: {
+        formats: [],
+        series: products
+          .filter((item) => item.slug !== archivedProductSlug)
+          .map((item) => ({
+            id: item.id,
+            name: item.name,
+            slug: item.slug,
+            cover: item.cover,
+            count: lessonsOf(item).length,
+            previewItems: [],
+            summary: "Синтетический продукт проверок.",
+          })),
+        topics: [],
+      },
+      items: lessonsOf(products[0]).map((lesson) =>
+        projection(lesson, entitled),
+      ),
       nextCursor: null,
-      totalCount: lessonsOf(guides[0]).length,
+      totalCount: lessonsOf(products[0]).length,
     });
   }
-  const discovery = /^\/library\/(guides|series|topics)\/([^/]+)$/u.exec(path);
+  const discovery = /^\/library\/(products|series|topics)\/([^/]+)$/u.exec(
+    path,
+  );
   if (discovery !== null) {
     const [, kind, slug] = discovery;
     if (kind === "topics") {
@@ -316,21 +354,24 @@ function route(method, url, entitled) {
         topics: [],
       });
     }
-    const guide = guides.find((candidate) => candidate.slug === slug);
-    if (guide === undefined || (guide.slug === archivedGuideSlug && !entitled))
+    const product = products.find((candidate) => candidate.slug === slug);
+    if (
+      product === undefined ||
+      (product.slug === archivedProductSlug && !entitled)
+    )
       return discoveryNotFound();
-    const items = lessonsOf(guide);
+    const items = lessonsOf(product);
     const half = Math.ceil(items.length / 2);
     return json({
       chapters: [
         {
-          id: `44444444-4444-4444-8444-44444444${guide.id.slice(-4)}`,
+          id: `44444444-4444-4444-8444-44444444${product.id.slice(-4)}`,
           materialIds: items.slice(0, half).map((lesson) => lesson.materialId),
           name: "Начало",
           summary: "Первые уроки.",
         },
         {
-          id: `44444444-4444-4444-8445-44444444${guide.id.slice(-4)}`,
+          id: `44444444-4444-4444-8445-44444444${product.id.slice(-4)}`,
           materialIds: items.slice(half).map((lesson) => lesson.materialId),
           name: "Продолжение",
           summary: "Следующие уроки.",
@@ -340,17 +381,17 @@ function route(method, url, entitled) {
       items: items.map((lesson) => projection(lesson, entitled)),
       kind: "series",
       reference: {
-        cover: guide.cover,
-        hasModeVariants: guide.hasModeVariants,
-        id: guide.id,
+        cover: product.cover,
+        hasModeVariants: product.hasModeVariants,
+        id: product.id,
         introduction: {
           audience: "Тем, кто проверяет переходы.",
           outcome: "Переходы без чужих скелетов.",
           prerequisites: "Ничего.",
           scope: "Несколько уроков.",
         },
-        name: guide.name,
-        slug: guide.slug,
+        name: product.name,
+        slug: product.slug,
         summary: "Синтетический продукт для проверки мгновенных переходов.",
       },
       relatedSeries: [],
@@ -384,7 +425,7 @@ function route(method, url, entitled) {
     const lesson = lessons.find((candidate) => candidate.slug === material[1]);
     if (
       lesson === undefined ||
-      (lesson.seriesMemberships[0]?.series.slug === archivedGuideSlug &&
+      (lesson.seriesMemberships[0]?.series.slug === archivedProductSlug &&
         !entitled)
     ) {
       return json(
@@ -428,42 +469,80 @@ function route(method, url, entitled) {
           401,
         );
   }
-  if (/^\/guides\/[^/]+\/artifacts$/u.test(path))
+  if (/^\/products\/[^/]+\/artifacts$/u.test(path))
     return json({ artifacts: [] });
   // Продукт продаётся, как в production: у программы с закрытыми уроками есть приглашение к оплате.
   if (path === "/billing/offers") {
     const offerId = "66666666-6666-4666-8666-666666666601";
+    const publicPrice = {
+      currency: "RUB",
+      firstPriceKopecks: 990_000,
+      offer: {
+        archived: false,
+        benefitPeriods: [{ capability: `product:${productId}`, months: null }],
+        benefits: [`product:${productId}`],
+        id: offerId,
+        name: "Проверочный продукт",
+        published: true,
+        revision: 1,
+      },
+      paymentOption: {
+        archived: false,
+        id: "66666666-6666-4666-8666-666666666602",
+        mode: "one_time",
+        months: 1,
+        offerId,
+        priceKopecks: 990_000,
+        revision: 1,
+      },
+      promotion: null,
+      renewalPriceKopecks: 990_000,
+      timezone: "Europe/Moscow",
+    };
+    const alternatePrice = {
+      ...publicPrice,
+      offer: {
+        ...publicPrice.offer,
+        id: "66666666-6666-4666-8666-666666666605",
+        name: "Второй проверочный тариф",
+      },
+      paymentOption: {
+        ...publicPrice.paymentOption,
+        id: "66666666-6666-4666-8666-666666666606",
+        offerId: "66666666-6666-4666-8666-666666666605",
+      },
+    };
+    const invitedOfferId = "66666666-6666-4666-8666-666666666603";
+    const invitedPrice = {
+      ...publicPrice,
+      offer: {
+        ...publicPrice.offer,
+        id: invitedOfferId,
+        name: "Тариф по приглашению",
+        benefits: [`product:${modesProductId}`],
+        benefitPeriods: [
+          { capability: `product:${modesProductId}`, months: null },
+        ],
+      },
+      paymentOption: {
+        ...publicPrice.paymentOption,
+        id: "66666666-6666-4666-8666-666666666604",
+        offerId: invitedOfferId,
+      },
+    };
+    const capability = url.searchParams.get("capability");
     return json({
-      items: [
-        {
-          currency: "RUB",
-          firstPriceKopecks: 990_000,
-          offer: {
-            archived: false,
-            benefitPeriods: [{ capability: `guide:${guideId}`, months: null }],
-            benefits: [`guide:${guideId}`],
-            id: offerId,
-            name: "Проверочный продукт",
-            published: true,
-            revision: 1,
-          },
-          paymentOption: {
-            archived: false,
-            id: "66666666-6666-4666-8666-666666666602",
-            mode: "one_time",
-            months: 1,
-            offerId,
-            priceKopecks: 990_000,
-            revision: 1,
-          },
-          promotion: null,
-          renewalPriceKopecks: 990_000,
-          timezone: "Europe/Moscow",
-        },
-      ],
+      items: (entitled
+        ? [publicPrice, alternatePrice, invitedPrice]
+        : [publicPrice, alternatePrice]
+      ).filter(
+        (snapshot) =>
+          capability === null || snapshot.offer.benefits.includes(capability),
+      ),
       nextCursor: null,
     });
   }
+
   const delivery = /^\/content-covers\/([^/]+)\/(\d+)$/u.exec(path);
   if (delivery !== null) {
     const rendition =

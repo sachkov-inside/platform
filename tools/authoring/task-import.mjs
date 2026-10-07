@@ -4,6 +4,7 @@ import { canonical, checksum, taskPositions } from "./package.mjs";
 import { applyJournaled } from "./journal.mjs";
 import { isJournalOperation, taskReceiptSchema } from "./local-boundaries.mjs";
 import { sourceUuid } from "./markdown.mjs";
+import { fingerprintAccess } from "./compatibility.mjs";
 
 /**
  * @typedef {import("./package.mjs").Manifest} Manifest
@@ -56,7 +57,7 @@ export function taskPublication(task, selected, current) {
 }
 
 /**
- * The authored task as validation reads it, before its Guide may exist on the target.
+ * The authored task as validation reads it, before its Product may exist on the target.
  *
  * @param {Manifest} manifest
  * @param {ManifestTask} task
@@ -98,7 +99,8 @@ export function taskDigest(manifest, task, publicationState) {
   return checksum(
     canonical({
       ...state,
-      guide: task.guideId,
+      access: fingerprintAccess(state.access),
+      guide: task.productId,
       chapter: task.chapterId,
       position: taskPositions(manifest).get(task.sourceId),
     }),
@@ -108,7 +110,7 @@ export function taskDigest(manifest, task, publicationState) {
 /** @param {Manifest} manifest @param {ManifestTask} task */
 export function taskChapterId(manifest, task) {
   return sourceUuid(
-    `${sourceKey(manifest, task.guideId)}:chapter:${task.chapterId}`,
+    `${sourceKey(manifest, task.productId)}:chapter:${task.chapterId}`,
   );
 }
 
@@ -159,21 +161,21 @@ export async function replayTaskImports(context, request, selected) {
 }
 
 /**
- * Imports every task of the package after its Guide and chapters. A task the package omits stays
+ * Imports every task of the package after its Product and chapters. A task the package omits stays
  * unchanged on the target. A target that changed since this journal's last import stops the
  * transfer instead of being overwritten.
  *
  * @param {Manifest} manifest
  * @param {import('./journal.mjs').JournalContext} context
  * @param {import('./local-boundaries.mjs').LocalRequest} request
- * @param {{ guideIdOf: (guideSourceId: string) => string; selected: (sourceKey: string) => boolean }} options
+ * @param {{ productIdOf: (productSourceId: string) => string; selected: (sourceKey: string) => boolean }} options
  * @returns {Promise<TaskChange[]>}
  */
 export async function syncSourceTasks(
   manifest,
   context,
   request,
-  { guideIdOf, selected },
+  { productIdOf, selected },
 ) {
   const resources = (context.journal.resources ??= {});
   const positions = taskPositions(manifest);
@@ -218,7 +220,7 @@ export async function syncSourceTasks(
     }
     const body = {
       ...authoredBody(manifest, task, publicationState),
-      guideId: guideIdOf(task.guideId),
+      productId: productIdOf(task.productId),
       chapterId: taskChapterId(manifest, task),
       position: positions.get(task.sourceId),
       expectedRevision: current?.revision ?? null,

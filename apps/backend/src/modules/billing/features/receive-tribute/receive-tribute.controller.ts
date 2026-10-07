@@ -1,4 +1,4 @@
-import { tributeWebhookSchema } from "../../../membership-entitlements/index.js";
+import { tributeWebhookSchema } from "../../../account-rights/index.js";
 import { createHmac, timingSafeEqual } from "node:crypto";
 import {
   Controller,

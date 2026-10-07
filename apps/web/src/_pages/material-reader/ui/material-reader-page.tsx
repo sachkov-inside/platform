@@ -13,14 +13,14 @@ import { connection } from "next/server";
 import { Suspense, type ReactNode } from "react";
 
 import {
-  readGuestGuideSale,
-  readViewerGuideSale,
+  readGuestProductSale,
+  readViewerProductSale,
 } from "@/entities/subscription.sale.server";
-import { GuideModeHint, GuideModeSwitch } from "@/features/guide-modes";
+import { ProductModeHint, ProductModeSwitch } from "@/features/product-modes";
 import {
-  loadReaderGuideMode,
-  readerHasSeenGuideModeHint,
-} from "@/features/guide-modes.reader.server";
+  loadReaderProductMode,
+  readerHasSeenProductModeHint,
+} from "@/features/product-modes.reader.server";
 import type { PublishedSeriesResult } from "@/features/library-discovery";
 import {
   loadPublishedSeries,
@@ -34,17 +34,17 @@ import {
 } from "@/shared/link-preview/index.server";
 import type { ReaderLearnerMcp } from "../model/practice-review-setup";
 import {
-  GuideModeProvider,
-  defaultGuideMode,
-  type GuideMode,
-} from "@/shared/guide-mode";
+  ProductModeProvider,
+  defaultProductMode,
+  type ProductMode,
+} from "@/shared/product-mode";
 import { loadMaterialReader } from "../api/load-material-reader";
 import { readPublicMaterial } from "../api/public-material.public-cache.server";
 import type {
   MaterialReaderResult,
   PublicMaterialResult,
 } from "../model/material-reader-view";
-import { soleSoldGuide } from "../model/purchase-guide";
+import { soleSoldProduct } from "../model/purchase-product";
 import {
   resolveSeriesReaderContext,
   type SeriesReaderContext,
@@ -88,12 +88,12 @@ export async function MaterialReaderPage({
   const [{ slug }, query] = await Promise.all([params, searchParams]);
   const returnTarget = parseMaterialReaderReturnTarget(query.from);
   // Состав нужен только внутри руководства, поэтому вне его за ним никто не ходит.
-  const guideSlug = guideSlugOf(returnTarget);
+  const productSlug = productSlugOf(returnTarget);
   const [material, series] = await Promise.all([
     readPublicMaterial(slug),
-    guideSlug === undefined
+    productSlug === undefined
       ? Promise.resolve(null)
-      : readPublicSeries(guideSlug),
+      : readPublicSeries(productSlug),
   ]);
   if (material.kind === "unavailable") {
     return <ReaderUnavailable returnTarget={returnTarget} />;
@@ -121,7 +121,7 @@ export async function MaterialReaderPage({
   ) {
     return (
       <ResolvedMaterialReader
-        guideMode={defaultGuideMode}
+        productMode={defaultProductMode}
         hintSeen
         practiceActions={
           <Suspense fallback={<LearningPracticeDisclosure result={null} />}>
@@ -192,30 +192,30 @@ async function PersonalMaterialReader({
   if (accessToken === undefined && sharedMaterial === undefined) {
     notFound();
   }
-  const guideSlug = guideSlugOf(returnTarget);
+  const productSlug = productSlugOf(returnTarget);
   // Гостю закрытый урок откроет только покупка, поэтому предложение ищется сразу, а не после
   // личного чтения. Вошедшему урок может быть открыт, и лишний запрос каталога ему не нужен.
-  const guestPurchaseGuide =
+  const guestPurchaseProduct =
     accessToken === undefined && sharedMaterial?.kind === "teaser"
-      ? resolvePurchaseGuide(sharedMaterial.material, returnTarget, undefined)
+      ? resolvePurchaseProduct(sharedMaterial.material, returnTarget, undefined)
       : undefined;
   // Если личное чтение закончится не отказом, поиск никто не дождётся: его сбой не должен остаться
   // необработанным. Тот, кто дождётся, получит исключение как обычно.
-  guestPurchaseGuide?.catch(() => undefined);
-  const [result, seriesResult, guideMode, hintSeen, practices] =
+  guestPurchaseProduct?.catch(() => undefined);
+  const [result, seriesResult, productMode, hintSeen, practices] =
     await Promise.all([
       sharedMaterial?.kind === "available"
         ? Promise.resolve(sharedMaterial)
         : loadMaterialReader(slug, accessToken),
-      guideSlug === undefined
+      productSlug === undefined
         ? Promise.resolve(null)
-        : readSeriesAs(guideSlug, accessToken),
-      guideSlug === undefined
-        ? Promise.resolve(defaultGuideMode)
-        : loadReaderGuideMode(accessToken),
-      guideSlug === undefined
+        : readSeriesAs(productSlug, accessToken),
+      productSlug === undefined
+        ? Promise.resolve(defaultProductMode)
+        : loadReaderProductMode(accessToken),
+      productSlug === undefined
         ? Promise.resolve(true)
-        : readerHasSeenGuideModeHint(),
+        : readerHasSeenProductModeHint(),
       accessToken === undefined
         ? Promise.resolve({ kind: "available" as const, practices: [] })
         : loadLearningPractices(slug, accessToken),
@@ -234,10 +234,10 @@ async function PersonalMaterialReader({
   return (
     <ResolvedMaterialReader
       {...(accessToken === undefined ? {} : { accessToken })}
-      {...(guestPurchaseGuide === undefined
+      {...(guestPurchaseProduct === undefined
         ? {}
-        : { purchaseGuide: guestPurchaseGuide })}
-      guideMode={guideMode}
+        : { purchaseProduct: guestPurchaseProduct })}
+      productMode={productMode}
       practiceActions={
         <LearningPracticePrompts
           connection={await readerLearnerMcp()}
@@ -255,10 +255,10 @@ async function PersonalMaterialReader({
 
 async function ResolvedMaterialReader({
   accessToken,
-  guideMode,
+  productMode,
   hintSeen,
   practiceActions,
-  purchaseGuide: startedPurchaseGuide,
+  purchaseProduct: startedPurchaseProduct,
   result,
   returnTarget,
   seriesContext,
@@ -266,9 +266,9 @@ async function ResolvedMaterialReader({
 }: {
   readonly accessToken?: string;
   /** Поиск предложения, начатый до личного чтения. */
-  readonly purchaseGuide?: Promise<PurchaseGuide | undefined>;
+  readonly purchaseProduct?: Promise<PurchaseProduct | undefined>;
   readonly practiceActions: ReactNode;
-  readonly guideMode: GuideMode;
+  readonly productMode: ProductMode;
   readonly hintSeen: boolean;
   readonly result: ResolvedMaterial;
   readonly returnTarget: MaterialReaderReturnTarget;
@@ -276,10 +276,10 @@ async function ResolvedMaterialReader({
   readonly slug: string;
 }) {
   if (result.kind === "access") {
-    const purchaseGuide = await (startedPurchaseGuide ??
-      resolvePurchaseGuide(result.material, returnTarget, accessToken));
+    const purchaseProduct = await (startedPurchaseProduct ??
+      resolvePurchaseProduct(result.material, returnTarget, accessToken));
     const invitation = purchaseInvitation({
-      ...(purchaseGuide === undefined ? {} : { guide: purchaseGuide }),
+      ...(purchaseProduct === undefined ? {} : { product: purchaseProduct }),
       from: materialReaderHref(slug, returnTarget.href),
       subscriptionOffered: result.subscriptionOffered,
     });
@@ -306,7 +306,7 @@ async function ResolvedMaterialReader({
   const hintAt = result.body.findIndex(
     (block) =>
       block.kind === "variant" &&
-      block.options.some((option) => option.mode === guideMode),
+      block.options.some((option) => option.mode === productMode),
   );
   return (
     <VisibleMaterialOpen
@@ -314,7 +314,7 @@ async function ResolvedMaterialReader({
       materialId={result.material.materialId}
       contentVersion={result.material.contentVersion}
     >
-      <GuideModeProvider initialMode={guideMode}>
+      <ProductModeProvider initialMode={productMode}>
         <MaterialReaderView
           readingAction={
             <SavedReadingAction
@@ -333,9 +333,9 @@ async function ResolvedMaterialReader({
             ? {
                 ...(hintSeen || hintAt < 0
                   ? {}
-                  : { modeHint: { at: hintAt, node: <GuideModeHint /> } }),
+                  : { modeHint: { at: hintAt, node: <ProductModeHint /> } }),
                 modeSwitch: (
-                  <GuideModeSwitch signedIn={accessToken !== undefined} />
+                  <ProductModeSwitch signedIn={accessToken !== undefined} />
                 ),
               }
             : {})}
@@ -343,13 +343,13 @@ async function ResolvedMaterialReader({
           returnTarget={returnTarget}
           seriesContext={seriesContext}
         />
-      </GuideModeProvider>
+      </ProductModeProvider>
     </VisibleMaterialOpen>
   );
 }
 
 /** Продукт, из которого урок открыт; вне продукта его нет. */
-function guideSlugOf(
+function productSlugOf(
   returnTarget: MaterialReaderReturnTarget,
 ): string | undefined {
   return returnTarget.kind === "series" ? returnTarget.seriesSlug : undefined;
@@ -398,7 +398,7 @@ function effectiveReturnTargetOf(
     : returnTarget;
 }
 
-interface PurchaseGuide {
+interface PurchaseProduct {
   readonly slug: string;
   readonly sold: boolean;
 }
@@ -408,15 +408,15 @@ interface PurchaseGuide {
  * оплата. Без пути захода призыв ведёт к единственному продаваемому продукту среди продуктов
  * материала: наугад выбранное руководство открыло бы человеку не то, за чем он пришёл.
  */
-function resolvePurchaseGuide(
+function resolvePurchaseProduct(
   material: ResolvedMaterial["material"],
   returnTarget: MaterialReaderReturnTarget,
   accessToken: string | undefined,
-): Promise<PurchaseGuide | undefined> {
-  const returnGuideSlug = guideSlugOf(returnTarget);
-  return returnGuideSlug !== undefined
-    ? guideIsSold(returnGuideSlug, accessToken).then((sold) => ({
-        slug: returnGuideSlug,
+): Promise<PurchaseProduct | undefined> {
+  const returnProductSlug = productSlugOf(returnTarget);
+  return returnProductSlug !== undefined
+    ? productIsSold(returnProductSlug, accessToken).then((sold) => ({
+        slug: returnProductSlug,
         sold,
       }))
     : soleSoldMembership(
@@ -430,30 +430,30 @@ async function soleSoldMembership(
   slugs: readonly string[],
   accessToken?: string,
 ): Promise<{ readonly slug: string; readonly sold: true } | undefined> {
-  const guides = await Promise.all(
+  const products = await Promise.all(
     slugs.map(async (slug) => ({
       slug,
-      sold: await guideIsSold(slug, accessToken),
+      sold: await productIsSold(slug, accessToken),
     })),
   );
-  const slug = soleSoldGuide(guides);
+  const slug = soleSoldProduct(products);
   return slug === undefined ? undefined : { slug, sold: true };
 }
 
 /** Руководство продаётся, только когда владелец завёл ему цену; сбой каталога её не выдумывает. */
-async function guideIsSold(
+async function productIsSold(
   slug: string,
   accessToken?: string,
 ): Promise<boolean> {
-  const guide = await readSeriesAs(slug, accessToken);
-  const guideId =
-    guide.kind === "ready" || guide.kind === "empty"
-      ? guide.reference.id
+  const product = await readSeriesAs(slug, accessToken);
+  const productId =
+    product.kind === "ready" || product.kind === "empty"
+      ? product.reference.id
       : undefined;
-  if (guideId === undefined) return false;
+  if (productId === undefined) return false;
   const sale = await (accessToken === undefined
-    ? readGuestGuideSale(guideId)
-    : readViewerGuideSale(guideId, accessToken));
+    ? readGuestProductSale(productId)
+    : readViewerProductSale(productId, accessToken));
   return sale.kind === "ready" && sale.sold;
 }
 

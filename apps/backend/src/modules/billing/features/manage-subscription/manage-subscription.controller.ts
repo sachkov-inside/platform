@@ -3,7 +3,7 @@ import {
   ACCESS_GRANTS,
   enrollmentViewSchema,
   type AccessGrants,
-} from "../../../membership-entitlements/index.js";
+} from "../../../account-rights/index.js";
 import {
   Body,
   Controller,

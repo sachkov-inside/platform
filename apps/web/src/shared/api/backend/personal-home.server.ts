@@ -34,7 +34,7 @@ export function requestLearningHome(accessToken: string) {
 export function requestSeriesContinuation(slug: string, accessToken: string) {
   return executeGeneratedRequest(
     (request) =>
-      new PersonalHomeService(request).getGuideContinuation({ slug }),
+      new PersonalHomeService(request).getProductContinuation({ slug }),
     200,
     { accessToken },
   );

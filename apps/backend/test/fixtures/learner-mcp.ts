@@ -37,7 +37,7 @@ export function refusingLearnerMcpDependencies(): LearnerMcpDependencies {
           policyVersion: "content-access-v1",
           decidedAt: new Date().toISOString(),
         }),
-      checkGuideAccess: () => Promise.resolve({ kind: "closed" }),
+      checkProductAccess: () => Promise.resolve({ kind: "closed" }),
     },
   };
 }

@@ -1,7 +1,7 @@
 import "server-only";
 
 import { z } from "zod";
-import { guideChapterTaskSchema } from "@/entities/guide-task.model";
+import { productChapterTaskSchema } from "@/entities/product-task.model";
 
 import {
   contentCoverSchema,
@@ -13,14 +13,14 @@ import {
   type BackendTransportResult,
 } from "@/shared/api/backend/index.server";
 import { dependencyUnavailableProblemSchema } from "@/shared/api/problem-details";
-import { readGuideProductPage } from "@/entities/guide-page";
+import { readProductLandingPage } from "@/entities/product-page";
 
 import type {
   LibraryDiscoveryKind,
   LibraryDiscoveryResult,
 } from "../model/library-discovery-view";
 
-const guideIntroductionSchema = z
+const productIntroductionSchema = z
   .object({
     audience: z.string(),
     outcome: z.string(),
@@ -33,9 +33,9 @@ const discoveryReferenceSchema = z
     cover: contentCoverSchema.nullable(),
     hasModeVariants: z.boolean().default(false),
     id: z.string(),
-    introduction: guideIntroductionSchema.nullable().default(null),
+    introduction: productIntroductionSchema.nullable().default(null),
     name: z.string(),
-    // The page is parsed separately: a description this site cannot draw is dropped, not the Guide.
+    // The page is parsed separately: a description this site cannot draw is dropped, not the Product.
     productPage: z
       .object({ presentation: z.string(), page: z.unknown() })
       .strict()
@@ -64,7 +64,7 @@ const discoveryTopicSchema = z
     slug: z.string(),
   })
   .strict();
-const guideChapterSchema = z
+const productChapterSchema = z
   .object({
     id: z.string(),
     materialIds: z.array(z.string()),
@@ -72,7 +72,7 @@ const guideChapterSchema = z
     // Прежние ответы без описания читаются: страница просто не показывает его.
     summary: z.string().default(""),
     // Задания главы (#947); ответ без них — глава без заданий.
-    tasks: z.array(guideChapterTaskSchema).default([]),
+    tasks: z.array(productChapterTaskSchema).default([]),
   })
   .strict();
 const discoveryNotFoundSchema = z
@@ -113,7 +113,7 @@ export function mapLibraryDiscoveryResult<
 
   const responseSchema = z
     .object({
-      chapters: z.array(guideChapterSchema).default([]),
+      chapters: z.array(productChapterSchema).default([]),
       hasNext: z.boolean(),
       items: z.array(publishedMaterialProjectionSchema),
       kind: z.literal(discoveryKind),
@@ -139,12 +139,12 @@ export function mapLibraryDiscoveryResult<
     productPage:
       parsed.data.reference.productPage === null
         ? null
-        : readGuideProductPage(
+        : readProductLandingPage(
             {
               presentation: parsed.data.reference.productPage.presentation,
               page: parsed.data.reference.productPage.page ?? null,
             },
-            `Guide ${parsed.data.reference.slug}`,
+            `Product ${parsed.data.reference.slug}`,
           ),
     slug: parsed.data.reference.slug,
     summary: parsed.data.reference.summary,

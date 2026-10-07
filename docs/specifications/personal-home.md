@@ -20,7 +20,7 @@
 - Карточка руководства сохраняет место для продолжения при загрузке, чтобы его появление не
   сдвигало соседнее содержимое.
 - Программа руководства использует непрерывный список с добавлением уроков при прокрутке
-  по [контракту программы](platform-v1.md#guide-chapters). Выделение следующего доступного
+  по [контракту программы](platform-v1.md#product-chapters). Выделение следующего доступного
   материала и возврат по `at` сохраняются; старый `page` остаётся совместимым. После reorder актуальное место материала важнее старого номера
   страницы. На продуктовой странице отдельная сводка прогресса не возвращается.
 - Ручная отметка меняет подтверждённое продолжение. Завершённое руководство перестаёт предлагать
@@ -88,7 +88,7 @@ Published visibility, актуальный ContentAccess и текущая Video
 Публичные данные не содержат историю Account и не заменяют private response/cache.
 
 Storybook и реальные страницы используют HomePage, PlaylistCard, MaterialCard, LibraryDiscoveryView,
-GuideProgrammeView и SeriesMaterialMarker. Runtime не импортирует stories/fixtures. В development seed
+ProductProgrammeView и SeriesMaterialMarker. Runtime не импортирует stories/fixtures. В development seed
 есть серия `demo-progress-series` с текстом, видео и гайдом для воспроизводимой сквозной проверки.
 
 Приёмка: free non-member начинает серию → профиль → программа руководства → Reader; отметки

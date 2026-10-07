@@ -143,7 +143,7 @@ describe("Material lifecycle", () => {
       accountPermissions: {
         hasMaterialsManage: () => Promise.resolve(false),
       },
-      membershipEntitlements: {
+      accountRights: {
         resolveForAccess: () => Promise.resolve({ kind: "required" }),
       },
     }).checkAvailabilityMany({
@@ -421,7 +421,7 @@ describe("Material lifecycle", () => {
       checkAvailabilityMany: base.contentAccess.checkAvailabilityMany.bind(
         base.contentAccess,
       ),
-      checkGuideAccess: base.contentAccess.checkGuideAccess.bind(
+      checkProductAccess: base.contentAccess.checkProductAccess.bind(
         base.contentAccess,
       ),
       authorize: async (

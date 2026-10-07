@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 
-import { guideLinkPreview } from "@/_pages/library-discovery";
+import { productLinkPreview } from "@/_pages/library-discovery";
 import { PublishedSeriesPage } from "@/_pages/library-discovery.server";
 import { readPublicSeries } from "@/features/library-discovery.server";
 import {
@@ -38,7 +38,7 @@ export async function generateMetadata({
   return publicPageMetadata(
     await readPublicSiteOrigin(),
     "website",
-    guideLinkPreview(result.reference),
+    productLinkPreview(result.reference),
   );
 }
 

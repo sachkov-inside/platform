@@ -80,9 +80,9 @@ export function handleSaveOffer(request: Request): Promise<Response> {
         ...(input.value.availableForAssignment === undefined
           ? {}
           : { availableForAssignment: input.value.availableForAssignment }),
-        ...(input.value.contentScope === undefined
+        ...(input.value.coverage === undefined
           ? {}
-          : { contentScope: input.value.contentScope }),
+          : { coverage: input.value.coverage }),
         ...(input.value.eligibility === undefined
           ? {}
           : { eligibility: input.value.eligibility }),

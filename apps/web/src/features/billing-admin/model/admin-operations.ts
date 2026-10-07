@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { contentScopeSchema } from "@inside/access-capabilities";
+import { coverageSchema } from "@inside/access-capabilities";
 
 import {
   accessCapabilitySchema,
@@ -25,7 +25,7 @@ export const saveOfferInputSchema = z.strictObject({
     name: z.string().trim().min(1).max(200),
     benefits: z.array(accessCapabilitySchema).min(1).max(100),
     availableForAssignment: z.boolean().optional(),
-    contentScope: contentScopeSchema.nullable().optional(),
+    coverage: coverageSchema.nullable().optional(),
     /** Без поля сервер сохраняет прежний допуск: форма каталога его не называет. */
     eligibility: offerEligibilitySchema.optional(),
     benefitPeriods: z
@@ -70,7 +70,7 @@ export const saveCohortInputSchema = z.strictObject({
   operationId,
   expectedRevision: revision.optional(),
   value: z.strictObject({
-    guideId: z.uuid(),
+    productId: z.uuid(),
     name: z.string().trim().min(1).max(120),
     stage: cohortStageSchema,
     startsOn: z.iso.date().nullable(),

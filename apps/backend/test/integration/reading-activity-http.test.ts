@@ -97,7 +97,7 @@ describe("ReadingActivity HTTP", () => {
       data: { id: topicId, name: "Reading", slug: "reading" },
     });
 
-    await database.prisma.guide.create({
+    await database.prisma.product.create({
       data: { id: seriesId, name: "Series", slug: "series" },
     });
     const materials = assembleMaterials({
@@ -227,19 +227,19 @@ describe("ReadingActivity HTTP", () => {
       total: 1,
       allRead: false,
     });
-    const guideProgress = await server.inject({
+    const productProgress = await server.inject({
       method: "GET",
-      url: `/reading-activity/guides/${seriesId}`,
+      url: `/reading-activity/products/${seriesId}`,
       headers,
     });
-    expect(guideProgress.statusCode).toBe(200);
-    expect(guideProgress.json()).toEqual(progress.json());
-    expect(guideProgress.headers["cache-control"]).toBe("private, no-store");
+    expect(productProgress.statusCode).toBe(200);
+    expect(productProgress.json()).toEqual(progress.json());
+    expect(productProgress.headers["cache-control"]).toBe("private, no-store");
     expect(
       (
         await server.inject({
           method: "GET",
-          url: `/reading-activity/guides/${seriesId}`,
+          url: `/reading-activity/products/${seriesId}`,
         })
       ).statusCode,
     ).toBe(401);
@@ -247,13 +247,13 @@ describe("ReadingActivity HTTP", () => {
       method: "GET",
       url: "/library/series/series",
     });
-    const guidePage = await server.inject({
+    const productPage = await server.inject({
       method: "GET",
-      url: "/library/guides/series",
+      url: "/library/products/series",
     });
     expect(legacyPage.statusCode).toBe(200);
-    expect(guidePage.statusCode).toBe(200);
-    expect(guidePage.json()).toEqual(legacyPage.json());
+    expect(productPage.statusCode).toBe(200);
+    expect(productPage.json()).toEqual(legacyPage.json());
     const openPayload = {
       materialId,
       contentVersion: published.value.contentVersion,
@@ -359,7 +359,7 @@ describe("ReadingActivity HTTP", () => {
         other: unstarted,
       },
       {
-        url: "/reading-activity/guide-continuation/series",
+        url: "/reading-activity/product-continuation/series",
         own: started,
         other: unstarted,
       },

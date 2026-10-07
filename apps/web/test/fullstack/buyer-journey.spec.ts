@@ -17,7 +17,7 @@ function stand() {
     })
     .parse({
       controlUrl: process.env["BUYER_JOURNEY_CONTROL_URL"],
-      slug: process.env["BUYER_JOURNEY_GUIDE_SLUG"],
+      slug: process.env["BUYER_JOURNEY_PRODUCT_SLUG"],
     });
 }
 const freeChapter = "/materials/kak-ustroen-inside-platform";
@@ -150,7 +150,7 @@ test("покупатель курса проходит путь от стран�
   expect(
     paid.some(
       (ground) =>
-        ground.capabilities.some((value) => value.startsWith("guide:")) &&
+        ground.capabilities.some((value) => value.startsWith("product:")) &&
         ground.validUntil === null,
     ),
   ).toBe(true);

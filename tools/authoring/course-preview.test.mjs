@@ -41,7 +41,7 @@ function fixture() {
     schemaVersion: 1,
     sourceNamespace: "inside-content",
     selection: {
-      guideId: "inside-ai-engineering",
+      productId: "inside-ai-engineering",
       chapterIds: [],
       materialIds: ids,
       complete: true,
@@ -49,7 +49,7 @@ function fixture() {
     materials,
     assets: [],
     diagnostics: [],
-    guides: [
+    products: [
       {
         sourceId: "inside-ai-engineering",
         title: "Course",
@@ -108,7 +108,7 @@ test("local access and practice preview preserve drafts and the original immutab
   assert.equal(await readFile(path, "utf8"), bytes);
   assert.deepEqual(
     preview.manifest.materials.map((m) => m.access),
-    ["free", "free", "free", "membership", "free"],
+    ["free", "free", "free", "closed", "free"],
   );
   assert.ok(preview.manifest.materials.every((m) => m.stage === "draft"));
   assert.equal(
@@ -120,6 +120,6 @@ test("local access and practice preview preserve drafts and the original immutab
     "unpublished",
   );
   const wrong = fixture();
-  wrong.guides = [];
+  wrong.products = [];
   assert.throws(() => coursePreviewManifest(wrong), /requires only/u);
 });

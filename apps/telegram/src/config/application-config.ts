@@ -54,7 +54,7 @@ export interface CommunityWelcomeCohort {
   /** Public `GET /billing/cohorts` of Platform. */
   readonly url: string;
   /** The course's product UUID in Platform: the response names products only by it. */
-  readonly guideId: string;
+  readonly productId: string;
 }
 
 export interface ApplicationConfig {
@@ -637,19 +637,21 @@ function loadCommunityWelcomeCohort(
 ): CommunityWelcomeCohort | undefined {
   const url =
     presentText(environment["PLATFORM_COHORTS_URL"]?.trim()) ?? undefined;
-  const guideId =
-    presentText(environment["PLATFORM_COHORT_GUIDE_ID"]?.trim()) ?? undefined;
-  if (!hasText(url) && !hasText(guideId)) return undefined;
-  if (!hasText(url) || !hasText(guideId))
+  const productId =
+    presentText(environment["PLATFORM_COHORT_PRODUCT_ID"]?.trim()) ??
+    presentText(environment["PLATFORM_COHORT_GUIDE_ID"]?.trim()) ??
+    undefined;
+  if (!hasText(url) && !hasText(productId)) return undefined;
+  if (!hasText(url) || !hasText(productId))
     throw new Error(
-      "PLATFORM_COHORTS_URL and PLATFORM_COHORT_GUIDE_ID are set together",
+      "PLATFORM_COHORTS_URL and PLATFORM_COHORT_PRODUCT_ID are set together",
     );
   assertServiceEndpoint(url, "PLATFORM_COHORTS_URL");
   if (
     !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(
-      guideId,
+      productId,
     )
   )
-    throw new Error("PLATFORM_COHORT_GUIDE_ID must be a UUID");
-  return { url, guideId };
+    throw new Error("PLATFORM_COHORT_PRODUCT_ID must be a UUID");
+  return { url, productId };
 }

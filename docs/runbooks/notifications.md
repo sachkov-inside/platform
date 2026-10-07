@@ -36,7 +36,7 @@ HTTPS. Стенд живёт на петле `http://127.0.0.1:3000`, поэто
 Источник обязан вернуть подтверждённый собственными данными occurrence, source revision, время,
 назначение, Account и данные шаблона; пересказ broker payload не является реализацией проверки.
 `canRead` уже использует ContentAccess.
-Новые guide purchase schemas вводятся отдельной версией в #407/#410. Контакты разрешаются
+Новые product purchase schemas вводятся отдельной версией в #407/#410. Контакты разрешаются
 через `NotificationAccounts`, Telegram binding — через `TelegramAccountLinks`.
 
 Ни установка модуля, ни наличие verified contact не дают marketing opt-in: сообщения о новых

@@ -30,7 +30,7 @@ export function assembleListAuthoringReferences(
 
     try {
       const [series, tags, topics] = await Promise.all([
-        dependencies.prisma.guide.findMany({
+        dependencies.prisma.product.findMany({
           orderBy: [{ name: "asc" }, { id: "asc" }],
           select: { archivedAt: true, id: true, name: true },
         }),

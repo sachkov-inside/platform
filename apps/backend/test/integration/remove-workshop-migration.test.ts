@@ -29,20 +29,16 @@ test("removes the cancelled Workshop and its derived projection without changing
         (account_id, principal_ref, decision, evidence_ref, evidence_version, evidence_fingerprint, checked_at, valid_until, updated_at)
       values (${id}::uuid, 'removal-fixture', 'member', 'removal-evidence', 1, ${"a".repeat(64)}, now(), now() + interval '5 minutes', now())
     `);
-    await database.prisma.membershipBinding.create({
-      data: {
-        accountId: id,
-        principalRef: "removal-fixture",
-        linkedAt: new Date(),
-      },
-    });
+    await database.prisma.$executeRaw(
+      Prisma.sql`insert into membership_entitlements.account_bindings(account_id, principal_ref, linked_at) values (${id}::uuid, 'removal-fixture', now())`,
+    );
     await database.prisma.$executeRaw(Prisma.sql`
       insert into membership_entitlements.current_projections
         (account_id, principal_ref, decision, evidence_ref, evidence_version, evidence_fingerprint, checked_at, valid_until, updated_at)
       values (${id}::uuid, 'removal-fixture', 'member', 'removal-evidence', 1, ${"a".repeat(64)}, now(), now() + interval '5 minutes', now())
     `);
     expect(await migrateToLatest(database.url)).toEqual({
-      appliedMigrations: ["0081_remove_workshop"],
+      appliedMigrations: ["0081_remove_workshop", "0082_domain_names"],
     });
     expect(
       await database.prisma.$queryRaw(

@@ -6,9 +6,9 @@ import {
   platformMigrations,
   migrateToLatest,
 } from "../../src/migrations/index.js";
-import { statement } from "../../src/modules/membership-entitlements/infrastructure/postgres/migrations/0063-subscription-enrollments.js";
+import { statement } from "../../src/modules/account-rights/infrastructure/postgres/migrations/0063-subscription-enrollments.js";
 import { accountId } from "../../src/modules/accounts/index.js";
-import { assembleMembershipEntitlements } from "../../src/modules/membership-entitlements/index.js";
+import { assembleAccountRights } from "../../src/modules/account-rights/index.js";
 import { createTestDatabase } from "./setup/test-database.js";
 
 test("preview, transaction rollback, preserved legacy scope and late fulfillment exclude new products", async () => {
@@ -34,7 +34,7 @@ test("preview, transaction rollback, preserved legacy scope and late fulfillment
         logtoSubject: owner,
       },
     });
-    // The generated client already targets later Guide columns, so the historical row uses SQL.
+    // The generated client already targets later Product columns, so the historical row uses SQL.
     await pool.query(
       "INSERT INTO materials.series(id, slug, name) VALUES ($1, $2, 'Обещанный гайд')",
       [included, included],
@@ -49,7 +49,7 @@ test("preview, transaction rollback, preserved legacy scope and late fulfillment
         [grant],
       )
     ).rows;
-    // Read-only preview names the whole current Guide cohort before schema changes.
+    // Read-only preview names the whole current Product cohort before schema changes.
     expect(
       (
         await pool.query(
@@ -89,9 +89,9 @@ test("preview, transaction rollback, preserved legacy scope and late fulfillment
       startsAt: new Date("2030-01-01Z"),
       validUntil: null,
       revision: 1,
-      contentScope: { guideIds: [included], materialIds: [] },
+      coverage: { productIds: [included], materialIds: [] },
     });
-    await db.prisma.guide.create({
+    await db.prisma.product.create({
       data: { id: excluded, name: "Новый отдельный продукт", slug: excluded },
     });
     // Old-format outbox is delivered after the separate product appeared.
@@ -108,7 +108,7 @@ test("preview, transaction rollback, preserved legacy scope and late fulfillment
         reason: "Late historical fulfillment",
       },
     });
-    const membership = assembleMembershipEntitlements({
+    const membership = assembleAccountRights({
       prisma: db.prisma,
       clock: () => new Date("2030-01-02Z"),
     });

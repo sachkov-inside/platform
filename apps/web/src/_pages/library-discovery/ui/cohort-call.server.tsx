@@ -2,8 +2,8 @@ import "server-only";
 import { connection } from "next/server";
 
 import {
-  readGuestGuideSale,
-  readViewerGuideSale,
+  readGuestProductSale,
+  readViewerProductSale,
 } from "@/entities/subscription.sale.server";
 import {
   CohortCallView,
@@ -35,12 +35,12 @@ export async function PersonalCohortCall({
   readonly result: ResolvedSeries;
 }) {
   await connection();
-  const { id: guideId, slug } = result.reference;
-  if (guideId === undefined) return <PendingCohortCall slug={slug} />;
+  const { id: productId, slug } = result.reference;
+  if (productId === undefined) return <PendingCohortCall slug={slug} />;
   const accessToken = await getOptionalPlatformAccessToken();
   const sale = await (accessToken === undefined
-    ? readGuestGuideSale(guideId)
-    : readViewerGuideSale(guideId, accessToken));
+    ? readGuestProductSale(productId)
+    : readViewerProductSale(productId, accessToken));
   if (sale.kind === "unavailable" || !sale.cohortKnown)
     return <PendingCohortCall slug={slug} />;
   return (

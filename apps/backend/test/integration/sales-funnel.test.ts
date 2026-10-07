@@ -17,12 +17,12 @@ import {
   bootstrapOwnerAccount,
 } from "../../src/modules/accounts/index.js";
 import {
-  BillingGuideSales,
+  BillingProductSales,
   BillingSurveyRespondentSales,
 } from "../../src/modules/billing/index.js";
 import {
   assembleMaterials,
-  GuideOutlines,
+  ProductOutlines,
 } from "../../src/modules/materials/index.js";
 import { MaterialFirstOpens } from "../../src/modules/reading-activity/index.js";
 import { SalesFunnel } from "../../src/modules/sales-funnel/facets/sales-funnel/sales-funnel.js";
@@ -51,8 +51,8 @@ describe("Sales funnel report on PostgreSQL", () => {
   let http: NestFastifyApplication;
   let funnel: SalesFunnel;
   let owner: string;
-  let guideId: string;
-  let otherGuideId: string;
+  let productId: string;
+  let otherProductId: string;
   let firstChapter: string;
   let secondChapter: string;
   const material: Record<"first" | "second" | "third", string> = {
@@ -77,10 +77,10 @@ describe("Sales funnel report on PostgreSQL", () => {
     await db.prisma.topic.create({
       data: { id: topicId, slug: "sales-funnel", name: "Sales funnel" },
     });
-    const guide = async (slug: string) => {
+    const product = async (slug: string) => {
       const created = await materials.authoring.createContentCollection({
         actor: author,
-        kind: "guide",
+        kind: "product",
         name: slug,
         slug,
         summary: "",
@@ -88,15 +88,15 @@ describe("Sales funnel report on PostgreSQL", () => {
       if (!created.ok) throw new Error(created.error.code);
       return created.value.id;
     };
-    guideId = await guide("ai-engineering");
-    otherGuideId = await guide("other-course");
+    productId = await product("ai-engineering");
+    otherProductId = await product("other-course");
     const publish = async (title: string) => {
       const metadata = {
         access: "free" as const,
         formatId: "guide",
         difficulty: null,
         outcomes: [],
-        seriesIds: [guideId],
+        seriesIds: [productId],
         summary: `${title} summary.`,
         tagIds: [],
         title,
@@ -128,12 +128,12 @@ describe("Sales funnel report on PostgreSQL", () => {
     secondChapter = randomUUID();
     const order = await materials.authoring.loadSeriesOrder({
       actor: author,
-      seriesId: guideId,
+      seriesId: productId,
     });
     if (!order.ok) throw new Error(order.error.code);
     const saved = await materials.authoring.reorderSeries({
       actor: author,
-      seriesId: guideId,
+      seriesId: productId,
       expectedOrderVersion: order.value.orderVersion,
       orderedMaterialIds: [material.first, material.second, material.third],
       chapters: [
@@ -155,9 +155,9 @@ describe("Sales funnel report on PostgreSQL", () => {
         emailFingerprintKey: "sales-funnel-test-fingerprint-secret",
       }),
       links: new TelegramAccountLinks(db.prisma),
-      outlines: new GuideOutlines(db.prisma),
+      outlines: new ProductOutlines(db.prisma),
       firstOpens: new MaterialFirstOpens(db.prisma),
-      sales: new BillingGuideSales(db.prisma),
+      sales: new BillingProductSales(db.prisma),
       surveyRespondents: new BillingSurveyRespondentSales(db.prisma),
       clock: () => new Date("2030-04-02T00:00:00.000Z"),
     });
@@ -266,12 +266,12 @@ describe("Sales funnel report on PostgreSQL", () => {
     db.prisma.readingMaterialVisit.create({
       data: { accountId, materialId, firstOpenedAt: at, lastOpenedAt: at },
     });
-  const scope = (guideIds: readonly string[], allGuides = false) => ({
+  const scope = (productIds: readonly string[], wholePlatform = false) => ({
     offer: {
-      contentScope: {
-        guideIds,
+      coverage: {
+        productIds,
         materialIds: [],
-        ...(allGuides ? { allGuides: true } : {}),
+        ...(wholePlatform ? { wholePlatform: true } : {}),
       },
     },
   });
@@ -298,9 +298,9 @@ describe("Sales funnel report on PostgreSQL", () => {
     accountId: string,
     state: "confirmed" | "failed",
     at: Date,
-    guide = guideId,
+    product = productId,
   ) {
-    const snapshot = scope([guide]);
+    const snapshot = scope([product]);
     const quoteRef = await quote(accountId, snapshot, at);
     const id = randomUUID();
     await db.prisma.billingPurchase.create({
@@ -410,32 +410,34 @@ describe("Sales funnel report on PostgreSQL", () => {
     await open(reader, material.first, before);
     await open(unlabelled, material.third, inside(12));
     await open(outside, material.first, inside(13));
-    await quote(buyer, scope([guideId]), inside(14));
+    await quote(buyer, scope([productId]), inside(14));
     await purchase(buyer, "confirmed", inside(15));
     // Entered the bot before the period: outside this cohort although it paid within it.
     await purchase(earlier, "confirmed", inside(15));
-    // Its first step for the Guide was before the period: outside this cohort in every chapter.
+    // Its first step for the Product was before the period: outside this cohort in every chapter.
     await open(februaryReader, material.first, before);
     await purchase(februaryReader, "confirmed", inside(15));
-    await quote(outside, scope([guideId]), inside(16));
+    await quote(outside, scope([productId]), inside(16));
     await purchase(outside, "failed", inside(17));
-    await quote(reader, scope([otherGuideId]), inside(14));
+    await quote(reader, scope([otherProductId]), inside(14));
     await quote(unlabelled, scope([], true), inside(14));
 
-    const report = await funnel.readReport(owner, { from, to, guideId });
+    const report = await funnel.readReport(owner, { from, to, productId });
     if (!report.ok) throw new Error(report.error.code);
     expect(report.value.selection).toEqual({
-      guideId,
+      productId,
       chapterId: firstChapter,
     });
-    expect(report.value.guides.find((item) => item.id === guideId)).toEqual({
-      id: guideId,
-      name: "ai-engineering",
-      chapters: [
-        { id: firstChapter, name: "Глава 1" },
-        { id: secondChapter, name: "Глава 2" },
-      ],
-    });
+    expect(report.value.products.find((item) => item.id === productId)).toEqual(
+      {
+        id: productId,
+        name: "ai-engineering",
+        chapters: [
+          { id: firstChapter, name: "Глава 1" },
+          { id: secondChapter, name: "Глава 2" },
+        ],
+      },
+    );
     expect(report.value.rows).toEqual([
       {
         source: { kind: "label", code: "m_site" },
@@ -461,7 +463,7 @@ describe("Sales funnel report on PostgreSQL", () => {
     const later = await funnel.readReport(owner, {
       from,
       to,
-      guideId,
+      productId,
       chapterId: secondChapter,
     });
     if (!later.ok) throw new Error(later.error.code);
@@ -476,7 +478,7 @@ describe("Sales funnel report on PostgreSQL", () => {
     expect(bareBot.value.total).toEqual(counts(4, 1, null, null, null));
   });
 
-  test("counts survey respondents who bought the Guide through their personal link in the period", async () => {
+  test("counts survey respondents who bought the Product through their personal link in the period", async () => {
     let respondent = 0;
     // Synthetic list entries: the report and this test never name a real respondent.
     const listed = async (promotionId: string | null) => {
@@ -513,10 +515,10 @@ describe("Sales funnel report on PostgreSQL", () => {
       promotionId: string,
       state: "confirmed" | "failed",
       at: Date,
-      guide = guideId,
+      product = productId,
     ) {
       const accountId = await account();
-      const bought = await purchase(accountId, state, at, guide);
+      const bought = await purchase(accountId, state, at, product);
       await db.prisma.billingPromoReservation.create({
         data: {
           purchaseRef: bought.id,
@@ -536,7 +538,7 @@ describe("Sales funnel report on PostgreSQL", () => {
       await withPersonalLink(),
       "confirmed",
       inside(18),
-      otherGuideId,
+      otherProductId,
     );
     // An issued link nobody used and a listed username without a link.
     await withPersonalLink();
@@ -544,7 +546,7 @@ describe("Sales funnel report on PostgreSQL", () => {
     // A full-price purchase without a personal link is not a respondent's purchase.
     await purchase(await account(), "confirmed", inside(18));
 
-    const report = await funnel.readReport(owner, { from, to, guideId });
+    const report = await funnel.readReport(owner, { from, to, productId });
     if (!report.ok) throw new Error(report.error.code);
     expect(report.value.surveyRespondents).toEqual({
       uploaded: 6,
@@ -555,7 +557,7 @@ describe("Sales funnel report on PostgreSQL", () => {
     const earlier = await funnel.readReport(owner, {
       from: "2030-02-01T00:00:00.000Z",
       to: from,
-      guideId,
+      productId,
     });
     if (!earlier.ok) throw new Error(earlier.error.code);
     expect(earlier.value.surveyRespondents).toEqual({
@@ -585,9 +587,9 @@ describe("Sales funnel report on PostgreSQL", () => {
           emailFingerprintKey: "sales-funnel-test-fingerprint-secret",
         }),
         links: new TelegramAccountLinks(prisma),
-        outlines: new GuideOutlines(prisma),
+        outlines: new ProductOutlines(prisma),
         firstOpens: new MaterialFirstOpens(prisma),
-        sales: new BillingGuideSales(prisma),
+        sales: new BillingProductSales(prisma),
         surveyRespondents: new BillingSurveyRespondentSales(prisma),
         clock: () => new Date("2030-04-02T00:00:00.000Z"),
       }).recordBotEvents({ contractVersion: version, events: [event] }),
@@ -608,13 +610,13 @@ describe("Sales funnel report on PostgreSQL", () => {
       error: { code: "forbidden" },
     });
     expect(
-      await funnel.readReport(owner, { from, to, guideId: randomUUID() }),
-    ).toEqual({ ok: false, error: { code: "guide_not_found" } });
+      await funnel.readReport(owner, { from, to, productId: randomUUID() }),
+    ).toEqual({ ok: false, error: { code: "product_not_found" } });
     expect(
       await funnel.readReport(owner, {
         from,
         to,
-        guideId,
+        productId,
         chapterId: randomUUID(),
       }),
     ).toEqual({ ok: false, error: { code: "chapter_not_found" } });

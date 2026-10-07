@@ -9,7 +9,7 @@ import {
 import type {
   AccessGrants,
   EnrollmentEnding,
-} from "../../../membership-entitlements/index.js";
+} from "../../../account-rights/index.js";
 import {
   ACCESS_ENDING_LEAD_MS,
   accessEndingCyclesPrefix,

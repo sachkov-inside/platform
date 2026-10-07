@@ -1,11 +1,11 @@
 import { dependencyFailure } from "../../../../infrastructure/observability/index.js";
 import type { MaterialsPrisma } from "../../../../infrastructure/prisma/index.js";
 import {
-  guidePageHero,
-  type GuidePageCard,
-  type GuidePageHero,
-} from "../../domain/guide-page.js";
-import { readGuidePage } from "../../shared/guide-page-reader.js";
+  productPageHero,
+  type ProductPageCard,
+  type ProductPageHero,
+} from "../../domain/product-page.js";
+import { readProductPage } from "../../shared/product-page-reader.js";
 import type { SystemError } from "../../facets/material-authoring/material-authoring.contract.js";
 import type { Result } from "../../result.js";
 import { mapPostgresReadError } from "../../shared/postgres-error-mapping.js";
@@ -14,9 +14,9 @@ import { mapPostgresReadError } from "../../shared/postgres-error-mapping.js";
 export interface HomePinnedSeries {
   readonly id: string;
   readonly presentation: string;
-  readonly card: GuidePageCard | null;
+  readonly card: ProductPageCard | null;
   /** Первый экран страницы продукта: карточка Главной повторяет его. */
-  readonly hero: GuidePageHero | null;
+  readonly hero: ProductPageHero | null;
 }
 
 export type ReadHomePinnedSeriesOperation = () => Promise<
@@ -32,19 +32,22 @@ export async function readHomePinnedSeries(
       select: { seriesId: true },
     });
     if (pin.seriesId === null) return { ok: true, value: null };
-    const guide = await prisma.guide.findUnique({
+    const product = await prisma.product.findUnique({
       where: { id: pin.seriesId },
       select: { page: true, presentation: true, slug: true },
     });
-    if (guide === null) return { ok: true, value: null };
-    const page = readGuidePage(guide.page, `Home pinned Guide ${guide.slug}`);
+    if (product === null) return { ok: true, value: null };
+    const page = readProductPage(
+      product.page,
+      `Home pinned Product ${product.slug}`,
+    );
     return {
       ok: true,
       value: {
         id: pin.seriesId,
-        presentation: guide.presentation,
+        presentation: product.presentation,
         card: page?.card ?? null,
-        hero: guidePageHero(page),
+        hero: productPageHero(page),
       },
     };
   } catch (error) {

@@ -35,7 +35,7 @@ export class SetContentCollectionArchiveController {
   @Put(":collectionId/archive")
   @ApiOperation({
     operationId: "setAuthoringContentCollectionArchive",
-    summary: "Archive or restore a Topic or Guide",
+    summary: "Archive or restore a Topic or Product",
   })
   @ApiParam({
     name: "collectionId",

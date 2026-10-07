@@ -1,7 +1,7 @@
 import type { Route } from "next";
 
 import { internalRoute, isInternalRoute } from "./internal-route";
-import { guidePath } from "./public-page-path";
+import { productPath } from "./public-page-path";
 
 /**
  * CTA страницы руководства ведёт на витрину и сохраняет контекст: после входа покупатель
@@ -62,7 +62,8 @@ export function subscriptionRouteTarget(
   if (offerId !== undefined) query.set("offer", offerId);
   const search = query.toString();
   return {
-    returnTo: search === "" ? "/subscription" : `/subscription?${search}`,
+    returnTo:
+      search === "" ? "/payment/checkout" : `/payment/checkout?${search}`,
     ...(origin === undefined ? {} : { originHref: origin }),
     ...(offerId === undefined ? {} : { offerId }),
   };
@@ -72,18 +73,18 @@ export function subscriptionRouteTarget(
  * Страница продукта руководства: она рассказывает и никогда не называет цену. Её адрес —
  * канонический адрес руководства, поэтому он остаётся у одного владельца, `public-page-path`.
  */
-export const guideProductHref = guidePath;
+export const productHref = productPath;
 
 /**
  * Программа руководства: материалы по главам живут отдельным адресом, потому что страница
  * продукта рассказывает, а программа учит. Приглашение к оплате встречает читателя именно здесь.
  */
-export function guideProgrammeHref(slug: string): Route {
+export function productProgrammeHref(slug: string): Route {
   return internalRoute(`/products/${encodeURIComponent(slug)}/programme`);
 }
 
 /** Страница задания внутри своего руководства (#947): код задания постоянный, адрес тоже. */
-export function guideTaskHref(slug: string, code: string): Route {
+export function productTaskHref(slug: string, code: string): Route {
   return internalRoute(
     `/products/${encodeURIComponent(slug)}/tasks/${encodeURIComponent(code)}`,
   );
@@ -94,13 +95,17 @@ export function guideTaskHref(slug: string, code: string): Route {
  * покупают здесь именно руководство, а не тариф подписки, и программа до неё только приглашает.
  * Персональная ссылка владельца несёт промокод: он переживает вход и экран условий (#815).
  */
-export function guidePurchaseHref(slug: string, promoCode?: string): Route {
+export function productPurchaseHref(
+  slug: string,
+  promoCode?: string,
+  offerId?: string,
+): Route {
   const path = `/products/${encodeURIComponent(slug)}/buy`;
-  return internalRoute(
-    promoCode === undefined
-      ? path
-      : `${path}?${new URLSearchParams({ promo: promoCode }).toString()}`,
-  );
+  const query = new URLSearchParams();
+  if (promoCode !== undefined) query.set("promo", promoCode);
+  if (offerId !== undefined) query.set("offer", offerId);
+  const search = query.toString();
+  return internalRoute(search === "" ? path : `${path}?${search}`);
 }
 
 /**
@@ -109,13 +114,13 @@ export function guidePurchaseHref(slug: string, promoCode?: string): Route {
  */
 export function subscriptionHrefFrom(origin: string): Route {
   return publicOrigin(origin) === undefined
-    ? internalRoute("/subscription")
-    : internalRoute(`/subscription?from=${encodeURIComponent(origin)}`);
+    ? internalRoute("/payment/checkout")
+    : internalRoute(`/payment/checkout?from=${encodeURIComponent(origin)}`);
 }
 
 /** Куда ведёт призыв к покупке: оплата выбранного руководства или витрина подписки. */
 export type PurchaseInvitation =
-  | { readonly kind: "guide"; readonly href: Route }
+  | { readonly kind: "product"; readonly href: Route }
   | { readonly kind: "subscription"; readonly href: Route };
 
 /**
@@ -125,27 +130,27 @@ export type PurchaseInvitation =
  * не могут разойтись и увести человека в тупик, а покупка начинается внутри платформы.
  */
 export function purchaseInvitation({
-  guide,
+  product,
   subscriptionOffered,
   from,
 }: {
   /** Руководство, которое человек сейчас смотрит, и продаётся ли оно отдельно. */
-  readonly guide?:
+  readonly product?:
     { readonly slug: string; readonly sold: boolean } | undefined;
   /** Продаётся ли сейчас хоть один тариф подписки. */
   readonly subscriptionOffered: boolean;
   /** Откуда человек пришёл: витрина вернёт его сюда после входа. */
   readonly from?: string | undefined;
 }): PurchaseInvitation | null {
-  if (guide?.sold === true) {
-    return { kind: "guide", href: guidePurchaseHref(guide.slug) };
+  if (product?.sold === true) {
+    return { kind: "product", href: productPurchaseHref(product.slug) };
   }
   if (!subscriptionOffered) return null;
   return {
     kind: "subscription",
     href:
       from === undefined
-        ? internalRoute("/subscription")
+        ? internalRoute("/payment/checkout")
         : subscriptionHrefFrom(from),
   };
 }

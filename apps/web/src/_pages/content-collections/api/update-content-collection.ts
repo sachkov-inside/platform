@@ -4,7 +4,7 @@ import { z } from "zod";
 
 import { requestContentCollectionUpdate } from "@/shared/api/backend/index.server";
 import {
-  guideIntroductionSchema,
+  productIntroductionSchema,
   type UpdateContentCollectionResult,
 } from "../model/content-collections";
 import { mapUpdateContentCollectionResult } from "./content-collection-mutation-result";
@@ -12,7 +12,7 @@ import { mapUpdateContentCollectionResult } from "./content-collection-mutation-
 const formSchema = z.object({
   collectionId: z.uuid(),
   expectedVersion: z.coerce.number().int().positive(),
-  introduction: guideIntroductionSchema.optional(),
+  introduction: productIntroductionSchema.optional(),
   kind: z.enum(["series", "topic"]),
   name: z.string(),
   summary: z.string(),

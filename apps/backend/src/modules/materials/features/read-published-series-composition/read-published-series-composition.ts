@@ -3,10 +3,10 @@ import { dependencyFailure } from "../../../../infrastructure/observability/inde
 import type { MaterialsPrismaClient } from "../../../../infrastructure/prisma/index.js";
 import type { ContentAccess, Subject } from "../../../content-access/index.js";
 import {
-  loadGuideCompositions,
-  readGuideCompositionAccess,
-  MAX_GUIDE_MATERIALS,
-} from "../../shared/guide-composition.js";
+  loadProductCompositions,
+  readProductCompositionAccess,
+  MAX_PRODUCT_MATERIALS,
+} from "../../shared/product-composition.js";
 
 export type PublishedSeriesCompositionResult =
   | { readonly ok: true; readonly value: readonly string[] }
@@ -26,29 +26,29 @@ export class PublishedSeriesComposition {
     seriesId: string,
     reader?: {
       readonly subject: Subject;
-      readonly contentAccess: Pick<ContentAccess, "checkGuideAccess">;
+      readonly contentAccess: Pick<ContentAccess, "checkProductAccess">;
     },
   ): Promise<PublishedSeriesCompositionResult> {
     if (!z.uuid().safeParse(seriesId).success)
       return { ok: false, error: { code: "invalid_request" } };
     try {
-      const [guide] = await loadGuideCompositions(
+      const [product] = await loadProductCompositions(
         this.prisma,
         { ids: [seriesId] },
         1,
       );
-      if (guide === undefined)
+      if (product === undefined)
         return { ok: false, error: { code: "series_not_found" } };
-      const access = await readGuideCompositionAccess(guide, reader);
+      const access = await readProductCompositionAccess(product, reader);
       if (access === "unavailable")
         return { ok: false, error: { code: "dependency_unavailable" } };
       if (access === "closed")
         return { ok: false, error: { code: "series_not_found" } };
-      if (guide.placements.length > MAX_GUIDE_MATERIALS)
+      if (product.placements.length > MAX_PRODUCT_MATERIALS)
         return { ok: false, error: { code: "series_too_large" } };
       return {
         ok: true,
-        value: guide.materials.map((material) => material.materialId),
+        value: product.materials.map((material) => material.materialId),
       };
     } catch (error) {
       return dependencyFailure(

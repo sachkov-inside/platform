@@ -1,5 +1,5 @@
 export {
-  readGuestGuideSale,
-  readViewerGuideSale,
-  type GuideSale,
-} from "./subscription/api/guide-sale.server";
+  readGuestProductSale,
+  readViewerProductSale,
+  type ProductSale,
+} from "./subscription/api/product-sale.server";

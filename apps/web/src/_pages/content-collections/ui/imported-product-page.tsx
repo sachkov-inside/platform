@@ -1,10 +1,10 @@
 import { ContentCoverEditor } from "@/features/content-covers";
-import { GuideArtifactsPanel } from "@/features/guide-artifacts";
+import { ProductArtifactsPanel } from "@/features/product-artifacts";
 import { HomeSeriesPin, SeriesOrderPanel } from "@/features/series-order";
 import { hasText } from "@/shared/lib/text";
 
 import type { ContentCollection } from "../model/content-collections";
-import { GUIDE_INTRODUCTION_FIELDS } from "../model/guide-introduction-fields";
+import { PRODUCT_INTRODUCTION_FIELDS } from "../model/product-introduction-fields";
 import { ProductPageNavigation } from "./product-page-navigation.client";
 import { SeriesEditorPageFrame } from "./series-editor-page-frame";
 
@@ -19,10 +19,12 @@ export function ImportedProductPage({
   readonly collection: ContentCollection;
 }) {
   const summary = collection.summary.trim();
-  const introduction = GUIDE_INTRODUCTION_FIELDS.flatMap(({ field, label }) => {
-    const text = collection.introduction?.[field].trim();
-    return hasText(text) ? [{ field, label, text }] : [];
-  });
+  const introduction = PRODUCT_INTRODUCTION_FIELDS.flatMap(
+    ({ field, label }) => {
+      const text = collection.introduction?.[field].trim();
+      return hasText(text) ? [{ field, label, text }] : [];
+    },
+  );
   return (
     <SeriesEditorPageFrame>
       <ProductPageNavigation>
@@ -91,9 +93,9 @@ export function ImportedProductPage({
         archived={collection.archived}
         readOnly
       />
-      <GuideArtifactsPanel
+      <ProductArtifactsPanel
         archived={collection.archived}
-        guideId={collection.id}
+        productId={collection.id}
       />
     </SeriesEditorPageFrame>
   );

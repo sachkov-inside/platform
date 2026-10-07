@@ -14,7 +14,7 @@ export async function saveAuthorFeedback(
   form.set("comment", input.comment);
   form.set("reviewed", String(input.reviewed));
   const response = await requestSameOriginMutation(
-    "/api/authoring/guide-tasks/feedback",
+    "/api/authoring/product-tasks/feedback",
     "PUT",
     form,
   );

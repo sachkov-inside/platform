@@ -216,7 +216,7 @@ export function onAdminSubmit(
 export const reasonMaxLength = 1000;
 
 export const capabilityHint =
-  "Известные права: materials, community, support и guide:<uuid>. Право reviews не выдаётся.";
+  "Известные права: materials, community, support и product:<uuid>. Право reviews не выдаётся.";
 
 export function optionalFormNumber(
   value: FormDataEntryValue | null,

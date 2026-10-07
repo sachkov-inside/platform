@@ -274,7 +274,7 @@ COURSE_PROOF_USER=6400104 COURSE_PROOF_OUTPUT=/tmp/course-proof-existing pnpm pr
 3600/API 3601, Telegram 3606, локальный Logto `identity.inside.localhost:3631`, Mailpit 3625/SMTP
 3626, локальный банковский двойник 38090. Они не являются адресами production. Browser runner
 требует published rule `course64`, source `course64`, owner-created tier «Курс 64 · локальная
-практика» с правом `guide:<id>` seeded guide `platform-inside`, правом `community` без срока
+практика» с правом `product:<id>` seeded product `platform-inside`, правом `community` без срока
 и `support` на 6 месяцев. Материал `developer-pipeline-bez-poteri-konteksta` входит в этот продукт.
 Тариф назначается за курс без даты окончания; срок поддержки отсчитывается от активации.
 
@@ -295,7 +295,7 @@ COURSE_PROOF_USER=6400104 COURSE_PROOF_OUTPUT=/tmp/course-proof-existing pnpm pr
 Продажа подписки пока выключена банком; отсутствие возможности оплаты ожидаемо.
 Подарочного режима приглашения нет. Бесплатный курс подписчику Tribute не назначается.
 
-При настройке правила курса выберите тариф курса с прямым правом `guide:<id>` и сроком
+При настройке правила курса выберите тариф курса с прямым правом `product:<id>` и сроком
 сопровождения из тарифа. Тариф «Подписка Inside» с охватом всей платформы для этой активации
 не подходит. Регистр источников Telegram продолжает проверять только разрешённую группу курса.
 

@@ -97,7 +97,7 @@ caller не передаёт.
 - [ADR 0006](../adr/0006-logto-session-and-local-account.md) запрещает второй Platform session,
   generic Principal и speculative M2M identity;
 - [Platform specification](platform-v1.md) закрепляет Platform-owned `ContentAccess`, отдельный
-  `MembershipEntitlement` и protected-load-after-allow;
+  `AccountRights` и protected-load-after-allow;
 - Workspace contract `inside.membership-evidence.v1` задаёт внешний evidence format и
   максимальную пятиминутную validity; Platform хранит exact schema/fixtures и не читает соседний
   checkout или GitHub во время build/runtime;
@@ -134,7 +134,7 @@ Accounts.checkPermission({ accountId, permission: "materials:manage" })
 одного availability batch; его нельзя переносить в JWT, Logto cookie, React state, следующую request или
 `validUntil`-lease. Revocation действует на следующую protected operation.
 
-`MembershipEntitlement` — отдельное заключение Platform о доступе Account к closed
+`AccountRights` — отдельное заключение Platform о доступе Account к closed
 content из независимых paid/manual/legacy оснований. Его срок конечный либо явно бессрочный
 (`validUntil: null`). Объединение возможностей и ограниченный evidence bridge определяет
 [локальный контракт прав](subscription-billing-v1.md#реализованный-access-foundation-404). Оно не является ролью или permission. `Member Profile`, nickname/avatar, `ReadingState`,
@@ -158,16 +158,16 @@ Valid pairs:
 - inline Asset: `read | preview`;
 - downloadable Asset: `download | preview`;
 - Video: `play | preview`;
-- Guide Task: `read` ([#946](https://github.com/sachkov-inside/platform/issues/946)).
+- Product Task: `read` ([#946](https://github.com/sachkov-inside/platform/issues/946)).
 
 Normal `read | download | play` никогда не открывают `draft` или `unpublished`, кроме одного
-исключения: снятое с публикации задание (Guide Task) по `read` открыто автору с `materials:manage`
+исключения: снятое с публикации задание (Product Task) по `read` открыто автору с `materials:manage`
 (`materials_manager`) и закрыто всем остальным (`resource_unpublished`). Факты задания отдаёт port
-`GuideTaskResourceFactsAdapter`, который реализует Module `guide-tasks`: класс доступа
-`free | membership`, Guide задания, публикация и номер текущей версии требований. `free` открыт
-всем; `membership` решает MembershipEntitlements по Guide задания тем же путём, что Guide Artifact:
-право `guide:<id>` или `materials`, чей ContentScope покрывает этот Guide. Точки применения —
-`guide_task_read` (список, чтение, история сдач) и `guide_task_submit` (каждая сдача). `preview` выбирает
+`ProductTaskResourceFactsAdapter`, который реализует Module `product-tasks`: класс доступа
+`free | membership`, Product задания, публикация и номер текущей версии требований. `free` открыт
+всем; `membership` решает AccountRights по Product задания тем же путём, что Product Artifact:
+право `product:<id>` или `materials`, чей Coverage покрывает этот Product. Точки применения —
+`product_task_read` (список, чтение, история сдач) и `product_task_submit` (каждая сдача). `preview` выбирает
 текущее сохранённое состояние Material и требует `materials:manage`. Эта permission также покрывает
 полный authoring workflow, включая publish, unpublish и смену access class; validation и lifecycle
 invariants остаются в Materials и не становятся частью `ContentAccess`.
@@ -246,7 +246,7 @@ Deterministic reason precedence:
 | Draft normal delivery | unpublished | unpublished | unpublished | unpublished | unpublished |
 
 Active Membership не даёт preview, authoring или publish. Permission не создаёт fake
-`MembershipEntitlement`. Profile и activity facts не меняют ни одну строку matrix.
+`AccountRights`. Profile и activity facts не меняют ни одну строку matrix.
 
 `checkAvailabilityMany` coarse-проецирует те же current facts:
 
@@ -290,7 +290,7 @@ video locators и иные связанные с body ресурсы в projecti
 `moderation`. Переходы: `expiry`, `revocation`, `bridge-replaced-by-tribute`,
 `tribute-temporary-source-lost`, `refund`, `refund-without-withdrawal`,
 `support-kept-by-other-ground`, `material-added-to-product`,
-`material-removed-from-product`, `guide-archived`, `tier-composition-change`,
+`material-removed-from-product`, `product-archived`, `tier-composition-change`,
 `tier-archived-with-assignments`. Публикация: `standalone-membership-publication-rejected`.
 Покупки (#775): `course-offer-terms`, `offer-own-terms`, `offer-terms-change-keeps-earlier-purchase`,
 `subscription-offer-without-tribute-ground`, `subscription-offer-with-tribute-ground`; приглашения
@@ -310,12 +310,12 @@ video locators и иные связанные с body ресурсы в projecti
 закрываются, а CommunityEntitlement в тот же момент получает `denied` без запаса: пересчёт
 запускает сама граница (`nextBoundary`), а не следующее изменение прав.
 
-## MembershipEntitlements
+## AccountRights
 
 `ContentAccess` зависит от узкого access-oriented interface:
 
 ```ts
-interface MembershipEntitlements {
+interface AccountRights {
   resolveForAccess(accountId: AccountId): Promise<MembershipAccessState>;
 }
 ```
@@ -418,7 +418,7 @@ inputs или persistent authorization facts.
 apps/backend/src/modules/
   accounts/                  # trusted Account resolution + current materials:manage
   content-access/            # batch orchestration + policy
-  membership-entitlements/  # bounded projection + monotonic evidence application
+  account-rights/  # bounded projection + monotonic evidence application
   materials/                 # resource facts adapter + reader/preview consumers
 ```
 

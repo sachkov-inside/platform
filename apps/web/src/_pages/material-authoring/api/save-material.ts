@@ -5,7 +5,7 @@ import {
   materialDifficultySchema,
 } from "@/shared/api/material-lesson-facts";
 import { materialFormatSchema } from "@/shared/api/material-format";
-import { guideRemovalsFromProblem } from "@/shared/lib/guide-removal";
+import { productRemovalsFromProblem } from "@/shared/lib/product-removal";
 
 import { randomUUID } from "node:crypto";
 
@@ -21,8 +21,8 @@ import {
 import type { SaveMaterialResult } from "../model/save-material";
 import { parseMaterialDocumentFields } from "./parse-material-document-fields";
 const formSchema = z.object({
-  access: z.enum(["free", "membership"]),
-  confirmedGuideRemovals: z.array(z.uuid()).max(100),
+  access: z.enum(["free", "closed"]),
+  confirmedProductRemovals: z.array(z.uuid()).max(100),
   deleteVideoId: z.union([z.uuid(), z.literal("none")]).default("none"),
   detachVideoIds: z.array(z.uuid()),
   difficulty: materialDifficultySchema.or(z.literal("unassigned")),
@@ -119,7 +119,7 @@ function parseForm(formData: FormData):
     } {
   const parsed = formSchema.safeParse({
     access: formData.get("access"),
-    confirmedGuideRemovals: formData.getAll("confirmedGuideRemovals"),
+    confirmedProductRemovals: formData.getAll("confirmedProductRemovals"),
     deleteVideoId: formData.get("deleteVideoId") ?? undefined,
     detachVideoIds: formData.getAll("detachVideoIds"),
     difficulty: formData.get("difficulty"),
@@ -154,9 +154,9 @@ function parseForm(formData: FormData):
     ok: true,
     value: {
       access: parsed.data.access,
-      ...(parsed.data.confirmedGuideRemovals.length === 0
+      ...(parsed.data.confirmedProductRemovals.length === 0
         ? {}
-        : { confirmedGuideRemovals: parsed.data.confirmedGuideRemovals }),
+        : { confirmedProductRemovals: parsed.data.confirmedProductRemovals }),
       deleteVideoId:
         parsed.data.deleteVideoId === "none" ? null : parsed.data.deleteVideoId,
       detachVideoIds: parsed.data.detachVideoIds,
@@ -202,10 +202,10 @@ function mapSaveProblem(
   }
   const removals =
     result.response.status === 409
-      ? guideRemovalsFromProblem(result.problem)
+      ? productRemovalsFromProblem(result.problem)
       : null;
   if (removals !== null) {
-    return { guides: removals, kind: "removal_confirmation_required" };
+    return { products: removals, kind: "removal_confirmation_required" };
   }
   if (
     result.response.status === 409 &&

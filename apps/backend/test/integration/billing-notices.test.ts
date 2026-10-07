@@ -11,7 +11,7 @@ import {
   NotificationAccounts,
 } from "../../src/modules/accounts/index.js";
 import { billingContactProtection } from "../../src/modules/accounts/infrastructure/billing-contact-protection.js";
-import { assembleAccessGrants } from "../../src/modules/membership-entitlements/index.js";
+import { assembleAccessGrants } from "../../src/modules/account-rights/index.js";
 import { TelegramAccountLinks } from "../../src/modules/telegram-membership/index.js";
 import {
   assembleBillingNotificationOutbox,
@@ -193,7 +193,7 @@ describe("служебные сообщения подписки (реальны
           id: offerId,
           name: "Материалы",
           benefits: ["materials"],
-          contentScope: { guideIds: [randomUUID()], materialIds: [] },
+          coverage: { productIds: [randomUUID()], materialIds: [] },
         },
       }),
     );
@@ -437,7 +437,7 @@ describe("служебные сообщения подписки (реальны
             id: nextOfferId,
             name,
             benefits: [...benefits],
-            contentScope: { guideIds: [randomUUID()], materialIds: [] },
+            coverage: { productIds: [randomUUID()], materialIds: [] },
           },
         }),
       );
@@ -876,10 +876,10 @@ describe("служебные сообщения подписки (реальны
       revision: 1,
       name: "Исторический срок: материалы",
       benefits: ["materials", "community"],
-      contentScope: { guideIds: [randomUUID()], materialIds: [] },
+      coverage: { productIds: [randomUUID()], materialIds: [] },
     };
     const id = randomUUID();
-    await db.prisma.subscriptionEnrollment.create({
+    await db.prisma.tariffAssignment.create({
       data: {
         id,
         accountId,
@@ -903,7 +903,7 @@ describe("служебные сообщения подписки (реальны
         source: "manual",
         sourceRef: `enrollment:${id}`,
         capabilities: snapshot.benefits,
-        contentScope: snapshot.contentScope,
+        coverage: snapshot.coverage,
         startsAt: new Date(startsAt),
         validUntil: endsAt === null ? null : new Date(endsAt),
         revision: 1,
@@ -921,7 +921,7 @@ describe("служебные сообщения подписки (реальны
     endsAt: string,
   ) {
     // Seed an externally changed historical period to test the notification boundary.
-    await db.prisma.subscriptionEnrollment.update({
+    await db.prisma.tariffAssignment.update({
       where: { id: enrollment.id },
       data: { endsAt: new Date(endsAt), revision: { increment: 1 } },
     });
@@ -962,7 +962,7 @@ describe("служебные сообщения подписки (реальны
       s.sent.filter((message) => message.subject === endingSubject);
     expect(reminders()).toHaveLength(1);
     // Ссылка ведёт на оформление того же Offer, который выдан назначением.
-    const checkout = `${origin}/subscription?offer=${enrollment.tier.id}`;
+    const checkout = `${origin}/payment/checkout?offer=${enrollment.tier.id}`;
     expect(reminders()[0]?.text).toContain(checkout);
     expect(reminders()[0]?.text).toContain("Дата: 2031-03-10T00:00:00.000Z.");
     expect(s.telegramCommands).toHaveLength(1);
@@ -1123,7 +1123,9 @@ describe("служебные сообщения подписки (реальны
         })
       ).snapshot,
     ).offer.id;
-    expect(reminder?.text).toContain(`${origin}/subscription?offer=${offerId}`);
+    expect(reminder?.text).toContain(
+      `${origin}/payment/checkout?offer=${offerId}`,
+    );
     // История покупок о напоминании окончания не рассказывает.
     expect(
       (await s.cabinet()).notices.map((notice) => notice.kind),
@@ -1207,7 +1209,7 @@ describe("служебные сообщения подписки (реальны
     const { row: subscription, offerId } = await subscriptionOf(s.buyer);
     // Enrollment оплаченного периода самой подписки продолжением не считается, даже если его срок
     // записан дальше конца подписки.
-    const ownPeriods = await db.prisma.subscriptionEnrollment.updateMany({
+    const ownPeriods = await db.prisma.tariffAssignment.updateMany({
       where: { billingRef: subscription.id },
       data: { endsAt: new Date("2030-03-30T10:00:00Z") },
     });

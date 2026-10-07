@@ -23,7 +23,7 @@ const fixtureStateSchema = z.object({
   LOGTO_AUDIENCE: z.string(),
   LOGTO_APP_ID: z.string(),
   CONTROL_URL: z.string(),
-  GUIDE_SLUG: z.string(),
+  PRODUCT_SLUG: z.string(),
 });
 const directory = await mkdtemp(join(tmpdir(), "inside-buyer-journey-"));
 const fixturePath = join(directory, "fixture.json");
@@ -110,7 +110,7 @@ try {
     WEB_BASE_URL: webUrl,
     FULLSTACK_WEB_BASE_URL: webUrl,
     BUYER_JOURNEY_CONTROL_URL: state.CONTROL_URL,
-    BUYER_JOURNEY_GUIDE_SLUG: state.GUIDE_SLUG,
+    BUYER_JOURNEY_PRODUCT_SLUG: state.PRODUCT_SLUG,
   };
   // Адреса, к которым обращается сценарий: сервер без любого из них перезапускается. У адреса,
   // который принимает только POST, существующий маршрут отвечает на GET кодом 405, а не 404.
@@ -119,12 +119,12 @@ try {
     routes: [
       "/",
       "/welcome",
-      `/products/${state.GUIDE_SLUG}`,
-      `/products/${state.GUIDE_SLUG}/buy`,
+      `/products/${state.PRODUCT_SLUG}`,
+      `/products/${state.PRODUCT_SLUG}/buy`,
       "/materials/kak-ustroen-inside-platform",
       "/account",
       "/account/purchases",
-      "/subscription/return",
+      "/payment/return",
       "/auth/status",
       "/auth/sign-in",
       "/api/account",

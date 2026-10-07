@@ -2,7 +2,7 @@ import { Bot, Eye, FileText, GitBranch, Inbox } from "lucide-react";
 import Link from "next/link";
 import type { ReactNode } from "react";
 
-import { formatSubmissionMoment } from "@/entities/guide-task";
+import { formatSubmissionMoment } from "@/entities/product-task";
 import { internalRoute } from "@/shared/routing/internal-route";
 import { Button } from "@/shared/ui/button";
 
@@ -77,7 +77,7 @@ export function TaskSubmissionsView({
   readonly submissions: TaskSubmissions;
 }) {
   const filtered =
-    selection.guideId !== undefined || selection.taskCode !== undefined;
+    selection.productId !== undefined || selection.taskCode !== undefined;
   return (
     <TaskSubmissionsFrame>
       <SubmissionFilter selection={selection} submissions={submissions} />
@@ -138,17 +138,17 @@ function SubmissionFilter({
   readonly selection: SubmissionSelection;
   readonly submissions: TaskSubmissions;
 }) {
-  const guide = submissions.guides.find(
-    (item) => item.id === selection.guideId,
+  const product = submissions.products.find(
+    (item) => item.id === selection.productId,
   );
-  const chapter = guide?.chapters.find(
+  const chapter = product?.chapters.find(
     (item) => item.id === selection.chapterId,
   );
   const taskGroups =
     chapter !== undefined
       ? [chapter]
-      : (guide?.chapters ??
-        submissions.guides.flatMap((item) => item.chapters));
+      : (product?.chapters ??
+        submissions.products.flatMap((item) => item.chapters));
   return (
     <form
       action={submissionsHref}
@@ -159,11 +159,11 @@ function SubmissionFilter({
       <Field label="Продукт">
         <select
           className={fieldClass}
-          defaultValue={selection.guideId ?? ""}
-          name="guideId"
+          defaultValue={selection.productId ?? ""}
+          name="productId"
         >
           <option value="">Все продукты</option>
-          {submissions.guides.map((item) => (
+          {submissions.products.map((item) => (
             <option key={item.id} value={item.id}>
               {item.name}
             </option>
@@ -174,13 +174,13 @@ function SubmissionFilter({
         <select
           className={fieldClass}
           defaultValue={selection.chapterId ?? ""}
-          disabled={guide === undefined}
+          disabled={product === undefined}
           name="chapterId"
         >
           <option value="">
-            {guide === undefined ? "Выберите продукт" : "Все главы"}
+            {product === undefined ? "Выберите продукт" : "Все главы"}
           </option>
-          {guide?.chapters.map((item) => (
+          {product?.chapters.map((item) => (
             <option key={item.id} value={item.id}>
               {item.name}
             </option>
@@ -246,7 +246,7 @@ function SubmissionCard({
     >
       <header className="grid gap-1.5">
         <p className="text-xs text-muted-foreground">
-          {submission.task.guideName ?? "Продукт не найден"} ·{" "}
+          {submission.task.productName ?? "Продукт не найден"} ·{" "}
           {submission.task.chapterName ?? "глава удалена"}
         </p>
         <h2

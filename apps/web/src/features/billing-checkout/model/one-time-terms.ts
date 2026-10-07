@@ -3,7 +3,7 @@ import {
   oneTimePurchaseTerms,
 } from "@inside/legal/purchase-terms";
 
-import { fillOfferTerms, type OfferTerms } from "@/entities/guide-page";
+import { fillOfferTerms, type OfferTerms } from "@/entities/product-page";
 import {
   formatKopecks,
   formatMonths,

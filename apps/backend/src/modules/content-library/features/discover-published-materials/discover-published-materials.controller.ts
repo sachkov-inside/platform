@@ -38,7 +38,7 @@ import { VIDEOS, type Videos } from "../../../videos/index.js";
 import {
   LEARNING_TASKS,
   type LearningTasks,
-} from "../../../guide-tasks/index.js";
+} from "../../../product-tasks/index.js";
 import { throwContentLibraryError } from "../../adapters/nest/content-library-http-errors.js";
 import {
   publishedSeriesPageHttpSchema,
@@ -96,18 +96,18 @@ export class DiscoverPublishedMaterialsController {
     return this.read("topic", slug, TOPIC_METADATA_SIZE, account);
   }
 
-  @Get("guides/:slug")
+  @Get("products/:slug")
   @ApiOperation({
-    operationId: "readPublishedGuide",
-    summary: "Read a generated ordered Guide view",
+    operationId: "readPublishedProduct",
+    summary: "Read a generated ordered Product view",
   })
   @ApiParam({ name: "slug", required: true, schema: discoverySlugSchema })
   @ApiOkResponse({
-    description: "Published Materials in author-defined Guide order",
+    description: "Published Materials in author-defined Product order",
     schema: toOpenApiSchema(publishedSeriesPageHttpSchema),
   })
   @DiscoveryErrorResponses()
-  readGuide(
+  readProduct(
     @OptionalCurrentAccount() account: AuthenticatedAccount | undefined,
     @Param("slug") slug: string,
   ) {

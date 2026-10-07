@@ -15,7 +15,7 @@ import {
   BillingContact,
 } from "../../src/modules/accounts/index.js";
 import { billingContactProtection } from "../../src/modules/accounts/infrastructure/billing-contact-protection.js";
-import { assembleAccessGrants } from "../../src/modules/membership-entitlements/index.js";
+import { assembleAccessGrants } from "../../src/modules/account-rights/index.js";
 import { BillingPayments } from "../../src/modules/billing/index.js";
 import { syntheticTbankConfig } from "../support/bank-terminal.js";
 import {
@@ -280,7 +280,7 @@ describe("Billing purchases HTTP", () => {
           id: offerId,
           name: "Synthetic subscription",
           benefits: ["materials"],
-          contentScope: { guideIds: [randomUUID()], materialIds: [] },
+          coverage: { productIds: [randomUUID()], materialIds: [] },
         },
       }),
     );

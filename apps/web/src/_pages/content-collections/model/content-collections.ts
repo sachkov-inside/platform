@@ -5,29 +5,31 @@ import { contentCoverSchema } from "@/entities/material.model";
 export type ContentCollectionKind = "series" | "topic";
 
 /** One introduction field holds an authored paragraph, not a headline. */
-export const GUIDE_INTRODUCTION_FIELD_MAX = 4000;
+export const PRODUCT_INTRODUCTION_FIELD_MAX = 4000;
 
-export const guideIntroductionSchema = z
+export const productIntroductionSchema = z
   .object({
-    audience: z.string().max(GUIDE_INTRODUCTION_FIELD_MAX),
-    outcome: z.string().max(GUIDE_INTRODUCTION_FIELD_MAX),
-    prerequisites: z.string().max(GUIDE_INTRODUCTION_FIELD_MAX),
-    scope: z.string().max(GUIDE_INTRODUCTION_FIELD_MAX),
+    audience: z.string().max(PRODUCT_INTRODUCTION_FIELD_MAX),
+    outcome: z.string().max(PRODUCT_INTRODUCTION_FIELD_MAX),
+    prerequisites: z.string().max(PRODUCT_INTRODUCTION_FIELD_MAX),
+    scope: z.string().max(PRODUCT_INTRODUCTION_FIELD_MAX),
   })
   .strict();
 
-export type GuideIntroductionDraft = z.infer<typeof guideIntroductionSchema>;
+export type ProductIntroductionDraft = z.infer<
+  typeof productIntroductionSchema
+>;
 
 export const contentCollectionSchema = z
   .object({
     archived: z.boolean(),
     cover: contentCoverSchema.nullable().optional(),
     id: z.uuid(),
-    introduction: guideIntroductionSchema.nullable().default(null),
+    introduction: productIntroductionSchema.nullable().default(null),
     kind: z.enum(["series", "topic"]),
     materialCount: z.number().int().nonnegative(),
     name: z.string(),
-    // Страница Guide из авторского оригинала (#671); список автора её не рисует, поэтому схема
+    // Страница Product из авторского оригинала (#671); список автора её не рисует, поэтому схема
     // её только пропускает, а не проверяет.
     page: z.unknown().optional(),
     pageRejected: z.boolean().optional(),
@@ -52,7 +54,7 @@ export interface UpdateContentCollectionInput {
   readonly collectionId: string;
   readonly expectedVersion: number;
   /** Omitted keeps the stored introduction; supplied replaces all four fields. */
-  readonly introduction?: GuideIntroductionDraft;
+  readonly introduction?: ProductIntroductionDraft;
   readonly kind: ContentCollectionKind;
   readonly name: string;
   readonly summary: string;

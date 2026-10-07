@@ -20,7 +20,7 @@ import { MATERIAL_AUTHORING } from "../../facets/material-authoring/material-aut
 import type { MaterialAuthoring } from "../../facets/material-authoring/material-authoring.js";
 
 const querySchema = z
-  .object({ kind: z.enum(["guide", "series", "topic"]) })
+  .object({ kind: z.enum(["product", "series", "topic"]) })
   .strict();
 
 @MaterialAuthoringEndpoint()
@@ -34,9 +34,9 @@ export class ListContentCollectionsController {
   @Get()
   @ApiOperation({
     operationId: "listAuthoringContentCollections",
-    summary: "List Topics or Guides for authoring",
+    summary: "List Topics or Products for authoring",
   })
-  @ApiQuery({ name: "kind", schema: { enum: ["guide", "series", "topic"] } })
+  @ApiQuery({ name: "kind", schema: { enum: ["product", "series", "topic"] } })
   @ApiOkResponse({ schema: toOpenApiSchema(contentCollectionListSchema) })
   @ApiMaterialAuthoringErrors(400, 401, 403, 500, 503)
   async list(

@@ -1,12 +1,12 @@
 # Platform v1 application specification
 
 Общая пользовательская категория — «продукт» по [Workspace #181](https://github.com/sachkov-inside/workspace/issues/181).
-Product отображается на существующий Guide, а Series остаётся совместимым техническим именем;
+Product отображается на существующий Product, а Series остаётся совместимым техническим именем;
 определения находятся в [GLOSSARY](../../GLOSSARY.md), коммерческая граница — в
 [brief](../product/platform-mvp-brief.md#продукты-и-подписки). «Руководство» в прежних описаниях
 ниже означает этот же продукт. Авторские названия и Format «Гайд» не меняются.
 
-Текущий переход Series → Guide и сохранённые wire-имена описаны в
+Текущий переход Series → Product и сохранённые wire-имена описаны в
 [контракте миграции руководств](guides-migration.md).
 
 Статус: подтверждённый repository-local contract для
@@ -59,7 +59,7 @@ consequences:
   invariant;
 - admin, REST и MCP используют один full-state Save contract, validation и conflict policy;
 - один provider-neutral `ContentAccess` является final Platform authority для read, preview,
-  asset/download и video access, а `MembershipEntitlements` только строит bounded Platform grant
+  asset/download и video access, а `AccountRights` только строит bounded Platform grant
   из принятого evidence;
 - Identity Provider доказывает Logto Identity, но только Platform сопоставляет её с Account и
   решает permissions, Membership и content access;
@@ -194,7 +194,7 @@ production trade-off подтверждён evidence, а не заранее д�
 - Public interface использует domain names без storage suffix: `MaterialBodySnapshot` и
   `RenderedMaterialBody`. Persisted body сохраняет явный schema discriminator, а exact codec names
   могут содержать `V1` внутри implementation.
-- Production `MaterialsModule` статически импортирует `Accounts` и `MembershipEntitlements`,
+- Production `MaterialsModule` статически импортирует `Accounts` и `AccountRights`,
   собирает `ContentAccess` из их public interfaces и экспортирует authoring, access и published-read
   facets для реальных consumers. Framework-agnostic `assembleMaterials` принимает те же policy
   seams для acceptance tests и non-Nest entrypoints; placeholder/global policy ради декоративного
@@ -314,7 +314,7 @@ Entry points вызывают одни application use cases и не созда�
 | `Materials` | `MaterialAuthoring` создаёт и full-state-save-ит current Material; reader возвращает published current state | content/metadata, publication/access state, content version, author policy, internal body schemas, safe public/search projections |
 | `ContentLibrary` | читать bounded Home, единый catalog, search и Topic/Series navigation | current published projections, ranking, filtered facets и bounded Series previews |
 | [`ContentAccess`](content-access-authorization-v1.md) | batch `checkAvailabilityMany` для presentation и single `authorize` для protected delivery | provider-neutral policy, requirements/grants и reason codes |
-| `MembershipEntitlements` | принять MembershipEvidence и построить Platform-owned entitlement | state, validity и monotonic evidence application |
+| `AccountRights` | принять MembershipEvidence и построить Platform-owned entitlement | state, validity и monotonic evidence application |
 | `Assets` | начать/finalize upload, связать с current Material и ограничить delivery | Asset identity, readiness и immutable resource references |
 | `Videos` | upload, status, reconcile, bind и authorize playback | local Video identity и Kinescope mapping/status |
 | `ReadingActivity` | установить manual read/unread, пакетно читать состояния и private recent opens | Account-to-Material state и atomic transition history; не content access/analytics |
@@ -344,14 +344,14 @@ entities и invariants v1:
 | `Format` | Material имеет ровно один Format; это primary consumption mode, не Asset kind |
 | `Tag` | Material имеет 0..N Tags; managed dictionary поддерживает rename/merge без synonyms-duplicates |
 | `Series` | имеет 0..N ordered memberships; Material входит в 0..N Series |
-| `SeriesMembership` | пара Series/Material уникальна; ordinal уникален внутри Series; nullable stepGroup связывает шаги только в контексте этой Series; nullable chapter принадлежит тому же Guide |
-| `GuideChapter` | принадлежит ровно одному Guide; стабильный идентификатор, name, авторское описание и ordinal внутри Guide; владеет непрерывным участком основного маршрута и не хранит копии материалов |
+| `SeriesMembership` | пара Series/Material уникальна; ordinal уникален внутри Series; nullable stepGroup связывает шаги только в контексте этой Series; nullable chapter принадлежит тому же Product |
+| `ProductChapter` | принадлежит ровно одному Product; стабильный идентификатор, name, авторское описание и ordinal внутри Product; владеет непрерывным участком основного маршрута и не хранит копии материалов |
 | `ContentCover` | принадлежит ровно одному Material, Topic или Series; current cover не переиспользуется между owners; только normalized public WebP renditions, original/key/checksum не входят в read contract |
 | `MaterialAsset` | принадлежит ровно одному Material; current MaterialBody ссылается на 0..N immutable ready MaterialAssets; `pending | processing | ready | failed` |
 | `Video` | local identity с одним Kinescope provider mapping; current Material ссылается на 0..1 primary Video вне body |
 | `ExternalLink` | typed label + normalized URL; current Material содержит 0..N links |
 | `NavigationPage` | editorial content и curated/query links; Roadmap использует эту роль |
-| `MembershipEntitlement` | не более одного current `inside_membership` projection на Account; validity bounded |
+| `AccountRights` | не более одного current `inside_membership` projection на Account; validity bounded |
 | `ReadingState` | не более одного current state на пару Account/Material |
 
 `Material` содержит current application-owned versioned document, metadata и local Asset/Video
@@ -420,31 +420,31 @@ Series, alongside its existing `materials` list. A full authoring snapshot maps 
 assignments. Resolve local Material IDs before sending the map. This is a contract for the future
 importer, not an implemented automatic import or publication flow.
 
-### Guide chapters
+### Product chapters
 
-Глава — необязательная именованная часть основного маршрута Guide. Она имеет стабильный
+Глава — необязательная именованная часть основного маршрута Product. Она имеет стабильный
 идентификатор, поэтому переименование не теряет её тождество при повторном сохранении или импорте.
 `name` — точная строка после `trim()`, 1–120 UTF-16 code units. `summary` — авторское описание
 после `trim()`, до 4000 UTF-16 code units; пустая строка означает отсутствие описания. Оно
 сохраняет текст авторской базы без потерь и читателю показывается на странице продукта
 руководства как обзор программы. Порядок глав задаётся их позицией в сохранённом списке.
 
-Глава не владеет материалами. `SeriesMembership.chapter` связывает membership этого же Guide с
-главой этого же Guide; составной внешний ключ не допускает главу другого Guide. Удаление главы
-отвязывает её материалы и не удаляет ни Material, ни его membership. Один Material в двух Guide
-получает независимые главы. Плоский Guide без глав остаётся допустимым, как и материалы без главы
-внутри Guide с главами. Пустая глава допустима и остаётся видимой.
+Глава не владеет материалами. `SeriesMembership.chapter` связывает membership этого же Product с
+главой этого же Product; составной внешний ключ не допускает главу другого Product. Удаление главы
+отвязывает её материалы и не удаляет ни Material, ни его membership. Один Material в двух Product
+получает независимые главы. Плоский Product без глав остаётся допустимым, как и материалы без главы
+внутри Product с главами. Пустая глава допустима и остаётся видимой.
 
-В главе могут стоять задания (Guide Task). Они не входят в основной маршрут: программа показывает
+В главе могут стоять задания (Product Task). Они не входят в основной маршрут: программа показывает
 каждое после названного автором материала той же главы или в начале главы, без номера урока
-([Guide Task page and programme](#guide-task-page-and-programme-947)).
+([Product Task page and programme](#product-task-page-and-programme-947)).
 
 Материалы одной главы занимают один непрерывный участок основного маршрута, а главы, в которых
 есть материалы, следуют объявленному порядку глав. Нарушение возвращает `invalid_reference` с
-кодами `guide_chapter_not_continuous` или `guide_chapter_out_of_order`; ссылка на неизвестную главу
-даёт `guide_chapter_not_found`, а попытка занять главу другого Guide — `guide_chapter_claimed`.
+кодами `product_chapter_not_continuous` или `product_chapter_out_of_order`; ссылка на неизвестную главу
+даёт `product_chapter_not_found`, а попытка занять главу другого Product — `product_chapter_claimed`.
 
-`reorderSeries` / REST `PUT /authoring/guides/:guideId/order` / MCP `guide_save_composition`
+`reorderSeries` / REST `PUT /authoring/products/:productId/order` / MCP `product_save_composition`
 принимают необязательные `chapters` и `chapterAssignments` рядом с `orderedMaterialIds`. `chapters`
 — полный упорядоченный список глав; отсутствующая в нём глава удаляется, отсутствие поля сохраняет
 текущие главы. `chapterAssignments` — полное размещение материалов; отсутствие поля сохраняет
@@ -461,13 +461,13 @@ membership главу не восстанавливает.
 Материал, перенесённый из источника, и материал, созданный в редакторе, не смешиваются в одном
 составе (#841). Добавление материала с другой принадлежностью возвращает `invalid_reference` с
 кодом `material_source_mismatch` и путём `/orderedMaterialIds/<n>`; редактор называет автору этот
-материал. Запись состава перенесённого Guide через редактор остаётся `forbidden`; редактор
+материал. Запись состава перенесённого Product через редактор остаётся `forbidden`; редактор
 отличает этот отказ от завершившейся сессии и не предлагает войти заново.
 
-Страница перенесённого Guide в редакторе такую запись не отправляет (#844, решение владельца
-02.10.2026). Guide с непустым `sourceId` она показывает для чтения: название, описание, блок
+Страница перенесённого Product в редакторе такую запись не отправляет (#844, решение владельца
+02.10.2026). Product с непустым `sourceId` она показывает для чтения: название, описание, блок
 «О продукте» и состав выводятся текстом, действия архива нет. Это ровно то, что backend для
-перенесённого Guide из редактора отклоняет как `forbidden`: `updateContentCollection`,
+перенесённого Product из редактора отклоняет как `forbidden`: `updateContentCollection`,
 `setContentCollectionArchive` и `reorderSeries`. Обложка, закреп на главной и артефакты остаются
 действиями редактора.
 
@@ -502,8 +502,8 @@ membership главу не восстанавливает.
 [#1050](https://github.com/sachkov-inside/platform/issues/1050)).
 
 Materials читает главы, текущие привязки и опубликованный маршрут одним снимком в
-`shared/guide-composition.ts`. Программа, прогресс, продолжение, `GuideDirectory` и `GuideOutlines`
-используют этот состав. `GuideDirectory` сохраняет черновые привязки для импорта заданий,
+`shared/product-composition.ts`. Программа, прогресс, продолжение, `ProductDirectory` и `ProductOutlines`
+используют этот состав. `ProductDirectory` сохраняет черновые привязки для импорта заданий,
 но помечает материал опубликованным только при наличии его в опубликованном маршруте.
 Поэтому размещение задания и отчёт воронки считают материалы тех же глав, что программа.
 Архивную программу, прогресс и материалы читает только Account с доступом к продукту; гость и
@@ -515,8 +515,8 @@ Account без права получают «не найдено». `ContentAcce
 
 ### Страница руководства
 
-Страница продукта строится из данных Guide, а не из кода (решение владельца 17.09.2026,
-[ADR 0026](../adr/0026-guide-page-from-source-data.md)). `Guide` хранит `presentation` — имя
+Страница продукта строится из данных Product, а не из кода (решение владельца 17.09.2026,
+[ADR 0026](../adr/0026-guide-page-from-source-data.md)). `Product` хранит `presentation` — имя
 оформления из реестра в коде (`default`, `ai-first-process`) — и `page`: необязательную подпись
 карточки Главной (`card`) и упорядоченные типизированные блоки описания (`hero`, `cards`, `text`,
 `steps`, `list`, `trial`). Блок имеет устойчивый `id`, по которому оформление узнаёт знакомый блок и добавляет ему свою
@@ -526,11 +526,11 @@ Account без права получают «не найдено». `ContentAcce
 вводный блок `hero` не повторяется, а подстановками считаются только `{access_term}` и
 `{support_term}`. Описание, которое не проходит схему выпуска, читателю не показывается, отмечается
 в редакторском списке как `pageRejected` и заменяется следующим переносом. Оба поля и `slug` меняет только source-scoped
-импорт из Inside Content (`POST /authoring/import/guides/update`); редактор и MCP их не пишут, а
-версия `Guide` покрывает их вместе с названием и описанием. Публичное чтение отдаёт их в
+импорт из Inside Content (`POST /authoring/import/products/update`); редактор и MCP их не пишут, а
+версия `Product` покрывает их вместе с названием и описанием. Публичное чтение отдаёт их в
 `reference.productPage`, Главная — в `pinnedSeries.presentation` и `pinnedSeries.card`. Неизвестное
 оформление сайт показывает общим шаблоном и пишет предупреждение в журнал сервера; перенос такой
-пакет отклоняет проверкой `POST /authoring/import/guides/validate` до первой записи. Постоянный ключ продукта — `sourceId` и UUID `Guide`, поэтому смена `slug`
+пакет отклоняет проверкой `POST /authoring/import/products/validate` до первой записи. Постоянный ключ продукта — `sourceId` и UUID `Product`, поэтому смена `slug`
 сохраняет продукт, оформление, закрепление на Главной, состав и прогресс читателей.
 
 Для курса `ai-engineering` («AI Engineering», [#808](https://github.com/sachkov-inside/platform/issues/808))
@@ -540,7 +540,7 @@ Account без права получают «не найдено». `ContentAcce
 спецификация, фичи, CI и мониторинг) без кнопки паузы; при reduced motion — неподвижный итоговый кадр.
 Известные блоки (`mentoring`, `topics`, `value`, `format`, `practice`, `agents`, `audience`, `faq`,
 `status`) получают свои значки и иллюстрации, остальные рисуются по виду. Разделы проявляются при
-прокрутке средствами CSS. Весь текст — ключ `page` в `guides/02. Inside AI Engineering/guide.yaml`;
+прокрутке средствами CSS. Весь текст — ключ `page` в `products/02. Inside AI Engineering/product.yaml`;
 обложка продукта оттуда же показывается в программе и каталоге. Программа и прохождение остаются на
 странице программы: туда ведут все кнопки, кроме кнопки первого экрана при заведённом потоке — тогда
 над ней стоит плашка потока, а сама она ведёт по этапу продаж
@@ -555,7 +555,7 @@ Account без права получают «не найдено». `ContentAcce
 авторское сопровождение и бонусы. Стек выбирает участник, в том числе для учебного проекта; фиксированного стека
 учебного примера лендинг не задаёт. Отдельного блока расходов на лендинге нет. Большие блоки,
 повторяющие темы программы, убраны. Основы программирования нужны до старта. Её текст живёт в
-оригинале Inside Content (`guides/01. AI-first разработка/guide.yaml`, ключ `page`); диаграммы,
+оригинале Inside Content (`products/01. AI-first разработка/product.yaml`, ключ `page`); диаграммы,
 значки и кнопки навигации принадлежат оформлению `ai-first-process` в web. Это не новая универсальная
 схема введения и не отдельный путь чтения. Наличие руководства, опубликованные материалы, главы,
 количества и доступ по-прежнему определяет Materials. Главное действие ведёт в `/products/:slug/programme`.
@@ -572,10 +572,10 @@ Account без права получают «не найдено». `ContentAcce
 На мобильном анимация предшествует всему тексту hero. Бесплатное количество показывается рядом
 с первым действием и определяется Materials. Цена ещё не определена; сроки ответов не гарантируются.
 
-`Guide` хранит введение для читателя: `outcome` — что читатель сможет, `audience` — для кого,
+`Product` хранит введение для читателя: `outcome` — что читатель сможет, `audience` — для кого,
 `prerequisites` — что нужно знать заранее, `scope` — что разбираем и что остаётся за границами.
 Каждое поле — точная строка после `trim()`, до 4000 UTF-16 code units; пустая строка означает
-ненаписанное поле. Имена полей совпадают с `guide.yaml` авторской базы Inside Content, поэтому
+ненаписанное поле. Имена полей совпадают с `product.yaml` авторской базы Inside Content, поэтому
 импорт переносит авторский текст без перевода. У Topic введения нет.
 
 `updateContentCollection` / REST `PUT /authoring/collections/:collectionId` /
@@ -591,13 +591,13 @@ MCP `content_collection_update` принимают необязательный 
 показывает только написанные поля, поэтому частично заполненное руководство не выглядит
 завершённым.
 
-Раздел артефактов страница читает отдельным `GET /guides/:guideId/artifacts`, который уже отдаёт
+Раздел артефактов страница читает отдельным `GET /products/:productId/artifacts`, который уже отдаёт
 `availability` по общему `ContentAccess`. Закрытый артефакт сохраняет название, назначение, версию
 и дату обновления, но не байты и не внешний адрес. Недоступность этого раздела не ломает страницу:
 маршрут и введение остаются, а читателю сказано, что раздел сейчас не открывается. Так же ведёт себя
 и рассогласование, когда каталог руководство нашёл, а раздел артефактов отвечает `404`: страница
 остаётся целой, потому что читателю нечего выиграть от потери всей страницы из-за одного раздела. Файл выдаётся
-через same-origin `/api/guides/:guideId/artifacts/:artifactId/file`; решение о доступе, protected
+через same-origin `/api/products/:productId/artifacts/:artifactId/file`; решение о доступе, protected
 redirect и cache policy остаются за backend.
 
 Шапка программы содержит обложку 3:2, название, приглашение к оплате и прогресс вошедшего
@@ -652,9 +652,9 @@ platform#808). Сложность и результаты обучения ос�
 
 ### Редактор руководства
 
-Общий список `/authoring/guides` показывает обложку, название, число материалов, архивное
+Общий список `/authoring/products` показывает обложку, название, число материалов, архивное
 состояние и закреп каждого руководства. Название открывает отдельную страницу
-`/authoring/guides/[seriesId]`; вложенного редактора в списке нет. Значок закрепа меняет
+`/authoring/products/[seriesId]`; вложенного редактора в списке нет. Значок закрепа меняет
 единственное руководство на главной без открытия редактора; выбранная строка отмечена «На главной».
 Архивное руководство можно открыть для редактирования и снять его существующий закреп.
 
@@ -670,7 +670,7 @@ platform#808). Сложность и результаты обучения ос�
 Возврат ко всем руководствам дожидается сохранения изменений; ошибка не закрывает редактор.
 Архивирование и восстановление остаются на странице руководства. Руководство, перенесённое из
 источника, эта страница показывает для чтения, без правки названия, описания, введения, состава и
-без архива: правило описано в разделе [Guide chapters](#guide-chapters).
+без архива: правило описано в разделе [Product chapters](#product-chapters).
 
 ### Authoring и publish
 
@@ -682,11 +682,11 @@ platform#808). Сложность и результаты обучения ос�
 3. Save atomically меняет content, metadata, `free | membership`, publication state,
    `contentVersion` и public/search projections. Stale version возвращает conflict без записи;
    published Save сразу виден читателю и не создаёт history/audit snapshot.
-4. Preview читает current saved Material. Для Material в Guide страница
+4. Preview читает current saved Material. Для Material в Product страница
    `/authoring/materials/:id/preview` показывает его место в авторском составе (#806): главы в
    объявленном порядке, затем материалы вне глав, с черновиками и снятыми материалами; «Назад» и
-   «Дальше» идут по этому же порядку и ведут в Preview соседнего Material. Параметр `guide`
-   выбирает Guide, когда Material входит в несколько; чужой идентификатор заменяется первым Guide.
+   «Дальше» идут по этому же порядку и ведут в Preview соседнего Material. Параметр `product`
+   выбирает Product, когда Material входит в несколько; чужой идентификатор заменяется первым Product.
    Сбой чтения состава не прячет сам Preview; отказ в правах закрывает страницу целиком. Пара
    `Video: preview` из [контракта доступа](content-access-authorization-v1.md) в выдаче плеера ещё
    не реализована (#838): он выдаётся только опубликованному Material, поэтому Preview пока
@@ -942,7 +942,7 @@ Storybook и реальные маршруты используют один pro
 - PostgreSQL FTS ранжирует title выше description/headings, затем taxonomy/body/assets и проверяется на
   bounded representative RU/EN corpus;
 - Home получает одну bounded body-free проекцию с Series первыми, затем Topics и секциями
-  Videos/Guides/Notes;
+  Videos/Products/Notes;
 - Library имеет один текстовый search, независимо сопоставляющий Series по name/summary и Materials
   по их search projection. Series results не зависят от фильтров и pagination материалов;
 - Topic/Format/sort находятся в секции Materials и влияют только на её выдачу. Публичное URL-state
@@ -1031,10 +1031,10 @@ The following bullets describe the **authoring** surface:
   server-rendered content/metadata, sitemap и crawlable internal links; Library сохраняет stable
   canonical URL и server-rendered metadata, но browser-owned catalog загружает через BFF;
 - canonical адрес продукта — `/products/<slug>` (решение владельца 30.09.2026, #808); прежние
-  `/guides/<slug>` и `/series/<slug>` со всеми вложенными адресами отвечают постоянным
+  `/products/<slug>` и `/series/<slug>` со всеми вложенными адресами отвечают постоянным
   перенаправлением на `/products/`, поэтому старые ссылки и закладки работают, а в sitemap остаётся
   один адрес;
-- home, Material, Guide и Topic отдают полную карточку ссылки: `openGraph`, `twitter`, canonical и
+- home, Material, Product и Topic отдают полную карточку ссылки: `openGraph`, `twitter`, canonical и
   `og:locale`. `metadataBase` читается из среды выполнения, поэтому перенос домена не требует
   пересборки. Library, Roadmap и витрина подписки сохраняют server-rendered заголовок, но пока
   не отдают карточку ссылки и canonical: для них нужен request-time рендер;
@@ -1268,16 +1268,16 @@ recheck rereads current evidence and covers the full rubric. No learner progress
 is stored by this feature. The tested client profiles and evidence limits belong to the practice
 review runbook; synthetic success is not proof of learning or production onboarding.
 
-#### Guide Tasks on the participant surface
+#### Product Tasks on the participant surface
 
 Source: [Platform #946](https://github.com/sachkov-inside/platform/issues/946), specification
 [#939](https://github.com/sachkov-inside/platform/issues/939), [ADR 0030](../adr/0030-guide-task-module.md).
-The `guide-tasks` Module registers four tools and one prompt on the same `/learning` surface; the
+The `product-tasks` Module registers four tools and one prompt on the same `/learning` surface; the
 surface stays without author permissions. `learning_task_submit` is its only write, and it records
 only the calling Account's own submission.
 
-- `learning_tasks_list` (`guideSlug` optional): published tasks the Account can open, in Guide,
-  chapter and in-chapter order, with code, Guide, chapter, title, current Task Version and the
+- `learning_tasks_list` (`productSlug` optional): published tasks the Account can open, in Product,
+  chapter and in-chapter order, with code, Product, chapter, title, current Task Version and the
   Account's latest submission time.
 - `learning_task_read` (`code`, `part`, pins): the current Task Version definition (`situation`,
   `result`, `freedom`, `criteria[]` with `level: required | additional`), review procedure v3 and the
@@ -1295,15 +1295,15 @@ only the calling Account's own submission.
 - Prompt `review_task` (`code`): procedure v3 word for word, the same text `learning_task_read`
   returns.
 
-Access is decided by ContentAccess on the `guideTask` resource at every read, list and submission.
-`GUIDE_TASK_SUBMISSIONS_ENABLED` gates submission; with it off, `learning_task_submit` answers
+Access is decided by ContentAccess on the `productTask` resource at every read, list and submission.
+`PRODUCT_TASK_SUBMISSIONS_ENABLED` gates submission; with it off, `learning_task_submit` answers
 `submissions_disabled`. Platform stores no model output of its own, grades nothing and never fetches
 the repository URL a submission names.
 
 `POST /authoring/import/tasks/validate` checks an authored task without its placement and returns
 the current revision; `/apply` is author-only (`materials:manage`), idempotent by key, serialized
 per code and compare-and-set on `expectedRevision` (`null` only for creation). It refuses an unknown
-or archived Guide, a chapter outside it and an unknown related Material. A changed definition digest
+or archived Product, a chapter outside it and an unknown related Material. A changed definition digest
 creates Task Version N+1; title, access, chapter, order, related Materials and publication advance
 only the revision; an unchanged state writes nothing. The code is immutable and unique, and its
 source ID must name it. The optional `afterMaterialSourceId` (#947) names the Material of the same
@@ -1311,36 +1311,36 @@ chapter right after which the programme shows the task; `null` or its absence pu
 start of the chapter, and a Material outside the chapter answers `after_material_not_in_chapter`.
 Moving the task advances only the revision.
 
-#### Guide Task page and programme (#947)
+#### Product Task page and programme (#947)
 
 Source: [Platform #947](https://github.com/sachkov-inside/platform/issues/947); the owner accepted
 the look by prototype on 05.10.2026: the page is variant A «Документ», the programme places tasks
 in author order (variant 2).
 
-- `/products/<guide-slug>/tasks/<code>` reads the session before rendering and is never cached. An
+- `/products/<product-slug>/tasks/<code>` reads the session before rendering and is never cached. An
   open task shows «Ситуация», «Результат», «Обязательно» and «Дополнительно» as separate lists,
   «Свобода», «Сдача» and «Мои сдачи», then the related Materials. «Сдача» shows the learning MCP
   address, the phrase with the task code and procedure v3, the same text MCP returns, with the
   fallback form folded below. A task the reader cannot open shows only its title and chapter and
-  leads to the programme; an unknown code, a code of another Guide and a withdrawn task answer 404.
-- `GET /library/guides/{slug}/tasks/{code}` (`readGuideTaskPage`, optional Account) answers
+  leads to the programme; an unknown code, a code of another Product and a withdrawn task answer 404.
+- `GET /library/products/{slug}/tasks/{code}` (`readProductTaskPage`, optional Account) answers
   `access: open` with the current Task Version, procedure, related Materials and
-  `submission.accepting`, or `access: closed` with the code, title, Guide and chapter only; it
+  `submission.accepting`, or `access: closed` with the code, title, Product and chapter only; it
   answers `task_not_found` for the 404 cases.
-- `GET /accounts/current/guide-tasks/{code}/submissions` (`listOwnTaskSubmissions`) lists the
+- `GET /accounts/current/product-tasks/{code}/submissions` (`listOwnTaskSubmissions`) lists the
   Account's own submissions with source, version, note, text report, repository and Author
   Feedback, and the criteria of every version they refer to.
-- `POST /accounts/current/guide-tasks/{code}/submissions` (`submitGuideTaskForm`) takes
+- `POST /accounts/current/product-tasks/{code}/submissions` (`submitProductTaskForm`) takes
   `taskVersion`, `submissionKey`, `note` (1–1000 characters), optional `repositoryUrl` and
   optional `reportText` (up to 20 000 characters) and records a `form` submission. The learner never
-  sends a branch or a commit. It obeys the same `GUIDE_TASK_SUBMISSIONS_ENABLED` setting and
+  sends a branch or a commit. It obeys the same `PRODUCT_TASK_SUBMISSIONS_ENABLED` setting and
   answers `submissions_disabled`, `task_version_changed`, `submission_rate_limited` and
   `idempotency_conflict` like the MCP tool. The browser reaches it through
-  `POST /api/guide-tasks/submissions`.
-- The Guide programme read (`readPublishedGuide`) carries `chapters[].tasks[]`: code, title,
+  `POST /api/product-tasks/submissions`.
+- The Product programme read (`readPublishedProduct`) carries `chapters[].tasks[]`: code, title,
   access, `afterMaterialId`, the viewer's availability and the viewer's latest submission time.
   The programme draws each task after its Material or at the start of its chapter with
-  «Сдано <дата>»; Material ordinals, batching and Guide Progress stay Materials only.
+  «Сдано <дата>»; Material ordinals, batching and Product Progress stay Materials only.
 
 #### Author submissions section (#948)
 
@@ -1349,22 +1349,22 @@ accepted look yet: it is temporary semantic UI until
 [#967](https://github.com/sachkov-inside/platform/issues/967).
 
 - `/authoring/submissions` («Сдачи», next to «Доступ» in the authoring navigation) reads the
-  session before rendering. It lists submissions newest first, filtered by Guide, chapter and task
-  through `guideId`, `chapterId` and `task` in the address; a filter the Guides on offer cannot show
+  session before rendering. It lists submissions newest first, filtered by Product, chapter and task
+  through `productId`, `chapterId` and `task` in the address; a filter the Products on offer cannot show
   is dropped. Each submission shows the person as «Люди и доступ» does (Account ID and the current
   Telegram identity), the note, the service mark, the source, the Task Version with the current one,
   the criteria of that version and the report. The report is plain text labelled «отчёт агента
   ученика»: no markup it carries runs in the browser, and a repository becomes a link only for an
   `http(s)` address. Published and unpublished tasks alike keep their submissions here, and so
   does a task whose chapter the author later removed: it is shown with «глава удалена».
-- `GET /authoring/guide-tasks/submissions` (`listAuthorTaskSubmissions`, `materials:manage`) takes
-  optional `guideId`, `chapterId`, `taskCode`, `cursor` and `limit` (1–100, 25 by default). It
-  answers the Guides with chapters and tasks for the filter, the submissions, the criteria of every
+- `GET /authoring/product-tasks/submissions` (`listAuthorTaskSubmissions`, `materials:manage`) takes
+  optional `productId`, `chapterId`, `taskCode`, `cursor` and `limit` (1–100, 25 by default). It
+  answers the Products with chapters and tasks for the filter, the submissions, the criteria of every
   Task Version they refer to and `nextCursor`; without the permission it answers 403 `forbidden`.
-- `PUT /authoring/guide-tasks/submissions/{submissionId}/feedback` (`saveAuthorTaskFeedback`,
+- `PUT /authoring/product-tasks/submissions/{submissionId}/feedback` (`saveAuthorTaskFeedback`,
   `materials:manage`) takes `comment` (up to 4000 characters or `null`) and `reviewed`. It keeps one
   Author Feedback per submission: the «посмотрел автор» time is set once and kept while the mark
   stays; removing the mark clears it. An empty comment without the mark removes the feedback, so
   the learner reads «Автор ещё не смотрел». The learner reads the feedback on the task page and
   through `learning_task_submissions`. The browser reaches it through
-  `PUT /api/authoring/guide-tasks/feedback`.
+  `PUT /api/authoring/product-tasks/feedback`.

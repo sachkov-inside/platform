@@ -28,7 +28,7 @@ Telegram can begin an attempt before linking, then look up the current binding b
 
 The shared Enrollment view state adds `pending_verification` and `suspended_source`. This shared definition occurs in BOTH `ownAccessResponse.value.enrollments[]` and `activationResponse.value.enrollment` (when non-null). The activation outcome's own state enum is unchanged. Binding operations are unchanged. Registry activation was removed by #1064.
 
-Platform owns these states. `pending_verification` means an approved temporary source lacks current usable confirmation (including TTL/timeout); it grants no temporary access. `suspended_source` means a confirmed source exit was latched; a later member observation does not restore that source. Telegram only validates and presents the state and offers the existing help/retry navigation; it does not derive policy or grant restoration. Independent Guide/course rights remain effective. Only Platform's explicit owner resolution or confirmed external period can replace an ended source.
+Platform owns these states. `pending_verification` means an approved temporary source lacks current usable confirmation (including TTL/timeout); it grants no temporary access. `suspended_source` means a confirmed source exit was latched; a later member observation does not restore that source. Telegram only validates and presents the state and offers the existing help/retry navigation; it does not derive policy or grant restoration. Independent Product/course rights remain effective. Only Platform's explicit owner resolution or confirmed external period can replace an ended source.
 
 ## Tribute after #1064
 
@@ -38,10 +38,10 @@ purchase invitation from the owner and pays for Inside. The subscription sale re
 until the bank approves recurring payments. Historical Tribute Enrollment views remain readable;
 these states do not enable a new free activation.
 
-## Content scope `allGuides` (Platform #648)
+## Content scope `wholePlatform` (Platform #648)
 
-`contentScope` in tier snapshots accepts an optional `allGuides: true`. It means every Guide of the
-platform, including Guides published later; `guideIds` and `materialIds` stay required and are empty
+`coverage` in tier snapshots accepts an optional `wholePlatform: true`. It means every Product of the
+platform, including Products published later; `productIds` and `materialIds` stay required and are empty
 for such a scope. The field is additive: a scope without it keeps its previous meaning. The starter tier
 and a Platform subscription use it.
 

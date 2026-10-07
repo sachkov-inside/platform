@@ -69,14 +69,14 @@ export function requestPublishedTopic(
 }
 
 /** Открыт ли продукт текущему Account: читается только с его токеном. */
-export function requestGuideAccess(
-  guideId: string,
+export function requestProductAccess(
+  productId: string,
   accessToken: string,
 ): Promise<BackendTransportResult> {
   return executeGeneratedRequest(
     (request) =>
-      new ContentLibraryService(request).readCurrentAccountGuideAccess({
-        guideId,
+      new ContentLibraryService(request).readCurrentAccountProductAccess({
+        productId,
       }),
     200,
     { accessToken },
@@ -89,7 +89,7 @@ export function requestPublishedSeries(
 ): Promise<BackendTransportResult> {
   return executeGeneratedRequest(
     (request) =>
-      new ContentLibraryService(request).readPublishedGuide({ slug }),
+      new ContentLibraryService(request).readPublishedProduct({ slug }),
     200,
     options,
   );

@@ -40,7 +40,7 @@ export function assembleSetHomePin(
       async (transaction, rollback) => {
         if (command.seriesId !== null) {
           await lockSeries(transaction, [command.seriesId]);
-          const series = await transaction.guide.findUnique({
+          const series = await transaction.product.findUnique({
             where: { id: command.seriesId },
             select: { archivedAt: true },
           });
@@ -50,7 +50,7 @@ export function assembleSetHomePin(
               issues: [{ code: "series_not_available", path: "/seriesId" }],
             });
           const count =
-            await transaction.publishedMaterialGuideMembership.count({
+            await transaction.publishedMaterialProductMembership.count({
               where: { seriesId: command.seriesId },
             });
           if (count === 0)

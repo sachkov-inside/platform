@@ -271,7 +271,7 @@ try {
         .getByText("Закрытое содержимое для участников.", { exact: true })
         .filter({ visible: true }),
     ).toBeVisible();
-    transcript.push("PASS protected guide material body is readable");
+    transcript.push("PASS protected product material body is readable");
     await screenshotWholePage(page, {
       path: resolve(output, "reader.png"),
     });

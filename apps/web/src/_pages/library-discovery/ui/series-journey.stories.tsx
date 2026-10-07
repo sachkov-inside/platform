@@ -7,9 +7,9 @@ import {
 } from "@/entities/material";
 import type { PublishedSeriesResult } from "@/features/library-discovery";
 import { getQueryClient } from "@/shared/api/query-client";
-import { guideOnlyOffer } from "@/storybook/billing.fixtures";
+import { productOnlyOffer } from "@/storybook/billing.fixtures";
 import { fetchBeforeRender } from "@/storybook/mutation-mock";
-import { GuideProgrammeView } from "./guide-programme-view";
+import { ProductProgrammeView } from "./product-programme-view";
 import {
   SeriesLearningProvider,
   SeriesLearningSource,
@@ -47,7 +47,7 @@ const materials = titles.map((title, index): MaterialPreview => ({
   materialId: `series-material-${String(index + 1)}`,
   slug: `series-material-${String(index + 1)}`,
   title,
-  access: index < 3 ? "free" : "membership",
+  access: index < 3 ? "free" : "closed",
   availability: "available",
   format: index % 3 === 0 ? "Видео" : "Гайд",
   formatSlug: index % 3 === 0 ? "video" : "guide",
@@ -106,13 +106,13 @@ const environment = publicPageEnvironment(
   "/products/platform-inside/programme",
 );
 /** Прогресс читателя: история передаёт его программе контекстом, а не свойством. */
-type ProgrammeStoryArgs = ComponentProps<typeof GuideProgrammeView> & {
+type ProgrammeStoryArgs = ComponentProps<typeof ProductProgrammeView> & {
   readonly learning?: SeriesLearningView;
 };
 const meta = {
   ...environment,
-  component: GuideProgrammeView,
-  title: "Pages/Guide/Programme",
+  component: ProductProgrammeView,
+  title: "Pages/Product/Programme",
   parameters: {
     ...environment.parameters,
     docs: {
@@ -129,7 +129,7 @@ const meta = {
   // Прогресс приходит в программу контекстом, как от `SeriesLearningSource` на маршруте.
   render: ({ learning, ...args }) => (
     <SeriesLearningProvider learning={learning ?? { kind: "guest" }}>
-      <GuideProgrammeView {...args} />
+      <ProductProgrammeView {...args} />
     </SeriesLearningProvider>
   ),
   decorators: [
@@ -230,7 +230,7 @@ export const LockedSeriesOffersSubscription: Story = {
       canvas.getByRole("link", { name: "Посмотреть тарифы" }),
     ).toHaveAttribute(
       "href",
-      "/subscription?from=%2Fproducts%2Fplatform-inside%2Fprogramme",
+      "/payment/checkout?from=%2Fproducts%2Fplatform-inside%2Fprogramme",
     );
   },
 };
@@ -238,7 +238,7 @@ export const LockedSeriesInvitesPayment: Story = {
   args: {
     result: lockedResult,
     learning: { kind: "guest" },
-    guideOffer: guideOnlyOffer,
+    productOffer: productOnlyOffer,
   },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
@@ -256,7 +256,7 @@ export const PaymentInviteMobile: Story = {
   args: {
     result: lockedResult,
     learning: { kind: "guest" },
-    guideOffer: guideOnlyOffer,
+    productOffer: productOnlyOffer,
   },
   globals: { viewport: { value: "mobile390", isRotated: false } },
   play: async ({ canvasElement }) => {
@@ -286,7 +286,7 @@ export const SubscriptionNotForSaleHidesInvite: Story = {
   },
 };
 export const OpenSeriesHidesPayment: Story = {
-  args: { guideOffer: guideOnlyOffer },
+  args: { productOffer: productOnlyOffer },
   play: async ({ canvasElement }) => {
     // Право уже открыто: предлагать покупку нечего, даже когда цена заведена.
     await expect(
@@ -403,7 +403,7 @@ const taskedChapters = chapters.map((chapter, index) =>
           {
             code: "vertical-slice",
             title: "Первый вертикальный срез",
-            access: "membership" as const,
+            access: "closed" as const,
             afterMaterialId: chapter.materialIds[2] ?? null,
             availability: "available" as const,
             lastSubmittedAt: null,
@@ -417,7 +417,7 @@ const taskedChapters = chapters.map((chapter, index) =>
             {
               code: "access-model",
               title: "Модель доступа",
-              access: "membership" as const,
+              access: "closed" as const,
               afterMaterialId: chapter.materialIds[5] ?? null,
               availability: "locked" as const,
               lastSubmittedAt: null,
@@ -596,7 +596,7 @@ function ProgressResolution({ longTitle = false }: { longTitle?: boolean }) {
       purchaseRowShown={false}
       slug={result.reference.slug}
     >
-      <GuideProgrammeView
+      <ProductProgrammeView
         result={
           longTitle
             ? {
@@ -719,7 +719,7 @@ const compactRouteResult = {
       renditions: [{ width: 960, height: 540 }],
     },
     ...(index === 2
-      ? { access: "membership" as const, availability: "locked" as const }
+      ? { access: "closed" as const, availability: "locked" as const }
       : {}),
   })),
 };
@@ -814,7 +814,7 @@ export const DesktopRouteDetails: Story = {
     }
     await expect(
       canvasElement
-        .querySelector("[data-guide-programme]")
+        .querySelector("[data-product-programme]")
         ?.getBoundingClientRect().width,
     ).toBeLessThanOrEqual(736);
   },
@@ -846,7 +846,7 @@ export const CompactMobileEnlargedText: Story = {
   },
 };
 
-const guideId = "97000000-0000-4000-8000-000000000101";
+const productId = "97000000-0000-4000-8000-000000000101";
 const introduction = {
   audience:
     "Разработчики из России и СНГ с базовым знанием Git, которые хотят запускать и обслуживать своё приложение.",
@@ -884,17 +884,17 @@ const artifacts = [
     version: 1,
   },
 ];
-const guideResult = {
+const productResult = {
   ...result,
   chapters,
-  reference: { ...result.reference, id: guideId, introduction },
+  reference: { ...result.reference, id: productId, introduction },
 } satisfies PublishedSeriesResult;
 
-export const GuidePage: Story = {
+export const ProductPage: Story = {
   args: {
     artifacts: { artifacts, kind: "ready" },
     learning: { kind: "guest" },
-    result: guideResult,
+    result: productResult,
   },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
@@ -910,7 +910,7 @@ export const GuidePage: Story = {
       section.getByRole("link", { name: "Скачать" }),
     ).toHaveAttribute(
       "href",
-      `/api/guides/${guideId}/artifacts/${artifacts[0]?.artifactId ?? ""}/file?version=3`,
+      `/api/products/${productId}/artifacts/${artifacts[0]?.artifactId ?? ""}/file?version=3`,
     );
     await expect(
       section.getByText("compose.production.yaml · 4.0 КБ"),
@@ -925,8 +925,8 @@ export const GuidePage: Story = {
   },
 };
 
-export const GuidePageMobile: Story = {
-  ...GuidePage,
+export const ProductPageMobile: Story = {
+  ...ProductPage,
   globals: { viewport: { isRotated: false, value: "mobile390" } },
 };
 
@@ -934,7 +934,7 @@ export const ArtifactSectionUnavailable: Story = {
   args: {
     artifacts: { kind: "unavailable" },
     learning: { kind: "guest" },
-    result: guideResult,
+    result: productResult,
   },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
@@ -952,8 +952,8 @@ export const ArtifactSectionUnavailable: Story = {
   },
 };
 
-export const GuidePageEnlargedText: Story = {
-  ...GuidePage,
+export const ProductPageEnlargedText: Story = {
+  ...ProductPage,
   globals: { viewport: { isRotated: false, value: "mobile320" } },
   play: async ({ canvasElement }) => {
     const root = canvasElement.ownerDocument.documentElement;
@@ -1165,12 +1165,12 @@ export const ConnectedStepsDesktop: Story = {
     for (const [index, row] of [...rows].entries()) {
       await expect(row).toHaveTextContent(`Урок ${String(index + 1)}.`);
     }
-    const guide = canvas
+    const product = canvas
       .getByRole("heading", { name: "Подготовка приложения" })
       .closest("article");
-    if (guide === null) throw new Error("Missing guide card");
+    if (product === null) throw new Error("Missing product card");
     await expect(
-      within(guide).queryByText("Шаг 1 из 3"),
+      within(product).queryByText("Шаг 1 из 3"),
     ).not.toBeInTheDocument();
     for (const summary of [overviewVideo.summary, dockerVideo.summary]) {
       await expect(canvas.queryByText(summary)).not.toBeInTheDocument();

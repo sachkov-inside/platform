@@ -17,21 +17,24 @@ const CALENDAR_DATE = /^\d{4}-\d{2}-\d{2}$/;
  * is found by its Platform product UUID, because the response carries no slug.
  */
 export class HttpPlatformCohortAdapter implements CommunityWelcomeDetailsSource {
-  private readonly guideId: string;
+  private readonly productId: string;
 
   constructor(
     private readonly endpoint: string,
-    guideId: string,
+    productId: string,
     private readonly fetcher: typeof fetch = fetch,
   ) {
-    this.guideId = guideId.toLowerCase();
+    this.productId = productId.toLowerCase();
   }
 
   async read(): Promise<CommunityWelcomeDetails> {
     let body: unknown;
     try {
       const response = await this.fetcher(this.endpoint, {
-        headers: { accept: "application/json" },
+        headers: {
+          accept: "application/json",
+          "x-inside-domain-names": "products.v1",
+        },
         method: "GET",
         redirect: "error",
         signal: AbortSignal.timeout(READ_TIMEOUT_MILLISECONDS),
@@ -65,9 +68,9 @@ export class HttpPlatformCohortAdapter implements CommunityWelcomeDetailsSource 
       (item: unknown) =>
         typeof item === "object" &&
         item !== null &&
-        "guideId" in item &&
-        typeof item.guideId === "string" &&
-        item.guideId.toLowerCase() === this.guideId,
+        "productId" in item &&
+        typeof item.productId === "string" &&
+        item.productId.toLowerCase() === this.productId,
     );
     if (cohort === undefined) return null;
     if (

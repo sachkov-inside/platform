@@ -47,7 +47,7 @@ describe("ListPublishedMaterials", () => {
           {
             slug: "developer-pipeline-bez-poteri-konteksta",
             title: "Developer Pipeline без потери контекста",
-            access: "membership",
+            access: "closed",
           },
         ],
       },
@@ -117,7 +117,7 @@ describe("ListPublishedMaterials", () => {
           expect.objectContaining({
             slug: "career-roadmap",
             title: "Career roadmap",
-            access: "membership",
+            access: "closed",
           }),
           expect.objectContaining({ slug: "career-roadmap-summary" }),
           expect.objectContaining({ slug: "career-roadmap-taxonomy" }),
@@ -474,7 +474,7 @@ async function seedSearchFixtures(testDatabase: TestDatabase): Promise<void> {
   await testDatabase.prisma.topic.create({
     data: { id: careerTopicId, name: "Карьера", slug: "career" },
   });
-  await testDatabase.prisma.guide.create({
+  await testDatabase.prisma.product.create({
     data: {
       id: careerSeriesId,
       name: "Карьерный путь",
@@ -499,7 +499,7 @@ async function seedSearchFixtures(testDatabase: TestDatabase): Promise<void> {
       metadata: {
         title: "Career roadmap",
         summary: "A practical route for engineers.",
-        access: "membership" as const,
+        access: "closed" as const,
         topicId: careerTopicId,
         formatId: videoFormatId,
         tagIds: [],
@@ -708,7 +708,7 @@ async function seedSearchPerformanceCorpus(
       material.format_id,
       material.published_by,
       material.published_at,
-      'Platform Guide'
+      'Platform Product'
     from materials.materials as material
     where material.slug like 'search-performance-%'
   `);

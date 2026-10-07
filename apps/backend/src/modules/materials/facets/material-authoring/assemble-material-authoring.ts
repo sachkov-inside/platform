@@ -3,11 +3,11 @@ import {
   assembleValidateSourcePractice,
 } from "../../features/import-source-practice/import-source-practice.js";
 import {
-  assembleReserveSourceGuide,
-  assembleValidateSourceGuide,
-  assembleUpdateSourceGuide,
-  assembleReorderSourceGuide,
-} from "../../features/import-source-guide/import-source-guide.js";
+  assembleReserveSourceProduct,
+  assembleValidateSourceProduct,
+  assembleUpdateSourceProduct,
+  assembleReorderSourceProduct,
+} from "../../features/import-source-product/import-source-product.js";
 import { assembleValidateSourceContent } from "../../features/import-source-material/import-source-material.js";
 import {
   assembleReserveSourceMaterial,
@@ -41,10 +41,10 @@ export function assembleMaterialAuthoring(
   return {
     applySourcePractice: assembleApplySourcePractice(dependencies),
     validateSourcePractice: assembleValidateSourcePractice(dependencies),
-    reserveSourceGuide: assembleReserveSourceGuide(dependencies),
-    validateSourceGuide: assembleValidateSourceGuide(dependencies),
-    updateSourceGuide: assembleUpdateSourceGuide(dependencies),
-    reorderSourceGuide: assembleReorderSourceGuide(dependencies),
+    reserveSourceProduct: assembleReserveSourceProduct(dependencies),
+    validateSourceProduct: assembleValidateSourceProduct(dependencies),
+    updateSourceProduct: assembleUpdateSourceProduct(dependencies),
+    reorderSourceProduct: assembleReorderSourceProduct(dependencies),
     validateSourceContent: assembleValidateSourceContent(dependencies),
     reserveSourceMaterial: assembleReserveSourceMaterial(dependencies),
     applySourceMaterial: assembleApplySourceMaterial(dependencies),

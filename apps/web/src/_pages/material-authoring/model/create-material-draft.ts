@@ -31,7 +31,7 @@ export const createMaterialDraftResultSchema = z.discriminatedUnion("kind", [
 ]);
 
 export interface CreateMaterialDraftInput {
-  readonly access: "free" | "membership";
+  readonly access: "free" | "closed";
   readonly difficulty: string;
   readonly document: JSONContent;
   readonly formatId: string;

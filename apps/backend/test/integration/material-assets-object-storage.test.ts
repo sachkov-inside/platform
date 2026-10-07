@@ -93,7 +93,7 @@ describe("MaterialAssets against PostgreSQL and S3", () => {
       declaredContentType: "text/plain",
       declaredSize: body.byteLength,
       expectedChecksumSha256: createHash("sha256").update(body).digest("hex"),
-      filename: "guide.txt",
+      filename: "product.txt",
       idempotencyKey: "integration-upload",
       kind: "file" as const,
       materialId,
@@ -103,7 +103,7 @@ describe("MaterialAssets against PostgreSQL and S3", () => {
       ok: true,
       value: {
         contentType: "text/plain",
-        filename: "guide.txt",
+        filename: "product.txt",
         kind: "file",
         state: "ready",
       },

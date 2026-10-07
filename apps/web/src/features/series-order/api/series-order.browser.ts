@@ -24,16 +24,16 @@ export async function reorderSeries(
     );
   }
   if (
-    input.confirmedGuideRemovals !== undefined &&
-    input.confirmedGuideRemovals.length > 0
+    input.confirmedProductRemovals !== undefined &&
+    input.confirmedProductRemovals.length > 0
   ) {
     formData.set(
-      "confirmedGuideRemovals",
-      JSON.stringify(input.confirmedGuideRemovals),
+      "confirmedProductRemovals",
+      JSON.stringify(input.confirmedProductRemovals),
     );
   }
   const result = await requestSameOriginMutation(
-    "/api/authoring/guides/order",
+    "/api/authoring/products/order",
     "PUT",
     formData,
   );

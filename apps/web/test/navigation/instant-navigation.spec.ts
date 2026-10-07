@@ -436,7 +436,7 @@ const programmeReady =
     await expect(
       page
         .locator(
-          "#content [data-guide-programme]:visible a[href*='/materials/']",
+          "#content [data-product-programme]:visible a[href*='/materials/']",
         )
         .first(),
     ).toBeVisible();
@@ -489,7 +489,7 @@ test("программа ↔ урок: свой скелет на первом �
   await setBackendDelay(700);
 
   const lessonLink = page
-    .locator(`[data-guide-programme] a[href*='/materials/${freeLesson}']`)
+    .locator(`[data-product-programme] a[href*='/materials/${freeLesson}']`)
     .first();
   const toLesson = await transition(
     page,
@@ -505,7 +505,7 @@ test("программа ↔ урок: свой скелет на первом �
     page,
     () =>
       page
-        .locator(`[data-guide-programme] a[href*='/materials/${freeLesson}']`)
+        .locator(`[data-product-programme] a[href*='/materials/${freeLesson}']`)
         .first()
         .click(),
     lessonReady(page, freeLesson),
@@ -561,7 +561,7 @@ test("программа ↔ урок: свой скелет на первом �
     "подвал не поднимается под скелет урока",
   ).toBeGreaterThan(0.6);
   expect(
-    foreign(backToProgramme.skeletons, "guide-programme"),
+    foreign(backToProgramme.skeletons, "product-programme"),
     "возврат в программу не показывает чужой скелет",
   ).toEqual([]);
   expect(
@@ -606,7 +606,7 @@ test("продукт → программа → платный урок: у ка
     page,
     () =>
       page
-        .locator(`[data-guide-programme] a[href*='/materials/${paidLesson}']`)
+        .locator(`[data-product-programme] a[href*='/materials/${paidLesson}']`)
         .first()
         .click(),
     lessonReady(page, paidLesson),
@@ -617,7 +617,7 @@ test("продукт → программа → платный урок: у ка
   });
 
   expect(
-    toProgramme.skeletons.filter((name) => name !== "guide-programme"),
+    toProgramme.skeletons.filter((name) => name !== "product-programme"),
   ).toEqual([]);
   // Личная часть закрытого урока ждёт backend: на месте тела стоит его собственный скелет.
   expect(toPaidLesson.skeletons).toContain("material-reader");
@@ -640,7 +640,9 @@ test("намерение предзагружает общую часть уро
   await viewportPrefetchDrained(page);
 
   const lessonLink = page
-    .locator(`[data-guide-programme] a[href*='/materials/navigation-lesson-2']`)
+    .locator(
+      `[data-product-programme] a[href*='/materials/navigation-lesson-2']`,
+    )
     .first();
   const prefetched = pagePrefetchSettled(page, "navigation-lesson-2");
   if (testInfo.project.name.startsWith("mobile"))
@@ -678,7 +680,7 @@ test("повторный переход не ходит в backend, а гост�
   await viewportPrefetchDrained(page);
   const lessonLink = () =>
     page
-      .locator(`[data-guide-programme] a[href*='/materials/${freeLesson}']`)
+      .locator(`[data-product-programme] a[href*='/materials/${freeLesson}']`)
       .first();
   await lessonLink().click();
   await lessonReady(page, freeLesson)();
@@ -689,7 +691,7 @@ test("повторный переход не ходит в backend, а гост�
   // Закрытый урок гостю не кешируется целиком: его личная часть читает backend при любом кеше,
   // поэтому чтения без токена в этом круге есть всегда.
   await page
-    .locator(`[data-guide-programme] a[href*='/materials/${paidLesson}']`)
+    .locator(`[data-product-programme] a[href*='/materials/${paidLesson}']`)
     .first()
     .click();
   await lessonReady(page, paidLesson)();
@@ -727,14 +729,14 @@ test("авторская запись сбрасывает общий кеш: с
   if (baseURL === undefined) throw new Error("Проверке нужен адрес приложения");
   const guestReads = async () =>
     (await backendRequests()).filter((request) =>
-      request.path.startsWith("/library/guides/navigation-proof"),
+      request.path.startsWith("/library/products/navigation-proof"),
     ).length;
   const openProductAsNewGuest = async () => {
     const guest = await browser.newContext();
     const guestPage = await guest.newPage();
     await guestPage.goto(`${baseURL}${product}`);
     await expect(
-      guestPage.locator("#content [data-guide-product]"),
+      guestPage.locator("#content [data-product-landing]"),
     ).toBeVisible();
     await guest.close();
   };
@@ -807,7 +809,7 @@ test("закрытое тело не попадает ни в предзагру
   await page.goto(programme);
   await programmeReady(page)();
   const lessonLink = page
-    .locator(`[data-guide-programme] a[href*='/materials/${paidLesson}']`)
+    .locator(`[data-product-programme] a[href*='/materials/${paidLesson}']`)
     .first();
   // Вошедшему платный урок открыт: личная часть программы пришла с его доступностью.
   await expect(
@@ -890,7 +892,7 @@ test("снимки перехода «программа → урок → про
 
   const lessonAnchors = ["[data-reader-return='top']", "[data-reader-header]"];
   await page
-    .locator(`[data-guide-programme] a[href*='/materials/${paidLesson}']`)
+    .locator(`[data-product-programme] a[href*='/materials/${paidLesson}']`)
     .first()
     .click();
   await expect(loading).toBeVisible();
@@ -955,7 +957,7 @@ test("снимки «до»: те же кадры перехода на коде
   await setBackendDelay(1_500);
 
   await page
-    .locator(`[data-guide-programme] a[href*='/materials/${paidLesson}']`)
+    .locator(`[data-product-programme] a[href*='/materials/${paidLesson}']`)
     .first()
     .click();
   await expect(loading).toBeVisible();
@@ -996,7 +998,7 @@ test("Главная ↔ продукт: свой скелет продукта,
 
   const productReady = async () => {
     await page.waitForURL((url) => url.pathname === product);
-    await expect(page.locator("#content [data-guide-product]")).toBeVisible();
+    await expect(page.locator("#content [data-product-landing]")).toBeVisible();
   };
   const homeReady = async () => {
     await page.waitForURL((url) => url.pathname === "/");
@@ -1036,7 +1038,7 @@ test("Главная ↔ продукт: свой скелет продукта,
   });
 
   expect(
-    toProduct.skeletons.filter((name) => name !== "guide-product"),
+    toProduct.skeletons.filter((name) => name !== "product-landing"),
     "продукт показывает только свой скелет",
   ).toEqual([]);
   // Главная блокирующая: закреп читается до первого кадра, поэтому скелета всей страницы у неё нет (#562).
@@ -1071,7 +1073,7 @@ test("смена режима прохождения сбрасывает стр
   await programmeReady(page, modesProgramme)();
   await page
     .locator(
-      "#content [data-guide-programme]:visible a[href*='/materials/navigation-lesson-5']",
+      "#content [data-product-programme]:visible a[href*='/materials/navigation-lesson-5']",
     )
     .first()
     .click();
@@ -1314,4 +1316,73 @@ test("архивные продукт, программа и урок откры
   } finally {
     await guest.close();
   }
+});
+
+test("old Offer links reach the canonical product checkout and retain the selected tariff", async ({
+  page,
+}) => {
+  const offer = "66666666-6666-4666-8666-666666666601";
+  await page.goto(`/subscription?offer=${offer}&from=telegram&promo=COURSE`);
+  await expect(page).toHaveURL(
+    `/products/navigation-proof/buy?offer=${offer}&from=telegram&promo=COURSE`,
+  );
+});
+
+test("a hidden tariff survives sign-in and resolves its own product", async ({
+  page,
+  context,
+  baseURL,
+}) => {
+  if (baseURL === undefined) throw new Error("Web baseURL is required");
+  const offer = "66666666-6666-4666-8666-666666666603";
+  const link = `/payment/checkout?offer=${offer}&promo=COURSE`;
+  await page.goto(`/subscription?offer=${offer}&promo=COURSE`);
+  await expect(
+    page.getByRole("main").getByRole("button", { name: "Войти", exact: true }),
+  ).toBeVisible();
+  await expect(page.locator('input[name="returnTo"]')).toHaveValue(link);
+  await signInAsMember(context, baseURL);
+  await page.goto(link);
+  await expect(page).toHaveURL(
+    `/products/navigation-modes/buy?offer=${offer}&promo=COURSE`,
+  );
+});
+
+test("client navigation to another Offer resets the selected tariff on the same Product", async ({
+  page,
+  context,
+  baseURL,
+}) => {
+  if (baseURL === undefined) throw new Error("Web baseURL is required");
+  await signInAsMember(context, baseURL);
+  const firstOffer = "66666666-6666-4666-8666-666666666601";
+  const secondOffer = "66666666-6666-4666-8666-666666666605";
+  await page.goto(`/products/navigation-proof/buy?offer=${firstOffer}`);
+  await expect(
+    page.locator('input[value="66666666-6666-4666-8666-666666666602"]'),
+  ).toBeChecked();
+  await page.evaluate((href) => {
+    Reflect.set(window, "__offerNavigationDocument", true);
+    const next: unknown = Reflect.get(window, "next");
+    if (next === null || typeof next !== "object")
+      throw new Error("Next router is absent");
+    const router: unknown = Reflect.get(next, "router");
+    if (router === null || typeof router !== "object")
+      throw new Error("Next router is absent");
+    const push: unknown = Reflect.get(router, "push");
+    if (typeof push !== "function")
+      throw new Error("Next router cannot navigate");
+    Reflect.apply(push, router, [href]);
+  }, `/products/navigation-proof/buy?offer=${secondOffer}`);
+  await expect(page).toHaveURL(
+    `/products/navigation-proof/buy?offer=${secondOffer}`,
+  );
+  await expect(
+    page.locator('input[value="66666666-6666-4666-8666-666666666606"]'),
+  ).toBeChecked();
+  expect(
+    await page.evaluate((): unknown =>
+      Reflect.get(window, "__offerNavigationDocument"),
+    ),
+  ).toBe(true);
 });

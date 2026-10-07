@@ -4,7 +4,7 @@ import { benefitPeriodsSchema } from "../../domain/pricing.js";
 import {
   courseSourceRef,
   tierSnapshotSchema,
-} from "../../../membership-entitlements/index.js";
+} from "../../../account-rights/index.js";
 import { dependencyFailure } from "../../../../infrastructure/observability/index.js";
 import {
   lockBillingPricing,
@@ -15,7 +15,7 @@ import {
   recurringAllowedFor,
   type AccessGrants,
   type invitationViewSchema,
-} from "../../../membership-entitlements/index.js";
+} from "../../../account-rights/index.js";
 import {
   isOwnerReadOperation,
   ownerAccessFailure,
@@ -433,8 +433,8 @@ export class BillingOperations {
             name: row.name,
             benefits: row.benefits,
             benefitPeriods: row.benefitPeriods,
-            contentScope: row.contentScope ?? {
-              guideIds: [],
+            coverage: row.coverage ?? {
+              productIds: [],
               materialIds: [],
             },
           });
@@ -481,7 +481,7 @@ export class BillingOperations {
             name: row.name,
             benefits: row.benefits,
             benefitPeriods: row.benefitPeriods,
-            contentScope: row.contentScope ?? { guideIds: [], materialIds: [] },
+            coverage: row.coverage ?? { productIds: [], materialIds: [] },
           });
           return tier.success
             ? [
@@ -573,7 +573,7 @@ export class BillingOperations {
             name: row.name,
             benefits: row.benefits,
             benefitPeriods: row.benefitPeriods,
-            contentScope: row.contentScope ?? { guideIds: [], materialIds: [] },
+            coverage: row.coverage ?? { productIds: [], materialIds: [] },
           });
           if (!tier.success) return ownerFailure("invalid_request");
           const result = await prepared.assign(tx, tier.data);
@@ -1087,7 +1087,7 @@ function targetOf(command: OwnerOperation, outcome: OwnerOutcome): string {
       return command.value.id;
     // Поток адресуется своим продуктом.
     case "cohorts.save":
-      return command.value.guideId;
+      return command.value.productId;
     case "offers.archive":
     case "offers.publish":
     case "offers.unpublish":

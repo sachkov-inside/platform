@@ -28,7 +28,7 @@ The process-layout decision is recorded in
 
 The backend also owns the production Telegram Membership consumer. Authenticated Account requests
 begin and confirm a short-lived `/start` link through the provider HTTP adapter; authenticated
-evidence enters a durable inbox and updates `MembershipEntitlements`. Material and profile reads
+evidence enters a durable inbox and updates `AccountRights`. Material and profile reads
 continue to use only the local PostgreSQL projection and never call Telegram. The controlled
 compatibility evidence is recorded in
 [`docs/verification/telegram-membership-conformance.md`](docs/verification/telegram-membership-conformance.md).

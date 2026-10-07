@@ -14,23 +14,23 @@ Telegram у тестовых Accounts не используется. Тесто�
 | Identity | Состояние Account | Как выдано |
 |---|---|---|
 | `no-entitlement` | без прав и доступа | первый вход по коду из письма |
-| `learner-guide-a` | ученик Guide A: `guide:<Guide A>` без срока | ручной AccessGrant, `sourceRef` `inside-production-access:learner-guide-a` |
-| `learner-guide-b` | ученик Guide B: пока без доступа | доступ ждёт второго Guide (ниже) |
-| `expired` | `guide:<Guide A>` со сроком в один час, истёк | ручной AccessGrant, `sourceRef` `inside-production-access:expired` |
+| `learner-product-a` | ученик Product A: `product:<Product A>` без срока | ручной AccessGrant, `sourceRef` `inside-production-access:learner-product-a` |
+| `learner-product-b` | ученик Product B: пока без доступа | доступ ждёт второго Product (ниже) |
+| `expired` | `product:<Product A>` со сроком в один час, истёк | ручной AccessGrant, `sourceRef` `inside-production-access:expired` |
 | `materials-only` | право `materials:manage` | trusted owner bootstrap |
 | `billing-only` | право `billing:manage` | trusted owner bootstrap |
 
-Guide A — «AI Engineering» (`ai-engineering`). Его id и закрытые уроки прохода названы в
+Product A — «AI Engineering» (`ai-engineering`). Его id и закрытые уроки прохода названы в
 `apps/web/test/production/pass-config.ts`: урок для тела и урок практики с картинкой и заданием.
 Account `no-entitlement` также читает все закреплённые части бесплатной практики
 `inside-content:aie-github-app` через learner MCP (#938, решение владельца 06.10.2026).
-Проход сверяет версию, SHA-256 полного контекста и `END_CONTEXT`; закрытые уроки Guide A
+Проход сверяет версию, SHA-256 полного контекста и `END_CONTEXT`; закрытые уроки Product A
 остаются клетками отказа. Бесплатный доступ этой практики должен сохраняться при переносах Content
 (inside-content#33).
 
-Второго опубликованного Guide и опубликованного видео Guide A в production нет. По решениям
-владельца в #905 и #906 клетки Guide B помечены «отложено до второго Guide», а клетки video —
-«отложено до первого видео Guide A». Отчёт показывает их отдельным статусом, и они не делают job
+Второго опубликованного Product и опубликованного видео Product A в production нет. По решениям
+владельца в #905 и #906 клетки Product B помечены «отложено до второго Product», а клетки video —
+«отложено до первого видео Product A». Отчёт показывает их отдельным статусом, и они не делают job
 красным. Любая другая клетка «не проверено» делает job красным.
 
 Все identities однажды приняли условия использования на первом экране входа. Проход данные Platform
@@ -92,8 +92,8 @@ Account `no-entitlement` также читает все закреплённые
 5. Для остальных identities однажды войти в Platform по коду из письма в ящик владельца.
 6. Каждой identity однажды пройти вход и принять условия использования.
 7. Выдать доступ учеников от имени `billing-only` существующими операциями `grants.previewBatch` и
-   `grants.applyBatch` (MCP `/mcp` или `/authoring/billing`): `guide:<Guide A>` для
-   `learner-guide-a` без срока и для `expired` со сроком в один час.
+   `grants.applyBatch` (MCP `/mcp` или `/authoring/billing`): `product:<Product A>` для
+   `learner-product-a` без срока и для `expired` со сроком в один час.
 
 Новых публичных путей записи настройка не добавляет.
 
@@ -107,16 +107,16 @@ Account `no-entitlement` также читает все закреплённые
 Если ключ утёк, сначала удалите старый secret, затем выполните шаги 1–3: до этого ключ даёт вход за
 любого пользователя.
 
-## Когда выйдет второй Guide
+## Когда выйдет второй Product
 
-1. Выдать `learner-guide-b` доступ `guide:<Guide B>` тем же ручным AccessGrant.
-2. Записать Guide B и его закрытый материал в `pass-config.ts`, снять пометку «отложено до второго
-   Guide» с клеток Guide B и добавить их наблюдение в `access.spec.ts`.
+1. Выдать `learner-product-b` доступ `product:<Product B>` тем же ручным AccessGrant.
+2. Записать Product B и его закрытый материал в `pass-config.ts`, снять пометку «отложено до второго
+   Product» с клеток Product B и добавить их наблюдение в `access.spec.ts`.
 
-## Когда выйдет первое видео Guide A
+## Когда выйдет первое видео Product A
 
 1. Записать в `pass-config.ts` закрытый урок с основным видео.
-2. Снять пометку «отложено до первого видео Guide A» с клеток video и добавить их наблюдение в
+2. Снять пометку «отложено до первого видео Product A» с клеток video и добавить их наблюдение в
    `access.spec.ts`. Видео проверяется выдачей playback session
    (`POST /api/material-video-playback-sessions`): она проверяет право `play` и подписывает короткий
    JWT без записи в базу, и allowlist уже называет её операцией чтения.

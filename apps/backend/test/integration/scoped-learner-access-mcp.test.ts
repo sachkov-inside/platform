@@ -1,7 +1,7 @@
 import {
   LEARNING_TASKS,
   type LearningTasks,
-} from "../../src/modules/guide-tasks/index.js";
+} from "../../src/modules/product-tasks/index.js";
 import { randomUUID } from "node:crypto";
 
 import type { INestApplicationContext } from "@nestjs/common";
@@ -41,10 +41,10 @@ import {
 } from "../../src/modules/materials/index.js";
 import { VIDEOS, type Videos } from "../../src/modules/videos/index.js";
 import {
-  createScopedGuidesWorld,
-  type ScopedGuide,
-  type ScopedGuidesWorld,
-} from "./setup/scoped-guides.js";
+  createScopedProductsWorld,
+  type ScopedProduct,
+  type ScopedProductsWorld,
+} from "./setup/scoped-products.js";
 import {
   startTestIdentityIssuer,
   type TestIdentityIssuer,
@@ -80,9 +80,9 @@ interface PinnedPractice {
 /**
  * Scoped ученик через настоящий learner MCP transport (#903, пробел 5 из #902): процесс MCP поднят
  * целиком, клиент MCP ходит по Streamable HTTP на `/mcp/learning` с подписанным токеном Account,
- * право — настоящий AccessGrant одного Guide. Отказ инструмента — `isError` с кодом в ответе
+ * право — настоящий AccessGrant одного Product. Отказ инструмента — `isError` с кодом в ответе
  * JSON-RPC; транспорт не обязан отвечать HTTP 403. Каждая клетка доказана наличием или отсутствием
- * секрета Guide. Строки матрицы проверок доступа: `test/access-scenarios/access-check-matrix.ts`.
+ * секрета Product. Строки матрицы проверок доступа: `test/access-scenarios/access-check-matrix.ts`.
  */
 describe("scoped learner access over the learner MCP transport", () => {
   let application: INestApplicationContext;
@@ -90,7 +90,7 @@ describe("scoped learner access over the learner MCP transport", () => {
   let endpoint: URL;
   let database: TestDatabase;
   let identity: TestIdentityIssuer;
-  let world: ScopedGuidesWorld;
+  let world: ScopedProductsWorld;
   const clients: Client[] = [];
 
   beforeAll(async () => {
@@ -99,7 +99,7 @@ describe("scoped learner access over the learner MCP transport", () => {
       audience: "https://api.scoped-mcp.test",
     });
     database = await createMigratedTestDatabase();
-    world = await createScopedGuidesWorld(database);
+    world = await createScopedProductsWorld(database);
     application = await createMcpApplication(
       parsePlatformConfig({
         NODE_ENV: "test",
@@ -150,8 +150,8 @@ describe("scoped learner access over the learner MCP transport", () => {
 
   test("material and practice calls without an Account token get 401 and no protected bytes", async () => {
     for (const [name, arguments_] of [
-      ["learning_material_read", { slug: world.guideA.slug }],
-      ["learning_practice_read", { practiceId: world.guideA.practiceId }],
+      ["learning_material_read", { slug: world.productA.slug }],
+      ["learning_practice_read", { practiceId: world.productA.practiceId }],
     ] as const) {
       const response = await fetch(endpoint, {
         method: "POST",
@@ -169,68 +169,71 @@ describe("scoped learner access over the learner MCP transport", () => {
       const body = await response.text();
       expect(response.status).toBe(401);
       expect(response.headers.get("www-authenticate")).toContain("Bearer");
-      expect(body).not.toContain(world.guideA.bodySecret);
-      expect(body).not.toContain(world.guideA.practiceSecret);
+      expect(body).not.toContain(world.productA.bodySecret);
+      expect(body).not.toContain(world.productA.practiceSecret);
     }
   });
 
   test("Account without entitlement reads the public Material and no protected Material or practice part", async () => {
     const { learner } = await connectedLearner();
     expect(await readPublic(learner)).toBe("open");
-    for (const guide of [world.guideA, world.guideB])
-      await expectClosed(learner, guide);
+    for (const product of [world.productA, world.productB])
+      await expectClosed(learner, product);
   });
 
-  test("Account without entitlement reads every pinned part of a free practice while paid Guides stay closed", async () => {
+  test("Account without entitlement reads every pinned part of a free practice while paid Products stay closed", async () => {
     const { learner } = await connectedLearner();
-    await expectOpen(learner, world.freeGuide);
-    for (const guide of [world.guideA, world.guideB])
-      await expectClosed(learner, guide);
+    await expectOpen(learner, world.freeProduct);
+    for (const product of [world.productA, world.productB])
+      await expectClosed(learner, product);
   });
 
-  test("learner of Guide A reads its Material and every pinned practice part while Guide B stays closed", async () => {
+  test("learner of Product A reads its Material and every pinned practice part while Product B stays closed", async () => {
     const { learner, accountId } = await connectedLearner();
-    await world.grantGuide(accountId, world.guideA.guideId);
-    await expectOpen(learner, world.guideA);
-    await expectClosed(learner, world.guideB);
+    await world.grantProduct(accountId, world.productA.productId);
+    await expectOpen(learner, world.productA);
+    await expectClosed(learner, world.productB);
   });
 
-  test("learner of Guide B reads its Material and every pinned practice part while Guide A stays closed", async () => {
+  test("learner of Product B reads its Material and every pinned practice part while Product A stays closed", async () => {
     const { learner, accountId } = await connectedLearner();
-    await world.grantGuide(accountId, world.guideB.guideId);
-    await expectOpen(learner, world.guideB);
-    await expectClosed(learner, world.guideA);
+    await world.grantProduct(accountId, world.productB.productId);
+    await expectOpen(learner, world.productB);
+    await expectClosed(learner, world.productA);
   });
 
-  test("expired Guide A grant reads the public Material and no protected Material or practice part", async () => {
+  test("expired Product A grant reads the public Material and no protected Material or practice part", async () => {
     const { learner, accountId } = await connectedLearner();
-    await world.grantExpiredGuide(accountId, world.guideA.guideId);
+    await world.grantExpiredProduct(accountId, world.productA.productId);
     expect(await readPublic(learner)).toBe("open");
-    await expectClosed(learner, world.guideA);
+    await expectClosed(learner, world.productA);
   });
 
-  test("revoking Guide A closes the Material and every part pinned before revocation while Guide B stays open", async () => {
+  test("revoking Product A closes the Material and every part pinned before revocation while Product B stays open", async () => {
     const { learner, accountId } = await connectedLearner();
-    const grantA = await world.grantGuide(accountId, world.guideA.guideId);
-    await world.grantGuide(accountId, world.guideB.guideId);
-    const pinned = await expectOpen(learner, world.guideA);
+    const grantA = await world.grantProduct(
+      accountId,
+      world.productA.productId,
+    );
+    await world.grantProduct(accountId, world.productB.productId);
+    const pinned = await expectOpen(learner, world.productA);
 
     await world.revokeGrant(grantA);
 
-    await expectClosed(learner, world.guideA);
+    await expectClosed(learner, world.productA);
     // Клиент продолжает чтение по версии и хешу, закреплённым до отзыва: ни одна часть не выдаётся.
     for (let part = 0; part < pinned.partCount; part += 1) {
-      const cached = await practice(learner, world.guideA, {
+      const cached = await practice(learner, world.productA, {
         part,
         expectedContextVersion: pinned.contextVersion,
         expectedContentSha256: pinned.contentSha256,
       });
       expect(cached.isError).toBe(true);
       expect(text(cached)).toContain("practice_not_available");
-      expect(text(cached)).not.toContain(world.guideA.practiceSecret);
-      expect(text(cached)).not.toContain(world.guideA.bodySecret);
+      expect(text(cached)).not.toContain(world.productA.practiceSecret);
+      expect(text(cached)).not.toContain(world.productA.bodySecret);
     }
-    await expectOpen(learner, world.guideB);
+    await expectOpen(learner, world.productB);
   });
 
   async function connectedLearner(): Promise<{
@@ -287,7 +290,7 @@ describe("scoped learner access over the learner MCP transport", () => {
 
   function practice(
     learner: Client,
-    guide: ScopedGuide,
+    product: ScopedProduct,
     pin: {
       readonly part: number;
       readonly expectedContextVersion?: string;
@@ -296,21 +299,21 @@ describe("scoped learner access over the learner MCP transport", () => {
   ) {
     return learner.callTool({
       name: "learning_practice_read",
-      arguments: { practiceId: guide.practiceId, ...pin },
+      arguments: { practiceId: product.practiceId, ...pin },
     });
   }
 
-  /** Материал и все части задания открыты: тело и контекст содержат секреты Guide целиком. */
+  /** Материал и все части задания открыты: тело и контекст содержат секреты Product целиком. */
   async function expectOpen(
     learner: Client,
-    guide: ScopedGuide,
+    product: ScopedProduct,
   ): Promise<PinnedPractice> {
-    const read = await readMaterial(learner, guide.slug);
+    const read = await readMaterial(learner, product.slug);
     expect(read.isError).toBe(false);
-    expect(text(read)).toContain(guide.bodySecret);
+    expect(text(read)).toContain(product.bodySecret);
 
     const first = practicePart.parse(
-      JSON.parse(text(await practice(learner, guide, { part: 0 }))),
+      JSON.parse(text(await practice(learner, product, { part: 0 }))),
     ).value;
     expect(first.partCount).toBeGreaterThan(1);
     let context = first.data;
@@ -318,7 +321,7 @@ describe("scoped learner access over the learner MCP transport", () => {
       const next = practicePart.parse(
         JSON.parse(
           text(
-            await practice(learner, guide, {
+            await practice(learner, product, {
               part,
               expectedContextVersion: first.contextVersion,
               expectedContentSha256: first.contentSha256,
@@ -328,8 +331,8 @@ describe("scoped learner access over the learner MCP transport", () => {
       ).value;
       context += next.data;
     }
-    expect(context).toContain(guide.practiceSecret);
-    expect(context).toContain(guide.bodySecret);
+    expect(context).toContain(product.practiceSecret);
+    expect(context).toContain(product.bodySecret);
     expect(context).toContain(`END_CONTEXT:${first.contextVersion}`);
     return {
       contextVersion: first.contextVersion,
@@ -339,19 +342,19 @@ describe("scoped learner access over the learner MCP transport", () => {
     };
   }
 
-  /** Отказ инструмента: `isError` с кодом и без единого секрета Guide. */
+  /** Отказ инструмента: `isError` с кодом и без единого секрета Product. */
   async function expectClosed(
     learner: Client,
-    guide: ScopedGuide,
+    product: ScopedProduct,
   ): Promise<void> {
-    const read = await readMaterial(learner, guide.slug);
+    const read = await readMaterial(learner, product.slug);
     expect(read.isError).toBe(true);
     expect(text(read)).toContain("material_not_available");
-    expect(text(read)).not.toContain(guide.bodySecret);
-    const first = await practice(learner, guide, { part: 0 });
+    expect(text(read)).not.toContain(product.bodySecret);
+    const first = await practice(learner, product, { part: 0 });
     expect(first.isError).toBe(true);
     expect(text(first)).toContain("practice_not_available");
-    expect(text(first)).not.toContain(guide.practiceSecret);
-    expect(text(first)).not.toContain(guide.bodySecret);
+    expect(text(first)).not.toContain(product.practiceSecret);
+    expect(text(first)).not.toContain(product.bodySecret);
   }
 });

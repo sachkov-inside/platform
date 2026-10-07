@@ -8,7 +8,7 @@ import {
   BillingContact,
 } from "../../src/modules/accounts/index.js";
 import { billingContactProtection } from "../../src/modules/accounts/infrastructure/billing-contact-protection.js";
-import { assembleAccessGrants } from "../../src/modules/membership-entitlements/index.js";
+import { assembleAccessGrants } from "../../src/modules/account-rights/index.js";
 import {
   BillingPayments,
   type BillingPricing,
@@ -57,9 +57,9 @@ const documents = [
   ...syntheticConsentDocuments,
   syntheticConsentDocument("personal_data"),
 ];
-const guidePrice = 290_000;
+const productPrice = 290_000;
 
-describe("one-time guide purchase (real PostgreSQL and real facets; synthetic bank and email only)", () => {
+describe("one-time product purchase (real PostgreSQL and real facets; synthetic bank and email only)", () => {
   let db: TestDatabase;
   let now = new Date("2030-01-31T10:00:00Z");
   let owner: string;
@@ -156,9 +156,9 @@ describe("one-time guide purchase (real PostgreSQL and real facets; synthetic ba
       ).ok
     )
       throw new Error("contact");
-    const guideId = randomUUID();
+    const productId = randomUUID();
     const capability =
-      options.scopedMaterials === true ? "materials" : `guide:${guideId}`;
+      options.scopedMaterials === true ? "materials" : `product:${productId}`;
     const offerId = randomUUID(),
       optionId = randomUUID();
     // Владелец заводит цену руководства там же, где варианты подписки. Бессрочное право — явный срок.
@@ -171,7 +171,7 @@ describe("one-time guide purchase (real PostgreSQL and real facets; synthetic ba
           id: offerId,
           name: "Руководство «Синтетика»",
           ...(options.scopedMaterials === true
-            ? { contentScope: { guideIds: [guideId], materialIds: [] } }
+            ? { coverage: { productIds: [productId], materialIds: [] } }
             : {}),
           benefits:
             options.communityMonths === undefined
@@ -200,7 +200,7 @@ describe("one-time guide purchase (real PostgreSQL and real facets; synthetic ba
           offerId,
           mode: "one_time",
           months: 1,
-          priceKopecks: guidePrice,
+          priceKopecks: productPrice,
         },
       }),
     );
@@ -221,7 +221,7 @@ describe("one-time guide purchase (real PostgreSQL and real facets; synthetic ba
     // Каждая попытка — свой платёж банка: терминал не сопоставляет два заказа одному PaymentId.
     let paymentId = String(Math.floor(Math.random() * 1_000_000_000));
     // Банк отвечает про ту сумму, которую у него запросили: сверка отвергает чужую.
-    let amountKopecks = guidePrice;
+    let amountKopecks = productPrice;
     const event = (state: string, extra = {}) => ({
       TerminalKey: terminal.terminalKey,
       OrderId: orderId,
@@ -335,7 +335,7 @@ describe("one-time guide purchase (real PostgreSQL and real facets; synthetic ba
     }
     return {
       buyer,
-      guideId,
+      productId,
       capability,
       offerId,
       optionId,
@@ -353,12 +353,12 @@ describe("one-time guide purchase (real PostgreSQL and real facets; synthetic ba
   test("разовая оплата состава продукта открывает только оплаченный продукт", async () => {
     const s = await scenario({ scopedMaterials: true });
     await s.buy();
-    const otherGuide = randomUUID();
+    const otherProduct = randomUUID();
     const holders = await db.prisma.$transaction((tx) =>
-      grants.countGuideHolders(tx, [s.guideId, otherGuide]),
+      grants.countProductHolders(tx, [s.productId, otherProduct]),
     );
-    expect(holders.get(s.guideId)).toBe(1);
-    expect(holders.get(otherGuide)).toBe(0);
+    expect(holders.get(s.productId)).toBe(1);
+    expect(holders.get(otherProduct)).toBe(0);
   });
 
   test("оплаченное руководство открывается навсегда и не заводит подписку", async () => {
@@ -482,8 +482,8 @@ describe("one-time guide purchase (real PostgreSQL and real facets; synthetic ba
   });
 
   test("сопровождение живёт срок, названный в Offer, и без названного срока не сохраняется", async () => {
-    const guideId = randomUUID();
-    const capability = `guide:${guideId}`;
+    const productId = randomUUID();
+    const capability = `product:${productId}`;
     // Без названного срока сопровождение разовой покупки стало бы бессрочным по умолчанию.
     expect(
       code(
@@ -662,7 +662,7 @@ describe("one-time guide purchase (real PostgreSQL and real facets; synthetic ba
             id: s.optionId,
             offerId: s.offerId,
             months: 1,
-            priceKopecks: guidePrice,
+            priceKopecks: productPrice,
           },
         }),
       ),
@@ -698,7 +698,7 @@ describe("one-time guide purchase (real PostgreSQL and real facets; synthetic ba
           id: subscriptionOffer,
           name: "Материалы",
           benefits: ["materials"],
-          contentScope: { guideIds: [randomUUID()], materialIds: [] },
+          coverage: { productIds: [randomUUID()], materialIds: [] },
         },
       }),
     );
@@ -823,7 +823,7 @@ describe("one-time guide purchase (real PostgreSQL and real facets; synthetic ba
           id: subscriptionOffer,
           name: "Материалы",
           benefits: ["materials"],
-          contentScope: { guideIds: [randomUUID()], materialIds: [] },
+          coverage: { productIds: [randomUUID()], materialIds: [] },
         },
       }),
     );
@@ -917,7 +917,7 @@ describe("one-time guide purchase (real PostgreSQL and real facets; synthetic ba
     expect(one.items.map((item) => item.paymentOption.id)).toEqual([
       s.optionId,
     ]);
-    expect(one.items[0]?.firstPriceKopecks).toBe(guidePrice);
+    expect(one.items[0]?.firstPriceKopecks).toBe(productPrice);
     expect(
       value(await pricing.offers({ mode: "subscription" })).items.some(
         (item) => item.offer.id === s.offerId,
@@ -927,7 +927,7 @@ describe("one-time guide purchase (real PostgreSQL and real facets; synthetic ba
       value(
         await pricing.offers({
           mode: "one_time",
-          capability: `guide:${randomUUID()}`,
+          capability: `product:${randomUUID()}`,
         }),
       ).items,
     ).toEqual([]);

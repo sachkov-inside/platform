@@ -23,8 +23,8 @@ import {
 import { billingContactProtection } from "../../src/modules/accounts/infrastructure/billing-contact-protection.js";
 import {
   assembleAccessGrants,
-  assembleMembershipEntitlements,
-} from "../../src/modules/membership-entitlements/index.js";
+  assembleAccountRights,
+} from "../../src/modules/account-rights/index.js";
 import {
   BillingPayments,
   type BillingPricing,
@@ -168,7 +168,7 @@ describe("subscription payment recovery (real PostgreSQL and real facets; synthe
           id: offerId,
           name: "Synthetic subscription",
           benefits,
-          contentScope: { guideIds: [randomUUID()], materialIds: [] },
+          coverage: { productIds: [randomUUID()], materialIds: [] },
           ...(benefitPeriods ? { benefitPeriods } : {}),
         },
       }),
@@ -457,13 +457,13 @@ describe("subscription payment recovery (real PostgreSQL and real facets; synthe
     const s = await scenario();
     const runtime = s.runtime();
     const purchaseRef = randomUUID();
-    const compatibilityScope = { guideIds: [randomUUID()], materialIds: [] };
+    const compatibilityScope = { productIds: [randomUUID()], materialIds: [] };
     await db.prisma.$executeRaw`
-      UPDATE membership_entitlements.content_scope_baseline
+      UPDATE account_rights.coverage_baseline
       SET scope = ${JSON.stringify(compatibilityScope)}::jsonb WHERE id = 1
     `;
-    const { contentScope, ...historicalOffer } = s.quote.snapshot.offer;
-    expect(contentScope).toBeDefined();
+    const { coverage, ...historicalOffer } = s.quote.snapshot.offer;
+    expect(coverage).toBeDefined();
     const snapshot = { ...s.quote.snapshot, offer: historicalOffer };
     // Historical conditions cannot be produced by today's catalog or changed after insertion.
     await db.prisma.billingPromoReservation.create({
@@ -523,7 +523,7 @@ describe("subscription payment recovery (real PostgreSQL and real facets; synthe
     if (!enrollments.ok) throw new Error(enrollments.error.code);
     expect(enrollments.value).toHaveLength(1);
     expect(enrollments.value[0]).toMatchObject({
-      tier: { contentScope: compatibilityScope },
+      tier: { coverage: compatibilityScope },
       startsAt: "2030-01-31T10:00:00.000Z",
       endsAt: "2030-02-28T10:00:00.000Z",
     });
@@ -668,7 +668,7 @@ describe("subscription payment recovery (real PostgreSQL and real facets; synthe
       await db.prisma.accessGrant.count({ where: { accountId: s.buyer } }),
     ).toBe(1);
     expect(s.requests()).toBe(1);
-    const membership = assembleMembershipEntitlements({
+    const membership = assembleAccountRights({
       prisma: db.prisma,
       clock: () => now,
     });

@@ -51,7 +51,7 @@ export function requestVideoProgress(
 
 export function requestVideoUploadInit(
   input: {
-    readonly access: "free" | "membership";
+    readonly access: "free" | "closed";
     readonly byteSize: number;
     readonly filename: string;
     readonly idempotencyKey: string;
@@ -79,7 +79,7 @@ export function requestVideoUploadInit(
 
 export function requestVideoAttach(
   input: {
-    readonly access: "free" | "membership";
+    readonly access: "free" | "closed";
     readonly materialId: string;
     readonly providerVideoId: string;
   },

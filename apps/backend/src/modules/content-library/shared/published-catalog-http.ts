@@ -3,7 +3,7 @@ import { z } from "zod";
 import {
   materialFormatSchema,
   contentCoverProjectionHttpSchema,
-  guidePageSchema,
+  productPageSchema,
   publishedMaterialProjectionHttpSchema,
 } from "../../materials/index.js";
 
@@ -48,7 +48,7 @@ export const publishedCatalogPageHttpSchema = z
   })
   .strict();
 
-const guideIntroductionHttpSchema = z
+const productIntroductionHttpSchema = z
   .object({
     audience: z.string(),
     outcome: z.string(),
@@ -61,12 +61,12 @@ const discoveryReferenceHttpSchema = z
   .object({
     hasModeVariants: z.boolean(),
     id: z.uuid(),
-    introduction: guideIntroductionHttpSchema.nullable(),
+    introduction: productIntroductionHttpSchema.nullable(),
     name: z.string(),
     // Оформление отдаётся строкой, а не перечислением: выпуск сайта и данные расходятся, и читателю
     // тогда показывают общий шаблон, а не ошибку контракта (ADR 0026).
     productPage: z
-      .object({ presentation: z.string(), page: guidePageSchema.nullable() })
+      .object({ presentation: z.string(), page: productPageSchema.nullable() })
       .strict()
       .nullable(),
     slug: z.string(),
@@ -96,30 +96,30 @@ const discoveryTopicHttpSchema = z
   })
   .strict();
 
-const guideChapterTaskHttpSchema = z
+const productChapterTaskHttpSchema = z
   .object({
     code: z.string(),
     title: z.string(),
-    access: z.enum(["free", "membership"]),
+    access: z.enum(["free", "closed"]),
     afterMaterialId: z.uuid().nullable(),
     availability: z.enum(["available", "locked", "unavailable"]),
     lastSubmittedAt: z.iso.datetime().nullable(),
   })
   .strict();
 
-const guideChapterHttpSchema = z
+const productChapterHttpSchema = z
   .object({
     id: z.uuid(),
     materialIds: z.array(z.uuid()),
     name: z.string(),
     summary: z.string(),
-    tasks: z.array(guideChapterTaskHttpSchema),
+    tasks: z.array(productChapterTaskHttpSchema),
   })
   .strict();
 
 export const publishedDiscoveryPageHttpSchema = z
   .object({
-    chapters: z.array(guideChapterHttpSchema),
+    chapters: z.array(productChapterHttpSchema),
     hasNext: z.boolean(),
     items: z.array(publishedCatalogItemHttpSchema),
     kind: z.enum(["related", "series", "topic"]),

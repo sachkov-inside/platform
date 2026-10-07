@@ -6,7 +6,7 @@ import { signInFullStack } from "../support/full-stack-session";
 import { prepareEvidenceDirectory } from "../../../../scripts/evidence-path.mjs";
 import { z } from "zod";
 
-test("Home filters public guides and preserves the reader return", async ({
+test("Home filters public products and preserves the reader return", async ({
   page,
   request,
 }, testInfo) => {
@@ -16,7 +16,7 @@ test("Home filters public guides and preserves the reader return", async ({
   await page.goto("/");
   const feed = page.getByRole("region", { name: "Материалы", exact: true });
   await expect(feed.getByRole("article").first()).toBeVisible();
-  const guideResponse = page.waitForResponse((response) => {
+  const productResponse = page.waitForResponse((response) => {
     const url = new URL(response.url());
     return (
       url.pathname === "/api/home/materials" &&
@@ -26,7 +26,7 @@ test("Home filters public guides and preserves the reader return", async ({
     );
   });
   await page.getByRole("button", { name: "Гайды", exact: true }).click();
-  await guideResponse;
+  await productResponse;
   await expect(feed.getByRole("article").first()).toBeVisible();
   await expect(
     feed.getByRole("article").filter({ hasNot: page.getByText(/^Гайд ·/u) }),
@@ -581,13 +581,13 @@ test("carries the authenticated owner through Web to ContentAccess", async ({
   await expect(
     page.getByRole("heading", { name: "Продукты", level: 1 }),
   ).toBeVisible();
-  const platformGuide = page.getByRole("link", {
+  const platformProduct = page.getByRole("link", {
     name: /^Создание Platform Inside \d+ материал/u,
   });
-  await expect(platformGuide).toBeVisible();
-  await expect(platformGuide).toHaveAttribute(
+  await expect(platformProduct).toBeVisible();
+  await expect(platformProduct).toHaveAttribute(
     "href",
-    /^\/authoring\/guides\//u,
+    /^\/authoring\/products\//u,
   );
   await captureIssue195Evidence(page, testInfo, "admin-playlists");
 });
@@ -681,7 +681,7 @@ test("navigates Library → Topic → ordered Series and exposes canonical Reade
     .getByRole("link", { name: "Открыть программу", exact: true })
     .click();
   await expect(page).toHaveURL(/\/products\/platform-inside\/programme/u);
-  await expect(page.locator("[data-guide-programme]:visible")).toBeVisible();
+  await expect(page.locator("[data-product-programme]:visible")).toBeVisible();
   // Authoring scenarios add their members-only lessons to this seeded product (#648), so it only grows.
   await expect(
     page.locator("[data-series-order] [data-series-ordinal]").nth(1),

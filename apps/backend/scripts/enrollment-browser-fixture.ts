@@ -37,10 +37,10 @@ await prisma.telegramAccountLinkState.create({
     updatedAt: new Date(),
   },
 });
-const guideId = "62000000-0000-4000-8000-000000000701";
-await prisma.guide.create({
+const productId = "62000000-0000-4000-8000-000000000701";
+await prisma.product.create({
   data: {
-    id: guideId,
+    id: productId,
     name: "Инженерная практика",
     slug: "engineering-practice",
   },

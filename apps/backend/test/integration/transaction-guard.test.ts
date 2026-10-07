@@ -3,7 +3,7 @@ import { existsSync } from "node:fs";
 import { afterAll, beforeAll, describe, expect, test } from "vitest";
 
 import { assembleAccounts } from "../../src/modules/accounts/index.js";
-import { assembleAccessGrants } from "../../src/modules/membership-entitlements/index.js";
+import { assembleAccessGrants } from "../../src/modules/account-rights/index.js";
 import {
   createPrismaClient,
   lockBillingEnrollmentNotices,
@@ -60,7 +60,7 @@ describe("тестовая база отказывает второму соед
       SecondConnectionInTransactionError,
     );
     expect(guarded.refused.at(-1)?.message).toContain(
-      "subscriptionEnrollment.findFirst",
+      "tariffAssignment.findFirst",
     );
   });
 

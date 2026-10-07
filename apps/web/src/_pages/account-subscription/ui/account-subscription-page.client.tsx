@@ -10,7 +10,7 @@ import {
   useSubscriptionOptions,
 } from "@/widgets/account-cabinet";
 
-const storefrontHref: Route = "/subscription";
+const storefrontHref: Route = "/payment/checkout";
 
 /**
  * Раздел «Подписка». Возобновление списаний требует действующих редакций документов, поэтому

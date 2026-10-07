@@ -21,7 +21,7 @@ describe("Video playback authorization", () => {
         reason: "active_membership",
         validUntil,
       });
-      const videos = videoDependencies("membership");
+      const videos = videoDependencies("closed");
       const playback = assembleVideoPlayback({
         clock: () => now,
         contentAccess: { authorize } satisfies Pick<ContentAccess, "authorize">,
@@ -178,7 +178,7 @@ describe("Video playback authorization", () => {
   });
 });
 
-function videoDependencies(access: "free" | "membership") {
+function videoDependencies(access: "free" | "closed") {
   return {
     loadPlayback: vi.fn().mockResolvedValue({
       ok: true,

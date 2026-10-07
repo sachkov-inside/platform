@@ -23,7 +23,7 @@ const lockedMaterialRowsSchema = z.array(
     publication_state: z.enum(["draft", "published", "unpublished"]),
     content_version: z.coerce.number().int().positive(),
     first_published_at: z.coerce.date().nullable(),
-    access: z.enum(["free", "membership"]),
+    access: z.enum(["free", "closed"]),
     primary_video_id: z.uuid().nullable(),
     cover_id: z.uuid().nullable(),
     published_at: z.coerce.date().nullable(),
@@ -34,7 +34,7 @@ const lockedMaterialRowsSchema = z.array(
 export interface LockedMaterial {
   readonly sourceId: string | null;
   readonly videoChapters: readonly VideoChapter[];
-  readonly access: "free" | "membership";
+  readonly access: "free" | "closed";
   readonly lifecycle: Material;
   readonly primaryVideoId: string | null;
   readonly coverId: string | null;

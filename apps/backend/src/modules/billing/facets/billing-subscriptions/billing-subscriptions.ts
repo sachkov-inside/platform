@@ -11,7 +11,7 @@ import {
   type BillingPrismaClient,
 } from "../../../../infrastructure/prisma/index.js";
 import type { BillingContact } from "../../../accounts/index.js";
-import type { AccessGrants } from "../../../membership-entitlements/index.js";
+import type { AccessGrants } from "../../../account-rights/index.js";
 import {
   offerEligibilitySchema,
   offerSchema,
@@ -903,7 +903,7 @@ export class BillingSubscriptions {
         archived: target.offer.archived,
         published: target.offer.published,
         eligibility,
-        contentScope: target.offer.contentScope,
+        coverage: target.offer.coverage,
         ...(Array.isArray(target.offer.benefitPeriods) &&
         target.offer.benefitPeriods.length > 0
           ? { benefitPeriods: target.offer.benefitPeriods }

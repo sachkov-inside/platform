@@ -2,8 +2,8 @@ import type { Subject } from "../../../content-access/index.js";
 import type { PublishedMaterialProjectionDto } from "../../facets/published-material-reader/published-material.contract.js";
 import type { ContentCoverProjection } from "../../facets/content-covers/content-covers.js";
 import type {
-  GuideIntroductionDto,
-  GuideProductPageDto,
+  ProductIntroductionDto,
+  ProductLandingPageDto,
 } from "../../facets/material-authoring/content-collection.contract.js";
 import type { Result } from "../../result.js";
 
@@ -17,7 +17,7 @@ export interface DiscoverPublishedMaterialProjectionsQuery {
 }
 
 export interface PublishedMaterialDiscoveryPageDto {
-  /** Chapters of a Guide's main path, in author order; empty for every other discovery kind. */
+  /** Chapters of a Product's main path, in author order; empty for every other discovery kind. */
   readonly chapters: readonly {
     readonly id: string;
     readonly materialIds: readonly string[];
@@ -30,16 +30,16 @@ export interface PublishedMaterialDiscoveryPageDto {
   readonly kind: PublishedMaterialDiscoveryKind;
   readonly reference: {
     /**
-     * Whether any lesson of this Guide is written for both ways of going through it; false for
+     * Whether any lesson of this Product is written for both ways of going through it; false for
      * every other discovery kind.
      */
     readonly hasModeVariants: boolean;
     readonly id: string;
-    /** Author-written Guide introduction; null for every other discovery kind. */
-    readonly introduction: GuideIntroductionDto | null;
+    /** Author-written Product introduction; null for every other discovery kind. */
+    readonly introduction: ProductIntroductionDto | null;
     readonly name: string;
     /** Product page presentation and description; null for every other discovery kind. */
-    readonly productPage: GuideProductPageDto | null;
+    readonly productPage: ProductLandingPageDto | null;
     readonly slug: string;
     readonly summary: string;
     readonly cover: ContentCoverProjection | null;

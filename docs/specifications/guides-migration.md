@@ -1,10 +1,10 @@
-# Переход Series → Guide
+# Переход Series → Product
 
 Контракт [#448](https://github.com/sachkov-inside/platform/issues/448) реализует принятую
 [модель Workspace](https://github.com/sachkov-inside/workspace/pull/160).
 После [Workspace #181](https://github.com/sachkov-inside/workspace/issues/181) общая пользовательская
-категория Guide называется «Продукт»; определения находятся в [GLOSSARY](../../GLOSSARY.md).
-Этот документ сохраняет технический контракт перехода Series → Guide. Material остаётся самостоятельным и переиспользуемым;
+категория Product называется «Продукт»; определения находятся в [GLOSSARY](../../GLOSSARY.md).
+Этот документ сохраняет технический контракт перехода Series → Product. Material остаётся самостоятельным и переиспользуемым;
 его формат `guide` означает «Гайд». Глава руководства и video chapter с таймкодом — разные понятия.
 Новые главы, артефакты и расширенный импорт относятся к #449.
 
@@ -18,8 +18,8 @@ Production обновляется одним отдельным согласов
 
 ## Сохранение данных
 
-Каждая Series становится ровно одним Guide с тем же UUID и slug. Prisma-модели `Guide`,
-`GuideMembership`, `PublishedMaterialGuideMembership` отображаются на прежние физические
+Каждая Series становится ровно одним Product с тем же UUID и slug. Prisma-модели `Product`,
+`ProductMembership`, `PublishedMaterialProductMembership` отображаются на прежние физические
 `materials.series`, `series_memberships`, `published_material_series_memberships`.
 Миграция не копирует строки и не изменяет SQL schema, ledger или checksum старых миграций.
 Это позволяет одновременно обслуживать старые и новые consumers без двойной записи.
@@ -31,14 +31,14 @@ Videos продолжает владеть Video identity и resume. Повто�
 Доступ и коммерческие права при переименовании не меняются.
 
 Повтор запуска миграций — обычная проверка неизменного ledger. Откат приложения на предыдущую
-версию использует те же таблицы и данные; обратного SQL или удаления Guide не требуется.
+версию использует те же таблицы и данные; обратного SQL или удаления Product не требуется.
 Новые UUID, смена slug, пересоздание Materials и перенос прогресса не входят в этот переход.
 
 ## HTTP, MCP и ссылки
 
 Публичная страница продукта — `/products/:slug` (решение владельца 30.09.2026,
-[#808](https://github.com/sachkov-inside/platform/issues/808)); `/guides/:slug` и `/series/:slug`
-постоянно перенаправляются туда. Страницы автора — `/authoring/guides`, `/authoring/guides/:seriesId`;
+[#808](https://github.com/sachkov-inside/platform/issues/808)); `/products/:slug` и `/series/:slug`
+постоянно перенаправляются туда. Страницы автора — `/authoring/products`, `/authoring/products/:seriesId`;
 старые `/authoring/playlists/...` остаются рабочими страницами той же реализации.
 Параметры `from`, `page`, `at` сохраняются. Reader принимает оба вида адресов руководства,
 сохраняет явно выбранный состав и не выбирает руководство при прямом входе в Material.
@@ -48,37 +48,37 @@ Videos продолжает владеть Video identity и resume. Повто�
 
 | Операция | Новый адрес | Совместимый адрес |
 |---|---|---|
-| Чтение | `GET /library/guides/:slug` | `GET /library/series/:slug` |
-| Состав для автора | `GET /authoring/guides/:guideId/order` | `GET /authoring/series/:seriesId/order` |
-| Изменение состава | `PUT /authoring/guides/:guideId/order` | `PUT /authoring/series/:seriesId/order` |
-| Прогресс | `GET /reading-activity/guides/:guideId` | `GET /reading-activity/series/:seriesId` |
-| Продолжение | `GET /reading-activity/guide-continuation/:slug` | `GET /reading-activity/series-continuation/:slug` |
+| Чтение | `GET /library/products/:slug` | `GET /library/series/:slug` |
+| Состав для автора | `GET /authoring/products/:productId/order` | `GET /authoring/series/:seriesId/order` |
+| Изменение состава | `PUT /authoring/products/:productId/order` | `PUT /authoring/series/:seriesId/order` |
+| Прогресс | `GET /reading-activity/products/:productId` | `GET /reading-activity/series/:seriesId` |
+| Продолжение | `GET /reading-activity/product-continuation/:slug` | `GET /reading-activity/series-continuation/:slug` |
 
 Каждая операция имеет свой operationId; старые специализированные операции отмечены deprecated
 в OpenAPI. Generated Web client строится из этих деклараций, Web использует новые операции.
-Collection API принимает `kind: guide` и возвращает `kind: guide`; старый `kind: series` остаётся
+Collection API принимает `kind: product` и возвращает `kind: product`; старый `kind: series` остаётся
 совместимым запросом и ответом над теми же записями.
 
 Стабильные wire-поля `seriesId`, `seriesIds`, `seriesMemberships`, `series`, `playlists`,
 ошибки `series_*`, фильтр/сортировка `series` и ключи локального состояния сохраняются как
-явный контракт совместимости. Они означают Guide и не создают другую сущность. Их изменение
+явный контракт совместимости. Они означают Product и не создают другую сущность. Их изменение
 потребовало бы отдельного версионированного API и миграции сохранённых команд; такой разрыв
-не нужен для первого перехода. Формат Material `guide` остаётся неизменным.
+не нужен для первого перехода. Формат Material `product` остаётся неизменным.
 
-MCP предлагает `guide_load_composition` и `guide_save_composition` с `guideId`.
+MCP предлагает `product_load_composition` и `product_save_composition` с `productId`.
 Старые `playlist_load_composition` и `playlist_save_composition` с `seriesId` остаются aliases.
 Оба пути используют те же проверки Account, optimistic version и атомарное сохранение.
-`content_collection_*` поддерживают `kind: guide`; новые инструменты не публикуют автоматически.
+`content_collection_*` поддерживают `kind: product`; новые инструменты не публикуют автоматически.
 
 ## Inside Content
 
 Первый проход сохранил три редакционных комплекта 1:1, Material IDs, источники, таймкоды,
 статусы проверки и медиа. Доказательства этого прохода остаются в [evidence](../evidence/issue-448/README.md).
 
-Позднее владелец отдельно одобрил перенос авторской базы в `guides/`, главы и включение внешних
+Позднее владелец отдельно одобрил перенос авторской базы в `products/`, главы и включение внешних
 сервисов в инфраструктурное руководство. Это изменение редакционного состава после миграции,
 а не потеря третьего комплекта. Текущие YAML, CLI, шаблоны, оглавления и сохранность переноса
-принадлежат `docs/guide-migration.md` в Inside Content. Последующие редакционные дополнения
+принадлежат `docs/product-migration.md` в Inside Content. Последующие редакционные дополнения
 сохраняются; Platform не откатывает базу к прежнему снимку или `series.yaml`.
 
 Локальные главы не импортируются в Platform в этом переходе. Их расширенный перенос принадлежит
@@ -96,7 +96,7 @@ PR #427 владеет закрепом и отдельным редакторо
 #448 остаётся открытой до этой интеграции; merge #459 не закрывает её автоматически.
 #422 относится к домену будущей поставки: production-проверки этой ветки не блокируют
 локальную приёмку #448. Существующий PR #427 объединяет итоговую проверку #425/#448. Старые authoring-адреса открывают
-тот же отдельный редактор; новые переходы ведут в `/authoring/guides`. Закреп использует Guide
+тот же отдельный редактор; новые переходы ведут в `/authoring/products`. Закреп использует Product
 с прежним UUID. Его `seriesId`, `pinnedSeries` и физическая `home_series_pin` остаются именами
 совместимости, отдельная сущность Series не возвращается. Две миграции закрепа добавляются после
 текущего main ledger без изменения прежних SQL/checksum. Чужие worktrees сохраняются.

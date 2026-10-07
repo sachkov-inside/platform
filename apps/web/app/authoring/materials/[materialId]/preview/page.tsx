@@ -17,13 +17,13 @@ export default async function Page({
   readonly params: Promise<{ readonly materialId: string }>;
   readonly searchParams: Promise<{
     readonly from?: string | readonly string[];
-    readonly guide?: string | readonly string[];
+    readonly product?: string | readonly string[];
   }>;
 }) {
   const [{ materialId }, query] = await Promise.all([params, searchParams]);
   return (
     <MaterialCurrentPreviewPage
-      guideId={typeof query.guide === "string" ? query.guide : undefined}
+      productId={typeof query.product === "string" ? query.product : undefined}
       materialId={materialId}
       returnHref={parseAuthoringReturnHref(query.from)}
     />

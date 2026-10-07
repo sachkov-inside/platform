@@ -9,7 +9,7 @@ export async function loadSeriesContinuation(
   const form = new FormData();
   form.set("slug", slug);
   const response = await requestSameOriginMutation(
-    "/api/reading-progress/guide-continuation",
+    "/api/reading-progress/product-continuation",
     "POST",
     form,
   );

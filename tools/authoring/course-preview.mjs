@@ -13,15 +13,15 @@ import {
 /** @param {import('./package.mjs').Manifest} original */
 export function coursePreviewManifest(original) {
   const manifest = structuredClone(original);
-  const guide = manifest.guides.find(
+  const product = manifest.products.find(
     (row) => row.sourceId === "inside-ai-engineering",
   );
-  if (guide === undefined || manifest.guides.length !== 1)
+  if (product === undefined || manifest.products.length !== 1)
     throw new Error("Course preview requires only Inside AI Engineering");
-  const preparation = guide.chapters.find(
+  const preparation = product.chapters.find(
     (row) => row.sourceId === "course-preparation",
   );
-  const first = guide.chapters.find(
+  const first = product.chapters.find(
     (row) => row.sourceId === "first-agent-project",
   );
   if (
@@ -35,10 +35,10 @@ export function coursePreviewManifest(original) {
   const free = new Set([
     ...preparation.materialIds,
     ...first.materialIds.slice(0, 2),
-    ...guide.supplementaryMaterialIds,
+    ...product.supplementaryMaterialIds,
   ]);
   for (const row of manifest.materials)
-    row.access = free.has(row.sourceId) ? "free" : "membership";
+    row.access = free.has(row.sourceId) ? "free" : "closed";
   for (const practice of manifest.practiceDefinitions ?? []) {
     const material = manifest.materials.find(
       (row) =>

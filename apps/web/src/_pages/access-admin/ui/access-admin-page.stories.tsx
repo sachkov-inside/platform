@@ -10,7 +10,7 @@ import {
   type BillingRoutes,
 } from "@/features/billing-admin/ui/billing-bff.fixtures";
 import {
-  guideOnlyOffer,
+  productOnlyOffer,
   materialsOffer,
   supportOffer,
 } from "@/storybook/billing.fixtures";
@@ -141,10 +141,10 @@ export const Tariffs: Story = {
     await expect(
       await panel.findByText(/снят с продажи\. Выданный доступ сохранён\./u),
     ).toBeVisible();
-    const guide = within(
-      panel.getByRole("listitem", { name: guideOnlyOffer.offer.name }),
+    const product = within(
+      panel.getByRole("listitem", { name: productOnlyOffer.offer.name }),
     );
-    await expect(guide.getByText("Не продаётся")).toBeVisible();
+    await expect(product.getByText("Не продаётся")).toBeVisible();
   },
 };
 
@@ -155,17 +155,17 @@ export const SaleRefused: Story = {
   }),
   play: async ({ canvasElement }) => {
     const panel = currentPanel(canvasElement);
-    const guide = within(
-      panel.getByRole("listitem", { name: guideOnlyOffer.offer.name }),
+    const product = within(
+      panel.getByRole("listitem", { name: productOnlyOffer.offer.name }),
     );
     await userEvent.click(
-      guide.getByRole("button", { name: "Включить продажу" }),
+      product.getByRole("button", { name: "Включить продажу" }),
     );
     await expect(await panel.findByRole("alert")).toHaveTextContent(
       /Оплата не настроена/u,
     );
     await expect(lastRequest("offers/publish")).toMatchObject({
-      id: guideOnlyOffer.offer.id,
+      id: productOnlyOffer.offer.id,
     });
   },
 };

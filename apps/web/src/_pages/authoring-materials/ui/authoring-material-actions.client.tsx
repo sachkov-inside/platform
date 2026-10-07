@@ -105,7 +105,7 @@ function PublicationNotice({
   if (result === null) return null;
   const removalNeedsEditor =
     result.kind === "conflict" &&
-    result.reason === "guide_removal_confirmation_required";
+    result.reason === "product_removal_confirmation_required";
   if (result.kind === "saved") {
     return (
       <span className="sr-only" role="status">

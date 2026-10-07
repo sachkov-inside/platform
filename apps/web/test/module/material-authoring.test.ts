@@ -194,7 +194,7 @@ describe("Material Authoring action workflow", () => {
           firstPublishedAt: "2026-08-30T08:00:00.000Z",
           materialId,
           metadata: {
-            access: "membership",
+            access: "closed",
             difficulty: "intermediate",
             outcomes: [
               "Провести задачу до мержа",
@@ -229,7 +229,7 @@ describe("Material Authoring action workflow", () => {
       getCurrentMaterial(materialId, "access-token", dependencies),
     ).resolves.toMatchObject({
       draft: {
-        access: "membership",
+        access: "closed",
         contentVersion: 7,
         materialId,
         readOnly: false,
@@ -358,7 +358,7 @@ describe("Material Authoring action workflow", () => {
     expect(dependencies.save).toHaveBeenCalledOnce();
     expect(dependencies.save).toHaveBeenCalledWith(
       {
-        access: "membership",
+        access: "closed",
         deleteVideoId: null,
         detachVideoIds: [],
         difficulty: "basic",
@@ -446,16 +446,16 @@ describe("Material Authoring action workflow", () => {
   });
 
   it("asks to confirm a removal from a bought product and sends the confirmed products", async () => {
-    const guides = [
-      { guideId: seriesId, holders: 2, name: "Купленный продукт" },
+    const products = [
+      { productId: seriesId, holders: 2, name: "Купленный продукт" },
     ];
     const refused = {
       ...successfulSaveDependencies(),
       save: vi.fn().mockResolvedValue({
         ok: false,
         problem: {
-          code: "guide_removal_confirmation_required",
-          guides,
+          code: "product_removal_confirmation_required",
+          products,
           status: 409,
         },
         response: Response.json({}, { status: 409 }),
@@ -463,14 +463,14 @@ describe("Material Authoring action workflow", () => {
     } satisfies SaveMaterialDependencies;
     await expect(
       executeSaveMaterial(validSaveFormData(), "access-token", refused),
-    ).resolves.toEqual({ guides, kind: "removal_confirmation_required" });
+    ).resolves.toEqual({ products, kind: "removal_confirmation_required" });
 
     const dependencies = successfulSaveDependencies();
     const formData = validSaveFormData();
-    formData.append("confirmedGuideRemovals", seriesId);
+    formData.append("confirmedProductRemovals", seriesId);
     await executeSaveMaterial(formData, "access-token", dependencies);
     expect(dependencies.save).toHaveBeenCalledWith(
-      expect.objectContaining({ confirmedGuideRemovals: [seriesId] }),
+      expect.objectContaining({ confirmedProductRemovals: [seriesId] }),
       "access-token",
     );
   });
@@ -622,7 +622,7 @@ function successfulReferences() {
 
 function validSaveFormData(): FormData {
   const formData = new FormData();
-  formData.set("access", "membership");
+  formData.set("access", "closed");
   formData.set(
     "document",
     JSON.stringify({

@@ -62,7 +62,7 @@ legal, DEMO и продажи принимаются отдельно в #402/#4
 
 ### Контракты реализации #407
 
-`Offer.benefits` содержит независимые capabilities: `materials`, `guide:<stable UUID>`, `support`,
+`Offer.benefits` содержит независимые capabilities: `materials`, `product:<stable UUID>`, `support`,
 `community` и прежний `reviews`. Неуказанный срок в `benefitPeriods` наследует число календарных
 месяцев варианта оплаты; явный `months: null` означает бессрочное право. В #407 для новой продажи
 допустим только `mode: subscription`; разовый режим добавляет #495. Старые snapshots без новых
@@ -403,7 +403,7 @@ billing/offers` возвращает пустой список, блок на г
 Признак «подписка продаётся» с #648 включает только неархивный вариант `subscription` у тарифа с
 непустым составом; включённое в продажу разовое предложение продукта его не включает.
 По решению владельца (#648) подписку можно включать в продажу только с составом «все продукты платформы»
-(`contentScope.allGuides`) и правом `support`. Каталог этого пока не требует: продажа подписки выключена,
+(`coverage.wholePlatform`) и правом `support`. Каталог этого пока не требует: продажа подписки выключена,
 и правило вводится вместе с её включением (#165).
 
 Владелец включает и выключает вариант операциями `offers.publish` и `offers.unpublish` в общей
@@ -464,7 +464,7 @@ unavailable — временный сбой, а не решение, и не с�
 ([Workspace #165](https://github.com/sachkov-inside/workspace/issues/165)) делает руководства
 основным продуктом, а подписку — включаемой опцией. #495 добавляет второй режим варианта оплаты
 рядом с `subscription`: `one_time`. Цена руководства живёт в том же каталоге, что и варианты
-подписки: владелец заводит предложение с правом `guide:<id>` и разовым вариантом цены. Отдельного
+подписки: владелец заводит предложение с правом `product:<id>` и разовым вариантом цены. Отдельного
 поля цены у руководства нет, второго каталога тоже.
 
 Руководство продаётся, только когда у него есть действующий разовый вариант включённого в продажу
@@ -501,7 +501,7 @@ unavailable — временный сбой, а не решение, и не с�
 страница продукта `/products/<slug>` не называет цену и ведёт в программу (кроме первого экрана курса
 с потоком, см. «Поток продукта» ниже), программа
 `/products/<slug>/programme` показывает одну кнопку «Оплатить сейчас», а цену, состав покупки и
-оформление несёт страница оплаты `/products/<slug>/buy`. Прежние адреса `/guides/...` и `/series/...`
+оформление несёт страница оплаты `/products/<slug>/buy`. Прежние адреса `/products/...` и `/series/...`
 постоянно перенаправляются на `/products/...` (#808). Разделение намеренное: до цены читатель
 успевает увидеть бесплатные материалы и замки, а решение об оплате принимается на странице, где
 нечего делать, кроме как принять или отказаться.
@@ -537,7 +537,7 @@ unavailable — временный сбой, а не решение, и не с�
 Кнопка оплаты ведёт на страницу оплаты и видна, только пока у разового предложения продукта включена
 продажа; цена — первая цена самого дешёвого варианта, который видит этот человек с учётом допуска к
 предложению. Без такого предложения, и у того, кому продукт уже открыт, кнопка ведёт в программу
-(#831). Открыт ли продукт, отвечает `GET accounts/current/guides/{guideId}/access` по тем же основаниям,
+(#831). Открыт ли продукт, отвечает `GET accounts/current/products/{productId}/access` по тем же основаниям,
 что открывают его платные уроки: право на продукт, тариф с продуктом в составе или тариф «все
 продукты». Ответ не зависит от опубликованных уроков, поэтому работает и на предзаказе, когда открыта
 только бесплатная глава. Разрешение автора продукт не открывает: автор видит оплату как покупатель
@@ -619,7 +619,7 @@ unavailable — временный сбой, а не решение, и не с�
 руководство открывает доступ в общий чат сообщества наравне со старшим тарифом. Основанием
 участия становится само право, а не название или состав тарифа.
 
-`resolveCapabilities` выводит `community` из любого действующего права `guide:<id>` и `support` и складывает
+`resolveCapabilities` выводит `community` из любого действующего права `product:<id>` и `support` и складывает
 его с прежним выводом из состава тарифа теми же правилами объединения: срок участия равен сроку
 права на руководство, бессрочное право даёт бессрочное участие, а из нескольких оснований
 побеждает самое длинное. Отдельное право `community` в составе предложения этот вывод не
@@ -648,10 +648,10 @@ unavailable — временный сбой, а не решение, и не с�
 покупают только прежние подписчики Tribute.
 
 **Срок прав в предложении.** Разовая покупка выдаёт каждое право на срок из `benefitPeriods`, в том
-числе право на продукт `guide:<id>` и общую группу `community`: прежде они выдавались без даты
+числе право на продукт `product:<id>` и общую группу `community`: прежде они выдавались без даты
 окончания независимо от названного срока. Право без названного срока у разовой покупки бессрочно,
 названный срок считается календарными месяцами от подтверждения оплаты. Предложение курса —
-`guide:<id>` и `community` с `months: null`, `support` с `months: 6`. Каталог не сохраняет
+`product:<id>` и `community` с `months: null`, `support` с `months: 6`. Каталог не сохраняет
 предложение продукта с `support` без названного срока: прежнее «ровно 6 месяцев» (#648) стало
 значением предложения, а без значения сопровождение стало бы бессрочным по умолчанию.
 
@@ -721,7 +721,7 @@ username при входе (раздел «Telegram sign-in» в
 По шаблону создаётся новая акция с тем же процентом, окном и областью, случайным промокодом и
 `usageLimit: 1`; ник получает не больше одной такой акции, повтор возвращает выданную. Шаблон
 обязан быть архивным и не истёкшим (`state_conflict`): действующая акция без кода уже продавала бы
-скидку всем. Если область шаблона продаёт один продукт, результат содержит его `guideSlug`, и
+скидку всем. Если область шаблона продаёт один продукт, результат содержит его `productSlug`, и
 кабинет собирает ссылку `/products/<slug>/buy?promo=<code>`. Страница оплаты передаёт `promo` в расчёт и сохраняет его при
 входе и принятии условий; если код не применился, покупатель видит обычную цену и объяснение.
 Одноразовость держит прежний лимит акции: занятое применение освобождает только окончательно
@@ -735,7 +735,7 @@ username при входе (раздел «Telegram sign-in» в
 
 Правила исполняются наборами `survey-respondents` (PostgreSQL), `survey-respondent-usernames`,
 `billing-checkout-promo`, `billing-admin-bff` и историями Storybook `Survey respondents` и
-`Guide/Payment/Flow`.
+`Product/Payment/Flow`.
 
 ## Историческая поставка #908
 
@@ -763,7 +763,7 @@ start-параметр короче 43 символов. Приглашение 
 | `revoked` | владелец отозвал до погашения; окончательно |
 
 Погашённое приглашение не отзывается: доступ меняется операциями назначения. Приглашения хранит
-`membership_entitlements.invitations` рядом с ActivationRule, потому что подарок и закрепление
+`account_rights.invitations` рядом с ActivationRule, потому что подарок и закрепление
 пишутся в одной транзакции прав.
 
 **Допуск `invitation_only`.** Основания покупки (`AccessGrants.readPurchaseGrounds`) получают
@@ -780,7 +780,7 @@ start-параметр короче 43 символов. Приглашение 
 (`confirmed_legacy`) без остановки списаний Tribute приглашение не открывает. Правило действует для
 покупки, возобновления, смены варианта и продления.
 
-**Подарок.** Погашение `gift` назначает SubscriptionEnrollment origin `invitation`: `sourceRef` — id
+**Подарок.** Погашение `gift` назначает TariffAssignment origin `invitation`: `sourceRef` — id
 приглашения, `endPolicy: fixed`, начало — момент погашения, конец — через `giftMonths` календарных
 месяцев по московскому календарю, как период подписки, или без конца. Offer должен быть открыт для
 назначения: не в архиве, `availableForAssignment`, с составом и без невыдаваемых прав. Снимок тарифа
@@ -835,7 +835,7 @@ Offer и меняет только `eligibility`, поэтому состав, �
 
 | Источник | Что это |
 |---|---|
-| `platform_payment`, `invitation`, `course`, `manual`, `tribute` | SubscriptionEnrollment этого origin |
+| `platform_payment`, `invitation`, `course`, `manual`, `tribute` | TariffAssignment этого origin |
 | `manual` | AccessGrant `manual` или `legacy` без назначения |
 | `one_time_purchase` | оплаченный AccessGrant без назначения; Offer Billing называет по платежу |
 
@@ -882,7 +882,7 @@ Offer и меняет только `eligibility`, поэтому состав, �
 | `accounts` | Account, подтверждённый billing contact и его revision; start/confirm contact change | #406 |
 | `telegram-membership` | Verified Account ↔ Telegram link; stable linkRef и монотонная linkRevision, tombstone после unlink; read current/historical binding | #404, #415 |
 | `billing` (новый модуль) | Offers, price/consent snapshots, subscription, attempts, bank/fiscal results, lifecycle events и outbox; purchase/change/renew/cancel/reconcile/refund | #405, #407–#409 |
-| `membership-entitlements` | Независимые paid/manual/legacy grants; applyPaidPeriod, grant/revoke/preview/batch, resolveForAccess; legacy classification | #404 |
+| `account-rights` | Независимые paid/manual/legacy grants; applyPaidPeriod, grant/revoke/preview/batch, resolveForAccess; legacy classification | #404 |
 | `content-access` | Финальный доступ к материалам/файлам/video token из публичного entitlement facet, без provider I/O | #404 |
 | `telegram-membership` | Community desired state, entitlement revision, outbox и delivery observation; project/sweep/authorizeDispatch/readDelivery | #415 |
 | `billing` | Notice-ready event, due reminder и актуальность billing source | #410 |
@@ -898,7 +898,7 @@ Offer и меняет только `eligibility`, поэтому состав, �
 ### Доступ и согласованность без общей транзакции модулей
 
 Billing transaction атомарно фиксирует подтверждённый платёж, период, lifecycle event и outbox.
-Она не пишет в schema `membership_entitlements`. Отдельный projector вызывает `applyPaidPeriod`
+Она не пишет в schema `account_rights`. Отдельный projector вызывает `applyPaidPeriod`
 через публичный facet с immutable eventRef, periodRef, Account и revision. Entitlement transaction
 сохраняет receipt и grant вместе; повтор eventRef даёт исходный результат, другая нагрузка — конфликт.
 Падение между транзакциями восстанавливается outbox replay, не новой оплатой. Пока выдача не
@@ -1185,7 +1185,7 @@ manual grant не считается выручкой.
 
 ## Реализованный access foundation #404
 
-`assembleAccessGrants` — публичный внутренний facet модуля `membership-entitlements`:
+`assembleAccessGrants` — публичный внутренний facet модуля `account-rights`:
 `applyPaidPeriod`, `previewBatch`, `applyBatch`, `changeGrant`, `classifyLegacy`,
 `readLegacyClassification`, `resolveCapabilities`. HTTP/MCP owner adapters остаются в #409,
 paid outbox projector — в #407, community worker — в #415. Facet не принимает платёжное
@@ -1226,7 +1226,7 @@ legacy gate, не согласие на покупку: unknown запрещён
 
 `resolveCapabilities` объединяет materials/community/support отдельно (`reviews` не выдаётся) и возвращает границу
 каждой возможности, последнюю audit revision и ближайшее начало/окончание периода для sweep.
-Действующее право `guide:<id>` само по себе даёт `community` на свой срок (#524).
+Действующее право `product:<id>` само по себе даёт `community` на свой срок (#524).
 Изменения grants, classification и cohort evidence сериализуются на уровне Account;
 capabilities и revision читаются из одного RepeatableRead snapshot. `resolveForAccess` выбирает materials; отрицательное старое evidence не перекрывает независимое
 право. ContentAccess, file delivery, video playback, ReadingActivity и Member Profile учитывают
@@ -1242,3 +1242,32 @@ tombstone с null identity, повтор той же пары revision не ув
 Проверка: `account-access.test.ts` исполняет публичные facets на real PostgreSQL; старый
 normalised evidence corpus использует явно заданный synthetic legacy cohort. Реальные права,
 платежи, Telegram sends, массовый импорт и деплой этим доказательством не объявляются выполненными.
+
+
+## Domain names and sequential rollout (#1065)
+
+`Product`, `Coverage`, `TariffAssignment`, `AccountRights` and `PriorParticipants` are the current
+code names. `Offer` remains the code name for a Tariff. Migration `0082_domain_names` renames physical
+identifiers and converts persisted capabilities (`guide:<id>` to `product:<id>`), Coverage snapshots
+and the `closed` access class in one transaction. Product IDs, right IDs and promised periods stay
+unchanged. Authored content and external provider evidence retain their original JSON.
+
+Internal command digests retain the pre-#1065 vocabulary in each scope's original envelope.
+Replays normalize live commands into that storage form; receipt digests remain unchanged. Paid grant
+source references follow the renamed capability while outbox event identities stay unchanged.
+This storage codec must remain until all old receipts and previews have an explicit digest migration.
+It is independent of the temporary bot codec below.
+
+Platform deploys first, with its matching Web and Backend images and migration. Until Telegram
+ships, bot activation responses without `x-inside-domain-names: products.v1` retain the previous
+`guide:`, `contentScope`, `guideIds` and `allGuides` representation. Cohort responses also retain
+`guideId`. The new Telegram image opts into the canonical representation and accepts either
+representation in activation responses. Existing `PLATFORM_COHORT_GUIDE_ID` configuration remains
+accepted; new configuration uses `PLATFORM_COHORT_PRODUCT_ID`. A simultaneous deploy is unnecessary.
+Remove the compatibility codec only after the new Telegram image is verified in production.
+
+`/subscription?offer=<id>` redirects with its query to `/payment/checkout`, which resolves the
+Offer's Product and redirects to `/products/<slug>/buy`. `/subscription/return` redirects to
+`/payment/return` with all bank parameters. Bank return settings stay unchanged. These redirects
+also serve old payment and bot messages. Old Platform images cannot use the renamed database;
+repair uses a compatible forward release rather than an application-only rollback.

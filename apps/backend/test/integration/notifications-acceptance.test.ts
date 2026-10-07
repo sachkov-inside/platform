@@ -37,8 +37,8 @@ import type {
 import { assembleContentAccess } from "../../src/modules/content-access/index.js";
 import {
   assembleAccessGrants,
-  assembleMembershipEntitlements,
-} from "../../src/modules/membership-entitlements/index.js";
+  assembleAccountRights,
+} from "../../src/modules/account-rights/index.js";
 import {
   assembleMaterialResourceFacts,
   assembleMaterials,
@@ -125,7 +125,7 @@ describe("приёмка обоих источников Notifications (реал
 
   let owner: string;
   let topicId: string;
-  const subscriptionGuideId = randomUUID();
+  const subscriptionProductId = randomUUID();
   let pricing: BillingPricing;
   let contact: BillingContact;
   let grants: ReturnType<typeof assembleAccessGrants>;
@@ -179,10 +179,10 @@ describe("приёмка обоих источников Notifications (реал
     await platform.prisma.accountPermission.create({
       data: { accountId: owner, permission: "platform:admin" },
     });
-    await platform.prisma.guide.create({
+    await platform.prisma.product.create({
       data: {
-        id: subscriptionGuideId,
-        slug: subscriptionGuideId,
+        id: subscriptionProductId,
+        slug: subscriptionProductId,
         name: "Программа подписки приёмки",
       },
     });
@@ -196,7 +196,7 @@ describe("приёмка обоих источников Notifications (реал
       emailFingerprintKey: "synthetic-acceptance-fingerprint-00",
     });
     grants = assembleAccessGrants({ prisma: platform.prisma, accounts });
-    const membership = assembleMembershipEntitlements({
+    const membership = assembleAccountRights({
       prisma: platform.prisma,
     });
     pricing = assembleTestBillingPricing({
@@ -225,7 +225,7 @@ describe("приёмка обоих источников Notifications (реал
       accountPermissions: {
         hasMaterialsManage: (id) => Promise.resolve(id === owner),
       },
-      membershipEntitlements: membership,
+      accountRights: membership,
     });
     bank = new BankFixture(config);
     const client = bank.client();
@@ -450,12 +450,12 @@ describe("приёмка обоих источников Notifications (реал
           benefits: [...input.benefits],
           ...(input.benefits.includes("materials")
             ? {
-                contentScope: {
-                  guideIds: (
-                    await platform.prisma.guide.findMany({
+                coverage: {
+                  productIds: (
+                    await platform.prisma.product.findMany({
                       select: { id: true },
                     })
-                  ).map((guide) => guide.id),
+                  ).map((product) => product.id),
                   materialIds: [],
                 },
               }
@@ -558,11 +558,11 @@ describe("приёмка обоих источников Notifications (реал
     return purchase.purchaseRef;
   }
 
-  async function guideCollection(): Promise<string> {
-    const slug = `acceptance-guide-${randomUUID()}`;
+  async function productCollection(): Promise<string> {
+    const slug = `acceptance-product-${randomUUID()}`;
     const created = await materials.authoring.createContentCollection({
       actor: owner,
-      kind: "guide",
+      kind: "product",
       name: slug,
       slug,
       summary: "",
@@ -574,18 +574,18 @@ describe("приёмка обоих источников Notifications (реал
   /** Первая публикация материала нужного состава через настоящий путь авторской работы. */
   async function publish(
     title: string,
-    guideIds: readonly string[] = [subscriptionGuideId],
+    productIds: readonly string[] = [subscriptionProductId],
   ): Promise<MaterialId> {
     const metadata = {
       title,
       summary: "Материал приёмки уведомлений",
-      access: "membership" as const,
+      access: "closed" as const,
       topicId,
       formatId: "guide",
       tagIds: [],
       difficulty: null,
       outcomes: [],
-      seriesIds: [...guideIds],
+      seriesIds: [...productIds],
     };
     const created = value(
       await materials.authoring.createDraft({
@@ -657,25 +657,25 @@ describe("приёмка обоих источников Notifications (реал
   test("оба источника доходят до обоих каналов и возвращают результаты", async () => {
     const subscriber = await member();
     const buyerAccount = await member();
-    const guideId = await guideCollection();
+    const productId = await productCollection();
     const subscription = await offer({
       name: "Подписка «Материалы»",
       benefits: ["materials"],
       priceKopecks: 100_000,
     });
-    const guideOffer = await offer({
+    const productOffer = await offer({
       name: "Руководство «Приёмка»",
-      benefits: [`guide:${guideId}`, "support"],
+      benefits: [`product:${productId}`, "support"],
       mode: "one_time",
       priceKopecks: 290_000,
       benefitPeriods: [
-        { capability: `guide:${guideId}`, months: null },
+        { capability: `product:${productId}`, months: null },
         { capability: "support", months: 6 },
       ],
     });
 
     await buy(subscriber, subscription, { recurring: true });
-    await buy(buyerAccount, guideOffer);
+    await buy(buyerAccount, productOffer);
     const notices = await platform.prisma.billingNotice.findMany({
       where: {
         accountId: { in: [subscriber, buyerAccount] },
@@ -685,7 +685,7 @@ describe("приёмка обоих источников Notifications (реал
     // Оба продукта продаются сейчас, и оба дают повод: подписка и разовая покупка руководства.
     expect(notices).toHaveLength(2);
 
-    const material = await publish("Первый материал приёмки", [guideId]);
+    const material = await publish("Первый материал приёмки", [productId]);
     const announcement = await announcementOf(material);
 
     for (const occurrenceRef of [
@@ -754,14 +754,14 @@ describe("приёмка обоих источников Notifications (реал
   }, 240_000);
 
   test("аудитория первой публикации считает действующие права, и один Account получает одно событие", async () => {
-    const guideId = await guideCollection();
-    const guideOffer = await offer({
+    const productId = await productCollection();
+    const productOffer = await offer({
       name: `Руководство ${randomUUID()}`,
-      benefits: [`guide:${guideId}`, "support"],
+      benefits: [`product:${productId}`, "support"],
       mode: "one_time",
       priceKopecks: 190_000,
       benefitPeriods: [
-        { capability: `guide:${guideId}`, months: null },
+        { capability: `product:${productId}`, months: null },
         { capability: "support", months: 6 },
       ],
     });
@@ -772,15 +772,15 @@ describe("приёмка обоих источников Notifications (реал
     });
 
     const libraryOnly = await member();
-    const guideOnly = await member();
+    const productOnly = await member();
     const both = await member();
     const stranger = await member();
     await buy(libraryOnly, libraryOffer, { recurring: true });
-    await buy(guideOnly, guideOffer);
+    await buy(productOnly, productOffer);
     await buy(both, libraryOffer, { recurring: true });
-    await buy(both, guideOffer);
+    await buy(both, productOffer);
 
-    const material = await publish("Материал внутри руководства", [guideId]);
+    const material = await publish("Материал внутри руководства", [productId]);
     const announcement = await announcementOf(material);
     await eventually(async () => {
       const deliveries = await deliveriesOf(announcement.id);
@@ -799,7 +799,7 @@ describe("приёмка обоих источников Notifications (реал
     const reached = audience.map((row) => row.accountId);
     // Право на чтение даёт и подписка, и разовая покупка этого руководства.
     expect(reached).toEqual(
-      expect.arrayContaining([libraryOnly, guideOnly, both]),
+      expect.arrayContaining([libraryOnly, productOnly, both]),
     );
     // Оба основания вместе не удваивают событие: у Account ровно одна Notification.
     expect(reached.filter((id) => id === both)).toHaveLength(1);

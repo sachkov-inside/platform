@@ -10,7 +10,7 @@ import {
 } from "../../src/modules/accounts/index.js";
 import type { LegalDocument } from "../../src/modules/accounts/facets/billing-contact/billing-contact.contract.js";
 import { billingContactProtection } from "../../src/modules/accounts/infrastructure/billing-contact-protection.js";
-import { assembleAccessGrants } from "../../src/modules/membership-entitlements/index.js";
+import { assembleAccessGrants } from "../../src/modules/account-rights/index.js";
 import {
   BillingPayments,
   type BillingPricing,
@@ -51,7 +51,7 @@ const config = syntheticTbankConfig({
   notificationUrl: "https://inside.example.test/billing/tbank/notification",
   receipt: { taxation: "usn_income", tax: "none" },
 });
-const guidePrice = 290_000;
+const productPrice = 290_000;
 /** Каталог до и после ввода новой редакции оферты разовой покупки: меняется только она. */
 const previousOffer = syntheticConsentDocument("terms", {
   version: "purchase-v1",
@@ -152,7 +152,7 @@ describe("one-time offer edition change (real PostgreSQL and real facets; synthe
       ).ok
     )
       throw new Error("contact");
-    const capability = `guide:${randomUUID()}`;
+    const capability = `product:${randomUUID()}`;
     const offerId = randomUUID(),
       optionId = randomUUID();
     value(
@@ -179,7 +179,7 @@ describe("one-time offer edition change (real PostgreSQL and real facets; synthe
           offerId,
           mode: "one_time",
           months: 1,
-          priceKopecks: guidePrice,
+          priceKopecks: productPrice,
         },
       }),
     );
@@ -198,7 +198,7 @@ describe("one-time offer edition change (real PostgreSQL and real facets; synthe
       TerminalKey: config.terminalKey,
       OrderId: orderId,
       PaymentId: paymentId,
-      Amount: guidePrice,
+      Amount: productPrice,
       Status: state,
       Success: true,
       ErrorCode: "0",

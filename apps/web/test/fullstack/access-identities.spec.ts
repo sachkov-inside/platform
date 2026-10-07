@@ -21,14 +21,14 @@ import {
  * существующему ресурсу, после которого наблюдатель с правом читает то же состояние.
  */
 
-/** Guide A — сидовый продукт «Создание Platform Inside» с закрытым материалом. */
-const guideA = {
+/** Product A — сидовый продукт «Создание Platform Inside» с закрытым материалом. */
+const productA = {
   id: "72000000-0000-4000-8000-000000000007",
   closedSlug: "developer-pipeline-bez-poteri-konteksta",
   closedBody: "Закрытое содержимое для участников.",
 } as const;
-/** Guide B — изолированный «Synthetic practice», который запускатор создаёт для прогона. */
-const guideB = {
+/** Product B — изолированный «Synthetic practice», который запускатор создаёт для прогона. */
+const productB = {
   closedBody: "FULLSTACK_PRIVATE_PRACTICE_BODY",
 } as const;
 /** Сидовое предложение «Материалы»: существующий ресурс для запрещённой Billing mutation. */
@@ -155,14 +155,14 @@ async function billing(
   return response.json();
 }
 
-/** Значение тарифа «материалы только Guide A»: так устроено и сидовое предложение «Материалы». */
-function guideAOffer(id: string, name: string) {
+/** Значение тарифа «материалы только Product A»: так устроено и сидовое предложение «Материалы». */
+function productAOffer(id: string, name: string) {
   return {
     id,
     name,
     benefits: ["materials"],
     availableForAssignment: true,
-    contentScope: { guideIds: [guideA.id], materialIds: [] },
+    coverage: { productIds: [productA.id], materialIds: [] },
   };
 }
 
@@ -181,7 +181,7 @@ async function seededOffer(observer: Page) {
 function renameSeededOffer(page: Page, offer: { readonly revision: number }) {
   return billing(page, "offers/save", {
     expectedRevision: offer.revision,
-    value: guideAOffer(seededOfferId, "Переименовано без права"),
+    value: productAOffer(seededOfferId, "Переименовано без права"),
   });
 }
 
@@ -350,13 +350,13 @@ test("an ordinary Account is denied Materials and Billing mutations on existing 
   }
 });
 
-test("a learner scoped to Guide A reads Guide A, is denied Guide B and loses Guide A on revocation", async ({
+test("a learner scoped to Product A reads Product A, is denied Product B and loses Product A on revocation", async ({
   browser,
 }) => {
-  const guideBSlug = process.env["FULLSTACK_PRACTICE_SLUG"];
-  if (guideBSlug === undefined)
-    throw new Error("Missing Guide B fixture (FULLSTACK_PRACTICE_SLUG)");
-  const learner = await openAs(browser, "GUIDE_A_LEARNER");
+  const productBSlug = process.env["FULLSTACK_PRACTICE_SLUG"];
+  if (productBSlug === undefined)
+    throw new Error("Missing Product B fixture (FULLSTACK_PRACTICE_SLUG)");
+  const learner = await openAs(browser, "PRODUCT_A_LEARNER");
   const billingManager = await openAs(browser, "BILLING_ONLY");
   const terms = {
     startsAt: new Date().toISOString(),
@@ -377,19 +377,23 @@ test("a learner scoped to Guide A reads Guide A, is denied Guide B and loses Gui
         reason: "Scoped learner access check revoked",
       }),
     ).value.result.value;
-  // Назначение, которое ещё не отозвано: упавший прогон не оставляет ученику доступ к Guide A
+  // Назначение, которое ещё не отозвано: упавший прогон не оставляет ученику доступ к Product A
   // для следующего прогона того же набора.
   let activeEnrollment: BillingEnrollment | undefined;
   try {
-    // Без назначения Guide A закрыт, а бесплатный материал открыт: доступ к A даст только
+    // Без назначения Product A закрыт, а бесплатный материал открыт: доступ к A даст только
     // назначение ниже, и отказ здесь не следствие сломанной сессии.
     await openMaterial(learner.page, publishedMaterial.slug, "available");
-    await openDeniedBody(learner.page, guideA.closedSlug, guideA.closedBody);
+    await openDeniedBody(
+      learner.page,
+      productA.closedSlug,
+      productA.closedBody,
+    );
 
     const tierId = crypto.randomUUID();
     const tier = billingRecordSchema.parse(
       await billing(billingManager.page, "offers/save", {
-        value: guideAOffer(tierId, `Только Guide A ${tierId}`),
+        value: productAOffer(tierId, `Только Product A ${tierId}`),
       }),
     ).value.result.value;
     const assigned = billingEnrollmentSchema.parse(
@@ -407,16 +411,24 @@ test("a learner scoped to Guide A reads Guide A, is denied Guide B and loses Gui
     activeEnrollment = assigned;
     expect(assigned.state).toBe("active");
 
-    await openClosedBody(learner.page, guideA.closedSlug, guideA.closedBody);
-    await openDeniedBody(learner.page, guideBSlug, guideB.closedBody);
+    await openClosedBody(
+      learner.page,
+      productA.closedSlug,
+      productA.closedBody,
+    );
+    await openDeniedBody(learner.page, productBSlug, productB.closedBody);
 
     const revoked = await revoke(assigned);
     expect(revoked.state).toBe("revoked");
     activeEnrollment = undefined;
 
-    // Тело Guide A этот браузер и сервер уже отдавали. Следующий запрос получает отказ: прежний
+    // Тело Product A этот браузер и сервер уже отдавали. Следующий запрос получает отказ: прежний
     // ответ с телом не вернулся ни из HTTP-кэша браузера, ни из кэшей сервера.
-    await openDeniedBody(learner.page, guideA.closedSlug, guideA.closedBody);
+    await openDeniedBody(
+      learner.page,
+      productA.closedSlug,
+      productA.closedBody,
+    );
     await openMaterial(learner.page, publishedMaterial.slug, "available");
   } finally {
     try {

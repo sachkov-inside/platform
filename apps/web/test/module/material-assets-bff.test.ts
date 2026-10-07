@@ -167,7 +167,11 @@ describe("Material assets BFF", () => {
 function uploadRequest(origin: string): Request {
   const form = new FormData();
   form.set("kind", "file");
-  form.set("file", new Blob(["pdf"], { type: "application/pdf" }), "guide.pdf");
+  form.set(
+    "file",
+    new Blob(["pdf"], { type: "application/pdf" }),
+    "product.pdf",
+  );
   return new Request(
     "https://inside.example.test/api/authoring/materials/assets",
     {

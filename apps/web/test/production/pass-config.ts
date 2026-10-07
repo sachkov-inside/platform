@@ -17,11 +17,11 @@ export const productionTarget = {
 } as const;
 
 /**
- * Guide A — единственный опубликованный Guide production с закрытыми материалами. Тело проверяется
+ * Product A — единственный опубликованный Product production с закрытыми материалами. Тело проверяется
  * на `bodyMaterialSlug`; картинку и задание даёт закрытый урок практики `practiceMaterialSlug`.
  * Материалы production проход не меняет.
  */
-export const guideA = {
+export const productA = {
   id: "625a0cca-c8ff-4a65-9125-17194dd3b769",
   slug: "ai-engineering",
   bodyMaterialSlug: "inside-content-aie-first-spec",
@@ -37,10 +37,10 @@ export const freePracticeId = "inside-content:aie-github-app";
  */
 export const expiredGrantEndsAt = "2026-10-05T07:08:00Z";
 
-/** Второго Guide в production нет: решение владельца в #905. */
-export const guideBDeferred = "отложено до второго Guide";
-/** Опубликованного видео в Guide A нет: решение владельца в #906. */
-export const videoDeferred = "отложено до первого видео Guide A";
+/** Второго Product в production нет: решение владельца в #905. */
+export const productBDeferred = "отложено до второго Product";
+/** Опубликованного видео в Product A нет: решение владельца в #906. */
+export const videoDeferred = "отложено до первого видео Product A";
 
 /** Read-only tools учебного MCP, которые проход вызывает; другой tool allowlist не пропустит. */
 export const learnerMcpReadTools = [
@@ -76,24 +76,24 @@ function cell<const Id extends string>(
  * браузерные. Пометка `deferred` — только решение владельца, не обход сбоя.
  */
 export const passCells = [
-  cell("anonymous/read-guide-a/body@browser", "denied"),
-  cell("anonymous/read-guide-a/body@learner-mcp", "denied"),
-  cell("anonymous/read-guide-a/assets@browser", "denied"),
-  cell("anonymous/read-guide-a/video@browser", "denied", videoDeferred),
-  cell("anonymous/read-guide-a/practice@browser", "denied"),
-  cell("anonymous/read-guide-a/practice@learner-mcp", "denied"),
+  cell("anonymous/read-product-a/body@browser", "denied"),
+  cell("anonymous/read-product-a/body@learner-mcp", "denied"),
+  cell("anonymous/read-product-a/assets@browser", "denied"),
+  cell("anonymous/read-product-a/video@browser", "denied", videoDeferred),
+  cell("anonymous/read-product-a/practice@browser", "denied"),
+  cell("anonymous/read-product-a/practice@learner-mcp", "denied"),
 
-  cell("account-without-entitlement/read-guide-a/body@browser", "denied"),
-  cell("account-without-entitlement/read-guide-a/body@learner-mcp", "denied"),
-  cell("account-without-entitlement/read-guide-a/assets@browser", "denied"),
+  cell("account-without-entitlement/read-product-a/body@browser", "denied"),
+  cell("account-without-entitlement/read-product-a/body@learner-mcp", "denied"),
+  cell("account-without-entitlement/read-product-a/assets@browser", "denied"),
   cell(
-    "account-without-entitlement/read-guide-a/video@browser",
+    "account-without-entitlement/read-product-a/video@browser",
     "denied",
     videoDeferred,
   ),
-  cell("account-without-entitlement/read-guide-a/practice@browser", "denied"),
+  cell("account-without-entitlement/read-product-a/practice@browser", "denied"),
   cell(
-    "account-without-entitlement/read-guide-a/practice@learner-mcp",
+    "account-without-entitlement/read-product-a/practice@learner-mcp",
     "denied",
   ),
 
@@ -102,69 +102,97 @@ export const passCells = [
     "allowed",
   ),
 
-  cell("learner-guide-a/read-guide-a/body@browser", "allowed"),
-  cell("learner-guide-a/read-guide-a/body@learner-mcp", "allowed"),
-  cell("learner-guide-a/read-guide-a/assets@browser", "allowed"),
-  cell("learner-guide-a/read-guide-a/video@browser", "allowed", videoDeferred),
-  cell("learner-guide-a/read-guide-a/practice@browser", "allowed"),
-  cell("learner-guide-a/read-guide-a/practice@learner-mcp", "allowed"),
-
-  cell("learner-guide-a/read-guide-b/body@browser", "denied", guideBDeferred),
+  cell("learner-product-a/read-product-a/body@browser", "allowed"),
+  cell("learner-product-a/read-product-a/body@learner-mcp", "allowed"),
+  cell("learner-product-a/read-product-a/assets@browser", "allowed"),
   cell(
-    "learner-guide-a/read-guide-b/body@learner-mcp",
+    "learner-product-a/read-product-a/video@browser",
+    "allowed",
+    videoDeferred,
+  ),
+  cell("learner-product-a/read-product-a/practice@browser", "allowed"),
+  cell("learner-product-a/read-product-a/practice@learner-mcp", "allowed"),
+
+  cell(
+    "learner-product-a/read-product-b/body@browser",
     "denied",
-    guideBDeferred,
+    productBDeferred,
   ),
-  cell("learner-guide-a/read-guide-b/assets@browser", "denied", guideBDeferred),
-  cell("learner-guide-a/read-guide-b/video@browser", "denied", guideBDeferred),
   cell(
-    "learner-guide-a/read-guide-b/practice@browser",
+    "learner-product-a/read-product-b/body@learner-mcp",
     "denied",
-    guideBDeferred,
+    productBDeferred,
   ),
   cell(
-    "learner-guide-a/read-guide-b/practice@learner-mcp",
+    "learner-product-a/read-product-b/assets@browser",
     "denied",
-    guideBDeferred,
+    productBDeferred,
+  ),
+  cell(
+    "learner-product-a/read-product-b/video@browser",
+    "denied",
+    productBDeferred,
+  ),
+  cell(
+    "learner-product-a/read-product-b/practice@browser",
+    "denied",
+    productBDeferred,
+  ),
+  cell(
+    "learner-product-a/read-product-b/practice@learner-mcp",
+    "denied",
+    productBDeferred,
   ),
 
-  cell("learner-guide-b/read-guide-b/body@browser", "allowed", guideBDeferred),
   cell(
-    "learner-guide-b/read-guide-b/body@learner-mcp",
+    "learner-product-b/read-product-b/body@browser",
     "allowed",
-    guideBDeferred,
+    productBDeferred,
   ),
   cell(
-    "learner-guide-b/read-guide-b/assets@browser",
+    "learner-product-b/read-product-b/body@learner-mcp",
     "allowed",
-    guideBDeferred,
-  ),
-  cell("learner-guide-b/read-guide-b/video@browser", "allowed", guideBDeferred),
-  cell(
-    "learner-guide-b/read-guide-b/practice@browser",
-    "allowed",
-    guideBDeferred,
+    productBDeferred,
   ),
   cell(
-    "learner-guide-b/read-guide-b/practice@learner-mcp",
+    "learner-product-b/read-product-b/assets@browser",
     "allowed",
-    guideBDeferred,
+    productBDeferred,
+  ),
+  cell(
+    "learner-product-b/read-product-b/video@browser",
+    "allowed",
+    productBDeferred,
+  ),
+  cell(
+    "learner-product-b/read-product-b/practice@browser",
+    "allowed",
+    productBDeferred,
+  ),
+  cell(
+    "learner-product-b/read-product-b/practice@learner-mcp",
+    "allowed",
+    productBDeferred,
   ),
 
-  // Ученик B пока без доступа: его отказ на Guide A наблюдается уже сейчас.
-  cell("learner-guide-b/read-guide-a/body@browser", "denied"),
-  cell("learner-guide-b/read-guide-a/body@learner-mcp", "denied"),
-  cell("learner-guide-b/read-guide-a/assets@browser", "denied"),
-  cell("learner-guide-b/read-guide-a/video@browser", "denied", videoDeferred),
-  cell("learner-guide-b/read-guide-a/practice@browser", "denied"),
-  cell("learner-guide-b/read-guide-a/practice@learner-mcp", "denied"),
+  // Ученик B пока без доступа: его отказ на Product A наблюдается уже сейчас.
+  cell("learner-product-b/read-product-a/body@browser", "denied"),
+  cell("learner-product-b/read-product-a/body@learner-mcp", "denied"),
+  cell("learner-product-b/read-product-a/assets@browser", "denied"),
+  cell(
+    "learner-product-b/read-product-a/video@browser",
+    "denied",
+    videoDeferred,
+  ),
+  cell("learner-product-b/read-product-a/practice@browser", "denied"),
+  cell("learner-product-b/read-product-a/practice@learner-mcp", "denied"),
 
-  cell("expired/read-guide-a/body@browser", "denied"),
-  cell("expired/read-guide-a/body@learner-mcp", "denied"),
-  cell("expired/read-guide-a/assets@browser", "denied"),
-  cell("expired/read-guide-a/video@browser", "denied", videoDeferred),
-  cell("expired/read-guide-a/practice@browser", "denied"),
-  cell("expired/read-guide-a/practice@learner-mcp", "denied"),
+  cell("expired/read-product-a/body@browser", "denied"),
+  cell("expired/read-product-a/body@learner-mcp", "denied"),
+  cell("expired/read-product-a/assets@browser", "denied"),
+  cell("expired/read-product-a/video@browser", "denied", videoDeferred),
+  cell("expired/read-product-a/practice@browser", "denied"),
+  cell("expired/read-product-a/practice@learner-mcp", "denied"),
 
   cell(
     "materials-only/manage-materials/materials-authoring@browser",

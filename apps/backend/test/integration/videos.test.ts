@@ -59,12 +59,12 @@ describe("Videos against PostgreSQL and provider test adapter", () => {
       canManage: () => Promise.resolve(true),
       prisma: database.prisma,
       provider,
-      projects: { free: "public-project", membership: "member-project" },
+      projects: { free: "public-project", closed: "member-project" },
     });
     const actor = randomUUID();
     const materialId = randomUUID();
     const input = {
-      access: "membership" as const,
+      access: "closed" as const,
       actor,
       byteSize: 2_048,
       filename: "lesson.mp4",
@@ -131,7 +131,7 @@ describe("Videos against PostgreSQL and provider test adapter", () => {
       videos.loadPlayback(initialized.value.video.videoId),
     ).resolves.toMatchObject({
       ok: true,
-      value: { access: "membership", providerVideoId },
+      value: { access: "closed", providerVideoId },
     });
     await expect(
       videos.loadPresentation({
@@ -156,7 +156,7 @@ describe("Videos against PostgreSQL and provider test adapter", () => {
       ok: true,
       value: [
         {
-          access: "membership",
+          access: "closed",
           materialId,
           videoId: initialized.value.video.videoId,
         },
@@ -233,7 +233,7 @@ describe("Videos against PostgreSQL and provider test adapter", () => {
       canManage: () => Promise.resolve(true),
       prisma: database.prisma,
       provider,
-      projects: { free: "public-project", membership: "member-project" },
+      projects: { free: "public-project", closed: "member-project" },
     });
     await expect(
       videos.attachExisting({
@@ -275,7 +275,7 @@ describe("Videos against PostgreSQL and provider test adapter", () => {
       canManage: () => Promise.resolve(true),
       prisma: database.prisma,
       provider,
-      projects: { free: "public-project", membership: "member-project" },
+      projects: { free: "public-project", closed: "member-project" },
     });
     const input = {
       actor: randomUUID(),
@@ -326,7 +326,7 @@ describe("Videos against PostgreSQL and provider test adapter", () => {
         },
         find: () => Promise.reject(new Error("unused")),
       },
-      projects: { free: "public-project", membership: "member-project" },
+      projects: { free: "public-project", closed: "member-project" },
     });
     const input = {
       access: "free" as const,
@@ -401,7 +401,7 @@ describe("Videos against PostgreSQL and provider test adapter", () => {
       clock: distinctClock(),
       prisma: database.prisma,
       provider,
-      projects: { free: "public-project", membership: "member-project" },
+      projects: { free: "public-project", closed: "member-project" },
     });
     const actor = randomUUID();
     const materialId = randomUUID();
@@ -492,7 +492,7 @@ describe("Videos against PostgreSQL and provider test adapter", () => {
             title: "Attached recording",
           }),
       },
-      projects: { free: "public-project", membership: "member-project" },
+      projects: { free: "public-project", closed: "member-project" },
     });
     const materialId = randomUUID();
 
@@ -538,7 +538,7 @@ describe("Videos against PostgreSQL and provider test adapter", () => {
       canManage: () => Promise.resolve(true),
       prisma: database.prisma,
       provider,
-      projects: { free: "public-project", membership: "member-project" },
+      projects: { free: "public-project", closed: "member-project" },
     });
 
     await expect(
@@ -613,7 +613,7 @@ describe("Videos against PostgreSQL and provider test adapter", () => {
       clock: () => new Date(Date.UTC(2026, 8, 2, 12, 0, clockTick++)),
       prisma: database.prisma,
       provider,
-      projects: { free: "public-project", membership: "member-project" },
+      projects: { free: "public-project", closed: "member-project" },
     });
     const attaching = videos.attachExisting({
       access: "free",
@@ -661,7 +661,7 @@ describe("Videos against PostgreSQL and provider test adapter", () => {
       canManage: () => Promise.resolve(true),
       prisma: database.prisma,
       provider,
-      projects: { free: "public-project", membership: "member-project" },
+      projects: { free: "public-project", closed: "member-project" },
     });
     await expect(
       videos.attachExisting({
@@ -699,7 +699,7 @@ describe("Videos against PostgreSQL and provider test adapter", () => {
       canManage: () => Promise.resolve(true),
       prisma: database.prisma,
       provider,
-      projects: { free: "public-project", membership: "member-project" },
+      projects: { free: "public-project", closed: "member-project" },
     });
     const materialId = randomUUID();
     const video = await database.prisma.video.create({
@@ -823,7 +823,7 @@ describe("Videos against PostgreSQL and provider test adapter", () => {
         find: () => Promise.reject(new Error("unused")),
         initUpload: () => Promise.reject(new Error("unused")),
       },
-      projects: { free: "public-project", membership: "member-project" },
+      projects: { free: "public-project", closed: "member-project" },
     });
     await expect(
       videos.inspectPrimaryReference(database.prisma, {

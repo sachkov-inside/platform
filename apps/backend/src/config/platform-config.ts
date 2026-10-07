@@ -232,7 +232,7 @@ const platformConfigSchema = z
     mode: platformModeSchema,
     // Приём сдач заданий (#946) включается отдельно: в production только после публикации
     // политики данных v4 владельцем.
-    guideTasks: z.object({ submissionsEnabled: z.boolean() }).readonly(),
+    productTasks: z.object({ submissionsEnabled: z.boolean() }).readonly(),
     database: z.object({ url: databaseUrlSchema }).readonly(),
     api: z
       .object({
@@ -536,12 +536,12 @@ export function parsePlatformConfig(
             environment["TELEGRAM_AUTHOR_AUTHORIZATION_SECRET"],
           botIdentity: environment["TELEGRAM_COMMUNICATIONS_BOT_IDENTITY"],
         },
-    guideTasks: {
+    productTasks: {
       submissionsEnabled:
         z
           .enum(["true", "false"])
           .default(mode === "production" ? "false" : "true")
-          .parse(environment["GUIDE_TASK_SUBMISSIONS_ENABLED"]) === "true",
+          .parse(environment["PRODUCT_TASK_SUBMISSIONS_ENABLED"]) === "true",
     },
     database: parsePlatformDatabaseConfig(environment, mode),
     api: {

@@ -27,8 +27,8 @@ const vocabulary = new Set([
   "capabilitiesOpenedBy",
   "capabilitiesOpening",
   "accessComposition",
-  "isGuideCapability",
-  "guideCapability",
+  "isProductCapability",
+  "productCapability",
 ]);
 
 /**
@@ -57,16 +57,16 @@ function violationsIn(program) {
   };
   new Visitor({
     Literal(node) {
-      if (typeof node.value === "string" && node.value.startsWith("guide:")) {
+      if (typeof node.value === "string" && node.value.startsWith("product:")) {
         violations.push(
-          "a Guide capability is built by @inside/access-capabilities, not by its own string",
+          "a Product capability is built by @inside/access-capabilities, not by its own string",
         );
       }
     },
     TemplateLiteral(node) {
-      if (node.quasis[0]?.value.cooked?.startsWith("guide:") === true) {
+      if (node.quasis[0]?.value.cooked?.startsWith("product:") === true) {
         violations.push(
-          "a Guide capability is built by @inside/access-capabilities, not by its own string",
+          "a Product capability is built by @inside/access-capabilities, not by its own string",
         );
       }
     },

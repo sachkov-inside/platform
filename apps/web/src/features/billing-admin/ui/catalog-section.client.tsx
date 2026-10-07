@@ -206,11 +206,11 @@ export function CatalogSection({
                 name: formText(form.get("offerName")),
                 benefits: [...parsed.capabilities],
                 availableForAssignment: form.get("offerAssignable") === "on",
-                contentScope:
-                  form.get("offerAllGuides") === "on"
-                    ? { guideIds: [], materialIds: [], allGuides: true }
+                coverage:
+                  form.get("offerAllProducts") === "on"
+                    ? { productIds: [], materialIds: [], wholePlatform: true }
                     : {
-                        guideIds: form.getAll("offerGuides").map(formText),
+                        productIds: form.getAll("offerProducts").map(formText),
                         materialIds: [],
                       },
                 ...(parsed.periods.length === 0
@@ -266,8 +266,8 @@ export function CatalogSection({
             <label className="flex items-start gap-2 text-sm font-semibold">
               <input
                 type="checkbox"
-                name="offerAllGuides"
-                defaultChecked={editing?.tier.contentScope.allGuides === true}
+                name="offerAllProducts"
+                defaultChecked={editing?.tier.coverage.wholePlatform === true}
               />
               <span>Все продукты платформы, включая новые</span>
             </label>
@@ -275,7 +275,7 @@ export function CatalogSection({
               <p role="status">Загружаем каталог…</p>
             ) : (
               content
-                .filter((item) => item.kind === "guide")
+                .filter((item) => item.kind === "product")
                 .map((item) => (
                   <label
                     className="flex items-start gap-2 text-sm"
@@ -283,10 +283,10 @@ export function CatalogSection({
                   >
                     <input
                       type="checkbox"
-                      name="offerGuides"
+                      name="offerProducts"
                       value={item.id}
                       defaultChecked={
-                        editing?.tier.contentScope.guideIds.includes(item.id) ??
+                        editing?.tier.coverage.productIds.includes(item.id) ??
                         false
                       }
                     />
@@ -299,11 +299,11 @@ export function CatalogSection({
             )}
           </fieldset>
           {editing !== undefined &&
-          editing.tier.contentScope.materialIds.length > 0 ? (
+          editing.tier.coverage.materialIds.length > 0 ? (
             <p className="text-sm text-destructive" role="note">
               В составе этой редакции есть отдельные материалы:{" "}
-              {editing.tier.contentScope.materialIds.length}. Отдельный материал
-              в тариф не входит, и новая редакция их не сохранит. Действующие
+              {editing.tier.coverage.materialIds.length}. Отдельный материал в
+              тариф не входит, и новая редакция их не сохранит. Действующие
               назначения сохраняют свой снимок.
             </p>
           ) : null}

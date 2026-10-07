@@ -16,8 +16,8 @@ import {
   subscriptionStateLabel,
 } from "@/entities/subscription";
 import {
-  guideOnlyOffer,
-  guideWithSupportOffer,
+  productOnlyOffer,
+  productWithSupportOffer,
   materialsOffer,
   supportOffer,
 } from "@/storybook/billing.fixtures";
@@ -45,8 +45,8 @@ describe("суммы и сроки", () => {
 });
 
 /** Право на руководство из витринной фикстуры: его сроки и разбирают проверки состава. */
-const guideBenefit = guideOnlyOffer.offer.benefits[0];
-if (guideBenefit === undefined) throw new Error("Ожидалось право на продукт");
+const productBenefit = productOnlyOffer.offer.benefits[0];
+if (productBenefit === undefined) throw new Error("Ожидалось право на продукт");
 
 describe("состав доступа", () => {
   it("называет известные права и не выдумывает неизвестные", () => {
@@ -54,9 +54,9 @@ describe("состав доступа", () => {
       "Все опубликованные материалы и продукты",
     );
     expect(capabilityLabel("support")).toBe("Вопросы автору и эфиры");
-    expect(capabilityLabel("guide:00000000-0000-4000-8000-000000000f01")).toBe(
-      "Отдельный продукт",
-    );
+    expect(
+      capabilityLabel("product:00000000-0000-4000-8000-000000000f01"),
+    ).toBe("Отдельный продукт");
   });
 
   it("наследует период подписки, а явный null не называет срок", () => {
@@ -72,14 +72,14 @@ describe("состав доступа", () => {
   });
 
   it("называет отдельное право на продукт и не называет ему срок", () => {
-    const [line] = benefitLines(guideOnlyOffer);
+    const [line] = benefitLines(productOnlyOffer);
     expect(line?.label).toBe("Отдельный продукт");
     expect(line?.term).toBeNull();
   });
 
   it("называет общий чат, который открывает сам купленный продукт", () => {
     expect(
-      benefitLines(guideWithSupportOffer).map((line) => [
+      benefitLines(productWithSupportOffer).map((line) => [
         line.label,
         line.term,
       ]),
@@ -93,32 +93,32 @@ describe("состав доступа", () => {
   it("даёт выведенному чату срок самого долгого продукта предложения", () => {
     const lines = benefitLines({
       offer: {
-        ...guideOnlyOffer.offer,
-        benefitPeriods: [{ capability: guideBenefit, months: 6 }],
+        ...productOnlyOffer.offer,
+        benefitPeriods: [{ capability: productBenefit, months: 6 }],
       },
-      paymentOption: guideOnlyOffer.paymentOption,
+      paymentOption: productOnlyOffer.paymentOption,
     });
     expect(lines.map((line) => line.term)).toEqual(["6 месяцев", "6 месяцев"]);
   });
 
   it("не удваивает объявленный чат и держит его дольше короткого срока состава", () => {
     const offer = {
-      ...guideOnlyOffer.offer,
-      benefits: [guideBenefit, "community" as const],
+      ...productOnlyOffer.offer,
+      benefits: [productBenefit, "community" as const],
       benefitPeriods: [
-        { capability: guideBenefit, months: null },
+        { capability: productBenefit, months: null },
         { capability: "community" as const, months: 3 },
       ],
     };
     expect(accessComposition(offer.benefits)).toEqual([
-      guideBenefit,
+      productBenefit,
       "community",
     ]);
     // Сервер объединяет основания в пользу самого долгого срока; состав называет тот же срок.
     expect(
       benefitLines({
         offer,
-        paymentOption: guideOnlyOffer.paymentOption,
+        paymentOption: productOnlyOffer.paymentOption,
       }).map((line) => [line.label, line.term]),
     ).toEqual([
       ["Отдельный продукт", null],
@@ -129,14 +129,14 @@ describe("состав доступа", () => {
   it("держит чат по самому долгому сроку, когда оба основания срочные", () => {
     const lines = benefitLines({
       offer: {
-        ...guideOnlyOffer.offer,
-        benefits: [guideBenefit, "community" as const],
+        ...productOnlyOffer.offer,
+        benefits: [productBenefit, "community" as const],
         benefitPeriods: [
-          { capability: guideBenefit, months: 6 },
+          { capability: productBenefit, months: 6 },
           { capability: "community" as const, months: 3 },
         ],
       },
-      paymentOption: guideOnlyOffer.paymentOption,
+      paymentOption: productOnlyOffer.paymentOption,
     });
     expect(lines.map((line) => [line.label, line.term])).toEqual([
       ["Отдельный продукт", "6 месяцев"],
@@ -155,8 +155,8 @@ describe("состав доступа", () => {
 
   it("разовая покупка открывает право без объявленного срока и без названного срока", () => {
     const [line] = benefitLines({
-      offer: { ...guideOnlyOffer.offer, benefitPeriods: [] },
-      paymentOption: guideOnlyOffer.paymentOption,
+      offer: { ...productOnlyOffer.offer, benefitPeriods: [] },
+      paymentOption: productOnlyOffer.paymentOption,
     });
     // Наследовать нечего: оплаченного периода у разовой покупки нет.
     expect(line?.term).toBeNull();
@@ -174,16 +174,16 @@ describe("что можно продать публично", () => {
       publicSubscriptionOffers([
         materialsOffer,
         supportOffer,
-        guideOnlyOffer,
+        productOnlyOffer,
       ]).map((snapshot) => snapshot.offer.name),
     ).toEqual([materialsOffer.offer.name, supportOffer.offer.name]);
   });
 
   it("не выводит вид тарифа из состава прав: подписка на продукт тоже подписка", () => {
     const productSubscription = {
-      ...guideOnlyOffer,
+      ...productOnlyOffer,
       paymentOption: {
-        ...guideOnlyOffer.paymentOption,
+        ...productOnlyOffer.paymentOption,
         mode: "subscription" as const,
       },
     };
@@ -233,7 +233,7 @@ describe("состояния и ошибки", () => {
 
 describe("состав предложения", () => {
   it("называет продукт с сопровождением по-русски", () => {
-    expect(offerCompositionLabel(guideWithSupportOffer.offer)).toBe(
+    expect(offerCompositionLabel(productWithSupportOffer.offer)).toBe(
       "Продукт с сопровождением и общим чатом",
     );
   });
@@ -243,7 +243,7 @@ describe("состав предложения", () => {
   });
 
   it("называет чат и тогда, когда его открывает сам продукт", () => {
-    expect(offerCompositionLabel(guideOnlyOffer.offer)).toBe(
+    expect(offerCompositionLabel(productOnlyOffer.offer)).toBe(
       "Продукт с общим чатом",
     );
   });
@@ -256,8 +256,11 @@ describe("состав предложения", () => {
 
   it("удлиняет предлог перед стечением согласных", () => {
     const offer = {
-      ...guideWithSupportOffer.offer,
-      benefits: [...guideWithSupportOffer.offer.benefits, "materials" as const],
+      ...productWithSupportOffer.offer,
+      benefits: [
+        ...productWithSupportOffer.offer.benefits,
+        "materials" as const,
+      ],
     };
     expect(offerCompositionLabel(offer)).toBe(
       "Продукт со всеми материалами, сопровождением и общим чатом",
@@ -265,7 +268,7 @@ describe("состав предложения", () => {
   });
 
   it("без знакомого состава оставляет имя предложения", () => {
-    const offer = { ...guideOnlyOffer.offer, benefits: [] };
+    const offer = { ...productOnlyOffer.offer, benefits: [] };
     expect(offerCompositionLabel(offer)).toBe(offer.name);
   });
 });

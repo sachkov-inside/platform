@@ -2,15 +2,15 @@ import "server-only";
 
 import {
   requestBillingOffers,
-  requestGuideCohorts,
+  requestProductCohorts,
 } from "@/shared/api/backend/index.server";
 import { getOptionalPlatformAccessToken } from "@/shared/auth/index.server";
 
 import {
-  guideCapability,
-  guideCohortsSchema,
+  productCapability,
+  productCohortsSchema,
   offersPageSchema,
-  type GuideCohort,
+  type ProductCohort,
   type PaymentMode,
   type PriceSnapshot,
 } from "../model/billing-contract";
@@ -67,15 +67,15 @@ export async function loadViewerBillingOffers(
 }
 
 /** Варианты оплаты продукта; отбор допуска и охвата принадлежит backend. */
-export async function loadGuideOffers(
-  guideId: string,
+export async function loadProductOffers(
+  productId: string,
   accessToken?: string,
 ): Promise<
   | { readonly kind: "ready"; readonly offers: readonly PriceSnapshot[] }
   | { readonly kind: "unavailable" }
 > {
   const result = await loadBillingOffers(
-    { capability: guideCapability(guideId) },
+    { capability: productCapability(productId) },
     accessToken,
   );
   return result;
@@ -85,14 +85,14 @@ export async function loadGuideOffers(
  * Текущие потоки продуктов. Поток не кешируется, как и цены: владелец переключает этап в
  * каталоге, и страница показывает его со следующего запроса.
  */
-export async function loadGuideCohorts(): Promise<
-  | { readonly kind: "ready"; readonly cohorts: readonly GuideCohort[] }
+export async function loadProductCohorts(): Promise<
+  | { readonly kind: "ready"; readonly cohorts: readonly ProductCohort[] }
   | { readonly kind: "unavailable" }
 > {
   try {
-    const result = await requestGuideCohorts();
+    const result = await requestProductCohorts();
     if (!result.ok) return { kind: "unavailable" };
-    const parsed = guideCohortsSchema.safeParse(result.body);
+    const parsed = productCohortsSchema.safeParse(result.body);
     return parsed.success
       ? { kind: "ready", cohorts: parsed.data.items }
       : { kind: "unavailable" };
@@ -102,17 +102,18 @@ export async function loadGuideCohorts(): Promise<
 }
 
 /** Поток одного продукта. Продукт без потока — обычное состояние: страница зовёт в программу. */
-export async function loadGuideCohort(
-  guideId: string,
+export async function loadProductCohort(
+  productId: string,
 ): Promise<
-  | { readonly kind: "ready"; readonly cohort: GuideCohort | null }
+  | { readonly kind: "ready"; readonly cohort: ProductCohort | null }
   | { readonly kind: "unavailable" }
 > {
-  const result = await loadGuideCohorts();
+  const result = await loadProductCohorts();
   return result.kind === "unavailable"
     ? result
     : {
         kind: "ready",
-        cohort: result.cohorts.find((item) => item.guideId === guideId) ?? null,
+        cohort:
+          result.cohorts.find((item) => item.productId === productId) ?? null,
       };
 }

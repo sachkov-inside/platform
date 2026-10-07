@@ -7,11 +7,11 @@ import type {
   SystemError,
 } from "../../facets/material-authoring/material-authoring.contract.js";
 import type { Result } from "../../result.js";
-import type { GuideSourceFields } from "../../domain/guide-page.js";
+import type { ProductSourceFields } from "../../domain/product-page.js";
 import type {
   ContentCollectionDto,
   ContentCollectionKind,
-  GuideIntroductionDto,
+  ProductIntroductionDto,
 } from "../../facets/material-authoring/content-collection.contract.js";
 
 export interface UpdateContentCollectionCommand {
@@ -19,11 +19,11 @@ export interface UpdateContentCollectionCommand {
   readonly collectionId: string;
   readonly expectedVersion: number;
   /** Omitted preserves the stored introduction; supplied replaces all of it. */
-  readonly introduction?: GuideIntroductionDto;
+  readonly introduction?: ProductIntroductionDto;
   readonly kind: ContentCollectionKind;
   readonly name: string;
-  /** Только для source-scoped импорта Guide (ADR 0026). */
-  readonly source?: GuideSourceFields;
+  /** Только для source-scoped импорта Product (ADR 0026). */
+  readonly source?: ProductSourceFields;
   readonly summary: string;
 }
 

@@ -1,3 +1,3 @@
-import { MEMBERSHIP_ENTITLEMENTS } from "../../../membership-entitlements/index.js";
+import { ACCOUNT_RIGHTS } from "../../../account-rights/index.js";
 
-export const membership = MEMBERSHIP_ENTITLEMENTS;
+export const membership = ACCOUNT_RIGHTS;

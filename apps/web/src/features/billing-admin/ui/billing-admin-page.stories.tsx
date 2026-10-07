@@ -21,18 +21,18 @@ import {
 const environment = authoringPageEnvironment("/authoring/billing");
 const accountId = "00000000-0000-4000-8000-0000000000c1";
 const purchaseRef = "00000000-0000-4000-8000-0000000000b1";
-const guideId = "62000000-0000-4000-8000-000000000814";
+const productId = "62000000-0000-4000-8000-000000000814";
 
 const content = [
   {
-    kind: "guide",
-    id: guideId,
+    kind: "product",
+    id: productId,
     title: "AI Engineering",
     slug: "ai-engineering",
     available: true,
   },
   {
-    kind: "guide",
+    kind: "product",
     id: "62000000-0000-4000-8000-000000000004",
     title: "Инженерная практика",
     slug: "engineering-practice",
@@ -47,8 +47,8 @@ const assignmentOnlyTier = {
     revision: 2,
     name: "Подписка Inside",
     benefits: ["materials", "community"],
-    contentScope: {
-      guideIds: ["62000000-0000-4000-8000-000000000004"],
+    coverage: {
+      productIds: ["62000000-0000-4000-8000-000000000004"],
       materialIds: [],
     },
   },
@@ -108,7 +108,7 @@ const meta = {
     offers: billingOffers,
     cohorts: [
       {
-        guideId,
+        productId,
         revision: 3,
         name: "Поток 1",
         stage: "preorder",
@@ -317,7 +317,7 @@ export const ProductCohort: Story = {
   beforeEach: withReplies({
     "cohorts/save": billingOk({
       outcome: "catalog",
-      value: { id: guideId, revision: 4, archived: false },
+      value: { id: productId, revision: 4, archived: false },
     }),
   }),
   play: async ({ canvasElement }) => {
@@ -333,7 +333,7 @@ export const ProductCohort: Story = {
     await waitFor(() =>
       expect(lastRequest("cohorts/save")).toMatchObject({
         expectedRevision: 3,
-        value: { guideId, name: "Поток 1", stage: "preorder" },
+        value: { productId, name: "Поток 1", stage: "preorder" },
       }),
     );
   },

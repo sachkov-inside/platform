@@ -3,16 +3,16 @@ import { connection } from "next/server";
 import { Suspense } from "react";
 
 import {
-  readGuestGuideSale,
-  readViewerGuideSale,
+  readGuestProductSale,
+  readViewerProductSale,
 } from "@/entities/subscription.sale.server";
 import type { OneTimeOfferTerms } from "@/features/billing-checkout.terms";
-import { readPublicGuideOfferTerms } from "@/features/billing-checkout.terms.server";
-import type { ReaderGuideArtifactsResult } from "@/features/guide-artifacts.reader";
+import { readPublicProductOfferTerms } from "@/features/billing-checkout.terms.server";
+import type { ReaderProductArtifactsResult } from "@/features/product-artifacts.reader";
 import {
-  readPublicGuideArtifacts,
-  readReaderGuideArtifacts,
-} from "@/features/guide-artifacts.server";
+  readPublicProductArtifacts,
+  readReaderProductArtifacts,
+} from "@/features/product-artifacts.server";
 import type { PublishedSeriesResult } from "@/features/library-discovery";
 import {
   loadPublishedSeries,
@@ -28,10 +28,10 @@ import {
 } from "./library-discovery-view";
 import { PendingCohortCall, PersonalCohortCall } from "./cohort-call.server";
 import { PersonalSeries } from "./personal-series.server";
-import { PendingSeries } from "./guide-programme-view";
+import { PendingSeries } from "./product-programme-view";
 import {
-  GuideProductLoading,
-  GuideProgrammeLoading,
+  ProductLandingLoading,
+  ProductProgrammeLoading,
 } from "./library-discovery-loading";
 
 interface DiscoveryRouteProps {
@@ -46,7 +46,7 @@ type ResolvedSeries = Extract<
   { readonly kind: "ready" | "empty" }
 >;
 
-const noArtifacts: ReaderGuideArtifactsResult = {
+const noArtifacts: ReaderProductArtifactsResult = {
   artifacts: [],
   kind: "ready",
 };
@@ -88,7 +88,7 @@ export async function PublishedSeriesPage({
   const result = await readPublicSeries(slug);
   if (result.kind === "not-found") {
     return (
-      <Suspense fallback={<GuideProductLoading />}>
+      <Suspense fallback={<ProductLandingLoading />}>
         <PersonalProduct
           slug={slug}
           returnTarget={parseMaterialReaderReturnTarget(query.from)}
@@ -125,7 +125,7 @@ export async function PublishedSeriesPage({
  * приходят из гостевого кеша и видны сразу; доступность для читателя, артефакты с адресами,
  * предложение и прогресс — личная часть, она встаёт на место отметок «уточняется» (ADR 0027).
  */
-export async function GuideProgrammePage({
+export async function ProductProgrammePage({
   params,
 }: {
   readonly params: Promise<{ readonly slug: string }>;
@@ -134,7 +134,7 @@ export async function GuideProgrammePage({
   const result = await readPublicSeries(slug);
   if (result.kind === "not-found") {
     return (
-      <Suspense fallback={<GuideProgrammeLoading />}>
+      <Suspense fallback={<ProductProgrammeLoading />}>
         <PersonalProgramme slug={slug} />
       </Suspense>
     );
@@ -173,7 +173,7 @@ async function PersonalProduct({
   const [artifacts, offerTerms] = await Promise.all([
     result.reference.id === undefined
       ? noArtifacts
-      : readReaderGuideArtifacts(result.reference.id, accessToken),
+      : readReaderProductArtifacts(result.reference.id, accessToken),
     publicOfferTermsOf(result),
   ]);
   return (
@@ -193,7 +193,7 @@ async function PersonalProgramme({
   sharedResult,
   slug,
 }: {
-  readonly sharedArtifacts?: ReaderGuideArtifactsResult;
+  readonly sharedArtifacts?: ReaderProductArtifactsResult;
   readonly sharedResult?: ResolvedSeries;
   readonly slug: string;
 }) {
@@ -207,19 +207,19 @@ async function PersonalProgramme({
   if (resolved.kind === "not-found") notFound();
   if (resolved.kind === "unavailable") return <LibraryDiscoveryUnavailable />;
   // Идентификатор руководства не зависит от читателя, поэтому личные чтения идут разом.
-  const guideId = resolved.reference.id;
+  const productId = resolved.reference.id;
   const [result, artifacts, sale] = await Promise.all([
     accessToken === undefined
       ? resolved
       : loadPublishedSeries(slug, accessToken),
-    accessToken === undefined || guideId === undefined
+    accessToken === undefined || productId === undefined
       ? (sharedArtifacts ?? noArtifacts)
-      : readReaderGuideArtifacts(guideId, accessToken),
-    guideId === undefined
+      : readReaderProductArtifacts(productId, accessToken),
+    productId === undefined
       ? null
       : accessToken === undefined
-        ? readGuestGuideSale(guideId)
-        : readViewerGuideSale(guideId, accessToken),
+        ? readGuestProductSale(productId)
+        : readViewerProductSale(productId, accessToken),
   ]);
   if (result.kind === "not-found") {
     notFound();
@@ -230,7 +230,7 @@ async function PersonalProgramme({
   return (
     <PersonalSeries
       artifacts={artifacts}
-      guideOffer={sale?.kind === "ready" ? (sale.offers[0] ?? null) : null}
+      productOffer={sale?.kind === "ready" ? (sale.offers[0] ?? null) : null}
       result={result}
       subscriptionOffered={false}
       {...(accessToken === undefined ? {} : { accessToken })}
@@ -241,11 +241,11 @@ async function PersonalProgramme({
 /** Раздел артефактов адресуется по id руководства, который несёт только разрешённый результат. */
 function publicArtifactsOf(
   result: ResolvedSeries,
-): Promise<ReaderGuideArtifactsResult> {
-  const guideId = result.reference.id;
-  return guideId === undefined
+): Promise<ReaderProductArtifactsResult> {
+  const productId = result.reference.id;
+  return productId === undefined
     ? Promise.resolve(noArtifacts)
-    : readPublicGuideArtifacts(guideId);
+    : readPublicProductArtifacts(productId);
 }
 
 /**
@@ -255,12 +255,12 @@ function publicArtifactsOf(
 async function publicOfferTermsOf(
   result: ResolvedSeries,
 ): Promise<OneTimeOfferTerms | null> {
-  const guideId = result.reference.id;
+  const productId = result.reference.id;
   if (
-    guideId === undefined ||
+    productId === undefined ||
     (result.reference.productPage?.page ?? null) === null
   )
     return null;
-  const terms = await readPublicGuideOfferTerms(guideId);
+  const terms = await readPublicProductOfferTerms(productId);
   return terms.kind === "ready" ? terms.terms : null;
 }

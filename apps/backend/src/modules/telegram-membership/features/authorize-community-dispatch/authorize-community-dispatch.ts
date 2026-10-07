@@ -7,7 +7,7 @@ import {
   type TelegramMembershipPrisma,
   type TelegramMembershipPrismaClient,
 } from "../../../../infrastructure/prisma/index.js";
-import type { AccessGrants } from "../../../membership-entitlements/index.js";
+import type { AccessGrants } from "../../../account-rights/index.js";
 import {
   COMMUNITY_V2_CONTRACT_VERSION,
   communitySetSchema,

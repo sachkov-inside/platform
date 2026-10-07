@@ -18,7 +18,7 @@ const savedSchema = z
   .object({ authorFeedback: authorFeedbackSchema.nullable() })
   .strict();
 
-/** `PUT /api/authoring/guide-tasks/feedback`: the author's comment and mark on one submission (#948). */
+/** `PUT /api/authoring/product-tasks/feedback`: the author's comment and mark on one submission (#948). */
 export function handleSaveAuthorFeedback(request: Request): Promise<Response> {
   return handleAuthenticatedMutation(
     request,

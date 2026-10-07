@@ -68,6 +68,7 @@ beforeAll(async () => {
       "0079_guide_tasks",
       "0080_guide_task_placement_and_form",
       "0081_remove_workshop",
+      "0082_domain_names",
     ],
   });
   await database.prisma.topic.create({
@@ -86,7 +87,7 @@ function metadata(title: string, seriesIds: string[]) {
   return {
     title,
     summary: "Public summary",
-    access: "membership" as const,
+    access: "closed" as const,
     topicId,
     formatId: "guide",
     tagIds: [],
@@ -97,7 +98,7 @@ function metadata(title: string, seriesIds: string[]) {
 }
 async function createSeries(title: string) {
   const seriesId = randomUUID();
-  await database.prisma.guide.create({
+  await database.prisma.product.create({
     data: {
       id: seriesId,
       name: title,
@@ -219,7 +220,7 @@ test("only Series can be pinned: author choice persists, competing writes confli
       expectedVersion: version,
     }),
   ).toEqual({ ok: false, error: { code: "stale_home_pin" } });
-  await database.prisma.guide.update({
+  await database.prisma.product.update({
     where: { id: pinnedId },
     data: { name: "Current series title", summary: "Current series summary" },
   });
@@ -233,7 +234,7 @@ test("only Series can be pinned: author choice persists, competing writes confli
   expect(await authoring.loadHomePin({ actor })).toEqual(saved);
   await change(pinnedMaterial, pinnedId, "published");
   expect(await home()).toMatchObject({ id: pinnedId });
-  await database.prisma.guide.update({
+  await database.prisma.product.update({
     where: { id: pinnedId },
     data: { archivedAt: new Date() },
   });

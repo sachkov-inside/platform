@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
 
 import {
-  guideLinkPreview,
-  guideSocialCard,
+  productLinkPreview,
+  productSocialCard,
   topicLinkPreview,
   topicSocialCard,
 } from "@/_pages/library-discovery";
@@ -23,7 +23,7 @@ import {
 const origin = new URL("https://inside.example.test");
 
 const material: MaterialReaderMetadata = {
-  access: "membership",
+  access: "closed",
   contentVersion: 3,
   cover: null,
   difficulty: null,
@@ -39,7 +39,7 @@ const material: MaterialReaderMetadata = {
   topic: { name: "Platform", slug: "platform" },
 };
 
-const guide: LibraryDiscoveryReference = {
+const product: LibraryDiscoveryReference = {
   cover: null,
   name: "Создание Platform Inside",
   slug: "platform-inside",
@@ -80,7 +80,7 @@ describe("Карточка публичной ссылки", () => {
   });
 
   it("ведёт продукт на канонический адрес `/products/`, а не на совместимый `/series/`", () => {
-    const preview = guideLinkPreview(guide);
+    const preview = productLinkPreview(product);
 
     expect(preview.canonicalPath).toBe("/products/platform-inside");
     expect(preview.title).toBe("Создание Platform Inside — продукт");
@@ -89,7 +89,7 @@ describe("Карточка публичной ссылки", () => {
 
   it("называет тему темой и объясняет её содержимое, когда описания нет", () => {
     const preview = topicLinkPreview({
-      ...guide,
+      ...product,
       name: "Platform",
       slug: "platform",
       summary: " ",
@@ -129,15 +129,15 @@ describe("Карточка публичной ссылки", () => {
 
 describe("Содержимое сгенерированной карточки", () => {
   it("называет вид страницы одним словом и в заголовке, и на карточке", () => {
-    expect(guideLinkPreview(guide).title).toBe(
+    expect(productLinkPreview(product).title).toBe(
       "Создание Platform Inside — продукт",
     );
-    expect(guideSocialCard(guide)).toEqual({
+    expect(productSocialCard(product)).toEqual({
       eyebrow: "Продукт",
       title: "Создание Platform Inside",
     });
 
-    const topic = { ...guide, name: "Platform", slug: "platform" };
+    const topic = { ...product, name: "Platform", slug: "platform" };
     expect(topicLinkPreview(topic).title).toBe("Platform — тема");
     expect(topicSocialCard(topic)).toEqual({
       eyebrow: "Тема",

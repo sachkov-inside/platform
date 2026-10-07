@@ -32,12 +32,12 @@ const materialTables = [
   "authoring_idempotency",
   "content_cover_renditions",
   "content_covers",
-  "guide_artifact_material_links",
-  "guide_artifact_placements",
-  "guide_artifact_versions",
-  "guide_artifacts",
-  "guide_chapters",
-  "guide_material_removals",
+  "product_artifact_material_links",
+  "product_artifact_placements",
+  "product_artifact_versions",
+  "product_artifacts",
+  "product_chapters",
+  "product_material_removals",
   "home_series_pin",
   "material_related_pins",
   "material_search_documents",
@@ -67,7 +67,7 @@ const accountTables = [
   "legal_acceptances",
 ] as const;
 
-const membershipEntitlementTables = [
+const accountRightsTables = [
   "access_batch_previews",
   "access_changes",
   "access_grants",
@@ -75,13 +75,13 @@ const membershipEntitlementTables = [
   "account_bindings",
   "activation_attempts",
   "activation_rules",
-  "content_scope_baseline",
+  "coverage_baseline",
   "current_projections",
   "evidence_receipts",
   "invitations",
   "legacy_classifications",
   "source_entitlements",
-  "subscription_enrollments",
+  "tariff_assignments",
   "tribute_import_reviews",
   "tribute_inbox",
   "tribute_policies",
@@ -243,17 +243,14 @@ describe("Platform migrations", () => {
         "0079_guide_tasks",
         "0080_guide_task_placement_and_form",
         "0081_remove_workshop",
+        "0082_domain_names",
       ],
     });
     expect(second).toEqual({ appliedMigrations: [] });
     await expectTables(testDatabase, "materials", materialTables);
     await expectTables(testDatabase, "accounts", accountTables);
     await expectTables(testDatabase, "identity_principals", []);
-    await expectTables(
-      testDatabase,
-      "membership_entitlements",
-      membershipEntitlementTables,
-    );
+    await expectTables(testDatabase, "account_rights", accountRightsTables);
     await expectTables(testDatabase, "member_profiles", memberProfileTables);
     await expectTables(
       testDatabase,
@@ -269,7 +266,7 @@ describe("Platform migrations", () => {
     ]);
     await expectTables(testDatabase, "bookmarks", ["bookmarked_materials"]);
     await expectTables(testDatabase, "sales_funnel", ["bot_events"]);
-    await expectTables(testDatabase, "guide_tasks", [
+    await expectTables(testDatabase, "product_tasks", [
       "author_feedback",
       "import_receipts",
       "submissions",
@@ -303,10 +300,10 @@ describe("Platform migrations", () => {
         and source_schema.nspname in (
           'reading_activity',
           'bookmarks',
-          'guide_tasks',
+          'product_tasks',
           'sales_funnel',
           'materials',
-          'membership_entitlements',
+          'account_rights',
           'telegram_membership',
           'workshop'
         )
@@ -919,6 +916,7 @@ describe("Platform migrations", () => {
           "0079_guide_tasks",
           "0080_guide_task_placement_and_form",
           "0081_remove_workshop",
+          "0082_domain_names",
         ],
       });
 
@@ -939,7 +937,7 @@ describe("Platform migrations", () => {
       );
       expect(materials).toEqual([
         {
-          access: "membership",
+          access: "closed",
           body: {
             type: "doc",
             content: [
@@ -967,7 +965,7 @@ describe("Platform migrations", () => {
           title: "Draft title",
         },
         {
-          access: "membership",
+          access: "closed",
           body: {
             type: "doc",
             content: [
@@ -1102,14 +1100,14 @@ async function expectTables(
   schema:
     | "reading_activity"
     | "bookmarks"
-    | "guide_tasks"
+    | "product_tasks"
     | "sales_funnel"
     | "accounts"
     | "assets"
     | "identity_principals"
     | "materials"
     | "member_profiles"
-    | "membership_entitlements"
+    | "account_rights"
     | "telegram_membership"
     | "videos"
     | "workshop",
@@ -1124,5 +1122,5 @@ async function expectTables(
       and table_type = 'BASE TABLE'
     order by table_name
   `);
-  expect(tables.map(({ name }) => name)).toEqual(expected);
+  expect(tables.map(({ name }) => name)).toEqual([...expected].sort());
 }

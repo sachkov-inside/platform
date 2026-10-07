@@ -229,7 +229,7 @@ describe("Material Video named authoring BFF mutations", () => {
     const attached = await handleVideoAttachmentRequest(
       mutationRequest(
         "/api/authoring/material-video-attachments",
-        { access: "membership", materialId, providerVideoId: "provider-video" },
+        { access: "closed", materialId, providerVideoId: "provider-video" },
         "POST",
       ),
     );
@@ -245,7 +245,7 @@ describe("Material Video named authoring BFF mutations", () => {
     await expect(reconciled.json()).resolves.toMatchObject({ kind: "ready" });
     expect(fakes.requestAttach).toHaveBeenCalledWith(
       {
-        access: "membership",
+        access: "closed",
         materialId,
         providerVideoId: "provider-video",
       },

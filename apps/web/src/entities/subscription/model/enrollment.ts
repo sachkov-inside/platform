@@ -1,8 +1,8 @@
 import { z } from "zod";
 import {
   benefitPeriodsSchema,
-  contentScopeEntrySchema,
-  contentScopeSchema,
+  coverageEntrySchema,
+  coverageSchema,
 } from "@inside/access-capabilities";
 import { accessCapabilitySchema } from "./billing-contract";
 export const tierSchema = z.object({
@@ -11,7 +11,7 @@ export const tierSchema = z.object({
   name: z.string(),
   benefits: z.array(accessCapabilitySchema),
   benefitPeriods: benefitPeriodsSchema.optional(),
-  contentScope: contentScopeSchema,
+  coverage: coverageSchema,
 });
 export const enrollmentSchema = z.object({
   id: z.uuid(),
@@ -30,7 +30,7 @@ export const enrollmentSchema = z.object({
     "pending_verification",
     "suspended_source",
   ]),
-  content: z.array(contentScopeEntrySchema).optional(),
+  content: z.array(coverageEntrySchema).optional(),
   history: z
     .array(
       z.object({

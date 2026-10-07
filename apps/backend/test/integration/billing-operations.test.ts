@@ -9,7 +9,7 @@ import {
   BillingContact,
 } from "../../src/modules/accounts/index.js";
 import { billingContactProtection } from "../../src/modules/accounts/infrastructure/billing-contact-protection.js";
-import { assembleAccessGrants } from "../../src/modules/membership-entitlements/index.js";
+import { assembleAccessGrants } from "../../src/modules/account-rights/index.js";
 import { TelegramAccountLinks } from "../../src/modules/telegram-membership/index.js";
 import {
   BillingNotices,
@@ -369,7 +369,7 @@ describe("владельческие операции billing: платежи, �
   ) {
     now = new Date("2030-03-31T10:00:00Z");
     const buyer = randomUUID();
-    const guideId = randomUUID();
+    const productId = randomUUID();
     await db.prisma.account.create({
       data: {
         id: buyer,
@@ -402,10 +402,10 @@ describe("владельческие операции billing: платежи, �
           benefits: [...(options.benefits ?? ["materials", "support"])],
           // Продаваемый тариф открывает только явный состав; разовое предложение продукта его не несёт.
           ...(options.benefits?.some((benefit) =>
-            benefit.startsWith("guide:"),
+            benefit.startsWith("product:"),
           ) === true
             ? {}
-            : { contentScope: { guideIds: [guideId], materialIds: [] } }),
+            : { coverage: { productIds: [productId], materialIds: [] } }),
         },
       }),
     );
@@ -539,19 +539,19 @@ describe("владельческие операции billing: платежи, �
       return purchase.purchaseRef;
     }
     /** Независимое бессрочное право на руководство: оно не связано с подпиской и её возвратом. */
-    async function lifetimeGuideGrant() {
+    async function lifetimeProductGrant() {
       const preview = asGrantPreview(
         await operations.execute(owner, {
           operation: "grants.previewBatch",
           operationId: randomUUID(),
           rows: [
             {
-              rowKey: "guide",
+              rowKey: "product",
               accountId: buyer,
               source: "manual",
-              sourceRef: `guide-${guideId}`,
+              sourceRef: `product-${productId}`,
               terms: {
-                capabilities: [`guide:${guideId}`],
+                capabilities: [`product:${productId}`],
                 startsAt: "2030-01-01T00:00:00Z",
                 validUntil: null,
                 reason: "Курс полностью пройден",
@@ -561,7 +561,7 @@ describe("владельческие операции billing: платежи, �
         }),
       );
       expect(preview.rows).toEqual([
-        { rowKey: "guide", accountId: buyer, status: "confirmed" },
+        { rowKey: "product", accountId: buyer, status: "confirmed" },
       ]);
       const applied = asGrantBatch(
         await operations.execute(owner, {
@@ -569,12 +569,12 @@ describe("владельческие операции billing: платежи, �
           operationId: randomUUID(),
           previewRef: preview.previewRef,
           expectedRevision: preview.revision,
-          confirmedRows: ["guide"],
+          confirmedRows: ["product"],
         }),
       );
       const row = applied.rows[0];
       if (row === undefined || !row.result.ok || !("grantRef" in row.result))
-        throw new Error("Manual guide grant was not applied");
+        throw new Error("Manual product grant was not applied");
       return row.result.grantRef;
     }
     const capabilities = async () => {
@@ -584,7 +584,7 @@ describe("владельческие операции billing: платежи, �
     };
     return {
       buyer,
-      guideId,
+      productId,
       offerId,
       optionId,
       bank,
@@ -594,7 +594,7 @@ describe("владельческие операции billing: платежи, �
       buy,
       reserve,
       consentFor,
-      lifetimeGuideGrant,
+      lifetimeProductGrant,
       capabilities,
     };
   }
@@ -879,7 +879,7 @@ describe("владельческие операции billing: платежи, �
   test("полный возврат отменяет продление, но сам не отзывает доступ и не трогает бессрочное право", async () => {
     const s = await scenario();
     const purchaseRef = await s.buy();
-    const guideGrant = await s.lifetimeGuideGrant();
+    const productGrant = await s.lifetimeProductGrant();
     const decided = asRefundDecision(
       await s.operations.execute(owner, {
         operation: "refunds.decide",
@@ -928,13 +928,13 @@ describe("владельческие операции billing: платежи, �
     value(await s.payments.recover());
     expect(await s.capabilities()).toEqual([
       "community",
-      `guide:${s.guideId}`,
       "materials",
+      `product:${s.productId}`,
       "support",
     ]);
     expect(
       await db.prisma.accessGrant.findUniqueOrThrow({
-        where: { id: guideGrant },
+        where: { id: productGrant },
       }),
     ).toMatchObject({ revokedAt: null, validUntil: null });
     expect(
@@ -1292,7 +1292,7 @@ describe("владельческие операции billing: платежи, �
   test("отзыв доступа исполняется только по подтверждённому возврату и только для оплаченного основания", async () => {
     const s = await scenario();
     const purchaseRef = await s.buy();
-    const guideGrant = await s.lifetimeGuideGrant();
+    const productGrant = await s.lifetimeProductGrant();
     const decided = asRefundDecision(
       await s.operations.execute(owner, {
         operation: "refunds.decide",
@@ -1326,8 +1326,8 @@ describe("владельческие операции billing: платежи, �
     value(await s.payments.recover());
     expect(await s.capabilities()).toEqual([
       "community",
-      `guide:${s.guideId}`,
       "materials",
+      `product:${s.productId}`,
       "support",
     ]);
     expect(
@@ -1364,7 +1364,10 @@ describe("владельческие операции billing: платежи, �
     ).toMatchObject({ state: "executed" });
     value(await s.payments.recover());
     // Отзывается ровно оплаченное основание этой покупки; независимое бессрочное право остаётся.
-    expect(await s.capabilities()).toEqual(["community", `guide:${s.guideId}`]);
+    expect(await s.capabilities()).toEqual([
+      "community",
+      `product:${s.productId}`,
+    ]);
     const paid = await db.prisma.accessGrant.findMany({
       where: { accountId: s.buyer, source: "paid" },
     });
@@ -1374,7 +1377,7 @@ describe("владельческие операции billing: платежи, �
     ).toBe(true);
     expect(
       await db.prisma.accessGrant.findUniqueOrThrow({
-        where: { id: guideGrant },
+        where: { id: productGrant },
       }),
     ).toMatchObject({ revokedAt: null });
     expect(
@@ -1573,7 +1576,7 @@ describe("владельческие операции billing: платежи, �
 
   test("ручная выдача идёт через preview, продление и отзыв сохраняют другое основание", async () => {
     const s = await scenario();
-    const guideGrant = await s.lifetimeGuideGrant();
+    const productGrant = await s.lifetimeProductGrant();
     const supportRef = `support-${randomUUID()}`;
     const preview = asGrantPreview(
       await s.operations.execute(owner, {
@@ -1612,7 +1615,10 @@ describe("владельческие операции billing: платежи, �
       "not_found",
     ]);
     // Предпросмотр ничего не выдаёт.
-    expect(await s.capabilities()).toEqual(["community", `guide:${s.guideId}`]);
+    expect(await s.capabilities()).toEqual([
+      "community",
+      `product:${s.productId}`,
+    ]);
     const applied = asGrantBatch(
       await s.operations.execute(owner, {
         operation: "grants.applyBatch",
@@ -1625,7 +1631,7 @@ describe("владельческие операции billing: платежи, �
     expect(applied.rows).toHaveLength(1);
     expect(await s.capabilities()).toEqual([
       "community",
-      `guide:${s.guideId}`,
+      `product:${s.productId}`,
       "support",
     ]);
     const support = asGrants(
@@ -1677,10 +1683,13 @@ describe("владельческие операции billing: платежи, �
     );
     expect(revoked.revision).toBe(3);
     // Отзыв одного основания сохраняет независимое бессрочное право.
-    expect(await s.capabilities()).toEqual(["community", `guide:${s.guideId}`]);
+    expect(await s.capabilities()).toEqual([
+      "community",
+      `product:${s.productId}`,
+    ]);
     expect(
       await db.prisma.accessGrant.findUniqueOrThrow({
-        where: { id: guideGrant },
+        where: { id: productGrant },
       }),
     ).toMatchObject({ revokedAt: null });
     await s.buy();
@@ -1876,7 +1885,7 @@ describe("владельческие операции billing: платежи, �
             id: s.offerId,
             name: "Материалы и сопровождение",
             benefits: ["materials", "support"],
-            contentScope: { guideIds: [s.guideId], materialIds: [] },
+            coverage: { productIds: [s.productId], materialIds: [] },
           },
         }),
       ),
@@ -1975,7 +1984,7 @@ describe("владельческие операции billing: платежи, �
       });
       expect(logged).toHaveBeenCalledWith(
         expect.stringContaining(
-          '"module":"membership-entitlements","operation":"assignEnrollment"',
+          '"module":"account-rights","operation":"assignEnrollment"',
         ),
       );
       expect(value(await grants.listEnrollments(owner, recipient))).toEqual([]);
@@ -2014,7 +2023,7 @@ describe("владельческие операции billing: платежи, �
           db.prisma.$transaction(async (transaction) => {
             await operation(transaction);
             expect(
-              await transaction.subscriptionEnrollment.count({
+              await transaction.tariffAssignment.count({
                 where: { accountId: recipient },
               }),
             ).toBe(1);
@@ -2081,7 +2090,7 @@ describe("владельческие операции billing: платежи, �
           name: "Назначаемый тариф",
           benefits: ["materials", "community"],
           availableForAssignment: true,
-          contentScope: { guideIds: [], materialIds: [], allGuides: true },
+          coverage: { productIds: [], materialIds: [], wholePlatform: true },
         },
       }),
     );
@@ -2183,10 +2192,10 @@ describe("владельческие операции billing: платежи, �
         value: {
           id: randomUUID(),
           name: "Курс для активации",
-          benefits: [`guide:${s.guideId}`, "support"],
+          benefits: [`product:${s.productId}`, "support"],
           benefitPeriods: [{ capability: "support", months: 3 }],
           availableForAssignment: true,
-          contentScope: { guideIds: [s.guideId], materialIds: [] },
+          coverage: { productIds: [s.productId], materialIds: [] },
         },
       }),
     ).value;
@@ -2253,8 +2262,7 @@ describe("владельческие операции billing: платежи, �
       ),
     ).toBe("forbidden");
     // A receipt failure follows the rule update; the caller's transaction must roll both back.
-    await db.prisma
-      .$executeRaw`ALTER TABLE membership_entitlements.access_receipts
+    await db.prisma.$executeRaw`ALTER TABLE account_rights.access_receipts
       ADD CONSTRAINT reject_receipt_for_rollback CHECK (FALSE) NOT VALID`;
     const errors = vi
       .spyOn(console, "error")
@@ -2279,14 +2287,13 @@ describe("владельческие операции billing: платежи, �
         return record.success ? [record.data] : [];
       });
       expect(
-        failures.find((record) => record.module === "membership-entitlements"),
+        failures.find((record) => record.module === "account-rights"),
       ).toMatchObject({
         operation: "manageActivationRule",
       });
     } finally {
       errors.mockRestore();
-      await db.prisma
-        .$executeRaw`ALTER TABLE membership_entitlements.access_receipts
+      await db.prisma.$executeRaw`ALTER TABLE account_rights.access_receipts
         DROP CONSTRAINT reject_receipt_for_rollback`;
     }
     const listed = success(
@@ -2318,7 +2325,7 @@ describe("владельческие операции billing: платежи, �
             name: "Пустой тариф",
             benefits: ["materials", "community"],
             availableForAssignment: true,
-            contentScope: { guideIds: [], materialIds: [] },
+            coverage: { productIds: [], materialIds: [] },
           },
         }),
       ),
@@ -2333,13 +2340,13 @@ describe("владельческие операции billing: платежи, �
           name: "Курс",
           benefits: ["materials", "community", "support"],
           availableForAssignment: true,
-          contentScope: { guideIds: [s.guideId], materialIds: [] },
+          coverage: { productIds: [s.productId], materialIds: [] },
         },
       }),
     );
     await db.prisma.billingOffer.update({
       where: { id: course.value.id },
-      data: { contentScope: { guideIds: [], materialIds: [] } },
+      data: { coverage: { productIds: [], materialIds: [] } },
     });
     const terms = {
       startsAt: now.toISOString(),
@@ -2392,7 +2399,7 @@ describe("владельческие операции billing: платежи, �
     await db.prisma.billingOffer.update({
       where: { id: course.value.id },
       data: {
-        contentScope: { guideIds: [s.guideId], materialIds: [randomUUID()] },
+        coverage: { productIds: [s.productId], materialIds: [randomUUID()] },
       },
     });
     expect(
@@ -2405,7 +2412,7 @@ describe("владельческие операции billing: платежи, �
       ),
     ).toBe("state_conflict");
     expect(
-      await db.prisma.subscriptionEnrollment.count({
+      await db.prisma.tariffAssignment.count({
         where: { accountId: recipient },
       }),
     ).toBe(0);
@@ -2421,7 +2428,7 @@ describe("владельческие операции billing: платежи, �
       availableForAssignment: true,
       revision: 1,
       benefits: ["community", "materials", "support"],
-      contentScope: { guideIds: [], materialIds: [], allGuides: true },
+      coverage: { productIds: [], materialIds: [], wholePlatform: true },
     });
     expect(
       success(
@@ -2440,10 +2447,10 @@ describe("владельческие операции billing: платежи, �
       "materials",
       "support",
     ]);
-    expect(issued[0]?.contentScope).toEqual({
-      guideIds: [],
+    expect(issued[0]?.coverage).toEqual({
+      productIds: [],
       materialIds: [],
-      allGuides: true,
+      wholePlatform: true,
     });
   });
 });

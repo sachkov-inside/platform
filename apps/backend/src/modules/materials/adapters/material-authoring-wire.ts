@@ -24,7 +24,7 @@ export const seriesMembershipWireSchema = z
 const materialMetadataSelectionBaseShape = {
   title: z.string().trim().min(1).max(160).nullable(),
   summary: z.string().trim().min(1).max(500).nullable(),
-  access: z.enum(["free", "membership"]),
+  access: z.enum(["free", "closed"]),
   difficulty: materialDifficultySchema.nullable(),
   outcomes: z
     .array(z.string().trim().min(1).max(MATERIAL_OUTCOMES.maxLength))

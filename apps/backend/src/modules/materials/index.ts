@@ -11,16 +11,16 @@ export type {
   MaterialMetadataSelectionInput,
 } from "./facets/material-authoring/material-authoring.contract.js";
 export type {
-  GuideIntroductionDto,
-  GuideProductPageDto,
+  ProductIntroductionDto,
+  ProductLandingPageDto,
 } from "./facets/material-authoring/content-collection.contract.js";
 export {
-  guidePageCardSchema,
-  guidePageHeroSchema,
-  guidePageSchema,
-  type GuidePageCard,
-  type GuidePageHero,
-} from "./domain/guide-page.js";
+  productPageCardSchema,
+  productPageHeroSchema,
+  productPageSchema,
+  type ProductPageCard,
+  type ProductPageHero,
+} from "./domain/product-page.js";
 export type { CreateDraftError } from "./features/create-draft/create-draft.contract.js";
 export {
   PUBLISHED_MATERIAL_READER,
@@ -32,7 +32,7 @@ export type { PublishedMaterialProjectionDto } from "./facets/published-material
 export type { MaterialBodySnapshot } from "./domain/material-body/material-body.js";
 export { MaterialsModule } from "./materials.module.js";
 export { MaterialsHttpModule } from "./materials-http.module.js";
-export { ContentScopeCatalogModule } from "./content-scope-catalog.module.js";
+export { CoverageCatalogModule } from "./coverage-catalog.module.js";
 export { KinescopeVideoAuthorizationController } from "./adapters/nest/kinescope-video-authorization.controller.js";
 export { MaterialAssetMaintenanceModule } from "./material-asset-maintenance.module.js";
 export { assembleMaterialAuthoringMcpServer } from "./adapters/mcp/material-authoring-mcp.js";
@@ -47,13 +47,13 @@ export {
   publishedMaterialProblemHttpSchema,
   publishedMaterialProjectionHttpSchema,
 } from "./adapters/nest/published-material-http.js";
-export { assembleGuideArtifacts } from "./facets/guide-artifacts/assemble-guide-artifacts.js";
-export { type GuideArtifacts } from "./facets/guide-artifacts/guide-artifacts.js";
+export { assembleProductArtifacts } from "./facets/product-artifacts/assemble-product-artifacts.js";
+export { type ProductArtifacts } from "./facets/product-artifacts/product-artifacts.js";
 export {
-  assembleGuideArtifactDelivery,
-  type GuideArtifactDelivery,
-} from "./features/deliver-guide-artifact/deliver-guide-artifact.js";
-export { assembleGuideArtifactResourceFacts } from "./adapters/content-access/guide-artifact-resource-facts.js";
+  assembleProductArtifactDelivery,
+  type ProductArtifactDelivery,
+} from "./features/deliver-product-artifact/deliver-product-artifact.js";
+export { assembleProductArtifactResourceFacts } from "./adapters/content-access/product-artifact-resource-facts.js";
 export {
   MATERIAL_ASSET_MAINTENANCE,
   type MaterialAssetMaintenance,
@@ -69,8 +69,8 @@ export {
 export { PublishedMaterialSelection } from "./features/select-published-materials/select-published-materials.js";
 export { assembleMaterialsNotificationOutbox } from "./facets/notification-outbox/notification-outbox.js";
 export { MaterialAnnouncements } from "./facets/material-announcements/material-announcements.js";
-export { GuideOutlines } from "./features/list-guide-outlines/list-guide-outlines.js";
+export { ProductOutlines } from "./features/list-product-outlines/list-product-outlines.js";
 export {
-  GuideDirectory,
-  type DirectoryGuide,
-} from "./features/read-guide-directory/read-guide-directory.js";
+  ProductDirectory,
+  type DirectoryProduct,
+} from "./features/read-product-directory/read-product-directory.js";
