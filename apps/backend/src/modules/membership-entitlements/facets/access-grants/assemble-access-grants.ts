@@ -5,7 +5,10 @@ import {
   contentScopeSchema,
   guideCapability,
 } from "@inside/access-capabilities";
-import { dependencyFailure } from "../../../../infrastructure/observability/index.js";
+import {
+  dependencyFailure,
+  reportDependencyFailure,
+} from "../../../../infrastructure/observability/index.js";
 import { Prisma } from "../../../../infrastructure/prisma/index.js";
 import type { ContentScopeCatalog } from "../../ports/content-scope-catalog.js";
 import {
@@ -275,7 +278,31 @@ export function assembleAccessGrants(dependencies: AccessGrantsDependencies) {
       manage(
         actorId,
         "billing:manage",
-        () => prepareEnrollmentAssignment(actorId, command),
+        async () => {
+          const prepared = await prepareEnrollmentAssignment(actorId, command);
+          if (!prepared.ok) return prepared;
+          return {
+            ok: true as const,
+            assign: async (
+              transaction: MembershipEnrollmentPrisma,
+              snapshot: unknown,
+            ) => {
+              try {
+                return await prepared.assign(transaction, snapshot);
+              } catch (error) {
+                reportDependencyFailure(
+                  {
+                    module: "membership-entitlements",
+                    operation: "assignEnrollment",
+                  },
+                  error,
+                );
+                // The caller owns the transaction: rethrow to roll back partial writes.
+                throw error;
+              }
+            },
+          };
+        },
         "prepareEnrollmentAssignment",
       ),
     assignEnrollment: (actorId: string, command: unknown, snapshot: unknown) =>

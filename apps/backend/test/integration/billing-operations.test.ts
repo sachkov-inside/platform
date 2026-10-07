@@ -3,7 +3,7 @@ import { assembleTestBillingPricing } from "./setup/billing-pricing.js";
 import { randomUUID } from "node:crypto";
 import type { BillingPrismaClient } from "../../src/infrastructure/prisma/index.js";
 import { z } from "zod";
-import { afterAll, beforeAll, describe, expect, test } from "vitest";
+import { afterAll, beforeAll, describe, expect, test, vi } from "vitest";
 import {
   assembleAccounts,
   BillingContact,
@@ -1914,6 +1914,94 @@ describe("владельческие операции billing: платежи, �
       state: "active",
       snapshot: { offer: { revision: 2, archived: false } },
     });
+  });
+
+  test("сбой записи назначения сообщает assignEnrollment и откатывает все записи Membership", async () => {
+    const logged = vi
+      .spyOn(console, "error")
+      .mockImplementation(() => undefined);
+    try {
+      const s = await scenario({
+        operationsPrisma: {
+          ...db.prisma,
+          $transaction: (operation) =>
+            db.prisma.$transaction((transaction) =>
+              operation({
+                ...transaction,
+                accessReceipt: new Proxy(transaction.accessReceipt, {
+                  get(target, property, receiver): unknown {
+                    if (property === "create")
+                      return async (
+                        ...args: Parameters<typeof target.create>
+                      ) => {
+                        await target.create(...args);
+                        // A JavaScript failure leaves SQL valid: swallowing it would commit partial writes.
+                        throw new Error(
+                          "Synthetic failure after assignment receipt write",
+                        );
+                      };
+                    const value: unknown = Reflect.get(
+                      target,
+                      property,
+                      receiver,
+                    );
+                    return value;
+                  },
+                }),
+              }),
+            ),
+        },
+      });
+      const recipient = await account();
+      const command = {
+        operation: "enrollments.assign",
+        operationId: randomUUID(),
+        accountId: recipient,
+        tierId: "62000000-0000-4000-8000-000000000624",
+        tierRevision: 1,
+        origin: "manual",
+        sourceRef: randomUUID(),
+        terms: {
+          startsAt: now.toISOString(),
+          endsAt: null,
+          endPolicy: "fixed",
+        },
+        billingRef: null,
+        reason: "Проверка сбоя записи назначения",
+      };
+      expect(await s.operations.execute(owner, command)).toMatchObject({
+        ok: false,
+        error: { code: "dependency_unavailable" },
+      });
+      expect(logged).toHaveBeenCalledWith(
+        expect.stringContaining(
+          '"module":"membership-entitlements","operation":"assignEnrollment"',
+        ),
+      );
+      expect(value(await grants.listEnrollments(owner, recipient))).toEqual([]);
+      expect(
+        value(await grants.listGrants(owner, { accountId: recipient })).grants,
+      ).toEqual([]);
+      const { operation: _operation, ...assignment } = command;
+      expect(
+        await grants.readEnrollmentAssignmentReceipt(owner, assignment),
+      ).toBe(null);
+      expect(
+        await db.prisma.accessChange.count({ where: { accountId: recipient } }),
+      ).toBe(0);
+      expect(
+        await db.prisma.billingOwnerCommand.findUnique({
+          where: {
+            actorId_operationId: {
+              actorId: owner,
+              operationId: command.operationId,
+            },
+          },
+        }),
+      ).toBe(null);
+    } finally {
+      logged.mockRestore();
+    }
   });
 
   test("откат Billing отменяет назначение тарифа, права и receipt Membership", async () => {
