@@ -77,7 +77,7 @@ test("apt succeeds once under a root-owned deadline, then installs both engines"
   assert.equal((result.log.match(/sudo timeout/gmu) ?? []).length, 1);
   assert.match(
     result.log,
-    /sudo timeout --kill-after=10s 180s .*install-deps chromium webkit/u,
+    /sudo timeout --signal=KILL 180s .*install-deps chromium webkit/u,
   );
   assert.match(
     result.log,
@@ -104,8 +104,9 @@ for (const failure of ["100", "124", "137"]) {
     assert.equal((result.log.match(/sudo timeout/gmu) ?? []).length, 2);
     assert.match(
       result.log,
-      /sudo find \/etc\/apt .*\.list.*\.sources.*azure\.archive\.ubuntu\.com.*archive\.ubuntu\.com/u,
+      /sudo find \/etc\/apt .*\.list.*\.sources.*archive\.ubuntu\.com/u,
     );
+    assert.ok(result.log.includes("azure[.]archive[.]ubuntu[.]com/ubuntu"));
     assert.match(result.log, /playwright install chromium webkit/u);
   });
 }
@@ -116,3 +117,22 @@ test("a failed fallback preserves the exit code and never starts browser downloa
   assert.equal((result.log.match(/sudo timeout/gmu) ?? []).length, 2);
   assert.doesNotMatch(result.log, /playwright install chromium/u);
 });
+
+test(
+  "Linux deadlines terminate children that ignore SIGTERM before retrying",
+  {
+    skip: process.platform !== "linux",
+  },
+  () => {
+    const result = spawnSync(
+      "bash",
+      [
+        "scripts/fixtures/playwright-ci-process-tree.sh",
+        "scripts/install-playwright-ci.sh",
+      ],
+      { encoding: "utf8", timeout: 15_000 },
+    );
+    assert.ifError(result.error);
+    assert.equal(result.status, 0, result.stdout + result.stderr);
+  },
+);

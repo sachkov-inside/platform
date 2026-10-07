@@ -11,7 +11,7 @@ APT
 
 install_system_packages() {
   # Run the deadline as root so it can terminate apt and its root-owned children.
-  sudo timeout --kill-after=10s 180s "$(command -v node)" \
+  sudo timeout --signal=KILL 180s "$(command -v node)" \
     apps/web/node_modules/@playwright/test/cli.js install-deps "$@"
 }
 
@@ -22,7 +22,7 @@ else
   echo "Playwright system packages failed (exit $status); retrying with the Ubuntu archive mirror." >&2
   # GitHub images can use either traditional sources.list or deb822 .sources files.
   sudo find /etc/apt -maxdepth 2 -type f \( -name '*.list' -o -name '*.sources' \) \
-    -exec sed -i 's|://azure.archive.ubuntu.com/ubuntu|://archive.ubuntu.com/ubuntu|g' {} +
+    -exec sed -i 's|://azure[.]archive[.]ubuntu[.]com/ubuntu|://archive.ubuntu.com/ubuntu|g' {} +
   install_system_packages "$@"
 fi
 

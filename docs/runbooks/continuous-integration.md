@@ -38,8 +38,8 @@ After a runner image update they restore the previous entry and download only th
 until the next release saves a new one.
 
 The archive cache does not skip apt index updates. `scripts/install-playwright-ci.sh` bounds
-system-package installation to 180 seconds per attempt, with a further 10 seconds before forced
-termination. HTTP and HTTPS transfers time out after 15 seconds and retry once; index errors fail
+system-package installation to 180 seconds per attempt, then kills the whole process group as root.
+HTTP and HTTPS connection and data waits time out after 15 seconds and retry once; index errors fail
 the installation. After a failed first attempt the script replaces only the Azure Ubuntu mirror
 with `archive.ubuntu.com` and retries once. A failed second attempt fails the job before browser
 downloads. The same script installs browsers for Production access pass and the nightly full-stack
