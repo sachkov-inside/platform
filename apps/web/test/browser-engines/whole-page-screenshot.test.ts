@@ -145,7 +145,7 @@ it("fails instead of cutting the page when the content grows with the viewport",
 it("waits for a running CSS transition before it measures the container", async () => {
   // #1035: `html { font-size: 200% }` перед снимком, а кнопки с `transition-all` растут в rem
   // ещё 150ms. Здесь высота прыгает к новой только в конце перехода: замер без ожидания видит
-  // старую высоту на любой скорости машины.
+  // старую высоту, пока растяжение окна и новый замер занимают меньше секунды.
   const growRem = 100;
   const rootFontSize = 32;
   const result = await capture(

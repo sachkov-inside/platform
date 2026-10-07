@@ -138,7 +138,10 @@ Two recurring traps affect what a snapshot shows:
   instead of `page.screenshot({ fullPage: true })`: it stretches the viewport by the hidden height
   of the scroll container and restores it after the capture; below those widths it is an ordinary
   `fullPage` capture. When Chromium answers `Unable to capture screenshot`, the helper takes the
-  capture again, up to three attempts in all, and logs a warning (#1029). Proof scripts in
+  capture again, up to three attempts in all, and logs a warning (#1029). Before each measurement
+  the helper waits for running CSS transitions to end, so a change such as a larger root font size
+  is measured after the transitioned sizes settle; a transition still running after 10 seconds
+  fails the capture (#1035). Proof scripts in
   `scripts/` and `apps/telegram/test/local` import it too. Look at the image before attaching it.
 - A single component state needs no live stack: build Storybook with `pnpm build:storybook`, serve
   `apps/web/storybook-static`, and capture

@@ -144,8 +144,13 @@ async function settledHiddenScrollHeight({ selectors, budget }) {
   /* oxlint-enable typescript/no-unsafe-type-assertion */
   const { document, getComputedStyle, CSSTransition, performance, setTimeout } =
     browser;
+  const transitionsOverBudget = () =>
+    new Error(
+      `CSS transitions still run after ${String(budget)}ms: a transition is paused or too long for a capture`,
+    );
   const deadline = performance.now() + budget;
   for (;;) {
+    if (performance.now() >= deadline) throw transitionsOverBudget();
     const transitions = document
       .getAnimations()
       .filter((animation) => animation instanceof CSSTransition);
@@ -160,11 +165,7 @@ async function settledHiddenScrollHeight({ selectors, budget }) {
         })
       ),
     ]);
-    if (!settled) {
-      throw new Error(
-        `CSS transitions still run after ${String(budget)}ms: a transition is paused or too long for a capture`,
-      );
-    }
+    if (!settled) throw transitionsOverBudget();
   }
   return Math.max(
     0,
