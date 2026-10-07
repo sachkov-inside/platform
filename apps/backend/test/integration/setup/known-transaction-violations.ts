@@ -39,10 +39,6 @@ export const knownTransactionViolations: readonly {
       "src/modules/membership-entitlements/features/assign-enrollment/assign-enrollment.ts",
   },
   {
-    issue: 1071,
-    through: "src/modules/billing/facets/billing-payments/billing-payments.ts",
-  },
-  {
     issue: 1072,
     through:
       "src/modules/billing/facets/tribute-convergence/tribute-convergence.ts",
