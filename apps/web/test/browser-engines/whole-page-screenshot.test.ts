@@ -141,22 +141,29 @@ it("takes the capture again when Chromium cannot copy the frame", async () => {
     const screenshot = vi
       .spyOn(page, "screenshot")
       .mockRejectedValueOnce(chromiumCaptureFailure);
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
 
     const image = await screenshotWholePage(page);
 
     expect(pngHeight(image)).toBe(headerHeight + contentHeight);
     expect(screenshot).toHaveBeenCalledTimes(2);
+    expect(warn).toHaveBeenCalledWith(
+      expect.stringContaining("Chromium could not copy the frame"),
+    );
   });
 });
 
 it("restores the viewport when the stretched capture is taken again", async () => {
   const viewport = { width: 1_440, height: 1_024 };
   await withPage(applicationPage, viewport, async (page) => {
-    vi.spyOn(page, "screenshot").mockRejectedValueOnce(chromiumCaptureFailure);
+    const screenshot = vi
+      .spyOn(page, "screenshot")
+      .mockRejectedValueOnce(chromiumCaptureFailure);
 
     const image = await screenshotWholePage(page);
 
     expect(pngHeight(image)).toBe(headerHeight + contentHeight);
+    expect(screenshot).toHaveBeenCalledTimes(2);
     expect(page.viewportSize()).toEqual(viewport);
   });
 });
