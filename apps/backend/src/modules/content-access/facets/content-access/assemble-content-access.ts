@@ -158,7 +158,7 @@ export function assembleContentAccess(
           }
           membershipResources.forEach(([key], index) =>
             subjectFactsByResource.set(key, {
-              permission: "denied",
+              permission: permission?.permission ?? "unavailable",
               membership: memberships[index] ?? { kind: "unavailable" },
             }),
           );

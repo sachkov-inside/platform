@@ -990,8 +990,13 @@ describe("ContentAccess authorization", () => {
 });
 
 describe("archived-only Material resources", () => {
-  test.each(policyActors)(
-    "uses product rights for $name, including free files and video",
+  test.each(
+    policyActors.flatMap((actor) => [
+      { ...actor, batchEntitlements: false },
+      { ...actor, batchEntitlements: true },
+    ]),
+  )(
+    "uses product rights for $name, including free files and video (batch=$batchEntitlements)",
     async (actor) => {
       const guideId = "85000000-0000-4000-8000-000000000001";
       const facts = {
@@ -1028,6 +1033,22 @@ describe("archived-only Material resources", () => {
           hasMaterialsManage: () => Promise.resolve(actor.managesMaterials),
         },
         membershipEntitlements: {
+          ...(actor.batchEntitlements
+            ? {
+                resolveManyForAccess: (
+                  _accountId: AccountId,
+                  resources: readonly {
+                    guideIds: readonly string[];
+                    materialId?: string | undefined;
+                  }[],
+                ) => {
+                  expect(resources).toEqual([
+                    { guideIds: [guideId], materialId: undefined },
+                  ]);
+                  return Promise.resolve(resources.map(() => actor.membership));
+                },
+              }
+            : {}),
           resolveForAccess: (_accountId, ids, materialId) => {
             expect(ids).toEqual([guideId]);
             expect(materialId).toBeUndefined();
@@ -1075,6 +1096,11 @@ describe("archived-only Material resources", () => {
               action: "read",
               resource: { kind: "material", materialId: facts.materialId },
             },
+            {
+              itemId: "preview",
+              action: "preview",
+              resource: { kind: "material", materialId: facts.materialId },
+            },
           ],
         }),
       ).toMatchObject({
@@ -1083,6 +1109,10 @@ describe("archived-only Material resources", () => {
           {
             availability:
               actor.membership.kind === "active" ? "available" : "unavailable",
+          },
+          {
+            itemId: "preview",
+            availability: actor.managesMaterials ? "available" : "unavailable",
           },
         ],
       });

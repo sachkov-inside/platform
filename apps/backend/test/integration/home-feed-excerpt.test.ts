@@ -156,5 +156,34 @@ describe("Home feed public note excerpts", () => {
     expect(closed?.noteExcerpt).toBeUndefined();
     expect(JSON.stringify(closed)).not.toContain("Private note secret");
     expect(JSON.stringify(closed)).not.toContain("private-link");
+    const archived = await authoring.saveMaterial({
+      actor,
+      idempotencyKey: "feed-note-archived",
+      materialId: created.value.materialId,
+      expectedContentVersion: version,
+      publicationState: "published",
+      metadata: { ...metadata, seriesIds: [closedGuideId] },
+      body: noteBody(
+        "Archived note secret",
+        "https://example.com/archived-secret",
+      ),
+    });
+    if (!archived.ok) throw new Error(archived.error.code);
+    await database.prisma.guide.update({
+      where: { id: closedGuideId },
+      data: { archivedAt: new Date() },
+    });
+    const hiddenArchive = await read();
+    expect(hiddenArchive?.availability).toBe("unavailable");
+    expect(hiddenArchive?.noteExcerpt).toBeUndefined();
+    expect(JSON.stringify(hiddenArchive)).not.toContain("Archived note secret");
+    expect(JSON.stringify(hiddenArchive)).not.toContain("archived-secret");
+    await database.prisma.guide.update({
+      where: { id: closedGuideId },
+      data: { archivedAt: null },
+    });
+    expect(await read()).toMatchObject({
+      noteExcerpt: { text: "Archived note secret" },
+    });
   });
 });
