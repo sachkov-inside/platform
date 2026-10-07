@@ -143,6 +143,7 @@ export type ReadingActivityPrisma = Pick<
   // Materials delegates: a reading command rereads Material facts in its own transaction.
   | "material"
   | "publishedMaterialGuideMembership"
+  | "guide"
 >;
 export type ReadingActivityPrismaClient = ReadingActivityPrisma &
   TransactionClient<ReadingActivityPrisma>;

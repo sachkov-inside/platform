@@ -1,3 +1,5 @@
+import { accountId } from "../../../accounts/index.js";
+import type { ContentAccess } from "../../../content-access/index.js";
 import { z } from "zod";
 import { dependencyFailure } from "../../../../infrastructure/observability/index.js";
 import type { ReadingActivityPrismaClient } from "../../../../infrastructure/prisma/index.js";
@@ -24,6 +26,7 @@ export type GetSeriesProgressResult =
 export async function getSeriesProgress(
   dependencies: {
     readonly prisma: ReadingActivityPrismaClient;
+    readonly contentAccess: Pick<ContentAccess, "checkGuideAccess">;
     readonly composition: Pick<PublishedSeriesComposition, "read">;
   },
   input: { readonly accountId: string; readonly seriesId: string },
@@ -33,6 +36,13 @@ export async function getSeriesProgress(
   try {
     const composition = await dependencies.composition.read(
       parsed.data.seriesId,
+      {
+        subject: {
+          kind: "account",
+          accountId: accountId(parsed.data.accountId),
+        },
+        contentAccess: dependencies.contentAccess,
+      },
     );
     if (!composition.ok) return composition;
     const total = composition.value.length;

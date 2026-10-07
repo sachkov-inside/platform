@@ -115,7 +115,7 @@ function toCatalogItem(
     slug: projection.slug,
     title: projection.title,
     summary: projection.summary,
-    ...(projection.noteExcerpt === undefined
+    ...(availability !== "available" || projection.noteExcerpt === undefined
       ? {}
       : { noteExcerpt: projection.noteExcerpt }),
     difficulty: projection.difficulty,

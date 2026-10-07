@@ -1,9 +1,10 @@
 import { z } from "zod";
 import { dependencyFailure } from "../../../../infrastructure/observability/index.js";
+import type { MaterialsPrismaClient } from "../../../../infrastructure/prisma/index.js";
 import {
-  Prisma,
-  type MaterialsPrismaClient,
-} from "../../../../infrastructure/prisma/index.js";
+  loadGuideCompositions,
+  guideCompositionChapters,
+} from "../../shared/guide-composition.js";
 
 // A report selector lists every Guide at once; the bound only stops a runaway catalog.
 const MAX_GUIDES = 200;
@@ -41,44 +42,19 @@ export class GuideOutlines {
 
   async list(): Promise<GuideOutlinesResult> {
     try {
+      const guides = await loadGuideCompositions(
+        this.prisma,
+        { current: true },
+        MAX_GUIDES + 1,
+      );
       const rows = rowsSchema.parse(
-        await this.prisma.$queryRaw(Prisma.sql`
-        select
-          series.id,
-          series.name,
-          coalesce(
-            (
-              select json_agg(
-                json_build_object(
-                  'id', chapter.id,
-                  'name', chapter.name,
-                  'materialIds', coalesce(
-                    (
-                      select json_agg(published.material_id order by published.ordinal)
-                      from materials.published_material_series_memberships as published
-                      join materials.series_memberships as current_membership
-                        on current_membership.series_id = published.series_id
-                       and current_membership.material_id = published.material_id
-                      join materials.published_materials as publication
-                        on publication.material_id = published.material_id
-                      where published.series_id = chapter.guide_id
-                        and current_membership.chapter_id = chapter.id
-                    ),
-                    '[]'::json
-                  )
-                )
-                order by chapter.ordinal, chapter.id
-              )
-              from materials.guide_chapters as chapter
-              where chapter.guide_id = series.id
-            ),
-            '[]'::json
-          ) as chapters
-        from materials.series as series
-        where series.archived_at is null
-        order by series.name, series.id
-        limit ${MAX_GUIDES + 1}
-      `),
+        guides.map((guide) => ({
+          id: guide.id,
+          name: guide.name,
+          chapters: guideCompositionChapters(guide).map(
+            ({ id, name, materialIds }) => ({ id, name, materialIds }),
+          ),
+        })),
       );
       if (rows.length > MAX_GUIDES)
         return { ok: false, error: { code: "guides_too_many" } };

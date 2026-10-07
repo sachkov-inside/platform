@@ -32,7 +32,11 @@ export function assemblePublishedMaterialReader(dependencies: {
     listPractices: assembleListPublishedPractices(dependencies),
     readHomePinnedSeries: () => readHomePinnedSeries(dependencies.prisma),
     discoverProjections: (query: DiscoverPublishedMaterialProjectionsQuery) =>
-      discoverPublishedMaterialProjections(dependencies.prisma, query),
+      discoverPublishedMaterialProjections(
+        dependencies.prisma,
+        query,
+        dependencies.contentAccess,
+      ),
     listProjections: (query: ListPublishedMaterialProjectionsQuery) =>
       listPublishedMaterialProjections(dependencies.prisma, query),
     read: (query: ReadPublishedMaterialQuery) =>
