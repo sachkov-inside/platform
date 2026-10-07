@@ -78,6 +78,7 @@ const telegramDeployed = deployed.extend({
   completedAt: z.iso.datetime(),
 });
 const telegramState = z.object({
+  schemaVersion: z.literal("inside.telegram.deployment-state.v1"),
   current: telegramDeployed,
   previous: telegramDeployed.nullable(),
 });

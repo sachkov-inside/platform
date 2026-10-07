@@ -130,7 +130,7 @@ class RepairStateTests(unittest.TestCase):
 
 
 class DeployedTelegramProbeTests(unittest.TestCase):
-    def probe(self, extra=None, bot_id=12345):
+    def probe(self, extra=None, bot_id=12345, cohort_body=None):
         import json
         import pathlib
         import subprocess
@@ -149,10 +149,9 @@ class DeployedTelegramProbeTests(unittest.TestCase):
                     'getChat': {'type': 'supergroup'}, 'getChatMember': {'status': 'administrator', 'can_invite_users': True,
                     'can_restrict_members': True}}
         prelude = 'process.env=' + json.dumps(env) + ';\nconst fixtures=' + json.dumps(fixtures) + ';\n'
-        prelude += "globalThis.fetch=async(url)=>new Response(JSON.stringify(fixtures[String(url).split('/').at(-1)] || {items:[]}),{headers:{'content-type':'application/json'}});\n"
-        # Bot API wraps read results in an ok envelope. No test request reaches a network.
-        prelude = prelude.replace("JSON.stringify(fixtures[String(url).split('/').at(-1)] || {items:[]})",
-                                  "JSON.stringify(String(url).includes('api.telegram.org') ? {ok:true,result:fixtures[String(url).split('/').at(-1)]} : {items:[]})")
+        prelude += 'const cohortFixture=' + json.dumps(cohort_body or {'items': []}) + ';\n'
+        # Mock only the fetch boundary; the deployed probe and owning adapter run unchanged.
+        prelude += "globalThis.fetch=async(url)=>new Response(JSON.stringify(String(url).includes('api.telegram.org') ? {ok:true,result:fixtures[String(url).split('/').at(-1)]} : cohortFixture),{headers:{'content-type':'application/json'}});\n"
         source = TELEGRAM_READ.replace('/app/dist/config/application-config.js', (root / 'apps/telegram/src/config/application-config.ts').as_uri())
         source = source.replace('/app/dist/adapters/platform/http-platform-cohort.adapter.js', (root / 'apps/telegram/src/adapters/platform/http-platform-cohort.adapter.ts').as_uri())
         return subprocess.run(['node', str(root / 'apps/telegram/node_modules/tsx/dist/cli.mjs'), '--input-type=module', '-'],
@@ -190,3 +189,26 @@ class DeployedTelegramProbeTests(unittest.TestCase):
                              'PLATFORM_COHORT_GUIDE_ID': '00000000-0000-4000-8000-000000000001'})
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertEqual(verify_cohort_config(json.loads(result.stdout)['cohorts'])['status'], 'passed')
+
+    def test_selected_cohort_date_must_be_accepted_by_the_owning_adapter(self):
+        import json
+        from verify import verify_cohort_config
+        product_id = '00000000-0000-4000-8000-000000000001'
+        for date, expected in [('invalid', 'failed'), ('2026-02-30', 'failed'),
+                               ('2026-10-08', 'passed'), (None, 'passed')]:
+            with self.subTest(date=date):
+                result = self.probe({'PLATFORM_COHORTS_URL': 'https://example.invalid/cohorts',
+                                     'PLATFORM_COHORT_PRODUCT_ID': product_id},
+                                    cohort_body={'items': [{'productId': product_id, 'startsOn': date}]})
+                self.assertEqual(result.returncode, 0, result.stderr)
+                self.assertEqual(verify_cohort_config(json.loads(result.stdout)['cohorts'])['status'], expected)
+
+    def test_selected_cohort_without_date_field_is_a_contract_failure(self):
+        import json
+        from verify import verify_cohort_config
+        product_id = '00000000-0000-4000-8000-000000000001'
+        result = self.probe({'PLATFORM_COHORTS_URL': 'https://example.invalid/cohorts',
+                             'PLATFORM_COHORT_PRODUCT_ID': product_id},
+                            cohort_body={'items': [{'productId': product_id}]})
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(verify_cohort_config(json.loads(result.stdout)['cohorts'])['status'], 'failed')

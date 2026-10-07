@@ -143,6 +143,7 @@ test("Telegram release producer output uses the same source and digest formats",
     serverUrl: "https://github.com",
   });
   const state = {
+    schemaVersion: "inside.telegram.deployment-state.v1",
     current: {
       version: manifest.version,
       sourceSha: manifest.source.sha,
@@ -164,4 +165,18 @@ test("Telegram release producer output uses the same source and digest formats",
     }),
     true,
   );
+  for (const schemaVersion of [
+    undefined,
+    "inside.telegram.deployment-state.v2",
+  ]) {
+    assert.equal(
+      validateContext({
+        application: "telegram",
+        version: manifest.version,
+        manifestRaw: JSON.stringify(manifest),
+        stateRaw: JSON.stringify({ ...state, schemaVersion }),
+      }),
+      false,
+    );
+  }
 });

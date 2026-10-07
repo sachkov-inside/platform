@@ -205,15 +205,20 @@ const member=await api('getChatMember',{chat_id:env.TELEGRAM_CANONICAL_CHAT_ID,u
 let cohorts={configured:false};
 if(config.communityWelcomeCohort){
  let validResponse=false;
+ let selected;
  const fetcher=async(input,init)=>{
   const response=await fetch(input,init);
   const body=await response.clone().json();
   validResponse=response.status===200 && new Headers(init.headers).get('x-inside-domain-names')==='products.v1' &&
-   Array.isArray(body?.items) && body.items.every(item=>typeof item.productId==='string');
+   Array.isArray(body?.items) && body.items.every(item=>item!==null && typeof item.productId==='string');
+  if(validResponse) selected=body.items.find(item=>item.productId.toLowerCase()===config.communityWelcomeCohort.productId.toLowerCase());
   return response;
  };
- await new HttpPlatformCohortAdapter(config.communityWelcomeCohort.url,config.communityWelcomeCohort.productId,fetcher).read();
- cohorts={configured:true,readPassed:validResponse};
+ const details=await new HttpPlatformCohortAdapter(config.communityWelcomeCohort.url,config.communityWelcomeCohort.productId,fetcher).read();
+ // The owning adapter validates calendar dates; an empty fallback must not hide a rejected date.
+ const dateAccepted=selected===undefined || selected.startsOn===null ||
+  (typeof selected.startsOn==='string' && details.streamStartsOn===selected.startsOn);
+ cohorts={configured:true,readPassed:validResponse && dateAccepted};
 }
 console.log(JSON.stringify({identityMatches:me.is_bot===true && String(me.id)===botTelegramUserIdFromToken(config.botToken),cohorts,webhook:{host:url.hostname,port:url.port,
  path:url.pathname,hasPinnedIp:!!wh.ip_address,pending:wh.pending_update_count,
