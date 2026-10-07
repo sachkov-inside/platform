@@ -123,6 +123,8 @@ jobs:
         uses: ./.github/actions/setup-platform
         with:
           browsers: chromium
+      - name: Verify production SQL contracts on an isolated PostgreSQL
+        run: pnpm production:verify:sql-test
       - name: Run isolated integration tests
         run: pnpm test:integration:parallel
       - name: Run enrollment browser and real API smoke

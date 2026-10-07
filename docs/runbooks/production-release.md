@@ -353,6 +353,7 @@ SQL работает с `default_transaction_read_only=on` и `statement_timeout
 или сохранность данных между двумя выпусками. Эти критерии проверяются отдельно.
 
 `pnpm test:tooling` выполняет unit-тесты без production credentials и Docker.
+CI job Integration выполняет SQL-контракты на изолированной PostgreSQL.
 С SQL-контрактами выполните `pnpm production:verify:sql-test` только после получения Docker-слота.
 Этот тест запускает отдельный PostgreSQL без опубликованных портов и удаляет только свой контейнер
 и его volumes даже при отказе. Общий stand и его данные он не трогает.
