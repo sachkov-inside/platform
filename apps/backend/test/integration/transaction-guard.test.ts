@@ -125,7 +125,7 @@ describe("тестовая база отказывает второму соед
     );
   });
 
-  test("каждое известное нарушение называет существующий файл и открытую задачу", () => {
+  test("каждое известное нарушение называет существующий файл и номер задачи", () => {
     for (const { issue, through } of knownTransactionViolations) {
       expect(issue).toBeGreaterThan(0);
       expect(existsSync(new URL(`../../${through}`, import.meta.url))).toBe(

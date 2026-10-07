@@ -83,7 +83,8 @@ not dependency wiring.
   not checked; its operations keep a test on the test database client.
   `known-transaction-violations.ts` beside it lists the production code that still breaks the rule,
   each entry with its issue; new code never gets an entry.
-  `test/integration/setup/exhausted-pool.ts` stays for a test of pool exhaustion itself.
+  A new operation's test needs no exhausted pool; `test/integration/setup/exhausted-pool.ts` stays
+  for a test of pool exhaustion itself and for the operations whose tests already run on it.
 - A test that holds a transaction on purpose and starts inside it a concurrent operation the
   transaction does not await, such as a contender for the same lock, starts that operation through
   `outsideTransaction`. Work that the transaction awaits never goes through it: that work is the

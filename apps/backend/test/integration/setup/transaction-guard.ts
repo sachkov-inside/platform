@@ -60,9 +60,13 @@ export function guardTransactionConnections(
       return;
     // The caller that a known violation names can sit deeper than the default ten frames.
     const stackTraceLimit = Error.stackTraceLimit;
-    Error.stackTraceLimit = 50;
-    const error = new SecondConnectionInTransactionError(operation);
-    Error.stackTraceLimit = stackTraceLimit;
+    let error: SecondConnectionInTransactionError;
+    try {
+      Error.stackTraceLimit = 50;
+      error = new SecondConnectionInTransactionError(operation);
+    } finally {
+      Error.stackTraceLimit = stackTraceLimit;
+    }
     transaction.excusedBy = knownViolationIn(error.stack);
     if (transaction.excusedBy !== undefined) return;
     refused.push(error);
@@ -85,11 +89,8 @@ export function guardTransactionConnections(
         const bound: unknown = value.bind(target);
         return bound;
       }
-      if (typeof value === "function")
-        return (...args: unknown[]): unknown => {
-          refuseInsideTransaction(property);
-          return Reflect.apply(value, target, args);
-        };
+      if (isMethod(value))
+        return guardCall(property, value, target, refuseInsideTransaction);
       if (typeof value !== "object" || value === null) return value;
       let delegate = delegates.get(property);
       if (delegate === undefined) {
@@ -112,10 +113,24 @@ export function outsideTransaction<Result>(work: () => Result): Result {
 }
 
 const backendRoot = fileURLToPath(new URL("../../../", import.meta.url));
+const guardFile = fileURLToPath(import.meta.url);
 
+/**
+ * A known violation is named by a frame of the transaction callback: the frames between the
+ * guard's own frames on top and the guard's callback wrapper. The code that opened the
+ * transaction sits below the wrapper and excuses nothing.
+ */
 function knownViolationIn(stack = ""): number | undefined {
+  const frames = stack.split("\n").slice(1);
+  const ownFrames = frames.findIndex((frame) => !frame.includes(guardFile));
+  const wrapper = frames.findIndex(
+    (frame, index) => index > ownFrames && frame.includes(guardFile),
+  );
+  const callback = frames
+    .slice(ownFrames, wrapper === -1 ? undefined : wrapper)
+    .join("\n");
   return knownTransactionViolations.find(({ through }) =>
-    stack.includes(`${backendRoot}${through}:`),
+    callback.includes(`${backendRoot}${through}:`),
   )?.issue;
 }
 
@@ -150,12 +165,31 @@ function guardDelegate(
   return new Proxy(delegate, {
     get(target, property) {
       const value: unknown = Reflect.get(target, property, target);
-      if (typeof value !== "function" || typeof property === "symbol")
-        return value;
-      return (...args: unknown[]): unknown => {
-        refuseInsideTransaction(`${model}.${property}`);
-        return Reflect.apply(value, target, args);
-      };
+      if (!isMethod(value) || typeof property === "symbol") return value;
+      return guardCall(
+        `${model}.${property}`,
+        value,
+        target,
+        refuseInsideTransaction,
+      );
     },
   });
+}
+
+type Method = (...args: unknown[]) => unknown;
+
+function isMethod(value: unknown): value is Method {
+  return typeof value === "function";
+}
+
+function guardCall(
+  operation: string,
+  method: Method,
+  target: object,
+  refuseInsideTransaction: (operation: string) => void,
+) {
+  return (...args: unknown[]): unknown => {
+    refuseInsideTransaction(operation);
+    return Reflect.apply(method, target, args);
+  };
 }

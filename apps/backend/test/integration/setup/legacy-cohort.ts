@@ -33,7 +33,7 @@ export function assembleLegacyCohortFixture(
     async bindPrincipal(command, transaction) {
       // Inside the caller's transaction the fixture writes through it, as the binding does.
       await enrollLegacyCohortFixture(
-        transaction !== undefined && writesClassification(transaction)
+        transaction !== undefined && hasLegacyClassification(transaction)
           ? transaction
           : dependencies.prisma,
         command.accountId,
@@ -48,7 +48,7 @@ export function assembleLegacyCohortFixture(
 }
 
 /** A Prisma transaction client carries every delegate, beyond what its narrow type lists. */
-function writesClassification(
+function hasLegacyClassification(
   transaction: object,
 ): transaction is Pick<PlatformPrisma, "legacyClassification"> {
   return Reflect.get(transaction, "legacyClassification") !== undefined;
