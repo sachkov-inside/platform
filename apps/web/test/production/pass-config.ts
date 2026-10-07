@@ -50,8 +50,18 @@ export const learnerMcpReadTools = [
 /** Read-only tools владельческого MCP (`readOnlyHint: true`), которые проход вызывает. */
 export const ownerMcpReadTools = ["billing_tiers_list"] as const;
 
+// Роли Product переименованы в #1065; email существующих identities Logto остаются прежними (#1118).
+const identityEmailAliases: Readonly<Record<PassIdentity, string>> = {
+  "no-entitlement": "no-entitlement",
+  "learner-product-a": "learner-guide-a",
+  "learner-product-b": "learner-guide-b",
+  expired: "expired",
+  "materials-only": "materials-only",
+  "billing-only": "billing-only",
+};
+
 /**
- * Email тестовой identity — алиас ящика владельца: `<ящик>+inside-access-<identity>@<домен>`.
+ * Email тестовой identity — алиас ящика владельца: `<ящик>+inside-access-<алиас>@<домен>`.
  * Сам ящик не хранится в репозитории: его даёт secret `PRODUCTION_ACCESS_MAILBOX`.
  */
 export function identityEmail(mailbox: string, identity: PassIdentity): string {
@@ -59,7 +69,7 @@ export function identityEmail(mailbox: string, identity: PassIdentity): string {
   if (at <= 0 || mailbox.includes("+")) {
     throw new Error("PRODUCTION_ACCESS_MAILBOX must be a plain address");
   }
-  return `${mailbox.slice(0, at)}+inside-access-${identity}${mailbox.slice(at)}`;
+  return `${mailbox.slice(0, at)}+inside-access-${identityEmailAliases[identity]}${mailbox.slice(at)}`;
 }
 
 function cell<const Id extends string>(
