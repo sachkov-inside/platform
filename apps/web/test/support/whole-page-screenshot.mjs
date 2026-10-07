@@ -10,6 +10,15 @@
  * догрузка может показать больше, чем было на экране. После снимка окно прежнее, а прокрутка
  * контейнера остаётся в начале.
  *
+ * Chromium 153 из Playwright 1.63.0 изредка отказывает в снимке с «Unable to capture screenshot»
+ * (#1029). Этот ответ
+ * `PageHandler::ScreenshotCaptured` (`content/browser/devtools/protocol/page_handler.cc`) даёт на
+ * пустой кадр. Кадр пуст, когда `RenderWidgetHostImpl::OnSnapshotFromSurfaceReceived`
+ * (`render_widget_host_impl.cc`) не получил копию поверхности за `kMaxRetries = 5` немедленных
+ * повторов. Содержимое страницы на это не влияет, поэтому помощник делает до `captureAttempts` снимков
+ * всего, а другие ошибки не повторяет. Каждый повтор пишет предупреждение в лог: отказ остаётся
+ * виден, даже когда следующий снимок удался.
+ *
  * Модуль на JavaScript, потому что его импортируют и спеки Playwright, и proof-скрипты из
  * `scripts/` и `apps/telegram/test/local`, которые запускает Node без транспиляции. Тип задаёт
  * `whole-page-screenshot.d.mts`.
@@ -24,6 +33,9 @@ const scrollContainers = ["#content", "#authoring-content"];
  */
 const maximumSteps = 3;
 
+/** Сколько снимков всего помощник делает, пока Chromium отказывает скопировать кадр. */
+const captureAttempts = 3;
+
 /**
  * Без заданного окна (`viewport: null`) размер не меняется, и снимок — обычный `fullPage`.
  *
@@ -33,13 +45,13 @@ const maximumSteps = 3;
  */
 export async function screenshotWholePage(page, options = {}) {
   const viewport = page.viewportSize();
-  if (viewport === null) return page.screenshot({ ...options, fullPage: true });
+  if (viewport === null) return screenshotRetryingFrameCopy(page, options);
   let height = viewport.height;
   try {
     for (let step = 0; ; step += 1) {
       const hidden = await page.evaluate(hiddenScrollHeight, scrollContainers);
       if (hidden === 0) {
-        return await page.screenshot({ ...options, fullPage: true });
+        return await screenshotRetryingFrameCopy(page, options);
       }
       if (step === maximumSteps) {
         throw new Error(
@@ -52,6 +64,35 @@ export async function screenshotWholePage(page, options = {}) {
   } finally {
     if (height !== viewport.height) await page.setViewportSize(viewport);
   }
+}
+
+/**
+ * @param {import("@playwright/test").Page} page
+ * @param {Omit<import("@playwright/test").PageScreenshotOptions, "fullPage">} options
+ * @returns {Promise<Buffer>}
+ */
+async function screenshotRetryingFrameCopy(page, options) {
+  for (let attempt = 1; ; attempt += 1) {
+    try {
+      return await page.screenshot({ ...options, fullPage: true });
+    } catch (error) {
+      if (attempt === captureAttempts || !isFrameCopyRefusal(error))
+        throw error;
+      console.warn(
+        `screenshotWholePage: Chromium could not copy the frame (attempt ${String(attempt)} of ${String(captureAttempts)}); taking the capture again (#1029)`,
+      );
+    }
+  }
+}
+
+/** @param {unknown} error */
+function isFrameCopyRefusal(error) {
+  return (
+    error instanceof Error &&
+    error.message.includes(
+      "Page.captureScreenshot): Unable to capture screenshot",
+    )
+  );
 }
 
 /**
