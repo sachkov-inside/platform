@@ -80,6 +80,26 @@ const billingRecordSchema = z.object({
     }),
   }),
 });
+const billingEnrollmentSchema = billingRecordSchema.and(
+  z.object({
+    value: z.object({
+      result: z.object({
+        value: z.object({
+          startsAt: z.iso.datetime(),
+          endsAt: z.iso.datetime().nullable(),
+          endPolicy: z.enum([
+            "fixed",
+            "confirmed_external",
+            "temporary_membership",
+          ]),
+        }),
+      }),
+    }),
+  }),
+);
+type BillingEnrollment = z.infer<
+  typeof billingEnrollmentSchema
+>["value"]["result"]["value"];
 const bookmarkStatesSchema = z.object({
   kind: z.literal("ready"),
   states: z.array(
@@ -343,19 +363,23 @@ test("a learner scoped to Guide A reads Guide A, is denied Guide B and loses Gui
     endsAt: null,
     endPolicy: "fixed",
   };
-  const revoke = async (enrollment: { id: string; revision: number }) =>
-    billingRecordSchema.parse(
+  const revoke = async (enrollment: BillingEnrollment) =>
+    billingEnrollmentSchema.parse(
       await billing(billingManager.page, "enrollments/change", {
         enrollmentId: enrollment.id,
         expectedRevision: enrollment.revision,
         action: "revoke",
-        terms,
+        terms: {
+          startsAt: enrollment.startsAt,
+          endsAt: enrollment.endsAt,
+          endPolicy: enrollment.endPolicy,
+        },
         reason: "Scoped learner access check revoked",
       }),
     ).value.result.value;
   // Назначение, которое ещё не отозвано: упавший прогон не оставляет ученику доступ к Guide A
   // для следующего прогона того же набора.
-  let activeEnrollment: { id: string; revision: number } | undefined;
+  let activeEnrollment: BillingEnrollment | undefined;
   try {
     // Без назначения Guide A закрыт, а бесплатный материал открыт: доступ к A даст только
     // назначение ниже, и отказ здесь не следствие сломанной сессии.
@@ -368,7 +392,7 @@ test("a learner scoped to Guide A reads Guide A, is denied Guide B and loses Gui
         value: guideAOffer(tierId, `Только Guide A ${tierId}`),
       }),
     ).value.result.value;
-    const assigned = billingRecordSchema.parse(
+    const assigned = billingEnrollmentSchema.parse(
       await billing(billingManager.page, "enrollments/assign", {
         accountId: await accountIdOf(learner.page),
         origin: "manual",
@@ -387,18 +411,21 @@ test("a learner scoped to Guide A reads Guide A, is denied Guide B and loses Gui
     await openDeniedBody(learner.page, guideBSlug, guideB.closedBody);
 
     const revoked = await revoke(assigned);
-    activeEnrollment = undefined;
     expect(revoked.state).toBe("revoked");
+    activeEnrollment = undefined;
 
     // Тело Guide A этот браузер и сервер уже отдавали. Следующий запрос получает отказ: прежний
     // ответ с телом не вернулся ни из HTTP-кэша браузера, ни из кэшей сервера.
     await openDeniedBody(learner.page, guideA.closedSlug, guideA.closedBody);
     await openMaterial(learner.page, publishedMaterial.slug, "available");
   } finally {
-    if (activeEnrollment !== undefined)
-      await revoke(activeEnrollment).catch(() => undefined);
-    await learner.context.close();
-    await billingManager.context.close();
+    try {
+      if (activeEnrollment !== undefined)
+        expect((await revoke(activeEnrollment)).state).toBe("revoked");
+    } finally {
+      await learner.context.close();
+      await billingManager.context.close();
+    }
   }
 });
 
