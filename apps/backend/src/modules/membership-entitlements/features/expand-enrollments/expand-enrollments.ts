@@ -1,4 +1,7 @@
-import { scopeIncludesGuide } from "@inside/access-capabilities";
+import {
+  scopeIncludesGuide,
+  subscriptionPeriodEnd,
+} from "@inside/access-capabilities";
 import { enrollmentView } from "../../shared/enrollment-view.js";
 import { randomUUID } from "node:crypto";
 import { z } from "zod";
@@ -216,23 +219,46 @@ export async function applyEnrollmentExpansion(
       const added = stored.tier.benefits.filter(
         (value) => !previousBenefits.has(value),
       );
-      if (added.length > 0)
+      const addedGroups =
+        stored.tier.benefitPeriods === undefined
+          ? added.length > 0
+            ? [added]
+            : []
+          : added.map((capability) => [capability]);
+      for (const capabilities of addedGroups) {
+        const period = stored.tier.benefitPeriods?.find(
+          (entry) => entry.capability === capabilities[0],
+        );
+        const periodEnd =
+          period === undefined
+            ? effectiveEnd
+            : period.months === null
+              ? null
+              : subscriptionPeriodEnd(row.startsAt, period.months);
         await tx.accessGrant.create({
           data: {
             id: randomUUID(),
             accountId: row.accountId,
             enrollmentId: row.id,
             source: row.origin === "platform_payment" ? "paid" : "manual",
-            sourceRef: `enrollment:${row.id}:expansion:${stored.tier.revision}`,
-            capabilities: added,
+            sourceRef: `enrollment:${row.id}:expansion:${stored.tier.revision}:${capabilities[0] ?? ""}`,
+            capabilities,
             contentScope: stored.tier.contentScope,
             startsAt: row.startsAt,
-            validUntil: effectiveEnd,
+            validUntil:
+              effectiveEnd === null
+                ? periodEnd
+                : periodEnd === null
+                  ? effectiveEnd
+                  : new Date(
+                      Math.min(effectiveEnd.getTime(), periodEnd.getTime()),
+                    ),
             revokedAt: row.revokedAt ?? (temporary ? temporaryRevokedAt : null),
             revision: 1,
             reason: stored.command.reason,
           },
         });
+      }
       await tx.accessChange.create({
         data: {
           accountId: row.accountId,

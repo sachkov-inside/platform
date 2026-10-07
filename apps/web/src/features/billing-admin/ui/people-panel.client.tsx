@@ -26,7 +26,6 @@ import {
   changeSubscriptionEnrollment,
   listSubscriptionTiers,
 } from "../api/enrollments.browser";
-import { issueInvitation } from "../api/invitations.browser";
 import {
   endOfMoscowDay,
   noPeopleFilters,
@@ -35,17 +34,12 @@ import {
 } from "../model/access-operations";
 import {
   accessSummaryQueryKey,
-  invitationsQueryKey,
   peopleQueryKey,
 } from "../model/access-query-keys";
-import {
-  invitationOfferNames,
-  type Invitation,
-} from "../model/invitation-operations";
+import { invitationOfferNames } from "../model/invitation-operations";
 import {
   PeopleView,
   type AssignRequest,
-  type GiftRequest,
   type GroundChangeRequest,
 } from "./people-view.client";
 
@@ -78,10 +72,6 @@ export function PeoplePanel({
   const [filters, setFilters] = useState<PeopleFilters>(noPeopleFilters);
   const [message, setMessage] = useState("");
   const [failure, setFailure] = useState<string | null>(null);
-  const [gift, setGift] = useState<{
-    accountId: string;
-    invitation: Invitation;
-  } | null>(null);
   const people = useInfiniteQuery({
     queryKey: [...peopleQueryKey, filters],
     initialPageParam: null as string | null,
@@ -148,35 +138,6 @@ export function PeoplePanel({
       refresh();
     },
   });
-  const giving = useMutation({
-    mutationFn: (task: {
-      readonly accountId: string;
-      readonly input: Parameters<typeof issueInvitation>[0];
-    }) => issueInvitation(task.input),
-    onError: () => {
-      setFailure(
-        "Ответ не получен. Повторите то же действие: повтор не создаст второе приглашение.",
-      );
-    },
-    onSuccess: (result, { accountId }) => {
-      if (!result.ok) {
-        setMessage("");
-        setFailure(
-          result.code === "state_conflict"
-            ? "Этот тариф не открыт для назначения: подарить его нельзя."
-            : billingErrorMessage(result.code),
-        );
-        return;
-      }
-      completeOperation(`gift:${accountId}`);
-      setFailure(null);
-      setMessage("Подарочное приглашение готово.");
-      setGift({ accountId, invitation: result.value.result.value });
-      void cache.invalidateQueries({ queryKey: invitationsQueryKey });
-      void cache.invalidateQueries({ queryKey: accessSummaryQueryKey });
-    },
-  });
-
   function changeGround(request: GroundChangeRequest) {
     const { ground, action, reason } = request;
     const endsAt =
@@ -274,33 +235,12 @@ export function PeoplePanel({
           tierRevision: tier.tier.revision,
           terms: {
             startsAt,
-            endsAt:
-              request.until === null ? null : endOfMoscowDay(request.until),
+            endsAt: null,
             endPolicy: "fixed",
           },
           billingRef: null,
           reason: request.reason,
         });
-      },
-    });
-  }
-
-  function giveGift(request: GiftRequest) {
-    const input = {
-      offerId: request.offerId,
-      mode: "gift" as const,
-      giftMonths: request.giftMonths,
-      note: request.note,
-    };
-    giving.mutate({
-      accountId: request.accountId,
-      // Слот и нагрузка называют человека: потерянный ответ для одного не отдаётся другому.
-      input: {
-        operationId: operationId(`gift:${request.accountId}`, {
-          ...input,
-          accountId: request.accountId,
-        }),
-        ...input,
       },
     });
   }
@@ -311,11 +251,10 @@ export function PeoplePanel({
         id: row.tier.id,
         name: row.tier.name,
       }))}
-      busy={change.isPending || giving.isPending}
+      busy={change.isPending}
       error={people.error?.message ?? tiers.error?.message ?? null}
       failure={failure}
       filters={filters}
-      gift={gift}
       hasMore={people.hasNextPage}
       loading={people.isPending}
       loadingMore={people.isFetchingNextPage}
@@ -326,18 +265,7 @@ export function PeoplePanel({
       }))}
       onAssign={assign}
       onChangeGround={changeGround}
-      onCopy={(text) => {
-        void navigator.clipboard.writeText(text).then(
-          () => {
-            setMessage("Скопировано.");
-          },
-          () => {
-            setMessage("Скопируйте ссылку вручную.");
-          },
-        );
-      }}
       onFiltersChange={setFilters}
-      onGift={giveGift}
       onLoadMore={() => {
         void people.fetchNextPage();
       }}

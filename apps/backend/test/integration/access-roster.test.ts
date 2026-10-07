@@ -633,7 +633,6 @@ describe("раздел «Доступ»: люди и сводка на PostgreSQ
         opened: 3,
         purchaseOpened: 1,
         paid: 1,
-        gifted: 1,
         expired: 1,
         revoked: 1,
       },
@@ -684,6 +683,78 @@ describe("раздел «Доступ»: люди и сводка на PostgreSQ
           refundedKopecks: 0,
         },
       ],
+    });
+  });
+  test("сводка и список видят окончание прав бессрочного назначения", async () => {
+    const accountId = randomUUID();
+    await db.prisma.account.create({
+      data: {
+        id: accountId,
+        logtoIssuer: "https://identity.example.test",
+        logtoSubject: accountId,
+      },
+    });
+    const id = await enrollment(accountId, course, "manual", {
+      startsAt: at("2030-02-18T00:00:00.000Z"),
+      endsAt: null,
+    });
+    await db.prisma.subscriptionEnrollment.update({
+      where: { id },
+      data: {
+        snapshot: {
+          id: course.id,
+          revision: 1,
+          name: course.name,
+          benefits: ["materials"],
+          contentScope: scope,
+          benefitPeriods: [{ capability: "materials", months: 1 }],
+        },
+      },
+    });
+    const endsAt = "2030-03-18T00:00:00.000Z";
+    await db.prisma.accessGrant.create({
+      data: {
+        id: randomUUID(),
+        accountId,
+        enrollmentId: id,
+        source: "manual",
+        sourceRef: id,
+        capabilities: ["materials"],
+        startsAt: at("2030-02-18T00:00:00.000Z"),
+        validUntil: at(endsAt),
+        revision: 1,
+        reason: "synthetic timed assignment",
+      },
+    });
+    const summary = success(
+      await operations.execute(owner, {
+        operation: "access.summary",
+        operationId: randomUUID(),
+      }),
+    );
+    if (summary.outcome !== "accessSummary") throw new Error(summary.outcome);
+    expect(summary.value.attention).toContainEqual({
+      accountId,
+      reason: "ending",
+      source: "manual",
+      offerId: course.id,
+      title: course.name,
+      at: endsAt,
+    });
+    const people = success(
+      await operations.execute(owner, {
+        operation: "people.list",
+        operationId: randomUUID(),
+        state: "expiring",
+        limit: 100,
+      }),
+    );
+    if (people.outcome !== "people") throw new Error(people.outcome);
+    expect(
+      people.items.find((item) => item.accountId === accountId)?.grounds[0],
+    ).toMatchObject({
+      state: "active",
+      endsAt: null,
     });
   });
 });

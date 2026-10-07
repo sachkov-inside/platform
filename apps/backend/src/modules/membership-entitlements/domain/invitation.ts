@@ -4,10 +4,6 @@ import {
   ACTIVATION_ATTEMPT_LIFETIME_MS,
   ACTIVATION_CONTRACT_VERSION,
 } from "./subscription-activation.js";
-import {
-  enrollmentViewSchema,
-  type TierSnapshot,
-} from "./subscription-enrollment.js";
 
 /** Неоткрытое приглашение сгорает через 14 дней после выдачи. */
 export const INVITATION_OPEN_LIFETIME_MS = 14 * 24 * 60 * 60 * 1000;
@@ -23,7 +19,7 @@ export const invitationCodeSchema = z
   .min(1)
   .max(40)
   .regex(/^[A-Za-z0-9_-]+$/u);
-export const invitationModeSchema = z.enum(["purchase", "gift"]);
+export const invitationModeSchema = z.literal("purchase");
 export type InvitationMode = z.infer<typeof invitationModeSchema>;
 export const invitationStateSchema = z.enum([
   "issued",
@@ -34,19 +30,12 @@ export const invitationStateSchema = z.enum([
 ]);
 export type InvitationState = z.infer<typeof invitationStateSchema>;
 
-export const issueInvitationSchema = z
-  .strictObject({
-    operationId: z.uuid(),
-    offerId: z.uuid(),
-    mode: invitationModeSchema,
-    /** Срок подарка в календарных месяцах; `null` — бессрочно. Только для `gift`. */
-    giftMonths: z.int().min(1).max(1200).nullable().default(null),
-    /** Заметка владельца: кому выдано. В журнал владельческих команд не попадает. */
-    note: z.string().trim().max(200).nullable().default(null),
-  })
-  .refine((value) => value.mode === "gift" || value.giftMonths === null, {
-    path: ["giftMonths"],
-  });
+export const issueInvitationSchema = z.strictObject({
+  operationId: z.uuid(),
+  offerId: z.uuid(),
+  mode: invitationModeSchema,
+  note: z.string().trim().max(200).nullable().default(null),
+});
 export const revokeInvitationSchema = z.strictObject({
   operationId: z.uuid(),
   invitationId: z.uuid(),
@@ -68,7 +57,6 @@ export const invitationViewSchema = z.strictObject({
   offerId: z.uuid(),
   offerRevision: z.int().positive(),
   mode: invitationModeSchema,
-  giftMonths: z.int().min(1).max(1200).nullable(),
   note: z.string().max(200).nullable(),
   state: invitationStateSchema,
   issuedAt: z.iso.datetime(),
@@ -76,7 +64,7 @@ export const invitationViewSchema = z.strictObject({
   claimedAt: z.iso.datetime().nullable(),
   redeemedAt: z.iso.datetime().nullable(),
   revokedAt: z.iso.datetime().nullable(),
-  /** Account, получивший допуск или подарок; до погашения `null`. */
+  /** Account, получивший допуск; до погашения `null`. */
   accountId: z.uuid().nullable(),
   revision: z.int().positive(),
 });
@@ -88,7 +76,6 @@ interface InvitationRow {
   readonly offerId: string;
   readonly offerRevision: number;
   readonly mode: string;
-  readonly giftMonths: number | null;
   readonly note: string | null;
   readonly issuedAt: Date;
   readonly expiresAt: Date;
@@ -128,7 +115,6 @@ export function invitationView(row: InvitationRow, now: Date): InvitationView {
     offerId: row.offerId,
     offerRevision: row.offerRevision,
     mode: row.mode,
-    giftMonths: row.giftMonths,
     note: row.note,
     state: invitationState(row, now),
     issuedAt: row.issuedAt.toISOString(),
@@ -153,8 +139,6 @@ export interface InvitationOffer {
   readonly id: string;
   /** Offer продаётся: оплата ведёт на страницу оформления. */
   readonly purchasable: boolean;
-  /** Снимок тарифа для подарка; `null` — Offer сейчас нельзя назначить. */
-  readonly tier: TierSnapshot | null;
 }
 
 /**
@@ -174,12 +158,6 @@ export type InvitationRedemption =
       readonly state: "purchase_ready" | "already_redeemed";
       readonly mode: "purchase";
       readonly offerId: string;
-    }
-  | {
-      readonly state: "gift_granted" | "already_redeemed";
-      readonly mode: "gift";
-      readonly offerId: string;
-      readonly enrollment: z.infer<typeof enrollmentViewSchema>;
     };
 
 const redemptionVersion = z.literal(ACTIVATION_CONTRACT_VERSION);
@@ -190,12 +168,6 @@ const purchaseRedemption = {
   offerName: offerNameSchema,
   /** Абсолютный адрес страницы оформления этого Offer на сайте. */
   checkoutUrl: z.url(),
-};
-const giftRedemption = {
-  contractVersion: redemptionVersion,
-  mode: z.literal("gift"),
-  offerName: offerNameSchema,
-  enrollment: enrollmentViewSchema,
 };
 /** Ответ погашения приглашения боту. Повтор погашённого приглашения повторяет его итог. */
 export const invitationRedemptionOutcomeSchema = z.union([
@@ -213,12 +185,10 @@ export const invitationRedemptionOutcomeSchema = z.union([
     ...purchaseRedemption,
     state: z.literal("purchase_ready"),
   }),
-  z.strictObject({ ...giftRedemption, state: z.literal("gift_granted") }),
   z.strictObject({
     ...purchaseRedemption,
     state: z.literal("already_redeemed"),
   }),
-  z.strictObject({ ...giftRedemption, state: z.literal("already_redeemed") }),
 ]);
 export type InvitationRedemptionOutcome = z.infer<
   typeof invitationRedemptionOutcomeSchema

@@ -53,9 +53,10 @@ import {
 } from "../../features/read-access-roster/read-access-roster.js";
 import {
   offerGrantsWithheld,
+  isProductOffer,
+  productSupportTermMissing,
   subscriptionOfferForInvitation,
   tierLacksComposition,
-  tierOpenForAssignment,
 } from "../../shared/tier-composition.js";
 import type { Tbank } from "../../infrastructure/tbank/tbank.js";
 import type { BillingPayments } from "../billing-payments/billing-payments.js";
@@ -386,7 +387,10 @@ export class BillingOperations {
           if (
             command.value.published &&
             row !== null &&
-            (tierLacksComposition(row) || offerGrantsWithheld(row))
+            (!isProductOffer(row) ||
+              tierLacksComposition(row) ||
+              offerGrantsWithheld(row) ||
+              productSupportTermMissing(row))
           )
             return ownerFailure("state_conflict");
           if (
@@ -424,7 +428,11 @@ export class BillingOperations {
               revision: row.revision,
               name: row.name,
               benefits: row.benefits,
-              contentScope: row.contentScope,
+              benefitPeriods: row.benefitPeriods,
+              contentScope: row.contentScope ?? {
+                guideIds: [],
+                materialIds: [],
+              },
             },
           );
           return result.ok
@@ -469,7 +477,8 @@ export class BillingOperations {
             revision: row.revision,
             name: row.name,
             benefits: row.benefits,
-            contentScope: row.contentScope,
+            benefitPeriods: row.benefitPeriods,
+            contentScope: row.contentScope ?? { guideIds: [], materialIds: [] },
           });
           return tier.success
             ? [
@@ -499,7 +508,7 @@ export class BillingOperations {
         };
       }
       case "enrollments.assign": {
-        if (command.origin === "platform_payment")
+        if (command.origin !== "manual" && command.origin !== "course")
           return ownerFailure("forbidden");
         const { operation: _operation, ...requested } = command;
         if (command.origin === "course" && command.courseSource === undefined)
@@ -544,14 +553,19 @@ export class BillingOperations {
           if (row.revision !== command.tierRevision)
             return ownerFailure("revision_conflict");
           // Тариф без состава дал бы чат без материалов, а отдельный материал и `reviews` не выдаются.
-          if (tierLacksComposition(row) || offerGrantsWithheld(row))
+          if (
+            tierLacksComposition(row) ||
+            offerGrantsWithheld(row) ||
+            productSupportTermMissing(row)
+          )
             return ownerFailure("state_conflict");
           const tier = tierSnapshotSchema.safeParse({
             id: row.id,
             revision: row.revision,
             name: row.name,
             benefits: row.benefits,
-            contentScope: row.contentScope,
+            benefitPeriods: row.benefitPeriods,
+            contentScope: row.contentScope ?? { guideIds: [], materialIds: [] },
           });
           if (!tier.success) return ownerFailure("invalid_request");
           const result = await grants.assignEnrollment(
@@ -853,12 +867,7 @@ export class BillingOperations {
           where: { id: command.offerId },
         });
         if (row === null || row.archived) return ownerFailure("not_found");
-        // Оплата ведёт на страницу оформления подписки, подарок назначает тариф без оплаты.
-        if (
-          command.mode === "purchase"
-            ? !subscriptionOfferForInvitation(row)
-            : !tierOpenForAssignment(row)
-        )
+        if (!subscriptionOfferForInvitation(row))
           return ownerFailure("state_conflict");
         const { operation: _operation, ...requested } = command;
         const result = await grants.issueInvitation(actorId, requested, {
@@ -936,7 +945,6 @@ export class BillingOperations {
       offerId: view.offerId,
       offerRevision: view.offerRevision,
       mode: view.mode,
-      giftMonths: view.giftMonths,
       note: view.note,
       state: view.state,
       issuedAt: view.issuedAt,
@@ -963,7 +971,6 @@ function withoutNote(invitation: OwnerInvitation) {
     offerId: invitation.offerId,
     offerRevision: invitation.offerRevision,
     mode: invitation.mode,
-    giftMonths: invitation.giftMonths,
     state: invitation.state,
     issuedAt: invitation.issuedAt,
     expiresAt: invitation.expiresAt,
@@ -990,7 +997,6 @@ function auditedOutcome(outcome: OwnerOutcome): OwnerOutcome {
       offerId: value.offerId,
       offerRevision: value.offerRevision,
       mode: value.mode,
-      giftMonths: value.giftMonths,
       state: value.state,
       issuedAt: value.issuedAt,
       expiresAt: value.expiresAt,

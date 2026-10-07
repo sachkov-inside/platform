@@ -128,28 +128,19 @@ describe("course activation refusal", () => {
 });
 
 describe("invitation answer", () => {
-  const gift = (endsAt: string | null) =>
-    invitationAnswer(
-      {
-        ok: true,
-        value: {
-          contractVersion: ACTIVATION_VERSION,
-          state: "already_redeemed",
-          mode: "gift",
-          offerName: "Подписка Inside",
-          enrollment: { id: "e", tier: { name: "Подписка Inside" }, endsAt },
-        },
+  it("leads a redeemed invitation to purchase", () => {
+    const answer = invitationAnswer({
+      ok: true,
+      value: {
+        contractVersion: ACTIVATION_VERSION,
+        state: "already_redeemed",
+        mode: "purchase",
+        offerName: "Подписка Inside",
+        checkoutUrl: "https://inside.example.test/subscription",
       },
-      new Date("2030-05-01T00:00:00Z"),
-    );
-  it("does not lead to the community after a gift has ended", () => {
-    const ended = gift("2030-04-01T00:00:00.000Z");
-    expect(ended.text).toContain("закончился");
-    expect(ended.text).toContain("Напишите автору");
-    expect(ended.buttons).toBeUndefined();
-    expect(gift(null).buttons).toEqual([
-      { text: "Вступить в сообщество", callbackData: "access:community" },
+    });
+    expect(answer.buttons).toEqual([
+      { text: "Оплатить", url: "https://inside.example.test/subscription" },
     ]);
-    expect(gift("2030-06-01T00:00:00.000Z").text).toContain("/community");
   });
 });

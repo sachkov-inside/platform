@@ -33,7 +33,6 @@ export function invitationNeedsAccount(accountUrl: string): InvitationAnswer {
 /** The final answer to Platform's response; `needs_account` and `unavailable` errors are not final. */
 export function invitationAnswer(
   response: InvitationRedeemResponse,
-  now: Date,
 ): InvitationAnswer {
   if (!response.ok)
     return response.error.code === "identity_conflict"
@@ -48,32 +47,11 @@ export function invitationAnswer(
   switch (value.state) {
     case "purchase_ready":
     case "already_redeemed":
-    case "gift_granted":
-      if (
-        value.mode === "gift" &&
-        value.enrollment.endsAt !== null &&
-        Date.parse(value.enrollment.endsAt) <= now.getTime()
-      )
-        return {
-          outcome: "gift_ended",
-          text: `Подарок «${value.offerName}» по этому приглашению уже закончился. Напишите автору, если хотите продлить доступ.`,
-        };
-      return value.mode === "purchase"
-        ? {
-            outcome: value.state,
-            text: `Приглашение на «${value.offerName}» принято. Оформить подписку можно на сайте: кнопка «Оплатить» ведёт на страницу оформления.`,
-            buttons: [{ text: "Оплатить", url: value.checkoutUrl }],
-          }
-        : {
-            outcome: value.state,
-            text: `Подарок принят: «${value.offerName}» ${value.enrollment.endsAt === null ? "без срока окончания" : `до ${date(value.enrollment.endsAt)}`}. Чтобы вступить в сообщество Inside, нажмите кнопку или отправьте /community.`,
-            buttons: [
-              {
-                text: "Вступить в сообщество",
-                callbackData: "access:community",
-              },
-            ],
-          };
+      return {
+        outcome: value.state,
+        text: `Приглашение на «${value.offerName}» принято. Оформить подписку можно на сайте: кнопка «Оплатить» ведёт на страницу оформления.`,
+        buttons: [{ text: "Оплатить", url: value.checkoutUrl }],
+      };
     case "claimed_by_other":
       return {
         outcome: value.state,
@@ -93,11 +71,4 @@ export function invitationAnswer(
     case "unavailable":
       return INVITATION_UNAVAILABLE;
   }
-}
-
-function date(value: string): string {
-  return new Intl.DateTimeFormat("ru-RU", {
-    timeZone: "Europe/Moscow",
-    dateStyle: "long",
-  }).format(new Date(value));
 }

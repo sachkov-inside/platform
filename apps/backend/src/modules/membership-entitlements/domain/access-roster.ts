@@ -81,7 +81,6 @@ export const invitationFunnelSchema = z.strictObject({
   purchaseOpened: z.int().nonnegative(),
   /** Из них Account купил этот Offer после погашения. */
   paid: z.int().nonnegative(),
-  gifted: z.int().nonnegative(),
   expired: z.int().nonnegative(),
   revoked: z.int().nonnegative(),
 });

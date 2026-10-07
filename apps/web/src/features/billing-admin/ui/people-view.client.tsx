@@ -1,5 +1,5 @@
 "use client";
-import { useId, useState } from "react";
+import { useId } from "react";
 import type { SubmitEvent } from "react";
 
 import { hasText } from "@/shared/lib/text";
@@ -21,12 +21,7 @@ import {
   type PeopleFilters,
   type PersonGround,
 } from "../model/access-operations";
-import {
-  giftMonthsMax,
-  invitationNoteMaxLength,
-  invitationShareText,
-  type Invitation,
-} from "../model/invitation-operations";
+import {} from "../model/invitation-operations";
 import {
   AdminField,
   AdminSection,
@@ -49,20 +44,12 @@ export interface GroundChangeRequest {
 export interface AssignRequest {
   readonly accountId: string;
   readonly offerId: string;
-  readonly until: string | null;
   readonly reason: string;
 }
-export interface GiftRequest {
-  readonly accountId: string;
-  readonly offerId: string;
-  readonly giftMonths: number | null;
-  readonly note: string | null;
-}
-
 export interface PeopleViewProps {
   /** Offer для фильтра, в том числе архивные: у людей мог остаться доступ по ним. */
   readonly offers: readonly OfferChoice[];
-  /** Offer, открытые для назначения: их назначают и дарят из карточки. */
+  /** Offer, открытые для назначения: их назначают из карточки. */
   readonly assignable: readonly OfferChoice[];
   readonly people: readonly AccessHolder[];
   readonly loading: boolean;
@@ -73,17 +60,10 @@ export interface PeopleViewProps {
   readonly busy: boolean;
   readonly message: string;
   readonly failure: string | null;
-  /** Только что выданное подарочное приглашение и Account, для которого его выдали. */
-  readonly gift: {
-    readonly accountId: string;
-    readonly invitation: Invitation;
-  } | null;
   readonly onFiltersChange: (filters: PeopleFilters) => void;
   readonly onLoadMore: () => void;
   readonly onChangeGround: (request: GroundChangeRequest) => void;
   readonly onAssign: (request: AssignRequest) => void;
-  readonly onGift: (request: GiftRequest) => void;
-  readonly onCopy: (text: string) => void;
 }
 
 const dateFormat = new Intl.DateTimeFormat("ru-RU", {
@@ -114,7 +94,7 @@ const stateTone: Record<GroundState, string> = {
 
 /**
  * Люди и доступ: у кого какое основание, откуда оно и до какого числа. Карточка человека
- * продлевает, отзывает и назначает доступ существующими командами и выдаёт подарочное приглашение.
+ * продлевает, отзывает и назначает доступ существующими командами .
  */
 export function PeopleView(props: PeopleViewProps) {
   return (
@@ -154,16 +134,9 @@ export function PeopleView(props: PeopleViewProps) {
               <PersonCard
                 assignable={props.assignable}
                 busy={props.busy}
-                gift={
-                  props.gift?.accountId === person.accountId
-                    ? props.gift.invitation
-                    : null
-                }
                 key={person.accountId}
                 onAssign={props.onAssign}
                 onChangeGround={props.onChangeGround}
-                onCopy={props.onCopy}
-                onGift={props.onGift}
                 person={person}
               />
             ))}
@@ -278,20 +251,14 @@ function PersonCard({
   person,
   assignable,
   busy,
-  gift,
   onChangeGround,
   onAssign,
-  onGift,
-  onCopy,
 }: {
   readonly person: AccessHolder;
   readonly assignable: readonly OfferChoice[];
   readonly busy: boolean;
-  readonly gift: Invitation | null;
   readonly onChangeGround: PeopleViewProps["onChangeGround"];
   readonly onAssign: PeopleViewProps["onAssign"];
-  readonly onGift: PeopleViewProps["onGift"];
-  readonly onCopy: PeopleViewProps["onCopy"];
 }) {
   const telegram = person.telegramIdentityRef ?? "Telegram не привязан";
   return (
@@ -345,14 +312,6 @@ function PersonCard({
             assignable={assignable}
             busy={busy}
             onAssign={onAssign}
-          />
-          <GiftForm
-            accountId={person.accountId}
-            assignable={assignable}
-            busy={busy}
-            gift={gift}
-            onCopy={onCopy}
-            onGift={onGift}
           />
         </div>
       </details>
@@ -487,11 +446,10 @@ function AssignForm({
       onSubmit={(event) => {
         event.preventDefault();
         const data = new FormData(event.currentTarget);
-        const until = formText(data.get("assignUntil"));
+
         onAssign({
           accountId,
           offerId: formText(data.get("assignOffer")),
-          until: until === "" ? null : until,
           reason: formText(data.get("assignReason")),
         });
       }}
@@ -507,12 +465,9 @@ function AssignForm({
           }))}
           placeholder="Выберите тариф"
         />
-        <AdminField
-          hint="Последний день доступа по Москве. Пусто — бессрочно."
-          label="Назначить до"
-          name="assignUntil"
-          type="date"
-        />
+        <p className="text-muted-foreground">
+          Назначение бессрочное. Каждое право действует свой срок из тарифа.
+        </p>
         <AdminField
           label="Причина назначения"
           maxLength={reasonMaxLength}
@@ -528,123 +483,6 @@ function AssignForm({
             Назначить без оплаты
           </Button>
         </p>
-      </fieldset>
-    </form>
-  );
-}
-
-function GiftForm({
-  accountId,
-  assignable,
-  busy,
-  gift,
-  onGift,
-  onCopy,
-}: {
-  readonly accountId: string;
-  readonly assignable: readonly OfferChoice[];
-  readonly busy: boolean;
-  readonly gift: Invitation | null;
-  readonly onGift: PeopleViewProps["onGift"];
-  readonly onCopy: PeopleViewProps["onCopy"];
-}) {
-  const [unlimited, setUnlimited] = useState(false);
-  return (
-    <form
-      className="grid gap-3 border-t border-border pt-4"
-      onSubmit={(event) => {
-        event.preventDefault();
-        const data = new FormData(event.currentTarget);
-        const note = formText(data.get("giftNote"));
-        onGift({
-          accountId,
-          offerId: formText(data.get("giftOffer")),
-          giftMonths: unlimited
-            ? null
-            : Number(formText(data.get("giftMonths"))),
-          note: note === "" ? null : note,
-        });
-      }}
-    >
-      <fieldset className="grid min-w-0 gap-3">
-        <legend className="font-semibold">Подарочное приглашение</legend>
-        <p className="text-muted-foreground">
-          Ссылка в бота дарит тариф тому, кто откроет её первым. Отправьте её
-          этому человеку.
-        </p>
-        <AdminSelect
-          label="Тариф в подарок"
-          name="giftOffer"
-          options={assignable.map((offer) => ({
-            value: offer.id,
-            label: offer.name,
-          }))}
-          placeholder="Выберите тариф"
-        />
-        <label className="flex items-center gap-2">
-          <input
-            checked={unlimited}
-            className="size-4 rounded border-input focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
-            onChange={(event) => {
-              setUnlimited(event.currentTarget.checked);
-            }}
-            type="checkbox"
-          />
-          Бессрочно
-        </label>
-        {unlimited ? null : (
-          <AdminField
-            hint={`Целое число от 1 до ${String(giftMonthsMax)}.`}
-            inputMode="numeric"
-            label="Месяцев подарка"
-            max={giftMonthsMax}
-            min={1}
-            name="giftMonths"
-            required
-            step={1}
-            type="number"
-          />
-        )}
-        <AdminField
-          defaultValue={`Account ${accountId}`}
-          label="Заметка к приглашению"
-          maxLength={invitationNoteMaxLength}
-          name="giftNote"
-        />
-        <p>
-          <Button
-            disabled={busy || assignable.length === 0}
-            size="sm"
-            type="submit"
-            variant="outline"
-          >
-            Выдать подарочное приглашение
-          </Button>
-        </p>
-        {gift === null ? null : (
-          <div
-            className="grid gap-2 rounded-xl border border-accent/35 bg-accent/6 p-3"
-            data-gift-invitation
-          >
-            <p className="font-semibold">
-              Приглашение готово. Оно сработает один раз до{" "}
-              {formatDate(gift.expiresAt)}.
-            </p>
-            <p className="break-all font-mono">{invitationShareText(gift)}</p>
-            <p>
-              <Button
-                onClick={() => {
-                  onCopy(invitationShareText(gift));
-                }}
-                size="sm"
-                type="button"
-                variant="outline"
-              >
-                Скопировать ссылку
-              </Button>
-            </p>
-          </div>
-        )}
       </fieldset>
     </form>
   );

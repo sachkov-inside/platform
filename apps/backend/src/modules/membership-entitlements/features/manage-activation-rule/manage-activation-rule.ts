@@ -46,13 +46,6 @@ export async function manageActivationRule(
           (command.value.verificationMode ?? "course_membership"))
     )
       return accessFailure("invalid_input");
-    if (command.value.verificationMode === "tribute_registry") {
-      const policy = await tx.tributePolicy.findUnique({
-        where: { id: command.value.sourceRef },
-      });
-      if (policy === null || !policy.enabled)
-        return accessFailure("invalid_input");
-    }
     const data = {
       ...command.value,
       verificationMode: command.value.verificationMode ?? "course_membership",

@@ -23,7 +23,6 @@ export const accessGrounds = [
   "tier-via-course",
   "tier-via-tribute",
   "manual-assignment",
-  "tier-via-invitation-gift",
   "hidden-active-tier",
   "direct",
   "expired-or-revoked",
@@ -84,7 +83,6 @@ export const accessPurchaseScenarios = [
   "subscription-offer-with-tribute-ground",
   "invitation-offer-after-purchase-invitation",
   "invitation-offer-without-invitation",
-  "invitation-offer-after-gift-invitation",
 ] as const;
 export type AccessPurchaseScenario = (typeof accessPurchaseScenarios)[number];
 
@@ -200,7 +198,6 @@ function everyGround(expectation: AccessExpectation): ByGround {
     "tier-via-course": expectation,
     "tier-via-tribute": expectation,
     "manual-assignment": expectation,
-    "tier-via-invitation-gift": expectation,
     "hidden-active-tier": expectation,
     direct: expectation,
     "expired-or-revoked": expectation,
@@ -222,7 +219,6 @@ const productContent: ByGround = {
   "tier-via-course": open("lifetime"),
   "tier-via-tribute": open("ground-term"),
   "manual-assignment": open("ground-term"),
-  "tier-via-invitation-gift": open("ground-term"),
   "hidden-active-tier": open("ground-term"),
   direct: open("lifetime"),
   "expired-or-revoked": locked,
@@ -271,7 +267,6 @@ export const accessScenarioTable = {
       "tier-via-course": byTier,
       "tier-via-tribute": byTier,
       "manual-assignment": byTier,
-      "tier-via-invitation-gift": byTier,
       "hidden-active-tier": byTier,
       direct: open("ground-term"),
       "expired-or-revoked": closed,
@@ -287,7 +282,6 @@ export const accessScenarioTable = {
       "tier-via-course": shown("active"),
       "tier-via-tribute": shown("active"),
       "manual-assignment": shown("active"),
-      "tier-via-invitation-gift": shown("active"),
       "hidden-active-tier": shown("active"),
       direct: shown("active"),
       "expired-or-revoked": shown("ended"),
@@ -461,12 +455,6 @@ export const accessScenarioTable = {
       rule: "Offer «только по приглашению» не виден и не продаётся Account без погашённого приглашения на этот Offer, в том числе с приглашением на другой Offer.",
       listed: false,
       rejectedWith: "not_eligible",
-    },
-    "invitation-offer-after-gift-invitation": {
-      kind: "admission",
-      rule: "Подарок по приглашению тоже допускает Account к покупке своего Offer: продлить подарок можно оплатой.",
-      listed: true,
-      rejectedWith: null,
     },
   } satisfies Record<AccessPurchaseScenario, AccessPurchaseRule>,
 } as const satisfies AccessScenarioTable;

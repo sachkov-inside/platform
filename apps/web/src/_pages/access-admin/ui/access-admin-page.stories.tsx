@@ -178,8 +178,7 @@ export const InvitationIssued: Story = {
     "invitations/list": invitationsReply([]),
     "invitations/issue": issuedInvitationReply(
       invitation("e07", {
-        mode: "gift",
-        giftMonths: 6,
+        mode: "purchase",
         offerId: supportOffer.offer.id,
         note: "Гость эфира",
       }),
@@ -193,8 +192,6 @@ export const InvitationIssued: Story = {
       panel.getByLabelText("Предложение"),
       supportOffer.offer.id,
     );
-    await userEvent.click(panel.getByRole("radio", { name: /Подарок/u }));
-    await userEvent.type(panel.getByLabelText("Месяцев"), "6");
     await userEvent.type(panel.getByLabelText("Заметка"), "Гость эфира");
     await userEvent.click(
       panel.getByRole("button", { name: "Создать приглашение" }),
@@ -204,22 +201,21 @@ export const InvitationIssued: Story = {
         "https://t.me/synthetic_inside_bot?start=i_Syn7hetice07",
       ),
     ).toBeVisible();
-    await expect(panel.getByText(/Приглашение готово: подарок/u)).toBeVisible();
+    await expect(panel.getByText(/Приглашение готово: оплата/u)).toBeVisible();
     await expect(lastRequest("invitations/issue")).toMatchObject({
       offerId: supportOffer.offer.id,
-      mode: "gift",
-      giftMonths: 6,
+      mode: "purchase",
       note: "Гость эфира",
     });
   },
 };
 
-/** Бессрочный подарок не отправляет срок; без имени бота владелец получает параметр запуска. */
-export const UnlimitedGiftWithoutBotName: Story = {
+/** Приглашение допускает только к оплате; без имени бота владелец получает параметр запуска. */
+export const InvitationWithoutBotName: Story = {
   beforeEach: withReplies({
     "invitations/list": invitationsReply([]),
     "invitations/issue": issuedInvitationReply(
-      invitation("e08", { mode: "gift", link: null }),
+      invitation("e08", { mode: "purchase", link: null }),
     ),
   }),
   play: async ({ canvasElement }) => {
@@ -228,8 +224,6 @@ export const UnlimitedGiftWithoutBotName: Story = {
       await panel.findByLabelText("Предложение"),
       materialsOffer.offer.id,
     );
-    await userEvent.click(panel.getByRole("radio", { name: /Подарок/u }));
-    await userEvent.click(panel.getByRole("checkbox", { name: "Бессрочно" }));
     await expect(panel.queryByLabelText("Месяцев")).not.toBeInTheDocument();
     await userEvent.click(
       panel.getByRole("button", { name: "Создать приглашение" }),
@@ -238,8 +232,7 @@ export const UnlimitedGiftWithoutBotName: Story = {
     await expect(panel.getByText(/Имя бота не настроено/u)).toBeVisible();
     await expect(lastRequest("invitations/issue")).toMatchObject({
       offerId: materialsOffer.offer.id,
-      mode: "gift",
-      giftMonths: null,
+      mode: "purchase",
       note: null,
     });
   },
@@ -257,7 +250,6 @@ export const InvitationStates: Story = {
       "Выдано",
       "Открыто",
       "Оплата открыта",
-      "Подарено",
       "Сгорело",
       "Отозвано",
     ])
@@ -266,8 +258,6 @@ export const InvitationStates: Story = {
           name: new RegExp(`: ${label}$`, "u"),
         }),
       ).toBeVisible();
-    await expect(panel.getByText("Подарок · 3 мес.")).toBeVisible();
-    await expect(panel.getByText("Подарок · Бессрочно")).toBeVisible();
     await expect(
       panel.getByText("Гость эфира, оплата со скидкой"),
     ).toBeVisible();
@@ -332,7 +322,6 @@ export const People: Story = {
     ).toHaveLength(6);
     for (const label of [
       "Оплата подписки",
-      "Подарок по приглашению",
       "Курс",
       "Решение владельца",
       "Разовая покупка",
@@ -379,64 +368,22 @@ export const ChangeRefused: Story = {
     await userEvent.click(giftee.getByText(personId("c02")));
     const form = within(
       giftee.getByRole("group", {
-        name: `${supportOffer.offer.name} · Подарок по приглашению`,
+        name: `${supportOffer.offer.name} · Решение владельца`,
       }),
     );
-    await expect(form.getByLabelText("Доступ до")).toHaveValue("");
-    await userEvent.type(form.getByLabelText("Доступ до"), "2030-05-31");
+    await expect(form.queryByLabelText("Доступ до")).not.toBeInTheDocument();
     await userEvent.type(
       form.getByLabelText("Причина"),
       "Продление по просьбе",
     );
-    await userEvent.click(form.getByRole("button", { name: "Изменить срок" }));
+    await userEvent.click(form.getByRole("button", { name: "Отозвать" }));
     await expect(await panel.findByRole("alert")).toHaveTextContent(
       /Доступ изменился, пока была открыта карточка/u,
     );
     await expect(lastRequest("enrollments/change")).toMatchObject({
       enrollmentId: personId("d02"),
-      action: "change_term",
+      action: "revoke",
       reason: "Продление по просьбе",
-    });
-  },
-};
-
-/** Из карточки выдают подарочное приглашение: ссылка видна у того, кому её выдали. */
-export const GiftIssued: Story = {
-  beforeEach: withReplies({
-    "invitations/issue": issuedInvitationReply(
-      invitation("e09", {
-        mode: "gift",
-        giftMonths: 3,
-        offerId: supportOffer.offer.id,
-      }),
-    ),
-  }),
-  play: async ({ canvasElement }) => {
-    const panel = await openTab(canvasElement, "Люди и доступ");
-    await panel.findAllByRole("listitem", { name: /^Account / });
-    const card = person(canvasElement, "c02");
-    await userEvent.click(card.getByText(personId("c02")));
-    const giftForm = within(
-      card.getByRole("group", { name: "Подарочное приглашение" }),
-    );
-    await userEvent.selectOptions(
-      giftForm.getByLabelText("Тариф в подарок"),
-      supportOffer.offer.id,
-    );
-    await userEvent.type(giftForm.getByLabelText("Месяцев подарка"), "3");
-    await userEvent.click(
-      giftForm.getByRole("button", { name: "Выдать подарочное приглашение" }),
-    );
-    await expect(
-      await card.findByText(
-        "https://t.me/synthetic_inside_bot?start=i_Syn7hetice09",
-      ),
-    ).toBeVisible();
-    await expect(lastRequest("invitations/issue")).toMatchObject({
-      offerId: supportOffer.offer.id,
-      mode: "gift",
-      giftMonths: 3,
-      note: `Account ${personId("c02")}`,
     });
   },
 };

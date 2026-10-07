@@ -192,3 +192,41 @@ export const contentScopeEntrySchema: z.ZodObject<
   slug: z.string().nullable(),
   available: z.boolean(),
 });
+
+export const benefitPeriodsSchema: z.ZodArray<
+  z.ZodObject<
+    {
+      capability: typeof accessCapabilitySchema;
+      months: z.ZodNullable<z.ZodNumber>;
+    },
+    z.core.$strict
+  >
+> = z
+  .array(
+    z.strictObject({
+      capability: accessCapabilitySchema,
+      months: z.int().positive().max(1200).nullable(),
+    }),
+  )
+  .max(100);
+
+export { subscriptionPeriodEnd, MOSCOW_OFFSET_MS } from "./calendar-period.js";
+
+/** Состав материалов тарифа учитывает и прямое право на продукт, и явный охват. */
+export function tariffContentScope(
+  benefits: readonly string[],
+  scope: ContentScope,
+): ContentScope {
+  if (scope.allGuides === true) return scope;
+  return {
+    ...scope,
+    guideIds: [
+      ...new Set([
+        ...scope.guideIds,
+        ...benefits
+          .filter(isGuideCapability)
+          .map((capability) => capability.slice("guide:".length)),
+      ]),
+    ],
+  };
+}

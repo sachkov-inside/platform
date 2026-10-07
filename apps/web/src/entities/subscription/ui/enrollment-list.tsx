@@ -4,7 +4,11 @@ import {
   enrollmentStateLabels,
   type Enrollment,
 } from "../model/enrollment";
-import { isWithheldCapability } from "@inside/access-capabilities";
+import {
+  tariffContentScope,
+  isWithheldCapability,
+  isGuideCapability,
+} from "@inside/access-capabilities";
 import { contentScopeSummary, formatBillingDate } from "../model/presentation";
 import { accessComposition } from "../model/billing-contract";
 export function EnrollmentList({
@@ -77,7 +81,14 @@ export function EnrollmentList({
                     </>
                   )}
                   <dt>Материалы</dt>
-                  <dd>{contentScopeSummary(item.tier.contentScope)}</dd>
+                  <dd>
+                    {contentScopeSummary(
+                      tariffContentScope(
+                        item.tier.benefits,
+                        item.tier.contentScope,
+                      ),
+                    )}
+                  </dd>
                   <dt>Поддержка</dt>
                   <dd>
                     {item.tier.benefits.includes("support")
@@ -97,14 +108,12 @@ export function EnrollmentList({
                       : "Следующего списания нет"}
                   </dd>
                 </dl>
-                {item.benefitTerms && item.origin === "platform_payment" ? (
+                {item.benefitTerms ? (
                   <ul className="grid gap-1 text-sm">
                     {item.benefitTerms
                       .filter((term) => !isWithheldCapability(term.capability))
                       .map((term) => (
-                        <li
-                          key={`${benefitLabel(term.capability)}:${term.startsAt}`}
-                        >
+                        <li key={`${term.capability}:${term.startsAt}`}>
                           {term.revoked
                             ? `${benefitLabel(term.capability)}: отозвано`
                             : term.endsAt === null
@@ -175,6 +184,6 @@ function benefitLabel(capability: string): string {
     case "support":
       return "Поддержка";
     default:
-      return capability;
+      return isGuideCapability(capability) ? "Материалы продукта" : capability;
   }
 }

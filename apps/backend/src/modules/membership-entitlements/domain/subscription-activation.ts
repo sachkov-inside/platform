@@ -24,10 +24,7 @@ export const activationCodeSchema = z
   .min(1)
   .max(40)
   .regex(/^[A-Za-z0-9_-]+$/u);
-const verificationModeSchema = z.enum([
-  "course_membership",
-  "tribute_registry",
-]);
+const verificationModeSchema = z.literal("course_membership");
 export const activationRuleSchema = z.strictObject({
   id: z.uuid(),
   code: activationCodeSchema,
@@ -72,7 +69,7 @@ export const activationEvidenceSchema = z.strictObject({
   ruleRevision: z.int().positive(),
   checkedAt: instantSchema,
   validUntil: instantSchema,
-  decision: z.enum(["member", "not_member", "unavailable", "registry_lookup"]),
+  decision: z.enum(["member", "not_member", "unavailable"]),
 });
 export const activationOutcomeSchema = z.strictObject({
   contractVersion: z.literal(ACTIVATION_CONTRACT_VERSION),

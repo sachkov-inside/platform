@@ -1,3 +1,4 @@
+import { sourceIdentityRef } from "../../src/modules/membership-entitlements/domain/source-identity.js";
 import { createHash, randomUUID } from "node:crypto";
 import { afterAll, beforeAll, describe, expect, test } from "vitest";
 
@@ -421,7 +422,6 @@ describe("таблица сценариев доступа (реальный Pos
       (await tributeMember(groundEndsAt)).account,
     ]);
     grounds.set("manual-assignment", [await assigned("manual", groundEndsAt)]);
-    grounds.set("tier-via-invitation-gift", [await invitedGift(1)]);
     // Скрытый тариф даёт сопровождение; после назначения его закрывают для назначений и архивируют.
     const hiddenTier = await tier(
       [guideA],
@@ -801,13 +801,51 @@ describe("таблица сценариев доступа (реальный Pos
       );
       policy = { policyRef, subscriptionId };
     }
-    const source = await db.prisma.sourceEntitlement.findFirst({
+    let source = await db.prisma.sourceEntitlement.findFirst({
       where: {
         origin: "tribute",
         sourcePolicyRef: policy.policyRef,
         identityRef: member.identityRef,
       },
     });
+    if (mode === "temporary_membership" && source === null) {
+      // Preserve coverage of historical temporary sources; #1064 rejects new sources.
+      const savedPolicy = await db.prisma.tributePolicy.findUniqueOrThrow({
+        where: { id: policy.policyRef },
+      });
+      source = await db.prisma.sourceEntitlement.create({
+        data: {
+          id: randomUUID(),
+          origin: "tribute",
+          sourceRef: sourceIdentityRef(
+            "tribute",
+            policy.policyRef,
+            member.identityRef,
+          ),
+          sourcePolicyRef: policy.policyRef,
+          identityRef: member.identityRef,
+          revision: 1,
+          evidence: { historical: true },
+          checkedAt: now,
+          tributeState: {
+            subscriptionId: policy.subscriptionId,
+            telegramUserId: String(policy.subscriptionId),
+            verificationRef: randomUUID(),
+            mode,
+            startsAt: now.toISOString(),
+            endsAt,
+            renewal,
+            tier: savedPolicy.tierSnapshot,
+            policyRevision: savedPolicy.revision,
+            observation: "pending",
+            observedUntil: null,
+            observationVersion: null,
+            lastEventAt: now.toISOString(),
+            lastEventFingerprint: null,
+          },
+        },
+      });
+    }
     const row = {
       rowRef: randomUUID(),
       policyRef: policy.policyRef,
@@ -880,6 +918,55 @@ describe("таблица сценариев доступа (реальный Pos
     tier: string,
     startsAt = now.toISOString(),
   ) {
+    if (
+      origin === "manual" &&
+      (endsAt !== null || startsAt !== now.toISOString())
+    ) {
+      const row = await db.prisma.billingOffer.findUniqueOrThrow({
+        where: { id: tier },
+      });
+      const id = randomUUID();
+      const terms = { startsAt, endsAt, endPolicy: "fixed" };
+      // Historical finite/scheduled assignment: read and expiry remain supported after #1064.
+      await db.prisma.subscriptionEnrollment.create({
+        data: {
+          id,
+          accountId: recipient,
+          origin: "manual",
+          sourceRef: randomUUID(),
+          tierId: tier,
+          tierRevision: row.revision,
+          snapshot: {
+            id: tier,
+            revision: row.revision,
+            name: row.name,
+            benefits: row.benefits,
+            contentScope: row.contentScope,
+          },
+          startsAt: new Date(startsAt),
+          endsAt: endsAt === null ? null : new Date(endsAt),
+          endPolicy: "fixed",
+          revision: 1,
+          reason: "Historical assignment fixture",
+        },
+      });
+      await db.prisma.accessGrant.create({
+        data: {
+          id: randomUUID(),
+          accountId: recipient,
+          enrollmentId: id,
+          source: "manual",
+          sourceRef: `enrollment:${id}`,
+          capabilities: row.benefits,
+          contentScope: row.contentScope ?? {},
+          startsAt: new Date(startsAt),
+          validUntil: endsAt === null ? null : new Date(endsAt),
+          revision: 1,
+          reason: "Historical assignment fixture",
+        },
+      });
+      return { enrollmentId: id, terms };
+    }
     const identityRef = `verified-${recipient}`;
     if (origin === "course")
       await linkTelegramAccount(db.prisma, {
@@ -930,8 +1017,7 @@ describe("таблица сценариев доступа (реальный Pos
   async function redeemInvitation(
     recipient: string,
     offerId: string,
-    mode: "purchase" | "gift",
-    giftMonths: number | null = null,
+    mode: "purchase",
   ): Promise<void> {
     const identityRef = await linkChat(recipient);
     const issued = owned(
@@ -940,7 +1026,6 @@ describe("таблица сценариев доступа (реальный Pos
         operationId: randomUUID(),
         offerId,
         mode,
-        giftMonths,
       }),
     );
     if (issued.outcome !== "invitation") throw new Error(issued.outcome);
@@ -952,17 +1037,8 @@ describe("таблица сценариев доступа (реальный Pos
       }),
     ).toMatchObject({
       ok: true,
-      value: { state: mode === "gift" ? "gift_granted" : "purchase_ready" },
+      value: { state: "purchase_ready" },
     });
-  }
-  /** Тариф в подарок по приглашению на `giftMonths` календарных месяцев с погашения. */
-  async function invitedGift(
-    giftMonths: number | null,
-    tier = tierId,
-  ): Promise<string> {
-    const recipient = await account();
-    await redeemInvitation(recipient, tier, "gift", giftMonths);
-    return recipient;
   }
   /** Прямое право без тарифа: продукт A без даты окончания и отдельное сопровождение до срока. */
   async function directHolder(): Promise<string> {
@@ -1431,21 +1507,9 @@ describe("таблица сценариев доступа (реальный Pos
     await atMoment(groundEndsAt, async () => {
       expect(await transitionVerdicts("expiry", member.account)).toEqual([]);
     });
-    // Подарок по приглашению кончается так же: в момент окончания закрыты материалы и вход в чат.
-    const gifted = await invitedGift(1);
-    await project(gifted);
-    expect(await observe("community-chat", gifted)).toEqual(
-      open("ground-term"),
-    );
-    await atMoment(
-      subscriptionPeriodEnd(new Date(startedAt), 1).toISOString(),
-      async () => {
-        expect(await transitionVerdicts("expiry", gifted)).toEqual([]);
-      },
-    );
   });
 
-  test("expiry: ручной и подарочный доступ закрываются на границе, сообщество получает denied в тот же момент", async () => {
+  test("expiry: исторический конечный доступ закрывается на границе, сообщество получает denied в тот же момент", async () => {
     now = new Date(startedAt);
     const recipient = await account();
     await linkChat(recipient);
@@ -1829,6 +1893,66 @@ describe("таблица сценариев доступа (реальный Pos
         material: added,
       }),
     ).toEqual([]);
+  });
+
+  test("owner assigns a course tariff with separate benefit terms and no overall expiry", async () => {
+    now = new Date(startedAt);
+    const courseTier = randomUUID();
+    owned(
+      await operations.execute(owner, {
+        operation: "offers.save",
+        operationId: randomUUID(),
+        value: {
+          id: courseTier,
+          name: "Course assignment",
+          benefits: [`guide:${guideA}`, "community", "support"],
+          benefitPeriods: [{ capability: "support", months: 6 }],
+          availableForAssignment: true,
+        },
+      }),
+    );
+    const recipient = await account();
+    const listed = owned(
+      await operations.execute(owner, {
+        operation: "tiers.list",
+        operationId: randomUUID(),
+        limit: 100,
+      }),
+    );
+    if (listed.outcome !== "tiers") throw new Error(listed.outcome);
+    expect(listed.items.map((entry) => entry.tier.id)).toContain(courseTier);
+    const assigned = owned(
+      await operations.execute(owner, {
+        operation: "enrollments.assign",
+        operationId: randomUUID(),
+        accountId: recipient,
+        tierId: courseTier,
+        tierRevision: 1,
+        origin: "manual",
+        sourceRef: randomUUID(),
+        terms: { startsAt: startedAt, endsAt: null, endPolicy: "fixed" },
+        billingRef: null,
+        reason: "Owner assigns course",
+      }),
+    );
+    expect(assigned).toMatchObject({
+      outcome: "enrollment",
+      value: { endsAt: null, startsAt: startedAt },
+    });
+    const enrollment = value(await grants.readOwnEnrollments(recipient))[0];
+    expect(enrollment?.benefitTerms).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          capability: `guide:${guideA}`,
+          endsAt: null,
+        }),
+        expect.objectContaining({ capability: "community", endsAt: null }),
+        expect.objectContaining({
+          capability: "support",
+          endsAt: subscriptionPeriodEnd(now, 6).toISOString(),
+        }),
+      ]),
+    );
   });
 
   test("tier-archived-with-assignments", async () => {
@@ -2247,7 +2371,7 @@ describe("таблица сценариев доступа (реальный Pos
     for (const buyer of [
       await account(),
       invitedElsewhere,
-      await invitedGift(1),
+      await assigned("manual", null),
       await assigned("course", null),
     ]) {
       expect(await listed(buyer, offerId, buyer === invitedElsewhere)).toBe(
@@ -2259,13 +2383,16 @@ describe("таблица сценариев доступа (реальный Pos
     }
   });
 
-  test("invitation-offer-after-gift-invitation", async () => {
+  test("gift invitation cannot grant access or purchase admission", async () => {
     now = new Date(startedAt);
-    const scenario =
-      accessScenarioTable.purchases["invitation-offer-after-gift-invitation"];
-    const { offerId, optionId } = await invitationSubscription();
-    const gifted = await invitedGift(1, offerId);
-    expect(await listed(gifted, offerId)).toBe(scenario.listed);
-    expect(await buySubscription(gifted, optionId)).toBe(scenario.rejectedWith);
+    const { offerId } = await invitationSubscription();
+    expect(
+      await operations.execute(owner, {
+        operation: "invitations.issue",
+        operationId: randomUUID(),
+        offerId,
+        mode: "gift",
+      }),
+    ).toMatchObject({ ok: false, error: { code: "invalid_request" } });
   });
 });

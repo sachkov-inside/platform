@@ -1,22 +1,13 @@
 import { z } from "zod";
 import { contentScopeSchema } from "@inside/access-capabilities";
-import {
-  accessCapabilitySchema,
-  capabilitiesSchema,
-} from "../../membership-entitlements/index.js";
+import { capabilitiesSchema } from "../../membership-entitlements/index.js";
 
 export const idSchema = z.uuid().toLowerCase();
 export const revisionSchema = z.int().positive().max(2_147_483_647);
 export const moneySchema = z.int().positive();
 export const benefitsSchema = capabilitiesSchema;
-export const benefitPeriodsSchema = z
-  .array(
-    z.strictObject({
-      capability: accessCapabilitySchema,
-      months: z.int().positive().max(1200).nullable(),
-    }),
-  )
-  .max(100);
+export { benefitPeriodsSchema } from "@inside/access-capabilities";
+import { benefitPeriodsSchema } from "@inside/access-capabilities";
 /**
  * Кому Offer продаётся: всем, только Account с основанием «прежний подписчик Tribute» —
  * подтверждённым периодом Tribute, или только Account с погашённым приглашением на этот Offer.

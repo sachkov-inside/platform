@@ -286,7 +286,7 @@ video locators и иные связанные с body ресурсы в projecti
 Строки: `public-material`, `product-material`, `programme`, `artifacts`, `video`, `community-chat`,
 `support`, `cabinet`, `author`, `mcp`. Столбцы: `guest`, `account-without-rights`,
 `one-time-purchase`, `tier-via-course`, `tier-via-tribute`, `manual-assignment`,
-`tier-via-invitation-gift` (#908), `hidden-active-tier`, `direct`, `expired-or-revoked`, `multiple-grounds`, `withdrawal-refund`,
+`hidden-active-tier`, `direct`, `expired-or-revoked`, `multiple-grounds`, `withdrawal-refund`,
 `moderation`. Переходы: `expiry`, `revocation`, `bridge-replaced-by-tribute`,
 `tribute-temporary-source-lost`, `refund`, `refund-without-withdrawal`,
 `support-kept-by-other-ground`, `material-added-to-product`,
@@ -295,8 +295,9 @@ video locators и иные связанные с body ресурсы в projecti
 Покупки (#775): `course-offer-terms`, `offer-own-terms`, `offer-terms-change-keeps-earlier-purchase`,
 `subscription-offer-without-tribute-ground`, `subscription-offer-with-tribute-ground`; приглашения
 (#908): `invitation-offer-after-purchase-invitation`, `invitation-offer-without-invitation`,
-`invitation-offer-after-gift-invitation` — какие права и на какой срок выдаёт покупка предложения и
-кому предложение продаётся. Переход `expiry` проверяет и подарок по приглашению.
+`gift invitation cannot grant access or purchase admission` — какие права и на какой срок выдаёт покупка предложения и
+кому предложение продаётся. Подарочный столбец удалён в #1064; отрицательный сценарий
+проверяет, что прежний режим приглашения не выдаёт права или допуск к покупке.
 У каждой клетки стабильное имя `<строка>/<столбец>`.
 
 `pnpm check` проверяет полноту таблицы и негативную фикстуру (`test/unit/access-scenario-table.test.ts`);

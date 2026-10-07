@@ -21,9 +21,10 @@ bundle и проверяет provider assumptions; до неё новые инт
 - стартовый тариф для подписчиков Tribute (#775): им отправляют приглашение оплатить подписку;
 - отдельные «тарифы подписки» по составу прав: подписка — вариант оплаты тарифа.
 
-Мастерская удалена в [#1063](https://github.com/sachkov-inside/platform/issues/1063). Код подарочного
-режима ещё работает так, как описано ниже; его удаляет отдельная задача. Разделы поставок ниже
-остаются историей поставок.
+Мастерская удалена в [#1063](https://github.com/sachkov-inside/platform/issues/1063).
+Подарочный режим удалён в #1064. Разделы поставок ниже, включая прежний контракт подарков,
+остаются историей поставок. Текущий контракт приглашения допускает только к покупке;
+он записан в [протоколе активации](../contracts/subscription-activation-v1/protocol.md).
 
 ## Обновление уведомлений 2026-09-08
 
@@ -736,7 +737,11 @@ username при входе (раздел «Telegram sign-in» в
 `billing-checkout-promo`, `billing-admin-bff` и историями Storybook `Survey respondents` и
 `Guide/Payment/Flow`.
 
-## Текущая поставка #908
+## Историческая поставка #908
+
+Подарочный режим этого раздела удалён в #1064. Текущее приглашение допускает только к покупке;
+его команды и ответы описывает [контракт активации](../contracts/subscription-activation-v1/protocol.md).
+Прежние схемы ниже сохранены как история поставки.
 
 Спецификация [#907](https://github.com/sachkov-inside/platform/issues/907): владелец выдаёт доступ
 личной ссылкой в бота. Подписчиков Tribute больше нет, поэтому Offer продаётся либо всем, либо по
@@ -810,7 +815,7 @@ start-параметр короче 43 символов. Приглашение 
 
 Правила исполняются набором `invitations` (PostgreSQL и HTTP бота), сценариями таблицы доступа
 `invitation-offer-after-purchase-invitation`, `invitation-offer-without-invitation`,
-`invitation-offer-after-gift-invitation`, столбцом `tier-via-invitation-gift` и переходом `expiry`,
+`gift invitation cannot grant access or purchase admission`, отказом подарочного режима в #1064 и переходом `expiry`,
 а также корпусом `subscription-contract-corpus`.
 
 ### Кабинет «Доступ» (#910)

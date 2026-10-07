@@ -8344,6 +8344,44 @@
                           "tier": {
                             "additionalProperties": false,
                             "properties": {
+                              "benefitPeriods": {
+                                "items": {
+                                  "additionalProperties": false,
+                                  "properties": {
+                                    "capability": {
+                                      "anyOf": [
+                                        {
+                                          "enum": [
+                                            "materials",
+                                            "community",
+                                            "reviews",
+                                            "support"
+                                          ],
+                                          "type": "string"
+                                        },
+                                        {
+                                          "pattern": "^guide:([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                                          "type": "string"
+                                        }
+                                      ]
+                                    },
+                                    "months": {
+                                      "exclusiveMinimum": true,
+                                      "maximum": 1200,
+                                      "minimum": 0,
+                                      "nullable": true,
+                                      "type": "integer"
+                                    }
+                                  },
+                                  "required": [
+                                    "capability",
+                                    "months"
+                                  ],
+                                  "type": "object"
+                                },
+                                "maxItems": 100,
+                                "type": "array"
+                              },
                               "benefits": {
                                 "items": {
                                   "anyOf": [
@@ -71118,8 +71156,7 @@
                           },
                           "verificationMode": {
                             "enum": [
-                              "course_membership",
-                              "tribute_registry"
+                              "course_membership"
                             ],
                             "type": "string"
                           }
@@ -72336,17 +72373,9 @@
                   {
                     "additionalProperties": false,
                     "properties": {
-                      "giftMonths": {
-                        "default": null,
-                        "maximum": 1200,
-                        "minimum": 1,
-                        "nullable": true,
-                        "type": "integer"
-                      },
                       "mode": {
                         "enum": [
-                          "purchase",
-                          "gift"
+                          "purchase"
                         ],
                         "type": "string"
                       },
@@ -72377,7 +72406,6 @@
                       "operationId",
                       "offerId",
                       "mode",
-                      "giftMonths",
                       "note",
                       "operation"
                     ],
@@ -72825,6 +72853,44 @@
                                       "tier": {
                                         "additionalProperties": false,
                                         "properties": {
+                                          "benefitPeriods": {
+                                            "items": {
+                                              "additionalProperties": false,
+                                              "properties": {
+                                                "capability": {
+                                                  "anyOf": [
+                                                    {
+                                                      "enum": [
+                                                        "materials",
+                                                        "community",
+                                                        "reviews",
+                                                        "support"
+                                                      ],
+                                                      "type": "string"
+                                                    },
+                                                    {
+                                                      "pattern": "^guide:([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                                                      "type": "string"
+                                                    }
+                                                  ]
+                                                },
+                                                "months": {
+                                                  "exclusiveMinimum": true,
+                                                  "maximum": 1200,
+                                                  "minimum": 0,
+                                                  "nullable": true,
+                                                  "type": "integer"
+                                                }
+                                              },
+                                              "required": [
+                                                "capability",
+                                                "months"
+                                              ],
+                                              "type": "object"
+                                            },
+                                            "maxItems": 100,
+                                            "type": "array"
+                                          },
                                           "benefits": {
                                             "items": {
                                               "anyOf": [
@@ -73029,6 +73095,44 @@
                                           "tier": {
                                             "additionalProperties": false,
                                             "properties": {
+                                              "benefitPeriods": {
+                                                "items": {
+                                                  "additionalProperties": false,
+                                                  "properties": {
+                                                    "capability": {
+                                                      "anyOf": [
+                                                        {
+                                                          "enum": [
+                                                            "materials",
+                                                            "community",
+                                                            "reviews",
+                                                            "support"
+                                                          ],
+                                                          "type": "string"
+                                                        },
+                                                        {
+                                                          "pattern": "^guide:([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                                                          "type": "string"
+                                                        }
+                                                      ]
+                                                    },
+                                                    "months": {
+                                                      "exclusiveMinimum": true,
+                                                      "maximum": 1200,
+                                                      "minimum": 0,
+                                                      "nullable": true,
+                                                      "type": "integer"
+                                                    }
+                                                  },
+                                                  "required": [
+                                                    "capability",
+                                                    "months"
+                                                  ],
+                                                  "type": "object"
+                                                },
+                                                "maxItems": 100,
+                                                "type": "array"
+                                              },
                                               "benefits": {
                                                 "items": {
                                                   "anyOf": [
@@ -73265,6 +73369,44 @@
                                 "tier": {
                                   "additionalProperties": false,
                                   "properties": {
+                                    "benefitPeriods": {
+                                      "items": {
+                                        "additionalProperties": false,
+                                        "properties": {
+                                          "capability": {
+                                            "anyOf": [
+                                              {
+                                                "enum": [
+                                                  "materials",
+                                                  "community",
+                                                  "reviews",
+                                                  "support"
+                                                ],
+                                                "type": "string"
+                                              },
+                                              {
+                                                "pattern": "^guide:([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                                                "type": "string"
+                                              }
+                                            ]
+                                          },
+                                          "months": {
+                                            "exclusiveMinimum": true,
+                                            "maximum": 1200,
+                                            "minimum": 0,
+                                            "nullable": true,
+                                            "type": "integer"
+                                          }
+                                        },
+                                        "required": [
+                                          "capability",
+                                          "months"
+                                        ],
+                                        "type": "object"
+                                      },
+                                      "maxItems": 100,
+                                      "type": "array"
+                                    },
                                     "benefits": {
                                       "items": {
                                         "anyOf": [
@@ -73457,6 +73599,44 @@
                                         "additionalProperties": false,
                                         "nullable": true,
                                         "properties": {
+                                          "benefitPeriods": {
+                                            "items": {
+                                              "additionalProperties": false,
+                                              "properties": {
+                                                "capability": {
+                                                  "anyOf": [
+                                                    {
+                                                      "enum": [
+                                                        "materials",
+                                                        "community",
+                                                        "reviews",
+                                                        "support"
+                                                      ],
+                                                      "type": "string"
+                                                    },
+                                                    {
+                                                      "pattern": "^guide:([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                                                      "type": "string"
+                                                    }
+                                                  ]
+                                                },
+                                                "months": {
+                                                  "exclusiveMinimum": true,
+                                                  "maximum": 1200,
+                                                  "minimum": 0,
+                                                  "nullable": true,
+                                                  "type": "integer"
+                                                }
+                                              },
+                                              "required": [
+                                                "capability",
+                                                "months"
+                                              ],
+                                              "type": "object"
+                                            },
+                                            "maxItems": 100,
+                                            "type": "array"
+                                          },
                                           "benefits": {
                                             "items": {
                                               "anyOf": [
@@ -73701,6 +73881,44 @@
                                           "tier": {
                                             "additionalProperties": false,
                                             "properties": {
+                                              "benefitPeriods": {
+                                                "items": {
+                                                  "additionalProperties": false,
+                                                  "properties": {
+                                                    "capability": {
+                                                      "anyOf": [
+                                                        {
+                                                          "enum": [
+                                                            "materials",
+                                                            "community",
+                                                            "reviews",
+                                                            "support"
+                                                          ],
+                                                          "type": "string"
+                                                        },
+                                                        {
+                                                          "pattern": "^guide:([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                                                          "type": "string"
+                                                        }
+                                                      ]
+                                                    },
+                                                    "months": {
+                                                      "exclusiveMinimum": true,
+                                                      "maximum": 1200,
+                                                      "minimum": 0,
+                                                      "nullable": true,
+                                                      "type": "integer"
+                                                    }
+                                                  },
+                                                  "required": [
+                                                    "capability",
+                                                    "months"
+                                                  ],
+                                                  "type": "object"
+                                                },
+                                                "maxItems": 100,
+                                                "type": "array"
+                                              },
                                               "benefits": {
                                                 "items": {
                                                   "anyOf": [
@@ -73968,6 +74186,44 @@
                                     "tier": {
                                       "additionalProperties": false,
                                       "properties": {
+                                        "benefitPeriods": {
+                                          "items": {
+                                            "additionalProperties": false,
+                                            "properties": {
+                                              "capability": {
+                                                "anyOf": [
+                                                  {
+                                                    "enum": [
+                                                      "materials",
+                                                      "community",
+                                                      "reviews",
+                                                      "support"
+                                                    ],
+                                                    "type": "string"
+                                                  },
+                                                  {
+                                                    "pattern": "^guide:([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                                                    "type": "string"
+                                                  }
+                                                ]
+                                              },
+                                              "months": {
+                                                "exclusiveMinimum": true,
+                                                "maximum": 1200,
+                                                "minimum": 0,
+                                                "nullable": true,
+                                                "type": "integer"
+                                              }
+                                            },
+                                            "required": [
+                                              "capability",
+                                              "months"
+                                            ],
+                                            "type": "object"
+                                          },
+                                          "maxItems": 100,
+                                          "type": "array"
+                                        },
                                         "benefits": {
                                           "items": {
                                             "anyOf": [
@@ -74313,8 +74569,7 @@
                                 },
                                 "verificationMode": {
                                   "enum": [
-                                    "course_membership",
-                                    "tribute_registry"
+                                    "course_membership"
                                   ],
                                   "type": "string"
                                 }
@@ -74394,8 +74649,7 @@
                                   },
                                   "verificationMode": {
                                     "enum": [
-                                      "course_membership",
-                                      "tribute_registry"
+                                      "course_membership"
                                     ],
                                     "type": "string"
                                   }
@@ -74487,6 +74741,44 @@
                                 "tier": {
                                   "additionalProperties": false,
                                   "properties": {
+                                    "benefitPeriods": {
+                                      "items": {
+                                        "additionalProperties": false,
+                                        "properties": {
+                                          "capability": {
+                                            "anyOf": [
+                                              {
+                                                "enum": [
+                                                  "materials",
+                                                  "community",
+                                                  "reviews",
+                                                  "support"
+                                                ],
+                                                "type": "string"
+                                              },
+                                              {
+                                                "pattern": "^guide:([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                                                "type": "string"
+                                              }
+                                            ]
+                                          },
+                                          "months": {
+                                            "exclusiveMinimum": true,
+                                            "maximum": 1200,
+                                            "minimum": 0,
+                                            "nullable": true,
+                                            "type": "integer"
+                                          }
+                                        },
+                                        "required": [
+                                          "capability",
+                                          "months"
+                                        ],
+                                        "type": "object"
+                                      },
+                                      "maxItems": 100,
+                                      "type": "array"
+                                    },
                                     "benefits": {
                                       "items": {
                                         "anyOf": [
@@ -74788,6 +75080,44 @@
                                 "tier": {
                                   "additionalProperties": false,
                                   "properties": {
+                                    "benefitPeriods": {
+                                      "items": {
+                                        "additionalProperties": false,
+                                        "properties": {
+                                          "capability": {
+                                            "anyOf": [
+                                              {
+                                                "enum": [
+                                                  "materials",
+                                                  "community",
+                                                  "reviews",
+                                                  "support"
+                                                ],
+                                                "type": "string"
+                                              },
+                                              {
+                                                "pattern": "^guide:([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                                                "type": "string"
+                                              }
+                                            ]
+                                          },
+                                          "months": {
+                                            "exclusiveMinimum": true,
+                                            "maximum": 1200,
+                                            "minimum": 0,
+                                            "nullable": true,
+                                            "type": "integer"
+                                          }
+                                        },
+                                        "required": [
+                                          "capability",
+                                          "months"
+                                        ],
+                                        "type": "object"
+                                      },
+                                      "maxItems": 100,
+                                      "type": "array"
+                                    },
                                     "benefits": {
                                       "items": {
                                         "anyOf": [
@@ -75066,6 +75396,44 @@
                                   "tier": {
                                     "additionalProperties": false,
                                     "properties": {
+                                      "benefitPeriods": {
+                                        "items": {
+                                          "additionalProperties": false,
+                                          "properties": {
+                                            "capability": {
+                                              "anyOf": [
+                                                {
+                                                  "enum": [
+                                                    "materials",
+                                                    "community",
+                                                    "reviews",
+                                                    "support"
+                                                  ],
+                                                  "type": "string"
+                                                },
+                                                {
+                                                  "pattern": "^guide:([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                                                  "type": "string"
+                                                }
+                                              ]
+                                            },
+                                            "months": {
+                                              "exclusiveMinimum": true,
+                                              "maximum": 1200,
+                                              "minimum": 0,
+                                              "nullable": true,
+                                              "type": "integer"
+                                            }
+                                          },
+                                          "required": [
+                                            "capability",
+                                            "months"
+                                          ],
+                                          "type": "object"
+                                        },
+                                        "maxItems": 100,
+                                        "type": "array"
+                                      },
                                       "benefits": {
                                         "items": {
                                           "anyOf": [
@@ -75390,6 +75758,44 @@
                                   "tier": {
                                     "additionalProperties": false,
                                     "properties": {
+                                      "benefitPeriods": {
+                                        "items": {
+                                          "additionalProperties": false,
+                                          "properties": {
+                                            "capability": {
+                                              "anyOf": [
+                                                {
+                                                  "enum": [
+                                                    "materials",
+                                                    "community",
+                                                    "reviews",
+                                                    "support"
+                                                  ],
+                                                  "type": "string"
+                                                },
+                                                {
+                                                  "pattern": "^guide:([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                                                  "type": "string"
+                                                }
+                                              ]
+                                            },
+                                            "months": {
+                                              "exclusiveMinimum": true,
+                                              "maximum": 1200,
+                                              "minimum": 0,
+                                              "nullable": true,
+                                              "type": "integer"
+                                            }
+                                          },
+                                          "required": [
+                                            "capability",
+                                            "months"
+                                          ],
+                                          "type": "object"
+                                        },
+                                        "maxItems": 100,
+                                        "type": "array"
+                                      },
                                       "benefits": {
                                         "items": {
                                           "anyOf": [
@@ -78980,12 +79386,6 @@
                                   "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$",
                                   "type": "string"
                                 },
-                                "giftMonths": {
-                                  "maximum": 1200,
-                                  "minimum": 1,
-                                  "nullable": true,
-                                  "type": "integer"
-                                },
                                 "id": {
                                   "format": "uuid",
                                   "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
@@ -79003,8 +79403,7 @@
                                 },
                                 "mode": {
                                   "enum": [
-                                    "purchase",
-                                    "gift"
+                                    "purchase"
                                   ],
                                   "type": "string"
                                 },
@@ -79058,7 +79457,6 @@
                                 "offerId",
                                 "offerRevision",
                                 "mode",
-                                "giftMonths",
                                 "state",
                                 "issuedAt",
                                 "expiresAt",
@@ -79107,12 +79505,6 @@
                                     "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$",
                                     "type": "string"
                                   },
-                                  "giftMonths": {
-                                    "maximum": 1200,
-                                    "minimum": 1,
-                                    "nullable": true,
-                                    "type": "integer"
-                                  },
                                   "id": {
                                     "format": "uuid",
                                     "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
@@ -79130,8 +79522,7 @@
                                   },
                                   "mode": {
                                     "enum": [
-                                      "purchase",
-                                      "gift"
+                                      "purchase"
                                     ],
                                     "type": "string"
                                   },
@@ -79192,7 +79583,6 @@
                                   "offerId",
                                   "offerRevision",
                                   "mode",
-                                  "giftMonths",
                                   "note",
                                   "state",
                                   "issuedAt",
@@ -79525,11 +79915,6 @@
                                       "minimum": 0,
                                       "type": "integer"
                                     },
-                                    "gifted": {
-                                      "maximum": 9007199254740991,
-                                      "minimum": 0,
-                                      "type": "integer"
-                                    },
                                     "issued": {
                                       "maximum": 9007199254740991,
                                       "minimum": 0,
@@ -79561,7 +79946,6 @@
                                     "opened",
                                     "purchaseOpened",
                                     "paid",
-                                    "gifted",
                                     "expired",
                                     "revoked"
                                   ],
@@ -109987,309 +110371,6 @@
                             {
                               "additionalProperties": false,
                               "properties": {
-                                "contractVersion": {
-                                  "enum": [
-                                    "inside.subscription-activation.v1"
-                                  ],
-                                  "type": "string"
-                                },
-                                "enrollment": {
-                                  "additionalProperties": false,
-                                  "properties": {
-                                    "accountId": {
-                                      "format": "uuid",
-                                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
-                                      "type": "string"
-                                    },
-                                    "benefitTerms": {
-                                      "items": {
-                                        "additionalProperties": false,
-                                        "properties": {
-                                          "capability": {
-                                            "type": "string"
-                                          },
-                                          "endsAt": {
-                                            "format": "date-time",
-                                            "nullable": true,
-                                            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$",
-                                            "type": "string"
-                                          },
-                                          "revoked": {
-                                            "type": "boolean"
-                                          },
-                                          "startsAt": {
-                                            "format": "date-time",
-                                            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$",
-                                            "type": "string"
-                                          }
-                                        },
-                                        "required": [
-                                          "capability",
-                                          "startsAt",
-                                          "endsAt",
-                                          "revoked"
-                                        ],
-                                        "type": "object"
-                                      },
-                                      "type": "array"
-                                    },
-                                    "content": {
-                                      "items": {
-                                        "additionalProperties": false,
-                                        "properties": {
-                                          "available": {
-                                            "type": "boolean"
-                                          },
-                                          "id": {
-                                            "format": "uuid",
-                                            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
-                                            "type": "string"
-                                          },
-                                          "kind": {
-                                            "enum": [
-                                              "guide",
-                                              "material"
-                                            ],
-                                            "type": "string"
-                                          },
-                                          "slug": {
-                                            "nullable": true,
-                                            "type": "string"
-                                          },
-                                          "title": {
-                                            "type": "string"
-                                          }
-                                        },
-                                        "required": [
-                                          "kind",
-                                          "id",
-                                          "title",
-                                          "slug",
-                                          "available"
-                                        ],
-                                        "type": "object"
-                                      },
-                                      "type": "array"
-                                    },
-                                    "endPolicy": {
-                                      "enum": [
-                                        "fixed",
-                                        "confirmed_external",
-                                        "temporary_membership"
-                                      ],
-                                      "type": "string"
-                                    },
-                                    "endsAt": {
-                                      "format": "date-time",
-                                      "nullable": true,
-                                      "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$",
-                                      "type": "string"
-                                    },
-                                    "history": {
-                                      "items": {
-                                        "additionalProperties": false,
-                                        "properties": {
-                                          "kind": {
-                                            "type": "string"
-                                          },
-                                          "reason": {
-                                            "type": "string"
-                                          },
-                                          "recordedAt": {
-                                            "format": "date-time",
-                                            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$",
-                                            "type": "string"
-                                          }
-                                        },
-                                        "required": [
-                                          "kind",
-                                          "reason",
-                                          "recordedAt"
-                                        ],
-                                        "type": "object"
-                                      },
-                                      "type": "array"
-                                    },
-                                    "id": {
-                                      "format": "uuid",
-                                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
-                                      "type": "string"
-                                    },
-                                    "nextChargeAt": {
-                                      "format": "date-time",
-                                      "nullable": true,
-                                      "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$",
-                                      "type": "string"
-                                    },
-                                    "origin": {
-                                      "enum": [
-                                        "course",
-                                        "tribute",
-                                        "manual",
-                                        "platform_payment",
-                                        "invitation"
-                                      ],
-                                      "type": "string"
-                                    },
-                                    "renewal": {
-                                      "enum": [
-                                        "not_applicable",
-                                        "billing_agreement"
-                                      ],
-                                      "type": "string"
-                                    },
-                                    "revision": {
-                                      "exclusiveMinimum": true,
-                                      "maximum": 9007199254740991,
-                                      "minimum": 0,
-                                      "type": "integer"
-                                    },
-                                    "startsAt": {
-                                      "format": "date-time",
-                                      "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$",
-                                      "type": "string"
-                                    },
-                                    "state": {
-                                      "enum": [
-                                        "scheduled",
-                                        "active",
-                                        "expired",
-                                        "revoked",
-                                        "pending_verification",
-                                        "suspended_source"
-                                      ],
-                                      "type": "string"
-                                    },
-                                    "tier": {
-                                      "additionalProperties": false,
-                                      "properties": {
-                                        "benefits": {
-                                          "items": {
-                                            "anyOf": [
-                                              {
-                                                "enum": [
-                                                  "materials",
-                                                  "community",
-                                                  "reviews",
-                                                  "support"
-                                                ],
-                                                "type": "string"
-                                              },
-                                              {
-                                                "pattern": "^guide:([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
-                                                "type": "string"
-                                              }
-                                            ]
-                                          },
-                                          "maxItems": 100,
-                                          "minItems": 1,
-                                          "type": "array"
-                                        },
-                                        "contentScope": {
-                                          "additionalProperties": false,
-                                          "properties": {
-                                            "allGuides": {
-                                              "enum": [
-                                                true
-                                              ],
-                                              "type": "boolean"
-                                            },
-                                            "guideIds": {
-                                              "items": {
-                                                "format": "uuid",
-                                                "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
-                                                "type": "string"
-                                              },
-                                              "maxItems": 1000,
-                                              "type": "array"
-                                            },
-                                            "materialIds": {
-                                              "items": {
-                                                "format": "uuid",
-                                                "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
-                                                "type": "string"
-                                              },
-                                              "maxItems": 1000,
-                                              "type": "array"
-                                            }
-                                          },
-                                          "required": [
-                                            "guideIds",
-                                            "materialIds"
-                                          ],
-                                          "type": "object"
-                                        },
-                                        "id": {
-                                          "format": "uuid",
-                                          "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
-                                          "type": "string"
-                                        },
-                                        "name": {
-                                          "maxLength": 200,
-                                          "minLength": 1,
-                                          "type": "string"
-                                        },
-                                        "revision": {
-                                          "exclusiveMinimum": true,
-                                          "maximum": 9007199254740991,
-                                          "minimum": 0,
-                                          "type": "integer"
-                                        }
-                                      },
-                                      "required": [
-                                        "id",
-                                        "revision",
-                                        "name",
-                                        "benefits",
-                                        "contentScope"
-                                      ],
-                                      "type": "object"
-                                    }
-                                  },
-                                  "required": [
-                                    "id",
-                                    "accountId",
-                                    "tier",
-                                    "origin",
-                                    "startsAt",
-                                    "endsAt",
-                                    "endPolicy",
-                                    "revision",
-                                    "state",
-                                    "renewal"
-                                  ],
-                                  "type": "object"
-                                },
-                                "mode": {
-                                  "enum": [
-                                    "gift"
-                                  ],
-                                  "type": "string"
-                                },
-                                "offerName": {
-                                  "maxLength": 200,
-                                  "minLength": 1,
-                                  "type": "string"
-                                },
-                                "state": {
-                                  "enum": [
-                                    "gift_granted"
-                                  ],
-                                  "type": "string"
-                                }
-                              },
-                              "required": [
-                                "contractVersion",
-                                "mode",
-                                "offerName",
-                                "enrollment",
-                                "state"
-                              ],
-                              "type": "object"
-                            },
-                            {
-                              "additionalProperties": false,
-                              "properties": {
                                 "checkoutUrl": {
                                   "format": "uri",
                                   "type": "string"
@@ -110323,309 +110404,6 @@
                                 "mode",
                                 "offerName",
                                 "checkoutUrl",
-                                "state"
-                              ],
-                              "type": "object"
-                            },
-                            {
-                              "additionalProperties": false,
-                              "properties": {
-                                "contractVersion": {
-                                  "enum": [
-                                    "inside.subscription-activation.v1"
-                                  ],
-                                  "type": "string"
-                                },
-                                "enrollment": {
-                                  "additionalProperties": false,
-                                  "properties": {
-                                    "accountId": {
-                                      "format": "uuid",
-                                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
-                                      "type": "string"
-                                    },
-                                    "benefitTerms": {
-                                      "items": {
-                                        "additionalProperties": false,
-                                        "properties": {
-                                          "capability": {
-                                            "type": "string"
-                                          },
-                                          "endsAt": {
-                                            "format": "date-time",
-                                            "nullable": true,
-                                            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$",
-                                            "type": "string"
-                                          },
-                                          "revoked": {
-                                            "type": "boolean"
-                                          },
-                                          "startsAt": {
-                                            "format": "date-time",
-                                            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$",
-                                            "type": "string"
-                                          }
-                                        },
-                                        "required": [
-                                          "capability",
-                                          "startsAt",
-                                          "endsAt",
-                                          "revoked"
-                                        ],
-                                        "type": "object"
-                                      },
-                                      "type": "array"
-                                    },
-                                    "content": {
-                                      "items": {
-                                        "additionalProperties": false,
-                                        "properties": {
-                                          "available": {
-                                            "type": "boolean"
-                                          },
-                                          "id": {
-                                            "format": "uuid",
-                                            "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
-                                            "type": "string"
-                                          },
-                                          "kind": {
-                                            "enum": [
-                                              "guide",
-                                              "material"
-                                            ],
-                                            "type": "string"
-                                          },
-                                          "slug": {
-                                            "nullable": true,
-                                            "type": "string"
-                                          },
-                                          "title": {
-                                            "type": "string"
-                                          }
-                                        },
-                                        "required": [
-                                          "kind",
-                                          "id",
-                                          "title",
-                                          "slug",
-                                          "available"
-                                        ],
-                                        "type": "object"
-                                      },
-                                      "type": "array"
-                                    },
-                                    "endPolicy": {
-                                      "enum": [
-                                        "fixed",
-                                        "confirmed_external",
-                                        "temporary_membership"
-                                      ],
-                                      "type": "string"
-                                    },
-                                    "endsAt": {
-                                      "format": "date-time",
-                                      "nullable": true,
-                                      "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$",
-                                      "type": "string"
-                                    },
-                                    "history": {
-                                      "items": {
-                                        "additionalProperties": false,
-                                        "properties": {
-                                          "kind": {
-                                            "type": "string"
-                                          },
-                                          "reason": {
-                                            "type": "string"
-                                          },
-                                          "recordedAt": {
-                                            "format": "date-time",
-                                            "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$",
-                                            "type": "string"
-                                          }
-                                        },
-                                        "required": [
-                                          "kind",
-                                          "reason",
-                                          "recordedAt"
-                                        ],
-                                        "type": "object"
-                                      },
-                                      "type": "array"
-                                    },
-                                    "id": {
-                                      "format": "uuid",
-                                      "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
-                                      "type": "string"
-                                    },
-                                    "nextChargeAt": {
-                                      "format": "date-time",
-                                      "nullable": true,
-                                      "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$",
-                                      "type": "string"
-                                    },
-                                    "origin": {
-                                      "enum": [
-                                        "course",
-                                        "tribute",
-                                        "manual",
-                                        "platform_payment",
-                                        "invitation"
-                                      ],
-                                      "type": "string"
-                                    },
-                                    "renewal": {
-                                      "enum": [
-                                        "not_applicable",
-                                        "billing_agreement"
-                                      ],
-                                      "type": "string"
-                                    },
-                                    "revision": {
-                                      "exclusiveMinimum": true,
-                                      "maximum": 9007199254740991,
-                                      "minimum": 0,
-                                      "type": "integer"
-                                    },
-                                    "startsAt": {
-                                      "format": "date-time",
-                                      "pattern": "^(?:(?:\\d\\d[2468][048]|\\d\\d[13579][26]|\\d\\d0[48]|[02468][048]00|[13579][26]00)-02-29|\\d{4}-(?:(?:0[13578]|1[02])-(?:0[1-9]|[12]\\d|3[01])|(?:0[469]|11)-(?:0[1-9]|[12]\\d|30)|(?:02)-(?:0[1-9]|1\\d|2[0-8])))T(?:(?:[01]\\d|2[0-3]):[0-5]\\d:[0-5]\\d(?:\\.\\d+)?(?:Z))$",
-                                      "type": "string"
-                                    },
-                                    "state": {
-                                      "enum": [
-                                        "scheduled",
-                                        "active",
-                                        "expired",
-                                        "revoked",
-                                        "pending_verification",
-                                        "suspended_source"
-                                      ],
-                                      "type": "string"
-                                    },
-                                    "tier": {
-                                      "additionalProperties": false,
-                                      "properties": {
-                                        "benefits": {
-                                          "items": {
-                                            "anyOf": [
-                                              {
-                                                "enum": [
-                                                  "materials",
-                                                  "community",
-                                                  "reviews",
-                                                  "support"
-                                                ],
-                                                "type": "string"
-                                              },
-                                              {
-                                                "pattern": "^guide:([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
-                                                "type": "string"
-                                              }
-                                            ]
-                                          },
-                                          "maxItems": 100,
-                                          "minItems": 1,
-                                          "type": "array"
-                                        },
-                                        "contentScope": {
-                                          "additionalProperties": false,
-                                          "properties": {
-                                            "allGuides": {
-                                              "enum": [
-                                                true
-                                              ],
-                                              "type": "boolean"
-                                            },
-                                            "guideIds": {
-                                              "items": {
-                                                "format": "uuid",
-                                                "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
-                                                "type": "string"
-                                              },
-                                              "maxItems": 1000,
-                                              "type": "array"
-                                            },
-                                            "materialIds": {
-                                              "items": {
-                                                "format": "uuid",
-                                                "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
-                                                "type": "string"
-                                              },
-                                              "maxItems": 1000,
-                                              "type": "array"
-                                            }
-                                          },
-                                          "required": [
-                                            "guideIds",
-                                            "materialIds"
-                                          ],
-                                          "type": "object"
-                                        },
-                                        "id": {
-                                          "format": "uuid",
-                                          "pattern": "^([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
-                                          "type": "string"
-                                        },
-                                        "name": {
-                                          "maxLength": 200,
-                                          "minLength": 1,
-                                          "type": "string"
-                                        },
-                                        "revision": {
-                                          "exclusiveMinimum": true,
-                                          "maximum": 9007199254740991,
-                                          "minimum": 0,
-                                          "type": "integer"
-                                        }
-                                      },
-                                      "required": [
-                                        "id",
-                                        "revision",
-                                        "name",
-                                        "benefits",
-                                        "contentScope"
-                                      ],
-                                      "type": "object"
-                                    }
-                                  },
-                                  "required": [
-                                    "id",
-                                    "accountId",
-                                    "tier",
-                                    "origin",
-                                    "startsAt",
-                                    "endsAt",
-                                    "endPolicy",
-                                    "revision",
-                                    "state",
-                                    "renewal"
-                                  ],
-                                  "type": "object"
-                                },
-                                "mode": {
-                                  "enum": [
-                                    "gift"
-                                  ],
-                                  "type": "string"
-                                },
-                                "offerName": {
-                                  "maxLength": 200,
-                                  "minLength": 1,
-                                  "type": "string"
-                                },
-                                "state": {
-                                  "enum": [
-                                    "already_redeemed"
-                                  ],
-                                  "type": "string"
-                                }
-                              },
-                              "required": [
-                                "contractVersion",
-                                "mode",
-                                "offerName",
-                                "enrollment",
                                 "state"
                               ],
                               "type": "object"
@@ -112265,6 +112043,44 @@
                                 "tier": {
                                   "additionalProperties": false,
                                   "properties": {
+                                    "benefitPeriods": {
+                                      "items": {
+                                        "additionalProperties": false,
+                                        "properties": {
+                                          "capability": {
+                                            "anyOf": [
+                                              {
+                                                "enum": [
+                                                  "materials",
+                                                  "community",
+                                                  "reviews",
+                                                  "support"
+                                                ],
+                                                "type": "string"
+                                              },
+                                              {
+                                                "pattern": "^guide:([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                                                "type": "string"
+                                              }
+                                            ]
+                                          },
+                                          "months": {
+                                            "exclusiveMinimum": true,
+                                            "maximum": 1200,
+                                            "minimum": 0,
+                                            "nullable": true,
+                                            "type": "integer"
+                                          }
+                                        },
+                                        "required": [
+                                          "capability",
+                                          "months"
+                                        ],
+                                        "type": "object"
+                                      },
+                                      "maxItems": 100,
+                                      "type": "array"
+                                    },
                                     "benefits": {
                                       "items": {
                                         "anyOf": [
@@ -112383,8 +112199,7 @@
                                 },
                                 "verificationMode": {
                                   "enum": [
-                                    "course_membership",
-                                    "tribute_registry"
+                                    "course_membership"
                                   ],
                                   "type": "string"
                                 }
@@ -112785,8 +112600,7 @@
                     "enum": [
                       "member",
                       "not_member",
-                      "unavailable",
-                      "registry_lookup"
+                      "unavailable"
                     ],
                     "type": "string"
                   },
@@ -113051,6 +112865,44 @@
                                 "tier": {
                                   "additionalProperties": false,
                                   "properties": {
+                                    "benefitPeriods": {
+                                      "items": {
+                                        "additionalProperties": false,
+                                        "properties": {
+                                          "capability": {
+                                            "anyOf": [
+                                              {
+                                                "enum": [
+                                                  "materials",
+                                                  "community",
+                                                  "reviews",
+                                                  "support"
+                                                ],
+                                                "type": "string"
+                                              },
+                                              {
+                                                "pattern": "^guide:([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                                                "type": "string"
+                                              }
+                                            ]
+                                          },
+                                          "months": {
+                                            "exclusiveMinimum": true,
+                                            "maximum": 1200,
+                                            "minimum": 0,
+                                            "nullable": true,
+                                            "type": "integer"
+                                          }
+                                        },
+                                        "required": [
+                                          "capability",
+                                          "months"
+                                        ],
+                                        "type": "object"
+                                      },
+                                      "maxItems": 100,
+                                      "type": "array"
+                                    },
                                     "benefits": {
                                       "items": {
                                         "anyOf": [
@@ -113169,8 +113021,7 @@
                                 },
                                 "verificationMode": {
                                   "enum": [
-                                    "course_membership",
-                                    "tribute_registry"
+                                    "course_membership"
                                   ],
                                   "type": "string"
                                 }
@@ -113581,6 +113432,44 @@
                                   "tier": {
                                     "additionalProperties": false,
                                     "properties": {
+                                      "benefitPeriods": {
+                                        "items": {
+                                          "additionalProperties": false,
+                                          "properties": {
+                                            "capability": {
+                                              "anyOf": [
+                                                {
+                                                  "enum": [
+                                                    "materials",
+                                                    "community",
+                                                    "reviews",
+                                                    "support"
+                                                  ],
+                                                  "type": "string"
+                                                },
+                                                {
+                                                  "pattern": "^guide:([0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[1-8][0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}|00000000-0000-0000-0000-000000000000|ffffffff-ffff-ffff-ffff-ffffffffffff)$",
+                                                  "type": "string"
+                                                }
+                                              ]
+                                            },
+                                            "months": {
+                                              "exclusiveMinimum": true,
+                                              "maximum": 1200,
+                                              "minimum": 0,
+                                              "nullable": true,
+                                              "type": "integer"
+                                            }
+                                          },
+                                          "required": [
+                                            "capability",
+                                            "months"
+                                          ],
+                                          "type": "object"
+                                        },
+                                        "maxItems": 100,
+                                        "type": "array"
+                                      },
                                       "benefits": {
                                         "items": {
                                           "anyOf": [

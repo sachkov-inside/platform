@@ -1,3 +1,7 @@
+import {
+  readTimedEnrollmentAccess,
+  type TimedEnrollmentAccess,
+} from "../../shared/timed-enrollment-access.js";
 import { accessFailure } from "../../domain/access-grant.js";
 import {
   ENDING_SOON_WINDOW_MS,
@@ -49,7 +53,8 @@ export async function listAccessHolders(
   const take = query.limit + 1;
   const after =
     query.cursor === undefined ? {} : { accountId: { gt: query.cursor } };
-  const enrollmentFilter = enrollmentCondition(query, now);
+  const timed = await readTimedEnrollmentAccess(prisma, now);
+  const enrollmentFilter = enrollmentCondition(query, now, timed);
   const grantFilter = grantCondition(query, context, now);
   const [enrolled, granted] = await Promise.all([
     enrollmentFilter === null
@@ -79,7 +84,9 @@ export async function listAccessHolders(
   const page = accounts.slice(0, query.limit);
   const [enrollments, grants, bindings] = await Promise.all([
     prisma.subscriptionEnrollment.findMany({
-      where: { AND: [{ accountId: { in: page } }, listedEnrollment(now)] },
+      where: {
+        AND: [{ accountId: { in: page } }, listedEnrollment(now, timed)],
+      },
       orderBy: [{ startsAt: "asc" }, { id: "asc" }],
     }),
     prisma.accessGrant.findMany({
@@ -99,7 +106,12 @@ export async function listAccessHolders(
       grounds: [
         ...enrollments
           .filter((row) => row.accountId === accountId)
-          .map((row) => enrollmentGround(row, now)),
+          .map((row) => ({
+            ...enrollmentGround(row, now),
+            state:
+              timed.find((entry) => entry.id === row.id)?.state ??
+              enrollmentGround(row, now).state,
+          })),
         ...grants
           .filter((row) => row.accountId === accountId)
           .map((row) => grantGround(row, now)),
@@ -116,12 +128,25 @@ export async function listAccessHolders(
 }
 
 /** Окно списка: основание не закончилось и не отозвано раньше, чем 30 дней назад. */
-function listedEnrollment(now: Date): EnrollmentWhere {
+function listedEnrollment(
+  now: Date,
+  timed: TimedEnrollmentAccess,
+): EnrollmentWhere {
   const since = new Date(now.getTime() - RECENTLY_ENDED_WINDOW_MS);
   return {
-    AND: [
-      { OR: [{ revokedAt: null }, { revokedAt: { gt: since } }] },
-      { OR: [{ endsAt: null }, { endsAt: { gt: since } }] },
+    OR: [
+      {
+        id: {
+          in: timed.filter((entry) => entry.listed).map((entry) => entry.id),
+        },
+      },
+      {
+        id: { notIn: timed.map((entry) => entry.id) },
+        AND: [
+          { OR: [{ revokedAt: null }, { revokedAt: { gt: since } }] },
+          { OR: [{ endsAt: null }, { endsAt: { gt: since } }] },
+        ],
+      },
     ],
   };
 }
@@ -144,7 +169,10 @@ function stateWindow(now: Date) {
     soon: new Date(now.getTime() + ENDING_SOON_WINDOW_MS),
   };
 }
-function enrollmentState(state: AccessHolderState, now: Date): EnrollmentWhere {
+function legacyEnrollmentState(
+  state: AccessHolderState,
+  now: Date,
+): EnrollmentWhere {
   const { since, soon } = stateWindow(now);
   switch (state) {
     case "active":
@@ -167,6 +195,37 @@ function enrollmentState(state: AccessHolderState, now: Date): EnrollmentWhere {
         ],
       };
   }
+}
+function enrollmentState(
+  state: AccessHolderState,
+  now: Date,
+  timed: TimedEnrollmentAccess,
+): EnrollmentWhere {
+  return {
+    OR: [
+      {
+        id: {
+          in: timed
+            .filter(
+              (entry) =>
+                entry.listed &&
+                (state === "expiring"
+                  ? entry.expiring
+                  : state === "ended"
+                    ? entry.state === "ended" || entry.state === "revoked"
+                    : entry.state === "active"),
+            )
+            .map((entry) => entry.id),
+        },
+      },
+      {
+        AND: [
+          { id: { notIn: timed.map((entry) => entry.id) } },
+          legacyEnrollmentState(state, now),
+        ],
+      },
+    ],
+  };
 }
 function grantState(state: AccessHolderState, now: Date): GrantWhere {
   const { since, soon } = stateWindow(now);
@@ -197,13 +256,14 @@ function grantState(state: AccessHolderState, now: Date): GrantWhere {
 function enrollmentCondition(
   query: ListAccessHoldersCommand,
   now: Date,
+  timed: TimedEnrollmentAccess,
 ): EnrollmentWhere | null {
   if (query.source === "one_time_purchase") return null;
-  const conditions: EnrollmentWhere[] = [listedEnrollment(now)];
+  const conditions: EnrollmentWhere[] = [listedEnrollment(now, timed)];
   if (query.source !== undefined) conditions.push({ origin: query.source });
   if (query.offerId !== undefined) conditions.push({ tierId: query.offerId });
   if (query.state !== undefined)
-    conditions.push(enrollmentState(query.state, now));
+    conditions.push(enrollmentState(query.state, now, timed));
   return { AND: conditions };
 }
 

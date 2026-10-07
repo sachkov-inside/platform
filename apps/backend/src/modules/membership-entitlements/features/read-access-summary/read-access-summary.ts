@@ -1,3 +1,4 @@
+import { readTimedEnrollmentAccess } from "../../shared/timed-enrollment-access.js";
 import type {
   AccessGround,
   InvitationFunnel,
@@ -14,6 +15,8 @@ import {
 export interface ActiveAccessGround {
   readonly accountId: string;
   readonly ground: AccessGround;
+  /** Actual end of all rights; the assignment itself can remain unlimited. */
+  readonly accessEndsAt?: string | null;
 }
 export interface AccessSummaryFacts {
   readonly active: readonly ActiveAccessGround[];
@@ -33,7 +36,7 @@ export async function readAccessSummary(
     revokedAt: null,
     startsAt: { lte: now },
   };
-  const [enrollments, grants, invitations] = await Promise.all([
+  const [enrollments, grants, invitations, timed] = await Promise.all([
     prisma.subscriptionEnrollment.findMany({
       where: { ...current, OR: [{ endsAt: null }, { endsAt: { gt: now } }] },
       orderBy: [{ accountId: "asc" }, { id: "asc" }],
@@ -58,6 +61,7 @@ export async function readAccessSummary(
         revokedAt: true,
       },
     }),
+    readTimedEnrollmentAccess(prisma, now),
   ]);
   const purchaseOpened = invitations.filter(
     (row) => row.mode === "purchase" && row.redeemedAt !== null,
@@ -77,10 +81,16 @@ export async function readAccessSummary(
   const states = invitations.map((row) => invitationState(row, now));
   return {
     active: [
-      ...enrollments.map((row) => ({
-        accountId: row.accountId,
-        ground: enrollmentGround(row, now),
-      })),
+      ...enrollments
+        .filter((row) => {
+          const access = timed.find((entry) => entry.id === row.id);
+          return access === undefined || access.state === "active";
+        })
+        .map((row) => ({
+          accountId: row.accountId,
+          ground: enrollmentGround(row, now),
+          accessEndsAt: timed.find((entry) => entry.id === row.id)?.endsAt,
+        })),
       ...grants.map((row) => ({
         accountId: row.accountId,
         ground: grantGround(row, now),
@@ -98,9 +108,6 @@ export async function readAccessSummary(
             row.redeemedAt !== null &&
             payment.startsAt >= row.redeemedAt,
         ),
-      ).length,
-      gifted: invitations.filter(
-        (row) => row.mode === "gift" && row.redeemedAt !== null,
       ).length,
       expired: states.filter((state) => state === "expired").length,
       revoked: states.filter((state) => state === "revoked").length,

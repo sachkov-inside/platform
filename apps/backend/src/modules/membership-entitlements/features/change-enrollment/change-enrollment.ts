@@ -64,12 +64,15 @@ export async function changeEnrollmentInTransaction(
     (command.terms.endsAt === null || command.terms.endPolicy === "fixed")
   )
     return accessFailure("invalid_input");
-  if (row.origin === "course" && command.terms.endPolicy !== "fixed")
+  if (
+    (row.origin === "course" || row.origin === "manual") &&
+    command.terms.endPolicy !== "fixed"
+  )
     return accessFailure("invalid_input");
   if (row.origin === "platform_payment") return accessFailure("forbidden");
   if (
-    row.origin === "course" &&
-    (command.terms.endsAt !== null ||
+    (row.origin === "course" || row.origin === "manual") &&
+    (command.terms.endsAt !== (row.endsAt?.toISOString() ?? null) ||
       new Date(command.terms.startsAt).getTime() !== row.startsAt.getTime())
   )
     return accessFailure("invalid_input");
@@ -137,8 +140,9 @@ export async function changeEnrollmentInTransaction(
       revision: { increment: 1 },
       reason: data.reason,
       revokedAt: data.revokedAt,
-      startsAt: data.startsAt,
-      validUntil: data.endsAt,
+      ...(row.origin === "course" || row.origin === "manual"
+        ? {}
+        : { startsAt: data.startsAt, validUntil: data.endsAt }),
     },
   });
   if (row.origin === "tribute") {
