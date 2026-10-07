@@ -13,8 +13,9 @@ const OPERATIONAL_DAYS = 30;
 const PUBLISHED_RESULT_DAYS = 7;
 
 /**
- * Owner-decided periods (inside-telegram#91). Contact, link, Membership audit, communication
- * and notification history has no period and is kept.
+ * Configured periods: the owner decided the membership check period (inside-telegram#91); the
+ * sales funnel event period awaits the owner (#980). Contact, link, Membership audit,
+ * communication and notification history has no period and is kept.
  */
 export interface RetentionPeriods {
   /** Membership check results with their evidence deliveries. */
