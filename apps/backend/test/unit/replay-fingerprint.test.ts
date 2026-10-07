@@ -78,3 +78,56 @@ describe("Replay fingerprints moved to commandDigest", () => {
     );
   });
 });
+
+// These literals use the independently reconstructed pre-0082 envelopes, including v1 receipts.
+describe("Receipts across the Product vocabulary upgrade", () => {
+  const productId = "b7c1f0e2-0000-4000-8000-000000000003";
+  const coverage = {
+    productIds: [productId],
+    materialIds: [],
+    wholePlatform: true,
+  };
+  test("recognizes both manual receipt generations and preserves conflict detection", () => {
+    const command = {
+      operationId: "b7c1f0e2-0000-4000-8000-000000000001",
+      terms: {
+        capabilities: ["materials", `product:${productId}`],
+        coverage,
+        reason: "guide: literal",
+      },
+    };
+    const fingerprint = accessFingerprint(command);
+    expect(fingerprint.digest).toBe(
+      "874d8509e374abfc48229c3f0540e0d76e6577f98ded312f37fe2c42b2a506cb",
+    );
+    expect(
+      fingerprint.recognizes(
+        "9ef3419f510e52328d958050af677dda73dc2f76af94f9c9992c121e00555ad5",
+      ),
+    ).toBe(true);
+    expect(
+      accessFingerprint({
+        ...command,
+        terms: { ...command.terms, reason: "Changed reason" },
+      }).recognizes(fingerprint.digest),
+    ).toBe(false);
+  });
+  test("recognizes a catalog command whose sorted capabilities changed position", () => {
+    const command = {
+      operation: "offers.save",
+      benefits: ["materials", `product:${productId}`],
+      coverage,
+      name: "product: literal",
+    };
+    const fingerprint = replayCommandFingerprint("manageCatalog", command);
+    expect(fingerprint.digest).toBe(
+      "adbe42b41ba3d6c9ec649c1a628d92126507241e7dcba0f6960d7e99515eeda3",
+    );
+    expect(
+      replayCommandFingerprint("manageCatalog", {
+        ...command,
+        coverage: { ...coverage, productIds: [] },
+      }).recognizes(fingerprint.digest),
+    ).toBe(false);
+  });
+});

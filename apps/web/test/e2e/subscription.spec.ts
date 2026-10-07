@@ -28,43 +28,6 @@ async function stubBilling(page: Page, billing: unknown, status = 200) {
   );
 }
 
-test("витрина отвечает и объясняет недоступность каталога", async ({
-  page,
-}) => {
-  const response = await page.goto("/payment/checkout");
-
-  expect(response?.status()).toBe(200);
-  await expect(page.getByRole("heading", { level: 1 })).toHaveText(
-    "Подписка Sachkov Inside",
-  );
-  await expect(page.getByRole("status")).toContainText(
-    "Тарифы сейчас недоступны",
-  );
-});
-
-test("витрина сохраняет исходную страницу продукта", async ({ page }) => {
-  await page.goto("/payment/checkout?from=%2Fproducts%2Fplatform-inside");
-
-  await expect(
-    page.getByRole("link", { name: "Вернуться к материалу" }),
-  ).toHaveAttribute("href", "/products/platform-inside");
-});
-
-test("витрина не имеет серьёзных нарушений доступности", async ({ page }) => {
-  await page.goto("/payment/checkout");
-
-  const results = await new AxeBuilder({ page })
-    .withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"])
-    .analyze();
-
-  expect(
-    results.violations.filter(
-      (violation) =>
-        violation.impact === "serious" || violation.impact === "critical",
-    ),
-  ).toEqual([]);
-});
-
 test("возврат из банка не выдаётся за подтверждение оплаты", async ({
   page,
 }) => {

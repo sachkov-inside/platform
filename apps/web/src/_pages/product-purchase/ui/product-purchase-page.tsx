@@ -30,6 +30,7 @@ export async function ProductPurchasePage({
   if (product.kind === "unavailable" || product.reference.id === undefined) {
     return (
       <ProductPurchase
+        key={`${slug}:${offerId ?? ""}`}
         product={null}
         offers={[]}
         {...(offerId === undefined ? {} : { offerId })}
@@ -44,6 +45,7 @@ export async function ProductPurchasePage({
     : readViewerProductSale(product.reference.id, accessToken));
   return (
     <ProductPurchase
+      key={`${slug}:${offerId ?? ""}`}
       product={{
         name: product.reference.name,
         summary: product.reference.summary,

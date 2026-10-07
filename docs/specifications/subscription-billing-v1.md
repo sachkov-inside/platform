@@ -1252,6 +1252,12 @@ identifiers and converts persisted capabilities (`guide:<id>` to `product:<id>`)
 and the `closed` access class in one transaction. Product IDs, right IDs and promised periods stay
 unchanged. Authored content and external provider evidence retain their original JSON.
 
+Internal command digests retain the pre-#1065 vocabulary in each scope's original envelope.
+Replays normalize live commands into that storage form; receipt digests remain unchanged. Paid grant
+source references follow the renamed capability while outbox event identities stay unchanged.
+This storage codec must remain until all old receipts and previews have an explicit digest migration.
+It is independent of the temporary bot codec below.
+
 Platform deploys first, with its matching Web and Backend images and migration. Until Telegram
 ships, bot activation responses without `x-inside-domain-names: products.v1` retain the previous
 `guide:`, `contentScope`, `guideIds` and `allGuides` representation. Cohort responses also retain

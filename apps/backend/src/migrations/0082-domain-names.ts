@@ -9,7 +9,7 @@ CREATE FUNCTION pg_temp.domain_name(value text) RETURNS text LANGUAGE sql IMMUTA
     'subscription_enrollment', 'tariff_assignment'),
     'content_scope', 'coverage'), 'allGuides', 'wholePlatform'), 'contentScope', 'coverage'), 'Guide', 'Product'), 'guide', 'product');
 $$;
-CREATE FUNCTION pg_temp.domain_json(value jsonb) RETURNS jsonb LANGUAGE plpgsql IMMUTABLE STRICT AS $$
+CREATE FUNCTION pg_temp.domain_json(value jsonb, field text DEFAULT '') RETURNS jsonb LANGUAGE plpgsql IMMUTABLE STRICT AS $$
 DECLARE result jsonb; item record; key text; child jsonb;
 BEGIN
   CASE jsonb_typeof(value)
@@ -18,7 +18,7 @@ BEGIN
       FOR item IN SELECT * FROM jsonb_each(value) LOOP
         key := replace(replace(replace(item.key, 'contentScope', 'coverage'), 'ContentScope', 'Coverage'), 'allGuides', 'wholePlatform');
         key := replace(replace(key, 'guide', 'product'), 'Guide', 'Product');
-        child := pg_temp.domain_json(item.value);
+        child := pg_temp.domain_json(item.value, item.key);
         IF item.key = 'access' AND item.value = '"membership"'::jsonb THEN child := '"closed"'::jsonb; END IF;
         IF item.key = 'kind' AND item.value = '"guide"'::jsonb THEN child := '"product"'::jsonb; END IF;
         IF result ? key THEN RAISE EXCEPTION 'Domain JSON key collision: %', key; END IF;
@@ -26,11 +26,14 @@ BEGIN
       END LOOP;
       RETURN result;
     WHEN 'array' THEN
-      SELECT coalesce(jsonb_agg(pg_temp.domain_json(element) ORDER BY ordinal), '[]'::jsonb)
+      SELECT coalesce(jsonb_agg(pg_temp.domain_json(element, field) ORDER BY ordinal), '[]'::jsonb)
         INTO result FROM jsonb_array_elements(value) WITH ORDINALITY AS entry(element, ordinal);
       RETURN result;
     WHEN 'string' THEN
-      IF value #>> '{}' LIKE 'guide:%' THEN RETURN to_jsonb('product:' || substring(value #>> '{}' FROM 7)); END IF;
+      IF field IN ('capability', 'capabilities', 'benefits') AND value #>> '{}' LIKE 'guide:%' THEN RETURN to_jsonb('product:' || substring(value #>> '{}' FROM 7)); END IF;
+      IF field IN ('periodRef', 'sourceRef') AND value #>> '{}' ~ '^[0-9a-f-]{36}:guide:[0-9a-f-]{36}$' THEN
+        RETURN to_jsonb(replace(value #>> '{}', ':guide:', ':product:'));
+      END IF;
       RETURN value;
     ELSE RETURN value;
   END CASE;
@@ -115,7 +118,7 @@ DO $$ DECLARE item record; BEGIN
       ('billing.purchases', 'snapshot'), ('billing.fulfillment_outbox', 'payload'),
       ('billing.subscriptions', 'snapshot'), ('billing.subscriptions', 'pending_change'),
       ('billing.subscription_events', 'payload'), ('billing.subscription_commands', 'result'),
-      ('billing.subscription_change_quotes', 'plan'), ('billing.owner_commands', 'result'),
+      ('billing.change_quotes', 'plan'), ('billing.owner_commands', 'result'),
       ('reading_activity.commands', 'outcome'), ('product_tasks.import_receipts', 'receipt')
     ) THEN
       EXECUTE format('UPDATE %s SET %I = pg_temp.domain_json(%I) WHERE %I IS DISTINCT FROM pg_temp.domain_json(%I)',
@@ -131,6 +134,10 @@ DO $$ DECLARE item record; BEGIN
     END IF;
   END LOOP;
 END $$;
+
+-- Paid grant identity includes its capability, so refund/renewal must find the same existing row.
+UPDATE account_rights.access_grants SET source_ref = replace(source_ref, ':guide:', ':product:')
+ WHERE source = 'paid' AND source_ref ~ '^[0-9a-f-]{36}:guide:[0-9a-f-]{36}$';
 
 DO $$ DECLARE item record; target text; BEGIN
   FOR item IN SELECT * FROM domain_checks LOOP

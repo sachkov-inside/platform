@@ -48,3 +48,26 @@ describe("Command fingerprints", () => {
     );
   });
 });
+
+// The opaque body below deliberately contains names that must never be translated.
+test("keeps a persisted catalog command digest without rewriting its authored body", () => {
+  const command = {
+    operation: "apply_product_artifact",
+    productId: "b7c1f0e2-0000-4000-8000-000000000003",
+    access: "closed",
+    body: {
+      productId: "authored",
+      coverage: { wholePlatform: true },
+      access: "closed",
+    },
+  };
+  expect(fingerprintCommand(command)).toBe(
+    "ae53bf74f78032f20f35edc2aaeead3b0bee039bbd97bdf451f77938219b7db4",
+  );
+  expect(
+    fingerprintCommand({
+      ...command,
+      body: { ...command.body, productId: "changed authored content" },
+    }),
+  ).not.toBe(fingerprintCommand(command));
+});

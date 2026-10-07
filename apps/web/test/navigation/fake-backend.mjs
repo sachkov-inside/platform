@@ -309,7 +309,17 @@ function route(method, url, entitled) {
     return json({
       facets: {
         formats: [],
-        series: products.filter((item) => item.slug !== archivedProductSlug),
+        series: products
+          .filter((item) => item.slug !== archivedProductSlug)
+          .map((item) => ({
+            id: item.id,
+            name: item.name,
+            slug: item.slug,
+            cover: item.cover,
+            count: lessonsOf(item).length,
+            previewItems: [],
+            summary: "Синтетический продукт проверок.",
+          })),
         topics: [],
       },
       items: lessonsOf(products[0]).map((lesson) =>
@@ -489,6 +499,19 @@ function route(method, url, entitled) {
       renewalPriceKopecks: 990_000,
       timezone: "Europe/Moscow",
     };
+    const alternatePrice = {
+      ...publicPrice,
+      offer: {
+        ...publicPrice.offer,
+        id: "66666666-6666-4666-8666-666666666605",
+        name: "Второй проверочный тариф",
+      },
+      paymentOption: {
+        ...publicPrice.paymentOption,
+        id: "66666666-6666-4666-8666-666666666606",
+        offerId: "66666666-6666-4666-8666-666666666605",
+      },
+    };
     const invitedOfferId = "66666666-6666-4666-8666-666666666603";
     const invitedPrice = {
       ...publicPrice,
@@ -509,7 +532,10 @@ function route(method, url, entitled) {
     };
     const capability = url.searchParams.get("capability");
     return json({
-      items: (entitled ? [publicPrice, invitedPrice] : [publicPrice]).filter(
+      items: (entitled
+        ? [publicPrice, alternatePrice, invitedPrice]
+        : [publicPrice, alternatePrice]
+      ).filter(
         (snapshot) =>
           capability === null || snapshot.offer.benefits.includes(capability),
       ),

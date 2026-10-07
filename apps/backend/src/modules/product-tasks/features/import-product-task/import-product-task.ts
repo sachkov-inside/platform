@@ -1,3 +1,4 @@
+import { preProductCommand } from "../../../../infrastructure/contracts/pre-product-command.js";
 import { randomUUID } from "node:crypto";
 import { z } from "zod";
 
@@ -111,7 +112,9 @@ export function assembleApplySourceTask(
     if (!authorized.ok) return authorized;
     const placement = await checkPlacement(dependencies.directory, command);
     if (!placement.ok) return placement;
-    const fingerprint = commandDigest({ operation, ...command });
+    const fingerprint = commandDigest(
+      preProductCommand({ operation, ...command }),
+    );
     const receiptKey = {
       actorId: context.actor,
       operation,

@@ -1338,7 +1338,7 @@ test("a hidden tariff survives sign-in and resolves its own product", async ({
   const link = `/payment/checkout?offer=${offer}&promo=COURSE`;
   await page.goto(`/subscription?offer=${offer}&promo=COURSE`);
   await expect(
-    page.getByRole("button", { name: "Войти", exact: true }),
+    page.getByRole("main").getByRole("button", { name: "Войти", exact: true }),
   ).toBeVisible();
   await expect(page.locator('input[name="returnTo"]')).toHaveValue(link);
   await signInAsMember(context, baseURL);
@@ -1346,4 +1346,43 @@ test("a hidden tariff survives sign-in and resolves its own product", async ({
   await expect(page).toHaveURL(
     `/products/navigation-modes/buy?offer=${offer}&promo=COURSE`,
   );
+});
+
+test("client navigation to another Offer resets the selected tariff on the same Product", async ({
+  page,
+  context,
+  baseURL,
+}) => {
+  if (baseURL === undefined) throw new Error("Web baseURL is required");
+  await signInAsMember(context, baseURL);
+  const firstOffer = "66666666-6666-4666-8666-666666666601";
+  const secondOffer = "66666666-6666-4666-8666-666666666605";
+  await page.goto(`/products/navigation-proof/buy?offer=${firstOffer}`);
+  await expect(
+    page.locator('input[value="66666666-6666-4666-8666-666666666602"]'),
+  ).toBeChecked();
+  await page.evaluate((href) => {
+    Reflect.set(window, "__offerNavigationDocument", true);
+    const next: unknown = Reflect.get(window, "next");
+    if (next === null || typeof next !== "object")
+      throw new Error("Next router is absent");
+    const router: unknown = Reflect.get(next, "router");
+    if (router === null || typeof router !== "object")
+      throw new Error("Next router is absent");
+    const push: unknown = Reflect.get(router, "push");
+    if (typeof push !== "function")
+      throw new Error("Next router cannot navigate");
+    Reflect.apply(push, router, [href]);
+  }, `/products/navigation-proof/buy?offer=${secondOffer}`);
+  await expect(page).toHaveURL(
+    `/products/navigation-proof/buy?offer=${secondOffer}`,
+  );
+  await expect(
+    page.locator('input[value="66666666-6666-4666-8666-666666666606"]'),
+  ).toBeChecked();
+  expect(
+    await page.evaluate((): unknown =>
+      Reflect.get(window, "__offerNavigationDocument"),
+    ),
+  ).toBe(true);
 });

@@ -1,6 +1,6 @@
 import { expect, it } from "vitest";
 
-import { initialPaymentOptionId } from "@/_pages/subscription/model/initial-selection";
+import { initialPaymentOptionId } from "@/_pages/product-purchase/model/initial-selection";
 import {
   productPurchaseHref,
   purchaseInvitation,

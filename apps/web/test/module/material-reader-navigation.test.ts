@@ -11,7 +11,7 @@ import {
 
 describe("Material Reader navigation", () => {
   it("preserves Product and legacy contexts, page and selected Material", () => {
-    for (const prefix of ["products", "series"]) {
+    for (const prefix of ["products", "guides", "series"]) {
       const href = `/${prefix}/platform-inside?from=%2F&page=2&at=second`;
       expect(parseMaterialReaderReturnTarget(href)).toEqual({
         href,
@@ -30,6 +30,17 @@ describe("Material Reader navigation", () => {
       ).toBe("home");
     }
     expect(parseMaterialReaderReturnTarget(undefined).kind).toBe("home");
+  });
+
+  it("keeps a saved Guide programme return route", () => {
+    expect(parseMaterialReaderReturnTarget("/guides/course/programme")).toEqual(
+      {
+        href: "/guides/course/programme",
+        kind: "series",
+        seriesSlug: "course",
+        label: "Назад к программе",
+      },
+    );
   });
 
   it("round-trips Home feed, Playlist, Topic and Profile origins", () => {

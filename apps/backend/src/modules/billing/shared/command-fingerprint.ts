@@ -1,3 +1,4 @@
+import { preProductCommand } from "../../../infrastructure/contracts/pre-product-command.js";
 import {
   commandDigest,
   replayFingerprint,
@@ -12,7 +13,7 @@ export function commandFingerprint(
   operation: string,
   command: unknown,
 ): string {
-  return commandDigest({ version: 1, operation, command });
+  return commandDigest(preProductCommand({ version: 1, operation, command }));
 }
 
 /**
@@ -24,7 +25,7 @@ export function replayCommandFingerprint(
   command: unknown,
 ): ReplayFingerprint {
   return replayFingerprint(
-    { version: 1, operation, command },
-    JSON.stringify(command),
+    preProductCommand({ version: 1, operation, command }),
+    JSON.stringify(preProductCommand(command)),
   );
 }

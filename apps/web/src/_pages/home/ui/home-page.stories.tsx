@@ -300,7 +300,7 @@ export const AiEngineeringCourse: Story = {
       within(card).getByRole("link", { name: /Открыть курс/u }),
     ).toHaveAttribute(
       "href",
-      expect.stringContaining("/guides/ai-engineering"),
+      expect.stringContaining("/products/ai-engineering"),
     );
   },
 };

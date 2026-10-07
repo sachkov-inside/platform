@@ -24,7 +24,7 @@ import {
   productPresentationSchema,
   type ProductSourceFields,
 } from "../../domain/product-page.js";
-import { fingerprintCommand } from "../../shared/canonical-command-fingerprint.js";
+import { contractDigest } from "../../../../infrastructure/contracts/canonical-digest.js";
 import type { MaterialsPrismaTransaction } from "../../../../infrastructure/prisma/index.js";
 import {
   PRODUCT_INTRODUCTION_FIELD_MAX,
@@ -173,7 +173,7 @@ async function sourceMatches(
     current !== null &&
     current.slug === requested.slug &&
     current.presentation === requested.presentation &&
-    fingerprintCommand(current.page) === fingerprintCommand(requested.page)
+    contractDigest(current.page) === contractDigest(requested.page)
   );
 }
 

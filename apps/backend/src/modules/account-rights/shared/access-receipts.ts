@@ -1,3 +1,4 @@
+import { preProductCommand } from "../../../infrastructure/contracts/pre-product-command.js";
 import { createHash } from "node:crypto";
 import {
   replayFingerprint,
@@ -11,9 +12,10 @@ import type { AccountRightsPrisma } from "../infrastructure/prisma.js";
  * in key order; stored version 1 digests are still recognized.
  */
 export function accessFingerprint(value: unknown): ReplayFingerprint {
+  const persisted = preProductCommand(value);
   return replayFingerprint(
-    { version: 2, value },
-    createHash("sha256").update(JSON.stringify(value)).digest("hex"),
+    { version: 2, value: persisted },
+    createHash("sha256").update(JSON.stringify(persisted)).digest("hex"),
   );
 }
 export async function readAccessReceipt(
