@@ -1,5 +1,6 @@
 import { z } from "zod";
 import {
+  benefitPeriodsSchema,
   contentScopeEntrySchema,
   contentScopeSchema,
 } from "@inside/access-capabilities";
@@ -9,6 +10,7 @@ export const tierSchema = z.object({
   revision: z.int().positive(),
   name: z.string(),
   benefits: z.array(accessCapabilitySchema),
+  benefitPeriods: benefitPeriodsSchema.optional(),
   contentScope: contentScopeSchema,
 });
 export const enrollmentSchema = z.object({

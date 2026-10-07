@@ -2,7 +2,6 @@ import { eventually } from "./setup/eventually.js";
 import { lockAccountEntitlementChanges } from "../../src/infrastructure/prisma/index.js";
 import { changeEnrollmentInTransaction } from "../../src/modules/membership-entitlements/features/change-enrollment/change-enrollment.js";
 import { z } from "zod";
-import { activationResponseSchema } from "../../src/modules/telegram-membership/domain/subscription-activation-wire.js";
 import { createHash, createHmac, randomUUID } from "node:crypto";
 import { Module } from "@nestjs/common";
 import { APP_FILTER, APP_INTERCEPTOR, NestFactory } from "@nestjs/core";
@@ -1085,179 +1084,27 @@ describe("Tribute source production facets and signed HTTP with PostgreSQL", () 
       }),
     ).toBe(1);
   });
-  test("23 Tribute activation uses only registry, exact binding and finite source; forwarded links and member proof grant nothing", async () => {
-    const context = await setup();
-    const imported = await apply(context.row);
-    const rule = {
-      id: randomUUID(),
-      code: randomUUID(),
-      name: "Tribute",
-      tierId: context.tier.id,
-      tierRevision: 1,
-      sourceRef: context.row.policyRef,
-      verificationMode: "tribute_registry",
-      published: true,
-      startsAt: now.toISOString(),
-      endsAt: null,
-    };
-    expect(
-      await grants.manageActivationRule(owner, {
-        operationId: randomUUID(),
-        value: rule,
-        reason: "Verified registry rule",
-      }),
-    ).toMatchObject({ ok: true });
-    async function request(
-      path: string,
-      payload: object,
-      credential = "synthetic-activation-625",
-    ) {
-      const response = await http.inject({
-        method: "POST",
-        url: `/integrations/telegram/v1/subscription-activation/${path}`,
-        headers: { authorization: `Bearer ${credential}` },
-        payload,
-      });
-      expect(response.headers["cache-control"]).toBe("private, no-store");
-      return response;
-    }
-    const attemptId = randomUUID();
-    const contractVersion = "inside.subscription-activation.v1";
-    const begin = {
-      contractVersion,
-      attemptId,
-      code: rule.code,
-      identityRef: context.row.identityRef,
-    };
-    expect((await request("attempts", begin)).json()).toMatchObject({
-      ok: true,
+  test("Tribute registry activation cannot be configured", async () => {
+    const result = await grants.manageActivationRule(owner, {
+      operationId: randomUUID(),
+      reason: "Retired Tribute activation",
       value: {
-        state: "needs_account",
-        rule: { verificationMode: "tribute_registry" },
+        id: randomUUID(),
+        code: "tribute_existing",
+        name: "Tribute",
+        tierId: randomUUID(),
+        tierRevision: 1,
+        sourceRef: "tribute-roster",
+        verificationMode: "tribute_registry",
+        published: true,
+        startsAt: now.toISOString(),
+        endsAt: null,
       },
     });
-    expect(
-      await db.prisma.sourceEntitlement.findUnique({
-        where: { id: imported.result.sources[0]?.id ?? "" },
-      }),
-    ).toMatchObject({ accountId: null });
-    const customer = await link(context.row.identityRef);
-    const snapshot = await new TelegramAccountLinks(db.prisma).readBinding({
-      accountId: customer.id,
+    expect(result).toMatchObject({
+      ok: false,
+      error: { code: "invalid_input" },
     });
-    if (!snapshot.ok || !snapshot.binding) throw new Error("Missing binding");
-    const evidence = {
-      contractVersion,
-      audience: "inside.platform.subscription-activation",
-      evidenceRef: randomUUID(),
-      attemptId,
-      sourceRef: context.row.policyRef,
-      identityRef: context.row.identityRef,
-      accountRef: customer.principal,
-      linkRef: snapshot.binding.linkRef,
-      linkRevision: snapshot.binding.linkRevision,
-      ruleId: rule.id,
-      ruleRevision: 1,
-      checkedAt: now.toISOString(),
-      validUntil: "2030-01-01T00:04:00.000Z",
-      decision: "registry_lookup",
-    };
-    expect(
-      (await request("evidence", evidence, "other-source-key")).statusCode,
-    ).toBe(401);
-    expect(
-      (await request("evidence", { ...evidence, decision: "member" })).json(),
-    ).toMatchObject({ ok: false, error: { code: "source_not_confirmed" } });
-    await db.prisma
-      .$executeRaw`ALTER TABLE membership_entitlements.tribute_policies RENAME TO tribute_policies_fault625`;
-    try {
-      const unavailable = await request("evidence", evidence);
-      expect(unavailable.statusCode).toBe(200);
-      expect(unavailable.json()).toEqual({
-        ok: false,
-        error: { code: "unavailable" },
-      });
-      expect(
-        await db.prisma.accessReceipt.count({
-          where: {
-            scope: "source-evidence",
-            operationId: evidence.evidenceRef,
-          },
-        }),
-      ).toBe(0);
-    } finally {
-      await db.prisma
-        .$executeRaw`ALTER TABLE membership_entitlements.tribute_policies_fault625 RENAME TO tribute_policies`;
-    }
-    const accepted = activationResponseSchema.parse(
-      (await request("evidence", evidence)).json(),
-    );
-    expect(accepted).toMatchObject({
-      ok: true,
-      value: {
-        state: "active",
-        enrollment: {
-          origin: "tribute",
-          endsAt: context.row.endsAt,
-          endPolicy: "confirmed_external",
-        },
-      },
-    });
-    expect((await request("evidence", evidence)).json()).toEqual(accepted);
-    const second = activationResponseSchema.parse(
-      (
-        await request("evidence", { ...evidence, evidenceRef: randomUUID() })
-      ).json(),
-    );
-    if (!accepted.ok || accepted.value.enrollment === null)
-      throw new Error("Expected active receipt");
-    expect(second).toMatchObject({
-      ok: true,
-      value: {
-        state: "already_active",
-        enrollment: {
-          id: accepted.value.enrollment.id,
-          revision: accepted.value.enrollment.revision,
-        },
-      },
-    });
-    const strangerIdentity = randomUUID();
-    const stranger = await link(strangerIdentity);
-    const strangerAttempt = randomUUID();
-    await request("attempts", {
-      ...begin,
-      identityRef: strangerIdentity,
-      attemptId: strangerAttempt,
-    });
-    const strangerBinding = await new TelegramAccountLinks(
-      db.prisma,
-    ).readBinding({ accountId: stranger.id });
-    if (!strangerBinding.ok || !strangerBinding.binding)
-      throw new Error("Missing stranger binding");
-    expect(
-      (
-        await request("evidence", {
-          ...evidence,
-          evidenceRef: randomUUID(),
-          attemptId: strangerAttempt,
-          identityRef: strangerIdentity,
-          accountRef: stranger.principal,
-          linkRef: strangerBinding.binding.linkRef,
-          linkRevision: strangerBinding.binding.linkRevision,
-        })
-      ).json(),
-    ).toMatchObject({
-      ok: true,
-      value: { state: "pending_review", enrollment: null },
-    });
-    expect(
-      await db.prisma.accessGrant.count({ where: { accountId: stranger.id } }),
-    ).toBe(0);
-    expect(
-      await db.prisma.billingPurchase.count({
-        where: { accountId: customer.id },
-      }),
-    ).toBe(0);
   });
   test("unknown import rows survive preview expiry until an audited owner disposition", async () => {
     const context = await setup();

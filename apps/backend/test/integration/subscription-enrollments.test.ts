@@ -76,7 +76,94 @@ describe("Subscription Enrollment with real PostgreSQL", () => {
     endsAt: null,
     endPolicy: "fixed",
   };
+  test("assigned course keeps materials forever and support for six months from assignment", async () => {
+    now = new Date("2030-01-31T21:30:00.000Z");
+    const target = await customer();
+    const guide = randomUUID();
+    const tier = {
+      id: randomUUID(),
+      revision: 1,
+      name: "Inside AI Engineering",
+      benefits: [`guide:${guide}`, "community", "support"],
+      contentScope: { guideIds: [], materialIds: [] },
+      benefitPeriods: [{ capability: "support", months: 6 }],
+    };
+    const command = {
+      operationId: randomUUID(),
+      accountId: target,
+      origin: "manual",
+      sourceRef: randomUUID(),
+      tierId: tier.id,
+      tierRevision: 1,
+      terms: { ...terms, startsAt: "2020-01-01T00:00:00.000Z" },
+      billingRef: null,
+      reason: "Owner decision",
+    };
+    const assigned = value(await grants.assignEnrollment(owner, command, tier));
+    expect(assigned).toMatchObject({
+      startsAt: "2030-01-31T21:30:00.000Z",
+      endsAt: null,
+    });
+    expect(
+      value(await grants.readOwnEnrollments(target))[0]?.benefitTerms,
+    ).toEqual(
+      expect.arrayContaining([
+        {
+          capability: `guide:${guide}`,
+          startsAt: "2030-01-31T21:30:00.000Z",
+          endsAt: null,
+          revoked: false,
+        },
+        {
+          capability: "support",
+          startsAt: "2030-01-31T21:30:00.000Z",
+          endsAt: "2030-07-31T21:30:00.000Z",
+          revoked: false,
+        },
+      ]),
+    );
+    now = new Date("2030-07-31T21:30:00.000Z");
+    const capabilities = await grants.resolveCapabilities(target);
+    if (!capabilities.ok) throw new Error(capabilities.error.code);
+    expect(
+      capabilities.capabilities.map((entry) => entry.capability),
+    ).not.toContain("support");
+    expect(
+      await membership.resolveForAccess(accountId(target), [guide]),
+    ).toMatchObject({ kind: "active" });
+    const revoked = value(
+      await grants.changeEnrollment(owner, {
+        operationId: randomUUID(),
+        enrollmentId: assigned.id,
+        expectedRevision: 1,
+        action: "revoke",
+        terms: { ...terms, startsAt: assigned.startsAt },
+        reason: "Revoke",
+      }),
+    );
+    value(
+      await grants.changeEnrollment(owner, {
+        operationId: randomUUID(),
+        enrollmentId: assigned.id,
+        expectedRevision: revoked.revision,
+        action: "restore",
+        terms: { ...terms, startsAt: assigned.startsAt },
+        reason: "Restore",
+      }),
+    );
+    expect(
+      value(await grants.readOwnEnrollments(target))[0]?.benefitTerms,
+    ).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          capability: "support",
+          endsAt: "2030-07-31T21:30:00.000Z",
+        }),
+      ]),
+    );
+  });
   test("course repeat is one origin, revoke survives retries, restore retains identity and first start", async () => {
+    now = new Date(terms.startsAt);
     const target = await customer();
     const tier = {
       id: randomUUID(),
@@ -162,6 +249,7 @@ describe("Subscription Enrollment with real PostgreSQL", () => {
       id: randomUUID(),
       revision: 1,
       name: "Выбранные материалы",
+      benefitPeriods: [{ capability: "materials", months: 1 }],
       benefits: ["materials"],
       contentScope: { guideIds: [guide], materialIds: [material] },
     };
@@ -176,7 +264,7 @@ describe("Subscription Enrollment with real PostgreSQL", () => {
           sourceRef: randomUUID(),
           tierId: tier.id,
           tierRevision: 1,
-          terms: { ...terms, endsAt: end },
+          terms,
           billingRef: null,
           reason: "Explicit composition",
         },

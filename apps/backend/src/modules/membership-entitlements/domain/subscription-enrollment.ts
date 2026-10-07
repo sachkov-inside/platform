@@ -1,4 +1,4 @@
-import { isGuideCapability } from "@inside/access-capabilities";
+import { benefitPeriodsSchema } from "@inside/access-capabilities";
 import { contentScopeEntrySchema } from "@inside/access-capabilities";
 import { z } from "zod";
 import { contentScopeSchema } from "@inside/access-capabilities";
@@ -9,15 +9,24 @@ import {
   sourceRefSchema,
 } from "./access-grant.js";
 
-export const tierSnapshotSchema = z.strictObject({
-  id: z.uuid(),
-  revision: z.int().positive(),
-  name: z.string().trim().min(1).max(200),
-  benefits: capabilitiesSchema.refine(
-    (values) => !values.some((value) => isGuideCapability(value)),
-  ),
-  contentScope: contentScopeSchema,
-});
+export const tierSnapshotSchema = z
+  .strictObject({
+    id: z.uuid(),
+    revision: z.int().positive(),
+    name: z.string().trim().min(1).max(200),
+    benefits: capabilitiesSchema,
+    benefitPeriods: benefitPeriodsSchema.optional(),
+    contentScope: contentScopeSchema,
+  })
+  .refine(
+    (tier) =>
+      tier.benefitPeriods === undefined ||
+      (new Set(tier.benefitPeriods.map((term) => term.capability)).size ===
+        tier.benefitPeriods.length &&
+        tier.benefitPeriods.every((term) =>
+          tier.benefits.includes(term.capability),
+        )),
+  );
 export type TierSnapshot = z.infer<typeof tierSnapshotSchema>;
 export const enrollmentOriginSchema = z.enum([
   "course",
@@ -57,7 +66,7 @@ export const assignEnrollmentSchema = z
   )
   .refine(
     (value) =>
-      value.origin !== "course" ||
+      (value.origin !== "course" && value.origin !== "manual") ||
       (value.terms.endsAt === null && value.terms.endPolicy === "fixed"),
   )
   .refine(

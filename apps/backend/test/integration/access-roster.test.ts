@@ -633,7 +633,6 @@ describe("раздел «Доступ»: люди и сводка на PostgreSQ
         opened: 3,
         purchaseOpened: 1,
         paid: 1,
-        gifted: 1,
         expired: 1,
         revoked: 1,
       },

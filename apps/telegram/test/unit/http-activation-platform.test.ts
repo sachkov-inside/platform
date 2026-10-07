@@ -85,7 +85,7 @@ describe("activation HTTP consumer", () => {
     );
     expect(await oversized.binding("synthetic-identity")).toBeUndefined();
   });
-  it.each(["member", "registry_lookup"] as const)(
+  it.each(["member", "not_member", "unavailable"] as const)(
     "keeps stable evidence wire bytes for %s across JSON key reordering",
     async (decision) => {
       const fixture = fixtures.find(

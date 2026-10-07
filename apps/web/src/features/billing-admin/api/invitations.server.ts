@@ -21,8 +21,6 @@ export function handleIssueInvitation(request: Request): Promise<Response> {
         operationId: input.operationId,
         offerId: input.offerId,
         mode: input.mode,
-        // Срок принадлежит только подарку: у оплаты его задаёт вариант оплаты.
-        giftMonths: input.mode === "gift" ? (input.giftMonths ?? null) : null,
         note: note.length === 0 ? null : note,
       };
     },

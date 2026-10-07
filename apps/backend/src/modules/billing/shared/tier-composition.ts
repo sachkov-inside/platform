@@ -79,9 +79,14 @@ export function tierOpenForAssignment(
     readonly archived: boolean;
     readonly availableForAssignment: boolean;
     readonly contentScope: unknown;
+    readonly benefitPeriods?: unknown;
   },
 ): boolean {
   return (
+    !productSupportTermMissing({
+      ...offer,
+      benefitPeriods: offer.benefitPeriods,
+    }) &&
     !offer.archived &&
     offer.availableForAssignment &&
     !tierLacksComposition(offer) &&

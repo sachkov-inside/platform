@@ -1,7 +1,3 @@
-import {
-  isEmptyContentScope,
-  isGuideCapability,
-} from "@inside/access-capabilities";
 import type { SaleCapability } from "../../domain/sale-capability.js";
 import type { Accounts } from "../../../accounts/index.js";
 import { dependencyFailure } from "../../../../infrastructure/observability/index.js";
@@ -143,8 +139,10 @@ async function changeCatalog(
           : command.value.contentScope;
       if (
         assignable &&
-        (isEmptyContentScope(scope) ||
-          command.value.benefits.some((value) => isGuideCapability(value)))
+        tierLacksComposition({
+          benefits: command.value.benefits,
+          contentScope: scope,
+        })
       )
         return failure("invalid_request");
       if (

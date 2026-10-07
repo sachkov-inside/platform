@@ -855,56 +855,77 @@ describe("служебные сообщения подписки (реальны
 
   // ------------------------------------------------------------- неоплаченный доступ (#909)
 
-  /** Ручное назначение тарифа: тот же путь, что у подарка по приглашению, — Enrollment с концом. */
+  /** Историческое конечное назначение: новые назначения с #1064 бессрочные. */
   async function assignManual(
     accountId: string,
     startsAt: string,
     endsAt: string | null,
     tierId: string = randomUUID(),
   ) {
-    const assigned = await grants.assignEnrollment(
-      owner,
-      {
-        operationId: randomUUID(),
+    const snapshot = {
+      id: tierId,
+      revision: 1,
+      name: "Исторический срок: материалы",
+      benefits: ["materials", "community"],
+      contentScope: { guideIds: [randomUUID()], materialIds: [] },
+    };
+    const id = randomUUID();
+    await db.prisma.subscriptionEnrollment.create({
+      data: {
+        id,
         accountId,
-        origin: "manual",
-        sourceRef: `manual-${randomUUID()}`,
         tierId,
         tierRevision: 1,
-        terms: { startsAt, endsAt, endPolicy: "fixed" },
-        billingRef: null,
-        reason: "Ручное назначение для проверки окончания",
-      },
-      {
-        id: tierId,
+        snapshot,
+        origin: "manual",
+        sourceRef: randomUUID(),
+        startsAt: new Date(startsAt),
+        endsAt: endsAt === null ? null : new Date(endsAt),
+        endPolicy: "fixed",
         revision: 1,
-        name: "Подарок: материалы",
-        benefits: ["materials", "community"],
-        contentScope: { guideIds: [randomUUID()], materialIds: [] },
+        reason: "Historical finite fixture",
       },
-    );
-    if (!assigned.ok) throw new Error(assigned.error.code);
-    return assigned.value;
+    });
+    await db.prisma.accessGrant.create({
+      data: {
+        id: randomUUID(),
+        accountId,
+        enrollmentId: id,
+        source: "manual",
+        sourceRef: `enrollment:${id}`,
+        capabilities: snapshot.benefits,
+        contentScope: snapshot.contentScope,
+        startsAt: new Date(startsAt),
+        validUntil: endsAt === null ? null : new Date(endsAt),
+        revision: 1,
+        reason: "Historical finite fixture",
+      },
+    });
+    const result = await grants.listEnrollments(owner, accountId);
+    if (!result.ok) throw new Error(result.error.code);
+    const enrollment = result.value.find((row) => row.id === id);
+    if (enrollment === undefined) throw new Error("Historical fixture missing");
+    return enrollment;
   }
   async function moveEnd(
-    enrollment: { id: string; revision: number; startsAt: string },
+    enrollment: { id: string; revision: number },
     endsAt: string,
   ) {
-    const changed = await grants.changeEnrollment(owner, {
-      operationId: randomUUID(),
-      enrollmentId: enrollment.id,
-      expectedRevision: enrollment.revision,
-      action: "change_term",
-      terms: { startsAt: enrollment.startsAt, endsAt, endPolicy: "fixed" },
-      reason: "Перенос срока",
+    // Seed an externally changed historical period to test the notification boundary.
+    await db.prisma.subscriptionEnrollment.update({
+      where: { id: enrollment.id },
+      data: { endsAt: new Date(endsAt), revision: { increment: 1 } },
     });
-    if (!changed.ok) throw new Error(changed.error.code);
-    return changed.value;
+    await db.prisma.accessGrant.updateMany({
+      where: { enrollmentId: enrollment.id },
+      data: { validUntil: new Date(endsAt), revision: { increment: 1 } },
+    });
   }
+
   const endingSubject = "Доступ Inside скоро закончится";
   const endedSubject = "Доступ Inside закончился";
 
-  test("ручной доступ: напоминание за три дня со ссылкой на продление и окончание в момент границы без повторов", async () => {
+  test("исторический конечный доступ: напоминание за три дня со ссылкой на продление и окончание в момент границы без повторов", async () => {
     const s = await scenario({ telegram: true });
     s.at("2031-01-01T00:00:00Z");
     const enrollment = await assignManual(
@@ -922,7 +943,7 @@ describe("служебные сообщения подписки (реальны
     expect(await s.noticesOf("access_ending")).toMatchObject([
       {
         state: "current",
-        title: "Подарок: материалы",
+        title: "Исторический срок: материалы",
         dueAt: new Date("2031-03-10T00:00:00Z"),
         subscriptionRef: null,
       },

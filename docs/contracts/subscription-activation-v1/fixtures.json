@@ -581,7 +581,7 @@
   {
     "name": "tribute-needs-account-registry-mode",
     "definition": "activationResponse",
-    "valid": true,
+    "valid": false,
     "value": {
       "ok": true,
       "value": {
@@ -601,7 +601,7 @@
   {
     "name": "tribute-exact-binding-registry-request",
     "definition": "evidence",
-    "valid": true,
+    "valid": false,
     "value": {
       "contractVersion": "inside.subscription-activation.v1",
       "audience": "inside.platform.subscription-activation",
@@ -820,7 +820,7 @@
   {
     "name": "invitation-gift-granted",
     "definition": "invitationRedeemResponse",
-    "valid": true,
+    "valid": false,
     "value": {
       "ok": true,
       "value": {
@@ -875,7 +875,7 @@
   {
     "name": "invitation-already-redeemed-gift",
     "definition": "invitationRedeemResponse",
-    "valid": true,
+    "valid": false,
     "value": {
       "ok": true,
       "value": {

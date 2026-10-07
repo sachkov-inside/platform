@@ -1,4 +1,3 @@
-import { activateTributeRegistry } from "./activate-tribute-registry.js";
 import { courseSourceRef } from "../../domain/source-identity.js";
 import { randomUUID } from "node:crypto";
 import {
@@ -42,6 +41,7 @@ export async function beginActivation(
     if (
       rule === null ||
       !rule.published ||
+      rule.verificationMode !== "course_membership" ||
       rule.startsAt > now ||
       (rule.endsAt !== null && rule.endsAt <= now)
     )
@@ -66,9 +66,6 @@ export async function beginActivation(
         id: rule.id,
         revision: rule.revision,
         sourceRef: rule.sourceRef,
-        ...(rule.verificationMode === "tribute_registry"
-          ? { verificationMode: "tribute_registry" as const }
-          : {}),
       },
     };
     await tx.activationAttempt.create({
@@ -158,6 +155,7 @@ export async function activateSubscription(
     if (
       rule === null ||
       !rule.published ||
+      rule.verificationMode !== "course_membership" ||
       rule.startsAt > now ||
       (rule.endsAt !== null && rule.endsAt <= now)
     )
@@ -197,20 +195,7 @@ export async function activateSubscription(
       state: evidence.decision === "unavailable" ? "unavailable" : "rejected",
       enrollment: null,
     };
-    if (rule.verificationMode === "tribute_registry") {
-      if (evidence.decision !== "registry_lookup")
-        return accessFailure("source_not_confirmed");
-      value = await activateTributeRegistry(
-        tx,
-        rule.sourceRef,
-        accountId,
-        evidence,
-        tier.data,
-        now,
-      );
-    } else if (evidence.decision === "registry_lookup")
-      return accessFailure("source_not_confirmed");
-    else if (evidence.decision === "member") {
+    if (evidence.decision === "member") {
       const sourceRef = courseSourceRef(rule.sourceRef, evidence.identityRef);
       const result = await assignEnrollmentInTransaction(
         tx,

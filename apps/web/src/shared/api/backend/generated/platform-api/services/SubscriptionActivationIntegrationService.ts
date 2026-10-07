@@ -31,101 +31,9 @@ export class SubscriptionActivationIntegrationService {
       offerName: string;
       state: 'purchase_ready';
     } | {
-      contractVersion: 'inside.subscription-activation.v1';
-      enrollment: {
-        accountId: string;
-        benefitTerms?: Array<{
-          capability: string;
-          endsAt: string | null;
-          revoked: boolean;
-          startsAt: string;
-        }>;
-        content?: Array<{
-          available: boolean;
-          id: string;
-          kind: 'guide' | 'material';
-          slug: string | null;
-          title: string;
-        }>;
-        endPolicy: 'fixed' | 'confirmed_external' | 'temporary_membership';
-        endsAt: string | null;
-        history?: Array<{
-          kind: string;
-          reason: string;
-          recordedAt: string;
-        }>;
-        id: string;
-        nextChargeAt?: string | null;
-        origin: 'course' | 'tribute' | 'manual' | 'platform_payment' | 'invitation';
-        renewal: 'not_applicable' | 'billing_agreement';
-        revision: number;
-        startsAt: string;
-        state: 'scheduled' | 'active' | 'expired' | 'revoked' | 'pending_verification' | 'suspended_source';
-        tier: {
-          benefits: Array<('materials' | 'community' | 'reviews' | 'support' | string)>;
-          contentScope: {
-            allGuides?: boolean;
-            guideIds: Array<string>;
-            materialIds: Array<string>;
-          };
-          id: string;
-          name: string;
-          revision: number;
-        };
-      };
-      mode: 'gift';
-      offerName: string;
-      state: 'gift_granted';
-    } | {
       checkoutUrl: string;
       contractVersion: 'inside.subscription-activation.v1';
       mode: 'purchase';
-      offerName: string;
-      state: 'already_redeemed';
-    } | {
-      contractVersion: 'inside.subscription-activation.v1';
-      enrollment: {
-        accountId: string;
-        benefitTerms?: Array<{
-          capability: string;
-          endsAt: string | null;
-          revoked: boolean;
-          startsAt: string;
-        }>;
-        content?: Array<{
-          available: boolean;
-          id: string;
-          kind: 'guide' | 'material';
-          slug: string | null;
-          title: string;
-        }>;
-        endPolicy: 'fixed' | 'confirmed_external' | 'temporary_membership';
-        endsAt: string | null;
-        history?: Array<{
-          kind: string;
-          reason: string;
-          recordedAt: string;
-        }>;
-        id: string;
-        nextChargeAt?: string | null;
-        origin: 'course' | 'tribute' | 'manual' | 'platform_payment' | 'invitation';
-        renewal: 'not_applicable' | 'billing_agreement';
-        revision: number;
-        startsAt: string;
-        state: 'scheduled' | 'active' | 'expired' | 'revoked' | 'pending_verification' | 'suspended_source';
-        tier: {
-          benefits: Array<('materials' | 'community' | 'reviews' | 'support' | string)>;
-          contentScope: {
-            allGuides?: boolean;
-            guideIds: Array<string>;
-            materialIds: Array<string>;
-          };
-          id: string;
-          name: string;
-          revision: number;
-        };
-      };
-      mode: 'gift';
       offerName: string;
       state: 'already_redeemed';
     });
@@ -191,6 +99,10 @@ export class SubscriptionActivationIntegrationService {
         startsAt: string;
         state: 'scheduled' | 'active' | 'expired' | 'revoked' | 'pending_verification' | 'suspended_source';
         tier: {
+          benefitPeriods?: Array<{
+            capability: ('materials' | 'community' | 'reviews' | 'support' | string);
+            months: number | null;
+          }>;
           benefits: Array<('materials' | 'community' | 'reviews' | 'support' | string)>;
           contentScope: {
             allGuides?: boolean;
@@ -206,7 +118,7 @@ export class SubscriptionActivationIntegrationService {
         id: string;
         revision: number;
         sourceRef: string;
-        verificationMode?: 'course_membership' | 'tribute_registry';
+        verificationMode?: 'course_membership';
       };
       state: 'needs_account' | 'checking' | 'pending_review' | 'active' | 'already_active' | 'unavailable' | 'rejected';
     };
@@ -277,7 +189,7 @@ export class SubscriptionActivationIntegrationService {
       audience: 'inside.platform.subscription-activation';
       checkedAt: any;
       contractVersion: 'inside.subscription-activation.v1';
-      decision: 'member' | 'not_member' | 'unavailable' | 'registry_lookup';
+      decision: 'member' | 'not_member' | 'unavailable';
       evidenceRef: string;
       identityRef: string;
       linkRef: string;
@@ -322,6 +234,10 @@ export class SubscriptionActivationIntegrationService {
         startsAt: string;
         state: 'scheduled' | 'active' | 'expired' | 'revoked' | 'pending_verification' | 'suspended_source';
         tier: {
+          benefitPeriods?: Array<{
+            capability: ('materials' | 'community' | 'reviews' | 'support' | string);
+            months: number | null;
+          }>;
           benefits: Array<('materials' | 'community' | 'reviews' | 'support' | string)>;
           contentScope: {
             allGuides?: boolean;
@@ -337,7 +253,7 @@ export class SubscriptionActivationIntegrationService {
         id: string;
         revision: number;
         sourceRef: string;
-        verificationMode?: 'course_membership' | 'tribute_registry';
+        verificationMode?: 'course_membership';
       };
       state: 'needs_account' | 'checking' | 'pending_review' | 'active' | 'already_active' | 'unavailable' | 'rejected';
     };
@@ -407,6 +323,10 @@ export class SubscriptionActivationIntegrationService {
         startsAt: string;
         state: 'scheduled' | 'active' | 'expired' | 'revoked' | 'pending_verification' | 'suspended_source';
         tier: {
+          benefitPeriods?: Array<{
+            capability: ('materials' | 'community' | 'reviews' | 'support' | string);
+            months: number | null;
+          }>;
           benefits: Array<('materials' | 'community' | 'reviews' | 'support' | string)>;
           contentScope: {
             allGuides?: boolean;

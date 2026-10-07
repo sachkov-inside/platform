@@ -52,7 +52,7 @@ const config = loadApplicationConfig({
 
 /** A Platform double that keeps the provider's rules: first identity claims, repeats are idempotent. */
 interface Invitation {
-  readonly mode: "purchase" | "gift";
+  readonly mode: "purchase";
   claimedBy?: string;
   redeemed?: boolean;
   readonly refusal?: "expired" | "revoked" | "unavailable";
@@ -69,11 +69,6 @@ let outage:
   | "identity_conflict"
   | "invalid_input" = "none";
 const checkoutUrl = "https://inside.example/subscription?offer=offer-1";
-const enrollment = {
-  id: "90800000-0000-4000-8000-000000000001",
-  tier: { name: "Подписка Inside" },
-  endsAt: "2030-04-01T00:00:00.000Z",
-};
 
 function redeem(input: InvitationRedeem): InvitationRedeemResponse | undefined {
   requests.push(structuredClone(input));
@@ -104,28 +99,16 @@ function redeem(input: InvitationRedeem): InvitationRedeemResponse | undefined {
   const repeat = invitation.redeemed === true;
   if (!repeat) redemptions += 1;
   invitation.redeemed = true;
-  const response: InvitationRedeemResponse =
-    invitation.mode === "purchase"
-      ? {
-          ok: true,
-          value: {
-            contractVersion: ACTIVATION_VERSION,
-            state: repeat ? "already_redeemed" : "purchase_ready",
-            mode: "purchase",
-            offerName: "Подписка Inside",
-            checkoutUrl,
-          },
-        }
-      : {
-          ok: true,
-          value: {
-            contractVersion: ACTIVATION_VERSION,
-            state: repeat ? "already_redeemed" : "gift_granted",
-            mode: "gift",
-            offerName: "Подписка Inside",
-            enrollment,
-          },
-        };
+  const response: InvitationRedeemResponse = {
+    ok: true,
+    value: {
+      contractVersion: ACTIVATION_VERSION,
+      state: repeat ? "already_redeemed" : "purchase_ready",
+      mode: "purchase",
+      offerName: "Подписка Inside",
+      checkoutUrl,
+    },
+  };
   // The answer is lost after Platform committed the redemption.
   if (outage === "lost") {
     outage = "none";
@@ -280,44 +263,41 @@ describe("invitation link in the bot", () => {
     ]);
   });
 
-  it("grants a gift and leads to the community through /community", async () => {
-    await linkedBefore(81003);
-    invitations.set("gift1", { mode: "gift" });
-    await send(81003, "/start i_gift1");
-    await worker.processAvailable();
-    const answer = (await replies(81003)).at(-1);
-    expect(answer?.message_text).toContain("Подписка Inside");
-    expect(answer?.message_text).toContain("/community");
-    expect(answer?.buttons).toEqual([
-      { text: "Вступить в сообщество", callbackData: "access:community" },
-    ]);
-  });
-
   it("repeats a lost answer with the same request and redeems once", async () => {
     await linkedBefore(81004);
     const id = await identity(81004);
-    invitations.set("gift2", { mode: "gift" });
+    invitations.set("purchase2", { mode: "purchase" });
     outage = "lost";
-    await send(81004, "/start i_gift2");
+    await send(81004, "/start i_purchase2");
     await worker.processAvailable();
     expect(redemptions).toBe(1);
     later();
     await worker.processAvailable();
     expect(requests).toEqual([
-      { contractVersion: ACTIVATION_VERSION, code: "gift2", identityRef: id },
-      { contractVersion: ACTIVATION_VERSION, code: "gift2", identityRef: id },
+      {
+        contractVersion: ACTIVATION_VERSION,
+        code: "purchase2",
+        identityRef: id,
+      },
+      {
+        contractVersion: ACTIVATION_VERSION,
+        code: "purchase2",
+        identityRef: id,
+      },
     ]);
     expect(redemptions).toBe(1);
-    const gifts = (await replies(81004)).filter((reply) =>
-      reply.message_text.includes("/community"),
+    const purchases = (await replies(81004)).filter((reply) =>
+      reply.message_text.includes("Оформить подписку"),
     );
-    expect(gifts).toHaveLength(1);
+    expect(purchases).toHaveLength(1);
 
     // Opening the link again answers with the same payload, still one redemption.
-    await send(81004, "/start i_gift2");
+    await send(81004, "/start i_purchase2");
     await worker.processAvailable();
     expect(redemptions).toBe(1);
-    expect((await replies(81004)).at(-1)?.message_text).toContain("/community");
+    expect((await replies(81004)).at(-1)?.message_text).toContain(
+      "Оформить подписку",
+    );
   });
 
   it("retries a Platform outage with growing pauses and tells the person once", async () => {
@@ -358,7 +338,7 @@ describe("invitation link in the bot", () => {
     async (refusal, text) => {
       const user =
         81100 + ["expired", "revoked", "unavailable"].indexOf(refusal);
-      invitations.set(`refused-${refusal}`, { mode: "gift", refusal });
+      invitations.set(`refused-${refusal}`, { mode: "purchase", refusal });
       await send(user, `/start i_refused-${refusal}`);
       await worker.processAvailable();
       const answer = (await replies(user)).at(-1)?.message_text;
@@ -420,7 +400,7 @@ describe("invitation link in the bot", () => {
 
   it("asks to write to the author on an identity conflict", async () => {
     await linkedBefore(81401);
-    invitations.set("conflict", { mode: "gift" });
+    invitations.set("conflict", { mode: "purchase" });
     outage = "identity_conflict";
     await send(81401, "/start i_conflict");
     await worker.processAvailable();

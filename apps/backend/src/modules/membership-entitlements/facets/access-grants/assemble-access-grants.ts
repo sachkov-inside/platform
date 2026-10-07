@@ -1,3 +1,4 @@
+import { tariffContentScope } from "@inside/access-capabilities";
 import { tributeStateSchema } from "../../domain/tribute-source.js";
 import type { RecipientLinks } from "../../ports/recipient-links.js";
 import {
@@ -402,7 +403,10 @@ export function assembleAccessGrants(dependencies: AccessGrantsDependencies) {
                   ? {}
                   : {
                       content: await dependencies.contentCatalog.resolve(
-                        view.tier.contentScope,
+                        tariffContentScope(
+                          view.tier.benefits,
+                          view.tier.contentScope,
+                        ),
                       ),
                     }),
               };
@@ -481,7 +485,10 @@ export function assembleAccessGrants(dependencies: AccessGrantsDependencies) {
                   ? {}
                   : {
                       content: await dependencies.contentCatalog.resolve(
-                        view.tier.contentScope,
+                        tariffContentScope(
+                          view.tier.benefits,
+                          view.tier.contentScope,
+                        ),
                       ),
                     }),
               };

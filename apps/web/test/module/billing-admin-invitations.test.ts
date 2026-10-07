@@ -24,7 +24,6 @@ import {
   invitationSchema,
   invitationShareText,
   invitationStateLabel,
-  invitationTermLabel,
   invitationUsableUntil,
   type Invitation,
 } from "@/features/billing-admin/model/invitation-operations";
@@ -42,7 +41,6 @@ const invitation: Invitation = {
   offerId,
   offerRevision: 3,
   mode: "purchase",
-  giftMonths: null,
   note: "Для синтетического гостя",
   state: "issued",
   issuedAt: "2030-04-01T09:00:00.000Z",
@@ -91,22 +89,11 @@ describe("подписи приглашения", () => {
   });
 
   it("называет использованное приглашение по его результату", () => {
-    expect(invitationStateLabel("issued", "purchase")).toBe("Выдано");
-    expect(invitationStateLabel("claimed", "gift")).toBe("Открыто");
-    expect(invitationStateLabel("redeemed", "purchase")).toBe("Оплата открыта");
-    expect(invitationStateLabel("redeemed", "gift")).toBe("Подарено");
-    expect(invitationStateLabel("expired", "gift")).toBe("Сгорело");
-    expect(invitationStateLabel("revoked", "purchase")).toBe("Отозвано");
-  });
-
-  it("показывает срок только у подарка", () => {
-    expect(invitationTermLabel({ mode: "gift", giftMonths: 3 })).toBe("3 мес.");
-    expect(invitationTermLabel({ mode: "gift", giftMonths: null })).toBe(
-      "Бессрочно",
-    );
-    expect(
-      invitationTermLabel({ mode: "purchase", giftMonths: null }),
-    ).toBeNull();
+    expect(invitationStateLabel("issued")).toBe("Выдано");
+    expect(invitationStateLabel("claimed")).toBe("Открыто");
+    expect(invitationStateLabel("redeemed")).toBe("Оплата открыта");
+    expect(invitationStateLabel("expired")).toBe("Сгорело");
+    expect(invitationStateLabel("revoked")).toBe("Отозвано");
   });
 
   it("без готовой ссылки отдаёт параметр запуска бота", () => {
@@ -170,7 +157,6 @@ describe("владельческие маршруты приглашений", (
         operationId,
         offerId,
         mode: "purchase",
-        giftMonths: 6,
         note: "   ",
       }),
     );
@@ -181,41 +167,7 @@ describe("владельческие маршруты приглашений", (
         operationId,
         offerId,
         mode: "purchase",
-        giftMonths: null,
         note: null,
-      },
-      "owner-token",
-      {},
-    );
-  });
-
-  it("выдаёт бессрочный подарок с заметкой", async () => {
-    fakes.manage.mockResolvedValue(
-      ok({
-        operationRef: operationId,
-        result: {
-          outcome: "invitation",
-          value: { ...invitation, mode: "gift" },
-        },
-      }),
-    );
-    await handleIssueInvitation(
-      command("/api/authoring/billing/invitations/issue", {
-        operationId,
-        offerId,
-        mode: "gift",
-        giftMonths: null,
-        note: " Гость эфира ",
-      }),
-    );
-    expect(fakes.manage).toHaveBeenCalledWith(
-      {
-        operation: "invitations.issue",
-        operationId,
-        offerId,
-        mode: "gift",
-        giftMonths: null,
-        note: "Гость эфира",
       },
       "owner-token",
       {},
@@ -228,7 +180,6 @@ describe("владельческие маршруты приглашений", (
         operationId,
         offerId,
         mode: "gift",
-        giftMonths: 1201,
       }),
     );
     expect(await response.json()).toMatchObject({

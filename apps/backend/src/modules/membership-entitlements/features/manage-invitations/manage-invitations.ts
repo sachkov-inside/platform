@@ -46,7 +46,6 @@ export async function issueInvitation(
       return existing.issuedBy === actorId &&
         existing.offerId === command.offerId &&
         existing.mode === command.mode &&
-        existing.giftMonths === command.giftMonths &&
         existing.note === note
         ? { ok: true as const, value: invitationView(existing, now) }
         : accessFailure("operation_conflict");
@@ -57,7 +56,6 @@ export async function issueInvitation(
         offerId: offer.id,
         offerRevision: offer.revision,
         mode: command.mode,
-        giftMonths: command.giftMonths,
         note,
         issuedBy: actorId,
         issuedAt: now,

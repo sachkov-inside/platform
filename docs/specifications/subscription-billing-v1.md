@@ -809,7 +809,7 @@ start-параметр короче 43 символов. Приглашение 
 
 Правила исполняются набором `invitations` (PostgreSQL и HTTP бота), сценариями таблицы доступа
 `invitation-offer-after-purchase-invitation`, `invitation-offer-without-invitation`,
-`invitation-offer-after-gift-invitation`, столбцом `tier-via-invitation-gift` и переходом `expiry`,
+`gift invitation cannot grant access or purchase admission`, отказом подарочного режима в #1064 и переходом `expiry`,
 а также корпусом `subscription-contract-corpus`.
 
 ### Кабинет «Доступ» (#910)

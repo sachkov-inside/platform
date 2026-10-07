@@ -171,10 +171,11 @@ describe("course activation HTTP authority with real PostgreSQL", () => {
     const tier = await db.prisma.billingOffer.create({
       data: {
         id: randomUUID(),
-        name: "Подписка Inside",
-        benefits: ["materials", "community"],
+        name: "Inside AI Engineering",
+        benefits: [`guide:${randomUUID()}`, "community", "support"],
+        benefitPeriods: [{ capability: "support", months: 6 }],
         availableForAssignment: true,
-        contentScope: { guideIds: [randomUUID()], materialIds: [] },
+        contentScope: { guideIds: [], materialIds: [] },
         revision: 1,
       },
     });
@@ -308,6 +309,18 @@ describe("course activation HTTP authority with real PostgreSQL", () => {
       ok: true,
       value: { state: "active" },
     });
+    const assigned = await grants.readOwnEnrollments(context.id);
+    if (!assigned.ok) throw new Error(assigned.error.code);
+    expect(assigned.value[0]?.endsAt).toBeNull();
+    expect(assigned.value[0]?.benefitTerms).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          capability: "support",
+          endsAt: "2030-07-01T00:00:00.000Z",
+        }),
+        expect.objectContaining({ capability: "community", endsAt: null }),
+      ]),
+    );
     const source = await db.prisma.sourceEntitlement.findUniqueOrThrow({
       where: {
         origin_sourceRef: {

@@ -97,15 +97,15 @@ function description(operation: string): string {
     case "respondents.status":
       return "Read the survey respondent list: its size, issued personal links and purchases confirmed by them. Sends nothing.";
     case "invitations.issue":
-      return "Issue one personal one-time invitation to an Offer: mode purchase lets the person buy that Offer, mode gift assigns it for giftMonths or without end. Returns the bot link t.me/<bot>?start=i_<code> (link is null when this process has no bot address; build it from startParameter). The first Telegram account that opens it owns it; an unopened link expires in 14 days. The note stays out of the owner audit. Sends nothing. Reuse operationId on retry.";
+      return "Issue one personal one-time invitation to an Offer: mode purchase lets the person buy that Offer. It grants no access. Returns the bot link t.me/<bot>?start=i_<code> (link is null when this process has no bot address; build it from startParameter). The first Telegram account that opens it owns it; an unopened link expires in 14 days. The note stays out of the owner audit. Sends nothing. Reuse operationId on retry.";
     case "invitations.revoke":
-      return "Revoke one issued or opened invitation with expectedRevision so its link stops working. A redeemed invitation cannot be revoked: change that access through enrollments. Sends nothing.";
+      return "Revoke one issued or opened invitation with expectedRevision so its link stops working. A redeemed invitation cannot be revoked. Sends nothing.";
     case "invitations.list":
       return "Read invitations newest first with state issued, claimed, redeemed, expired or revoked, optional state and Offer filters, cursor and limit. Sends nothing.";
     case "people.list":
       return "Read people with current or recently ended access (ended within 30 days), ordered by Account: each person lists every ground with source platform_payment, invitation, course, manual, tribute or one_time_purchase, its Offer, term, state and the current Telegram identity. Filters offerId, source and state (active, expiring within 7 days, ended) match when one ground passes all of them. Cursor and limit 1..100. Sends nothing.";
     case "access.summary":
-      return "Read the access summary: people with current access per Offer split into paid, gift and course; the invitation funnel; grounds ending within 7 days and failed charges of the last 7 days; confirmed revenue and refunds per Moscow month and Offer for 12 months. Sends nothing.";
+      return "Read the access summary: people with current access per Offer split into paid, assigned and course; the invitation funnel; grounds ending within 7 days and failed charges of the last 7 days; confirmed revenue and refunds per Moscow month and Offer for 12 months. Sends nothing.";
     default:
       return `Change the billing catalog through ${operation} with expectedRevision. Purchased conditions, existing subscriptions and issued grants are never rewritten. Reuse operationId on retry.`;
   }

@@ -320,7 +320,7 @@ video locators и иные связанные с body ресурсы в projecti
 Покупки (#775): `course-offer-terms`, `offer-own-terms`, `offer-terms-change-keeps-earlier-purchase`,
 `subscription-offer-without-tribute-ground`, `subscription-offer-with-tribute-ground`; приглашения
 (#908): `invitation-offer-after-purchase-invitation`, `invitation-offer-without-invitation`,
-`invitation-offer-after-gift-invitation` — какие права и на какой срок выдаёт покупка предложения и
+`gift invitation cannot grant access or purchase admission` — какие права и на какой срок выдаёт покупка предложения и
 кому предложение продаётся. Переход `expiry` проверяет и подарок по приглашению.
 У каждой клетки стабильное имя `<строка>/<столбец>`.
 

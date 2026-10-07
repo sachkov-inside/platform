@@ -267,7 +267,6 @@ describe("приглашения: выдача владельцем и пога�
       offerId,
       offerRevision: 1,
       mode: "purchase",
-      giftMonths: null,
       state: "issued",
       issuedAt: now.toISOString(),
       expiresAt: new Date(now.getTime() + 14 * day).toISOString(),
@@ -333,7 +332,7 @@ describe("приглашения: выдача владельцем и пога�
       failure(await issue({ offerId, mode: "purchase", giftMonths: 3 })),
     ).toBe("invalid_request");
     expect(failure(await issue({ offerId: notAssignable, mode: "gift" }))).toBe(
-      "state_conflict",
+      "invalid_request",
     );
     expect(
       failure(await issue({ offerId, mode: "gift", note: "x".repeat(201) })),
@@ -398,56 +397,33 @@ describe("приглашения: выдача владельцем и пога�
     ).toBe("state_conflict");
   });
 
-  test("подарок назначает Enrollment origin invitation на срок или бессрочно, повтор возвращает его же", async () => {
-    now = new Date("2030-01-31T09:00:00.000Z");
+  test("приглашение не создаёт бесплатное назначение", async () => {
+    now = new Date("2030-01-01T00:00:00.000Z");
     const offerId = await offer();
+    expect(failure(await issue({ offerId, mode: "gift" }))).toBe(
+      "invalid_request",
+    );
     const identityRef = `telegram:${randomUUID()}`;
     const member = await account(identityRef);
-    const termed = invitation(
-      await issue({ offerId, mode: "gift", giftMonths: 1 }),
-    );
-    const granted = await redeem(termed.code, identityRef);
-    if (!("enrollment" in granted)) throw new Error("Expected a gift");
-    expect(granted).toMatchObject({
-      state: "gift_granted",
-      mode: "gift",
-      enrollment: {
-        accountId: member,
-        origin: "invitation",
-        startsAt: now.toISOString(),
-        // Календарный месяц от момента погашения: 31 января — конец февраля.
-        endsAt: "2030-02-28T09:00:00.000Z",
-        endPolicy: "fixed",
-        state: "active",
-        tier: { id: offerId, revision: 1 },
-      },
+    const issued = invitation(await issue({ offerId, mode: "purchase" }));
+    expect(await redeem(issued.code, identityRef)).toMatchObject({
+      state: "purchase_ready",
     });
-    now = new Date(now.getTime() + day);
-    const repeated = await redeem(termed.code, identityRef);
-    expect(repeated).toMatchObject({
-      state: "already_redeemed",
-      mode: "gift",
-      enrollment: { id: granted.enrollment.id },
-    });
-    const lifetime = invitation(await issue({ offerId, mode: "gift" }));
-    expect(await redeem(lifetime.code, identityRef)).toMatchObject({
-      state: "gift_granted",
-      enrollment: { origin: "invitation", endsAt: null },
-    });
-    const enrollments = await db.prisma.subscriptionEnrollment.findMany({
-      where: { accountId: member },
-    });
-    expect(enrollments.map((row) => row.sourceRef).sort()).toEqual(
-      [termed.id, lifetime.id].sort(),
-    );
+    expect(
+      await db.prisma.subscriptionEnrollment.count({
+        where: { accountId: member },
+      }),
+    ).toBe(0);
+    expect(
+      await db.prisma.accessGrant.count({ where: { accountId: member } }),
+    ).toBe(0);
   });
-
   test("неоткрытое сгорает за 14 дней, закреплённое без входа — за 30, отозванное и неизвестное не работают", async () => {
     now = new Date("2030-01-01T00:00:00.000Z");
     const offerId = await offer();
     const unopened = invitation(await issue({ offerId, mode: "purchase" }));
     const opened = invitation(await issue({ offerId, mode: "purchase" }));
-    const revoked = invitation(await issue({ offerId, mode: "gift" }));
+    const revoked = invitation(await issue({ offerId, mode: "purchase" }));
     const identityRef = `telegram:${randomUUID()}`;
     expect(await redeem(opened.code, identityRef)).toMatchObject({
       state: "needs_account",

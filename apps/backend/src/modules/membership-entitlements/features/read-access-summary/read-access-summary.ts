@@ -99,9 +99,6 @@ export async function readAccessSummary(
             payment.startsAt >= row.redeemedAt,
         ),
       ).length,
-      gifted: invitations.filter(
-        (row) => row.mode === "gift" && row.redeemedAt !== null,
-      ).length,
       expired: states.filter((state) => state === "expired").length,
       revoked: states.filter((state) => state === "revoked").length,
     },

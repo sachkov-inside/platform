@@ -1,3 +1,4 @@
+import { subscriptionPeriodEnd } from "@inside/access-capabilities";
 import type { ActivationBindings } from "../../domain/subscription-activation.js";
 import { enrollmentView } from "../../shared/enrollment-view.js";
 import type { z } from "zod";
@@ -141,42 +142,70 @@ export async function assignEnrollmentInTransaction(
         snapshot: tier,
         origin: command.origin,
         sourceRef: command.sourceRef,
-        startsAt: command.origin === "course" ? now : new Date(terms.startsAt),
-        endsAt: terms.endsAt === null ? null : new Date(terms.endsAt),
-        endPolicy: terms.endPolicy,
+        startsAt:
+          command.origin === "course" || command.origin === "manual"
+            ? now
+            : new Date(terms.startsAt),
+        endsAt:
+          command.origin === "course" || command.origin === "manual"
+            ? null
+            : terms.endsAt === null
+              ? null
+              : new Date(terms.endsAt),
+        endPolicy:
+          command.origin === "course" || command.origin === "manual"
+            ? "fixed"
+            : terms.endPolicy,
         billingRef: command.billingRef,
         revision: 1,
         reason: command.reason,
       },
     }));
   if (existing === null) {
-    const grantId = randomUUID();
-    await tx.accessGrant.create({
-      data: {
-        id: grantId,
-        accountId: row.accountId,
-        source: row.origin === "platform_payment" ? "paid" : "manual",
-        sourceRef: `enrollment:${row.id}`,
-        enrollmentId: row.id,
-        capabilities: tier.benefits,
-        contentScope: tier.contentScope,
-        startsAt: row.startsAt,
-        validUntil: row.endsAt,
-        revision: 1,
-        reason: command.reason,
-      },
-    });
-    await tx.accessChange.create({
-      data: {
-        accountId: row.accountId,
-        grantId,
-        actorId,
-        operationId: command.operationId,
-        kind: "enrollment_assigned",
-        reason: command.reason,
-        recordedAt: now,
-      },
-    });
+    // Historical snapshots without per-right terms retain their original single-grant shape.
+    const benefits =
+      tier.benefitPeriods === undefined
+        ? [tier.benefits]
+        : tier.benefits.map((capability) => [capability]);
+    for (const capabilities of benefits) {
+      const grantId = randomUUID();
+      const capability = capabilities[0];
+      const period = tier.benefitPeriods?.find(
+        (term) => term.capability === capability,
+      );
+      const validUntil =
+        period === undefined
+          ? row.endsAt
+          : period.months === null
+            ? null
+            : subscriptionPeriodEnd(row.startsAt, period.months);
+      await tx.accessGrant.create({
+        data: {
+          id: grantId,
+          accountId: row.accountId,
+          source: row.origin === "platform_payment" ? "paid" : "manual",
+          sourceRef: `enrollment:${row.id}${tier.benefitPeriods === undefined ? "" : `:${capability ?? ""}`}`,
+          enrollmentId: row.id,
+          capabilities,
+          contentScope: tier.contentScope,
+          startsAt: row.startsAt,
+          validUntil,
+          revision: 1,
+          reason: command.reason,
+        },
+      });
+      await tx.accessChange.create({
+        data: {
+          accountId: row.accountId,
+          grantId,
+          actorId,
+          operationId: command.operationId,
+          kind: "enrollment_assigned",
+          reason: command.reason,
+          recordedAt: now,
+        },
+      });
+    }
   }
   if (command.origin === "course" && command.courseSource !== undefined) {
     await tx.sourceEntitlement.upsert({
