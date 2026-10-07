@@ -54,7 +54,7 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
       - name: Install browser engine
-        run: pnpm --filter @inside/web exec playwright install --with-deps chromium
+        run: bash scripts/install-playwright-ci.sh chromium
       - name: Run the production access pass
         env:
           PRODUCTION_ACCESS_LOGTO_APP_ID: ${{ vars.PRODUCTION_ACCESS_LOGTO_APP_ID }}

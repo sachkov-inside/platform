@@ -40,8 +40,7 @@ runs:
       with:
         path: ~/.cache/ms-playwright
         key: playwright-${{ runner.os }}-${{ steps.playwright.outputs.version }}-${{ inputs.browsers }}
-    # The Ubuntu mirror sometimes stalls on single packages for minutes (#827). Cached .deb files
-    # keep apt off the mirror; after a runner image update apt downloads only the changed packages.
+    # Cached .deb files reduce package downloads; apt still refreshes indexes (#827).
     # Only main saves the cache: pull requests and the merge queue read it from there.
     - name: Restore Playwright system packages
       id: system-packages
@@ -60,7 +59,7 @@ runs:
         apt_archives="$HOME/.cache/playwright-apt"
         mkdir -p "$apt_archives/partial"
         echo "Dir::Cache::Archives \"$apt_archives/\";" | sudo tee /etc/apt/apt.conf.d/99playwright-archives >/dev/null
-        pnpm --filter @inside/web exec playwright install --with-deps $BROWSERS
+        bash scripts/install-playwright-ci.sh $BROWSERS
         # Drop packages the mirror no longer serves, so the saved cache does not grow.
         sudo apt-get autoclean
     - name: Save Playwright system packages

@@ -37,7 +37,7 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
       - name: Install browser engine
-        run: pnpm --filter @inside/web exec playwright install --with-deps chromium
+        run: bash scripts/install-playwright-ci.sh chromium
       - name: Use local development configuration
         run: cp .env.example .env
       - name: Start PostgreSQL and Object Storage

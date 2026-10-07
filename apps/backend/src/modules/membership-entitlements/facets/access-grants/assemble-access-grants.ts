@@ -5,7 +5,10 @@ import {
   contentScopeSchema,
   guideCapability,
 } from "@inside/access-capabilities";
-import { dependencyFailure } from "../../../../infrastructure/observability/index.js";
+import {
+  dependencyFailure,
+  reportDependencyFailure,
+} from "../../../../infrastructure/observability/index.js";
 import { Prisma } from "../../../../infrastructure/prisma/index.js";
 import type { ContentScopeCatalog } from "../../ports/content-scope-catalog.js";
 import {
@@ -46,6 +49,8 @@ import {
 import type {
   MembershipEntitlementsPrisma,
   MembershipEntitlementsPrismaClient,
+  MembershipEnrollmentPreviewPrisma,
+  MembershipActivationRulePrisma,
 } from "../../infrastructure/prisma.js";
 import {
   accessFailure,
@@ -178,6 +183,7 @@ export function assembleAccessGrants(dependencies: AccessGrantsDependencies) {
     actorId: string,
     permission: PlatformPermission,
     operation: () => Promise<Result>,
+    operationName = "manage",
   ) {
     try {
       if (!z.uuid().safeParse(actorId).success)
@@ -191,7 +197,7 @@ export function assembleAccessGrants(dependencies: AccessGrantsDependencies) {
       return await operation();
     } catch (error) {
       return dependencyFailure(
-        { module: "membership-entitlements", operation: "manage" },
+        { module: "membership-entitlements", operation: operationName },
         error,
         accessFailure("unavailable"),
       );
@@ -242,7 +248,43 @@ export function assembleAccessGrants(dependencies: AccessGrantsDependencies) {
       tier: unknown,
     ) =>
       manage(actorId, "billing:manage", () =>
-        previewEnrollmentExpansion(prisma, actorId, input, tier, clock()),
+        prisma.$transaction((tx) =>
+          previewEnrollmentExpansion(tx, actorId, input, tier, clock()),
+        ),
+      ),
+    prepareEnrollmentExpansion: (actorId: string, input: unknown) =>
+      manage(
+        actorId,
+        "billing:manage",
+        () =>
+          Promise.resolve({
+            ok: true as const,
+            preview: async (
+              tx: MembershipEnrollmentPreviewPrisma,
+              tier: unknown,
+            ) => {
+              try {
+                return await previewEnrollmentExpansion(
+                  tx,
+                  actorId,
+                  input,
+                  tier,
+                  clock(),
+                );
+              } catch (error) {
+                reportDependencyFailure(
+                  {
+                    module: "membership-entitlements",
+                    operation: "previewEnrollmentExpansion",
+                  },
+                  error,
+                );
+                // The caller owns the transaction: rethrow to roll back partial writes.
+                throw error;
+              }
+            },
+          }),
+        "prepareEnrollmentExpansion",
       ),
     applyEnrollmentExpansion: (actorId: string, input: unknown) =>
       manage(actorId, "billing:manage", () =>
@@ -276,7 +318,34 @@ export function assembleAccessGrants(dependencies: AccessGrantsDependencies) {
       ),
     manageActivationRule: (actorId: string, input: unknown) =>
       manage(actorId, "billing:manage", () =>
-        manageActivationRule(prisma, actorId, input, clock()),
+        prisma.$transaction((tx) =>
+          manageActivationRule(tx, actorId, input, clock()),
+        ),
+      ),
+    prepareActivationRule: (actorId: string, input: unknown) =>
+      manage(
+        actorId,
+        "billing:manage",
+        () =>
+          Promise.resolve({
+            ok: true as const,
+            save: async (tx: MembershipActivationRulePrisma) => {
+              try {
+                return await manageActivationRule(tx, actorId, input, clock());
+              } catch (error) {
+                reportDependencyFailure(
+                  {
+                    module: "membership-entitlements",
+                    operation: "manageActivationRule",
+                  },
+                  error,
+                );
+                // The caller owns the transaction: rethrow to roll back partial writes.
+                throw error;
+              }
+            },
+          }),
+        "prepareActivationRule",
       ),
     listActivationRules: (actorId: string) =>
       manage(actorId, "billing:manage", async () => {
