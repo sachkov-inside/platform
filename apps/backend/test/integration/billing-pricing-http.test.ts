@@ -1,3 +1,4 @@
+import { seedPurchaseInvitation } from "./setup/purchase-invitation.js";
 import { randomUUID } from "node:crypto";
 import { acceptCurrentTerms } from "../support/accept-terms.js";
 import { createServer, type Server } from "node:http";
@@ -173,7 +174,13 @@ describe("Billing pricing HTTP", () => {
           payload: {
             operation: "paymentOptions.save",
             operationId: randomUUID(),
-            value: { id: optionId, offerId, months: 5, priceKopecks: 500_000 },
+            value: {
+              id: optionId,
+              offerId,
+              mode: "one_time",
+              months: 5,
+              priceKopecks: 500_000,
+            },
           },
         })
       ).statusCode,
@@ -290,6 +297,7 @@ describe("Billing pricing HTTP", () => {
         value: {
           id: secondOptionId,
           offerId: secondOfferId,
+          mode: "one_time",
           months: 1,
           priceKopecks: 350_000,
         },
@@ -604,7 +612,7 @@ describe("Billing pricing HTTP", () => {
     expect(stale.json()).toMatchObject({ code: "revision_conflict" });
   });
 
-  test("Offer для прежних подписчиков Tribute виден и рассчитывается только Account с подтверждённым периодом Tribute", async () => {
+  test("Offer для прежних подписчиков Tribute требует и подтверждённый период, и приглашение", async () => {
     const server = declaredServer(app.getHttpAdapter().getInstance());
     async function member(subject: string) {
       const headers = {
@@ -705,6 +713,13 @@ describe("Billing pricing HTTP", () => {
     const source = await bindConfirmedTributeSource(
       database.prisma,
       subscriber.accountId,
+    );
+    expect(await listed(subscriber.headers)).toBe(false);
+    expect((await quote(subscriber.headers)).statusCode).toBe(403);
+    await seedPurchaseInvitation(
+      database.prisma,
+      subscriber.accountId,
+      offerId,
     );
     expect(await listed(subscriber.headers)).toBe(true);
     expect((await quote(subscriber.headers)).statusCode).toBe(200);

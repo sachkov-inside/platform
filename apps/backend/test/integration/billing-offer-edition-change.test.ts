@@ -1,3 +1,5 @@
+import { prepareInvitedQuote } from "./setup/purchase-invitation.js";
+import { assembleTestBillingPricing } from "./setup/billing-pricing.js";
 import { randomUUID } from "node:crypto";
 import { pressedPaymentButton } from "./setup/consent-documents.js";
 import { afterAll, beforeAll, describe, expect, test } from "vitest";
@@ -11,7 +13,7 @@ import { billingContactProtection } from "../../src/modules/accounts/infrastruct
 import { assembleAccessGrants } from "../../src/modules/membership-entitlements/index.js";
 import {
   BillingPayments,
-  BillingPricing,
+  type BillingPricing,
 } from "../../src/modules/billing/index.js";
 import {
   Tbank,
@@ -113,7 +115,7 @@ describe("one-time offer edition change (real PostgreSQL and real facets; synthe
       clock: () => now,
     });
     // Процесс с подтверждённым терминалом и адресом для чека: каталог вправе включить разовую продажу.
-    pricing = new BillingPricing({
+    pricing = assembleTestBillingPricing({
       prisma: db.prisma,
       accounts,
       clock: () => now,
@@ -234,11 +236,14 @@ describe("one-time offer edition change (real PostgreSQL and real facets; synthe
     };
     const quote = async () =>
       value(
-        await pricing.quote(buyer, {
-          operationId: randomUUID(),
-          paymentOptionId: optionId,
-          optionRevision: 1,
-        }),
+        await pricing.quote(
+          buyer,
+          await prepareInvitedQuote(db.prisma, buyer, {
+            operationId: randomUUID(),
+            paymentOptionId: optionId,
+            optionRevision: 1,
+          }),
+        ),
       ).quoteRef;
     const accept = (
       contact: BillingContact,

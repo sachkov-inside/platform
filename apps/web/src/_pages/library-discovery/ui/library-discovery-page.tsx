@@ -2,11 +2,10 @@ import { notFound } from "next/navigation";
 import { connection } from "next/server";
 import { Suspense } from "react";
 
-import { loadBillingOffers } from "@/entities/subscription.server";
 import {
-  guidePurchaseOffers,
-  publicSubscriptionOffers,
-} from "@/entities/subscription";
+  readGuestGuideSale,
+  readViewerGuideSale,
+} from "@/entities/subscription.sale.server";
 import type { OneTimeOfferTerms } from "@/features/billing-checkout.terms";
 import { readPublicGuideOfferTerms } from "@/features/billing-checkout.terms.server";
 import type { ReaderGuideArtifactsResult } from "@/features/guide-artifacts.reader";
@@ -158,17 +157,18 @@ async function PersonalProgramme({
   const accessToken = await getOptionalPlatformAccessToken();
   // Идентификатор руководства не зависит от читателя, поэтому личные чтения идут разом.
   const guideId = sharedResult.reference.id;
-  // Публичный каталог отдаёт только включённое в продажу, поэтому один запрос отвечает сразу на
-  // два вопроса программы: продаётся ли это руководство и есть ли вообще что предложить на витрине
-  // подписки. На второй отвечает её собственный отбор: звать туда, где пусто, нельзя.
-  const [result, artifacts, catalog] = await Promise.all([
+  const [result, artifacts, sale] = await Promise.all([
     accessToken === undefined
       ? sharedResult
       : loadPublishedSeries(slug, accessToken),
     accessToken === undefined || guideId === undefined
       ? sharedArtifacts
       : readReaderGuideArtifacts(guideId, accessToken),
-    loadBillingOffers(),
+    guideId === undefined
+      ? null
+      : accessToken === undefined
+        ? readGuestGuideSale(guideId)
+        : readViewerGuideSale(guideId, accessToken),
   ]);
   if (result.kind === "not-found") {
     notFound();
@@ -176,19 +176,12 @@ async function PersonalProgramme({
   if (result.kind === "unavailable") {
     return <LibraryDiscoveryUnavailable />;
   }
-  const forSale = catalog.kind === "ready" ? catalog.offers : [];
-  // Программе хватает самого дешёвого варианта: он решает, приглашать ли к оплате.
-  // Выбор между вариантами живёт на странице оплаты, где их видно составом и ценой.
-  const programmeOffer =
-    guideId === undefined
-      ? null
-      : (guidePurchaseOffers(forSale, guideId)[0] ?? null);
   return (
     <PersonalSeries
       artifacts={artifacts}
-      guideOffer={programmeOffer}
+      guideOffer={sale?.kind === "ready" ? (sale.offers[0] ?? null) : null}
       result={result}
-      subscriptionOffered={publicSubscriptionOffers(forSale).length > 0}
+      subscriptionOffered={false}
       {...(accessToken === undefined ? {} : { accessToken })}
     />
   );

@@ -17,14 +17,12 @@ import {
   settleReservation,
   type SettleReservation,
 } from "../../features/settle-reservation/settle-reservation.js";
-import { sellsSubscription } from "../../shared/tier-composition.js";
 import {
-  noPurchaseGrounds,
-  offerAdmits,
   readPurchaseGrounds,
   type PurchaseGroundsReader,
 } from "../../shared/offer-eligibility.js";
-import { failure, offerEligibilitySchema } from "../../domain/pricing.js";
+import type { AccessGrants } from "../../../membership-entitlements/index.js";
+import { failure } from "../../domain/pricing.js";
 
 export class BillingPricing {
   private readonly clock: () => Date;
@@ -36,7 +34,8 @@ export class BillingPricing {
       clock?: () => Date;
       sale: SaleCapability;
       /** Основания Account для Offer с ограничением допуска; без них такие Offer не продаются. */
-      grants?: PurchaseGroundsReader;
+      grants?: PurchaseGroundsReader &
+        Pick<AccessGrants, "readLegacyClassification">;
     },
   ) {
     this.clock = dependencies.clock ?? (() => new Date());
@@ -44,18 +43,24 @@ export class BillingPricing {
   manage(actor: string, input: unknown) {
     return manageCatalog(this.dependencies, actor, input);
   }
-  /**
-   * Публичная витрина: только предложения, включённые в продажу и допускающие читателя. Гость и
-   * Account, чьи основания прочитать не удалось, видят только Offer для всех.
-   */
+  /** Витрина показывает доступные покупателю варианты; сбой чтения оснований не выдаётся за гостя. */
   async offers(input: unknown, accountId?: string) {
     const grounds = await readPurchaseGrounds(
       this.dependencies.grants,
       accountId,
     );
+    if (grounds === null) return failure("dependency_unavailable");
+    const legacy =
+      accountId === undefined || this.dependencies.grants === undefined
+        ? undefined
+        : await this.dependencies.grants.readLegacyClassification(accountId);
+    if (legacy !== undefined && !legacy.ok)
+      return failure("dependency_unavailable");
     return listOffers(this.dependencies.prisma, input, this.clock, {
       publishedOnly: true,
-      grounds: grounds ?? noPurchaseGrounds,
+      grounds,
+      sale: this.dependencies.sale,
+      recurringAllowed: legacy?.recurringAllowed ?? true,
     });
   }
   /** Текущие потоки продуктов: публичный факт, одинаковый для гостя, покупателя и владельца. */
@@ -68,40 +73,23 @@ export class BillingPricing {
       publishedOnly: false,
     });
   }
-  /**
-   * Подписка предлагается тогда, когда продаётся хотя бы один неархивный вариант подписки у тарифа
-   * с составом, допускающего этот Account. Разовое предложение продукта этот признак не включает:
-   * оно продаёт руководство. Гостю предлагается только подписка для всех.
-   */
+  /** Подписка предлагается только допущенному по приглашению Account, независимо от состава прав тарифа. */
   async hasOffersForSale(accountId?: string): Promise<boolean> {
-    const rows = (
-      await this.dependencies.prisma.billingOffer.findMany({
-        where: {
-          archived: false,
-          published: true,
-          options: { some: { archived: false, mode: "subscription" } },
+    let cursor: string | undefined;
+    do {
+      const result = await this.offers(
+        {
+          mode: "subscription",
+          limit: 100,
+          ...(cursor === undefined ? {} : { cursor }),
         },
-        select: {
-          id: true,
-          benefits: true,
-          contentScope: true,
-          eligibility: true,
-        },
-      })
-    ).filter(sellsSubscription);
-    const offers = rows.map((row) => ({
-      id: row.id,
-      eligibility: offerEligibilitySchema.parse(row.eligibility),
-    }));
-    if (offers.some((offer) => offer.eligibility === "everyone")) return true;
-    if (offers.length === 0) return false;
-    const grounds = await readPurchaseGrounds(
-      this.dependencies.grants,
-      accountId,
-    );
-    return (
-      grounds !== null && offers.some((offer) => offerAdmits(offer, grounds))
-    );
+        accountId,
+      );
+      if (!result.ok) return false;
+      if (result.value.items.length > 0) return true;
+      cursor = result.value.nextCursor ?? undefined;
+    } while (cursor !== undefined);
+    return false;
   }
   /** Отказ при запуске, если каталог продаёт, а у процесса нет настроек оплаты для этой продажи. */
   assertSaleConfigured(configuration: SalePaymentConfiguration): Promise<void> {
@@ -113,12 +101,20 @@ export class BillingPricing {
       accountId,
     );
     if (grounds === null) return failure("dependency_unavailable");
+    const legacy =
+      this.dependencies.grants === undefined
+        ? undefined
+        : await this.dependencies.grants.readLegacyClassification(accountId);
+    if (legacy !== undefined && !legacy.ok)
+      return failure("dependency_unavailable");
     return quotePurchase(
       this.dependencies.prisma,
       accountId,
       input,
       this.clock,
       grounds,
+      this.dependencies.sale,
+      legacy?.recurringAllowed ?? true,
     );
   }
   reserve(input: ReservePurchase) {

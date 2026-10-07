@@ -1,3 +1,5 @@
+import { prepareInvitedQuote } from "./setup/purchase-invitation.js";
+import { assembleTestBillingPricing } from "./setup/billing-pricing.js";
 import { randomUUID } from "node:crypto";
 import { afterAll, beforeAll, describe, expect, test } from "vitest";
 
@@ -13,7 +15,7 @@ import {
   BillingNotices,
   BillingOperations,
   BillingPayments,
-  BillingPricing,
+  type BillingPricing,
   BillingSubscriptions,
 } from "../../src/modules/billing/index.js";
 import type { OwnerResult } from "../../src/modules/billing/domain/owner-operations.js";
@@ -97,7 +99,7 @@ describe("локальная продажа через двойника банк
       accounts,
       clock: () => now,
     });
-    pricing = new BillingPricing({
+    pricing = assembleTestBillingPricing({
       prisma: db.prisma,
       accounts,
       clock: () => now,
@@ -272,11 +274,14 @@ describe("локальная продажа через двойника банк
       accepted: readonly string[] = documents.map((document) => document.kind),
     ): Promise<{ purchaseRef: string; paymentUrl: string }> {
       const quote = value(
-        await pricing.quote(buyer, {
-          operationId: randomUUID(),
-          paymentOptionId: option,
-          optionRevision: 1,
-        }),
+        await pricing.quote(
+          buyer,
+          await prepareInvitedQuote(db.prisma, buyer, {
+            operationId: randomUUID(),
+            paymentOptionId: option,
+            optionRevision: 1,
+          }),
+        ),
       );
       const consent = await contact.acceptConsents(
         buyer,

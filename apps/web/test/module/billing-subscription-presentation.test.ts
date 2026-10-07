@@ -179,19 +179,17 @@ describe("что можно продать публично", () => {
     ).toEqual([materialsOffer.offer.name, supportOffer.offer.name]);
   });
 
-  it("не выводит снятые с продажи позиции", () => {
-    expect(
-      publicSubscriptionOffers([
-        {
-          ...materialsOffer,
-          offer: { ...materialsOffer.offer, archived: true },
-        },
-        {
-          ...supportOffer,
-          paymentOption: { ...supportOffer.paymentOption, archived: true },
-        },
-      ]),
-    ).toEqual([]);
+  it("не выводит вид тарифа из состава прав: подписка на продукт тоже подписка", () => {
+    const productSubscription = {
+      ...guideOnlyOffer,
+      paymentOption: {
+        ...guideOnlyOffer.paymentOption,
+        mode: "subscription" as const,
+      },
+    };
+    expect(publicSubscriptionOffers([productSubscription])).toEqual([
+      productSubscription,
+    ]);
   });
 });
 

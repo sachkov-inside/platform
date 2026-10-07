@@ -1,3 +1,5 @@
+import { prepareInvitedQuote } from "./setup/purchase-invitation.js";
+import { assembleTestBillingPricing } from "./setup/billing-pricing.js";
 import { randomUUID } from "node:crypto";
 import { acceptCurrentTerms } from "../support/accept-terms.js";
 import { createServer, type Server } from "node:http";
@@ -14,10 +16,7 @@ import {
 } from "../../src/modules/accounts/index.js";
 import { billingContactProtection } from "../../src/modules/accounts/infrastructure/billing-contact-protection.js";
 import { assembleAccessGrants } from "../../src/modules/membership-entitlements/index.js";
-import {
-  BillingPayments,
-  BillingPricing,
-} from "../../src/modules/billing/index.js";
+import { BillingPayments } from "../../src/modules/billing/index.js";
 import { syntheticTbankConfig } from "../support/bank-terminal.js";
 import {
   declaredServer,
@@ -224,7 +223,7 @@ describe("Billing purchases HTTP", () => {
       accounts,
       clock: () => now,
     });
-    const pricing = new BillingPricing({
+    const pricing = assembleTestBillingPricing({
       prisma: database.prisma,
       accounts,
       clock: () => now,
@@ -301,11 +300,14 @@ describe("Billing purchases HTTP", () => {
       }),
     );
     const quote = value(
-      await pricing.quote(buyer, {
-        operationId: randomUUID(),
-        paymentOptionId: optionId,
-        optionRevision: 1,
-      }),
+      await pricing.quote(
+        buyer,
+        await prepareInvitedQuote(database.prisma, buyer, {
+          operationId: randomUUID(),
+          paymentOptionId: optionId,
+          optionRevision: 1,
+        }),
+      ),
     );
     const consent = await contact.acceptConsents(
       buyer,

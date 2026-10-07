@@ -1,3 +1,5 @@
+import { prepareInvitedQuote } from "./setup/purchase-invitation.js";
+import { assembleTestBillingPricing } from "./setup/billing-pricing.js";
 import { randomUUID } from "node:crypto";
 import { afterAll, beforeAll, describe, expect, test } from "vitest";
 import { z } from "zod";
@@ -9,7 +11,7 @@ import { billingContactProtection } from "../../src/modules/accounts/infrastruct
 import { assembleAccessGrants } from "../../src/modules/membership-entitlements/index.js";
 import {
   BillingPayments,
-  BillingPricing,
+  type BillingPricing,
 } from "../../src/modules/billing/index.js";
 import {
   Tbank,
@@ -95,7 +97,7 @@ describe("one-time guide purchase (real PostgreSQL and real facets; synthetic ba
       accounts,
       clock: () => now,
     });
-    pricing = new BillingPricing({
+    pricing = assembleTestBillingPricing({
       prisma: db.prisma,
       accounts,
       clock: () => now,
@@ -121,6 +123,7 @@ describe("one-time guide purchase (real PostgreSQL and real facets; synthetic ba
     options: {
       readonly benefitPeriods?: { capability: string; months: number | null }[];
       readonly term?: number;
+      readonly scopedMaterials?: boolean;
       readonly supportMonths?: number | null;
       /** Срок общей группы в Offer; без него группа не называется в составе. */
       readonly communityMonths?: number | null;
@@ -154,7 +157,9 @@ describe("one-time guide purchase (real PostgreSQL and real facets; synthetic ba
     )
       throw new Error("contact");
     const guideId = randomUUID();
-    const capability = `guide:${guideId}`;
+    const capability = options.scopedMaterials
+      ? "materials"
+      : `guide:${guideId}`;
     const offerId = randomUUID(),
       optionId = randomUUID();
     // Владелец заводит цену руководства там же, где варианты подписки. Бессрочное право — явный срок.
@@ -166,6 +171,9 @@ describe("one-time guide purchase (real PostgreSQL and real facets; synthetic ba
           // Предложение продукта продаётся только с сопровождением на названный в нём срок.
           id: offerId,
           name: "Руководство «Синтетика»",
+          ...(options.scopedMaterials
+            ? { contentScope: { guideIds: [guideId], materialIds: [] } }
+            : {}),
           benefits:
             options.communityMonths === undefined
               ? [capability, "support"]
@@ -270,11 +278,14 @@ describe("one-time guide purchase (real PostgreSQL and real facets; synthetic ba
       acknowledgeExistingAccess = false,
     ) {
       const quote = value(
-        await pricing.quote(buyer, {
-          operationId: randomUUID(),
-          paymentOptionId: optionId,
-          optionRevision: 1,
-        }),
+        await pricing.quote(
+          buyer,
+          await prepareInvitedQuote(db.prisma, buyer, {
+            operationId: randomUUID(),
+            paymentOptionId: optionId,
+            optionRevision: 1,
+          }),
+        ),
       );
       const consent = await contact.acceptConsents(
         buyer,
@@ -339,6 +350,17 @@ describe("one-time guide purchase (real PostgreSQL and real facets; synthetic ba
       },
     };
   }
+
+  test("разовая оплата состава продукта открывает только оплаченный продукт", async () => {
+    const s = await scenario({ scopedMaterials: true });
+    await s.buy();
+    const otherGuide = randomUUID();
+    const holders = await db.prisma.$transaction((tx) =>
+      grants.countGuideHolders(tx, [s.guideId, otherGuide]),
+    );
+    expect(holders.get(s.guideId)).toBe(1);
+    expect(holders.get(otherGuide)).toBe(0);
+  });
 
   test("оплаченное руководство открывается навсегда и не заводит подписку", async () => {
     const s = await scenario();
@@ -609,11 +631,14 @@ describe("one-time guide purchase (real PostgreSQL and real facets; synthetic ba
     ).toEqual([]);
     expect(
       code(
-        await pricing.quote(s.buyer, {
-          operationId: randomUUID(),
-          paymentOptionId: s.optionId,
-          optionRevision: 1,
-        }),
+        await pricing.quote(
+          s.buyer,
+          await prepareInvitedQuote(db.prisma, s.buyer, {
+            operationId: randomUUID(),
+            paymentOptionId: s.optionId,
+            optionRevision: 1,
+          }),
+        ),
       ),
     ).toBe("not_found");
     // Уже выданное право выключением продажи не отзывается.
@@ -717,11 +742,14 @@ describe("one-time guide purchase (real PostgreSQL and real facets; synthetic ba
     });
     expect(classification.ok).toBe(true);
     const quote = value(
-      await pricing.quote(s.buyer, {
-        operationId: randomUUID(),
-        paymentOptionId: subscriptionOption,
-        optionRevision: 1,
-      }),
+      await pricing.quote(
+        s.buyer,
+        await prepareInvitedQuote(db.prisma, s.buyer, {
+          operationId: randomUUID(),
+          paymentOptionId: subscriptionOption,
+          optionRevision: 1,
+        }),
+      ),
     );
     const consent = await contact.acceptConsents(
       s.buyer,
@@ -835,11 +863,14 @@ describe("one-time guide purchase (real PostgreSQL and real facets; synthetic ba
       ).ok,
     ).toBe(true);
     const quote = value(
-      await pricing.quote(s.buyer, {
-        operationId: randomUUID(),
-        paymentOptionId: subscriptionOption,
-        optionRevision: 1,
-      }),
+      await pricing.quote(
+        s.buyer,
+        await prepareInvitedQuote(db.prisma, s.buyer, {
+          operationId: randomUUID(),
+          paymentOptionId: subscriptionOption,
+          optionRevision: 1,
+        }),
+      ),
     );
     const consent = await contact.acceptConsents(
       s.buyer,

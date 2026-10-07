@@ -11,6 +11,9 @@ export interface SubscriptionTerminal {
 export interface SaleCapability {
   readonly payments: boolean;
   readonly subscriptions: boolean;
+  readonly amountLimits?:
+    | { readonly minimumKopecks: number; readonly maximumKopecks: number }
+    | undefined;
 }
 
 /**

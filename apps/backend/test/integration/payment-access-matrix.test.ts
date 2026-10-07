@@ -1,3 +1,5 @@
+import { prepareInvitedQuote } from "./setup/purchase-invitation.js";
+import { assembleTestBillingPricing } from "./setup/billing-pricing.js";
 import { createHash, randomUUID } from "node:crypto";
 import { afterAll, beforeAll, describe, expect, test } from "vitest";
 import {
@@ -14,7 +16,7 @@ import {
   BillingNotices,
   BillingOperations,
   BillingPayments,
-  BillingPricing,
+  type BillingPricing,
   BillingSubscriptions,
 } from "../../src/modules/billing/index.js";
 import type {
@@ -211,7 +213,7 @@ describe("оплата, выдача прав и доступ к материа�
         clock: () => now,
       }),
     });
-    pricing = new BillingPricing({
+    pricing = assembleTestBillingPricing({
       prisma: db.prisma,
       accounts,
       clock: () => now,
@@ -791,11 +793,14 @@ describe("оплата, выдача прав и доступ к материа�
     options: { readonly recurring?: boolean } = {},
   ) {
     const quote = value(
-      await pricing.quote(account, {
-        operationId: randomUUID(),
-        paymentOptionId: optionId,
-        optionRevision: 1,
-      }),
+      await pricing.quote(
+        account,
+        await prepareInvitedQuote(db.prisma, account, {
+          operationId: randomUUID(),
+          paymentOptionId: optionId,
+          optionRevision: 1,
+        }),
+      ),
     );
     const accepted = await contact.acceptConsents(
       account,
@@ -1280,7 +1285,7 @@ describe("оплата, выдача прав и доступ к материа�
 
     // Пока вариант в продаже, витрина его показывает; после выключения — нет.
     expect(
-      value(await pricing.offers({ mode: "subscription" })).items.some(
+      value(await pricing.offers({ mode: "subscription" }, account)).items.some(
         (item) => item.offer.id === offerId,
       ),
     ).toBe(true);
@@ -1293,7 +1298,7 @@ describe("оплата, выдача прав и доступ к материа�
       }),
     );
     expect(
-      value(await pricing.offers({ mode: "subscription" })).items.some(
+      value(await pricing.offers({ mode: "subscription" }, account)).items.some(
         (item) => item.offer.id === offerId,
       ),
     ).toBe(false);
@@ -1340,14 +1345,27 @@ describe("оплата, выдача прав и доступ к материа�
     });
   });
 
-  test("новый покупатель оформляет подписку только после решения владельца", async () => {
+  test("прежний покупатель оформляет подписку только после решения владельца", async () => {
     now = new Date(startedAt);
     await ownSweeps();
     const account = await buyer({ classify: false });
     const { optionId } = await subscriptionOffer();
     const { bank, payments, subscriptions, operations } = billingStand();
 
-    // Неопределённый покупатель проходит контакт и согласия, но списания ему запрещены.
+    asClassification(
+      await operations.execute(owner, {
+        operation: "grants.classify",
+        operationId: randomUUID(),
+        accountId: account,
+        expectedRevision: 0,
+        classification: "confirmed_legacy",
+        sourceRef: `matrix-${account}`,
+        reason: "Прежние списания ещё не проверены",
+        bridgeEnabled: false,
+        tributeStopped: false,
+      }),
+    );
+    // Подписка с прежними списаниями требует решения уже на этапе расчёта.
     expect(
       asClassification(
         await operations.execute(owner, {
@@ -1358,12 +1376,19 @@ describe("оплата, выдача прав и доступ к материа�
       ).value,
     ).toEqual({
       accountId: account,
-      classification: "unknown",
-      revision: 0,
+      classification: "confirmed_legacy",
+      revision: 1,
       recurringAllowed: false,
     });
     expect(
-      await purchase(payments, account, optionId, { recurring: true }),
+      await pricing.quote(
+        account,
+        await prepareInvitedQuote(db.prisma, account, {
+          operationId: randomUUID(),
+          paymentOptionId: optionId,
+          optionRevision: 1,
+        }),
+      ),
     ).toMatchObject({ ok: false, error: { code: "legacy_review_required" } });
     expect(bank.initCalls).toBe(0);
     expect(
@@ -1377,7 +1402,7 @@ describe("оплата, выдача прав и доступ к материа�
           operation: "grants.classify",
           operationId: randomUUID(),
           accountId: account,
-          expectedRevision: 0,
+          expectedRevision: 1,
           classification: "confirmed_new",
           sourceRef: `matrix-${account}`,
           reason: "Новый покупатель оформляет подписку",
@@ -1388,7 +1413,7 @@ describe("оплата, выдача прав и доступ к материа�
     ).toEqual({
       accountId: account,
       classification: "confirmed_new",
-      revision: 1,
+      revision: 2,
       recurringAllowed: true,
     });
 

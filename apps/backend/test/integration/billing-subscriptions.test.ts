@@ -1,3 +1,7 @@
+import {
+  prepareInvitedQuote,
+  seedPurchaseInvitation,
+} from "./setup/purchase-invitation.js";
 import { randomUUID } from "node:crypto";
 import { afterAll, beforeAll, describe, expect, test } from "vitest";
 import {
@@ -246,11 +250,14 @@ describe("подписка: продление, отмена, смена вар�
     }
     async function buy() {
       const quote = value(
-        await pricing.quote(buyer, {
-          operationId: randomUUID(),
-          paymentOptionId: optionId,
-          optionRevision: 1,
-        }),
+        await pricing.quote(
+          buyer,
+          await prepareInvitedQuote(db.prisma, buyer, {
+            operationId: randomUUID(),
+            paymentOptionId: optionId,
+            optionRevision: 1,
+          }),
+        ),
       );
       const purchase = value(
         await payments.purchase(buyer, {
@@ -318,6 +325,7 @@ describe("подписка: продление, отмена, смена вар�
           id: nextOfferId,
         }),
       );
+      await seedPurchaseInvitation(db.prisma, buyer, nextOfferId);
       return nextOptionId;
     }
     const view = async () =>
@@ -707,8 +715,9 @@ describe("подписка: продление, отмена, смена вар�
           paymentOptionId: restrictedOption,
         }),
       ).toEqual({ ok: false, error: { code: "not_eligible" } });
-      // С подтверждённым периодом Tribute смена на этот вариант рассчитывается и применяется.
+      // Подтверждённый период Tribute и приглашение допускают к смене на этот вариант.
       await bindConfirmedTributeSource(db.prisma, s.buyer);
+      await seedPurchaseInvitation(db.prisma, s.buyer, restrictedOffer);
       const quoted = value(
         await subscriptions.quoteChange(s.buyer, {
           operationId: randomUUID(),
@@ -730,11 +739,14 @@ describe("подписка: продление, отмена, смена вар�
     const other = await scenario();
     const source = await bindConfirmedTributeSource(db.prisma, other.buyer);
     const quote = value(
-      await pricing.quote(other.buyer, {
-        operationId: randomUUID(),
-        paymentOptionId: restrictedOption,
-        optionRevision: 1,
-      }),
+      await pricing.quote(
+        other.buyer,
+        await prepareInvitedQuote(db.prisma, other.buyer, {
+          operationId: randomUUID(),
+          paymentOptionId: restrictedOption,
+          optionRevision: 1,
+        }),
+      ),
     );
     await source.revoke();
     expect(

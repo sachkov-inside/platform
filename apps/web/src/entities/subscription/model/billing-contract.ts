@@ -9,11 +9,7 @@ export {
   isGuideCapability,
   type AccessCapability,
 } from "@inside/access-capabilities";
-import {
-  accessCapabilitySchema,
-  guideCapability,
-  isGuideCapability,
-} from "@inside/access-capabilities";
+import { accessCapabilitySchema } from "@inside/access-capabilities";
 
 /**
  * Кому Offer продаётся: всем, прежним подписчикам Tribute или только по приглашению. В прежних
@@ -320,49 +316,11 @@ export function paymentMode(snapshot: PriceSnapshot): PaymentMode {
   return snapshot.paymentOption.mode ?? "subscription";
 }
 
-/**
- * Витрина подписки показывает только то, что продаётся по расписанию. Разовая продажа
- * руководства живёт на его собственной странице, а снятые с продажи позиции не выводятся.
- * Остальной состав каталога страница не выбирает: две карточки не зашиты как единственная модель.
- */
+/** Группировка уже допущенных сервером вариантов по способу оплаты, без повторной проверки продажи. */
 export function publicSubscriptionOffers(
   offers: readonly PriceSnapshot[],
 ): readonly PriceSnapshot[] {
-  return offers.filter(
-    (snapshot) =>
-      !snapshot.offer.archived &&
-      !snapshot.paymentOption.archived &&
-      paymentMode(snapshot) === "subscription" &&
-      !snapshot.offer.benefits.every(isGuideCapability),
-  );
-}
-
-/**
- * Как сегодня продаётся руководство: его разовые варианты, от дешёвого к дорогому — например,
- * руководство отдельно и руководство с сопровождением. Это единственное место, которое отвечает
- * на вопрос, поэтому программа и страница оплаты не могут разойтись и завести читателя в тупик.
- * Руководство продаётся, только когда владелец завёл ему цену, поэтому пустой список — это
- * «не продаётся», а не ошибка. Равные цены разводит стабильный идентификатор, чтобы порядок
- * не зависел от ответа сервера.
- */
-export function guidePurchaseOffers(
-  offers: readonly PriceSnapshot[],
-  guideId: string,
-): readonly PriceSnapshot[] {
-  const capability = guideCapability(guideId);
-  return [...offers]
-    .filter(
-      (snapshot) =>
-        !snapshot.offer.archived &&
-        !snapshot.paymentOption.archived &&
-        paymentMode(snapshot) === "one_time" &&
-        snapshot.offer.benefits.includes(capability),
-    )
-    .sort((left, right) =>
-      left.firstPriceKopecks !== right.firstPriceKopecks
-        ? left.firstPriceKopecks - right.firstPriceKopecks
-        : left.paymentOption.id.localeCompare(right.paymentOption.id),
-    );
+  return offers.filter((snapshot) => paymentMode(snapshot) === "subscription");
 }
 
 export type VerifiedContact = z.infer<typeof verifiedContactSchema>;

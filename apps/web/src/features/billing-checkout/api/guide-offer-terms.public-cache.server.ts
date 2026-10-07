@@ -1,24 +1,12 @@
 import "server-only";
 
-import {
-  guideCapability,
-  guidePurchaseOffers,
-  offersPageSchema,
-} from "@/entities/subscription";
-import { requestBillingOffers } from "@/shared/api/backend/index.server";
+import { readGuestGuideSale } from "@/entities/subscription.sale.server";
+import type { OneTimeOfferTerms } from "@/entities/subscription.terms";
 import { applyCatalogCachePolicy } from "@/shared/api/catalog-cache.server";
-
-import {
-  oneTimeOfferTerms,
-  type OneTimeOfferTerms,
-} from "../model/one-time-terms";
 
 export type PublicGuideOfferTerms =
   | { readonly kind: "ready"; readonly terms: OneTimeOfferTerms | null }
   | { readonly kind: "unavailable" };
-
-/** Предложений одного продукта единицы: первой страницы каталога хватает с запасом. */
-const guideOffersLimit = 50;
 
 /**
  * Сроки предложения продукта глазами гостя — для подстановок в его описании. В общий кеш попадают
@@ -37,20 +25,8 @@ export async function readPublicGuideOfferTerms(
 async function readGuestOfferTerms(
   guideId: string,
 ): Promise<PublicGuideOfferTerms> {
-  try {
-    const result = await requestBillingOffers({
-      capability: guideCapability(guideId),
-      limit: guideOffersLimit,
-    });
-    if (!result.ok) return { kind: "unavailable" };
-    const parsed = offersPageSchema.safeParse(result.body);
-    if (!parsed.success) return { kind: "unavailable" };
-    const [offer] = guidePurchaseOffers(parsed.data.items, guideId);
-    return {
-      kind: "ready",
-      terms: offer === undefined ? null : oneTimeOfferTerms(offer),
-    };
-  } catch {
-    return { kind: "unavailable" };
-  }
+  const sale = await readGuestGuideSale(guideId);
+  return sale.kind === "unavailable"
+    ? sale
+    : { kind: "ready", terms: sale.terms };
 }

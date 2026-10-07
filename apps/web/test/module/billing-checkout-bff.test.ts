@@ -42,7 +42,10 @@ import {
   handleBillingPurchaseStatus,
   handleBillingQuote,
 } from "@/features/billing-checkout.server";
-import { loadBillingOffers } from "@/entities/subscription.server";
+import {
+  loadBillingOffers,
+  loadViewerBillingOffers,
+} from "@/entities/subscription.server";
 import { handleBillingConsents } from "@/entities/subscription.server";
 import {
   handleCancelRenewal,
@@ -109,7 +112,7 @@ it("читает каталог от имени вошедшего покупа�
   fakes.offers.mockResolvedValue(
     ok({ items: [materialsOffer], nextCursor: null }),
   );
-  expect(await loadBillingOffers({ mode: "subscription" })).toEqual({
+  expect(await loadViewerBillingOffers({ mode: "subscription" })).toEqual({
     kind: "ready",
     offers: [materialsOffer],
   });
@@ -121,7 +124,7 @@ it("читает каталог от имени вошедшего покупа�
 
 it("сбой чтения сессии не выдаётся за гостевую витрину", async () => {
   fakes.readerToken.mockRejectedValue(new Error("refresh failed"));
-  await expect(loadBillingOffers()).rejects.toThrow("refresh failed");
+  await expect(loadViewerBillingOffers()).rejects.toThrow("refresh failed");
   expect(fakes.offers).not.toHaveBeenCalled();
 });
 

@@ -1,4 +1,4 @@
-import { loadBillingOffers } from "@/entities/subscription.server";
+import { loadViewerBillingOffers } from "@/entities/subscription.server";
 import type { SubscriptionRouteTarget } from "@/shared/routing/subscription-route";
 import { SubscriptionStorefront } from "./subscription-storefront.client";
 
@@ -7,7 +7,7 @@ export async function SubscriptionPage({
 }: {
   readonly target: SubscriptionRouteTarget;
 }) {
-  const result = await loadBillingOffers({ mode: "subscription" });
+  const result = await loadViewerBillingOffers({ mode: "subscription" });
   return (
     <SubscriptionStorefront
       offers={result.kind === "ready" ? result.offers : []}

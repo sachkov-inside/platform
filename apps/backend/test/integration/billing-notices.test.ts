@@ -1,3 +1,8 @@
+import {
+  prepareInvitedQuote,
+  seedPurchaseInvitation,
+} from "./setup/purchase-invitation.js";
+import { assembleTestBillingPricing } from "./setup/billing-pricing.js";
 import { randomUUID } from "node:crypto";
 import { afterAll, beforeAll, describe, expect, test } from "vitest";
 import {
@@ -12,7 +17,7 @@ import {
   assembleBillingNotificationOutbox,
   BillingNotices,
   BillingPayments,
-  BillingPricing,
+  type BillingPricing,
   BillingSubscriptions,
 } from "../../src/modules/billing/index.js";
 import {
@@ -100,7 +105,7 @@ describe("служебные сообщения подписки (реальны
       accounts,
       clock: () => now,
     });
-    pricing = new BillingPricing({
+    pricing = assembleTestBillingPricing({
       prisma: db.prisma,
       accounts,
       clock: () => now,
@@ -381,11 +386,14 @@ describe("служебные сообщения подписки (реальны
     }
     async function buy() {
       const quote = value(
-        await pricing.quote(buyer, {
-          operationId: randomUUID(),
-          paymentOptionId: optionId,
-          optionRevision: 1,
-        }),
+        await pricing.quote(
+          buyer,
+          await prepareInvitedQuote(db.prisma, buyer, {
+            operationId: randomUUID(),
+            paymentOptionId: optionId,
+            optionRevision: 1,
+          }),
+        ),
       );
       const purchase = value(
         await payments.purchase(buyer, {
@@ -453,6 +461,7 @@ describe("служебные сообщения подписки (реальны
           id: nextOfferId,
         }),
       );
+      await seedPurchaseInvitation(db.prisma, buyer, nextOfferId);
       return nextOptionId;
     }
     const cabinet = async () => value(await subscriptions.read(buyer));

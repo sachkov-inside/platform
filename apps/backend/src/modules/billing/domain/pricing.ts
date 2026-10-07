@@ -108,6 +108,7 @@ export type PricingError = {
     | "unsupported_amount"
     | "reservation_conflict"
     | "dependency_unavailable"
+    | "legacy_review_required"
     | "method_unavailable"
     | "not_eligible";
 };
