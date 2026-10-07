@@ -48,6 +48,12 @@ import {
 } from "../../features/purchase-subscription/purchase-subscription.contract.js";
 import { hasText } from "../../../../infrastructure/contracts/text.js";
 
+import {
+  renewalScheduled,
+  scheduledRenewalsWhere,
+  unscheduledSubscriptionsWhere,
+} from "../../shared/renewal-schedule.js";
+
 type NoticeRow = Awaited<
   ReturnType<BillingPrismaClient["billingNotice"]["findUniqueOrThrow"]>
 >;
@@ -81,10 +87,7 @@ function chargeableSubscription(row: SubscriptionRow): RenewalReminderSubject {
     subscriptionRef: row.id,
     accountId: row.accountId,
     ended: row.state === "ended",
-    scheduled:
-      row.state === "active" &&
-      row.bindingCiphertext !== null &&
-      row.bindingRevokedAt === null,
+    scheduled: renewalScheduled(row),
     snapshot: row.snapshot,
     pendingChange: row.pendingChange,
     paidUntil: row.paidUntil,
@@ -258,10 +261,8 @@ export class BillingNotices {
     const scheduled =
       await this.dependencies.prisma.billingSubscription.findMany({
         where: {
-          state: "active",
+          ...scheduledRenewalsWhere,
           paidUntil: this.subscriptionWindow(now),
-          bindingCiphertext: { not: null },
-          bindingRevokedAt: null,
           notices: { none: { kind: "renewal_reminder", state: "current" } },
         },
         orderBy: { paidUntil: "asc" },
@@ -297,13 +298,7 @@ export class BillingNotices {
           paidUntil: this.subscriptionWindow(now),
           notices: { none: { kind: "access_ending", state: "current" } },
           AND: [
-            {
-              OR: [
-                { state: "canceled" },
-                { bindingCiphertext: null },
-                { bindingRevokedAt: { not: null } },
-              ],
-            },
+            { ...unscheduledSubscriptionsWhere },
             ...(after === undefined
               ? []
               : [

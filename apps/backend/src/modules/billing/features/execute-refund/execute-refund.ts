@@ -143,9 +143,13 @@ export async function executeRefund(
 export async function reconcileRefunds(
   dependencies: Dependencies,
   limit = 20,
-): Promise<{ readonly inspected: number; readonly settled: number }> {
+): Promise<{
+  readonly status: "ready" | "configuration_idle";
+  readonly inspected: number;
+  readonly settled: number;
+}> {
   const { prisma, bank } = dependencies;
-  if (!bank) return { inspected: 0, settled: 0 };
+  if (!bank) return { status: "configuration_idle", inspected: 0, settled: 0 };
   // Падение процесса между сохранением попытки и ответом банка оставляет её `sent`: она тоже сверяется.
   const rows = await prisma.billingRefund.findMany({
     where: {
@@ -159,7 +163,7 @@ export async function reconcileRefunds(
   let settled = 0;
   for (const row of rows)
     if (await sendRefund(dependencies, row.id)) settled += 1;
-  return { inspected: rows.length, settled };
+  return { status: "ready", inspected: rows.length, settled };
 }
 
 /** Одна отправка одной сохранённой попытки; результат применяется отдельной транзакцией. */

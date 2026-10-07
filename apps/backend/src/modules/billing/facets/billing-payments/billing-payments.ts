@@ -37,7 +37,6 @@ import {
 } from "../../features/manage-subscription/manage-subscription.contract.js";
 import { paidPeriodCommandSchema } from "../../../account-rights/index.js";
 import {
-  endLapsedSubscriptions,
   endSubscription,
   inFlightStates,
   settleConfirmedAttempt,
@@ -55,6 +54,16 @@ import { replayCommandFingerprint } from "../../shared/command-fingerprint.js";
 import { readPurchaseGrounds } from "../../shared/offer-eligibility.js";
 import { paymentAdmission } from "../../shared/payment-admission.js";
 import { hasText } from "../../../../infrastructure/contracts/text.js";
+
+import {
+  endLapsedSubscriptions,
+  closeLapsedSubscriptions,
+  dueRenewals,
+  renewalScheduled,
+  renewalTerminal,
+  usableRenewalBinding,
+  type RenewalTerminal,
+} from "../../shared/renewal-schedule.js";
 
 const fulfillmentRetryDelayMilliseconds = 60_000;
 // Кабинет показывает обозримую историю; полный журнал платежей остаётся владельческой операцией.
@@ -472,21 +481,28 @@ export class BillingPayments {
     }
   }
 
-  async recover(
-    limit = 50,
-  ): Promise<PaymentResult<{ inspected: number; applied: number }>> {
+  async recover(limit = 50): Promise<
+    PaymentResult<{
+      status: "ready" | "configuration_idle";
+      inspected: number;
+      applied: number;
+    }>
+  > {
     if (!Number.isInteger(limit) || limit < 1 || limit > 100)
       return paymentFailure("invalid_request");
     try {
-      const rows = await this.dependencies.prisma.billingPurchase.findMany({
-        where: {
-          state: {
-            in: ["prepared", "sent", "unknown", "pending", "authorized"],
-          },
-        },
-        orderBy: { updatedAt: "asc" },
-        take: limit,
-      });
+      const rows =
+        this.dependencies.bank === undefined
+          ? []
+          : await this.dependencies.prisma.billingPurchase.findMany({
+              where: {
+                state: {
+                  in: ["prepared", "sent", "unknown", "pending", "authorized"],
+                },
+              },
+              orderBy: { updatedAt: "asc" },
+              take: limit,
+            });
       for (const row of rows) {
         await this.reconcile(row.id);
         await this.dependencies.prisma.billingPurchase.update({
@@ -523,7 +539,17 @@ export class BillingPayments {
           applied += 1;
         }
       }
-      return { ok: true, value: { inspected: rows.length, applied } };
+      return {
+        ok: true,
+        value: {
+          status:
+            this.dependencies.bank === undefined
+              ? "configuration_idle"
+              : "ready",
+          inspected: rows.length,
+          applied,
+        },
+      };
     } catch (error) {
       return dependencyFailure(
         { module: "billing", operation: "recover" },
@@ -533,13 +559,11 @@ export class BillingPayments {
     }
   }
 
-  /**
-   * Due-продление: сериализованный gate и durable attempt до любого обращения к банку.
-   * Отсутствие пригодной привязки завершает расписание, операторская причина только блокирует.
-   * Без терминала проход только закрывает истёкшие сроки; оставшаяся должная подписка — сбой.
-   */
+  /** Закрытие сроков идёт отдельно от списаний, в том числе при простое терминала. */
   async renew(limit = 20): Promise<
     PaymentResult<{
+      status: "ready" | "configuration_idle";
+      terminal: RenewalTerminal;
       inspected: number;
       started: number;
       blocked: number;
@@ -550,53 +574,30 @@ export class BillingPayments {
       return paymentFailure("invalid_request");
     const { prisma, bank } = this.dependencies;
     try {
-      const due = await prisma.billingSubscription.findMany({
-        where: { state: "active", paidUntil: { lte: this.clock() } },
-        orderBy: { paidUntil: "asc" },
-        take: limit,
-      });
+      const now = this.clock();
+      const terminal = renewalTerminal(bank?.config);
+      const due = await dueRenewals(prisma, now, limit);
       let started = 0,
         blocked = 0;
-      if (bank)
+      if (terminal === "ready" && bank !== undefined)
         for (const subscription of due) {
-          const prepared = await this.prepareRenewal(subscription.id);
+          const prepared = await this.prepareRenewal(subscription.id, bank);
           if (hasText(prepared.attemptRef)) {
             await this.dispatch(prepared.attemptRef);
             started += 1;
           } else if (prepared.blocked === true) blocked += 1;
         }
-      // Закончившийся оплаченный срок без продления освобождает Account для новой покупки.
-      const lapsed = await prisma.billingSubscription.findMany({
-        where: { state: { not: "ended" }, paidUntil: { lte: this.clock() } },
-        orderBy: { paidUntil: "asc" },
-        take: limit,
-      });
-      let closed = 0;
-      for (const subscription of lapsed)
-        closed += await prisma.$transaction(async (tx) => {
-          const now = this.clock();
-          await lockBillingSubscription(tx, subscription.id);
-          await endLapsedSubscriptions(tx, subscription.accountId, now);
-          return (
-            await tx.billingSubscription.findUniqueOrThrow({
-              where: { id: subscription.id },
-            })
-          ).state === "ended"
-            ? 1
-            : 0;
-        });
-      // Без терминала сбой — только подписка, которую закрытие сроков оставило к продлению.
-      if (
-        !bank &&
-        due.length > 0 &&
-        (await prisma.billingSubscription.count({
-          where: { state: "active", paidUntil: { lte: this.clock() } },
-        })) > 0
-      )
-        return paymentFailure("method_unavailable");
+      const closed = await closeLapsedSubscriptions(prisma, now, limit);
       return {
         ok: true,
-        value: { inspected: due.length, started, blocked, closed },
+        value: {
+          status: terminal === "ready" ? "ready" : "configuration_idle",
+          terminal,
+          inspected: due.length,
+          started,
+          blocked,
+          closed,
+        },
       };
     } catch (error) {
       return dependencyFailure(
@@ -646,13 +647,12 @@ export class BillingPayments {
         // Отмена останавливает только продление; принятое повышение оплачивает действующий срок.
         const schedulable =
           kind === "renewal"
-            ? subscription?.state === "active"
+            ? subscription !== null && renewalScheduled(subscription)
             : subscription?.state !== "ended";
         if (
           !subscription ||
           !schedulable ||
-          !hasText(subscription.bindingCiphertext) ||
-          subscription.bindingRevokedAt !== null
+          !usableRenewalBinding(subscription)
         ) {
           // Отмена или отзыв привязки до отправки: внешнего эффекта нет, попытка закрывается.
           await tx.billingPurchase.update({
@@ -723,9 +723,9 @@ export class BillingPayments {
 
   private async prepareRenewal(
     subscriptionRef: string,
+    bank: Tbank,
   ): Promise<{ attemptRef?: string; blocked?: boolean }> {
-    const { prisma, contact, grants, bank } = this.dependencies;
-    if (!bank) return { blocked: true };
+    const { prisma, contact, grants } = this.dependencies;
     const current = await prisma.billingSubscription.findUnique({
       where: { id: subscriptionRef },
     });
@@ -766,11 +766,7 @@ export class BillingPayments {
           })) > 0
         )
           return {};
-        if (
-          !hasText(row.bindingCiphertext) ||
-          !hasText(row.bindingRef) ||
-          row.bindingRevokedAt !== null
-        ) {
+        if (!renewalScheduled(row)) {
           // Отозванная или неполученная привязка закрывает расписание вместе с оплаченным сроком.
           await endSubscription(
             tx,

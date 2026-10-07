@@ -1140,6 +1140,7 @@ describe("владельческие операции billing: платежи, �
     expect(s.bank.cancels).toHaveLength(1);
     s.bank.failCancel = false;
     expect(await s.operations.reconcileRefunds()).toEqual({
+      status: "ready",
       inspected: 1,
       settled: 1,
     });
@@ -1205,10 +1206,12 @@ describe("владельческие операции billing: платежи, �
     ).toMatchObject({ refundedKopecks: 0, refundedAt: null });
     s.bank.failCancel = false;
     expect(await s.operations.reconcileRefunds()).toEqual({
+      status: "ready",
       inspected: 1,
       settled: 1,
     });
     expect(await s.operations.reconcileRefunds()).toEqual({
+      status: "ready",
       inspected: 0,
       settled: 0,
     });
@@ -1269,6 +1272,7 @@ describe("владельческие операции billing: платежи, �
     });
     s.bank.failCancel = false;
     expect(await s.operations.reconcileRefunds()).toEqual({
+      status: "ready",
       inspected: 1,
       settled: 1,
     });

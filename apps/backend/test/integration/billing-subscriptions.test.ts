@@ -1,4 +1,13 @@
 import {
+  subscriptionSnapshotSchema,
+  subscriptionConsentSchema,
+} from "../../src/modules/billing/domain/subscription-change.js";
+import {
+  runRenewalJob,
+  runRecoveryJob,
+  runNoticeJob,
+} from "../../src/entrypoints/billing-worker/jobs.js";
+import {
   prepareInvitedQuote,
   seedPurchaseInvitation,
 } from "./setup/purchase-invitation.js";
@@ -12,6 +21,7 @@ import { billingContactProtection } from "../../src/modules/accounts/infrastruct
 import { assembleAccessGrants } from "../../src/modules/account-rights/index.js";
 import {
   BillingNotices,
+  BillingOperations,
   BillingPayments,
   BillingPricing,
   BillingSubscriptions,
@@ -337,6 +347,7 @@ describe("подписка: продление, отмена, смена вар�
       bank,
       payments,
       subscriptions,
+      notices,
       buy,
       offer,
       view,
@@ -497,7 +508,7 @@ describe("подписка: продление, отмена, смена вар�
     expect(s.bank.chargeCalls).toBe(1);
   });
 
-  test("без терминала продление проходит штатно, пока продлевать некого, а подписка с рабочей привязкой остаётся сбоем", async () => {
+  test("без терминала продление сообщает простой по настройке и сохраняет рабочую привязку", async () => {
     const s = await scenario();
     await s.buy();
     const withoutBank = new BillingPayments({
@@ -507,7 +518,7 @@ describe("подписка: продление, отмена, смена вар�
       grants,
       clock: () => now,
     });
-    expect(value(await withoutBank.renew())).toEqual({
+    expect(value(await withoutBank.renew())).toMatchObject({
       inspected: 0,
       started: 0,
       blocked: 0,
@@ -515,11 +526,15 @@ describe("подписка: продление, отмена, смена вар�
     });
     now = new Date("2030-02-28T10:00:00Z");
     expect(await withoutBank.renew()).toMatchObject({
-      ok: false,
-      error: { code: "method_unavailable" },
+      ok: true,
+      value: {
+        status: "configuration_idle",
+        terminal: "no_terminal",
+        started: 0,
+      },
     });
     expect(await s.view()).toMatchObject({ state: "active", periodIndex: 1 });
-    // Сбой случается до попытки оплаты: ни строки попытки, ни обращения к банку.
+    // Простой не создаёт попытки оплаты и не обращается к банку.
     expect(
       await db.prisma.billingPurchase.count({
         where: { accountId: s.buyer, kind: "renewal" },
@@ -555,6 +570,15 @@ describe("подписка: продление, отмена, смена вар�
       grants,
       clock: () => now,
     });
+    const subscriptions = new BillingSubscriptions({
+      prisma: db.prisma,
+      bank: undefined,
+      contact,
+      grants,
+      payments: withoutBank,
+      notices: s.notices,
+      clock: () => now,
+    });
     // Закрыть истёкший срок отменённой подписки можно и без банка.
     const active = await s.view();
     value(
@@ -564,14 +588,155 @@ describe("подписка: продление, отмена, смена вар�
       }),
     );
     now = new Date("2030-02-28T10:00:00Z");
-    expect(value(await withoutBank.renew())).toEqual({
+    expect(await runRenewalJob(withoutBank, subscriptions)).toMatchObject({
+      status: "configuration_idle",
+      terminal: "no_terminal",
       inspected: 0,
       started: 0,
       blocked: 0,
       closed: 1,
+      bindings: { status: "configuration_idle", inspected: 0, applied: 0 },
+    });
+    const operations = new BillingOperations({
+      prisma: db.prisma,
+      bank: undefined,
+      accounts,
+      pricing,
+      payments: withoutBank,
+      subscriptions,
+      grants,
+      clock: () => now,
+    });
+    expect(await runRecoveryJob(withoutBank, operations)).toEqual({
+      status: "configuration_idle",
+      inspected: 0,
+      applied: 0,
+      refunds: { status: "configuration_idle", inspected: 0, settled: 0 },
     });
     expect(await s.view()).toBeNull();
   });
+
+  test.each([false, true])(
+    "первые 20 активных расписаний не задерживают закрытие отменённого срока (терминал: %s)",
+    async (withBank) => {
+      const s = await scenario();
+      await s.buy();
+      const active = await s.view();
+      value(
+        await s.subscriptions.cancel(s.buyer, {
+          operationId: randomUUID(),
+          expectedRevision: active?.revision,
+        }),
+      );
+      const source = await db.prisma.billingSubscription.findFirstOrThrow({
+        where: { accountId: s.buyer },
+      });
+      for (let index = 0; index < 20; index += 1) {
+        const accountId = randomUUID();
+        await db.prisma.account.create({
+          data: {
+            id: accountId,
+            logtoIssuer: "https://identity.example.test",
+            logtoSubject: accountId,
+          },
+        });
+        // Исторические расписания раньше отменённого срока; контакт ещё не подтверждён.
+        await db.prisma.billingSubscription.create({
+          data: {
+            ...source,
+            snapshot: subscriptionSnapshotSchema.parse(source.snapshot),
+            consent: subscriptionConsentSchema.parse(source.consent),
+            pendingChange: {},
+            id: randomUUID(),
+            accountId,
+            state: "active",
+            revision: 1,
+            paidUntil: new Date("2030-02-27T10:00:00Z"),
+          },
+        });
+      }
+      now = new Date("2030-02-28T10:00:00Z");
+      const payments = withBank
+        ? s.payments
+        : new BillingPayments({
+            prisma: db.prisma,
+            bank: undefined,
+            contact,
+            grants,
+            clock: () => now,
+          });
+      expect(value(await payments.renew(20))).toMatchObject({
+        inspected: 20,
+        started: 0,
+        closed: 1,
+      });
+      expect(await s.view()).toBeNull();
+      expect(s.bank.chargeCalls).toBe(0);
+    },
+  );
+
+  test("терминал без recurring сообщает простой и не закрывает принятое расписание", async () => {
+    const s = await scenario();
+    await s.buy();
+    const bank = new BankFixture({ ...config, recurringCardConfirmed: false });
+    const payments = new BillingPayments({
+      prisma: db.prisma,
+      bank: bank.client(),
+      contact,
+      grants,
+      clock: () => now,
+    });
+    now = new Date("2030-02-28T10:00:00Z");
+    expect(value(await payments.renew())).toMatchObject({
+      status: "configuration_idle",
+      terminal: "no_recurring",
+      inspected: 1,
+      started: 0,
+      closed: 0,
+    });
+    expect(await s.view()).toMatchObject({ state: "active", periodIndex: 1 });
+    expect(bank.initCalls).toBe(0);
+  });
+
+  test.each(["usable", "missing", "revoked"])(
+    "напоминание и списание согласованы при привязке %s",
+    async (binding) => {
+      const s = await scenario();
+      await s.buy();
+      const row = await db.prisma.billingSubscription.findFirstOrThrow({
+        where: { accountId: s.buyer },
+      });
+      await db.prisma.billingSubscription.update({
+        where: { id: row.id },
+        data: {
+          bindingRef: binding === "missing" ? null : row.bindingRef,
+          bindingCiphertext:
+            binding === "missing" ? null : row.bindingCiphertext,
+          bindingRevokedAt: binding === "revoked" ? now : null,
+          revision: row.revision + 1,
+          updatedAt: now,
+        },
+      });
+      now = new Date("2030-02-25T10:00:00Z");
+      await runNoticeJob(s.notices);
+      const reminders = (await s.notices.readNotices(s.buyer)).filter(
+        (notice) =>
+          notice.kind === "renewal_reminder" && notice.state === "current",
+      );
+      expect(reminders).toHaveLength(binding === "usable" ? 1 : 0);
+      now = new Date("2030-02-28T10:00:00Z");
+      expect(await runRenewalJob(s.payments, s.subscriptions)).toMatchObject({
+        status: "ready",
+        terminal: "ready",
+        started: binding === "usable" ? 1 : 0,
+        closed: binding === "usable" ? 0 : 1,
+      });
+      expect(s.bank.chargeCalls).toBe(binding === "usable" ? 1 : 0);
+      if (binding === "usable")
+        expect(await s.view()).toMatchObject({ periodIndex: 2 });
+      else expect(await s.view()).toBeNull();
+    },
+  );
 
   test("отмена до отправки запрещает вызов банка и сохраняет оплаченный срок", async () => {
     const s = await scenario();
@@ -1252,9 +1417,10 @@ describe("подписка: продление, отмена, смена вар�
     expect(revoked.paymentMethod).toMatchObject({ methodRef, revoked: true });
     now = new Date("2030-02-28T10:00:00Z");
     expect(value(await s.payments.renew())).toMatchObject({
-      inspected: 1,
+      inspected: 0,
       started: 0,
       blocked: 0,
+      closed: 1,
     });
     expect(s.bank.initCalls).toBe(1);
     expect(await s.view()).toBeNull();
