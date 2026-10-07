@@ -1,7 +1,9 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { expect, within } from "storybook/test";
 
-import { CommunityEntryView } from "./community-entry-view";
+import { Button } from "@/shared/ui/button";
+
+import { CommunityEntryView, pathActionClass } from "./community-entry-view";
 import { accountSectionEnvironment } from "@/storybook/story-environment";
 
 const environment = accountSectionEnvironment("/account/purchases");
@@ -13,14 +15,19 @@ const meta = {
   component: CommunityEntryView,
   args: {
     entry: { kind: "join", botUrl },
-    telegramHref: "/account/access",
+    // Слот: настоящую кнопку подставляет страница из раздела «Доступ».
+    telegramAction: (
+      <Button className={pathActionClass} type="button">
+        Подключить Telegram
+      </Button>
+    ),
   },
   parameters: {
     ...environment.parameters,
     docs: {
       description: {
         component:
-          "Переход в сообщество Inside рядом с покупкой. Состояние выбирает сервер; личную ссылку в группу выдаёт бот по /community.",
+          "Переход в сообщество Inside рядом с покупкой. Состояние выбирает сервер; личную ссылку в группу бот присылает сам после подключения Telegram или выдаёт по /community.",
       },
     },
   },
@@ -69,8 +76,12 @@ export const LinkTelegram: Story = {
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
     await expect(
-      canvas.getByRole("link", { name: "Подключить Telegram" }),
-    ).toHaveAttribute("href", "/account/access");
+      canvas.getByRole("button", { name: "Подключить Telegram" }),
+    ).toBeEnabled();
+    // Возвращаться на сайт не нужно: ссылку бот пришлёт сам.
+    await expect(
+      canvas.getByText("После подключения бот сам пришлёт личную ссылку."),
+    ).toBeInTheDocument();
     await expectCurrentStep(canvasElement, "telegram");
   },
 };

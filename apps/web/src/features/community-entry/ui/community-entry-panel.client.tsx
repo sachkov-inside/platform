@@ -1,6 +1,6 @@
 "use client";
-import type { Route } from "next";
 import { useQuery } from "@tanstack/react-query";
+import type { ComponentType } from "react";
 
 import { readBillingEndpoint } from "@/entities/subscription";
 import {
@@ -9,18 +9,22 @@ import {
 } from "@/shared/api/self-refreshing-query";
 
 import { communityEntrySchema } from "../model/community-entry";
-import { CommunityEntryView } from "./community-entry-view";
+import { CommunityEntryView, pathActionClass } from "./community-entry-view";
 
 /** Пока бот готовит вход, блок переспрашивает сервер: право уже есть, ссылка вот-вот появится. */
 const preparingPollMs = 5_000;
 
 export interface CommunityEntryPanelProps {
-  readonly telegramHref: Route;
+  /** Кнопка подключения Telegram; после возврата из бота она освежает этот блок. */
+  readonly TelegramAction: ComponentType<{
+    readonly className?: string;
+    readonly onRefresh: () => Promise<void>;
+  }>;
 }
 
 /** Производственный путь перехода в сообщество: одно чтение собственного состояния Account. */
 export function CommunityEntryPanel({
-  telegramHref,
+  TelegramAction,
 }: CommunityEntryPanelProps) {
   const query = useQuery({
     queryKey: ["account", "community-entry"],
@@ -46,7 +50,14 @@ export function CommunityEntryPanel({
     <CommunityEntryView
       entry={result?.ok === true ? result.value : null}
       error={failed}
-      telegramHref={telegramHref}
+      telegramAction={
+        <TelegramAction
+          className={pathActionClass}
+          onRefresh={async () => {
+            await query.refetch();
+          }}
+        />
+      }
     />
   );
 }
