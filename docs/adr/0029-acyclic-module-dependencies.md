@@ -47,7 +47,7 @@ Interface Module — только то, что используют снаруж
 - Бренд `MaterialId` и его конструктор лежат в `src/infrastructure/contracts/material-id.ts` ниже
   всех Module; Materials реэкспортирует их, Content Access импортирует оттуда.
 - До удаления в #1063 Content Access описывал решения о доступе Workshop; Workshop реализовывал
-  port доступа и описывает решение о членстве под блокировкой выдачи. Materials и Billing сами
+  port доступа и описывал решение о членстве под блокировкой выдачи. Materials и Billing сами
   описывают ответ источника уведомления, Notifications принимает его структурно.
 - Активация подписки в Billing описывает связи типом `RecipientLinks` из Membership Entitlements, от
   которого Billing уже зависит.
