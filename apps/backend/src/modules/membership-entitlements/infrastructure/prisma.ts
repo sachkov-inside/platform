@@ -53,6 +53,19 @@ export type MembershipEntitlementsPrismaTransaction =
 export type MembershipEntitlementsPrismaClient = MembershipEntitlementsPrisma &
   TransactionClient<MembershipEntitlementsPrismaTransaction>;
 
+/** Billing hands these delegates to Membership to assign a tariff under the pricing lock. */
+export type MembershipEnrollmentPrisma = Pick<
+  MembershipEntitlementsPrisma,
+  | "$executeRaw"
+  | "accessReceipt"
+  | "subscriptionEnrollment"
+  | "sourceEntitlement"
+  | "accessGrant"
+  | "accessChange"
+  | "telegramAccountLinkState"
+  | "telegramAccountLinkHistory"
+>;
+
 /** Billing hands its transaction to Membership for an enrollment expansion preview. */
 export type MembershipEnrollmentPreviewPrisma = Pick<
   MembershipEntitlementsPrisma,

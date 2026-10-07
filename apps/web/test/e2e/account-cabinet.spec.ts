@@ -209,6 +209,65 @@ test("«Покупки» ведут в сообщество Inside", async ({ pa
   ).toBeEnabled();
 });
 
+test("повторное подключение Telegram после reload открывает прежний бот", async ({
+  page,
+}) => {
+  await stubAccount(page, { grounds: [paidGround] });
+  await page.route("**/api/account/community-entry", (route) =>
+    route.fulfill({ json: { ok: true, value: { kind: "link_telegram" } } }),
+  );
+  const deepLink = "https://t.me/inside_test_bot?start=opaque";
+  let begins = 0;
+  await page.route("**/api/account/telegram-link/begin", (route) => {
+    begins += 1;
+    return route.fulfill({
+      json: {
+        kind: "received",
+        state: {
+          ...(begins === 1 ? { deepLink } : {}),
+          expiresAt: "2030-01-01T00:05:00.000Z",
+          linkRef: "62000000-0000-4000-8000-000000000001",
+          status: "pending",
+        },
+      },
+    });
+  });
+  await page.addInitScript(() => {
+    Object.defineProperty(window, "open", {
+      configurable: true,
+      value: () => ({
+        close: () => undefined,
+        location: {
+          replace: (url: string) => {
+            sessionStorage.setItem("test.telegram-opened", url);
+          },
+        },
+        opener: null,
+      }),
+    });
+  });
+  await page.goto("/account/purchases");
+  const community = page.getByRole("region", { name: "Сообщество Inside" });
+  await community.getByRole("button", { name: "Подключить Telegram" }).click();
+  await expect(
+    community.getByRole("link", { name: "Открыть Telegram" }),
+  ).toHaveAttribute("href", deepLink);
+  await page.evaluate(() => {
+    sessionStorage.removeItem("test.telegram-opened");
+  });
+  await page.reload();
+  await community.getByRole("button", { name: "Подключить Telegram" }).click();
+  await expect(
+    community.getByRole("link", { name: "Открыть Telegram" }),
+  ).toHaveAttribute("href", deepLink);
+  await expect
+    .poll(() =>
+      page.evaluate(() => sessionStorage.getItem("test.telegram-opened")),
+    )
+    .toBe(deepLink);
+  expect(begins).toBe(2);
+});
+
 test("кабинет полезен без подписки и не предлагает её раздел", async ({
   page,
 }, testInfo) => {

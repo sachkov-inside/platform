@@ -136,6 +136,7 @@ expectFailure(
     "src/modules/billing/features/activate-by-hand/activate-by-hand.ts: activationAttempt belongs to another Module; pass the transaction to its owner's function (activationAttempt)",
     "src/modules/billing/features/activate-by-hand/activate-by-hand.ts: telegramAccountLinkState belongs to another Module; pass the transaction to its owner's function (telegramAccountLinkState)",
     "src/modules/telegram-membership/features/bind-by-hand/bind-by-hand.ts: membershipBinding belongs to another Module; pass the transaction to its owner's function (membershipBinding)",
+    "src/modules/billing/features/assign-by-hand/assign-by-hand.ts: subscriptionEnrollment belongs to another Module; pass the transaction to its owner's function (subscriptionEnrollment)",
     "src/modules/billing/features/write-membership-by-hand/write-membership-by-hand.ts: accessReceipt belongs to another Module; pass the transaction to its owner's function (accessReceipt)",
     "src/modules/billing/features/write-membership-by-hand/write-membership-by-hand.ts: subscriptionEnrollment belongs to another Module; pass the transaction to its owner's function (subscriptionEnrollment)",
     "src/modules/billing/features/write-membership-by-hand/write-membership-by-hand.ts: accessBatchPreview belongs to another Module; pass the transaction to its owner's function (accessBatchPreview)",

@@ -28,9 +28,9 @@ const meta = {
 export default meta;
 type Story = StoryObj<typeof meta>;
 
-/** Раздел «Покупки», где `begin` отвечает новой ссылкой или прежней, чей код сайт не хранит. */
+/** Раздел «Покупки», где `begin` отвечает новой ссылкой или прежней без кода в ответе. */
 function beginAnswers(withDeepLink: boolean) {
-  return accountSectionEnvironment("/account/purchases", {
+  const beforeEach = accountSectionEnvironment("/account/purchases", {
     fetch: () =>
       respondByPath({
         "/api/account/telegram-link/begin": () =>
@@ -45,6 +45,10 @@ function beginAnswers(withDeepLink: boolean) {
           }),
       }),
   }).beforeEach;
+  return () => {
+    sessionStorage.removeItem("inside.telegram-link.v1");
+    return beforeEach();
+  };
 }
 
 /** Подменяет `window.open` на время сценария, чтобы story не открывала настоящий Telegram. */
@@ -93,7 +97,7 @@ export const OpensBot: Story = {
   },
 };
 
-/** Прежняя ссылка ещё действует, а её код сайт не хранит: подключение продолжается в «Доступе». */
+/** В этой вкладке нет прежнего кода: подключение продолжается в «Доступе». */
 export const PreviousLinkStillOpen: Story = {
   beforeEach: beginAnswers(false),
   play: async ({ canvasElement }) => {
@@ -107,6 +111,34 @@ export const PreviousLinkStillOpen: Story = {
           name: "Подключить в разделе «Доступ»",
         }),
       ).toHaveAttribute("href", "/account/access");
+    });
+  },
+};
+
+/** После reload вкладка помнит код, а сервер подтверждает ту же ожидающую привязку. */
+export const PreviousLinkAfterReload: Story = {
+  beforeEach: () => {
+    const cleanup = beginAnswers(false)();
+    sessionStorage.setItem(
+      "inside.telegram-link.v1",
+      JSON.stringify({
+        deepLink,
+        expiresAt: "2030-01-01T00:05:00.000Z",
+        linkRef,
+      }),
+    );
+    return cleanup;
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await withTelegramWindow(canvasElement, async (opened) => {
+      await userEvent.click(
+        canvas.getByRole("button", { name: "Подключить Telegram" }),
+      );
+      await waitFor(() => expect(opened).toHaveBeenCalledWith(deepLink));
+      await expect(
+        canvas.getByRole("link", { name: "Открыть Telegram" }),
+      ).toHaveAttribute("href", deepLink);
     });
   },
 };
