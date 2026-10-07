@@ -76,8 +76,18 @@ not dependency wiring.
   that also serves callers without one takes it as a last optional parameter, and a caller holding
   a transaction always passes it. A read those locks do not guard moves before the transaction and
   is judged inside it, as `recordMaterialOpen` does with its access decision and `authorizeDispatch`
-  with the source and recipient binding. The operation's test runs it on
-  `test/integration/setup/exhausted-pool.ts`, where a second connection fails instead of waiting.
+  with the source and recipient binding. The client of `test/integration/setup/test-database.ts`
+  checks the rule: inside its own `$transaction` callback a query through the root client fails
+  with `SecondConnectionInTransactionError`, and `dispose()` reports a refusal that a facade turned
+  into a failed result. A process started from the database URL uses the production client and is
+  not checked; its operations keep a test on the test database client.
+  `known-transaction-violations.ts` beside it lists the production code that still breaks the rule,
+  each entry with its issue; new code never gets an entry.
+  `test/integration/setup/exhausted-pool.ts` stays for a test of pool exhaustion itself.
+- A test that holds a transaction on purpose and starts inside it a concurrent operation the
+  transaction does not await, such as a contender for the same lock, starts that operation through
+  `outsideTransaction`. Work that the transaction awaits never goes through it: that work is the
+  violation the check refuses.
 - Keep feature-specific data access with its slice. Extract a named private persistence operation
   only for multiple consumers or one cohesive query that becomes a deeper interface.
 - Convert rows to domain values before crossing `domain/`, public contracts, or `index.ts`.

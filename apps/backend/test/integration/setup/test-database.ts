@@ -7,10 +7,13 @@ import {
   createPrismaClient,
   type PlatformPrisma,
 } from "../../../src/infrastructure/prisma/index.js";
+import { guardTransactionConnections } from "./transaction-guard.js";
 
 export interface TestDatabase {
+  /** Fails a query through itself inside its own `$transaction` callback: see `transaction-guard.ts`. */
   readonly prisma: PlatformPrisma;
   readonly url: string;
+  /** Also fails with the first query the client refused inside a transaction. */
   dispose(): Promise<void>;
 }
 
@@ -32,7 +35,9 @@ async function createDatabase(template?: string): Promise<TestDatabase> {
 
   const url = new URL(adminUrl);
   url.pathname = `/${databaseName}`;
-  const prisma = createPrismaClient(url.toString());
+  const { prisma, refused } = guardTransactionConnections(
+    createPrismaClient(url.toString()),
+  );
 
   return {
     prisma,
@@ -48,6 +53,8 @@ async function createDatabase(template?: string): Promise<TestDatabase> {
       } finally {
         await cleanupPool.end();
       }
+      const [first] = refused;
+      if (first !== undefined) throw first;
     },
   };
 }
