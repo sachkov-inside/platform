@@ -268,6 +268,10 @@ export class TributeSources {
     ) {
       result.status = "conflict";
       result.detail = "Источник отсутствует, остановлен или не совпадает";
+    } else if (row.mode === "temporary_membership" && source === null) {
+      result.status = "conflict";
+      result.detail =
+        "Новый временный доступ Tribute не выдаётся; нужен допуск к оплате Inside";
     } else if (
       row.identityRef === null ||
       row.telegramUserId === null ||

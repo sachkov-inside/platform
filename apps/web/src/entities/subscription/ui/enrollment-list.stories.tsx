@@ -94,3 +94,54 @@ export const Expired: Story = {
   },
 };
 export const Empty: Story = { args: { items: [] } };
+
+/** Course materials and community remain; support has its own six-month deadline. */
+export const CourseTariffTerms: Story = {
+  args: {
+    items: [
+      {
+        ...course,
+        tier: {
+          ...course.tier,
+          name: "Тариф курса",
+          benefits: [
+            "guide:62000000-0000-4000-8000-000000000004",
+            "community",
+            "support",
+          ],
+          contentScope: { guideIds: [], materialIds: [] },
+          benefitPeriods: [{ capability: "support", months: 6 }],
+        },
+        benefitTerms: [
+          {
+            capability: "guide:62000000-0000-4000-8000-000000000004",
+            startsAt: course.startsAt,
+            endsAt: null,
+            revoked: false,
+          },
+          {
+            capability: "community",
+            startsAt: course.startsAt,
+            endsAt: null,
+            revoked: false,
+          },
+          {
+            capability: "support",
+            startsAt: course.startsAt,
+            endsAt: "2027-03-14T10:00:00Z",
+            revoked: false,
+          },
+        ],
+      },
+    ],
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await expect(
+      canvas.getByText("Поддержка: до 14 марта 2027 г."),
+    ).toBeVisible();
+    await expect(
+      canvas.queryByText("Срок", { exact: true }),
+    ).not.toBeInTheDocument();
+  },
+};

@@ -7,6 +7,7 @@ import {
 import {
   tariffContentScope,
   isWithheldCapability,
+  isGuideCapability,
 } from "@inside/access-capabilities";
 import { contentScopeSummary, formatBillingDate } from "../model/presentation";
 import { accessComposition } from "../model/billing-contract";
@@ -112,9 +113,7 @@ export function EnrollmentList({
                     {item.benefitTerms
                       .filter((term) => !isWithheldCapability(term.capability))
                       .map((term) => (
-                        <li
-                          key={`${benefitLabel(term.capability)}:${term.startsAt}`}
-                        >
+                        <li key={`${term.capability}:${term.startsAt}`}>
                           {term.revoked
                             ? `${benefitLabel(term.capability)}: отозвано`
                             : term.endsAt === null
@@ -185,6 +184,6 @@ function benefitLabel(capability: string): string {
     case "support":
       return "Поддержка";
     default:
-      return capability;
+      return isGuideCapability(capability) ? "Материалы продукта" : capability;
   }
 }

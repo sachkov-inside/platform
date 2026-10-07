@@ -1,3 +1,4 @@
+import { sourceIdentityRef } from "../../src/modules/membership-entitlements/domain/source-identity.js";
 import { eventually } from "./setup/eventually.js";
 import { lockAccountEntitlementChanges } from "../../src/infrastructure/prisma/index.js";
 import { changeEnrollmentInTransaction } from "../../src/modules/membership-entitlements/features/change-enrollment/change-enrollment.js";
@@ -151,6 +152,7 @@ describe("Tribute source production facets and signed HTTP with PostgreSQL", () 
   });
   async function setup(
     mode: "confirmed_period" | "temporary_membership" = "confirmed_period",
+    historicalTemporary = true,
   ) {
     now = new Date("2030-01-01T00:00:00.000Z");
     const policyRef = randomUUID(),
@@ -196,6 +198,41 @@ describe("Tribute source production facets and signed HTTP with PostgreSQL", () 
       expectedRevision: 0,
       reason: "Подтверждённые даты и identity",
     };
+    if (mode === "temporary_membership" && historicalTemporary) {
+      // Historical source issued before #1064: current commands only reconcile it.
+      const policy = await db.prisma.tributePolicy.findUniqueOrThrow({
+        where: { id: policyRef },
+      });
+      await db.prisma.sourceEntitlement.create({
+        data: {
+          id: randomUUID(),
+          origin: "tribute",
+          sourceRef: sourceIdentityRef("tribute", policyRef, identityRef),
+          sourcePolicyRef: policyRef,
+          identityRef,
+          revision: 1,
+          evidence: { historical: true },
+          checkedAt: now,
+          tributeState: {
+            subscriptionId,
+            telegramUserId: row.telegramUserId,
+            verificationRef: row.verificationRef,
+            mode,
+            startsAt: row.startsAt,
+            endsAt: row.endsAt,
+            renewal: row.renewal,
+            tier: policy.tierSnapshot,
+            policyRevision: policy.revision,
+            observation: "pending",
+            observedUntil: null,
+            observationVersion: null,
+            lastEventAt: row.checkedAt,
+            lastEventFingerprint: null,
+          },
+        },
+      });
+      row.expectedRevision = 1;
+    }
     return { row, tier, guideId };
   }
   async function link(identityRef: string) {
@@ -331,6 +368,26 @@ describe("Tribute source production facets and signed HTTP with PostgreSQL", () 
     ).toBe(false);
     expect(
       await db.prisma.subscriptionEnrollment.count({ where: { sourceRef } }),
+    ).toBe(0);
+  });
+  test("new temporary Tribute source cannot grant unpaid access", async () => {
+    const context = await setup("temporary_membership", false);
+    const customer = await link(context.row.identityRef);
+    const preview = value(
+      await convergence.preview(owner, {
+        operationId: randomUUID(),
+        batchRef: randomUUID(),
+        rows: [context.row],
+      }),
+    );
+    expect(preview.rows[0]?.status).toBe("conflict");
+    expect(
+      await db.prisma.sourceEntitlement.count({
+        where: { identityRef: context.row.identityRef },
+      }),
+    ).toBe(0);
+    expect(
+      await db.prisma.accessGrant.count({ where: { accountId: customer.id } }),
     ).toBe(0);
   });
   test("temporary owner assignment is rejected and expansion preserves pending grant suspension", async () => {

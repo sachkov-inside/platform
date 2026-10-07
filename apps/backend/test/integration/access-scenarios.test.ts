@@ -1,3 +1,4 @@
+import { sourceIdentityRef } from "../../src/modules/membership-entitlements/domain/source-identity.js";
 import { createHash, randomUUID } from "node:crypto";
 import { afterAll, beforeAll, describe, expect, test } from "vitest";
 
@@ -805,13 +806,51 @@ describe("таблица сценариев доступа (реальный Pos
       );
       policy = { policyRef, subscriptionId };
     }
-    const source = await db.prisma.sourceEntitlement.findFirst({
+    let source = await db.prisma.sourceEntitlement.findFirst({
       where: {
         origin: "tribute",
         sourcePolicyRef: policy.policyRef,
         identityRef: member.identityRef,
       },
     });
+    if (mode === "temporary_membership" && source === null) {
+      // Preserve coverage of historical temporary sources; #1064 rejects new sources.
+      const savedPolicy = await db.prisma.tributePolicy.findUniqueOrThrow({
+        where: { id: policy.policyRef },
+      });
+      source = await db.prisma.sourceEntitlement.create({
+        data: {
+          id: randomUUID(),
+          origin: "tribute",
+          sourceRef: sourceIdentityRef(
+            "tribute",
+            policy.policyRef,
+            member.identityRef,
+          ),
+          sourcePolicyRef: policy.policyRef,
+          identityRef: member.identityRef,
+          revision: 1,
+          evidence: { historical: true },
+          checkedAt: now,
+          tributeState: {
+            subscriptionId: policy.subscriptionId,
+            telegramUserId: String(policy.subscriptionId),
+            verificationRef: randomUUID(),
+            mode,
+            startsAt: now.toISOString(),
+            endsAt,
+            renewal,
+            tier: savedPolicy.tierSnapshot,
+            policyRevision: savedPolicy.revision,
+            observation: "pending",
+            observedUntil: null,
+            observationVersion: null,
+            lastEventAt: now.toISOString(),
+            lastEventFingerprint: null,
+          },
+        },
+      });
+    }
     const row = {
       rowRef: randomUUID(),
       policyRef: policy.policyRef,

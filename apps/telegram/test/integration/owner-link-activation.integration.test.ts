@@ -407,10 +407,12 @@ describe("the owner link", () => {
 
   it("rejects the retired Tribute code without rights", async () => {
     const person = await linkedPerson();
+    const previousGrants = grants.size;
     await send(person.user, "/start a_tribute");
     await worker.processAvailable();
     expect(proofs).toEqual([]);
-    expect(grants.size).toBe(0);
+    expect(grants.size).toBe(previousGrants);
+    expect(grants.has(`course:${person.identityRef}`)).toBe(false);
   });
   it("ends an expired retry of a confirmed ground as confirmed", async () => {
     const person = await linkedPerson();

@@ -288,6 +288,23 @@ describe("Subscription Enrollment with real PostgreSQL", () => {
     expect(
       await membership.resolveForAccess(accountId(target), [guide]),
     ).toMatchObject({ kind: "expired" });
+    expect(
+      value(await grants.readAccessSummary(owner, now)).active.map(
+        (entry) => entry.accountId,
+      ),
+    ).not.toContain(target);
+    const holders = value(
+      await grants.listAccessHolders(
+        owner,
+        { operationId: randomUUID(), state: "ended", limit: 100 },
+        { offerPurchaseRefs: [] },
+      ),
+    );
+    expect(holders.items.map((entry) => entry.accountId)).toContain(target);
+    expect(
+      holders.items.find((entry) => entry.accountId === target)?.grounds[0]
+        ?.state,
+    ).toBe("ended");
   });
   test("paid scope expansion preserves source revisions and refund revokes partial and late fulfillment", async () => {
     now = new Date(terms.startsAt);

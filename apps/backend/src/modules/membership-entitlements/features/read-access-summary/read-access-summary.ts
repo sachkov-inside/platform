@@ -1,3 +1,4 @@
+import { readTimedEnrollmentAccess } from "../../shared/timed-enrollment-access.js";
 import type {
   AccessGround,
   InvitationFunnel,
@@ -33,7 +34,7 @@ export async function readAccessSummary(
     revokedAt: null,
     startsAt: { lte: now },
   };
-  const [enrollments, grants, invitations] = await Promise.all([
+  const [enrollments, grants, invitations, timed] = await Promise.all([
     prisma.subscriptionEnrollment.findMany({
       where: { ...current, OR: [{ endsAt: null }, { endsAt: { gt: now } }] },
       orderBy: [{ accountId: "asc" }, { id: "asc" }],
@@ -58,6 +59,7 @@ export async function readAccessSummary(
         revokedAt: true,
       },
     }),
+    readTimedEnrollmentAccess(prisma, now),
   ]);
   const purchaseOpened = invitations.filter(
     (row) => row.mode === "purchase" && row.redeemedAt !== null,
@@ -77,10 +79,15 @@ export async function readAccessSummary(
   const states = invitations.map((row) => invitationState(row, now));
   return {
     active: [
-      ...enrollments.map((row) => ({
-        accountId: row.accountId,
-        ground: enrollmentGround(row, now),
-      })),
+      ...enrollments
+        .filter((row) => {
+          const access = timed.find((entry) => entry.id === row.id);
+          return access === undefined || access.state === "active";
+        })
+        .map((row) => ({
+          accountId: row.accountId,
+          ground: enrollmentGround(row, now),
+        })),
       ...grants.map((row) => ({
         accountId: row.accountId,
         ground: grantGround(row, now),

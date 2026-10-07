@@ -274,8 +274,9 @@ COURSE_PROOF_USER=6400104 COURSE_PROOF_OUTPUT=/tmp/course-proof-existing pnpm pr
 3600/API 3601, Telegram 3606, локальный Logto `identity.inside.localhost:3631`, Mailpit 3625/SMTP
 3626, локальный банковский двойник 38090. Они не являются адресами production. Browser runner
 требует published rule `course64`, source `course64`, owner-created tier «Курс 64 · локальная
-практика» со scope seeded guide `platform-inside` и membership материалом
-`developer-pipeline-bez-poteri-konteksta`. Тариф назначается за курс без даты окончания.
+практика» с правом `guide:<id>` seeded guide `platform-inside`, правом `community` без срока
+и `support` на 6 месяцев. Материал `developer-pipeline-bez-poteri-konteksta` входит в этот продукт.
+Тариф назначается за курс без даты окончания; срок поддержки отсчитывается от активации.
 
 Для `proof:course:existing` дополнительно включить штатный Platform `TBANK_PROVIDER_MODE=test`,
 его loopback API/notification/return URLs и локальный billing-contact SMTP. Seeded разовая покупка

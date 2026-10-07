@@ -658,7 +658,7 @@ export const accessCheckMatrix: readonly AccessCheckRow[] = [
       // Сценарий идёт в `pnpm smoke:enrollments` обязательного CI job `integration`, а не в nightly.
       "web-bff": test(
         webFullstack("enrollment.spec.ts"),
-        "owner assigns scoped course and the open cabinet converges through real BFF and PostgreSQL",
+        "owner assigns course tariff and the open cabinet converges through real BFF and PostgreSQL",
       ),
       production: notApplicable(noAdministratorInProduction),
     },
