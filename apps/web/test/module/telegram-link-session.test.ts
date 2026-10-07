@@ -86,6 +86,16 @@ test.each([
     status: undefined,
     deepLink: "javascript:alert(1)",
   }),
+  JSON.stringify({
+    ...pending,
+    status: undefined,
+    deepLink: "https://t.me/inside_test_bot?start=",
+  }),
+  JSON.stringify({
+    ...pending,
+    status: undefined,
+    deepLink: "https://t.me/?start=opaque",
+  }),
 ])(
   "повреждённая запись или чужой адрес не заменяют ссылку от сервера: %s",
   (raw) => {

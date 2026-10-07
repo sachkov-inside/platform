@@ -1,5 +1,7 @@
 import { z } from "zod";
 
+import { hasText } from "@/shared/lib/text";
+
 import type { TelegramLinkState } from "./account-telegram-membership";
 
 const sessionKey = "inside.telegram-link.v1";
@@ -10,9 +12,10 @@ const savedLinkSchema = z
       return (
         url.protocol === "https:" &&
         url.hostname === "t.me" &&
+        url.pathname !== "/" &&
         url.username === "" &&
         url.password === "" &&
-        url.searchParams.has("start")
+        hasText(url.searchParams.get("start"))
       );
     }),
     expiresAt: z.iso.datetime({ offset: true }),
