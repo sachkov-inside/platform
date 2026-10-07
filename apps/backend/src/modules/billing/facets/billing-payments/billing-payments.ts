@@ -532,7 +532,7 @@ export class BillingPayments {
   /**
    * Due-продление: сериализованный gate и durable attempt до любого обращения к банку.
    * Отсутствие пригодной привязки завершает расписание, операторская причина только блокирует.
-   * Без терминала проход штатен, пока продлевать некого; должная подписка без терминала — сбой.
+   * Без терминала проход только закрывает истёкшие сроки; должная подписка без терминала — сбой.
    */
   async renew(limit = 20): Promise<
     PaymentResult<{
@@ -551,10 +551,9 @@ export class BillingPayments {
         orderBy: { paidUntil: "asc" },
         take: limit,
       });
-      if (!bank && due.length > 0) return paymentFailure("method_unavailable");
       let started = 0,
         blocked = 0;
-      for (const subscription of due) {
+      for (const subscription of bank ? due : []) {
         const prepared = await this.prepareRenewal(subscription.id);
         if (hasText(prepared.attemptRef)) {
           await this.dispatch(prepared.attemptRef);
@@ -581,6 +580,7 @@ export class BillingPayments {
             ? 1
             : 0;
         });
+      if (!bank && due.length > 0) return paymentFailure("method_unavailable");
       return {
         ok: true,
         value: { inspected: due.length, started, blocked, closed },

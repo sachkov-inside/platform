@@ -518,6 +518,31 @@ describe("подписка: продление, отмена, смена вар�
       }),
     ).toBe(0);
     expect(s.bank.chargeCalls).toBe(0);
+    // Сбой не мешает закрыть истёкший срок подписки, которую продлить нечем.
+    const due = await db.prisma.billingSubscription.findFirstOrThrow({
+      where: { accountId: s.buyer, state: "active" },
+    });
+    await db.prisma.billingSubscription.update({
+      where: { id: due.id },
+      data: { bindingRevokedAt: now },
+    });
+    expect(await withoutBank.renew()).toMatchObject({
+      ok: false,
+      error: { code: "method_unavailable" },
+    });
+    expect(await s.view()).toBeNull();
+  });
+
+  test("без терминала отменённая подписка закрывается по истечении срока", async () => {
+    const s = await scenario();
+    await s.buy();
+    const withoutBank = new BillingPayments({
+      prisma: db.prisma,
+      bank: undefined,
+      contact,
+      grants,
+      clock: () => now,
+    });
     // Закрыть истёкший срок отменённой подписки можно и без банка.
     const active = await s.view();
     value(
@@ -526,6 +551,7 @@ describe("подписка: продление, отмена, смена вар�
         expectedRevision: active?.revision,
       }),
     );
+    now = new Date("2030-02-28T10:00:00Z");
     expect(value(await withoutBank.renew())).toEqual({
       inspected: 0,
       started: 0,
