@@ -546,12 +546,16 @@ describe("course activation HTTP authority with real PostgreSQL", () => {
   test("Billing rollback leaves no activation rights or receipt; retry commits once", async () => {
     const context = await setup();
     const attemptId = randomUUID();
-    await send("begin", {
-      contractVersion: version,
-      attemptId,
-      identityRef: context.identityRef,
-      code: context.rule.code,
-    });
+    expect(
+      (
+        await send("attempts", {
+          contractVersion: version,
+          attemptId,
+          identityRef: context.identityRef,
+          code: context.rule.code,
+        })
+      ).json(),
+    ).toMatchObject({ ok: true, value: { state: "needs_account" } });
     await linkTelegramAccount(db.prisma, {
       accountId: context.id,
       identityRef: context.identityRef,
