@@ -86,7 +86,7 @@ interface Dependencies {
     | "prepareEnrollmentExpansion"
     | "applyEnrollmentExpansion"
     | "readEnrollmentAssignmentReceipt"
-    | "assignEnrollment"
+    | "prepareEnrollmentAssignment"
     | "changeEnrollment"
     | "listEnrollments"
     | "issueInvitation"
@@ -546,6 +546,11 @@ export class BillingOperations {
                       ? "dependency_unavailable"
                       : receipt.error.code,
               );
+        const prepared = await grants.prepareEnrollmentAssignment(
+          actorId,
+          input,
+        );
+        if (!prepared.ok) return ownerAccessFailure(prepared.error.code);
         return prisma.$transaction(async function assignEnrollmentWithTier(tx) {
           await lockBillingPricing(tx);
           const row = await tx.billingOffer.findUnique({
@@ -571,11 +576,7 @@ export class BillingOperations {
             contentScope: row.contentScope ?? { guideIds: [], materialIds: [] },
           });
           if (!tier.success) return ownerFailure("invalid_request");
-          const result = await grants.assignEnrollment(
-            actorId,
-            input,
-            tier.data,
-          );
+          const result = await prepared.assign(tx, tier.data);
           return result.ok
             ? {
                 ok: true,

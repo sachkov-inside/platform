@@ -16,12 +16,6 @@ export const knownTransactionViolations: readonly {
     through: "src/modules/billing/facets/billing-notices/billing-notices.ts",
   },
   {
-    issue: 1069,
-    callbackName: "assignEnrollmentWithTier",
-    through:
-      "src/modules/billing/facets/billing-operations/billing-operations.ts",
-  },
-  {
     issue: 1072,
     through:
       "src/modules/billing/facets/tribute-convergence/tribute-convergence.ts",
