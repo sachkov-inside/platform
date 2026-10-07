@@ -7,6 +7,9 @@ owner decision в [#120](https://github.com/sachkov-inside/platform/issues/120) 
 persistent authorization audit в v1, и расширенный
 [#263](https://github.com/sachkov-inside/platform/issues/263) для Workshop Materials.
 
+[ADR 0033](../adr/0033-product-tariff-payment-model.md) отменяет Мастерскую и подарочный режим
+приглашения. Workshop-пути и сценарии подарка ниже описывают код до задачи удаления.
+
 Workshop-specific extension #263 остаётся implemented case-first foundation. Для нового Kafka
 Track обычные Material targets используют только `free | membership`; legacy `workshop`
 requirement и `WorkshopMaterialAccess` применяются только к явно связанным CaseMaterials до

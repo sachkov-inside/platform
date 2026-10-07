@@ -201,12 +201,12 @@ test("«Покупки» ведут в сообщество Inside", async ({ pa
 
   await page.goto("/account/purchases");
 
-  // Без подключённого Telegram бот не узнает покупателя: сначала подключение.
+  // Без подключённого Telegram бот не узнает покупателя: сначала подключение, прямо из блока.
   await expect(
     page
       .getByRole("region", { name: "Сообщество Inside" })
-      .getByRole("link", { name: "Подключить Telegram" }),
-  ).toHaveAttribute("href", "/account/access");
+      .getByRole("button", { name: "Подключить Telegram" }),
+  ).toBeEnabled();
 });
 
 test("кабинет полезен без подписки и не предлагает её раздел", async ({

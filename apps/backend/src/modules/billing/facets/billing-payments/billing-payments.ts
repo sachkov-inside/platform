@@ -532,6 +532,7 @@ export class BillingPayments {
   /**
    * Due-продление: сериализованный gate и durable attempt до любого обращения к банку.
    * Отсутствие пригодной привязки завершает расписание, операторская причина только блокирует.
+   * Без терминала проход только закрывает истёкшие сроки; оставшаяся должная подписка — сбой.
    */
   async renew(limit = 20): Promise<
     PaymentResult<{
@@ -543,8 +544,7 @@ export class BillingPayments {
   > {
     if (!Number.isInteger(limit) || limit < 1 || limit > 100)
       return paymentFailure("invalid_request");
-    const { prisma } = this.dependencies;
-    if (!this.dependencies.bank) return paymentFailure("method_unavailable");
+    const { prisma, bank } = this.dependencies;
     try {
       const due = await prisma.billingSubscription.findMany({
         where: { state: "active", paidUntil: { lte: this.clock() } },
@@ -553,13 +553,14 @@ export class BillingPayments {
       });
       let started = 0,
         blocked = 0;
-      for (const subscription of due) {
-        const prepared = await this.prepareRenewal(subscription.id);
-        if (hasText(prepared.attemptRef)) {
-          await this.dispatch(prepared.attemptRef);
-          started += 1;
-        } else if (prepared.blocked === true) blocked += 1;
-      }
+      if (bank)
+        for (const subscription of due) {
+          const prepared = await this.prepareRenewal(subscription.id);
+          if (hasText(prepared.attemptRef)) {
+            await this.dispatch(prepared.attemptRef);
+            started += 1;
+          } else if (prepared.blocked === true) blocked += 1;
+        }
       // Закончившийся оплаченный срок без продления освобождает Account для новой покупки.
       const lapsed = await prisma.billingSubscription.findMany({
         where: { state: { not: "ended" }, paidUntil: { lte: this.clock() } },
@@ -580,6 +581,15 @@ export class BillingPayments {
             ? 1
             : 0;
         });
+      // Без терминала сбой — только подписка, которую закрытие сроков оставило к продлению.
+      if (
+        !bank &&
+        due.length > 0 &&
+        (await prisma.billingSubscription.count({
+          where: { state: "active", paidUntil: { lte: this.clock() } },
+        })) > 0
+      )
+        return paymentFailure("method_unavailable");
       return {
         ok: true,
         value: { inspected: due.length, started, blocked, closed },

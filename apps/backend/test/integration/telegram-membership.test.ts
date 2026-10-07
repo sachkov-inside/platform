@@ -408,6 +408,58 @@ describe("TelegramMembership", () => {
     },
   );
 
+  test("finishes a link the buyer started in the bot without a return to the site", async () => {
+    ({ clock, membership, provider } = fixture(database));
+    const waiting = await membership.beginLink({ accountId: firstAccountId });
+    provider.registration = {
+      expiresAt: new Date("2030-01-01T00:05:00.000Z"),
+      kind: "registered",
+      linkTransactionRef: "telegram-link-transaction-b",
+      returnCorrelation: "return-correlation-b",
+    };
+    const stale = await membership.beginLink({ accountId: otherAccountId });
+    if (!waiting.ok || !stale.ok) throw new Error("Expected two links");
+
+    // The bot has not seen the start token yet: the link keeps waiting.
+    provider.confirmation = { kind: "pending" };
+    await expect(membership.confirmPendingLinks(10)).resolves.toEqual({
+      linked: 0,
+      pending: 2,
+    });
+    expect(provider.confirmRequests).toHaveLength(2);
+
+    provider.confirmation = {
+      kind: "linked",
+      linkTransactionRef: "telegram-link-transaction-a",
+      returnCorrelation: "return-correlation-a",
+      telegramIdentityRef: "telegram-identity-ref-a",
+    };
+    // An expired link is not asked again; only the live one is confirmed.
+    await database.prisma.telegramLinkTransaction.update({
+      where: { linkRef: stale.state.linkRef },
+      data: { expiresAt: new Date("2030-01-01T00:00:30.000Z") },
+    });
+    clock.set(new Date("2030-01-01T00:01:00.000Z"));
+    await expect(membership.confirmPendingLinks(10)).resolves.toEqual({
+      linked: 1,
+      pending: 0,
+    });
+    expect(provider.confirmRequests).toHaveLength(3);
+    await expect(
+      membership.readAccountPresentation({ accountId: firstAccountId }),
+    ).resolves.toMatchObject({
+      ok: true,
+      presentation: { link: { kind: "linked" } },
+    });
+
+    // A linked Account leaves the background pass.
+    await expect(membership.confirmPendingLinks(10)).resolves.toEqual({
+      linked: 0,
+      pending: 0,
+    });
+    expect(provider.confirmRequests).toHaveLength(3);
+  });
+
   test("retries a confirmed provider link after a temporary outage", async () => {
     ({ entitlements, membership, provider } = fixture(database));
     const begun = await membership.beginLink({ accountId: firstAccountId });

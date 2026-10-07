@@ -39,6 +39,7 @@ import {
 import { TelegramEvidenceController } from "./adapters/nest/telegram-evidence.controller.js";
 import { AccountTelegramMembershipController } from "./adapters/nest/account-telegram-membership.controller.js";
 import { TelegramLinkController } from "./adapters/nest/telegram-link.controller.js";
+import { PendingLinkConfirmationPump } from "./adapters/nest/pending-link-confirmation.pump.js";
 import { assembleTelegramMembership } from "./facets/telegram-membership/assemble-telegram-membership.js";
 import type { TelegramMembership } from "./facets/telegram-membership/telegram-membership.interface.js";
 import { HttpTelegramLinkProvider } from "./infrastructure/http/http-telegram-link-provider.js";
@@ -67,6 +68,7 @@ import {
     TelegramEvidenceController,
   ],
   providers: [
+    PendingLinkConfirmationPump,
     {
       provide: SubscriptionActivation,
       inject: [

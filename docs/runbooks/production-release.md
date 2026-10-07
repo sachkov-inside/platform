@@ -178,7 +178,10 @@ AMQPS на `5671`. Топологию он читает из определен�
   Текст отказа в логе (`"status":"operator_attention"`):
   - `Sale is enabled in the billing catalog, but TBANK_CONFIG_JSON is not configured`;
   - `Sale is enabled in the billing catalog, but BILLING_CONTACT_* is not configured`;
-  - `Subscription sale is enabled in the billing catalog, but the terminal does not confirm recurringCardConfirmed and cardOnlyHostedConfirmed`.
+  - `Subscription sale is enabled in the billing catalog, but the terminal does not confirm recurringCardConfirmed and cardOnlyHostedConfirmed`;
+- задание `billing.subscription-renewal` без терминала закрывает истёкшие сроки и завершается
+  штатно, если после закрытия не осталось подписки со сроком к продлению. Такая подписка без
+  терминала — сбой: `job_failed` с `method_unavailable`.
 
 Проверка выполняется только при запуске. Продажу включают после проверок выпуска, и снимают её
 («выключить из продажи») раньше, чем убирают настройки оплаты.
@@ -282,11 +285,12 @@ Telegram ([Telegram #45](https://github.com/sachkov-inside/inside-telegram/issue
 Постоянную продажу разового продукта владелец включает после шага 12; приёмка реальными платежами —
 Workspace #184.
 
-Предложение подписки продаётся только прежним подписчикам Tribute (Workspace #238, Platform #775).
-Форма `/authoring/billing` допуск не показывает и сохраняет прежний, поэтому до включения продажи
-подписки владелец задаёт его владельческой операцией `offers.save` или MCP-инструментом
-`billing_offers_save` со значением `eligibility: former_tribute_subscribers` и проверяет, что гость
-не видит подписку на `/subscription`. Предложение без этого значения продаётся всем.
+Подписку продают только по приглашению владельца
+([ADR 0033](../adr/0033-product-tariff-payment-model.md)). Продажа ждёт подтверждения банком
+регулярных списаний и новой редакции оферты подписки. Форма `/authoring/billing` допуск не
+показывает, поэтому до включения продажи подписки владелец задаёт его операцией `offers.save` или
+MCP-инструментом `billing_offers_save` со значением `eligibility: invitation_only` и проверяет, что
+гость не видит подписку на `/subscription`. Тариф без этого значения продаётся всем.
 
 ## Checks after rollout
 

@@ -489,6 +489,82 @@ describe("подписка: продление, отмена, смена вар�
     expect(s.bank.chargeCalls).toBe(1);
   });
 
+  test("без терминала продление проходит штатно, пока продлевать некого, а подписка с рабочей привязкой остаётся сбоем", async () => {
+    const s = await scenario();
+    await s.buy();
+    const withoutBank = new BillingPayments({
+      prisma: db.prisma,
+      bank: undefined,
+      contact,
+      grants,
+      clock: () => now,
+    });
+    expect(value(await withoutBank.renew())).toEqual({
+      inspected: 0,
+      started: 0,
+      blocked: 0,
+      closed: 0,
+    });
+    now = new Date("2030-02-28T10:00:00Z");
+    expect(await withoutBank.renew()).toMatchObject({
+      ok: false,
+      error: { code: "method_unavailable" },
+    });
+    expect(await s.view()).toMatchObject({ state: "active", periodIndex: 1 });
+    // Сбой случается до попытки оплаты: ни строки попытки, ни обращения к банку.
+    expect(
+      await db.prisma.billingPurchase.count({
+        where: { accountId: s.buyer, kind: "renewal" },
+      }),
+    ).toBe(0);
+    expect(s.bank.chargeCalls).toBe(0);
+    // Подписка, которую продлить нечем, закрывается, и проход завершается штатно.
+    const due = await db.prisma.billingSubscription.findFirstOrThrow({
+      where: { accountId: s.buyer, state: "active" },
+    });
+    await db.prisma.billingSubscription.update({
+      where: { id: due.id },
+      data: {
+        bindingRevokedAt: now,
+        revision: due.revision + 1,
+        updatedAt: now,
+      },
+    });
+    expect(value(await withoutBank.renew())).toMatchObject({
+      started: 0,
+      closed: 1,
+    });
+    expect(await s.view()).toBeNull();
+  });
+
+  test("без терминала отменённая подписка закрывается по истечении срока", async () => {
+    const s = await scenario();
+    await s.buy();
+    const withoutBank = new BillingPayments({
+      prisma: db.prisma,
+      bank: undefined,
+      contact,
+      grants,
+      clock: () => now,
+    });
+    // Закрыть истёкший срок отменённой подписки можно и без банка.
+    const active = await s.view();
+    value(
+      await s.subscriptions.cancel(s.buyer, {
+        operationId: randomUUID(),
+        expectedRevision: active?.revision,
+      }),
+    );
+    now = new Date("2030-02-28T10:00:00Z");
+    expect(value(await withoutBank.renew())).toEqual({
+      inspected: 0,
+      started: 0,
+      blocked: 0,
+      closed: 1,
+    });
+    expect(await s.view()).toBeNull();
+  });
+
   test("отмена до отправки запрещает вызов банка и сохраняет оплаченный срок", async () => {
     const s = await scenario();
     await s.buy();

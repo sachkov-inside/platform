@@ -30,6 +30,7 @@ import type {
   AccountMembershipState,
   AccountTelegramLinkState,
   AccountTelegramMembershipResult,
+  PendingLinkConfirmationReport,
   TelegramLinkResult,
   TelegramLinkState,
   TelegramMembership,
@@ -113,6 +114,9 @@ export function assembleTelegramMembership(
           { ok: false, error: { code: "unavailable" } },
         );
       }
+    },
+    confirmPendingLinks(limit) {
+      return confirmPendingLinks(dependencies, limit, clock());
     },
   };
   return Object.freeze(membership);
@@ -485,6 +489,42 @@ async function confirmLink(
   return success(
     linkState(linkRef, transaction.expiresAt, publicStatus(state)),
   );
+}
+
+async function confirmPendingLinks(
+  dependencies: TelegramMembershipDependencies,
+  limit: number,
+  now: Date,
+): Promise<PendingLinkConfirmationReport> {
+  // Ссылка из бота живёт недолго: ждать возврата человека на сайт значит потерять привязку.
+  const waiting = await dependencies.prisma.telegramLinkTransaction.findMany({
+    where: {
+      expiresAt: { gt: now },
+      providerIdentityRef: null,
+      OR: [
+        { status: "pending" },
+        // Временный сбой Telegram не останавливает фоновые попытки до конца срока ссылки.
+        { status: "unavailable", providerTransactionRef: { not: null } },
+      ],
+    },
+    orderBy: [{ updatedAt: "asc" }, { linkRef: "asc" }],
+    take: limit,
+    select: { accountId: true, linkRef: true },
+  });
+  let linked = 0;
+  let pending = 0;
+  for (const link of waiting) {
+    const result = await confirmLink(
+      dependencies,
+      link.accountId,
+      link.linkRef,
+      now,
+    );
+    if (!result.ok) continue;
+    if (result.state.status === "linked") linked += 1;
+    if (result.state.status === "pending") pending += 1;
+  }
+  return { linked, pending };
 }
 
 async function acceptEvidence(
