@@ -5,7 +5,7 @@ import { canonical, checksum } from "./package.mjs";
 const version = z.number().int().positive().max(Number.MAX_SAFE_INTEGER);
 const text = z.string().min(1);
 const hash = z.hash("sha256");
-const access = z.enum(["free", "membership", "workshop"]);
+const access = z.enum(["free", "membership"]);
 /** @typedef {z.infer<typeof access>} Access */
 // Validate consumed fields, preserving additional wire fields and exact replay bytes.
 const source = z

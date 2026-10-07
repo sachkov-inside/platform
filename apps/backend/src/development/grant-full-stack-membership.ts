@@ -11,7 +11,6 @@ import { loadPlatformConfig } from "../config/load-platform-config.js";
 import { createPrismaClient } from "../infrastructure/prisma/index.js";
 import { accountId } from "../modules/accounts/index.js";
 import { assembleMembershipEntitlements } from "../modules/membership-entitlements/index.js";
-import { assembleWorkshopEntitlements } from "../modules/workshop/index.js";
 
 const FULL_STACK_MEMBERSHIP_LIFETIME_MS = minutesInMilliseconds(5);
 
@@ -47,7 +46,6 @@ async function main(): Promise<void> {
     );
     const result = await assembleMembershipEntitlements({
       prisma,
-      workshopEntitlements: assembleWorkshopEntitlements({ prisma }),
     }).acceptEvidence({
       accountId: accountId(member.id),
       deliveryId: `full-stack-${checkedAt.toISOString()}`,
@@ -90,7 +88,6 @@ async function main(): Promise<void> {
       if (state === "expired") {
         const membership = assembleMembershipEntitlements({
           prisma,
-          workshopEntitlements: assembleWorkshopEntitlements({ prisma }),
         });
         const prior = new Date(checkedAt.getTime() - 1);
         const granted = await membership.acceptEvidence({
@@ -162,7 +159,7 @@ async function main(): Promise<void> {
             );
       const deniedResult = await assembleMembershipEntitlements({
         prisma,
-        workshopEntitlements: assembleWorkshopEntitlements({ prisma }),
+
         clock: () => observedAt,
       }).acceptEvidence({
         accountId: accountId(fixtureMember.id),
@@ -189,7 +186,6 @@ async function main(): Promise<void> {
       }
       const resolved = await assembleMembershipEntitlements({
         prisma,
-        workshopEntitlements: assembleWorkshopEntitlements({ prisma }),
       }).resolveForAccess(accountId(fixtureMember.id));
       if (resolved.kind !== state)
         throw new Error(`Membership fixture must resolve as ${state}`);

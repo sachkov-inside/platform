@@ -3,7 +3,6 @@ import { loadPlatformConfig } from "../config/load-platform-config.js";
 import { createPrismaClient } from "../infrastructure/prisma/index.js";
 import { accountId } from "../modules/accounts/index.js";
 import { assembleMembershipEntitlements } from "../modules/membership-entitlements/index.js";
-import { assembleWorkshopEntitlements } from "../modules/workshop/index.js";
 
 const MEMBERSHIP_FIXTURE_LIFETIME_MS = 5 * 60_000;
 
@@ -33,7 +32,6 @@ async function main() {
     const now = new Date();
     const membership = assembleMembershipEntitlements({
       prisma,
-      workshopEntitlements: assembleWorkshopEntitlements({ prisma }),
     });
     const result = await membership.acceptEvidence({
       accountId: accountId(account.id),

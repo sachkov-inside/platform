@@ -4,7 +4,7 @@ import type { MaterialId } from "../../../../infrastructure/contracts/material-i
 export interface MaterialResourceFacts {
   readonly materialId: MaterialId;
   readonly publicationState: "draft" | "published" | "unpublished";
-  readonly access: "free" | "membership" | "workshop";
+  readonly access: "free" | "membership";
   readonly contentVersion: number;
   readonly primaryVideoId: string | null;
   readonly guideIds?: readonly string[];
@@ -63,7 +63,7 @@ export interface GuideTaskResourceFactsAdapter {
 export interface VideoResourceFacts {
   readonly videoId: string;
   readonly materialId: MaterialId;
-  readonly access: "free" | "membership" | "workshop";
+  readonly access: "free" | "membership";
 }
 
 export interface VideoResourceFactsAdapter {
@@ -73,19 +73,6 @@ export interface VideoResourceFactsAdapter {
 
 export interface AccountPermissions {
   hasMaterialsManage(accountId: AccountId): Promise<boolean>;
-}
-
-/** Workshop access to one Material; Workshop answers it. */
-export type WorkshopMaterialAccessState =
-  | Readonly<{ availability: "available"; validUntil: string }>
-  | Readonly<{ availability: "locked" | "unavailable" }>;
-
-/** The Workshop decision Content Access needs. Workshop implements this port. */
-export interface WorkshopMaterialAccess {
-  resolve(
-    accountId: AccountId,
-    materialId: MaterialId,
-  ): Promise<WorkshopMaterialAccessState>;
 }
 
 /** A Membership decision for one resource; Membership Entitlements answers it. */
@@ -117,7 +104,6 @@ export interface ContentAccessDependencies {
   readonly materialResourceFacts: MaterialResourceFactsAdapter;
   readonly accountPermissions: AccountPermissions;
   readonly membershipEntitlements: MembershipEntitlements;
-  readonly workshopMaterialAccess?: WorkshopMaterialAccess;
   readonly clock?: () => Date;
   readonly decisionId?: () => string;
 }

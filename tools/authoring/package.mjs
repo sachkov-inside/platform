@@ -133,7 +133,7 @@ export const manifestSchema = z
           summary: z.string().min(1),
           stage: z.enum(["idea", "draft", "review", "ready", "published"]),
           topicId: identifier.nullable(),
-          access: z.enum(["free", "membership", "workshop"]).nullable(),
+          access: z.enum(["free", "membership"]).nullable(),
           showInFeed: z.boolean(),
           difficulty: z.enum(["basic", "intermediate", "advanced"]).nullable(),
           outcomes: z.array(z.string()).nullable(),

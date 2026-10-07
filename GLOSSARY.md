@@ -95,7 +95,7 @@ _Avoid_: Library subscription, Product, closed Material
 Whether a Material is free or closed. A free Material is open to everyone; a closed Material opens
 only to an Account with access to a Product that contains it. There is no closed Material outside
 Products.
-_Avoid_: Membership, paywall flag, Workshop access
+_Avoid_: Membership, paywall flag
 
 **Product**:
 A standalone Inside learning programme with an authored sequence of reusable Materials and the only

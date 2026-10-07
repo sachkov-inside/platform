@@ -29,7 +29,6 @@ import type {
   MembershipEvidenceAcceptance,
   MembershipEvidenceFailureCode,
 } from "../../facets/membership-entitlements/membership-entitlements.interface.js";
-import type { WorkshopEntitlements } from "../../../workshop/index.js";
 import { jsonText } from "../../../../infrastructure/contracts/json-text.js";
 
 const EVIDENCE_RECEIPT_RETENTION_DAYS = 30;
@@ -110,10 +109,6 @@ type ObservedEvidenceApplication =
 
 export async function acceptMembershipEvidence(
   prisma: MembershipEntitlementsPrismaClient,
-  workshopEntitlements: Pick<
-    WorkshopEntitlements,
-    "applyAcceptedMembershipEvidence"
-  >,
   command: AcceptMembershipEvidenceCommand,
   now: Date,
   links?: Pick<ActivationBindings, "readBinding">,
@@ -239,7 +234,6 @@ export async function acceptMembershipEvidence(
 
     const applied = await applyObservedEvidence(
       transaction,
-      workshopEntitlements,
       checkedCommand,
       validation.value,
       evidenceFingerprint,
@@ -322,10 +316,6 @@ async function checkAccountBinding(
 
 async function applyObservedEvidence(
   transaction: MembershipEntitlementsPrismaTransaction,
-  workshopEntitlements: Pick<
-    WorkshopEntitlements,
-    "applyAcceptedMembershipEvidence"
-  >,
   command: CheckedEvidenceCommand,
   evidence: ObservedMembershipEvidence,
   evidenceFingerprint: ReplayFingerprint,
@@ -357,14 +347,6 @@ async function applyObservedEvidence(
     on conflict do nothing
   `);
   if (inserted === 1) {
-    await applyWorkshopEvidence(
-      workshopEntitlements,
-      transaction,
-      command,
-      evidence,
-      evidenceFingerprint.digest,
-      now,
-    );
     const cohort = await transaction.legacyClassification.findUnique({
       where: { accountId: command.accountId },
       select: { bridgeEnabled: true },
@@ -390,14 +372,6 @@ async function applyObservedEvidence(
     data: projection,
   });
   if (updated.count === 1) {
-    await applyWorkshopEvidence(
-      workshopEntitlements,
-      transaction,
-      command,
-      evidence,
-      evidenceFingerprint.digest,
-      now,
-    );
     const cohort = await transaction.legacyClassification.findUnique({
       where: { accountId: command.accountId },
       select: { bridgeEnabled: true },
@@ -425,15 +399,6 @@ async function applyObservedEvidence(
     if (!evidenceFingerprint.recognizes(current.evidenceFingerprint)) {
       return failure("replayed_evidence");
     }
-    // Workshop holds the fingerprint this version was accepted with, which may be the version 1 form.
-    await applyWorkshopEvidence(
-      workshopEntitlements,
-      transaction,
-      command,
-      evidence,
-      current.evidenceFingerprint,
-      now,
-    );
     return {
       ok: true,
       outcome: "duplicate",
@@ -441,30 +406,6 @@ async function applyObservedEvidence(
     };
   }
   return failure("replayed_evidence");
-}
-
-function applyWorkshopEvidence(
-  workshopEntitlements: Pick<
-    WorkshopEntitlements,
-    "applyAcceptedMembershipEvidence"
-  >,
-  transaction: MembershipEntitlementsPrismaTransaction,
-  command: CheckedEvidenceCommand,
-  evidence: ObservedMembershipEvidence,
-  evidenceFingerprint: string,
-  now: Date,
-): Promise<void> {
-  return workshopEntitlements.applyAcceptedMembershipEvidence(transaction, {
-    accountId: command.accountId,
-    principalRef: evidence.principalRef,
-    decision: evidence.decision,
-    evidenceRef: evidence.evidenceRef,
-    evidenceVersion: evidence.evidenceVersion,
-    evidenceFingerprint,
-    checkedAt: new Date(evidence.checkedAt),
-    validUntil: new Date(evidence.validUntil),
-    acceptedAt: now,
-  });
 }
 
 function projectionData(

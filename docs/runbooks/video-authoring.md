@@ -12,7 +12,7 @@ an SSH connection or provider API token does not authenticate a Material author.
 2. Load the target with `material_load`, or create a never-published Material through
    `material_create_draft` using a stable idempotency key. Preserve its complete body and metadata.
 3. Call `video_attach_existing` with `materialId`, `providerVideoId` and the Material access
-   (`free`, `membership` or `workshop`). The provider ID must match the configured project.
+   (`free` or `membership`). The provider ID must match the configured project.
    Repeating attachment to the same Material/access reuses the local Video. A different Material
    cannot silently take the same provider Video. This does not select the primary Video yet.
 4. Call `video_reconcile` with the returned local `videoId`. Processing is not ready playback.

@@ -11,18 +11,6 @@ reusable path uses that SHA, so a moving branch cannot change the candidate duri
 pushes do not start application CI; the protected `main` branch accepts changes only through the
 merge queue with a successful `CI Gate`.
 
-Changes under `contracts/workshop/`, `tools/workshop-evaluator/` or their workflow also start the
-read-only `.github/workflows/workshop-evaluator.yml`. Its matrix uses native GitHub-hosted
-`macos-15` arm64, `ubuntu-24.04` amd64 and `windows-2025` amd64 runners. Each host checks the shared
-embedded schemas, runs Go unit/integration/race tests, builds the pinned CLI, executes the complete
-synthetic device/report smoke as a native process, verifies an exact SHA-256 checksum and uploads
-a `tar.gz` package plus its exact checksum for 14 days. The package keeps the native binary, its
-checksum and native wrapper together while preserving Unix executable modes. Linux and Windows run
-the real Compose smoke in CI; GitHub-hosted macOS arm64 runs the native fake-Docker smoke because
-the hosted runner cannot provide nested virtualization, while release evidence records the real
-Compose smoke from a physical macOS arm64 host. The workflow does not use credentials, create a
-GitHub Release or provide an auto-update channel.
-
 ## Required checks
 
 `pnpm check` is the aggregate of four stages, and each stage runs as its own job, so a failure
@@ -31,7 +19,7 @@ names its seam and the stages run in parallel:
 | Job | Repository command or proof |
 |---|---|
 | `static` | `pnpm check:static`: documentation contract, Prettier formatting, workspace packages and Prisma client, OpenAPI drift, lint, typecheck, guardrails |
-| `unit` | `pnpm check:unit`: tooling and authoring `node --test`, Workshop contracts and `go test -race`, backend and package Vitest, web module tests |
+| `unit` | `pnpm check:unit`: tooling and authoring `node --test`, backend and package Vitest, web module tests |
 | `ui` | `pnpm check:ui`: browser-engine checks (Chromium and WebKit), Storybook tests and the Storybook build |
 | `web-e2e` | `pnpm check:web-e2e`: one production build, prerendered and standalone checks, then Playwright e2e and page transitions on `next start` of that build |
 | `telegram` | `pnpm --filter @inside/telegram check:full` с изолированными PostgreSQL 18.4 и RabbitMQ, synthetic non-guest user |
@@ -213,11 +201,6 @@ The executable workflow contract lives in `scripts/ci-workflow-contract.test.mjs
 permissions, action pinning in the workflow and the setup action, the one-job-per-`check:*`-stage
 mapping, job dependencies and artifact retention from configuration drift, for both the pull-request
 workflow and the nightly full-stack workflow.
-
-The Workshop artifact matrix has a separate executable contract in
-`scripts/workshop-evaluator-workflow.test.mjs`. Cross-language schema agreement also runs locally
-through `pnpm workshop:contracts:check`; generated Go schema drift and bounded lifecycle behavior
-run through `pnpm workshop:evaluator:test`.
 
 The release, deployment and manifest policies have executable contracts in
 `scripts/release-workflow-contract.test.mjs`, `scripts/deployment-workflow-contract.test.mjs`,

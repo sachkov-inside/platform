@@ -1,8 +1,8 @@
 # Workshop Tracks and Laboratories application specification
 
 Статус: **отменён** [ADR 0033](../adr/0033-product-tariff-payment-model.md) от 07.10.2026:
-Мастерской не будет, документ — только история. Модуль `workshop` и право Мастерской удаляет
-отдельная задача. Раньше, 16.09.2026, владелец снял Мастерскую и первый Kafka Track с плана и
+Мастерской не будет, документ — только история. Модуль `workshop`, оценщик и вид доступа удалены
+в [#1063](https://github.com/sachkov-inside/platform/issues/1063). Раньше, 16.09.2026, владелец снял Мастерскую и первый Kafka Track с плана и
 удалил их задачи. Документ сохраняется как историческая запись repository-local contract. Он
 реализовывал подтверждённую shared границу
 [Workspace #108](https://github.com/sachkov-inside/workspace/issues/108).
@@ -24,8 +24,7 @@ learner progress и requirements первого Kafka-среза. Shared product
 implementation tickets и не угадываются здесь заранее.
 
 Прежняя [case-first application specification](./production-workshop-v1.md) больше не является
-текущим продуктовым контрактом. Уже реализованные foundations остаются доступными, но их повторное
-использование требует явного соответствия этой specification.
+текущим продуктовым контрактом. Её runtime foundations удалены в #1063; описание ниже сохраняет прежний контракт.
 
 ## 2. Product boundary
 

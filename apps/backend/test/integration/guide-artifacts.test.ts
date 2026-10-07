@@ -19,7 +19,6 @@ import {
   assembleMembershipEntitlements,
   type AccessCapability,
 } from "../../src/modules/membership-entitlements/index.js";
-import { assembleWorkshopEntitlements } from "../../src/modules/workshop/index.js";
 import {
   assembleGuideArtifactDelivery,
   assembleGuideArtifactResourceFacts,
@@ -119,7 +118,6 @@ describe("Guide Artifacts", () => {
     grants = assembleAccessGrants({ accounts, prisma: db.prisma });
     const membershipEntitlements = assembleMembershipEntitlements({
       prisma: db.prisma,
-      workshopEntitlements: assembleWorkshopEntitlements({ prisma: db.prisma }),
     });
     artifacts = assembleGuideArtifacts({
       authorPolicy: { canManage: (id) => id === owner },

@@ -67,6 +67,7 @@ beforeAll(async () => {
       "0078_invitations",
       "0079_guide_tasks",
       "0080_guide_task_placement_and_form",
+      "0081_remove_workshop",
     ],
   });
   await database.prisma.topic.create({

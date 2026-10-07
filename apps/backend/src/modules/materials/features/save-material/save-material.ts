@@ -44,7 +44,6 @@ import {
   requestVideoDeletion,
 } from "../../../videos/index.js";
 import { markUnreferencedMaterialAssets } from "../../../assets/index.js";
-import { resolveWorkshopMaterialProtection } from "../../../workshop/index.js";
 import { materialReaderPath } from "../../domain/announcement.js";
 import { recordMaterialAnnouncement } from "./record-announcement.js";
 import { lockMaterialForLifecycleChange } from "../../infrastructure/postgres/material-locks.js";
@@ -274,32 +273,6 @@ export function assembleSaveMaterial(
               });
             }
             const selectedValues = selection.value.toValues();
-            if (
-              locked.access === "workshop" &&
-              selectedValues.access !== "workshop"
-            ) {
-              const protection = await resolveWorkshopMaterialProtection(
-                transaction,
-                command.materialId,
-              );
-              if (protection === "unavailable") {
-                return rollback({
-                  code: "dependency_unavailable",
-                  retryable: true,
-                });
-              }
-              if (protection === "protected") {
-                return rollback({
-                  code: "invalid_reference",
-                  issues: [
-                    {
-                      code: "workshop_material_access_change_forbidden",
-                      path: "/metadata/access",
-                    },
-                  ],
-                });
-              }
-            }
             const slug =
               locked.lifecycle.slug ??
               (command.publicationState === "published" &&
@@ -568,7 +541,7 @@ async function replacePublishedProjections(
     readonly contentVersion: number;
     readonly hasModeVariants: boolean;
     readonly metadata: {
-      readonly access: "free" | "membership" | "workshop";
+      readonly access: "free" | "membership";
       readonly difficulty: MaterialDifficulty | null;
       readonly formatId: string;
       readonly outcomes: readonly string[];

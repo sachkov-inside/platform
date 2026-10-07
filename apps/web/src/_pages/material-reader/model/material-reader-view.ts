@@ -11,7 +11,7 @@ export type ReaderText = RenderedText;
 export type ReaderBlock = RenderedBlock;
 
 export interface MaterialReaderMetadata {
-  readonly access: "free" | "membership" | "workshop";
+  readonly access: "free" | "membership";
   readonly contentVersion: number;
   readonly cover: ContentCover | null;
   /** Сложность урока и что он обещает; урок без этих значений просто их не показывает. */
