@@ -19,6 +19,7 @@ import {
   beginActivation,
   activateSubscription,
   readActivationReceipt,
+  type SubscriptionActivationTransaction,
 } from "../../features/activate-subscription/activate-subscription.js";
 import {
   activationRuleSchema,
@@ -371,10 +372,12 @@ export function assembleAccessGrants(dependencies: AccessGrantsDependencies) {
     redeemInvitation: (input: unknown, context: RedeemInvitationContext) =>
       redeemInvitation(prisma, input, context, clock()),
     activateSubscription: (
-      bindings: ActivationBindings,
+      tx: SubscriptionActivationTransaction,
+      bindings: Pick<ActivationBindings, "readBinding">,
+      linked: Awaited<ReturnType<ActivationBindings["find"]>>,
       input: unknown,
       tier: unknown,
-    ) => activateSubscription(prisma, bindings, input, tier, clock()),
+    ) => activateSubscription(tx, bindings, linked, input, tier, clock()),
     async readOwnEnrollments(targetAccountId: string) {
       if (!z.uuid().safeParse(targetAccountId).success)
         return accessFailure("invalid_input");

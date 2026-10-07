@@ -28,9 +28,4 @@ export const knownTransactionViolations: readonly {
     through:
       "src/modules/membership-entitlements/facets/tribute-sources/tribute-sources.ts",
   },
-  {
-    issue: 1073,
-    through:
-      "src/modules/billing/facets/subscription-activation/subscription-activation.ts",
-  },
 ];
