@@ -18,7 +18,7 @@ if (!hasText(databaseUrl)) {
 const now = new Date("2026-09-24T12:00:00.000Z");
 const old = new Date(now.getTime() - 31 * 86_400_000);
 const recent = new Date(now.getTime() - 29 * 86_400_000);
-const periods = { membershipCheckDays: 90 };
+const periods = { membershipCheckDays: 90, salesFunnelEventDays: 30 };
 
 let database: Database;
 
@@ -107,6 +107,7 @@ describe("retention", () => {
       await funnelEvent(`${state}-old`, state, old);
     }
     await funnelEvent("delivered-recent", "delivered", recent);
+    await funnelEvent("delivered-late", "delivered", old, recent);
 
     await expect(
       purgeExpiredRecords(database, now, periods),
@@ -135,12 +136,27 @@ describe("retention", () => {
       "unpublished",
     ]);
     expect(await ids("sales_funnel_event_outbox", "diagnostic_code")).toEqual([
+      "delivered-late",
       "delivered-recent",
       "delivering-old",
       "pending-old",
       "rejected-old",
       "retry_scheduled-old",
     ]);
+  });
+
+  it("keeps delivered sales funnel events for the configured period", async () => {
+    await funnelEvent("delivered-old", "delivered", old);
+
+    await purgeUntilDone({ ...periods, salesFunnelEventDays: 60 });
+    expect(await ids("sales_funnel_event_outbox", "diagnostic_code")).toEqual([
+      "delivered-old",
+    ]);
+
+    await purgeUntilDone(periods);
+    expect(await ids("sales_funnel_event_outbox", "diagnostic_code")).toEqual(
+      [],
+    );
   });
 
   it("keeps membership checks for the configured period and each identity's latest state", async () => {
@@ -156,7 +172,7 @@ describe("retention", () => {
     await check("c-first", "identity-c", daysAgo(95), "delivered");
     await check("c-same-time-later", "identity-c", daysAgo(95), "delivered");
 
-    await purgeUntilDone({ membershipCheckDays: 120 });
+    await purgeUntilDone({ ...periods, membershipCheckDays: 120 });
     expect(await ids("membership_check_results", "result_ref")).toEqual([
       "a-recent",
       "a-rejected",
@@ -378,6 +394,7 @@ async function funnelEvent(
   state:
     "pending" | "delivering" | "retry_scheduled" | "delivered" | "rejected",
   at: Date,
+  deliveredAt = at,
 ): Promise<void> {
   await database
     .insertInto("sales_funnel_event_outbox")
@@ -385,7 +402,7 @@ async function funnelEvent(
       available_at: at,
       bot_identity: "inside",
       created_at: at,
-      delivered_at: state === "delivered" ? at : null,
+      delivered_at: state === "delivered" ? deliveredAt : null,
       // The marker names the row; the column is free text the purge never reads.
       diagnostic_code: marker,
       event: JSON.stringify({ synthetic: marker }),

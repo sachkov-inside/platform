@@ -19,6 +19,8 @@ const PUBLISHED_RESULT_DAYS = 7;
 export interface RetentionPeriods {
   /** Membership check results with their evidence deliveries. */
   readonly membershipCheckDays: number;
+  /** Delivered sales funnel events, counted from delivery (#980). */
+  readonly salesFunnelEventDays: number;
 }
 
 /**
@@ -33,6 +35,7 @@ export async function purgeExpiredRecords(
   const operational = daysBefore(now, OPERATIONAL_DAYS);
   const published = daysBefore(now, PUBLISHED_RESULT_DAYS);
   const checks = daysBefore(now, periods.membershipCheckDays);
+  const funnelEvents = daysBefore(now, periods.salesFunnelEventDays);
   const batches: RawBuilder<unknown>[] = [
     // Settled updates keep only their deduplication key and redacted failure code.
     sql`delete from telegram_updates where (bot_identity, update_id) in (
@@ -68,7 +71,7 @@ export async function purgeExpiredRecords(
     // A rejected event waits for a person.
     sql`delete from sales_funnel_event_outbox where event_id in (
       select event_id from sales_funnel_event_outbox
-      where state = 'delivered' and delivered_at < ${operational}
+      where state = 'delivered' and delivered_at < ${funnelEvents}
       limit ${BATCH})`,
     sql`delete from notification_result_outbox where message_id in (
       select message_id from notification_result_outbox

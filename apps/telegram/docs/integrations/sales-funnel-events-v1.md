@@ -61,7 +61,8 @@ keeps a `409` from rejecting unrelated events.
 - Every other answer, an invalid receipt or a transport failure retries the same event with backoff
   up to five minutes, without limit.
 - With delivery disabled, events stay queued and are sent once delivery is enabled.
-- The hourly retention cycle deletes a delivered event 30 days after its delivery. A repeated
+- The hourly retention cycle deletes a delivered event `TELEGRAM_SALES_FUNNEL_EVENT_RETENTION_DAYS`
+  days after its delivery (default 30). A repeated
   emission of the same fact after that is sent again and Platform answers it as a duplicate.
   Events in any other state, `rejected` included, stay.
 

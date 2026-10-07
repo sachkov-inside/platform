@@ -101,6 +101,8 @@ export interface ApplicationConfig {
   readonly port: number;
   /** Absent in a partial test configuration: no consent prompt, no delivery. */
   readonly salesFunnel?: SalesFunnelConfig | undefined;
+  /** Days a delivered sales funnel event stays in its outbox after delivery. */
+  readonly salesFunnelEventRetentionDays: number;
   /** Absent means `DEFAULT_SENDER_RATE`. */
   readonly senderRate?: SenderRate | undefined;
   readonly signInEnabled?: boolean | undefined;
@@ -183,6 +185,15 @@ export function loadApplicationConfig(
     30,
     3650,
     "TELEGRAM_MEMBERSHIP_CHECK_RETENTION_DAYS",
+  );
+  // Awaits the owner's period (#980). Platform answers a re-sent event as a duplicate, so any
+  // period is safe; the default matches the other technical records.
+  const salesFunnelEventRetentionDays = parseBoundedInteger(
+    environment["TELEGRAM_SALES_FUNNEL_EVENT_RETENTION_DAYS"],
+    30,
+    1,
+    3650,
+    "TELEGRAM_SALES_FUNNEL_EVENT_RETENTION_DAYS",
   );
 
   const evidenceDeliveryMode =
@@ -511,6 +522,7 @@ export function loadApplicationConfig(
     platformIntegrationSecret,
     port: parsePort(environment["PORT"]),
     salesFunnel,
+    salesFunnelEventRetentionDays,
     signInEnabled,
     ...(hasText(signInIntegrationSecret) ? { signInIntegrationSecret } : {}),
     ...(hasText(signInReturnUrl) ? { signInReturnUrl } : {}),

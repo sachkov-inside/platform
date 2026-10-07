@@ -90,7 +90,7 @@ Git; зашифруйте файлы для host и отдельного recover
 | Активация курса, Tribute и приглашения `i_` | `TELEGRAM_ACTIVATION_ENABLED`, `PLATFORM_ACTIVATION_URL`, `PLATFORM_ACTIVATION_SECRET`, `PLATFORM_ACCOUNT_URL`, `TELEGRAM_ACTIVATION_SOURCES` | `https://<platform>/integrations/telegram/v1/subscription-activation`; Account URL; реестр групп курса ([подтверждение статуса](course-activation.md#подтверждение-статуса-прежних-участников)) | `TELEGRAM_ACTIVATION_INGRESS_SECRET` |
 | Уведомления | `TELEGRAM_NOTIFICATIONS_ENABLED`, `NOTIFICATION_AMQP_URL`, `NOTIFICATION_AUTHORIZE_URL`, `NOTIFICATION_AUTHORIZE_SECRET`, `NOTIFICATION_QUARANTINE_KEY`, `NOTIFICATION_PREFETCH`, `NOTIFICATION_BATCH_SIZE` | AMQPS principal Telegram; `https://<platform>/internal/notifications/dispatch/authorize`; ключ 64 hex | `NOTIFICATIONS_TELEGRAM_SECRET`; principal и vhost из topology Platform |
 | Авторское меню, воронки, рассылки | `PLATFORM_AUTHOR_AUTHORIZATION_URL`, `PLATFORM_AUTHOR_AUTHORIZATION_SECRET`, `PLATFORM_AUTHOR_CONTENT_VALIDATION_URL`, `TELEGRAM_MARKETING_ENABLED` | `https://<platform>/integrations/telegram/v1/communications/authorize` и `/validate-content`; `false` | `TELEGRAM_AUTHOR_AUTHORIZATION_SECRET`, `TELEGRAM_COMMUNICATIONS_BOT_IDENTITY` |
-| Воронка продаж | `PLATFORM_SALES_FUNNEL_DELIVERY_MODE`, `PLATFORM_SALES_FUNNEL_EVENTS_URL`, `PLATFORM_SALES_FUNNEL_EVENTS_SECRET`; тексты `TELEGRAM_MARKETING_CONSENT_TEXT`, `TELEGRAM_MARKETING_CONSENT_BUTTON`, `TELEGRAM_MARKETING_CONSENT_CONFIRMATION` ([события](../integrations/sales-funnel-events-v1.md)) | `live`, `https://<platform>/integrations/telegram/v1/sales-funnel/events`; тексты согласия — по решению владельца, иначе не заданы | `TELEGRAM_SALES_FUNNEL_INGRESS_SECRET` |
+| Воронка продаж | `PLATFORM_SALES_FUNNEL_DELIVERY_MODE`, `PLATFORM_SALES_FUNNEL_EVENTS_URL`, `PLATFORM_SALES_FUNNEL_EVENTS_SECRET`, `TELEGRAM_SALES_FUNNEL_EVENT_RETENTION_DAYS`; тексты `TELEGRAM_MARKETING_CONSENT_TEXT`, `TELEGRAM_MARKETING_CONSENT_BUTTON`, `TELEGRAM_MARKETING_CONSENT_CONFIRMATION` ([события](../integrations/sales-funnel-events-v1.md)) | `live`, `https://<platform>/integrations/telegram/v1/sales-funnel/events`, `30`; тексты согласия — по решению владельца, иначе не заданы | `TELEGRAM_SALES_FUNNEL_INGRESS_SECRET` |
 | Переходы по ссылкам | `PLATFORM_TRACKING_REDIRECT_URL`, `PLATFORM_TRACKING_TARGET_PREFIXES` | `PLATFORM_TRACKING_REDIRECT_URL=https://<platform>/communications/visit`; `["https://<platform>/materials/","https://<platform>/series/"]` | `TELEGRAM_TRACKING_ORIGIN=https://<platform>` |
 
 Явные отказы при старте:
@@ -763,8 +763,9 @@ boundary и доступ к мигрированным таблицам собс
 очищаются по сроку раз в час (`src/database/retention.ts`). Там же результаты проверок membership
 и их outbox evidence удаляются через `TELEGRAM_MEMBERSHIP_CHECK_RETENTION_DAYS` (по умолчанию 90,
 от 30 до 3650); последняя проверка каждой связанной личности и недоставленное evidence остаются.
-Доставленные события воронки продаж удаляются из `sales_funnel_event_outbox` через 30 дней после
-доставки; события в остальных состояниях, включая `rejected`, остаются.
+Доставленные события воронки продаж удаляются из `sales_funnel_event_outbox` через
+`TELEGRAM_SALES_FUNNEL_EVENT_RETENTION_DAYS` дней после доставки (по умолчанию 30, от 1 до 3650);
+события в остальных состояниях, включая `rejected`, остаются.
 События контактов и связывания, аудит membership и история коммуникаций не удаляются.
 Потеря upstream не превращается в fresh positive Membership Evidence.
 

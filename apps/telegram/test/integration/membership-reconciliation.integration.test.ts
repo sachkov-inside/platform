@@ -45,6 +45,7 @@ const config: ApplicationConfig = {
   },
   membershipMode: "disabled",
   membershipCheckRetentionDays: 90,
+  salesFunnelEventRetentionDays: 30,
   membershipReconciliationCadenceMilliseconds: cadenceMilliseconds,
   platformIntegrationSecret: "synthetic_platform_secret",
   port: 3002,

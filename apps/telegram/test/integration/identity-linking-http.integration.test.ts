@@ -43,6 +43,7 @@ const config: ApplicationConfig = {
     welcome: "Synthetic community welcome",
   },
   membershipCheckRetentionDays: 90,
+  salesFunnelEventRetentionDays: 30,
   membershipMode: "disabled",
   membershipReconciliationCadenceMilliseconds: 240_000,
   platformIntegrationSecret: "synthetic_platform_secret",
