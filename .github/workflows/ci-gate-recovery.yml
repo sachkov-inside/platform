@@ -1,0 +1,86 @@
+name: Recover missing CI Gate
+
+on:
+  workflow_run:
+    workflows: [Application CI]
+    types: [completed]
+
+# #1085: GitHub completed runs 37642003271 and 37654894560 (PR), and
+# 37654788372 (merge_group), with failure despite nine successful jobs and no
+# CI Gate. Full reruns on unchanged SHAs created the gate. ci.yml already uses
+# always() with all nine needs. Both pull_request and merge_group reproduced it.
+# This workflow runs from the default branch and never executes candidate code.
+# It requests a real CI rerun; it cannot publish a replacement check or merge.
+permissions:
+  actions: write
+
+concurrency:
+  group: platform-ci-gate-recovery-${{ github.event.workflow_run.id }}
+  cancel-in-progress: false
+
+jobs:
+  recover:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    if: ${{ github.event.workflow_run.conclusion == 'failure' && github.event.workflow_run.run_attempt == 1 }}
+    steps:
+      - name: Retry only the missing-gate provider failure
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+        with:
+          retries: 3
+          script: |
+            const runId = context.payload.workflow_run.id;
+            const request = { ...context.repo, run_id: runId };
+            const { data: run } = await github.rest.actions.getWorkflowRun(request);
+            if (run.path !== '.github/workflows/ci.yml' ||
+                !['pull_request', 'merge_group'].includes(run.event) ||
+                run.status !== 'completed' || run.conclusion !== 'failure' ||
+                run.run_attempt !== 1) {
+              core.info('Not an eligible first-attempt Application CI failure.');
+              return;
+            }
+
+            const jobs = await github.paginate(
+              github.rest.actions.listJobsForWorkflowRunAttempt,
+              { ...request, attempt_number: 1, per_page: 100 },
+            );
+            const requiredNames = [
+              'Static checks', 'Unit tests', 'UI components', 'Web E2E',
+              'Integration', 'Integration serial', 'Development Compose',
+              'Production Compose', 'Telegram full checks',
+            ];
+            if (jobs.length !== requiredNames.length ||
+                !requiredNames.every(name => jobs.filter(job =>
+                  job.name === name && job.status === 'completed' &&
+                  job.conclusion === 'success').length === 1)) {
+              core.info('A gate exists, or prerequisites are not exactly nine successful jobs.');
+              return;
+            }
+
+            // An old attempt must not cancel a newer run in ci.yml's PR group.
+            const { data: branchRuns } = await github.rest.actions.listWorkflowRuns({
+              ...context.repo, workflow_id: run.workflow_id,
+              event: run.event, branch: run.head_branch, per_page: 1,
+            });
+            if (branchRuns.workflow_runs[0]?.id !== runId) {
+              core.info('A newer run exists for this branch; leave it alone.');
+              return;
+            }
+
+            // A human may have rerun the original while we inspected its jobs.
+            const { data: latest } = await github.rest.actions.getWorkflowRun(request);
+            if (latest.run_attempt !== 1 || latest.status !== 'completed' ||
+                latest.conclusion !== 'failure') {
+              core.info('The original run has already changed; no recovery needed.');
+              return;
+            }
+            core.warning(`CI Gate missing from ${run.html_url}; requesting one full rerun (#1085).`);
+            // GETs retry transient API failures. Do not retry this non-idempotent
+            // POST: #1085 also observed ambiguous writes and duplicate attempts.
+            // A rejected write fails this workflow visibly; inspect the original
+            // run before manually rerunning recovery. Persistent provider failure
+            // still requires operator intervention; branch protection stays intact.
+            await github.rest.actions.reRunWorkflow({
+              ...request,
+              request: { retries: 0 },
+            });

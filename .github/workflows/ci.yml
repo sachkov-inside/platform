@@ -292,6 +292,8 @@ jobs:
           '
 
   ci-gate:
+    # Keep this fail-closed gate. ci-gate-recovery.yml handles GitHub finishing
+    # a run before creating it despite nine successful prerequisites (#1085).
     name: CI Gate
     runs-on: ubuntu-24.04
     timeout-minutes: 5
