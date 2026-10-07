@@ -53,8 +53,10 @@ function pngHeight(image: Buffer) {
 async function capture(
   html: string,
   viewport: { width: number; height: number },
+  prepare?: (page: Page) => Promise<unknown>,
 ) {
   return withPage(html, viewport, async (page) => {
+    await prepare?.(page);
     const image = await screenshotWholePage(page);
     return { height: pngHeight(image), viewport: page.viewportSize() };
   });
@@ -138,6 +140,28 @@ it("fails instead of cutting the page when the content grows with the viewport",
   } finally {
     await context.close();
   }
+});
+
+it("waits for a running CSS transition before it measures the container", async () => {
+  // #1035: `html { font-size: 200% }` перед снимком, а кнопки с `transition-all` растут в rem
+  // ещё 150ms. Здесь высота прыгает к новой только в конце перехода: замер без ожидания видит
+  // старую высоту, пока растяжение окна и новый замер занимают меньше секунды.
+  const growRem = 100;
+  const rootFontSize = 32;
+  const result = await capture(
+    shell(
+      `<style>.grow { height: ${String(growRem)}rem; transition: height 1s step-end; }</style>
+<body class="application"><header></header><main id="content"><div class="grow"></div></main></body>`,
+    ),
+    { width: 1_440, height: 1_024 },
+    (page) =>
+      page.addStyleTag({
+        content: `html { font-size: ${String(rootFontSize)}px; }`,
+      }),
+  );
+
+  expect(result.height).toBe(headerHeight + growRem * rootFontSize);
+  expect(result.viewport).toEqual({ width: 1_440, height: 1_024 });
 });
 
 it("takes the capture again when Chromium cannot copy the frame", async () => {
