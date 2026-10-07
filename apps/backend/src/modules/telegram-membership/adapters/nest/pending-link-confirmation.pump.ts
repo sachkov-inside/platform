@@ -20,7 +20,8 @@ const PENDING_LINK_BATCH_SIZE = 20;
 /**
  * API-owned pass that finishes Telegram links started in the bot, so a buyer gets the community
  * welcome without returning to the site (#1037). It runs only where the community direction is
- * configured; confirmation is idempotent under the link lock, so several API instances are safe.
+ * configured. Several API instances may confirm the same link: the provider answers a repeated
+ * confirmation as idempotent and the binding is written under the Account link lock.
  */
 @Injectable()
 export class PendingLinkConfirmationPump

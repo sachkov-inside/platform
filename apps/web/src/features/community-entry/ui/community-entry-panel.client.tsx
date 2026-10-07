@@ -15,7 +15,10 @@ import { CommunityEntryView, pathActionClass } from "./community-entry-view";
 const preparingPollMs = 5_000;
 
 export interface CommunityEntryPanelProps {
-  /** Кнопка подключения Telegram; после возврата из бота она освежает этот блок. */
+  /**
+   * Кнопка подключения Telegram из раздела «Доступ»: фича не импортирует другую фичу, поэтому её
+   * подставляет страница. `onRefresh` перечитывает этот блок после шагов привязки.
+   */
   readonly TelegramAction: ComponentType<{
     readonly className?: string;
     readonly onRefresh: () => Promise<void>;

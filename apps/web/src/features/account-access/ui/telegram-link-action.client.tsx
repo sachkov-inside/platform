@@ -3,6 +3,7 @@
 import type { Route } from "next";
 import Link from "next/link";
 import { ArrowUpRight, LoaderCircle, Send } from "lucide-react";
+import { useState } from "react";
 
 import { Button } from "@/shared/ui/button";
 
@@ -12,7 +13,7 @@ import { useTelegramLinkFlow } from "../model/use-telegram-link-flow.client";
 const accessHref: Route = "/account/access";
 
 export interface TelegramLinkActionProps {
-  /** Освежает состояние, которое показывает кнопку, после возврата человека из Telegram. */
+  /** Перечитывает состояние, которое показывает кнопку, после каждого шага привязки. */
   readonly onRefresh: () => Promise<void>;
   readonly className?: string;
 }
@@ -28,6 +29,8 @@ export function TelegramLinkAction({
 }: TelegramLinkActionProps) {
   const flow = useTelegramLinkFlow(onRefresh);
   const result = flow.mutationResult;
+  // Сетевой сбой `begin` не оставляет результата: без этой отметки человек не увидел бы ничего.
+  const [attempted, setAttempted] = useState(false);
 
   if (flow.deepLink !== null) {
     return (
@@ -45,15 +48,18 @@ export function TelegramLinkAction({
     );
   }
   const detour =
-    result !== null &&
-    (result.kind !== "received" || result.state.status !== "linked");
+    attempted &&
+    !flow.pending &&
+    (result?.kind !== "received" || result.state.status !== "linked");
   return (
     <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
       <Button
         className={className}
         disabled={flow.pending}
         onClick={() => {
-          void flow.begin();
+          void flow.begin().finally(() => {
+            setAttempted(true);
+          });
         }}
         type="button"
       >
@@ -69,7 +75,7 @@ export function TelegramLinkAction({
       </Button>
       {detour ? (
         <p className="text-xs leading-5 text-muted-foreground" role="alert">
-          {result.kind === "unauthorized"
+          {result?.kind === "unauthorized"
             ? "Сессия завершилась. Войдите снова, чтобы продолжить."
             : "Не получилось открыть бота отсюда."}{" "}
           <Link className="font-semibold underline" href={accessHref}>
