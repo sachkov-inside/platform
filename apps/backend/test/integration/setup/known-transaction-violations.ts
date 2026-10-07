@@ -16,30 +16,10 @@ export const knownTransactionViolations: readonly {
     through: "src/modules/billing/facets/billing-notices/billing-notices.ts",
   },
   {
-    issue: 1068,
-    through:
-      "src/modules/membership-entitlements/features/apply-grant-batch/apply-grant-batch.ts",
-  },
-  {
-    issue: 1068,
-    through:
-      "src/modules/membership-entitlements/features/preview-grant-batch/preview-grant-batch.ts",
-  },
-  {
     issue: 1069,
     callbackName: "assignEnrollmentWithTier",
     through:
       "src/modules/billing/facets/billing-operations/billing-operations.ts",
-  },
-  {
-    issue: 1070,
-    through:
-      "src/modules/membership-entitlements/features/accept-evidence/accept-evidence.ts",
-  },
-  {
-    issue: 1070,
-    through:
-      "src/modules/membership-entitlements/features/assign-enrollment/assign-enrollment.ts",
   },
   {
     issue: 1072,
@@ -50,15 +30,5 @@ export const knownTransactionViolations: readonly {
     issue: 1072,
     through:
       "src/modules/membership-entitlements/facets/tribute-sources/tribute-sources.ts",
-  },
-  {
-    issue: 1073,
-    through:
-      "src/modules/billing/facets/subscription-activation/subscription-activation.ts",
-  },
-  {
-    issue: 1077,
-    through:
-      "src/modules/telegram-membership/features/authorize-community-dispatch/authorize-community-dispatch.ts",
   },
 ];

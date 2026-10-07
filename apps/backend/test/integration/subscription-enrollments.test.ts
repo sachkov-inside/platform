@@ -1,4 +1,5 @@
 import { TelegramAccountLinks } from "../../src/modules/telegram-membership/index.js";
+import { linkTelegramAccount } from "./setup/telegram-link.js";
 import { randomUUID } from "node:crypto";
 import { afterAll, beforeAll, describe, expect, test } from "vitest";
 import {
@@ -9,6 +10,7 @@ import {
 import {
   assembleAccessGrants,
   assembleMembershipEntitlements,
+  courseSourceRef,
 } from "../../src/modules/membership-entitlements/index.js";
 import {
   createMigratedTestDatabase,
@@ -71,6 +73,57 @@ describe("Subscription Enrollment with real PostgreSQL", () => {
     endsAt: null,
     endPolicy: "fixed",
   };
+  test("verified course assignment reads the current Telegram binding in its transaction", async () => {
+    now = new Date(terms.startsAt);
+    const target = await customer();
+    const identityRef = randomUUID();
+    await linkTelegramAccount(db.prisma, {
+      accountId: target,
+      identityRef,
+      now,
+    });
+    const policyRef = randomUUID();
+    const tier = {
+      id: randomUUID(),
+      revision: 1,
+      name: "Verified course",
+      benefits: ["materials"],
+      contentScope: { guideIds: [randomUUID()], materialIds: [] },
+    };
+    const command = {
+      operationId: randomUUID(),
+      accountId: target,
+      origin: "course",
+      sourceRef: courseSourceRef(policyRef, identityRef),
+      courseSource: { policyRef, verifiedIdentityRef: identityRef },
+      tierId: tier.id,
+      tierRevision: tier.revision,
+      terms,
+      billingRef: null,
+      reason: "Owner confirms verified prior participant",
+    };
+    const assigned = value(await grants.assignEnrollment(owner, command, tier));
+    expect(assigned).toMatchObject({
+      accountId: target,
+      origin: "course",
+      state: "active",
+      endsAt: null,
+    });
+    expect(value(await grants.readOwnEnrollments(target))).toMatchObject([
+      assigned,
+    ]);
+    expect(
+      await grants.assignEnrollment(
+        owner,
+        {
+          ...command,
+          operationId: randomUUID(),
+          courseSource: { policyRef, verifiedIdentityRef: randomUUID() },
+        },
+        tier,
+      ),
+    ).toMatchObject({ ok: false, error: { code: "identity_conflict" } });
+  });
   test("assigned course keeps materials forever and support for six months from assignment", async () => {
     now = new Date("2030-01-31T21:30:00.000Z");
     const target = await customer();

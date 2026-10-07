@@ -376,18 +376,28 @@ function advisoryLockViolations(sourceFile, program) {
 // step with the foreign delegates of that type in src/infrastructure/prisma/prisma-client.ts or the
 // Module's own infrastructure/prisma.ts.
 const handoffDelegates = new Map([
+  ["assets", ["material"]],
   [
     "billing",
     [
-      "accessReceipt",
-      "subscriptionEnrollment",
-      "accessBatchPreview",
       "activationRule",
+      "activationAttempt",
+      "accessReceipt",
+      "accessBatchPreview",
+      "subscriptionEnrollment",
+      "sourceEntitlement",
+      "accessGrant",
+      "accessChange",
+      "telegramAccountLinkState",
+      "telegramAccountLinkHistory",
     ],
   ],
-  ["assets", ["material"]],
   ["materials", ["materialAsset", "video", "videoDeletionOperation"]],
   ["reading-activity", ["material", "publishedMaterialGuideMembership"]],
+  [
+    "membership-entitlements",
+    ["account", "telegramAccountLinkState", "telegramAccountLinkHistory"],
+  ],
   ["telegram-membership", ["membershipBinding"]],
   ["videos", ["material", "publishedMaterial"]],
 ]);
