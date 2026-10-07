@@ -1,0 +1,23 @@
+diff --git a/dist/node/vitest.js b/dist/node/vitest.js
+index 433fa4698ae7251e4920656fbda87068b8633078..34128fe08c60b181de68a34f9d3d2b5eed03b3db 100644
+--- a/dist/node/vitest.js
++++ b/dist/node/vitest.js
+@@ -749,3 +749,5 @@ process2.on(
+ process2.on("exit", exit);
+ process2.on("SIGINT", () => exit(0));
+ process2.on("SIGTERM", () => exit(0));
++// The parent may abort on OOM or SIGKILL without running its exit handlers.
++process2.on("disconnect", () => exit(0));
+diff --git a/dist/preset.js b/dist/preset.js
+index e620f9a611602369191ac5d04272caa8b8e1c4f5..5f7032155b3720fcf6d1b59488990e8337385ddd 100644
+--- a/dist/preset.js
++++ b/dist/preset.js
+@@ -211,6 +211,8 @@ var MAX_START_TIME = 3e4, vitestModulePath = fileURLToPath2(importMetaResolve("@
+     child = executeNodeCommand({
+       scriptPath: vitestModulePath,
+       options: {
++        // Live IPC listeners consume reports; retaining every snapshot in Execa's ipcOutput leaks memory.
++        buffer: { ipc: false },
+         env: {
+           VITEST: "true",
+           TEST: "true",

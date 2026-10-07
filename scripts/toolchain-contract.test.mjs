@@ -102,6 +102,7 @@ describe("supported toolchain contract", () => {
         "apps/backend/prisma ./apps/backend/prisma",
         "tsconfig.base.json",
         "tsconfig.node-lib.json",
+        "patches ./patches",
       ]) {
         const copyPosition = dockerfile.indexOf(input);
         assert.ok(copyPosition >= 0, `${path} must copy ${input}`);

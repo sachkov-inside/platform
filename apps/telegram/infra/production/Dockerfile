@@ -7,6 +7,7 @@ RUN npm install --global corepack@0.36.0 \
 FROM toolchain AS build
 WORKDIR /workspace
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml tsconfig.base.json tsconfig.node-lib.json tsconfig.nest-app.json ./
+COPY patches ./patches
 COPY apps/backend/package.json ./apps/backend/package.json
 COPY apps/backend/prisma.config.ts ./apps/backend/prisma.config.ts
 COPY apps/backend/prisma ./apps/backend/prisma

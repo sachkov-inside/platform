@@ -8,6 +8,9 @@ overrides:
   mysql2: 3.24.4
   deepmerge-ts: 8.0.2
 
+patchedDependencies:
+  '@storybook/addon-vitest@10.6.1': 6d47ca491b0eaaf4ec0b488c8635a2aeacc8d7e58012fea6ebd8177b69b5b993
+
 importers:
 
   .:
@@ -357,10 +360,10 @@ importers:
         version: 10.6.1(@types/react-dom@19.3.0(@types/react@19.3.0))(@types/react@19.3.0)(storybook@10.6.1(@types/react@19.3.0)(prettier@3.9.9)(react@19.3.0))
       '@storybook/addon-mcp':
         specifier: 10.6.1
-        version: 10.6.1(@storybook/addon-vitest@10.6.1(@vitest/browser-playwright@4.1.11)(@vitest/browser@4.1.11(vite@8.3.2(@types/node@26.6.4)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.0))(vitest@4.1.11))(@vitest/runner@4.1.11)(react@19.3.0)(storybook@10.6.1(@types/react@19.3.0)(prettier@3.9.9)(react@19.3.0))(vitest@4.1.11))(storybook@10.6.1(@types/react@19.3.0)(prettier@3.9.9)(react@19.3.0))(typescript@7.0.2)
+        version: 10.6.1(@storybook/addon-vitest@10.6.1(patch_hash=6d47ca491b0eaaf4ec0b488c8635a2aeacc8d7e58012fea6ebd8177b69b5b993)(@vitest/browser-playwright@4.1.11)(@vitest/browser@4.1.11(vite@8.3.2(@types/node@26.6.4)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.0))(vitest@4.1.11))(@vitest/runner@4.1.11)(react@19.3.0)(storybook@10.6.1(@types/react@19.3.0)(prettier@3.9.9)(react@19.3.0))(vitest@4.1.11))(storybook@10.6.1(@types/react@19.3.0)(prettier@3.9.9)(react@19.3.0))(typescript@7.0.2)
       '@storybook/addon-vitest':
         specifier: 10.6.1
-        version: 10.6.1(@vitest/browser-playwright@4.1.11)(@vitest/browser@4.1.11(vite@8.3.2(@types/node@26.6.4)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.0))(vitest@4.1.11))(@vitest/runner@4.1.11)(react@19.3.0)(storybook@10.6.1(@types/react@19.3.0)(prettier@3.9.9)(react@19.3.0))(vitest@4.1.11)
+        version: 10.6.1(patch_hash=6d47ca491b0eaaf4ec0b488c8635a2aeacc8d7e58012fea6ebd8177b69b5b993)(@vitest/browser-playwright@4.1.11)(@vitest/browser@4.1.11(vite@8.3.2(@types/node@26.6.4)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.0))(vitest@4.1.11))(@vitest/runner@4.1.11)(react@19.3.0)(storybook@10.6.1(@types/react@19.3.0)(prettier@3.9.9)(react@19.3.0))(vitest@4.1.11)
       '@storybook/react-vite':
         specifier: 10.6.1
         version: 10.6.1(@types/react-dom@19.3.0(@types/react@19.3.0))(@types/react@19.3.0)(react-dom@19.3.0(react@19.3.0))(react@19.3.0)(storybook@10.6.1(@types/react@19.3.0)(prettier@3.9.9)(react@19.3.0))(supports-color@10.2.2)(typescript@7.0.2)(vite@8.3.2(@types/node@26.6.4)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.0))
@@ -9352,7 +9355,7 @@ snapshots:
     transitivePeerDependencies:
       - '@types/react-dom'
 
-  '@storybook/addon-mcp@10.6.1(@storybook/addon-vitest@10.6.1(@vitest/browser-playwright@4.1.11)(@vitest/browser@4.1.11(vite@8.3.2(@types/node@26.6.4)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.0))(vitest@4.1.11))(@vitest/runner@4.1.11)(react@19.3.0)(storybook@10.6.1(@types/react@19.3.0)(prettier@3.9.9)(react@19.3.0))(vitest@4.1.11))(storybook@10.6.1(@types/react@19.3.0)(prettier@3.9.9)(react@19.3.0))(typescript@7.0.2)':
+  '@storybook/addon-mcp@10.6.1(@storybook/addon-vitest@10.6.1(patch_hash=6d47ca491b0eaaf4ec0b488c8635a2aeacc8d7e58012fea6ebd8177b69b5b993)(@vitest/browser-playwright@4.1.11)(@vitest/browser@4.1.11(vite@8.3.2(@types/node@26.6.4)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.0))(vitest@4.1.11))(@vitest/runner@4.1.11)(react@19.3.0)(storybook@10.6.1(@types/react@19.3.0)(prettier@3.9.9)(react@19.3.0))(vitest@4.1.11))(storybook@10.6.1(@types/react@19.3.0)(prettier@3.9.9)(react@19.3.0))(typescript@7.0.2)':
     dependencies:
       '@tmcp/adapter-valibot': 0.1.6(tmcp@1.20.0(typescript@7.0.2))(valibot@1.5.0(typescript@7.0.2))
       '@tmcp/transport-http': 0.8.6(tmcp@1.20.0(typescript@7.0.2))
@@ -9360,12 +9363,12 @@ snapshots:
       tmcp: 1.20.0(typescript@7.0.2)
       valibot: 1.5.0(typescript@7.0.2)
     optionalDependencies:
-      '@storybook/addon-vitest': 10.6.1(@vitest/browser-playwright@4.1.11)(@vitest/browser@4.1.11(vite@8.3.2(@types/node@26.6.4)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.0))(vitest@4.1.11))(@vitest/runner@4.1.11)(react@19.3.0)(storybook@10.6.1(@types/react@19.3.0)(prettier@3.9.9)(react@19.3.0))(vitest@4.1.11)
+      '@storybook/addon-vitest': 10.6.1(patch_hash=6d47ca491b0eaaf4ec0b488c8635a2aeacc8d7e58012fea6ebd8177b69b5b993)(@vitest/browser-playwright@4.1.11)(@vitest/browser@4.1.11(vite@8.3.2(@types/node@26.6.4)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.0))(vitest@4.1.11))(@vitest/runner@4.1.11)(react@19.3.0)(storybook@10.6.1(@types/react@19.3.0)(prettier@3.9.9)(react@19.3.0))(vitest@4.1.11)
     transitivePeerDependencies:
       - '@tmcp/auth'
       - typescript
 
-  '@storybook/addon-vitest@10.6.1(@vitest/browser-playwright@4.1.11)(@vitest/browser@4.1.11(vite@8.3.2(@types/node@26.6.4)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.0))(vitest@4.1.11))(@vitest/runner@4.1.11)(react@19.3.0)(storybook@10.6.1(@types/react@19.3.0)(prettier@3.9.9)(react@19.3.0))(vitest@4.1.11)':
+  '@storybook/addon-vitest@10.6.1(patch_hash=6d47ca491b0eaaf4ec0b488c8635a2aeacc8d7e58012fea6ebd8177b69b5b993)(@vitest/browser-playwright@4.1.11)(@vitest/browser@4.1.11(vite@8.3.2(@types/node@26.6.4)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.0))(vitest@4.1.11))(@vitest/runner@4.1.11)(react@19.3.0)(storybook@10.6.1(@types/react@19.3.0)(prettier@3.9.9)(react@19.3.0))(vitest@4.1.11)':
     dependencies:
       '@storybook/global': 5.0.0
       '@storybook/icons': 2.1.0(react@19.3.0)
