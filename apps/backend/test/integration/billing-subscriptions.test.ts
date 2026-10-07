@@ -524,7 +524,11 @@ describe("подписка: продление, отмена, смена вар�
     });
     await db.prisma.billingSubscription.update({
       where: { id: due.id },
-      data: { bindingRevokedAt: now },
+      data: {
+        bindingRevokedAt: now,
+        revision: due.revision + 1,
+        updatedAt: now,
+      },
     });
     expect(value(await withoutBank.renew())).toMatchObject({
       started: 0,
