@@ -10,6 +10,10 @@
  * догрузка может показать больше, чем было на экране. После снимка окно прежнее, а прокрутка
  * контейнера остаётся в начале.
  *
+ * Chromium изредка отказывает в снимке с «Unable to capture screenshot» (#1029): копия кадра с
+ * поверхности не пришла и после его собственных пяти повторов. Отказ зависит от момента в
+ * компоновщике, а не от страницы, поэтому помощник снимает заново, не больше `captureAttempts` раз.
+ *
  * Модуль на JavaScript, потому что его импортируют и спеки Playwright, и proof-скрипты из
  * `scripts/` и `apps/telegram/test/local`, которые запускает Node без транспиляции. Тип задаёт
  * `whole-page-screenshot.d.mts`.
@@ -24,6 +28,9 @@ const scrollContainers = ["#content", "#authoring-content"];
  */
 const maximumSteps = 3;
 
+/** Сколько раз помощник снимает после отказа Chromium скопировать кадр; другие ошибки не повторяет. */
+const captureAttempts = 3;
+
 /**
  * Без заданного окна (`viewport: null`) размер не меняется, и снимок — обычный `fullPage`.
  *
@@ -33,13 +40,13 @@ const maximumSteps = 3;
  */
 export async function screenshotWholePage(page, options = {}) {
   const viewport = page.viewportSize();
-  if (viewport === null) return page.screenshot({ ...options, fullPage: true });
+  if (viewport === null) return capture(page, options);
   let height = viewport.height;
   try {
     for (let step = 0; ; step += 1) {
       const hidden = await page.evaluate(hiddenScrollHeight, scrollContainers);
       if (hidden === 0) {
-        return await page.screenshot({ ...options, fullPage: true });
+        return await capture(page, options);
       }
       if (step === maximumSteps) {
         throw new Error(
@@ -52,6 +59,32 @@ export async function screenshotWholePage(page, options = {}) {
   } finally {
     if (height !== viewport.height) await page.setViewportSize(viewport);
   }
+}
+
+/**
+ * @param {import("@playwright/test").Page} page
+ * @param {Omit<import("@playwright/test").PageScreenshotOptions, "fullPage">} options
+ * @returns {Promise<Buffer>}
+ */
+async function capture(page, options) {
+  for (let attempt = 1; ; attempt += 1) {
+    try {
+      return await page.screenshot({ ...options, fullPage: true });
+    } catch (error) {
+      if (attempt === captureAttempts || !isFrameCopyRefusal(error))
+        throw error;
+    }
+  }
+}
+
+/** @param {unknown} error */
+function isFrameCopyRefusal(error) {
+  return (
+    error instanceof Error &&
+    error.message.includes(
+      "Page.captureScreenshot): Unable to capture screenshot",
+    )
+  );
 }
 
 /**

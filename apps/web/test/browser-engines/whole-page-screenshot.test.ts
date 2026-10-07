@@ -1,5 +1,5 @@
-import { chromium, type Browser } from "@playwright/test";
-import { afterAll, beforeAll, expect, it } from "vitest";
+import { chromium, type Browser, type Page } from "@playwright/test";
+import { afterAll, beforeAll, expect, it, vi } from "vitest";
 
 import { screenshotWholePage } from "../support/whole-page-screenshot.mjs";
 
@@ -54,16 +54,31 @@ async function capture(
   html: string,
   viewport: { width: number; height: number },
 ) {
+  return withPage(html, viewport, async (page) => {
+    const image = await screenshotWholePage(page);
+    return { height: pngHeight(image), viewport: page.viewportSize() };
+  });
+}
+
+async function withPage<Result>(
+  html: string,
+  viewport: { width: number; height: number },
+  run: (page: Page) => Promise<Result>,
+) {
   const context = await browser.newContext({ viewport });
   try {
     const page = await context.newPage();
     await page.setContent(html);
-    const image = await screenshotWholePage(page);
-    return { height: pngHeight(image), viewport: page.viewportSize() };
+    return await run(page);
   } finally {
     await context.close();
   }
 }
+
+/** Отказ Chromium из CI run 37546921993 (#1029): копия кадра не пришла после его собственных повторов. */
+const chromiumCaptureFailure = new Error(
+  "page.screenshot: Protocol error (Page.captureScreenshot): Unable to capture screenshot",
+);
 
 it("captures the whole #content scroll container on desktop and restores the viewport", async () => {
   const viewport = { width: 1_440, height: 1_024 };
@@ -118,4 +133,57 @@ it("fails instead of cutting the page when the content grows with the viewport",
   } finally {
     await context.close();
   }
+});
+
+it("takes the capture again when Chromium cannot copy the frame", async () => {
+  const viewport = { width: 390, height: 844 };
+  await withPage(applicationPage, viewport, async (page) => {
+    const screenshot = vi
+      .spyOn(page, "screenshot")
+      .mockRejectedValueOnce(chromiumCaptureFailure);
+
+    const image = await screenshotWholePage(page);
+
+    expect(pngHeight(image)).toBe(headerHeight + contentHeight);
+    expect(screenshot).toHaveBeenCalledTimes(2);
+  });
+});
+
+it("restores the viewport when the stretched capture is taken again", async () => {
+  const viewport = { width: 1_440, height: 1_024 };
+  await withPage(applicationPage, viewport, async (page) => {
+    vi.spyOn(page, "screenshot").mockRejectedValueOnce(chromiumCaptureFailure);
+
+    const image = await screenshotWholePage(page);
+
+    expect(pngHeight(image)).toBe(headerHeight + contentHeight);
+    expect(page.viewportSize()).toEqual(viewport);
+  });
+});
+
+it("gives up after three refused captures", async () => {
+  await withPage(applicationPage, { width: 390, height: 844 }, async (page) => {
+    const screenshot = vi
+      .spyOn(page, "screenshot")
+      .mockRejectedValue(chromiumCaptureFailure);
+
+    await expect(screenshotWholePage(page)).rejects.toBe(
+      chromiumCaptureFailure,
+    );
+    expect(screenshot).toHaveBeenCalledTimes(3);
+  });
+});
+
+it("does not take the capture again after another failure", async () => {
+  await withPage(applicationPage, { width: 390, height: 844 }, async (page) => {
+    const closed = new Error(
+      "page.screenshot: Target page, context or browser has been closed",
+    );
+    const screenshot = vi
+      .spyOn(page, "screenshot")
+      .mockRejectedValueOnce(closed);
+
+    await expect(screenshotWholePage(page)).rejects.toBe(closed);
+    expect(screenshot).toHaveBeenCalledTimes(1);
+  });
 });
