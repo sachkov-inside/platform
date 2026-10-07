@@ -341,12 +341,12 @@ describe("application CI workflow contract", () => {
   it("uploads only bounded failure diagnostics for seven days", () => {
     assert.equal(
       workflow.match(/uses: actions\/upload-artifact@/gu)?.length,
-      4,
+      5,
     );
-    assert.equal(workflow.match(/^\s+retention-days: 7$/gmu)?.length, 4);
+    assert.equal(workflow.match(/^\s+retention-days: 7$/gmu)?.length, 5);
     assert.equal(
       workflow.match(/^\s+if: \$\{\{ failure\(\) \}\}$/gmu)?.length,
-      5,
+      6,
     );
     // A failed smoke keeps the Playwright results and the dev-server log (#863).
     assert.match(jobBlock("integration"), /apps\/web\/test-results/u);
@@ -367,6 +367,19 @@ describe("application CI workflow contract", () => {
         productionSmoke.indexOf("down --rmi local --volumes --remove-orphans"),
       "production diagnostics must be captured before cleanup",
     );
+  });
+
+  it("uploads WebKit browser-engine diagnostics separately for each CI attempt", () => {
+    const job = jobBlock("ui");
+    assert.equal(job.match(/uses: actions\/upload-artifact@/gu)?.length, 1);
+    assert.match(job, /if: \$\{\{ failure\(\) \}\}/u);
+    assert.match(
+      job,
+      /name: browser-engines-playwright-\$\{\{ github.run_attempt \}\}/u,
+    );
+    assert.match(job, /path: apps\/web\/test-results\/browser-engines/u);
+    assert.match(job, /if-no-files-found: ignore/u);
+    assert.match(job, /retention-days: 7/u);
   });
 
   it("exposes one stable gate that fails closed over every required job", () => {
