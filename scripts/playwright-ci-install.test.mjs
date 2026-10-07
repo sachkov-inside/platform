@@ -107,6 +107,7 @@ for (const failure of ["100", "124", "137"]) {
       /sudo find \/etc\/apt .*\.list.*\.sources.*archive\.ubuntu\.com/u,
     );
     assert.ok(result.log.includes("azure[.]archive[.]ubuntu[.]com/ubuntu"));
+    assert.ok(result.log.includes("-name apt-mirrors.txt"));
     assert.match(result.log, /playwright install chromium webkit/u);
   });
 }
@@ -119,7 +120,7 @@ test("a failed fallback preserves the exit code and never starts browser downloa
 });
 
 test(
-  "Linux deadlines terminate children that ignore SIGTERM before retrying",
+  "Linux fallback replaces all source formats and terminates SIGTERM-resistant children",
   {
     skip: process.platform !== "linux",
   },

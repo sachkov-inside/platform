@@ -42,7 +42,8 @@ system-package installation to 180 seconds per attempt, then kills the whole pro
 HTTP and HTTPS connection and data waits time out after 15 seconds and retry once; index errors fail
 the installation. After a failed first attempt the script replaces only the Azure Ubuntu mirror
 with `archive.ubuntu.com` and retries once. A failed second attempt fails the job before browser
-downloads. The same script installs browsers for Production access pass and the nightly full-stack
+downloads. The replacement covers `.list`, deb822 `.sources` and the GitHub runner's
+`/etc/apt/apt-mirrors.txt`, preserving mirror priorities. The same script installs browsers for Production access pass and the nightly full-stack
 smoke; production deployment commands and access-pass requests keep their existing contracts.
 
 `CI Gate` depends on every job and succeeds only when every result is `success`. The repository
