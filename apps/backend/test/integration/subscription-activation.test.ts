@@ -1,7 +1,12 @@
 import { assertDeclaredResponse } from "../support/declared-api.js";
+import type { BillingPrismaClient } from "../../src/infrastructure/prisma/index.js";
 import { HttpCachePolicyInterceptor } from "../../src/infrastructure/http/http-cache-policy.js";
 import { ProblemDetailsFilter } from "../../src/infrastructure/http/problem-details.filter.js";
-import { bindingLookupResponseSchema } from "../../src/modules/telegram-membership/domain/subscription-activation-wire.js";
+import {
+  activationResponseSchema,
+  ownSubscriptionAccessResponseSchema,
+  bindingLookupResponseSchema,
+} from "../../src/modules/telegram-membership/domain/subscription-activation-wire.js";
 import { randomUUID } from "node:crypto";
 import { Module } from "@nestjs/common";
 import { APP_FILTER, APP_INTERCEPTOR, NestFactory } from "@nestjs/core";
@@ -538,6 +543,92 @@ describe("course activation HTTP authority with real PostgreSQL", () => {
     });
   });
 
+  test("Billing rollback leaves no activation rights or receipt; retry commits once", async () => {
+    const context = await setup();
+    const attemptId = randomUUID();
+    await send("begin", {
+      contractVersion: version,
+      attemptId,
+      identityRef: context.identityRef,
+      code: context.rule.code,
+    });
+    await linkTelegramAccount(db.prisma, {
+      accountId: context.id,
+      identityRef: context.identityRef,
+      now,
+    });
+    const binding = await linkedSnapshot(context.identityRef);
+    const evidence = {
+      contractVersion: version,
+      audience: "inside.platform.subscription-activation",
+      evidenceRef: randomUUID(),
+      attemptId,
+      sourceRef: context.policy,
+      identityRef: context.identityRef,
+      ...binding,
+      ruleId: context.rule.id,
+      ruleRevision: 1,
+      checkedAt: now.toISOString(),
+      validUntil: "2030-01-01T00:04:00.000Z",
+      decision: "member",
+    };
+    // Fail Billing after Membership returns success, before the real transaction can commit.
+    const rollbackPrisma: BillingPrismaClient = {
+      ...db.prisma,
+      $transaction: (operation) =>
+        db.prisma.$transaction(async (tx) => {
+          expect(await operation(tx)).toMatchObject({
+            ok: true,
+            value: { state: "active" },
+          });
+          throw new Error("Injected Billing rollback after activation");
+        }),
+    };
+    const rollbackActivation = new SubscriptionActivation({
+      prisma: rollbackPrisma,
+      grants,
+      bindings: new TelegramAccountLinks(db.prisma),
+      readAdmission: () =>
+        Promise.resolve({ state: "checking", admissionRestriction: null }),
+    });
+    expect(await rollbackActivation.accept(evidence)).toMatchObject({
+      ok: false,
+      error: { code: "unavailable" },
+    });
+    const own = ownSubscriptionAccessResponseSchema.parse(
+      (
+        await send("own-access", { contractVersion: version, ...binding })
+      ).json(),
+    );
+    expect(own).toMatchObject({
+      ok: true,
+      value: { enrollments: [], grounds: [] },
+    });
+    expect(await grants.readActivationReceipt(evidence)).toBeNull();
+    expect(
+      await db.prisma.sourceEntitlement.count({
+        where: { accountId: context.id },
+      }),
+    ).toBe(0);
+    expect(
+      await db.prisma.accessChange.count({ where: { accountId: context.id } }),
+    ).toBe(0);
+    const attempt = await db.prisma.activationAttempt.findUniqueOrThrow({
+      where: { id: attemptId },
+    });
+    expect(attempt.accountId).toBeNull();
+    expect(attempt.result).toMatchObject({ state: "needs_account" });
+    const accepted = activationResponseSchema.parse(
+      (await send("evidence", evidence)).json(),
+    );
+    expect(accepted).toMatchObject({ ok: true, value: { state: "active" } });
+    expect((await send("evidence", evidence)).json()).toEqual(accepted);
+    expect(
+      await db.prisma.subscriptionEnrollment.count({
+        where: { accountId: context.id },
+      }),
+    ).toBe(1);
+  });
   test("binding lookup requires the separate authority and returns only the exact current wire identity", async () => {
     const context = await setup();
     const query = {
