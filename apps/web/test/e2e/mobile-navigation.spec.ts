@@ -22,6 +22,8 @@ const catalog = {
   totalCount: 18,
 };
 
+const materialCatalogRequests = /\/api\/(?:home|library)\/materials(?:\?|$)/u;
+
 function navigation(page: Page) {
   return page.getByRole("navigation", { name: "Мобильная навигация" });
 }
@@ -42,7 +44,7 @@ test("root tabs restore Home feed URL and scroll without a second loading screen
   page,
 }) => {
   let requests = 0;
-  await page.route("**/api/home/materials**", (route) => {
+  await page.route(materialCatalogRequests, (route) => {
     requests++;
     return route.fulfill({ json: catalog });
   });
@@ -84,7 +86,7 @@ test("Home feed data is prefetched before the first tab visit", async ({
   page,
 }) => {
   let requests = 0;
-  await page.route("**/api/home/materials**", (route) => {
+  await page.route(materialCatalogRequests, (route) => {
     requests++;
     return route.fulfill({ json: catalog });
   });
@@ -100,7 +102,7 @@ test("Home feed data is prefetched before the first tab visit", async ({
 test("fast repeated navigation remains clickable during the transition", async ({
   page,
 }) => {
-  await page.route("**/api/home/materials**", (route) =>
+  await page.route(materialCatalogRequests, (route) =>
     route.fulfill({ json: catalog }),
   );
   await page.goto("/");
@@ -132,7 +134,7 @@ test("fast repeated navigation remains clickable during the transition", async (
 test("public canvas, navigation geometry and reduced motion are consistent", async ({
   page,
 }) => {
-  await page.route("**/api/home/materials**", (route) =>
+  await page.route(materialCatalogRequests, (route) =>
     route.fulfill({ json: catalog }),
   );
   await page.goto("/account");
@@ -189,7 +191,7 @@ test("background Profile failure retains data but lost authorization removes it"
       },
     });
   });
-  await page.route("**/api/home/materials**", (route) =>
+  await page.route(materialCatalogRequests, (route) =>
     route.fulfill({ json: catalog }),
   );
   await page.goto("/account/access");
@@ -229,7 +231,7 @@ test("background Profile failure retains data but lost authorization removes it"
 test("native Back preserves the latest Home feed filter and scroll for the next tab visit", async ({
   page,
 }) => {
-  await page.route("**/api/home/materials**", (route) =>
+  await page.route(materialCatalogRequests, (route) =>
     route.fulfill({ json: catalog }),
   );
   await page.goto("/account");
@@ -267,7 +269,7 @@ test("native Back preserves the latest Home feed filter and scroll for the next 
 test("a newer tab selection wins over an unfinished route request", async ({
   page,
 }) => {
-  await page.route("**/api/home/materials**", (route) =>
+  await page.route(materialCatalogRequests, (route) =>
     route.fulfill({ json: catalog }),
   );
   await page.goto("/");
@@ -321,7 +323,7 @@ test("changing account identity clears remembered tabs and the old Profile form"
       },
     });
   });
-  await page.route("**/api/home/materials**", (route) =>
+  await page.route(materialCatalogRequests, (route) =>
     route.fulfill({
       json: {
         ...catalog,
@@ -363,7 +365,7 @@ test("changing account identity clears remembered tabs and the old Profile form"
 test("a cold tab shows its destination immediately while the route response is still pending", async ({
   page,
 }) => {
-  await page.route("**/api/home/materials**", (route) =>
+  await page.route(materialCatalogRequests, (route) =>
     route.fulfill({ json: catalog }),
   );
   await expectImmediateMobileNavigation(page);
@@ -372,7 +374,7 @@ test("a cold tab shows its destination immediately while the route response is s
 test("external Home query changes update the selected format and results", async ({
   page,
 }) => {
-  await page.route("**/api/home/materials**", (route) =>
+  await page.route(materialCatalogRequests, (route) =>
     route.fulfill({ json: catalog }),
   );
   await page.goto("/?format=note");

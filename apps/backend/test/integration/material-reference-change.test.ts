@@ -142,7 +142,7 @@ describe("Material reference change", () => {
 });
 
 describe("Reference reads on an exhausted pool", () => {
-  test("reads Assets, Videos and Workshop in its own transaction", async () => {
+  test("reads Assets and Videos in its own transaction", async () => {
     const actor = randomUUID();
     const materials = assembleMaterials({
       authorPolicy: { canManage: (accountId) => accountId === actor },
@@ -150,16 +150,16 @@ describe("Reference reads on an exhausted pool", () => {
     });
     const created = await materials.authoring.createDraft({
       actor,
-      body: paragraphBody("Workshop draft"),
+      body: paragraphBody("Reference draft"),
       idempotencyKey: "exhausted-pool-draft",
-      metadata: { ...metadata, access: "workshop" },
+      metadata: { ...metadata, access: "free" },
     });
     if (!created.ok) throw new Error(created.error.code);
     const materialId = created.value.materialId;
     const assetId = await insertReadyImage(materialId, actor);
     const videoId = await insertReadyVideo(materialId, actor);
 
-    // Leaving workshop access asks Workshop, a primary Video with chapters asks Videos twice, and
+    // A primary Video with chapters asks Videos twice, and
     // the image asks Assets: every read would wait for a second connection the pool does not have.
     const saved = await withExhaustedPool(database, (prisma) =>
       assembleMaterials({

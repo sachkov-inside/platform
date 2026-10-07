@@ -71,7 +71,7 @@ not dependency wiring.
 - An operation never awaits another pooled connection while its transaction is open: as many such
   operations as the pool has connections hold all of it and wait for each other. A read of another
   Module that the caller's locks guard takes the caller's transaction, as Save does with
-  `inspectReferences` and a Workshop grant with `resolveForAccessUnderEntitlementLock`; the
+  `inspectReferences`; the
   delegate handoff above applies. The transaction comes first when every caller holds one; a read
   that also serves callers without one takes it as a last optional parameter, and a caller holding
   a transaction always passes it. A read those locks do not guard moves before the transaction and

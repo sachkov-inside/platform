@@ -76,11 +76,6 @@ import {
 } from "./facets/video-playback/video-playback.js";
 import { MaterialContentModule } from "./material-content.module.js";
 import {
-  WORKSHOP_MATERIAL_ACCESS,
-  WorkshopModule,
-  type WorkshopMaterialAccess,
-} from "../workshop/index.js";
-import {
   assembleContentCovers,
   CONTENT_COVERS,
   type ContentCovers,
@@ -106,7 +101,6 @@ import {
     MaterialContentModule,
     MembershipEntitlementsModule,
     VideosModule,
-    WorkshopModule,
     BillingModule,
   ],
   providers: [
@@ -255,7 +249,6 @@ import {
         VIDEOS,
         ACCOUNTS,
         MEMBERSHIP_ENTITLEMENTS,
-        WORKSHOP_MATERIAL_ACCESS,
         GUIDE_TASK_RESOURCE_FACTS,
       ],
       useFactory: (
@@ -265,7 +258,6 @@ import {
         videos: Videos,
         accounts: Accounts,
         membershipEntitlements: MembershipEntitlements,
-        workshopMaterialAccess: WorkshopMaterialAccess,
         guideTaskResourceFacts: GuideTaskResourceFactsAdapter,
       ): ContentAccess =>
         assembleContentAccess({
@@ -277,7 +269,6 @@ import {
           materialResourceFacts: assembleMaterialResourceFacts(materialContent),
           accountPermissions: assembleCurrentAccountPermissions(accounts),
           membershipEntitlements,
-          workshopMaterialAccess,
         }),
     },
     {

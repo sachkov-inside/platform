@@ -4,7 +4,6 @@ import {
   dependencyFailure,
   reportDependencyFailure,
 } from "../../../../infrastructure/observability/index.js";
-import type { WorkshopMaterialAccessState } from "./content-access.dependencies.js";
 
 import type {
   AccessAction,
@@ -96,7 +95,6 @@ export function assembleContentAccess(
         input.operations.some(
           (operation) =>
             resourceKey(operation.resource) === key &&
-            !isWorkshopDelivery(facts, operation.action) &&
             needsSubjectFacts(facts, operation.action),
         ),
       );
@@ -158,17 +156,6 @@ export function assembleContentAccess(
           );
         }
       }
-      const workshopAccessByMaterial = await resolveWorkshopAccessMany(
-        dependencies,
-        input.subject,
-        input.operations.flatMap(({ action, resource }) => {
-          const facts = resourcesByKey.get(resourceKey(resource));
-          return facts?.materialId !== undefined &&
-            isWorkshopDelivery(facts, action)
-            ? [facts.materialId]
-            : [];
-        }),
-      );
 
       return {
         ok: true,
@@ -179,9 +166,6 @@ export function assembleContentAccess(
             action,
             input.subject,
             subjectFactsByResource.get(resourceKey(resource)),
-            workshopAccessByMaterial.get(
-              resourcesByKey.get(resourceKey(resource))?.materialId ?? "",
-            ),
           ),
         })),
       };
@@ -211,56 +195,6 @@ export function assembleContentAccess(
           : decision(reason ?? "resource_action_invalid");
       }
 
-      let workshopAccess: WorkshopMaterialAccessState | undefined;
-      if (isWorkshopDelivery(facts, input.action)) {
-        const workshopMaterialId = facts.materialId;
-        if (input.subject.kind === "account") {
-          if (
-            dependencies.workshopMaterialAccess === undefined ||
-            workshopMaterialId === undefined
-          ) {
-            return decision("dependency_unavailable");
-          }
-          try {
-            workshopAccess = await dependencies.workshopMaterialAccess.resolve(
-              input.subject.accountId,
-              workshopMaterialId,
-            );
-          } catch (error) {
-            return dependencyFailure(
-              { module: "content-access", operation: "authorize" },
-              error,
-              decision("dependency_unavailable"),
-            );
-          }
-        }
-        const reason = evaluate(
-          facts,
-          input.action,
-          input.subject,
-          undefined,
-          workshopAccess,
-        );
-        if (
-          reason === "active_workshop" &&
-          workshopAccess?.availability === "available"
-        ) {
-          return {
-            ...metadata(),
-            effect: "allow",
-            reason,
-            validUntil: workshopAccess.validUntil,
-            checkedContentVersion: facts.contentVersion,
-          };
-        }
-        return reason === "active_membership" ||
-          reason === "active_workshop" ||
-          reason === "materials_manager" ||
-          reason === "public_resource"
-          ? decision("dependency_unavailable")
-          : decision(reason);
-      }
-
       const subjectFacts = await resolveSubjectFacts(
         dependencies,
         input.subject,
@@ -284,9 +218,7 @@ export function assembleContentAccess(
           checkedContentVersion: facts.contentVersion,
         };
       }
-      return reason === "active_workshop"
-        ? decision("dependency_unavailable")
-        : decision(reason);
+      return decision(reason);
     },
 
     // Разрешение автора здесь не читается: оно открывает материалы для работы, а не продукт
@@ -414,7 +346,6 @@ function projectAvailability(
   action: AccessAction,
   subject: Subject,
   subjectFacts: SubjectFacts | undefined,
-  workshopAccess: WorkshopMaterialAccessState | undefined,
 ): AccessAvailability["availability"] {
   if (facts === undefined) return "unavailable";
   if (facts.publicationState !== "published") {
@@ -424,20 +355,17 @@ function projectAvailability(
       ? "available"
       : "unavailable";
   }
-  const reason = evaluate(facts, action, subject, subjectFacts, workshopAccess);
+  const reason = evaluate(facts, action, subject, subjectFacts);
   if (
     reason === "public_resource" ||
     reason === "materials_manager" ||
-    reason === "active_membership" ||
-    reason === "active_workshop"
+    reason === "active_membership"
   ) {
     return "available";
   }
   if (reason === "resource_action_invalid") {
     return "unavailable";
   }
-  if (reason === "workshop_material_locked") return "locked";
-  if (facts.access === "workshop") return "unavailable";
   return facts.access === "membership" ? "locked" : "unavailable";
 }
 
@@ -446,30 +374,13 @@ function evaluate(
   action: AccessAction,
   subject: Subject,
   subjectFacts: SubjectFacts | undefined,
-  workshopAccess?: WorkshopMaterialAccessState,
-):
-  | DenyReason
-  | "public_resource"
-  | "materials_manager"
-  | "active_membership"
-  | "active_workshop" {
+): DenyReason | "public_resource" | "materials_manager" | "active_membership" {
   const resource = resourceReason(facts, action);
   if (resource !== undefined) {
     return resource;
   }
   if (subject.kind === "anonymous") {
     return "authentication_required";
-  }
-  if (isWorkshopDelivery(facts, action)) {
-    switch (workshopAccess?.availability) {
-      case "available":
-        return "active_workshop";
-      case "locked":
-        return "workshop_material_locked";
-      case "unavailable":
-      case undefined:
-        return "workshop_access_required";
-    }
   }
   if (
     subjectFacts?.permission === "unavailable" ||
@@ -500,52 +411,6 @@ function evaluate(
     case undefined:
       return "dependency_unavailable";
   }
-}
-
-function isWorkshopDelivery(
-  facts: ResolvedResourceFacts,
-  action: AccessAction,
-): boolean {
-  return (
-    facts.access === "workshop" &&
-    facts.materialId !== undefined &&
-    (action === "read" || action === "download" || action === "play")
-  );
-}
-
-async function resolveWorkshopAccessMany(
-  dependencies: ContentAccessDependencies,
-  subject: Subject,
-  materialIds: readonly MaterialResourceFacts["materialId"][],
-): Promise<ReadonlyMap<string, WorkshopMaterialAccessState>> {
-  if (
-    subject.kind === "anonymous" ||
-    materialIds.length === 0 ||
-    dependencies.workshopMaterialAccess === undefined
-  ) {
-    return new Map();
-  }
-  const uniqueIds = [...new Set(materialIds)];
-  const entries = await Promise.all(
-    uniqueIds.map(async (materialId) => {
-      try {
-        return [
-          materialId,
-          (await dependencies.workshopMaterialAccess?.resolve(
-            subject.accountId,
-            materialId,
-          )) ?? { availability: "unavailable" as const },
-        ] as const;
-      } catch (error) {
-        return dependencyFailure(
-          { module: "content-access", operation: "resolveWorkshopAccessMany" },
-          error,
-          [materialId, { availability: "unavailable" as const }] as const,
-        );
-      }
-    }),
-  );
-  return new Map(entries);
 }
 
 function resourceReason(

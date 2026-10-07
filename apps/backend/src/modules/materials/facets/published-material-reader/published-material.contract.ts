@@ -17,7 +17,7 @@ export interface PublishedMaterialProjectionDto {
    * that promises neither. */
   readonly difficulty: MaterialDifficulty | null;
   readonly outcomes: readonly string[];
-  readonly access: "free" | "membership" | "workshop";
+  readonly access: "free" | "membership";
   readonly publishedAt: string;
   readonly primaryVideoId: string | null;
   readonly cover: ContentCoverProjection | null;

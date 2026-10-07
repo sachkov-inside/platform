@@ -1,4 +1,7 @@
-export { subscribeToCurrentBillingChanges } from "./model/current-billing";
+export {
+  announceCurrentBillingChange,
+  subscribeToCurrentBillingChanges,
+} from "./model/current-billing";
 export { useOwnEnrollments } from "./model/use-own-enrollments.client";
 export { useCurrentBilling } from "./model/use-current-billing.client";
 export { useBillingSessionExpired } from "./model/use-billing-cabinet.client";

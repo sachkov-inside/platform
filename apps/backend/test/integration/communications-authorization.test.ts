@@ -5,7 +5,6 @@ const acceptedTerms = {
 };
 import { verifiedTelegramAccountSignIn } from "../../src/modules/accounts/facets/accounts/verified-logto-identity.js";
 import { assembleMembershipEntitlements } from "../../src/modules/membership-entitlements/index.js";
-import { assembleWorkshopEntitlements } from "../../src/modules/workshop/index.js";
 import { PublicContentTargets } from "../../src/modules/materials/index.js";
 import { randomBytes, randomUUID } from "node:crypto";
 import type { NestFastifyApplication } from "@nestjs/platform-fastify";
@@ -321,9 +320,6 @@ describe("communications permission and confirmed author HTTP authorization", ()
     });
     const entitlements = assembleMembershipEntitlements({
       prisma: database.prisma,
-      workshopEntitlements: assembleWorkshopEntitlements({
-        prisma: database.prisma,
-      }),
     });
     const signIn = new TelegramAccountSignIn({
       terms: acceptedTerms,

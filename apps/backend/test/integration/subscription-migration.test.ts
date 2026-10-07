@@ -9,7 +9,6 @@ import {
 import { statement } from "../../src/modules/membership-entitlements/infrastructure/postgres/migrations/0063-subscription-enrollments.js";
 import { accountId } from "../../src/modules/accounts/index.js";
 import { assembleMembershipEntitlements } from "../../src/modules/membership-entitlements/index.js";
-import { assembleWorkshopEntitlements } from "../../src/modules/workshop/index.js";
 import { createTestDatabase } from "./setup/test-database.js";
 
 test("preview, transaction rollback, preserved legacy scope and late fulfillment exclude new products", async () => {
@@ -112,7 +111,6 @@ test("preview, transaction rollback, preserved legacy scope and late fulfillment
     const membership = assembleMembershipEntitlements({
       prisma: db.prisma,
       clock: () => new Date("2030-01-02Z"),
-      workshopEntitlements: assembleWorkshopEntitlements({ prisma: db.prisma }),
     });
     expect(
       await membership.resolveForAccess(accountId(owner), [included]),

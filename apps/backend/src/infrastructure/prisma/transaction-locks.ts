@@ -27,7 +27,7 @@ export async function lockAccountEntitlementChanges(
 
 /**
  * Serializes every change of what a Material references with the cleanup that trusts it: Save,
- * draft deletion, Guide order and Workshop Cases against orphan Asset cleanup and Video deletion.
+ * draft deletion, Guide order against orphan Asset cleanup and Video deletion.
  * Keys are taken in one order, so callers that lock several Materials cannot deadlock each other.
  */
 export async function lockMaterialReferenceChanges(

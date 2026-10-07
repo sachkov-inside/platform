@@ -191,8 +191,7 @@ export function assembleGuideArtifactDelivery(dependencies: {
       }
       const ttlSeconds = signedDeliveryTtlSeconds(
         dependencies.signedGetTtlSeconds,
-        decision.reason === "active_membership" ||
-          decision.reason === "active_workshop"
+        decision.reason === "active_membership"
           ? decision.validUntil
           : undefined,
       );

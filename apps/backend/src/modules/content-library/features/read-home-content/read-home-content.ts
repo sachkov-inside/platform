@@ -68,6 +68,7 @@ export async function readHomeContent(
       videoCatalog,
       {
         first: HOME_MATERIAL_LIMIT,
+        feedOnly: true,
         formatSlugs: ["video"],
         subject,
         sort: "newest",
@@ -79,6 +80,7 @@ export async function readHomeContent(
       videoCatalog,
       {
         first: HOME_MATERIAL_LIMIT,
+        feedOnly: true,
         formatSlugs: ["guide"],
         subject,
         sort: "newest",
@@ -90,6 +92,7 @@ export async function readHomeContent(
       videoCatalog,
       {
         first: HOME_MATERIAL_LIMIT,
+        feedOnly: true,
         formatSlugs: ["note"],
         subject,
         sort: "newest",

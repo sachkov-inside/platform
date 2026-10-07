@@ -39,7 +39,6 @@ import { assembleVideoPlayback } from "../../src/modules/materials/facets/video-
 import { assembleMaterialAssets } from "../../src/modules/assets/index.js";
 import { assembleVideos } from "../../src/modules/videos/index.js";
 import { createTestVideoProvider } from "../../src/modules/videos/adapters/kinescope/test-video-provider.js";
-import { assembleWorkshopEntitlements } from "../../src/modules/workshop/index.js";
 import {
   CommunityEntitlements,
   TelegramAccountLinks,
@@ -206,10 +205,6 @@ describe("оплата, выдача прав и доступ к материа�
     membership = assembleMembershipEntitlements({
       prisma: db.prisma,
       clock: () => now,
-      workshopEntitlements: assembleWorkshopEntitlements({
-        prisma: db.prisma,
-        clock: () => now,
-      }),
     });
     pricing = new BillingPricing({
       prisma: db.prisma,

@@ -11,7 +11,6 @@ import {
   assembleMaterials,
   PublishedMaterialSelection,
 } from "../../src/modules/materials/index.js";
-import { assembleWorkshopEntitlements } from "../../src/modules/workshop/index.js";
 import { Bookmarks } from "../../src/modules/bookmarks/index.js";
 import { representativeDocument } from "../fixtures/material-body/representative.js";
 import { assembleLegacyCohortFixture } from "./setup/legacy-cohort.js";
@@ -54,9 +53,6 @@ describe("Bookmarks on PostgreSQL", () => {
     membership = assembleLegacyCohortFixture({
       prisma: database.prisma,
       clock: () => new Date(),
-      workshopEntitlements: assembleWorkshopEntitlements({
-        prisma: database.prisma,
-      }),
     });
     bookmarks = assembleBookmarks(database.prisma);
   });

@@ -20,7 +20,6 @@ import {
   assembleMembershipEntitlements,
   type AccessCapability,
 } from "../../src/modules/membership-entitlements/index.js";
-import { assembleWorkshopEntitlements } from "../../src/modules/workshop/index.js";
 import { assembleContentAccess } from "../../src/modules/content-access/index.js";
 import {
   assembleMaterials,
@@ -68,10 +67,6 @@ describe("independent guide, library, support and shared chat rights", () => {
     membership = assembleMembershipEntitlements({
       prisma: db.prisma,
       clock: () => now,
-      workshopEntitlements: assembleWorkshopEntitlements({
-        prisma: db.prisma,
-        clock: () => now,
-      }),
     });
     await db.prisma.topic.create({
       data: { id: topicId, slug: "scoped-topic", name: "Synthetic scope" },

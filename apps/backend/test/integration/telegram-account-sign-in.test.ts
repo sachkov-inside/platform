@@ -9,7 +9,6 @@ import { afterAll, beforeAll, expect, test } from "vitest";
 import { assembleAccounts } from "../../src/modules/accounts/index.js";
 import { verifiedTelegramAccountSignIn } from "../../src/modules/accounts/facets/accounts/verified-logto-identity.js";
 import { assembleMembershipEntitlements } from "../../src/modules/membership-entitlements/index.js";
-import { assembleWorkshopEntitlements } from "../../src/modules/workshop/index.js";
 import {
   TelegramAccountSignIn,
   type TelegramSignInProvider,
@@ -130,9 +129,6 @@ test("a lost provider response retains one Account and principal, and a fresh pr
   };
   const membershipEntitlements = assembleMembershipEntitlements({
     prisma: database.prisma,
-    workshopEntitlements: assembleWorkshopEntitlements({
-      prisma: database.prisma,
-    }),
   });
   const signIn = new TelegramAccountSignIn({
     terms,
@@ -215,9 +211,6 @@ test("a Telegram sign-in completes the bot link only after the terms of use are 
     provider,
     membershipEntitlements: assembleMembershipEntitlements({
       prisma: database.prisma,
-      workshopEntitlements: assembleWorkshopEntitlements({
-        prisma: database.prisma,
-      }),
     }),
   });
   const signedIn = proof("telegram-before-terms");
@@ -278,9 +271,6 @@ test("a Telegram sign-in completes the bot link only after the terms of use are 
     prisma: database.prisma,
     membershipEntitlements: assembleMembershipEntitlements({
       prisma: database.prisma,
-      workshopEntitlements: assembleWorkshopEntitlements({
-        prisma: database.prisma,
-      }),
     }),
     botStartUrl: "https://t.me/inside_test_bot",
     linkLifetimeMs: 300000,
@@ -345,9 +335,6 @@ test.each(["identity", "correlation"] as const)(
       },
       membershipEntitlements: assembleMembershipEntitlements({
         prisma: database.prisma,
-        workshopEntitlements: assembleWorkshopEntitlements({
-          prisma: database.prisma,
-        }),
       }),
     });
     const first = await signIn.complete(
@@ -393,9 +380,6 @@ test.each([
     });
     const membershipEntitlements = assembleMembershipEntitlements({
       prisma: database.prisma,
-      workshopEntitlements: assembleWorkshopEntitlements({
-        prisma: database.prisma,
-      }),
     });
     const telegramIdentityRef = randomUUID();
     const signIn = new TelegramAccountSignIn({
@@ -519,9 +503,6 @@ test("current-account resume uses normal identity authentication and refuses bef
     },
     membershipEntitlements: assembleMembershipEntitlements({
       prisma: database.prisma,
-      workshopEntitlements: assembleWorkshopEntitlements({
-        prisma: database.prisma,
-      }),
     }),
   });
   const first = await signIn.complete(signedIn.identity);
@@ -589,7 +570,6 @@ test.each(["resume", "confirm"] as const)(
         const journal = termsJournal(prisma);
         const membershipEntitlements = assembleMembershipEntitlements({
           prisma,
-          workshopEntitlements: assembleWorkshopEntitlements({ prisma }),
         });
         const signIn = new TelegramAccountSignIn({
           prisma,

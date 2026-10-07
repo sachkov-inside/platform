@@ -1526,7 +1526,7 @@ export class MaterialAuthoringService {
       expectedContentVersion: number;
       materialId: string;
       metadata: {
-        access: 'free' | 'membership' | 'workshop';
+        access: 'free' | 'membership';
         difficulty: 'basic' | 'intermediate' | 'advanced' | null;
         formatId: 'video' | 'guide' | 'note' | null;
         outcomes: Array<string>;
@@ -1621,7 +1621,7 @@ export class MaterialAuthoringService {
         schemaVersion: 1;
       };
       metadata: {
-        access: 'free' | 'membership' | 'workshop';
+        access: 'free' | 'membership';
         difficulty: 'basic' | 'intermediate' | 'advanced' | null;
         formatId: 'video' | 'guide' | 'note' | null;
         outcomes: Array<string>;
@@ -1821,7 +1821,7 @@ export class MaterialAuthoringService {
         schemaVersion: 1;
       };
       metadata: {
-        access: 'free' | 'membership' | 'workshop';
+        access: 'free' | 'membership';
         difficulty: 'basic' | 'intermediate' | 'advanced' | null;
         formatId: 'video' | 'guide' | 'note' | null;
         outcomes: Array<string>;
@@ -1913,7 +1913,7 @@ export class MaterialAuthoringService {
     } | null;
     materialId: string;
     metadata: {
-      access: 'free' | 'membership' | 'workshop';
+      access: 'free' | 'membership';
       difficulty: 'basic' | 'intermediate' | 'advanced' | null;
       formatId: 'video' | 'guide' | 'note' | null;
       outcomes: Array<string>;
@@ -1983,7 +1983,7 @@ export class MaterialAuthoringService {
       detachVideoIds: Array<string>;
       expectedContentVersion: number;
       metadata: {
-        access: 'free' | 'membership' | 'workshop';
+        access: 'free' | 'membership';
         difficulty: 'basic' | 'intermediate' | 'advanced' | null;
         formatId: 'video' | 'guide' | 'note' | null;
         outcomes: Array<string>;
@@ -2078,7 +2078,7 @@ export class MaterialAuthoringService {
     contentVersion: number;
     materialId: string;
     metadata: {
-      access: 'free' | 'membership' | 'workshop';
+      access: 'free' | 'membership';
       difficulty: 'basic' | 'intermediate' | 'advanced' | null;
       formatId: 'video' | 'guide' | 'note' | null;
       outcomes: Array<string>;
