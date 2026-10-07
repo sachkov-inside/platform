@@ -224,6 +224,40 @@ describe("production watchdog", () => {
         /Операций вступления в группу failed или unknown за 10 минут: 2/u,
       );
       assert.equal(assertRun(fixture, now + 120), "");
+      fixture.fake(
+        "sql",
+        healthySql.replace("email_effects|0", "email_effects|1"),
+      );
+      assert.equal(assertRun(fixture, now + 180), "");
+      fixture.fake(
+        "sql",
+        healthySql.replace("email_effects|0", "email_effects|2"),
+      );
+      assert.match(
+        assertRun(fixture, now + 240),
+        /Хуже: Писем без итога дольше 10 минут: 2/u,
+      );
+    } finally {
+      fixture.cleanup();
+    }
+  });
+
+  it("signals a deploy that stays running for more than an hour", () => {
+    const fixture = createFixture();
+    try {
+      writeFileSync(
+        resolve(fixture.root, "var/lib/inside/deployments/operation.json"),
+        JSON.stringify({
+          status: "running",
+          recordedAt: new Date((now - 7200) * 1000)
+            .toISOString()
+            .replace(/\.\d{3}Z$/u, "Z"),
+        }),
+      );
+      assert.match(
+        assertRun(fixture),
+        /Отказ: Операция выпуска больше часа в статусе running/u,
+      );
     } finally {
       fixture.cleanup();
     }
@@ -234,7 +268,12 @@ describe("production watchdog", () => {
     try {
       writeFileSync(
         resolve(fixture.root, "var/lib/inside/deployments/operation.json"),
-        JSON.stringify({ status: "running" }),
+        JSON.stringify({
+          status: "running",
+          recordedAt: new Date((now - 60) * 1000)
+            .toISOString()
+            .replace(/\.\d{3}Z$/u, "Z"),
+        }),
       );
       fixture.fake(
         "ps-inside-platform-production",

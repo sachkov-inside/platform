@@ -70,15 +70,6 @@ if ! flock --exclusive --nonblock 9; then
   exit 0
 fi
 
-# Во время deploy или rollback процессы останавливаются и пересоздаются намеренно. Запуск пропускается
-# целиком и не меняет состояние сигналов; незавершённая операция со статусом failed сигналит обычным путём.
-operation_status="$(jq --raw-output '.status // empty' \
-  "$host_root/var/lib/inside/deployments/operation.json" 2>/dev/null || true)"
-if [[ "$operation_status" == running ]]; then
-  echo "A production operation is running; the watchdog skips this run"
-  exit 0
-fi
-
 now_epoch() {
   if [[ -n "${INSIDE_WATCHDOG_TEST_NOW_EPOCH:-}" ]]; then
     printf '%s\n' "$INSIDE_WATCHDOG_TEST_NOW_EPOCH"
@@ -87,6 +78,21 @@ now_epoch() {
   fi
 }
 now="$(now_epoch)"
+
+# Во время deploy или rollback процессы останавливаются и пересоздаются намеренно. Запуск пропускается
+# целиком и не меняет состояние сигналов. deploy-release обновляет recordedAt на каждой фазе; запись
+# running старше часа значит, что операцию убили без журнала, и сторож работает обычным путём.
+operation_file="$host_root/var/lib/inside/deployments/operation.json"
+operation_recorded="$(jq --raw-output \
+  'select(.status == "running") | .recordedAt | fromdateiso8601' "$operation_file" 2>/dev/null || true)"
+stuck_operation=false
+if [[ "$operation_recorded" =~ ^[0-9]+$ ]]; then
+  if (( now - operation_recorded < 3600 )); then
+    echo "A production operation is running; the watchdog skips this run"
+    exit 0
+  fi
+  stuck_operation=true
+fi
 
 run_dir="$(mktemp -d "$state_dir/run.XXXXXX")"
 trap 'rm -r "$run_dir"' EXIT
@@ -205,7 +211,11 @@ check_backup() {
     fi
     result="$(sed -n 's/^Result=//p' <<<"$properties")"
     exited="$(sed -n 's/^ExecMainExitTimestamp=@\{0,1\}//p' <<<"$properties")"
-    [[ "$exited" =~ ^[0-9]+$ ]] || continue
+    if [[ ! "$exited" =~ ^[0-9]+$ ]]; then
+      # После перезагрузки systemd не помнит прошлый запуск: итог неизвестен до следующего.
+      hold "backup.failed.$kind"
+      continue
+    fi
     if [[ "$result" != success ]]; then
       observe "backup.failed.$kind" 1 "Бэкап $kind завершился с результатом $result"
     elif (( exited > newest )); then
@@ -286,6 +296,7 @@ check_database() {
   done <<<"$rows"
   if ! rows="$(read_only_query inside_telegram "$telegram_query")"; then
     hold telegram.db.
+    observe watchdog.telegram_database 2 "Сторож не может прочитать базу Telegram"
     return
   fi
   value="$(sed -n 's/^community_operations|//p' <<<"$rows")"
@@ -351,17 +362,18 @@ check_telegram_webhook() {
     hold telegram.webhook
     return
   fi
-  if ! info="$(telegram_api "$token" getWebhookInfo)"; then
-    observe telegram.webhook 2 "Сторож не получил getWebhookInfo через relay"
+  if ! info="$(telegram_api "$token" getWebhookInfo)" ||
+    ! pending="$(jq --exit-status --raw-output '.result.pending_update_count // 0' <<<"$info" 2>/dev/null)" ||
+    ! last_error="$(jq --exit-status --raw-output '.result.last_error_date // 0' <<<"$info" 2>/dev/null)"; then
+    hold telegram.webhook
+    observe telegram.api 2 "Сторож не получил getWebhookInfo через relay"
     return
   fi
-  pending="$(jq --raw-output '.result.pending_update_count // 0' <<<"$info" 2>/dev/null || echo 0)"
-  last_error="$(jq --raw-output '.result.last_error_date // 0' <<<"$info" 2>/dev/null || echo 0)"
   if [[ "$last_error" =~ ^[0-9]+$ ]] && (( last_error > 0 && now - last_error < 600 )); then
-    observe telegram.webhook 1 "Webhook бота: ошибка доставки за последние 10 минут, в очереди $pending"
+    observe telegram.webhook.delivery 1 "Webhook бота: ошибка доставки за последние 10 минут, в очереди $pending"
   fi
   if [[ "$pending" =~ ^[0-9]+$ ]] && (( pending > 100 )); then
-    observe telegram.webhook_queue 2 "Telegram держит $pending необработанных обновлений бота"
+    observe telegram.webhook.queue 2 "Telegram держит $pending необработанных обновлений бота"
   fi
 }
 
@@ -407,6 +419,9 @@ check_logs() {
   done <<<"$containers"
 }
 
+if [[ "$stuck_operation" == true ]]; then
+  observe deploy.stuck 1 "Операция выпуска больше часа в статусе running без новых фаз"
+fi
 check_containers
 check_host
 check_backup
@@ -440,10 +455,13 @@ for observation in "$observations"/*; do
   active_level=0
   { read -r _; read -r active_level; } <"$state_dir/active/$key" || true
   [[ "$active_level" =~ ^[0-9]+$ ]] || active_level=0
+  # Сравнение идёт с прошлым запуском, а не с максимумом: после частичного разрешения новый рост
+  # тоже сообщается.
   if (( level > active_level )); then
-    printf '%s\n%s\n' "$text" "$level" >"$state_dir/active/$key"
     printf 'Хуже: %s\n' "$text" >>"$messages"
   fi
+  printf '%s\n%s\n' "$text" "$level" >"$state_dir/active/$key.tmp"
+  mv "$state_dir/active/$key.tmp" "$state_dir/active/$key"
 done
 
 for remembered in "$state_dir/streak"/* "$state_dir/active"/*; do
