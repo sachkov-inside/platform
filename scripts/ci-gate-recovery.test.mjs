@@ -11,7 +11,7 @@ const ci = readFileSync(
 const requiredNames = [...ci.matchAll(/^ {4}name: (.+)$/gmu)]
   .map(([, name]) => name)
   .filter((name) => name !== "CI Gate");
-// Minimized metadata from run 37642003271, attempt 1 (#1085).
+// Metadata from run 37642003271, attempt 1 (#1085); job names follow current CI.
 const run = {
   id: 37642003271,
   path: ".github/workflows/ci.yml",
@@ -134,6 +134,16 @@ describe("missing CI Gate recovery", () => {
         jobs: [...jobs, { name: "CI Gate", status: "completed", conclusion }],
       });
     }
+  });
+
+  it("leaves old workflow revisions without isolated reruns to manual recovery", () => {
+    replay({
+      jobs: jobs.map((job) =>
+        job.name === "Static checks (isolated reruns)"
+          ? { ...job, name: "Static checks" }
+          : job,
+      ),
+    });
   });
 
   it("rejects other workflows, release calls, successful runs and subsequent attempts", () => {

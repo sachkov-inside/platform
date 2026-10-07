@@ -45,7 +45,9 @@ jobs:
               { ...request, attempt_number: 1, per_page: 100 },
             );
             const requiredNames = [
-              'Static checks', 'Unit tests', 'UI components', 'Web E2E',
+              // The static job name marks ci.yml's isolated-rerun contract.
+              // Old workflow revisions keep their original concurrency on rerun.
+              'Static checks (isolated reruns)', 'Unit tests', 'UI components', 'Web E2E',
               'Integration', 'Integration serial', 'Development Compose',
               'Production Compose', 'Telegram full checks',
             ];
