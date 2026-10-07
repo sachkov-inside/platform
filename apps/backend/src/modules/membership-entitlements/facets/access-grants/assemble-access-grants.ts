@@ -178,6 +178,7 @@ export function assembleAccessGrants(dependencies: AccessGrantsDependencies) {
     actorId: string,
     permission: PlatformPermission,
     operation: () => Promise<Result>,
+    operationName = "manage",
   ) {
     try {
       if (!z.uuid().safeParse(actorId).success)
@@ -191,7 +192,7 @@ export function assembleAccessGrants(dependencies: AccessGrantsDependencies) {
       return await operation();
     } catch (error) {
       return dependencyFailure(
-        { module: "membership-entitlements", operation: "manage" },
+        { module: "membership-entitlements", operation: operationName },
         error,
         accessFailure("unavailable"),
       );
@@ -271,17 +272,25 @@ export function assembleAccessGrants(dependencies: AccessGrantsDependencies) {
       ),
     /** Permission and Account reads finish before the caller opens its transaction. */
     prepareEnrollmentAssignment: (actorId: string, command: unknown) =>
-      manage(actorId, "billing:manage", () =>
-        prepareEnrollmentAssignment(actorId, command),
+      manage(
+        actorId,
+        "billing:manage",
+        () => prepareEnrollmentAssignment(actorId, command),
+        "prepareEnrollmentAssignment",
       ),
     assignEnrollment: (actorId: string, command: unknown, snapshot: unknown) =>
-      manage(actorId, "billing:manage", async () => {
-        const prepared = await prepareEnrollmentAssignment(actorId, command);
-        if (!prepared.ok) return prepared;
-        return prisma.$transaction((transaction) =>
-          prepared.assign(transaction, snapshot),
-        );
-      }),
+      manage(
+        actorId,
+        "billing:manage",
+        async () => {
+          const prepared = await prepareEnrollmentAssignment(actorId, command);
+          if (!prepared.ok) return prepared;
+          return prisma.$transaction((transaction) =>
+            prepared.assign(transaction, snapshot),
+          );
+        },
+        "assignEnrollment",
+      ),
     changeEnrollment: (actorId: string, command: unknown) =>
       manage(actorId, "billing:manage", () =>
         changeEnrollment(prisma, actorId, command, clock()),

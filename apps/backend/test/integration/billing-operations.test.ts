@@ -10,6 +10,7 @@ import {
 } from "../../src/modules/accounts/index.js";
 import { billingContactProtection } from "../../src/modules/accounts/infrastructure/billing-contact-protection.js";
 import { assembleAccessGrants } from "../../src/modules/membership-entitlements/index.js";
+import { TelegramAccountLinks } from "../../src/modules/telegram-membership/index.js";
 import {
   BillingNotices,
   BillingOperations,
@@ -299,6 +300,7 @@ describe("владельческие операции billing: платежи, �
     grants = assembleAccessGrants({
       prisma: db.prisma,
       accounts,
+      recipientLinks: new TelegramAccountLinks(db.prisma),
       clock: () => now,
     });
     pricing = assembleTestBillingPricing({
@@ -2031,6 +2033,57 @@ describe("владельческие операции billing: платежи, �
         reason: "Другая команда",
       }),
     ).toMatchObject({ ok: false, error: { code: "operation_conflict" } });
+  });
+
+  test("course назначается через Billing только текущей привязке Telegram, а receipt сохраняет повтор после перепривязки", async () => {
+    const s = await scenario();
+    const recipient = await account();
+    const identityRef = `verified:${recipient}`;
+    await db.prisma.telegramAccountLinkState.create({
+      data: {
+        accountId: recipient,
+        linkRef: randomUUID(),
+        revision: 1,
+        principalRef: `account:${recipient}`,
+        identityRef,
+        updatedAt: now,
+      },
+    });
+    const command = {
+      operation: "enrollments.assign",
+      operationId: randomUUID(),
+      accountId: recipient,
+      tierId: "62000000-0000-4000-8000-000000000624",
+      tierRevision: 1,
+      origin: "course",
+      sourceRef: randomUUID(),
+      courseSource: {
+        policyRef: "verified-course",
+        verifiedIdentityRef: identityRef,
+      },
+      terms: { startsAt: now.toISOString(), endsAt: null, endPolicy: "fixed" },
+      billingRef: null,
+      reason: "Назначение курса подтверждённому участнику",
+    };
+    const assigned = await s.operations.execute(owner, command);
+    expect(success(assigned)).toMatchObject({
+      outcome: "enrollment",
+      value: { origin: "course" },
+    });
+    await db.prisma.telegramAccountLinkState.update({
+      where: { accountId: recipient },
+      data: { identityRef: `changed:${recipient}`, revision: 2 },
+    });
+    expect(await s.operations.execute(owner, command)).toEqual(assigned);
+    expect(
+      await s.operations.execute(owner, {
+        ...command,
+        operationId: randomUUID(),
+      }),
+    ).toMatchObject({ ok: false, error: { code: "identity_changed" } });
+    expect(value(await grants.listEnrollments(owner, recipient))).toHaveLength(
+      1,
+    );
   });
 
   test("тариф без состава или с отдельным материалом не назначается, а стартовый тариф назначается сразу", async () => {
