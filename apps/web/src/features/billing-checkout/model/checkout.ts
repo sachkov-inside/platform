@@ -81,9 +81,30 @@ export function recallPurchase(): string | undefined {
     return undefined;
   }
 }
+/**
+ * Подтверждение покупки объявляется один раз: перезагрузка экрана возврата читает ту же покупку,
+ * и соседним вкладкам узнавать о ней снова нечего.
+ */
+const confirmedStorageKey = "inside.billing.purchase.confirmed";
+export function rememberConfirmedPurchase(purchaseRef: string): void {
+  try {
+    window.sessionStorage.setItem(confirmedStorageKey, purchaseRef);
+  } catch {
+    // Хранилище не приняло запись (например, переполнено): перезагрузка объявит покупку ещё раз.
+    // Это лишнее перечитывание, а не потеря.
+  }
+}
+export function purchaseConfirmationRemembered(purchaseRef: string): boolean {
+  try {
+    return window.sessionStorage.getItem(confirmedStorageKey) === purchaseRef;
+  } catch {
+    return false;
+  }
+}
 export function forgetPurchase(): void {
   try {
     window.sessionStorage.removeItem(storageKey);
+    window.sessionStorage.removeItem(confirmedStorageKey);
   } catch {
     // Забывать нечего: следующий возврат просто прочитает состояние подписки.
   }

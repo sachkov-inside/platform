@@ -26,6 +26,12 @@ export const currentBillingChanged = factAnnouncement(
 export const subscribeToCurrentBillingChanges = currentBillingChanged.subscribe;
 
 /**
+ * Объявление для команд вне billing: подтверждение покупки живёт в оформлении, которому этот срез
+ * недоступен, поэтому страница передаёт ему объявление готовой функцией.
+ */
+export const announceCurrentBillingChange = currentBillingChanged.announce;
+
+/**
  * Пока у банка есть незавершённая операция, её исход приходит сам: раздел перечитывает
  * состояние по интервалу, а не ждёт действия владельца аккаунта.
  */
