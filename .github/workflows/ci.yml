@@ -16,7 +16,9 @@ permissions:
   contents: read
 
 concurrency:
-  group: platform-ci-${{ github.workflow }}-${{ github.event.pull_request.number || github.event.merge_group.head_ref || github.run_id }}
+  # Reruns have their own group: recovery can race a new commit after its API
+  # freshness check, and must not cancel that commit's first attempt (#1085).
+  group: platform-ci-${{ github.workflow }}-${{ github.event.pull_request.number || github.event.merge_group.head_ref || github.run_id }}${{ github.run_attempt > 1 && format('-rerun-{0}', github.run_id) || '' }}
   cancel-in-progress: true
 
 env:
@@ -24,7 +26,9 @@ env:
 
 jobs:
   static:
-    name: Static checks
+    # Recovery requires this name so pre-#1085 workflows without rerun isolation
+    # cannot be retried after recovery is enabled on the default branch.
+    name: Static checks (isolated reruns)
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     steps:
@@ -292,6 +296,8 @@ jobs:
           '
 
   ci-gate:
+    # Keep this fail-closed gate. ci-gate-recovery.yml handles GitHub finishing
+    # a run before creating it despite nine successful prerequisites (#1085).
     name: CI Gate
     runs-on: ubuntu-24.04
     timeout-minutes: 5
