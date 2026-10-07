@@ -14,15 +14,20 @@ x-backend-runtime: &backend-runtime
   security_opt: [no-new-privileges:true]
   tmpfs: [/tmp]
 
+# Каждая проверка запускает Node, поэтому установившийся интервал задаёт её цену в CPU. Docker
+# отмечает отказ после `retries` неудачных проверок подряд: `interval × retries` не больше 90 с.
+# Пока процесс запускается, проверки идут через `start_interval`, и deploy быстро видит готовность
+# (docs/runbooks/production-delivery.md).
 x-worker-healthcheck: &worker-healthcheck
   test:
     - CMD
     - node
     - dist/infrastructure/worker-healthcheck.js
-  interval: 5s
+  interval: 30s
   timeout: 3s
-  retries: 12
-  start_period: 10s
+  retries: 2
+  start_period: 60s
+  start_interval: 2s
 
 services:
   # Свой брокер окружения. Он переживает выпуски приложения: deploy его не останавливает, а данные
@@ -40,10 +45,11 @@ services:
         target: /etc/rabbitmq/rabbitmq.conf
     healthcheck:
       test: ["CMD", "rabbitmq-diagnostics", "-q", "check_port_listener", "5671"]
-      interval: 15s
+      interval: 30s
       timeout: 10s
-      retries: 12
-      start_period: 30s
+      retries: 3
+      start_period: 180s
+      start_interval: 5s
     mem_limit: 768m
     networks: [broker]
     restart: unless-stopped
@@ -78,10 +84,11 @@ services:
         - node
         - healthcheck/http-healthcheck.mjs
         - api
-      interval: 5s
+      interval: 30s
       timeout: 5s
-      retries: 12
-      start_period: 10s
+      retries: 2
+      start_period: 60s
+      start_interval: 2s
     networks: [edge, application, database]
     ports:
       - "127.0.0.1:${PLATFORM_API_LOOPBACK_PORT:?PLATFORM_API_LOOPBACK_PORT is required}:3001"
@@ -103,10 +110,11 @@ services:
         - node
         - healthcheck/http-healthcheck.mjs
         - mcp
-      interval: 5s
+      interval: 30s
       timeout: 5s
-      retries: 12
-      start_period: 10s
+      retries: 2
+      start_period: 60s
+      start_interval: 2s
     networks: [edge, application, database]
     ports:
       - "127.0.0.1:${PLATFORM_MCP_LOOPBACK_PORT:?PLATFORM_MCP_LOOPBACK_PORT is required}:3002"
@@ -207,10 +215,11 @@ services:
         - node
         - apps/web/healthcheck/http-healthcheck.mjs
         - web
-      interval: 5s
+      interval: 30s
       timeout: 5s
-      retries: 18
-      start_period: 10s
+      retries: 3
+      start_period: 90s
+      start_interval: 2s
     init: true
     cap_drop: [ALL]
     mem_limit: 512m

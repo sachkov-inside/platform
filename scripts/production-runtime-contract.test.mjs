@@ -500,6 +500,40 @@ describe("production runtime architecture contract", () => {
     }
   });
 
+  it("probes each process at most every 30 s and marks a failure within 90 s", () => {
+    const probes = healthchecks(runtime.compose);
+    assert.equal(probes.length, 5, "api, mcp, web, workers and broker");
+    /** @type {[string, string, RegExp][]} */
+    const changes = [
+      [
+        "interval: 30s\n      timeout: 5s",
+        "interval: 5s\n      timeout: 5s",
+        /probes more often than every 30 s/u,
+      ],
+      [
+        "retries: 3\n      start_period: 90s",
+        "retries: 4\n      start_period: 90s",
+        /marks a failure later than 90 s/u,
+      ],
+      [
+        "start_interval: 2s\n\n",
+        "start_interval: 30s\n\n",
+        /waits longer than 5 s between start probes/u,
+      ],
+    ];
+    for (const [current, changed, reason] of changes) {
+      assert.ok(runtime.compose.includes(current), current);
+      assert.throws(
+        () =>
+          assertRuntimeContract({
+            ...runtime,
+            compose: runtime.compose.replace(current, changed),
+          }),
+        reason,
+      );
+    }
+  });
+
   it("rejects a Logto sign-in callback that allows other HTTP methods", () => {
     assert.throws(
       () =>
@@ -514,6 +548,28 @@ describe("production runtime architecture contract", () => {
 
 /** @param {typeof runtime} files */
 function assertRuntimeContract(files) {
+  for (const probe of healthchecks(files.compose)) {
+    if (probe.interval < 30) {
+      throw new Error(
+        `healthcheck probes more often than every 30 s: ${probe.block}`,
+      );
+    }
+    if (probe.interval * probe.retries > 90) {
+      throw new Error(
+        `healthcheck marks a failure later than 90 s: ${probe.block}`,
+      );
+    }
+    if (probe.startInterval > 5) {
+      throw new Error(
+        `healthcheck waits longer than 5 s between start probes: ${probe.block}`,
+      );
+    }
+    if (probe.timeout >= probe.interval) {
+      throw new Error(
+        `healthcheck timeout must be shorter than its interval: ${probe.block}`,
+      );
+    }
+  }
   if (/^\s+build:/mu.test(files.compose)) {
     throw new Error("production runtime must not build application source");
   }
@@ -771,6 +827,35 @@ function assertRuntimeContract(files) {
     caddyProxiedRoutes(files.caddy),
     "docs/runbooks/production-release.md must list exactly the Caddy API and MCP routes",
   );
+}
+
+/**
+ * Docker marks a process unhealthy after `retries` failed probes in a row, so `interval × retries`
+ * bounds how late a failure is noticed. Each probe starts Node or the Erlang VM, so the steady
+ * interval sets the CPU cost; `start_interval` keeps the first readiness probe quick for deploy.
+ * @param {string} compose
+ */
+function healthchecks(compose) {
+  return [
+    ...compose.matchAll(
+      /^( *)(?:healthcheck|x-worker-healthcheck): ?(?:&[a-z-]+)?\n((?:\1 {2}.*\n)+)/gmu,
+    ),
+  ].map(([block, , body]) => {
+    /** @param {string} key */
+    const seconds = (key) => {
+      const value = new RegExp(`^ *${key}: (\\d+)s?$`, "mu").exec(body)?.[1];
+      if (value === undefined)
+        throw new Error(`healthcheck must set ${key}: ${block}`);
+      return Number(value);
+    };
+    return {
+      block,
+      interval: seconds("interval"),
+      retries: seconds("retries"),
+      startInterval: seconds("start_interval"),
+      timeout: seconds("timeout"),
+    };
+  });
 }
 
 /**
