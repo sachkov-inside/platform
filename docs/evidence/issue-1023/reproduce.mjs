@@ -1,4 +1,5 @@
 import { spawn, execFileSync } from 'node:child_process';
+import { once } from 'node:events';
 import { writeFileSync, createWriteStream, mkdirSync } from 'node:fs';
 import { setTimeout as delay } from 'node:timers/promises';
 import path from 'node:path';
@@ -45,6 +46,17 @@ async function rpc(method, params) {
   if (data.error) throw Error(JSON.stringify(data.error));
   return data.result;
 }
+
+// Observe process exit; the deadline only bounds a stuck shutdown.
+async function waitForProcessGroupExit(budgetMs) {
+  const deadline = Date.now() + budgetMs;
+  for (;;) {
+    const remaining = execFileSync('ps', ['-axo', 'pid,ppid,pgid,rss,command'], { encoding: 'utf8' }).split('\n').filter(line => Number(line.trim().split(/\s+/)[2]) === child.pid);
+    if (remaining.length === 0 || Date.now() >= deadline) return remaining;
+    await delay(100);
+  }
+}
+
 try {
   for (let attempt = 0; attempt < 120; attempt++) {
     if (child.exitCode !== null || child.signalCode !== null) throw Error('Storybook exited before readiness');
@@ -77,24 +89,26 @@ try {
   }
   await inspect('Runtime.evaluate', { expression: 'global.gc()' });
   await sample('after-gc');
-  await delay(3000);
   if (child.exitCode !== null || child.signalCode !== null) throw Error('Storybook exited after test-run');
   const response = await fetch('http://localhost:6106/index.json');
   if (!response.ok) throw Error('Storybook failed health check after test-run');
   console.log('PASS: full MCP run returned and Storybook still serves index');
   socket.close(); socket = undefined;
+  const parentExited = once(child, 'exit', { signal: AbortSignal.timeout(10000) });
   process.kill(child.pid, process.env.PROBE_PARENT_SIGNAL || 'SIGTERM');
-  await delay(2000);
-  const remaining = execFileSync('ps', ['-axo', 'pid,ppid,pgid,rss,command'], { encoding: 'utf8' }).split('\n').filter(line => Number(line.trim().split(/\s+/)[2]) === child.pid);
+  await parentExited;
+  const remaining = await waitForProcessGroupExit(10000);
   writeFileSync(path.join(artifacts, 'children-after-parent-exit.txt'), remaining.join('\n'));
   console.log(JSON.stringify({ remainingChildren: remaining }));
-  if (remaining.some(line => line.includes('addon-vitest') || line.includes('esbuild'))) throw Error('Vitest or esbuild outlived Storybook parent');
+  if (remaining.length > 0) throw Error('Descendants outlived Storybook parent: ' + remaining.join('\n'));
 } finally {
   clearInterval(timer);
   if (socket) socket.close();
   try { process.kill(-child.pid, 'SIGTERM'); } catch { /* The server may not have started, or cleanup may already have ended the process. */ }
-  await delay(1000);
-  try { process.kill(-child.pid, 'SIGKILL'); } catch { /* The server may not have started, or cleanup may already have ended the process. */ }
+  const remaining = await waitForProcessGroupExit(5000);
+  if (remaining.length > 0) {
+    try { process.kill(-child.pid, 'SIGKILL'); } catch { /* Another cleanup handler may already have ended the process. */ }
+  }
   log.end();
   console.log(execFileSync('ps', ['-axo', 'pid,ppid,pgid,rss,command'], { encoding: 'utf8' }).split('\n').filter(line => line.includes(root)).join('\n'));
 }
