@@ -241,6 +241,13 @@ Playwright traces, screenshots and HTML reports are uploaded only after a failur
 capture service state and at most the latest 500 log lines before cleanup. Diagnostic artifacts are
 retained for seven days; successful runs store none of them.
 
+The Telegram reminder test in `apps/web/test/e2e/account-cabinet.spec.ts` also retains a video on
+failure (#999). Web E2E uploads `playwright-report` (including the error's call log) and
+`test-results` (including `trace.zip` and the video) as `web-e2e-playwright-<run_attempt>`.
+Each CI attempt has its own artifact name, so a rerun does not replace the earlier failure.
+For a stuck reopen, inspect the second reminder click in the trace, its call log, and the video
+after the close button was clicked. Download the artifact before its seven-day retention expires.
+
 Every Compose job owns an isolated project on its runner and removes containers, networks and
 volumes even after a failed command. The production smoke additionally removes locally built
 images. It embeds a synthetic release identity, supplies the exact local image IDs to production

@@ -369,6 +369,22 @@ describe("application CI workflow contract", () => {
     );
   });
 
+  it("keeps Web E2E recordings and HTML call logs separate for each CI attempt", () => {
+    const webE2E = jobBlock("web-e2e");
+    const upload = webE2E.slice(
+      webE2E.indexOf("      - name: Upload Playwright diagnostics\n"),
+    );
+    assert.match(upload, /if: \$\{\{ failure\(\) \}\}/u);
+    assert.match(upload, /uses: actions\/upload-artifact@/u);
+    assert.match(
+      upload,
+      /name: web-e2e-playwright-\$\{\{ github\.run_attempt \}\}/u,
+    );
+    assert.match(upload, /^ {12}apps\/web\/playwright-report$/mu);
+    assert.match(upload, /^ {12}apps\/web\/test-results$/mu);
+    assert.doesNotMatch(upload, /overwrite: true/u);
+  });
+
   it("exposes one stable gate that fails closed over every required job", () => {
     const gate = jobBlock("ci-gate");
 
