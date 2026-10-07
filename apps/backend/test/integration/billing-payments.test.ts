@@ -453,6 +453,82 @@ describe("subscription payment recovery (real PostgreSQL and real facets; synthe
     });
   });
 
+  test("a historical payment without content scope confirms once and fulfills the compatibility enrollment", async () => {
+    const s = await scenario();
+    const runtime = s.runtime();
+    const purchaseRef = randomUUID();
+    const compatibilityScope = { guideIds: [randomUUID()], materialIds: [] };
+    await db.prisma.$executeRaw`
+      UPDATE membership_entitlements.content_scope_baseline
+      SET scope = ${JSON.stringify(compatibilityScope)}::jsonb WHERE id = 1
+    `;
+    const { contentScope, ...historicalOffer } = s.quote.snapshot.offer;
+    expect(contentScope).toBeDefined();
+    const snapshot = { ...s.quote.snapshot, offer: historicalOffer };
+    // Historical conditions cannot be produced by today's catalog or changed after insertion.
+    await db.prisma.billingPromoReservation.create({
+      data: {
+        purchaseRef,
+        accountId: s.buyer,
+        quoteRef: s.quote.quoteRef,
+        state: "sent",
+        snapshot,
+      },
+    });
+    await db.prisma.billingPurchase.create({
+      data: {
+        id: purchaseRef,
+        accountId: s.buyer,
+        quoteRef: s.quote.quoteRef,
+        state: "pending",
+        environment: config.environment,
+        terminalRef: config.terminalKey,
+        amountKopecks: 200_000n,
+        snapshot,
+        acceptance: {
+          command: s.command,
+          evidence: documents.map((document) => ({
+            document,
+            acceptedAt: now.toISOString(),
+          })),
+        },
+        contact: {},
+        fiscalization: "pending",
+        createdAt: now,
+        updatedAt: now,
+      },
+    });
+    const confirmation = s.notify("CONFIRMED", { OrderId: purchaseRef });
+    expect(await runtime.notification(confirmation)).toMatchObject({
+      ok: true,
+    });
+    expect(value(await runtime.status(s.buyer, purchaseRef))).toMatchObject({
+      state: "confirmed",
+      access: "preparing",
+      confirmedAt: "2030-01-31T10:00:00.000Z",
+      periodEndsAt: "2030-02-28T10:00:00.000Z",
+    });
+    now = new Date("2030-02-02T14:15:00Z");
+    expect(await runtime.notification(confirmation)).toMatchObject({
+      ok: true,
+    });
+    expect(await runtime.recover()).toMatchObject({ ok: true });
+    expect(value(await runtime.status(s.buyer, purchaseRef))).toMatchObject({
+      state: "confirmed",
+      access: "ready",
+      confirmedAt: "2030-01-31T10:00:00.000Z",
+      periodEndsAt: "2030-02-28T10:00:00.000Z",
+    });
+    const enrollments = await grants.readOwnEnrollments(s.buyer);
+    if (!enrollments.ok) throw new Error(enrollments.error.code);
+    expect(enrollments.value).toHaveLength(1);
+    expect(enrollments.value[0]).toMatchObject({
+      tier: { contentScope: compatibilityScope },
+      startsAt: "2030-01-31T10:00:00.000Z",
+      endsAt: "2030-02-28T10:00:00.000Z",
+    });
+  });
+
   test("unknown Init survives restart and cannot be retried; CheckOrder confirms once", async () => {
     const s = await scenario();
     s.timeout();
