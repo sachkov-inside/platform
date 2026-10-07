@@ -2,6 +2,7 @@ import { requestAuthenticatedRead } from "@/shared/api/authenticated-read.browse
 import type { z } from "zod";
 import { requestSameOriginMutation } from "@/shared/api/same-origin-mutation";
 import {
+  errorSchema,
   savedPostListSchema,
   savedPostSampleSchema,
   type savedPostActionSchema,
@@ -27,6 +28,12 @@ async function read<T>(
 ): Promise<T | { kind: "error"; code: string }> {
   try {
     const result = await requestAuthenticatedRead(url);
+    if (result.kind === "rejected") {
+      const failure = errorSchema.safeParse(result.body);
+      return failure.success
+        ? failure.data
+        : { kind: "error", code: "provider_unavailable" };
+    }
     if (result.kind !== "ready")
       return {
         kind: "error",
