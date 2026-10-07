@@ -43,7 +43,6 @@ import {
   type MaterialId,
 } from "../../src/modules/materials/index.js";
 import { Notifications } from "../../src/modules/notifications/index.js";
-import { assembleWorkshopEntitlements } from "../../src/modules/workshop/index.js";
 import { TelegramAccountLinks } from "../../src/modules/telegram-membership/index.js";
 import { representativeDocument } from "../fixtures/material-body/representative.js";
 import { BankFixture } from "./setup/bank.js";
@@ -194,9 +193,6 @@ describe("приёмка обоих источников Notifications (реал
     grants = assembleAccessGrants({ prisma: platform.prisma, accounts });
     const membership = assembleMembershipEntitlements({
       prisma: platform.prisma,
-      workshopEntitlements: assembleWorkshopEntitlements({
-        prisma: platform.prisma,
-      }),
     });
     pricing = new BillingPricing({
       prisma: platform.prisma,

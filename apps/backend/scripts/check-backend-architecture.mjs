@@ -377,29 +377,10 @@ function advisoryLockViolations(sourceFile, program) {
 // Module's own infrastructure/prisma.ts.
 const handoffDelegates = new Map([
   ["assets", ["material"]],
-  [
-    "materials",
-    [
-      "materialAsset",
-      "video",
-      "videoDeletionOperation",
-      "workshopCaseMaterial",
-    ],
-  ],
+  ["materials", ["materialAsset", "video", "videoDeletionOperation"]],
   ["reading-activity", ["material", "publishedMaterialGuideMembership"]],
   ["telegram-membership", ["membershipBinding"]],
   ["videos", ["material", "publishedMaterial"]],
-  [
-    "workshop",
-    [
-      "accessChange",
-      "accessGrant",
-      "legacyClassification",
-      "membershipBinding",
-      "membershipEvidenceReceipt",
-      "membershipProjection",
-    ],
-  ],
 ]);
 
 // A delegate is used when one of its model operations is named; `candidate.material.materialId`

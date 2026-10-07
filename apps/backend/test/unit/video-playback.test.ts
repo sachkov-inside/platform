@@ -95,48 +95,6 @@ describe("Video playback authorization", () => {
     },
   );
 
-  test("treats a Workshop video as protected and reauthorizes its provider callback", async () => {
-    const authorize = vi.fn().mockResolvedValue({
-      decidedAt: now.toISOString(),
-      effect: "allow",
-      reason: "active_workshop",
-      validUntil: new Date(now.getTime() + 30_000).toISOString(),
-    });
-    const playback = assembleVideoPlayback({
-      clock: () => now,
-      contentAccess: { authorize } satisfies Pick<ContentAccess, "authorize">,
-      jwtSecret: "test-playback-secret-with-at-least-32-characters",
-      jwtTtlSeconds: 60,
-      videos: videoDependencies("workshop"),
-    });
-
-    const session = await playback.createSession({
-      correlationId: "workshop-playback-request",
-      materialId,
-      subject: { accountId: account, kind: "account" },
-      videoId,
-    });
-    if (!session.ok || session.value.drmAuthToken === null) {
-      throw new Error("Workshop token missing");
-    }
-    expect(decodeJwt(session.value.drmAuthToken).exp).toBe(
-      Math.floor(now.getTime() / 1_000) + 30,
-    );
-    await expect(
-      playback.authorizeProvider({
-        providerVideoId: "provider-video",
-        token: session.value.drmAuthToken,
-      }),
-    ).resolves.toBe(true);
-    expect(authorize).toHaveBeenNthCalledWith(
-      2,
-      expect.objectContaining({
-        enforcementPoint: "video_authorization_callback",
-        subject: { accountId: account, kind: "account" },
-      }),
-    );
-  });
-
   test("keeps public anonymous playback tokenless and denies before loading protected facts", async () => {
     const authorize = vi
       .fn()
@@ -220,7 +178,7 @@ describe("Video playback authorization", () => {
   });
 });
 
-function videoDependencies(access: "free" | "membership" | "workshop") {
+function videoDependencies(access: "free" | "membership") {
   return {
     loadPlayback: vi.fn().mockResolvedValue({
       ok: true,

@@ -63,7 +63,6 @@ export class GuideOutlines {
                         on publication.material_id = published.material_id
                       where published.series_id = chapter.guide_id
                         and current_membership.chapter_id = chapter.id
-                        and publication.access <> 'workshop'
                     ),
                     '[]'::json
                   )

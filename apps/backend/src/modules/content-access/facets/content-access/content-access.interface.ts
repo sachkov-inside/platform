@@ -98,8 +98,6 @@ export type DenyReason =
   | "authentication_required"
   | "membership_required"
   | "membership_expired"
-  | "workshop_access_required"
-  | "workshop_material_locked"
   | "entitlement_stale"
   | "permission_required"
   | "resource_unpublished"
@@ -123,7 +121,7 @@ export type AccessDecision = DecisionMetadata &
       }>
     | Readonly<{
         effect: "allow";
-        reason: "active_membership" | "active_workshop";
+        reason: "active_membership";
         validUntil: string | null;
         checkedContentVersion: number;
       }>

@@ -4,7 +4,10 @@
 [Workshop Tracks and Laboratories](./workshop-tracks.md). Successor снят с плана 16.09.2026, а
 Мастерская отменена [ADR 0033](../adr/0033-product-tariff-payment-model.md).
 
-Дата изменения статуса: 2026-09-04.
+Код, contracts и оценщик удалены в [#1063](https://github.com/sachkov-inside/platform/issues/1063).
+Описание foundations ниже относится к состоянию до удаления.
+
+Дата изменения статуса: 2026-10-07.
 
 Successor Workshop contract также отложен относительно текущего этапа Materials/Series;
 [current MVP brief](../product/platform-mvp-brief.md) определяет сегодняшний delivery scope.

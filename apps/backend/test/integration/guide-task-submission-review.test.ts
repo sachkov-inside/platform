@@ -20,7 +20,6 @@ import {
   GuideDirectory,
 } from "../../src/modules/materials/index.js";
 import { TelegramAccountLinks } from "../../src/modules/telegram-membership/index.js";
-import { assembleWorkshopEntitlements } from "../../src/modules/workshop/index.js";
 import { distinctClock } from "./setup/distinct-clock.js";
 import {
   createMigratedTestDatabase,
@@ -94,9 +93,6 @@ describe("Author submissions: list, filters and Author Feedback (#948)", () => {
         },
         membershipEntitlements: assembleMembershipEntitlements({
           prisma: db.prisma,
-          workshopEntitlements: assembleWorkshopEntitlements({
-            prisma: db.prisma,
-          }),
         }),
       }),
       submissionsEnabled: true,

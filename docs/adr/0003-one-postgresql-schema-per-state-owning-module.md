@@ -9,13 +9,12 @@ authority. Each capability Module that owns persistent application state owns on
 named after that Module; a Module without persistent state does not receive an empty schema. The
 current names are `Accounts` → `accounts`, `Assets` → `assets`, `Materials` → `materials`,
 `MemberProfiles` → `member_profiles`, `MembershipEntitlements` → `membership_entitlements`,
-`TelegramMembership` → `telegram_membership`, `Videos` → `videos` and `Workshop` → `workshop`.
+`TelegramMembership` → `telegram_membership` and `Videos` → `videos`.
 TelegramMembership stores Platform-owned link transaction state, opaque provider correlations and,
 since [ADR 0022](0022-community-delivery-state-in-telegram-membership.md), the community delivery
 state addressed to that provider; entitlement evidence, the right itself and its Account binding
-remain behind the MembershipEntitlements interface. Workshop owns bounded grants, immutable Case publication links
-and reveal evidence; it stores Account and Material references as opaque IDs without cross-schema
-foreign keys.
+remain behind the MembershipEntitlements interface. Workshop was cancelled by
+[ADR 0033](0033-product-tariff-payment-model.md); #1063 removes its runtime and schema.
 
 The schema is an ownership and architecture seam, not a security or failure-isolation boundary.
 Only the owning Module's implementation and migrations may reference its tables. Other Modules use

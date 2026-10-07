@@ -15,7 +15,6 @@ import {
   assembleMembershipEntitlements,
   type AccessGrants,
 } from "../../src/modules/membership-entitlements/index.js";
-import { assembleWorkshopEntitlements } from "../../src/modules/workshop/index.js";
 import { TelegramAccountLinks } from "../../src/modules/telegram-membership/index.js";
 import {
   createMigratedTestDatabase,
@@ -74,10 +73,6 @@ describe("independent Account access", () => {
     return assembleMembershipEntitlements({
       prisma: db.prisma,
       clock: () => now,
-      workshopEntitlements: assembleWorkshopEntitlements({
-        prisma: db.prisma,
-        clock: () => now,
-      }),
     });
   }
   async function manual(target: string, validUntil: string | null = null) {

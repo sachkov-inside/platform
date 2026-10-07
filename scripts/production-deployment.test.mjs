@@ -20,6 +20,42 @@ import { z } from "zod";
 import { writeTrustedReleaseEvidence } from "./github-release-evidence.test-support.mjs";
 
 describe("production deployment state machine", () => {
+  it("installs the watchdog from the release image and keeps the release when the image has none", () => {
+    const fixture = createHostFixture();
+    try {
+      const withoutWatchdog = runGateway(fixture, "deploy", "v1", 520, {
+        INSIDE_DEPLOY_TEST_IMAGE_WITHOUT_WATCHDOG: "true",
+      });
+      assert.equal(withoutWatchdog.status, 0, withoutWatchdog.stderr);
+      assert.match(
+        withoutWatchdog.stderr,
+        /the production watchdog from v1 was not installed/u,
+      );
+      assert.equal(readState(fixture).current.version, "v1");
+
+      assertGatewaySuccess(fixture, "deploy", "v2", 521);
+      assert.equal(
+        readFileSync(
+          resolve(fixture.root, "usr/local/libexec/inside/inside-watchdog"),
+          "utf8",
+        ),
+        readFileSync("infra/production/watchdog/inside-watchdog", "utf8"),
+      );
+      for (const unit of ["inside-watchdog.service", "inside-watchdog.timer"]) {
+        assert.ok(
+          existsSync(resolve(fixture.root, "etc/systemd/system", unit)),
+          unit,
+        );
+      }
+      assert.match(
+        readExternalLog(fixture),
+        /systemctl daemon-reload\nsystemctl enable --now inside-watchdog\.timer\n/u,
+      );
+    } finally {
+      fixture.cleanup();
+    }
+  });
+
   it("repairs forward again when the first repair release also fails", () => {
     const fixture = createHostFixture();
     try {
@@ -1173,7 +1209,13 @@ function createHostFixture({ compatible = true } = {}) {
     `#!/usr/bin/env bash
 set -euo pipefail
 printf "docker %s\\n" "$*" >>"$INSIDE_DEPLOY_TEST_ROOT/external.log"
-if [[ "$*" == *"config --format json"* ]]; then
+if [[ "$1" == create ]]; then
+  printf 'watchdog-source\\n'
+elif [[ "$1" == cp ]]; then
+  # A release image built before #245 has no watchdog to copy.
+  [[ "\${INSIDE_DEPLOY_TEST_IMAGE_WITHOUT_WATCHDOG:-}" == true ]] && exit 1
+  cp "$INSIDE_DEPLOY_TEST_WATCHDOG_SOURCE"/inside-watchdog* "$3"
+elif [[ "$*" == *"config --format json"* ]]; then
   printf '{"networks":{"database":{"name":"inside-platform-database-test"}},"services":{"api":{"ports":[{"host_ip":"127.0.0.1","target":3001,"published":"13001","protocol":"tcp"}]},"web":{"ports":[{"host_ip":"127.0.0.1","target":3000,"published":"13000","protocol":"tcp"}]}}}\n'
 elif [[ "$*" == *"config --services"* ]]; then
   # A release published before the broker declares only the original seven processes.
@@ -1204,6 +1246,10 @@ if [[ "\${INSIDE_DEPLOY_TEST_FAILED_SCHEMA_MISMATCH:-}" == true && "$*" == *"/re
   exit 1
 fi
 `,
+  );
+  writeExecutable(
+    resolve(bin, "systemctl"),
+    '#!/usr/bin/env bash\nset -euo pipefail\nprintf "systemctl %s\\n" "$*" >>"$INSIDE_DEPLOY_TEST_ROOT/external.log"\n',
   );
   writeExecutable(
     resolve(bin, "caddy"),
@@ -1431,6 +1477,7 @@ function runGateway(fixture, operation, version, runId, extraEnvironment = {}) {
     env: {
       ...process.env,
       INSIDE_DEPLOY_TEST_ROOT: fixture.root,
+      INSIDE_DEPLOY_TEST_WATCHDOG_SOURCE: resolve("infra/production/watchdog"),
       PATH: `${fixture.bin}:${process.env["PATH"]}`,
       SSH_ORIGINAL_COMMAND: `${operation} ${version} ${String(runId)}`,
       ...extraEnvironment,

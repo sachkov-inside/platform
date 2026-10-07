@@ -6,11 +6,6 @@ import {
   PrismaModule,
 } from "../../infrastructure/prisma/index.js";
 import { ACCOUNTS, AccountsModule, type Accounts } from "../accounts/index.js";
-import {
-  WORKSHOP_ENTITLEMENTS,
-  WorkshopModule,
-  type WorkshopEntitlements,
-} from "../workshop/index.js";
 import { assembleAccessGrants } from "./facets/access-grants/assemble-access-grants.js";
 import { assembleMembershipEntitlements } from "./facets/membership-entitlements/assemble-membership-entitlements.js";
 import {
@@ -30,7 +25,7 @@ import {
 // Module depends on neither; a process that loads it also loads both implementations.
 
 @Module({
-  imports: [PrismaModule, AccountsModule, WorkshopModule],
+  imports: [PrismaModule, AccountsModule],
   providers: [
     {
       provide: TributeSources,
@@ -43,15 +38,13 @@ import {
     },
     {
       provide: MEMBERSHIP_ENTITLEMENTS,
-      inject: [PrismaClientProvider, WORKSHOP_ENTITLEMENTS, RECIPIENT_LINKS],
+      inject: [PrismaClientProvider, RECIPIENT_LINKS],
       useFactory: (
         prisma: PrismaClientProvider,
-        workshopEntitlements: WorkshopEntitlements,
         recipientLinks: RecipientLinks,
       ) =>
         assembleMembershipEntitlements({
           prisma,
-          workshopEntitlements,
           recipientLinks,
         }),
     },

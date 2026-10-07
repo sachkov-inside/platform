@@ -5,7 +5,8 @@ status: superseded by ADR-0033
 # Defer Kafka Case evaluation until the CaseSpec is accepted
 
 On 2026-10-07 [ADR 0033](0033-product-tariff-payment-model.md) cancelled Workshop: it is no longer
-deferred. This document is historical.
+deferred. This document is historical; #1063 removes the evaluator, schemas and runtime
+foundations described below.
 
 On 2026-09-16 the owner removed Workshop and the Kafka Track from the plan and deleted their
 issues. Until ADR 0033, the deferral stood and resuming the direction started with a new issue.
@@ -15,9 +16,9 @@ and operational evidence in C#/.NET or Python. Platform will not choose its subm
 source handoff, evaluator runtime or terminal result language until an accepted CaseSpec states
 which facts must be observed and which decisions require qualitative explanation.
 
-This supersedes ADR 0019 as current Workshop guidance. The pinned native Go CLI, device protocol,
-versioned schemas and local Compose runner remain implemented Partner Webhooks foundations. They
-are not removed, but neither their existence nor their successful earlier smokes makes them the
+Before ADR 0033, this superseded ADR 0019 as Workshop guidance. The pinned native Go CLI, device protocol,
+versioned schemas and local Compose runner remained implemented Partner Webhooks foundations until
+#1063 removed them. In that prior state, neither their existence nor their successful earlier smokes made them the
 default evaluator for Kafka. Evaluation research must explicitly accept, narrow or retire each reused
 piece.
 

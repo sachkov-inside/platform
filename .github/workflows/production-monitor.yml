@@ -1,0 +1,55 @@
+name: Production monitor
+
+# Внешняя проверка production (#245): сайт, публичный API потоков, discovery Logto и срок TLS.
+# Не проверка pull request. Сигнал уходит боту сигналов после двух неудачных запусков подряд; без бота
+# красный запуск сам становится сигналом через уведомления GitHub. Сторож на сервере —
+# infra/production/watchdog, порядок — docs/runbooks/production-monitoring.md.
+on:
+  schedule:
+    - cron: "*/10 * * * *"
+  workflow_dispatch:
+
+permissions: {}
+
+concurrency:
+  group: platform-production-monitor
+  cancel-in-progress: false
+
+jobs:
+  check:
+    name: External production check
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    steps:
+      - name: Check out source
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          sparse-checkout: |
+            .node-version
+            scripts/production-monitor.mjs
+          sparse-checkout-cone-mode: false
+      - name: Install Node.js
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version-file: .node-version
+      # Состояние между запусками — число отказов подряд и отправлен ли сигнал.
+      - name: Restore the previous result
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: production-monitor-state.json
+          key: production-monitor-${{ github.run_id }}-${{ github.run_attempt }}
+          restore-keys: production-monitor-
+      - name: Check production from outside
+        env:
+          MONITOR_TELEGRAM_BOT_TOKEN: ${{ secrets.MONITOR_TELEGRAM_BOT_TOKEN }}
+          MONITOR_TELEGRAM_CHAT_ID: ${{ secrets.MONITOR_TELEGRAM_CHAT_ID }}
+        run: node scripts/production-monitor.mjs check production-monitor-state.json
+      - name: Save the result for the next run
+        if: ${{ always() }}
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: production-monitor-state.json
+          key: production-monitor-${{ github.run_id }}-${{ github.run_attempt }}

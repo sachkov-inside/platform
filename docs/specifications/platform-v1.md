@@ -36,8 +36,8 @@ application-level NFR, порядком production foundations и ADR inputs. П
 
 Текущий delivery scope задан [MVP brief](../product/platform-mvp-brief.md): Materials, Series и
 Membership. Мастерская (Workshop) отменена [ADR 0033](../adr/0033-product-tariff-payment-model.md);
-[Workshop Tracks and Laboratories](workshop-tracks.md) сохраняет её контракт как историю. Модуль
-`workshop` остаётся в коде до задачи удаления и не расширяет Series или подписку.
+[Workshop Tracks and Laboratories](workshop-tracks.md) сохраняет её контракт как историю. Код и contracts Мастерской
+удалены в [#1063](https://github.com/sachkov-inside/platform/issues/1063).
 
 Specification синхронизирует принятую cross-repository
 [Workspace #40](https://github.com/sachkov-inside/workspace/issues/40), отдельную

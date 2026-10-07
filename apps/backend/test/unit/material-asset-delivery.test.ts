@@ -143,7 +143,7 @@ describe("Material asset delivery", () => {
     expect(signGet).toHaveBeenCalledTimes(1);
   });
 
-  test.each(["active_membership", "active_workshop"] as const)(
+  test.each(["active_membership"] as const)(
     "bounds an %s redirect by entitlement validity and fails closed near expiry",
     async (reason) => {
       vi.useFakeTimers();

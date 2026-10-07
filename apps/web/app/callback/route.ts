@@ -11,6 +11,7 @@ import {
   readLogtoBffConfig,
   safePostSignInReturnUri,
 } from "@/shared/auth/index.server";
+import { writeStructuredLog } from "@/shared/lib/structured-log.server";
 
 export async function GET(request: Request): Promise<Response> {
   // Вне `try`: отказ от предсборки приходит исключением, и перехват стёр бы cookie сессии.
@@ -43,7 +44,11 @@ export async function GET(request: Request): Promise<Response> {
       );
     }
     return localRedirect(config.baseUrl, undefined, returnUri);
-  } catch {
+  } catch (error) {
+    // Сторож production считает эти строки (#245). Текст ошибки не пишется: он может нести данные входа.
+    writeStructuredLog("error", "authentication_failed", {
+      errorName: error instanceof Error ? error.name : "unknown",
+    });
     await clearLogtoSessionCookie(config);
     return localRedirect(config.baseUrl, "failed");
   }

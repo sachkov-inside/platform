@@ -16,8 +16,6 @@ export type {
   MembershipAccessState,
   VideoResourceFacts,
   VideoResourceFactsAdapter,
-  WorkshopMaterialAccess,
-  WorkshopMaterialAccessState,
 } from "./facets/content-access/content-access.dependencies.js";
 export {
   anonymousSubject,

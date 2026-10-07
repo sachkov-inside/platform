@@ -23,7 +23,6 @@ import {
   assembleAccessGrants,
   assembleMembershipEntitlements,
 } from "../../src/modules/membership-entitlements/index.js";
-import { assembleWorkshopEntitlements } from "../../src/modules/workshop/index.js";
 import {
   BillingPayments,
   BillingPricing,
@@ -591,10 +590,6 @@ describe("subscription payment recovery (real PostgreSQL and real facets; synthe
     const membership = assembleMembershipEntitlements({
       prisma: db.prisma,
       clock: () => now,
-      workshopEntitlements: assembleWorkshopEntitlements({
-        prisma: db.prisma,
-        clock: () => now,
-      }),
     });
     expect(await membership.resolveForAccess(accountId(s.buyer))).toMatchObject(
       { kind: "active" },

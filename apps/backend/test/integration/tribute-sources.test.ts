@@ -27,7 +27,6 @@ import {
   TributeConvergence,
 } from "../../src/modules/billing/index.js";
 import { TelegramAccountLinks } from "../../src/modules/telegram-membership/index.js";
-import { assembleWorkshopEntitlements } from "../../src/modules/workshop/index.js";
 import { ReceiveTributeController } from "../../src/modules/billing/features/receive-tribute/receive-tribute.controller.js";
 import {
   PLATFORM_CONFIG,
@@ -97,10 +96,6 @@ describe("Tribute source production facets and signed HTTP with PostgreSQL", () 
       prisma: db.prisma,
       recipientLinks: links,
       clock: () => now,
-      workshopEntitlements: assembleWorkshopEntitlements({
-        prisma: db.prisma,
-        clock: () => now,
-      }),
     });
     @Module({
       controllers: [ReceiveTributeController, SubscriptionActivationController],

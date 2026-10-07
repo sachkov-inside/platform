@@ -498,10 +498,6 @@ export function artifactDeclarations(manifest, guide, defaultAccess) {
   }
   for (const entry of declared.values()) {
     const accesses = entry.owners.map((row) => row.access ?? defaultAccess);
-    if (accesses.includes("workshop"))
-      throw new Error(
-        `${entry.owners[0]?.sourcePath ?? entry.artifact.sourceId}: workshop Materials cannot carry Guide artifacts`,
-      );
     // One artifact serves every declaring Material, so it is paid when any of them is.
     entry.access = accesses.includes("membership") ? "membership" : "free";
   }

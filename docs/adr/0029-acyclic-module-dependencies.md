@@ -45,9 +45,9 @@ Interface Module — только то, что используют снаруж
   подключает оба модуля в entrypoint. Без них процесс не стартует; это проверяют тесты композиции
   API, MCP и обоих workers.
 - Бренд `MaterialId` и его конструктор лежат в `src/infrastructure/contracts/material-id.ts` ниже
-  всех Module; Materials реэкспортирует их, Content Access и Workshop импортируют оттуда.
-- Content Access сам описывает нужные ему решения о членстве и доступе Workshop; Workshop реализует
-  port доступа и описывает решение о членстве под блокировкой выдачи. Materials и Billing сами
+  всех Module; Materials реэкспортирует их, Content Access импортирует оттуда.
+- До удаления в #1063 Content Access описывал решения о доступе Workshop; Workshop реализовывал
+  port доступа и описывал решение о членстве под блокировкой выдачи. Materials и Billing сами
   описывают ответ источника уведомления, Notifications принимает его структурно.
 - Активация подписки в Billing описывает связи типом `RecipientLinks` из Membership Entitlements, от
   которого Billing уже зависит.

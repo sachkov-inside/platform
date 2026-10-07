@@ -9,7 +9,7 @@ import type { Result } from "../result.js";
 import type { ValidationIssue } from "./material-body/material-body.js";
 import { normalizedUuidSchema } from "./uuid.js";
 
-export type MaterialAccess = "free" | "membership" | "workshop";
+export type MaterialAccess = "free" | "membership";
 
 /** How hard a lesson is for the reader who opens it. */
 export const materialDifficulties = [
@@ -79,7 +79,7 @@ export type MaterialMetadataValidationError =
 const metadataSelectionBaseShape = {
   title: z.string().trim().min(1).max(160).nullable(),
   summary: z.string().trim().min(1).max(500).nullable(),
-  access: z.enum(["free", "membership", "workshop"]),
+  access: z.enum(["free", "membership"]),
   difficulty: materialDifficultySchema.nullable(),
   outcomes: z
     .array(z.string().trim().min(1).max(MATERIAL_OUTCOMES.maxLength))

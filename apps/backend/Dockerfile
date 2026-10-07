@@ -109,6 +109,10 @@ COPY --from=production-build --chown=node:node /workspace/apps/backend/dist ./di
 
 COPY --chown=node:node packages/runtime-identity/index.mjs packages/runtime-identity/http-healthcheck.mjs ./healthcheck/
 
+# Сторож production (#245): deploy-release копирует его из образа выбранного выпуска на сервер.
+# Приложение его не запускает.
+COPY --chown=root:root --chmod=0555 infra/production/watchdog/ ./ops/watchdog/
+
 EXPOSE 3001
 USER node
 CMD ["node", "dist/entrypoints/api.js"]

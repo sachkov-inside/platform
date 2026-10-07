@@ -1,4 +1,8 @@
 import {
+  name as removeWorkshopName,
+  statement as removeWorkshopStatement,
+} from "./0081-remove-workshop.js";
+import {
   name as surveyRespondentsName,
   statement as surveyRespondentsStatement,
 } from "../modules/billing/infrastructure/postgres/migrations/0073-survey-respondents.js";
@@ -305,11 +309,11 @@ import {
 import {
   name as workshopFoundationMigrationName,
   statement as workshopFoundationMigrationStatement,
-} from "../modules/workshop/infrastructure/postgres/migrations/0023-workshop-foundation.js";
+} from "./history/0023-workshop-foundation.js";
 import {
   name as workshopMembershipEntitlementProjectionMigrationName,
   statement as workshopMembershipEntitlementProjectionMigrationStatement,
-} from "../modules/workshop/infrastructure/postgres/migrations/0024-membership-entitlement-projection.js";
+} from "./history/0024-membership-entitlement-projection.js";
 import {
   name as contentCoversMigrationName,
   statement as contentCoversMigrationStatement,
@@ -533,6 +537,7 @@ export const platformMigrations = [
     name: guideTaskPlacementAndFormName,
     statement: guideTaskPlacementAndFormStatement,
   },
+  { name: removeWorkshopName, statement: removeWorkshopStatement },
 ] as const;
 
 export function migrateToLatest(

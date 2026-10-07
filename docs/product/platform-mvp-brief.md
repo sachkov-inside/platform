@@ -635,9 +635,14 @@ production включается после публикации политики
 
 Текущий фокус — самостоятельные Materials и продукты (Guide), к которым продаётся доступ.
 Мастерская с Tracks, Laboratories и Production Cases снята с плана 16.09.2026 и отменена
-[ADR 0033](../adr/0033-product-tariff-payment-model.md): её не будет. Модуль `workshop` и
-WorkshopEntitlement ещё остаются в коде; их удаляет отдельная задача.
+[ADR 0033](../adr/0033-product-tariff-payment-model.md): её не будет. Код, оценщик и вид доступа `workshop` удалены в
+[#1063](https://github.com/sachkov-inside/platform/issues/1063).
 [Отменённый контракт](../specifications/workshop-tracks.md) сохраняет принятые границы как историю.
+
+Лента главной показывает только опубликованные открытые материалы (`free`), независимо от прав
+читателя. Закрытые материалы остаются в программе продукта, поиске и на страницах тем; без
+доступа их карточки показывают замок. Признак `showInFeed` дополнительно ограничивает ленту. Поиск из главной обращается к полному
+каталогу; ограничения ленты к результатам поиска не применяются.
 
 ## Связанные application-документы
 
@@ -646,7 +651,7 @@ WorkshopEntitlement ещё остаются в коде; их удаляет о�
 - [Workshop Tracks and Laboratories application specification](../specifications/workshop-tracks.md)
   сохраняет отменённые Track/Laboratory model, access, progress и Kafka slice как историю.
 - [Superseded case-first foundation](../specifications/production-workshop-v1.md) сохраняет ссылки
-  на уже реализованные Workshop/Assignment/evaluator foundations без объявления их текущим
+  на прежние Workshop/Assignment/evaluator foundations без объявления их текущим
   product contract.
 - [`GLOSSARY.md`](../../GLOSSARY.md) задаёт канонические application terms без implementation
   details.
