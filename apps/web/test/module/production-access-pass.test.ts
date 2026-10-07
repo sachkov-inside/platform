@@ -327,10 +327,22 @@ describe("production access pass problem line", () => {
 });
 
 describe("test identity email", () => {
-  it("is an alias of the configured mailbox", () => {
+  it("uses the existing learner aliases for canonical Product roles", () => {
     expect(identityEmail("owner@example.test", "learner-product-a")).toBe(
-      "owner+inside-access-learner-product-a@example.test",
+      "owner+inside-access-learner-guide-a@example.test",
     );
+    expect(identityEmail("owner@example.test", "learner-product-b")).toBe(
+      "owner+inside-access-learner-guide-b@example.test",
+    );
+  });
+
+  it.each([
+    ["no-entitlement", "owner+inside-access-no-entitlement@example.test"],
+    ["expired", "owner+inside-access-expired@example.test"],
+    ["materials-only", "owner+inside-access-materials-only@example.test"],
+    ["billing-only", "owner+inside-access-billing-only@example.test"],
+  ] as const)("keeps the existing alias for %s", (identity, email) => {
+    expect(identityEmail("owner@example.test", identity)).toBe(email);
   });
 
   it("rejects a mailbox that is already an alias", () => {
