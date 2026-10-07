@@ -53,9 +53,4 @@ export const knownTransactionViolations: readonly {
     through:
       "src/modules/billing/facets/subscription-activation/subscription-activation.ts",
   },
-  {
-    issue: 1077,
-    through:
-      "src/modules/telegram-membership/features/authorize-community-dispatch/authorize-community-dispatch.ts",
-  },
 ];
