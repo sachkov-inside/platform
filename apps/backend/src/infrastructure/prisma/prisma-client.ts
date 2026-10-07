@@ -189,6 +189,12 @@ export type BillingPrisma = Pick<
   | "billingNoticeRevision"
   | "billingSurveyRespondent"
   | "billingGuideCohort"
+  // Membership owns these writes; Billing hands over its transaction for tariff assignment.
+  | "accessReceipt"
+  | "subscriptionEnrollment"
+  | "sourceEntitlement"
+  | "accessGrant"
+  | "accessChange"
 >;
 export type BillingPrismaClient = BillingPrisma &
   TransactionClient<BillingPrisma>;

@@ -45,6 +45,7 @@ import {
 import type {
   MembershipEntitlementsPrisma,
   MembershipEntitlementsPrismaClient,
+  MembershipEnrollmentPrisma,
 } from "../../infrastructure/prisma.js";
 import {
   accessFailure,
@@ -196,6 +197,27 @@ export function assembleAccessGrants(dependencies: AccessGrantsDependencies) {
       );
     }
   }
+  async function prepareEnrollmentAssignment(actorId: string, input: unknown) {
+    const parsed = assignEnrollmentSchema.safeParse(input);
+    if (!parsed.success) return accessFailure("invalid_input");
+    if (
+      (await accounts.readIdentityForLink(parsed.data.accountId)) === undefined
+    )
+      return accessFailure("not_found");
+    const now = clock();
+    return {
+      ok: true as const,
+      assign: (transaction: MembershipEnrollmentPrisma, snapshot: unknown) =>
+        assignEnrollment(
+          transaction,
+          actorId,
+          parsed.data,
+          snapshot,
+          now,
+          dependencies.recipientLinks,
+        ),
+    };
+  }
   return Object.freeze({
     lookupRecipient: (actorId: string, identityRef: string) =>
       manage(actorId, "billing:manage", async () => {
@@ -247,22 +269,17 @@ export function assembleAccessGrants(dependencies: AccessGrantsDependencies) {
       manage(actorId, "billing:manage", () =>
         applyEnrollmentExpansion(prisma, actorId, input, clock()),
       ),
+    /** Permission and Account reads finish before the caller opens its transaction. */
+    prepareEnrollmentAssignment: (actorId: string, command: unknown) =>
+      manage(actorId, "billing:manage", () =>
+        prepareEnrollmentAssignment(actorId, command),
+      ),
     assignEnrollment: (actorId: string, command: unknown, snapshot: unknown) =>
       manage(actorId, "billing:manage", async () => {
-        const parsed = assignEnrollmentSchema.safeParse(command);
-        if (!parsed.success) return accessFailure("invalid_input");
-        if (
-          (await accounts.readIdentityForLink(parsed.data.accountId)) ===
-          undefined
-        )
-          return accessFailure("not_found");
-        return assignEnrollment(
-          prisma,
-          actorId,
-          parsed.data,
-          snapshot,
-          clock(),
-          dependencies.recipientLinks,
+        const prepared = await prepareEnrollmentAssignment(actorId, command);
+        if (!prepared.ok) return prepared;
+        return prisma.$transaction((transaction) =>
+          prepared.assign(transaction, snapshot),
         );
       }),
     changeEnrollment: (actorId: string, command: unknown) =>

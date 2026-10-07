@@ -1,6 +1,7 @@
 import { prepareInvitedQuote } from "./setup/purchase-invitation.js";
 import { assembleTestBillingPricing } from "./setup/billing-pricing.js";
 import { randomUUID } from "node:crypto";
+import type { BillingPrismaClient } from "../../src/infrastructure/prisma/index.js";
 import { z } from "zod";
 import { afterAll, beforeAll, describe, expect, test } from "vitest";
 import {
@@ -361,6 +362,7 @@ describe("владельческие операции billing: платежи, �
     options: {
       readonly benefits?: readonly string[];
       readonly priceKopecks?: number;
+      readonly operationsPrisma?: BillingPrismaClient;
     } = {},
   ) {
     now = new Date("2030-03-31T10:00:00Z");
@@ -449,7 +451,7 @@ describe("владельческие операции billing: платежи, �
       clock: () => now,
     });
     const operations = new BillingOperations({
-      prisma: db.prisma,
+      prisma: options.operationsPrisma ?? db.prisma,
       accounts,
       pricing,
       payments,
@@ -1910,6 +1912,125 @@ describe("владельческие операции billing: платежи, �
       state: "active",
       snapshot: { offer: { revision: 2, archived: false } },
     });
+  });
+
+  test("откат Billing отменяет назначение тарифа, права и receipt Membership", async () => {
+    let assignedBeforeRollback = false;
+    const recipient = await account();
+    const s = await scenario({
+      operationsPrisma: {
+        ...db.prisma,
+        $transaction: (operation) =>
+          db.prisma.$transaction(async (transaction) => {
+            await operation(transaction);
+            expect(
+              await transaction.subscriptionEnrollment.count({
+                where: { accountId: recipient },
+              }),
+            ).toBe(1);
+            assignedBeforeRollback = true;
+            throw new Error("Synthetic failure before Billing commit");
+          }),
+      },
+    });
+    const command = {
+      operation: "enrollments.assign",
+      operationId: randomUUID(),
+      accountId: recipient,
+      tierId: "62000000-0000-4000-8000-000000000624",
+      tierRevision: 1,
+      origin: "manual",
+      sourceRef: randomUUID(),
+      terms: { startsAt: now.toISOString(), endsAt: null, endPolicy: "fixed" },
+      billingRef: null,
+      reason: "Проверка общего отката",
+    };
+    expect(await s.operations.execute(owner, command)).toMatchObject({
+      ok: false,
+      error: { code: "dependency_unavailable" },
+    });
+    expect(assignedBeforeRollback).toBe(true);
+    expect(value(await grants.listEnrollments(owner, recipient))).toEqual([]);
+    expect(
+      value(await grants.listGrants(owner, { accountId: recipient })).grants,
+    ).toEqual([]);
+    const { operation: _operation, ...assignment } = command;
+    expect(
+      await grants.readEnrollmentAssignmentReceipt(owner, assignment),
+    ).toBe(null);
+    expect(
+      await db.prisma.billingOwnerCommand.findUnique({
+        where: {
+          actorId_operationId: {
+            actorId: owner,
+            operationId: command.operationId,
+          },
+        },
+      }),
+    ).toBe(null);
+    // Повтор после отказа сохраняет исходный operationId и создаёт ровно одно назначение.
+    const retry = await scenario();
+    expect(
+      success(await retry.operations.execute(owner, command)),
+    ).toMatchObject({ outcome: "enrollment" });
+    expect(value(await grants.listEnrollments(owner, recipient))).toHaveLength(
+      1,
+    );
+  });
+
+  test("параллельные повторы назначения создают одно назначение и сохраняют receipt после архивирования тарифа", async () => {
+    const s = await scenario();
+    const recipient = await account();
+    const tierId = randomUUID();
+    asCatalog(
+      await s.operations.execute(owner, {
+        operation: "offers.save",
+        operationId: randomUUID(),
+        value: {
+          id: tierId,
+          name: "Назначаемый тариф",
+          benefits: ["materials", "community"],
+          availableForAssignment: true,
+          contentScope: { guideIds: [], materialIds: [], allGuides: true },
+        },
+      }),
+    );
+    const command = {
+      operation: "enrollments.assign",
+      operationId: randomUUID(),
+      accountId: recipient,
+      tierId,
+      tierRevision: 1,
+      origin: "manual",
+      sourceRef: randomUUID(),
+      terms: { startsAt: now.toISOString(), endsAt: null, endPolicy: "fixed" },
+      billingRef: null,
+      reason: "Идемпотентное назначение",
+    };
+    const [first, replay] = await Promise.all([
+      s.operations.execute(owner, command),
+      s.operations.execute(owner, command),
+    ]);
+    expect(success(first)).toMatchObject({ outcome: "enrollment" });
+    expect(replay).toEqual(first);
+    expect(value(await grants.listEnrollments(owner, recipient))).toHaveLength(
+      1,
+    );
+    asCatalog(
+      await s.operations.execute(owner, {
+        operation: "offers.archive",
+        operationId: randomUUID(),
+        id: tierId,
+        expectedRevision: 1,
+      }),
+    );
+    expect(await s.operations.execute(owner, command)).toEqual(first);
+    expect(
+      await s.operations.execute(owner, {
+        ...command,
+        reason: "Другая команда",
+      }),
+    ).toMatchObject({ ok: false, error: { code: "operation_conflict" } });
   });
 
   test("тариф без состава или с отдельным материалом не назначается, а стартовый тариф назначается сразу", async () => {
