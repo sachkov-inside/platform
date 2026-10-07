@@ -564,7 +564,6 @@ describe("course activation HTTP authority with real PostgreSQL", () => {
       evidenceRef: randomUUID(),
       attemptId,
       sourceRef: context.policy,
-      identityRef: context.identityRef,
       ...binding,
       ruleId: context.rule.id,
       ruleRevision: 1,
