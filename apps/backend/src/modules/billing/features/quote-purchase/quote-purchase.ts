@@ -99,7 +99,6 @@ export async function quotePurchase(
           sale,
           grounds,
           recurringAllowed,
-          amountLimits: sale.amountLimits,
         });
         if (!admission.ok) return failure(admission.error.code);
         const expiresAt = new Date(

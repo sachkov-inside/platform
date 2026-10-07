@@ -4,6 +4,11 @@ export interface SubscriptionTerminal {
   readonly cardOnlyHostedConfirmed: boolean;
 }
 
+export interface PaymentAmountLimits {
+  readonly minimumKopecks: number;
+  readonly maximumKopecks: number;
+}
+
 /**
  * Что процесс вправе продавать. `payments` — есть терминал и адрес для чека; `subscriptions` —
  * ещё и оба подтверждения терминала. Рассчитывается из конфигурации процесса один раз.
@@ -11,9 +16,7 @@ export interface SubscriptionTerminal {
 export interface SaleCapability {
   readonly payments: boolean;
   readonly subscriptions: boolean;
-  readonly amountLimits?:
-    | { readonly minimumKopecks: number; readonly maximumKopecks: number }
-    | undefined;
+  readonly amountLimits?: PaymentAmountLimits | undefined;
 }
 
 /**
@@ -29,12 +32,21 @@ export function subscriptionSaleConfirmed(
 
 /** Что процесс вправе продавать при своём терминале и настроенном адресе для чека. */
 export function saleCapability(
-  terminal: SubscriptionTerminal | undefined,
+  terminal: (SubscriptionTerminal & Partial<PaymentAmountLimits>) | undefined,
   receiptContactConfigured: boolean,
 ): SaleCapability {
   const payments = terminal !== undefined && receiptContactConfigured;
   return {
     payments,
     subscriptions: payments && subscriptionSaleConfirmed(terminal),
+    ...(terminal?.minimumKopecks === undefined ||
+    terminal.maximumKopecks === undefined
+      ? {}
+      : {
+          amountLimits: {
+            minimumKopecks: terminal.minimumKopecks,
+            maximumKopecks: terminal.maximumKopecks,
+          },
+        }),
   };
 }

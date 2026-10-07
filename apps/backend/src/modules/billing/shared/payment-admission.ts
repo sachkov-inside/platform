@@ -27,9 +27,6 @@ export function paymentAdmission(input: {
   readonly sale: SaleCapability;
   readonly grounds: PurchaseGrounds;
   readonly recurringAllowed: boolean;
-  readonly amountLimits?:
-    | { readonly minimumKopecks: number; readonly maximumKopecks: number }
-    | undefined;
   readonly chargeKopecks?: number;
   readonly bindingAvailable?: boolean;
 }): PaymentAdmission {
@@ -67,7 +64,7 @@ export function paymentAdmission(input: {
               input.snapshot.renewalPriceKopecks,
           ]
       : [input.chargeKopecks];
-  const limits = input.amountLimits;
+  const limits = input.sale.amountLimits;
   if (
     limits !== undefined &&
     amounts.some(

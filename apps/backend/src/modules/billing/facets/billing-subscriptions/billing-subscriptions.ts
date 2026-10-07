@@ -234,7 +234,7 @@ export class BillingSubscriptions {
           sale: saleCapability(bank?.config, true),
           grounds: { formerTributeSubscriber: false, invitedOfferIds: [] },
           recurringAllowed: legacy.recurringAllowed,
-          amountLimits: bank?.config,
+
           bindingAvailable:
             hasText(row.bindingCiphertext) && row.bindingRevokedAt === null,
         });
@@ -933,7 +933,6 @@ export class BillingSubscriptions {
       sale: saleCapability(bank?.config, true),
       grounds,
       recurringAllowed,
-      amountLimits: bank?.config,
     });
     if (!admission.ok) return paymentFailure(admission.error.code);
     const plan = planSubscriptionChange({
@@ -962,7 +961,7 @@ export class BillingSubscriptions {
       sale: saleCapability(bank.config, true),
       grounds,
       recurringAllowed,
-      amountLimits: bank.config,
+
       chargeKopecks: plan.topUpKopecks,
     });
     if (!charge.ok) return paymentFailure(charge.error.code);

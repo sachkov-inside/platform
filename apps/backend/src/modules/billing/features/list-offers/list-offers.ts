@@ -106,7 +106,6 @@ export async function listOffers(
             grounds: options.grounds,
             sale: options.sale ?? { payments: false, subscriptions: false },
             recurringAllowed: options.recurringAllowed ?? true,
-            amountLimits: options.sale?.amountLimits,
           }).ok)
       )
         items.push(price.value);

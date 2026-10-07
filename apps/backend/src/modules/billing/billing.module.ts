@@ -142,13 +142,10 @@ const BILLING_BANK = Symbol("BillingBank");
           prisma,
           accounts,
           grants,
-          sale: {
-            ...saleCapability(
-              config.tbank,
-              config.billingContact !== undefined,
-            ),
-            amountLimits: config.tbank,
-          },
+          sale: saleCapability(
+            config.tbank,
+            config.billingContact !== undefined,
+          ),
         }),
     },
     {

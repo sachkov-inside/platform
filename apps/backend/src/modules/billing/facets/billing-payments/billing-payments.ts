@@ -142,7 +142,6 @@ export class BillingPayments {
         sale: saleCapability(bank.config, true),
         grounds,
         recurringAllowed: legacy.recurringAllowed,
-        amountLimits: bank.config,
       });
       if (!admission.ok) return paymentFailure(admission.error.code);
       if (
@@ -247,7 +246,6 @@ export class BillingPayments {
             sale: saleCapability(bank.config, true),
             grounds,
             recurringAllowed: legacy.recurringAllowed,
-            amountLimits: bank.config,
           });
           if (!admission.ok) {
             await tx.billingPromoReservation.delete({ where: { purchaseRef } });
@@ -750,7 +748,7 @@ export class BillingPayments {
       sale: saleCapability(bank.config, true),
       grounds: { formerTributeSubscriber: false, invitedOfferIds: [] },
       recurringAllowed: legacy.recurringAllowed,
-      amountLimits: bank.config,
+
       chargeKopecks: amountKopecks,
     });
     return await prisma.$transaction(
