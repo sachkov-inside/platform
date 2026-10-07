@@ -44,3 +44,9 @@ it("opens whole-platform tariffs through a published product and tolerates an em
   expect(checkoutProductSlug(products, [offer], offer.offer.id)).toBe("other");
   expect(checkoutProductSlug([], [offer], offer.offer.id)).toBeUndefined();
 });
+
+it("does not substitute another product when the chosen tariff is hidden or unavailable", () => {
+  expect(
+    checkoutProductSlug(products, [], productWithSupportOffer.offer.id),
+  ).toBeUndefined();
+});

@@ -464,39 +464,59 @@ function route(method, url, entitled) {
   // Продукт продаётся, как в production: у программы с закрытыми уроками есть приглашение к оплате.
   if (path === "/billing/offers") {
     const offerId = "66666666-6666-4666-8666-666666666601";
+    const publicPrice = {
+      currency: "RUB",
+      firstPriceKopecks: 990_000,
+      offer: {
+        archived: false,
+        benefitPeriods: [{ capability: `product:${productId}`, months: null }],
+        benefits: [`product:${productId}`],
+        id: offerId,
+        name: "Проверочный продукт",
+        published: true,
+        revision: 1,
+      },
+      paymentOption: {
+        archived: false,
+        id: "66666666-6666-4666-8666-666666666602",
+        mode: "one_time",
+        months: 1,
+        offerId,
+        priceKopecks: 990_000,
+        revision: 1,
+      },
+      promotion: null,
+      renewalPriceKopecks: 990_000,
+      timezone: "Europe/Moscow",
+    };
+    const invitedOfferId = "66666666-6666-4666-8666-666666666603";
+    const invitedPrice = {
+      ...publicPrice,
+      offer: {
+        ...publicPrice.offer,
+        id: invitedOfferId,
+        name: "Тариф по приглашению",
+        benefits: [`product:${modesProductId}`],
+        benefitPeriods: [
+          { capability: `product:${modesProductId}`, months: null },
+        ],
+      },
+      paymentOption: {
+        ...publicPrice.paymentOption,
+        id: "66666666-6666-4666-8666-666666666604",
+        offerId: invitedOfferId,
+      },
+    };
+    const capability = url.searchParams.get("capability");
     return json({
-      items: [
-        {
-          currency: "RUB",
-          firstPriceKopecks: 990_000,
-          offer: {
-            archived: false,
-            benefitPeriods: [
-              { capability: `product:${productId}`, months: null },
-            ],
-            benefits: [`product:${productId}`],
-            id: offerId,
-            name: "Проверочный продукт",
-            published: true,
-            revision: 1,
-          },
-          paymentOption: {
-            archived: false,
-            id: "66666666-6666-4666-8666-666666666602",
-            mode: "one_time",
-            months: 1,
-            offerId,
-            priceKopecks: 990_000,
-            revision: 1,
-          },
-          promotion: null,
-          renewalPriceKopecks: 990_000,
-          timezone: "Europe/Moscow",
-        },
-      ],
+      items: (entitled ? [publicPrice, invitedPrice] : [publicPrice]).filter(
+        (snapshot) =>
+          capability === null || snapshot.offer.benefits.includes(capability),
+      ),
       nextCursor: null,
     });
   }
+
   const delivery = /^\/content-covers\/([^/]+)\/(\d+)$/u.exec(path);
   if (delivery !== null) {
     const rendition =

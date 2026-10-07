@@ -8,7 +8,8 @@ export function checkoutProductSlug(
   offerId: string | undefined,
 ): string | undefined {
   const offer = offers.find((item) => item.offer.id === offerId)?.offer;
-  if (offer === undefined) return products[0]?.slug;
+  if (offer === undefined)
+    return offerId === undefined ? products[0]?.slug : undefined;
   const coverage = tariffCoverage(
     offer.benefits,
     offer.coverage ?? { productIds: [], materialIds: [] },

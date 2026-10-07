@@ -1327,3 +1327,23 @@ test("old Offer links reach the canonical product checkout and retain the select
     `/products/navigation-proof/buy?offer=${offer}&from=telegram&promo=COURSE`,
   );
 });
+
+test("a hidden tariff survives sign-in and resolves its own product", async ({
+  page,
+  context,
+  baseURL,
+}) => {
+  if (baseURL === undefined) throw new Error("Web baseURL is required");
+  const offer = "66666666-6666-4666-8666-666666666603";
+  const link = `/payment/checkout?offer=${offer}&promo=COURSE`;
+  await page.goto(`/subscription?offer=${offer}&promo=COURSE`);
+  await expect(
+    page.getByRole("button", { name: "Войти", exact: true }),
+  ).toBeVisible();
+  await expect(page.locator('input[name="returnTo"]')).toHaveValue(link);
+  await signInAsMember(context, baseURL);
+  await page.goto(link);
+  await expect(page).toHaveURL(
+    `/products/navigation-modes/buy?offer=${offer}&promo=COURSE`,
+  );
+});
