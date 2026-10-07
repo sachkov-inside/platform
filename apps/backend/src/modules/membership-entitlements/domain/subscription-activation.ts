@@ -1,4 +1,5 @@
 import { z } from "zod";
+import type { MembershipEntitlementsPrisma } from "../infrastructure/prisma.js";
 import {
   instantSchema,
   reasonSchema,
@@ -106,7 +107,13 @@ export interface ActivationBindings {
       }
     | { ok: false }
   >;
-  readBinding(query: { accountId: string }): Promise<
+  readBinding(
+    query: { accountId: string },
+    transaction?: Pick<
+      MembershipEntitlementsPrisma,
+      "telegramAccountLinkState" | "telegramAccountLinkHistory"
+    >,
+  ): Promise<
     | {
         ok: true;
         binding: {

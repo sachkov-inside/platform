@@ -251,7 +251,10 @@ export async function acceptMembershipEvidence(
       tributeCandidates.length > 0 &&
       links !== undefined
     ) {
-      const current = await links.readBinding({ accountId: command.accountId });
+      const current = await links.readBinding(
+        { accountId: command.accountId },
+        transaction,
+      );
       if (
         current.ok &&
         current.binding?.accountRef === validation.value.principalRef &&
