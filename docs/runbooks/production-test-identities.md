@@ -6,7 +6,10 @@ identities, объясняет вход, секреты и порядок их �
 
 ## Перечень
 
-Email каждой identity — алиас ящика владельца: `<ящик>+inside-access-<identity>@<домен>`. Сам ящик
+Email каждой identity — алиас ящика владельца: `<ящик>+inside-access-<алиас>@<домен>`. Роли
+`learner-product-a/b` используют существующие алиасы `learner-guide-a/b`: переименование ролей
+в #1065 не меняет identities Logto (#1118). У остальных ролей алиас совпадает с именем identity.
+Сопоставление задаёт `identityEmailAliases` в `apps/web/test/production/pass-config.ts`. Сам ящик
 задаёт secret `PRODUCTION_ACCESS_MAILBOX` окружения GitHub `Production`, а в репозитории его нет.
 Telegram у тестовых Accounts не используется. Тестового Platform Administrator нет: `platform:admin`
 проверяется только локально.
