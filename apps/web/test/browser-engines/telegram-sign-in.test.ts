@@ -334,6 +334,7 @@ it("keeps the complete Telegram button geometry on narrow WebKit after loading",
   let launching: Promise<Browser> | undefined;
   let context: BrowserContext | undefined;
   let tracing = false;
+  let traceExport: Promise<void> | undefined;
   let width: number | undefined;
   let pendingStep = "launch";
   let lastCompletedStep: string | undefined;
@@ -356,6 +357,12 @@ it("keeps the complete Telegram button geometry on narrow WebKit after loading",
     });
     return result;
   };
+  const exportTrace = (activeContext: BrowserContext) => {
+    traceExport ??= activeContext.tracing.stop({
+      path: resolve(diagnostics, `trace-${String(width)}.zip`),
+    });
+    return traceExport;
+  };
 
   // Vitest invokes this hook after a timeout too, while the test's await is still pending.
   // Save the phase before attempting trace export, including failures before a context exists.
@@ -368,9 +375,7 @@ it("keeps the complete Telegram button geometry on narrow WebKit after loading",
     );
     try {
       if (tracing && context !== undefined) {
-        await context.tracing.stop({
-          path: resolve(diagnostics, `trace-${String(width)}.zip`),
-        });
+        await exportTrace(context);
       }
     } finally {
       // A launch may settle just after Vitest's deadline; still close the browser it created.
@@ -395,6 +400,7 @@ it("keeps the complete Telegram button geometry on narrow WebKit after loading",
       }),
     );
     context = currentContext;
+    traceExport = undefined;
     await step("trace-start", () =>
       currentContext.tracing.start({
         screenshots: true,
@@ -442,11 +448,7 @@ it("keeps the complete Telegram button geometry on narrow WebKit after loading",
     }
     // Keep a completed trace if closing the page or context itself is what fails.
     await mkdir(diagnostics, { recursive: true });
-    await step("trace-stop", () =>
-      currentContext.tracing.stop({
-        path: resolve(diagnostics, `trace-${String(currentWidth)}.zip`),
-      }),
-    );
+    await step("trace-stop", () => exportTrace(currentContext));
     tracing = false;
     await step("page-close", () => page.close());
     await step("context-close", () => currentContext.close());
