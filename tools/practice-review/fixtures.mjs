@@ -291,7 +291,7 @@ export async function buildFixtures(root) {
     sourceIds: [],
     relatedMaterialIds: [],
     readingTimeMinutes: 8,
-    kind: "product",
+    kind: "guide",
     title: practiceDefinition(kind).title,
     summary: "Синтетический полный пример для проверки механики.",
     stage: "published",

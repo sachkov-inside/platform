@@ -4,6 +4,7 @@ import { readFile, realpath, stat } from "node:fs/promises";
 import { createReadStream } from "node:fs";
 import { dirname, isAbsolute, relative, resolve, sep } from "node:path";
 import { z } from "zod";
+import { decodePackageV1, fingerprintAccess } from "./compatibility.mjs";
 
 const identifier = z
   .string()
@@ -128,7 +129,7 @@ export const manifestSchema = z
           sourceIds: z.array(identifier),
           relatedMaterialIds: z.array(identifier),
           readingTimeMinutes: z.number().int().positive().nullable(),
-          kind: z.enum(["video", "product", "note"]),
+          kind: z.enum(["video", "guide", "note"]),
           title: z.string().min(1),
           summary: z.string().min(1),
           stage: z.enum(["idea", "draft", "review", "ready", "published"]),
@@ -240,7 +241,7 @@ export const checksum = (value) =>
 export function materialRevision(manifest, row) {
   return checksum(
     canonical({
-      row,
+      row: { ...row, access: fingerprintAccess(row.access) },
       assets: manifest.assets.filter((asset) =>
         [
           ...Object.values(row.images),
@@ -403,8 +404,14 @@ export async function loadPackage(path) {
   if ((await stat(manifestPath)).size > 32 * 1024 * 1024)
     throw new Error("Package manifest exceeds 32 MiB");
   const bytes = await readFile(manifestPath);
-  const manifest = manifestSchema.parse(JSON.parse(bytes.toString("utf8")));
-  if (bytes.toString("utf8") !== canonical(manifest))
+  /** @type {unknown} */
+  const original = JSON.parse(bytes.toString("utf8"));
+  const decoded = decodePackageV1(original);
+  const manifest = manifestSchema.parse(decoded);
+  if (
+    bytes.toString("utf8") !== canonical(original) ||
+    canonical(decoded) !== canonical(manifest)
+  )
     throw new Error(
       "Package must use canonical JSON; rebuild it from originals",
     );

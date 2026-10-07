@@ -1,6 +1,10 @@
 // @ts-check
 import { z } from "zod";
 import { canonical, checksum } from "./package.mjs";
+import {
+  canonicalAuthoringRequest,
+  decodeJournalV1,
+} from "./compatibility.mjs";
 
 const version = z.number().int().positive().max(Number.MAX_SAFE_INTEGER);
 const text = z.string().min(1);
@@ -291,6 +295,7 @@ const localResponseSchemas = {
  * @returns {LocalResponseKind}
  */
 export function localResponseKind(path) {
+  path = canonicalAuthoringRequest({ path }).path;
   switch (path) {
     case "/authoring/import/practices/validate":
       return "practiceValidation";
@@ -532,13 +537,14 @@ export function materialApplyRequest(request) {
     request !== null &&
     "path" in request &&
     request.path === materialApplyPath
-    ? materialApplyRequestSchema.parse(request)
+    ? materialApplyRequestSchema.parse(canonicalAuthoringRequest(request))
     : undefined;
 }
 
 /** @param {unknown} value */
 export function parseJournal(value) {
-  const journal = journalSchema.parse(value);
+  const journal = journalSchema.parse(decodeJournalV1(value));
+  const requests = new Set();
   for (const [key, entry] of Object.entries(journal.operations)) {
     if (key.startsWith("image:")) {
       assetReceiptSchema.parse(entry);
@@ -547,6 +553,10 @@ export function parseJournal(value) {
     const operation = operationSchema.parse(entry);
     if (key !== `authoring:${checksum(canonical(operation.request))}`)
       throw new Error("Journal request fingerprint mismatch");
+    const normalized = canonical(canonicalAuthoringRequest(operation.request));
+    if (requests.has(normalized))
+      throw new Error("Authoring operation alias collision");
+    requests.add(normalized);
     const apply = materialApplyRequest(operation.request);
     if (apply !== undefined) {
       const body = apply.body;

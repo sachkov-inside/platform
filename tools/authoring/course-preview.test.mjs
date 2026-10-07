@@ -19,7 +19,7 @@ function fixture() {
     sourceIds: [],
     relatedMaterialIds: [],
     readingTimeMinutes: null,
-    kind: /** @type {const} */ ("product"),
+    kind: /** @type {const} */ ("guide"),
     title: sourceId,
     summary: sourceId,
     stage: /** @type {const} */ ("draft"),

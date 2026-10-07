@@ -358,12 +358,12 @@ test("a shell release moves page and chapters and leaves every Material alone", 
   assert.deepEqual([...new Set(api.calls.map((call) => call.path))].sort(), [
     "/authoring/collections?kind=product",
     "/authoring/collections?kind=topic",
-    `/authoring/products/${productId}/order`,
+    "/authoring/import/materials/environment",
     "/authoring/import/products/composition",
     "/authoring/import/products/reserve",
     "/authoring/import/products/update",
     "/authoring/import/products/validate",
-    "/authoring/import/materials/environment",
+    `/authoring/products/${productId}/order`,
   ]);
   const journal = await readJournalFile(setup.state);
   assert.equal(

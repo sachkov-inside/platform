@@ -48,6 +48,10 @@ import {
   failureStatus,
 } from "./target.mjs";
 import { waitUntilReady } from "./video.mjs";
+import {
+  canonicalAuthoringRequest,
+  fingerprintAccess,
+} from "./compatibility.mjs";
 
 // Kept for callers of the isolated editor runtime; every target is loopback-only.
 export const reviewOrigin = resolveLocalTarget("editor");
@@ -160,7 +164,7 @@ export function productsOf(manifest, row) {
  *
  * @param {{
  *   revision: string;
- *   metadata: unknown;
+ *   metadata: Record<string, unknown>;
  *   primaryVideoId: string | null;
  *   videoChapters: unknown;
  *   publicationState: PublicationState;
@@ -176,7 +180,10 @@ function materialDigest({
   return checksum(
     canonical({
       revision,
-      metadata,
+      metadata: {
+        ...metadata,
+        access: fingerprintAccess(metadata["access"]),
+      },
       ...(primaryVideoId ? { primaryVideoId, videoChapters } : {}),
       ...(publicationState === "published" ? {} : { publicationState }),
     }),
@@ -580,8 +587,13 @@ export async function syncLocal(
   const reader = target.reader;
   const send = transport ?? transportFor(target, accessToken);
   /** @type {LocalRequest} */
-  const request = async (path, body, key, options) =>
-    parseLocalResponse(path, await send(path, body, key, options));
+  const request = async (path, body, key, options) => {
+    const command = canonicalAuthoringRequest({ path, body });
+    return parseLocalResponse(
+      path,
+      await send(command.path, command.body, key, options),
+    );
+  };
   if (!["free", "closed"].includes(defaultAccess))
     throw new Error("Explicit local access must be free or membership");
   const pkg = await loadPackage(packagePath);

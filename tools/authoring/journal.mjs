@@ -4,6 +4,7 @@ import { join, resolve } from "node:path";
 import lockfile from "proper-lockfile";
 import { canonical, checksum } from "./package.mjs";
 import { isJournalOperation, parseJournal } from "./local-boundaries.mjs";
+import { canonicalAuthoringRequest } from "./compatibility.mjs";
 
 /**
  * @typedef {ReturnType<typeof parseJournal>} Journal
@@ -75,7 +76,7 @@ export async function withJournal(directory, target, operation) {
 }
 
 /**
- * The key is the checksum of the canonical request, so an entry under it holds the same request.
+ * Compare structural aliases without changing the request that owns the saved key.
  *
  * @template R
  * @param {unknown} stored
@@ -83,7 +84,10 @@ export async function withJournal(directory, target, operation) {
  * @returns {stored is R}
  */
 function isSameRequest(stored, request) {
-  return canonical(stored) === canonical(request);
+  return (
+    canonical(canonicalAuthoringRequest(stored)) ===
+    canonical(canonicalAuthoringRequest(request))
+  );
 }
 
 /**
@@ -96,10 +100,21 @@ function isSameRequest(stored, request) {
  * @returns {Promise<unknown>}
  */
 export async function applyJournaled({ journal, persist }, request, send) {
-  const key = `authoring:${checksum(canonical(request))}`;
+  const matches = Object.entries(journal.operations).filter(
+    ([, entry]) =>
+      isJournalOperation(entry) && isSameRequest(entry.request, request),
+  );
+  if (matches.length > 1)
+    throw new Error("Authoring operation alias collision");
+  const key = matches[0]?.[0] ?? `authoring:${checksum(canonical(request))}`;
   let entry = journal.operations[key];
   if (entry !== undefined && !isJournalOperation(entry))
     throw new Error("Journal entry is not a request operation");
+  if (
+    entry !== undefined &&
+    key !== `authoring:${checksum(canonical(entry.request))}`
+  )
+    throw new Error("Journal request fingerprint mismatch");
   if (entry?.status === "applied") return entry.result;
   if (entry?.status === "rejected")
     throw Object.assign(new Error(entry.error.message), {

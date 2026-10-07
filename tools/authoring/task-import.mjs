@@ -4,6 +4,7 @@ import { canonical, checksum, taskPositions } from "./package.mjs";
 import { applyJournaled } from "./journal.mjs";
 import { isJournalOperation, taskReceiptSchema } from "./local-boundaries.mjs";
 import { sourceUuid } from "./markdown.mjs";
+import { fingerprintAccess } from "./compatibility.mjs";
 
 /**
  * @typedef {import("./package.mjs").Manifest} Manifest
@@ -98,7 +99,8 @@ export function taskDigest(manifest, task, publicationState) {
   return checksum(
     canonical({
       ...state,
-      product: task.productId,
+      access: fingerprintAccess(state.access),
+      guide: task.productId,
       chapter: task.chapterId,
       position: taskPositions(manifest).get(task.sourceId),
     }),

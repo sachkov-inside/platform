@@ -53,7 +53,7 @@ const manifestOf = (tasks) => ({
       sourceIds: [],
       relatedMaterialIds: [],
       readingTimeMinutes: null,
-      kind: "product",
+      kind: "guide",
       title: "Разбор",
       summary: "Разбор",
       stage: "published",
