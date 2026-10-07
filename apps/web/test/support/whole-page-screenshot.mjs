@@ -10,6 +10,12 @@
  * догрузка может показать больше, чем было на экране. После снимка окно прежнее, а прокрутка
  * контейнера остаётся в начале.
  *
+ * Перед каждым замером помощник ждёт конца CSS-переходов (#1035). Кнопки с `transition-all` после
+ * `html { font-size: 200% }` растут в rem ещё 150ms, и замер посреди перехода мерит промежуточную
+ * высоту: следующий шаг снова находит скрытую часть, а после потолка шагов помощник падает. Ждёт он
+ * только переходы: они всегда конечны, а бесконечная или привязанная к прокрутке анимация не
+ * закончилась бы никогда.
+ *
  * Chromium 153 из Playwright 1.63.0 изредка отказывает в снимке с «Unable to capture screenshot»
  * (#1029). Этот ответ
  * `PageHandler::ScreenshotCaptured` (`content/browser/devtools/protocol/page_handler.cc`) даёт на
@@ -49,7 +55,10 @@ export async function screenshotWholePage(page, options = {}) {
   let height = viewport.height;
   try {
     for (let step = 0; ; step += 1) {
-      const hidden = await page.evaluate(hiddenScrollHeight, scrollContainers);
+      const hidden = await page.evaluate(
+        settledHiddenScrollHeight,
+        scrollContainers,
+      );
       if (hidden === 0) {
         return await screenshotRetryingFrameCopy(page, options);
       }
@@ -96,20 +105,27 @@ function isFrameCopyRefusal(error) {
 }
 
 /**
- * Выполняется в браузере: сколько пикселей прячет прокрутка контейнеров. Контейнер без собственной
- * прокрутки не считается: ниже брейкпоинта его содержимое уже входит в высоту документа.
+ * Выполняется в браузере: сколько пикселей прячет прокрутка контейнеров, когда CSS-переходы
+ * закончились. Контейнер без собственной прокрутки не считается: ниже брейкпоинта его содержимое
+ * уже входит в высоту документа. Отменённый переход отклоняет `finished`; его итог помощнику не
+ * нужен, поэтому `allSettled`.
  *
  * Типы DOM описаны здесь, а не через `lib: dom`: ссылка на библиотеку действовала бы на все скрипты
  * `tsconfig.scripts.json` сразу.
  *
  * @param {readonly string[]} selectors
  */
-function hiddenScrollHeight(selectors) {
+async function settledHiddenScrollHeight(selectors) {
   /**
    * @typedef {{ readonly scrollHeight: number, readonly clientHeight: number }} ScrollBox
+   * @typedef {{ readonly finished: Promise<unknown> }} RunningAnimation
    * @typedef {{
-   *   document: { querySelector(selector: string): ScrollBox | null },
+   *   document: {
+   *     querySelector(selector: string): ScrollBox | null,
+   *     getAnimations(): readonly RunningAnimation[],
+   *   },
    *   getComputedStyle(element: ScrollBox): { readonly overflowY: string },
+   *   CSSTransition: abstract new () => RunningAnimation,
    * }} BrowserGlobals
    */
   /* oxlint-disable typescript/no-unsafe-type-assertion -- runs in the page, where globalThis is the window */
@@ -117,7 +133,13 @@ function hiddenScrollHeight(selectors) {
     /** @type {unknown} */ (globalThis)
   );
   /* oxlint-enable typescript/no-unsafe-type-assertion */
-  const { document, getComputedStyle } = browser;
+  const { document, getComputedStyle, CSSTransition } = browser;
+  await Promise.allSettled(
+    document
+      .getAnimations()
+      .filter((animation) => animation instanceof CSSTransition)
+      .map((animation) => animation.finished),
+  );
   return Math.max(
     0,
     ...selectors.flatMap((selector) => {

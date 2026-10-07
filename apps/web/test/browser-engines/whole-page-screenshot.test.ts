@@ -140,6 +140,25 @@ it("fails instead of cutting the page when the content grows with the viewport",
   }
 });
 
+it("waits for a running CSS transition before it measures the container", async () => {
+  // #1035: `html { font-size: 200% }` перед снимком, а кнопки с `transition-all` растут в rem
+  // ещё 150ms. Здесь переход длиннее, чтобы замер без ожидания попадал в его середину.
+  const growHeight = 100;
+  const page = shell(
+    `<style>.grow { height: ${String(growHeight)}rem; transition: height 600ms linear; }</style>
+<body class="application"><header></header><main id="content"><div class="grow"></div></main></body>`,
+  );
+  const viewport = { width: 1_440, height: 1_024 };
+  const result = await withPage(page, viewport, async (page) => {
+    await page.addStyleTag({ content: "html { font-size: 200%; }" });
+    const image = await screenshotWholePage(page);
+    return { height: pngHeight(image), viewport: page.viewportSize() };
+  });
+
+  expect(result.height).toBe(headerHeight + growHeight * 32);
+  expect(result.viewport).toEqual(viewport);
+});
+
 it("takes the capture again when Chromium cannot copy the frame", async () => {
   const viewport = { width: 390, height: 844 };
   await withPage(applicationPage, viewport, async (page) => {
