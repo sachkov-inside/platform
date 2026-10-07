@@ -198,6 +198,133 @@ it("restores the viewport when the stretched capture is taken again", async () =
   });
 });
 
+it("waits for a readable compositor frame before repeating a refused capture", async () => {
+  const viewport = { width: 1_440, height: 1_024 };
+  await withPage(applicationPage, viewport, async (page) => {
+    const context = page.context();
+    const newSession = context.newCDPSession.bind(context);
+    let frameCopied = false;
+    vi.spyOn(context, "newCDPSession").mockImplementation(async (target) => {
+      const session = await newSession(target);
+      session.on("Page.screencastFrame", () => {
+        frameCopied = true;
+      });
+      return session;
+    });
+    const captureFrame = page.screenshot.bind(page);
+    const screenshot = vi
+      .spyOn(page, "screenshot")
+      .mockImplementation((options) =>
+        frameCopied
+          ? captureFrame(options)
+          : Promise.reject(chromiumCaptureFailure),
+      );
+    silenceWarnings();
+
+    const image = await screenshotWholePage(page);
+
+    expect(pngHeight(image)).toBe(headerHeight + contentHeight);
+    expect(screenshot).toHaveBeenCalledTimes(2);
+    expect(page.viewportSize()).toEqual(viewport);
+  });
+});
+
+it("restores the viewport and detaches CDP when the frame request fails", async () => {
+  const viewport = { width: 1_440, height: 1_024 };
+  await withPage(applicationPage, viewport, async (page) => {
+    const context = page.context();
+    const session = await context.newCDPSession(page);
+    vi.spyOn(context, "newCDPSession").mockResolvedValue(session);
+    const unavailable = new Error("The compositor frame request failed");
+    vi.spyOn(session, "send").mockRejectedValueOnce(unavailable);
+    const detach = vi.spyOn(session, "detach");
+    const screenshot = vi
+      .spyOn(page, "screenshot")
+      .mockRejectedValue(chromiumCaptureFailure);
+    silenceWarnings();
+
+    await expect(screenshotWholePage(page)).rejects.toBe(unavailable);
+
+    expect(screenshot).toHaveBeenCalledTimes(1);
+    expect(detach).toHaveBeenCalledTimes(1);
+    expect(page.viewportSize()).toEqual(viewport);
+  });
+});
+
+it("bounds a missing compositor frame and restores the viewport", async () => {
+  const viewport = { width: 1_440, height: 1_024 };
+  await withPage(applicationPage, viewport, async (page) => {
+    const context = page.context();
+    const session = await context.newCDPSession(page);
+    vi.spyOn(context, "newCDPSession").mockResolvedValue(session);
+    // Протокол принял запрос, но компоновщик не прислал ни одного кадра.
+    vi.spyOn(session, "send").mockResolvedValueOnce({});
+    const detach = vi.spyOn(session, "detach");
+    const screenshot = vi
+      .spyOn(page, "screenshot")
+      .mockRejectedValue(chromiumCaptureFailure);
+    silenceWarnings();
+
+    await expect(screenshotWholePage(page)).rejects.toThrow(
+      "Chromium did not copy a compositor frame within 10000ms",
+    );
+
+    expect(screenshot).toHaveBeenCalledTimes(1);
+    expect(detach).toHaveBeenCalledTimes(1);
+    expect(page.viewportSize()).toEqual(viewport);
+  });
+}, 15_000);
+
+it("bounds a frame request that stalls after a readable frame arrives", async () => {
+  const viewport = { width: 1_440, height: 1_024 };
+  await withPage(applicationPage, viewport, async (page) => {
+    const context = page.context();
+    const session = await context.newCDPSession(page);
+    vi.spyOn(context, "newCDPSession").mockResolvedValue(session);
+    const send = session.send.bind(session);
+    vi.spyOn(session, "send").mockImplementationOnce(
+      async (method, options) => {
+        await send(method, options);
+        return new Promise(() => undefined);
+      },
+    );
+    const detach = vi.spyOn(session, "detach");
+    vi.spyOn(page, "screenshot").mockRejectedValue(chromiumCaptureFailure);
+    silenceWarnings();
+
+    await expect(screenshotWholePage(page)).rejects.toThrow(
+      "Chromium did not copy a compositor frame within 10000ms",
+    );
+
+    expect(detach).toHaveBeenCalledTimes(1);
+    expect(page.viewportSize()).toEqual(viewport);
+  });
+}, 15_000);
+
+it("bounds stalled CDP cleanup and restores the viewport", async () => {
+  const viewport = { width: 1_440, height: 1_024 };
+  await withPage(applicationPage, viewport, async (page) => {
+    const context = page.context();
+    const session = await context.newCDPSession(page);
+    vi.spyOn(context, "newCDPSession").mockResolvedValue(session);
+    vi.spyOn(session, "send")
+      .mockRejectedValueOnce(new Error("The frame request failed"))
+      .mockImplementationOnce(() => new Promise(() => undefined));
+    const detach = vi
+      .spyOn(session, "detach")
+      .mockImplementation(() => new Promise(() => undefined));
+    vi.spyOn(page, "screenshot").mockRejectedValue(chromiumCaptureFailure);
+    silenceWarnings();
+
+    await expect(screenshotWholePage(page)).rejects.toThrow(
+      "Chromium did not detach the temporary CDP session within 1000ms",
+    );
+
+    expect(detach).toHaveBeenCalledTimes(1);
+    expect(page.viewportSize()).toEqual(viewport);
+  });
+});
+
 it("gives up after three refused captures", async () => {
   await withPage(applicationPage, { width: 390, height: 844 }, async (page) => {
     const screenshot = vi

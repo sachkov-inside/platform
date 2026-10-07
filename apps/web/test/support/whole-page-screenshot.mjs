@@ -21,9 +21,13 @@
  * `PageHandler::ScreenshotCaptured` (`content/browser/devtools/protocol/page_handler.cc`) даёт на
  * пустой кадр. Кадр пуст, когда `RenderWidgetHostImpl::OnSnapshotFromSurfaceReceived`
  * (`render_widget_host_impl.cc`) не получил копию поверхности за `kMaxRetries = 5` немедленных
- * повторов. Содержимое страницы на это не влияет, поэтому помощник делает до `captureAttempts` снимков
- * всего, а другие ошибки не повторяет. Каждый повтор пишет предупреждение в лог: отказ остаётся
+ * повторов. Помощник делает до `captureAttempts` снимков всего, а другие ошибки не повторяет.
+ * Каждый повтор пишет предупреждение в лог: отказ остаётся
  * виден, даже когда следующий снимок удался.
+ *
+ * После отказа (#1039) следующий снимок ждёт `Page.screencastFrame`: Chromium уже скопировал
+ * непустой кадр. Немедленные повторы из #1029 могли все обращаться к ещё недоступной поверхности.
+ * Служебный screencast закрывается до следующего снимка; его кадр не заменяет полное изображение.
  *
  * Модуль на JavaScript, потому что его импортируют и спеки Playwright, и proof-скрипты из
  * `scripts/` и `apps/telegram/test/local`, которые запускает Node без транспиляции. Тип задаёт
@@ -41,6 +45,12 @@ const maximumSteps = 3;
 
 /** Сколько снимков всего помощник делает, пока Chromium отказывает скопировать кадр. */
 const captureAttempts = 3;
+
+/** Бюджет ожидания скопированного кадра Chromium после отказа, в миллисекундах. */
+const frameCopyBudget = 10_000;
+
+/** Бюджет одной команды закрытия CDP после ожидания кадра, в миллисекундах. */
+const cdpCleanupBudget = 1_000;
 
 /**
  * Сколько миллисекунд помощник ждёт конца CSS-переходов перед одним замером. Переход кнопки длится
@@ -94,9 +104,104 @@ async function screenshotRetryingFrameCopy(page, options) {
       if (attempt === captureAttempts || !isFrameCopyRefusal(error))
         throw error;
       console.warn(
-        `screenshotWholePage: Chromium could not copy the frame (attempt ${String(attempt)} of ${String(captureAttempts)}); taking the capture again (#1029)`,
+        `screenshotWholePage: Chromium could not copy the frame (attempt ${String(attempt)} of ${String(captureAttempts)}); waiting for a readable compositor frame before taking the capture again (#1039)`,
+      );
+      await waitForFrameCopy(page);
+    }
+  }
+}
+
+/**
+ * CDP screencast отдаёт событие только после копирования и кодирования кадра. Запрашиваем уменьшенный
+ * служебный кадр: нужен факт доступности поверхности, а не ещё один снимок всей страницы. Предел 1×1
+ * Chromium может округлить до нулевой стороны и оставить размер по умолчанию (#1039).
+ * Таймер только останавливает застрявшее ожидание; завершает его событие Chromium, а не длительность.
+ *
+ * @param {import("@playwright/test").Page} page
+ */
+async function waitForFrameCopy(page) {
+  const opening = page.context().newCDPSession(page);
+  let session;
+  try {
+    session = await withinBudget(
+      opening,
+      frameCopyBudget,
+      "Chromium did not open the temporary CDP session",
+    );
+  } catch (error) {
+    // CDP-команду нельзя отменить: если ответ придёт после бюджета, закрываем позднюю сессию.
+    void opening
+      .then(
+        (lateSession) => lateSession.detach(),
+        () => undefined,
+      )
+      .catch((cleanupError) =>
+        console.warn(
+          "screenshotWholePage: late CDP session cleanup failed",
+          cleanupError,
+        ),
+      );
+    throw error;
+  }
+  try {
+    const copied = new Promise((resolve) => {
+      session.once("Page.screencastFrame", resolve);
+    });
+    await withinBudget(
+      Promise.all([
+        copied,
+        session.send("Page.startScreencast", {
+          format: "png",
+          maxWidth: 64,
+          maxHeight: 64,
+        }),
+      ]),
+      frameCopyBudget,
+      "Chromium did not copy a compositor frame",
+    );
+  } finally {
+    try {
+      await withinBudget(
+        session.send("Page.stopScreencast"),
+        cdpCleanupBudget,
+        "Chromium did not stop the temporary screencast",
+      );
+    } finally {
+      await withinBudget(
+        session.detach(),
+        cdpCleanupBudget,
+        "Chromium did not detach the temporary CDP session",
       );
     }
+  }
+}
+
+/**
+ * CDPSession.send и detach в Playwright идут без timeout. Бюджет не отменяет команду протокола,
+ * но перестаёт её ждать; finally всё равно отправляет следующую команду закрытия.
+ *
+ * @template Result
+ * @param {Promise<Result>} operation
+ * @param {number} budget
+ * @param {string} failure
+ */
+async function withinBudget(operation, budget, failure) {
+  /** @type {ReturnType<typeof setTimeout> | undefined} */
+  let timer;
+  try {
+    return await Promise.race([
+      operation,
+      /** @type {Promise<never>} */ (
+        new Promise((_, reject) => {
+          timer = setTimeout(
+            () => reject(new Error(`${failure} within ${String(budget)}ms`)),
+            budget,
+          );
+        })
+      ),
+    ]);
+  } finally {
+    clearTimeout(timer);
   }
 }
 

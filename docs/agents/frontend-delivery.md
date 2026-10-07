@@ -138,7 +138,12 @@ Two recurring traps affect what a snapshot shows:
   instead of `page.screenshot({ fullPage: true })`: it stretches the viewport by the hidden height
   of the scroll container and restores it after the capture; below those widths it is an ordinary
   `fullPage` capture. When Chromium answers `Unable to capture screenshot`, the helper takes the
-  capture again, up to three attempts in all, and logs a warning (#1029). Before each measurement
+  capture again, up to three attempts in all, and logs a warning (#1029). Each repeated capture
+  first waits for Chromium to copy a readable compositor frame (`Page.screencastFrame`), with a
+  10-second budget on opening CDP and on receiving the frame and start-command response (#1039).
+  Each cleanup command has a separate 1-second budget, so an unresponsive CDP command fails instead
+  of holding the helper forever. The temporary CDP screencast is stopped and
+  detached before the full-page capture; its frame never replaces the returned image. Before each measurement
   the helper waits for running CSS transitions to end, so a change such as a larger root font size
   is measured after the transitioned sizes settle; a transition still running after 10 seconds
   fails the capture (#1035). Proof scripts in
