@@ -89,7 +89,7 @@ The stream of published Materials that every visitor, signed in or not, can brow
 opens in full; a closed Material shows its card with a lock and leads to buying its Product. A
 Material of a Product appears both in the Public Feed and in the Product's programme. In Russian
 product language: «лента».
-_Avoid_: Library subscription, Product, closed Material
+_Avoid_: Library subscription, Product
 
 **Access Class**:
 Whether a Material is free or closed. A free Material is open to everyone; a closed Material opens
@@ -334,9 +334,8 @@ _Avoid_: AccessGrant, ReadingState, collection, favorite
 
 **Subscription**:
 A way of paying for a Tariff: an Account's agreement to pay on a schedule with renewal terms. A
-subscription Payment Option is sold only to an Account with a redeemed Invitation, even when the
-same Tariff is sold to everyone for a one-time payment. It and is distinct from a bank payment and from a Tariff Assignment
-without payment.
+subscription Payment Option is sold only to an Account with a redeemed Invitation. It is distinct
+from a bank payment and from a Tariff Assignment without payment.
 _Avoid_: Payment, Tariff, Tariff Assignment, «подписка» for a free assignment
 
 **Tariff**:
@@ -369,7 +368,8 @@ _Avoid_: Tariff, Subscription period, a separate copy of the Product, funnel per
 An Account's holding of a promised version of a Tariff, with its own origin and term. A free
 assignment is always for life; its origins are the bot's verification of a prior course participant
 and the owner's decision. A paid Subscription also holds its Tariff through an assignment for the
-paid period. An assignment without payment is not a Subscription or consent to renewal. In Russian product language: «назначение тарифа».
+paid period. An assignment without payment is not a Subscription or consent to renewal. In Russian
+product language: «назначение тарифа».
 _Avoid_: Subscription, gift subscription, temporary free access, Payment
 
 **Coverage**:
@@ -591,7 +591,9 @@ These names refer to the same concept; they do not introduce another right or pr
 | Subscription Tier | Tariff |
 | Subscription Option | Payment Option |
 | SubscriptionEnrollment | Tariff Assignment |
-| ContentScope | Coverage |
+| ContentScope, `contentScope` | Coverage |
+| `allGuides` | Coverage of the whole platform |
+| Access class `membership` | closed Material (Access Class) |
 | MembershipEntitlement | Account Rights |
 | LegacyCohort | Prior Participants |
 | Guide | Product |
