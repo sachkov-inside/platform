@@ -35,8 +35,9 @@ application-level NFR, порядком production foundations и ADR inputs. П
 Код, tests и возможные application ADR принадлежат этому repository.
 
 Текущий delivery scope задан [MVP brief](../product/platform-mvp-brief.md): Materials, Series и
-Membership. [Workshop Tracks and Laboratories](workshop-tracks.md) сохраняет отдельный отложенный
-контракт. Его модели и существующие foundations не расширяют Series или текущую подписку.
+Membership. Мастерская (Workshop) отменена [ADR 0033](../adr/0033-product-tariff-payment-model.md);
+[Workshop Tracks and Laboratories](workshop-tracks.md) сохраняет её контракт как историю. Модуль
+`workshop` остаётся в коде до задачи удаления и не расширяет Series или подписку.
 
 Specification синхронизирует принятую cross-repository
 [Workspace #40](https://github.com/sachkov-inside/workspace/issues/40), отдельную
@@ -496,7 +497,9 @@ membership главу не восстанавливает.
 Как и метка последовательности, глава берётся из current membership: перенос опубликованного
 материала между главами меняет группировку опубликованного маршрута сразу. Сам состав маршрута
 по-прежнему определяется публикацией, поэтому черновики и неопубликованные материалы в него не
-попадают. Прогресс «N из M» считается по всему руководству и не меняется.
+попадают. Прогресс «N из M» считает тот же состав, что показывает программа, и от группировки по
+главам не меняется ([ADR 0033](../adr/0033-product-tariff-payment-model.md),
+[#1050](https://github.com/sachkov-inside/platform/issues/1050)).
 
 
 ### Страница руководства
@@ -934,9 +937,10 @@ Storybook и реальные маршруты используют один pro
 - Topic/Format/sort находятся в секции Materials и влияют только на её выдачу. Публичное URL-state
   хранит `q`, `topic`, `format`, `sort`, а Material cursor — только TanStack Infinite Query;
 - anonymous/non-member search сопоставляет только public projection и всё равно показывает
-  membership results с замком; active Membership или `materials:manage` дополнительно включает
-  protected body index. Одна current Membership применяется ко всем membership-материалам, без
-  `Account × Material` grants и per-row authorization calls;
+  membership results с замком; поиск идёт по title, summary и public search text и от доступа не
+  зависит. Закрытый материал открывает только доступ к продукту, в который он входит;
+  общего права на все закрытые материалы нет ([ADR 0033](../adr/0033-product-tariff-payment-model.md)).
+  `Account × Material` grants не вводятся;
 - Topic/Series являются контекстной навигацией; Reader не запрашивает derived related выдачу и
   принимает back context только из allowlist Home/Library/Topic/Series/Profile. Выбранная Series
   дополнительно определяет previous/next по полному published composition существующего
