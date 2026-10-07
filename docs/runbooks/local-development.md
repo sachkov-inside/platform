@@ -524,6 +524,11 @@ theirs only behind their own switch: `CAPTURE_EVIDENCE=1` for the authoring walk
 `CAPTURE_ISSUE_NNN_EVIDENCE=1` used by the Reader scenarios. Set both when you want a fresh
 snapshot committed.
 
+`pnpm evidence:web` selects `evidence.spec.ts` for desktop and mobile Chromium. It uses the same
+production launcher as `test:e2e`, with test Logto settings, a temporary release identity and the
+`/_health/live` readiness probe. `PLAYWRIGHT_BACKEND_BASE_URL` selects the backend;
+`EVIDENCE_STORAGE_STATE` supplies the browser session for authenticated evidence.
+
 `scripts/evidence-path.mjs` owns this rule, and `scripts/evidence-path.test.mjs` keeps it honest.
 Evidence that a run reads rather than writes stays in the tree: the Storybook cover fixtures come
 from `docs/evidence/issue-271/covers`.
