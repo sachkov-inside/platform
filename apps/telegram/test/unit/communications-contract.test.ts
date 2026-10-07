@@ -17,7 +17,7 @@ const text = {
   entities: [{ type: "bold", offset: 3, length: 5 }],
   buttons: [],
 };
-describe("vendored communications contract", () => {
+describe("shared communications contract", () => {
   for (const fixture of fixtures)
     it(fixture.name, () => {
       const validate = contractValidator(fixture.definition);

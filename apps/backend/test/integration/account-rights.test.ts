@@ -75,7 +75,7 @@ describe("AccountRights", () => {
   });
 
   test.each(corpus.fixtures)(
-    "converges the vendored $name contract fixture",
+    "converges the shared $name contract fixture",
     async (fixture) => {
       const fixtureIndex = corpus.fixtures.findIndex(
         ({ name }) => name === fixture.name,

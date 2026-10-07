@@ -31,7 +31,7 @@ const snapshotRoot = new URL(
   import.meta.url,
 );
 
-describe("vendored MembershipEvidence snapshot", () => {
+describe("shared MembershipEvidence snapshot", () => {
   test("pins provenance and exact artifact digests without a Workspace dependency", async () => {
     const snapshot = snapshotSchema.parse(
       JSON.parse(

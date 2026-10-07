@@ -574,7 +574,7 @@ describe("HTTP and delegated OAuth communications parity against a contract stub
   });
 
   for (const scenario of scenarios) {
-    test(`vendored consumer scenario: ${scenario.name}`, async () => {
+    test(`shared consumer scenario: ${scenario.name}`, async () => {
       for (const step of scenario.steps) {
         const request = requestSchema.parse(step.request);
         if (!("accountRef" in request.actor))

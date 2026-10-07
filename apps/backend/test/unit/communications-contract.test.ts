@@ -15,7 +15,7 @@ addFormats.default(ajv);
 ajv.addSchema(schema);
 const validators: Readonly<Record<string, z.ZodType>> = generated;
 
-describe("vendored communications contract", () => {
+describe("shared communications contract", () => {
   for (const fixture of fixtures) {
     test(fixture.name, () => {
       const validator = validators[`${fixture.definition}Schema`];

@@ -42,7 +42,7 @@ const contractRoot = new URL(
   import.meta.url,
 );
 
-describe("vendored Telegram identity-linking contract", () => {
+describe("shared Telegram identity-linking contract", () => {
   test("pins the provider-owned v1 artifacts and required Platform messages", async () => {
     const snapshot = snapshotSchema.parse(
       JSON.parse(

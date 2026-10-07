@@ -14,7 +14,7 @@ const contractRoot = new URL(
   import.meta.url,
 );
 
-describe("Workspace Membership Evidence snapshot", () => {
+describe("shared Membership Evidence corpus", () => {
   it.each(Object.entries(snapshot.artifacts))(
     "keeps %s at the reviewed Workspace digest",
     async (fileName, artifact) => {

@@ -86,3 +86,40 @@ test("rejects a second canonical schema with the same identity", () => {
     /docs\/contracts\/another\/schema.json|docs\/contracts\/notifications-v1\/schema.json/u,
   );
 });
+
+test("rejects a TypeScript schema copy in application source", () => {
+  const result = run((root) => {
+    const file = path.join(root, "apps/telegram/src/schema-copy.ts");
+    mkdirSync(path.dirname(file), { recursive: true });
+    writeFileSync(
+      file,
+      'export const schema = { $id: "https://inside.example/contracts/notifications-v1/schema.json", type: "string" };',
+    );
+  });
+  assert.equal(result.status, 1);
+  assert.match(result.stderr, /apps\/telegram\/src\/schema-copy.ts/u);
+});
+
+test("rejects provider corpus drift from its current OpenAPI operation", () => {
+  const result = run((root) => {
+    put(root, "docs/contracts/platform-billing-cohorts/schema.json", {
+      response: { type: "string" },
+    });
+    put(root, "apps/backend/openapi/platform-api.json", {
+      paths: {
+        "/billing/cohorts": {
+          get: {
+            operationId: "billingProductCohorts",
+            responses: {
+              200: {
+                content: { "application/json": { schema: { type: "object" } } },
+              },
+            },
+          },
+        },
+      },
+    });
+  });
+  assert.equal(result.status, 1);
+  assert.match(result.stderr, /platform-billing-cohorts.*OpenAPI/u);
+});
