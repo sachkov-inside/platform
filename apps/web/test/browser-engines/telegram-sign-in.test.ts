@@ -304,64 +304,76 @@ it.runIf(Boolean(process.env["STORYBOOK_UI_ORIGIN"]))(
   },
 );
 
-it("keeps the complete Telegram button geometry on narrow WebKit after loading", async () => {
-  console.error("[DEBUG-1110] WebKit launch started");
-  const mobileBrowser = await webkit.launch();
-  console.error("[DEBUG-1110] WebKit launch finished");
-  try {
-    for (const width of [320, 390]) {
-      console.error(`[DEBUG-1110] ${String(width)} newPage started`);
-      const page = await mobileBrowser.newPage({
-        viewport: { width, height: 844 },
-        isMobile: true,
-        deviceScaleFactor: 3,
-      });
-      console.error(`[DEBUG-1110] ${String(width)} newPage finished`);
-      page.on("console", (message) => {
-        console.error("[DEBUG-1110] page", message.text());
-      });
-      console.error(`[DEBUG-1110] ${String(width)} open started`);
-      await open(page, "pending");
-      console.error(`[DEBUG-1110] ${String(width)} open finished`);
-      const geometry = await page.locator("#bot").evaluate((element) => {
-        const button = element.getBoundingClientRect();
-        const range = document.createRange();
-        range.selectNodeContents(element);
-        const label = range.getBoundingClientRect();
-        return {
-          button: {
-            height: button.height,
-            left: button.left,
-            right: button.right,
-            bottom: button.bottom,
-          },
-          label: { left: label.left, right: label.right, bottom: label.bottom },
-          display: getComputedStyle(element).display,
-          rects: element.getClientRects().length,
-        };
-      });
-      expect(geometry.display).toBe("flex");
-      expect(geometry.rects).toBe(1);
-      expect(geometry.button.height).toBeGreaterThanOrEqual(52);
-      expect(geometry.label.left).toBeGreaterThanOrEqual(geometry.button.left);
-      expect(geometry.label.right).toBeLessThanOrEqual(geometry.button.right);
-      expect(geometry.label.bottom).toBeLessThanOrEqual(geometry.button.bottom);
-      console.error(`[DEBUG-1110] ${String(width)} geometry finished`);
-      if (process.env["CAPTURE_TELEGRAM_EVIDENCE"] === "1") {
-        await prepareEvidenceDirectory("issue-303");
-        await page.screenshot({
-          path: `${evidence}/webkit-${String(width)}.png`,
+it.each(Array.from({ length: 20 }, (_, index) => index + 1))(
+  "keeps the complete Telegram button geometry on narrow WebKit after loading (diagnostic sample %i)",
+  async () => {
+    console.error("[DEBUG-1110] WebKit launch started");
+    const mobileBrowser = await webkit.launch();
+    console.error("[DEBUG-1110] WebKit launch finished");
+    try {
+      for (const width of [320, 390]) {
+        console.error(`[DEBUG-1110] ${String(width)} newPage started`);
+        const page = await mobileBrowser.newPage({
+          viewport: { width, height: 844 },
+          isMobile: true,
+          deviceScaleFactor: 3,
         });
+        console.error(`[DEBUG-1110] ${String(width)} newPage finished`);
+        page.on("console", (message) => {
+          console.error("[DEBUG-1110] page", message.text());
+        });
+        console.error(`[DEBUG-1110] ${String(width)} open started`);
+        await open(page, "pending");
+        console.error(`[DEBUG-1110] ${String(width)} open finished`);
+        const geometry = await page.locator("#bot").evaluate((element) => {
+          const button = element.getBoundingClientRect();
+          const range = document.createRange();
+          range.selectNodeContents(element);
+          const label = range.getBoundingClientRect();
+          return {
+            button: {
+              height: button.height,
+              left: button.left,
+              right: button.right,
+              bottom: button.bottom,
+            },
+            label: {
+              left: label.left,
+              right: label.right,
+              bottom: label.bottom,
+            },
+            display: getComputedStyle(element).display,
+            rects: element.getClientRects().length,
+          };
+        });
+        expect(geometry.display).toBe("flex");
+        expect(geometry.rects).toBe(1);
+        expect(geometry.button.height).toBeGreaterThanOrEqual(52);
+        expect(geometry.label.left).toBeGreaterThanOrEqual(
+          geometry.button.left,
+        );
+        expect(geometry.label.right).toBeLessThanOrEqual(geometry.button.right);
+        expect(geometry.label.bottom).toBeLessThanOrEqual(
+          geometry.button.bottom,
+        );
+        console.error(`[DEBUG-1110] ${String(width)} geometry finished`);
+        if (process.env["CAPTURE_TELEGRAM_EVIDENCE"] === "1") {
+          await prepareEvidenceDirectory("issue-303");
+          await page.screenshot({
+            path: `${evidence}/webkit-${String(width)}.png`,
+          });
+        }
+        await page.close();
+        console.error(`[DEBUG-1110] ${String(width)} page close finished`);
       }
-      await page.close();
-      console.error(`[DEBUG-1110] ${String(width)} page close finished`);
+    } finally {
+      console.error("[DEBUG-1110] WebKit close started");
+      await mobileBrowser.close();
+      console.error("[DEBUG-1110] WebKit close finished");
     }
-  } finally {
-    console.error("[DEBUG-1110] WebKit close started");
-    await mobileBrowser.close();
-    console.error("[DEBUG-1110] WebKit close finished");
-  }
-}, 30000);
+  },
+  30000,
+);
 
 it.each(["headers", "body"] as const)(
   "leaves loading and retries when the first status response stalls at %s",
