@@ -85,11 +85,11 @@ have any number of Tags, including none.
 _Avoid_: Free-form keyword, hashtag
 
 **Public Feed**:
-The stream of published Materials that every visitor, signed in or not, can browse. A free Material
-opens in full; a closed Material shows its card with a lock and leads to buying its Product. A
-Material of a Product appears both in the Public Feed and in the Product's programme. In Russian
+The stream of free published Materials that every visitor, signed in or not, can read. Closed
+Materials are not in it; their locked cards appear in a Product's programme, search and Topic
+pages. A free Material of a Product appears both in the Public Feed and in the Product's programme. In Russian
 product language: «лента».
-_Avoid_: Library subscription, Product
+_Avoid_: Library subscription, Product, closed Material
 
 **Access Class**:
 Whether a Material is free or closed. A free Material is open to everyone; a closed Material opens
