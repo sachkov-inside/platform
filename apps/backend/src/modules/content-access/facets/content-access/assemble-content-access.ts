@@ -38,6 +38,7 @@ interface ResolvedResourceFacts {
   readonly access: MaterialResourceFacts["access"];
   readonly contentVersion: number;
   readonly guideIds?: readonly string[];
+  readonly archivedOnly?: boolean;
   /** Absent for resources that no Material owns, such as a Guide Artifact. */
   readonly materialId?: MaterialResourceFacts["materialId"];
   readonly publicationState: MaterialResourceFacts["publicationState"];
@@ -110,19 +111,26 @@ export function assembleContentAccess(
         );
         for (const [key] of requiredResources)
           subjectFactsByResource.set(key, permission);
-        const protectedResources = requiredResources.filter(
-          ([, facts]) => facts.access === "membership",
+        const membershipResources = requiredResources.filter(
+          ([key, facts]) =>
+            (facts.archivedOnly === true ||
+              permission?.permission === "denied") &&
+            input.operations.some(
+              (operation) =>
+                resourceKey(operation.resource) === key &&
+                needsMembership(facts, operation.action),
+            ),
         );
         if (
-          permission?.permission === "denied" &&
           input.subject.kind === "account" &&
-          protectedResources.length > 0
+          membershipResources.length > 0
         ) {
           const accountId = input.subject.accountId;
           let memberships: readonly MembershipAccessState[];
-          const resources = protectedResources.map(([, facts]) => ({
+          const resources = membershipResources.map(([, facts]) => ({
             guideIds: facts.guideIds ?? [],
-            materialId: facts.materialId,
+            materialId:
+              facts.archivedOnly === true ? undefined : facts.materialId,
           }));
           try {
             memberships =
@@ -148,9 +156,9 @@ export function assembleContentAccess(
             );
             memberships = [];
           }
-          protectedResources.forEach(([key], index) =>
+          membershipResources.forEach(([key], index) =>
             subjectFactsByResource.set(key, {
-              permission: "denied",
+              permission: permission?.permission ?? "unavailable",
               membership: memberships[index] ?? { kind: "unavailable" },
             }),
           );
@@ -200,7 +208,8 @@ export function assembleContentAccess(
         input.subject,
         needsMembership(facts, input.action),
         facts.guideIds,
-        facts.materialId,
+        facts.archivedOnly === true ? undefined : facts.materialId,
+        input.action !== "preview" && facts.archivedOnly === true,
       );
       const reason = evaluate(facts, input.action, input.subject, subjectFacts);
       if (reason === "public_resource" || reason === "materials_manager") {
@@ -280,15 +289,18 @@ async function resolveSubjectFacts(
   includeMembership: boolean,
   guideIds: readonly string[] = [],
   materialId?: string,
+  readerOnly = false,
 ): Promise<SubjectFacts | undefined> {
   if (subject.kind === "anonymous") {
     return undefined;
   }
   let managesMaterials: boolean;
   try {
-    managesMaterials = await dependencies.accountPermissions.hasMaterialsManage(
-      subject.accountId,
-    );
+    managesMaterials =
+      !readerOnly &&
+      (await dependencies.accountPermissions.hasMaterialsManage(
+        subject.accountId,
+      ));
   } catch (error) {
     return dependencyFailure(
       { module: "content-access", operation: "resolveSubjectFacts" },
@@ -337,7 +349,7 @@ function needsMembership(
   return (
     (action === "read" || action === "download" || action === "play") &&
     facts.publicationState === "published" &&
-    facts.access === "membership"
+    (facts.access === "membership" || facts.archivedOnly === true)
   );
 }
 
@@ -363,7 +375,7 @@ function projectAvailability(
   ) {
     return "available";
   }
-  if (reason === "resource_action_invalid") {
+  if (reason === "resource_action_invalid" || reason === "resource_not_found") {
     return "unavailable";
   }
   return facts.access === "membership" ? "locked" : "unavailable";
@@ -378,6 +390,20 @@ function evaluate(
   const resource = resourceReason(facts, action);
   if (resource !== undefined) {
     return resource;
+  }
+  if (facts.archivedOnly === true && action !== "preview") {
+    if (subject.kind === "anonymous") return "resource_not_found";
+    switch (subjectFacts?.membership?.kind) {
+      case "active":
+        return "active_membership";
+      case "required":
+      case "expired":
+        return "resource_not_found";
+      case "stale":
+      case "unavailable":
+      case undefined:
+        return "dependency_unavailable";
+    }
   }
   if (subject.kind === "anonymous") {
     return "authentication_required";
@@ -439,7 +465,8 @@ function resourceReason(
   }
   if (
     (action === "read" || action === "download" || action === "play") &&
-    facts.access === "free"
+    facts.access === "free" &&
+    facts.archivedOnly !== true
   ) {
     return "public_resource";
   }

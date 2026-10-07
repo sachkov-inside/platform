@@ -1,3 +1,13 @@
+import {
+  loadGuideCompositions,
+  guideCompositionChapters,
+  readGuideCompositionAccess,
+  MAX_GUIDE_MATERIALS,
+} from "../../../shared/guide-composition.js";
+import type {
+  ContentAccess,
+  Subject,
+} from "../../../../content-access/index.js";
 import { materialFormatsSql } from "../material-formats.js";
 import {
   Prisma,
@@ -79,15 +89,6 @@ export interface PublishedMaterialDiscoveryPage {
   readonly hasNext: boolean;
 }
 
-const guideChapterRowSchema = z
-  .object({
-    id: z.uuid(),
-    material_ids: z.array(z.uuid()),
-    name: z.string(),
-    summary: z.string(),
-  })
-  .strict();
-
 const relatedSeriesRowSchema = z
   .object({
     id: z.uuid(),
@@ -98,10 +99,6 @@ const relatedSeriesRowSchema = z
     total_material_count: z.coerce.number().int().nonnegative(),
     cover_id: z.uuid().nullable(),
   })
-  .strict();
-
-const guideModeRowSchema = z
-  .object({ has_mode_variants: z.boolean() })
   .strict();
 
 const discoveryTopicRowSchema = z
@@ -811,103 +808,56 @@ export async function selectPublishedMaterialProjectionsBySeries(
   prisma: MaterialsPrisma,
   slug: string,
   first: number | null,
-): Promise<PublishedMaterialDiscoveryPage | undefined> {
-  const [reference, rawRows, rawTopics, rawChapters, rawGuideModes] =
-    await Promise.all([
-      prisma.guide.findUnique({
-        where: { slug },
-        select: {
-          audience: true,
-          coverId: true,
-          id: true,
-          name: true,
-          outcome: true,
-          page: true,
-          presentation: true,
-          prerequisites: true,
-          scope: true,
-          slug: true,
-          summary: true,
+  reader?: {
+    readonly subject: Subject;
+    readonly contentAccess: Pick<ContentAccess, "checkGuideAccess">;
+  },
+): Promise<PublishedMaterialDiscoveryPage | undefined | "unavailable"> {
+  const [reference] = await loadGuideCompositions(prisma, { slugs: [slug] }, 1);
+  if (reference === undefined) return undefined;
+  const access = await readGuideCompositionAccess(reference, reader);
+  if (access === "unavailable") return "unavailable";
+  if (access === "closed") return undefined;
+  if (reference.placements.length > MAX_GUIDE_MATERIALS)
+    throw new RangeError("Guide composition exceeds its bound");
+  const selected =
+    first === null
+      ? reference.materials
+      : reference.materials.slice(0, first + 1);
+  const projections = await selectPublishedMaterialProjectionsByIds(
+    prisma,
+    selected.map((item) => item.materialId),
+  );
+  const byId = new Map(projections.map((item) => [item.materialId, item]));
+  const rows = selected.flatMap((item) => {
+    const projection = byId.get(item.materialId);
+    return projection === undefined ? [] : [projection];
+  });
+  const topics = discoveryTopicRowSchema.array().parse(
+    await prisma.topic
+      .findMany({
+        where: {
+          id: {
+            in: [
+              ...new Set(
+                reference.materials.flatMap((item) =>
+                  item.topicId === null ? [] : [item.topicId],
+                ),
+              ),
+            ],
+          },
+          archivedAt: null,
         },
-      }),
-      prisma.$queryRaw(
-        projectionQuery({
-          joins: Prisma.sql`
-          join materials.published_material_series_memberships as selected_membership
-            on selected_membership.material_id = publication.material_id
-          join materials.series as selected_series
-            on selected_series.id = selected_membership.series_id
-        `,
-          where: Prisma.sql`
-          where selected_series.slug = ${slug}
-
-        `,
-          order: Prisma.sql`
-          order by selected_membership.ordinal, publication.material_id
-        `,
-          limit: first === null ? Prisma.empty : Prisma.sql`limit ${first + 1}`,
-        }),
+        orderBy: [{ name: "asc" }, { id: "asc" }],
+        select: { id: true, name: true, slug: true, coverId: true },
+      })
+      .then((topics) =>
+        topics.map(({ coverId, ...topic }) => ({
+          ...topic,
+          cover_id: coverId,
+        })),
       ),
-      prisma.$queryRaw(Prisma.sql`
-      select distinct topic.id, topic.name, topic.slug, topic.cover_id
-      from materials.published_material_series_memberships as membership
-      join materials.series as series on series.id = membership.series_id
-      join materials.published_materials as publication
-        on publication.material_id = membership.material_id
-      join materials.topics as topic on topic.id = publication.topic_id
-      where series.slug = ${slug}
-        and topic.archived_at is null
-
-      order by topic.name, topic.id
-    `),
-      prisma.$queryRaw(Prisma.sql`
-      select
-        chapter.id,
-        chapter.name,
-        chapter.summary,
-        coalesce(
-          (
-            select json_agg(published.material_id order by published.ordinal)
-            from materials.published_material_series_memberships as published
-            join materials.series_memberships as current_membership
-              on current_membership.series_id = published.series_id
-             and current_membership.material_id = published.material_id
-            join materials.published_materials as publication
-              on publication.material_id = published.material_id
-            where published.series_id = chapter.guide_id
-              and current_membership.chapter_id = chapter.id
-
-          ),
-          '[]'::json
-        ) as material_ids
-      from materials.guide_chapters as chapter
-      join materials.series as series on series.id = chapter.guide_id
-      where series.slug = ${slug}
-      order by chapter.ordinal, chapter.id
-    `),
-      // The route is paginated, so the visible page cannot answer this for the whole Guide.
-      prisma.$queryRaw(Prisma.sql`
-      select exists (
-        select 1
-        from materials.published_material_series_memberships as membership
-        join materials.published_materials as publication
-          on publication.material_id = membership.material_id
-        join materials.series as series on series.id = membership.series_id
-        where series.slug = ${slug}
-
-          and publication.has_mode_variants
-      ) as has_mode_variants
-    `),
-    ]);
-  if (reference === null) {
-    return undefined;
-  }
-  const rows = publishedMaterialProjectionRowSchema.array().parse(rawRows);
-  const topics = discoveryTopicRowSchema.array().parse(rawTopics);
-  const chapters = guideChapterRowSchema.array().parse(rawChapters);
-  const guideModes = guideModeRowSchema.array().parse(rawGuideModes)[0] ?? {
-    has_mode_variants: false,
-  };
+  );
   const covers = await loadContentCoverProjections(
     prisma,
     [reference.coverId, ...topics.map(({ cover_id }) => cover_id)].flatMap(
@@ -915,15 +865,17 @@ export async function selectPublishedMaterialProjectionsBySeries(
     ),
   );
   return {
-    chapters: chapters.map(({ id, material_ids, name, summary }) => ({
-      id,
-      materialIds: material_ids,
-      name,
-      summary,
-    })),
+    chapters: guideCompositionChapters(reference).map(
+      ({ id, materialIds, name, summary }) => ({
+        id,
+        materialIds,
+        name,
+        summary,
+      }),
+    ),
     reference: {
       id: reference.id,
-      hasModeVariants: guideModes.has_mode_variants,
+      hasModeVariants: reference.materials.some((item) => item.hasModeVariants),
       introduction: {
         audience: reference.audience,
         outcome: reference.outcome,
@@ -947,7 +899,7 @@ export async function selectPublishedMaterialProjectionsBySeries(
       ...topic,
       cover: cover_id === null ? null : (covers.get(cover_id) ?? null),
     })),
-    items: (first === null ? rows : rows.slice(0, first)).map(toProjection),
+    items: first === null ? rows : rows.slice(0, first),
     hasNext: first !== null && rows.length > first,
   };
 }

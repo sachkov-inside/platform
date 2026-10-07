@@ -81,6 +81,14 @@ export async function readPublishedMaterial(
       });
       if (access.effect === "deny") {
         if (
+          access.reason === "dependency_unavailable" ||
+          access.reason === "entitlement_stale"
+        )
+          return {
+            ok: false,
+            error: { code: "dependency_unavailable", retryable: true },
+          };
+        if (
           access.reason === "resource_not_found" ||
           access.reason === "resource_unpublished"
         ) {

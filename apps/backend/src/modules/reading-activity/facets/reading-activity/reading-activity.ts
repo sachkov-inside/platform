@@ -15,7 +15,10 @@ export class ReadingActivity {
   constructor(
     private readonly dependencies: {
       readonly prisma: ReadingActivityPrismaClient;
-      readonly contentAccess: Pick<ContentAccess, "authorize">;
+      readonly contentAccess: Pick<
+        ContentAccess,
+        "authorize" | "checkGuideAccess"
+      >;
       readonly materialContent: Pick<MaterialContent, "findAccessFacts">;
       readonly composition: Pick<PublishedSeriesComposition, "read">;
     },

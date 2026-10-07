@@ -29,6 +29,10 @@ import {
 import { PendingCohortCall, PersonalCohortCall } from "./cohort-call.server";
 import { PersonalSeries } from "./personal-series.server";
 import { PendingSeries } from "./guide-programme-view";
+import {
+  GuideProductLoading,
+  GuideProgrammeLoading,
+} from "./library-discovery-loading";
 
 interface DiscoveryRouteProps {
   readonly params: Promise<{ readonly slug: string }>;
@@ -83,7 +87,14 @@ export async function PublishedSeriesPage({
   const [{ slug }, query] = await Promise.all([params, searchParams]);
   const result = await readPublicSeries(slug);
   if (result.kind === "not-found") {
-    notFound();
+    return (
+      <Suspense fallback={<GuideProductLoading />}>
+        <PersonalProduct
+          slug={slug}
+          returnTarget={parseMaterialReaderReturnTarget(query.from)}
+        />
+      </Suspense>
+    );
   }
   if (result.kind === "unavailable") {
     return <LibraryDiscoveryUnavailable />;
@@ -122,7 +133,11 @@ export async function GuideProgrammePage({
   const { slug } = await params;
   const result = await readPublicSeries(slug);
   if (result.kind === "not-found") {
-    notFound();
+    return (
+      <Suspense fallback={<GuideProgrammeLoading />}>
+        <PersonalProgramme slug={slug} />
+      </Suspense>
+    );
   }
   if (result.kind === "unavailable") {
     return <LibraryDiscoveryUnavailable />;
@@ -141,28 +156,64 @@ export async function GuideProgrammePage({
   );
 }
 
+/** Архивный продукт определяется только запросом держателя после гостевого «не найдено». */
+async function PersonalProduct({
+  slug,
+  returnTarget,
+}: {
+  readonly slug: string;
+  readonly returnTarget: ReturnType<typeof parseMaterialReaderReturnTarget>;
+}) {
+  await connection();
+  const accessToken = await getOptionalPlatformAccessToken();
+  if (accessToken === undefined) notFound();
+  const result = await loadPublishedSeries(slug, accessToken);
+  if (result.kind === "not-found") notFound();
+  if (result.kind === "unavailable") return <LibraryDiscoveryUnavailable />;
+  const [artifacts, offerTerms] = await Promise.all([
+    result.reference.id === undefined
+      ? noArtifacts
+      : readReaderGuideArtifacts(result.reference.id, accessToken),
+    publicOfferTermsOf(result),
+  ]);
+  return (
+    <LibraryDiscoveryView
+      artifacts={artifacts}
+      offerTerms={offerTerms}
+      result={result}
+      heroCall={<PersonalCohortCall result={result} />}
+      returnTarget={returnTarget}
+    />
+  );
+}
+
 /** Личная часть программы: ничего из прочитанного здесь не кешируется и не предзагружается. */
 async function PersonalProgramme({
   sharedArtifacts,
   sharedResult,
   slug,
 }: {
-  readonly sharedArtifacts: ReaderGuideArtifactsResult;
-  readonly sharedResult: ResolvedSeries;
+  readonly sharedArtifacts?: ReaderGuideArtifactsResult;
+  readonly sharedResult?: ResolvedSeries;
   readonly slug: string;
 }) {
   // Личная часть принадлежит запросу, а не предзагрузке: `connection()` останавливает её до чтения
   // сессии, чтобы предзагрузка по намерению не дошла до обновления токена.
   await connection();
   const accessToken = await getOptionalPlatformAccessToken();
+  if (sharedResult === undefined && accessToken === undefined) notFound();
+  const resolved =
+    sharedResult ?? (await loadPublishedSeries(slug, accessToken));
+  if (resolved.kind === "not-found") notFound();
+  if (resolved.kind === "unavailable") return <LibraryDiscoveryUnavailable />;
   // Идентификатор руководства не зависит от читателя, поэтому личные чтения идут разом.
-  const guideId = sharedResult.reference.id;
+  const guideId = resolved.reference.id;
   const [result, artifacts, sale] = await Promise.all([
     accessToken === undefined
-      ? sharedResult
+      ? resolved
       : loadPublishedSeries(slug, accessToken),
     accessToken === undefined || guideId === undefined
-      ? sharedArtifacts
+      ? (sharedArtifacts ?? noArtifacts)
       : readReaderGuideArtifacts(guideId, accessToken),
     guideId === undefined
       ? null

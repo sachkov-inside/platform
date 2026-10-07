@@ -1,5 +1,9 @@
 import { z } from "zod";
 import {
+  loadGuideCompositions,
+  MAX_GUIDE_MATERIALS,
+} from "../../shared/guide-composition.js";
+import {
   Prisma,
   type MaterialsPrismaClient,
 } from "../../../../infrastructure/prisma/index.js";
@@ -28,15 +32,6 @@ const materialRowsSchema = z.array(
     material_id: z.uuid(),
     slug: z.string().nullable(),
     title: z.string().nullable(),
-  }),
-);
-
-const placementRowsSchema = z.array(
-  z.object({
-    source_id: z.string(),
-    material_id: z.uuid(),
-    chapter_id: z.uuid().nullable(),
-    published: z.boolean(),
   }),
 );
 
@@ -75,32 +70,19 @@ export class GuideDirectory {
     if (values.length === 0) return [];
     if (values.length > MAX_LOOKUP)
       throw new RangeError("Guide lookup exceeds its bound");
-    const condition =
-      "ids" in filter
-        ? Prisma.sql`series.id = any(${[...filter.ids]}::uuid[])`
-        : Prisma.sql`series.slug = any(${[...filter.slugs]}::text[])`;
+    const guides = await loadGuideCompositions(this.prisma, filter, MAX_LOOKUP);
     return guideRowsSchema.parse(
-      await this.prisma.$queryRaw(Prisma.sql`
-        select
-          series.id,
-          series.slug,
-          series.name,
-          series.archived_at is not null as archived,
-          coalesce(
-            (
-              select json_agg(
-                json_build_object('id', chapter.id, 'name', chapter.name, 'ordinal', chapter.ordinal)
-                order by chapter.ordinal, chapter.id
-              )
-              from materials.guide_chapters as chapter
-              where chapter.guide_id = series.id
-            ),
-            '[]'::json
-          ) as chapters
-        from materials.series as series
-        where ${condition}
-        order by series.id
-      `),
+      guides.map(({ id, slug, name, archived, chapters }) => ({
+        id,
+        slug,
+        name,
+        archived,
+        chapters: chapters.map(({ id, name, ordinal }) => ({
+          id,
+          name,
+          ordinal,
+        })),
+      })),
     );
   }
 
@@ -115,26 +97,26 @@ export class GuideDirectory {
     if (sourceIds.length === 0) return [];
     if (sourceIds.length > MAX_LOOKUP)
       throw new RangeError("Material lookup exceeds its bound");
-    const rows = placementRowsSchema.parse(
-      await this.prisma.$queryRaw(Prisma.sql`
-        select
-          material.source_id,
-          material.id as material_id,
-          membership.chapter_id,
-          material.publication_state = 'published' as published
-        from materials.materials as material
-        join materials.series_memberships as membership
-          on membership.material_id = material.id
-         and membership.series_id = ${guideId}::uuid
-        where material.source_id = any(${[...sourceIds]}::text[])
-      `),
+    const [guide] = await loadGuideCompositions(
+      this.prisma,
+      { ids: [guideId] },
+      1,
     );
-    return rows.map((row) => ({
-      sourceId: row.source_id,
-      materialId: row.material_id,
-      chapterId: row.chapter_id,
-      published: row.published,
-    }));
+    if (guide !== undefined && guide.placements.length > MAX_GUIDE_MATERIALS)
+      throw new RangeError("Guide composition exceeds its bound");
+    const sources = new Set(sourceIds);
+    return (guide?.placements ?? []).flatMap((placement) =>
+      placement.sourceId !== null && sources.has(placement.sourceId)
+        ? [
+            {
+              sourceId: placement.sourceId,
+              materialId: placement.materialId,
+              chapterId: placement.chapterId,
+              published: placement.published,
+            },
+          ]
+        : [],
+    );
   }
 
   /** Materials by their authoring source ID; an unknown source is absent from the answer. */

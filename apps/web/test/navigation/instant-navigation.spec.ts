@@ -1263,3 +1263,55 @@ test("первый ответ о входе не пересоздаёт уже �
     "обложка — узел из серверной разметки, а не нарисованный браузером заново",
   ).toBe(true);
 });
+
+test("архивные продукт, программа и урок открываются держателю после гостевого 404", async ({
+  page,
+  context,
+  baseURL,
+  browser,
+}) => {
+  if (baseURL === undefined) throw new Error("baseURL is required");
+  const archive = "/products/navigation-archive";
+  await page.goto(`${archive}/programme`);
+  await expect(
+    page.getByRole("heading", { name: "Подборка не найдена" }),
+  ).toBeVisible();
+  await signInAsMember(context, baseURL);
+  await page.reload();
+  await expect(
+    page.getByRole("heading", { level: 1, name: "Архивный продукт" }),
+  ).toBeVisible();
+  await page.goto(archive);
+  await expect(
+    page.getByRole("heading", { level: 1, name: "Архивный продукт" }),
+  ).toBeVisible();
+  await page.goto(
+    `/materials/navigation-lesson-7?from=${encodeURIComponent(`${archive}/programme`)}`,
+  );
+  await expect(
+    page.getByText(protectedBodyMarker, { exact: false }).first(),
+  ).toBeVisible();
+  const guest = await browser.newContext();
+  try {
+    const guestPage = await guest.newPage();
+    for (const path of [
+      archive,
+      `${archive}/programme`,
+      "/materials/navigation-lesson-7",
+    ]) {
+      await guestPage.goto(path);
+      await expect(
+        guestPage.getByRole("heading", {
+          name: path.startsWith("/materials/")
+            ? "Материал не найден"
+            : "Подборка не найдена",
+        }),
+      ).toBeVisible();
+      await expect(
+        guestPage.getByText(protectedBodyMarker, { exact: false }),
+      ).toHaveCount(0);
+    }
+  } finally {
+    await guest.close();
+  }
+});
