@@ -1275,6 +1275,66 @@ describe("подписка: продление, отмена, смена вар�
     });
   });
 
+  test("конкурентная сверка NEW не вызывает второго Charge и не сообщает ложный сбой", async () => {
+    const s = await scenario({ startedAt: "2030-01-01T00:00:00Z" });
+    await s.buy();
+    now = new Date("2030-02-01T00:00:00Z");
+    s.bank.failInit = true;
+    value(await s.payments.renew());
+    const attemptRef = (await s.view())?.inFlightPayment?.attemptRef;
+    if (!hasText(attemptRef))
+      throw new Error("Missing synthetic renewal attempt");
+    s.bank.failInit = false;
+    // Оба вызова получают доказанный NEW до начала любого Charge.
+    s.bank.gateStateResponses(2);
+    const results = await Promise.all([
+      s.payments.reconcile(attemptRef),
+      s.payments.reconcile(attemptRef),
+    ]);
+    expect(results).toEqual([
+      { ok: true, value: true },
+      { ok: true, value: true },
+    ]);
+    expect(s.bank.chargeCalls).toBe(1);
+    expect((await s.view())?.periodIndex).toBe(2);
+  });
+
+  test.each(["classification", "contact", "consent"])(
+    "ошибка PostgreSQL при чтении %s завершает задание сбоем",
+    async (source) => {
+      const s = await scenario();
+      await s.buy();
+      now = new Date("2030-02-28T10:00:00Z");
+      // Отказ настоящей базы в отдельном test database, без замены фасетов.
+      if (source === "classification")
+        await db.prisma
+          .$executeRaw`ALTER TABLE account_rights.legacy_classifications RENAME TO unavailable_legacy_classifications`;
+      else if (source === "contact")
+        await db.prisma
+          .$executeRaw`ALTER TABLE accounts.billing_contacts RENAME TO unavailable_billing_contacts`;
+      else
+        await db.prisma
+          .$executeRaw`ALTER TABLE accounts.legal_acceptances RENAME TO unavailable_legal_acceptances`;
+      try {
+        await expect(
+          runRenewalJob(s.payments, s.subscriptions),
+        ).rejects.toThrow("provider_unavailable");
+        expect(s.bank.chargeCalls).toBe(0);
+      } finally {
+        if (source === "classification")
+          await db.prisma
+            .$executeRaw`ALTER TABLE account_rights.unavailable_legacy_classifications RENAME TO legacy_classifications`;
+        else if (source === "contact")
+          await db.prisma
+            .$executeRaw`ALTER TABLE accounts.unavailable_billing_contacts RENAME TO billing_contacts`;
+        else
+          await db.prisma
+            .$executeRaw`ALTER TABLE accounts.unavailable_legal_acceptances RENAME TO legal_acceptances`;
+      }
+      expect((await s.view())?.state).toBe("active");
+    },
+  );
+
   test.each(["prepared", "unknown"])(
     "восстановление %s продления без recurring не отправляет Init или Charge",
     async (state) => {

@@ -47,7 +47,7 @@ import {
   type AttemptKind,
 } from "../../domain/payment-attempt.js";
 import { renewalPriceSnapshot } from "../../domain/subscription-change.js";
-import { verifyRecurringConsent } from "../../shared/recurring-consent.js";
+import { inspectRecurringConsent } from "../../shared/recurring-consent.js";
 import { attemptSourceRef, lifecycleWindow } from "../../domain/notice.js";
 import { recordBillingNotice } from "../../shared/record-notice.js";
 import { replayCommandFingerprint } from "../../shared/command-fingerprint.js";
@@ -475,8 +475,10 @@ export class BillingPayments {
       ) {
         if (renewalTerminal(bank.config) !== "ready")
           return paymentFailure("method_unavailable");
-        if (!(await this.chargeSaved(row.id, paymentId)))
-          return paymentFailure("provider_unavailable");
+        const charged = await this.chargeSaved(row.id, paymentId);
+        if (charged === "configuration_idle")
+          return paymentFailure("method_unavailable");
+        if (charged === "failed") return paymentFailure("provider_unavailable");
       }
       return accepted;
     } catch (error) {
@@ -603,7 +605,8 @@ export class BillingPayments {
             const outcome = await this.dispatch(prepared.attemptRef);
             if (outcome === "dispatched" || outcome === "failed") started += 1;
             if (outcome === "failed") failed += 1;
-          } else if (prepared.blocked === true) blocked += 1;
+          } else if (prepared.failed === true) failed += 1;
+          else if (prepared.blocked === true) blocked += 1;
         }
       const closed = await closeLapsedSubscriptions(prisma, now, limit);
       return {
@@ -720,11 +723,12 @@ export class BillingPayments {
         isQuotedPurchase(kind) ? payment.PaymentURL : undefined,
       );
       if (!accepted.ok) throw new Error("Bank initialization fact rejected");
-      if (
-        !isQuotedPurchase(kind) &&
-        !(await this.chargeSaved(row.id, payment.PaymentId))
-      )
-        throw new Error("Saved method charge is unresolved");
+      if (!isQuotedPurchase(kind)) {
+        const charged = await this.chargeSaved(row.id, payment.PaymentId);
+        if (charged === "failed")
+          throw new Error("Saved method charge is unresolved");
+        if (charged === "configuration_idle") return "configuration_idle";
+      }
       return "dispatched";
     } catch (error) {
       reportDependencyFailure(
@@ -750,7 +754,7 @@ export class BillingPayments {
   private async prepareRenewal(
     subscriptionRef: string,
     bank: Tbank,
-  ): Promise<{ attemptRef?: string; blocked?: boolean }> {
+  ): Promise<{ attemptRef?: string; blocked?: boolean; failed?: boolean }> {
     const { prisma, contact, grants } = this.dependencies;
     const current = await prisma.billingSubscription.findUnique({
       where: { id: subscriptionRef },
@@ -759,9 +763,10 @@ export class BillingPayments {
     const [legacy, verified, consented] = await Promise.all([
       grants.readLegacyClassification(current.accountId),
       contact.read(current.accountId),
-      verifyRecurringConsent(contact, current.accountId, current.consent),
+      inspectRecurringConsent(contact, current.accountId, current.consent),
     ]);
-    if (!legacy.ok || !verified.ok) return { blocked: true };
+    if (!legacy.ok || !verified.ok || consented === "unavailable")
+      return { failed: true };
     const verifiedContact = verified.contact;
     const snapshot = renewalPriceSnapshot(
       current.snapshot,
@@ -778,7 +783,13 @@ export class BillingPayments {
       chargeKopecks: amountKopecks,
     });
     return await prisma.$transaction(
-      async (tx): Promise<{ attemptRef?: string; blocked?: boolean }> => {
+      async (
+        tx,
+      ): Promise<{
+        attemptRef?: string;
+        blocked?: boolean;
+        failed?: boolean;
+      }> => {
         await lockBillingPricing(tx);
         await lockBillingSubscription(tx, subscriptionRef);
         const now = this.clock();
@@ -803,7 +814,7 @@ export class BillingPayments {
           return {};
         }
         // Классификация, согласие, контакт и границы терминала — операторский разбор, не отказ покупателя.
-        if (!admission.ok || !consented || !verifiedContact)
+        if (!admission.ok || consented !== "valid" || !verifiedContact)
           return { blocked: true };
         const attemptRef = randomUUID();
         await tx.billingPurchase.create({
@@ -846,10 +857,17 @@ export class BillingPayments {
   private async chargeSaved(
     attemptRef: string,
     paymentId: string,
-  ): Promise<boolean> {
+  ): Promise<"charged" | "skipped" | "configuration_idle" | "failed"> {
     const { prisma, bank } = this.dependencies;
-    if (!bank || renewalTerminal(bank.config) !== "ready") return false;
+    if (!bank || renewalTerminal(bank.config) !== "ready")
+      return "configuration_idle";
     const prepared = await prisma.$transaction(async (tx) => {
+      await lockBillingPricing(tx);
+      const initial = await tx.billingPurchase.findUnique({
+        where: { id: attemptRef },
+      });
+      if (!hasText(initial?.subscriptionRef)) return undefined;
+      await lockBillingSubscription(tx, initial.subscriptionRef);
       const row = await tx.billingPurchase.findUnique({
         where: { id: attemptRef },
       });
@@ -867,10 +885,11 @@ export class BillingPayments {
       });
       return bank.openBinding(row.id, row.bindingCiphertext);
     });
-    if (!hasText(prepared)) return false;
-    return (
-      await this.accept(await bank.charge({ paymentId, rebillId: prepared }))
-    ).ok;
+    if (!hasText(prepared)) return "skipped";
+    const accepted = await this.accept(
+      await bank.charge({ paymentId, rebillId: prepared }),
+    );
+    return accepted.ok ? "charged" : "failed";
   }
 
   private async accept(
