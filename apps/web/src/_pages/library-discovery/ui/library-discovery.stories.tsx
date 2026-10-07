@@ -42,7 +42,7 @@ const materials = [
     topicSlug: "platform",
   },
   {
-    access: "membership",
+    access: "closed",
     availability: "locked",
     format: "Заметка",
     seriesMemberships: [

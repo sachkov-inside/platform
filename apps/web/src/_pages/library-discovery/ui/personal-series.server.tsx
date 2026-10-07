@@ -5,9 +5,12 @@ import { getQueryClient } from "@/shared/api/query-client";
 import { getSeriesContinuation } from "@/features/reading-progress.server";
 import { seriesContinuationQueryKey } from "@/features/reading-progress";
 import type { PriceSnapshot } from "@/entities/subscription";
-import type { ReaderGuideArtifactsResult } from "@/features/guide-artifacts.reader";
+import type { ReaderProductArtifactsResult } from "@/features/product-artifacts.reader";
 import type { PublishedSeriesResult } from "@/features/library-discovery";
-import { GuideProgrammeView, programmePurchase } from "./guide-programme-view";
+import {
+  ProductProgrammeView,
+  programmePurchase,
+} from "./product-programme-view";
 import { SeriesLearningSource } from "./series-learning.client";
 
 /** Личная часть программы: состав глазами читателя рисует сервер, прогресс продолжает браузер. */
@@ -15,13 +18,13 @@ export async function PersonalSeries({
   artifacts,
   result,
   accessToken,
-  guideOffer = null,
+  productOffer = null,
   subscriptionOffered = false,
 }: {
-  readonly artifacts: ReaderGuideArtifactsResult;
+  readonly artifacts: ReaderProductArtifactsResult;
   readonly result: Extract<PublishedSeriesResult, { kind: "ready" | "empty" }>;
   readonly accessToken?: string;
-  readonly guideOffer?: PriceSnapshot | null;
+  readonly productOffer?: PriceSnapshot | null;
   readonly subscriptionOffered?: boolean;
 }) {
   const client = getQueryClient();
@@ -43,14 +46,14 @@ export async function PersonalSeries({
       <SeriesLearningSource
         initialAccountId={accountId}
         purchaseRowShown={
-          programmePurchase({ guideOffer, result, subscriptionOffered }) !==
+          programmePurchase({ productOffer, result, subscriptionOffered }) !==
           null
         }
         slug={result.reference.slug}
       >
-        <GuideProgrammeView
+        <ProductProgrammeView
           artifacts={artifacts}
-          guideOffer={guideOffer}
+          productOffer={productOffer}
           result={result}
           subscriptionOffered={subscriptionOffered}
         />

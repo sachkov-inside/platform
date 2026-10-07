@@ -3,7 +3,7 @@ import { Suspense, type ReactNode } from "react";
 import { RetryPageButton } from "@/shared/ui/retry-page-button.client";
 
 import type { HomeResult } from "../model/home-view";
-import { FeaturedGuide } from "./featured-guide.client";
+import { FeaturedProduct } from "./featured-product.client";
 import { HomeFeed, HomeFeedLoading } from "./home-feed.client";
 import { HomeFrame } from "./home-frame";
 
@@ -21,7 +21,7 @@ export function HomePage({
   return (
     <HomeFrame>
       {result.kind === "ready" && result.value.pinnedSeries !== null ? (
-        <FeaturedGuide series={result.value.pinnedSeries} />
+        <FeaturedProduct series={result.value.pinnedSeries} />
       ) : result.kind === "unavailable" ? (
         <div className="flex flex-wrap items-center gap-x-6 gap-y-3 py-8">
           <p className="text-muted-foreground" role="status">

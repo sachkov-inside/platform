@@ -118,7 +118,7 @@ export async function uploadVideo({
         byteSize: info.size,
         filename: basename(path),
         title: title ?? basename(path),
-        access: material.access ?? "membership",
+        access: material.access ?? "closed",
         phase: "initializing",
       };
       resources[receiptKey] = receipt;

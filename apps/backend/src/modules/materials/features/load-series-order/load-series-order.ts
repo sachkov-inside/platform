@@ -11,7 +11,7 @@ import {
   parseCommand,
 } from "../../shared/command-validation.js";
 import { mapPostgresReadError } from "../../shared/postgres-error-mapping.js";
-import { guideOrderVersion } from "../../shared/guide-order-version.js";
+import { productOrderVersion } from "../../shared/product-order-version.js";
 import type { LoadSeriesOrderOperation } from "./load-series-order.contract.js";
 
 const querySchema = z.object({ actor: accountId, seriesId: entityId }).strict();
@@ -43,7 +43,7 @@ export function assembleLoadSeriesOrder(
         ok: true,
         value: {
           ...snapshot,
-          orderVersion: guideOrderVersion(snapshot.items, snapshot.chapters),
+          orderVersion: productOrderVersion(snapshot.items, snapshot.chapters),
         },
       };
     } catch (error) {

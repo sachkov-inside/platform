@@ -93,7 +93,7 @@ describe("S3 object storage adapter", () => {
 
     await expect(
       storage.signGet({
-        contentDisposition: 'attachment; filename="guide.pdf"',
+        contentDisposition: 'attachment; filename="product.pdf"',
         contentType: "application/pdf",
         key: "assets/opaque-id/file",
         namespace: "protected",
@@ -104,7 +104,7 @@ describe("S3 object storage adapter", () => {
     expect(signedCommand?.input).toMatchObject({
       Bucket: "inside-protected",
       Key: "assets/opaque-id/file",
-      ResponseContentDisposition: 'attachment; filename="guide.pdf"',
+      ResponseContentDisposition: 'attachment; filename="product.pdf"',
       ResponseContentType: "application/pdf",
     });
     expect(sign.mock.calls[0]?.[2]).toEqual({ expiresIn: 120 });

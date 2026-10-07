@@ -28,7 +28,7 @@ import {
   type PersonGround,
 } from "@/features/billing-admin/model/access-operations";
 import {
-  guideOnlyOffer,
+  productOnlyOffer,
   materialsOffer,
   supportOffer,
 } from "@/storybook/billing.fixtures";
@@ -153,11 +153,11 @@ describe("тарифы", () => {
       yearly,
       archivedOption,
       archivedOffer,
-      guideOnlyOffer,
+      productOnlyOffer,
     ]);
     expect(rows.map((row) => row.offer.id)).toEqual([
       materialsOffer.offer.id,
-      guideOnlyOffer.offer.id,
+      productOnlyOffer.offer.id,
     ]);
     expect(rows[0]?.options.map((option) => option.months)).toEqual([1, 12]);
     expect(rows[1]?.options[0]?.mode).toBe("one_time");

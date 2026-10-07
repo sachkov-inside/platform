@@ -414,8 +414,8 @@
                 "materials",
                 "community"
               ],
-              "contentScope": {
-                "guideIds": [],
+              "coverage": {
+                "productIds": [],
                 "materialIds": []
               }
             },
@@ -458,8 +458,8 @@
               "materials",
               "community"
             ],
-            "contentScope": {
-              "guideIds": [],
+            "coverage": {
+              "productIds": [],
               "materialIds": []
             }
           },
@@ -495,8 +495,8 @@
                 "materials",
                 "community"
               ],
-              "contentScope": {
-                "guideIds": [],
+              "coverage": {
+                "productIds": [],
                 "materialIds": []
               }
             },
@@ -539,8 +539,8 @@
               "materials",
               "community"
             ],
-            "contentScope": {
-              "guideIds": [],
+            "coverage": {
+              "productIds": [],
               "materialIds": []
             }
           },
@@ -704,8 +704,8 @@
               "materials",
               "community"
             ],
-            "contentScope": {
-              "guideIds": [],
+            "coverage": {
+              "productIds": [],
               "materialIds": []
             }
           },
@@ -742,8 +742,8 @@
               "materials",
               "community"
             ],
-            "contentScope": {
-              "guideIds": [],
+            "coverage": {
+              "productIds": [],
               "materialIds": []
             }
           },
@@ -839,10 +839,10 @@
               "community",
               "materials"
             ],
-            "contentScope": {
-              "guideIds": [],
+            "coverage": {
+              "productIds": [],
               "materialIds": [],
-              "allGuides": true
+              "wholePlatform": true
             }
           },
           "origin": "invitation",
@@ -894,10 +894,10 @@
               "community",
               "materials"
             ],
-            "contentScope": {
-              "guideIds": [],
+            "coverage": {
+              "productIds": [],
               "materialIds": [],
-              "allGuides": true
+              "wholePlatform": true
             }
           },
           "origin": "invitation",

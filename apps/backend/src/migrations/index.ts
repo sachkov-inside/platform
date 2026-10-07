@@ -1,4 +1,8 @@
 import {
+  name as domainNamesName,
+  statement as domainNamesStatement,
+} from "./0082-domain-names.js";
+import {
   name as removeWorkshopName,
   statement as removeWorkshopStatement,
 } from "./0081-remove-workshop.js";
@@ -11,25 +15,25 @@ import {
   statement as salesFunnelStatement,
 } from "../modules/sales-funnel/infrastructure/postgres/migrations/0074-sales-funnel.js";
 import {
-  name as guideCohortsName,
-  statement as guideCohortsStatement,
+  name as productCohortsName,
+  statement as productCohortsStatement,
 } from "../modules/billing/infrastructure/postgres/migrations/0076-guide-cohorts.js";
 import {
   name as accessEndingNoticesName,
   statement as accessEndingNoticesStatement,
 } from "../modules/billing/infrastructure/postgres/migrations/0077-access-ending-notices.js";
 import {
-  name as guideTasksName,
-  statement as guideTasksStatement,
-} from "../modules/guide-tasks/infrastructure/postgres/migrations/0079-guide-tasks.js";
+  name as productTasksName,
+  statement as productTasksStatement,
+} from "../modules/product-tasks/infrastructure/postgres/migrations/0079-guide-tasks.js";
 import {
-  name as guideTaskPlacementAndFormName,
-  statement as guideTaskPlacementAndFormStatement,
-} from "../modules/guide-tasks/infrastructure/postgres/migrations/0080-guide-task-placement-and-form.js";
+  name as productTaskPlacementAndFormName,
+  statement as productTaskPlacementAndFormStatement,
+} from "../modules/product-tasks/infrastructure/postgres/migrations/0080-guide-task-placement-and-form.js";
 import {
   name as invitationsName,
   statement as invitationsStatement,
-} from "../modules/membership-entitlements/infrastructure/postgres/migrations/0078-invitations.js";
+} from "../modules/account-rights/infrastructure/postgres/migrations/0078-invitations.js";
 import {
   name as practiceDefinitionsName,
   statement as practiceDefinitionsStatement,
@@ -41,10 +45,10 @@ import {
 import {
   name as starterTierAccessName,
   statement as starterTierAccessStatement,
-} from "../modules/membership-entitlements/infrastructure/postgres/migrations/0068-starter-tier-access.js";
+} from "../modules/account-rights/infrastructure/postgres/migrations/0068-starter-tier-access.js";
 import {
-  name as guideMaterialRemovalsName,
-  statement as guideMaterialRemovalsStatement,
+  name as productMaterialRemovalsName,
+  statement as productMaterialRemovalsStatement,
 } from "../modules/materials/infrastructure/postgres/migrations/0069-guide-material-removals.js";
 import {
   name as videoDetachmentName,
@@ -63,20 +67,20 @@ import {
   statement as offerEligibilityStatement,
 } from "../modules/billing/infrastructure/postgres/migrations/0071-offer-eligibility.js";
 import {
-  name as guidePageName,
-  statement as guidePageStatement,
+  name as productPageName,
+  statement as productPageStatement,
 } from "../modules/materials/infrastructure/postgres/migrations/0070-guide-page.js";
 import {
   name as tributeName,
   statement as tributeStatement,
-} from "../modules/membership-entitlements/infrastructure/postgres/migrations/0064-tribute-sources.js";
+} from "../modules/account-rights/infrastructure/postgres/migrations/0064-tribute-sources.js";
 import {
   name as enrollmentName,
   statement as enrollmentStatement,
-} from "../modules/membership-entitlements/infrastructure/postgres/migrations/0063-subscription-enrollments.js";
+} from "../modules/account-rights/infrastructure/postgres/migrations/0063-subscription-enrollments.js";
 import {
-  name as readerGuideModeName,
-  statement as readerGuideModeStatement,
+  name as readerProductModeName,
+  statement as readerProductModeStatement,
 } from "../modules/reading-activity/infrastructure/postgres/migrations/0062-reader-guide-mode.js";
 import {
   name as lessonDifficultyAndOutcomesName,
@@ -91,8 +95,8 @@ import {
   statement as oneTimePurchaseStatement,
 } from "../modules/billing/infrastructure/postgres/migrations/0059-one-time-purchase.js";
 import {
-  name as guideIntroductionName,
-  statement as guideIntroductionStatement,
+  name as productIntroductionName,
+  statement as productIntroductionStatement,
 } from "../modules/materials/infrastructure/postgres/migrations/0057-guide-introduction.js";
 import {
   name as offerForSaleName,
@@ -111,17 +115,17 @@ import {
   statement as bookmarksStatement,
 } from "../modules/bookmarks/infrastructure/postgres/migrations/0052-bookmarks.js";
 import {
-  name as guideChaptersName,
-  statement as guideChaptersStatement,
+  name as productChaptersName,
+  statement as productChaptersStatement,
 } from "../modules/materials/infrastructure/postgres/migrations/0051-guide-chapters.js";
 import {
-  name as guideArtifactsName,
-  statement as guideArtifactsStatement,
+  name as productArtifactsName,
+  statement as productArtifactsStatement,
 } from "../modules/materials/infrastructure/postgres/migrations/0050-guide-artifacts.js";
 import {
   name as scopedAccessName,
   statement as scopedAccessStatement,
-} from "../modules/membership-entitlements/infrastructure/postgres/migrations/0046-scoped-access.js";
+} from "../modules/account-rights/infrastructure/postgres/migrations/0046-scoped-access.js";
 import {
   name as subscriptionPaymentsName,
   statement as subscriptionPaymentsStatement,
@@ -165,7 +169,7 @@ import {
 import {
   name as accountAccessName,
   statement as accountAccessStatement,
-} from "../modules/membership-entitlements/infrastructure/postgres/migrations/0038-account-access.js";
+} from "../modules/account-rights/infrastructure/postgres/migrations/0038-account-access.js";
 import {
   name as billingContactName,
   statement as billingContactStatement,
@@ -247,9 +251,9 @@ import {
   statement as materialRelatedPinsMigrationStatement,
 } from "../modules/materials/infrastructure/postgres/migrations/0010-material-related-pins.js";
 import {
-  name as membershipEntitlementsMigrationName,
-  statement as membershipEntitlementsMigrationStatement,
-} from "../modules/membership-entitlements/infrastructure/postgres/migrations/0006_membership-entitlements.js";
+  name as accountRightsMigrationName,
+  statement as accountRightsMigrationStatement,
+} from "../modules/account-rights/infrastructure/postgres/migrations/0006_membership-entitlements.js";
 import {
   name as memberProfilesMigrationName,
   statement as memberProfilesMigrationStatement,
@@ -311,8 +315,8 @@ import {
   statement as workshopFoundationMigrationStatement,
 } from "./history/0023-workshop-foundation.js";
 import {
-  name as workshopMembershipEntitlementProjectionMigrationName,
-  statement as workshopMembershipEntitlementProjectionMigrationStatement,
+  name as workshopAccountRightsProjectionMigrationName,
+  statement as workshopAccountRightsProjectionMigrationStatement,
 } from "./history/0024-membership-entitlement-projection.js";
 import {
   name as contentCoversMigrationName,
@@ -354,8 +358,8 @@ export const platformMigrations = [
     statement: mutableMaterialsMigrationStatement,
   },
   {
-    name: membershipEntitlementsMigrationName,
-    statement: membershipEntitlementsMigrationStatement,
+    name: accountRightsMigrationName,
+    statement: accountRightsMigrationStatement,
   },
   {
     name: removeMaterialAccessAuditMigrationName,
@@ -423,8 +427,8 @@ export const platformMigrations = [
     statement: workshopFoundationMigrationStatement,
   },
   {
-    name: workshopMembershipEntitlementProjectionMigrationName,
-    statement: workshopMembershipEntitlementProjectionMigrationStatement,
+    name: workshopAccountRightsProjectionMigrationName,
+    statement: workshopAccountRightsProjectionMigrationStatement,
   },
   {
     name: contentCoversMigrationName,
@@ -485,8 +489,8 @@ export const platformMigrations = [
     name: subscriptionLifecycleName,
     statement: subscriptionLifecycleStatement,
   },
-  { name: guideArtifactsName, statement: guideArtifactsStatement },
-  { name: guideChaptersName, statement: guideChaptersStatement },
+  { name: productArtifactsName, statement: productArtifactsStatement },
+  { name: productChaptersName, statement: productChaptersStatement },
   { name: bookmarksName, statement: bookmarksStatement },
   {
     name: communityEntitlementsName,
@@ -498,7 +502,7 @@ export const platformMigrations = [
   },
   { name: billingOperationsName, statement: billingOperationsStatement },
   { name: billingNoticesName, statement: billingNoticesStatement },
-  { name: guideIntroductionName, statement: guideIntroductionStatement },
+  { name: productIntroductionName, statement: productIntroductionStatement },
   { name: offerForSaleName, statement: offerForSaleStatement },
   { name: oneTimePurchaseName, statement: oneTimePurchaseStatement },
   {
@@ -509,35 +513,36 @@ export const platformMigrations = [
     name: lessonDifficultyAndOutcomesName,
     statement: lessonDifficultyAndOutcomesStatement,
   },
-  { name: readerGuideModeName, statement: readerGuideModeStatement },
+  { name: readerProductModeName, statement: readerProductModeStatement },
   { name: enrollmentName, statement: enrollmentStatement },
   { name: tributeName, statement: tributeStatement },
   { name: legalAcceptancesName, statement: legalAcceptancesStatement },
   { name: videoDetachmentName, statement: videoDetachmentStatement },
   {
-    name: guideMaterialRemovalsName,
-    statement: guideMaterialRemovalsStatement,
+    name: productMaterialRemovalsName,
+    statement: productMaterialRemovalsStatement,
   },
   { name: refundBasisName, statement: refundBasisStatement },
   { name: starterTierAccessName, statement: starterTierAccessStatement },
   { name: authoringSourceName, statement: authoringSourceStatement },
-  { name: guidePageName, statement: guidePageStatement },
+  { name: productPageName, statement: productPageStatement },
   { name: offerEligibilityName, statement: offerEligibilityStatement },
   { name: practiceDefinitionsName, statement: practiceDefinitionsStatement },
   { name: surveyRespondentsName, statement: surveyRespondentsStatement },
   { name: salesFunnelName, statement: salesFunnelStatement },
-  { name: guideCohortsName, statement: guideCohortsStatement },
+  { name: productCohortsName, statement: productCohortsStatement },
   {
     name: accessEndingNoticesName,
     statement: accessEndingNoticesStatement,
   },
   { name: invitationsName, statement: invitationsStatement },
-  { name: guideTasksName, statement: guideTasksStatement },
+  { name: productTasksName, statement: productTasksStatement },
   {
-    name: guideTaskPlacementAndFormName,
-    statement: guideTaskPlacementAndFormStatement,
+    name: productTaskPlacementAndFormName,
+    statement: productTaskPlacementAndFormStatement,
   },
   { name: removeWorkshopName, statement: removeWorkshopStatement },
+  { name: domainNamesName, statement: domainNamesStatement },
 ] as const;
 
 export function migrateToLatest(

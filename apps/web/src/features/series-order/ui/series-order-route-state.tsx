@@ -9,7 +9,7 @@ type RouteState =
   | { readonly kind: "error"; readonly reference: string };
 
 export function SeriesOrderRouteState({
-  retryHref = "/authoring/guides",
+  retryHref = "/authoring/products",
   state,
 }: {
   readonly retryHref?: string;

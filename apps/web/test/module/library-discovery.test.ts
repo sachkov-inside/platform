@@ -13,7 +13,7 @@ const publishedProjection = {
   slug: "inside-platform-overview",
   title: "Как устроен Inside Platform",
   summary: "Один реальный published Material.",
-  access: "membership",
+  access: "closed",
   availability: "locked",
   difficulty: null,
   outcomes: [],
@@ -54,7 +54,7 @@ describe("Library discovery server adapter", () => {
     vi.unstubAllGlobals();
   });
 
-  it("keeps the published chapter programme of a Guide", async () => {
+  it("keeps the published chapter programme of a Product", async () => {
     vi.stubEnv("BACKEND_BASE_URL", "https://platform-api.example.test");
     const chapter = {
       id: "72000000-0000-4000-8000-000000000030",
@@ -109,7 +109,7 @@ describe("Library discovery server adapter", () => {
 
   it.each([
     ["topic", getPublishedTopic, "/library/topics/platform"],
-    ["series", getPublishedSeries, "/library/guides/platform"],
+    ["series", getPublishedSeries, "/library/products/platform"],
   ] as const)(
     "maps a valid %s response to canonical navigation metadata",
     async (kind, getDiscovery, expectedPath) => {
@@ -140,7 +140,7 @@ describe("Library discovery server adapter", () => {
         hasNext: false,
         items: [
           {
-            access: "membership",
+            access: "closed",
             availability: "locked",
             difficulty: null,
             outcomes: [],
@@ -297,7 +297,7 @@ describe("Library discovery server adapter", () => {
     });
   });
 
-  it("carries the Guide introduction through to the page model", async () => {
+  it("carries the Product introduction through to the page model", async () => {
     const introduction = {
       audience: "Разработчики, которые впервые выпускают своё приложение.",
       outcome: "Настроить путь от проверок до подтверждённого обновления.",

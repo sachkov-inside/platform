@@ -15,10 +15,12 @@ export async function findReferenceIssues(
     where: { id: materialId },
     select: { topicId: true },
   });
-  const currentSeriesMemberships = await transaction.guideMembership.findMany({
-    where: { materialId },
-    select: { seriesId: true },
-  });
+  const currentSeriesMemberships = await transaction.productMembership.findMany(
+    {
+      where: { materialId },
+      select: { seriesId: true },
+    },
+  );
   const currentSeriesIds = new Set(
     currentSeriesMemberships.map(({ seriesId }) => seriesId),
   );
@@ -39,7 +41,7 @@ export async function findReferenceIssues(
   const series =
     metadata.seriesMemberships.length === 0
       ? []
-      : await transaction.guide.findMany({
+      : await transaction.product.findMany({
           where: {
             id: {
               in: metadata.seriesMemberships.map(({ seriesId }) => seriesId),
@@ -107,7 +109,7 @@ export async function findSeriesOrdinalConflict(
     `,
   );
 
-  const occupied = await transaction.guideMembership.findMany({
+  const occupied = await transaction.productMembership.findMany({
     where: {
       seriesId: { in: seriesIds },
       ordinal: {

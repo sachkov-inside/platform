@@ -315,9 +315,9 @@ const publishedPresentation = {
 } as const;
 
 const removalRequired = {
-  guides: [
+  products: [
     {
-      guideId: materialAuthoringPresentation.draft.seriesIds[0],
+      productId: materialAuthoringPresentation.draft.seriesIds[0],
       holders: 12,
       name: "Создание Platform Inside",
     },
@@ -339,7 +339,7 @@ export const Published: Story = {
 };
 
 /** Снятие с публикации уберёт материал из купленного продукта: сервер просит подтверждения. */
-export const GuideRemovalConfirmation: Story = {
+export const ProductRemovalConfirmation: Story = {
   name: "Подтверждение снятия из купленного продукта",
   args: { initialPresentation: publishedPresentation },
   beforeEach: materialBeforeRender({
@@ -364,13 +364,13 @@ export const GuideRemovalConfirmation: Story = {
     await expect(
       (await canvas.findAllByText("Снят с публикации")).length,
     ).toBeGreaterThan(0);
-    await expect(savedField("confirmedGuideRemovals")).toBe(
-      removalRequired.guides[0].guideId,
+    await expect(savedField("confirmedProductRemovals")).toBe(
+      removalRequired.products[0].productId,
     );
   },
 };
 
-export const GuideRemovalCancelled: Story = {
+export const ProductRemovalCancelled: Story = {
   name: "Снятие из купленного продукта отменено",
   args: { initialPresentation: publishedPresentation },
   beforeEach: materialBeforeRender({ PUT: removalRequired }),

@@ -152,7 +152,7 @@ export function MaterialReaderNotFound({
  * рассказывают одну историю. Разложенные по трём условиям, они разъезжаются при первой правке.
  */
 const accessCopy = {
-  guide: {
+  product: {
     title: "Продолжение входит в продукт",
     explanation: "Купите продукт — и весь его маршрут откроется целиком.",
   },
@@ -168,7 +168,7 @@ const accessCopy = {
 
 /** Действие есть только там, где есть что купить. */
 const accessAction = {
-  guide: "Купить продукт",
+  product: "Купить продукт",
   subscription: "Получить доступ",
 } as const;
 

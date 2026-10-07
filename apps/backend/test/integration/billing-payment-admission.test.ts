@@ -11,7 +11,7 @@ import {
 } from "../../src/modules/billing/index.js";
 import type { SaleCapability } from "../../src/modules/billing/domain/sale-capability.js";
 import { Tbank } from "../../src/modules/billing/infrastructure/tbank/tbank.js";
-import { assembleAccessGrants } from "../../src/modules/membership-entitlements/index.js";
+import { assembleAccessGrants } from "../../src/modules/account-rights/index.js";
 import { syntheticTbankConfig } from "../support/bank-terminal.js";
 import { seedPurchaseInvitation } from "./setup/purchase-invitation.js";
 import {
@@ -64,7 +64,7 @@ beforeAll(async () => {
       value: {
         id: offerId,
         name: "Course",
-        benefits: [`guide:${randomUUID()}`, "support"],
+        benefits: [`product:${randomUUID()}`, "support"],
         benefitPeriods: [{ capability: "support", months: 6 }],
       },
     }),
@@ -201,7 +201,7 @@ test.each([
         value: {
           id: offerId,
           name: "Product variant",
-          benefits: [`guide:${randomUUID()}`, "support"],
+          benefits: [`product:${randomUUID()}`, "support"],
           benefitPeriods: [{ capability: "support", months: 6 }],
         },
       }),
@@ -318,23 +318,23 @@ test.each([
   },
 );
 test("product sale uses coverage and payment mode, including an invited subscription to a product", async () => {
-  const guideId = randomUUID();
+  const productId = randomUUID();
   const pricing = pricingWith({ payments: true, subscriptions: true });
   const ids: string[] = [];
   for (const variant of [
     {
-      benefits: [`guide:${guideId}`, "support"],
+      benefits: [`product:${productId}`, "support"],
       benefitPeriods: [{ capability: "support", months: 6 }],
       mode: "subscription",
     },
     {
       benefits: ["materials"],
-      contentScope: { guideIds: [guideId], materialIds: [] },
+      coverage: { productIds: [productId], materialIds: [] },
       mode: "one_time",
     },
     {
       benefits: ["materials"],
-      contentScope: { guideIds: [], materialIds: [], allGuides: true },
+      coverage: { productIds: [], materialIds: [], wholePlatform: true },
       mode: "subscription",
     },
   ]) {
@@ -367,13 +367,13 @@ test("product sale uses coverage and payment mode, including an invited subscrip
     ids.push(id);
   }
   const visible = value(
-    await pricing.offers({ capability: `guide:${guideId}` }, owner),
+    await pricing.offers({ capability: `product:${productId}` }, owner),
   ).items;
   expect(visible.map((item) => item.paymentOption.id).sort()).toEqual(
     [...ids].sort(),
   );
   const guest = value(
-    await pricing.offers({ capability: `guide:${guideId}` }),
+    await pricing.offers({ capability: `product:${productId}` }),
   ).items;
   expect(guest.map((item) => item.paymentOption.id)).toEqual([ids[1]]);
   expect(await pricing.hasOffersForSale()).toBe(false);

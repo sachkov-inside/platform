@@ -12,11 +12,11 @@ import {
 import type {
   ContentCollection,
   ContentCollectionMutationResult,
-  GuideIntroductionDraft,
+  ProductIntroductionDraft,
   UpdateContentCollectionInput,
 } from "./content-collections";
 
-const EMPTY_INTRODUCTION: GuideIntroductionDraft = {
+const EMPTY_INTRODUCTION: ProductIntroductionDraft = {
   audience: "",
   outcome: "",
   prerequisites: "",
@@ -79,7 +79,10 @@ export function useCollectionDraft(
     summary,
     setSummary,
     introduction,
-    editIntroduction: (field: keyof GuideIntroductionDraft, value: string) => {
+    editIntroduction: (
+      field: keyof ProductIntroductionDraft,
+      value: string,
+    ) => {
       setIntroduction((current) => ({ ...current, [field]: value }));
     },
     cover,

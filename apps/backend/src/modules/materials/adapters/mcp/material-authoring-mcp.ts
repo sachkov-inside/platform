@@ -1,11 +1,11 @@
 import { McpServer, type CallToolResult } from "@modelcontextprotocol/server";
 import { z } from "zod";
 import {
-  guideChapterAssignmentsSchema,
-  guideChapterDraftsSchema,
-} from "../../shared/guide-chapters.js";
+  productChapterAssignmentsSchema,
+  productChapterDraftsSchema,
+} from "../../shared/product-chapters.js";
 import { seriesStepGroupsSchema } from "../../shared/series-step-groups.js";
-import { GUIDE_INTRODUCTION_FIELD_MAX } from "../../facets/material-authoring/content-collection.contract.js";
+import { PRODUCT_INTRODUCTION_FIELD_MAX } from "../../facets/material-authoring/content-collection.contract.js";
 
 import type { MaterialAuthoring } from "../../facets/material-authoring/material-authoring.js";
 import {
@@ -27,9 +27,9 @@ const applicationResult = z.discriminatedUnion("ok", [
     .strict(),
 ]);
 
-const collectionKindSchema = z.enum(["guide", "series", "topic"]);
-const introductionField = z.string().max(GUIDE_INTRODUCTION_FIELD_MAX);
-const guideIntroductionSchema = z
+const collectionKindSchema = z.enum(["product", "series", "topic"]);
+const introductionField = z.string().max(PRODUCT_INTRODUCTION_FIELD_MAX);
+const productIntroductionSchema = z
   .object({
     audience: introductionField,
     outcome: introductionField,
@@ -56,9 +56,9 @@ export function assembleMaterialAuthoringMcpServer(dependencies: {
     { name: "inside-platform-material-authoring", version: "1.0.0" },
     {
       instructions:
-        "Guide is the standalone product, distinct from the Material format guide. Legacy series fields and playlist tools are compatibility aliases. Manage Topics, Guides, Guide composition, and the complete current Material through the same Platform application rules. " +
+        "Product is the standalone product, distinct from the Material format product. Legacy series fields and playlist tools are compatibility aliases. Manage Topics, Products, Product composition, and the complete current Material through the same Platform application rules. " +
         "Save may publish, unpublish, replace live content, or change access immediately. " +
-        "Always reload after stale content, collection, or Guide order errors; successful Saves have no server-side Undo or history.",
+        "Always reload after stale content, collection, or Product order errors; successful Saves have no server-side Undo or history.",
     },
   );
 
@@ -119,7 +119,7 @@ export function assembleMaterialAuthoringMcpServer(dependencies: {
     {
       title: "Save complete Material state",
       description:
-        "Pass primaryVideoId from material_load to preserve the video, or explicitly null to detach without deleting its source. Atomically replace content, metadata, relations, access, and publication state. This may change live content immediately and has no server-side Undo or history. Removing a published Material from a Guide whose buyers hold access fails with guide_removal_confirmation_required until the same save lists those guides in confirmedGuideRemovals after the owner confirms; the removal is journaled.",
+        "Pass primaryVideoId from material_load to preserve the video, or explicitly null to detach without deleting its source. Atomically replace content, metadata, relations, access, and publication state. This may change live content immediately and has no server-side Undo or history. Removing a published Material from a Product whose buyers hold access fails with product_removal_confirmation_required until the same save lists those products in confirmedProductRemovals after the owner confirms; the removal is journaled.",
       inputSchema: z
         .object({
           idempotencyKey: idempotencyKeyWireSchema,
@@ -129,7 +129,7 @@ export function assembleMaterialAuthoringMcpServer(dependencies: {
           publicationState: publicationStateWireSchema,
           metadata: materialMetadataSelectionWireSchema,
           body: materialBodySnapshotWireSchema,
-          confirmedGuideRemovals: z.array(z.uuid()).max(100).optional(),
+          confirmedProductRemovals: z.array(z.uuid()).max(100).optional(),
         })
         .strict(),
       annotations: {
@@ -146,7 +146,7 @@ export function assembleMaterialAuthoringMcpServer(dependencies: {
       publicationState: targetState,
       metadata,
       body,
-      confirmedGuideRemovals,
+      confirmedProductRemovals,
     }) =>
       toToolResult(
         dependencies.authoring.saveMaterial({
@@ -158,7 +158,7 @@ export function assembleMaterialAuthoringMcpServer(dependencies: {
           publicationState: targetState,
           metadata,
           body,
-          confirmedGuideRemovals: confirmedGuideRemovals ?? [],
+          confirmedProductRemovals: confirmedProductRemovals ?? [],
         }),
       ),
   );
@@ -188,9 +188,9 @@ export function assembleMaterialAuthoringMcpServer(dependencies: {
   server.registerTool(
     "content_collection_list",
     {
-      title: "List Topics or Guides",
+      title: "List Topics or Products",
       description:
-        "List all active and archived Topics or Guides with optimistic versions and Material counts.",
+        "List all active and archived Topics or Products with optimistic versions and Material counts.",
       inputSchema: z.object({ kind: collectionKindSchema }).strict(),
       annotations: {
         readOnlyHint: true,
@@ -210,9 +210,9 @@ export function assembleMaterialAuthoringMcpServer(dependencies: {
   server.registerTool(
     "content_collection_create",
     {
-      title: "Create Topic or Guide",
+      title: "Create Topic or Product",
       description:
-        "Create a Topic or Guide. Its slug becomes the immutable canonical URL key.",
+        "Create a Topic or Product. Its slug becomes the immutable canonical URL key.",
       inputSchema: z
         .object({
           kind: collectionKindSchema,
@@ -242,15 +242,15 @@ export function assembleMaterialAuthoringMcpServer(dependencies: {
   server.registerTool(
     "content_collection_update",
     {
-      title: "Update Topic or Guide",
+      title: "Update Topic or Product",
       description:
         "Update the mutable name and summary using the latest optimistic version. The canonical slug cannot change. " +
-        "A Guide also carries the reader introduction: omit it to keep the stored text, send all four fields to replace it. A Topic has none.",
+        "A Product also carries the reader introduction: omit it to keep the stored text, send all four fields to replace it. A Topic has none.",
       inputSchema: z
         .object({
           collectionId: collectionIdSchema,
           expectedVersion: collectionVersionSchema,
-          introduction: guideIntroductionSchema.optional(),
+          introduction: productIntroductionSchema.optional(),
           kind: collectionKindSchema,
           name: z.string(),
           summary: z.string(),
@@ -279,7 +279,7 @@ export function assembleMaterialAuthoringMcpServer(dependencies: {
   server.registerTool(
     "content_collection_set_archive",
     {
-      title: "Archive or restore Topic or Guide",
+      title: "Archive or restore Topic or Product",
       description:
         "Archive hides a collection from new assignments and public discovery while preserving existing links and canonical readers.",
       inputSchema: z
@@ -311,9 +311,9 @@ export function assembleMaterialAuthoringMcpServer(dependencies: {
   server.registerTool(
     "playlist_load_composition",
     {
-      title: "Load Guide composition",
+      title: "Load Product composition",
       description:
-        "Load the complete ordered Guide and the searchable pool of Materials with its optimistic order version.",
+        "Load the complete ordered Product and the searchable pool of Materials with its optimistic order version.",
       inputSchema: z.object({ seriesId: collectionIdSchema }).strict(),
       annotations: {
         readOnlyHint: true,
@@ -333,13 +333,13 @@ export function assembleMaterialAuthoringMcpServer(dependencies: {
   server.registerTool(
     "playlist_save_composition",
     {
-      title: "Save complete Guide composition",
+      title: "Save complete Product composition",
       description:
-        "Atomically add, remove, and reorder the complete Guide composition using the latest order version. Chapters are the optional named groups of the main path: send the complete ordered list with stable identifiers and place every Material through chapterAssignments. Each chapter must stay one continuous run.",
+        "Atomically add, remove, and reorder the complete Product composition using the latest order version. Chapters are the optional named groups of the main path: send the complete ordered list with stable identifiers and place every Material through chapterAssignments. Each chapter must stay one continuous run.",
       inputSchema: z
         .object({
-          chapters: guideChapterDraftsSchema.optional(),
-          chapterAssignments: guideChapterAssignmentsSchema.optional(),
+          chapters: productChapterDraftsSchema.optional(),
+          chapterAssignments: productChapterAssignmentsSchema.optional(),
           expectedOrderVersion: seriesOrderVersionSchema,
           orderedMaterialIds: z.array(materialIdWireSchema),
           stepGroups: seriesStepGroupsSchema.optional(),
@@ -374,42 +374,42 @@ export function assembleMaterialAuthoringMcpServer(dependencies: {
   );
 
   server.registerTool(
-    "guide_load_composition",
+    "product_load_composition",
     {
-      title: "Load Guide composition",
+      title: "Load Product composition",
       description:
-        "Load the complete ordered Guide and the searchable pool of Materials with its optimistic order version.",
-      inputSchema: z.object({ guideId: collectionIdSchema }).strict(),
+        "Load the complete ordered Product and the searchable pool of Materials with its optimistic order version.",
+      inputSchema: z.object({ productId: collectionIdSchema }).strict(),
       annotations: {
         readOnlyHint: true,
         idempotentHint: true,
         openWorldHint: false,
       },
     },
-    ({ guideId }) =>
+    ({ productId }) =>
       toToolResult(
         dependencies.authoring.loadSeriesOrder({
           actor: dependencies.accountId,
-          seriesId: guideId,
+          seriesId: productId,
         }),
       ),
   );
 
   server.registerTool(
-    "guide_save_composition",
+    "product_save_composition",
     {
-      title: "Save complete Guide composition",
+      title: "Save complete Product composition",
       description:
-        "Atomically add, remove, and reorder the complete Guide composition using the latest order version. Chapters are the optional named groups of the main path: send the complete ordered list with stable identifiers and place every Material through chapterAssignments. Each chapter must stay one continuous run. Removing a published Material from a Guide whose buyers hold access fails with guide_removal_confirmation_required until confirmedGuideRemovals lists this guideId after the owner confirms; the removal is journaled.",
+        "Atomically add, remove, and reorder the complete Product composition using the latest order version. Chapters are the optional named groups of the main path: send the complete ordered list with stable identifiers and place every Material through chapterAssignments. Each chapter must stay one continuous run. Removing a published Material from a Product whose buyers hold access fails with product_removal_confirmation_required until confirmedProductRemovals lists this productId after the owner confirms; the removal is journaled.",
       inputSchema: z
         .object({
-          chapters: guideChapterDraftsSchema.optional(),
-          chapterAssignments: guideChapterAssignmentsSchema.optional(),
+          chapters: productChapterDraftsSchema.optional(),
+          chapterAssignments: productChapterAssignmentsSchema.optional(),
           expectedOrderVersion: seriesOrderVersionSchema,
           orderedMaterialIds: z.array(materialIdWireSchema),
           stepGroups: seriesStepGroupsSchema.optional(),
-          guideId: collectionIdSchema,
-          confirmedGuideRemovals: z.array(z.uuid()).max(100).optional(),
+          productId: collectionIdSchema,
+          confirmedProductRemovals: z.array(z.uuid()).max(100).optional(),
         })
         .strict(),
       annotations: {
@@ -423,9 +423,9 @@ export function assembleMaterialAuthoringMcpServer(dependencies: {
       chapters,
       expectedOrderVersion,
       orderedMaterialIds,
-      guideId,
+      productId,
       stepGroups,
-      confirmedGuideRemovals,
+      confirmedProductRemovals,
     }) =>
       toToolResult(
         dependencies.authoring.reorderSeries({
@@ -434,9 +434,9 @@ export function assembleMaterialAuthoringMcpServer(dependencies: {
           chapters,
           expectedOrderVersion,
           orderedMaterialIds,
-          seriesId: guideId,
+          seriesId: productId,
           stepGroups,
-          confirmedGuideRemovals: confirmedGuideRemovals ?? [],
+          confirmedProductRemovals: confirmedProductRemovals ?? [],
         }),
       ),
   );

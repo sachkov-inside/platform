@@ -35,8 +35,8 @@ type Attempt =
   | { readonly ok: false; readonly status: number };
 
 /**
- * The «Сдачи» section for `/authoring/submissions` (#948). A filter the Guides on offer cannot show
- * — a chapter of another Guide, a task of another chapter, a malformed value — is dropped and read
+ * The «Сдачи» section for `/authoring/submissions` (#948). A filter the Products on offer cannot show
+ * — a chapter of another Product, a task of another chapter, a malformed value — is dropped and read
  * again from the first page, so the selects and the list always agree.
  */
 export async function loadTaskSubmissions(
@@ -85,7 +85,7 @@ export async function loadTaskSubmissions(
   if (attempt.ok) {
     const consistent = consistentSelection(
       selection,
-      attempt.submissions.guides,
+      attempt.submissions.products,
     );
     if (!sameSelection(consistent, shown)) {
       shown = consistent;

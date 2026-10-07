@@ -26,10 +26,10 @@ import type { Route } from "next";
 import type { CSSProperties, ReactNode } from "react";
 
 import type {
-  GuidePage,
-  GuidePageBlock,
-  GuidePageBlockOf,
-} from "@/entities/guide-page";
+  ProductPage,
+  ProductPageBlock,
+  ProductPageBlockOf,
+} from "@/entities/product-page";
 import {
   CourseHero,
   CourseIcon,
@@ -37,7 +37,7 @@ import {
 } from "@/features/ai-engineering-course";
 import type { PublishedSeriesResult } from "@/features/library-discovery";
 import type { MaterialReaderReturnTarget } from "@/shared/routing/material-reader";
-import { guideProgrammeHref } from "@/shared/routing/subscription-route";
+import { productProgrammeHref } from "@/shared/routing/subscription-route";
 import { IntentPrefetchLink } from "@/shared/ui/intent-prefetch-link.client";
 
 import {
@@ -49,7 +49,7 @@ import {
 } from "./agent-logos";
 
 import { countFreeLessons } from "../model/free-lessons";
-import "./ai-first-guide-view.css";
+import "./ai-first-product-view.css";
 import "./ai-engineering-course-view.css";
 
 type ResolvedSeriesResult = Extract<
@@ -72,24 +72,27 @@ export function AiEngineeringCourseView({
   /** Плашка потока и кнопка по этапу продаж; без неё первый экран ведёт в программу. */
   readonly heroCall?: ReactNode;
   readonly result: ResolvedSeriesResult;
-  readonly page: GuidePage;
+  readonly page: ProductPage;
   readonly returnTarget: MaterialReaderReturnTarget;
 }) {
   const { reference } = result;
-  const programme = guideProgrammeHref(reference.slug);
+  const programme = productProgrammeHref(reference.slug);
   const hasFreeLessons =
     countFreeLessons(result.kind === "ready" ? result.items : []) > 0;
   const hero = page.blocks.find(
-    (block): block is GuidePageBlockOf<"hero"> => block.kind === "hero",
+    (block): block is ProductPageBlockOf<"hero"> => block.kind === "hero",
   );
   return (
     <article
-      className="ai-guide-page aie-course"
-      data-guide-presentation="ai-engineering-course"
-      data-guide-product={reference.slug}
+      className="ai-product-page aie-course"
+      data-product-presentation="ai-engineering-course"
+      data-product-landing={reference.slug}
     >
       <nav aria-label="Хлебные крошки">
-        <IntentPrefetchLink className="ai-guide-back" href={returnTarget.href}>
+        <IntentPrefetchLink
+          className="ai-product-back"
+          href={returnTarget.href}
+        >
           <ArrowLeft />
           {returnTarget.label}
         </IntentPrefetchLink>
@@ -116,8 +119,8 @@ export function AiEngineeringCourseView({
         />
       ))}
 
-      <div className="ai-guide-sticky">
-        <IntentPrefetchLink className="ai-guide-button" href={programme}>
+      <div className="ai-product-sticky">
+        <IntentPrefetchLink className="ai-product-button" href={programme}>
           Открыть программу
           <ArrowRight />
         </IntentPrefetchLink>
@@ -131,7 +134,7 @@ function CourseBlock({
   hasFreeLessons,
   programme,
 }: {
-  readonly block: GuidePageBlock;
+  readonly block: ProductPageBlock;
   readonly hasFreeLessons: boolean;
   readonly programme: Route;
 }): ReactNode {
@@ -158,11 +161,14 @@ function CourseBlock({
     // Приглашение к бесплатным урокам имеет смысл, только пока такие уроки есть (ADR 0026).
     case "trial":
       return hasFreeLessons ? (
-        <section className="ai-guide-trial">
+        <section className="ai-product-trial">
           <h2>{block.title}</h2>
           <p>{block.text}</p>
           {block.link === "" ? null : (
-            <IntentPrefetchLink className="ai-guide-text-link" href={programme}>
+            <IntentPrefetchLink
+              className="ai-product-text-link"
+              href={programme}
+            >
               {block.link}
               <ArrowRight />
             </IntentPrefetchLink>
@@ -172,25 +178,25 @@ function CourseBlock({
   }
 }
 
-type CardItem = GuidePageBlockOf<"cards">["items"][number];
+type CardItem = ProductPageBlockOf<"cards">["items"][number];
 
 /**
  * Необязательные поля карточек: оформление курса рисует их у каждого блока, чтобы написанное в
  * описании продукта не пропадало (ADR 0026).
  */
 function Eyebrow({ text }: { readonly text: string }) {
-  return text === "" ? null : <p className="ai-guide-eyebrow">{text}</p>;
+  return text === "" ? null : <p className="ai-product-eyebrow">{text}</p>;
 }
 function ItemDetail({ item }: { readonly item: CardItem }) {
   return item.detail === "" ? null : (
-    <span className="ai-guide-item-detail">
+    <span className="ai-product-item-detail">
       {item.detailLabel === "" ? null : <>{item.detailLabel}: </>}
       {item.detail}
     </span>
   );
 }
 function Note({ text }: { readonly text: string }) {
-  return text === "" ? null : <p className="ai-guide-career">{text}</p>;
+  return text === "" ? null : <p className="ai-product-career">{text}</p>;
 }
 
 const mentoringIcons: readonly CourseIconName[] = [
@@ -199,10 +205,10 @@ const mentoringIcons: readonly CourseIconName[] = [
   "updates",
 ];
 /** Менторинг: вводный текст слева, пункты из описания курса лесенкой справа. */
-function Mentoring({ block }: { readonly block: GuidePageBlockOf<"cards"> }) {
+function Mentoring({ block }: { readonly block: ProductPageBlockOf<"cards"> }) {
   return (
-    <section className="ai-guide-support aie-mentoring">
-      <div className="ai-guide-support-intro">
+    <section className="ai-product-support aie-mentoring">
+      <div className="ai-product-support-intro">
         <Eyebrow text={block.eyebrow} />
         <h2>{block.title}</h2>
         {block.lead === "" ? null : <p>{block.lead}</p>}
@@ -469,13 +475,15 @@ const topicTiles: readonly {
     ),
   },
 ];
-function TopicGrid({ block }: { readonly block: GuidePageBlockOf<"cards"> }) {
+function TopicGrid({ block }: { readonly block: ProductPageBlockOf<"cards"> }) {
   return (
-    <section className="ai-guide-outcomes aie-topics">
+    <section className="ai-product-outcomes aie-topics">
       <Eyebrow text={block.eyebrow} />
       <h2>{block.title}</h2>
       {block.lead === "" ? null : (
-        <p className="ai-guide-section-intro ai-guide-promise">{block.lead}</p>
+        <p className="ai-product-section-intro ai-product-promise">
+          {block.lead}
+        </p>
       )}
       <ul className="aie-bento">
         {block.items.map((item, index) => {
@@ -508,14 +516,14 @@ function TopicGrid({ block }: { readonly block: GuidePageBlockOf<"cards"> }) {
 function ChecklistCards({
   block,
 }: {
-  readonly block: GuidePageBlockOf<"cards">;
+  readonly block: ProductPageBlockOf<"cards">;
 }) {
   return (
-    <section className="ai-guide-audience">
+    <section className="ai-product-audience">
       <Eyebrow text={block.eyebrow} />
       <h2>{block.title}</h2>
       {block.lead === "" ? null : (
-        <p className="ai-guide-section-intro">{block.lead}</p>
+        <p className="ai-product-section-intro">{block.lead}</p>
       )}
       <dl>
         {block.items.map((item, index) => (
@@ -536,9 +544,9 @@ function ChecklistCards({
   );
 }
 
-function SplitText({ block }: { readonly block: GuidePageBlockOf<"text"> }) {
+function SplitText({ block }: { readonly block: ProductPageBlockOf<"text"> }) {
   return (
-    <section className="ai-guide-shift">
+    <section className="ai-product-shift">
       <h2>{block.title}</h2>
       <div>
         {block.paragraphs.map((paragraph, index) => (
@@ -584,7 +592,7 @@ function FormatCards({
   block,
   programme,
 }: {
-  readonly block: GuidePageBlockOf<"steps">;
+  readonly block: ProductPageBlockOf<"steps">;
   readonly programme: Route;
 }) {
   const titleId = `aie-${block.id}-title`;
@@ -594,11 +602,11 @@ function FormatCards({
         <div>
           <h2 id={titleId}>{block.title}</h2>
           {block.lead === "" ? null : (
-            <p className="ai-guide-section-intro">{block.lead}</p>
+            <p className="ai-product-section-intro">{block.lead}</p>
           )}
         </div>
         {block.link === "" ? null : (
-          <IntentPrefetchLink className="ai-guide-text-link" href={programme}>
+          <IntentPrefetchLink className="ai-product-text-link" href={programme}>
             {block.link}
             <ArrowRight />
           </IntentPrefetchLink>
@@ -626,7 +634,7 @@ const practiceTasks = [
   { label: "Агент с поиском по документам проекта", state: "current" },
   { label: "Evals и проверка перед релизом", state: "next" },
 ] as const;
-function Practice({ block }: { readonly block: GuidePageBlockOf<"text"> }) {
+function Practice({ block }: { readonly block: ProductPageBlockOf<"text"> }) {
   return (
     <section className="aie-practice">
       <div>
@@ -662,7 +670,7 @@ const agentLogos: Record<string, (props: { className?: string }) => ReactNode> =
     hermes: HermesAgentLogo,
   };
 /** Агенты с логотипами; незнакомое название получает нейтральный знак. */
-function Agents({ block }: { readonly block: GuidePageBlockOf<"list"> }) {
+function Agents({ block }: { readonly block: ProductPageBlockOf<"list"> }) {
   return (
     <section className="aie-agents">
       <div className="aie-agents-copy">
@@ -694,13 +702,13 @@ const audienceIcons: readonly CourseIconName[] = [
   "basics",
 ];
 /** Для кого: три равные карточки со значками, заметка отдельной строкой. */
-function Audience({ block }: { readonly block: GuidePageBlockOf<"cards"> }) {
+function Audience({ block }: { readonly block: ProductPageBlockOf<"cards"> }) {
   return (
     <section className="aie-audience">
       <Eyebrow text={block.eyebrow} />
       <h2>{block.title}</h2>
       {block.lead === "" ? null : (
-        <p className="ai-guide-section-intro">{block.lead}</p>
+        <p className="ai-product-section-intro">{block.lead}</p>
       )}
       <ul>
         {block.items.map((item, index) => {
@@ -734,7 +742,7 @@ function cssVariables(values: Record<`--${string}`, number>): CssVariables {
  * Что даёт курс: польза растёт от первой к последней. На широком экране над текстом растут
  * столбики с номерами, текст стоит на одной линии; на планшете и телефоне это вертикальный путь.
  */
-function ValueGrid({ block }: { readonly block: GuidePageBlockOf<"cards"> }) {
+function ValueGrid({ block }: { readonly block: ProductPageBlockOf<"cards"> }) {
   return (
     <section className="aie-value">
       <div className="aie-value-head">
@@ -769,14 +777,14 @@ function ValueGrid({ block }: { readonly block: GuidePageBlockOf<"cards"> }) {
 }
 
 /** Частые вопросы: вопрос раскрывает ответ; нативный `details` работает с клавиатуры и без скриптов. */
-function Faq({ block }: { readonly block: GuidePageBlockOf<"cards"> }) {
+function Faq({ block }: { readonly block: ProductPageBlockOf<"cards"> }) {
   return (
     <section className="aie-faq">
       <div className="aie-faq-head">
         <Eyebrow text={block.eyebrow} />
         <h2>{block.title}</h2>
         {block.lead === "" ? null : (
-          <p className="ai-guide-section-intro">{block.lead}</p>
+          <p className="ai-product-section-intro">{block.lead}</p>
         )}
       </div>
       <div className="aie-faq-list">
@@ -828,7 +836,7 @@ function Status({
   block,
   programme,
 }: {
-  readonly block: GuidePageBlockOf<"list">;
+  readonly block: ProductPageBlockOf<"list">;
   readonly programme: Route;
 }) {
   return (

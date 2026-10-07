@@ -28,7 +28,7 @@ export function assembleVideos(dependencies: {
   readonly canManage: (accountId: VideoAccountId) => Promise<boolean>;
   readonly prisma: VideosPrismaClient;
   readonly provider: VideoProvider;
-  readonly projects: Readonly<Record<"free" | "membership", string>>;
+  readonly projects: Readonly<Record<"free" | "closed", string>>;
   readonly clock?: () => Date;
 }): Videos {
   const context: VideoContext = {

@@ -174,7 +174,7 @@ export const EmptyBlocks: Story = {
   },
 };
 
-export const GuideRoute: Story = {
+export const ProductRoute: Story = {
   args: {
     preview: {
       ...materialPreview,
@@ -220,7 +220,7 @@ export const GuideRoute: Story = {
   },
 };
 
-export const GuideRouteMobile: Story = {
+export const ProductRouteMobile: Story = {
   args: { route: materialPreviewRoute },
   globals: { viewport: { isRotated: false, value: "mobile390" } },
   name: "Маршрут руководства · мобильный",
@@ -232,11 +232,11 @@ export const GuideRouteMobile: Story = {
   },
 };
 
-export const GuideRouteFirstMaterial: Story = {
+export const ProductRouteFirstMaterial: Story = {
   args: {
     route: {
       ...materialPreviewRoute,
-      otherGuides: [
+      otherProducts: [
         { href: materialPreviewRoute.next.href, name: "AI-first процесс" },
       ],
       position: 1,
@@ -253,7 +253,7 @@ export const GuideRouteFirstMaterial: Story = {
   },
 };
 
-export const GuideRouteUnavailable: Story = {
+export const ProductRouteUnavailable: Story = {
   args: {
     preview: { ...materialPreview, video: { kind: "unavailable" } },
     route: { kind: "unavailable", reference: "series-order-response" },

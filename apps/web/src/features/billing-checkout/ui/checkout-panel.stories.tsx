@@ -15,7 +15,7 @@ import { billingErrorMessage } from "@/entities/subscription";
 import { CheckoutPanel } from "./checkout-panel.client";
 import { publicPageEnvironment } from "@/storybook/story-environment";
 
-const environment = publicPageEnvironment("/subscription");
+const environment = publicPageEnvironment("/payment/checkout");
 
 const meta = {
   ...environment,

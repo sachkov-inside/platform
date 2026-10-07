@@ -195,7 +195,7 @@ so the address must be the same for the browser and for the application inside t
 
 ### Owner order
 
-The catalog is already on sale: the development seed publishes the guide and both subscriptions, so
+The catalog is already on sale: the development seed publishes the product and both subscriptions, so
 no manual setup is needed before buying. See [Seeded offer catalog](#seeded-offer-catalog).
 
 1. Run `pnpm local:stand` and wait for the four addresses.
@@ -206,7 +206,7 @@ no manual setup is needed before buying. See [Seeded offer catalog](#seeded-offe
 4. Sign-in offers to connect Telegram. Close that dialog; the purchase does not need it.
 5. Confirm the receipt address: «Личный кабинет» → «Покупки» → enter the address → «Получить код».
    The second message lands in the same inbox. An unconfirmed contact refuses the purchase.
-6. Buy the guide: open its page, accept the offer, press «Купить». The browser goes to the double's
+6. Buy the product: open its page, accept the offer, press «Купить». The browser goes to the double's
    payment form; choose «Оплата прошла». Back in «Покупки» the granted right is visible and the
    material opens.
 7. Grant yourself the admin surface once. Read the Account identity the sign-in created, then run
@@ -228,7 +228,7 @@ no manual setup is needed before buying. See [Seeded offer catalog](#seeded-offe
    «Состояние», fill «Источник» and «Основание», then press «Записать решение». Without that
    decision the subscription refuses, and the refusal looks like a broken payment although it is
    a sales rule.
-9. Subscribe on the storefront. When the guide is already bought, the larger plan asks to confirm
+9. Subscribe on the storefront. When the product is already bought, the larger plan asks to confirm
    the overlap with a checkbox — that is intended.
 
 ### What to expect
@@ -304,7 +304,7 @@ Owner billing tools `billing_<operation>` are described in
 
 The complete exposed tool set is the generated snapshot `apps/backend/mcp/tool-surface.json`;
 `pnpm mcp:check` fails when the registered tools and that snapshot disagree, and `pnpm mcp:generate`
-rewrites it. Materials authoring exposes the `material_*`, `content_collection_*`, `guide_*` and
+rewrites it. Materials authoring exposes the `material_*`, `content_collection_*`, `product_*` and
 `playlist_*` tools; the Video tools use the same Videos facet as the editor and its current
 `materials:manage` check.
 `material_save` requires an explicit `primaryVideoId`: preserve the value from `material_load`,
@@ -354,7 +354,7 @@ The API health response is:
 `pnpm smoke:health` verifies Nest composition and the documented `tsx watch` API entrypoint.
 `pnpm smoke:fullstack` remains the host-process fallback smoke against Compose PostgreSQL (start it
 with `pnpm infra:up`); it gives its processes the stand's local sale contour, because the seed puts a
-Guide on sale and the API refuses to start a sale without a bank and a receipt mailbox. It
+Product on sale and the API refuses to start a sale without a bank and a receipt mailbox. It
 starts the API and a production-built web process whose CSP admits exactly the loopback storage
 origin the API signs image links for (ADR 0028), verifies the published Reader on desktop and
 mobile through Playwright, exercises the server-only adapter against the live API, and uses a
@@ -556,8 +556,8 @@ docker compose run --rm seed
 The seed refuses non-development mode, uses stable idempotency keys, and creates 22 free published
 Materials plus one Membership Material whose body remains absent from the public catalog. The free
 fixtures cover catalog pagination, Home formats and one explicit Series-reading scenario:
-`demo-series-harness` orders a shared guide before a final guide,
-`demo-series-review` orders the same shared guide before a video and note, and
+`demo-series-harness` orders a shared product before a final product,
+`demo-series-review` orders the same shared product before a video and note, and
 `demo-295-samostoyatelnaya-zametka` belongs to no Series. Their titles and summaries identify them
 as development examples rather than editorial content. Repeating the seed keeps the same Materials
 and brings each one back to its definition in `seed-local-development.ts` without resetting the
@@ -595,7 +595,7 @@ or client reports unsafe `any` errors in files the change never touched. `pnpm c
 before lint.
 
 The Prisma schema maps the product-owned `billing`, `materials`, `assets`, `accounts`, `member_profiles`,
-`membership_entitlements`, `reading_activity`, `notifications` and `telegram_membership` schemas. Checked-in,
+`account_rights`, `reading_activity`, `notifications` and `telegram_membership` schemas. Checked-in,
 append-only SQL migrations remain the database authority. Their explicit positions and checksums
 must form an exact registry prefix, rejecting drift, gaps, reordering, and newer unknown migrations;
 generated client files are not committed or edited. A pre-Prisma local volume must be recreated
@@ -715,7 +715,7 @@ Pass the purchase in this order:
 1. Confirm the receipt address in Account. The code arrives in the interceptor's inbox on
    <http://127.0.0.1:8025>; nothing reaches a real mailbox. An unconfirmed contact refuses the
    purchase, so this step comes first.
-2. Buy a guide or a subscription. The application redirects the browser to the double's payment
+2. Buy a product or a subscription. The application redirects the browser to the double's payment
    form on <http://127.0.0.1:8090>, which is the address the real hosted form would occupy.
 3. Choose the outcome on that form. Each button answers exactly as the bank would:
 
@@ -738,8 +738,8 @@ Pass the purchase in this order:
 6. Cancelling recurring charges asks the bank nothing: the schedule closes locally, the paid period
    stays, and the next renewal is simply never sent.
 
-Pass the guide and both subscription tariffs the same way: the double receives the same request for
-each published offer, and only what the purchase asks the bank for differs — a one-time guide never
+Pass the product and both subscription tariffs the same way: the double receives the same request for
+each published offer, and only what the purchase asks the bank for differs — a one-time product never
 saves a card, the first subscription payment does, and renewals charge the saved one. The tariffs
 themselves differ in price, term or the rights they open, none of which the bank sees. Seeded local offers come from the
 development seed.
@@ -803,7 +803,7 @@ reversed status settles it, and only then are the recorded access and renewal de
 
 The development seed leaves a catalog that can be bought immediately, so a local purchase check
 needs no manual setup: subscription «Материалы», subscription «Материалы + сопровождение», and a
-one-time purchase of the seeded `platform-inside` Guide. Its prices are deliberately not product
+one-time purchase of the seeded `platform-inside` Product. Its prices are deliberately not product
 prices, and they live in one place at the top of
 `apps/backend/src/development/seed-local-offer-catalog.ts`.
 
@@ -980,7 +980,7 @@ Run the stand from a worktree only as [Local product view](#local-product-view) 
 bootstrap there would generate new sign-in keys for the owner's stand accounts.
 
 ```bash
-pnpm authoring:sync-git-local CONTENT_REPOSITORY GUIDE_ID STATE_DIRECTORY [REF] [--target editor|stand] [--publish SOURCE_ID]... [--publish-all] [--archive SOURCE_ID]...
+pnpm authoring:sync-git-local CONTENT_REPOSITORY PRODUCT_ID STATE_DIRECTORY [REF] [--target editor|stand] [--publish SOURCE_ID]... [--publish-all] [--archive SOURCE_ID]...
 ```
 
 `REF` defaults to `HEAD` and is resolved to one commit SHA before export. The command checks out
@@ -998,16 +998,16 @@ What the transfer applies:
   validate inside their product; `supplementary_materials` join the product after the programme
   without a chapter, which is its "Additional Materials" part.
 - Material covers through `PUT /authoring/import/content-covers/material/:id`, and the product
-  cover (`guide.yaml` keys `cover` and `cover_alt`) through
+  cover (`product.yaml` keys `cover` and `cover_alt`) through
   `PUT /authoring/import/content-covers/series/:id`; a cover removed from the original is reported
   as the `cover_removal_pending` notice and taken down in Platform by hand. Material
-  artifacts as authoring-owned Guide artifacts linked to every declaring Material that is published.
+  artifacts as authoring-owned Product artifacts linked to every declaring Material that is published.
 - An existing provider record named by `platform_video.kinescope_id`: attached, reconciled until
   ready and saved with the original's video chapters.
-- The Guide name, first-paragraph teaser, page address (`slug`), page presentation and the typed
-  product page description (`guide.yaml`, key `page`; see
+- The Product name, first-paragraph teaser, page address (`slug`), page presentation and the typed
+  product page description (`product.yaml`, key `page`; see
   [ADR 0026](../adr/0026-guide-page-from-source-data.md)). Platform checks the presentation and the whole
-  page description before the transfer's first write, and its refusal names the product. The editor-owned Guide introduction fields are not
+  page description before the transfer's first write, and its refusal names the product. The editor-owned Product introduction fields are not
   imported; editing the page text is a commit in Inside Content plus a transfer, with no web rebuild.
 
 Publication is an explicit owner decision (#804). By default every original is transferred as a
@@ -1017,15 +1017,15 @@ editorial `stage` or a missing `access` never publishes or protects anything by 
 `--publish SOURCE_ID` (repeatable) or `--publish-all` approves publication for that transfer; a
 repeated transfer without the approval keeps drafts private; an approval is not remembered, so a
 later transfer names a published Material again to update it. A private transfer checks every
-Material's own state on the target before its first topic, Guide or Material write and stops when
+Material's own state on the target before its first topic, Product or Material write and stops when
 one is already published or unpublished: it neither takes a public Material back nor replaces its
 public body (Platform itself never returns a Material to draft). An interrupted transfer that was
-publishing a Material resumes only when the next run carries the same approval. A Guide artifact declared only by private drafts
+publishing a Material resumes only when the next run carries the same approval. A Product artifact declared only by private drafts
 waits for a published owner, a practice of a private lesson is imported unpublished, and a published
 body that links a private draft is reported as `link_to_draft`. A private draft that leaves the
 package is never proposed for archive.
 
-Imported Materials and Guides change only through these source-scoped routes; ordinary editor,
+Imported Materials and Products change only through these source-scoped routes; ordinary editor,
 API and MCP writes are refused. A missing original appears in `archiveProposals`. It is unpublished
 and removed from the product only when the same command repeats with `--archive SOURCE_ID`.
 Proposals cover Materials previously transferred with the selected product; a standalone original
@@ -1042,10 +1042,10 @@ Only the test Kinescope adapter, whose upload endpoint ends in `.invalid`, is ac
 provider transfer is refused without a separate owner approval. The next transfer saves the
 recording with the original's chapters; the returned `providerVideoId` belongs in the original.
 
-A package with `selection.scope: "guide-shell"` releases only a product's page, card, summary and
+A package with `selection.scope: "product-shell"` releases only a product's page, card, summary and
 complete chapter list, without any Material (#803). It keeps the Materials the target already holds
 in their order and chapters, proposes no archive and refuses `--archive`; an empty selection without
-that scope is refused. The [Guide shell contract](../contracts/authoring-guide-shell-v1/README.md)
+that scope is refused. The [Product shell contract](../contracts/authoring-product-shell-v1/README.md)
 describes the package the Content exporter writes.
 
 `pnpm authoring:release preview --package PACKAGE_JSON --target editor|stand --state STATE_DIRECTORY [--publish SOURCE_ID]... [--publish-all]`
@@ -1058,7 +1058,7 @@ checks its real state before any write.
 `pnpm authoring:release apply --preview PREVIEW_JSON --state STATE_DIRECTORY` first completes any
 write the journal left unfinished, with its original idempotency key, then applies exactly that
 preview and stops on drift, an edited preview or an unreviewed archive request. Drift covers
-Material versions, each Guide's version and its programme order, so a page edited on the target
+Material versions, each Product's version and its programme order, so a page edited on the target
 after the review is not overwritten; a preview also lists added and removed chapters. The only
 non-local target is the trusted `production` target, reached with the owner's one-time sign-in; see
 [Content production delivery](content-production-delivery.md). Every other address is refused.

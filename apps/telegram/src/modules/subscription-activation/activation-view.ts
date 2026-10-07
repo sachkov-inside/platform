@@ -1,4 +1,4 @@
-import { isGuideCapability } from "@inside/access-capabilities";
+import { isProductCapability } from "@inside/access-capabilities";
 import { isTruthy } from "../../shared/truthiness.js";
 import type {
   OwnAccess,
@@ -153,6 +153,6 @@ function capability(value: string): string {
         reviews: "ревью",
       } as Record<string, string>
     )[value] ??
-    (isGuideCapability(value) ? "купленный продукт" : "состав в кабинете")
+    (isProductCapability(value) ? "купленный продукт" : "состав в кабинете")
   );
 }

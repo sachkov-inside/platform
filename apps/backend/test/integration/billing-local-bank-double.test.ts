@@ -10,7 +10,7 @@ import {
   BillingContact,
 } from "../../src/modules/accounts/index.js";
 import { billingContactProtection } from "../../src/modules/accounts/infrastructure/billing-contact-protection.js";
-import { assembleAccessGrants } from "../../src/modules/membership-entitlements/index.js";
+import { assembleAccessGrants } from "../../src/modules/account-rights/index.js";
 import {
   BillingNotices,
   BillingOperations,
@@ -172,7 +172,7 @@ describe("локальная продажа через двойника банк
           id: offerId,
           name: "Материалы",
           benefits: ["materials"],
-          contentScope: { guideIds: [randomUUID()], materialIds: [] },
+          coverage: { productIds: [randomUUID()], materialIds: [] },
         },
       }),
     );
@@ -320,20 +320,20 @@ describe("локальная продажа через двойника банк
     }
 
     /** Разовая продажа руководства: тот же путь, но согласие на списания она не принимает. */
-    async function beginGuidePurchase(): Promise<{
+    async function beginProductPurchase(): Promise<{
       purchaseRef: string;
       paymentUrl: string;
       capability: string;
     }> {
-      const guideOffer = randomUUID(),
-        guideOption = randomUUID(),
-        capability = `guide:${randomUUID()}`;
+      const productOffer = randomUUID(),
+        productOption = randomUUID(),
+        capability = `product:${randomUUID()}`;
       value(
         await pricing.manage(owner, {
           operationId: randomUUID(),
           operation: "offers.save",
           value: {
-            id: guideOffer,
+            id: productOffer,
             name: "Руководство «Стенд»",
             benefits: [capability, "support"],
             benefitPeriods: [
@@ -348,8 +348,8 @@ describe("локальная продажа через двойника банк
           operationId: randomUUID(),
           operation: "paymentOptions.save",
           value: {
-            id: guideOption,
-            offerId: guideOffer,
+            id: productOption,
+            offerId: productOffer,
             mode: "one_time",
             months: 1,
             priceKopecks: 290_000,
@@ -361,10 +361,10 @@ describe("локальная продажа через двойника банк
           operationId: randomUUID(),
           operation: "offers.publish",
           expectedRevision: 1,
-          id: guideOffer,
+          id: productOffer,
         }),
       );
-      return { ...(await beginPurchase(guideOption, ["terms"])), capability };
+      return { ...(await beginPurchase(productOption, ["terms"])), capability };
     }
     const capabilities = async () => {
       const resolved = await grants.resolveCapabilities(buyer);
@@ -384,7 +384,7 @@ describe("локальная продажа через двойника банк
       choose,
       control,
       beginPurchase,
-      beginGuidePurchase,
+      beginProductPurchase,
       capabilities,
       purchaseRow,
     };
@@ -433,18 +433,18 @@ describe("локальная продажа через двойника банк
 
   test("руководство продаётся тем же контуром и не просит сохранить карту", async () => {
     const s = await scenario();
-    const guide = await s.beginGuidePurchase();
-    expect(guide.paymentUrl.startsWith(`${formOrigin}/pay/`)).toBe(true);
-    await s.choose(guide.paymentUrl, "confirmed");
+    const product = await s.beginProductPurchase();
+    expect(product.paymentUrl.startsWith(`${formOrigin}/pay/`)).toBe(true);
+    await s.choose(product.paymentUrl, "confirmed");
     value(await s.payments.recover());
 
     // Купленное руководство открывает и сообщество: стенд воспроизводит тот же состав прав.
     expect(await s.capabilities()).toEqual([
       "community",
-      guide.capability,
+      product.capability,
       "support",
     ]);
-    const row = await s.purchaseRow(guide.purchaseRef);
+    const row = await s.purchaseRow(product.purchaseRef);
     expect(row).toMatchObject({
       kind: "one_time",
       state: "confirmed",
@@ -465,7 +465,7 @@ describe("локальная продажа через двойника банк
         outcome: "payments",
         items: [
           {
-            purchaseRef: guide.purchaseRef,
+            purchaseRef: product.purchaseRef,
             kind: "one_time",
             environment: "local",
           },
@@ -476,7 +476,7 @@ describe("локальная продажа через двойника банк
       await s.operations.execute(owner, {
         operation: "payments.read",
         operationId: randomUUID(),
-        purchaseRef: guide.purchaseRef,
+        purchaseRef: product.purchaseRef,
       }),
     ).toMatchObject({
       ok: true,

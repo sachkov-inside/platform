@@ -20,7 +20,7 @@
   не как `production`, перенос останавливается.
 - Материалы переносятся приватными черновиками, пока публикация явно не одобрена
   ([политика публикации](local-development.md#local-obsidian-authoring-preview-468)). Оболочка курса
-  выпускается отдельным пакетом `guide-shell` и уроков не касается.
+  выпускается отдельным пакетом `product-shell` и уроков не касается.
 
 ## Разовая подготовка
 
@@ -59,7 +59,7 @@ Keychain, и следующие переносы входа не требуют.
 
    ```bash
    pnpm authoring:release preview --target production \
-     --content ../inside-content --guide inside-ai-engineering [--ref COMMIT] \
+     --content ../inside-content --product inside-ai-engineering [--ref COMMIT] \
      --state ~/.inside-authoring/production [--publish SOURCE_ID]... [--publish-all]
    ```
 
@@ -77,8 +77,8 @@ Keychain, и следующие переносы входа не требуют.
    Повторите предпросмотр. Конфликт `target_not_draft` значит, что материал уже опубликован:
    одобрите его обновление через `--publish` или уберите из переноса.
 
-Готовый пакет, например оболочку `guide-shell`, можно передать через `--package PACKAGE_JSON` вместо
-`--content` и `--guide`.
+Готовый пакет, например оболочку `product-shell`, можно передать через `--package PACKAGE_JSON` вместо
+`--content` и `--product`.
 
 ## Короткий путь автора
 

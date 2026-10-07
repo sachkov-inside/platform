@@ -334,9 +334,7 @@ export function eligibilitySave(
       ...(offer.availableForAssignment === undefined
         ? {}
         : { availableForAssignment: offer.availableForAssignment }),
-      ...(offer.contentScope === undefined
-        ? {}
-        : { contentScope: offer.contentScope }),
+      ...(offer.coverage === undefined ? {} : { coverage: offer.coverage }),
       ...(offer.benefitPeriods === undefined
         ? {}
         : { benefitPeriods: [...offer.benefitPeriods] }),

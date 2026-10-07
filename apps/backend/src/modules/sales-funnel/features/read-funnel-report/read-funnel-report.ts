@@ -6,10 +6,10 @@ import {
 } from "../../../../infrastructure/prisma/index.js";
 import type { Accounts } from "../../../accounts/index.js";
 import type {
-  BillingGuideSales,
+  BillingProductSales,
   BillingSurveyRespondentSales,
 } from "../../../billing/index.js";
-import type { GuideOutlines } from "../../../materials/index.js";
+import type { ProductOutlines } from "../../../materials/index.js";
 import type { MaterialFirstOpens } from "../../../reading-activity/index.js";
 import type { TelegramAccountLinks } from "../../../telegram-membership/index.js";
 import {
@@ -25,9 +25,9 @@ export type ReadFunnelReportDependencies = {
   readonly prisma: SalesFunnelPrismaClient;
   readonly accounts: Pick<Accounts, "checkPermission">;
   readonly links: Pick<TelegramAccountLinks, "findCurrentAccounts">;
-  readonly outlines: Pick<GuideOutlines, "list">;
+  readonly outlines: Pick<ProductOutlines, "list">;
   readonly firstOpens: Pick<MaterialFirstOpens, "list">;
-  readonly sales: Pick<BillingGuideSales, "list">;
+  readonly sales: Pick<BillingProductSales, "list">;
   readonly surveyRespondents: Pick<BillingSurveyRespondentSales, "read">;
   readonly clock: () => Date;
 };
@@ -67,9 +67,9 @@ const failure = (code: FunnelReportErrorCode): FunnelReportResult => ({
 });
 
 /**
- * The sales funnel of one Guide for the cohort that entered in `[from, to)` (owner decision of
+ * The sales funnel of one Product for the cohort that entered in `[from, to)` (owner decision of
  * 2026-09-30, #816): bot contacts whose first bot entry falls in the period, and Accounts without
- * a known bot entry whose first step for this Guide falls in it. Every later step counts who of
+ * a known bot entry whose first step for this Product falls in it. Every later step counts who of
  * that cohort has reached it by now.
  */
 export async function readFunnelReport(
@@ -98,27 +98,27 @@ export async function readFunnelReport(
 
   const outlines = await dependencies.outlines.list();
   if (!outlines.ok) return failure("dependency_unavailable");
-  const guide =
-    parsed.data.guideId === undefined
+  const product =
+    parsed.data.productId === undefined
       ? undefined
-      : outlines.value.find((item) => item.id === parsed.data.guideId);
-  if (parsed.data.guideId !== undefined && guide === undefined)
-    return failure("guide_not_found");
-  if (guide === undefined && parsed.data.chapterId !== undefined)
+      : outlines.value.find((item) => item.id === parsed.data.productId);
+  if (parsed.data.productId !== undefined && product === undefined)
+    return failure("product_not_found");
+  if (product === undefined && parsed.data.chapterId !== undefined)
     return failure("invalid_request");
   const chapter =
-    guide === undefined
+    product === undefined
       ? undefined
       : parsed.data.chapterId === undefined
-        ? guide.chapters[0]
-        : guide.chapters.find((item) => item.id === parsed.data.chapterId);
+        ? product.chapters[0]
+        : product.chapters.find((item) => item.id === parsed.data.chapterId);
   if (parsed.data.chapterId !== undefined && chapter === undefined)
     return failure("chapter_not_found");
 
   const [journal, surveyRespondents] = await Promise.all([
     readJournal(dependencies.prisma),
     dependencies.surveyRespondents.read({
-      guideId: guide?.id ?? null,
+      productId: product?.id ?? null,
       from,
       to,
     }),
@@ -126,9 +126,9 @@ export async function readFunnelReport(
   if (journal === undefined) return failure("dependency_unavailable");
   if (!surveyRespondents.ok) return failure(surveyRespondents.error.code);
   const measured: Readonly<Record<PlatformStep, boolean>> = {
-    openedChapter: guide !== undefined && chapter !== undefined,
-    checkout: guide !== undefined,
-    paid: guide !== undefined,
+    openedChapter: product !== undefined && chapter !== undefined,
+    checkout: product !== undefined,
+    paid: product !== undefined,
   };
 
   const rows = new Map<SourceKey, FunnelCounts>();
@@ -154,7 +154,7 @@ export async function readFunnelReport(
       counts.consented = (counts.consented ?? 0) + 1;
   }
 
-  if (guide !== undefined) {
+  if (product !== undefined) {
     const attribution = await attributeAccounts(
       dependencies.links,
       journal.contacts,
@@ -165,9 +165,9 @@ export async function readFunnelReport(
         ? Promise.resolve({ ok: true as const, value: new Map<string, Date>() })
         : dependencies.firstOpens.list(chapter.materialIds),
       dependencies.firstOpens.list(
-        guide.chapters.flatMap((item) => item.materialIds),
+        product.chapters.flatMap((item) => item.materialIds),
       ),
-      dependencies.sales.list(guide.id),
+      dependencies.sales.list(product.id),
     ]);
     if (!opens.ok || !productOpens.ok || !sales.ok)
       return failure("dependency_unavailable");
@@ -183,7 +183,7 @@ export async function readFunnelReport(
     ]);
     for (const accountId of accountIds) {
       const source = attribution.get(accountId);
-      // An Account without a known bot entry joins the cohort by its first step for this Guide,
+      // An Account without a known bot entry joins the cohort by its first step for this Product,
       // whichever chapter the report shows.
       const inCohort =
         source === undefined
@@ -218,15 +218,15 @@ export async function readFunnelReport(
   const report: FunnelReport = {
     generatedAt: dependencies.clock().toISOString(),
     period: { from: from.toISOString(), to: to.toISOString() },
-    guides: outlines.value.map((item) => ({
+    products: outlines.value.map((item) => ({
       id: item.id,
       name: item.name,
       chapters: item.chapters.map(({ id, name }) => ({ id, name })),
     })),
     selection:
-      guide === undefined
+      product === undefined
         ? null
-        : { guideId: guide.id, chapterId: chapter?.id ?? null },
+        : { productId: product.id, chapterId: chapter?.id ?? null },
     lastBotEventReceivedAt: journal.lastReceivedAt?.toISOString() ?? null,
     rows: ordered,
     total: {

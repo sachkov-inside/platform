@@ -13,7 +13,7 @@ import {
   useSubscriptionOffered,
 } from "@/widgets/account-cabinet";
 
-const storefrontHref: Route = "/subscription";
+const storefrontHref: Route = "/payment/checkout";
 
 /**
  * Раздел «Покупки»: что доступно и по какому основанию, как попасть в сообщество,

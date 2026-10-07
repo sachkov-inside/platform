@@ -60,7 +60,7 @@ export async function withJournal(directory, target, operation) {
         schemaVersion: 1,
         target,
         materials: {},
-        guides: {},
+        products: {},
         operations: {},
       };
     }

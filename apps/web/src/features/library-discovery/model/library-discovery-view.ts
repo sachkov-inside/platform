@@ -1,15 +1,15 @@
-import type { GuideChapterTask } from "@/entities/guide-task.model";
-import type { GuideProductPage } from "@/entities/guide-page";
+import type { ProductChapterTask } from "@/entities/product-task.model";
+import type { ProductLandingPage } from "@/entities/product-page";
 import type { ContentCover, MaterialPreview } from "@/entities/material";
 
 export type LibraryDiscoveryKind = "related" | "series" | "topic";
 
 /**
- * Author-written fields that tell a reader who a Guide is for, what they will be
+ * Author-written fields that tell a reader who a Product is for, what they will be
  * able to do, what they must know beforehand, and what stays outside it. Only a
- * Guide has one.
+ * Product has one.
  */
-export interface GuideIntroduction {
+export interface ProductIntroduction {
   readonly audience: string;
   readonly outcome: string;
   readonly prerequisites: string;
@@ -24,10 +24,10 @@ export interface LibraryDiscoveryReference {
    * принадлежит руководству, поэтому урок берёт этот признак из состава, а не из своего тела.
    */
   readonly hasModeVariants?: boolean | undefined;
-  readonly introduction?: GuideIntroduction | null | undefined;
+  readonly introduction?: ProductIntroduction | null | undefined;
   readonly name: string;
-  /** Оформление и описание страницы Guide; у темы и связанных материалов его нет. */
-  readonly productPage?: GuideProductPage | null | undefined;
+  /** Оформление и описание страницы Product; у темы и связанных материалов его нет. */
+  readonly productPage?: ProductLandingPage | null | undefined;
   readonly slug: string;
   readonly summary: string;
 }
@@ -42,7 +42,7 @@ export interface RelatedPlaylist {
   readonly totalMaterialCount: number;
 }
 
-export interface GuideChapter {
+export interface ProductChapter {
   readonly id: string;
   readonly materialIds: readonly string[];
   readonly name: string;
@@ -52,7 +52,7 @@ export interface GuideChapter {
    * Задания главы в авторском порядке (#947): каждое стоит после названного материала или в
    * начале главы. Глава без заданий может поле опустить.
    */
-  readonly tasks?: readonly GuideChapterTask[];
+  readonly tasks?: readonly ProductChapterTask[];
 }
 
 export interface DiscoveryTopic {
@@ -66,7 +66,7 @@ export type LibraryDiscoveryResult<
   DiscoveryKind extends LibraryDiscoveryKind = LibraryDiscoveryKind,
 > =
   | {
-      readonly chapters: readonly GuideChapter[];
+      readonly chapters: readonly ProductChapter[];
       readonly discoveryKind: DiscoveryKind;
       readonly hasNext: boolean;
       readonly items: readonly MaterialPreview[];
@@ -76,7 +76,7 @@ export type LibraryDiscoveryResult<
       readonly topics: readonly DiscoveryTopic[];
     }
   | {
-      readonly chapters: readonly GuideChapter[];
+      readonly chapters: readonly ProductChapter[];
       readonly discoveryKind: DiscoveryKind;
       readonly kind: "empty";
       readonly reference: LibraryDiscoveryReference;
@@ -95,4 +95,4 @@ export type RelatedMaterialsResult = LibraryDiscoveryResult<"related">;
  * продукты». Ответ не зависит от того, опубликованы ли платные уроки. `unknown` — ответа нет:
  * страница не прячет оплату, а повторную покупку остановит страница оплаты.
  */
-export type GuideAccess = "open" | "closed" | "unknown";
+export type ProductAccess = "open" | "closed" | "unknown";

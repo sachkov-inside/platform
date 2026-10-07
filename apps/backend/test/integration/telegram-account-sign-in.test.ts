@@ -8,7 +8,7 @@ import {
 import { afterAll, beforeAll, expect, test } from "vitest";
 import { assembleAccounts } from "../../src/modules/accounts/index.js";
 import { verifiedTelegramAccountSignIn } from "../../src/modules/accounts/facets/accounts/verified-logto-identity.js";
-import { assembleMembershipEntitlements } from "../../src/modules/membership-entitlements/index.js";
+import { assembleAccountRights } from "../../src/modules/account-rights/index.js";
 import {
   TelegramAccountSignIn,
   type TelegramSignInProvider,
@@ -127,7 +127,7 @@ test("a lost provider response retains one Account and principal, and a fresh pr
       );
     },
   };
-  const membershipEntitlements = assembleMembershipEntitlements({
+  const accountRights = assembleAccountRights({
     prisma: database.prisma,
   });
   const signIn = new TelegramAccountSignIn({
@@ -135,7 +135,7 @@ test("a lost provider response retains one Account and principal, and a fresh pr
     accounts,
     prisma: database.prisma,
     provider,
-    membershipEntitlements,
+    accountRights,
   });
   const first = proof("telegram-timeout");
   const established = await accounts.establishAccount({
@@ -209,7 +209,7 @@ test("a Telegram sign-in completes the bot link only after the terms of use are 
     accounts,
     prisma: database.prisma,
     provider,
-    membershipEntitlements: assembleMembershipEntitlements({
+    accountRights: assembleAccountRights({
       prisma: database.prisma,
     }),
   });
@@ -269,7 +269,7 @@ test("a Telegram sign-in completes the bot link only after the terms of use are 
   });
   const membership = assembleTelegramMembership({
     prisma: database.prisma,
-    membershipEntitlements: assembleMembershipEntitlements({
+    accountRights: assembleAccountRights({
       prisma: database.prisma,
     }),
     botStartUrl: "https://t.me/inside_test_bot",
@@ -333,7 +333,7 @@ test.each(["identity", "correlation"] as const)(
         bindAccount: () =>
           Promise.resolve({ status: "linked" as const, telegramIdentityRef }),
       },
-      membershipEntitlements: assembleMembershipEntitlements({
+      accountRights: assembleAccountRights({
         prisma: database.prisma,
       }),
     });
@@ -378,14 +378,14 @@ test.each([
       prisma: database.prisma,
       emailFingerprintKey: fingerprintKey,
     });
-    const membershipEntitlements = assembleMembershipEntitlements({
+    const accountRights = assembleAccountRights({
       prisma: database.prisma,
     });
     const telegramIdentityRef = randomUUID();
     const signIn = new TelegramAccountSignIn({
       accounts,
       prisma: database.prisma,
-      membershipEntitlements,
+      accountRights,
       terms,
       provider: {
         bindAccount: () =>
@@ -411,7 +411,7 @@ test.each([
     let currentOutcome = outcome;
     const membership = assembleTelegramMembership({
       prisma: database.prisma,
-      membershipEntitlements,
+      accountRights,
       botStartUrl: "https://t.me/inside_test_bot",
       linkLifetimeMs: 300000,
       provider: {
@@ -501,7 +501,7 @@ test("current-account resume uses normal identity authentication and refuses bef
           telegramIdentityRef: "7a0c2c1e-2d4b-4a57-8a1e-0d9d6f3b8a11",
         }),
     },
-    membershipEntitlements: assembleMembershipEntitlements({
+    accountRights: assembleAccountRights({
       prisma: database.prisma,
     }),
   });
@@ -568,7 +568,7 @@ test.each(["resume", "confirm"] as const)(
     try {
       await withExhaustedPool(rollbackDatabase, async (prisma) => {
         const journal = termsJournal(prisma);
-        const membershipEntitlements = assembleMembershipEntitlements({
+        const accountRights = assembleAccountRights({
           prisma,
         });
         const signIn = new TelegramAccountSignIn({
@@ -578,7 +578,7 @@ test.each(["resume", "confirm"] as const)(
             prisma,
             emailFingerprintKey: fingerprintKey,
           }),
-          membershipEntitlements,
+          accountRights,
           provider: {
             bindAccount: () =>
               Promise.resolve({
@@ -600,7 +600,7 @@ test.each(["resume", "confirm"] as const)(
           throw new Error("Missing confirmed provider receipt");
         const membership = assembleTelegramMembership({
           prisma,
-          membershipEntitlements,
+          accountRights,
           botStartUrl: "https://t.me/inside_test_bot",
           linkLifetimeMs: 300000,
           provider: {

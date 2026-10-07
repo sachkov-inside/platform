@@ -2,7 +2,7 @@
   max-width: 64rem;
   margin-inline: auto;
 }
-.home-guide {
+.home-product {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
   overflow: hidden;
@@ -11,27 +11,27 @@
   background: var(--primary);
   color: var(--primary-foreground);
 }
-.home-guide-copy {
+.home-product-copy {
   min-width: 0;
   overflow-wrap: anywhere;
   padding: 2.5rem;
   display: flex;
   flex-direction: column;
 }
-.home-guide-copy h2 {
+.home-product-copy h2 {
   font-size: clamp(1.75rem, 3.2vw, 2.75rem);
   line-height: 1.1;
   font-weight: 700;
   letter-spacing: -0.035em;
   text-wrap: balance;
 }
-.home-guide-copy > p {
+.home-product-copy > p {
   margin-top: 1.25rem;
   font-size: 1rem;
   line-height: 1.6;
   color: color-mix(in srgb, var(--primary-foreground) 78%, var(--primary));
 }
-.home-guide-actions {
+.home-product-actions {
   margin-top: auto;
   padding-top: 2rem;
   display: flex;
@@ -39,10 +39,10 @@
   align-items: start;
   gap: 1rem;
 }
-.home-guide-actions > span {
+.home-product-actions > span {
   font-size: 0.875rem;
 }
-.home-guide-open {
+.home-product-open {
   display: inline-flex;
   align-items: center;
   gap: 1rem;
@@ -55,17 +55,17 @@
   font-weight: 700;
   text-decoration: none;
 }
-.home-guide-open:hover {
+.home-product-open:hover {
   background: color-mix(in srgb, var(--primary-foreground) 90%, var(--primary));
 }
-.home-guide-actions svg {
+.home-product-actions svg {
   width: 1.125rem;
   height: 1.125rem;
 }
-.home-guide-continue {
+.home-product-continue {
   min-height: 2.75rem;
 }
-.home-guide-continue a {
+.home-product-continue a {
   display: flex;
   align-items: center;
   gap: 0.5rem;
@@ -73,66 +73,66 @@
   font-size: 0.875rem;
   text-underline-offset: 0.3em;
 }
-.home-guide-animation {
+.home-product-animation {
   position: relative;
   display: flex;
   flex-direction: column;
   background: color-mix(in srgb, var(--primary) 92%, var(--primary-foreground));
 }
-.home-guide-visual {
+.home-product-visual {
   position: relative;
   min-width: 0;
 }
-.home-guide-ai {
+.home-product-ai {
   position: absolute;
   inset: 0;
   background: var(--cover-ink);
 }
-.home-guide-mobile-footer,
-.home-guide-copy > .home-guide-eyebrow,
-.home-guide-copy > .home-guide-subtitle {
+.home-product-mobile-footer,
+.home-product-copy > .home-product-eyebrow,
+.home-product-copy > .home-product-subtitle {
   display: none;
 }
-.home-guide-scenes {
+.home-product-scenes {
   position: relative;
   flex: 1;
   min-height: 20rem;
 }
-.home-guide-scene {
+.home-product-scene {
   position: absolute;
   inset: 0;
   padding: 2.5rem;
   opacity: 0;
-  animation: guide-scene 1.2s both;
+  animation: product-scene 1.2s both;
 }
-.home-guide-scene > svg {
+.home-product-scene > svg {
   width: 2rem;
   height: 2rem;
   margin-bottom: 1rem;
 }
-.home-guide-scene > p {
+.home-product-scene > p {
   margin-top: 1rem;
   font-size: 1.75rem;
   line-height: 1.25;
   font-weight: 600;
   letter-spacing: -0.025em;
 }
-.home-guide-scene-task {
+.home-product-scene-task {
   animation-delay: 0s;
 }
-.home-guide-scene-agent {
+.home-product-scene-agent {
   animation-delay: 1.2s;
 }
-.home-guide-scene-checks {
+.home-product-scene-checks {
   animation-delay: 2.4s;
 }
-.home-guide-scene-app {
+.home-product-scene-app {
   animation-delay: 3.6s;
-  animation-name: guide-scene-final;
+  animation-name: product-scene-final;
   display: grid;
   align-items: center;
 }
-.home-guide-prompt {
+.home-product-prompt {
   margin-top: 1.5rem;
   display: flex;
   justify-content: space-between;
@@ -143,74 +143,74 @@
   font-size: 0.8rem;
   background: color-mix(in srgb, var(--primary) 80%, var(--primary-foreground));
 }
-.home-guide-prompt svg {
+.home-product-prompt svg {
   width: 1.25rem;
 }
-.home-guide-code {
+.home-product-code {
   display: grid;
   gap: 0.65rem;
   margin-top: 1.75rem;
 }
-.home-guide-code i {
+.home-product-code i {
   display: block;
   width: 85%;
   height: 0.35rem;
   background: color-mix(in srgb, var(--primary-foreground) 70%, var(--primary));
   border-radius: 1rem;
 }
-.home-guide-code i:nth-child(2) {
+.home-product-code i:nth-child(2) {
   margin-left: 1rem;
   width: 60%;
 }
-.home-guide-code i:nth-child(3) {
+.home-product-code i:nth-child(3) {
   margin-left: 1rem;
   width: 75%;
 }
-.home-guide-code i:nth-child(4) {
+.home-product-code i:nth-child(4) {
   width: 35%;
 }
-.home-guide-scene ul {
+.home-product-scene ul {
   margin-top: 1.25rem;
   display: flex;
   flex-wrap: wrap;
   gap: 1rem;
   font-size: 0.875rem;
 }
-.home-guide-scene li {
+.home-product-scene li {
   display: flex;
   align-items: center;
   gap: 0.25rem;
 }
-.home-guide-scene li svg {
+.home-product-scene li svg {
   width: 1rem;
 }
-.home-guide-app {
+.home-product-app {
   padding: 1rem;
   border-radius: 0.75rem;
   background: var(--background);
   color: var(--foreground);
 }
-.home-guide-app > div:first-child {
+.home-product-app > div:first-child {
   display: flex;
   gap: 0.35rem;
   padding-bottom: 2rem;
 }
-.home-guide-app > div:first-child span {
+.home-product-app > div:first-child span {
   width: 0.4rem;
   height: 0.4rem;
   border-radius: 50%;
   background: var(--muted-foreground);
 }
-.home-guide-app strong {
+.home-product-app strong {
   font-size: 1.25rem;
   letter-spacing: -0.02em;
 }
-.home-guide-app p {
+.home-product-app p {
   margin-top: 0.5rem;
   font-size: 0.875rem;
   color: var(--muted-foreground);
 }
-.home-guide-app-content {
+.home-product-app-content {
   display: flex;
   align-items: center;
   gap: 0.5rem;
@@ -219,10 +219,10 @@
   border-top: 1px solid var(--border);
   font-size: 0.8rem;
 }
-.home-guide-app-content svg {
+.home-product-app-content svg {
   width: 1.25rem;
 }
-.home-guide-animation-caption {
+.home-product-animation-caption {
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -231,7 +231,7 @@
   padding-inline: 1.5rem;
   font-size: 0.75rem;
 }
-@keyframes guide-scene {
+@keyframes product-scene {
   0%,
   100% {
     opacity: 0;
@@ -243,7 +243,7 @@
     transform: translateY(0);
   }
 }
-@keyframes guide-scene-final {
+@keyframes product-scene-final {
   from {
     opacity: 0;
     transform: translateY(0.5rem);
@@ -357,27 +357,27 @@
   color: var(--foreground);
 }
 @media (max-width: 47.999rem) {
-  .home-guide {
+  .home-product {
     grid-template-columns: 1fr;
   }
-  .home-guide-copy {
+  .home-product-copy {
     min-width: 0;
     overflow-wrap: anywhere;
     padding: 1.5rem;
   }
-  .home-guide-copy h2 {
+  .home-product-copy h2 {
     font-size: 2rem;
   }
-  .home-guide-animation {
+  .home-product-animation {
     min-height: 20rem;
   }
-  .home-guide-scenes {
+  .home-product-scenes {
     min-height: 17rem;
   }
-  .home-guide-scene {
+  .home-product-scene {
     padding: 1.5rem;
   }
-  .home-guide-scene > p {
+  .home-product-scene > p {
     font-size: 1.5rem;
   }
   .home-feed {
@@ -390,17 +390,17 @@
   }
 }
 @media (prefers-reduced-motion: reduce) {
-  .home-guide-scene {
+  .home-product-scene {
     animation: none;
     transform: none;
   }
-  .home-guide-scene-app {
+  .home-product-scene-app {
     opacity: 1;
   }
 }
 
 @media (max-width: 47.999rem) {
-  .home-guide-featured-ai {
+  .home-product-featured-ai {
     display: flex;
     flex-direction: column;
     overflow: visible;
@@ -409,10 +409,10 @@
     background: transparent;
     color: var(--foreground);
   }
-  .home-guide-featured-ai .home-guide-copy {
+  .home-product-featured-ai .home-product-copy {
     display: contents;
   }
-  .home-guide-featured-ai .home-guide-eyebrow {
+  .home-product-featured-ai .home-product-eyebrow {
     display: block;
     order: 0;
     margin: 0 0 0.35rem;
@@ -421,18 +421,18 @@
     text-transform: uppercase;
     color: var(--muted-foreground);
   }
-  .home-guide-featured-ai h2 {
+  .home-product-featured-ai h2 {
     order: 1;
     font-size: 1.5rem;
     line-height: 1.25;
   }
-  .home-guide-featured-ai .home-guide-subtitle {
+  .home-product-featured-ai .home-product-subtitle {
     display: block;
     order: 2;
     margin-top: 0.25rem;
     color: var(--muted-foreground);
   }
-  .home-guide-featured-ai .home-guide-visual {
+  .home-product-featured-ai .home-product-visual {
     order: 3;
     margin-top: 1rem;
     overflow: hidden;
@@ -440,7 +440,7 @@
     background: var(--cover-ink);
     color: var(--cover-ink-foreground);
   }
-  .home-guide-featured-ai .home-guide-ai {
+  .home-product-featured-ai .home-product-ai {
     position: relative;
     inset: auto;
     width: 100%;
@@ -448,11 +448,11 @@
     min-height: 230px;
     aspect-ratio: 358 / 230;
   }
-  .home-guide-featured-ai .home-guide-ai > .ai-process-artwork {
+  .home-product-featured-ai .home-product-ai > .ai-process-artwork {
     position: absolute;
     inset: 0;
   }
-  .home-guide-mobile-footer {
+  .home-product-mobile-footer {
     display: flex;
     align-items: center;
     justify-content: space-between;
@@ -460,12 +460,12 @@
     padding: 0.75rem 1rem;
     font-size: 0.8rem;
   }
-  .home-guide-mobile-footer > svg {
+  .home-product-mobile-footer > svg {
     width: 1.1rem;
     height: 1.1rem;
     opacity: 0.7;
   }
-  .home-guide-mobile-footer a {
+  .home-product-mobile-footer a {
     display: inline-flex;
     align-items: center;
     min-height: 2.75rem;
@@ -474,28 +474,28 @@
     background: rgb(255 255 255 / 0.16);
     font-weight: 650;
   }
-  .home-guide-featured-ai .home-guide-summary {
+  .home-product-featured-ai .home-product-summary {
     order: 4;
     margin-top: 1rem;
     color: var(--muted-foreground);
     font-size: 0.95rem;
   }
-  .home-guide-featured-ai .home-guide-actions {
+  .home-product-featured-ai .home-product-actions {
     order: 5;
     margin: 0;
     padding: 0;
   }
-  .home-guide-featured-ai .home-guide-actions > span,
-  .home-guide-featured-ai .home-guide-actions > .home-guide-open {
+  .home-product-featured-ai .home-product-actions > span,
+  .home-product-featured-ai .home-product-actions > .home-product-open {
     display: none;
   }
-  .home-guide-featured-ai .home-guide-continue {
+  .home-product-featured-ai .home-product-continue {
     min-height: 0;
   }
 }
 
 /* Карточка курса AI Engineering: первый экран страницы курса в светлой рамке. */
-.home-guide-course {
+.home-product-course {
   padding: 2.25rem;
   border: 1px solid var(--border);
   border-radius: 1.5rem;
@@ -503,7 +503,7 @@
   color: var(--foreground);
 }
 @media (max-width: 47.999rem) {
-  .home-guide-course {
+  .home-product-course {
     padding: 1rem;
     border-radius: 1.25rem;
   }

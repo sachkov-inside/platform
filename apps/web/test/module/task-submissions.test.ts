@@ -29,7 +29,7 @@ import {
   consistentSelection,
   repositoryLink,
   selectionHref,
-  type FilterGuide,
+  type FilterProduct,
 } from "@/_pages/task-submissions/model/task-submissions";
 
 const submissionId = "30000000-0000-4000-8000-000000000001";
@@ -41,7 +41,7 @@ function feedback(
   const body = new FormData();
   for (const [key, value] of Object.entries(values)) body.set(key, value);
   return new Request(
-    "https://inside.example.test/api/authoring/guide-tasks/feedback",
+    "https://inside.example.test/api/authoring/product-tasks/feedback",
     { method: "PUT", headers: { origin }, body },
   );
 }
@@ -161,7 +161,7 @@ describe("author feedback BFF (#948)", () => {
 });
 
 describe("submission filter (#948)", () => {
-  const guides: FilterGuide[] = [
+  const products: FilterProduct[] = [
     {
       id: "g1",
       name: "AI Engineering",
@@ -179,37 +179,37 @@ describe("submission filter (#948)", () => {
     },
   ];
 
-  it("keeps a filter the Guides on offer can show", () => {
+  it("keeps a filter the Products on offer can show", () => {
     expect(
       consistentSelection(
-        { guideId: "g1", chapterId: "c2", taskCode: "t2" },
-        guides,
+        { productId: "g1", chapterId: "c2", taskCode: "t2" },
+        products,
       ),
-    ).toEqual({ guideId: "g1", chapterId: "c2", taskCode: "t2" });
-    expect(consistentSelection({ taskCode: "t3" }, guides)).toEqual({
+    ).toEqual({ productId: "g1", chapterId: "c2", taskCode: "t2" });
+    expect(consistentSelection({ taskCode: "t3" }, products)).toEqual({
       taskCode: "t3",
     });
   });
 
-  it("drops a chapter of another Guide, a task of another chapter and unknown values", () => {
+  it("drops a chapter of another Product, a task of another chapter and unknown values", () => {
     expect(
-      consistentSelection({ guideId: "g1", chapterId: "c3" }, guides),
-    ).toEqual({ guideId: "g1" });
+      consistentSelection({ productId: "g1", chapterId: "c3" }, products),
+    ).toEqual({ productId: "g1" });
     expect(
       consistentSelection(
-        { guideId: "g1", chapterId: "c1", taskCode: "t2" },
-        guides,
+        { productId: "g1", chapterId: "c1", taskCode: "t2" },
+        products,
       ),
-    ).toEqual({ guideId: "g1", chapterId: "c1" });
-    expect(consistentSelection({ chapterId: "c1" }, guides)).toEqual({});
-    expect(consistentSelection({ guideId: "broken" }, guides)).toEqual({});
+    ).toEqual({ productId: "g1", chapterId: "c1" });
+    expect(consistentSelection({ chapterId: "c1" }, products)).toEqual({});
+    expect(consistentSelection({ productId: "broken" }, products)).toEqual({});
   });
 
   it("builds the address of a filtered page", () => {
     expect(selectionHref({})).toBe("/authoring/submissions");
-    expect(selectionHref({ guideId: "g1", taskCode: "t1" }, "next-page")).toBe(
-      "/authoring/submissions?guideId=g1&task=t1&cursor=next-page",
-    );
+    expect(
+      selectionHref({ productId: "g1", taskCode: "t1" }, "next-page"),
+    ).toBe("/authoring/submissions?productId=g1&task=t1&cursor=next-page");
   });
 
   it("links a repository only by a web address", () => {

@@ -1,10 +1,10 @@
-import { guideChapterRuns } from "@/shared/lib/guide-chapter-runs";
+import { productChapterRuns } from "@/shared/lib/product-chapter-runs";
 import { presentText } from "@/shared/lib/text";
 import { cn } from "@/shared/lib/utils";
 
 import {
   publicationStateLabel,
-  type GuideChapterPresentation,
+  type ProductChapterPresentation,
   type SeriesOrderItemPresentation,
 } from "../model/presentation";
 
@@ -17,7 +17,7 @@ export function SeriesOrderReadOnly({
   chapters,
   items,
 }: {
-  readonly chapters: readonly GuideChapterPresentation[];
+  readonly chapters: readonly ProductChapterPresentation[];
   readonly items: readonly SeriesOrderItemPresentation[];
 }) {
   return (
@@ -39,7 +39,7 @@ export function SeriesOrderReadOnly({
         </p>
       ) : (
         <div className="mt-2 grid gap-8">
-          {guideChapterRuns(
+          {productChapterRuns(
             items,
             chapters,
             ({ chapterId }) => chapterId ?? null,
@@ -70,7 +70,7 @@ function ChapterSection({
   number,
   offset,
 }: {
-  readonly chapter: GuideChapterPresentation | null;
+  readonly chapter: ProductChapterPresentation | null;
   readonly grouped: boolean;
   readonly items: readonly SeriesOrderItemPresentation[];
   readonly number: number | null;

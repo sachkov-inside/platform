@@ -278,7 +278,7 @@ describe("Accounts API", () => {
       data: { id: topicId, name: "Architecture", slug: "architecture" },
     });
 
-    await database.prisma.guide.create({
+    await database.prisma.product.create({
       data: { id: seriesId, name: "Platform", slug: "platform" },
     });
 
@@ -318,7 +318,7 @@ describe("Accounts API", () => {
     expect(initialOrder.statusCode).toBe(200);
     const canonicalOrder = await server.inject({
       method: "GET",
-      url: `/authoring/guides/${seriesId}/order`,
+      url: `/authoring/products/${seriesId}/order`,
       headers: authorization,
     });
     expect(canonicalOrder.statusCode).toBe(200);
@@ -327,7 +327,7 @@ describe("Accounts API", () => {
       (
         await server.inject({
           method: "GET",
-          url: `/authoring/guides/${seriesId}/order`,
+          url: `/authoring/products/${seriesId}/order`,
         })
       ).statusCode,
     ).toBe(401);
@@ -342,7 +342,7 @@ describe("Accounts API", () => {
 
     const reordered = await server.inject({
       method: "PUT",
-      url: `/authoring/guides/${seriesId}/order`,
+      url: `/authoring/products/${seriesId}/order`,
       headers: authorization,
       payload: {
         expectedOrderVersion: initialOrderBody.orderVersion,
@@ -455,7 +455,7 @@ describe("Accounts API", () => {
         ...materialDraftPayload(
           "Generated API contract v2",
           "Current API contract.",
-          "membership",
+          "closed",
         ),
       },
     });
@@ -475,7 +475,7 @@ describe("Accounts API", () => {
     expect(authorizedReader.headers["cache-control"]).toBe("private, no-store");
     expect(authorizedReader.json()).toMatchObject({
       kind: "available",
-      projection: { access: "membership" },
+      projection: { access: "closed" },
     });
 
     const authorizedCatalog = await inject("GET", "/library/materials", token);
@@ -494,7 +494,7 @@ describe("Accounts API", () => {
       catalog.items.find(({ slug }) => slug === "generated-api-contract-v2"),
     ).toMatchObject({
       slug: "generated-api-contract-v2",
-      access: "membership",
+      access: "closed",
       availability: "available",
     });
 
@@ -740,7 +740,7 @@ const seriesId = "73000000-0000-4000-8000-000000000003";
 function materialDraftPayload(
   title: string,
   text: string,
-  access: "free" | "membership" = "free",
+  access: "free" | "closed" = "free",
 ) {
   return {
     metadata: {

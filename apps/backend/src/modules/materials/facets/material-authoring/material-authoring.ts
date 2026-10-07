@@ -3,11 +3,11 @@ import type {
   ValidateSourcePracticeOperation,
 } from "../../features/import-source-practice/import-source-practice.contract.js";
 import type {
-  ReserveSourceGuideOperation,
-  UpdateSourceGuideOperation,
-  ReorderSourceGuideOperation,
-  ValidateSourceGuideOperation,
-} from "../../features/import-source-guide/import-source-guide.contract.js";
+  ReserveSourceProductOperation,
+  UpdateSourceProductOperation,
+  ReorderSourceProductOperation,
+  ValidateSourceProductOperation,
+} from "../../features/import-source-product/import-source-product.contract.js";
 import type { ValidateSourceOperation } from "../../features/import-source-material/import-source-material.contract.js";
 import type {
   ReserveSourceOperation,
@@ -34,10 +34,10 @@ import type { UpdateContentCollectionOperation } from "../../features/update-con
 export interface MaterialAuthoring {
   readonly applySourcePractice: ApplySourcePracticeOperation;
   readonly validateSourcePractice: ValidateSourcePracticeOperation;
-  readonly reserveSourceGuide: ReserveSourceGuideOperation;
-  readonly validateSourceGuide: ValidateSourceGuideOperation;
-  readonly updateSourceGuide: UpdateSourceGuideOperation;
-  readonly reorderSourceGuide: ReorderSourceGuideOperation;
+  readonly reserveSourceProduct: ReserveSourceProductOperation;
+  readonly validateSourceProduct: ValidateSourceProductOperation;
+  readonly updateSourceProduct: UpdateSourceProductOperation;
+  readonly reorderSourceProduct: ReorderSourceProductOperation;
   readonly validateSourceContent: ValidateSourceOperation;
   readonly reserveSourceMaterial: ReserveSourceOperation;
   readonly applySourceMaterial: ApplySourceOperation;

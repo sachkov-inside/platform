@@ -1,12 +1,12 @@
-import { contentScopeSchema } from "@inside/access-capabilities";
+import { coverageSchema } from "@inside/access-capabilities";
 import { z } from "zod";
 // Словарь прав и вывод состава доступа живут в `@inside/access-capabilities`: покупатель видит
 // на витрине ровно то, что сервер потом выдаёт, потому что это один и тот же вывод.
 export {
   accessCapabilitySchema,
   accessComposition,
-  guideCapability,
-  isGuideCapability,
+  productCapability,
+  isProductCapability,
   type AccessCapability,
 } from "@inside/access-capabilities";
 import { accessCapabilitySchema } from "@inside/access-capabilities";
@@ -42,7 +42,7 @@ export const offerSchema = z.object({
   /** Обратимый признак продажи. В прежних сохранённых снимках может отсутствовать. */
   published: z.boolean().optional(),
   availableForAssignment: z.boolean().optional(),
-  contentScope: contentScopeSchema.nullable().optional(),
+  coverage: coverageSchema.nullable().optional(),
   eligibility: offerEligibilitySchema.optional(),
 });
 /** Как продаётся вариант: по расписанию или один раз. Старый снимок без режима — подписка. */
@@ -81,19 +81,19 @@ export const cohortStageSchema = z.enum([
   "running",
   "between",
 ]);
-export const guideCohortSchema = z.object({
-  guideId: z.uuid(),
+export const productCohortSchema = z.object({
+  productId: z.uuid(),
   revision: z.number().int().positive(),
   name: z.string().min(1),
   stage: cohortStageSchema,
   startsOn: z.iso.date().nullable(),
   nextEvent: z.string(),
 });
-export const guideCohortsSchema = z.object({
-  items: z.array(guideCohortSchema),
+export const productCohortsSchema = z.object({
+  items: z.array(productCohortSchema),
 });
 export type CohortStage = z.infer<typeof cohortStageSchema>;
-export type GuideCohort = z.infer<typeof guideCohortSchema>;
+export type ProductCohort = z.infer<typeof productCohortSchema>;
 export const offersPageSchema = z.object({
   items: z.array(priceSnapshotSchema),
   nextCursor: z.uuid().nullable(),

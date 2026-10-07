@@ -26,7 +26,7 @@ export type GetSeriesProgressResult =
 export async function getSeriesProgress(
   dependencies: {
     readonly prisma: ReadingActivityPrismaClient;
-    readonly contentAccess: Pick<ContentAccess, "checkGuideAccess">;
+    readonly contentAccess: Pick<ContentAccess, "checkProductAccess">;
     readonly composition: Pick<PublishedSeriesComposition, "read">;
   },
   input: { readonly accountId: string; readonly seriesId: string },

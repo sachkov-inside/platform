@@ -232,7 +232,7 @@ adapter.
 | `ContentSchema` | validate, migrate, safely render и extract projection из versioned document | schema versions, node/mark allowlist, fixture corpus |
 | `ContentLibrary` | читать public/member projections, search, topic/series navigation и related materials | published projections и ranking rules |
 | `ContentAccess` | `authorize(Subject, Resource, Action) -> AccessDecision` | provider-neutral access policy and reason codes |
-| `MembershipEntitlements` | принять bounded evidence и построить Platform-owned entitlement | entitlement state/version/validity, event/reconciliation projection |
+| `AccountRights` | принять bounded evidence и построить Platform-owned entitlement | entitlement state/version/validity, event/reconciliation projection |
 | `AccountProfiles` | управлять private Platform Account и отдельной member-visible Profile projection | account lifecycle, profile visibility/content/version |
 | `Assets` | upload intent, finalize, revision binding и bounded delivery | Asset metadata, immutable object keys/renditions |
 | `Videos` | Kinescope upload/status/reconcile/bind/playback lifecycle | local Video identity, provider mapping/status |
@@ -277,7 +277,7 @@ cardinalities являются частью этой спецификации:
 | `Video` | local identity с одним Kinescope provider mapping; revision ссылается на 0..N Videos |
 | `ExternalLink` | typed label + normalized URL; revision содержит 0..N links; URL не является entity identity |
 | `NavigationPage` | editorial title/body + curated/query links; Roadmap использует эту роль |
-| `MembershipEntitlement` | не более одного current `inside_membership` projection на Principal; always bounded |
+| `AccountRights` | не более одного current `inside_membership` projection на Principal; always bounded |
 | `ReadingState` | не более одной current state на Principal/Material; history bounded отдельной policy |
 
 `MaterialRevision` хранит application-owned ProseMirror document с `schemaVersion`, stable block
@@ -339,7 +339,7 @@ read/download/play path.
    Platform владеет recently authenticated Account/session entrypoint, opaque `principalRef` и
    adapter к этому protocol; Telegram-specific token/identity state остаётся за remote provider.
 2. Platform проецирует pending/linked/conflict/recovery outcomes в private Account, но ни receipt,
-   ни завершённый link сами по себе не создают MembershipEntitlement или ContentAccess allow.
+   ни завершённый link сами по себе не создают AccountRights или ContentAccess allow.
 3. После link Telegram application возвращает normalized, signed/authenticated evidence без raw
    Telegram
    model по [versioned contract](../../../contracts/identity-membership-v1.md). Platform строит собственный

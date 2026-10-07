@@ -1,5 +1,5 @@
 // @ts-check
-// Isolated full-stack Guide Task seed through real author APIs (#947); never used by production or
+// Isolated full-stack Product Task seed through real author APIs (#947); never used by production or
 // the shared stand.
 import { randomUUID } from "node:crypto";
 
@@ -9,7 +9,7 @@ import { convertMarkdown } from "../tools/authoring/markdown.mjs";
 const receipt = z.object({ materialId: z.uuid(), contentVersion: z.number() });
 
 /**
- * A Guide with one chapter, one free lesson and one free task placed after it.
+ * A Product with one chapter, one free lesson and one free task placed after it.
  *
  * @param {string} origin
  * @param {string} accessToken
@@ -32,13 +32,13 @@ export async function seedFullStackTask(origin, accessToken) {
       );
     return /** @type {unknown} */ (await response.json());
   };
-  const guideSourceId = "synthetic:fullstack-task-guide";
-  const guide = z.object({ id: z.uuid(), slug: z.string() }).parse(
-    await request("/authoring/import/guides/reserve", {
-      sourceId: guideSourceId,
+  const productSourceId = "synthetic:fullstack-task-product";
+  const product = z.object({ id: z.uuid(), slug: z.string() }).parse(
+    await request("/authoring/import/products/reserve", {
+      sourceId: productSourceId,
       name: "Synthetic tasks",
       slug: "synthetic-tasks",
-      summary: "Isolated Guide Task fixture",
+      summary: "Isolated Product Task fixture",
     }),
   );
   const source = {
@@ -64,7 +64,7 @@ export async function seedFullStackTask(origin, accessToken) {
         topicId: "72000000-0000-4000-8000-000000000002",
         formatId: "guide",
         tagIds: [],
-        seriesIds: [guide.id],
+        seriesIds: [product.id],
         difficulty: null,
         outcomes: [],
       },
@@ -80,10 +80,10 @@ export async function seedFullStackTask(origin, accessToken) {
   const order = z
     .object({ orderVersion: z.string() })
     .loose()
-    .parse(await request(`/authoring/guides/${guide.id}/order`));
-  await request("/authoring/import/guides/composition", {
-    sourceId: guideSourceId,
-    seriesId: guide.id,
+    .parse(await request(`/authoring/products/${product.id}/order`));
+  await request("/authoring/import/products/composition", {
+    sourceId: productSourceId,
+    seriesId: product.id,
     expectedOrderVersion: order.orderVersion,
     orderedMaterialIds: [lesson.materialId],
     chapters: [{ id: chapterId, name: "Глава 1", summary: "" }],
@@ -93,7 +93,7 @@ export async function seedFullStackTask(origin, accessToken) {
   await request("/authoring/import/tasks/apply", {
     sourceId: `synthetic:${code}`,
     code,
-    guideId: guide.id,
+    productId: product.id,
     chapterId,
     position: 1,
     title: "Синтетическое задание",
@@ -128,6 +128,6 @@ export async function seedFullStackTask(origin, accessToken) {
     },
     expectedRevision: null,
   });
-  // The lesson comes from a source package: tests that compose Guides in the editor skip it.
-  return { guideSlug: guide.slug, code, materialId: lesson.materialId };
+  // The lesson comes from a source package: tests that compose Products in the editor skip it.
+  return { productSlug: product.slug, code, materialId: lesson.materialId };
 }

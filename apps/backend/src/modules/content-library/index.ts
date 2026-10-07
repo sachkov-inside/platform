@@ -7,7 +7,7 @@ export { discoverPublishedMaterials } from "./features/discover-published-materi
 export { ListPublishedMaterialsController } from "./features/list-published-materials/list-published-materials.controller.js";
 export { DiscoverPublishedMaterialsController } from "./features/discover-published-materials/discover-published-materials.controller.js";
 export { ReadHomeContentController } from "./features/read-home-content/read-home-content.controller.js";
-export { ReadGuideAccessController } from "./features/read-guide-access/read-guide-access.controller.js";
+export { ReadProductAccessController } from "./features/read-product-access/read-product-access.controller.js";
 
 export { readAvailableMaterials } from "./features/read-available-materials/read-available-materials.js";
 export { readPublishedCatalogItems } from "./features/read-available-materials/read-available-materials.js";

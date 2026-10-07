@@ -8,7 +8,7 @@ import { join } from "node:path";
 import { PostgreSqlContainer } from "@testcontainers/postgresql";
 import { exportJWK, generateKeyPair, SignJWT } from "jose";
 import { z } from "zod";
-import { guideCapability } from "@inside/access-capabilities";
+import { productCapability } from "@inside/access-capabilities";
 import { parsePlatformConfig } from "../src/config/platform-config.js";
 import { startLocalBankDouble } from "../src/development/bank-double/start-local-bank-double.js";
 import { seedLocalDevelopment } from "../src/development/seed-local-development.js";
@@ -40,7 +40,7 @@ const appId = "inside-web-buyer-journey";
 const telegramSecret = "synthetic-buyer-journey-telegram-sign-in-775";
 const apiBaseUrl = `http://127.0.0.1:${String(environment.BUYER_JOURNEY_API_PORT)}`;
 const bankOrigin = `http://127.0.0.1:${String(environment.BUYER_JOURNEY_BANK_PORT)}`;
-const guideId = "72000000-0000-4000-8000-000000000007";
+const productId = "72000000-0000-4000-8000-000000000007";
 const courseOfferId = "72000000-0000-4000-8000-000000000503";
 
 async function listen(server: Server): Promise<string> {
@@ -316,7 +316,7 @@ const stand = {
   TBANK_TEST_API_BASE_URL: `${bankOrigin}/v2`,
   TBANK_TEST_PUBLIC_ORIGIN: bankOrigin,
   TBANK_TEST_NOTIFICATION_URL: `${apiBaseUrl}/billing/tbank/notification`,
-  TBANK_TEST_RETURN_URL: `${environment.BUYER_JOURNEY_WEB_BASE_URL}/subscription/return`,
+  TBANK_TEST_RETURN_URL: `${environment.BUYER_JOURNEY_WEB_BASE_URL}/payment/return`,
   BILLING_CONTACT_ENCRYPTION_KEY: Buffer.alloc(32, 77).toString("base64"),
   BILLING_CONTACT_SMTP_HOST: "127.0.0.1",
   BILLING_CONTACT_SMTP_PORT: String(smtpAddress.port),
@@ -347,7 +347,7 @@ const pricing = app.get(BillingPricing);
 const current = await prisma.billingOffer.findUniqueOrThrow({
   where: { id: courseOfferId },
 });
-const capability = guideCapability(guideId);
+const capability = productCapability(productId);
 const saved = await pricing.manage(owner.accountId, {
   operation: "offers.save",
   operationId: randomUUID(),
@@ -379,7 +379,7 @@ await writeFile(
     LOGTO_AUDIENCE: apiBaseUrl,
     LOGTO_APP_ID: appId,
     CONTROL_URL: origin,
-    GUIDE_SLUG: "platform-inside",
+    PRODUCT_SLUG: "platform-inside",
   }),
 );
 

@@ -31,7 +31,7 @@ async function stubBilling(page: Page, billing: unknown, status = 200) {
 test("витрина отвечает и объясняет недоступность каталога", async ({
   page,
 }) => {
-  const response = await page.goto("/subscription");
+  const response = await page.goto("/payment/checkout");
 
   expect(response?.status()).toBe(200);
   await expect(page.getByRole("heading", { level: 1 })).toHaveText(
@@ -43,7 +43,7 @@ test("витрина отвечает и объясняет недоступно
 });
 
 test("витрина сохраняет исходную страницу продукта", async ({ page }) => {
-  await page.goto("/subscription?from=%2Fproducts%2Fplatform-inside");
+  await page.goto("/payment/checkout?from=%2Fproducts%2Fplatform-inside");
 
   await expect(
     page.getByRole("link", { name: "Вернуться к материалу" }),
@@ -51,7 +51,7 @@ test("витрина сохраняет исходную страницу про
 });
 
 test("витрина не имеет серьёзных нарушений доступности", async ({ page }) => {
-  await page.goto("/subscription");
+  await page.goto("/payment/checkout");
 
   const results = await new AxeBuilder({ page })
     .withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"])
@@ -68,7 +68,7 @@ test("витрина не имеет серьёзных нарушений до�
 test("возврат из банка не выдаётся за подтверждение оплаты", async ({
   page,
 }) => {
-  const response = await page.goto("/subscription/return");
+  const response = await page.goto("/payment/return");
 
   expect(response?.status()).toBe(200);
   await expect(page.getByRole("heading", { level: 1 })).toHaveText(
@@ -86,7 +86,7 @@ const returnedPurchaseRef = "00000000-0000-4000-8000-000000000701";
 const courseOffer = {
   ...offer,
   name: "AI Engineering",
-  benefits: ["guide:00000000-0000-4000-8000-000000000801", "community"],
+  benefits: ["product:00000000-0000-4000-8000-000000000801", "community"],
 };
 
 async function returnFromBank(
@@ -134,7 +134,7 @@ test("после оплаты курса с сообществом виден п
     kind: "join",
     botUrl: "https://t.me/inside_e2e_bot",
   });
-  await page.goto("/subscription/return");
+  await page.goto("/payment/return");
 
   await expect(page.getByText("Оплата подтверждена")).toBeVisible();
   const community = page.getByRole("region", { name: "Сообщество Inside" });
@@ -181,7 +181,7 @@ test("покупатель без Telegram одной кнопкой откры�
       },
     }),
   );
-  await page.goto("/subscription/return");
+  await page.goto("/payment/return");
 
   const community = page.getByRole("region", { name: "Сообщество Inside" });
   await community.getByRole("button", { name: "Подключить Telegram" }).click();
@@ -203,7 +203,7 @@ test("участник сообщества после оплаты не зов�
   page,
 }) => {
   await returnFromBank(page, "ready", { kind: "member" });
-  await page.goto("/subscription/return");
+  await page.goto("/payment/return");
 
   const community = page.getByRole("region", { name: "Сообщество Inside" });
   await expect(community).toContainText("Вы уже в сообществе Inside");
@@ -217,7 +217,7 @@ test("до подтверждения оплаты переход в сообщ�
     kind: "join",
     botUrl: "https://t.me/inside_e2e_bot",
   });
-  await page.goto("/subscription/return");
+  await page.goto("/payment/return");
 
   await expect(page.getByText("Ждёт подтверждения оплаты")).toBeVisible();
   await expect(page.getByText("Сообщество Inside")).toHaveCount(0);
@@ -287,15 +287,15 @@ test("подтверждённая покупка перечитывает ст�
   context,
 }) => {
   // Вкладка A открыта заранее и остаётся открытой: покупку подтверждает не она.
-  const refreshes = countPageRefreshes(page, "/subscription");
+  const refreshes = countPageRefreshes(page, "/payment/checkout");
   const announcements = await countBillingAnnouncements(page);
-  await page.goto("/subscription");
+  await page.goto("/payment/checkout");
   await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
   expect(refreshes.count).toBe(0);
 
   const purchase = await context.newPage();
   await returnFromBank(purchase, "ready", { kind: "member" });
-  await purchase.goto("/subscription/return");
+  await purchase.goto("/payment/return");
   await expect(purchase.getByText("Оплата подтверждена")).toBeVisible();
 
   await expect.poll(() => refreshes.count).toBeGreaterThanOrEqual(1);

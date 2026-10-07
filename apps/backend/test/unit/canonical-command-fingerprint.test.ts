@@ -1,7 +1,7 @@
 import { describe, expect, test } from "vitest";
 
 import { commandFingerprint } from "../../src/modules/billing/shared/command-fingerprint.js";
-import { tributeFingerprint } from "../../src/modules/membership-entitlements/domain/tribute-webhook.js";
+import { tributeFingerprint } from "../../src/modules/account-rights/domain/tribute-webhook.js";
 import { fingerprintCommand } from "../../src/modules/materials/shared/canonical-command-fingerprint.js";
 
 describe("Command fingerprints", () => {

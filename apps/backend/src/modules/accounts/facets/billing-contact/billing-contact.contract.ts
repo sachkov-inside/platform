@@ -33,7 +33,7 @@ export const consentKindSchema = z.enum([
   "marketing",
 ]);
 /**
- * A one-time guide purchase and a subscription are separate offers, so the applicable document of
+ * A one-time product purchase and a subscription are separate offers, so the applicable document of
  * one kind differs between them. The catalogue says which payment modes a document belongs to;
  * the buyer's own mode selects it.
  */

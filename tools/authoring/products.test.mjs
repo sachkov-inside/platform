@@ -9,7 +9,7 @@ const uuid = (n) => `${String(n).padStart(8, "0")}-0000-4000-8000-000000000000`;
 test("the product list shows the permanent key, address, look, Home pin and lessons", async () => {
   /** @type {Record<string, unknown>} */
   const responses = {
-    "/authoring/collections?kind=guide": [
+    "/authoring/collections?kind=product": [
       {
         id: uuid(1),
         slug: "working-with-agents",
@@ -25,7 +25,7 @@ test("the product list shows the permanent key, address, look, Home pin and less
       },
       {
         id: uuid(2),
-        slug: "platform-guide",
+        slug: "platform-product",
         name: "Ручной продукт",
         archived: true,
         materialCount: 0,
@@ -57,7 +57,7 @@ test("the product list shows the permanent key, address, look, Home pin and less
     {
       sourceId: null,
       id: uuid(2),
-      slug: "platform-guide",
+      slug: "platform-product",
       name: "Ручной продукт",
       presentation: "default",
       pinnedOnHome: false,
@@ -69,7 +69,7 @@ test("the product list shows the permanent key, address, look, Home pin and less
   assert.deepEqual(formatProducts(products).split("\n"), [
     "sourceId                            slug                 presentation      page    home    lessons  name",
     "inside-content:working-with-agents  working-with-agents  ai-first-process  stored  pinned  108      AI-first разработка",
-    "— (Platform)                        platform-guide       default           none            0        Ручной продукт (archived)",
+    "— (Platform)                        platform-product     default           none            0        Ручной продукт (archived)",
   ]);
 });
 

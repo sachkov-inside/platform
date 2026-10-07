@@ -1,0 +1,54 @@
+"use client";
+
+import { X } from "lucide-react";
+import { useEffect, useState } from "react";
+
+import { Button } from "@/shared/ui/button";
+import {
+  productModeLabels,
+  rememberProductModeHintSeen,
+  useProductMode,
+} from "@/shared/product-mode";
+
+/**
+ * Подсказка о двух режимах у первого вариантного шага. Показывается один раз на браузер: она
+ * объясняет устройство руководства, и повторять это на каждом уроке незачем.
+ *
+ * Показывать её или нет, решает сервер по cookie, поэтому подсказка приходит вместе со страницей
+ * и ничего под собой не сдвигает. Засчитывается она показанной сразу, а не по кнопке: читатель,
+ * который её просто пролистал, иначе встречал бы её на каждом уроке.
+ */
+export function ProductModeHint() {
+  const { mode } = useProductMode();
+  const [dismissed, setDismissed] = useState(false);
+
+  useEffect(() => {
+    rememberProductModeHintSeen();
+  }, []);
+
+  if (dismissed) return null;
+
+  return (
+    <aside
+      className="mt-8 flex items-start gap-3 rounded-xl border border-border bg-muted/60 px-5 py-4 text-sm leading-6"
+      data-product-mode-hint
+    >
+      <p className="min-w-0 flex-1">
+        Продукт можно проходить двумя способами. Сейчас выбран «
+        {productModeLabels[mode]}»: шаги показаны для него. Переключить способ
+        можно в шапке урока, и выбор сохранится до конца продукта.
+      </p>
+      <Button
+        aria-label="Понятно, скрыть подсказку"
+        onClick={() => {
+          setDismissed(true);
+        }}
+        size="icon"
+        type="button"
+        variant="ghost"
+      >
+        <X aria-hidden="true" />
+      </Button>
+    </aside>
+  );
+}

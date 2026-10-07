@@ -1,6 +1,6 @@
-import { GuideOutlines } from "./features/list-guide-outlines/list-guide-outlines.js";
-import { GuideDirectory } from "./features/read-guide-directory/read-guide-directory.js";
-import { ContentScopeCatalog } from "./facets/content-scope-catalog/content-scope-catalog.js";
+import { ProductOutlines } from "./features/list-product-outlines/list-product-outlines.js";
+import { ProductDirectory } from "./features/read-product-directory/read-product-directory.js";
+import { CoverageCatalog } from "./facets/coverage-catalog/coverage-catalog.js";
 import { PublishedMaterialSelection } from "./features/select-published-materials/select-published-materials.js";
 import { PublishedSeriesComposition } from "./features/read-published-series-composition/read-published-series-composition.js";
 import { PublicContentTargets } from "./facets/public-content-targets/public-content-targets.js";
@@ -21,10 +21,9 @@ import { materialBodyOperations } from "./infrastructure/tiptap/index.js";
   imports: [PrismaModule],
   providers: [
     {
-      provide: ContentScopeCatalog,
+      provide: CoverageCatalog,
       inject: [PrismaClientProvider],
-      useFactory: (prisma: PrismaClientProvider) =>
-        new ContentScopeCatalog(prisma),
+      useFactory: (prisma: PrismaClientProvider) => new CoverageCatalog(prisma),
     },
     {
       provide: PublishedMaterialSelection,
@@ -39,14 +38,15 @@ import { materialBodyOperations } from "./infrastructure/tiptap/index.js";
         new PublishedSeriesComposition(prisma),
     },
     {
-      provide: GuideOutlines,
+      provide: ProductOutlines,
       inject: [PrismaClientProvider],
-      useFactory: (prisma: PrismaClientProvider) => new GuideOutlines(prisma),
+      useFactory: (prisma: PrismaClientProvider) => new ProductOutlines(prisma),
     },
     {
-      provide: GuideDirectory,
+      provide: ProductDirectory,
       inject: [PrismaClientProvider],
-      useFactory: (prisma: PrismaClientProvider) => new GuideDirectory(prisma),
+      useFactory: (prisma: PrismaClientProvider) =>
+        new ProductDirectory(prisma),
     },
     {
       provide: PublicContentTargets,
@@ -62,9 +62,9 @@ import { materialBodyOperations } from "./infrastructure/tiptap/index.js";
     },
   ],
   exports: [
-    ContentScopeCatalog,
-    GuideDirectory,
-    GuideOutlines,
+    CoverageCatalog,
+    ProductDirectory,
+    ProductOutlines,
     MATERIAL_CONTENT,
     PublicContentTargets,
     PublishedSeriesComposition,

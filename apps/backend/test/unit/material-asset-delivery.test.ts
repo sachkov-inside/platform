@@ -103,7 +103,7 @@ describe("Material asset delivery", () => {
       contentAccess: {
         authorize,
         checkAvailabilityMany: vi.fn(),
-        checkGuideAccess: vi.fn(),
+        checkProductAccess: vi.fn(),
       },
       materialContent: currentReference(),
       objectStorage: storage({ signGet }),
@@ -362,7 +362,7 @@ function accessDecision(
   return {
     authorize: () => Promise.resolve(decision),
     checkAvailabilityMany: vi.fn(),
-    checkGuideAccess: vi.fn(),
+    checkProductAccess: vi.fn(),
   };
 }
 

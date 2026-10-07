@@ -56,7 +56,7 @@ describe("published Material HTTP contract", () => {
       projection: {
         slug: "developer-pipeline-bez-poteri-konteksta",
         title: "Developer Pipeline без потери контекста",
-        access: "membership",
+        access: "closed",
       },
     });
     // Локальный seed продаёт только руководство, а подписку не продаёт: разовое предложение
@@ -171,7 +171,7 @@ describe("published Material HTTP contract", () => {
     expect(catalog.items.slice(0, 2)).toMatchObject([
       {
         slug: "developer-pipeline-bez-poteri-konteksta",
-        access: "membership",
+        access: "closed",
         availability: "locked",
       },
       {
@@ -530,7 +530,7 @@ describe("published Material HTTP contract", () => {
         revision: 1,
         name: "Материалы",
         benefits: ["materials"],
-        contentScope: { guideIds: [randomUUID()], materialIds: [] },
+        coverage: { productIds: [randomUUID()], materialIds: [] },
         published: true,
       },
     });

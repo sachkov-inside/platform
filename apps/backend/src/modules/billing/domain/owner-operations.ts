@@ -12,8 +12,8 @@ import {
   tributeSourceViewSchema,
   tributeInboxViewSchema,
   tributeOperationsViewSchema,
-} from "../../membership-entitlements/index.js";
-import { contentScopeEntrySchema } from "@inside/access-capabilities";
+} from "../../account-rights/index.js";
+import { coverageEntrySchema } from "@inside/access-capabilities";
 import { z } from "zod";
 import {
   registerSourceSchema,
@@ -41,7 +41,7 @@ import {
   accessSourceSchema,
   invitationFunnelSchema,
   listAccessHoldersSchema,
-} from "../../membership-entitlements/index.js";
+} from "../../account-rights/index.js";
 import {
   manageCatalogSchema,
   catalogOutcomeSchema,
@@ -462,7 +462,7 @@ export const ownerSuccessSchema = z.union([
   }),
   z.strictObject({
     outcome: z.literal("content"),
-    items: z.array(contentScopeEntrySchema),
+    items: z.array(coverageEntrySchema),
   }),
   z.strictObject({
     outcome: z.literal("recipient"),

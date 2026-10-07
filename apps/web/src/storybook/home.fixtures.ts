@@ -75,7 +75,7 @@ const guides = [
       3,
       11,
     ),
-    access: "membership",
+    access: "closed",
     availability: "locked",
   },
   material("kak-ustroen-inside-platform", "Как устроен Inside Platform", 0, 1),

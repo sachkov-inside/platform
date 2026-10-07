@@ -52,14 +52,14 @@ body and body-linked resources stay protected.
 _Avoid_: Teaser revision, public body, access decision
 
 **Content Cover**:
-A dedicated public image owned by exactly one Material, Topic or Guide. Platform keeps only
+A dedicated public image owned by exactly one Material, Topic or Product. Platform keeps only
 normalized responsive renditions; replacement and removal detach the old cover, and API
 projections never expose originals, storage keys or checksums. In Russian product language:
 «Обложка».
 _Avoid_: MaterialAsset, shared media-library image, original upload
 
 **Link Preview**:
-The public card a Material, Guide, Topic or the home page shows wherever its link is opened: title,
+The public card a Material, Product, Topic or the home page shows wherever its link is opened: title,
 description, canonical address and one preview image. The image is the owner's Content Cover when it
 exists and a generated card with the page title otherwise. A closed Material keeps its Link Preview
 while its body stays protected. In Russian product language: «Карточка ссылки».
@@ -73,7 +73,7 @@ _Avoid_: Category, section
 
 **Format**:
 The single primary way a Material is consumed. The Materials domain defines the closed values
-`video` (Видео), `guide` (Гайд), and `note` (Заметка). A Material stores that value directly;
+`video` (Видео), `product` (Гайд), and `note` (Заметка). A Material stores that value directly;
 there is no editable Format dictionary or separate database entity. Format is independent of
 Topic and is not the kind of an attached file. Drafts may leave it unassigned; publication requires it.
 The domain schema and material-format integration tests enforce this contract.
@@ -104,16 +104,12 @@ individual Product by its kind, such as «курс». An archived Product is wit
 and sale: holders keep reading its programme and Materials, and others get «not found».
 _Avoid_: Subscription, «руководство» as the product name, using course as the universal category
 
-**Guide**:
-The code name for Product, distinct from the Material format «Гайд».
-_Avoid_: A separate product category, Topic, Material format guide, «руководство»
-
-**GuideProgramme**:
+**ProductProgramme**:
 The reader-facing surface that carries a Product's Materials, their chapters, access states and
 progress, and the Product's own price. It is separate from the product page, which explains the
 Product and does not sell it by itself; only a Product with a Cohort names the stage and, when it is
 on sale, the price on its first screen.
-_Avoid_: Guide page, route, catalog
+_Avoid_: Product page, route, catalog
 
 **Product Page Description**:
 The author-written description of a Product, kept in its Inside Content original and transferred to
@@ -121,40 +117,40 @@ Platform as an ordered list of typed blocks — a lead, cards, plain text, numbe
 list, an invitation to the free lessons — plus an optional Home-card caption. The Product's own
 `presentation` field names which set of page and Home-card components draws the description; access
 terms stay substitutions the site fills from the current Tariff.
-_Avoid_: Guide introduction, landing copy in code, presentation chosen by address
+_Avoid_: Product introduction, landing copy in code, presentation chosen by address
 
-**Guide Chapter**:
-An optional named group in a Guide's main path, without owning copies of Materials.
-_Avoid_: Video chapter, Material, separately purchased Guide
+**Product Chapter**:
+An optional named group in a Product's main path, without owning copies of Materials.
+_Avoid_: Video chapter, Material, separately purchased Product
 
-**Guide Introduction**:
-The author's own answer, on the Guide, to what a reader will be able to do, who the Guide is
+**Product Introduction**:
+The author's own answer, on the Product, to what a reader will be able to do, who the Product is
 written for, what they need beforehand and what it leaves outside. Its four fields carry the
 authoring base wording unchanged, an unwritten field is absent rather than empty, and none of it
 is an access decision. In Russian product language: «О продукте».
 _Avoid_: Summary, marketing page, access condition, price
 
-**Guide Artifact**:
+**Product Artifact**:
 A standalone practical result a reader takes away — a template, configuration or checklist — with
 a permanent identity, a version history and either stored bytes or one explicitly external
-address. It lives outside every MaterialBody, is reused across Guides through separate placements
+address. It lives outside every MaterialBody, is reused across Products through separate placements
 rather than copies, and its `origin` says whether the Platform editor or the Inside Content
 authoring base owns the record. Replacement opens a new version and keeps the identity and the
 placements; delivery goes through ContentAccess. In Russian product language: «Артефакт».
 _Avoid_: MaterialAsset, supplementary Material, inline attachment, Content Cover
 
-**Guide Task**:
-A large part of a Guide Chapter's result that the learner builds and submits: a situation, the
+**Product Task**:
+A large part of a Product Chapter's result that the learner builds and submits: a situation, the
 result a customer should see, required and additional criteria, and the freedom the learner keeps.
-It belongs to exactly one chapter of one Guide, has its own order inside that chapter, its own
+It belongs to exactly one chapter of one Product, has its own order inside that chapter, its own
 access class and a short permanent code. The programme shows it right after the Material of its
 chapter the author names, or at the start of the chapter. It is not a Material and not a step of
-the Guide's main path, so it carries no lesson number and Guide Progress does not count it. In
+the Product's main path, so it carries no lesson number and Product Progress does not count it. In
 Russian product language: «Задание».
 _Avoid_: Assignment, Production Case, stage, точка сдачи, task callout, tracker task
 
 **Task Version**:
-An immutable snapshot of a Guide Task's requirements: situation, result, freedom and criteria. A
+An immutable snapshot of a Product Task's requirements: situation, result, freedom and criteria. A
 change of the requirements creates the next version; title, access, related Materials and
 publication do not. In Russian product language: «Версия требований».
 _Avoid_: Revision, content version, edition
@@ -181,15 +177,15 @@ the submission and changed only by the author. It is not a grade. In Russian pro
 «Комментарий автора».
 _Avoid_: Grade, acceptance, review status
 
-**Guide Mode**:
-One of the two ways a reader goes through a Guide: on the worked example the author prepared, or
+**Product Mode**:
+One of the two ways a reader goes through a Product: on the worked example the author prepared, or
 on the reader's own project. It belongs to the reader, not to a Material: one stored choice covers
-every Guide, and it changes only what a Variant Step shows, never access, order or progress. In
+every Product, and it changes only what a Variant Step shows, never access, order or progress. In
 Russian product language: «Режим прохождения», with «Учебный проект» and «Свой проект».
-_Avoid_: Difficulty, access class, Guide Step Sequence, separate Guide copy
+_Avoid_: Difficulty, access class, Product Step Sequence, separate Product copy
 
 **Variant Step**:
-A step of a lesson written for both Guide Modes, carrying one branch per mode. A branch may be
+A step of a lesson written for both Product Modes, carrying one branch per mode. A branch may be
 missing: such a step belongs to its own mode alone and is not shown in the other. The reader sees
 the branch of the active mode and can open the other one in place, which changes nothing that is
 stored. Both branches stay in the lesson's search text, and the step — not a branch — is what
@@ -198,20 +194,20 @@ _Avoid_: Callout, separate Material, access variant, A/B test
 
 **Lesson Difficulty**:
 How hard one lesson is for the reader who opens it: basic, intermediate or advanced. It is the
-Material's own fact, so a lesson reused in two Guides keeps one answer, and a Material that
+Material's own fact, so a lesson reused in two Products keeps one answer, and a Material that
 declares none simply shows none. In Russian product language: «Сложность».
-_Avoid_: Guide Mode, access class, Guide-level rating
+_Avoid_: Product Mode, access class, Product-level rating
 
 **Lesson Outcomes**:
 What the reader can do after one lesson: two to four written points, or none at all. They come
 from the Material's data and are not repeated in its body; a published lesson carries either no
 points or a real list, never a single one. In Russian product language: «Чему научишься».
-_Avoid_: Guide Introduction, Summary, Takeaways block
+_Avoid_: Product Introduction, Summary, Takeaways block
 
-**Guide Step Sequence**:
-An explicitly named connection between some Materials within one Guide. Its steps follow the
-Guide order even when other Materials appear between them. The same Material may have a different
-connection or none in another Guide. It does not rank Materials by importance or create another
+**Product Step Sequence**:
+An explicitly named connection between some Materials within one Product. Its steps follow the
+Product order even when other Materials appear between them. The same Material may have a different
+connection or none in another Product. It does not rank Materials by importance or create another
 reading path. In Russian product language: «Последовательность шагов».
 _Avoid_: Module, Track, main/optional role
 
@@ -223,7 +219,7 @@ _Avoid_: Material, generated index
 
 **ContentLibrary**:
 The read capability that builds coherent, body-free projections of current Published Materials,
-Topics and Guides for Home, Library and discovery pages. Home is a bounded projection of this same
+Topics and Products for Home, Library and discovery pages. Home is a bounded projection of this same
 model, not an editorial copy or a second content store.
 _Avoid_: Frontend fixture catalog, Home CMS, duplicated publication
 
@@ -312,7 +308,7 @@ An Account's private material acknowledgement and opening activity. Opening and 
 read are different facts.
 _Avoid_: Product analytics, ContentAccess, learning assessment
 
-**Guide Progress**:
+**Product Progress**:
 The number of currently published Materials in a Product's programme that an Account has marked
 read. Progress, continuation, the programme and chapter tables of contents count the same
 composition. A non-empty Product is currently all read only when every such Material is marked.
@@ -338,7 +334,7 @@ subscription Payment Option is sold only to an Account with a redeemed Invitatio
 from a bank payment and from a Tariff Assignment without payment.
 _Avoid_: Payment, Tariff, Tariff Assignment, «подписка» for a free assignment
 
-**Tariff**:
+**Tariff** (code name: `Offer`):
 A versioned description of what an Account receives: a Coverage and rights, each with its own term
 in months or none (Materials, community, Support). Its Payment Options state how it is paid. It can
 be available for assignment without being published for sale. A Tariff may allow sale to everyone
@@ -379,10 +375,10 @@ no individual Materials. Historical grants retain the terms already promised to 
 Tariff without Coverage is neither assigned nor sold.
 _Avoid_: Library access, catalogue, price
 
-**Guide Removal**:
-The confirmed withdrawal of a published Material from a Guide whose buyers or tier holders still
-hold access. The author confirms each such Guide explicitly, and the removal is journaled with the
-number of holders; a Guide without holders needs no confirmation. In Russian product language:
+**Product Removal**:
+The confirmed withdrawal of a published Material from a Product whose buyers or tier holders still
+hold access. The author confirms each such Product explicitly, and the removal is journaled with the
+number of holders; a Product without holders needs no confirmation. In Russian product language:
 «снятие из продукта».
 _Avoid_: Unpublish, reorder, access revocation
 
@@ -565,9 +561,9 @@ The single closed Telegram chat whose current roster is the Membership Signal fo
 _Avoid_: Community directory, Tribute roster, audience segment
 
 **Supplementary Material**:
-A Material associated with a Guide outside its main reading path, for reference or additional study.
-Its role is specific to that Guide and does not change the Material's Format.
-_Avoid_: Guide Chapter, copied Material, automatically free content
+A Material associated with a Product outside its main reading path, for reference or additional study.
+Its role is specific to that Product and does not change the Material's Format.
+_Avoid_: Product Chapter, copied Material, automatically free content
 
 **Subject**:
 The anonymous visitor or authenticated Account whose access is being decided.
@@ -587,23 +583,13 @@ These names refer to the same concept; they do not introduce another right or pr
 
 | Compatibility name | Canonical term |
 |---|---|
-| Offer | Tariff |
 | Subscription Tier | Tariff |
 | Subscription Option | Payment Option |
-| SubscriptionEnrollment | Tariff Assignment |
-| ContentScope, `contentScope` | Coverage |
-| `allGuides` | Coverage of the whole platform |
-| Access class `membership` | closed Material (Access Class) |
-| MembershipEntitlement | Account Rights |
-| LegacyCohort | Prior Participants |
-| Guide | Product |
 | Inside Subscription | Subscription |
 | Product Purchase | OneTimePurchase |
 | Access Scope | AccessScope |
-| Content Scope | Coverage |
-| Subscription Enrollment | Tariff Assignment |
 | Access Grant | AccessGrant |
 | Community Entitlement | CommunityEntitlement |
 | Admission Restriction | AdmissionRestriction |
-| Guide Purchase | OneTimePurchase |
+| Product Purchase | OneTimePurchase |
 | BillingContact | Billing Contact |

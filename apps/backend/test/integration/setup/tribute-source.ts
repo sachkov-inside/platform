@@ -39,7 +39,7 @@ export async function bindConfirmedTributeSource(
           revision: 1,
           name: "Стартовый тариф",
           benefits: ["community", "materials", "support"],
-          contentScope: { guideIds: [], materialIds: [], allGuides: true },
+          coverage: { productIds: [], materialIds: [], wholePlatform: true },
         },
         policyRevision: 1,
         observation: "pending",

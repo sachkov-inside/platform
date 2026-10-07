@@ -1,4 +1,4 @@
-import { guideCapability } from "@inside/access-capabilities";
+import { productCapability } from "@inside/access-capabilities";
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { expect, within } from "storybook/test";
 import type { Enrollment } from "../model/enrollment";
@@ -19,14 +19,14 @@ const course: Enrollment = {
     revision: 1,
     name: "Подписка Inside",
     benefits: ["materials", "community"],
-    contentScope: {
-      guideIds: ["62000000-0000-4000-8000-000000000004"],
+    coverage: {
+      productIds: ["62000000-0000-4000-8000-000000000004"],
       materialIds: [],
     },
   },
   content: [
     {
-      kind: "guide",
+      kind: "product",
       id: "62000000-0000-4000-8000-000000000004",
       title: "Инженерная практика",
       slug: "engineering-practice",
@@ -106,16 +106,18 @@ export const CourseTariffTerms: Story = {
           ...course.tier,
           name: "Тариф курса",
           benefits: [
-            guideCapability("62000000-0000-4000-8000-000000000004"),
+            productCapability("62000000-0000-4000-8000-000000000004"),
             "community",
             "support",
           ],
-          contentScope: { guideIds: [], materialIds: [] },
+          coverage: { productIds: [], materialIds: [] },
           benefitPeriods: [{ capability: "support", months: 6 }],
         },
         benefitTerms: [
           {
-            capability: guideCapability("62000000-0000-4000-8000-000000000004"),
+            capability: productCapability(
+              "62000000-0000-4000-8000-000000000004",
+            ),
             startsAt: course.startsAt,
             endsAt: null,
             revoked: false,

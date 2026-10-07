@@ -1,9 +1,9 @@
 import {
-  loadGuideCompositions,
-  guideCompositionChapters,
-  readGuideCompositionAccess,
-  MAX_GUIDE_MATERIALS,
-} from "../../../shared/guide-composition.js";
+  loadProductCompositions,
+  productCompositionChapters,
+  readProductCompositionAccess,
+  MAX_PRODUCT_MATERIALS,
+} from "../../../shared/product-composition.js";
 import type {
   ContentAccess,
   Subject,
@@ -21,11 +21,11 @@ import { materialDifficultySchema } from "../../../domain/material-metadata.js";
 import type { PublishedMaterialProjectionDto } from "../../../facets/published-material-reader/published-material.contract.js";
 import type { ContentCoverProjection } from "../../../facets/content-covers/content-covers.js";
 import type {
-  GuideIntroductionDto,
-  GuideProductPageDto,
+  ProductIntroductionDto,
+  ProductLandingPageDto,
 } from "../../../facets/material-authoring/content-collection.contract.js";
 import { loadContentCoverProjections } from "../content-cover-projections.js";
-import { readGuidePage } from "../../../shared/guide-page-reader.js";
+import { readProductPage } from "../../../shared/product-page-reader.js";
 import type {
   PublishedMaterialProjectionCursor,
   PublishedMaterialProjectionPageDto,
@@ -45,7 +45,7 @@ interface PublishedMaterialProjectionSearchValues {
 }
 
 export interface PublishedMaterialDiscoveryPage {
-  /** Chapters of a Guide's main path, in author order; empty for every other discovery kind. */
+  /** Chapters of a Product's main path, in author order; empty for every other discovery kind. */
   readonly chapters: readonly {
     readonly id: string;
     readonly materialIds: readonly string[];
@@ -55,17 +55,17 @@ export interface PublishedMaterialDiscoveryPage {
   }[];
   readonly reference: {
     /**
-     * Whether any lesson of this Guide is written for both ways of going through it. The mode
-     * switch belongs to the Guide, so a Guide without such a lesson shows none; false for every
+     * Whether any lesson of this Product is written for both ways of going through it. The mode
+     * switch belongs to the Product, so a Product without such a lesson shows none; false for every
      * other discovery kind.
      */
     readonly hasModeVariants: boolean;
     readonly id: string;
-    /** Author-written Guide introduction; null for every other discovery kind. */
-    readonly introduction: GuideIntroductionDto | null;
+    /** Author-written Product introduction; null for every other discovery kind. */
+    readonly introduction: ProductIntroductionDto | null;
     readonly name: string;
     /** Product page presentation and description; null for every other discovery kind. */
-    readonly productPage: GuideProductPageDto | null;
+    readonly productPage: ProductLandingPageDto | null;
     readonly slug: string;
     readonly summary: string;
     readonly cover: ContentCoverProjection | null;
@@ -140,7 +140,7 @@ const publishedMaterialProjectionRowSchema = z.object({
     .optional(),
   difficulty: materialDifficultySchema.nullable(),
   outcomes: z.array(z.string()),
-  access: z.enum(["free", "membership"]),
+  access: z.enum(["free", "closed"]),
   published_at: z.date(),
   primary_video_id: z.uuid().nullable(),
   cover: coverProjectionSchema.nullable(),
@@ -810,16 +810,20 @@ export async function selectPublishedMaterialProjectionsBySeries(
   first: number | null,
   reader?: {
     readonly subject: Subject;
-    readonly contentAccess: Pick<ContentAccess, "checkGuideAccess">;
+    readonly contentAccess: Pick<ContentAccess, "checkProductAccess">;
   },
 ): Promise<PublishedMaterialDiscoveryPage | undefined | "unavailable"> {
-  const [reference] = await loadGuideCompositions(prisma, { slugs: [slug] }, 1);
+  const [reference] = await loadProductCompositions(
+    prisma,
+    { slugs: [slug] },
+    1,
+  );
   if (reference === undefined) return undefined;
-  const access = await readGuideCompositionAccess(reference, reader);
+  const access = await readProductCompositionAccess(reference, reader);
   if (access === "unavailable") return "unavailable";
   if (access === "closed") return undefined;
-  if (reference.placements.length > MAX_GUIDE_MATERIALS)
-    throw new RangeError("Guide composition exceeds its bound");
+  if (reference.placements.length > MAX_PRODUCT_MATERIALS)
+    throw new RangeError("Product composition exceeds its bound");
   const selected =
     first === null
       ? reference.materials
@@ -865,7 +869,7 @@ export async function selectPublishedMaterialProjectionsBySeries(
     ),
   );
   return {
-    chapters: guideCompositionChapters(reference).map(
+    chapters: productCompositionChapters(reference).map(
       ({ id, materialIds, name, summary }) => ({
         id,
         materialIds,
@@ -885,7 +889,7 @@ export async function selectPublishedMaterialProjectionsBySeries(
       name: reference.name,
       productPage: {
         presentation: reference.presentation,
-        page: readGuidePage(reference.page, `Guide ${reference.slug}`),
+        page: readProductPage(reference.page, `Product ${reference.slug}`),
       },
       slug: reference.slug,
       summary: reference.summary,

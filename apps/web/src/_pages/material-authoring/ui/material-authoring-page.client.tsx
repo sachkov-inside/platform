@@ -21,7 +21,7 @@ import {
   flushPendingEdits,
   useAutosave,
 } from "@/shared/lib/autosave/use-autosave";
-import type { GuideRemoval } from "@/shared/lib/guide-removal";
+import type { ProductRemoval } from "@/shared/lib/product-removal";
 import {
   authoringMaterialPreviewHref,
   withAuthoringReturnHref,
@@ -92,7 +92,7 @@ export function MaterialAuthoringPageClient({
   >(null);
   // Снятие из купленных продуктов: сервер назвал продукты, автор ещё не ответил.
   const [removalConfirmation, setRemovalConfirmation] = useState<
-    readonly GuideRemoval[] | null
+    readonly ProductRemoval[] | null
   >(null);
   // Подтверждённые продукты уходят только в ближайшее сохранение и сбрасываются после него.
   const confirmedRemovals = useRef<readonly string[]>([]);
@@ -160,7 +160,7 @@ export function MaterialAuthoringPageClient({
           snapshot.publicationTarget ??
           (current.status === "new" ? "draft" : current.status),
         submissionId: crypto.randomUUID(),
-        confirmedGuideRemovals: confirmedRemovals.current,
+        confirmedProductRemovals: confirmedRemovals.current,
       };
       retrySaveInput.current = input;
       const result = await saveMutation.mutateAsync(input);
@@ -169,7 +169,7 @@ export function MaterialAuthoringPageClient({
         if (result.kind === "removal_confirmation_required") {
           // Повтор не отправляется сам: сначала автор отвечает в диалоге.
           retrySaveInput.current = null;
-          setRemovalConfirmation(result.guides);
+          setRemovalConfirmation(result.products);
           return "invalid";
         }
         if (result.kind === "invalid_input") {
@@ -248,7 +248,7 @@ export function MaterialAuthoringPageClient({
     removalConfirmation:
       removalConfirmation === null
         ? null
-        : { guides: removalConfirmation, pending },
+        : { products: removalConfirmation, pending },
     draft: effectiveDraft,
     noticeRevision,
     save: pending
@@ -309,7 +309,7 @@ export function MaterialAuthoringPageClient({
       if (field === "access") {
         markDirty({
           ...effectiveDraft,
-          access: value === "membership" ? "membership" : "free",
+          access: value === "closed" ? "closed" : "free",
           deleteVideoId: null,
           primaryVideo:
             value === effectiveDraft.access
@@ -378,21 +378,21 @@ export function MaterialAuthoringPageClient({
         ),
       );
     },
-    onCancelGuideRemoval: () => {
+    onCancelProductRemoval: () => {
       // Материал остаётся в продуктах: возвращаем руководства и отменяем снятие с публикации.
-      const guideIds = (removalConfirmation ?? []).map(
-        ({ guideId }) => guideId,
+      const productIds = (removalConfirmation ?? []).map(
+        ({ productId }) => productId,
       );
       setRemovalConfirmation(null);
       setPublicationTarget(null);
       markDirty({
         ...effectiveDraft,
-        seriesIds: [...new Set([...effectiveDraft.seriesIds, ...guideIds])],
+        seriesIds: [...new Set([...effectiveDraft.seriesIds, ...productIds])],
       });
     },
-    onConfirmGuideRemoval: () => {
+    onConfirmProductRemoval: () => {
       confirmedRemovals.current = (removalConfirmation ?? []).map(
-        ({ guideId }) => guideId,
+        ({ productId }) => productId,
       );
       setRemovalConfirmation(null);
       void autosave.retry();

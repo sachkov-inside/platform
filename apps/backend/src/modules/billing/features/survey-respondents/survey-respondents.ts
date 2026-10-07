@@ -1,11 +1,11 @@
 import { randomBytes, randomUUID } from "node:crypto";
-import { guideCapability } from "@inside/access-capabilities";
+import { productCapability } from "@inside/access-capabilities";
 import type { z } from "zod";
 import {
   lockBillingPricing,
   type BillingPrismaClient,
 } from "../../../../infrastructure/prisma/index.js";
-import type { AccessGrants } from "../../../membership-entitlements/index.js";
+import type { AccessGrants } from "../../../account-rights/index.js";
 import {
   normalizeTelegramUsername,
   parseRespondentList,
@@ -151,7 +151,7 @@ export async function issueRespondentLink(
     ok: true,
     value: {
       ...issued.value,
-      guideSlug: await soldGuideSlug(
+      productSlug: await soldProductSlug(
         dependencies,
         actorId,
         issued.value.promotionId,
@@ -203,7 +203,7 @@ export async function readRespondents(
  * Slug единственного продукта, который продаёт область акции: по нему Web собирает адрес страницы
  * оплаты. Область из нескольких продуктов или без продукта даёт `null`.
  */
-async function soldGuideSlug(
+async function soldProductSlug(
   dependencies: IssueDependencies,
   actorId: string,
   promotionId: string,
@@ -222,9 +222,9 @@ async function soldGuideSlug(
   const benefits = new Set(offers.flatMap((offer) => offer.benefits));
   const catalog = await dependencies.grants.readContentCatalog(actorId);
   if (!catalog.ok) return null;
-  const guides = catalog.value.filter(
+  const products = catalog.value.filter(
     (entry) =>
-      entry.kind === "guide" && benefits.has(guideCapability(entry.id)),
+      entry.kind === "product" && benefits.has(productCapability(entry.id)),
   );
-  return guides.length === 1 ? (guides[0]?.slug ?? null) : null;
+  return products.length === 1 ? (products[0]?.slug ?? null) : null;
 }

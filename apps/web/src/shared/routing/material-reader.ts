@@ -103,7 +103,7 @@ function readReturnTarget(
   // именно оттуда и возвращается на ту же страницу и страницу списка.
   // Программа есть только у руководства, поэтому шаблон её темой и не допускает.
   const match =
-    /^\/(?:(products|guides|series)\/([^/]+)(\/programme)?|(topics)\/([^/]+))$/u.exec(
+    /^\/(?:(products|products|series)\/([^/]+)(\/programme)?|(topics)\/([^/]+))$/u.exec(
       url.pathname,
     );
   if (match === null) return undefined;
@@ -111,7 +111,7 @@ function readReturnTarget(
   if (slug === undefined || !slugPattern.test(slug)) return undefined;
   const routeKind =
     match[3] === undefined ? (match[1] ?? match[4]) : "products";
-  // Прежние `/guides` и `/series` перенаправляются на `/products`, поэтому старый возврат работает.
+  // Прежние `/products` и `/series` перенаправляются на `/products`, поэтому старый возврат работает.
   const toProduct = routeKind !== "topics";
   if (url.search.length > 0) {
     const from = singleSearchValue(url.searchParams, "from");

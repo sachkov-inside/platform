@@ -66,7 +66,7 @@ describe("MaterialAsset byte processing", () => {
         declaredContentType: "application/pdf",
         declaredSize: pdf.byteLength,
         expectedChecksumSha256: "0".repeat(64),
-        filename: "guide.pdf",
+        filename: "product.pdf",
         kind: "file",
       }),
     ).resolves.toEqual({ error: { code: "checksum_mismatch" }, ok: false });
@@ -78,7 +78,7 @@ describe("MaterialAsset byte processing", () => {
         declaredContentType: "application/pdf",
         declaredSize: fakePdf.byteLength,
         expectedChecksumSha256: checksum(fakePdf),
-        filename: "guide.pdf",
+        filename: "product.pdf",
         kind: "file",
       }),
     ).resolves.toEqual({ error: { code: "mime_mismatch" }, ok: false });

@@ -1,6 +1,6 @@
 import {
   accessCapabilitySchema,
-  contentScopeEntrySchema,
+  coverageEntrySchema,
 } from "@inside/access-capabilities";
 import { z } from "zod";
 import { tierSchema, enrollmentSchema } from "@/entities/subscription";
@@ -164,7 +164,7 @@ export const contentCatalogOutcomeSchema = z.object({
   operationRef: z.uuid(),
   result: z.object({
     outcome: z.literal("content"),
-    items: z.array(contentScopeEntrySchema),
+    items: z.array(coverageEntrySchema),
   }),
 });
 

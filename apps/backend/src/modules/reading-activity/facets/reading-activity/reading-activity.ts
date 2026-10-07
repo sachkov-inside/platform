@@ -4,10 +4,10 @@ import type {
   MaterialContent,
   PublishedSeriesComposition,
 } from "../../../materials/index.js";
-import { getReaderGuideMode } from "../../features/get-reader-guide-mode/get-reader-guide-mode.js";
+import { getReaderProductMode } from "../../features/get-reader-product-mode/get-reader-product-mode.js";
 import { getReadingStates } from "../../features/get-reading-states/get-reading-states.js";
 import { getSeriesProgress } from "../../features/get-series-progress/get-series-progress.js";
-import { setReaderGuideMode } from "../../features/set-reader-guide-mode/set-reader-guide-mode.js";
+import { setReaderProductMode } from "../../features/set-reader-product-mode/set-reader-product-mode.js";
 import { setReadingState } from "../../features/set-reading-state/set-reading-state.js";
 import type { SetReadingStateCommand } from "../../features/set-reading-state/set-reading-state.contract.js";
 
@@ -17,7 +17,7 @@ export class ReadingActivity {
       readonly prisma: ReadingActivityPrismaClient;
       readonly contentAccess: Pick<
         ContentAccess,
-        "authorize" | "checkGuideAccess"
+        "authorize" | "checkProductAccess"
       >;
       readonly materialContent: Pick<MaterialContent, "findAccessFacts">;
       readonly composition: Pick<PublishedSeriesComposition, "read">;
@@ -39,13 +39,13 @@ export class ReadingActivity {
   }) {
     return getSeriesProgress(this.dependencies, query);
   }
-  getReaderGuideMode(query: { readonly accountId: string }) {
-    return getReaderGuideMode(this.dependencies.prisma, query);
+  getReaderProductMode(query: { readonly accountId: string }) {
+    return getReaderProductMode(this.dependencies.prisma, query);
   }
-  setReaderGuideMode(command: {
+  setReaderProductMode(command: {
     readonly accountId: string;
-    readonly guideMode: unknown;
+    readonly productMode: unknown;
   }) {
-    return setReaderGuideMode(this.dependencies.prisma, command);
+    return setReaderProductMode(this.dependencies.prisma, command);
   }
 }

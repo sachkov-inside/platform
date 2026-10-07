@@ -4,11 +4,11 @@ import { z } from "zod";
 import { convertMarkdown } from "../tools/authoring/markdown.mjs";
 const receipt = z.object({ materialId: z.uuid(), contentVersion: z.number() });
 
-/** @param {string} origin @param {string} accessToken @param {"free" | "membership"} [access] */
+/** @param {string} origin @param {string} accessToken @param {"free" | "closed"} [access] */
 export async function seedFullStackPractice(
   origin,
   accessToken,
-  access = "membership",
+  access = "closed",
 ) {
   const practiceId = `synthetic:fullstack-practice${access === "free" ? "-free" : ""}`;
   /** @param {string} path @param {unknown} [body] */
@@ -34,9 +34,9 @@ export async function seedFullStackPractice(
     revision: "a".repeat(64),
     showInFeed: false,
   };
-  const guide = z.object({ id: z.uuid() }).parse(
-    await request("/authoring/import/guides/reserve", {
-      sourceId: "synthetic:fullstack-practice-guide",
+  const product = z.object({ id: z.uuid() }).parse(
+    await request("/authoring/import/products/reserve", {
+      sourceId: "synthetic:fullstack-practice-product",
       name: "Synthetic practice",
       slug: "synthetic-practice",
       summary: "Isolated imported practice fixture",
@@ -59,7 +59,7 @@ export async function seedFullStackPractice(
         topicId: "72000000-0000-4000-8000-000000000002",
         formatId: "guide",
         tagIds: [],
-        seriesIds: [guide.id],
+        seriesIds: [product.id],
         difficulty: null,
         outcomes: [],
       },

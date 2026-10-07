@@ -1,6 +1,6 @@
 import {
   formatKopecks,
-  type GuideCohort,
+  type ProductCohort,
   type PriceSnapshot,
 } from "@/entities/subscription";
 import {
@@ -8,10 +8,10 @@ import {
   oneTimeTermLabels,
 } from "@/features/billing-checkout.terms";
 import type { CohortCall } from "@/features/ai-engineering-course";
-import type { GuideAccess } from "@/features/library-discovery";
+import type { ProductAccess } from "@/features/library-discovery";
 import {
-  guideProgrammeHref,
-  guidePurchaseHref,
+  productProgrammeHref,
+  productPurchaseHref,
 } from "@/shared/routing/subscription-route";
 
 const cohortDate = new Intl.DateTimeFormat("ru-RU", {
@@ -38,15 +38,15 @@ export function cohortCall({
   signedIn,
   slug,
 }: {
-  readonly cohort: GuideCohort | null;
+  readonly cohort: ProductCohort | null;
   /** Самый дешёвый вариант продукта, который видит этот человек, или `null`, если продажи нет. */
   readonly offer: PriceSnapshot | null;
   /** Открыт ли продукт этому человеку по его основаниям; тому, у кого он есть, оплата не нужна. */
-  readonly productAccess: GuideAccess;
+  readonly productAccess: ProductAccess;
   readonly signedIn: boolean;
   readonly slug: string;
 }): CohortCall {
-  const programme = guideProgrammeHref(slug);
+  const programme = productProgrammeHref(slug);
   const openProgramme = {
     kind: "programme",
     href: programme,
@@ -60,7 +60,7 @@ export function cohortCall({
   const payable = offer !== null && productAccess !== "open";
   const pay = (label: string) =>
     payable
-      ? ({ kind: "purchase", href: guidePurchaseHref(slug), label } as const)
+      ? ({ kind: "purchase", href: productPurchaseHref(slug), label } as const)
       : openProgramme;
   const price = offer === null ? "" : formatKopecks(offer.firstPriceKopecks);
   const label = cohort.name;

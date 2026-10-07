@@ -31,7 +31,7 @@ export const publishedMaterialProjectionHttpSchema = z
       .optional(),
     difficulty: materialDifficultySchema.nullable(),
     outcomes: z.array(z.string()),
-    access: z.enum(["free", "membership"]),
+    access: z.enum(["free", "closed"]),
     publishedAt: z.iso.datetime({ offset: true }),
     primaryVideoId: z.uuid().nullable(),
     cover: contentCoverProjectionHttpSchema.nullable(),

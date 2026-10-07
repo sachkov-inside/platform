@@ -9,8 +9,8 @@
 
 export const passIdentities = [
   "no-entitlement",
-  "learner-guide-a",
-  "learner-guide-b",
+  "learner-product-a",
+  "learner-product-b",
   "expired",
   "materials-only",
   "billing-only",
@@ -40,8 +40,8 @@ export interface PassCellParts {
 const stateIdentities: Readonly<Record<string, PassIdentity | "anonymous">> = {
   anonymous: "anonymous",
   "account-without-entitlement": "no-entitlement",
-  "learner-guide-a": "learner-guide-a",
-  "learner-guide-b": "learner-guide-b",
+  "learner-product-a": "learner-product-a",
+  "learner-product-b": "learner-product-b",
   expired: "expired",
   "materials-only": "materials-only",
   "billing-only": "billing-only",
@@ -86,8 +86,8 @@ const surfaceChecks: Readonly<Record<string, string>> = {
   "billing-operations@owner-mcp": "каталог тарифов: billing_tiers_list",
 };
 const actionLabels: Readonly<Record<string, string>> = {
-  "read-guide-a": "Guide A",
-  "read-guide-b": "Guide B",
+  "read-product-a": "Product A",
+  "read-product-b": "Product B",
   "read-free-practice": "Бесплатная практика",
   "manage-materials": "Materials",
   "manage-billing": "Billing",

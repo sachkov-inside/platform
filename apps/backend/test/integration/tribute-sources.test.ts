@@ -1,10 +1,10 @@
-import { sourceIdentityRef } from "../../src/modules/membership-entitlements/domain/source-identity.js";
+import { sourceIdentityRef } from "../../src/modules/account-rights/domain/source-identity.js";
 import { eventually } from "./setup/eventually.js";
 import {
   lockBillingPricing,
   lockAccountEntitlementChanges,
 } from "../../src/infrastructure/prisma/index.js";
-import { changeEnrollmentInTransaction } from "../../src/modules/membership-entitlements/features/change-enrollment/change-enrollment.js";
+import { changeEnrollmentInTransaction } from "../../src/modules/account-rights/features/change-enrollment/change-enrollment.js";
 import { z } from "zod";
 import { createHash, createHmac, randomUUID } from "node:crypto";
 import { Module } from "@nestjs/common";
@@ -21,9 +21,9 @@ import {
 } from "../../src/modules/accounts/index.js";
 import {
   assembleAccessGrants,
-  assembleMembershipEntitlements,
+  assembleAccountRights,
   TributeSources,
-} from "../../src/modules/membership-entitlements/index.js";
+} from "../../src/modules/account-rights/index.js";
 import { SubscriptionActivationController } from "../../src/modules/telegram-membership/features/activate-subscription/subscription-activation.controller.js";
 import {
   SubscriptionActivation,
@@ -63,7 +63,7 @@ describe("Tribute source production facets and signed HTTP with PostgreSQL", () 
   let sources: TributeSources;
   let convergence: TributeConvergence;
   let grants: ReturnType<typeof assembleAccessGrants>;
-  let membership: ReturnType<typeof assembleMembershipEntitlements>;
+  let membership: ReturnType<typeof assembleAccountRights>;
   let http: NestFastifyApplication;
   let now = new Date("2030-01-01T00:00:00.000Z");
   let subscriptionSequence = 625000;
@@ -95,7 +95,7 @@ describe("Tribute source production facets and signed HTTP with PostgreSQL", () 
       recipientLinks: links,
       clock: () => now,
     });
-    membership = assembleMembershipEntitlements({
+    membership = assembleAccountRights({
       prisma: db.prisma,
       recipientLinks: links,
       clock: () => now,
@@ -155,13 +155,13 @@ describe("Tribute source production facets and signed HTTP with PostgreSQL", () 
     now = new Date("2030-01-01T00:00:00.000Z");
     const policyRef = randomUUID(),
       identityRef = randomUUID(),
-      guideId = randomUUID();
+      productId = randomUUID();
     const tier = await db.prisma.billingOffer.create({
       data: {
         id: randomUUID(),
         name: "Подписка Inside",
         benefits: ["materials", "community"],
-        contentScope: { guideIds: [guideId], materialIds: [] },
+        coverage: { productIds: [productId], materialIds: [] },
         availableForAssignment: true,
         revision: 1,
       },
@@ -231,7 +231,7 @@ describe("Tribute source production facets and signed HTTP with PostgreSQL", () 
       });
       row.expectedRevision = 1;
     }
-    return { row, tier, guideId };
+    return { row, tier, productId };
   }
   async function link(identityRef: string) {
     const id = randomUUID();
@@ -465,7 +465,7 @@ describe("Tribute source production facets and signed HTTP with PostgreSQL", () 
       ),
     ).toBe(false);
     expect(
-      await db.prisma.subscriptionEnrollment.count({ where: { sourceRef } }),
+      await db.prisma.tariffAssignment.count({ where: { sourceRef } }),
     ).toBe(0);
   });
   test("new temporary Tribute source cannot grant unpaid access", async () => {
@@ -496,7 +496,7 @@ describe("Tribute source production facets and signed HTTP with PostgreSQL", () 
       revision: 1,
       name: context.tier.name,
       benefits: ["materials", "community"],
-      contentScope: { guideIds: [context.guideId], materialIds: [] },
+      coverage: { productIds: [context.productId], materialIds: [] },
     };
     expect(
       await grants.assignEnrollment(
@@ -526,7 +526,7 @@ describe("Tribute source production facets and signed HTTP with PostgreSQL", () 
     const source = imported.result.sources[0];
     if (!hasText(source?.enrollmentId))
       throw new Error("Expected pending enrollment");
-    const row = await db.prisma.subscriptionEnrollment.findUniqueOrThrow({
+    const row = await db.prisma.tariffAssignment.findUniqueOrThrow({
       where: { id: source.enrollmentId },
     });
     const expanded = {
@@ -580,7 +580,7 @@ describe("Tribute source production facets and signed HTTP with PostgreSQL", () 
       status: "pending_identity",
     });
     expect(
-      await db.prisma.subscriptionEnrollment.count({
+      await db.prisma.tariffAssignment.count({
         where: {
           sourceRef: imported.result.sources[0]?.sourceRef ?? "missing",
         },
@@ -590,14 +590,14 @@ describe("Tribute source production facets and signed HTTP with PostgreSQL", () 
     expect(await convergence.sweep()).toMatchObject({ attached: 1 });
     expect(
       await membership.resolveForAccess(accountId(customer.id), [
-        context.guideId,
+        context.productId,
       ]),
     ).toMatchObject({ kind: "active" });
     expect(value(await convergence.apply(owner, imported.command))).toEqual(
       imported.result,
     );
     expect(
-      await db.prisma.subscriptionEnrollment.count({
+      await db.prisma.tariffAssignment.count({
         where: { accountId: customer.id },
       }),
     ).toBe(1);
@@ -622,7 +622,7 @@ describe("Tribute source production facets and signed HTTP with PostgreSQL", () 
       startsAt: "2030-01-01T03:00:00.000+03:00",
       endsAt: "2030-02-01T03:00:00.000+03:00",
     });
-    const before = await db.prisma.subscriptionEnrollment.findFirstOrThrow({
+    const before = await db.prisma.tariffAssignment.findFirstOrThrow({
       where: { accountId: customer.id },
     });
     const beforeGrants = await db.prisma.accessGrant.findMany({
@@ -635,11 +635,11 @@ describe("Tribute source production facets and signed HTTP with PostgreSQL", () 
         name: "Changed next cohort",
         revision: 2,
         benefits: ["materials", "reviews"],
-        contentScope: { guideIds: [randomUUID()], materialIds: [] },
+        coverage: { productIds: [randomUUID()], materialIds: [] },
       },
     });
     expect(
-      await db.prisma.subscriptionEnrollment.findUniqueOrThrow({
+      await db.prisma.tariffAssignment.findUniqueOrThrow({
         where: { id: before.id },
       }),
     ).toEqual(before);
@@ -654,25 +654,25 @@ describe("Tribute source production facets and signed HTTP with PostgreSQL", () 
     now = new Date("2029-12-31T23:59:59.999Z");
     expect(
       await membership.resolveForAccess(accountId(customer.id), [
-        context.guideId,
+        context.productId,
       ]),
     ).not.toMatchObject({ kind: "active" });
     now = new Date("2030-01-01T00:00:00.000Z");
     expect(
       await membership.resolveForAccess(accountId(customer.id), [
-        context.guideId,
+        context.productId,
       ]),
     ).toMatchObject({ kind: "active" });
     now = new Date("2030-01-31T23:59:59.999Z");
     expect(
       await membership.resolveForAccess(accountId(customer.id), [
-        context.guideId,
+        context.productId,
       ]),
     ).toMatchObject({ kind: "active" });
     now = new Date("2030-02-01T00:00:00.000Z");
     expect(
       await membership.resolveForAccess(accountId(customer.id), [
-        context.guideId,
+        context.productId,
       ]),
     ).not.toMatchObject({ kind: "active" });
   });
@@ -692,13 +692,12 @@ describe("Tribute source production facets and signed HTTP with PostgreSQL", () 
       const [target, untouched] = ordered;
       if (!target || !untouched)
         throw new Error("Expected two independent Accounts");
-      const original = await db.prisma.subscriptionEnrollment.findFirstOrThrow({
+      const original = await db.prisma.tariffAssignment.findFirstOrThrow({
         where: { accountId: target.account.id },
       });
-      const otherBefore =
-        await db.prisma.subscriptionEnrollment.findFirstOrThrow({
-          where: { accountId: untouched.account.id },
-        });
+      const otherBefore = await db.prisma.tariffAssignment.findFirstOrThrow({
+        where: { accountId: untouched.account.id },
+      });
       const rows = await Promise.all(
         [...ordered].reverse().map(async ({ context }) => ({
           ...context.row,
@@ -779,11 +778,11 @@ describe("Tribute source production facets and signed HTTP with PostgreSQL", () 
         value: { ok: false, error: { code: "revision_conflict" } },
       });
       expect(
-        await db.prisma.subscriptionEnrollment.findUniqueOrThrow({
+        await db.prisma.tariffAssignment.findUniqueOrThrow({
           where: { id: otherBefore.id },
         }),
       ).toEqual(otherBefore);
-      const current = await db.prisma.subscriptionEnrollment.findUniqueOrThrow({
+      const current = await db.prisma.tariffAssignment.findUniqueOrThrow({
         where: { id: original.id },
       });
       expect(current.revision).toBe(original.revision + 1);
@@ -843,7 +842,7 @@ describe("Tribute source production facets and signed HTTP with PostgreSQL", () 
       });
       expect(
         await membership.resolveForAccess(accountId(customer.id), [
-          context.guideId,
+          context.productId,
         ]),
       ).toMatchObject({ kind: "active" });
     }
@@ -998,12 +997,12 @@ describe("Tribute source production facets and signed HTTP with PostgreSQL", () 
         })
       ).json(),
     ).toMatchObject({ status: "pending_reconciliation" });
-    const enrollment = await db.prisma.subscriptionEnrollment.findFirstOrThrow({
+    const enrollment = await db.prisma.tariffAssignment.findFirstOrThrow({
       where: { accountId: customer.id },
     });
     expect(enrollment.endsAt?.toISOString()).toBe("2030-03-01T00:00:00.000Z");
     expect(
-      await db.prisma.subscriptionEnrollment.count({
+      await db.prisma.tariffAssignment.count({
         where: { accountId: customer.id },
       }),
     ).toBe(1);
@@ -1046,7 +1045,7 @@ describe("Tribute source production facets and signed HTTP with PostgreSQL", () 
     expect(preview.rows[0]?.status).toBe("conflict");
     expect(
       await membership.resolveForAccess(accountId(customer.id), [
-        context.guideId,
+        context.productId,
       ]),
     ).not.toMatchObject({ kind: "active" });
     const restored = value(
@@ -1071,11 +1070,11 @@ describe("Tribute source production facets and signed HTTP with PostgreSQL", () 
     });
     expect(
       await membership.resolveForAccess(accountId(customer.id), [
-        context.guideId,
+        context.productId,
       ]),
     ).toMatchObject({ kind: "active" });
     expect(
-      await db.prisma.subscriptionEnrollment.count({
+      await db.prisma.tariffAssignment.count({
         where: { accountId: customer.id },
       }),
     ).toBe(1);
@@ -1089,7 +1088,7 @@ describe("Tribute source production facets and signed HTTP with PostgreSQL", () 
     expect(source.status).toBe("pending_verification");
     expect(
       await membership.resolveForAccess(accountId(customer.id), [
-        context.guideId,
+        context.productId,
       ]),
     ).not.toMatchObject({ kind: "active" });
     async function observe(decision: "member" | "not_member", version: number) {
@@ -1116,13 +1115,13 @@ describe("Tribute source production facets and signed HTTP with PostgreSQL", () 
     });
     expect(
       await membership.resolveForAccess(accountId(customer.id), [
-        context.guideId,
+        context.productId,
       ]),
     ).toMatchObject({ kind: "active" });
     now = new Date(now.getTime() + 300_000);
     expect(
       await membership.resolveForAccess(accountId(customer.id), [
-        context.guideId,
+        context.productId,
       ]),
     ).not.toMatchObject({ kind: "active" });
     expect(value(await grants.readOwnEnrollments(customer.id))[0]?.state).toBe(
@@ -1131,7 +1130,7 @@ describe("Tribute source production facets and signed HTTP with PostgreSQL", () 
     expect(await observe("member", 2)).toMatchObject({ ok: true });
     expect(
       await membership.resolveForAccess(accountId(customer.id), [
-        context.guideId,
+        context.productId,
       ]),
     ).toMatchObject({ kind: "active" });
     now = new Date(now.getTime() + 1_000);
@@ -1143,12 +1142,12 @@ describe("Tribute source production facets and signed HTTP with PostgreSQL", () 
     );
     expect(
       await membership.resolveForAccess(accountId(customer.id), [
-        context.guideId,
+        context.productId,
       ]),
     ).not.toMatchObject({ kind: "active" });
-    const enrollment = await db.prisma.subscriptionEnrollment.findUniqueOrThrow(
-      { where: { id: source.enrollmentId ?? "" } },
-    );
+    const enrollment = await db.prisma.tariffAssignment.findUniqueOrThrow({
+      where: { id: source.enrollmentId ?? "" },
+    });
     const changed = value(
       await grants.changeEnrollment(owner, {
         operationId: randomUUID(),
@@ -1166,7 +1165,7 @@ describe("Tribute source production facets and signed HTTP with PostgreSQL", () 
     expect(changed.state).toBe("suspended_source");
     expect(
       await membership.resolveForAccess(accountId(customer.id), [
-        context.guideId,
+        context.productId,
       ]),
     ).not.toMatchObject({ kind: "active" });
     const current = await db.prisma.sourceEntitlement.findUniqueOrThrow({
@@ -1181,7 +1180,7 @@ describe("Tribute source production facets and signed HTTP with PostgreSQL", () 
     await apply(confirmed);
     expect(
       await membership.resolveForAccess(accountId(customer.id), [
-        context.guideId,
+        context.productId,
       ]),
     ).toMatchObject({ kind: "active" });
     expect(
@@ -1234,7 +1233,7 @@ describe("Tribute source production facets and signed HTTP with PostgreSQL", () 
     expect(results[0]).toEqual(results[1]);
     expect(results[0]).toMatchObject({ ok: true });
     expect(
-      await db.prisma.subscriptionEnrollment.count({
+      await db.prisma.tariffAssignment.count({
         where: { accountId: customer.id },
       }),
     ).toBe(1);
@@ -1397,7 +1396,7 @@ describe("Tribute source production facets and signed HTTP with PostgreSQL", () 
         id: randomUUID(),
         name: "Replacement",
         benefits: ["materials"],
-        contentScope: { guideIds: [randomUUID()], materialIds: [] },
+        coverage: { productIds: [randomUUID()], materialIds: [] },
         availableForAssignment: true,
         revision: 1,
       },

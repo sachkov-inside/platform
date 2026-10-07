@@ -4,14 +4,14 @@ import {
   type MaterialsPrismaTransaction,
 } from "../../../../infrastructure/prisma/index.js";
 import { z } from "zod";
-import type { GuideMembership } from "../../domain/material-metadata.js";
-import type { GuideChapterEntry } from "../../shared/guide-order-version.js";
+import type { ProductMembership } from "../../domain/material-metadata.js";
+import type { ProductChapterEntry } from "../../shared/product-order-version.js";
 import type { MaterialId } from "../../domain/material-identifiers.js";
 import { refreshPublishedMaterialSearchProjections } from "./published-material-search.js";
 
 const publicationStateSchema = z.enum(["draft", "published", "unpublished"]);
 
-export interface GuideChapterSnapshot {
+export interface ProductChapterSnapshot {
   readonly id: string;
   readonly name: string;
   readonly ordinal: number;
@@ -20,7 +20,7 @@ export interface GuideChapterSnapshot {
 
 export interface SeriesOrderSnapshot {
   readonly archived: boolean;
-  readonly chapters: readonly GuideChapterSnapshot[];
+  readonly chapters: readonly ProductChapterSnapshot[];
   readonly items: readonly {
     readonly chapterId: string | null;
     readonly materialId: string;
@@ -38,11 +38,11 @@ export async function loadSeriesOrderSnapshot(
   seriesId: string,
 ): Promise<SeriesOrderSnapshot | undefined> {
   const [series, memberships, chapters] = await Promise.all([
-    prisma.guide.findUnique({
+    prisma.product.findUnique({
       where: { id: seriesId },
       select: { archivedAt: true, id: true, name: true },
     }),
-    prisma.guideMembership.findMany({
+    prisma.productMembership.findMany({
       where: { seriesId },
       orderBy: [{ ordinal: "asc" }, { materialId: "asc" }],
       select: {
@@ -52,8 +52,8 @@ export async function loadSeriesOrderSnapshot(
         stepGroup: true,
       },
     }),
-    prisma.guideChapter.findMany({
-      where: { guideId: seriesId },
+    prisma.productChapter.findMany({
+      where: { productId: seriesId },
       orderBy: [{ ordinal: "asc" }, { id: "asc" }],
       select: { id: true, name: true, ordinal: true, summary: true },
     }),
@@ -79,7 +79,7 @@ export async function loadSeriesOrderSnapshot(
     items: memberships.map(({ chapterId, materialId, ordinal, stepGroup }) => {
       const material = materialById.get(materialId);
       if (material === undefined) {
-        throw new TypeError("Guide membership references a missing Material");
+        throw new TypeError("Product membership references a missing Material");
       }
       return {
         chapterId,
@@ -101,8 +101,8 @@ export async function appendSelectedSeriesMemberships(
   transaction: MaterialsPrismaTransaction,
   materialId: MaterialId,
   selectedSeriesIds: readonly string[],
-): Promise<readonly GuideMembership[]> {
-  const membershipSeriesIds = await transaction.guideMembership.findMany({
+): Promise<readonly ProductMembership[]> {
+  const membershipSeriesIds = await transaction.productMembership.findMany({
     where: { materialId },
     select: { seriesId: true },
   });
@@ -113,7 +113,7 @@ export async function appendSelectedSeriesMemberships(
     ]),
   ]);
 
-  const currentMemberships = await transaction.guideMembership.findMany({
+  const currentMemberships = await transaction.productMembership.findMany({
     where: { materialId },
     select: { seriesId: true, ordinal: true },
   });
@@ -126,7 +126,7 @@ export async function appendSelectedSeriesMemberships(
   const maxima =
     newSeriesIds.length === 0
       ? []
-      : await transaction.guideMembership.groupBy({
+      : await transaction.productMembership.groupBy({
           by: ["seriesId"],
           where: { seriesId: { in: newSeriesIds } },
           _max: { ordinal: true },
@@ -169,7 +169,7 @@ export async function lockMaterialSeries(
   materialId: MaterialId,
   selectedSeriesIds: readonly string[] = [],
 ): Promise<void> {
-  const memberships = await transaction.guideMembership.findMany({
+  const memberships = await transaction.productMembership.findMany({
     where: { materialId },
     select: { seriesId: true },
   });
@@ -181,44 +181,44 @@ export async function lockMaterialSeries(
   ]);
 }
 
-export async function replaceGuideComposition(
+export async function replaceProductComposition(
   transaction: MaterialsPrismaTransaction,
   {
     chapterAssignments,
     chapters,
-    guideId,
+    productId,
     orderedMaterialIds,
     stepGroups,
   }: {
     readonly chapterAssignments: Readonly<Record<string, string>>;
-    readonly chapters: readonly GuideChapterEntry[];
-    readonly guideId: string;
+    readonly chapters: readonly ProductChapterEntry[];
+    readonly productId: string;
     readonly orderedMaterialIds: readonly string[];
     readonly stepGroups: Readonly<Record<string, string>>;
   },
 ): Promise<void> {
-  const previousMemberships = await transaction.guideMembership.findMany({
-    where: { seriesId: guideId },
+  const previousMemberships = await transaction.productMembership.findMany({
+    where: { seriesId: productId },
     select: { materialId: true },
   });
-  await transaction.guideMembership.deleteMany({
-    where: { seriesId: guideId },
+  await transaction.productMembership.deleteMany({
+    where: { seriesId: productId },
   });
-  await replaceGuideChapters(transaction, guideId, chapters);
+  await replaceProductChapters(transaction, productId, chapters);
   if (orderedMaterialIds.length > 0) {
-    await transaction.guideMembership.createMany({
+    await transaction.productMembership.createMany({
       data: orderedMaterialIds.map((materialId, index) => ({
         chapterId: chapterAssignments[materialId] ?? null,
         materialId,
         ordinal: index + 1,
         stepGroup: stepGroups[materialId] ?? null,
-        seriesId: guideId,
+        seriesId: productId,
       })),
     });
   }
 
-  await transaction.publishedMaterialGuideMembership.deleteMany({
-    where: { seriesId: guideId },
+  await transaction.publishedMaterialProductMembership.deleteMany({
+    where: { seriesId: productId },
   });
   const published =
     orderedMaterialIds.length === 0
@@ -234,11 +234,11 @@ export async function replaceGuideComposition(
   const publishedMemberships = orderedMaterialIds.flatMap(
     (materialId, index) =>
       publishedIds.has(materialId)
-        ? [{ materialId, ordinal: index + 1, seriesId: guideId }]
+        ? [{ materialId, ordinal: index + 1, seriesId: productId }]
         : [],
   );
   if (publishedMemberships.length > 0) {
-    await transaction.publishedMaterialGuideMembership.createMany({
+    await transaction.publishedMaterialProductMembership.createMany({
       data: publishedMemberships,
     });
   }
@@ -256,23 +256,23 @@ export async function replaceGuideComposition(
 /**
  * Chapters keep their identity across renames and reordering, so kept rows are updated in place.
  * Removing a chapter detaches its Materials through the membership foreign key; it never deletes
- * a Material. The (guide_id, ordinal) constraint is deferred, so positions may swap inside the
+ * a Material. The (product_id, ordinal) constraint is deferred, so positions may swap inside the
  * transaction.
  */
-async function replaceGuideChapters(
+async function replaceProductChapters(
   transaction: MaterialsPrismaTransaction,
-  guideId: string,
-  chapters: readonly GuideChapterEntry[],
+  productId: string,
+  chapters: readonly ProductChapterEntry[],
 ): Promise<void> {
-  const existing = await transaction.guideChapter.findMany({
-    where: { guideId },
+  const existing = await transaction.productChapter.findMany({
+    where: { productId },
     select: { id: true },
   });
   const kept = new Set(chapters.map(({ id }) => id));
   const removed = existing.flatMap(({ id }) => (kept.has(id) ? [] : [id]));
   if (removed.length > 0) {
-    await transaction.guideChapter.deleteMany({
-      where: { guideId, id: { in: removed } },
+    await transaction.productChapter.deleteMany({
+      where: { productId, id: { in: removed } },
     });
   }
   const known = new Set(existing.map(({ id }) => id));
@@ -280,13 +280,13 @@ async function replaceGuideChapters(
   for (const [index, { id, name, summary }] of chapters.entries()) {
     const ordinal = index + 1;
     if (known.has(id)) {
-      await transaction.guideChapter.update({
+      await transaction.productChapter.update({
         where: { id },
         data: { name, ordinal, summary, updatedAt },
       });
     } else {
-      await transaction.guideChapter.create({
-        data: { id, guideId, name, ordinal, summary },
+      await transaction.productChapter.create({
+        data: { id, productId, name, ordinal, summary },
       });
     }
   }

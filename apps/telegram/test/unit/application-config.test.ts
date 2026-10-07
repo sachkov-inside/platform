@@ -446,7 +446,7 @@ describe("application configuration", () => {
   });
 
   it("reads the welcome stream date only with both the cohorts endpoint and the course UUID", () => {
-    const guideId = "5f0c2a4e-8d1b-4c3a-9e7f-1a2b3c4d5e6f";
+    const productId = "5f0c2a4e-8d1b-4c3a-9e7f-1a2b3c4d5e6f";
     expect(
       loadApplicationConfig(validEnvironment).communityWelcomeCohort,
     ).toBeUndefined();
@@ -454,28 +454,36 @@ describe("application configuration", () => {
       loadApplicationConfig({
         ...validEnvironment,
         PLATFORM_COHORTS_URL: "https://platform.test/billing/cohorts",
-        PLATFORM_COHORT_GUIDE_ID: guideId,
+        PLATFORM_COHORT_PRODUCT_ID: productId,
       }).communityWelcomeCohort,
-    ).toEqual({ url: "https://platform.test/billing/cohorts", guideId });
+    ).toEqual({ url: "https://platform.test/billing/cohorts", productId });
+    // Existing deployment configuration stays valid when Platform ships first.
+    expect(
+      loadApplicationConfig({
+        ...validEnvironment,
+        PLATFORM_COHORTS_URL: "https://platform.test/billing/cohorts",
+        PLATFORM_COHORT_GUIDE_ID: productId,
+      }).communityWelcomeCohort,
+    ).toEqual({ url: "https://platform.test/billing/cohorts", productId });
     for (const partial of [
       { PLATFORM_COHORTS_URL: "https://platform.test/billing/cohorts" },
-      { PLATFORM_COHORT_GUIDE_ID: guideId },
+      { PLATFORM_COHORT_PRODUCT_ID: productId },
     ])
       expect(() =>
         loadApplicationConfig({ ...validEnvironment, ...partial }),
-      ).toThrow("PLATFORM_COHORTS_URL and PLATFORM_COHORT_GUIDE_ID");
+      ).toThrow("PLATFORM_COHORTS_URL and PLATFORM_COHORT_PRODUCT_ID");
     expect(() =>
       loadApplicationConfig({
         ...validEnvironment,
         PLATFORM_COHORTS_URL: "https://platform.test/billing/cohorts",
-        PLATFORM_COHORT_GUIDE_ID: "ai-engineering",
+        PLATFORM_COHORT_PRODUCT_ID: "ai-engineering",
       }),
-    ).toThrow("PLATFORM_COHORT_GUIDE_ID must be a UUID");
+    ).toThrow("PLATFORM_COHORT_PRODUCT_ID must be a UUID");
     expect(() =>
       loadApplicationConfig({
         ...validEnvironment,
         PLATFORM_COHORTS_URL: "http://platform.test/billing/cohorts",
-        PLATFORM_COHORT_GUIDE_ID: guideId,
+        PLATFORM_COHORT_PRODUCT_ID: productId,
       }),
     ).toThrow("PLATFORM_COHORTS_URL");
   });

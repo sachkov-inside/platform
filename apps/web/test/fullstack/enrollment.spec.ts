@@ -32,7 +32,7 @@ test("owner assigns course tariff and the open cabinet converges through real BF
   await expect(
     page.getByRole("heading", { name: "Оплата и права" }),
   ).toBeVisible();
-  const courseCapability = "guide:62000000-0000-4000-8000-000000000701";
+  const courseCapability = "product:62000000-0000-4000-8000-000000000701";
   const tierName = `Практика ${info.project.name}`;
   await page.getByRole("button", { name: "Новый тариф", exact: true }).click();
   await page.getByLabel("Название", { exact: true }).first().fill(tierName);

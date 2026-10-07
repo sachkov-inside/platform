@@ -87,11 +87,11 @@ test("images, files and ready video persist automatically; fullscreen preserves 
     .setInputFiles(image);
   await expect(page.locator("[contenteditable=true] img")).toBeVisible();
   await page.getByLabel("Выбрать файлы", { exact: true }).setInputFiles({
-    name: "guide.txt",
+    name: "product.txt",
     mimeType: "text/plain",
-    buffer: Buffer.from("Guide attachment"),
+    buffer: Buffer.from("Product attachment"),
   });
-  await expect(page.getByLabel("Название вложения")).toHaveValue("guide.txt");
+  await expect(page.getByLabel("Название вложения")).toHaveValue("product.txt");
   await saved(page);
   await page
     .getByRole("button", { name: "На весь экран", exact: true })
@@ -119,7 +119,7 @@ test("images, files and ready video persist automatically; fullscreen preserves 
   await expect(page.getByLabel("Подпись изображения")).toHaveValue(
     "Подпись в полноэкранном режиме",
   );
-  await expect(page.getByLabel("Название вложения")).toHaveValue("guide.txt");
+  await expect(page.getByLabel("Название вложения")).toHaveValue("product.txt");
   await expect(page.getByText("test-video", { exact: true })).toBeVisible();
   await expect
     .poll(() =>
@@ -148,7 +148,7 @@ test("series picker shows materials before typing and saves composition on the s
   page,
 }) => {
   await createDraft(page, "для продукта");
-  await page.goto("/authoring/guides");
+  await page.goto("/authoring/products");
   await page.getByRole("button", { name: "Создать продукт" }).click();
   const name = `Продукт ${String(Date.now())}`;
   await page.getByLabel("Название", { exact: true }).fill(name);
@@ -156,7 +156,7 @@ test("series picker shows materials before typing and saves composition on the s
     .getByLabel("Адрес", { exact: false })
     .fill(`series-${String(Date.now())}`);
   await page.getByRole("button", { name: "Создать", exact: true }).click();
-  await expect(page).toHaveURL(/\/authoring\/guides\/[^/]+$/u);
+  await expect(page).toHaveURL(/\/authoring\/products\/[^/]+$/u);
   await page
     .getByRole("button", { name: "Добавить материал", exact: true })
     .click();
@@ -305,7 +305,7 @@ test("tables, callouts and links survive autosave and reopening", async ({
     .getByRole("button", { name: "Добавить блок", exact: true })
     .click();
   await page.getByRole("button", { name: "Ссылка", exact: true }).click();
-  await page.getByLabel("Адрес ссылки").fill("https://example.com/guide");
+  await page.getByLabel("Адрес ссылки").fill("https://example.com/product");
   await page.getByRole("button", { name: "Добавить", exact: true }).click();
   await saved(page);
   await page.reload();
@@ -315,7 +315,7 @@ test("tables, callouts and links survive autosave and reopening", async ({
   );
   await expect(body.locator("a")).toHaveAttribute(
     "href",
-    "https://example.com/guide",
+    "https://example.com/product",
   );
 });
 

@@ -31,18 +31,18 @@ export class ReorderSeriesController {
     @Inject(MATERIAL_AUTHORING) private readonly authoring: MaterialAuthoring,
   ) {}
 
-  @Put("guides/:guideId/order")
+  @Put("products/:productId/order")
   @ApiOperation({
-    operationId: "reorderAuthoringGuide",
-    summary: "Replace the Material order for a Guide",
+    operationId: "reorderAuthoringProduct",
+    summary: "Replace the Material order for a Product",
   })
-  @ApiParam({ name: "guideId", schema: { type: "string", format: "uuid" } })
+  @ApiParam({ name: "productId", schema: { type: "string", format: "uuid" } })
   @ApiBody({ schema: toOpenApiSchema(reorderSeriesBodySchema) })
   @ApiOkResponse({ schema: toOpenApiSchema(reorderSeriesReceiptSchema) })
   @ApiMaterialAuthoringErrors(400, 401, 403, 404, 409, 422, 500, 503)
-  async reorderGuide(
+  async reorderProduct(
     @CurrentAccount() account: AuthenticatedAccount,
-    @Param("guideId") seriesId: string,
+    @Param("productId") seriesId: string,
     @Body() input: unknown,
   ) {
     const body = parseMaterialAuthoringBody(reorderSeriesBodySchema, input);

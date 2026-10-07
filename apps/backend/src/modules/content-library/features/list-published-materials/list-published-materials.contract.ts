@@ -16,7 +16,7 @@ export interface PublishedMaterialCatalogItemDto {
   /** Сложность урока и что он обещает: их печатает программа руководства рядом с шагом. */
   readonly difficulty: MaterialDifficulty | null;
   readonly outcomes: readonly string[];
-  readonly access: "free" | "membership";
+  readonly access: "free" | "closed";
   readonly availability: "available" | "locked" | "unavailable";
   readonly publishedAt: string;
   readonly primaryVideoId: string | null;

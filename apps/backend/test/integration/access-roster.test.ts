@@ -9,7 +9,7 @@ import type {
   OwnerOutcome,
   OwnerResult,
 } from "../../src/modules/billing/domain/owner-operations.js";
-import { assembleAccessGrants } from "../../src/modules/membership-entitlements/index.js";
+import { assembleAccessGrants } from "../../src/modules/account-rights/index.js";
 import { TelegramAccountLinks } from "../../src/modules/telegram-membership/index.js";
 import { linkTelegramAccount } from "./setup/telegram-link.js";
 import {
@@ -19,7 +19,7 @@ import {
 
 const now = new Date("2030-03-15T12:00:00.000Z");
 const at = (value: string) => new Date(value);
-const scope = { guideIds: [], materialIds: [], allGuides: true };
+const scope = { productIds: [], materialIds: [], wholePlatform: true };
 
 function success(result: OwnerResult): OwnerOutcome {
   if (!result.ok) throw new Error(result.error.code);
@@ -37,7 +37,7 @@ describe("раздел «Доступ»: люди и сводка на PostgreSQ
   const outsider = randomUUID();
   const subscription = { id: randomUUID(), name: "Подписка Inside" };
   const course = { id: randomUUID(), name: "Курс" };
-  const guide = { id: randomUUID(), name: "Руководство" };
+  const product = { id: randomUUID(), name: "Руководство" };
   // Account по возрастанию id: список людей идёт в этом порядке.
   const [paying, gifted, student, manual, buyer, renewing, former, failed] =
     Array.from({ length: 8 }, () => randomUUID()).sort();
@@ -157,14 +157,19 @@ describe("раздел «Доступ»: люди и сводка на PostgreSQ
       endsAt: at("2030-03-01T00:00:00.000Z"),
     });
     // Разовая покупка руководства и частичный возврат по ней.
-    const guidePurchase = await purchase(buyer, guide, "one_time", {
+    const productPurchase = await purchase(buyer, product, "one_time", {
       amountKopecks: 150_000n,
       confirmedAt: at("2030-03-05T00:00:00.000Z"),
     });
-    await grant(buyer, "paid", `${guidePurchase}:materials`, ["materials"], {
+    await grant(buyer, "paid", `${productPurchase}:materials`, ["materials"], {
       validUntil: null,
     });
-    await refund(buyer, guidePurchase, 50_000n, at("2030-03-10T00:00:00.000Z"));
+    await refund(
+      buyer,
+      productPurchase,
+      50_000n,
+      at("2030-03-10T00:00:00.000Z"),
+    );
     // Назначение Tribute кончилось больше 30 дней назад: в списке его нет.
     await enrollment(former, subscription, "tribute", {
       startsAt: at("2029-09-01T00:00:00.000Z"),
@@ -225,7 +230,7 @@ describe("раздел «Доступ»: люди и сводка на PostgreSQ
     },
   ) {
     const id = randomUUID();
-    await db.prisma.subscriptionEnrollment.create({
+    await db.prisma.tariffAssignment.create({
       data: {
         id,
         accountId,
@@ -236,7 +241,7 @@ describe("раздел «Доступ»: люди и сводка на PostgreSQ
           revision: 1,
           name: offer.name,
           benefits: ["community", "materials"],
-          contentScope: scope,
+          coverage: scope,
         },
         origin,
         sourceRef: randomUUID(),
@@ -521,7 +526,7 @@ describe("раздел «Доступ»: люди и сводка на PostgreSQ
       {
         kind: "grant",
         source: "one_time_purchase",
-        offer: guide,
+        offer: product,
         endPolicy: null,
         state: "active",
       },
@@ -535,7 +540,7 @@ describe("раздел «Доступ»: люди и сводка на PostgreSQ
     expect(await accountsOf({ source: "tribute" })).toEqual([]);
     expect(await accountsOf({ state: "expiring" })).toEqual([paying, renewing]);
     expect(await accountsOf({ state: "ended" })).toEqual([manual]);
-    expect(await accountsOf({ offerId: guide.id })).toEqual([buyer]);
+    expect(await accountsOf({ offerId: product.id })).toEqual([buyer]);
     expect(await accountsOf({ offerId: subscription.id })).toEqual([
       paying,
       gifted,
@@ -626,7 +631,13 @@ describe("раздел «Доступ»: люди и сводка на PostgreSQ
           gift: 1,
           course: 0,
         },
-        { offerId: guide.id, name: guide.name, paid: 1, gift: 0, course: 0 },
+        {
+          offerId: product.id,
+          name: product.name,
+          paid: 1,
+          gift: 0,
+          course: 0,
+        },
       ],
       invitations: {
         issued: 6,
@@ -666,8 +677,8 @@ describe("раздел «Доступ»: люди и сводка на PostgreSQ
         },
         {
           month: "2030-03",
-          offerId: guide.id,
-          name: guide.name,
+          offerId: product.id,
+          name: product.name,
           payments: 1,
           revenueKopecks: 150_000,
           refunds: 1,
@@ -698,7 +709,7 @@ describe("раздел «Доступ»: люди и сводка на PostgreSQ
       startsAt: at("2030-02-18T00:00:00.000Z"),
       endsAt: null,
     });
-    await db.prisma.subscriptionEnrollment.update({
+    await db.prisma.tariffAssignment.update({
       where: { id },
       data: {
         snapshot: {
@@ -706,7 +717,7 @@ describe("раздел «Доступ»: люди и сводка на PostgreSQ
           revision: 1,
           name: course.name,
           benefits: ["materials"],
-          contentScope: scope,
+          coverage: scope,
           benefitPeriods: [{ capability: "materials", months: 1 }],
         },
       },

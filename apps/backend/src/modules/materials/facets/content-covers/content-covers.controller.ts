@@ -325,7 +325,7 @@ async function readCoverUpload(
 /** Owners an authoring import creates: Topics are never source-owned. */
 const importedCoverOwnerKindSchema = z.enum(["material", "series"]);
 
-/** Source-scoped cover changes for Materials and Guides owned by an authoring import. */
+/** Source-scoped cover changes for Materials and Products owned by an authoring import. */
 @MaterialAuthoringEndpoint()
 @Controller("authoring/import/content-covers")
 export class ImportContentCoverController {
@@ -335,7 +335,7 @@ export class ImportContentCoverController {
   @ApiOperation({
     operationId: "uploadImportedContentCover",
     summary:
-      "Upload or replace the cover of one Material or Guide owned by an authoring source",
+      "Upload or replace the cover of one Material or Product owned by an authoring source",
   })
   @ApiParam({
     name: "ownerKind",

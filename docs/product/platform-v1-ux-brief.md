@@ -147,9 +147,9 @@ UGC, achievements/gamification, Telegram import/migration и bot messaging/admin
 |---|---|---|---|
 | Public visitor | Anonymous Subject, Account не требуется | Понять состав Membership, найти материал, прочитать free Material, увидеть teaser закрытого Material | Видит public projection, но closed body/assets/video не загружаются |
 | Authenticated non-member | Account без активного entitlement: Telegram ещё не связан, Membership не найден либо evidence недоступно/устарело | Связать Telegram, видеть текущий Membership state, продолжать пользоваться public/free content | Сам факт login или Telegram link не даёт Membership |
-| Active member | Account с current bounded `MembershipEntitlement` | Найти, прочитать, скачать и посмотреть доступный closed content; управлять read status/history | Каждая новая protected operation повторно проверяет доступ |
+| Active member | Account с current bounded `AccountRights` | Найти, прочитать, скачать и посмотреть доступный closed content; управлять read status/history | Каждая новая protected operation повторно проверяет доступ |
 | Expired member | Account и Telegram link/history сохранены, но entitlement не активен | Понять причину закрытого состояния, дождаться автоматического обновления после rejoin, продолжать читать free content | Потеря Membership не удаляет account, link, history или read states |
-| Author | Account с `materials:manage`; в v1 фактически Кирилл | Создать и сохранить Material целиком, управлять metadata/resources/access/lifecycle, validate и preview | Permission даёт полный authoring authority, но не является `MembershipEntitlement` |
+| Author | Account с `materials:manage`; в v1 фактически Кирилл | Создать и сохранить Material целиком, управлять metadata/resources/access/lifecycle, validate и preview | Permission даёт полный authoring authority, но не является `AccountRights` |
 | Owner agent | User-delegated OAuth от owner Account | Выполнить тот же full-state Save и получить те же validation/conflict outcomes | Использует тот же `materials:manage`, включая publish/unpublish; отдельного owner GO нет |
 
 Access distinctions подтверждены общей matrix для anonymous, authenticated, active, expired,
@@ -167,7 +167,7 @@ author. ([ContentAccess matrix][access-matrix]) Email login, явное Telegram
 | `Subject` | Anonymous visitor или authenticated Account, для которого принимается access decision | Telegram user или browser session |
 | Membership signal | Наличие связанной Telegram identity в одном canonical closed Inside chat | Tribute subscription или payment status |
 | `MembershipEvidence` | Нормализованное наблюдение Membership signal с конечным сроком действия | raw Telegram status или permanent member flag |
-| `MembershipEntitlement` | Ограниченный по времени Platform grant для closed content | IdP/Telegram role или subscription |
+| `AccountRights` | Ограниченный по времени Platform grant для closed content | IdP/Telegram role или subscription |
 | `Resource` | Material body, Asset или Video с publication state и access class | URL, S3 key или Kinescope object |
 | `ContentAccess` | Platform capability, принимающая allow/deny decision для Subject × Action × Resource | route-local paywall check или Membership middleware |
 | Access decision | Outcome для одной операции `read`, `preview`, `download` или `play`, с reason и validity | долгоживущий boolean доступа |
@@ -320,7 +320,7 @@ CTA.
 | R19 | Read/unread state | Authenticated Account explicitly sets read/unread for an accessible Material | Material card/page; personal history | manual read/unread with mutation feedback; no auto-scroll/time/video trigger, percent or achievements; Video resume independently owned by Videos | [Platform navigation][platform-brief-navigation] |
 | R20 | Minimal recent history | Member returns to recently viewed content | Short Home layer + full Account history | empty/populated; survives Membership expiry; length/retention and unpublish behavior remain implementation inputs | [Platform actors][platform-brief-actors] |
 | R21 | Related Materials | Reader continues to relevant content | Material | metadata-generated links + explicit author pins; empty/partial | [Workspace search flow][workspace-search-flow] |
-| R22 | Text/guides/images/links/files + one primary Video | Reader consumes all v1 content shapes | Material | long-form body; code/table bounded overflow; callout; image alt/caption; file label/download; separate Video frame before body | [Authoring schema][authoring-schema] |
+| R22 | Text/products/images/links/files + one primary Video | Reader consumes all v1 content shapes | Material | long-form body; code/table bounded overflow; callout; image alt/caption; file label/download; separate Video frame before body | [Authoring schema][authoring-schema] |
 | R23 | Kinescope playback | Free/active/author actor plays allowed Video | Material/Preview | placeholder/loading, ready/play, access denied, unsupported/error, provider unavailable; no public fallback | [Kinescope player contract][kinescope-player] |
 | R24 | Author Material management | Author creates/finds draft, published or unpublished Material | Author material list | loading, empty, filters/status if evidence proves need, create/open, finite lifecycle distinction | [Workspace modules][workspace-modules] |
 | R25 | Structured full-state editor | Author edits body, metadata, relations, access и publication | Author editor | dirty/saving/saved, validation warnings/errors, current `contentVersion`, long content; published Save immediately live | [Authoring UX][authoring-ux] |
@@ -385,7 +385,7 @@ CTA.
 | Free Material | Все | Body ready / loading / long / resource partial | Read, play/download free Resources | Не требовать account или Membership и не запускать related request |
 | Closed Material | Любой actor без доступа | Indexable public teaser + `locked` | `Получить доступ` → configured Tribute URL; продолжить public/free navigation | Не fetch/render closed body, inline media, download locator или Video token; не раскрывать точную deny reason |
 | Closed Material | Active member | `allowed`, current published Material | Read body; отдельно authorize image/download/video; mark read/unread | Не reuse одного allow для другой Resource/Action или изменившейся `contentVersion` |
-| Closed Material | Author | `allowed_by_permission` для current published read; Preview для любого lifecycle state | Read published или открыть explicit Preview | Не открывать draft/unpublished через public URL и не превращать permission в fake `MembershipEntitlement` |
+| Closed Material | Author | `allowed_by_permission` для current published read; Preview для любого lifecycle state | Read published или открыть explicit Preview | Не открывать draft/unpublished через public URL и не превращать permission в fake `AccountRights` |
 | Resource внутри allowed Material | Allowed actor | Loading / ready / unavailable; Video также processing/unsupported | Read/download/play только конкретную Resource; retry bounded failure | Не делать весь text body недоступным из-за одного Video/Asset |
 | Related Materials | Все | Populated / empty / partial | Открыть public card | Не объяснять internal score и не обещать AI recommendations |
 
@@ -432,7 +432,7 @@ sanitized composite из типов контента, подтверждённы
 surfaces. Этот brief определяет presentation coverage corpus, а application specification — его
 typed fixture boundary и production integration.
 
-### F1 — free long-form guide
+### F1 — free long-form product
 
 | Field | Value |
 |---|---|
@@ -440,7 +440,7 @@ typed fixture boundary и production integration.
 | Title | Публичные skills для agent-first setup |
 | Description | Как превратить повторяемый инженерный процесс в короткую repository-owned инструкцию, которую человек и агент выполняют одинаково. |
 | Access / status | `free`, `published` |
-| Topic / Format | Candidate Topic `AI-first engineering`; candidate Format `Guide` |
+| Topic / Format | Candidate Topic `AI-first engineering`; candidate Format `Product` |
 | Tags | Candidate values `agent skills`, `harness`, `engineering workflow` |
 | Series | Нет |
 | Search probes | `agent skills`, `скиллы для агента`, `harness workflow`, `repository instructions` |
@@ -867,7 +867,7 @@ Owner-approved UX structure is complete. Ни один оставшийся пу
 | Input | Что уже подтверждено | Что решается позже | Owner stage |
 |---|---|---|---|
 | Exact v1 formatting limits | F1/F2 establish headings, paragraph, blockquote/callout, code, table, image, file and video minimum | Strike/nested-list need, heading levels, table/code/document size limits from real corpus and schema tests | Content-schema implementation |
-| Concrete taxonomy values | F1–F3 Topic/Tag labels are approved representative fixtures only; Format has fixed domain values video/guide/note | Topic/Tag dictionaries and reviewed RU/EN synonyms emerge during manual authoring | Content filling / search proof |
+| Concrete taxonomy values | F1–F3 Topic/Tag labels are approved representative fixtures only; Format has fixed domain values video/product/note | Topic/Tag dictionaries and reviewed RU/EN synonyms emerge during manual authoring | Content filling / search proof |
 | Home composition details | Conditional Продолжить, short history, new feed, Темы, active Серии and Карта are fixed | Curated/query source per block, item counts and exact responsive composition | Owning Home/Roadmap production Specification |
 | Identity provider mechanics | One email-code UX creates/opens account; post-login linking is a centered, immediate but skippable session-scoped modal while Telegram is unlinked | Provider/fallback and Yandex horizon after identity proof | Stage 3 identity proof |
 | Account linking/recovery | Telegram linking только после login; no auto-merge/transfer; Membership не unlink-ит identity; expired/replayed attempt можно начать заново; conflict/unsafe recovery остаются owner-mediated без self-service unlink/relink; support URL optional, иначе показывается owner-handoff text | Exact operational support destination and wording can change through runtime configuration/content review | Account operations |

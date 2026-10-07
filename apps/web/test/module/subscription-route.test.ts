@@ -2,7 +2,7 @@ import { expect, it } from "vitest";
 
 import { initialPaymentOptionId } from "@/_pages/subscription/model/initial-selection";
 import {
-  guidePurchaseHref,
+  productPurchaseHref,
   purchaseInvitation,
   subscriptionHrefFrom,
   subscriptionOfferParam,
@@ -16,12 +16,12 @@ import {
 
 it("сохраняет контекст страницы продукта и отбрасывает внешние адреса", () => {
   expect(subscriptionRouteTarget("/products/platform-inside")).toEqual({
-    returnTo: "/subscription?from=%2Fproducts%2Fplatform-inside",
+    returnTo: "/payment/checkout?from=%2Fproducts%2Fplatform-inside",
     originHref: "/products/platform-inside",
   });
   // Прежние адреса продукта перенаправляются на `/products/`, поэтому возврат на них остаётся.
-  expect(subscriptionRouteTarget("/guides/platform-inside").originHref).toBe(
-    "/guides/platform-inside",
+  expect(subscriptionRouteTarget("/products/platform-inside").originHref).toBe(
+    "/products/platform-inside",
   );
   expect(subscriptionRouteTarget("/series/platform-inside").originHref).toBe(
     "/series/platform-inside",
@@ -30,54 +30,56 @@ it("сохраняет контекст страницы продукта и о�
     "/topics/platform",
   );
   expect(subscriptionRouteTarget(undefined)).toEqual({
-    returnTo: "/subscription",
+    returnTo: "/payment/checkout",
   });
-  expect(subscriptionRouteTarget("https://example.test/guides/x")).toEqual({
-    returnTo: "/subscription",
+  expect(subscriptionRouteTarget("https://example.test/products/x")).toEqual({
+    returnTo: "/payment/checkout",
   });
   expect(subscriptionRouteTarget("//example.test")).toEqual({
-    returnTo: "/subscription",
+    returnTo: "/payment/checkout",
   });
   expect(subscriptionRouteTarget("/authoring/materials")).toEqual({
-    returnTo: "/subscription",
+    returnTo: "/payment/checkout",
   });
 });
 
 it("строит ссылку витрины со страницы продукта", () => {
   expect(subscriptionHrefFrom("/products/platform-inside")).toBe(
-    "/subscription?from=%2Fproducts%2Fplatform-inside",
+    "/payment/checkout?from=%2Fproducts%2Fplatform-inside",
   );
-  expect(subscriptionHrefFrom("https://example.test")).toBe("/subscription");
+  expect(subscriptionHrefFrom("https://example.test")).toBe(
+    "/payment/checkout",
+  );
 });
 
 it("ведёт призыв к покупке внутрь платформы и молчит, когда покупать нечего", () => {
   // Своя цена руководства важнее тарифов: человек уже выбрал, что берёт.
   expect(
     purchaseInvitation({
-      guide: { slug: "platform-inside", sold: true },
+      product: { slug: "platform-inside", sold: true },
       subscriptionOffered: true,
       from: "/materials/developer-pipeline",
     }),
-  ).toEqual({ kind: "guide", href: "/products/platform-inside/buy" });
+  ).toEqual({ kind: "product", href: "/products/platform-inside/buy" });
   // Без своей цены остаётся витрина, и она помнит, откуда пришёл человек.
   expect(
     purchaseInvitation({
-      guide: { slug: "platform-inside", sold: false },
+      product: { slug: "platform-inside", sold: false },
       subscriptionOffered: true,
       from: "/materials/developer-pipeline",
     }),
   ).toEqual({
     kind: "subscription",
-    href: "/subscription?from=%2Fmaterials%2Fdeveloper-pipeline",
+    href: "/payment/checkout?from=%2Fmaterials%2Fdeveloper-pipeline",
   });
   expect(purchaseInvitation({ subscriptionOffered: true })).toEqual({
     kind: "subscription",
-    href: "/subscription",
+    href: "/payment/checkout",
   });
   // Выключенная продажа не зовёт никуда, даже когда человек стоит в руководстве.
   expect(
     purchaseInvitation({
-      guide: { slug: "platform-inside", sold: false },
+      product: { slug: "platform-inside", sold: false },
       subscriptionOffered: false,
       from: "/products/platform-inside/programme",
     }),
@@ -86,10 +88,10 @@ it("ведёт призыв к покупке внутрь платформы и
 });
 
 it("персональная ссылка оплаты несёт промокод и переживает вход", () => {
-  expect(guidePurchaseHref("platform-inside")).toBe(
+  expect(productPurchaseHref("platform-inside")).toBe(
     "/products/platform-inside/buy",
   );
-  expect(guidePurchaseHref("platform-inside", "Survey 7&x")).toBe(
+  expect(productPurchaseHref("platform-inside", "Survey 7&x")).toBe(
     "/products/platform-inside/buy?promo=Survey+7%26x",
   );
 });
@@ -97,13 +99,13 @@ it("персональная ссылка оплаты несёт промоко
 it("принимает предложение из адреса бота одной строкой uuid и сохраняет его после входа", () => {
   const offerId = "00000000-0000-4000-8000-000000000102";
   expect(subscriptionRouteTarget(undefined, offerId)).toEqual({
-    returnTo: `/subscription?offer=${offerId}`,
+    returnTo: `/payment/checkout?offer=${offerId}`,
     offerId,
   });
   expect(
     subscriptionRouteTarget("/products/platform-inside", offerId.toUpperCase()),
   ).toEqual({
-    returnTo: `/subscription?from=%2Fproducts%2Fplatform-inside&offer=${offerId}`,
+    returnTo: `/payment/checkout?from=%2Fproducts%2Fplatform-inside&offer=${offerId}`,
     originHref: "/products/platform-inside",
     offerId,
   });
@@ -112,7 +114,7 @@ it("принимает предложение из адреса бота одн�
   expect(subscriptionOfferParam([offerId])).toBeUndefined();
   expect(subscriptionOfferParam(`${offerId}x`)).toBeUndefined();
   expect(subscriptionRouteTarget(undefined, "<script>")).toEqual({
-    returnTo: "/subscription",
+    returnTo: "/payment/checkout",
   });
 });
 

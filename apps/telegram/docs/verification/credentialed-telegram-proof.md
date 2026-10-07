@@ -99,5 +99,5 @@ outside this proof.
 - [`chat_member`](https://core.telegram.org/bots/api#chatmemberupdated) requires the bot to be an
   administrator and the update type to be explicitly selected; `getChatMember` for another user is
   guaranteed only while the bot is an administrator.
-- [Telegram webhook guide](https://core.telegram.org/bots/webhooks) owns the current TLS, port,
+- [Telegram webhook product](https://core.telegram.org/bots/webhooks) owns the current TLS, port,
   certificate, and reachability requirements for the temporary callback.

@@ -147,14 +147,14 @@
     },
     {
       "id": 15,
-      "scenario": "Tribute expiry + Guide",
-      "expected": "Полный тариф истёк, Guide/чат остались",
+      "scenario": "Tribute expiry + Product",
+      "expected": "Полный тариф истёк, Product/чат остались",
       "status": "local_pass",
       "evidence": ["../evidence/tribute-access-convergence/mixed-guides.json"]
     },
     {
       "id": 16,
-      "scenario": "Выход и rejoin по Guide прежнего Tribute",
+      "scenario": "Выход и rejoin по Product прежнего Tribute",
       "expected": "Старое полное право не восстановилось",
       "status": "local_pass",
       "evidence": ["../evidence/tribute-access-convergence/mixed-guides.json"]
@@ -168,15 +168,15 @@
     },
     {
       "id": 18,
-      "scenario": "Guide one-time + join",
-      "expected": "Guide/чат бессрочны; другой Guide закрыт",
+      "scenario": "Product one-time + join",
+      "expected": "Product/чат бессрочны; другой Product закрыт",
       "status": "local_pass",
       "evidence": ["../evidence/tribute-access-convergence/mixed-guides.json"]
     },
     {
       "id": 19,
-      "scenario": "Два Guide, отзыв одного основания",
-      "expected": "Второй Guide и чат сохранены",
+      "scenario": "Два Product, отзыв одного основания",
+      "expected": "Второй Product и чат сохранены",
       "status": "local_pass",
       "evidence": ["../evidence/tribute-access-convergence/mixed-guides.json"]
     },
@@ -216,7 +216,7 @@
     },
     {
       "id": 23,
-      "scenario": "Новый материал внутри включённого Guide",
+      "scenario": "Новый материал внутри включённого Product",
       "expected": "Доступен по прежнему составу без покупки заново",
       "status": "local_pass",
       "evidence": [
@@ -358,8 +358,8 @@
     },
     {
       "id": 37,
-      "scenario": "Новый Guide → изменение Offer → расширение выбранной когорты",
-      "expected": "Старые назначения не меняются от Offer edit; явная операция открывает Guide только выбранным Enrollment",
+      "scenario": "Новый Product → изменение Offer → расширение выбранной когорты",
+      "expected": "Старые назначения не меняются от Offer edit; явная операция открывает Product только выбранным Enrollment",
       "status": "local_pass",
       "evidence": [
         "../evidence/tribute-access-convergence/tribute-desktop.json"

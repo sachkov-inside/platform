@@ -1,4 +1,4 @@
-import { GuidePurchaseLoading } from "@/_pages/guide-purchase";
+import { ProductPurchaseLoading } from "@/_pages/product-purchase";
 
 /** Скелет оплаты: без него страница показывала бы скелет продукта, под чьим адресом лежит (#670). */
-export default GuidePurchaseLoading;
+export default ProductPurchaseLoading;

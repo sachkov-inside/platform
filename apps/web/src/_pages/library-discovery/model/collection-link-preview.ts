@@ -5,7 +5,7 @@ import type {
   SocialCardContent,
 } from "@/shared/link-preview";
 import {
-  guidePath,
+  productPath,
   socialCardPath,
   topicPath,
 } from "@/shared/routing/public-page-path";
@@ -20,8 +20,8 @@ interface CollectionKind {
   readonly materialsPhrase: string;
 }
 
-const GUIDE: CollectionKind = {
-  canonicalPathOf: guidePath,
+const PRODUCT: CollectionKind = {
+  canonicalPathOf: productPath,
   label: "Продукт",
   materialsPhrase: "Опубликованные материалы продукта",
 };
@@ -33,13 +33,13 @@ const TOPIC: CollectionKind = {
 };
 
 /**
- * Карточка ссылки на продукт. Канонический адрес всегда `/products/<slug>`: прежние `/guides/<slug>`
+ * Карточка ссылки на продукт. Канонический адрес всегда `/products/<slug>`: прежние `/products/<slug>`
  * и `/series/<slug>` перенаправляются туда и не спорят с ним в поиске.
  */
-export function guideLinkPreview(
+export function productLinkPreview(
   reference: LibraryDiscoveryReference,
 ): PublicPagePreview {
-  return collectionLinkPreview(reference, GUIDE);
+  return collectionLinkPreview(reference, PRODUCT);
 }
 
 /** Карточка ссылки на тему. */
@@ -50,10 +50,10 @@ export function topicLinkPreview(
 }
 
 /** Содержимое сгенерированной карточки руководства без обложки. */
-export function guideSocialCard(
+export function productSocialCard(
   reference: LibraryDiscoveryReference,
 ): SocialCardContent {
-  return { eyebrow: GUIDE.label, title: reference.name };
+  return { eyebrow: PRODUCT.label, title: reference.name };
 }
 
 /** Содержимое сгенерированной карточки темы без обложки. */

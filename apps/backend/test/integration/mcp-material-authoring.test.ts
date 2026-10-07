@@ -1,7 +1,7 @@
 import {
   LEARNING_TASKS,
   type LearningTasks,
-} from "../../src/modules/guide-tasks/index.js";
+} from "../../src/modules/product-tasks/index.js";
 import { verifiedAccountSignIn } from "../../src/modules/accounts/facets/accounts/verified-logto-identity.js";
 import {
   CONTENT_ACCESS,
@@ -53,7 +53,7 @@ const audience = "https://api.mcp.test";
 const ownerSubject = "mcp-owner-001";
 const topicId = "92000000-0000-4000-8000-000000000001";
 /** Закрытый материал публикуется только внутри продукта. */
-const closedGuideId = "92000000-0000-4000-8000-000000000002";
+const closedProductId = "92000000-0000-4000-8000-000000000002";
 const formatId = "guide";
 
 describe("delegated Material authoring over MCP", () => {
@@ -100,11 +100,11 @@ describe("delegated Material authoring over MCP", () => {
       database.prisma.topic.create({
         data: { id: topicId, name: "Platform", slug: "platform" },
       }),
-      database.prisma.guide.create({
+      database.prisma.product.create({
         data: {
-          id: closedGuideId,
-          name: "MCP closed guide",
-          slug: "mcp-closed-guide",
+          id: closedProductId,
+          name: "MCP closed product",
+          slug: "mcp-closed-product",
         },
       }),
     ]);
@@ -208,7 +208,7 @@ describe("delegated Material authoring over MCP", () => {
       materialId,
       expectedContentVersion: 1,
       publicationState: "draft",
-      metadata: metadata("MCP lifecycle current", "membership"),
+      metadata: metadata("MCP lifecycle current", "closed"),
       body: representativeDocument("Current MCP body."),
     });
     expect(saved).toMatchObject({
@@ -225,7 +225,7 @@ describe("delegated Material authoring over MCP", () => {
         value: {
           contentVersion: 2,
           cacheScope: "private-no-store",
-          metadata: { access: "membership" },
+          metadata: { access: "closed" },
           body: {
             blocks: [
               { kind: "heading" },
@@ -263,7 +263,7 @@ describe("delegated Material authoring over MCP", () => {
         ok: true,
         value: {
           contentVersion: 2,
-          metadata: { title: "MCP lifecycle current", access: "membership" },
+          metadata: { title: "MCP lifecycle current", access: "closed" },
         },
       },
     });
@@ -274,7 +274,7 @@ describe("delegated Material authoring over MCP", () => {
       materialId,
       expectedContentVersion: 2,
       publicationState: "published",
-      metadata: metadata("MCP lifecycle current", "membership"),
+      metadata: metadata("MCP lifecycle current", "closed"),
       body: representativeDocument("Current MCP body."),
     });
     expect(published).toMatchObject({
@@ -299,13 +299,13 @@ describe("delegated Material authoring over MCP", () => {
     for (const [name, args] of [
       [
         "video_attach_existing",
-        { materialId, access: "membership", providerVideoId: "not-allowed" },
+        { materialId, access: "closed", providerVideoId: "not-allowed" },
       ],
       [
         "video_init_upload",
         {
           materialId,
-          access: "membership",
+          access: "closed",
           filename: "recording.mp4",
           title: "Recording",
           byteSize: 1024,
@@ -518,7 +518,7 @@ describe("delegated Material authoring over MCP", () => {
   });
 
   test("attaches an existing Video, retries without duplication, preserves it on Save, and detaches without deleting the source", async () => {
-    const meta = metadata("MCP existing video", "membership");
+    const meta = metadata("MCP existing video", "closed");
     const body = representativeDocument("Existing video through MCP.");
     const created = await callTool("material_create_draft", {
       idempotencyKey: "video-create",
@@ -528,7 +528,7 @@ describe("delegated Material authoring over MCP", () => {
     const materialId = successfulMaterialId(created);
     const attachment = {
       materialId,
-      access: "membership",
+      access: "closed",
       providerVideoId: "test-mcp-existing-444",
     };
     const first = await callTool("video_attach_existing", attachment);
@@ -633,7 +633,7 @@ describe("delegated Material authoring over MCP", () => {
   });
 
   test("initializes resumable upload once and rejects actor injection", async () => {
-    const meta = metadata("MCP upload", "membership");
+    const meta = metadata("MCP upload", "closed");
     const materialId = successfulMaterialId(
       await callTool("material_create_draft", {
         idempotencyKey: "upload-create",
@@ -643,7 +643,7 @@ describe("delegated Material authoring over MCP", () => {
     );
     const args = {
       materialId,
-      access: "membership",
+      access: "closed",
       filename: "recording.mp4",
       title: "Recording",
       byteSize: 1024,
@@ -690,7 +690,7 @@ describe("delegated Material authoring over MCP", () => {
           { authProvider: { token: () => Promise.resolve(token) } },
         ),
       );
-      for (const access of ["free", "membership"] as const) {
+      for (const access of ["free", "closed"] as const) {
         const title = `Learner ${access}`;
         const created = await callTool("material_create_draft", {
           idempotencyKey: `learner-${access}-create`,
@@ -788,7 +788,7 @@ describe("delegated Material authoring over MCP", () => {
   }
 });
 
-function metadata(title: string, access: "free" | "membership") {
+function metadata(title: string, access: "free" | "closed") {
   return {
     title,
     summary: "Material managed through the delegated MCP adapter.",
@@ -798,7 +798,7 @@ function metadata(title: string, access: "free" | "membership") {
     tagIds: [],
     difficulty: null,
     outcomes: [],
-    seriesIds: access === "membership" ? [closedGuideId] : [],
+    seriesIds: access === "closed" ? [closedProductId] : [],
   };
 }
 

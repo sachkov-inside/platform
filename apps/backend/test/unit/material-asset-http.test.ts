@@ -19,7 +19,7 @@ describe("Material asset HTTP controllers", () => {
       value: {
         assetId,
         contentType: "application/pdf",
-        filename: "guide.pdf",
+        filename: "product.pdf",
         kind: "file",
         size: 3,
         state: "ready",
@@ -146,7 +146,7 @@ function multipartRequest(): FastifyRequest {
       kind: { type: "field", value: "file" },
     },
     file: { truncated: false },
-    filename: "guide.pdf",
+    filename: "product.pdf",
     mimetype: "application/pdf",
     toBuffer: () => Promise.resolve(Buffer.from("pdf")),
   };

@@ -7,63 +7,6 @@ import type { BaseHttpRequest } from '../core/BaseHttpRequest';
 export class ReadingActivityService {
   constructor(public readonly httpRequest: BaseHttpRequest) {}
   /**
-   * Read the mode the current Account goes through guides in
-   * @returns any
-   * @throws ApiError
-   */
-  public getReaderGuideMode(): CancelablePromise<{
-    guideMode: 'example' | 'own';
-  }> {
-    return this.httpRequest.request({
-      method: 'GET',
-      url: '/reading-activity/guide-mode',
-    });
-  }
-  /**
-   * Set the mode the current Account goes through guides in
-   * @returns any
-   * @throws ApiError
-   */
-  public setReaderGuideMode({
-    requestBody,
-  }: {
-    requestBody: {
-      guideMode: 'example' | 'own';
-    },
-  }): CancelablePromise<{
-    guideMode: 'example' | 'own';
-  }> {
-    return this.httpRequest.request({
-      method: 'PUT',
-      url: '/reading-activity/guide-mode',
-      body: requestBody,
-      mediaType: 'application/json',
-    });
-  }
-  /**
-   * Read progress over the current published Guide composition
-   * @returns any
-   * @throws ApiError
-   */
-  public getGuideReadingProgress({
-    guideId,
-  }: {
-    guideId: string,
-  }): CancelablePromise<{
-    allRead: boolean;
-    read: number;
-    seriesId: string;
-    total: number;
-  }> {
-    return this.httpRequest.request({
-      method: 'GET',
-      url: '/reading-activity/guides/{guideId}',
-      path: {
-        'guideId': guideId,
-      },
-    });
-  }
-  /**
    * Set the current Account's manual Material mark
    * @returns any
    * @throws ApiError
@@ -122,6 +65,63 @@ export class ReadingActivityService {
       url: '/reading-activity/materials/query',
       body: requestBody,
       mediaType: 'application/json',
+    });
+  }
+  /**
+   * Read the mode the current Account goes through products in
+   * @returns any
+   * @throws ApiError
+   */
+  public getReaderProductMode(): CancelablePromise<{
+    productMode: 'example' | 'own';
+  }> {
+    return this.httpRequest.request({
+      method: 'GET',
+      url: '/reading-activity/product-mode',
+    });
+  }
+  /**
+   * Set the mode the current Account goes through products in
+   * @returns any
+   * @throws ApiError
+   */
+  public setReaderProductMode({
+    requestBody,
+  }: {
+    requestBody: {
+      productMode: 'example' | 'own';
+    },
+  }): CancelablePromise<{
+    productMode: 'example' | 'own';
+  }> {
+    return this.httpRequest.request({
+      method: 'PUT',
+      url: '/reading-activity/product-mode',
+      body: requestBody,
+      mediaType: 'application/json',
+    });
+  }
+  /**
+   * Read progress over the current published Product composition
+   * @returns any
+   * @throws ApiError
+   */
+  public getProductReadingProgress({
+    productId,
+  }: {
+    productId: string,
+  }): CancelablePromise<{
+    allRead: boolean;
+    read: number;
+    seriesId: string;
+    total: number;
+  }> {
+    return this.httpRequest.request({
+      method: 'GET',
+      url: '/reading-activity/products/{productId}',
+      path: {
+        'productId': productId,
+      },
     });
   }
   /**

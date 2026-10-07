@@ -26,7 +26,7 @@ import {
 } from "../../shared/command-validation.js";
 import { executeIdempotentMaterialMutation } from "../../shared/idempotent-operation.js";
 import { materializeMetadataSelection } from "../../shared/materialize-metadata-selection.js";
-import { canChangeGuideMemberships } from "../../infrastructure/postgres/source-guide-memberships.js";
+import { canChangeProductMemberships } from "../../infrastructure/postgres/source-product-memberships.js";
 import { mapPostgresError } from "../../shared/postgres-error-mapping.js";
 import { requireReferenceIntegrity } from "../../shared/reference-integrity.js";
 import { toDatabaseJson } from "../../infrastructure/postgres/database-json.js";
@@ -96,7 +96,7 @@ export function assembleCreateDraft(
           async () => {
             const newMaterialId = materialId(randomUUID());
             if (
-              !(await canChangeGuideMemberships(
+              !(await canChangeProductMemberships(
                 transaction,
                 newMaterialId,
                 selection.value.toValues().seriesIds,

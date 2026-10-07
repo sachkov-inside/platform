@@ -13,8 +13,8 @@ import {
   oneTimeTermsSummary,
 } from "@/features/billing-checkout";
 import {
-  guideOnlyOffer,
-  guideWithSupportOffer,
+  productOnlyOffer,
+  productWithSupportOffer,
 } from "@/storybook/billing.fixtures";
 
 /** Intl ставит неразрывные пробелы: сравниваем с текстом таблицы обычными. */
@@ -22,8 +22,8 @@ function plain(text: string): string {
   return text.replace(/[\u00a0\u202f]/gu, " ");
 }
 
-const [guide] = guideWithSupportOffer.offer.benefits;
-if (guide === undefined) throw new Error("Fixture offer without a product");
+const [product] = productWithSupportOffer.offer.benefits;
+if (product === undefined) throw new Error("Fixture offer without a product");
 
 /** То же предложение с другими сроками: по ним и видно, что страница читает предложение. */
 function withPeriods(
@@ -31,24 +31,24 @@ function withPeriods(
   benefitPeriods: NonNullable<PriceSnapshot["offer"]["benefitPeriods"]>,
 ): PriceSnapshot {
   return {
-    ...guideWithSupportOffer,
-    offer: { ...guideWithSupportOffer.offer, benefits, benefitPeriods },
+    ...productWithSupportOffer,
+    offer: { ...productWithSupportOffer.offer, benefits, benefitPeriods },
   };
 }
 
 /** Предложение курса: материалы и чат без срока, сопровождение 6 месяцев. */
 const course = withPeriods(
-  [guide, "support"],
+  [product, "support"],
   [
-    { capability: guide, months: null },
+    { capability: product, months: null },
     { capability: "support", months: 6 },
   ],
 );
 /** Предложение со сроком материалов: 2 года материалов и чата, сопровождение год. */
 const fixedTerm = withPeriods(
-  [guide, "support"],
+  [product, "support"],
   [
-    { capability: guide, months: 24 },
+    { capability: product, months: 24 },
     { capability: "support", months: 12 },
   ],
 );
@@ -70,7 +70,7 @@ describe("условия разовой покупки до оплаты", () =>
     );
     // Без сопровождения вся цена — материалы и чат: делить нечего.
     expect(
-      oneTimePriceSharesLine(250_000, oneTimeOfferTerms(guideOnlyOffer)),
+      oneTimePriceSharesLine(250_000, oneTimeOfferTerms(productOnlyOffer)),
     ).toBe("Вся цена относится к материалам и чату");
   });
 
@@ -86,7 +86,7 @@ describe("условия разовой покупки до оплаты", () =>
       supportMonths: 12,
     });
     // Предложение без сопровождения срок сопровождения не называет вовсе.
-    expect(oneTimeOfferTerms(guideOnlyOffer)).toEqual({
+    expect(oneTimeOfferTerms(productOnlyOffer)).toEqual({
       materialsMonths: null,
       chatMonths: null,
     });
@@ -94,9 +94,9 @@ describe("условия разовой покупки до оплаты", () =>
 
   it("даёт чату срок материалов, пока предложение не назвало ему свой", () => {
     const ownChatTerm = withPeriods(
-      [guide, "community"],
+      [product, "community"],
       [
-        { capability: guide, months: 24 },
+        { capability: product, months: 24 },
         { capability: "community", months: 6 },
       ],
     );
@@ -106,7 +106,10 @@ describe("условия разовой покупки до оплаты", () =>
     });
     expect(
       oneTimeOfferTerms(
-        withPeriods([guide, "community"], [{ capability: guide, months: 24 }]),
+        withPeriods(
+          [product, "community"],
+          [{ capability: product, months: 24 }],
+        ),
       ),
     ).toEqual({ materialsMonths: 24, chatMonths: 24 });
   });
@@ -160,15 +163,15 @@ describe("условия разовой покупки до оплаты", () =>
     ]);
     // Сопровождения в предложении нет — строки о нём в составе тоже нет.
     expect(
-      oneTimePurchaseInclusions(guideOnlyOffer).map(({ kind }) => kind),
+      oneTimePurchaseInclusions(productOnlyOffer).map(({ kind }) => kind),
     ).toEqual(["composition", "materials"]);
   });
 
   it("показывает материалы и чат отдельно, когда их сроки разные", () => {
     const split = withPeriods(
-      [guide, "community"],
+      [product, "community"],
       [
-        { capability: guide, months: null },
+        { capability: product, months: null },
         { capability: "community", months: 12 },
       ],
     );
@@ -192,9 +195,9 @@ describe("условия разовой покупки до оплаты", () =>
     // Расчётный срок не короче срока другой составляющей, названного в месяцах.
     const longChat = oneTimeOfferTerms(
       withPeriods(
-        [guide, "community"],
+        [product, "community"],
         [
-          { capability: guide, months: null },
+          { capability: product, months: null },
           { capability: "community", months: 24 },
         ],
       ),

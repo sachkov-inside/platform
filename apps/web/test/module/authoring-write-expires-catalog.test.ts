@@ -39,7 +39,7 @@ describe("an authoring write expires the public catalog cache", () => {
       await import("@/shared/auth/authenticated-mutation-handler.server");
 
     const response = await handleAuthenticatedMutation(
-      mutation("/api/authoring/guides/order", "PUT"),
+      mutation("/api/authoring/products/order", "PUT"),
       () => Promise.resolve({ ok: true }),
     );
 
@@ -60,7 +60,7 @@ describe("an authoring write expires the public catalog cache", () => {
     const failure = new Error("response lost");
 
     const response = await handleAuthenticatedMutation(
-      mutation("/api/authoring/guides/order", "PUT"),
+      mutation("/api/authoring/products/order", "PUT"),
       () => Promise.reject(failure),
     );
 
@@ -122,7 +122,7 @@ describe("an authoring write expires the public catalog cache", () => {
     const { handleAuthenticatedMutation } =
       await import("@/shared/auth/authenticated-mutation-handler.server");
     const crossOrigin = new Request(
-      "https://inside.example.test/api/authoring/guides/order",
+      "https://inside.example.test/api/authoring/products/order",
       {
         body: new FormData(),
         headers: { origin: "https://elsewhere.example.test" },

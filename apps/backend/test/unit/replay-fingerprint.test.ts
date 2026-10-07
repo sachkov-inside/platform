@@ -1,7 +1,7 @@
 import { describe, expect, test } from "vitest";
 
 import { replayCommandFingerprint } from "../../src/modules/billing/shared/command-fingerprint.js";
-import { accessFingerprint } from "../../src/modules/membership-entitlements/shared/access-receipts.js";
+import { accessFingerprint } from "../../src/modules/account-rights/shared/access-receipts.js";
 
 // Receipts stored before #732 hold digests of JSON.stringify output, which follows key order. The
 // literals below were taken from that form; they must keep matching the same command.

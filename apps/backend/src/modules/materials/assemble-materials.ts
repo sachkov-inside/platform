@@ -2,7 +2,7 @@ import type { MaterialsPrismaClient } from "../../infrastructure/prisma/index.js
 import type { MaterialAssets } from "../assets/index.js";
 import {
   assembleContentAccess,
-  assembleDeterministicMembershipEntitlements,
+  assembleDeterministicAccountRights,
   type ContentAccess,
 } from "../content-access/index.js";
 import { assembleMaterialResourceFacts } from "./adapters/content-access/material-resource-facts.js";
@@ -15,7 +15,7 @@ import {
 import { assemblePublishedMaterialReader } from "./facets/published-material-reader/assemble-published-material-reader.js";
 import type { PublishedMaterialReader } from "./facets/published-material-reader/published-material-reader.js";
 import type { AuthorPolicy } from "./ports/author-policy.js";
-import type { GuideAccessHolders } from "./ports/guide-access-holders.js";
+import type { ProductAccessHolders } from "./ports/product-access-holders.js";
 import type { Videos } from "../videos/index.js";
 import { materialBodyOperations } from "./infrastructure/tiptap/index.js";
 
@@ -34,7 +34,7 @@ export function assembleMaterials(dependencies: {
     MaterialAssets,
     "inspectReferences" | "loadPresentations"
   >;
-  readonly guideAccessHolders?: GuideAccessHolders;
+  readonly productAccessHolders?: ProductAccessHolders;
   readonly videos?: Pick<
     Videos,
     | "inspectPrimaryReference"
@@ -56,7 +56,7 @@ export function assembleMaterials(dependencies: {
         hasMaterialsManage: async (accountId) =>
           dependencies.authorPolicy.canManage(accountId),
       },
-      membershipEntitlements: assembleDeterministicMembershipEntitlements(),
+      accountRights: assembleDeterministicAccountRights(),
     });
   const shared = {
     prisma: dependencies.prisma,
@@ -69,9 +69,9 @@ export function assembleMaterials(dependencies: {
     ...(dependencies.videos === undefined
       ? {}
       : { videos: dependencies.videos }),
-    ...(dependencies.guideAccessHolders === undefined
+    ...(dependencies.productAccessHolders === undefined
       ? {}
-      : { guideAccessHolders: dependencies.guideAccessHolders }),
+      : { productAccessHolders: dependencies.productAccessHolders }),
   };
   return Object.freeze({
     authoring: assembleMaterialAuthoring(shared),

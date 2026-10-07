@@ -32,7 +32,7 @@ const data = {
 const link = {
   promotionId: "00000000-0000-4000-8000-000000000902",
   code: "Syn7hetic-Code",
-  guideSlug: "synthetic-course",
+  productSlug: "synthetic-course",
   alreadyIssued: false,
 };
 

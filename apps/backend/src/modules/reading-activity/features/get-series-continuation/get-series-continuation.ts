@@ -30,7 +30,7 @@ export interface SeriesContinuationDependencies {
   readonly reader: Pick<PublishedMaterialReader, "discoverProjections">;
   readonly contentAccess: Pick<
     ContentAccess,
-    "checkAvailabilityMany" | "checkGuideAccess"
+    "checkAvailabilityMany" | "checkProductAccess"
   >;
   readonly videos: Pick<Videos, "loadReadyDurations" | "loadProgressMany">;
 }
@@ -133,7 +133,7 @@ export async function getSeriesContinuation(
       subject,
       next === undefined ? [] : [next],
     );
-    // The discovery reference carries Guide-page facts this projection does not publish, so the
+    // The discovery reference carries Product-page facts this projection does not publish, so the
     // catalog facet names its own fields: a spread would ship the next added one as an undeclared
     // key and every strict reader of this response would drop the whole continuation.
     const {

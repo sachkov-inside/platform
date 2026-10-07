@@ -17,7 +17,7 @@ import { readLearningPractice } from "../../src/modules/content-library/features
 import {
   anonymousSubject,
   assembleContentAccess,
-  assembleDeterministicMembershipEntitlements,
+  assembleDeterministicAccountRights,
   type Subject,
 } from "../../src/modules/content-access/index.js";
 import { assembleAssetResourceFacts } from "../../src/modules/materials/adapters/content-access/asset-resource-facts.js";
@@ -38,8 +38,8 @@ import {
 // publishes it explicitly. Every read goes through the production facades over PostgreSQL.
 const owner = randomUUID();
 const stranger = randomUUID();
-const guideSourceId = "inside-content:draft-privacy-guide";
-const guideSlug = "draft-privacy-guide";
+const productSourceId = "inside-content:draft-privacy-product";
+const productSlug = "draft-privacy-product";
 const draftTitle = "Private draft lesson";
 // Source Materials take their slug from the source id at reservation, before publication.
 const draftSlug = "inside-content-draft-privacy-lesson";
@@ -97,7 +97,7 @@ describe("source-imported draft privacy", () => {
   let database: TestDatabase;
   let materials: ReturnType<typeof assembleMaterials>;
   let access: ReturnType<typeof assembleContentAccess>;
-  let guideId: string;
+  let productId: string;
   let topicId: string;
   let draftId: string;
   let siblingId: string;
@@ -122,7 +122,7 @@ describe("source-imported draft privacy", () => {
       topicId,
       formatId: "note" as const,
       tagIds: [],
-      seriesIds: [guideId],
+      seriesIds: [productId],
     };
   }
 
@@ -165,7 +165,7 @@ describe("source-imported draft privacy", () => {
       accountPermissions: {
         hasMaterialsManage: (id) => Promise.resolve(id === owner),
       },
-      membershipEntitlements: assembleDeterministicMembershipEntitlements(),
+      accountRights: assembleDeterministicAccountRights(),
     });
 
     const topic = await authoring.createContentCollection({
@@ -177,17 +177,17 @@ describe("source-imported draft privacy", () => {
     });
     if (!topic.ok) throw new Error(topic.error.code);
     topicId = topic.value.id;
-    const guide = await authoring.reserveSourceGuide({
+    const product = await authoring.reserveSourceProduct({
       actor: owner,
-      sourceId: guideSourceId,
-      name: "Draft privacy guide",
-      slug: guideSlug,
+      sourceId: productSourceId,
+      name: "Draft privacy product",
+      slug: productSlug,
       summary: "Programme",
     });
-    if (!guide.ok) throw new Error(guide.error.code);
-    guideId = guide.value.id;
+    if (!product.ok) throw new Error(product.error.code);
+    productId = product.value.id;
 
-    // A published sibling keeps the Guide programme, search and feed non-empty.
+    // A published sibling keeps the Product programme, search and feed non-empty.
     const sibling = await authoring.reserveSourceMaterial({
       actor: owner,
       source: siblingSource,
@@ -207,7 +207,7 @@ describe("source-imported draft privacy", () => {
     });
     if (!siblingApplied.ok) throw new Error(siblingApplied.error.code);
 
-    // The default import: reserve, then apply as a private draft inside the Guide.
+    // The default import: reserve, then apply as a private draft inside the Product.
     const reserved = await authoring.reserveSourceMaterial({
       actor: owner,
       source: draftSource,
@@ -232,14 +232,14 @@ describe("source-imported draft privacy", () => {
     });
     const order = await authoring.loadSeriesOrder({
       actor: owner,
-      seriesId: guideId,
+      seriesId: productId,
     });
     if (!order.ok) throw new Error(order.error.code);
     expect(
-      await authoring.reorderSourceGuide({
+      await authoring.reorderSourceProduct({
         actor: owner,
-        sourceId: guideSourceId,
-        seriesId: guideId,
+        sourceId: productSourceId,
+        seriesId: productId,
         expectedOrderVersion: order.value.orderVersion,
         orderedMaterialIds: [draftId, siblingId],
       }),
@@ -289,7 +289,7 @@ describe("source-imported draft privacy", () => {
     await database.dispose();
   });
 
-  test("the Guide composition holds the draft, but no published projection exists", async () => {
+  test("the Product composition holds the draft, but no published projection exists", async () => {
     expect(
       await database.prisma.material.findUnique({
         where: { id: draftId },
@@ -298,7 +298,7 @@ describe("source-imported draft privacy", () => {
     ).toEqual({ slug: draftSlug, publicationState: "draft" });
     const order = await materials.authoring.loadSeriesOrder({
       actor: owner,
-      seriesId: guideId,
+      seriesId: productId,
     });
     expect(order).toMatchObject({
       ok: true,
@@ -346,7 +346,7 @@ describe("source-imported draft privacy", () => {
     }
   });
 
-  test("slug read, search, feed, Guide programme and learning MCP read never return the draft", async () => {
+  test("slug read, search, feed, Product programme and learning MCP read never return the draft", async () => {
     const { publishedMaterialReader } = materials;
     for (const subject of [guest, strangerSubject]) {
       expect(
@@ -355,7 +355,7 @@ describe("source-imported draft privacy", () => {
       for (const query of [
         { q: "lesson" },
         { feedOnly: true },
-        { seriesSlugs: [guideSlug], sort: "series" as const },
+        { seriesSlugs: [productSlug], sort: "series" as const },
       ]) {
         const listed = await listPublishedMaterials(
           publishedMaterialReader,
@@ -372,7 +372,7 @@ describe("source-imported draft privacy", () => {
         publishedMaterialReader,
         access,
         emptyCatalogVideos,
-        { first: null, kind: "series", slug: guideSlug, subject },
+        { first: null, kind: "series", slug: productSlug, subject },
       );
       if (!programme.ok) throw new Error(programme.error.code);
       expect(programme.value.items.map((item) => item.materialId)).toEqual([
@@ -383,7 +383,7 @@ describe("source-imported draft privacy", () => {
       ).not.toContain(draftId);
     }
     expect(
-      await new PublishedSeriesComposition(database.prisma).read(guideId),
+      await new PublishedSeriesComposition(database.prisma).read(productId),
     ).toEqual({ ok: true, value: [siblingId] });
     expect(
       await readLearningMaterial(

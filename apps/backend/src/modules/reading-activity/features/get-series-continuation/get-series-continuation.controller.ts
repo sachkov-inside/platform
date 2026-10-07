@@ -54,11 +54,11 @@ export const seriesContinuationHttpSchema = z
 @Controller("reading-activity")
 export class GetSeriesContinuationController {
   constructor(@Inject(PersonalHome) private readonly home: PersonalHome) {}
-  @Get("guide-continuation/:slug")
+  @Get("product-continuation/:slug")
   @ApiOperation({
-    operationId: "getGuideContinuation",
+    operationId: "getProductContinuation",
     summary:
-      "Read saved progress and the next accessible Material in a published Guide",
+      "Read saved progress and the next accessible Material in a published Product",
   })
   @ApiParam({
     name: "slug",
@@ -91,7 +91,7 @@ export class GetSeriesContinuationController {
       problemDetailsSchema(503, ["dependency_unavailable"]),
     ),
   })
-  async readGuide(
+  async readProduct(
     @CurrentAccount() current: AuthenticatedAccount,
     @Param("slug") slug: string,
   ) {

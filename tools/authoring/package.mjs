@@ -69,7 +69,7 @@ export const sourcePracticeSchema = z
   .strict();
 
 /**
- * A Guide Task of the package (#946). Its source ID is the task code; Guide, chapter and related
+ * A Product Task of the package (#946). Its source ID is the task code; Product, chapter and related
  * Materials are named by their source IDs in this namespace. The order of a chapter's tasks in
  * `tasks` is their order in the chapter. `afterMaterialId` names the Material of the same chapter
  * right after which the programme shows the task (#947); without it the task stands at the start
@@ -79,10 +79,10 @@ export const sourcePracticeSchema = z
 export const sourceTaskSchema = z
   .object({
     sourceId: identifier.max(120),
-    guideId: identifier,
+    productId: identifier,
     chapterId: identifier,
     title: z.string().trim().min(1).max(200),
-    access: z.enum(["free", "membership"]),
+    access: z.enum(["free", "closed"]),
     // The owning backend validates the complete authored definition during preflight.
     definition: z.record(z.string(), z.json()),
     relatedMaterialIds: z.array(identifier).max(50),
@@ -102,7 +102,7 @@ export const sourceTaskSchema = z
   .strict();
 
 /** The only explicit selection scope; a package without it selects Materials. */
-export const guideShellScope = z.literal("guide-shell");
+export const productShellScope = z.literal("product-shell");
 
 export const manifestSchema = z
   .object({
@@ -112,12 +112,12 @@ export const manifestSchema = z
     tasks: z.array(sourceTaskSchema).max(200).optional(),
     selection: z
       .object({
-        guideId: identifier.nullable(),
+        productId: identifier.nullable(),
         chapterIds: z.array(identifier),
         materialIds: z.array(identifier),
         complete: z.literal(true),
-        // An explicit Guide shell release (#803): only the product page and programme, no Materials.
-        scope: guideShellScope.optional(),
+        // An explicit Product shell release (#803): only the product page and programme, no Materials.
+        scope: productShellScope.optional(),
       })
       .strict(),
     materials: z.array(
@@ -128,12 +128,12 @@ export const manifestSchema = z
           sourceIds: z.array(identifier),
           relatedMaterialIds: z.array(identifier),
           readingTimeMinutes: z.number().int().positive().nullable(),
-          kind: z.enum(["video", "guide", "note"]),
+          kind: z.enum(["video", "product", "note"]),
           title: z.string().min(1),
           summary: z.string().min(1),
           stage: z.enum(["idea", "draft", "review", "ready", "published"]),
           topicId: identifier.nullable(),
-          access: z.enum(["free", "membership"]).nullable(),
+          access: z.enum(["free", "closed"]).nullable(),
           showInFeed: z.boolean(),
           difficulty: z.enum(["basic", "intermediate", "advanced"]).nullable(),
           outcomes: z.array(z.string()).nullable(),
@@ -157,7 +157,7 @@ export const manifestSchema = z
         .strict(),
     ),
     // slug, presentation and page arrived with #671; packages exported before it describe no product page.
-    guides: z.array(
+    products: z.array(
       z
         .object({
           sourceId: identifier,
@@ -271,34 +271,34 @@ function unique(values, label) {
     throw new Error(`Duplicate ${label}`);
 }
 /**
- * A Guide shell release carries the product page and its chapters, never a Material.
+ * A Product shell release carries the product page and its chapters, never a Material.
  *
  * @param {Pick<Manifest, "selection">} manifest
  */
-export const isGuideShell = (manifest) =>
-  manifest.selection.scope === guideShellScope.value;
+export const isProductShell = (manifest) =>
+  manifest.selection.scope === productShellScope.value;
 
 /**
- * An empty selection is refused unless it explicitly asks for the Guide shell, whose absent
+ * An empty selection is refused unless it explicitly asks for the Product shell, whose absent
  * Materials never mean removal.
  *
  * @param {Manifest} manifest
  */
 function checkSelectionScope(manifest) {
-  if (!isGuideShell(manifest)) {
+  if (!isProductShell(manifest)) {
     if (manifest.selection.materialIds.length === 0)
       throw new Error(
-        "Empty selection: a package without Materials must declare selection.scope guide-shell",
+        "Empty selection: a package without Materials must declare selection.scope product-shell",
       );
     return;
   }
-  const [guide] = manifest.guides;
+  const [product] = manifest.products;
   if (
-    manifest.selection.guideId === null ||
-    manifest.guides.length !== 1 ||
-    guide?.sourceId !== manifest.selection.guideId
+    manifest.selection.productId === null ||
+    manifest.products.length !== 1 ||
+    product?.sourceId !== manifest.selection.productId
   )
-    throw new Error("A Guide shell release names exactly its one Guide");
+    throw new Error("A Product shell release names exactly its one Product");
   if (
     manifest.selection.chapterIds.length ||
     manifest.selection.materialIds.length ||
@@ -308,21 +308,21 @@ function checkSelectionScope(manifest) {
     (manifest.tasks ?? []).length
   )
     throw new Error(
-      "A Guide shell release carries no chapter subset, Material, asset, practice or task",
+      "A Product shell release carries no chapter subset, Material, asset, practice or task",
     );
   if (
-    !guide.complete ||
-    guide.materialIds.length ||
-    guide.supplementaryMaterialIds.length ||
-    guide.chapters.some((chapter) => chapter.materialIds.length)
+    !product.complete ||
+    product.materialIds.length ||
+    product.supplementaryMaterialIds.length ||
+    product.chapters.some((chapter) => chapter.materialIds.length)
   )
     throw new Error(
-      "A Guide shell release carries the complete chapter list without Material placement",
+      "A Product shell release carries the complete chapter list without Material placement",
     );
 }
 
 /**
- * Every task names a Guide and chapter of this package; related Materials need not travel in it.
+ * Every task names a Product and chapter of this package; related Materials need not travel in it.
  *
  * @param {Manifest} manifest
  */
@@ -340,17 +340,19 @@ function checkTasks(manifest) {
         `${task.sourceId}: a task code repeats a Material identity`,
       );
   for (const task of tasks) {
-    const guide = manifest.guides.find((row) => row.sourceId === task.guideId);
-    if (guide === undefined)
+    const product = manifest.products.find(
+      (row) => row.sourceId === task.productId,
+    );
+    if (product === undefined)
       throw new Error(
-        `${task.sourceId}: the task's Guide is not in the package`,
+        `${task.sourceId}: the task's Product is not in the package`,
       );
-    const chapter = guide.chapters.find(
+    const chapter = product.chapters.find(
       (row) => row.sourceId === task.chapterId,
     );
     if (chapter === undefined)
       throw new Error(
-        `${task.sourceId}: the task's chapter is not in its Guide`,
+        `${task.sourceId}: the task's chapter is not in its Product`,
       );
     if (
       task.afterMaterialId !== undefined &&
@@ -375,7 +377,7 @@ export function taskPositions(manifest) {
   /** @type {Map<string, number>} */
   const positions = new Map();
   for (const task of manifest.tasks ?? []) {
-    const chapter = `${task.guideId}\n${task.chapterId}`;
+    const chapter = `${task.productId}\n${task.chapterId}`;
     const position = (counts.get(chapter) ?? 0) + 1;
     counts.set(chapter, position);
     positions.set(task.sourceId, position);
@@ -386,7 +388,7 @@ export function taskPositions(manifest) {
 /**
  * @typedef {z.infer<typeof manifestSchema>} Manifest
  * @typedef {Manifest["materials"][number]} ManifestMaterial
- * @typedef {Manifest["guides"][number]} ManifestGuide
+ * @typedef {Manifest["products"][number]} ManifestProduct
  * @typedef {Manifest["assets"][number]} ManifestAsset
  * @typedef {NonNullable<Manifest["tasks"]>[number]} ManifestTask
  * @typedef {{ id: string; manifest: Manifest; directory: string }} AuthoringPackage
@@ -411,8 +413,8 @@ export async function loadPackage(path) {
     "Material identity",
   );
   unique(
-    manifest.guides.map((item) => item.sourceId),
-    "Guide identity",
+    manifest.products.map((item) => item.sourceId),
+    "Product identity",
   );
   unique(
     manifest.assets.map((item) => item.sourceId),
@@ -427,13 +429,13 @@ export async function loadPackage(path) {
   )
     throw new Error("Selection does not match package contents");
   const assets = new Map(manifest.assets.map((item) => [item.sourceId, item]));
-  for (const guide of manifest.guides)
+  for (const product of manifest.products)
     if (
-      guide.coverAssetId !== undefined &&
-      guide.coverAssetId !== null &&
-      !assets.has(guide.coverAssetId)
+      product.coverAssetId !== undefined &&
+      product.coverAssetId !== null &&
+      !assets.has(product.coverAssetId)
     )
-      throw new Error(`${guide.sourceId}: missing cover asset`);
+      throw new Error(`${product.sourceId}: missing cover asset`);
   for (const material of manifest.materials) {
     const refs = [
       ...Object.values(material.images),
@@ -447,27 +449,27 @@ export async function loadPackage(path) {
       "artifact identity",
     );
   }
-  for (const guide of manifest.guides) {
+  for (const product of manifest.products) {
     unique(
-      guide.chapters.map((item) => item.sourceId),
+      product.chapters.map((item) => item.sourceId),
       "chapter identity",
     );
     unique(
-      [...guide.materialIds, ...guide.supplementaryMaterialIds],
-      "Guide placement",
+      [...product.materialIds, ...product.supplementaryMaterialIds],
+      "Product placement",
     );
     if (
-      [...guide.materialIds, ...guide.supplementaryMaterialIds].some(
+      [...product.materialIds, ...product.supplementaryMaterialIds].some(
         (id) => !ids.has(id),
       )
     )
-      throw new Error("Incomplete Guide contents");
+      throw new Error("Incomplete Product contents");
     if (
-      guide.chapters.length &&
-      canonical(guide.chapters.flatMap((chapter) => chapter.materialIds)) !==
-        canonical(guide.materialIds)
+      product.chapters.length &&
+      canonical(product.chapters.flatMap((chapter) => chapter.materialIds)) !==
+        canonical(product.materialIds)
     )
-      throw new Error("Chapter order does not match Guide order");
+      throw new Error("Chapter order does not match Product order");
   }
   unique(
     (manifest.practiceDefinitions ?? []).map((item) => item.practiceId),

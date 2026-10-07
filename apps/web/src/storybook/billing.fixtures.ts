@@ -1,4 +1,4 @@
-import { guideCapability } from "@inside/access-capabilities";
+import { productCapability } from "@inside/access-capabilities";
 
 import type { CommunityEntry } from "@/features/community-entry";
 import type {
@@ -72,14 +72,14 @@ export const supportOffer: PriceSnapshot = {
 };
 
 /** Руководство, которому владелец завёл цену: покупается один раз, право выдаётся без даты окончания. */
-export const guideOnlyOffer: PriceSnapshot = {
+export const productOnlyOffer: PriceSnapshot = {
   offer: {
     id: uuid("103"),
     revision: 1,
     name: "Руководство «Создание Platform Inside»",
-    benefits: [guideCapability(uuid("f01"))],
+    benefits: [productCapability(uuid("f01"))],
     benefitPeriods: [
-      { capability: guideCapability(uuid("f01")), months: null },
+      { capability: productCapability(uuid("f01")), months: null },
     ],
     archived: false,
     published: false,
@@ -101,14 +101,14 @@ export const guideOnlyOffer: PriceSnapshot = {
 };
 
 /** Второй разовый вариант того же руководства: он и даёт странице оплаты выбор. */
-export const guideWithSupportOffer: PriceSnapshot = {
+export const productWithSupportOffer: PriceSnapshot = {
   offer: {
     id: uuid("104"),
     revision: 1,
     name: "Руководство «Создание Platform Inside» с сопровождением",
-    benefits: [guideCapability(uuid("f01")), "support"],
+    benefits: [productCapability(uuid("f01")), "support"],
     benefitPeriods: [
-      { capability: guideCapability(uuid("f01")), months: null },
+      { capability: productCapability(uuid("f01")), months: null },
       { capability: "support", months: 3 },
     ],
     archived: false,
@@ -134,19 +134,19 @@ export const guideWithSupportOffer: PriceSnapshot = {
  * То же руководство с названными сроками: материалы и чат на 2 года, сопровождение на год. По
  * нему видно, что оплата называет сроки предложения, а не одни и те же числа.
  */
-export const fixedTermGuideOffer: PriceSnapshot = {
-  ...guideWithSupportOffer,
+export const fixedTermProductOffer: PriceSnapshot = {
+  ...productWithSupportOffer,
   offer: {
-    ...guideWithSupportOffer.offer,
+    ...productWithSupportOffer.offer,
     id: uuid("105"),
     name: "Руководство «Создание Platform Inside» на два года",
     benefitPeriods: [
-      { capability: guideCapability(uuid("f01")), months: 24 },
+      { capability: productCapability(uuid("f01")), months: 24 },
       { capability: "support", months: 12 },
     ],
   },
   paymentOption: {
-    ...guideWithSupportOffer.paymentOption,
+    ...productWithSupportOffer.paymentOption,
     id: uuid("205"),
     offerId: uuid("105"),
   },
@@ -210,24 +210,24 @@ export const savedQuote: BillingQuote = {
 };
 
 /** Расчёт разовой покупки руководства: того же вида, но без следующего периода. */
-export const guideQuote: BillingQuote = {
+export const productQuote: BillingQuote = {
   quoteRef: uuid("402"),
   createdAt: "2026-09-10T10:00:00.000Z",
   expiresAt: "2026-09-10T10:15:00.000Z",
-  snapshot: guideOnlyOffer,
+  snapshot: productOnlyOffer,
 };
 
 /** Расчёт покупки с сопровождением: сводка условий читает сроки из его снимка. */
-export const guideWithSupportQuote: BillingQuote = {
-  ...guideQuote,
+export const productWithSupportQuote: BillingQuote = {
+  ...productQuote,
   quoteRef: uuid("403"),
-  snapshot: guideWithSupportOffer,
+  snapshot: productWithSupportOffer,
 };
 
-export const fixedTermGuideQuote: BillingQuote = {
-  ...guideQuote,
+export const fixedTermProductQuote: BillingQuote = {
+  ...productQuote,
   quoteRef: uuid("404"),
-  snapshot: fixedTermGuideOffer,
+  snapshot: fixedTermProductOffer,
 };
 
 export const activeSubscription: SubscriptionView = {
@@ -298,11 +298,11 @@ export const courseEnrollment: Enrollment = {
     revision: 1,
     name: "Подписка Inside",
     benefits: ["materials", "community"],
-    contentScope: { guideIds: [uuid("f01")], materialIds: [] },
+    coverage: { productIds: [uuid("f01")], materialIds: [] },
   },
   content: [
     {
-      kind: "guide",
+      kind: "product",
       id: uuid("f01"),
       title: "Создание Platform Inside",
       slug: "platform-inside",
@@ -388,7 +388,7 @@ export const accessGrounds: readonly AccessGround[] = [
   },
   {
     source: "manual",
-    capabilities: [guideCapability(uuid("f01"))],
+    capabilities: [productCapability(uuid("f01"))],
     startsAt: "2026-05-01T00:00:00.000Z",
     validUntil: null,
     active: true,
@@ -396,7 +396,7 @@ export const accessGrounds: readonly AccessGround[] = [
   {
     // Купленное руководство переживает подписку и не зависит от того, включена ли она.
     source: "paid",
-    capabilities: [guideCapability(uuid("f02"))],
+    capabilities: [productCapability(uuid("f02"))],
     startsAt: "2026-08-20T12:00:00.000Z",
     validUntil: null,
     active: true,
@@ -518,11 +518,11 @@ export const confirmedPurchase: PurchaseStatus = {
 };
 
 /** Оплаченное руководство: доступ открыт, оплаченного срока у покупки нет. */
-export const confirmedGuidePurchase: PurchaseStatus = {
+export const confirmedProductPurchase: PurchaseStatus = {
   purchaseRef: uuid("b03"),
   state: "confirmed",
   paymentUrl: null,
-  snapshot: guideOnlyOffer,
+  snapshot: productOnlyOffer,
   access: "ready",
   fiscalization: "confirmed",
   confirmedAt: "2026-08-20T12:00:00.000Z",

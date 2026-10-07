@@ -3,10 +3,10 @@ import "server-only";
 import { z } from "zod";
 
 import {
-  guideChapterDraftSchema,
+  productChapterDraftSchema,
   type ReorderSeriesResult,
 } from "@/features/series-order";
-import { guideRemovalsFromProblem } from "@/shared/lib/guide-removal";
+import { productRemovalsFromProblem } from "@/shared/lib/product-removal";
 import {
   requestSeriesReorder,
   type BackendTransportResult,
@@ -54,23 +54,23 @@ export async function executeReorderSeries(
   const chapters = readJsonField(
     formData,
     "chapters",
-    z.array(guideChapterDraftSchema),
+    z.array(productChapterDraftSchema),
   );
   const chapterAssignments = readJsonField(
     formData,
     "chapterAssignments",
     z.record(z.uuid(), z.uuid()),
   );
-  const confirmedGuideRemovals = readJsonField(
+  const confirmedProductRemovals = readJsonField(
     formData,
-    "confirmedGuideRemovals",
+    "confirmedProductRemovals",
     z.array(z.uuid()).min(1).max(100),
   );
   if (
     stepGroups === invalidField ||
     chapters === invalidField ||
     chapterAssignments === invalidField ||
-    confirmedGuideRemovals === invalidField
+    confirmedProductRemovals === invalidField
   ) {
     return { kind: "error", reference: "series-order-form" };
   }
@@ -84,9 +84,9 @@ export async function executeReorderSeries(
         ...(stepGroups === undefined ? {} : { stepGroups }),
         ...(chapters === undefined ? {} : { chapters }),
         ...(chapterAssignments === undefined ? {} : { chapterAssignments }),
-        ...(confirmedGuideRemovals === undefined
+        ...(confirmedProductRemovals === undefined
           ? {}
-          : { confirmedGuideRemovals }),
+          : { confirmedProductRemovals }),
         seriesId: parsed.data.seriesId,
       },
       accessToken,
@@ -100,10 +100,10 @@ export async function executeReorderSeries(
     // Account нет права автора. Вход заново этого не исправит.
     if (result.response.status === 403) return { kind: "forbidden" };
     if (result.response.status === 409) {
-      const removals = guideRemovalsFromProblem(result.problem);
+      const removals = productRemovalsFromProblem(result.problem);
       return removals === null
         ? { kind: "conflict" }
-        : { guides: removals, kind: "removal_confirmation_required" };
+        : { products: removals, kind: "removal_confirmation_required" };
     }
     if (result.response.status === 422) {
       const mismatchedIds = sourceMismatchMaterialIds(
@@ -127,7 +127,7 @@ const sourceMismatchProblemSchema = z.looseObject({
   issues: z.array(z.looseObject({ code: z.string(), path: z.string() })),
 });
 
-/** Materials the backend refused because their source ownership differs from the Guide. */
+/** Materials the backend refused because their source ownership differs from the Product. */
 function sourceMismatchMaterialIds(
   problem: unknown,
   orderedMaterialIds: readonly string[],

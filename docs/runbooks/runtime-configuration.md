@@ -169,7 +169,7 @@ reused secret. Configure them only in the owning private runtime environment fil
 
 ## Domain Material formats
 
-Materials defines exactly `video` (Видео), `guide` (Гайд), and `note` (Заметка).
+Materials defines exactly `video` (Видео), `product` (Гайд), and `note` (Заметка).
 The authoring `formatId` field contains this domain code, not a UUID. A draft may store
 null; publishing requires a format. Authoring references are available on an empty
 production database without running the development seed.
@@ -245,7 +245,7 @@ community dispatch. See [Tribute operations](tribute-access-convergence.md) for 
 
 The existing MCP process serves the author endpoint at `MCP_SERVER_URL` and a separate participant
 endpoint at `<MCP_SERVER_URL>/learning`; no additional process or credential is created (#782). The
-participant endpoint reads, and since #946 its only write is the learner's own Guide Task
+participant endpoint reads, and since #946 its only write is the learner's own Product Task
 submission. Each endpoint publishes its own OAuth protected-resource metadata. The learning route uses
 the existing Logto token verifier and Account resolution; published content authorization still
 belongs to ContentAccess. Accepted learner token audiences and the local Codex profile are described
@@ -266,13 +266,13 @@ with commit provenance; its source references must match the selected Material r
 migration `0072-practice-definitions` creates the current delivery projection and scoped import
 receipts. Author MCP permissions and tool inventory remain separate from the learner surface.
 
-Guide Tasks (#946) add four tools and the `review_task` prompt to that endpoint and two
-`materials:manage` import API operations under `/authoring/import/tasks`. Migration `0079-guide-tasks`
-creates the `guide_tasks` schema. `GUIDE_TASK_SUBMISSIONS_ENABLED` (`true` or `false`) turns
+Product Tasks (#946) add four tools and the `review_task` prompt to that endpoint and two
+`materials:manage` import API operations under `/authoring/import/tasks`. Migration `0079-product-tasks`
+creates the `product_tasks` schema. `PRODUCT_TASK_SUBMISSIONS_ENABLED` (`true` or `false`) turns
 submission on, for the MCP tool and for the task page form of the API (#947): it defaults to `true`
 in development and test and to `false` in production, where only the owner's published data policy
-v4 allows enabling it. Migration `0080-guide-task-placement-and-form` adds the task's place after a
+v4 allows enabling it. Migration `0080-product-task-placement-and-form` adds the task's place after a
 Material and the form's text report. The procedure is in
-[learner practice review](learning-practice-review.md#guide-tasks-and-review-protocol-v3-946).
+[learner practice review](learning-practice-review.md#product-tasks-and-review-protocol-v3-946).
 
 The participant setup and bounded native verification live in [learner practice review](learning-practice-review.md).

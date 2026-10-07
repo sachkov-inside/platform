@@ -2,7 +2,7 @@ import { randomUUID } from "node:crypto";
 
 import type { PlatformPrisma } from "../infrastructure/prisma/index.js";
 import { BillingPricing } from "../modules/billing/index.js";
-import { guideCapability } from "@inside/access-capabilities";
+import { productCapability } from "@inside/access-capabilities";
 
 /**
  * Каталог предложений локального стенда: две подписки и разовая покупка засеянного руководства.
@@ -24,7 +24,7 @@ import { guideCapability } from "@inside/access-capabilities";
 const localStandPriceKopecks = {
   materials: 1_000,
   materialsWithSupport: 2_000,
-  guide: 3_000,
+  product: 3_000,
 } as const;
 
 interface CatalogOffer {
@@ -32,8 +32,8 @@ interface CatalogOffer {
   readonly name: string;
   readonly benefits: readonly string[];
   /** Явный состав подписки: без него тариф не продаётся. У разовой покупки продукта его нет. */
-  readonly contentScope?: {
-    readonly guideIds: readonly string[];
+  readonly coverage?: {
+    readonly productIds: readonly string[];
     readonly materialIds: readonly string[];
   };
   /** Право с собственным сроком: `null` — бессрочно, иначе столько календарных месяцев. */
@@ -50,13 +50,13 @@ interface CatalogOffer {
   };
 }
 
-function localCatalog(guideId: string): readonly CatalogOffer[] {
+function localCatalog(productId: string): readonly CatalogOffer[] {
   return [
     {
       offerId: "72000000-0000-4000-8000-000000000501",
       name: "Материалы",
       benefits: ["materials"],
-      contentScope: { guideIds: [guideId], materialIds: [] },
+      coverage: { productIds: [productId], materialIds: [] },
       benefitPeriods: [],
       option: {
         id: "72000000-0000-4000-8000-000000000511",
@@ -69,7 +69,7 @@ function localCatalog(guideId: string): readonly CatalogOffer[] {
       offerId: "72000000-0000-4000-8000-000000000502",
       name: "Материалы + сопровождение",
       benefits: ["materials", "support"],
-      contentScope: { guideIds: [guideId], materialIds: [] },
+      coverage: { productIds: [productId], materialIds: [] },
       benefitPeriods: [],
       option: {
         id: "72000000-0000-4000-8000-000000000512",
@@ -81,18 +81,18 @@ function localCatalog(guideId: string): readonly CatalogOffer[] {
     {
       offerId: "72000000-0000-4000-8000-000000000503",
       name: "Руководство «Создание Platform Inside»",
-      benefits: [guideCapability(guideId), "support"],
+      benefits: [productCapability(productId), "support"],
       // Срок каждого права называет предложение: продукт без даты окончания (оферта, редакция 5).
       // Сопровождение в этом предложении — шесть месяцев с оплаты (#648).
       benefitPeriods: [
-        { capability: guideCapability(guideId), months: null },
+        { capability: productCapability(productId), months: null },
         { capability: "support", months: 6 },
       ],
       option: {
         id: "72000000-0000-4000-8000-000000000513",
         mode: "one_time",
         months: 1,
-        priceKopecks: localStandPriceKopecks.guide,
+        priceKopecks: localStandPriceKopecks.product,
       },
     },
   ];
@@ -115,7 +115,7 @@ export async function seedLocalOfferCatalog(
   prisma: PlatformPrisma,
   target: {
     readonly actor: string;
-    readonly guideId: string;
+    readonly productId: string;
     readonly onSale?: boolean;
   },
 ): Promise<void> {
@@ -128,7 +128,7 @@ export async function seedLocalOfferCatalog(
   });
   // Стартовый тариф задаёт миграция 0068: все продукты платформы, сопровождение и общая группа.
   const current = await readOwnerCatalog(pricing);
-  for (const offer of localCatalog(target.guideId)) {
+  for (const offer of localCatalog(target.productId)) {
     const live = current.get(offer.option.id);
     if (live !== undefined && matchesDefinition(live, offer)) continue;
     const saveOption = (expectedRevision?: number) =>
@@ -152,12 +152,12 @@ export async function seedLocalOfferCatalog(
         id: offer.offerId,
         name: offer.name,
         benefits: [...offer.benefits],
-        ...(offer.contentScope === undefined
+        ...(offer.coverage === undefined
           ? {}
           : {
-              contentScope: {
-                guideIds: [...offer.contentScope.guideIds],
-                materialIds: [...offer.contentScope.materialIds],
+              coverage: {
+                productIds: [...offer.coverage.productIds],
+                materialIds: [...offer.coverage.materialIds],
               },
             }),
         benefitPeriods: [...offer.benefitPeriods],
@@ -188,7 +188,8 @@ export async function seedLocalOfferCatalog(
       expectedRevision: saved.revision,
     });
   }
-  if (!onSale) await withdrawDemoOffers(pricing, target.actor, target.guideId);
+  if (!onSale)
+    await withdrawDemoOffers(pricing, target.actor, target.productId);
 }
 
 /**
@@ -199,9 +200,11 @@ export async function seedLocalOfferCatalog(
 async function withdrawDemoOffers(
   pricing: BillingPricing,
   actor: string,
-  guideId: string,
+  productId: string,
 ): Promise<void> {
-  const offerIds = new Set(localCatalog(guideId).map(({ offerId }) => offerId));
+  const offerIds = new Set(
+    localCatalog(productId).map(({ offerId }) => offerId),
+  );
   // The catalogue lists payment options; an offer with several of them is withdrawn once.
   const offers = new Map(
     [...(await readOwnerCatalog(pricing)).values()].map(({ offer }) => [
@@ -252,12 +255,12 @@ function matchesDefinition(
     snapshot.offer.name === offer.name &&
     sameMembers(snapshot.offer.benefits, offer.benefits) &&
     sameMembers(
-      snapshot.offer.contentScope?.guideIds ?? [],
-      offer.contentScope?.guideIds ?? [],
+      snapshot.offer.coverage?.productIds ?? [],
+      offer.coverage?.productIds ?? [],
     ) &&
     sameMembers(
-      snapshot.offer.contentScope?.materialIds ?? [],
-      offer.contentScope?.materialIds ?? [],
+      snapshot.offer.coverage?.materialIds ?? [],
+      offer.coverage?.materialIds ?? [],
     ) &&
     periods.length === offer.benefitPeriods.length &&
     offer.benefitPeriods.every((period) =>

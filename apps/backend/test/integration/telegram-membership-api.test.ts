@@ -1,4 +1,4 @@
-import { enrollLegacyCohortFixture } from "./setup/legacy-cohort.js";
+import { enrollPriorParticipantsFixture } from "./setup/prior-participants.js";
 import { acceptCurrentTerms } from "../support/accept-terms.js";
 import {
   createServer,
@@ -88,7 +88,7 @@ describe("Telegram Membership API", () => {
       (await establish(ownerToken)).json<unknown>(),
     );
 
-    await enrollLegacyCohortFixture(database.prisma, ownerAccountId);
+    await enrollPriorParticipantsFixture(database.prisma, ownerAccountId);
     const unauthenticatedPresentation = await declaredServer(
       app.getHttpAdapter().getInstance(),
     ).inject({

@@ -6,7 +6,7 @@ import {
   billingActionClass,
   cohortStageSchema,
   type CohortStage,
-  type GuideCohort,
+  type ProductCohort,
 } from "@/entities/subscription";
 import { Button } from "@/shared/ui/button";
 
@@ -32,7 +32,7 @@ const stageLabels: Record<CohortStage, string> = {
 
 export interface CohortSectionProps {
   /** `null` — потоки прочитать не удалось; без текущей редакции сохранение получило бы конфликт. */
-  readonly cohorts: readonly GuideCohort[] | null;
+  readonly cohorts: readonly ProductCohort[] | null;
   readonly content?:
     z.infer<typeof contentCatalogOutcomeSchema>["result"]["items"] | undefined;
   readonly pending: boolean;
@@ -52,10 +52,10 @@ export function CohortSection({
   onSaveCohort,
 }: CohortSectionProps) {
   const [editingId, setEditingId] = useState("");
-  const editing = cohorts?.find((cohort) => cohort.guideId === editingId);
-  const guides = content.filter((item) => item.kind === "guide");
-  const guideName = (guideId: string) =>
-    guides.find((item) => item.id === guideId)?.title ?? guideId;
+  const editing = cohorts?.find((cohort) => cohort.productId === editingId);
+  const products = content.filter((item) => item.kind === "product");
+  const productName = (productId: string) =>
+    products.find((item) => item.id === productId)?.title ?? productId;
   return (
     <AdminSection
       description="Этап, название и дата потока видны на странице продукта сразу после сохранения. Анонс никогда не принимает оплату; на остальных этапах кнопка оплаты видна, только пока предложение продукта в продаже."
@@ -73,10 +73,10 @@ export function CohortSection({
           {cohorts.map((cohort) => (
             <li
               className="flex flex-wrap items-center justify-between gap-2"
-              key={cohort.guideId}
+              key={cohort.productId}
             >
               <span className="[overflow-wrap:anywhere]">
-                {guideName(cohort.guideId)} · {cohort.name} ·{" "}
+                {productName(cohort.productId)} · {cohort.name} ·{" "}
                 {stageLabels[cohort.stage]}
                 {cohort.startsOn === null ? "" : ` · старт ${cohort.startsOn}`}
                 {cohort.nextEvent === "" ? "" : ` · ${cohort.nextEvent}`} · r
@@ -84,7 +84,7 @@ export function CohortSection({
               </span>
               <Button
                 onClick={() => {
-                  setEditingId(cohort.guideId);
+                  setEditingId(cohort.productId);
                 }}
                 variant="outline"
               >
@@ -102,7 +102,7 @@ export function CohortSection({
           onSaveCohort({
             ...(revision === undefined ? {} : { expectedRevision: revision }),
             value: {
-              guideId: formText(form.get("cohortGuide")),
+              productId: formText(form.get("cohortProduct")),
               name: formText(form.get("cohortName")),
               stage: cohortStageSchema
                 .catch("announcement")
@@ -115,13 +115,15 @@ export function CohortSection({
       >
         <AdminSelect
           label="Продукт"
-          name="cohortGuide"
-          options={guides.map((item) => ({
+          name="cohortProduct"
+          options={products.map((item) => ({
             value: item.id,
             label: item.title,
           }))}
           placeholder="Выберите продукт"
-          {...(editing === undefined ? {} : { defaultValue: editing.guideId })}
+          {...(editing === undefined
+            ? {}
+            : { defaultValue: editing.productId })}
         />
         <AdminField
           defaultValue={editing?.name}

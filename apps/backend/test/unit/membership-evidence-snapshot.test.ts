@@ -27,7 +27,7 @@ const snapshotSchema = z
   .strict();
 
 const snapshotRoot = new URL(
-  "../../src/modules/membership-entitlements/contracts/inside-membership-evidence-v1/",
+  "../../src/modules/account-rights/contracts/inside-membership-evidence-v1/",
   import.meta.url,
 );
 

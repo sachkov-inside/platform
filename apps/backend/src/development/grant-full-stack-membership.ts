@@ -1,4 +1,4 @@
-import { enrollLegacyCohortFixture } from "./enroll-legacy-cohort-fixture.js";
+import { enrollPriorParticipantsFixture } from "./enroll-prior-participants-fixture.js";
 import { randomUUID } from "node:crypto";
 import {
   assembleMaterials,
@@ -10,7 +10,7 @@ import { ReadingActivity } from "../modules/reading-activity/index.js";
 import { loadPlatformConfig } from "../config/load-platform-config.js";
 import { createPrismaClient } from "../infrastructure/prisma/index.js";
 import { accountId } from "../modules/accounts/index.js";
-import { assembleMembershipEntitlements } from "../modules/membership-entitlements/index.js";
+import { assembleAccountRights } from "../modules/account-rights/index.js";
 
 const FULL_STACK_MEMBERSHIP_LIFETIME_MS = minutesInMilliseconds(5);
 
@@ -39,12 +39,12 @@ async function main(): Promise<void> {
     });
     if (member === null)
       throw new Error("Full-stack member Account must be established first");
-    await enrollLegacyCohortFixture(prisma, member.id);
+    await enrollPriorParticipantsFixture(prisma, member.id);
     const checkedAt = new Date();
     const validUntil = new Date(
       checkedAt.getTime() + FULL_STACK_MEMBERSHIP_LIFETIME_MS,
     );
-    const result = await assembleMembershipEntitlements({
+    const result = await assembleAccountRights({
       prisma,
     }).acceptEvidence({
       accountId: accountId(member.id),
@@ -84,9 +84,9 @@ async function main(): Promise<void> {
         },
         select: { id: true },
       });
-      await enrollLegacyCohortFixture(prisma, fixtureMember.id);
+      await enrollPriorParticipantsFixture(prisma, fixtureMember.id);
       if (state === "expired") {
-        const membership = assembleMembershipEntitlements({
+        const membership = assembleAccountRights({
           prisma,
         });
         const prior = new Date(checkedAt.getTime() - 1);
@@ -127,7 +127,7 @@ async function main(): Promise<void> {
             accountPermissions: {
               hasMaterialsManage: () => Promise.resolve(false),
             },
-            membershipEntitlements: membership,
+            accountRights: membership,
           }),
         });
         const material = await prisma.material.findUniqueOrThrow({
@@ -157,7 +157,7 @@ async function main(): Promise<void> {
           : new Date(
               checkedAt.getTime() - 2 * FULL_STACK_MEMBERSHIP_LIFETIME_MS,
             );
-      const deniedResult = await assembleMembershipEntitlements({
+      const deniedResult = await assembleAccountRights({
         prisma,
 
         clock: () => observedAt,
@@ -184,7 +184,7 @@ async function main(): Promise<void> {
           `${state} Membership fixture failed: ${JSON.stringify(deniedResult)}`,
         );
       }
-      const resolved = await assembleMembershipEntitlements({
+      const resolved = await assembleAccountRights({
         prisma,
       }).resolveForAccess(accountId(fixtureMember.id));
       if (resolved.kind !== state)

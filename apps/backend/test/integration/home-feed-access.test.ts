@@ -4,7 +4,7 @@ import { accountId } from "../../src/modules/accounts/index.js";
 import {
   anonymousSubject,
   assembleContentAccess,
-  assembleDeterministicMembershipEntitlements,
+  assembleDeterministicAccountRights,
 } from "../../src/modules/content-access/index.js";
 import { listPublishedMaterials } from "../../src/modules/content-library/index.js";
 import {
@@ -50,7 +50,7 @@ for (const subject of [
       prisma: database.prisma,
       authorPolicy: { canManage: () => false },
     });
-    const membership = assembleDeterministicMembershipEntitlements(
+    const membership = assembleDeterministicAccountRights(
       new Map([
         [
           accountId("74000000-0000-4000-8000-000000000001"),
@@ -63,7 +63,7 @@ for (const subject of [
         materials.materialContent,
       ),
       accountPermissions: { hasMaterialsManage: () => Promise.resolve(false) },
-      membershipEntitlements: membership,
+      accountRights: membership,
     });
     const feed = await listPublishedMaterials(
       materials.publishedMaterialReader,
@@ -100,7 +100,7 @@ for (const subject of [
       expect(discovery.value.items).toContainEqual(
         expect.objectContaining({
           slug: "developer-pipeline-bez-poteri-konteksta",
-          access: "membership",
+          access: "closed",
           availability: subject.kind === "anonymous" ? "locked" : "available",
         }),
       );

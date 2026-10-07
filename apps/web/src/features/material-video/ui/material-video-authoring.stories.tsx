@@ -21,7 +21,7 @@ const meta = {
   ),
   component: MaterialVideoAuthoringView,
   args: {
-    access: "membership",
+    access: "closed",
     activeVideo: null,
     deletionPendingSave: false,
     deletionVideo: null,

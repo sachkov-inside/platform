@@ -1,7 +1,7 @@
 import type { JSONContent } from "@tiptap/core";
 import { z } from "zod";
 
-import { guideRemovalSchema } from "@/shared/lib/guide-removal";
+import { productRemovalSchema } from "@/shared/lib/product-removal";
 
 const issueSchema = z
   .object({ message: z.string(), path: z.string() })
@@ -40,16 +40,16 @@ export const saveMaterialResultSchema = z.discriminatedUnion("kind", [
     .strict(),
   z
     .object({
-      guides: z.array(guideRemovalSchema).min(1).readonly(),
+      products: z.array(productRemovalSchema).min(1).readonly(),
       kind: z.literal("removal_confirmation_required"),
     })
     .strict(),
 ]);
 
 export interface SaveMaterialInput {
-  readonly access: "free" | "membership";
+  readonly access: "free" | "closed";
   /** Купленные продукты, снятие материала из которых автор подтвердил. */
-  readonly confirmedGuideRemovals?: readonly string[];
+  readonly confirmedProductRemovals?: readonly string[];
   readonly deleteVideoId: string | null;
   readonly detachVideoIds: readonly string[];
   readonly difficulty: string;

@@ -13,9 +13,9 @@ import {
 import { ACCOUNTS, AccountsModule, type Accounts } from "../accounts/index.js";
 import {
   ACCESS_GRANTS,
-  MembershipEntitlementsModule,
+  AccountRightsModule,
   type AccessGrants,
-} from "../membership-entitlements/index.js";
+} from "../account-rights/index.js";
 import { CommunityDeliveryController } from "./adapters/nest/community-delivery.controller.js";
 import { CommunityDispatchController } from "./adapters/nest/community-dispatch.controller.js";
 import { CommunityEntitlements } from "./facets/community-entitlements/community-entitlements.js";
@@ -28,7 +28,7 @@ import { TelegramAccountLinksModule } from "./telegram-account-links.module.js";
   imports: [
     PrismaModule,
     AccountsModule,
-    MembershipEntitlementsModule,
+    AccountRightsModule,
     TelegramAccountLinksModule,
   ],
   controllers: [

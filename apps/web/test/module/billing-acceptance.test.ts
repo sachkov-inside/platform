@@ -11,14 +11,14 @@ import {
 } from "@/entities/subscription";
 import {
   canceledSubscription,
-  guideQuote,
+  productQuote,
   savedQuote,
 } from "@/storybook/billing.fixtures";
 
 describe("acceptance by the payment button", () => {
   it("names the button the journal records for each sale", () => {
-    expect(checkoutButtonLabel(guideQuote.snapshot)).toMatch(/^Оплатить \d/u);
-    expect(checkoutActionName(guideQuote.snapshot)).toBe("Оплатить");
+    expect(checkoutButtonLabel(productQuote.snapshot)).toMatch(/^Оплатить \d/u);
+    expect(checkoutActionName(productQuote.snapshot)).toBe("Оплатить");
     expect(checkoutButtonLabel(savedQuote.snapshot)).toMatch(
       /^Оформить подписку и оплатить \d/u,
     );

@@ -10,8 +10,8 @@ import {
 } from "@/shared/routing/material-reader";
 
 describe("Material Reader navigation", () => {
-  it("preserves Guide and legacy contexts, page and selected Material", () => {
-    for (const prefix of ["guides", "series"]) {
+  it("preserves Product and legacy contexts, page and selected Material", () => {
+    for (const prefix of ["products", "series"]) {
       const href = `/${prefix}/platform-inside?from=%2F&page=2&at=second`;
       expect(parseMaterialReaderReturnTarget(href)).toEqual({
         href,

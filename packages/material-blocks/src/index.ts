@@ -5,13 +5,13 @@ export {
 } from "./blocks/callout.js";
 export { variantOptionType } from "./blocks/variant.js";
 export {
-  defaultGuideMode,
-  guideModeLabels,
-  guideModes,
-  guideModeSchema,
-  isGuideMode,
-  type GuideMode,
-} from "./guide-mode.js";
+  defaultProductMode,
+  productModeLabels,
+  productModes,
+  productModeSchema,
+  isProductMode,
+  type ProductMode,
+} from "./product-mode.js";
 export type {
   MaterialBlockChildNodeDescription,
   MaterialBlockDefinition,

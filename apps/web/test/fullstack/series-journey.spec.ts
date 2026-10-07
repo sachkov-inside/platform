@@ -17,7 +17,7 @@ import { screenshotWholePage } from "../support/whole-page-screenshot.mjs";
 // материала в программе и `at=` в адресе; шапка показывает личный прогресс.
 const snapshots = evidenceDirectory("issue-529");
 
-test("guide product leads to the programme and the programme keeps the Reader return position", async ({
+test("product product leads to the programme and the programme keeps the Reader return position", async ({
   page,
   context,
 }, testInfo) => {
@@ -32,7 +32,7 @@ test("guide product leads to the programme and the programme keeps the Reader re
   // Страница продукта рассказывает о руководстве и ведёт в программу одним действием.
   await page.goto("/products/demo-series-harness");
   await expect(
-    page.locator('[data-guide-product="demo-series-harness"]:visible'),
+    page.locator('[data-product-landing="demo-series-harness"]:visible'),
   ).toBeVisible();
   await expect(page.getByRole("progressbar")).toHaveCount(0);
   await page
@@ -42,7 +42,7 @@ test("guide product leads to the programme and the programme keeps the Reader re
 
   // Личный прогресс находится в шапке, продолжение — на карточке материала.
   await expect(
-    page.locator('[data-guide-programme="demo-series-harness"]:visible'),
+    page.locator('[data-product-programme="demo-series-harness"]:visible'),
   ).toBeVisible();
   await expect(
     page.getByRole("progressbar", { name: "Прогресс продукта" }),
@@ -76,7 +76,7 @@ test("guide product leads to the programme and the programme keeps the Reader re
     page.getByRole("navigation", { name: "Страницы маршрута" }),
   ).toHaveCount(0);
   const accessibility = await new AxeBuilder({ page })
-    .include('[data-guide-programme="demo-series-harness"]')
+    .include('[data-product-programme="demo-series-harness"]')
     .analyze();
   expect(accessibility.violations).toEqual([]);
   await prepareEvidenceDirectory("issue-529");
@@ -100,7 +100,7 @@ test("guide product leads to the programme and the programme keeps the Reader re
   });
 });
 
-test("guide programme marks the last opened material as the place to continue", async ({
+test("product programme marks the last opened material as the place to continue", async ({
   page,
   context,
 }) => {
@@ -139,7 +139,7 @@ test("guide programme marks the last opened material as the place to continue", 
   );
 });
 
-test("guide programme appends a real composition and restores Reader return position", async ({
+test("product programme appends a real composition and restores Reader return position", async ({
   page,
   context,
   request,
@@ -316,7 +316,7 @@ test("guide programme appends a real composition and restores Reader return posi
         seriesId: collection.id,
         expectedOrderVersion: order.orderVersion,
         orderedMaterialIds: JSON.stringify([]),
-        confirmedGuideRemovals: JSON.stringify([collection.id]),
+        confirmedProductRemovals: JSON.stringify([collection.id]),
       },
     );
     expect(await cleared.json()).toMatchObject({ kind: "saved" });

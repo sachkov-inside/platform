@@ -2,7 +2,7 @@ import type { AccountId } from "../../../accounts/index.js";
 import type {
   MembershipEvidenceAcceptance,
   MembershipEvidenceSource,
-} from "../../../membership-entitlements/index.js";
+} from "../../../account-rights/index.js";
 
 export type TelegramLinkStatus =
   | "conflict"

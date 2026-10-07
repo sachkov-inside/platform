@@ -5,13 +5,13 @@ import {
 import {
   taskDefinitionDigest,
   taskDefinitionSchema,
-} from "../../../apps/backend/src/modules/guide-tasks/domain/task-definition.js";
+} from "../../../apps/backend/src/modules/product-tasks/domain/task-definition.js";
 import {
   learningTaskContextVersion,
   serializeLearningTaskContext,
-} from "../../../apps/backend/src/modules/guide-tasks/features/read-learning-task/read-learning-task.js";
-import type { LearningTasks } from "../../../apps/backend/src/modules/guide-tasks/index.js";
-import type { CurrentTask } from "../../../apps/backend/src/modules/guide-tasks/shared/learning-task-dependencies.js";
+} from "../../../apps/backend/src/modules/product-tasks/features/read-learning-task/read-learning-task.js";
+import type { LearningTasks } from "../../../apps/backend/src/modules/product-tasks/index.js";
+import type { CurrentTask } from "../../../apps/backend/src/modules/product-tasks/shared/learning-task-dependencies.js";
 
 /**
  * One synthetic open task served by the same context serializer, parts and procedure v3 text as
@@ -28,7 +28,7 @@ export function syntheticLearningTasks(input: {
     code: input.code,
     title: "Заявки на консультацию",
     access: "free",
-    guideId: "00000000-0000-4000-8000-000000000001",
+    productId: "00000000-0000-4000-8000-000000000001",
     chapterId: "00000000-0000-4000-8000-000000000002",
     position: 1,
     relatedMaterialSourceIds: [],
@@ -40,7 +40,7 @@ export function syntheticLearningTasks(input: {
   const contextVersion = learningTaskContextVersion(task);
   const serialized = serializeLearningTaskContext({
     task,
-    guide: { slug: "synthetic-course", name: "Синтетический курс" },
+    product: { slug: "synthetic-course", name: "Синтетический курс" },
     chapter: { name: "Глава 1" },
     relatedMaterials: [],
     submissionsEnabled: true,
@@ -59,7 +59,7 @@ export function syntheticLearningTasks(input: {
             {
               code: task.code,
               title: task.title,
-              guide: { slug: "synthetic-course", name: "Синтетический курс" },
+              product: { slug: "synthetic-course", name: "Синтетический курс" },
               chapter: { name: "Глава 1", ordinal: 1 },
               position: 1,
               currentVersion: 1,

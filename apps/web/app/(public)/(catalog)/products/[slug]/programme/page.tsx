@@ -1,9 +1,9 @@
 import type { Metadata } from "next";
 
-import { GuideProgrammePage } from "@/_pages/library-discovery.server";
+import { ProductProgrammePage } from "@/_pages/library-discovery.server";
 import { readPublicSeries } from "@/features/library-discovery.server";
 
-interface GuideProgrammeRouteProps {
+interface ProductProgrammeRouteProps {
   readonly params: Promise<{ readonly slug: string }>;
 }
 
@@ -16,7 +16,7 @@ export const unstable_dynamicStaleTime = 60;
 
 export async function generateMetadata({
   params,
-}: GuideProgrammeRouteProps): Promise<Metadata> {
+}: ProductProgrammeRouteProps): Promise<Metadata> {
   const { slug } = await params;
   const result = await readPublicSeries(slug);
   return result.kind === "ready" || result.kind === "empty"
@@ -33,8 +33,8 @@ export async function generateMetadata({
 }
 
 /** Скелет маршрута даёт `loading.tsx`; страница читает адрес уже под ним (ADR 0027). */
-export default function GuideProgrammeRoute({
+export default function ProductProgrammeRoute({
   params,
-}: GuideProgrammeRouteProps) {
-  return <GuideProgrammePage params={params} />;
+}: ProductProgrammeRouteProps) {
+  return <ProductProgrammePage params={params} />;
 }

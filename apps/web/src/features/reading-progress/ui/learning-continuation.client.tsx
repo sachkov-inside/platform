@@ -4,7 +4,7 @@ import { useQuery } from "@tanstack/react-query";
 import Link from "next/link";
 import { ArrowRight } from "lucide-react";
 import { useMaterialReading } from "@/entities/material";
-import { guideProgrammeHref } from "@/shared/routing/subscription-route";
+import { productProgrammeHref } from "@/shared/routing/subscription-route";
 import { materialReaderHref } from "@/shared/routing/material-reader";
 import { loadPersonalHome } from "../api/personal-home.browser";
 import { personalHomeQueryKey } from "../model/personal-home-contract";
@@ -80,7 +80,7 @@ export function LearningContinuationView({
             <Link
               className="flex min-h-20 items-center justify-between gap-4 py-4 no-underline"
               aria-label={`Продолжить продукт ${series.collection.name}`}
-              href={guideProgrammeHref(series.collection.slug)}
+              href={productProgrammeHref(series.collection.slug)}
             >
               <span>
                 <strong className="block">{series.collection.name}</strong>

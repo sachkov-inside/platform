@@ -17,9 +17,9 @@ import {
   readConfirmedTelegramLink,
 } from "../../infrastructure/persistence/confirmed-telegram-link.js";
 import type {
-  MembershipEntitlements,
+  AccountRights,
   MembershipEvidenceAcceptance,
-} from "../../../membership-entitlements/index.js";
+} from "../../../account-rights/index.js";
 import type {
   TelegramLinkProvider,
   TelegramLinkProviderConfirmation,
@@ -45,7 +45,7 @@ export interface TelegramMembershipDependencies {
   readonly botStartUrl: string;
   readonly clock?: () => Date;
   readonly linkLifetimeMs: number;
-  readonly membershipEntitlements: MembershipEntitlements;
+  readonly accountRights: AccountRights;
   /** Предлагается ли подписка этому Account; гостю — без Account. */
   readonly subscriptionForSale?: (accountId?: string) => Promise<boolean>;
   readonly membershipSupportUrl?: string;
@@ -225,7 +225,7 @@ async function readAccountPresentation(
   now: Date,
 ): Promise<AccountTelegramMembershipResult> {
   const [access, linkedTransaction, latestTransaction] = await Promise.all([
-    dependencies.membershipEntitlements.resolveForAccess(account),
+    dependencies.accountRights.resolveForAccess(account),
     readConfirmedTelegramLink(dependencies.prisma, account),
     dependencies.prisma.telegramLinkTransaction.findFirst({
       where: { accountId: account },
@@ -319,7 +319,7 @@ function accountLinkState(
 }
 
 function accountMembershipState(
-  state: Awaited<ReturnType<MembershipEntitlements["resolveForAccess"]>>,
+  state: Awaited<ReturnType<AccountRights["resolveForAccess"]>>,
   subscriptionForSale: boolean,
 ): AccountMembershipState {
   switch (state.kind) {
@@ -455,7 +455,7 @@ async function confirmLink(
   if (confirmation.kind === "linked") {
     return dependencies.prisma.$transaction(async (prisma) => {
       await lockTelegramMembershipLink(prisma, account);
-      const binding = await dependencies.membershipEntitlements.bindPrincipal(
+      const binding = await dependencies.accountRights.bindPrincipal(
         {
           accountId: accountId(transaction.accountId),
           principalRef: transaction.principalRef,
@@ -549,7 +549,7 @@ async function acceptEvidence(
   if (link?.status !== "linked") {
     return { ok: false, error: { code: "principal_mismatch" } };
   }
-  return dependencies.membershipEntitlements.acceptEvidence({
+  return dependencies.accountRights.acceptEvidence({
     accountId: accountId(link.accountId),
     deliveryId: command.deliveryId,
     evidence: command.evidence,

@@ -1,4 +1,4 @@
-import { BillingGuideSales } from "./features/list-guide-sales/list-guide-sales.js";
+import { BillingProductSales } from "./features/list-product-sales/list-product-sales.js";
 import { BillingSurveyRespondentSales } from "./features/read-survey-respondent-sales/read-survey-respondent-sales.js";
 import { ReceiveTributeController } from "./features/receive-tribute/receive-tribute.controller.js";
 import { TributeConvergence } from "./facets/tribute-convergence/tribute-convergence.js";
@@ -11,9 +11,9 @@ import { BillingContact } from "../accounts/index.js";
 import {
   ACCESS_GRANTS,
   TributeSources,
-  MembershipEntitlementsModule,
+  AccountRightsModule,
   type AccessGrants,
-} from "../membership-entitlements/index.js";
+} from "../account-rights/index.js";
 import { BillingPayments } from "./facets/billing-payments/billing-payments.js";
 import { Tbank } from "./infrastructure/tbank/tbank.js";
 import { bankRequest } from "./infrastructure/tbank/bank-request.js";
@@ -35,14 +35,14 @@ import { ManageBillingController } from "./adapters/nest/manage-billing.controll
 import { BillingOperations } from "./facets/billing-operations/billing-operations.js";
 import { QuotePurchaseController } from "./features/quote-purchase/quote-purchase.controller.js";
 import { ListOffersController } from "./features/list-offers/list-offers.controller.js";
-import { ListGuideCohortsController } from "./features/list-guide-cohorts/list-guide-cohorts.controller.js";
+import { ListProductCohortsController } from "./features/list-product-cohorts/list-product-cohorts.controller.js";
 
 // Один банковский adapter на модуль: у привязки один владелец. Права выдаёт общий провайдер
 // модуля прав, поэтому у оплаты нет собственной копии facet.
 const BILLING_BANK = Symbol("BillingBank");
 
 @Module({
-  imports: [PrismaModule, AccountsModule, MembershipEntitlementsModule],
+  imports: [PrismaModule, AccountsModule, AccountRightsModule],
   controllers: [
     ReceiveTributeController,
     PurchaseSubscriptionController,
@@ -52,14 +52,14 @@ const BILLING_BANK = Symbol("BillingBank");
     ManageBillingController,
     QuotePurchaseController,
     ListOffersController,
-    ListGuideCohortsController,
+    ListProductCohortsController,
   ],
   providers: [
     {
-      provide: BillingGuideSales,
+      provide: BillingProductSales,
       inject: [PrismaClientProvider],
       useFactory: (prisma: PrismaClientProvider) =>
-        new BillingGuideSales(prisma),
+        new BillingProductSales(prisma),
     },
     {
       provide: BillingSurveyRespondentSales,
@@ -186,7 +186,7 @@ const BILLING_BANK = Symbol("BillingBank");
     },
   ],
   exports: [
-    BillingGuideSales,
+    BillingProductSales,
     BillingSurveyRespondentSales,
     TributeConvergence,
     BillingPayments,

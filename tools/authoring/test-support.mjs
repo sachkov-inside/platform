@@ -55,7 +55,7 @@ const journalFileSchema = z
       z.string(),
       z.object({ contentVersion: z.number() }).passthrough(),
     ),
-    guides: z.record(z.string(), z.object({}).passthrough()),
+    products: z.record(z.string(), z.object({}).passthrough()),
     operations: z.record(z.string(), z.unknown()),
     resources: z.record(z.string(), z.unknown()).optional(),
   })

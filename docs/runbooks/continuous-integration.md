@@ -115,7 +115,7 @@ level runs:
 |---|---|---|
 | Pull request, required | Matrix completeness: every cited file exists and declares `test(` or `it(` with the cited name; every production cell that cites the production pass has a pass cell `<row>@<transport>` in `apps/web/test/production/pass-config.ts` (`apps/backend/test/unit/access-check-matrix.test.ts`) | `unit` |
 | Pull request, required | Production pass logic without network: request allowlist, cell verdict with deferred cells, report and secret redaction (`apps/web/test/module/production-access-*.test.ts`) | `unit` |
-| Pull request, required | Facade on PostgreSQL in `apps/backend/test/integration`: `access-scenarios`, `payment-access-matrix`, `guide-access`, `learning-practice`, `billing-operations`, `reading-activity`, `bookmarks`; real Nest HTTP: `scoped-access-http`, `billing-pricing-http`, `accounts-api`, `reading-activity-http`; real learner MCP transport: `scoped-learner-access-mcp` | `integration` |
+| Pull request, required | Facade on PostgreSQL in `apps/backend/test/integration`: `access-scenarios`, `payment-access-matrix`, `product-access`, `learning-practice`, `billing-operations`, `reading-activity`, `bookmarks`; real Nest HTTP: `scoped-access-http`, `billing-pricing-http`, `accounts-api`, `reading-activity-http`; real learner MCP transport: `scoped-learner-access-mcp` | `integration` |
 | Pull request, required | Web/BFF owner billing scenario `apps/web/test/fullstack/enrollment.spec.ts` through `pnpm smoke:enrollments` | `integration` |
 | Nightly | The other Web/BFF access scenarios the matrix cites: `material-reader`, `material-authoring`, `learning-practice` and `access-identities` in `apps/web/test/fullstack` | Nightly full-stack smoke |
 | Before a release | `pnpm check:full`, which includes the full-stack smoke and the integration suite, on the release commit | local, see `AGENTS.md` |
@@ -156,7 +156,7 @@ only `github.token`. A new run waits for the previous one on the same ref instea
 
 The smoke includes `apps/web/test/fullstack/access-identities.spec.ts` (#904). It signs in separate
 identities through the real Web/BFF: a Materials-only Account, a Billing-only Account, a learner
-whose only access is a tier scoped to one Guide, and two ordinary Accounts. No pull-request job
+whose only access is a tier scoped to one Product, and two ordinary Accounts. No pull-request job
 runs these browser-path checks, so a release needs a green run of this workflow on the release
 commit ([release](release.md#1-что-выпускаем)).
 

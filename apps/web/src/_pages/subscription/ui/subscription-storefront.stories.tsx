@@ -24,7 +24,7 @@ function storefrontRoute(
   respond: MutationFetch,
 ): Pick<Story, "beforeEach" | "decorators" | "parameters"> {
   const { beforeEach, decorators, parameters } = publicPageEnvironment(
-    "/subscription",
+    "/payment/checkout",
     { account },
   );
   return {
@@ -51,7 +51,7 @@ const mobile = { viewport: { isRotated: false, value: "mobile390" } };
 const meta = {
   title: "Pages/Subscription/Storefront",
   component: SubscriptionStorefront,
-  args: { offers: billingOffers, returnTo: "/subscription" },
+  args: { offers: billingOffers, returnTo: "/payment/checkout" },
   globals: desktop,
   parameters: {
     docs: {
@@ -85,7 +85,7 @@ export const PreselectedOffer: Story = {
   ...signedOut,
   args: {
     initialOfferId: supportOffer.offer.id,
-    returnTo: `/subscription?offer=${supportOffer.offer.id}`,
+    returnTo: `/payment/checkout?offer=${supportOffer.offer.id}`,
   },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
@@ -150,7 +150,7 @@ export const InvitedGuest: Story = {
   args: {
     offers: [],
     initialOfferId: supportOffer.offer.id,
-    returnTo: `/subscription?offer=${supportOffer.offer.id}`,
+    returnTo: `/payment/checkout?offer=${supportOffer.offer.id}`,
   },
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
@@ -172,7 +172,7 @@ export const InvitedGuest: Story = {
       canvasElement.querySelector(
         'form[action="/auth/sign-in"] input[name="returnTo"]',
       ),
-    ).toHaveValue(`/subscription?offer=${supportOffer.offer.id}`);
+    ).toHaveValue(`/payment/checkout?offer=${supportOffer.offer.id}`);
     await expect(
       canvas.queryByText("Подписка сейчас не продаётся"),
     ).not.toBeInTheDocument();

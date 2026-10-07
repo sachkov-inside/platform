@@ -1,6 +1,6 @@
 import { z } from "zod";
-import { contentScopeSchema } from "@inside/access-capabilities";
-import { capabilitiesSchema } from "../../membership-entitlements/index.js";
+import { coverageSchema } from "@inside/access-capabilities";
+import { capabilitiesSchema } from "../../account-rights/index.js";
 
 export const idSchema = z.uuid().toLowerCase();
 export const revisionSchema = z.int().positive().max(2_147_483_647);
@@ -29,7 +29,7 @@ export const offerSchema = z.strictObject({
   /** Обратимый признак продажи, независимый от архивации. В прежних снимках может отсутствовать. */
   published: z.boolean().optional(),
   availableForAssignment: z.boolean().optional(),
-  contentScope: contentScopeSchema.nullable().optional(),
+  coverage: coverageSchema.nullable().optional(),
   eligibility: offerEligibilitySchema.optional(),
 });
 /**

@@ -5,7 +5,7 @@ import { problemException } from "../../../../infrastructure/http/problem-detail
 import {
   membershipEvidenceSchema,
   type MembershipEvidenceAcceptance,
-} from "../../../membership-entitlements/index.js";
+} from "../../../account-rights/index.js";
 import type { TelegramLinkResult } from "../../facets/telegram-membership/telegram-membership.interface.js";
 
 export const evidenceDeliveryIdSchema = z.string().trim().min(1).max(256);

@@ -407,7 +407,7 @@ it("поиск получателя передаёт точную identity и н
   );
 });
 
-it("owner payments retain local one-time Guide purchases and their filter", async () => {
+it("owner payments retain local one-time Product purchases and their filter", async () => {
   const paid = {
     purchaseRef,
     accountId,
@@ -424,7 +424,7 @@ it("owner payments retain local one-time Guide purchases and their filter", asyn
         id: offerId,
         revision: 1,
         name: "Guide",
-        benefits: ["guide:" + offerId],
+        benefits: ["product:" + offerId],
         archived: false,
       },
       paymentOption: {

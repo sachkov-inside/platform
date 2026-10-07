@@ -55,13 +55,13 @@ describe("communications promised public targets against Materials PostgreSQL", 
       reason: "not_found",
     });
     const seriesId = randomUUID();
-    await database.prisma.guide.create({
+    await database.prisma.product.create({
       data: { id: seriesId, slug: "test-series", name: "Series" },
     });
     expect(
       await targets.check({ kind: "series", slug: "test-series" }),
     ).toEqual({ targetId: seriesId, reason: "incomplete" });
-    await database.prisma.guideMembership.create({
+    await database.prisma.productMembership.create({
       data: { seriesId, materialId, ordinal: 1 },
     });
     expect(
@@ -106,7 +106,7 @@ describe("communications promised public targets against Materials PostgreSQL", 
       expectedContentVersion: published.value.contentVersion,
       idempotencyKey: randomUUID(),
       publicationState: "published",
-      metadata: { ...metadata, access: "membership" },
+      metadata: { ...metadata, access: "closed" },
       body: representativeDocument("Target body"),
     });
     if (!paid.ok) throw new Error(paid.error.code);

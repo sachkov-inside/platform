@@ -1,5 +1,5 @@
 import { benefitTerms, longestTerm } from "./presentation";
-import { isGuideCapability } from "@inside/access-capabilities";
+import { isProductCapability } from "@inside/access-capabilities";
 import type { BillingOffer, BillingPaymentOption } from "./billing-contract";
 
 /**
@@ -25,7 +25,7 @@ export function oneTimeOfferTerms(conditions: {
   const terms = benefitTerms(conditions);
   const materials = terms.filter(
     ({ capability }) =>
-      isGuideCapability(capability) || capability === "materials",
+      isProductCapability(capability) || capability === "materials",
   );
   const materialsMonths =
     materials.length === 0

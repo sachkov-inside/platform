@@ -11,9 +11,9 @@ import provenance from "../../src/contracts/platform-billing-cohorts/provenance.
 import schema from "../../src/contracts/platform-billing-cohorts/schema.json" with { type: "json" };
 
 const endpoint = "https://platform.test/billing/cohorts";
-const guideId = "5f0c2a4e-8d1b-4c3a-9e7f-1a2b3c4d5e6f";
+const productId = "5f0c2a4e-8d1b-4c3a-9e7f-1a2b3c4d5e6f";
 const cohort = (overrides: Record<string, unknown> = {}) => ({
-  guideId,
+  productId,
   revision: 1,
   name: "Поток 1",
   stage: "preorder",
@@ -25,7 +25,7 @@ const adapter = (response: () => Promise<Response>) => {
   const fetcher = vi.fn<typeof fetch>(() => response());
   return {
     fetcher,
-    source: new HttpPlatformCohortAdapter(endpoint, guideId, fetcher),
+    source: new HttpPlatformCohortAdapter(endpoint, productId, fetcher),
   };
 };
 
@@ -81,7 +81,7 @@ describe("Platform GET /billing/cohorts contract", () => {
       expect(validResponse(fixture.response)).toBe(true);
       const source = new HttpPlatformCohortAdapter(
         endpoint,
-        fixtures.courseGuideId,
+        fixtures.courseProductId,
         () => Promise.resolve(Response.json(fixture.response)),
       );
       expect(await source.read()).toEqual(
@@ -100,10 +100,10 @@ describe("Platform current stream of the course", () => {
         Response.json({
           items: [
             cohort({
-              guideId: "00000000-0000-4000-8000-000000000001",
+              productId: "00000000-0000-4000-8000-000000000001",
               startsOn: "2027-01-01",
             }),
-            cohort({ guideId: guideId.toUpperCase() }),
+            cohort({ productId: productId.toUpperCase() }),
           ],
         }),
       ),
@@ -121,7 +121,7 @@ describe("Platform current stream of the course", () => {
     const stderr = vi.spyOn(process.stderr, "write").mockReturnValue(true);
     for (const items of [
       [],
-      [cohort({ guideId: "00000000-0000-4000-8000-000000000001" })],
+      [cohort({ productId: "00000000-0000-4000-8000-000000000001" })],
       [cohort({ stage: "between", startsOn: null, nextEvent: "Скоро" })],
     ])
       expect(
