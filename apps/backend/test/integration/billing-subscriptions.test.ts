@@ -511,6 +511,13 @@ describe("подписка: продление, отмена, смена вар�
       error: { code: "method_unavailable" },
     });
     expect(await s.view()).toMatchObject({ state: "active", periodIndex: 1 });
+    // Сбой случается до попытки оплаты: ни строки попытки, ни обращения к банку.
+    expect(
+      await db.prisma.billingPurchase.count({
+        where: { accountId: s.buyer, kind: "renewal" },
+      }),
+    ).toBe(0);
+    expect(s.bank.chargeCalls).toBe(0);
     // Закрыть истёкший срок отменённой подписки можно и без банка.
     const active = await s.view();
     value(
