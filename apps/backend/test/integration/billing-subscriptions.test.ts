@@ -489,6 +489,45 @@ describe("подписка: продление, отмена, смена вар�
     expect(s.bank.chargeCalls).toBe(1);
   });
 
+  test("без терминала продление проходит штатно, пока продлевать некого, а должная подписка остаётся сбоем", async () => {
+    const s = await scenario();
+    await s.buy();
+    const withoutBank = new BillingPayments({
+      prisma: db.prisma,
+      bank: undefined,
+      contact,
+      grants,
+      clock: () => now,
+    });
+    expect(value(await withoutBank.renew())).toEqual({
+      inspected: 0,
+      started: 0,
+      blocked: 0,
+      closed: 0,
+    });
+    now = new Date("2030-02-28T10:00:00Z");
+    expect(await withoutBank.renew()).toMatchObject({
+      ok: false,
+      error: { code: "method_unavailable" },
+    });
+    expect(await s.view()).toMatchObject({ state: "active", periodIndex: 1 });
+    // Закрыть истёкший срок отменённой подписки можно и без банка.
+    const active = await s.view();
+    value(
+      await s.subscriptions.cancel(s.buyer, {
+        operationId: randomUUID(),
+        expectedRevision: active?.revision,
+      }),
+    );
+    expect(value(await withoutBank.renew())).toEqual({
+      inspected: 0,
+      started: 0,
+      blocked: 0,
+      closed: 1,
+    });
+    expect(await s.view()).toBeNull();
+  });
+
   test("отмена до отправки запрещает вызов банка и сохраняет оплаченный срок", async () => {
     const s = await scenario();
     await s.buy();
