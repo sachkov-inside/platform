@@ -1204,6 +1204,7 @@ describe("handing the link over in the private chat", () => {
       welcome: "Synthetic community welcome",
     },
     membershipCheckRetentionDays: 90,
+    salesFunnelEventRetentionDays: 30,
     membershipMode: "disabled",
     membershipReconciliationCadenceMilliseconds: 240_000,
     platformIntegrationSecret: "synthetic_platform_secret",

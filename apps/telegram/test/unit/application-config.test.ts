@@ -500,6 +500,26 @@ describe("application configuration", () => {
     }
   });
 
+  it("keeps delivered sales funnel events for 30 days unless configured within bounds", () => {
+    expect(
+      loadApplicationConfig(validEnvironment).salesFunnelEventRetentionDays,
+    ).toBe(30);
+    expect(
+      loadApplicationConfig({
+        ...validEnvironment,
+        TELEGRAM_SALES_FUNNEL_EVENT_RETENTION_DAYS: "7",
+      }).salesFunnelEventRetentionDays,
+    ).toBe(7);
+    for (const bad of ["0", "3651", "30.5", "thirty"]) {
+      expect(() =>
+        loadApplicationConfig({
+          ...validEnvironment,
+          TELEGRAM_SALES_FUNNEL_EVENT_RETENTION_DAYS: bad,
+        }),
+      ).toThrow("TELEGRAM_SALES_FUNNEL_EVENT_RETENTION_DAYS");
+    }
+  });
+
   it("bounds the community reconciliation cadence to at most one minute", () => {
     expect(() =>
       loadApplicationConfig({

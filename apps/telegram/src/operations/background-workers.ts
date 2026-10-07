@@ -208,6 +208,7 @@ export class BackgroundWorkers
       async () =>
         (await purgeExpiredRecords(this.database, this.clock.now(), {
           membershipCheckDays: this.config.membershipCheckRetentionDays,
+          salesFunnelEventDays: this.config.salesFunnelEventRetentionDays,
         })) > 0,
     );
 
