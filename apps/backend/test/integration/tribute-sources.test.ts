@@ -1,6 +1,9 @@
 import { sourceIdentityRef } from "../../src/modules/membership-entitlements/domain/source-identity.js";
 import { eventually } from "./setup/eventually.js";
-import { lockAccountEntitlementChanges } from "../../src/infrastructure/prisma/index.js";
+import {
+  lockBillingPricing,
+  lockAccountEntitlementChanges,
+} from "../../src/infrastructure/prisma/index.js";
 import { changeEnrollmentInTransaction } from "../../src/modules/membership-entitlements/features/change-enrollment/change-enrollment.js";
 import { z } from "zod";
 import { createHash, createHmac, randomUUID } from "node:crypto";
@@ -381,6 +384,34 @@ describe("Tribute source production facets and signed HTTP with PostgreSQL", () 
     });
     expect(value(await grants.readOwnEnrollments(customer.id))).toHaveLength(1);
     expect(value(await convergence.apply(owner, command))).toEqual(applied);
+  });
+  test("prepared replay reads the committed receipt after the pricing lock even after archival", async () => {
+    const context = await setup();
+    const preview = value(
+      await convergence.preview(owner, {
+        operationId: randomUUID(),
+        batchRef: randomUUID(),
+        rows: [context.row],
+      }),
+    );
+    const command = {
+      operationId: randomUUID(),
+      previewRef: preview.previewRef,
+      selectedRows: [context.row.rowRef],
+    };
+    // The retry has already been authorized while the original import has not committed.
+    const prepared = value(await sources.prepareApply(owner, command));
+    const applied = value(await convergence.apply(owner, command));
+    await db.prisma.billingOffer.update({
+      where: { id: context.tier.id },
+      data: { archived: true, revision: { increment: 1 } },
+    });
+    const replayed = await db.prisma.$transaction(async (tx) => {
+      await lockBillingPricing(tx);
+      expect(value(await prepared.previewTiers(tx))).toEqual([]);
+      return value(await prepared.apply(tx));
+    });
+    expect(replayed).toEqual(applied);
   });
   test("legacy unconfirmed source is visible and imported into the same record; generic Tribute registration is closed", async () => {
     const context = await setup();

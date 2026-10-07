@@ -67,7 +67,9 @@ export class TributeConvergence {
     if (!prepared.ok) return prepared;
     return this.prisma.$transaction(async (tx) => {
       await lockBillingPricing(tx);
-      for (const tier of prepared.value.tiers) {
+      const snapshots = await prepared.value.previewTiers(tx);
+      if (!snapshots.ok) return snapshots;
+      for (const tier of snapshots.value) {
         const current = await tx.billingOffer.findUnique({
           where: { id: tier.id },
         });

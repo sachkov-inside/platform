@@ -125,13 +125,11 @@ export class TributeSources {
   private async savePolicy(
     tx: TributeTransaction,
     actorId: string,
-    input: unknown,
+    command: z.infer<typeof saveTributePolicySchema>,
     tierInput: unknown,
   ) {
-    const parsed = saveTributePolicySchema.safeParse(input);
     const tier = tierSnapshotSchema.safeParse(tierInput);
-    if (!parsed.success || !tier.success) return accessFailure("invalid_input");
-    const command = parsed.data;
+    if (!tier.success) return accessFailure("invalid_input");
     const now = this.clock();
     if (
       tier.data.id !== command.tierId ||
@@ -460,46 +458,51 @@ export class TributeSources {
     if (!(await this.permitted(actorId))) return accessFailure("forbidden");
     const parsed = applyTributeImportSchema.safeParse(input);
     if (!parsed.success) return accessFailure("invalid_input");
-    const apply = (tx: TributeTransaction) =>
-      this.apply(tx, actorId, parsed.data);
-    const receipt = await this.dependencies.prisma.accessReceipt.findUnique({
+    return {
+      ok: true as const,
+      value: {
+        previewTiers: (tx: TributeTransaction) =>
+          this.previewTiers(tx, actorId, parsed.data),
+        apply: (tx: TributeTransaction) => this.apply(tx, actorId, parsed.data),
+      },
+    };
+  }
+  /** Billing holds its pricing lock before reading a receipt or checking catalog eligibility. */
+  private async previewTiers(
+    tx: TributeTransaction,
+    actorId: string,
+    command: z.infer<typeof applyTributeImportSchema>,
+  ) {
+    const receipt = await tx.accessReceipt.findUnique({
       where: {
-        scope_operationId: {
-          scope: actorId,
-          operationId: parsed.data.operationId,
-        },
+        scope_operationId: { scope: actorId, operationId: command.operationId },
       },
     });
     // A lost-response replay must return its receipt even after catalog archival.
     if (receipt !== null)
-      return {
-        ok: true as const,
-        value: { tiers: [] as TierSnapshot[], apply },
-      };
-    const row = await this.dependencies.prisma.accessBatchPreview.findUnique({
-      where: { id: parsed.data.previewRef },
+      return { ok: true as const, value: [] as TierSnapshot[] };
+    const row = await tx.accessBatchPreview.findUnique({
+      where: { id: command.previewRef },
     });
     if (row === null || row.actorId !== actorId)
       return accessFailure("not_found");
     const stored = storedPreviewSchema.parse(row.rows);
     return {
       ok: true as const,
-      value: {
-        apply,
-        tiers: stored.rows
-          .filter(
-            (item) =>
-              parsed.data.selectedRows.includes(item.rowRef) &&
-              item.enrollmentRevision === 0,
-          )
-          .flatMap((item) => (item.tier === null ? [] : [item.tier])),
-      },
+      value: stored.rows
+        .filter(
+          (item) =>
+            command.selectedRows.includes(item.rowRef) &&
+            item.enrollmentRevision === 0,
+        )
+        .flatMap((item) => (item.tier === null ? [] : [item.tier])),
     };
   }
-  private async apply(tx: TributeTransaction, actorId: string, input: unknown) {
-    const parsed = applyTributeImportSchema.safeParse(input);
-    if (!parsed.success) return accessFailure("invalid_input");
-    const command = parsed.data;
+  private async apply(
+    tx: TributeTransaction,
+    actorId: string,
+    command: z.infer<typeof applyTributeImportSchema>,
+  ) {
     const now = this.clock();
     const fingerprint = accessFingerprint({
       action: "tribute.apply",
