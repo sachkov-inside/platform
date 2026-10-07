@@ -275,6 +275,56 @@ it("bounds a missing compositor frame and restores the viewport", async () => {
   });
 }, 15_000);
 
+it("bounds a frame request that stalls after a readable frame arrives", async () => {
+  const viewport = { width: 1_440, height: 1_024 };
+  await withPage(applicationPage, viewport, async (page) => {
+    const context = page.context();
+    const session = await context.newCDPSession(page);
+    vi.spyOn(context, "newCDPSession").mockResolvedValue(session);
+    const send = session.send.bind(session);
+    vi.spyOn(session, "send").mockImplementationOnce(
+      async (method, options) => {
+        await send(method, options);
+        return new Promise(() => undefined);
+      },
+    );
+    const detach = vi.spyOn(session, "detach");
+    vi.spyOn(page, "screenshot").mockRejectedValue(chromiumCaptureFailure);
+    silenceWarnings();
+
+    await expect(screenshotWholePage(page)).rejects.toThrow(
+      "Chromium did not copy a compositor frame within 10000ms",
+    );
+
+    expect(detach).toHaveBeenCalledTimes(1);
+    expect(page.viewportSize()).toEqual(viewport);
+  });
+}, 15_000);
+
+it("bounds stalled CDP cleanup and restores the viewport", async () => {
+  const viewport = { width: 1_440, height: 1_024 };
+  await withPage(applicationPage, viewport, async (page) => {
+    const context = page.context();
+    const session = await context.newCDPSession(page);
+    vi.spyOn(context, "newCDPSession").mockResolvedValue(session);
+    vi.spyOn(session, "send")
+      .mockRejectedValueOnce(new Error("The frame request failed"))
+      .mockImplementationOnce(() => new Promise(() => undefined));
+    const detach = vi
+      .spyOn(session, "detach")
+      .mockImplementation(() => new Promise(() => undefined));
+    vi.spyOn(page, "screenshot").mockRejectedValue(chromiumCaptureFailure);
+    silenceWarnings();
+
+    await expect(screenshotWholePage(page)).rejects.toThrow(
+      "Chromium did not detach the temporary CDP session within 1000ms",
+    );
+
+    expect(detach).toHaveBeenCalledTimes(1);
+    expect(page.viewportSize()).toEqual(viewport);
+  });
+});
+
 it("gives up after three refused captures", async () => {
   await withPage(applicationPage, { width: 390, height: 844 }, async (page) => {
     const screenshot = vi

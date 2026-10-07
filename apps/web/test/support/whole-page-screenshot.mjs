@@ -49,6 +49,9 @@ const captureAttempts = 3;
 /** Бюджет ожидания скопированного кадра Chromium после отказа, в миллисекундах. */
 const frameCopyBudget = 10_000;
 
+/** Бюджет одной команды закрытия CDP после ожидания кадра, в миллисекундах. */
+const cdpCleanupBudget = 1_000;
+
 /**
  * Сколько миллисекунд помощник ждёт конца CSS-переходов перед одним замером. Переход кнопки длится
  * 150ms; бюджет только останавливает застрявший прогон: переход на паузе или переход длиной в часы.
@@ -109,44 +112,96 @@ async function screenshotRetryingFrameCopy(page, options) {
 }
 
 /**
- * CDP screencast отдаёт событие только после копирования и кодирования кадра. Достаточно одного
- * пикселя: нужен факт доступности поверхности, а не ещё один снимок всей страницы. Таймер только
- * останавливает застрявшее ожидание; завершает ожидание событие Chromium, а не длительность.
+ * CDP screencast отдаёт событие только после копирования и кодирования кадра. Запрашиваем уменьшенный
+ * служебный кадр: нужен факт доступности поверхности, а не ещё один снимок всей страницы. Предел 1×1
+ * Chromium может округлить до нулевой стороны и оставить размер по умолчанию (#1039).
+ * Таймер только останавливает застрявшее ожидание; завершает его событие Chromium, а не длительность.
  *
  * @param {import("@playwright/test").Page} page
  */
 async function waitForFrameCopy(page) {
-  const session = await page.context().newCDPSession(page);
+  const opening = page.context().newCDPSession(page);
+  let session;
+  try {
+    session = await withinBudget(
+      opening,
+      frameCopyBudget,
+      "Chromium did not open the temporary CDP session",
+    );
+  } catch (error) {
+    // CDP-команду нельзя отменить: если ответ придёт после бюджета, закрываем позднюю сессию.
+    void opening
+      .then(
+        (lateSession) => lateSession.detach(),
+        () => undefined,
+      )
+      .catch((cleanupError) =>
+        console.warn(
+          "screenshotWholePage: late CDP session cleanup failed",
+          cleanupError,
+        ),
+      );
+    throw error;
+  }
+  try {
+    const copied = new Promise((resolve) => {
+      session.once("Page.screencastFrame", resolve);
+    });
+    await withinBudget(
+      Promise.all([
+        copied,
+        session.send("Page.startScreencast", {
+          format: "png",
+          maxWidth: 64,
+          maxHeight: 64,
+        }),
+      ]),
+      frameCopyBudget,
+      "Chromium did not copy a compositor frame",
+    );
+  } finally {
+    try {
+      await withinBudget(
+        session.send("Page.stopScreencast"),
+        cdpCleanupBudget,
+        "Chromium did not stop the temporary screencast",
+      );
+    } finally {
+      await withinBudget(
+        session.detach(),
+        cdpCleanupBudget,
+        "Chromium did not detach the temporary CDP session",
+      );
+    }
+  }
+}
+
+/**
+ * CDPSession.send и detach в Playwright идут без timeout. Бюджет не отменяет команду протокола,
+ * но перестаёт её ждать; finally всё равно отправляет следующую команду закрытия.
+ *
+ * @template Result
+ * @param {Promise<Result>} operation
+ * @param {number} budget
+ * @param {string} failure
+ */
+async function withinBudget(operation, budget, failure) {
   /** @type {ReturnType<typeof setTimeout> | undefined} */
   let timer;
   try {
-    const copied = new Promise((resolve, reject) => {
-      session.once("Page.screencastFrame", resolve);
-      timer = setTimeout(
-        () =>
-          reject(
-            new Error(
-              `Chromium did not copy a compositor frame within ${String(frameCopyBudget)}ms`,
-            ),
-          ),
-        frameCopyBudget,
-      );
-    });
-    await Promise.all([
-      copied,
-      session.send("Page.startScreencast", {
-        format: "png",
-        maxWidth: 1,
-        maxHeight: 1,
-      }),
+    return await Promise.race([
+      operation,
+      /** @type {Promise<never>} */ (
+        new Promise((_, reject) => {
+          timer = setTimeout(
+            () => reject(new Error(`${failure} within ${String(budget)}ms`)),
+            budget,
+          );
+        })
+      ),
     ]);
   } finally {
     clearTimeout(timer);
-    try {
-      await session.send("Page.stopScreencast");
-    } finally {
-      await session.detach();
-    }
   }
 }
 
