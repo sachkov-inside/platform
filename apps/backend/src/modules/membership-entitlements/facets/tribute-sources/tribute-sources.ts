@@ -52,7 +52,18 @@ import { changeEnrollmentInTransaction } from "../../features/change-enrollment/
 import {
   projectTributeSource,
   tributeSourceView,
+  type TributeProjectionPrisma,
 } from "../../shared/tribute-source.js";
+
+type TributeTransaction = TributeProjectionPrisma &
+  Pick<
+    MembershipEntitlementsPrisma,
+    | "tributePolicy"
+    | "tributeImportReview"
+    | "accessBatchPreview"
+    | "telegramAccountLinkState"
+    | "telegramAccountLinkHistory"
+  >;
 
 const importPreviewLifetimeMilliseconds = 10 * 60 * 1_000;
 const sourceConfirmationFreshnessMilliseconds = 24 * 60 * 60 * 1_000;
@@ -100,12 +111,25 @@ export class TributeSources {
       }),
     );
   }
-  async savePolicy(actorId: string, input: unknown, tierInput: unknown) {
+  /** Authorize before Billing opens its pricing transaction; the writer uses that transaction. */
+  async preparePolicy(actorId: string, input: unknown) {
     if (!(await this.permitted(actorId))) return accessFailure("forbidden");
     const parsed = saveTributePolicySchema.safeParse(input);
+    if (!parsed.success) return accessFailure("invalid_input");
+    return {
+      ok: true as const,
+      value: (tx: TributeTransaction, tier: unknown) =>
+        this.savePolicy(tx, actorId, parsed.data, tier),
+    };
+  }
+  private async savePolicy(
+    tx: TributeTransaction,
+    actorId: string,
+    command: z.infer<typeof saveTributePolicySchema>,
+    tierInput: unknown,
+  ) {
     const tier = tierSnapshotSchema.safeParse(tierInput);
-    if (!parsed.success || !tier.success) return accessFailure("invalid_input");
-    const command = parsed.data;
+    if (!tier.success) return accessFailure("invalid_input");
     const now = this.clock();
     if (
       tier.data.id !== command.tierId ||
@@ -117,75 +141,69 @@ export class TributeSources {
       new Date(command.temporaryUntil) <= now
     )
       return accessFailure("invalid_input");
-    return this.dependencies.prisma.$transaction(async (tx) => {
-      const fingerprint = accessFingerprint({
-        action: "tribute.policy",
-        command,
-      });
-      const previous = await readAccessReceipt(
-        tx,
-        actorId,
-        command.operationId,
-      );
-      if (previous)
-        return fingerprint.recognizes(previous.fingerprint)
-          ? {
-              ok: true as const,
-              value: tributePolicySchema.parse(previous.result),
-            }
-          : accessFailure("operation_conflict");
-      await lockAccountAccess(tx, "tribute:policies");
-      const current = await tx.tributePolicy.findUnique({
-        where: { id: command.id },
-      });
-      if ((current?.revision ?? 0) !== command.expectedRevision)
-        return accessFailure("revision_conflict");
-      if (current && current.subscriptionId !== command.subscriptionId)
-        return accessFailure("identity_conflict");
-      const collision = await tx.tributePolicy.findUnique({
-        where: { subscriptionId: command.subscriptionId },
-      });
-      if (collision && collision.id !== command.id)
-        return accessFailure("identity_conflict");
-      const value = tributePolicySchema.parse({
-        id: command.id,
-        subscriptionId: command.subscriptionId,
-        revision: command.expectedRevision + 1,
-        enabled: command.enabled,
-        tier: tier.data,
-        temporaryUntil: command.temporaryUntil,
-      });
-      const data = {
-        subscriptionId: value.subscriptionId,
-        revision: value.revision,
-        enabled: value.enabled,
-        tierSnapshot: value.tier,
-        temporaryUntil:
-          value.temporaryUntil === null ? null : new Date(value.temporaryUntil),
-        reason: command.reason,
-      };
-      await tx.tributePolicy.upsert({
-        where: { id: value.id },
-        create: { id: value.id, ...data },
-        update: data,
-      });
-      await tx.accessReceipt.create({
-        data: {
-          scope: actorId,
-          operationId: command.operationId,
-          fingerprint: fingerprint.digest,
-          payload: command,
-          result: value,
-          createdAt: now,
-        },
-      });
-      return { ok: true as const, value };
+    const fingerprint = accessFingerprint({
+      action: "tribute.policy",
+      command,
     });
+    const previous = await readAccessReceipt(tx, actorId, command.operationId);
+    if (previous)
+      return fingerprint.recognizes(previous.fingerprint)
+        ? {
+            ok: true as const,
+            value: tributePolicySchema.parse(previous.result),
+          }
+        : accessFailure("operation_conflict");
+    await lockAccountAccess(tx, "tribute:policies");
+    const current = await tx.tributePolicy.findUnique({
+      where: { id: command.id },
+    });
+    if ((current?.revision ?? 0) !== command.expectedRevision)
+      return accessFailure("revision_conflict");
+    if (current && current.subscriptionId !== command.subscriptionId)
+      return accessFailure("identity_conflict");
+    const collision = await tx.tributePolicy.findUnique({
+      where: { subscriptionId: command.subscriptionId },
+    });
+    if (collision && collision.id !== command.id)
+      return accessFailure("identity_conflict");
+    const value = tributePolicySchema.parse({
+      id: command.id,
+      subscriptionId: command.subscriptionId,
+      revision: command.expectedRevision + 1,
+      enabled: command.enabled,
+      tier: tier.data,
+      temporaryUntil: command.temporaryUntil,
+    });
+    const data = {
+      subscriptionId: value.subscriptionId,
+      revision: value.revision,
+      enabled: value.enabled,
+      tierSnapshot: value.tier,
+      temporaryUntil:
+        value.temporaryUntil === null ? null : new Date(value.temporaryUntil),
+      reason: command.reason,
+    };
+    await tx.tributePolicy.upsert({
+      where: { id: value.id },
+      create: { id: value.id, ...data },
+      update: data,
+    });
+    await tx.accessReceipt.create({
+      data: {
+        scope: actorId,
+        operationId: command.operationId,
+        fingerprint: fingerprint.digest,
+        payload: command,
+        result: value,
+        createdAt: now,
+      },
+    });
+    return { ok: true as const, value };
   }
   // `previous` is this row as a stored preview evaluated it. A preview stored before #732 holds the version 1
   // binding digest; the same recipient keeps that value, so the row still compares equal.
   private async evaluate(
-    tx: MembershipEntitlementsPrisma,
+    tx: TributeTransaction,
     row: TributeImportRow,
     now: Date,
     previous?: z.infer<typeof tributePreviewRowSchema>,
@@ -216,7 +234,10 @@ export class TributeSources {
     const link =
       row.identityRef === null
         ? null
-        : await this.dependencies.links.findCurrentByIdentity(row.identityRef);
+        : await this.dependencies.links.findCurrentByIdentity(
+            row.identityRef,
+            tx,
+          );
     const previousStart = prior?.startsAt ?? enrollment?.startsAt.toISOString();
     const previousEnd = prior?.endsAt ?? enrollment?.endsAt?.toISOString();
     const wasConfirmed =
@@ -433,23 +454,35 @@ export class TributeSources {
       return { ok: true as const, value };
     });
   }
-  async previewTiers(actorId: string, input: unknown) {
+  async prepareApply(actorId: string, input: unknown) {
     if (!(await this.permitted(actorId))) return accessFailure("forbidden");
     const parsed = applyTributeImportSchema.safeParse(input);
     if (!parsed.success) return accessFailure("invalid_input");
-    const receipt = await this.dependencies.prisma.accessReceipt.findUnique({
+    return {
+      ok: true as const,
+      value: {
+        previewTiers: (tx: TributeTransaction) =>
+          this.previewTiers(tx, actorId, parsed.data),
+        apply: (tx: TributeTransaction) => this.apply(tx, actorId, parsed.data),
+      },
+    };
+  }
+  /** Billing holds its pricing lock before reading a receipt or checking catalog eligibility. */
+  private async previewTiers(
+    tx: TributeTransaction,
+    actorId: string,
+    command: z.infer<typeof applyTributeImportSchema>,
+  ) {
+    const receipt = await tx.accessReceipt.findUnique({
       where: {
-        scope_operationId: {
-          scope: actorId,
-          operationId: parsed.data.operationId,
-        },
+        scope_operationId: { scope: actorId, operationId: command.operationId },
       },
     });
     // A lost-response replay must return its receipt even after catalog archival.
     if (receipt !== null)
       return { ok: true as const, value: [] as TierSnapshot[] };
-    const row = await this.dependencies.prisma.accessBatchPreview.findUnique({
-      where: { id: parsed.data.previewRef },
+    const row = await tx.accessBatchPreview.findUnique({
+      where: { id: command.previewRef },
     });
     if (row === null || row.actorId !== actorId)
       return accessFailure("not_found");
@@ -459,186 +492,184 @@ export class TributeSources {
       value: stored.rows
         .filter(
           (item) =>
-            parsed.data.selectedRows.includes(item.rowRef) &&
+            command.selectedRows.includes(item.rowRef) &&
             item.enrollmentRevision === 0,
         )
         .flatMap((item) => (item.tier === null ? [] : [item.tier])),
     };
   }
-  async apply(actorId: string, input: unknown) {
-    if (!(await this.permitted(actorId))) return accessFailure("forbidden");
-    const parsed = applyTributeImportSchema.safeParse(input);
-    if (!parsed.success) return accessFailure("invalid_input");
-    const command = parsed.data;
+  private async apply(
+    tx: TributeTransaction,
+    actorId: string,
+    command: z.infer<typeof applyTributeImportSchema>,
+  ) {
     const now = this.clock();
-    return this.dependencies.prisma.$transaction(async (tx) => {
-      const fingerprint = accessFingerprint({
-        action: "tribute.apply",
-        command,
-      });
-      const receipt = await readAccessReceipt(tx, actorId, command.operationId);
-      if (receipt)
-        return fingerprint.recognizes(receipt.fingerprint)
-          ? {
-              ok: true as const,
-              value: tributeApplyResultSchema.parse(receipt.result),
-            }
-          : accessFailure("operation_conflict");
-      await lockAccountAccess(tx, `tribute:preview:${command.previewRef}`);
-      const review = await tx.tributeImportReview.findUnique({
-        where: { id: command.previewRef },
-      });
-      if (review === null || review.state === "dismissed")
-        return accessFailure("preview_expired");
-      const preview = await tx.accessBatchPreview.findUnique({
-        where: { id: command.previewRef },
-      });
-      if (preview === null || preview.actorId !== actorId)
-        return accessFailure("not_found");
-      if (preview.expiresAt <= now) return accessFailure("preview_expired");
-      const stored = storedPreviewSchema.parse(preview.rows);
-      const selected = stored.command.rows.filter((row) =>
-        command.selectedRows.includes(row.rowRef),
-      );
-      if (selected.length !== command.selectedRows.length)
-        return accessFailure("invalid_input");
-      const foundAccounts = stored.rows
-        .filter((row) => command.selectedRows.includes(row.rowRef))
-        .flatMap((row) => (row.accountId === null ? [] : [row.accountId]));
-      const orderedAccounts = [...new Set(foundAccounts)].sort();
-      for (const accountId of orderedAccounts)
-        await lockTelegramAccountBinding(tx, accountId);
-      const sourceRefs = selected.map((row) =>
-        sourceIdentityRef("tribute", row.policyRef, row.identityRef ?? ""),
-      );
-      for (const ref of [...new Set(sourceRefs)].sort())
-        await lockAccountAccess(tx, `enrollment:tribute:${ref}`);
-      await lockAccountAccess(tx, "tribute:policies");
-      // Binding → sorted sources → policy → all sorted accounts → row mutations.
-      // Taking accounts lazily after source UPSERT reverses generic owner changes and batch expansion.
-      for (const accountId of orderedAccounts)
-        await lockAccountEntitlementChanges(tx, accountId);
-      for (const row of selected) {
-        const prior = stored.rows.find((value) => value.rowRef === row.rowRef);
-        if (
-          !prior ||
-          !["new", "matched", "pending_identity"].includes(prior.status)
-        )
-          return accessFailure("invalid_input");
-        const current = await this.evaluate(tx, row, now, prior);
-        if (JSON.stringify(prior) !== JSON.stringify(current))
-          return accessFailure("revision_conflict");
-      }
-      const sources = [];
-      for (const row of selected) {
-        if (
-          row.identityRef === null ||
-          row.telegramUserId === null ||
-          row.subscriptionId === null ||
-          row.verificationRef === null ||
-          row.startsAt === null ||
-          row.endsAt === null
-        )
-          return accessFailure("invalid_input");
-        const evaluated = stored.rows.find(
-          (value) => value.rowRef === row.rowRef,
-        );
-        if (evaluated?.tier == null) return accessFailure("invalid_input");
-        const sourceRef = sourceIdentityRef(
-          "tribute",
-          row.policyRef,
-          row.identityRef,
-        );
-        const old = await tx.sourceEntitlement.findUnique({
-          where: { origin_sourceRef: { origin: "tribute", sourceRef } },
-        });
-        const before =
-          old?.tributeState == null
-            ? null
-            : tributeStateSchema.parse(old.tributeState);
-        const state: TributeState = {
-          subscriptionId: row.subscriptionId,
-          telegramUserId: row.telegramUserId,
-          verificationRef: row.verificationRef,
-          mode: row.mode,
-          startsAt: row.startsAt,
-          endsAt: row.endsAt,
-          renewal: row.renewal,
-          tier: before?.tier ?? evaluated.tier,
-          policyRevision: evaluated.policyRevision,
-          observation:
-            row.mode === "confirmed_period"
-              ? "pending"
-              : (before?.observation ?? "pending"),
-          observedUntil:
-            row.mode === "confirmed_period"
-              ? null
-              : (before?.observedUntil ?? null),
-          observationVersion: before?.observationVersion ?? null,
-          lastEventAt: row.checkedAt,
-          lastEventFingerprint: null,
-        };
-        const data = {
-          tributeState: state,
-          checkedAt: new Date(row.checkedAt),
-          evidence: row,
-          revision: (old?.revision ?? 0) + 1,
-        };
-        const saved = await tx.sourceEntitlement.upsert({
-          where: { origin_sourceRef: { origin: "tribute", sourceRef } },
-          create: {
-            id: randomUUID(),
-            origin: "tribute",
-            sourceRef,
-            sourcePolicyRef: row.policyRef,
-            identityRef: row.identityRef,
-            ...data,
-          },
-          update: data,
-        });
-        if (evaluated.accountId !== null) {
-          const projected = await projectTributeSource(
-            tx,
-            saved,
-            state,
-            evaluated.accountId,
-            actorId,
-            row.reason,
-            now,
-          );
-          if (!projected.ok)
-            throw new Error("Binding changed during locked Tribute apply");
-        }
-        const after = await tx.sourceEntitlement.findUniqueOrThrow({
-          where: { id: saved.id },
-        });
-        sources.push(tributeSourceView(after, now));
-      }
-      const pendingRows = z
-        .array(z.string())
-        .parse(review.pendingRows)
-        .filter((row) => !command.selectedRows.includes(row));
-      await tx.tributeImportReview.update({
-        where: { id: review.id },
-        data: {
-          pendingRows,
-          state: pendingRows.length === 0 ? "applied" : "pending",
-          revision: { increment: 1 },
-        },
-      });
-      const value = { previewRef: command.previewRef, sources };
-      await tx.accessReceipt.create({
-        data: {
-          scope: actorId,
-          operationId: command.operationId,
-          fingerprint: fingerprint.digest,
-          payload: { command, before: stored.rows, after: sources },
-          result: value,
-          createdAt: now,
-        },
-      });
-      return { ok: true as const, value };
+    const fingerprint = accessFingerprint({
+      action: "tribute.apply",
+      command,
     });
+    const receipt = await readAccessReceipt(tx, actorId, command.operationId);
+    if (receipt)
+      return fingerprint.recognizes(receipt.fingerprint)
+        ? {
+            ok: true as const,
+            value: tributeApplyResultSchema.parse(receipt.result),
+          }
+        : accessFailure("operation_conflict");
+    await lockAccountAccess(tx, `tribute:preview:${command.previewRef}`);
+    const review = await tx.tributeImportReview.findUnique({
+      where: { id: command.previewRef },
+    });
+    if (review === null || review.state === "dismissed")
+      return accessFailure("preview_expired");
+    const preview = await tx.accessBatchPreview.findUnique({
+      where: { id: command.previewRef },
+    });
+    if (preview === null || preview.actorId !== actorId)
+      return accessFailure("not_found");
+    if (preview.expiresAt <= now) return accessFailure("preview_expired");
+    const stored = storedPreviewSchema.parse(preview.rows);
+    const selected = stored.command.rows.filter((row) =>
+      command.selectedRows.includes(row.rowRef),
+    );
+    if (selected.length !== command.selectedRows.length)
+      return accessFailure("invalid_input");
+    const foundAccounts = stored.rows
+      .filter((row) => command.selectedRows.includes(row.rowRef))
+      .flatMap((row) => (row.accountId === null ? [] : [row.accountId]));
+    const orderedAccounts = [...new Set(foundAccounts)].sort();
+    for (const accountId of orderedAccounts)
+      await lockTelegramAccountBinding(tx, accountId);
+    const sourceRefs = selected.map((row) =>
+      sourceIdentityRef("tribute", row.policyRef, row.identityRef ?? ""),
+    );
+    for (const ref of [...new Set(sourceRefs)].sort())
+      await lockAccountAccess(tx, `enrollment:tribute:${ref}`);
+    await lockAccountAccess(tx, "tribute:policies");
+    // Binding → sorted sources → policy → all sorted accounts → row mutations.
+    // Taking accounts lazily after source UPSERT reverses generic owner changes and batch expansion.
+    for (const accountId of orderedAccounts)
+      await lockAccountEntitlementChanges(tx, accountId);
+    for (const row of selected) {
+      const prior = stored.rows.find((value) => value.rowRef === row.rowRef);
+      if (
+        !prior ||
+        !["new", "matched", "pending_identity"].includes(prior.status)
+      )
+        return accessFailure("invalid_input");
+      const current = await this.evaluate(tx, row, now, prior);
+      if (JSON.stringify(prior) !== JSON.stringify(current))
+        return accessFailure("revision_conflict");
+    }
+    const sources = [];
+    for (const row of selected) {
+      if (
+        row.identityRef === null ||
+        row.telegramUserId === null ||
+        row.subscriptionId === null ||
+        row.verificationRef === null ||
+        row.startsAt === null ||
+        row.endsAt === null
+      )
+        return accessFailure("invalid_input");
+      const evaluated = stored.rows.find(
+        (value) => value.rowRef === row.rowRef,
+      );
+      if (evaluated?.tier == null) return accessFailure("invalid_input");
+      const sourceRef = sourceIdentityRef(
+        "tribute",
+        row.policyRef,
+        row.identityRef,
+      );
+      const old = await tx.sourceEntitlement.findUnique({
+        where: { origin_sourceRef: { origin: "tribute", sourceRef } },
+      });
+      const before =
+        old?.tributeState == null
+          ? null
+          : tributeStateSchema.parse(old.tributeState);
+      const state: TributeState = {
+        subscriptionId: row.subscriptionId,
+        telegramUserId: row.telegramUserId,
+        verificationRef: row.verificationRef,
+        mode: row.mode,
+        startsAt: row.startsAt,
+        endsAt: row.endsAt,
+        renewal: row.renewal,
+        tier: before?.tier ?? evaluated.tier,
+        policyRevision: evaluated.policyRevision,
+        observation:
+          row.mode === "confirmed_period"
+            ? "pending"
+            : (before?.observation ?? "pending"),
+        observedUntil:
+          row.mode === "confirmed_period"
+            ? null
+            : (before?.observedUntil ?? null),
+        observationVersion: before?.observationVersion ?? null,
+        lastEventAt: row.checkedAt,
+        lastEventFingerprint: null,
+      };
+      const data = {
+        tributeState: state,
+        checkedAt: new Date(row.checkedAt),
+        evidence: row,
+        revision: (old?.revision ?? 0) + 1,
+      };
+      const saved = await tx.sourceEntitlement.upsert({
+        where: { origin_sourceRef: { origin: "tribute", sourceRef } },
+        create: {
+          id: randomUUID(),
+          origin: "tribute",
+          sourceRef,
+          sourcePolicyRef: row.policyRef,
+          identityRef: row.identityRef,
+          ...data,
+        },
+        update: data,
+      });
+      if (evaluated.accountId !== null) {
+        const projected = await projectTributeSource(
+          tx,
+          saved,
+          state,
+          evaluated.accountId,
+          actorId,
+          row.reason,
+          now,
+        );
+        if (!projected.ok)
+          throw new Error("Binding changed during locked Tribute apply");
+      }
+      const after = await tx.sourceEntitlement.findUniqueOrThrow({
+        where: { id: saved.id },
+      });
+      sources.push(tributeSourceView(after, now));
+    }
+    const pendingRows = z
+      .array(z.string())
+      .parse(review.pendingRows)
+      .filter((row) => !command.selectedRows.includes(row));
+    await tx.tributeImportReview.update({
+      where: { id: review.id },
+      data: {
+        pendingRows,
+        state: pendingRows.length === 0 ? "applied" : "pending",
+        revision: { increment: 1 },
+      },
+    });
+    const value = { previewRef: command.previewRef, sources };
+    await tx.accessReceipt.create({
+      data: {
+        scope: actorId,
+        operationId: command.operationId,
+        fingerprint: fingerprint.digest,
+        payload: { command, before: stored.rows, after: sources },
+        result: value,
+        createdAt: now,
+      },
+    });
+    return { ok: true as const, value };
   }
   async status(actorId: string, page = 0) {
     if (!z.int().min(0).max(100000).safeParse(page).success)
@@ -973,11 +1004,10 @@ export class TributeSources {
       return { ok: true as const, value };
     });
   }
-  /** Bounded recoverable reconciliation, independent of community provider enablement. */
-  async sweep(eligibleTierIds: readonly string[], limit = 50) {
+  /** Each candidate commits under its own Billing pricing transaction. */
+  async prepareSweep(limit = 50) {
     const now = this.clock();
-    const prisma = this.dependencies.prisma;
-    const rows = await prisma.sourceEntitlement.findMany({
+    const rows = await this.dependencies.prisma.sourceEntitlement.findMany({
       where: {
         origin: "tribute",
         OR: [{ reconcileAt: null }, { reconcileAt: { lte: now } }],
@@ -988,90 +1018,87 @@ export class TributeSources {
       ],
       take: Math.min(100, Math.max(1, limit)),
     });
-    let attached = 0;
-    let pending = 0;
-    for (const candidate of rows) {
-      const state = tributeStateSchema.safeParse(candidate.tributeState);
-      if (!state.success) {
-        await prisma.sourceEntitlement.update({
-          where: { id: candidate.id },
-          data: {
-            reconcileAt: new Date(
-              now.getTime() + reconciliationIntervalMilliseconds,
-            ),
-          },
-        });
-        pending++;
-        continue;
-      }
-      const link = await this.dependencies.links.findCurrentByIdentity(
-        candidate.identityRef,
-      );
-      await prisma.$transaction(async (tx) => {
-        if (link.ok && link.state === "found")
-          await lockTelegramAccountBinding(tx, link.recipient.accountId);
-        await lockAccountAccess(
-          tx,
-          `enrollment:tribute:${candidate.sourceRef}`,
-        );
-        const row = await tx.sourceEntitlement.findUniqueOrThrow({
-          where: { id: candidate.id },
-        });
-        const accountIds = [
-          row.accountId,
-          link.ok && link.state === "found" ? link.recipient.accountId : null,
-        ].filter((id): id is string => id !== null);
-        for (const accountId of [...new Set(accountIds)].sort())
-          await lockAccountEntitlementChanges(tx, accountId);
-        await tx.sourceEntitlement.update({
-          where: { id: row.id },
-          data: {
-            reconcileAt: new Date(
-              now.getTime() + reconciliationIntervalMilliseconds,
-            ),
-          },
-        });
-        if (row.accountId !== null && row.enrollmentId !== null) return;
-        const policy = await tx.tributePolicy.findUnique({
-          where: { id: row.sourcePolicyRef },
-        });
-        if (
-          !link.ok ||
-          link.state !== "found" ||
-          policy?.enabled !== true ||
-          !eligibleTierIds.includes(state.data.tier.id)
-        ) {
-          pending++;
-          return;
-        }
-        const current = await this.dependencies.links.readBinding({
-          accountId: link.recipient.accountId,
-        });
-        if (
-          !current.ok ||
-          current.binding?.accountRef !== link.recipient.accountRef ||
-          current.binding.telegramIdentityRef !== row.identityRef ||
-          current.binding.linkRef !== link.recipient.linkRef ||
-          current.binding.linkRevision !== link.recipient.linkRevision
-        ) {
-          pending++;
-          return;
-        }
-        const fresh = tributeStateSchema.parse(row.tributeState);
-        const result = await projectTributeSource(
-          tx,
-          row,
-          fresh,
-          link.recipient.accountId,
-          null,
-          "Сопоставление подтверждённого Tribute после linking",
-          now,
-        );
-        if (result.ok) attached++;
-        else pending++;
-      });
-    }
-    return { scanned: rows.length, attached, pending };
+    return rows.map(
+      (candidate) =>
+        async (tx: TributeTransaction, eligibleTierIds: readonly string[]) => {
+          const state = tributeStateSchema.safeParse(candidate.tributeState);
+          if (!state.success) {
+            await tx.sourceEntitlement.update({
+              where: { id: candidate.id },
+              data: {
+                reconcileAt: new Date(
+                  now.getTime() + reconciliationIntervalMilliseconds,
+                ),
+              },
+            });
+            return { attached: 0, pending: 1 };
+          }
+          const link = await this.dependencies.links.findCurrentByIdentity(
+            candidate.identityRef,
+            tx,
+          );
+          if (link.ok && link.state === "found")
+            await lockTelegramAccountBinding(tx, link.recipient.accountId);
+          await lockAccountAccess(
+            tx,
+            `enrollment:tribute:${candidate.sourceRef}`,
+          );
+          const row = await tx.sourceEntitlement.findUniqueOrThrow({
+            where: { id: candidate.id },
+          });
+          const accountIds = [
+            row.accountId,
+            link.ok && link.state === "found" ? link.recipient.accountId : null,
+          ].filter((id): id is string => id !== null);
+          for (const accountId of [...new Set(accountIds)].sort())
+            await lockAccountEntitlementChanges(tx, accountId);
+          await tx.sourceEntitlement.update({
+            where: { id: row.id },
+            data: {
+              reconcileAt: new Date(
+                now.getTime() + reconciliationIntervalMilliseconds,
+              ),
+            },
+          });
+          if (row.accountId !== null && row.enrollmentId !== null)
+            return { attached: 0, pending: 0 };
+          const policy = await tx.tributePolicy.findUnique({
+            where: { id: row.sourcePolicyRef },
+          });
+          if (
+            !link.ok ||
+            link.state !== "found" ||
+            policy?.enabled !== true ||
+            !eligibleTierIds.includes(state.data.tier.id)
+          )
+            return { attached: 0, pending: 1 };
+          const current = await this.dependencies.links.readBinding(
+            { accountId: link.recipient.accountId },
+            tx,
+          );
+          if (
+            !current.ok ||
+            current.binding?.accountRef !== link.recipient.accountRef ||
+            current.binding.telegramIdentityRef !== row.identityRef ||
+            current.binding.linkRef !== link.recipient.linkRef ||
+            current.binding.linkRevision !== link.recipient.linkRevision
+          )
+            return { attached: 0, pending: 1 };
+          const fresh = tributeStateSchema.parse(row.tributeState);
+          const result = await projectTributeSource(
+            tx,
+            row,
+            fresh,
+            link.recipient.accountId,
+            null,
+            "Сопоставление подтверждённого Tribute после linking",
+            now,
+          );
+          return result.ok
+            ? { attached: 1, pending: 0 }
+            : { attached: 0, pending: 1 };
+        },
+    );
   }
 }
 

@@ -31,11 +31,16 @@ export class TelegramAccountLinks {
   constructor(private readonly prisma: TelegramMembershipPrismaClient) {}
 
   /** Exact current verified identity only; historical links and usernames are never recipients. */
-  async findCurrentByIdentity(identityRef: string) {
+  async findCurrentByIdentity(
+    identityRef: string,
+    transaction?: Pick<TelegramMembershipPrisma, "telegramAccountLinkState">,
+  ) {
     if (!z.string().trim().min(1).max(256).safeParse(identityRef).success)
       return { ok: false as const };
     try {
-      const rows = await this.prisma.telegramAccountLinkState.findMany({
+      const rows = await (
+        transaction ?? this.prisma
+      ).telegramAccountLinkState.findMany({
         where: { identityRef, principalRef: { not: null } },
         take: 2,
       });

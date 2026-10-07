@@ -200,6 +200,9 @@ export type BillingPrisma = Pick<
   | "accessChange"
   | "telegramAccountLinkState"
   | "telegramAccountLinkHistory"
+  | "tributePolicy"
+  | "tributeImportReview"
+  | "legacyClassification"
 >;
 export type BillingPrismaClient = BillingPrisma &
   TransactionClient<BillingPrisma>;
