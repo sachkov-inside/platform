@@ -13,7 +13,7 @@
  * Перед каждым замером помощник ждёт конца CSS-переходов (#1035). Кнопки с `transition-all` после
  * `html { font-size: 200% }` растут в rem ещё 150ms, и замер посреди перехода мерит промежуточную
  * высоту: следующий шаг снова находит скрытую часть, а после потолка шагов помощник падает. Ждёт он
- * только переходы: они всегда конечны, а бесконечная или привязанная к прокрутке анимация не
+ * только переходы: идущий переход конечен, а бесконечная или привязанная к прокрутке анимация не
  * закончилась бы никогда.
  *
  * Chromium 153 из Playwright 1.63.0 изредка отказывает в снимке с «Unable to capture screenshot»
@@ -43,6 +43,12 @@ const maximumSteps = 3;
 const captureAttempts = 3;
 
 /**
+ * Сколько миллисекунд помощник ждёт конца CSS-переходов перед одним замером. Переход кнопки длится
+ * 150ms; бюджет только останавливает застрявший прогон: переход на паузе или переход длиной в часы.
+ */
+const transitionsBudget = 10_000;
+
+/**
  * Без заданного окна (`viewport: null`) размер не меняется, и снимок — обычный `fullPage`.
  *
  * @param {import("@playwright/test").Page} page
@@ -55,10 +61,10 @@ export async function screenshotWholePage(page, options = {}) {
   let height = viewport.height;
   try {
     for (let step = 0; ; step += 1) {
-      const hidden = await page.evaluate(
-        settledHiddenScrollHeight,
-        scrollContainers,
-      );
+      const hidden = await page.evaluate(settledHiddenScrollHeight, {
+        selectors: scrollContainers,
+        budget: transitionsBudget,
+      });
       if (hidden === 0) {
         return await screenshotRetryingFrameCopy(page, options);
       }
@@ -108,24 +114,27 @@ function isFrameCopyRefusal(error) {
  * Выполняется в браузере: сколько пикселей прячет прокрутка контейнеров, когда CSS-переходы
  * закончились. Контейнер без собственной прокрутки не считается: ниже брейкпоинта его содержимое
  * уже входит в высоту документа. Отменённый переход отклоняет `finished`; его итог помощнику не
- * нужен, поэтому `allSettled`.
+ * нужен, поэтому `allSettled`. Конец одного перехода может запустить другой, поэтому список
+ * переходов проверяется заново, пока он не опустеет или не кончится бюджет.
  *
  * Типы DOM описаны здесь, а не через `lib: dom`: ссылка на библиотеку действовала бы на все скрипты
  * `tsconfig.scripts.json` сразу.
  *
- * @param {readonly string[]} selectors
+ * @param {{ readonly selectors: readonly string[], readonly budget: number }} settle
  */
-async function settledHiddenScrollHeight(selectors) {
+async function settledHiddenScrollHeight({ selectors, budget }) {
   /**
    * @typedef {{ readonly scrollHeight: number, readonly clientHeight: number }} ScrollBox
-   * @typedef {{ readonly finished: Promise<unknown> }} RunningAnimation
+   * @typedef {{ readonly finished: Promise<unknown> }} DocumentAnimation
    * @typedef {{
    *   document: {
    *     querySelector(selector: string): ScrollBox | null,
-   *     getAnimations(): readonly RunningAnimation[],
+   *     getAnimations(): readonly DocumentAnimation[],
    *   },
    *   getComputedStyle(element: ScrollBox): { readonly overflowY: string },
-   *   CSSTransition: abstract new () => RunningAnimation,
+   *   CSSTransition: abstract new () => DocumentAnimation,
+   *   performance: { now(): number },
+   *   setTimeout(callback: () => void, delay: number): unknown,
    * }} BrowserGlobals
    */
   /* oxlint-disable typescript/no-unsafe-type-assertion -- runs in the page, where globalThis is the window */
@@ -133,13 +142,30 @@ async function settledHiddenScrollHeight(selectors) {
     /** @type {unknown} */ (globalThis)
   );
   /* oxlint-enable typescript/no-unsafe-type-assertion */
-  const { document, getComputedStyle, CSSTransition } = browser;
-  await Promise.allSettled(
-    document
+  const { document, getComputedStyle, CSSTransition, performance, setTimeout } =
+    browser;
+  const deadline = performance.now() + budget;
+  for (;;) {
+    const transitions = document
       .getAnimations()
-      .filter((animation) => animation instanceof CSSTransition)
-      .map((animation) => animation.finished),
-  );
+      .filter((animation) => animation instanceof CSSTransition);
+    if (transitions.length === 0) break;
+    const settled = await Promise.race([
+      Promise.allSettled(transitions.map(({ finished }) => finished)).then(
+        () => true,
+      ),
+      /** @type {Promise<boolean>} */ (
+        new Promise((resolve) => {
+          setTimeout(() => resolve(false), deadline - performance.now());
+        })
+      ),
+    ]);
+    if (!settled) {
+      throw new Error(
+        `CSS transitions still run after ${String(budget)}ms: a transition is paused or too long for a capture`,
+      );
+    }
+  }
   return Math.max(
     0,
     ...selectors.flatMap((selector) => {
