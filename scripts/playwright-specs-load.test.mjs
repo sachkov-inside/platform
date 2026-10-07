@@ -107,7 +107,7 @@ test("every Playwright configuration names at least one spec it can load", () =>
   }
 });
 
-test("evidence uses the production launcher with its backend, health probe and graceful cleanup", () => {
+test("evidence configures the production launcher, backend, health probe and graceful shutdown", () => {
   const result = runPlaywright(
     "playwright.config.ts",
     ["--list", "--reporter=json"],
