@@ -453,6 +453,16 @@ The shared cache saved no time: on 07.10.2026 two runs of `pnpm test:storybook` 
 took 16.6 and 19.0 s by the Vitest `Duration` line, and two runs with a full cache took 17.1 and
 18.8 s.
 
+The pinned `@storybook/addon-vitest@10.6.1` has a local pnpm patch (#1023). Its Execa child
+process disables `ipcOutput` buffering: live listeners already consume every message, while the
+buffer kept all successive full test-state snapshots until Vitest exited. A full MCP `test-run`
+therefore exhausted the Storybook heap after the tests had passed. The patch also makes Vitest exit
+when its IPC connection closes, including a parent's OOM abort or SIGKILL. Test results and a11y
+reports remain complete; the heap limit is unchanged. `scripts/storybook-runner.test.mjs` exercises
+the installed addon's launch options and disconnect handler. Remove the patch only when an upstream
+version passes both regression cases and the full MCP run. Every Docker dependency stage copies
+`patches/` before the workspace's frozen install.
+
 Page transitions are checked on a production build, because development mode has no link prefetch
 and no route cache:
 
@@ -513,6 +523,11 @@ theirs only behind their own switch: `CAPTURE_EVIDENCE=1` for the authoring walk
 `CAPTURE_TELEGRAM_EVIDENCE=1` for the Telegram sign-in states, and the per-issue
 `CAPTURE_ISSUE_NNN_EVIDENCE=1` used by the Reader scenarios. Set both when you want a fresh
 snapshot committed.
+
+`pnpm evidence:web` selects `evidence.spec.ts` for desktop and mobile Chromium. It uses the same
+production launcher as `test:e2e`, with test Logto settings, a temporary release identity and the
+`/_health/live` readiness probe. `PLAYWRIGHT_BACKEND_BASE_URL` selects the backend;
+`EVIDENCE_STORAGE_STATE` supplies the browser session for authenticated evidence.
 
 `scripts/evidence-path.mjs` owns this rule, and `scripts/evidence-path.test.mjs` keeps it honest.
 Evidence that a run reads rather than writes stays in the tree: the Storybook cover fixtures come

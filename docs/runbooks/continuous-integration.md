@@ -241,6 +241,13 @@ Playwright traces, screenshots and HTML reports are uploaded only after a failur
 capture service state and at most the latest 500 log lines before cleanup. Diagnostic artifacts are
 retained for seven days; successful runs store none of them.
 
+The Telegram reminder test in `apps/web/test/e2e/account-cabinet.spec.ts` also retains a video on
+failure (#999). Web E2E uploads `playwright-report` (including the error's call log) and
+`test-results` (including `trace.zip` and the video) as `web-e2e-playwright-<run_attempt>`.
+Each CI attempt has its own artifact name, so a rerun does not replace the earlier failure.
+For a stuck reopen, inspect the reminder click after closing the dialog in the trace, its call
+log, and the video. Download the artifact before its seven-day retention expires.
+
 The narrow WebKit Telegram geometry test also saves `failure.json` with its pending step, last
 completed step, viewport width and completed step durations (#1110). It exports a Playwright trace
 for each viewport reached before the failure, including test timeouts. A failure before the first
