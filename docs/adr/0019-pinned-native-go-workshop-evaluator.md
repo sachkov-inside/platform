@@ -1,5 +1,5 @@
 ---
-status: superseded by ADR-0033
+status: superseded by ADR-0020
 ---
 
 # Run the Workshop evaluator as a pinned native Go CLI

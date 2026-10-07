@@ -937,8 +937,8 @@ Storybook и реальные маршруты используют один pro
 - Topic/Format/sort находятся в секции Materials и влияют только на её выдачу. Публичное URL-state
   хранит `q`, `topic`, `format`, `sort`, а Material cursor — только TanStack Infinite Query;
 - anonymous/non-member search сопоставляет только public projection и всё равно показывает
-  membership results с замком; доступ к продукту или `materials:manage` дополнительно включает
-  protected body index. Закрытый материал открывает только доступ к продукту, в который он входит;
+  membership results с замком; поиск идёт по title, summary и public search text и от доступа не
+  зависит. Закрытый материал открывает только доступ к продукту, в который он входит;
   общего права на все закрытые материалы нет ([ADR 0033](../adr/0033-product-tariff-payment-model.md)).
   `Account × Material` grants не вводятся;
 - Topic/Series являются контекстной навигацией; Reader не запрашивает derived related выдачу и

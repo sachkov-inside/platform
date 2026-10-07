@@ -85,7 +85,8 @@ have any number of Tags, including none.
 _Avoid_: Free-form keyword, hashtag
 
 **Public Feed**:
-The stream of free published Materials that every visitor, signed in or not, can open. A free
+The stream of published Materials that every visitor, signed in or not, can browse. A free Material
+opens in full; a closed Material shows its card with a lock and leads to buying its Product. A
 Material of a Product appears both in the Public Feed and in the Product's programme. In Russian
 product language: «лента».
 _Avoid_: Library subscription, Product, closed Material
@@ -93,7 +94,7 @@ _Avoid_: Library subscription, Product, closed Material
 **Access Class**:
 Whether a Material is free or closed. A free Material is open to everyone; a closed Material opens
 only to an Account with access to a Product that contains it. There is no closed Material outside
-Products. The current code value for closed is `membership`; the target is `closed`.
+Products.
 _Avoid_: Membership, paywall flag, Workshop access
 
 **Product**:
@@ -104,8 +105,7 @@ and sale: holders keep reading its programme and Materials, and others get «not
 _Avoid_: Subscription, «руководство» as the product name, using course as the universal category
 
 **Guide**:
-The current code name for Product, distinct from the Material format «Гайд»; the target code name
-is `Product`.
+The code name for Product, distinct from the Material format «Гайд».
 _Avoid_: A separate product category, Topic, Material format guide, «руководство»
 
 **GuideProgramme**:
@@ -293,8 +293,7 @@ _Avoid_: Account Rights, Tribute subscription
 
 **Account Rights**:
 Platform's current conclusion about which Products and which community and support rights an
-Account holds, each live until its term ends or for life. Code name today: `MembershipEntitlement`;
-target: `AccountRights`.
+Account holds, each live until its term ends or for life.
 _Avoid_: Subscription, Telegram membership status, library access
 
 **ContentAccess**:
@@ -334,8 +333,9 @@ _Avoid_: AccessGrant, ReadingState, collection, favorite
 ## Tariffs, payment and access
 
 **Subscription**:
-A way of paying for a Tariff: an Account's agreement to pay on a schedule with renewal terms. It is
-sold only through an Invitation and is distinct from a bank payment and from a Tariff Assignment
+A way of paying for a Tariff: an Account's agreement to pay on a schedule with renewal terms. A
+subscription Payment Option is sold only to an Account with a redeemed Invitation, even when the
+same Tariff is sold to everyone for a one-time payment. It and is distinct from a bank payment and from a Tariff Assignment
 without payment.
 _Avoid_: Payment, Tariff, Tariff Assignment, «подписка» for a free assignment
 
@@ -347,7 +347,7 @@ or restrict it to Accounts with a proven ground, such as a redeemed Invitation; 
 restriction, others neither see nor buy it. It carries a reversible `published` (for-sale) state,
 separate from permanent archival; archival withdraws it from sale and assignment for good, while
 existing assignments keep their snapshot. Rights already granted keep the terms of their purchase.
-A new Tariff is needed only when the Coverage, rights or terms change. Code name today: `Offer`.
+A new Tariff is needed only when the Coverage, rights or terms change.
 In Russian product language: «тариф».
 _Avoid_: Order, AccessGrant, Payment Option, a «subscription tariff» as a separate kind
 
@@ -369,16 +369,14 @@ _Avoid_: Tariff, Subscription period, a separate copy of the Product, funnel per
 An Account's holding of a promised version of a Tariff, with its own origin and term. A free
 assignment is always for life; its origins are the bot's verification of a prior course participant
 and the owner's decision. A paid Subscription also holds its Tariff through an assignment for the
-paid period. An assignment without payment is not a Subscription or consent to renewal. Code name
-today: `SubscriptionEnrollment`. In Russian product language: «назначение тарифа».
+paid period. An assignment without payment is not a Subscription or consent to renewal. In Russian product language: «назначение тарифа».
 _Avoid_: Subscription, gift subscription, temporary free access, Payment
 
 **Coverage**:
 The Products a Tariff opens: named Products, or the whole platform. A named Product includes its
 evolving published Materials; the whole platform also includes Products published later. It names
 no individual Materials. Historical grants retain the terms already promised to their holders. A
-Tariff without Coverage is neither assigned nor sold. Code name today: `contentScope` with
-`allGuides`.
+Tariff without Coverage is neither assigned nor sold.
 _Avoid_: Library access, catalogue, price
 
 **Guide Removal**:
@@ -396,7 +394,7 @@ _Avoid_: Invite link, payment proof, grant, Tribute subscription
 
 **Invitation**:
 The owner's personal one-time admission of one person to buy one Tariff, sent as a link to the bot.
-It is the only way to buy a Subscription. The first Telegram account that opens it owns it; an
+It is the only admission to a subscription Payment Option. The first Telegram account that opens it owns it; an
 unopened Invitation expires after 14 days and the owner can revoke it before it is used. It gives no
 access by itself, is not an ActivationRule, which anyone may open, and not a Promotion, which gives a
 discount. In Russian product language: «приглашение».
@@ -405,7 +403,7 @@ _Avoid_: ActivationRule, promo code, Invite link to the chat, gift
 **SourceEntitlement**:
 A verified external basis identified by its source policy and person, which can exist before an Account is linked.
 Repeated verification of the same source policy and identity does not create another assignment.
-A Tribute source retains explicit period, renewal and verification facts; a temporary source is bounded and cannot infer paid expiry from chat presence.
+The only source for new assignments is membership in the prior course group.
 _Avoid_: Telegram presence, Account, Tariff Assignment
 
 **AdmissionRestriction**:
@@ -413,7 +411,7 @@ A moderation or externally reported restriction on admission to the community, i
 _Avoid_: Expired tariff, revoked materials, failed payment
 
 **OneTimePurchase**:
-A one-time payment for a Tariff of a specified Product, independent of the payment and the
+A one-time payment for a Tariff, independent of the payment and the
 resulting AccessGrants. It creates no Subscription, renewal schedule or recurring consent. Its
 AccessGrants carry their own terms and outlive any Subscription.
 _Avoid_: Subscription, paid period, renewal
@@ -487,7 +485,7 @@ _Avoid_: AccessGrant, MembershipEvidence, guessed status
 **Prior Participants**:
 People who took part in the previous Inside course and are verified by the bot through the prior
 course group. Each receives the course through a lifetime Tariff Assignment. A new Inside-driven
-join does not add a participant. Code name today: `LegacyCohort`.
+join does not add a participant.
 _Avoid_: Current chat roster, all new members, Cohort
 
 ## Notifications
@@ -504,8 +502,8 @@ _Avoid_: Notification, broker acknowledgement, прочтение
 
 **Publication Announcement**:
 Повод сообщить читателям о материале: он возникает один раз, когда Material публикуется впервые,
-и принадлежит самому материалу, а не его месту в руководстве. Повторная публикация,
-переименование, перестановка и включение в другое руководство его не создают. В русском языке
+и принадлежит самому материалу, а не его месту в продукте. Повторная публикация,
+переименование, перестановка и включение в другой продукт его не создают. В русском языке
 продукта: «анонс первой публикации».
 _Avoid_: Publication event, рассылка, повторный анонс
 
