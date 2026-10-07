@@ -489,7 +489,7 @@ describe("подписка: продление, отмена, смена вар�
     expect(s.bank.chargeCalls).toBe(1);
   });
 
-  test("без терминала продление проходит штатно, пока продлевать некого, а должная подписка остаётся сбоем", async () => {
+  test("без терминала продление проходит штатно, пока продлевать некого, а подписка с рабочей привязкой остаётся сбоем", async () => {
     const s = await scenario();
     await s.buy();
     const withoutBank = new BillingPayments({
@@ -518,7 +518,7 @@ describe("подписка: продление, отмена, смена вар�
       }),
     ).toBe(0);
     expect(s.bank.chargeCalls).toBe(0);
-    // Сбой не мешает закрыть истёкший срок подписки, которую продлить нечем.
+    // Подписка, которую продлить нечем, закрывается, и проход завершается штатно.
     const due = await db.prisma.billingSubscription.findFirstOrThrow({
       where: { accountId: s.buyer, state: "active" },
     });
@@ -526,9 +526,9 @@ describe("подписка: продление, отмена, смена вар�
       where: { id: due.id },
       data: { bindingRevokedAt: now },
     });
-    expect(await withoutBank.renew()).toMatchObject({
-      ok: false,
-      error: { code: "method_unavailable" },
+    expect(value(await withoutBank.renew())).toMatchObject({
+      started: 0,
+      closed: 1,
     });
     expect(await s.view()).toBeNull();
   });
