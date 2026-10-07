@@ -1,6 +1,6 @@
 import { Ajv } from "ajv";
 import addFormats from "ajv-formats";
-import schema from "./contracts/schema.json" with { type: "json" };
+import schema from "@inside/contracts/subscription-activation-v1/schema.json" with { type: "json" };
 
 export const ACTIVATION_VERSION = "inside.subscription-activation.v1";
 export interface ActivationBinding {

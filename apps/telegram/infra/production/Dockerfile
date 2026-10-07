@@ -16,6 +16,7 @@ COPY packages/runtime-identity/package.json ./packages/runtime-identity/package.
 COPY packages/material-blocks ./packages/material-blocks
 COPY packages/legal ./packages/legal
 COPY packages/access-capabilities ./packages/access-capabilities
+COPY --chown=node:node docs/contracts ./docs/contracts
 RUN pnpm install --frozen-lockfile
 COPY apps/telegram/tsconfig.json apps/telegram/tsconfig.build.json ./apps/telegram/
 COPY apps/telegram/src ./apps/telegram/src

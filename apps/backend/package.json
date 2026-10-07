@@ -44,8 +44,8 @@
     "communications:generate": "node scripts/generate-communications-contract.mjs",
     "communications:check": "node scripts/generate-communications-contract.mjs --check",
     "conformance:communications": "tsx scripts/communications-conformance.ts",
-    "notifications:generate": "node scripts/generate-notification-schema.mjs && tsx scripts/generate-notification-topology.ts",
-    "notifications:check": "node scripts/generate-notification-schema.mjs --check && tsx scripts/generate-notification-topology.ts --check",
+    "notifications:generate": "tsx scripts/generate-notification-topology.ts",
+    "notifications:check": "tsx scripts/generate-notification-topology.ts --check",
     "dev:notifications-worker": "tsx watch src/entrypoints/notifications-worker.ts",
     "start:notifications-worker": "node dist/entrypoints/notifications-worker.js",
     "dev:billing-worker": "tsx watch src/entrypoints/billing-worker.ts",
@@ -84,7 +84,8 @@
     "rxjs": "7.8.2",
     "sharp": "0.35.5",
     "undici": "8.11.2",
-    "zod": "4.6.5"
+    "zod": "4.6.5",
+    "@inside/contracts": "workspace:*"
   },
   "devDependencies": {
     "@modelcontextprotocol/client": "2.3.0",

@@ -3,8 +3,8 @@ import { Ajv } from "ajv";
 import addFormats from "ajv-formats";
 
 import { digest } from "../../security/payload-digest.js";
-import v2Schema from "./contracts/schema-v2.json" with { type: "json" };
-import schema from "./contracts/schema.json" with { type: "json" };
+import v2Schema from "@inside/contracts/community-v2/schema.json" with { type: "json" };
+import schema from "@inside/contracts/billing-v1/schema.json" with { type: "json" };
 
 export const COMMUNITY_CONTRACT_VERSION = "inside.community-entitlement.v1";
 export const COMMUNITY_V2 = "inside.community-entitlement.v2";

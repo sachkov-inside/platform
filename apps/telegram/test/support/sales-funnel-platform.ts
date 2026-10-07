@@ -6,7 +6,7 @@ import Ajv from "ajv";
 import addFormats from "ajv-formats";
 
 import { list, record } from "./json.js";
-import schema from "../../src/contracts/inside-sales-funnel-events-v1/schema.json" with { type: "json" };
+import schema from "@inside/contracts/inside-sales-funnel-events-v1/schema.json" with { type: "json" };
 
 /**
  * A local stand-in for Platform's `inside.sales-funnel-events.v1` ingress. It validates the

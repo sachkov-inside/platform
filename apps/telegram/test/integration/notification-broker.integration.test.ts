@@ -33,7 +33,7 @@ import {
   type NotificationCommand,
 } from "../../src/modules/notifications/notification-contract.js";
 import topology from "../../docs/operations/notification-topology.json" with { type: "json" };
-import fixtures from "../../docs/contracts/notifications-v1/fixtures.json" with { type: "json" };
+import fixtures from "@inside/contracts/notifications-v1/fixtures.json" with { type: "json" };
 import { required } from "../support/required.js";
 import { conforming, jsonRecord, record } from "../support/json.js";
 const db = createDatabase(required(process.env["DATABASE_URL"]));

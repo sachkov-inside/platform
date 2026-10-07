@@ -12,7 +12,7 @@ Platform определяет Account, тариф, Enrollment, состав и �
 ## Версии и границы
 
 Схема и примеры принадлежат корневому `docs/contracts/subscription-activation-v1`.
-Platform #1064 обновляет их вместе с копиями Telegram и runtime-схемой.
+После #1054 оба приложения читают этот corpus из `@inside/contracts`; копий Telegram нет.
 Исторический [provenance #66](subscription-activation-v1-provenance.json) описывает прежний контракт,
 который включал активацию Tribute; он не описывает текущую версию.
 

@@ -1,9 +1,9 @@
 # Community entitlements: runtime провайдера
 
 Реализация Telegram-стороны `inside.community-entitlement.v1` по
-[protocol.md](../contracts/billing-v1/protocol.md) и
+[protocol.md](../../../../docs/contracts/billing-v1/protocol.md) и
 [provider specification](../specifications/community-and-notifications-v1.md).
-Нормативный источник — vendored corpus; здесь описано только то, что делает приложение.
+Нормативный источник — общий corpus в `docs/contracts`; здесь описано только то, что делает приложение.
 
 ## Поверхность
 
@@ -104,7 +104,7 @@ Telegram не видит: покупка курса, подписка, ручн�
 Бот читает её публичным `GET /billing/cohorts` без входа и без кеша
 ([#123](https://github.com/sachkov-inside/inside-telegram/issues/123)): поток курса находится по
 UUID продукта `PLATFORM_COHORT_PRODUCT_ID`, адрес — `PLATFORM_COHORTS_URL`. Схема ответа
-вендорирована в `src/contracts/platform-billing-cohorts` с provenance коммита Platform. Чтение идёт в момент
+лежит в общем `docs/contracts/platform-billing-cohorts`. Чтение идёт в момент
 отправки, только для положенного приветствия и после создания ссылки, вне блокировки Account.
 Есть `startsOn` — перед ссылкой появляется строка «Старт потока: 20 октября 2026 г.»; этап продаж
 бот не показывает. Без настройки, без потока, при `startsOn: null`, ответе не 200, неверном теле

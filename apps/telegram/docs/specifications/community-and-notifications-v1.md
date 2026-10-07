@@ -4,14 +4,13 @@ Provider contract [#54](https://github.com/sachkov-inside/inside-telegram/issues
 Platform #403 принята; Workspace #152/Platform #434 расширяют notification часть по решению
 владельца 2026-09-08: RabbitMQ и первые сценарии подписки и новых материалов. Здесь нет application
 runtime, миграций БД, credentials или настоящих sends. Exact sources и candidate/merged статус
-записаны в provenance каждого [bundle](../contracts/notifications-v1/README.md).
+исторически записаны в manifest каждого [bundle](../../../../docs/contracts/notifications-v1/README.md).
 
 ## Два независимых контракта
 
-- [Community corpus](../contracts/billing-v1/README.md): immutable копия Platform
-  `1fdcf11017e16690a95aa12a830492d1aaf0b6cd`. Entitlement, binding/revisions и community dispatch
+- [Community corpus](../../../../docs/contracts/billing-v1/README.md): общий repository-local corpus. Entitlement, binding/revisions и community dispatch
   остаются v1. Old notification fixtures сохранены как история, а не второй sender.
-- [Notifications corpus](../contracts/notifications-v1/README.md): новая общая notification
+- [Notifications corpus](../../../../docs/contracts/notifications-v1/README.md): новая общая notification
   delivery/result/authorization schema из Platform #434. Telegram получает адресное готовое
   задание, не сам определяет аудиторию, коммерческие правила или пользовательский opt-in.
 
@@ -23,7 +22,7 @@ runtime, миграций БД, credentials или настоящих sends. Exa
 
 Telegram provider сохраняет service-authenticated command в durable inbox до HTTP acknowledgement.
 Fingerprint, operation/revision conflicts, finite/lifetime/denied, binding/linkRevision и ошибки
-нормативны в [community protocol](../contracts/billing-v1/protocol.md). Link нельзя создать из grant.
+нормативны в [community protocol](../../../../docs/contracts/billing-v1/protocol.md). Link нельзя создать из grant.
 Telegram проверяет known verified identity; Platform остаётся authority совокупности прав Account.
 Raw Telegram user/chat ID разрешается только из собственного verified mapping и configuration.
 
@@ -91,7 +90,7 @@ Bot capability preflight для runtime #55: bot administrator в canonical chat
 ## Общая доставка уведомлений
 
 Telegram #56 реализует AMQP consumer двух notification queues по
-[protocol.md](../contracts/notifications-v1/protocol.md). Principal читает только Telegram lanes
+[protocol.md](../../../../docs/contracts/notifications-v1/protocol.md). Principal читает только Telegram lanes
 и пишет Telegram results. Emails/raw account data/billing events не становятся допустимым Telegram
 payload. Channel/category/routing mismatch и unknown version помещаются в durable quarantine.
 
@@ -123,7 +122,7 @@ manifest integrity и scenario references двух bundles. Это форма и
 симулятор lifecycle. #55/#56 требуют real PostgreSQL persistence/concurrency и #56 real RabbitMQ
 ACL/confirm/ack/crash/fairness proof. #438 проверяет два источника и канала через обе стороны.
 
-Community runtime обязан исполнить весь vendored sequence corpus, включая expired permit before
+Community runtime обязан исполнить весь общий sequence corpus, включая expired permit before
 started, same-revision rejoin и old expired grant при новом lifetime. Дополнительно проверить
 unknown create invite с bounded expiry, shared chat bypass конфигурацию и потерю admin rights.
 Никакие synthetics не объявляются credentialed proof; реальные сообщения/выдача прав/deploy отдельно.

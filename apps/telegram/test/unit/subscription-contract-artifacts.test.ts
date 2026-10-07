@@ -3,14 +3,14 @@ import { readFileSync } from "node:fs";
 import { describe, expect, test } from "vitest";
 import { Ajv } from "ajv";
 import addFormats from "ajv-formats";
-import communitySchema from "../../docs/contracts/billing-v1/schema.json" with { type: "json" };
-import communityFixtures from "../../docs/contracts/billing-v1/fixtures.json" with { type: "json" };
-import communityScenarios from "../../docs/contracts/billing-v1/scenarios.json" with { type: "json" };
-import communityManifest from "../../docs/contracts/billing-v1/manifest.json" with { type: "json" };
-import notificationSchema from "../../src/modules/notifications/contracts/schema.json" with { type: "json" };
-import notificationFixtures from "../../docs/contracts/notifications-v1/fixtures.json" with { type: "json" };
-import notificationScenarios from "../../docs/contracts/notifications-v1/scenarios.json" with { type: "json" };
-import notificationManifest from "../../docs/contracts/notifications-v1/manifest.json" with { type: "json" };
+import communitySchema from "@inside/contracts/billing-v1/schema.json" with { type: "json" };
+import communityFixtures from "@inside/contracts/billing-v1/fixtures.json" with { type: "json" };
+import communityScenarios from "@inside/contracts/billing-v1/scenarios.json" with { type: "json" };
+import communityManifest from "@inside/contracts/billing-v1/manifest.json" with { type: "json" };
+import notificationSchema from "@inside/contracts/notifications-v1/schema.json" with { type: "json" };
+import notificationFixtures from "@inside/contracts/notifications-v1/fixtures.json" with { type: "json" };
+import notificationScenarios from "@inside/contracts/notifications-v1/scenarios.json" with { type: "json" };
+import notificationManifest from "@inside/contracts/notifications-v1/manifest.json" with { type: "json" };
 
 const bundles = [
   {
@@ -20,7 +20,6 @@ const bundles = [
     fixtures: communityFixtures,
     scenarios: communityScenarios,
     manifest: communityManifest,
-    runtimeArtifacts: {} as Record<string, string>,
   },
   {
     name: "notifications",
@@ -29,10 +28,6 @@ const bundles = [
     fixtures: notificationFixtures,
     scenarios: notificationScenarios,
     manifest: notificationManifest,
-    // The runtime schema is the only copy of this corpus artifact.
-    runtimeArtifacts: {
-      "schema.json": "src/modules/notifications/contracts/schema.json",
-    } as Record<string, string>,
   },
 ];
 for (const bundle of bundles) {
@@ -59,7 +54,7 @@ for (const bundle of bundles) {
       )) {
         const bytes = readFileSync(
           new URL(
-            `../../${bundle.runtimeArtifacts[path] ?? `docs/contracts/${bundle.directory}/${path}`}`,
+            `../../../../docs/contracts/${bundle.directory}/${path}`,
             import.meta.url,
           ),
         );

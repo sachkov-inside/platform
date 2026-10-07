@@ -6,7 +6,7 @@ for shared product/legal facts, terminology and developer process.
 | Telegram fact | Owner |
 |---|---|
 | Application scope | [Telegram brief](../product/telegram-application-brief.md) |
-| Shared wire contract | Pinned versioned protocol under [docs/contracts](../contracts/) |
+| Shared wire contract | Repository-local schema/protocol under [docs/contracts](../../../../docs/contracts/README.md) |
 | Capability integration | Matching document under [docs/integrations](../integrations/) |
 | Credentialed proof and bootstrap decisions | [Seed decisions](../decisions/seed-decisions.md) |
 | Application run or recovery | Matching runbook under [docs/operations](../operations/) |

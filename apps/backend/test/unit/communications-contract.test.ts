@@ -2,8 +2,8 @@ import { describe, expect, test } from "vitest";
 import type { z } from "zod";
 import { Ajv } from "ajv";
 import addFormats from "ajv-formats";
-import fixtures from "../../src/modules/communications/contracts/inside-communications-v1/fixtures.json" with { type: "json" };
-import schema from "../../src/modules/communications/contracts/inside-communications-v1/schema.json" with { type: "json" };
+import fixtures from "@inside/contracts/inside-communications-v1/fixtures.json" with { type: "json" };
+import schema from "@inside/contracts/inside-communications-v1/schema.json" with { type: "json" };
 import * as generated from "../../src/modules/communications/communications-schema.generated.js";
 import {
   communicationsSuccessSchema,

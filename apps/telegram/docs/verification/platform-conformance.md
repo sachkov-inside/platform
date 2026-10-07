@@ -29,17 +29,12 @@ imported code, packages, migrations, database tables, or fixtures from the other
 | `inside.membership-evidence.v1` | emits the canonical normalized envelope | strictly validates and accepts it | Bearer + `Idempotency-Key` + `X-Inside-Membership-Evidence-Source` are required |
 | any Membership Evidence version other than v1 | never emitted | rejects with `unsupported_contract` | no current projection change |
 
-Both repositories vendor the same Workspace artifacts from
-`sachkov-inside/workspace@345fbdbb8e4ac8eacff203a8fa91a40032adecc1`:
-
-- `schema.json` SHA-256 `4fd818665f46dae9ec0590d5d8a3888fb572d94b26957e93c46aaf7be03743ed`;
-- `fixtures.json` SHA-256 `d7d47bcc43f0fb6f73bb64e1cf9053a0443b9d4573605ea9f601e1e17e611dc4`.
-
-Telegram verifies the exact digests, JSON round trip, schema result, and provider-side five-minute
-invariant for every applicable corpus case. Platform verifies the same digests and executes the
-consumer outcome corpus. To update the contract, first merge a reviewed Workspace artifact change,
-then update each repository's vendored files and `snapshot.json` provenance in independent PRs;
-never read a Workspace or sibling checkout at build/test/runtime.
+Both applications use the single Membership Evidence corpus in
+[`docs/contracts/inside-membership-evidence-v1`](../../../../docs/contracts/inside-membership-evidence-v1/).
+Its `snapshot.json` records the historical Workspace import. Telegram tests the JSON round trip,
+schema result and provider-side five-minute invariant. Platform executes the consumer outcome corpus.
+Update the shared corpus in one reviewed change; [shared contract delivery](../../../../docs/contracts/README.md)
+keeps the independently released applications compatible during rollout.
 
 ## Two-application journey
 

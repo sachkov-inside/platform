@@ -42,7 +42,7 @@ const columnRowsSchema = z.array(
 );
 
 const snapshotRoot = new URL(
-  "../../src/modules/account-rights/contracts/inside-membership-evidence-v1/",
+  "../../../../docs/contracts/inside-membership-evidence-v1/",
   import.meta.url,
 );
 const corpus = fixtureCorpusSchema.parse(

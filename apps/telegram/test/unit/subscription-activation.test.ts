@@ -8,7 +8,7 @@ import {
 import { SourceGroupProof } from "../../src/modules/subscription-activation/source-group-proof.js";
 import { activationValidator } from "../../src/modules/subscription-activation/activation-contract.js";
 import { loadActivationConfig } from "../../src/config/activation-config.js";
-import fixtures from "../../docs/contracts/subscription-activation-v1/fixtures.json" with { type: "json" };
+import fixtures from "@inside/contracts/subscription-activation-v1/fixtures.json" with { type: "json" };
 import { privateStartUpdate } from "../support/synthetic-telegram-updates.js";
 
 describe("activation ingress and separate source proof", () => {

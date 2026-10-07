@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import fixtures from "../../src/modules/communications/contracts/inside-communications-v1/fixtures.json" with { type: "json" };
+import fixtures from "@inside/contracts/inside-communications-v1/fixtures.json" with { type: "json" };
 import {
   contractValidator,
   validateContent,

@@ -38,7 +38,7 @@ const fixturesSchema = z
   })
   .loose();
 const contractRoot = new URL(
-  "../../src/modules/telegram-membership/contracts/inside-identity-linking-v1/",
+  "../../../../docs/contracts/inside-identity-linking-v1/",
   import.meta.url,
 );
 

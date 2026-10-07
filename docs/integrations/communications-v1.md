@@ -3,8 +3,9 @@
 Platform #307 owns the Account-authorized HTTP/MCP consumer and Telegram author authorization.
 The product authority is the accepted
 [Workspace communications contract](https://github.com/sachkov-inside/workspace/blob/1553211220c44882dbacce7519dd50e35493090e/docs/specifications/telegram-communications-v1.md).
-Telegram owns the physical schema and mutable communications state. Its pinned revision is recorded
-in [the vendored snapshot](../../apps/backend/src/modules/communications/contracts/inside-communications-v1/snapshot.json).
+Telegram owns mutable communications state. Both applications use the
+[shared schema](../contracts/inside-communications-v1/schema.json) in `@inside/contracts`.
+[The snapshot](../contracts/inside-communications-v1/snapshot.json) records its historical origin.
 Platform stores only the outgoing tracking-event ledger in `communications.tracking_hits`; it has no second mutable definition store or broadcast scheduler.
 
 ## Editor ownership
@@ -31,7 +32,7 @@ same confirmed-link seam. Integration tests cover its Telegram-only Account and 
 without implicit communications grants. Real Logto/provider end-to-end sign-in remains separately
 verified by #299; #307 does not claim a new credentialed sign-in run.
 
-`POST /integrations/telegram/v1/communications/authorize` implements the vendored
+`POST /integrations/telegram/v1/communications/authorize` implements the shared
 `authorizationRequest`/`authorizationResponse`. A separate service bearer credential authenticates
 Telegram. Account subjects resolve the external reference to the current link and Account permission.
 Telegram subjects additionally match the configured bot identity and exact stored provider identity.
@@ -108,7 +109,7 @@ explicit owner operations; #307 does not configure a real author or send real me
 
 `pnpm --filter @inside/backend communications:generate` derives typed Zod codecs from the pinned
 provider schema. `communications:check` verifies deterministic output and runs in backend guardrails.
-The generator rejects schema vocabulary it cannot represent. The vendored positive/negative fixtures
+The generator rejects schema vocabulary it cannot represent. The shared positive/negative fixtures
 run against both the generated codecs and the original JSON Schema. Public input rejection and
 cross-module import negative fixtures protect the consumer seam without neighboring checkouts.
 
@@ -251,8 +252,7 @@ Delegated MCP получает `communications_templates_list` и те же save
 текущий authenticated Account и communications:manage остаются единственным авторским основанием.
 Публикация и запуск по-прежнему отдельны от сохранения. Provider runtime поставляется в
 [Telegram #39](https://github.com/sachkov-inside/inside-telegram/pull/39), shared decision —
-[Workspace #125](https://github.com/sachkov-inside/workspace/issues/125). Schema snapshot pinned
-на commit из `contracts/inside-communications-v1/snapshot.json`; production enablement не меняется.
+[Workspace #125](https://github.com/sachkov-inside/workspace/issues/125). Историческое происхождение схемы записано в `docs/contracts/inside-communications-v1/snapshot.json`; оба приложения читают общий пакет.
 
 ## Создание воронок из сохранённых постов (#316)
 

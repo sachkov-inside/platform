@@ -2,8 +2,8 @@ import Ajv2020 from "ajv/dist/2020.js";
 import addFormats from "ajv-formats";
 import { describe, expect, it } from "vitest";
 
-import fixtures from "../../src/modules/identity-linking/contracts/inside-identity-linking-v1/fixtures.json" with { type: "json" };
-import schema from "../../src/modules/identity-linking/contracts/inside-identity-linking-v1/schema.json" with { type: "json" };
+import fixtures from "@inside/contracts/inside-identity-linking-v1/fixtures.json" with { type: "json" };
+import schema from "@inside/contracts/inside-identity-linking-v1/schema.json" with { type: "json" };
 import {
   readBeginLinkEnvelope,
   readConfirmationEnvelope,
