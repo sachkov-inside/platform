@@ -19,16 +19,6 @@ export const knownTransactionViolations: readonly {
       "src/modules/billing/facets/billing-operations/billing-operations.ts",
   },
   {
-    issue: 1070,
-    through:
-      "src/modules/membership-entitlements/features/accept-evidence/accept-evidence.ts",
-  },
-  {
-    issue: 1070,
-    through:
-      "src/modules/membership-entitlements/features/assign-enrollment/assign-enrollment.ts",
-  },
-  {
     issue: 1072,
     through:
       "src/modules/billing/facets/tribute-convergence/tribute-convergence.ts",
@@ -42,10 +32,5 @@ export const knownTransactionViolations: readonly {
     issue: 1073,
     through:
       "src/modules/billing/facets/subscription-activation/subscription-activation.ts",
-  },
-  {
-    issue: 1077,
-    through:
-      "src/modules/telegram-membership/features/authorize-community-dispatch/authorize-community-dispatch.ts",
   },
 ];

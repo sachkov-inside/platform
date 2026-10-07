@@ -378,8 +378,11 @@ function advisoryLockViolations(sourceFile, program) {
 const handoffDelegates = new Map([
   ["assets", ["material"]],
   ["materials", ["materialAsset", "video", "videoDeletionOperation"]],
-  ["membership-entitlements", ["account"]],
   ["reading-activity", ["material", "publishedMaterialGuideMembership"]],
+  [
+    "membership-entitlements",
+    ["account", "telegramAccountLinkState", "telegramAccountLinkHistory"],
+  ],
   ["telegram-membership", ["membershipBinding"]],
   ["videos", ["material", "publishedMaterial"]],
 ]);
