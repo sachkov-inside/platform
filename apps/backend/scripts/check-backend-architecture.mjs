@@ -392,7 +392,6 @@ const handoffDelegates = new Map([
       "telegramAccountLinkHistory",
       "tributePolicy",
       "tributeImportReview",
-      "accessBatchPreview",
       "legacyClassification",
     ],
   ],
