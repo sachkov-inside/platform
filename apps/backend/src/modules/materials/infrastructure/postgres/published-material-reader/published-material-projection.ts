@@ -1,7 +1,7 @@
 import {
   loadGuideCompositions,
   guideCompositionChapters,
-  canReadGuideComposition,
+  readGuideCompositionAccess,
   MAX_GUIDE_MATERIALS,
 } from "../../../shared/guide-composition.js";
 import type {
@@ -812,13 +812,12 @@ export async function selectPublishedMaterialProjectionsBySeries(
     readonly subject: Subject;
     readonly contentAccess: Pick<ContentAccess, "checkGuideAccess">;
   },
-): Promise<PublishedMaterialDiscoveryPage | undefined> {
+): Promise<PublishedMaterialDiscoveryPage | undefined | "unavailable"> {
   const [reference] = await loadGuideCompositions(prisma, { slugs: [slug] }, 1);
-  if (
-    reference === undefined ||
-    !(await canReadGuideComposition(reference, reader))
-  )
-    return undefined;
+  if (reference === undefined) return undefined;
+  const access = await readGuideCompositionAccess(reference, reader);
+  if (access === "unavailable") return "unavailable";
+  if (access === "closed") return undefined;
   if (reference.placements.length > MAX_GUIDE_MATERIALS)
     throw new RangeError("Guide composition exceeds its bound");
   const selected =

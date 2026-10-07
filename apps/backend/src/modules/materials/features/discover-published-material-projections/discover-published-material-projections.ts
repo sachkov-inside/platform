@@ -59,6 +59,11 @@ export async function discoverPublishedMaterialProjections(
       query,
       contentAccess,
     );
+    if (page === "unavailable")
+      return {
+        ok: false,
+        error: { code: "dependency_unavailable", retryable: true },
+      };
     return page === undefined
       ? { ok: false, error: { code: "discovery_not_found" } }
       : {

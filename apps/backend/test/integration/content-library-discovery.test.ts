@@ -350,7 +350,7 @@ describe("Content Library discovery", () => {
     });
   });
 
-  test("hides archived collections from discovery while canonical readers remain valid", async () => {
+  test("hides archived Guides from guest discovery while canonical Topics remain readable", async () => {
     const { contentAccess, publishedMaterialReader } = assembleMaterials({
       prisma: testDatabase.prisma,
       authorPolicy: { canManage: () => false },
@@ -408,8 +408,8 @@ describe("Content Library discovery", () => {
         "platform-inside",
       );
       expect(series).toMatchObject({
-        ok: true,
-        value: { reference: { slug: "platform-inside" }, topics: [] },
+        ok: false,
+        error: { code: "discovery_not_found" },
       });
 
       const discoveryFilter = await listPublishedMaterials(

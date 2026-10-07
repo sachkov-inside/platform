@@ -92,22 +92,21 @@ export async function loadGuideCompositions(
 }
 
 /** Current programmes include locked cards; an archive requires access to the whole Guide. */
-export async function canReadGuideComposition(
+export async function readGuideCompositionAccess(
   guide: Pick<GuideComposition, "id" | "archived">,
   reader?: {
     readonly subject: Subject;
     readonly contentAccess: Pick<ContentAccess, "checkGuideAccess">;
   },
-): Promise<boolean> {
-  if (!guide.archived) return true;
-  if (reader === undefined || reader.subject.kind === "anonymous") return false;
+): Promise<"open" | "closed" | "unavailable"> {
+  if (!guide.archived) return "open";
+  if (reader === undefined || reader.subject.kind === "anonymous")
+    return "closed";
   const access = await reader.contentAccess.checkGuideAccess({
     subject: reader.subject,
     guideId: guide.id,
   });
-  if (access.kind === "unavailable")
-    throw new Error("Guide access unavailable");
-  return access.kind === "open";
+  return access.kind;
 }
 
 export function guideCompositionChapters(guide: GuideComposition) {
@@ -119,4 +118,52 @@ export function guideCompositionChapters(guide: GuideComposition) {
       .filter((material) => material.chapterId === chapter.id)
       .map((material) => material.materialId),
   }));
+}
+
+/** Resource authorization uses the same Guide archive facts for body, Assets and Video. */
+export async function loadMaterialGuideAccessFacts(
+  prisma: Pick<MaterialsPrisma, "guide" | "publishedMaterialGuideMembership">,
+  materialIds: readonly string[],
+): Promise<
+  ReadonlyMap<
+    string,
+    { readonly guideIds: readonly string[]; readonly archivedOnly?: true }
+  >
+> {
+  const memberships = await prisma.publishedMaterialGuideMembership.findMany({
+    where: { materialId: { in: [...materialIds] } },
+    select: { materialId: true, seriesId: true },
+  });
+  const guides = await prisma.guide.findMany({
+    where: {
+      id: {
+        in: [...new Set(memberships.map((membership) => membership.seriesId))],
+      },
+    },
+    select: { id: true, archivedAt: true },
+  });
+  const archived = new Set(
+    guides
+      .filter((guide) => guide.archivedAt !== null)
+      .map((guide) => guide.id),
+  );
+  return new Map(
+    materialIds.flatMap((id) => {
+      const guideIds = memberships
+        .filter((membership) => membership.materialId === id)
+        .map((membership) => membership.seriesId);
+      if (guideIds.length === 0) return [];
+      return [
+        [
+          id,
+          {
+            guideIds,
+            ...(guideIds.every((guideId) => archived.has(guideId))
+              ? { archivedOnly: true as const }
+              : {}),
+          },
+        ] as const,
+      ];
+    }),
+  );
 }

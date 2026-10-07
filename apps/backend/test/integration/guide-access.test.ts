@@ -125,12 +125,13 @@ describe("independent guide, library, support and shared chat rights", () => {
   async function material(
     seriesIds: string[],
     publicationState: "draft" | "published" = "published",
+    access: "free" | "membership" = "membership",
   ) {
     const id = randomUUID();
     const metadata = {
       title: id,
       summary: "Controlled guide access",
-      access: "membership" as const,
+      access,
       topicId,
       formatId: "guide",
       tagIds: [],
@@ -165,7 +166,7 @@ describe("independent guide, library, support and shared chat rights", () => {
     await db.prisma.guide.create({
       data: { id: guideId, slug, name: "Archived programme" },
     });
-    const lesson = await material([guideId]);
+    const lesson = await material([guideId], "published", "free");
     const lessonSlug = (
       await db.prisma.material.findUniqueOrThrow({ where: { id: lesson } })
     ).slug;
@@ -218,7 +219,53 @@ describe("independent guide, library, support and shared chat rights", () => {
     }
     expect(await reader.read({ slug: lessonSlug, subject })).toMatchObject({
       ok: true,
-      value: { kind: "available" },
+      value: { kind: "available", cacheScope: "private-no-store" },
+    });
+    const unavailableAccess = assembleContentAccess({
+      materialResourceFacts: assembleMaterialResourceFacts(
+        materials.materialContent,
+      ),
+      accountPermissions: { hasMaterialsManage: () => Promise.resolve(false) },
+      membershipEntitlements: {
+        resolveForAccess: () =>
+          Promise.resolve({ kind: "unavailable" as const }),
+      },
+    });
+    const unavailableReader = assembleMaterials({
+      prisma: db.prisma,
+      authorPolicy: { canManage: () => false },
+      contentAccess: unavailableAccess,
+    }).publishedMaterialReader;
+    expect(
+      await discoverPublishedMaterials(
+        unavailableReader,
+        unavailableAccess,
+        videos,
+        {
+          kind: "series",
+          slug,
+          first: null,
+          subject,
+        },
+      ),
+    ).toMatchObject({
+      ok: false,
+      error: { code: "dependency_unavailable", retryable: true },
+    });
+    expect(
+      await unavailableReader.read({ slug: lessonSlug, subject }),
+    ).toMatchObject({
+      ok: false,
+      error: { code: "dependency_unavailable", retryable: true },
+    });
+    expect(
+      await composition.read(guideId, {
+        subject,
+        contentAccess: unavailableAccess,
+      }),
+    ).toMatchObject({
+      ok: false,
+      error: { code: "dependency_unavailable" },
     });
     const programme = await discoverPublishedMaterials(
       reader,
@@ -451,8 +498,11 @@ describe("independent guide, library, support and shared chat rights", () => {
       clock: () => now,
     });
     const subject = { kind: "account" as const, accountId: accountId(buyer) };
-    async function resourceFixture(ids: string[]) {
-      const id = await material(ids);
+    async function resourceFixture(
+      ids: string[],
+      access: "free" | "membership" = "membership",
+    ) {
+      const id = await material(ids, "published", access);
       const bytes = new TextEncoder().encode(
         "Controlled downloadable guide artifact",
       );
@@ -478,8 +528,8 @@ describe("independent guide, library, support and shared chat rights", () => {
           id: videoId,
           materialId: id,
           createdBy: owner,
-          access: "membership",
-          projectId: "members",
+          access,
+          projectId: access === "free" ? "free" : "members",
           providerVideoId,
           title: "Controlled protected video",
           origin: "platform_upload",
@@ -598,6 +648,54 @@ describe("independent guide, library, support and shared chat rights", () => {
         subject,
       }),
     ).toMatchObject({ error: { code: "asset_not_found" } });
+    const archivedId = randomUUID();
+    await db.prisma.guide.create({
+      data: { id: archivedId, slug: archivedId, name: "Archived resources" },
+    });
+    await grant([`guide:${archivedId}`], null);
+    const archived = await resourceFixture([archivedId], "free");
+    await db.prisma.guide.update({
+      where: { id: archivedId },
+      data: { archivedAt: now },
+    });
+    for (const denied of [
+      { kind: "anonymous" as const },
+      { kind: "account" as const, accountId: accountId(randomUUID()) },
+    ]) {
+      expect(
+        await delivery.deliver({
+          ...archived,
+          contentVersion: 2,
+          preview: false,
+          subject: denied,
+        }),
+      ).toMatchObject({ ok: false, error: { code: "asset_not_found" } });
+      expect(
+        await playback.createSession({
+          ...archived,
+          subject: denied,
+          correlationId: randomUUID(),
+        }),
+      ).toMatchObject({ ok: false, error: { code: "access_denied" } });
+    }
+    expect(
+      await delivery.deliver({
+        ...archived,
+        contentVersion: 2,
+        preview: false,
+        subject,
+      }),
+    ).toMatchObject({
+      ok: true,
+      value: { kind: "redirect", cacheScope: "private-no-store" },
+    });
+    expect(
+      await playback.createSession({
+        ...archived,
+        subject,
+        correlationId: randomUUID(),
+      }),
+    ).toMatchObject({ ok: true });
   });
 
   test("two sources of the single chat survive one revocation; support expires separately and legacy lifetime remains", async () => {

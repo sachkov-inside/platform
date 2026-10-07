@@ -8,6 +8,8 @@ export interface MaterialResourceFacts {
   readonly contentVersion: number;
   readonly primaryVideoId: string | null;
   readonly guideIds?: readonly string[];
+  /** All published Guide placements are archived; reading requires one of those Guide rights. */
+  readonly archivedOnly?: boolean;
 }
 
 export interface MaterialResourceFactsAdapter {

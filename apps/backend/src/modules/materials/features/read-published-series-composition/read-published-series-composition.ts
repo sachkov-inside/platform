@@ -4,7 +4,7 @@ import type { MaterialsPrismaClient } from "../../../../infrastructure/prisma/in
 import type { ContentAccess, Subject } from "../../../content-access/index.js";
 import {
   loadGuideCompositions,
-  canReadGuideComposition,
+  readGuideCompositionAccess,
   MAX_GUIDE_MATERIALS,
 } from "../../shared/guide-composition.js";
 
@@ -37,10 +37,12 @@ export class PublishedSeriesComposition {
         { ids: [seriesId] },
         1,
       );
-      if (
-        guide === undefined ||
-        !(await canReadGuideComposition(guide, reader))
-      )
+      if (guide === undefined)
+        return { ok: false, error: { code: "series_not_found" } };
+      const access = await readGuideCompositionAccess(guide, reader);
+      if (access === "unavailable")
+        return { ok: false, error: { code: "dependency_unavailable" } };
+      if (access === "closed")
         return { ok: false, error: { code: "series_not_found" } };
       if (guide.placements.length > MAX_GUIDE_MATERIALS)
         return { ok: false, error: { code: "series_too_large" } };

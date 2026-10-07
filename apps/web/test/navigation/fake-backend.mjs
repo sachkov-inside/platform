@@ -64,7 +64,8 @@ const cover = {
  * @typedef {{ status: number; value: Buffer; contentType: string }} ImageResult
  */
 
-/** @type {[Guide, Guide, Guide]} */
+const archivedGuideSlug = "navigation-archive";
+/** @type {[Guide, Guide, Guide, Guide]} */
 const guides = [
   {
     cover: null,
@@ -87,6 +88,13 @@ const guides = [
     name: "Продукт с обложкой",
     slug: coverGuideSlug,
   },
+  {
+    cover: null,
+    hasModeVariants: false,
+    id: "11111111-1111-4111-8111-111111111114",
+    name: "Архивный продукт",
+    slug: archivedGuideSlug,
+  },
 ];
 
 const lessons = [
@@ -106,6 +114,12 @@ const lessons = [
   },
   { n: 5, access: "free", guide: guides[1], title: "Первый урок с режимами" },
   { n: 6, access: "free", guide: guides[1], title: "Второй урок с режимами" },
+  {
+    n: 7,
+    access: "membership",
+    guide: guides[3],
+    title: "Урок архивного продукта",
+  },
 ].map(({ n, access, guide, title }) => ({
   access,
   contentVersion: 1,
@@ -303,7 +317,8 @@ function route(method, url, entitled) {
       });
     }
     const guide = guides.find((candidate) => candidate.slug === slug);
-    if (guide === undefined) return discoveryNotFound();
+    if (guide === undefined || (guide.slug === archivedGuideSlug && !entitled))
+      return discoveryNotFound();
     const items = lessonsOf(guide);
     const half = Math.ceil(items.length / 2);
     return json({
@@ -367,7 +382,11 @@ function route(method, url, entitled) {
   const material = /^\/materials\/([^/]+)$/u.exec(path);
   if (material !== null) {
     const lesson = lessons.find((candidate) => candidate.slug === material[1]);
-    if (lesson === undefined) {
+    if (
+      lesson === undefined ||
+      (lesson.seriesMemberships[0]?.series.slug === archivedGuideSlug &&
+        !entitled)
+    ) {
       return json(
         {
           code: "material_not_found",
