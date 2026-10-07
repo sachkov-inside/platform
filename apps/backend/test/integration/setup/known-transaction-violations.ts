@@ -29,16 +29,6 @@ export const knownTransactionViolations: readonly {
       "src/modules/billing/facets/billing-operations/billing-operations.ts",
   },
   {
-    issue: 1070,
-    through:
-      "src/modules/membership-entitlements/features/accept-evidence/accept-evidence.ts",
-  },
-  {
-    issue: 1070,
-    through:
-      "src/modules/membership-entitlements/features/assign-enrollment/assign-enrollment.ts",
-  },
-  {
     issue: 1071,
     through: "src/modules/billing/facets/billing-payments/billing-payments.ts",
   },

@@ -1,5 +1,8 @@
 import { dependencyFailure } from "../../../../infrastructure/observability/index.js";
-import type { TelegramMembershipPrismaClient } from "../../../../infrastructure/prisma/index.js";
+import type {
+  TelegramMembershipPrisma,
+  TelegramMembershipPrismaClient,
+} from "../../../../infrastructure/prisma/index.js";
 import { parseAccountId } from "../../../accounts/index.js";
 import { z } from "zod";
 
@@ -107,10 +110,16 @@ export class TelegramAccountLinks {
   }
 
   /** Durable binding snapshots for community delivery; null identity is an unlink tombstone. */
-  async readBinding(query: {
-    readonly accountId: string;
-    readonly revision?: number;
-  }) {
+  async readBinding(
+    query: {
+      readonly accountId: string;
+      readonly revision?: number;
+    },
+    transaction?: Pick<
+      TelegramMembershipPrisma,
+      "telegramAccountLinkState" | "telegramAccountLinkHistory"
+    >,
+  ) {
     if (
       !z
         .object({
@@ -122,12 +131,13 @@ export class TelegramAccountLinks {
     )
       return { ok: false as const };
     try {
+      const prisma = transaction ?? this.prisma;
       const row =
         query.revision === undefined
-          ? await this.prisma.telegramAccountLinkState.findUnique({
+          ? await prisma.telegramAccountLinkState.findUnique({
               where: { accountId: query.accountId },
             })
-          : await this.prisma.telegramAccountLinkHistory.findUnique({
+          : await prisma.telegramAccountLinkHistory.findUnique({
               where: {
                 accountId_revision: {
                   accountId: query.accountId,

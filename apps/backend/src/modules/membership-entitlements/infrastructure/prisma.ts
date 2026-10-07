@@ -23,6 +23,9 @@ export type MembershipEntitlementsPrisma = Pick<
   | "membershipBinding"
   | "membershipEvidenceReceipt"
   | "membershipProjection"
+  // Telegram owns these reads; Membership hands over its transaction to readBinding.
+  | "telegramAccountLinkState"
+  | "telegramAccountLinkHistory"
 >;
 
 /** What Membership reads to decide access; a caller's transaction lists these to hand itself over. */
