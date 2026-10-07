@@ -242,19 +242,44 @@ function countPageRefreshes(page: Page, pathname: string) {
   return refreshes;
 }
 
-/** Слушатель объявлений о состоянии покупателя — тот же канал, что слушает оболочка. */
+const billingChannel = "inside.account.billing.changed";
+
+/**
+ * Слушатель объявлений о состоянии покупателя — тот же канал, что слушает оболочка. Кроме
+ * объявлений он запоминает метки теста: метка, пришедшая после проверяемого шага, доказывает,
+ * что объявление этого шага уже дошло бы раньше неё.
+ */
 async function countBillingAnnouncements(page: Page) {
-  await page.addInitScript(() => {
-    new BroadcastChannel("inside.account.billing.changed").addEventListener(
+  await page.addInitScript((channel) => {
+    new BroadcastChannel(channel).addEventListener(
       "message",
-      () => {
-        const heard = Number(sessionStorage.getItem("test.announcements"));
-        sessionStorage.setItem("test.announcements", String(heard + 1));
+      (event: MessageEvent) => {
+        if (event.data === "written") {
+          const heard = Number(sessionStorage.getItem("test.announcements"));
+          sessionStorage.setItem("test.announcements", String(heard + 1));
+        } else {
+          sessionStorage.setItem("test.marker", String(event.data));
+        }
       },
     );
-  });
-  return () =>
-    page.evaluate(() => Number(sessionStorage.getItem("test.announcements")));
+  }, billingChannel);
+  return {
+    count: () =>
+      page.evaluate(() => Number(sessionStorage.getItem("test.announcements"))),
+    marker: () => page.evaluate(() => sessionStorage.getItem("test.marker")),
+  };
+}
+
+/** Метка теста в канал объявлений из другой вкладки. */
+async function postMarker(page: Page, marker: string) {
+  await page.evaluate(
+    ([channel, value]) => {
+      const sender = new BroadcastChannel(channel);
+      sender.postMessage(value);
+      sender.close();
+    },
+    [billingChannel, marker] as const,
+  );
 }
 
 test("подтверждённая покупка перечитывает страницу, открытую в другой вкладке", async ({
@@ -274,7 +299,7 @@ test("подтверждённая покупка перечитывает ст�
   await expect(purchase.getByText("Оплата подтверждена")).toBeVisible();
 
   await expect.poll(() => refreshes.count).toBeGreaterThanOrEqual(1);
-  await expect.poll(announcements).toBe(1);
+  await expect.poll(announcements.count).toBe(1);
 
   // Повторное чтение подтверждённого состояния и перезагрузка экрана возврата — та же покупка:
   // объявлять её снова нечего.
@@ -287,7 +312,10 @@ test("подтверждённая покупка перечитывает ст�
   await expect(
     purchase.getByRole("region", { name: "Сообщество Inside" }),
   ).toBeVisible();
-  expect(await announcements()).toBe(1);
+  // Метка уходит после перезагрузки: когда она дошла, повторное объявление дошло бы раньше.
+  await postMarker(purchase, "after-reload");
+  await expect.poll(announcements.marker).toBe("after-reload");
+  expect(await announcements.count()).toBe(1);
 });
 
 test("раздел подписки просит войти без действующей сессии", async ({

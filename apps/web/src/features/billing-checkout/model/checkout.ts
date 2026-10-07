@@ -90,7 +90,8 @@ export function rememberConfirmedPurchase(purchaseRef: string): void {
   try {
     window.sessionStorage.setItem(confirmedStorageKey, purchaseRef);
   } catch {
-    // Без хранилища перезагрузка объявит покупку ещё раз: лишнее перечитывание, а не потеря.
+    // Хранилище не приняло запись (например, переполнено): перезагрузка объявит покупку ещё раз.
+    // Это лишнее перечитывание, а не потеря.
   }
 }
 export function purchaseConfirmationRemembered(purchaseRef: string): boolean {
@@ -103,6 +104,7 @@ export function purchaseConfirmationRemembered(purchaseRef: string): boolean {
 export function forgetPurchase(): void {
   try {
     window.sessionStorage.removeItem(storageKey);
+    window.sessionStorage.removeItem(confirmedStorageKey);
   } catch {
     // Забывать нечего: следующий возврат просто прочитает состояние подписки.
   }
