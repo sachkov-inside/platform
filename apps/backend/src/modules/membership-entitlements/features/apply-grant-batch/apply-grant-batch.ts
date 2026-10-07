@@ -111,7 +111,10 @@ export async function applyGrantBatch(
       return accessFailure("invalid_input");
     // Validate every selected mapping before writing any grant.
     for (const row of rows) {
-      const identity = await accounts.readIdentityForLink(row.accountId);
+      const identity = await accounts.readIdentityForLink(
+        row.accountId,
+        transaction,
+      );
       if (row.identityFingerprint === null || identity === undefined)
         return accessFailure("not_found");
       if (!accessFingerprint(identity).recognizes(row.identityFingerprint))

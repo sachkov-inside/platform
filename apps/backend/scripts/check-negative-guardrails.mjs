@@ -131,6 +131,7 @@ expectFailure(
     "src/modules/bookmarks/infrastructure/postgres/foreign-schema.ts: database table references must stay inside the owning Module schema (materials.published_materials)",
     "src/modules/videos/features/handwritten-lock/handwritten-lock.ts: advisory lock keys come from src/infrastructure/prisma/transaction-locks.ts",
     "src/modules/materials/features/mark-assets-by-hand/mark-assets-by-hand.ts: materialAsset belongs to another Module; pass the transaction to its owner's function (materialAsset)",
+    "src/modules/membership-entitlements/features/read-account-by-hand/read-account-by-hand.ts: account belongs to another Module; pass the transaction to its owner's function (account)",
     "src/modules/reading-activity/features/read-material-by-hand/read-material-by-hand.ts: material belongs to another Module; pass the transaction to its owner's function (material)",
     "src/modules/telegram-membership/features/bind-by-hand/bind-by-hand.ts: membershipBinding belongs to another Module; pass the transaction to its owner's function (membershipBinding)",
     "src/modules/membership-entitlements/features/read-binding-by-hand/read-binding-by-hand.ts: telegramAccountLinkState belongs to another Module; pass the transaction to its owner's function (telegramAccountLinkState)",

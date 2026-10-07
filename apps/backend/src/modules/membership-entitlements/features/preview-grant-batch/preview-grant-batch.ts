@@ -129,7 +129,10 @@ export async function previewGrantBatch(
     if (preview === null) {
       const rows = await Promise.all(
         parsed.data.rows.map(async (row) => {
-          const identity = await accounts.readIdentityForLink(row.accountId);
+          const identity = await accounts.readIdentityForLink(
+            row.accountId,
+            transaction,
+          );
           return {
             ...row,
             identityFingerprint:

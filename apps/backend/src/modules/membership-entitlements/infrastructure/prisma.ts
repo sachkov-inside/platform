@@ -23,6 +23,8 @@ export type MembershipEntitlementsPrisma = Pick<
   | "membershipBinding"
   | "membershipEvidenceReceipt"
   | "membershipProjection"
+  // Accounts delegate: batch operations hand their transaction to Accounts for identity reads.
+  | "account"
   // Telegram owns these reads; Membership hands over its transaction to readBinding.
   | "telegramAccountLinkState"
   | "telegramAccountLinkHistory"

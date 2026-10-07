@@ -14,16 +14,6 @@ export const knownTransactionViolations: readonly {
     through: "src/modules/billing/facets/billing-notices/billing-notices.ts",
   },
   {
-    issue: 1068,
-    through:
-      "src/modules/membership-entitlements/features/apply-grant-batch/apply-grant-batch.ts",
-  },
-  {
-    issue: 1068,
-    through:
-      "src/modules/membership-entitlements/features/preview-grant-batch/preview-grant-batch.ts",
-  },
-  {
     issue: 1069,
     through:
       "src/modules/billing/facets/billing-operations/billing-operations.ts",
