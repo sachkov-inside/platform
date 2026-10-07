@@ -1,10 +1,18 @@
+import type { MembershipEntitlementsPrisma } from "../infrastructure/prisma.js";
+
 /**
  * Confirmed links between an Account and an external Telegram identity. Telegram Membership owns
  * their lifecycle and implements this port under `RECIPIENT_LINKS`.
  */
 export interface RecipientLinks {
   /** Exact current verified identity only; historical links and usernames are never recipients. */
-  findCurrentByIdentity(identityRef: string): Promise<
+  findCurrentByIdentity(
+    identityRef: string,
+    transaction?: Pick<
+      MembershipEntitlementsPrisma,
+      "telegramAccountLinkState"
+    >,
+  ): Promise<
     | { readonly ok: false }
     | { readonly ok: true; readonly state: "ambiguous" }
     | { readonly ok: true; readonly state: "not_found" }
@@ -21,10 +29,16 @@ export interface RecipientLinks {
       }
   >;
   /** The current binding, or the one at `revision`; a null identity is an unlink tombstone. */
-  readBinding(query: {
-    readonly accountId: string;
-    readonly revision?: number;
-  }): Promise<
+  readBinding(
+    query: {
+      readonly accountId: string;
+      readonly revision?: number;
+    },
+    transaction?: Pick<
+      MembershipEntitlementsPrisma,
+      "telegramAccountLinkState" | "telegramAccountLinkHistory"
+    >,
+  ): Promise<
     | { readonly ok: false }
     | {
         readonly ok: true;

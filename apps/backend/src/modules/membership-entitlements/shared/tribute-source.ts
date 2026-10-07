@@ -8,6 +8,17 @@ import type { MembershipEntitlementsPrisma } from "../infrastructure/prisma.js";
 import { assignEnrollmentInTransaction } from "../features/assign-enrollment/assign-enrollment.js";
 import { lockAccountEntitlementChanges } from "../../../infrastructure/prisma/index.js";
 
+export type TributeProjectionPrisma = Pick<
+  MembershipEntitlementsPrisma,
+  | "$executeRaw"
+  | "accessReceipt"
+  | "subscriptionEnrollment"
+  | "sourceEntitlement"
+  | "accessGrant"
+  | "accessChange"
+  | "legacyClassification"
+>;
+
 export interface TributeSourceRecord {
   id: string;
   sourceRef: string;
@@ -59,7 +70,7 @@ export function tributeSourceView(row: TributeSourceRecord, now: Date) {
  * Generic owner changes acquire account before rows and must never acquire source guards afterward.
  */
 export async function projectTributeSource(
-  tx: MembershipEntitlementsPrisma,
+  tx: TributeProjectionPrisma,
   row: TributeSourceRecord,
   state: TributeState,
   accountId: string,

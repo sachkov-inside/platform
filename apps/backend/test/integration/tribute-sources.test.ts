@@ -310,6 +310,78 @@ describe("Tribute source production facets and signed HTTP with PostgreSQL", () 
     expect(response.headers["cache-control"]).toBe("private, no-store");
     return response;
   }
+  test("prepared policy shares Billing rollback and refuses an unauthorized actor", async () => {
+    const context = await setup();
+    const policy = (await sources.policies()).find(
+      (policy) => policy.id === context.row.policyRef,
+    );
+    if (!policy) throw new Error("Missing policy");
+    const command = {
+      operationId: randomUUID(),
+      expectedRevision: policy.revision,
+      id: policy.id,
+      subscriptionId: policy.subscriptionId,
+      enabled: false,
+      tierId: context.tier.id,
+      tierRevision: context.tier.revision,
+      temporaryUntil: null,
+      reason: "Rollback test",
+    };
+    const customer = await link(randomUUID());
+    expect(await convergence.savePolicy(customer.id, command)).toMatchObject({
+      ok: false,
+      error: { code: "forbidden" },
+    });
+    const save = value(await sources.preparePolicy(owner, command));
+    await expect(
+      db.prisma.$transaction(async (tx) => {
+        value(await save(tx, policy.tier));
+        throw new Error("Billing aborted");
+      }),
+    ).rejects.toThrow("Billing aborted");
+    expect(
+      (await sources.policies()).find((row) => row.id === policy.id),
+    ).toEqual(policy);
+    expect(value(await convergence.savePolicy(owner, command))).toMatchObject({
+      enabled: false,
+      revision: 2,
+    });
+  });
+  test("prepared import rolls back source, enrollment and receipt with Billing", async () => {
+    const context = await setup();
+    const customer = await link(context.row.identityRef);
+    const preview = value(
+      await convergence.preview(owner, {
+        operationId: randomUUID(),
+        batchRef: randomUUID(),
+        rows: [context.row],
+      }),
+    );
+    const command = {
+      operationId: randomUUID(),
+      previewRef: preview.previewRef,
+      selectedRows: [context.row.rowRef],
+    };
+    expect(await convergence.apply(customer.id, command)).toMatchObject({
+      ok: false,
+      error: { code: "forbidden" },
+    });
+    const prepared = value(await sources.prepareApply(owner, command));
+    await expect(
+      db.prisma.$transaction(async (tx) => {
+        value(await prepared.apply(tx));
+        throw new Error("Billing aborted");
+      }),
+    ).rejects.toThrow("Billing aborted");
+    expect(value(await grants.readOwnEnrollments(customer.id))).toEqual([]);
+    const applied = value(await convergence.apply(owner, command));
+    expect(applied.sources[0]).toMatchObject({
+      accountId: customer.id,
+      revision: 1,
+    });
+    expect(value(await grants.readOwnEnrollments(customer.id))).toHaveLength(1);
+    expect(value(await convergence.apply(owner, command))).toEqual(applied);
+  });
   test("legacy unconfirmed source is visible and imported into the same record; generic Tribute registration is closed", async () => {
     const context = await setup();
     expect(

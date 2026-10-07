@@ -18,14 +18,4 @@ export const knownTransactionViolations: readonly {
     through:
       "src/modules/billing/facets/billing-operations/billing-operations.ts",
   },
-  {
-    issue: 1072,
-    through:
-      "src/modules/billing/facets/tribute-convergence/tribute-convergence.ts",
-  },
-  {
-    issue: 1072,
-    through:
-      "src/modules/membership-entitlements/facets/tribute-sources/tribute-sources.ts",
-  },
 ];
