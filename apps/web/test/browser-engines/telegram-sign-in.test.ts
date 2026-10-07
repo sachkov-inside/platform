@@ -110,13 +110,17 @@ async function open(page: Page, status: InsideTelegramPresentation["status"]) {
       await route.fulfill({ status: offline ? 503 : 200, json: state });
     });
   }
+  console.error("[DEBUG-1110] goto started");
   await page.goto(`${origin}/api/inside-telegram`);
+  console.error("[DEBUG-1110] goto finished; waitForFunction started");
   await page.waitForFunction(
     () =>
       document.querySelector('[role="status"]')?.textContent !==
       "Готовим вход…",
   );
+  console.error("[DEBUG-1110] waitForFunction finished; fonts.ready started");
   await page.evaluate(() => document.fonts.ready);
+  console.error("[DEBUG-1110] fonts.ready finished");
 }
 
 it("renders every production state without overflow or accessibility violations on desktop and narrow mobile", async () => {
@@ -301,15 +305,24 @@ it.runIf(Boolean(process.env["STORYBOOK_UI_ORIGIN"]))(
 );
 
 it("keeps the complete Telegram button geometry on narrow WebKit after loading", async () => {
+  console.error("[DEBUG-1110] WebKit launch started");
   const mobileBrowser = await webkit.launch();
+  console.error("[DEBUG-1110] WebKit launch finished");
   try {
     for (const width of [320, 390]) {
+      console.error(`[DEBUG-1110] ${String(width)} newPage started`);
       const page = await mobileBrowser.newPage({
         viewport: { width, height: 844 },
         isMobile: true,
         deviceScaleFactor: 3,
       });
+      console.error(`[DEBUG-1110] ${String(width)} newPage finished`);
+      page.on("console", (message) => {
+        console.error("[DEBUG-1110] page", message.text());
+      });
+      console.error(`[DEBUG-1110] ${String(width)} open started`);
       await open(page, "pending");
+      console.error(`[DEBUG-1110] ${String(width)} open finished`);
       const geometry = await page.locator("#bot").evaluate((element) => {
         const button = element.getBoundingClientRect();
         const range = document.createRange();
@@ -333,6 +346,7 @@ it("keeps the complete Telegram button geometry on narrow WebKit after loading",
       expect(geometry.label.left).toBeGreaterThanOrEqual(geometry.button.left);
       expect(geometry.label.right).toBeLessThanOrEqual(geometry.button.right);
       expect(geometry.label.bottom).toBeLessThanOrEqual(geometry.button.bottom);
+      console.error(`[DEBUG-1110] ${String(width)} geometry finished`);
       if (process.env["CAPTURE_TELEGRAM_EVIDENCE"] === "1") {
         await prepareEvidenceDirectory("issue-303");
         await page.screenshot({
@@ -340,9 +354,12 @@ it("keeps the complete Telegram button geometry on narrow WebKit after loading",
         });
       }
       await page.close();
+      console.error(`[DEBUG-1110] ${String(width)} page close finished`);
     }
   } finally {
+    console.error("[DEBUG-1110] WebKit close started");
     await mobileBrowser.close();
+    console.error("[DEBUG-1110] WebKit close finished");
   }
 }, 30000);
 
