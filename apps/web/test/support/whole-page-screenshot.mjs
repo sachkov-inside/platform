@@ -21,9 +21,13 @@
  * `PageHandler::ScreenshotCaptured` (`content/browser/devtools/protocol/page_handler.cc`) даёт на
  * пустой кадр. Кадр пуст, когда `RenderWidgetHostImpl::OnSnapshotFromSurfaceReceived`
  * (`render_widget_host_impl.cc`) не получил копию поверхности за `kMaxRetries = 5` немедленных
- * повторов. Содержимое страницы на это не влияет, поэтому помощник делает до `captureAttempts` снимков
- * всего, а другие ошибки не повторяет. Каждый повтор пишет предупреждение в лог: отказ остаётся
+ * повторов. Помощник делает до `captureAttempts` снимков всего, а другие ошибки не повторяет.
+ * Каждый повтор пишет предупреждение в лог: отказ остаётся
  * виден, даже когда следующий снимок удался.
+ *
+ * После отказа (#1039) следующий снимок ждёт `Page.screencastFrame`: Chromium уже скопировал
+ * непустой кадр. Немедленные повторы из #1029 могли все обращаться к ещё недоступной поверхности.
+ * Служебный screencast закрывается до следующего снимка; его кадр не заменяет полное изображение.
  *
  * Модуль на JavaScript, потому что его импортируют и спеки Playwright, и proof-скрипты из
  * `scripts/` и `apps/telegram/test/local`, которые запускает Node без транспиляции. Тип задаёт
@@ -41,6 +45,9 @@ const maximumSteps = 3;
 
 /** Сколько снимков всего помощник делает, пока Chromium отказывает скопировать кадр. */
 const captureAttempts = 3;
+
+/** Бюджет ожидания скопированного кадра Chromium после отказа, в миллисекундах. */
+const frameCopyBudget = 10_000;
 
 /**
  * Сколько миллисекунд помощник ждёт конца CSS-переходов перед одним замером. Переход кнопки длится
@@ -94,8 +101,51 @@ async function screenshotRetryingFrameCopy(page, options) {
       if (attempt === captureAttempts || !isFrameCopyRefusal(error))
         throw error;
       console.warn(
-        `screenshotWholePage: Chromium could not copy the frame (attempt ${String(attempt)} of ${String(captureAttempts)}); taking the capture again (#1029)`,
+        `screenshotWholePage: Chromium could not copy the frame (attempt ${String(attempt)} of ${String(captureAttempts)}); waiting for a readable compositor frame before taking the capture again (#1039)`,
       );
+      await waitForFrameCopy(page);
+    }
+  }
+}
+
+/**
+ * CDP screencast отдаёт событие только после копирования и кодирования кадра. Достаточно одного
+ * пикселя: нужен факт доступности поверхности, а не ещё один снимок всей страницы. Таймер только
+ * останавливает застрявшее ожидание; завершает ожидание событие Chromium, а не длительность.
+ *
+ * @param {import("@playwright/test").Page} page
+ */
+async function waitForFrameCopy(page) {
+  const session = await page.context().newCDPSession(page);
+  /** @type {ReturnType<typeof setTimeout> | undefined} */
+  let timer;
+  try {
+    const copied = new Promise((resolve, reject) => {
+      session.once("Page.screencastFrame", resolve);
+      timer = setTimeout(
+        () =>
+          reject(
+            new Error(
+              `Chromium did not copy a compositor frame within ${String(frameCopyBudget)}ms`,
+            ),
+          ),
+        frameCopyBudget,
+      );
+    });
+    await Promise.all([
+      copied,
+      session.send("Page.startScreencast", {
+        format: "png",
+        maxWidth: 1,
+        maxHeight: 1,
+      }),
+    ]);
+  } finally {
+    clearTimeout(timer);
+    try {
+      await session.send("Page.stopScreencast");
+    } finally {
+      await session.detach();
     }
   }
 }
