@@ -12985,7 +12985,8 @@
                       "properties": {
                         "code": {
                           "enum": [
-                            "not_eligible"
+                            "not_eligible",
+                            "legacy_review_required"
                           ],
                           "type": "string"
                         },
@@ -13000,7 +13001,8 @@
                         },
                         "type": {
                           "enum": [
-                            "urn:inside:problem:not_eligible"
+                            "urn:inside:problem:not_eligible",
+                            "urn:inside:problem:legacy_review_required"
                           ],
                           "type": "string"
                         }
@@ -13146,7 +13148,8 @@
                   "properties": {
                     "code": {
                       "enum": [
-                        "unsupported_amount"
+                        "unsupported_amount",
+                        "method_unavailable"
                       ],
                       "type": "string"
                     },
@@ -13161,7 +13164,8 @@
                     },
                     "type": {
                       "enum": [
-                        "urn:inside:problem:unsupported_amount"
+                        "urn:inside:problem:unsupported_amount",
+                        "urn:inside:problem:method_unavailable"
                       ],
                       "type": "string"
                     }

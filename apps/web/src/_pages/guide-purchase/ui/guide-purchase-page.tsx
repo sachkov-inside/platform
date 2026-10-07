@@ -1,6 +1,9 @@
 import { notFound } from "next/navigation";
 
-import { loadGuideOffers } from "@/entities/subscription.server";
+import {
+  readGuestGuideSale,
+  readViewerGuideSale,
+} from "@/entities/subscription.sale.server";
 import { loadPublishedSeries } from "@/features/library-discovery.server";
 
 import { GuidePurchase } from "./guide-purchase.client";
@@ -33,7 +36,9 @@ export async function GuidePurchasePage({
       />
     );
   }
-  const catalog = await loadGuideOffers(guide.reference.id);
+  const catalog = await (accessToken === undefined
+    ? readGuestGuideSale(guide.reference.id)
+    : readViewerGuideSale(guide.reference.id, accessToken));
   return (
     <GuidePurchase
       guide={{ name: guide.reference.name, summary: guide.reference.summary }}

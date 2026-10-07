@@ -34,7 +34,9 @@ import { quotePurchaseSchema, priceQuoteSchema } from "./quote-purchase.js";
 @ApiTags("Billing")
 @ApiBearerAuth("logto")
 @PrivateNoStore()
-@AcceptedTermsEndpoint(problemDetailsSchema(403, ["not_eligible"]))
+@AcceptedTermsEndpoint(
+  problemDetailsSchema(403, ["not_eligible", "legacy_review_required"]),
+)
 @UseFilters(AccountProblemDetailsFilter)
 @ApiResponse({
   status: 400,
@@ -61,7 +63,7 @@ import { quotePurchaseSchema, priceQuoteSchema } from "./quote-purchase.js";
 @ApiResponse({
   status: 422,
   content: problemDetailsContent(
-    problemDetailsSchema(422, ["unsupported_amount"]),
+    problemDetailsSchema(422, ["unsupported_amount", "method_unavailable"]),
   ),
 })
 @ApiResponse({

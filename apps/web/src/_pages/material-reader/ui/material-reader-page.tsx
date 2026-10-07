@@ -12,7 +12,10 @@ import { notFound } from "next/navigation";
 import { connection } from "next/server";
 import { Suspense, type ReactNode } from "react";
 
-import { loadGuideOffers } from "@/entities/subscription.catalog.server";
+import {
+  readGuestGuideSale,
+  readViewerGuideSale,
+} from "@/entities/subscription.sale.server";
 import { GuideModeHint, GuideModeSwitch } from "@/features/guide-modes";
 import {
   loadReaderGuideMode,
@@ -448,8 +451,10 @@ async function guideIsSold(
       ? guide.reference.id
       : undefined;
   if (guideId === undefined) return false;
-  const offers = await loadGuideOffers(guideId);
-  return offers.kind === "ready" && offers.offers.length > 0;
+  const sale = await (accessToken === undefined
+    ? readGuestGuideSale(guideId)
+    : readViewerGuideSale(guideId, accessToken));
+  return sale.kind === "ready" && sale.sold;
 }
 
 /** Учебный MCP из конфигурации и абсолютный адрес инструкции, которую читает агент ученика. */

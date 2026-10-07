@@ -37,6 +37,15 @@ export function guideCapability(guideId: string): AccessCapability {
   return `guide:${guideId}`;
 }
 
+/** Идентификатор продукта из уже проверенного права; глобальное право продукта не называет. */
+export function guideIdFromCapability(
+  capability: AccessCapability,
+): string | null {
+  return isGuideCapability(capability)
+    ? capability.slice("guide:".length)
+    : null;
+}
+
 /**
  * Что открывает одно право. Общая группа одна на всех (#648, решение владельца): её открывает и
  * купленное руководство, и сопровождение, поэтому участие живёт сроком самого долгого из них.

@@ -9,7 +9,6 @@ import { getOptionalPlatformAccessToken } from "@/shared/auth/index.server";
 import {
   guideCapability,
   guideCohortsSchema,
-  guidePurchaseOffers,
   offersPageSchema,
   type GuideCohort,
   type PaymentMode,
@@ -30,19 +29,13 @@ export interface CatalogQuery {
   readonly capability?: string;
 }
 
-/**
- * Каталог рендерится сервером: цены и состав приходят из billing, а не из разметки страницы.
- * Каталог читается от имени покупателя, если он вошёл: Offer с ограничением допуска виден только
- * допущенному Account. Гость видит Offer для всех.
- */
+/** Гостевой каталог по умолчанию; личное чтение явно передаёт токен и никогда не кешируется. */
 export async function loadBillingOffers(
   query: CatalogQuery = {},
+  accessToken?: string,
 ): Promise<OffersResult> {
   const offers: PriceSnapshot[] = [];
   let cursor: string | undefined;
-  // Отсутствие сессии — гость; сбой чтения сессии, как и в остальной личной части страницы, не
-  // выдаётся за гостевую витрину.
-  const accessToken = await getOptionalPlatformAccessToken();
   try {
     for (let page = 0; page < catalogPageBudget; page += 1) {
       const result = await requestBillingOffers(
@@ -60,30 +53,32 @@ export async function loadBillingOffers(
       if (parsed.data.nextCursor === null) return { kind: "ready", offers };
       cursor = parsed.data.nextCursor;
     }
-    return { kind: "ready", offers };
+    return { kind: "unavailable" };
   } catch {
     return { kind: "unavailable" };
   }
 }
 
-/**
- * Предложения одного руководства. Отсутствие предложений — обычное состояние: руководство
- * продаётся, только когда владелец завёл ему цену. Их может быть несколько, поэтому страница
- * оплаты умеет показать выбор. Чем именно торгуют, решает `guidePurchaseOffers`: запрос сужен
- * только по праву, чтобы отбор жил в одном месте.
- */
+/** Личное чтение каталога для кабинета и страницы подписки. */
+export async function loadViewerBillingOffers(
+  query: CatalogQuery = {},
+): Promise<OffersResult> {
+  return loadBillingOffers(query, await getOptionalPlatformAccessToken());
+}
+
+/** Варианты оплаты продукта; отбор допуска и охвата принадлежит backend. */
 export async function loadGuideOffers(
   guideId: string,
+  accessToken?: string,
 ): Promise<
   | { readonly kind: "ready"; readonly offers: readonly PriceSnapshot[] }
   | { readonly kind: "unavailable" }
 > {
-  const result = await loadBillingOffers({
-    capability: guideCapability(guideId),
-  });
-  return result.kind === "unavailable"
-    ? result
-    : { kind: "ready", offers: guidePurchaseOffers(result.offers, guideId) };
+  const result = await loadBillingOffers(
+    { capability: guideCapability(guideId) },
+    accessToken,
+  );
+  return result;
 }
 
 /**

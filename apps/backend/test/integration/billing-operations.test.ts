@@ -1,3 +1,5 @@
+import { prepareInvitedQuote } from "./setup/purchase-invitation.js";
+import { assembleTestBillingPricing } from "./setup/billing-pricing.js";
 import { randomUUID } from "node:crypto";
 import { z } from "zod";
 import { afterAll, beforeAll, describe, expect, test } from "vitest";
@@ -11,7 +13,7 @@ import {
   BillingNotices,
   BillingOperations,
   BillingPayments,
-  BillingPricing,
+  type BillingPricing,
   BillingSubscriptions,
 } from "../../src/modules/billing/index.js";
 import type {
@@ -298,7 +300,7 @@ describe("владельческие операции billing: платежи, �
       accounts,
       clock: () => now,
     });
-    pricing = new BillingPricing({
+    pricing = assembleTestBillingPricing({
       prisma: db.prisma,
       accounts,
       clock: () => now,
@@ -494,11 +496,14 @@ describe("владельческие операции billing: платежи, �
     }
     async function reserve() {
       const quote = value(
-        await pricing.quote(buyer, {
-          operationId: randomUUID(),
-          paymentOptionId: optionId,
-          optionRevision: 1,
-        }),
+        await pricing.quote(
+          buyer,
+          await prepareInvitedQuote(db.prisma, buyer, {
+            operationId: randomUUID(),
+            paymentOptionId: optionId,
+            optionRevision: 1,
+          }),
+        ),
       );
       return value(
         await payments.purchase(buyer, {
@@ -1700,11 +1705,14 @@ describe("владельческие операции billing: платежи, �
   test("21 a quote accepted before unpublish cannot start a new purchase afterward", async () => {
     const s = await scenario();
     const quote = value(
-      await pricing.quote(s.buyer, {
-        operationId: randomUUID(),
-        paymentOptionId: s.optionId,
-        optionRevision: 1,
-      }),
+      await pricing.quote(
+        s.buyer,
+        await prepareInvitedQuote(db.prisma, s.buyer, {
+          operationId: randomUUID(),
+          paymentOptionId: s.optionId,
+          optionRevision: 1,
+        }),
+      ),
     );
     const consentEvidenceRefs = await s.consentFor(quote.quoteRef, {
       snapshot: quote.snapshot,

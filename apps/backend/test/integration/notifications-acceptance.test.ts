@@ -1,3 +1,8 @@
+import {
+  prepareInvitedQuote,
+  seedOptionPurchaseInvitation,
+} from "./setup/purchase-invitation.js";
+import { assembleTestBillingPricing } from "./setup/billing-pricing.js";
 import { randomUUID } from "node:crypto";
 import { Pool } from "pg";
 import { GenericContainer, Wait } from "testcontainers";
@@ -22,7 +27,7 @@ import {
   BillingNotices,
   BillingOperations,
   BillingPayments,
-  BillingPricing,
+  type BillingPricing,
   BillingSubscriptions,
 } from "../../src/modules/billing/index.js";
 import type {
@@ -194,7 +199,7 @@ describe("приёмка обоих источников Notifications (реал
     const membership = assembleMembershipEntitlements({
       prisma: platform.prisma,
     });
-    pricing = new BillingPricing({
+    pricing = assembleTestBillingPricing({
       prisma: platform.prisma,
       accounts,
       sale: { payments: true, subscriptions: true },
@@ -492,11 +497,14 @@ describe("приёмка обоих источников Notifications (реал
     options: { readonly recurring?: boolean } = {},
   ) {
     const quote = value(
-      await pricing.quote(account, {
-        operationId: randomUUID(),
-        paymentOptionId: optionId,
-        optionRevision: 1,
-      }),
+      await pricing.quote(
+        account,
+        await prepareInvitedQuote(platform.prisma, account, {
+          operationId: randomUUID(),
+          paymentOptionId: optionId,
+          optionRevision: 1,
+        }),
+      ),
     );
     const accepted = await contact.acceptConsents(
       account,
@@ -1011,7 +1019,8 @@ describe("приёмка обоих источников Notifications (реал
     });
     await buy(account, monthly, { recurring: true });
 
-    // Переход на второй тариф — согласованное изменение действующей подписки, а не новая покупка.
+    // Новый тариф требует собственного приглашения, даже при действующей подписке.
+    await seedOptionPurchaseInvitation(platform.prisma, account, yearly);
     const current = value(await subscriptions.read(account)).subscription;
     const quoted = value(
       await subscriptions.quoteChange(account, {

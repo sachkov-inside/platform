@@ -446,9 +446,9 @@ export const accessScenarioTable = {
     },
     "subscription-offer-with-tribute-ground": {
       kind: "admission",
-      rule: "Account с подтверждённым периодом Tribute видит Offer подписки и покупает его обычной покупкой с новым согласием на списания, в том числе после окончания периода. Автосписания по-прежнему ждут остановки списаний Tribute.",
-      listed: true,
-      rejectedWith: null,
+      rule: "Подтверждённый период Tribute сам по себе не допускает к новой подписке: после #1049 требуется погашенное приглашение на Offer.",
+      listed: false,
+      rejectedWith: "not_eligible",
     },
     "invitation-offer-after-purchase-invitation": {
       kind: "admission",

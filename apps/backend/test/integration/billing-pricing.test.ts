@@ -1,3 +1,8 @@
+import {
+  prepareInvitedQuote,
+  seedPurchaseInvitation,
+} from "./setup/purchase-invitation.js";
+import { assembleTestBillingPricing } from "./setup/billing-pricing.js";
 import { randomUUID } from "node:crypto";
 import { Pool } from "pg";
 import { afterAll, beforeAll, describe, expect, test } from "vitest";
@@ -5,7 +10,7 @@ import {
   createPrismaClient,
   type PlatformPrisma,
 } from "../../src/infrastructure/prisma/index.js";
-import { BillingPricing } from "../../src/modules/billing/index.js";
+import type { BillingPricing } from "../../src/modules/billing/index.js";
 import { assembleAccounts } from "../../src/modules/accounts/index.js";
 import {
   createMigratedTestDatabase,
@@ -42,13 +47,13 @@ describe("Billing catalog, quotes and reservations on PostgreSQL", () => {
       prisma: database.prisma,
       emailFingerprintKey: "billing-test-key-00000000000000000000",
     });
-    billing = new BillingPricing({
+    billing = assembleTestBillingPricing({
       prisma: database.prisma,
       accounts,
       clock: () => now,
       sale: { payments: true, subscriptions: true },
     });
-    other = new BillingPricing({
+    other = assembleTestBillingPricing({
       prisma: second,
       accounts,
       clock: () => now,
@@ -123,12 +128,15 @@ describe("Billing catalog, quotes and reservations on PostgreSQL", () => {
     promoCode?: string,
   ) {
     return value(
-      await billing.quote(accountId, {
-        operationId: randomUUID(),
-        paymentOptionId: optionId,
-        optionRevision: 1,
-        ...(hasText(promoCode) ? { promoCode } : {}),
-      }),
+      await billing.quote(
+        accountId,
+        await prepareInvitedQuote(database.prisma, accountId, {
+          operationId: randomUUID(),
+          paymentOptionId: optionId,
+          optionRevision: 1,
+          ...(hasText(promoCode) ? { promoCode } : {}),
+        }),
+      ),
     );
   }
   async function reserve(
@@ -245,6 +253,7 @@ describe("Billing catalog, quotes and reservations on PostgreSQL", () => {
       optionRevision: 1,
       promoCode: code,
     };
+    await prepareInvitedQuote(database.prisma, accountId, cmd);
     const result = value(await billing.quote(accountId, cmd));
     expect(result.snapshot).toMatchObject({
       firstPriceKopecks: 75_001,
@@ -261,7 +270,13 @@ describe("Billing catalog, quotes and reservations on PostgreSQL", () => {
       value: result,
     });
     expect(
-      await billing.quote(accountId, { ...cmd, promoCode: "different" }),
+      await billing.quote(
+        accountId,
+        await prepareInvitedQuote(database.prisma, accountId, {
+          ...cmd,
+          promoCode: "different",
+        }),
+      ),
     ).toMatchObject({ error: { code: "operation_conflict" } });
     expect(
       (await quote(randomUUID(), optionId, "wrong-code")).snapshot
@@ -286,7 +301,13 @@ describe("Billing catalog, quotes and reservations on PostgreSQL", () => {
       value: result,
     });
     expect(
-      await billing.quote(accountId, { ...cmd, promoCode: "different" }),
+      await billing.quote(
+        accountId,
+        await prepareInvitedQuote(database.prisma, accountId, {
+          ...cmd,
+          promoCode: "different",
+        }),
+      ),
     ).toMatchObject({ error: { code: "operation_conflict" } });
   });
 
@@ -474,7 +495,7 @@ describe("Billing catalog, quotes and reservations on PostgreSQL", () => {
       emailFingerprintKey: "billing-test-key-00000000000000000000",
     });
     // Процесс без терминала или адреса для чека не включает в продажу ничего, даже разовый вариант.
-    const unconfigured = new BillingPricing({
+    const unconfigured = assembleTestBillingPricing({
       prisma: database.prisma,
       accounts,
       clock: () => now,
@@ -519,14 +540,16 @@ describe("Billing catalog, quotes and reservations on PostgreSQL", () => {
       }),
     ).toMatchObject({ ok: false, error: { code: "method_unavailable" } });
     // Все способы формы включены: карта-only и автосписания не подтверждены.
-    const allMethods = new BillingPricing({
+    const allMethods = assembleTestBillingPricing({
       prisma: database.prisma,
       accounts,
       clock: () => now,
       sale: { payments: true, subscriptions: false },
     });
     const onSale = async (mode: "subscription" | "one_time") =>
-      value(await billing.offers({ mode })).items.map((item) => item.offer.id);
+      value(await billing.offers({ mode }, owner)).items.map(
+        (item) => item.offer.id,
+      );
     const save = (
       offerId: string,
       mode: "subscription" | "one_time",
@@ -605,7 +628,7 @@ describe("Billing catalog, quotes and reservations on PostgreSQL", () => {
     value(await save(guide, "one_time"));
 
     // Тот же каталог на подтверждённом терминале включает подписку обычной командой.
-    const confirmed = new BillingPricing({
+    const confirmed = assembleTestBillingPricing({
       prisma: database.prisma,
       accounts,
       clock: () => now,
@@ -621,6 +644,7 @@ describe("Billing catalog, quotes and reservations on PostgreSQL", () => {
         }),
       ),
     ).toMatchObject({ published: true });
+    await seedPurchaseInvitation(database.prisma, owner, subscription);
     expect(await onSale("subscription")).toContain(subscription);
   });
 
@@ -651,11 +675,14 @@ describe("Billing catalog, quotes and reservations on PostgreSQL", () => {
       ).toMatchObject({ error: { code: "unsupported_amount" } });
     const free = await promo(optionId, 100);
     expect(
-      await billing.quote(accountId, {
-        operationId: randomUUID(),
-        paymentOptionId: optionId,
-        optionRevision: 1,
-      }),
+      await billing.quote(
+        accountId,
+        await prepareInvitedQuote(database.prisma, accountId, {
+          operationId: randomUUID(),
+          paymentOptionId: optionId,
+          optionRevision: 1,
+        }),
+      ),
     ).toMatchObject({ error: { code: "unsupported_amount" } });
     value(
       await billing.manage(owner, {
@@ -682,11 +709,11 @@ describe("Billing catalog, quotes and reservations on PostgreSQL", () => {
     expect(await billing.offers({ limit: 101 })).toMatchObject({
       error: { code: "invalid_request" },
     });
-    const page = value(await billing.offers({ limit: 1 }));
+    const page = value(await billing.ownerCatalog({ limit: 1 }));
     expect(page.items).toHaveLength(1);
     expect(page.nextCursor).not.toBeNull();
     const next = value(
-      await billing.offers({ limit: 1, cursor: page.nextCursor }),
+      await billing.ownerCatalog({ limit: 1, cursor: page.nextCursor }),
     );
     expect(next.items[0]?.paymentOption.id).not.toBe(
       page.items[0]?.paymentOption.id,
@@ -746,7 +773,7 @@ describe("признак продажи подписки на собственн
     await database.prisma.accountPermission.create({
       data: { accountId: owner, permission: "billing:manage" },
     });
-    billing = new BillingPricing({
+    billing = assembleTestBillingPricing({
       prisma: database.prisma,
       accounts: assembleAccounts({
         prisma: database.prisma,
@@ -862,9 +889,11 @@ describe("признак продажи подписки на собственн
       contentScope: { guideIds: [guide], materialIds: [] },
     });
     value(await sold.publish());
-    expect(await billing.hasOffersForSale()).toBe(true);
+    expect(await billing.hasOffersForSale()).toBe(false);
+    await seedPurchaseInvitation(database.prisma, owner, sold.offerId);
+    expect(await billing.hasOffersForSale(owner)).toBe(true);
     expect(
-      value(await billing.offers({ mode: "subscription" })).items.map(
+      value(await billing.offers({ mode: "subscription" }, owner)).items.map(
         (item) => item.offer.id,
       ),
     ).toEqual([sold.offerId]);

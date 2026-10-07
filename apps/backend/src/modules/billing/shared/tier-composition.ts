@@ -89,19 +89,12 @@ export function tierOpenForAssignment(
   );
 }
 
-/** Подписка продаётся только тарифом с составом; разовое предложение продукта её не включает. */
-export function sellsSubscription(
-  offer: CatalogOffer & { readonly contentScope: unknown },
-): boolean {
-  return !isProductOffer(offer) && !tierLacksComposition(offer);
-}
-
 /**
- * Offer, на который выдаётся приглашение «оплата»: подписка с составом и без невыдаваемых прав.
+ * Offer, на который выдаётся приглашение «оплата»: тариф с охватом продуктов и без невыдаваемых прав.
  * Продажу и вариант оплаты проверяет погашение: владелец может выдать ссылку до публикации.
  */
 export function subscriptionOfferForInvitation(
   offer: CatalogOffer & { readonly contentScope: unknown },
 ): boolean {
-  return sellsSubscription(offer) && !offerGrantsWithheld(offer);
+  return !tierLacksComposition(offer) && !offerGrantsWithheld(offer);
 }

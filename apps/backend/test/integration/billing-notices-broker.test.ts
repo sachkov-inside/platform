@@ -1,3 +1,5 @@
+import { prepareInvitedQuote } from "./setup/purchase-invitation.js";
+import { assembleTestBillingPricing } from "./setup/billing-pricing.js";
 import { randomUUID } from "node:crypto";
 import { GenericContainer, Wait } from "testcontainers";
 import { expect, onTestFinished, test } from "vitest";
@@ -13,7 +15,6 @@ import {
   assembleBillingNotificationOutbox,
   BillingNotices,
   BillingPayments,
-  BillingPricing,
 } from "../../src/modules/billing/index.js";
 import { assembleMaterialsNotificationOutbox } from "../../src/modules/materials/index.js";
 import { Notifications } from "../../src/modules/notifications/index.js";
@@ -129,7 +130,7 @@ test("подтверждённая оплата доходит до обоих �
     emailFingerprintKey: "synthetic-broker-fingerprint-000000",
   });
   const grants = assembleAccessGrants({ prisma: database.prisma, accounts });
-  const pricing = new BillingPricing({
+  const pricing = assembleTestBillingPricing({
     prisma: database.prisma,
     accounts,
     sale: { payments: true, subscriptions: true },
@@ -265,11 +266,14 @@ test("подтверждённая оплата доходит до обоих �
   });
 
   const quote = value(
-    await pricing.quote(buyer, {
-      operationId: randomUUID(),
-      paymentOptionId: optionId,
-      optionRevision: 1,
-    }),
+    await pricing.quote(
+      buyer,
+      await prepareInvitedQuote(database.prisma, buyer, {
+        operationId: randomUUID(),
+        paymentOptionId: optionId,
+        optionRevision: 1,
+      }),
+    ),
   );
   const accepted = await contact.acceptConsents(
     buyer,

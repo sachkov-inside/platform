@@ -1,3 +1,5 @@
+import { prepareInvitedQuote } from "./setup/purchase-invitation.js";
+import { assembleTestBillingPricing } from "./setup/billing-pricing.js";
 import { randomUUID } from "node:crypto";
 import { afterAll, beforeAll, describe, expect, test } from "vitest";
 import { guideCapability } from "@inside/access-capabilities";
@@ -5,7 +7,7 @@ import { assembleAccounts } from "../../src/modules/accounts/index.js";
 import { assembleAccessGrants } from "../../src/modules/membership-entitlements/index.js";
 import {
   BillingOperations,
-  BillingPricing,
+  type BillingPricing,
 } from "../../src/modules/billing/index.js";
 import type {
   OwnerOutcome,
@@ -104,7 +106,7 @@ describe("скидка респондентам анкеты: список ни�
         resolve: () => Promise.resolve([]),
       },
     });
-    pricing = new BillingPricing({
+    pricing = assembleTestBillingPricing({
       prisma: db.prisma,
       accounts,
       clock: () => now,
@@ -264,12 +266,15 @@ describe("скидка респондентам анкеты: список ни�
 
     const buyer = randomUUID();
     const discounted = value(
-      await pricing.quote(buyer, {
-        operationId: randomUUID(),
-        paymentOptionId: optionId,
-        optionRevision: 1,
-        promoCode: link.code,
-      }),
+      await pricing.quote(
+        buyer,
+        await prepareInvitedQuote(db.prisma, buyer, {
+          operationId: randomUUID(),
+          paymentOptionId: optionId,
+          optionRevision: 1,
+          promoCode: link.code,
+        }),
+      ),
     );
     expect(discounted.snapshot.firstPriceKopecks).toBe(70_000);
     // Без кода и после архивации шаблона публичной скидки нет.

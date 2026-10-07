@@ -1,3 +1,5 @@
+import { prepareInvitedQuote } from "./setup/purchase-invitation.js";
+import { assembleTestBillingPricing } from "./setup/billing-pricing.js";
 import { Module } from "@nestjs/common";
 import { NestFactory, Reflector } from "@nestjs/core";
 import {
@@ -25,7 +27,7 @@ import {
 } from "../../src/modules/membership-entitlements/index.js";
 import {
   BillingPayments,
-  BillingPricing,
+  type BillingPricing,
 } from "../../src/modules/billing/index.js";
 import {
   Tbank,
@@ -99,7 +101,7 @@ describe("subscription payment recovery (real PostgreSQL and real facets; synthe
       accounts,
       clock: () => now,
     });
-    pricing = new BillingPricing({
+    pricing = assembleTestBillingPricing({
       prisma: db.prisma,
       accounts,
       clock: () => now,
@@ -187,11 +189,14 @@ describe("subscription payment recovery (real PostgreSQL and real facets; synthe
       }),
     );
     const quote = value(
-      await pricing.quote(buyer, {
-        operationId: randomUUID(),
-        paymentOptionId: optionId,
-        optionRevision: 1,
-      }),
+      await pricing.quote(
+        buyer,
+        await prepareInvitedQuote(db.prisma, buyer, {
+          operationId: randomUUID(),
+          paymentOptionId: optionId,
+          optionRevision: 1,
+        }),
+      ),
     );
     const consent = await contact.acceptConsents(
       buyer,

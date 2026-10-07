@@ -13,7 +13,7 @@ import {
 } from "../../../../infrastructure/prisma/index.js";
 import type { BillingContact } from "../../../accounts/index.js";
 import type { AccessGrants } from "../../../membership-entitlements/index.js";
-import { subscriptionSaleConfirmed } from "../../domain/sale-capability.js";
+import { saleCapability } from "../../domain/sale-capability.js";
 import { paymentMode, priceSnapshotSchema } from "../../domain/pricing.js";
 import { subscriptionPeriodEnd } from "../../domain/subscription-period.js";
 import {
@@ -52,10 +52,8 @@ import { verifyRecurringConsent } from "../../shared/recurring-consent.js";
 import { attemptSourceRef, lifecycleWindow } from "../../domain/notice.js";
 import { recordBillingNotice } from "../../shared/record-notice.js";
 import { replayCommandFingerprint } from "../../shared/command-fingerprint.js";
-import {
-  offerAdmits,
-  readPurchaseGrounds,
-} from "../../shared/offer-eligibility.js";
+import { readPurchaseGrounds } from "../../shared/offer-eligibility.js";
+import { paymentAdmission } from "../../shared/payment-admission.js";
 import { hasText } from "../../../../infrastructure/contracts/text.js";
 
 const fulfillmentRetryDelayMilliseconds = 60_000;
@@ -127,14 +125,9 @@ export class BillingPayments {
         where: { id: command.quoteRef, accountId },
       });
       if (!quote) return paymentFailure("not_found");
-      const mode = paymentMode(
-        priceSnapshotSchema.parse(quote.snapshot).paymentOption,
-      );
+      const snapshot = priceSnapshotSchema.parse(quote.snapshot);
+      const mode = paymentMode(snapshot.paymentOption);
       const recurring = mode === "subscription";
-      // Подписку продлевает сохранённая привязка. Терминал без обоих подтверждений её не гарантирует:
-      // первый платёж прошёл бы, а продление — нет. Разовая покупка от этого не зависит.
-      if (recurring && !subscriptionSaleConfirmed(bank.config))
-        return paymentFailure("method_unavailable");
       const [contact, legacy, capabilities, grounds] = await Promise.all([
         this.dependencies.contact.read(accountId),
         this.dependencies.grants.readLegacyClassification(accountId),
@@ -143,15 +136,19 @@ export class BillingPayments {
       ]);
       if (!contact.ok || !legacy.ok || !capabilities.ok || grounds === null)
         return paymentFailure("dependency_unavailable");
+      const admission = paymentAdmission({
+        context: "purchase",
+        snapshot,
+        sale: saleCapability(bank.config, true),
+        grounds,
+        recurringAllowed: legacy.recurringAllowed,
+      });
+      if (!admission.ok) return paymentFailure(admission.error.code);
       if (
         !contact.contact ||
         contact.contact.revision !== command.contactRevision
       )
         return paymentFailure("contact_required");
-      // Классификация старой подписки ограничивает только регулярные списания: разовая покупка
-      // ничего не возобновляет и поэтому её не ждёт.
-      if (recurring && !legacy.recurringAllowed)
-        return paymentFailure("legacy_review_required");
       const verifiedContact = contact.contact;
       const consents = await Promise.all(
         command.consentEvidenceRefs.map((ref) =>
@@ -243,9 +240,16 @@ export class BillingPayments {
                 : reservation.error.code,
             );
           // Расчёт мог быть сохранён, пока основание ещё действовало: допуск проверяется и здесь.
-          if (!offerAdmits(reservation.value.offer, grounds)) {
+          const admission = paymentAdmission({
+            context: "purchase",
+            snapshot: reservation.value,
+            sale: saleCapability(bank.config, true),
+            grounds,
+            recurringAllowed: legacy.recurringAllowed,
+          });
+          if (!admission.ok) {
             await tx.billingPromoReservation.delete({ where: { purchaseRef } });
-            return paymentFailure("not_eligible");
+            return paymentFailure(admission.error.code);
           }
           if (
             !command.acknowledgeExistingAccess &&
@@ -738,9 +742,15 @@ export class BillingPayments {
       current.pendingChange,
     );
     const amountKopecks = snapshot.renewalPriceKopecks;
-    const withinLimits =
-      amountKopecks >= bank.config.minimumKopecks &&
-      amountKopecks <= bank.config.maximumKopecks;
+    const admission = paymentAdmission({
+      context: "renewal",
+      snapshot,
+      sale: saleCapability(bank.config, true),
+      grounds: { formerTributeSubscriber: false, invitedOfferIds: [] },
+      recurringAllowed: legacy.recurringAllowed,
+
+      chargeKopecks: amountKopecks,
+    });
     return await prisma.$transaction(
       async (tx): Promise<{ attemptRef?: string; blocked?: boolean }> => {
         await lockBillingPricing(tx);
@@ -771,12 +781,7 @@ export class BillingPayments {
           return {};
         }
         // Классификация, согласие, контакт и границы терминала — операторский разбор, не отказ покупателя.
-        if (
-          !legacy.recurringAllowed ||
-          !consented ||
-          !verifiedContact ||
-          !withinLimits
-        )
+        if (!admission.ok || !consented || !verifiedContact)
           return { blocked: true };
         const attemptRef = randomUUID();
         await tx.billingPurchase.create({
@@ -1044,6 +1049,10 @@ export class BillingPayments {
                     ).toISOString();
             return {
               capabilities: [capability],
+              ...(capability === "materials" &&
+              snapshot.offer.contentScope != null
+                ? { contentScope: snapshot.offer.contentScope }
+                : {}),
               startsAt: period.startsAt.toISOString(),
               validUntil,
               reason: `Confirmed payment ${row.id}`,
