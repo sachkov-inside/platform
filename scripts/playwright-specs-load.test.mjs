@@ -14,6 +14,23 @@ const listReportSchema = z.object({
   }),
 });
 
+const evidenceReportSchema = z.object({
+  config: z.object({
+    projects: z.array(
+      z.object({ name: z.string(), testMatch: z.array(z.string()) }),
+    ),
+    webServer: z.object({
+      command: z.string(),
+      env: z.record(z.string(), z.string()),
+      url: z.string(),
+      reuseExistingServer: z.boolean(),
+      gracefulShutdown: z
+        .object({ signal: z.string(), timeout: z.number() })
+        .optional(),
+    }),
+  }),
+});
+
 const webRoot = fileURLToPath(new URL("../apps/web", import.meta.url));
 const playwrightCli = path.join(
   webRoot,
@@ -88,6 +105,42 @@ test("every Playwright configuration names at least one spec it can load", () =>
       `${configuration} loaded no tests:\n${output}`,
     );
   }
+});
+
+test("evidence uses the production launcher with its backend, health probe and graceful cleanup", () => {
+  const result = runPlaywright(
+    "playwright.config.ts",
+    ["--list", "--reporter=json"],
+    {
+      ...unconfiguredEnvironment,
+      CAPTURE_EVIDENCE: "1",
+      PLAYWRIGHT_PORT: "29199",
+      PLAYWRIGHT_BACKEND_BASE_URL: "http://127.0.0.1:29200",
+    },
+  );
+  assert.equal(result.status, 0, `${result.stdout}${result.stderr}`);
+  const { config } = evidenceReportSchema.parse(JSON.parse(result.stdout));
+  assert.equal(
+    config.webServer.command,
+    "node test/support/production-web.mjs",
+  );
+  assert.deepEqual(config.webServer.env, {
+    PRODUCTION_WEB_BACKEND_URL: "http://127.0.0.1:29200",
+    PRODUCTION_WEB_PORT: "29199",
+  });
+  assert.equal(config.webServer.url, "http://127.0.0.1:29199/_health/live");
+  assert.equal(config.webServer.reuseExistingServer, false);
+  assert.deepEqual(config.webServer.gracefulShutdown, {
+    signal: "SIGTERM",
+    timeout: 5_000,
+  });
+  assert.deepEqual(
+    config.projects.map(({ name, testMatch }) => ({ name, testMatch })),
+    [
+      { name: "desktop-chromium", testMatch: ["evidence.spec.ts"] },
+      { name: "mobile-chromium", testMatch: ["evidence.spec.ts"] },
+    ],
+  );
 });
 
 /**
