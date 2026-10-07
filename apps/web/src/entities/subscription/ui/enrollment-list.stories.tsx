@@ -1,3 +1,4 @@
+import { guideCapability } from "@inside/access-capabilities";
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { expect, within } from "storybook/test";
 import type { Enrollment } from "../model/enrollment";
@@ -105,7 +106,7 @@ export const CourseTariffTerms: Story = {
           ...course.tier,
           name: "Тариф курса",
           benefits: [
-            "guide:62000000-0000-4000-8000-000000000004",
+            guideCapability("62000000-0000-4000-8000-000000000004"),
             "community",
             "support",
           ],
@@ -114,7 +115,7 @@ export const CourseTariffTerms: Story = {
         },
         benefitTerms: [
           {
-            capability: "guide:62000000-0000-4000-8000-000000000004",
+            capability: guideCapability("62000000-0000-4000-8000-000000000004"),
             startsAt: course.startsAt,
             endsAt: null,
             revoked: false,
