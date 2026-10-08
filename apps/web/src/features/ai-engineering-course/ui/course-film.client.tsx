@@ -12,6 +12,12 @@ import {
   type FilmFonts,
   type FilmPalette,
 } from "../model/course-film";
+import {
+  drawFilmV2,
+  FILM_V2_DESCRIPTION,
+  FILM_V2_DURATION,
+  FILM_V2_POSTER_TIME,
+} from "../model/course-film-v2";
 
 import "./course-film.css";
 
@@ -28,6 +34,38 @@ const readReducedMotion = () => window.matchMedia(reducedMotionQuery).matches;
 const readServerReducedMotion = () => true;
 
 const MONO = "ui-monospace, SFMono-Regular, Menlo, monospace";
+
+/**
+ * Две версии фильма: вторая — путь фичи от задачи до релиза — показывается по умолчанию, первая —
+ * навыки AI-инженера — по адресу с `?film=v1`, чтобы владелец мог сравнить их.
+ */
+interface Film {
+  readonly draw: typeof drawFilm;
+  readonly description: string;
+  readonly duration: number;
+  readonly poster: number;
+}
+const FILMS: Readonly<Record<"v1" | "v2", Film>> = {
+  v1: {
+    draw: drawFilm,
+    description: FILM_DESCRIPTION,
+    duration: FILM_DURATION,
+    poster: FILM_POSTER_TIME,
+  },
+  v2: {
+    draw: drawFilmV2,
+    description: FILM_V2_DESCRIPTION,
+    duration: FILM_V2_DURATION,
+    poster: FILM_V2_POSTER_TIME,
+  },
+};
+type FilmVersion = keyof typeof FILMS;
+const subscribeNothing = () => () => undefined;
+const readFilmVersion = (): FilmVersion =>
+  new URLSearchParams(window.location.search).get("film") === "v1"
+    ? "v1"
+    : "v2";
+const readServerFilmVersion = (): FilmVersion => "v2";
 
 /** Цвета и моноширинный шрифт анимации — токены страницы, как у остального интерфейса. */
 function readPalette(element: HTMLElement): FilmPalette {
@@ -56,7 +94,17 @@ export function CourseFilm({
   readonly autoplay?: boolean;
 }) {
   const canvas = useRef<HTMLCanvasElement>(null);
-  const time = useRef(FILM_POSTER_TIME);
+  const version = useSyncExternalStore(
+    subscribeNothing,
+    readFilmVersion,
+    readServerFilmVersion,
+  );
+  const film = FILMS[version];
+  const filmRef = useRef<Film>(film);
+  const time = useRef<number>(film.poster);
+  useEffect(() => {
+    filmRef.current = film;
+  }, [film]);
   const paintRef = useRef<(() => void) | undefined>(undefined);
   const reduced = useSyncExternalStore(
     subscribeReducedMotion,
@@ -88,7 +136,7 @@ export function CourseFilm({
       }
       const scale = (dpr * width) / FILM_WIDTH;
       g.setTransform(scale, 0, 0, scale, 0, 0);
-      drawFilm(g, time.current, fonts, palette);
+      filmRef.current.draw(g, time.current, fonts, palette);
     };
     const resize = new ResizeObserver(paint);
     resize.observe(element);
@@ -138,7 +186,8 @@ export function CourseFilm({
     let raf = 0;
     let last = performance.now();
     const tick = (now: number) => {
-      time.current = (time.current + (now - last) / 1000) % FILM_DURATION;
+      time.current =
+        (time.current + (now - last) / 1000) % filmRef.current.duration;
       last = now;
       paintRef.current?.();
       raf = requestAnimationFrame(tick);
@@ -153,14 +202,14 @@ export function CourseFilm({
   // Если движение вернут, фильм начнётся заново.
   useEffect(() => {
     if (playing || !ready) return;
-    time.current = FILM_POSTER_TIME;
+    time.current = filmRef.current.poster;
     started.current = false;
     paintRef.current?.();
   }, [playing, ready]);
 
   return (
     <div className="aie-film">
-      <canvas aria-label={FILM_DESCRIPTION} ref={canvas} role="img" />
+      <canvas aria-label={film.description} ref={canvas} role="img" />
     </div>
   );
 }
