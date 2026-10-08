@@ -1,3 +1,5 @@
+import type { HomeProjections } from "../../../features/read-home-projections/read-home-projections.contract.js";
+import type { HomePinnedSeries } from "../../../features/read-home-pinned-series/read-home-pinned-series.js";
 import {
   loadProductCompositions,
   productCompositionChapters,
@@ -262,6 +264,113 @@ export async function selectPublishedMaterialProjectionPage(
     items: visibleRows.map(toProjection),
     hasNext,
     totalCount: metadata.total_count,
+  };
+}
+
+/** Home selects its visible groups before hydrating previews; catalog metadata stays independent. */
+export async function selectHomeMaterialProjections(
+  prisma: MaterialsPrisma,
+  pin: HomePinnedSeries | null,
+): Promise<HomeProjections> {
+  const homeMetadataSchema = z
+    .object({
+      topics: z.array(facetOptionSchema),
+      series: z.array(facetOptionSchema),
+    })
+    .strict();
+  const feedQuery = (format: string) =>
+    searchProjectionQuery(
+      {
+        // The catalog SQL includes one look-ahead row; seven plus that row is Home's eight.
+        first: 7,
+        feedOnly: true,
+        formatSlugs: [format],
+        seriesSlugs: [],
+        topicSlugs: [],
+        sort: "newest",
+      },
+      Prisma.sql`${projectionScopeSql(true)} and format.slug = ${format}`,
+      Prisma.sql`0::double precision`,
+    );
+  const [rawMetadata, rawVideos, rawGuides, rawNotes] = await Promise.all([
+    prisma.$queryRaw(Prisma.sql`
+      select
+        coalesce((select jsonb_agg(jsonb_build_object(
+          'id', topic.id, 'name', topic.name, 'slug', topic.slug, 'summary', topic.summary,
+          'count', topic.count, 'cover', ${coverProjectionSql(Prisma.sql`topic.cover_id`)},
+          'previewMaterialIds', '[]'::jsonb
+        ) order by topic.name, topic.id) from (
+          select topic.id, topic.name, topic.slug, topic.summary, topic.cover_id, count(*)::integer as count
+          from materials.published_materials as publication
+          join materials.topics as topic on topic.id = publication.topic_id
+          where topic.archived_at is null
+          group by topic.id, topic.name, topic.slug, topic.summary, topic.cover_id
+          order by topic.name, topic.id
+          limit 8
+        ) as topic), '[]'::jsonb) as topics,
+        coalesce((select jsonb_agg(jsonb_build_object(
+          'id', series.id, 'name', series.name, 'slug', series.slug, 'summary', series.summary,
+          'count', series.count, 'cover', ${coverProjectionSql(Prisma.sql`series.cover_id`)},
+          'previewMaterialIds', array(
+            select membership.material_id
+            from materials.published_material_series_memberships as membership
+            join materials.published_materials as publication on publication.material_id = membership.material_id
+            where membership.series_id = series.id
+            order by membership.ordinal, membership.material_id
+            limit 3
+          )
+        ) order by series.name, series.id) from (
+          select ranked.* from (
+            select series.id, series.name, series.slug, series.summary, series.cover_id,
+              count(*)::integer as count,
+              row_number() over (order by series.name, series.id) as position
+            from materials.published_material_series_memberships as membership
+            join materials.published_materials as publication on publication.material_id = membership.material_id
+            join materials.series as series on series.id = membership.series_id
+            where series.archived_at is null
+            group by series.id, series.name, series.slug, series.summary, series.cover_id
+          ) as ranked
+          where ranked.position <= 4 or ranked.id = ${pin?.id ?? null}::uuid
+        ) as series), '[]'::jsonb) as series
+    `),
+    prisma.$queryRaw(feedQuery("video")),
+    prisma.$queryRaw(feedQuery("guide")),
+    prisma.$queryRaw(feedQuery("note")),
+  ]);
+  const metadata = homeMetadataSchema.array().parse(rawMetadata)[0];
+  if (metadata === undefined)
+    throw new TypeError("Home projection metadata is missing");
+  const previews = await selectPublishedMaterialProjectionsByIds(
+    prisma,
+    metadata.series.flatMap(({ previewMaterialIds }) => previewMaterialIds),
+  );
+  const previewById = new Map(previews.map((item) => [item.materialId, item]));
+  const series = metadata.series.map((facet) =>
+    projectFacet(facet, previewById),
+  );
+  const pinnedFacet = series.find((facet) => facet.id === pin?.id);
+  return {
+    topics: metadata.topics.map((facet) => projectFacet(facet, previewById)),
+    playlists: series.slice(0, 4),
+    pinnedSeries:
+      pin === null || pinnedFacet === undefined
+        ? null
+        : { ...pinnedFacet, ...pin },
+    videos: searchedPublishedMaterialProjectionRowSchema
+      .array()
+      .parse(rawVideos)
+      .slice(0, 8)
+      .map(toProjection),
+    guides: searchedPublishedMaterialProjectionRowSchema
+      .array()
+      .parse(rawGuides)
+      .slice(0, 8)
+      .map(toProjection),
+    notes: searchedPublishedMaterialProjectionRowSchema
+      .array()
+      .parse(rawNotes)
+      .slice(0, 8)
+      .map(toProjection),
   };
 }
 

@@ -1,0 +1,164 @@
+// Frozen Home composition before #1248, used as a differential DTO oracle.
+import type {
+  ContentAccess,
+  Subject,
+} from "../../src/modules/content-access/index.js";
+import type {
+  ProductPageCard,
+  ProductPageHero,
+  PublishedMaterialReader,
+} from "../../src/modules/materials/index.js";
+import type { Videos } from "../../src/modules/videos/index.js";
+import type { AccountRights } from "../../src/modules/account-rights/index.js";
+import type {
+  PublishedMaterialCatalogFacetDto,
+  PublishedMaterialCatalogItemDto,
+  PublishedMaterialCatalogResult,
+} from "../../src/modules/content-library/features/list-published-materials/list-published-materials.contract.js";
+import { listPublishedMaterials } from "../../src/modules/content-library/features/list-published-materials/list-published-materials.js";
+
+/** Закреплённый продукт с оформлением его карточки (ADR 0026). */
+export interface HomePinnedSeriesDto extends PublishedMaterialCatalogFacetDto {
+  readonly presentation: string;
+  readonly card: ProductPageCard | null;
+  readonly hero: ProductPageHero | null;
+}
+
+export interface HomeContentDto {
+  readonly pinnedSeries: HomePinnedSeriesDto | null;
+  readonly topics: readonly PublishedMaterialCatalogFacetDto[];
+  readonly playlists: readonly PublishedMaterialCatalogFacetDto[];
+  readonly videos: readonly PublishedMaterialCatalogItemDto[];
+  readonly guides: readonly PublishedMaterialCatalogItemDto[];
+  readonly notes: readonly PublishedMaterialCatalogItemDto[];
+  readonly membership:
+    | Readonly<{ kind: "active" }>
+    | Readonly<{ kind: "inactive" }>
+    | Readonly<{ kind: "notOffered" }>
+    | Readonly<{ kind: "unknown" }>;
+}
+
+export type HomeContentResult =
+  | Readonly<{ ok: true; value: HomeContentDto }>
+  | Extract<PublishedMaterialCatalogResult, { ok: false }>;
+
+const HOME_MATERIAL_LIMIT = 8;
+
+export async function readLegacyHomeContent(
+  publishedMaterialReader: Pick<
+    PublishedMaterialReader,
+    "listProjections" | "readHomePinnedSeries"
+  >,
+  contentAccess: Pick<ContentAccess, "checkAvailabilityMany">,
+  videoCatalog: Pick<Videos, "loadReadyDurations">,
+  accountRights: Pick<AccountRights, "resolveForAccess">,
+  subscriptionForSale: boolean,
+  subject: Subject,
+): Promise<HomeContentResult> {
+  const [catalog, videos, guides, notes, pin, membership] = await Promise.all([
+    listPublishedMaterials(
+      publishedMaterialReader,
+      contentAccess,
+      videoCatalog,
+      {
+        first: 1,
+        subject,
+        sort: "newest",
+      },
+    ),
+    listPublishedMaterials(
+      publishedMaterialReader,
+      contentAccess,
+      videoCatalog,
+      {
+        first: HOME_MATERIAL_LIMIT,
+        feedOnly: true,
+        formatSlugs: ["video"],
+        subject,
+        sort: "newest",
+      },
+    ),
+    listPublishedMaterials(
+      publishedMaterialReader,
+      contentAccess,
+      videoCatalog,
+      {
+        first: HOME_MATERIAL_LIMIT,
+        feedOnly: true,
+        formatSlugs: ["guide"],
+        subject,
+        sort: "newest",
+      },
+    ),
+    listPublishedMaterials(
+      publishedMaterialReader,
+      contentAccess,
+      videoCatalog,
+      {
+        first: HOME_MATERIAL_LIMIT,
+        feedOnly: true,
+        formatSlugs: ["note"],
+        subject,
+        sort: "newest",
+      },
+    ),
+    publishedMaterialReader.readHomePinnedSeries(),
+    resolveHomeMembership(accountRights, subscriptionForSale, subject),
+  ]);
+  for (const result of [catalog, videos, guides, notes]) {
+    if (!result.ok) return result;
+  }
+  if (!catalog.ok || !videos.ok || !guides.ok || !notes.ok) {
+    throw new TypeError("Home content result narrowing failed");
+  }
+  if (!pin.ok) return pin;
+  const pinnedFacet =
+    pin.value === null
+      ? undefined
+      : catalog.value.facets.series.find(
+          (series) => series.id === pin.value?.id && series.count > 0,
+        );
+  return {
+    ok: true,
+    value: {
+      pinnedSeries:
+        pin.value === null || pinnedFacet === undefined
+          ? null
+          : {
+              id: pinnedFacet.id,
+              slug: pinnedFacet.slug,
+              name: pinnedFacet.name,
+              summary: pinnedFacet.summary,
+              count: pinnedFacet.count,
+              cover: pinnedFacet.cover,
+              previewItems: pinnedFacet.previewItems,
+              presentation: pin.value.presentation,
+              card: pin.value.card,
+              hero: pin.value.hero,
+            },
+      topics: catalog.value.facets.topics.slice(0, 8),
+      playlists: catalog.value.facets.series.slice(0, 4),
+      videos: videos.value.items,
+      guides: guides.value.items,
+      notes: notes.value.items,
+      membership,
+    },
+  };
+}
+
+async function resolveHomeMembership(
+  accountRights: Pick<AccountRights, "resolveForAccess">,
+  subscriptionForSale: boolean,
+  subject: Subject,
+): Promise<HomeContentDto["membership"]> {
+  if (subject.kind === "anonymous") {
+    return subscriptionForSale ? { kind: "inactive" } : { kind: "notOffered" };
+  }
+  const state = await accountRights.resolveForAccess(subject.accountId);
+  if (state.kind === "active") return { kind: "active" };
+  return state.kind === "required" || state.kind === "expired"
+    ? subscriptionForSale
+      ? { kind: "inactive" }
+      : { kind: "notOffered" }
+    : { kind: "unknown" };
+}
