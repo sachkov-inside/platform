@@ -6,8 +6,17 @@ import selectors
 import shutil
 import signal
 import subprocess
+import sys
 import tempfile
 import time
+
+
+def interrupted(signum, _frame):
+    raise SystemExit(128 + signum)
+
+
+for signum in (signal.SIGINT, signal.SIGTERM, signal.SIGHUP):
+    signal.signal(signum, interrupted)
 
 
 def descendants(root_pid, owned, groups):
@@ -65,7 +74,10 @@ with tempfile.TemporaryDirectory(prefix='platform-1153-launcher-') as directory:
     support.mkdir(parents=True)
     (base / 'scripts').mkdir()
     (app / 'node_modules/.bin').mkdir(parents=True)
-    shutil.copy2(root / 'apps/web/test/support/production-web.mjs', support / 'production-web.mjs')
+    launcher = (root / 'apps/web/test/support/production-web.mjs').read_text()
+    if sys.argv[1:] == ['missing-group-cleanup']:
+        launcher = launcher.replace('signalProcessGroup(child.pid, "SIGKILL")', 'child.kill("SIGKILL")')
+    (support / 'production-web.mjs').write_text(launcher)
     shutil.copy2(root / 'scripts/process-group-signal.mjs', base / 'scripts/process-group-signal.mjs')
     (app / 'package.json').write_text(json.dumps({
         'name': 'cleanup-fixture', 'private': True,
@@ -77,10 +89,10 @@ with tempfile.TemporaryDirectory(prefix='platform-1153-launcher-') as directory:
     (app / 'node_modules/.bin/next').symlink_to('../next/dist/bin/next')
     executable.write_text("""#!/usr/bin/env node
 import {spawn} from 'node:child_process';
-const load=spawn(process.execPath,['-e',"process.on('SIGTERM',()=>{});setInterval(()=>{},1000)"],{stdio:'inherit'});
-console.log('READY',process.pid,load.pid);
+const load=spawn(process.execPath,['-e',"process.on('SIGTERM',()=>{});setInterval(()=>{},1000);process.send('READY')"],{stdio:['ignore','inherit','inherit','ipc']});
 process.on('SIGTERM',()=>{});
 setInterval(()=>{},1000);
+load.once('message',message=>{if(message==='READY')console.log('READY',process.pid,load.pid)});
 """)
     executable.chmod(0o755)
     env = dict(os.environ, PRODUCTION_WEB_SKIP_BUILD='1', PRODUCTION_WEB_PORT='28753',
@@ -94,10 +106,17 @@ setInterval(()=>{},1000);
     try:
         ready(process)
         descendants(process.pid, owned, groups)
+        print('GROUPS', *sorted(groups), flush=True)
+        if sys.argv[1:] == ['controller-signal']:
+            os.kill(os.getpid(), signal.SIGTERM)
         os.killpg(process.pid, signal.SIGTERM)
-        process.communicate(timeout=2)
-        if process.returncode != 143:
-            raise RuntimeError('SIGTERM status was masked')
+        try:
+            process.communicate(timeout=2)
+        except subprocess.TimeoutExpired as error:
+            raise RuntimeError('launcher pipes stayed open after readiness and SIGTERM') from error
+        # A shell can report its own SIGTERM or the launcher's conventional exit.
+        if process.returncode not in (-signal.SIGTERM, 128 + signal.SIGTERM):
+            raise RuntimeError(f'SIGTERM status was masked: {process.returncode}')
         for pid in owned:
             stopped(pid)
     finally:
@@ -113,3 +132,4 @@ setInterval(()=>{},1000);
             process.wait(timeout=5)
             for pid in owned:
                 stopped(pid)
+            print('STOPPED', flush=True)
