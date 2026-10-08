@@ -1,5 +1,7 @@
 "use client";
 
+import { memo } from "react";
+
 import { MaterialDocumentEditor } from "./material-document-editor.client";
 import {
   MaterialAuthoringBlockingState,
@@ -25,7 +27,7 @@ interface MaterialAuthoringWorkspaceProps {
 }
 
 /** Composes the editor from a serializable presentation contract. */
-export function MaterialAuthoringWorkspace({
+function MaterialAuthoringWorkspaceView({
   actions,
   presentation,
 }: MaterialAuthoringWorkspaceProps) {
@@ -166,3 +168,53 @@ export function MaterialAuthoringWorkspace({
     </main>
   );
 }
+
+// The editor owns its mounted document (#602). A document edit only changes the surrounding
+// workspace when a displayed fact changes, such as the save label or publication validation.
+function sameWorkspaceProps(
+  previous: MaterialAuthoringWorkspaceProps,
+  next: MaterialAuthoringWorkspaceProps,
+): boolean {
+  if (previous.actions !== next.actions) return false;
+  const { document: _previousDocument, ...previousDraft } =
+    previous.presentation.draft;
+  const { document: _nextDocument, ...nextDraft } = next.presentation.draft;
+  if (!shallowEqual(previousDraft, nextDraft)) return false;
+  const { draft: _previousDraft, ...previousPresentation } =
+    previous.presentation;
+  const { draft: _nextDraft, ...nextPresentation } = next.presentation;
+  const nextValues = new Map<string, unknown>(Object.entries(nextPresentation));
+  const previousValues = Object.entries(previousPresentation);
+  return (
+    previousValues.length === nextValues.size &&
+    previousValues.every(([key, value]) => {
+      const candidate = nextValues.get(key);
+      return (
+        nextValues.has(key) &&
+        (Object.is(value, candidate) ||
+          (typeof value === "object" &&
+            value !== null &&
+            typeof candidate === "object" &&
+            candidate !== null &&
+            shallowEqual(value, candidate)))
+      );
+    })
+  );
+}
+
+function shallowEqual(previous: object, next: object): boolean {
+  const nextValues = new Map<string, unknown>(Object.entries(next));
+  const previousValues = Object.entries(previous);
+  return (
+    previousValues.length === nextValues.size &&
+    previousValues.every(
+      ([key, value]) =>
+        nextValues.has(key) && Object.is(value, nextValues.get(key)),
+    )
+  );
+}
+
+export const MaterialAuthoringWorkspace = memo(
+  MaterialAuthoringWorkspaceView,
+  sameWorkspaceProps,
+);
