@@ -7,6 +7,9 @@ const eventSchema = z.object({
     .object({
       name: z.string().optional(),
       file: z.string().optional(),
+      entryFile: z.string().optional(),
+      testId: z.number().optional(),
+      parentId: z.number().optional(),
       line: z.number().optional(),
       column: z.number().optional(),
       nesting: z.number().optional(),
@@ -25,18 +28,19 @@ export default async function* reporter(source) {
   const files = new Map();
   /** @type {Map<string, string>} */
   const names = new Map();
-  /** @type {string[]} */
-  const parents = [];
   for await (const input of source) {
     const parsed = eventSchema.safeParse(input);
     if (!parsed.success) continue;
     const { type, data } = parsed.data;
-    const key = `${data.file}:${data.line}:${data.column}:${data.name}`;
+    const key = `${data.entryFile ?? data.file}:${data.testId}`;
     if (type === "test:enqueue" && data.name !== undefined) {
-      const nesting = data.nesting ?? 0;
-      parents.length = nesting;
-      names.set(key, [...parents, data.name].join(" > "));
-      parents[nesting] = data.name;
+      const parent = names.get(
+        `${data.entryFile ?? data.file}:${data.parentId}`,
+      );
+      names.set(
+        key,
+        parent === undefined ? data.name : `${parent} > ${data.name}`,
+      );
     }
     if (
       !["test:pass", "test:fail"].includes(type) ||

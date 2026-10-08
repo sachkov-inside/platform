@@ -6,6 +6,7 @@ import { tmpdir } from "node:os";
 import { resolve } from "node:path";
 import { test } from "node:test";
 import { z } from "zod";
+import nodeReporter from "./nightly-node-reporter.mjs";
 import {
   aggregate,
   normalizeVitest,
@@ -37,6 +38,56 @@ test("counts a first failure even when the remaining independent samples pass", 
   ]);
   assert.equal(rows[0]?.failed, 1);
   assert.equal(rows[0]?.attempts, 5);
+});
+
+test("Node reporter follows explicit parent IDs when nested tests enqueue after another suite", async () => {
+  async function* events() {
+    for (const [
+      testId,
+      parentId,
+      name,
+      nesting,
+    ] of /** @type {[number, number, string, number][]} */ ([
+      [1, 0, "A", 0],
+      [2, 0, "B", 0],
+      [4, 2, "leaf", 1],
+      [3, 1, "leaf", 1],
+    ]))
+      yield {
+        type: "test:enqueue",
+        data: {
+          testId,
+          parentId,
+          name,
+          nesting,
+          file: "a.test.mjs",
+          entryFile: "a.test.mjs",
+        },
+      };
+    for (const [testId, parentId] of [
+      [4, 2],
+      [3, 1],
+    ])
+      yield {
+        type: "test:pass",
+        data: {
+          testId,
+          parentId,
+          name: "leaf",
+          nesting: 1,
+          file: "a.test.mjs",
+          entryFile: "a.test.mjs",
+          details: { type: "test" },
+        },
+      };
+  }
+  let raw = "";
+  for await (const chunk of nodeReporter(events())) raw += chunk;
+  const rows = normalizeVitest(JSON.parse(raw), "/checkout", "unit");
+  assert.deepEqual(
+    rows.map((row) => row.name),
+    ["B > leaf", "A > leaf"],
+  );
 });
 
 test("the executable alternating fixture stays red and the reporter CLI creates then updates one issue", () => {
