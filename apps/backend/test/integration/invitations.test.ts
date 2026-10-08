@@ -96,12 +96,14 @@ describe("приглашения: выдача владельцем и пога�
       emailFingerprintKey: "synthetic-invitation-fingerprint-key-00",
     });
     const links = new TelegramAccountLinks(db.prisma);
-    grants = assembleAccessGrants({
-      prisma: db.prisma,
-      accounts,
-      recipientLinks: links,
-      clock: () => now,
-    });
+    grants = {
+      ...assembleAccessGrants({
+        prisma: db.prisma,
+        accounts,
+        recipientLinks: links,
+        clock: () => now,
+      }),
+    };
     operations = new BillingOperations({
       prisma: db.prisma,
       accounts,
