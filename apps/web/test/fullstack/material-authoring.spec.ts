@@ -354,6 +354,21 @@ for (const access of ["public", "closed"] as const) {
         row.getByText("Снят с публикации", { exact: true }),
       ).toBeVisible({ timeout: 15_000 });
     }
+    // Снятый урок (#838): автор смотрит его видео в предпросмотре, участнику плеер не выдаётся.
+    await page.goto(`/authoring/materials/${materialId}/preview`);
+    await expect(
+      page.locator("[data-video-player-mount] iframe"),
+    ).toBeVisible();
+    await signInFullStack(context, "MEMBER");
+    for (const preview of [{}, { preview: "true" }]) {
+      const deniedPreview = await (
+        await fullStackPageRequest(page)
+      ).post("/api/material-video-playback-sessions", {
+        headers: { origin: new URL(page.url()).origin },
+        multipart: { materialId, videoId, ...preview },
+      });
+      expect(deniedPreview.status()).toBe(403);
+    }
   });
 }
 

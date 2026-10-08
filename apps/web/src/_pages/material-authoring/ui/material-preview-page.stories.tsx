@@ -124,6 +124,32 @@ export const Published: Story = {
   },
 };
 
+/** Видео ещё обрабатывается: плеера нет, строка называет состояние (#838). */
+export const VideoNotReady: Story = {
+  name: "Черновик · видео не готово",
+  args: {
+    preview: {
+      ...materialPreview,
+      video: {
+        kind: "attached",
+        ready: false,
+        title: "Запись урока",
+        videoId: "03000000-0000-4000-8000-000000000001",
+      },
+    },
+  },
+  play: async ({ canvasElement }) => {
+    await expect(
+      canvasElement.querySelector("[data-preview-video]"),
+    ).toHaveTextContent(
+      "Видео «Запись урока» прикреплено, но ещё не готово к показу.",
+    );
+    await expect(
+      canvasElement.querySelector("[data-video-player-mount]"),
+    ).not.toBeInTheDocument();
+  },
+};
+
 /** Вариантный шаг показан как у читателя: ветка режима по умолчанию и переключатель. */
 export const VariantStep: Story = {
   name: "Вариантный шаг",

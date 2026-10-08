@@ -10,6 +10,7 @@ import type {
   StoredObject,
 } from "../../src/infrastructure/object-storage/index.js";
 import { createHash, randomUUID } from "node:crypto";
+import { SignJWT } from "jose";
 import { afterAll, beforeAll, describe, expect, test } from "vitest";
 import {
   assembleAccounts,
@@ -704,6 +705,7 @@ describe("independent product, library, support and shared chat rights", () => {
   test("draft video plays only in the author preview; readers, members and guests stay denied", async () => {
     now = new Date("2030-04-01T00:00:00Z");
     await grant([`product:${productA}`], null);
+    let ownerManagesMaterials = true;
     const videos = assembleVideos({
       prisma: db.prisma,
       provider: createTestVideoProvider(),
@@ -718,7 +720,8 @@ describe("independent product, library, support and shared chat rights", () => {
           materials.materialContent,
         ),
         accountPermissions: {
-          hasMaterialsManage: (id) => Promise.resolve(id === owner),
+          hasMaterialsManage: (id) =>
+            Promise.resolve(id === owner && ownerManagesMaterials),
         },
         accountRights: membership,
       }),
@@ -755,6 +758,26 @@ describe("independent product, library, support and shared chat rights", () => {
       });
       return { materialId: id, videoId, providerVideoId };
     }
+    async function signPlaybackToken(input: {
+      readonly act: string | undefined;
+      readonly providerVideoId: string;
+      readonly videoId: string;
+    }) {
+      const issuedAt = Math.floor(now.getTime() / 1000);
+      return new SignJWT({
+        ...(input.act === undefined ? {} : { act: input.act }),
+        pid: input.providerVideoId,
+        vid: input.videoId,
+      })
+        .setProtectedHeader({ alg: "HS256", typ: "JWT" })
+        .setIssuer("inside-platform")
+        .setAudience("kinescope-drm-callback")
+        .setSubject(owner)
+        .setJti(randomUUID())
+        .setIssuedAt(issuedAt)
+        .setExpirationTime(issuedAt + 60)
+        .sign(new TextEncoder().encode("synthetic-playback-signing-key-838"));
+    }
     const author = { kind: "account" as const, accountId: accountId(owner) };
     const member = { kind: "account" as const, accountId: accountId(buyer) };
     const stranger = {
@@ -786,6 +809,23 @@ describe("independent product, library, support and shared chat rights", () => {
             token,
           }),
         ).toBe(true);
+        // Тот же черновик через обычный play-токен или чужое действие обратный вызов не открывает.
+        for (const act of [undefined, "read"]) {
+          expect(
+            await playback.authorizeProvider({
+              providerVideoId: draft.providerVideoId,
+              token: await signPlaybackToken({ ...draft, act }),
+            }),
+          ).toBe(false);
+        }
+        ownerManagesMaterials = false;
+        expect(
+          await playback.authorizeProvider({
+            providerVideoId: draft.providerVideoId,
+            token,
+          }),
+        ).toBe(false);
+        ownerManagesMaterials = true;
       } else {
         expect(session.value.drmAuthToken).toBeNull();
       }
