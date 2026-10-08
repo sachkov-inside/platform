@@ -264,7 +264,14 @@ sys.exit(lock.main())
         self.assertTrue(any('waiting' in line for line in lines))
         self.addCleanup(self.resume, waiting.pid)
         os.kill(waiting.pid, signal.SIGSTOP)
-        _, status = os.waitpid(waiting.pid, os.WUNTRACED)
+        deadline = time.monotonic() + 10
+        while True:
+            pid, status = os.waitpid(waiting.pid, os.WUNTRACED | os.WNOHANG)
+            if pid:
+                break
+            self.assertLess(time.monotonic(), deadline, 'waiting for parent SIGSTOP')
+            # Poll the OS stop fact; elapsed time only bounds a stuck barrier.
+            time.sleep(0.01)
         self.assertTrue(os.WIFSTOPPED(status))
         waiting.terminate()
         self.release_fork(waiting)
