@@ -200,10 +200,12 @@ export function CheckoutFlow({
       const identity =
         "retry" in request ? request.retry.identity : request.identity;
       if (!result.ok) {
+        // method_unavailable приходит до чтения receipt и не доказывает отсутствие покупки.
         if (
           result.code !== "unavailable" &&
           result.code !== "dependency_unavailable" &&
-          result.code !== "unauthorized"
+          result.code !== "unauthorized" &&
+          result.code !== "method_unavailable"
         ) {
           setAttempt(null);
           completeOperation("purchase");

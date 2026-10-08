@@ -217,7 +217,10 @@ export const SubscriptionRequiresItsOwnQuote: Story = {
   },
 };
 
-function lostPurchaseResponse(state: "pending" | "unknown" = "pending") {
+function lostPurchaseResponse(
+  state: "pending" | "unknown" = "pending",
+  unavailableRetry = false,
+) {
   let original: unknown;
   let quotedSnapshot = productOnlyOffer;
   let purchasedSnapshot = productOnlyOffer;
@@ -257,6 +260,12 @@ function lostPurchaseResponse(state: "pending" | "unknown" = "pending") {
         original = body;
         purchasedSnapshot = quotedSnapshot;
         return Promise.reject(new TypeError("synthetic lost response"));
+      }
+      if (unavailableRetry) {
+        unavailableRetry = false;
+        return Promise.resolve(
+          Response.json({ ok: false, code: "method_unavailable" }),
+        );
       }
       if (JSON.stringify(body) !== JSON.stringify(original))
         return Promise.resolve(
@@ -302,15 +311,17 @@ export const LostResponseThenContactChange: Story = {
     await userEvent.click(
       canvas.getByRole("button", { name: "Повторить первоначальную покупку" }),
     );
-    await waitFor(() => expect(purchaseRequest).toHaveBeenCalledTimes(2));
+    await waitFor(() =>
+      expect(args.onPurchase).toHaveBeenCalledWith(
+        expect.objectContaining({
+          purchaseRef: pendingPurchase.purchaseRef,
+          state: "pending",
+        }),
+      ),
+    );
+    await expect(purchaseRequest).toHaveBeenCalledTimes(2);
     await expect(purchaseRequest).toHaveBeenLastCalledWith(original);
     await expect(consentRequest).toHaveBeenCalledTimes(1);
-    await expect(args.onPurchase).toHaveBeenCalledWith(
-      expect.objectContaining({
-        purchaseRef: pendingPurchase.purchaseRef,
-        state: "pending",
-      }),
-    );
   },
 };
 
@@ -527,5 +538,64 @@ export const LateQuoteCannotRestorePreviousSelection: Story = {
     await expect(
       canvas.getByRole("button", { name: "Обновить условия" }),
     ).toBeEnabled();
+  },
+};
+
+export const UnavailableMethodKeepsOriginalCommand: Story = {
+  beforeEach: () => lostPurchaseResponse("unknown", true),
+  play: async ({ canvasElement, args }) => {
+    const canvas = within(canvasElement);
+    await waitFor(() =>
+      expect(canvas.getByRole("button", { name: /^Оплатить /u })).toBeEnabled(),
+    );
+    await userEvent.click(canvas.getByRole("button", { name: /^Оплатить /u }));
+    await canvas.findByRole("alert");
+    const original: unknown = purchaseRequest.mock.calls[0]?.[0];
+    await userEvent.click(
+      canvas.getByRole("button", { name: "Новый контакт" }),
+    );
+    await userEvent.click(canvas.getByRole("button", { name: "Вариант B" }));
+    await userEvent.click(
+      canvas.getByRole("button", { name: "Повторить первоначальную покупку" }),
+    );
+    await canvas.findByRole("alert");
+    await expect(
+      canvas.getByRole("button", { name: /^Оплатить /u }),
+    ).toBeDisabled();
+    await userEvent.click(
+      canvas.getByRole("button", { name: "Повторить первоначальную покупку" }),
+    );
+    await waitFor(() =>
+      expect(args.onPurchase).toHaveBeenCalledWith(
+        expect.objectContaining({
+          purchaseRef: pendingPurchase.purchaseRef,
+          state: "unknown",
+        }),
+      ),
+    );
+    await expect(purchaseRequest).toHaveBeenCalledTimes(3);
+    await expect(purchaseRequest.mock.calls[1]?.[0]).toEqual(original);
+    await expect(purchaseRequest.mock.calls[2]?.[0]).toEqual(original);
+    await expect(consentRequest).toHaveBeenCalledTimes(1);
+  },
+};
+
+/** Потерянный HTTP-ответ: форма называет первоначальные условия и предлагает точный повтор. */
+export const OriginalPurchaseResponseLost: Story = {
+  beforeEach: () => lostPurchaseResponse("unknown"),
+  play: async ({ canvasElement, args }) => {
+    const canvas = within(canvasElement);
+    await waitFor(() =>
+      expect(canvas.getByRole("button", { name: /^Оплатить /u })).toBeEnabled(),
+    );
+    await userEvent.click(canvas.getByRole("button", { name: /^Оплатить /u }));
+    await canvas.findByRole("alert");
+    await expect(
+      canvas.getByRole("button", { name: "Повторить первоначальную покупку" }),
+    ).toBeEnabled();
+    await expect(
+      canvas.getByRole("button", { name: /^Оплатить /u }),
+    ).toBeDisabled();
+    await expect(args.onPurchase).not.toHaveBeenCalled();
   },
 };
