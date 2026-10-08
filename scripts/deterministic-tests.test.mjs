@@ -104,6 +104,25 @@ test("a property named global is not the global clock owner", () => {
   );
 });
 
+test("hoisted clock bindings do not escape static blocks or function bodies", () => {
+  for (const source of [
+    "class Fixture { static { var Date = clock; } } Date.now();",
+    "function read(now = Date.now()) { var Date = clock; return now; }",
+  ])
+    assert.match(
+      deterministicTestViolations("test/example.test.ts", source).join("\n"),
+      /wall-clock/u,
+    );
+  for (const kind of ["var", "let", "const"])
+    assert.deepEqual(
+      deterministicTestViolations(
+        "test/example.test.ts",
+        `class Fixture { static { ${kind} Date = clock; Date.now(); } }`,
+      ),
+      [],
+    );
+});
+
 test("mutating a module seed is refused, fresh local data is allowed", () => {
   assert.match(
     deterministicTestViolations(

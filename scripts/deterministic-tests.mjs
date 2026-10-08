@@ -174,8 +174,15 @@ export function deterministicTestViolations(file, source, testSource = true) {
   const hoistedVariables = [];
   walk(program, (value, ancestors) => {
     if (value.type !== "VariableDeclaration" || value["kind"] !== "var") return;
+    const owner = ancestors.findLast(
+      (entry) => functionTypes.has(entry.type) || entry.type === "StaticBlock",
+    );
     const scope =
-      ancestors.findLast((entry) => functionTypes.has(entry.type)) ?? program;
+      owner?.type === "StaticBlock"
+        ? owner
+        : owner !== undefined && node(owner["body"])
+          ? owner["body"]
+          : program;
     for (const declaration of nodes(value["declarations"]))
       for (const binding of bindingNames(declaration["id"]))
         hoistedVariables.push({ binding, scope });
@@ -189,7 +196,7 @@ export function deterministicTestViolations(file, source, testSource = true) {
       ) ||
       shadowed(ancestors, binding) ||
       ancestors.some((scope) => {
-        if (["Program", "BlockStatement"].includes(scope.type))
+        if (["Program", "BlockStatement", "StaticBlock"].includes(scope.type))
           return declares(scope, binding);
         if (scope.type === "CatchClause")
           return bindingNames(scope["param"]).includes(binding);
