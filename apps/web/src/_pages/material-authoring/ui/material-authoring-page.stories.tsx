@@ -1,3 +1,7 @@
+import {
+  AutosaveActivity,
+  autosaveWhileHidden,
+} from "@/storybook/autosave-activity";
 import { act, Profiler } from "react";
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import {
@@ -1230,5 +1234,70 @@ export const WorkspaceTyping: Story = {
     ).toBeGreaterThan(0);
     await expect(savedField("title")).toBe("Developer Pipeline без магии!");
     await expect(savedField("document")).toContain(text.trim());
+  },
+};
+
+export const SavedAfterActivity: Story = {
+  render: (args) => (
+    <AutosaveActivity>
+      <MaterialAuthoringPageClient {...args} />
+    </AutosaveActivity>
+  ),
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await autosaveWhileHidden(
+      canvasElement,
+      async () => {
+        await userEvent.type(
+          canvas.getByRole("textbox", { name: "Название" }),
+          " — правка",
+        );
+      },
+      /Сохранено сейчас/u,
+    );
+  },
+};
+
+export const FailedAfterActivity: Story = {
+  ...SavedAfterActivity,
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await autosaveWhileHidden(
+      canvasElement,
+      async () => {
+        await userEvent.type(
+          canvas.getByRole("textbox", { name: "Название" }),
+          " — отказ",
+        );
+      },
+      "Повторить",
+      () => new Response(null, { status: 503 }),
+    );
+    await expect(
+      canvas.queryByText(/Сохранено сейчас/u),
+    ).not.toBeInTheDocument();
+  },
+};
+
+export const NewerEditAfterActivity: Story = {
+  ...SavedAfterActivity,
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    const title = canvas.getByRole("textbox", { name: "Название" });
+    await autosaveWhileHidden(
+      canvasElement,
+      async () => {
+        await userEvent.clear(title);
+        await userEvent.type(title, "Первая правка");
+      },
+      /Сохранено сейчас/u,
+      undefined,
+      async () => {
+        await userEvent.clear(title);
+        await userEvent.type(title, "Новая правка");
+      },
+    );
+    await expect(title).toHaveValue("Новая правка");
+    await expect(savedField("title")).toBe("Новая правка");
   },
 };

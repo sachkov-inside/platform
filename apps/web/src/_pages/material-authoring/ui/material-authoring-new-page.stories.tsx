@@ -1,3 +1,7 @@
+import {
+  AutosaveActivity,
+  autosaveWhileHidden,
+} from "@/storybook/autosave-activity";
 import type { Meta, StoryObj } from "@storybook/react-vite";
 import { expect, fn, spyOn, userEvent, within } from "storybook/test";
 
@@ -224,5 +228,55 @@ export const UnexpectedError: Story = {
     await expect(
       page.getByText("Код обращения: identity-session"),
     ).toBeVisible();
+  },
+};
+
+export const CreatedAfterActivity: Story = {
+  render: (args) => (
+    <AutosaveActivity>
+      <MaterialAuthoringPageClient {...args} />
+    </AutosaveActivity>
+  ),
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await autosaveWhileHidden(
+      canvasElement,
+      async () => {
+        await userEvent.type(
+          canvas.getByRole("textbox", { name: "Название" }),
+          "Черновик после возврата",
+        );
+      },
+      /Сохранено сейчас/u,
+      undefined,
+      undefined,
+      2,
+    );
+    await expect(addressChanges).toHaveBeenCalledOnce();
+    // Creation changes canDelete in the draft; its existing queue follows with one PUT.
+    await expect(materialRequests.mock.calls.map(([method]) => method)).toEqual(
+      ["POST", "PUT"],
+    );
+  },
+};
+export const FailedAfterActivity: Story = {
+  ...CreatedAfterActivity,
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await autosaveWhileHidden(
+      canvasElement,
+      async () => {
+        await userEvent.type(
+          canvas.getByRole("textbox", { name: "Название" }),
+          "Черновик с отказом",
+        );
+      },
+      "Повторить",
+      () => new Response(null, { status: 503 }),
+    );
+    await expect(addressChanges).not.toHaveBeenCalled();
+    await expect(
+      canvas.queryByText(/Сохранено сейчас/u),
+    ).not.toBeInTheDocument();
   },
 };
