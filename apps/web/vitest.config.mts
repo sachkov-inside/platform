@@ -27,6 +27,7 @@ export default defineConfig({
         extends: true,
         test: {
           name: "module",
+          maxWorkers: 2,
           environment: "node",
           include: ["test/module/**/*.test.ts"],
           // Настоящий SDK Logto в проверках (#766) идёт через Vite: он импортирует `next/navigation`
@@ -45,6 +46,7 @@ export default defineConfig({
         extends: true,
         test: {
           name: "browser-engines",
+          maxWorkers: 2,
           environment: "node",
           include: ["test/browser-engines/**/*.test.ts"],
           restoreMocks: true,
@@ -62,6 +64,7 @@ export default defineConfig({
         ],
         test: {
           name: "storybook",
+          maxWorkers: 2,
           browser: {
             enabled: true,
             headless: true,
