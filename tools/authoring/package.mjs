@@ -175,6 +175,15 @@ export const manifestSchema = z
             .strict()
             .nullable()
             .optional(),
+          introduction: z
+            .object({
+              audience: z.string().max(4000),
+              outcome: z.string().max(4000),
+              prerequisites: z.string().max(4000),
+              scope: z.string().max(4000),
+            })
+            .strict()
+            .optional(),
           title: z.string().min(1),
           summary: z.string(),
           coverAssetId: z.string().nullable().optional(),

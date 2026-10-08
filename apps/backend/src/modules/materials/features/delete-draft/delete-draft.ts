@@ -1,3 +1,7 @@
+import {
+  checkContentWrite,
+  contentWriter,
+} from "../../domain/content-write-policy.js";
 import { z } from "zod";
 
 import type {
@@ -7,8 +11,7 @@ import type {
 import type { MaterialAuthoringDependencies } from "../../facets/material-authoring/material-authoring.dependencies.js";
 import { lockMaterialForLifecycleChange } from "../../infrastructure/postgres/material-locks.js";
 import { lockMaterialReferenceChanges } from "../../../../infrastructure/prisma/index.js";
-import { lockMaterialSeries } from "../../infrastructure/postgres/series-order.js";
-import { canChangeProductMemberships } from "../../infrastructure/postgres/source-product-memberships.js";
+import { loadChangedProductMemberships } from "../../infrastructure/postgres/source-product-memberships.js";
 import { authorizeManager } from "../../ports/author-policy.js";
 import {
   executeAuthoringTransaction,
@@ -79,17 +82,11 @@ export function assembleDeleteDraft(
           },
           rollback,
           async () => {
-            await lockMaterialSeries(transaction, command.materialId);
-            if (
-              !(await canChangeProductMemberships(
-                transaction,
-                command.materialId,
-                [],
-                null,
-              ))
-            ) {
-              return rollback({ code: "draft_deletion_forbidden" });
-            }
+            const memberships = await loadChangedProductMemberships(
+              transaction,
+              command.materialId,
+              [],
+            );
             await lockMaterialReferenceChanges(transaction, [
               command.materialId,
             ]);
@@ -109,7 +106,16 @@ export function assembleDeleteDraft(
                 currentContentVersion: material.lifecycle.contentVersion,
               });
             }
-            if (material.sourceId !== null || !material.lifecycle.canDelete()) {
+            const sourceError = checkContentWrite(contentWriter(), [
+              {
+                kind: "material",
+                sourceId: material.sourceId,
+                path: "/materialId",
+              },
+              ...memberships,
+            ]);
+            if (sourceError !== null) return rollback(sourceError);
+            if (!material.lifecycle.canDelete()) {
               return rollback({ code: "draft_deletion_forbidden" });
             }
             if (

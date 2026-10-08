@@ -3,6 +3,7 @@ import type {
   ContentCollectionSlugConflictError,
   ForbiddenError,
   InvalidContentError,
+  InvalidReferenceError,
   StaleContentCollectionVersionError,
   SystemError,
 } from "../../facets/material-authoring/material-authoring.contract.js";
@@ -19,7 +20,7 @@ export interface UpdateContentCollectionCommand {
   readonly collectionId: string;
   readonly expectedVersion: number;
   /** Omitted preserves the stored introduction; supplied replaces all of it. */
-  readonly introduction?: ProductIntroductionDto;
+  readonly introduction?: ProductIntroductionDto | undefined;
   readonly kind: ContentCollectionKind;
   readonly name: string;
   /** Только для source-scoped импорта Product (ADR 0026). */
@@ -32,6 +33,7 @@ export type UpdateContentCollectionError =
   | ContentCollectionSlugConflictError
   | ForbiddenError
   | InvalidContentError
+  | InvalidReferenceError
   | StaleContentCollectionVersionError
   | SystemError;
 
