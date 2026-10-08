@@ -1,4 +1,4 @@
-export const name = "0083_owner_command_keys";
+export const name = "0084_owner_command_keys";
 export const statement = `
 CREATE TABLE billing.owner_command_keys (
  actor_id uuid NOT NULL, operation_id uuid NOT NULL, fingerprint text NOT NULL,

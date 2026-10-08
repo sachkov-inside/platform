@@ -1786,6 +1786,7 @@ model ProductTask {
   relatedMaterialSourceIds String[] @map("related_material_source_ids")
   afterMaterialSourceId    String?  @map("after_material_source_id")
   publicationState         String   @map("publication_state")
+  page                     Json?
   currentVersion           Int      @map("current_version")
   revision                 Int
   createdAt                DateTime @map("created_at") @db.Timestamptz

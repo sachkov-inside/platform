@@ -239,10 +239,52 @@ class LockTest(unittest.TestCase):
 
     def test_waiter_can_be_cancelled(self):
         self.holders()
-        waiting = self.start()
-        self.line(waiting, 'waiting')
+        # Hold the parent inside fork until the supervisor reports waiting.
+        # This makes cancellation precede any post-fork handler registration.
+        launcher = """
+import os, sys
+sys.path.insert(0, sys.argv.pop(1))
+import lock
+fork = os.fork
+def gated_fork():
+    child = fork()
+    if child:
+        print('FORK_PARENT', flush=True)
+        sys.stdin.readline()
+    return child
+os.fork = gated_fork
+sys.exit(lock.main())
+"""
+        waiting = self.start(launcher=[sys.executable, '-c', launcher,
+                                      str(WRAPPER.parent / 'heavy-check'),
+                                      sys.executable, '-c', FIXTURE])
+        self.addCleanup(self.release_fork, waiting)
+        lines = [self.line(waiting, ''), self.line(waiting, '')]
+        self.assertTrue(any('FORK_PARENT' in line for line in lines))
+        self.assertTrue(any('waiting' in line for line in lines))
+        self.addCleanup(self.resume, waiting.pid)
+        os.kill(waiting.pid, signal.SIGSTOP)
+        deadline = time.monotonic() + 10
+        while True:
+            pid, status = os.waitpid(waiting.pid, os.WUNTRACED | os.WNOHANG)
+            if pid:
+                break
+            self.assertLess(time.monotonic(), deadline, 'waiting for parent SIGSTOP')
+            # Poll the OS stop fact; elapsed time only bounds a stuck barrier.
+            time.sleep(0.01)
+        self.assertTrue(os.WIFSTOPPED(status))
         waiting.terminate()
+        self.release_fork(waiting)
+        self.resume(waiting.pid)
         self.assertEqual(waiting.wait(timeout=10), 143)
+
+    @staticmethod
+    def release_fork(process):
+        try:
+            process.stdin.write(b'\n')
+            process.stdin.flush()
+        except BrokenPipeError:
+            pass
 
     def test_exit_code_and_release_after_failure(self):
         failed = self.start([sys.executable, '-c', 'raise SystemExit(17)'])

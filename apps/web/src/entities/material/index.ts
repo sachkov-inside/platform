@@ -50,3 +50,8 @@ export {
   useMaterialReading,
   type MaterialReadingSnapshot,
 } from "./model/reading-context.client";
+
+export {
+  MaterialBodyView,
+  type MaterialBodyRendering,
+} from "./ui/material-body-view";

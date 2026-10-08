@@ -1,3 +1,8 @@
+import type { MaterialAssets } from "../../assets/index.js";
+import {
+  storedTaskPageSchema,
+  type StoredTaskPage,
+} from "../domain/task-page.js";
 import { randomUUID } from "node:crypto";
 
 import type { ProductTasksPrismaClient } from "../../../infrastructure/prisma/index.js";
@@ -24,6 +29,7 @@ export interface LearningTaskDependencies {
   /** Off in production until the owner publishes data policy v4 (#946). */
   readonly submissionsEnabled: boolean;
   readonly clock?: () => Date;
+  readonly materialAssets?: Pick<MaterialAssets, "loadPresentations">;
 }
 
 export interface CurrentTask {
@@ -39,6 +45,7 @@ export interface CurrentTask {
   readonly version: number;
   readonly definition: TaskDefinition;
   readonly definitionDigest: string;
+  readonly page: StoredTaskPage | null;
 }
 
 /** The task by code with its current Task Version; `null` when no such task exists. */
@@ -66,6 +73,7 @@ export async function findCurrentTask(
     version: task.currentVersion,
     definition: taskDefinitionSchema.parse(version.definition),
     definitionDigest: version.definitionDigest,
+    page: task.page === null ? null : storedTaskPageSchema.parse(task.page),
   };
 }
 
