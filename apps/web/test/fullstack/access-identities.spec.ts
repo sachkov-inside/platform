@@ -6,6 +6,7 @@ import {
   type Page,
 } from "@playwright/test";
 import { z } from "zod";
+import { backendFixtureInstant } from "../support/backend-fixture-clock";
 
 import {
   fullStackBaseUrl,
@@ -376,7 +377,7 @@ test("a learner scoped to Product A reads Product A, is denied Product B and los
   const learner = await openAs(browser, "PRODUCT_A_LEARNER");
   const billingManager = await openAs(browser, "BILLING_ONLY");
   const terms = {
-    startsAt: "2026-01-01T09:00:00.000Z",
+    startsAt: await backendFixtureInstant(billingManager.page.request),
     endsAt: null,
     endPolicy: "fixed",
   };

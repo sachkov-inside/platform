@@ -3,6 +3,7 @@ import AxeBuilder from "@axe-core/playwright";
 import { expect, test } from "@playwright/test";
 import { signInFullStack } from "../support/full-stack-session";
 import { screenshotWholePage } from "../support/whole-page-screenshot.mjs";
+import { backendFixtureInstant } from "../support/backend-fixture-clock";
 test("owner assigns course tariff and the open cabinet converges through real BFF and PostgreSQL", async ({
   page,
   context,
@@ -67,7 +68,15 @@ test("owner assigns course tariff and the open cabinet converges through real BF
   await rules
     .getByLabel("Подтверждаемый источник")
     .fill(`synthetic-course-${info.project.name}`);
-  await rules.getByLabel("Начало по Москве").fill("2026-01-01T12:00");
+  await rules
+    .getByLabel("Начало по Москве")
+    .fill(
+      new Date(
+        Date.parse(await backendFixtureInstant(page.request)) - 86_400_000,
+      )
+        .toISOString()
+        .slice(0, 16),
+    );
   await rules
     .getByLabel("Причина", { exact: true })
     .fill("Синтетическая публикация правила");

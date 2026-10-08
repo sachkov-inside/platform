@@ -13,6 +13,7 @@ import {
 import { prepareEvidenceDirectory } from "../../../../scripts/evidence-path.mjs";
 import { screenshotWholePage } from "../support/whole-page-screenshot.mjs";
 import { z } from "zod";
+import { backendFixtureInstant } from "../support/backend-fixture-clock";
 
 const currentMaterialEditorUrl =
   /\/authoring\/materials\/[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}(?:\?.*)?$/u;
@@ -152,7 +153,7 @@ for (const access of ["public", "closed"] as const) {
             tierId,
             tierRevision: 1,
             terms: {
-              startsAt: "2026-01-01T09:00:00.000Z",
+              startsAt: await backendFixtureInstant(request),
               endsAt: null,
               endPolicy: "fixed",
             },
