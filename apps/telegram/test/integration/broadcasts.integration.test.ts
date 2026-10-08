@@ -9,6 +9,7 @@ import { Test } from "@nestjs/testing";
 import { sql } from "kysely";
 import {
   afterAll,
+  afterEach,
   beforeAll,
   beforeEach,
   describe,
@@ -391,8 +392,12 @@ describe("broadcast audience and lifecycle", () => {
       ).statusCode,
     ).toBe(409);
   });
-  it("reaches everyone who ran /start through the bot, except /stop without /resume and blocked contacts", async () => {
+  describe("audience from bot commands", () => {
     let update = 700;
+    function advance() {
+      now = new Date(now.getTime() + 1000);
+      vi.setSystemTime(now);
+    }
     async function telegram(payload: object) {
       const response = await app.inject({
         method: "POST",
@@ -401,18 +406,64 @@ describe("broadcast audience and lifecycle", () => {
         payload,
       });
       expect(response.statusCode).toBe(202);
-      await app.get(TelegramUpdateProcessor).processAvailable();
-    }
-    // The bot answers each command first; its later messages wait for those answers.
-    async function settle() {
-      for (let second = 0; second < 5; second++) {
-        now = new Date(now.getTime() + 1000);
-        await app.get(StartResponseDeliveryProcessor).processAvailable(50, now);
-        await scheduler.processAvailable();
-      }
+      expect(
+        await app.get(TelegramUpdateProcessor).processAvailable(1, now),
+      ).toBe(1);
+      const receipt = await database
+        .selectFrom("telegram_updates")
+        .select(["state", "received_at", "processed_at"])
+        .where("bot_identity", "=", config.botIdentity)
+        .where("update_id", "=", String(update))
+        .executeTakeFirstOrThrow();
+      expect(receipt).toEqual({
+        state: "processed",
+        received_at: now,
+        processed_at: now,
+      });
     }
     const say = (user: number, text: string) =>
       telegram(privateStartUpdate(++update, user, { text }));
+    async function processUntil(
+      done: () => Promise<boolean>,
+      process: () => Promise<number>,
+      failure: string,
+    ) {
+      for (let turn = 0; turn <= 20; turn++) {
+        if (await done()) return;
+        if (turn === 20) break;
+        advance();
+        await process();
+      }
+      throw new Error(failure);
+    }
+    function drainReplies() {
+      return processUntil(
+        async () => {
+          const pending = await database
+            .selectFrom("start_response_deliveries")
+            .select("id")
+            .where("state", "in", ["pending", "sending", "retry_scheduled"])
+            .executeTakeFirst();
+          return pending === undefined;
+        },
+        () => app.get(StartResponseDeliveryProcessor).processAvailable(1, now),
+        "Bot command replies did not drain",
+      );
+    }
+    function deliverBroadcast(id: string) {
+      return processUntil(
+        async () => {
+          const current = await database
+            .selectFrom("communication_broadcasts")
+            .select("state")
+            .where("broadcast_id", "=", id)
+            .executeTakeFirstOrThrow();
+          return current.state === "completed";
+        },
+        () => scheduler.processAvailable(1),
+        "Broadcast did not complete",
+      );
+    }
     const reached = () =>
       sent
         .filter(
@@ -420,28 +471,68 @@ describe("broadcast audience and lifecycle", () => {
         )
         .map((m) => m.chatId)
         .sort();
-    await setup();
-    await say(51, "/start");
-    await say(52, "/start");
-    await say(52, "/stop");
-    await say(53, "/start");
-    await say(53, "/stop");
-    await say(53, "/resume");
-    await say(54, "/start");
-    await telegram(privateContactabilityUpdate(++update, 54, "kicked"));
-    await settle();
-    const { result } = await launch();
-    expect(result.snapshotSize).toBe(2);
-    await settle();
-    expect(reached()).toEqual(["51", "53"]);
-    // /resume after a launch does not add the contact to that launch's snapshot.
-    await say(52, "/resume");
-    await settle();
-    expect(reached()).toEqual(["51", "53"]);
-    // The next broadcast the owner launches reaches the returned contact as well.
-    await launch();
-    await settle();
-    expect(reached()).toEqual(["51", "51", "52", "53", "53"]);
+    beforeEach(async () => {
+      update = 700;
+      vi.useFakeTimers({ toFake: ["Date"] });
+      vi.setSystemTime(now);
+      // This audience contract needs entry replies, but no timed funnel steps.
+      await setup({ ...draft(), steps: [] });
+      await say(51, "/start");
+      await say(52, "/start");
+      await say(52, "/stop");
+      await say(53, "/start");
+      await say(53, "/stop");
+      await say(53, "/resume");
+      await say(54, "/start");
+      await telegram(privateContactabilityUpdate(++update, 54, "kicked"));
+      await drainReplies();
+      // Finish reachable contacts' entry messages before launching a broadcast.
+      await processUntil(
+        async () => {
+          const pending = await database
+            .selectFrom("communication_deliveries as d")
+            .innerJoin(
+              "communication_contacts as c",
+              "c.contact_id",
+              "d.contact_id",
+            )
+            .innerJoin("bot_contacts as b", (join) =>
+              join
+                .onRef("b.telegram_user_id", "=", "c.telegram_user_id")
+                .onRef("b.bot_identity", "=", "c.bot_identity"),
+            )
+            .select("d.delivery_id")
+            .where("d.kind", "in", ["intro", "entry"])
+            .where("d.completed_at", "is", null)
+            .where("b.contactability", "=", "reachable")
+            .executeTakeFirst();
+          return pending === undefined;
+        },
+        () => scheduler.processAvailable(1),
+        "Bot entry messages did not drain",
+      );
+    });
+    afterEach(() => vi.useRealTimers());
+    it("reaches everyone who ran /start through the bot, except /stop without /resume and blocked contacts", async () => {
+      const first = await launch();
+      expect(first.result.snapshotSize).toBe(2);
+      await deliverBroadcast(first.value.broadcastId);
+      expect(reached()).toEqual(["51", "53"]);
+      // /resume after a launch does not add the contact to that launch's snapshot.
+      await say(52, "/resume");
+      await drainReplies();
+      advance();
+      await scheduler.processAvailable(1);
+      expect(await broadcastDeliveries(first.value.broadcastId)).toHaveLength(
+        2,
+      );
+      expect(reached()).toEqual(["51", "53"]);
+      // The next broadcast reaches the returned contact as well.
+      const next = await launch();
+      expect(next.result.snapshotSize).toBe(3);
+      await deliverBroadcast(next.value.broadcastId);
+      expect(reached()).toEqual(["51", "51", "52", "53", "53"]);
+    });
   });
   it("suppresses delayed retry permanently across stop/resume; a new broadcast can include the contact", async () => {
     await oldContact();
