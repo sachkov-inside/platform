@@ -27,7 +27,7 @@ export const accessCapabilitySchema: z.ZodUnion<
 
 export type AccessCapability = z.infer<typeof accessCapabilitySchema>;
 
-/** Право на одно конкретный Product; принимает и сырую строку прежней записи. */
+/** Право на один конкретный Product; принимает и сырую строку прежней записи. */
 export function isProductCapability(capability: string): boolean {
   return capability.startsWith("product:");
 }
