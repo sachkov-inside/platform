@@ -5,6 +5,7 @@ from pathlib import Path
 import selectors
 import signal
 import subprocess
+import tempfile
 import time
 import unittest
 
@@ -36,8 +37,9 @@ def read_ready(process):
                 raise RuntimeError('owner exited before readiness')
             line += byte
             if byte == b'\n':
-                if line.startswith(b'READY '):
-                    return [int(value) for value in line.split()[1:]]
+                observed = line.lstrip(b'# ')
+                if observed.startswith(b'READY '):
+                    return [int(value) for value in observed.split()[1:]]
                 line = b''
 
 
@@ -117,6 +119,42 @@ class Ownership(unittest.TestCase):
 
     def test_completed_command_cleans_remaining_descendants(self):
         self.exercise('command-exit')
+
+    def test_native_node_test_runner_sigkill(self):
+        source = f"""
+        import {{test}} from 'node:test';
+        import {{spawnOwned,stopOwned}} from {json.dumps(API)};
+        test('owned native load',async t=>{{
+          const child=spawnOwned(process.execPath,['-e',{json.dumps(LOAD)}],
+            {{stdio:['ignore','pipe','inherit']}});
+          t.after(()=>stopOwned(child,100));
+          child.stdout.once('data',data=>console.log(data.toString().trim(),process.pid));
+          await new Promise(()=>{{}});
+        }});
+        """
+        with tempfile.TemporaryDirectory(prefix='owned-native-runner-') as directory:
+            fixture = Path(directory) / 'runner.test.mjs'
+            fixture.write_text(source)
+            process = subprocess.Popen(['node', '--test', str(fixture)], cwd=ROOT,
+                                       stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                                       start_new_session=True)
+            pids = []
+            try:
+                pids = read_ready(process)
+                os.kill(process.pid, signal.SIGKILL)
+                process.communicate(timeout=12)
+                self.assertEqual(process.returncode, -signal.SIGKILL)
+                for pid in pids:
+                    self.assertTrue(stopped(pid), f'native runner load {pid} survived')
+            finally:
+                for pid in pids:
+                    try:
+                        os.kill(pid, signal.SIGKILL)
+                    except ProcessLookupError:
+                        pass
+                if process.poll() is None:
+                    os.killpg(process.pid, signal.SIGKILL)
+                process.communicate(timeout=5)
 
     def test_command_failure_preserves_status(self):
         for command, expected in ((['node', '-e', 'process.exit(19)'], 19),

@@ -8,7 +8,7 @@ import sys
 import time
 
 sys.path.insert(0, str(Path(__file__).parent / 'heavy-check'))
-from lock import track_descendants, signal_groups, command_signals
+from lock import track_descendants, signal_groups, command_signals, POLL_SECONDS
 
 
 def stop_tree(process, tracked, groups, grace):
@@ -53,7 +53,7 @@ def main():
             track_descendants(process, tracked, groups)
             if stopping:
                 return 143
-            if select.select([3], [], [], 0.05)[0]:
+            if select.select([3], [], [], POLL_SECONDS)[0]:
                 # EOF also detects normal exit and SIGKILL of the Node owner.
                 import os
                 request = os.read(3, 4096)
