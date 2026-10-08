@@ -294,10 +294,9 @@ export const FormatC: Story = {
     if (advice === null)
       throw new Error("Task advice must use a native summary.");
     await expect(page.getByText("Начни с одного запроса.")).not.toBeVisible();
-    advice.focus();
-    await userEvent.keyboard("{Enter}");
+    await userEvent.click(advice);
     await expect(page.getByText("Начни с одного запроса.")).toBeVisible();
-    await userEvent.keyboard("{Enter}");
+    await userEvent.click(advice);
     await expect(page.getByText("Начни с одного запроса.")).not.toBeVisible();
     const image = page.getByRole("img", { name: "Схема учебного проекта" });
     await expect(image).toBeVisible();
