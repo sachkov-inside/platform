@@ -12,6 +12,7 @@ import {
 import {
   authoringMaterialPreviewHref,
   authoringProductEditorHref,
+  authoringReturnActionLabel,
   authoringReturnLabel,
   parseAuthoringReturnHref,
   withAuthoringReturnHref,
@@ -93,6 +94,17 @@ describe("Authoring Materials server adapter", () => {
       editorHref,
     );
     expect(preview.searchParams.get("product")).toBe(productId);
+    // Предпросмотр → редактор → предпросмотр не теряет продукт: он записан в адресе возврата.
+    expect(
+      new URL(
+        authoringMaterialPreviewHref(materialId, editorHref),
+        "https://inside.local",
+      ).searchParams.get("product"),
+    ).toBe(productId);
+    expect(authoringReturnActionLabel(editorHref)).toBe("Вернуться к продукту");
+    expect(authoringReturnActionLabel("/authoring/materials")).toBe(
+      "Вернуться к материалам",
+    );
   });
 
   it("maps one protected corpus page to the presentation contract", async () => {

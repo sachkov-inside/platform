@@ -225,6 +225,17 @@ export const Chapters: Story = {
 export const ChaptersMobile: Story = {
   args: { presentation: chaptered },
   globals: { viewport: { value: "mobile390", isRotated: false } },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    // Ссылка на предпросмотр главы стоит рядом с тремя кнопками и не сжимает название в ничто.
+    await expect(
+      canvas
+        .getByRole("textbox", { name: "Название главы 1" })
+        .getBoundingClientRect().width,
+    ).toBeGreaterThanOrEqual(140);
+    const root = canvasElement.ownerDocument.documentElement;
+    await expect(root.scrollWidth).toBeLessThanOrEqual(root.clientWidth + 1);
+  },
 };
 
 export const CreateChapter: Story = {

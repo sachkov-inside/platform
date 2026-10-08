@@ -1,4 +1,5 @@
 "use client";
+import { authoringProductEditorHref } from "@/shared/routing/authoring";
 import type { ReactNode } from "react";
 
 import {
@@ -564,7 +565,7 @@ function OrderFeedback({
           <input
             name="returnTo"
             type="hidden"
-            value={`/authoring/products/${seriesId}`}
+            value={authoringProductEditorHref(seriesId)}
           />
           <Button size="sm" type="submit">
             Войти

@@ -12,6 +12,7 @@ import {
 
 import {
   authoringMaterialsRootHref,
+  authoringProductEditorHref,
   withAuthoringReturnHref,
 } from "@/shared/routing/authoring";
 import {
@@ -120,6 +121,25 @@ export const Editing: Story = {
     await expect(
       canvas.getByRole("button", { name: "Предпросмотр" }),
     ).toBeEnabled();
+  },
+};
+
+/** Материал открыт из предпросмотра продукта: возврат ведёт в редактор продукта (#837). */
+export const FromProductEditor: Story = {
+  args: {
+    returnHref: authoringProductEditorHref(
+      "95000000-0000-4000-8000-000000000010",
+    ),
+  },
+  name: "Открыт из редактора продукта",
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    await expect(
+      canvas.getByRole("button", { name: "Вернуться к продукту" }),
+    ).toBeVisible();
+    await expect(
+      canvas.queryByRole("button", { name: "Вернуться к материалам" }),
+    ).toBeNull();
   },
 };
 

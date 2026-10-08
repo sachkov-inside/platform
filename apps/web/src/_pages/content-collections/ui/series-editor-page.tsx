@@ -1,3 +1,4 @@
+import { authoringProductEditorHref } from "@/shared/routing/authoring";
 import {
   MaterialAuthoringSignInActions,
   MaterialAuthoringUnauthorizedState,
@@ -21,7 +22,7 @@ export async function SeriesEditorPage({
   } catch (error) {
     if (!(error instanceof LogtoSessionUnavailableError)) throw error;
   }
-  const returnHref = `/authoring/products/${seriesId}`;
+  const returnHref = authoringProductEditorHref(seriesId);
   const unauthorized = (
     <MaterialAuthoringUnauthorizedState
       context="editor"

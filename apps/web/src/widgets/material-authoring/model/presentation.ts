@@ -153,6 +153,11 @@ export type MaterialWorkspaceBlockingState =
 
 export interface MaterialAuthoringPresentation {
   readonly availableFormats: readonly MaterialSelectOption[];
+  /**
+   * Подпись возврата в редактор продукта, откуда открыт материал (#837); без неё возврат
+   * подписан как переход к списку материалов.
+   */
+  readonly backLabel?: string;
   readonly availableSeries: readonly MaterialSelectOption[];
   readonly availableTags: readonly MaterialSelectOption[];
   readonly availableTopics: readonly MaterialSelectOption[];

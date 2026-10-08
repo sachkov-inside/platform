@@ -4,7 +4,10 @@ import Link from "next/link";
 import type { ReactNode } from "react";
 
 import { Button } from "@/shared/ui/button";
-import { authoringMaterialsRootHref } from "@/shared/routing/authoring";
+import {
+  authoringMaterialsRootHref,
+  authoringReturnActionLabel,
+} from "@/shared/routing/authoring";
 
 export function MaterialAuthoringUnauthorizedState({
   action,
@@ -51,9 +54,11 @@ export function MaterialAuthoringPreviewUnauthorizedState({
 export function MaterialAuthoringSignInActions({
   onBack,
   returnHref = authoringMaterialsRootHref,
+  backLabel = authoringReturnActionLabel(returnHref),
 }: {
   readonly onBack?: () => void;
   readonly returnHref?: string;
+  readonly backLabel?: string | undefined;
 }) {
   return (
     <div className="flex flex-wrap justify-center gap-2">
@@ -68,13 +73,13 @@ export function MaterialAuthoringSignInActions({
         <Button asChild variant="outline">
           <Link href={{ pathname: returnHref }}>
             <ArrowLeft aria-hidden="true" data-icon="inline-start" />
-            Вернуться к материалам
+            {backLabel}
           </Link>
         </Button>
       ) : (
         <Button onClick={onBack} type="button" variant="outline">
           <ArrowLeft aria-hidden="true" data-icon="inline-start" />
-          Вернуться к материалам
+          {backLabel}
         </Button>
       )}
     </div>
@@ -103,7 +108,9 @@ export function MaterialAuthoringUnexpectedPreviewState({
             <Link href={editorHref}>Вернуться в редактор</Link>
           </Button>
           <Button asChild variant="ghost">
-            <Link href={returnHref}>Вернуться к материалам</Link>
+            <Link href={returnHref}>
+              {authoringReturnActionLabel(returnHref)}
+            </Link>
           </Button>
         </div>
       }
@@ -137,7 +144,9 @@ export function MaterialAuthoringUnexpectedEditorState({
             <Link href={retryHref}>Повторить</Link>
           </Button>
           <Button asChild variant="outline">
-            <Link href={returnHref}>Вернуться к материалам</Link>
+            <Link href={returnHref}>
+              {authoringReturnActionLabel(returnHref)}
+            </Link>
           </Button>
         </div>
       }
@@ -163,7 +172,9 @@ export function MaterialAuthoringNotFoundState({
     <MaterialAuthoringStateScreen
       action={
         <Button asChild variant="outline">
-          <Link href={returnHref}>Вернуться к материалам</Link>
+          <Link href={returnHref}>
+            {authoringReturnActionLabel(returnHref)}
+          </Link>
         </Button>
       }
       description="Материал с таким идентификатором не найден. Локальные изменения не отправлялись."
@@ -193,7 +204,9 @@ export function MaterialAuthoringPreviewNotFoundState({
             <Link href={editorHref}>Вернуться в редактор</Link>
           </Button>
           <Button asChild variant="ghost">
-            <Link href={returnHref}>Вернуться к материалам</Link>
+            <Link href={returnHref}>
+              {authoringReturnActionLabel(returnHref)}
+            </Link>
           </Button>
         </div>
       }

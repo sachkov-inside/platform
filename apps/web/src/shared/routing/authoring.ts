@@ -29,7 +29,7 @@ export function parseAuthoringReturnHref(value: unknown): Route {
   if (url.origin !== "https://inside.local") {
     return authoringMaterialsRootHref;
   }
-  if (isProductEditorPath(url.pathname)) {
+  if (returnProductId(url.pathname) !== undefined) {
     return url.search === ""
       ? internalRoute(url.pathname)
       : authoringMaterialsRootHref;
@@ -44,17 +44,27 @@ export function parseAuthoringReturnHref(value: unknown): Route {
   return internalRoute(`${url.pathname}${url.search}`);
 }
 
-/** Подпись перехода по адресу возврата, который уже прошёл `parseAuthoringReturnHref`. */
+/** Подпись ссылки по адресу возврата, который уже прошёл `parseAuthoringReturnHref`. */
 export function authoringReturnLabel(returnHref: Route): string {
-  return isProductEditorPath(returnHref) ? "К продукту" : "К материалам";
+  return returnProductId(returnHref) === undefined
+    ? "К материалам"
+    : "К продукту";
 }
 
-function isProductEditorPath(pathname: string): boolean {
-  return (
-    pathname.startsWith(authoringProductsPrefix) &&
-    productIdSchema.safeParse(pathname.slice(authoringProductsPrefix.length))
-      .success
+/** Подпись кнопки возврата по адресу, который уже прошёл `parseAuthoringReturnHref`. */
+export function authoringReturnActionLabel(returnHref: string): string {
+  return returnProductId(returnHref) === undefined
+    ? "Вернуться к материалам"
+    : "Вернуться к продукту";
+}
+
+/** Продукт, в редактор которого ведёт адрес возврата; у списка материалов продукта нет. */
+function returnProductId(pathname: string): string | undefined {
+  if (!pathname.startsWith(authoringProductsPrefix)) return undefined;
+  const parsed = productIdSchema.safeParse(
+    pathname.slice(authoringProductsPrefix.length),
   );
+  return parsed.success ? parsed.data : undefined;
 }
 
 export function withAuthoringReturnHref(
@@ -68,12 +78,13 @@ export function withAuthoringReturnHref(
 
 /**
  * Предпросмотр материала. `productId` выбирает руководство, по маршруту которого автор листает
- * черновики; без него предпросмотр берёт первое руководство материала.
+ * черновики. Без него руководство берётся из адреса возврата в редактор продукта, а без такого
+ * адреса предпросмотр берёт первое руководство материала.
  */
 export function authoringMaterialPreviewHref(
   materialId: string,
   returnHref: Route,
-  productId?: string,
+  productId: string | undefined = returnProductId(returnHref),
 ): Route {
   return internalRoute(
     `/authoring/materials/${materialId}/preview?${new URLSearchParams({
