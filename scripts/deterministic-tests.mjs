@@ -170,10 +170,23 @@ export function deterministicTestViolations(file, source, testSource = true) {
     )
       report(statement, "wall-clock");
   }
+  /** @type {{binding: string, scope: Node}[]} */
+  const hoistedVariables = [];
+  walk(program, (value, ancestors) => {
+    if (value.type !== "VariableDeclaration" || value["kind"] !== "var") return;
+    const scope =
+      ancestors.findLast((entry) => functionTypes.has(entry.type)) ?? program;
+    for (const declaration of nodes(value["declarations"]))
+      for (const binding of bindingNames(declaration["id"]))
+        hoistedVariables.push({ binding, scope });
+  });
   /** @param {unknown} value @param {Node[]} ancestors */
   function globalDate(value, ancestors) {
     if (!node(value)) return false;
     const hidden = (/** @type {string} */ binding) =>
+      hoistedVariables.some(
+        (entry) => entry.binding === binding && ancestors.includes(entry.scope),
+      ) ||
       shadowed(ancestors, binding) ||
       ancestors.some((scope) => {
         if (["Program", "BlockStatement"].includes(scope.type))

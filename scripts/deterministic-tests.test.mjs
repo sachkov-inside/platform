@@ -67,6 +67,8 @@ test("loop, catch and named expression clocks are local bindings", () => {
     "for (const Date of clocks) { Date.now(); }",
     "for (let Date = clock; Date; ) { Date.now(); }",
     "for (const Date in clocks) { Date.now(); }",
+    "for (var Date of clocks) {} Date.now();",
+    "{ var Date = clock; } Date.now();",
     "try { run(); } catch (Date) { Date.now(); }",
     "const read = function Date() { return Date.now(); };",
     "const clock = class Date { static read() { return Date.now(); } };",
