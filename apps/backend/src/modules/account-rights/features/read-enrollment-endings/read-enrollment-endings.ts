@@ -1,5 +1,8 @@
 import { z } from "zod";
-import type { AccountRightsPrismaClient } from "../../infrastructure/prisma.js";
+import type {
+  AccountRightsPrisma,
+  AccountRightsPrismaClient,
+} from "../../infrastructure/prisma.js";
 import { tierSnapshotSchema } from "../../domain/tariff-assignment.js";
 
 /**
@@ -54,7 +57,7 @@ type EndingRow = {
  * само Enrollment или оплаченные периоды подписки Billing.
  */
 async function continuedAfter(
-  prisma: AccountRightsPrismaClient,
+  prisma: Pick<AccountRightsPrisma, "tariffAssignment">,
   boundary: {
     readonly accountId: string;
     readonly tierId: string;
@@ -87,7 +90,7 @@ async function continuedAfter(
 }
 
 async function ending(
-  prisma: AccountRightsPrismaClient,
+  prisma: Pick<AccountRightsPrisma, "tariffAssignment">,
   row: EndingRow,
 ): Promise<EnrollmentEnding | undefined> {
   if (row.endsAt === null) return undefined;
@@ -138,7 +141,7 @@ export async function listEnrollmentEndings(
 
 /** Текущая граница одного Enrollment; отозванное или ставшее бессрочным границы не имеет. */
 export async function readEnrollmentEnding(
-  prisma: AccountRightsPrismaClient,
+  prisma: Pick<AccountRightsPrisma, "tariffAssignment">,
   enrollmentId: string,
 ): Promise<EnrollmentEnding | undefined> {
   const row = await prisma.tariffAssignment.findFirst({

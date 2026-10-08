@@ -118,6 +118,18 @@ function moduleSpecifiers(program) {
 }
 
 /** @param {Program} program */
+function declaresMain(program) {
+  let found = false;
+  new Visitor({
+    JSXOpeningElement(node) {
+      if (node.name.type === "JSXIdentifier" && node.name.name === "main")
+        found = true;
+    },
+  }).visit(program);
+  return found;
+}
+
+/** @param {Program} program */
 function stringLiterals(program) {
   /** @type {string[]} */
   const values = [];
@@ -1265,6 +1277,19 @@ const findings = [...parsedFiles].flatMap(([file, program]) => {
       );
     }
   }
+  if (
+    /(?:^|\/)app\/authoring\/(?:.*\/)?error\.tsx$/u.test(sourcePath) &&
+    (declaresMain(program) ||
+      !importsNamed(
+        program,
+        "@/_pages/route-states",
+        "MaterialAuthoringRouteError",
+      ))
+  ) {
+    findingsForFile.push(
+      `${sourcePath}: an authoring error boundary uses MaterialAuthoringRouteError instead of declaring its own shell`,
+    );
+  }
   if (/(?:^|\/)app\/(?:.*\/)?(?:global-)?error\.tsx$/u.test(sourcePath)) {
     if (
       !importsNamed(
@@ -1290,6 +1315,15 @@ const findings = [...parsedFiles].flatMap(([file, program]) => {
   ) {
     findingsForFile.push(
       `${sourcePath}: a server render reads the session only through @/shared/auth, whose connection() stops a prefetch before it starts a token refresh`,
+    );
+  }
+  if (
+    sourcePath !== "src/shared/api/fact-announcement.ts" &&
+    (namesIdentifier(program, "BroadcastChannel") ||
+      stringLiterals(program).includes("BroadcastChannel"))
+  ) {
+    findingsForFile.push(
+      `${sourcePath}: BroadcastChannel belongs to src/shared/api/fact-announcement.ts`,
     );
   }
   if (specifiers.some((specifier) => siteAnimationPackages.test(specifier))) {

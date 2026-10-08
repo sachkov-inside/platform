@@ -2,7 +2,7 @@ import { randomUUID } from "node:crypto";
 
 import { beforeAll, beforeEach, afterAll, describe, expect, it } from "vitest";
 
-import { NestFactory } from "@nestjs/core";
+import { Test } from "@nestjs/testing";
 import type { INestApplicationContext } from "@nestjs/common";
 
 import { AppModule } from "../../src/app.module.js";
@@ -33,6 +33,7 @@ import {
 } from "../support/community-binding.js";
 import { required } from "../support/required.js";
 import { conforming } from "../support/json.js";
+import { CLOCK, type Clock } from "../../src/shared/clock.js";
 
 const CHAT = "-1000000000000";
 const db = createDatabase(required(process.env["DATABASE_URL"]));
@@ -57,6 +58,7 @@ const authorization = {
 
 function allow(
   request: DispatchAuthorizationRequest,
+  permitClock: Clock = clock,
 ): DispatchAuthorizationResponse {
   return {
     contractVersion: "inside.billing-dispatch.v1",
@@ -67,7 +69,7 @@ function allow(
     decision: {
       status: "allowed",
       permitRef: randomUUID(),
-      validUntil: new Date(clock.now().getTime() + 5000).toISOString(),
+      validUntil: new Date(permitClock.now().getTime() + 5000).toISOString(),
     },
   };
 }
@@ -1296,20 +1298,30 @@ describe("handing the link over in the private chat", () => {
     workersEnabled: false,
   });
 
-  /** Drives one subject to a stored, still-live link on the real clock. */
-  async function waitingWithLink(who: Subject): Promise<void> {
-    // deterministic-test-allow wall-clock: Legacy clock read; fixed domain or monotonic clock migration is tracked in #1175.
-    clock.value = new Date();
+  /** Drives one subject to a stored, still-live link on the handoff case's fixed clock. */
+  async function waitingWithLink(
+    who: Subject,
+    caseClock: Clock,
+  ): Promise<void> {
     const grant = command("finite-community-grant", who);
     await seedCommunityBinding(
       db,
       grant.binding,
-      clock.now(),
+      caseClock.now(),
       who.user,
       who.bot,
     );
-    await provider(who).handle(grant);
-    await drain(who);
+    const producer = new CommunityProvider(
+      db,
+      who.bot,
+      CHAT,
+      caseClock,
+      { authorize: (request) => Promise.resolve(allow(request, caseClock)) },
+      new FakeCommunityChat(),
+      { reconciliationCadenceMs: 60_000 },
+    );
+    await producer.handle(grant);
+    for (let cycle = 0; cycle < 8; cycle++) await producer.processDueEffects();
   }
 
   async function ask(
@@ -1336,13 +1348,17 @@ describe("handing the link over in the private chat", () => {
 
   it("delivers the stored link to the contact who asked for it", async () => {
     const who = { ...subject(), bot: "inside-handoff-live" };
+    const caseClock: Clock = { now: () => new Date("2026-09-08T09:00:00Z") };
     const config = appConfig("live", who.bot);
-    const context = await NestFactory.createApplicationContext(
-      AppModule.register(config),
-      { logger: false },
-    );
+    const context = await Test.createTestingModule({
+      imports: [AppModule.register(config)],
+    })
+      .overrideProvider(CLOCK)
+      .useValue(caseClock)
+      .compile();
     try {
-      await waitingWithLink(who);
+      await context.init();
+      await waitingWithLink(who, caseClock);
 
       await ask(context, config, who, 8101);
 
@@ -1361,13 +1377,17 @@ describe("handing the link over in the private chat", () => {
 
   it("stays silent while community effects are disabled", async () => {
     const who = { ...subject(), bot: "inside-handoff-off" };
+    const caseClock: Clock = { now: () => new Date("2026-09-08T09:00:00Z") };
     const config = appConfig("disabled", who.bot);
-    const context = await NestFactory.createApplicationContext(
-      AppModule.register(config),
-      { logger: false },
-    );
+    const context = await Test.createTestingModule({
+      imports: [AppModule.register(config)],
+    })
+      .overrideProvider(CLOCK)
+      .useValue(caseClock)
+      .compile();
     try {
-      await waitingWithLink(who);
+      await context.init();
+      await waitingWithLink(who, caseClock);
 
       await ask(context, config, who, 8102);
 

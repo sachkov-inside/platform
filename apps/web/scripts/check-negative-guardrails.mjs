@@ -6,6 +6,12 @@ import { fileURLToPath, URL } from "node:url";
 const webRoot = fileURLToPath(new URL("..", import.meta.url));
 const fixtures = [
   {
+    root: "test/guardrails/fixtures/architecture/fact-announcement",
+    diagnostics: [
+      "BroadcastChannel belongs to src/shared/api/fact-announcement.ts",
+    ],
+  },
+  {
     root: "test/guardrails/fixtures/architecture/codegen-boundary",
     diagnostics: [
       "codegen runtime belongs to the backend transport module",
@@ -137,6 +143,7 @@ const fixtures = [
   {
     root: "test/guardrails/fixtures/architecture/error-boundary",
     diagnostics: [
+      "authoring/materials/error.tsx: an authoring error boundary uses MaterialAuthoringRouteError instead of declaring its own shell",
       "topics/[slug]/error.tsx: an error boundary reports the error through useRenderErrorReport",
       "topics/[slug]/error.tsx: an error boundary recovers with retry; reset re-renders the same failure without a request",
       "products/[slug]/error.tsx: an error boundary recovers with retry; reset re-renders the same failure without a request",
