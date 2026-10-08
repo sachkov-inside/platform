@@ -157,7 +157,10 @@ it.each(Object.entries(currentTableOwners))(
   },
 );
 
-const formerLegacyAccess: readonly (readonly [string, readonly string[]])[] = [
+const formerLegacyAccess: readonly (readonly [
+  string,
+  readonly (keyof DatabaseSchema)[],
+])[] = [
   // Create the communication contact atomically with the first bot contact.
   ["modules/bot-contacts/bot-contacts.ts", ["communication_contacts"]],
   // Reserve the identity-link transaction atomically when consuming sign-in approval.
@@ -245,7 +248,7 @@ it.each(formerLegacyAccess)(
       "test/architecture/fixtures/legacy-access-allowed/src",
     );
     for (const table of tables) {
-      const owner = currentTableOwners[table as keyof DatabaseSchema];
+      const owner = currentTableOwners[table];
       expect(result.stdout.split("\n")).toContain(
         `${file}: ${table} is owned by modules/${owner}`,
       );
