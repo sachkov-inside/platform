@@ -4,11 +4,7 @@ import {
   BackendConnectionError,
   requestAuthorTaskSubmissions,
 } from "@/shared/api/backend/index.server";
-import {
-  getPlatformAccessTokenRsc,
-  LogtoSessionUnavailableError,
-  readLogtoBffConfig,
-} from "@/shared/auth/index.server";
+import { readAuthenticatedSession } from "@/shared/auth/index.server";
 
 import {
   consistentSelection,
@@ -43,14 +39,13 @@ export async function loadTaskSubmissions(
   selection: SubmissionSelection,
   cursor: string | undefined,
 ): Promise<TaskSubmissionsOutcome> {
-  let accessToken: string;
-  try {
-    accessToken = await getPlatformAccessTokenRsc(readLogtoBffConfig());
-  } catch (error) {
-    if (error instanceof LogtoSessionUnavailableError)
+  const session = await readAuthenticatedSession("rsc");
+  if (session.kind !== "ready") {
+    if (session.kind === "authentication_required")
       return { kind: "unauthorized" };
-    throw error;
+    throw new Error("Identity session is unavailable");
   }
+  const accessToken = session.value;
   const read = async (
     query: SubmissionSelection,
     page: string | undefined,

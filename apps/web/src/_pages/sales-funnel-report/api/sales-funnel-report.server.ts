@@ -5,11 +5,7 @@ import {
   BackendConnectionError,
   requestSalesFunnelReport,
 } from "@/shared/api/backend/index.server";
-import {
-  getPlatformAccessTokenRsc,
-  LogtoSessionUnavailableError,
-  readLogtoBffConfig,
-} from "@/shared/auth/index.server";
+import { readAuthenticatedSession } from "@/shared/auth/index.server";
 
 import {
   presentSalesFunnelReport,
@@ -50,14 +46,13 @@ type Attempt =
 export async function loadSalesFunnelReport(
   params: SalesFunnelReportParams,
 ): Promise<SalesFunnelReportOutcome> {
-  let accessToken: string;
-  try {
-    accessToken = await getPlatformAccessTokenRsc(readLogtoBffConfig());
-  } catch (error) {
-    if (error instanceof LogtoSessionUnavailableError)
+  const session = await readAuthenticatedSession("rsc");
+  if (session.kind !== "ready") {
+    if (session.kind === "authentication_required")
       return { kind: "unauthorized" };
-    throw error;
+    throw new Error("Identity session is unavailable");
   }
+  const accessToken = session.value;
   const period = readReportPeriod(params, new Date());
   const read = async (selection: {
     readonly productId?: string;

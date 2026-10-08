@@ -1,6 +1,8 @@
+import { requestAuthenticatedRead } from "@/shared/api/authenticated-read.browser";
 import type { z } from "zod";
 import { requestSameOriginMutation } from "@/shared/api/same-origin-mutation";
 import {
+  errorSchema,
   savedPostListSchema,
   savedPostSampleSchema,
   type savedPostActionSchema,
@@ -25,10 +27,25 @@ async function read<T>(
   schema: z.ZodType<T>,
 ): Promise<T | { kind: "error"; code: string }> {
   try {
-    const response = await fetch(url, { cache: "no-store" });
-    const body: unknown = await response.json();
-    const parsed = schema.safeParse(body);
-    return response.ok && parsed.success
+    const result = await requestAuthenticatedRead(url);
+    if (result.kind === "rejected") {
+      const failure = errorSchema.safeParse(result.body);
+      return failure.success
+        ? failure.data
+        : { kind: "error", code: "provider_unavailable" };
+    }
+    if (result.kind !== "ready")
+      return {
+        kind: "error",
+        code:
+          result.kind === "authentication_required"
+            ? "authentication_required"
+            : result.kind === "identity_unavailable"
+              ? "identity_unavailable"
+              : "provider_unavailable",
+      };
+    const parsed = schema.safeParse(result.value);
+    return parsed.success
       ? parsed.data
       : { kind: "error", code: "invalid_response" };
   } catch {

@@ -1,3 +1,4 @@
+import { requestAuthenticatedRead } from "@/shared/api/authenticated-read.browser";
 import { requestSameOriginMutation } from "@/shared/api/same-origin-mutation";
 import {
   homePinResultSchema,
@@ -6,13 +7,24 @@ import {
 } from "../model/home-pin";
 
 export async function loadHomePin(signal: AbortSignal): Promise<HomePinResult> {
-  const response = await fetch("/api/authoring/home-pin", {
-    cache: "no-store",
-    headers: { accept: "application/json" },
+  const result = await requestAuthenticatedRead(
+    "/api/authoring/home-pin",
     signal,
-  });
-  if (!response.ok) return { kind: "unavailable" };
-  const parsed = homePinResultSchema.safeParse(await response.json());
+  );
+  if (result.kind === "rejected") {
+    const parsed = homePinResultSchema.safeParse(result.body);
+    return parsed.success && parsed.data.kind !== "ready"
+      ? parsed.data
+      : { kind: "unavailable" };
+  }
+  if (result.kind !== "ready")
+    return {
+      kind:
+        result.kind === "authentication_required"
+          ? "unauthorized"
+          : "unavailable",
+    };
+  const parsed = homePinResultSchema.safeParse(result.value);
   return parsed.success ? parsed.data : { kind: "unavailable" };
 }
 

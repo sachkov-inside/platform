@@ -6,10 +6,8 @@ import {
   type CommunicationsRequest,
 } from "@/shared/api/backend/index.server";
 import {
+  handleAuthenticatedRead,
   handleAuthenticatedMutation,
-  getPlatformAccessToken,
-  readLogtoBffConfig,
-  LogtoSessionUnavailableError,
 } from "@/shared/auth/index.server";
 import {
   type Part,
@@ -35,7 +33,6 @@ const envelopeSchema = z.object({
   value: z.record(z.string(), z.unknown()),
   trackingBacklog: z.unknown().optional(),
 });
-const privateHeaders = { "cache-control": "private, no-store", vary: "cookie" };
 
 async function execute<T>(
   input: CommunicationsRequest,
@@ -82,8 +79,7 @@ async function read(
     | "entries.read",
   schema: z.ZodType,
 ) {
-  try {
-    const token = await getPlatformAccessToken(readLogtoBffConfig());
+  return handleAuthenticatedRead(async (token) => {
     const query = new URL(request.url).searchParams;
     const cursor = query.get("cursor") ?? undefined;
     let input: CommunicationsRequest;
@@ -127,21 +123,12 @@ async function read(
         operation,
         payload: hasText(cursor) ? { cursor } : {},
       };
-    return Response.json(await execute(input, token, schema), {
-      headers: privateHeaders,
+    const response = await requestCommunications(input, token);
+    const result = mapResult(response, schema);
+    return Response.json(result, {
+      status: response.ok ? 200 : response.response.status,
     });
-  } catch (error) {
-    return Response.json(
-      {
-        kind: "error",
-        code:
-          error instanceof LogtoSessionUnavailableError
-            ? "authentication_required"
-            : "identity_unavailable",
-      },
-      { headers: privateHeaders },
-    );
-  }
+  });
 }
 export const handleBroadcastList = (request: Request) =>
   read(request, "broadcasts.list", broadcastListSchema);

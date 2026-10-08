@@ -10,13 +10,14 @@ vi.mock("@/shared/api/backend/index.server", () => ({
   requestStartBillingContact: fakes.start,
   requestConfirmBillingContact: fakes.confirm,
 }));
-vi.mock("@/shared/auth/platform-access-token.server", () => ({
-  getPlatformAccessToken: fakes.token,
+vi.mock("@/shared/auth/session-adapter.server", () => ({
+  sessionAdapter: {
+    accessToken: fakes.token,
+    baseUrl: () => "https://inside.example.test",
+  },
   LogtoSessionUnavailableError: class extends Error {},
 }));
-vi.mock("@/shared/auth/logto-bff-config.server", () => ({
-  readLogtoBffConfig: () => ({ baseUrl: "https://inside.example.test" }),
-}));
+
 import {
   handleStartBillingContact,
   handleConfirmBillingContact,
@@ -147,7 +148,7 @@ it("only returns the contact presentation with no-store", async () => {
     contact: null,
     documents: [],
   });
-  expect(response.headers.get("cache-control")).toBe("private, no-store");
+  expect(response.headers.get("cache-control")).toBe("no-store, private");
 });
 
 it("maps an unknown backend code to the bounded unavailable outcome", async () => {
