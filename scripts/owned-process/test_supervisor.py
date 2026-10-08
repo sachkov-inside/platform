@@ -3,16 +3,19 @@ import json
 import os
 from pathlib import Path
 import selectors
+import select
 import signal
 import subprocess
 import sys
 import tempfile
 import time
 import unittest
+from unittest.mock import patch
 
 ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT / 'scripts/heavy-check'))
-from processes import process_row, process_snapshot
+from processes import process_row, process_snapshot, LIBPROC
+from lock import signal_groups
 sys.path.insert(0, str(ROOT / 'scripts/owned-process'))
 from ownership import ProcessOwnership
 
@@ -300,8 +303,150 @@ class Ownership(unittest.TestCase):
                 os.killpg(foreign.pid, signal.SIGKILL)
             foreign.communicate(timeout=5)
 
+    def test_cleanup_of_exited_unreaped_group_preserves_sigkill(self):
+        process = subprocess.Popen(
+            [sys.executable, '-c',
+             "import os,sys; print('READY',os.getpid(),flush=True); sys.stdin.read()"],
+            stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+            start_new_session=True,
+        )
+        try:
+            read_ready(process)
+            identity = process_row(process.pid)
+            self.assertIsNotNone(identity)
+            os.killpg(process.pid, signal.SIGKILL)
+            # Observe kernel exit without reaping: cleanup holds a stale census group.
+            deadline = time.monotonic() + 5
+            while os.waitid(os.P_PID, process.pid,
+                            os.WEXITED | os.WNOWAIT | os.WNOHANG) is None:
+                self.assertLess(time.monotonic(), deadline, 'command did not exit')
+                time.sleep(0.01)
+            signal_groups({process.pid}, signal.SIGKILL)
+            self.assertEqual(process.wait(timeout=5), -signal.SIGKILL)
+            self.assertTrue(stopped(process.pid))
+        finally:
+            if process.poll() is None:
+                os.killpg(process.pid, signal.SIGKILL)
+            process.communicate(timeout=5)
+
+    def test_cleanup_does_not_hide_permission_failure_for_live_group(self):
+        process = subprocess.Popen(
+            [sys.executable, '-c',
+             "import os,sys; print('READY',os.getpid(),flush=True); sys.stdin.read()"],
+            stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+            start_new_session=True,
+        )
+        try:
+            read_ready(process)
+            # Supply a denied syscall; census still observes a real owned live member.
+            with patch('lock.os.killpg', side_effect=PermissionError(1, 'denied')):
+                with self.assertRaises(PermissionError):
+                    signal_groups({process.pid}, signal.SIGKILL)
+        finally:
+            if process.poll() is None:
+                os.killpg(process.pid, signal.SIGKILL)
+            process.communicate(timeout=5)
+
+    def test_cleanup_does_not_hide_live_group_missing_from_census(self):
+        process = subprocess.Popen(
+            [sys.executable, '-c',
+             "import os,sys; print('READY',os.getpid(),flush=True); sys.stdin.read()"],
+            stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+            start_new_session=True,
+        )
+        try:
+            read_ready(process)
+            # proc_pidinfo may omit a live member when its UID denies inspection.
+            with patch('lock.process_snapshot', return_value={}):
+                with patch('lock.os.killpg', side_effect=PermissionError(1, 'denied')):
+                    with self.assertRaises(PermissionError):
+                        signal_groups({process.pid}, signal.SIGKILL)
+        finally:
+            if process.poll() is None:
+                os.killpg(process.pid, signal.SIGKILL)
+            process.communicate(timeout=5)
+
+    @unittest.skipUnless(sys.platform == 'darwin', 'macOS native group exit adapter')
+    def test_cleanup_rejects_kqueue_error_receipt_as_exit(self):
+        process = subprocess.Popen(
+            [sys.executable, '-c',
+             "import os,sys; print('READY',os.getpid(),flush=True); sys.stdin.read()"],
+            stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+            start_new_session=True,
+        )
+        try:
+            read_ready(process)
+            receipt = select.kevent(process.pid, filter=select.KQ_FILTER_PROC,
+                                    flags=select.KQ_EV_ERROR,
+                                    fflags=select.KQ_NOTE_EXIT, data=1)
+            with patch('processes.select.kqueue') as queue:
+                queue.return_value.control.return_value = [receipt]
+                with patch('lock.os.killpg', side_effect=PermissionError(1, 'denied')):
+                    with self.assertRaises(PermissionError):
+                        signal_groups({process.pid}, signal.SIGKILL)
+        finally:
+            if process.poll() is None:
+                os.killpg(process.pid, signal.SIGKILL)
+            process.communicate(timeout=5)
+
+    @unittest.skipUnless(sys.platform == 'darwin', 'macOS native group exit adapter')
+    def test_cleanup_rechecks_members_forked_after_group_census(self):
+        source = """
+import os, signal, sys
+print('READY', os.getpid(), flush=True)
+sys.stdin.readline()
+r, w = os.pipe()
+if os.fork() == 0:
+    os.close(r)
+    print('READY', os.getpid(), flush=True)
+    os.write(w, b'1')
+    os.close(w)
+    while True:
+        signal.pause()
+os.close(w)
+os.read(r, 1)
+os._exit(0)
+"""
+        process = subprocess.Popen([sys.executable, '-c', source],
+                                   stdin=subprocess.PIPE, stdout=subprocess.PIPE,
+                                   stderr=subprocess.PIPE, start_new_session=True)
+        listed = LIBPROC.proc_listpids
+        changed = False
+
+        def fork_after_census(kind, group, buffer, size):
+            nonlocal changed
+            result = listed(kind, group, buffer, size)
+            if buffer is not None and not changed:
+                changed = True
+                process.stdin.write(b'fork\n')
+                process.stdin.flush()
+                read_ready(process)
+                deadline = time.monotonic() + 5
+                while os.waitid(os.P_PID, process.pid,
+                                os.WEXITED | os.WNOWAIT | os.WNOHANG) is None:
+                    self.assertLess(time.monotonic(), deadline, 'forking leader did not exit')
+                    time.sleep(0.01)
+            return result
+
+        try:
+            read_ready(process)
+            with patch('processes.LIBPROC.proc_listpids', side_effect=fork_after_census):
+                with patch('lock.os.killpg', side_effect=PermissionError(1, 'denied')):
+                    with self.assertRaises(PermissionError):
+                        signal_groups({process.pid}, signal.SIGKILL)
+            self.assertTrue(changed, 'fork barrier was not exercised')
+        finally:
+            try:
+                os.killpg(process.pid, signal.SIGKILL)
+            except (ProcessLookupError, PermissionError):
+                pass
+            process.communicate(timeout=5)
+
     def test_native_node_test_runner_sigkill(self):
         self.native_runner(signal.SIGKILL)
+
+    def test_native_node_test_runner_sigkill_with_exited_cleanup_group(self):
+        self.native_runner(signal.SIGKILL, exited_cleanup_group=True)
 
     def test_native_node_test_runner_sigterm(self):
         self.native_runner(signal.SIGTERM)
@@ -309,7 +454,7 @@ class Ownership(unittest.TestCase):
     def test_native_node_test_runner_sigint(self):
         self.native_runner(signal.SIGINT)
 
-    def native_runner(self, signum):
+    def native_runner(self, signum, exited_cleanup_group=False):
         source = f"""
         import {{test}} from 'node:test';
         import {{spawnOwned,stopOwned}} from {json.dumps(API)};
@@ -327,6 +472,40 @@ class Ownership(unittest.TestCase):
             # This is a new CLI runner, not a worker of the outer Node test harness.
             environment = {key: value for key, value in os.environ.items()
                            if key != 'NODE_TEST_CONTEXT'}
+            if exited_cleanup_group:
+                # A real unreaped owned group pins the census-to-signal exit race.
+                # Load this adapter only in the spawned supervisors, not this test runner.
+                adapter = Path(directory) / 'sitecustomize.py'
+                adapter.write_text(f"""
+import os, signal, subprocess, sys, time
+sys.path.insert(0, {str(ROOT / 'scripts/heavy-check')!r})
+import lock
+original = lock.signal_groups
+injected = False
+def signal_groups(groups, signum):
+    global injected
+    if injected or not groups:
+        return original(groups, signum)
+    injected = True
+    child = subprocess.Popen([sys.executable, '-S', '-c', 'pass'], start_new_session=True)
+    try:
+        deadline = time.monotonic() + 5
+        while os.waitid(os.P_PID, child.pid, os.WEXITED | os.WNOWAIT | os.WNOHANG) is None:
+            if time.monotonic() >= deadline:
+                raise RuntimeError('cleanup fixture did not exit')
+            time.sleep(0.01)
+        print('EXITED_CLEANUP_GROUP', child.pid, file=sys.stderr, flush=True)
+        return original(groups | {{child.pid}}, signum)
+    finally:
+        if child.poll() is None:
+            try:
+                os.killpg(child.pid, signal.SIGKILL)
+            except (ProcessLookupError, PermissionError):
+                pass
+        child.wait(timeout=5)
+lock.signal_groups = signal_groups
+""")
+                environment['PYTHONPATH'] = directory
             process = subprocess.Popen(['node', str(ROOT / 'scripts/owned-node.mjs'),
                                         '--test', '--test-reporter=tap', str(fixture)],
                                        cwd=ROOT, env=environment,
@@ -338,10 +517,12 @@ class Ownership(unittest.TestCase):
                 shutdown_deadline = time.monotonic() + 12
                 # Kill the real CLI runner. Its external owner must also stop its test worker.
                 os.kill(pids[-1], signum)
-                process.communicate(timeout=12)
+                _stdout, stderr = process.communicate(timeout=12)
                 # Node's test CLI handles INT/TERM as a canceled test (status 1).
                 expected = 128 + signum if signum == signal.SIGKILL else 1
-                self.assertEqual(process.returncode, expected)
+                self.assertEqual(process.returncode, expected, stderr.decode())
+                if exited_cleanup_group:
+                    self.assertIn(b'EXITED_CLEANUP_GROUP', stderr)
                 for pid in pids:
                     self.assertTrue(stopped(pid, shutdown_deadline),
                                     f'native runner load {pid} survived: '

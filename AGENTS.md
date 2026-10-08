@@ -6,14 +6,13 @@
 
 Platform owns the Membership application, the Telegram application under `apps/telegram`,
 shared product/legal documents and the developer process of Inside. Applications keep separate
-processes, databases, migrations and runtime contracts. `REPOSITORIES.md` maps current owners and historical sources;
-Telegram has independent root release/deploy workflows; its delivery authority is
-`apps/telegram/docs/operations/production.md`. Work uses only
-repository-local canonical documents.
+processes, databases, migrations and runtime contracts. `REPOSITORIES.md` maps current owners and
+historical sources.
 
 ## Working agreements
 
-- For GitHub issue routing or Wayfinder operations, read `docs/agents/issue-tracker.md`.
+- For issues, version and specification layers, sub-issues, blocking or Wayfinder, read
+  `docs/agents/issue-tracker.md`.
 - For readiness-label triage, read `docs/agents/triage-labels.md`.
 - For product context, terminology or ADR placement, read `docs/agents/domain.md`.
 - For frontend delivery or Storybook review, read `docs/agents/frontend-delivery.md`.
@@ -50,13 +49,7 @@ Before an agent runs repository Compose commands from any worktree, it must read
 - The developer process is `WORKFLOW.md` plus the skills in `.agents/skills`; `.claude/skills` is a
   symlink to them. Read `WORKFLOW.md` when the task touches issues, branches, pull requests,
   review, readiness, merge, or handoff. `Owner gates` there lists what needs the owner's approval.
-- Merge procedure: a merge goes through the merge queue; follow
-  [Merge queue](docs/runbooks/continuous-integration.md#merge-queue).
-- The owner starts grilling, the specification and the ticket breakdown, each with its own command.
-  A `ready-for-agent` implementation task runs to a ready pull request without stopping.
-- Start a development session in this repository so its rules and skills load; a parent directory
-  does not carry them.
-- Keep build, test, run, deploy, and agent work repository-local.
+- Keep build, test, run, deploy, and agent work dependent only on files in this repository.
 
 ## Human communication
 

@@ -14,11 +14,10 @@ fixtures in `scripts/check-negative-guardrails.mjs`; diagnostics own the enforce
 - Keep route-specific behaviour beside its `_pages/<page>` slice. Promote code to `shared` only
   after multiple real consumers need the smaller interface.
 - Public page metadata comes from `src/shared/link-preview`; each page slice maps its own result to
-  one `PublicPagePreview` and its own social card content, so a route stays load, map, respond. The
-  seam is one function call, not an import boundary, so it stays prose until a route hand-rolls
-  `openGraph` and gives a check a shape to match. A closed area with its own layout declares
-  `noindex` there once instead of repeating it on every page. A transient dependency failure never
-  answers with `noindex`.
+  one `PublicPagePreview` and its own social card content, so a route stays load, map, respond.
+  Review holds this one-call seam until a route hand-rolls `openGraph` and gives a check a shape to
+  match. A closed area with its own layout declares `noindex` there once instead of repeating it on
+  every page. A transient dependency failure never answers with `noindex`.
 - Mark backend adapters, BFF handlers, and server query options `server-only`; use `*.client.tsx`
   for the interactive boundary.
 
@@ -34,8 +33,7 @@ fixtures in `scripts/check-negative-guardrails.mjs`; diagnostics own the enforce
   shell owns scrolling. A page-level story that cannot scroll on desktop is a defect, not a fixture.
 - The application is the reference. When a story and its route disagree on tokens, spacing,
   typography, or states, the story changes.
-- A retired proof leaves the catalog. Git history and the issue keep the decision; the catalog keeps
-  only what the product still shows.
+- A retired proof leaves the catalog; Git history and the issue keep the decision.
 - Owner decision 2026-09-11: these rules stay prose and are checked in review. Do not add a
   Storybook-specific automated check for them.
 
@@ -91,15 +89,15 @@ fixtures in `scripts/check-negative-guardrails.mjs`; diagnostics own the enforce
   layers and declares `export const instant = false`, which exempts it from the instant-navigation
   validation; a redirect from a layout needs a real status code, which streaming cannot give. The
   declaration does not remove a parent's loading boundary: a page nested under another page's
-  address brings its own `loading.tsx`, or it shows that page's skeleton. The rule stays prose:
-  session dependence is a reading of a segment's data, not a shape a guardrail can match.
+  address brings its own `loading.tsx`, or it shows that page's skeleton. Review holds this rule,
+  because session dependence is a reading of a segment's data.
 - On a catalog surface — cards, lists, lesson navigation, the product and programme pages — link to
   a lesson, product, programme or topic with `IntentPrefetchLink` from
   `@/shared/ui/intent-prefetch-link.client`: until touched it prefetches the shared route shell,
   and intent upgrades it to the shared part of that address. A return row of a catalog page uses
   it as well: its target is computed and is usually a catalog page. `prefetch={false}` has no place
-  there. Links from the cabinet, purchase pages and state screens stay a plain `<Link>`. The rule
-  stays prose because a guardrail cannot tell a catalog destination from a computed `href`.
+  there. Links from the cabinet, purchase pages and state screens stay a plain `<Link>`. Review
+  holds this rule: a guardrail cannot tell a catalog destination from a computed `href`.
 - A catalog page declares `unstable_dynamicStaleTime`: for that window the browser keeps the page,
   personal part included. Other routes are read again on every transition. On a catalog page a
   control that must reach the server again — retry after a failure, a change of the guide mode, a
@@ -109,8 +107,7 @@ fixtures in `scripts/check-negative-guardrails.mjs`; diagnostics own the enforce
 - Every page reaches an `error.tsx` inside its shell: `(public)` and `authoring` own a section
   boundary, catalog pages keep their own, `app/error.tsx` catches a failed section layout and
   `app/global-error.tsx` the root one. An unknown address and `notFound()` render `PageNotFound` in
-  the public shell. `test/e2e/routes.spec.ts` checks the Russian 404; which boundary a segment
-  reaches stays prose, because it is a reading of the route tree.
+  the public shell. `test/e2e/routes.spec.ts` checks the Russian 404; review holds the boundaries.
 - A page with a parameter streams, so its `notFound()` arrives after status 200. Where web itself
   knows every valid address — today the legal section — `proxy.ts` checks the address before the
   response and rewrites an unknown one to an unrouted path, which Next.js answers with its own 404.

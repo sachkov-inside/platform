@@ -1,11 +1,11 @@
 ---
 name: session-cleanup
-description: "Clean up what an agent session started: worktree, local branch, containers, volumes, stand processes, stash entries and temporary files. Use as the last step of a task, before the closing report, or when asked to clean up after a session."
+description: "Clean up what an agent session started: worktree, local branch, containers, volumes, stand processes, stash entries and temporary files. Use as the last step of a task, before the handoff to the owner, or when asked to clean up after a session."
 ---
 
 Cleanup is the writing agent's last step. A session is complete when nothing it started keeps
 running and its local state is clean. Touch only what this session started; name the owner of
-anything else in the report and leave it in place.
+anything else in the handoff and leave it in place.
 
 ## 1. List the leftovers
 
@@ -46,9 +46,10 @@ Keep the worktree and the task branch. Do step 2 only.
 5. Fast-forward the primary checkout to `origin/main` only when it is on `main` and has no
    uncommitted changes. Otherwise leave it and name the branch or files that prevented the update.
 
-If unpublished work remains after the merge, keep the worktree and report the exact blocker.
+If unpublished work remains after the merge, keep the worktree and name the exact blocker in the
+handoff.
 
 ## Done when
 
-The command from step 1 shows nothing that this session started, or the report names each
+The command from step 1 shows nothing that this session started, or the handoff names each
 leftover and why it stays.
