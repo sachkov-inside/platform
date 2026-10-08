@@ -7,7 +7,7 @@ import {
 } from "@nestjs/platform-fastify";
 import { Ajv } from "ajv";
 import addFormats from "ajv-formats";
-import { afterAll, beforeAll, describe, expect, test } from "vitest";
+import { afterAll, beforeAll, describe, expect, test, vi } from "vitest";
 import schema from "../../../../docs/contracts/subscription-activation-v1/schema.json" with { type: "json" };
 import {
   parsePlatformConfig,
@@ -73,6 +73,7 @@ describe("приглашения: выдача владельцем и пога�
   let db: TestDatabase;
   let http: NestFastifyApplication;
   let operations: BillingOperations;
+  let grants: ReturnType<typeof assembleAccessGrants>;
   let now = new Date("2030-01-01T00:00:00.000Z");
   const owner = randomUUID();
   const outsider = randomUUID();
@@ -95,7 +96,7 @@ describe("приглашения: выдача владельцем и пога�
       emailFingerprintKey: "synthetic-invitation-fingerprint-key-00",
     });
     const links = new TelegramAccountLinks(db.prisma);
-    const grants = assembleAccessGrants({
+    grants = assembleAccessGrants({
       prisma: db.prisma,
       accounts,
       recipientLinks: links,
@@ -418,6 +419,107 @@ describe("приглашения: выдача владельцем и пога�
       await db.prisma.accessGrant.count({ where: { accountId: member } }),
     ).toBe(0);
   });
+  test("конкурентный повтор отзыва возвращает один результат до записи общего аудита", async () => {
+    now = new Date("2030-01-01T00:00:00.000Z");
+    const issued = invitation(
+      await issue({ offerId: await offer(), mode: "purchase" }),
+    );
+    const command = {
+      operation: "invitations.revoke",
+      operationId: randomUUID(),
+      invitationId: issued.id,
+      expectedRevision: issued.revision,
+    };
+    let enter!: () => void;
+    let release!: () => void;
+    const entered = new Promise<void>((resolve) => {
+      enter = resolve;
+    });
+    const resume = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    const revoke = grants.revokeInvitation.bind(grants);
+    let firstCall = true;
+    const gate = vi
+      .spyOn(grants, "revokeInvitation")
+      .mockImplementation(async (actor, input) => {
+        const pause = firstCall;
+        firstCall = false;
+        const result = await revoke(actor, input);
+        if (pause) {
+          enter();
+          await resume;
+        }
+        return result;
+      });
+    const first = db.run(() => operations.execute(owner, command));
+    let repeated: OwnerResult | undefined;
+    try {
+      await entered;
+      repeated = await operations.execute(owner, command);
+      expect(invitation(repeated)).toMatchObject({
+        code: issued.code,
+        state: "revoked",
+        revision: 2,
+      });
+    } finally {
+      release();
+      gate.mockRestore();
+      await first;
+    }
+    expect(await first).toEqual(repeated);
+    expect(
+      await db.prisma.invitation.findUnique({ where: { id: issued.id } }),
+    ).toMatchObject({ revision: 2 });
+    expect(
+      await db.prisma.billingOwnerCommand.count({
+        where: { actorId: owner, operationId: command.operationId },
+      }),
+    ).toBe(1);
+  });
+
+  test("отзыв восстанавливает результат после сбоя между применением и общим аудитом", async () => {
+    now = new Date("2030-01-01T00:00:00.000Z");
+    const issued = invitation(
+      await issue({ offerId: await offer(), mode: "purchase" }),
+    );
+    const command = {
+      operation: "invitations.revoke",
+      operationId: randomUUID(),
+      invitationId: issued.id,
+      expectedRevision: issued.revision,
+    };
+    await db.prisma
+      .$executeRaw`ALTER TABLE billing.owner_command_keys ADD CONSTRAINT reject_invitation_result CHECK (result IS NULL) NOT VALID`;
+    try {
+      expect(await operations.execute(owner, command)).toMatchObject({
+        ok: false,
+        error: { code: "dependency_unavailable" },
+      });
+      expect(
+        await db.prisma.invitation.findUnique({ where: { id: issued.id } }),
+      ).toMatchObject({ revision: 2 });
+    } finally {
+      await db.prisma
+        .$executeRaw`ALTER TABLE billing.owner_command_keys DROP CONSTRAINT reject_invitation_result`;
+    }
+    const repeated = await operations.execute(owner, command);
+    expect(invitation(repeated)).toMatchObject({
+      code: issued.code,
+      state: "revoked",
+      revision: 2,
+    });
+    expect(await operations.execute(owner, command)).toEqual(repeated);
+    expect(
+      await db.prisma.billingOwnerCommand.count({
+        where: { actorId: owner, operationId: command.operationId },
+      }),
+    ).toBe(1);
+    expect(
+      await db.prisma.invitation.findUnique({ where: { id: issued.id } }),
+    ).toMatchObject({ revision: 2 });
+  });
+
   test("неоткрытое сгорает за 14 дней, закреплённое без входа — за 30, отозванное и неизвестное не работают", async () => {
     now = new Date("2030-01-01T00:00:00.000Z");
     const offerId = await offer();

@@ -1880,11 +1880,16 @@ describe("таблица сценариев доступа (реальный Pos
       reason: "Расширение состава",
     };
     expect(
-      await operations.execute(owner, { ...previewCommand, tierRevision: 1 }),
+      await operations.execute(owner, {
+        ...previewCommand,
+        operationId: randomUUID(),
+        tierRevision: 1,
+      }),
     ).toMatchObject({ ok: false, error: { code: "revision_conflict" } });
     expect(
       await operations.execute(owner, {
         ...previewCommand,
+        operationId: randomUUID(),
         targets: [
           {
             enrollmentId: enrollment.enrollmentId,

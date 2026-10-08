@@ -205,10 +205,15 @@ export class BillingOperations {
     outcome: unknown,
   ): Promise<OwnerResult> {
     // Ключ и аудит не хранят код приглашения; владеющий интерфейс читает уже выданное без проверки Offer.
-    if (command.operation === "invitations.issue") {
+    if (
+      command.operation === "invitations.issue" ||
+      command.operation === "invitations.revoke"
+    ) {
       const issued = await this.dependencies.grants.readInvitation(
         actorId,
-        command.operationId,
+        command.operation === "invitations.issue"
+          ? command.operationId
+          : command.invitationId,
       );
       if (!issued.ok) return invitationFailure(issued.error.code);
       return {
