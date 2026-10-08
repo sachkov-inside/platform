@@ -105,7 +105,6 @@ export function MaterialReaderView({
             className="mt-10 min-w-0 break-words text-pretty text-[1.0625rem] leading-[1.7] text-foreground md:text-lg"
             data-reader-body
           >
-            <MaterialFragmentNavigation />
             <ReaderBlocks
               anchors={anchors}
               blocks={body}
@@ -116,6 +115,7 @@ export function MaterialReaderView({
                 ? {}
                 : { hint: modeHint.node, hintAt: modeHint.at })}
             />
+            <MaterialFragmentNavigation />
           </article>
           {practiceActions}
           {bookmarkAction === undefined &&

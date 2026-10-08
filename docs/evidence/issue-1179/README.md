@@ -38,3 +38,7 @@ Storybook MCP passed all four source-anchor scenarios with accessibility checks.
 collision target sits at 95.7 px and its ID appears once.
 
 ![Content source wins the ambiguous legacy address](source-legacy-collision.png)
+
+The fragment marker follows the body blocks, preserving `first:mt-0`. A live check confirmed
+`0px` before the first heading and 95.7 px for the collision target. All 32 Reader stories and the
+four MCP accessibility scenarios passed after that correction.
