@@ -182,7 +182,11 @@ export const taskReceiptSchema = z
   })
   .strict();
 const taskValidationSchema = z
-  .object({ valid: z.literal(true), current: taskReceiptSchema.nullable() })
+  .object({
+    valid: z.literal(true),
+    current: taskReceiptSchema.nullable(),
+    migration: z.object({ materialId: z.uuid() }).strict().nullish(),
+  })
   .strict();
 
 const localResponseSchemas = {
@@ -513,7 +517,7 @@ export function parseReceipt(schema, value) {
 }
 
 /**
- * A request operation of the journal; image receipts share the record under their own key prefix.
+ * A request operation of the journal; Material image and Task page asset receipts use their own prefixes.
  *
  * @param {unknown} entry
  * @returns {entry is z.infer<typeof operationSchema>}
@@ -546,7 +550,7 @@ export function parseJournal(value) {
   const journal = journalSchema.parse(decodeJournalV1(value));
   const requests = new Set();
   for (const [key, entry] of Object.entries(journal.operations)) {
-    if (key.startsWith("image:")) {
+    if (key.startsWith("image:") || key.startsWith("task-page-asset:")) {
       assetReceiptSchema.parse(entry);
       continue;
     }

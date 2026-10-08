@@ -29,11 +29,11 @@ export const submissionSourceSchema = z.enum(["mcp", "form"]);
 export type SubmissionSource = z.infer<typeof submissionSourceSchema>;
 
 /**
- * The requirements of one Task Version (`schemaVersion: 1`). Authored data for the learner and
+ * The requirements of one Task Version. Authored data for the learner and
  * their agent, never agent instructions or an executable check. Title, access, related Materials
  * and publication stay outside, so changing them creates no new version.
  */
-export const taskDefinitionSchema = z
+const taskDefinitionV1Schema = z
   .object({
     schemaVersion: z.literal(1),
     situation: text,
@@ -76,6 +76,62 @@ export const taskDefinitionSchema = z
         message: "Task definition exceeds 128 KiB",
       });
   });
+
+const authoredText = z
+  .string()
+  .min(1)
+  .max(16000)
+  .refine((value) => value.trim().length > 0);
+const taskDefinitionV2Schema = z
+  .object({
+    schemaVersion: z.literal(2),
+    format: z.literal("c"),
+    intro: authoredText,
+    freedom: authoredText,
+    criteria: z
+      .array(
+        z
+          .object({
+            id: criterionIdSchema,
+            level: criterionLevelSchema,
+            task: authoredText,
+            explanation: authoredText,
+            advice: authoredText.optional(),
+            acceptableEvidence: z.array(authoredText).min(1).max(20),
+          })
+          .strict(),
+      )
+      .min(1)
+      .max(50),
+  })
+  .strict()
+  .superRefine((value, context) => {
+    if (
+      new Set(value.criteria.map((item) => item.id)).size !==
+      value.criteria.length
+    )
+      context.addIssue({
+        code: "custom",
+        path: ["criteria"],
+        message: "Duplicate criterion ID",
+      });
+    if (!value.criteria.some((item) => item.level === "required"))
+      context.addIssue({
+        code: "custom",
+        path: ["criteria"],
+        message: "A task needs at least one required criterion",
+      });
+    if (Buffer.byteLength(JSON.stringify(value), "utf8") > 128 * 1024)
+      context.addIssue({
+        code: "custom",
+        message: "Task definition exceeds 128 KiB",
+      });
+  });
+
+export const taskDefinitionSchema = z.union([
+  taskDefinitionV1Schema,
+  taskDefinitionV2Schema,
+]);
 
 export const taskProvenanceSchema = z
   .object({

@@ -244,6 +244,7 @@ describe("Platform migrations", () => {
         "0080_guide_task_placement_and_form",
         "0081_remove_workshop",
         "0082_domain_names",
+        "0083_task_pages",
       ],
     });
     expect(second).toEqual({ appliedMigrations: [] });
@@ -917,6 +918,7 @@ describe("Platform migrations", () => {
           "0080_guide_task_placement_and_form",
           "0081_remove_workshop",
           "0082_domain_names",
+          "0083_task_pages",
         ],
       });
 

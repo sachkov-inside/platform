@@ -25,6 +25,7 @@ import {
   platformMigrations,
 } from "../../src/migrations/index.js";
 import { createTestDatabase } from "./setup/test-database.js";
+import { representativeDocument } from "../fixtures/material-body/representative.js";
 
 // The upgrade starts with the production vocabulary, not the already-renamed Prisma mappings.
 test("upgrades persisted product rights, tariff snapshots and closed access without losing rows", async () => {
@@ -661,6 +662,30 @@ test("replays an imported pre-upgrade task under its renamed operation and field
       ok: true,
       value: receipt,
     });
+    expect(
+      await apply(
+        { ...current, resolvedLinks: {}, resolvedImages: {} },
+        { actor, idempotencyKey },
+      ),
+    ).toEqual({ ok: true, value: receipt });
+    for (const change of [
+      { expectedRevision: 1 },
+      { resolvedLinks: { "./other.md": "inside-content:other" } },
+      {
+        page: {
+          title: "New page",
+          summary: "",
+          markdown: "New page",
+          links: {},
+          images: {},
+        },
+        pageBody: representativeDocument("New page"),
+      },
+    ]) {
+      expect(
+        await apply({ ...current, ...change }, { actor, idempotencyKey }),
+      ).toMatchObject({ ok: false, error: { code: "idempotency_conflict" } });
+    }
     expect(
       await apply(
         { ...current, title: "Changed task" },

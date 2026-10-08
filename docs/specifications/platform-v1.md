@@ -1297,8 +1297,9 @@ only the calling Account's own submission.
 - `learning_tasks_list` (`productSlug` optional): published tasks the Account can open, in Product,
   chapter and in-chapter order, with code, Product, chapter, title, current Task Version and the
   Account's latest submission time.
-- `learning_task_read` (`code`, `part`, pins): the current Task Version definition (`situation`,
-  `result`, `freedom`, `criteria[]` with `level: required | additional`), review procedure v3 and the
+- `learning_task_read` (`code`, `part`, pins): the current Task Version definition (v1 `situation`,
+  `result`, `freedom`, or v2 `intro`, `freedom`, criteria with explanations and optional advice;
+  `criteria[]` keeps `level: required | additional` and `acceptableEvidence`), review procedure v3 and the
   published related Materials with availability, as canonical JSON parts. `contextVersion` pins the
   task, version, definition digest and protocol version; `contentSha256` pins the whole payload.
   Later parts require both; a mismatch answers `task_context_version_mismatch` or
@@ -1329,6 +1330,57 @@ chapter right after which the programme shows the task; `null` or its absence pu
 start of the chapter, and a Material outside the chapter answers `after_material_not_in_chapter`.
 Moving the task advances only the revision.
 
+#### Course package v2 and format c Tasks (#1194)
+
+Source: [Platform #1194](https://github.com/sachkov-inside/platform/issues/1194), paired with
+[Content #55](https://github.com/sachkov-inside/inside-content/issues/55). The exporter contract was
+checked at Content commit `3deeba8d6cfe48e40184cde6bfd34e6b65802ce2`.
+
+The authoring package accepts envelope `schemaVersion: 1 | 2`. Before asset uploads or other writes,
+`loadPackage` checks its version and every `requiredFeatures` entry. The implemented v2 feature is
+`task-c-v2`; unknown features are refused by name. Quizzes (#940), image variants (#1195), general
+collapsible callouts (#1196) and source anchors (#1179) remain separate integrations. A Content
+package that requires them is refused until those integrations support their features. In particular,
+Content's generated c advice may also declare `collapsible-callouts-v1`; Task-local folding alone
+does not declare support for that package capability.
+
+Definition v1 keeps its `situation`, `result`, `freedom` and `requirement` fields. Definition v2 adds
+`format: c`, `intro`, `freedom` and criteria with `id`, `level`, `task`, `explanation`, optional
+`advice` and `acceptableEvidence`. Criteria have unique IDs, at least one required item, and
+nonempty evidence lists. Unknown definition fields are rejected. A definition change creates a new
+Task Version; earlier submissions keep their original version and criteria.
+
+The package's `tasks[].page` keeps the original Material-shaped page metadata, Markdown, links,
+images, cover and artifacts. The Task stores this source page separately from its rendered
+MaterialBody and source-reference maps. Page changes advance the Task revision, not the requirements
+version. Task title comes from the definition's YAML; the page heading uses `page.title`.
+
+The Task Reader uses the production MaterialBody renderer. It preserves the authored page,
+«Что нужно сделать», explanations and «Что решаешь сам», folds Task advice, and inserts the usual
+submission controls before «Материалы к заданию». The current v2 Reader definition excludes
+`acceptableEvidence`; the learning MCP receives the complete definition. MCP resolves local
+Markdown links through the same source map as the page without rewriting stored authored text.
+Source links may target either a Material or a Task. Asset delivery checks access to the Task and
+its current page reference, then delegates to Assets; it never publishes the technical asset owner.
+
+For existing Materials asset upload and cleanup, each Task page uses a private technical draft
+with the distinct source key `inside-task-page:<namespace>:<code>`. It holds image, cover and file
+references, stays outside Product composition and the feed, and uses closed access. It is an asset
+owner, not a second public course item. Task access determines delivery to the reader.
+
+`selection.taskIds` lists only Tasks, while chapter and Product `materialIds` list only Materials.
+The order in `tasks[]` orders Tasks within their chapter. `afterMaterialId` places a Task immediately
+after that chapter's Material; absence places it at the beginning. Neither placement duplicates a
+Task nor adds a Material ordinal.
+
+A null Task access is a preview conflict until an explicit access decision. Release preview accepts
+repeatable `--task-access CODE=free|closed`, validates codes and choices, and persists the decision
+in its fingerprint. Apply uses only that saved decision; canonical package bytes remain unchanged.
+The Material default never makes it free. If a Material already owns the Task source key, preview reports a
+Material-to-Task migration conflict. Apply refuses that migration, keeps the Material and its
+reading history and links, and creates no Task duplicate. Migration and real course transfer require
+a separate reviewed release decision; #1194 does not delete or archive the old Material.
+
 #### Product Task page and programme (#947)
 
 Source: [Platform #947](https://github.com/sachkov-inside/platform/issues/947); the owner accepted
@@ -1336,7 +1388,7 @@ the look by prototype on 05.10.2026: the page is variant A «Документ»,
 in author order (variant 2).
 
 - `/products/<product-slug>/tasks/<code>` reads the session before rendering and is never cached. An
-  open task shows «Ситуация», «Результат», «Обязательно» and «Дополнительно» as separate lists,
+  open v1 task shows «Ситуация», «Результат», «Обязательно» and «Дополнительно» as separate lists,
   «Свобода», «Сдача» and «Мои сдачи», then the related Materials. «Сдача» shows the learning MCP
   address, the phrase with the task code and procedure v3, the same text MCP returns, with the
   fallback form folded below. A task the reader cannot open shows only its title and chapter and

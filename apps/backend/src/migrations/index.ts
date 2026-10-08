@@ -1,4 +1,8 @@
 import {
+  name as taskPagesName,
+  statement as taskPagesStatement,
+} from "../modules/product-tasks/infrastructure/postgres/migrations/0083-task-pages.js";
+import {
   name as domainNamesName,
   statement as domainNamesStatement,
 } from "./0082-domain-names.js";
@@ -543,6 +547,7 @@ export const platformMigrations = [
   },
   { name: removeWorkshopName, statement: removeWorkshopStatement },
   { name: domainNamesName, statement: domainNamesStatement },
+  { name: taskPagesName, statement: taskPagesStatement },
 ] as const;
 
 export function migrateToLatest(
