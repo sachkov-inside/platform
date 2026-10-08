@@ -1006,10 +1006,20 @@ Storybook и реальные маршруты используют один pro
 ### MCP
 
 The authoring MCP remains at `MCP_SERVER_URL`. A separate participant surface at its
-`/learning` subpath exposes only `learning_materials_list` and `learning_material_read`
-([#782](https://github.com/sachkov-inside/platform/issues/782), course source
-[ai-engineering#105](https://github.com/sachkov-inside/ai-engineering/issues/105)). Both require a
-user-delegated Account; the learning surface does not grant author permissions. Discovery uses
+`/learning` subpath exposes seven tools, recorded in the generated
+[learner tool surface](../../apps/backend/mcp/learner-tool-surface.json):
+
+- `learning_materials_list` and `learning_material_read` discover and read materials
+  ([#782](https://github.com/sachkov-inside/platform/issues/782), course source
+  [ai-engineering#105](https://github.com/sachkov-inside/ai-engineering/issues/105));
+- `learning_practice_read` reads lesson practice context and its review procedure;
+- `learning_tasks_list`, `learning_task_read`, `learning_task_submit` and
+  `learning_task_submissions` list and read Product Tasks, record the learner's submission and
+  read their own submissions ([Product Tasks contract](#product-tasks-on-the-participant-surface)).
+
+These tools require a user-delegated Account; the learning surface does not grant author permissions.
+`PRODUCT_TASK_SUBMISSIONS_ENABLED` gates submission independently of tool registration; production
+keeps it off until the data policy v4 gate is met. Discovery uses
 published catalog projections and current availability; a locked teaser contains no protected body.
 Reading uses the same PublishedMaterialReader and ContentAccess as the reader, then rechecks access
 and contentVersion after loading related presentations. Revocation or a concurrent Save refuses the

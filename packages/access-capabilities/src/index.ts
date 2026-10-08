@@ -27,12 +27,12 @@ export const accessCapabilitySchema: z.ZodUnion<
 
 export type AccessCapability = z.infer<typeof accessCapabilitySchema>;
 
-/** Право на одно конкретное руководство; принимает и сырую строку прежней записи. */
+/** Право на одно конкретный Product; принимает и сырую строку прежней записи. */
 export function isProductCapability(capability: string): boolean {
   return capability.startsWith("product:");
 }
 
-/** Право на конкретное руководство: строка права собирается и читается одним владельцем. */
+/** Право на конкретный Product: строка права собирается и читается одним владельцем. */
 export function productCapability(productId: string): AccessCapability {
   return `product:${productId}`;
 }
@@ -48,7 +48,7 @@ export function productIdFromCapability(
 
 /**
  * Что открывает одно право. Общая группа одна на всех (#648, решение владельца): её открывает и
- * купленное руководство, и сопровождение, поэтому участие живёт сроком самого долгого из них.
+ * купленный Product, и сопровождение, поэтому участие живёт сроком самого долгого из них.
  */
 export function capabilitiesOpenedBy(
   capability: AccessCapability,
@@ -159,7 +159,7 @@ export function scopeOpensResource(
 
 /**
  * Состав, который ничего не открывает: его нет, он не читается как состав или в нём нет ни одного
- * руководства и материала. Тариф с таким составом дал бы чат без материалов, поэтому его нельзя
+ * Product и материала. Тариф с таким составом дал бы чат без материалов, поэтому его нельзя
  * ни назначить, ни продать.
  */
 export function isEmptyCoverage(scope: unknown): boolean {

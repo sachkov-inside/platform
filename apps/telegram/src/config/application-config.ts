@@ -186,8 +186,8 @@ export function loadApplicationConfig(
     3650,
     "TELEGRAM_MEMBERSHIP_CHECK_RETENTION_DAYS",
   );
-  // Awaits the owner's period (#980). Platform answers a re-sent event as a duplicate, so any
-  // period is safe; the default matches the other technical records.
+  // Delivered sales funnel events expire after the configured period (30 days by default,
+  // counted from delivery, #980). Platform answers a re-sent event as a duplicate.
   const salesFunnelEventRetentionDays = parseBoundedInteger(
     environment["TELEGRAM_SALES_FUNNEL_EVENT_RETENTION_DAYS"],
     30,
