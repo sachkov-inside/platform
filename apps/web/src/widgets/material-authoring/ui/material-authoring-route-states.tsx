@@ -279,7 +279,7 @@ function MaterialAuthoringStateScreen({
 }) {
   return (
     <main
-      className="grid h-full min-h-svh place-items-center bg-background px-5 py-12 text-foreground md:min-h-0"
+      className="grid h-full min-h-svh place-items-center overflow-y-auto bg-background px-5 py-12 text-foreground md:min-h-0"
       id="authoring-content"
       tabIndex={-1}
     >
