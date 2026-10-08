@@ -264,6 +264,15 @@ export function deterministicTestViolations(file, source, testSource = true) {
   });
   /** @type {{call: Node, binding: string, scope: Node}[]} */
   const children = [];
+  /** @type {{binding: string, scope: Node}[]} */
+  const declarations = [];
+  walk(program, (value, ancestors) => {
+    if (value.type !== "VariableDeclarator") return;
+    const scope =
+      ancestors.findLast((entry) => entry.type === "BlockStatement") ?? program;
+    for (const binding of bindingNames(value["id"]))
+      declarations.push({ binding, scope });
+  });
   const processCalls = new Set(["spawn", "fork"]);
   for (const statement of nodes(program.body)) {
     if (
@@ -285,17 +294,22 @@ export function deterministicTestViolations(file, source, testSource = true) {
     const declaration = ancestors.findLast((ancestor) =>
       ["VariableDeclarator", "AssignmentExpression"].includes(ancestor.type),
     );
+    const binding =
+      declaration === undefined
+        ? ""
+        : name(
+            declaration[
+              declaration.type === "VariableDeclarator" ? "id" : "left"
+            ],
+          );
+    const owner = declarations.findLast(
+      (entry) => entry.binding === binding && ancestors.includes(entry.scope),
+    );
     children.push({
       call: value,
-      binding:
-        declaration === undefined
-          ? ""
-          : name(
-              declaration[
-                declaration.type === "VariableDeclarator" ? "id" : "left"
-              ],
-            ),
+      binding,
       scope:
+        owner?.scope ??
         ancestors.findLast((ancestor) => ancestor.type === "BlockStatement") ??
         program,
     });
@@ -306,7 +320,11 @@ export function deterministicTestViolations(file, source, testSource = true) {
     const called = name(value["callee"]);
     const target =
       called === "kill" && node(value["callee"])
-        ? rootName(value["callee"]["object"]) === "process"
+        ? rootName(value["callee"]["object"]) === "process" &&
+          !children.some(
+            (entry) =>
+              entry.binding === "process" && ancestors.includes(entry.scope),
+          )
           ? nodes(value["arguments"])[0]
           : value["callee"]["object"]
         : [

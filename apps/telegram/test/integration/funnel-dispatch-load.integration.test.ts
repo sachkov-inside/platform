@@ -363,7 +363,7 @@ it(`answers /start within bounds while a funnel dispatches to ${AUDIENCE} contac
     expect(required(reply).message.content.text).toBe("intro");
   } finally {
     workerState.dispatching = false;
-    // deterministic-test-allow duration-wait: Deadline bounds worker shutdown; dispatch is already stopped.
+    // deterministic-test-allow duration-wait: Legacy shutdown caps the wait but does not cancel in-flight dispatch; verified cancellation is tracked in #1154.
     await Promise.race([worker, delay(MEASUREMENT_CAP_MS)]);
   }
   const backlog = sent.filter((s) => s.message.chatId !== "777");

@@ -196,6 +196,7 @@ await test(
     const { processDeadline } = await import("./process-deadline.mjs");
     const { signalProcessGroup } =
       await import("../../../scripts/process-group-signal.mjs");
+    // Hooks clean normal test exits; supervision after runner SIGTERM/SIGKILL remains tracked in #1154.
     const child = spawn(
       process.execPath,
       [

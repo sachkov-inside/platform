@@ -79,6 +79,7 @@ process.once("exit", cleanup);
  */
 function run(args) {
   return new Promise((resolveRun, reject) => {
+    // Signal/exit handlers cannot run after launcher SIGKILL; standalone supervision is tracked in #1154.
     // deterministic-test-allow process-cleanup: cleanup kills the owned detached group on exit, SIGINT and SIGTERM.
     child = spawn("pnpm", ["exec", "next", ...args], {
       detached: true,

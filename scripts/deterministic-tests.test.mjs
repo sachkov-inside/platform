@@ -301,3 +301,14 @@ test("EXIT cleanup leaves no background load on success, failure, timeout or SIG
     }
   }
 });
+
+test("cleanup resolves acquisition assignments and a child named process", () => {
+  for (const source of [
+    'let child; try { child = spawn("load"); await work(); } finally { child?.kill("SIGKILL"); }',
+    'const process = spawn("load"); try { await work(); } finally { process.kill("SIGKILL"); }',
+  ])
+    assert.deepEqual(
+      deterministicTestViolations("scripts/diagnostic.mjs", source, false),
+      [],
+    );
+});

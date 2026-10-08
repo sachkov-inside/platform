@@ -23,6 +23,7 @@ describe("API development process", () => {
       throw new Error("npm_execpath is required to launch the pinned pnpm CLI");
     }
 
+    // The hook owns normal test exits; supervision after runner SIGKILL remains tracked in #1154.
     const child = spawn(globalThis.process.execPath, [pnpmPath, "dev:api"], {
       detached: true,
       cwd: backendRoot,
