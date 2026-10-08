@@ -41,3 +41,35 @@ export const ErrorMobile: Story = {
     ).toBeVisible();
   },
 };
+
+/** Длинный код обращения не обрезается авторской оболочкой на широком экране. */
+export const LongErrorDesktop: Story = {
+  args: {
+    digest: Array.from({ length: 200 }, () => "error-reference").join(" "),
+  },
+  globals: { viewport: { isRotated: false, value: "desktop1440" } },
+  play: async ({ canvasElement }) => {
+    await document.fonts.ready;
+    const main = within(canvasElement).getByRole("main");
+    await expect(getComputedStyle(main).overflowY).toBe("auto");
+    await expect(main.scrollHeight).toBeGreaterThan(main.clientHeight);
+    const shell = main.parentElement;
+    if (shell === null) throw new Error("Нет авторской оболочки");
+    await expect(main.getBoundingClientRect().width).toBe(shell.clientWidth);
+    await expect(main.scrollWidth).toBe(main.clientWidth);
+    main.scrollTop = main.scrollHeight;
+    await expect(main.scrollTop).toBeGreaterThan(0);
+    const retry = within(canvasElement).getByRole("button", {
+      name: "Повторить",
+    });
+    await expect(retry.getBoundingClientRect().bottom).toBeLessThanOrEqual(
+      main.getBoundingClientRect().bottom,
+    );
+    main.scrollTop = 0;
+    await expect(
+      within(canvasElement)
+        .getByRole("heading", { name: "Редактор остановлен" })
+        .getBoundingClientRect().top,
+    ).toBeGreaterThanOrEqual(main.getBoundingClientRect().top);
+  },
+};
