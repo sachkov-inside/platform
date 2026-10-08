@@ -27,9 +27,9 @@ Live-route evidence and final command results are recorded below after the isola
 
 ## Verification boundaries
 
-`tools/authoring/package-v2.test.mjs` checks envelope refusal before transport/uploads, v1
-compatibility, original page preservation, source links, image/file references, explicit preview
-access choices, and migration conflicts. Backend integration checks use real PostgreSQL and cover
+`tools/authoring/package-v2.test.mjs` checks envelope refusal before transport/uploads, original
+page preservation, source links, image/file references, explicit preview access choices, migration
+conflicts and receipt recovery. Existing authoring package/release tests retain v1 coverage. Backend integration checks use real PostgreSQL and cover
 immutable historical submissions, HTTP/MCP projections, access, asset delivery and nested image
 presentation. `apps/web/test/fullstack/product-task-c.spec.ts` checks actual API import, protected
 assets, keyboard advice, links in both directions, programme order, accessibility and screenshots.
