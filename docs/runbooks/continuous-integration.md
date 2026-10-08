@@ -292,7 +292,7 @@ separately through their owning package scripts and remain separate in the table
 When parameterized cases have identical full names, the report keeps the full name and adds a
 case index within that file/name group. Vitest JSON retains declaration order; Node observations
 are sorted by testId. Unrelated tests do not affect this index. Reordering identically named cases
-or changing their group size changes their identity; give cases distinct names to avoid that limit.
+or removing duplicate names can change their identity; give cases distinct names to avoid that limit.
 The unit inventory comes from the workspace package manifests and root Node test scripts,
 the same sources `check:unit` uses; unsupported new command syntax fails visibly.
 
