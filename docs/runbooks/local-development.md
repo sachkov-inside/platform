@@ -460,9 +460,12 @@ imports `axe-core` (4 MB) on the first accessibility check. The setup file
 `apps/web/test/support/storybook-preload.ts` loads both before the tests of each file, so the
 15-second budget of a story measures the story itself. Without it, the first story of a file paid
 for that load. When parallel heavy checks slowed the Vite server, the load alone took several
-seconds, and first stories exceeded the budget (#1095, #1128). The pinned versions of `axe-core` and
-`@storybook/react-dom-shim` in `apps/web/package.json` must match the versions that `addon-a11y` and
-Storybook use; update them together.
+seconds, and first stories exceeded the budget (#1095, #1128). The preload does not make the run
+shorter: a slow Vite server now shows in the `setup` and `import` times of the Vitest `Duration`
+line, not as a failed story. The pinned versions of `axe-core` and `@storybook/react-dom-shim` in
+`apps/web/package.json` must match the versions that `addon-a11y` and Storybook use; update them
+together. `apps/web/test/module/storybook-preload.test.ts` fails when they differ or when the
+`storybook` project loses the setup file.
 
 The pinned `@storybook/addon-vitest@10.6.1` has a local pnpm patch (#1023). Its Execa child
 process disables `ipcOutput` buffering: live listeners already consume every message, while the
