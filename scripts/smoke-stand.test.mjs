@@ -198,7 +198,7 @@ describe("smoke stand", () => {
       scenarios.push(script);
 
       assert.match(source, /await startWithRoutes\(\{/u, script);
-      assert.match(source, /await stopProcessGroup\(/u, script);
+      // Command-tree cleanup is exercised through real CLI processes in contracts.
     }
     assert.deepEqual(scenarios, [
       "billing-contact-proof.mjs",

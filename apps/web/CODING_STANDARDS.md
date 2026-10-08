@@ -1,18 +1,16 @@
 # Web coding standards
 
-This file is normative for `apps/web` changes and reviews. The nearest `AGENTS.md` owns routing and
-verification; ADR 0011 owns the current Library/transport boundary, ADR 0012 owns browser
-mutations and ADR 0027 owns navigation and caching. A rule that a check can hold lives in that
-check, not here: `pnpm --filter @inside/web guardrails` runs `scripts/check-web-architecture.mjs`,
-whose diagnostic names the broken rule. This file keeps the judgement around those checks.
+The nearest `AGENTS.md` owns routing and verification. ADRs 0011, 0012 and 0027 own transport,
+mutations and navigation. This file keeps judgement rules for Web changes and reviews.
+`pnpm --filter @inside/web guardrails` runs `scripts/check-web-architecture.mjs` and its negative
+fixtures in `scripts/check-negative-guardrails.mjs`; diagnostics own the enforced rules.
 
 ## Slices and runtime boundaries
 
 - Keep `app/` thin: routing, metadata, route states, and composition only. Product UI, presentation
   models, and data adapters live in feature-owned slices under `src`.
-- `_app` owns root providers and shell; `_pages` owns route slices; `widgets`, `features`, `entities`,
-  and `shared` follow the enforced downward dependency direction. Import through a public entrypoint
-  and use a focused sub-entrypoint when a broad barrel crosses runtime or bundle boundaries.
+- `_app` owns root providers and shell; `_pages` owns route slices. Import through a public
+  entrypoint; use a focused sub-entrypoint when a broad barrel crosses runtime or bundle boundaries.
 - Keep route-specific behaviour beside its `_pages/<page>` slice. Promote code to `shared` only
   after multiple real consumers need the smaller interface.
 - Public page metadata comes from `src/shared/link-preview`; each page slice maps its own result to
@@ -46,11 +44,9 @@ whose diagnostic names the broken rule. This file keeps the judgement around tho
 - The Node web process configures Undici for HTTP/1.1 in `instrumentation.ts` before serving
   requests. Logto rejects SDK streaming token bodies over HTTP/2 without Content-Length;
   [ADR 0032](../../docs/adr/0032-web-http1-logto-sdk.md) owns this compatibility choice.
-- Nest owns the wire contract. Change controller schemas, regenerate deterministic OpenAPI and the
-  Web client, and use `pnpm api:check` for drift. Do not hand-edit generated artifacts.
-- `@inside/material-blocks` owns the material block set: take a block's rendered type and schema
-  from its registry entry point and build the editor from its document-schema entry point. A page
-  slice adds a block's appearance, never its node, block list or rendered shape.
+- Nest controller schemas own the wire contract; `pnpm api:check` owns generated contract drift.
+- Read rendered block types/schemas from `@inside/material-blocks`' registry and editor schemas
+  from its document-schema entrypoint. Page slices own appearance, not nodes, block lists or shapes.
 - Authenticated reads use `handleAuthenticatedRead` for GET adapters and
   `readAuthenticatedSession("rsc")` for server renders. The session adapter owns the token mode;
   the read module owns session failures (401/503) and private no-store with `Vary: cookie`.
@@ -59,9 +55,8 @@ whose diagnostic names the broken rule. This file keeps the judgement around tho
   other HTTP rejections keep their status and `unknown` body for feature failure schemas.
   Feature outcomes remain local. Replace the public `sessionAdapter` in read tests, rather than
   token or Logto config internals. RSC prefetch interruption stays outside failure catches.
-- Treat generated response types as compile-time guidance. Feature adapters receive external bodies
-  as `unknown`, validate focused Zod schemas, and map Problem Details and success bodies into known
-  feature outcomes and presentation models.
+- Generated types guide compilation; adapters validate `unknown` bodies with focused Zod schemas
+  and map Problem Details and success bodies to feature outcomes and presentation models.
 - Do not add a universal proxy, generated TanStack hooks/Zod schemas/UI models, or a second
   transport path without a concrete consumer and an explicit architecture decision.
 - `proxy.ts` limits the request rate of entry routes and answers unknown legal addresses with 404
@@ -73,8 +68,7 @@ whose diagnostic names the broken rule. This file keeps the judgement around tho
 
 ## Navigation and caching
 
-[ADR 0027](../../docs/adr/0027-web-navigation-and-caching.md) owns the rationale and the numbers;
-these are the rules a change follows.
+[ADR 0027](../../docs/adr/0027-web-navigation-and-caching.md) owns the rationale and the numbers.
 
 - A public catalog page has layers: the route skeleton in `loading.tsx`, the shared part rendered
   from a guest read, and, where the page depends on the reader, a personal part inside an inner
@@ -87,16 +81,12 @@ these are the rules a change follows.
   one. Every such page has `LoadsInPlace` stories for 1440 and 390 that compare the geometry of
   the skeleton, the shared part and the ready page; `src/storybook/loads-in-place.ts` owns their
   shared helpers.
-- `"use cache"` reads the catalog as a guest; the guardrail holds its module, policy call, variant
-  and placement. A read made with a token, a closed Material body, per-viewer availability,
-  progress, the guide mode and offers are never cached and so never enter link prefetch. The one
-  exception is the guest read of a product's offer terms for its description placeholders
-  (ADR 0027): month counts only, no price. The guardrail sees a direct breach only: a token under
-  another name or a session reached through an intermediary stays a review concern.
+- Review cached reads for closed Material bodies, per-viewer availability, progress, guide mode
+  and offers: they never enter the cache or link prefetch. Only guest offer month counts for
+  description placeholders may be cached (ADR 0027), never prices. The cache guardrail rejects
+  direct session access; a renamed token or session reached through an intermediary needs review.
 - A cached read returns a dependency failure as a value, and its entry expires at once: it stays
   out of the cache, of prefetch and of the shell that the image build prerenders without a backend.
-- The guardrail and `pnpm --filter @inside/web test:prerendered-handlers` hold every `GET` Route
-  Handler to `await connection()`; a handler that is static on purpose is listed in both.
 - A page or layout that reads the session on the server before it renders is not split into
   layers and declares `export const instant = false`, which exempts it from the instant-navigation
   validation; a redirect from a layout needs a real status code, which streaming cannot give. The
@@ -124,17 +114,15 @@ these are the rules a change follows.
 - A page with a parameter streams, so its `notFound()` arrives after status 200. Where web itself
   knows every valid address — today the legal section — `proxy.ts` checks the address before the
   response and rewrites an unknown one to an unrouted path, which Next.js answers with its own 404.
-  Its `matcher` is a literal; the guardrail keeps the backend and the session out of its imports,
-  and a cookie parsed from a raw header stays a review concern. Catalog addresses live in the
-  backend and keep the soft 404 (ADR 0027).
+  Keep `matcher` literal. Review raw-header cookies: the proxy guardrail cannot detect them. Catalog
+  addresses live in the backend and keep the soft 404 (ADR 0027).
 - A component that reads the clock, randomness or a request value during render breaks the
   production build under Cache Components. Read it in an event handler or an effect.
 - A page the reader left is hidden, not unmounted, and keeps its client state. State that starts
   from a server value follows that value when it changes; `ProductModeProvider` is the worked
   example. A surface that must reset on return resets itself.
-- A server render reads the session only through `@/shared/auth`, whose `connection()` stops a
-  prefetch before it starts a token refresh. The guardrail holds the Logto SDK there; a session
-  cookie read through `next/headers` stays a review concern.
+- Review server session cookies read through `next/headers`; the Logto import guardrail cannot
+  prove that session reads go through `@/shared/auth` and its prefetch-stopping `connection()`.
 - A hydrated or freshly read TanStack query keeps the client default `staleTime`. Freshness after a
   write comes from invalidating the owner's key and from fact announcements, not from
   `staleTime: 0`; `selfRefreshingRead` stays for surfaces where a person waits for someone else's
@@ -166,9 +154,7 @@ these are the rules a change follows.
   read a fact means reading its query owner, which is not an import boundary a guardrail can match.
   Without the browser's inter-tab channel, the common mechanism announces writes to surfaces in
   the same tab through a window event. Other tabs see the write on their next read: opening or
-  returning focus re-reads only when the cached answer is stale. The architecture guardrail keeps
-  direct channel access in the common module; its negative fixture covers a channel constructed
-  elsewhere.
+  returning focus re-reads only when the cached answer is stale.
 - Interactive writes use `useMutation` → browser adapter → same-origin capability Route Handler →
   generated Nest transport. The shared BFF boundary owns Origin, session, private no-store, timeout,
   and the default 2 MiB limit; a larger limit requires a named narrow override and boundary tests.
@@ -178,12 +164,8 @@ these are the rules a change follows.
 
 ## Interaction and enforcement
 
-- Apply [deterministic test contracts](../../CODING_STANDARDS.md#deterministic-test-contracts-1153).
-  Browser tests wait for the produced render, response or URL; module tests supply I/O doubles.
-  Each case creates its own account, content and mutable double state. Build the production site
-  and prepare large corpora before the test budget starts. Virtual clocks trigger work; assert its
-  observed completion.
-
+- Apply root [waiting rules](../../CODING_STANDARDS.md#waiting-in-tests) and
+  [deterministic test contracts](../../CODING_STANDARDS.md#deterministic-test-contracts-1153).
 - Hover, focus, loading, and hydration preserve surrounding layout. Reserve a definite footprint or
   use an overlay; layout may change after explicit user actions such as pinning or resizing.
 - Prove layout-sensitive interaction with geometry assertions or Layout Shift API checks when
@@ -193,8 +175,6 @@ these are the rules a change follows.
 - Compare a node with live document state inside one evaluation, `document.activeElement` above all.
   A locator resolves in one round trip and evaluates in the next, so a re-render between them leaves
   the assertion holding a detached node that can never equal what the document reports now.
-- Freeze "today" and expiration in domain fixtures; page and mocked provider use the same instant.
-  Restore owned fake clocks after each case. Monotonic time measures latency and polling budgets.
 - Treat `clock.runFor` as a trigger: it returns once the page's virtual timers ran, before the
   request they started has been answered. Wait for the response or the applied render.
 - Simulate a return to the tab with `visibilitychange` and `focus` together, as a browser sends
@@ -203,9 +183,8 @@ these are the rules a change follows.
   `returnToStaleTab` in `test/fullstack/personal-home.spec.ts` for a return to the tab and
   `signInAndRecheckOnFocus` in `test/fullstack/reading-progress.spec.ts` for a sign-in re-check.
 - Build site animation as a CSS component next to its page, with a `prefers-reduced-motion` guard
-  and platform tokens. The static cover is the same component with its loop stopped. The guardrail
-  rejects Remotion and framer-motion; an embedded video is not a site asset either (owner decision
-  of 2026-09-11). Design a card or hero animation for its real slot, draw its icons with
+  and platform tokens. The static cover is the same component with its loop stopped. An embedded
+  video is not a site asset (owner decision of 2026-09-11). Design animation for its real slot, use
   `lucide-react` and change scenes without morphing objects into each other; the owner's decisions
   of 2026-09-13 and their reasons are in
   `docs/evidence/issue-614/ai-first-animation/README.md`. The AI Engineering course film (#808) is
@@ -216,6 +195,5 @@ these are the rules a change follows.
   icons with duotone Phosphor geometry (`features/ai-engineering-course/ui/course-icons.tsx`)
   instead of `lucide-react`, by the owner's decision of 2026-09-30 to avoid the standard icon set
   there.
-- Keep Web guardrails and negative fixtures aligned with environment ownership, browser bypass,
-  slice direction, mutation boundaries, and bundle limits. Use focused mapping/query tests,
-  Storybook for meaningful UI states, and Playwright for route behaviour and accessibility.
+- Keep Web guardrails and negative fixtures aligned. Use mapping/query tests, Storybook for
+  meaningful UI states, and Playwright for route behaviour and accessibility.

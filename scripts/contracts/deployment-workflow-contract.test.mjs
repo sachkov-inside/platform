@@ -14,7 +14,10 @@ import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, it } from "node:test";
 
-const repositoryRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
+const repositoryRoot = resolve(
+  dirname(fileURLToPath(import.meta.url)),
+  "../..",
+);
 const workflow = readFileSync(
   resolve(repositoryRoot, ".github/workflows/deploy.yml"),
   "utf8",
@@ -112,6 +115,7 @@ esac
         const script = run.replace(/^ {10}/gmu, "");
         const result = spawnSync("bash", ["-c", script], {
           cwd: directory,
+          timeout: 30_000,
           encoding: "utf8",
           env: {
             ...process.env,

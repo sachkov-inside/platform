@@ -87,6 +87,7 @@ if (settings) {
           : "scripts/plan-release.sh",
       ],
       {
+        timeout: 30_000,
         encoding: "utf8",
         env: {
           ...process.env,

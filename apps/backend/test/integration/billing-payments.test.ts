@@ -10,11 +10,12 @@ import { AcceptTbankNotificationController } from "../../src/modules/billing/fea
 import { ProblemDetailsFilter } from "../../src/infrastructure/http/problem-details.filter.js";
 import { HttpCachePolicyInterceptor } from "../../src/infrastructure/http/http-cache-policy.js";
 import { fork } from "node:child_process";
-import { setTimeout as delay } from "node:timers/promises";
+import timersPromises from "node:timers/promises";
+import { syncBuiltinESMExports } from "node:module";
 import { once } from "node:events";
 import { z } from "zod";
 import { randomUUID } from "node:crypto";
-import { afterAll, beforeAll, describe, expect, test } from "vitest";
+import { afterAll, beforeAll, describe, expect, test, vi } from "vitest";
 import {
   assembleAccounts,
   accountId,
@@ -44,10 +45,8 @@ import {
   syntheticConsentDocuments,
 } from "./setup/consent-documents.js";
 
-// How long a committed database row may take to appear, and how long an unfixed answer would need
-// to arrive. Both are barriers around a committed fact, never a measurement of machine speed.
+// Budgets bound missing durable facts; they do not establish that an operation has started.
 const barrierBudgetMs = 10_000;
-const prematureAnswerGraceMs = 50;
 
 function value<T>(
   result: { ok: true; value: T } | { ok: false; error: { code: string } },
@@ -334,40 +333,63 @@ describe("subscription payment recovery (real PostgreSQL and real facets; synthe
     const s = await scenario(["materials"]);
     const runtime = s.runtime();
     const release = s.holdInit();
+    let bankAnswerWaitStarted = false;
+    let resumePolling!: () => void;
+    const polling = new Promise<void>((resolve) => {
+      resumePolling = resolve;
+    });
+    const originalDelay = timersPromises.setTimeout;
+    // Observe and hold the bank-answer polling boundary, rather than sleeping for a reply.
+    const delay = vi
+      .spyOn(timersPromises, "setTimeout")
+      .mockImplementation((milliseconds, value, options) => {
+        if (milliseconds !== 200)
+          return originalDelay(milliseconds, value, options);
+        bankAnswerWaitStarted = true;
+        return polling.then(() => value);
+      });
+    syncBuiltinESMExports();
     const sender = runtime.purchase(s.buyer, s.command);
-    await eventually(async () => {
-      expect(
-        (
-          await db.prisma.billingPurchase.findFirst({
-            where: { accountId: s.buyer },
-          })
-        )?.state,
-      ).toBe("sent");
-    }, barrierBudgetMs);
-    const joining = { ...s.command, operationId: randomUUID() };
-    const secondTab = runtime.purchase(s.buyer, joining);
-    // A barrier, not a stopwatch: once the joining call has committed its command row it has already
-    // passed the point where the unfixed code answered straight from the interim row.
-    await eventually(async () => {
-      expect(
-        await db.prisma.billingPurchaseCommand.findUnique({
-          where: {
-            accountId_operationId: {
-              accountId: s.buyer,
-              operationId: joining.operationId,
+    let secondTab: ReturnType<typeof runtime.purchase> | undefined;
+    let secondCompleted = false;
+    try {
+      await eventually(async () => {
+        expect(
+          (
+            await db.prisma.billingPurchase.findFirst({
+              where: { accountId: s.buyer },
+            })
+          )?.state,
+        ).toBe("sent");
+      }, barrierBudgetMs);
+      const joining = { ...s.command, operationId: randomUUID() };
+      secondTab = runtime.purchase(s.buyer, joining).then((result) => {
+        secondCompleted = true;
+        return result;
+      });
+      await eventually(async () => {
+        expect(
+          await db.prisma.billingPurchaseCommand.findUnique({
+            where: {
+              accountId_operationId: {
+                accountId: s.buyer,
+                operationId: joining.operationId,
+              },
             },
-          },
-        }),
-      ).not.toBeNull();
-    }, barrierBudgetMs);
-    expect(
-      await Promise.race([
-        secondTab.then(() => "answered"),
-        // deterministic-test-allow duration-wait: Quiet window proves no reply while a pinned database lock is held; virtual-clock migration is tracked in #1154.
-        delay(prematureAnswerGraceMs).then(() => "waiting"),
-      ]),
-    ).toBe("waiting");
-    release();
+          }),
+        ).not.toBeNull();
+      }, barrierBudgetMs);
+      await vi.waitFor(() => expect(bankAnswerWaitStarted).toBe(true), {
+        timeout: barrierBudgetMs,
+      });
+      expect(secondCompleted).toBe(false);
+    } finally {
+      delay.mockRestore();
+      syncBuiltinESMExports();
+      release();
+      resumePolling();
+      await Promise.all([sender, secondTab]);
+    }
     const [first, second] = await Promise.all([sender, secondTab]);
     expect(s.requests()).toBe(1);
     for (const result of [value(first), value(second)]) {

@@ -1,5 +1,4 @@
-// deterministic-test-allow unit-io: Local production smoke shell contract; suite separation is tracked in #1154.
-import { spawnSync } from "node:child_process";
+import { runOwnedCommandSync } from "../support/owned-command.js";
 import {
   chmodSync,
   mkdirSync,
@@ -127,7 +126,7 @@ function runSmoke(scenario: string) {
       writeFileSync(executable, `#!/bin/bash\n${body}`);
       chmodSync(executable, 0o755);
     }
-    const result = spawnSync("/bin/bash", [smoke], {
+    const result = runOwnedCommandSync("/bin/bash", [smoke], {
       cwd: fixture,
       encoding: "utf8",
       env: {

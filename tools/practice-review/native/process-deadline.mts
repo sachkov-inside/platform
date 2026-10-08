@@ -1,3 +1,4 @@
+import { isOwnedProcess, stopOwned } from "../../../scripts/owned-process.mjs";
 import type { ChildProcess } from "node:child_process";
 import { signalProcessGroup } from "../../../scripts/process-group-signal.mjs";
 
@@ -8,9 +9,15 @@ export function processDeadline(
   graceMs = 1000,
 ) {
   let timedOut = false;
+  let stopping = false;
   let killTimer: ReturnType<typeof setTimeout> | undefined;
   function stop() {
-    if (killTimer !== undefined || child.pid === undefined) return;
+    if (stopping || child.pid === undefined) return;
+    stopping = true;
+    if (isOwnedProcess(child)) {
+      void stopOwned(child, graceMs);
+      return;
+    }
     if (!signalProcessGroup(child.pid, "SIGTERM")) child.kill("SIGTERM");
     killTimer = setTimeout(() => {
       if (child.pid !== undefined && !signalProcessGroup(child.pid, "SIGKILL"))

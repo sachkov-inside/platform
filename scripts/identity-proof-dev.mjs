@@ -1,5 +1,6 @@
 // @ts-check
-import { spawn } from "node:child_process";
+import { spawnOwned, stopOwned } from "./owned-process.mjs";
+import { commandExit } from "./diagnostic-command.mjs";
 import { readFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import process from "node:process";
@@ -19,8 +20,7 @@ const proofEnvironment = parseEnv(
 );
 const { apiPort, webPort } = readIdentityProofEndpoints(process.env);
 
-// deterministic-test-allow process-cleanup: Legacy command needs verified group cleanup on interruption; migration is tracked in #1154.
-const child = spawn(process.execPath, [pnpmPath, "dev"], {
+const child = spawnOwned(process.execPath, [pnpmPath, "dev"], {
   cwd: root,
   env: {
     ...process.env,
@@ -33,13 +33,18 @@ const child = spawn(process.execPath, [pnpmPath, "dev"], {
   stdio: "inherit",
 });
 
+/** @type {NodeJS.Signals | undefined} */
+let interruptedSignal;
 for (const signal of /** @type {const} */ (["SIGINT", "SIGTERM"])) {
-  process.once(signal, () => child.kill(signal));
+  process.once(signal, () => {
+    interruptedSignal ??= signal;
+    void stopOwned(child);
+  });
 }
-
-/** @type {Promise<number>} */
-const exited = new Promise((resolveExit) => {
-  child.once("exit", (code) => resolveExit(code ?? 1));
-});
-const exitCode = await exited;
-process.exitCode = exitCode;
+try {
+  process.exitCode = (await commandExit(child)) ?? 1;
+} finally {
+  await stopOwned(child);
+  if (interruptedSignal !== undefined)
+    process.exitCode = interruptedSignal === "SIGINT" ? 130 : 143;
+}

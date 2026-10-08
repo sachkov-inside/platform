@@ -1,12 +1,10 @@
-import { spawn, type ChildProcess } from "node:child_process";
-import { once } from "node:events";
+import type { ChildProcess } from "node:child_process";
+import { spawnOwned, stopOwned } from "../../../scripts/owned-process.mjs";
 import { createServer } from "node:net";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { onTestFinished, describe, expect, it } from "vitest";
-
-import { signalProcessGroup } from "../../../scripts/process-group-signal.mjs";
+import { describe, expect, it, vi } from "vitest";
 
 import { platformMigrations } from "../src/migrations/index.js";
 import { stringMatching } from "./support/matchers.js";
@@ -23,54 +21,50 @@ describe("API development process", () => {
       throw new Error("npm_execpath is required to launch the pinned pnpm CLI");
     }
 
-    // The hook owns normal test exits. Forced cleanup across pnpm's separate descendant
-    // groups and supervision after runner SIGKILL remain tracked in #1154.
-    const child = spawn(globalThis.process.execPath, [pnpmPath, "dev:api"], {
-      detached: true,
-      cwd: backendRoot,
-      env: {
-        ...globalThis.process.env,
-        API_HOST: "127.0.0.1",
-        API_PORT: String(port),
+    const process = spawnOwned(
+      globalThis.process.execPath,
+      [pnpmPath, "dev:api"],
+      {
+        cwd: backendRoot,
+        env: {
+          ...globalThis.process.env,
+          API_HOST: "127.0.0.1",
+          API_PORT: String(port),
+        },
+        stdio: ["ignore", "pipe", "pipe"],
       },
-      stdio: ["ignore", "pipe", "pipe"],
-    });
-    onTestFinished(async () => {
-      const closed =
-        child.exitCode === null && child.signalCode === null
-          ? once(child, "close", { signal: AbortSignal.timeout(5_000) })
-          : undefined;
-      try {
-        // pnpm forwards SIGTERM to the separate group it creates for the dev script.
-        child.kill("SIGTERM");
-        await closed;
-      } finally {
-        if (child.pid !== undefined) signalProcessGroup(child.pid, "SIGKILL");
-      }
-    });
-    child.stdout.on("data", (chunk: Buffer) => output.push(chunk.toString()));
-    child.stderr.on("data", (chunk: Buffer) => output.push(chunk.toString()));
-
-    const response = await waitForResponse(
-      `http://127.0.0.1:${port}/health`,
-      child,
-      output,
+    );
+    process.stdout?.on("data", (chunk: Buffer) =>
+      output.push(chunk.toString()),
+    );
+    process.stderr?.on("data", (chunk: Buffer) =>
+      output.push(chunk.toString()),
     );
 
-    expect(response.status, output.join("")).toBe(200);
-    await expect(response.json()).resolves.toEqual({
-      database: "reachable",
-      process: "api",
-      release: {
-        release: "development",
-        sourceSha: "0000000000000000000000000000000000000000",
-      },
-      schema: {
-        identity: stringMatching(/^sha256:[0-9a-f]{64}$/u),
-        migrationCount: platformMigrations.length,
-      },
-      status: "ready",
-    });
+    try {
+      const response = await waitForResponse(
+        `http://127.0.0.1:${port}/health`,
+        process,
+        output,
+      );
+
+      expect(response.status, output.join("")).toBe(200);
+      await expect(response.json()).resolves.toEqual({
+        database: "reachable",
+        process: "api",
+        release: {
+          release: "development",
+          sourceSha: "0000000000000000000000000000000000000000",
+        },
+        schema: {
+          identity: stringMatching(/^sha256:[0-9a-f]{64}$/u),
+          migrationCount: platformMigrations.length,
+        },
+        status: "ready",
+      });
+    } finally {
+      await stopOwned(process);
+    }
   });
 });
 
@@ -103,20 +97,15 @@ async function waitForResponse(
   child: ChildProcess,
   output: readonly string[],
 ): Promise<Response> {
-  const deadline = performance.now() + 10_000;
-
-  while (performance.now() < deadline) {
-    if (child.exitCode !== null) {
-      throw new Error(`Development API exited early:\n${output.join("")}`);
-    }
-
-    try {
-      return await fetch(url);
-    } catch {
-      // deterministic-test-allow duration-wait: Poll the live health response; the delay is only the sampling interval.
-      await new Promise((resolveDelay) => setTimeout(resolveDelay, 100));
-    }
-  }
-
-  throw new Error(`Development API did not start:\n${output.join("")}`);
+  return vi.waitFor(
+    async () => {
+      if (child.exitCode !== null || child.signalCode !== null) {
+        throw new Error(`Development API exited early:\n${output.join("")}`);
+      }
+      const response = await fetch(url, { signal: AbortSignal.timeout(1000) });
+      expect(response.status, output.join("")).toBe(200);
+      return response;
+    },
+    { timeout: 10_000 },
+  );
 }

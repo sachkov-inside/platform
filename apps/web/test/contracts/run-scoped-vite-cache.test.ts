@@ -1,4 +1,3 @@
-// deterministic-test-allow unit-io: Local runner process/cache contract; suite separation is tracked in #1154.
 import { execFileSync } from "node:child_process";
 import { existsSync, mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -78,7 +77,7 @@ describe("run-scoped Vite cache for Storybook runners (#1004)", () => {
         `const { runScopedViteCache } = await import(${JSON.stringify(helper.href)});
          process.stdout.write(runScopedViteCache().config().cacheDir);`,
       ],
-      { encoding: "utf8" },
+      { encoding: "utf8", timeout: 5_000 },
     );
     created.push(cacheDir);
 

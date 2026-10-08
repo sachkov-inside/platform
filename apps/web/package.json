@@ -24,7 +24,8 @@
     "openapi:generate": "node scripts/generate-openapi-client.mjs generate",
     "openapi:check": "node scripts/generate-openapi-client.mjs check",
     "storybook": "storybook dev -p 6006",
-    "build-storybook": "bash ../../scripts/heavy-check.sh storybook build --output-dir storybook-static"
+    "build-storybook": "bash ../../scripts/heavy-check.sh storybook build --output-dir storybook-static",
+    "test:contracts": "bash ../../scripts/heavy-check.sh vitest run --config vitest.config.mts --project=contracts"
   },
   "dependencies": {
     "@fontsource-variable/jetbrains-mono": "5.3.0",
