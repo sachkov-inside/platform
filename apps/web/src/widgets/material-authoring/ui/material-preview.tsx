@@ -4,6 +4,7 @@ import {
   MaterialAssetFile,
   MaterialAssetImage,
 } from "@/features/material-assets";
+import { MaterialPrimaryVideo } from "@/features/material-video";
 import {
   materialTaxonomyLabel,
   MaterialLessonBlock,
@@ -55,12 +56,24 @@ export function MaterialPreview({ preview }: MaterialPreviewProps) {
           ))}
         </ul>
       </header>
-      {preview.video === undefined ? null : (
+      {preview.video?.kind === "attached" && preview.video.ready ? (
+        <MaterialPrimaryVideo
+          key={preview.video.videoId}
+          materialId={preview.materialId}
+          preview
+          video={{
+            durationSeconds: preview.video.durationSeconds,
+            state: "ready",
+            title: preview.video.title,
+            videoId: preview.video.videoId,
+          }}
+        />
+      ) : preview.video === undefined ? null : (
         <p
           className="mt-8 rounded-xl border border-border bg-card px-4 py-3 text-sm text-muted-foreground"
           data-preview-video={preview.video.kind}
         >
-          {previewVideoNote(preview.video, preview.publicationState)}
+          {previewVideoNote(preview.video)}
         </p>
       )}
       <div className="mt-12 space-y-6 text-pretty text-[1rem] leading-[1.75] sm:text-[1.0625rem]">
@@ -77,23 +90,15 @@ export function MaterialPreview({ preview }: MaterialPreviewProps) {
   );
 }
 
-/** Плеер выдаётся только опубликованному уроку, поэтому здесь видео названо словами. */
-function previewVideoNote(
-  video: MaterialPreviewVideo,
-  publicationState: MaterialPreviewPresentation["publicationState"],
-): string {
+/** Готовое видео показывает плеер; строка называет видео, которое показать нельзя. */
+function previewVideoNote(video: MaterialPreviewVideo): string {
   switch (video.kind) {
     case "none":
       return "Видео к материалу не прикреплено.";
     case "unavailable":
       return "Не удалось узнать, прикреплено ли видео. Проверьте его в редакторе.";
     case "attached":
-      if (!video.ready) {
-        return `Видео «${video.title}» прикреплено, но ещё не готово к показу.`;
-      }
-      return publicationState === "published"
-        ? `Видео «${video.title}» готово. Плеер работает на странице урока.`
-        : `Видео «${video.title}» готово. Плеер появится на странице урока после публикации.`;
+      return `Видео «${video.title}» прикреплено, но ещё не готово к показу.`;
   }
 }
 

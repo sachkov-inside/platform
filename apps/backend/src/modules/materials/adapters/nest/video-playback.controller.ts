@@ -9,6 +9,7 @@ import {
   Param,
   Post,
   Put,
+  Query,
   UseFilters,
   UseGuards,
 } from "@nestjs/common";
@@ -19,6 +20,7 @@ import {
   ApiOkResponse,
   ApiOperation,
   ApiParam,
+  ApiQuery,
   ApiResponse,
   ApiTags,
 } from "@nestjs/swagger";
@@ -85,6 +87,13 @@ export class VideoPlaybackController {
   })
   @ApiParam({ name: "materialId", schema: toOpenApiSchema(z.uuid()) })
   @ApiParam({ name: "videoId", schema: toOpenApiSchema(z.uuid()) })
+  @ApiQuery({
+    name: "preview",
+    required: false,
+    description:
+      "Author preview of the current saved Material; requires materials:manage",
+    schema: { type: "boolean" },
+  })
   @ApiOkResponse({ schema: toOpenApiSchema(playbackSchema) })
   @ApiResponse({
     status: 400,
@@ -117,10 +126,14 @@ export class VideoPlaybackController {
     @OptionalCurrentAccount() current: AuthenticatedAccount | undefined,
     @Param("materialId") materialId: string,
     @Param("videoId") videoId: string,
+    @Query("preview") preview: string | undefined,
   ) {
+    if (preview !== undefined && preview !== "false" && preview !== "true")
+      throw playbackException(400, "invalid_request");
     const result = await this.playback.createSession({
       correlationId: randomUUID(),
       materialId,
+      preview: preview === "true",
       subject:
         current === undefined
           ? anonymousSubject

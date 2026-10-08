@@ -126482,6 +126482,15 @@
         "operationId": "createVideoPlaybackSession",
         "parameters": [
           {
+            "description": "Author preview of the current saved Material; requires materials:manage",
+            "in": "query",
+            "name": "preview",
+            "required": false,
+            "schema": {
+              "type": "boolean"
+            }
+          },
+          {
             "in": "path",
             "name": "videoId",
             "required": true,

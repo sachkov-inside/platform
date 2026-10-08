@@ -222,20 +222,24 @@ describe("Material preview route", () => {
 });
 
 describe("Material preview video", () => {
-  it("names the attached video and whether it is ready", async () => {
+  it("hands the player the attached video and says whether it is ready", async () => {
     await expect(
       getMaterialPreviewVideo(setup, "access-token", current("ready")),
     ).resolves.toEqual({
+      durationSeconds: 754,
       kind: "attached",
       ready: true,
       title: "Запись урока",
+      videoId: "95000000-0000-4000-8000-000000000030",
     });
     await expect(
       getMaterialPreviewVideo(setup, "access-token", current("processing")),
     ).resolves.toEqual({
+      durationSeconds: 754,
       kind: "attached",
       ready: false,
       title: "Запись урока",
+      videoId: "95000000-0000-4000-8000-000000000030",
     });
   });
 
@@ -319,6 +323,7 @@ function current(state: "processing" | "ready") {
     {
       contentVersion: 3,
       primaryVideo: {
+        durationSeconds: 754,
         origin: "platform_upload",
         state,
         title: "Запись урока",

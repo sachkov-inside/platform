@@ -14,9 +14,14 @@ export class VideoPlaybackService {
   public createVideoPlaybackSession({
     videoId,
     materialId,
+    preview,
   }: {
     videoId: string,
     materialId: string,
+    /**
+     * Author preview of the current saved Material; requires materials:manage
+     */
+    preview?: boolean,
   }): CancelablePromise<{
     drmAuthToken: string | null;
     embedLocator: string;
@@ -30,6 +35,9 @@ export class VideoPlaybackService {
       path: {
         'videoId': videoId,
         'materialId': materialId,
+      },
+      query: {
+        'preview': preview,
       },
       errors: {
         401: `Optional Account proof is invalid`,

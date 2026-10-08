@@ -105,10 +105,31 @@ describe("Material Video playback BFF", () => {
       videoId,
     });
     expect(fakes.requestPlayback).toHaveBeenCalledWith(
-      materialId,
-      videoId,
+      { materialId, preview: false, videoId },
       "optional-access-token",
     );
+  });
+
+  it("asks for an author preview session only when the preview page says so", async () => {
+    fakes.requestPlayback.mockResolvedValue({
+      ok: false,
+      problem: { code: "access_denied" },
+      response: Response.json({}, { status: 403 }),
+    });
+
+    await handleVideoPlaybackSessionRequest(
+      playbackRequest("https://inside.example.test", "true"),
+    );
+    expect(fakes.requestPlayback).toHaveBeenLastCalledWith(
+      { materialId, preview: true, videoId },
+      "optional-access-token",
+    );
+
+    const response = await handleVideoPlaybackSessionRequest(
+      playbackRequest("https://inside.example.test", "yes"),
+    );
+    expect(response.status).toBe(404);
+    expect(fakes.requestPlayback).toHaveBeenCalledTimes(1);
   });
 
   it("rejects an oversized optional-auth body before identity or backend work", async () => {
@@ -306,10 +327,11 @@ describe("Material Video named authoring BFF mutations", () => {
   });
 });
 
-function playbackRequest(origin: string): Request {
+function playbackRequest(origin: string, preview?: string): Request {
   const formData = new FormData();
   formData.set("materialId", materialId);
   formData.set("videoId", videoId);
+  if (preview !== undefined) formData.set("preview", preview);
   return new Request(
     "https://inside.example.test/api/material-video-playback-sessions",
     { body: formData, headers: { origin }, method: "POST" },

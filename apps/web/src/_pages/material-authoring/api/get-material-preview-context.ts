@@ -89,5 +89,11 @@ export async function getMaterialPreviewVideo(
   const video = parsed.data.primaryVideo;
   return video === null
     ? { kind: "none" }
-    : { kind: "attached", ready: video.state === "ready", title: video.title };
+    : {
+        durationSeconds: video.durationSeconds,
+        kind: "attached",
+        ready: video.state === "ready",
+        title: video.title,
+        videoId: video.videoId,
+      };
 }
