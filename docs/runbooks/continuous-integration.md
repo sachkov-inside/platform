@@ -141,7 +141,9 @@ own their own containers.
 
 The root config caps file workers using `test/integration/setup/worker-budget.ts`: one worker per
 two available CPU slots and per 2 GiB of available host memory, rounded down, with a minimum of one.
-The smaller limit wins. The memory input is Node's `process.availableMemory()`: it accounts for Linux
+The smaller limit wins. Local runs additionally cap this budget at two file workers (#1151);
+CI retains the resource-based budget. Each integration project names its worker limit; the serial
+project sets one. The memory input is Node's `process.availableMemory()`: it accounts for Linux
 cgroup memory limits; on macOS, it includes free, inactive and purgeable pages without applying a
 process memory limit. The budget allows
 1 GiB per active file and retains half the available memory and CPU slots for the runner, Docker

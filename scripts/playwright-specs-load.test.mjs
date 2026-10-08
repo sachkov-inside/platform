@@ -10,6 +10,7 @@ import { z } from "zod";
 /** Часть JSON-отчёта Playwright, которую читает проверка повтора. */
 const listReportSchema = z.object({
   config: z.object({
+    workers: z.number(),
     projects: z.array(z.object({ name: z.string(), retries: z.number() })),
   }),
 });
@@ -168,6 +169,10 @@ test("no Playwright configuration retries a failed test, in CI either", () => {
       );
     }
     const report = listReportSchema.parse(output);
+    assert.ok(
+      report.config.workers >= 1 && report.config.workers <= 2,
+      `${configuration} must use at most two file workers`,
+    );
     for (const project of report.config.projects) {
       assert.equal(
         project.retries,
