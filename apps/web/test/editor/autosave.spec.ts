@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import { expect, test, type Locator, type Page } from "@playwright/test";
 import { screenshotWholePage } from "../support/whole-page-screenshot.mjs";
 const image = {
@@ -12,8 +13,7 @@ async function createDraft(page: Page, suffix: string) {
   await page.goto("/authoring/materials/new");
   await page
     .getByLabel("Название", { exact: true })
-    // deterministic-test-allow wall-clock: Legacy clock read; fixed domain or monotonic clock migration is tracked in #1177.
-    .fill(`Редактор ${suffix} ${String(Date.now())}`);
+    .fill(`Редактор ${suffix} ${randomUUID()}`);
   await expect(page).toHaveURL(/materials\/[a-f0-9-]{36}/u);
   await saved(page);
 }
@@ -194,13 +194,11 @@ test("series picker shows materials before typing and saves composition on the s
   await createDraft(page, "для продукта");
   await page.goto("/authoring/products");
   await page.getByRole("button", { name: "Создать продукт" }).click();
-  // deterministic-test-allow wall-clock: Legacy clock read; fixed domain or monotonic clock migration is tracked in #1177.
-  const name = `Продукт ${String(Date.now())}`;
+  const name = `Продукт ${randomUUID()}`;
   await page.getByLabel("Название", { exact: true }).fill(name);
   await page
     .getByLabel("Адрес", { exact: false })
-    // deterministic-test-allow wall-clock: Legacy clock read; fixed domain or monotonic clock migration is tracked in #1177.
-    .fill(`series-${String(Date.now())}`);
+    .fill(`series-${randomUUID()}`);
   await page.getByRole("button", { name: "Создать", exact: true }).click();
   await expect(page).toHaveURL(/\/authoring\/products\/[^/]+$/u);
   await page

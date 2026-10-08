@@ -157,7 +157,7 @@ for (const cell of liveCells) {
 
 async function observeCell(id: string, browser: Browser) {
   const { identity, action, surface, transport } = passCellParts(id);
-  // deterministic-test-allow wall-clock: Legacy clock read; fixed domain or monotonic clock migration is tracked in #1177.
+  // deterministic-test-allow wall-clock: This live production adapter validates its seeded expired-role input against the real UTC grant owned by the remote backend.
   if (identity === "expired" && Date.now() < Date.parse(expiredGrantEndsAt)) {
     throw new Error("The expired identity grant has not expired yet");
   }
@@ -213,15 +213,16 @@ async function tokensOf(
   actor: PassIdentity,
 ): Promise<{ readonly api: string; readonly learner: string }> {
   const known = platformTokens.get(actor);
-  // deterministic-test-allow wall-clock: Legacy clock read; fixed domain or monotonic clock migration is tracked in #1177.
-  if (known !== undefined && Date.now() - known.issuedAt < platformTokenReuseMs)
+  if (
+    known !== undefined &&
+    performance.now() - known.issuedAt < platformTokenReuseMs
+  )
     return known.tokens;
   const userId = await userIdOf(actor);
   // PAT прогона и истёкшие PAT прошлых прогонов удаляются перед выпуском нового.
   await client().deletePassTokens(userId, runId);
   const tokens = await client().accessTokens(userId, runId);
-  // deterministic-test-allow wall-clock: Legacy clock read; fixed domain or monotonic clock migration is tracked in #1177.
-  platformTokens.set(actor, { tokens, issuedAt: Date.now() });
+  platformTokens.set(actor, { tokens, issuedAt: performance.now() });
   return tokens;
 }
 

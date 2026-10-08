@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import { z } from "zod";
 import AxeBuilder from "@axe-core/playwright";
 import { expect, test } from "@playwright/test";
@@ -152,8 +153,7 @@ test("product programme appends a real composition and restores Reader return po
     },
   );
   await page.goto("/account");
-  // deterministic-test-allow wall-clock: Legacy clock read; fixed domain or monotonic clock migration is tracked in #1177.
-  const slug = `series-journey-${String(Date.now())}`;
+  const slug = `series-journey-${randomUUID()}`;
   const created = await fullStackBrowserRequest(
     page,
     "/api/authoring/collections",
