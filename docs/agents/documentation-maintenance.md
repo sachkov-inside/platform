@@ -19,7 +19,7 @@ source of truth for every durable fact, not a prose copy of every implementation
 | REST contract | Controller schemas, generated OpenAPI, and the generated Web client; `pnpm api:check` owns drift detection |
 | MCP tool set | The registering module and the generated `apps/backend/mcp/tool-surface.json`; `pnpm mcp:check` owns drift detection |
 | Development, test, run, configuration, or deployment procedure | The owning README or runbook; keep exact executable commands in package/config files |
-| Development process: issues, branches, review, merge, hand-off | `WORKFLOW.md` |
+| Development process: routes, branches, review, merge, handoff | `WORKFLOW.md` |
 | Agent trigger, routing, verification, or completion rule | The nearest `AGENTS.md` or `docs/agents/` contract; do not copy product/domain explanations into agent files |
 | Pipeline skill | The workspace pipeline; `sync-pipeline` brings it here and records the version in `.agents/skills/PIPELINE.md` |
 

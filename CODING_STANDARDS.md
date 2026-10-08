@@ -47,8 +47,9 @@ nearest `AGENTS.md` owns task routing and verification commands.
   `disable-next-line` comment inside a JSDoc cast does not suppress it.
 - Code at a script's top level calls a module function only after every module `const`, `let` and
   `class` that function reads is declared: a function is hoisted, its values are not (#774).
-  `scripts/check-module-initialization-order.mjs` holds a call or a pass by name; a callback that
-  the statement runs at once, such as one given to `.map()`, is outside the check.
+  `scripts/check-module-initialization-order.mjs` in `pnpm guardrails` fails a top-level call or
+  pass by name of such a function; a callback that the statement runs at once, such as one given to
+  `.map()`, is outside the check.
 - Scripts pass every failure on through their exit code and run under macOS bash 3.2: they use no
   `wait -n` and expand no empty array under `set -u`.
 - Keep checked-in generated contracts deterministic: change one through its source and regenerate
