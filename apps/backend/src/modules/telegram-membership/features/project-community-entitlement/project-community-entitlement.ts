@@ -258,8 +258,32 @@ export async function readLinkChangedAccounts(
     from telegram_membership.account_link_states as link
     left join telegram_membership.community_desired_states as desired
       on desired.account_id = link.account_id
-    where desired.account_id is null or desired.link_revision <> link.revision
-    order by link.updated_at asc
+    where (desired.account_id is null or desired.link_revision <> link.revision)
+      and not exists (
+        select 1 from telegram_membership.community_projection_retries as retry
+        where retry.account_id = link.account_id
+      )
+    order by link.updated_at asc, link.account_id asc
+    limit ${limit}
+  `);
+  return linkChangedRowsSchema.parse(rows).map((row) => row.account_id);
+}
+
+/** Reached boundaries without work already owned by the durable retry queue. */
+export async function readBoundaryChangedAccounts(
+  prisma: TelegramMembershipPrisma,
+  limit: number,
+  now: Date,
+): Promise<readonly string[]> {
+  const rows = await prisma.$queryRaw(Prisma.sql`
+    select desired.account_id::text as account_id
+    from telegram_membership.community_desired_states as desired
+    where desired.next_boundary <= ${now}
+      and not exists (
+        select 1 from telegram_membership.community_projection_retries as retry
+        where retry.account_id = desired.account_id
+      )
+    order by desired.next_boundary asc, desired.account_id asc
     limit ${limit}
   `);
   return linkChangedRowsSchema.parse(rows).map((row) => row.account_id);
