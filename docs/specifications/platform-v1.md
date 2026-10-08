@@ -1369,8 +1369,7 @@ Task nor adds a Material ordinal.
 A null Task access is a preview conflict until an explicit access decision. Release preview accepts
 repeatable `--task-access CODE=free|closed`, validates codes and choices, and persists the decision
 in its fingerprint. Apply uses only that saved decision; canonical package bytes remain unchanged.
-The Material default
-never makes it free. If a Material already owns the Task source key, preview reports a
+The Material default never makes it free. If a Material already owns the Task source key, preview reports a
 Material-to-Task migration conflict. Apply refuses that migration, keeps the Material and its
 reading history and links, and creates no Task duplicate. Migration and real course transfer require
 a separate reviewed release decision; #1194 does not delete or archive the old Material.

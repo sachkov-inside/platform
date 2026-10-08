@@ -55,6 +55,9 @@ test("a guest reads an imported c Task with its page, link, image and keyboard a
     .getByRole("link", { name: "уроку", exact: true })
     .getAttribute("href");
   expect(href).toMatch(/^\/materials\//u);
+  await expect(
+    page.getByRole("link", { name: "следующему заданию", exact: true }),
+  ).toHaveAttribute("href", `/products/${productSlug}/tasks/c-second`);
   const denied = await page.request.get(
     `/api/products/${productSlug}/tasks/${closedCode}/assets/${closedAssetId}`,
     { maxRedirects: 0 },
@@ -78,7 +81,20 @@ test("a guest reads an imported c Task with its page, link, image and keyboard a
     path: resolve(directory, `task-c-live-${testInfo.project.name}.png`),
     animations: "disabled",
   });
+  if (href === null) throw new Error("Imported lesson link is absent");
+  await page.goto(href);
+  await expect(
+    page.getByRole("link", { name: "Открой задание", exact: true }),
+  ).toHaveAttribute("href", `/products/${productSlug}/tasks/${code}`);
   await page.goto(`/products/${productSlug}/programme`);
+  await expect(page.locator("[data-programme-task]")).toHaveCount(4);
+  expect(
+    await page
+      .locator("[data-programme-task]")
+      .evaluateAll((elements) =>
+        elements.map((element) => element.getAttribute("data-programme-task")),
+      ),
+  ).toEqual(["c-leading", "c-first", "c-second", "c-closed"]);
   for (const task of ["c-leading", "c-first", "c-second", "c-closed"])
     await expect(page.locator(`[data-programme-task="${task}"]`)).toHaveCount(
       1,
