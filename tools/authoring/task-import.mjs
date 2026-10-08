@@ -15,6 +15,8 @@ import { fingerprintAccess } from "./compatibility.mjs";
  * @property {string} sourceId
  * @property {string} title
  * @property {"new" | "changed" | "unchanged" | "conflict"} change
+ * @property {string} [conflictReason]
+ * @property {{ materialId: string }} [migration]
  * @property {TaskPublication} publication
  * @property {{ from: TaskPublication; to: TaskPublication }} [publicationChange]
  */
@@ -70,6 +72,7 @@ function authoredBody(manifest, task, publicationState) {
     title: task.title,
     access: task.access,
     definition: task.definition,
+    ...(task.page === undefined ? {} : { page: task.page }),
     relatedMaterialSourceIds: task.relatedMaterialIds.map((id) =>
       sourceKey(manifest, id),
     ),
@@ -99,6 +102,19 @@ export function taskDigest(manifest, task, publicationState) {
   return checksum(
     canonical({
       ...state,
+      ...(task.page === undefined
+        ? {}
+        : {
+            pageAssets: manifest.assets.filter((asset) =>
+              [
+                ...Object.values(task.page?.images ?? {}),
+                task.page?.coverAssetId,
+                ...(task.page?.artifacts ?? []).map(
+                  (artifact) => artifact.assetId,
+                ),
+              ].includes(asset.sourceId),
+            ),
+          }),
       access: fingerprintAccess(state.access),
       guide: task.productId,
       chapter: task.chapterId,
@@ -118,11 +134,16 @@ export function taskChapterId(manifest, task) {
  * @param {Manifest} manifest
  * @param {import('./local-boundaries.mjs').LocalRequest} request */
 export async function validateSourceTasks(manifest, request) {
-  for (const task of manifest.tasks ?? [])
-    await request(
+  for (const task of manifest.tasks ?? []) {
+    const result = await request(
       "/authoring/import/tasks/validate",
       authoredBody(manifest, task, task.publicationState),
     );
+    if (result.migration != null)
+      throw new Error(
+        `${task.sourceId}: material_to_task_migration requires a release decision`,
+      );
+  }
 }
 
 /**
@@ -168,24 +189,28 @@ export async function replayTaskImports(context, request, selected) {
  * @param {Manifest} manifest
  * @param {import('./journal.mjs').JournalContext} context
  * @param {import('./local-boundaries.mjs').LocalRequest} request
- * @param {{ productIdOf: (productSourceId: string) => string; selected: (sourceKey: string) => boolean }} options
+ * @param {{ productIdOf: (productSourceId: string) => string; selected: (sourceKey: string) => boolean; pageOf?: (task: ManifestTask) => Promise<import("./task-page.mjs").PageImport> }} options
  * @returns {Promise<TaskChange[]>}
  */
 export async function syncSourceTasks(
   manifest,
   context,
   request,
-  { productIdOf, selected },
+  { productIdOf, selected, pageOf },
 ) {
   const resources = (context.journal.resources ??= {});
   const positions = taskPositions(manifest);
   /** @type {TaskChange[]} */
   const changes = [];
   for (const task of manifest.tasks ?? []) {
-    const { current } = await request(
+    const { current, migration } = await request(
       "/authoring/import/tasks/validate",
       authoredBody(manifest, task, task.publicationState),
     );
+    if (migration != null)
+      throw new Error(
+        `${task.sourceId}: material_to_task_migration requires a release decision`,
+      );
     const key = resourceKey(task.sourceId);
     const previous =
       resources[key] === undefined
@@ -220,6 +245,9 @@ export async function syncSourceTasks(
     }
     const body = {
       ...authoredBody(manifest, task, publicationState),
+      ...(task.page === undefined || pageOf === undefined
+        ? {}
+        : await pageOf(task)),
       productId: productIdOf(task.productId),
       chapterId: taskChapterId(manifest, task),
       position: positions.get(task.sourceId),
@@ -265,7 +293,17 @@ export async function previewTasks(manifest, journal, request, selected) {
   /** @type {Record<string, number>} */
   const expected = {};
   for (const task of manifest.tasks ?? []) {
-    const { current } = await request(
+    if (task.access === null) {
+      tasks.push({
+        sourceId: task.sourceId,
+        title: task.title,
+        publication: task.publicationState,
+        change: "conflict",
+        conflictReason: "task_access_decision",
+      });
+      continue;
+    }
+    const { current, migration } = await request(
       "/authoring/import/tasks/validate",
       authoredBody(manifest, task, task.publicationState),
     );
@@ -282,14 +320,22 @@ export async function previewTasks(manifest, journal, request, selected) {
       sourceId: task.sourceId,
       title: task.title,
       publication,
+      ...(migration == null ? {} : { migration }),
+      ...(migration != null ||
+      journal.materials[sourceKey(manifest, task.sourceId)] !== undefined
+        ? { conflictReason: "material_to_task_migration" }
+        : {}),
       change:
-        previous !== undefined && previous.revision !== current?.revision
+        migration != null ||
+        journal.materials[sourceKey(manifest, task.sourceId)] !== undefined
           ? "conflict"
-          : current === null
-            ? "new"
-            : previous?.digest === taskDigest(manifest, task, publication)
-              ? "unchanged"
-              : "changed",
+          : previous !== undefined && previous.revision !== current?.revision
+            ? "conflict"
+            : current === null
+              ? "new"
+              : previous?.digest === taskDigest(manifest, task, publication)
+                ? "unchanged"
+                : "changed",
       ...(current !== null && current.publicationState !== publication
         ? {
             publicationChange: {

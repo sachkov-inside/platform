@@ -48,6 +48,7 @@ import {
 } from "./target.mjs";
 import { keychainStore, ownerSession } from "./credentials.mjs";
 import { exportCommittedPackage } from "./git-local.mjs";
+import { preflightTaskPages } from "./task-page.mjs";
 import { previewTasks } from "./task-import.mjs";
 
 /**
@@ -162,6 +163,7 @@ export async function previewRelease(
   /** @type {<P extends string>(path: P) => Promise<import("./local-boundaries.mjs").LocalResponse<P>>} */
   const request = async (path) => parseLocalResponse(path, await send(path));
   const pkg = await loadPackage(packagePath);
+  preflightTaskPages(pkg);
   const { manifest } = pkg;
   const shell = isProductShell(manifest);
   const publicationOfKey = publicationPolicy(manifest, publish);
