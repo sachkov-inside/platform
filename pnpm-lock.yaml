@@ -373,6 +373,9 @@ importers:
       '@storybook/addon-vitest':
         specifier: 10.6.1
         version: 10.6.1(patch_hash=6d47ca491b0eaaf4ec0b488c8635a2aeacc8d7e58012fea6ebd8177b69b5b993)(@vitest/browser-playwright@4.1.11)(@vitest/browser@4.1.11(vite@8.3.2(@types/node@26.6.4)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.0))(vitest@4.1.11))(@vitest/runner@4.1.11)(react@19.3.0)(storybook@10.6.1(@types/react@19.3.0)(prettier@3.9.9)(react@19.3.0))(vitest@4.1.11)
+      '@storybook/react-dom-shim':
+        specifier: 10.6.1
+        version: 10.6.1(@types/react-dom@19.3.0(@types/react@19.3.0))(@types/react@19.3.0)(react-dom@19.3.0(react@19.3.0))(react@19.3.0)(storybook@10.6.1(@types/react@19.3.0)(prettier@3.9.9)(react@19.3.0))
       '@storybook/react-vite':
         specifier: 10.6.1
         version: 10.6.1(@types/react-dom@19.3.0(@types/react@19.3.0))(@types/react@19.3.0)(react-dom@19.3.0(react@19.3.0))(react@19.3.0)(storybook@10.6.1(@types/react@19.3.0)(prettier@3.9.9)(react@19.3.0))(supports-color@10.2.2)(typescript@7.0.2)(vite@8.3.2(@types/node@26.6.4)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.0))
@@ -397,6 +400,9 @@ importers:
       agentation:
         specifier: 3.1.2
         version: 3.1.2(react-dom@19.3.0(react@19.3.0))(react@19.3.0)
+      axe-core:
+        specifier: 4.13.0
+        version: 4.13.0
       openapi-typescript-codegen:
         specifier: 0.31.0
         version: 0.31.0(@types/json-schema@7.0.15)
