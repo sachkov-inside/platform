@@ -8,10 +8,11 @@ import { required } from "../support/required.js";
 // Seed the shared ledger before a suite can register an advancing runtime Date.
 // Rollback cases use registerFixedClock, so their replacement receipts share this instant.
 beforeAll(async () => {
+  const instant = fixedTestInstant();
   const database = createDatabase(required(process.env["DATABASE_URL"]));
-  vi.useFakeTimers({ toFake: ["Date"] });
-  vi.setSystemTime(fixedTestInstant());
   try {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(instant);
     await migrateToLatest(database);
   } finally {
     vi.useRealTimers();
