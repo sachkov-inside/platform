@@ -1,9 +1,13 @@
+import { mkdtemp, rm, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { webkit, type Browser } from "@playwright/test";
 import { expect, it, vi } from "vitest";
 import { captureWebkitFailureDiagnostics } from "../support/webkit-failure-diagnostics";
 
 it("captures WebKit page creation and runner measurements without stderr output, then restores logging", async ({
   onTestFinished,
+  signal,
 }) => {
   const stderr = vi.spyOn(process.stderr, "write");
   const capture = captureWebkitFailureDiagnostics();
@@ -25,13 +29,19 @@ it("captures WebKit page creation and runner measurements without stderr output,
       expect(ownedBrowser.isConnected()).toBe(false);
   });
   const initial = await capture.snapshot();
+  signal.throwIfAborted();
   launching = webkit.launch();
   browser = await launching;
+  signal.throwIfAborted();
   const context = await browser.newContext();
+  signal.throwIfAborted();
   await context.newPage();
+  signal.throwIfAborted();
   await browser.close();
   browser = undefined;
+  signal.throwIfAborted();
   const final = await capture.snapshot();
+  signal.throwIfAborted();
   const logs = capture.logs();
   const messages = [...logs.head, ...logs.tail]
     .map(({ message }) => message)
@@ -62,10 +72,13 @@ it("captures WebKit page creation and runner measurements without stderr output,
 
   const previousLength =
     capture.logs().head.length + capture.logs().tail.length;
+  signal.throwIfAborted();
   launching = webkit.launch();
   const nextBrowser = await launching;
   browser = nextBrowser;
+  signal.throwIfAborted();
   await nextBrowser.newPage();
+  signal.throwIfAborted();
   await nextBrowser.close();
   expect(capture.logs().head.length + capture.logs().tail.length).toBe(
     previousLength,
@@ -74,13 +87,12 @@ it("captures WebKit page creation and runner measurements without stderr output,
 
 it("bounds browser logs while retaining startup, final stderr and exit on a failed launch", async ({
   onTestFinished,
+  signal,
 }) => {
-  const { mkdtemp, writeFile, rm } = await import("node:fs/promises");
-  const { tmpdir } = await import("node:os");
-  const { join } = await import("node:path");
-  const directory = await mkdtemp(join(tmpdir(), "inside-webkit-diagnostics-"));
-  const executable = join(directory, "failed-browser");
   const capture = captureWebkitFailureDiagnostics();
+  const creatingDirectory = mkdtemp(
+    join(tmpdir(), "inside-webkit-diagnostics-"),
+  );
   const launch: { pending?: Promise<Browser> } = {};
   onTestFinished(async () => {
     capture.restore();
@@ -88,9 +100,14 @@ it("bounds browser logs while retaining startup, final stderr and exit on a fail
       const ownedBrowser = await launch.pending?.catch(() => undefined);
       await ownedBrowser?.close();
     } finally {
-      await rm(directory, { recursive: true, force: true });
+      const directory = await creatingDirectory.catch(() => undefined);
+      if (directory !== undefined)
+        await rm(directory, { recursive: true, force: true });
     }
   });
+  const directory = await creatingDirectory;
+  signal.throwIfAborted();
+  const executable = join(directory, "failed-browser");
   await writeFile(
     executable,
     `#!/bin/sh
@@ -105,8 +122,10 @@ exit 7
 `,
     { mode: 0o700 },
   );
+  signal.throwIfAborted();
   launch.pending = webkit.launch({ executablePath: executable });
   await expect(launch.pending).rejects.toThrow();
+  signal.throwIfAborted();
   const logs = capture.logs();
   const messages = [...logs.head, ...logs.tail]
     .map(({ message }) => message)
