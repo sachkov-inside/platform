@@ -37,6 +37,37 @@ export async function autosaveWhileHidden(
   const originalFetch = window.fetch;
   const started = Promise.withResolvers<undefined>();
   const reply = Promise.withResolvers<undefined>();
+  const timers = new Map<number, () => void>();
+  const timerWindow: Pick<Window, "setTimeout" | "clearTimeout"> = window;
+  const nativeTimeout = timerWindow.setTimeout;
+  const nativeClearTimeout = timerWindow.clearTimeout;
+  let timerId = -1;
+  // Virtualize the public hook's default debounce; other browser timers keep their clock.
+  const clock = spyOn(timerWindow, "setTimeout").mockImplementation(
+    (handler: TimerHandler, delay?: number, ...args: unknown[]) => {
+      if (delay === 700 && isTimerCallback(handler) && args.length === 0) {
+        const id = timerId--;
+        // TimerHandler's Function branch is callable; autosave's timer takes no arguments.
+        const callback = () => {
+          handler();
+        };
+        timers.set(id, callback);
+        return id;
+      }
+      return nativeTimeout(handler, delay, ...args);
+    },
+  );
+  const clearClock = spyOn(timerWindow, "clearTimeout").mockImplementation(
+    (id) => {
+      if (id !== undefined && timers.delete(id)) return;
+      nativeClearTimeout(id);
+    },
+  );
+  const advanceAutosaveClock = () => {
+    const due = [...timers.values()];
+    timers.clear();
+    for (const callback of due) callback();
+  };
   const request = spyOn(window, "fetch").mockImplementation(
     async (input, init) => {
       started.resolve(undefined);
@@ -46,6 +77,7 @@ export async function autosaveWhileHidden(
   );
   try {
     await edit();
+    advanceAutosaveClock();
     await started.promise;
     if (editDuringSave) await editDuringSave();
     const completed = flushPendingEdits();
@@ -58,12 +90,26 @@ export async function autosaveWhileHidden(
     await userEvent.click(
       canvas.getByRole("button", { name: "Вернуть Activity" }),
     );
+    advanceAutosaveClock();
+    await flushPendingEdits();
     for (const outcome of await canvas.findAllByText(outcomeText)) {
+      await expect(outcome).toBeVisible();
+    }
+    // The saved/retry outcome pins the returned state; cross its next debounce window too.
+    advanceAutosaveClock();
+    await flushPendingEdits();
+    for (const outcome of canvas.getAllByText(outcomeText)) {
       await expect(outcome).toBeVisible();
     }
     await expect(request).toHaveBeenCalledTimes(expectedRequests);
   } finally {
     reply.resolve(undefined);
     request.mockRestore();
+    clock.mockRestore();
+    clearClock.mockRestore();
   }
+}
+
+function isTimerCallback(handler: TimerHandler): handler is () => void {
+  return typeof handler === "function";
 }
