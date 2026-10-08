@@ -51,7 +51,7 @@
   padding-top: 0.6em;
 }
 .aie-hero-badge {
-  right: -0.6em;
+  right: -2.4em;
   bottom: calc(100% - 0.3em);
 }
 /* Широкая колонка: наклейка стоит справа от названия, приподнятая над строкой. */
@@ -63,7 +63,7 @@
     right: auto;
     bottom: auto;
     top: -0.45em;
-    left: calc(100% + 0.2em);
+    left: calc(100% + 0.6em);
   }
 }
 .aie-hero-lead {
