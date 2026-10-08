@@ -1,5 +1,6 @@
 """Exercise the command boundary, using readiness and exit as barriers."""
 import json
+import fcntl
 import os
 import shlex
 from pathlib import Path
@@ -188,6 +189,111 @@ class LockTest(unittest.TestCase):
             self.line(process, 'READY')
             holders.append(process)
         return holders
+
+    def test_three_waiters_receive_slots_in_registration_order(self):
+        holders = self.holders()
+        waiters = []
+        for _ in range(3):
+            waiter = self.start()
+            self.line(waiter, 'waiting')
+            waiters.append(waiter)
+        snapshot = process_snapshot()
+        supervisor = next(pid for pid, row in snapshot.items()
+                          if row[0] == waiters[0].pid)
+        self.addCleanup(self.resume, supervisor)
+        os.kill(supervisor, signal.SIGSTOP)
+        deadline = time.monotonic() + 10
+        while 'T' not in process_snapshot()[supervisor][2]:
+            self.assertLess(time.monotonic(), deadline, 'waiting for supervisor SIGSTOP')
+            time.sleep(0.01)
+        self.release_fork(holders[0])
+        self.assertEqual(holders[0].wait(timeout=10), 0)
+        # Older admission is paused: a younger waiter must not take its free slot.
+        with selectors.DefaultSelector() as selector:
+            for waiter in waiters[1:]:
+                selector.register(waiter.stdout, selectors.EVENT_READ)
+            self.assertFalse(selector.select(timeout=3))
+        self.resume(supervisor)
+        for waiter in waiters:
+            self.line(waiter, 'acquired')
+            self.line(waiter, 'READY')
+            with selectors.DefaultSelector() as selector:
+                for younger in waiters[waiters.index(waiter) + 1:]:
+                    selector.register(younger.stdout, selectors.EVENT_READ)
+                self.assertFalse(selector.select(timeout=0))
+            self.release_fork(waiter)
+            self.assertEqual(waiter.wait(timeout=10), 0)
+
+    def test_cancelled_waiter_does_not_block_followers(self):
+        for cancellation in ('terminate', 'kill-wrapper', 'kill-supervisor'):
+            with self.subTest(cancellation=cancellation):
+                holders = self.holders()
+                cancelled = self.start()
+                self.line(cancelled, 'waiting')
+                follower = self.start()
+                self.line(follower, 'waiting')
+                if cancellation == 'terminate':
+                    cancelled.terminate()
+                elif cancellation == 'kill-wrapper':
+                    cancelled.kill()
+                else:
+                    snapshot = process_snapshot()
+                    supervisor = next(pid for pid, row in snapshot.items()
+                                      if row[0] == cancelled.pid)
+                    os.kill(supervisor, signal.SIGKILL)
+                self.assertNotEqual(cancelled.wait(timeout=10), 0)
+                self.release_fork(holders[0])
+                self.assertEqual(holders[0].wait(timeout=10), 0)
+                self.line(follower, 'acquired')
+                self.line(follower, 'READY')
+                self.release_fork(follower)
+                self.assertEqual(follower.wait(timeout=10), 0)
+                self.release_fork(holders[1])
+                self.assertEqual(holders[1].wait(timeout=10), 0)
+
+    def test_legacy_waiters_share_slot_locks_with_fifo_waiters(self):
+        # Model the pre-FIFO protocol: the same persistent slot files, no queue files.
+        slots = [open(Path(self.directory.name) / f'slot-{index}.lock', 'a')
+                 for index in range(2)]
+        for slot in slots:
+            self.addCleanup(slot.close)
+            fcntl.flock(slot, fcntl.LOCK_EX)
+        legacy = self.start(launcher=[sys.executable, '-c', """
+import fcntl, os, pathlib, sys, time
+directory = pathlib.Path(os.environ['INSIDE_HEAVY_CHECK_DIRECTORY'])
+slots = [open(directory / f'slot-{index}.lock', 'a') for index in range(2)]
+print('waiting', flush=True)
+while True:
+    for slot in slots:
+        try:
+            fcntl.flock(slot, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except BlockingIOError:
+            continue
+        print('acquired', flush=True)
+        print('READY', flush=True)
+        sys.stdin.readline()
+        sys.exit(0)
+    time.sleep(0.05)
+"""])
+        self.line(legacy, 'waiting')
+        waiter = self.start()
+        self.line(waiter, 'waiting')
+        fcntl.flock(slots[0], fcntl.LOCK_UN)
+        with selectors.DefaultSelector() as selector:
+            for process in (legacy, waiter):
+                selector.register(process.stdout, selectors.EVENT_READ, process)
+            ready = selector.select(timeout=10)
+            self.assertTrue(ready, 'waiting for legacy or FIFO admission')
+            first = ready[0][0].data
+        second = waiter if first is legacy else legacy
+        for process in (first, second):
+            self.line(process, 'acquired')
+            self.line(process, 'READY')
+            with self.assertRaises(BlockingIOError):
+                fcntl.flock(slots[0], fcntl.LOCK_EX | fcntl.LOCK_NB)
+            self.release_fork(process)
+            self.assertEqual(process.wait(timeout=10), 0)
+        fcntl.flock(slots[0], fcntl.LOCK_EX | fcntl.LOCK_NB)
 
     def test_eight_waiters_use_less_than_point_two_cpu_seconds_over_three_seconds(self):
         holders = self.holders()
