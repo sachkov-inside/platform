@@ -39,6 +39,7 @@ export class TelegramCommunityService {
     botUrl: string;
     kind: 'join';
   } | {
+    groupUrl?: string;
     kind: 'member';
   } | {
     kind: 'restricted';

@@ -1,3 +1,8 @@
+import {
+  communityResultSchema,
+  type CommunityResult,
+} from "@inside/contracts/community-result";
+export type { CommunityResult } from "@inside/contracts/community-result";
 import { hasText } from "../../shared/text.js";
 import { Ajv } from "ajv";
 import addFormats from "ajv-formats";
@@ -52,19 +57,6 @@ export type CommunityStatus =
   | "expired";
 
 export type ObservedMembership = "member" | "not_member" | "unknown";
-
-export interface CommunityResult {
-  readonly admissionRestriction?: AdmissionRestriction;
-  readonly contractVersion: CommunityVersion;
-  readonly operation: "entitlement.result";
-  readonly operationId: string;
-  readonly binding: CommunityBinding;
-  readonly entitlementRevision: number;
-  readonly access: CommunityAccess;
-  readonly status: CommunityStatus;
-  readonly observedMembership: ObservedMembership;
-  readonly updatedAt: string;
-}
 
 export type CommunityErrorCode =
   | "unauthorized"
@@ -147,14 +139,12 @@ const v2Definition = <Shape = unknown>(name: string) =>
   ajv.compile<Shape>({ $ref: `${v2Schema.$id}#/definitions/${name}` });
 const validV2Set = v2Definition<CommunitySetCommand>("communitySet");
 const validV2Status = v2Definition("communityStatus");
-const validV2Result = v2Definition("communityResult");
 
 const definition = <Shape = unknown>(name: string) =>
   ajv.compile<Shape>({ $ref: `${schema.$id}#/definitions/${name}` });
 
 const validSet = definition<CommunitySetCommand>("communitySet");
 const validStatusQuery = definition("communityStatus");
-const validResult = definition("communityResult");
 export const validDispatchResponse = definition<DispatchAuthorizationResponse>(
   "authorizationResponse",
 );
@@ -252,11 +242,7 @@ function canonicalBytes(value: unknown): number {
 export function assertCommunityResult(
   result: CommunityResult,
 ): CommunityResult {
-  if (
-    !(result.contractVersion === COMMUNITY_V2
-      ? validV2Result(result)
-      : validResult(result))
-  )
+  if (!communityResultSchema.safeParse(result).success)
     throw new Error("Community result violates the approved contract");
   return result;
 }

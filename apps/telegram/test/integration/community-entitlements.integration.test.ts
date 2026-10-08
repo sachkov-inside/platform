@@ -233,6 +233,88 @@ afterAll(async () => {
 });
 
 describe("community entitlement inbox", () => {
+  it("preserves a legacy lowercase date-time through set, ledger update and replay", async () => {
+    const who = subject();
+    const grant = command("finite-community-grant", who, {
+      access: { kind: "finite", validUntil: "2030-02-01t00:00:00z" },
+    });
+    expect(parseCommunityRequest(grant).kind).toBe("set");
+    await seedCommunityBinding(
+      db,
+      grant.binding,
+      clock.now(),
+      who.user,
+      who.bot,
+    );
+    const app = provider(who);
+    expect(resultOf(await app.handle(grant)).access).toEqual(grant.access);
+    await app.processDueEffects();
+    expect(resultOf(await app.handle(grant))).toMatchObject({
+      access: grant.access,
+      status: "waiting_for_join",
+    });
+  });
+
+  it("v2 member results carry a group URL on set, status and replay", async () => {
+    const who = subject();
+    chat.membership = "member";
+    const app = new CommunityProvider(
+      db,
+      who.bot,
+      "-1001234567890",
+      clock,
+      authorization,
+      chat,
+      {
+        contractVersion: "inside.community-entitlement.v2",
+      },
+    );
+    const grant = command("lifetime-community-grant", who, {
+      contractVersion: "inside.community-entitlement.v2",
+    });
+    await seedCommunityBinding(
+      db,
+      grant.binding,
+      clock.now(),
+      who.user,
+      who.bot,
+    );
+    expect(resultOf(await app.handle(grant)).groupUrl).toBeUndefined();
+    await app.processDueEffects();
+    const status = {
+      contractVersion: "inside.community-entitlement.v2",
+      operation: "entitlement.status",
+      operationId: grant.operationId,
+    };
+    expect(resultOf(await app.handle(status))).toMatchObject({
+      observedMembership: "member",
+      groupUrl: "https://t.me/c/1234567890/1",
+    });
+    expect(resultOf(await app.handle(grant))).toMatchObject({
+      groupUrl: "https://t.me/c/1234567890/1",
+    });
+    expect(
+      resultOf(await app.handle({ ...grant, operationId: randomUUID() })),
+    ).toMatchObject({
+      groupUrl: "https://t.me/c/1234567890/1",
+    });
+    const ordinaryGroup = new CommunityProvider(
+      db,
+      who.bot,
+      "-12345",
+      clock,
+      authorization,
+      chat,
+      {
+        contractVersion: "inside.community-entitlement.v2",
+      },
+    );
+    expect(
+      resultOf(await ordinaryGroup.handle(status)).groupUrl,
+    ).toBeUndefined();
+    expect(chat.calls).toEqual([]);
+  });
+
   it("keeps a revoke in force when the old grant is replayed", async () => {
     const who = subject();
     const grant = command("finite-community-grant", who);

@@ -1,3 +1,4 @@
+import { communityGroupUrlSchema } from "@inside/contracts/community-result";
 import { z } from "zod";
 
 /**
@@ -9,7 +10,10 @@ export const communityEntrySchema = z.discriminatedUnion("kind", [
   z.strictObject({ kind: z.literal("link_telegram") }),
   z.strictObject({ kind: z.literal("preparing") }),
   z.strictObject({ kind: z.literal("join"), botUrl: z.url() }),
-  z.strictObject({ kind: z.literal("member") }),
+  z.strictObject({
+    kind: z.literal("member"),
+    groupUrl: communityGroupUrlSchema.optional(),
+  }),
   z.strictObject({ kind: z.literal("restricted") }),
 ]);
 export type CommunityEntry = z.infer<typeof communityEntrySchema>;
