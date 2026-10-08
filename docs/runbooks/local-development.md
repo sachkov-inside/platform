@@ -536,8 +536,9 @@ Its trace command leaves the internal chunk name to Playwright: story names such
 repeat across files, while the browser's contexts share one temporary trace directory. Passing
 that repeated name mixed the files and could fail `tracing.stopChunk` while it built an archive.
 The final archive paths and trace titles keep their readable story names.
-`apps/web/test/browser-engines/vitest-tracing.test.ts` starts two real Chromium contexts through
-the installed Vitest command and checks that each archive contains only its own file's marker.
+`apps/web/test/browser-engines/vitest-tracing.test.ts` creates two real Chromium contexts,
+starts their chunks with the installed Vitest command and checks that each archive contains
+only its own file's marker.
 The fixture uses `unzip`, available on the macOS development host and Ubuntu CI runner.
 Remove the patch when the upstream provider passes this regression without it.
 
