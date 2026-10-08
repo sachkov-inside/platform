@@ -1137,5 +1137,8 @@ export const WorkspaceTyping: Story = {
     ).toBeGreaterThan(0);
     await expect(savedField("title")).toBe("Developer Pipeline без магии!");
     await expect(savedField("document")).toContain(text.trim());
+    throw new Error(
+      "Temporary #646 CI measurement: print passing-story profiler output before final verification",
+    );
   },
 };
