@@ -20,6 +20,49 @@ async function saved(page: Page) {
   await expect(page.locator("header [role=status]")).toContainText("Сохранено");
 }
 
+async function selectParagraphEnd(paragraph: Locator) {
+  await paragraph.evaluate(
+    (element) =>
+      new Promise<void>((resolve) => {
+        document.addEventListener(
+          "selectionchange",
+          () => {
+            resolve();
+          },
+          {
+            once: true,
+          },
+        );
+        const selection = window.getSelection();
+        const range = document.createRange();
+        range.selectNodeContents(element);
+        range.collapse(false);
+        selection?.removeAllRanges();
+        selection?.addRange(range);
+        element.closest<HTMLElement>("[contenteditable]")?.focus();
+      }),
+  );
+}
+
+async function emptyParagraphSelected(body: Locator) {
+  await expect
+    .poll(() =>
+      body.evaluate((element) => {
+        const paragraph = element.lastElementChild;
+        const selection = window.getSelection();
+        return (
+          document.activeElement === element &&
+          paragraph?.tagName === "P" &&
+          paragraph.textContent === "" &&
+          selection !== null &&
+          selection.isCollapsed &&
+          paragraph.contains(selection.anchorNode)
+        );
+      }),
+    )
+    .toBe(true);
+}
+
 test("autosave serializes edits made during a request and replays an uncertain receipt before newer edits", async ({
   page,
 }) => {
@@ -561,6 +604,7 @@ test("paragraph controls insert at the hovered block without changing content on
     .toBeLessThan(2);
   await plus.click();
   await page.getByRole("button", { name: "Заголовок H2", exact: true }).click();
+  await expect(body).toBeFocused();
   await page.keyboard.type("Между абзацами");
   await expect(body.locator(":scope > *")).toHaveText([
     "Первый абзац",
@@ -570,9 +614,9 @@ test("paragraph controls insert at the hovered block without changing content on
   await saved(page);
   await page.reload();
   await expect(body.locator("h2")).toHaveText("Между абзацами");
-  await body.locator("p").last().click();
-  await page.keyboard.press("End");
+  await selectParagraphEnd(body.locator(":scope > p").last());
   await page.keyboard.press("Enter");
+  await emptyParagraphSelected(body);
   await page.keyboard.press("Tab");
   await expect(page.getByLabel("Найти блок")).toBeFocused();
   await page.keyboard.press("Escape");
@@ -601,11 +645,13 @@ test("paragraph controls insert at the hovered block without changing content on
   await page
     .getByRole("button", { name: "На весь экран", exact: true })
     .click();
+  await expect(page.locator("dialog:modal")).toHaveAttribute(
+    "aria-label",
+    "Редактор статьи",
+  );
   expect(await typography()).toEqual(smallTypography);
-  await body
-    .locator("p")
-    .last()
-    .click({ position: { x: 2, y: 12 } });
+  await selectParagraphEnd(body.locator(":scope > p").last());
+  await emptyParagraphSelected(body);
   await page.keyboard.press("Tab");
   await expect(page.getByLabel("Найти блок")).toBeFocused();
   await page.keyboard.press("Escape");
@@ -718,6 +764,7 @@ test("block insertion follows its paragraph across a pending upload; cancelling 
   release?.();
   await expect(body.locator("img")).toBeVisible();
   await page.getByRole("button", { name: "Заголовок H2", exact: true }).click();
+  await expect(body).toBeFocused();
   await page.keyboard.type("После выбранного абзаца");
   expect(
     await body
