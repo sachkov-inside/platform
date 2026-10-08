@@ -43,14 +43,16 @@ test("keeps reader startup JavaScript within its CPU budget", async ({
     expect(authStatusResponse.status()).toBe(200);
     const authStatus: unknown = await authStatusResponse.json();
     expect(authStatus).toMatchObject({ state: "guest", accountId: null });
+    const measurement = JSON.stringify({
+      scriptCpuMs,
+      budgetMs: readerStartupScriptCpuBudgetMs,
+      timeDomain: "threadTicks",
+      cpuThrottlingRate: 1,
+      project: testInfo.project.name,
+    });
+    console.info(`Reader startup JavaScript CPU: ${measurement}`);
     await testInfo.attach("reader-startup-cpu", {
-      body: JSON.stringify({
-        scriptCpuMs,
-        budgetMs: readerStartupScriptCpuBudgetMs,
-        timeDomain: "threadTicks",
-        cpuThrottlingRate: 1,
-        project: testInfo.project.name,
-      }),
+      body: measurement,
       contentType: "application/json",
     });
     expect(

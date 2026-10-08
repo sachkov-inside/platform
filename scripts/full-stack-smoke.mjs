@@ -288,7 +288,7 @@ try {
     await fullStackIdentity.createSession(browserAccessToken);
   const fullStackMemberSession =
     await fullStackIdentity.createSession(memberAccessToken);
-  await runPnpm(fullStackTestArguments(), {
+  const browserTestOutput = await runPnpm(fullStackTestArguments(), {
     ...childEnvironment,
     FULLSTACK_API_BASE_URL: apiBaseUrl,
     FULLSTACK_PRACTICE_SLUG: practiceFixture.slug,
@@ -326,6 +326,8 @@ try {
       await fullStackIdentity.createSessionWithoutRenewal(),
     FULLSTACK_WEB_BASE_URL: webBaseUrl,
   });
+  // Successful browser checks keep their measurements in the job log as well as the HTML report.
+  process.stdout.write(browserTestOutput);
 
   process.stdout.write(
     `Full-stack smoke passed: Home ${webBaseUrl}/; Reader ${webBaseUrl}/materials/kak-ustroen-inside-platform; live API ${apiBaseUrl}; delegated MCP ${mcpServerUrl}; PostgreSQL reachable\n`,
@@ -401,6 +403,7 @@ async function runPnpm(arguments_, environment = childEnvironment) {
       `pnpm ${arguments_.join(" ")} failed:\n${entry.output.join("")}`,
     );
   }
+  return entry.output.join("");
 }
 
 /**

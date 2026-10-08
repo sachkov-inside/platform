@@ -212,12 +212,13 @@ action is hydrated. The test separately checks that the captured `/auth/status` 
 200 with `state: "guest"` and `accountId: null`; an authentication failure cannot pass as readiness.
 The test sends no input before measuring. Waiting for
 HTTP responses and time when the renderer thread is not scheduled do not consume this budget.
-The measured value and profile are attached as `reader-startup-cpu` JSON in the Playwright report.
+The measured value and profile are logged and attached as `reader-startup-cpu` JSON in the
+Playwright report, so successful nightly runs keep the measurement in their job log too.
 A missing counter, unsupported thread clock or zero execution fails the test.
 
 This is an initial JavaScript work budget, not an elapsed hydration deadline or an INP guarantee
-for a particular device. It includes startup scripts and browser-test observation up to the
-second counter snapshot, including any script work between readiness and that snapshot.
+for a particular device. It measures the `ScriptDuration` counter up to the second snapshot,
+including any recorded script work between readiness and that snapshot.
 `ScriptDuration` excludes nested layout and style recalculation; it can include compilation nested
 in script execution. Separate compilation, layout and paint budgets are outside this check.
 The existing representative-Material test still checks INP after readiness (#933). The startup
