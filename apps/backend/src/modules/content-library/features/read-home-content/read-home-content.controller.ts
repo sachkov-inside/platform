@@ -79,7 +79,7 @@ export class ReadHomeContentController {
     @Inject(PUBLISHED_MATERIAL_READER)
     private readonly publishedMaterialReader: Pick<
       PublishedMaterialReader,
-      "listProjections" | "readHomePinnedSeries"
+      "readHomeProjections"
     >,
     @Inject(CONTENT_ACCESS)
     private readonly contentAccess: Pick<
