@@ -14,6 +14,8 @@ test("random values cannot define test identity", () => {
     'describe.each([Math.random()])("suite %j", () => {});',
     "it(`case ${crypto.randomUUID()}`, () => {});",
     'test.only("case " + Math.random(), () => {});',
+    'it.each([["ignored", randomUUID()]])("case %%%s", () => {});',
+    'it.each([["ignored", randomUUID()]])("literal %% %j", () => {});',
   ])
     assert.match(
       deterministicTestViolations("test/example.test.ts", source).join("\n"),
@@ -26,6 +28,9 @@ test("random values cannot define test identity", () => {
     'it.each([randomUUID()])("fixed name", () => {});',
     'it.each([["stable label", randomUUID()]])("case %s", () => {});',
     'it.each([randomUUID()])("literal %%j %#", () => {});',
+    'test.use({ extraHTTPHeaders: { "X-Run-ID": randomUUID() } });',
+    "test.extend({ id: randomUUID() });",
+    'it.each([{ factory: () => randomUUID() }])("case %j", () => {});',
     'const text = "it(randomUUID(), () => {})";',
   ])
     assert.deepEqual(

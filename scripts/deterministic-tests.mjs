@@ -308,12 +308,28 @@ export function deterministicTestViolations(file, source, testSource = true) {
     if (value.type === "CallExpression")
       return testRegistration(value["callee"]);
     if (value.type === "MemberExpression")
-      return testRegistration(value["object"]);
+      return (
+        [
+          "each",
+          "only",
+          "skip",
+          "todo",
+          "concurrent",
+          "sequential",
+          "fails",
+          "describe",
+          "parallel",
+          "serial",
+        ].includes(name(value)) && testRegistration(value["object"])
+      );
     return ["it", "test", "describe"].includes(name(value));
   }
   /** @param {Node} expression */
   function checkRandomName(expression) {
-    walk(expression, (value) => {
+    /** @param {Node} value */
+    function visit(value) {
+      if (functionTypes.has(value.type)) return;
+      for (const child of Object.values(value).flatMap(nodes)) visit(child);
       if (value.type !== "CallExpression") return;
       const callee = value["callee"];
       if (
@@ -323,7 +339,8 @@ export function deterministicTestViolations(file, source, testSource = true) {
           name(callee["object"]) === "Math")
       )
         report(value, "test-name");
-    });
+    }
+    visit(expression);
   }
   if (testSource)
     walk(program, (value) => {
@@ -342,19 +359,23 @@ export function deterministicTestViolations(file, source, testSource = true) {
         each.type === "CallExpression" &&
         name(each["callee"]) === "each" &&
         title.type === "Literal" &&
-        typeof title["value"] === "string" &&
-        /(?<!%)%[sdifjoOcp]/u.test(title["value"])
+        typeof title["value"] === "string"
       ) {
+        // Vitest formatTitle advances the argument index for %% as well as data placeholders.
         const columns = [
           ...title["value"].matchAll(/%%|%[sdifjoOcp]/gu),
-        ].filter((match) => match[0] !== "%%").length;
+        ].flatMap((match, index) => (match[0] === "%%" ? [] : [index]));
+        if (columns.length === 0) return;
         for (const table of nodes(each["arguments"])) {
           if (table.type !== "ArrayExpression") continue;
           for (const row of nodes(table["elements"])) {
             if (row.type === "ArrayExpression")
-              for (const column of nodes(row["elements"]).slice(0, columns))
-                checkRandomName(column);
-            else checkRandomName(row);
+              for (const index of columns) {
+                const column = row["elements"];
+                if (Array.isArray(column) && node(column[index]))
+                  checkRandomName(column[index]);
+              }
+            else if (columns.includes(0)) checkRandomName(row);
           }
         }
       }
