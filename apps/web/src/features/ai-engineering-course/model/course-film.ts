@@ -8,6 +8,8 @@
  * смена содержимого через короткое размытие, событие каждые полсекунды, курсор ведёт смену.
  */
 
+import { AGENT_LOGOS, type AgentId } from "./agent-logos";
+
 export const FILM_WIDTH = 960;
 export const FILM_HEIGHT = 640;
 export const FILM_DURATION = 18;
@@ -297,6 +299,8 @@ interface Scene {
   readonly end: number;
   readonly boxes: Boxes;
   readonly orbs: Orbs;
+  /** Какой агент в каждом кольце: Claude, Codex и DeepSeek чередуются от сцены к сцене. */
+  readonly agents: readonly [AgentId, AgentId, AgentId];
   readonly draw: (scene: Live) => void;
 }
 
@@ -327,9 +331,9 @@ function drawDevelop({ g, s, a, f, c, b }: Live) {
   const mid = bar.y + bar.h / 2;
   const typed = Math.floor(clamp((s - 0.15) / 0.8) * PROMPT.length);
   const shown = PROMPT.slice(0, typed);
-  text(g, "›", bar.x + 30, mid, 40, 700, c.accent, f.sans, { alpha: a });
-  text(g, shown, bar.x + 64, mid, 34, 600, c.paper, f.sans, { alpha: a });
-  const caret = bar.x + 64 + width(g, shown, `600 34px ${f.sans}`) + 5;
+  logo(g, "claude", bar.x + 40, mid, 36, a);
+  text(g, shown, bar.x + 76, mid, 34, 600, c.paper, f.sans, { alpha: a });
+  const caret = bar.x + 76 + width(g, shown, `600 34px ${f.sans}`) + 5;
   if (s < SEND && (typed < PROMPT.length || Math.floor(s * 4) % 2 === 0)) {
     g.save();
     g.globalAlpha *= a;
@@ -366,129 +370,160 @@ function drawDevelop({ g, s, a, f, c, b }: Live) {
   }
 }
 
-/** Точка входа линии в плашку и кривая от агента к ней: плавная S-образная, без пересечений. */
-function curve(orb: Orb, to: Box) {
-  const sx = orb.x + orb.r + 6;
-  const ex = to.x - 6;
-  return { sx, sy: orb.y, ex, ey: to.y + to.h / 2, mid: (sx + ex) / 2 };
-}
-
-function link(
-  g: CanvasRenderingContext2D,
-  orb: Orb,
-  to: Box,
-  alpha: number,
-  c: FilmPalette,
-) {
-  if (alpha <= 0) return;
-  const { sx, sy, ex, ey, mid } = curve(orb, to);
-  g.save();
-  g.strokeStyle = c.paper;
-  g.globalAlpha *= alpha * 0.3;
-  g.lineWidth = 2;
-  g.beginPath();
-  g.moveTo(sx, sy);
-  g.bezierCurveTo(mid, sy, mid, ey, ex, ey);
-  g.stroke();
-  g.restore();
-}
-
-/** Импульс по кривой от агента к плашке; `k` — пройденная доля пути. */
-function pulse(
-  g: CanvasRenderingContext2D,
-  orb: Orb,
-  to: Box,
-  k: number,
-  alpha: number,
-  c: FilmPalette,
-) {
-  if (k <= 0 || alpha <= 0) return;
-  const { sx, sy, ex, ey } = curve(orb, to);
-  const x = lerp(sx, ex, k);
-  const y = lerp(sy, ey, k * k * (3 - 2 * k));
-  g.beginPath();
-  g.arc(x, y, 8, 0, Math.PI * 2);
-  fill(g, c.accent, alpha);
-}
-
 const FILES = [
-  ["AGENTS.md", true],
-  ["skills/", true],
-  ["docs/auth.md", true],
-  ["legacy/", false],
+  ["AGENTS.md", 4, true],
+  ["skills/", 6, true],
+  ["docs/auth.md", 8, true],
+  ["legacy/", 0, false],
 ] as const;
-function drawContext({ g, s, a, f, c, b, orbs }: Live) {
-  const [orb] = orbs;
+/**
+ * Контекст: нужные файлы копиями перелетают в окно контекста агента и встают в нём строками,
+ * счётчик токенов растёт. Ненужный файл зачёркивается и остаётся снаружи.
+ */
+function drawContext({ g, s, a, f, c, b }: Live) {
   const chips = [b.S0, b.S1, b.S2, b.S3];
-  for (const [i, [name, read]] of FILES.entries()) {
-    const chip = chips[i];
-    if (!chip) continue;
-    const at = 0.35 + i * 0.25;
-    const lit = read ? appear(s, at + 0.25, 0.2) : 0;
-    link(g, orb, chip, a * appear(s, at, 0.2) * (read ? 1 : 0), c);
-    if (read && s < at + 0.25)
-      pulse(g, orb, chip, clamp((s - at) / 0.25), a, c);
-    const y = chip.y + chip.h / 2;
-    g.beginPath();
-    g.arc(chip.x + 28, y, 8, 0, Math.PI * 2);
-    fill(g, read ? c.accent : c.paper, a * (read ? lit : 0.2));
-    text(g, name, chip.x + 52, y + 1, 30, 600, c.paper, f.mono, {
-      alpha: a * (read ? 0.45 + 0.55 * lit : 0.3),
-    });
-  }
-  const meter = b.T;
-  const used = appear(s, 0.9, 0.9);
-  text(g, "Контекст", meter.x, meter.y - 38, 32, 650, c.paper, f.sans, {
+  const box = b.T;
+  text(g, "Контекст", box.x + 24, box.y + 36, 30, 650, c.paper, f.sans, {
     alpha: a,
   });
+  let tokens = 0;
+  let slot = 0;
+  for (const [i, [name, size, read]] of FILES.entries()) {
+    const chip = chips[i];
+    if (!chip) continue;
+    const y = chip.y + chip.h / 2;
+    const at = 0.35 + i * 0.4;
+    const fly = read ? spring(s - at, 260, 26) : 0;
+    const landed = read ? appear(s, at + 0.25, 0.2) : 0;
+    // Сам файл остаётся в проекте: после копирования он отмечен точкой.
+    g.beginPath();
+    g.arc(chip.x + 26, y, 7, 0, Math.PI * 2);
+    fill(
+      g,
+      read ? c.accent : c.paper,
+      a * (read ? 0.35 + 0.65 * landed : 0.25),
+    );
+    text(g, name, chip.x + 48, y + 1, 30, 600, c.paper, f.mono, {
+      alpha: a * (read ? 1 : 0.4),
+    });
+    if (!read) {
+      const cross = appear(s, 1.75, 0.3);
+      if (cross > 0) {
+        g.save();
+        g.globalAlpha *= a * 0.6;
+        g.strokeStyle = c.paper;
+        g.lineWidth = 2;
+        g.beginPath();
+        g.moveTo(chip.x + 44, y);
+        g.lineTo(
+          chip.x + 44 + (width(g, name, `600 30px ${f.mono}`) + 8) * cross,
+          y,
+        );
+        g.stroke();
+        g.restore();
+      }
+      continue;
+    }
+    // Копия файла летит в окно контекста и встаёт строкой.
+    const tx = box.x + 20;
+    const ty = box.y + 76 + slot * 66;
+    const tw = box.w - 40;
+    const x = lerp(chip.x, tx, fly);
+    const top = lerp(chip.y, ty, fly);
+    const w = lerp(chip.w, tw, fly);
+    const h = lerp(chip.h, 50, fly);
+    if (s >= at) {
+      g.save();
+      g.globalAlpha *= a * clamp((s - at) / 0.1);
+      roundRect(g, x, top, w, h, 14);
+      fill(g, c.paper, 0.1 + 0.06 * (1 - landed));
+      text(g, name, x + 20, top + h / 2 + 1, 28, 600, c.paper, f.mono);
+      text(
+        g,
+        `${String(size)}k`,
+        x + w - 18,
+        top + h / 2 + 1,
+        26,
+        600,
+        c.accent,
+        f.mono,
+        {
+          align: "right",
+          alpha: landed,
+        },
+      );
+      g.restore();
+    }
+    tokens += size * landed;
+    slot += 1;
+  }
   text(
     g,
-    `${String(Math.round(18 * used))}k из 200k`,
-    meter.x + meter.w,
-    meter.y - 38,
-    30,
+    `${String(Math.round(tokens))}k / 200k`,
+    box.x + box.w - 24,
+    box.y + box.h - 30,
+    28,
     600,
     c.paper,
     f.mono,
-    { align: "right", alpha: a * 0.7 },
+    {
+      align: "right",
+      alpha: a * 0.7,
+    },
   );
-  roundRect(
-    g,
-    meter.x,
-    meter.y,
-    Math.max(meter.h, meter.w * 0.09 * used),
-    meter.h,
-    meter.h / 2,
-  );
-  fill(g, c.accent, a);
 }
 
-const TOOLS = [
-  ["github.list_repos", true],
-  ["docs.search", true],
-  ["db.delete_project", false],
+const CALLS = [
+  ["github.list_repos()", "12 репозиториев", true],
+  ['docs.search("вход")', "3 документа", true],
+  ['db.delete_project("core")', "нет прав", false],
 ] as const;
-function drawTools({ g, s, a, f, c, b, orbs }: Live) {
-  const [orb] = orbs;
+/**
+ * Инструменты: журнал вызовов сверху вниз. Вызов появляется, под ним раскрывается ответ;
+ * запрещённый вызов вздрагивает и получает отказ.
+ */
+function drawTools({ g, s, a, f, c, b }: Live) {
   const cards = [b.S0, b.S1, b.S2];
-  for (const [i, [name, allowed]] of TOOLS.entries()) {
+  for (const [i, [call, result, allowed]] of CALLS.entries()) {
     const card = cards[i];
     if (!card) continue;
-    link(g, orb, card, a, c);
-    // К разрешённому инструменту импульс доходит, к запрещённому останавливается на полпути.
-    const call = 0.35 + i * 0.45;
-    const reach = allowed ? 1 : 0.5;
-    const k = clamp((s - call) / 0.3) * reach;
-    if (k < reach) pulse(g, orb, card, k, a, c);
-    const y = card.y + card.h / 2;
-    text(g, name, card.x + 28, y, 30, 600, c.paper, f.mono, { alpha: a });
-    const result = appear(s, call + 0.3, 0.25) * a;
-    if (allowed) done(g, card.x + card.w - 40, y, result, c);
-    else
-      text(g, "нет прав", card.x + card.w - 26, y, 30, 650, c.accent, f.sans, {
-        align: "right",
-        alpha: result,
-      });
+    const at = 0.25 + i * 0.6;
+    const answered = appear(s, at + 0.35, 0.25);
+    const shake = allowed
+      ? 0
+      : Math.sin((s - at - 0.35) * 40) *
+        7 *
+        Math.max(0, 1 - (s - at - 0.35) / 0.4) *
+        (s > at + 0.35 ? 1 : 0);
+    rise(g, appear(s, at, 0.25) * a, () => {
+      g.save();
+      g.translate(shake, 0);
+      text(g, "→", card.x + 26, card.y + 34, 30, 700, c.accent, f.mono);
+      text(g, call, card.x + 62, card.y + 35, 30, 600, c.paper, f.mono);
+      if (answered > 0) {
+        const ry = card.y + card.h - 32;
+        if (allowed) done(g, card.x + 74, ry, answered, c);
+        else {
+          g.beginPath();
+          g.arc(card.x + 74, ry, 20 * answered, 0, Math.PI * 2);
+          fill(g, c.accent, answered);
+        }
+        text(
+          g,
+          result,
+          card.x + 108,
+          ry + 1,
+          30,
+          650,
+          allowed ? c.paper : c.accent,
+          f.sans,
+          {
+            alpha: answered,
+          },
+        );
+      }
+      g.restore();
+    });
   }
 }
 
@@ -670,17 +705,23 @@ const A_ROWS = [0, 1, 2].map((i) =>
   box(LEFT, TOP + 170 + i * 80, INNER, 64, 0),
 );
 const A_ORB: Orb = { x: LEFT + INNER - 42, y: TOP + 84, r: 26, o: 0 };
-// Контекст: агент слева, четыре файла колонкой справа, внизу шкала контекста.
-const CHIP_X = 300;
-const B_CHIPS = [0, 1, 2, 3].map((i) =>
-  box(CHIP_X, TOP + 20 + i * 86, RIGHT - CHIP_X, 70, 0.07),
+// Контекст: файлы проекта колонкой слева, справа окно контекста, агент на его углу.
+const FILE_W = 330;
+const B_FILES = [0, 1, 2, 3].map((i) =>
+  box(LEFT, TOP + 50 + i * 100, FILE_W, 80, 0.07),
 );
-const B_METER = pill(LEFT, 556, INNER, 16, 0.1);
-const ORB_SIDE: Orb = { x: 128, y: TOP + 182, r: 56, o: 1 };
-// Инструменты: три карточки справа от агента.
-const TOOL_X = 330;
-const C_TOOLS = [0, 1, 2].map((i) =>
-  box(TOOL_X, TOP + 40 + i * 120, RIGHT - TOOL_X, 92, 0.08),
+const B_CONTEXT = box(
+  LEFT + FILE_W + 60,
+  TOP + 50,
+  INNER - FILE_W - 60,
+  380,
+  0.05,
+);
+const ORB_CONTEXT: Orb = { x: RIGHT - 4, y: TOP + 50, r: 34, o: 1 };
+// Инструменты: журнал вызовов, агент слева вверху.
+const ORB_LOG: Orb = { x: LEFT + 34, y: TOP + 80, r: 34, o: 1 };
+const C_CALLS = [0, 1, 2].map((i) =>
+  box(LEFT + 96, TOP + 40 + i * 128, INNER - 96, 112, 0.08),
 );
 // RAG и оценка: агент маленький слева вверху.
 const ORB_TOP: Orb = { x: 96, y: TOP + 78, r: 32, o: 1 };
@@ -726,36 +767,39 @@ const SCENES: readonly Scene[] = [
     },
     // Агент спрятан в кнопке отправки и выходит из неё в следующей сцене.
     orbs: solo(A_ORB),
+    agents: ["claude", "claude", "claude"],
     draw: drawDevelop,
   },
   {
     start: 3,
     end: 6,
     boxes: {
-      T: B_METER,
-      S0: at(B_CHIPS, 0),
-      S1: at(B_CHIPS, 1),
-      S2: at(B_CHIPS, 2),
-      S3: at(B_CHIPS, 3),
-      S4: hidden(at(B_CHIPS, 3)),
-      S5: hidden(at(B_CHIPS, 3)),
+      T: B_CONTEXT,
+      S0: at(B_FILES, 0),
+      S1: at(B_FILES, 1),
+      S2: at(B_FILES, 2),
+      S3: at(B_FILES, 3),
+      S4: hidden(at(B_FILES, 3)),
+      S5: hidden(at(B_FILES, 3)),
     },
-    orbs: solo(ORB_SIDE),
+    orbs: solo(ORB_CONTEXT),
+    agents: ["claude", "claude", "claude"],
     draw: drawContext,
   },
   {
     start: 6,
     end: 9,
     boxes: {
-      T: hidden(B_METER),
-      S0: at(C_TOOLS, 0),
-      S1: at(C_TOOLS, 1),
-      S2: at(C_TOOLS, 2),
-      S3: hidden(at(C_TOOLS, 2)),
-      S4: hidden(at(C_TOOLS, 2)),
-      S5: hidden(at(C_TOOLS, 2)),
+      T: hidden(B_CONTEXT),
+      S0: at(C_CALLS, 0),
+      S1: at(C_CALLS, 1),
+      S2: at(C_CALLS, 2),
+      S3: hidden(at(C_CALLS, 2)),
+      S4: hidden(at(C_CALLS, 2)),
+      S5: hidden(at(C_CALLS, 2)),
     },
-    orbs: solo(ORB_SIDE),
+    orbs: solo(ORB_LOG),
+    agents: ["codex", "codex", "codex"],
     draw: drawTools,
   },
   {
@@ -771,6 +815,7 @@ const SCENES: readonly Scene[] = [
       S5: hidden(D_ANSWER),
     },
     orbs: solo(ORB_TOP),
+    agents: ["deepseek", "deepseek", "deepseek"],
     draw: drawRag,
   },
   {
@@ -786,6 +831,7 @@ const SCENES: readonly Scene[] = [
       S5: hidden(at(E_LANES, 2)),
     },
     orbs: E_ORBS,
+    agents: ["claude", "codex", "deepseek"],
     draw: drawParallel,
   },
   {
@@ -801,6 +847,7 @@ const SCENES: readonly Scene[] = [
       S5: hidden(F_RESULT),
     },
     orbs: solo(ORB_TOP),
+    agents: ["codex", "codex", "codex"],
     draw: drawEvals,
   },
 ];
@@ -874,38 +921,79 @@ function drawBox(g: CanvasRenderingContext2D, b: Box, c: FilmPalette) {
   }
 }
 
-/**
- * Значок агента — четырёхлучевая звезда, общий знак AI. Логотип конкретного агента не берём:
- * навыки курса не привязаны к одному агенту.
- */
-function sparkle(
+const logoPaths = new Map<AgentId, Path2D>();
+/** Логотип агента в цвете бренда, по центру `(x, y)`, шириной `size`. */
+function logo(
   g: CanvasRenderingContext2D,
+  id: AgentId,
   x: number,
   y: number,
   size: number,
-  color: string,
+  alpha: number,
 ) {
-  const k = size * 0.16;
-  g.beginPath();
-  g.moveTo(x, y - size);
-  g.quadraticCurveTo(x + k, y - k, x + size, y);
-  g.quadraticCurveTo(x + k, y + k, x, y + size);
-  g.quadraticCurveTo(x - k, y + k, x - size, y);
-  g.quadraticCurveTo(x - k, y - k, x, y - size);
-  g.closePath();
-  fill(g, color);
+  if (alpha <= 0 || size <= 0) return;
+  const source = AGENT_LOGOS[id];
+  let path = logoPaths.get(id);
+  if (!path) {
+    path = new Path2D(source.path);
+    logoPaths.set(id, path);
+  }
+  g.save();
+  g.globalAlpha *= alpha;
+  g.translate(x - size / 2, y - size / 2);
+  g.scale(size / 24, size / 24);
+  const [first = "#000000", ...rest] = source.colors;
+  if (rest.length === 0) g.fillStyle = first;
+  else {
+    const gradient = g.createLinearGradient(0, 0, 24, 24);
+    for (const [i, color] of source.colors.entries())
+      gradient.addColorStop(i / (source.colors.length - 1), color);
+    g.fillStyle = gradient;
+  }
+  g.fill(path, source.fillRule);
+  g.restore();
 }
 
-function drawOrb(g: CanvasRenderingContext2D, orb: Orb, c: FilmPalette) {
+/** Какой агент в кольце сейчас: при смене сцены логотип перетекает вместе с кольцом. */
+function agentAt(t: number, index: 0 | 1 | 2) {
+  let current = SCENES[0];
+  let previous = SCENES[SCENES.length - 1];
+  for (const [i, scene] of SCENES.entries())
+    if (t >= scene.start) {
+      current = scene;
+      previous = SCENES[i - 1] ?? SCENES[SCENES.length - 1];
+    }
+  const now = current?.agents[index] ?? "claude";
+  const before = previous?.agents[index] ?? now;
+  return { now, before, mix: appear(t, current?.start ?? 0, 0.3) };
+}
+
+/** Агент — светлый кружок с логотипом, как значок приложения. */
+function drawOrb(
+  g: CanvasRenderingContext2D,
+  orb: Orb,
+  c: FilmPalette,
+  agent: { now: AgentId; before: AgentId; mix: number },
+) {
   if (orb.o <= 0 || orb.r <= 0) return;
   g.save();
   g.globalAlpha *= orb.o;
-  g.strokeStyle = c.accent;
-  g.lineWidth = Math.max(3, orb.r / 10);
   g.beginPath();
   g.arc(orb.x, orb.y, orb.r, 0, Math.PI * 2);
-  g.stroke();
-  sparkle(g, orb.x, orb.y, orb.r * 0.52, c.paper);
+  fill(g, c.paper);
+  const size = orb.r * 1.1;
+  if (agent.now === agent.before) logo(g, agent.now, orb.x, orb.y, size, 1);
+  else {
+    logo(
+      g,
+      agent.before,
+      orb.x,
+      orb.y,
+      size * (1 - 0.3 * agent.mix),
+      1 - agent.mix,
+    );
+    logo(g, agent.now, orb.x, orb.y, size * (0.7 + 0.3 * agent.mix), agent.mix);
+  }
   g.restore();
 }
 
@@ -969,7 +1057,8 @@ export function drawFilm(
   };
   const orbs: Orbs = [liveOrb(t, 0), liveOrb(t, 1), liveOrb(t, 2)];
   for (const slot of SLOTS) drawBox(g, b[slot], c);
-  for (const orb of orbs) drawOrb(g, orb, c);
+  for (const [i, orb] of orbs.entries())
+    drawOrb(g, orb, c, agentAt(t, i === 0 ? 0 : i === 1 ? 1 : 2));
   for (const scene of SCENES) {
     const a = contentAlpha(t, scene);
     if (a <= 0 || t < scene.start) continue;
