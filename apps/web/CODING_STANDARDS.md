@@ -164,8 +164,11 @@ these are the rules a change follows.
   reload, plus a negative one where the announcement is unavailable
   (`test/e2e/account-cabinet.spec.ts`). The rule itself stays prose: deciding that several surfaces
   read a fact means reading its query owner, which is not an import boundary a guardrail can match.
-  Its mechanism is a fitness candidate: a guardrail allowing `BroadcastChannel` only in
-  `fact-announcement` lands once enrollment events move onto it (#636).
+  Without the browser's inter-tab channel, the common mechanism announces writes to surfaces in
+  the same tab through a window event. Other tabs see the write on their next read: opening or
+  returning focus re-reads only when the cached answer is stale. The architecture guardrail keeps
+  direct channel access in the common module; its negative fixture covers a channel constructed
+  elsewhere.
 - Interactive writes use `useMutation` → browser adapter → same-origin capability Route Handler →
   generated Nest transport. The shared BFF boundary owns Origin, session, private no-store, timeout,
   and the default 2 MiB limit; a larger limit requires a named narrow override and boundary tests.

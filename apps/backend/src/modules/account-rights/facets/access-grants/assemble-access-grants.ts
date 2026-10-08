@@ -811,13 +811,19 @@ export function assembleAccessGrants(dependencies: AccessGrantsDependencies) {
         );
       }
     },
-    async readEnrollmentEnding(enrollmentId: string) {
+    /** Читает границу и продолжение на соединении вызывающего кода, если передана транзакция. */
+    async readEnrollmentEnding(
+      enrollmentId: string,
+      transaction?: Pick<AccountRightsPrisma, "tariffAssignment">,
+    ) {
       if (!z.uuid().safeParse(enrollmentId).success)
         return accessFailure("invalid_input");
       try {
         return {
           ok: true as const,
-          value: (await readEnrollmentEnding(prisma, enrollmentId)) ?? null,
+          value:
+            (await readEnrollmentEnding(transaction ?? prisma, enrollmentId)) ??
+            null,
         };
       } catch (error) {
         return dependencyFailure(
