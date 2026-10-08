@@ -24,6 +24,15 @@ Secret этого направления обязан отличаться от 
 operation_conflict/revision_conflict 409. Без parseable `operationId` ответ не выдумывает
 correlation. `entitlement.status` возвращает durable result исходной операции.
 
+## Адрес группы для участника (#823)
+
+В ответе v2 provider может передать `groupUrl` участнику с допуском и действующим правом.
+Адрес строится из canonical ID супергруппы и ведёт на `https://t.me/c/<channel>/1`.
+Он не создаёт приглашения и не отправляет сообщение. Platform проверяет актуальность результата
+и показывает «Открыть группу» после оплаты и в «Покупках». Без адреса остаётся статус участника.
+В v1 поле отсутствует; сначала выпускается Platform, затем Telegram.
+Общий runtime codec — `@inside/contracts/community-result`.
+
 ## Что хранится
 
 - `community_operations` — durable inbox: команда, её fingerprint и последний result. Fingerprint —

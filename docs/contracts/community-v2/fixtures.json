@@ -527,5 +527,258 @@
       "observedMembership": "member",
       "updatedAt": "2026-09-08T09:00:05Z"
     }
+  },
+  {
+    "name": "member-group-url",
+    "definition": "communityResponse",
+    "value": {
+      "contractVersion": "inside.community-entitlement.v2",
+      "operation": "entitlement.result",
+      "operationId": "00000000-0000-4000-8000-000000000001",
+      "binding": {
+        "accountRef": "account-fixture-a",
+        "telegramIdentityRef": "telegram-fixture-a",
+        "linkRef": "00000000-0000-4000-8000-000000000002",
+        "linkRevision": 1
+      },
+      "entitlementRevision": 1,
+      "access": {
+        "kind": "finite",
+        "validUntil": "2026-10-08T09:00:00Z"
+      },
+      "status": "applied",
+      "observedMembership": "member",
+      "updatedAt": "2026-09-08T09:00:05Z",
+      "admissionRestriction": "none",
+      "groupUrl": "https://t.me/c/1234567890/1"
+    },
+    "valid": true
+  },
+  {
+    "name": "non-telegram-group-url",
+    "definition": "communityResponse",
+    "value": {
+      "contractVersion": "inside.community-entitlement.v2",
+      "operation": "entitlement.result",
+      "operationId": "00000000-0000-4000-8000-000000000001",
+      "binding": {
+        "accountRef": "account-fixture-a",
+        "telegramIdentityRef": "telegram-fixture-a",
+        "linkRef": "00000000-0000-4000-8000-000000000002",
+        "linkRevision": 1
+      },
+      "entitlementRevision": 1,
+      "access": {
+        "kind": "finite",
+        "validUntil": "2026-10-08T09:00:00Z"
+      },
+      "status": "applied",
+      "observedMembership": "member",
+      "updatedAt": "2026-09-08T09:00:05Z",
+      "admissionRestriction": "none",
+      "groupUrl": "https://example.com/community"
+    },
+    "valid": false
+  },
+  {
+    "name": "invite-is-not-member-group-url",
+    "definition": "communityResponse",
+    "value": {
+      "contractVersion": "inside.community-entitlement.v2",
+      "operation": "entitlement.result",
+      "operationId": "00000000-0000-4000-8000-000000000001",
+      "binding": {
+        "accountRef": "account-fixture-a",
+        "telegramIdentityRef": "telegram-fixture-a",
+        "linkRef": "00000000-0000-4000-8000-000000000002",
+        "linkRevision": 1
+      },
+      "entitlementRevision": 1,
+      "access": {
+        "kind": "finite",
+        "validUntil": "2026-10-08T09:00:00Z"
+      },
+      "status": "applied",
+      "observedMembership": "member",
+      "updatedAt": "2026-09-08T09:00:05Z",
+      "admissionRestriction": "none",
+      "groupUrl": "https://t.me/+invite"
+    },
+    "valid": false
+  },
+  {
+    "name": "community-result-date-time-lowercase",
+    "definition": "communityResponse",
+    "value": {
+      "contractVersion": "inside.community-entitlement.v2",
+      "operation": "entitlement.result",
+      "operationId": "00000000-0000-4000-8000-000000000001",
+      "binding": {
+        "accountRef": "account-fixture-a",
+        "telegramIdentityRef": "telegram-fixture-a",
+        "linkRef": "00000000-0000-4000-8000-000000000002",
+        "linkRevision": 1
+      },
+      "entitlementRevision": 1,
+      "access": {
+        "kind": "finite",
+        "validUntil": "2030-02-01t00:00:00z"
+      },
+      "status": "applied",
+      "observedMembership": "member",
+      "updatedAt": "2030-02-01t00:00:00z",
+      "admissionRestriction": "none"
+    },
+    "valid": true
+  },
+  {
+    "name": "community-result-date-time-space-separator",
+    "definition": "communityResponse",
+    "value": {
+      "contractVersion": "inside.community-entitlement.v2",
+      "operation": "entitlement.result",
+      "operationId": "00000000-0000-4000-8000-000000000001",
+      "binding": {
+        "accountRef": "account-fixture-a",
+        "telegramIdentityRef": "telegram-fixture-a",
+        "linkRef": "00000000-0000-4000-8000-000000000002",
+        "linkRevision": 1
+      },
+      "entitlementRevision": 1,
+      "access": {
+        "kind": "finite",
+        "validUntil": "2030-02-01 00:00:00Z"
+      },
+      "status": "applied",
+      "observedMembership": "member",
+      "updatedAt": "2030-02-01 00:00:00Z",
+      "admissionRestriction": "none"
+    },
+    "valid": true
+  },
+  {
+    "name": "community-result-date-time-compact-offset",
+    "definition": "communityResponse",
+    "value": {
+      "contractVersion": "inside.community-entitlement.v2",
+      "operation": "entitlement.result",
+      "operationId": "00000000-0000-4000-8000-000000000001",
+      "binding": {
+        "accountRef": "account-fixture-a",
+        "telegramIdentityRef": "telegram-fixture-a",
+        "linkRef": "00000000-0000-4000-8000-000000000002",
+        "linkRevision": 1
+      },
+      "entitlementRevision": 1,
+      "access": {
+        "kind": "finite",
+        "validUntil": "2030-02-01T00:00:00+0300"
+      },
+      "status": "applied",
+      "observedMembership": "member",
+      "updatedAt": "2030-02-01T00:00:00+0300",
+      "admissionRestriction": "none"
+    },
+    "valid": true
+  },
+  {
+    "name": "community-result-date-time-leap-second",
+    "definition": "communityResponse",
+    "value": {
+      "contractVersion": "inside.community-entitlement.v2",
+      "operation": "entitlement.result",
+      "operationId": "00000000-0000-4000-8000-000000000001",
+      "binding": {
+        "accountRef": "account-fixture-a",
+        "telegramIdentityRef": "telegram-fixture-a",
+        "linkRef": "00000000-0000-4000-8000-000000000002",
+        "linkRevision": 1
+      },
+      "entitlementRevision": 1,
+      "access": {
+        "kind": "finite",
+        "validUntil": "2030-06-30T23:59:60Z"
+      },
+      "status": "applied",
+      "observedMembership": "member",
+      "updatedAt": "2030-06-30T23:59:60Z",
+      "admissionRestriction": "none"
+    },
+    "valid": true
+  },
+  {
+    "name": "community-result-date-time-invalid-calendar",
+    "definition": "communityResponse",
+    "value": {
+      "contractVersion": "inside.community-entitlement.v2",
+      "operation": "entitlement.result",
+      "operationId": "00000000-0000-4000-8000-000000000001",
+      "binding": {
+        "accountRef": "account-fixture-a",
+        "telegramIdentityRef": "telegram-fixture-a",
+        "linkRef": "00000000-0000-4000-8000-000000000002",
+        "linkRevision": 1
+      },
+      "entitlementRevision": 1,
+      "access": {
+        "kind": "finite",
+        "validUntil": "2030-02-30T00:00:00Z"
+      },
+      "status": "applied",
+      "observedMembership": "member",
+      "updatedAt": "2030-02-30T00:00:00Z",
+      "admissionRestriction": "none"
+    },
+    "valid": false
+  },
+  {
+    "name": "community-result-date-time-missing-zone",
+    "definition": "communityResponse",
+    "value": {
+      "contractVersion": "inside.community-entitlement.v2",
+      "operation": "entitlement.result",
+      "operationId": "00000000-0000-4000-8000-000000000001",
+      "binding": {
+        "accountRef": "account-fixture-a",
+        "telegramIdentityRef": "telegram-fixture-a",
+        "linkRef": "00000000-0000-4000-8000-000000000002",
+        "linkRevision": 1
+      },
+      "entitlementRevision": 1,
+      "access": {
+        "kind": "finite",
+        "validUntil": "2030-02-01T00:00:00"
+      },
+      "status": "applied",
+      "observedMembership": "member",
+      "updatedAt": "2030-02-01T00:00:00",
+      "admissionRestriction": "none"
+    },
+    "valid": false
+  },
+  {
+    "name": "community-result-legacy-uuid-format",
+    "definition": "communityResponse",
+    "value": {
+      "contractVersion": "inside.community-entitlement.v2",
+      "operation": "entitlement.result",
+      "operationId": "urn:uuid:00000000-0000-0000-0000-000000000001",
+      "binding": {
+        "accountRef": "account-fixture-a",
+        "telegramIdentityRef": "telegram-fixture-a",
+        "linkRef": "00000000-0000-0000-0000-000000000002",
+        "linkRevision": 1
+      },
+      "entitlementRevision": 1,
+      "access": {
+        "kind": "finite",
+        "validUntil": "2026-10-08T09:00:00Z"
+      },
+      "status": "applied",
+      "observedMembership": "member",
+      "updatedAt": "2026-09-08T09:00:05Z",
+      "admissionRestriction": "none"
+    },
+    "valid": true
   }
 ]

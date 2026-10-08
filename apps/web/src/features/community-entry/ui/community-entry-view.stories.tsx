@@ -117,6 +117,22 @@ export const Member: Story = {
     await expectCurrentStep(canvasElement, null);
   },
 };
+export const MemberWithGroup: Story = {
+  args: { entry: { kind: "member", groupUrl: "https://t.me/c/1234567890/1" } },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    const link = canvas.getByRole("link", { name: "Открыть группу" });
+    await expect(link).toHaveAttribute("href", "https://t.me/c/1234567890/1");
+    await expect(link).toHaveAttribute("target", "_blank");
+    await expect(link).toHaveAttribute("rel", "noopener noreferrer");
+    await expectCurrentStep(canvasElement, null);
+  },
+};
+export const MemberWithGroupMobile: Story = {
+  ...MemberWithGroup,
+  globals: { viewport: { isRotated: false, value: "mobile390" } },
+};
+
 export const Restricted: Story = {
   args: { entry: { kind: "restricted" } },
   play: async ({ canvasElement }) => {
