@@ -137,7 +137,7 @@ describe("release image contract", () => {
     assert.match(smoke, /test ! -d \/app\/src/u);
     assert.equal(
       rootPackage.scripts["release:images:smoke"],
-      "bash scripts/release-image-smoke.sh",
+      "bash scripts/heavy-check.sh bash scripts/release-image-smoke.sh",
     );
     assert.match(ci, /run: pnpm release:images:smoke/u);
   });

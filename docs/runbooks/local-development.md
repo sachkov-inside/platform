@@ -85,6 +85,51 @@ Playwright does not use Compose. The Playwright checks of `pnpm check` take free
 reserved range of `scripts/smoke-stand.mjs` (#896), so checks in two worktrees run side by side.
 `PLAYWRIGHT_PORT`, `NAVIGATION_WEB_PORT` and `FAKE_BACKEND_PORT` set a port explicitly.
 
+## Automatic slots for heavy local checks
+
+Use the checked-in `pnpm` commands for heavy checks. `scripts/heavy-check.sh` admits at most two
+independent command trees across all worktrees on this machine. A third invocation prints
+`heavy-check: waiting for one of two local slots` and waits. No request to the orchestrator is
+needed after #1151 is merged. Existing runs from older worktrees must finish before that handoff;
+update those worktrees from `main` to use the wrappers.
+
+The wrappers cover root `check`, `check:full`, `check:ui`, `check:web-e2e`, `test`, `test:tooling`,
+`test:integration` (including its parallel and serial commands), `test:e2e`, `test:navigation`,
+`test:storybook`, `evidence:web`, `build:storybook`, `compose:smoke`, `compose:production:smoke`, `release:images:smoke` and root `smoke:*` commands. Web's browser, Playwright and Storybook build commands,
+and backend's integration and smoke commands also claim slots when called with `pnpm --filter`.
+`lint`, `typecheck` and isolated unit commands do not claim slots. The lightweight web
+`smoke:backend` HTTP probe stays unwrapped: Compose smoke admits the whole run on the host,
+and its Alpine container needs neither Bash nor Python for this probe. Raw runner binaries and direct
+smoke scripts bypass admission; use the guarded `pnpm` commands, or wrap a custom command explicitly:
+
+```bash
+bash scripts/heavy-check.sh bash -c 'your-command'
+```
+
+Local admission requires Python 3 and POSIX `flock` from its standard library; no `flock` executable
+is required on macOS. Two persistent files live in `~/.cache/inside-platform/heavy-check/`.
+Do not remove them while checks run: the kernel owns their locks, and empty files do not mean
+occupied slots. `INSIDE_HEAVY_CHECK_DIRECTORY` is for isolated lock tests; normal sessions must
+keep the shared default. CI bypasses admission before invoking Python and retains workflow scheduling.
+
+Nested commands reuse their ancestor's slot. The supervisor tracks descendant process groups while the command runs. It closes the slot after
+the command exits and the tracked groups contain no running processes. On interruption, including SIGKILL of the wrapper or a
+launching ancestor such as `pnpm`, it stops the tracked groups before releasing the slot. SIGTERM has a
+five-second shutdown budget, then remaining members receive SIGKILL. A crash therefore cannot
+leave a stale kernel lock. Tracking includes detached groups observed during the run. A custom command that detaches a
+child and exits before observation must manage that child itself. Use foreground commands for
+heavy checks.
+
+Web Vitest projects set `maxWorkers: 2` in each project, including the browser-mode Storybook
+project. Playwright's default suite sets two workers; the other suites inherit or set one.
+Local backend integration retains its resource budget with a cap of two workers; its serial project
+sets one worker. CI integration retains the resource-based budget.
+Tooling's Node test runner executes at most two files at once within one invocation.
+These bounds limit repository checks; they do not reserve CPU or memory against other applications.
+
+Admission does not grant ownership of the singleton Compose stand. Keep the ownership rules above
+and leave another session's `inside-platform` services and volumes untouched.
+
 ## Start from a fresh clone
 
 From the repository root:
@@ -130,13 +175,16 @@ production recovery are documented in the
 The smoke needs the published demonstration catalogue, so it runs in its own disposable project and
 never touches the shared stand volumes. It uses the same ports, so stop the stand first:
 
+This guarded verification needs host Python 3 and Bash, but no host Node.js or pnpm.
+The wrapper holds one slot through build, smoke and shutdown; the trap cleans up on failure too.
+
 ```bash
-(
+bash scripts/heavy-check.sh bash -euc '
   export COMPOSE_PROJECT_NAME=inside-platform-smoke LOCAL_SEED_VIEW=checks
+  trap "docker compose down --volumes" EXIT
   docker compose up --detach --build --wait
   bash scripts/compose-stack-smoke.sh
-  docker compose down --volumes
-)
+'
 ```
 
 The smoke proves the live web server adapter can reach API and PostgreSQL, MCP reported

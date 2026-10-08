@@ -334,7 +334,12 @@ export function checkDocumentation(repositoryRoot = defaultRepositoryRoot) {
     );
   }
   if (
-    !rootPackage.scripts["check"]?.startsWith("pnpm check:static &&") ||
+    !(
+      rootPackage.scripts["check"]?.startsWith("pnpm check:static &&") ||
+      rootPackage.scripts["check"]?.startsWith(
+        "bash scripts/heavy-check.sh bash -c 'pnpm check:static &&",
+      )
+    ) ||
     !rootPackage.scripts["check:static"]?.startsWith("pnpm docs:check &&")
   ) {
     failures.push(
