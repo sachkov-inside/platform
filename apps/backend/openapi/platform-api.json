@@ -234,6 +234,11 @@
                   "ordered_list"
                 ],
                 "type": "string"
+              },
+              "start": {
+                "maximum": 9007199254740991,
+                "minimum": -9007199254740991,
+                "type": "integer"
               }
             },
             "required": [
@@ -965,6 +970,11 @@
                   "ordered_list"
                 ],
                 "type": "string"
+              },
+              "start": {
+                "maximum": 9007199254740991,
+                "minimum": -9007199254740991,
+                "type": "integer"
               }
             },
             "required": [

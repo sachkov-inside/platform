@@ -399,6 +399,7 @@ function ReaderBlockView({
       const List = block.kind === "bullet_list" ? "ul" : "ol";
       return (
         <List
+          start={block.kind === "ordered_list" ? block.start : undefined}
           className={
             block.kind === "bullet_list"
               ? "mt-6 list-disc space-y-3 pl-7 marker:text-accent"

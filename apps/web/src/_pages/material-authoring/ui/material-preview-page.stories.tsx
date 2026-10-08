@@ -1,4 +1,8 @@
 import type { Meta, StoryObj } from "@storybook/react-vite";
+import {
+  numberedListBlocks,
+  expectNumberedLists,
+} from "@/storybook/material-list-start";
 import { expect, userEvent, within } from "storybook/test";
 
 import {
@@ -60,6 +64,22 @@ const meta = {
 
 export default meta;
 type Story = StoryObj<typeof meta>;
+
+export const OrderedListStart: Story = {
+  args: {
+    preview: {
+      ...materialPreview,
+      blocks: numberedListBlocks,
+      video: { kind: "none" },
+    },
+  },
+  play: async ({ canvasElement }) => expectNumberedLists(canvasElement),
+};
+
+export const OrderedListStartMobile: Story = {
+  ...OrderedListStart,
+  globals: { viewport: { isRotated: false, value: "mobile390" } },
+};
 
 async function expectNoHorizontalOverflow(canvasElement: HTMLElement) {
   await expect(

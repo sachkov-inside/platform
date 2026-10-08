@@ -32,6 +32,10 @@ import {
 import { LearningPracticePrompts } from "./learning-practice-prompts";
 import { MaterialReaderView } from "./material-reader-view";
 import { publicPageEnvironment } from "@/storybook/story-environment";
+import {
+  numberedListBlocks,
+  expectNumberedLists,
+} from "@/storybook/material-list-start";
 
 const material = {
   materialId: "02000000-0000-4000-8000-000000000010",
@@ -573,6 +577,16 @@ const meta = {
 
 export default meta;
 type Story = StoryObj<typeof meta>;
+
+export const OrderedListStart: Story = {
+  args: { body: numberedListBlocks },
+  play: async ({ canvasElement }) => expectNumberedLists(canvasElement),
+};
+
+export const OrderedListStartMobile: Story = {
+  ...OrderedListStart,
+  globals: { viewport: { isRotated: false, value: "mobile390" } },
+};
 
 export const Mobile: Story = {
   args: {},
