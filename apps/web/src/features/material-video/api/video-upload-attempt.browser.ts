@@ -70,8 +70,8 @@ export function recordBrowserVideoUploadAttempt(
   }
 }
 
-/** A recovered upload has no in-memory attempt; discard its persisted retry key on «Убрать». */
-export function clearRecoveredBrowserVideoUploadAttempt(
+/** Retire persisted retry keys for the Video the author explicitly removes. */
+export function clearBrowserVideoUploadAttemptsForVideo(
   materialId: string,
   videoId: string,
 ): void {
@@ -80,9 +80,14 @@ export function clearRecoveredBrowserVideoUploadAttempt(
     for (let index = localStorage.length - 1; index >= 0; index -= 1) {
       const key = localStorage.key(index);
       if (key === null || !key.startsWith(prefix)) continue;
-      const stored = storedUploadAttemptSchema.safeParse(
-        JSON.parse(localStorage.getItem(key) ?? "null"),
-      );
+      let value: unknown;
+      try {
+        value = JSON.parse(localStorage.getItem(key) ?? "null");
+      } catch {
+        // One malformed entry must not hide this Video's remaining retry keys.
+        continue;
+      }
+      const stored = storedUploadAttemptSchema.safeParse(value);
       // Legacy attempts lack a Video identity. Retire only this Material's unidentifiable keys.
       if (
         stored.success &&

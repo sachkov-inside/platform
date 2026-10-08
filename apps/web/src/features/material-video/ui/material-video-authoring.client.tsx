@@ -23,7 +23,7 @@ import {
 } from "../api/video-authoring.browser";
 import {
   clearBrowserVideoUploadAttempt,
-  clearRecoveredBrowserVideoUploadAttempt,
+  clearBrowserVideoUploadAttemptsForVideo,
   getOrCreateBrowserVideoUploadAttempt,
   recordBrowserVideoUploadAttempt,
   type BrowserVideoUploadAttempt,
@@ -358,8 +358,8 @@ export function MaterialVideoAuthoring({
           .catch(() => undefined);
         if (uploadAttempt.current)
           clearBrowserVideoUploadAttempt(uploadAttempt.current);
-        if (activeVideo !== null && activeVideo.videoId === recoveredVideoId)
-          clearRecoveredBrowserVideoUploadAttempt(
+        if (activeVideo !== null)
+          clearBrowserVideoUploadAttemptsForVideo(
             materialId,
             activeVideo.videoId,
           );
@@ -569,12 +569,7 @@ export function MaterialVideoAuthoringView({
           </label>
           <Button
             className="self-end"
-            disabled={
-              disabled ||
-              providerVideoId.trim().length === 0 ||
-              phase === "uploading" ||
-              phase === "processing"
-            }
+            disabled={busy || providerVideoId.trim().length === 0}
             onClick={onAttach}
             type="button"
             variant="secondary"

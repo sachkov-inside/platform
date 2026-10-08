@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 import {
   clearBrowserVideoUploadAttempt,
-  clearRecoveredBrowserVideoUploadAttempt,
+  clearBrowserVideoUploadAttemptsForVideo,
   getOrCreateBrowserVideoUploadAttempt,
   recordBrowserVideoUploadAttempt,
 } from "@/features/material-video/api/video-upload-attempt.browser";
@@ -46,7 +46,7 @@ describe("Browser Video upload attempts", () => {
       submissionId: first.submissionId,
     });
 
-    clearRecoveredBrowserVideoUploadAttempt(materialId, videoId);
+    clearBrowserVideoUploadAttemptsForVideo(materialId, videoId);
 
     const restarted = await getOrCreateBrowserVideoUploadAttempt(
       materialId,
@@ -67,7 +67,7 @@ describe("Browser Video upload attempts", () => {
       "other-material",
       file,
     );
-    clearRecoveredBrowserVideoUploadAttempt(materialId, videoId);
+    clearBrowserVideoUploadAttemptsForVideo(materialId, videoId);
     expect(
       (await getOrCreateBrowserVideoUploadAttempt(materialId, file))
         .submissionId,
@@ -90,11 +90,25 @@ describe("Browser Video upload attempts", () => {
       otherFile,
     );
     recordBrowserVideoUploadAttempt(other, otherVideoId);
-    clearRecoveredBrowserVideoUploadAttempt(materialId, videoId);
+    clearBrowserVideoUploadAttemptsForVideo(materialId, videoId);
     expect(
       (await getOrCreateBrowserVideoUploadAttempt(materialId, otherFile))
         .submissionId,
     ).toBe(other.submissionId);
+  });
+
+  it("does not let a malformed cache entry hide the removed Video's attempt", async () => {
+    const storage = installStorage();
+    const first = await getOrCreateBrowserVideoUploadAttempt(materialId, file);
+    recordBrowserVideoUploadAttempt(first, videoId);
+    if (first.storageKey === undefined)
+      throw new Error("Upload cache key missing");
+    storage.setItem(`${first.storageKey}:corrupt`, "{");
+    clearBrowserVideoUploadAttemptsForVideo(materialId, videoId);
+    expect(
+      (await getOrCreateBrowserVideoUploadAttempt(materialId, file))
+        .submissionId,
+    ).not.toBe(first.submissionId);
   });
 
   it("does not overwrite or clear a newer attempt when an older response arrives", async () => {
@@ -105,7 +119,7 @@ describe("Browser Video upload attempts", () => {
     recordBrowserVideoUploadAttempt(newer, otherVideoId);
     recordBrowserVideoUploadAttempt(first, videoId);
     clearBrowserVideoUploadAttempt(first);
-    clearRecoveredBrowserVideoUploadAttempt(materialId, videoId);
+    clearBrowserVideoUploadAttemptsForVideo(materialId, videoId);
     expect(
       (await getOrCreateBrowserVideoUploadAttempt(materialId, file))
         .submissionId,
@@ -140,7 +154,7 @@ describe("Browser Video upload attempts", () => {
       recordBrowserVideoUploadAttempt(attempt, videoId);
     }).not.toThrow();
     expect(() => {
-      clearRecoveredBrowserVideoUploadAttempt(materialId, videoId);
+      clearBrowserVideoUploadAttemptsForVideo(materialId, videoId);
     }).not.toThrow();
     expect(() => {
       clearBrowserVideoUploadAttempt(attempt);
