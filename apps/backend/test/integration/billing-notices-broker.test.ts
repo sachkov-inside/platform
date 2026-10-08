@@ -1,7 +1,6 @@
 import { prepareInvitedQuote } from "./setup/purchase-invitation.js";
 import { assembleTestBillingPricing } from "./setup/billing-pricing.js";
 import { randomUUID } from "node:crypto";
-import { GenericContainer, Wait } from "testcontainers";
 import { expect, onTestFinished, test } from "vitest";
 import {
   assembleAccounts,
@@ -12,21 +11,16 @@ import { billingContactProtection } from "../../src/modules/accounts/infrastruct
 import { assembleAccessGrants } from "../../src/modules/account-rights/index.js";
 import { TelegramAccountLinks } from "../../src/modules/telegram-membership/index.js";
 import {
-  assembleBillingNotificationOutbox,
   BillingNotices,
   BillingPayments,
 } from "../../src/modules/billing/index.js";
-import { assembleMaterialsNotificationOutbox } from "../../src/modules/materials/index.js";
 import { Notifications } from "../../src/modules/notifications/index.js";
-import { assembleNotificationWorker } from "../../src/infrastructure/notification-transport/worker.js";
-import {
-  localNotificationTopology,
-  NOTIFICATION_BROKER_IMAGE,
-} from "../../src/infrastructure/notification-transport/topology.js";
+import { assembleNotificationPipeline } from "../../src/entrypoints/notifications-worker/assemble-notification-pipeline.js";
+import { localNotificationTopology } from "../../src/infrastructure/notification-transport/topology.js";
 import { lanes } from "../../src/infrastructure/notification-transport/wire.js";
 import { syntheticTbankConfig } from "../support/bank-terminal.js";
 import { BankFixture } from "./setup/bank.js";
-import { brokerAdmin, queueDepth } from "./setup/broker.js";
+import { startNotificationBroker, queueDepth } from "./setup/broker.js";
 import { distinctClock } from "./setup/distinct-clock.js";
 import { eventually } from "./setup/eventually.js";
 import { createMigratedTestDatabase } from "./setup/test-database.js";
@@ -67,35 +61,14 @@ const documents = syntheticConsentDocuments;
  */
 test("подтверждённая оплата доходит до обоих каналов через реальные RabbitMQ и PostgreSQL", async () => {
   const topology = localNotificationTopology("inside-test", 100);
-  const broker = await new GenericContainer(NOTIFICATION_BROKER_IMAGE)
-    .withExposedPorts(5672)
-    .withCopyContentToContainer([
-      {
-        content: JSON.stringify(topology),
-        target: "/etc/rabbitmq/definitions.json",
-      },
-      {
-        content:
-          "definitions.import_backend = local_filesystem\ndefinitions.local.path = /etc/rabbitmq/definitions.json\n",
-        target: "/etc/rabbitmq/rabbitmq.conf",
-      },
-    ])
-    .withWaitStrategy(Wait.forLogMessage(/Server startup complete/))
-    .start();
+  const broker = await startNotificationBroker({ topology });
   onTestFinished(async () => {
     await broker.stop();
   });
-  const admin = brokerAdmin(broker);
+  const admin = broker.admin;
   const database = await createMigratedTestDatabase();
   onTestFinished(() => database.dispose());
-  const url = (principal: string) =>
-    `amqp://local-${principal}:inside-local-only@${broker.getHost()}:${broker.getMappedPort(5672)}/inside-test`;
-  const urls = {
-    billing: url("billing"),
-    materials: url("materials"),
-    notifications: url("notifications"),
-    email: url("email"),
-  };
+  const { urls } = broker;
 
   const protection = billingContactProtection(
     Buffer.alloc(32, 64).toString("base64"),
@@ -252,11 +225,10 @@ test("подтверждённая оплата доходит до обоих �
   );
 
   const sent: { subject: string; text: string; email: string }[] = [];
-  const worker = assembleNotificationWorker({
+  const worker = assembleNotificationPipeline({
     config: { urls, prefetch: 2, quarantineCapacity: 100 },
     transport: application.transport,
-    billing: assembleBillingNotificationOutbox(database.prisma),
-    materials: assembleMaterialsNotificationOutbox(database.prisma),
+    prisma: database.prisma,
     processInbox: () =>
       application.sweep((message) => {
         sent.push(message);
