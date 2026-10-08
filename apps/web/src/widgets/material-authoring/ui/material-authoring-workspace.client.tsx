@@ -118,14 +118,14 @@ function MaterialAuthoringWorkspaceView({
           );
         }}
       >
-        <MaterialMetadataPanel actions={actions} presentation={presentation} />
+        <MemoizedMetadataPanel actions={actions} presentation={presentation} />
         <section aria-labelledby="document-heading" className="min-w-0 py-8">
           <h2 className="text-sm font-semibold" id="document-heading">
             Содержимое материала
           </h2>
           {presentation.draft.materialId === null ? null : (
             <div className="mt-4">
-              <ContentCoverEditor
+              <MemoizedCoverEditor
                 disabled={
                   presentation.blocking.kind === "not_found" ||
                   presentation.draft.readOnly
@@ -137,7 +137,7 @@ function MaterialAuthoringWorkspaceView({
               />
             </div>
           )}
-          <MaterialVideoAuthoring
+          <MemoizedVideoAuthoring
             access={presentation.draft.access}
             disabled={
               presentation.blocking.kind === "not_found" ||
@@ -169,51 +169,72 @@ function MaterialAuthoringWorkspaceView({
   );
 }
 
-// The editor owns its mounted document (#602). A document edit only changes the surrounding
-// workspace when a displayed fact changes, such as the save label or publication validation.
+// The editor owns its mounted document (#602). Other draft fields still reach every consumer.
 function sameWorkspaceProps(
   previous: MaterialAuthoringWorkspaceProps,
   next: MaterialAuthoringWorkspaceProps,
 ): boolean {
-  if (previous.actions !== next.actions) return false;
-  const { document: _previousDocument, ...previousDraft } =
-    previous.presentation.draft;
-  const { document: _nextDocument, ...nextDraft } = next.presentation.draft;
-  if (!shallowEqual(previousDraft, nextDraft)) return false;
-  const { draft: _previousDraft, ...previousPresentation } =
-    previous.presentation;
-  const { draft: _nextDraft, ...nextPresentation } = next.presentation;
-  const nextValues = new Map<string, unknown>(Object.entries(nextPresentation));
-  const previousValues = Object.entries(previousPresentation);
   return (
-    previousValues.length === nextValues.size &&
-    previousValues.every(([key, value]) => {
-      const candidate = nextValues.get(key);
-      return (
-        nextValues.has(key) &&
-        (Object.is(value, candidate) ||
-          (typeof value === "object" &&
-            value !== null &&
-            typeof candidate === "object" &&
-            candidate !== null &&
-            shallowEqual(value, candidate)))
-      );
-    })
+    previous.actions === next.actions &&
+    samePresentation(previous.presentation, next.presentation)
   );
 }
 
-function shallowEqual(previous: object, next: object): boolean {
+function sameMetadataProps(
+  previous: MaterialAuthoringWorkspaceProps,
+  next: MaterialAuthoringWorkspaceProps,
+): boolean {
+  const { save: _previousSave, ...previousPresentation } =
+    previous.presentation;
+  const { save: _nextSave, ...nextPresentation } = next.presentation;
+  return (
+    previous.actions === next.actions &&
+    samePresentation(previousPresentation, nextPresentation)
+  );
+}
+
+function samePresentation(
+  previous: Omit<MaterialAuthoringPresentation, "save">,
+  next: Omit<MaterialAuthoringPresentation, "save">,
+): boolean {
+  const { document: _previousDocument, ...previousDraft } = previous.draft;
+  const { document: _nextDocument, ...nextDraft } = next.draft;
+  if (!equalFields(previousDraft, nextDraft)) return false;
+  const { draft: _previousDraft, ...previousRest } = previous;
+  const { draft: _nextDraft, ...nextRest } = next;
+  return equalFields(
+    previousRest,
+    nextRest,
+    (value, candidate) =>
+      Object.is(value, candidate) ||
+      (typeof value === "object" &&
+        value !== null &&
+        typeof candidate === "object" &&
+        candidate !== null &&
+        equalFields(value, candidate)),
+  );
+}
+
+function equalFields(
+  previous: object,
+  next: object,
+  equal: (value: unknown, candidate: unknown) => boolean = Object.is,
+): boolean {
   const nextValues = new Map<string, unknown>(Object.entries(next));
   const previousValues = Object.entries(previous);
   return (
     previousValues.length === nextValues.size &&
     previousValues.every(
       ([key, value]) =>
-        nextValues.has(key) && Object.is(value, nextValues.get(key)),
+        nextValues.has(key) && equal(value, nextValues.get(key)),
     )
   );
 }
 
+// These parts do not display the save label, including its first transition to "dirty".
+const MemoizedMetadataPanel = memo(MaterialMetadataPanel, sameMetadataProps);
+const MemoizedCoverEditor = memo(ContentCoverEditor);
+const MemoizedVideoAuthoring = memo(MaterialVideoAuthoring);
 export const MaterialAuthoringWorkspace = memo(
   MaterialAuthoringWorkspaceView,
   sameWorkspaceProps,

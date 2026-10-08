@@ -1062,7 +1062,7 @@ async function expectNoHorizontalOverflow(canvasElement: HTMLElement) {
 
 /** Real page and real children; spies count renders without replacing their implementations. */
 export const WorkspaceTyping: Story = {
-  name: "Редактор · страница не перерисовывается на знак",
+  name: "Редактор · набор документа не перерисовывает соседние панели",
   globals: { viewport: { isRotated: false, value: "desktop1440" } },
   decorators: [
     (Story) => (
@@ -1082,10 +1082,6 @@ export const WorkspaceTyping: Story = {
     if (!(paragraph instanceof HTMLElement))
       throw new Error("No editable paragraph");
     await userEvent.click(paragraph);
-    await userEvent.keyboard(" и");
-    await expect(
-      (await canvas.findAllByText("Не сохранено")).length,
-    ).toBeGreaterThan(0);
     const parts = [
       MaterialMetadataPanel,
       ContentCoverEditor,
@@ -1096,6 +1092,17 @@ export const WorkspaceTyping: Story = {
       await expect(mocked(part)).toHaveBeenCalled();
       mocked(part).mockClear();
     }
+    await userEvent.keyboard(" и");
+    await expect(
+      (await canvas.findAllByText("Не сохранено")).length,
+    ).toBeGreaterThan(0);
+    for (const part of parts.slice(0, 3))
+      await expect(
+        mocked(part),
+        "First document edit rerendered an unrelated panel",
+      ).not.toHaveBeenCalled();
+    await expect(mocked(MaterialAuthoringHeader)).toHaveBeenCalledTimes(1);
+    mocked(MaterialAuthoringHeader).mockClear();
     typingProfile.mockClear();
     const text = " текст документа без лишних рендеров";
     const start = performance.now();
@@ -1131,14 +1138,17 @@ export const WorkspaceTyping: Story = {
     await expect(
       canvas.getByRole("heading", { name: "Developer Pipeline без магии!" }),
     ).toBeVisible();
-    for (const part of parts) await expect(mocked(part)).toHaveBeenCalled();
+    for (const part of [
+      MaterialMetadataPanel,
+      ContentCoverEditor,
+      MaterialAuthoringHeader,
+    ])
+      await expect(mocked(part)).toHaveBeenCalled();
+    await expect(mocked(MaterialVideoAuthoring)).not.toHaveBeenCalled();
     await expect(
       (await canvas.findAllByText("Сохранено сейчас")).length,
     ).toBeGreaterThan(0);
     await expect(savedField("title")).toBe("Developer Pipeline без магии!");
     await expect(savedField("document")).toContain(text.trim());
-    throw new Error(
-      "Temporary #646 CI measurement: print passing-story profiler output before final verification",
-    );
   },
 };
