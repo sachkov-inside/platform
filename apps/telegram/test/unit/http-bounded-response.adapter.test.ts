@@ -118,12 +118,15 @@ for (const consumer of consumers) {
       const reading = new Promise<void>((resolve) => {
         started = resolve;
       });
-      const stream = new ReadableStream<Uint8Array>({
-        pull() {
-          started();
+      const stream = new ReadableStream<Uint8Array>(
+        {
+          pull() {
+            started();
+          },
+          cancel,
         },
-        cancel,
-      });
+        { highWaterMark: 0 },
+      );
       const fetcher = vi.fn<typeof fetch>((_url, init) => {
         expect(init?.signal).toBe(abort.signal);
         return Promise.resolve(
@@ -134,6 +137,7 @@ for (const consumer of consumers) {
       });
       const result = consumer.invoke(fetcher);
       await reading;
+      expect(stream.locked).toBe(true);
       abort.abort(new DOMException("synthetic deadline", "TimeoutError"));
       await expect(result).resolves.toBeUndefined();
       expect(timeout).toHaveBeenCalledWith(5000);
