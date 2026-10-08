@@ -1,6 +1,6 @@
 import {
   expect,
-  test,
+  test as baseTest,
   type Browser,
   type BrowserContext,
   type Page,
@@ -13,6 +13,9 @@ import {
   signInFullStack,
   type FullStackRole,
 } from "../support/full-stack-session";
+
+// The context fixture retains video for the helper's page, which closes before the test continues.
+const test = baseTest.extend({ video: "retain-on-failure" });
 
 /**
  * Права через настоящий Web/BFF отдельными identities (#904). У каждой identity одно основание,
@@ -285,59 +288,54 @@ test("Materials-only opens material tools and is denied a Billing mutation witho
   }
 });
 
-// The context fixture retains video for the helper's page, which closes before the test continues.
-test.describe(() => {
-  test.use({ video: "retain-on-failure" });
+test("Billing-only opens billing tools and is denied a Materials mutation without a durable effect", async ({
+  browser,
+  context,
+}) => {
+  const billingManager = await openAs(browser, "BILLING_ONLY", context);
+  const observer = await openAs(browser, "MATERIALS_ONLY");
+  try {
+    await billingManager.page.goto("/authoring/billing");
+    await expect(
+      billingManager.page.getByRole("heading", {
+        name: "Тарифы и назначения",
+        exact: true,
+      }),
+    ).toBeVisible();
+    await expect(
+      billingManager.page.getByRole("heading", {
+        name: "Назначить тариф",
+        exact: true,
+      }),
+    ).toBeVisible();
+    expect((await seededOffer(billingManager.page)).name).toBe("Материалы");
 
-  test("Billing-only opens billing tools and is denied a Materials mutation without a durable effect", async ({
-    browser,
-    context,
-  }) => {
-    const billingManager = await openAs(browser, "BILLING_ONLY", context);
-    const observer = await openAs(browser, "MATERIALS_ONLY");
-    try {
-      await billingManager.page.goto("/authoring/billing");
-      await expect(
-        billingManager.page.getByRole("heading", {
-          name: "Тарифы и назначения",
-          exact: true,
-        }),
-      ).toBeVisible();
-      await expect(
-        billingManager.page.getByRole("heading", {
-          name: "Назначить тариф",
-          exact: true,
-        }),
-      ).toBeVisible();
-      expect((await seededOffer(billingManager.page)).name).toBe("Материалы");
-
-      const before = await authoringMaterial(observer.page);
-      expect(await unpublishMaterial(billingManager.page, before)).toEqual(
-        materialsDenial,
-      );
-      // Кроме mutation закрыто и чтение списка инструментов материалов.
-      const listed = await fullStackBrowserRequest(
-        billingManager.page,
-        "/api/authoring/materials",
-      );
-      expect(listed.status()).toBe(403);
-      expect(await listed.json()).toEqual(materialsDenial);
-      await billingManager.page.goto("/authoring/materials");
-      await expect(
-        billingManager.page.getByRole("heading", {
-          name: "Нет доступа к материалам",
-          exact: true,
-        }),
-      ).toBeVisible();
-      expect(await authoringMaterial(observer.page)).toMatchObject({
-        contentVersion: before.contentVersion,
-        publicationState: "published",
-      });
-    } finally {
-      await billingManager.context.close();
-      await observer.context.close();
-    }
-  });
+    const before = await authoringMaterial(observer.page);
+    expect(await unpublishMaterial(billingManager.page, before)).toEqual(
+      materialsDenial,
+    );
+    // Кроме mutation закрыто и чтение списка инструментов материалов.
+    const listed = await fullStackBrowserRequest(
+      billingManager.page,
+      "/api/authoring/materials",
+    );
+    expect(listed.status()).toBe(403);
+    expect(await listed.json()).toEqual(materialsDenial);
+    await billingManager.page.goto("/authoring/materials");
+    await expect(
+      billingManager.page.getByRole("heading", {
+        name: "Нет доступа к материалам",
+        exact: true,
+      }),
+    ).toBeVisible();
+    expect(await authoringMaterial(observer.page)).toMatchObject({
+      contentVersion: before.contentVersion,
+      publicationState: "published",
+    });
+  } finally {
+    await billingManager.context.close();
+    await observer.context.close();
+  }
 });
 
 test("an ordinary Account is denied Materials and Billing mutations on existing resources without a durable effect", async ({
