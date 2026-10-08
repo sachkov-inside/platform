@@ -1,6 +1,14 @@
-import { act } from "react";
+import { act, Profiler } from "react";
 import type { Meta, StoryObj } from "@storybook/react-vite";
-import { expect, spyOn, userEvent, waitFor, within } from "storybook/test";
+import {
+  expect,
+  fn,
+  mocked,
+  spyOn,
+  userEvent,
+  waitFor,
+  within,
+} from "storybook/test";
 
 import {
   authoringMaterialsRootHref,
@@ -29,6 +37,12 @@ import {
 } from "./material-authoring.fixtures";
 import { MaterialAuthoringPageClient } from "./material-authoring-page.client";
 
+import { MaterialMetadataPanel } from "@/widgets/material-authoring/ui/material-metadata-panel.client";
+import { MaterialAuthoringHeader } from "@/widgets/material-authoring/ui/material-authoring-chrome.client";
+import { ContentCoverEditor } from "@/features/content-covers";
+import { MaterialVideoAuthoring } from "@/features/material-video";
+
+const typingProfile = fn<(duration: number) => void>();
 const editorPath = `/authoring/materials/${materialId}`;
 const environment = authoringPageEnvironment(editorPath);
 
@@ -1045,3 +1059,83 @@ async function expectNoHorizontalOverflow(canvasElement: HTMLElement) {
     canvasElement.ownerDocument.documentElement.scrollWidth,
   ).toBeLessThanOrEqual(storyWindow.innerWidth + 1);
 }
+
+/** Real page and real children; spies count renders without replacing their implementations. */
+export const WorkspaceTyping: Story = {
+  name: "Редактор · страница не перерисовывается на знак",
+  globals: { viewport: { isRotated: false, value: "desktop1440" } },
+  decorators: [
+    (Story) => (
+      <Profiler
+        id="material-page"
+        onRender={(_id, _phase, duration) => {
+          typingProfile(duration);
+        }}
+      >
+        <Story />
+      </Profiler>
+    ),
+  ],
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    const paragraph = canvasElement.querySelector(".ProseMirror > p");
+    if (!(paragraph instanceof HTMLElement))
+      throw new Error("No editable paragraph");
+    await userEvent.click(paragraph);
+    await userEvent.keyboard(" и");
+    await expect(
+      (await canvas.findAllByText("Не сохранено")).length,
+    ).toBeGreaterThan(0);
+    const parts = [
+      MaterialMetadataPanel,
+      ContentCoverEditor,
+      MaterialVideoAuthoring,
+      MaterialAuthoringHeader,
+    ];
+    for (const part of parts) {
+      await expect(mocked(part)).toHaveBeenCalled();
+      mocked(part).mockClear();
+    }
+    typingProfile.mockClear();
+    const text = " текст документа без лишних рендеров";
+    const start = performance.now();
+    await userEvent.keyboard(text);
+    const elapsed = performance.now() - start;
+    const react = typingProfile.mock.calls.reduce(
+      (sum, [duration]) => sum + duration,
+      0,
+    );
+    console.info(
+      "[646-typing]",
+      JSON.stringify({
+        characters: text.length,
+        millisecondsPerCharacter: elapsed / text.length,
+        reactMilliseconds: react,
+        commits: typingProfile.mock.calls.length,
+        renders: parts.map((part) => mocked(part).mock.calls.length),
+      }),
+    );
+    await expect(paragraph).toHaveTextContent(text.trim());
+    for (const part of parts)
+      await expect(
+        mocked(part),
+        "Typing rerendered a part unrelated to the document",
+      ).not.toHaveBeenCalled();
+    await expect(
+      (await canvas.findAllByText("Сохранено сейчас")).length,
+    ).toBeGreaterThan(0);
+    await expect(savedField("document")).toContain(text.trim());
+    // Positive control: metadata changes still reach every dependent part and the next save.
+    const title = canvas.getByLabelText("Название");
+    await userEvent.type(title, "!", { delay: null });
+    await expect(
+      canvas.getByRole("heading", { name: "Developer Pipeline без магии!" }),
+    ).toBeVisible();
+    for (const part of parts) await expect(mocked(part)).toHaveBeenCalled();
+    await expect(
+      (await canvas.findAllByText("Сохранено сейчас")).length,
+    ).toBeGreaterThan(0);
+    await expect(savedField("title")).toBe("Developer Pipeline без магии!");
+    await expect(savedField("document")).toContain(text.trim());
+  },
+};
