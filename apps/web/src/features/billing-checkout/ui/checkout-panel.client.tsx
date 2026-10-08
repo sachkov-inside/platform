@@ -41,6 +41,7 @@ export interface CheckoutPanelProps {
   readonly existingAccess?: boolean;
   readonly legacyBlocked?: boolean;
   readonly pending?: boolean;
+  readonly paymentBlocked?: boolean;
   readonly error?: string | undefined;
   readonly purchase: PurchaseStatus | null;
   readonly onQuote: () => void;
@@ -74,6 +75,7 @@ export function CheckoutPanel({
   existingAccess = false,
   legacyBlocked = false,
   pending = false,
+  paymentBlocked = false,
   error,
   purchase,
   onQuote,
@@ -257,7 +259,7 @@ export function CheckoutPanel({
             <>
               <Button
                 className={`mt-6 w-full sm:w-auto ${billingActionClass}`}
-                disabled={!payable || pending}
+                disabled={!payable || pending || paymentBlocked}
                 onClick={onPay}
                 type="button"
               >
