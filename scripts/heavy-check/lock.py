@@ -142,6 +142,15 @@ def signal_groups(groups, signum):
             os.killpg(group, signum)
         except ProcessLookupError:
             pass
+        except PermissionError:
+            # Darwin returns EPERM for an extant group with only unreaped zombies.
+            # Exit can race the caller's census. Suppress only a now-empty live group;
+            # permission failures with any surviving member must still fail cleanup.
+            if sys.platform != 'darwin' or any(
+                row[1] == group and 'Z' not in row[2]
+                for row in process_snapshot().values()
+            ):
+                raise
 
 
 def stop_groups(process, tracked, known_groups):
