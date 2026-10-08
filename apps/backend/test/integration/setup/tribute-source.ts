@@ -54,8 +54,7 @@ export async function bindConfirmedTributeSource(
     revoke: async () => {
       await prisma.sourceEntitlement.update({
         where: { id },
-        // deterministic-test-allow wall-clock: Legacy clock read; fixed domain or monotonic clock migration is tracked in #1177.
-        data: { revokedAt: new Date() },
+        data: { revokedAt: new Date("2026-10-07T09:00:00Z") },
       });
     },
   };

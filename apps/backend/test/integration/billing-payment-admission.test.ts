@@ -1,3 +1,5 @@
+import { registerFixedClock } from "../support/fixed-clock.js";
+
 import { randomUUID } from "node:crypto";
 import { afterAll, beforeAll, expect, test } from "vitest";
 import {
@@ -18,6 +20,8 @@ import {
   createMigratedTestDatabase,
   type TestDatabase,
 } from "./setup/test-database.js";
+
+registerFixedClock();
 
 let db: TestDatabase;
 const owner = randomUUID();
@@ -276,7 +280,7 @@ test.each([
         Buffer.alloc(32, 42).toString("base64"),
       ),
       documents: [],
-      // deterministic-test-allow wall-clock: Legacy clock read; fixed domain or monotonic clock migration is tracked in #1177.
+      // deterministic-test-allow wall-clock: Date is fixed per case by registerFixedClock; production consumers share this virtual Date.
       now: () => new Date(),
       sendCode: () => Promise.resolve(),
     });

@@ -1,3 +1,5 @@
+import { registerFixedClock } from "../support/fixed-clock.js";
+
 import { randomUUID } from "node:crypto";
 import { afterAll, beforeAll, describe, expect, test } from "vitest";
 import {
@@ -18,6 +20,8 @@ import {
   createMigratedTestDatabase,
   type TestDatabase,
 } from "./setup/test-database.js";
+
+registerFixedClock();
 
 const actor = randomUUID();
 const accountId = randomUUID();
@@ -52,7 +56,7 @@ describe("Bookmarks on PostgreSQL", () => {
     });
     membership = assemblePriorParticipantsFixture({
       prisma: database.prisma,
-      // deterministic-test-allow wall-clock: Legacy clock read; fixed domain or monotonic clock migration is tracked in #1177.
+      // deterministic-test-allow wall-clock: Date is fixed per case by registerFixedClock; production consumers share this virtual Date.
       clock: () => new Date(),
     });
     bookmarks = assembleBookmarks(database.prisma);
@@ -138,9 +142,9 @@ describe("Bookmarks on PostgreSQL", () => {
         principalRef: `principal-${memberId}`,
         decision: "member",
         reasonCode: "chat_member",
-        // deterministic-test-allow wall-clock: Legacy clock read; fixed domain or monotonic clock migration is tracked in #1177.
+        // deterministic-test-allow wall-clock: Date is fixed per case by registerFixedClock; production consumers share this virtual Date.
         checkedAt: new Date().toISOString(),
-        // deterministic-test-allow wall-clock: Legacy clock read; fixed domain or monotonic clock migration is tracked in #1177.
+        // deterministic-test-allow wall-clock: Date is fixed per case by registerFixedClock; production consumers share this virtual Date.
         validUntil: new Date(Date.now() + 240_000).toISOString(),
         telegramIdentityRef: `telegram-${memberId}`,
         evidenceRef: randomUUID(),
@@ -159,9 +163,9 @@ describe("Bookmarks on PostgreSQL", () => {
         principalRef: `principal-${memberId}`,
         decision: "not_member",
         reasonCode: "chat_not_member",
-        // deterministic-test-allow wall-clock: Legacy clock read; fixed domain or monotonic clock migration is tracked in #1177.
+        // deterministic-test-allow wall-clock: Date is fixed per case by registerFixedClock; production consumers share this virtual Date.
         checkedAt: new Date().toISOString(),
-        // deterministic-test-allow wall-clock: Legacy clock read; fixed domain or monotonic clock migration is tracked in #1177.
+        // deterministic-test-allow wall-clock: Date is fixed per case by registerFixedClock; production consumers share this virtual Date.
         validUntil: new Date(Date.now() + 240_000).toISOString(),
         telegramIdentityRef: `telegram-${memberId}`,
         evidenceRef: randomUUID(),

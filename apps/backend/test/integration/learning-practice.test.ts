@@ -1,3 +1,5 @@
+import { registerFixedClock } from "../support/fixed-clock.js";
+
 import { randomUUID } from "node:crypto";
 import { afterAll, beforeAll, describe, expect, test } from "vitest";
 import { assembleMaterials } from "../../src/modules/materials/index.js";
@@ -9,6 +11,8 @@ import {
   type TestDatabase,
 } from "./setup/test-database.js";
 import { withExhaustedPool } from "./setup/exhausted-pool.js";
+
+registerFixedClock();
 
 const owner = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
 const learner = {
@@ -229,7 +233,7 @@ describe("published learning practice", () => {
             reason: "membership_expired",
             decisionId: "test",
             policyVersion: "content-access-v1",
-            // deterministic-test-allow wall-clock: Legacy clock read; fixed domain or monotonic clock migration is tracked in #1177.
+            // deterministic-test-allow wall-clock: Date is fixed per case by registerFixedClock; production consumers share this virtual Date.
             decidedAt: new Date().toISOString(),
           }),
       },

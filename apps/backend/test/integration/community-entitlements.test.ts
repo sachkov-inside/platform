@@ -116,7 +116,11 @@ class ProviderDouble implements CommunityEntitlementProvider {
       status: "accepted" as CommunityDeliveryStatus,
     };
     const result = {
-      ...(this.groupUrl === undefined ? {} : { groupUrl: this.groupUrl }),
+      ...(this.groupUrl !== undefined &&
+      command.access.kind !== "denied" &&
+      observation.observed === "member"
+        ? { groupUrl: this.groupUrl }
+        : {}),
       admissionRestriction: "none" as const,
       access: command.access,
       binding: command.binding,

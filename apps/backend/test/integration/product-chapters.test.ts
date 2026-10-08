@@ -1,3 +1,5 @@
+import { registerFixedClock } from "../support/fixed-clock.js";
+
 import { randomUUID } from "node:crypto";
 
 import { afterAll, beforeAll, describe, expect, test } from "vitest";
@@ -14,6 +16,8 @@ import {
   createMigratedTestDatabase,
   type TestDatabase,
 } from "./setup/test-database.js";
+
+registerFixedClock();
 
 const actor = "89000000-0000-4000-8000-000000000101";
 const topicId = "89000000-0000-4000-8000-000000000102";
@@ -580,7 +584,7 @@ describe("Product chapters", () => {
     if (!saved.ok) throw new Error(saved.error.code);
     await testDatabase.prisma.product.update({
       where: { id: productId },
-      // deterministic-test-allow wall-clock: Legacy clock read; fixed domain or monotonic clock migration is tracked in #1177.
+      // deterministic-test-allow wall-clock: Date is fixed per case by registerFixedClock; production consumers share this virtual Date.
       data: { archivedAt: new Date() },
     });
 

@@ -1,3 +1,5 @@
+import { registerFixedClock } from "../support/fixed-clock.js";
+
 import { createHash, randomUUID } from "node:crypto";
 
 import {
@@ -39,6 +41,8 @@ import {
   createMigratedTestDatabase,
   type TestDatabase,
 } from "./setup/test-database.js";
+
+registerFixedClock();
 
 const owner = randomUUID();
 const member = randomUUID();
@@ -843,7 +847,7 @@ describe("Product Artifacts", () => {
           terms: {
             capabilities,
             reason: "Controlled #466 fixture",
-            // deterministic-test-allow wall-clock: Legacy clock read; fixed domain or monotonic clock migration is tracked in #1177.
+            // deterministic-test-allow wall-clock: Date is fixed per case by registerFixedClock; production consumers share this virtual Date.
             startsAt: new Date().toISOString(),
             validUntil: null,
           },

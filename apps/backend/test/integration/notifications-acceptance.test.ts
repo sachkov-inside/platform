@@ -1,3 +1,5 @@
+import { registerFixedClock } from "../support/fixed-clock.js";
+
 import {
   prepareInvitedQuote,
   seedOptionPurchaseInvitation,
@@ -70,6 +72,8 @@ import {
   syntheticConsentDocuments,
 } from "./setup/consent-documents.js";
 import { hasText } from "../../src/infrastructure/contracts/text.js";
+
+registerFixedClock();
 
 // Каждое ожидание заканчивается на зафиксированном факте; бюджет только ограничивает зависший прогон.
 const barrierBudgetMs = 45_000;
@@ -198,7 +202,7 @@ describe("приёмка обоих источников Notifications (реал
       prisma: platform.prisma,
       protection,
       documents,
-      // deterministic-test-allow wall-clock: Legacy clock read; fixed domain or monotonic clock migration is tracked in #1177.
+      // deterministic-test-allow wall-clock: Date is fixed per case by registerFixedClock; production consumers share this virtual Date.
       now: () => new Date(),
       sendCode: (message) => {
         codes.set(message.challengeRef, message.code);
@@ -813,7 +817,7 @@ describe("приёмка обоих источников Notifications (реал
             sourceRef: randomUUID(),
             terms: {
               capabilities: ["support"],
-              // deterministic-test-allow wall-clock: Legacy clock read; fixed domain or monotonic clock migration is tracked in #1177.
+              // deterministic-test-allow wall-clock: Date is fixed per case by registerFixedClock; production consumers share this virtual Date.
               startsAt: new Date().toISOString(),
               validUntil: null,
               reason: "Синтетическая выдача приёмки",
@@ -1094,7 +1098,7 @@ describe("приёмка обоих источников Notifications (реал
     // Объём чужой ленты, а не её содержимое. Это независимость лент, а не честность раскрытия
     // аудитории одного события: разбиение большой аудитории на партии проверяет notifications.test.
     const backlog = 30;
-    // deterministic-test-allow wall-clock: Legacy clock read; fixed domain or monotonic clock migration is tracked in #1177.
+    // deterministic-test-allow wall-clock: Date is fixed per case by registerFixedClock; production consumers share this virtual Date.
     const instant = new Date();
     for (let index = 0; index < backlog; index += 1) {
       await platform.prisma.$transaction((transaction) =>

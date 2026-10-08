@@ -1,4 +1,9 @@
-import { afterAll, beforeAll, describe, expect, test } from "vitest";
+import {
+  fixedTestInstant,
+  registerFixedClock,
+} from "../support/fixed-clock.js";
+
+import { afterAll, beforeAll, describe, expect, test, vi } from "vitest";
 
 import { seedLocalDevelopment } from "../../src/development/seed-local-development.js";
 import {
@@ -13,12 +18,32 @@ import {
   type TestDatabase,
 } from "./setup/test-database.js";
 
+registerFixedClock();
+
 describe("Content Library discovery", () => {
   let testDatabase: TestDatabase;
 
   beforeAll(async () => {
     testDatabase = await createMigratedTestDatabase();
-    await seedLocalDevelopment(testDatabase.prisma);
+    const instant = fixedTestInstant();
+    // Background projections precede the representative pair in this paginated fixture.
+    vi.setSystemTime(instant - 1);
+    try {
+      await seedLocalDevelopment(testDatabase.prisma);
+    } finally {
+      vi.setSystemTime(instant);
+    }
+    await testDatabase.prisma.publishedMaterial.updateMany({
+      where: {
+        slug: {
+          in: [
+            "kak-ustroen-inside-platform",
+            "developer-pipeline-bez-poteri-konteksta",
+          ],
+        },
+      },
+      data: { publishedAt: new Date(instant) },
+    });
     await testDatabase.prisma.topic.update({
       where: { slug: "platform" },
       data: { summary: "Platform boundaries, delivery and operations." },
@@ -358,12 +383,12 @@ describe("Content Library discovery", () => {
     await Promise.all([
       testDatabase.prisma.topic.update({
         where: { slug: "platform" },
-        // deterministic-test-allow wall-clock: Legacy clock read; fixed domain or monotonic clock migration is tracked in #1177.
+        // deterministic-test-allow wall-clock: Date is fixed per case by registerFixedClock; production consumers share this virtual Date.
         data: { archivedAt: new Date() },
       }),
       testDatabase.prisma.product.update({
         where: { slug: "platform-inside" },
-        // deterministic-test-allow wall-clock: Legacy clock read; fixed domain or monotonic clock migration is tracked in #1177.
+        // deterministic-test-allow wall-clock: Date is fixed per case by registerFixedClock; production consumers share this virtual Date.
         data: { archivedAt: new Date() },
       }),
     ]);

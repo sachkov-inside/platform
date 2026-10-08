@@ -1,3 +1,5 @@
+import { registerFixedClock } from "../support/fixed-clock.js";
+
 import { assemblePriorParticipantsFixture } from "./setup/prior-participants.js";
 import { randomUUID } from "node:crypto";
 import { Pool } from "pg";
@@ -29,6 +31,8 @@ import {
   type TestDatabase,
 } from "./setup/test-database.js";
 
+registerFixedClock();
+
 const actor = randomUUID();
 const accountId = randomUUID();
 const topicId = randomUUID();
@@ -56,7 +60,7 @@ describe("ReadingActivity on PostgreSQL", () => {
     });
     membership = assemblePriorParticipantsFixture({
       prisma: database.prisma,
-      // deterministic-test-allow wall-clock: Legacy clock read; fixed domain or monotonic clock migration is tracked in #1177.
+      // deterministic-test-allow wall-clock: Date is fixed per case by registerFixedClock; production consumers share this virtual Date.
       clock: () => membershipNow ?? new Date(),
     });
     composition = new PublishedSeriesComposition(database.prisma);
@@ -79,7 +83,7 @@ describe("ReadingActivity on PostgreSQL", () => {
           hasMaterialsManage: () => Promise.resolve(false),
         },
         accountRights: membership,
-        // deterministic-test-allow wall-clock: Legacy clock read; fixed domain or monotonic clock migration is tracked in #1177.
+        // deterministic-test-allow wall-clock: Date is fixed per case by registerFixedClock; production consumers share this virtual Date.
         clock: () => membershipNow ?? new Date(),
       }),
       composition,
@@ -305,9 +309,9 @@ describe("ReadingActivity on PostgreSQL", () => {
           principalRef: `principal-${memberId}`,
           decision,
           reasonCode: decision === "member" ? "chat_member" : "chat_not_member",
-          // deterministic-test-allow wall-clock: Legacy clock read; fixed domain or monotonic clock migration is tracked in #1177.
+          // deterministic-test-allow wall-clock: Date is fixed per case by registerFixedClock; production consumers share this virtual Date.
           checkedAt: new Date().toISOString(),
-          // deterministic-test-allow wall-clock: Legacy clock read; fixed domain or monotonic clock migration is tracked in #1177.
+          // deterministic-test-allow wall-clock: Date is fixed per case by registerFixedClock; production consumers share this virtual Date.
           validUntil: new Date(Date.now() + 240_000).toISOString(),
           telegramIdentityRef: `telegram-${memberId}`,
           evidenceRef: randomUUID(),
@@ -356,7 +360,7 @@ describe("ReadingActivity on PostgreSQL", () => {
   test("positive Membership evidence expires by time without deleting previous marks", async () => {
     const memberId = checkedAccountId(randomUUID());
     const id = await material([await series()], "closed");
-    // deterministic-test-allow wall-clock: Legacy clock read; fixed domain or monotonic clock migration is tracked in #1177.
+    // deterministic-test-allow wall-clock: Date is fixed per case by registerFixedClock; production consumers share this virtual Date.
     const checkedAt = new Date();
     const validUntil = new Date(checkedAt.getTime() + 240_000);
     const accepted = await membership.acceptEvidence({
@@ -476,11 +480,11 @@ describe("ReadingActivity on PostgreSQL", () => {
               reason: "active_membership",
               policyVersion: "content-access-v1",
               decisionId: randomUUID(),
-              // deterministic-test-allow wall-clock: Legacy clock read; fixed domain or monotonic clock migration is tracked in #1177.
+              // deterministic-test-allow wall-clock: Date is fixed per case by registerFixedClock; production consumers share this virtual Date.
               decidedAt: new Date().toISOString(),
               checkedContentVersion: mode === "version" ? 1 : 4,
               validUntil: new Date(
-                // deterministic-test-allow wall-clock: Legacy clock read; fixed domain or monotonic clock migration is tracked in #1177.
+                // deterministic-test-allow wall-clock: Date is fixed per case by registerFixedClock; production consumers share this virtual Date.
                 Date.now() + (mode === "expiry" ? -1_000 : 240_000),
               ).toISOString(),
             }),
@@ -612,7 +616,7 @@ describe("ReadingActivity on PostgreSQL", () => {
     ).toMatchObject({ ok: true, value: { read: 1, total: 1 } });
     await database.prisma.product.update({
       where: { id: b },
-      // deterministic-test-allow wall-clock: Legacy clock read; fixed domain or monotonic clock migration is tracked in #1177.
+      // deterministic-test-allow wall-clock: Date is fixed per case by registerFixedClock; production consumers share this virtual Date.
       data: { archivedAt: new Date() },
     });
     expect(await reading.getSeriesProgress({ accountId, seriesId: b })).toEqual(

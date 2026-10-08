@@ -1,3 +1,5 @@
+import { registerFixedClock } from "../support/fixed-clock.js";
+
 import { seedPurchaseInvitation } from "./setup/purchase-invitation.js";
 import { randomUUID } from "node:crypto";
 import { acceptCurrentTerms } from "../support/accept-terms.js";
@@ -15,6 +17,8 @@ import {
 } from "./setup/test-database.js";
 import { declaredServer } from "../support/declared-api.js";
 import { bindConfirmedTributeSource } from "./setup/tribute-source.js";
+
+registerFixedClock();
 
 const issuer = "https://identity.example.test/oidc";
 const audience = "https://api.example.test";
@@ -837,7 +841,7 @@ describe("Billing pricing HTTP", () => {
       readonly email?: string;
     } = {},
   ): Promise<string> {
-    // deterministic-test-allow wall-clock: Legacy clock read; fixed domain or monotonic clock migration is tracked in #1177.
+    // deterministic-test-allow wall-clock: Date is fixed per case by registerFixedClock; production consumers share this virtual Date.
     const now = Math.floor(Date.now() / 1_000);
     return new SignJWT({
       inside_verified_email: overrides.email ?? "member@example.test",

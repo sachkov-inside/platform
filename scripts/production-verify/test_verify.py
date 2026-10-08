@@ -199,7 +199,9 @@ class DeployedTelegramProbeTests(unittest.TestCase):
             with self.subTest(date=date):
                 result = self.probe({'PLATFORM_COHORTS_URL': 'https://example.invalid/cohorts',
                                      'PLATFORM_COHORT_PRODUCT_ID': product_id},
-                                    cohort_body={'items': [{'productId': product_id, 'startsOn': date}]})
+                                    cohort_body={'items': [{'productId': product_id, 'startsOn': date,
+                                                           'name': 'Synthetic cohort', 'stage': 'between',
+                                                           'nextEvent': 'Synthetic event', 'revision': 1}]})
                 self.assertEqual(result.returncode, 0, result.stderr)
                 self.assertEqual(verify_cohort_config(json.loads(result.stdout)['cohorts'])['status'], expected)
 

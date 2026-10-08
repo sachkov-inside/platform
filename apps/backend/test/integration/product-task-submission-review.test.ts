@@ -1,3 +1,5 @@
+import { registerFixedClock } from "../support/fixed-clock.js";
+
 import { randomUUID } from "node:crypto";
 import { afterAll, beforeAll, describe, expect, test } from "vitest";
 
@@ -25,6 +27,8 @@ import {
   createMigratedTestDatabase,
   type TestDatabase,
 } from "./setup/test-database.js";
+
+registerFixedClock();
 
 // An asymmetric matcher is `any`; held as `unknown` it stays out of the typed fixtures.
 const anyTimestamp: unknown = expect.any(String);
@@ -257,7 +261,7 @@ describe("Author submissions: list, filters and Author Feedback (#948)", () => {
         principalRef: randomUUID(),
         linkRef: randomUUID(),
         revision: 1,
-        // deterministic-test-allow wall-clock: Legacy clock read; fixed domain or monotonic clock migration is tracked in #1177.
+        // deterministic-test-allow wall-clock: Date is fixed per case by registerFixedClock; production consumers share this virtual Date.
         updatedAt: new Date(),
       },
     });

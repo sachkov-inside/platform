@@ -1,3 +1,5 @@
+import { registerFixedClock } from "../support/fixed-clock.js";
+
 import {
   LEARNING_TASKS,
   type LearningTasks,
@@ -47,6 +49,8 @@ import {
   createMigratedTestDatabase,
   type TestDatabase,
 } from "./setup/test-database.js";
+
+registerFixedClock();
 
 const issuer = "https://identity.mcp.test/oidc";
 const audience = "https://api.mcp.test";
@@ -764,7 +768,7 @@ describe("delegated Material authoring over MCP", () => {
 
   /** Учебный MCP принимает только токен своего ресурса со scope `learning:read` (#938). */
   function signLearnerToken(subject: string): Promise<string> {
-    // deterministic-test-allow wall-clock: Legacy clock read; fixed domain or monotonic clock migration is tracked in #1177.
+    // deterministic-test-allow wall-clock: Date is fixed per case by registerFixedClock; production consumers share this virtual Date.
     const now = Math.floor(Date.now() / 1_000);
     return new SignJWT({ scope: "openid offline_access learning:read" })
       .setProtectedHeader({ alg: "ES384", kid: "mcp-integration-key" })
@@ -777,7 +781,7 @@ describe("delegated Material authoring over MCP", () => {
   }
 
   function signOwnerToken(subject: string = ownerSubject): Promise<string> {
-    // deterministic-test-allow wall-clock: Legacy clock read; fixed domain or monotonic clock migration is tracked in #1177.
+    // deterministic-test-allow wall-clock: Date is fixed per case by registerFixedClock; production consumers share this virtual Date.
     const now = Math.floor(Date.now() / 1_000);
     return new SignJWT({ roles: ["owner"], scope: "materials:manage" })
       .setProtectedHeader({ alg: "ES384", kid: "mcp-integration-key" })
