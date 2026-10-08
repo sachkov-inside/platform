@@ -4,7 +4,7 @@ import type { JSONContent } from "@tiptap/core";
 import type { Route } from "next";
 import { useRouter } from "next/navigation";
 import { useMutation } from "@tanstack/react-query";
-import { useCallback, useLayoutEffect, useRef, useState } from "react";
+import { useCallback, useLayoutEffect, useMemo, useRef, useState } from "react";
 
 import {
   MaterialAuthoringWorkspace,
@@ -272,155 +272,177 @@ export function MaterialAuthoringPageClient({
           : { kind: "idle" },
   };
 
-  const actions = {
-    onBack: () => {
-      void flushPendingEdits().then((ok) => {
-        if (ok) router.push(returnHref);
-      });
-    },
-    onConflictAction: (action) => {
-      const materialId = effectiveDraft.materialId;
-      if (materialId === null) return;
-      if (action === "open_current") {
-        window.open(
-          withAuthoringReturnHref(
-            `/authoring/materials/${materialId}`,
-            returnHref,
-          ),
-          "_blank",
-          "noopener,noreferrer",
-        );
-        return;
-      }
-      if (action === "compare") {
-        window.open(
-          authoringMaterialPreviewHref(materialId, returnHref),
-          "_blank",
-          "noopener,noreferrer",
-        );
-        return;
-      }
-      void navigator.clipboard.writeText(
-        JSON.stringify(effectiveDraft, null, 2),
-      );
-    },
-    onDocumentChange,
-    onFieldChange: (field: MaterialDraftField, value: string) => {
-      if (field === "access") {
-        markDirty({
-          ...effectiveDraft,
-          access: value === "closed" ? "closed" : "free",
-          deleteVideoId: null,
-          primaryVideo:
-            value === effectiveDraft.access
-              ? effectiveDraft.primaryVideo
-              : null,
-          primaryVideoId:
-            value === effectiveDraft.access
-              ? effectiveDraft.primaryVideoId
-              : null,
-        });
-        return;
-      }
-      markDirty({ ...effectiveDraft, [field]: value });
-    },
-    onDelete: (input) => {
-      deletionMutation.mutate(input);
-    },
-    onOutcomesChange: (outcomes) => {
-      markDirty({ ...effectiveDraft, outcomes });
-    },
-    onOpenPreview: () => {
-      void flushPendingEdits().then((ok) => {
-        const id = draftRef.current.materialId;
-        if (ok && id !== null)
-          router.push(authoringMaterialPreviewHref(id, returnHref));
-      });
-    },
-    onPrimaryVideoChange: (primaryVideo, deleteVideoId, detachedVideoId) => {
-      const deletionCandidate =
-        deleteVideoId !== null &&
-        draftRef.current.primaryVideo?.videoId === deleteVideoId
-          ? draftRef.current.primaryVideo
-          : draftRef.current.latestVideoDeletion;
-      const primaryVideoId = primaryVideo?.videoId ?? null;
-      const detachVideoIds = nextDetachVideoIds({
-        detachedVideoId,
-        detachVideoIds: draftRef.current.detachVideoIds,
-        primaryVideoId,
-      });
-      markDirty({
-        ...draftRef.current,
-        deleteVideoId,
-        detachVideoIds,
-        latestVideoDeletion: deletionCandidate,
-        primaryVideo,
-        primaryVideoId,
-        unselectedVideoUpload: retainUnselectedUpload({
+  const { flush: flushAutosave } = autosave;
+  const { mutate: deleteDraft } = deletionMutation;
+  const actions = useMemo(
+    () =>
+      ({
+        onBack: () => {
+          void flushPendingEdits().then((ok) => {
+            if (ok) router.push(returnHref);
+          });
+        },
+        onConflictAction: (action) => {
+          const materialId = draftRef.current.materialId;
+          if (materialId === null) return;
+          if (action === "open_current") {
+            window.open(
+              withAuthoringReturnHref(
+                `/authoring/materials/${materialId}`,
+                returnHref,
+              ),
+              "_blank",
+              "noopener,noreferrer",
+            );
+            return;
+          }
+          if (action === "compare") {
+            window.open(
+              authoringMaterialPreviewHref(materialId, returnHref),
+              "_blank",
+              "noopener,noreferrer",
+            );
+            return;
+          }
+          void navigator.clipboard.writeText(
+            JSON.stringify(draftRef.current, null, 2),
+          );
+        },
+        onDocumentChange,
+        onFieldChange: (field: MaterialDraftField, value: string) => {
+          if (field === "access") {
+            markDirty({
+              ...draftRef.current,
+              access: value === "closed" ? "closed" : "free",
+              deleteVideoId: null,
+              primaryVideo:
+                value === draftRef.current.access
+                  ? draftRef.current.primaryVideo
+                  : null,
+              primaryVideoId:
+                value === draftRef.current.access
+                  ? draftRef.current.primaryVideoId
+                  : null,
+            });
+            return;
+          }
+          markDirty({ ...draftRef.current, [field]: value });
+        },
+        onDelete: (input) => {
+          deleteDraft(input);
+        },
+        onOutcomesChange: (outcomes) => {
+          markDirty({ ...draftRef.current, outcomes });
+        },
+        onOpenPreview: () => {
+          void flushPendingEdits().then((ok) => {
+            const id = draftRef.current.materialId;
+            if (ok && id !== null)
+              router.push(authoringMaterialPreviewHref(id, returnHref));
+          });
+        },
+        onPrimaryVideoChange: (
+          primaryVideo,
           deleteVideoId,
-          detachVideoIds,
-          primaryVideoId,
-          unselectedUpload: draftRef.current.unselectedVideoUpload,
-        }),
-      });
-    },
-    onRetry: () => {
-      setNoticeRevision((n) => n + 1);
-      void autosave.retry();
-    },
-    onReturnToEditor: () => {
-      router.push(
-        withAuthoringReturnHref(
-          effectiveDraft.materialId === null
-            ? "/authoring/materials/new"
-            : `/authoring/materials/${effectiveDraft.materialId}`,
-          returnHref,
-        ),
-      );
-    },
-    onCancelProductRemoval: () => {
-      // Материал остаётся в продуктах: возвращаем руководства и отменяем снятие с публикации.
-      const productIds = (removalConfirmation ?? []).map(
-        ({ productId }) => productId,
-      );
-      setRemovalConfirmation(null);
-      setPublicationTarget(null);
-      markDirty({
-        ...effectiveDraft,
-        seriesIds: [...new Set([...effectiveDraft.seriesIds, ...productIds])],
-      });
-    },
-    onConfirmProductRemoval: () => {
-      confirmedRemovals.current = (removalConfirmation ?? []).map(
-        ({ productId }) => productId,
-      );
-      setRemovalConfirmation(null);
-      void autosave.retry();
-    },
-    onSave: (publicationState) => {
-      setPublicationValidation(null);
-      setPublicationTarget(publicationState);
-      setNoticeRevision((n) => n + 1);
-    },
-    onTagToggle: (tagId: string, checked: boolean) => {
-      markDirty({
-        ...effectiveDraft,
-        tagIds: checked
-          ? [...effectiveDraft.tagIds, tagId]
-          : effectiveDraft.tagIds.filter((candidate) => candidate !== tagId),
-      });
-    },
-    onSeriesToggle: (seriesId: string, checked: boolean) => {
-      markDirty({
-        ...effectiveDraft,
-        seriesIds: checked
-          ? [...effectiveDraft.seriesIds, seriesId]
-          : effectiveDraft.seriesIds.filter(
-              (candidate) => candidate !== seriesId,
+          detachedVideoId,
+        ) => {
+          const deletionCandidate =
+            deleteVideoId !== null &&
+            draftRef.current.primaryVideo?.videoId === deleteVideoId
+              ? draftRef.current.primaryVideo
+              : draftRef.current.latestVideoDeletion;
+          const primaryVideoId = primaryVideo?.videoId ?? null;
+          const detachVideoIds = nextDetachVideoIds({
+            detachedVideoId,
+            detachVideoIds: draftRef.current.detachVideoIds,
+            primaryVideoId,
+          });
+          markDirty({
+            ...draftRef.current,
+            deleteVideoId,
+            detachVideoIds,
+            latestVideoDeletion: deletionCandidate,
+            primaryVideo,
+            primaryVideoId,
+            unselectedVideoUpload: retainUnselectedUpload({
+              deleteVideoId,
+              detachVideoIds,
+              primaryVideoId,
+              unselectedUpload: draftRef.current.unselectedVideoUpload,
+            }),
+          });
+        },
+        onRetry: () => {
+          setNoticeRevision((n) => n + 1);
+          void flushAutosave(true);
+        },
+        onReturnToEditor: () => {
+          router.push(
+            withAuthoringReturnHref(
+              draftRef.current.materialId === null
+                ? "/authoring/materials/new"
+                : `/authoring/materials/${draftRef.current.materialId}`,
+              returnHref,
             ),
-      });
-    },
-  } satisfies MaterialAuthoringActions;
+          );
+        },
+        onCancelProductRemoval: () => {
+          // Материал остаётся в продуктах: возвращаем руководства и отменяем снятие с публикации.
+          const productIds = (removalConfirmation ?? []).map(
+            ({ productId }) => productId,
+          );
+          setRemovalConfirmation(null);
+          setPublicationTarget(null);
+          markDirty({
+            ...draftRef.current,
+            seriesIds: [
+              ...new Set([...draftRef.current.seriesIds, ...productIds]),
+            ],
+          });
+        },
+        onConfirmProductRemoval: () => {
+          confirmedRemovals.current = (removalConfirmation ?? []).map(
+            ({ productId }) => productId,
+          );
+          setRemovalConfirmation(null);
+          void flushAutosave(true);
+        },
+        onSave: (publicationState) => {
+          setPublicationValidation(null);
+          setPublicationTarget(publicationState);
+          setNoticeRevision((n) => n + 1);
+        },
+        onTagToggle: (tagId: string, checked: boolean) => {
+          markDirty({
+            ...draftRef.current,
+            tagIds: checked
+              ? [...draftRef.current.tagIds, tagId]
+              : draftRef.current.tagIds.filter(
+                  (candidate) => candidate !== tagId,
+                ),
+          });
+        },
+        onSeriesToggle: (seriesId: string, checked: boolean) => {
+          markDirty({
+            ...draftRef.current,
+            seriesIds: checked
+              ? [...draftRef.current.seriesIds, seriesId]
+              : draftRef.current.seriesIds.filter(
+                  (candidate) => candidate !== seriesId,
+                ),
+          });
+        },
+      }) satisfies MaterialAuthoringActions,
+    [
+      router,
+      returnHref,
+      markDirty,
+      onDocumentChange,
+      deleteDraft,
+      flushAutosave,
+      removalConfirmation,
+    ],
+  );
 
   return (
     <MaterialAuthoringWorkspace actions={actions} presentation={presentation} />
