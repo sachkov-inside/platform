@@ -311,10 +311,11 @@ try {
     FULLSTACK_NON_MEMBER_REFRESH_TOKEN: fullStackIdentity.createRefreshToken(
       "fullstack-non-member",
     ),
-    FULLSTACK_PRACTICE_MATERIAL_IDS: [
+    FULLSTACK_IMPORTED_MATERIAL_IDS: [
       practiceFixture.materialId,
       freePracticeFixture.materialId,
       taskFixture.materialId,
+      ...taskCFixture.materialIds,
     ].join(","),
     FULLSTACK_LOGTO_COOKIE_NAME: fullStackIdentity.cookieName,
     FULLSTACK_LOGTO_MEMBER_SESSION: fullStackMemberSession,

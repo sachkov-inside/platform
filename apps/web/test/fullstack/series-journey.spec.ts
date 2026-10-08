@@ -173,13 +173,12 @@ test("product programme appends a real composition and restores Reader return po
     })
     .parse(await created.json());
   try {
-    // Материалы практик и задания прогона перенесены из источника, а в руководство из редактора
-    // backend такие не принимает и отвечает 403. Список источник не показывает, поэтому их
-    // идентификаторы называет сам прогон.
-    const practiceIds = process.env["FULLSTACK_PRACTICE_MATERIAL_IDS"];
-    if (practiceIds === undefined)
-      throw new Error("Missing isolated practice fixture");
-    const importedPracticeIds = new Set(practiceIds.split(","));
+    // Список не показывает источник. Запускатор передаёт все импортированные Material IDs,
+    // включая урок и страницы заданий формата c: продукт Platform не принимает такой состав.
+    const importedIds = process.env["FULLSTACK_IMPORTED_MATERIAL_IDS"];
+    if (importedIds === undefined)
+      throw new Error("Missing isolated imported Material fixtures");
+    const importedMaterialIds = new Set(importedIds.split(","));
     const ids: string[] = [];
     for (let number = 1; number <= 3 && ids.length < 13; number++) {
       const response = await fullStackBrowserRequest(
@@ -199,7 +198,7 @@ test("product programme appends a real composition and restores Reader return po
           .filter(
             (item) =>
               item.publicationState === "published" &&
-              !importedPracticeIds.has(item.materialId),
+              !importedMaterialIds.has(item.materialId),
           )
           .map((item) => item.materialId),
       );
@@ -217,7 +216,7 @@ test("product programme appends a real composition and restores Reader return po
       .parse(await orderResponse.json());
     // Материал практики перенесён из источника: продукт из редактора его не принимает, и отказ
     // называет именно его, а не завершившуюся сессию (#841).
-    const [importedPracticeId] = importedPracticeIds;
+    const [importedPracticeId] = importedMaterialIds;
     const refused = await fullStackBrowserRequest(
       page,
       "/api/authoring/series/order",
