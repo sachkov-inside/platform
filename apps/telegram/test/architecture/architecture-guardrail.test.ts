@@ -25,6 +25,10 @@ describe("architecture guardrail", () => {
       "module-imports-transport",
       "modules/contacts/contacts.ts: module imports transport package grammy",
     ],
+    [
+      "module-imports-application",
+      "modules/contacts/contacts.ts: module imports application/contact-effects.ts",
+    ],
     ["module-calls-fetch", "modules/contacts/contacts.ts: module calls fetch"],
     [
       "shared-imports-module",
@@ -153,13 +157,102 @@ it.each(Object.entries(currentTableOwners))(
   },
 );
 
-it("permits the documented exact legacy file/table exceptions", () => {
-  const result = runGuardrail(
-    "test/architecture/fixtures/legacy-access-allowed/src",
-  );
-  expect(result.stdout).toBe("");
-  expect(result.status).toBe(0);
-});
+const formerLegacyAccess: readonly (readonly [string, readonly string[]])[] = [
+  // Create the communication contact atomically with the first bot contact.
+  ["modules/bot-contacts/bot-contacts.ts", ["communication_contacts"]],
+  // Reserve the identity-link transaction atomically when consuming sign-in approval.
+  ["modules/bot-sign-in/sign-in-account-link.ts", ["link_transactions"]],
+  // Read private-chat reachability when selecting communication recipients.
+  ["modules/communications/broadcasts.ts", ["bot_contacts"]],
+  // Read private-chat reachability when selecting communication recipients.
+  ["modules/communications/communication-statistics.ts", ["bot_contacts"]],
+  // Read private-chat reachability when selecting communication recipients.
+  ["modules/communications/funnel-preview.ts", ["bot_contacts"]],
+  // Read private-chat reachability when selecting communication recipients.
+  ["modules/communications/funnel-scheduler.ts", ["bot_contacts"]],
+  // Persist a confirmed transport block under the communication contact lock.
+  ["modules/communications/delivery-contactability.ts", ["bot_contacts"]],
+  // Read private-chat reachability before a community welcome delivery.
+  ["modules/community/community-provider.ts", ["bot_contacts"]],
+  // Queue initial membership evidence atomically with identity recovery.
+  ["modules/identity-linking/identity-link-recovery.ts", ["membership_checks"]],
+  // Queue initial membership evidence atomically with linking; linking also consumes sign-in state.
+  [
+    "modules/identity-linking/identity-linking.ts",
+    ["membership_checks", "sign_in_requests", "sign_in_subjects"],
+  ],
+  // Read the contact destination for membership-check replies.
+  [
+    "modules/membership-evidence/membership-evidence-provider.ts",
+    ["bot_contacts"],
+  ],
+  // Read reachability when authorizing notification delivery.
+  ["modules/notifications/notification-provider.ts", ["bot_contacts"]],
+  // Legacy schema declaration; outbound owns the runtime transport cursor.
+  [
+    "modules/notifications/notification-storage.ts",
+    ["telegram_transport_fairness"],
+  ],
+  // Read sign-in and linking state to suppress stale queued replies.
+  [
+    "modules/outbound/start-response-delivery-queue.ts",
+    ["link_transactions", "sign_in_requests"],
+  ],
+  // Create and read the stable source contact in the event transaction.
+  [
+    "modules/sales-funnel/sales-funnel-events.ts",
+    ["bot_contacts", "communication_contacts"],
+  ],
+  // Legacy schema declaration; identity-linking owns identity reservation.
+  [
+    "modules/subscription-activation/activation-storage.ts",
+    ["telegram_identity_reservations"],
+  ],
+  // Operator readiness counts; no product writes.
+  [
+    "operations/check-readiness.ts",
+    ["bot_contacts", "identity_link_recoveries", "membership_reconciliations"],
+  ],
+  // Operator proof reads persisted evidence; no product writes.
+  [
+    "operations/credentialed-proof.ts",
+    [
+      "bot_contacts",
+      "identity_link_events",
+      "identity_link_recoveries",
+      "link_transactions",
+      "membership_check_results",
+      "membership_checks",
+      "membership_event_audit",
+      "membership_evidence_outbox",
+      "membership_provider_observations",
+      "membership_provider_state",
+      "membership_reconciliations",
+      "telegram_updates",
+    ],
+  ],
+  // Read known contact and community IDs in one repeatable-read snapshot.
+  [
+    "operations/group-report-candidates.ts",
+    ["bot_contacts", "community_bindings"],
+  ],
+];
+
+it.each(formerLegacyAccess)(
+  "rejects every former exception in %s",
+  (file, tables) => {
+    const result = runGuardrail(
+      "test/architecture/fixtures/legacy-access-allowed/src",
+    );
+    for (const table of tables) {
+      const owner = currentTableOwners[table as keyof DatabaseSchema];
+      expect(result.stdout.split("\n")).toContain(
+        `${file}: ${table} is owned by modules/${owner}`,
+      );
+    }
+    expect(result.status).toBe(1);
+  },
+);
 
 it.each([
   "modules/bot-contacts/bot-contacts.ts",

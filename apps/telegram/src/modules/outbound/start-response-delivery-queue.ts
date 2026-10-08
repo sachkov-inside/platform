@@ -1,3 +1,7 @@
+import {
+  SIGN_IN_REPLY_ELIGIBILITY,
+  type SignInReplyEligibility,
+} from "./sign-in-reply-eligibility.js";
 import { BLOCKED_DELIVERY, type BlockedDelivery } from "./blocked-delivery.js";
 import { isTruthy } from "../../shared/truthiness.js";
 import { hasText } from "../../shared/text.js";
@@ -114,60 +118,21 @@ export async function enqueueReply(
 
 function eligibleReply(
   eb: ExpressionBuilder<DatabaseSchema, "start_response_deliveries">,
+  database: Database | Transaction<DatabaseSchema>,
   now: Date,
   signInEnabled: boolean,
+  eligibility?: SignInReplyEligibility,
 ) {
+  if (signInEnabled && !eligibility)
+    throw new Error("Missing sign-in reply eligibility");
   return eb.or([
     eb("sign_in_request_ref", "is", null),
-    ...(signInEnabled
+    ...(signInEnabled && eligibility
       ? [
-          eb.exists(
-            eb
-              .selectFrom("sign_in_requests")
-              .select("request_ref")
-              .whereRef(
-                "request_ref",
-                "=",
-                "start_response_deliveries.sign_in_request_ref",
-              )
-              .where((requestEb) =>
-                requestEb.or([
-                  requestEb.and([
-                    requestEb(
-                      "start_response_deliveries.edit_message_id",
-                      "is",
-                      null,
-                    ),
-                    requestEb("state", "=", "awaiting_approval"),
-                    requestEb("expires_at", ">", now),
-                  ]),
-                  requestEb.and([
-                    requestEb(
-                      "start_response_deliveries.edit_message_id",
-                      "is not",
-                      null,
-                    ),
-                    requestEb.or([
-                      requestEb("state", "=", "denied"),
-                      requestEb.and([
-                        requestEb("state", "=", "consumed"),
-                        requestEb.exists(
-                          requestEb
-                            .selectFrom("link_transactions")
-                            .select("link_transaction_ref")
-                            .where(
-                              "link_transaction_ref",
-                              "=",
-                              sql<string>`sign_in_requests.request_ref::text`,
-                            )
-                            .where("state", "=", "linked"),
-                        ),
-                      ]),
-                    ]),
-                  ]),
-                ]),
-              ),
-          ),
+          eligibility(database, now, {
+            requestRef: "start_response_deliveries.sign_in_request_ref",
+            editMessageId: "start_response_deliveries.edit_message_id",
+          }),
         ]
       : []),
   ]);
@@ -179,6 +144,7 @@ export async function hasDueReply(
   botIdentity: string,
   now: Date,
   signInEnabled = false,
+  eligibility?: SignInReplyEligibility,
 ): Promise<boolean> {
   const due = await database
     .selectFrom("start_response_deliveries")
@@ -186,7 +152,7 @@ export async function hasDueReply(
     .where("bot_identity", "=", botIdentity)
     .where("state", "in", replies.ready)
     .where("available_at", "<=", now)
-    .where((eb) => eligibleReply(eb, now, signInEnabled))
+    .where((eb) => eligibleReply(eb, database, now, signInEnabled, eligibility))
     .executeTakeFirst();
   return due !== undefined;
 }
@@ -225,6 +191,9 @@ export class StartResponseDeliveryQueue {
     @Optional()
     @Inject(APPLICATION_CONFIG)
     private readonly config?: ApplicationConfig,
+    @Optional()
+    @Inject(SIGN_IN_REPLY_ELIGIBILITY)
+    private readonly eligibility?: SignInReplyEligibility,
   ) {}
 
   async enqueue(
@@ -282,7 +251,13 @@ export class StartResponseDeliveryQueue {
             ...(this.config
               ? [eb("bot_identity", "=", this.config.botIdentity)]
               : []),
-            eligibleReply(eb, now, signInEnabled),
+            eligibleReply(
+              eb,
+              transaction,
+              now,
+              signInEnabled,
+              this.eligibility,
+            ),
           ]),
         prepare: async (tx, row) =>
           (isTruthy(this.config?.marketingEnabled) ||

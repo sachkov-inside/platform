@@ -1,3 +1,8 @@
+import {
+  SIGN_IN_REPLY_ELIGIBILITY,
+  type SignInReplyEligibility,
+} from "../outbound/sign-in-reply-eligibility.js";
+import { botContactRows } from "../bot-contacts/contact-access.js";
 import { isTruthy } from "../../shared/truthiness.js";
 import { hasText } from "../../shared/text.js";
 import { hasDueReply } from "../outbound/start-response-delivery-queue.js";
@@ -74,6 +79,8 @@ export class FunnelScheduler {
     @Inject(CLOCK) private readonly clock: Clock,
     @Inject(COMMUNICATION_TRANSPORT)
     private readonly transport: CommunicationTransport,
+    @Inject(SIGN_IN_REPLY_ELIGIBILITY)
+    private readonly replyEligibility: SignInReplyEligibility,
   ) {}
   async assertConfigured(): Promise<void> {
     if (!this.config.marketingEnabled) return;
@@ -212,7 +219,7 @@ export class FunnelScheduler {
           "c.contact_id",
           "d.contact_id",
         )
-        .innerJoin("bot_contacts as b", (j) =>
+        .innerJoin(botContactRows(tx).as("b"), (j) =>
           j
             .onRef("b.bot_identity", "=", "c.bot_identity")
             .onRef("b.telegram_user_id", "=", "c.telegram_user_id"),
@@ -271,6 +278,7 @@ export class FunnelScheduler {
           this.config.botIdentity,
           now,
           this.config.signInEnabled === true,
+          this.replyEligibility,
         )
       )
         return { kind: "capacity_busy" } as const;

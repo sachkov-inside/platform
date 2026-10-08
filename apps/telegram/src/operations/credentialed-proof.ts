@@ -1,17 +1,28 @@
+import {
+  updateDiagnosticCounts,
+  countInboxUpdate,
+  retryMarkerInboxItems,
+} from "../modules/update-inbox/inbox-diagnostics.js";
+import { botContactStateCounts } from "../modules/bot-contacts/contact-diagnostics.js";
+import { identityDiagnosticSnapshot } from "../modules/identity-linking/identity-diagnostics.js";
+import {
+  membershipDiagnosticSnapshot,
+  type RedactedMembershipTransition,
+} from "../modules/membership-evidence/membership-diagnostics.js";
+export {
+  validateRecordedMembershipNormalization,
+  type RedactedMembershipTransition,
+} from "../modules/membership-evidence/membership-diagnostics.js";
 import { hasText } from "../shared/text.js";
-import { createHash, randomInt } from "node:crypto";
+import { randomInt } from "node:crypto";
 import { chmod, mkdir, readFile, rename, writeFile } from "node:fs/promises";
 import { dirname } from "node:path";
 
-import { sql } from "kysely";
-
 import type { Database } from "../database/database.js";
-import { linkedEvidenceRevisions } from "../modules/identity-linking/platform-links.js";
 import {
   replyAttemptOutcomeCounts,
   replyStateCounts,
 } from "../modules/outbound/start-response-delivery-queue.js";
-import { normalizeChatMember } from "../modules/membership-evidence/membership-normalization.js";
 import { TELEGRAM_WEBHOOK_ALLOWED_UPDATES } from "../modules/webhook/telegram-webhook.js";
 
 const ASSIGNABLE_ADMIN_RIGHTS = [
@@ -218,18 +229,17 @@ export async function runCredentialedProofCommand(
         "wrong_synthetic_secret",
       ),
     };
-    const inbox = await database
-      .selectFrom("telegram_updates")
-      .select(({ fn }) => fn.countAll().as("count"))
-      .where("bot_identity", "=", environment.botIdentity)
-      .where("update_id", "=", updateId)
-      .executeTakeFirstOrThrow();
+    const inboxCount = await countInboxUpdate(
+      database,
+      environment.botIdentity,
+      updateId,
+    );
     if (
       statuses.correct !== 202 ||
       statuses.duplicate !== 202 ||
       statuses.missing !== 401 ||
       statuses.wrong !== 401 ||
-      Number(inbox.count) !== 1
+      inboxCount !== 1
     ) {
       throw new Error("Webhook authentication or durable deduplication failed");
     }
@@ -541,219 +551,23 @@ export function validateWebhookInfo(
 export async function redactedDatabaseSnapshot(
   database: Database,
 ): Promise<Record<string, unknown>> {
-  const [
-    updates,
-    contacts,
-    deliveryStates,
-    deliveries,
-    linkTransactions,
-    linkEvents,
-    membershipChecks,
-    evidenceDeliveries,
-    membershipResults,
-    membershipRawStatuses,
-    membershipEvents,
-    membershipEventStates,
-    providerStates,
-    providerObservations,
-    reconciliations,
-    completedReconciliations,
-    membershipTransitions,
-    evidenceVersions,
-    recoveries,
-  ] = await Promise.all([
-    groupedCounts(database, "telegram_updates", "state"),
-    groupedCounts(database, "bot_contacts", "contactability"),
-    replyStateCounts(database),
-    replyAttemptOutcomeCounts(database),
-    groupedCounts(database, "link_transactions", "state"),
-    groupedCounts(database, "identity_link_events", "event_type"),
-    groupedCounts(database, "membership_checks", "state"),
-    groupedCounts(database, "membership_evidence_outbox", "state"),
-    groupedCounts(database, "membership_check_results", "normalized_state"),
-    groupedNonNullCounts(database, "membership_check_results", "raw_status"),
-    groupedCounts(database, "membership_event_audit", "disposition"),
-    groupedNonNullCounts(
-      database,
-      "membership_event_audit",
-      "normalized_state",
-    ),
-    groupedCounts(database, "membership_provider_state", "state"),
-    groupedCounts(database, "membership_provider_observations", "state"),
-    groupedCounts(database, "membership_reconciliations", "state"),
-    sql<{ count: string }>`
-        select count(*)::text as count
-        from membership_reconciliations
-        where last_completed_at is not null
-      `.execute(database),
-    redactedMembershipTransitions(database),
-    sql<{ count: string; maximum: string | null; minimum: string | null }>`
-        select
-          count(evidence_version)::text as count,
-          min(evidence_version)::text as minimum,
-          max(evidence_version)::text as maximum
-        from membership_check_results
-        where evidence_version is not null
-      `.execute(database),
-    sql<{ count: string }>`
-        select count(*)::text as count from identity_link_recoveries
-      `.execute(database),
-  ]);
-  const versionRange = evidenceVersions.rows[0];
+  const [updates, contacts, deliveries, attempts, links, membership] =
+    await Promise.all([
+      updateDiagnosticCounts(database),
+      botContactStateCounts(database),
+      replyStateCounts(database),
+      replyAttemptOutcomeCounts(database),
+      identityDiagnosticSnapshot(database),
+      membershipDiagnosticSnapshot(database),
+    ]);
   return {
-    botContactsByState: contacts,
-    deliveryAttemptsByOutcome: deliveries,
-    deliveriesByState: deliveryStates,
-    evidenceDeliveriesByState: evidenceDeliveries,
-    evidenceVersions: {
-      count: Number(versionRange?.count ?? 0),
-      maximum: versionRange?.maximum ?? null,
-      minimum: versionRange?.minimum ?? null,
-    },
-    identityLinkEventsByType: linkEvents,
-    linkTransactionsByState: linkTransactions,
-    membershipChecksByState: membershipChecks,
-    membershipEventsByDisposition: membershipEvents,
-    membershipEventsByNormalizedState: membershipEventStates,
-    membershipResultsByNormalizedState: membershipResults,
-    membershipResultsByRawStatus: membershipRawStatuses,
-    membershipTransitions,
-    ownerRecoveries: Number(recoveries.rows[0]?.count ?? 0),
-    providerObservationsByState: providerObservations,
-    providerRowsByState: providerStates,
-    reconciliationsCompleted: Number(
-      completedReconciliations.rows[0]?.count ?? 0,
-    ),
-    reconciliationsByState: reconciliations,
     telegramUpdatesByState: updates,
+    botContactsByState: contacts,
+    deliveriesByState: deliveries,
+    deliveryAttemptsByOutcome: attempts,
+    ...links,
+    ...membership,
   };
-}
-
-export interface RedactedMembershipTransition {
-  readonly decision: string | null;
-  readonly eventDisposition: string | null;
-  readonly eventKind: string | null;
-  readonly freshnessBounded: boolean;
-  readonly freshnessObserved: boolean;
-  readonly identityFingerprint: string;
-  readonly isCurrentRevision: boolean;
-  readonly mappingObserved: boolean;
-  readonly normalizedState: string;
-  readonly rawIsMember: boolean | null;
-  readonly rawStatus: string | null;
-  readonly revision: string | null;
-  readonly sequence: number;
-  readonly source: string | null;
-  readonly validitySeconds: number | null;
-}
-
-async function redactedMembershipTransitions(
-  database: Database,
-): Promise<RedactedMembershipTransition[]> {
-  const result = await sql<{
-    decision: string | null;
-    event_disposition: string | null;
-    event_kind: string | null;
-    evidence_version: string | null;
-    is_current_revision: boolean;
-    normalized_state: string;
-    raw_is_member: boolean | null;
-    raw_status: string | null;
-    sequence: string;
-    source: string | null;
-    telegram_identity_ref: string;
-    validity_seconds: string | null;
-  }>`
-    select
-      row_number() over (
-        order by results.observed_at, results.id
-      )::text as sequence,
-      results.telegram_identity_ref,
-      outbox.source,
-      results.raw_status,
-      results.raw_is_member,
-      results.normalized_state,
-      results.evidence_version::text,
-      audit.event_kind,
-      audit.disposition as event_disposition,
-      outbox.envelope ->> 'decision' as decision,
-      case
-        when outbox.envelope ->> 'decision' in ('member', 'not_member')
-        then round(extract(epoch from (
-          (outbox.envelope ->> 'validUntil')::timestamptz
-          - (outbox.envelope ->> 'checkedAt')::timestamptz
-        )))::text
-        else null
-      end as validity_seconds,
-      results.evidence_version is not null
-        and results.evidence_version = links.evidence_version
-        as is_current_revision
-    from membership_check_results as results
-    left join membership_evidence_outbox as outbox
-      on outbox.result_ref = results.result_ref
-    left join membership_event_audit as audit
-      on audit.result_ref = results.result_ref
-    inner join (${linkedEvidenceRevisions(database)}) as links
-      on links.telegram_identity_ref = results.telegram_identity_ref
-    order by results.observed_at, results.id
-  `.execute(database);
-
-  return result.rows.map((row) => {
-    const normalizedState = validateRecordedMembershipNormalization(row);
-    const validitySeconds =
-      row.validity_seconds === null ? null : Number(row.validity_seconds);
-    const freshnessObserved =
-      row.decision === "member" ||
-      row.decision === "not_member" ||
-      row.decision === "unavailable";
-    const freshnessBounded =
-      row.decision === "unavailable" ||
-      (validitySeconds !== null &&
-        validitySeconds > 0 &&
-        validitySeconds <= 300);
-    if (freshnessObserved && !freshnessBounded) {
-      throw new Error("Credentialed proof found unbounded Membership evidence");
-    }
-    return {
-      decision: row.decision,
-      eventDisposition: row.event_disposition,
-      eventKind: row.event_kind,
-      freshnessBounded,
-      freshnessObserved,
-      identityFingerprint: fingerprint(row.telegram_identity_ref),
-      isCurrentRevision: row.is_current_revision,
-      mappingObserved: row.raw_status !== null,
-      normalizedState,
-      rawIsMember: row.raw_is_member,
-      rawStatus: row.raw_status,
-      revision: row.evidence_version,
-      sequence: Number(row.sequence),
-      source: row.source,
-      validitySeconds,
-    };
-  });
-}
-
-export function validateRecordedMembershipNormalization(row: {
-  normalized_state: string;
-  raw_is_member: boolean | null;
-  raw_status: string | null;
-}): string {
-  const expected =
-    row.raw_status === null
-      ? row.normalized_state
-      : normalizeChatMember({
-          ...(row.raw_is_member === null
-            ? {}
-            : { isMember: row.raw_is_member }),
-          status: row.raw_status,
-        });
-  if (row.normalized_state !== expected) {
-    throw new Error(
-      "Credentialed proof found a Membership normalization mismatch",
-    );
-  }
-  return row.normalized_state;
 }
 
 export function validateReconciliationRepair(
@@ -900,55 +714,6 @@ async function findApplicationSnapshot(
     }
   }
   throw new Error(`Credentialed proof snapshot ${label} is unavailable`);
-}
-
-function fingerprint(value: string): string {
-  return createHash("sha256").update(value).digest("hex").slice(0, 12);
-}
-
-async function groupedNonNullCounts(
-  database: Database,
-  table: string,
-  column: string,
-): Promise<Record<string, number>> {
-  const result = await sql<{ count: string; key: string }>`
-    select ${sql.ref(column)}::text as key, count(*)::text as count
-    from ${sql.table(table)}
-    where ${sql.ref(column)} is not null
-    group by ${sql.ref(column)}
-    order by ${sql.ref(column)}
-  `.execute(database);
-  return Object.fromEntries(
-    result.rows.map((row) => [row.key, Number(row.count)]),
-  );
-}
-
-async function retryMarkerInboxItems(
-  database: Database,
-  retryMarker: string,
-): Promise<number> {
-  const result = await sql<{ count: string }>`
-    select count(*)::text as count
-    from telegram_updates
-    where payload #>> '{message,text}' = ${retryMarker}
-  `.execute(database);
-  return Number(result.rows[0]?.count ?? 0);
-}
-
-async function groupedCounts(
-  database: Database,
-  table: string,
-  column: string,
-): Promise<Record<string, number>> {
-  const result = await sql<{ count: string; key: string }>`
-    select ${sql.ref(column)}::text as key, count(*)::text as count
-    from ${sql.table(table)}
-    group by ${sql.ref(column)}
-    order by ${sql.ref(column)}
-  `.execute(database);
-  return Object.fromEntries(
-    result.rows.map((row) => [row.key, Number(row.count)]),
-  );
 }
 
 async function telegramResult(

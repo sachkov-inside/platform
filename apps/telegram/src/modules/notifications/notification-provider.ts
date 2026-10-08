@@ -1,3 +1,4 @@
+import { findBotContact } from "../bot-contacts/contact-access.js";
 import { blockDeliveryContact } from "../communications/delivery-contactability.js";
 import { findPlatformLink } from "../identity-linking/platform-links.js";
 import {
@@ -273,13 +274,12 @@ export class NotificationProvider {
         });
         return;
       }
-      const contact = await tx
-        .selectFrom("bot_contacts")
-        .selectAll()
-        .where("bot_identity", "=", this.bot)
-        .where("telegram_user_id", "=", link.telegramUserId)
-        .forUpdate()
-        .executeTakeFirst();
+      const contact = await findBotContact(
+        tx,
+        this.bot,
+        link.telegramUserId,
+        true,
+      );
       if (contact?.contactability !== "reachable") {
         await this.record(tx, current, {
           state: "failed",

@@ -1,3 +1,4 @@
+import { signInReplyEligibility } from "../../src/modules/bot-sign-in/reply-eligibility.js";
 import { closeIfStarted } from "../support/close-if-started.js";
 import { hasText } from "../../src/shared/text.js";
 import { randomUUID } from "node:crypto";
@@ -400,6 +401,7 @@ describe("durable marketing entry and scheduling", () => {
       config,
       clock,
       transport,
+      signInReplyEligibility,
     );
     await Promise.all([
       scheduler.processAvailable(),
@@ -603,7 +605,15 @@ describe("durable marketing entry and scheduling", () => {
         ...(edit ? { editMessageId: "123" } : {}),
         now,
       });
-      expect(await hasDueReply(database, "inside", now, enabled)).toBe(ready);
+      expect(
+        await hasDueReply(
+          database,
+          "inside",
+          now,
+          enabled,
+          signInReplyEligibility,
+        ),
+      ).toBe(ready);
       expect((await queue.claimNext(now, enabled)) !== undefined).toBe(ready);
     },
   );
@@ -746,7 +756,13 @@ describe("external dispatch crash boundaries", () => {
     });
     const running = scheduler.processAvailable(1);
     await sending;
-    const other = new FunnelScheduler(database, config, clock, transport);
+    const other = new FunnelScheduler(
+      database,
+      config,
+      clock,
+      transport,
+      signInReplyEligibility,
+    );
     expect(await other.processAvailable()).toBe(0);
     now = new Date(now.getTime() + 61_000);
     expect(await other.processAvailable()).toBe(0);
@@ -826,6 +842,7 @@ describe("external dispatch crash boundaries", () => {
         config,
         clock,
         transport,
+        signInReplyEligibility,
       ).processAvailable(),
     ]);
     expect(sent).toHaveLength(1);
@@ -906,6 +923,7 @@ describe("recovery and completion serialization", () => {
       config,
       clock,
       transport,
+      signInReplyEligibility,
     ).processAvailable(1);
     await hasRead;
     const completing = scheduler.record(pending.delivery_id, attemptId, {
@@ -1048,7 +1066,13 @@ describe("published audience updates and subscriber preferences #29", () => {
     await tick(86000);
     expect(sent.filter((m) => m.content.text === "added")).toHaveLength(0);
     now = new Date(+publishedAt + 86400000);
-    const second = new FunnelScheduler(database, config, clock, transport);
+    const second = new FunnelScheduler(
+      database,
+      config,
+      clock,
+      transport,
+      signInReplyEligibility,
+    );
     await Promise.all([
       scheduler.processAvailable(),
       second.processAvailable(),

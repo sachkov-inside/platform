@@ -1,3 +1,4 @@
+import { linkEffects } from "../application/link-effects.js";
 import { hasText } from "../shared/text.js";
 import "../config/load-environment.js";
 
@@ -25,7 +26,11 @@ if (!hasText(databaseUrl)) {
       process.argv.slice(2),
       readFileSync(0, "utf8"),
     );
-    const recovery = new IdentityLinkRecovery(database, systemClock);
+    const recovery = new IdentityLinkRecovery(
+      database,
+      systemClock,
+      linkEffects,
+    );
     const result =
       parsed.mode === "dry-run"
         ? await recovery.preview(parsed.command)

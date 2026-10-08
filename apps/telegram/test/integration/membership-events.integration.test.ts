@@ -1,3 +1,6 @@
+import { signInReplyEligibility } from "../../src/modules/bot-sign-in/reply-eligibility.js";
+import { linkEffects } from "../../src/application/link-effects.js";
+import { contactEffects } from "../../src/application/contact-effects.js";
 import { settleBlockedDelivery } from "../../src/modules/communications/delivery-contactability.js";
 import { registerFixedClock, useTimeoutClock } from "../support/fixed-clock.js";
 import { advisoryLockWaiting } from "../support/advisory-lock-wait.js";
@@ -394,7 +397,7 @@ describe("durable Membership events", () => {
 
     const inbox = new TelegramUpdateInbox(database);
     const metrics = new RuntimeMetrics();
-    const linking = new IdentityLinking(database, clock);
+    const linking = new IdentityLinking(database, clock, linkEffects);
     const processor = new TelegramUpdateProcessor(
       {
         start: () => Promise.resolve(),
@@ -402,7 +405,7 @@ describe("durable Membership events", () => {
       },
       inbox,
       config,
-      new BotContacts(database, config),
+      new BotContacts(database, config, contactEffects),
       linking,
       metrics,
       provider,
@@ -419,7 +422,12 @@ describe("durable Membership events", () => {
         new DisabledCommunityDispatchAuthorization(),
         new DisabledTelegramCommunityChat(),
       ),
-      new StartResponseDeliveryQueue(database, settleBlockedDelivery, config),
+      new StartResponseDeliveryQueue(
+        database,
+        settleBlockedDelivery,
+        config,
+        signInReplyEligibility,
+      ),
       new GrammyUpdateAdapter(),
       { start: () => Promise.resolve(), retry: () => Promise.resolve() },
     );
@@ -1145,7 +1153,7 @@ describe("durable Membership events", () => {
 });
 
 async function confirmLink(telegramUserId: string) {
-  await new BotContacts(database, config).observeStart(
+  await new BotContacts(database, config, contactEffects).observeStart(
     {
       botIdentity: config.botIdentity,
       observedAt: linkedAt,
@@ -1155,7 +1163,7 @@ async function confirmLink(telegramUserId: string) {
     },
     "link-receipt",
   );
-  const linking = new IdentityLinking(database, clock);
+  const linking = new IdentityLinking(database, clock, linkEffects);
   const challenge = await linking.register({
     accountRef: "account-ref-a",
     expiresAt: new Date(linkedAt.getTime() + 60_000),

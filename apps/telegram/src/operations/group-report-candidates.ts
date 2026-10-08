@@ -1,3 +1,5 @@
+import { botContactRows } from "../modules/bot-contacts/contact-access.js";
+import { communityBindingUsers } from "../modules/community/community-candidates.js";
 import type { Database } from "../database/database.js";
 import { botPlatformLinks } from "../modules/identity-linking/platform-links.js";
 import type { GroupReportCandidate } from "../modules/community/group-members-report.js";
@@ -11,17 +13,11 @@ export async function groupReportCandidates(
     .transaction()
     .setIsolationLevel("repeatable read")
     .execute(async (transaction) => {
-      const contacts = await transaction
-        .selectFrom("bot_contacts")
+      const contacts = await botContactRows(transaction)
         .select("telegram_user_id")
         .where("bot_identity", "=", botIdentity)
         .execute();
-      const bindings = await transaction
-        .selectFrom("community_bindings")
-        .select("telegram_user_id")
-        .where("bot_identity", "=", botIdentity)
-        .where("telegram_user_id", "is not", null)
-        .execute();
+      const bindings = await communityBindingUsers(transaction, botIdentity);
       const links = await botPlatformLinks(transaction, botIdentity);
       const candidates = new Map<string, GroupReportCandidate>();
       for (const row of [...contacts, ...bindings]) {

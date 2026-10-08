@@ -1,3 +1,4 @@
+import { linkEffects } from "../../src/application/link-effects.js";
 import { registerFixedClock } from "../support/fixed-clock.js";
 import { hasText } from "../../src/shared/text.js";
 import { createHash } from "node:crypto";
@@ -26,8 +27,12 @@ let recovery: IdentityLinkRecovery;
 beforeAll(async () => {
   database = createDatabase(databaseUrl);
   await migrateToLatest(database);
-  linking = new IdentityLinking(database, { now: () => now });
-  recovery = new IdentityLinkRecovery(database, { now: () => now });
+  linking = new IdentityLinking(database, { now: () => now }, linkEffects);
+  recovery = new IdentityLinkRecovery(
+    database,
+    { now: () => now },
+    linkEffects,
+  );
 });
 
 beforeEach(async () => {
@@ -60,6 +65,59 @@ describe("IdentityLinkRecovery", () => {
       await migrateToLatest(database);
     }
     await expect(tableExists("identity_link_recoveries")).resolves.toBe(true);
+  });
+
+  it("rolls back ownership transfer and its audit when the initial check cannot commit", async () => {
+    const fixture = await conflictingLinkFixture();
+    const command = {
+      confirmedSourceAccountRef: "principal-ref-source",
+      confirmedTargetAccountRef: "principal-ref-target",
+      operatorRef: "synthetic-owner",
+      reasonRef: "synthetic-check-failure",
+      recoveryRef: "recovery-proof-rollback",
+      sourceAccountRef: "principal-ref-source",
+      targetAccountRef: "principal-ref-target",
+      targetLinkTransactionRef: fixture.targetLinkTransactionRef,
+      telegramIdentityRef: fixture.telegramIdentityRef,
+    };
+    await sql`create function synthetic_recovery_check_fault() returns trigger language plpgsql as $$
+      begin raise exception 'synthetic recovery check failure'; end $$;
+      create trigger synthetic_recovery_check_fault before insert on membership_checks
+      for each row execute function synthetic_recovery_check_fault()`.execute(
+      database,
+    );
+    try {
+      await expect(recovery.execute(command)).rejects.toThrow(
+        "synthetic recovery check failure",
+      );
+      expect(
+        await database
+          .selectFrom("platform_links")
+          .select("account_ref")
+          .where("telegram_identity_ref", "=", fixture.telegramIdentityRef)
+          .executeTakeFirst(),
+      ).toEqual({ account_ref: "principal-ref-source" });
+      expect(
+        await database
+          .selectFrom("identity_link_recoveries")
+          .selectAll()
+          .execute(),
+      ).toEqual([]);
+      expect(
+        await database
+          .selectFrom("link_transactions")
+          .select("state")
+          .where("link_transaction_ref", "=", fixture.targetLinkTransactionRef)
+          .executeTakeFirst(),
+      ).toEqual({ state: "conflict" });
+    } finally {
+      await sql`drop trigger synthetic_recovery_check_fault on membership_checks;
+        drop function synthetic_recovery_check_fault()`.execute(database);
+    }
+    await expect(recovery.execute(command)).resolves.toMatchObject({
+      ok: true,
+      outcome: "transferred",
+    });
   });
 
   it("previews without mutation and transfers only the explicitly confirmed conflict", async () => {

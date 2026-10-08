@@ -1,3 +1,9 @@
+import { signInReplyEligibility } from "./modules/bot-sign-in/reply-eligibility.js";
+import { SIGN_IN_REPLY_ELIGIBILITY } from "./modules/outbound/sign-in-reply-eligibility.js";
+import { linkEffects } from "./application/link-effects.js";
+import { LINK_EFFECTS } from "./modules/identity-linking/link-effects.js";
+import { contactEffects } from "./application/contact-effects.js";
+import { CONTACT_EFFECTS } from "./modules/bot-contacts/contact-effects.js";
 import { BLOCKED_DELIVERY } from "./modules/outbound/blocked-delivery.js";
 import { settleBlockedDelivery } from "./modules/communications/delivery-contactability.js";
 import { isTruthy } from "./shared/truthiness.js";
@@ -130,6 +136,12 @@ export class AppModule {
         TelegramWebhookController,
       ],
       providers: [
+        {
+          provide: SIGN_IN_REPLY_ELIGIBILITY,
+          useValue: signInReplyEligibility,
+        },
+        { provide: LINK_EFFECTS, useValue: linkEffects },
+        { provide: CONTACT_EFFECTS, useValue: contactEffects },
         { provide: BLOCKED_DELIVERY, useValue: settleBlockedDelivery },
         SubscriptionActivation,
         InvitationRedemption,

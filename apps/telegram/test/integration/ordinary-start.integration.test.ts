@@ -1,3 +1,5 @@
+import { signInReplyEligibility } from "../../src/modules/bot-sign-in/reply-eligibility.js";
+import { contactEffects } from "../../src/application/contact-effects.js";
 import { settleBlockedDelivery } from "../../src/modules/communications/delivery-contactability.js";
 import { registerFixedClock } from "../support/fixed-clock.js";
 import { hasText } from "../../src/shared/text.js";
@@ -118,6 +120,7 @@ beforeEach(async () => {
       start_response_delivery_attempts,
       start_response_deliveries,
       bot_contact_events,
+      communication_contacts,
       bot_contacts,
       telegram_updates
     restart identity cascade
@@ -168,7 +171,7 @@ describe("database foundation", () => {
 
 describe("BotContacts", () => {
   it("atomically creates one contact and one welcome for a replayed update", async () => {
-    const contacts = new BotContacts(database, config);
+    const contacts = new BotContacts(database, config, contactEffects);
     const start = verifiedStart("4503599627370495", "1");
 
     await expect(contacts.observeStart(start)).resolves.toEqual({
@@ -191,8 +194,36 @@ describe("BotContacts", () => {
     await expect(tableCount("start_response_deliveries")).resolves.toBe(1);
   });
 
+  it("rolls back the first contact, communication contact and history when reply persistence fails", async () => {
+    const start = verifiedStart("42", "1");
+    const contacts = new BotContacts(database, config, contactEffects);
+    await sql`create function synthetic_contact_reply_fault() returns trigger language plpgsql as $$
+      begin raise exception 'synthetic contact reply failure'; end $$;
+      create trigger synthetic_contact_reply_fault before insert on start_response_deliveries
+      for each row execute function synthetic_contact_reply_fault()`.execute(
+      database,
+    );
+    try {
+      await expect(contacts.observeStart(start)).rejects.toThrow(
+        "synthetic contact reply failure",
+      );
+      await expect(tableCount("bot_contacts")).resolves.toBe(0);
+      await expect(tableCount("bot_contact_events")).resolves.toBe(0);
+      await expect(tableCount("communication_contacts")).resolves.toBe(0);
+      await expect(tableCount("start_response_deliveries")).resolves.toBe(0);
+    } finally {
+      await sql`drop trigger synthetic_contact_reply_fault on start_response_deliveries;
+        drop function synthetic_contact_reply_fault()`.execute(database);
+    }
+    await expect(contacts.observeStart(start)).resolves.toMatchObject({
+      contact: "created",
+      responsePlanned: true,
+    });
+    await expect(tableCount("communication_contacts")).resolves.toBe(1);
+  });
+
   it("reactivates a blocked contact without replacing its history", async () => {
-    const contacts = new BotContacts(database, config);
+    const contacts = new BotContacts(database, config, contactEffects);
     await contacts.observeStart(verifiedStart("42", "1"));
     await contacts.observeContactability({
       botIdentity: "inside",
@@ -593,7 +624,12 @@ describe("durable start response delivery", () => {
     });
     onTestFinished(() => complete({ kind: "transport_unknown" }));
     const processor = new StartResponseDeliveryProcessor(
-      new StartResponseDeliveryQueue(database, settleBlockedDelivery),
+      new StartResponseDeliveryQueue(
+        database,
+        settleBlockedDelivery,
+        undefined,
+        signInReplyEligibility,
+      ),
       {
         sendText: () => {
           announceStarted();
@@ -797,6 +833,7 @@ async function refusedCount(): Promise<number> {
 async function tableCount(
   table:
     | "bot_contact_events"
+    | "communication_contacts"
     | "bot_contacts"
     | "telegram_updates"
     | "start_response_deliveries"
@@ -848,14 +885,19 @@ async function prepareDelivery(
   results: TelegramDeliveryResult[],
   observedAt: Date,
 ) {
-  const contacts = new BotContacts(database, config);
+  const contacts = new BotContacts(database, config, contactEffects);
   await contacts.observeStart({
     ...verifiedStart("42", "1"),
     observedAt,
   });
   const messages = new ControlledMessages(results);
   const processor = new StartResponseDeliveryProcessor(
-    new StartResponseDeliveryQueue(database, settleBlockedDelivery),
+    new StartResponseDeliveryQueue(
+      database,
+      settleBlockedDelivery,
+      undefined,
+      signInReplyEligibility,
+    ),
     messages,
     new RuntimeMetrics(),
     config,

@@ -1,3 +1,4 @@
+import { reserveSignInLink } from "../identity-linking/sign-in-link.js";
 import { isTruthy } from "../../shared/truthiness.js";
 import { hasText } from "../../shared/text.js";
 import { Inject, Injectable } from "@nestjs/common";
@@ -46,40 +47,17 @@ export class SignInAccountLink {
           .where("telegram_user_id", "=", request.telegram_user_id)
           .executeTakeFirst();
         if (subject?.subject_ref !== subjectRef) return false;
-        const previous = await transaction
-          .selectFrom("link_transactions")
-          .selectAll()
-          .where("link_transaction_ref", "=", requestRef)
-          .executeTakeFirst();
-        if (previous) {
-          if (previous.account_ref !== accountRef) return false;
-          await queueSignInResult(
-            transaction,
-            requestRef,
-            this.clock.now(),
-            "Вход подтверждён. Вернитесь на сайт.",
-            this.config.signInReturnUrl,
-          );
-          return true;
-        }
         const now = this.clock.now();
-        if (request.expires_at <= now) return false;
-        await transaction
-          .insertInto("link_transactions")
-          .values({
-            link_transaction_ref: requestRef,
-            account_ref: accountRef,
-            token_digest: request.start_token_digest,
-            return_correlation: requestRef,
-            expires_at: request.expires_at,
-            state: "received",
-            bot_identity: request.bot_identity,
-            candidate_telegram_user_id: request.telegram_user_id,
-            registered_at: now,
-            received_at: now,
-            confirmed_at: null,
-          })
-          .execute();
+        const reserved = await reserveSignInLink(transaction, {
+          requestRef,
+          accountRef,
+          tokenDigest: request.start_token_digest,
+          expiresAt: request.expires_at,
+          botIdentity: request.bot_identity,
+          telegramUserId: request.telegram_user_id,
+          now,
+        });
+        if (!reserved) return false;
         await queueSignInResult(
           transaction,
           requestRef,
