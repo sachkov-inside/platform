@@ -30,7 +30,7 @@ fixtures in `scripts/check-negative-guardrails.mjs`; diagnostics own the enforce
 - `src/storybook/story-environment` owns those wrappers and `@/widgets/application-shell` owns the
   navigation items. A story that copies navigation or rebuilds a header drifts from the application
   as soon as either changes; extract the real frame into a module both sides import instead.
-- Scrolling in a story matches the product: the document scrolls below 48rem, and above it the
+- Scrolling in a story matches the product: the document scrolls below 64rem, and above it the
   shell owns scrolling. A page-level story that cannot scroll on desktop is a defect, not a fixture.
 - The application is the reference. When a story and its route disagree on tokens, spacing,
   typography, or states, the story changes.

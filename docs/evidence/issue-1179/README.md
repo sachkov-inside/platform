@@ -69,3 +69,14 @@ importer regression tests retain this case.
 
 Initial `pnpm check` passed on `dda846ba`. Final aggregate verification, independent review and CI
 are recorded in [PR #1221](https://github.com/sachkov-inside/platform/pull/1221).
+
+## Independent review outcomes
+
+[Standards](review-standards.md) and [Spec](review-spec.md) completed the second pass on `06b42f5e`.
+The first placement finding was fixed by shared navigation and real Reader/Task consumers.
+The outline traversal smell was rejected with the baseline filter as evidence: outline and
+source-anchor allocation intentionally cover different blocks. The source/legacy conflict was
+resolved by the owner's source-priority decision and a regression story.
+
+Second-pass Standards P3 was fixed: documentation now uses the actual 64rem scrolling breakpoint.
+Second-pass Spec reported no findings. Every finding has an outcome; no findings were deferred.
