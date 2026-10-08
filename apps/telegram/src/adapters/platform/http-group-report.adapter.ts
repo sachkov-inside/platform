@@ -1,6 +1,8 @@
 import { communityMembersWithoutRightSchema } from "@inside/contracts/community-members-without-right";
 import type { WithoutRightSnapshot } from "../../modules/community/group-members-report.js";
 
+const GROUP_REPORT_REQUEST_TIMEOUT_MILLISECONDS = 10_000;
+
 /** Uses the existing operator endpoint, not the bot's integration bearer. */
 export async function readGroupReportRights(
   endpoint: string,
@@ -23,7 +25,7 @@ export async function readGroupReportRights(
   const response = await fetcher(url, {
     method: "GET",
     redirect: "error",
-    signal: AbortSignal.timeout(10_000),
+    signal: AbortSignal.timeout(GROUP_REPORT_REQUEST_TIMEOUT_MILLISECONDS),
     headers: { authorization: `Bearer ${token}`, accept: "application/json" },
   });
   if (!response.ok) throw new Error("Operator report unavailable");

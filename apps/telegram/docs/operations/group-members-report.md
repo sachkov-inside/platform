@@ -47,14 +47,30 @@ Integration bearer бота для этого API не подходит.
 Команда не следует перенаправлениям. Токен передайте через окружение процесса;
 не добавляйте его в аргументы, Git или общий `application.env`.
 
-Используйте production Compose и его файл окружения из
-[production runbook](production.md). Подготовьте закрытый каталог `/srv/inside-telegram/private-reports`,
+Используйте массив `telegram_compose` из
+[production runbook](production.md#2-выкладка), включая обязательный host-owned override.
+В override добавьте маршрут нового сервиса через исходящий relay:
+
+```yaml
+services:
+  group-members-report:
+    extra_hosts:
+      - "api.telegram.org:172.30.244.2"
+    networks:
+      database: {}
+      egress: {}
+      telegram-transport: {}
+```
+
+Запускайте одноразовую команду, когда `app` и relay уже работают.
+Конфигурация relay остаётся на сервере вне Git;
+[production runbook](production.md#relay-для-operations-команд) владеет этим маршрутом.
+Подготовьте закрытый каталог `/srv/inside-telegram/private-reports`,
 доступный на запись пользователю `node` runtime-образа (UID 1000).
 После настройки окружения один запуск создаёт отчёт:
 
 ```bash
-docker compose --env-file "$COMPOSE_ENV" -f apps/telegram/infra/production/compose.yaml \
-  run --rm -T \
+"${telegram_compose[@]}" run --rm -T \
   -e PLATFORM_GROUP_REPORT_URL -e PLATFORM_OPERATOR_TOKEN \
   -v /srv/inside-telegram/private-reports:/reports \
   group-members-report /reports/group-members.json
