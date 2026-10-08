@@ -35,6 +35,20 @@ const capabilities = [
 ] as const;
 beforeEach(() => vi.clearAllMocks());
 
+it("keeps the authoring materials denial and private response policy", async () => {
+  fakes.materials.mockResolvedValue({
+    ok: false,
+    problem: { code: "forbidden" },
+    response: new Response(null, { status: 403 }),
+  });
+
+  const response = await handleAuthoringMaterialsRequest(request());
+  expect(response.status).toBe(403);
+  expect(await response.json()).toEqual({ kind: "forbidden" });
+  expect(response.headers.get("cache-control")).toBe("no-store, private");
+  expect(response.headers.get("vary")).toBe("cookie");
+});
+
 it.each(capabilities)(
   "%s reports a failed backend as 503 rather than a successful read",
   async (_name, backend, read) => {

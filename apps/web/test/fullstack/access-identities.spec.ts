@@ -309,8 +309,15 @@ test("Billing-only opens billing tools and is denied a Materials mutation withou
       billingManager.page,
       "/api/authoring/materials",
     );
-    expect(listed.status()).toBe(200);
+    expect(listed.status()).toBe(403);
     expect(await listed.json()).toEqual(materialsDenial);
+    await billingManager.page.goto("/authoring/materials");
+    await expect(
+      billingManager.page.getByRole("heading", {
+        name: "Нет доступа к материалам",
+        exact: true,
+      }),
+    ).toBeVisible();
     expect(await authoringMaterial(observer.page)).toMatchObject({
       contentVersion: before.contentVersion,
       publicationState: "published",
