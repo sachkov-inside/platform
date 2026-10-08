@@ -1168,13 +1168,20 @@ in their order and chapters, proposes no archive and refuses `--archive`; an emp
 that scope is refused. The [Product shell contract](../contracts/authoring-product-shell-v1/README.md)
 describes the package the Content exporter writes.
 
-`pnpm authoring:release preview --package PACKAGE_JSON --target editor|stand --state STATE_DIRECTORY [--publish SOURCE_ID]... [--publish-all]`
+`pnpm authoring:release preview --package PACKAGE_JSON --target editor|stand --state STATE_DIRECTORY [--publish SOURCE_ID]... [--publish-all] [--task-access CODE=free|closed]...`
 compares a package with the target without writing and saves a fingerprinted preview. Each Material
 shows its `publication`, a `publicationChange` from draft to published, or the conflict
 `target_not_draft` for a private import of a published or unpublished Material; the approval is part of the preview,
 so `apply` publishes exactly what was reviewed. A Material missing from this state directory's
 journal appears as `new`, because Platform offers no read-only lookup by source key; `apply` still
 checks its real state before any write.
+Course package v2 declares `requiredFeatures`; unsupported features stop before writes or asset
+uploads. This importer supports only `task-c-v2`. A Task with `access: null` is a preview conflict
+until `--task-access CODE=free|closed` records an explicit choice. Repeat the option for each Task;
+unknown codes or conflicting choices are refused. Apply reads the saved preview choice, so it takes
+no `--task-access` and does not change package bytes. An existing Material with the Task source key
+is a migration conflict; apply does not replace, archive or duplicate it.
+
 `pnpm authoring:release apply --preview PREVIEW_JSON --state STATE_DIRECTORY` first completes any
 write the journal left unfinished, with its original idempotency key, then applies exactly that
 preview and stops on drift, an edited preview or an unreviewed archive request. Drift covers

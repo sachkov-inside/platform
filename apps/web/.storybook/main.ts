@@ -5,6 +5,10 @@ import { mergeConfig } from "vite";
 
 const config: StorybookConfig = {
   staticDirs: [
+    {
+      from: "./fixtures/reader-images",
+      to: "/api/products/synthetic-course/tasks/synthetic-c-task/assets",
+    },
     "../public",
     {
       from: "./fixtures/reader-images",

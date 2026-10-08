@@ -48,7 +48,8 @@ import {
 } from "./target.mjs";
 import { keychainStore, ownerSession } from "./credentials.mjs";
 import { exportCommittedPackage } from "./git-local.mjs";
-import { previewTasks } from "./task-import.mjs";
+import { preflightTaskPages } from "./task-page.mjs";
+import { previewTasks, resolveTaskAccess } from "./task-import.mjs";
 
 /**
  * @typedef {import("./journal.mjs").Journal} Journal
@@ -142,6 +143,7 @@ async function readJournal(stateDirectory, target) {
  *   origin: string;
  *   request?: LocalTransport | undefined;
  *   defaultAccess?: DefaultAccess;
+ *   taskAccess?: string[];
  *   publish?: import("./local-boundaries.mjs").PublishSelection;
  *   accessToken?: import("./target.mjs").AccessToken | undefined;
  * }} options
@@ -154,6 +156,7 @@ export async function previewRelease(
     request: transport,
     defaultAccess = "closed",
     publish = [],
+    taskAccess = [],
     accessToken,
   },
 ) {
@@ -161,7 +164,10 @@ export async function previewRelease(
   const send = transport ?? transportFor(target, accessToken);
   /** @type {<P extends string>(path: P) => Promise<import("./local-boundaries.mjs").LocalResponse<P>>} */
   const request = async (path) => parseLocalResponse(path, await send(path));
-  const pkg = await loadPackage(packagePath);
+  const original = await loadPackage(packagePath);
+  const access = resolveTaskAccess(original.manifest, taskAccess);
+  const pkg = { ...original, manifest: access.manifest };
+  preflightTaskPages(pkg);
   const { manifest } = pkg;
   const shell = isProductShell(manifest);
   const publicationOfKey = publicationPolicy(manifest, publish);
@@ -490,6 +496,7 @@ export async function previewRelease(
     packagePath: resolve(packagePath),
     namespace: manifest.sourceNamespace,
     ...approval,
+    ...(access.choices.length === 0 ? {} : { taskAccess: access.choices }),
     ...(shell ? { scope: productShellScope.value } : {}),
     // A shell leaves these writes for their own package; the reviewer sees them before apply.
     ...(shell && pendingOperations(journal)
@@ -525,6 +532,7 @@ const previewSchema = z
     namespace: z.string(),
     scope: productShellScope.optional(),
     publish: publishSelectionSchema.optional(),
+    taskAccess: z.array(z.string()).optional(),
     pendingMaterialWrites: z.number().int().positive().optional(),
     expected: z.record(z.string(), z.union([z.number().int(), z.string()])),
     materials: z.array(z.object({ change: z.string() }).passthrough()),
@@ -582,6 +590,7 @@ export async function applyRelease(
   if (pkg.id !== preview.packageId)
     throw new Error("Package differs from the reviewed preview");
   const publish = preview.publish ?? [];
+  const taskAccess = preview.taskAccess ?? [];
   // A write whose outcome was lost is completed with its original key first; if it changed the
   // target, the reviewed plan no longer matches and a new preview is required.
   await syncLocal(preview.packagePath, stateDirectory, {
@@ -590,12 +599,15 @@ export async function applyRelease(
     publish,
     accessToken,
     reconcileOnly: true,
+    reviewed: true,
+    reviewedTaskAccess: taskAccess,
   });
   // The recomputed plan must be the reviewed one: versions, local receipts and every listed change.
   const current = await previewRelease(preview.packagePath, stateDirectory, {
     origin: target.id,
     request: transport,
     publish,
+    taskAccess,
     accessToken,
   });
   if (current.preview.fingerprint !== fingerprint)
@@ -609,6 +621,7 @@ export async function applyRelease(
     publish,
     accessToken,
     reviewed: true,
+    reviewedTaskAccess: taskAccess,
   });
 }
 
@@ -629,9 +642,14 @@ if (
       archive: { type: "string", multiple: true, default: [] },
       publish: { type: "string", multiple: true, default: [] },
       "publish-all": { type: "boolean", default: false },
+      "task-access": { type: "string", multiple: true, default: [] },
     },
   });
   const [command] = positionals;
+  if (command !== "preview" && values["task-access"].length > 0)
+    throw new Error(
+      "--task-access is a preview choice; apply uses the reviewed choices",
+    );
   /** @param {string} value */
   const sessionFor = (value) => {
     const target = releaseTarget(value);
@@ -663,11 +681,12 @@ if (
       {
         origin: values.target,
         publish: publishOption(values),
+        taskAccess: values["task-access"],
         accessToken: sessionFor(values.target),
       },
     );
     process.stdout.write(
-      `${JSON.stringify({ preview: path, ...(exported ? { commit: exported.commit } : {}), scope: preview.scope ?? "materials", publish: preview.publish ?? [], summary, products: preview.products, tasks: preview.tasks ?? [], archiveProposals: preview.archiveProposals, changes: preview.materials.filter((item) => item.change !== "unchanged") }, null, 2)}\n`,
+      `${JSON.stringify({ preview: path, ...(exported ? { commit: exported.commit } : {}), scope: preview.scope ?? "materials", taskAccess: preview.taskAccess ?? [], publish: preview.publish ?? [], summary, products: preview.products, tasks: preview.tasks ?? [], archiveProposals: preview.archiveProposals, changes: preview.materials.filter((item) => item.change !== "unchanged") }, null, 2)}\n`,
     );
   } else if (command === "apply" && values.preview && values.state) {
     const reviewed = z
@@ -683,7 +702,7 @@ if (
     );
   } else {
     throw new Error(
-      "Usage: pnpm authoring:release preview (--package PACKAGE_JSON | --content CONTENT_REPOSITORY --product PRODUCT_ID [--ref REF]) --target editor|stand|production --state STATE_DIRECTORY [--publish SOURCE_ID]... [--publish-all]\n       pnpm authoring:release apply --preview PREVIEW_JSON --state STATE_DIRECTORY [--archive SOURCE_ID]...",
+      "Usage: pnpm authoring:release preview (--package PACKAGE_JSON | --content CONTENT_REPOSITORY --product PRODUCT_ID [--ref REF]) --target editor|stand|production --state STATE_DIRECTORY [--publish SOURCE_ID]... [--publish-all] [--task-access CODE=free|closed]...\n       pnpm authoring:release apply --preview PREVIEW_JSON --state STATE_DIRECTORY [--archive SOURCE_ID]...",
     );
   }
 }
