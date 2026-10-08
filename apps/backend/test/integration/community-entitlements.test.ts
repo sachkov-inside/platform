@@ -522,6 +522,11 @@ describe("community entitlement delivery (real PostgreSQL and real facets; synth
             identityRef,
             now,
           });
+          // The database trigger uses clock_timestamp(); pin scan order to this case's clock.
+          await isolated.prisma.telegramAccountLinkState.update({
+            where: { accountId },
+            data: { updatedAt: now },
+          });
         }
         if (source === "link") {
           now = new Date("2030-01-01T00:01:00.000Z");
