@@ -18,6 +18,12 @@ import {
   FILM_V2_DURATION,
   FILM_V2_POSTER_TIME,
 } from "../model/course-film-v2";
+import {
+  drawFilmV3,
+  FILM_V3_DESCRIPTION,
+  FILM_V3_DURATION,
+  FILM_V3_POSTER_TIME,
+} from "../model/course-film-v3";
 
 import "./course-film.css";
 
@@ -37,7 +43,8 @@ const MONO = "ui-monospace, SFMono-Regular, Menlo, monospace";
 
 /**
  * Две версии фильма: первая — навыки AI-инженера — показывается по умолчанию (выбор владельца
- * 08.10.2026), вторая — путь фичи от задачи до релиза — по адресу с `?film=v2`.
+ * 08.10.2026), вторая — путь фичи от задачи до релиза — по адресу с `?film=v2`, третья — сюжет
+ * первой с переходами и законами движения по словарю Pronin — по адресу с `?film=v3`.
  */
 interface Film {
   readonly draw: typeof drawFilm;
@@ -45,7 +52,7 @@ interface Film {
   readonly duration: number;
   readonly poster: number;
 }
-const FILMS: Readonly<Record<"v1" | "v2", Film>> = {
+const FILMS: Readonly<Record<"v1" | "v2" | "v3", Film>> = {
   v1: {
     draw: drawFilm,
     description: FILM_DESCRIPTION,
@@ -58,13 +65,19 @@ const FILMS: Readonly<Record<"v1" | "v2", Film>> = {
     duration: FILM_V2_DURATION,
     poster: FILM_V2_POSTER_TIME,
   },
+  v3: {
+    draw: drawFilmV3,
+    description: FILM_V3_DESCRIPTION,
+    duration: FILM_V3_DURATION,
+    poster: FILM_V3_POSTER_TIME,
+  },
 };
 type FilmVersion = keyof typeof FILMS;
 const subscribeNothing = () => () => undefined;
-const readFilmVersion = (): FilmVersion =>
-  new URLSearchParams(window.location.search).get("film") === "v2"
-    ? "v2"
-    : "v1";
+const readFilmVersion = (): FilmVersion => {
+  const asked = new URLSearchParams(window.location.search).get("film");
+  return asked === "v2" || asked === "v3" ? asked : "v1";
+};
 const readServerFilmVersion = (): FilmVersion => "v1";
 
 /** Цвета и моноширинный шрифт анимации — токены страницы, как у остального интерфейса. */
