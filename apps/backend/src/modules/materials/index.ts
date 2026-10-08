@@ -74,3 +74,10 @@ export {
   ProductDirectory,
   type DirectoryProduct,
 } from "./features/read-product-directory/read-product-directory.js";
+
+export { materialBodyOperations } from "./infrastructure/tiptap/index.js";
+
+export {
+  attachmentDisposition,
+  signedDeliveryTtlSeconds,
+} from "./shared/protected-delivery.js";
