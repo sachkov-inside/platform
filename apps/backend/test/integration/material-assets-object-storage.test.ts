@@ -1,3 +1,5 @@
+import { registerFixedClock } from "../support/fixed-clock.js";
+
 import { createHash, randomUUID } from "node:crypto";
 
 import { CreateBucketCommand, S3Client } from "@aws-sdk/client-s3";
@@ -22,6 +24,8 @@ import {
   createMigratedTestDatabase,
   type TestDatabase,
 } from "./setup/test-database.js";
+
+registerFixedClock();
 
 const buckets = {
   protected: "inside-test-protected",
@@ -136,7 +140,7 @@ describe("MaterialAssets against PostgreSQL and S3", () => {
       assets.cleanupOrphans({
         graceMs: 60 * 60 * 1_000,
         isReferenced: () => Promise.resolve(false),
-        // deterministic-test-allow wall-clock: Legacy clock read; fixed domain or monotonic clock migration is tracked in #1177.
+        // deterministic-test-allow wall-clock: Date is fixed per case by registerFixedClock; production consumers share this virtual Date.
         now: new Date(Date.now() + 2 * 60 * 60 * 1_000),
       }),
     ).resolves.toEqual({ ok: true, value: { cleaned: 1, retained: 0 } });
@@ -298,7 +302,7 @@ describe("MaterialAssets against PostgreSQL and S3", () => {
     const cleanupPromise = assets.cleanupOrphans({
       graceMs: 0,
       isReferenced: () => Promise.resolve(false),
-      // deterministic-test-allow wall-clock: Legacy clock read; fixed domain or monotonic clock migration is tracked in #1177.
+      // deterministic-test-allow wall-clock: Date is fixed per case by registerFixedClock; production consumers share this virtual Date.
       now: new Date(Date.now() + 60 * 60 * 1_000),
     });
     await waitForMaterialAssetLockWaiters(2);
@@ -323,7 +327,7 @@ describe("MaterialAssets against PostgreSQL and S3", () => {
       assets.cleanupOrphans({
         graceMs: 0,
         isReferenced: () => Promise.resolve(false),
-        // deterministic-test-allow wall-clock: Legacy clock read; fixed domain or monotonic clock migration is tracked in #1177.
+        // deterministic-test-allow wall-clock: Date is fixed per case by registerFixedClock; production consumers share this virtual Date.
         now: new Date(Date.now() + 2 * 60 * 60 * 1_000),
       }),
     ).resolves.toMatchObject({ ok: true, value: { cleaned: 1 } });
@@ -619,10 +623,8 @@ function deferredSignal() {
 }
 
 async function waitForMaterialAssetLockWaiters(minimum: number): Promise<void> {
-  // deterministic-test-allow wall-clock: Legacy clock read; fixed domain or monotonic clock migration is tracked in #1177.
-  const deadline = Date.now() + 5_000;
-  // deterministic-test-allow wall-clock: Legacy clock read; fixed domain or monotonic clock migration is tracked in #1177.
-  while (Date.now() < deadline) {
+  const deadline = performance.now() + 5_000;
+  while (performance.now() < deadline) {
     const rows = materialAssetLockWaiterRowsSchema.parse(
       await database.prisma.$queryRaw(Prisma.sql`
         select count(*)::integer as waiting

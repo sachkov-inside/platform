@@ -1,3 +1,5 @@
+import { registerFixedClock } from "../support/fixed-clock.js";
+
 import {
   LEARNING_TASKS,
   type LearningTasks,
@@ -53,6 +55,8 @@ import {
   createMigratedTestDatabase,
   type TestDatabase,
 } from "./setup/test-database.js";
+
+registerFixedClock();
 
 const toolText = z.object({
   content: z.array(z.object({ type: z.literal("text"), text: z.string() })),

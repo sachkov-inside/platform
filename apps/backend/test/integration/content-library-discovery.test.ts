@@ -1,3 +1,5 @@
+import { registerFixedClock } from "../support/fixed-clock.js";
+
 import { afterAll, beforeAll, describe, expect, test } from "vitest";
 
 import { seedLocalDevelopment } from "../../src/development/seed-local-development.js";
@@ -12,6 +14,8 @@ import {
   createMigratedTestDatabase,
   type TestDatabase,
 } from "./setup/test-database.js";
+
+registerFixedClock();
 
 describe("Content Library discovery", () => {
   let testDatabase: TestDatabase;
@@ -358,12 +362,12 @@ describe("Content Library discovery", () => {
     await Promise.all([
       testDatabase.prisma.topic.update({
         where: { slug: "platform" },
-        // deterministic-test-allow wall-clock: Legacy clock read; fixed domain or monotonic clock migration is tracked in #1177.
+        // deterministic-test-allow wall-clock: Date is fixed per case by registerFixedClock; production consumers share this virtual Date.
         data: { archivedAt: new Date() },
       }),
       testDatabase.prisma.product.update({
         where: { slug: "platform-inside" },
-        // deterministic-test-allow wall-clock: Legacy clock read; fixed domain or monotonic clock migration is tracked in #1177.
+        // deterministic-test-allow wall-clock: Date is fixed per case by registerFixedClock; production consumers share this virtual Date.
         data: { archivedAt: new Date() },
       }),
     ]);

@@ -1,3 +1,5 @@
+import { registerFixedClock } from "../support/fixed-clock.js";
+
 import {
   LEARNING_TASKS,
   type LearningTasks,
@@ -63,6 +65,8 @@ import {
   createMigratedTestDatabase,
   type TestDatabase,
 } from "./setup/test-database.js";
+
+registerFixedClock();
 
 const issuer = "https://communications.test/oidc";
 const audience = "https://communications.test/api";
@@ -194,7 +198,7 @@ describe("HTTP and delegated OAuth communications parity against a contract stub
           ).accountId,
         );
       if (subject !== "unlinked") {
-        // deterministic-test-allow wall-clock: Legacy clock read; fixed domain or monotonic clock migration is tracked in #1177.
+        // deterministic-test-allow wall-clock: Date is fixed per case by registerFixedClock; production consumers share this virtual Date.
         const now = new Date();
         await database.prisma.telegramLinkTransaction.create({
           data: {
@@ -300,7 +304,7 @@ describe("HTTP and delegated OAuth communications parity against a contract stub
   });
 
   function token(subject: string) {
-    // deterministic-test-allow wall-clock: Legacy clock read; fixed domain or monotonic clock migration is tracked in #1177.
+    // deterministic-test-allow wall-clock: Date is fixed per case by registerFixedClock; production consumers share this virtual Date.
     const issuedAt = Math.floor(Date.now() / 1_000);
     return new SignJWT({})
       .setProtectedHeader({ alg: "ES384", kid: "communications-key" })

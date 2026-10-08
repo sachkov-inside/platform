@@ -1,3 +1,5 @@
+import { registerFixedClock } from "../support/fixed-clock.js";
+
 import { createHash, randomUUID } from "node:crypto";
 
 import sharp from "sharp";
@@ -26,6 +28,8 @@ import {
   createMigratedTestDatabase,
   type TestDatabase,
 } from "./setup/test-database.js";
+
+registerFixedClock();
 
 const actor = "72000000-0000-4000-8000-000000000001";
 const topicId = "72000000-0000-4000-8000-000000000002";
@@ -149,7 +153,7 @@ describe("ContentCovers", () => {
       before.every(({ publicObjectKey }) => stored.has(publicObjectKey)),
     ).toBe(true);
     const graceMs = 1_000;
-    // deterministic-test-allow wall-clock: Legacy clock read; fixed domain or monotonic clock migration is tracked in #1177.
+    // deterministic-test-allow wall-clock: Date is fixed per case by registerFixedClock; production consumers share this virtual Date.
     const orphanObservedAt = new Date(Date.now() + graceMs * 2);
     const maintenance = assembleContentCoverMaintenance({
       prisma: database.prisma,
@@ -291,7 +295,7 @@ describe("ContentCovers", () => {
     });
     await maintenance.cleanup({
       graceMs: 1_000,
-      // deterministic-test-allow wall-clock: Legacy clock read; fixed domain or monotonic clock migration is tracked in #1177.
+      // deterministic-test-allow wall-clock: Date is fixed per case by registerFixedClock; production consumers share this virtual Date.
       now: new Date(Date.now() + 2_000),
     });
     expect(
@@ -314,7 +318,7 @@ describe("ContentCovers", () => {
     ).resolves.toEqual({ error: { code: "not_found" }, ok: false });
     await maintenance.cleanup({
       graceMs: 1_000,
-      // deterministic-test-allow wall-clock: Legacy clock read; fixed domain or monotonic clock migration is tracked in #1177.
+      // deterministic-test-allow wall-clock: Date is fixed per case by registerFixedClock; production consumers share this virtual Date.
       now: new Date(Date.now() + 4_000),
     });
     expect(
@@ -354,7 +358,7 @@ describe("ContentCovers", () => {
           await objectStorage.delete(namespace, key);
         },
       },
-      // deterministic-test-allow wall-clock: Legacy clock read; fixed domain or monotonic clock migration is tracked in #1177.
+      // deterministic-test-allow wall-clock: Date is fixed per case by registerFixedClock; production consumers share this virtual Date.
     }).cleanup({ graceMs: 1_000, now: new Date(Date.now() + 2_000) });
     await deletionStarted.promise;
     let replacement;
@@ -434,7 +438,7 @@ describe("ContentCovers", () => {
         prisma: database.prisma,
         objectStorage,
       });
-      // deterministic-test-allow wall-clock: Legacy clock read; fixed domain or monotonic clock migration is tracked in #1177.
+      // deterministic-test-allow wall-clock: Date is fixed per case by registerFixedClock; production consumers share this virtual Date.
       const now = new Date(Date.now() + 2_000);
       try {
         await maintenance.cleanup({ graceMs: 1_000, now });
@@ -511,7 +515,7 @@ describe("ContentCovers", () => {
         prisma: database.prisma,
         objectStorage,
       });
-      // deterministic-test-allow wall-clock: Legacy clock read; fixed domain or monotonic clock migration is tracked in #1177.
+      // deterministic-test-allow wall-clock: Date is fixed per case by registerFixedClock; production consumers share this virtual Date.
       const now = new Date(Date.now() + 2_000);
       await maintenance.cleanup({ graceMs: 1_000, now });
       await maintenance.cleanup({
