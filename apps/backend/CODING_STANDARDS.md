@@ -67,6 +67,10 @@ not dependency wiring.
   and Assets delegates; the caller's own code reaches them only through that function, which
   `scripts/check-backend-architecture.mjs` enforces. Opening no transaction in the callee stays a
   review rule: a nested `$transaction` is also the correct shape for a standalone operation.
+  Reading Activity carries `product`, `material` and `publishedMaterialProductMembership` only to
+  pass its transaction to Materials. The guardrail rejects a named Prisma operation on those
+  foreign delegates, including Product. It does not follow aliases or prove every indirect access;
+  review still checks ownership and transaction handoff.
 - An operation never awaits another pooled connection while its transaction is open: as many such
   operations as the pool has connections hold all of it and wait for each other. A read of another
   Module that the caller's locks guard takes the caller's transaction, as Save does with

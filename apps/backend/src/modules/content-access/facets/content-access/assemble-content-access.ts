@@ -27,7 +27,7 @@ import type {
   MembershipAccessState,
 } from "./content-access.dependencies.js";
 
-const MAX_BATCH_SIZE = 100;
+import { CONTENT_ACCESS_BATCH_SIZE } from "./content-access.interface.js";
 
 interface SubjectFacts {
   readonly permission: "granted" | "denied" | "unavailable";
@@ -65,7 +65,7 @@ export function assembleContentAccess(
       if (input.operations.length === 0) {
         return { ok: false, error: { code: "empty_batch" } };
       }
-      if (input.operations.length > MAX_BATCH_SIZE) {
+      if (input.operations.length > CONTENT_ACCESS_BATCH_SIZE) {
         return { ok: false, error: { code: "batch_too_large" } };
       }
       const itemIds = new Set(input.operations.map(({ itemId }) => itemId));

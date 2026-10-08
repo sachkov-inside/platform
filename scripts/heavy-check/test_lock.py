@@ -128,7 +128,7 @@ class LockTest(unittest.TestCase):
         command = shlex.join(['bash', str(WRAPPER), sys.executable, '-c', FIXTURE])
         (cwd / 'package.json').write_text(json.dumps({'scripts': {'check': command}}))
         process = self.start(cwd=cwd, launcher=['pnpm', 'check'])
-        while 'acquired' not in self.line(process, ''):
+        while not self.line(process, '').startswith('heavy-check: acquired '):
             pass
         return process
 
@@ -390,10 +390,20 @@ while True:
             holder.stdin.write(b'\n')
             holder.stdin.flush()
             self.assertEqual(holder.wait(timeout=10), 0)
-        for waiter in waiters:
-            self.line(waiter, 'acquired')
-            self.line(waiter, 'READY')
-            self.assertEqual(waiter.wait(timeout=10), 0)
+        # Launch order is not FIFO registration order. Observe whichever waiter
+        # advances, rather than spending one admission budget on the whole queue.
+        with selectors.DefaultSelector() as selector:
+            for waiter in waiters:
+                selector.register(waiter.stdout, selectors.EVENT_READ, waiter)
+            while selector.get_map():
+                ready = selector.select(timeout=10)
+                self.assertTrue(ready, 'waiting for next acquired waiter')
+                for key, _ in ready:
+                    waiter = key.data
+                    self.line(waiter, 'acquired')
+                    self.line(waiter, 'READY')
+                    self.assertEqual(waiter.wait(timeout=10), 0)
+                    selector.unregister(key.fileobj)
         self.assertLess(cpu, 0.2)
 
     def test_nested_command_uses_outer_slot(self):

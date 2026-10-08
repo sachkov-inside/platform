@@ -267,7 +267,13 @@ test("Materials-only opens material tools and is denied a Billing mutation witho
   const author = await openAs(browser, "MATERIALS_ONLY");
   const observer = await openAs(browser, "BILLING_ONLY");
   try {
+    // Предыдущие сценарии создают материалы и сдвигают сидовую запись на другую страницу.
     await author.page.goto("/authoring/materials");
+    await author.page
+      .getByRole("searchbox", {
+        name: "Поиск по названию, описанию или адресу",
+      })
+      .fill(publishedMaterial.title);
     await expect(
       author.page
         .getByRole("region", { name: "Список материалов" })

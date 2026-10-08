@@ -128,8 +128,8 @@ first reply within bounds while 5,000 due contacts are dispatched, keeps replies
 unsendable ones, and fails if a BotContact command waits for the scheduler lock.
 
 The shared PostgreSQL transport reservation allows one private-chat message per second and one
-bot message per 40 ms, with no paid broadcast mode. Service responses have priority before marketing
-claims and use the same slots while marketing is enabled. Their worker cycles are independent,
+bot message per 40 ms, with no paid broadcast mode. Service responses eligible for dispatch have priority before marketing
+claims and use the same slots while marketing is enabled. Both the priority check and reply claim use the same sign-in eligibility rule: an expired prompt or disabled sign-in does not hold independent marketing; terminal message edits retain their existing eligibility. Their worker cycles are independent,
 so slow marketing I/O cannot hold up service processing; marketing API calls time out after ten seconds. These conservative intervals follow the
 [Telegram limits](https://core.telegram.org/bots/faq#my-bot-is-hitting-limits-how-do-i-avoid-this).
 Contactability and the persisted marketing preference are reread under the BotContact's lock
@@ -207,8 +207,7 @@ history and prevents new parts. Empty snapshots complete immediately.
 Broadcasts use `communication_deliveries`, the same worker and Telegram capacity slots as funnels,
 with service responses retaining priority. Stop/block persist `suppressed` on pending/failed parts,
 including delayed retries; in-flight/unknown parts retain evidence and a cancellation reason.
-Resume/unblock never revives these recipients. A confirmed Telegram 403 updates contactability and
-suppresses remaining work. `delivery.resolve` and `deliveries.read` include owned broadcasts with
+Resume/unblock never revives these recipients. A confirmed private-chat Telegram 403 from a current attempt in the service reply queue, notifications, author messages or the marketing scheduler marks that BotContact blocked and updates marketing availability in the settlement transaction. It preserves the explicit marketing preference and uses the existing suppression policy. Lost reply/author leases discard their late outcomes, including 403. A 403 does not change availability when a newer private `/start` or contactability observation arrived after that attempt began. A later private `/start` or unblock observation restores Contactability; it does not replay a terminally rejected delivery. `delivery.resolve` and `deliveries.read` include owned broadcasts with
 the same unknown-risk decision and immutable attempt history as funnels. A partial cancellation
 never reports full success. These commands do not themselves send real Telegram messages unless
 the separately gated live marketing runtime is enabled.

@@ -1,4 +1,8 @@
 import {
+  name as communityProjectionRetriesName,
+  statement as communityProjectionRetriesStatement,
+} from "../modules/telegram-membership/infrastructure/postgres/migrations/0085-community-projection-retries.js";
+import {
   name as ownerCommandKeysName,
   statement as ownerCommandKeysStatement,
 } from "../modules/billing/infrastructure/postgres/migrations/0084-owner-command-keys.js";
@@ -553,6 +557,10 @@ export const platformMigrations = [
   { name: domainNamesName, statement: domainNamesStatement },
   { name: taskPagesName, statement: taskPagesStatement },
   { name: ownerCommandKeysName, statement: ownerCommandKeysStatement },
+  {
+    name: communityProjectionRetriesName,
+    statement: communityProjectionRetriesStatement,
+  },
 ] as const;
 
 export function migrateToLatest(

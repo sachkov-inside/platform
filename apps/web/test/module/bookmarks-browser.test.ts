@@ -21,11 +21,24 @@ describe("Bookmarks browser contract", () => {
 
   it("asks for bookmark states only with an account", () => {
     expect(
-      bookmarkStatesQueryOptions({ materialId, signedIn: false }).enabled,
+      bookmarkStatesQueryOptions({ materialId, accountId: null }).enabled,
     ).toBe(false);
     expect(
-      bookmarkStatesQueryOptions({ materialId, signedIn: true }).enabled,
+      bookmarkStatesQueryOptions({ materialId, accountId: "account-a" })
+        .enabled,
     ).toBe(true);
+  });
+
+  it("does not reuse Account A's bookmark state for Account B", () => {
+    const a = bookmarkStatesQueryOptions({
+      materialId,
+      accountId: "account-a",
+    });
+    const b = bookmarkStatesQueryOptions({
+      materialId,
+      accountId: "account-b",
+    });
+    expect(a.queryKey).not.toEqual(b.queryKey);
   });
 
   it("reads the ready states wrapper instead of treating the bookmark as unavailable", async () => {

@@ -1,3 +1,4 @@
+import { settleBlockedDelivery } from "../../src/modules/communications/delivery-contactability.js";
 import { registerFixedClock, useTimeoutClock } from "../support/fixed-clock.js";
 import { advisoryLockWaiting } from "../support/advisory-lock-wait.js";
 import { hasText } from "../../src/shared/text.js";
@@ -418,7 +419,7 @@ describe("durable Membership events", () => {
         new DisabledCommunityDispatchAuthorization(),
         new DisabledTelegramCommunityChat(),
       ),
-      new StartResponseDeliveryQueue(database, config),
+      new StartResponseDeliveryQueue(database, settleBlockedDelivery, config),
       new GrammyUpdateAdapter(),
       { start: () => Promise.resolve(), retry: () => Promise.resolve() },
     );

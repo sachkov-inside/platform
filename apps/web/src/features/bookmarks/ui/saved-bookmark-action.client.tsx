@@ -7,6 +7,8 @@ import {
   bookmarkStatesQueryOptions,
   setBookmark,
 } from "../api/bookmarks.browser";
+import { bookmarkChanges, refreshBookmarks } from "../model/bookmark-events";
+import { useBookmarkChanges } from "../model/use-bookmark-changes.client";
 import type { BookmarkActionView } from "../model/bookmark-action-view";
 import { BookmarkAction } from "./bookmark-action.client";
 
@@ -22,16 +24,21 @@ export function SavedBookmarkAction({
 }) {
   const { accountId, resolved } = useMaterialReading();
   const queryClient = useQueryClient();
+  useBookmarkChanges(resolved ? accountId : null);
   const [notice, setNotice] = useState<"error" | "denied" | null>(null);
   const state = useQuery(
     bookmarkStatesQueryOptions({
       materialId,
-      signedIn: resolved && accountId !== null,
+      accountId: resolved ? accountId : null,
     }),
   );
   const mutation = useMutation({
-    mutationFn: setBookmark,
-    onSuccess: async (result) => {
+    mutationFn: (input: {
+      materialId: string;
+      bookmarked: boolean;
+      accountId: string;
+    }) => setBookmark(input),
+    onSuccess: async (result, input) => {
       if (result.kind === "unavailable") {
         setNotice("error");
         return;
@@ -41,7 +48,14 @@ export function SavedBookmarkAction({
         return;
       }
       setNotice(null);
-      await queryClient.invalidateQueries({ queryKey: ["bookmarks"] });
+      if (result.kind === "ready") {
+        const announcementId = bookmarkChanges(input.accountId).announce();
+        await refreshBookmarks(queryClient, input.accountId, announcementId);
+      } else {
+        await queryClient.invalidateQueries({
+          queryKey: ["bookmarks", input.accountId],
+        });
+      }
     },
     onError: () => {
       setNotice("error");
@@ -78,8 +92,8 @@ export function SavedBookmarkAction({
   return (
     <BookmarkAction
       onToggle={(desired) => {
-        if (state.isPending || mutation.isPending) return;
-        mutation.mutate({ materialId, bookmarked: desired });
+        if (accountId === null || state.isPending || mutation.isPending) return;
+        mutation.mutate({ materialId, bookmarked: desired, accountId });
       }}
       view={view}
     />

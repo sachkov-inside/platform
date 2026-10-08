@@ -1,5 +1,5 @@
 "use client";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   useInfiniteQuery,
   useMutation,
@@ -9,6 +9,7 @@ import {
 
 import {
   announceEnrollmentChange,
+  subscribeEnrollmentChange,
   billingErrorMessage,
   type BillingCommandResult,
   type BillingFailureCode,
@@ -36,6 +37,7 @@ import {
   accessSummaryQueryKey,
   peopleQueryKey,
 } from "../model/access-query-keys";
+import { refreshAccessRead } from "../model/access-refresh";
 import { invitationOfferNames } from "../model/invitation-operations";
 import {
   PeopleView,
@@ -66,6 +68,13 @@ export function PeoplePanel({
   readonly offers: readonly PriceSnapshot[];
 }) {
   const cache = useQueryClient();
+  useEffect(
+    () =>
+      subscribeEnrollmentChange((announcementId) => {
+        void refreshAccessRead(cache, peopleQueryKey, announcementId);
+      }),
+    [cache],
+  );
   const { operationId, completeOperation } = useRepeatableOperations();
   // Начало назначения читается при первой отправке и не меняется у повтора той же операции.
   const assignmentStarts = useRef(new Map<string, string>());
@@ -104,8 +113,14 @@ export function PeoplePanel({
     (row) => row.availableForAssignment && !row.archived,
   );
   function refresh() {
-    void cache.invalidateQueries({ queryKey: peopleQueryKey });
-    void cache.invalidateQueries({ queryKey: accessSummaryQueryKey });
+    void cache.invalidateQueries(
+      { queryKey: peopleQueryKey },
+      { cancelRefetch: false },
+    );
+    void cache.invalidateQueries(
+      { queryKey: accessSummaryQueryKey },
+      { cancelRefetch: false },
+    );
   }
   const change = useMutation({
     retry: false,
@@ -132,10 +147,11 @@ export function PeoplePanel({
       }
       completeOperation(task.slot);
       assignmentStarts.current.clear();
-      announceEnrollmentChange();
+      const announcementId = announceEnrollmentChange();
+      void refreshAccessRead(cache, peopleQueryKey, announcementId);
+      void refreshAccessRead(cache, accessSummaryQueryKey, announcementId);
       setFailure(null);
       setMessage(task.message);
-      refresh();
     },
   });
   function changeGround(request: GroundChangeRequest) {

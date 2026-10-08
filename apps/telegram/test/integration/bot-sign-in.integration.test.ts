@@ -1,3 +1,4 @@
+import { settleBlockedDelivery } from "../../src/modules/communications/delivery-contactability.js";
 import {
   registerFixedClock,
   fixedTestInstant,
@@ -326,14 +327,14 @@ describe("bot sign-in provider", () => {
     // deterministic-test-allow wall-clock: Date is fixed per case by registerFixedClock; in-process producers and consumers share virtual Date.
     const now = new Date();
     const firstWorker = new StartResponseDeliveryProcessor(
-      new StartResponseDeliveryQueue(database),
+      new StartResponseDeliveryQueue(database, settleBlockedDelivery),
       messages,
       new RuntimeMetrics(),
       config,
     );
     expect(await firstWorker.processAvailable(1, now)).toBe(1);
     const restartedWorker = new StartResponseDeliveryProcessor(
-      new StartResponseDeliveryQueue(secondDatabase),
+      new StartResponseDeliveryQueue(secondDatabase, settleBlockedDelivery),
       messages,
       new RuntimeMetrics(),
       config,
@@ -385,7 +386,10 @@ describe("bot sign-in provider", () => {
       } finally {
         fault.mockRestore();
       }
-      const queue = new StartResponseDeliveryQueue(secondDatabase);
+      const queue = new StartResponseDeliveryQueue(
+        secondDatabase,
+        settleBlockedDelivery,
+      );
       if (failurePoint === "before") {
         // deterministic-test-allow wall-clock: Date is fixed per case by registerFixedClock; in-process producers and consumers share virtual Date.
         expect(await queue.claimNext(new Date(), true)).toBeUndefined();
@@ -416,7 +420,7 @@ describe("bot sign-in provider", () => {
       await start(challenge, 42);
       const edits: TelegramMessageEdit[] = [];
       const worker = new StartResponseDeliveryProcessor(
-        new StartResponseDeliveryQueue(database),
+        new StartResponseDeliveryQueue(database, settleBlockedDelivery),
         {
           sendText() {
             return Promise.resolve({
@@ -523,7 +527,7 @@ describe("bot sign-in provider", () => {
       expect(response.json()).toMatchObject({ status: "linked" });
       const edits: TelegramMessageEdit[] = [];
       const worker = new StartResponseDeliveryProcessor(
-        new StartResponseDeliveryQueue(database),
+        new StartResponseDeliveryQueue(database, settleBlockedDelivery),
         {
           sendText() {
             return Promise.reject(new Error("Must edit, not send"));
@@ -572,13 +576,19 @@ describe("bot sign-in provider", () => {
         message_text: "Вход отменён.",
       },
     ]);
-    const queue = new StartResponseDeliveryQueue(database);
+    const queue = new StartResponseDeliveryQueue(
+      database,
+      settleBlockedDelivery,
+    );
     // deterministic-test-allow wall-clock: Date is fixed per case by registerFixedClock; in-process producers and consumers share virtual Date.
     expect(await queue.claimNext(new Date(), false)).toBeUndefined();
     const claims = await Promise.all([
       // deterministic-test-allow wall-clock: Date is fixed per case by registerFixedClock; in-process producers and consumers share virtual Date.
       queue.claimNext(new Date(), true),
-      new StartResponseDeliveryQueue(secondDatabase).claimNext(
+      new StartResponseDeliveryQueue(
+        secondDatabase,
+        settleBlockedDelivery,
+      ).claimNext(
         // deterministic-test-allow wall-clock: Date is fixed per case by registerFixedClock; in-process producers and consumers share virtual Date.
         new Date(),
         true,
@@ -730,7 +740,7 @@ describe("bot sign-in provider", () => {
       await start(challenge, 42);
       const messages: TelegramTextMessage[] = [];
       const delivery = new StartResponseDeliveryProcessor(
-        new StartResponseDeliveryQueue(database),
+        new StartResponseDeliveryQueue(database, settleBlockedDelivery),
         {
           editText() {
             return Promise.reject(new Error("Unexpected message edit"));
@@ -805,7 +815,7 @@ describe("bot sign-in provider", () => {
     ).not.toContain(challenge.browserSecret);
     const messages: TelegramTextMessage[] = [];
     const delivery = new StartResponseDeliveryProcessor(
-      new StartResponseDeliveryQueue(database),
+      new StartResponseDeliveryQueue(database, settleBlockedDelivery),
       {
         editText() {
           return Promise.reject(new Error("Unexpected message edit"));
@@ -885,7 +895,10 @@ describe("bot sign-in provider", () => {
     await callback(challenge, 42, "deny");
     await callback(challenge, 42);
     expect(await status(challenge, true)).toMatchObject({ status: "denied" });
-    const queue = new StartResponseDeliveryQueue(database);
+    const queue = new StartResponseDeliveryQueue(
+      database,
+      settleBlockedDelivery,
+    );
     // deterministic-test-allow wall-clock: Date is fixed per case by registerFixedClock; in-process producers and consumers share virtual Date.
     expect(await queue.claimNext(new Date(), true)).toMatchObject({
       editMessageId: "100",
@@ -982,7 +995,10 @@ describe("bot sign-in provider", () => {
       }),
     ).toEqual({ status: "disabled" });
     expect(
-      await new StartResponseDeliveryQueue(database).claimNext(
+      await new StartResponseDeliveryQueue(
+        database,
+        settleBlockedDelivery,
+      ).claimNext(
         // deterministic-test-allow wall-clock: Date is fixed per case by registerFixedClock; in-process producers and consumers share virtual Date.
         new Date(),
         false,
@@ -1028,7 +1044,10 @@ describe("bot sign-in provider", () => {
       ),
     ).toEqual({ status: "expired" });
     expect(
-      await new StartResponseDeliveryQueue(database).claimNext(deadline, true),
+      await new StartResponseDeliveryQueue(
+        database,
+        settleBlockedDelivery,
+      ).claimNext(deadline, true),
     ).toBeUndefined();
     await callback(challenge, 42);
     expect(

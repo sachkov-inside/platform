@@ -152,6 +152,10 @@ fixtures in `scripts/check-negative-guardrails.mjs`; diagnostics own the enforce
   Without the browser's inter-tab channel, the common mechanism announces writes to surfaces in
   the same tab through a window event. Other tabs see the write on their next read: opening or
   returning focus re-reads only when the cached answer is stale.
+- Bookmark state and lists use Account-scoped query keys and announcement channels; guests make no
+  personal read. People and Summary subscribe to enrollment writes; Invitations and Summary to
+  invitation writes. `test/browser-engines/browser-facts.test.ts` checks two documents, Account
+  switching with pending reads and the same-document fallback through the common announcement mechanism.
 - Interactive writes use `useMutation` → browser adapter → same-origin capability Route Handler →
   generated Nest transport. The shared BFF boundary owns Origin, session, private no-store, timeout,
   and the default 2 MiB limit; a larger limit requires a named narrow override and boundary tests.

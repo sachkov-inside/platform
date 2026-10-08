@@ -32,13 +32,153 @@ const moduleForbiddenLayers = [
 // The shared kernel sits below every module and adapter.
 const sharedForbiddenLayers = ["modules", "adapters", "operations", "config"];
 
-// Only the owning module reads or writes these tables; everyone else calls its interface.
+// The owning module reads or writes these tables, except for the exact legacy accesses below.
 // `database/` keeps the schema, migrations and retention for every table.
 const tableOwners = {
+  activation_attempts: "modules/subscription-activation",
+  activation_review_requests: "modules/subscription-activation",
+  bot_contact_events: "modules/bot-contacts",
+  bot_contacts: "modules/bot-contacts",
+  communication_author_compositions: "modules/communications",
+  communication_author_drafts: "modules/communications",
+  communication_author_modes: "modules/communications",
+  communication_author_outbox: "modules/communications",
+  communication_author_receipts: "modules/communications",
+  communication_author_sessions: "modules/communications",
+  communication_broadcasts: "modules/communications",
+  communication_contacts: "modules/communications",
+  communication_deliveries: "modules/communications",
+  communication_enrollments: "modules/communications",
+  communication_entries: "modules/communications",
+  communication_funnels: "modules/communications",
+  communication_intake_receipts: "modules/communications",
+  communication_intro: "modules/communications",
+  communication_operations: "modules/communications",
+  communication_preferences: "modules/communications",
+  communication_publications: "modules/communications",
+  communication_sources: "modules/communications",
+  communication_step_ids: "modules/communications",
+  communication_templates: "modules/communications",
+  communication_tracking_hits: "modules/communications",
+  communication_tracking_tokens: "modules/communications",
+  community_bindings: "modules/community",
+  community_desired_states: "modules/community",
+  community_effect_attempts: "modules/community",
+  community_effects: "modules/community",
+  community_operations: "modules/community",
+  community_restriction_decisions: "modules/community",
+  identity_link_events: "modules/identity-linking",
+  identity_link_recoveries: "modules/identity-linking",
+  invitation_redemptions: "modules/subscription-activation",
+  link_transactions: "modules/identity-linking",
+  membership_check_results: "modules/membership-evidence",
+  membership_checks: "modules/membership-evidence",
+  membership_event_audit: "modules/membership-evidence",
+  membership_evidence_outbox: "modules/membership-evidence",
+  membership_provider_observations: "modules/membership-evidence",
+  membership_provider_state: "modules/membership-evidence",
+  membership_reconciliations: "modules/membership-evidence",
+  notification_attempts: "modules/notifications",
+  notification_commands: "modules/notifications",
+  notification_deliveries: "modules/notifications",
+  notification_quarantine: "modules/notifications",
+  notification_result_outbox: "modules/notifications",
   platform_links: "modules/identity-linking",
+  sales_funnel_event_outbox: "modules/sales-funnel",
+  sign_in_requests: "modules/bot-sign-in",
+  sign_in_subjects: "modules/bot-sign-in",
   start_response_deliveries: "modules/outbound",
   start_response_delivery_attempts: "modules/outbound",
+  telegram_identity_reservations: "modules/identity-linking",
+  telegram_transport_fairness: "modules/outbound",
+  telegram_transport_slots: "modules/outbound",
+  telegram_updates: "modules/update-inbox",
 };
+
+// Temporary exact file/table exceptions for existing production code. Each reason is below;
+// removal and owner-interface migration: https://github.com/sachkov-inside/platform/issues/1269.
+// A matching file does not exempt other tables. These entries also permit future access to the
+// same table in that file; review must preserve the reason until the exception is removed.
+const legacyTableAccess = new Map([
+  // Create the communication contact atomically with the first bot contact.
+  ["modules/bot-contacts/bot-contacts.ts", ["communication_contacts"]],
+  // Reserve the identity-link transaction atomically when consuming sign-in approval.
+  ["modules/bot-sign-in/sign-in-account-link.ts", ["link_transactions"]],
+  // Read private-chat reachability when selecting communication recipients.
+  ["modules/communications/broadcasts.ts", ["bot_contacts"]],
+  // Read private-chat reachability when selecting communication recipients.
+  ["modules/communications/communication-statistics.ts", ["bot_contacts"]],
+  // Read private-chat reachability when selecting communication recipients.
+  ["modules/communications/funnel-preview.ts", ["bot_contacts"]],
+  // Read private-chat reachability when selecting communication recipients.
+  ["modules/communications/funnel-scheduler.ts", ["bot_contacts"]],
+  // Persist a confirmed transport block under the communication contact lock.
+  ["modules/communications/delivery-contactability.ts", ["bot_contacts"]],
+  // Read private-chat reachability before a community welcome delivery.
+  ["modules/community/community-provider.ts", ["bot_contacts"]],
+  // Queue initial membership evidence atomically with identity recovery.
+  ["modules/identity-linking/identity-link-recovery.ts", ["membership_checks"]],
+  // Queue initial membership evidence atomically with linking; linking also consumes sign-in state.
+  [
+    "modules/identity-linking/identity-linking.ts",
+    ["membership_checks", "sign_in_requests", "sign_in_subjects"],
+  ],
+  // Read the contact destination for membership-check replies.
+  [
+    "modules/membership-evidence/membership-evidence-provider.ts",
+    ["bot_contacts"],
+  ],
+  // Read reachability when authorizing notification delivery.
+  ["modules/notifications/notification-provider.ts", ["bot_contacts"]],
+  // Legacy schema declaration; outbound owns the runtime transport cursor.
+  [
+    "modules/notifications/notification-storage.ts",
+    ["telegram_transport_fairness"],
+  ],
+  // Read sign-in and linking state to suppress stale queued replies.
+  [
+    "modules/outbound/start-response-delivery-queue.ts",
+    ["link_transactions", "sign_in_requests"],
+  ],
+  // Create and read the stable source contact in the event transaction.
+  [
+    "modules/sales-funnel/sales-funnel-events.ts",
+    ["bot_contacts", "communication_contacts"],
+  ],
+  // Legacy schema declaration; identity-linking owns identity reservation.
+  [
+    "modules/subscription-activation/activation-storage.ts",
+    ["telegram_identity_reservations"],
+  ],
+  // Operator readiness counts; no product writes.
+  [
+    "operations/check-readiness.ts",
+    ["bot_contacts", "identity_link_recoveries", "membership_reconciliations"],
+  ],
+  // Operator proof reads persisted evidence; no product writes.
+  [
+    "operations/credentialed-proof.ts",
+    [
+      "bot_contacts",
+      "identity_link_events",
+      "identity_link_recoveries",
+      "link_transactions",
+      "membership_check_results",
+      "membership_checks",
+      "membership_event_audit",
+      "membership_evidence_outbox",
+      "membership_provider_observations",
+      "membership_provider_state",
+      "membership_reconciliations",
+      "telegram_updates",
+    ],
+  ],
+  // Read known contact and community IDs in one repeatable-read snapshot.
+  [
+    "operations/group-report-candidates.ts",
+    ["bot_contacts", "community_bindings"],
+  ],
+]);
 
 // The author dialog decides every transition from its arguments alone; author-admin.ts runs
 // the effects. Its files import no package and no module that reaches I/O; types are free.
@@ -111,6 +251,7 @@ for (const file of files) {
     for (const [table, owner] of Object.entries(tableOwners)) {
       if (
         !file.startsWith(`${owner}/`) &&
+        !legacyTableAccess.get(file)?.includes(table) &&
         new RegExp(`\\b${table}\\b`).test(code)
       )
         violations.push(`${file}: ${table} is owned by ${owner}`);

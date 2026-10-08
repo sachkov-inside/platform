@@ -65,6 +65,9 @@ export interface AccessOperation {
   readonly action: AccessAction;
 }
 
+/** Maximum operations in one availability call, including repeated resources. */
+export const CONTENT_ACCESS_BATCH_SIZE = 100;
+
 export interface AccessBatchRequest {
   readonly subject: Subject;
   readonly operations: readonly AccessOperation[];

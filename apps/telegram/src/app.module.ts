@@ -1,3 +1,5 @@
+import { BLOCKED_DELIVERY } from "./modules/outbound/blocked-delivery.js";
+import { settleBlockedDelivery } from "./modules/communications/delivery-contactability.js";
 import { isTruthy } from "./shared/truthiness.js";
 import { hasText } from "./shared/text.js";
 import { InvitationRedemption } from "./modules/subscription-activation/invitation-redemption.js";
@@ -128,6 +130,7 @@ export class AppModule {
         TelegramWebhookController,
       ],
       providers: [
+        { provide: BLOCKED_DELIVERY, useValue: settleBlockedDelivery },
         SubscriptionActivation,
         InvitationRedemption,
         {
