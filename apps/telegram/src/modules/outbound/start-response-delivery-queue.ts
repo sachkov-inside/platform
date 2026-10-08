@@ -1,3 +1,4 @@
+import { contactLock } from "../communications/communication-state.js";
 import { blockDeliveryContact } from "../bot-contacts/delivery-contactability.js";
 import { isTruthy } from "../../shared/truthiness.js";
 import { hasText } from "../../shared/text.js";
@@ -343,6 +344,13 @@ export class StartResponseDeliveryQueue {
           ),
         );
       }
+      // Contact commands take the contact lock before writing their reply intent.
+      if (result.kind === "api_rejected" && result.providerErrorCode === 403)
+        await contactLock(
+          transaction,
+          delivery.botIdentity,
+          delivery.telegramUserId,
+        );
       const held = await settle(transaction, replies, delivery.lease, {
         available_at: persistence.delivery.availableAt,
         delivered_at: persistence.delivery.deliveredAt,

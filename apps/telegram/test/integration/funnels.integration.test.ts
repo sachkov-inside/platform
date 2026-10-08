@@ -45,7 +45,10 @@ import { CLOCK } from "../../src/shared/clock.js";
 import { BotContacts } from "../../src/modules/bot-contacts/bot-contacts.js";
 import { TelegramWebhook } from "../../src/modules/webhook/telegram-webhook.js";
 import { TelegramUpdateProcessor } from "../../src/modules/update-inbox/telegram-update-processor.js";
-import { StartResponseDeliveryQueue } from "../../src/modules/outbound/start-response-delivery-queue.js";
+import {
+  hasDueReply,
+  StartResponseDeliveryQueue,
+} from "../../src/modules/outbound/start-response-delivery-queue.js";
 import { StartResponseDeliveryProcessor } from "../../src/modules/outbound/start-response-delivery-processor.js";
 import {
   TELEGRAM_MESSAGES,
@@ -142,7 +145,15 @@ beforeEach(async () => {
   );
   now = new Date("2030-01-01T00:00:00Z");
   sent.length = 0;
-  transport.send.mockClear();
+  transport.send
+    .mockReset()
+    .mockImplementation((message: CommunicationMessage) => {
+      sent.push(message);
+      return Promise.resolve({
+        kind: "delivered",
+        providerMessageId: "synthetic-message",
+      });
+    });
   authorization.authorize.mockResolvedValue("allowed");
   contentValidation.validate
     .mockReset()
@@ -552,6 +563,108 @@ describe("durable marketing entry and scheduling", () => {
     ).toBe(0);
     expect(await scheduler.processAvailable()).toBe(1);
     expect(sent.map((message) => message.content.text)).toEqual(["intro"]);
+  });
+  it.each([
+    ["live prompt", "awaiting_approval", 60000, false, true, true],
+    ["expired prompt", "awaiting_approval", 0, false, true, false],
+    ["disabled sign-in", "awaiting_approval", 60000, false, false, false],
+    ["denied prompt", "denied", 60000, false, true, false],
+    ["denied edit", "denied", 0, true, true, true],
+    ["unlinked consumed edit", "consumed", 0, true, true, false],
+  ] as const)(
+    "uses the same reply readiness for %s",
+    async (_label, state, remaining, edit, enabled, ready) => {
+      const ref = randomUUID();
+      await database
+        .insertInto("sign_in_requests")
+        .values({
+          request_ref: ref,
+          bot_identity: "inside",
+          start_token_digest: "a".repeat(43),
+          browser_secret_digest: "b".repeat(43),
+          confirmation_code: "123456",
+          state,
+          telegram_user_id: "43",
+          private_chat_id: "43",
+          created_at: new Date(now.getTime() - 60000),
+          expires_at: new Date(now.getTime() + remaining),
+          approved_at: null,
+          consumed_at: null,
+        })
+        .execute();
+      const queue = app.get(StartResponseDeliveryQueue);
+      await queue.enqueue({
+        botIdentity: "inside",
+        telegramUserId: "43",
+        privateChatId: "43",
+        messageText: "sign-in reply",
+        sourceKey: "sign-in-reply",
+        signInRequestRef: ref,
+        ...(edit ? { editMessageId: "123" } : {}),
+        now,
+      });
+      expect(await hasDueReply(database, "inside", now, enabled)).toBe(ready);
+      expect((await queue.claimNext(now, enabled)) !== undefined).toBe(ready);
+    },
+  );
+  it("does not claim another bot's reply or let it hold this bot's marketing", async () => {
+    await setup();
+    await start();
+    await app
+      .get(StartResponseDeliveryQueue)
+      .enqueue({
+        botIdentity: "other-bot",
+        telegramUserId: "42",
+        privateChatId: "42",
+        messageText: "other bot reply",
+        sourceKey: "other-bot-reply",
+        now,
+      });
+    expect(
+      await app.get(StartResponseDeliveryProcessor).processAvailable(1, now),
+    ).toBe(0);
+    expect(await scheduler.processAvailable()).toBe(1);
+    expect(sent.map((message) => message.content.text)).toEqual(["intro"]);
+  });
+  it("marketing 403 changes transport availability and preserves the preference on recovery", async () => {
+    await setup();
+    await start();
+    transport.send.mockImplementationOnce((message) => {
+      sent.push(message);
+      return Promise.resolve({ kind: "api_rejected", providerErrorCode: 403 });
+    });
+    expect(await scheduler.processAvailable()).toBe(1);
+    expect(
+      await database
+        .selectFrom("bot_contacts")
+        .select("contactability")
+        .where("telegram_user_id", "=", "42")
+        .executeTakeFirstOrThrow(),
+    ).toEqual({ contactability: "blocked" });
+    expect(
+      await database
+        .selectFrom("communication_contacts")
+        .select(["marketing_enabled", "unavailable_since"])
+        .executeTakeFirstOrThrow(),
+    ).toEqual({ marketing_enabled: true, unavailable_since: now });
+    await start("2");
+    expect(
+      await database
+        .selectFrom("bot_contacts")
+        .select("contactability")
+        .where("telegram_user_id", "=", "42")
+        .executeTakeFirstOrThrow(),
+    ).toEqual({ contactability: "reachable" });
+    expect(
+      await database
+        .selectFrom("communication_contacts")
+        .select(["marketing_enabled", "unavailable_since"])
+        .executeTakeFirstOrThrow(),
+    ).toEqual({ marketing_enabled: true, unavailable_since: null });
+    await tick();
+    expect(
+      sent.filter((message) => message.content.text === "intro"),
+    ).toHaveLength(1);
   });
   it("prioritizes service responses and rechecks stopped and blocked contacts", async () => {
     await setup();

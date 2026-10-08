@@ -478,6 +478,8 @@ describe("Notification provider with real PostgreSQL and synthetic external face
     const c = command();
     await linked(c);
     const other = command();
+    other.binding.accountRef = randomUUID();
+    other.binding.telegramIdentityRef = randomUUID();
     await seedNotificationRecipient(db, other, clock.now(), "10002");
     await db
       .insertInto("communication_contacts")
@@ -485,6 +487,7 @@ describe("Notification provider with real PostgreSQL and synthetic external face
         contact_id: randomUUID(),
         bot_identity: "inside",
         telegram_user_id: "10001",
+        marketing_enabled: true,
       })
       .execute();
     await receive(c);
