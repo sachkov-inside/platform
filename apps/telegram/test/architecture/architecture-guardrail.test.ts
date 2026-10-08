@@ -1,3 +1,4 @@
+import type { DatabaseSchema } from "../../src/database/database.js";
 import { hasText } from "../../src/shared/text.js";
 import { spawnSync } from "node:child_process";
 
@@ -66,6 +67,128 @@ function runGuardrail(root?: string) {
   return spawnSync(
     process.execPath,
     ["scripts/check-architecture.mjs", ...(hasText(root) ? [root] : [])],
-    { encoding: "utf8" },
+    { encoding: "utf8", timeout: 10_000 },
   );
 }
+
+const currentTableOwners = {
+  activation_attempts: "subscription-activation",
+  activation_review_requests: "subscription-activation",
+  bot_contact_events: "bot-contacts",
+  bot_contacts: "bot-contacts",
+  communication_author_compositions: "communications",
+  communication_author_drafts: "communications",
+  communication_author_modes: "communications",
+  communication_author_outbox: "communications",
+  communication_author_receipts: "communications",
+  communication_author_sessions: "communications",
+  communication_broadcasts: "communications",
+  communication_contacts: "communications",
+  communication_deliveries: "communications",
+  communication_enrollments: "communications",
+  communication_entries: "communications",
+  communication_funnels: "communications",
+  communication_intake_receipts: "communications",
+  communication_intro: "communications",
+  communication_operations: "communications",
+  communication_preferences: "communications",
+  communication_publications: "communications",
+  communication_sources: "communications",
+  communication_step_ids: "communications",
+  communication_templates: "communications",
+  communication_tracking_hits: "communications",
+  communication_tracking_tokens: "communications",
+  community_bindings: "community",
+  community_desired_states: "community",
+  community_effect_attempts: "community",
+  community_effects: "community",
+  community_operations: "community",
+  community_restriction_decisions: "community",
+  identity_link_events: "identity-linking",
+  identity_link_recoveries: "identity-linking",
+  invitation_redemptions: "subscription-activation",
+  link_transactions: "identity-linking",
+  membership_check_results: "membership-evidence",
+  membership_checks: "membership-evidence",
+  membership_event_audit: "membership-evidence",
+  membership_evidence_outbox: "membership-evidence",
+  membership_provider_observations: "membership-evidence",
+  membership_provider_state: "membership-evidence",
+  membership_reconciliations: "membership-evidence",
+  notification_attempts: "notifications",
+  notification_commands: "notifications",
+  notification_deliveries: "notifications",
+  notification_quarantine: "notifications",
+  notification_result_outbox: "notifications",
+  platform_links: "identity-linking",
+  sales_funnel_event_outbox: "sales-funnel",
+  sign_in_requests: "bot-sign-in",
+  sign_in_subjects: "bot-sign-in",
+  start_response_deliveries: "outbound",
+  start_response_delivery_attempts: "outbound",
+  telegram_identity_reservations: "identity-linking",
+  telegram_transport_fairness: "outbound",
+  telegram_transport_slots: "outbound",
+  telegram_updates: "update-inbox",
+} satisfies Record<keyof DatabaseSchema, string>;
+
+it("accepts current table owners and transaction handoff without foreign table access", () => {
+  const result = runGuardrail(
+    "test/architecture/fixtures/current-table-owners/src",
+  );
+  expect(result.stdout).toBe("");
+  expect(result.status).toBe(0);
+});
+
+it.each(Object.entries(currentTableOwners))(
+  "rejects foreign access to %s owned by %s",
+  (table, owner) => {
+    const result = runGuardrail(
+      "test/architecture/fixtures/current-foreign-tables/src",
+    );
+    expect(result.stdout.split("\n")).toContain(
+      `modules/foreign/access.ts: ${table} is owned by modules/${owner}`,
+    );
+    expect(result.status).toBe(1);
+  },
+);
+
+it("permits the documented exact legacy file/table exceptions", () => {
+  const result = runGuardrail(
+    "test/architecture/fixtures/legacy-access-allowed/src",
+  );
+  expect(result.stdout).toBe("");
+  expect(result.status).toBe(0);
+});
+
+it.each([
+  "modules/bot-contacts/bot-contacts.ts",
+  "modules/bot-sign-in/sign-in-account-link.ts",
+  "modules/communications/broadcasts.ts",
+  "modules/communications/communication-statistics.ts",
+  "modules/communications/funnel-preview.ts",
+  "modules/communications/funnel-scheduler.ts",
+  "modules/communications/delivery-contactability.ts",
+  "modules/community/community-provider.ts",
+  "modules/identity-linking/identity-link-recovery.ts",
+  "modules/identity-linking/identity-linking.ts",
+  "modules/membership-evidence/membership-evidence-provider.ts",
+  "modules/notifications/notification-provider.ts",
+  "modules/notifications/notification-storage.ts",
+  "modules/outbound/start-response-delivery-queue.ts",
+  "modules/sales-funnel/sales-funnel-events.ts",
+  "modules/subscription-activation/activation-storage.ts",
+  "operations/check-readiness.ts",
+  "operations/credentialed-proof.ts",
+  "operations/group-report-candidates.ts",
+])("does not exempt other tables in legacy file %s", (file) => {
+  const result = runGuardrail(
+    "test/architecture/fixtures/legacy-access-forbidden/src",
+  );
+  expect(result.stdout.split("\n")).toContain(
+    file.startsWith("modules/subscription-activation/")
+      ? `${file}: bot_contact_events is owned by modules/bot-contacts`
+      : `${file}: invitation_redemptions is owned by modules/subscription-activation`,
+  );
+  expect(result.status).toBe(1);
+});
