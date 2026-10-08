@@ -182,6 +182,42 @@ describe("communications promised public targets against Materials PostgreSQL", 
     expect(
       (await targets.check({ kind: "series", slug: "test-series" })).reason,
     ).toBe("not_free");
+    expect(
+      await validateTargets(
+        [
+          {
+            partId: randomUUID(),
+            content: {
+              type: "text",
+              text: "Public Product and protected Material",
+              entities: [],
+              buttons: [
+                {
+                  text: "Product",
+                  url: "https://inside.example/products/test-series",
+                },
+                {
+                  text: "Compatibility",
+                  url: "https://inside.example/series/test-series",
+                },
+                {
+                  text: "Material",
+                  url: "https://inside.example/materials/public-target",
+                },
+              ],
+            },
+          },
+        ],
+        "https://inside.example",
+        targets,
+      ),
+    ).toEqual([
+      {
+        url: "https://inside.example/materials/public-target",
+        targetId: materialId,
+        reason: "not_free",
+      },
+    ]);
     const unpublished = await authoring.saveMaterial({
       actor,
       materialId,

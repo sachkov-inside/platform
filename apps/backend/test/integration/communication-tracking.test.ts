@@ -142,6 +142,14 @@ test("resolves canonical Product pages and compatibility routes, refusing missin
       kind: "unavailable",
     });
   }
+  await database.prisma.product.update({
+    where: { slug: "tracking-product" },
+    data: { archivedAt: new Date("2026-01-01T00:00:00Z") },
+  });
+  target = `${origin}/products/tracking-product`;
+  expect(await visits().resolve({ token, traffic: "unknown" })).toEqual({
+    kind: "not_found",
+  });
   expect(await visits().backlog()).toMatchObject({ kind: "ready", pending: 3 });
 });
 
