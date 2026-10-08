@@ -495,7 +495,9 @@ body:has([data-public-shell]) {
 /* Shared public frame: inner content stops at 76rem with standard desktop gutters. */
 .public-page-container {
   max-width: 80rem;
-  padding-inline: clamp(1rem, 3vw, 2rem);
+  /* В горизонтальном положении iPhone чёлка сбоку: отступ не меньше неё. */
+  padding-inline: max(clamp(1rem, 3vw, 2rem), env(safe-area-inset-left))
+    max(clamp(1rem, 3vw, 2rem), env(safe-area-inset-right));
 }
 @media (min-width: 1024px) {
   .public-header {

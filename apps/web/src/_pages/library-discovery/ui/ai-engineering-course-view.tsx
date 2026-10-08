@@ -1,5 +1,4 @@
 import {
-  ArrowLeft,
   ArrowRight,
   Bot,
   Check,
@@ -36,7 +35,6 @@ import {
   type CourseIconName,
 } from "@/features/ai-engineering-course";
 import type { PublishedSeriesResult } from "@/features/library-discovery";
-import type { MaterialReaderReturnTarget } from "@/shared/routing/material-reader";
 import { productProgrammeHref } from "@/shared/routing/subscription-route";
 import { IntentPrefetchLink } from "@/shared/ui/intent-prefetch-link.client";
 
@@ -61,19 +59,18 @@ type ResolvedSeriesResult = Extract<
  * Оформление `ai-engineering-course`: страница-описание курса. Весь текст приходит из описания
  * продукта в Inside Content; оформление берёт композиции разделов страницы AI-first и добавляет к
  * знакомым блокам (по `id`) свои иллюстрации и значки. Блок с другим `id` рисуется по своему виду.
- * Программа и прохождение живут на странице программы: туда ведут все кнопки.
+ * Программа и прохождение живут на странице программы: туда ведут все кнопки. Ссылки «Назад на
+ * Главную» нет: на Главную ведёт навигация сайта, а первый экран начинается сразу с курса.
  */
 export function AiEngineeringCourseView({
   heroCall,
   result,
   page,
-  returnTarget,
 }: {
   /** Плашка потока и кнопка по этапу продаж; без неё первый экран ведёт в программу. */
   readonly heroCall?: ReactNode;
   readonly result: ResolvedSeriesResult;
   readonly page: ProductPage;
-  readonly returnTarget: MaterialReaderReturnTarget;
 }) {
   const { reference } = result;
   const programme = productProgrammeHref(reference.slug);
@@ -88,16 +85,6 @@ export function AiEngineeringCourseView({
       data-product-presentation="ai-engineering-course"
       data-product-landing={reference.slug}
     >
-      <nav aria-label="Хлебные крошки">
-        <IntentPrefetchLink
-          className="ai-product-back"
-          href={returnTarget.href}
-        >
-          <ArrowLeft />
-          {returnTarget.label}
-        </IntentPrefetchLink>
-      </nav>
-
       <header className="aie-course-hero">
         <CourseHero
           action={{ href: programme, label: "Открыть программу" }}

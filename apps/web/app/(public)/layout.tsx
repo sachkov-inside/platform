@@ -10,9 +10,14 @@ import type { Viewport } from "next";
  */
 export const instant = false;
 
+/**
+ * `viewportFit: "cover"` включает отступы `env(safe-area-inset-*)`: без него они на iPhone равны
+ * нулю. Оболочка сама отступает от чёлки, скруглений и полосы «Домой».
+ */
 export const viewport: Viewport = {
   themeColor: "#ffffff",
   colorScheme: "light",
+  viewportFit: "cover",
 };
 
 export default function PublicLayout({
