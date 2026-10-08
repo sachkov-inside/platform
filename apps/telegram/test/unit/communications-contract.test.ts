@@ -1,3 +1,4 @@
+import { fixedTestInstant } from "../support/fixed-clock.js";
 import { describe, expect, it } from "vitest";
 import fixtures from "@inside/contracts/inside-communications-v1/fixtures.json" with { type: "json" };
 import {
@@ -109,8 +110,7 @@ describe("shared communications contract", () => {
           "inside",
           "1",
           prepareTelegramUpdateForInbox(update),
-          // deterministic-test-allow wall-clock: Legacy clock read; fixed domain or monotonic clock migration is tracked in #1177.
-          new Date(),
+          new Date(fixedTestInstant()),
         ).kind,
       ).toBe("start");
     }

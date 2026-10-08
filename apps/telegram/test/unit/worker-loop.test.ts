@@ -1,3 +1,4 @@
+import { fixedTestInstant } from "../support/fixed-clock.js";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { WorkerLoop } from "../../src/operations/worker-loop.js";
@@ -6,6 +7,7 @@ import { required } from "../support/required.js";
 describe("WorkerLoop", () => {
   beforeEach(() => {
     vi.useFakeTimers();
+    vi.setSystemTime(fixedTestInstant());
     vi.spyOn(process.stderr, "write").mockImplementation(() => true);
   });
 
@@ -20,7 +22,7 @@ describe("WorkerLoop", () => {
     const loop = new WorkerLoop(
       "test",
       () => {
-        // deterministic-test-allow wall-clock: Legacy clock read; fixed domain or monotonic clock migration is tracked in #1177.
+        // deterministic-test-allow wall-clock: beforeEach registers and fixes fake Date; this records intervals advanced by virtual worker timers.
         startedAt.push(Date.now());
         return Promise.resolve(found.shift() ?? false);
       },
