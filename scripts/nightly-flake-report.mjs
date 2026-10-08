@@ -85,7 +85,12 @@ export function normalizeVitest(input, root, suite) {
 
 /** @param {unknown} input @param {string} root @param {string} suite @returns {Observation[]} */
 export function normalizePlaywright(input, root, suite) {
-  const report = z.object({ suites: z.array(z.unknown()) }).parse(input);
+  const report = z
+    .object({
+      suites: z.array(z.unknown()),
+      config: z.object({ rootDir: z.string() }).optional(),
+    })
+    .parse(input);
   /** @type {Observation[]} */
   const rows = [];
   /** @param {unknown} inputSuite @param {string[]} parents */
@@ -102,7 +107,12 @@ export function normalizePlaywright(input, root, suite) {
         const status = test.results[0]?.status ?? "skipped";
         rows.push({
           suite,
-          file: portableFile(root, spec.file),
+          file: portableFile(
+            root,
+            report.config === undefined
+              ? spec.file
+              : resolve(report.config.rootDir, spec.file),
+          ),
           project: test.projectName,
           name: [...titles, spec.title].join(" > "),
           status:

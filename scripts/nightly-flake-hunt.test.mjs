@@ -176,6 +176,61 @@ test("rejects malformed reporter data instead of producing a green empty summary
   );
 });
 
+test("Playwright JSON preserves describe names and resolves its testDir to a repository file", () => {
+  const rows = normalizePlaywright(
+    {
+      config: { rootDir: "/checkout/apps/web/test/e2e" },
+      suites: [
+        {
+          title: "a.spec.ts",
+          file: "a.spec.ts",
+          suites: [
+            {
+              title: "first suite",
+              file: "a.spec.ts",
+              specs: [
+                {
+                  title: "same leaf",
+                  file: "a.spec.ts",
+                  tests: [
+                    {
+                      projectName: "desktop",
+                      expectedStatus: "passed",
+                      results: [{ status: "passed" }],
+                    },
+                  ],
+                },
+              ],
+            },
+            {
+              title: "second suite",
+              file: "a.spec.ts",
+              specs: [
+                {
+                  title: "same leaf",
+                  file: "a.spec.ts",
+                  tests: [
+                    {
+                      projectName: "desktop",
+                      expectedStatus: "passed",
+                      results: [{ status: "failed" }],
+                    },
+                  ],
+                },
+              ],
+            },
+          ],
+        },
+      ],
+    },
+    "/checkout",
+    "web-e2e",
+  );
+  assert.equal(rows[0]?.file, "apps/web/test/e2e/a.spec.ts");
+  assert.notEqual(rows[0]?.name, rows[1]?.name);
+  assert.equal(aggregate([rows]).length, 2);
+});
+
 test("scheduled reporting only grants issue writes to trusted main code and receives test data as artifacts", () => {
   const workflow = readFileSync(
     ".github/workflows/nightly-flake-hunt.yml",
