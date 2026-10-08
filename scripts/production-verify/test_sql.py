@@ -43,7 +43,7 @@ class SqlContractTests(unittest.TestCase):
     @classmethod
     def execute(cls, query, readonly=True):
         env = ['--env', 'PGOPTIONS=-c default_transaction_read_only=on -c statement_timeout=15000'] if readonly else []
-        result = subprocess.run(['docker', 'exec', '-i', *env, cls.container, 'psql', '--no-psqlrc', '-v', 'ON_ERROR_STOP=1',
+        result = subprocess.run(['docker', 'exec', '-i', '--env', 'PGPASSWORD=synthetic-test-only', *env, cls.container, 'psql', '--no-psqlrc', '-v', 'ON_ERROR_STOP=1',
                                  '-h', '127.0.0.1', '-U', 'postgres', '-d', 'postgres', '-At'], input=query, capture_output=True, text=True, timeout=30)
         if result.returncode != 0:
             raise RuntimeError(result.stderr)
