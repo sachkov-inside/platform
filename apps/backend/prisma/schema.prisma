@@ -1493,6 +1493,17 @@ model BillingPaymentMethodFlow {
   @@map("payment_method_flows")
   @@schema("billing")
 }
+model BillingOwnerCommandKey {
+  result Json?
+  refundRef String? @map("refund_ref") @db.Uuid
+  actorId String @map("actor_id") @db.Uuid
+  operationId String @map("operation_id") @db.Uuid
+  fingerprint String
+  createdAt DateTime @map("created_at") @db.Timestamptz
+  @@id([actorId, operationId])
+  @@map("owner_command_keys")
+  @@schema("billing")
+}
 model BillingOwnerCommand {
   sequence BigInt @default(autoincrement())
   actorId String @map("actor_id") @db.Uuid

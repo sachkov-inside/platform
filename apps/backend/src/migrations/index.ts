@@ -1,4 +1,8 @@
 import {
+  name as ownerCommandKeysName,
+  statement as ownerCommandKeysStatement,
+} from "../modules/billing/infrastructure/postgres/migrations/0083-owner-command-keys.js";
+import {
   name as domainNamesName,
   statement as domainNamesStatement,
 } from "./0082-domain-names.js";
@@ -543,6 +547,7 @@ export const platformMigrations = [
   },
   { name: removeWorkshopName, statement: removeWorkshopStatement },
   { name: domainNamesName, statement: domainNamesStatement },
+  { name: ownerCommandKeysName, statement: ownerCommandKeysStatement },
 ] as const;
 
 export function migrateToLatest(

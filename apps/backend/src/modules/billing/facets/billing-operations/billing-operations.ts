@@ -8,6 +8,7 @@ import {
 import { dependencyFailure } from "../../../../infrastructure/observability/index.js";
 import {
   lockBillingPricing,
+  Prisma,
   type BillingPrismaClient,
 } from "../../../../infrastructure/prisma/index.js";
 import type { Accounts } from "../../../accounts/index.js";
@@ -127,6 +128,28 @@ export class BillingOperations {
       if (isOwnerReadOperation(command.operation))
         return await this.dispatch(actorId, command);
       const digest = commandFingerprint(command.operation, command);
+      // Ключ закрепляется до применения, включая команды других семейств и незавершённый аудит.
+      await this.dependencies.prisma.billingOwnerCommandKey.createMany({
+        data: {
+          actorId,
+          operationId: command.operationId,
+          fingerprint: digest,
+          createdAt: this.clock(),
+        },
+        skipDuplicates: true,
+      });
+      const key =
+        await this.dependencies.prisma.billingOwnerCommandKey.findUniqueOrThrow(
+          {
+            where: {
+              actorId_operationId: {
+                actorId,
+                operationId: command.operationId,
+              },
+            },
+          },
+        );
+      if (key.fingerprint !== digest) return ownerFailure("operation_conflict");
       const receipt =
         await this.dependencies.prisma.billingOwnerCommand.findUnique({
           where: {
@@ -136,28 +159,37 @@ export class BillingOperations {
       if (receipt !== null) {
         if (receipt.fingerprint !== digest)
           return ownerFailure("operation_conflict");
-        // Журнал не хранит код приглашения: повтор выдачи читает выданное по id, а Offer, который
-        // могли архивировать после выдачи, заново не проверяет.
-        if (command.operation === "invitations.issue") {
-          const issued = await this.dependencies.grants.readInvitation(
-            actorId,
-            command.operationId,
-          );
-          if (!issued.ok) return invitationFailure(issued.error.code);
-          return {
-            ok: true,
-            operationRef: command.operationId,
-            result: {
-              outcome: "invitation",
-              value: withoutNote(this.ownerInvitation(issued.value)),
-            },
-          };
-        }
-        return storedResult(command.operationId, receipt.result);
+        return await this.replay(actorId, command, receipt.result);
+      }
+      if (key.result !== null) {
+        const restored = await this.replay(actorId, command, key.result);
+        if (!restored.ok) return restored;
+        return await this.record(actorId, command, digest, restored);
       }
       const result = await this.dispatch(actorId, command);
       if (!result.ok) return result;
-      return await this.record(actorId, command, digest, result);
+      await this.dependencies.prisma.billingOwnerCommandKey.updateMany({
+        where: {
+          actorId,
+          operationId: command.operationId,
+          result: { equals: Prisma.DbNull },
+        },
+        data: { result: auditedOutcome(result.result) },
+      });
+      const completed =
+        await this.dependencies.prisma.billingOwnerCommandKey.findUniqueOrThrow(
+          {
+            where: {
+              actorId_operationId: {
+                actorId,
+                operationId: command.operationId,
+              },
+            },
+          },
+        );
+      const restored = await this.replay(actorId, command, completed.result);
+      if (!restored.ok) return restored;
+      return await this.record(actorId, command, digest, restored);
     } catch (error) {
       return dependencyFailure(
         { module: "billing", operation: "execute" },
@@ -165,6 +197,30 @@ export class BillingOperations {
         ownerFailure("dependency_unavailable"),
       );
     }
+  }
+
+  private async replay(
+    actorId: string,
+    command: OwnerOperation,
+    outcome: unknown,
+  ): Promise<OwnerResult> {
+    // Ключ и аудит не хранят код приглашения; владеющий интерфейс читает уже выданное без проверки Offer.
+    if (command.operation === "invitations.issue") {
+      const issued = await this.dependencies.grants.readInvitation(
+        actorId,
+        command.operationId,
+      );
+      if (!issued.ok) return invitationFailure(issued.error.code);
+      return {
+        ok: true,
+        operationRef: command.operationId,
+        result: {
+          outcome: "invitation",
+          value: withoutNote(this.ownerInvitation(issued.value)),
+        },
+      };
+    }
+    return storedResult(command.operationId, outcome);
   }
 
   /**
@@ -200,7 +256,7 @@ export class BillingOperations {
       if (receipt === null) throw error;
       if (receipt.fingerprint !== digest)
         return ownerFailure("operation_conflict");
-      return storedResult(command.operationId, receipt.result);
+      return await this.replay(actorId, command, receipt.result);
     }
   }
 
@@ -710,6 +766,7 @@ export class BillingOperations {
       case "refunds.execute":
         return await executeRefund(
           { prisma, bank: this.dependencies.bank, clock: this.clock },
+          actorId,
           command,
         );
       case "refunds.read": {

@@ -38,7 +38,11 @@ test("removes the cancelled Workshop and its derived projection without changing
       values (${id}::uuid, 'removal-fixture', 'member', 'removal-evidence', 1, ${"a".repeat(64)}, now(), now() + interval '5 minutes', now())
     `);
     expect(await migrateToLatest(database.url)).toEqual({
-      appliedMigrations: ["0081_remove_workshop", "0082_domain_names"],
+      appliedMigrations: [
+        "0081_remove_workshop",
+        "0082_domain_names",
+        "0083_owner_command_keys",
+      ],
     });
     expect(
       await database.prisma.$queryRaw(
