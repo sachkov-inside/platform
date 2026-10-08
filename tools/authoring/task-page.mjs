@@ -31,8 +31,9 @@ export function taskLinks(manifest) {
   );
 }
 
-/** @param {Task} task @param {Map<string,string>} links @param {Map<string,string>} images */
-export function taskPageBody(task, links, images) {
+/** @param {Task} task @param {Map<string,string>} links @param {Map<string,string>} images
+ * @param {(href: string, sourceId: string) => void} [onResolvedLink] */
+export function taskPageBody(task, links, images, onResolvedLink) {
   const page = task.page;
   if (page === undefined)
     throw new Error(`${task.sourceId}: missing Task page`);
@@ -47,7 +48,9 @@ export function taskPageBody(task, links, images) {
           throw new Error(
             `${page.sourcePath}: linked original is not in this selection: ${id}`,
           );
-        return `${url}${new URL(href, "https://authoring.invalid").hash}`;
+        const resolved = `${url}${new URL(href, "https://authoring.invalid").hash}`;
+        onResolvedLink?.(resolved, id);
+        return resolved;
       }
       if (/^(https?:|mailto:|#)/u.test(href)) return href;
       throw new Error(`${page.sourcePath}: undeclared local link: ${href}`);
@@ -94,19 +97,24 @@ export async function importTaskPage(pkg, task, context, request, links) {
   const page = task.page;
   if (page === undefined)
     throw new Error(`${task.sourceId}: missing Task page`);
+  const resolvedLinks = Object.fromEntries(
+    Object.entries(page.links).map(([href, id]) => [
+      href,
+      `${pkg.manifest.sourceNamespace}:${id}`,
+    ]),
+  );
+  /** @param {string} href @param {string} sourceId */
+  const registerLink = (href, sourceId) => {
+    resolvedLinks[href] = `${pkg.manifest.sourceNamespace}:${sourceId}`;
+  };
   if (
     Object.keys(page.images).length === 0 &&
     page.coverAssetId === null &&
     page.artifacts.length === 0
   )
     return {
-      pageBody: taskPageBody(task, links, new Map()),
-      resolvedLinks: Object.fromEntries(
-        Object.entries(page.links).map(([href, id]) => [
-          href,
-          `${pkg.manifest.sourceNamespace}:${id}`,
-        ]),
-      ),
+      pageBody: taskPageBody(task, links, new Map(), registerLink),
+      resolvedLinks,
       resolvedImages: {},
     };
   const source = {
@@ -185,13 +193,13 @@ export async function importTaskPage(pkg, task, context, request, links) {
       context.journal.operations[key] = receipt;
       await context.persist();
     }
-    images.set(reference.id, receipt.assetId);
+    if (reference.kind === "image") images.set(reference.id, receipt.assetId);
     resolvedImages[reference.href] = {
       assetId: receipt.assetId,
       materialId: reserved.materialId,
     };
   }
-  const pageBody = taskPageBody(task, links, images);
+  const pageBody = taskPageBody(task, links, images, registerLink);
   const backingBody = {
     schemaVersion: 1,
     doc: {
@@ -200,7 +208,7 @@ export async function importTaskPage(pkg, task, context, request, links) {
         type: reference.kind === "image" ? "assetImage" : "assetFile",
         attrs: {
           nodeId: sourceUuid(`${source.id}:${reference.href}`),
-          assetId: images.get(reference.id),
+          assetId: resolvedImages[reference.href]?.assetId,
           ...(reference.kind === "image"
             ? { alt: page.coverAlt ?? page.title, caption: null }
             : {
@@ -248,11 +256,6 @@ export async function importTaskPage(pkg, task, context, request, links) {
   return {
     pageBody,
     resolvedImages,
-    resolvedLinks: Object.fromEntries(
-      Object.entries(page.links).map(([href, id]) => [
-        href,
-        `${pkg.manifest.sourceNamespace}:${id}`,
-      ]),
-    ),
+    resolvedLinks,
   };
 }

@@ -4,6 +4,7 @@ import assert from "node:assert/strict";
 import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
+import { z } from "zod";
 import { canonical, loadPackage } from "./package.mjs";
 import { syncLocal } from "./local-sync.mjs";
 import { applyRelease, previewRelease } from "./release.mjs";
@@ -284,8 +285,11 @@ test("applyRelease sends rendered Task pages and both source link directions wit
     afterMaterialId: "lesson",
     page: {
       ...original.page,
-      markdown: "[Lesson](../lesson.md)",
-      links: { "../lesson.md": "lesson" },
+      markdown: "[Lesson](../lesson.md#section) [Task](two.md#criterion)",
+      links: {
+        "../lesson.md#section": "lesson",
+        "two.md#criterion": "task-two",
+      },
     },
   };
   const { afterMaterialId: _after, ...beginning } = task;
@@ -424,10 +428,41 @@ test("applyRelease sends rendered Task pages and both source link directions wit
   assert.deepEqual(appliedTask["definition"], original.definition);
   assert.deepEqual(appliedTask["page"], task.page);
   assert.deepEqual(appliedTask["resolvedLinks"], {
-    "../lesson.md": "synthetic:lesson",
+    "../lesson.md#section": "synthetic:lesson",
+    "two.md#criterion": "synthetic:task-two",
+    "/materials/allocated-lesson#section": "synthetic:lesson",
+    "/products/course/tasks/task-two#criterion": "synthetic:task-two",
   });
-  assert.ok(
-    canonical(appliedTask["pageBody"]).includes("/materials/allocated-lesson"),
+  const markSchema = z.object({
+    type: z.string(),
+    attrs: z.object({ href: z.string() }),
+  });
+  const textSchema = z
+    .object({ marks: z.array(markSchema).optional() })
+    .passthrough();
+  const paragraphSchema = z
+    .object({ content: z.array(textSchema) })
+    .passthrough();
+  const body = z
+    .object({ doc: z.object({ content: z.array(paragraphSchema) }) })
+    .parse(appliedTask["pageBody"]);
+  const emitted = body.doc.content.flatMap((node) =>
+    node.content.flatMap((node) =>
+      (node.marks ?? [])
+        .filter((mark) => mark.type === "link")
+        .map((mark) => mark.attrs.href),
+    ),
+  );
+  assert.deepEqual(emitted, [
+    "/materials/allocated-lesson#section",
+    "/products/course/tasks/task-two#criterion",
+  ]);
+  const resolved = z
+    .record(z.string(), z.string())
+    .parse(appliedTask["resolvedLinks"]);
+  assert.deepEqual(
+    emitted.map((href) => resolved[href]),
+    ["synthetic:lesson", "synthetic:task-two"],
   );
   assert.ok(
     canonical(appliedMaterial["body"]).includes(
@@ -476,6 +511,11 @@ test("Task page images, cover and artifacts stay on a distinct private backing M
       coverAlt: "Cover",
       artifacts: [
         { sourceId: "download", title: "Artifact", assetId: "document" },
+        {
+          sourceId: "diagram-download",
+          title: "Diagram file",
+          assetId: "picture",
+        },
       ],
     },
   };
@@ -501,6 +541,7 @@ test("Task page images, cover and artifacts stay on a distinct private backing M
   const productId = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb";
   const imageId = "dddddddd-dddd-4ddd-8ddd-dddddddddddd";
   const fileId = "eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee";
+  const imageFileId = "ffffffff-ffff-4fff-8fff-ffffffffffff";
   /** @type {Record<string,unknown>[]} */
   const commands = [];
   /** @type {string[]} */
@@ -547,7 +588,14 @@ test("Task page images, cover and artifacts stay on a distinct private backing M
       const kind = body.get("kind");
       assert.ok(typeof kind === "string");
       uploadKinds.push(kind);
-      return { assetId: kind === "image" ? imageId : fileId };
+      return {
+        assetId:
+          kind === "image"
+            ? imageId
+            : body.get("checksumSha256") === checksum(png)
+              ? imageFileId
+              : fileId,
+      };
     }
     if (path === "/authoring/import/materials/apply") {
       commands.push({ path, ...object(body) });
@@ -567,7 +615,7 @@ test("Task page images, cover and artifacts stay on a distinct private backing M
     throw new Error(`Unexpected ${path}`);
   };
   await syncLocal(f.path, f.state, { request });
-  assert.deepEqual(uploadKinds, ["image", "file"]);
+  assert.deepEqual(uploadKinds, ["image", "file", "file"]);
   const reserve = commands.find(
     (row) => row["path"] === "/authoring/import/materials/reserve",
   );
@@ -587,11 +635,32 @@ test("Task page images, cover and artifacts stay on a distinct private backing M
   assert.equal(Reflect.get(object(backing["metadata"]), "access"), "closed");
   assert.deepEqual(Reflect.get(object(backing["metadata"]), "seriesIds"), []);
   assert.ok(canonical(backing["body"]).includes("assetFile"));
-  assert.ok(canonical(backing["body"]).includes(imageId));
+  const backingBody = z
+    .object({
+      doc: z.object({
+        content: z.array(
+          z.object({
+            type: z.string(),
+            attrs: z.object({ assetId: z.string() }),
+          }),
+        ),
+      }),
+    })
+    .parse(backing["body"]);
+  assert.deepEqual(
+    backingBody.doc.content.map((node) => [node.type, node.attrs.assetId]),
+    [
+      ["assetImage", imageId],
+      ["assetImage", imageId],
+      ["assetFile", fileId],
+      ["assetFile", imageFileId],
+    ],
+  );
   assert.deepEqual(applied["resolvedImages"], {
     "diagram.png": { assetId: imageId, materialId },
     "cover:picture": { assetId: imageId, materialId },
     "artifact:download": { assetId: fileId, materialId },
+    "artifact:diagram-download": { assetId: imageFileId, materialId },
   });
   assert.deepEqual(applied["page"], task.page);
   assert.ok(canonical(applied["pageBody"]).includes(imageId));
