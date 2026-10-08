@@ -230,6 +230,12 @@ Actions → **Publish Telegram ordinal release** (`telegram-release.yml`) → `v
   `apps/telegram/infra/production/compose.yaml`), `telegram.caddy` (копия `apps/telegram/infra/production/telegram.caddy`) и
   `release-manifest.json`.
 
+При упаковке зависимостей Dockerfile использует `pnpm deploy --prod --ignore-scripts --frozen-lockfile`.
+Builder использует архивы из локального store и разрешает запросы метаданных пакетов в registry.
+Это позволяет pnpm проверить отдельный lockfile Telegram; проверка `minimumReleaseAge: 1440`
+из корневого `pnpm-workspace.yaml` сохраняется. Поэтому этап сборки требует доступа к registry,
+даже когда архивы зависимостей уже присутствуют в cache.
+
 Manifest (`inside.telegram.release-manifest.v1`) связывает версию, SHA, образ
 `ghcr.io/sachkov-inside/inside-telegram@sha256:…`, sha256 файлов `compose.yaml` и `telegram.caddy`,
 run публикации и

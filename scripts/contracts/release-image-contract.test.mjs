@@ -56,7 +56,7 @@ describe("release image contract", () => {
     );
     assert.match(dockerfile, /pnpm --config\.inject-workspace-packages=true/u);
     assert.match(dockerfile, /deploy.*--frozen-lockfile/u);
-    assert.doesNotMatch(dockerfile, /deploy.*--offline/u);
+    assert.doesNotMatch(dockerfile, /deploy.*--(?:prefer-)?offline/u);
     assert.match(
       dockerfile,
       /COPY --from=build.*\/workspace\/apps\/telegram\/dist \.\/dist/u,
