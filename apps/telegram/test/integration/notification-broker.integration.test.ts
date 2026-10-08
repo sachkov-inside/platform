@@ -8,6 +8,7 @@ import {
 } from "node:http";
 import { NotificationWorker } from "../../src/operations/notification-worker.js";
 import { loadApplicationConfig } from "../../src/config/application-config.js";
+// deterministic-test-allow wall-clock: Legacy clock read; fixed domain or monotonic clock migration is tracked in #1177.
 import { systemClock } from "../../src/shared/clock.js";
 import { seedNotificationRecipient } from "../support/notification-recipient.js";
 import { randomUUID } from "node:crypto";
@@ -207,6 +208,7 @@ describe("real RabbitMQ consumer, confirms, permissions and limits", () => {
     await sql`truncate platform_links, link_transactions, bot_contacts, telegram_transport_slots cascade`.execute(
       db,
     );
+    // deterministic-test-allow wall-clock: Legacy clock read; fixed domain or monotonic clock migration is tracked in #1177.
     const now = new Date();
     const commands = Array.from({ length: 32 }, (_, i) => {
       const c = command(i < 24 ? "subscription" : "material");
@@ -236,6 +238,7 @@ describe("real RabbitMQ consumer, confirms, permissions and limits", () => {
           ...request,
           status: "allowed",
           permitRef: randomUUID(),
+          // deterministic-test-allow wall-clock: Legacy clock read; fixed domain or monotonic clock migration is tracked in #1177.
           validUntil: new Date(Date.now() + 4900).toISOString(),
         }),
       );
@@ -295,6 +298,7 @@ describe("real RabbitMQ consumer, confirms, permissions and limits", () => {
         running = db
           .transaction()
           .execute((tx) =>
+            // deterministic-test-allow wall-clock: Legacy clock read; fixed domain or monotonic clock migration is tracked in #1177.
             reserveTelegramSlot(tx, "inside", `general:${general}`, new Date()),
           )
           .then((granted) => {

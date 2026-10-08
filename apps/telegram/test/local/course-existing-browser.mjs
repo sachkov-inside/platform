@@ -50,6 +50,7 @@ const context = await browser.newContext({
   viewport: { width: 390, height: 844 },
 });
 const page = await context.newPage();
+// deterministic-test-allow wall-clock: Legacy clock read; fixed domain or monotonic clock migration is tracked in #1177.
 let update = Date.now() % 1_000_000_000;
 /** @param {string} text */
 async function send(text) {
@@ -63,6 +64,7 @@ async function send(text) {
         update_id: ++update,
         message: {
           message_id: update,
+          // deterministic-test-allow wall-clock: Legacy clock read; fixed domain or monotonic clock migration is tracked in #1177.
           date: Math.floor(Date.now() / 1000),
           from: { id: user, is_bot: false, first_name: "Synthetic" },
           chat: { id: user, type: "private" },

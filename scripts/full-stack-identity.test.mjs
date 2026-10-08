@@ -99,6 +99,7 @@ describe("full-stack identity", () => {
     const cookie = await identity.createSessionPastExpiry();
     const stale = claimsOf(accessTokenOf(await sessionOf(cookie), apiBaseUrl));
 
+    // deterministic-test-allow wall-clock: Legacy clock read; fixed domain or monotonic clock migration is tracked in #1177.
     assert.ok(stale.exp < Math.floor(Date.now() / 1_000));
     const renewed = await grant({
       grant_type: "refresh_token",

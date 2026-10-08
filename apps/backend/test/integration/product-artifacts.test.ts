@@ -843,6 +843,7 @@ describe("Product Artifacts", () => {
           terms: {
             capabilities,
             reason: "Controlled #466 fixture",
+            // deterministic-test-allow wall-clock: Legacy clock read; fixed domain or monotonic clock migration is tracked in #1177.
             startsAt: new Date().toISOString(),
             validUntil: null,
           },

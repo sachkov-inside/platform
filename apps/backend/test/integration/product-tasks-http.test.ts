@@ -522,6 +522,7 @@ describe("Product Task page, programme tasks and the page form over HTTP (#947)"
     subject = "product-task-learner",
     email = "learner@example.test",
   ): Promise<string> {
+    // deterministic-test-allow wall-clock: Legacy clock read; fixed domain or monotonic clock migration is tracked in #1177.
     const now = Math.floor(Date.now() / 1_000);
     return new SignJWT({ inside_verified_email: email })
       .setProtectedHeader({ alg: "ES384", kid: "api-key-1" })

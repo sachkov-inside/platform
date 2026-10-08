@@ -257,6 +257,7 @@ describe("Author submissions: list, filters and Author Feedback (#948)", () => {
         principalRef: randomUUID(),
         linkRef: randomUUID(),
         revision: 1,
+        // deterministic-test-allow wall-clock: Legacy clock read; fixed domain or monotonic clock migration is tracked in #1177.
         updatedAt: new Date(),
       },
     });

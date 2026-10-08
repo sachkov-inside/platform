@@ -44,6 +44,7 @@ async function applyHistorical(
 ): Promise<void> {
   await database.transaction().execute(async (transaction) => {
     await migration.up(transaction);
+    // deterministic-test-allow wall-clock: Legacy clock read; fixed domain or monotonic clock migration is tracked in #1177.
     await sql`insert into kysely_migration (name, timestamp) values (${name}, ${new Date().toISOString()})`.execute(
       transaction,
     );
@@ -71,7 +72,9 @@ it.each(["communications-first", "sign-in-first"] as const)(
           owner_account_ref: "synthetic-account",
           revision: 1,
           content: JSON.stringify({ text: "preserved" }),
+          // deterministic-test-allow wall-clock: Legacy clock read; fixed domain or monotonic clock migration is tracked in #1177.
           created_at: new Date(),
+          // deterministic-test-allow wall-clock: Legacy clock read; fixed domain or monotonic clock migration is tracked in #1177.
           updated_at: new Date(),
         })
         .execute();
@@ -139,6 +142,7 @@ it("preserves legacy restriction receipts without inventing an audit during upgr
     actorRef: "synthetic-owner",
     reason: "Legacy decision",
   };
+  // deterministic-test-allow wall-clock: Legacy clock read; fixed domain or monotonic clock migration is tracked in #1177.
   const now = new Date();
   await sql`insert into community_restriction_decisions
     (operation_id, fingerprint, actor_ref, reason, created_at)
@@ -175,6 +179,7 @@ it.each([
 ])(
   "still rejects missing dependencies for %s at every entrypoint",
   async (migrationName) => {
+    // deterministic-test-allow wall-clock: Legacy clock read; fixed domain or monotonic clock migration is tracked in #1177.
     await sql`insert into kysely_migration (name, timestamp) values (${migrationName}, ${new Date().toISOString()})`.execute(
       database,
     );

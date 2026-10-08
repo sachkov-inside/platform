@@ -214,6 +214,7 @@ await test(
         resolve();
       });
     });
+    // deterministic-test-allow wall-clock: Legacy clock read; fixed domain or monotonic clock migration is tracked in #1177.
     const start = Date.now();
     const deadline = processDeadline(child, 25, 25);
     const result = await new Promise<{
@@ -227,6 +228,7 @@ await test(
     });
     assert.equal(deadline.timedOut, true);
     assert.equal(result.signal, "SIGKILL");
+    // deterministic-test-allow wall-clock: Legacy clock read; fixed domain or monotonic clock migration is tracked in #1177.
     assert.ok(Date.now() - start < 3000);
   },
 );

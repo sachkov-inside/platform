@@ -103,9 +103,9 @@ async function waitForResponse(
   child: ChildProcess,
   output: readonly string[],
 ): Promise<Response> {
-  const deadline = Date.now() + 10_000;
+  const deadline = performance.now() + 10_000;
 
-  while (Date.now() < deadline) {
+  while (performance.now() < deadline) {
     if (child.exitCode !== null) {
       throw new Error(`Development API exited early:\n${output.join("")}`);
     }

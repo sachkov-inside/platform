@@ -13,6 +13,7 @@ import { createLogtoAccessTokenVerifier } from "../../src/modules/accounts/infra
 
 const issuer = "https://identity.example.test/oidc";
 const audience = "https://api.inside.example.test";
+// deterministic-test-allow wall-clock: Legacy clock read; fixed domain or monotonic clock migration is tracked in #1177.
 const now = Math.floor(Date.now() / 1_000);
 
 describe("Logto access token verifier", () => {

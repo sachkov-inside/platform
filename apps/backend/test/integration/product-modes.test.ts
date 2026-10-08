@@ -433,6 +433,7 @@ describe("Product modes and lesson facts", () => {
   async function signToken(
     overrides: { readonly subject?: string; readonly email?: string } = {},
   ): Promise<string> {
+    // deterministic-test-allow wall-clock: Legacy clock read; fixed domain or monotonic clock migration is tracked in #1177.
     const now = Math.floor(Date.now() / 1_000);
     return new SignJWT({
       inside_verified_email: overrides.email ?? "reader@example.test",

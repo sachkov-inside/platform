@@ -149,6 +149,7 @@ describe("ContentCovers", () => {
       before.every(({ publicObjectKey }) => stored.has(publicObjectKey)),
     ).toBe(true);
     const graceMs = 1_000;
+    // deterministic-test-allow wall-clock: Legacy clock read; fixed domain or monotonic clock migration is tracked in #1177.
     const orphanObservedAt = new Date(Date.now() + graceMs * 2);
     const maintenance = assembleContentCoverMaintenance({
       prisma: database.prisma,
@@ -290,6 +291,7 @@ describe("ContentCovers", () => {
     });
     await maintenance.cleanup({
       graceMs: 1_000,
+      // deterministic-test-allow wall-clock: Legacy clock read; fixed domain or monotonic clock migration is tracked in #1177.
       now: new Date(Date.now() + 2_000),
     });
     expect(
@@ -312,6 +314,7 @@ describe("ContentCovers", () => {
     ).resolves.toEqual({ error: { code: "not_found" }, ok: false });
     await maintenance.cleanup({
       graceMs: 1_000,
+      // deterministic-test-allow wall-clock: Legacy clock read; fixed domain or monotonic clock migration is tracked in #1177.
       now: new Date(Date.now() + 4_000),
     });
     expect(
@@ -351,6 +354,7 @@ describe("ContentCovers", () => {
           await objectStorage.delete(namespace, key);
         },
       },
+      // deterministic-test-allow wall-clock: Legacy clock read; fixed domain or monotonic clock migration is tracked in #1177.
     }).cleanup({ graceMs: 1_000, now: new Date(Date.now() + 2_000) });
     await deletionStarted.promise;
     let replacement;
@@ -430,6 +434,7 @@ describe("ContentCovers", () => {
         prisma: database.prisma,
         objectStorage,
       });
+      // deterministic-test-allow wall-clock: Legacy clock read; fixed domain or monotonic clock migration is tracked in #1177.
       const now = new Date(Date.now() + 2_000);
       try {
         await maintenance.cleanup({ graceMs: 1_000, now });
@@ -506,6 +511,7 @@ describe("ContentCovers", () => {
         prisma: database.prisma,
         objectStorage,
       });
+      // deterministic-test-allow wall-clock: Legacy clock read; fixed domain or monotonic clock migration is tracked in #1177.
       const now = new Date(Date.now() + 2_000);
       await maintenance.cleanup({ graceMs: 1_000, now });
       await maintenance.cleanup({

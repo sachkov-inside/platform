@@ -7,6 +7,44 @@ import { signalProcessGroup } from "./process-group-signal.mjs";
 import { fileURLToPath } from "node:url";
 import { deterministicTestViolations } from "./deterministic-tests.mjs";
 
+test("calendar fixtures cannot read the wall clock without a local reason", () => {
+  for (const source of [
+    "const today = new Date();",
+    "const expiry = new Date(Date.now() + 60_000);",
+    "const today = Date();",
+    "const today = new globalThis.Date();",
+    'const now = window.Date["now"]();',
+    'import { systemClock as clock } from "./clock.js";',
+  ])
+    assert.match(
+      deterministicTestViolations(
+        "apps/telegram/test/example.test.ts",
+        source,
+      ).join("\n"),
+      /wall-clock/u,
+    );
+  for (const source of [
+    'const now = new Date("2026-01-01T00:00:00Z"); const expiry = new Date(now.getTime() + 60_000);',
+    "const now = fixtureClock.now();",
+    "function render(Date) { return new Date(); }",
+    "const Date = FixtureDate; const now = Date.now();",
+    'const text = "new Date() and Date.now()";',
+    "// deterministic-test-allow wall-clock: vi.useFakeTimers and setSystemTime own this case.\nconst now = new Date();",
+  ])
+    assert.deepEqual(
+      deterministicTestViolations("apps/telegram/test/example.test.ts", source),
+      [],
+    );
+  assert.deepEqual(
+    deterministicTestViolations(
+      "scripts/diagnostic.mjs",
+      "const now = Date.now();",
+      false,
+    ),
+    [],
+  );
+});
+
 test("duration waits require a local reason", () => {
   assert.match(
     deterministicTestViolations(
@@ -140,6 +178,7 @@ test("the guardrail exits nonzero for a bad test fixture", () => {
     "shared-mutation",
     "unit-io",
     "process-cleanup",
+    "wall-clock",
   ])
     assert.ok(result.stderr.includes(rule), result.stderr);
 });

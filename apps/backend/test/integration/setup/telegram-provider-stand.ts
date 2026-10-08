@@ -156,6 +156,7 @@ export async function providerStand(input: {
     );
     const revision = (revisions.get(command.deliveryRef) ?? 0) + 1;
     revisions.set(command.deliveryRef, revision);
+    // deterministic-test-allow wall-clock: Legacy clock read; fixed domain or monotonic clock migration is tracked in #1177.
     const recordedAt = new Date().toISOString();
     const result = {
       contractVersion: "inside.notification-result.v1",

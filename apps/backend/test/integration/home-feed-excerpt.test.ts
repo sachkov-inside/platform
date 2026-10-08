@@ -171,6 +171,7 @@ describe("Home feed public note excerpts", () => {
     if (!archived.ok) throw new Error(archived.error.code);
     await database.prisma.product.update({
       where: { id: closedProductId },
+      // deterministic-test-allow wall-clock: Legacy clock read; fixed domain or monotonic clock migration is tracked in #1177.
       data: { archivedAt: new Date() },
     });
     const hiddenArchive = await read();

@@ -1298,6 +1298,7 @@ describe("handing the link over in the private chat", () => {
 
   /** Drives one subject to a stored, still-live link on the real clock. */
   async function waitingWithLink(who: Subject): Promise<void> {
+    // deterministic-test-allow wall-clock: Legacy clock read; fixed domain or monotonic clock migration is tracked in #1175.
     clock.value = new Date();
     const grant = command("finite-community-grant", who);
     await seedCommunityBinding(

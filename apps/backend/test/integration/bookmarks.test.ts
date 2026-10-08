@@ -52,6 +52,7 @@ describe("Bookmarks on PostgreSQL", () => {
     });
     membership = assemblePriorParticipantsFixture({
       prisma: database.prisma,
+      // deterministic-test-allow wall-clock: Legacy clock read; fixed domain or monotonic clock migration is tracked in #1177.
       clock: () => new Date(),
     });
     bookmarks = assembleBookmarks(database.prisma);
@@ -137,7 +138,9 @@ describe("Bookmarks on PostgreSQL", () => {
         principalRef: `principal-${memberId}`,
         decision: "member",
         reasonCode: "chat_member",
+        // deterministic-test-allow wall-clock: Legacy clock read; fixed domain or monotonic clock migration is tracked in #1177.
         checkedAt: new Date().toISOString(),
+        // deterministic-test-allow wall-clock: Legacy clock read; fixed domain or monotonic clock migration is tracked in #1177.
         validUntil: new Date(Date.now() + 240_000).toISOString(),
         telegramIdentityRef: `telegram-${memberId}`,
         evidenceRef: randomUUID(),
@@ -156,7 +159,9 @@ describe("Bookmarks on PostgreSQL", () => {
         principalRef: `principal-${memberId}`,
         decision: "not_member",
         reasonCode: "chat_not_member",
+        // deterministic-test-allow wall-clock: Legacy clock read; fixed domain or monotonic clock migration is tracked in #1177.
         checkedAt: new Date().toISOString(),
+        // deterministic-test-allow wall-clock: Legacy clock read; fixed domain or monotonic clock migration is tracked in #1177.
         validUntil: new Date(Date.now() + 240_000).toISOString(),
         telegramIdentityRef: `telegram-${memberId}`,
         evidenceRef: randomUUID(),

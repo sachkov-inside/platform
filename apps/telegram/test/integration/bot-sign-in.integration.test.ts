@@ -141,11 +141,13 @@ describe("bot sign-in provider", () => {
         accountRef: emailPrincipal,
         returnCorrelation: "race-return",
         tokenDigest: digestSignInSecret(normalToken),
+        // deterministic-test-allow wall-clock: Legacy clock read; fixed domain or monotonic clock migration is tracked in #1177.
         expiresAt: new Date(Date.now() + 60_000),
       });
       await linking.acceptStart({
         botIdentity: "inside",
         telegramUserId: "42",
+        // deterministic-test-allow wall-clock: Legacy clock read; fixed domain or monotonic clock migration is tracked in #1177.
         observedAt: new Date(),
         linkToken: { kind: "digest", digest: digestSignInSecret(normalToken) },
       });
@@ -315,6 +317,7 @@ describe("bot sign-in provider", () => {
         );
       },
     };
+    // deterministic-test-allow wall-clock: Legacy clock read; fixed domain or monotonic clock migration is tracked in #1177.
     const now = new Date();
     const firstWorker = new StartResponseDeliveryProcessor(
       new StartResponseDeliveryQueue(database),
@@ -378,14 +381,17 @@ describe("bot sign-in provider", () => {
       }
       const queue = new StartResponseDeliveryQueue(secondDatabase);
       if (failurePoint === "before") {
+        // deterministic-test-allow wall-clock: Legacy clock read; fixed domain or monotonic clock migration is tracked in #1177.
         expect(await queue.claimNext(new Date(), true)).toBeUndefined();
         expect((await bind()).json()).toMatchObject({ status: "linked" });
       }
       // After commit no request replay is needed: a fresh worker sees the durable result.
+      // deterministic-test-allow wall-clock: Legacy clock read; fixed domain or monotonic clock migration is tracked in #1177.
       expect(await queue.claimNext(new Date(), true)).toMatchObject({
         editMessageId: "100",
         messageText: "Вход подтверждён. Вернитесь на сайт.",
       });
+      // deterministic-test-allow wall-clock: Legacy clock read; fixed domain or monotonic clock migration is tracked in #1177.
       expect(await queue.claimNext(new Date(), true)).toBeUndefined();
     },
   );
@@ -561,10 +567,13 @@ describe("bot sign-in provider", () => {
       },
     ]);
     const queue = new StartResponseDeliveryQueue(database);
+    // deterministic-test-allow wall-clock: Legacy clock read; fixed domain or monotonic clock migration is tracked in #1177.
     expect(await queue.claimNext(new Date(), false)).toBeUndefined();
     const claims = await Promise.all([
+      // deterministic-test-allow wall-clock: Legacy clock read; fixed domain or monotonic clock migration is tracked in #1177.
       queue.claimNext(new Date(), true),
       new StartResponseDeliveryQueue(secondDatabase).claimNext(
+        // deterministic-test-allow wall-clock: Legacy clock read; fixed domain or monotonic clock migration is tracked in #1177.
         new Date(),
         true,
       ),
@@ -577,6 +586,7 @@ describe("bot sign-in provider", () => {
   });
 
   it("refreshes inbox leases after a delayed callback instead of claiming with batch-start time", async () => {
+    // deterministic-test-allow wall-clock: Legacy clock read; fixed domain or monotonic clock migration is tracked in #1177.
     const current = new Date();
     const later = new Date(current.getTime() + 60_001);
     vi.useFakeTimers({ toFake: ["Date"] });
@@ -704,6 +714,7 @@ describe("bot sign-in provider", () => {
   });
 
   it("does not send a sign-in prompt that expires behind an earlier delivery", async () => {
+    // deterministic-test-allow wall-clock: Legacy clock read; fixed domain or monotonic clock migration is tracked in #1177.
     const current = new Date();
     vi.useFakeTimers({ toFake: ["Date"] });
     vi.setSystemTime(current);
@@ -761,6 +772,7 @@ describe("bot sign-in provider", () => {
       },
       {
         ...challenge.envelope,
+        // deterministic-test-allow wall-clock: Legacy clock read; fixed domain or monotonic clock migration is tracked in #1177.
         expiresAt: new Date(Date.now() + 301_000).toISOString(),
       },
     ]) {
@@ -868,10 +880,12 @@ describe("bot sign-in provider", () => {
     await callback(challenge, 42);
     expect(await status(challenge, true)).toMatchObject({ status: "denied" });
     const queue = new StartResponseDeliveryQueue(database);
+    // deterministic-test-allow wall-clock: Legacy clock read; fixed domain or monotonic clock migration is tracked in #1177.
     expect(await queue.claimNext(new Date(), true)).toMatchObject({
       editMessageId: "100",
       messageText: "Вход отменён.",
     });
+    // deterministic-test-allow wall-clock: Legacy clock read; fixed domain or monotonic clock migration is tracked in #1177.
     expect(await queue.claimNext(new Date(), true)).toBeUndefined();
   });
 
@@ -880,6 +894,7 @@ describe("bot sign-in provider", () => {
     await start(challenge, 42);
     await callback(challenge, 42);
     const other = new BotSignIn(secondDatabase, config, {
+      // deterministic-test-allow wall-clock: Legacy clock read; fixed domain or monotonic clock migration is tracked in #1177.
       now: () => new Date(),
     });
     const results = await Promise.all([
@@ -893,9 +908,11 @@ describe("bot sign-in provider", () => {
   });
 
   it("keeps the opaque subject stable and reports an existing link without changing it", async () => {
+    // deterministic-test-allow wall-clock: Legacy clock read; fixed domain or monotonic clock migration is tracked in #1177.
     const linking = new IdentityLinking(database, { now: () => new Date() });
     const link = await linking.register({
       accountRef: "existing-account",
+      // deterministic-test-allow wall-clock: Legacy clock read; fixed domain or monotonic clock migration is tracked in #1177.
       expiresAt: new Date(Date.now() + 60_000),
       returnCorrelation: "synthetic-return",
       tokenDigest: digestSignInSecret("synthetic-link-token"),
@@ -903,6 +920,7 @@ describe("bot sign-in provider", () => {
     await linking.acceptStart({
       botIdentity: "inside",
       telegramUserId: "42",
+      // deterministic-test-allow wall-clock: Legacy clock read; fixed domain or monotonic clock migration is tracked in #1177.
       observedAt: new Date(),
       linkToken: {
         kind: "digest",
@@ -939,6 +957,7 @@ describe("bot sign-in provider", () => {
     const disabled = new BotSignIn(
       database,
       { ...config, signInEnabled: false },
+      // deterministic-test-allow wall-clock: Legacy clock read; fixed domain or monotonic clock migration is tracked in #1177.
       { now: () => new Date() },
     );
     await disabled.decide({
@@ -958,6 +977,7 @@ describe("bot sign-in provider", () => {
     ).toEqual({ status: "disabled" });
     expect(
       await new StartResponseDeliveryQueue(database).claimNext(
+        // deterministic-test-allow wall-clock: Legacy clock read; fixed domain or monotonic clock migration is tracked in #1177.
         new Date(),
         false,
       ),
@@ -1044,6 +1064,7 @@ function newChallenge() {
       requestRef,
       startTokenDigest: digestSignInSecret(startToken),
       browserSecretDigest: digestSignInSecret(browserSecret),
+      // deterministic-test-allow wall-clock: Legacy clock read; fixed domain or monotonic clock migration is tracked in #1177.
       expiresAt: new Date(Date.now() + 240_000).toISOString(),
     },
   };

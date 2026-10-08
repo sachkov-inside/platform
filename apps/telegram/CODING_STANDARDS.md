@@ -4,6 +4,9 @@ Apply the [repository standards](../../CODING_STANDARDS.md), including
 [deterministic test contracts](../../CODING_STANDARDS.md#deterministic-test-contracts-1153).
 Application ownership and required checks remain in [AGENTS.md](AGENTS.md).
 
+- Domain fixtures use a per-case fixed instant or virtual `CLOCK`, shared by producer and consumer.
+  Expiration and "today" never depend on the machine's calendar. A finite corpus grant must stay
+  valid or expired according to the case's fixed clock, even after its literal expiry passes.
 - Wait for an inbox row, committed delivery, drained queue or reported worker outcome. A timer
   starts work or stops a stuck wait; it does not prove delivery or shutdown.
 - Each test creates its own recipients, identities and mutable provider state. Shared immutable

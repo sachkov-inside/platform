@@ -286,6 +286,7 @@ describe("Product Tasks: import, versions, access and submissions (#946)", () =>
           sourceRef: randomUUID(),
           terms: {
             capabilities,
+            // deterministic-test-allow wall-clock: Legacy clock read; fixed domain or monotonic clock migration is tracked in #1177.
             startsAt: new Date(Date.now() - 60_000).toISOString(),
             validUntil: null,
             reason: "Product Task fixture (#946)",
@@ -847,6 +848,7 @@ describe("Product Tasks: import, versions, access and submissions (#946)", () =>
         comment: "Хорошее разделение владельца.",
         reviewedAt: new Date("2026-10-05T10:00:00Z"),
         updatedBy: owner,
+        // deterministic-test-allow wall-clock: Legacy clock read; fixed domain or monotonic clock migration is tracked in #1177.
         updatedAt: new Date(),
       },
     });
@@ -968,6 +970,7 @@ describe("Product Tasks: import, versions, access and submissions (#946)", () =>
     expect(
       await tasks.submit({ subject, source: "mcp", submission: submission() }),
     ).toEqual({ ok: false, error: { code: "submission_rate_limited" } });
+    // deterministic-test-allow wall-clock: Legacy clock read; fixed domain or monotonic clock migration is tracked in #1177.
     const later = learning(true, () => new Date(Date.now() + 61 * 60 * 1_000));
     expect(
       await later.submit({ subject, source: "mcp", submission: submission() }),

@@ -145,6 +145,7 @@ describe("background worker lifecycle", () => {
         privateChatId: "4242",
         messageText: "Synthetic reply",
         sourceKey: "lifecycle:1",
+        // deterministic-test-allow wall-clock: Legacy clock read; fixed domain or monotonic clock migration is tracked in #1177.
         now: new Date(),
       });
       await vi.waitFor(
@@ -205,6 +206,7 @@ describe("background worker lifecycle", () => {
             data: "signin:approve:00000000-0000-4000-8000-000000000000",
           },
         },
+        // deterministic-test-allow wall-clock: Legacy clock read; fixed domain or monotonic clock migration is tracked in #1177.
         new Date(),
       );
       await vi.waitFor(() => expect(answering).toHaveBeenCalled(), {
@@ -224,6 +226,7 @@ describe("background worker lifecycle", () => {
             text: "/start",
           },
         },
+        // deterministic-test-allow wall-clock: Legacy clock read; fixed domain or monotonic clock migration is tracked in #1177.
         new Date(),
       );
       await vi.waitFor(

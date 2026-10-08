@@ -341,5 +341,6 @@ function fakeReadiness(): Pick<OperationalReadiness, "check" | "live"> {
 }
 
 function currentTime(): number {
+  // deterministic-test-allow wall-clock: Legacy clock read; fixed domain or monotonic clock migration is tracked in #1177.
   return Math.floor(Date.now() / 1_000);
 }

@@ -305,6 +305,7 @@ describe("Reference reads on an exhausted pool", () => {
       requestVideoDeletion(
         database.prisma,
         { actor, materialId, videoId },
+        // deterministic-test-allow wall-clock: Legacy clock read; fixed domain or monotonic clock migration is tracked in #1177.
         new Date(),
       ),
     ).resolves.toMatchObject({ ok: true });
@@ -363,6 +364,7 @@ async function insertReadyImage(
   uploadedBy: string,
 ): Promise<string> {
   const id = randomUUID();
+  // deterministic-test-allow wall-clock: Legacy clock read; fixed domain or monotonic clock migration is tracked in #1177.
   const now = new Date();
   await database.prisma.materialAsset.create({
     data: {
@@ -400,6 +402,7 @@ async function insertReadyVideo(
 ): Promise<string> {
   const id = randomUUID();
   const providerVideoId = `reference-change-${id}`;
+  // deterministic-test-allow wall-clock: Legacy clock read; fixed domain or monotonic clock migration is tracked in #1177.
   const now = new Date();
   await database.prisma.video.create({
     data: {

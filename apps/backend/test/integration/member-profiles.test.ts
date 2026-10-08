@@ -270,6 +270,7 @@ describe("MemberProfiles", () => {
 
     const cleanup = await maintenance.cleanup({
       graceMs: 0,
+      // deterministic-test-allow wall-clock: Legacy clock read; fixed domain or monotonic clock migration is tracked in #1177.
       now: new Date(Date.now() + 1_000),
     });
     expect(cleanup).toEqual({ cleaned: 1, retained: 1 });

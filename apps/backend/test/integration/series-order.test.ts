@@ -389,6 +389,7 @@ describe("Series order", () => {
     if (!unassigned.ok) throw new Error(unassigned.error.code);
     await testDatabase.prisma.product.update({
       where: { id: seriesId },
+      // deterministic-test-allow wall-clock: Legacy clock read; fixed domain or monotonic clock migration is tracked in #1177.
       data: { archivedAt: new Date() },
     });
     try {

@@ -61,7 +61,7 @@ describe("Telegram sign-in transport", () => {
       "inside",
       "1",
       prepared,
-      new Date(),
+      new Date("2026-01-01T00:00:00Z"),
     );
     expect(translated.kind).toBe("start");
     if (translated.kind !== "start") throw new Error("Expected start");
@@ -77,7 +77,7 @@ describe("Telegram sign-in transport", () => {
       "inside",
       "1",
       payload,
-      new Date(),
+      new Date("2026-01-01T00:00:00Z"),
     );
     expect(command).toMatchObject({
       kind: "start",
@@ -95,7 +95,7 @@ describe("Telegram sign-in transport", () => {
       "inside",
       "1",
       payload,
-      new Date(),
+      new Date("2026-01-01T00:00:00Z"),
     );
     expect(command).toMatchObject({
       kind: "start",

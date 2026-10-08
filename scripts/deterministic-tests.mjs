@@ -76,6 +76,29 @@ function shadowed(ancestors, binding) {
   );
 }
 
+/** @param {Node} scope @param {string} binding */
+function declares(scope, binding) {
+  return nodes(scope["body"]).some((statement) => {
+    if (
+      statement.type === "ExportNamedDeclaration" &&
+      node(statement["declaration"])
+    )
+      statement = statement["declaration"];
+    if (statement.type === "VariableDeclaration")
+      return nodes(statement["declarations"]).some((entry) =>
+        bindingNames(entry["id"]).includes(binding),
+      );
+    if (statement.type === "ImportDeclaration")
+      return nodes(statement["specifiers"]).some(
+        (entry) => name(entry["local"]) === binding,
+      );
+    return (
+      ["FunctionDeclaration", "ClassDeclaration"].includes(statement.type) &&
+      name(statement["id"]) === binding
+    );
+  });
+}
+
 /**
  * Syntax checks, not proof of isolation or of a barrier's meaning. Aliased timer imports are
  * recognized; arbitrary wrappers and cross-module effects remain review responsibilities.
@@ -139,6 +162,32 @@ export function deterministicTestViolations(file, source, testSource = true) {
       /^(?:node:)?(?:child_process|https?|net|tls|dns)(?:\/|$)/u.test(imported)
     )
       report(statement, "unit-io");
+    if (
+      testSource &&
+      nodes(statement["specifiers"]).some(
+        (specifier) => name(specifier["imported"]) === "systemClock",
+      )
+    )
+      report(statement, "wall-clock");
+  }
+  /** @param {unknown} value @param {Node[]} ancestors */
+  function globalDate(value, ancestors) {
+    if (!node(value)) return false;
+    const hidden = (/** @type {string} */ binding) =>
+      shadowed(ancestors, binding) ||
+      ancestors.some(
+        (scope) =>
+          ["Program", "BlockStatement"].includes(scope.type) &&
+          declares(scope, binding),
+      );
+    if (value.type === "Identifier")
+      return name(value) === "Date" && !hidden("Date");
+    return (
+      value.type === "MemberExpression" &&
+      name(value) === "Date" &&
+      ["globalThis", "window", "global"].includes(name(value["object"])) &&
+      !hidden(name(value["object"]))
+    );
   }
   /** @type {Set<Node>} */
   const suites = new Set();
@@ -367,6 +416,22 @@ export function deterministicTestViolations(file, source, testSource = true) {
   for (const child of children)
     if (!disposed.has(child.call)) report(child.call, "process-cleanup");
   walk(program, (value, ancestors) => {
+    if (
+      testSource &&
+      ["CallExpression", "NewExpression"].includes(value.type)
+    ) {
+      const callee = value["callee"];
+      if (
+        (globalDate(callee, ancestors) &&
+          (value.type === "CallExpression" ||
+            nodes(value["arguments"]).length === 0)) ||
+        (value.type === "CallExpression" &&
+          node(callee) &&
+          name(callee) === "now" &&
+          globalDate(callee["object"], ancestors))
+      )
+        report(value, "wall-clock");
+    }
     const target =
       value.type === "AssignmentExpression"
         ? value["left"]

@@ -41,6 +41,7 @@ export async function startTestIdentityIssuer(input: {
     ...input,
     jwksUrl: `http://127.0.0.1:${String(address.port)}/jwks`,
     sign(subject, claims = {}, audience = input.audience) {
+      // deterministic-test-allow wall-clock: Legacy clock read; fixed domain or monotonic clock migration is tracked in #1177.
       const now = Math.floor(Date.now() / 1_000);
       return new SignJWT({ ...claims })
         .setProtectedHeader({ alg: "ES384", kid })

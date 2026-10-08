@@ -102,6 +102,11 @@ The nearest standard names the helper for each surface.
 
 ## Deterministic test contracts (#1153)
 
+- Domain tests do not depend on today's date or the machine's wall clock. Fix one instant per case
+  or inject virtual clocks; derive expirations, deadlines and "today" from that instant. Producers
+  and consumers share the same clock. Never extend a literal expiry to make a failing test pass.
+  Measure elapsed time and polling budgets with monotonic clocks. A fake-timer test registers and
+  restores its virtual clock; a real-clock adapter contract names the boundary it verifies.
 - Every test creates its own mutable data. A shared immutable template is copied before mutation;
   per-test hooks may reset local double observations. A reused database fixture never lets one
   test rely on rows, counters or provider state left by another test.
@@ -130,6 +135,12 @@ The nearest standard names the helper for each surface.
   This is a syntax check: review proves the group covers descendants, cleanup is registered before
   a failure can happen, its shutdown is bounded, and error/signal paths really execute it. Shell
   traps and indirect process wrappers require behavioral verification and review.
+- In tests/support, direct global `new Date()` without arguments, `Date()`, `Date.now()` (including
+  global/member computed forms), and named `systemClock` imports require an adjacent `wall-clock`
+  reason. Fixed dates and injected clock reads are allowed. A reason names the registered virtual
+  clock, real-clock contract or deferred migration issue; it never excuses a calendar-dependent
+  assertion. Indirect clock wrappers, namespace/dynamic imports, aliases and expiry literals require
+  review: syntax cannot prove that production consumers and fixtures share the fixed time.
 - In test/spec files it also rejects direct writes and listed collection mutators on module-level
   object/array literals in modules and plain `describe` callbacks (including exported declarations).
   A syntactic reset in `beforeEach`/`afterEach` permits the binding; review

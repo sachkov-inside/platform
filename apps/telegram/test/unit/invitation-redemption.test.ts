@@ -21,7 +21,7 @@ function translate(text: string) {
     "inside",
     "1",
     prepareTelegramUpdateForInbox(privateStartUpdate(1, 42, { text })),
-    new Date(),
+    new Date("2026-01-01T00:00:00Z"),
   );
 }
 
@@ -63,7 +63,7 @@ describe("invitation start payload", () => {
         "inside",
         "1",
         prepareTelegramUpdateForInbox(forged),
-        new Date(),
+        new Date("2026-01-01T00:00:00Z"),
       ),
     ).not.toHaveProperty("value.invitationCode");
   });

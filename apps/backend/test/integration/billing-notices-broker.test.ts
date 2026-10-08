@@ -94,6 +94,7 @@ test("подтверждённая оплата доходит до обоих �
       revision: 1,
       principalRef: `principal-${buyer}`,
       identityRef: `identity-${buyer}`,
+      // deterministic-test-allow wall-clock: Legacy clock read; fixed domain or monotonic clock migration is tracked in #1177.
       updatedAt: new Date(),
     },
   });
@@ -112,6 +113,7 @@ test("подтверждённая оплата доходит до обоих �
     prisma: database.prisma,
     protection,
     documents,
+    // deterministic-test-allow wall-clock: Legacy clock read; fixed domain or monotonic clock migration is tracked in #1177.
     now: () => new Date(),
     sendCode: (message) => {
       codes.set(message.challengeRef, message.code);

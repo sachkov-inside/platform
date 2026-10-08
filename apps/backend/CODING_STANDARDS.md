@@ -159,6 +159,8 @@ not dependency wiring.
 
 ## Tests against real infrastructure
 
+- Fix the domain clock per case and share it across producers and consumers. Derive expiry and
+  "today" from that instant. Use monotonic time for latency and polling budgets, not calendar dates.
 - Apply [deterministic test contracts](../../CODING_STANDARDS.md#deterministic-test-contracts-1153).
   Each case owns its rows and double state; put compilation, migrations and large seeds in bounded
   setup hooks. Unit tests supply git/network/process doubles; process and loopback contracts name

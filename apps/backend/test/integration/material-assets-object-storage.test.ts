@@ -136,6 +136,7 @@ describe("MaterialAssets against PostgreSQL and S3", () => {
       assets.cleanupOrphans({
         graceMs: 60 * 60 * 1_000,
         isReferenced: () => Promise.resolve(false),
+        // deterministic-test-allow wall-clock: Legacy clock read; fixed domain or monotonic clock migration is tracked in #1177.
         now: new Date(Date.now() + 2 * 60 * 60 * 1_000),
       }),
     ).resolves.toEqual({ ok: true, value: { cleaned: 1, retained: 0 } });
@@ -297,6 +298,7 @@ describe("MaterialAssets against PostgreSQL and S3", () => {
     const cleanupPromise = assets.cleanupOrphans({
       graceMs: 0,
       isReferenced: () => Promise.resolve(false),
+      // deterministic-test-allow wall-clock: Legacy clock read; fixed domain or monotonic clock migration is tracked in #1177.
       now: new Date(Date.now() + 60 * 60 * 1_000),
     });
     await waitForMaterialAssetLockWaiters(2);
@@ -321,6 +323,7 @@ describe("MaterialAssets against PostgreSQL and S3", () => {
       assets.cleanupOrphans({
         graceMs: 0,
         isReferenced: () => Promise.resolve(false),
+        // deterministic-test-allow wall-clock: Legacy clock read; fixed domain or monotonic clock migration is tracked in #1177.
         now: new Date(Date.now() + 2 * 60 * 60 * 1_000),
       }),
     ).resolves.toMatchObject({ ok: true, value: { cleaned: 1 } });
@@ -616,7 +619,9 @@ function deferredSignal() {
 }
 
 async function waitForMaterialAssetLockWaiters(minimum: number): Promise<void> {
+  // deterministic-test-allow wall-clock: Legacy clock read; fixed domain or monotonic clock migration is tracked in #1177.
   const deadline = Date.now() + 5_000;
+  // deterministic-test-allow wall-clock: Legacy clock read; fixed domain or monotonic clock migration is tracked in #1177.
   while (Date.now() < deadline) {
     const rows = materialAssetLockWaiterRowsSchema.parse(
       await database.prisma.$queryRaw(Prisma.sql`

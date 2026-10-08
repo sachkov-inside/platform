@@ -27,6 +27,7 @@ import { reserveTelegramIdentity } from "../../src/modules/identity-linking/stab
 const bot = `invitation-${randomUUID()}`;
 // deterministic-test-allow shared-mutation: Legacy suite clock isolation is tracked in #1154.
 const clock = {
+  // deterministic-test-allow wall-clock: Legacy clock read; fixed domain or monotonic clock migration is tracked in #1177.
   value: new Date(),
   now() {
     return new Date(this.value);

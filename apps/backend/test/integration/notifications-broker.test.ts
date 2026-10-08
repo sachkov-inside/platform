@@ -40,6 +40,7 @@ test("real RabbitMQ event → audience → email inbox/effect → result outage/
   onTestFinished(() => database.dispose());
   const { urls } = broker;
   const actor = randomUUID();
+  // deterministic-test-allow wall-clock: Legacy clock read; fixed domain or monotonic clock migration is tracked in #1177.
   const instant = new Date();
   const before = new Date(instant.getTime() - 60_000);
   const event = (category: "subscription" | "material"): NotificationEvent => ({

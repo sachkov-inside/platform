@@ -190,6 +190,8 @@ these are the rules a change follows.
 - Compare a node with live document state inside one evaluation, `document.activeElement` above all.
   A locator resolves in one round trip and evaluates in the next, so a re-render between them leaves
   the assertion holding a detached node that can never equal what the document reports now.
+- Freeze "today" and expiration in domain fixtures; page and mocked provider use the same instant.
+  Restore owned fake clocks after each case. Monotonic time measures latency and polling budgets.
 - Treat `clock.runFor` as a trigger: it returns once the page's virtual timers ran, before the
   request they started has been answered. Wait for the response or the applied render.
 - Simulate a return to the tab with `visibilitychange` and `focus` together, as a browser sends

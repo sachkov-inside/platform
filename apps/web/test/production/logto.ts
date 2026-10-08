@@ -167,6 +167,7 @@ export async function createLogtoPassClient(
       const pat = z.object({ value: z.string().min(1) }).parse(
         await api(tokensPath(userId), {
           method: "POST",
+          // deterministic-test-allow wall-clock: Legacy clock read; fixed domain or monotonic clock migration is tracked in #1177.
           body: { name, expiresAt: Date.now() + patLifetimeMs },
         }),
       );
@@ -192,6 +193,7 @@ export async function createLogtoPassClient(
             name === own ||
             (name.startsWith(passPatPrefix) &&
               expiresAt !== null &&
+              // deterministic-test-allow wall-clock: Legacy clock read; fixed domain or monotonic clock migration is tracked in #1177.
               expiresAt <= Date.now()),
         )
         .map(({ name }) => name);
