@@ -10,9 +10,4 @@ export const knownTransactionViolations: readonly {
   readonly issue: number;
   readonly through: string;
   readonly callbackName?: string;
-}[] = [
-  {
-    issue: 1017,
-    through: "src/modules/billing/facets/billing-notices/billing-notices.ts",
-  },
-];
+}[] = [];
