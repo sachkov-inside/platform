@@ -20,6 +20,8 @@ import {
   dispatchResultSchema,
 } from "../../src/modules/telegram-membership/domain/community-entitlement.js";
 
+import { HttpCommunityEntitlementProvider } from "../../src/modules/telegram-membership/infrastructure/http/http-community-entitlement-provider.js";
+
 const ajv = new Ajv({ strict: true, allErrors: true });
 addFormats.default(ajv);
 ajv.addSchema(schema);
@@ -97,20 +99,52 @@ describe("community entitlement wire agreement", () => {
     }
   });
 
-  test("shared result codec and portable v2 schema agree on result examples", () => {
-    for (const fixture of v2Fixtures) {
-      if (
-        fixture.definition !== "communityResponse" ||
-        fixture.value.operation !== "entitlement.result"
-      )
-        continue;
-      expect(validateV2(fixture.value), fixture.name).toBe(fixture.valid);
-      expect(
+  test.each(
+    v2Fixtures.filter(
+      (fixture) =>
+        fixture.definition === "communityResponse" &&
+        fixture.value.operation === "entitlement.result",
+    ),
+  )("shared result codec and portable v2 schema agree: $name", (fixture) => {
+    expect.soft(validateV2(fixture.value), fixture.name).toBe(fixture.valid);
+    expect
+      .soft(
         communityResultSchema.safeParse(fixture.value).success,
         fixture.name,
-      ).toBe(fixture.valid);
-    }
+      )
+      .toBe(fixture.valid);
   });
+
+  test.each(v2Fixtures.filter((fixture) => fixture.name.includes("group-url")))(
+    "HTTP consumer preserves group URL semantics: $name",
+    async (fixture) => {
+      const value = fixture.value;
+      if (
+        !("binding" in value) ||
+        !("access" in value) ||
+        !("entitlementRevision" in value)
+      )
+        throw new Error("Expected result fixture");
+      const command = communitySetSchema.parse({
+        contractVersion: value.contractVersion,
+        operation: "entitlement.set",
+        operationId: value.operationId,
+        binding: value.binding,
+        entitlementRevision: value.entitlementRevision,
+        access: value.access,
+        issuedAt: "2030-01-01T00:00:00Z",
+        correlationRef: "00000000-0000-4000-8000-000000000003",
+      });
+      const provider = new HttpCommunityEntitlementProvider(
+        "https://telegram.test/community-entitlements",
+        "synthetic-secret",
+        () => Promise.resolve(Response.json(value)),
+      );
+      expect((await provider.status(command)).kind).toBe(
+        fixture.valid ? "result" : "unavailable",
+      );
+    },
+  );
 
   test("the payload fingerprint matches the provider's canonical form", () => {
     for (const fixture of fixtures) {

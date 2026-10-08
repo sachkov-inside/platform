@@ -45,6 +45,7 @@ export interface OneTimeCheckoutPanelProps {
   readonly existingAccess?: boolean;
   readonly legacyBlocked?: boolean;
   readonly pending?: boolean;
+  readonly paymentBlocked?: boolean;
   readonly error?: string | undefined;
   readonly purchase: PurchaseStatus | null;
   /** Показывать ли состав покупки: панель строит его из того же снимка, что и сводку условий. */
@@ -92,6 +93,7 @@ export function OneTimeCheckoutPanel({
   existingAccess = false,
   legacyBlocked = false,
   pending = false,
+  paymentBlocked = false,
   error,
   purchase,
   showInclusions = false,
@@ -275,7 +277,7 @@ export function OneTimeCheckoutPanel({
 
       <Button
         className={`mt-6 h-auto min-h-12 w-full whitespace-normal text-base ${billingActionClass}`}
-        disabled={!payable || pending}
+        disabled={!payable || pending || paymentBlocked}
         onClick={onPay}
         size="lg"
         type="button"
