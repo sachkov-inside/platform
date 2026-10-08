@@ -23,7 +23,8 @@ describe("API development process", () => {
       throw new Error("npm_execpath is required to launch the pinned pnpm CLI");
     }
 
-    // The hook owns normal test exits; supervision after runner SIGKILL remains tracked in #1154.
+    // The hook owns normal test exits. Forced cleanup across pnpm's separate descendant
+    // groups and supervision after runner SIGKILL remain tracked in #1154.
     const child = spawn(globalThis.process.execPath, [pnpmPath, "dev:api"], {
       detached: true,
       cwd: backendRoot,
@@ -39,8 +40,13 @@ describe("API development process", () => {
         child.exitCode === null && child.signalCode === null
           ? once(child, "close", { signal: AbortSignal.timeout(5_000) })
           : undefined;
-      if (child.pid !== undefined) signalProcessGroup(child.pid, "SIGKILL");
-      await closed;
+      try {
+        // pnpm forwards SIGTERM to the separate group it creates for the dev script.
+        child.kill("SIGTERM");
+        await closed;
+      } finally {
+        if (child.pid !== undefined) signalProcessGroup(child.pid, "SIGKILL");
+      }
     });
     child.stdout.on("data", (chunk: Buffer) => output.push(chunk.toString()));
     child.stderr.on("data", (chunk: Buffer) => output.push(chunk.toString()));
