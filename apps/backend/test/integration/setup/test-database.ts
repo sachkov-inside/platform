@@ -46,7 +46,9 @@ async function createDatabase(template?: string): Promise<TestDatabase> {
   let disposing = false;
 
   async function drain(): Promise<void> {
-    await Promise.allSettled([...running]);
+    while (running.size > 0) {
+      await Promise.allSettled([...running]);
+    }
   }
 
   return {
