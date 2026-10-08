@@ -2,6 +2,7 @@ import { registerFixedClock } from "../support/fixed-clock.js";
 
 import { randomUUID } from "node:crypto";
 import { afterAll, beforeAll, beforeEach, expect, test, vi } from "vitest";
+import { PublicContentTargets } from "../../src/modules/materials/index.js";
 import { Prisma } from "../../src/infrastructure/prisma/index.js";
 import {
   TrackingVisits,
@@ -66,6 +67,7 @@ function visits() {
     database.prisma,
     provider,
     origin,
+    new PublicContentTargets(database.prisma),
     undefined,
     () => now,
   );
@@ -109,6 +111,38 @@ test("safe target only, opaque tokens and invalid provider destinations never cr
   expect(isSafeTrackingTarget(`${origin}/series/example-series`, origin)).toBe(
     true,
   );
+});
+
+test("resolves canonical Product pages and compatibility routes, refusing missing Products", async () => {
+  await database.prisma.product.create({
+    data: {
+      id: randomUUID(),
+      slug: "tracking-product",
+      name: "Tracking Product",
+    },
+  });
+  for (const route of ["products", "series", "guides"]) {
+    target = `${origin}/${route}/tracking-product`;
+    expect(await visits().resolve({ token, traffic: "unknown" })).toEqual({
+      kind: "resolved",
+      safeUrl: target,
+    });
+    target = `${origin}/${route}/missing-product`;
+    expect(await visits().resolve({ token, traffic: "unknown" })).toEqual({
+      kind: "not_found",
+    });
+  }
+  for (const value of [
+    "https://evil.test/products/tracking-product",
+    `${origin}/products/tracking-product?redirect=evil`,
+    `${origin}/products/tracking-product#fragment`,
+  ]) {
+    target = value;
+    expect(await visits().resolve({ token, traffic: "unknown" })).toEqual({
+      kind: "unavailable",
+    });
+  }
+  expect(await visits().backlog()).toMatchObject({ kind: "ready", pending: 3 });
 });
 
 test("provider outage retains durable backlog and live age; a new instance retries the same event", async () => {
@@ -178,6 +212,7 @@ test("a PostgreSQL write failure does not break resolved navigation and is obser
       tx,
       provider,
       origin,
+      new PublicContentTargets(tx),
       reportFailure,
     ).resolve({ token, traffic: "unknown" });
     expect(result).toEqual({ kind: "resolved", safeUrl: target });

@@ -1,5 +1,5 @@
 import type { z } from "zod";
-import type { PublicContentTargets } from "../../../materials/index.js";
+import { PublicContentTargets } from "../../../materials/index.js";
 import type { partSchema } from "../../communications-schema.generated.js";
 import type { targetErrorSchema } from "../../communications-contract.js";
 import { hasText } from "../../../../infrastructure/contracts/text.js";
@@ -29,26 +29,13 @@ export async function validateTargets(
   for (const value of urls) {
     const url = URL.parse(value.includes("://") ? value : `https://${value}`);
     if (!url || url.origin !== origin) continue;
-    const segments = url.pathname.split("/").filter(Boolean);
-    if (segments[0] !== "materials" && segments[0] !== "series") continue;
-    const slug = (() => {
-      try {
-        return segments.length === 2
-          ? decodeURIComponent(segments[1] ?? "")
-          : "";
-      } catch {
-        // Not a dependency failure: a malformed escape in a submitted link names no material.
-        return "";
-      }
-    })();
-    if (slug === "" || slug.length > 120) {
+    const target = PublicContentTargets.parseUrl(url);
+    if (target === null) continue;
+    if (target === "invalid") {
       errors.push({ url: url.href, reason: "not_found", targetId: null });
       continue;
     }
-    const result = await targets.check({
-      kind: segments[0] === "materials" ? "material" : "series",
-      slug,
-    });
+    const result = await targets.check(target);
     if (result.reason !== "eligible")
       errors.push({
         url: url.href,
