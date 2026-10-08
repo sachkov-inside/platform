@@ -81,9 +81,10 @@ function shadowed(ancestors, binding) {
  * recognized; arbitrary wrappers and cross-module effects remain review responsibilities.
  * @param {string} file
  * @param {string} source
+ * @param {boolean} [testSource] also enforce waits, data and unit boundaries
  * @returns {string[]}
  */
-export function deterministicTestViolations(file, source) {
+export function deterministicTestViolations(file, source, testSource = true) {
   const { program, errors, comments } = parseSync(file, source);
   if (!node(program)) throw new TypeError(`Missing AST for ${file}`);
   if (errors.length > 0)
@@ -94,8 +95,9 @@ export function deterministicTestViolations(file, source) {
   /** @type {Set<string>} */
   const timers = new Set(["setTimeout", "waitForTimeout"]);
   const unit =
-    /\/(?:unit|module)\//u.test(file) ||
-    /^packages\/.*\.(?:test|spec)\.[cm]?[jt]sx?$/u.test(file);
+    testSource &&
+    (/\/(?:unit|module)\//u.test(file) ||
+      /^packages\/.*\.(?:test|spec)\.[cm]?[jt]sx?$/u.test(file));
   const usedReasons = new Set();
   /** @param {number} start @param {string} rule */
   function allowed(start, rule) {
@@ -161,7 +163,7 @@ export function deterministicTestViolations(file, source) {
   /** @typedef {{binding: string, scope: Node}} SharedBinding */
   /** @type {SharedBinding[]} */
   const shared = [];
-  if (/\.(?:test|spec)\.[cm]?[jt]sx?$/u.test(file))
+  if (testSource && /\.(?:test|spec)\.[cm]?[jt]sx?$/u.test(file))
     walk(program, (value, ancestors) => {
       if (
         value.type !== "VariableDeclaration" ||
@@ -203,6 +205,7 @@ export function deterministicTestViolations(file, source) {
   /** @param {unknown} value @returns {string} */
   function rootName(value) {
     if (!node(value)) return "";
+    if (value.type === "UnaryExpression") return rootName(value["argument"]);
     return value.type === "MemberExpression"
       ? rootName(value["object"])
       : name(value);
@@ -259,6 +262,92 @@ export function deterministicTestViolations(file, source) {
           ]);
       });
   });
+  /** @type {{call: Node, binding: string, scope: Node}[]} */
+  const children = [];
+  const processCalls = new Set(["spawn", "fork"]);
+  for (const statement of nodes(program.body)) {
+    if (
+      statement.type !== "ImportDeclaration" ||
+      !node(statement["source"]) ||
+      !/^(?:node:)?child_process$/u.test(String(statement["source"]["value"]))
+    )
+      continue;
+    for (const specifier of nodes(statement["specifiers"]))
+      if (["spawn", "fork"].includes(name(specifier["imported"])))
+        processCalls.add(name(specifier["local"]));
+  }
+  walk(program, (value, ancestors) => {
+    if (
+      value.type !== "CallExpression" ||
+      !processCalls.has(name(value["callee"]))
+    )
+      return;
+    const declaration = ancestors.findLast((ancestor) =>
+      ["VariableDeclarator", "AssignmentExpression"].includes(ancestor.type),
+    );
+    children.push({
+      call: value,
+      binding:
+        declaration === undefined
+          ? ""
+          : name(
+              declaration[
+                declaration.type === "VariableDeclarator" ? "id" : "left"
+              ],
+            ),
+      scope:
+        ancestors.findLast((ancestor) => ancestor.type === "BlockStatement") ??
+        program,
+    });
+  });
+  const disposed = new Set();
+  walk(program, (value, ancestors) => {
+    if (value.type !== "CallExpression") return;
+    const called = name(value["callee"]);
+    const target =
+      called === "kill" && node(value["callee"])
+        ? rootName(value["callee"]["object"]) === "process"
+          ? nodes(value["arguments"])[0]
+          : value["callee"]["object"]
+        : [
+              "stopProcessGroup",
+              "stopServerOnPort",
+              "signalProcessGroup",
+            ].includes(called)
+          ? nodes(value["arguments"])[0]
+          : null;
+    const binding = rootName(target);
+    const inCleanup = ancestors.some((ancestor, index) => {
+      if (ancestor.type === "TryStatement" && node(ancestor["finalizer"])) {
+        const finalizer = ancestors.indexOf(ancestor["finalizer"]);
+        return (
+          finalizer > index &&
+          !ancestors
+            .slice(finalizer + 1)
+            .some((entry) => functionTypes.has(entry.type))
+        );
+      }
+      return (
+        ancestor.type === "CallExpression" &&
+        ["after", "afterEach", "afterAll", "onTestFinished"].includes(
+          name(ancestor["callee"]),
+        ) &&
+        ancestors
+          .slice(index + 1)
+          .filter((entry) => functionTypes.has(entry.type)).length === 1
+      );
+    });
+    if (!inCleanup || binding === "") return;
+    const child = children.findLast(
+      (entry) =>
+        entry.binding === binding &&
+        ancestors.includes(entry.scope) &&
+        !shadowed(ancestors.slice(ancestors.indexOf(entry.scope) + 1), binding),
+    );
+    if (child !== undefined) disposed.add(child.call);
+  });
+  for (const child of children)
+    if (!disposed.has(child.call)) report(child.call, "process-cleanup");
   walk(program, (value, ancestors) => {
     const target =
       value.type === "AssignmentExpression"
@@ -299,7 +388,7 @@ export function deterministicTestViolations(file, source) {
       report(value, "shared-mutation");
     if (value.type === "CallExpression") {
       const called = name(value["callee"]);
-      if (timers.has(called)) report(value, "duration-wait");
+      if (testSource && timers.has(called)) report(value, "duration-wait");
       if (unit && called === "fetch") report(value, "unit-io");
     }
     if (

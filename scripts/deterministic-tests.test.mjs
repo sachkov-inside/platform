@@ -1,7 +1,9 @@
 // @ts-check
 import assert from "node:assert/strict";
 import test from "node:test";
-import { spawnSync } from "node:child_process";
+import { spawn, spawnSync } from "node:child_process";
+import { once } from "node:events";
+import { signalProcessGroup } from "./process-group-signal.mjs";
 import { fileURLToPath } from "node:url";
 import { deterministicTestViolations } from "./deterministic-tests.mjs";
 
@@ -133,7 +135,12 @@ test("the guardrail exits nonzero for a bad test fixture", () => {
     { encoding: "utf8" },
   );
   assert.equal(result.status, 1, result.stderr);
-  for (const rule of ["duration-wait", "shared-mutation", "unit-io"])
+  for (const rule of [
+    "duration-wait",
+    "shared-mutation",
+    "unit-io",
+    "process-cleanup",
+  ])
     assert.ok(result.stderr.includes(rule), result.stderr);
 });
 
@@ -206,4 +213,82 @@ test("immutable service methods and beforeAll arrangement are allowed", () => {
       ),
       [],
     );
+});
+
+test("a test process without an exit cleanup owner is refused", () => {
+  assert.match(
+    deterministicTestViolations(
+      "apps/backend/test/unit/example.test.ts",
+      'const child = spawn("load");',
+    ).join("\n"),
+    /process-cleanup/u,
+  );
+  assert.deepEqual(
+    deterministicTestViolations(
+      "apps/backend/test/integration/example.test.ts",
+      'const child = spawn("load"); try { await work(); } finally { await stopProcessGroup(child); }',
+    ),
+    [],
+  );
+});
+
+test("diagnostic process aliases need cleanup, an unrelated child does not satisfy it", () => {
+  for (const source of [
+    'import { spawn as launch } from "node:child_process"; const load = launch("sleep", ["600"]);',
+    'const load = spawn("load"); try { work(); } finally { other.kill(); }',
+    'const load = spawn("load"); afterEach(() => { const load = other(); load.kill(); });',
+    'const load = spawn("load"); try { work(); } finally { function unused() { load.kill(); } }',
+  ])
+    assert.match(
+      deterministicTestViolations("scripts/diagnostic.mjs", source, false).join(
+        "\n",
+      ),
+      /process-cleanup/u,
+    );
+  assert.deepEqual(
+    deterministicTestViolations(
+      "scripts/diagnostic.mjs",
+      'const load = spawn("load"); try { work(); } finally { signalProcessGroup(load.pid, "SIGKILL"); }',
+      false,
+    ),
+    [],
+  );
+});
+
+test("EXIT cleanup leaves no background load on success, failure or SIGTERM", async () => {
+  for (const [mode, code] of [
+    ["success", 0],
+    ["failure", 23],
+    ["signal", 143],
+  ]) {
+    const child = spawn(
+      "bash",
+      [
+        fileURLToPath(
+          new URL("./fixtures/process-cleanup.sh", import.meta.url),
+        ),
+        String(mode),
+      ],
+      {
+        detached: true,
+        stdio: ["ignore", "pipe", "pipe"],
+      },
+    );
+    let stdout = "";
+    child.stdout.setEncoding("utf8").on("data", (chunk) => {
+      stdout += chunk;
+    });
+    try {
+      const [status] = await once(child, "close", {
+        signal: AbortSignal.timeout(5_000),
+      });
+      assert.equal(status, code);
+      const pid = Number(stdout.trim());
+      assert.ok(Number.isInteger(pid) && pid > 0, stdout);
+      assert.throws(() => process.kill(pid, 0), { code: "ESRCH" });
+    } finally {
+      // The test owns the entire fixture group even if the fixture breaks or times out.
+      if (child.pid !== undefined) signalProcessGroup(child.pid, "SIGKILL");
+    }
+  }
 });

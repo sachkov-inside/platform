@@ -373,6 +373,7 @@ describe("Notifications real PostgreSQL / RabbitMQ transport", () => {
         if (phase.includes("confirm"))
           await stageBillingNotification(scenario.prisma, payload);
         else await publishNotification(producer, envelope);
+        // deterministic-test-allow process-cleanup: watchCrashWorker owns this single worker; finally awaits worker.kill and close.
         const child = fork(
           new URL("./fixtures/notification-crash-worker.ts", import.meta.url),
           [],

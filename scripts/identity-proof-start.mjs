@@ -89,6 +89,7 @@ async function runCompose(project, arguments_, environment, capture = false) {
  * @param {NodeJS.ProcessEnv} [environment]
  */
 async function runPnpm(arguments_, capture = false, environment = process.env) {
+  // deterministic-test-allow process-cleanup: Legacy command needs verified group cleanup on interruption; migration is tracked in #1154.
   const child = spawn(process.execPath, [pnpmPath, ...arguments_], {
     cwd: root,
     env: environment,

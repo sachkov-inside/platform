@@ -36,6 +36,7 @@ const output = [];
  * @param {Record<string, string>} env
  */
 function start(args, env) {
+  // deterministic-test-allow process-cleanup: Legacy command needs verified group cleanup on interruption; migration is tracked in #1154.
   const child = spawn("pnpm", args, {
     detached: true,
     env: { ...process.env, ...env },

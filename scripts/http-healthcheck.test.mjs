@@ -62,10 +62,15 @@ async function probe(service, url, environment = {}) {
   const closed = new Promise((resolveClose) =>
     child.once("close", (code, signal) => resolveClose([code, signal])),
   );
-  const [code, signal] = await closed;
-  assert.equal(signal, null, stderr);
-  assert.equal(stdout, "");
-  return { code, stderr };
+  try {
+    const [code, signal] = await closed;
+    assert.equal(signal, null, stderr);
+    assert.equal(stdout, "");
+    return { code, stderr };
+  } finally {
+    child.kill("SIGKILL");
+    await closed;
+  }
 }
 
 /**

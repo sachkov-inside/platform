@@ -95,6 +95,7 @@ async function isComposeRunning() {
  * @param {boolean} [capture]
  */
 async function runPnpm(arguments_, capture = false) {
+  // deterministic-test-allow process-cleanup: Legacy command needs verified group cleanup on interruption; migration is tracked in #1154.
   const child = spawn(process.execPath, [pnpmPath, ...arguments_], {
     cwd: repositoryRoot,
     env: process.env,
@@ -143,6 +144,7 @@ function shutdown() {
 
 /** @param {string[]} arguments_ */
 async function runCleanupPnpm(arguments_) {
+  // deterministic-test-allow process-cleanup: Legacy command needs verified group cleanup on interruption; migration is tracked in #1154.
   const child = spawn(process.execPath, [pnpmPath, ...arguments_], {
     cwd: repositoryRoot,
     env: process.env,

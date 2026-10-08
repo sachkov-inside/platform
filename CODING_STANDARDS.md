@@ -111,11 +111,25 @@ The nearest standard names the helper for each surface.
 - Unit tests use supplied doubles for git, network and process boundaries. A real subprocess or
   owned loopback responder belongs to a named process/adapter contract, with an explicit budget
   and cleanup; it never calls a live external provider.
+- Tests and diagnostics that start processes or artificial load own their complete process tree.
+  Register cleanup immediately after acquisition. Use an isolated process group, bounded shutdown
+  with forced termination, and `finally`/test cleanup hooks; shell commands use an `EXIT` trap and
+  signal traps. Preserve the original failure status. Terminating only the launcher is insufficient.
+  Verify that no owned process remains after success, failure, timeout and interruption. Test the
+  actual cleanup path, not only a mocked `kill` call. Uncatchable termination requires a supervising
+  process outside the killed group; a trap alone cannot handle `SIGKILL`.
 - `scripts/check-deterministic-tests.mjs` runs in `pnpm guardrails`. It scans JS/TS application
   `test/` trees (including support helpers) and `*.test.*`/`*.spec.*` files across the repository,
-  excluding dependency, fixture and generated build directories. It rejects `waitForTimeout`,
+  plus root/application `scripts/` commands for process ownership, excluding dependency, fixture
+  and generated build directories. It rejects `waitForTimeout`,
   `setTimeout` calls (including member calls), named timer-import aliases, and process/network
   imports or `fetch` calls in `unit/`, `module/` and package test files.
+- Direct asynchronous `spawn`/`fork` calls (including named import aliases) require a matching
+  child cleanup in `finally` or a test cleanup hook. Delegated cleanup uses a local
+  `process-cleanup` reason naming its owner and verification; legacy migrations link #1154.
+  This is a syntax check: review proves the group covers descendants, cleanup is registered before
+  a failure can happen, its shutdown is bounded, and error/signal paths really execute it. Shell
+  traps and indirect process wrappers require behavioral verification and review.
 - In test/spec files it also rejects direct writes and listed collection mutators on module-level
   object/array literals in modules and plain `describe` callbacks (including exported declarations).
   A syntactic reset in `beforeEach`/`afterEach` permits the binding; review
@@ -127,9 +141,9 @@ The nearest standard names the helper for each surface.
   call. A cleanup registry or deferred scenario migration uses `shared-mutation` before its
   declaration. An exception never disables a file; deferred violations link their issue (#1154).
 - Negative fixtures in `scripts/deterministic-tests.test.mjs` prove each syntax rule rejects a bad
-  test, and the CLI fixture proves a nonzero exit. These checks are not proof of determinism:
+  test or diagnostic, and the CLI fixture proves a nonzero exit. These checks are not proof of determinism:
   indirect wrappers/import effects, escaped objects, mutable class instances, database isolation,
-  complete resets, meaningful barriers and preparation cost require review. A syntactic ban
+  process lifetime guarantees, complete resets, meaningful barriers and preparation cost require review. A syntactic ban
   cannot identify which observed fact belongs to a step or what work dominates its budget.
 
 ## Live HTTP checks

@@ -8,6 +8,7 @@
  * прогона и убирается при выходе; чужой файл не заменяется. `PRODUCTION_WEB_SKIP_BUILD=1`
  * запускает уже готовую сборку: так проверки одного прогона делят одну сборку.
  */
+import { signalProcessGroup } from "../../../../scripts/process-group-signal.mjs";
 import { spawn } from "node:child_process";
 import { existsSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
@@ -58,15 +59,16 @@ function required(name) {
 /** @type {import("node:child_process").ChildProcess | undefined} */
 let child;
 function cleanup() {
+  if (child?.pid !== undefined) signalProcessGroup(child.pid, "SIGKILL");
   rmSync(identityPath, { force: true });
 }
 /** @type {NodeJS.Signals[]} */
 const signals = ["SIGINT", "SIGTERM"];
 for (const signal of signals) {
   process.once(signal, () => {
-    child?.kill(signal);
+    if (child?.pid !== undefined) signalProcessGroup(child.pid, signal);
     cleanup();
-    process.exit(0);
+    process.exit(signal === "SIGINT" ? 130 : 143);
   });
 }
 process.once("exit", cleanup);
@@ -77,13 +79,16 @@ process.once("exit", cleanup);
  */
 function run(args) {
   return new Promise((resolveRun, reject) => {
+    // deterministic-test-allow process-cleanup: cleanup kills the owned detached group on exit, SIGINT and SIGTERM.
     child = spawn("pnpm", ["exec", "next", ...args], {
+      detached: true,
       cwd: applicationDirectory,
       env: environment,
       stdio: "inherit",
     });
     child.once("error", reject);
     child.once("exit", (code) => {
+      if (child?.pid !== undefined) signalProcessGroup(child.pid, "SIGKILL");
       if (code === 0) resolveRun();
       else reject(new Error(`next ${args[0]} exited with ${String(code)}`));
     });

@@ -368,6 +368,7 @@ function fullStackTestArguments() {
 function startPnpm(name, arguments_, environment, detached = true) {
   /** @type {string[]} */
   const output = [];
+  // deterministic-test-allow process-cleanup: Legacy command needs verified group cleanup on interruption; migration is tracked in #1154.
   const child = spawn(process.execPath, [pnpmPath, ...arguments_], {
     cwd: repositoryRoot,
     detached: detached && process.platform !== "win32",

@@ -326,6 +326,7 @@ async function assertDatabaseInvariants(environment) {
  * @param {Environment} environment
  */
 function spawnApplication(arguments_, environment) {
+  // deterministic-test-allow process-cleanup: Legacy command needs verified group cleanup on interruption; migration is tracked in #1154.
   const child = spawn(process.execPath, [pnpmPath, ...arguments_], {
     cwd: root,
     detached: true,
@@ -456,6 +457,7 @@ function runPnpm(arguments_, environment) {
  * @param {boolean} capture
  */
 async function run(command, arguments_, environment, capture) {
+  // deterministic-test-allow process-cleanup: Legacy command needs verified group cleanup on interruption; migration is tracked in #1154.
   const child = spawn(command, arguments_, {
     cwd: root,
     env: environment,

@@ -1,9 +1,12 @@
 import { spawn, type ChildProcess } from "node:child_process";
+import { once } from "node:events";
 import { createServer } from "node:net";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { afterEach, describe, expect, it } from "vitest";
+import { onTestFinished, describe, expect, it } from "vitest";
+
+import { signalProcessGroup } from "../../../scripts/process-group-signal.mjs";
 
 import { platformMigrations } from "../src/migrations/index.js";
 import { stringMatching } from "./support/matchers.js";
@@ -11,19 +14,6 @@ import { stringMatching } from "./support/matchers.js";
 const backendRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 
 describe("API development process", () => {
-  let process: ChildProcess | undefined;
-
-  afterEach(async () => {
-    if (process?.pid === undefined || process.exitCode !== null) {
-      return;
-    }
-
-    process.kill("SIGTERM");
-    await new Promise<void>((resolveExit) => {
-      process?.once("exit", () => resolveExit());
-    });
-  });
-
   it("serves health through the documented dev command", async () => {
     const port = await findAvailablePort();
     const output: string[] = [];
@@ -33,7 +23,8 @@ describe("API development process", () => {
       throw new Error("npm_execpath is required to launch the pinned pnpm CLI");
     }
 
-    process = spawn(globalThis.process.execPath, [pnpmPath, "dev:api"], {
+    const child = spawn(globalThis.process.execPath, [pnpmPath, "dev:api"], {
+      detached: true,
       cwd: backendRoot,
       env: {
         ...globalThis.process.env,
@@ -42,16 +33,20 @@ describe("API development process", () => {
       },
       stdio: ["ignore", "pipe", "pipe"],
     });
-    process.stdout?.on("data", (chunk: Buffer) =>
-      output.push(chunk.toString()),
-    );
-    process.stderr?.on("data", (chunk: Buffer) =>
-      output.push(chunk.toString()),
-    );
+    onTestFinished(async () => {
+      const closed =
+        child.exitCode === null && child.signalCode === null
+          ? once(child, "close", { signal: AbortSignal.timeout(5_000) })
+          : undefined;
+      if (child.pid !== undefined) signalProcessGroup(child.pid, "SIGKILL");
+      await closed;
+    });
+    child.stdout.on("data", (chunk: Buffer) => output.push(chunk.toString()));
+    child.stderr.on("data", (chunk: Buffer) => output.push(chunk.toString()));
 
     const response = await waitForResponse(
       `http://127.0.0.1:${port}/health`,
-      process,
+      child,
       output,
     );
 

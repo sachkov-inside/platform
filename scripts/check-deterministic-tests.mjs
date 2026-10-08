@@ -27,12 +27,13 @@ function files(directory) {
 }
 const findings = files(root).flatMap((file) => {
   const relative = path.relative(root, file).split(path.sep).join("/");
-  if (
-    !/(?:^|\/)test\//u.test(relative) &&
-    !/\.(?:test|spec)\.[cm]?[jt]sx?$/u.test(relative)
-  )
-    return [];
-  return deterministicTestViolations(relative, readFileSync(file, "utf8"));
+  const testSource =
+    /(?:^|\/)test\//u.test(relative) ||
+    /\.(?:test|spec)\.[cm]?[jt]sx?$/u.test(relative);
+  const diagnostic = /^(?:apps\/[^/]+\/)?scripts\//u.test(relative);
+  if (!testSource && !diagnostic) return [];
+  const source = readFileSync(file, "utf8");
+  return deterministicTestViolations(relative, source, testSource);
 });
 if (findings.length > 0) {
   process.stderr.write(`${findings.sort().join("\n")}\n`);

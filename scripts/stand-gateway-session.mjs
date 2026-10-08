@@ -27,6 +27,7 @@ async function isGatewayRunning(origin) {
 
 /** @param {string} email */
 function startGateway(email) {
+  // deterministic-test-allow process-cleanup: Legacy command needs verified group cleanup on interruption; migration is tracked in #1154.
   const child = spawn(
     process.execPath,
     [

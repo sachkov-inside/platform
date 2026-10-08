@@ -19,6 +19,7 @@ const proofEnvironment = parseEnv(
 );
 const { apiPort, webPort } = readIdentityProofEndpoints(process.env);
 
+// deterministic-test-allow process-cleanup: Legacy command needs verified group cleanup on interruption; migration is tracked in #1154.
 const child = spawn(process.execPath, [pnpmPath, "dev"], {
   cwd: root,
   env: {
