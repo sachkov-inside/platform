@@ -6,7 +6,14 @@ import { assembleTestBillingPricing } from "./setup/billing-pricing.js";
 import { randomUUID } from "node:crypto";
 import { Pool } from "pg";
 import { startNotificationBroker } from "./setup/broker.js";
-import { afterAll, beforeAll, describe, expect, test } from "vitest";
+import {
+  afterAll,
+  beforeAll,
+  beforeEach,
+  describe,
+  expect,
+  test,
+} from "vitest";
 
 import { syntheticTbankConfig } from "../support/bank-terminal.js";
 import { localNotificationTopology } from "../../src/infrastructure/notification-transport/topology.js";
@@ -130,6 +137,10 @@ describe("приёмка обоих источников Notifications (реал
   let operations: BillingOperations;
   let bank: BankFixture;
   const codes = new Map<string, string>();
+
+  beforeEach(() => {
+    sent.length = 0;
+  });
 
   beforeAll(async () => {
     const topology = localNotificationTopology("inside-test", 200);

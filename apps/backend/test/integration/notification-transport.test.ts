@@ -186,7 +186,9 @@ function watchCrashWorker(child: ChildProcess) {
 describe("Notifications real PostgreSQL / RabbitMQ transport", () => {
   let broker: Awaited<ReturnType<typeof startNotificationBroker>>;
   let database: TestDatabase;
+  // deterministic-test-allow shared-mutation: Cleanup registry closes every owned broker connection afterAll; it is not scenario seed data.
   const connections: ChannelModel[] = [];
+  // deterministic-test-allow shared-mutation: Legacy cross-case restart scenario shares confirmed evidence; isolate it in #1154.
   const confirmedBeforeOutage: string[] = [];
   const config = (principal: NotificationPrincipal, vhost = "inside-test") => ({
     url: broker.url(principal, vhost),

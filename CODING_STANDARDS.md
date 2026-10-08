@@ -117,8 +117,9 @@ The nearest standard names the helper for each surface.
   `setTimeout` calls (including member calls), named timer-import aliases, and process/network
   imports or `fetch` calls in `unit/`, `module/` and package test files.
 - In test/spec files it also rejects direct writes and listed collection mutators on module-level
-  object/array literals. A syntactic reset in `beforeEach`/`afterEach` permits the binding; review
-  must prove the reset is complete. Local shadowed bindings and module initialization are allowed.
+  object/array literals in modules and plain `describe` callbacks (including exported declarations).
+  A syntactic reset in `beforeEach`/`afterEach` permits the binding; review
+  must prove the reset is complete. Local shadowed bindings, module initialization and `beforeAll` arrangement are allowed.
 - A retained timer must explain its role: polling a fact, bounding failure, modeling latency,
   measuring a performance window, or an external clock. Put
   `// deterministic-test-allow duration-wait: <specific reason>` immediately before that call.

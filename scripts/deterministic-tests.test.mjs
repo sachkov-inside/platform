@@ -136,3 +136,74 @@ test("the guardrail exits nonzero for a bad test fixture", () => {
   for (const rule of ["duration-wait", "shared-mutation", "unit-io"])
     assert.ok(result.stderr.includes(rule), result.stderr);
 });
+
+test("exported seeds and a reset in another scope cannot escape the rule", () => {
+  for (const source of [
+    'export const seed = []; test("x", () => seed.push(1));',
+    'const seed = []; describe("a", () => {beforeEach(() => {seed.length = 0;});}); test("b", () => seed.push(1));',
+    'const seed = []; beforeEach(() => {const seed = []; seed.length = 0;}); test("b", () => seed.push(1));',
+    'const seed = []; beforeEach(() => {function unused() {seed.length = 0;}}); test("b", () => seed.push(1));',
+  ])
+    assert.match(
+      deterministicTestViolations(
+        "apps/backend/test/unit/example.test.ts",
+        source,
+      ).join("\n"),
+      /shared-mutation/u,
+    );
+});
+
+test("one reason cannot exempt two calls on the following line", () => {
+  assert.equal(
+    deterministicTestViolations(
+      "apps/web/test/example.spec.ts",
+      "// deterministic-test-allow duration-wait: Bound one stuck wait.\nsetTimeout(done, 10); setTimeout(done, 20);",
+    ).length,
+    1,
+  );
+});
+
+test("destructured local bindings are fresh data", () => {
+  for (const source of [
+    "const seed = {}; function increment({seed}) { seed.count++; }",
+    'const seed = []; test("x", () => { const {seed} = fresh(); seed.push(1); });',
+  ])
+    assert.deepEqual(
+      deterministicTestViolations(
+        "apps/backend/test/unit/example.test.ts",
+        source,
+      ),
+      [],
+    );
+});
+
+test("suite seeds are shared but test-local seeds are fresh", () => {
+  assert.match(
+    deterministicTestViolations(
+      "apps/backend/test/unit/example.test.ts",
+      'describe("s", () => {const seed = []; test("x", () => seed.push(1));});',
+    ).join("\n"),
+    /shared-mutation/u,
+  );
+  assert.deepEqual(
+    deterministicTestViolations(
+      "apps/backend/test/unit/example.test.ts",
+      'describe("s", () => {const seed = []; beforeEach(() => {seed.length = 0;}); test("x", () => seed.push(1));});',
+    ),
+    [],
+  );
+});
+
+test("immutable service methods and beforeAll arrangement are allowed", () => {
+  for (const source of [
+    'const store = {delete() {}}; test("x", () => store.delete());',
+    'const seed = {}; beforeAll(() => { seed.id = "fixed"; }); test("x", () => expect(seed.id).toBe("fixed"));',
+  ])
+    assert.deepEqual(
+      deterministicTestViolations(
+        "apps/backend/test/unit/example.test.ts",
+        source,
+      ),
+      [],
+    );
+});

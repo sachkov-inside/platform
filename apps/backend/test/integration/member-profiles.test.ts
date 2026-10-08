@@ -28,7 +28,9 @@ const ownerAccountId = accountId("81000000-0000-4000-8000-000000000001");
 const secondAccountId = accountId("81000000-0000-4000-8000-000000000002");
 const viewerAccountId = accountId("81000000-0000-4000-8000-000000000003");
 const storedObjects = new Map<string, Uint8Array>();
+// deterministic-test-allow shared-mutation: Object-storage callback runs in the suite that resets this observation in beforeEach.
 const deletedObjectKeys: string[] = [];
+// deterministic-test-allow shared-mutation: Object-storage callback runs in the suite that resets this observation in beforeEach.
 const signedGetRequests: Parameters<ObjectStorage["signGet"]>[0][] = [];
 const objectStorage: ObjectStorage = {
   delete: (_namespace, key) => {

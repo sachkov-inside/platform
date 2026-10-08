@@ -1,7 +1,14 @@
 import { createHash, randomUUID } from "node:crypto";
 
 import sharp from "sharp";
-import { afterAll, beforeAll, describe, expect, test } from "vitest";
+import {
+  afterAll,
+  beforeAll,
+  beforeEach,
+  describe,
+  expect,
+  test,
+} from "vitest";
 
 import type { ObjectStorage } from "../../src/infrastructure/object-storage/index.js";
 import { seedLocalDevelopment } from "../../src/development/seed-local-development.js";
@@ -62,6 +69,10 @@ describe("ContentCovers", () => {
       return Promise.resolve("https://storage.example.test/content-cover");
     },
   };
+
+  beforeEach(() => {
+    signed.length = 0;
+  });
 
   beforeAll(async () => {
     database = await createMigratedTestDatabase();

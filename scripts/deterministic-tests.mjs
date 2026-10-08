@@ -36,6 +36,46 @@ function name(value) {
   return "";
 }
 
+const functionTypes = new Set([
+  "FunctionDeclaration",
+  "FunctionExpression",
+  "ArrowFunctionExpression",
+]);
+/** @param {unknown} pattern @returns {string[]} */
+function bindingNames(pattern) {
+  if (!node(pattern)) return [];
+  if (pattern.type === "Identifier") return [name(pattern)];
+  if (pattern.type === "ObjectPattern")
+    return nodes(pattern["properties"]).flatMap((property) =>
+      bindingNames(
+        property.type === "RestElement"
+          ? property["argument"]
+          : property["value"],
+      ),
+    );
+  if (pattern.type === "ArrayPattern")
+    return nodes(pattern["elements"]).flatMap(bindingNames);
+  if (pattern.type === "AssignmentPattern")
+    return bindingNames(pattern["left"]);
+  if (pattern.type === "RestElement") return bindingNames(pattern["argument"]);
+  return [];
+}
+/** @param {Node[]} ancestors @param {string} binding */
+function shadowed(ancestors, binding) {
+  return ancestors.some(
+    (ancestor) =>
+      nodes(ancestor["params"]).flatMap(bindingNames).includes(binding) ||
+      (ancestor.type === "BlockStatement" &&
+        nodes(ancestor["body"]).some(
+          (statement) =>
+            statement.type === "VariableDeclaration" &&
+            nodes(statement["declarations"])
+              .flatMap((declaration) => bindingNames(declaration["id"]))
+              .includes(binding),
+        )),
+  );
+}
+
 /**
  * Syntax checks, not proof of isolation or of a barrier's meaning. Aliased timer imports are
  * recognized; arbitrary wrappers and cross-module effects remain review responsibilities.
@@ -56,6 +96,7 @@ export function deterministicTestViolations(file, source) {
   const unit =
     /\/(?:unit|module)\//u.test(file) ||
     /^packages\/.*\.(?:test|spec)\.[cm]?[jt]sx?$/u.test(file);
+  const usedReasons = new Set();
   /** @param {number} start @param {string} rule */
   function allowed(start, rule) {
     const line = source.slice(0, start).split("\n").length;
@@ -64,14 +105,16 @@ export function deterministicTestViolations(file, source) {
       `^\\s*// deterministic-test-allow ${rule}: \\S.*\\S\\s*$`,
       "u",
     );
-    return (
-      reason.test(previous) &&
-      comments.some(
-        (comment) =>
-          comment.type === "Line" &&
-          source.slice(0, comment.start).split("\n").length === line - 1,
-      )
+    const comment = comments.find(
+      (candidate) =>
+        candidate.type === "Line" &&
+        source.slice(0, candidate.start).split("\n").length === line - 1,
     );
+    if (!reason.test(previous) || comment === undefined) return false;
+    const key = `${rule}:${comment.start}`;
+    if (usedReasons.has(key)) return false;
+    usedReasons.add(key);
+    return true;
   }
   /** @param {Node} value @param {string} rule */
   function report(value, rule) {
@@ -95,28 +138,67 @@ export function deterministicTestViolations(file, source) {
     )
       report(statement, "unit-io");
   }
-  const checksSharedData = /\.(?:test|spec)\.[cm]?[jt]sx?$/u.test(file);
-  const shared = new Set(
-    nodes(program.body).flatMap((statement) =>
-      checksSharedData && statement.type === "VariableDeclaration"
-        ? nodes(statement["declarations"])
-            .filter(
-              (declaration) =>
-                node(declaration["init"]) &&
-                ["ObjectExpression", "ArrayExpression"].includes(
-                  declaration["init"].type,
-                ),
-            )
-            .map((declaration) => name(declaration["id"]))
-            .filter((binding) => binding !== "")
-        : [],
-    ),
-  );
-  for (const statement of nodes(program.body)) {
-    if (allowed(statement.start, "shared-mutation")) {
-      for (const declaration of nodes(statement["declarations"]))
-        shared.delete(name(declaration["id"]));
+  /** @type {Set<Node>} */
+  const suites = new Set();
+  /** @type {Set<Node>} */
+  const setupCallbacks = new Set();
+  walk(program, (value) => {
+    if (
+      value.type === "CallExpression" &&
+      name(value["callee"]) === "beforeAll"
+    ) {
+      for (const argument of nodes(value["arguments"]))
+        if (functionTypes.has(argument.type)) setupCallbacks.add(argument);
     }
+    if (
+      value.type === "CallExpression" &&
+      name(value["callee"]) === "describe"
+    ) {
+      for (const argument of nodes(value["arguments"]))
+        if (functionTypes.has(argument.type)) suites.add(argument);
+    }
+  });
+  /** @typedef {{binding: string, scope: Node}} SharedBinding */
+  /** @type {SharedBinding[]} */
+  const shared = [];
+  if (/\.(?:test|spec)\.[cm]?[jt]sx?$/u.test(file))
+    walk(program, (value, ancestors) => {
+      if (
+        value.type !== "VariableDeclaration" ||
+        ancestors.some(
+          (ancestor) =>
+            functionTypes.has(ancestor.type) && !suites.has(ancestor),
+        )
+      )
+        return;
+      const scope =
+        ancestors.findLast((ancestor) => ancestor.type === "BlockStatement") ??
+        program;
+      const exempt = allowed(value.start, "shared-mutation");
+      if (exempt) return;
+      for (const declaration of nodes(value["declarations"])) {
+        if (
+          node(declaration["init"]) &&
+          ["ObjectExpression", "ArrayExpression"].includes(
+            declaration["init"].type,
+          ) &&
+          name(declaration["id"]) !== ""
+        )
+          shared.push({ binding: name(declaration["id"]), scope });
+      }
+    });
+  /** @param {string} binding @param {Node[]} ancestors @returns {SharedBinding | undefined} */
+  function resolveShared(binding, ancestors) {
+    const candidate = shared.findLast(
+      (entry) => entry.binding === binding && ancestors.includes(entry.scope),
+    );
+    if (candidate === undefined) return undefined;
+    return shadowed(
+      ancestors.slice(ancestors.indexOf(candidate.scope) + 1),
+      binding,
+    )
+      ? undefined
+      : candidate;
   }
   /** @param {unknown} value @returns {string} */
   function rootName(value) {
@@ -125,15 +207,27 @@ export function deterministicTestViolations(file, source) {
       ? rootName(value["object"])
       : name(value);
   }
-  // A syntactic reset in a per-test hook is allowed. Review checks its completeness.
-  walk(program, (value) => {
+  /** A reset applies only in its registration scope, never in a sibling describe. */
+  /** @type {Map<SharedBinding, (Node | null)[]>} */
+  const resets = new Map();
+  walk(program, (value, ancestors) => {
     if (
       value.type !== "CallExpression" ||
       !["beforeEach", "afterEach"].includes(name(value["callee"]))
     )
       return;
+    const scope =
+      ancestors.findLast((ancestor) => functionTypes.has(ancestor.type)) ??
+      null;
     for (const argument of nodes(value["arguments"]))
-      walk(argument, (reset) => {
+      walk(argument, (reset, resetAncestors) => {
+        // A nested helper declaration does not execute merely because the hook declares it.
+        if (
+          resetAncestors.filter((ancestor) => functionTypes.has(ancestor.type))
+            .length !== 1
+        )
+          return;
+        let target = null;
         if (
           reset.type === "AssignmentExpression" &&
           node(reset["right"]) &&
@@ -143,7 +237,7 @@ export function deterministicTestViolations(file, source) {
               reset["right"].type,
             ))
         )
-          shared.delete(rootName(reset["left"]));
+          target = reset["left"];
         if (
           reset.type === "CallExpression" &&
           name(reset["callee"]) === "splice" &&
@@ -151,7 +245,18 @@ export function deterministicTestViolations(file, source) {
           nodes(reset["arguments"])[0]?.["value"] === 0 &&
           nodes(reset["arguments"]).length === 1
         )
-          shared.delete(rootName(reset["callee"]["object"]));
+          target = reset["callee"]["object"];
+        const binding = rootName(target);
+        const sharedBinding = resolveShared(binding, [
+          ...ancestors,
+          value,
+          ...resetAncestors,
+        ]);
+        if (target !== null && sharedBinding !== undefined)
+          resets.set(sharedBinding, [
+            ...(resets.get(sharedBinding) ?? []),
+            scope,
+          ]);
       });
   });
   walk(program, (value, ancestors) => {
@@ -173,40 +278,23 @@ export function deterministicTestViolations(file, source) {
                   "reverse",
                   "fill",
                   "copyWithin",
-                  "set",
-                  "add",
-                  "delete",
-                  "clear",
                 ].includes(name(value["callee"]))
               ? node(value["callee"])
                 ? value["callee"]["object"]
                 : null
               : null;
     const root = rootName(target);
-    const shadowed = ancestors.some(
-      (ancestor) =>
-        nodes(ancestor["params"]).some(
-          (parameter) => name(parameter) === root,
-        ) ||
-        (ancestor.type === "BlockStatement" &&
-          nodes(ancestor["body"]).some(
-            (statement) =>
-              statement.type === "VariableDeclaration" &&
-              nodes(statement["declarations"]).some(
-                (declaration) => name(declaration["id"]) === root,
-              ),
-          )),
-    );
+    const sharedBinding = resolveShared(root, ancestors);
+    const resetInScope =
+      sharedBinding !== undefined &&
+      (resets.get(sharedBinding) ?? []).some(
+        (scope) => scope === null || ancestors.includes(scope),
+      );
     if (
-      shared.has(root) &&
-      !shadowed &&
-      ancestors.some((ancestor) =>
-        [
-          "FunctionDeclaration",
-          "FunctionExpression",
-          "ArrowFunctionExpression",
-        ].includes(ancestor.type),
-      )
+      sharedBinding !== undefined &&
+      !resetInScope &&
+      !ancestors.some((ancestor) => setupCallbacks.has(ancestor)) &&
+      ancestors.some((ancestor) => functionTypes.has(ancestor.type))
     )
       report(value, "shared-mutation");
     if (value.type === "CallExpression") {

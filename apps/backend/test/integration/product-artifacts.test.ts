@@ -1,6 +1,13 @@
 import { createHash, randomUUID } from "node:crypto";
 
-import { afterAll, beforeAll, describe, expect, test } from "vitest";
+import {
+  afterAll,
+  beforeAll,
+  beforeEach,
+  describe,
+  expect,
+  test,
+} from "vitest";
 
 import type {
   ObjectStorage,
@@ -88,6 +95,12 @@ describe("Product Artifacts", () => {
       return Promise.resolve(`https://storage.test/${input.key}`);
     },
   };
+
+  beforeEach(() => {
+    writes.length = 0;
+    deletes.length = 0;
+    signed.length = 0;
+  });
 
   beforeAll(async () => {
     db = await createMigratedTestDatabase();
