@@ -164,6 +164,12 @@ export class BillingPayments {
           this.dependencies.contact.readConsent(accountId, ref),
         ),
       );
+      if (
+        consents.some(
+          (result) => !result.ok && result.error.code === "internal_error",
+        )
+      )
+        return paymentFailure("dependency_unavailable");
       if (consents.some((result) => !result.ok))
         return paymentFailure("consent_required");
       const evidence = consents.flatMap((result) =>

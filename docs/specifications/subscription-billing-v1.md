@@ -1110,6 +1110,10 @@ previewRef/revision и подтверждённые строки; при изм�
 `not_eligible` (#775), `payment_in_progress`, `unsupported_amount`, `method_unavailable`, `provider_unavailable`.
 404 скрывает чужой resource; HTTP 409 — revision/operation/state conflict; provider timeout после
 отправки возвращает сохранённый pending/unknown operation, а не совет начать новую покупку.
+Покупка и возобновление различают отсутствие или неподходящее согласие (`consent_required`, HTTP 409)
+и временный отказ Accounts при чтении согласия (`dependency_unavailable`, HTTP 503).
+Действующее согласие допускает операцию; классификация отказа при продлении не меняется (#1202).
+Покупка и возобновление доступны через HTTP; владельческие MCP-инструменты не предоставляют эти операции.
 HTTP схемы и исчерпывающий mapping реализуются вместе с endpoints, без fake OpenAPI в #403.
 
 ## Подтверждённый контакт и согласия — #406

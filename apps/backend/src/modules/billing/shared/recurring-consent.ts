@@ -96,10 +96,14 @@ export async function acceptRecurringConsent(
   contextRef: string,
   evidenceRefs: readonly string[],
   published: readonly AcceptedDocument[],
-): Promise<SubscriptionConsent | undefined> {
+): Promise<
+  | { status: "valid"; consent: SubscriptionConsent }
+  | { status: "absent" }
+  | { status: "unavailable" }
+> {
   const read = await readAll(contact, accountId, evidenceRefs);
-  if (read.status === "unavailable" || read.evidence === undefined)
-    return undefined;
+  if (read.status === "unavailable") return { status: "unavailable" };
+  if (read.evidence === undefined) return { status: "absent" };
   const evidence = read.evidence;
   if (
     evidence.some(
@@ -108,17 +112,20 @@ export async function acceptRecurringConsent(
         !published.some((document) => sameDocument(item.document, document)),
     )
   )
-    return undefined;
+    return { status: "absent" };
   const first = evidence[0];
-  if (!first) return undefined;
-  return subscriptionConsentSchema.parse({
-    evidenceRefs: [...evidenceRefs],
-    documents: evidence.map((item) => ({
-      kind: item.document.kind,
-      documentId: item.document.documentId,
-      version: item.document.version,
-      digest: item.document.digest,
-    })),
-    acceptedAt: first.acceptedAt,
-  });
+  if (!first) return { status: "absent" };
+  return {
+    status: "valid",
+    consent: subscriptionConsentSchema.parse({
+      evidenceRefs: [...evidenceRefs],
+      documents: evidence.map((item) => ({
+        kind: item.document.kind,
+        documentId: item.document.documentId,
+        version: item.document.version,
+        digest: item.document.digest,
+      })),
+      acceptedAt: first.acceptedAt,
+    }),
+  };
 }
