@@ -41,6 +41,7 @@ for (const access of ["public", "closed"] as const) {
         await memberContext.close();
       }
     }
+    // deterministic-test-allow wall-clock: Legacy clock read; fixed domain or monotonic clock migration is tracked in #1177.
     const suffix = String(Date.now());
     const title = `Media acceptance ${access} ${suffix}`;
     const slug = `media-acceptance-${access}-${suffix}`;
@@ -151,6 +152,7 @@ for (const access of ["public", "closed"] as const) {
             tierId,
             tierRevision: 1,
             terms: {
+              // deterministic-test-allow wall-clock: Legacy clock read; fixed domain or monotonic clock migration is tracked in #1177.
               startsAt: new Date().toISOString(),
               endsAt: null,
               endPolicy: "fixed",
@@ -377,6 +379,7 @@ test("uploads, resumes and replaces one primary Video while keeping provider byt
   page,
   request,
 }, testInfo) => {
+  // deterministic-test-allow wall-clock: Legacy clock read; fixed domain or monotonic clock migration is tracked in #1177.
   const suffix = String(Date.now());
   const title = `Video flow ${suffix}`;
   const slug = `video-flow-${suffix}`;
@@ -692,6 +695,7 @@ test("explicitly requests deletion of a Platform-uploaded Video through autosave
   context,
   page,
 }, testInfo) => {
+  // deterministic-test-allow wall-clock: Legacy clock read; fixed domain or monotonic clock migration is tracked in #1177.
   const suffix = String(Date.now());
   const title = `Safe Video deletion ${suffix}`;
   await signInFullStack(context, "OWNER");
@@ -753,6 +757,7 @@ test("member primary Video denies anonymous and non-member access while authoriz
   page,
   request,
 }) => {
+  // deterministic-test-allow wall-clock: Legacy clock read; fixed domain or monotonic clock migration is tracked in #1177.
   const suffix = String(Date.now());
   const title = `Member Video ${suffix}`;
   const slug = `member-video-${suffix}`;
@@ -839,6 +844,7 @@ test("trusted author uploads chooser, paste and drop assets through Preview and 
   page,
   request,
 }, testInfo) => {
+  // deterministic-test-allow wall-clock: Legacy clock read; fixed domain or monotonic clock migration is tracked in #1177.
   const suffix = String(Date.now());
   const title = `Asset flow ${suffix}`;
   const slug = `asset-flow-${suffix}`;
@@ -957,6 +963,7 @@ test("member Material hides bytes from anonymous access and issues only a protec
   page,
   request,
 }) => {
+  // deterministic-test-allow wall-clock: Legacy clock read; fixed domain or monotonic clock migration is tracked in #1177.
   const suffix = String(Date.now());
   const title = `Member asset ${suffix}`;
   const slug = `member-asset-${suffix}`;
@@ -1213,6 +1220,7 @@ test("full-state Save is live and a stale editor preserves local input through l
   context,
   page,
 }) => {
+  // deterministic-test-allow wall-clock: Legacy clock read; fixed domain or monotonic clock migration is tracked in #1177.
   const uniqueSuffix = String(Date.now());
   const initialTitle = `Mutable Material ${uniqueSuffix}`;
   const winnerTitle = `Mutable Material winner ${uniqueSuffix}`;
@@ -1319,6 +1327,7 @@ test("trusted author publishes and unpublishes the same full state from the Mate
   context,
   page,
 }, testInfo) => {
+  // deterministic-test-allow wall-clock: Legacy clock read; fixed domain or monotonic clock migration is tracked in #1177.
   const title = `Lifecycle из списка ${String(Date.now())}`;
   await signInFullStack(context, "OWNER");
   await page.goto("/authoring/materials/new");
@@ -1371,6 +1380,7 @@ test("trusted author cancels and confirms deletion of a never-published draft", 
   context,
   page,
 }) => {
+  // deterministic-test-allow wall-clock: Legacy clock read; fixed domain or monotonic clock migration is tracked in #1177.
   const title = `Удаляемый черновик ${String(Date.now())}`;
   await signInFullStack(context, "OWNER");
   await page.goto("/authoring/materials/new");
@@ -1433,6 +1443,7 @@ test("author edits series metadata on a dedicated page and returns to the list a
   page,
 }) => {
   await signInFullStack(context, "OWNER");
+  // deterministic-test-allow wall-clock: Legacy clock read; fixed domain or monotonic clock migration is tracked in #1177.
   const title = `Full-stack series ${String(Date.now())}`;
   await page.goto("/authoring/products");
   await page.getByRole("button", { name: "Создать продукт" }).click();
@@ -1441,6 +1452,7 @@ test("author edits series metadata on a dedicated page and returns to the list a
     .fill(title);
   await page
     .getByRole("textbox", { name: "Адрес", exact: false })
+    // deterministic-test-allow wall-clock: Legacy clock read; fixed domain or monotonic clock migration is tracked in #1177.
     .fill(`series-${String(Date.now())}`);
   await page.getByRole("button", { name: "Создать", exact: true }).click();
   await expect(page).toHaveURL(/\/authoring\/products\/[^/]+$/u);

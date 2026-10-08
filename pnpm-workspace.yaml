@@ -23,6 +23,8 @@ peerDependencyRules:
 # #1023: discard Execa IPC history and stop Vitest after a parent abort. Remove once upstream fixes both.
 patchedDependencies:
   "@storybook/addon-vitest@10.6.1": patches/@storybook__addon-vitest@10.6.1.patch
+  # #1160: preserve unique Playwright trace names. Remove when upstream scopes chunk names per context.
+  "@vitest/browser-playwright@4.1.11": patches/@vitest__browser-playwright@4.1.11.patch
 # Security overrides only: each replaces an exact transitive pin that has a published advisory and
 # no fixed release of its parent on our major. Remove an entry once the named parent ships the fix
 # (docs/runbooks/dependency-updates.md, Security overrides).

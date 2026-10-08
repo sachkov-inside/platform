@@ -43,6 +43,7 @@ async function memberSessionCookie(baseURL: string) {
     {
       accessToken: JSON.stringify({
         [`@${backend}`]: {
+          // deterministic-test-allow wall-clock: Legacy clock read; fixed domain or monotonic clock migration is tracked in #1177.
           expiresAt: Math.floor(Date.now() / 1_000) + 3_600,
           scope: "",
           token: "navigation-member-token",
@@ -264,9 +265,11 @@ async function transition(
 ): Promise<TransitionMetrics> {
   await personalPartLanded(page);
   await resetProbe(page);
+  // deterministic-test-allow wall-clock: Legacy clock read; fixed domain or monotonic clock migration is tracked in #1177.
   const startedAt = Date.now();
   await act();
   await ready();
+  // deterministic-test-allow wall-clock: Legacy clock read; fixed domain or monotonic clock migration is tracked in #1177.
   const millisecondsToReady = Date.now() - startedAt;
   // Окно замера закрывает не пауза, а устоявшаяся страница с полученными ответами. Запросы,
   // без которых переход не завершить, роутер шлёт синхронно в самом переходе, до отрисовки новой

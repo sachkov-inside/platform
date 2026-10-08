@@ -69,6 +69,7 @@ test("owner assigns course tariff and the open cabinet converges through real BF
     .fill(`synthetic-course-${info.project.name}`);
   await rules
     .getByLabel("Начало по Москве")
+    // deterministic-test-allow wall-clock: Legacy clock read; fixed domain or monotonic clock migration is tracked in #1177.
     .fill(new Date(Date.now() - 86_400_000).toISOString().slice(0, 16));
   await rules
     .getByLabel("Причина", { exact: true })

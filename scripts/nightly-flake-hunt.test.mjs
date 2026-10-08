@@ -13,6 +13,8 @@ import {
   normalizeVitest,
   normalizePlaywright,
   publishFailures,
+  identity,
+  summary,
 } from "./nightly-flake-report.mjs";
 
 test("counts a first failure even when the remaining independent samples pass", () => {
@@ -49,6 +51,75 @@ test("integration samples distinguish the parallel and serial selection commands
       ["integration-serial", ["run", "test:integration:serial"]],
     ],
   );
+});
+
+test("identically named parameterized cases retain separate outcomes and stable issue markers", async () => {
+  const first = normalizeVitest(
+    {
+      testResults: [
+        {
+          name: "/checkout/a.test.ts",
+          assertionResults: [
+            { fullName: "maps status 409", status: "failed" },
+            { fullName: "maps status 409", status: "passed" },
+          ],
+        },
+      ],
+    },
+    "/checkout",
+    "unit",
+  );
+  assert.ok(first[0]);
+  const unrelated = {
+    ...first[0],
+    name: "unrelated",
+    status: /** @type {const} */ ("passed"),
+  };
+  const next = first.map((row) => ({
+    ...row,
+    status: /** @type {const} */ ("passed"),
+  }));
+  const rows = aggregate([first, [unrelated, ...next], next, next, next]);
+  const cases = rows.filter((row) => row.name === "maps status 409");
+  assert.deepEqual(
+    cases.map((row) => [row.caseIndex, row.failed, row.attempts]),
+    [
+      [1, 1, 5],
+      [2, 0, 5],
+    ],
+  );
+  assert.ok(cases[0]);
+  assert.ok(cases[1]);
+  assert.notEqual(identity(cases[0]), identity(cases[1]));
+  assert.match(summary(rows), /maps status 409 \[case 1\].*1\/5/u);
+  /** @type {Map<string, string>} */
+  const issues = new Map();
+  /** @type {import("./nightly-flake-report.mjs").IssueClient} */
+  const client = {
+    find: async (marker) => (issues.has(marker) ? 42 : undefined),
+    create: async (_title, body) => {
+      issues.set(body.slice(0, body.indexOf("\n")), body);
+    },
+    update: async (_number, body) => {
+      issues.set(body.slice(0, body.indexOf("\n")), body);
+    },
+  };
+  const context = {
+    ref: "refs/heads/main",
+    event: "workflow_dispatch",
+    runUrl: "https://example.com/run/1",
+    sha: "abc",
+    attempt: "1",
+  };
+  await publishFailures(rows, context, client);
+  await publishFailures(
+    aggregate([[unrelated, ...first], next, next, next, next]),
+    { ...context, runUrl: "https://example.com/run/2" },
+    client,
+  );
+  assert.equal(issues.size, 1);
+  assert.match([...issues.values()][0] ?? "", /run\/2/u);
+  assert.match([...issues.values()][0] ?? "", /\[case 1\]/u);
 });
 
 test("unit samples use workspace package test scripts and the root native launcher", () => {
@@ -152,7 +223,7 @@ test("Node reporter follows explicit parent IDs when nested tests enqueue after 
   const rows = normalizeVitest(JSON.parse(raw), "/checkout", "unit");
   assert.deepEqual(
     rows.map((row) => row.name),
-    ["B > leaf", "A > leaf"],
+    ["A > leaf", "B > leaf"],
   );
 });
 

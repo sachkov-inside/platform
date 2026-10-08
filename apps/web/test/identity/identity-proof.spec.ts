@@ -223,6 +223,7 @@ test.describe.serial("issue 116 pinned Logto proof", () => {
     await enterCode(recovery, await waitForCode(recipient, 2));
     await expect(recovery).toHaveURL(`${webBaseUrl}/`);
     expect(await signedInAccountId(recovery)).toBe(accountId);
+    // deterministic-test-allow wall-clock: Legacy clock read; fixed domain or monotonic clock migration is tracked in #1177.
     const signedInAt = Date.now();
 
     await waitPastAccessTokenExpiry(recovery, signedInAt);

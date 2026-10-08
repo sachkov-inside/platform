@@ -216,7 +216,7 @@ await test(
           resolve();
         });
       });
-      const start = Date.now();
+      const start = performance.now();
       const deadline = processDeadline(child, 25, 25);
       const result = await new Promise<{
         code: number | null;
@@ -230,7 +230,7 @@ await test(
       assert.equal(deadline.timedOut, true);
       assert.equal(result.code, 143);
       assert.equal(result.signal, null);
-      assert.ok(Date.now() - start < 3000);
+      assert.ok(performance.now() - start < 3000);
     } finally {
       await stopOwned(child, 25);
     }

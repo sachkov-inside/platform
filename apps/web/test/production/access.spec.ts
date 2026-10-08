@@ -107,6 +107,7 @@ test("production access observes every live cell in one isolated scenario", asyn
 
   async function observeCell(id: string, browser: Browser) {
     const { identity, action, surface, transport } = passCellParts(id);
+    // deterministic-test-allow wall-clock: Legacy clock read; fixed domain or monotonic clock migration is tracked in #1177.
     if (identity === "expired" && Date.now() < Date.parse(expiredGrantEndsAt)) {
       throw new Error("The expired identity grant has not expired yet");
     }
@@ -166,14 +167,14 @@ test("production access observes every live cell in one isolated scenario", asyn
     const known = platformTokens.get(actor);
     if (
       known !== undefined &&
-      Date.now() - known.issuedAt < platformTokenReuseMs
+      performance.now() - known.issuedAt < platformTokenReuseMs
     )
       return known.tokens;
     const userId = await userIdOf(actor);
     // PAT прогона и истёкшие PAT прошлых прогонов удаляются перед выпуском нового.
     await client().deletePassTokens(userId, runId);
     const tokens = await client().accessTokens(userId, runId);
-    platformTokens.set(actor, { tokens, issuedAt: Date.now() });
+    platformTokens.set(actor, { tokens, issuedAt: performance.now() });
     return tokens;
   }
 

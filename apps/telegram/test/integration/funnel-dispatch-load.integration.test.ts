@@ -42,7 +42,7 @@ import { Funnels } from "../../src/modules/communications/funnels.js";
 import { MarketingEntry } from "../../src/modules/communications/marketing-entry.js";
 import { communicationLock } from "../../src/modules/communications/communication-state.js";
 import { BotContacts } from "../../src/modules/bot-contacts/bot-contacts.js";
-import { CLOCK } from "../../src/shared/clock.js";
+import { CLOCK, type Clock } from "../../src/shared/clock.js";
 import { TELEGRAM_MESSAGES } from "../../src/modules/outbound/telegram-messages.js";
 import { TelegramUpdateProcessor } from "../../src/modules/update-inbox/telegram-update-processor.js";
 import { TelegramWebhook } from "../../src/modules/webhook/telegram-webhook.js";
@@ -113,6 +113,7 @@ async function createFixture() {
   })
     // Real time lets the shared 40 ms transport lane advance while the backlog drains.
     .overrideProvider(CLOCK)
+    // deterministic-test-allow wall-clock: Legacy clock read; fixed domain or monotonic clock migration is tracked in #1177.
     .useValue({ now: () => new Date() })
     .overrideProvider(AUTHOR_AUTHORIZATION)
     .useValue({ authorize: () => Promise.resolve("allowed") })
@@ -226,7 +227,9 @@ async function seedDueAudience(
   await funnels.execute(
     command("funnels.publish", { funnelId: value.funnelId }, 1),
   );
+  // deterministic-test-allow wall-clock: Legacy clock read; fixed domain or monotonic clock migration is tracked in #1177.
   const enrolledAt = new Date(Date.now() - 3600_000);
+  // deterministic-test-allow wall-clock: Legacy clock read; fixed domain or monotonic clock migration is tracked in #1177.
   const due = new Date(Date.now() - 1000);
   const rows = Array.from({ length: size }, (_, i) => ({
     user: String(1_000_000 + i),
@@ -394,6 +397,7 @@ describe("funnel dispatch performance", () => {
               telegramUserId: "1000000",
               privateChatId: "1000000",
               updateId: "900",
+              // deterministic-test-allow wall-clock: Legacy clock read; fixed domain or monotonic clock migration is tracked in #1177.
               observedAt: new Date(),
             },
             "none",
@@ -413,6 +417,7 @@ describe("funnel dispatch performance", () => {
           });
           await app
             .get(TelegramUpdateProcessor)
+            // deterministic-test-allow wall-clock: Legacy clock read; fixed domain or monotonic clock migration is tracked in #1177.
             .processAvailable(1, new Date());
         });
         await elapsed(() => replyReceived);
@@ -453,7 +458,7 @@ it("settles the claimed dispatch and stops scheduling before shutdown returns", 
   const scheduler = new FunnelScheduler(
     database,
     config,
-    { now: () => new Date() },
+    load.app.get<Clock>(CLOCK),
     {
       async send() {
         sends += 1;
@@ -526,6 +531,7 @@ it("completes every BotContact command while the bot scheduler lock is held", as
     telegramUserId: user,
     privateChatId: user,
     updateId,
+    // deterministic-test-allow wall-clock: Legacy clock read; fixed domain or monotonic clock migration is tracked in #1177.
     observedAt: new Date(),
   });
   let waiter: Promise<unknown> | undefined;
@@ -574,6 +580,7 @@ async function seedBlockedReplies(
   const value = await seedDueAudience(app, 0);
   // Every entry waits for an intro whose result is unknown; none of them may be sent.
   const stuck = 600;
+  // deterministic-test-allow wall-clock: Legacy clock read; fixed domain or monotonic clock migration is tracked in #1177.
   const earlier = new Date(Date.now() - 60_000);
   const rows = Array.from({ length: stuck }, (_, i) => ({
     user: String(2_000_000 + i),
@@ -686,6 +693,7 @@ describe("blocked replies", () => {
           text: "/start",
         },
       });
+      // deterministic-test-allow wall-clock: Legacy clock read; fixed domain or monotonic clock migration is tracked in #1177.
       await app.get(TelegramUpdateProcessor).processAvailable(1, new Date());
       const scheduler = app.get(FunnelScheduler);
       for (let cycle = 0; cycle < 5; cycle++) {
@@ -707,6 +715,7 @@ it("never holds a BotContact whose chat lane is busy while the claim continues",
   // Contact 1000000 is first in due order but its chat lane is taken; 1000001 is sendable.
   await database
     .updateTable("communication_deliveries as d")
+    // deterministic-test-allow wall-clock: Legacy clock read; fixed domain or monotonic clock migration is tracked in #1177.
     .set({ due_at: new Date(Date.now() - 5000) })
     .from("communication_contacts as c")
     .whereRef("c.contact_id", "=", "d.contact_id")
@@ -718,6 +727,7 @@ it("never holds a BotContact whose chat lane is busy while the claim continues",
     .values({
       bot_identity: "inside",
       lane: "chat:1000000",
+      // deterministic-test-allow wall-clock: Legacy clock read; fixed domain or monotonic clock migration is tracked in #1177.
       available_at: new Date(Date.now() + 60_000),
     })
     .execute();
@@ -752,6 +762,7 @@ it("never holds a BotContact whose chat lane is busy while the claim continues",
   const dispatch = new FunnelScheduler(
     pausing,
     config,
+    // deterministic-test-allow wall-clock: Legacy clock read; fixed domain or monotonic clock migration is tracked in #1177.
     { now: () => new Date() },
     {
       send: (message: CommunicationMessage) => {
@@ -773,6 +784,7 @@ it("never holds a BotContact whose chat lane is busy while the claim continues",
             telegramUserId: "1000000",
             privateChatId: "1000000",
             updateId: "910",
+            // deterministic-test-allow wall-clock: Legacy clock read; fixed domain or monotonic clock migration is tracked in #1177.
             observedAt: new Date(),
           },
           "none",

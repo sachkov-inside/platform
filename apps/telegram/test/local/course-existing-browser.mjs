@@ -50,6 +50,7 @@ const context = await browser.newContext({
   viewport: { width: 390, height: 844 },
 });
 const page = await context.newPage();
+// deterministic-test-allow wall-clock: Legacy clock read; fixed domain or monotonic clock migration is tracked in #1177.
 let update = Date.now() % 1_000_000_000;
 /** @param {string} text */
 async function send(text) {
@@ -63,6 +64,7 @@ async function send(text) {
         update_id: ++update,
         message: {
           message_id: update,
+          // deterministic-test-allow wall-clock: Legacy clock read; fixed domain or monotonic clock migration is tracked in #1177.
           date: Math.floor(Date.now() / 1000),
           from: { id: user, is_bot: false, first_name: "Synthetic" },
           chat: { id: user, type: "private" },
@@ -171,7 +173,6 @@ async function purchase() {
     expect(result.ok).toBe(true);
   }
   await page.goto(origin + "/products/platform-inside/buy");
-  await page.waitForTimeout(700);
   await page.keyboard.press("Escape");
   await page.locator('input[name="one-time-consent-terms"]').check();
   const dismiss = page.getByRole("button", { name: "Позже", exact: true });
@@ -182,7 +183,7 @@ async function purchase() {
   await page
     .getByRole("button", { name: "Оплата прошла", exact: true })
     .click();
-  await page.waitForTimeout(1500);
+  await page.waitForURL((url) => url.origin === origin, { timeout: 30000 });
 }
 async function activateExisting() {
   await page.goto(origin + "/account");

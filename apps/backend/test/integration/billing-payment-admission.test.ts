@@ -276,6 +276,7 @@ test.each([
         Buffer.alloc(32, 42).toString("base64"),
       ),
       documents: [],
+      // deterministic-test-allow wall-clock: Legacy clock read; fixed domain or monotonic clock migration is tracked in #1177.
       now: () => new Date(),
       sendCode: () => Promise.resolve(),
     });

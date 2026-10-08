@@ -6,7 +6,14 @@ import { assembleTestBillingPricing } from "./setup/billing-pricing.js";
 import { randomUUID } from "node:crypto";
 import { Pool } from "pg";
 import { startNotificationBroker } from "./setup/broker.js";
-import { afterAll, beforeAll, describe, expect, test } from "vitest";
+import {
+  afterAll,
+  beforeAll,
+  beforeEach,
+  describe,
+  expect,
+  test,
+} from "vitest";
 
 import { syntheticTbankConfig } from "../support/bank-terminal.js";
 import { localNotificationTopology } from "../../src/infrastructure/notification-transport/topology.js";
@@ -131,6 +138,10 @@ describe("приёмка обоих источников Notifications (реал
   let bank: BankFixture;
   const codes = new Map<string, string>();
 
+  beforeEach(() => {
+    sent.length = 0;
+  });
+
   beforeAll(async () => {
     const topology = localNotificationTopology("inside-test", 200);
     broker = await startNotificationBroker({ topology });
@@ -187,6 +198,7 @@ describe("приёмка обоих источников Notifications (реал
       prisma: platform.prisma,
       protection,
       documents,
+      // deterministic-test-allow wall-clock: Legacy clock read; fixed domain or monotonic clock migration is tracked in #1177.
       now: () => new Date(),
       sendCode: (message) => {
         codes.set(message.challengeRef, message.code);
@@ -801,6 +813,7 @@ describe("приёмка обоих источников Notifications (реал
             sourceRef: randomUUID(),
             terms: {
               capabilities: ["support"],
+              // deterministic-test-allow wall-clock: Legacy clock read; fixed domain or monotonic clock migration is tracked in #1177.
               startsAt: new Date().toISOString(),
               validUntil: null,
               reason: "Синтетическая выдача приёмки",
@@ -1081,6 +1094,7 @@ describe("приёмка обоих источников Notifications (реал
     // Объём чужой ленты, а не её содержимое. Это независимость лент, а не честность раскрытия
     // аудитории одного события: разбиение большой аудитории на партии проверяет notifications.test.
     const backlog = 30;
+    // deterministic-test-allow wall-clock: Legacy clock read; fixed domain or monotonic clock migration is tracked in #1177.
     const instant = new Date();
     for (let index = 0; index < backlog; index += 1) {
       await platform.prisma.$transaction((transaction) =>

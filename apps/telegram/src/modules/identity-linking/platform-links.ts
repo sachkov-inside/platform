@@ -7,6 +7,19 @@ import type {
 
 type Executor = Database | Transaction<DatabaseSchema>;
 
+/** Current confirmed links of one bot for operator snapshots. */
+export async function botPlatformLinks(
+  database: Executor,
+  botIdentity: string,
+): Promise<readonly PlatformLink[]> {
+  const rows = await database
+    .selectFrom("platform_links")
+    .selectAll()
+    .where("bot_identity", "=", botIdentity)
+    .execute();
+  return rows.map(platformLink);
+}
+
 /** A confirmed link between a Platform Account and one Telegram identity of the bot. */
 export interface PlatformLink {
   readonly accountRef: string;

@@ -152,6 +152,7 @@ test("product programme appends a real composition and restores Reader return po
     },
   );
   await page.goto("/account");
+  // deterministic-test-allow wall-clock: Legacy clock read; fixed domain or monotonic clock migration is tracked in #1177.
   const slug = `series-journey-${String(Date.now())}`;
   const created = await fullStackBrowserRequest(
     page,

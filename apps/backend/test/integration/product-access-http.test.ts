@@ -95,6 +95,7 @@ describe("Product access HTTP", () => {
         source: "paid",
         sourceRef: randomUUID(),
         capabilities: [`product:${productId}`],
+        // deterministic-test-allow wall-clock: Legacy clock read; fixed domain or monotonic clock migration is tracked in #1177.
         startsAt: new Date(Date.now() - 60_000),
         validUntil: null,
         revision: 1,
@@ -121,6 +122,7 @@ describe("Product access HTTP", () => {
   });
 
   async function signToken(subject: string, email: string): Promise<string> {
+    // deterministic-test-allow wall-clock: Legacy clock read; fixed domain or monotonic clock migration is tracked in #1177.
     const now = Math.floor(Date.now() / 1_000);
     return new SignJWT({ inside_verified_email: email })
       .setProtectedHeader({ alg: "ES384", kid: "api-key-1" })

@@ -137,6 +137,7 @@ test("неизвестный документ показывает «не най
 test("неизвестный документ и неизвестная редакция отвечают 404 с первого захода", async ({
   request,
 }, testInfo) => {
+  // deterministic-test-allow wall-clock: Legacy clock read; fixed domain or monotonic clock migration is tracked in #1177.
   const now = Date.now();
   const unseen = `${testInfo.project.name}-${String(now)}`;
 

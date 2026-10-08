@@ -200,6 +200,7 @@ describe("independent product, library, support and shared chat rights", () => {
     const subject = { kind: "account" as const, accountId: accountId(buyer) };
     await db.prisma.product.update({
       where: { id: productId },
+      // deterministic-test-allow wall-clock: Legacy clock read; fixed domain or monotonic clock migration is tracked in #1177.
       data: { archivedAt: new Date() },
     });
     for (const denied of [

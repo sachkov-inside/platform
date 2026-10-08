@@ -158,6 +158,7 @@ describe("communication transport", () => {
         "inside",
         "1",
         prepareTelegramUpdateForInbox(raw),
+        // deterministic-test-allow wall-clock: Legacy clock read; fixed domain or monotonic clock migration is tracked in #1177.
         new Date(),
       );
       expect(result.kind).toBe("start");
@@ -189,6 +190,7 @@ it("accepts only explicit private human stop/resume commands and leaves auth nam
           chat: { id: 42, type: "private" },
         },
       },
+      // deterministic-test-allow wall-clock: Legacy clock read; fixed domain or monotonic clock migration is tracked in #1177.
       new Date(),
     );
     expect(value.kind).toBe("marketing_preference");
@@ -228,6 +230,7 @@ it("accepts only explicit private human stop/resume commands and leaves auth nam
       "author-input",
     ],
   ] as const)
+    // deterministic-test-allow wall-clock: Legacy clock read; fixed domain or monotonic clock migration is tracked in #1177.
     expect(adapter.translate("inside", "1", { message }, new Date()).kind).toBe(
       kind,
     );

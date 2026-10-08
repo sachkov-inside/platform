@@ -187,6 +187,7 @@ function http(
   });
 }
 async function seedLink() {
+  // deterministic-test-allow wall-clock: Legacy clock read; fixed domain or monotonic clock migration is tracked in #1177.
   const now = new Date();
   await database
     .insertInto("link_transactions")
@@ -437,6 +438,7 @@ describe("durable author intake", () => {
           update_id: 3,
           edited_message: { ...update(2, message).message, text: "changed" },
         },
+        // deterministic-test-allow wall-clock: Legacy clock read; fixed domain or monotonic clock migration is tracked in #1177.
         new Date(),
       );
       await app.get(TelegramUpdateProcessor).processAvailable();
@@ -524,12 +526,14 @@ describe("durable author intake", () => {
       "inside",
       "1",
       update(1, { text: "/template" }),
+      // deterministic-test-allow wall-clock: Legacy clock read; fixed domain or monotonic clock migration is tracked in #1177.
       new Date(),
     );
     await inbox.accept(
       "inside",
       "2",
       update(2, { text: "Synthetic ordered capture" }),
+      // deterministic-test-allow wall-clock: Legacy clock read; fixed domain or monotonic clock migration is tracked in #1177.
       new Date(),
     );
 
@@ -555,6 +559,7 @@ describe("durable author intake", () => {
       "inside",
       "1",
       update(1, { text: "/template" }),
+      // deterministic-test-allow wall-clock: Legacy clock read; fixed domain or monotonic clock migration is tracked in #1177.
       new Date(),
     );
     const slow = processor.processAvailable();
@@ -575,6 +580,7 @@ describe("durable author intake", () => {
           text: "/start",
         },
       },
+      // deterministic-test-allow wall-clock: Legacy clock read; fixed domain or monotonic clock migration is tracked in #1177.
       new Date(),
     );
     await expect(processor.processAvailable()).resolves.toBe(1);
@@ -616,6 +622,7 @@ async function authorMessage(
   const payload = update(id, { text, ...extra });
   await app
     .get(TelegramUpdateInbox)
+    // deterministic-test-allow wall-clock: Legacy clock read; fixed domain or monotonic clock migration is tracked in #1177.
     .accept("inside", String(id), payload, new Date());
   await app.get(TelegramUpdateProcessor).processAvailable();
   expect(
@@ -764,6 +771,7 @@ describe("author transport and API", () => {
         },
       );
     await worker().processAvailable();
+    // deterministic-test-allow wall-clock: Legacy clock read; fixed domain or monotonic clock migration is tracked in #1177.
     await worker().processAvailable(new Date(Date.now() + 120_000));
     expect(calls).toBe(1);
     expect(
@@ -776,6 +784,7 @@ describe("author transport and API", () => {
     ).toBe("unknown");
     await http({ ...sample, operationId: randomUUID() });
     authorization.result = "denied";
+    // deterministic-test-allow wall-clock: Legacy clock read; fixed domain or monotonic clock migration is tracked in #1177.
     await worker().processAvailable(new Date(Date.now() + 240_000));
     expect(calls).toBe(1);
     expect(
@@ -798,6 +807,7 @@ describe("author transport and API", () => {
     };
     await http(sample);
     await http({ ...sample, operationId: randomUUID() });
+    // deterministic-test-allow wall-clock: Legacy clock read; fixed domain or monotonic clock migration is tracked in #1177.
     const time = new Date(Date.now() + 1000);
     let calls = 0;
     const worker = new AuthorDelivery(
@@ -858,6 +868,7 @@ describe("author transport and API", () => {
         },
       },
     );
+    // deterministic-test-allow wall-clock: Legacy clock read; fixed domain or monotonic clock migration is tracked in #1177.
     const time = Date.now() + 1000;
     await authorMessage(100, "/admin");
     await worker.processAvailable(new Date(time));
@@ -1112,6 +1123,7 @@ it("restores the author menu below the delivered broadcast messages and never ex
         telegramUserId: user,
         privateChatId: user,
         updateId: "99",
+        // deterministic-test-allow wall-clock: Legacy clock read; fixed domain or monotonic clock migration is tracked in #1177.
         observedAt: new Date(),
       },
       "none",
@@ -1121,6 +1133,7 @@ it("restores the author menu below the delivered broadcast messages and never ex
   await authorClick(105, "Готово");
   await authorClick(106, "Запустить");
   await authorClick(108, "Запустить рассылку");
+  // deterministic-test-allow wall-clock: Legacy clock read; fixed domain or monotonic clock migration is tracked in #1177.
   let now = Date.now() + 1000;
   const observed: CommunicationMessage[] = [];
   const transport = {

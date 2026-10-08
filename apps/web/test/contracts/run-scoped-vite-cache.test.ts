@@ -1,3 +1,4 @@
+// deterministic-test-allow unit-io: Local runner process/cache contract; suite separation is tracked in #1154.
 import { execFileSync } from "node:child_process";
 import { existsSync, mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";

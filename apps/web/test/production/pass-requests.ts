@@ -249,6 +249,7 @@ async function withTransportRetries<T>(
       )
         throw error;
       await new Promise((resolve) =>
+        // deterministic-test-allow duration-wait: Transport backoff schedules the next request; the request response is the observed fact.
         setTimeout(resolve, transportRetryPauseMs),
       );
     }

@@ -236,6 +236,7 @@ test("only Series can be pinned: author choice persists, competing writes confli
   expect(await home()).toMatchObject({ id: pinnedId });
   await database.prisma.product.update({
     where: { id: pinnedId },
+    // deterministic-test-allow wall-clock: Legacy clock read; fixed domain or monotonic clock migration is tracked in #1177.
     data: { archivedAt: new Date() },
   });
   expect(await home()).toBeNull();

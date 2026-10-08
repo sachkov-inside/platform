@@ -48,6 +48,7 @@ const it = test.extend<{
 async function createFixture() {
   const bot = `invitation-${randomUUID()}`;
   const clock = {
+    // deterministic-test-allow wall-clock: Legacy clock read; fixed domain or monotonic clock migration is tracked in #1177.
     value: new Date(),
     now() {
       return new Date(this.value);

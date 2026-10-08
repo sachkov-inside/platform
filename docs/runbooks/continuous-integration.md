@@ -307,6 +307,10 @@ over executed samples and skipped samples for each test identity (suite, file, c
 full name). Playwright includes its real project name. Vitest's JSON reporter omits project names,
 so its identity uses the command selecting the tests. Integration and integration-serial run
 separately through their owning package scripts and remain separate in the table and Issues.
+When parameterized cases have identical full names, the report keeps the full name and adds a
+case index within that file/name group. Vitest JSON retains declaration order; Node observations
+are sorted by testId. Unrelated tests do not affect this index. Reordering identically named cases
+or removing duplicate names can change their identity; give cases distinct names to avoid that limit.
 The unit-job inventory comes from the workspace package manifests, root Node test scripts and
 the `check:contracts` aggregate,
 the same sources `check:unit` uses; unsupported new command syntax fails visibly.
