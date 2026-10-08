@@ -142,7 +142,12 @@ async function createFixture() {
     new FastifyAdapter(),
     { logger: false },
   );
-  await nest.init();
+  try {
+    await nest.init();
+  } catch (error) {
+    await nest.close();
+    throw error;
+  }
   return { app: nest, sent, dispatchStarted, replyReceived };
 }
 beforeAll(async () => {

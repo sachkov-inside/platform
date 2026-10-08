@@ -73,13 +73,14 @@ export class WorkerLoop {
     this.running = this.cycle(this.controller.signal)
       .catch((error: unknown) => {
         reportFailure(`worker.${this.name}`, error);
-        return false;
+        return null;
       })
       .then((foundWork) => {
         this.running = undefined;
         if (this.controller.signal.aborted) return;
-        const again = foundWork || this.woken;
-        this.foundWork = again;
+        const again = foundWork === true || this.woken;
+        // A failed cycle did not observe an empty queue.
+        this.foundWork = foundWork === null ? undefined : again;
         this.woken = false;
         this.delayMs = again
           ? this.pacing.busyMs

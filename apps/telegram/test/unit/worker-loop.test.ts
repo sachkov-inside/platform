@@ -118,7 +118,9 @@ describe("WorkerLoop", () => {
     );
     loop.start();
     await vi.advanceTimersByTimeAsync(0);
+    expect(loop.isIdle()).toBe(false);
     await vi.advanceTimersByTimeAsync(20);
+    expect(loop.isIdle()).toBe(false);
     await loop.stop();
 
     expect(cycles).toBeGreaterThanOrEqual(2);

@@ -160,8 +160,13 @@ async function createFixture() {
     new FastifyAdapter(),
     { logger: false },
   );
-  await app.init();
-  await app.getHttpAdapter().getInstance().ready();
+  try {
+    await app.init();
+    await app.getHttpAdapter().getInstance().ready();
+  } catch (error) {
+    await app.close();
+    throw error;
+  }
   const db = app.get<Database>(DATABASE);
   const worker = app.get(InvitationRedemption);
 
