@@ -576,6 +576,54 @@ describe("durable start response delivery", () => {
     ).toEqual({ contactability: "reachable" });
   });
 
+  it("a delayed 403 cannot undo contact recovery observed after the send began", async () => {
+    const now = new Date("2026-08-30T12:00:00Z");
+    const contacts = application.get(BotContacts);
+    await contacts.observeStart({
+      ...verifiedStart("42", "1"),
+      observedAt: now,
+    });
+    let announceStarted: () => void = () => {};
+    const started = new Promise<void>((resolve) => {
+      announceStarted = resolve;
+    });
+    let complete: (result: TelegramDeliveryResult) => void = () => {};
+    const outcome = new Promise<TelegramDeliveryResult>((resolve) => {
+      complete = resolve;
+    });
+    onTestFinished(() => complete({ kind: "transport_unknown" }));
+    const processor = new StartResponseDeliveryProcessor(
+      new StartResponseDeliveryQueue(database, settleBlockedDelivery),
+      {
+        sendText: () => {
+          announceStarted();
+          return outcome;
+        },
+        editText: () => outcome,
+      },
+      new RuntimeMetrics(),
+      config,
+    );
+    const processing = processor.processAvailable(1, now);
+    await started;
+    await contacts.observeStart(
+      {
+        ...verifiedStart("42", "2"),
+        observedAt: new Date(now.getTime() + 1000),
+      },
+      "none",
+    );
+    complete({ kind: "api_rejected", providerErrorCode: 403 });
+    expect(await processing).toBe(1);
+    expect(
+      await database
+        .selectFrom("bot_contacts")
+        .select("contactability")
+        .where("bot_identity", "=", "inside")
+        .where("telegram_user_id", "=", "42")
+        .executeTakeFirstOrThrow(),
+    ).toEqual({ contactability: "reachable" });
+  });
   it("retries unknown transport outcomes with a bounded, diagnosable duplicate risk", async () => {
     const startedAt = new Date("2026-08-30T12:00:00.000Z");
     const delivery = await prepareDelivery(

@@ -435,6 +435,7 @@ export class NotificationProvider {
               this.bot,
               link.telegramUserId,
               this.clock.now(),
+              attempt.started_at,
             );
         }
         evidence = "rejected";

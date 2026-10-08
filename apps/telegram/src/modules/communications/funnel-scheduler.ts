@@ -47,6 +47,7 @@ type DueDelivery = Selectable<DatabaseSchema["communication_deliveries"]> & {
   marketing_enabled: boolean;
 };
 type Claim = {
+  startedAt: Date;
   delivery: DueDelivery;
   attemptId: string;
   chatId: string;
@@ -124,6 +125,7 @@ export class FunnelScheduler {
         claimed.delivery.delivery_id,
         claimed.attemptId,
         result,
+        claimed.startedAt,
       );
       processed++;
     }
@@ -401,6 +403,7 @@ export class FunnelScheduler {
     return {
       kind: "claimed",
       claim: {
+        startedAt: now,
         delivery,
         attemptId,
         chatId: delivery.private_chat_id,
@@ -490,6 +493,7 @@ export class FunnelScheduler {
     deliveryId: string,
     attemptId: string,
     result: TelegramDeliveryResult,
+    startedAt?: Date,
   ): Promise<void> {
     await this.database.transaction().execute(async (tx) => {
       await schedulerLock(tx, this.config.botIdentity);
@@ -599,6 +603,7 @@ export class FunnelScheduler {
           this.config.botIdentity,
           contact.telegram_user_id,
           now,
+          startedAt ?? delivery.locked_at ?? new Date(0),
         );
       }
       if (hasText(delivery.broadcast_id))

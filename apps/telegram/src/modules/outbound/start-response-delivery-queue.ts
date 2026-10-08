@@ -361,6 +361,7 @@ export class StartResponseDeliveryQueue {
               delivery.telegramUserId,
               attemptedAt,
               settleResult,
+              delivery.lease.leasedAt,
             )
           : await settleResult();
       // An expired lease already recorded this attempt as unknown; the late outcome is dropped.

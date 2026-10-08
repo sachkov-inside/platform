@@ -9,8 +9,17 @@ export async function blockDeliveryContact(
   botIdentity: string,
   telegramUserId: string,
   now: Date,
+  startedAt: Date = now,
 ): Promise<void> {
   await contactLock(tx, botIdentity, telegramUserId);
+  const contact = await tx
+    .selectFrom("bot_contacts")
+    .select("updated_at")
+    .where("bot_identity", "=", botIdentity)
+    .where("telegram_user_id", "=", telegramUserId)
+    .executeTakeFirst();
+  // A newer /start or private-chat observation supersedes this attempt's transport evidence.
+  if (!contact || contact.updated_at.getTime() > startedAt.getTime()) return;
   await updateMarketingAvailability(
     tx,
     botIdentity,
@@ -33,9 +42,11 @@ export async function settleBlockedDelivery(
   telegramUserId: string,
   now: Date,
   settle: () => Promise<boolean>,
+  startedAt: Date,
 ): Promise<boolean> {
   await contactLock(tx, botIdentity, telegramUserId);
   const held = await settle();
-  if (held) await blockDeliveryContact(tx, botIdentity, telegramUserId, now);
+  if (held)
+    await blockDeliveryContact(tx, botIdentity, telegramUserId, now, startedAt);
   return held;
 }

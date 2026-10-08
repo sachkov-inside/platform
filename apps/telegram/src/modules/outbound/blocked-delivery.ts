@@ -10,4 +10,5 @@ export type BlockedDelivery = (
   telegramUserId: string,
   now: Date,
   settle: () => Promise<boolean>,
+  startedAt: Date,
 ) => Promise<boolean>;

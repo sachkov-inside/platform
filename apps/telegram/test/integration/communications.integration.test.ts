@@ -1,4 +1,7 @@
-import { registerFixedClock } from "../support/fixed-clock.js";
+import {
+  registerFixedClock,
+  fixedTestInstant,
+} from "../support/fixed-clock.js";
 import { closeIfStarted } from "../support/close-if-started.js";
 import { isTruthy } from "../../src/shared/truthiness.js";
 import { hasText } from "../../src/shared/text.js";
@@ -751,7 +754,7 @@ describe("author transport and API", () => {
   });
   it("author 403 blocks the private contact and /start restores it without replaying the rejected sample", async () => {
     await seedLink();
-    const time = new Date("2030-01-01T00:00:00Z");
+    const time = new Date(fixedTestInstant());
     await app.get(BotContacts).observeStart(
       {
         botIdentity: "inside",
