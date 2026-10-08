@@ -42,3 +42,7 @@ collision target sits at 95.7 px and its ID appears once.
 The fragment marker follows the body blocks, preserving `first:mt-0`. A live check confirmed
 `0px` before the first heading and 95.7 px for the collision target. All 32 Reader stories and the
 four MCP accessibility scenarios passed after that correction.
+
+Fragment navigation lives in shared UI and resets scrolling ancestors without a shell ID.
+Existing targets outside the body remain addressable. The fresh production build passed all six
+Reader navigation tests on desktop and mobile after the move.

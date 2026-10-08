@@ -1,3 +1,4 @@
+import { BodyFragmentNavigation } from "@/shared/ui/body-fragment-navigation.client";
 import { ArrowLeft, ArrowRight, List } from "lucide-react";
 import { Fragment, type ReactNode } from "react";
 
@@ -14,7 +15,6 @@ import {
   materialTaxonomyLabel,
   MaterialLessonBlock,
   materialSourceAnchors,
-  MaterialFragmentNavigation,
 } from "@/entities/material";
 import { cn } from "@/shared/lib/utils";
 import { IntentPrefetchLink } from "@/shared/ui/intent-prefetch-link.client";
@@ -115,7 +115,7 @@ export function MaterialReaderView({
                 ? {}
                 : { hint: modeHint.node, hintAt: modeHint.at })}
             />
-            <MaterialFragmentNavigation />
+            <BodyFragmentNavigation />
           </article>
           {practiceActions}
           {bookmarkAction === undefined &&

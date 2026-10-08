@@ -2,8 +2,8 @@
 
 import { useEffect, useRef } from "react";
 
-/** Run after the actual reader body arrives, including a streamed destination. */
-export function MaterialFragmentNavigation() {
+/** Run after the actual document body arrives, including a streamed destination. */
+export function BodyFragmentNavigation() {
   const marker = useRef<HTMLSpanElement>(null);
   useEffect(() => {
     const body = marker.current?.parentElement;
@@ -16,10 +16,11 @@ export function MaterialFragmentNavigation() {
       } catch {
         id = window.location.hash.slice(1);
       }
-      const target = Array.from(
-        body.querySelectorAll<HTMLElement>("[id]"),
-      ).find((element) => element.id === id);
-      if (target !== undefined) {
+      const target =
+        Array.from(body.querySelectorAll<HTMLElement>("[id]")).find(
+          (element) => element.id === id,
+        ) ?? body.ownerDocument.getElementById(id);
+      if (target !== null) {
         for (
           let parent = target.parentElement;
           parent !== null && body.contains(parent);
@@ -29,9 +30,12 @@ export function MaterialFragmentNavigation() {
         }
         target.scrollIntoView({ block: "start", behavior: "instant" });
       } else {
-        const container = body.closest("#content");
-        if (container !== null)
-          container.scrollTo({ top: 0, behavior: "instant" });
+        for (
+          let parent: HTMLElement | null = body;
+          parent !== null;
+          parent = parent.parentElement
+        )
+          parent.scrollTo({ top: 0, behavior: "instant" });
         window.scrollTo({ top: 0, behavior: "instant" });
       }
     };
