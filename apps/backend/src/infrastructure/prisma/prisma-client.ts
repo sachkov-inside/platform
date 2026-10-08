@@ -101,6 +101,7 @@ export type TelegramMembershipPrisma = Pick<
   | "telegramCommunityOperation"
   | "telegramCommunityAuthorization"
   | "telegramCommunityProjectionCursor"
+  | "telegramCommunityProjectionRetry"
   // Membership owns these writes; Telegram hands over its transaction to bindPrincipal.
   | "membershipBinding"
 >;

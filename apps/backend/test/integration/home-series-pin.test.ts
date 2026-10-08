@@ -75,6 +75,7 @@ beforeAll(async () => {
       "0082_domain_names",
       "0083_task_pages",
       "0084_owner_command_keys",
+      "0085_community_projection_retries",
     ],
   });
   await database.prisma.topic.create({
