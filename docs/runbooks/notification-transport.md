@@ -112,13 +112,6 @@ unknown-send recovery are #436/#56; this transport has no external send or opera
 
 ## Verification and production boundary
 
-`pnpm smoke:notifications-recovery` builds the development worker and its real dependencies in a
-disposable Compose project with separate images, network and volumes and no published ports.
-It verifies initial readiness, removes the broker application with `rabbitmqctl stop_app`, observes
-worker failure and absent readiness, restores the broker with `start_app`, and requires healthy
-readiness plus a container restart without a manual worker restart. Its cleanup removes only that
-project and its image tags. The shared `inside-platform` stand stays running.
-
 `pnpm --filter @inside/backend exec vitest run --config vitest.integration.config.mts test/integration/notification-transport.test.ts`
 uses disposable real PostgreSQL and a TLS RabbitMQ container. It covers ACL denials, source rollback,
 concurrent inbox deduplication, SIGKILL before/after confirm and inbox/ack, mandatory return,
