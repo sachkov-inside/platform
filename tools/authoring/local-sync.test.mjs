@@ -321,3 +321,23 @@ test("a definitive 422 rejection does not replay ahead of a corrected package", 
   assert.equal((await setup.sync(transport)).unchanged, 1);
   assert.equal(transmitted.length, 2);
 });
+
+test("import preserves Unicode, same-page and missing fragments in published links", async (t) => {
+  const f = await fixture(t);
+  const row = itemAt(f.manifest.materials, 0);
+  row.markdown =
+    "[Раздел](one.md#как-спроектировать-один-этап)\n\n[Повтор](#раздел-1)\n\n[Нет](one.md#нет-раздела)";
+  row.links = {
+    "one.md#как-спроектировать-один-этап": "one",
+    "one.md#нет-раздела": "one",
+  };
+  await f.write();
+  const api = applicationApi();
+  await f.sync(api);
+  const command = materialApplyRequest(itemAt(applyCalls(api), 0));
+  assert.ok(command);
+  const doc = JSON.stringify(command.body);
+  assert.ok(doc.includes("/materials/stable-original-url#%D0%BA%D0%B0%D0%BA-"));
+  assert.ok(doc.includes("#%D1%80%D0%B0%D0%B7%D0%B4%D0%B5%D0%BB-1"));
+  assert.ok(doc.includes("/materials/stable-original-url#%D0%BD%D0%B5%D1%82-"));
+});

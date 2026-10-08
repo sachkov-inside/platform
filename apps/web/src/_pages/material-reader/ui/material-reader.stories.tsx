@@ -1401,3 +1401,70 @@ export const ProductWithoutModes: Story = {
     ).toBeVisible();
   },
 };
+
+export const SourceAnchors: Story = {
+  args: {
+    body: [
+      {
+        kind: "paragraph",
+        content: [
+          {
+            kind: "text",
+            text: "Перейти к разделу",
+            marks: [{ kind: "link", href: "#как-спроектировать-один-этап" }],
+          },
+        ],
+      },
+      ...Array.from({ length: 20 }, () => ({
+        kind: "paragraph" as const,
+        content: [
+          {
+            kind: "text" as const,
+            text: "Синтетический материал для проверки прокрутки к нужному заголовку.",
+            marks: [],
+          },
+        ],
+      })),
+      {
+        kind: "heading",
+        level: 2,
+        content: [
+          {
+            kind: "text",
+            text: "Как спроектировать один этап?",
+            marks: [{ kind: "bold" }],
+          },
+        ],
+      },
+      ...Array.from({ length: 20 }, () => ({
+        kind: "paragraph" as const,
+        content: [
+          {
+            kind: "text" as const,
+            text: "Продолжение материала после целевого раздела.",
+            marks: [],
+          },
+        ],
+      })),
+    ],
+  },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    const heading = canvas.getByRole("heading", {
+      name: "Как спроектировать один этап?",
+    });
+    await expect(heading).toHaveAttribute("id", "как-спроектировать-один-этап");
+    await userEvent.click(
+      canvas.getByRole("link", { name: "Перейти к разделу" }),
+    );
+    await waitFor(async () => {
+      const y = heading.getBoundingClientRect().top;
+      await expect(y).toBeGreaterThanOrEqual(0);
+      await expect(y).toBeLessThan(160);
+    });
+  },
+};
+export const SourceAnchorsMobile: Story = {
+  ...SourceAnchors,
+  globals: { viewport: { value: "mobile390", isRotated: false } },
+};

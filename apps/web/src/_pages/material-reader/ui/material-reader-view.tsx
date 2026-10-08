@@ -13,6 +13,8 @@ import {
   materialDifficultyLabel,
   materialTaxonomyLabel,
   MaterialLessonBlock,
+  materialSourceAnchors,
+  MaterialFragmentNavigation,
 } from "@/entities/material";
 import { cn } from "@/shared/lib/utils";
 import { IntentPrefetchLink } from "@/shared/ui/intent-prefetch-link.client";
@@ -67,7 +69,8 @@ export function MaterialReaderView({
   modeHint,
   modeSwitch,
 }: MaterialReaderViewProps) {
-  const outline = collectOutline(body);
+  const anchors = materialSourceAnchors(body);
+  const outline = collectOutline(body, [], anchors);
 
   return (
     <div
@@ -96,7 +99,9 @@ export function MaterialReaderView({
             className="mt-10 min-w-0 break-words text-pretty text-[1.0625rem] leading-[1.7] text-foreground md:text-lg"
             data-reader-body
           >
+            <MaterialFragmentNavigation />
             <ReaderBlocks
+              anchors={anchors}
               blocks={body}
               contentVersion={material.contentVersion}
               materialId={material.materialId}
@@ -320,6 +325,7 @@ function ReaderOutline({ items }: { readonly items: readonly OutlineItem[] }) {
 }
 
 function ReaderBlocks({
+  anchors,
   blocks,
   contentVersion,
   hint,
@@ -327,6 +333,7 @@ function ReaderBlocks({
   materialId,
   path,
 }: {
+  readonly anchors: ReadonlyMap<string, string>;
   readonly blocks: readonly ReaderBlock[];
   readonly contentVersion: number;
   readonly hint?: ReactNode;
@@ -338,6 +345,7 @@ function ReaderBlocks({
     const blockPath = [...path, index];
     const view = (
       <ReaderBlockView
+        anchors={anchors}
         block={block}
         contentVersion={contentVersion}
         key={blockPath.join("-")}
@@ -358,11 +366,13 @@ function ReaderBlocks({
 const headingTag = { 2: "h2", 3: "h3", 4: "h4" } as const;
 
 function ReaderBlockView({
+  anchors,
   block,
   contentVersion,
   materialId,
   path,
 }: {
+  readonly anchors: ReadonlyMap<string, string>;
   readonly block: ReaderBlock;
   readonly contentVersion: number;
   readonly materialId: string;
@@ -388,8 +398,15 @@ function ReaderBlockView({
             block.level === 4 &&
               "mt-8 text-base md:text-lg leading-[1.45] tracking-[-0.015em]",
           )}
-          id={headingId(path)}
+          id={anchors.get(path.join("-"))}
         >
+          {Array.from(anchors.values()).includes(headingId(path)) ? null : (
+            <span
+              id={headingId(path)}
+              className="block scroll-mt-24"
+              aria-hidden="true"
+            />
+          )}
           <ReaderInline content={block.content} />
         </Heading>
       );
@@ -408,6 +425,7 @@ function ReaderBlockView({
           {block.items.map((item, index) => (
             <li key={index}>
               <ReaderBlocks
+                anchors={anchors}
                 blocks={item}
                 contentVersion={contentVersion}
                 materialId={materialId}
@@ -422,6 +440,7 @@ function ReaderBlockView({
       return (
         <blockquote className="mt-8 border-l-4 border-accent py-1 pl-5 text-muted-foreground">
           <ReaderBlocks
+            anchors={anchors}
             blocks={block.content}
             contentVersion={contentVersion}
             materialId={materialId}
@@ -443,6 +462,7 @@ function ReaderBlockView({
     case "table":
       return (
         <ReaderTable
+          anchors={anchors}
           block={block}
           contentVersion={contentVersion}
           materialId={materialId}
@@ -462,6 +482,7 @@ function ReaderBlockView({
           rendering={{
             renderBlock: (child, index) => (
               <ReaderBlockView
+                anchors={anchors}
                 block={child}
                 contentVersion={contentVersion}
                 key={[...path, index].join("-")}
@@ -471,6 +492,7 @@ function ReaderBlockView({
             ),
             renderBlocks: (blocks, branch) => (
               <ReaderBlocks
+                anchors={anchors}
                 blocks={blocks}
                 contentVersion={contentVersion}
                 materialId={materialId}
@@ -562,11 +584,13 @@ function applyMarks(
 }
 
 function ReaderTable({
+  anchors,
   block,
   contentVersion,
   materialId,
   path,
 }: {
+  readonly anchors: ReadonlyMap<string, string>;
   readonly block: Extract<ReaderBlock, { readonly kind: "table" }>;
   readonly contentVersion: number;
   readonly materialId: string;
@@ -598,6 +622,7 @@ function ReaderTable({
                     scope={cell.header ? "col" : undefined}
                   >
                     <ReaderBlocks
+                      anchors={anchors}
                       blocks={cell.content}
                       contentVersion={contentVersion}
                       materialId={materialId}
@@ -617,24 +642,25 @@ function ReaderTable({
 function collectOutline(
   blocks: readonly ReaderBlock[],
   path: readonly number[] = [],
+  anchors: ReadonlyMap<string, string> = materialSourceAnchors(blocks),
 ): OutlineItem[] {
   return blocks.flatMap((block, index): OutlineItem[] => {
     const blockPath = [...path, index];
     if (block.kind === "heading") {
       return [
         {
-          id: headingId(blockPath),
+          id: anchors.get(blockPath.join("-")) ?? headingId(blockPath),
           label: textContent(block.content),
           level: block.level,
         },
       ];
     }
     if (block.kind === "blockquote" || block.kind === "callout") {
-      return collectOutline(block.content, blockPath);
+      return collectOutline(block.content, blockPath, anchors);
     }
     if (block.kind === "bullet_list" || block.kind === "ordered_list") {
       return block.items.flatMap((item, itemIndex) =>
-        collectOutline(item, [...blockPath, itemIndex]),
+        collectOutline(item, [...blockPath, itemIndex], anchors),
       );
     }
     return [];

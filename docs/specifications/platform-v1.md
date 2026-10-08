@@ -380,6 +380,18 @@ Published membership projection доступна Library/internal search и exte
 Published body читается только для current `published` state; draft/unpublished недоступны через
 обычные read/download/play paths.
 
+### Source heading anchors
+
+Reader uses the Content anchor contract: visible heading text in lowercase, punctuation removed,
+spaces replaced by hyphens, and collision-aware `-1`, `-2` suffixes. Unicode letters and numbers,
+underscores and hyphens remain. One document owns allocation across nested headings; code examples
+create no headings. Import preserves fragments in local Material links, including same-page links.
+The body scrolls to the matching heading after it arrives. An unknown fragment opens the page from
+the top without an error. Legacy `material-section-*` addresses remain aliases unless a source
+heading occupies that exact name. Access checks still decide whether the body is available.
+[#1179](https://github.com/sachkov-inside/platform/issues/1179) owns the implementation and Task c
+integration with #1194; author acceptance on real Content chapters belongs to Content #56.
+
 ### Series step sequences
 
 `SeriesMembership.stepGroup` is a nullable exact label after ECMAScript `trim()`, 1–120 UTF-16 code
