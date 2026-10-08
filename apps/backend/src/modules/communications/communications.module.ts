@@ -95,12 +95,17 @@ export class TrackingHitPump
   providers: [
     {
       provide: TrackingVisits,
-      inject: [PrismaClientProvider, PLATFORM_CONFIG],
-      useFactory: (prisma: PrismaClientProvider, config: PlatformConfig) =>
+      inject: [PrismaClientProvider, PLATFORM_CONFIG, PublicContentTargets],
+      useFactory: (
+        prisma: PrismaClientProvider,
+        config: PlatformConfig,
+        targets: PublicContentTargets,
+      ) =>
         new TrackingVisits(
           prisma,
           new HttpCommunicationsProvider(config.communications),
           config.communicationsTrackingOrigin,
+          targets,
           () => {
             new Logger("TrackingVisits").error(
               "Tracking hit persistence unconfirmed; navigation continued, analytics may be incomplete",

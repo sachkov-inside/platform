@@ -57,7 +57,7 @@ describe("alignment with the Platform production release", () => {
       required(config.platformTrackingTargetPrefixes).map(
         (prefix) => new URL(prefix).pathname,
       ),
-    ).toEqual(["/materials/", "/series/"]);
+    ).toEqual(["/materials/", "/products/", "/series/", "/guides/"]);
 
     const production = readFileSync("docs/operations/production.md", "utf8");
     const row = production

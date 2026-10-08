@@ -17,6 +17,72 @@ describe("communications promised public targets against Materials PostgreSQL", 
   afterAll(async () => {
     await database.dispose();
   });
+  test("validates public Product pages independently of protected programme contents", async () => {
+    const productId = randomUUID();
+    await database.prisma.product.create({
+      data: { id: productId, slug: "public-product", name: "Public Product" },
+    });
+    const targets = new PublicContentTargets(database.prisma);
+    const validate = (url: string) =>
+      validateTargets(
+        [
+          {
+            partId: randomUUID(),
+            content: {
+              type: "text",
+              text: "Product",
+              entities: [],
+              buttons: [{ text: "Open", url }],
+            },
+          },
+        ],
+        "https://inside.example",
+        targets,
+      );
+    for (const route of ["products", "series", "guides"]) {
+      expect(
+        await validate(`https://inside.example/${route}/public-product`),
+      ).toEqual([]);
+      expect(
+        await validate(`https://inside.example/${route}/missing-product`),
+      ).toEqual([
+        {
+          url: `https://inside.example/${route}/missing-product`,
+          targetId: null,
+          reason: "not_found",
+        },
+      ]);
+    }
+    expect(
+      await validate("https://external.example/products/missing-product"),
+    ).toEqual([]);
+    for (const suffix of [
+      "?redirect=evil",
+      "#fragment",
+      "/extra",
+      "/",
+      "%2f",
+      "%ZZ",
+    ]) {
+      const url = `https://inside.example/products/public-product${suffix}`;
+      expect(await validate(url)).toEqual([
+        { url, targetId: null, reason: "not_found" },
+      ]);
+    }
+    await database.prisma.product.update({
+      where: { id: productId },
+      data: { archivedAt: new Date("2026-01-01T00:00:00Z") },
+    });
+    expect(
+      await validate("https://inside.example/products/public-product"),
+    ).toEqual([
+      {
+        url: "https://inside.example/products/public-product",
+        targetId: productId,
+        reason: "not_published",
+      },
+    ]);
+  });
   test("detects unpublished, paid, missing and incomplete targets through the owning Materials seam", async () => {
     const actor = randomUUID();
     const authoring = assembleMaterials({
@@ -116,6 +182,42 @@ describe("communications promised public targets against Materials PostgreSQL", 
     expect(
       (await targets.check({ kind: "series", slug: "test-series" })).reason,
     ).toBe("not_free");
+    expect(
+      await validateTargets(
+        [
+          {
+            partId: randomUUID(),
+            content: {
+              type: "text",
+              text: "Public Product and protected Material",
+              entities: [],
+              buttons: [
+                {
+                  text: "Product",
+                  url: "https://inside.example/products/test-series",
+                },
+                {
+                  text: "Compatibility",
+                  url: "https://inside.example/series/test-series",
+                },
+                {
+                  text: "Material",
+                  url: "https://inside.example/materials/public-target",
+                },
+              ],
+            },
+          },
+        ],
+        "https://inside.example",
+        targets,
+      ),
+    ).toEqual([
+      {
+        url: "https://inside.example/materials/public-target",
+        targetId: materialId,
+        reason: "not_free",
+      },
+    ]);
     const unpublished = await authoring.saveMaterial({
       actor,
       materialId,
