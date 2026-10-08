@@ -17,8 +17,8 @@ import { join } from "node:path";
 import { test } from "node:test";
 import { fileURLToPath } from "node:url";
 
-const scripts = fileURLToPath(new URL(".", import.meta.url));
-const root = fileURLToPath(new URL("..", import.meta.url));
+const scripts = fileURLToPath(new URL("..", import.meta.url));
+const root = fileURLToPath(new URL("../..", import.meta.url));
 const diagnostics = [
   "billing-contact-proof",
   "buyer-journey-smoke",
