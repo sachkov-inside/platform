@@ -337,6 +337,37 @@
               }
             }
           }
+        },
+        {
+          "if": {
+            "required": [
+              "groupUrl"
+            ],
+            "properties": {
+              "groupUrl": {}
+            }
+          },
+          "then": {
+            "properties": {
+              "access": {
+                "type": "object",
+                "properties": {
+                  "kind": {
+                    "enum": [
+                      "finite",
+                      "lifetime"
+                    ]
+                  }
+                }
+              },
+              "observedMembership": {
+                "const": "member"
+              },
+              "admissionRestriction": {
+                "const": "none"
+              }
+            }
+          }
         }
       ]
     },
