@@ -7,18 +7,21 @@ import {
   type ProductChapterPresentation,
   type SeriesOrderItemPresentation,
 } from "../model/presentation";
+import { MaterialPreviewLink } from "./material-preview-link";
 
 /**
  * Состав продукта, перенесённого из источника (#844). Backend отклоняет запись такого состава из
  * редактора, поэтому здесь нет ни одного действия правки: автор читает состав и уходит со страницы
- * без отказа.
+ * без отказа. Предпросмотр материалов и глав открывается так же, как из редактора (#837).
  */
 export function SeriesOrderReadOnly({
   chapters,
   items,
+  productId,
 }: {
   readonly chapters: readonly ProductChapterPresentation[];
   readonly items: readonly SeriesOrderItemPresentation[];
+  readonly productId: string;
 }) {
   return (
     <section className="text-foreground">
@@ -55,6 +58,7 @@ export function SeriesOrderReadOnly({
                   : chapters.indexOf(section.chapter) + 1
               }
               offset={section.offset}
+              productId={productId}
             />
           ))}
         </div>
@@ -69,16 +73,23 @@ function ChapterSection({
   items,
   number,
   offset,
+  productId,
 }: {
   readonly chapter: ProductChapterPresentation | null;
   readonly grouped: boolean;
   readonly items: readonly SeriesOrderItemPresentation[];
   readonly number: number | null;
   readonly offset: number;
+  readonly productId: string;
 }) {
   if (chapter === null && !grouped) {
     return (
-      <MaterialList items={items} label="Материалы продукта" offset={offset} />
+      <MaterialList
+        items={items}
+        label="Материалы продукта"
+        offset={offset}
+        productId={productId}
+      />
     );
   }
   const headingId = `chapter-${chapter?.id ?? `open-${String(offset)}`}`;
@@ -94,21 +105,30 @@ function ChapterSection({
             Вне глав
           </h3>
         ) : (
-          <h3
-            className="flex min-w-0 gap-2 text-lg font-semibold"
-            id={headingId}
-          >
-            <span
-              aria-hidden="true"
-              className="w-6 shrink-0 text-center text-sm font-normal leading-7 tabular-nums text-muted-foreground"
+          <div className="flex min-w-0 items-start justify-between gap-2">
+            <h3
+              className="flex min-w-0 gap-2 text-lg font-semibold"
+              id={headingId}
             >
-              {number}
-            </span>
-            <span className="min-w-0 [overflow-wrap:anywhere]">
-              <span className="sr-only">Глава {number}: </span>
-              {chapter.name}
-            </span>
-          </h3>
+              <span
+                aria-hidden="true"
+                className="w-6 shrink-0 text-center text-sm font-normal leading-7 tabular-nums text-muted-foreground"
+              >
+                {number}
+              </span>
+              <span className="min-w-0 [overflow-wrap:anywhere]">
+                <span className="sr-only">Глава {number}: </span>
+                {chapter.name}
+              </span>
+            </h3>
+            {items[0] === undefined ? null : (
+              <MaterialPreviewLink
+                label={`Предпросмотр главы «${chapter.name}»`}
+                materialId={items[0].materialId}
+                productId={productId}
+              />
+            )}
+          </div>
         )}
         {summary === undefined ? null : (
           <p className="mt-2 whitespace-pre-line pl-8 text-sm leading-6 text-muted-foreground">
@@ -129,6 +149,7 @@ function ChapterSection({
               : `Материалы главы «${chapter.name}»`
           }
           offset={offset}
+          productId={productId}
         />
       )}
     </section>
@@ -139,10 +160,12 @@ function MaterialList({
   items,
   label,
   offset,
+  productId,
 }: {
   readonly items: readonly SeriesOrderItemPresentation[];
   readonly label: string;
   readonly offset: number;
+  readonly productId: string;
 }) {
   return (
     <ol aria-label={label} className="divide-y divide-border" role="list">
@@ -150,7 +173,7 @@ function MaterialList({
         const stepGroup = presentText(item.stepGroup?.trim());
         return (
           <li
-            className="grid min-w-0 grid-cols-[1.5rem_minmax(0,1fr)] gap-x-2 py-4 sm:gap-x-3"
+            className="grid min-w-0 grid-cols-[1.5rem_minmax(0,1fr)_auto] items-start gap-x-2 py-4 sm:gap-x-3"
             key={item.materialId}
           >
             <span className="w-6 text-center text-sm leading-6 tabular-nums text-muted-foreground">
@@ -177,6 +200,11 @@ function MaterialList({
                 )}
               </p>
             </div>
+            <MaterialPreviewLink
+              label={`Предпросмотр «${item.title}»`}
+              materialId={item.materialId}
+              productId={productId}
+            />
           </li>
         );
       })}

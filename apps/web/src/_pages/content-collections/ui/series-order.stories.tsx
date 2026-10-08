@@ -200,12 +200,42 @@ export const Chapters: Story = {
     await expect(
       canvas.getByRole("button", { name: "Поднять главу «Проект и CI»" }),
     ).toBeDisabled();
+    // Глава и материал открывают предпросмотр по маршруту продукта и возвращают в его редактор.
+    const productId = chaptered.seriesId;
+    const firstMaterialId = chaptered.items[0]?.materialId ?? "";
+    const chapterPreview = new URL(
+      canvas
+        .getByRole("link", { name: "Предпросмотр главы «Проект и CI»" })
+        .getAttribute("href") ?? "",
+      "https://inside.local",
+    );
+    await expect(chapterPreview.pathname).toBe(
+      `/authoring/materials/${firstMaterialId}/preview`,
+    );
+    await expect(chapterPreview.searchParams.get("product")).toBe(productId);
+    await expect(chapterPreview.searchParams.get("from")).toBe(
+      `/authoring/products/${productId}`,
+    );
+    await expect(
+      canvas.getAllByRole("link", { name: /^Предпросмотр «/u }),
+    ).toHaveLength(chaptered.items.length);
   },
 };
 
 export const ChaptersMobile: Story = {
   args: { presentation: chaptered },
   globals: { viewport: { value: "mobile390", isRotated: false } },
+  play: async ({ canvasElement }) => {
+    const canvas = within(canvasElement);
+    // Ссылка на предпросмотр главы стоит рядом с тремя кнопками и не сжимает название в ничто.
+    await expect(
+      canvas
+        .getByRole("textbox", { name: "Название главы 1" })
+        .getBoundingClientRect().width,
+    ).toBeGreaterThanOrEqual(140);
+    const root = canvasElement.ownerDocument.documentElement;
+    await expect(root.scrollWidth).toBeLessThanOrEqual(root.clientWidth + 1);
+  },
 };
 
 export const CreateChapter: Story = {

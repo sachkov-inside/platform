@@ -22,6 +22,7 @@ if (pnpmExecutable === undefined) {
   throw new Error("Run the full-stack smoke through the pinned pnpm CLI");
 }
 const pnpmPath = pnpmExecutable;
+const fullStackBrowserCommand = "test:fullstack";
 
 // Only an explicitly exported DATABASE_URL may point the smoke at another database; a personal `.env`
 // usually names the stand database, which this smoke must never migrate, seed or rewrite.
@@ -349,7 +350,7 @@ if (interruptedSignal !== undefined) {
 }
 
 function fullStackTestArguments() {
-  const arguments_ = ["--filter", "@inside/web", "test:fullstack"];
+  const arguments_ = ["--filter", "@inside/web", fullStackBrowserCommand];
   const grep = process.env["FULLSTACK_TEST_GREP"]?.trim();
   if (grep !== undefined && grep.length > 0) {
     arguments_.push("--grep", grep);
@@ -391,6 +392,11 @@ function startPnpm(name, arguments_, environment, detached = true) {
  */
 async function runPnpm(arguments_, environment = childEnvironment) {
   const entry = startPnpm("pnpm", arguments_, environment, false);
+  if (arguments_.includes(fullStackBrowserCommand)) {
+    // Stream browser measurements before the bounded failure log can evict their chunks.
+    entry.child.stdout?.pipe(process.stdout, { end: false });
+    entry.child.stderr?.pipe(process.stderr, { end: false });
+  }
   /** @type {Promise<number | null>} */
   const exited = new Promise((resolveExit) => {
     entry.child.once("exit", (code) => resolveExit(code));

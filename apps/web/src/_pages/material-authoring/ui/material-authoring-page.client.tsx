@@ -24,6 +24,7 @@ import {
 import type { ProductRemoval } from "@/shared/lib/product-removal";
 import {
   authoringMaterialPreviewHref,
+  authoringReturnActionLabel,
   withAuthoringReturnHref,
 } from "@/shared/routing/authoring";
 
@@ -216,6 +217,7 @@ export function MaterialAuthoringPageClient({
   const saved = materialResult?.kind === "saved" ? materialResult : null;
   const presentation: MaterialAuthoringPresentation = {
     ...initialPresentation,
+    backLabel: authoringReturnActionLabel(returnHref),
     authorization:
       materialResult?.kind === "unauthorized" ||
       materialResult?.kind === "forbidden"

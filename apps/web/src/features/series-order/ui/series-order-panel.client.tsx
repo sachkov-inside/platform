@@ -39,7 +39,11 @@ export function SeriesOrderPanel({
   const order = query.data.order;
   if (readOnly)
     return (
-      <SeriesOrderReadOnly chapters={order.chapters} items={order.items} />
+      <SeriesOrderReadOnly
+        chapters={order.chapters}
+        items={order.items}
+        productId={seriesId}
+      />
     );
   return (
     <SeriesOrderManager

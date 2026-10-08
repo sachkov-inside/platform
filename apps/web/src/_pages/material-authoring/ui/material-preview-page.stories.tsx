@@ -4,6 +4,7 @@ import { expect, userEvent, within } from "storybook/test";
 import {
   authoringMaterialPreviewHref,
   authoringMaterialsRootHref,
+  authoringProductEditorHref,
   withAuthoringReturnHref,
 } from "@/shared/routing/authoring";
 import { MaterialCurrentPreview } from "@/widgets/material-authoring/preview";
@@ -31,6 +32,9 @@ const editorHref = withAuthoringReturnHref(
   authoringMaterialsRootHref,
 );
 const environment = authoringPageEnvironment(previewPath);
+const productEditorHref = authoringProductEditorHref(
+  "95000000-0000-4000-8000-000000000010",
+);
 
 const meta = {
   ...environment,
@@ -254,6 +258,22 @@ export const ProductRoute: Story = {
     await expect(
       page.getByRole("navigation", { name: "Соседние материалы руководства" }),
     ).toBeVisible();
+  },
+};
+
+/** Автор пришёл из редактора продукта: возврат ведёт туда же, а не в список материалов (#837). */
+export const FromProductEditor: Story = {
+  args: {
+    materialsHref: productEditorHref,
+    route: materialPreviewRoute,
+  },
+  name: "Маршрут руководства · из редактора продукта",
+  play: async ({ canvasElement }) => {
+    const page = routeContent(canvasElement);
+    await expect(
+      page.getByRole("link", { name: "К продукту" }),
+    ).toHaveAttribute("href", productEditorHref);
+    await expect(page.queryByRole("link", { name: "К материалам" })).toBeNull();
   },
 };
 
