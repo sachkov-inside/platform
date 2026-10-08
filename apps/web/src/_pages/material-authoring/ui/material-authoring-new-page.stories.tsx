@@ -110,13 +110,37 @@ export const DraftCreated: Story = {
   name: "Черновик создан",
   play: async ({ canvasElement }) => {
     const canvas = within(canvasElement);
+    const started = performance.now();
+    const installedFetch = window.fetch;
     await userEvent.type(canvas.getByLabelText("Название"), "Первый релиз", {
       delay: null,
     });
-    await expect(
-      (await canvas.findAllByText(/Сохранено сейчас/u, {}, { timeout: 4000 }))
-        .length,
-    ).toBeGreaterThan(0);
+    const typed = performance.now();
+    try {
+      await expect(
+        (await canvas.findAllByText(/Сохранено сейчас/u, {}, { timeout: 4000 }))
+          .length,
+      ).toBeGreaterThan(0);
+    } catch (error) {
+      const title = canvas.queryByLabelText("Название");
+      console.error("[DraftCreated failure]", {
+        typedMs: typed - started,
+        waitedMs: performance.now() - typed,
+        fetchIntact: window.fetch === installedFetch,
+        connected: canvasElement.isConnected,
+        title: title instanceof HTMLInputElement ? title.value : null,
+        statuses: canvas
+          .queryAllByRole("status")
+          .map((node) => node.textContent),
+        alerts: canvas.queryAllByRole("alert").map((node) => node.textContent),
+        requests: materialRequests.mock.calls.map(([method, form]) => ({
+          method,
+          title: form?.get("title"),
+        })),
+        addressChanges: addressChanges.mock.calls,
+      });
+      throw error;
+    }
     await expect(canvas.getAllByText(/Черновик/u).length).toBeGreaterThan(0);
     await expect(
       canvas.getByRole("button", { name: "Предпросмотр" }),
