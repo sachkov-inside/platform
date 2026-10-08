@@ -1,4 +1,4 @@
-import { blockDeliveryContact } from "../bot-contacts/delivery-contactability.js";
+import { blockDeliveryContact } from "./delivery-contactability.js";
 import { isTruthy } from "../../shared/truthiness.js";
 import { hasText } from "../../shared/text.js";
 import { findPlatformLink } from "../identity-linking/platform-links.js";

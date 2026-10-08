@@ -4,7 +4,7 @@ import { hasDueReply } from "../outbound/start-response-delivery-queue.js";
 import { enqueueBroadcastAuthorMenu } from "./author-delivery-menu.js";
 import { completeBroadcasts, launchDueBroadcasts } from "./broadcasts.js";
 import { trackedContent } from "./communication-tracking.js";
-import { blockDeliveryContact } from "../bot-contacts/delivery-contactability.js";
+import { blockDeliveryContact } from "./delivery-contactability.js";
 export { relativeDue } from "./funnel-timeline.js";
 import { reconcileFunnels, terminal, started } from "./funnel-timeline.js";
 import { randomUUID } from "node:crypto";

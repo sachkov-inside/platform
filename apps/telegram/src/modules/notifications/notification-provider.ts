@@ -1,4 +1,4 @@
-import { blockDeliveryContact } from "../bot-contacts/delivery-contactability.js";
+import { blockDeliveryContact } from "../communications/delivery-contactability.js";
 import { findPlatformLink } from "../identity-linking/platform-links.js";
 import {
   createCipheriv,

@@ -1,5 +1,4 @@
-import { contactLock } from "../communications/communication-state.js";
-import { blockDeliveryContact } from "../bot-contacts/delivery-contactability.js";
+import { BLOCKED_DELIVERY, type BlockedDelivery } from "./blocked-delivery.js";
 import { isTruthy } from "../../shared/truthiness.js";
 import { hasText } from "../../shared/text.js";
 import type { TelegramButton } from "./telegram-messages.js";
@@ -222,6 +221,7 @@ export async function replyAttemptOutcomeCounts(
 export class StartResponseDeliveryQueue {
   constructor(
     @Inject(DATABASE) private readonly database: Database,
+    @Inject(BLOCKED_DELIVERY) private readonly settleBlocked: BlockedDelivery,
     @Optional()
     @Inject(APPLICATION_CONFIG)
     private readonly config?: ApplicationConfig,
@@ -344,30 +344,27 @@ export class StartResponseDeliveryQueue {
           ),
         );
       }
-      // Contact commands take the contact lock before writing their reply intent.
-      if (result.kind === "api_rejected" && result.providerErrorCode === 403)
-        await contactLock(
-          transaction,
-          delivery.botIdentity,
-          delivery.telegramUserId,
-        );
-      const held = await settle(transaction, replies, delivery.lease, {
-        available_at: persistence.delivery.availableAt,
-        delivered_at: persistence.delivery.deliveredAt,
-        diagnostic_code: persistence.delivery.diagnosticCode,
-        locked_at: null,
-        state: persistence.delivery.state,
-        updated_at: attemptedAt,
-      });
+      const settleResult = () =>
+        settle(transaction, replies, delivery.lease, {
+          available_at: persistence.delivery.availableAt,
+          delivered_at: persistence.delivery.deliveredAt,
+          diagnostic_code: persistence.delivery.diagnosticCode,
+          locked_at: null,
+          state: persistence.delivery.state,
+          updated_at: attemptedAt,
+        });
+      const held =
+        result.kind === "api_rejected" && result.providerErrorCode === 403
+          ? await this.settleBlocked(
+              transaction,
+              delivery.botIdentity,
+              delivery.telegramUserId,
+              attemptedAt,
+              settleResult,
+            )
+          : await settleResult();
       // An expired lease already recorded this attempt as unknown; the late outcome is dropped.
       if (!held) return false;
-      if (result.kind === "api_rejected" && result.providerErrorCode === 403)
-        await blockDeliveryContact(
-          transaction,
-          delivery.botIdentity,
-          delivery.telegramUserId,
-          attemptedAt,
-        );
       await transaction
         .insertInto("start_response_delivery_attempts")
         .values({

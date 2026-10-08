@@ -1,3 +1,4 @@
+import { settleBlockedDelivery } from "../../src/modules/communications/delivery-contactability.js";
 import { registerFixedClock } from "../support/fixed-clock.js";
 import { hasText } from "../../src/shared/text.js";
 import Ajv2020 from "ajv/dist/2020.js";
@@ -257,7 +258,7 @@ describe("initial Membership Evidence", () => {
 
     const messages = new ControlledTelegramMessages();
     const responses = new StartResponseDeliveryProcessor(
-      new StartResponseDeliveryQueue(database),
+      new StartResponseDeliveryQueue(database, settleBlockedDelivery),
       messages,
       new RuntimeMetrics(),
       config,
@@ -328,7 +329,7 @@ describe("initial Membership Evidence", () => {
 
       const messages = new ControlledTelegramMessages();
       await new StartResponseDeliveryProcessor(
-        new StartResponseDeliveryQueue(database),
+        new StartResponseDeliveryQueue(database, settleBlockedDelivery),
         messages,
         new RuntimeMetrics(),
         config,

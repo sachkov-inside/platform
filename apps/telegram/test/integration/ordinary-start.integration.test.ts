@@ -1,3 +1,4 @@
+import { settleBlockedDelivery } from "../../src/modules/communications/delivery-contactability.js";
 import { registerFixedClock } from "../support/fixed-clock.js";
 import { hasText } from "../../src/shared/text.js";
 import type { NestFastifyApplication } from "@nestjs/platform-fastify";
@@ -806,7 +807,7 @@ async function prepareDelivery(
   });
   const messages = new ControlledMessages(results);
   const processor = new StartResponseDeliveryProcessor(
-    new StartResponseDeliveryQueue(database),
+    new StartResponseDeliveryQueue(database, settleBlockedDelivery),
     messages,
     new RuntimeMetrics(),
     config,
