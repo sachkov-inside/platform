@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-const criterionSchema = z
+const criterionV1Schema = z
   .object({
     id: z.string(),
     level: z.enum(["required", "additional"]),
@@ -8,6 +8,20 @@ const criterionSchema = z
     acceptableEvidence: z.array(z.string()),
   })
   .strict();
+
+const criterionSchema = z.union([
+  criterionV1Schema,
+  z
+    .object({
+      id: z.string(),
+      level: z.enum(["required", "additional"]),
+      task: z.string(),
+      explanation: z.string(),
+      advice: z.string().optional(),
+      acceptableEvidence: z.array(z.string()),
+    })
+    .strict(),
+]);
 
 export const authorFeedbackSchema = z
   .object({

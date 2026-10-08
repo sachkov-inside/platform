@@ -7,6 +7,7 @@ import {
   learnerMcpUrl,
   notSubmittedYet,
   openProductTask,
+  openFormatCTask,
   submittedTwice,
 } from "@/storybook/product-task.fixtures";
 import {
@@ -264,3 +265,50 @@ function loadsInPlace({
 
 export const LoadsInPlace: Story = { ...loadsInPlace(desktop) };
 export const LoadsInPlaceMobile: Story = { ...loadsInPlace(mobile) };
+
+/** A complete synthetic c page keeps its Markdown and folds advice; agent evidence never enters the reader. */
+export const FormatC: Story = {
+  args: { page: openFormatCTask, submissions: notSubmittedYet },
+  play: async ({ canvasElement }) => {
+    const page = routeContent(canvasElement);
+    await expect(
+      page.getByRole("heading", {
+        level: 1,
+        name: "Задание 1. Собери учебный проект",
+      }),
+    ).toBeVisible();
+    await expect(
+      page.getByRole("heading", { level: 2, name: "Что нужно сделать" }),
+    ).toBeVisible();
+    await expect(
+      page.getByRole("heading", { level: 2, name: "Что решаешь сам" }),
+    ).toBeVisible();
+    await expect(page.getByRole("link", { name: /^урок$/u })).toHaveAttribute(
+      "href",
+      "/materials/synthetic-lesson",
+    );
+    await expect(page.queryByText("Чем подтвердить")).toBeNull();
+    const advice = page
+      .getByText("Мой совет", { exact: true })
+      .closest("summary");
+    if (advice === null)
+      throw new Error("Task advice must use a native summary.");
+    await expect(page.getByText("Начни с одного запроса.")).not.toBeVisible();
+    advice.focus();
+    await userEvent.keyboard("{Enter}");
+    await expect(page.getByText("Начни с одного запроса.")).toBeVisible();
+    await userEvent.keyboard("{Enter}");
+    await expect(page.getByText("Начни с одного запроса.")).not.toBeVisible();
+    const image = page.getByRole("img", { name: "Схема учебного проекта" });
+    await expect(image).toBeVisible();
+    await waitFor(async () => {
+      await expect(image).toHaveProperty("complete", true);
+      await expect(image).not.toHaveProperty("naturalWidth", 0);
+    });
+  },
+};
+
+export const FormatCMobile: Story = {
+  ...FormatC,
+  globals: { viewport: { value: "mobile390", isRotated: false } },
+};

@@ -416,7 +416,11 @@ function Report({
               >
                 <p className="flex flex-wrap items-baseline justify-between gap-2">
                   <span className="font-medium [overflow-wrap:anywhere]">
-                    {criterion?.requirement ?? item.criterionId}
+                    {criterion === undefined
+                      ? item.criterionId
+                      : "requirement" in criterion
+                        ? criterion.requirement
+                        : criterion.task}
                   </span>
                   <span className="rounded-full border border-border px-2 py-0.5 text-xs font-medium">
                     {statusLabels[item.status]}
@@ -470,7 +474,9 @@ function CriteriaGroup({
       <ul className="grid list-disc gap-1 pl-5">
         {items.map((criterion) => (
           <li className="[overflow-wrap:anywhere]" key={criterion.id}>
-            {criterion.requirement}
+            {"requirement" in criterion
+              ? criterion.requirement
+              : criterion.task}
           </li>
         ))}
       </ul>
