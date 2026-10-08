@@ -1,6 +1,7 @@
 // @ts-check
 // Explicit, loopback-only review runtime. Real Platform/DB/storage; synthetic local identity/video provider.
-import { spawn } from "node:child_process";
+import { spawnOwned, stopOwned } from "./owned-process.mjs";
+import { commandExit } from "./diagnostic-command.mjs";
 import { connect } from "node:net";
 import { readFileSync } from "node:fs";
 import { createServer, request as proxyRequest } from "node:http";
@@ -8,7 +9,6 @@ import { resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 import { parseEnv } from "node:util";
 import { startFullStackIdentity } from "./full-stack-identity.mjs";
-import { signalProcessGroup } from "./process-group-signal.mjs";
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const pnpmExecutable = process.env["npm_execpath"];
@@ -41,6 +41,8 @@ const environment = {
 /** @type {import("node:child_process").ChildProcess[]} */
 const children = [];
 let closing = false;
+/** @type {Promise<void> | undefined} */
+let closePromise;
 /** @type {Set<import("node:net").Socket>} */
 const sockets = new Set();
 const gateway = createServer(async (request, response) => {
@@ -133,14 +135,24 @@ gateway.on("upgrade", (request, socket, head) => {
   upstream.on("error", () => socket.destroy());
   socket.on("error", () => upstream.destroy());
 });
-/** @param {string[]} args */
-function run(args) {
-  // deterministic-test-allow process-cleanup: Legacy command needs verified group cleanup on interruption; migration is tracked in #1154.
-  const child = spawn(process.execPath, [pnpmPath, ...args], {
+/** @param {string[]} args @param {boolean} [service] */
+function run(args, service = false) {
+  if (closing) throw new Error("Local editor interrupted");
+  const child = spawnOwned(process.execPath, [pnpmPath, ...args], {
     cwd: root,
     env: environment,
     stdio: "inherit",
-    detached: true,
+  });
+  child.once("error", (error) => {
+    process.stderr.write(`${String(error)}\n`);
+    process.exitCode = 1;
+    void close();
+  });
+  child.once("exit", (code) => {
+    if (!closing && (service || code !== 0)) {
+      process.exitCode = code ?? 1;
+      void close();
+    }
   });
   children.push(child);
   return child;
@@ -148,39 +160,45 @@ function run(args) {
 /** @param {string[]} args */
 async function command(args) {
   const child = run(args);
-  /** @type {Promise<number | null>} */
-  const exited = new Promise((done) => child.once("exit", done));
-  const code = await exited;
-  if (code !== 0) throw new Error(`Local setup failed: ${args.join(" ")}`);
+  try {
+    const code = await commandExit(child);
+    if (code !== 0) throw new Error(`Local setup failed: ${args.join(" ")}`);
+  } finally {
+    await stopOwned(child);
+  }
 }
-async function close() {
-  if (closing) return;
+function close() {
   closing = true;
-  gateway.close();
-  for (const socket of sockets) socket.destroy();
-  for (const child of children)
-    if (child.exitCode === null && child.pid)
-      signalProcessGroup(child.pid, "SIGTERM");
-  await identity.close();
+  closePromise ??= (async () => {
+    gateway.close();
+    for (const socket of sockets) socket.destroy();
+    await Promise.all(children.map((child) => stopOwned(child)));
+    await identity.close();
+  })();
+  return closePromise;
 }
-for (const signal of ["SIGINT", "SIGTERM"])
+for (const signal of /** @type {const} */ (["SIGINT", "SIGTERM"]))
   process.once(signal, () => {
+    process.exitCode = signal === "SIGINT" ? 130 : 143;
     void close();
   });
 try {
   await command(["--filter", "@inside/backend", "db:migrate"]);
   await command(["--filter", "@inside/backend", "db:seed"]);
   await command(["--filter", "@inside/backend", "release:bootstrap-owner"]);
-  run(["dev:api"]);
-  run([
-    "--filter",
-    "@inside/web",
-    "dev",
-    "--hostname",
-    "127.0.0.1",
-    "--port",
-    "4398",
-  ]);
+  run(["dev:api"], true);
+  run(
+    [
+      "--filter",
+      "@inside/web",
+      "dev",
+      "--hostname",
+      "127.0.0.1",
+      "--port",
+      "4398",
+    ],
+    true,
+  );
   /** @type {Promise<void>} */
   const listening = new Promise((done) =>
     gateway.listen(4396, "127.0.0.1", done),
@@ -191,5 +209,5 @@ try {
   );
 } catch (error) {
   await close();
-  throw error;
+  if (process.exitCode !== 130 && process.exitCode !== 143) throw error;
 }

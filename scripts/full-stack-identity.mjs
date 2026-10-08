@@ -14,12 +14,13 @@ import { exportJWK, generateKeyPair, SignJWT } from "jose";
  * `learningResource` is the learner MCP resource (#948). A refresh grant that names it receives a
  * token for that audience with the `learning:read` scope, as Logto issues it to a learner's agent.
  *
- * @param {{ apiBaseUrl: string; webBaseUrl: string; learningResource?: string }} endpoints
+ * @param {{ apiBaseUrl: string; webBaseUrl: string; learningResource?: string; now?: () => number }} endpoints
  */
 export async function startFullStackIdentity({
   apiBaseUrl,
   webBaseUrl,
   learningResource,
+  now = Date.now,
 }) {
   const fullStackAccessTokenTtlSeconds = 300;
   const issuer = "https://identity.fullstack.test/oidc";
@@ -66,7 +67,7 @@ export async function startFullStackIdentity({
     };
   };
   const createAccessToken = (tokenSubject = subject) =>
-    mintAccessToken(tokenSubject, Math.floor(Date.now() / 1_000));
+    mintAccessToken(tokenSubject, Math.floor(now() / 1_000));
   /** @param {{ token: string; expiresAt: number; refreshToken: string }} session */
   const sessionCookie = ({ token, expiresAt, refreshToken }) =>
     wrapSession(
@@ -95,7 +96,7 @@ export async function startFullStackIdentity({
    */
   const sessionCookiePastExpiry = async (tokenSubject, refreshToken) => {
     const issuedAt =
-      Math.floor(Date.now() / 1_000) - fullStackAccessTokenTtlSeconds * 2;
+      Math.floor(now() / 1_000) - fullStackAccessTokenTtlSeconds * 2;
     const stale = await mintAccessToken(tokenSubject, issuedAt);
     return sessionCookie({
       token: stale.token,
@@ -195,7 +196,7 @@ export async function startFullStackIdentity({
       return;
     }
     const renewed = learning
-      ? await mintAccessToken(tokenSubject, Math.floor(Date.now() / 1_000), {
+      ? await mintAccessToken(tokenSubject, Math.floor(now() / 1_000), {
           audience: learningResource,
           scope: learningScope,
         })

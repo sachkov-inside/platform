@@ -124,6 +124,10 @@ test("identically named parameterized cases retain separate outcomes and stable 
 
 test("unit samples use workspace package test scripts and the root native launcher", () => {
   const commands = planSuite("unit");
+  assert.equal(
+    new Set(commands.map((command) => command.name)).size,
+    commands.length,
+  );
   for (const name of [
     "access-capabilities",
     "backend",
@@ -136,6 +140,22 @@ test("unit samples use workspace package test scripts and the root native launch
       `Missing ${name}`,
     );
   const tooling = commands.find((command) => command.name === "tooling");
+  const contracts = commands.find((command) => command.name === "contracts");
+  assert.ok(
+    contracts?.args.some((arg) =>
+      arg.endsWith("contracts/release-contract.test.mjs"),
+    ),
+  );
+  assert.ok(!tooling?.args.some((arg) => arg.includes("scripts/contracts/")));
+  assert.ok(commands.some((command) => command.name === "backend-contracts"));
+  assert.ok(commands.some((command) => command.name === "telegram-contracts"));
+  assert.ok(
+    commands.some(
+      (command) =>
+        command.directory === "apps/web" &&
+        command.args.includes("test:contracts"),
+    ),
+  );
   assert.ok(tooling?.args.includes("--test-concurrency=2"));
   assert.ok(
     tooling?.args.some((arg) => arg.endsWith("heavy-check-lock.test.mjs")),
@@ -152,6 +172,10 @@ test("unit samples use workspace package test scripts and the root native launch
         command.args.some((arg) => arg.endsWith("native.test.mts")),
     ),
   );
+  const native = commands.find((command) =>
+    command.args.includes("apps/backend/node_modules/tsx/dist/cli.mjs"),
+  );
+  assert.equal(native?.args[0], "scripts/owned-node.mjs");
 });
 
 test("Node reporter follows explicit parent IDs when nested tests enqueue after another suite", async () => {

@@ -1,4 +1,5 @@
 import { registerFixedClock } from "../support/fixed-clock.js";
+import { BackgroundWorkers } from "../../src/operations/background-workers.js";
 import { hasText } from "../../src/shared/text.js";
 import {
   FastifyAdapter,
@@ -159,15 +160,26 @@ describe("background worker lifecycle", () => {
         { timeout: 5000 },
       );
 
+      const shutdownStarted = vi.spyOn(
+        app.get(BackgroundWorkers),
+        "onModuleDestroy",
+      );
       const closing = app.close().then(() => {
         lifecycle.closed = true;
       });
-      // deterministic-test-allow duration-wait: Legacy quiet window checks blocked shutdown; pin shutdown entry in #1154.
-      await new Promise((resolve) => setTimeout(resolve, 200));
-      expect(lifecycle.closed).toBe(false);
-
-      release({ kind: "delivered", providerMessageId: "7" });
-      await closing;
+      try {
+        await vi.waitFor(() => expect(shutdownStarted).toHaveBeenCalled(), {
+          timeout: 5000,
+        });
+        vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+        await vi.advanceTimersByTimeAsync(200);
+        expect(lifecycle.closed).toBe(false);
+      } finally {
+        vi.useRealTimers();
+        shutdownStarted.mockRestore();
+        release({ kind: "delivered", providerMessageId: "7" });
+        await closing;
+      }
     } finally {
       if (!lifecycle.closed) await app.close();
     }
@@ -262,12 +274,13 @@ describe("background worker lifecycle", () => {
       },
     );
     try {
-      // Let every cycle reach its idle pace before measuring.
-      // deterministic-test-allow duration-wait: Legacy idle warmup lacks a committed barrier; replace it in #1154.
-      await new Promise((resolve) => setTimeout(resolve, 15_000));
-      const before = statements;
       const windowMs = 10_000;
-      // deterministic-test-allow duration-wait: Performance contract samples the real idle SQL rate during this measured window.
+      await vi.waitFor(
+        () => expect(app.get(BackgroundWorkers).isIdle(windowMs)).toBe(true),
+        { timeout: 30_000 },
+      );
+      const before = statements;
+      // deterministic-test-allow duration-wait: the explicit performance contract measures real idle SQL statements over ten seconds.
       await new Promise((resolve) => setTimeout(resolve, windowMs));
       const perSecond = ((statements - before) * 1000) / windowMs;
       process.stdout.write(`idle SQL statements per second: ${perSecond}\n`);

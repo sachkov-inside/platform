@@ -1,6 +1,5 @@
 import { hasText } from "../../src/shared/text.js";
-// deterministic-test-allow unit-io: Local workflow shell contract; suite separation is tracked in #1154.
-import { spawnSync } from "node:child_process";
+import { runOwnedCommandSync } from "../support/owned-command.js";
 import { createHash } from "node:crypto";
 import {
   chmodSync,
@@ -160,7 +159,7 @@ esac
 `,
         );
         chmodSync(gh, 0o755);
-        const result = spawnSync(
+        const result = runOwnedCommandSync(
           "bash",
           ["-c", stepScript(release, "Publish the immutable GitHub Release")],
           {
@@ -372,7 +371,7 @@ esac
       });
 
       const runStep = (name: string, env: Record<string, string> = {}) =>
-        spawnSync("bash", ["-c", stepScript(deploy, name)], {
+        runOwnedCommandSync("bash", ["-c", stepScript(deploy, name)], {
           cwd: directory,
           encoding: "utf8",
           env: {
@@ -482,7 +481,7 @@ describe("release contract", () => {
     const directory = mkdtempSync(path.join(tmpdir(), "telegram-migrations-"));
     try {
       const identity = () => {
-        const result = spawnSync(
+        const result = runOwnedCommandSync(
           process.execPath,
           ["scripts/release-contract.mjs", "migrations-identity", directory],
           { encoding: "utf8" },
@@ -504,7 +503,7 @@ describe("release contract", () => {
   });
 
   it("writes the manifest the gateway and deploy workflow accept", () => {
-    const result = spawnSync(
+    const result = runOwnedCommandSync(
       process.execPath,
       [
         "scripts/release-contract.mjs",

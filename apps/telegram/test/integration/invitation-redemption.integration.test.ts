@@ -6,7 +6,7 @@ import {
   FastifyAdapter,
   type NestFastifyApplication,
 } from "@nestjs/platform-fastify";
-import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
+import { describe, expect, test } from "vitest";
 import { AppModule } from "../../src/app.module.js";
 import { loadApplicationConfig } from "../../src/config/application-config.js";
 import { DATABASE, type Database } from "../../src/database/database.js";
@@ -25,33 +25,6 @@ import { TelegramUpdateProcessor } from "../../src/modules/update-inbox/telegram
 import { privateStartUpdate } from "../support/synthetic-telegram-updates.js";
 import { reserveTelegramIdentity } from "../../src/modules/identity-linking/stable-telegram-identity.js";
 
-const bot = `invitation-${randomUUID()}`;
-// deterministic-test-allow shared-mutation: Legacy suite clock isolation is tracked in #1154.
-const clock = {
-  value: new Date(fixedTestInstant()),
-  now() {
-    return new Date(this.value);
-  },
-};
-const config = loadApplicationConfig({
-  DATABASE_URL: process.env["DATABASE_URL"],
-  TELEGRAM_BOT_IDENTITY: bot,
-  TELEGRAM_CANONICAL_CHAT_ID: "-1000000000000",
-  TELEGRAM_WEBHOOK_SECRET: "synthetic-webhook-secret-for-tests-only",
-  PLATFORM_INTEGRATION_SECRET: "synthetic-link-secret-for-tests-only",
-  TELEGRAM_LINK_RECEIPT_TEXT: "Link receipt",
-  TELEGRAM_LINKED_MEMBER_TEXT: "member",
-  TELEGRAM_LINKED_NON_MEMBER_TEXT: "not member",
-  TELEGRAM_LINKED_UNAVAILABLE_TEXT: "unavailable",
-  TELEGRAM_WELCOME_TEXT: "Welcome",
-  WORKERS_ENABLED: "false",
-  TELEGRAM_ACTIVATION_ENABLED: "true",
-  PLATFORM_ACTIVATION_SECRET: "s".repeat(32),
-  PLATFORM_ACTIVATION_URL: "http://127.0.0.1:1/activation",
-  PLATFORM_ACCOUNT_URL: "https://platform.example/account",
-  TELEGRAM_ACTIVATION_SOURCES: "[]",
-});
-
 /** A Platform double that keeps the provider's rules: first identity claims, repeats are idempotent. */
 interface Invitation {
   readonly mode: "purchase";
@@ -59,82 +32,123 @@ interface Invitation {
   redeemed?: boolean;
   readonly refusal?: "expired" | "revoked" | "unavailable";
 }
-const invitations = new Map<string, Invitation>();
-const linked = new Set<string>();
-const requests: InvitationRedeem[] = [];
-let redemptions = 0;
-let outage:
-  | "none"
-  | "lost"
-  | "error"
-  | "unavailable"
-  | "identity_conflict"
-  | "invalid_input" = "none";
-const checkoutUrl = "https://inside.example/payment/checkout?offer=offer-1";
+const it = test.extend<{
+  invitation: Awaited<ReturnType<typeof createFixture>>;
+}>({
+  invitation: async ({ signal }, use) => {
+    signal.throwIfAborted();
+    const fixture = await createFixture();
+    try {
+      await use(fixture);
+    } finally {
+      await fixture.app.close();
+    }
+  },
+});
 
-function redeem(input: InvitationRedeem): InvitationRedeemResponse | undefined {
-  requests.push(structuredClone(input));
-  if (outage === "error") return undefined;
-  if (
-    outage === "unavailable" ||
-    outage === "identity_conflict" ||
-    outage === "invalid_input"
-  )
-    return { ok: false, error: { code: outage } };
-  const invitation = invitations.get(input.code);
-  const refusal = (
-    state: "claimed_by_other" | "expired" | "revoked" | "unavailable",
-  ): InvitationRedeemResponse => ({
-    ok: true,
-    value: { contractVersion: ACTIVATION_VERSION, state },
-  });
-  if (!invitation) return refusal("unavailable");
-  if (hasText(invitation.refusal)) return refusal(invitation.refusal);
-  invitation.claimedBy ??= input.identityRef;
-  if (invitation.claimedBy !== input.identityRef)
-    return refusal("claimed_by_other");
-  if (!linked.has(input.identityRef))
-    return {
-      ok: true,
-      value: { contractVersion: ACTIVATION_VERSION, state: "needs_account" },
-    };
-  const repeat = invitation.redeemed === true;
-  if (!repeat) redemptions += 1;
-  invitation.redeemed = true;
-  const response: InvitationRedeemResponse = {
-    ok: true,
-    value: {
-      contractVersion: ACTIVATION_VERSION,
-      state: repeat ? "already_redeemed" : "purchase_ready",
-      mode: "purchase",
-      offerName: "Подписка Inside",
-      checkoutUrl,
+async function createFixture() {
+  const bot = `invitation-${randomUUID()}`;
+  const clock = {
+    value: new Date(fixedTestInstant()),
+    now() {
+      return new Date(this.value);
     },
   };
-  // The answer is lost after Platform committed the redemption.
-  if (outage === "lost") {
-    outage = "none";
-    return undefined;
-  }
-  return response;
-}
+  const config = loadApplicationConfig({
+    DATABASE_URL: process.env["DATABASE_URL"],
+    TELEGRAM_BOT_IDENTITY: bot,
+    TELEGRAM_CANONICAL_CHAT_ID: "-1000000000000",
+    TELEGRAM_WEBHOOK_SECRET: "synthetic-webhook-secret-for-tests-only",
+    PLATFORM_INTEGRATION_SECRET: "synthetic-link-secret-for-tests-only",
+    TELEGRAM_LINK_RECEIPT_TEXT: "Link receipt",
+    TELEGRAM_LINKED_MEMBER_TEXT: "member",
+    TELEGRAM_LINKED_NON_MEMBER_TEXT: "not member",
+    TELEGRAM_LINKED_UNAVAILABLE_TEXT: "unavailable",
+    TELEGRAM_WELCOME_TEXT: "Welcome",
+    WORKERS_ENABLED: "false",
+    TELEGRAM_ACTIVATION_ENABLED: "true",
+    PLATFORM_ACTIVATION_SECRET: "s".repeat(32),
+    PLATFORM_ACTIVATION_URL: "http://127.0.0.1:1/activation",
+    PLATFORM_ACCOUNT_URL: "https://platform.example/account",
+    TELEGRAM_ACTIVATION_SOURCES: "[]",
+  });
 
-const platform: ActivationPlatform = {
-  binding: () =>
-    Promise.resolve({
+  const invitations = new Map<string, Invitation>();
+  const linked = new Set<string>();
+  const requests: InvitationRedeem[] = [];
+  const state = {
+    redemptions: 0,
+    outage: "none" as
+      | "none"
+      | "lost"
+      | "error"
+      | "unavailable"
+      | "identity_conflict"
+      | "invalid_input",
+  };
+  const checkoutUrl = "https://inside.example/payment/checkout?offer=offer-1";
+
+  function redeem(
+    input: InvitationRedeem,
+  ): InvitationRedeemResponse | undefined {
+    requests.push(structuredClone(input));
+    if (state.outage === "error") return undefined;
+    if (
+      state.outage === "unavailable" ||
+      state.outage === "identity_conflict" ||
+      state.outage === "invalid_input"
+    )
+      return { ok: false, error: { code: state.outage } };
+    const invitation = invitations.get(input.code);
+    const refusal = (
+      state: "claimed_by_other" | "expired" | "revoked" | "unavailable",
+    ): InvitationRedeemResponse => ({
       ok: true,
-      value: { contractVersion: ACTIVATION_VERSION, state: "unlinked" },
-    }),
-  begin: () => Promise.resolve(undefined),
-  evidence: () => Promise.resolve(undefined),
-  own: () => Promise.resolve(undefined),
-  redeem: (input) => Promise.resolve(redeem(input)),
-};
+      value: { contractVersion: ACTIVATION_VERSION, state },
+    });
+    if (!invitation) return refusal("unavailable");
+    if (hasText(invitation.refusal)) return refusal(invitation.refusal);
+    invitation.claimedBy ??= input.identityRef;
+    if (invitation.claimedBy !== input.identityRef)
+      return refusal("claimed_by_other");
+    if (!linked.has(input.identityRef))
+      return {
+        ok: true,
+        value: { contractVersion: ACTIVATION_VERSION, state: "needs_account" },
+      };
+    const repeat = invitation.redeemed === true;
+    if (!repeat) state.redemptions += 1;
+    invitation.redeemed = true;
+    const response: InvitationRedeemResponse = {
+      ok: true,
+      value: {
+        contractVersion: ACTIVATION_VERSION,
+        state: repeat ? "already_redeemed" : "purchase_ready",
+        mode: "purchase",
+        offerName: "Подписка Inside",
+        checkoutUrl,
+      },
+    };
+    // The answer is lost after Platform committed the redemption.
+    if (state.outage === "lost") {
+      state.outage = "none";
+      return undefined;
+    }
+    return response;
+  }
 
-let app: NestFastifyApplication;
-let db: Database;
-let worker: InvitationRedemption;
-beforeAll(async () => {
+  const platform: ActivationPlatform = {
+    binding: () =>
+      Promise.resolve({
+        ok: true,
+        value: { contractVersion: ACTIVATION_VERSION, state: "unlinked" },
+      }),
+    begin: () => Promise.resolve(undefined),
+    evidence: () => Promise.resolve(undefined),
+    own: () => Promise.resolve(undefined),
+    redeem: (input) => Promise.resolve(redeem(input)),
+  };
+
   const module = await Test.createTestingModule({
     imports: [AppModule.register(config)],
   })
@@ -143,79 +157,111 @@ beforeAll(async () => {
     .overrideProvider(ACTIVATION_PLATFORM)
     .useValue(platform)
     .compile();
-  app = module.createNestApplication<NestFastifyApplication>(
+  const app = module.createNestApplication<NestFastifyApplication>(
     new FastifyAdapter(),
     { logger: false },
   );
-  await app.init();
-  await app.getHttpAdapter().getInstance().ready();
-  db = app.get(DATABASE);
-  worker = app.get(InvitationRedemption);
-});
-afterAll(async () => {
-  await app.close();
-});
-beforeEach(() => {
-  outage = "none";
-  requests.length = 0;
-  redemptions = 0;
-});
+  try {
+    await app.init();
+    await app.getHttpAdapter().getInstance().ready();
+  } catch (error) {
+    await app.close();
+    throw error;
+  }
+  const db = app.get<Database>(DATABASE);
+  const worker = app.get(InvitationRedemption);
 
-let updateId = 500000;
-async function receive(user: number, text: string) {
-  const response = await app.inject({
-    method: "POST",
-    url: "/webhooks/telegram",
-    headers: { "x-telegram-bot-api-secret-token": config.webhookSecret },
-    payload: privateStartUpdate(++updateId, user, { text }),
-  });
-  expect(response.statusCode).toBe(202);
-}
-async function send(user: number, text: string) {
-  await receive(user, text);
-  await app.get(TelegramUpdateProcessor).processAvailable();
-}
-/** Links an Account before the person opens the link. */
-async function linkedBefore(user: number) {
-  linked.add(
-    await db
-      .transaction()
-      .execute((tx) => reserveTelegramIdentity(tx, bot, String(user))),
-  );
-}
-async function identity(user: number) {
-  return (
-    await db
-      .selectFrom("telegram_identity_reservations")
-      .select("identity_ref")
+  let updateId = 500000;
+  async function receive(user: number, text: string) {
+    const response = await app.inject({
+      method: "POST",
+      url: "/webhooks/telegram",
+      headers: { "x-telegram-bot-api-secret-token": config.webhookSecret },
+      payload: privateStartUpdate(++updateId, user, { text }),
+    });
+    expect(response.statusCode).toBe(202);
+    return updateId;
+  }
+  async function send(user: number, text: string) {
+    await receive(user, text);
+    await app.get(TelegramUpdateProcessor).processAvailable();
+  }
+  /** Links an Account before the person opens the link. */
+  async function linkedBefore(user: number) {
+    linked.add(
+      await db
+        .transaction()
+        .execute((tx) => reserveTelegramIdentity(tx, bot, String(user))),
+    );
+  }
+  async function identity(user: number) {
+    return (
+      await db
+        .selectFrom("telegram_identity_reservations")
+        .select("identity_ref")
+        .where("bot_identity", "=", bot)
+        .where("telegram_user_id", "=", String(user))
+        .executeTakeFirstOrThrow()
+    ).identity_ref;
+  }
+  async function replies(user: number) {
+    return db
+      .selectFrom("start_response_deliveries")
+      .select(["message_text", "buttons"])
       .where("bot_identity", "=", bot)
       .where("telegram_user_id", "=", String(user))
-      .executeTakeFirstOrThrow()
-  ).identity_ref;
-}
-async function replies(user: number) {
-  return db
-    .selectFrom("start_response_deliveries")
-    .select(["message_text", "buttons"])
-    .where("bot_identity", "=", bot)
-    .where("telegram_user_id", "=", String(user))
-    .orderBy("id")
-    .execute();
-}
-async function rows(user: number) {
-  return db
-    .selectFrom("invitation_redemptions")
-    .select("state")
-    .where("bot_identity", "=", bot)
-    .where("telegram_user_id", "=", String(user))
-    .execute();
-}
-function later(ms = 60_000) {
-  clock.value = new Date(clock.now().getTime() + ms);
+      .orderBy("id")
+      .execute();
+  }
+  async function rows(user: number) {
+    return db
+      .selectFrom("invitation_redemptions")
+      .select("state")
+      .where("bot_identity", "=", bot)
+      .where("telegram_user_id", "=", String(user))
+      .execute();
+  }
+  function later(ms = 60_000) {
+    clock.value = new Date(clock.now().getTime() + ms);
+  }
+
+  return {
+    app,
+    db,
+    worker,
+    bot,
+    invitations,
+    linked,
+    requests,
+    state,
+    checkoutUrl,
+    receive,
+    send,
+    linkedBefore,
+    identity,
+    replies,
+    rows,
+    later,
+  };
 }
 
 describe("invitation link in the bot", () => {
-  it("asks an unlinked person to sign in and redeems the same request after linking", async () => {
+  it("asks an unlinked person to sign in and redeems the same request after linking", async ({
+    invitation,
+  }) => {
+    const {
+      worker,
+      invitations,
+      linked,
+      requests,
+      state,
+      checkoutUrl,
+      send,
+      identity,
+      replies,
+      rows,
+      later,
+    } = invitation;
     invitations.set("buy1", { mode: "purchase" });
     await send(81001, "/start i_buy1");
     await worker.processAvailable();
@@ -240,7 +286,7 @@ describe("invitation link in the bot", () => {
     later();
     await worker.processAvailable();
     expect(requests.at(-1)).toEqual(requests[0]);
-    expect(redemptions).toBe(1);
+    expect(state.redemptions).toBe(1);
     const answer = (await replies(81001)).at(-1);
     expect(answer?.message_text).toContain("Подписка Inside");
     expect(answer?.buttons).toEqual([{ text: "Оплатить", url: checkoutUrl }]);
@@ -252,27 +298,52 @@ describe("invitation link in the bot", () => {
     expect(requests).toHaveLength(3);
   });
 
-  it("continues at once when the person presses the retry button after linking", async () => {
+  it("continues at once when the person presses the retry button after linking", async ({
+    invitation,
+  }) => {
+    const {
+      worker,
+      invitations,
+      linked,
+      state,
+      checkoutUrl,
+      send,
+      identity,
+      replies,
+    } = invitation;
     invitations.set("buy2", { mode: "purchase" });
     await send(81002, "/start i_buy2");
     await worker.processAvailable();
     linked.add(await identity(81002));
     await send(81002, "/retry");
     await worker.processAvailable();
-    expect(redemptions).toBe(1);
+    expect(state.redemptions).toBe(1);
     expect((await replies(81002)).at(-1)?.buttons).toEqual([
       { text: "Оплатить", url: checkoutUrl },
     ]);
   });
 
-  it("repeats a lost answer with the same request and redeems once", async () => {
+  it("repeats a lost answer with the same request and redeems once", async ({
+    invitation,
+  }) => {
+    const {
+      worker,
+      invitations,
+      requests,
+      state,
+      send,
+      linkedBefore,
+      identity,
+      replies,
+      later,
+    } = invitation;
     await linkedBefore(81004);
     const id = await identity(81004);
     invitations.set("purchase2", { mode: "purchase" });
-    outage = "lost";
+    state.outage = "lost";
     await send(81004, "/start i_purchase2");
     await worker.processAvailable();
-    expect(redemptions).toBe(1);
+    expect(state.redemptions).toBe(1);
     later();
     await worker.processAvailable();
     expect(requests).toEqual([
@@ -287,7 +358,7 @@ describe("invitation link in the bot", () => {
         identityRef: id,
       },
     ]);
-    expect(redemptions).toBe(1);
+    expect(state.redemptions).toBe(1);
     const purchases = (await replies(81004)).filter((reply) =>
       reply.message_text.includes("Оформить подписку"),
     );
@@ -296,20 +367,33 @@ describe("invitation link in the bot", () => {
     // Opening the link again answers with the same payload, still one redemption.
     await send(81004, "/start i_purchase2");
     await worker.processAvailable();
-    expect(redemptions).toBe(1);
+    expect(state.redemptions).toBe(1);
     expect((await replies(81004)).at(-1)?.message_text).toContain(
       "Оформить подписку",
     );
   });
 
-  it("retries a Platform outage with growing pauses and tells the person once", async () => {
+  it("retries a Platform outage with growing pauses and tells the person once", async ({
+    invitation,
+  }) => {
+    const {
+      worker,
+      invitations,
+      requests,
+      state,
+      checkoutUrl,
+      send,
+      linkedBefore,
+      replies,
+      later,
+    } = invitation;
     await linkedBefore(81005);
     invitations.set("buy3", { mode: "purchase" });
-    outage = "unavailable";
+    state.outage = "unavailable";
     await send(81005, "/start i_buy3");
     await worker.processAvailable();
     later();
-    outage = "error";
+    state.outage = "error";
     await worker.processAvailable();
     expect(requests).toHaveLength(2);
     // The second failure waits two minutes, not one.
@@ -321,23 +405,25 @@ describe("invitation link in the bot", () => {
     expect(
       before.filter((reply) => reply.message_text.includes("повторит")),
     ).toHaveLength(1);
-    outage = "none";
+    state.outage = "none";
     later();
     await worker.processAvailable();
     expect(requests).toHaveLength(3);
-    expect(redemptions).toBe(1);
+    expect(state.redemptions).toBe(1);
     expect((await replies(81005)).at(-1)?.buttons).toEqual([
       { text: "Оплатить", url: checkoutUrl },
     ]);
   });
 
-  it.each([
+  it.for([
     ["expired", "Срок приглашения истёк"],
     ["revoked", "отозвано"],
     ["unavailable", "недоступно"],
   ] as const)(
     "answers %s with a request to write to the author",
-    async (refusal, text) => {
+    async ([refusal, text], { invitation }) => {
+      const { invitations, send, worker, replies, later, requests } =
+        invitation;
       const user =
         81100 + ["expired", "revoked", "unavailable"].indexOf(refusal);
       invitations.set(`refused-${refusal}`, { mode: "purchase", refusal });
@@ -352,7 +438,10 @@ describe("invitation link in the bot", () => {
     },
   );
 
-  it("answers claimed_by_other to the second identity", async () => {
+  it("answers claimed_by_other to the second identity", async ({
+    invitation,
+  }) => {
+    const { worker, invitations, send, replies } = invitation;
     invitations.set("mine", { mode: "purchase" });
     await send(81201, "/start i_mine");
     await send(81202, "/start i_mine");
@@ -362,7 +451,20 @@ describe("invitation link in the bot", () => {
     expect(answer).toContain("Напишите автору");
   });
 
-  it("answers a malformed link without calling Platform and keeps the code out of the inbox", async () => {
+  it("answers a malformed link without calling Platform and keeps the code out of the inbox", async ({
+    invitation,
+  }) => {
+    const {
+      app,
+      db,
+      worker,
+      bot,
+      invitations,
+      requests,
+      receive,
+      send,
+      replies,
+    } = invitation;
     await send(81301, "/start i_bad!");
     await worker.processAvailable();
     expect(requests).toHaveLength(0);
@@ -371,7 +473,7 @@ describe("invitation link in the bot", () => {
     );
     // The code waits in a side field only until the update is processed, then the payload goes.
     invitations.set("hidden", { mode: "purchase" });
-    await receive(81302, "/start i_hidden");
+    const updateId = await receive(81302, "/start i_hidden");
     const stored = () =>
       db
         .selectFrom("telegram_updates")
@@ -386,9 +488,19 @@ describe("invitation link in the bot", () => {
     expect((await stored()).payload).toBeNull();
   });
 
-  it("answers invalid_input once and stops", async () => {
+  it("answers invalid_input once and stops", async ({ invitation }) => {
+    const {
+      worker,
+      requests,
+      state,
+      send,
+      linkedBefore,
+      replies,
+      rows,
+      later,
+    } = invitation;
     await linkedBefore(81402);
-    outage = "invalid_input";
+    state.outage = "invalid_input";
     await send(81402, "/start i_rejected");
     await worker.processAvailable();
     later();
@@ -400,10 +512,14 @@ describe("invitation link in the bot", () => {
     expect(await rows(81402)).toEqual([]);
   });
 
-  it("asks to write to the author on an identity conflict", async () => {
+  it("asks to write to the author on an identity conflict", async ({
+    invitation,
+  }) => {
+    const { worker, invitations, state, send, linkedBefore, replies } =
+      invitation;
     await linkedBefore(81401);
     invitations.set("conflict", { mode: "purchase" });
-    outage = "identity_conflict";
+    state.outage = "identity_conflict";
     await send(81401, "/start i_conflict");
     await worker.processAvailable();
     expect((await replies(81401)).at(-1)?.message_text).toContain(

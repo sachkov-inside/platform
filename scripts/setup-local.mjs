@@ -1,5 +1,6 @@
 // @ts-check
-import { spawn } from "node:child_process";
+import { spawnOwned, stopOwned } from "./owned-process.mjs";
+import { commandExit } from "./diagnostic-command.mjs";
 import { copyFileSync, existsSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import process from "node:process";
@@ -62,6 +63,7 @@ try {
     throw error;
   }
 } finally {
+  await Promise.all([...activeProcesses].map((child) => stopOwned(child)));
   await releaseSetupLock();
 }
 
@@ -95,8 +97,9 @@ async function isComposeRunning() {
  * @param {boolean} [capture]
  */
 async function runPnpm(arguments_, capture = false) {
-  // deterministic-test-allow process-cleanup: Legacy command needs verified group cleanup on interruption; migration is tracked in #1154.
-  const child = spawn(process.execPath, [pnpmPath, ...arguments_], {
+  if (interruptedSignal !== undefined)
+    throw new Error("Local session interrupted");
+  const child = spawnOwned(process.execPath, [pnpmPath, ...arguments_], {
     cwd: repositoryRoot,
     env: process.env,
     stdio: capture ? ["ignore", "pipe", "pipe"] : "inherit",
@@ -111,23 +114,23 @@ async function runPnpm(arguments_, capture = false) {
       output += chunk.toString();
     });
   }
-  /** @type {Promise<number | null>} */
-  const exited = new Promise((resolveExit) => {
-    child.once("exit", (code) => resolveExit(code));
-  });
-  const exitCode = await exited;
-  activeProcesses.delete(child);
-  if (exitCode !== 0) {
-    throw new Error(
-      `pnpm ${arguments_.join(" ")} failed${capture ? `:\n${output}` : ""}`,
-    );
+  try {
+    const exitCode = await commandExit(child);
+    if (exitCode !== 0) {
+      throw new Error(
+        `pnpm ${arguments_.join(" ")} failed${capture ? `:\n${output}` : ""}`,
+      );
+    }
+  } finally {
+    await stopOwned(child);
+    activeProcesses.delete(child);
   }
   return { output };
 }
 
 function shutdown() {
   shutdownPromise ??= (async () => {
-    await Promise.all([...activeProcesses].map((child) => stopProcess(child)));
+    await Promise.all([...activeProcesses].map((child) => stopOwned(child)));
     if (shouldCleanupCompose) {
       shouldCleanupCompose = false;
       await runCleanupPnpm([
@@ -144,39 +147,27 @@ function shutdown() {
 
 /** @param {string[]} arguments_ */
 async function runCleanupPnpm(arguments_) {
-  // deterministic-test-allow process-cleanup: Legacy command needs verified group cleanup on interruption; migration is tracked in #1154.
-  const child = spawn(process.execPath, [pnpmPath, ...arguments_], {
+  const child = spawnOwned(process.execPath, [pnpmPath, ...arguments_], {
     cwd: repositoryRoot,
     env: process.env,
     stdio: "inherit",
+    timeout: 60_000,
   });
-  /** @type {Promise<number | null>} */
-  const exited = new Promise((resolveExit) => {
-    child.once("exit", (code) => resolveExit(code));
-  });
-  const exitCode = await exited;
-  if (exitCode !== 0) {
-    throw new Error(`pnpm ${arguments_.join(" ")} failed during cleanup`);
-  }
-}
-
-/** @param {import("node:child_process").ChildProcess} child */
-async function stopProcess(child) {
-  if (child.pid === undefined || child.exitCode !== null) {
-    return;
-  }
-  child.kill("SIGTERM");
-  await Promise.race([
-    new Promise((resolveExit) => child.once("exit", resolveExit)),
-    new Promise((resolveDelay) => globalThis.setTimeout(resolveDelay, 5_000)),
-  ]);
-  if (child.exitCode === null) {
-    child.kill("SIGKILL");
+  activeProcesses.add(child);
+  try {
+    const exitCode = await commandExit(child);
+    if (exitCode !== 0) {
+      throw new Error(`pnpm ${arguments_.join(" ")} failed during cleanup`);
+    }
+  } finally {
+    await stopOwned(child);
+    activeProcesses.delete(child);
   }
 }
 
 /** @param {NodeJS.Signals} signal */
 async function handleSignal(signal) {
   interruptedSignal ??= signal;
+  await Promise.all([...activeProcesses].map((child) => stopOwned(child)));
   await shutdown();
 }

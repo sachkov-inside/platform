@@ -97,7 +97,7 @@ The wrappers cover root `check`, `check:full`, `check:ui`, `check:web-e2e`, `tes
 `test:integration` (including its parallel and serial commands), `test:e2e`, `test:navigation`,
 `test:storybook`, `evidence:web`, `build:storybook`, `compose:smoke`, `compose:production:smoke`, `release:images:smoke` and root `smoke:*` commands. Web's browser, Playwright and Storybook build commands,
 and backend's integration and smoke commands also claim slots when called with `pnpm --filter`.
-`lint`, `typecheck` and isolated unit commands do not claim slots. The lightweight web
+The local contract commands also claim slots. `lint`, `typecheck` and isolated unit commands do not claim slots. The lightweight web
 `smoke:backend` HTTP probe stays unwrapped: Compose smoke admits the whole run on the host,
 and its Alpine container needs neither Bash nor Python for this probe. Raw runner binaries and direct
 smoke scripts bypass admission; use the guarded `pnpm` commands, or wrap a custom command explicitly:
@@ -406,6 +406,31 @@ The API health response is:
 ```
 
 `pnpm smoke:health` verifies Nest composition and the documented `tsx watch` API entrypoint.
+Host diagnostic launchers and the production-web browser-test launcher require Python 3 for
+`scripts/owned-process.py`. The supervisor keeps a private pipe to the Node owner and tracks the
+command's process groups. Owner exit, SIGINT, SIGTERM or SIGKILL closes that pipe. Shutdown sends
+SIGTERM, then SIGKILL after a five-second grace period; command completion also clears remaining
+descendants before the supervisor reports its status. `scripts/contracts/owned-process.test.mjs` verifies
+these paths with real signal-resistant child processes.
+The supervisor also observes launching ancestors: a killed test CLI must stop load created by a
+surviving worker. `pnpm test:practice-review` runs the native test CLI through
+`scripts/owned-node.mjs`, which owns the runner and its workers outside their test hooks. For a
+standalone native run, use `node scripts/owned-node.mjs` before the Node arguments too.
+
+The external CLI also accepts `--command <executable> <args...>` for synchronous shell contracts.
+Their deadline sends TERM to this owner. The owner waits for the separate supervisor to clear the
+command tree with bounded TERM/KILL cleanup before it exits.
+
+On macOS, a unique inherited `INSIDE_OWNED_PROCESS_*` environment entry also identifies detached
+descendants after an intermediate launcher has been reaped. `spawnOwned` preserves outer entries
+when a nested owner supplies a replacement environment. Commands that construct their own child
+environment must preserve these entries too. A detached descendant that loses both its ancestry
+and its marker cannot be recovered from a later process-table snapshot. Discovery binds the marker
+to the process birth identity before adding its group to cleanup.
+macOS can hide environment entries for restricted processes; discovery then relies on retained
+ancestry and known groups. On Linux, the supervisor becomes a subreaper before launching the
+command, so orphaned detached descendants are adopted and cleaned up even after intermediary exit.
+
 `pnpm smoke:fullstack` remains the host-process fallback smoke against Compose PostgreSQL (start it
 with `pnpm infra:up`); it gives its processes the stand's local sale contour, because the seed puts a
 Product on sale and the API refuses to start a sale without a bank and a receipt mailbox. It
@@ -484,10 +509,11 @@ pnpm check
 ```
 
 This covers formatting, lint, strict typecheck, backend architecture guardrails,
-unit/module/Storybook tests, Playwright, production builds and the Storybook build without
+unit/module/local contract/Storybook tests, Playwright, production builds and the Storybook build without
 claiming a real database. It runs the four stages `pnpm check:static`, `check:unit`, `check:ui` and
 `check:web-e2e` in order; CI runs each stage as its own job, so run the one stage that matches a CI
-failure to reproduce it. A failed `pnpm format:check` is fixed by `pnpm format`; `.prettierignore`
+failure to reproduce it. Local contracts have separate selections under
+[`pnpm check:contracts`](continuous-integration.md#local-contract-tests). A failed `pnpm format:check` is fixed by `pnpm format`; `.prettierignore`
 names the generated, pinned and managed files that keep their own bytes. `.git-blame-ignore-revs`
 lists the mechanical formatting commits; run `git config blame.ignoreRevsFile .git-blame-ignore-revs`
 once per clone so local `git blame` skips them, as GitHub does.

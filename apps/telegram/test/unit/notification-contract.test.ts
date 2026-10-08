@@ -29,7 +29,7 @@ it.each([
   { exchange: "inside.notifications.email.v1" },
   { routingKey: "material" },
   { type: "inside.notification-delivery.v2" },
-  { messageId: randomUUID() },
+  { messageId: "00000000-0000-4000-8000-000000000099" },
   { persistent: false },
   { contentType: "text/plain" },
 ])("rejects wrong transport binding %j", (change) => {

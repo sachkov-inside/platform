@@ -7,6 +7,38 @@ import { signalProcessGroup } from "./process-group-signal.mjs";
 import { fileURLToPath } from "node:url";
 import { deterministicTestViolations } from "./deterministic-tests.mjs";
 
+test("random values cannot define test identity", () => {
+  for (const source of [
+    'it.each([{ messageId: randomUUID() }])("binding %j", () => {});',
+    'import { randomUUID as uuid } from "node:crypto"; test.each([uuid()])("case %s", () => {});',
+    'describe.each([Math.random()])("suite %j", () => {});',
+    "it(`case ${crypto.randomUUID()}`, () => {});",
+    'test.only("case " + Math.random(), () => {});',
+    'it.each([["ignored", randomUUID()]])("case %%%s", () => {});',
+    'it.each([["ignored", randomUUID()]])("literal %% %j", () => {});',
+  ])
+    assert.match(
+      deterministicTestViolations("test/example.test.ts", source).join("\n"),
+      /test-name/u,
+    );
+  for (const source of [
+    'it.each([{ messageId: "00000000-0000-4000-8000-000000000099" }])("binding %j", () => {});',
+    'it.each([randomUUID()])("case %#", () => {});',
+    'it("fixed name", () => { const id = randomUUID(); });',
+    'it.each([randomUUID()])("fixed name", () => {});',
+    'it.each([["stable label", randomUUID()]])("case %s", () => {});',
+    'it.each([randomUUID()])("literal %%j %#", () => {});',
+    'test.use({ extraHTTPHeaders: { "X-Run-ID": randomUUID() } });',
+    "test.extend({ id: randomUUID() });",
+    'it.each([{ factory: () => randomUUID() }])("case %j", () => {});',
+    'const text = "it(randomUUID(), () => {})";',
+  ])
+    assert.deepEqual(
+      deterministicTestViolations("test/example.test.ts", source),
+      [],
+    );
+});
+
 test("calendar fixtures cannot read the wall clock without a local reason", () => {
   for (const source of [
     "const today = new Date();",
@@ -240,6 +272,7 @@ test("the guardrail exits nonzero for a bad test fixture", () => {
     "unit-io",
     "process-cleanup",
     "wall-clock",
+    "test-name",
   ])
     assert.ok(result.stderr.includes(rule), result.stderr);
 });

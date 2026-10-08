@@ -1,6 +1,7 @@
 // @ts-check
 import { createServer } from "node:net";
-import { spawn, spawnSync } from "node:child_process";
+import { spawnOwned, stopOwned } from "./owned-process.mjs";
+import { commandExit } from "./diagnostic-command.mjs";
 import { dirname, resolve } from "node:path";
 import process from "node:process";
 import { fileURLToPath } from "node:url";
@@ -59,14 +60,6 @@ const environment = {
   MCP_SERVER_URL: "http://127.0.0.1:3602/mcp",
   NODE_EXTRA_CA_CERTS: resolve(root, ".identity-proof/tls/certificate.pem"),
 };
-for (const command of ["db:migrate", "db:seed"]) {
-  const result = spawnSync("pnpm", ["--filter", "@inside/backend", command], {
-    cwd: root,
-    env: environment,
-    stdio: "inherit",
-  });
-  if (result.status !== 0) process.exit(1);
-}
 const commands = [
   [
     "--filter",
@@ -85,33 +78,54 @@ const commands = [
     "dev:video-deletions-worker",
   ].map((command) => ["--filter", "@inside/backend", command]),
 ];
-const children = commands.map((args) =>
-  // deterministic-test-allow process-cleanup: Legacy command needs verified group cleanup on interruption; migration is tracked in #1154.
-  spawn("pnpm", args, {
+/** @type {import("node:child_process").ChildProcess[]} */
+const children = [];
+/** @type {NodeJS.Signals | undefined} */
+let interruptedSignal;
+let stopping = false;
+/** @type {Promise<void> | undefined} */
+let stopPromise;
+function stop() {
+  stopping = true;
+  stopPromise ??= Promise.all(children.map((child) => stopOwned(child))).then(
+    () => undefined,
+  );
+  return stopPromise;
+}
+for (const signal of /** @type {const} */ (["SIGTERM", "SIGINT"])) {
+  process.once(signal, () => {
+    interruptedSignal ??= signal;
+    void stop();
+  });
+}
+/** @param {string[]} args */
+function start(args) {
+  if (stopping) throw new Error("Telegram sign-in launcher interrupted");
+  const child = spawnOwned("pnpm", args, {
     cwd: root,
     env: environment,
     stdio: "inherit",
-    detached: true,
-  }),
-);
-let stopping = false;
-function stop() {
-  if (stopping) return;
-  stopping = true;
-  for (const child of children)
-    if (child.pid && child.exitCode === null) {
-      try {
-        process.kill(-child.pid, "SIGTERM");
-      } catch {
-        /* Child already exited. */
-      }
-    }
-}
-for (const signal of ["SIGTERM", "SIGINT"]) process.once(signal, stop);
-for (const child of children)
-  child.once("exit", (code) => {
-    if (!stopping) {
-      process.exitCode = code || 1;
-      stop();
-    }
   });
+  children.push(child);
+  return child;
+}
+try {
+  for (const command of ["db:migrate", "db:seed"]) {
+    const child = start(["--filter", "@inside/backend", command]);
+    try {
+      if ((await commandExit(child)) !== 0)
+        throw new Error(`Local setup failed: ${command}`);
+    } finally {
+      await stopOwned(child);
+    }
+  }
+  const services = commands.map((args) => start(args));
+  process.exitCode =
+    (await Promise.race(services.map((child) => commandExit(child)))) || 1;
+} catch (error) {
+  if (interruptedSignal === undefined) throw error;
+} finally {
+  await stop();
+}
+if (interruptedSignal !== undefined)
+  process.exitCode = interruptedSignal === "SIGINT" ? 130 : 143;

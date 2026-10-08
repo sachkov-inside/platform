@@ -1,5 +1,6 @@
 import { registerRuntimeClock } from "../support/fixed-clock.js";
-import { closeIfStarted } from "../support/close-if-started.js";
+import { WorkerLoop } from "../../src/operations/worker-loop.js";
+import { advisoryLockWaiting } from "../support/advisory-lock-wait.js";
 import { isTruthy } from "../../src/shared/truthiness.js";
 import { hasText } from "../../src/shared/text.js";
 import { randomUUID } from "node:crypto";
@@ -10,7 +11,15 @@ import {
 } from "@nestjs/platform-fastify";
 import { Test } from "@nestjs/testing";
 import { sql } from "kysely";
-import { afterAll, beforeAll, beforeEach, expect, it, vi } from "vitest";
+import {
+  afterAll,
+  beforeAll,
+  beforeEach,
+  describe,
+  expect,
+  test,
+  vi,
+} from "vitest";
 import { AppModule } from "../../src/app.module.js";
 import { loadApplicationConfig } from "../../src/config/application-config.js";
 import { createDatabase } from "../../src/database/create-database.js";
@@ -34,7 +43,7 @@ import { Funnels } from "../../src/modules/communications/funnels.js";
 import { MarketingEntry } from "../../src/modules/communications/marketing-entry.js";
 import { communicationLock } from "../../src/modules/communications/communication-state.js";
 import { BotContacts } from "../../src/modules/bot-contacts/bot-contacts.js";
-import { CLOCK } from "../../src/shared/clock.js";
+import { CLOCK, type Clock } from "../../src/shared/clock.js";
 import { TELEGRAM_MESSAGES } from "../../src/modules/outbound/telegram-messages.js";
 import { TelegramUpdateProcessor } from "../../src/modules/update-inbox/telegram-update-processor.js";
 import { TelegramWebhook } from "../../src/modules/webhook/telegram-webhook.js";
@@ -71,10 +80,42 @@ const config = loadApplicationConfig({
   WORKERS_ENABLED: "false",
   TELEGRAM_MARKETING_ENABLED: "true",
 });
-const sent: { message: CommunicationMessage; at: number }[] = [];
-let app: Awaited<ReturnType<typeof compile>>;
+const it = test.extend<{ load: Awaited<ReturnType<typeof createFixture>> }>({
+  load: [
+    async ({ signal }, use) => {
+      signal.throwIfAborted();
+      const fixture = await createFixture();
+      try {
+        await use(fixture);
+      } finally {
+        await fixture.app.close();
+      }
+    },
+    { auto: true },
+  ],
+});
+const performanceTest = it.extend<{ audience: FunnelDraft }>({
+  audience: async ({ load }, use) => {
+    await use(await seedDueAudience(load.app));
+  },
+});
 
-async function compile() {
+const blockedRepliesTest = it.extend<{ blockedReplies: number }>({
+  blockedReplies: async ({ load }, use) => {
+    await use(await seedBlockedReplies(load.app));
+  },
+});
+
+async function createFixture() {
+  const sent: { message: CommunicationMessage; at: number }[] = [];
+  let beganDispatch!: () => void;
+  const dispatchStarted = new Promise<void>((resolve) => {
+    beganDispatch = resolve;
+  });
+  let receivedReply!: () => void;
+  const replyReceived = new Promise<void>((resolve) => {
+    receivedReply = resolve;
+  });
   const module = await Test.createTestingModule({
     imports: [AppModule.register(config)],
   })
@@ -91,6 +132,8 @@ async function compile() {
     .useValue({
       send: (message: CommunicationMessage) => {
         sent.push({ message, at: performance.now() });
+        if (message.chatId === "777") receivedReply();
+        else beganDispatch();
         return Promise.resolve({
           kind: "delivered",
           providerMessageId: "synthetic",
@@ -107,21 +150,23 @@ async function compile() {
     new FastifyAdapter(),
     { logger: false },
   );
-  await nest.init();
-  return nest;
+  try {
+    await nest.init();
+  } catch (error) {
+    await nest.close();
+    throw error;
+  }
+  return { app: nest, sent, dispatchStarted, replyReceived };
 }
 beforeAll(async () => {
   await migrateToLatest(database);
-  app = await compile();
 });
 beforeEach(async () => {
-  await sql`truncate communication_funnels, communication_intro, communication_operations, telegram_transport_slots, bot_contacts, bot_contact_events, telegram_updates, start_response_deliveries cascade`.execute(
+  await sql`truncate communication_funnels, communication_intro, communication_operations, telegram_transport_slots, telegram_transport_fairness, bot_contacts, bot_contact_events, telegram_updates, start_response_deliveries cascade`.execute(
     database,
   );
-  sent.length = 0;
 });
 afterAll(async () => {
-  await closeIfStarted(app);
   await database.destroy();
 });
 
@@ -165,7 +210,10 @@ function sentParts(parts: readonly MessagePart[], at: Date) {
 }
 
 // Every contact already received the intro and entry; the first step is due for all of them.
-async function seedDueAudience(size = AUDIENCE): Promise<FunnelDraft> {
+async function seedDueAudience(
+  app: NestFastifyApplication,
+  size = AUDIENCE,
+): Promise<FunnelDraft> {
   const funnels = app.get(Funnels);
   const intro = [part("intro")];
   const value: FunnelDraft = {
@@ -307,84 +355,166 @@ async function elapsed(
   cap = MEASUREMENT_CAP_MS,
 ): Promise<number> {
   const started = performance.now();
-  const done = await Promise.race([
-    work().then(() => true),
-    // deterministic-test-allow duration-wait: Deadline bounds the latency measurement; completion is observed from work().
-    delay(cap).then(() => false),
-  ]);
-  return done ? performance.now() - started : Number.POSITIVE_INFINITY;
+  const watchdog = new AbortController();
+  try {
+    const done = await Promise.race([
+      work().then(() => true),
+      // deterministic-test-allow duration-wait: a watchdog bounds the real latency measurement and is cancelled when the operation finishes.
+      delay(cap, false, { signal: watchdog.signal }),
+    ]);
+    return done ? performance.now() - started : Number.POSITIVE_INFINITY;
+  } finally {
+    watchdog.abort();
+  }
 }
 
-it(`answers /start within bounds while a funnel dispatches to ${AUDIENCE} contacts`, async () => {
-  await seedDueAudience();
-  const scheduler = app.get(FunnelScheduler);
-  const workerState = { dispatching: true };
-  const worker = (async () => {
-    while (workerState.dispatching) {
-      await scheduler.processAvailable();
-      // deterministic-test-allow duration-wait: Worker pacing schedules the next dispatch cycle; the test observes sent messages.
-      await delay(20);
-    }
-  })();
-  let measurements: string | undefined;
-  try {
-    await vi.waitFor(() => expect(sent.length).toBeGreaterThan(0));
-    // A contact inside the dispatched audience and a new visitor both press /start.
-    const enrolledMs = await elapsed(() =>
-      app.get(BotContacts).observeStart(
-        {
-          botIdentity: "inside",
-          telegramUserId: "1000000",
-          privateChatId: "1000000",
-          updateId: "900",
-          observedAt: runtimeClock.now(),
-        },
-        "none",
-      ),
-    );
-    const started = performance.now();
-    const processingMs = await elapsed(async () => {
-      await app.get(TelegramWebhook).accept(config.webhookSecret, {
-        update_id: 901,
-        message: {
-          message_id: 901,
-          date: 1,
-          chat: { id: 777, type: "private" },
-          from: { id: 777, is_bot: false },
-          text: "/start",
-        },
-      });
-      await app
-        .get(TelegramUpdateProcessor)
-        .processAvailable(1, runtimeClock.now());
-    });
-    await elapsed(async () => {
-      // deterministic-test-allow duration-wait: Poll the sent reply; the delay is only the sampling interval.
-      while (!sent.some((s) => s.message.chatId === "777")) await delay(10);
-    });
-    const reply = sent.find((s) => s.message.chatId === "777");
-    const replyMs = reply ? reply.at - started : Number.POSITIVE_INFINITY;
-    measurements = `audience=${AUDIENCE} enrolled /start=${Math.round(enrolledMs)}ms new /start=${Math.round(processingMs)}ms first reply=${Math.round(replyMs)}ms backlog sent=${sent.length}`;
-    console.info(`funnel dispatch load: ${measurements}`);
+describe("funnel dispatch performance", () => {
+  // Preparing the corpus has its own setup budget, outside the measurement test.
+  beforeEach<{ audience: FunnelDraft }>(({ audience }) => {
+    expect(audience.steps).toHaveLength(2);
+  }, 300_000);
+  performanceTest(
+    `answers /start within bounds while a funnel dispatches to ${AUDIENCE} contacts`,
+    async ({ load }) => {
+      const { app, sent, dispatchStarted, replyReceived } = load;
+      const scheduler = app.get(FunnelScheduler);
+      const worker = new WorkerLoop(
+        "dispatch-load",
+        async (signal) => (await scheduler.processAvailable(25, signal)) > 0,
+        { busyMs: 20, idleMs: 20 },
+      );
+      worker.start();
+      let measurements: string | undefined;
+      try {
+        await vi.waitFor(
+          () =>
+            expect(sent.some((s) => s.message.content.text === "step1")).toBe(
+              true,
+            ),
+          { timeout: MEASUREMENT_CAP_MS },
+        );
+        await dispatchStarted;
+        // A contact inside the dispatched audience and a new visitor both press /start.
+        const enrolledMs = await elapsed(() =>
+          app.get(BotContacts).observeStart(
+            {
+              botIdentity: "inside",
+              telegramUserId: "1000000",
+              privateChatId: "1000000",
+              updateId: "900",
+              observedAt: runtimeClock.now(),
+            },
+            "none",
+          ),
+        );
+        const started = performance.now();
+        const processingMs = await elapsed(async () => {
+          await app.get(TelegramWebhook).accept(config.webhookSecret, {
+            update_id: 901,
+            message: {
+              message_id: 901,
+              date: 1,
+              chat: { id: 777, type: "private" },
+              from: { id: 777, is_bot: false },
+              text: "/start",
+            },
+          });
+          await app
+            .get(TelegramUpdateProcessor)
+            .processAvailable(1, runtimeClock.now());
+        });
+        await elapsed(() => replyReceived);
+        const reply = sent.find((s) => s.message.chatId === "777");
+        const replyMs = reply ? reply.at - started : Number.POSITIVE_INFINITY;
+        measurements = `audience=${AUDIENCE} enrolled /start=${Math.round(enrolledMs)}ms new /start=${Math.round(processingMs)}ms first reply=${Math.round(replyMs)}ms backlog sent=${sent.length}`;
+        console.info(`funnel dispatch load: ${measurements}`);
 
-    expect(enrolledMs).toBeLessThan(START_PROCESSING_LIMIT_MS);
-    expect(processingMs).toBeLessThan(START_PROCESSING_LIMIT_MS);
-    expect(replyMs).toBeLessThan(START_REPLY_LIMIT_MS);
-    expect(required(reply).message.content.text).toBe("intro");
-  } finally {
-    workerState.dispatching = false;
-    // deterministic-test-allow duration-wait: Legacy shutdown caps the wait but does not cancel in-flight dispatch; verified cancellation is tracked in #1154.
-    await Promise.race([worker, delay(MEASUREMENT_CAP_MS)]);
-  }
-  const backlog = sent.filter((s) => s.message.chatId !== "777");
-  expect(backlog.length, measurements).toBeGreaterThan(0);
-  expect(backlog.every((s) => s.message.content.text === "step1")).toBe(true);
-}, 300_000);
+        expect(enrolledMs).toBeLessThan(START_PROCESSING_LIMIT_MS);
+        expect(processingMs).toBeLessThan(START_PROCESSING_LIMIT_MS);
+        expect(replyMs).toBeLessThan(START_REPLY_LIMIT_MS);
+        expect(required(reply).message.content.text).toBe("intro");
+      } finally {
+        await worker.stop();
+      }
+      const backlog = sent.filter((s) => s.message.chatId !== "777");
+      expect(backlog.length, measurements).toBeGreaterThan(0);
+      expect(backlog.every((s) => s.message.content.text === "step1")).toBe(
+        true,
+      );
+    },
+    300_000,
+  );
+});
 
 // Fitness for the lock seam: the bot-wide scheduler lock belongs to dispatch and audience-wide
 // planning; no BotContact command may wait for it.
-it("completes every BotContact command while the bot scheduler lock is held", async () => {
-  await seedDueAudience(1);
+it("settles the claimed dispatch and stops scheduling before shutdown returns", async ({
+  load,
+}) => {
+  const audience = await seedDueAudience(load.app, 2);
+  let release!: () => void;
+  const resumed = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  let sends = 0;
+  let cycleSignal: AbortSignal | undefined;
+  const scheduler = new FunnelScheduler(
+    database,
+    config,
+    load.app.get<Clock>(CLOCK),
+    {
+      async send() {
+        sends += 1;
+        await resumed;
+        return { kind: "delivered", providerMessageId: "synthetic" };
+      },
+    },
+  );
+  const worker = new WorkerLoop(
+    "dispatch-shutdown",
+    async (signal) => {
+      cycleSignal = signal;
+      return (await scheduler.processAvailable(25, signal)) > 0;
+    },
+    { busyMs: 20, idleMs: 20 },
+  );
+  worker.start();
+  let stopped = false;
+  let stopping: Promise<void> | undefined;
+  try {
+    await vi.waitFor(() => expect(sends).toBe(1), { timeout: 5000 });
+    stopping = worker.stop().then(() => {
+      stopped = true;
+    });
+    expect(cycleSignal?.aborted).toBe(true);
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+    await vi.advanceTimersByTimeAsync(2000);
+    expect(stopped).toBe(false);
+  } finally {
+    vi.useRealTimers();
+    release();
+    await (stopping ?? worker.stop());
+  }
+  expect(stopped).toBe(true);
+  expect(sends).toBe(1);
+  const steps = await database
+    .selectFrom("communication_deliveries")
+    .select(["completed_at", "locked_at", "parts"])
+    .where("kind", "=", "step")
+    .where("step_id", "=", required(audience.steps[0]).stepId)
+    .execute();
+  expect(steps.filter((row) => row.completed_at !== null)).toHaveLength(1);
+  expect(
+    steps.filter((row) => row.parts.some((part) => part.state === "pending")),
+  ).toHaveLength(1);
+  expect(steps.every((row) => row.locked_at === null)).toBe(true);
+});
+
+it("completes every BotContact command while the bot scheduler lock is held", async ({
+  load,
+}) => {
+  const { app } = load;
+  await seedDueAudience(app, 1);
   let release!: () => void;
   const released = new Promise<void>((resolve) => {
     release = resolve;
@@ -414,9 +544,16 @@ it("completes every BotContact command while the bot scheduler lock is held", as
       .execute((tx) =>
         communicationLock(tx, "communications-scheduler:inside"),
       );
-    expect(await elapsed(() => required(waiter), 300)).toBe(
-      Number.POSITIVE_INFINITY,
-    );
+    let waiterCompleted = false;
+    const waiting = waiter.then(() => {
+      waiterCompleted = true;
+    });
+    await advisoryLockWaiting(database, "communications-scheduler:inside");
+    vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+    await vi.advanceTimersByTimeAsync(300);
+    expect(waiterCompleted).toBe(false);
+    vi.useRealTimers();
+    waiter = waiting;
     const commands = [
       () => app.get(BotContacts).observeStart(contact("1"), "welcome"),
       () => app.get(MarketingEntry).enter(contact("2")),
@@ -432,14 +569,17 @@ it("completes every BotContact command while the bot scheduler lock is held", as
     for (const command of commands)
       expect(await elapsed(command, 5000)).toBeLessThan(5000);
   } finally {
+    vi.useRealTimers();
     release();
     await holder;
     await waiter;
   }
 });
 
-it("keeps answering new /start behind a head of replies that cannot be sent yet", async () => {
-  const value = await seedDueAudience(0);
+async function seedBlockedReplies(
+  app: NestFastifyApplication,
+): Promise<number> {
+  const value = await seedDueAudience(app, 0);
   // Every entry waits for an intro whose result is unknown; none of them may be sent.
   const stuck = 600;
   const earlier = new Date(runtimeClock.now().getTime() - 60_000);
@@ -528,31 +668,52 @@ it("keeps answering new /start behind a head of replies that cannot be sent yet"
     )
     .execute();
   await sql`analyze`.execute(database);
-  await app.get(TelegramWebhook).accept(config.webhookSecret, {
-    update_id: 902,
-    message: {
-      message_id: 902,
-      date: 1,
-      chat: { id: 778, type: "private" },
-      from: { id: 778, is_bot: false },
-      text: "/start",
+  return stuck;
+}
+
+describe("blocked replies", () => {
+  beforeEach<{ blockedReplies: number }>(async ({ blockedReplies }) => {
+    const entries = await database
+      .selectFrom("communication_deliveries")
+      .select(({ fn }) => fn.countAll<string>().as("count"))
+      .where("kind", "=", "entry")
+      .executeTakeFirstOrThrow();
+    expect(Number(entries.count)).toBe(blockedReplies);
+  }, 300_000);
+  blockedRepliesTest(
+    "keeps answering new /start behind a head of replies that cannot be sent yet",
+    async ({ load }) => {
+      const { app, sent } = load;
+      await app.get(TelegramWebhook).accept(config.webhookSecret, {
+        update_id: 902,
+        message: {
+          message_id: 902,
+          date: 1,
+          chat: { id: 778, type: "private" },
+          from: { id: 778, is_bot: false },
+          text: "/start",
+        },
+      });
+      await app
+        .get(TelegramUpdateProcessor)
+        .processAvailable(1, runtimeClock.now());
+      const scheduler = app.get(FunnelScheduler);
+      for (let cycle = 0; cycle < 5; cycle++) {
+        await scheduler.processAvailable();
+        if (sent.some((s) => s.message.chatId === "778")) break;
+      }
+      expect(
+        sent.map((s) => [s.message.chatId, s.message.content.text]),
+      ).toEqual([["778", "intro"]]);
     },
-  });
-  await app
-    .get(TelegramUpdateProcessor)
-    .processAvailable(1, runtimeClock.now());
-  const scheduler = app.get(FunnelScheduler);
-  for (let cycle = 0; cycle < 5; cycle++) {
-    await scheduler.processAvailable();
-    if (sent.some((s) => s.message.chatId === "778")) break;
-  }
-  expect(sent.map((s) => [s.message.chatId, s.message.content.text])).toEqual([
-    ["778", "intro"],
-  ]);
+  );
 });
 
-it("never holds a BotContact whose chat lane is busy while the claim continues", async () => {
-  await seedDueAudience(2);
+it("never holds a BotContact whose chat lane is busy while the claim continues", async ({
+  load,
+}) => {
+  const { app, sent } = load;
+  await seedDueAudience(app, 2);
   // Contact 1000000 is first in due order but its chat lane is taken; 1000001 is sendable.
   await database
     .updateTable("communication_deliveries as d")
@@ -598,15 +759,20 @@ it("never holds a BotContact whose chat lane is busy while the claim continues",
       return args.result;
     },
   });
-  const dispatch = new FunnelScheduler(pausing, config, runtimeClock, {
-    send: (message: CommunicationMessage) => {
-      sent.push({ message, at: performance.now() });
-      return Promise.resolve({
-        kind: "delivered",
-        providerMessageId: "synthetic",
-      });
+  const dispatch = new FunnelScheduler(
+    pausing,
+    config,
+    { now: () => runtimeClock.now() },
+    {
+      send: (message: CommunicationMessage) => {
+        sent.push({ message, at: performance.now() });
+        return Promise.resolve({
+          kind: "delivered",
+          providerMessageId: "synthetic",
+        });
+      },
     },
-  }).processAvailable(1);
+  ).processAvailable(1);
   try {
     await reserving;
     const startMs = await elapsed(

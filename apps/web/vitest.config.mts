@@ -41,6 +41,18 @@ export default defineConfig({
         },
       },
       {
+        extends: true,
+        test: {
+          name: "contracts",
+          maxWorkers: 2,
+          environment: "node",
+          include: ["test/contracts/**/*.test.ts"],
+          restoreMocks: true,
+          unstubEnvs: true,
+          unstubGlobals: true,
+        },
+      },
+      {
         // Проверки, которые сами запускают настоящие движки браузеров (Chromium и WebKit): им нужны
         // установленные браузеры, поэтому они идут рядом со Storybook, а не с модульными.
         extends: true,

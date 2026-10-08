@@ -1,11 +1,20 @@
 import { registerFixedClock } from "../support/fixed-clock.js";
+import { advisoryLockWaiting } from "../support/advisory-lock-wait.js";
 import { hasText } from "../../src/shared/text.js";
 import { GrammyUpdateAdapter } from "../../src/adapters/telegram/grammy-update.adapter.js";
 import { MarketingEntry } from "../../src/modules/communications/marketing-entry.js";
 import { Communications } from "../../src/modules/communications/communications.js";
 import { DisabledAuthorAuthorization } from "../../src/modules/communications/author-authorization.js";
 import { sql } from "kysely";
-import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
+import {
+  afterAll,
+  beforeAll,
+  beforeEach,
+  describe,
+  expect,
+  it,
+  vi,
+} from "vitest";
 
 import type { ApplicationConfig } from "../../src/config/application-config.js";
 import { createDatabase } from "../../src/database/create-database.js";
@@ -1115,13 +1124,20 @@ describe("durable Membership events", () => {
       .then(() => {
         transitionCompleted = true;
       });
-    // deterministic-test-allow duration-wait: Legacy quiet window checks a blocked transition; replace with a pinned barrier in #1154.
-    await new Promise((resolve) => setTimeout(resolve, 10));
-    expect(transitionCompleted).toBe(false);
-
-    platform.resume();
-    await expect(processing).resolves.toBe("delivered");
-    await transition;
+    try {
+      await advisoryLockWaiting(
+        database,
+        `membership-provider-delivery:${config.botIdentity}`,
+      );
+      vi.useFakeTimers({ toFake: ["setTimeout", "clearTimeout"] });
+      await vi.advanceTimersByTimeAsync(10);
+      expect(transitionCompleted).toBe(false);
+    } finally {
+      vi.useRealTimers();
+      platform.resume();
+      await expect(processing).resolves.toBe("delivered");
+      await transition;
+    }
     expect(transitionCompleted).toBe(true);
   });
 });

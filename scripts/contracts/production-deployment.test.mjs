@@ -17,7 +17,7 @@ import { resolve } from "node:path";
 import { describe, it } from "node:test";
 import { z } from "zod";
 
-import { writeTrustedReleaseEvidence } from "./github-release-evidence.test-support.mjs";
+import { writeTrustedReleaseEvidence } from "../github-release-evidence.test-support.mjs";
 
 describe("production deployment state machine", () => {
   it("installs the watchdog from the release image and keeps the release when the image has none", () => {
@@ -1274,7 +1274,7 @@ fi
   const build = spawnSync(
     "bash",
     ["scripts/build-production-runtime-bundle.sh", bundle],
-    { encoding: "utf8" },
+    { timeout: 30_000, encoding: "utf8" },
   );
   assert.equal(build.status, 0, build.stderr);
   const bundleDigest = sha256(readFileSync(bundle));
@@ -1448,7 +1448,7 @@ function createEnvelope(fixture, version) {
       "release-manifest.json",
       "production-runtime.tar.gz",
     ],
-    { encoding: "utf8" },
+    { timeout: 30_000, encoding: "utf8" },
   );
   assert.equal(result.status, 0, result.stderr);
 }
@@ -1473,6 +1473,7 @@ function assertGatewaySuccess(fixture, operation, version, runId) {
  */
 function runGateway(fixture, operation, version, runId, extraEnvironment = {}) {
   return spawnSync("bash", ["infra/production/host/inside-deploy"], {
+    timeout: 30_000,
     encoding: "utf8",
     env: {
       ...process.env,

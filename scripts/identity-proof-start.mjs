@@ -1,5 +1,6 @@
 // @ts-check
-import { spawn } from "node:child_process";
+import { spawnOwned, stopOwned } from "./owned-process.mjs";
+import { commandExit } from "./diagnostic-command.mjs";
 import { readFile } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
 import process from "node:process";
@@ -56,6 +57,7 @@ try {
     throw error;
   }
 } finally {
+  await Promise.all([...activeProcesses].map((child) => stopOwned(child)));
   await releaseLock();
 }
 
@@ -79,6 +81,7 @@ async function runCompose(project, arguments_, environment, capture = false) {
     ],
     capture,
     environment,
+    arguments_.includes("down"),
   );
   return result.output;
 }
@@ -87,13 +90,21 @@ async function runCompose(project, arguments_, environment, capture = false) {
  * @param {string[]} arguments_
  * @param {boolean} [capture]
  * @param {NodeJS.ProcessEnv} [environment]
+ * @param {boolean} [cleanup]
  */
-async function runPnpm(arguments_, capture = false, environment = process.env) {
-  // deterministic-test-allow process-cleanup: Legacy command needs verified group cleanup on interruption; migration is tracked in #1154.
-  const child = spawn(process.execPath, [pnpmPath, ...arguments_], {
+async function runPnpm(
+  arguments_,
+  capture = false,
+  environment = process.env,
+  cleanup = false,
+) {
+  if (interruptedSignal !== undefined && !cleanup)
+    throw new Error("Local session interrupted");
+  const child = spawnOwned(process.execPath, [pnpmPath, ...arguments_], {
     cwd: root,
     env: environment,
     stdio: capture ? ["ignore", "pipe", "pipe"] : "inherit",
+    ...(cleanup ? { timeout: 60_000 } : {}),
   });
   activeProcesses.add(child);
   let output = "";
@@ -105,35 +116,20 @@ async function runPnpm(arguments_, capture = false, environment = process.env) {
       output += chunk.toString();
     });
   }
-  /** @type {Promise<number | null>} */
-  const exited = new Promise((resolveExit) => {
-    child.once("exit", (code) => resolveExit(code));
-  });
-  const exitCode = await exited;
-  activeProcesses.delete(child);
-  if (exitCode !== 0) {
-    throw new Error(
-      `pnpm ${arguments_.join(" ")} failed${capture ? `:\n${output}` : ""}`,
-    );
+  try {
+    const exitCode = await commandExit(child);
+    if (exitCode !== 0) {
+      throw new Error(
+        `pnpm ${arguments_.join(" ")} failed${capture ? `:\n${output}` : ""}`,
+      );
+    }
+  } finally {
+    await stopOwned(child);
+    activeProcesses.delete(child);
   }
   return { output };
 }
 
 async function stopActiveProcesses() {
-  await Promise.all([...activeProcesses].map((child) => stopProcess(child)));
-}
-
-/** @param {import("node:child_process").ChildProcess} child */
-async function stopProcess(child) {
-  if (child.pid === undefined || child.exitCode !== null) {
-    return;
-  }
-  child.kill("SIGTERM");
-  await Promise.race([
-    new Promise((resolveExit) => child.once("exit", resolveExit)),
-    new Promise((resolveDelay) => globalThis.setTimeout(resolveDelay, 5_000)),
-  ]);
-  if (child.exitCode === null) {
-    child.kill("SIGKILL");
-  }
+  await Promise.all([...activeProcesses].map((child) => stopOwned(child)));
 }
